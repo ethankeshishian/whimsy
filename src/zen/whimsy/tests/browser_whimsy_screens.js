@@ -62,10 +62,67 @@ add_task(async function window_with_tabs() {
 add_task(async function settings_app_icon() {
   await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
     const doc = browser.contentDocument;
-    const group = await TestUtils.waitForCondition(() => doc.getElementById("zenAppIconGroup"));
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAppIconGroup"));
     await TestUtils.waitForCondition(() => group.checkVisibility(), "App icon settings visible");
     group.scrollIntoView({ block: "start" });
     await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
     await shot("02-settings-app-icon", browser.browsingContext.currentWindowGlobal);
   });
+});
+
+add_task(async function settings_updates() {
+  const { WhimsyUpdates } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyUpdates.sys.mjs"
+  );
+  const dir = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-shots");
+  await IOUtils.writeJSON(PathUtils.join(dir, "state.json"), {
+    status: "idle",
+    last_run: new Date().toISOString(),
+    last_result: "up-to-date",
+    installed: { id: "b", version: "1.24b" },
+    previous: { id: "a", version: "1.23.4b" },
+  });
+  await IOUtils.makeDirectory(PathUtils.join(dir, "logs"));
+  await IOUtils.writeUTF8(
+    PathUtils.join(dir, "logs", "update.log"),
+    "[03:30] Checking Zen releases\n[03:31] Zen 1.24b is newer than 1.23.4b\n[04:12] Build passed, tests passed\n[04:13] Staged Zen 1.24b\n"
+  );
+  const saved = { dataDir: WhimsyUpdates.dataDir, isInstalled: WhimsyUpdates.isInstalled };
+  WhimsyUpdates.dataDir = dir;
+  WhimsyUpdates.isInstalled = async () => true;
+  try {
+    await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+      const doc = browser.contentDocument;
+      const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesGroup"));
+      await TestUtils.waitForCondition(() => group.checkVisibility(), "Updates settings visible");
+      doc.getElementById("whimsyUpdatesShowLog").click();
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesLog").textContent.includes("Staged"));
+      await TestUtils.waitForCondition(() =>
+        doc.getElementById("whimsyUpdatesRollback").getAttribute("label")?.includes("1.23.4b")
+      );
+      group.scrollIntoView({ block: "start" });
+      await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+      await shot("03-settings-updates", browser.browsingContext.currentWindowGlobal);
+    });
+  } finally {
+    Object.assign(WhimsyUpdates, saved);
+    await IOUtils.remove(dir, { recursive: true });
+  }
+});
+
+add_task(async function updated_notice() {
+  const notification = await window.WhimsyWindow.showUpdatedNotice(
+    { id: "shot", version: "1.24b" },
+    { force: true }
+  );
+  ok(notification, "The after-update notice appears in the sidebar");
+  await TestUtils.waitForCondition(
+    () => notification.shadowRoot?.textContent.includes("What's new in Zen"),
+    "The notice is labelled"
+  );
+  // Let its slide-in animation finish.
+  await Promise.all(notification.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {})));
+  await new Promise(resolve => setTimeout(resolve, 600));
+  await shot("04-updated-notice");
+  notification.remove();
 });

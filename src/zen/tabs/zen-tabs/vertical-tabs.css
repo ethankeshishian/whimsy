@@ -548,14 +548,6 @@ zen-library {
   }
 }
 
-/* A GitHub live folder's pull requests: the user's own say "Yours" in the
-   accent color, their team's show the author. */
-.tabbrowser-tab[zen-show-sublabel="zen-live-folder-github-mine"] .zen-tab-sublabel {
-  color: var(--zen-primary-color);
-  font-weight: 600;
-  opacity: 1;
-}
-
 :is(#navigator-toolbox, .zen-library-space-body)[zen-sidebar-expanded="true"] {
   --zen-toolbox-min-width: 163px;
 

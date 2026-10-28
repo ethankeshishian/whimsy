@@ -1,0 +1,28 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Loaded into each browser window by Whimsy.initWindow. */
+
+/* Interface zoom (whimsy.ui-zoom). Everything around the web page is zoomed:
+   the sidebar, the top toolbar, Firefox's sidebar panel, the find bar, menus
+   and panels. Web pages keep their own zoom, so nothing that holds a page is
+   zoomed, not even a panel with one inside (an extension's popup). */
+:root[whimsy-ui-zoom] {
+  & #navigator-toolbox,
+  & #zen-appcontent-navbar-wrapper,
+  & #sidebar-box,
+  & findbar,
+  & menupopup,
+  & panel:not(:has(browser)) {
+    zoom: var(--whimsy-ui-zoom, 1);
+  }
+}
+
+/* A GitHub live folder's pull requests: the user's own say "Yours" in the
+   accent color, their team's show the author. */
+.tabbrowser-tab[zen-show-sublabel="Yours"] .zen-tab-sublabel {
+  color: var(--zen-primary-color);
+  font-weight: 600;
+  opacity: 1;
+}

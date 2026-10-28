@@ -1,0 +1,20 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+        content/browser/whimsy/whimsy-browser.css                               (../../zen/whimsy/content/whimsy-browser.css)
+        content/browser/whimsy/whimsy-preferences.css                           (../../zen/whimsy/content/whimsy-preferences.css)
+        content/browser/whimsy/whimsy-settings.js                               (../../zen/whimsy/content/whimsy-settings.js)
+        content/browser/whimsy/whimsy-window.js                                 (../../zen/whimsy/content/whimsy-window.js)
+        content/browser/whimsy/app-icons/berry-jam.png                          (../../zen/whimsy/content/app-icons/berry-jam.png)
+        content/browser/whimsy/app-icons/cotton-candy.png                       (../../zen/whimsy/content/app-icons/cotton-candy.png)
+        content/browser/whimsy/app-icons/day-and-night-dark.png                 (../../zen/whimsy/content/app-icons/day-and-night-dark.png)
+        content/browser/whimsy/app-icons/day-and-night-light.png                (../../zen/whimsy/content/app-icons/day-and-night-light.png)
+        content/browser/whimsy/app-icons/daydream.png                           (../../zen/whimsy/content/app-icons/daydream.png)
+        content/browser/whimsy/app-icons/golden-hour.png                        (../../zen/whimsy/content/app-icons/golden-hour.png)
+        content/browser/whimsy/app-icons/lagoon.png                             (../../zen/whimsy/content/app-icons/lagoon.png)
+        content/browser/whimsy/app-icons/lemonade.png                           (../../zen/whimsy/content/app-icons/lemonade.png)
+        content/browser/whimsy/app-icons/party-popper.png                       (../../zen/whimsy/content/app-icons/party-popper.png)
+        content/browser/whimsy/app-icons/spearmint.png                          (../../zen/whimsy/content/app-icons/spearmint.png)
+        content/browser/whimsy/app-icons/stargazer.png                          (../../zen/whimsy/content/app-icons/stargazer.png)
+        content/browser/whimsy/app-icons/sugar-rush.png                         (../../zen/whimsy/content/app-icons/sugar-rush.png)

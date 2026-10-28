@@ -1,0 +1,6 @@
+{
+  "github_repo": "ethankeshishian/whimsy",
+  "update_host": "ethankeshishian.github.io/whimsy",
+  "build_target": "Darwin_aarch64-gcc3",
+  "channel": "release"
+}

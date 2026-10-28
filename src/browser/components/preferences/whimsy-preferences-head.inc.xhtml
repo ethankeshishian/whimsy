@@ -1,0 +1,57 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Whimsy's Settings: included into the Settings page's head by a one-line
+# hook (whimsy/overlay.py). whimsy-settings.js moves the template's groups
+# into Look and Feel when that pane is shown.
+
+<link rel="localization" href="browser/whimsy.ftl"/>
+<link rel="localization" href="browser/preferences/whimsy-fallbacks.ftl"/>
+<link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-preferences.css"/>
+<script src="chrome://browser/content/whimsy/whimsy-settings.js"/>
+
+# The head defaults to HTML; the groups are XUL, like the page body.
+<html:template id="template-whimsyLooks" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyUpdatesGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
+    <label><html:h2 id="whimsyUpdatesHeader" data-l10n-id="whimsy-updates-header"/></label>
+    <description class="description-deemphasized" data-l10n-id="whimsy-updates-description"/>
+    <html:div class="whimsy-updates-status" role="status">
+      <html:span id="whimsyUpdatesHeadline" class="whimsy-updates-headline"/>
+      <html:span id="whimsyUpdatesDetail" class="whimsy-updates-detail"/>
+    </html:div>
+    <checkbox id="whimsyUpdatesAuto" data-l10n-id="whimsy-updates-auto"/>
+    <html:div class="whimsy-updates-buttons">
+      <button id="whimsyUpdatesCheck" data-l10n-id="whimsy-updates-check"/>
+      <button id="whimsyUpdatesShowLog" data-l10n-id="whimsy-updates-show-log"/>
+      <button id="whimsyUpdatesRollback" data-l10n-id="whimsy-updates-rollback-none"/>
+    </html:div>
+    <html:pre id="whimsyUpdatesLog" hidden="hidden" tabindex="0" aria-labelledby="whimsyUpdatesHeader"></html:pre>
+  </groupbox>
+
+  <groupbox id="whimsyAppIconGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
+    <label><html:h2 id="whimsyAppIconHeader" data-l10n-id="whimsy-app-icon-header"/></label>
+    <description class="description-deemphasized" data-l10n-id="whimsy-app-icon-description"/>
+    <html:div id="whimsyAppIconList" role="radiogroup" aria-labelledby="whimsyAppIconHeader"></html:div>
+  </groupbox>
+
+  <groupbox id="whimsyUiZoomGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-ui-zoom-header"/></label>
+    <description class="description-deemphasized" data-l10n-id="whimsy-ui-zoom-description"/>
+    <hbox align="center">
+      <label id="whimsyUiZoomLabel" control="whimsyUiZoom" data-l10n-id="whimsy-ui-zoom-label"/>
+      <menulist id="whimsyUiZoom" preference="whimsy.ui-zoom">
+        <menupopup>
+          <menuitem label="80%" value="80"/>
+          <menuitem label="90%" value="90"/>
+          <menuitem label="100%" value="100"/>
+          <menuitem label="110%" value="110"/>
+          <menuitem label="125%" value="125"/>
+          <menuitem label="150%" value="150"/>
+          <menuitem label="175%" value="175"/>
+          <menuitem label="200%" value="200"/>
+        </menupopup>
+      </menulist>
+    </hbox>
+  </groupbox>
+</html:template>

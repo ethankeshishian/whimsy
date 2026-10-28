@@ -8,15 +8,11 @@
   "type": "module",
   "scripts": {
     "build": "surfer build",
-    "postbuild": "sh scripts/install_app.sh",
-    "install:app": "sh scripts/install_app.sh",
     "build:ui": "surfer build --ui",
-    "postbuild:ui": "sh scripts/install_app.sh",
     "start": "cd engine && python3 ./mach run --noprofile",
     "start:bloat": "XPCOM_MEM_BLOAT_LOG=1 npm start",
-    "import": "npm run ffprefs && npm run import:dumps && surfer import && npm run import:strings",
+    "import": "npm run ffprefs && npm run import:dumps && python3 whimsy/engine_prepare.py && surfer import && npm run import:strings && python3 whimsy/engine_overrides.py",
     "import:dumps": "python3 scripts/update_service_dumps.py",
-    "import:strings": "python3 scripts/copy_language_pack.py en-US",
     "export": "surfer export",
     "init": "npm run download && npm run import && npm run bootstrap",
     "download": "surfer download",
@@ -37,7 +33,11 @@
     "lc": "surfer license-check",
     "lc:fix": "surfer license-check --fix",
     "use-moz-src": "cd engine && ./mach use-moz-src",
-    "ci": "surfer ci --brand release --display-version"
+    "ci": "surfer ci --brand release --display-version",
+    "import:strings": "python3 scripts/copy_language_pack.py en-US",
+    "postbuild": "sh whimsy/install_app.sh",
+    "postbuild:ui": "sh whimsy/install_app.sh",
+    "install:app": "sh whimsy/install_app.sh"
   },
   "repository": {
     "type": "git",

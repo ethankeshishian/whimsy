@@ -20,9 +20,3 @@ support-files = [
 ["browser_toasts.js"]
 
 ["browser_zen_commands.js"]
-
-["browser_whimsy_app_icon.js"]
-
-["browser_whimsy_screens.js"]
-
-["browser_whimsy_strings_and_keys.js"]

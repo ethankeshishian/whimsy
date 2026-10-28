@@ -1,6 +1,6 @@
 # Fast checks to run before spending build time. Run from the repo root:
-#   python3 scripts/whimsy_precheck.py            # files changed vs HEAD
-#   python3 scripts/whimsy_precheck.py --all-ids  # also check every l10n id in src/
+#   python3 whimsy/precheck.py            # files changed vs HEAD
+#   python3 whimsy/precheck.py --all-ids  # also check every l10n id in src/
 # Exits non-zero on any problem and says which build is needed.
 import glob
 import os
@@ -58,7 +58,7 @@ def added_lines(f):
 
 
 def check_l10n_ids(files, known, whole=False):
-    pat = re.compile(r'data-l10n-id="([\w-]+)"|setAttributes\([^,]+,\s*"([\w-]+)"|\{\s*id:\s*"([\w-]+)"')
+    pat = re.compile(r'data-l10n-id="([\w-]+)"|setAttributes\([^,]+,\s*"([\w-]+)"|\{\s*id:\s*"(\w+(?:-\w+)+)"')
     for f in files:
         if not f.endswith((".xhtml", ".js", ".mjs", ".inc")) or not os.path.exists(f):
             continue
@@ -72,8 +72,10 @@ def check_l10n_ids(files, known, whole=False):
 
 def check_xhtml(files):
     for f in files:
-        if f.endswith(".xhtml") and os.path.exists(f):
+        # Only Whimsy's own markup: Zen's goes through its preprocessor.
+        if f.endswith(".xhtml") and "whimsy" in f and os.path.exists(f):
             body = "".join(l for l in open(f, encoding="utf-8") if not l.startswith("#"))
+            body = re.sub(r"<\?xml[^>]*\?>", "", body)
             wrapped = ('<root xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" '
                        'xmlns:html="http://www.w3.org/1999/xhtml">' + body + "</root>")
             try:
@@ -85,12 +87,14 @@ def check_xhtml(files):
 def check_jars(files):
     # Paths in a jar.inc.mn are relative to the jar.mn that includes it, so
     # accept a path that resolves from any ancestor directory in the engine.
-    for mn in [f for f in files if f.endswith("jar.inc.mn")]:
+    for mn in [f for f in files if f.endswith("jar.inc.mn") and os.path.exists(f)]:
         rel_dir = os.path.relpath(os.path.dirname(mn), "src")
         bases = []
         d = rel_dir
         while d and d != ".":
+            # The engine has src/ linked in, so either tree resolves a path.
             bases.append(os.path.join("engine", d))
+            bases.append(os.path.join("src", d))
             d = os.path.dirname(d)
         for n, line in enumerate(open(mn), 1):
             m = re.search(r"\(([^)]+)\)\s*$", line)
@@ -101,21 +105,21 @@ def check_jars(files):
 
 
 def check_app_icons(known):
-    path = "src/zen/common/sys/ZenAppIcon.sys.mjs"
+    path = "src/zen/whimsy/WhimsyAppIcon.sys.mjs"
     if not os.path.exists(path):
         return
     src = open(path).read()
     icons = re.findall(r'^\s+"([\w-]+)",$', src.split("const ICONS = [")[1].split("];")[0], re.M)
-    jar = open("src/zen/images/jar.inc.mn").read()
+    jar = open("src/zen/whimsy/jar.inc.mn").read()
     for id_ in icons:
         files = [f"{id_}-light", f"{id_}-dark"] if id_ == "day-and-night" else [id_]
         for f in files:
-            if not os.path.exists(f"src/zen/images/app-icons/{f}.png"):
-                problems.append(f"app icon '{id_}': missing src/zen/images/app-icons/{f}.png")
+            if not os.path.exists(f"src/zen/whimsy/content/app-icons/{f}.png"):
+                problems.append(f"app icon '{id_}': missing src/zen/whimsy/content/app-icons/{f}.png")
             if f"app-icons/{f}.png" not in jar:
-                problems.append(f"app icon '{id_}': {f}.png not packaged in src/zen/images/jar.inc.mn")
-        if f"zen-app-icon-{id_}" not in known:
-            problems.append(f"app icon '{id_}': no zen-app-icon-{id_} string")
+                problems.append(f"app icon '{id_}': {f}.png not packaged in src/zen/whimsy/jar.inc.mn")
+        if f"whimsy-app-icon-{id_}" not in known:
+            problems.append(f"app icon '{id_}': no whimsy-app-icon-{id_} string")
 
 
 def check_l10n_containers(files):
@@ -159,6 +163,10 @@ check_xhtml(files)
 check_jars(files)
 check_app_icons(known)
 check_l10n_containers(files)
+
+overlay = subprocess.run([sys.executable, "whimsy/overlay.py", "check"], capture_output=True, text=True)
+if overlay.returncode:
+    problems.append("whimsy/overlay.py check failed:\n" + overlay.stdout.strip())
 
 missing_strings = [f for f in os.listdir("locales/en-US/browser/browser")
                    if f.startswith("zen") and not os.path.exists(f"engine/browser/locales/en-US/browser/{f}")]

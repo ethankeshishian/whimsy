@@ -102,3 +102,8 @@ ac_add_options MOZ_TELEMETRY_REPORTING=
 # Allow loading unsigned extensions
 export MOZ_REQUIRE_SIGNING=
 mk_add_options MOZ_REQUIRE_SIGNING=
+
+# Whimsy: cache compiles so weekly Firefox updates rebuild faster.
+if test -z "$SCCACHE_GHA_ENABLED" -a -x "$HOME/.mozbuild/sccache/sccache"; then
+  ac_add_options --with-ccache="$HOME/.mozbuild/sccache/sccache"
+fi

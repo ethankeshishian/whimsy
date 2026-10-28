@@ -124,8 +124,3 @@
 - name: browser.sessionstore.interval
   # Interval in milliseconds (40 seconds, firefox defaults to 15000, but we write twice for our stores)
   value: 40000
-
-# Whimsy: Arc-style Ctrl+Tab. A quick tap flips to the last tab (so repeated
-# taps alternate between two tabs); holding Ctrl shows the switcher.
-- name: browser.ctrlTab.sortByRecentlyUsed
-  value: true

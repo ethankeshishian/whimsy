@@ -9,6 +9,7 @@ EXTRA_PP_COMPONENTS += [
 DIRS += [
     "boosts",
     "common",
+    "whimsy",  # Whimsy hook
     "compact-mode",
     "drag-and-drop",
     "glance",

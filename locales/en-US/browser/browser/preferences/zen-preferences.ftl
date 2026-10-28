@@ -53,10 +53,6 @@ zen-look-and-feel-window-drag-description = Move the window by dragging empty sp
 zen-window-drag-enabled =
     .label = Allow dragging the window from web pages
 
-zen-look-and-feel-ui-zoom-header = Interface zoom
-zen-look-and-feel-ui-zoom-description = Make the toolbars, sidebar, menus and panels bigger or smaller. Web pages keep their own zoom.
-zen-ui-zoom-label = Zoom
-
 pane-zen-tabs-title = Tab Management
 category-zen-workspaces =
     .tooltiptext = { pane-zen-tabs-title }
@@ -231,21 +227,3 @@ zen-split-view-shortcut-unsplit = Close Split View
 zen-new-empty-split-view-shortcut = New Empty Split View
 zen-close-all-unpinned-tabs-shortcut = Close All Unpinned Tabs
 zen-duplicate-tab-shortcut = Duplicate Tab
-
-# Firefox 159 removed this string, but the Look and Feel pane still uses it.
-# One missing message makes Fluent drop the whole pane's batch (blank labels).
-preferences-web-appearance-footer = Manage themes in <a data-l10n-name="themes-link">Extensions & Themes</a>
-
-zen-app-icon-header = App icon
-zen-app-icon-description = Choose how { -brand-short-name } looks in the Dock and app switcher.
-zen-app-icon-daydream = Daydream
-zen-app-icon-day-and-night = Day & Night
-zen-app-icon-cotton-candy = Cotton Candy
-zen-app-icon-golden-hour = Golden Hour
-zen-app-icon-lagoon = Lagoon
-zen-app-icon-berry-jam = Berry Jam
-zen-app-icon-lemonade = Lemonade
-zen-app-icon-stargazer = Stargazer
-zen-app-icon-spearmint = Spearmint
-zen-app-icon-sugar-rush = Sugar Rush
-zen-app-icon-party-popper = Party Popper

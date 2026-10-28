@@ -20,24 +20,6 @@ body,
   position: inherit;
 }
 
-/* Interface zoom (zen.view.ui-zoom). Everything around the web page is
-   zoomed: the sidebar, the top toolbar, Firefox's sidebar panel, the find
-   bar, menus and panels. Web pages keep their own zoom, so nothing that
-   holds a page is zoomed, not even a panel with one inside (an extension's
-   popup). */
-:root {
-  --zen-ui-zoom: 1;
-}
-
-#navigator-toolbox,
-#zen-appcontent-navbar-wrapper,
-#sidebar-box,
-findbar,
-menupopup,
-panel:not(:has(browser)) {
-  zoom: var(--zen-ui-zoom);
-}
-
 :root:is([inDOMFullscreen="true"], [popup-window]) #navigator-toolbox {
   visibility: collapse;
 }

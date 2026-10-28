@@ -2,16 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Whimsy: lets people pick the app icon. The bundle ships with the default
+// Lets people pick the app icon. The bundle ships with the default
 // ("daydream"); any other choice replaces the Dock icon while the app runs.
 // "day-and-night" follows the system's light or dark appearance.
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
-const PREF = "zen.app-icon";
+const PREF = "whimsy.app-icon";
 const DEFAULT_ICON = "daydream";
 const AUTO_ICON = "day-and-night";
-const ICON_URL = id => `chrome://browser/content/zen-images/app-icons/${id}.png`;
+const ICON_URL = id => `chrome://browser/content/whimsy/app-icons/${id}.png`;
 
 // Picker order. Each id has a zen-app-icon-<id> string and a PNG.
 const ICONS = [
@@ -28,7 +28,7 @@ const ICONS = [
   "party-popper",
 ];
 
-export const ZenAppIcon = {
+export const WhimsyAppIcon = {
   PREF,
   DEFAULT_ICON,
   ICONS,

@@ -392,47 +392,6 @@ groupbox h2 {
   }
 }
 
-#zenAppIconList {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 12px;
-  margin-block: 8px 10px;
-}
-
-.zen-app-icon-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 8px 4px;
-  min-width: 0;
-  border: 2px solid transparent;
-  border-radius: 14px;
-  background: none;
-  color: inherit;
-  font-weight: 500;
-  cursor: pointer;
-
-  &:hover {
-    background-color: color-mix(in srgb, currentColor 6%, transparent);
-  }
-
-  &[aria-checked="true"] {
-    border-color: var(--zen-colors-primary);
-  }
-
-  & img {
-    width: 72px;
-    height: 72px;
-  }
-
-  & span {
-    text-align: center;
-    font-size: 0.9em;
-  }
-}
-
 @media (max-width: 1320px) {
   #zenLayoutList {
     flex-wrap: wrap;

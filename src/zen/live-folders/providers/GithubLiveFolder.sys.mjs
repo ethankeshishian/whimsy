@@ -4,12 +4,6 @@
 
 import { nsZenLiveFolderProvider } from "resource:///modules/zen/ZenLiveFolder.sys.mjs";
 
-/**
- * The subtitle of a pull request the user opened. zen-tab-sublabel shows it
- * as "Yours", in the accent color; everyone else's show their author.
- */
-export const GITHUB_MINE_SUBTITLE = "zen-live-folder-github-mine";
-
 export class nsGithubLiveFolderProvider extends nsZenLiveFolderProvider {
   static type = "github";
 
@@ -68,28 +62,18 @@ export class nsGithubLiveFolderProvider extends nsZenLiveFolderProvider {
       }
 
       const queries = this.#buildSearchOptions();
-      const fetchQuery = query => {
-        const url = new URL(this.state.url);
-        url.searchParams.set("q", query);
+      const requests = await Promise.all(
+        queries.map(query => {
+          const url = new URL(this.state.url);
+          url.searchParams.set("q", query);
 
-        if (this.state.type === "pull-requests") {
-          return this.parsePullRequests(url.href);
-        }
+          if (this.state.type === "pull-requests") {
+            return this.parsePullRequests(url.href);
+          }
 
-        return this.parseIssues(url.href);
-      };
-
-      // Pull requests are split into the user's own and their team's. Whoever
-      // is signed in is only known to GitHub, so ask it for the user's own
-      // pull requests too, and mark those.
-      const mineQuery =
-        this.state.type === "pull-requests"
-          ? this.#buildMineQuery()
-          : null;
-      const [requests, mine] = await Promise.all([
-        Promise.all(queries.map(fetchQuery)),
-        mineQuery ? fetchQuery(mineQuery) : null,
-      ]);
+          return this.parseIssues(url.href);
+        })
+      );
 
       const combinedItems = new Map();
       const combinedActiveRepos = new Set();
@@ -116,21 +100,6 @@ export class nsGithubLiveFolderProvider extends nsZenLiveFolderProvider {
         if (activeRepos) {
           for (const repo of activeRepos) {
             combinedActiveRepos.add(repo);
-          }
-        }
-      }
-
-      if (mine) {
-        if (mine.status === 404) {
-          return "zen-live-folder-github-no-auth";
-        }
-        if (mine.status !== 200) {
-          return "zen-live-folder-failed-fetch";
-        }
-        const mineIds = new Set(mine.items?.map(item => item.id));
-        for (const item of combinedItems.values()) {
-          if (mineIds.has(item.id)) {
-            item.subtitle = GITHUB_MINE_SUBTITLE;
           }
         }
       }
@@ -280,15 +249,7 @@ export class nsGithubLiveFolderProvider extends nsZenLiveFolderProvider {
     };
   }
 
-  /**
-   * The search for the user's own open pull requests, with the folder's
-   * draft and repository filters.
-   */
-  #buildMineQuery() {
-    return `${this.#buildBaseQuery().join(" ")} author:@me`;
-  }
-
-  #buildBaseQuery() {
+  #buildSearchOptions() {
     const baseQuery = [
       this.state.type === "pull-requests" ? "is:pr" : "is:issue",
       "is:open",
@@ -303,18 +264,6 @@ export class nsGithubLiveFolderProvider extends nsZenLiveFolderProvider {
       baseQuery.push("draft:false");
     }
 
-    const excluded = this.state.options.repoExcludes;
-    for (const repo of excluded) {
-      if (repo && repo.trim()) {
-        baseQuery.push(`-repo:${repo.trim()}`);
-      }
-    }
-
-    return baseQuery;
-  }
-
-  #buildSearchOptions() {
-    const baseQuery = this.#buildBaseQuery();
     const options = [
       {
         value: "author:@me",
@@ -329,6 +278,13 @@ export class nsGithubLiveFolderProvider extends nsZenLiveFolderProvider {
         enabled: this.state.options.reviewRequested ?? false,
       },
     ];
+
+    const excluded = this.state.options.repoExcludes;
+    for (const repo of excluded) {
+      if (repo && repo.trim()) {
+        baseQuery.push(`-repo:${repo.trim()}`);
+      }
+    }
 
     const queries = [];
     for (const option of options) {

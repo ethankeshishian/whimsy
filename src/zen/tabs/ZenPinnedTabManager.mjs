@@ -726,10 +726,8 @@ class nsZenPinnedTabManager extends nsZenDOMOperatedFeature {
     [zenResetPinnedTab, zenEditPinnedPage, zenReplacePinnedUrl].forEach(
       element => {
         if (element) {
-          // Fluent treats a null variable as an error, which drops the
-          // whole menu's translation batch: always pass "true" or "false".
           document.l10n.setArgs(element, {
-            isEssential: isEssential ? "true" : "false",
+            isEssential: isEssential ? "true" : "false", // Whimsy hotfix
           });
         }
       }

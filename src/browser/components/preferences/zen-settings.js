@@ -664,7 +664,6 @@ var gZenLooksAndFeel = {
       }
     });
     this.applySidebarLayout();
-    gZenAppIconSettings.init();
   },
 
   observe() {
@@ -711,45 +710,6 @@ var gZenLooksAndFeel = {
         Services.prefs.setBoolPref(kZenSingleToolbar, layout.getAttribute("layout") == "single");
       });
     }
-  },
-};
-
-var gZenAppIconSettings = {
-  init() {
-    if (this.__hasInitialized) {
-      return;
-    }
-    this.__hasInitialized = true;
-    const { ZenAppIcon } = ChromeUtils.importESModule("resource:///modules/ZenAppIcon.sys.mjs");
-    const group = document.getElementById("zenAppIconGroup");
-    if (AppConstants.platform != "macosx") {
-      group.remove();
-      return;
-    }
-    const list = document.getElementById("zenAppIconList");
-    for (const id of ZenAppIcon.ICONS) {
-      const tile = document.createElement("button");
-      tile.className = "zen-app-icon-tile";
-      tile.setAttribute("role", "radio");
-      tile.dataset.icon = id;
-      const img = document.createElement("img");
-      img.src = ZenAppIcon.previewURL(id);
-      img.alt = "";
-      const label = document.createElement("span");
-      document.l10n.setAttributes(label, `zen-app-icon-${id}`);
-      tile.append(img, label);
-      tile.addEventListener("click", () => Services.prefs.setStringPref(ZenAppIcon.PREF, id));
-      list.append(tile);
-    }
-    const update = () => {
-      const selected = ZenAppIcon.selectedIcon;
-      for (const tile of list.children) {
-        tile.setAttribute("aria-checked", tile.dataset.icon == selected);
-      }
-    };
-    Services.prefs.addObserver(ZenAppIcon.PREF, update);
-    window.addEventListener("unload", () => Services.prefs.removeObserver(ZenAppIcon.PREF, update));
-    update();
   },
 };
 
@@ -853,11 +813,6 @@ Preferences.addAll([
     id: "zen.view.drag-window-from-content",
     type: "bool",
     default: true,
-  },
-  {
-    id: "zen.view.ui-zoom",
-    type: "int",
-    default: 100,
   },
   {
     id: "zen.workspaces.separate-essentials",
