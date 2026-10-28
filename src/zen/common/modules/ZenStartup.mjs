@@ -97,6 +97,8 @@ class ZenStartup {
       await delayedStartupPromise;
       await SessionStore.promiseAllWindowsRestored;
       gZenCompactModeManager.init();
+      // Whimsy: the chosen app icon (runs once per app, not per window).
+      ChromeUtils.importESModule("resource:///modules/ZenAppIcon.sys.mjs").ZenAppIcon.init();
       // Fix for https://github.com/zen-browser/desktop/issues/7605, specially in compact mode
       if (gURLBar.hasAttribute("breakout-extend")) {
         gURLBar.focus();

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb21f"/><stop offset="1" stop-color="#ff4f6d"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="0.18" cy="0.12" r="0.62">
+      <stop offset="0" stop-color="#fff36b" stop-opacity=".95"/><stop offset="1" stop-color="#fff36b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="0.9" cy="0.92" r="0.66">
+      <stop offset="0" stop-color="#ff3dbb" stop-opacity=".95"/><stop offset="1" stop-color="#ff3dbb" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g3" cx="0.78" cy="0.22" r="0.42">
+      <stop offset="0" stop-color="#ffd93d" stop-opacity=".7"/><stop offset="1" stop-color="#ffd93d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="ms" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity=".22"/>
+    </filter>
+    <clipPath id="body"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    
+  </defs>
+  <rect x="100" y="112" width="824" height="824" rx="185" fill="#000" opacity=".28" filter="url(#drop)"/>
+  <g clip-path="url(#body)">
+    <rect width="1024" height="1024" fill="url(#base)"/>
+    <rect width="1024" height="1024" fill="url(#g1)"/>
+    <rect width="1024" height="1024" fill="url(#g2)"/>
+    <rect width="1024" height="1024" fill="url(#g3)"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#gloss)"/>
+    <g filter="url(#ms)">
+
+  <path d="M 200 470 C 260 300 360 300 410 560" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-dasharray="1 46" opacity=".9"/>
+  <ellipse cx="510" cy="460" rx="160" ry="160" fill="#fff"/>
+  <path d="M 380 420 C 450 470 570 470 640 420" fill="none" stroke="#ff4f6d" stroke-width="34" stroke-linecap="round" opacity=".6"/>
+  <ellipse cx="510" cy="760" rx="210" ry="40" fill="#fff" opacity=".85"/>
+  <g stroke="#fff" stroke-width="16" stroke-linecap="round" opacity=".8"><line x1="270" y1="740" x2="230" y2="720"/><line x1="750" y1="740" x2="790" y2="720"/></g>
+    </g>
+  </g>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="185" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="2"/>
+</svg>

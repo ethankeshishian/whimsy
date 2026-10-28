@@ -59,8 +59,24 @@ Zen's JS compares pointer coordinates with element rectangles in many places. Ge
 - Each branding folder holds the logo PNGs, `firefox.icns`, `firefox.ico`/`firefox64.ico`, and the Windows `VisualElements_*`. Its `PrivateBrowsing_*` files use Night.
 - To regenerate: run `python3 make.py`, render each SVG at 1024 px (headless Chrome works), then resize with ImageMagick and build the `.icns` with `iconutil`.
 
+## Building locally (2026-10-28)
+
+- macOS needs `brew install gnu-tar` and Rust (rustup puts it in `~/.cargo/bin`; add that to PATH).
+- `npm run import` now also runs `import:strings` (`scripts/copy_language_pack.py en-US`). Without that step, Zen's `zen-*.ftl` files never reach the engine. The window's whole Fluent bundle then fails: menus render blank and keyboard shortcuts have no keys. Zen's CI runs this step in `download-language-packs.sh`. After editing anything in `locales/en-US`, rerun `npm run import:strings`.
+- The brand is `release` (`npx surfer set brand release`). The full build takes about an hour, and `npm start` runs it. Tests: `npm test -- ui/<file>`. A new test file also needs a symlink under `engine/zen/tests/...` (or an import).
+
+## Later changes
+
+### 4. Arc-style Ctrl+Tab
+Defaults `browser.ctrlTab.sortByRecentlyUsed` and `zen.ctrlTab.show-pending-tabs` to true. A quick tap flips to the last tab, holding Ctrl shows the switcher, and unloaded tabs stay in the history. Test: `tabs/browser_tabs_ctrl_tab_mru.js`.
+
+### 5. Whimsy name and app icons
+- `surfer.json` and the mozconfig now say Whimsy. `appId` and `MOZ_APP_BASENAME` changed too, so Whimsy no longer shares Zen's bundle id or profile folder. `updateHostname` and the GitHub release source were removed, so Whimsy never downloads Zen's builds.
+- The icon set lives in `docs/whimsy/icon/set` (`make_set.py`, `build.sh`). The default is Daydream (glossy balloon), and Twilight uses Stargazer. `build.sh` writes `configs/branding/*` and `src/zen/images/app-icons/*.png`.
+- **Settings → Look and Feel → App icon** (macOS only) sets pref `zen.app-icon`. `ZenAppIcon.sys.mjs` swaps the Dock icon while the app runs, through the new `nsIMacDockSupport.setApplicationIcon` (patches in `src/widget`). "Day & Night" follows the system's light/dark appearance. When the app isn't running, the Dock shows the bundle icon (Daydream). Test: `ui/browser_whimsy_app_icon.js`.
+
 ## Not done yet
 
-- **Renaming.** The app is still named Zen everywhere: `surfer.json`, brand strings, wordmarks, `about-logo.svg`, `MacOSInstaller.svg`, the Linux/Flatpak metadata, and the update URLs.
+- **Renaming leftovers.** Wordmarks, `about-logo.svg`, `MacOSInstaller.svg` and the Linux/Flatpak metadata still say Zen.
 - **CI.** Zen's GitHub Actions workflows came over unchanged and still point at Zen's release infrastructure. Disable them, or point them at Whimsy, before anything runs on a schedule.
 - **Other locales.** Only en-US has strings for the new setting and the "Yours" label.

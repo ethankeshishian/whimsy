@@ -1,0 +1,45 @@
+diff --git a/widget/cocoa/nsMacDockSupport.mm b/widget/cocoa/nsMacDockSupport.mm
+index 889997a24fe65fbd45e28770d0fba6f1651c0c94..0b10bbb32587ae0ca7332b53f87782d038fb8bb4 100644
+--- a/widget/cocoa/nsMacDockSupport.mm
++++ b/widget/cocoa/nsMacDockSupport.mm
+@@ -212,6 +212,40 @@ - (void)drawRect:(NSRect)aRect {
+   return UpdateDockTile();
+ }
+ 
++NS_IMETHODIMP
++nsMacDockSupport::SetApplicationIcon(imgIContainer* aImage) {
++  NS_OBJC_BEGIN_TRY_BLOCK_RETURN
++
++  NSImage* image = nil;
++  if (aImage) {
++    image = [MOZIconHelper iconImageFromImageContainer:aImage
++                                              withSize:NSMakeSize(1024, 1024)
++                                            svgContext:nullptr
++                                           scaleFactor:0.0];
++    if (!image) {
++      return NS_ERROR_FAILURE;
++    }
++  }
++
++  // nil restores the bundle icon. This also updates the image named
++  // NSApplicationIcon, which the custom dock tile below is built from.
++  [NSApp setApplicationIconImage:image];
++
++  if (mDockTileWrapperView) {
++    for (NSView* view in mDockTileWrapperView.subviews) {
++      if ([view isKindOfClass:[NSImageView class]] && view != mDockBadgeView) {
++        ((NSImageView*)view).image = [NSImage imageNamed:@"NSApplicationIcon"];
++        break;
++      }
++    }
++    [NSApp.dockTile display];
++  }
++
++  return NS_OK;
++
++  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE)
++}
++
+ void nsMacDockSupport::BuildDockTile() {
+   if (!mDockTileWrapperView) {
+     // Create the following NSView hierarchy:

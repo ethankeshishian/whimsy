@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff6a3d"/><stop offset="1" stop-color="#d6297a"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="0.18" cy="0.12" r="0.62">
+      <stop offset="0" stop-color="#ffd25f" stop-opacity=".95"/><stop offset="1" stop-color="#ffd25f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="0.9" cy="0.92" r="0.66">
+      <stop offset="0" stop-color="#8a3dff" stop-opacity=".95"/><stop offset="1" stop-color="#8a3dff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g3" cx="0.78" cy="0.22" r="0.42">
+      <stop offset="0" stop-color="#ff9a3d" stop-opacity=".7"/><stop offset="1" stop-color="#ff9a3d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="ms" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity=".22"/>
+    </filter>
+    <clipPath id="body"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    
+  </defs>
+  <rect x="100" y="112" width="824" height="824" rx="185" fill="#000" opacity=".28" filter="url(#drop)"/>
+  <g clip-path="url(#body)">
+    <rect width="1024" height="1024" fill="url(#base)"/>
+    <rect width="1024" height="1024" fill="url(#g1)"/>
+    <rect width="1024" height="1024" fill="url(#g2)"/>
+    <rect width="1024" height="1024" fill="url(#g3)"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#gloss)"/>
+    <g filter="url(#ms)">
+
+  <path d="M 430 560 C 420 680 400 780 420 820 L 604 820 C 624 780 604 680 594 560 Z" fill="#fff" opacity=".88"/>
+  <path d="M 230 560 C 230 330 400 230 512 230 C 624 230 794 330 794 560 C 794 600 230 600 230 560 Z" fill="#fff"/>
+  <g fill="#ff6a3d" opacity=".75"><circle cx="420" cy="390" r="48"/><circle cx="610" cy="340" r="38"/><circle cx="660" cy="480" r="30"/><circle cx="330" cy="500" r="24"/><circle cx="520" cy="500" r="26"/></g>
+    </g>
+  </g>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="185" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="2"/>
+</svg>

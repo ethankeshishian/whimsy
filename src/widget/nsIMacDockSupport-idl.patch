@@ -1,0 +1,17 @@
+diff --git a/widget/nsIMacDockSupport.idl b/widget/nsIMacDockSupport.idl
+index c7edfb58819aa9ae2b5941028fea6befc620a91d..9d0daf9e02d591b5d13bbe1cd4137c5538cfb7be 100644
+--- a/widget/nsIMacDockSupport.idl
++++ b/widget/nsIMacDockSupport.idl
+@@ -56,6 +56,12 @@ interface nsIMacDockSupport : nsISupports
+    */
+   void setBadgeImage(in imgIContainer aBadgeImage, [optional] in nsISVGPaintContext aPaintContext);
+ 
++  /**
++   * Replaces the application icon shown in the Dock and the app switcher
++   * while the app runs. Pass null to restore the bundle's icon.
++   */
++  void setApplicationIcon(in imgIContainer aImage);
++
+   /**
+    * True if this app is in the list of apps that are persisted to the macOS
+    * Dock (as if the user selected "Keep in Dock").

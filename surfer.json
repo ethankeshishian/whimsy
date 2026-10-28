@@ -1,7 +1,7 @@
 {
-  "name": "Zen Browser",
-  "vendor": "Zen OSS Team",
-  "appId": "zen",
+  "name": "Whimsy",
+  "vendor": "Whimsy",
+  "appId": "whimsy",
   "binaryName": "zen",
   "version": {
     "product": "firefox",
@@ -16,14 +16,11 @@
   "brands": {
     "release": {
       "backgroundColor": "#282A33",
-      "brandShorterName": "Zen",
-      "brandShortName": "Zen",
-      "brandFullName": "Zen Browser",
+      "brandShorterName": "Whimsy",
+      "brandShortName": "Whimsy",
+      "brandFullName": "Whimsy",
       "release": {
         "displayVersion": "1.24b",
-        "github": {
-          "repo": "zen-browser/desktop"
-        },
         "archives": {
           "windows": "windows.mar",
           "macos-aarch64": "macos-aarch64.mar",
@@ -36,14 +33,11 @@
     },
     "twilight": {
       "backgroundColor": "#282A33",
-      "brandShorterName": "Zen",
-      "brandShortName": "Twilight",
-      "brandFullName": "Zen Twilight",
+      "brandShorterName": "Whimsy",
+      "brandShortName": "Whimsy Twilight",
+      "brandFullName": "Whimsy Twilight",
       "release": {
-        "displayVersion": "1.25t",
-        "github": {
-          "repo": "zen-browser/desktop"
-        }
+        "displayVersion": "1.25t"
       }
     }
   },
@@ -52,6 +46,5 @@
       ".*\\.json"
     ],
     "licenseType": "MPL-2.0"
-  },
-  "updateHostname": "updates.zen-browser.app"
+  }
 }

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c1450"/><stop offset="1" stop-color="#5a2fd6"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="0.18" cy="0.12" r="0.62">
+      <stop offset="0" stop-color="#ff5fa8" stop-opacity=".95"/><stop offset="1" stop-color="#ff5fa8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="0.9" cy="0.92" r="0.66">
+      <stop offset="0" stop-color="#2fd3ff" stop-opacity=".95"/><stop offset="1" stop-color="#2fd3ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g3" cx="0.78" cy="0.22" r="0.42">
+      <stop offset="0" stop-color="#6a3dff" stop-opacity=".7"/><stop offset="1" stop-color="#6a3dff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="ms" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity=".22"/>
+    </filter>
+    <clipPath id="body"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    
+  </defs>
+  <rect x="100" y="112" width="824" height="824" rx="185" fill="#000" opacity=".28" filter="url(#drop)"/>
+  <g clip-path="url(#body)">
+    <rect width="1024" height="1024" fill="url(#base)"/>
+    <rect width="1024" height="1024" fill="url(#g1)"/>
+    <rect width="1024" height="1024" fill="url(#g2)"/>
+    <rect width="1024" height="1024" fill="url(#g3)"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#gloss)"/>
+    <g filter="url(#ms)">
+
+  <path d="M 290 480 C 290 300 410 220 512 220 C 614 220 734 300 734 480 C 690 510 650 470 610 500 C 570 530 540 490 512 510 C 484 490 454 530 414 500 C 374 470 334 510 290 480 Z" fill="#fff"/>
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" opacity=".85">
+    <path d="M 380 520 C 350 600 410 640 380 720 C 360 770 390 800 370 840"/>
+    <path d="M 470 530 C 450 620 510 660 480 760"/>
+    <path d="M 560 530 C 590 620 530 670 570 760 C 590 800 560 830 580 860"/>
+    <path d="M 650 520 C 680 600 620 640 650 720"/>
+  </g>
+  <ellipse cx="440" cy="330" rx="34" ry="54" transform="rotate(30 440 330)" fill="#6a3dff" opacity=".2"/>
+    </g>
+  </g>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="185" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="2"/>
+</svg>

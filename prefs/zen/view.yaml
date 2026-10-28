@@ -76,3 +76,7 @@
 # The browser interface's zoom, in percent. Web pages keep their own zoom.
 - name: zen.view.ui-zoom
   value: 100
+
+# Whimsy: the app icon (see ZenAppIcon.sys.mjs). "daydream" is the bundle icon.
+- name: zen.app-icon
+  value: "daydream"
