@@ -72,3 +72,7 @@
 
 - name: zen.view.enable-loading-indicator
   value: true
+
+# The browser interface's zoom, in percent. Web pages keep their own zoom.
+- name: zen.view.ui-zoom
+  value: 100

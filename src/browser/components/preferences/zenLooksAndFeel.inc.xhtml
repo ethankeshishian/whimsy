@@ -70,6 +70,25 @@
                   data-l10n-id="zen-window-drag-enabled"
                   preference="zen.view.drag-window-from-content"/>
       </vbox>
+
+      <label><html:h2 data-l10n-id="zen-look-and-feel-ui-zoom-header"/></label>
+      <description class="description-deemphasized" data-l10n-id="zen-look-and-feel-ui-zoom-description" />
+
+      <hbox align="center">
+            <label id="zenUiZoomLabel" control="zenUiZoom" data-l10n-id="zen-ui-zoom-label"/>
+            <menulist id="zenUiZoom" preference="zen.view.ui-zoom">
+                  <menupopup>
+                        <menuitem label="80%" value="80"/>
+                        <menuitem label="90%" value="90"/>
+                        <menuitem label="100%" value="100"/>
+                        <menuitem label="110%" value="110"/>
+                        <menuitem label="125%" value="125"/>
+                        <menuitem label="150%" value="150"/>
+                        <menuitem label="175%" value="175"/>
+                        <menuitem label="200%" value="200"/>
+                  </menupopup>
+            </menulist>
+      </hbox>
 </groupbox>
 
 <hbox id="zenGlanceCategory"

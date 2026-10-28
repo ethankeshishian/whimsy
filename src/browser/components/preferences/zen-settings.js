@@ -815,6 +815,11 @@ Preferences.addAll([
     default: true,
   },
   {
+    id: "zen.view.ui-zoom",
+    type: "int",
+    default: 100,
+  },
+  {
     id: "zen.workspaces.separate-essentials",
     type: "bool",
     default: false,

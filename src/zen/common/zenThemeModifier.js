@@ -30,8 +30,11 @@
     "zen.theme.accent-color",
     "zen.theme.border-radius",
     "zen.theme.content-element-separation",
+    "zen.view.ui-zoom",
   ];
   const kZenMaxElementSeparation = 12;
+  const kZenMinUiZoom = 50;
+  const kZenMaxUiZoom = 200;
 
   /**
    * ZenThemeModifier controls the application of theme data to the browser,
@@ -107,6 +110,22 @@
       this.updateAccentColor();
       this.updateBorderRadius();
       this.updateElementSeparation();
+      this.updateUiZoom();
+    },
+
+    /**
+     * Zoom the browser's interface, not the web pages: zen-browser-ui.css
+     * applies --zen-ui-zoom to the toolbars, sidebars and popups only.
+     */
+    updateUiZoom() {
+      const zoom = Math.min(
+        kZenMaxUiZoom,
+        Math.max(
+          kZenMinUiZoom,
+          Services.prefs.getIntPref("zen.view.ui-zoom", 100)
+        )
+      );
+      document.documentElement.style.setProperty("--zen-ui-zoom", zoom / 100);
     },
 
     updateBorderRadius() {

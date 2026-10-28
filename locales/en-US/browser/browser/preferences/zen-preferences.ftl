@@ -53,6 +53,10 @@ zen-look-and-feel-window-drag-description = Move the window by dragging empty sp
 zen-window-drag-enabled =
     .label = Allow dragging the window from web pages
 
+zen-look-and-feel-ui-zoom-header = Interface zoom
+zen-look-and-feel-ui-zoom-description = Make the toolbars, sidebar, menus and panels bigger or smaller. Web pages keep their own zoom.
+zen-ui-zoom-label = Zoom
+
 pane-zen-tabs-title = Tab Management
 category-zen-workspaces =
     .tooltiptext = { pane-zen-tabs-title }
