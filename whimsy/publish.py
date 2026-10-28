@@ -177,8 +177,23 @@ def notes(info, tag):
 """
 
 
+def ensure_signing_key():
+    """Restore the key from 1Password if missing; back it up if it never was."""
+    sys.path.insert(0, os.path.join(ROOT, "whimsy"))
+    import signing_backup
+    if not os.path.exists(signing_backup.KEY):
+        signing_backup.restore()
+    if not signing_backup.is_backed_up():
+        try:
+            signing_backup.backup()
+        except Exception as e:
+            print(f"publish: couldn't back up the signing key to 1Password ({e}); "
+                  "run python3 whimsy/signing_backup.py backup", flush=True)
+
+
 def main():
     dry = "--dry-run" in sys.argv
+    ensure_signing_key()
     obj = objdir()
     check_updater_trusts_whimsy()
     run(["./mach", "package"], cwd=ENGINE)
