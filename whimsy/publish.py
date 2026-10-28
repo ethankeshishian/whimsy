@@ -44,7 +44,9 @@ def run(cmd, cwd=ROOT, env=None, capture=False):
 
 
 def objdir():
-    dirs = glob.glob(os.path.join(ENGINE, "obj-*"))
+    # The configured build folder (ignore stray empty obj-* folders).
+    dirs = [d for d in glob.glob(os.path.join(ENGINE, "obj-*"))
+            if os.path.exists(os.path.join(d, "config.status"))]
     if not dirs:
         raise SystemExit("publish: build first")
     return dirs[0]
@@ -59,9 +61,9 @@ def packaged_app(obj):
 
 
 def app_info(app):
-    ini = configparser.ConfigParser()
+    ini = configparser.RawConfigParser()
     ini.read(os.path.join(app, "Contents", "Resources", "application.ini"))
-    platform = configparser.ConfigParser()
+    platform = configparser.RawConfigParser()
     platform.read(os.path.join(app, "Contents", "Resources", "platform.ini"))
     url = ini.get("AppUpdate", "URL", fallback="")
     if CONFIG["update_host"] not in url:
@@ -113,7 +115,8 @@ def make_mar(obj, app, out):
     run(["pk12util", "-i", p12, "-d", db, "-W", password, "-K", ""])
     env = {"DYLD_LIBRARY_PATH": os.path.join(obj, "dist", "bin")}
     run([signmar, "-d", db, "-n", "mar_sig", "-s", unsigned, out], env=env)
-    run([signmar, "-d", db, "-n", "mar_sig", "-v", out], env=env)
+    # Verify against the certificate the updater ships with.
+    run([signmar, "-D", os.path.join(ROOT, "whimsy", "signing", "whimsy-mar.der"), "-v", out], env=env)
     shutil.rmtree(db)
     os.remove(unsigned)
 
