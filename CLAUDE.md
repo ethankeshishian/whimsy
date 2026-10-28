@@ -42,6 +42,10 @@ Each feature has a `whimsy.feature.<id>` switch. `overlay.py` turns a feature of
 
 State and logs are in `~/Library/Application Support/Whimsy Updater/`. The Settings → Look and Feel → Updates panel shows them. The nightly job waits while the repository has uncommitted changes or isn't on `main`, so commit your work.
 
+## Publishing (other Macs)
+
+`python3 whimsy/publish.py` (or the nightly job when installed with `--publish`) runs `mach package`, ad-hoc signs, and builds a .dmg and a .mar signed with Whimsy's key. It publishes a GitHub Release and `update.xml` on GitHub Pages (`ethankeshishian.github.io/whimsy/updates/...`). Installed Whimsys poll that file; Firefox's updater downloads in the background and installs on restart. Only .mar files signed with Whimsy's key are accepted (`whimsy/engine_overrides.py` installs the public cert). The private key is in `~/Library/Application Support/Whimsy Updater/signing`: back it up, or existing installs can't take updates. The repo is public (MPL source availability), and GitHub Actions stay disabled.
+
 ## Gotchas
 
 - Export engine edits with `npx surfer export <path>`, then rename the patch to `whimsy-*.patch`.

@@ -152,7 +152,10 @@ def publish_pages_file(path, content, message):
     try:
         gh("api", f"repos/{repo}/pages")
     except subprocess.CalledProcessError:
-        gh("api", f"repos/{repo}/pages", "-X", "POST", "-f", "source[branch]=gh-pages", "-f", "source[path]=/")
+        try:
+            gh("api", f"repos/{repo}/pages", "-X", "POST", "-f", "source[branch]=gh-pages", "-f", "source[path]=/")
+        except subprocess.CalledProcessError:
+            pass  # Already enabled (GitHub can lag behind a fresh repo).
     sha = None
     try:
         sha = json.loads(gh("api", f"repos/{repo}/contents/{path}?ref=gh-pages"))["sha"]
