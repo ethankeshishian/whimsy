@@ -219,3 +219,9 @@ whimsy-emoji-search-empty =
 
 whimsy-spaces-hide-switcher =
     .label = Hide the space switcher (swipe to change spaces; it shows while you drag a tab)
+
+## Open Link in Space (link context menu)
+
+whimsy-open-link-in-space =
+    .label = Open Link in Space
+    .accesskey = S

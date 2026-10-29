@@ -60,6 +60,9 @@
 - name: whimsy.feature.hide-switcher
   value: true
 
+- name: whimsy.feature.open-link-in-space
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

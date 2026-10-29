@@ -28,6 +28,13 @@
 // for people who switch spaces by swiping or shortcut and want the sidebar's
 // foot clear. While a tab is dragged the switcher comes back, so dropping
 // on a space still works ([whimsy-tab-dragging], set here).
+//
+// Open Link in Space (whimsy.feature.open-link-in-space): Arc's link menu
+// can send a link straight to another space, so a work link clicked in a
+// personal space opens where it belongs. Right-click a link > Open Link in
+// Space > (each other space, with its icon): the link opens there, in that
+// space's container, and you land on it. Zen already moves existing tabs
+// (tab menu > Move To).
 
 const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
 const DROP_FEATURE_PREF = "whimsy.feature.space-icon-drop";
@@ -36,6 +43,8 @@ const DROP_TARGET_ATTR = "whimsy-drop-target";
 const LANDED_ATTR = "whimsy-landed";
 const EMOJI_FEATURE_PREF = "whimsy.feature.emoji-search";
 const EMOJI_EMPTY_ID = "whimsy-emoji-search-empty";
+const LINK_FEATURE_PREF = "whimsy.feature.open-link-in-space";
+const LINK_MENU_ID = "context-whimsyOpenLinkInSpace";
 
 function featureOn(pref) {
   return Services.prefs.getBoolPref(pref, true);
@@ -50,6 +59,7 @@ export const WhimsySpaces = {
     this.initLastTab(win);
     this.initEmojiSearch(win);
     this.initTabDragging(win);
+    this.initOpenLinkInSpace(win);
   },
 
   // --- Drop tabs on space icons ---
@@ -311,5 +321,90 @@ export const WhimsySpaces = {
     const done = () => root.removeAttribute("whimsy-tab-dragging");
     win.addEventListener("dragend", done, true);
     win.addEventListener("drop", () => win.setTimeout(done, 0), true);
+  },
+
+  // --- Open Link in Space ---
+
+  initOpenLinkInSpace(win) {
+    const menu = win.document.getElementById("contentAreaContextMenu");
+    // nsContextMenu has set up its items by now (its handler is inline).
+    menu?.addEventListener("popupshowing", event => {
+      if (event.target == menu) {
+        this.updateLinkMenu(win);
+      }
+    });
+  },
+
+  updateLinkMenu(win) {
+    const { document, gZenWorkspaces } = win;
+    let item = document.getElementById(LINK_MENU_ID);
+    const openInTab = document.getElementById("context-openlinkintab");
+    const others = gZenWorkspaces.getWorkspaces().filter(w => w.uuid != gZenWorkspaces.activeWorkspace);
+    const show =
+      featureOn(LINK_FEATURE_PREF) &&
+      !gZenWorkspaces.privateWindowOrDisabled &&
+      !!win.gContextMenu?.onLink &&
+      !!openInTab &&
+      !openInTab.hidden &&
+      others.length > 0;
+    if (!show) {
+      if (item) {
+        item.hidden = true;
+      }
+      return;
+    }
+    if (!item) {
+      item = document.createXULElement("menu");
+      item.id = LINK_MENU_ID;
+      item.className = "context-menu-open-link";
+      document.l10n.setAttributes(item, "whimsy-open-link-in-space");
+      const popup = document.createXULElement("menupopup");
+      popup.addEventListener("command", event => {
+        const uuid = event.target.getAttribute("zen-workspace-id");
+        if (uuid) {
+          this.openLinkInSpace(win, uuid);
+        }
+      });
+      item.appendChild(popup);
+      const anchor =
+        document.getElementById("context-openlinkinusercontext-menu") ?? openInTab;
+      anchor.after(item);
+    }
+    item.hidden = false;
+    const items = others.map(space => {
+      const option = gZenWorkspaces.generateMenuItemForWorkspace(space, true);
+      option.classList.remove("zen-workspace-context-menu-item");
+      return option;
+    });
+    item.menupopup.replaceChildren(...items);
+  },
+
+  // Opens the context menu's link in a space: in that space's container,
+  // then switches there and selects it.
+  openLinkInSpace(win, uuid) {
+    const { gZenWorkspaces, gBrowser } = win;
+    const context = win.gContextMenu;
+    const space = gZenWorkspaces.getWorkspaces().find(w => w.uuid == uuid);
+    if (!context?.linkURL || !space) {
+      return;
+    }
+    const params = context._openLinkInParameters({
+      userContextId: space.containerTabId || 0,
+      inBackground: true,
+      resolveOnNewTabCreated: browser => {
+        const tab = gBrowser.getTabForBrowser(browser);
+        if (!tab) {
+          return;
+        }
+        gZenWorkspaces.moveTabToWorkspace(tab, uuid);
+        gZenWorkspaces.lastSelectedWorkspaceTabs[uuid] = tab;
+        gZenWorkspaces.changeWorkspace(space).then(() => {
+          if (!tab.closing) {
+            gBrowser.selectedTab = tab;
+          }
+        });
+      },
+    });
+    win.openLinkIn(context.linkURL, "tab", params);
   },
 };

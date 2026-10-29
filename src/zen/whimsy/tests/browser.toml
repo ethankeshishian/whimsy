@@ -43,6 +43,8 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_newtab_bottom.js"]
 
+["browser_whimsy_open_link_in_space.js"]
+
 ["browser_whimsy_private_indicator.js"]
 
 ["browser_whimsy_rename_tab.js"]
