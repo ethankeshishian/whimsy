@@ -17,11 +17,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
   WhimsyFolderColors: "resource:///modules/whimsy/WhimsyFolderColors.sys.mjs",
+  WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
+  WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   // batch6: split view extras.
@@ -88,6 +90,12 @@ export const Whimsy = {
     run("stylesheet", () =>
       win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET)
     );
+    // batch12: Little Arc (quick window). Set before anything else reads
+    // the document, so whimsy-browser.css's rules apply from first paint.
+    if (win._whimsyQuickWindow) {
+      win.document.documentElement.setAttribute("whimsy-quick-window", "");
+    }
+    run("quick-window", () => lazy.WhimsyQuickWindow.initWindow(win));
     if (this.featureEnabled("ui-zoom")) {
       run("ui-zoom", () => this.initUiZoom(win));
     }
@@ -123,6 +131,10 @@ export const Whimsy = {
     // Watches its prefs and switches, so options apply without a restart.
     run("tabs", () => lazy.WhimsyTabs.initWindow(win));
     run("folder-colors", () => lazy.WhimsyFolderColors.initWindow(win));
+    // batch12: follower tabs. Checks its own switch on each use (the tab
+    // menu item and onLinkFollowed), so turning it off just stops offering
+    // it; an already-marked source simply won't redirect any more.
+    run("follower-tabs", () => lazy.WhimsyFollowerTabs.initWindow(win));
     // After Zen's spaces are ready; each part checks its switch on use.
     run("spaces", () =>
       win.gZenWorkspaces?.promiseInitialized

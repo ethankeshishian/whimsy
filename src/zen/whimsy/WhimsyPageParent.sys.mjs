@@ -7,6 +7,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   // batch6
@@ -37,6 +38,12 @@ export class WhimsyPageParent extends JSWindowActorParent {
         const win = tab?.ownerGlobal;
         if (win) {
           lazy.WhimsySplit.openLinkInSplit(win, tab, message.data.href, message.data.triggeringPrincipal);
+        }
+        return null;
+      }
+      case "Whimsy:FollowLink": {
+        if (this.tab) {
+          lazy.WhimsyFollowerTabs.onLinkFollowed(this.tab, message.data.url);
         }
         return null;
       }

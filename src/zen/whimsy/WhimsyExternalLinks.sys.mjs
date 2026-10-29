@@ -6,12 +6,17 @@
 // quick window (Little Arc, Cmd+Opt+N) is the model: a link clicked outside
 // the browser doesn't have to land in a full tab. Settings → Tab Management
 // → "Links from other apps open in": Glance (a preview over the current
-// tab), a tab (Firefox's own behavior), or a quick window (not built yet;
-// falls back to a tab until Whimsy has one).
+// tab), a tab (Firefox's own behavior), or a quick window
+// (WhimsyQuickWindow, batch12).
 //
 // Wraps BrowserDOMWindow's openURI (browser/modules/BrowserDOMWindow.sys.mjs),
 // Firefox's nsIBrowserDOMWindow, for OPEN_EXTERNAL opens only. Every other
 // open (window.open, links clicked inside the browser) is untouched.
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
+});
 
 const FEATURE_PREF = "whimsy.feature.external-link-target";
 const TARGET_PREF = "whimsy.external-links.target";
@@ -43,7 +48,11 @@ export const WhimsyExternalLinks = {
     ) {
       try {
         const isExternal = !!(aFlags & Ci.nsIBrowserDOMWindow.OPEN_EXTERNAL);
-        if (isExternal && self.enabled && self.openInGlance(aURI, aTriggeringPrincipal)) {
+        if (
+          isExternal &&
+          self.enabled &&
+          (self.openInGlance(aURI, aTriggeringPrincipal) || self.openInQuickWindow(aURI, aTriggeringPrincipal))
+        ) {
           return null;
         }
       } catch (e) {
@@ -68,5 +77,14 @@ export const WhimsyExternalLinks = {
     win.gZenGlanceManager.openGlance({ url: uri.spec, triggeringPrincipal });
     win.focus();
     return true;
+  },
+
+  // batch12: opens the link in Whimsy's quick window (Little Arc) when the
+  // target is "quick-window". Same return convention as openInGlance.
+  openInQuickWindow(uri, triggeringPrincipal) {
+    if (this.target != "quick-window") {
+      return false;
+    }
+    return !!lazy.WhimsyQuickWindow.open(uri.spec, { triggeringPrincipal });
   },
 };

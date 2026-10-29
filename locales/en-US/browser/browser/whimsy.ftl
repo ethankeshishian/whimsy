@@ -151,7 +151,7 @@ whimsy-external-links-glance =
 whimsy-external-links-tab =
     .label = A tab
 whimsy-external-links-quick-window =
-    .label = A quick window (coming soon; opens in a tab for now)
+    .label = A quick window
 whimsy-archive-prompt =
     .label = When a page is gone, offer the Internet Archive’s copy
 whimsy-tabs-title-lines = Tab titles show up to
@@ -564,3 +564,18 @@ whimsy-library-files-search-placeholder =
     .placeholder = Search captures…
 whimsy-library-files-delete =
     .label = Delete
+## batch12: links & media windows
+
+whimsy-action-quick-window = New Quick Window
+whimsy-quick-window-move-to-space =
+    .label = Move to Space
+    .tooltiptext = Adopt this page into a tab in one of your spaces
+
+## Follower tabs (tab context menu, on a tab already in a 2-pane split)
+
+tab-context-whimsy-follow =
+    .label = Make This a Follower Split
+    .accesskey = F
+tab-context-whimsy-unfollow =
+    .label = Stop Following
+    .accesskey = F

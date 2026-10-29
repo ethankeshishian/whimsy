@@ -154,3 +154,7 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_library_finder_folders.js"]
 
 ["browser_whimsy_library_files.js"]
+# batch12: links & media windows
+["browser_whimsy_quick_window.js"]
+
+["browser_whimsy_follower_tabs.js"]

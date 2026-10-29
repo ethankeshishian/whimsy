@@ -101,6 +101,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.selection();
       case "Whimsy:ReadingLength":
         return this.readingLength();
+      case "Whimsy:SetFollowerSource":
+        this.setFollowerSource(message.data.on);
+        return null;
     }
     return null;
   }
@@ -269,5 +272,36 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const root = doc?.querySelector("article") ?? doc?.querySelector("main, [role=main]") ?? doc?.body;
     const text = root?.innerText ?? root?.textContent ?? "";
     return { length: text.replace(/\s+/g, " ").trim().length, lang: doc?.documentElement.lang || "" };
+  }
+
+  // Follower tabs: while this page is a follower split's source, a plain
+  // left-click on a link is redirected to the follower pane instead of
+  // navigating here. A modified click (new tab/window) or one the page
+  // already handled is left alone.
+  setFollowerSource(on) {
+    const win = this.contentWindow;
+    if (!win) {
+      return;
+    }
+    if (on && !this.followerLinkGuard) {
+      this.followerLinkGuard = event => this.onFollowerClick(event);
+      win.addEventListener("click", this.followerLinkGuard, true);
+    } else if (!on && this.followerLinkGuard) {
+      win.removeEventListener("click", this.followerLinkGuard, true);
+      this.followerLinkGuard = null;
+    }
+  }
+
+  onFollowerClick(event) {
+    if (event.defaultPrevented || event.button != 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    const link = event.target?.closest?.("a[href]");
+    if (!link || link.target == "_blank" || link.protocol == "javascript:") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.sendAsyncMessage("Whimsy:FollowLink", { url: link.href });
   }
 }

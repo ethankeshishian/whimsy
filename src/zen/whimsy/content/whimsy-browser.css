@@ -725,4 +725,16 @@ toolbarbutton[zen-workspace-id][whimsy-scratch] {
 
 @media (prefers-reduced-motion: reduce) {
   toolbarbutton[zen-workspace-id][whimsy-scratch] { animation: none; }
+/* batch12: Little Arc (quick window, whimsy.feature.quick-window). Hides
+   the whole vertical sidebar (tabs, spaces, pinned) so just the nav bar
+   above the content and the "Move to space" button are left. */
+:root[whimsy-quick-window] {
+  & #navigator-toolbox,
+  & #zen-sidebar-splitter {
+    display: none !important;
+  }
+}
+
+#whimsy-quick-window-move-to-space {
+  margin-inline-start: auto;
 }

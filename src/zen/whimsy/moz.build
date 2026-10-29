@@ -46,6 +46,9 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFinderFoldersSection.sys.mjs",
     "WhimsyLibrarySection.sys.mjs",
     "WhimsyNotesSection.sys.mjs",
+    # batch12: links & media windows
+    "WhimsyQuickWindow.sys.mjs",
+    "WhimsyFollowerTabs.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [
