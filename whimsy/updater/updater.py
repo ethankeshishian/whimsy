@@ -48,7 +48,21 @@ DEV = "dev"    # every change; dev builds and the Dev channel
 MAIN = "main"  # what the Release channel gets, moved nightly
 MIN_FREE_GB = 15
 MAX_ATTEMPTS = 2
+def pinned_node_bin():
+    """The nvm Node matching the repo's .nvmrc (surfer breaks on newer Node)."""
+    try:
+        repo = json.load(open(os.path.join(DATA, "config.json"))).get("repo") or ""
+        major = open(os.path.join(repo, ".nvmrc")).read().strip().lstrip("v").split(".")[0]
+        root = os.path.join(HOME, ".nvm", "versions", "node")
+        found = sorted((v for v in os.listdir(root) if v.lstrip("v").split(".")[0] == major),
+                       key=lambda v: [int(x) for x in v.lstrip("v").split(".")])
+        return [os.path.join(root, found[-1], "bin")] if found else []
+    except (OSError, ValueError):
+        return []
+
+
 PATH = ":".join([
+    *pinned_node_bin(),
     os.path.join(HOME, ".cargo", "bin"), os.path.join(HOME, ".mozbuild", "sccache"),
     "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin",
 ])
