@@ -1,3 +1,4 @@
 # Overnight log (Oct 29) — lead updates after each batch
 
 - Batch 1 (01:20–): Copy & share DONE 331e019 (rich link, multi-tab, Copy Links menu, toast). Strip tracking DONE 596ab90 (on by default, Privacy toggle). Cookie banners: Firefox 159 removed its built-in handler → requeued as bundling DuckDuckGo autoconsent (MPL-2.0). Zen #8894 (sites eat Cmd+Shift+C) open, untouched.
+- Batch 2: ALL DONE. Cookie banners f983365 (vendored DDG autoconsent 17.0.0 as hidden built-in add-on; whimsy/update-autoconsent.sh; engine_overrides copies addon files into engine/). Private indicator b34d62e (violet). AI kill switch 31abe45 (Privacy; translations stay on). Duplicate Cmd+Shift+D 6197c0a (Arc call: Pin/Unpin -> Cmd+D, Bookmark loses Cmd+D). New tabs below + in folder 1f12361. Dim sleeping 778c58d (off). Title lines 0506501.
