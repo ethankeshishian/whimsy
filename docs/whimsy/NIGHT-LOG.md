@@ -26,3 +26,4 @@
 - User chose ENGINE PATCH for private tabs (real privateBrowsingId=1). Writer in whimsy-wt/b9p.
 - wave1/b6 written (ebcb69d f0d79b7 35feaa6): link→split Shift+click (off), close other panes, swap panes, split cmdbar actions, '/' actions filter, .new create actions; #4/#12 existed (tests added). Deferred to post-integration builder (needs build): #3 Glance size, Pin Glance, #8 new tab in split, #14 recent tabs + #17 offline bangs (new UrlbarProvider), #12 restore-in-new-window/#12403. #15 dropped (duplicates).
 - wave1/b12 written (3773db3 Little Arc quick window, 4638222 follower tabs). Auto-PiP already on. Deferred: Meet/Zoom-specific floating calls (needs real-site testing). Call: quick window is a normal window, not always-on-top.
+- wave1/b9 written (0f90e9e ATC+Space Manager settings entries & hide space; e5418e3 lock space via OSKeyStore). Gap: Cmd+1..9 don't skip hidden spaces. Deferred: space-aware history (needs user call: Library vs Whimsy panel).
