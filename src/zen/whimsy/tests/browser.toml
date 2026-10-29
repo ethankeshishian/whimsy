@@ -72,6 +72,9 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_tab_badges.js"]
 
+["browser_whimsy_tab_volume.js"]
+support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
+
 ["browser_whimsy_title_lines.js"]
 
 ["browser_whimsy_transparency.js"]

@@ -18,6 +18,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
 });
 
 const MUTE_FEATURE_PREF = "whimsy.feature.background-mute";
@@ -38,6 +39,17 @@ const SITE_PERMISSION = "whimsy-muted";
 const SITE_REASON = "whimsy-site";
 const SITE_MENU_ID = "context_whimsyMuteSite";
 
+// Per-tab volume (the Volume Master extension, Opera GX's per-tab limiter):
+// right-click a tab's speaker, or "Volume…" in the tab menu, and drag the
+// slider. Gecko has no per-tab volume, so WhimsyPageChild scales every
+// audio and video element in the tab (each keeps the volume the page set).
+// The level survives reloads and restarts (session store). Web Audio
+// isn't reached, and there's no boost above 100%.
+const VOLUME_FEATURE_PREF = "whimsy.feature.tab-volume";
+const VOLUME_KEY = "whimsy-volume";
+const VOLUME_MENU_ID = "context_whimsyTabVolume";
+const VOLUME_PANEL_ID = "whimsy-volume-panel";
+
 export const WhimsyMedia = {
   get backgroundMuteMode() {
     if (!Services.prefs.getBoolPref(MUTE_FEATURE_PREF, true)) {
@@ -50,6 +62,7 @@ export const WhimsyMedia = {
   initWindow(win) {
     this.initBackgroundMute(win);
     this.initMuteSite(win);
+    this.initTabVolume(win);
   },
 
   // --- Mute background tabs ---
@@ -177,7 +190,7 @@ export const WhimsyMedia = {
 
   siteFor(browser) {
     const uri = browser?.currentURI;
-    const win = browser?.ownerGlobal;
+    const win = browser?.ownerDocument?.defaultView;
     const principal = this.sitePrincipal(uri, win && lazy.PrivateBrowsingUtils.isWindowPrivate(win));
     return principal ? { principal, host: principal.host } : null;
   },
@@ -287,5 +300,187 @@ export const WhimsyMedia = {
       l10nArgs: { site: site.host },
     });
     return mute;
+  },
+
+  // --- Per-tab volume ---
+
+  get tabVolumeEnabled() {
+    return Services.prefs.getBoolPref(VOLUME_FEATURE_PREF, true);
+  },
+
+  // The tab's level, 0 to 1 (1 = as the page sets it).
+  volumeFor(tab) {
+    if (!tab || !this.tabVolumeEnabled) {
+      return 1;
+    }
+    if (tab.whimsyVolume === undefined) {
+      const saved = parseFloat(lazy.SessionStore.getCustomTabValue(tab, VOLUME_KEY));
+      tab.whimsyVolume = Number.isFinite(saved) ? Math.min(1, Math.max(0, saved)) : 1;
+    }
+    return tab.whimsyVolume;
+  },
+
+  setTabVolume(tab, level) {
+    if (!tab || !Number.isFinite(level)) {
+      return;
+    }
+    level = Math.round(Math.min(1, Math.max(0, level)) * 100) / 100;
+    tab.whimsyVolume = level;
+    try {
+      if (level == 1) {
+        lazy.SessionStore.deleteCustomTabValue(tab, VOLUME_KEY);
+      } else {
+        lazy.SessionStore.setCustomTabValue(tab, VOLUME_KEY, String(level));
+      }
+    } catch (e) {
+      // A tab the session store doesn't know yet (closing, or brand new).
+    }
+    this.sendToFrames(tab.linkedBrowser, "Whimsy:SetVolume", { level: this.volumeFor(tab) });
+  },
+
+  sendToFrames(browser, name, data) {
+    const contexts = browser?.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
+    for (const context of contexts) {
+      try {
+        context.currentWindowGlobal?.getActor("WhimsyPage").sendAsyncMessage(name, data);
+      } catch (e) {
+        // A frame that is going away, or one actors can't run in.
+      }
+    }
+  },
+
+  canAdjustVolume(tab) {
+    return (
+      this.tabVolumeEnabled &&
+      !!tab?.linkedPanel &&
+      (tab.soundPlaying || tab.hasAttribute("muted") || this.volumeFor(tab) < 1)
+    );
+  },
+
+  initTabVolume(win) {
+    const { document, gBrowser } = win;
+    const update = () => {
+      for (const tab of gBrowser.tabs) {
+        this.sendToFrames(tab.linkedBrowser, "Whimsy:SetVolume", { level: this.volumeFor(tab) });
+      }
+      if (!this.tabVolumeEnabled) {
+        document.getElementById(VOLUME_PANEL_ID)?.hidePopup();
+      }
+    };
+    Services.prefs.addObserver(VOLUME_FEATURE_PREF, update);
+    win.addEventListener("unload", () => Services.prefs.removeObserver(VOLUME_FEATURE_PREF, update), { once: true });
+    const menu = document.getElementById("tabContextMenu");
+    menu?.addEventListener("popupshowing", event => {
+      if (event.target == menu) {
+        this.updateVolumeMenu(win);
+      }
+    });
+    // Right-clicking a tab's speaker opens the slider instead of the menu.
+    gBrowser.tabContainer.addEventListener(
+      "contextmenu",
+      event => {
+        const speaker = event.target.closest?.(".tab-audio-button, .tab-icon-overlay");
+        const tab = speaker?.closest("tab");
+        if (!tab || !this.canAdjustVolume(tab)) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        this.openVolumePanel(win, tab, speaker);
+      },
+      true
+    );
+  },
+
+  updateVolumeMenu(win) {
+    const { document } = win;
+    let item = document.getElementById(VOLUME_MENU_ID);
+    const tab = win.TabContextMenu?.contextTab;
+    const show = !!tab && !tab.multiselected && this.canAdjustVolume(tab);
+    if (!show) {
+      if (item) {
+        item.hidden = true;
+      }
+      return;
+    }
+    if (!item) {
+      item = document.createXULElement("menuitem");
+      item.id = VOLUME_MENU_ID;
+      document.l10n.setAttributes(item, "tab-context-whimsy-volume");
+      item.addEventListener("command", () => {
+        const contextTab = win.TabContextMenu?.contextTab;
+        if (contextTab) {
+          this.openVolumePanel(win, contextTab);
+        }
+      });
+      const anchor =
+        document.getElementById("context_toggleMuteSelectedTabs") || document.getElementById("context_toggleMuteTab");
+      anchor ? anchor.after(item) : document.getElementById("tabContextMenu").appendChild(item);
+    }
+    item.hidden = false;
+  },
+
+  volumePanel(win) {
+    const { document } = win;
+    let panel = document.getElementById(VOLUME_PANEL_ID);
+    if (panel) {
+      return panel;
+    }
+    panel = document.createXULElement("panel");
+    panel.id = VOLUME_PANEL_ID;
+    panel.setAttribute("type", "arrow");
+    panel.setAttribute("noautofocus", "true");
+    panel.setAttribute("role", "dialog");
+    document.l10n.setAttributes(panel, "whimsy-volume-panel");
+    const row = document.createXULElement("hbox");
+    row.className = "whimsy-volume-row";
+    row.setAttribute("align", "center");
+    const mute = document.createXULElement("toolbarbutton");
+    mute.className = "whimsy-volume-mute toolbarbutton-1";
+    document.l10n.setAttributes(mute, "whimsy-volume-mute");
+    const slider = document.createElementNS("http://www.w3.org/1999/xhtml", "input");
+    slider.type = "range";
+    slider.min = "0";
+    slider.max = "100";
+    slider.step = "5";
+    slider.className = "whimsy-volume-slider";
+    document.l10n.setAttributes(slider, "whimsy-volume-slider");
+    const value = document.createElementNS("http://www.w3.org/1999/xhtml", "output");
+    value.className = "whimsy-volume-value";
+    row.append(mute, slider, value);
+    panel.append(row);
+    const show = () => {
+      const tab = panel.whimsyTab;
+      const level = this.volumeFor(tab);
+      slider.value = String(Math.round(level * 100));
+      value.textContent = new Intl.NumberFormat(undefined, { style: "percent" }).format(level);
+      mute.toggleAttribute("muted", !!tab?.hasAttribute("muted"));
+    };
+    panel.whimsyUpdate = show;
+    slider.addEventListener("input", () => {
+      const tab = panel.whimsyTab;
+      if (tab && !tab.closing) {
+        this.setTabVolume(tab, parseInt(slider.value, 10) / 100);
+        show();
+      }
+    });
+    mute.addEventListener("command", () => {
+      const tab = panel.whimsyTab;
+      if (tab && !tab.closing) {
+        tab.toggleMuteAudio();
+        show();
+      }
+    });
+    document.getElementById("mainPopupSet").appendChild(panel);
+    return panel;
+  },
+
+  openVolumePanel(win, tab, anchor = null) {
+    const panel = this.volumePanel(win);
+    panel.whimsyTab = tab;
+    panel.whimsyUpdate();
+    const target = anchor?.getBoundingClientRect().width ? anchor : tab;
+    panel.openPopup(target, { position: "after_start", triggerEvent: null });
+    return panel;
   },
 };

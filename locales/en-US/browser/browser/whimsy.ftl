@@ -223,6 +223,18 @@ whimsy-mute-site-toast = { $site } will always open muted
 # $site (string) - the site, e.g. example.com
 whimsy-unmute-site-toast = { $site } can play sound again
 
+## Per-tab volume (tab context menu, and right-click on a tab's speaker)
+
+tab-context-whimsy-volume =
+    .label = Volume…
+    .accesskey = V
+whimsy-volume-panel =
+    .aria-label = Tab volume
+whimsy-volume-slider =
+    .aria-label = Volume
+whimsy-volume-mute =
+    .tooltiptext = Mute or unmute the tab
+
 ## Spaces
 
 # $count (number) - how many tabs moved, $space (string) - the space's name

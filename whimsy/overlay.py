@@ -145,6 +145,8 @@ FEATURES = [
                 ("prefs", r"name:\s*zen\.[\w.-]*(background|inactive)[\w.-]*mute")]},
     {"id": "mute-site", "title": "Remember muted sites: Mute Site in the tab menu (Chrome)",
      "detect": [("src/zen", r"(?i)context_\w*MuteSite|mute-?site\b")]},
+    {"id": "tab-volume", "title": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
+     "detect": [("src/zen", r"(?i)tab-?volume-?(slider|panel)|setTabVolume")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},

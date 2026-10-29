@@ -12,6 +12,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyGithubReviews.sys.mjs",
     "WhimsyLook.sys.mjs",
     "WhimsyMedia.sys.mjs",
+    "WhimsyPageChild.sys.mjs",
+    "WhimsyPageParent.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySpaces.sys.mjs",
     "WhimsyTabs.sys.mjs",

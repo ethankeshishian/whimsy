@@ -502,3 +502,30 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 :root[whimsy-ui-font] :is(*, *::before, *::after):not(.zen-workspace-icon, .zen-emojis-picker-emoji, #whimsy-hex-input) {
   font-family: var(--whimsy-ui-font), system-ui, -apple-system, sans-serif !important;
 }
+
+/* Per-tab volume: a small slider panel on the tab's speaker. */
+#whimsy-volume-panel {
+  --panel-padding: 6px 10px;
+}
+.whimsy-volume-row {
+  gap: 8px;
+  min-width: 220px;
+}
+.whimsy-volume-mute {
+  list-style-image: url("chrome://browser/skin/zen-icons/media-unmute.svg");
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+}
+.whimsy-volume-mute[muted] {
+  list-style-image: url("chrome://browser/skin/zen-icons/media-mute.svg");
+}
+.whimsy-volume-slider {
+  flex: 1;
+  accent-color: var(--zen-primary-color, AccentColor);
+}
+.whimsy-volume-value {
+  min-width: 4ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}

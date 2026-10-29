@@ -32,6 +32,29 @@ export const Whimsy = {
     return Services.prefs.getBoolPref(`whimsy.feature.${id}`, true);
   },
 
+  // Whimsy's page tools actor (per-tab volume and the page tools). Its
+  // child only starts in a page when a message or a media event needs it.
+  registerActors() {
+    if (this._actorsRegistered) {
+      return;
+    }
+    this._actorsRegistered = true;
+    ChromeUtils.registerWindowActor("WhimsyPage", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPageChild.sys.mjs",
+        events: {
+          play: { capture: true, mozSystemGroup: true },
+          volumechange: { capture: true, mozSystemGroup: true },
+        },
+      },
+      allFrames: true,
+      // The child only works on its own page, and the parent only answers
+      // with the tab's own settings, so web processes may run it.
+      safeForUntrustedWebProcess: true,
+    });
+  },
+
   initWindow(win) {
     const run = (name, fn) => {
       try {
@@ -67,6 +90,7 @@ export const Whimsy = {
         .catch(e => console.error("Whimsy: spaces", e))
     );
     run("look", () => lazy.WhimsyLook.initWindow(win));
+    run("actors", () => this.registerActors());
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
