@@ -11,6 +11,7 @@ the user's answers, which win over anything here), and the relevant lines of
    (`engine/browser/`, `engine/toolkit/`, `engine/modules/libpref/init/`) for
    the feature, prefs and shortcuts. If it exists, expose/polish it (pref
    default, Settings toggle, menu item) instead of rebuilding.
+1b. **Check Zen's GitHub issues/PRs** (`gh search issues --repo zen-browser/desktop <terms>`, `gh pr list`). If an open issue or PR covers the feature, use it as reference (requested behavior, edge cases, proposed designs) and mention it in the commit body.
 2. **Know the original.** One or two sentences in the commit body: where it
    comes from, why users love it, the exact user flow. Arc features: match
    Arc's behavior and shortcuts (parity). Use WebSearch sparingly if unsure.
