@@ -32,7 +32,6 @@ var gWhimsySettings = {
       Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
       WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
       WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
-      UpdateUtils: "resource://gre/modules/UpdateUtils.sys.mjs",
       WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
     });
     Object.defineProperty(this, "lazy", { value: lazy });

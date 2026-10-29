@@ -37,6 +37,13 @@
         </menupopup>
       </menulist>
     </hbox>
+    <!-- batch10: Library sidebar panels. -->
+    <checkbox id="whimsyNotesEnabled"
+              data-l10n-id="whimsy-library-notes-enable" preference="whimsy.feature.notes"/>
+    <checkbox id="whimsyFinderFoldersEnabled"
+              data-l10n-id="whimsy-library-finder-folders-enable" preference="whimsy.feature.finder-folders"/>
+    <checkbox id="whimsyScreenshotSidebarEnabled"
+              data-l10n-id="whimsy-library-screenshot-sidebar-enable" preference="whimsy.feature.screenshot-sidebar"/>
   </groupbox>
 
   <groupbox id="whimsyLookGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
@@ -186,6 +193,21 @@
         </menupopup>
       </menulist>
     </hbox>
+    <!-- batch6: split view extras -->
+    <checkbox id="whimsySplitLinkShiftClick" data-whimsy-feature="split-link-click"
+              data-l10n-id="whimsy-split-shift-click" preference="whimsy.splitlink.shift-click"/>
+    <!-- batch6: command bar "New Note" target -->
+    <hbox align="center" data-whimsy-feature="command-bar-create">
+      <label id="whimsyNewNoteTargetLabel" control="whimsyNewNoteTarget" data-l10n-id="whimsy-new-note-target"/>
+      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" sizetopopup="none" crop="end">
+        <menupopup>
+          <menuitem value="none" data-l10n-id="whimsy-new-note-target-none"/>
+          <menuitem value="notion" data-l10n-id="whimsy-new-note-target-notion"/>
+          <menuitem value="google-docs" data-l10n-id="whimsy-new-note-target-google-docs"/>
+          <menuitem value="word" data-l10n-id="whimsy-new-note-target-word"/>
+        </menupopup>
+      </menulist>
+    </hbox>
     <!-- batch8: tab lifecycle -->
     <checkbox id="whimsyAutoArchiveTabs" data-whimsy-feature="auto-archive-tabs"
               data-l10n-id="whimsy-tabs-auto-archive" preference="whimsy.feature.auto-archive-tabs"/>
@@ -219,21 +241,6 @@
         <radio value="islands" data-l10n-id="whimsy-tabs-tree-style-islands"/>
       </radiogroup>
     </vbox>
-    <!-- batch6: split view extras -->
-    <checkbox id="whimsySplitLinkShiftClick" data-whimsy-feature="split-link-click"
-              data-l10n-id="whimsy-split-shift-click" preference="whimsy.splitlink.shift-click"/>
-    <!-- batch6: command bar "New Note" target -->
-    <hbox align="center" data-whimsy-feature="command-bar-create">
-      <label id="whimsyNewNoteTargetLabel" control="whimsyNewNoteTarget" data-l10n-id="whimsy-new-note-target"/>
-      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" sizetopopup="none" crop="end">
-        <menupopup>
-          <menuitem value="none" data-l10n-id="whimsy-new-note-target-none"/>
-          <menuitem value="notion" data-l10n-id="whimsy-new-note-target-notion"/>
-          <menuitem value="google-docs" data-l10n-id="whimsy-new-note-target-google-docs"/>
-          <menuitem value="word" data-l10n-id="whimsy-new-note-target-word"/>
-        </menupopup>
-      </menulist>
-    </hbox>
   </groupbox>
 </html:template>
 
@@ -266,12 +273,5 @@
       <description class="description-deemphasized" id="whimsyHiddenSpacesEmpty" data-l10n-id="whimsy-hidden-spaces-empty"/>
       <html:div id="whimsyHiddenSpacesList"/>
     </vbox>
-    <!-- batch10: Library sidebar panels. -->
-    <checkbox id="whimsyNotesEnabled"
-              data-l10n-id="whimsy-library-notes-enable" preference="whimsy.feature.notes"/>
-    <checkbox id="whimsyFinderFoldersEnabled"
-              data-l10n-id="whimsy-library-finder-folders-enable" preference="whimsy.feature.finder-folders"/>
-    <checkbox id="whimsyScreenshotSidebarEnabled"
-              data-l10n-id="whimsy-library-screenshot-sidebar-enable" preference="whimsy.feature.screenshot-sidebar"/>
   </groupbox>
 </html:template>

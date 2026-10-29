@@ -154,6 +154,8 @@
   value: true
 
 - name: whimsy.feature.heavy-tabs
+  value: true
+
 - name: whimsy.feature.split-link-click
   value: true
 
@@ -170,6 +172,8 @@
   value: true
 
 - name: whimsy.feature.command-bar-create
+  value: true
+
 - name: whimsy.feature.space-manager-settings
   value: true
 
@@ -180,7 +184,11 @@
   value: true
 
 - name: whimsy.feature.space-lock
+  value: true
+
 - name: whimsy.feature.scratch
+  value: true
+
 - name: whimsy.feature.notes
   value: true
 
@@ -188,10 +196,14 @@
   value: true
 
 - name: whimsy.feature.screenshot-sidebar
+  value: true
+
 - name: whimsy.feature.quick-window
   value: true
 
 - name: whimsy.feature.follower-tabs
+  value: true
+
 - name: whimsy.feature.split-favorites
   value: true
 
@@ -202,6 +214,8 @@
   value: true
 
 - name: whimsy.feature.menu-bar-extra
+  value: true
+
 - name: whimsy.feature.live-folders-jira
   value: true
 

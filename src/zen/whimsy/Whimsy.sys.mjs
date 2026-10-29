@@ -166,17 +166,14 @@ export const Whimsy = {
     if (this.featureEnabled("github-reviews")) {
       run("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
-    // Normally already done by WhimsyStartup at profile-after-change.
-    run("update-channel", () => lazy.WhimsyUpdates.initChannel());
     // batch11: live folders (Jira + Push refresh + RSS autodiscovery).
     // Always installed: each part checks its own switch on use.
     run("live-folders", () => {
       lazy.WhimsyLiveFolders.init();
       lazy.WhimsyLiveFolders.initWindow(win);
     });
-    run("update-channel", () =>
-      lazy.WhimsyUpdates.initChannel().catch(e => console.error("Whimsy: update channel", e))
-    );
+    // Normally already done by WhimsyStartup at profile-after-change.
+    run("update-channel", () => lazy.WhimsyUpdates.initChannel());
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
     // batch8: tab lifecycle. Undo first (the others push to its stack);
     // tree tabs after Zen's spaces/folders are ready.
@@ -189,6 +186,7 @@ export const Whimsy = {
       win.gZenWorkspaces?.promiseInitialized
         ?.then(() => lazy.WhimsyTreeTabs.initWindow(win))
         .catch(e => console.error("Whimsy: tree-tabs", e))
+    );
     // batch9: spaces — after Zen's spaces are ready, like "spaces" above.
     run("archive-space", () =>
       win.gZenWorkspaces?.promiseInitialized
