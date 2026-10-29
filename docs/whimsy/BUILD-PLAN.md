@@ -193,3 +193,9 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      "About Whimsy" section.
    - LOWEST PRIORITY, scope when reached: a Whimsy homepage with a changelog
      tab, replacing Zen's homepage and every Zen link Whimsy routes to.
+   - BUG (user, Oct 29 pm): changing the app icon updates the Dock only, not the
+     .app in Finder or Spotlight/Raycast. Fix: also write the chosen icon into
+     the bundle (replace Contents/Resources icns, ad-hoc re-sign like the
+     installer does, touch + lsregister -f), and have the updater re-apply the
+     chosen icon after each install. Avoid NSWorkspace setIcon (adds Icon\r,
+     breaks the bundle seal). Queue: next batch, high priority.
