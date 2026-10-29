@@ -126,3 +126,5 @@ support-files = ["whimsy_archive.sjs"]
 ["browser_whimsy_window_close.js"]
 
 ["browser_whimsy_full_url_click.js"]
+
+["browser_whimsy_hw_decode.js"]

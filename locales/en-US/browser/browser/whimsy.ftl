@@ -374,3 +374,12 @@ whimsy-tabs-close-window-with-last-tab =
 
 whimsy-look-always-full-url =
     .label = Always show the full address, not just the domain
+
+## batch7: Settings → General → Performance
+
+whimsy-performance-header = Performance
+whimsy-performance-hw-decode =
+    .label = Hardware video decoding
+whimsy-performance-restart-note = Restart Whimsy to apply this change.
+whimsy-performance-restart-button =
+    .label = Restart Whimsy

@@ -197,3 +197,17 @@
               data-l10n-id="whimsy-tabs-close-window-with-last-tab" preference="browser.tabs.closeWindowWithLastTab"/>
   </groupbox>
 </html:template>
+
+# batch7: Settings → General → Performance, after Firefox's own Performance
+# group (groupid="performance").
+<html:template id="template-whimsyPerformance" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyPerformanceGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-performance-header"/></label>
+    <checkbox id="whimsyHardwareVideoDecoding" data-whimsy-feature="hardware-video-decoding"
+              data-l10n-id="whimsy-performance-hw-decode" preference="media.hardware-video-decoding.enabled"/>
+    <html:div id="whimsyHwDecodeRestart" class="whimsy-updates-detail" hidden="hidden">
+      <html:span data-l10n-id="whimsy-performance-restart-note"/>
+      <button id="whimsyHwDecodeRestartButton" data-l10n-id="whimsy-performance-restart-button"/>
+    </html:div>
+  </groupbox>
+</html:template>

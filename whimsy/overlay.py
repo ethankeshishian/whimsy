@@ -201,6 +201,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen-empty-tab[^\n]*cmd_close|cmd_close[^\n]*zen-empty-tab")]},
     {"id": "full-url-click", "title": "A single click on the address bar selects the whole untrimmed URL (Arc, Safari)",
      "detect": [("src/zen", r"(?i)always-full-url|full-?url-?click")]},
+    {"id": "hardware-video-decoding", "title": "Settings checkbox for media.hardware-video-decoding.enabled, with a restart prompt",
+     "detect": [("src/browser/components/preferences", r"media\.hardware-video-decoding\.enabled")]},
 ]
 
 
