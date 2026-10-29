@@ -52,6 +52,8 @@ support-files = ["whimsy_test.pdf"]
 
 ["browser_whimsy_glance_split_action.js"]
 
+["browser_whimsy_glance_and_split_persistence.js"]
+
 ["browser_whimsy_group_domain.js"]
 
 ["browser_whimsy_image_info.js"]
