@@ -165,6 +165,14 @@
     </hbox>
     <checkbox id="whimsyPipSnapBack" data-whimsy-feature="pip-snap-back"
               data-l10n-id="whimsy-media-pip-snap-back" preference="whimsy.media.pip-snap-back"/>
+    <vbox data-whimsy-feature="external-link-target">
+      <label data-l10n-id="whimsy-external-links-header"/>
+      <radiogroup id="whimsyExternalLinksTarget" preference="whimsy.external-links.target" data-pref-type="string">
+        <radio value="glance" data-l10n-id="whimsy-external-links-glance"/>
+        <radio value="tab" data-l10n-id="whimsy-external-links-tab"/>
+        <radio value="quick-window" data-l10n-id="whimsy-external-links-quick-window"/>
+      </radiogroup>
+    </vbox>
     <checkbox id="whimsyArchivePrompt" data-whimsy-feature="wayback"
               data-l10n-id="whimsy-archive-prompt" preference="whimsy.archive.prompt"/>
     <hbox align="center" data-whimsy-feature="title-lines">

@@ -14,6 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
+  WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
   WhimsyFolderColors: "resource:///modules/whimsy/WhimsyFolderColors.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
@@ -81,6 +82,9 @@ export const Whimsy = {
     // hands the shortcuts straight back to Zen.
     run("copy", () => lazy.WhimsyCopy.init(win));
     run("shortcuts", () => lazy.WhimsyShortcuts.initWindow(win));
+    // Always installed: it checks its switch and the pref on each external
+    // open, so turning it off hands the link straight back to Firefox.
+    run("external-links", () => lazy.WhimsyExternalLinks.init());
     // Watches its prefs and switches, so options apply without a restart.
     run("tabs", () => lazy.WhimsyTabs.initWindow(win));
     run("folder-colors", () => lazy.WhimsyFolderColors.initWindow(win));

@@ -121,3 +121,10 @@
 # Dark pages in PDFs (Settings → Look and Feel): off by default.
 - name: whimsy.pdf.dark
   value: false
+
+# Where a link from another app opens (Settings → Tab Management):
+# "glance" (Little Arc's quick-look), "tab" (Firefox's own behavior), or
+# "quick-window" for a future Little-Arc-style quick window Whimsy doesn't
+# have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
+- name: whimsy.external-links.target
+  value: tab

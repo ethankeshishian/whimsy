@@ -40,6 +40,8 @@ support-files = ["whimsy_test.pdf"]
 
 ["browser_whimsy_emoji_search.js"]
 
+["browser_whimsy_external_links.js"]
+
 ["browser_whimsy_features.js"]
 
 ["browser_whimsy_find_selection.js"]
