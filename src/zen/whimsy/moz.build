@@ -9,6 +9,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCookieBanners.sys.mjs",
     "WhimsyCopy.sys.mjs",
     "WhimsyGithubReviews.sys.mjs",
+    "WhimsyShortcuts.sys.mjs",
     "WhimsyUpdates.sys.mjs",
 ]
 

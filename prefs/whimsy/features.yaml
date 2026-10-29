@@ -21,6 +21,9 @@
 - name: whimsy.feature.ai-kill-switch
   value: true
 
+- name: whimsy.feature.duplicate-shortcut
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

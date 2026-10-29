@@ -94,6 +94,8 @@ FEATURES = [
     {"id": "ai-kill-switch", "title": "AI kill switch (one toggle blocks every Firefox and Whimsy AI feature)",
      "detect": [("src/zen", r"browser\.ai\.control\.default"),
                 ("prefs", r"name:\s*browser\.ai\.control\.default")]},
+    {"id": "duplicate-shortcut", "title": "Duplicate tab on Cmd+Shift+D; Pin/Unpin on Cmd+D (Arc)",
+     "detect": [("src/browser/base/content", r'id="zen-duplicate-tab"[^>]*\bkey=')]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

@@ -18,6 +18,8 @@ support-files = ["cookie_banner.html"]
 ["browser_whimsy_ctrl_tab_native.js"]
 run-if = ["os == 'mac'"]
 
+["browser_whimsy_duplicate_shortcut.js"]
+
 ["browser_whimsy_features.js"]
 
 ["browser_whimsy_private_indicator.js"]
