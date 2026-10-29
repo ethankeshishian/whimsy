@@ -20,6 +20,8 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_capture.js"]
 
+["browser_whimsy_command_bar_extras.js"]
+
 ["browser_whimsy_collapse_pinned.js"]
 
 ["browser_whimsy_copy.js"]
@@ -50,6 +52,8 @@ support-files = ["whimsy_test.pdf"]
 ["browser_whimsy_folder_colors.js"]
 
 ["browser_whimsy_glance_split_action.js"]
+
+["browser_whimsy_glance_and_split_persistence.js"]
 
 ["browser_whimsy_group_domain.js"]
 
@@ -100,6 +104,8 @@ support-files = ["whimsy_article.html"]
 
 ["browser_whimsy_space_last_tab.js"]
 
+["browser_whimsy_split_extras.js"]
+
 ["browser_whimsy_strings_and_keys.js"]
 
 ["browser_whimsy_strip_tracking.js"]
@@ -121,3 +127,84 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_wayback.js"]
 support-files = ["whimsy_archive.sjs"]
+
+# batch8: tab lifecycle
+
+["browser_whimsy_archive.js"]
+
+["browser_whimsy_undo.js"]
+
+["browser_whimsy_snooze.js"]
+
+["browser_whimsy_tree_tabs.js"]
+
+["browser_whimsy_fire_button.js"]
+
+["browser_whimsy_heavy_tabs.js"]
+# batch9: spaces
+["browser_whimsy_archive_space.js"]
+
+["browser_whimsy_space_lock.js"]
+# batch9p: Scratch and private tabs (needs the whimsy-nsFrameLoader-cpp engine patch)
+["browser_whimsy_scratch.js"]
+support-files = ["whimsy_article.html"]
+# batch10: Library sidebar panels.
+["browser_whimsy_library_notes.js"]
+
+["browser_whimsy_library_finder_folders.js"]
+
+["browser_whimsy_library_files.js"]
+# batch12: links & media windows
+["browser_whimsy_quick_window.js"]
+
+["browser_whimsy_follower_tabs.js"]
+# batch13: page & reading
+["browser_whimsy_bionic_reading.js"]
+support-files = ["whimsy_article.html"]
+
+["browser_whimsy_menu_bar_extra.js"]
+run-if = ["os == 'mac'"]
+
+["browser_whimsy_print_clean.js"]
+
+["browser_whimsy_split_favorites.js"]
+# batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+["browser_whimsy_live_folders_jira.js"]
+support-files = ["whimsy_jira.sjs"]
+
+["browser_whimsy_live_folders_push.js"]
+support-files = ["whimsy_push_rss.sjs"]
+
+["browser_whimsy_live_folders_rss_autodiscover.js"]
+support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_discovered_feed.xml"]
+["browser_whimsy_seasonal_themes.js"]
+
+["browser_whimsy_window_close.js"]
+
+["browser_whimsy_full_url_click.js"]
+
+["browser_whimsy_hw_decode.js"]
+
+["browser_whimsy_downloads.js"]
+support-files = ["whimsy_slow_download.sjs"]
+
+["browser_whimsy_sidebar_nav.js"]
+
+["browser_whimsy_cheatsheet.js"]
+
+["browser_whimsy_inbox_zero.js"]
+
+["browser_whimsy_user_agent.js"]
+
+["browser_whimsy_cookie_editor.js"]
+
+["browser_whimsy_url_schemes.js"]
+
+["browser_whimsy_upload_clipboard.js"]
+support-files = ["whimsy_upload.html"]
+
+["browser_whimsy_dev_mode.js"]
+
+# linear: Linear live folder ("My Issues": assigned to you, open states).
+["browser_whimsy_live_folders_linear.js"]
+support-files = ["whimsy_linear.sjs"]

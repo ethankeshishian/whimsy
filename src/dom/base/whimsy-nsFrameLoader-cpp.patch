@@ -1,0 +1,68 @@
+diff --git a/dom/base/nsFrameLoader.cpp b/dom/base/nsFrameLoader.cpp
+index d053fbe..7e770d0 100644
+--- a/dom/base/nsFrameLoader.cpp
++++ b/dom/base/nsFrameLoader.cpp
+@@ -348,6 +348,18 @@ static bool InitialLoadIsRemote(Element* aOwner) {
+   return aOwner->IsXULElement() && aOwner->GetBoolAttr(nsGkAtoms::remote);
+ }
+ 
++// Whimsy: private tabs in normal windows. Whimsy's chrome code marks a
++// top-level <browser> with mozprivatebrowsing="true" before inserting it, so
++// its BrowsingContext is created private (originAttributes.privateBrowsingId
++// = 1) even though the window around it is not. Only system-principal (chrome)
++// documents can mark a browser: web content can't create XUL elements.
++static bool WhimsyIsPrivateBrowserElement(Element* aOwner) {
++  return aOwner && aOwner->IsXULElement(nsGkAtoms::browser) &&
++         aOwner->OwnerDoc()->NodePrincipal()->IsSystemPrincipal() &&
++         aOwner->AttrValueIs(kNameSpaceID_None, nsGkAtoms::mozprivatebrowsing,
++                             nsGkAtoms::_true, eCaseMatters);
++}
++
+ static already_AddRefed<BrowsingContextGroup> InitialBrowsingContextGroup(
+     Element* aOwner) {
+   nsAutoString attrString;
+@@ -435,6 +447,24 @@ already_AddRefed<nsFrameLoader> nsFrameLoader::Create(
+     remoteType = RemoteType::NotRemote();
+   }
+ 
++  // Whimsy: the frontend predicts a remote type from the window, which is not
++  // private. Start a private tab in a private web process instead, keeping
++  // the predicted kind, site and JIT setting.
++  if (remoteType.IsWeb() && !remoteType.IsPrivateBrowsing() &&
++      context->IsTopContent() && WhimsyIsPrivateBrowserElement(aOwner)) {
++    OriginAttributes privateAttrs = remoteType.GetOriginAttributes();
++    privateAttrs.SyncAttributesWithPrivateBrowsing(true);
++    RemoteType privateType = RemoteType::SharedWeb(privateAttrs);
++    if (remoteType.HasOrigin()) {
++      privateType = privateType.WithSiteOrigin(remoteType.OriginNoSuffix(),
++                                               remoteType.GetKind());
++    }
++    if (remoteType.IsJitDisabled()) {
++      privateType = privateType.WithDisableJit(true);
++    }
++    remoteType = privateType;
++  }
++
+   RefPtr<nsFrameLoader> fl =
+       new nsFrameLoader(aOwner, context, isRemoteFrame, aNetworkCreated);
+   fl->mOpenWindowInfo = aOpenWindowInfo;
+@@ -3782,6 +3812,19 @@ bool nsFrameLoader::EnsureBrowsingContextAttached() {
+   bool useRemoteSubframes = parentContext->UseRemoteSubframes();
+   bool useRemoteTabs = parentContext->UseRemoteTabs();
+ 
++  // Whimsy: a top-level content browser in a normal window is private when
++  // Whimsy marked it (a private tab), or when it was opened by a private tab
++  // (window.open / target=_blank: its BrowsingContext was created private,
++  // from the opener). Without this, the second case would trip the
++  // "already attached" assertion below.
++  if (!usePrivateBrowsing && parentContext->IsChrome() &&
++      mPendingBrowsingContext->IsTopContent() &&
++      (WhimsyIsPrivateBrowserElement(mOwnerContent) ||
++       ((mOpenWindowInfo || mPendingBrowsingContext->EverAttached()) &&
++        mPendingBrowsingContext->UsePrivateBrowsing()))) {
++    usePrivateBrowsing = true;
++  }
++
+   // Determine the exact OriginAttributes which should be used for our
+   // BrowsingContext. This will be used to initialize OriginAttributes if the
+   // BrowsingContext has not already been created.

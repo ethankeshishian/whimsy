@@ -135,6 +135,144 @@
 - name: whimsy.feature.external-link-target
   value: true
 
+- name: whimsy.feature.auto-archive-tabs
+  value: true
+
+- name: whimsy.feature.archive-view
+  value: true
+
+- name: whimsy.feature.undo-tab-actions
+  value: true
+
+- name: whimsy.feature.snooze-tab
+  value: true
+
+- name: whimsy.feature.tree-tabs
+  value: false
+
+- name: whimsy.feature.fire-button
+  value: true
+
+- name: whimsy.feature.heavy-tabs
+  value: true
+
+- name: whimsy.feature.split-link-click
+  value: true
+
+- name: whimsy.feature.split-close-other-panes
+  value: true
+
+- name: whimsy.feature.split-swap-panes
+  value: true
+
+- name: whimsy.feature.split-command-bar
+  value: true
+
+- name: whimsy.feature.command-bar-slash
+  value: true
+
+- name: whimsy.feature.command-bar-create
+  value: true
+
+- name: whimsy.feature.space-manager-settings
+  value: true
+
+- name: whimsy.feature.atc-settings
+  value: true
+
+- name: whimsy.feature.archive-space
+  value: true
+
+- name: whimsy.feature.space-lock
+  value: true
+
+- name: whimsy.feature.scratch
+  value: true
+
+- name: whimsy.feature.notes
+  value: true
+
+- name: whimsy.feature.finder-folders
+  value: true
+
+- name: whimsy.feature.screenshot-sidebar
+  value: true
+
+- name: whimsy.feature.quick-window
+  value: true
+
+- name: whimsy.feature.follower-tabs
+  value: true
+
+- name: whimsy.feature.split-favorites
+  value: true
+
+- name: whimsy.feature.bionic-reading
+  value: true
+
+- name: whimsy.feature.print-clean
+  value: true
+
+- name: whimsy.feature.menu-bar-extra
+  value: true
+
+- name: whimsy.feature.live-folders-jira
+  value: true
+
+- name: whimsy.feature.live-folders-push
+  value: true
+
+- name: whimsy.feature.live-folders-rss-autodiscover
+  value: true
+
+- name: whimsy.feature.seasonal-themes
+  value: true
+
+- name: whimsy.feature.window-close
+  value: true
+
+- name: whimsy.feature.full-url-click
+  value: true
+
+- name: whimsy.feature.hardware-video-decoding
+  value: true
+
+- name: whimsy.feature.dock-badge
+  value: true
+
+- name: whimsy.feature.quick-look
+  value: true
+
+- name: whimsy.feature.drag-downloads
+  value: true
+
+- name: whimsy.feature.sidebar-nav
+  value: true
+
+- name: whimsy.feature.cheatsheet
+  value: true
+
+- name: whimsy.feature.inbox-zero
+  value: true
+
+- name: whimsy.feature.site-user-agent
+  value: true
+
+- name: whimsy.feature.cookie-editor
+  value: true
+
+- name: whimsy.feature.url-schemes
+  value: true
+
+- name: whimsy.feature.upload-clipboard
+  value: true
+
+- name: whimsy.feature.dev-mode
+  value: true
+
+- name: whimsy.feature.live-folders-linear
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

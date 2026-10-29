@@ -12,18 +12,56 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
+  WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
   WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
   WhimsyFolderColors: "resource:///modules/whimsy/WhimsyFolderColors.sys.mjs",
+  WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
+  WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
+  WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
+  WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
+  // batch6: split view extras.
+  WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
+  // batch8: tab lifecycle
+  WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  WhimsySnooze: "resource:///modules/whimsy/WhimsySnooze.sys.mjs",
+  WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
+  WhimsyFireButton: "resource:///modules/whimsy/WhimsyFireButton.sys.mjs",
+  WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
+  WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
+  WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs", // batch9: spaces
+});
+
+// batch9p: Scratch and private tabs
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  // batch13: page & reading
+  WhimsyBionicReading: "resource:///modules/whimsy/WhimsyBionicReading.sys.mjs",
+  WhimsyMenuBarExtra: "resource:///modules/whimsy/WhimsyMenuBarExtra.sys.mjs",
+  WhimsyPrintClean: "resource:///modules/whimsy/WhimsyPrintClean.sys.mjs",
+  WhimsySplitFavorites: "resource:///modules/whimsy/WhimsySplitFavorites.sys.mjs",
+  // batch7: new feature modules
+  WhimsySeasons: "resource:///modules/whimsy/WhimsySeasons.sys.mjs",
+  WhimsyWindowClose: "resource:///modules/whimsy/WhimsyWindowClose.sys.mjs",
+  WhimsyUrlbar: "resource:///modules/whimsy/WhimsyUrlbar.sys.mjs",
+  WhimsyDownloads: "resource:///modules/whimsy/WhimsyDownloads.sys.mjs",
+  WhimsySidebarNav: "resource:///modules/whimsy/WhimsySidebarNav.sys.mjs",
+  WhimsyCheatSheet: "resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs",
+  WhimsyDelight: "resource:///modules/whimsy/WhimsyDelight.sys.mjs",
+  WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
+  WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
+  WhimsyProtocol: "resource:///modules/whimsy/WhimsyProtocol.sys.mjs",
+  WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -48,11 +86,23 @@ export const Whimsy = {
         events: {
           play: { capture: true, mozSystemGroup: true },
           volumechange: { capture: true, mozSystemGroup: true },
+          // batch6: Shift+click a link -> split view (whimsy.splitlink.shift-click).
+          click: { capture: true },
         },
       },
       allFrames: true,
       // The child only works on its own page, and the parent only answers
       // with the tab's own settings, so web processes may run it.
+      safeForUntrustedWebProcess: true,
+    });
+    // batch7: upload from the clipboard.
+    ChromeUtils.registerWindowActor("WhimsyUpload", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyUploadChild.sys.mjs",
+        events: { click: { capture: true, mozSystemGroup: true } },
+      },
+      allFrames: true,
       safeForUntrustedWebProcess: true,
     });
   },
@@ -68,6 +118,12 @@ export const Whimsy = {
     run("stylesheet", () =>
       win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET)
     );
+    // batch12: Little Arc (quick window). Set before anything else reads
+    // the document, so whimsy-browser.css's rules apply from first paint.
+    if (win._whimsyQuickWindow) {
+      win.document.documentElement.setAttribute("whimsy-quick-window", "");
+    }
+    run("quick-window", () => lazy.WhimsyQuickWindow.initWindow(win));
     if (this.featureEnabled("ui-zoom")) {
       run("ui-zoom", () => this.initUiZoom(win));
     }
@@ -103,6 +159,10 @@ export const Whimsy = {
     // Watches its prefs and switches, so options apply without a restart.
     run("tabs", () => lazy.WhimsyTabs.initWindow(win));
     run("folder-colors", () => lazy.WhimsyFolderColors.initWindow(win));
+    // batch12: follower tabs. Checks its own switch on each use (the tab
+    // menu item and onLinkFollowed), so turning it off just stops offering
+    // it; an already-marked source simply won't redirect any more.
+    run("follower-tabs", () => lazy.WhimsyFollowerTabs.initWindow(win));
     // After Zen's spaces are ready; each part checks its switch on use.
     run("spaces", () =>
       win.gZenWorkspaces?.promiseInitialized
@@ -111,9 +171,16 @@ export const Whimsy = {
     );
     run("look", () => lazy.WhimsyLook.initWindow(win));
     run("actors", () => this.registerActors());
+    // Library sidebar panels (Notes, Finder folders, Screenshot to
+    // sidebar): each one checks its own whimsy.feature.<id> switch.
+    run("library-sections", () => lazy.WhimsyLibrarySection.initWindow(win));
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
+    // batch6: split view extras; each action checks its own switch.
+    run("split", () => lazy.WhimsySplit.initWindow(win));
+    // batch6: command bar extras ("/" filter, "New ..." actions).
+    run("command-bar", () => lazy.WhimsyCommandBar.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());
@@ -121,9 +188,132 @@ export const Whimsy = {
     if (this.featureEnabled("github-reviews")) {
       run("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
+    // batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    // Always installed: each part checks its own switch on use.
+    run("live-folders", () => {
+      lazy.WhimsyLiveFolders.init();
+      lazy.WhimsyLiveFolders.initWindow(win);
+    });
     // Normally already done by WhimsyStartup at profile-after-change.
     run("update-channel", () => lazy.WhimsyUpdates.initChannel());
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
+    // batch8: tab lifecycle. Undo first (the others push to its stack);
+    // tree tabs after Zen's spaces/folders are ready.
+    run("undo", () => lazy.WhimsyUndo.initWindow(win));
+    run("archive", () => lazy.WhimsyArchive.initWindow(win));
+    run("snooze", () => lazy.WhimsySnooze.initWindow(win));
+    run("fire-button", () => lazy.WhimsyFireButton.initWindow(win));
+    run("heavy-tabs", () => lazy.WhimsyHeavyTabs.initWindow(win));
+    run("tree-tabs", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyTreeTabs.initWindow(win))
+        .catch(e => console.error("Whimsy: tree-tabs", e))
+    );
+    // batch9: spaces — after Zen's spaces are ready, like "spaces" above.
+    run("archive-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceArchive.initWindow(win))
+        .catch(e => console.error("Whimsy: archive-space", e))
+    );
+    run("space-lock", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceLock.initWindow(win))
+        .catch(e => console.error("Whimsy: space-lock", e))
+    );
+    // batch9p: Scratch and private tabs. Always installed: tabs opened from
+    // a private tab must stay private even with the switch off; the
+    // shortcuts check the switch and setting on each use.
+    run("private", () => lazy.WhimsyPrivate.initWindow(win));
+    // batch13: page & reading. Once per session (each checks its own
+    // switch and macOS gate on use).
+    run("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
+    run("bionic-reading", () => lazy.WhimsyBionicReading.init());
+    run("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
+    run("split-favorites", () => lazy.WhimsySplitFavorites.initWindow(win));
+    // batch7: seasonal themes. Watches its own prefs, so it applies without
+    // a restart.
+    run("seasons", () => lazy.WhimsySeasons.initWindow(win));
+    // batch7: Cmd+W on a lone empty tab closes the window (Arc).
+    run("window-close", () => lazy.WhimsyWindowClose.initWindow(win));
+    // batch7: full URL on click.
+    run("full-url-click", () => lazy.WhimsyUrlbar.initWindow(win));
+    // batch7: Dock badge/bounce (once per session), Quick Look and keeping
+    // a panel open across a download drag (per window).
+    run("downloads", () => {
+      lazy.WhimsyDownloads.init().catch(e => console.error("Whimsy: downloads", e));
+      lazy.WhimsyDownloads.initWindow(win);
+    });
+    // batch7: keyboard sidebar navigation (Arc).
+    run("sidebar-nav", () => lazy.WhimsySidebarNav.initWindow(win));
+    // batch7: shortcut cheat sheet.
+    run("cheatsheet", () => lazy.WhimsyCheatSheet.initWindow(win));
+    run("cheatsheet-action", () =>
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-cheatsheet",
+          command: "whimsy-cheatsheet",
+          icon: "chrome://browser/skin/zen-icons/key.svg",
+          isAvailable: () => lazy.WhimsyCheatSheet.enabled,
+        },
+      ])
+    );
+    // batch7: inbox-zero balloons.
+    run("inbox-zero", () => lazy.WhimsyDelight.initWindow(win));
+    // batch7: per-site user agent.
+    run("site-user-agent", () => {
+      lazy.WhimsyUserAgent.initWindow(win);
+      lazy.WhimsyShortcuts.addCommand(win, {
+        id: "whimsy-useragent-picker",
+        run: w => lazy.WhimsyUserAgent.enabled && lazy.WhimsyUserAgent.openPicker(w),
+      });
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-useragent",
+          command: "whimsy-useragent-picker",
+          icon: "chrome://browser/skin/zen-icons/globe.svg",
+          isAvailable: () => lazy.WhimsyUserAgent.enabled,
+        },
+      ]);
+    });
+    // batch7: cookie editor.
+    run("cookie-editor", () => {
+      lazy.WhimsyShortcuts.addCommand(win, {
+        id: "whimsy-cookie-editor",
+        run: w => lazy.WhimsyCookieEditor.enabled && lazy.WhimsyCookieEditor.open(w),
+      });
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-cookie-editor",
+          command: "whimsy-cookie-editor",
+          icon: "chrome://browser/skin/zen-icons/cookies-fill.svg",
+          isAvailable: () => lazy.WhimsyCookieEditor.enabled,
+        },
+      ]);
+    });
+    // batch7: whimsy:// URL schemes (the address-bar half; see
+    // WhimsyProtocol.sys.mjs for why the external-link half is deferred).
+    run("url-schemes", () => lazy.WhimsyProtocol.initWindow(win));
+    // batch7: developer mode tabs (Arc parity).
+    run("dev-mode", () => {
+      lazy.WhimsyDevMode.initWindow(win);
+      lazy.WhimsyShortcuts.addCommand(win, {
+        id: "whimsy-devmode-toggle-site",
+        run: w => {
+          const uri = w.gBrowser.selectedBrowser?.currentURI;
+          if (lazy.WhimsyDevMode.enabled && uri) {
+            lazy.WhimsyDevMode.toggleSite(uri);
+          }
+        },
+      });
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-devmode-toggle",
+          command: "whimsy-devmode-toggle-site",
+          icon: "chrome://browser/skin/zen-icons/code.svg",
+          isAvailable: () => lazy.WhimsyDevMode.enabled,
+        },
+      ]);
+    });
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

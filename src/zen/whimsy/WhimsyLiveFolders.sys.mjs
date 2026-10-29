@@ -1,0 +1,542 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+// Live folders: tabs that refresh themselves. Zen ships GitHub and RSS;
+// this adds Jira. Zen's `ZenLiveFoldersManager.registry` is a plain,
+// public Map built for exactly this -- a provider class keyed by its
+// `static type` -- so a new provider is registered into it, never patched
+// into Zen's own `providers` array. `ZenLiveFoldersManager.init()` is
+// wrapped (public method, never edited) to add Jira to the registry right
+// after Zen populates its own two; this re-runs every init()/uninit()
+// cycle (e.g. closing the last window), so the entry survives that.
+//
+// The "+" toolbar menu's "Create a live folder" list (built once by Zen's
+// ZenFolders.mjs, #zen-panel-ui-live-folder-create) is Zen-owned XUL we
+// never edit either: a Jira entry is spliced in lazily, on first
+// popupshowing, the same technique WhimsyFolderColors uses for its own
+// folder-context-menu entry.
+//
+// batch11: "Push" refresh option. The fetch-interval menu
+// (ZenLiveFoldersUI#intervalOptions) only offers 15 minutes and up; the
+// user wants a "Push" choice like iOS Mail's, alongside it. There's no
+// real server push a browser can register for here, so "Push" means what
+// it means in that iOS Mail picker: check often (every minute) but cheaply
+// -- a conditional GET (If-None-Match) that gets back a 304 with no body
+// when nothing changed, so an unchanged folder costs a cheap round trip,
+// not a full re-fetch and re-render. `#intervalOptions` is a true private
+// method, unreachable from outside the class, so the *public*
+// `buildContextMenu` is wrapped instead: call it to build the normal
+// menu, then splice one more radio into the interval submenu it already
+// built. Never refreshes on window focus -- the base class's existing
+// 1-minute DeferredTask is the only trigger, same as a mail client ticking
+// in the background.
+//
+// batch11: RSS feed autodiscovery. Today, adding an RSS live folder only
+// ever works with a feed URL you already have in hand -- RssLiveFolder
+// just fetches whatever URL it's given and expects a feed. Most sites
+// advertise their feed on an ordinary page instead, via
+// `<link rel="alternate" type="application/rss+xml">` in the `<head>`
+// (the same thing a browser's own "subscribe" button used to look for).
+// `promptForFeedUrl` (a public static method) is wrapped so that, after
+// asking for a URL exactly the way Zen does, a non-feed page is
+// transparently upgraded to its advertised feed; a genuine feed URL, or a
+// page advertising none, passes through unchanged -- no regression on
+// today's behavior either way.
+//
+// linear: Linear live folder ("My Issues": assigned to you, open states).
+// Registered into the same registry as Jira, right below it; see
+// WhimsyLinearLiveFolder.sys.mjs for the auth model (session first, a
+// pasted personal API key as the fallback).
+
+import { WhimsyJiraLiveFolderProvider, DEFAULT_JQL } from "resource:///modules/whimsy/WhimsyJiraLiveFolder.sys.mjs";
+import { WhimsyLinearLiveFolderProvider } from "resource:///modules/whimsy/WhimsyLinearLiveFolder.sys.mjs";
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
+});
+
+const JIRA_FEATURE_PREF = "whimsy.feature.live-folders-jira";
+const LINEAR_FEATURE_PREF = "whimsy.feature.live-folders-linear";
+const PUSH_FEATURE_PREF = "whimsy.feature.live-folders-push";
+const RSS_AUTODISCOVER_PREF = "whimsy.feature.live-folders-rss-autodiscover";
+const PUSH_INTERVAL_MS = 60 * 1000;
+
+export const WhimsyLiveFolders = {
+  get jiraEnabled() {
+    return Services.prefs.getBoolPref(JIRA_FEATURE_PREF, true);
+  },
+
+  get linearEnabled() {
+    return Services.prefs.getBoolPref(LINEAR_FEATURE_PREF, true);
+  },
+
+  get pushEnabled() {
+    return Services.prefs.getBoolPref(PUSH_FEATURE_PREF, true);
+  },
+
+  get rssAutodiscoverEnabled() {
+    return Services.prefs.getBoolPref(RSS_AUTODISCOVER_PREF, true);
+  },
+
+  init() {
+    if (this._initialized) {
+      return;
+    }
+    this._initialized = true;
+
+    try {
+      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+      );
+      this.wrapManagerInit(ZenLiveFoldersManager);
+    } catch (e) {
+      console.error("Whimsy: live folders registry hook failed", e);
+    }
+
+    try {
+      const { ZenLiveFoldersUI } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersUI.sys.mjs"
+      );
+      this.wrapBuildContextMenu(ZenLiveFoldersUI.prototype);
+    } catch (e) {
+      console.error("Whimsy: live folders push menu hook failed", e);
+    }
+
+    try {
+      const { nsZenLiveFolderProvider } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFolder.sys.mjs"
+      );
+      this.wrapOnOptionTrigger(nsZenLiveFolderProvider.prototype);
+    } catch (e) {
+      console.error("Whimsy: live folders push option hook failed", e);
+    }
+
+    try {
+      const { nsGithubLiveFolderProvider } = ChromeUtils.importESModule(
+        "resource:///modules/zen/GithubLiveFolder.sys.mjs"
+      );
+      this.wrapPushableFetchItems(nsGithubLiveFolderProvider.prototype, provider => provider.state.url);
+    } catch (e) {
+      console.error("Whimsy: github push hook failed", e);
+    }
+
+    try {
+      const { nsRssLiveFolderProvider } = ChromeUtils.importESModule(
+        "resource:///modules/zen/RssLiveFolder.sys.mjs"
+      );
+      this.wrapPushableFetchItems(nsRssLiveFolderProvider.prototype, provider => provider.state.url);
+      this.wrapRssAutodiscovery(nsRssLiveFolderProvider);
+    } catch (e) {
+      console.error("Whimsy: rss push hook failed", e);
+    }
+  },
+
+  // Wraps the static promptForFeedUrl Zen's manager calls when creating an
+  // RSS folder: ask for a URL exactly as Zen does, then (feature on, a URL
+  // was given, and it isn't a feed itself) try to discover the page's
+  // advertised feed and use that instead.
+  wrapRssAutodiscovery(RssProviderClass) {
+    const original = RssProviderClass.promptForFeedUrl;
+    if (typeof original != "function" || original.whimsyWrapped) {
+      return;
+    }
+    RssProviderClass.promptForFeedUrl = async function (window, initialUrl = "") {
+      const url = await original.call(this, window, initialUrl);
+      if (!url || !WhimsyLiveFolders.rssAutodiscoverEnabled) {
+        return url;
+      }
+      try {
+        const discovered = await WhimsyLiveFolders.discoverFeed(url);
+        return discovered || url;
+      } catch (e) {
+        console.error("Whimsy: feed autodiscovery failed", e);
+        return url;
+      }
+    };
+    RssProviderClass.promptForFeedUrl.whimsyWrapped = true;
+  },
+
+  // Returns the page's advertised feed URL, or null if `url` is already a
+  // feed, advertises none, or can't be fetched/parsed at all -- in every
+  // one of those cases the caller just keeps using `url` as given.
+  async discoverFeed(url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return null;
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (/(?:rss|atom|xml)/i.test(contentType)) {
+      return null; // Already a feed; nothing to discover.
+    }
+    const text = await response.text();
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    const link = doc.querySelector(
+      'link[rel="alternate"][type="application/rss+xml"], link[rel="alternate"][type="application/atom+xml"]'
+    );
+    const href = link?.getAttribute("href");
+    if (!href) {
+      return null;
+    }
+    try {
+      return new URL(href, url).href;
+    } catch {
+      return null;
+    }
+  },
+
+  // Splices a "Push" radio into the fetch-interval submenu Zen's own
+  // buildContextMenu() just built. Zen's own radios (15 min..8 hr) are
+  // left exactly as built; none of them can ever read as checked at the
+  // same time as this one, since Push's 1-minute interval doesn't match
+  // any of their values.
+  wrapBuildContextMenu(proto) {
+    const original = proto.buildContextMenu;
+    if (typeof original != "function" || original.whimsyWrapped) {
+      return;
+    }
+    proto.buildContextMenu = function (folder) {
+      original.call(this, folder);
+      if (!WhimsyLiveFolders.pushEnabled || !folder.isLiveFolder) {
+        return;
+      }
+      try {
+        WhimsyLiveFolders.addPushMenuItem(this, folder);
+      } catch (e) {
+        console.error("Whimsy: adding the Push menu item failed", e);
+      }
+    };
+    proto.buildContextMenu.whimsyWrapped = true;
+  },
+
+  addPushMenuItem(ui, folder) {
+    const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+      "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+    );
+    const liveFolder = ZenLiveFoldersManager.getFolder(folder.id);
+    if (!liveFolder) {
+      return;
+    }
+    const popup = ui.document.getElementById("context_zenLiveFolderOptions")?.querySelector("menupopup");
+    const intervalMenu = popup?.querySelector('menu[option-key="setInterval"] > menupopup');
+    if (!intervalMenu) {
+      return;
+    }
+    const item = ui.document.createXULElement("menuitem");
+    item.setAttribute("type", "radio");
+    ui.document.l10n.setAttributes(item, "whimsy-live-folder-push-interval");
+    item.setAttribute("option-folder", folder.id);
+    item.setAttribute("option-key", "whimsyPush");
+    item.setAttribute("option-value", String(PUSH_INTERVAL_MS));
+    if (liveFolder.state.whimsyPush) {
+      item.setAttribute("checked", "true");
+    }
+    intervalMenu.insertBefore(item, intervalMenu.firstChild);
+  },
+
+  // The base class's onOptionTrigger (public, called by
+  // ZenLiveFoldersUI#on_command for every provider's menu items) is
+  // wrapped once here so every provider -- Zen's own and Whimsy's --
+  // understands the "whimsyPush" key our spliced-in radio uses, since
+  // subclasses all call `super.onOptionTrigger(option)` first.
+  wrapOnOptionTrigger(proto) {
+    const original = proto.onOptionTrigger;
+    if (typeof original != "function" || original.whimsyWrapped) {
+      return;
+    }
+    proto.onOptionTrigger = function (option) {
+      const key = option.getAttribute("option-key");
+      if (key === "whimsyPush") {
+        this.state.whimsyPush = true;
+        this.state.interval = PUSH_INTERVAL_MS;
+        this.requestSave();
+        this.stop();
+        this.start();
+        return;
+      }
+      if (key === "setInterval") {
+        // Picking a normal, fixed interval leaves Push mode.
+        this.state.whimsyPush = false;
+      }
+      return original.call(this, option);
+    };
+    proto.onOptionTrigger.whimsyWrapped = true;
+  },
+
+  // Wraps a provider's fetchItems so that, in Push mode, a cheap
+  // conditional probe runs first: a 304 (nothing changed) returns the
+  // same items fetchItems returned last time -- no re-parse, no tab
+  // churn -- instead of doing the real, full fetch. Not wired up for
+  // Jira yet (left for a follow-up): this only covers Zen's own two
+  // providers, the ones named in the live-folders research as wanting it.
+  wrapPushableFetchItems(proto, urlOf) {
+    const original = proto.fetchItems;
+    if (typeof original != "function" || original.whimsyPushWrapped) {
+      return;
+    }
+    proto.fetchItems = async function (...args) {
+      if (!this.state.whimsyPush || !WhimsyLiveFolders.pushEnabled) {
+        const items = await original.apply(this, args);
+        if (Array.isArray(items)) {
+          this._whimsyLastItems = items;
+        }
+        return items;
+      }
+
+      const url = urlOf(this);
+      if (url && Array.isArray(this._whimsyLastItems)) {
+        const probe = await WhimsyLiveFolders.conditionalFetch(this, url, this.state.whimsyEtag);
+        if (probe.status === 304) {
+          return this._whimsyLastItems;
+        }
+        if (probe.etag) {
+          this.state.whimsyEtag = probe.etag;
+        }
+      }
+
+      const items = await original.apply(this, args);
+      if (Array.isArray(items)) {
+        this._whimsyLastItems = items;
+      }
+      return items;
+    };
+    proto.fetchItems.whimsyPushWrapped = true;
+  },
+
+  // A minimal conditional-GET probe: sends If-None-Match when an ETag is
+  // already known, reads the response status and ETag, then aborts the
+  // request without reading its body either way -- the real fetch (via
+  // the shared base-class fetch()) runs separately only when something
+  // actually changed. Uses the same NetUtil/channel primitives
+  // ZenLiveFolder.sys.mjs's own fetch() does, as its own, Whimsy-owned
+  // copy: that shared method isn't a Zen file we can edit to expose
+  // response headers.
+  conditionalFetch(liveFolder, url, etag) {
+    return new Promise(resolve => {
+      let resolved = false;
+      const finish = result => {
+        if (!resolved) {
+          resolved = true;
+          resolve(result);
+        }
+      };
+      try {
+        const uri = lazy.NetUtil.newURI(url);
+        let userContextId = 0;
+        const folder = liveFolder.manager.getFolderForLiveFolder?.(liveFolder);
+        if (folder) {
+          const space = folder.documentGlobal.gZenWorkspaces.getWorkspaceFromId(
+            folder.getAttribute("zen-workspace-id")
+          );
+          if (space) {
+            userContextId = space.containerTabId || 0;
+          }
+        }
+        const principal = Services.scriptSecurityManager.createContentPrincipal(uri, { userContextId });
+        const channel = lazy.NetUtil.newChannel({
+          uri,
+          contentPolicyType: Ci.nsIContentPolicy.TYPE_SAVEAS_DOWNLOAD,
+          loadingPrincipal: principal,
+          securityFlags:
+            Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL | Ci.nsILoadInfo.SEC_COOKIES_INCLUDE,
+          triggeringPrincipal: principal,
+        }).QueryInterface(Ci.nsIHttpChannel);
+        if (etag) {
+          channel.setRequestHeader("If-None-Match", etag, false);
+        }
+        channel.asyncOpen({
+          onStartRequest: request => {
+            const http = request.QueryInterface(Ci.nsIHttpChannel);
+            let status = null;
+            try {
+              status = http.responseStatus;
+            } catch {
+              status = null;
+            }
+            let newEtag = null;
+            try {
+              newEtag = http.getResponseHeader("ETag");
+            } catch {
+              newEtag = null;
+            }
+            // Headers are all that's needed either way: not-modified
+            // means "use the cached items", modified means "fetch()
+            // will re-run for real". Abort before the body downloads.
+            request.cancel(Cr.NS_BINDING_ABORTED);
+            finish({ status, etag: status === 304 ? (etag ?? null) : newEtag });
+          },
+          onDataAvailable: (request, stream, _offset, count) => {
+            try {
+              lazy.NetUtil.readInputStream(stream, count);
+            } catch {
+              // Ignore: the request is already being cancelled.
+            }
+          },
+          onStopRequest: () => {
+            finish({ status: null, etag: null });
+          },
+        });
+      } catch (e) {
+        console.error("Whimsy: live folder conditional probe failed", e);
+        finish({ status: null, etag: null });
+      }
+    });
+  },
+
+  // Patches the manager instance's own prototype (nsZenLiveFoldersManager),
+  // not the singleton itself, so it keeps working across uninit()/init()
+  // cycles (e.g. the last window closing, then a new one opening).
+  wrapManagerInit(managerInstance) {
+    const proto = Object.getPrototypeOf(managerInstance);
+    const original = proto.init;
+    if (typeof original != "function" || original.whimsyWrapped) {
+      return;
+    }
+    proto.init = async function (...args) {
+      const result = await original.apply(this, args);
+      if (WhimsyLiveFolders.jiraEnabled) {
+        this.registry.set(WhimsyJiraLiveFolderProvider.type, WhimsyJiraLiveFolderProvider);
+      }
+      // linear:
+      if (WhimsyLiveFolders.linearEnabled) {
+        this.registry.set(WhimsyLinearLiveFolderProvider.type, WhimsyLinearLiveFolderProvider);
+      }
+      return result;
+    };
+    proto.init.whimsyWrapped = true;
+  },
+
+  initWindow(win) {
+    this.initCreateMenu(win);
+  },
+
+  initCreateMenu(win) {
+    const { document } = win;
+
+    document.addEventListener(
+      "popupshowing",
+      event => {
+        const menu = event.target.closest?.("#zen-panel-ui-live-folder-create");
+        if (!menu) {
+          return;
+        }
+        let item = menu.querySelector(".whimsy-live-folder-jira-create");
+        if (!item) {
+          item = document.createXULElement("menuitem");
+          item.classList.add("whimsy-live-folder-jira-create");
+          item.setAttribute("command", "cmd_zenNewLiveFolder");
+          item.setAttribute("image", "chrome://browser/skin/zen-icons/selectable/ticket.svg");
+          document.l10n.setAttributes(item, "whimsy-live-folder-jira-create");
+          menu.appendChild(item);
+        }
+        item.hidden = !this.jiraEnabled;
+
+        // linear:
+        let linearItem = menu.querySelector(".whimsy-live-folder-linear-create");
+        if (!linearItem) {
+          linearItem = document.createXULElement("menuitem");
+          linearItem.classList.add("whimsy-live-folder-linear-create");
+          linearItem.setAttribute("command", "cmd_zenNewLiveFolder");
+          linearItem.setAttribute("image", "chrome://browser/skin/zen-icons/selectable/ticket.svg");
+          document.l10n.setAttributes(linearItem, "whimsy-live-folder-linear-create");
+          menu.appendChild(linearItem);
+        }
+        linearItem.hidden = !this.linearEnabled;
+      },
+      { capture: true }
+    );
+
+    const command = document.getElementById("cmd_zenNewLiveFolder");
+    command?.addEventListener("command", event => {
+      const target = event.sourceEvent?.target;
+      const l10nId = target?.getAttribute("data-l10n-id");
+      if (this.jiraEnabled && l10nId == "whimsy-live-folder-jira-create") {
+        this.createJiraFolder(win);
+        return;
+      }
+      if (this.linearEnabled && l10nId == "whimsy-live-folder-linear-create") {
+        this.createLinearFolder(win);
+      }
+    });
+  },
+
+  async createJiraFolder(win) {
+    try {
+      const site = await WhimsyJiraLiveFolderProvider.promptForSite(win);
+      if (!site) {
+        return;
+      }
+
+      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+      );
+
+      const folder = win.gZenFolders.createFolder([], {
+        label: "Jira",
+        isLiveFolder: true,
+        collapsed: true,
+      });
+      win.gZenFolders.setFolderUserIcon(folder, "chrome://browser/skin/zen-icons/selectable/ticket.svg");
+
+      const state = {
+        type: WhimsyJiraLiveFolderProvider.type,
+        site,
+        jql: DEFAULT_JQL,
+        interval: 30 * 60 * 1000,
+        lastFetched: 0,
+        options: {},
+      };
+      const liveFolder = new WhimsyJiraLiveFolderProvider({
+        id: folder.id,
+        state,
+        manager: ZenLiveFoldersManager,
+      });
+
+      ZenLiveFoldersManager.liveFolders.set(folder.id, liveFolder);
+      liveFolder.start();
+      ZenLiveFoldersManager.saveState();
+    } catch (e) {
+      console.error("Whimsy: creating a Jira live folder failed", e);
+    }
+  },
+
+  // linear: Unlike Jira, nothing has to be asked up front: "My Issues" needs no
+  // site, and the optional team filter can be set afterwards from the
+  // folder's own options menu. Auth (session, then a pasted API key) is
+  // only discovered on the first fetch, surfaced as the folder's error
+  // state if neither works.
+  async createLinearFolder(win) {
+    try {
+      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+      );
+
+      const folder = win.gZenFolders.createFolder([], {
+        label: "Linear",
+        isLiveFolder: true,
+        collapsed: true,
+      });
+      win.gZenFolders.setFolderUserIcon(folder, "chrome://browser/skin/zen-icons/selectable/ticket.svg");
+
+      const state = {
+        type: WhimsyLinearLiveFolderProvider.type,
+        team: "",
+        interval: 30 * 60 * 1000,
+        lastFetched: 0,
+        options: {},
+      };
+      const liveFolder = new WhimsyLinearLiveFolderProvider({
+        id: folder.id,
+        state,
+        manager: ZenLiveFoldersManager,
+      });
+
+      ZenLiveFoldersManager.liveFolders.set(folder.id, liveFolder);
+      liveFolder.start();
+      ZenLiveFoldersManager.saveState();
+    } catch (e) {
+      console.error("Whimsy: creating a Linear live folder failed", e);
+    }
+  },
+};

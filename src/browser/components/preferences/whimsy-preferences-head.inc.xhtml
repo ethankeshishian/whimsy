@@ -37,6 +37,13 @@
         </menupopup>
       </menulist>
     </hbox>
+    <!-- batch10: Library sidebar panels. -->
+    <checkbox id="whimsyNotesEnabled"
+              data-l10n-id="whimsy-library-notes-enable" preference="whimsy.feature.notes"/>
+    <checkbox id="whimsyFinderFoldersEnabled"
+              data-l10n-id="whimsy-library-finder-folders-enable" preference="whimsy.feature.finder-folders"/>
+    <checkbox id="whimsyScreenshotSidebarEnabled"
+              data-l10n-id="whimsy-library-screenshot-sidebar-enable" preference="whimsy.feature.screenshot-sidebar"/>
   </groupbox>
 
   <groupbox id="whimsyLookGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
@@ -63,6 +70,15 @@
                   aria-describedby="whimsyTransparencyValue"/>
       <html:span id="whimsyTransparencyValue" class="whimsy-updates-detail"/>
     </hbox>
+    <!-- batch13: menu bar extra -->
+    <checkbox id="whimsyMenuBarExtra" data-whimsy-feature="menu-bar-extra"
+              data-l10n-id="whimsy-look-menu-bar-extra" preference="whimsy.menu-bar-extra.show"/>
+    <!-- batch7: seasonal themes -->
+    <checkbox id="whimsySeasonalThemes" data-whimsy-feature="seasonal-themes"
+              data-l10n-id="whimsy-look-seasonal-themes" preference="whimsy.seasons.enabled"/>
+    <!-- batch7: full URL on click -->
+    <checkbox id="whimsyAlwaysFullUrl" data-whimsy-feature="full-url-click"
+              data-l10n-id="whimsy-look-always-full-url" preference="whimsy.urlbar.always-full-url"/>
   </groupbox>
 </html:template>
 
@@ -89,6 +105,15 @@
       <html:moz-fieldset data-l10n-id="whimsy-strip-tracking-header" headinglevel="3"
                          iconsrc="chrome://global/skin/icons/link.svg">
         <html:moz-checkbox id="whimsyStripTracking" data-l10n-id="whimsy-strip-tracking-toggle"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
+  <!-- batch9p: Scratch and private tabs -->
+  <html:div id="whimsyPrivateGroup" data-category="panePrivacy" data-whimsy-feature="scratch" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-private-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/private-window.svg">
+        <html:moz-checkbox id="whimsyPrivateInWindow" data-l10n-id="whimsy-private-in-window"/>
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
@@ -174,5 +199,109 @@
         </menupopup>
       </menulist>
     </hbox>
+    <!-- batch6: split view extras -->
+    <checkbox id="whimsySplitLinkShiftClick" data-whimsy-feature="split-link-click"
+              data-l10n-id="whimsy-split-shift-click" preference="whimsy.splitlink.shift-click"/>
+    <!-- batch6: command bar "New Note" target -->
+    <hbox align="center" data-whimsy-feature="command-bar-create">
+      <label id="whimsyNewNoteTargetLabel" control="whimsyNewNoteTarget" data-l10n-id="whimsy-new-note-target"/>
+      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" sizetopopup="none" crop="end">
+        <menupopup>
+          <menuitem value="none" data-l10n-id="whimsy-new-note-target-none"/>
+          <menuitem value="notion" data-l10n-id="whimsy-new-note-target-notion"/>
+          <menuitem value="google-docs" data-l10n-id="whimsy-new-note-target-google-docs"/>
+          <menuitem value="word" data-l10n-id="whimsy-new-note-target-word"/>
+        </menupopup>
+      </menulist>
+    </hbox>
+    <!-- batch8: tab lifecycle -->
+    <checkbox id="whimsyAutoArchiveTabs" data-whimsy-feature="auto-archive-tabs"
+              data-l10n-id="whimsy-tabs-auto-archive" preference="whimsy.feature.auto-archive-tabs"/>
+    <hbox align="center" data-whimsy-feature="auto-archive-tabs">
+      <label id="whimsyArchiveIdleAfterLabel" control="whimsyArchiveIdleAfter" data-l10n-id="whimsy-tabs-archive-idle-after"/>
+      <menulist id="whimsyArchiveIdleAfter" preference="whimsy.tabs.archive.idle-after" data-pref-type="string">
+        <menupopup>
+          <menuitem value="12h" data-l10n-id="whimsy-tabs-archive-idle-after-12h"/>
+          <menuitem value="24h" data-l10n-id="whimsy-tabs-archive-idle-after-24h"/>
+          <menuitem value="7d" data-l10n-id="whimsy-tabs-archive-idle-after-7d"/>
+          <menuitem value="30d" data-l10n-id="whimsy-tabs-archive-idle-after-30d"/>
+          <menuitem value="never" data-l10n-id="whimsy-tabs-archive-idle-after-never"/>
+        </menupopup>
+      </menulist>
+    </hbox>
+    <checkbox id="whimsyArchiveView" data-whimsy-feature="archive-view"
+              data-l10n-id="whimsy-tabs-archive-view" preference="whimsy.feature.archive-view"/>
+    <checkbox id="whimsyUndoTabActions" data-whimsy-feature="undo-tab-actions"
+              data-l10n-id="whimsy-tabs-undo" preference="whimsy.feature.undo-tab-actions"/>
+    <checkbox id="whimsySnoozeTab" data-whimsy-feature="snooze-tab"
+              data-l10n-id="whimsy-tabs-snooze" preference="whimsy.feature.snooze-tab"/>
+    <checkbox id="whimsyFireButton" data-whimsy-feature="fire-button"
+              data-l10n-id="whimsy-tabs-fire-button" preference="whimsy.feature.fire-button"/>
+    <checkbox id="whimsyHeavyTabs" data-whimsy-feature="heavy-tabs"
+              data-l10n-id="whimsy-tabs-heavy-tabs" preference="whimsy.feature.heavy-tabs"/>
+    <checkbox id="whimsyTreeTabs" data-whimsy-feature="tree-tabs"
+              data-l10n-id="whimsy-tabs-tree-tabs" preference="whimsy.feature.tree-tabs"/>
+    <vbox class="indent" data-whimsy-feature="tree-tabs">
+      <radiogroup id="whimsyTreeStyle" preference="whimsy.tabs.tree-style" data-pref-type="string">
+        <radio value="tree" data-l10n-id="whimsy-tabs-tree-style-tree"/>
+        <radio value="islands" data-l10n-id="whimsy-tabs-tree-style-islands"/>
+      </radiogroup>
+    </vbox>
+  </groupbox>
+</html:template>
+
+# batch9: spaces — Settings → Tab Management → Spaces. Two rows point to
+# Zen's own features under Arc's names instead of duplicating their logic:
+# the per-space manager (Library → Spaces: reorder, rename, recolor,
+# delete) and space-routing rules (Air Traffic Control: send a link to a
+# space automatically when it matches a rule). The third is Whimsy's own:
+# spaces hidden with "Hide This Space" (workspace context menu) stay out of
+# the switcher without losing their tabs; restore them here.
+<html:template id="template-whimsySpaces" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsySpacesGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-spaces-header"/></label>
+    <hbox align="center" class="whimsy-spaces-row" data-whimsy-feature="space-manager-settings">
+      <vbox flex="1">
+        <label data-l10n-id="whimsy-spaces-manager-label"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-spaces-manager-description"/>
+      </vbox>
+      <button id="whimsySpacesManagerButton" data-l10n-id="whimsy-spaces-manager-button"/>
+    </hbox>
+    <hbox align="center" class="whimsy-spaces-row" data-whimsy-feature="atc-settings">
+      <vbox flex="1">
+        <label data-l10n-id="whimsy-atc-label"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-atc-description"/>
+      </vbox>
+      <button id="whimsyAtcButton" data-l10n-id="whimsy-atc-button"/>
+    </hbox>
+    <vbox class="whimsy-spaces-row" data-whimsy-feature="archive-space">
+      <label><html:h3 data-l10n-id="whimsy-hidden-spaces-header"/></label>
+      <description class="description-deemphasized" id="whimsyHiddenSpacesEmpty" data-l10n-id="whimsy-hidden-spaces-empty"/>
+      <html:div id="whimsyHiddenSpacesList"/>
+    </vbox>
+    <!-- batch7: keep the window when the last tab closes (Arc); Zen already
+         sets the pref false, this exposes it -->
+    <checkbox id="whimsyCloseWindowWithLastTab" data-whimsy-feature="window-close"
+              data-l10n-id="whimsy-tabs-close-window-with-last-tab" preference="browser.tabs.closeWindowWithLastTab"/>
+    <!-- batch7: Dock icon badge (download count) -->
+    <checkbox id="whimsyDockBadge" data-whimsy-feature="dock-badge"
+              data-l10n-id="whimsy-downloads-dock-badge" preference="whimsy.downloads.dock-badge"/>
+    <!-- batch7: Quick Look on finished downloads -->
+    <checkbox id="whimsyQuickLook" data-whimsy-feature="quick-look"
+              data-l10n-id="whimsy-downloads-quicklook" preference="whimsy.feature.quick-look"/>
+  </groupbox>
+</html:template>
+
+# batch7: Settings → General → Performance, after Firefox's own Performance
+# group (groupid="performance").
+<html:template id="template-whimsyPerformance" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyPerformanceGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-performance-header"/></label>
+    <checkbox id="whimsyHardwareVideoDecoding" data-whimsy-feature="hardware-video-decoding"
+              data-l10n-id="whimsy-performance-hw-decode" preference="media.hardware-video-decoding.enabled"/>
+    <html:div id="whimsyHwDecodeRestart" class="whimsy-updates-detail" hidden="hidden">
+      <html:span data-l10n-id="whimsy-performance-restart-note"/>
+      <button id="whimsyHwDecodeRestartButton" data-l10n-id="whimsy-performance-restart-button"/>
+    </html:div>
   </groupbox>
 </html:template>

@@ -567,3 +567,311 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 @media (prefers-reduced-motion: reduce) {
   #whimsy-reading-time { animation: none; }
 }
+
+/* batch8: tab lifecycle */
+
+/* Tree tabs: indentation per depth, a branch-line marker on parents, and
+   Islands mode's colored pill (one level, flattened). */
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="1"] { margin-inline-start: 14px; }
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="2"] { margin-inline-start: 28px; }
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="3"] { margin-inline-start: 42px; }
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="4"] { margin-inline-start: 56px; }
+:root[whimsy-tree-tabs] .tabbrowser-tab[whimsy-tree-has-children] .tab-icon-stack {
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
+}
+:root[whimsy-tree-tabs="islands"] .tabbrowser-tab[whimsy-tree-depth="1"] {
+  border-inline-start: 3px solid var(--whimsy-tree-color, currentColor);
+  margin-inline-start: 6px;
+}
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="1"],
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="2"],
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="3"],
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="4"] {
+  border-inline-start: 2px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+/* Archive view panel */
+.whimsy-archive-panel { padding: 8px; max-width: 320px; }
+.whimsy-archive-search { width: 100%; margin-bottom: 6px; box-sizing: border-box; }
+.whimsy-archive-list { max-height: 360px; overflow-y: auto; }
+.whimsy-archive-day { opacity: 0.6; font-size: 0.82em; margin-top: 6px; }
+.whimsy-archive-row { padding: 4px 2px; gap: 6px; border-radius: 4px; }
+.whimsy-archive-row:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.whimsy-archive-title { flex: 1; }
+.whimsy-archive-icon { width: 16px; height: 16px; }
+.whimsy-archive-empty { opacity: 0.6; padding: 12px 4px; text-align: center; }
+
+/* Snooze presets popover */
+#whimsySnoozePanel { padding: 4px; }
+.whimsy-snooze-preset { justify-content: flex-start; width: 100%; }
+
+/* Fire button: scope popover + a brief full-chrome flame flash. */
+#whimsyFirePanel { padding: 4px; }
+.whimsy-fire-scope { justify-content: flex-start; width: 100%; }
+:root[whimsy-fire-burning]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, orangered 55%, transparent) 0%, transparent 70%);
+  animation: whimsy-fire-flash 700ms ease-out;
+}
+@keyframes whimsy-fire-flash {
+  from { opacity: 0.9; }
+  to { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[whimsy-fire-burning]::after {
+    animation: none;
+    opacity: 0.35;
+    background: color-mix(in srgb, currentColor 20%, transparent);
+  }
+}
+
+/* Heavy tabs popover */
+#whimsyHeavyTabsPanel { padding: 6px; min-width: 260px; }
+.whimsy-heavy-tabs-group { justify-content: space-between; padding: 4px 2px; opacity: 0.7; font-size: 0.85em; }
+.whimsy-heavy-tabs-row { padding: 3px 2px; gap: 6px; }
+.whimsy-heavy-tabs-title { flex: 1; }
+.whimsy-heavy-tabs-icon { width: 16px; height: 16px; }
+/* batch9: spaces — a small lock glyph on a locked space's switcher icon. */
+#zen-workspaces-button toolbarbutton[whimsy-locked-space] {
+  position: relative;
+}
+#zen-workspaces-button toolbarbutton[whimsy-locked-space]::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: -2px;
+  inset-block-end: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 100%;
+  background: color-mix(in srgb, currentColor 70%, transparent);
+  -moz-context-properties: fill;
+  fill: currentColor;
+  background-image: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg");
+  background-size: 7px;
+  background-position: center;
+  background-repeat: no-repeat;
+/* batch9p: Scratch and private tabs (WhimsyPrivate.sys.mjs). A private tab
+   in a normal window gets a violet wash, a violet ring and the private
+   icon before its favicon; while one is selected the address bar gets the
+   ring too. Scratch's space name gets the private window's violet badge and
+   its switcher icon a dashed violet ring. */
+:root {
+  --whimsy-private-tab-accent: rgb(152, 110, 255);
+}
+
+.tabbrowser-tab[whimsy-private] {
+  & .tab-background {
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--whimsy-private-tab-accent) 18%, transparent),
+      color-mix(in srgb, var(--whimsy-private-tab-accent) 18%, transparent)
+    ) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-private-tab-accent) 55%, transparent) !important;
+  }
+
+  &:is([selected], [visuallyselected]) .tab-background {
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--whimsy-private-tab-accent) 30%, transparent),
+      color-mix(in srgb, var(--whimsy-private-tab-accent) 30%, transparent)
+    ) !important;
+  }
+
+  & .tab-content::before {
+    content: "";
+    flex: none;
+    width: 12px;
+    height: 12px;
+    margin-inline-end: 6px;
+    background-color: var(--whimsy-private-tab-accent);
+    mask: url("chrome://browser/skin/zen-icons/private-window-small.svg") center / contain no-repeat;
+  }
+}
+
+/* Collapsed sidebar: the wash and ring are enough. */
+:root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[whimsy-private] .tab-content::before {
+  display: none;
+}
+
+:root[whimsy-private-tab] #urlbar > .urlbar-background {
+  box-shadow: inset 0 0 0 1.5px var(--whimsy-private-tab-accent) !important;
+}
+
+zen-workspace[whimsy-scratch] .zen-current-workspace-indicator-name {
+  flex: 0 1 auto !important;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--whimsy-private-tab-accent) 32%, transparent);
+  color: white;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+zen-workspace[whimsy-scratch] .zen-current-workspace-indicator-icon {
+  fill: var(--whimsy-private-tab-accent) !important;
+}
+
+toolbarbutton[zen-workspace-id][whimsy-scratch] {
+  outline: 1.5px dashed var(--whimsy-private-tab-accent);
+  outline-offset: -1px;
+  animation: whimsy-scratch-in 200ms ease-out;
+}
+
+@keyframes whimsy-scratch-in {
+  from { opacity: 0; transform: scale(0.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  toolbarbutton[zen-workspace-id][whimsy-scratch] { animation: none; }
+/* batch12: Little Arc (quick window, whimsy.feature.quick-window). Hides
+   the whole vertical sidebar (tabs, spaces, pinned) so just the nav bar
+   above the content and the "Move to space" button are left. */
+:root[whimsy-quick-window] {
+  & #navigator-toolbox,
+  & #zen-sidebar-splitter {
+    display: none !important;
+  }
+}
+
+#whimsy-quick-window-move-to-space {
+  margin-inline-start: auto;
+/* batch7: Seasonal themes. A gentle accent tint plus one CSS flourish layer
+   over the content area; never touches a space's own colours. */
+:root[whimsy-season="halloween"] {
+  --whimsy-season-tint: #ff8a3d;
+}
+:root[whimsy-season="winter"] {
+  --whimsy-season-tint: #7fd6ff;
+}
+:root[whimsy-season="spring"] {
+  --whimsy-season-tint: #ffb6d9;
+}
+:root[whimsy-season] #tabbrowser-tabbox {
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--whimsy-season-tint) 55%, transparent);
+}
+:root[whimsy-season-flourish] #zen-appcontent-wrapper {
+  position: relative;
+}
+:root[whimsy-season-flourish] #zen-appcontent-wrapper::after {
+  content: "";
+  position: absolute;
+  inset: -10% 0 auto 0;
+  height: 110%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.4;
+  background-image: radial-gradient(circle, var(--whimsy-season-tint) 0 2px, transparent 3px);
+  background-size: 48px 64px;
+  animation: whimsy-season-fall 9s linear infinite;
+}
+@keyframes whimsy-season-fall {
+  from { transform: translateY(-20%); }
+  to { transform: translateY(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[whimsy-season-flourish] #zen-appcontent-wrapper::after { animation: none; }
+}
+
+/* batch7: keyboard sidebar navigation's visible focus ring. */
+tab[whimsy-sidebar-focused] {
+  outline: 2px solid var(--zen-primary-color, AccentColor);
+  outline-offset: -2px;
+  border-radius: var(--zen-border-radius, 6px);
+}
+
+/* batch7: shortcut cheat sheet. */
+panel.whimsy-cheatsheet {
+  width: 360px;
+  max-height: 420px;
+  padding: 12px;
+  animation: whimsy-cheatsheet-in 140ms ease-out;
+}
+panel.whimsy-cheatsheet > input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.whimsy-cheatsheet-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.whimsy-cheatsheet-row {
+  justify-content: space-between;
+  padding: 4px 2px;
+}
+.whimsy-cheatsheet-key {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-cheatsheet-edit {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+@keyframes whimsy-cheatsheet-in {
+  from { opacity: 0; transform: scale(0.96); }
+}
+@media (prefers-reduced-motion: reduce) {
+  panel.whimsy-cheatsheet { animation: none; }
+}
+
+/* batch7: inbox-zero balloons. */
+#zen-appcontent-wrapper {
+  position: relative;
+}
+.whimsy-balloons {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+.whimsy-balloon {
+  position: absolute;
+  bottom: -40px;
+  left: var(--whimsy-balloon-x, 50%);
+  width: 26px;
+  height: 34px;
+  border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+  background: linear-gradient(160deg, hsl(var(--whimsy-balloon-hue, 280) 85% 70%), hsl(calc(var(--whimsy-balloon-hue, 280) + 40) 85% 55%));
+  opacity: 0.9;
+  animation: whimsy-balloon-rise 2.3s ease-in forwards;
+  animation-delay: var(--whimsy-balloon-delay, 0ms);
+}
+@keyframes whimsy-balloon-rise {
+  from { transform: translateY(0) translateX(0); opacity: 0.95; }
+  to { transform: translateY(-120vh) translateX(12px); opacity: 0; }
+}
+
+/* batch7: developer mode tabs (Arc parity). */
+tab[whimsy-devmode][selected] {
+  outline: 2px dashed;
+  outline-offset: -2px;
+  outline-color: #f5d90a;
+  border-radius: var(--zen-border-radius, 6px);
+}
+#whimsy-devmode-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 0.85em;
+  background: color-mix(in srgb, #f5d90a 16%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, #f5d90a 45%, transparent);
+}
+.whimsy-devmode-url {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+.whimsy-devmode-button {
+  font-size: 0.85em;
+}

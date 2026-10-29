@@ -69,6 +69,41 @@ whimsy-live-folder-github-option-my-review-requests =
 whimsy-live-folder-github-option-team-review-requests =
     .label = Team Review Requests
 
+## batch11: Jira live folder (assigned, unresolved issues).
+
+whimsy-live-folder-jira-create =
+    .label = Jira Issues
+whimsy-live-folder-jira-option-site =
+    .label = Jira Site
+whimsy-live-folder-jira-option-jql =
+    .label = JQL Query
+whimsy-live-folder-jira-prompt-site = Enter your Jira site (for example your-team.atlassian.net)
+whimsy-live-folder-jira-prompt-jql = Enter a JQL query
+whimsy-live-folder-jira-no-site =
+    .label = Jira site not set
+    .tooltiptext = Add your Jira site in the folder's options.
+whimsy-live-folder-jira-no-auth =
+    .label = Not signed in to Jira
+    .tooltiptext = Sign back in to Jira.
+
+## batch11: "Push" live-folder refresh option.
+
+whimsy-live-folder-push-interval =
+    .label = Push
+
+## linear: Linear live folder ("My Issues": assigned to you, open states).
+
+whimsy-live-folder-linear-create =
+    .label = Linear Issues
+whimsy-live-folder-linear-option-team =
+    .label = Team
+whimsy-live-folder-linear-prompt-team = Enter a team key to filter to (for example ENG), or leave blank for all your assigned issues
+whimsy-live-folder-linear-no-auth =
+    .label = Not signed in to Linear
+    .tooltiptext = Add a personal API key, or sign in to linear.app in this container.
+whimsy-live-folder-linear-apikey-title = Linear API Key
+whimsy-live-folder-linear-apikey-text = Paste a personal API key from linear.app → Settings → Security & access → Personal API keys.
+
 ## Settings → Look and Feel → Interface zoom
 
 whimsy-ui-zoom-header = Interface zoom
@@ -151,7 +186,7 @@ whimsy-external-links-glance =
 whimsy-external-links-tab =
     .label = A tab
 whimsy-external-links-quick-window =
-    .label = A quick window (coming soon; opens in a tab for now)
+    .label = A quick window
 whimsy-archive-prompt =
     .label = When a page is gone, offer the Internet Archive’s copy
 whimsy-tabs-title-lines = Tab titles show up to
@@ -277,6 +312,48 @@ whimsy-action-translate-selection = Translate Selection
 whimsy-action-split-glance = Split Glance
 whimsy-translate-none-toast = Select some text to translate
 
+## Split view (command bar; batch6)
+
+whimsy-action-close-other-panes = Close Other Panes
+whimsy-action-swap-panes = Swap Panes
+whimsy-action-split-vertically = Split Vertically
+whimsy-action-split-horizontally = Split Horizontally
+whimsy-action-split-grid = Split Grid
+whimsy-split-shift-click =
+    .label = Shift+click a link to open it in a split (replaces "Open in New Window")
+
+## Command bar extras (batch6)
+
+whimsy-action-new-doc = New Google Doc
+whimsy-action-new-sheet = New Google Sheet
+whimsy-action-new-slides = New Google Slides
+whimsy-action-new-form = New Google Form
+whimsy-action-new-meet = New Google Meet
+whimsy-action-new-event = New Google Calendar Event
+whimsy-action-new-notion = New Notion Page
+whimsy-action-new-linear = New Linear Issue
+whimsy-action-new-figma = New Figma File
+whimsy-action-new-figjam = New FigJam File
+whimsy-action-new-repo = New GitHub Repo
+whimsy-action-new-gist = New GitHub Gist
+whimsy-action-new-word = New Word Document
+whimsy-action-new-excel = New Excel Workbook
+whimsy-action-new-powerpoint = New PowerPoint Presentation
+whimsy-action-new-miro = New Miro Board
+whimsy-action-new-loom = New Loom Video
+whimsy-action-new-canva = New Canva Design
+whimsy-action-new-playlist = New Spotify Playlist
+whimsy-action-new-note = New Note
+whimsy-new-note-target = New Note opens
+whimsy-new-note-target-none =
+    .label = Nothing (hide New Note)
+whimsy-new-note-target-notion =
+    .label = Notion
+whimsy-new-note-target-google-docs =
+    .label = Google Docs
+whimsy-new-note-target-word =
+    .label = Word
+
 ## Reading time (address bar, next to the Reader View button)
 
 # $minutes (number) - estimated minutes to read the article
@@ -337,3 +414,328 @@ whimsy-look-peek-essential-links =
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
+
+## batch8: tab lifecycle — Settings → Tab Management
+
+whimsy-tabs-auto-archive =
+    .label = Auto-archive idle tabs
+whimsy-tabs-archive-idle-after = After
+whimsy-tabs-archive-idle-after-12h =
+    .label = 12 hours
+whimsy-tabs-archive-idle-after-24h =
+    .label = 24 hours
+whimsy-tabs-archive-idle-after-7d =
+    .label = 7 days
+whimsy-tabs-archive-idle-after-30d =
+    .label = 30 days
+whimsy-tabs-archive-idle-after-never =
+    .label = Never
+whimsy-tabs-archive-view =
+    .label = Archive view (command bar: “Show Archive”)
+whimsy-tabs-undo =
+    .label = Undo for tab actions (Cmd+Z)
+whimsy-tabs-snooze =
+    .label = Snooze a tab (tab menu → Snooze…)
+whimsy-tabs-fire-button =
+    .label = Fire button (command bar: “Fire Button”)
+whimsy-tabs-heavy-tabs =
+    .label = Find heavy tabs (command bar: “Find Heavy Tabs”)
+whimsy-tabs-tree-tabs =
+    .label = Tree-style tabs: nest a tab under whichever tab opened it
+whimsy-tabs-tree-style-tree =
+    .label = Tree (indented, collapsible branches)
+whimsy-tabs-tree-style-islands =
+    .label = Islands (one level, colored pill)
+
+## batch8: tab lifecycle — command bar
+
+whimsy-action-show-archive = Show Archive
+whimsy-action-fire-button = Fire Button
+whimsy-action-heavy-tabs = Find Heavy Tabs
+
+## batch8: tab lifecycle — Archive view panel
+
+whimsy-archive-panel =
+    .aria-label = Archive
+whimsy-archive-search =
+    .placeholder = Search the archive
+    .aria-label = Search the archive
+whimsy-archive-empty =
+    .value = Nothing archived yet
+whimsy-archive-restore =
+    .tooltiptext = Restore, back where it was
+
+## batch8: tab lifecycle — Snooze a tab
+
+tab-context-whimsy-snooze =
+    .label = Snooze…
+    .accesskey = z
+whimsy-snooze-panel =
+    .aria-label = Snooze tab
+whimsy-snooze-later-today = Later today
+whimsy-snooze-tomorrow = Tomorrow morning
+whimsy-snooze-next-week = Next week
+# $title (string) - the snoozed tab's title
+whimsy-snooze-toast = Snoozed “{ $title }”
+# $title (string) - the tab's title
+whimsy-snooze-wake-toast = “{ $title }” is back
+
+## batch8: tab lifecycle — Fire button
+
+whimsy-fire-panel =
+    .aria-label = Fire button
+whimsy-fire-site = This Site
+whimsy-fire-last-15-min = Last 15 Minutes
+whimsy-fire-space = This Space
+whimsy-fire-everything = Everything
+
+## batch8: tab lifecycle — Find heavy tabs
+
+whimsy-heavy-tabs-panel =
+    .aria-label = Heavy tabs
+whimsy-heavy-tabs-close-tab =
+    .tooltiptext = Close this tab
+## Settings → Tab Management → Spaces — batch9: spaces
+
+whimsy-spaces-header = Spaces
+
+whimsy-spaces-manager-label = Space manager
+whimsy-spaces-manager-description = Reorder, rename, recolor or delete any space from one list (Library → Spaces).
+whimsy-spaces-manager-button =
+    .label = Open Space Manager…
+
+whimsy-atc-label = Air Traffic Control
+whimsy-atc-description = Send links to a space automatically when they match a rule, like Arc.
+whimsy-atc-button =
+    .label = Manage rules…
+
+whimsy-hidden-spaces-header = Hidden spaces
+whimsy-hidden-spaces-empty = No spaces are hidden. Hide one from its context menu in the space switcher.
+whimsy-restore-space-button =
+    .label = Restore
+
+## Archive (hide) a space — batch9: spaces
+
+whimsy-hide-space =
+    .label = Hide This Space
+# $space (string) - the space's name
+whimsy-hide-space-toast = Hid “{ $space }” — restore it from Settings → Tab Management
+whimsy-hide-space-last-toast = Can’t hide your only space
+# $space (string) - the space's name
+whimsy-restore-space-toast = Restored “{ $space }”
+
+## Lock a space — batch9: spaces
+
+whimsy-lock-space =
+    .label = Lock This Space
+whimsy-unlock-space =
+    .label = Unlock This Space
+# $space (string) - the space's name
+whimsy-lock-space-toast = Locked “{ $space }” — switching there will ask for Touch ID or your password
+# $space (string) - the space's name
+whimsy-unlock-space-toast = Unlocked “{ $space }”
+## batch9p: Scratch (a temporary private space) and private tabs
+
+whimsy-scratch-name = Scratch
+# What Scratch is called once kept as a normal space.
+whimsy-scratch-kept-name = Space
+whimsy-menu-new-scratch =
+    .label = New Scratch Space
+whimsy-menu-new-private-tab =
+    .label = New Private Tab
+whimsy-scratch-keep =
+    .label = Keep as Space
+whimsy-scratch-close =
+    .label = Close Scratch
+whimsy-action-new-private-tab = New Private Tab
+whimsy-action-new-scratch = New Scratch Space
+whimsy-action-keep-scratch = Keep Scratch as a Space
+whimsy-action-close-scratch = Close Scratch
+whimsy-private-tab-no-pin = Private tabs can’t be pinned
+whimsy-scratch-kept-toast =
+    { $count ->
+        [0] Scratch is now a space
+       *[other] Scratch is now a space. Its pages reopened outside private browsing.
+    }
+whimsy-private-header =
+    .label = Private browsing
+whimsy-private-in-window =
+    .label = Browse privately inside this window
+    .description = { -brand-short-name } opens Scratch, a temporary private space, with ⌘⇧N, and a private tab in the current space with ⌥⌘T. Private tabs keep no history and forget their cookies when the last one closes. Turn this off to use private windows instead.
+## batch10: Library sidebar panels
+
+whimsy-library-notes-enable =
+    .label = Notes: a markdown scratchpad in the sidebar
+whimsy-library-finder-folders-enable =
+    .label = Finder folders in the sidebar
+whimsy-library-screenshot-sidebar-enable =
+    .label = Screenshot to sidebar
+
+whimsy-library-notes-title = Notes
+whimsy-library-notes-empty = No notes yet
+whimsy-library-notes-search-placeholder =
+    .placeholder = Search notes…
+whimsy-library-notes-add =
+    .label = New note
+whimsy-library-notes-delete =
+    .label = Delete note
+whimsy-library-notes-title-placeholder =
+    .placeholder = Title
+whimsy-library-notes-attach = Attach to this page
+
+whimsy-library-finder-folders-title = Files
+whimsy-library-finder-folders-empty = No folders pinned yet
+whimsy-library-finder-folders-search-placeholder =
+    .placeholder = Search files…
+whimsy-library-finder-folders-add =
+    .label = Add folder
+whimsy-library-finder-folders-remove =
+    .label = Remove folder
+whimsy-library-finder-folders-picker-title = Choose a folder to pin
+
+whimsy-library-files-title = Captures
+whimsy-library-files-empty = No screenshots captured yet
+whimsy-library-files-search-placeholder =
+    .placeholder = Search captures…
+whimsy-library-files-delete =
+    .label = Delete
+## batch12: links & media windows
+
+whimsy-action-quick-window = New Quick Window
+whimsy-quick-window-move-to-space =
+    .label = Move to Space
+    .tooltiptext = Adopt this page into a tab in one of your spaces
+
+## Follower tabs (tab context menu, on a tab already in a 2-pane split)
+
+tab-context-whimsy-follow =
+    .label = Make This a Follower Split
+    .accesskey = F
+tab-context-whimsy-unfollow =
+    .label = Stop Following
+    .accesskey = F
+## batch13: page & reading
+
+## Print a clean page (command bar)
+
+whimsy-action-print-clean = Print a Clean Page
+
+## Pin or favorite a split (command bar)
+
+whimsy-action-favorite-split = Favorite This Split
+whimsy-action-open-split-favorites = Open a Favorite Split…
+whimsy-split-favorite-name-title = Favorite This Split
+whimsy-split-favorite-name-prompt = Name this split, so it's easy to find later:
+whimsy-split-favorite-saved-toast = Split saved to your favorites
+whimsy-split-favorites-empty =
+    .value = No favorite splits yet. Favorite one from the command bar.
+whimsy-split-favorite-remove =
+    .label = Remove
+    .tooltiptext = Remove this favorite
+
+## Bionic reading (Reader View toolbar button)
+
+whimsy-bionic-reading-toggle =
+    .title = Bionic reading: bolds the start of each word
+
+## Menu bar extra (macOS status bar icon)
+
+whimsy-menu-bar-extra-quick-window = New Quick Window
+whimsy-menu-bar-extra-no-recent-tabs =
+    .label = No Recently Closed Tabs
+
+## Settings → Look and Feel → Look: menu bar extra
+
+whimsy-look-menu-bar-extra =
+    .label = Show a menu bar icon for a quick window and recent tabs
+## batch7: Settings → Look and Feel → Look
+
+whimsy-look-seasonal-themes =
+    .label = Seasonal themes (a small accent and flourish for Halloween, winter and spring)
+
+## batch7: Settings → Tab Management
+
+whimsy-tabs-close-window-with-last-tab =
+    .label = Close the window when the last tab closes
+
+whimsy-look-always-full-url =
+    .label = Always show the full address, not just the domain
+
+## batch7: Settings → General → Performance
+
+whimsy-performance-header = Performance
+whimsy-performance-hw-decode =
+    .label = Hardware video decoding
+whimsy-performance-restart-note = Restart Whimsy to apply this change.
+whimsy-performance-restart-button =
+    .label = Restart Whimsy
+
+## batch7: Settings → Tab Management (downloads)
+
+whimsy-downloads-dock-badge =
+    .label = Show a badge with the number of downloads in progress on the Dock icon
+whimsy-downloads-quicklook =
+    .label = Quick Look finished downloads (Space, or from the context menu)
+
+## batch7: Quick Look
+
+whimsy-quicklook-menuitem =
+    .label = Quick Look
+whimsy-quicklook-missing-toast = Item removed
+
+## batch7: shortcut cheat sheet (Cmd+/)
+
+whimsy-action-cheatsheet = Keyboard Shortcuts
+whimsy-cheatsheet-search =
+    .placeholder = Search shortcuts
+whimsy-cheatsheet-edit = Edit all shortcuts…
+whimsy-cheatsheet-duplicate-tab = Duplicate Tab
+whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
+whimsy-cheatsheet-tab-next = Next Tab in Sidebar
+whimsy-cheatsheet-tab-prev = Previous Tab in Sidebar
+whimsy-cheatsheet-focus-sidebar = Focus Sidebar
+whimsy-cheatsheet-self = Shortcut Cheat Sheet
+
+## batch7: inbox-zero balloons
+
+whimsy-inbox-zero-toast = Inbox zero
+
+## batch7: per-site user agent ("Pretend to be...")
+
+whimsy-action-useragent = Pretend to be…
+whimsy-useragent-default =
+    .label = Default (Whimsy)
+whimsy-useragent-chrome =
+    .label = Chrome (macOS)
+whimsy-useragent-safari-mac =
+    .label = Safari (macOS)
+whimsy-useragent-safari-iphone =
+    .label = Safari (iPhone)
+
+## batch7: cookie editor
+
+whimsy-action-cookie-editor = Cookies
+whimsy-cookie-editor-add =
+    .label = Add
+whimsy-cookie-editor-copy-all =
+    .label = Copy All as JSON
+whimsy-cookie-editor-delete =
+    .label = Delete
+whimsy-cookie-editor-copied-toast = Cookies copied
+
+## batch7: upload from the clipboard
+
+whimsy-upload-clipboard =
+    .label = Clipboard image
+whimsy-upload-choose-file =
+    .label = Choose file…
+
+## batch7: developer mode tabs
+
+whimsy-action-devmode-toggle = Turn on/off Developer Mode for this site
+whimsy-devmode-elements =
+    .label = Elements
+whimsy-devmode-console =
+    .label = Console
+whimsy-devmode-network =
+    .label = Network

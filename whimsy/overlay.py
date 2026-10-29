@@ -192,6 +192,114 @@ FEATURES = [
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    # batch8: tab lifecycle (archive, undo, snooze, tree tabs, fire button, heavy tabs)
+    {"id": "auto-archive-tabs", "title": "Auto-archive idle unpinned tabs after a quiet period (Arc)",
+     "detect": [("prefs", r"name:\s*zen\.tabs\.(auto-?archive|idle-?close)"),
+                ("src/zen", r"(?i)auto-?archive-?tabs|archiveIdleTabs")]},
+    {"id": "archive-view", "title": "Archive view: a searchable, by-day list of closed/archived tabs with restore",
+     "detect": [("src/zen", r"(?i)zen-?archive-?view|ZenArchiveView")]},
+    {"id": "undo-tab-actions", "title": "Cmd+Z undoes the last tab action (close, move, pin), not just closing one tab",
+     "detect": [("src/zen", r"(?i)zen-?tab-?undo|ZenTabUndoManager")]},
+    {"id": "snooze-tab", "title": "Snooze a tab: closes it now, reopens at a chosen time (SigmaOS, Edge)",
+     "detect": [("src/zen", r"(?i)snooze-?tab|ZenSnoozeManager")]},
+    {"id": "tree-tabs", "title": "Tree-style tabs with an Islands mode: nest a tab under whichever tab opened it",
+     "default": False,  # Build-plan answer: off by default.
+     "detect": [("src/zen", r"(?i)zen-?tree-?tabs|ZenTreeTabs|zen-?tab-?islands")]},
+    {"id": "fire-button", "title": "Fire button: a one-click data-clearing popover (DuckDuckGo), scoped to site/15 min/space/everything",
+     "detect": [("src/zen", r"(?i)fire-?button|ZenFireButton")]},
+    {"id": "heavy-tabs", "title": "Find heavy tabs: the tabs using the most memory/CPU, with a close button (Opera GX)",
+     "detect": [("src/zen", r"(?i)heavy-?tabs|hot-?tabs-?killer|ZenHeavyTabs")]},
+    # batch6: split view extras.
+    {"id": "split-link-click", "title": "Shift+click a link opens it in a split (Arc parity, PR#15241)",
+     "detect": [("src/zen/split-view", r"(?i)shift.*click.*split|modifier.*click.*split")]},
+    {"id": "split-close-other-panes", "title": "\"Close Other Panes\" in the command bar",
+     "detect": [("src/zen/split-view", r"cmd_zen[\w]*CloseOther")]},
+    {"id": "split-swap-panes", "title": "\"Swap Panes\" in the command bar",
+     "detect": [("src/zen/split-view", r"cmd_zen[\w]*SwapPanes|swapPanes\(")]},
+    {"id": "split-command-bar", "title": "Split Vertically/Horizontally/Grid in the command bar",
+     "detect": [("src/zen/urlbar", r"zen-action-split-(vertically|horizontally|grid)")]},
+    {"id": "command-bar-slash", "title": "Typing \"/\" in the URL bar enters Zen's commands mode",
+     "detect": [("src/zen/urlbar", r'ZEN_ACTIONS[\s\S]{0,400}["\']/["\']|["\']/["\'][\s\S]{0,200}enableCommandsMode')]},
+    {"id": "command-bar-create", "title": "Arc-style \"New ...\" actions (docs.new etc.) in the command bar",
+     "detect": [("src/zen/urlbar", r"docs\.new|zen-action-new-doc")]},
+    # batch9: spaces
+    {"id": "space-manager-settings", "title": "Settings entry point for Zen's existing per-space manager (Library \"Spaces\")",
+     "detect": [("src/browser/components/preferences", r"(?i)space\s*manager")]},
+    {"id": "atc-settings", "title": "Settings entry point renaming Zen's space-routing rules to Arc's Air Traffic Control",
+     "detect": [("src/zen", r"(?i)air traffic control")]},
+    {"id": "archive-space", "title": "Hide a space (Arc's archive/shelve): drops out of the switcher without closing its tabs; restore from Settings",
+     "detect": [("src/zen/spaces", r"(?i)archiveWorkspace|hideWorkspace|workspace\.hidden\b")]},
+    {"id": "space-lock", "title": "Lock a space behind Touch ID/password (OSKeyStore) before switching to it",
+     "detect": [("src/zen/spaces", r"(?i)OSKeyStore|lockWorkspace|workspace\.locked\b")]},
+    # batch9p: Scratch and private tabs
+    {"id": "scratch", "title": "Scratch (temporary private space, Cmd+Shift+N) and private tabs (Cmd+Option+T)",
+     "detect": [("src/zen", r"(?i)zen[\w.-]*private[\w.-]*tab|mozprivatebrowsing|zen[\w.-]*scratch")]},
+    # batch10: Library sidebar panels.
+    {"id": "notes", "title": "Notes: a markdown scratchpad in the Library sidebar, optionally attached to a page",
+     "detect": [("src/zen/library", r"(?i)whimsy-library-notes|WhimsyNotesSection")]},
+    {"id": "finder-folders", "title": "Finder folders in the sidebar: pin a folder, browse it without leaving the browser",
+     "detect": [("src/zen/library", r"(?i)whimsy-library-finder-folders|WhimsyFinderFoldersSection")]},
+    {"id": "screenshot-sidebar", "title": "Screenshot to sidebar: captures also land as files in the Library, not just the clipboard",
+     "detect": [("src/zen/library", r"(?i)whimsy-library-files|WhimsyFilesSection")]},
+    # batch12: links & media windows
+    {"id": "quick-window", "title": "Little Arc: a quick window (Cmd+Opt+N; links from other apps, per the setting above) with a \"Move to space\" button",
+     "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    {"id": "follower-tabs", "title": "Follower tabs: a 2-pane split where clicked links land in the other pane, the source pane never navigates (Vivaldi)",
+     "detect": [("src/zen", r"(?i)follower-?tabs?|follower-?split")]},
+    # batch13: page & reading (split favorites, bionic reading, print a clean page, menu bar extra)
+    {"id": "split-favorites", "title": "Pin or favorite a split (reopen it with one click)",
+     "detect": [("src/zen", r"(?i)favorite[\w.-]*split|split[\w.-]*favorite")]},
+    {"id": "bionic-reading", "title": "Bionic (guided) reading in Reader View",
+     "detect": [("src/zen", r"(?i)bionic[\w.-]*read")]},
+    {"id": "print-clean", "title": "Print a clean page (Reader View, then print, leaving the tab alone)",
+     "detect": [("src/zen", r"(?i)print[\w.-]*clean[\w.-]*page")]},
+    {"id": "menu-bar-extra", "title": "Menu bar extra (macOS): quick window and recent tabs",
+     "detect": [("src/zen", r"(?i)menu[\w.-]*bar[\w.-]*extra|systemstatusbar")]},
+    # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    {"id": "live-folders-jira", "title": "Jira live folder: assigned, unresolved issues as a self-updating folder",
+     "detect": [("src/zen/live-folders", r"(?i)jira")]},
+    {"id": "live-folders-push", "title": "\"Push\" live-folder refresh option (1-minute conditional checks)",
+     "detect": [("src/zen/live-folders", r"(?i)if-none-match|etag")]},
+    {"id": "live-folders-rss-autodiscover", "title": "RSS: autodiscover a page's feed when the URL given isn't one",
+     "detect": [("src/zen/live-folders", r"(?i)rel=.alternate.*(?:rss|atom)|autodiscover")]},
+
+    # batch7: input, files, nav, dev, URL schemes, delight
+    {"id": "seasonal-themes", "title": "Seasonal themes: a gentle accent tint and flourish for Halloween, winter holidays and spring",
+     # Firefox's old Colorways never shipped in this engine; this never matches.
+     "detect": [("prefs", r"name:\s*browser\.theme\.colorways\.enabled")]},
+    {"id": "window-close", "title": "Cmd+W on a lone empty tab closes the window (Arc); Zen already keeps the window open otherwise",
+     "detect": [("src/zen", r"(?i)zen-empty-tab[^\n]*cmd_close|cmd_close[^\n]*zen-empty-tab")]},
+    {"id": "full-url-click", "title": "A single click on the address bar selects the whole untrimmed URL (Arc, Safari)",
+     "detect": [("src/zen", r"(?i)always-full-url|full-?url-?click")]},
+    {"id": "hardware-video-decoding", "title": "Settings checkbox for media.hardware-video-decoding.enabled, with a restart prompt",
+     "detect": [("src/browser/components/preferences", r"media\.hardware-video-decoding\.enabled")]},
+    {"id": "dock-badge", "title": "Dock icon badge (download count) and one bounce when a download finishes in the background",
+     # Specifically the macOS Dock tile (not Zen's own unread-downloads
+     # badge on the Library toolbar button, zen-library-badge).
+     "detect": [("src/zen", r"(?i)dock[\w-]*badge|badge[\w-]*dock|macdocksupport[^\n]*badgeText")]},
+    {"id": "quick-look", "title": "Quick Look (Space, or the context menu) on a finished download, via qlmanage",
+     "detect": [("src/zen", r"(?i)qlmanage|QLPreviewPanel")]},
+    {"id": "drag-downloads", "title": "A panel stays open while you drag a download out of it into a site",
+     "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
+    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (Cmd+Opt+S) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
+     "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
+    {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
+     "detect": [("src/zen", r"(?i)cheat-?sheet")]},
+    {"id": "inbox-zero", "title": "Inbox-zero balloons: a small celebration when a mail tab's unread count hits 0",
+     "detect": [("src/zen", r"(?i)inbox-?zero")]},
+    {"id": "site-user-agent", "title": "Per-site user agent (\"Pretend to be...\"): Chrome, Safari (macOS/iPhone) or custom, per site",
+     "detect": [("src/zen", r"(?i)pretend to be|site-?user-?agent|per-?site.*user.?agent")]},
+    {"id": "cookie-editor", "title": "Cookie editor: list, edit, add, delete and copy-as-JSON a site's cookies",
+     "detect": [("src/zen", r"(?i)cookie-?editor")]},
+    {"id": "url-schemes", "title": "whimsy://<page> in the address bar jumps to the real page (Arc parity, address-bar half only)",
+     "detect": [("src/zen", r"(?i)whimsy://|url-?schemes")]},
+    {"id": "upload-clipboard", "title": "Opera's Easy Files: clicking an upload button offers the clipboard image, recent downloads, or the native picker",
+     "detect": [("src/zen", r"(?i)mozSetFileArray|easy-?files|upload-?clipboard")]},
+    {"id": "dev-mode", "title": "Developer mode tabs (Arc parity): localhost/port tabs get a striped outline and a top bar with Console/Network/Elements",
+     "detect": [("src/zen", r"(?i)dev-?mode[\w-]*tab|whimsy-devmode")]},
+    # linear: Linear live folder ("My Issues": assigned to you, open states).
+    {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
+     "detect": [("src/zen/live-folders", r"(?i)linear")]},
 ]
 
 
@@ -418,7 +526,11 @@ def write_generated(report, dry, superseded):
     for feature in FEATURES:
         s = gone.get(feature["id"])
         note = f"  # Zen ships this itself: {s['found_in']}" if s else ""
-        prefs += f"\n- name: whimsy.feature.{feature['id']}\n  value: {'false' if s else 'true'}{note}\n"
+        # batch8: a FEATURES entry can opt into shipping off by default
+        # ("default": False, e.g. tree-tabs) without that meaning "superseded
+        # by Zen" (which also writes false, but with a different note).
+        on = not s and feature.get("default", True)
+        prefs += f"\n- name: whimsy.feature.{feature['id']}\n  value: {'true' if on else 'false'}{note}\n"
     if "ctrl-tab" not in gone:
         prefs += "\n# Arc-style Ctrl+Tab: recently used order.\n- name: browser.ctrlTab.sortByRecentlyUsed\n  value: true\n"
     if "new-tab-position" not in gone:

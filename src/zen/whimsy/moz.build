@@ -6,6 +6,7 @@ EXTRA_JS_MODULES.whimsy += [
     "Whimsy.sys.mjs",
     "WhimsyAI.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
+    "WhimsyCommandBar.sys.mjs",
     "WhimsyCookieBanners.sys.mjs",
     "WhimsyCopy.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
@@ -19,12 +20,65 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyShortcuts.sys.mjs",
     "WhimsySpaces.sys.mjs",
     "WhimsyStartup.sys.mjs",
+    "WhimsySplit.sys.mjs",
     "WhimsyTabs.sys.mjs",
     "WhimsyUpdates.sys.mjs",
+    # batch8: tab lifecycle
+    "WhimsyArchive.sys.mjs",
+    "WhimsyFireButton.sys.mjs",
+    "WhimsyHeavyTabs.sys.mjs",
+    "WhimsySnooze.sys.mjs",
+    "WhimsyTreeTabs.sys.mjs",
+    "WhimsyUndo.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [
     "components.conf",
+]
+
+# batch9: spaces
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsySpaceArchive.sys.mjs",
+    "WhimsySpaceLock.sys.mjs",
+]
+
+# batch9p: Scratch and private tabs
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyPrivate.sys.mjs",
+    # batch10: Library sidebar panels (Notes, Finder folders, Screenshot to sidebar).
+    "WhimsyFilesSection.sys.mjs",
+    "WhimsyFinderFoldersSection.sys.mjs",
+    "WhimsyLibrarySection.sys.mjs",
+    "WhimsyNotesSection.sys.mjs",
+    # batch12: links & media windows
+    "WhimsyQuickWindow.sys.mjs",
+    "WhimsyFollowerTabs.sys.mjs",
+    # batch13: page & reading
+    "WhimsyBionicReading.sys.mjs",
+    "WhimsyBionicReadingChild.sys.mjs",
+    "WhimsyMenuBarExtra.sys.mjs",
+    "WhimsyPrintClean.sys.mjs",
+    "WhimsySplitFavorites.sys.mjs",
+    # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    "WhimsyJiraLiveFolder.sys.mjs",
+    "WhimsyLiveFolders.sys.mjs",
+    # batch7: new feature modules
+    "WhimsyCheatSheet.sys.mjs",
+    "WhimsyCookieEditor.sys.mjs",
+    "WhimsyDelight.sys.mjs",
+    "WhimsyDevMode.sys.mjs",
+    "WhimsyDownloads.sys.mjs",
+    "WhimsyProtocol.sys.mjs",
+    "WhimsySeasons.sys.mjs",
+    "WhimsySidebarNav.sys.mjs",
+    "WhimsyUploadChild.sys.mjs",
+    "WhimsyUploadParent.sys.mjs",
+    "WhimsyUrlbar.sys.mjs",
+    "WhimsyUserAgent.sys.mjs",
+    "WhimsyWindowClose.sys.mjs",
+    # linear: Linear live folder ("My Issues": assigned to you, open states).
+    "WhimsyLiveFolderFetch.sys.mjs",
+    "WhimsyLinearLiveFolder.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

@@ -128,3 +128,66 @@
 # have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
 - name: whimsy.external-links.target
   value: tab
+
+# batch8: tab lifecycle
+
+# How long an unpinned, silent, unselected, non-split tab sits idle before
+# whimsy.feature.auto-archive-tabs closes it into the Archive (Settings →
+# Tab Management): "12h"/"24h"/"7d"/"30d"/"never".
+- name: whimsy.tabs.archive.idle-after
+  value: 12h
+
+# Tree tabs' visual style when whimsy.feature.tree-tabs is on (Settings →
+# Tab Management): "tree" (nested, collapsible branches, any depth) or
+# "islands" (Opera Tab Islands-style, one level, colored pill per root).
+- name: whimsy.tabs.tree-style
+  value: tree
+# batch6 #7: Shift+click a link opens it in a split instead of navigating
+# it. Off by default: Shift+click is Firefox's own "open in new window".
+# Settings -> Tab Management -> Tabs.
+- name: whimsy.splitlink.shift-click
+  value: false
+
+# batch6 #16: what the command bar's "New Note" action opens. "none" hides
+# it. Settings -> Tab Management -> Tabs.
+- name: whimsy.new-note.target
+  value: none
+# batch9p: Scratch and private tabs open inside the window (Settings →
+# Privacy & Security). Off: Cmd+Shift+N and Cmd+Option+T open a private
+# window instead.
+- name: whimsy.private.in-window
+  value: true
+# batch10: Library sidebar panels.
+
+# Profile subdirectory a screenshot capture is saved into (Library → Files).
+# Empty means the default, "whimsy-captures".
+- name: whimsy.captures.folder
+  value: ""
+# batch13: page & reading
+# Show Whimsy's menu bar icon (macOS, Settings → Look and Feel): a quick
+# window and recent tabs, reachable without focusing a Whimsy window first.
+- name: whimsy.menu-bar-extra.show
+  value: true
+
+# Bionic reading in Reader View (its own toolbar toggle button): bolds the
+# leading letters of each word. Opt-in, off by default — some readers find
+# it faster, others find it distracting.
+- name: whimsy.reader.bionic
+  value: false
+# batch7: seasonal themes
+# A dated accent tint and flourish for Halloween, winter holidays and
+# spring (Settings → Look and Feel → Look); never changes a space's own
+# colours, and respects reduced motion.
+- name: whimsy.seasons.enabled
+  value: true
+
+# batch7: full URL on click
+# Show the full, untrimmed address even without clicking the address bar
+# (Settings → Look and Feel → Look → "Always show full address"). Off:
+# Zen shows just the domain in the sidebar until you interact (Arc-style).
+- name: whimsy.urlbar.always-full-url
+  value: false
+
+# batch7: Dock icon badge (download count), Settings → Tab Management.
+- name: whimsy.downloads.dock-badge
+  value: true

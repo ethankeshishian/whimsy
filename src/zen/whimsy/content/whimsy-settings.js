@@ -24,6 +24,13 @@ var gWhimsySettings = {
         this.insertAboutGroup(event.detail.category);
       }
     });
+    // batch7: hardware video decoding toggle, in its own listener so it runs
+    // on paneGeneral independently of the About-group branch above.
+    document.addEventListener("paneshown", event => {
+      if (event.detail.category == "paneGeneral") {
+        this.insertPerformanceGroup();
+      }
+    });
   },
 
   get lazy() {
@@ -32,6 +39,7 @@ var gWhimsySettings = {
       Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
       WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
       WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
+      WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
     });
     Object.defineProperty(this, "lazy", { value: lazy });
     return lazy;
@@ -241,6 +249,8 @@ var gWhimsySettings = {
       "cookie-banners": () => this.initCookieBanners(),
       "ai-kill-switch": () => this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked"),
       "strip-tracking": () => this.initStripTracking(),
+      // batch9p: Scratch and private tabs
+      scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;
@@ -266,6 +276,8 @@ var gWhimsySettings = {
     const supported = {
       // Only macOS draws the blurred material behind the window.
       transparency: AppConstants.platform == "macosx",
+      // batch13: the menu bar icon only exists on macOS.
+      "menu-bar-extra": AppConstants.platform == "macosx",
     };
     for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
       const id = row.dataset.whimsyFeature;
@@ -515,6 +527,47 @@ var gWhimsySettings = {
     Preferences.getSetting("updateAppInfo")?.onChange();
   },
 
+  // batch7: General → Performance → hardware video decoding. It's read at
+  // startup only (gfxPlatform), so changing it shows a restart prompt.
+  insertPerformanceGroup() {
+    const template = document.getElementById("template-whimsyPerformance");
+    if (!template) {
+      return;
+    }
+    const group = template.content.firstElementChild;
+    if (!this.lazy.Whimsy.featureEnabled("hardware-video-decoding")) {
+      template.remove();
+      return;
+    }
+    const anchor = document.querySelector('[groupid="performance"][data-category="paneGeneral"]');
+    template.remove();
+    if (anchor) {
+      anchor.after(group);
+    } else {
+      document.getElementById("mainPrefPane").append(group);
+    }
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+    this.initHardwareVideoDecoding();
+  },
+
+  initHardwareVideoDecoding() {
+    const checkbox = document.getElementById("whimsyHardwareVideoDecoding");
+    const note = document.getElementById("whimsyHwDecodeRestart");
+    const button = document.getElementById("whimsyHwDecodeRestartButton");
+    if (!checkbox || this._hwDecodeWired) {
+      return;
+    }
+    this._hwDecodeWired = true;
+    const startupValue = Services.prefs.getBoolPref("media.hardware-video-decoding.enabled", true);
+    checkbox.addEventListener("command", () => {
+      note.hidden = checkbox.checked == startupValue;
+    });
+    button.addEventListener("command", () => {
+      Services.startup.quit(Services.startup.eAttemptQuit | Services.startup.eRestart);
+    });
+  },
+
   async refreshLog() {
     const text = await this.lazy.WhimsyUpdates.readLog();
     const log = document.getElementById("whimsyUpdatesLog");
@@ -527,3 +580,85 @@ var gWhimsySettings = {
 };
 
 gWhimsySettings.init();
+
+// batch9: spaces — Settings → Tab Management → Spaces: entry points for
+// Zen's existing per-space manager and space-routing rules (Air Traffic
+// Control), plus restoring a space Whimsy's archive feature hid. A second
+// paneshown listener and methods appended via Object.assign (instead of
+// editing gWhimsySettings.init/the object literal directly), so another
+// batch extending the same pane doesn't collide with this one.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertSpacesGroup();
+    // Re-run on every later visit too, in case a space was hidden or
+    // restored elsewhere (insertSpacesGroup only does anything once).
+    gWhimsySettings.refreshHiddenSpaces();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertSpacesGroup() {
+    const template = document.getElementById("template-whimsySpaces");
+    if (!template) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
+      if (!this.lazy.Whimsy.featureEnabled(row.dataset.whimsyFeature)) {
+        row.remove();
+      }
+    }
+    template.remove();
+    const anchor = document.getElementById("whimsyTabsGroup") ?? document.getElementById("zenWorkspacesGroup");
+    if (anchor) {
+      anchor.after(fragment);
+    } else {
+      document.getElementById("mainPrefPane")?.append(fragment);
+    }
+    group.hidden = false;
+    this.initSpacesGroup();
+  },
+
+  initSpacesGroup() {
+    const chromeWin = () => window.browsingContext.topChromeWindow;
+    document.getElementById("whimsySpacesManagerButton")?.addEventListener("command", () => {
+      chromeWin().document.getElementById("cmd_zenManageWorkspaces")?.doCommand();
+    });
+    document.getElementById("whimsyAtcButton")?.addEventListener("command", () => {
+      chromeWin().document.getElementById("cmd_zenOpenSpaceRoutingSettings")?.doCommand();
+    });
+    this.refreshHiddenSpaces();
+  },
+
+  refreshHiddenSpaces() {
+    const list = document.getElementById("whimsyHiddenSpacesList");
+    const empty = document.getElementById("whimsyHiddenSpacesEmpty");
+    if (!list) {
+      return;
+    }
+    const { WhimsySpaceArchive } = this.lazy;
+    const win = window.browsingContext.topChromeWindow;
+    const hidden = WhimsySpaceArchive.listHidden(win);
+    list.replaceChildren();
+    if (empty) {
+      empty.hidden = !!hidden.length;
+    }
+    for (const workspace of hidden) {
+      const row = document.createXULElement("hbox");
+      row.setAttribute("align", "center");
+      row.className = "whimsy-spaces-row";
+      const label = document.createXULElement("label");
+      label.setAttribute("flex", "1");
+      label.textContent = workspace.name || "";
+      const button = document.createXULElement("button");
+      document.l10n.setAttributes(button, "whimsy-restore-space-button");
+      button.addEventListener("command", () => {
+        WhimsySpaceArchive.restore(win, workspace.uuid);
+        this.refreshHiddenSpaces();
+      });
+      row.append(label, button);
+      list.append(row);
+    }
+  },
+});

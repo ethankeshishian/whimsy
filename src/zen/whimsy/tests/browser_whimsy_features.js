@@ -24,6 +24,12 @@ add_task(async function test_startup_hook_ran() {
     "peek-essential-links",
     "glance-split-action",
     "external-link-target",
+    "split-link-click",
+    "split-close-other-panes",
+    "split-swap-panes",
+    "split-command-bar",
+    "command-bar-slash",
+    "command-bar-create",
   ]) {
     ok(Whimsy.featureEnabled(id), `whimsy.feature.${id} is on (Zen doesn't ship it)`);
   }

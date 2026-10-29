@@ -1,0 +1,49 @@
+diff --git a/toolkit/modules/sessionstore/PrivacyFilter.sys.mjs b/toolkit/modules/sessionstore/PrivacyFilter.sys.mjs
+index fd085dc..3b05cce 100644
+--- a/toolkit/modules/sessionstore/PrivacyFilter.sys.mjs
++++ b/toolkit/modules/sessionstore/PrivacyFilter.sys.mjs
+@@ -123,5 +123,44 @@ export var PrivacyFilter = Object.freeze({
+     browserState._closedWindows = browserState._closedWindows.filter(
+       win => !win.isPrivate
+     );
++
++    // Whimsy: remove private tabs from normal windows, open or closed.
++    for (let win of [
++      ...browserState.windows,
++      ...(browserState._closedWindows || []),
++    ]) {
++      this.filterPrivateTabs(win);
++    }
++  },
++
++  /**
++   * Whimsy: removes private tabs (originAttributes.privateBrowsingId = 1)
++   * living in a normal window from that window's state, so they are never
++   * written to disk or offered by Undo Close. Whimsy's chrome code marks
++   * them with `isPrivate: true` in TabStateCache, which TabState copies into
++   * the collected tab data.
++   *
++   * @param winData (object)
++   *        A window's state. The given object will be modified.
++   */
++  filterPrivateTabs(winData) {
++    if (winData.tabs?.some(tab => tab.isPrivate)) {
++      // `selected` is 1-based; keep it on the same tab, or on the nearest
++      // one left when the selected tab was private.
++      let selected = winData.selected || 1;
++      let removedBefore = winData.tabs
++        .slice(0, selected - 1)
++        .filter(tab => tab.isPrivate).length;
++      winData.tabs = winData.tabs.filter(tab => !tab.isPrivate);
++      winData.selected = Math.max(
++        1,
++        Math.min(selected - removedBefore, winData.tabs.length)
++      );
++    }
++    if (winData._closedTabs?.length) {
++      winData._closedTabs = winData._closedTabs.filter(
++        closed => !closed.state?.isPrivate
++      );
++    }
+   },
+ });
