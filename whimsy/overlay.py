@@ -234,6 +234,13 @@ FEATURES = [
     # batch9p: Scratch and private tabs
     {"id": "scratch", "title": "Scratch (temporary private space, Cmd+Shift+N) and private tabs (Cmd+Option+T)",
      "detect": [("src/zen", r"(?i)zen[\w.-]*private[\w.-]*tab|mozprivatebrowsing|zen[\w.-]*scratch")]},
+    # batch10: Library sidebar panels.
+    {"id": "notes", "title": "Notes: a markdown scratchpad in the Library sidebar, optionally attached to a page",
+     "detect": [("src/zen/library", r"(?i)whimsy-library-notes|WhimsyNotesSection")]},
+    {"id": "finder-folders", "title": "Finder folders in the sidebar: pin a folder, browse it without leaving the browser",
+     "detect": [("src/zen/library", r"(?i)whimsy-library-finder-folders|WhimsyFinderFoldersSection")]},
+    {"id": "screenshot-sidebar", "title": "Screenshot to sidebar: captures also land as files in the Library, not just the clipboard",
+     "detect": [("src/zen/library", r"(?i)whimsy-library-files|WhimsyFilesSection")]},
 ]
 
 

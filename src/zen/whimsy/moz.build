@@ -41,6 +41,11 @@ XPCOM_MANIFESTS += [
 # batch9p: Scratch and private tabs
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyPrivate.sys.mjs",
+    # batch10: Library sidebar panels (Notes, Finder folders, Screenshot to sidebar).
+    "WhimsyFilesSection.sys.mjs",
+    "WhimsyFinderFoldersSection.sys.mjs",
+    "WhimsyLibrarySection.sys.mjs",
+    "WhimsyNotesSection.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

@@ -148,3 +148,9 @@ support-files = ["whimsy_archive.sjs"]
 # batch9p: Scratch and private tabs (needs the whimsy-nsFrameLoader-cpp engine patch)
 ["browser_whimsy_scratch.js"]
 support-files = ["whimsy_article.html"]
+# batch10: Library sidebar panels.
+["browser_whimsy_library_notes.js"]
+
+["browser_whimsy_library_finder_folders.js"]
+
+["browser_whimsy_library_files.js"]

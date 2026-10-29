@@ -527,3 +527,40 @@ whimsy-private-header =
 whimsy-private-in-window =
     .label = Browse privately inside this window
     .description = { -brand-short-name } opens Scratch, a temporary private space, with ⌘⇧N, and a private tab in the current space with ⌥⌘T. Private tabs keep no history and forget their cookies when the last one closes. Turn this off to use private windows instead.
+## batch10: Library sidebar panels
+
+whimsy-library-notes-enable =
+    .label = Notes: a markdown scratchpad in the sidebar
+whimsy-library-finder-folders-enable =
+    .label = Finder folders in the sidebar
+whimsy-library-screenshot-sidebar-enable =
+    .label = Screenshot to sidebar
+
+whimsy-library-notes-title = Notes
+whimsy-library-notes-empty = No notes yet
+whimsy-library-notes-search-placeholder =
+    .placeholder = Search notes…
+whimsy-library-notes-add =
+    .label = New note
+whimsy-library-notes-delete =
+    .label = Delete note
+whimsy-library-notes-title-placeholder =
+    .placeholder = Title
+whimsy-library-notes-attach = Attach to this page
+
+whimsy-library-finder-folders-title = Files
+whimsy-library-finder-folders-empty = No folders pinned yet
+whimsy-library-finder-folders-search-placeholder =
+    .placeholder = Search files…
+whimsy-library-finder-folders-add =
+    .label = Add folder
+whimsy-library-finder-folders-remove =
+    .label = Remove folder
+whimsy-library-finder-folders-picker-title = Choose a folder to pin
+
+whimsy-library-files-title = Captures
+whimsy-library-files-empty = No screenshots captured yet
+whimsy-library-files-search-placeholder =
+    .placeholder = Search captures…
+whimsy-library-files-delete =
+    .label = Delete
