@@ -33,6 +33,9 @@
 - name: whimsy.feature.title-lines
   value: true
 
+- name: whimsy.feature.newtab-bottom
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

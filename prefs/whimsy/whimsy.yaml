@@ -40,3 +40,8 @@
 # (Settings → Tab Management).
 - name: whimsy.tabs.title-lines
   value: 1
+
+# Keep each space's new tab button fixed at the bottom of the sidebar
+# (Settings → Tab Management). Off: Arc keeps "+ New Tab" at the top.
+- name: whimsy.tabs.newtab-button-bottom
+  value: false

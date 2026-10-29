@@ -240,3 +240,18 @@ add_task(async function tab_title_lines() {
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function newtab_button_bottom() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.tabs.newtab-button-bottom", true]] });
+  const tabs = [];
+  for (const url of ["https://example.com/", "https://example.org/"]) {
+    tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, url));
+  }
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  await shot("12-newtab-bottom");
+  for (const tab of tabs) {
+    BrowserTestUtils.removeTab(tab);
+  }
+  await SpecialPowers.popPrefEnv();
+  Services.prefs.clearUserPref("zen.view.show-newtab-button-top");
+});

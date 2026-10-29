@@ -146,3 +146,55 @@
     }
   }
 }
+
+/* New tab button fixed at the bottom (WhimsyTabs, whimsy.tabs.newtab-button-
+   bottom): each space's "+ New Tab" row sits in a dock at the bottom of the
+   space, under the scrolling list, so it never scrolls away. */
+zen-workspace > .whimsy-newtab-dock {
+  flex-shrink: 0;
+  padding-block: 2px;
+  /* Line up with the list: its section padding plus Zen's periphery margin. */
+  padding-inline: calc(var(--zen-toolbox-padding, 6px) + var(--tab-margin-block));
+  border-top: 1px solid transparent;
+  transition: border-color 0.15s ease;
+
+  & > #tabs-newtab-button {
+    flex: 1;
+    margin-block: var(--tab-margin-block);
+  }
+}
+
+/* Zen styles the button by its place in the list; give it the same look in
+   the dock: full width, icon then "New Tab", like a tab. */
+:is(#navigator-toolbox, .zen-library-space-body)[zen-sidebar-expanded="true"]
+  zen-workspace > .whimsy-newtab-dock > #tabs-newtab-button {
+  width: 100% !important;
+  border-radius: var(--border-radius-medium) !important;
+  padding-inline: var(--tab-padding-inline) !important;
+
+  & label {
+    display: flex;
+    width: 100%;
+  }
+
+  & image {
+    height: var(--size-item-small);
+    width: var(--size-item-small);
+    padding: 0 !important;
+    margin-inline: 2px;
+  }
+
+  &:hover {
+    background: var(--toolbarbutton-background-color-hover);
+
+    & image,
+    & label {
+      background: transparent !important;
+    }
+  }
+}
+
+/* A hairline once tabs scroll underneath, so the dock reads as fixed. */
+zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
+  border-top-color: color-mix(in srgb, currentColor 10%, transparent);
+}

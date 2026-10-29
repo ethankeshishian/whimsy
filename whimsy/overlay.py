@@ -105,6 +105,8 @@ FEATURES = [
     {"id": "title-lines", "title": "Tab title lines: wrap titles onto 1, 2 or 3 lines (setting)",
      "detect": [("src/zen/tabs", r"tab-label[^{]*\{[^}]*line-clamp"),
                 ("prefs", r"name:\s*zen\.[\w.-]*title-lines")]},
+    {"id": "newtab-bottom", "title": "New tab button fixed at the bottom of the sidebar (toggle, off by default)",
+     "detect": [("prefs", r"name:\s*zen\.[\w.-]*newtab-button-bottom")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
