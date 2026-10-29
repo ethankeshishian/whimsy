@@ -145,3 +145,6 @@ support-files = ["whimsy_archive.sjs"]
 ["browser_whimsy_archive_space.js"]
 
 ["browser_whimsy_space_lock.js"]
+# batch9p: Scratch and private tabs (needs the whimsy-nsFrameLoader-cpp engine patch)
+["browser_whimsy_scratch.js"]
+support-files = ["whimsy_article.html"]

@@ -499,3 +499,31 @@ whimsy-unlock-space =
 whimsy-lock-space-toast = Locked “{ $space }” — switching there will ask for Touch ID or your password
 # $space (string) - the space's name
 whimsy-unlock-space-toast = Unlocked “{ $space }”
+## batch9p: Scratch (a temporary private space) and private tabs
+
+whimsy-scratch-name = Scratch
+# What Scratch is called once kept as a normal space.
+whimsy-scratch-kept-name = Space
+whimsy-menu-new-scratch =
+    .label = New Scratch Space
+whimsy-menu-new-private-tab =
+    .label = New Private Tab
+whimsy-scratch-keep =
+    .label = Keep as Space
+whimsy-scratch-close =
+    .label = Close Scratch
+whimsy-action-new-private-tab = New Private Tab
+whimsy-action-new-scratch = New Scratch Space
+whimsy-action-keep-scratch = Keep Scratch as a Space
+whimsy-action-close-scratch = Close Scratch
+whimsy-private-tab-no-pin = Private tabs can’t be pinned
+whimsy-scratch-kept-toast =
+    { $count ->
+        [0] Scratch is now a space
+       *[other] Scratch is now a space. Its pages reopened outside private browsing.
+    }
+whimsy-private-header =
+    .label = Private browsing
+whimsy-private-in-window =
+    .label = Browse privately inside this window
+    .description = { -brand-short-name } opens Scratch, a temporary private space, with ⌘⇧N, and a private tab in the current space with ⌥⌘T. Private tabs keep no history and forget their cookies when the last one closes. Turn this off to use private windows instead.

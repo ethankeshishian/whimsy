@@ -152,3 +152,8 @@
 # it. Settings -> Tab Management -> Tabs.
 - name: whimsy.new-note.target
   value: none
+# batch9p: Scratch and private tabs open inside the window (Settings →
+# Privacy & Security). Off: Cmd+Shift+N and Cmd+Option+T open a private
+# window instead.
+- name: whimsy.private.in-window
+  value: true

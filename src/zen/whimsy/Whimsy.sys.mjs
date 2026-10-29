@@ -38,6 +38,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs", // batch9: spaces
 });
 
+// batch9p: Scratch and private tabs
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -164,6 +169,10 @@ export const Whimsy = {
         ?.then(() => lazy.WhimsySpaceLock.initWindow(win))
         .catch(e => console.error("Whimsy: space-lock", e))
     );
+    // batch9p: Scratch and private tabs. Always installed: tabs opened from
+    // a private tab must stay private even with the switch off; the
+    // shortcuts check the switch and setting on each use.
+    run("private", () => lazy.WhimsyPrivate.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

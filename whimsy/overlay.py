@@ -231,6 +231,9 @@ FEATURES = [
      "detect": [("src/zen/spaces", r"(?i)archiveWorkspace|hideWorkspace|workspace\.hidden\b")]},
     {"id": "space-lock", "title": "Lock a space behind Touch ID/password (OSKeyStore) before switching to it",
      "detect": [("src/zen/spaces", r"(?i)OSKeyStore|lockWorkspace|workspace\.locked\b")]},
+    # batch9p: Scratch and private tabs
+    {"id": "scratch", "title": "Scratch (temporary private space, Cmd+Shift+N) and private tabs (Cmd+Option+T)",
+     "detect": [("src/zen", r"(?i)zen[\w.-]*private[\w.-]*tab|mozprivatebrowsing|zen[\w.-]*scratch")]},
 ]
 
 

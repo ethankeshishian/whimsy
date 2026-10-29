@@ -180,6 +180,7 @@
   value: true
 
 - name: whimsy.feature.space-lock
+- name: whimsy.feature.scratch
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

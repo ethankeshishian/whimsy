@@ -38,6 +38,11 @@ XPCOM_MANIFESTS += [
     "WhimsySpaceLock.sys.mjs",  # batch9: spaces
 ]
 
+# batch9p: Scratch and private tabs
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyPrivate.sys.mjs",
+]
+
 BROWSER_CHROME_MANIFESTS += [
     "tests/browser.toml",
 ]
