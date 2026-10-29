@@ -6,6 +6,9 @@
 
 ["browser_whimsy_app_icon.js"]
 
+["browser_whimsy_cookie_banners.js"]
+support-files = ["cookie_banner.html"]
+
 ["browser_whimsy_copy.js"]
 
 ["browser_whimsy_ctrl_tab_mru.js"]

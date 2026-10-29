@@ -118,6 +118,14 @@ tab-context-whimsy-copy-links =
         }
     .accesskey = k
 
+## Settings → Privacy & Security → Cookie banners
+
+whimsy-cookie-banners-header =
+    .label = Cookie banners
+whimsy-cookie-banners-toggle =
+    .label = Reject cookie banners
+    .description = Answers cookie pop-ups for you by choosing “Reject” or the most private option, and hides the banner while it does.
+
 ## Settings → Privacy & Security → Tracking in links
 
 whimsy-strip-tracking-header =

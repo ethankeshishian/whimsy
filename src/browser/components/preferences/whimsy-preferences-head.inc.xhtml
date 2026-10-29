@@ -73,7 +73,15 @@
 
 # Settings → Privacy & Security: moved in above Firefox's privacy groups.
 <html:template id="template-whimsyPrivacy" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <html:div id="whimsyStripTrackingGroup" data-category="panePrivacy" hidden="hidden" class="whimsy-setting-card">
+  <html:div id="whimsyCookieBannersGroup" data-category="panePrivacy" data-whimsy-feature="cookie-banners" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-cookie-banners-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/cookies-fill.svg">
+        <html:moz-checkbox id="whimsyRejectCookieBanners" data-l10n-id="whimsy-cookie-banners-toggle"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
+  <html:div id="whimsyStripTrackingGroup" data-category="panePrivacy" data-whimsy-feature="strip-tracking" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">
       <html:moz-fieldset data-l10n-id="whimsy-strip-tracking-header" headinglevel="3"
                          iconsrc="chrome://global/skin/icons/link.svg">

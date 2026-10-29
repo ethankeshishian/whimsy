@@ -76,8 +76,9 @@ var gWhimsySettings = {
     }
   },
 
-  // Privacy & Security: "Remove tracking parameters from links", above
-  // Firefox's website privacy group (Global Privacy Control).
+  // Privacy & Security: "Reject cookie banners" and "Remove tracking
+  // parameters from links", above Firefox's website privacy group (Global
+  // Privacy Control). Each card goes with its whimsy.feature.<id> switch.
   insertPrivacyGroups() {
     const template = document.getElementById("template-whimsyPrivacy");
     if (!template) {
@@ -94,14 +95,35 @@ var gWhimsySettings = {
       document.getElementById("mainPrefPane").append(fragment);
     }
     template.remove();
-    if (!this.lazy.Whimsy.featureEnabled("strip-tracking")) {
-      groups.forEach(group => group.remove());
-      return;
-    }
+    const inits = {
+      "cookie-banners": () => this.initCookieBanners(),
+      "strip-tracking": () => this.initStripTracking(),
+    };
     for (const group of groups) {
+      const feature = group.dataset.whimsyFeature;
+      if (!this.lazy.Whimsy.featureEnabled(feature)) {
+        group.remove();
+        continue;
+      }
       group.hidden = false;
+      inits[feature]?.();
     }
-    this.initStripTracking();
+  },
+
+  // Reject cookie banners: Whimsy's built-in Autoconsent add-on
+  // (WhimsyCookieBanners.sys.mjs turns it on or off with the pref).
+  initCookieBanners() {
+    const checkbox = document.getElementById("whimsyRejectCookieBanners");
+    const pref = "whimsy.reject-cookie-banners";
+    const update = () => {
+      checkbox.checked = Services.prefs.getBoolPref(pref, true);
+    };
+    checkbox.addEventListener("change", () => Services.prefs.setBoolPref(pref, checkbox.checked));
+    Services.prefs.addObserver(pref, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(pref, update), {
+      once: true,
+    });
+    update();
   },
 
   STRIP_PREFS: [

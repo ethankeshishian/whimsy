@@ -18,3 +18,8 @@
         content/browser/whimsy/app-icons/spearmint.png                          (../../zen/whimsy/content/app-icons/spearmint.png)
         content/browser/whimsy/app-icons/stargazer.png                          (../../zen/whimsy/content/app-icons/stargazer.png)
         content/browser/whimsy/app-icons/sugar-rush.png                         (../../zen/whimsy/content/app-icons/sugar-rush.png)
+        builtin-addons/whimsy-cookie-banners/manifest.json                      (../../zen/whimsy/cookie-banners/manifest.json)
+        builtin-addons/whimsy-cookie-banners/background.js                      (../../zen/whimsy/cookie-banners/background.js)
+        builtin-addons/whimsy-cookie-banners/autoconsent/autoconsent.mjs        (../../zen/whimsy/cookie-banners/autoconsent/autoconsent.mjs)
+        builtin-addons/whimsy-cookie-banners/autoconsent/content.js             (../../zen/whimsy/cookie-banners/autoconsent/content.js)
+        builtin-addons/whimsy-cookie-banners/autoconsent/compact-rules.json     (../../zen/whimsy/cookie-banners/autoconsent/compact-rules.json)

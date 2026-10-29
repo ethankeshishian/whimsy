@@ -12,6 +12,9 @@
 - name: whimsy.feature.copy
   value: true
 
+- name: whimsy.feature.cookie-banners
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

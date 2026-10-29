@@ -21,3 +21,8 @@
 # The install the post-update notice was last shown for.
 - name: whimsy.updates.seen-install
   value: ""
+
+# Reject cookie banners (Settings → Privacy & Security): runs Whimsy's
+# built-in Autoconsent add-on (WhimsyCookieBanners.sys.mjs).
+- name: whimsy.reject-cookie-banners
+  value: true

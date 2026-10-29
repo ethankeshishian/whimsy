@@ -178,3 +178,14 @@ add_task(async function settings_strip_tracking() {
     await shot("06-settings-strip-tracking", browser.browsingContext.currentWindowGlobal);
   });
 });
+
+add_task(async function settings_cookie_banners() {
+  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+    const doc = browser.contentDocument;
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyCookieBannersGroup"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "Cookie banners visible");
+    group.scrollIntoView({ block: "center" });
+    await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+    await shot("07-settings-cookie-banners", browser.browsingContext.currentWindowGlobal);
+  });
+});

@@ -127,3 +127,12 @@
     user-select: text;
   }
 }
+
+/* Whimsy's Settings cards sit in the redesigned panes' flex column, which
+   spaces its children with a gap; Firefox's margin for old-style groups
+   would double it. */
+@media -moz-pref("browser.settings-redesign.enabled") {
+  div.whimsy-setting-card[data-category] {
+    margin-block-end: 0;
+  }
+}

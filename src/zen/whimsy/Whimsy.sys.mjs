@@ -10,6 +10,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
+  WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
@@ -43,6 +44,9 @@ export const Whimsy = {
     // Always installed: it checks its switch on each use, so turning it off
     // hands the shortcuts straight back to Zen.
     run("copy", () => lazy.WhimsyCopy.init(win));
+    // Once per session; it watches its pref and switch to turn the built-in
+    // add-on on or off.
+    run("cookie-banners", () => lazy.WhimsyCookieBanners.init());
     if (this.featureEnabled("github-reviews")) {
       run("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
