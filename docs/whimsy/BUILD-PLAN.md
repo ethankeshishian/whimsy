@@ -214,4 +214,5 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 2. Claude space
 3. Per-space extensions
 4. AI features (provider picker + kill switch)
-5. The rest (email aliases, Handoff, cast, playlist, speed, iOS)
+5. Homepage + changelog (right after the Claude space)
+6. The rest (email aliases, Handoff, cast, playlist, speed, iOS)

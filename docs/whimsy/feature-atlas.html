@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Whimsy Feature Atlas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -199,6 +200,17 @@ input[type="search"] { width: 100%; }
 .picks .picked.skip { color: var(--muted); }
 .sources { font-size: 13px; color: var(--muted); columns: 2 280px; column-gap: 28px; }
 .sources a { display: block; padding: 2px 0; break-inside: avoid; }
+.pg-done { background: var(--green-soft); color: var(--green); }
+.pg-progress { background: var(--sky-soft); color: var(--sky); }
+.pg-todo { background: var(--sunk); color: var(--muted); }
+.pg-skipped { background: var(--sunk); color: var(--muted); }
+.pg-maybe { background: var(--amber-soft); color: var(--amber); }
+.pg-done-text { color: var(--green); } .pg-progress-text { color: var(--sky); } .pg-todo-text, .pg-skipped-text, .pg-maybe-text { color: var(--muted); }
+.group h3 .pill { font-size: 12px; }
+.item .built { grid-column: 1 / -1; font-size: 13px; }
+.built-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--sunk); gap: 2px; }
+.built-bar span:nth-child(1) { background: var(--green); } .built-bar span:nth-child(2) { background: var(--sky); } .built-bar span:nth-child(3) { background: var(--line); }
+@media (prefers-reduced-motion: no-preference) { .built-bar span { transition: flex 300ms ease-out; } }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--muted); align-items: center; }
 @media (prefers-reduced-motion: no-preference) { .item { transition: background 120ms; } }
 </style>
@@ -230,6 +242,18 @@ input[type="search"] { width: 100%; }
     </section>
   </div>
 
+  <section id="built">
+    <h2>What we've built</h2>
+    <p class="note">Progress on the features you marked Build. Done means shipped in a Whimsy dev build; in progress means written and going through one build-and-test pass before it ships. Updated <span id="built-at"></span>.</p>
+    <div class="stats" id="built-stats"></div>
+    <div class="built-bar" id="built-bar" role="img"></div>
+    <ul class="findings">
+      <li><strong>Shipped (batches 1–5, and part of 6):</strong> renaming, copying and duplicating tabs, Arc shortcuts and the command bar, pinned-tab editing, folders, spaces, media, Peek, external links in Glance, Split Glance, and the updater fixes.</li>
+      <li><strong>Written, being built (wave 1, batches 6–13):</strong> archive and auto-archive, Undo, snooze, tree tabs, the fire button, real private tabs and Scratch, hidden and locked spaces, Little Arc, follower tabs, Library notes and folders, live folders for Jira, Linear and Push refresh, split extras, the command bar's / filter and New actions, the menu bar extra, and more.</li>
+      <li><strong>Still to do:</strong> items deferred until there's a running build, then Tier C (AI providers, the Claude space, VPN, email aliases, per-space extensions), then the homepage.</li>
+    </ul>
+  </section>
+
   <section id="catalog-section">
     <h2>The catalog</h2>
     <p class="note">Mark each feature Build, Maybe or Skip and type a note to explain what you want. Notes save as you type; click a choice again to clear it. Everything is saved with this page for Claude to read. Sections you've reviewed are hidden; features with a Scope panel have been checked against Whimsy's code and planned.</p>
@@ -245,6 +269,7 @@ input[type="search"] { width: 100%; }
         <div class="search"><input type="search" id="q" placeholder="Search features, browsers or ideas…" aria-label="Search features"></div>
         <select id="cat" aria-label="Category"></select>
         <select id="sort" aria-label="Sort">
+          <option value="progress">Group by build status</option>
           <option value="cat">Group by category</option>
           <option value="votes">Most requested</option>
           <option value="tier">Priority</option>
@@ -887,11 +912,632 @@ const items = F.map(r => ({
 const byId = Object.fromEntries(items.map(it => [it.id, it]));
 const byName = Object.fromEntries(items.map(it => [it.name, it]));
 const ST = { new: "New", partial: "Partial", has: "Has" };
+// Build progress, updated by Claude as batches land: { name: [status, note] }
+// status: done (shipped in a dev build) | progress (written, being built and tested) | todo
+const PROGRESS_AT = "October 29, 2026";
+const PROGRESS = {
+"AI tab grouping suggestions": [
+"todo",
+"Tier C: all AI items deferred (needs scoping)"
+],
+"Agent mode": [
+"todo",
+"Tier C: all AI items deferred"
+],
+"Browser memories": [
+"todo",
+"Tier C: all AI items deferred"
+],
+"Chat about open tabs": [
+"todo",
+"Tier C: all AI items deferred"
+],
+"Compare across tabs": [
+"todo",
+"Tier C: all AI items deferred"
+],
+"Feed from any page": [
+"todo",
+"Tier C: all AI items deferred"
+],
+"Local summaries": [
+"todo",
+"Tier C: all AI items deferred"
+],
+"Skills": [
+"todo",
+"Tier C: all AI items deferred"
+],
+"Linear and Jira live folders": [
+"progress",
+"batch11: Jira shipped (596046c); Linear WIP uncommitted in wt/linear"
+],
+"Notification center": [
+"todo",
+"Tier C: deferred, user wants to talk later"
+],
+"Smarter RSS": [
+"progress",
+"batch11: RSS autodiscovery written (081e143), unshipped"
+],
+"Upload from the clipboard": [
+"progress",
+"batch7 written (1ad1ccf), unshipped"
+],
+"Local API for agents and scripts": [
+"todo",
+"Tier C: local API / Claude space, needs scoping"
+],
+"Open in a space from the command line": [
+"done",
+"Zen's --space flag already works; verified existing"
+],
+"URL schemes": [
+"progress",
+"batch7 written (c5edc2f), partial: needs Info.plist for external links"
+],
+"Webhooks for live folders": [
+"progress",
+"batch11 Push refresh written (63f05ed), unshipped"
+],
+"Actions-only filter": [
+"progress",
+"batch6 wave1 written (f0d79b7), unshipped"
+],
+"Arc-style command bar": [
+"todo",
+"Unclear: no explicit scope/batch covers umbrella feature"
+],
+"Create things from the command bar": [
+"progress",
+"batch6 wave1 written, partial: only \".new\" syntax so far"
+],
+"Extensions from the command bar": [
+"todo",
+"Dropped: duplicates existing functionality"
+],
+"Natural-language history search": [
+"todo",
+"Tier C: grouped with AI items, deferred"
+],
+"Offline bangs": [
+"todo",
+"Deferred: needs new UrlbarProvider, not written"
+],
+"Recent tabs in the command bar": [
+"todo",
+"Deferred to post-integration builder, not written"
+],
+"Search inside open tabs": [
+"todo",
+"Tier C: grouped with AI items, deferred"
+],
+"Inbox zero confetti": [
+"progress",
+"batch7 written (f20cfd1), unshipped"
+],
+"Offline game": [
+"progress",
+"Being written now (whimsy:// game and year pages)"
+],
+"Seasonal themes": [
+"progress",
+"batch7 written (50ec871), unshipped"
+],
+"Year in tabs": [
+"progress",
+"Being written now (whimsy:// game and year pages)"
+],
+"Clean test session": [
+"progress",
+"Covered by Scratch/private tabs work (b9p, f2f8ced), unshipped"
+],
+"Cookie editor": [
+"progress",
+"batch7 written (ddb8cf2), unshipped"
+],
+"Developer mode tabs": [
+"progress",
+"batch7 written (67e773a), unshipped"
+],
+"Faster DevTools": [
+"todo",
+"Tier C, deferred"
+],
+"Drag downloads into sites": [
+"progress",
+"batch7 downloads combo written (fb883fd), unshipped"
+],
+"Faster downloads": [
+"todo",
+"Tier C, deferred"
+],
+"Finder folders in the sidebar": [
+"progress",
+"batch10 written (3f26efb), unshipped"
+],
+"Quick Look downloads": [
+"progress",
+"batch7 written (fb883fd), partial: only in FF downloads panel"
+],
+"Screenshot to sidebar": [
+"progress",
+"batch10 written (3f26efb), unshipped"
+],
+"Copy URL shortcuts": [
+"done",
+"Shipped batch 1 (331e019), combined Copy & share feature"
+],
+"Keyboard sidebar navigation": [
+"progress",
+"batch7 written (a34b183), unshipped"
+],
+"PiP trackpad gestures": [
+"todo",
+"Not yet assigned: no batch or tier mentions this"
+],
+"Shortcut cheat sheet": [
+"progress",
+"batch7 written (5912524), unshipped"
+],
+"Fonts for the interface": [
+"done",
+"Shipped batch 4 (043502e)"
+],
+"Hex colors in the theme picker": [
+"done",
+"Shipped batch 4 (dfaf279)"
+],
+"Hide the space switcher": [
+"done",
+"Shipped batch 4 (920de53), default off"
+],
+"Menu icons": [
+"done",
+"Shipped batch 4 (c2d3e90)"
+],
+"Toolbar tinted by the site": [
+"todo",
+"Dropped in batch 4: window never tints"
+],
+"Transparency control": [
+"done",
+"Shipped batch 4 (5a19664); check on real window noted"
+],
+"Download progress on the Dock icon": [
+"progress",
+"batch7 downloads combo written (fb883fd), unshipped"
+],
+"Handoff": [
+"todo",
+"Tier C: check if it already exists"
+],
+"Liquid Glass styling": [
+"todo",
+"Tier C: explicitly deferred last, user wants to discuss"
+],
+"Menu bar extra": [
+"progress",
+"batch13 written (2cebf95), unshipped"
+],
+"Automatic picture-in-picture": [
+"done",
+"Shipped batch 5 (247500a), auto-PiP toggle on"
+],
+"Cast to a TV": [
+"todo",
+"Tier C, deferred"
+],
+"Floating video calls": [
+"todo",
+"Deferred: Meet/Zoom-specific, needs real-site testing, not written"
+],
+"Media hub": [
+"todo",
+"Not yet assigned: Tier B but no batch scouted it"
+],
+"Mute background tabs": [
+"done",
+"Shipped batch 5 (e1ab10e)"
+],
+"Per-tab volume": [
+"done",
+"Shipped batch 5 (af48e0d), partial: no Web Audio, max 100%"
+],
+"PiP snaps back into view": [
+"done",
+"Shipped batch 5 (247500a)"
+],
+"Picture-in-picture over full-screen apps": [
+"done",
+"Verified already working at engine level (batch12 scout)"
+],
+"Playback speed controls": [
+"done",
+"Shipped batch 5 (d59412b)"
+],
+"Playlist": [
+"todo",
+"Tier C, deferred"
+],
+"Remember muted sites": [
+"done",
+"Shipped batch 5 (2fae29b)"
+],
+"iOS companion": [
+"todo",
+"Tier C: low priority"
+],
+"Keep the window when the last tab closes": [
+"progress",
+"batch7 written (0d35d5b), unshipped"
+],
+"Open a link in another space": [
+"done",
+"Shipped batch 4 (7a193c1)"
+],
+"Show the full URL on click": [
+"progress",
+"batch7 written (1a95be5), unshipped"
+],
+"Allow copy and paste": [
+"done",
+"Shipped batch 5 (b111566)"
+],
+"Capture tool": [
+"done",
+"Shipped batch 5 (19b6b5f), Cmd+Shift+2"
+],
+"Edit text on the page": [
+"done",
+"Shipped batch 5 (4b05693)"
+],
+"Full-page capture to clipboard": [
+"done",
+"Shipped batch 5 (19b6b5f), combined with Capture tool"
+],
+"Image info": [
+"done",
+"Shipped batch 5 (0601814)"
+],
+"Internet Archive for dead pages": [
+"done",
+"Shipped batch 5 (fc582b0)"
+],
+"Notes": [
+"progress",
+"batch10 written (3f26efb), scope cut: pinnable-note dropped"
+],
+"Supercopy": [
+"done",
+"Shipped batch 1 (331e019), combined Copy & share feature"
+],
+"Translate selection": [
+"done",
+"Shipped batch 5 (9745588)"
+],
+"Find heavy tabs": [
+"progress",
+"batch8 written (5d58ebc), unshipped"
+],
+"Hardware video decoding": [
+"progress",
+"batch7 written (b45cb3c), unshipped"
+],
+"Startup speed": [
+"todo",
+"Tier C, deferred"
+],
+"Collapse the pinned section": [
+"done",
+"Zen already had it; verified with test fb1e687"
+],
+"Don't load pinned tabs at startup": [
+"todo",
+"Claimed already-exists in BUILD-PLAN; no verification commit found"
+],
+"Edit a pinned tab's URL": [
+"todo",
+"Claimed already-exists in BUILD-PLAN; no verification commit found"
+],
+"Essentials per space": [
+"todo",
+"Decision: stays per-container (Arc model); not verified with a test"
+],
+"Folder colors": [
+"done",
+"Shipped batch 3 (fd7d2e4)"
+],
+"Folder previews": [
+"todo",
+"Claimed already-exists in BUILD-PLAN; no verification commit found"
+],
+"Folders as Essentials": [
+"todo",
+"Not yet assigned: no batch or tier mentions this"
+],
+"New tabs open in the active folder": [
+"done",
+"Shipped batch 2 (1f12361)"
+],
+"Notification dots on Essentials": [
+"done",
+"Shipped batch 3 (7de9553), combined with badges"
+],
+"A switch that removes AI": [
+"done",
+"Shipped batch 2 (31abe45)"
+],
+"Built-in VPN": [
+"progress",
+"Tier C #1: being written now on Firefox's IP Protection"
+],
+"Email aliases": [
+"todo",
+"Tier C, deferred"
+],
+"Fire button": [
+"progress",
+"batch8 written (d9ffef5), unshipped"
+],
+"Per-site user agent": [
+"progress",
+"batch7 written (d6ce9f4), unshipped"
+],
+"Private tab in a normal window": [
+"progress",
+"wave1/b9p engine patch written (f2f8ced), needs mach build binaries"
+],
+"Private window indicator": [
+"done",
+"Shipped batch 2 (b34d62e)"
+],
+"Reject cookie banners": [
+"done",
+"Shipped batch 2 (f983365), vendored DDG autoconsent"
+],
+"Strip tracking from links": [
+"done",
+"Shipped batch 1 (596ab90)"
+],
+"Glance shortcuts": [
+"todo",
+"Dropped: Zen already has trigger dropdown; key collided with Zoom In"
+],
+"Glance size and position": [
+"todo",
+"Deferred to post-integration builder, not written"
+],
+"Keep Glance across tab switches": [
+"progress",
+"wave1/b6: existed, test added (ebcb69d), unshipped"
+],
+"Next meeting in the sidebar": [
+"todo",
+"Deferred: EventKit needs native XPCOM patch + entitlement"
+],
+"Open external links in Glance": [
+"done",
+"Shipped batch6 group1 (6271e65); no quick window yet, falls back to tab"
+],
+"Peek from pinned tabs": [
+"done",
+"Shipped batch6 group1 (c6ccc8b/001fb93)"
+],
+"People cards": [
+"todo",
+"Deferred: shared WhimsyHoverCard infra not built (decision made in BUILD-PLAN)"
+],
+"Preview before opening from history": [
+"todo",
+"Deferred: shared WhimsyHoverCard infra not built"
+],
+"Quick window for external links": [
+"progress",
+"batch12 Little Arc written (3773db3), unshipped; normal window not always-on-top"
+],
+"Bionic or guided reading": [
+"progress",
+"batch13 written (6e01ec0), default off, unshipped"
+],
+"Dark mode for PDFs": [
+"done",
+"Shipped batch 5 (5acb83d), default off"
+],
+"Estimated reading time": [
+"done",
+"Shipped batch 5 (f96cc4d)"
+],
+"Focus mode": [
+"todo",
+"Unclear: never scoped; user questioned if same as compact mode"
+],
+"Print a clean page": [
+"progress",
+"batch13 written (b792b5d), unshipped; watch tab-close timing"
+],
+"Reader view typography": [
+"done",
+"Shipped batch 5 (276c5e6)"
+],
+"Archive or hide a space": [
+"progress",
+"batch9 written (0f90e9e), unshipped"
+],
+"Custom space icons": [
+"todo",
+"Unclear: may overlap with searchable emoji picker, not separately scoped"
+],
+"Drag tabs onto space icons": [
+"done",
+"Shipped batch 4 (0af5ef0); real-drag edge case untested"
+],
+"Lock a space": [
+"progress",
+"batch9 written (e5418e3) via OSKeyStore, unshipped"
+],
+"Per-space extensions": [
+"todo",
+"Tier C: Gecko can't load extensions per container, needs investigation"
+],
+"Reorder spaces": [
+"done",
+"Zen already had it; verified with test (1b3e61a)"
+],
+"Return to the last tab in each space": [
+"done",
+"Shipped batch 4 (f163197)"
+],
+"Searchable emoji picker": [
+"done",
+"Shipped batch 4 (094a978)"
+],
+"Space manager": [
+"progress",
+"batch9 written (0f90e9e), unshipped"
+],
+"Space-aware history": [
+"todo",
+"Deferred: needs user call (Library vs Whimsy panel)"
+],
+"Temporary containers": [
+"progress",
+"Now \"Scratch\": wave1/b9p engine patch written (f2f8ced), needs mach build"
+],
+"Close the other pane": [
+"progress",
+"batch6 wave1 written (35feaa6), unshipped"
+],
+"More layouts": [
+"todo",
+"Deferred: needs Zen private classes work, not written (batch13)"
+],
+"Open Glance into a split": [
+"done",
+"Shipped batch6 group1 as Split Glance command (b2a6f89)"
+],
+"Open a link in split view": [
+"progress",
+"batch6 wave1 written, Shift+click default off, unshipped"
+],
+"Open a new tab inside a split": [
+"todo",
+"Deferred to post-integration builder, not written"
+],
+"Pin or favorite a split": [
+"progress",
+"batch13 written (0cf302f), unshipped"
+],
+"Split from the command bar": [
+"progress",
+"batch6 wave1 command-bar split actions written (35feaa6), unshipped"
+],
+"Split views survive restart": [
+"progress",
+"wave1/b6: existed, test added (ebcb69d); gap #12403 restore-in-new-window"
+],
+"Swap panes": [
+"progress",
+"batch6 wave1 written (35feaa6), unshipped"
+],
+"Archive view with restore": [
+"progress",
+"batch8 written (968d137), unshipped"
+],
+"Audio, mic and camera indicators when collapsed": [
+"done",
+"Zen already had it; verified with test d14431c"
+],
+"Back button closes the tab": [
+"todo",
+"Claimed already-exists in BUILD-PLAN; no verification commit found"
+],
+"Close button on hover only": [
+"todo",
+"Claimed already-exists in BUILD-PLAN; no verification commit found"
+],
+"Copy URLs of selected tabs": [
+"done",
+"Shipped batch 1 (331e019), combined Copy & share feature"
+],
+"Dim unloaded tabs": [
+"done",
+"Shipped batch 2 (778c58d), default off"
+],
+"Duplicate tab shortcut": [
+"done",
+"Shipped batch 2 (6197c0a), Cmd+Shift+D"
+],
+"Follower tabs": [
+"progress",
+"batch12 written (4638222), unshipped"
+],
+"Group by domain": [
+"done",
+"Shipped batch 3 (8bba8b0)"
+],
+"New tab below current": [
+"done",
+"Shipped batch 2 (1f12361)"
+],
+"New tab button pinned to the bottom": [
+"done",
+"Shipped batch 3 (01df3f3), default off"
+],
+"Notification badges on tabs": [
+"done",
+"Shipped batch 3 (7de9553)"
+],
+"Rename tabs": [
+"done",
+"Zen already had it (\"Change Label\"); verified with test 364beb2"
+],
+"Return to the previous tab on close": [
+"todo",
+"Claimed already-exists in BUILD-PLAN; no verification commit found"
+],
+"Sidebery-style power features": [
+"progress",
+"ATC core already in Zen; settings entries exposed in wave1/b9 (0f90e9e), unshipped"
+],
+"Snooze a tab": [
+"progress",
+"batch8 written (e5b62ab), unshipped"
+],
+"Tab islands": [
+"progress",
+"batch8 written (261b643) combined with tree tabs, default off, unshipped"
+],
+"Tab loading progress": [
+"done",
+"Shipped batch 3 (97c8f22)"
+],
+"Tab width and two-line titles": [
+"done",
+"Shipped batch 2 (0506501)"
+],
+"Tree-style tabs": [
+"progress",
+"batch8 written (261b643), default off; gaps: collapse/expand, drag-out reparent"
+],
+"Undo for tab actions": [
+"progress",
+"batch8 written (968d137), Cmd+Z, unshipped"
+]
+};
+const COMP = { done: "Done", progress: "In progress", todo: "Not started", skipped: "Skipped", maybe: "Maybe" };
+function comp(it) {
+  const d = decisions[it.id]?.decision;
+  if (d === "skip") return "skipped";
+  if (d === "build") return (PROGRESS[it.name] || ["todo"])[0];
+  if (PROGRESS[it.name]) return PROGRESS[it.name][0];
+  return "maybe";
+}
 const TIER = { 1: "Next up", 2: "Strong", 3: "Later" };
 const DEC = { build: "Build", maybe: "Maybe", skip: "Skip" };
 const VERDICT = { exists: "Already exists", partial: "Partly exists", new: "New", research: "Needs a decision" };
 const state = {
-  q: "", cat: store.get("cat", "all"), sort: store.get("sort", "cat"),
+  q: "", cat: store.get("cat", "all"), sort: store.get("sort2", "progress"),
   openScopes: store.get("openScopes", "0") === "1",
   status: store.get("status", "all"), tier: store.get("tier", "all"), dec: store.get("dec", "all"),
   showReviewed: store.get("showReviewed", "0") === "1", hideHas: store.get("hideHas", "1") === "1",
@@ -968,6 +1614,15 @@ function stats() {
   ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
 }
 
+function built() {
+  const c = { done: 0, progress: 0, todo: 0 };
+  for (const it of items) { const p = PROGRESS[it.name]; if (p && decisions[it.id]?.decision !== "skip") c[p[0]]++; }
+  const total = c.done + c.progress + c.todo || 1;
+  $("#built-stats").innerHTML = [["done", "Done"], ["progress", "In progress"], ["todo", "Not started"]]
+    .map(([k, l]) => `<div class="stat"><b class="pg-${k}-text">${c[k]}</b><span>${l}</span></div>`).join("");
+  $("#built-bar").innerHTML = ["done", "progress", "todo"].map(k => `<span class="pg-${k}" style="flex:${c[k]}"></span>`).join("");
+  $("#built-bar").setAttribute("aria-label", `${c.done} done, ${c.progress} in progress, ${c.todo} not started, of ${total}`);
+}
 function tally() {
   const c = { build: 0, maybe: 0, skip: 0, notes: 0 };
   for (const it of items) {
@@ -1016,8 +1671,9 @@ function filtered() {
   const q = state.q.trim().toLowerCase();
   let out = items.filter(it => {
     const d = decisions[it.id]?.decision || "none";
-    return (state.showReviewed || !REVIEWED.has(it.cat) || state.cat === it.cat) &&
-      (!state.hideHas || it.st !== "has") &&
+    const catView = state.sort === "cat";
+    return (!catView || state.showReviewed || !REVIEWED.has(it.cat) || state.cat === it.cat) &&
+      (!catView || !state.hideHas || it.st !== "has") &&
       (state.cat === "all" || it.cat === state.cat) &&
       (state.status === "all" || it.st === state.status) &&
       (state.tier === "all" || String(it.tier) === state.tier) &&
@@ -1029,6 +1685,7 @@ function filtered() {
     tier: (a, b) => a.tier - b.tier || b.votes - a.votes,
     az: (a, b) => a.name.localeCompare(b.name),
     cat: () => 0,
+    progress: () => 0,
   }[state.sort];
   return out.slice().sort(by);
 }
@@ -1056,12 +1713,14 @@ function row(it) {
   return `<article class="item${d ? " d-" + d : ""}" id="f-${it.id}" data-id="${it.id}">
     <div class="name">${esc(it.name)}</div>
     <div class="tags">
+      ${(() => { const c = comp(it); return c === "maybe" ? "" : `<span class="pill pg-${c}">${COMP[c]}</span>`; })()}
       ${it.votes ? `<span class="votes" title="Votes on Zen's GitHub ideas">▲ ${it.votes}</span>` : ""}
       <span class="pill st-${it.st}">${ST[it.st]}</span>
       <span class="pill tier">${TIER[it.tier]}</span>
       <span class="pill eff" title="Effort">${it.eff}</span>
     </div>
     <p class="desc">${esc(it.desc)}</p>
+    ${PROGRESS[it.name]?.[1] && decisions[it.id]?.decision !== "skip" ? `<p class="built pg-${comp(it)}-text">${esc(PROGRESS[it.name][1])}</p>` : ""}
     <div class="meta"><span class="src">${esc(it.src)}</span>${it.sig ? `<span class="sig">· ${esc(it.sig)}</span>` : ""}</div>
     <div class="dec-slot">${decideHtml(it)}</div>
     <div class="scope-slot">${scopeHtml(it)}</div>
@@ -1089,7 +1748,13 @@ function render() {
   const list = filtered();
   $("#count").textContent = `${list.length} of ${items.length}`;
   if (!list.length) { $("#catalog").innerHTML = `<p class="empty">No features match. Clear the search or pick another filter.</p>`; return; }
-  if (state.sort === "cat") {
+  if (state.sort === "progress") {
+    $("#catalog").innerHTML = Object.entries(COMP).map(([k, label]) => {
+      const g = list.filter(i => comp(i) === k);
+      if (!g.length) return "";
+      return `<div class="group"><h3><span class="pill pg-${k}">${esc(label)}</span> <small>${g.length}</small></h3>${g.map(row).join("")}</div>`;
+    }).join("");
+  } else if (state.sort === "cat") {
     $("#catalog").innerHTML = Object.entries(CATS).map(([k, label]) => {
       const g = list.filter(i => i.cat === k);
       if (!g.length) return "";
@@ -1103,6 +1768,9 @@ function render() {
   }
 }
 
+function syncSwitches() {
+  for (const id of ["#show-reviewed", "#hide-has"]) { const b = $(id); if (b) b.closest("label").hidden = state.sort !== "cat"; }
+}
 function syncSeg() {
   for (const [id, key] of [["#status", "status"], ["#tierf", "tier"], ["#decf", "dec"]]) {
     for (const b of document.querySelectorAll(id + " button")) b.setAttribute("aria-pressed", String(b.dataset.v === state[key]));
@@ -1136,7 +1804,7 @@ async function connect() {
   if (!db) {
     mode = "local"; loadLocal();
     setSave("Saved in this browser only. Open the page on claude.ai to save for Claude to read.", true);
-    tally(); picksState(); render();
+    tally(); picksState(); built(); render();
     return;
   }
   mode = "db";
@@ -1156,7 +1824,7 @@ async function connect() {
     }
     tally(); picksState();
     if (!snap.metadata.hasPendingWrites) setSave("All changes saved");
-    if (state.dec !== "all") render();
+    built(); if (state.dec !== "all") render();
   }, () => setSave("Live updates stopped. Reload the page to reconnect.", true));
   db.collection("scopes").onSnapshot(snap => {
     for (const ch of snap.docChanges()) {
@@ -1175,7 +1843,7 @@ function init() {
   $("#cat").value = state.cat; $("#sort").value = state.sort; syncSeg();
   $("#q").addEventListener("input", e => { state.q = e.target.value; render(); });
   $("#cat").addEventListener("change", e => { state.cat = e.target.value; store.set("cat", state.cat); render(); });
-  $("#sort").addEventListener("change", e => { state.sort = e.target.value; store.set("sort", state.sort); render(); });
+  $("#sort").addEventListener("change", e => { state.sort = e.target.value; store.set("sort2", state.sort); syncSwitches(); render(); });
   for (const [id, key] of [["#status", "status"], ["#tierf", "tier"], ["#decf", "dec"]]) {
     $(id).addEventListener("click", e => {
       const b = e.target.closest("button"); if (!b) return;
@@ -1199,9 +1867,12 @@ function init() {
     box.checked = !!state[key];
     box.addEventListener("change", () => { state[key] = box.checked; store.set(key, box.checked ? "1" : "0"); render(); });
   }
+  syncSwitches();
   wireCatalog();
-  stats(); tally(); picks(); render();
+  stats(); built(); $("#built-at").textContent = PROGRESS_AT; tally(); picks(); render();
   connect();
 }
 init();
 </script>
+
+</body></html>
