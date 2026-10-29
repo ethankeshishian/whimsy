@@ -34,6 +34,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
   WhimsyFireButton: "resource:///modules/whimsy/WhimsyFireButton.sys.mjs",
   WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
+  WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
+  WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs", // batch9: spaces
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -151,6 +153,16 @@ export const Whimsy = {
       win.gZenWorkspaces?.promiseInitialized
         ?.then(() => lazy.WhimsyTreeTabs.initWindow(win))
         .catch(e => console.error("Whimsy: tree-tabs", e))
+    // batch9: spaces — after Zen's spaces are ready, like "spaces" above.
+    run("archive-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceArchive.initWindow(win))
+        .catch(e => console.error("Whimsy: archive-space", e))
+    );
+    run("space-lock", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceLock.initWindow(win))
+        .catch(e => console.error("Whimsy: space-lock", e))
     );
   },
 

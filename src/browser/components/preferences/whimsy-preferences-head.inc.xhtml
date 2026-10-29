@@ -224,3 +224,35 @@
     </hbox>
   </groupbox>
 </html:template>
+
+# batch9: spaces — Settings → Tab Management → Spaces. Two rows point to
+# Zen's own features under Arc's names instead of duplicating their logic:
+# the per-space manager (Library → Spaces: reorder, rename, recolor,
+# delete) and space-routing rules (Air Traffic Control: send a link to a
+# space automatically when it matches a rule). The third is Whimsy's own:
+# spaces hidden with "Hide This Space" (workspace context menu) stay out of
+# the switcher without losing their tabs; restore them here.
+<html:template id="template-whimsySpaces" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsySpacesGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-spaces-header"/></label>
+    <hbox align="center" class="whimsy-spaces-row" data-whimsy-feature="space-manager-settings">
+      <vbox flex="1">
+        <label data-l10n-id="whimsy-spaces-manager-label"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-spaces-manager-description"/>
+      </vbox>
+      <button id="whimsySpacesManagerButton" data-l10n-id="whimsy-spaces-manager-button"/>
+    </hbox>
+    <hbox align="center" class="whimsy-spaces-row" data-whimsy-feature="atc-settings">
+      <vbox flex="1">
+        <label data-l10n-id="whimsy-atc-label"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-atc-description"/>
+      </vbox>
+      <button id="whimsyAtcButton" data-l10n-id="whimsy-atc-button"/>
+    </hbox>
+    <vbox class="whimsy-spaces-row" data-whimsy-feature="archive-space">
+      <label><html:h3 data-l10n-id="whimsy-hidden-spaces-header"/></label>
+      <description class="description-deemphasized" id="whimsyHiddenSpacesEmpty" data-l10n-id="whimsy-hidden-spaces-empty"/>
+      <html:div id="whimsyHiddenSpacesList"/>
+    </vbox>
+  </groupbox>
+</html:template>

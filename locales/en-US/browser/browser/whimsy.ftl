@@ -460,3 +460,42 @@ whimsy-heavy-tabs-panel =
     .aria-label = Heavy tabs
 whimsy-heavy-tabs-close-tab =
     .tooltiptext = Close this tab
+## Settings → Tab Management → Spaces — batch9: spaces
+
+whimsy-spaces-header = Spaces
+
+whimsy-spaces-manager-label = Space manager
+whimsy-spaces-manager-description = Reorder, rename, recolor or delete any space from one list (Library → Spaces).
+whimsy-spaces-manager-button =
+    .label = Open Space Manager…
+
+whimsy-atc-label = Air Traffic Control
+whimsy-atc-description = Send links to a space automatically when they match a rule, like Arc.
+whimsy-atc-button =
+    .label = Manage rules…
+
+whimsy-hidden-spaces-header = Hidden spaces
+whimsy-hidden-spaces-empty = No spaces are hidden. Hide one from its context menu in the space switcher.
+whimsy-restore-space-button =
+    .label = Restore
+
+## Archive (hide) a space — batch9: spaces
+
+whimsy-hide-space =
+    .label = Hide This Space
+# $space (string) - the space's name
+whimsy-hide-space-toast = Hid “{ $space }” — restore it from Settings → Tab Management
+whimsy-hide-space-last-toast = Can’t hide your only space
+# $space (string) - the space's name
+whimsy-restore-space-toast = Restored “{ $space }”
+
+## Lock a space — batch9: spaces
+
+whimsy-lock-space =
+    .label = Lock This Space
+whimsy-unlock-space =
+    .label = Unlock This Space
+# $space (string) - the space's name
+whimsy-lock-space-toast = Locked “{ $space }” — switching there will ask for Touch ID or your password
+# $space (string) - the space's name
+whimsy-unlock-space-toast = Unlocked “{ $space }”

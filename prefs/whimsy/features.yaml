@@ -170,6 +170,16 @@
   value: true
 
 - name: whimsy.feature.command-bar-create
+- name: whimsy.feature.space-manager-settings
+  value: true
+
+- name: whimsy.feature.atc-settings
+  value: true
+
+- name: whimsy.feature.archive-space
+  value: true
+
+- name: whimsy.feature.space-lock
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

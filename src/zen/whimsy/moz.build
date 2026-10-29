@@ -34,6 +34,8 @@ EXTRA_JS_MODULES.whimsy += [
 
 XPCOM_MANIFESTS += [
     "components.conf",
+    "WhimsySpaceArchive.sys.mjs",  # batch9: spaces
+    "WhimsySpaceLock.sys.mjs",  # batch9: spaces
 ]
 
 BROWSER_CHROME_MANIFESTS += [

@@ -222,6 +222,15 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r'ZEN_ACTIONS[\s\S]{0,400}["\']/["\']|["\']/["\'][\s\S]{0,200}enableCommandsMode')]},
     {"id": "command-bar-create", "title": "Arc-style \"New ...\" actions (docs.new etc.) in the command bar",
      "detect": [("src/zen/urlbar", r"docs\.new|zen-action-new-doc")]},
+    # batch9: spaces
+    {"id": "space-manager-settings", "title": "Settings entry point for Zen's existing per-space manager (Library \"Spaces\")",
+     "detect": [("src/browser/components/preferences", r"(?i)space\s*manager")]},
+    {"id": "atc-settings", "title": "Settings entry point renaming Zen's space-routing rules to Arc's Air Traffic Control",
+     "detect": [("src/zen", r"(?i)air traffic control")]},
+    {"id": "archive-space", "title": "Hide a space (Arc's archive/shelve): drops out of the switcher without closing its tabs; restore from Settings",
+     "detect": [("src/zen/spaces", r"(?i)archiveWorkspace|hideWorkspace|workspace\.hidden\b")]},
+    {"id": "space-lock", "title": "Lock a space behind Touch ID/password (OSKeyStore) before switching to it",
+     "detect": [("src/zen/spaces", r"(?i)OSKeyStore|lockWorkspace|workspace\.locked\b")]},
 ]
 
 

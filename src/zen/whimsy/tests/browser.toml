@@ -141,3 +141,7 @@ support-files = ["whimsy_archive.sjs"]
 ["browser_whimsy_fire_button.js"]
 
 ["browser_whimsy_heavy_tabs.js"]
+# batch9: spaces
+["browser_whimsy_archive_space.js"]
+
+["browser_whimsy_space_lock.js"]
