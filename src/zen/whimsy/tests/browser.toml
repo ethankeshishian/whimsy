@@ -47,6 +47,8 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_rename_tab.js"]
 
+["browser_whimsy_reorder_spaces.js"]
+
 ["browser_whimsy_screens.js"]
 
 ["browser_whimsy_space_icon_drop.js"]
