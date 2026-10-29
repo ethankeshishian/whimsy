@@ -63,6 +63,9 @@
 - name: whimsy.feature.open-link-in-space
   value: true
 
+- name: whimsy.feature.hex-colors
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

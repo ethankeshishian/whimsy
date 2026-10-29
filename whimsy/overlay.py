@@ -67,6 +67,7 @@ PREF_OVERRIDES = {
     "zen.ctrlTab.show-pending-tabs": True,       # Arc-style Ctrl+Tab
     "zen.updates.show-update-notification": False,  # Whimsy shows its own
     "zen.folders.owned-tabs-in-folder": True,    # new tabs stay in the folder
+    "zen.theme.gradient.show-custom-colors": True,  # theme picker's custom colors (hex field)
 }
 
 # Strings Zen's markup uses that its .ftl files no longer define.
@@ -129,6 +130,8 @@ FEATURES = [
      "detect": [("prefs", r"name:\s*zen\.[\w.-]*(hide|show)[\w.-]*(workspace|space)[\w.-]*(switcher|icons|button)")]},
     {"id": "open-link-in-space", "title": "Open Link in Space (link context menu, Arc)",
      "detect": [("src/zen/spaces", r"openLinkIn(Workspace|Space)|open-link-in-(workspace|space)")]},
+    {"id": "hex-colors", "title": "Hex colors in the theme picker (type or paste #RRGGBB)",
+     "detect": [("src/zen/spaces", r"type=\"text\"[^>]*custom|custom-hex|hex-input")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

@@ -225,3 +225,10 @@ whimsy-spaces-hide-switcher =
 whimsy-open-link-in-space =
     .label = Open Link in Space
     .accesskey = S
+
+## Theme picker: hex colors
+
+whimsy-hex-input =
+    .placeholder = #5B8CFF
+    .title = Type or paste a hex color, then press Return
+    .aria-label = Hex color

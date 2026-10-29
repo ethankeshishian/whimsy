@@ -399,3 +399,23 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     display: none !important;
   }
 }
+
+/* Hex colors: the field between Zen's color well and opacity in the theme
+   picker's custom color row. */
+#whimsy-hex-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 90px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+
+  &::placeholder {
+    text-transform: none;
+  }
+
+  &[invalid] {
+    outline: 1.5px solid light-dark(#d70022, #ff848b);
+    outline-offset: -1px;
+  }
+}

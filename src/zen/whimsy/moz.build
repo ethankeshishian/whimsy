@@ -10,6 +10,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCopy.sys.mjs",
     "WhimsyFolderColors.sys.mjs",
     "WhimsyGithubReviews.sys.mjs",
+    "WhimsyLook.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySpaces.sys.mjs",
     "WhimsyTabs.sys.mjs",

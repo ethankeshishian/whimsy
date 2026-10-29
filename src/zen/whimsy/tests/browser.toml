@@ -35,6 +35,8 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_loading_line.js"]
 
+["browser_whimsy_hex_colors.js"]
+
 ["browser_whimsy_hide_switcher.js"]
 
 ["browser_whimsy_media_indicators.js"]
