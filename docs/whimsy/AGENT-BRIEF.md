@@ -55,4 +55,4 @@ Leave the working tree clean on `dev`.
 Do all the work yourself in this one agent. Spawning agents wastes the usage budget.
 
 ## Context budget
-Stop at ~150k tokens of context: commit the current feature, leave the tree clean, report what is left. A fresh agent continues.
+Auto-compaction runs at ~200k tokens; keep going. Only if context passes ~220k without compacting: commit, leave the tree clean, report what's left.
