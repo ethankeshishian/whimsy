@@ -30,6 +30,9 @@
 - name: whimsy.feature.dim-sleeping
   value: true
 
+- name: whimsy.feature.title-lines
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

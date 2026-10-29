@@ -227,3 +227,16 @@ add_task(async function dim_sleeping_tabs() {
   BrowserTestUtils.removeTab(awake);
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function tab_title_lines() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.tabs.title-lines", 2]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const long = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  long.setAttribute("label", "A very long page title that needs more than one line to read in full");
+  gBrowser._setTabLabel?.(long, "A very long page title that needs more than one line to read in full");
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  await shot("11-tab-title-lines");
+  BrowserTestUtils.removeTab(long);
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});

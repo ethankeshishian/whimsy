@@ -35,3 +35,8 @@
 # Dim sleeping (unloaded) tabs in the sidebar (Settings → Tab Management).
 - name: whimsy.tabs.dim-sleeping
   value: false
+
+# Lines a tab title may wrap onto in the sidebar: 1, 2 or 3
+# (Settings → Tab Management).
+- name: whimsy.tabs.title-lines
+  value: 1

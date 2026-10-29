@@ -94,3 +94,55 @@
     }
   }
 }
+
+/* Tab title lines (whimsy.tabs.title-lines: 1, 2 or 3): long titles wrap
+   onto up to that many lines in the sidebar instead of fading out at the
+   edge, and the tab grows to fit. Essentials (icon tiles) keep one line. */
+@media -moz-pref("whimsy.feature.title-lines") {
+  @media -moz-pref("whimsy.tabs.title-lines", 2) {
+    :root {
+      --whimsy-title-lines: 2;
+    }
+  }
+  @media -moz-pref("whimsy.tabs.title-lines", 3) {
+    :root {
+      --whimsy-title-lines: 3;
+    }
+  }
+  @media -moz-pref("whimsy.tabs.title-lines", 2), -moz-pref("whimsy.tabs.title-lines", 3) {
+    #tabbrowser-tabs .tabbrowser-tab:not([zen-essential]) {
+      & .tab-label-container {
+        height: auto !important;
+        mask-image: none !important;
+      }
+
+      & .tab-label {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: var(--whimsy-title-lines);
+        white-space: normal;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        /* The container aligns its lines to the start, which would let the
+           title run as wide as it likes; fill the tab's width instead. */
+        align-self: stretch;
+        min-width: 0;
+        padding-block: 5px;
+      }
+
+      /* Let the tab grow with its title (Zen fixes its height). */
+      &,
+      & .tab-stack,
+      & .tab-content {
+        height: auto !important;
+        max-height: none !important;
+      }
+
+      /* Zen size-contains the tab's content, which pins its height. */
+      & .tab-content {
+        min-height: var(--tab-min-height);
+        contain: inline-size layout !important;
+      }
+    }
+  }
+}
