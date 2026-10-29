@@ -24,6 +24,9 @@
 - name: whimsy.feature.duplicate-shortcut
   value: true
 
+- name: whimsy.feature.new-tab-position
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 
@@ -32,6 +35,11 @@
 
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
+  value: true
+
+# New tabs (Cmd+T) open right below the current tab, not at the end of
+# the list. Settings → Tab Management → Tabs.
+- name: browser.tabs.insertAfterCurrent
   value: true
 
 # Strip tracking parameters (utm_*, fbclid...) from links you open, in

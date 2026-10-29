@@ -12,4 +12,4 @@
   value: 5
 
 - name: zen.folders.owned-tabs-in-folder
-  value: false
+  value: true # Whimsy override

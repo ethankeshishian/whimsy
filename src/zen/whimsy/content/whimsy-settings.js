@@ -17,6 +17,8 @@ var gWhimsySettings = {
         this.insertGroups();
       } else if (event.detail.category == "panePrivacy") {
         this.insertPrivacyGroups();
+      } else if (event.detail.category == "paneZenTabManagement") {
+        this.insertTabsGroup();
       }
     });
   },
@@ -74,6 +76,40 @@ var gWhimsySettings = {
     if (keep.whimsyUpdatesGroup) {
       this.initUpdates();
     }
+  },
+
+  // Tab Management: new tab position and folders, sleeping tabs, title lines.
+  insertTabsGroup() {
+    const template = document.getElementById("template-whimsyTabs");
+    if (!template) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
+      if (!this.lazy.Whimsy.featureEnabled(row.dataset.whimsyFeature)) {
+        row.remove();
+      }
+    }
+    template.remove();
+    if (!group.querySelector("[preference]")) {
+      return;
+    }
+    Preferences.addAll(
+      [...group.querySelectorAll("[preference]")].map(el => ({
+        id: el.getAttribute("preference"),
+        type: el.localName == "checkbox" ? "bool" : "int",
+      }))
+    );
+    // At the end of Zen's Workspaces section, before "Pinned Tabs".
+    const anchor = document.getElementById("zenWorkspacesGroup");
+    if (anchor) {
+      anchor.after(fragment);
+    } else {
+      document.getElementById("mainPrefPane").append(fragment);
+    }
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
   },
 
   // Privacy & Security: "Reject cookie banners" and "Remove tracking

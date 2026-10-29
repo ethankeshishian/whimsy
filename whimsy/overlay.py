@@ -66,6 +66,7 @@ HOTFIXES = [
 PREF_OVERRIDES = {
     "zen.ctrlTab.show-pending-tabs": True,       # Arc-style Ctrl+Tab
     "zen.updates.show-update-notification": False,  # Whimsy shows its own
+    "zen.folders.owned-tabs-in-folder": True,    # new tabs stay in the folder
 }
 
 # Strings Zen's markup uses that its .ftl files no longer define.
@@ -96,6 +97,8 @@ FEATURES = [
                 ("prefs", r"name:\s*browser\.ai\.control\.default")]},
     {"id": "duplicate-shortcut", "title": "Duplicate tab on Cmd+Shift+D; Pin/Unpin on Cmd+D (Arc)",
      "detect": [("src/browser/base/content", r'id="zen-duplicate-tab"[^>]*\bkey=')]},
+    {"id": "new-tab-position", "title": "New tabs open below the current tab and stay in its folder (toggles)",
+     "detect": [("src/browser/components/preferences", r"browser\.tabs\.insertAfterCurrent|zen\.folders\.owned-tabs-in-folder")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
@@ -283,6 +286,8 @@ def apply_pref_overrides(report, dry, superseded_ids):
     for name, value in PREF_OVERRIDES.items():
         if name == "zen.ctrlTab.show-pending-tabs" and "ctrl-tab" in superseded_ids:
             continue
+        if name == "zen.folders.owned-tabs-in-folder" and "new-tab-position" in superseded_ids:
+            continue
         found = False
         for rel in upstream_files("prefs"):
             if not rel.endswith(".yaml"):
@@ -324,6 +329,10 @@ def write_generated(report, dry, superseded):
         prefs += f"\n- name: whimsy.feature.{feature['id']}\n  value: {'false' if s else 'true'}{note}\n"
     if "ctrl-tab" not in gone:
         prefs += "\n# Arc-style Ctrl+Tab: recently used order.\n- name: browser.ctrlTab.sortByRecentlyUsed\n  value: true\n"
+    if "new-tab-position" not in gone:
+        prefs += ("\n# New tabs (Cmd+T) open right below the current tab, not at the end of\n"
+                  "# the list. Settings → Tab Management → Tabs.\n"
+                  "- name: browser.tabs.insertAfterCurrent\n  value: true\n")
     if "strip-tracking" not in gone:
         prefs += ("\n# Strip tracking parameters (utm_*, fbclid...) from links you open, in\n"
                   "# normal and private windows. Copy Clean Link's list already applies to\n"

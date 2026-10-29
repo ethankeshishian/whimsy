@@ -200,3 +200,14 @@ add_task(async function private_window() {
   await shot("08-private-window", win.browsingContext.currentWindowGlobal);
   await BrowserTestUtils.closeWindow(win);
 });
+
+add_task(async function settings_tabs() {
+  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+    const doc = browser.contentDocument;
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyTabsGroup"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "Tabs group visible");
+    group.scrollIntoView({ block: "center" });
+    await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+    await shot("09-settings-tabs", browser.browsingContext.currentWindowGlobal);
+  });
+});

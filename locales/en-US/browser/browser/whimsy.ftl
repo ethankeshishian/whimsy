@@ -141,3 +141,11 @@ whimsy-strip-tracking-header =
 whimsy-strip-tracking-toggle =
     .label = Remove tracking parameters from links
     .description = Strips trackers like utm_source and fbclid from the links you open and copy, so sites can’t follow you from page to page.
+
+## Settings → Tab Management → Tabs
+
+whimsy-tabs-header = Tabs
+whimsy-tabs-new-tab-below =
+    .label = Open new tabs below the current tab
+whimsy-tabs-new-tab-in-folder =
+    .label = Keep tabs opened from a folder in that folder
