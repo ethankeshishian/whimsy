@@ -14,7 +14,7 @@ Whimsy is an **overlay**. Zen's files are kept exactly as upstream ships them. W
 
 | Feature | Where | Switch |
 |---|---|---|
-| GitHub PR live folders: "My Review Requests" option, only reviews requested from you directly (mirrors Zen PR #16183, same option key; switches off when Zen ships it) | `WhimsyGithubReviews.sys.mjs` wraps Zen's provider | `whimsy.feature.github-reviews` |
+| GitHub PR live folders following Zen PR #16183: "My Review Requests" (off by default, as in the PR), "Review Requests" renamed "Team Review Requests" (maintainer's suggestion), "Assigned to Me" kept (dropping it was floated, not agreed). Same keys; switches off when Zen ships it | `WhimsyGithubReviews.sys.mjs` wraps Zen's provider | `whimsy.feature.github-reviews` |
 | Interface zoom (Settings → Look and Feel) | `Whimsy.sys.mjs`, `whimsy-browser.css` | `whimsy.feature.ui-zoom` |
 | App icon picker (12 icons, Daydream default) | `WhimsyAppIcon.sys.mjs`, `whimsy-*.patch` (native `setApplicationIcon`) | `whimsy.feature.app-icon` |
 | Arc-style Ctrl+Tab (recently used order, unloaded tabs included) | prefs from `overlay.py` | `whimsy.feature.ctrl-tab` |

@@ -2,16 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// GitHub pull-request live folders: a "My Review Requests" option, for pull
-// requests where a review was requested from you directly
-// (user-review-requested:@me). Zen's "Review Requests" also matches requests
-// sent to any team you're on, and stays as Zen ships it.
-//
-// This mirrors Zen's open PR zen-browser/desktop#16183, same option key
-// (myReviewRequests) and query, so when Zen ships it, whimsy/overlay.py turns
-// this off and the folder's setting carries over to Zen's own option.
-// Whimsy runs the search through the provider's own parsePullRequests and
-// merges the results into Zen's. Zen's code is wrapped, not edited.
+// GitHub pull-request live folders, following Zen's PR zen-browser/desktop#16183:
+//   My Review Requests    user-review-requested:@me, new (key myReviewRequests),
+//                         off by default as in the PR
+//   Team Review Requests  Zen's "Review Requests" (review-requested:@me, which
+//                         includes your teams), renamed as the maintainer
+//                         suggested; same key
+//   Assigned to Me        kept: dropping it was floated, never agreed
+// Same keys and query as Zen's PR, so when Zen ships it, whimsy/overlay.py
+// turns this off and the folders' settings carry over. Whimsy runs its search
+// through the provider's own parsePullRequests and merges the results into
+// Zen's. Zen's code is wrapped, not edited.
 
 export const MY_REVIEW_QUERY = "user-review-requested:@me";
 const KEY = "myReviewRequests";
@@ -30,6 +31,14 @@ export const WhimsyGithubReviews = {
 
   get enabled() {
     return Services.prefs.getBoolPref("whimsy.feature.github-reviews", true);
+  },
+
+  applies(provider) {
+    return this.enabled && provider.state?.type === "pull-requests";
+  },
+
+  wantsMine(options) {
+    return options?.[KEY] ?? false;
   },
 
   // The search Zen uses for every query, plus the review qualifier.
@@ -57,44 +66,55 @@ export const WhimsyGithubReviews = {
       configurable: true,
       get() {
         const options = optionsGetter.call(this);
-        const index = options.findIndex(option => option.key == "reviewRequested");
-        if (!WhimsyGithubReviews.enabled || index < 0 || options.some(o => o.key == KEY)) {
+        if (!WhimsyGithubReviews.applies(this) || options.some(o => o.key == KEY)) {
           return options;
         }
-        options.splice(index + 1, 0, {
-          l10nId: "whimsy-live-folder-github-option-my-review-requests",
-          key: KEY,
-          checked: this.state.options[KEY] ?? false,
-          hidden: this.state.type === "issues",
-        });
+        const index = options.findIndex(option => option.key == "reviewRequested");
+        if (index < 0) {
+          return options;
+        }
+        options.splice(
+          index,
+          1,
+          {
+            l10nId: "whimsy-live-folder-github-option-my-review-requests",
+            key: KEY,
+            checked: WhimsyGithubReviews.wantsMine(this.state.options),
+          },
+          { ...options[index], l10nId: "whimsy-live-folder-github-option-team-review-requests" }
+        );
         return options;
       },
     });
 
     proto.fetchItems = async function (...args) {
-      const options = this.state?.options;
-      if (this.state?.type !== "pull-requests" || !(options?.[KEY] ?? false) || !WhimsyGithubReviews.enabled) {
+      if (!WhimsyGithubReviews.applies(this)) {
         return fetchItems.apply(this, args);
       }
-
-      // Zen's own search for its options. With none of them on, Zen would
-      // refuse to fetch, so let it run "assigned" just to settle the page
-      // format, and drop those results.
+      const options = this.state.options;
+      const mine = WhimsyGithubReviews.wantsMine(options);
+      // Zen's search for its own options. With none on, Zen would refuse to
+      // fetch, so let it run "assigned" just to settle the page format, and
+      // drop those results.
       const zenFilters =
         (options.authorMe ?? false) || (options.assignedMe ?? true) || (options.reviewRequested ?? false);
+      if (!zenFilters && !mine) {
+        return "zen-live-folder-github-no-filter";
+      }
       let items;
-      if (zenFilters) {
-        items = await fetchItems.apply(this, args);
-      } else {
-        try {
+      try {
+        if (!zenFilters) {
           this.state.options = { ...options, assignedMe: true };
-          items = await fetchItems.apply(this, args);
-        } finally {
-          this.state.options = options;
         }
+        items = await fetchItems.apply(this, args);
+      } finally {
+        this.state.options = options;
       }
       if (!Array.isArray(items)) {
         return items; // Zen's error id: no auth, failed fetch...
+      }
+      if (!mine) {
+        return items;
       }
 
       const merged = new Map((zenFilters ? items : []).map(item => [item.id, item]));

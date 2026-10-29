@@ -76,38 +76,54 @@ function fakeProvider(options) {
   return { provider, queries };
 }
 
-add_task(async function test_my_review_requests_option() {
-  const { provider } = fakeProvider({ myReviewRequests: true });
+add_task(async function test_options_match_zen_pr_16183() {
+  const { provider } = fakeProvider({});
   Assert.deepEqual(
     provider.options.map(o => o.key),
-    ["authorMe", "assignedMe", "reviewRequested", "myReviewRequests", "includeDrafts"],
-    "My Review Requests sits right after Zen's Review Requests"
+    ["authorMe", "assignedMe", "myReviewRequests", "reviewRequested", "includeDrafts"],
+    "Assigned to Me kept; My Review Requests, then Team Review Requests"
   );
-  const mine = provider.options[3];
-  ok(mine.checked, "It reflects the folder's setting");
-  is(provider.options[2].l10nId, "zen-live-folder-github-option-review-requested", "Zen's option is untouched");
-  const [label] = await document.l10n.formatMessages([{ id: mine.l10nId }]);
-  is(label.attributes[0].value, "My Review Requests", "Labelled like Zen's PR");
+  const [mine, team] = provider.options.slice(2, 4);
+  ok(!mine.checked, "My Review Requests is off by default, as in the PR");
+  ok(!team.checked, "Team Review Requests keeps Zen's default (off)");
+  const [mineLabel, teamLabel] = await document.l10n.formatMessages([{ id: mine.l10nId }, { id: team.l10nId }]);
+  is(mineLabel.attributes[0].value, "My Review Requests", "Named as agreed");
+  is(teamLabel.attributes[0].value, "Team Review Requests", "Zen's option renamed as agreed");
+
+  const issues = fakeProvider({});
+  issues.provider.state.type = "issues";
+  ok(issues.provider.options.some(o => o.key == "assignedMe"), "Issue folders keep Assigned to Me");
 });
 
-add_task(async function test_my_review_requests_queries() {
-  // My Review Requests alongside Zen's options.
-  let { provider, queries } = fakeProvider({ myReviewRequests: true, reviewRequested: true });
+add_task(async function test_review_queries() {
+  // Default: Zen's Assigned to Me, nothing extra.
+  let { provider, queries } = fakeProvider({});
   let items = await provider.fetchItems();
-  ok(queries.includes("review-requested:@me"), "Zen's Review Requests still runs");
-  ok(queries.some(q => q.endsWith(MY_REVIEW_QUERY) && q.includes("-repo:x/skip") && q.includes("is:pr")),
-    "Plus user-review-requested:@me, with the folder's filters");
-  Assert.deepEqual(items.map(i => i.id).sort(), ["m#2", "z#1"], "Results merged");
+  Assert.deepEqual(items.map(i => i.id), ["z#1"], "Zen's default fetch");
+  is(queries.length, 0, "No extra search by default");
 
-  // Only My Review Requests, every Zen option off.
+  // My Review Requests alone: Zen's fetch only settles the page format.
   ({ provider, queries } = fakeProvider({ assignedMe: false, myReviewRequests: true }));
   items = await provider.fetchItems();
   Assert.deepEqual(items.map(i => i.id), ["m#2"], "Only reviews requested from you");
+  ok(queries.some(q => q.endsWith(MY_REVIEW_QUERY) && q.includes("-repo:x/skip") && q.includes("is:pr")),
+    "user-review-requested:@me, with the folder's filters");
   ok(!provider.state.repos.has("zen"), "The helper fetch's repositories are dropped");
-  is(provider.state.options.assignedMe, false, "The folder's options are restored");
 
-  // Off: Zen's behavior, untouched.
-  ({ provider, queries } = fakeProvider({}));
+  // With Team Review Requests too: Zen's team-inclusive search runs as well.
+  ({ provider, queries } = fakeProvider({ assignedMe: false, myReviewRequests: true, reviewRequested: true }));
+  items = await provider.fetchItems();
+  ok(queries.includes("review-requested:@me"), "Team Review Requests runs Zen's query");
+  Assert.deepEqual(items.map(i => i.id).sort(), ["m#2", "z#1"], "Results merged");
+  ok(provider.state.options.assignedMe === false, "The folder's options are restored");
+
+  // Everything off: Zen's no-filter message.
+  ({ provider, queries } = fakeProvider({ assignedMe: false }));
+  is(await provider.fetchItems(), "zen-live-folder-github-no-filter", "No filters, no fetch");
+
+  // Issue folders: Zen's behavior, untouched.
+  ({ provider, queries } = fakeProvider({ myReviewRequests: true }));
+  provider.state.type = "issues";
   items = await provider.fetchItems();
   Assert.deepEqual(items.map(i => i.id), ["z#1"], "Zen's fetch runs as is");
   is(queries.length, 0, "No extra searches");
