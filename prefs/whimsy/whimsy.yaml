@@ -128,3 +128,15 @@
 # have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
 - name: whimsy.external-links.target
   value: tab
+
+# batch13: page & reading
+# Show Whimsy's menu bar icon (macOS, Settings → Look and Feel): a quick
+# window and recent tabs, reachable without focusing a Whimsy window first.
+- name: whimsy.menu-bar-extra.show
+  value: true
+
+# Bionic reading in Reader View (its own toolbar toggle button): bolds the
+# leading letters of each word. Opt-in, off by default — some readers find
+# it faster, others find it distracting.
+- name: whimsy.reader.bionic
+  value: false

@@ -185,6 +185,8 @@ var gWhimsySettings = {
     const supported = {
       // Only macOS draws the blurred material behind the window.
       transparency: AppConstants.platform == "macosx",
+      // batch13: the menu bar icon only exists on macOS.
+      "menu-bar-extra": AppConstants.platform == "macosx",
     };
     for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
       const id = row.dataset.whimsyFeature;

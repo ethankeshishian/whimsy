@@ -192,6 +192,15 @@ FEATURES = [
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    # batch13: page & reading (split favorites, bionic reading, print a clean page, menu bar extra)
+    {"id": "split-favorites", "title": "Pin or favorite a split (reopen it with one click)",
+     "detect": [("src/zen", r"(?i)favorite[\w.-]*split|split[\w.-]*favorite")]},
+    {"id": "bionic-reading", "title": "Bionic (guided) reading in Reader View",
+     "detect": [("src/zen", r"(?i)bionic[\w.-]*read")]},
+    {"id": "print-clean", "title": "Print a clean page (Reader View, then print, leaving the tab alone)",
+     "detect": [("src/zen", r"(?i)print[\w.-]*clean[\w.-]*page")]},
+    {"id": "menu-bar-extra", "title": "Menu bar extra (macOS): quick window and recent tabs",
+     "detect": [("src/zen", r"(?i)menu[\w.-]*bar[\w.-]*extra|systemstatusbar")]},
 ]
 
 

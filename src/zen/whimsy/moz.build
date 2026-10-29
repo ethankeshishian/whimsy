@@ -20,6 +20,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySpaces.sys.mjs",
     "WhimsyTabs.sys.mjs",
     "WhimsyUpdates.sys.mjs",
+    # batch13: page & reading
+    "WhimsyBionicReading.sys.mjs",
+    "WhimsyBionicReadingChild.sys.mjs",
+    "WhimsyMenuBarExtra.sys.mjs",
+    "WhimsyPrintClean.sys.mjs",
+    "WhimsySplitFavorites.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

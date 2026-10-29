@@ -135,6 +135,18 @@
 - name: whimsy.feature.external-link-target
   value: true
 
+- name: whimsy.feature.split-favorites
+  value: true
+
+- name: whimsy.feature.bionic-reading
+  value: true
+
+- name: whimsy.feature.print-clean
+  value: true
+
+- name: whimsy.feature.menu-bar-extra
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

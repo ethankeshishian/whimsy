@@ -120,3 +120,14 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_wayback.js"]
 support-files = ["whimsy_archive.sjs"]
+
+# batch13: page & reading
+["browser_whimsy_bionic_reading.js"]
+support-files = ["whimsy_article.html"]
+
+["browser_whimsy_menu_bar_extra.js"]
+run-if = ["os == 'mac'"]
+
+["browser_whimsy_print_clean.js"]
+
+["browser_whimsy_split_favorites.js"]
