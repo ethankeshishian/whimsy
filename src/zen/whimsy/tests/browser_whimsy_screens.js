@@ -131,6 +131,18 @@ add_task(async function settings_updates() {
   }
 });
 
+// Firefox's About window, with Whimsy's logo and name.
+add_task(async function about_dialog() {
+  const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null, win => win.document.documentURI == "chrome://browser/content/aboutDialog.xhtml");
+  window.openAboutDialog();
+  const dialog = await opened;
+  const logo = dialog.getComputedStyle(dialog.document.getElementById("leftBox")).backgroundImage;
+  ok(logo.includes("about-logo"), "The About window shows the branding logo");
+  await new Promise(resolve => dialog.requestAnimationFrame(() => dialog.setTimeout(resolve, 300)));
+  await shot("03b-about-dialog", dialog.browsingContext.currentWindowGlobal);
+  await BrowserTestUtils.closeWindow(dialog);
+});
+
 add_task(async function updated_notice() {
   const notification = await window.WhimsyWindow.showUpdatedNotice(
     { id: "shot", version: "1.24b-w2", zen: "1.24b", notes_url: "https://example.com/notes" },
