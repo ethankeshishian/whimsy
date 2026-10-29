@@ -1,0 +1,934 @@
+<title>Whimsy Feature Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --ground: #fbf7fa;
+  --surface: #ffffff;
+  --sunk: #f4ecf2;
+  --ink: #261a2e;
+  --muted: #6e5f78;
+  --line: #eadfea;
+  --accent: #c8336e;
+  --accent-soft: #fbe3ed;
+  --sky: #3561c9;
+  --sky-soft: #e4ebfb;
+  --amber: #9a6512;
+  --amber-soft: #f8ecd6;
+  --green: #2c7a50;
+  --green-soft: #def1e5;
+  --focus: #3561c9;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #17121b;
+    --surface: #211a27;
+    --sunk: #1c1621;
+    --ink: #f3ecf5;
+    --muted: #ab9bb5;
+    --line: #3a2f42;
+    --accent: #ff73a8;
+    --accent-soft: #42213a;
+    --sky: #8aaaff;
+    --sky-soft: #22294a;
+    --amber: #f0bd62;
+    --amber-soft: #3d2f17;
+    --green: #74d39c;
+    --green-soft: #1b3326;
+    --focus: #8aaaff;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #17121b;
+  --surface: #211a27;
+  --sunk: #1c1621;
+  --ink: #f3ecf5;
+  --muted: #ab9bb5;
+  --line: #3a2f42;
+  --accent: #ff73a8;
+  --accent-soft: #42213a;
+  --sky: #8aaaff;
+  --sky-soft: #22294a;
+  --amber: #f0bd62;
+  --amber-soft: #3d2f17;
+  --green: #74d39c;
+  --green-soft: #1b3326;
+  --focus: #8aaaff;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font: 15px/1.55 var(--body);
+  padding: 0 16px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 40px 80px; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(34px, 6vw, 56px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.02; }
+h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--sky); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+header { display: grid; gap: 14px; }
+.lede { font-size: 17px; max-width: 68ch; color: var(--muted); }
+.lede strong { color: var(--ink); font-weight: 600; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 6px; }
+.stat { display: grid; }
+.stat b { font: 800 30px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); }
+
+.cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 32px; align-items: start; }
+@media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+section { display: grid; gap: 14px; }
+.findings { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+.findings li::marker { color: var(--accent); }
+.picks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: pick; }
+.picks li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 9px 10px; border-radius: 10px; counter-increment: pick; }
+.picks li:hover { background: var(--sunk); }
+.picks li::before { content: counter(pick); font: 500 13px/1.6 var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+.picks button { all: unset; cursor: pointer; font-weight: 600; }
+.picks button:hover { text-decoration: underline; }
+.picks button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.picks p { font-size: 13.5px; color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+
+.toolbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--ground); padding-block: 12px; border-bottom: 1px solid var(--line);
+  display: grid; gap: 10px;
+}
+.row1 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.search { flex: 1 1 260px; min-width: 0; }
+input[type="search"], select {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-width: 0; max-width: 100%;
+}
+input[type="search"] { width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); flex-wrap: wrap; }
+.seg button { font: 500 13px var(--body); color: var(--muted); background: transparent; border: 0; padding: 8px 11px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+.row2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.btn { font: 500 13px var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.count { font-variant-numeric: tabular-nums; }
+
+.catalog { display: grid; gap: 28px; }
+.group { display: grid; gap: 4px; }
+.group h3 { display: flex; gap: 10px; align-items: baseline; padding: 0 2px 6px; border-bottom: 1px solid var(--line); }
+.group h3 small { font: 500 12px var(--mono); color: var(--muted); }
+.item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px;
+  padding: 11px 12px; border-radius: 10px;
+}
+.item:hover, .item.flash { background: var(--surface); }
+.item.flash { box-shadow: 0 0 0 2px var(--accent); }
+.item .name { font-weight: 600; }
+.item .desc { color: var(--muted); font-size: 14px; grid-column: 1; }
+.item .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.item .meta .src { font-style: normal; }
+.item .sig { color: var(--ink); }
+.tags { display: flex; gap: 6px; align-items: start; justify-content: end; grid-row: 1 / span 2; grid-column: 2; flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .item { grid-template-columns: 1fr; }
+  .tags { grid-column: 1; grid-row: auto; justify-content: start; }
+}
+.pill { font: 500 11.5px/1 var(--mono); padding: 5px 8px; border-radius: 999px; white-space: nowrap; letter-spacing: 0.02em; }
+.st-new { background: var(--accent-soft); color: var(--accent); }
+.st-partial { background: var(--amber-soft); color: var(--amber); }
+.st-has { background: var(--green-soft); color: var(--green); }
+.tier { background: var(--sky-soft); color: var(--sky); }
+.eff { background: var(--sunk); color: var(--muted); }
+.votes { font: 500 12px var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+.empty { padding: 40px 0; text-align: center; color: var(--muted); }
+.sources { font-size: 13px; color: var(--muted); columns: 2 280px; column-gap: 28px; }
+.sources a { display: block; padding: 2px 0; break-inside: avoid; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--muted); align-items: center; }
+@media (prefers-reduced-motion: no-preference) { .item { transition: background 120ms; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Whimsy research · October 28, 2026</span>
+    <h1>Whimsy Feature Atlas</h1>
+    <p class="lede">Every feature worth stealing from <strong>30+ browsers</strong>, ranked by what people actually ask for: 2,595 Zen feature ideas by vote count, Hacker News threads on Arc's shutdown, Vivaldi, Zen, Helium and Orion, Arc users' own lists of what they can't live without, and the official feature lists of every major and minor browser.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="cols">
+    <section>
+      <h2>What we learned</h2>
+      <ul class="findings">
+        <li><strong>Arc stops working on December 22, 2026.</strong> The Browser Company announced it on October 22 and points users to Dia. HN and Reddit reactions are mostly negative, and Zen is the most-named landing spot. Whimsy is an Arc-shaped browser launching into the biggest wave of browser refugees in years.</li>
+        <li><strong>What Arc users say they'll miss:</strong> spaces with separate profiles (the most upvoted r/ArcBrowser comment, 519), typing a site name then Tab to search it (413), Little Arc, Peek, Air Traffic Control, nested folders, auto picture-in-picture, the capture tool and Supercopy. One HN commenter called Little Arc "the big missing piece" in Zen.</li>
+        <li><strong>Zen's own top requests</strong> are about sync and structure: instant tab sync between computers (479 votes), syncing space tabs across windows (416), Arc-style folders (412, now shipped), renaming tabs (320), Sidebery-style trees (282), horizontal tabs (254), auto-closing tabs (241) and per-space profiles (227).</li>
+        <li><strong>People want AI to be optional.</strong> The loudest threads are "nobody wants AI in Firefox" (754 comments) and Dia's $20/month plan. The AI people do ask for is narrow and local: history search, a smarter reader mode, tab tidying, all with a switch that removes AI completely.</li>
+        <li><strong>Trust and stability matter as much as features.</strong> Common Zen complaints are behavior changing between updates, speed on some Macs, Google Meet quality and DRM. Vivaldi gets praised for its sustainable model and criticised as bloated. Helium gets praised for making zero network requests on first launch.</li>
+        <li><strong>Vivaldi and Waterfox lead on depth.</strong> Vivaldi has tab stacks, a visual tab cycler, command chains, mouse gestures, periodic reload and a session manager. Waterfox 6.7 has native tree tabs, private tabs inside normal windows, a real status bar and layout controls without userChrome.css.</li>
+      </ul>
+    </section>
+    <section>
+      <h2>Next up</h2>
+      <p class="note">The 15 strongest candidates for Whimsy: high demand, a good fit for an Arc-like browser, and possible as Whimsy overlay features. Click one to find it in the catalog.</p>
+      <ol class="picks" id="picks"></ol>
+    </section>
+  </div>
+
+  <section id="catalog-section">
+    <h2>The catalog</h2>
+    <div class="legend">
+      <span><span class="pill st-new">New</span> not in Zen or Whimsy</span>
+      <span><span class="pill st-partial">Partial</span> exists, but people ask for more</span>
+      <span><span class="pill st-has">Has</span> Zen, Firefox or Whimsy already ships it</span>
+      <span><span class="votes">▲ 320</span> votes on Zen's GitHub ideas</span>
+      <span>Effort: S days · M a week or two · L weeks · XL engine or platform work</span>
+    </div>
+    <div class="toolbar" role="search">
+      <div class="row1">
+        <div class="search"><input type="search" id="q" placeholder="Search features, browsers or ideas…" aria-label="Search features"></div>
+        <select id="cat" aria-label="Category"></select>
+        <select id="sort" aria-label="Sort">
+          <option value="cat">Group by category</option>
+          <option value="votes">Most requested</option>
+          <option value="tier">Priority</option>
+          <option value="az">A to Z</option>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="seg" id="status" role="group" aria-label="Status">
+          <button data-v="all" aria-pressed="true">All</button>
+          <button data-v="new" aria-pressed="false">New</button>
+          <button data-v="partial" aria-pressed="false">Partial</button>
+          <button data-v="has" aria-pressed="false">Has</button>
+        </div>
+        <div class="seg" id="tierf" role="group" aria-label="Priority">
+          <button data-v="all" aria-pressed="true">Any priority</button>
+          <button data-v="1" aria-pressed="false">Next up</button>
+          <button data-v="2" aria-pressed="false">Strong</button>
+          <button data-v="3" aria-pressed="false">Later</button>
+        </div>
+        <span class="count" id="count"></span>
+        <button class="btn" id="copy">Copy as Markdown</button>
+      </div>
+    </div>
+    <div class="catalog" id="catalog"></div>
+  </section>
+
+  <section>
+    <h2>Sources</h2>
+    <p class="note">Reddit blocks direct reading, so Reddit sentiment comes from posts quoted in search results and from Crest's survey of r/ArcBrowser. Zen vote counts come from all 2,595 discussions in zen-browser/desktop's Ideas category, read on October 28, 2026.</p>
+    <div class="sources">
+      <a href="https://techcrunch.com/2026/10/22/arc-browser-sunsets-december-22-as-the-browser-company-doubles-down-on-dia/">TechCrunch: Arc sunsets December 22</a>
+      <a href="https://techcrunch.com/2025/11/03/dias-ai-browser-starts-adding-arcs-greatest-hits-to-its-feature-set">TechCrunch: Dia adds Arc's greatest hits</a>
+      <a href="https://news.ycombinator.com/item?id=50197601">HN: A farewell to Arc browser</a>
+      <a href="https://news.ycombinator.com/item?id=45128889">HN: What Arc/Dia features should we prioritize?</a>
+      <a href="https://news.ycombinator.com/item?id=44951799">HN: Why I'm all-in on Zen Browser</a>
+      <a href="https://news.ycombinator.com/item?id=48219060">HN: Vivaldi 8.0</a>
+      <a href="https://news.ycombinator.com/item?id=45366867">HN: Helium Browser</a>
+      <a href="https://news.ycombinator.com/item?id=45926779">HN: I think nobody wants AI in Firefox</a>
+      <a href="https://news.ycombinator.com/item?id=48970894">HN: Orion Browser by Kagi</a>
+      <a href="https://github.com/zen-browser/desktop/discussions/categories/ideas">Zen: Ideas discussions (2,595)</a>
+      <a href="https://github.com/Clueed/Crest/issues/9">Crest: what users like about Arc</a>
+      <a href="https://start.arc.net/release-notes">Arc release notes</a>
+      <a href="https://vivaldi.com/features/">Vivaldi features</a>
+      <a href="https://help.vivaldi.com/article/tab-features/">Vivaldi tab features</a>
+      <a href="https://alternativeto.net/news/2026/3/vivaldi-7-9-introduces-customizable-full-screen-mode-follower-tabs-and-mail-improvements">Vivaldi 7.9: auto-hide UI, follower tabs</a>
+      <a href="https://forum.vivaldi.net/post/870566">Vivaldi forum: top feature requests</a>
+      <a href="https://alternativeto.net/news/2026/8/waterfox-6-7-brings-full-redesign-native-tree-tabs-improved-ad-blocking-and-much-more/">Waterfox 6.7 Supernova</a>
+      <a href="https://waterfox.net/docs/features">Waterfox features</a>
+      <a href="https://docs.floorp.app/docs/features/">Floorp features</a>
+      <a href="https://blog.kagi.com/orion-features">Orion features</a>
+      <a href="https://www.opera.com/features">Opera features</a>
+      <a href="https://www.opera.com/gx/features/gx-control">Opera GX Control</a>
+      <a href="https://brave.com/features/">Brave features</a>
+      <a href="https://explore.microsoft.com/en-us/edge/features">Edge features</a>
+      <a href="https://www.techcrunch.com/2026/02/19/as-browser-wars-heat-up-chrome-adds-new-productivity-features/">Chrome split view and productivity</a>
+      <a href="https://alternativeto.net/news/2026/3/firefox-149-will-offer-a-free-built-in-vpn-split-views-tab-notes-and-optional-ai-windows">Firefox 149: split view, tab notes, AI window</a>
+      <a href="https://www.how2shout.com/news/firefox-148-ai-controls-block-ai-features.html">Firefox 148 AI controls</a>
+      <a href="https://www.igeeksblog.com/safari-ios-26-macos-tahoe-features/">Safari 26 features</a>
+      <a href="https://openai.com/index/introducing-chatgpt-atlas/">ChatGPT Atlas</a>
+      <a href="https://www.diabrowser.com/changelog">Dia changelog</a>
+      <a href="https://www.toolmage.com/en/tool/sigmaos/">SigmaOS</a>
+      <a href="https://www.neowin.net/amp/helium-a-chrome-browser-with-no-bloat/">Helium</a>
+      <a href="https://spreadprivacy.com/windows-browser-open-beta/">DuckDuckGo browser</a>
+      <a href="https://www.techradar.com/pro/mullvad-browser">Mullvad Browser</a>
+      <a href="https://linuxiac.com/nyxt-3-0-browser-is-here-after-two-years-of-development/">Nyxt 3.0</a>
+      <a href="https://blog.wavebox.io/multiple-wavebox-profiles/">Wavebox profiles</a>
+      <a href="https://connect.mozilla.org/t5/discussions/mozilla-connect-monthly-recap-top-voted-ideas-for-july-2026/td-p/133701">Mozilla Connect top ideas</a>
+      <a href="https://tidbits.com/2026/10/26/the-browser-company-kicks-arc-to-the-curb-on-22-december-2026/">TidBITS: Arc alternatives</a>
+    </div>
+  </section>
+</div>
+
+<script>
+// [category, name, description, sources, Zen votes, signal, status, effort, tier]
+const CATS = {
+  arc: "Arc refugees",
+  tabs: "Tabs and the sidebar",
+  pins: "Pinned tabs, Essentials and folders",
+  spaces: "Spaces, profiles and containers",
+  split: "Split view and tiling",
+  quick: "Quick windows and previews",
+  command: "Command bar and search",
+  input: "Keyboard, mouse and gestures",
+  nav: "Address bar and navigation",
+  sync: "Sync, sessions and import",
+  reading: "Reading and focus",
+  media: "Media and picture-in-picture",
+  page: "Page tools",
+  apps: "Built-in apps and live folders",
+  panels: "Web apps and side panels",
+  files: "Downloads and files",
+  privacy: "Privacy and security",
+  perf: "Performance and battery",
+  look: "Look and feel",
+  ai: "AI, optional and local-first",
+  dev: "Developer tools",
+  auto: "Automation and integrations",
+  mac: "macOS and platform",
+  mobile: "Other devices",
+  a11y: "Accessibility",
+  delight: "Delight",
+};
+const F = [
+// Arc refugees
+["arc","Coming from Arc? onboarding","A first-run path for Arc users: import spaces, pinned tabs and folders, map Arc shortcuts, and explain where each Arc feature lives in Whimsy.","Whimsy idea, Dia importer, Zen importer",0,"Arc shuts down Dec 22; Zen is the most-named alternative","new","S",1],
+["arc","Arc shortcut preset","One switch that sets Arc's shortcuts: Cmd+T command bar, Cmd+S sidebar, Cmd+Shift+C copy URL, Cmd+Opt+N quick window, Cmd+E commands.","Arc",0,"r/ArcBrowser: Cmd+T and Cmd+Shift+C are the shortcuts people cite","new","S",1],
+["arc","Verify the Arc import end to end","Zen already imports Arc and Dia. Test it with a large real Arc profile: nested folders, pinned tabs per space, profiles, Boosts, Easels.","Zen migration, Dia importer",59,"Import everything from Arc (59), Import Arc data (15)","partial","S",1],
+["arc","Arc Boosts importer","Turn Arc Boosts (CSS and JS) into Zen Boosts on import, so people keep their site fixes, like hiding YouTube Shorts.","Arc",0,"Boosts are on every 'what I'll miss' list","new","M",2],
+["arc","Arc Easels and Notes export","Import Arc notes as Whimsy notes and Easels as image plus link collections before Arc's data is deleted.","Arc",45,"Easels request (45)","new","M",3],
+
+// Tabs and the sidebar
+["tabs","Rename tabs","Give any tab a custom title that survives reloads and restarts. Works for pinned tabs and folders too.","Vivaldi, Floorp, Arc",320,"4th most-voted Zen idea","new","S",1],
+["tabs","Auto-archive idle tabs","Close unpinned tabs you haven't touched in 12 hours (or a chosen time) into an archive you can search and restore. Playing media is never archived.","Arc, SigmaOS",241,"Auto-close after time (241), auto-archive (23, 15)","new","M",1],
+["tabs","Archive view with restore","A searchable list of archived and closed tabs by day, with one-click restore into the original space.","Arc",0,"Arc's archive is part of why auto-archive feels safe","partial","S",2],
+["tabs","Tab loading progress","A thin progress bar or ring on the tab while a page loads.","Vivaldi, old Firefox",80,"With a concept mockup (80)","new","S",2],
+["tabs","Tree-style tabs","Nest tabs under the tab that opened them, any depth, collapsible. Waterfox now ships this natively.","Waterfox 6.7, Sidebery, Orion",96,"Tree structure (96), built-in tree tabs (59), multi-level nesting (11); HN asks for infinite depth","new","L",2],
+["tabs","Sidebery-style power features","Panels of tabs, tab snapshots, and per-panel containers, without installing Sidebery (which conflicts with Zen's sidebar).","Sidebery",282,"5th most-voted Zen idea","new","L",2],
+["tabs","Tab stacks","Drag a tab onto another to stack them into one tab with a stack switcher, as compact, two-level or accordion stacks.","Vivaldi",0,"Vivaldi users name stacks and tiling as reasons they stay","new","M",2],
+["tabs","Horizontal tabs option","An optional horizontal tab strip for people who tile browser windows side by side.","Floorp, Waterfox, every classic browser",254,"6th most-voted Zen idea; HN: vertical tabs waste space when tiling","new","L",2],
+["tabs","Tab bar position","Put the tab strip above or below the address bar, or at the bottom of the window.","Waterfox, Vivaldi",0,"Vivaldi forum: tab bar below address bar (72)","new","M",3],
+["tabs","Duplicate tab shortcut","A shortcut that duplicates the current tab right next to it, with history.","Vivaldi, Chrome",39,"Key binding (39), shortcut (32, 17, 9)","partial","S",1],
+["tabs","New tab below current","Open a new tab directly under the current one instead of at the end.","Vivaldi, Chrome",26,"","new","S",2],
+["tabs","Copy URLs of selected tabs","Select several tabs and copy their links as plain URLs, Markdown links, or titles with links.","Arc Supercopy, Firefox 150",33,"Copy multiple tab URLs (33, 9, 9)","partial","S",1],
+["tabs","Lock a tab","Prevent a tab from being closed, navigated away from, or unpinned by accident.","Vivaldi",8,"Vivaldi forum: locking pinned tabs (89)","new","S",2],
+["tabs","Periodic reload","Reload a tab every N minutes, with a countdown on the tab.","Vivaldi",0,"","new","S",2],
+["tabs","Tab emoji and custom icons","Replace a tab's favicon with an emoji or uploaded icon.","Arc, Opera",23,"Custom title and icon for pinned tabs (23), custom icons for Essentials (13)","new","S",2],
+["tabs","Hibernation exclusions","Sites that never unload, like music players and dashboards.","Vivaldi, Edge",12,"Exclusion list for tab sleeping (12), prevent tab unload (13)","partial","S",2],
+["tabs","Unload tab shortcut","A keyboard shortcut and command to unload the current or selected tabs.","Vivaldi, Firefox",12,"Shortcut to unload (12, 9)","partial","S",2],
+["tabs","Dim unloaded tabs","Show which tabs are sleeping with a dimmed icon or title.","Vivaldi",0,"","partial","S",3],
+["tabs","Audio, mic and camera indicators when collapsed","Show which tab is playing sound or using your camera even when the sidebar is collapsed.","Arc",8,"Audio indicator in collapsed sidebar (8)","new","S",2],
+["tabs","Notification badges on tabs","Unread counts from web apps (Gmail, Slack) on their tabs, pinned tabs and Essentials.","Wavebox, Shift, Arc",12,"Indicators on Essentials (12), notify new tabs when collapsed (8)","new","M",2],
+["tabs","Back button closes the tab","When a tab has no history left, Back closes it and returns to the tab that opened it.","Arc",21,"Mouse back closes tab (21), Arc go-back closes tab (12, 11)","new","S",2],
+["tabs","Return to the previous tab on close","Closing a tab returns to the tab you used last, not the neighbour.","Vivaldi, Firefox option",0,"HN: can't live without recently-used order","partial","S",2],
+["tabs","Click the active tab to go back","Clicking the current tab switches back to the previous one.","Vivaldi",0,"","new","S",3],
+["tabs","Scroll over tabs to switch","Alt or right-button plus scroll wheel cycles tabs.","Vivaldi",0,"","new","S",3],
+["tabs","Double-click empty sidebar for a new tab","Double-click or middle-click empty sidebar space to open a new tab.","Chrome, Vivaldi",45,"Middle click creates new tab (45), double click (12)","new","S",2],
+["tabs","Tidy tabs","One click groups or closes loose tabs by site and topic. Works without AI by grouping by domain; AI is optional.","Arc Tidy Tabs, Opera Tab Islands, Firefox",0,"Arc Max feature that still works; HN: group my tabs","new","M",2],
+["tabs","Tab islands","Tabs opened from the same tab stay together as a colored, named group.","Opera",0,"Opera One R3 headline feature","new","M",3],
+["tabs","Snooze a tab","Hide a tab until a chosen time, then bring it back.","SigmaOS, Edge Workspaces",0,"","new","M",3],
+["tabs","Tabs as to-dos","Mark a tab done to archive it, like checking off a task.","SigmaOS",0,"","new","M",3],
+["tabs","Follower tabs","Open a link as a follower: the source stays on one side and each link you click opens on the other.","Vivaldi 7.9",0,"Vivaldi's 2026 headline feature","new","M",2],
+["tabs","Close tabs to the side and duplicates","Close tabs above or below, close other tabs, and close duplicate tabs.","Chrome, Vivaldi",14,"Close all button (14), close all unpinned (15)","partial","S",3],
+["tabs","Tab hover previews","A thumbnail of the page when hovering a tab.","Firefox, Edge, Chrome",0,"","has","S",3],
+["tabs","Sidebar opens on hover","Keep the collapsed sidebar visible and expand it on hover, with an adjustable delay.","Arc, Zen (removed)",43,"Expand on hover (43), permanently visible collapsed (25), hover delay (7)","partial","S",2],
+["tabs","New tab button pinned to the bottom","Keep the new-tab button out of the scrolling tab list.","Arc",28,"(28, 13)","partial","S",3],
+["tabs","Sidebar font size","Change the size of tab titles without zooming the whole UI.","Arc",16,"Sidebar font size (16, 15)","partial","S",2],
+["tabs","Tab notes","Attach a note to a tab; it shows on hover and follows the tab.","Firefox 149",0,"","partial","M",3],
+["tabs","Move tab to a new window","Shortcut and command to move the current tab to a new window.","Chrome, Arc",12,"","partial","S",3],
+["tabs","Tab context menu customization","Hide and reorder context menu items.","Vivaldi",7,"","new","M",3],
+
+// Pinned tabs, Essentials, folders
+["pins","Edit a pinned tab's URL","Change the home URL of a pinned tab or Essential without re-pinning.","Arc",51,"Manual edit (51), set URL (14)","new","S",1],
+["pins","Custom title and icon for pinned tabs","Name and icon pinned tabs and Essentials yourself.","Arc",23,"(23, 13, 12)","new","S",1],
+["pins","Per-space or all-space pins","Choose whether a pinned tab appears in one space or every space.","Arc",79,"Option for single vs all spaces (79), two types of pins (10, 10)","new","M",2],
+["pins","Essentials per space","Different Essentials for each space or container.","Arc spaces with separate favorites",24,"Container Essentials (24), per-space Essentials (10, 10, 10)","new","M",2],
+["pins","Pinned tabs saved as bookmarks","Pinned tabs and folders stored as bookmarks so they sync and survive profile resets.","Arc",169,"Pinned tabs should be bookmarks (169), bookmarks as folders (16)","partial","M",2],
+["pins","Notification dots on Essentials","Show unread state on Essential tiles.","Arc",12,"","new","S",2],
+["pins","Rich previews for Essentials","Hover Gmail or Calendar Essentials to see recent mail and today's meetings.","Arc app previews",41,"Rich Gmail and Calendar previews (41)","new","L",2],
+["pins","Folders in the unpinned area","Folders for everyday tabs, not just pinned ones.","Arc",46,"(46, 10, 10)","new","M",2],
+["pins","Folders keep their place","Folders don't jump to the top of the list.","Arc",42,"","new","S",3],
+["pins","Folder colors","Color-code folders.","Arc, Opera",10,"","new","S",3],
+["pins","New tabs open in the active folder","Cmd+T in a folder adds the new tab to that folder.","Arc",15,"(15, 8)","new","S",2],
+["pins","Folder previews","Hover a folder to preview and search its tabs without expanding it.","Arc",0,"","new","S",3],
+["pins","Don't load pinned tabs at startup","Pinned tabs and Essentials stay asleep until clicked.","Arc",17,"(17, 10)","partial","S",2],
+["pins","Auto-unload pinned tabs","Unload idle pinned tabs and Essentials after a while.","Arc",22,"","partial","S",2],
+["pins","Protect pins from accidental unpinning","Require a confirmation or a lock to unpin or close a pinned tab.","Vivaldi",8,"(8, 8)","new","S",3],
+["pins","Collapse the pinned section","Fold away pinned tabs for a cleaner sidebar.","Arc",0,"","partial","S",3],
+["pins","Pinned tab reset","Return a pinned tab to its original URL.","Arc",0,"","has","S",3],
+["pins","Folders as Essentials","Pin a whole folder to Essentials.","Arc",8,"","new","M",3],
+["pins","Arc-style nested folders","Folders inside folders, any depth.","Arc",412,"Most-voted folder idea (412); HN: nested folders are what people miss","has","M",3],
+
+// Spaces, profiles, containers
+["spaces","Per-space profiles","Each space can use its own profile: separate cookies, logins, history and extensions, switched by swiping.","Arc, Dia, Safari, Vivaldi",227,"Per-space profiles (227), multiple profiles in one window (137); HN: containers don't replace profiles","new","XL",1],
+["spaces","Temporary containers","Open a throwaway container tab that forgets everything when closed.","Firefox add-on, HN",17,"HN: temporary containers are essential","new","M",2],
+["spaces","Always open a site in a container","Rules that send a site to a chosen container or space automatically.","Firefox Multi-Account Containers",14,"Force container to a space (14); Vivaldi's most-voted request is containers (680)","partial","M",2],
+["spaces","Swipe between spaces anywhere","Trackpad swipes switch spaces without turning on page swipe navigation.","Arc",86,"Trackpad gestures (86), without swipe-between-pages (15), Arc-like (11)","partial","S",1],
+["spaces","Drag tabs onto space icons","Drop a tab on a space icon to move it there.","Arc",21,"(21, 20, 12, 10)","new","S",1],
+["spaces","Move tabs between spaces by shortcut","Send the current or selected tabs to the next, previous or a chosen space without switching.","Arc",52,"Keyboard shortcuts (52), move selected (14), don't switch space (19)","partial","S",1],
+["spaces","Space routing by URL pattern and source app","Route links by path and by which app opened them (Slack links to Work), not only by domain.","Arc Air Traffic Control, OpenIn",81,"Tie domains to a space (81, now shipped), rules by URL (29), routing for folders (17)","partial","M",2],
+["spaces","Open external links in the last-used space","Links from other apps open in the space or profile you used most recently.","Arc",12,"(12, 8)","new","S",2],
+["spaces","Searchable emoji picker","Search the emoji picker for space icons.","Arc",43,"(43, 9, 10)","partial","S",2],
+["spaces","Custom space icons","Use any icon or image, monochrome icons, or none.","Arc",30,"(30, 24, 8)","partial","S",3],
+["spaces","Per-space bookmarks bar","Each space shows its own bookmarks folder in the toolbar.","Arc",49,"(49, 8)","new","M",2],
+["spaces","Archive or hide a space","Shelve a space and restore it later without deleting it.","Arc",16,"Archive spaces (16), shelve spaces (15), hide (12)","new","M",2],
+["spaces","Reorder spaces","Drag to reorder spaces in the switcher.","Arc",22,"(22, 10, 8)","partial","S",3],
+["spaces","Return to the last tab in each space","Switching spaces returns to the tab you were last on there.","Arc",16,"","partial","S",2],
+["spaces","Shortcut to switch to space N or the last space","Cmd+Ctrl+1–9 and a toggle to the previous space.","Arc",20,"(20, 8)","partial","S",2],
+["spaces","Lock a space","Require Touch ID or a password to open a space or container.","Brave private tabs",11,"","new","M",3],
+["spaces","Open a space in a new window","Open any space in its own window.","Arc",8,"","new","S",3],
+["spaces","Space manager","Edit, reorder, recolor and archive every space from one view.","Arc",12,"Space management (12)","new","M",3],
+["spaces","Profile name in the window title","Show the profile or space name in the title for window switchers.","Chrome, Vivaldi",18,"","new","S",3],
+["spaces","Per-space extensions","Enable extensions only in certain spaces.","Arc profiles",11,"","new","L",3],
+["spaces","Default container per space","New tabs in a space open in that space's container.","Zen",55,"","has","S",3],
+
+// Split view
+["split","Open a link in split view","Context menu item, Shift+Opt+click, and a shortcut to open any link beside the current page.","Firefox 150, Vivaldi, Arc",36,"(36, 10)","partial","S",1],
+["split","Drag a tab into the page to split","Drop a tab on the left or right half of the page to split.","Arc, Chrome",152,"(152, 86, 12)","has","S",3],
+["split","Open a new tab inside a split","Cmd+T inside a split replaces or adds a pane.","Arc",45,"","new","S",2],
+["split","Split views survive restart","Splits are saved with the session and restored.","Floorp",16,"(16, 9)","partial","S",2],
+["split","Pin or favorite a split","Treat a split as one item you can pin, rename or move.","Arc Split View V2",11,"Pinned split tab (11), pin to Essentials (9)","partial","M",3],
+["split","Open Glance into a split","Promote a Glance preview into a split pane.","Whimsy idea",10,"","new","S",2],
+["split","Focus follows mouse","The pane under the pointer takes keyboard focus.","Tiling window managers",7,"","new","S",3],
+["split","Swap panes","Swap the left and right pages with a shortcut.","Arc, Vivaldi",0,"","new","S",3],
+["split","Linked scrolling","Scroll two panes together to compare documents.","Edge compare",0,"","new","M",3],
+["split","More layouts","Three columns, 2+1 and a grid beyond four panes.","Vivaldi, Floorp, Opera",0,"Vivaldi tiles any number of tabs","partial","M",3],
+
+// Quick windows and previews
+["quick","Quick window for external links","Links from other apps open in a small floating window. Close it, or press Cmd+O to move the page into a space.","Arc Little Arc",102,"Little Arc (102), mini Zen (89), external apps (21); HN: the big missing piece in Zen","new","M",1],
+["quick","Quick window hotkey from any app","A global shortcut or menu bar item that opens the quick window for a fast search.","Arc",0,"Arc users: if not, I cannot use it","new","M",2],
+["quick","Peek from pinned tabs","Links clicked inside pinned tabs and Essentials open in Glance automatically, so the app stays put.","Arc Peek",36,"Peek (36), Glance on pinned tabs (9); HN lists Peek first","partial","S",1],
+["quick","Glance shortcuts","Keys to expand a Glance to a tab, open it in a split, or open the link in a new tab instead.","Zen community",88,"Expand Glance shortcut (88), open in new tab (27, 15), Alt+Enter (8)","partial","S",1],
+["quick","Glance on long-press or Force Click","Hold a link, or press harder on the trackpad, to Glance it.","Safari, Arc",8,"(8, 11, 7)","new","S",2],
+["quick","Open external links in Glance","Treat links from other apps as Glances over the current page.","Zen community",23,"","new","S",2],
+["quick","Keep Glance across tab switches","A Glance stays attached to its tab when you switch away.","Zen community",8,"","new","S",3],
+["quick","Link previews","Hover a link for a short preview of the destination, with an optional local summary.","Arc 5-second previews, Firefox link preview",23,"Link preview (23)","partial","M",2],
+["quick","Float a window on top","Keep a browser window above other apps.","Orion",0,"","new","S",2],
+["quick","Next meeting in the sidebar","Show the next calendar event with a join button, and float the call when you switch tabs.","Arc, Dia Tab Groups for Meetings",9,"Arc users cite meeting integration","new","M",2],
+["quick","App previews","Hover a Notion, Figma or Linear tab to see recent pages and quick actions.","Arc",0,"","new","L",3],
+["quick","People cards","Hover a GitHub, LinkedIn or X profile link to see who it is.","Arc",0,"","new","M",3],
+
+// Command bar and search
+["command","Arc-style command bar","Cmd+T searches open tabs, history, bookmarks and actions in one ranked list, with fuzzy matching.","Arc, SigmaOS Lazy Search, Vivaldi Quick Commands",203,"Command palette (203), Arc's command bar (136); HN: the best Arc UX","partial","M",1],
+["command","Search open tabs shortcut","A dedicated shortcut that jumps straight into tab search.","Chrome, Edge, Vivaldi @tabs",113,"(113, 13, 8)","partial","S",1],
+["command","Type a site name, then Tab","Type github, press Tab, search GitHub. Find site search engines automatically.","Arc, Chrome",9,"r/ArcBrowser: 413 upvotes; site-engine discovery (9)","partial","M",1],
+["command","More command bar actions","Move to space, rename, unload, mute, copy title, open in split, and every setting.","Arc, Vivaldi",33,"","partial","S",1],
+["command","Actions-only filter","Type / to search only browser actions.","Arc",0,"","new","S",2],
+["command","Offline bangs","!w, !gh, !yt and 13,000 more, resolved locally without a round trip.","Helium, DuckDuckGo",7,"","new","M",2],
+["command","Create things from the command bar","New Google Doc, Meet, Linear issue, Figma or Repl straight from Cmd+T.","Arc",0,"","new","S",2],
+["command","Command chains","Record a sequence of browser actions and bind it to a shortcut or gesture.","Vivaldi",0,"","new","L",2],
+["command","Search inside open tabs","Find text across every open tab, not just titles.","Opera",0,"","new","M",2],
+["command","Natural-language history search","Find the recipe I saw yesterday, using a local index (and a local model, if enabled).","Atlas, Dia, BrowserOS",0,"HN: the only AI I want is history search with a local model","new","L",2],
+["command","Calculator and conversions","Math, units, currencies and time zones in the address bar.","Vivaldi, Opera, Firefox",7,"","partial","S",3],
+["command","Space bar opens search","When the page isn't focused, Space opens the command bar.","SigmaOS",0,"","new","S",3],
+["command","Extensions from the command bar","Trigger and cycle extensions with Cmd+E.","Arc",0,"","partial","S",3],
+
+// Keyboard, mouse, gestures
+["input","Mouse gestures","Draw with the right button to go back, close, reopen, reload or switch spaces.","Vivaldi, Floorp 12, Opera",36,"(36, 19, 9); HN: Vivaldi's killer feature","new","M",2],
+["input","Rocker gestures","Left-then-right click to go back and forward.","Vivaldi, Opera",0,"","new","S",3],
+["input","Vim keys","Link hints, j/k scrolling and modal commands without an extension.","qutebrowser, Vieb, Nyxt, Tridactyl",72,"Native vim keybindings (72), vim motions (16)","new","L",2],
+["input","Any action, any shortcut","Bind several shortcuts to one action and a shortcut to any command.","Arc, Vivaldi",13,"HN: Zen allows only one shortcut change; (13, 16, 33, 18)","partial","M",1],
+["input","Browser shortcuts win","Choose whether browser shortcuts override a site's own shortcuts.","Arc",17,"","new","S",2],
+["input","Copy URL shortcuts","Cmd+Shift+C copies a clean URL; variants copy a Markdown link or the title.","Arc Supercopy",69,"Copy URL shortcut (69, 33, 23)","partial","S",1],
+["input","Keyboard sidebar navigation","Cmd+. focuses the sidebar; arrow keys move, Enter opens, Delete closes.","Arc",0,"","new","S",2],
+["input","Shortcut cheat sheet","Hold Cmd for a moment to see every shortcut for the current context.","Whimsy idea",0,"","new","S",3],
+["input","Spatial navigation","Move between links with arrow keys.","Vivaldi",0,"","new","M",3],
+["input","Reset shortcuts","Restore default shortcuts in one click.","Zen community",16,"","partial","S",3],
+["input","PiP trackpad gestures","Pinch to resize and flick to move picture-in-picture.","Arc",24,"","new","M",3],
+["input","Sidebar width toggle shortcut","Toggle between the full and icon-only sidebar.","Arc",29,"","partial","S",3],
+["input","Configurable tab switcher keys","Change the keys for the Ctrl+Tab switcher.","Vivaldi",18,"Allow reassigning Ctrl+Tab (18, 13)","partial","S",3],
+
+// Address bar and navigation
+["nav","Keep the window when the last tab closes","Closing the last tab leaves an empty space or start page instead of quitting.","Arc",23,"","partial","S",2],
+["nav","Show the full URL on click","Clicking the address selects the whole URL with its scheme.","Vivaldi",13,"","partial","S",3],
+["nav","Escape leaves the address bar","Escape returns focus to the page.","Zen community",20,"","partial","S",3],
+["nav","Address bar at the bottom","Optional bottom address bar, as on phones.","Orion, Safari iOS",8,"","new","M",3],
+["nav","Compact address bar","Show only the domain until focused.","Safari",8,"","partial","S",3],
+["nav","Start page when no tabs are open","A calm start page in an empty space.","Arc",8,"","new","S",3],
+["nav","Enter opens in a new tab","An option for searches and URLs to open in a new tab.","Vivaldi",0,"Vivaldi forum (63)","partial","S",3],
+["nav","QR code for this page","Show a QR code to send the page to a phone.","Chrome",9,"","new","S",3],
+["nav","Bookmark nicknames","Type a short nickname in the address bar to open a bookmark.","Vivaldi, Firefox keywords",0,"","partial","S",3],
+["nav","Instant links","Type a request and jump straight to the best result, or open several results at once.","Arc",0,"","new","M",3],
+
+// Sync, sessions, import
+["sync","Instant tab sync between computers","Open tabs, spaces and pinned tabs stay in sync across Macs in near real time.","Arc, Vivaldi, Safari",479,"Most-voted Zen idea","new","XL",1],
+["sync","Sync settings, mods and shortcuts","Sync preferences, Zen mods, keyboard shortcuts and sidebar sites.","Vivaldi, Chrome",78,"(78, 37, 19, 10)","new","L",2],
+["sync","Sync Essentials and pinned tabs","Pinned tabs and Essentials match on every device.","Arc",51,"(51, 13)","new","L",2],
+["sync","Easy opt-out of window sync","A clear switch for window and tab sync.","Zen community",155,"Disable by default (155), easy opt-out (73)","partial","S",2],
+["sync","Named sessions","Save the current windows as a named session and reopen it later.","Vivaldi",15,"Shelve workspaces (15)","new","M",2],
+["sync","Restore the previous session","A startup option to reopen everything from last time.","Firefox",36,"","partial","S",2],
+["sync","Export and import space setup","Back up spaces, folders and pins to a file and restore them anywhere.","Arc",87,"","partial","S",2],
+["sync","Import from Firefox","Bring a full Firefox profile across, including extensions and containers.","Waterfox 6.7 migrator",94,"(94, 13, 13)","partial","S",2],
+["sync","End-to-end encrypted sync","Sync with a separate encryption password.","Vivaldi, Brave",9,"","partial","XL",3],
+["sync","Profile backups","Local backups of the whole profile, restorable on any platform.","Zen",0,"","has","S",3],
+["sync","Roll back an update","Go back to the previous version from Settings.","Whimsy",14,"","has","S",3],
+
+// Reading and focus
+["reading","Focus mode","Hide everything but the page with one shortcut, without entering full screen.","Orion, Dia, SigmaOS",34,"Per-window compact mode (34)","partial","S",2],
+["reading","Full screen hides the interface","Full screen enters compact mode, with settings for what stays visible.","Vivaldi 7.9",30,"","partial","S",2],
+["reading","Smarter reader mode","A reader that works on more sites, removing same-domain ads and clutter, with an optional local model.","Brave Speedreader, Safari Reader",0,"HN: a smarter reader mode, not summaries","partial","M",2],
+["reading","Read aloud","Natural voices for any page, with highlighting.","Edge, Safari, Firefox narrate",0,"","partial","S",2],
+["reading","Highlights and annotations","Highlight text on any page and find it again later.","Safari, Beam, Edge",0,"","new","L",2],
+["reading","Focus sessions","Block chosen sites for a timer or a schedule, per space.","Opera Air, Beam",0,"HN: I want a browser that helps me focus","new","M",2],
+["reading","Dark mode for websites","Smart dark mode for any site, applied per site.","Boosts invert, Dark Reader",11,"(11, 9, 7)","partial","S",2],
+["reading","Dark mode for PDFs","Invert PDFs for night reading.","Zen community",9,"","new","S",2],
+["reading","Break mode","One click pauses all media and hides the page.","Vivaldi",0,"","new","S",3],
+["reading","Reading list","Save pages to read later, synced.","Safari, Vivaldi, Chrome",0,"Pocket is gone","new","M",3],
+["reading","Data saver","Skip images, fonts and scripts on slow connections.","Orion",0,"","new","M",3],
+["reading","Load images on demand","Show images only when clicked.","Vivaldi page actions",0,"","new","S",3],
+["reading","Hide distracting items","Remove an element from a site for good.","Safari, Arc",0,"","has","S",3],
+
+// Media and PiP
+["media","Automatic picture-in-picture","Video and calls pop out when you switch tabs or spaces, and pop back when you return.","Arc, Orion 129, Opera",10,"HN: the only feature keeping me on Arc","new","M",1],
+["media","Picture-in-picture over full-screen apps","PiP stays visible above full-screen apps on macOS.","Arc",45,"","new","M",1],
+["media","Floating video calls","Google Meet and Zoom float in a mini window while you browse.","Arc, Dia",9,"","new","M",2],
+["media","Media hub","Control every playing tab from one place, with per-tab controls.","Arc media tray, Chrome",9,"Media controller stack (9), audio sidebar (12); Vivaldi forum (82)","partial","M",2],
+["media","Mute background tabs","Only the active tab plays sound.","Vivaldi",0,"","new","S",2],
+["media","Per-tab volume","Set each tab's volume, and boost quiet ones.","Opera",0,"","new","S",3],
+["media","PiP snaps back into view","PiP returns to the nearest corner if dragged off screen.","Arc",8,"","new","S",3],
+["media","Native macOS PiP","Use the system PiP window.","Safari",13,"","new","L",3],
+["media","Playback speed controls","Set speed for any video, and remember it per site.","Extensions",0,"","new","M",3],
+["media","Playlist","Save audio and video to watch later, even offline.","Brave",0,"","new","L",3],
+["media","Share a tab with audio","Share one tab, with its sound, in a call.","Chrome",8,"HN: can't share one tab in Meet","new","L",3],
+["media","Lucid mode","Sharpen video and images.","Opera",0,"","new","M",3],
+["media","Sidebar media controls","Play and pause music from the sidebar.","Arc, Opera",17,"","has","S",3],
+
+// Page tools
+["page","Capture tool","Capture a highlighted element, a dragged area or the full page, then copy or save.","Arc, Vivaldi, Opera Snapshot",0,"r/ArcBrowser: the screenshot tool","partial","S",1],
+["page","Supercopy","Copy a URL without tracking parameters, and copy a rich link that pastes as a title.","Arc",69,"","partial","S",1],
+["page","Notes","Markdown notes in the sidebar, pinnable like tabs, optionally attached to a page.","Arc, Vivaldi",15,"Notes component (15)","new","M",2],
+["page","Easels","A canvas for captures, notes, links and drawings, shareable as a link.","Arc",45,"","new","XL",2],
+["page","Allow copy and paste","Override sites that block copying or pasting.","Orion",0,"","new","S",2],
+["page","Internet Archive for dead pages","Offer the Wayback Machine on 404s.","Orion, Brave",0,"","new","S",2],
+["page","Translate selection","Translate the selected text from the context menu or a shortcut.","Edge, Chrome",14,"(14, 11, 11)","partial","S",2],
+["page","Edit text on the page","Edit any text for screenshots or mockups.","Orion, Arc",0,"","new","S",3],
+["page","Page filters","Grayscale, sepia, contrast and font overrides per page.","Vivaldi",0,"","partial","S",3],
+["page","Convert on selection","Select a price or unit to see it converted.","Opera",7,"","new","S",3],
+["page","Image info","EXIF and image properties from the context menu.","Vivaldi",0,"","new","S",3],
+["page","Boosts","Restyle any site with colors, fonts and CSS, and share Boosts.","Arc",0,"","has","S",3],
+["page","PDF editing","Sign, comment and reorder pages in the PDF viewer.","Firefox",0,"","has","S",3],
+["page","Text from images","Copy text out of any image.","Firefox, Safari",0,"","has","S",3],
+
+// Built-in apps and live folders
+["apps","GitLab and Bitbucket live folders","Merge requests and issues, like the GitHub folders.","Zen live folders",22,"GitLab (22), GitHub Enterprise (12)","new","M",2],
+["apps","Live folder plugins","An API so anyone can write a live folder source.","Zen community",18,"","new","L",2],
+["apps","Linear and Jira live folders","Your assigned issues as a self-updating folder.","Whimsy idea",0,"","new","M",2],
+["apps","Smarter RSS","Read feeds in a reader view with unread counts, and make a feed from any page.","Vivaldi Feed Reader",19,"RSS reader (19); HN wants feeds from pages without RSS","partial","M",2],
+["apps","Notification center","Notifications from every web app in one place, with do-not-disturb per space.","Wavebox, Shift",0,"","new","L",2],
+["apps","Upload from the clipboard","Paste a copied image or file into any file picker.","Zen community",8,"(8, 7)","new","S",2],
+["apps","Calendar","A calendar panel that shows your accounts.","Vivaldi, Mozilla Connect",0,"Calendar widget is a top Mozilla Connect idea","new","L",3],
+["apps","Mail","A built-in mail client.","Vivaldi",0,"HN calls this bloat","new","XL",3],
+["apps","Tasks","A to-do list in the sidebar.","Vivaldi",0,"","new","M",3],
+["apps","Start page widgets","Notes, calendar, weather and feeds on the new tab page.","Vivaldi Dashboard",0,"","new","L",3],
+["apps","Pinboards","Visual collections of pages to share.","Opera",0,"","new","L",3],
+["apps","Send to my phone","Send links, notes and files to your phone.","Opera Flow, Firefox",0,"","partial","L",3],
+["apps","Pull request folder","Your pull requests as a live folder, split by your reviews and your team's.","Arc, Zen, Whimsy",38,"","has","S",3],
+
+// Web apps and side panels
+["panels","Web apps with their own Dock icon","Install any site as an app: own window, Dock icon, badges and notifications.","Safari 26, Floorp, Edge",178,"Native PWAs (178, 27, 33, 11, 8)","new","L",1],
+["panels","Web panels","Pin sites to the sidebar as small persistent panels for chat and music.","Vivaldi, Floorp, Opera, Edge",10,"","new","M",2],
+["panels","Floating panels","Panels float over the page.","Floorp 12",0,"","new","M",3],
+["panels","Two panels at once","Show two side panels together.","Vivaldi, Brave",9,"Vivaldi forum (68), dual sidebar (9)","new","M",3],
+["panels","Custom panel icons","Choose icons for panels.","Vivaldi",9,"Vivaldi forum (69)","new","S",3],
+["panels","AI chat panel","A chat provider of your choice in the sidebar, off by default.","Firefox, Opera",22,"(22, 19)","partial","S",3],
+
+// Downloads and files
+["files","Quick Look downloads","Preview a download with Space, like Finder.","macOS",0,"","new","S",2],
+["files","Recent downloads in file pickers","Show recent downloads at the top of upload dialogs.","Opera Easy Files",0,"","new","M",2],
+["files","Drag downloads into sites","Drag files from the downloads list into Gmail or Slack.","Arc",0,"","partial","S",3],
+["files","Finder folders in the sidebar","Pin a Finder folder and browse it in the sidebar.","Arc",0,"","new","M",3],
+["files","Faster downloads","Parallel connections for large files.","Download managers",10,"","new","L",3],
+
+// Privacy and security
+["privacy","A switch that removes AI","One setting hides every AI feature and makes no AI network calls.","Firefox 148 AI controls",23,"HN: turn AI off entirely, without a trace; (23)","partial","S",1],
+["privacy","Built-in ad blocking","uBlock-grade blocking without installing an extension.","Brave, Vivaldi, Waterfox, Helium, Orion",47,"(47)","new","L",2],
+["privacy","Private tab in a normal window","Turn one tab private, with its own cookies, history and search engine.","Waterfox",20,"","new","M",2],
+["privacy","Fire button","Forget this site, tab or space: cookies, storage and history.","DuckDuckGo",0,"","new","M",2],
+["privacy","Reject cookie banners","Dismiss consent banners and reject by default.","Vivaldi, Brave, Firefox",0,"","partial","S",2],
+["privacy","Site settings in the address bar","One panel per site for permissions, blocking, zoom, container and Boosts.","Orion, Brave Shields",0,"","partial","M",2],
+["privacy","No network requests on first launch","Nothing is contacted until you choose to.","Helium",0,"HN praised this","new","M",2],
+["privacy","Password manager integration","1Password desktop integration and macOS AutoFill providers.","Safari, Arc",62,"(62, 11)","new","L",2],
+["privacy","Reset identity","One click clears all site data and closes tabs.","Mullvad Browser, Tor",0,"","new","S",3],
+["privacy","Tor private windows","Private windows routed through Tor.","Brave",24,"","new","L",3],
+["privacy","Privacy dashboard","See what was blocked, by site and over time.","Vivaldi, Brave",0,"","new","M",3],
+["privacy","Per-site user agent","Pretend to be Chrome or Safari on sites that block Firefox.","Cromite",7,"","new","S",3],
+["privacy","Email aliases","Create a masked email address from any form field.","DuckDuckGo, Firefox Relay",0,"","partial","S",3],
+["privacy","Clear data on quit, per site","Forget chosen sites when Whimsy quits.","LibreWolf, Firefox",0,"","has","S",3],
+
+// Performance and battery
+["perf","Turn off animations","A setting for reduced motion across the UI.","Zen community",87,"(87)","partial","S",1],
+["perf","Find heavy tabs","See which tabs use the most memory and CPU, and close them in one click.","Opera GX Hot Tabs Killer",0,"Zen: the browser uses a lot of resources (12)","new","M",2],
+["perf","Memory on hover","Show a tab's memory use in its tooltip.","Chrome, Edge",0,"","new","S",2],
+["perf","Battery saver","On battery, unload background tabs sooner and lower frame rates.","Orion, Opera, Edge",0,"HN: Zen too slow on an M1 Max","new","M",2],
+["perf","Resource limits","Cap memory, CPU and network for the browser.","Opera GX",0,"","new","L",3],
+["perf","Hardware video decoding","Use hardware decoding, including HEVC, by default.","Thorium",20,"","partial","M",3],
+
+// Look and feel
+["look","Toolbar tinted by the site","The sidebar and toolbar pick up the page's color.","Safari 26",41,"(41, 23)","new","M",2],
+["look","Transparency control","Adjust or turn off sidebar blur and transparency.","Arc, Safari",37,"(37, 10, 10)","partial","S",2],
+["look","Hex colors in the theme picker","Type an exact color for space themes.","Arc",13,"(13, 9)","new","S",2],
+["look","Menu icons","Bring back icons in menus.","Zen community",60,"","new","S",2],
+["look","Mods sorted by popularity","Browse mods by installs and rating.","Zen community",54,"","partial","S",2],
+["look","Custom new tab page","Choose the new tab page URL.","Every browser",27,"(27, 10)","partial","S",2],
+["look","Density setting","Compact, standard or roomy spacing.","Waterfox 6.7",0,"","new","M",3],
+["look","Window margins and corners","Adjust window padding and corner radius.","Zen community",7,"(8, 7)","partial","S",3],
+["look","Wallpaper behind the interface","Use an image behind the sidebar.","Arc lists",8,"","new","S",3],
+["look","Follow the system theme","Match the system accent and appearance.","Vivaldi forum",0,"Native themes (90)","partial","M",3],
+["look","Firefox themes","Apply themes from addons.mozilla.org.","Firefox",9,"","new","M",3],
+["look","Live-reload custom CSS","Apply userChrome.css edits without restarting.","Zen community",15,"","new","S",3],
+["look","Daily start page image","A new background photo each day.","Vivaldi 7.8",0,"","new","S",3],
+["look","Status bar","An optional status bar with link targets, zoom and page info.","Waterfox, Vivaldi",0,"","new","S",3],
+["look","Restart menu item","Restart the browser from the menu, optionally clearing caches.","Waterfox",0,"","new","S",3],
+["look","Interface zoom","Scale the browser interface without zooming pages.","Whimsy",15,"","has","S",3],
+["look","App icon picker","Choose Whimsy's Dock icon.","Whimsy",34,"Change Zen icon (34)","has","S",3],
+
+// AI
+["ai","Local summaries","Summarize a page on your Mac with a local model, never by default.","Firefox, Beam, BrowserOS",8,"Local LLM summaries (8)","new","M",2],
+["ai","Chat about open tabs","Ask a question about one or more tabs, with your choice of provider.","Dia, Comet, Atlas, Opera",0,"","new","L",3],
+["ai","Skills","Saved prompts you can run on any page.","Dia",0,"","new","M",3],
+["ai","Compare across tabs","Compare products or documents open in several tabs.","Chrome, Edge",0,"","new","L",3],
+["ai","Writing help","Help writing in any text field.","Dia, Edge",0,"","new","M",3],
+["ai","Agent mode","Let an agent click through a task for you.","Atlas, Comet, BrowserOS",0,"HN: prompt-injection risk; most users don't want it","new","XL",3],
+["ai","Feed from any page","Turn any page into an RSS feed with a model.","HN request",0,"","new","M",3],
+["ai","Browser memories","Opt-in memory of what you browsed, editable and deletable.","Atlas, Dia",0,"","new","L",3],
+
+// Developer
+["dev","Developer mode tabs","localhost tabs get a distinct style, a console error badge and quick DevTools.","Arc, Orion",45,"Arc's Developer Mode (45)","new","M",2],
+["dev","Faster DevTools","DevTools that open quickly and dock where you want.","Chrome",0,"HN: Zen's DevTools open slowly","partial","M",3],
+["dev","WebUSB, WebHID and Web Bluetooth","Device APIs that Chrome supports.","Chrome",32,"(32, 13, 9)","new","XL",3],
+["dev","Cookie editor","View and edit cookies for the current site.","Vivaldi, extensions",0,"","new","S",3],
+["dev","Clean test session","Open a tab with no cookies or extensions, for testing.","Vivaldi profiles",0,"HN: Vivaldi profiles make testing easy","partial","S",3],
+
+// Automation and integrations
+["auto","Local API for agents and scripts","Let Claude Code, Raycast or scripts list, group and move tabs.","HN request",0,"HN: point Claude Code at my tabs","new","M",2],
+["auto","AppleScript","Script tabs and windows like Safari and Chrome.","Safari, Chrome",11,"","new","M",2],
+["auto","Open in a space from the command line","Launch a URL straight into a given space.","Zen community",8,"","new","S",2],
+["auto","Raycast and Alfred","Search tabs and spaces from your launcher.","Arc Raycast extension",0,"","new","M",2],
+["auto","Shortcuts actions","Open URLs, switch spaces and get the current tab from macOS Shortcuts.","Safari",0,"","new","M",3],
+["auto","Spotlight search of history","Find open tabs and history from Spotlight.","Safari",0,"","new","M",3],
+
+// macOS and platform
+["mac","Developer ID signing","Sign and notarize Whimsy so it opens on managed Macs without warnings.","Every browser",0,"Blocked install on a managed Mac","new","M",1],
+["mac","Intel build","Ship a universal build for Intel Macs.","Every browser",0,"HN: another Apple-silicon-only app, pass","new","M",2],
+["mac","Download progress on the Dock icon","Show download progress on the Dock icon.","Safari",0,"","new","S",2],
+["mac","Touch ID for passwords","Unlock saved passwords with Touch ID.","Safari, Chrome",0,"","new","M",3],
+["mac","Apple Pay","Pay with Apple Pay on websites.","Safari",8,"","new","XL",3],
+["mac","Handoff","Continue a page on your iPhone, and back.","Safari",0,"","new","L",3],
+
+// Other devices
+["mobile","iOS companion","Your spaces and pinned tabs on iPhone, synced.","Arc Search, Orion, Vivaldi",25,"(25, 15, 12)","new","XL",3],
+["mobile","Android app","Whimsy on Android.","Vivaldi, Firefox",80,"","new","XL",3],
+
+// Accessibility
+["a11y","High contrast theme","A high-contrast interface theme.","Windows, Firefox",0,"","new","S",3],
+["a11y","Keyboard access everywhere","Every Whimsy control reachable and visible by keyboard.","Vivaldi",0,"","partial","M",2],
+["a11y","Larger sidebar targets","A comfortable sidebar size for touch and motor needs.","Whimsy idea",0,"","new","S",3],
+
+// Delight
+["delight","Offline game","A small game on the offline page.","Vivaldi Vivaldia, Chrome dino",0,"","new","S",3],
+["delight","Space sounds","Subtle sounds for switching spaces and closing tabs, off by default.","Opera GX mods",0,"","new","S",3],
+["delight","Seasonal themes","Optional themes and icons for the seasons.","Opera GX",0,"","new","S",3],
+["delight","Year in tabs","A yearly recap: tabs closed, spaces used, favorite sites, all computed locally.","Whimsy idea",0,"","new","S",3],
+["delight","Inbox zero confetti","A small celebration when a live folder empties.","Whimsy idea",0,"","new","S",3],
+["delight","Download animation","Downloads fly into the sidebar.","Zen",0,"","has","S",3],
+
+// Second pass: more from Vivaldi, Waterfox, Opera, Edge, Safari, Chrome, Firefox and the community
+["tabs","Visual tab switcher styles","Choose thumbnails or a title list for the Ctrl+Tab switcher, and whether it lists recent or sidebar order.","Vivaldi",0,"","partial","S",2],
+["tabs","Exclude pinned tabs from Ctrl+Tab","Keep Essentials and pinned tabs out of the tab switcher and Cmd+number.","Arc",24,"(24, 12, 12, 10, 8, 8)","new","S",2],
+["tabs","Close tab on double-click","Optional: double-click a tab to close it.","Waterfox, classic Firefox",0,"","new","S",3],
+["tabs","Close button on hover only","Show a tab's close button only when hovering it.","Waterfox, Vivaldi",0,"","partial","S",3],
+["tabs","Tab width and two-line titles","Show long titles on two lines in the sidebar.","Vivaldi, Edge",0,"","new","S",3],
+["tabs","Tab thumbnails in the sidebar","Tall tabs that show a small page thumbnail.","Vivaldi",0,"","new","M",3],
+["tabs","Window panel","A panel listing every window and tab as a tree, for bulk selecting, moving and closing.","Vivaldi",0,"","new","M",3],
+["tabs","Recently closed by space","Reopen closed tabs from the space they came from.","Arc",0,"","partial","S",2],
+["tabs","Undo for tab actions","Cmd+Z undoes moving, closing or clearing tabs.","Arc",0,"","new","M",2],
+["tabs","Tab age","Show how long a tab has been open, to help clean up.","Whimsy idea",0,"","new","S",3],
+["tabs","Group by domain","A one-click command to put every tab from a site into a folder.","Opera, Edge",0,"","new","S",3],
+["tabs","Collapse all folders","Fold or unfold every folder at once.","Zen",0,"","has","S",3],
+["tabs","Keep tabs open when quitting","Restore exactly where you left off, including scroll position.","Arc",0,"","has","S",3],
+["tabs","Tab count badge","Show how many tabs are open in each space.","Vivaldi",0,"","new","S",3],
+["tabs","Tab sound when a page needs attention","A gentle cue when a background tab shows a dialog.","Whimsy idea",0,"","new","S",3],
+
+["pins","Pinned tab home domain","Navigating away from a pinned tab's site opens a new tab instead.","Arc",0,"","partial","S",2],
+["pins","Reset all pinned tabs","Return every pinned tab to its home page at once.","Arc",0,"","new","S",3],
+["pins","Pinned tab groups for meetings","A folder that opens the doc, notes and call for a meeting together.","Dia",0,"","new","M",3],
+["pins","Drag between pinned and today","Drag a tab between the pinned and everyday sections to keep or let go of it.","Arc",0,"HN: drag between sticky and ephemeral sections","has","S",3],
+
+["spaces","Space-specific search engine","Each space can use its own default search engine.","Arc",0,"","new","S",2],
+["spaces","Space-specific start page","Each space has its own new tab page.","Arc",0,"","new","S",3],
+["spaces","Space schedules","Switch to the Work space on weekday mornings and Personal in the evening.","Whimsy idea",0,"","new","M",3],
+["spaces","Share a space","Share a space's pinned tabs as a link others can add.","Zen, Arc",0,"","has","S",3],
+["spaces","Space-aware history","Filter history by space.","Arc",0,"","new","M",3],
+["spaces","Space colors in the window","The window chrome takes on the space's color.","Arc",0,"","has","S",3],
+
+["split","Split from the command bar","Open any search result in a split from Cmd+T.","Arc",0,"","new","S",2],
+["split","Close the other pane","Close one side of a split and keep the other as a normal tab.","Arc",0,"","partial","S",3],
+["split","Split view hotkey per direction","Split left, right, up or down with arrow-key shortcuts.","Vivaldi",0,"","new","S",3],
+
+["quick","Glance size and position","Choose how large Glance opens and remember it per site.","Zen community",0,"","new","S",3],
+["quick","Preview before opening from history","Hover history results to preview pages.","Arc",0,"","new","M",3],
+
+["command","Recent tabs in the command bar","Show recently closed and recent tabs when the bar opens empty.","Arc",0,"","partial","S",2],
+["command","Copy from the command bar","Copy a result's URL without opening it.","Arc",0,"","new","S",3],
+["command","Search engines by keyword","Manage short keywords for search engines in one place.","Vivaldi, Chrome",0,"","has","S",3],
+["command","History search operators","Search history by site:, before:, after: and space.","Chrome",0,"","new","M",3],
+
+["input","Two-finger swipe for back and forward","Smooth history swiping with a preview, like Safari.","Safari, Arc",0,"","partial","M",2],
+["input","Keyboard shortcuts for web panels","Open a given panel with a shortcut.","Vivaldi",9,"","new","S",3],
+["input","Shortcut to toggle compact mode","One key for compact mode, plus a toolbar button.","Zen community",41,"Compact mode toggle button (41)","partial","S",2],
+["input","Shortcut to pin and unpin","Pin or unpin the current tab with a shortcut.","Arc",65,"(65, 12, 8)","partial","S",1],
+
+["nav","Back and forward menus with favicons","Long-press Back for a list of pages with icons.","Arc",0,"","has","S",3],
+["nav","Paste and go","Paste a URL and open it in one step.","Every browser",10,"","has","S",3],
+["nav","URL bar shows the page title","Optionally show the page title instead of the URL until clicked.","Arc",0,"","new","S",3],
+["nav","Open a link in another space","Context menu item to open a link in any space.","Arc",0,"","partial","S",2],
+["nav","Open link in background by default","Choose whether middle-click opens in the background or foreground.","Vivaldi, Firefox",0,"","has","S",3],
+
+["sync","Sync over iCloud","Sync spaces and pins with iCloud instead of a Mozilla account.","Arc, Orion",0,"","new","XL",3],
+["sync","Sync status","Show when sync last ran and what failed.","Vivaldi",0,"HN: Vivaldi sync went down for weeks","new","S",3],
+["sync","Merge duplicate bookmarks","Find and merge duplicate bookmarks after importing.","Vivaldi",0,"","new","S",3],
+["sync","Session from yesterday","Reopen the tabs you had open yesterday at this time.","Whimsy idea",0,"","new","M",3],
+["sync","Import from Vivaldi and Opera","Import bookmarks, passwords and tabs from Vivaldi and Opera.","Vivaldi",0,"","partial","M",3],
+
+["reading","Reader view typography","Choose fonts, width and spacing for reader view, remembered per site.","Safari, Firefox",0,"","partial","S",3],
+["reading","Estimated reading time","Show reading time in the address bar for articles.","Firefox reader view",0,"","partial","S",3],
+["reading","Print a clean page","Print or save a page without ads and sidebars.","Edge",0,"","new","M",3],
+["reading","Hide YouTube Shorts and feeds","One-click focus Boosts for common distractions.","Arc Boosts gallery",0,"Users name hiding Shorts as a favorite Boost","partial","S",2],
+["reading","Bionic or guided reading","Optional reading aids for long text.","Extensions",0,"","new","S",3],
+
+["media","Mini player for the last video","When a video tab is left, a mini player keeps going in the sidebar.","Arc",11,"Miniplayer with video playback (11)","new","M",2],
+["media","Remember muted sites","Keep chosen sites muted every visit.","Vivaldi",0,"","new","S",3],
+["media","Block autoplay with sound","Stop videos that play with sound until you click.","Orion, Firefox",0,"","has","S",3],
+["media","Cast to a TV","Cast tabs and videos to Chromecast or AirPlay.","Arc, Chrome, Safari",0,"","new","L",3],
+["media","Audio output per tab","Send one tab's sound to a different output.","Whimsy idea",0,"","new","L",3],
+
+["page","Full-page capture to clipboard","Copy a full-page screenshot without saving a file.","Arc",0,"","partial","S",2],
+["page","Annotate captures","Draw, blur and add arrows to a capture before sharing.","Opera Snapshot, Edge",0,"","new","M",2],
+["page","Save page as Markdown","Save an article as clean Markdown with its images.","Whimsy idea",0,"","new","M",3],
+["page","Find in page across frames","Find text inside iframes and shadow DOM.","Chrome",0,"","partial","M",3],
+["page","Zoom per site defaults","Remember zoom per site and set a default zoom.","Vivaldi, Firefox",0,"","has","S",3],
+["page","Image search from the context menu","Search an image with the engine of your choice.","Chrome, Edge",0,"","new","S",3],
+["page","Show all images on a page","A gallery of every image on the page, to download or copy.","Vivaldi page actions",0,"","new","S",3],
+
+["apps","Weather and time on the start page","Small at-a-glance info on new tabs.","Opera, Vivaldi",0,"","new","S",3],
+["apps","Quick notes from selection","Save the selected text with its link to notes.","Vivaldi",0,"","new","S",2],
+["apps","Bookmark manager redesign","A faster, searchable bookmark manager with tags.","Zen community",16,"Bookmarks are clunky (16)","partial","M",2],
+["apps","Shared folders","Folders a team can subscribe to and see updates in.","Arc, Zen share",0,"","partial","L",3],
+
+["panels","Messengers in the sidebar","One-click panels for WhatsApp, Telegram, Slack and Discord.","Opera",0,"","new","S",3],
+["panels","Panel per container","Run a sidebar panel in a chosen container.","Zen community",9,"","new","S",3],
+["panels","Default page for a panel","Choose the page a panel opens to.","Zen community",8,"","new","S",3],
+
+["files","Downloads in the Library","Search, filter and open downloads from the Library.","Zen",0,"","has","S",3],
+["files","Ask where to save per file type","Choose save locations by file type.","Firefox",0,"","partial","S",3],
+["files","Clear finished downloads","Clear the download list automatically.","Vivaldi",0,"","partial","S",3],
+["files","Open downloads with an app","Choose which app opens each file type from the downloads list.","Firefox",0,"","has","S",3],
+["files","Screenshot to sidebar","Captures land in the sidebar as files you can drag anywhere.","Arc",0,"","new","M",3],
+
+["privacy","Phishing and scareware protection","Warnings for deceptive sites and downloads.","Edge, Firefox",0,"","has","S",3],
+["privacy","HTTPS-only mode","Upgrade every connection to HTTPS.","Firefox, Brave",0,"","has","S",3],
+["privacy","Strip tracking from links","Remove tracking parameters automatically when opening links.","Brave, Firefox",0,"","partial","S",2],
+["privacy","Fingerprinting protection levels","Simple levels from standard to strict, per site.","Brave, LibreWolf, Mullvad",13,"Resist fingerprinting (13)","partial","S",3],
+["privacy","Private window indicator","Make private windows unmistakable.","Zen community",15,"","partial","S",2],
+["privacy","Permission reminders","Review sites with camera, microphone and location access.","Safari, Chrome",0,"","new","S",3],
+["privacy","Secure DNS settings","Choose a secure DNS provider in settings.","Waterfox, Firefox",0,"","has","S",3],
+["privacy","Password health","Find weak, reused and leaked passwords.","Edge, Chrome",0,"","partial","S",3],
+["privacy","Passkeys","Save and use passkeys.","Edge, Safari",0,"","has","M",3],
+["privacy","Built-in VPN","An optional VPN for public Wi-Fi.","Firefox 149, Opera, Vivaldi",0,"","new","L",3],
+
+["perf","Lazy session restore","Restore tabs without loading them until opened.","Vivaldi, Firefox",0,"","has","S",3],
+["perf","Startup speed","Measure and cut cold-start time on Apple silicon.","Orion, Helium",0,"HN: too slow for me on an M1 Max","partial","M",2],
+["perf","Preload top web apps","Keep chosen web apps warm for instant switching.","Arc",0,"","partial","M",3],
+["perf","Heavy ad and tracker detector","Warn when a page is slowing the Mac down.","Opera GX",0,"","new","M",3],
+["perf","Performance report","A page showing memory, energy and slow extensions.","Edge, Firefox about:processes",0,"","partial","S",3],
+
+["look","Theme sharing","Share a space theme as a link.","Opera GX, Vivaldi",0,"","new","S",3],
+["look","Toolbar editing","Drag any button into the sidebar, toolbar or menu.","Vivaldi, Firefox",15,"Pinned extensions in single toolbar (15)","partial","M",2],
+["look","Extensions menu at the sidebar bottom","Move extension buttons to the bottom of the sidebar.","Arc",10,"","new","S",3],
+["look","Hide the space switcher","Remove the space icons if you use one space.","Zen community",24,"(24, 13, 8, 8)","partial","S",3],
+["look","Fonts for the interface","Choose the interface font.","Vivaldi",0,"","new","S",3],
+["look","Theme by time of day","Light theme by day, dark at night, independent of macOS.","Whimsy idea",0,"","new","S",3],
+
+["ai","Explain this","Select text and get a plain explanation, with a local model.","Edge, Dia",0,"","new","M",3],
+["ai","Translate with context","Use a local model for better translations of informal text.","Firefox Translations",0,"","partial","M",3],
+["ai","Alt text for images","Describe images without alt text, on device.","Firefox PDF alt text",0,"","partial","M",3],
+["ai","AI tab grouping suggestions","Suggest names and groups for open tabs, on device.","Firefox, Opera",0,"","partial","M",3],
+
+["dev","Responsive mode presets","Device presets for responsive design mode.","Firefox, Chrome",0,"","has","S",3],
+["dev","JSON viewer","Pretty JSON with filtering.","Firefox",0,"","has","S",3],
+["dev","Copy as cURL","Copy any network request as cURL.","Firefox, Chrome",0,"","has","S",3],
+["dev","Inspect the browser UI","Browser Toolbox access for mod authors.","Firefox",0,"","has","S",3],
+["dev","Reload a mod without restarting","Edit a Zen mod and see it live.","Zen community",15,"","new","S",3],
+["dev","Local override of a site's CSS","Persist CSS edits to a site from DevTools as a Boost.","Arc Boosts",0,"","new","M",3],
+
+["auto","Userscripts built in","Run Greasemonkey-style scripts without an extension.","Orion, qutebrowser",0,"","new","M",3],
+["auto","URL schemes","whimsy:// links that open a space, folder or command.","Arc",0,"","new","S",3],
+["auto","Webhooks for live folders","Push updates into a live folder instead of polling.","Whimsy idea",0,"","new","M",3],
+["auto","Export tabs as JSON","Export the current space's tabs for scripts.","Sidebery",0,"","new","S",3],
+
+["mac","Native macOS share menu","Share a page through the macOS share menu.","Safari, Firefox",0,"","has","S",3],
+["mac","Menu bar extra","A menu bar icon for the quick window and recent tabs.","Arc",0,"","new","S",2],
+["mac","Stage Manager friendly windows","Better window titles and sizes for Stage Manager and tiling.","Safari",0,"","new","S",3],
+["mac","Focus modes","Switch spaces with macOS Focus modes.","Safari profiles",0,"","new","M",3],
+["mac","Liquid Glass styling","Match macOS Tahoe's Liquid Glass look.","Safari 26",10,"","partial","M",3],
+
+["a11y","Screen reader labels","Name every Whimsy control for VoiceOver.","Safari",0,"","partial","S",2],
+["a11y","Respect reduced motion","Turn off Whimsy animations when the system asks.","macOS",0,"","partial","S",2],
+["a11y","Caret browsing","Move through pages with a text cursor.","Firefox",0,"","has","S",3],
+["a11y","Minimum font size","Set a minimum font size for every site.","Firefox, Safari",0,"","has","S",3],
+
+["delight","Balloon loading animation","A tiny balloon floats on the tab while a page loads.","Whimsy idea",0,"","new","S",3],
+["delight","Tab graveyard","A playful view of closed tabs, with restore.","Whimsy idea",0,"","new","S",3],
+["delight","Custom cursors on the start page","Small playful details on new tabs.","Opera GX",0,"","new","S",3],
+];
+
+const PICKS = [
+  ["Quick window for external links","Arc's Little Arc. The single most-cited missing piece for Arc users moving to Zen."],
+  ["Coming from Arc? onboarding","Arc stops working December 22. Meet refugees with an importer check, Arc shortcuts and a feature map."],
+  ["Peek from pinned tabs","Glance exists, so making pinned-tab links open in Glance is a small change with high Arc parity."],
+  ["Rename tabs","320 votes and small: a title override stored with the tab."],
+  ["Auto-archive idle tabs","241 votes. Arc's archive is a defining habit."],
+  ["Automatic picture-in-picture","Named on HN as the one feature keeping someone on Arc."],
+  ["Supercopy","Clean URLs and rich links on Cmd+Shift+C. Tiny, beloved, cited by Arc users."],
+  ["Arc-style command bar","203 + 136 votes. Zen has a palette; make Cmd+T the one place for tabs, history and actions."],
+  ["Type a site name, then Tab","413 upvotes on r/ArcBrowser. Firefox can do it; it needs automatic engine discovery."],
+  ["Capture tool","Element, area and full-page capture with copy. Arc users list it by name."],
+  ["Per-space profiles","227 + 137 votes, and the top r/ArcBrowser comment. Big, but the most requested structural change."],
+  ["Web apps with their own Dock icon","178 votes plus several duplicates. Firefox dropped PWAs; Safari 26 makes them easy."],
+  ["Swipe between spaces anywhere","86 votes for gestures. Arc's swipe is muscle memory."],
+  ["A switch that removes AI","The clearest sentiment of 2026. Cheap to build, and a good reason to switch."],
+  ["Developer ID signing","Whimsy can't open on managed Macs today. Needed before telling Arc users to switch."],
+];
+
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("atlas." + k); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("atlas." + k, v); } catch {} },
+};
+const items = F.map((r, i) => ({
+  id: "f" + i, cat: r[0], name: r[1], desc: r[2], src: r[3], votes: r[4], sig: r[5], st: r[6], eff: r[7], tier: r[8],
+}));
+const byName = Object.fromEntries(items.map(it => [it.name, it]));
+const ST = { new: "New", partial: "Partial", has: "Has" };
+const TIER = { 1: "Next up", 2: "Strong", 3: "Later" };
+const state = {
+  q: "", cat: store.get("cat", "all"), sort: store.get("sort", "cat"),
+  status: store.get("status", "all"), tier: store.get("tier", "all"),
+};
+
+function stats() {
+  const n = items.length;
+  const fresh = items.filter(i => i.st === "new").length;
+  const voted = items.filter(i => i.votes > 0).length;
+  const cats = Object.keys(CATS).length;
+  $("#stats").innerHTML = [
+    [n, "features"], [fresh, "new to Zen and Whimsy"], [voted, "backed by Zen votes"], [cats, "categories"],
+  ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
+}
+
+function picks() {
+  $("#picks").innerHTML = PICKS.map(([name, why]) =>
+    `<li><div><button type="button" data-name="${esc(name)}">${esc(name)}</button><p>${esc(why)}</p></div></li>`).join("");
+  $("#picks").addEventListener("click", e => {
+    const b = e.target.closest("button[data-name]");
+    if (!b) return;
+    const it = byName[b.dataset.name];
+    if (!it) return;
+    state.q = ""; $("#q").value = ""; state.cat = "all"; $("#cat").value = "all";
+    state.status = "all"; state.tier = "all"; syncSeg();
+    render();
+    const el = document.getElementById(it.id);
+    if (el) {
+      el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      el.classList.add("flash");
+      setTimeout(() => el.classList.remove("flash"), 1800);
+    }
+  });
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function filtered() {
+  const q = state.q.trim().toLowerCase();
+  let out = items.filter(it =>
+    (state.cat === "all" || it.cat === state.cat) &&
+    (state.status === "all" || it.st === state.status) &&
+    (state.tier === "all" || String(it.tier) === state.tier) &&
+    (!q || [it.name, it.desc, it.src, it.sig, CATS[it.cat]].join(" ").toLowerCase().includes(q)));
+  const by = {
+    votes: (a, b) => b.votes - a.votes || a.tier - b.tier,
+    tier: (a, b) => a.tier - b.tier || b.votes - a.votes,
+    az: (a, b) => a.name.localeCompare(b.name),
+    cat: (a, b) => 0,
+  }[state.sort];
+  return out.slice().sort(by);
+}
+
+function row(it) {
+  return `<article class="item" id="${it.id}">
+    <div class="name">${esc(it.name)}</div>
+    <div class="tags">
+      ${it.votes ? `<span class="votes" title="Votes on Zen's GitHub ideas">▲ ${it.votes}</span>` : ""}
+      <span class="pill st-${it.st}">${ST[it.st]}</span>
+      <span class="pill tier">${TIER[it.tier]}</span>
+      <span class="pill eff" title="Effort">${it.eff}</span>
+    </div>
+    <p class="desc">${esc(it.desc)}</p>
+    <div class="meta"><span class="src">${esc(it.src)}</span>${it.sig ? `<span class="sig">· ${esc(it.sig)}</span>` : ""}</div>
+  </article>`;
+}
+
+function render() {
+  const list = filtered();
+  $("#count").textContent = `${list.length} of ${items.length}`;
+  if (!list.length) { $("#catalog").innerHTML = `<p class="empty">No features match. Clear the search or pick another filter.</p>`; return; }
+  if (state.sort === "cat") {
+    $("#catalog").innerHTML = Object.entries(CATS).map(([k, label]) => {
+      const g = list.filter(i => i.cat === k);
+      if (!g.length) return "";
+      return `<div class="group"><h3>${esc(label)} <small>${g.length}</small></h3>${g.map(row).join("")}</div>`;
+    }).join("");
+  } else {
+    $("#catalog").innerHTML = `<div class="group">${list.map(row).join("")}</div>`;
+  }
+}
+
+function syncSeg() {
+  for (const [id, key] of [["#status", "status"], ["#tierf", "tier"]]) {
+    for (const b of document.querySelectorAll(id + " button")) b.setAttribute("aria-pressed", String(b.dataset.v === state[key]));
+  }
+}
+
+function init() {
+  $("#cat").innerHTML = `<option value="all">All categories</option>` +
+    Object.entries(CATS).map(([k, v]) => `<option value="${k}">${esc(v)} (${items.filter(i => i.cat === k).length})</option>`).join("");
+  if (state.cat !== "all" && !CATS[state.cat]) state.cat = "all";
+  $("#cat").value = state.cat; $("#sort").value = state.sort; syncSeg();
+  $("#q").addEventListener("input", e => { state.q = e.target.value; render(); });
+  $("#cat").addEventListener("change", e => { state.cat = e.target.value; store.set("cat", state.cat); render(); });
+  $("#sort").addEventListener("change", e => { state.sort = e.target.value; store.set("sort", state.sort); render(); });
+  for (const [id, key] of [["#status", "status"], ["#tierf", "tier"]]) {
+    $(id).addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b) return;
+      state[key] = b.dataset.v; store.set(key, state[key]); syncSeg(); render();
+    });
+  }
+  $("#copy").addEventListener("click", async () => {
+    const list = filtered();
+    const md = list.map(i => `- **${i.name}** (${CATS[i.cat]}; ${ST[i.st]}; ${TIER[i.tier]}; effort ${i.eff}${i.votes ? `; ${i.votes} Zen votes` : ""}): ${i.desc} _Sources: ${i.src}._`).join("\n");
+    const btn = $("#copy");
+    try { await navigator.clipboard.writeText(md); btn.textContent = `Copied ${list.length}`; }
+    catch { btn.textContent = "Copy failed"; }
+    setTimeout(() => (btn.textContent = "Copy as Markdown"), 1800);
+  });
+  stats(); picks(); render();
+}
+init();
+</script>
