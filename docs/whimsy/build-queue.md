@@ -1,0 +1,308 @@
+# Whimsy build queue (from the Feature Atlas, Oct 29 2026)
+
+Source of truth: https://claude.ai/artifact/79JadUmMJPuCSTnKDLXF1K (db collections `decisions`, `scopes`).
+Re-read live with ArtifactData list collection=decisions if the user changes anything.
+
+## Build (152)
+- [ai|partial|M] **AI tab grouping suggestions**
+- [ai|new|XL] **Agent mode**
+- [ai|new|L] **Browser memories**
+- [ai|new|L] **Chat about open tabs**
+- [ai|new|L] **Compare across tabs**
+- [ai|new|M] **Feed from any page** — NOTE: Is this ai?
+- [ai|new|M] **Local summaries**
+- [ai|new|M] **Skills**
+- [apps|new|M] **Linear and Jira live folders**
+- [apps|new|L] **Notification center**
+- [apps|partial|M] **Smarter RSS**
+- [apps|new|S] **Upload from the clipboard**
+- [auto|new|M] **Local API for agents and scripts** — NOTE: Like claude in chrome. We can have a soace for claude to control.
+- [auto|new|S] **Open in a space from the command line**
+- [auto|new|S] **URL schemes** — NOTE: Get arc parity. Use whimsy:// thiugh.
+- [auto|new|M] **Webhooks for live folders** — NOTE: YES! Iwant this to be in the live folder refresh option, which currently has 15 minutes as the fastest option. It should have one called “Push” or something like the ios mail settings.
+- [command|new|S] **Actions-only filter**
+- [command|partial|M] **Arc-style command bar** — NOTE: Does arc have this?
+- [command|new|S] **Create things from the command bar** — NOTE: Get parity
+- [command|partial|S] **Extensions from the command bar**
+- [command|new|L] **Natural-language history search**
+- [command|new|M] **Offline bangs**
+- [command|partial|S] **Recent tabs in the command bar** — NOTE: Get parity
+- [command|new|M] **Search inside open tabs**
+- [delight|new|S] **Inbox zero confetti** — NOTE: I’ve seen in other apps like todoist superhuman mail ios messages i think etc. maybe balloons fly up too so so that are on brand with the browser.
+- [delight|new|S] **Offline game** — NOTE: Make it like balloon fight the arcade game. Use cool retro graphics or modern colorful gradients like the icon, and make it a setting on the game oage. It should be accessibke from the whimsy:// also
+- [delight|new|S] **Seasonal themes**
+- [delight|new|S] **Year in tabs**
+- [dev|partial|S] **Clean test session** — NOTE: I think this is that private window we talked about already.
+- [dev|new|S] **Cookie editor**
+- [dev|new|M] **Developer mode tabs** — NOTE: Get parity.
+- [dev|partial|M] **Faster DevTools**
+- [files|partial|S] **Drag downloads into sites**
+- [files|new|L] **Faster downloads**
+- [files|new|M] **Finder folders in the sidebar**
+- [files|new|S] **Quick Look downloads** — NOTE: Arc has this
+- [files|new|M] **Screenshot to sidebar**
+- [input|partial|S] **Copy URL shortcuts** — NOTE: This is a must
+- [input|new|S] **Keyboard sidebar navigation**
+- [input|new|M] **PiP trackpad gestures**
+- [input|new|S] **Shortcut cheat sheet**
+- [look|new|S] **Fonts for the interface**
+- [look|new|S] **Hex colors in the theme picker**
+- [look|partial|S] **Hide the space switcher**
+- [look|new|S] **Menu icons**
+- [look|new|M] **Toolbar tinted by the site** — NOTE: Toggle in settings.
+- [look|partial|S] **Transparency control**
+- [mac|new|S] **Download progress on the Dock icon**
+- [mac|new|L] **Handoff** — NOTE: I think this exists already as a popup in the dock, arc has it i think zen too?
+- [mac|partial|M] **Liquid Glass styling** — NOTE: This is low priority. And I want to talk it through. So defer for last.
+- [mac|new|S] **Menu bar extra** — NOTE: Get arc parity.
+- [media|new|M] **Automatic picture-in-picture** — NOTE: I think it exists.
+- [media|new|L] **Cast to a TV**
+- [media|new|M] **Floating video calls** — NOTE: Get parity.
+- [media|partial|M] **Media hub**
+- [media|new|S] **Mute background tabs** — NOTE: Add settings togglr.
+- [media|new|S] **Per-tab volume**
+- [media|new|S] **PiP snaps back into view**
+- [media|new|M] **Picture-in-picture over full-screen apps** — NOTE: Get parity.
+- [media|new|M] **Playback speed controls**
+- [media|new|L] **Playlist**
+- [media|new|S] **Remember muted sites**
+- [mobile|new|XL] **iOS companion** — NOTE: I NEED to make this. Especially if I sign eventually. But this is low priority for now.
+- [nav|partial|S] **Keep the window when the last tab closes**
+- [nav|partial|S] **Open a link in another space**
+- [nav|partial|S] **Show the full URL on click**
+- [page|new|S] **Allow copy and paste**
+- [page|partial|S] **Capture tool**
+- [page|new|S] **Edit text on the page**
+- [page|partial|S] **Full-page capture to clipboard**
+- [page|new|S] **Image info**
+- [page|new|S] **Internet Archive for dead pages**
+- [page|new|M] **Notes**
+- [page|partial|S] **Supercopy** — NOTE: This id a must!
+- [page|partial|S] **Translate selection**
+- [perf|new|M] **Find heavy tabs**
+- [perf|partial|M] **Hardware video decoding** — NOTE: Toggle in settings
+- [perf|partial|M] **Startup speed**
+- [pins|partial|S] **Collapse the pinned section** — NOTE: Thought we already had this.
+- [pins|partial|S] **Don't load pinned tabs at startup**
+- [pins|new|S] **Edit a pinned tab's URL** — NOTE: Thought we already had that.
+- [pins|new|M] **Essentials per space** — NOTE: Thought we already had this.
+- [pins|new|S] **Folder colors**
+- [pins|new|S] **Folder previews**
+- [pins|new|M] **Folders as Essentials**
+- [pins|new|S] **New tabs open in the active folder** — NOTE: Add toggle in settings.
+- [pins|new|S] **Notification dots on Essentials**
+- [privacy|partial|S] **A switch that removes AI**
+- [privacy|new|L] **Built-in VPN** — NOTE: This is a feature I LOVE from vivaldi. Love that it’s free and just works.
+- [privacy|partial|S] **Email aliases**
+- [privacy|new|M] **Fire button**
+- [privacy|new|S] **Per-site user agent**
+- [privacy|new|M] **Private tab in a normal window** — NOTE: I love this idea. Seems like it replaces cmd shift n with one.   We talked about a scratch area. Maybe that’s cmd n. Cmd shift n could be a private space .  Another shortcut could be a private tab.
+- [privacy|partial|S] **Private window indicator**
+- [privacy|partial|S] **Reject cookie banners** — NOTE: YES THIS IS A MUST!!
+- [privacy|partial|S] **Strip tracking from links** — NOTE: Add toggle in settings.
+- [quick|partial|S] **Glance shortcuts**
+- [quick|new|S] **Glance size and position**
+- [quick|new|S] **Keep Glance across tab switches**
+- [quick|new|M] **Next meeting in the sidebar**
+- [quick|new|S] **Open external links in Glance**
+- [quick|partial|S] **Peek from pinned tabs**
+- [quick|new|M] **People cards** — NOTE: Get arc parity.
+- [quick|new|M] **Preview before opening from history**
+- [quick|new|M] **Quick window for external links**
+- [reading|new|S] **Bionic or guided reading**
+- [reading|new|S] **Dark mode for PDFs** — NOTE: Add toggle in settings
+- [reading|partial|S] **Estimated reading time**
+- [reading|partial|S] **Focus mode** — NOTE: Is that not jaut compact node?
+- [reading|new|M] **Print a clean page**
+- [reading|partial|S] **Reader view typography**
+- [spaces|new|M] **Archive or hide a space**
+- [spaces|partial|S] **Custom space icons**
+- [spaces|new|S] **Drag tabs onto space icons**
+- [spaces|new|M] **Lock a space**
+- [spaces|new|L] **Per-space extensions**
+- [spaces|partial|S] **Reorder spaces**
+- [spaces|partial|S] **Return to the last tab in each space**
+- [spaces|partial|S] **Searchable emoji picker**
+- [spaces|new|M] **Space manager**
+- [spaces|new|M] **Space-aware history**
+- [spaces|new|M] **Temporary containers** — NOTE: Yes call it scratch.
+- [split|partial|S] **Close the other pane**
+- [split|partial|M] **More layouts**
+- [split|new|S] **Open Glance into a split**
+- [split|partial|S] **Open a link in split view**
+- [split|new|S] **Open a new tab inside a split**
+- [split|partial|M] **Pin or favorite a split**
+- [split|new|S] **Split from the command bar**
+- [split|partial|S] **Split views survive restart**
+- [split|new|S] **Swap panes**
+- [tabs|partial|S] **Archive view with restore**
+- [tabs|new|S] **Audio, mic and camera indicators when collapsed**
+- [tabs|new|S] **Back button closes the tab** — NOTE: I feel like this already exists but if not add it.
+- [tabs|partial|S] **Close button on hover only** — NOTE: I thought the is already existed.
+- [tabs|partial|S] **Copy URLs of selected tabs**
+- [tabs|partial|S] **Dim unloaded tabs** — NOTE: Add toggle in settings  Default is off.
+- [tabs|partial|S] **Duplicate tab shortcut** — NOTE: When i used arc i made this key bind manually i. The settings. Cmd d or cmd shit d or so. Pick the unused one and make it the default.
+- [tabs|new|M] **Follower tabs**
+- [tabs|new|S] **Group by domain**
+- [tabs|new|S] **New tab below current** — NOTE: Add toggle in settings
+- [tabs|partial|S] **New tab button pinned to the bottom**
+- [tabs|new|M] **Notification badges on tabs**
+- [tabs|new|S] **Rename tabs**
+- [tabs|partial|S] **Return to the previous tab on close** — NOTE: Also thought this existed already.
+- [tabs|new|L] **Sidebery-style power features** — NOTE: I like the idea of the panels. Would want to hear more anout this.
+- [tabs|new|M] **Snooze a tab**
+- [tabs|new|M] **Tab islands** — NOTE: I think this needs to be combined with the tab trees, if they are similar.
+- [tabs|new|S] **Tab loading progress**
+- [tabs|new|S] **Tab width and two-line titles** — NOTE: Add the number if lines as an option in settings.
+- [tabs|new|L] **Tree-style tabs** — NOTE: Make this optional with a toggle in settings. Be thorough about the user experience we envision.
+- [tabs|new|M] **Undo for tab actions** — NOTE: I thought it already existed.
+
+## Maybe (deferred: do not build tonight) (142)
+- [a11y|new|S] **High contrast theme**
+- [a11y|partial|M] **Keyboard access everywhere** — NOTE: Need context
+- [a11y|new|S] **Larger sidebar targets** — NOTE: One day when i get a touchscreen mac lol
+- [a11y|partial|S] **Respect reduced motion**
+- [ai|partial|M] **Alt text for images**
+- [ai|new|M] **Explain this**
+- [ai|partial|M] **Translate with context**
+- [ai|new|M] **Writing help**
+- [apps|partial|M] **Bookmark manager redesign** — NOTE: Scope this, not sure what it is.
+- [apps|new|L] **Calendar**
+- [apps|new|M] **GitLab and Bitbucket live folders**
+- [apps|new|L] **Live folder plugins**
+- [apps|new|XL] **Mail**
+- [apps|new|L] **Pinboards**
+- [apps|new|S] **Quick notes from selection**
+- [apps|partial|L] **Send to my phone**
+- [apps|partial|L] **Shared folders** — NOTE: What exists today and what is proposed?
+- [apps|new|L] **Start page widgets**
+- [apps|new|M] **Tasks**
+- [apps|new|S] **Weather and time on the start page**
+- [auto|new|M] **AppleScript**
+- [auto|new|S] **Export tabs as JSON**
+- [auto|new|M] **Raycast and Alfred**
+- [auto|new|M] **Shortcuts actions**
+- [auto|new|M] **Spotlight search of history**
+- [auto|new|M] **Userscripts built in**
+- [command|partial|S] **Calculator and conversions**
+- [command|new|L] **Command chains**
+- [command|new|S] **Copy from the command bar** — NOTE: Not sure what this is
+- [command|new|M] **History search operators**
+- [command|partial|S] **More command bar actions**
+- [command|partial|M] **Type a site name, then Tab**
+- [delight|new|S] **Custom cursors on the start page**
+- [dev|new|M] **Local override of a site's CSS**
+- [dev|new|S] **Reload a mod without restarting**
+- [files|partial|S] **Ask where to save per file type**
+- [files|partial|S] **Clear finished downloads**
+- [files|new|M] **Recent downloads in file pickers**
+- [input|partial|M] **Any action, any shortcut**
+- [input|new|S] **Browser shortcuts win**
+- [input|partial|S] **Configurable tab switcher keys**
+- [input|new|M] **Mouse gestures**
+- [input|partial|S] **Reset shortcuts**
+- [input|new|S] **Rocker gestures**
+- [input|partial|S] **Shortcut to pin and unpin** — NOTE: I think this is the other one of the cmd d or cmd shift d in arc.
+- [input|partial|S] **Sidebar width toggle shortcut**
+- [input|new|M] **Spatial navigation**
+- [input|partial|M] **Two-finger swipe for back and forward**
+- [input|new|L] **Vim keys**
+- [look|new|S] **Daily start page image**
+- [look|new|S] **Live-reload custom CSS** — NOTE: Need context.
+- [look|new|S] **Status bar**
+- [look|new|S] **Theme by time of day**
+- [look|new|S] **Wallpaper behind the interface**
+- [mac|new|XL] **Apple Pay** — NOTE: Scope this it’s a great idea
+- [mac|new|M] **Focus modes**
+- [mac|new|S] **Stage Manager friendly windows**
+- [mac|new|M] **Touch ID for passwords**
+- [media|new|L] **Audio output per tab**
+- [media|new|M] **Lucid mode**
+- [media|new|M] **Mini player for the last video**
+- [media|new|L] **Native macOS PiP**
+- [media|new|L] **Share a tab with audio**
+- [mobile|new|XL] **Android app**
+- [page|new|M] **Annotate captures**
+- [page|new|XL] **Easels**
+- [page|partial|M] **Find in page across frames**
+- [page|new|S] **Image search from the context menu**
+- [page|partial|S] **Page filters**
+- [page|new|M] **Save page as Markdown**
+- [page|new|S] **Show all images on a page**
+- [panels|partial|S] **AI chat panel**
+- [panels|new|S] **Default page for a panel** — NOTE: Need context
+- [panels|new|M] **Floating panels**
+- [panels|new|S] **Panel per container** — NOTE: Need more context
+- [panels|new|L] **Web apps with their own Dock icon**
+- [panels|new|M] **Web panels**
+- [perf|new|M] **Battery saver**
+- [perf|new|M] **Heavy ad and tracker detector**
+- [perf|new|S] **Memory on hover**
+- [perf|partial|S] **Performance report**
+- [perf|new|L] **Resource limits**
+- [perf|partial|S] **Turn off animations**
+- [pins|new|M] **Folders in the unpinned area**
+- [pins|new|S] **Folders keep their place**
+- [pins|new|M] **Pinned tab groups for meetings**
+- [pins|partial|S] **Pinned tab home domain**
+- [pins|partial|M] **Pinned tabs saved as bookmarks**
+- [pins|new|L] **Rich previews for Essentials**
+- [privacy|new|L] **Built-in ad blocking**
+- [privacy|partial|S] **Fingerprinting protection levels**
+- [privacy|new|M] **No network requests on first launch**
+- [privacy|partial|S] **Password health**
+- [privacy|new|L] **Password manager integration** — NOTE: I use the 1pass extension already si no need
+- [privacy|new|S] **Permission reminders**
+- [privacy|new|M] **Privacy dashboard**
+- [privacy|partial|M] **Site settings in the address bar**
+- [quick|new|L] **App previews**
+- [quick|new|S] **Float a window on top**
+- [quick|new|S] **Glance on long-press or Force Click**
+- [quick|partial|M] **Link previews**
+- [quick|new|M] **Quick window hotkey from any app**
+- [reading|new|S] **Break mode**
+- [reading|partial|S] **Dark mode for websites**
+- [reading|new|M] **Focus sessions**
+- [reading|partial|S] **Full screen hides the interface**
+- [reading|partial|S] **Hide YouTube Shorts and feeds**
+- [reading|partial|S] **Read aloud**
+- [reading|new|M] **Reading list**
+- [reading|partial|M] **Smarter reader mode** — NOTE: Scope what exists today and what we can add
+- [spaces|partial|M] **Always open a site in a container**
+- [spaces|partial|S] **Move tabs between spaces by shortcut**
+- [spaces|new|S] **Open external links in the last-used space**
+- [spaces|new|M] **Per-space bookmarks bar**
+- [spaces|new|XL] **Per-space profiles** — NOTE: It had already
+- [spaces|partial|S] **Shortcut to switch to space N or the last space**
+- [spaces|partial|M] **Space routing by URL pattern and source app**
+- [spaces|new|S] **Space-specific start page**
+- [spaces|partial|S] **Swipe between spaces anywhere**
+- [split|new|S] **Focus follows mouse**
+- [split|new|M] **Linked scrolling**
+- [split|new|S] **Split view hotkey per direction**
+- [sync|new|XL] **Instant tab sync between computers** — NOTE: I think this already exists in firefox sync. Investigate because if not it is top of my list.
+- [sync|new|L] **Sync Essentials and pinned tabs** — NOTE: Same as abive
+- [sync|new|XL] **Sync over iCloud**
+- [sync|new|L] **Sync settings, mods and shortcuts** — NOTE: Same as above
+- [tabs|new|M] **Auto-archive idle tabs**
+- [tabs|partial|S] **Close tabs to the side and duplicates**
+- [tabs|new|S] **Double-click empty sidebar for a new tab**
+- [tabs|partial|S] **Hibernation exclusions**
+- [tabs|new|S] **Lock a tab**
+- [tabs|partial|S] **Recently closed by space**
+- [tabs|new|S] **Scroll over tabs to switch**
+- [tabs|partial|S] **Sidebar opens on hover**
+- [tabs|new|S] **Tab age**
+- [tabs|new|M] **Tab context menu customization**
+- [tabs|new|S] **Tab count badge**
+- [tabs|new|S] **Tab sound when a page needs attention**
+- [tabs|new|M] **Tabs as to-dos**
+- [tabs|new|M] **Tidy tabs**
+- [tabs|partial|S] **Unload tab shortcut**
+- [tabs|partial|S] **Visual tab switcher styles**
+
+## Undecided but has a note (2)
+- [look|new|M] **Density setting** — NOTE: I should have already added this with our ui zoom setting.
+- [tabs|partial|S] **Sidebar font size** — NOTE: Did we not akreayd add that?
+
+## Skip (45): Arc Boosts importer, Arc Easels and Notes export, Arc shortcut preset, Balloon loading animation, Click the active tab to go back, Close tab on double-click, Coming from Arc? onboarding, Custom panel icons, Custom title and icon for pinned tabs, Data saver, Developer ID signing, Easy opt-out of window sync, Exclude pinned tabs from Ctrl+Tab, Highlights and annotations, Horizontal tabs option, Intel build, Messengers in the sidebar, Move tab to a new window, Named sessions, Open a space in a new window, Per-space or all-space pins, Periodic reload, Profile name in the window title, Reset all pinned tabs, Reset identity, Restore the previous session, Screen reader labels, Search open tabs shortcut, Space bar opens search, Space schedules, Space sounds, Space-specific search engine, Sync status, Tab bar position, Tab emoji and custom icons, Tab graveyard, Tab hover previews, Tab notes, Tab stacks, Tab thumbnails in the sidebar, Tor private windows, Two panels at once, URL bar shows the page title, Verify the Arc import end to end, Window panel
