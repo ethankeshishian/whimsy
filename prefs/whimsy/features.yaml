@@ -225,6 +225,9 @@
 - name: whimsy.feature.live-folders-rss-autodiscover
   value: true
 
+- name: whimsy.feature.live-folders-linear
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

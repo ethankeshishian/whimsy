@@ -177,3 +177,7 @@ support-files = ["whimsy_push_rss.sjs"]
 
 ["browser_whimsy_live_folders_rss_autodiscover.js"]
 support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_discovered_feed.xml"]
+
+# linear: Linear live folder ("My Issues": assigned to you, open states).
+["browser_whimsy_live_folders_linear.js"]
+support-files = ["whimsy_linear.sjs"]

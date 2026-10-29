@@ -43,8 +43,14 @@
 // transparently upgraded to its advertised feed; a genuine feed URL, or a
 // page advertising none, passes through unchanged -- no regression on
 // today's behavior either way.
+//
+// linear: Linear live folder ("My Issues": assigned to you, open states).
+// Registered into the same registry as Jira, right below it; see
+// WhimsyLinearLiveFolder.sys.mjs for the auth model (session first, a
+// pasted personal API key as the fallback).
 
 import { WhimsyJiraLiveFolderProvider, DEFAULT_JQL } from "resource:///modules/whimsy/WhimsyJiraLiveFolder.sys.mjs";
+import { WhimsyLinearLiveFolderProvider } from "resource:///modules/whimsy/WhimsyLinearLiveFolder.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -52,6 +58,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const JIRA_FEATURE_PREF = "whimsy.feature.live-folders-jira";
+const LINEAR_FEATURE_PREF = "whimsy.feature.live-folders-linear";
 const PUSH_FEATURE_PREF = "whimsy.feature.live-folders-push";
 const RSS_AUTODISCOVER_PREF = "whimsy.feature.live-folders-rss-autodiscover";
 const PUSH_INTERVAL_MS = 60 * 1000;
@@ -59,6 +66,10 @@ const PUSH_INTERVAL_MS = 60 * 1000;
 export const WhimsyLiveFolders = {
   get jiraEnabled() {
     return Services.prefs.getBoolPref(JIRA_FEATURE_PREF, true);
+  },
+
+  get linearEnabled() {
+    return Services.prefs.getBoolPref(LINEAR_FEATURE_PREF, true);
   },
 
   get pushEnabled() {
@@ -387,6 +398,10 @@ export const WhimsyLiveFolders = {
       if (WhimsyLiveFolders.jiraEnabled) {
         this.registry.set(WhimsyJiraLiveFolderProvider.type, WhimsyJiraLiveFolderProvider);
       }
+      // linear:
+      if (WhimsyLiveFolders.linearEnabled) {
+        this.registry.set(WhimsyLinearLiveFolderProvider.type, WhimsyLinearLiveFolderProvider);
+      }
       return result;
     };
     proto.init.whimsyWrapped = true;
@@ -416,6 +431,18 @@ export const WhimsyLiveFolders = {
           menu.appendChild(item);
         }
         item.hidden = !this.jiraEnabled;
+
+        // linear:
+        let linearItem = menu.querySelector(".whimsy-live-folder-linear-create");
+        if (!linearItem) {
+          linearItem = document.createXULElement("menuitem");
+          linearItem.classList.add("whimsy-live-folder-linear-create");
+          linearItem.setAttribute("command", "cmd_zenNewLiveFolder");
+          linearItem.setAttribute("image", "chrome://browser/skin/zen-icons/selectable/ticket.svg");
+          document.l10n.setAttributes(linearItem, "whimsy-live-folder-linear-create");
+          menu.appendChild(linearItem);
+        }
+        linearItem.hidden = !this.linearEnabled;
       },
       { capture: true }
     );
@@ -423,10 +450,14 @@ export const WhimsyLiveFolders = {
     const command = document.getElementById("cmd_zenNewLiveFolder");
     command?.addEventListener("command", event => {
       const target = event.sourceEvent?.target;
-      if (!this.jiraEnabled || target?.getAttribute("data-l10n-id") != "whimsy-live-folder-jira-create") {
+      const l10nId = target?.getAttribute("data-l10n-id");
+      if (this.jiraEnabled && l10nId == "whimsy-live-folder-jira-create") {
+        this.createJiraFolder(win);
         return;
       }
-      this.createJiraFolder(win);
+      if (this.linearEnabled && l10nId == "whimsy-live-folder-linear-create") {
+        this.createLinearFolder(win);
+      }
     });
   },
 
@@ -467,6 +498,45 @@ export const WhimsyLiveFolders = {
       ZenLiveFoldersManager.saveState();
     } catch (e) {
       console.error("Whimsy: creating a Jira live folder failed", e);
+    }
+  },
+
+  // linear: Unlike Jira, nothing has to be asked up front: "My Issues" needs no
+  // site, and the optional team filter can be set afterwards from the
+  // folder's own options menu. Auth (session, then a pasted API key) is
+  // only discovered on the first fetch, surfaced as the folder's error
+  // state if neither works.
+  async createLinearFolder(win) {
+    try {
+      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+      );
+
+      const folder = win.gZenFolders.createFolder([], {
+        label: "Linear",
+        isLiveFolder: true,
+        collapsed: true,
+      });
+      win.gZenFolders.setFolderUserIcon(folder, "chrome://browser/skin/zen-icons/selectable/ticket.svg");
+
+      const state = {
+        type: WhimsyLinearLiveFolderProvider.type,
+        team: "",
+        interval: 30 * 60 * 1000,
+        lastFetched: 0,
+        options: {},
+      };
+      const liveFolder = new WhimsyLinearLiveFolderProvider({
+        id: folder.id,
+        state,
+        manager: ZenLiveFoldersManager,
+      });
+
+      ZenLiveFoldersManager.liveFolders.set(folder.id, liveFolder);
+      liveFolder.start();
+      ZenLiveFoldersManager.saveState();
+    } catch (e) {
+      console.error("Whimsy: creating a Linear live folder failed", e);
     }
   },
 };

@@ -262,6 +262,9 @@ FEATURES = [
      "detect": [("src/zen/live-folders", r"(?i)if-none-match|etag")]},
     {"id": "live-folders-rss-autodiscover", "title": "RSS: autodiscover a page's feed when the URL given isn't one",
      "detect": [("src/zen/live-folders", r"(?i)rel=.alternate.*(?:rss|atom)|autodiscover")]},
+    # linear: Linear live folder ("My Issues": assigned to you, open states).
+    {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
+     "detect": [("src/zen/live-folders", r"(?i)linear")]},
 ]
 
 

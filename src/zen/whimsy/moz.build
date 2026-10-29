@@ -58,6 +58,9 @@ EXTRA_JS_MODULES.whimsy += [
     # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
     "WhimsyJiraLiveFolder.sys.mjs",
     "WhimsyLiveFolders.sys.mjs",
+    # linear: Linear live folder ("My Issues": assigned to you, open states).
+    "WhimsyLiveFolderFetch.sys.mjs",
+    "WhimsyLinearLiveFolder.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [
