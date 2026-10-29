@@ -177,3 +177,19 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      Chromium profiles). Gecko can't load extensions per container. Investigate;
      nearest parity is per-space toolbar visibility (+ maybe per-space profile
      mapping). Do the feasible part and report the gap in the morning.
+
+6. (User, Oct 29 midday) Codex handoff dropped; Claude handles everything.
+   Minimize context: build several batches together, use lower-effort agents
+   where fine.
+   - SCOPE CHANGE, Scratch: Cmd+Shift+N opens "Scratch", a temporary private
+     SPACE (not a window) added to the right of all spaces. Tabs can be sent
+     out of it, or the whole space converted into a real space; otherwise it
+     is gone (all data) when closed. Replaces the private window.
+   - Private tabs inside existing spaces, Waterfox-style. Shortcut: pick an
+     ergonomic free one (proposed Cmd+Opt+T: next to Cmd+T, verify free).
+     Little Arc keeps Cmd+Opt+N.
+   - Settings: move ALL update settings (status, auto-update, channel, check
+     now, log, rollback, version history) out of the top of the pane into an
+     "About Whimsy" section.
+   - LOWEST PRIORITY, scope when reached: a Whimsy homepage with a changelog
+     tab, replacing Zen's homepage and every Zen link Whimsy routes to.
