@@ -41,6 +41,12 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return null;
       case "Whimsy:GetVolume":
         return this.mediaVolumes();
+      case "Whimsy:MediaInfo": {
+        const el = this.mainMedia();
+        return el ? { playing: !el.paused, area: this.area(el), rate: el.playbackRate } : null;
+      }
+      case "Whimsy:SetRate":
+        return this.setRate(message.data);
     }
     return null;
   }
@@ -88,5 +94,28 @@ export class WhimsyPageChild extends JSWindowActorChild {
       volume: el.volume,
       own: MEDIA.get(el)?.own ?? el.volume,
     }));
+  }
+
+  // Playback speed: the media the page is about — the one playing, else
+  // the largest video, else the first audio.
+  mainMedia() {
+    const media = [...(this.document?.querySelectorAll("video, audio") ?? [])].filter(el => el.readyState > 0 || el.src || el.currentSrc);
+    media.sort((a, b) => Number(a.paused) - Number(b.paused) || this.area(b) - this.area(a));
+    return media[0] ?? null;
+  }
+
+  area(el) {
+    const rect = el.getBoundingClientRect();
+    return rect.width * rect.height;
+  }
+
+  setRate({ delta = 0, reset = false }) {
+    const el = this.mainMedia();
+    if (!el) {
+      return null;
+    }
+    const rate = reset ? 1 : Math.round(Math.min(4, Math.max(0.25, el.playbackRate + delta)) * 100) / 100;
+    el.playbackRate = rate;
+    return rate;
   }
 }

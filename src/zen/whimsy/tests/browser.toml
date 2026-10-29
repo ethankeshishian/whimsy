@@ -57,6 +57,9 @@ run-if = ["os == 'mac'"]
 ["browser_whimsy_pip_snap_back.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 
+["browser_whimsy_playback_speed.js"]
+support-files = ["whimsy_video.html", "whimsy_video.mp4"]
+
 ["browser_whimsy_private_indicator.js"]
 
 ["browser_whimsy_rename_tab.js"]

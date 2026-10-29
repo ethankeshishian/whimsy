@@ -90,6 +90,9 @@
 - name: whimsy.feature.pip-snap-back
   value: true
 
+- name: whimsy.feature.playback-speed
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

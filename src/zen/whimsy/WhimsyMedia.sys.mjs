@@ -18,6 +18,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
 });
@@ -60,6 +61,14 @@ const VOLUME_PANEL_ID = "whimsy-volume-panel";
 const PIP_FEATURE_PREF = "whimsy.feature.pip-snap-back";
 const PIP_PREF = "whimsy.media.pip-snap-back";
 
+// Playback speed (the Video Speed Controller extension): Cmd+Opt+. speeds
+// up the video the page is about by 0.25×, Cmd+Opt+, slows it, Cmd+Opt+0
+// goes back to 1×, with a toast saying the speed. Also in the command bar.
+// Firefox's own speed control in the picture-in-picture player is turned
+// on (media.videocontrols.picture-in-picture.playback-speed.enabled).
+const SPEED_FEATURE_PREF = "whimsy.feature.playback-speed";
+const SPEED_STEP = 0.25;
+
 export const WhimsyMedia = {
   get backgroundMuteMode() {
     if (!Services.prefs.getBoolPref(MUTE_FEATURE_PREF, true)) {
@@ -73,6 +82,7 @@ export const WhimsyMedia = {
     this.initBackgroundMute(win);
     this.initMuteSite(win);
     this.initTabVolume(win);
+    this.initPlaybackSpeed(win);
     win.gBrowser.tabContainer.addEventListener("TabSelect", event => {
       try {
         this.snapBackPip(event.target);
@@ -526,5 +536,63 @@ export const WhimsyMedia = {
       }
     }
     return closed;
+  },
+
+  // --- Playback speed ---
+
+  get playbackSpeedEnabled() {
+    return Services.prefs.getBoolPref(SPEED_FEATURE_PREF, true);
+  },
+
+  initPlaybackSpeed(win) {
+    const { WhimsyShortcuts } = lazy;
+    const commands = [
+      ["cmd_whimsySpeedUp", "key_whimsySpeedUp", ".", { delta: SPEED_STEP }, "whimsy-action-speed-up"],
+      ["cmd_whimsySlowDown", "key_whimsySlowDown", ",", { delta: -SPEED_STEP }, "whimsy-action-slow-down"],
+      ["cmd_whimsySpeedReset", "key_whimsySpeedReset", "0", { reset: true }, "whimsy-action-speed-reset"],
+    ];
+    for (const [id, keyId, key, change] of commands) {
+      WhimsyShortcuts.addCommand(win, {
+        id,
+        run: w => this.changePlaybackRate(w, change),
+        key: this.playbackSpeedEnabled ? { id: keyId, key, modifiers: "accel,alt" } : null,
+      });
+    }
+    WhimsyShortcuts.addActions(
+      commands.map(([id, , , , l10nId]) => ({
+        l10nId,
+        command: id,
+        icon: "chrome://browser/skin/zen-icons/media-play.svg",
+        isAvailable: w => this.playbackSpeedEnabled && !!w.gBrowser.selectedTab.linkedPanel,
+      }))
+    );
+  },
+
+  // Finds the frame whose media the tab is about and changes its speed.
+  // Returns the new rate, or null when the tab has no media.
+  async changePlaybackRate(win, change, tab = win.gBrowser.selectedTab) {
+    if (!this.playbackSpeedEnabled) {
+      return null;
+    }
+    const contexts = tab.linkedBrowser?.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
+    let best = null;
+    for (const context of contexts) {
+      try {
+        const actor = context.currentWindowGlobal?.getActor("WhimsyPage");
+        const info = actor && (await actor.sendQuery("Whimsy:MediaInfo"));
+        if (info && (!best || info.playing > best.info.playing || (info.playing == best.info.playing && info.area > best.info.area))) {
+          best = { actor, info };
+        }
+      } catch (e) {
+        // A frame that went away.
+      }
+    }
+    const rate = best ? await best.actor.sendQuery("Whimsy:SetRate", change) : null;
+    if (rate === null) {
+      win.gZenUIManager?.showToast?.("whimsy-speed-none-toast");
+    } else {
+      win.gZenUIManager?.showToast?.("whimsy-speed-toast", { l10nArgs: { rate } });
+    }
+    return rate;
   },
 };

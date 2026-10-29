@@ -89,3 +89,7 @@
 # the page (Arc; Settings → Tab Management).
 - name: whimsy.media.pip-snap-back
   value: true
+
+# A speed button in the picture-in-picture player (Firefox's, off there).
+- name: media.videocontrols.picture-in-picture.playback-speed.enabled
+  value: true

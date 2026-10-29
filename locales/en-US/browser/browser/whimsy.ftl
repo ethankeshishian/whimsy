@@ -237,6 +237,15 @@ whimsy-volume-slider =
 whimsy-volume-mute =
     .tooltiptext = Mute or unmute the tab
 
+## Playback speed (shortcuts and command bar)
+
+whimsy-action-speed-up = Speed Up Video
+whimsy-action-slow-down = Slow Down Video
+whimsy-action-speed-reset = Normal Video Speed
+# $rate (number) - the playback rate, e.g. 1.25
+whimsy-speed-toast = Playback speed { NUMBER($rate, maximumFractionDigits: 2) }×
+whimsy-speed-none-toast = No video or audio on this page
+
 ## Spaces
 
 # $count (number) - how many tabs moved, $space (string) - the space's name

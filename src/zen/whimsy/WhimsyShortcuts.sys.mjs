@@ -17,6 +17,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   CustomKeys: "moz-src:///browser/components/customkeys/CustomKeys.sys.mjs",
 });
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
 const FEATURE_PREF = "whimsy.feature.duplicate-shortcut";
 
@@ -68,6 +69,66 @@ export const WhimsyShortcuts = {
       return !!lazy.CustomKeys.getDefaultKey(id);
     } catch (e) {
       return false;
+    }
+  },
+
+  // A Whimsy command for a window: a <command> that runs `run(win)`, and,
+  // with `key`, a <key> for it (shown in the command bar and menus).
+  addCommand(win, { id, run, key = null }) {
+    const { document } = win;
+    if (document.getElementById(id)) {
+      return document.getElementById(id);
+    }
+    const command = document.createXULElement("command");
+    command.id = id;
+    command.addEventListener("command", () => {
+      try {
+        run(win);
+      } catch (e) {
+        console.error(`Whimsy: ${id} failed`, e);
+      }
+    });
+    (document.getElementById("mainCommandSet") ?? document.documentElement).append(command);
+    if (key) {
+      const keyEl = document.createXULElement("key");
+      keyEl.id = key.id;
+      keyEl.setAttribute("command", id);
+      keyEl.setAttribute("modifiers", key.modifiers);
+      keyEl.setAttribute(key.keycode ? "keycode" : "key", key.keycode ?? key.key);
+      // Whimsy's own keyset, beside Firefox's (Zen rebuilds its own).
+      let keyset = document.getElementById("whimsyKeyset");
+      if (!keyset) {
+        keyset = document.createXULElement("keyset");
+        keyset.id = "whimsyKeyset";
+      }
+      keyset.append(keyEl);
+      // Gecko reads <key>s only when their keyset is (re)bound.
+      keyset.remove();
+      (document.getElementById("mainKeyset")?.parentElement ?? document.documentElement).append(keyset);
+    }
+    return command;
+  },
+
+  // Adds actions to Zen's command bar (once per session): { l10nId (in
+  // whimsy.ftl), command (a <command> id or a function of the window),
+  // icon, isAvailable(win) }.
+  addActions(actions) {
+    const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+    for (const action of actions) {
+      if (globalActions.some(a => a.l10nId == action.l10nId)) {
+        continue;
+      }
+      let label = null;
+      globalActions.push({
+        commandId: typeof action.command == "string" ? action.command : `whimsy:${action.l10nId}`,
+        extraPayload: {},
+        isAvailable: () => true,
+        ...action,
+        get label() {
+          label ??= lazy.l10n.formatValueSync(action.l10nId);
+          return label;
+        },
+      });
     }
   },
 };
