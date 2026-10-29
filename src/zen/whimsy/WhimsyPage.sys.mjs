@@ -13,6 +13,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
@@ -38,6 +39,20 @@ const EDIT_PILL_ID = "whimsy-editing-pill";
 const COPY_FEATURE_PREF = "whimsy.feature.allow-copy";
 const COPY_PERMISSION = "whimsy-allow-copy";
 
+// Internet Archive for dead pages (Brave's Wayback Machine prompt and the
+// official extension): when a page is gone (404, 410, 451, 5xx) or its
+// site can't be reached, a bar offers the Wayback Machine's latest copy,
+// with its date. "Open in Internet Archive" in the command bar works on any
+// page. Never asked for private windows or local addresses.
+const ARCHIVE_FEATURE_PREF = "whimsy.feature.wayback";
+const ARCHIVE_PROMPT_PREF = "whimsy.archive.prompt";
+const ARCHIVE_API_PREF = "whimsy.archive.api";
+const ARCHIVE_API = "https://archive.org/wayback/available?url=";
+const ARCHIVE_WEB = "https://web.archive.org/web/";
+const ARCHIVE_STATUSES = new Set([404, 410, 451, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
+const ARCHIVE_ERRORS = new Set(["dnsNotFound", "connectionFailure", "netTimeout", "netReset", "unknownHost"]);
+const ARCHIVE_BAR = "whimsy-archive";
+
 function isWebPage(win) {
   const tab = win.gBrowser.selectedTab;
   const uri = tab.linkedBrowser?.currentURI;
@@ -53,6 +68,7 @@ export const WhimsyPage = {
     this.initCapture(win);
     this.initEditPage(win);
     this.initAllowCopy(win);
+    this.initArchive(win);
   },
 
   actorFor(browser) {
@@ -299,5 +315,182 @@ export const WhimsyPage = {
       l10nArgs: { site: site.host },
     });
     return allow;
+  },
+
+  // --- Internet Archive ---
+
+  get archiveEnabled() {
+    return Services.prefs.getBoolPref(ARCHIVE_FEATURE_PREF, true);
+  },
+
+  // A public web address the Archive could have, or null.
+  archivableURL(uri) {
+    if (!uri || !["http", "https"].includes(uri.scheme)) {
+      return null;
+    }
+    const host = uri.host;
+    if (
+      !host ||
+      host == "localhost" ||
+      /\.(local|localhost|internal|lan|home\.arpa)$/.test(host) ||
+      /^(\d+\.){3}\d+$/.test(host) ||
+      host.includes(":")
+    ) {
+      return null;
+    }
+    if (host.startsWith("web.archive.org") || host == "archive.org") {
+      return null;
+    }
+    return uri.spec;
+  },
+
+  // Remembers each top-level page's HTTP status on its <browser>.
+  observeHttpStatus() {
+    if (this._httpObserver) {
+      return;
+    }
+    this._httpObserver = subject => {
+      try {
+        const channel = subject.QueryInterface(Ci.nsIHttpChannel);
+        if (!channel.isMainDocumentChannel) {
+          return;
+        }
+        const context = channel.loadInfo?.browsingContext;
+        const browser = context && !context.parent ? context.embedderElement : null;
+        if (browser) {
+          browser.whimsyHttpStatus = { spec: channel.URI.spec, status: channel.responseStatus };
+        }
+      } catch (e) {
+        // Not an HTTP channel with a response.
+      }
+    };
+    Services.obs.addObserver(this._httpObserver, "http-on-examine-response");
+    Services.obs.addObserver(this._httpObserver, "http-on-examine-cached-response");
+  },
+
+  initArchive(win) {
+    const { WhimsyShortcuts } = lazy;
+    WhimsyShortcuts.addActions([
+      {
+        l10nId: "whimsy-action-open-archive",
+        command: w => this.openInArchive(w),
+        icon: "chrome://browser/skin/zen-icons/history.svg",
+        isAvailable: w =>
+          this.archiveEnabled && !!this.archivableURL(this.originalURI(w.gBrowser.selectedBrowser)),
+      },
+    ]);
+    if (lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
+      return;
+    }
+    this.observeHttpStatus();
+    win.gBrowser.addTabsProgressListener({
+      onStateChange: (browser, webProgress, request, flags) => {
+        const done = Ci.nsIWebProgressListener.STATE_STOP | Ci.nsIWebProgressListener.STATE_IS_WINDOW;
+        if ((flags & done) != done || !webProgress.isTopLevel) {
+          return;
+        }
+        // In the parent the request is a stand-in; the status comes from
+        // the HTTP observer below.
+        const status = browser.whimsyHttpStatus?.spec == browser.currentURI?.spec ? browser.whimsyHttpStatus.status : 0;
+        if (ARCHIVE_STATUSES.has(status)) {
+          this.offerArchive(win, browser, browser.currentURI);
+        }
+      },
+      onLocationChange: (browser, webProgress, request, location, flags) => {
+        if (!webProgress.isTopLevel) {
+          return;
+        }
+        if (!(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)) {
+          win.gBrowser.getNotificationBox(browser)?.getNotificationWithValue(ARCHIVE_BAR)?.close();
+        }
+        if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
+          const error = /[?&]e=([^&]+)/.exec(browser.documentURI?.spec ?? "")?.[1];
+          if (ARCHIVE_ERRORS.has(error)) {
+            this.offerArchive(win, browser, location);
+          }
+        }
+      },
+    });
+  },
+
+  // The address the page was meant to be (error pages keep it as the
+  // current URI).
+  originalURI(browser) {
+    return browser?.currentURI ?? null;
+  },
+
+  async offerArchive(win, browser, uri) {
+    const url = this.archivableURL(uri);
+    if (!url || !this.archiveEnabled || !Services.prefs.getBoolPref(ARCHIVE_PROMPT_PREF, true)) {
+      return null;
+    }
+    const snapshot = await this.findSnapshot(url);
+    // Still on that page?
+    if (!snapshot || browser.currentURI?.spec != url) {
+      return null;
+    }
+    const box = win.gBrowser.getNotificationBox(browser);
+    if (box.getNotificationWithValue(ARCHIVE_BAR)) {
+      return null;
+    }
+    const date = snapshot.date
+      ? new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" }).format(snapshot.date)
+      : "";
+    return box.appendNotification(
+      ARCHIVE_BAR,
+      {
+        label: { "l10n-id": date ? "whimsy-archive-bar-dated" : "whimsy-archive-bar", "l10n-args": { date } },
+        priority: box.PRIORITY_INFO_MEDIUM,
+      },
+      [
+        {
+          "l10n-id": "whimsy-archive-open",
+          callback: () => {
+            this.loadArchived(browser, snapshot.url);
+          },
+        },
+      ]
+    );
+  },
+
+  // The Wayback Machine's nearest copy of a page: { url, date }, or null.
+  async findSnapshot(url) {
+    const api = Services.prefs.getStringPref(ARCHIVE_API_PREF, "") || ARCHIVE_API;
+    try {
+      const response = await fetch(api + encodeURIComponent(url), { credentials: "omit", cache: "no-store" });
+      if (!response.ok) {
+        return null;
+      }
+      const closest = (await response.json())?.archived_snapshots?.closest;
+      if (!closest?.available || !closest.url) {
+        return null;
+      }
+      const ts = /^(\d{4})(\d{2})(\d{2})/.exec(closest.timestamp ?? "");
+      return {
+        url: closest.url.replace(/^http:/, "https:"),
+        date: ts ? new Date(Date.UTC(+ts[1], +ts[2] - 1, +ts[3])) : null,
+      };
+    } catch (e) {
+      return null;
+    }
+  },
+
+  loadArchived(browser, url) {
+    browser.fixupAndLoadURIString(url, {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    });
+  },
+
+  // The command bar's "Open in Internet Archive": the latest copy of the
+  // current page (the Wayback Machine redirects to it).
+  openInArchive(win) {
+    const browser = win.gBrowser.selectedBrowser;
+    const url = this.archivableURL(this.originalURI(browser));
+    if (!url || !this.archiveEnabled) {
+      return null;
+    }
+    const target = ARCHIVE_WEB + url;
+    this.loadArchived(browser, target);
+    return target;
   },
 };

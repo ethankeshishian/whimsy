@@ -164,6 +164,8 @@ FEATURES = [
                 ("src/zen/boosts", r"designMode\s*=")]},
     {"id": "allow-copy", "title": "Allow copy and paste on sites that block it (per site, command bar)",
      "detect": [("src/zen", r"(?i)allow-?copy|copy-?unblock|enable-?right-?click")]},
+    {"id": "wayback", "title": "Internet Archive for dead pages (bar on 404/5xx/DNS errors, command bar)",
+     "detect": [("src/zen", r"(?i)wayback|archive\.org/wayback")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},

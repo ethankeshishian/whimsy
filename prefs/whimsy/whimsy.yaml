@@ -98,3 +98,12 @@
 # Safari (macOS Firefox leaves it off and uses Cmd+E for that).
 - name: accessibility.typeaheadfind.prefillwithselection
   value: true
+
+# Offer the Internet Archive's copy when a page is gone or its site can't be
+# reached (Settings → Tab Management).
+- name: whimsy.archive.prompt
+  value: true
+
+# The Wayback Machine availability API the bar asks (empty: archive.org's).
+- name: whimsy.archive.api
+  value: ""

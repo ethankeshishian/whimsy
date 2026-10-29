@@ -105,6 +105,9 @@
 - name: whimsy.feature.allow-copy
   value: true
 
+- name: whimsy.feature.wayback
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

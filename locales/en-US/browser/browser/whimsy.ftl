@@ -168,6 +168,8 @@ whimsy-media-background-mute-off =
     .label = Let every tab play
 whimsy-media-pip-snap-back =
     .label = Put a picture-in-picture video back in the page when you return to its tab
+whimsy-archive-prompt =
+    .label = When a page is gone, offer the Internet Archive’s copy
 whimsy-tabs-title-lines = Tab titles show up to
 whimsy-tabs-title-lines-1 =
     .label = 1 line
@@ -271,6 +273,16 @@ whimsy-action-disallow-copy = Stop Allowing Copy and Paste on This Site
 whimsy-allow-copy-toast = Copy, paste and right-click now work on { $site }
 # $site (string) - the site, e.g. example.com
 whimsy-disallow-copy-toast = { $site } can block copy and paste again
+
+## Internet Archive (notification bar and command bar)
+
+whimsy-action-open-archive = Open in Internet Archive
+whimsy-archive-bar = This page is gone, but the Internet Archive has a copy.
+# $date (string) - when the copy was saved, e.g. "Jun 2024"
+whimsy-archive-bar-dated = This page is gone, but the Internet Archive has a copy from { $date }.
+whimsy-archive-open =
+    .label = Open the Archived Copy
+    .accesskey = O
 
 ## Spaces
 
