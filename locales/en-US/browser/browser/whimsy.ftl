@@ -175,7 +175,7 @@ whimsy-external-links-glance =
 whimsy-external-links-tab =
     .label = A tab
 whimsy-external-links-quick-window =
-    .label = A quick window (coming soon; opens in a tab for now)
+    .label = A quick window
 whimsy-archive-prompt =
     .label = When a page is gone, offer the Internet Archive’s copy
 whimsy-tabs-title-lines = Tab titles show up to
@@ -361,3 +361,10 @@ whimsy-look-peek-essential-links =
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
+
+## batch12: links & media windows
+
+whimsy-action-quick-window = New Quick Window
+whimsy-quick-window-move-to-space =
+    .label = Move to Space
+    .tooltiptext = Adopt this page into a tab in one of your spaces

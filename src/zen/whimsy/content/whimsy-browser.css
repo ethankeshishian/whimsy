@@ -567,3 +567,17 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 @media (prefers-reduced-motion: reduce) {
   #whimsy-reading-time { animation: none; }
 }
+
+/* batch12: Little Arc (quick window, whimsy.feature.quick-window). Hides
+   the whole vertical sidebar (tabs, spaces, pinned) so just the nav bar
+   above the content and the "Move to space" button are left. */
+:root[whimsy-quick-window] {
+  & #navigator-toolbox,
+  & #zen-sidebar-splitter {
+    display: none !important;
+  }
+}
+
+#whimsy-quick-window-move-to-space {
+  margin-inline-start: auto;
+}

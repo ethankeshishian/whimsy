@@ -192,6 +192,9 @@ FEATURES = [
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    # batch12: links & media windows
+    {"id": "quick-window", "title": "Little Arc: a quick window (Cmd+Opt+N; links from other apps, per the setting above) with a \"Move to space\" button",
+     "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
 ]
 
 

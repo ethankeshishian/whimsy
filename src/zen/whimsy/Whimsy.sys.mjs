@@ -20,6 +20,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
+  WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
@@ -68,6 +69,12 @@ export const Whimsy = {
     run("stylesheet", () =>
       win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET)
     );
+    // batch12: Little Arc (quick window). Set before anything else reads
+    // the document, so whimsy-browser.css's rules apply from first paint.
+    if (win._whimsyQuickWindow) {
+      win.document.documentElement.setAttribute("whimsy-quick-window", "");
+    }
+    run("quick-window", () => lazy.WhimsyQuickWindow.initWindow(win));
     if (this.featureEnabled("ui-zoom")) {
       run("ui-zoom", () => this.initUiZoom(win));
     }
