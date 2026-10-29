@@ -95,3 +95,20 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 
 ## Answers to bedtime questions
 (appended below)
+
+1. Spaces and private browsing (user, Oct 29): Cmd+N = new space. Cmd+Shift+N =
+   new temporary + private space ("Scratch": forgets everything when closed;
+   this replaces both the private window and temporary containers).
+   Cmd+Opt+N = private tab in the current space (Waterfox-style private tab).
+   Normal "New Window" moves to the File menu. Duplicate tab = Cmd+Shift+D.
+2. Tree tabs: off by default; style options Tree and Islands (Opera-like, one
+   level, colored). Anything closed is archived (restorable from the Archive
+   view), so closing a parent closes its branch into the Archive. Max depth 4.
+3. Live folders "Push" refresh option: smart checks every 1 minute using
+   conditional requests (ETag/If-None-Match), shown as "Push" alongside the
+   interval choices. Do NOT refresh on window focus.
+4. Use subagents for self-contained features (one at a time, same repo, short
+   summaries back) to keep context small; keep an eye on total session usage
+   and stop starting new work well before limits. Defaults I chose: keep the
+   selected pinned tab visible when the pinned section is collapsed;
+   Essentials stay per container (Arc's model) unless the user says otherwise.
