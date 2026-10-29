@@ -114,6 +114,9 @@
 - name: whimsy.feature.translate-selection
   value: true
 
+- name: whimsy.feature.reader-fonts
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

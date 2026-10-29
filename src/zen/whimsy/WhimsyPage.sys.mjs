@@ -10,6 +10,8 @@
 // one-step "Copy Full-Page Screenshot" (Cmd+Opt+Shift+F and the command
 // bar) that drops the whole page on the clipboard with no editor between.
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
@@ -59,6 +61,24 @@ const ARCHIVE_BAR = "whimsy-archive";
 // action. Not an AI feature, so the AI kill switch leaves it alone.
 const TRANSLATE_FEATURE_PREF = "whimsy.feature.translate-selection";
 
+// Reader typography (Safari Reader's book fonts): Reader View's "Text and
+// layout" panel already has size, width, spacing and colours; Whimsy adds
+// the macOS reading fonts to its font list. The list is a JSON pref, set
+// here rather than in YAML (a JSON string there breaks firefox.js).
+const READER_FEATURE_PREF = "whimsy.feature.reader-fonts";
+const READER_FONTS_PREF = "reader.font_type.values";
+export const READER_FONTS = [
+  "sans-serif",
+  "serif",
+  "monospace",
+  "Charter",
+  "Iowan Old Style",
+  "Georgia",
+  "Athelas",
+  "Palatino",
+  "Seravek",
+];
+
 function isWebPage(win) {
   const tab = win.gBrowser.selectedTab;
   const uri = tab.linkedBrowser?.currentURI;
@@ -70,7 +90,17 @@ export const WhimsyPage = {
     return Services.prefs.getBoolPref(CAPTURE_FEATURE_PREF, true);
   },
 
+  // Once per session.
+  init() {
+    if (this._initialized) {
+      return;
+    }
+    this._initialized = true;
+    this.initReaderFonts();
+  },
+
   initWindow(win) {
+    this.init();
     this.initCapture(win);
     this.initEditPage(win);
     this.initAllowCopy(win);
@@ -566,5 +596,14 @@ export const WhimsyPage = {
       .open(null, found.x, found.y, found.text, true, panel.getLangPairPromise(found.text))
       .catch(console.error);
     return found.text;
+  },
+
+  // --- Reader typography ---
+
+  initReaderFonts() {
+    if (!Services.prefs.getBoolPref(READER_FEATURE_PREF, true) || AppConstants.platform != "macosx") {
+      return;
+    }
+    Services.prefs.getDefaultBranch("").setStringPref(READER_FONTS_PREF, JSON.stringify(READER_FONTS));
   },
 };
