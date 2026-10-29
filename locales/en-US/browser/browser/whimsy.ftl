@@ -396,3 +396,16 @@ whimsy-downloads-quicklook =
 whimsy-quicklook-menuitem =
     .label = Quick Look
 whimsy-quicklook-missing-toast = Item removed
+
+## batch7: shortcut cheat sheet (Cmd+/)
+
+whimsy-action-cheatsheet = Keyboard Shortcuts
+whimsy-cheatsheet-search =
+    .placeholder = Search shortcuts
+whimsy-cheatsheet-edit = Edit all shortcuts…
+whimsy-cheatsheet-duplicate-tab = Duplicate Tab
+whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
+whimsy-cheatsheet-tab-next = Next Tab in Sidebar
+whimsy-cheatsheet-tab-prev = Previous Tab in Sidebar
+whimsy-cheatsheet-focus-sidebar = Focus Sidebar
+whimsy-cheatsheet-self = Shortcut Cheat Sheet

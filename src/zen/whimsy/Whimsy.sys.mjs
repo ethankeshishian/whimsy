@@ -30,6 +30,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUrlbar: "resource:///modules/whimsy/WhimsyUrlbar.sys.mjs",
   WhimsyDownloads: "resource:///modules/whimsy/WhimsyDownloads.sys.mjs",
   WhimsySidebarNav: "resource:///modules/whimsy/WhimsySidebarNav.sys.mjs",
+  WhimsyCheatSheet: "resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -146,6 +147,18 @@ export const Whimsy = {
     });
     // batch7: keyboard sidebar navigation (Arc).
     run("sidebar-nav", () => lazy.WhimsySidebarNav.initWindow(win));
+    // batch7: shortcut cheat sheet.
+    run("cheatsheet", () => lazy.WhimsyCheatSheet.initWindow(win));
+    run("cheatsheet-action", () =>
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-cheatsheet",
+          command: "whimsy-cheatsheet",
+          icon: "chrome://browser/skin/zen-icons/key.svg",
+          isAvailable: () => lazy.WhimsyCheatSheet.enabled,
+        },
+      ])
+    );
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

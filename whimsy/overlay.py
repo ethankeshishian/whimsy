@@ -213,6 +213,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
     {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (Cmd+Opt+S) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
+    {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
+     "detect": [("src/zen", r"(?i)cheat-?sheet")]},
 ]
 
 
