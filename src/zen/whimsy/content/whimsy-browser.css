@@ -198,3 +198,16 @@ zen-workspace > .whimsy-newtab-dock {
 zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   border-top-color: color-mix(in srgb, currentColor 10%, transparent);
 }
+
+/* Folder colors (WhimsyFolderColors): a round swatch before each color in
+   the folder menu's Color submenu; "Default" shows the space's accent. */
+#whimsyFolderColorPopup > .whimsy-folder-color-option::after {
+  content: "";
+  order: -1;
+  width: 12px;
+  height: 12px;
+  margin-inline-end: 8px;
+  border-radius: 50%;
+  background: var(--whimsy-swatch, var(--zen-primary-color));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 15%, transparent);
+}

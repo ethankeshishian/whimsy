@@ -45,3 +45,7 @@
 # (Settings → Tab Management). Off: Arc keeps "+ New Tab" at the top.
 - name: whimsy.tabs.newtab-button-bottom
   value: false
+
+# Folder colors picked from the folder context menu: {folderId: color}.
+- name: whimsy.folders.colors
+  value: "{}"

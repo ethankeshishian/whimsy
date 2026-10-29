@@ -36,6 +36,9 @@
 - name: whimsy.feature.newtab-bottom
   value: true
 
+- name: whimsy.feature.folder-colors
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

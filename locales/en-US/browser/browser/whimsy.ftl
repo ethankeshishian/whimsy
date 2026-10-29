@@ -160,3 +160,28 @@ whimsy-tabs-title-lines-2 =
     .label = 2 lines
 whimsy-tabs-title-lines-3 =
     .label = 3 lines
+
+## Folder colors (folder context menu)
+
+whimsy-folder-color =
+    .label = Color
+whimsy-folder-color-default =
+    .label = Default
+whimsy-folder-color-gray =
+    .label = Gray
+whimsy-folder-color-red =
+    .label = Red
+whimsy-folder-color-orange =
+    .label = Orange
+whimsy-folder-color-yellow =
+    .label = Yellow
+whimsy-folder-color-green =
+    .label = Green
+whimsy-folder-color-teal =
+    .label = Teal
+whimsy-folder-color-blue =
+    .label = Blue
+whimsy-folder-color-purple =
+    .label = Purple
+whimsy-folder-color-pink =
+    .label = Pink

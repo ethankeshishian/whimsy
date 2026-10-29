@@ -14,6 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
+  WhimsyFolderColors: "resource:///modules/whimsy/WhimsyFolderColors.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
@@ -55,6 +56,7 @@ export const Whimsy = {
     run("shortcuts", () => lazy.WhimsyShortcuts.initWindow(win));
     // Watches its prefs and switches, so options apply without a restart.
     run("tabs", () => lazy.WhimsyTabs.initWindow(win));
+    run("folder-colors", () => lazy.WhimsyFolderColors.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

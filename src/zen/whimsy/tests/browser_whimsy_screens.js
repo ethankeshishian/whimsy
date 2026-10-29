@@ -255,3 +255,25 @@ add_task(async function newtab_button_bottom() {
   await SpecialPowers.popPrefEnv();
   Services.prefs.clearUserPref("zen.view.show-newtab-button-top");
 });
+
+add_task(async function folder_colors() {
+  const folders = [];
+  const colors = {};
+  for (const [label, color] of [["Work", "blue"], ["Reading", "orange"], ["Fun", "pink"], ["Plain", null]]) {
+    const tab = BrowserTestUtils.addTab(gBrowser, "about:blank");
+    const folder = await gZenFolders.createFolder([tab], { renameFolder: false, label });
+    folders.push(folder);
+    if (color) {
+      colors[folder.id] = color;
+    }
+  }
+  Services.prefs.setStringPref("whimsy.folders.colors", JSON.stringify(colors));
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  await shot("13-folder-colors");
+  for (const folder of folders) {
+    const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");
+    folder.delete();
+    await removed;
+  }
+  Services.prefs.clearUserPref("whimsy.folders.colors");
+});
