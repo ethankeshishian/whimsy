@@ -30,6 +30,12 @@ appended at the bottom.
   → `sh whimsy/verify.sh quick` → commit. Ship a dev build every few batches;
   final `npm run ship` before 9:00.
 
+- (User, Oct 29, before sleep) BEFORE implementing ANY feature, search Zen and
+  Firefox code/prefs for what already exists, even if the note doesn't say
+  "thought this existed". If it exists, expose/polish it instead of rebuilding.
+- (User) For Arc features, the goal is parity: match Arc's behavior, shortcuts,
+  and feel, not an approximation.
+
 ## Already exists (verify only, no new code)
 Back closes tab · return to previous tab on close · rename tabs (dblclick; add
 context-menu item + check persistence) · edit pinned URL · close button on
@@ -112,3 +118,27 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
    and stop starting new work well before limits. Defaults I chose: keep the
    selected pinned tab visible when the pinned section is collapsed;
    Essentials stay per container (Arc's model) unless the user says otherwise.
+
+5. (User, Oct 29, before sleep)
+   - Release is HELD tonight: `paused: true` in the updater's control.json (only
+     the nightly checks it; ship still works). Only Dev gets tonight's work.
+     Morning: remove `paused` from control.json to resume nightly releases.
+   - Defaults: every new feature defaults ON unless its note says otherwise.
+   - A feature that gets stuck (failing test not fixable in reasonable time):
+     revert it, note why in the morning report, move on. Ship stays green.
+   - Before building each feature, write down (in the commit body or scope)
+     WHY users love it and HOW they actually use it (the original's user flow),
+     and build to that flow, not just the feature name.
+   - Arc vs Zen conflicts are decided case by case:
+     - Cmd+Opt+N = Little Arc (quick window), matching Arc. Private tab in the
+       current space = Cmd+Opt+T.
+     - Links opened from other apps open in Little Arc by default (Arc parity),
+       with a "Move to space" button; Glance-for-external-links stays a setting.
+     - Archive includes Arc's auto-archive: unused unpinned tabs archive after
+       12 h, adjustable (12 h / 24 h / 7 days / 30 days / Never). Never pinned,
+       Essentials, or tabs playing audio.
+     - Peek: add Arc's Peek (cross-site links from pinned tabs/Essentials open
+       in Glance) and keep Zen's Glance triggers. Verify first; Zen may already
+       do this (zen.glance.* prefs).
+   - Any other Arc-vs-Zen conflict found tonight: pick Arc's behavior by
+     default, keep Zen's as a setting, and list the call in the morning report.
