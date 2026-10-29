@@ -199,3 +199,12 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      installer does, touch + lsregister -f), and have the updater re-apply the
      chosen icon after each install. Avoid NSWorkspace setIcon (adds Icon\r,
      breaks the bundle seal). Queue: next batch, high priority.
+   - Scratch + private tabs (user): use Firefox's REAL private browsing, without
+     engine patches. Builder must first test whether a tab's browser can get
+     privateBrowsingId=1 in a normal window from chrome JS (how Waterfox does
+     private tabs; read Waterfox's source). If Gecko refuses without patches,
+     stop and report before falling back to a container approximation.
+   - People cards (user): use the signed-in session for LinkedIn/X too, like
+     GitHub. Fetch only on deliberate hover (dwell ~600 ms), cache, rate-limit
+     hard, never crawl; note the account-flagging risk in Settings help text.
+     Contacts + GitHub too.
