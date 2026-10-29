@@ -28,6 +28,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySeasons: "resource:///modules/whimsy/WhimsySeasons.sys.mjs",
   WhimsyWindowClose: "resource:///modules/whimsy/WhimsyWindowClose.sys.mjs",
   WhimsyUrlbar: "resource:///modules/whimsy/WhimsyUrlbar.sys.mjs",
+  WhimsyDownloads: "resource:///modules/whimsy/WhimsyDownloads.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -136,6 +137,12 @@ export const Whimsy = {
     run("window-close", () => lazy.WhimsyWindowClose.initWindow(win));
     // batch7: full URL on click.
     run("full-url-click", () => lazy.WhimsyUrlbar.initWindow(win));
+    // batch7: Dock badge/bounce (once per session), Quick Look and keeping
+    // a panel open across a download drag (per window).
+    run("downloads", () => {
+      lazy.WhimsyDownloads.init().catch(e => console.error("Whimsy: downloads", e));
+      lazy.WhimsyDownloads.initWindow(win);
+    });
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

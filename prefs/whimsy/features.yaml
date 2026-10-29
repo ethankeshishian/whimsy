@@ -147,6 +147,15 @@
 - name: whimsy.feature.hardware-video-decoding
   value: true
 
+- name: whimsy.feature.dock-badge
+  value: true
+
+- name: whimsy.feature.quick-look
+  value: true
+
+- name: whimsy.feature.drag-downloads
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

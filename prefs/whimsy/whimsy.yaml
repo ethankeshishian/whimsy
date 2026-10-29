@@ -142,3 +142,7 @@
 # Zen shows just the domain in the sidebar until you interact (Arc-style).
 - name: whimsy.urlbar.always-full-url
   value: false
+
+# batch7: Dock icon badge (download count), Settings → Tab Management.
+- name: whimsy.downloads.dock-badge
+  value: true

@@ -203,6 +203,14 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)always-full-url|full-?url-?click")]},
     {"id": "hardware-video-decoding", "title": "Settings checkbox for media.hardware-video-decoding.enabled, with a restart prompt",
      "detect": [("src/browser/components/preferences", r"media\.hardware-video-decoding\.enabled")]},
+    {"id": "dock-badge", "title": "Dock icon badge (download count) and one bounce when a download finishes in the background",
+     # Specifically the macOS Dock tile (not Zen's own unread-downloads
+     # badge on the Library toolbar button, zen-library-badge).
+     "detect": [("src/zen", r"(?i)dock[\w-]*badge|badge[\w-]*dock|macdocksupport[^\n]*badgeText")]},
+    {"id": "quick-look", "title": "Quick Look (Space, or the context menu) on a finished download, via qlmanage",
+     "detect": [("src/zen", r"(?i)qlmanage|QLPreviewPanel")]},
+    {"id": "drag-downloads", "title": "A panel stays open while you drag a download out of it into a site",
+     "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
 ]
 
 

@@ -383,3 +383,16 @@ whimsy-performance-hw-decode =
 whimsy-performance-restart-note = Restart Whimsy to apply this change.
 whimsy-performance-restart-button =
     .label = Restart Whimsy
+
+## batch7: Settings → Tab Management (downloads)
+
+whimsy-downloads-dock-badge =
+    .label = Show a badge with the number of downloads in progress on the Dock icon
+whimsy-downloads-quicklook =
+    .label = Quick Look finished downloads (Space, or from the context menu)
+
+## batch7: Quick Look
+
+whimsy-quicklook-menuitem =
+    .label = Quick Look
+whimsy-quicklook-missing-toast = Item removed
