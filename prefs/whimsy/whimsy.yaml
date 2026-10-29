@@ -128,3 +128,17 @@
 # have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
 - name: whimsy.external-links.target
   value: tab
+
+# batch8: tab lifecycle
+
+# How long an unpinned, silent, unselected, non-split tab sits idle before
+# whimsy.feature.auto-archive-tabs closes it into the Archive (Settings →
+# Tab Management): "12h"/"24h"/"7d"/"30d"/"never".
+- name: whimsy.tabs.archive.idle-after
+  value: 12h
+
+# Tree tabs' visual style when whimsy.feature.tree-tabs is on (Settings →
+# Tab Management): "tree" (nested, collapsible branches, any depth) or
+# "islands" (Opera Tab Islands-style, one level, colored pill per root).
+- name: whimsy.tabs.tree-style
+  value: tree

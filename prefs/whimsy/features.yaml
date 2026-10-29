@@ -135,6 +135,27 @@
 - name: whimsy.feature.external-link-target
   value: true
 
+- name: whimsy.feature.auto-archive-tabs
+  value: true
+
+- name: whimsy.feature.archive-view
+  value: true
+
+- name: whimsy.feature.undo-tab-actions
+  value: true
+
+- name: whimsy.feature.snooze-tab
+  value: true
+
+- name: whimsy.feature.tree-tabs
+  value: false
+
+- name: whimsy.feature.fire-button
+  value: true
+
+- name: whimsy.feature.heavy-tabs
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

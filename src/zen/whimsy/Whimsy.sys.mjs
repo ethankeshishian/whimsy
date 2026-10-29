@@ -24,6 +24,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
+  // batch8: tab lifecycle
+  WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  WhimsySnooze: "resource:///modules/whimsy/WhimsySnooze.sys.mjs",
+  WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
+  WhimsyFireButton: "resource:///modules/whimsy/WhimsyFireButton.sys.mjs",
+  WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -125,6 +132,18 @@ export const Whimsy = {
       lazy.WhimsyUpdates.initChannel().catch(e => console.error("Whimsy: update channel", e))
     );
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
+    // batch8: tab lifecycle. Undo first (the others push to its stack);
+    // tree tabs after Zen's spaces/folders are ready.
+    run("undo", () => lazy.WhimsyUndo.initWindow(win));
+    run("archive", () => lazy.WhimsyArchive.initWindow(win));
+    run("snooze", () => lazy.WhimsySnooze.initWindow(win));
+    run("fire-button", () => lazy.WhimsyFireButton.initWindow(win));
+    run("heavy-tabs", () => lazy.WhimsyHeavyTabs.initWindow(win));
+    run("tree-tabs", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyTreeTabs.initWindow(win))
+        .catch(e => console.error("Whimsy: tree-tabs", e))
+    );
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

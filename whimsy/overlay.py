@@ -192,6 +192,23 @@ FEATURES = [
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    # batch8: tab lifecycle (archive, undo, snooze, tree tabs, fire button, heavy tabs)
+    {"id": "auto-archive-tabs", "title": "Auto-archive idle unpinned tabs after a quiet period (Arc)",
+     "detect": [("prefs", r"name:\s*zen\.tabs\.(auto-?archive|idle-?close)"),
+                ("src/zen", r"(?i)auto-?archive-?tabs|archiveIdleTabs")]},
+    {"id": "archive-view", "title": "Archive view: a searchable, by-day list of closed/archived tabs with restore",
+     "detect": [("src/zen", r"(?i)zen-?archive-?view|ZenArchiveView")]},
+    {"id": "undo-tab-actions", "title": "Cmd+Z undoes the last tab action (close, move, pin), not just closing one tab",
+     "detect": [("src/zen", r"(?i)zen-?tab-?undo|ZenTabUndoManager")]},
+    {"id": "snooze-tab", "title": "Snooze a tab: closes it now, reopens at a chosen time (SigmaOS, Edge)",
+     "detect": [("src/zen", r"(?i)snooze-?tab|ZenSnoozeManager")]},
+    {"id": "tree-tabs", "title": "Tree-style tabs with an Islands mode: nest a tab under whichever tab opened it",
+     "default": False,  # Build-plan answer: off by default.
+     "detect": [("src/zen", r"(?i)zen-?tree-?tabs|ZenTreeTabs|zen-?tab-?islands")]},
+    {"id": "fire-button", "title": "Fire button: a one-click data-clearing popover (DuckDuckGo), scoped to site/15 min/space/everything",
+     "detect": [("src/zen", r"(?i)fire-?button|ZenFireButton")]},
+    {"id": "heavy-tabs", "title": "Find heavy tabs: the tabs using the most memory/CPU, with a close button (Opera GX)",
+     "detect": [("src/zen", r"(?i)heavy-?tabs|hot-?tabs-?killer|ZenHeavyTabs")]},
 ]
 
 
@@ -414,7 +431,11 @@ def write_generated(report, dry, superseded):
     for feature in FEATURES:
         s = gone.get(feature["id"])
         note = f"  # Zen ships this itself: {s['found_in']}" if s else ""
-        prefs += f"\n- name: whimsy.feature.{feature['id']}\n  value: {'false' if s else 'true'}{note}\n"
+        # batch8: a FEATURES entry can opt into shipping off by default
+        # ("default": False, e.g. tree-tabs) without that meaning "superseded
+        # by Zen" (which also writes false, but with a different note).
+        on = not s and feature.get("default", True)
+        prefs += f"\n- name: whimsy.feature.{feature['id']}\n  value: {'true' if on else 'false'}{note}\n"
     if "ctrl-tab" not in gone:
         prefs += "\n# Arc-style Ctrl+Tab: recently used order.\n- name: browser.ctrlTab.sortByRecentlyUsed\n  value: true\n"
     if "new-tab-position" not in gone:
