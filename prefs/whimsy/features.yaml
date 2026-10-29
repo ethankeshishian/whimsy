@@ -223,6 +223,8 @@
   value: true
 
 - name: whimsy.feature.live-folders-rss-autodiscover
+  value: true
+
 - name: whimsy.feature.seasonal-themes
   value: true
 
