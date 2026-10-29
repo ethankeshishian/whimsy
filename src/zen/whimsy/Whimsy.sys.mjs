@@ -34,6 +34,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDelight: "resource:///modules/whimsy/WhimsyDelight.sys.mjs",
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
   WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
+  WhimsyProtocol: "resource:///modules/whimsy/WhimsyProtocol.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -195,6 +196,9 @@ export const Whimsy = {
         },
       ]);
     });
+    // batch7: whimsy:// URL schemes (the address-bar half; see
+    // WhimsyProtocol.sys.mjs for why the external-link half is deferred).
+    run("url-schemes", () => lazy.WhimsyProtocol.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

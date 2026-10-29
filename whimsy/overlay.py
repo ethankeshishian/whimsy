@@ -221,6 +221,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)pretend to be|site-?user-?agent|per-?site.*user.?agent")]},
     {"id": "cookie-editor", "title": "Cookie editor: list, edit, add, delete and copy-as-JSON a site's cookies",
      "detect": [("src/zen", r"(?i)cookie-?editor")]},
+    {"id": "url-schemes", "title": "whimsy://<page> in the address bar jumps to the real page (Arc parity, address-bar half only)",
+     "detect": [("src/zen", r"(?i)whimsy://|url-?schemes")]},
 ]
 
 

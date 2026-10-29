@@ -171,6 +171,9 @@
 - name: whimsy.feature.cookie-editor
   value: true
 
+- name: whimsy.feature.url-schemes
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

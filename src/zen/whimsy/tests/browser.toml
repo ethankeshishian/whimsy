@@ -141,3 +141,5 @@ support-files = ["whimsy_slow_download.sjs"]
 ["browser_whimsy_user_agent.js"]
 
 ["browser_whimsy_cookie_editor.js"]
+
+["browser_whimsy_url_schemes.js"]
