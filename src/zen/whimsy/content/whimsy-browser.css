@@ -494,3 +494,11 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     fill-opacity: 0.85;
   }
 }
+
+/* Interface font (whimsy.look.ui-font): every piece of the browser's own
+   interface in the chosen family, falling back to the system font for
+   characters it lacks. Web pages are separate documents and keep theirs. */
+:root[whimsy-ui-font],
+:root[whimsy-ui-font] :is(*, *::before, *::after):not(.zen-workspace-icon, .zen-emojis-picker-emoji, #whimsy-hex-input) {
+  font-family: var(--whimsy-ui-font), system-ui, -apple-system, sans-serif !important;
+}

@@ -74,3 +74,8 @@
 # (Settings → Look and Feel).
 - name: whimsy.look.menu-icons
   value: true
+
+# The browser interface's font family (Settings → Look and Feel). Empty is
+# the system font. Web pages keep their own fonts.
+- name: whimsy.look.ui-font
+  value: ""

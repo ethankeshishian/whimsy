@@ -22,8 +22,16 @@
 // gray. This slider fades the whole painted background, everywhere at
 // once, so the desktop shows through the blur like Arc's and Safari's
 // translucent sidebars. 0 is Zen's look.
+//
+// Interface font (whimsy.look.ui-font, Settings → Look and Feel): Vivaldi
+// and Zen mods let people set the browser's own font (tab titles, URL bar,
+// menus, Settings) apart from web fonts, to match their editor or system
+// taste. Empty is the system font (San Francisco on macOS). Pages keep
+// their own fonts.
 
 const HEX_FEATURE_PREF = "whimsy.feature.hex-colors";
+const FONT_FEATURE_PREF = "whimsy.feature.ui-font";
+const FONT_PREF = "whimsy.look.ui-font";
 const TRANSPARENCY_FEATURE_PREF = "whimsy.feature.transparency";
 const TRANSPARENCY_PREF = "whimsy.look.transparency";
 export const MAX_TRANSPARENCY = 80;
@@ -59,6 +67,7 @@ export const WhimsyLook = {
     };
     run("hex-colors", () => this.initHexInput(win));
     run("transparency", () => this.initTransparency(win));
+    run("ui-font", () => this.initFont(win));
   },
 
   // --- Hex colors ---
@@ -151,6 +160,41 @@ export const WhimsyLook = {
       () => {
         Services.prefs.removeObserver(TRANSPARENCY_PREF, update);
         Services.prefs.removeObserver(TRANSPARENCY_FEATURE_PREF, update);
+      },
+      { once: true }
+    );
+    update();
+  },
+
+  // --- Interface font ---
+
+  // The chosen font family, or "" for the system font.
+  uiFont() {
+    if (!featureOn(FONT_FEATURE_PREF)) {
+      return "";
+    }
+    // A family name only: no quotes, semicolons or braces reach the CSS.
+    return Services.prefs.getStringPref(FONT_PREF, "").replace(/["\\;{}<>]/g, "").trim();
+  },
+
+  initFont(win) {
+    const root = win.document.documentElement;
+    const update = () => {
+      const font = this.uiFont();
+      root.toggleAttribute("whimsy-ui-font", !!font);
+      if (font) {
+        root.style.setProperty("--whimsy-ui-font", `"${font}"`);
+      } else {
+        root.style.removeProperty("--whimsy-ui-font");
+      }
+    };
+    Services.prefs.addObserver(FONT_PREF, update);
+    Services.prefs.addObserver(FONT_FEATURE_PREF, update);
+    win.addEventListener(
+      "unload",
+      () => {
+        Services.prefs.removeObserver(FONT_PREF, update);
+        Services.prefs.removeObserver(FONT_FEATURE_PREF, update);
       },
       { once: true }
     );

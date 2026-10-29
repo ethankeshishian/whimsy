@@ -245,3 +245,6 @@ whimsy-look-transparency-value =
     }
 whimsy-look-menu-icons =
     .label = Show icons in menus
+whimsy-look-ui-font = Interface font
+whimsy-look-ui-font-system =
+    .label = System font

@@ -136,6 +136,8 @@ FEATURES = [
      "detect": [("prefs", r"name:\s*zen\.(theme|view)\.[\w.-]*(transparency|translucency)")]},
     {"id": "menu-icons", "title": "Menu icons in context menus and the tab menu (macOS 26 style)",
      "detect": [("src/browser/themes/shared/zen-icons", r"#context-copylink|#context-openlinkintab|#context_duplicateTab")]},
+    {"id": "ui-font", "title": "Interface font setting (the browser's own text, not web pages)",
+     "detect": [("prefs", r"name:\s*zen\.[\w.-]*(ui|interface|chrome)-font")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

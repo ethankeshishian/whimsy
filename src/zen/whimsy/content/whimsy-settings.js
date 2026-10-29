@@ -180,6 +180,32 @@ var gWhimsySettings = {
       Preferences.queueUpdateOfAllElements();
     }
     this.initTransparency();
+    this.initUiFont();
+  },
+
+  // The font list: the system's families, after "System Font".
+  async initUiFont() {
+    const list = document.getElementById("whimsyUiFont");
+    if (!list) {
+      return;
+    }
+    const current = Services.prefs.getStringPref("whimsy.look.ui-font", "");
+    const enumerator = Cc["@mozilla.org/gfx/fontenumerator;1"].getService(Ci.nsIFontEnumerator);
+    const fonts = await enumerator.EnumerateAllFontsAsync();
+    const families = [...new Set(fonts)].filter(f => !f.startsWith("."));
+    if (current && !families.includes(current)) {
+      families.unshift(current);
+    }
+    const fragment = document.createDocumentFragment();
+    for (const family of families) {
+      const item = document.createXULElement("menuitem");
+      item.setAttribute("value", family);
+      item.setAttribute("label", family);
+      item.style.fontFamily = `"${family.replace(/"/g, "")}"`;
+      fragment.appendChild(item);
+    }
+    list.menupopup.appendChild(fragment);
+    list.value = current;
   },
 
   initTransparency() {

@@ -72,6 +72,9 @@
 - name: whimsy.feature.menu-icons
   value: true
 
+- name: whimsy.feature.ui-font
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 
