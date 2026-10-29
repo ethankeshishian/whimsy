@@ -109,7 +109,7 @@ add_task(async function settings_updates() {
   };
   WhimsyUpdates.dataDir = dir;
   WhimsyUpdates.versionFile = PathUtils.join(dir, "whimsy-version.json");
-  WhimsyUpdates.isInstalled = async () => true;
+  WhimsyUpdates.isInstalled = () => true;
   try {
     await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
       const doc = browser.contentDocument;

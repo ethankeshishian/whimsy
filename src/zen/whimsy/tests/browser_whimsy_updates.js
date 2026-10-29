@@ -44,7 +44,7 @@ add_setup(async () => {
   await IOUtils.writeJSON(WhimsyUpdates.versionFile, VERSION);
   WhimsyUpdates.kicked = [];
   WhimsyUpdates.kick = async job => (WhimsyUpdates.kicked.push(job), true);
-  WhimsyUpdates.isInstalled = async () => true;
+  WhimsyUpdates.isInstalled = () => true;
   registerCleanupFunction(async () => {
     Object.assign(WhimsyUpdates, original);
     delete WhimsyUpdates.kicked;
@@ -183,7 +183,7 @@ add_task(async function test_dev_builds() {
 
 add_task(async function test_updates_settings_for_published_installs() {
   // Installed from a published build: no local updater, Firefox's updater.
-  WhimsyUpdates.isInstalled = async () => false;
+  WhimsyUpdates.isInstalled = () => false;
   await IOUtils.remove(PathUtils.join(dir, "state.json"));
   await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
     const doc = browser.contentDocument;
@@ -195,7 +195,7 @@ add_task(async function test_updates_settings_for_published_installs() {
     ok(doc.getElementById("whimsyUpdatesShowLog").hidden, "No local log");
     ok(!doc.getElementById("whimsyUpdatesCheck").disabled, "Check now is available");
   });
-  WhimsyUpdates.isInstalled = async () => true;
+  WhimsyUpdates.isInstalled = () => true;
 });
 
 add_task(async function test_update_channel() {
@@ -210,9 +210,9 @@ add_task(async function test_update_channel() {
   const { UpdateUtils } = ChromeUtils.importESModule("resource://gre/modules/UpdateUtils.sys.mjs");
 
   // A downloaded Whimsy: Firefox's updater follows the chosen channel.
-  WhimsyUpdates.isInstalled = async () => false;
+  WhimsyUpdates.isInstalled = () => false;
   WhimsyUpdates._channelInit = false;
-  await WhimsyUpdates.initChannel();
+  WhimsyUpdates.initChannel();
   is(UpdateUtils.UpdateChannel, "release", "Standard users are on Release");
 
   await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
@@ -231,8 +231,43 @@ add_task(async function test_update_channel() {
   });
 
   // A Mac that builds Whimsy: its own updater installs builds, and reads the choice.
-  WhimsyUpdates.isInstalled = async () => true;
+  WhimsyUpdates.isInstalled = () => true;
   Services.prefs.setStringPref("whimsy.update-channel", "release");
   await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).channel == "release");
   is(UpdateUtils.UpdateChannel, "local", "Firefox's updater stays out of the way there");
+});
+
+// Firefox stamps each downloaded update with app.update.channel and, at
+// startup, marks a stored update failed when the channel differs. The Dev
+// choice must be applied before that check, not when a window opens.
+add_task(async function test_channel_applied_before_update_service() {
+  const entries = [...Services.catMan.enumerateCategory("profile-after-change")].map(e => e.entry);
+  const whimsy = entries.indexOf("WhimsyStartup");
+  Assert.greaterOrEqual(whimsy, 0, "Whimsy starts at profile-after-change");
+  const stub = entries.indexOf("nsUpdateServiceStub");
+  if (stub >= 0) {
+    Assert.less(whimsy, stub, "...before Firefox's update service checks stored updates");
+  }
+
+  const defaults = Services.prefs.getDefaultBranch("");
+  const originalChannel = defaults.getCharPref("app.update.channel", "");
+  registerCleanupFunction(() => {
+    Services.prefs.unlockPref("app.update.channel");
+    defaults.setCharPref("app.update.channel", originalChannel);
+    Services.prefs.lockPref("app.update.channel");
+    Services.prefs.clearUserPref("whimsy.update-channel");
+  });
+  const { UpdateUtils } = ChromeUtils.importESModule("resource://gre/modules/UpdateUtils.sys.mjs");
+
+  // A downloaded Whimsy on Dev, starting up with the build's default channel.
+  WhimsyUpdates.isInstalled = () => false;
+  Services.prefs.setStringPref("whimsy.update-channel", "dev");
+  Services.prefs.unlockPref("app.update.channel");
+  defaults.setCharPref("app.update.channel", "release");
+  WhimsyUpdates._channelInit = false;
+  Cc["@whimsy/startup;1"].getService(Ci.nsIObserver).observe(null, "profile-after-change", "");
+  is(UpdateUtils.UpdateChannel, "dev", "The startup hook applies Dev synchronously");
+  const stored = { channel: "dev" }; // what serialize() wrote at download time
+  is(stored.channel, UpdateUtils.UpdateChannel, "A stored Dev update isn't marked ERR_CHANNEL_CHANGE");
+  WhimsyUpdates.isInstalled = () => true;
 });

@@ -81,11 +81,14 @@ export const WhimsyUpdates = {
     return control;
   },
 
-  async isInstalled() {
-    const home = Services.dirsvc.get("Home", Ci.nsIFile).path;
-    return IOUtils.exists(
-      PathUtils.join(home, "Library", "LaunchAgents", `${UPDATE_JOB}.plist`)
-    );
+  // Whether this Mac runs the local updater (whimsy/updater/install.sh).
+  // Synchronous: the update channel is applied at profile-after-change.
+  isInstalled() {
+    const plist = Services.dirsvc.get("Home", Ci.nsIFile);
+    for (const part of ["Library", "LaunchAgents", `${UPDATE_JOB}.plist`]) {
+      plist.append(part);
+    }
+    return plist.exists();
   },
 
   get channel() {
@@ -98,23 +101,32 @@ export const WhimsyUpdates = {
   // Mac that builds Whimsy installs its own builds (whimsy/updater), so
   // Firefox's updater gets a channel with no updates there; the local
   // updater reads the choice from control.json.
-  async initChannel() {
+  //
+  // Runs from WhimsyStartup at profile-after-change, before
+  // UpdateServiceStub's entry (category entries start in name order). Firefox
+  // stamps each downloaded update with app.update.channel and, at startup,
+  // marks it failed if the channel differs ("Install Failed" plus a
+  // re-download), so the Dev choice must be in place before that check.
+  initChannel() {
     if (this._channelInit) {
       return;
     }
     this._channelInit = true;
-    const apply = async () => {
-      const local = await this.isInstalled();
-      // macOS locks the channel at startup (from ChannelPrefs.framework).
-      Services.prefs.unlockPref("app.update.channel");
-      Services.prefs.getDefaultBranch("").setCharPref("app.update.channel", local ? "local" : this.channel);
-      Services.prefs.lockPref("app.update.channel");
-      if (local) {
-        await this.writeControl({ channel: this.channel });
-      }
-    };
-    Services.prefs.addObserver(CHANNEL_PREF, () => apply());
-    await apply();
+    Services.prefs.addObserver(CHANNEL_PREF, () => this.applyChannel());
+    this.applyChannel();
+  },
+
+  applyChannel() {
+    const local = this.isInstalled();
+    // macOS locks the channel at startup (from ChannelPrefs.framework).
+    Services.prefs.unlockPref("app.update.channel");
+    Services.prefs.getDefaultBranch("").setCharPref("app.update.channel", local ? "local" : this.channel);
+    Services.prefs.lockPref("app.update.channel");
+    if (local) {
+      this.writeControl({ channel: this.channel }).catch(e =>
+        console.error("Whimsy: update channel", e)
+      );
+    }
   },
 
   async setPaused(paused) {
