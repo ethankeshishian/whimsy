@@ -111,6 +111,9 @@
 - name: whimsy.feature.image-info
   value: true
 
+- name: whimsy.feature.translate-selection
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

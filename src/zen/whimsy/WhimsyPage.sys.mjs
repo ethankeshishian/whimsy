@@ -53,6 +53,12 @@ const ARCHIVE_STATUSES = new Set([404, 410, 451, 500, 502, 503, 504, 520, 521, 5
 const ARCHIVE_ERRORS = new Set(["dnsNotFound", "connectionFailure", "netTimeout", "netReset", "unknownHost"]);
 const ARCHIVE_BAR = "whimsy-archive";
 
+// Translate selection (Safari and Edge: select, translate, an inline
+// popover): Firefox's on-device "Translate Selection" panel, which was only
+// in the context menu, gets a shortcut (Cmd+Opt+Shift+T) and a command bar
+// action. Not an AI feature, so the AI kill switch leaves it alone.
+const TRANSLATE_FEATURE_PREF = "whimsy.feature.translate-selection";
+
 function isWebPage(win) {
   const tab = win.gBrowser.selectedTab;
   const uri = tab.linkedBrowser?.currentURI;
@@ -69,6 +75,7 @@ export const WhimsyPage = {
     this.initEditPage(win);
     this.initAllowCopy(win);
     this.initArchive(win);
+    this.initTranslateSelection(win);
   },
 
   actorFor(browser) {
@@ -455,7 +462,12 @@ export const WhimsyPage = {
 
   // The Wayback Machine's nearest copy of a page: { url, date }, or null.
   async findSnapshot(url) {
-    const api = Services.prefs.getStringPref(ARCHIVE_API_PREF, "") || ARCHIVE_API;
+    const configured = Services.prefs.getStringPref(ARCHIVE_API_PREF, "");
+    // Tests load plenty of missing pages; they never reach archive.org.
+    if (!configured && Cu.isInAutomation) {
+      return null;
+    }
+    const api = configured || ARCHIVE_API;
     try {
       const response = await fetch(api + encodeURIComponent(url), { credentials: "omit", cache: "no-store" });
       if (!response.ok) {
@@ -492,5 +504,67 @@ export const WhimsyPage = {
     const target = ARCHIVE_WEB + url;
     this.loadArchived(browser, target);
     return target;
+  },
+
+  // --- Translate selection ---
+
+  get translateSelectionEnabled() {
+    return (
+      Services.prefs.getBoolPref(TRANSLATE_FEATURE_PREF, true) &&
+      Services.prefs.getBoolPref("browser.translations.select.enable", false) &&
+      Services.prefs.getBoolPref("browser.translations.enable", true)
+    );
+  },
+
+  initTranslateSelection(win) {
+    const { WhimsyShortcuts } = lazy;
+    WhimsyShortcuts.addCommand(win, {
+      id: "cmd_whimsyTranslateSelection",
+      run: w => this.translateSelection(w),
+      key: { id: "key_whimsyTranslateSelection", key: "T", modifiers: "accel,alt,shift" },
+    });
+    WhimsyShortcuts.addActions([
+      {
+        l10nId: "whimsy-action-translate-selection",
+        command: "cmd_whimsyTranslateSelection",
+        icon: "chrome://browser/skin/zen-icons/translations.svg",
+        isAvailable: w => this.translateSelectionEnabled && isWebPage(w),
+      },
+    ]);
+  },
+
+  // The selected text in the tab (any frame) and where it is on screen.
+  async findSelection(browser) {
+    const contexts = browser?.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
+    for (const context of contexts) {
+      try {
+        const found = await context.currentWindowGlobal?.getActor("WhimsyPage").sendQuery("Whimsy:Selection");
+        if (found?.text) {
+          return found;
+        }
+      } catch (e) {
+        // A frame that went away.
+      }
+    }
+    return null;
+  },
+
+  // Opens Firefox's selection translation panel under the selection.
+  // Returns the text it translates, or null (with a toast) when nothing is
+  // selected.
+  async translateSelection(win) {
+    if (!this.translateSelectionEnabled || !isWebPage(win) || !win.SelectTranslationsPanel) {
+      return null;
+    }
+    const found = await this.findSelection(win.gBrowser.selectedBrowser);
+    if (!found) {
+      win.gZenUIManager?.showToast?.("whimsy-translate-none-toast");
+      return null;
+    }
+    const panel = win.SelectTranslationsPanel;
+    panel
+      .open(null, found.x, found.y, found.text, true, panel.getLangPairPromise(found.text))
+      .catch(console.error);
+    return found.text;
   },
 };

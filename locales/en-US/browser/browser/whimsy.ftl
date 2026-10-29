@@ -284,6 +284,11 @@ whimsy-archive-open =
     .label = Open the Archived Copy
     .accesskey = O
 
+## Translate selection (shortcut and command bar)
+
+whimsy-action-translate-selection = Translate Selection
+whimsy-translate-none-toast = Select some text to translate
+
 ## Spaces
 
 # $count (number) - how many tabs moved, $space (string) - the space's name

@@ -60,6 +60,8 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.setEditable(message.data.on);
       case "Whimsy:AllowCopy":
         return this.allowCopy(message.data.on);
+      case "Whimsy:Selection":
+        return this.selection();
     }
     return null;
   }
@@ -189,5 +191,35 @@ export class WhimsyPageChild extends JSWindowActorChild {
       win.windowUtils.removeSheetUsingURIString(COPY_SHEET, win.windowUtils.USER_SHEET);
     }
     return !!this.copyGuard;
+  }
+
+  // Translate selection: the selected text (also inside a text field) and
+  // the screen point just below it, in CSS pixels.
+  selection() {
+    const win = this.contentWindow;
+    if (!win) {
+      return null;
+    }
+    const field = this.document.activeElement;
+    let text = "";
+    let rect = null;
+    if (field && (HTMLTextAreaElement.isInstance(field) || HTMLInputElement.isInstance(field))) {
+      try {
+        text = field.value.substring(field.selectionStart, field.selectionEnd);
+      } catch (e) {
+        // An input type without a text selection.
+      }
+      rect = field.getBoundingClientRect();
+    }
+    if (!text) {
+      const selection = win.getSelection();
+      text = selection?.toString() ?? "";
+      rect = text && selection.rangeCount ? selection.getRangeAt(0).getBoundingClientRect() : null;
+    }
+    text = text.trim();
+    if (!text || !rect) {
+      return null;
+    }
+    return { text, x: win.mozInnerScreenX + rect.left, y: win.mozInnerScreenY + rect.bottom };
   }
 }

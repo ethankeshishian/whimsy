@@ -97,6 +97,8 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_transparency.js"]
 
+["browser_whimsy_translate_selection.js"]
+
 ["browser_whimsy_ui_font.js"]
 
 ["browser_whimsy_updates.js"]
