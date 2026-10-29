@@ -22,6 +22,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyUpdates.sys.mjs",
     # batch7: new feature modules
     "WhimsySeasons.sys.mjs",
+    "WhimsyWindowClose.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

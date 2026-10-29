@@ -138,6 +138,9 @@
 - name: whimsy.feature.seasonal-themes
   value: true
 
+- name: whimsy.feature.window-close
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

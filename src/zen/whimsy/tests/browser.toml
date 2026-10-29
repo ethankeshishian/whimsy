@@ -122,3 +122,5 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 support-files = ["whimsy_archive.sjs"]
 
 ["browser_whimsy_seasonal_themes.js"]
+
+["browser_whimsy_window_close.js"]

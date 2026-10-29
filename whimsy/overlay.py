@@ -197,6 +197,8 @@ FEATURES = [
     {"id": "seasonal-themes", "title": "Seasonal themes: a gentle accent tint and flourish for Halloween, winter holidays and spring",
      # Firefox's old Colorways never shipped in this engine; this never matches.
      "detect": [("prefs", r"name:\s*browser\.theme\.colorways\.enabled")]},
+    {"id": "window-close", "title": "Cmd+W on a lone empty tab closes the window (Arc); Zen already keeps the window open otherwise",
+     "detect": [("src/zen", r"(?i)zen-empty-tab[^\n]*cmd_close|cmd_close[^\n]*zen-empty-tab")]},
 ]
 
 

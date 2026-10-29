@@ -366,3 +366,8 @@ whimsy-look-ui-font-system =
 
 whimsy-look-seasonal-themes =
     .label = Seasonal themes (a small accent and flourish for Halloween, winter and spring)
+
+## batch7: Settings → Tab Management
+
+whimsy-tabs-close-window-with-last-tab =
+    .label = Close the window when the last tab closes

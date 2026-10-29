@@ -188,5 +188,9 @@
         </menupopup>
       </menulist>
     </hbox>
+    <!-- batch7: keep the window when the last tab closes (Arc); Zen already
+         sets the pref false, this exposes it -->
+    <checkbox id="whimsyCloseWindowWithLastTab" data-whimsy-feature="window-close"
+              data-l10n-id="whimsy-tabs-close-window-with-last-tab" preference="browser.tabs.closeWindowWithLastTab"/>
   </groupbox>
 </html:template>
