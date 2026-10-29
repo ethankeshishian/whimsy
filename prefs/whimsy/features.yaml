@@ -154,6 +154,22 @@
   value: true
 
 - name: whimsy.feature.heavy-tabs
+- name: whimsy.feature.split-link-click
+  value: true
+
+- name: whimsy.feature.split-close-other-panes
+  value: true
+
+- name: whimsy.feature.split-swap-panes
+  value: true
+
+- name: whimsy.feature.split-command-bar
+  value: true
+
+- name: whimsy.feature.command-bar-slash
+  value: true
+
+- name: whimsy.feature.command-bar-create
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

@@ -6,6 +6,7 @@ EXTRA_JS_MODULES.whimsy += [
     "Whimsy.sys.mjs",
     "WhimsyAI.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
+    "WhimsyCommandBar.sys.mjs",
     "WhimsyCookieBanners.sys.mjs",
     "WhimsyCopy.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
@@ -19,6 +20,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyShortcuts.sys.mjs",
     "WhimsySpaces.sys.mjs",
     "WhimsyStartup.sys.mjs",
+    "WhimsySplit.sys.mjs",
     "WhimsyTabs.sys.mjs",
     "WhimsyUpdates.sys.mjs",
     # batch8: tab lifecycle

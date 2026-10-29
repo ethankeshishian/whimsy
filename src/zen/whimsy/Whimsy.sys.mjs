@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
+  WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
   WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
@@ -22,6 +23,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
+  // batch6: split view extras.
+  WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
   // batch8: tab lifecycle
@@ -55,6 +58,8 @@ export const Whimsy = {
         events: {
           play: { capture: true, mozSystemGroup: true },
           volumechange: { capture: true, mozSystemGroup: true },
+          // batch6: Shift+click a link -> split view (whimsy.splitlink.shift-click).
+          click: { capture: true },
         },
       },
       allFrames: true,
@@ -121,6 +126,10 @@ export const Whimsy = {
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
+    // batch6: split view extras; each action checks its own switch.
+    run("split", () => lazy.WhimsySplit.initWindow(win));
+    // batch6: command bar extras ("/" filter, "New ..." actions).
+    run("command-bar", () => lazy.WhimsyCommandBar.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

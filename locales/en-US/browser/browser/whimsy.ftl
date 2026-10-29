@@ -277,6 +277,48 @@ whimsy-action-translate-selection = Translate Selection
 whimsy-action-split-glance = Split Glance
 whimsy-translate-none-toast = Select some text to translate
 
+## Split view (command bar; batch6)
+
+whimsy-action-close-other-panes = Close Other Panes
+whimsy-action-swap-panes = Swap Panes
+whimsy-action-split-vertically = Split Vertically
+whimsy-action-split-horizontally = Split Horizontally
+whimsy-action-split-grid = Split Grid
+whimsy-split-shift-click =
+    .label = Shift+click a link to open it in a split (replaces "Open in New Window")
+
+## Command bar extras (batch6)
+
+whimsy-action-new-doc = New Google Doc
+whimsy-action-new-sheet = New Google Sheet
+whimsy-action-new-slides = New Google Slides
+whimsy-action-new-form = New Google Form
+whimsy-action-new-meet = New Google Meet
+whimsy-action-new-event = New Google Calendar Event
+whimsy-action-new-notion = New Notion Page
+whimsy-action-new-linear = New Linear Issue
+whimsy-action-new-figma = New Figma File
+whimsy-action-new-figjam = New FigJam File
+whimsy-action-new-repo = New GitHub Repo
+whimsy-action-new-gist = New GitHub Gist
+whimsy-action-new-word = New Word Document
+whimsy-action-new-excel = New Excel Workbook
+whimsy-action-new-powerpoint = New PowerPoint Presentation
+whimsy-action-new-miro = New Miro Board
+whimsy-action-new-loom = New Loom Video
+whimsy-action-new-canva = New Canva Design
+whimsy-action-new-playlist = New Spotify Playlist
+whimsy-action-new-note = New Note
+whimsy-new-note-target = New Note opens
+whimsy-new-note-target-none =
+    .label = Nothing (hide New Note)
+whimsy-new-note-target-notion =
+    .label = Notion
+whimsy-new-note-target-google-docs =
+    .label = Google Docs
+whimsy-new-note-target-word =
+    .label = Word
+
 ## Reading time (address bar, next to the Reader View button)
 
 # $minutes (number) - estimated minutes to read the article

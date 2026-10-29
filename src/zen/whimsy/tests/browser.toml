@@ -20,6 +20,8 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_capture.js"]
 
+["browser_whimsy_command_bar_extras.js"]
+
 ["browser_whimsy_collapse_pinned.js"]
 
 ["browser_whimsy_copy.js"]
@@ -50,6 +52,8 @@ support-files = ["whimsy_test.pdf"]
 ["browser_whimsy_folder_colors.js"]
 
 ["browser_whimsy_glance_split_action.js"]
+
+["browser_whimsy_glance_and_split_persistence.js"]
 
 ["browser_whimsy_group_domain.js"]
 
@@ -99,6 +103,8 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_space_icon_drop.js"]
 
 ["browser_whimsy_space_last_tab.js"]
+
+["browser_whimsy_split_extras.js"]
 
 ["browser_whimsy_strings_and_keys.js"]
 

@@ -209,6 +209,19 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)fire-?button|ZenFireButton")]},
     {"id": "heavy-tabs", "title": "Find heavy tabs: the tabs using the most memory/CPU, with a close button (Opera GX)",
      "detect": [("src/zen", r"(?i)heavy-?tabs|hot-?tabs-?killer|ZenHeavyTabs")]},
+    # batch6: split view extras.
+    {"id": "split-link-click", "title": "Shift+click a link opens it in a split (Arc parity, PR#15241)",
+     "detect": [("src/zen/split-view", r"(?i)shift.*click.*split|modifier.*click.*split")]},
+    {"id": "split-close-other-panes", "title": "\"Close Other Panes\" in the command bar",
+     "detect": [("src/zen/split-view", r"cmd_zen[\w]*CloseOther")]},
+    {"id": "split-swap-panes", "title": "\"Swap Panes\" in the command bar",
+     "detect": [("src/zen/split-view", r"cmd_zen[\w]*SwapPanes|swapPanes\(")]},
+    {"id": "split-command-bar", "title": "Split Vertically/Horizontally/Grid in the command bar",
+     "detect": [("src/zen/urlbar", r"zen-action-split-(vertically|horizontally|grid)")]},
+    {"id": "command-bar-slash", "title": "Typing \"/\" in the URL bar enters Zen's commands mode",
+     "detect": [("src/zen/urlbar", r'ZEN_ACTIONS[\s\S]{0,400}["\']/["\']|["\']/["\'][\s\S]{0,200}enableCommandsMode')]},
+    {"id": "command-bar-create", "title": "Arc-style \"New ...\" actions (docs.new etc.) in the command bar",
+     "detect": [("src/zen/urlbar", r"docs\.new|zen-action-new-doc")]},
 ]
 
 

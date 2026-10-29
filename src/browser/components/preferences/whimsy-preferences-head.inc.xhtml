@@ -207,5 +207,20 @@
         <radio value="islands" data-l10n-id="whimsy-tabs-tree-style-islands"/>
       </radiogroup>
     </vbox>
+    <!-- batch6: split view extras -->
+    <checkbox id="whimsySplitLinkShiftClick" data-whimsy-feature="split-link-click"
+              data-l10n-id="whimsy-split-shift-click" preference="whimsy.splitlink.shift-click"/>
+    <!-- batch6: command bar "New Note" target -->
+    <hbox align="center" data-whimsy-feature="command-bar-create">
+      <label id="whimsyNewNoteTargetLabel" control="whimsyNewNoteTarget" data-l10n-id="whimsy-new-note-target"/>
+      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" sizetopopup="none" crop="end">
+        <menupopup>
+          <menuitem value="none" data-l10n-id="whimsy-new-note-target-none"/>
+          <menuitem value="notion" data-l10n-id="whimsy-new-note-target-notion"/>
+          <menuitem value="google-docs" data-l10n-id="whimsy-new-note-target-google-docs"/>
+          <menuitem value="word" data-l10n-id="whimsy-new-note-target-word"/>
+        </menupopup>
+      </menulist>
+    </hbox>
   </groupbox>
 </html:template>
