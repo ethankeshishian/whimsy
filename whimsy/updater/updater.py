@@ -312,11 +312,27 @@ def stage(app_path, meta, info=None):
         json.dump(meta, f, indent=2)
     update_state(staged=meta)
     log(f"Staged {meta.get('version')}; it installs when Whimsy isn't running")
-    kick("app.whimsy.applier")
+    if job_installed(APPLY_JOB):
+        kick(APPLY_JOB)
+
+
+APPLY_JOB = "app.whimsy.applier"
+
+
+def job_installed(job):
+    """Whether whimsy/updater/install.sh installed this launchd job."""
+    return os.path.exists(os.path.join(HOME, "Library", "LaunchAgents", f"{job}.plist"))
 
 
 def kick(job):
-    subprocess.run(["/bin/launchctl", "kickstart", f"gui/{os.getuid()}/{job}"], capture_output=True)
+    """Start a launchd job now; logs and returns False if launchctl fails."""
+    result = subprocess.run(["/bin/launchctl", "kickstart", f"gui/{os.getuid()}/{job}"],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        log(f"Couldn't start {job}: launchctl exited {result.returncode}" + (f": {detail}" if detail else ""))
+        return False
+    return True
 
 
 def branch_sha(repo, branch):
@@ -593,7 +609,18 @@ def cmd_apply():
 def cmd_stage(app_path):
     repo = config().get("repo") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     stage(app_path, *build_meta(repo, hand_built=True))
-    cmd_apply()
+    try:
+        cmd_apply()
+    except Skip as e:
+        log(f"apply: {e}")
+    if not read_json("state.json", {}).get("staged"):
+        print(f"Installed {APP}")
+    elif job_installed(APPLY_JOB):
+        print("Staged: installs when you next quit Whimsy.")
+    else:
+        print("Staged, but not installed: Whimsy is running and the local updater isn't installed\n"
+              "(whimsy/updater/install.sh), so nothing installs it when Whimsy quits. Quit Whimsy,\n"
+              "then run: python3 whimsy/updater/updater.py apply", file=sys.stderr)
 
 
 def main():
@@ -618,3 +645,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    """Stage a hand build and install it now if Whimsy is closed. Without the
+    local updater's applier job nothing installs it later, so say so."""
