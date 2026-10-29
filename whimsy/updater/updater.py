@@ -272,7 +272,7 @@ def build_and_test(repo):
     sh(["python3", "whimsy/overlay.py", "check"], cwd=repo)
     sh(["python3", "whimsy/precheck.py"], cwd=repo)
     update_state(message="Building (this takes a while after a Firefox update)")
-    sh("npx surfer build", cwd=repo, timeout=4 * 3600)
+    sh("npx surfer set brand release && npx surfer build", cwd=repo, timeout=4 * 3600)
     update_state(message="Testing")
     sh(["sh", "whimsy/verify.sh", "gate"], cwd=repo, timeout=3600)
 
@@ -497,7 +497,7 @@ def cmd_ship():
             update_state(message="Dev build: importing and building")
             sh("npm run import", cwd=repo)
             sh(["python3", "whimsy/precheck.py"], cwd=repo)
-            sh("npx surfer build", cwd=repo, timeout=4 * 3600)
+            sh("npx surfer set brand release && npx surfer build", cwd=repo, timeout=4 * 3600)
             update_state(message="Dev build: testing")
             sh(["sh", "whimsy/verify.sh", "quick"], cwd=repo, timeout=3600)
         except Exception as e:

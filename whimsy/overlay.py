@@ -317,6 +317,10 @@ def apply_json_overrides(report, dry):
         "postbuild:ui": "sh whimsy/install_app.sh",
         "install:app": "sh whimsy/install_app.sh",
         "ship": "python3 whimsy/updater/updater.py ship",
+        # Pin the brand like "ci" does (`surfer build` has no --brand), so a
+        # fresh clone can't build Nightly.app from surfer's default brand.
+        "build": "surfer set brand release && surfer build",
+        "build:ui": "surfer set brand release && surfer build --ui",
     }
     if "import:strings" not in s.get("import", ""):
         s["import"] = s["import"] + " && npm run import:strings"
