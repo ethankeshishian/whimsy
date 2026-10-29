@@ -15,7 +15,7 @@ status=0
 
 mochitest() { # mochitest <log> <paths...>
   out=$1; shift
-  (cd engine && ./mach test \
+  (cd engine && ./mach test $([ -n "${WHIMSY_HEADED:-}" ] || echo --headless) \
     "--setpref=security.sandbox.content.mac.testing_read_path2=$ROOT/src" "$@") > "$out" 2>&1
 }
 
