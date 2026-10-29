@@ -300,6 +300,11 @@ FEATURES = [
     # linear: Linear live folder ("My Issues": assigned to you, open states).
     {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
      "detect": [("src/zen/live-folders", r"(?i)linear")]},
+    # tierC-vpn: VPN (Firefox's built-in IP Protection, on by default; command
+    # bar "Turn VPN On/Off" and a Settings status card on top of Firefox's own
+    # toolbar button/panel, sign-in and per-site rules).
+    {"id": "vpn", "title": "VPN: command bar actions and a Settings status card for Firefox's own built-in IP Protection",
+     "detect": [("src/zen", r"(?i)zen[\w.-]*vpn|ZenVPN|zen[\w.-]*ip-?protection")]},
 ]
 
 

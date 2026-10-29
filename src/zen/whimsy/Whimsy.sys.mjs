@@ -64,6 +64,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
 });
 
+// tierC-vpn: VPN (Firefox's built-in IP Protection).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVPN: "resource:///modules/whimsy/WhimsyVPN.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -314,6 +319,12 @@ export const Whimsy = {
         },
       ]);
     });
+    // tierC-vpn: VPN (Firefox's built-in IP Protection). The toolbar button
+    // and panel are Firefox's own (placed automatically once
+    // browser.ipProtection.enabled is true); this only adds the command bar
+    // actions. Checks its own switch on use, so turning it off just stops
+    // offering them.
+    run("vpn", () => lazy.WhimsyVPN.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

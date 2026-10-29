@@ -191,3 +191,15 @@
 # batch7: Dock icon badge (download count), Settings → Tab Management.
 - name: whimsy.downloads.dock-badge
   value: true
+
+# tierC-vpn: VPN (Firefox's built-in IP Protection, engine/toolkit/components
+# and engine/browser/components/ipprotection). Firefox ships this off; Whimsy
+# turns on the master switch (Settings → Privacy & Security; also the real
+# on/off for the toolbar button it auto-places) and the per-site "always use
+# VPN" option on top of the existing per-site exclusions (already-built
+# Firefox features, just gated off). Sign-in, proxying and quota stay
+# Firefox's own; see WhimsyVPN.sys.mjs.
+- name: browser.ipProtection.enabled
+  value: true
+- name: browser.ipProtection.features.siteInclusions
+  value: true

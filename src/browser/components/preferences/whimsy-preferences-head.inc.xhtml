@@ -117,6 +117,22 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+  <!-- tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox is the
+       real master switch (browser.ipProtection.enabled): off removes
+       Firefox's own toolbar button too, not just this card. -->
+  <html:div id="whimsyVpnGroup" data-category="panePrivacy" data-whimsy-feature="vpn" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-vpn-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/selectable/lock-closed.svg">
+        <html:moz-checkbox id="whimsyVpnEnabled" data-l10n-id="whimsy-vpn-toggle"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-vpn-description"/>
+        <html:div id="whimsyVpnStatus" class="whimsy-updates-detail" role="status"/>
+        <hbox align="center">
+          <button id="whimsyVpnManage" data-l10n-id="whimsy-vpn-manage-button"/>
+        </hbox>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
 </html:template>
 
 # Settings → About → Firefox's Updates group: Whimsy's additions (the

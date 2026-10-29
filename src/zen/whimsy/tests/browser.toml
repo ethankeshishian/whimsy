@@ -208,3 +208,6 @@ support-files = ["whimsy_upload.html"]
 # linear: Linear live folder ("My Issues": assigned to you, open states).
 ["browser_whimsy_live_folders_linear.js"]
 support-files = ["whimsy_linear.sjs"]
+
+# tierC-vpn: VPN (Firefox's built-in IP Protection).
+["browser_whimsy_vpn.js"]

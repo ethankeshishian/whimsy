@@ -739,3 +739,25 @@ whimsy-devmode-console =
     .label = Console
 whimsy-devmode-network =
     .label = Network
+
+## tierC-vpn: VPN (Firefox's built-in IP Protection). Settings → Privacy &
+## Security card, and the command bar actions.
+
+whimsy-vpn-header =
+    .label = VPN (free IP Protection)
+whimsy-vpn-toggle =
+    .label = Turn on IP Protection
+whimsy-vpn-description = Hides your IP address from sites you visit by routing your traffic through Mozilla's network. Free, with a 50 GB monthly cap and a Mozilla account sign-in — look for the toolbar button beside your profile icon. Turning this off removes that button entirely.
+whimsy-vpn-manage-button =
+    .label = Open VPN panel…
+whimsy-vpn-status-off = Off
+whimsy-vpn-status-unavailable = Not available in this build
+whimsy-vpn-status-signed-out = On — open the VPN panel to sign in with a Mozilla account
+whimsy-vpn-status-ready = Signed in, not connected — open the VPN panel to connect
+whimsy-vpn-status-connecting = Connecting…
+whimsy-vpn-status-on = Connected
+whimsy-vpn-status-error = Connection error — open the VPN panel for details
+whimsy-action-vpn-on = Turn VPN On
+whimsy-action-vpn-off = Turn VPN Off
+whimsy-vpn-on-toast = VPN on
+whimsy-vpn-off-toast = VPN off
