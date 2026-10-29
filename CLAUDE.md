@@ -46,6 +46,10 @@ State and logs are in `~/Library/Application Support/Whimsy Updater/`. The Setti
 
 `python3 whimsy/publish.py` (or the nightly job when installed with `--publish`) runs `mach package`, ad-hoc signs, and builds a .dmg and a .mar signed with Whimsy's key. It publishes a GitHub Release and `update.xml` on GitHub Pages (`ethankeshishian.github.io/whimsy/updates/...`). Installed Whimsys poll that file; Firefox's updater downloads in the background and installs on restart. Only .mar files signed with Whimsy's key are accepted (`whimsy/engine_overrides.py` installs the public cert). The private key is in `~/Library/Application Support/Whimsy Updater/signing`: back it up, or existing installs can't take updates. The repo is public (MPL source availability), and GitHub Actions stay disabled.
 
+## Versions
+
+Whimsy's version is Zen's version plus a Whimsy revision: `1.24b-w3` (`whimsy/version.py`). The revision counts Whimsy releases on that Zen version and starts over at 1 when Zen's version changes. `whimsy/version.json` records the last release and the history; `publish.py` adds the next one (notes are the commit subjects since the last release), commits it as "Whimsy <version>", and tags `v<version>`. A build that isn't exactly a release is `<next>-dev` with its commit. The compiled app version stays Zen's (changing it recompiles nearly everything; Firefox's updater orders same-version builds by build ID); the Whimsy version is `Contents/Resources/whimsy-version.json`, written when a build is staged or published and shown in Settings → Updates with the version history.
+
 ## Gotchas
 
 - Export engine edits with `npx surfer export <path>`, then rename the patch to `whimsy-*.patch`.

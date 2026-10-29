@@ -11,6 +11,9 @@
    certificate in the updater). The private key stays on this Mac, in
    ~/Library/Application Support/Whimsy Updater/signing. Back it up: without it,
    existing installs can't take updates.
+Each release is Zen's version plus a Whimsy revision, like 1.24b-w3
+(whimsy/version.py); whimsy/version.json records it and the history.
+
 5. A GitHub Release with both, and update.xml on GitHub Pages, which every
    Whimsy polls (Zen's update host is pointed there by whimsy/overlay.py).
    Whimsy downloads updates in the background and installs them on restart.
@@ -121,13 +124,13 @@ def make_mar(obj, app, out):
     os.remove(unsigned)
 
 
-def update_xml(info, tag, mar):
+def update_xml(info, release, tag, mar):
     repo = CONFIG["github_repo"]
     sha512 = hashlib.sha512(open(mar, "rb").read()).hexdigest()
     url = f"https://github.com/{repo}/releases/download/{tag}/{os.path.basename(mar)}"
     return f'''<?xml version="1.0" encoding="UTF-8"?>
 <updates>
-  <update type="minor" displayVersion="{info["version"]}" appVersion="{info["version"]}" platformVersion="{info["platform_version"]}" buildID="{info["build_id"]}" detailsURL="https://github.com/{repo}/releases/tag/{tag}">
+  <update type="minor" displayVersion="{release["version"]}" appVersion="{info["version"]}" platformVersion="{info["platform_version"]}" buildID="{info["build_id"]}" detailsURL="https://github.com/{repo}/releases/tag/{tag}">
     <patch type="complete" URL="{url}" hashFunction="sha512" hashValue="{sha512}" size="{os.path.getsize(mar)}"/>
   </update>
 </updates>
@@ -168,10 +171,12 @@ def publish_pages_file(path, content, message):
     gh(*args)
 
 
-def notes(info, tag):
-    base = json.load(open(os.path.join(ROOT, "whimsy", "upstream.json")))
-    commit = run(["git", "rev-parse", "--short", "HEAD"], capture=True).strip()
-    return f"""Whimsy built on Zen {base.get('tag') or base.get('label')} (Firefox {info['platform_version']}), Whimsy commit {commit}.
+def notes(release):
+    changes = "".join(f"- {line}\n" for line in release["notes"]) or "- Rebuilt on the same Zen\n"
+    return f"""Whimsy {release['version']}: built on Zen {release['zen']} ({release['zen_label']}), Firefox {release['firefox']}, Whimsy commit {release['commit']}.
+
+**Changes**
+{changes}
 
 **First install (Apple silicon Mac):** download the .dmg, drag Whimsy to Applications, open it. macOS will say it can't verify the developer: open System Settings → Privacy & Security, and click **Open Anyway** next to Whimsy. That's needed once; after that Whimsy updates itself in the background and installs updates when you restart it.
 """
@@ -199,27 +204,38 @@ def main():
     run(["./mach", "package"], cwd=ENGINE)
     app = packaged_app(obj)
     info = app_info(app)
-    tag = f"v{info['version']}-{info['build_id']}"
+    repo = CONFIG["github_repo"]
+    sys.path.insert(0, os.path.join(ROOT, "whimsy"))
+    import version
+    revision, release = version.next_release(ROOT)
+    tag = f"v{release['version']}"
+    release["notes_url"] = release["history"][0]["notes_url"] = f"https://github.com/{repo}/releases/tag/{tag}"
+    if not dry and subprocess.run(["gh", "release", "view", tag, "--repo", repo],
+                                  capture_output=True).returncode == 0:
+        raise SystemExit(f"publish: {tag} is already released")
     out = os.path.join(WORK, tag)
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out)
     signed_app = os.path.join(out, "Whimsy.app")
     shutil.copytree(app, signed_app, symlinks=True)
+    version.write_bundle(signed_app, release)
     sign_app(signed_app)
-    dmg = os.path.join(out, f"Whimsy-{info['version']}-macos-arm64.dmg")
-    make_dmg(signed_app, dmg, info["version"])
+    dmg = os.path.join(out, f"Whimsy-{release['version']}-macos-arm64.dmg")
+    make_dmg(signed_app, dmg, release["version"])
     mar = os.path.join(out, "whimsy-macos-arm64.mar")
     make_mar(obj, signed_app, mar)
-    xml = update_xml(info, tag, mar)
+    xml = update_xml(info, release, tag, mar)
     open(os.path.join(out, "update.xml"), "w").write(xml)
     print(f"Built {tag}: {dmg}, {mar}")
     if dry:
         return
-    repo = CONFIG["github_repo"]
+    version.record_release(ROOT, revision, release)
+    run(["git", "add", "whimsy/version.json"])
+    run(["git", "commit", "-q", "-m", f"Whimsy {release['version']}"])
     run(["git", "push", "origin", "HEAD:main"])
     gh("release", "create", tag, dmg, mar, "--repo", repo, "--target", "main",
-       "--title", f"Whimsy {info['version']} ({datetime.date.today():%b %d})",
-       "--notes", notes(info, tag), capture=False)
+       "--title", f"Whimsy {release['version']} ({datetime.date.today():%b %d})",
+       "--notes", notes(release), capture=False)
     channel_path = f"updates/browser/{CONFIG['build_target']}/{CONFIG['channel']}/update.xml"
     publish_pages_file(channel_path, xml, f"Whimsy {tag}")
     print(f"Published {tag}: https://github.com/{repo}/releases/tag/{tag}")

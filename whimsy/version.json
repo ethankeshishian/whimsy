@@ -1,0 +1,19 @@
+{
+  "zen": "1.24b",
+  "revision": 1,
+  "commit": "5eeba548f730cbc27cd14416e5ed9df679f4e9c4",
+  "history": [
+    {
+      "version": "1.24b-w1",
+      "zen": "1.24b",
+      "zen_label": "dev (2026-10-27)",
+      "firefox": "159.0",
+      "date": "2026-10-28",
+      "commit": "5eeba54",
+      "notes": [
+        "First public release: Arc-style Ctrl+Tab, app icons, interface zoom, your PRs vs your team's, automatic updates"
+      ],
+      "notes_url": "https://github.com/ethankeshishian/whimsy/releases/tag/v1.24b-20261028162128"
+    }
+  ]
+}

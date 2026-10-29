@@ -19,6 +19,7 @@
     <html:div class="whimsy-updates-status" role="status">
       <html:span id="whimsyUpdatesHeadline" class="whimsy-updates-headline"/>
       <html:span id="whimsyUpdatesDetail" class="whimsy-updates-detail"/>
+      <html:span id="whimsyUpdatesBase" class="whimsy-updates-detail"/>
     </html:div>
     <checkbox id="whimsyUpdatesAuto" data-l10n-id="whimsy-updates-auto"/>
     <html:div class="whimsy-updates-buttons">
@@ -27,6 +28,10 @@
       <button id="whimsyUpdatesRollback" data-l10n-id="whimsy-updates-rollback-none"/>
     </html:div>
     <html:pre id="whimsyUpdatesLog" hidden="hidden" tabindex="0" aria-labelledby="whimsyUpdatesHeader"></html:pre>
+    <html:details id="whimsyUpdatesHistory" class="whimsy-updates-history">
+      <html:summary data-l10n-id="whimsy-updates-history"/>
+      <html:ol id="whimsyUpdatesHistoryList"/>
+    </html:details>
   </groupbox>
 
   <groupbox id="whimsyAppIconGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">

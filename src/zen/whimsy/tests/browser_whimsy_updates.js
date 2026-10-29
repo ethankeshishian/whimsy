@@ -14,6 +14,20 @@ const { WhimsyUpdates } = ChromeUtils.importESModule(
 let dir;
 const original = {};
 
+// What whimsy/version.py writes into a released Whimsy.app.
+const VERSION = {
+  version: "1.24b-w2",
+  zen: "1.24b",
+  zen_label: "dev (2026-10-27)",
+  firefox: "159.0",
+  released: true,
+  notes_url: "https://github.com/ethankeshishian/whimsy/releases/tag/v1.24b-w2",
+  history: [
+    { version: "1.24b-w2", zen: "1.24b", date: "2026-10-28", notes: ["My Review Requests"] },
+    { version: "1.23.4b-w1", zen: "1.23.4b", date: "2026-10-20", notes: [] },
+  ],
+};
+
 async function writeState(state) {
   await IOUtils.writeJSON(PathUtils.join(dir, "state.json"), state);
 }
@@ -22,10 +36,12 @@ add_setup(async () => {
   dir = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-updater-test");
   await IOUtils.makeDirectory(PathUtils.join(dir, "logs"));
   await IOUtils.writeUTF8(PathUtils.join(dir, "logs", "update.log"), "line one\nbuilt Zen 1.24b\n");
-  for (const key of ["dataDir", "kick", "isInstalled"]) {
+  for (const key of ["dataDir", "versionFile", "kick", "isInstalled"]) {
     original[key] = WhimsyUpdates[key];
   }
   WhimsyUpdates.dataDir = dir;
+  WhimsyUpdates.versionFile = PathUtils.join(dir, "whimsy-version.json");
+  await IOUtils.writeJSON(WhimsyUpdates.versionFile, VERSION);
   WhimsyUpdates.kicked = [];
   WhimsyUpdates.kick = async job => (WhimsyUpdates.kicked.push(job), true);
   WhimsyUpdates.isInstalled = async () => true;
@@ -45,7 +61,8 @@ add_task(async function test_updated_notice_shows_once() {
 
   await writeState({ installed: { id: "b", version: "1.24b" } });
   const notice = await WhimsyUpdates.takeUpdatedNotice();
-  is(notice?.version, "1.24b", "A new install shows the notice");
+  is(notice?.version, "1.24b-w2", "A new install shows the notice, with the Whimsy version");
+  is(notice.notes_url, VERSION.notes_url, "...linking to Whimsy's release notes");
   is(await WhimsyUpdates.takeUpdatedNotice(), null, "Only once");
 
   const [heading, notes, rollback] = await document.l10n.formatMessages([
@@ -78,7 +95,22 @@ add_task(async function test_updates_settings() {
     const label = id => doc.getElementById(id).getAttribute("label");
 
     await TestUtils.waitForCondition(() => text("whimsyUpdatesHeadline").includes("1.24b"));
-    is(text("whimsyUpdatesHeadline").replace(/[\u2068\u2069]/g, ""), "Up to date · Zen 1.24b", "Shows what's installed");
+    const plain = id => text(id).replace(/[\u2068\u2069]/g, "");
+    await TestUtils.waitForCondition(() => text("whimsyUpdatesHeadline").includes("1.24b-w2"));
+    is(plain("whimsyUpdatesHeadline"), "Up to date · Whimsy 1.24b-w2", "Shows the Whimsy version");
+    await TestUtils.waitForCondition(() => text("whimsyUpdatesBase"));
+    is(plain("whimsyUpdatesBase"), "Based on Zen 1.24b (dev (2026-10-27)) · Firefox 159.0", "...and its Zen base");
+
+    // The version history, newest first.
+    const items = await TestUtils.waitForCondition(() => {
+      const list = doc.querySelectorAll("#whimsyUpdatesHistoryList > li");
+      return list.length == 2 && [...list].every(li => li.textContent) && list;
+    });
+    ok(items[0].textContent.includes("1.24b-w2") && items[0].textContent.includes("This version"),
+      "The current release is marked");
+    ok(items[0].textContent.includes("My Review Requests"), "...with its changes");
+    ok(items[0].textContent.includes("Zen 1.24b"), "A new Zen base is called out");
+    ok(items[1].textContent.includes("Rebuilt with no Whimsy changes"), "A release with no changes says so");
     ok(text("whimsyUpdatesDetail").startsWith("Last checked"), "Shows when it last checked");
     const rollback = doc.getElementById("whimsyUpdatesRollback");
     await TestUtils.waitForCondition(() => label("whimsyUpdatesRollback")?.includes("1.23.4b"));
@@ -118,6 +150,32 @@ add_task(async function test_updates_settings() {
     // No previous version: nothing to roll back to.
     await TestUtils.waitForCondition(() => rollback.disabled, "Roll back is off without a previous version");
   });
+});
+
+add_task(async function test_dev_builds() {
+  // A build that never went through staging: Zen's version, marked dev.
+  await IOUtils.remove(WhimsyUpdates.versionFile);
+  const dev = await WhimsyUpdates.readVersion();
+  is(dev.version, `${Services.appinfo.version}-dev`, "No version file: a dev build of Zen's version");
+  ok(!dev.released, "...not a release");
+
+  // A staged local build: the next version plus -dev, listed above the releases.
+  await IOUtils.writeJSON(WhimsyUpdates.versionFile, {
+    ...VERSION,
+    version: "1.24b-w3-dev",
+    commit: "e169bef",
+    released: false,
+  });
+  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+    const doc = browser.contentDocument;
+    const first = await TestUtils.waitForCondition(() => {
+      const item = doc.querySelector("#whimsyUpdatesHistoryList > li");
+      return item?.textContent.includes("e169bef") && item;
+    });
+    ok(first.textContent.includes("1.24b-w3-dev"), "The dev build is listed first");
+    ok(first.textContent.includes("not released yet"), "...as unreleased");
+  });
+  await IOUtils.writeJSON(WhimsyUpdates.versionFile, VERSION);
 });
 
 add_task(async function test_updates_settings_for_published_installs() {

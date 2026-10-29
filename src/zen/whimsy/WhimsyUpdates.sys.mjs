@@ -8,6 +8,8 @@
 //   state.json    written by the updater: what's installed, staged, previous
 //   control.json  written here: paused, rollback requests
 //   logs/update.log
+// Each Whimsy.app also carries Contents/Resources/whimsy-version.json
+// (whimsy/version.py): its Whimsy version, Zen base and version history.
 // The browser never installs anything itself; it only reads state and asks.
 
 const lazy = {};
@@ -22,6 +24,7 @@ const APPLY_JOB = "app.whimsy.applier";
 export const WhimsyUpdates = {
   // Overridable for tests.
   dataDir: null,
+  versionFile: null,
 
   get dir() {
     if (!this.dataDir) {
@@ -37,6 +40,28 @@ export const WhimsyUpdates = {
     } catch {
       return fallback;
     }
+  },
+
+  // This app's Whimsy version, like { version: "1.24b-w3", zen: "1.24b",
+  // history: [...] }. A build that never went through staging or publishing
+  // (running from the build folder) has no file: it's a dev build of Zen's version.
+  async readVersion() {
+    const file =
+      this.versionFile ??
+      PathUtils.join(Services.dirsvc.get("GreD", Ci.nsIFile).path, "whimsy-version.json");
+    try {
+      const info = await IOUtils.readJSON(file);
+      if (info?.version) {
+        return { history: [], ...info };
+      }
+    } catch {}
+    return {
+      version: `${Services.appinfo.version}-dev`,
+      zen: Services.appinfo.version,
+      firefox: Services.appinfo.platformVersion,
+      released: false,
+      history: [],
+    };
   },
 
   readState() {
@@ -127,7 +152,11 @@ export const WhimsyUpdates = {
       return null;
     }
     Services.prefs.setStringPref(SEEN_PREF, installed.id);
-    return seen ? installed : null;
+    if (!seen) {
+      return null;
+    }
+    const { version, zen, notes_url } = await this.readVersion();
+    return { ...installed, version, zen, notes_url };
   },
 
   showUpdatedNotice(win) {

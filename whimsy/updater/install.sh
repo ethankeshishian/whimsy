@@ -23,6 +23,7 @@ mkdir -p "$DATA/bin" "$DATA/logs" "$AGENTS"
 # The jobs run a copy, so a sync that rewrites the repository can't change
 # the updater under them.
 cp "$REPO/whimsy/updater/updater.py" "$DATA/bin/updater.py"
+cp "$REPO/whimsy/version.py" "$DATA/bin/version.py"
 # --publish: also publish each nightly build for other Macs (whimsy/publish.py).
 PUBLISH=false
 for arg in "$@"; do [ "$arg" = "--publish" ] && PUBLISH=true; done

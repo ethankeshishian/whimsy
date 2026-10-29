@@ -32,6 +32,11 @@ import time
 import traceback
 import uuid
 
+# version.py sits next to this file (install.sh copies both), or in the repo.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(1, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import version  # noqa: E402
+
 HOME = os.path.expanduser("~")
 DATA = os.path.join(HOME, "Library", "Application Support", "Whimsy Updater")
 LOGS = os.path.join(DATA, "logs")
@@ -264,7 +269,17 @@ def built_app(repo):
     raise RuntimeError("no built Whimsy.app")
 
 
-def stage(app_path, meta):
+def build_meta(repo, **extra):
+    """What a build of the repo is: its Whimsy version, Zen base, commit."""
+    info = version.describe(repo)
+    base = json.load(open(os.path.join(repo, "whimsy", "upstream.json")))
+    meta = {"version": info["version"], "zen": info["zen"], "zen_label": info["zen_label"],
+            "zen_sha": base["sha"], "firefox": info["firefox"], "whimsy_commit": info["commit"],
+            "built_at": now(), **extra}
+    return meta, info
+
+
+def stage(app_path, meta, info=None):
     """Copy an app (dereferencing a dev build's symlinks) into staged/."""
     tmp = STAGED + ".tmp"
     shutil.rmtree(tmp, ignore_errors=True)
@@ -272,6 +287,8 @@ def stage(app_path, meta):
     # Follow a dev build's symlinks; skip stale ones left by moved files.
     shutil.copytree(app_path, tmp, symlinks=False, ignore_dangling_symlinks=True,
                     ignore=shutil.ignore_patterns(".DS_Store"))
+    if info:
+        version.write_bundle(tmp, info)
     shutil.rmtree(STAGED, ignore_errors=True)
     os.replace(tmp, STAGED)
     meta = dict(meta, id=uuid.uuid4().hex, staged_at=now())
@@ -339,16 +356,15 @@ def cmd_run():
             git(repo, "checkout", "-q", "main", quiet=True)
             git(repo, "merge", "--ff-only", "-q", SYNC_BRANCH, quiet=True)
             git(repo, "branch", "-D", SYNC_BRANCH, quiet=True)
-            stage(built_app(repo), {"version": tag, "zen_sha": sha, "firefox": firefox_version(repo),
-                                    "whimsy_commit": git(repo, "rev-parse", "--short", "HEAD", quiet=True).strip(),
-                                    "built_at": now()})
             if config().get("publish"):
                 # Other Macs get it through Firefox's updater (whimsy/publish.py).
+                # Publishing first lets this Mac's copy carry the release's version.
                 update_state(message=f"Publishing Zen {tag}")
                 try:
                     sh(["python3", "whimsy/publish.py"], cwd=repo, timeout=3600)
                 except Exception as e:
                     log(f"Publishing failed (the local install is unaffected): {e}")
+            stage(built_app(repo), *build_meta(repo))
             superseded = [l for l in report.splitlines() if l.startswith("superseded:")]
             attempts_left = {k: v for k, v in state.get("attempts", {}).items() if k != tag}
             update_state(status="idle", last_result="updated", attempts=attempts_left,
@@ -416,14 +432,16 @@ def cmd_apply():
             if not previous or not os.path.isdir(PREVIOUS):
                 log("Rollback requested, but there's no previous version")
             else:
-                leaving = state.get("installed", {}).get("version")
-                log(f"Rolling back from {leaving} to {previous.get('version')}")
+                installed = state.get("installed", {})
+                log(f"Rolling back from {installed.get('version')} to {previous.get('version')}")
                 swap_in(PREVIOUS, keep_previous=False)
+                # Skip the Zen release being left (older states named it "version").
+                leaving = installed.get("zen_label") or installed.get("version")
                 skip = list(state.get("skip_tags", []))
                 if leaving and leaving not in skip and re.fullmatch(r"\d+\.\d+(\.\d+)*[a-z]?", leaving):
                     skip.append(leaving)
                 staged = state.get("staged")
-                if staged and staged.get("version") in skip:
+                if staged and (staged.get("zen_label") or staged.get("version")) in skip:
                     shutil.rmtree(os.path.dirname(STAGED), ignore_errors=True)
                     staged = None
                 update_state(installed=dict(previous, id=uuid.uuid4().hex, rolled_back=True,
@@ -448,12 +466,7 @@ def cmd_apply():
 
 def cmd_stage(app_path):
     repo = config().get("repo") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    base = json.load(open(os.path.join(repo, "whimsy", "upstream.json")))
-    commit = git(repo, "rev-parse", "--short", "HEAD", quiet=True).strip()
-    dirty = git(repo, "status", "--porcelain", quiet=True).strip()
-    stage(app_path, {"version": base.get("tag") or base.get("label"), "zen_sha": base["sha"],
-                     "firefox": firefox_version(repo), "whimsy_commit": commit + ("+" if dirty else ""),
-                     "built_at": now(), "hand_built": True})
+    stage(app_path, *build_meta(repo, hand_built=True))
     cmd_apply()
 
 

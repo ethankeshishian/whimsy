@@ -112,12 +112,12 @@ add_task(async function settings_updates() {
 
 add_task(async function updated_notice() {
   const notification = await window.WhimsyWindow.showUpdatedNotice(
-    { id: "shot", version: "1.24b" },
+    { id: "shot", version: "1.24b-w2", zen: "1.24b", notes_url: "https://example.com/notes" },
     { force: true }
   );
   ok(notification, "The after-update notice appears in the sidebar");
   await TestUtils.waitForCondition(
-    () => notification.shadowRoot?.textContent.includes("What's new in Zen"),
+    () => notification.shadowRoot?.textContent.includes("What's new"),
     "The notice is labelled"
   );
   // Let its slide-in animation finish.

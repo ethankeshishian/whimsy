@@ -169,15 +169,15 @@ var gWhimsySettings = {
   // The status lines for the current updater state: [headline, detail], each
   // [l10n id, args]. Without the local updater (an install from a published
   // build), Firefox's own updater keeps Whimsy current.
-  describe(state, control, installed) {
+  describe(state, control, installed, version) {
     if (!installed) {
       const auto = this.firefoxAutoUpdate;
       return [
-        [auto ? "whimsy-updates-browser" : "whimsy-updates-browser-manual", { version: Services.appinfo.version }],
+        [auto ? "whimsy-updates-browser" : "whimsy-updates-browser-manual", { version: version.version }],
         [auto ? "whimsy-updates-browser-detail" : "whimsy-updates-browser-manual-detail"],
       ];
     }
-    const current = state?.installed?.version || "?";
+    const current = version.version;
     const checked = { date: this.formatDate(state?.last_run) };
     if (state?.status == "running") {
       return [
@@ -207,14 +207,16 @@ var gWhimsySettings = {
     try {
       this.firefoxAutoUpdate = await UpdateUtils.getAppUpdateAutoEnabled();
     } catch {}
-    const [state, control, installed] = await Promise.all([
+    const [state, control, installed, version] = await Promise.all([
       WhimsyUpdates.readState(),
       WhimsyUpdates.readControl(),
       WhimsyUpdates.isInstalled(),
+      WhimsyUpdates.readVersion(),
     ]);
-    const [headline, detail] = this.describe(state, control, installed);
+    const [headline, detail] = this.describe(state, control, installed, version);
     document.l10n.setAttributes(document.getElementById("whimsyUpdatesHeadline"), ...headline);
     document.l10n.setAttributes(document.getElementById("whimsyUpdatesDetail"), ...detail);
+    this.renderVersion(version);
 
     const auto = document.getElementById("whimsyUpdatesAuto");
     auto.checked = installed ? !control?.paused : this.firefoxAutoUpdate;
@@ -232,6 +234,83 @@ var gWhimsySettings = {
     } else {
       document.l10n.setAttributes(rollback, "whimsy-updates-rollback-none");
     }
+  },
+
+  formatDay(day) {
+    // "2026-10-28" is a calendar day: read it as local, not UTC midnight.
+    const [y, m, d] = (day || "").split("-").map(Number);
+    return y ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(y, m - 1, d)) : "";
+  },
+
+  // "Based on Zen ..." and the version history (newest first). Only redrawn
+  // when the version changes.
+  renderVersion(info) {
+    const key = JSON.stringify(info);
+    if (this.renderedVersion == key) {
+      return;
+    }
+    this.renderedVersion = key;
+    const base = document.getElementById("whimsyUpdatesBase");
+    const label = info.zen_label && info.zen_label != info.zen ? info.zen_label : null;
+    document.l10n.setAttributes(base, label ? "whimsy-updates-based-on-label" : "whimsy-updates-based-on", {
+      zen: info.zen,
+      label,
+      firefox: info.firefox || Services.appinfo.platformVersion,
+    });
+
+    const list = document.getElementById("whimsyUpdatesHistoryList");
+    const entries = [...info.history];
+    if (!info.released) {
+      entries.unshift({ version: info.version, zen: info.zen, dev: true, commit: info.commit });
+    }
+    const items = entries.map((entry, index) => {
+      const item = document.createElement("li");
+      const heading = document.createElement("div");
+      heading.className = "whimsy-history-heading";
+      const name = document.createElement("strong");
+      name.textContent = entry.version;
+      heading.append(name);
+      const meta = [];
+      if (entry.date) {
+        meta.push(Object.assign(document.createElement("span"), { textContent: this.formatDay(entry.date) }));
+      }
+      const previous = entries[index + 1];
+      if (previous && previous.zen != entry.zen) {
+        const zen = document.createElement("span");
+        document.l10n.setAttributes(zen, "whimsy-updates-history-zen", { zen: entry.zen });
+        meta.push(zen);
+      }
+      if (entry.version == info.version) {
+        const current = document.createElement("span");
+        current.className = "whimsy-history-current";
+        document.l10n.setAttributes(current, "whimsy-updates-history-this");
+        meta.push(current);
+      }
+      heading.append(...meta);
+      item.append(heading);
+
+      const notes = document.createElement("ul");
+      if (entry.dev) {
+        const note = document.createElement("li");
+        document.l10n.setAttributes(note, "whimsy-updates-history-dev", { commit: entry.commit || "?" });
+        notes.append(note);
+      } else if (!entry.notes?.length) {
+        const note = document.createElement("li");
+        document.l10n.setAttributes(note, "whimsy-updates-history-same-code");
+        notes.append(note);
+      }
+      for (const line of entry.notes ?? []) {
+        notes.append(Object.assign(document.createElement("li"), { textContent: line }));
+      }
+      item.append(notes);
+      return item;
+    });
+    if (!items.length) {
+      const none = document.createElement("li");
+      document.l10n.setAttributes(none, "whimsy-updates-history-none");
+      items.push(none);
+    }
+    list.replaceChildren(...items);
   },
 
   async refreshLog() {

@@ -28,10 +28,14 @@ var WhimsyWindow = {
     );
     const links = [];
     if (!notice.rolled_back && notice.version) {
+      // Whimsy's release notes when it's a release, else Zen's for its base.
       const pattern = Services.prefs.getStringPref("app.releaseNotesURL.prompt", "");
-      if (pattern) {
+      const url =
+        notice.notes_url ||
+        (pattern && notice.zen && Services.urlFormatter.formatURL(pattern.replace("%VERSION%", notice.zen)));
+      if (url) {
         links.push({
-          url: Services.urlFormatter.formatURL(pattern.replace("%VERSION%", notice.version)),
+          url,
           l10nId: "whimsy-updated-notes",
           special: true,
           icon: "chrome://browser/skin/zen-icons/sparkles.svg",

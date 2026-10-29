@@ -44,3 +44,7 @@ The updater follows **release tags**, which sit on `dev`, and only moves forward
 - **CI:** Zen's GitHub Actions workflows are unchanged and point at Zen's release infrastructure.
 - **Other locales:** only en-US has Whimsy's strings.
 - **Waking the Mac:** to run the nightly job while the Mac sleeps, run `sudo pmset repeat wakeorpoweron MTWRFSU 03:25:00` once. Otherwise the job runs at the next wake.
+
+## Versions
+
+`1.24b-w3` = Zen 1.24b, third Whimsy release on it (`whimsy/version.py`, `whimsy/version.json`). Local unreleased builds show `<next>-dev` plus the commit. The app's compiled version stays Zen's; the Whimsy version and history ship in `Contents/Resources/whimsy-version.json` and appear in Settings → Updates. 1.24b-w1 is the first public release (tag `v1.24b-20261028162128`, from before versioning).

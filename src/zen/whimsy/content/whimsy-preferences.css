@@ -66,6 +66,49 @@
     margin-block: 8px;
   }
 
+  .whimsy-updates-history {
+    margin-block: 8px;
+
+    & > summary {
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    & ol {
+      list-style: none;
+      margin: 8px 0 0;
+      padding: 0;
+      max-height: 320px;
+      overflow: auto;
+    }
+
+    & ol > li + li {
+      margin-top: 10px;
+    }
+
+    & ul {
+      margin: 2px 0 0;
+      padding-inline-start: 18px;
+      color: var(--text-color-deemphasized);
+    }
+  }
+
+  .whimsy-history-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+
+    & span {
+      color: var(--text-color-deemphasized);
+      font-size: 0.9em;
+    }
+
+    & .whimsy-history-current {
+      color: var(--color-accent-primary);
+    }
+  }
+
   #whimsyUpdatesLog {
     max-height: 320px;
     overflow: auto;
