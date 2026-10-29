@@ -216,3 +216,8 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 4. AI features (provider picker + kill switch)
 5. Homepage + changelog (right after the Claude space)
 6. The rest (email aliases, Handoff, cast, playlist, speed, iOS)
+
+## Decisions (user, Oct 29, later)
+- Little Arc → rename "Mini Whimsy"; full Arc parity; floats above other windows (always on top).
+- Next meeting: go ahead with Apple Calendar (EventKit native component + calendar permission), plus Google.
+- Homepage + changelog right after the Claude space.
