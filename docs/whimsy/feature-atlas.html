@@ -148,6 +148,37 @@ input[type="search"] { width: 100%; }
 .eff { background: var(--sunk); color: var(--muted); }
 .votes { font: 500 12px var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
 .empty { padding: 40px 0; text-align: center; color: var(--muted); }
+
+/* Decisions */
+.decide { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+.choice { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.choice button { font: 500 12.5px var(--body); color: var(--muted); background: transparent; border: 0; padding: 5px 12px; cursor: pointer; }
+.choice button + button { border-left: 1px solid var(--line); }
+.choice button:hover { color: var(--ink); }
+.choice button[aria-pressed="true"][data-d="build"] { background: var(--green); color: var(--surface); }
+.choice button[aria-pressed="true"][data-d="maybe"] { background: var(--amber); color: var(--surface); }
+.choice button[aria-pressed="true"][data-d="skip"] { background: var(--muted); color: var(--surface); }
+.note-btn { font: 500 12.5px var(--body); color: var(--sky); background: none; border: 0; padding: 5px 4px; cursor: pointer; }
+.note-btn:hover { text-decoration: underline; }
+.note-wrap { grid-column: 1 / -1; display: grid; gap: 4px; }
+.note-wrap textarea {
+  font: 14px/1.5 var(--body); color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; resize: vertical; min-height: 64px; width: 100%;
+}
+.note-wrap textarea:focus { border-color: var(--sky); outline: none; box-shadow: 0 0 0 3px var(--sky-soft); }
+.note-status { font-size: 12px; color: var(--muted); }
+.note-preview { grid-column: 1 / -1; font-size: 13.5px; color: var(--ink); background: var(--sunk); border-radius: 8px; padding: 7px 10px; white-space: pre-wrap; }
+.item.d-build { background: color-mix(in srgb, var(--green-soft) 55%, transparent); }
+.item.d-maybe { background: color-mix(in srgb, var(--amber-soft) 45%, transparent); }
+.item.d-skip .name, .item.d-skip .desc { opacity: 0.55; }
+.tally { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); align-items: center; }
+.tally b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.save-state { font-size: 12.5px; color: var(--muted); }
+.save-state.warn { color: var(--amber); }
+.picks .picked { font: 500 11px var(--mono); margin-left: 6px; }
+.picks .picked.build { color: var(--green); }
+.picks .picked.maybe { color: var(--amber); }
+.picks .picked.skip { color: var(--muted); }
 .sources { font-size: 13px; color: var(--muted); columns: 2 280px; column-gap: 28px; }
 .sources a { display: block; padding: 2px 0; break-inside: avoid; }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--muted); align-items: center; }
@@ -183,6 +214,7 @@ input[type="search"] { width: 100%; }
 
   <section id="catalog-section">
     <h2>The catalog</h2>
+    <p class="note">Mark each feature Build, Maybe or Skip, and add a note to explain what you want. Click a choice again to clear it. Your choices and notes are saved with this page, so Claude can read them back when it's time to build.</p>
     <div class="legend">
       <span><span class="pill st-new">New</span> not in Zen or Whimsy</span>
       <span><span class="pill st-partial">Partial</span> exists, but people ask for more</span>
@@ -214,6 +246,17 @@ input[type="search"] { width: 100%; }
           <button data-v="2" aria-pressed="false">Strong</button>
           <button data-v="3" aria-pressed="false">Later</button>
         </div>
+        <div class="seg" id="decf" role="group" aria-label="Your decision">
+          <button data-v="all" aria-pressed="true">Any decision</button>
+          <button data-v="build" aria-pressed="false">Build</button>
+          <button data-v="maybe" aria-pressed="false">Maybe</button>
+          <button data-v="skip" aria-pressed="false">Skip</button>
+          <button data-v="none" aria-pressed="false">Undecided</button>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="tally" id="tally"></div>
+        <span class="save-state" id="save-state">Connecting…</span>
         <span class="count" id="count"></span>
         <button class="btn" id="copy">Copy as Markdown</button>
       </div>
@@ -812,16 +855,77 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("atlas." + k); return v === null ? d : v; } catch { return d; } },
   set(k, v) { try { localStorage.setItem("atlas." + k, v); } catch {} },
 };
-const items = F.map((r, i) => ({
-  id: "f" + i, cat: r[0], name: r[1], desc: r[2], src: r[3], votes: r[4], sig: r[5], st: r[6], eff: r[7], tier: r[8],
+// Stable ids from the feature name, so saved decisions survive edits to the list.
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 120);
+const items = F.map(r => ({
+  id: slug(r[1]), cat: r[0], name: r[1], desc: r[2], src: r[3], votes: r[4], sig: r[5], st: r[6], eff: r[7], tier: r[8],
 }));
+const byId = Object.fromEntries(items.map(it => [it.id, it]));
 const byName = Object.fromEntries(items.map(it => [it.name, it]));
 const ST = { new: "New", partial: "Partial", has: "Has" };
 const TIER = { 1: "Next up", 2: "Strong", 3: "Later" };
+const DEC = { build: "Build", maybe: "Maybe", skip: "Skip" };
 const state = {
   q: "", cat: store.get("cat", "all"), sort: store.get("sort", "cat"),
-  status: store.get("status", "all"), tier: store.get("tier", "all"),
+  status: store.get("status", "all"), tier: store.get("tier", "all"), dec: store.get("dec", "all"),
 };
+
+// Decisions: { [featureId]: { decision, note } }, saved in the artifact's db
+// (collection "decisions", one document per feature), or in this browser
+// when the db isn't available.
+const decisions = {};
+let db = null;
+let mode = "connecting"; // "db" | "local" | "readonly"
+const writing = {};      // one write at a time per document
+const openNotes = new Set();
+
+function loadLocal() {
+  try { Object.assign(decisions, JSON.parse(localStorage.getItem("atlas.decisions") || "{}")); } catch {}
+}
+function saveLocal() {
+  try { localStorage.setItem("atlas.decisions", JSON.stringify(decisions)); } catch {}
+}
+
+async function persist(id) {
+  const d = decisions[id] || {};
+  if (mode === "local") { saveLocal(); return; }
+  if (mode !== "db") return;
+  const run = async () => {
+    const ref = db.collection("decisions").doc(id);
+    const it = byId[id];
+    if (!d.decision && !(d.note || "").trim()) await ref.delete();
+    else await ref.set({ decision: d.decision || null, note: d.note || "", name: it.name, category: CATS[it.cat], updatedAt: new Date().toISOString() });
+  };
+  const prev = writing[id] || Promise.resolve();
+  const next = prev.catch(() => {}).then(run);
+  writing[id] = next;
+  setSave("Saving…");
+  try { await next; if (writing[id] === next) setSave("All changes saved"); }
+  catch (e) {
+    if (e && e.code === "invalid_argument") { mode = "readonly"; setSave("You can view these decisions but not change them.", true); render(); }
+    else setSave("Couldn't save. Check your connection and try again.", true);
+  }
+}
+
+function setSave(text, warn) {
+  const el = $("#save-state");
+  el.textContent = text;
+  el.classList.toggle("warn", !!warn);
+}
+
+function setDecision(id, decision) {
+  const cur = decisions[id] || {};
+  decisions[id] = { ...cur, decision: cur.decision === decision ? null : decision };
+  updateRow(id); tally(); picksState();
+  persist(id);
+}
+
+const noteTimers = {};
+function setNote(id, note) {
+  decisions[id] = { ...(decisions[id] || {}), note };
+  clearTimeout(noteTimers[id]);
+  noteTimers[id] = setTimeout(() => { persist(id); tally(); }, 700);
+}
 
 function stats() {
   const n = items.length;
@@ -833,46 +937,85 @@ function stats() {
   ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
 }
 
+function tally() {
+  const c = { build: 0, maybe: 0, skip: 0, notes: 0 };
+  for (const it of items) {
+    const d = decisions[it.id];
+    if (d?.decision) c[d.decision]++;
+    if ((d?.note || "").trim()) c.notes++;
+  }
+  const undecided = items.length - c.build - c.maybe - c.skip;
+  $("#tally").innerHTML = `<span><b>${c.build}</b> build</span><span><b>${c.maybe}</b> maybe</span><span><b>${c.skip}</b> skip</span><span><b>${undecided}</b> undecided</span><span><b>${c.notes}</b> with notes</span>`;
+}
+
 function picks() {
-  $("#picks").innerHTML = PICKS.map(([name, why]) =>
-    `<li><div><button type="button" data-name="${esc(name)}">${esc(name)}</button><p>${esc(why)}</p></div></li>`).join("");
+  $("#picks").innerHTML = PICKS.map(([name, why]) => {
+    const it = byName[name];
+    return `<li><div><button type="button" data-name="${esc(name)}">${esc(name)}</button><span class="picked" data-pick="${it ? it.id : ""}"></span><p>${esc(why)}</p></div></li>`;
+  }).join("");
   $("#picks").addEventListener("click", e => {
     const b = e.target.closest("button[data-name]");
     if (!b) return;
     const it = byName[b.dataset.name];
     if (!it) return;
     state.q = ""; $("#q").value = ""; state.cat = "all"; $("#cat").value = "all";
-    state.status = "all"; state.tier = "all"; syncSeg();
+    state.status = "all"; state.tier = "all"; state.dec = "all"; syncSeg();
     render();
-    const el = document.getElementById(it.id);
+    const el = document.getElementById("f-" + it.id);
     if (el) {
       el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       el.classList.add("flash");
       setTimeout(() => el.classList.remove("flash"), 1800);
     }
   });
+  picksState();
+}
+
+function picksState() {
+  for (const el of document.querySelectorAll("[data-pick]")) {
+    const d = decisions[el.dataset.pick]?.decision;
+    el.className = "picked" + (d ? " " + d : "");
+    el.textContent = d ? DEC[d] : "";
+  }
 }
 
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
 function filtered() {
   const q = state.q.trim().toLowerCase();
-  let out = items.filter(it =>
-    (state.cat === "all" || it.cat === state.cat) &&
-    (state.status === "all" || it.st === state.status) &&
-    (state.tier === "all" || String(it.tier) === state.tier) &&
-    (!q || [it.name, it.desc, it.src, it.sig, CATS[it.cat]].join(" ").toLowerCase().includes(q)));
+  let out = items.filter(it => {
+    const d = decisions[it.id]?.decision || "none";
+    return (state.cat === "all" || it.cat === state.cat) &&
+      (state.status === "all" || it.st === state.status) &&
+      (state.tier === "all" || String(it.tier) === state.tier) &&
+      (state.dec === "all" || d === state.dec) &&
+      (!q || [it.name, it.desc, it.src, it.sig, CATS[it.cat], decisions[it.id]?.note || ""].join(" ").toLowerCase().includes(q));
+  });
   const by = {
     votes: (a, b) => b.votes - a.votes || a.tier - b.tier,
     tier: (a, b) => a.tier - b.tier || b.votes - a.votes,
     az: (a, b) => a.name.localeCompare(b.name),
-    cat: (a, b) => 0,
+    cat: () => 0,
   }[state.sort];
   return out.slice().sort(by);
 }
 
+function decideHtml(it) {
+  const d = decisions[it.id] || {};
+  const ro = mode === "readonly";
+  const btns = Object.entries(DEC).map(([k, label]) =>
+    `<button type="button" data-d="${k}" aria-pressed="${d.decision === k}" ${ro ? "disabled" : ""}>${label}</button>`).join("");
+  const hasNote = (d.note || "").trim();
+  const open = openNotes.has(it.id);
+  return `<div class="decide"><div class="choice" role="group" aria-label="Decision for ${esc(it.name)}">${btns}</div>
+      ${ro ? "" : `<button type="button" class="note-btn" data-note-toggle aria-expanded="${open}">${open ? "Done" : hasNote ? "Edit note" : "Add note"}</button>`}</div>
+    ${open ? `<div class="note-wrap"><label class="note-status" for="n-${it.id}">Note for ${esc(it.name)}</label><textarea id="n-${it.id}" data-note rows="3" placeholder="What should this do in Whimsy? Anything to keep or change from the original?">${esc(d.note || "")}</textarea></div>`
+      : hasNote ? `<p class="note-preview">${esc(d.note)}</p>` : ""}`;
+}
+
 function row(it) {
-  return `<article class="item" id="${it.id}">
+  const d = decisions[it.id]?.decision;
+  return `<article class="item${d ? " d-" + d : ""}" id="f-${it.id}" data-id="${it.id}">
     <div class="name">${esc(it.name)}</div>
     <div class="tags">
       ${it.votes ? `<span class="votes" title="Votes on Zen's GitHub ideas">▲ ${it.votes}</span>` : ""}
@@ -882,7 +1025,22 @@ function row(it) {
     </div>
     <p class="desc">${esc(it.desc)}</p>
     <div class="meta"><span class="src">${esc(it.src)}</span>${it.sig ? `<span class="sig">· ${esc(it.sig)}</span>` : ""}</div>
+    <div class="dec-slot">${decideHtml(it)}</div>
   </article>`;
+}
+
+// Redraw one row's decision area without disturbing a note being typed.
+function updateRow(id) {
+  const el = document.getElementById("f-" + id);
+  if (!el) return;
+  const d = decisions[id]?.decision;
+  el.className = "item" + (d ? " d-" + d : "");
+  const ta = el.querySelector("textarea[data-note]");
+  if (ta && document.activeElement === ta) {
+    for (const b of el.querySelectorAll(".choice button")) b.setAttribute("aria-pressed", String(b.dataset.d === d));
+    return;
+  }
+  el.querySelector(".dec-slot").innerHTML = decideHtml(byId[id]);
 }
 
 function render() {
@@ -901,9 +1059,67 @@ function render() {
 }
 
 function syncSeg() {
-  for (const [id, key] of [["#status", "status"], ["#tierf", "tier"]]) {
+  for (const [id, key] of [["#status", "status"], ["#tierf", "tier"], ["#decf", "dec"]]) {
     for (const b of document.querySelectorAll(id + " button")) b.setAttribute("aria-pressed", String(b.dataset.v === state[key]));
   }
+}
+
+function wireCatalog() {
+  const cat = $("#catalog");
+  cat.addEventListener("click", e => {
+    const item = e.target.closest(".item");
+    if (!item) return;
+    const id = item.dataset.id;
+    const choice = e.target.closest(".choice button");
+    if (choice && !choice.disabled) { setDecision(id, choice.dataset.d); return; }
+    if (e.target.closest("[data-note-toggle]")) {
+      if (openNotes.has(id)) {
+        openNotes.delete(id);
+        clearTimeout(noteTimers[id]); persist(id); tally();
+      } else openNotes.add(id);
+      updateRow(id);
+      if (openNotes.has(id)) item.querySelector("textarea[data-note]")?.focus();
+    }
+  });
+  cat.addEventListener("input", e => {
+    const ta = e.target.closest("textarea[data-note]");
+    if (ta) setNote(ta.closest(".item").dataset.id, ta.value);
+  });
+  cat.addEventListener("focusout", e => {
+    const ta = e.target.closest("textarea[data-note]");
+    if (!ta) return;
+    const id = ta.closest(".item").dataset.id;
+    clearTimeout(noteTimers[id]); persist(id); tally();
+  });
+}
+
+async function connect() {
+  try { db = window.claude ? await window.claude.use("db") : null; } catch { db = null; }
+  if (!db) {
+    mode = "local"; loadLocal();
+    setSave("Saved in this browser only. Open the page on claude.ai to save for Claude to read.", true);
+    tally(); picksState(); render();
+    return;
+  }
+  mode = "db";
+  setSave("Loading your decisions…");
+  db.collection("decisions").onSnapshot(snap => {
+    for (const ch of snap.docChanges()) {
+      const id = ch.doc.id;
+      if (ch.type === "removed") delete decisions[id];
+      else {
+        const v = ch.doc.data() || {};
+        const local = decisions[id];
+        // Keep a note that's being typed here; take everything else from the store.
+        const typing = openNotes.has(id) && document.activeElement?.id === "n-" + id;
+        decisions[id] = { decision: v.decision || null, note: typing && local ? local.note : (v.note || "") };
+      }
+      updateRow(id);
+    }
+    tally(); picksState();
+    if (!snap.metadata.hasPendingWrites) setSave("All changes saved");
+    if (state.dec !== "all") render();
+  }, () => setSave("Live updates stopped. Reload the page to reconnect.", true));
 }
 
 function init() {
@@ -914,7 +1130,7 @@ function init() {
   $("#q").addEventListener("input", e => { state.q = e.target.value; render(); });
   $("#cat").addEventListener("change", e => { state.cat = e.target.value; store.set("cat", state.cat); render(); });
   $("#sort").addEventListener("change", e => { state.sort = e.target.value; store.set("sort", state.sort); render(); });
-  for (const [id, key] of [["#status", "status"], ["#tierf", "tier"]]) {
+  for (const [id, key] of [["#status", "status"], ["#tierf", "tier"], ["#decf", "dec"]]) {
     $(id).addEventListener("click", e => {
       const b = e.target.closest("button"); if (!b) return;
       state[key] = b.dataset.v; store.set(key, state[key]); syncSeg(); render();
@@ -922,13 +1138,19 @@ function init() {
   }
   $("#copy").addEventListener("click", async () => {
     const list = filtered();
-    const md = list.map(i => `- **${i.name}** (${CATS[i.cat]}; ${ST[i.st]}; ${TIER[i.tier]}; effort ${i.eff}${i.votes ? `; ${i.votes} Zen votes` : ""}): ${i.desc} _Sources: ${i.src}._`).join("\n");
+    const md = list.map(i => {
+      const d = decisions[i.id] || {};
+      const head = `- ${d.decision ? `[${DEC[d.decision]}] ` : ""}**${i.name}** (${CATS[i.cat]}; ${ST[i.st]}; ${TIER[i.tier]}; effort ${i.eff}${i.votes ? `; ${i.votes} Zen votes` : ""}): ${i.desc} _Sources: ${i.src}._`;
+      return (d.note || "").trim() ? `${head}\n  - Note: ${d.note.trim().replace(/\n/g, " ")}` : head;
+    }).join("\n");
     const btn = $("#copy");
     try { await navigator.clipboard.writeText(md); btn.textContent = `Copied ${list.length}`; }
     catch { btn.textContent = "Copy failed"; }
     setTimeout(() => (btn.textContent = "Copy as Markdown"), 1800);
   });
-  stats(); picks(); render();
+  wireCatalog();
+  stats(); tally(); picks(); render();
+  connect();
 }
 init();
 </script>
