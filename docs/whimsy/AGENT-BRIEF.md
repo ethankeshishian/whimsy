@@ -53,3 +53,6 @@ Leave the working tree clean on `dev`.
 
 ## Never spawn sub-agents
 Do all the work yourself in this one agent. Spawning agents wastes the usage budget.
+
+## Context budget
+Stop at ~150k tokens of context: commit the current feature, leave the tree clean, report what is left. A fresh agent continues.
