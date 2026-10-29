@@ -97,6 +97,7 @@ var gWhimsySettings = {
     template.remove();
     const inits = {
       "cookie-banners": () => this.initCookieBanners(),
+      "ai-kill-switch": () => this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked"),
       "strip-tracking": () => this.initStripTracking(),
     };
     for (const group of groups) {
@@ -113,10 +114,15 @@ var gWhimsySettings = {
   // Reject cookie banners: Whimsy's built-in Autoconsent add-on
   // (WhimsyCookieBanners.sys.mjs turns it on or off with the pref).
   initCookieBanners() {
-    const checkbox = document.getElementById("whimsyRejectCookieBanners");
-    const pref = "whimsy.reject-cookie-banners";
+    this.initPrefCheckbox("whimsyRejectCookieBanners", "whimsy.reject-cookie-banners");
+  },
+
+  // A checkbox bound to a bool pref, kept in sync both ways.
+  initPrefCheckbox(id, pref) {
+    const checkbox = document.getElementById(id);
+    const defaultValue = Services.prefs.getDefaultBranch("").getBoolPref(pref, false);
     const update = () => {
-      checkbox.checked = Services.prefs.getBoolPref(pref, true);
+      checkbox.checked = Services.prefs.getBoolPref(pref, defaultValue);
     };
     checkbox.addEventListener("change", () => Services.prefs.setBoolPref(pref, checkbox.checked));
     Services.prefs.addObserver(pref, update);

@@ -26,3 +26,8 @@
 # built-in Autoconsent add-on (WhimsyCookieBanners.sys.mjs).
 - name: whimsy.reject-cookie-banners
   value: true
+
+# AI kill switch (Settings → Privacy & Security): turns off every AI feature,
+# Firefox's and Whimsy's (WhimsyAI.sys.mjs). Off: AI features stay available.
+- name: whimsy.ai.blocked
+  value: false

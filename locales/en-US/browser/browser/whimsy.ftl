@@ -126,6 +126,14 @@ whimsy-cookie-banners-toggle =
     .label = Reject cookie banners
     .description = Answers cookie pop-ups for you by choosing “Reject” or the most private option, and hides the banner while it does.
 
+## Settings → Privacy & Security → AI
+
+whimsy-ai-header =
+    .label = AI features
+whimsy-ai-toggle =
+    .label = Turn off all AI features
+    .description = Blocks the AI chatbot, link preview summaries, smart tab groups, PDF alt text, speech recognition and any AI that Whimsy adds, and removes their downloaded models. Translations keep working.
+
 ## Settings → Privacy & Security → Tracking in links
 
 whimsy-strip-tracking-header =

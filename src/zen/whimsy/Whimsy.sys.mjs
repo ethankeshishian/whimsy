@@ -10,6 +10,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
@@ -52,6 +53,7 @@ export const Whimsy = {
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());
+    run("ai-kill-switch", () => lazy.WhimsyAI.init());
     if (this.featureEnabled("github-reviews")) {
       run("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }

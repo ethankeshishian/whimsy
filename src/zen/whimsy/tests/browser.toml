@@ -4,6 +4,8 @@
 
 [DEFAULT]
 
+["browser_whimsy_ai_kill_switch.js"]
+
 ["browser_whimsy_app_icon.js"]
 
 ["browser_whimsy_cookie_banners.js"]

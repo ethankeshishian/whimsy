@@ -4,6 +4,7 @@
 
 EXTRA_JS_MODULES.whimsy += [
     "Whimsy.sys.mjs",
+    "WhimsyAI.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
     "WhimsyCookieBanners.sys.mjs",
     "WhimsyCopy.sys.mjs",
