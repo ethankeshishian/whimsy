@@ -176,6 +176,24 @@ input[type="search"] { width: 100%; }
 .save-state { font-size: 12.5px; color: var(--muted); }
 .save-state.warn { color: var(--amber); }
 .picks .picked { font: 500 11px var(--mono); margin-left: 6px; }
+.switches { justify-content: start; gap: 8px 18px; }
+.switches label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; color: var(--ink); }
+.switches input { accent-color: var(--accent); width: 16px; height: 16px; }
+.note-wrap textarea { min-height: 40px; }
+.scope-slot { grid-column: 1 / -1; }
+.scope { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.scope summary { cursor: pointer; padding: 8px 12px; font-size: 13.5px; display: flex; gap: 8px; align-items: baseline; list-style: none; }
+.scope summary::-webkit-details-marker { display: none; }
+.scope summary::before { content: "▸"; color: var(--muted); }
+.scope[open] summary::before { content: "▾"; }
+.scope-body { padding: 0 14px 12px; font-size: 13.5px; display: grid; gap: 4px; }
+.scope-body h4 { margin: 8px 0 0; font: 600 12px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.scope-body ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.verdict { font: 500 11px/1 var(--mono); padding: 4px 7px; border-radius: 999px; white-space: nowrap; }
+.v-exists { background: var(--green-soft); color: var(--green); }
+.v-partial { background: var(--amber-soft); color: var(--amber); }
+.v-new { background: var(--accent-soft); color: var(--accent); }
+.v-research { background: var(--sky-soft); color: var(--sky); }
 .picks .picked.build { color: var(--green); }
 .picks .picked.maybe { color: var(--amber); }
 .picks .picked.skip { color: var(--muted); }
@@ -214,7 +232,7 @@ input[type="search"] { width: 100%; }
 
   <section id="catalog-section">
     <h2>The catalog</h2>
-    <p class="note">Mark each feature Build, Maybe or Skip, and add a note to explain what you want. Click a choice again to clear it. Your choices and notes are saved with this page, so Claude can read them back when it's time to build.</p>
+    <p class="note">Mark each feature Build, Maybe or Skip and type a note to explain what you want. Notes save as you type; click a choice again to clear it. Everything is saved with this page for Claude to read. Sections you've reviewed are hidden; features with a Scope panel have been checked against Whimsy's code and planned.</p>
     <div class="legend">
       <span><span class="pill st-new">New</span> not in Zen or Whimsy</span>
       <span><span class="pill st-partial">Partial</span> exists, but people ask for more</span>
@@ -253,6 +271,12 @@ input[type="search"] { width: 100%; }
           <button data-v="skip" aria-pressed="false">Skip</button>
           <button data-v="none" aria-pressed="false">Undecided</button>
         </div>
+      </div>
+      <div class="row2 switches">
+        <label><input type="checkbox" id="show-reviewed"> Show sections I've reviewed</label>
+        <label><input type="checkbox" id="hide-has"> Hide what Zen already has</label>
+        <label><input type="checkbox" id="open-scopes"> Expand all scopes</label>
+        <span class="save-state" id="scoped"></span>
       </div>
       <div class="row2">
         <div class="tally" id="tally"></div>
@@ -865,10 +889,17 @@ const byName = Object.fromEntries(items.map(it => [it.name, it]));
 const ST = { new: "New", partial: "Partial", has: "Has" };
 const TIER = { 1: "Next up", 2: "Strong", 3: "Later" };
 const DEC = { build: "Build", maybe: "Maybe", skip: "Skip" };
+const VERDICT = { exists: "Already exists", partial: "Partly exists", new: "New", research: "Needs a decision" };
 const state = {
   q: "", cat: store.get("cat", "all"), sort: store.get("sort", "cat"),
+  openScopes: store.get("openScopes", "0") === "1",
   status: store.get("status", "all"), tier: store.get("tier", "all"), dec: store.get("dec", "all"),
+  showReviewed: store.get("showReviewed", "0") === "1", hideHas: store.get("hideHas", "1") === "1",
 };
+// Sections already reviewed (Oct 29): hidden unless "Show reviewed sections" is on.
+const REVIEWED = new Set(["arc", "tabs", "pins"]);
+// Scopes written by Claude: { [featureId]: {verdict, summary, original, flow[], plan[], effort, questions[]} }
+const scopes = {};
 
 // Decisions: { [featureId]: { decision, note } }, saved in the artifact's db
 // (collection "decisions", one document per feature), or in this browser
@@ -958,8 +989,8 @@ function picks() {
     if (!b) return;
     const it = byName[b.dataset.name];
     if (!it) return;
-    state.q = ""; $("#q").value = ""; state.cat = "all"; $("#cat").value = "all";
-    state.status = "all"; state.tier = "all"; state.dec = "all"; syncSeg();
+    state.q = ""; $("#q").value = ""; state.cat = it.cat; $("#cat").value = it.cat;
+    state.status = "all"; state.tier = "all"; state.dec = "all"; state.hideHas = false; $("#hide-has").checked = false; syncSeg();
     render();
     const el = document.getElementById("f-" + it.id);
     if (el) {
@@ -985,7 +1016,9 @@ function filtered() {
   const q = state.q.trim().toLowerCase();
   let out = items.filter(it => {
     const d = decisions[it.id]?.decision || "none";
-    return (state.cat === "all" || it.cat === state.cat) &&
+    return (state.showReviewed || !REVIEWED.has(it.cat) || state.cat === it.cat) &&
+      (!state.hideHas || it.st !== "has") &&
+      (state.cat === "all" || it.cat === state.cat) &&
       (state.status === "all" || it.st === state.status) &&
       (state.tier === "all" || String(it.tier) === state.tier) &&
       (state.dec === "all" || d === state.dec) &&
@@ -1005,12 +1038,17 @@ function decideHtml(it) {
   const ro = mode === "readonly";
   const btns = Object.entries(DEC).map(([k, label]) =>
     `<button type="button" data-d="${k}" aria-pressed="${d.decision === k}" ${ro ? "disabled" : ""}>${label}</button>`).join("");
-  const hasNote = (d.note || "").trim();
-  const open = openNotes.has(it.id);
-  return `<div class="decide"><div class="choice" role="group" aria-label="Decision for ${esc(it.name)}">${btns}</div>
-      ${ro ? "" : `<button type="button" class="note-btn" data-note-toggle aria-expanded="${open}">${open ? "Done" : hasNote ? "Edit note" : "Add note"}</button>`}</div>
-    ${open ? `<div class="note-wrap"><label class="note-status" for="n-${it.id}">Note for ${esc(it.name)}</label><textarea id="n-${it.id}" data-note rows="3" placeholder="What should this do in Whimsy? Anything to keep or change from the original?">${esc(d.note || "")}</textarea></div>`
-      : hasNote ? `<p class="note-preview">${esc(d.note)}</p>` : ""}`;
+  return `<div class="decide"><div class="choice" role="group" aria-label="Decision for ${esc(it.name)}">${btns}</div></div>
+    <div class="note-wrap"><textarea id="n-${it.id}" data-note rows="2" ${ro ? "readonly" : ""} aria-label="Note for ${esc(it.name)}" placeholder="Notes: what should this do in Whimsy? Saves as you type.">${esc(d.note || "")}</textarea></div>`;
+}
+
+function scopeHtml(it) {
+  const sc = scopes[it.id];
+  if (!sc) return "";
+  const list = (title, xs) => xs && xs.length ? `<h4>${title}</h4><ul>${xs.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  const para = (title, x) => x ? `<h4>${title}</h4><p>${esc(x)}</p>` : "";
+  return `<details class="scope"${state.openScopes ? " open" : ""}><summary><span class="verdict v-${esc(sc.verdict || "new")}">${esc(VERDICT[sc.verdict] || sc.verdict || "Scoped")}</span> ${esc(sc.summary || "")}</summary>
+    <div class="scope-body">${para("Already in Whimsy", sc.existing)}${para("How the original works", sc.original)}${para("Why people love it", sc.why)}${list("User flow", sc.flow)}${list("Plan", sc.plan)}${para("Effort", sc.effort)}${list("Questions for you", sc.questions)}</div></details>`;
 }
 
 function row(it) {
@@ -1026,21 +1064,25 @@ function row(it) {
     <p class="desc">${esc(it.desc)}</p>
     <div class="meta"><span class="src">${esc(it.src)}</span>${it.sig ? `<span class="sig">· ${esc(it.sig)}</span>` : ""}</div>
     <div class="dec-slot">${decideHtml(it)}</div>
+    <div class="scope-slot">${scopeHtml(it)}</div>
   </article>`;
 }
 
-// Redraw one row's decision area without disturbing a note being typed.
+// Update one row in place, never disturbing a note being typed.
 function updateRow(id) {
   const el = document.getElementById("f-" + id);
   if (!el) return;
-  const d = decisions[id]?.decision;
-  el.className = "item" + (d ? " d-" + d : "");
+  const d = decisions[id] || {};
+  el.className = "item" + (d.decision ? " d-" + d.decision : "");
+  for (const b of el.querySelectorAll(".choice button")) b.setAttribute("aria-pressed", String(b.dataset.d === d.decision));
   const ta = el.querySelector("textarea[data-note]");
-  if (ta && document.activeElement === ta) {
-    for (const b of el.querySelectorAll(".choice button")) b.setAttribute("aria-pressed", String(b.dataset.d === d));
-    return;
-  }
-  el.querySelector(".dec-slot").innerHTML = decideHtml(byId[id]);
+  if (ta && document.activeElement !== ta && ta.value !== (d.note || "")) ta.value = d.note || "";
+}
+
+function updateScope(id) {
+  const el = document.getElementById("f-" + id);
+  if (!el) return;
+  el.querySelector(".scope-slot").innerHTML = scopeHtml(byId[id]);
 }
 
 function render() {
@@ -1056,6 +1098,9 @@ function render() {
   } else {
     $("#catalog").innerHTML = `<div class="group">${list.map(row).join("")}</div>`;
   }
+  for (const ta of document.querySelectorAll("#catalog textarea[data-note]")) {
+    if (ta.value) { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + 2 + "px"; }
+  }
 }
 
 function syncSeg() {
@@ -1069,21 +1114,14 @@ function wireCatalog() {
   cat.addEventListener("click", e => {
     const item = e.target.closest(".item");
     if (!item) return;
-    const id = item.dataset.id;
     const choice = e.target.closest(".choice button");
-    if (choice && !choice.disabled) { setDecision(id, choice.dataset.d); return; }
-    if (e.target.closest("[data-note-toggle]")) {
-      if (openNotes.has(id)) {
-        openNotes.delete(id);
-        clearTimeout(noteTimers[id]); persist(id); tally();
-      } else openNotes.add(id);
-      updateRow(id);
-      if (openNotes.has(id)) item.querySelector("textarea[data-note]")?.focus();
-    }
+    if (choice && !choice.disabled) setDecision(item.dataset.id, choice.dataset.d);
   });
   cat.addEventListener("input", e => {
     const ta = e.target.closest("textarea[data-note]");
-    if (ta) setNote(ta.closest(".item").dataset.id, ta.value);
+    if (!ta) return;
+    ta.style.height = "auto"; ta.style.height = ta.scrollHeight + 2 + "px";
+    setNote(ta.closest(".item").dataset.id, ta.value);
   });
   cat.addEventListener("focusout", e => {
     const ta = e.target.closest("textarea[data-note]");
@@ -1111,7 +1149,7 @@ async function connect() {
         const v = ch.doc.data() || {};
         const local = decisions[id];
         // Keep a note that's being typed here; take everything else from the store.
-        const typing = openNotes.has(id) && document.activeElement?.id === "n-" + id;
+        const typing = document.activeElement?.id === "n-" + id;
         decisions[id] = { decision: v.decision || null, note: typing && local ? local.note : (v.note || "") };
       }
       updateRow(id);
@@ -1120,6 +1158,14 @@ async function connect() {
     if (!snap.metadata.hasPendingWrites) setSave("All changes saved");
     if (state.dec !== "all") render();
   }, () => setSave("Live updates stopped. Reload the page to reconnect.", true));
+  db.collection("scopes").onSnapshot(snap => {
+    for (const ch of snap.docChanges()) {
+      if (ch.type === "removed") delete scopes[ch.doc.id];
+      else scopes[ch.doc.id] = ch.doc.data() || {};
+      updateScope(ch.doc.id);
+    }
+    $("#scoped").textContent = Object.keys(scopes).length ? `${Object.keys(scopes).length} scoped` : "";
+  }, () => {});
 }
 
 function init() {
@@ -1148,6 +1194,11 @@ function init() {
     catch { btn.textContent = "Copy failed"; }
     setTimeout(() => (btn.textContent = "Copy as Markdown"), 1800);
   });
+  for (const [id, key] of [["#show-reviewed", "showReviewed"], ["#hide-has", "hideHas"], ["#open-scopes", "openScopes"]]) {
+    const box = $(id); if (!box) continue;
+    box.checked = !!state[key];
+    box.addEventListener("change", () => { state[key] = box.checked; store.set(key, box.checked ? "1" : "0"); render(); });
+  }
   wireCatalog();
   stats(); tally(); picks(); render();
   connect();
