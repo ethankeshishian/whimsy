@@ -135,6 +135,15 @@
 - name: whimsy.feature.external-link-target
   value: true
 
+- name: whimsy.feature.space-manager-settings
+  value: true
+
+- name: whimsy.feature.atc-settings
+  value: true
+
+- name: whimsy.feature.archive-space
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

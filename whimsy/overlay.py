@@ -192,6 +192,13 @@ FEATURES = [
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    # batch9: spaces
+    {"id": "space-manager-settings", "title": "Settings entry point for Zen's existing per-space manager (Library \"Spaces\")",
+     "detect": [("src/browser/components/preferences", r"(?i)space\s*manager")]},
+    {"id": "atc-settings", "title": "Settings entry point renaming Zen's space-routing rules to Arc's Air Traffic Control",
+     "detect": [("src/zen", r"(?i)air traffic control")]},
+    {"id": "archive-space", "title": "Hide a space (Arc's archive/shelve): drops out of the switcher without closing its tabs; restore from Settings",
+     "detect": [("src/zen/spaces", r"(?i)archiveWorkspace|hideWorkspace|workspace\.hidden\b")]},
 ]
 
 

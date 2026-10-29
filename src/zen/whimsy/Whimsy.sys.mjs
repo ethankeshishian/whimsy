@@ -24,6 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
+  WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -125,6 +126,12 @@ export const Whimsy = {
       lazy.WhimsyUpdates.initChannel().catch(e => console.error("Whimsy: update channel", e))
     );
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
+    // batch9: spaces — after Zen's spaces are ready, like "spaces" above.
+    run("archive-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceArchive.initWindow(win))
+        .catch(e => console.error("Whimsy: archive-space", e))
+    );
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web
