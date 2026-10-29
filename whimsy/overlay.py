@@ -199,6 +199,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)air traffic control")]},
     {"id": "archive-space", "title": "Hide a space (Arc's archive/shelve): drops out of the switcher without closing its tabs; restore from Settings",
      "detect": [("src/zen/spaces", r"(?i)archiveWorkspace|hideWorkspace|workspace\.hidden\b")]},
+    {"id": "space-lock", "title": "Lock a space behind Touch ID/password (OSKeyStore) before switching to it",
+     "detect": [("src/zen/spaces", r"(?i)OSKeyStore|lockWorkspace|workspace\.locked\b")]},
 ]
 
 

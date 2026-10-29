@@ -25,6 +25,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
   WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
+  WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs", // batch9: spaces
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -131,6 +132,11 @@ export const Whimsy = {
       win.gZenWorkspaces?.promiseInitialized
         ?.then(() => lazy.WhimsySpaceArchive.initWindow(win))
         .catch(e => console.error("Whimsy: archive-space", e))
+    );
+    run("space-lock", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceLock.initWindow(win))
+        .catch(e => console.error("Whimsy: space-lock", e))
     );
   },
 

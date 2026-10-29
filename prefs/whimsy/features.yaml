@@ -144,6 +144,9 @@
 - name: whimsy.feature.archive-space
   value: true
 
+- name: whimsy.feature.space-lock
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

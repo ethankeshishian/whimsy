@@ -21,6 +21,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyTabs.sys.mjs",
     "WhimsyUpdates.sys.mjs",
     "WhimsySpaceArchive.sys.mjs",  # batch9: spaces
+    "WhimsySpaceLock.sys.mjs",  # batch9: spaces
 ]
 
 BROWSER_CHROME_MANIFESTS += [

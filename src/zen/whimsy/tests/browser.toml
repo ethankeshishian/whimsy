@@ -123,3 +123,5 @@ support-files = ["whimsy_archive.sjs"]
 
 # batch9: spaces
 ["browser_whimsy_archive_space.js"]
+
+["browser_whimsy_space_lock.js"]

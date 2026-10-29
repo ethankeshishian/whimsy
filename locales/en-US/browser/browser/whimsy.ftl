@@ -390,3 +390,14 @@ whimsy-hide-space-toast = Hid “{ $space }” — restore it from Settings → 
 whimsy-hide-space-last-toast = Can’t hide your only space
 # $space (string) - the space's name
 whimsy-restore-space-toast = Restored “{ $space }”
+
+## Lock a space — batch9: spaces
+
+whimsy-lock-space =
+    .label = Lock This Space
+whimsy-unlock-space =
+    .label = Unlock This Space
+# $space (string) - the space's name
+whimsy-lock-space-toast = Locked “{ $space }” — switching there will ask for Touch ID or your password
+# $space (string) - the space's name
+whimsy-unlock-space-toast = Unlocked “{ $space }”

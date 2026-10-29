@@ -567,3 +567,24 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 @media (prefers-reduced-motion: reduce) {
   #whimsy-reading-time { animation: none; }
 }
+
+/* batch9: spaces — a small lock glyph on a locked space's switcher icon. */
+#zen-workspaces-button toolbarbutton[whimsy-locked-space] {
+  position: relative;
+}
+#zen-workspaces-button toolbarbutton[whimsy-locked-space]::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: -2px;
+  inset-block-end: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 100%;
+  background: color-mix(in srgb, currentColor 70%, transparent);
+  -moz-context-properties: fill;
+  fill: currentColor;
+  background-image: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg");
+  background-size: 7px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
