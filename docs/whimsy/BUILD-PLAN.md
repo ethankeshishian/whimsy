@@ -142,3 +142,8 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
        do this (zen.glance.* prefs).
    - Any other Arc-vs-Zen conflict found tonight: pick Arc's behavior by
      default, keep Zen's as a setting, and list the call in the morning report.
+   - Testing (user): every feature must be thoroughly tested: a browser
+     mochitest in src/zen/whimsy/tests/ covering the main flow, the switch off,
+     and edge cases (empty state, many tabs, private/space boundaries), plus a
+     screenshot check in browser_whimsy_screens.js for anything visual. Run the
+     full `verify.sh quick` before each commit; nothing ships red.
