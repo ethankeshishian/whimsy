@@ -337,3 +337,84 @@ whimsy-look-peek-essential-links =
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
+
+## batch8: tab lifecycle — Settings → Tab Management
+
+whimsy-tabs-auto-archive =
+    .label = Auto-archive idle tabs
+whimsy-tabs-archive-idle-after = After
+whimsy-tabs-archive-idle-after-12h =
+    .label = 12 hours
+whimsy-tabs-archive-idle-after-24h =
+    .label = 24 hours
+whimsy-tabs-archive-idle-after-7d =
+    .label = 7 days
+whimsy-tabs-archive-idle-after-30d =
+    .label = 30 days
+whimsy-tabs-archive-idle-after-never =
+    .label = Never
+whimsy-tabs-archive-view =
+    .label = Archive view (command bar: “Show Archive”)
+whimsy-tabs-undo =
+    .label = Undo for tab actions (Cmd+Z)
+whimsy-tabs-snooze =
+    .label = Snooze a tab (tab menu → Snooze…)
+whimsy-tabs-fire-button =
+    .label = Fire button (command bar: “Fire Button”)
+whimsy-tabs-heavy-tabs =
+    .label = Find heavy tabs (command bar: “Find Heavy Tabs”)
+whimsy-tabs-tree-tabs =
+    .label = Tree-style tabs: nest a tab under whichever tab opened it
+whimsy-tabs-tree-style-tree =
+    .label = Tree (indented, collapsible branches)
+whimsy-tabs-tree-style-islands =
+    .label = Islands (one level, colored pill)
+
+## batch8: tab lifecycle — command bar
+
+whimsy-action-show-archive = Show Archive
+whimsy-action-fire-button = Fire Button
+whimsy-action-heavy-tabs = Find Heavy Tabs
+
+## batch8: tab lifecycle — Archive view panel
+
+whimsy-archive-panel =
+    .aria-label = Archive
+whimsy-archive-search =
+    .placeholder = Search the archive
+    .aria-label = Search the archive
+whimsy-archive-empty =
+    .value = Nothing archived yet
+whimsy-archive-restore =
+    .tooltiptext = Restore, back where it was
+
+## batch8: tab lifecycle — Snooze a tab
+
+tab-context-whimsy-snooze =
+    .label = Snooze…
+    .accesskey = z
+whimsy-snooze-panel =
+    .aria-label = Snooze tab
+whimsy-snooze-later-today = Later today
+whimsy-snooze-tomorrow = Tomorrow morning
+whimsy-snooze-next-week = Next week
+# $title (string) - the snoozed tab's title
+whimsy-snooze-toast = Snoozed “{ $title }”
+# $title (string) - the tab's title
+whimsy-snooze-wake-toast = “{ $title }” is back
+
+## batch8: tab lifecycle — Fire button
+
+whimsy-fire-panel =
+    .aria-label = Fire button
+whimsy-fire-site = This Site
+whimsy-fire-last-15-min = Last 15 Minutes
+whimsy-fire-space = This Space
+whimsy-fire-everything = Everything
+
+## batch8: tab lifecycle — Find heavy tabs
+
+whimsy-heavy-tabs-panel =
+    .aria-label = Heavy tabs
+whimsy-heavy-tabs-close-tab =
+    .tooltiptext = Close this tab

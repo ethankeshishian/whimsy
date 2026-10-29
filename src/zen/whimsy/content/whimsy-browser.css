@@ -567,3 +567,71 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 @media (prefers-reduced-motion: reduce) {
   #whimsy-reading-time { animation: none; }
 }
+
+/* batch8: tab lifecycle */
+
+/* Tree tabs: indentation per depth, a branch-line marker on parents, and
+   Islands mode's colored pill (one level, flattened). */
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="1"] { margin-inline-start: 14px; }
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="2"] { margin-inline-start: 28px; }
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="3"] { margin-inline-start: 42px; }
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="4"] { margin-inline-start: 56px; }
+:root[whimsy-tree-tabs] .tabbrowser-tab[whimsy-tree-has-children] .tab-icon-stack {
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
+}
+:root[whimsy-tree-tabs="islands"] .tabbrowser-tab[whimsy-tree-depth="1"] {
+  border-inline-start: 3px solid var(--whimsy-tree-color, currentColor);
+  margin-inline-start: 6px;
+}
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="1"],
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="2"],
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="3"],
+:root[whimsy-tree-tabs="tree"] .tabbrowser-tab[whimsy-tree-depth="4"] {
+  border-inline-start: 2px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+/* Archive view panel */
+.whimsy-archive-panel { padding: 8px; max-width: 320px; }
+.whimsy-archive-search { width: 100%; margin-bottom: 6px; box-sizing: border-box; }
+.whimsy-archive-list { max-height: 360px; overflow-y: auto; }
+.whimsy-archive-day { opacity: 0.6; font-size: 0.82em; margin-top: 6px; }
+.whimsy-archive-row { padding: 4px 2px; gap: 6px; border-radius: 4px; }
+.whimsy-archive-row:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.whimsy-archive-title { flex: 1; }
+.whimsy-archive-icon { width: 16px; height: 16px; }
+.whimsy-archive-empty { opacity: 0.6; padding: 12px 4px; text-align: center; }
+
+/* Snooze presets popover */
+#whimsySnoozePanel { padding: 4px; }
+.whimsy-snooze-preset { justify-content: flex-start; width: 100%; }
+
+/* Fire button: scope popover + a brief full-chrome flame flash. */
+#whimsyFirePanel { padding: 4px; }
+.whimsy-fire-scope { justify-content: flex-start; width: 100%; }
+:root[whimsy-fire-burning]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, orangered 55%, transparent) 0%, transparent 70%);
+  animation: whimsy-fire-flash 700ms ease-out;
+}
+@keyframes whimsy-fire-flash {
+  from { opacity: 0.9; }
+  to { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[whimsy-fire-burning]::after {
+    animation: none;
+    opacity: 0.35;
+    background: color-mix(in srgb, currentColor 20%, transparent);
+  }
+}
+
+/* Heavy tabs popover */
+#whimsyHeavyTabsPanel { padding: 6px; min-width: 260px; }
+.whimsy-heavy-tabs-group { justify-content: space-between; padding: 4px 2px; opacity: 0.7; font-size: 0.85em; }
+.whimsy-heavy-tabs-row { padding: 3px 2px; gap: 6px; }
+.whimsy-heavy-tabs-title { flex: 1; }
+.whimsy-heavy-tabs-icon { width: 16px; height: 16px; }
