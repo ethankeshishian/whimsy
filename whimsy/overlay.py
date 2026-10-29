@@ -155,6 +155,8 @@ FEATURES = [
     {"id": "playback-speed", "title": "Playback speed shortcuts (Cmd+Opt+. and ,) and the PiP speed control",
      "detect": [("src/zen/media", r"(?i)zen-media-(speed|rate)|setPlaybackRate|playback-speed"),
                 ("prefs", r"name:\s*media\.videocontrols\.picture-in-picture\.playback-speed\.enabled")]},
+    {"id": "find-selection", "title": "Cmd+F opens Find with the selected text (Chrome, Safari)",
+     "detect": [("prefs", r"name:\s*accessibility\.typeaheadfind\.prefillwithselection")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},
