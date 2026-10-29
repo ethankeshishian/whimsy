@@ -128,3 +128,10 @@
 # have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
 - name: whimsy.external-links.target
   value: tab
+
+# batch10: Library sidebar panels.
+
+# Profile subdirectory a screenshot capture is saved into (Library → Files).
+# Empty means the default, "whimsy-captures".
+- name: whimsy.captures.folder
+  value: ""

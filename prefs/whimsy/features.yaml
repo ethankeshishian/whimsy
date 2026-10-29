@@ -135,6 +135,15 @@
 - name: whimsy.feature.external-link-target
   value: true
 
+- name: whimsy.feature.notes
+  value: true
+
+- name: whimsy.feature.finder-folders
+  value: true
+
+- name: whimsy.feature.screenshot-sidebar
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

@@ -120,3 +120,10 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_wayback.js"]
 support-files = ["whimsy_archive.sjs"]
+
+# batch10: Library sidebar panels.
+["browser_whimsy_library_notes.js"]
+
+["browser_whimsy_library_finder_folders.js"]
+
+["browser_whimsy_library_files.js"]
