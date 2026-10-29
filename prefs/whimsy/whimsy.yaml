@@ -84,3 +84,8 @@
 # tab play, "off" lets every tab play.
 - name: whimsy.media.background-mute
   value: prioritize
+
+# Going back to a tab whose video is in picture-in-picture puts it back in
+# the page (Arc; Settings → Tab Management).
+- name: whimsy.media.pip-snap-back
+  value: true

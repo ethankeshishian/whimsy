@@ -18,6 +18,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
 });
 
@@ -50,6 +51,15 @@ const VOLUME_KEY = "whimsy-volume";
 const VOLUME_MENU_ID = "context_whimsyTabVolume";
 const VOLUME_PANEL_ID = "whimsy-volume-panel";
 
+// PiP snaps back (Arc): going back to a tab whose video is in a
+// picture-in-picture window puts the video back in the page, whether the
+// player opened by itself (automatic PiP, which Firefox already closes) or
+// by hand. whimsy.media.pip-snap-back (Settings → Tab Management).
+// Automatic PiP itself is Firefox's, now on by default; its checkbox is in
+// Firefox's Media settings.
+const PIP_FEATURE_PREF = "whimsy.feature.pip-snap-back";
+const PIP_PREF = "whimsy.media.pip-snap-back";
+
 export const WhimsyMedia = {
   get backgroundMuteMode() {
     if (!Services.prefs.getBoolPref(MUTE_FEATURE_PREF, true)) {
@@ -63,6 +73,13 @@ export const WhimsyMedia = {
     this.initBackgroundMute(win);
     this.initMuteSite(win);
     this.initTabVolume(win);
+    win.gBrowser.tabContainer.addEventListener("TabSelect", event => {
+      try {
+        this.snapBackPip(event.target);
+      } catch (e) {
+        console.error("Whimsy: PiP snap back", e);
+      }
+    });
   },
 
   // --- Mute background tabs ---
@@ -482,5 +499,32 @@ export const WhimsyMedia = {
     const target = anchor?.getBoundingClientRect().width ? anchor : tab;
     panel.openPopup(target, { position: "after_start", triggerEvent: null });
     return panel;
+  },
+
+  // --- PiP snaps back ---
+
+  get pipSnapBack() {
+    return Services.prefs.getBoolPref(PIP_FEATURE_PREF, true) && Services.prefs.getBoolPref(PIP_PREF, true);
+  },
+
+  // Closes the tab's picture-in-picture players, putting the video back in
+  // the page. Returns how many it closed.
+  snapBackPip(tab) {
+    const browser = tab?.linkedBrowser;
+    const PiP = lazy.PictureInPicture;
+    if (!this.pipSnapBack || !browser || !PiP.browserWeakMap.has(browser)) {
+      return 0;
+    }
+    let closed = 0;
+    for (const playerWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
+      // The player's own "Back to tab" button (its actor isn't reachable
+      // from outside the player's script).
+      const unpip = playerWin.document?.getElementById("unpip");
+      if (PiP.weakWinToBrowser.get(playerWin) === browser && unpip) {
+        unpip.click();
+        closed++;
+      }
+    }
+    return closed;
   },
 };

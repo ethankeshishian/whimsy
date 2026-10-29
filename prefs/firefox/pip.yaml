@@ -7,4 +7,4 @@
 
 # TODO: Enable once we have a proper settings page
 - name: media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled
-  value: false
+  value: true # Whimsy override

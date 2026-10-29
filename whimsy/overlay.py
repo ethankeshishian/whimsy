@@ -68,6 +68,9 @@ PREF_OVERRIDES = {
     "zen.updates.show-update-notification": False,  # Whimsy shows its own
     "zen.folders.owned-tabs-in-folder": True,    # new tabs stay in the folder
     "zen.theme.gradient.show-custom-colors": True,  # theme picker's custom colors (hex field)
+    # Automatic picture-in-picture when you leave a playing video (Arc);
+    # Zen kept it off "until a settings page"; Firefox's Media settings has it.
+    "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled": True,
 }
 
 # Strings Zen's markup uses that its .ftl files no longer define.
@@ -147,6 +150,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)context_\w*MuteSite|mute-?site\b")]},
     {"id": "tab-volume", "title": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
      "detect": [("src/zen", r"(?i)tab-?volume-?(slider|panel)|setTabVolume")]},
+    {"id": "pip-snap-back", "title": "PiP snaps back into the page when you return to its tab (Arc), automatic PiP setting",
+     "detect": [("src/zen", r"(?i)pip-?snap|snapBackPip")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},
