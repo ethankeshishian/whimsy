@@ -69,6 +69,9 @@
 - name: whimsy.feature.transparency
   value: true
 
+- name: whimsy.feature.menu-icons
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

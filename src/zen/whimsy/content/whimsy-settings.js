@@ -172,6 +172,13 @@ var gWhimsySettings = {
       group.remove();
       return;
     }
+    const prefs = [...group.querySelectorAll("[preference]")];
+    if (prefs.length) {
+      Preferences.addAll(
+        prefs.map(el => ({ id: el.getAttribute("preference"), type: el.localName == "checkbox" ? "bool" : "string" }))
+      );
+      Preferences.queueUpdateOfAllElements();
+    }
     this.initTransparency();
   },
 

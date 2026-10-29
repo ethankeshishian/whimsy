@@ -243,3 +243,5 @@ whimsy-look-transparency-value =
         [0] Off
        *[other] { $value }%
     }
+whimsy-look-menu-icons =
+    .label = Show icons in menus

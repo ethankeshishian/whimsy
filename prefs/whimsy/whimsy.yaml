@@ -69,3 +69,8 @@
 # Look and Feel, macOS). 0 is Zen's opaque look.
 - name: whimsy.look.transparency
   value: 0
+
+# Icons beside context menu and tab menu items, like macOS 26's own menus
+# (Settings → Look and Feel).
+- name: whimsy.look.menu-icons
+  value: true
