@@ -162,6 +162,8 @@ FEATURES = [
     {"id": "edit-page", "title": "Edit text on page (designMode) from the page menu and command bar",
      "detect": [("src/zen/urlbar", r"(?i)designMode|edit-?page"),
                 ("src/zen/boosts", r"designMode\s*=")]},
+    {"id": "allow-copy", "title": "Allow copy and paste on sites that block it (per site, command bar)",
+     "detect": [("src/zen", r"(?i)allow-?copy|copy-?unblock|enable-?right-?click")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},

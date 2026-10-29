@@ -263,6 +263,15 @@ whimsy-editing-pill =
     .value = Editing · Esc to finish
     .tooltiptext = Stop editing this page
 
+## Allow copy and paste (command bar)
+
+whimsy-action-allow-copy = Allow Copy and Paste on This Site
+whimsy-action-disallow-copy = Stop Allowing Copy and Paste on This Site
+# $site (string) - the site, e.g. example.com
+whimsy-allow-copy-toast = Copy, paste and right-click now work on { $site }
+# $site (string) - the site, e.g. example.com
+whimsy-disallow-copy-toast = { $site } can block copy and paste again
+
 ## Spaces
 
 # $count (number) - how many tabs moved, $space (string) - the space's name

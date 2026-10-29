@@ -10,6 +10,13 @@
 // and media elements never attached to the page aren't reached.
 const MEDIA = new WeakMap();
 
+// Allow copy and paste: the page events Whimsy keeps from the page, and the
+// sheet that undoes user-select: none.
+const COPY_EVENTS = ["copy", "cut", "paste", "contextmenu", "selectstart", "dragstart"];
+const COPY_SHEET =
+  "data:text/css," +
+  encodeURIComponent("*, *::before, *::after { user-select: text !important; -webkit-user-select: text !important; }");
+
 export class WhimsyPageChild extends JSWindowActorChild {
   // The tab's volume level (1 = as the page sets it), or null when it
   // hasn't been asked for yet.
@@ -51,6 +58,8 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.pageBounds();
       case "Whimsy:SetEditable":
         return this.setEditable(message.data.on);
+      case "Whimsy:AllowCopy":
+        return this.allowCopy(message.data.on);
     }
     return null;
   }
@@ -156,5 +165,29 @@ export class WhimsyPageChild extends JSWindowActorChild {
       this.escListener = null;
     }
     return doc.designMode == "on";
+  }
+
+  // Window capture listeners run before any of the page's own (on the
+  // document or elements), so stopping propagation there keeps the page's
+  // blockers from running; the browser's default actions still happen.
+  allowCopy(on) {
+    const win = this.contentWindow;
+    if (!win) {
+      return false;
+    }
+    if (on && !this.copyGuard) {
+      this.copyGuard = event => event.stopImmediatePropagation();
+      for (const type of COPY_EVENTS) {
+        win.addEventListener(type, this.copyGuard, true);
+      }
+      win.windowUtils.loadSheetUsingURIString(COPY_SHEET, win.windowUtils.USER_SHEET);
+    } else if (!on && this.copyGuard) {
+      for (const type of COPY_EVENTS) {
+        win.removeEventListener(type, this.copyGuard, true);
+      }
+      this.copyGuard = null;
+      win.windowUtils.removeSheetUsingURIString(COPY_SHEET, win.windowUtils.USER_SHEET);
+    }
+    return !!this.copyGuard;
   }
 }

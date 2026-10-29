@@ -14,6 +14,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
+  WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
 
@@ -27,6 +28,15 @@ const CAPTURE_FEATURE_PREF = "whimsy.feature.capture";
 const EDIT_FEATURE_PREF = "whimsy.feature.edit-page";
 const EDIT_MENU_ID = "context-whimsy-edit-page";
 const EDIT_PILL_ID = "whimsy-editing-pill";
+
+// Allow copy and paste ("Absolute Enable Right Click & Copy", "Don't
+// F*** With Paste"): on a site that blocks selecting, copying, pasting or
+// right-clicking, the command bar's "Allow Copy and Paste on This Site"
+// makes them work again, and remembers it for the site. The page's
+// copy/cut/paste/contextmenu/selectstart/dragstart handlers no longer run
+// there, and user-select: none is overridden. Off by default, per site.
+const COPY_FEATURE_PREF = "whimsy.feature.allow-copy";
+const COPY_PERMISSION = "whimsy-allow-copy";
 
 function isWebPage(win) {
   const tab = win.gBrowser.selectedTab;
@@ -42,6 +52,7 @@ export const WhimsyPage = {
   initWindow(win) {
     this.initCapture(win);
     this.initEditPage(win);
+    this.initAllowCopy(win);
   },
 
   actorFor(browser) {
@@ -216,5 +227,77 @@ export const WhimsyPage = {
       buttons ? buttons.prepend(pill) : document.getElementById("urlbar-container")?.append(pill);
     }
     pill.hidden = !editing;
+  },
+
+  // --- Allow copy and paste ---
+
+  get allowCopyEnabled() {
+    return Services.prefs.getBoolPref(COPY_FEATURE_PREF, true);
+  },
+
+  copyAllowed(browser) {
+    const site = lazy.WhimsyMedia.siteFor(browser);
+    return (
+      !!site &&
+      Services.perms.testExactPermissionFromPrincipal(site.principal, COPY_PERMISSION) == Services.perms.ALLOW_ACTION
+    );
+  },
+
+  initAllowCopy(win) {
+    const { WhimsyShortcuts } = lazy;
+    const available = (w, allowed) =>
+      this.allowCopyEnabled && !!lazy.WhimsyMedia.siteFor(w.gBrowser.selectedBrowser) && this.copyAllowed(w.gBrowser.selectedBrowser) == allowed;
+    WhimsyShortcuts.addActions([
+      {
+        l10nId: "whimsy-action-allow-copy",
+        command: w => this.toggleAllowCopy(w),
+        icon: "chrome://browser/skin/zen-icons/edit-copy.svg",
+        isAvailable: w => available(w, false),
+      },
+      {
+        l10nId: "whimsy-action-disallow-copy",
+        command: w => this.toggleAllowCopy(w),
+        icon: "chrome://browser/skin/zen-icons/edit-copy.svg",
+        isAvailable: w => available(w, true),
+      },
+    ]);
+    win.gBrowser.addTabsProgressListener({
+      onLocationChange: (browser, webProgress, request, location, flags) => {
+        if (
+          webProgress.isTopLevel &&
+          !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) &&
+          this.allowCopyEnabled &&
+          this.copyAllowed(browser)
+        ) {
+          lazy.WhimsyMedia.sendToFrames(browser, "Whimsy:AllowCopy", { on: true });
+        }
+      },
+    });
+  },
+
+  // Returns whether copying is now allowed on the current tab's site.
+  toggleAllowCopy(win, browser = win.gBrowser.selectedBrowser) {
+    const site = lazy.WhimsyMedia.siteFor(browser);
+    if (!this.allowCopyEnabled || !site) {
+      return false;
+    }
+    const allow = !this.copyAllowed(browser);
+    if (allow) {
+      const expire = site.principal.privateBrowsingId ? Services.perms.EXPIRE_SESSION : Services.perms.EXPIRE_NEVER;
+      Services.perms.addFromPrincipal(site.principal, COPY_PERMISSION, Services.perms.ALLOW_ACTION, expire);
+    } else {
+      Services.perms.removeFromPrincipal(site.principal, COPY_PERMISSION);
+    }
+    for (const other of Services.wm.getEnumerator("navigator:browser")) {
+      for (const b of other.gBrowser?.browsers ?? []) {
+        if (lazy.WhimsyMedia.siteFor(b)?.principal.equals(site.principal)) {
+          lazy.WhimsyMedia.sendToFrames(b, "Whimsy:AllowCopy", { on: allow });
+        }
+      }
+    }
+    win.gZenUIManager?.showToast?.(allow ? "whimsy-allow-copy-toast" : "whimsy-disallow-copy-toast", {
+      l10nArgs: { site: site.host },
+    });
+    return allow;
   },
 };

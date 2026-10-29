@@ -7,6 +7,9 @@ support-files = ["whimsy_slow_load.sjs"]
 
 ["browser_whimsy_ai_kill_switch.js"]
 
+["browser_whimsy_allow_copy.js"]
+support-files = ["whimsy_no_copy.html"]
+
 ["browser_whimsy_app_icon.js"]
 
 ["browser_whimsy_cookie_banners.js"]

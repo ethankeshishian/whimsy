@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>No copy</title>
+<style>body { user-select: none; -webkit-user-select: none; }</style>
+<p id="p">You can't select or copy this text.</p>
+<input id="confirm">
+<script>
+  document.addEventListener("copy", e => e.preventDefault());
+  document.addEventListener("selectstart", e => e.preventDefault());
+  document.addEventListener("contextmenu", e => e.preventDefault());
+  document.getElementById("confirm").addEventListener("paste", e => e.preventDefault());
+</script>

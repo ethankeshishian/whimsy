@@ -102,6 +102,9 @@
 - name: whimsy.feature.edit-page
   value: true
 
+- name: whimsy.feature.allow-copy
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 
