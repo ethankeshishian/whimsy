@@ -183,6 +183,8 @@ FEATURES = [
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},
+    {"id": "peek-essential-links", "title": "Settings checkbox for Zen's open-essential-external-links Glance pref",
+     "detect": [("src/browser/components/preferences", r'preference="zen\.glance\.open-essential-external-links"')]},
 ]
 
 

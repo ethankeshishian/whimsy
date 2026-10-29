@@ -69,6 +69,8 @@ support-files = ["whimsy_test_image.png"]
 
 ["browser_whimsy_open_link_in_space.js"]
 
+["browser_whimsy_peek_essential_links.js"]
+
 ["browser_whimsy_pip_snap_back.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 
