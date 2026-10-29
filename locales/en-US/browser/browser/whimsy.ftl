@@ -371,3 +371,6 @@ whimsy-look-seasonal-themes =
 
 whimsy-tabs-close-window-with-last-tab =
     .label = Close the window when the last tab closes
+
+whimsy-look-always-full-url =
+    .label = Always show the full address, not just the domain

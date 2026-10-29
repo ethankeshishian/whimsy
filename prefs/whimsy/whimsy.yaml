@@ -135,3 +135,10 @@
 # colours, and respects reduced motion.
 - name: whimsy.seasons.enabled
   value: true
+
+# batch7: full URL on click
+# Show the full, untrimmed address even without clicking the address bar
+# (Settings → Look and Feel → Look → "Always show full address"). Off:
+# Zen shows just the domain in the sidebar until you interact (Arc-style).
+- name: whimsy.urlbar.always-full-url
+  value: false

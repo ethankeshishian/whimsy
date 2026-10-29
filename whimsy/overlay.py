@@ -199,6 +199,8 @@ FEATURES = [
      "detect": [("prefs", r"name:\s*browser\.theme\.colorways\.enabled")]},
     {"id": "window-close", "title": "Cmd+W on a lone empty tab closes the window (Arc); Zen already keeps the window open otherwise",
      "detect": [("src/zen", r"(?i)zen-empty-tab[^\n]*cmd_close|cmd_close[^\n]*zen-empty-tab")]},
+    {"id": "full-url-click", "title": "A single click on the address bar selects the whole untrimmed URL (Arc, Safari)",
+     "detect": [("src/zen", r"(?i)always-full-url|full-?url-?click")]},
 ]
 
 

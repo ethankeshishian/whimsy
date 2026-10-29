@@ -27,6 +27,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // batch7: new feature modules
   WhimsySeasons: "resource:///modules/whimsy/WhimsySeasons.sys.mjs",
   WhimsyWindowClose: "resource:///modules/whimsy/WhimsyWindowClose.sys.mjs",
+  WhimsyUrlbar: "resource:///modules/whimsy/WhimsyUrlbar.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -133,6 +134,8 @@ export const Whimsy = {
     run("seasons", () => lazy.WhimsySeasons.initWindow(win));
     // batch7: Cmd+W on a lone empty tab closes the window (Arc).
     run("window-close", () => lazy.WhimsyWindowClose.initWindow(win));
+    // batch7: full URL on click.
+    run("full-url-click", () => lazy.WhimsyUrlbar.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web
