@@ -43,7 +43,7 @@ var WhimsyWindow = {
       }
     }
     links.push({
-      action: () => window.openPreferences("paneZenLooks"),
+      action: () => window.openPreferences("paneAbout"),
       l10nId: notice.rolled_back ? "whimsy-updated-settings" : "whimsy-updated-rollback",
       icon: "chrome://browser/skin/zen-icons/security-broken.svg",
     });

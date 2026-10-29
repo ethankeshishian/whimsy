@@ -35,7 +35,7 @@ The updater follows **release tags**, which sit on `dev`, and only moves forward
 
 - **Nightly (3:30 am, low priority):** waits rather than fails when on battery, below 15 GB free, while the repository isn't on a clean `main`, or while another build runs. Otherwise it syncs, updates the Firefox source if needed, builds, runs `whimsy/verify.sh gate`, fast-forwards `main`, and stages the app. Any failure resets the repository and logs why. A release that fails twice is skipped until a newer one ships.
 - **Every minute:** installs a staged build only while Whimsy is closed (never while it's open, even idle) and keeps the old app for rollback.
-- **Settings → Look and Feel → Updates:** shows status, pause/resume, check now, the log, and **Roll back**. Rolling back reopens the previous app and skips the version you left.
+- **Settings → About Whimsy:** shows status, pause/resume, check now, the log, and **Roll back**. Rolling back reopens the previous app and skips the version you left.
 - **After an install,** a one-time sidebar notice appears with Zen's release notes and a roll-back shortcut. Zen's own sweep animation plays too.
 
 ## Not done yet

@@ -38,7 +38,7 @@ Each feature has a `whimsy.feature.<id>` switch. `overlay.py` turns a feature of
 
 - `dev`: every change. Each `npm run ship` publishes a Dev build (`1.24b-w3-dev.7`, a GitHub pre-release; the newest 5 are kept).
 - `main`: what standard users get. Nightly, the updater takes `dev` plus the newest published Zen release, runs `verify.sh gate`, moves `main` there and publishes it to the Release channel (`1.24b-w3`).
-- Settings → Updates → Channel picks Release (default) or Dev (`whimsy.update-channel`); it only changes which `update.xml` Firefox's updater reads. On a Mac with the local updater installed, Firefox's updater is parked on a channel with no updates and the local updater installs builds instead (every ship; nightly releases too when the channel is Release).
+- Settings → About Whimsy → Channel picks Release (default) or Dev (`whimsy.update-channel`); it only changes which `update.xml` Firefox's updater reads. On a Mac with the local updater installed, Firefox's updater is parked on a channel with no updates and the local updater installs builds instead (every ship; nightly releases too when the channel is Release).
 - Whimsy only takes published Zen release tags, never Zen's branches.
 
 ## The updater
@@ -48,7 +48,7 @@ Each feature has a `whimsy.feature.<id>` switch. `overlay.py` turns a feature of
 - **Nightly at 3:30 am:** on `dev`, merges the newest Zen release tag after `whimsy/upstream.json`; if that or unreleased Whimsy changes need a release, builds, runs `verify.sh gate`, moves `main`, publishes (with `--publish`), and stages the result. A failure puts both branches back.
 - **Every minute:** installs a staged build once Whimsy is closed, and carries out rollbacks.
 
-State and logs are in `~/Library/Application Support/Whimsy Updater/`. The Settings → Look and Feel → Updates panel shows them. The nightly job waits while the repository has uncommitted changes or isn't on `dev`/`main`, so commit your work. It leaves the checkout on `dev`.
+State and logs are in `~/Library/Application Support/Whimsy Updater/`. Settings → About Whimsy shows them. The nightly job waits while the repository has uncommitted changes or isn't on `dev`/`main`, so commit your work. It leaves the checkout on `dev`.
 
 ## Publishing (other Macs)
 
@@ -56,7 +56,7 @@ State and logs are in `~/Library/Application Support/Whimsy Updater/`. The Setti
 
 ## Versions
 
-Whimsy's version is Zen's version plus a Whimsy revision: `1.24b-w3` (`whimsy/version.py`). The revision counts Whimsy releases on that Zen version and starts over at 1 when Zen's version changes. `whimsy/version.json` records the last release and the history; `publish.py` adds the next one (notes are the commit subjects since the last release), commits it as "Whimsy <version>", and tags `v<version>`. A build that isn't exactly a release is a dev build, `<next>-dev.N` (N = commits since the release). The compiled app version stays Zen's (changing it recompiles nearly everything; Firefox's updater orders same-version builds by build ID); the Whimsy version is `Contents/Resources/whimsy-version.json`, written when a build is staged or published and shown in Settings → Updates with the version history.
+Whimsy's version is Zen's version plus a Whimsy revision: `1.24b-w3` (`whimsy/version.py`). The revision counts Whimsy releases on that Zen version and starts over at 1 when Zen's version changes. `whimsy/version.json` records the last release and the history; `publish.py` adds the next one (notes are the commit subjects since the last release), commits it as "Whimsy <version>", and tags `v<version>`. A build that isn't exactly a release is a dev build, `<next>-dev.N` (N = commits since the release). The compiled app version stays Zen's (changing it recompiles nearly everything; Firefox's updater orders same-version builds by build ID); the Whimsy version is `Contents/Resources/whimsy-version.json`, written when a build is staged or published and shown in Settings → About Whimsy with the version history.
 
 ## Gotchas
 

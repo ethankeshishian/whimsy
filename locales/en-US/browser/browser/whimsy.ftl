@@ -21,6 +21,7 @@ whimsy-updated-settings-tooltip =
 ## Settings → Look and Feel → Updates
 
 whimsy-updates-header = Updates
+whimsy-about-header = { -brand-short-name } version and updates
 whimsy-updates-description = { -brand-short-name } follows each new Zen release and installs it the next time you quit.
 whimsy-updates-auto =
     .label = Update automatically

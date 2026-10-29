@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Whimsy's groups in Settings → Look and Feel: updates, app icon and
-// interface zoom. They live in #template-whimsyLooks and are moved into the
-// pane the first time it's shown, so Zen's settings code stays untouched.
+// Whimsy's groups in Settings: Look and Feel (app icon, interface zoom,
+// look), General → About Whimsy (version and updates), Tab Management and
+// Privacy. They live in templates and are moved into their pane the first
+// time it's shown, so Zen's settings code stays untouched.
 
 "use strict";
 
@@ -19,6 +20,8 @@ var gWhimsySettings = {
         this.insertPrivacyGroups();
       } else if (event.detail.category == "paneZenTabManagement") {
         this.insertTabsGroup();
+      } else if (["paneAbout", "paneGeneral"].includes(event.detail.category)) {
+        this.insertAboutGroup(event.detail.category);
       }
     });
   },
@@ -40,10 +43,7 @@ var gWhimsySettings = {
     if (!template) {
       return;
     }
-    Preferences.addAll([
-      { id: "whimsy.ui-zoom", type: "int" },
-      { id: "whimsy.update-channel", type: "string" },
-    ]);
+    Preferences.addAll([{ id: "whimsy.ui-zoom", type: "int" }]);
     const fragment = template.content;
     const groups = [...fragment.children];
     // Above Zen's first Look and Feel group, or at the end of the pane.
@@ -63,7 +63,6 @@ var gWhimsySettings = {
     const keep = {
       whimsyUiZoomGroup: Whimsy.featureEnabled("ui-zoom"),
       whimsyAppIconGroup: Whimsy.featureEnabled("app-icon") && AppConstants.platform == "macosx",
-      whimsyUpdatesGroup: AppConstants.platform == "macosx",
     };
     for (const [id, enabled] of Object.entries(keep)) {
       if (!enabled) {
@@ -74,9 +73,34 @@ var gWhimsySettings = {
       this.initAppIcons();
     }
     this.initLookGroup();
-    if (keep.whimsyUpdatesGroup) {
-      this.initUpdates();
+  },
+
+  // About Whimsy: in Settings' "About Firefox" pane (the settings
+  // redesign), after its Updates and Support groups; without the redesign,
+  // in General after Firefox's Updates group.
+  insertAboutGroup(category) {
+    const template = document.getElementById("template-whimsyAbout");
+    if (!template) {
+      return;
     }
+    const aboutPane = document.querySelector('setting-pane[data-category="paneAbout"]');
+    const updates = document.querySelector('#mainPrefPane > setting-group[groupid="updates"][data-category="paneGeneral"]');
+    // Wait for the pane that will hold it.
+    if ((category == "paneAbout" && !aboutPane) || (category == "paneGeneral" && (aboutPane || !updates))) {
+      return;
+    }
+    const group = template.content.firstElementChild;
+    template.remove();
+    // The updater and its history only exist on macOS.
+    if (AppConstants.platform != "macosx") {
+      return;
+    }
+    Preferences.addAll([{ id: "whimsy.update-channel", type: "string" }]);
+    group.dataset.category = category;
+    (category == "paneAbout" ? aboutPane : updates).after(group);
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+    this.initUpdates();
   },
 
   // Tab Management: new tab position and folders, sleeping tabs, title lines.

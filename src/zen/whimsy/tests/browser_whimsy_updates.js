@@ -83,12 +83,15 @@ add_task(async function test_updates_settings() {
   });
   await IOUtils.writeJSON(PathUtils.join(dir, "control.json"), { paused: false });
 
-  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
     const doc = browser.contentDocument;
     const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesGroup"));
-    await TestUtils.waitForCondition(() => group.checkVisibility(), "The Updates group is visible");
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "About Whimsy is visible");
+    is(group.dataset.category, "paneAbout", "in the About pane");
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesHeader").textContent == "Whimsy version and updates", "headed Whimsy version and updates");
+    is(group.previousElementSibling?.dataset.category, "paneAbout", "right after Firefox's About section");
     const XUL = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
-    for (const id of ["whimsyUpdatesAuto", "whimsyUpdatesCheck", "whimsyUiZoom"]) {
+    for (const id of ["whimsyUpdatesAuto", "whimsyUpdatesCheck", "whimsyUpdatesChannel"]) {
       is(doc.getElementById(id)?.namespaceURI, XUL, `#${id} is a real XUL control`);
     }
     const text = id => doc.getElementById(id).textContent;
@@ -166,7 +169,7 @@ add_task(async function test_dev_builds() {
     commit: "e169bef",
     released: false,
   });
-  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
     const doc = browser.contentDocument;
     const first = await TestUtils.waitForCondition(() => {
       const item = doc.querySelector("#whimsyUpdatesHistoryList > li");
@@ -182,7 +185,7 @@ add_task(async function test_updates_settings_for_published_installs() {
   // Installed from a published build: no local updater, Firefox's updater.
   WhimsyUpdates.isInstalled = async () => false;
   await IOUtils.remove(PathUtils.join(dir, "state.json"));
-  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
     const doc = browser.contentDocument;
     const headline = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesHeadline"));
     await TestUtils.waitForCondition(() => headline.textContent.includes(Services.appinfo.version));
@@ -212,7 +215,7 @@ add_task(async function test_update_channel() {
   await WhimsyUpdates.initChannel();
   is(UpdateUtils.UpdateChannel, "release", "Standard users are on Release");
 
-  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
     const doc = browser.contentDocument;
     const menulist = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesChannel"));
     is(menulist.namespaceURI, "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul", "A real menulist");

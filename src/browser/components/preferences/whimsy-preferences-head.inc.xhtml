@@ -3,8 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Whimsy's Settings: included into the Settings page's head by a one-line
-# hook (whimsy/overlay.py). whimsy-settings.js moves the template's groups
-# into Look and Feel when that pane is shown.
+# hook (whimsy/overlay.py). whimsy-settings.js moves each template's groups
+# into their pane when it is first shown.
 
 <link rel="localization" href="browser/whimsy.ftl"/>
 <link rel="localization" href="browser/preferences/whimsy-fallbacks.ftl"/>
@@ -13,37 +13,6 @@
 
 # The head defaults to HTML; the groups are XUL, like the page body.
 <html:template id="template-whimsyLooks" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <groupbox id="whimsyUpdatesGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
-    <label><html:h2 id="whimsyUpdatesHeader" data-l10n-id="whimsy-updates-header"/></label>
-    <description class="description-deemphasized" data-l10n-id="whimsy-updates-description"/>
-    <html:div class="whimsy-updates-status" role="status">
-      <html:span id="whimsyUpdatesHeadline" class="whimsy-updates-headline"/>
-      <html:span id="whimsyUpdatesDetail" class="whimsy-updates-detail"/>
-      <html:span id="whimsyUpdatesBase" class="whimsy-updates-detail"/>
-    </html:div>
-    <checkbox id="whimsyUpdatesAuto" data-l10n-id="whimsy-updates-auto"/>
-    <hbox align="center" class="whimsy-updates-channel">
-      <label id="whimsyUpdatesChannelLabel" control="whimsyUpdatesChannel" data-l10n-id="whimsy-updates-channel"/>
-      <menulist id="whimsyUpdatesChannel" preference="whimsy.update-channel">
-        <menupopup>
-          <menuitem value="release" data-l10n-id="whimsy-updates-channel-release"/>
-          <menuitem value="dev" data-l10n-id="whimsy-updates-channel-dev"/>
-        </menupopup>
-      </menulist>
-      <html:span id="whimsyUpdatesChannelNote" class="whimsy-updates-detail"/>
-    </hbox>
-    <html:div class="whimsy-updates-buttons">
-      <button id="whimsyUpdatesCheck" data-l10n-id="whimsy-updates-check"/>
-      <button id="whimsyUpdatesShowLog" data-l10n-id="whimsy-updates-show-log"/>
-      <button id="whimsyUpdatesRollback" data-l10n-id="whimsy-updates-rollback-none"/>
-    </html:div>
-    <html:pre id="whimsyUpdatesLog" hidden="hidden" tabindex="0" aria-labelledby="whimsyUpdatesHeader"></html:pre>
-    <html:details id="whimsyUpdatesHistory" class="whimsy-updates-history">
-      <html:summary data-l10n-id="whimsy-updates-history"/>
-      <html:ol id="whimsyUpdatesHistoryList"/>
-    </html:details>
-  </groupbox>
-
   <groupbox id="whimsyAppIconGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
     <label><html:h2 id="whimsyAppIconHeader" data-l10n-id="whimsy-app-icon-header"/></label>
     <description class="description-deemphasized" data-l10n-id="whimsy-app-icon-description"/>
@@ -121,6 +90,43 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+</html:template>
+
+# Settings → About (Firefox's About pane, "About Whimsy") → the version, updates (status,
+# Update automatically, channel, Check now / Show log / Roll back) and the
+# version history, after Firefox's own Updates group. whimsy-settings.js
+# sets its data-category to the pane it lands in.
+<html:template id="template-whimsyAbout" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyUpdatesGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
+    <label><html:h2 id="whimsyUpdatesHeader" data-l10n-id="whimsy-about-header"/></label>
+    <description class="description-deemphasized" data-l10n-id="whimsy-updates-description"/>
+    <html:div class="whimsy-updates-status" role="status">
+      <html:span id="whimsyUpdatesHeadline" class="whimsy-updates-headline"/>
+      <html:span id="whimsyUpdatesDetail" class="whimsy-updates-detail"/>
+      <html:span id="whimsyUpdatesBase" class="whimsy-updates-detail"/>
+    </html:div>
+    <checkbox id="whimsyUpdatesAuto" data-l10n-id="whimsy-updates-auto"/>
+    <hbox align="center" class="whimsy-updates-channel">
+      <label id="whimsyUpdatesChannelLabel" control="whimsyUpdatesChannel" data-l10n-id="whimsy-updates-channel"/>
+      <menulist id="whimsyUpdatesChannel" preference="whimsy.update-channel">
+        <menupopup>
+          <menuitem value="release" data-l10n-id="whimsy-updates-channel-release"/>
+          <menuitem value="dev" data-l10n-id="whimsy-updates-channel-dev"/>
+        </menupopup>
+      </menulist>
+      <html:span id="whimsyUpdatesChannelNote" class="whimsy-updates-detail"/>
+    </hbox>
+    <html:div class="whimsy-updates-buttons">
+      <button id="whimsyUpdatesCheck" data-l10n-id="whimsy-updates-check"/>
+      <button id="whimsyUpdatesShowLog" data-l10n-id="whimsy-updates-show-log"/>
+      <button id="whimsyUpdatesRollback" data-l10n-id="whimsy-updates-rollback-none"/>
+    </html:div>
+    <html:pre id="whimsyUpdatesLog" hidden="hidden" tabindex="0" aria-labelledby="whimsyUpdatesHeader"></html:pre>
+    <html:details id="whimsyUpdatesHistory" class="whimsy-updates-history">
+      <html:summary data-l10n-id="whimsy-updates-history"/>
+      <html:ol id="whimsyUpdatesHistoryList"/>
+    </html:details>
+  </groupbox>
 </html:template>
 
 # Settings → Tab Management: Whimsy's tab options, after Zen's workspaces

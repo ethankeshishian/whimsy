@@ -111,7 +111,7 @@ add_task(async function settings_updates() {
   WhimsyUpdates.versionFile = PathUtils.join(dir, "whimsy-version.json");
   WhimsyUpdates.isInstalled = async () => true;
   try {
-    await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+    await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
       const doc = browser.contentDocument;
       const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesGroup"));
       await TestUtils.waitForCondition(() => group.checkVisibility(), "Updates settings visible");
