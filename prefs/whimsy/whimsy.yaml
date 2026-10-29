@@ -107,3 +107,8 @@
 # The Wayback Machine availability API the bar asks (empty: archive.org's).
 - name: whimsy.archive.api
   value: ""
+
+# "View Image Info" on the image context menu: size, dimensions, type and
+# alt text (Firefox hid it in Fx88).
+- name: browser.menu.showViewImageInfo
+  value: true

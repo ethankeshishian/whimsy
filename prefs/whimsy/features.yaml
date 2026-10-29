@@ -108,6 +108,9 @@
 - name: whimsy.feature.wayback
   value: true
 
+- name: whimsy.feature.image-info
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

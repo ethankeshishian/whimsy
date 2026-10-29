@@ -166,6 +166,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)allow-?copy|copy-?unblock|enable-?right-?click")]},
     {"id": "wayback", "title": "Internet Archive for dead pages (bar on 404/5xx/DNS errors, command bar)",
      "detect": [("src/zen", r"(?i)wayback|archive\.org/wayback")]},
+    {"id": "image-info", "title": "View Image Info on the image context menu",
+     "detect": [("prefs", r"name:\s*browser\.menu\.showViewImageInfo")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},

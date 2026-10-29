@@ -45,6 +45,9 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_group_domain.js"]
 
+["browser_whimsy_image_info.js"]
+support-files = ["whimsy_test_image.png"]
+
 ["browser_whimsy_loading_line.js"]
 
 ["browser_whimsy_hex_colors.js"]
