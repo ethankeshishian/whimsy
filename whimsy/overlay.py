@@ -219,6 +219,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)inbox-?zero")]},
     {"id": "site-user-agent", "title": "Per-site user agent (\"Pretend to be...\"): Chrome, Safari (macOS/iPhone) or custom, per site",
      "detect": [("src/zen", r"(?i)pretend to be|site-?user-?agent|per-?site.*user.?agent")]},
+    {"id": "cookie-editor", "title": "Cookie editor: list, edit, add, delete and copy-as-JSON a site's cookies",
+     "detect": [("src/zen", r"(?i)cookie-?editor")]},
 ]
 
 

@@ -425,3 +425,14 @@ whimsy-useragent-safari-mac =
     .label = Safari (macOS)
 whimsy-useragent-safari-iphone =
     .label = Safari (iPhone)
+
+## batch7: cookie editor
+
+whimsy-action-cookie-editor = Cookies
+whimsy-cookie-editor-add =
+    .label = Add
+whimsy-cookie-editor-copy-all =
+    .label = Copy All as JSON
+whimsy-cookie-editor-delete =
+    .label = Delete
+whimsy-cookie-editor-copied-toast = Cookies copied

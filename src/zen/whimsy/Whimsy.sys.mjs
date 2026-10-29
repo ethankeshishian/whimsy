@@ -33,6 +33,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCheatSheet: "resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs",
   WhimsyDelight: "resource:///modules/whimsy/WhimsyDelight.sys.mjs",
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
+  WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -176,6 +177,21 @@ export const Whimsy = {
           command: "whimsy-useragent-picker",
           icon: "chrome://browser/skin/zen-icons/globe.svg",
           isAvailable: () => lazy.WhimsyUserAgent.enabled,
+        },
+      ]);
+    });
+    // batch7: cookie editor.
+    run("cookie-editor", () => {
+      lazy.WhimsyShortcuts.addCommand(win, {
+        id: "whimsy-cookie-editor",
+        run: w => lazy.WhimsyCookieEditor.enabled && lazy.WhimsyCookieEditor.open(w),
+      });
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-cookie-editor",
+          command: "whimsy-cookie-editor",
+          icon: "chrome://browser/skin/zen-icons/cookies-fill.svg",
+          isAvailable: () => lazy.WhimsyCookieEditor.enabled,
         },
       ]);
     });
