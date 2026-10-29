@@ -662,3 +662,98 @@ Object.assign(gWhimsySettings, {
     }
   },
 });
+
+// tierC-claude: Settings → Privacy & Security → Claude. Its own paneshown
+// listener and Object.assign, like the spaces group above.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "panePrivacy") {
+    gWhimsySettings.insertClaudeGroup();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertClaudeGroup() {
+    const template = document.getElementById("template-whimsyClaude");
+    if (!template) {
+      return;
+    }
+    const group = template.content.firstElementChild;
+    const featureOn = this.lazy.Whimsy.featureEnabled("claude-space");
+    template.remove();
+    if (!featureOn) {
+      return;
+    }
+    const anchor =
+      document.getElementById("whimsyPrivateGroup") ||
+      document.getElementById("whimsyStripTrackingGroup");
+    if (anchor) {
+      anchor.after(group);
+    } else {
+      const before =
+        document.getElementById("nonTechnicalPrivacyGroup") ||
+        document.querySelector('[groupid="nonTechnicalPrivacy2"]');
+      if (before) {
+        before.before(group);
+      } else {
+        document.getElementById("mainPrefPane").append(group);
+      }
+    }
+    group.hidden = false;
+    this.initClaudeGroup();
+  },
+
+  initClaudeGroup() {
+    const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
+    this.initPrefCheckbox("whimsyClaudeEnable", "whimsy.claude.enabled");
+    this.initPrefCheckbox("whimsyClaudeWholeBrowser", "whimsy.claude.whole-browser");
+    this.initPrefCheckbox("whimsyClaudeAsk", "whimsy.claude.ask-per-site");
+    const $ = id => document.getElementById(id);
+    const status = $("whimsyClaudeStatus");
+    const copy = value => {
+      if (!value) {
+        return;
+      }
+      Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(value);
+      document.l10n.setAttributes(status, "whimsy-claude-copied");
+    };
+    // The command and JSON only exist while the server runs; it starts a
+    // moment after the switch is turned on.
+    const refresh = () => {
+      const enabled = Services.prefs.getBoolPref("whimsy.claude.enabled", false);
+      const blocked = Services.prefs.getBoolPref("whimsy.ai.blocked", false);
+      $("whimsyClaudeAIBlocked").hidden = !blocked;
+      $("whimsyClaudeEnable").disabled = blocked;
+      $("whimsyClaudeWholeBrowser").disabled = !enabled || blocked;
+      $("whimsyClaudeAsk").disabled = !enabled || blocked;
+      const info = WhimsyClaude.connectInfo();
+      $("whimsyClaudeConnect").hidden = !info;
+      $("whimsyClaudeCommand").textContent = info?.command ?? "";
+      $("whimsyClaudeJSON").textContent = info?.json ?? "";
+    };
+    $("whimsyClaudeCopyCommand").addEventListener("command", () => copy(WhimsyClaude.connectInfo()?.command));
+    $("whimsyClaudeCopyJSON").addEventListener("command", () => copy(WhimsyClaude.connectInfo()?.json));
+    $("whimsyClaudeNewToken").addEventListener("command", () => {
+      WhimsyClaude.regenerateToken();
+      document.l10n.setAttributes(status, "whimsy-claude-new-token-note");
+    });
+    $("whimsyClaudeForgetSites").addEventListener("command", () => WhimsyClaude.forgetSitePermissions());
+    const prefs = ["whimsy.claude.enabled", "whimsy.ai.blocked"];
+    for (const pref of prefs) {
+      Services.prefs.addObserver(pref, refresh);
+    }
+    Services.obs.addObserver(refresh, "whimsy-claude-changed");
+    window.addEventListener(
+      "unload",
+      () => {
+        for (const pref of prefs) {
+          Services.prefs.removeObserver(pref, refresh);
+        }
+        Services.obs.removeObserver(refresh, "whimsy-claude-changed");
+      },
+      { once: true }
+    );
+    // Settings may open before any browser window started the module.
+    WhimsyClaude.init();
+    refresh();
+  },
+});

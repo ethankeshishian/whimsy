@@ -739,3 +739,59 @@ whimsy-devmode-console =
     .label = Console
 whimsy-devmode-network =
     .label = Network
+
+## tierC-claude: the Claude space
+
+whimsy-claude-space-name = Claude
+whimsy-claude-bar = Claude is using this tab.
+whimsy-claude-stop =
+    .label = Stop Claude
+    .accesskey = S
+whimsy-claude-stopped-toast = Claude stopped. Turn it back on in Settings.
+whimsy-claude-confirm-title = Allow Claude on this site?
+# $host (String) - the site, e.g. example.com
+# $action (String) - the tool Claude wants to use
+whimsy-claude-confirm-text =
+    { $action ->
+        [click] Claude wants to click on { $host }.
+        [type] Claude wants to type on { $host }.
+        [key] Claude wants to press keys on { $host }.
+        [form_input] Claude wants to fill in a form on { $host }.
+        [read_page] Claude wants to read { $host }, which is outside the Claude space.
+        [get_page_text] Claude wants to read { $host }, which is outside the Claude space.
+        [find] Claude wants to read { $host }, which is outside the Claude space.
+        [screenshot] Claude wants to take a screenshot of { $host }, which is outside the Claude space.
+        [navigate] Claude wants to load a new page in your { $host } tab, which is outside the Claude space.
+        [tabs_close] Claude wants to close your { $host } tab, which is outside the Claude space.
+       *[other] Claude wants to use { $host }.
+    }
+whimsy-claude-confirm-once = Allow once
+whimsy-claude-confirm-always = Always allow on this site
+whimsy-claude-confirm-deny = Don’t allow
+
+## tierC-claude: Settings → Privacy & Security → Claude
+
+whimsy-claude-header =
+    .label = Claude
+whimsy-claude-enable =
+    .label = Let Claude use { -brand-short-name }
+    .description = Claude Code can open, read and use tabs in the Claude space, like Claude in Chrome. Tabs Claude is using glow and show a Stop button. Only apps on this Mac with the token below can connect.
+whimsy-claude-whole-browser =
+    .label = Let Claude use any tab, not just the Claude space
+    .description = Private tabs and Scratch are always off-limits, and so are passwords.
+whimsy-claude-ask =
+    .label = Ask before Claude clicks, types or fills in forms on a new site
+whimsy-claude-ai-blocked = Claude is unavailable while all AI features are turned off.
+whimsy-claude-connect-heading = Connect Claude Code
+whimsy-claude-connect-intro = Run this in Terminal once:
+whimsy-claude-connect-json-intro = Or add this to an MCP config file (.mcp.json):
+whimsy-claude-copy-command =
+    .label = Copy Command
+whimsy-claude-copy-json =
+    .label = Copy JSON
+whimsy-claude-new-token =
+    .label = New Token
+whimsy-claude-forget-sites =
+    .label = Forget Allowed Sites
+whimsy-claude-copied = Copied
+whimsy-claude-new-token-note = The old token no longer works. Run the new command to reconnect.

@@ -97,3 +97,33 @@
     margin-block-end: 0;
   }
 }
+
+/* tierC-claude: Settings → Privacy & Security → Claude: the connect helper. */
+.whimsy-claude-connect {
+  margin-block-start: var(--space-medium, 8px);
+}
+
+.whimsy-claude-connect-heading {
+  margin-block: 0 var(--space-xsmall, 4px);
+  font-weight: var(--font-weight-bold, 600);
+}
+
+.whimsy-claude-code {
+  margin: 0 0 var(--space-medium, 8px);
+  padding: var(--space-small, 6px) var(--space-medium, 8px);
+  border: 1px solid var(--border-color, color-mix(in srgb, currentColor 20%, transparent));
+  border-radius: var(--border-radius-small, 4px);
+  background: var(--background-color-box, transparent);
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+  max-height: 12em;
+  overflow: auto;
+}
+
+.whimsy-claude-buttons {
+  flex-wrap: wrap;
+  gap: var(--space-small, 6px);
+}

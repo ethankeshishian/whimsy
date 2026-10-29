@@ -208,3 +208,7 @@ support-files = ["whimsy_upload.html"]
 # linear: Linear live folder ("My Issues": assigned to you, open states).
 ["browser_whimsy_live_folders_linear.js"]
 support-files = ["whimsy_linear.sjs"]
+
+# tierC-claude: the Claude space (local MCP server, scope, Stop).
+["browser_whimsy_claude_space.js"]
+support-files = ["whimsy_claude.html"]

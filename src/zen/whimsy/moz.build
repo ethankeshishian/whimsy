@@ -75,6 +75,10 @@ EXTRA_JS_MODULES.whimsy += [
     # linear: Linear live folder ("My Issues": assigned to you, open states).
     "WhimsyLiveFolderFetch.sys.mjs",
     "WhimsyLinearLiveFolder.sys.mjs",
+    # tierC-claude: the Claude space (local MCP server + page actor).
+    "WhimsyClaude.sys.mjs",
+    "WhimsyClaudeChild.sys.mjs",
+    "WhimsyClaudeParent.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

@@ -300,6 +300,9 @@ FEATURES = [
     # linear: Linear live folder ("My Issues": assigned to you, open states).
     {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
      "detect": [("src/zen/live-folders", r"(?i)linear")]},
+    # tierC-claude: the Claude space (Claude in Chrome parity via a local MCP server).
+    {"id": "claude-space", "title": "Claude space: a local MCP server lets Claude Code read and use tabs in a dedicated Claude space (off until turned on in Settings)",
+     "detect": [("src/zen", r"(?i)mcp-?server|claude-?space|modelcontextprotocol")]},
 ]
 
 
