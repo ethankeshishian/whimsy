@@ -99,6 +99,9 @@
 - name: whimsy.feature.capture
   value: true
 
+- name: whimsy.feature.edit-page
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

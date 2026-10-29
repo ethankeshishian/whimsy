@@ -49,6 +49,8 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.setRate(message.data);
       case "Whimsy:PageBounds":
         return this.pageBounds();
+      case "Whimsy:SetEditable":
+        return this.setEditable(message.data.on);
     }
     return null;
   }
@@ -130,5 +132,29 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const width = win.innerWidth + win.scrollMaxX - left;
     const height = win.innerHeight + win.scrollMaxY - top;
     return { left, top, right: left + width, bottom: top + height, width, height, devicePixelRatio: win.devicePixelRatio };
+  }
+
+  // Edit text on page: designMode, with Esc to finish.
+  setEditable(on) {
+    const doc = this.document;
+    if (!doc) {
+      return false;
+    }
+    doc.designMode = on ? "on" : "off";
+    const win = this.contentWindow;
+    if (on && !this.escListener) {
+      this.escListener = event => {
+        if (event.key == "Escape" && !event.defaultPrevented) {
+          event.preventDefault();
+          this.setEditable(false);
+          this.sendAsyncMessage("Whimsy:EditingEnded");
+        }
+      };
+      win.addEventListener("keydown", this.escListener, true);
+    } else if (!on && this.escListener) {
+      win.removeEventListener("keydown", this.escListener, true);
+      this.escListener = null;
+    }
+    return doc.designMode == "on";
   }
 }

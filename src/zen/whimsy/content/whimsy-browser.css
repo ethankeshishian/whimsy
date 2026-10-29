@@ -529,3 +529,27 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   font-variant-numeric: tabular-nums;
   opacity: 0.75;
 }
+
+/* Edit text on page: the "Editing" pill in the address bar. */
+#whimsy-editing-pill {
+  margin-inline: 4px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  color: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+  animation: whimsy-pill-in 160ms ease-out;
+}
+#whimsy-editing-pill:hover {
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 32%, transparent);
+}
+#whimsy-editing-pill > label {
+  margin: 0;
+}
+@keyframes whimsy-pill-in {
+  from { opacity: 0; transform: scale(0.92); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-editing-pill { animation: none; }
+}

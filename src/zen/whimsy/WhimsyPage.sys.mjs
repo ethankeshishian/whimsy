@@ -19,6 +19,15 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const CAPTURE_FEATURE_PREF = "whimsy.feature.capture";
 
+// Edit text on page (the designMode bookmarklet): turn it on from the page
+// menu or the command bar, click anywhere and type, then press Esc (or
+// click the "Editing" pill in the address bar) to finish. People use it to
+// try copy changes, redact a screenshot, or test text lengths. It's per
+// page: reloading or leaving the page ends it.
+const EDIT_FEATURE_PREF = "whimsy.feature.edit-page";
+const EDIT_MENU_ID = "context-whimsy-edit-page";
+const EDIT_PILL_ID = "whimsy-editing-pill";
+
 function isWebPage(win) {
   const tab = win.gBrowser.selectedTab;
   const uri = tab.linkedBrowser?.currentURI;
@@ -32,6 +41,11 @@ export const WhimsyPage = {
 
   initWindow(win) {
     this.initCapture(win);
+    this.initEditPage(win);
+  },
+
+  actorFor(browser) {
+    return browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage") ?? null;
   },
 
   // --- Capture ---
@@ -84,5 +98,123 @@ export const WhimsyPage = {
     win.gZenUIManager?.showToast?.("whimsy-capture-copied-toast");
     const ratio = rect.devicePixelRatio || 1;
     return { width: canvas.width / ratio, height: canvas.height / ratio };
+  },
+
+  // --- Edit text on page ---
+
+  get editPageEnabled() {
+    return Services.prefs.getBoolPref(EDIT_FEATURE_PREF, true);
+  },
+
+  initEditPage(win) {
+    const { document, gBrowser } = win;
+    const { WhimsyShortcuts } = lazy;
+    WhimsyShortcuts.addCommand(win, {
+      id: "cmd_whimsyEditPage",
+      run: w => this.toggleEditing(w),
+    });
+    WhimsyShortcuts.addActions([
+      {
+        l10nId: "whimsy-action-edit-page",
+        command: "cmd_whimsyEditPage",
+        icon: "chrome://browser/skin/zen-icons/edit-theme.svg",
+        isAvailable: w => this.editPageEnabled && isWebPage(w),
+      },
+    ]);
+    const menu = document.getElementById("contentAreaContextMenu");
+    menu?.addEventListener("popupshowing", event => {
+      if (event.target == menu) {
+        this.updateEditMenu(win);
+      }
+    });
+    gBrowser.tabContainer.addEventListener("TabSelect", () => this.updateEditPill(win));
+    gBrowser.addTabsProgressListener({
+      onLocationChange: (browser, webProgress, request, location, flags) => {
+        if (webProgress.isTopLevel && !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) && browser.whimsyEditing) {
+          browser.whimsyEditing = false;
+          this.updateEditPill(win);
+        }
+      },
+    });
+  },
+
+  updateEditMenu(win) {
+    const { document } = win;
+    let item = document.getElementById(EDIT_MENU_ID);
+    const context = win.gContextMenu;
+    const show = this.editPageEnabled && isWebPage(win) && !!context && !context.onTextInput && !context.onEditable;
+    if (!show) {
+      if (item) {
+        item.hidden = true;
+      }
+      return;
+    }
+    if (!item) {
+      item = document.createXULElement("menuitem");
+      item.id = EDIT_MENU_ID;
+      item.setAttribute("type", "checkbox");
+      document.l10n.setAttributes(item, "whimsy-context-edit-page");
+      item.addEventListener("command", () => this.toggleEditing(win));
+      const anchor = document.getElementById("context-take-screenshot");
+      anchor ? anchor.after(item) : document.getElementById("contentAreaContextMenu").appendChild(item);
+    }
+    item.hidden = false;
+    item.toggleAttribute("checked", !!win.gBrowser.selectedBrowser.whimsyEditing);
+  },
+
+  // Turns editing on or off for the current page; returns whether it's on.
+  async toggleEditing(win, on = !win.gBrowser.selectedBrowser.whimsyEditing) {
+    const browser = win.gBrowser.selectedBrowser;
+    if (on && (!this.editPageEnabled || !isWebPage(win))) {
+      return false;
+    }
+    const actor = this.actorFor(browser);
+    if (!actor) {
+      return false;
+    }
+    const editing = await actor.sendQuery("Whimsy:SetEditable", { on });
+    browser.whimsyEditing = editing;
+    this.updateEditPill(win);
+    if (editing) {
+      win.gZenUIManager?.showToast?.("whimsy-edit-page-toast");
+    }
+    return editing;
+  },
+
+  // From the page: Esc ended editing.
+  onEditingEnded(browser) {
+    browser.whimsyEditing = false;
+    const win = browser.ownerDocument?.defaultView;
+    if (win) {
+      this.updateEditPill(win);
+    }
+  },
+
+  updateEditPill(win) {
+    const { document } = win;
+    const editing = !!win.gBrowser.selectedBrowser?.whimsyEditing;
+    let pill = document.getElementById(EDIT_PILL_ID);
+    if (!pill) {
+      if (!editing) {
+        return;
+      }
+      pill = document.createXULElement("hbox");
+      pill.id = EDIT_PILL_ID;
+      pill.setAttribute("align", "center");
+      pill.setAttribute("role", "button");
+      pill.setAttribute("tabindex", "0");
+      const label = document.createXULElement("label");
+      document.l10n.setAttributes(label, "whimsy-editing-pill");
+      pill.append(label);
+      pill.addEventListener("click", () => this.toggleEditing(win, false));
+      pill.addEventListener("keydown", event => {
+        if (event.key == "Enter" || event.key == " ") {
+          this.toggleEditing(win, false);
+        }
+      });
+      const buttons = document.getElementById("page-action-buttons");
+      buttons ? buttons.prepend(pill) : document.getElementById("urlbar-container")?.append(pill);
+    }
+    pill.hidden = !editing;
   },
 };

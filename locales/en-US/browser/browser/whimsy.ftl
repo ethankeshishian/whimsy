@@ -252,6 +252,17 @@ whimsy-action-copy-full-page = Copy Full-Page Screenshot
 whimsy-capture-copied-toast = Copied a screenshot of the whole page
 whimsy-capture-failed-toast = This page can’t be captured
 
+## Edit text on page (page context menu, command bar, address bar pill)
+
+whimsy-action-edit-page = Edit Text on Page
+whimsy-context-edit-page =
+    .label = Edit Text on Page
+    .accesskey = x
+whimsy-edit-page-toast = Click any text to edit it. Press Esc to finish.
+whimsy-editing-pill =
+    .value = Editing · Esc to finish
+    .tooltiptext = Stop editing this page
+
 ## Spaces
 
 # $count (number) - how many tabs moved, $space (string) - the space's name

@@ -8,6 +8,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
+  WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
 });
 
 export class WhimsyPageParent extends JSWindowActorParent {
@@ -21,6 +22,13 @@ export class WhimsyPageParent extends JSWindowActorParent {
     switch (message.name) {
       case "Whimsy:VolumeLevel":
         return lazy.WhimsyMedia.volumeFor(this.tab);
+      case "Whimsy:EditingEnded": {
+        const browser = this.browsingContext.top.embedderElement;
+        if (browser) {
+          lazy.WhimsyPage.onEditingEnded(browser);
+        }
+        return null;
+      }
     }
     return null;
   }
