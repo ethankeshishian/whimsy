@@ -44,6 +44,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // batch9p: Scratch and private tabs
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  // batch13: page & reading
+  WhimsyBionicReading: "resource:///modules/whimsy/WhimsyBionicReading.sys.mjs",
+  WhimsyMenuBarExtra: "resource:///modules/whimsy/WhimsyMenuBarExtra.sys.mjs",
+  WhimsyPrintClean: "resource:///modules/whimsy/WhimsyPrintClean.sys.mjs",
+  WhimsySplitFavorites: "resource:///modules/whimsy/WhimsySplitFavorites.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -189,6 +194,12 @@ export const Whimsy = {
     // a private tab must stay private even with the switch off; the
     // shortcuts check the switch and setting on each use.
     run("private", () => lazy.WhimsyPrivate.initWindow(win));
+    // batch13: page & reading. Once per session (each checks its own
+    // switch and macOS gate on use).
+    run("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
+    run("bionic-reading", () => lazy.WhimsyBionicReading.init());
+    run("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
+    run("split-favorites", () => lazy.WhimsySplitFavorites.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

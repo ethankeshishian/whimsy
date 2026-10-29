@@ -579,3 +579,37 @@ tab-context-whimsy-follow =
 tab-context-whimsy-unfollow =
     .label = Stop Following
     .accesskey = F
+## batch13: page & reading
+
+## Print a clean page (command bar)
+
+whimsy-action-print-clean = Print a Clean Page
+
+## Pin or favorite a split (command bar)
+
+whimsy-action-favorite-split = Favorite This Split
+whimsy-action-open-split-favorites = Open a Favorite Split…
+whimsy-split-favorite-name-title = Favorite This Split
+whimsy-split-favorite-name-prompt = Name this split, so it's easy to find later:
+whimsy-split-favorite-saved-toast = Split saved to your favorites
+whimsy-split-favorites-empty =
+    .value = No favorite splits yet. Favorite one from the command bar.
+whimsy-split-favorite-remove =
+    .label = Remove
+    .tooltiptext = Remove this favorite
+
+## Bionic reading (Reader View toolbar button)
+
+whimsy-bionic-reading-toggle =
+    .title = Bionic reading: bolds the start of each word
+
+## Menu bar extra (macOS status bar icon)
+
+whimsy-menu-bar-extra-quick-window = New Quick Window
+whimsy-menu-bar-extra-no-recent-tabs =
+    .label = No Recently Closed Tabs
+
+## Settings → Look and Feel → Look: menu bar extra
+
+whimsy-look-menu-bar-extra =
+    .label = Show a menu bar icon for a quick window and recent tabs

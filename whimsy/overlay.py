@@ -246,6 +246,15 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
     {"id": "follower-tabs", "title": "Follower tabs: a 2-pane split where clicked links land in the other pane, the source pane never navigates (Vivaldi)",
      "detect": [("src/zen", r"(?i)follower-?tabs?|follower-?split")]},
+    # batch13: page & reading (split favorites, bionic reading, print a clean page, menu bar extra)
+    {"id": "split-favorites", "title": "Pin or favorite a split (reopen it with one click)",
+     "detect": [("src/zen", r"(?i)favorite[\w.-]*split|split[\w.-]*favorite")]},
+    {"id": "bionic-reading", "title": "Bionic (guided) reading in Reader View",
+     "detect": [("src/zen", r"(?i)bionic[\w.-]*read")]},
+    {"id": "print-clean", "title": "Print a clean page (Reader View, then print, leaving the tab alone)",
+     "detect": [("src/zen", r"(?i)print[\w.-]*clean[\w.-]*page")]},
+    {"id": "menu-bar-extra", "title": "Menu bar extra (macOS): quick window and recent tabs",
+     "detect": [("src/zen", r"(?i)menu[\w.-]*bar[\w.-]*extra|systemstatusbar")]},
 ]
 
 
