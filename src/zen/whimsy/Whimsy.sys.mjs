@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
+  WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
   WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
@@ -120,6 +121,8 @@ export const Whimsy = {
     run("page", () => lazy.WhimsyPage.initWindow(win));
     // batch6: split view extras; each action checks its own switch.
     run("split", () => lazy.WhimsySplit.initWindow(win));
+    // batch6: command bar extras ("/" filter, "New ..." actions).
+    run("command-bar", () => lazy.WhimsyCommandBar.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

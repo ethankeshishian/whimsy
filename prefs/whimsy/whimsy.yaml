@@ -134,3 +134,8 @@
 # Settings -> Tab Management -> Tabs.
 - name: whimsy.splitlink.shift-click
   value: false
+
+# batch6 #16: what the command bar's "New Note" action opens. "none" hides
+# it. Settings -> Tab Management -> Tabs.
+- name: whimsy.new-note.target
+  value: none

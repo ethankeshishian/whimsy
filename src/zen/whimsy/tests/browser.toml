@@ -20,6 +20,8 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_capture.js"]
 
+["browser_whimsy_command_bar_extras.js"]
+
 ["browser_whimsy_collapse_pinned.js"]
 
 ["browser_whimsy_copy.js"]

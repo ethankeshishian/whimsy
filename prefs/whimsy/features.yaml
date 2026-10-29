@@ -147,6 +147,12 @@
 - name: whimsy.feature.split-command-bar
   value: true
 
+- name: whimsy.feature.command-bar-slash
+  value: true
+
+- name: whimsy.feature.command-bar-create
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

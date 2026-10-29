@@ -201,6 +201,10 @@ FEATURES = [
      "detect": [("src/zen/split-view", r"cmd_zen[\w]*SwapPanes|swapPanes\(")]},
     {"id": "split-command-bar", "title": "Split Vertically/Horizontally/Grid in the command bar",
      "detect": [("src/zen/urlbar", r"zen-action-split-(vertically|horizontally|grid)")]},
+    {"id": "command-bar-slash", "title": "Typing \"/\" in the URL bar enters Zen's commands mode",
+     "detect": [("src/zen/urlbar", r'ZEN_ACTIONS[\s\S]{0,400}["\']/["\']|["\']/["\'][\s\S]{0,200}enableCommandsMode')]},
+    {"id": "command-bar-create", "title": "Arc-style \"New ...\" actions (docs.new etc.) in the command bar",
+     "detect": [("src/zen/urlbar", r"docs\.new|zen-action-new-doc")]},
 ]
 
 
