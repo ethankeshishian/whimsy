@@ -23,6 +23,7 @@ EXTRA_JS_MODULES.whimsy += [
     # batch7: new feature modules
     "WhimsyDownloads.sys.mjs",
     "WhimsySeasons.sys.mjs",
+    "WhimsySidebarNav.sys.mjs",
     "WhimsyUrlbar.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
 ]

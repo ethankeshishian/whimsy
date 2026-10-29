@@ -156,6 +156,9 @@
 - name: whimsy.feature.drag-downloads
   value: true
 
+- name: whimsy.feature.sidebar-nav
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

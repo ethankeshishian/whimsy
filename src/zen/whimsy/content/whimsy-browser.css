@@ -604,3 +604,10 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 @media (prefers-reduced-motion: reduce) {
   :root[whimsy-season-flourish] #zen-appcontent-wrapper::after { animation: none; }
 }
+
+/* batch7: keyboard sidebar navigation's visible focus ring. */
+tab[whimsy-sidebar-focused] {
+  outline: 2px solid var(--zen-primary-color, AccentColor);
+  outline-offset: -2px;
+  border-radius: var(--zen-border-radius, 6px);
+}

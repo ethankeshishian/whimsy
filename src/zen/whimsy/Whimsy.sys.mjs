@@ -29,6 +29,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyWindowClose: "resource:///modules/whimsy/WhimsyWindowClose.sys.mjs",
   WhimsyUrlbar: "resource:///modules/whimsy/WhimsyUrlbar.sys.mjs",
   WhimsyDownloads: "resource:///modules/whimsy/WhimsyDownloads.sys.mjs",
+  WhimsySidebarNav: "resource:///modules/whimsy/WhimsySidebarNav.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -143,6 +144,8 @@ export const Whimsy = {
       lazy.WhimsyDownloads.init().catch(e => console.error("Whimsy: downloads", e));
       lazy.WhimsyDownloads.initWindow(win);
     });
+    // batch7: keyboard sidebar navigation (Arc).
+    run("sidebar-nav", () => lazy.WhimsySidebarNav.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

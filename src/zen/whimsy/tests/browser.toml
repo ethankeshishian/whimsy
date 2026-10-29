@@ -131,3 +131,5 @@ support-files = ["whimsy_archive.sjs"]
 
 ["browser_whimsy_downloads.js"]
 support-files = ["whimsy_slow_download.sjs"]
+
+["browser_whimsy_sidebar_nav.js"]
