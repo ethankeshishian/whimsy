@@ -16,7 +16,7 @@ fails twice is skipped until a newer one comes out.
 
 State lives in ~/Library/Application Support/Whimsy Updater:
   state.json    for the browser's Settings (WhimsyUpdates.sys.mjs)
-  control.json  from the browser: paused, check_requested, rollback
+  control.json  from the browser: paused, check_requested, rollback, channel, app_icon
   staged/ previous/   app bundles
   logs/update.log
 """
@@ -536,6 +536,10 @@ def cmd_publish_dev():
 
 # ---- installing --------------------------------------------------------------
 
+LSREGISTER = ("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework"
+              "/Support/lsregister")
+
+
 def swap_in(source, keep_previous):
     """Put an app at /Applications/Whimsy.app; optionally keep the current one."""
     if os.path.exists(APP):
@@ -549,8 +553,37 @@ def swap_in(source, keep_previous):
             os.replace(APP, trash)
             shutil.rmtree(trash, ignore_errors=True)
     os.replace(source, APP)
-    subprocess.run(["/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework"
-                    "/Support/lsregister", "-f", APP], capture_output=True)
+    subprocess.run([LSREGISTER, "-f", APP], capture_output=True)
+    apply_app_icon()
+
+
+APP_ICON = os.path.join(DATA, "app-icon.icns")
+
+
+def apply_app_icon():
+    """Re-apply the icon chosen in Whimsy's settings (saved by the browser as
+    app-icon.icns) to a freshly installed app, so Finder and launchers keep it.
+    Same steps as WhimsyAppIcon.sys.mjs: keep the original, swap the icns,
+    ad-hoc re-sign, refresh LaunchServices."""
+    icon = read_json("control.json", {}).get("app_icon")
+    if not icon or not os.path.exists(APP_ICON) or not os.path.isdir(APP):
+        return
+    res = os.path.join(APP, "Contents", "Resources")
+    try:
+        default = os.path.join(res, "firefox-default.icns")
+        if not os.path.exists(default):
+            shutil.copy2(os.path.join(res, "firefox.icns"), default)
+        shutil.copy2(APP_ICON, os.path.join(res, "firefox.icns"))
+        with open(os.path.join(res, "whimsy-app-icon"), "w") as f:
+            f.write(icon)
+        if os.path.exists(os.path.join(APP, "Contents", "_CodeSignature", "CodeResources")):
+            sh(["/usr/bin/codesign", "--force", "--sign", "-",
+                "--preserve-metadata=entitlements,requirements,flags", APP], quiet=True)
+        os.utime(APP)
+        subprocess.run([LSREGISTER, "-f", APP], capture_output=True)
+        log(f"Applied the {icon} app icon")
+    except Exception as e:
+        log(f"Couldn't apply the {icon} app icon: {e}")
 
 
 def wait_for_quit(seconds):
@@ -608,6 +641,8 @@ def cmd_apply():
 
 
 def cmd_stage(app_path):
+    """Stage a hand build and install it now if Whimsy is closed. Without the
+    local updater's applier job nothing installs it later, so say so."""
     repo = config().get("repo") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     stage(app_path, *build_meta(repo, hand_built=True))
     try:
@@ -646,5 +681,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    """Stage a hand build and install it now if Whimsy is closed. Without the
-    local updater's applier job nothing installs it later, so say so."""

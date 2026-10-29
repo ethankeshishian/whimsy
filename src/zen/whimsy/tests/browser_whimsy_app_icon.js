@@ -68,3 +68,42 @@ add_task(async function test_settings_picker() {
   });
   Services.prefs.clearUserPref(WhimsyAppIcon.PREF);
 });
+
+// The choice also goes into an installed bundle, so Finder, Spotlight and
+// launchers show it, and is saved for the local updater to re-apply.
+add_task(async function test_bundle_icon() {
+  const { WhimsyUpdates } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUpdates.sys.mjs");
+  is(WhimsyAppIcon.bundlePath(), null, "A build-folder app (links into the source) is never modified");
+
+  const dir = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-icon-test");
+  const app = PathUtils.join(dir, "Fake.app");
+  const res = PathUtils.join(app, "Contents", "Resources");
+  await IOUtils.makeDirectory(res, { createAncestors: true });
+  await IOUtils.writeUTF8(PathUtils.join(res, "firefox.icns"), "original");
+  const saved = { bundlePath: WhimsyAppIcon.bundlePath, dataDir: WhimsyUpdates.dataDir, isInstalled: WhimsyUpdates.isInstalled };
+  registerCleanupFunction(async () => {
+    WhimsyAppIcon.bundlePath = saved.bundlePath;
+    Object.assign(WhimsyUpdates, { dataDir: saved.dataDir, isInstalled: saved.isInstalled });
+    await IOUtils.remove(dir, { recursive: true });
+  });
+  WhimsyAppIcon.bundlePath = () => app;
+  WhimsyUpdates.dataDir = PathUtils.join(dir, "updater");
+  WhimsyUpdates.isInstalled = () => true;
+  const savedIcon = PathUtils.join(WhimsyUpdates.dataDir, "app-icon.icns");
+
+  Services.prefs.setStringPref(WhimsyAppIcon.PREF, "lagoon");
+  await TestUtils.waitForCondition(async () => (await WhimsyAppIcon.readMarker(app)) == "lagoon", "Lagoon written");
+  await WhimsyAppIcon._bundleJob;
+  is(await IOUtils.readUTF8(PathUtils.join(res, "firefox-default.icns")), "original", "The original icon is kept");
+  const icns = await IOUtils.read(PathUtils.join(res, "firefox.icns"), { maxBytes: 4 });
+  is(String.fromCharCode(...icns), "icns", "The bundle's icon is Lagoon's icns");
+  ok(await IOUtils.exists(savedIcon), "...saved for the local updater");
+  is((await WhimsyUpdates.readControl()).app_icon, "lagoon", "...which knows the choice");
+
+  Services.prefs.clearUserPref(WhimsyAppIcon.PREF);
+  await TestUtils.waitForCondition(async () => (await WhimsyAppIcon.readMarker(app)) == "daydream", "Default written");
+  await WhimsyAppIcon._bundleJob;
+  is(await IOUtils.readUTF8(PathUtils.join(res, "firefox.icns")), "original", "The default puts the original back");
+  ok(!(await IOUtils.exists(savedIcon)), "...and nothing is left to re-apply");
+  is((await WhimsyUpdates.readControl()).app_icon, null, "...after updates");
+});
