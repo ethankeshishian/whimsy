@@ -567,3 +567,76 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 @media (prefers-reduced-motion: reduce) {
   #whimsy-reading-time { animation: none; }
 }
+
+/* batch9p: Scratch and private tabs (WhimsyPrivate.sys.mjs). A private tab
+   in a normal window gets a violet wash, a violet ring and the private
+   icon before its favicon; while one is selected the address bar gets the
+   ring too. Scratch's space name gets the private window's violet badge and
+   its switcher icon a dashed violet ring. */
+:root {
+  --whimsy-private-tab-accent: rgb(152, 110, 255);
+}
+
+.tabbrowser-tab[whimsy-private] {
+  & .tab-background {
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--whimsy-private-tab-accent) 18%, transparent),
+      color-mix(in srgb, var(--whimsy-private-tab-accent) 18%, transparent)
+    ) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-private-tab-accent) 55%, transparent) !important;
+  }
+
+  &:is([selected], [visuallyselected]) .tab-background {
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--whimsy-private-tab-accent) 30%, transparent),
+      color-mix(in srgb, var(--whimsy-private-tab-accent) 30%, transparent)
+    ) !important;
+  }
+
+  & .tab-content::before {
+    content: "";
+    flex: none;
+    width: 12px;
+    height: 12px;
+    margin-inline-end: 6px;
+    background-color: var(--whimsy-private-tab-accent);
+    mask: url("chrome://browser/skin/zen-icons/private-window-small.svg") center / contain no-repeat;
+  }
+}
+
+/* Collapsed sidebar: the wash and ring are enough. */
+:root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[whimsy-private] .tab-content::before {
+  display: none;
+}
+
+:root[whimsy-private-tab] #urlbar > .urlbar-background {
+  box-shadow: inset 0 0 0 1.5px var(--whimsy-private-tab-accent) !important;
+}
+
+zen-workspace[whimsy-scratch] .zen-current-workspace-indicator-name {
+  flex: 0 1 auto !important;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--whimsy-private-tab-accent) 32%, transparent);
+  color: white;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+zen-workspace[whimsy-scratch] .zen-current-workspace-indicator-icon {
+  fill: var(--whimsy-private-tab-accent) !important;
+}
+
+toolbarbutton[zen-workspace-id][whimsy-scratch] {
+  outline: 1.5px dashed var(--whimsy-private-tab-accent);
+  outline-offset: -1px;
+  animation: whimsy-scratch-in 200ms ease-out;
+}
+
+@keyframes whimsy-scratch-in {
+  from { opacity: 0; transform: scale(0.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  toolbarbutton[zen-workspace-id][whimsy-scratch] { animation: none; }
+}

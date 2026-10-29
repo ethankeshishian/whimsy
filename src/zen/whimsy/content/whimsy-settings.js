@@ -160,6 +160,8 @@ var gWhimsySettings = {
       "cookie-banners": () => this.initCookieBanners(),
       "ai-kill-switch": () => this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked"),
       "strip-tracking": () => this.initStripTracking(),
+      // batch9p: Scratch and private tabs
+      scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;

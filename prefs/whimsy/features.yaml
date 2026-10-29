@@ -135,6 +135,9 @@
 - name: whimsy.feature.external-link-target
   value: true
 
+- name: whimsy.feature.scratch
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

@@ -120,3 +120,7 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_wayback.js"]
 support-files = ["whimsy_archive.sjs"]
+
+# batch9p: Scratch and private tabs (needs the whimsy-nsFrameLoader-cpp engine patch)
+["browser_whimsy_scratch.js"]
+support-files = ["whimsy_article.html"]

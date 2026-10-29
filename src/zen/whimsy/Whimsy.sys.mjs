@@ -26,6 +26,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
 });
 
+// batch9p: Scratch and private tabs
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -125,6 +130,10 @@ export const Whimsy = {
       lazy.WhimsyUpdates.initChannel().catch(e => console.error("Whimsy: update channel", e))
     );
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
+    // batch9p: Scratch and private tabs. Always installed: tabs opened from
+    // a private tab must stay private even with the switch off; the
+    // shortcuts check the switch and setting on each use.
+    run("private", () => lazy.WhimsyPrivate.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

@@ -1,0 +1,22 @@
+diff --git a/toolkit/modules/PrivateBrowsingUtils.sys.mjs b/toolkit/modules/PrivateBrowsingUtils.sys.mjs
+index 082e530..819e2b2 100644
+--- a/toolkit/modules/PrivateBrowsingUtils.sys.mjs
++++ b/toolkit/modules/PrivateBrowsingUtils.sys.mjs
+@@ -33,6 +33,17 @@ export var PrivateBrowsingUtils = {
+   },
+ 
+   isBrowserPrivate(aBrowser) {
++    // Whimsy: private tabs live in normal windows, so a browser can be
++    // private when its window is not. Whimsy marks them
++    // mozprivatebrowsing="true" (nsFrameLoader.cpp reads it); a connected
++    // browser's own BrowsingContext also knows. Lazy browsers aren't
++    // connected, and reading their browsingContext would insert them.
++    if (
++      aBrowser.getAttribute?.("mozprivatebrowsing") == "true" ||
++      (aBrowser.isConnected && aBrowser.browsingContext?.usePrivateBrowsing)
++    ) {
++      return true;
++    }
+     let chromeWin = aBrowser.documentGlobal;
+     if (chromeWin.gMultiProcessBrowser || !aBrowser.contentWindow) {
+       // In e10s we have to look at the chrome window's private

@@ -128,3 +128,9 @@
 # have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
 - name: whimsy.external-links.target
   value: tab
+
+# batch9p: Scratch and private tabs open inside the window (Settings →
+# Privacy & Security). Off: Cmd+Shift+N and Cmd+Option+T open a private
+# window instead.
+- name: whimsy.private.in-window
+  value: true

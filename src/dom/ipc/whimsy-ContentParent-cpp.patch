@@ -1,0 +1,17 @@
+diff --git a/dom/ipc/ContentParent.cpp b/dom/ipc/ContentParent.cpp
+index e7ac12f..cf3c3bd 100644
+--- a/dom/ipc/ContentParent.cpp
++++ b/dom/ipc/ContentParent.cpp
+@@ -1361,7 +1361,11 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
+   wbc->GetChromeFlags(&chromeFlags);
+ 
+   nsCOMPtr<nsILoadContext> loadContext = do_QueryInterface(docShell);
+-  if (loadContext && loadContext->UsePrivateBrowsing()) {
++  // Whimsy: a private tab in a normal window (see nsFrameLoader.cpp) is
++  // private although its chrome docShell is not, so ask its own
++  // BrowsingContext too (as CanonicalBrowsingContext does for subframes).
++  if ((loadContext && loadContext->UsePrivateBrowsing()) ||
++      aBrowsingContext->UsePrivateBrowsing()) {
+     chromeFlags |= nsIWebBrowserChrome::CHROME_PRIVATE_WINDOW;
+   }
+   if (loadContext && loadContext->UseRemoteTabs()) {
