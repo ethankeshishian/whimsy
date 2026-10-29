@@ -121,6 +121,8 @@ FEATURES = [
                 ("src/zen/folders", r"getBaseDomain")]},
     {"id": "space-icon-drop", "title": "Drop tabs on space icons to move them to that space (Arc)",
      "detect": [("src/zen/drag-and-drop", r"handle_spaceIconDrop\b|spaceIconDrop")]},
+    {"id": "space-last-tab", "title": "Return to the most recently used tab in each space, also after a restart",
+     "detect": [("src/zen/spaces", r"lastSelectedWorkspaceTabs\[[^\]]+\]\s*=\s*[^;]*lastAccessed")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

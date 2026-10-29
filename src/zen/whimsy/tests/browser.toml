@@ -47,6 +47,8 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_space_icon_drop.js"]
 
+["browser_whimsy_space_last_tab.js"]
+
 ["browser_whimsy_strings_and_keys.js"]
 
 ["browser_whimsy_strip_tracking.js"]

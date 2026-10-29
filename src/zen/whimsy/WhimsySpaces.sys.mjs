@@ -11,9 +11,16 @@
 // drop target, and dropping moves the tab (every selected tab, or a folder)
 // into that space, switches there, bounces the icon and confirms with a
 // toast.
+//
+// Last tab per space (whimsy.feature.space-last-tab): switching back to a
+// space returns to the tab you were last on there. Zen remembers that only
+// for the session, so after a restart (or once that tab was closed) it fell
+// back to the space's first tab. Now the fallback is the space's most
+// recently used tab (tab.lastAccessed, which the session keeps).
 
 const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
 const DROP_FEATURE_PREF = "whimsy.feature.space-icon-drop";
+const LAST_TAB_FEATURE_PREF = "whimsy.feature.space-last-tab";
 const DROP_TARGET_ATTR = "whimsy-drop-target";
 const LANDED_ATTR = "whimsy-landed";
 
@@ -27,6 +34,7 @@ export const WhimsySpaces = {
       return;
     }
     this.initIconDrop(win);
+    this.initLastTab(win);
   },
 
   // --- Drop tabs on space icons ---
@@ -143,5 +151,64 @@ export const WhimsySpaces = {
     void button.getBoundingClientRect();
     button.setAttribute(LANDED_ATTR, "");
     win.setTimeout(() => button.removeAttribute(LANDED_ATTR), 400);
+  },
+
+  // --- Last tab per space ---
+
+  // The tab to return to in a space: the most recently used one there,
+  // never an Essential (Zen never selects those on a switch) or Zen's empty
+  // placeholder.
+  recentTabIn(win, spaceId) {
+    let best = null;
+    for (const tab of win.gBrowser.tabs) {
+      if (
+        tab.closing ||
+        tab.getAttribute("zen-workspace-id") != spaceId ||
+        tab.hasAttribute("zen-essential") ||
+        tab.hasAttribute("zen-empty-tab") ||
+        tab.hasAttribute("zen-glance-tab")
+      ) {
+        continue;
+      }
+      if (!best || tab.lastAccessed > best.lastAccessed) {
+        best = tab;
+      }
+    }
+    return best;
+  },
+
+  initLastTab(win) {
+    const workspaces = win.gZenWorkspaces;
+    const original = workspaces._handleTabSelection;
+    if (typeof original != "function" || original._whimsy) {
+      return;
+    }
+    const self = this;
+    const wrapped = function (workspace, onInit, previousWorkspaceId) {
+      try {
+        if (featureOn(LAST_TAB_FEATURE_PREF) && workspace?.uuid && !onInit) {
+          const remembered = this.lastSelectedWorkspaceTabs[workspace.uuid];
+          // An Essential you were on stays Zen's call; a tab that was closed
+          // or moved to another space doesn't count.
+          const stale =
+            !remembered ||
+            remembered.closing ||
+            !remembered.isConnected ||
+            (!remembered.hasAttribute("zen-essential") &&
+              remembered.getAttribute("zen-workspace-id") != workspace.uuid);
+          if (stale) {
+            const recent = self.recentTabIn(win, workspace.uuid);
+            if (recent) {
+              this.lastSelectedWorkspaceTabs[workspace.uuid] = recent;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Whimsy: last tab per space", e);
+      }
+      return original.call(this, workspace, onInit, previousWorkspaceId);
+    };
+    wrapped._whimsy = true;
+    workspaces._handleTabSelection = wrapped;
   },
 };
