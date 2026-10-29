@@ -204,7 +204,8 @@ def git(repo, *args, **kw):
 
 def preflight(repo, manual):
     control = read_json("control.json", {})
-    if control.get("paused"):
+    # Paused is Firefox's "check but let you choose": a manual check still runs.
+    if control.get("paused") and not manual:
         raise Skip("updates are paused")
     if not manual and "AC Power" not in sh(["pmset", "-g", "batt"], quiet=True):
         raise Skip("on battery; waiting for power")

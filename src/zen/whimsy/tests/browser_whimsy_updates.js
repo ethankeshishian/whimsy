@@ -73,6 +73,22 @@ add_task(async function test_updated_notice_shows_once() {
   ok(heading.value && notes.value && rollback.value, "The notice's strings exist");
 });
 
+// Firefox's Updates group, with the Whimsy version on its version line.
+async function openUpdates(browser) {
+  const doc = browser.contentDocument;
+  const firefox = await TestUtils.waitForCondition(() =>
+    doc.querySelector('setting-pane[data-category="paneAbout"] setting-group[groupid="updates"]')
+  );
+  const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesGroup"));
+  await TestUtils.waitForCondition(() => group.checkVisibility(), "Whimsy's rows are visible");
+  ok(firefox.contains(group), "...inside Firefox's Updates group");
+  const info = firefox.querySelector("update-information");
+  const state = firefox.querySelector("update-state");
+  return { doc, group, info, state };
+}
+
+const plain = text => text.replace(/[\u2068\u2069]/g, "").trim();
+
 add_task(async function test_updates_settings() {
   await writeState({
     status: "idle",
@@ -84,56 +100,43 @@ add_task(async function test_updates_settings() {
   await IOUtils.writeJSON(PathUtils.join(dir, "control.json"), { paused: false });
 
   await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
-    const doc = browser.contentDocument;
-    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesGroup"));
-    await TestUtils.waitForCondition(() => group.checkVisibility(), "About Whimsy is visible");
-    is(group.dataset.category, "paneAbout", "in the About pane");
-    await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesHeader").textContent == "Whimsy version and updates", "headed Whimsy version and updates");
-    is(group.previousElementSibling?.dataset.category, "paneAbout", "right after Firefox's About section");
-    const XUL = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
-    for (const id of ["whimsyUpdatesAuto", "whimsyUpdatesCheck", "whimsyUpdatesChannel"]) {
-      is(doc.getElementById(id)?.namespaceURI, XUL, `#${id} is a real XUL control`);
+    const { doc, info, state } = await openUpdates(browser);
+    for (const id of ["whimsyUpdatesHeader", "whimsyUpdatesHeadline", "whimsyUpdatesDetail", "whimsyUpdatesBase",
+                      "whimsyUpdatesAuto", "whimsyUpdatesCheck", "whimsyUpdatesHistory"]) {
+      ok(!doc.getElementById(id), `No separate #${id}: Firefox's group has it`);
     }
-    const text = id => doc.getElementById(id).textContent;
-    const label = id => doc.getElementById(id).getAttribute("label");
+    is(doc.getElementById("whimsyUpdatesChannel")?.namespaceURI,
+      "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul", "The channel is a real XUL menulist");
 
-    await TestUtils.waitForCondition(() => text("whimsyUpdatesHeadline").includes("1.24b"));
-    const plain = id => text(id).replace(/[\u2068\u2069]/g, "");
-    await TestUtils.waitForCondition(() => text("whimsyUpdatesHeadline").includes("1.24b-w2"));
-    is(plain("whimsyUpdatesHeadline"), "Up to date · Whimsy 1.24b-w2", "Shows the Whimsy version");
-    await TestUtils.waitForCondition(() => text("whimsyUpdatesBase"));
-    is(plain("whimsyUpdatesBase"), "Based on Zen 1.24b (dev (2026-10-27)) · Firefox 159.0", "...and its Zen base");
+    // Firefox's version line shows the Whimsy version and its base.
+    await TestUtils.waitForCondition(() => info.version == "1.24b-w2", "The version line shows Whimsy's version");
+    is(plain(info.distribution), "Based on Zen 1.24b (dev (2026-10-27)) · Firefox 159.0", "...based on Zen and Firefox");
+    is(info.releaseNotesURL, VERSION.notes_url, "...linking Whimsy's release notes");
+    await TestUtils.waitForCondition(() => plain(info.shadowRoot.querySelector("#distribution")?.textContent || "").startsWith("Based on Zen"));
 
-    // The version history, newest first.
-    const items = await TestUtils.waitForCondition(() => {
-      const list = doc.querySelectorAll("#whimsyUpdatesHistoryList > li");
-      return list.length == 2 && [...list].every(li => li.textContent) && list;
-    });
-    ok(items[0].textContent.includes("1.24b-w2") && items[0].textContent.includes("This version"),
-      "The current release is marked");
-    ok(items[0].textContent.includes("My Review Requests"), "...with its changes");
-    ok(items[0].textContent.includes("Zen 1.24b"), "A new Zen base is called out");
-    ok(items[1].textContent.includes("Rebuilt with no Whimsy changes"), "A release with no changes says so");
-    ok(text("whimsyUpdatesDetail").startsWith("Last checked"), "Shows when it last checked");
-    const rollback = doc.getElementById("whimsyUpdatesRollback");
-    await TestUtils.waitForCondition(() => label("whimsyUpdatesRollback")?.includes("1.23.4b"));
-    ok(!rollback.disabled, "Rolling back to the previous version is offered");
-
-    // Pause and resume.
-    const auto = doc.getElementById("whimsyUpdatesAuto");
-    ok(auto.checked, "Automatic updates are on");
-    auto.click();
-    await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).paused === true);
-    await TestUtils.waitForCondition(() => text("whimsyUpdatesHeadline").startsWith("Paused"));
-    ok(doc.getElementById("whimsyUpdatesCheck").disabled, "Check now is off while paused");
-    auto.click();
-    await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).paused === false);
-
-    // Check now asks the updater job to run.
-    await TestUtils.waitForCondition(() => !doc.getElementById("whimsyUpdatesCheck").disabled);
-    doc.getElementById("whimsyUpdatesCheck").click();
-    await TestUtils.waitForCondition(() => WhimsyUpdates.kicked.includes("app.whimsy.updater"));
+    // Firefox's check button asks the local updater.
+    await TestUtils.waitForCondition(() => state.value == "checkForUpdates", "Firefox's check button");
+    const button = await TestUtils.waitForCondition(() => state.shadowRoot.querySelector("moz-button, moz-box-button"));
+    button.click();
+    await TestUtils.waitForCondition(() => WhimsyUpdates.kicked.includes("app.whimsy.updater"), "The updater job runs");
     ok((await WhimsyUpdates.readControl()).check_requested, "The check request is recorded");
+    is(state.value, "checkingForUpdates", "Firefox's state shows the check");
+    await IOUtils.writeJSON(PathUtils.join(dir, "control.json"), { paused: false });
+    await TestUtils.waitForCondition(() => state.value == "noUpdatesFound", "...then that it's up to date");
+
+    // Firefox's install-automatically choice pauses and resumes the updater.
+    const defaults = Services.prefs.getDefaultBranch("");
+    const channel = defaults.getCharPref("app.update.channel", "");
+    WhimsyUpdates._channelInit = false;
+    WhimsyUpdates.initChannel();
+    Services.prefs.setBoolPref("app.update.auto", false);
+    await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).paused === true, "Paused");
+    Services.prefs.setBoolPref("app.update.auto", true);
+    await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).paused === false, "Resumed");
+    Services.prefs.clearUserPref("app.update.auto");
+    Services.prefs.unlockPref("app.update.channel");
+    defaults.setCharPref("app.update.channel", channel);
+    Services.prefs.lockPref("app.update.channel");
 
     // The log.
     const log = doc.getElementById("whimsyUpdatesLog");
@@ -142,16 +145,17 @@ add_task(async function test_updates_settings() {
     await TestUtils.waitForCondition(() => log.textContent.includes("built Zen 1.24b"));
     ok(!log.hidden, "Show log shows it");
 
+    // Roll back, while there's a previous version.
+    const rollback = doc.getElementById("whimsyUpdatesRollback");
+    await TestUtils.waitForCondition(() => rollback.getAttribute("label")?.includes("1.23.4b"));
+    ok(!rollback.hidden, "Rolling back to the previous version is offered");
+
     // A staged update.
     await writeState({ status: "idle", installed: { id: "b", version: "1.24b" }, staged: { version: "1.25b" } });
-    await TestUtils.waitForCondition(
-      () => text("whimsyUpdatesHeadline").includes("1.25b"),
-      "A staged update says it's ready"
-    );
-    ok(text("whimsyUpdatesDetail").includes("next time you quit"), "...and when it installs");
-
-    // No previous version: nothing to roll back to.
-    await TestUtils.waitForCondition(() => rollback.disabled, "Roll back is off without a previous version");
+    const staged = doc.getElementById("whimsyUpdatesStaged");
+    await TestUtils.waitForCondition(() => !staged.hidden && staged.textContent.includes("1.25b"), "A staged update says it's ready");
+    ok(staged.textContent.includes("next time you quit"), "...and when it installs");
+    await TestUtils.waitForCondition(() => rollback.hidden, "No roll back without a previous version");
   });
 });
 
@@ -162,21 +166,15 @@ add_task(async function test_dev_builds() {
   is(dev.version, `${Services.appinfo.version}-dev`, "No version file: a dev build of Zen's version");
   ok(!dev.released, "...not a release");
 
-  // A staged local build: the next version plus -dev, listed above the releases.
   await IOUtils.writeJSON(WhimsyUpdates.versionFile, {
     ...VERSION,
-    version: "1.24b-w3-dev",
-    commit: "e169bef",
+    version: "1.24b-w2-dev.74",
+    notes_url: undefined,
     released: false,
   });
   await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
-    const doc = browser.contentDocument;
-    const first = await TestUtils.waitForCondition(() => {
-      const item = doc.querySelector("#whimsyUpdatesHistoryList > li");
-      return item?.textContent.includes("e169bef") && item;
-    });
-    ok(first.textContent.includes("1.24b-w3-dev"), "The dev build is listed first");
-    ok(first.textContent.includes("not released yet"), "...as unreleased");
+    const { info } = await openUpdates(browser);
+    await TestUtils.waitForCondition(() => info.version == "1.24b-w2-dev.74", "A dev build's version on the line");
   });
   await IOUtils.writeJSON(WhimsyUpdates.versionFile, VERSION);
 });
@@ -185,15 +183,14 @@ add_task(async function test_updates_settings_for_published_installs() {
   // Installed from a published build: no local updater, Firefox's updater.
   WhimsyUpdates.isInstalled = () => false;
   await IOUtils.remove(PathUtils.join(dir, "state.json"));
+  WhimsyUpdates.kicked = [];
   await BrowserTestUtils.withNewTab("about:preferences#about", async browser => {
-    const doc = browser.contentDocument;
-    const headline = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesHeadline"));
-    await TestUtils.waitForCondition(() => headline.textContent.includes(Services.appinfo.version));
-    ok(headline.textContent.startsWith("Up to date"), "Shows the version Firefox's updater keeps current");
-    ok(doc.getElementById("whimsyUpdatesDetail").textContent.includes("restart"), "Explains updates install on restart");
+    const { doc, info, state } = await openUpdates(browser);
+    await TestUtils.waitForCondition(() => info.version == "1.24b-w2", "The Whimsy version");
     ok(doc.getElementById("whimsyUpdatesRollback").hidden, "No local rollback");
     ok(doc.getElementById("whimsyUpdatesShowLog").hidden, "No local log");
-    ok(!doc.getElementById("whimsyUpdatesCheck").disabled, "Check now is available");
+    ok(doc.getElementById("whimsyUpdatesStaged").hidden, "No local staging");
+    ok(state.value != "checkingForUpdates" || !WhimsyUpdates.kicked.length, "Firefox's own updater runs the check");
   });
   WhimsyUpdates.isInstalled = () => true;
 });

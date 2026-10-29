@@ -94,20 +94,14 @@
   </html:div>
 </html:template>
 
-# Settings → About (Firefox's About pane, "About Whimsy") → the version, updates (status,
-# Update automatically, channel, Check now / Show log / Roll back) and the
-# version history, after Firefox's own Updates group. whimsy-settings.js
-# sets its data-category to the pane it lands in.
+# Settings → About → Firefox's Updates group: Whimsy's additions (the
+# channel, the local updater's log and roll back, a staged build's note).
+# whimsy-settings.js moves this into that group and puts the Whimsy version
+# on Firefox's version line; Firefox's own "install automatically" and check
+# button drive the local updater where it's installed.
 <html:template id="template-whimsyAbout" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <groupbox id="whimsyUpdatesGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
-    <label><html:h2 id="whimsyUpdatesHeader" data-l10n-id="whimsy-about-header"/></label>
-    <description class="description-deemphasized" data-l10n-id="whimsy-updates-description"/>
-    <html:div class="whimsy-updates-status" role="status">
-      <html:span id="whimsyUpdatesHeadline" class="whimsy-updates-headline"/>
-      <html:span id="whimsyUpdatesDetail" class="whimsy-updates-detail"/>
-      <html:span id="whimsyUpdatesBase" class="whimsy-updates-detail"/>
-    </html:div>
-    <checkbox id="whimsyUpdatesAuto" data-l10n-id="whimsy-updates-auto"/>
+  <html:div id="whimsyUpdatesGroup" class="whimsy-updates" hidden="hidden">
+    <html:span id="whimsyUpdatesStaged" class="whimsy-updates-staged" role="status" hidden="hidden"/>
     <hbox align="center" class="whimsy-updates-channel">
       <label id="whimsyUpdatesChannelLabel" control="whimsyUpdatesChannel" data-l10n-id="whimsy-updates-channel"/>
       <menulist id="whimsyUpdatesChannel" preference="whimsy.update-channel">
@@ -119,16 +113,11 @@
       <html:span id="whimsyUpdatesChannelNote" class="whimsy-updates-detail"/>
     </hbox>
     <html:div class="whimsy-updates-buttons">
-      <button id="whimsyUpdatesCheck" data-l10n-id="whimsy-updates-check"/>
       <button id="whimsyUpdatesShowLog" data-l10n-id="whimsy-updates-show-log"/>
       <button id="whimsyUpdatesRollback" data-l10n-id="whimsy-updates-rollback-none"/>
     </html:div>
-    <html:pre id="whimsyUpdatesLog" hidden="hidden" tabindex="0" aria-labelledby="whimsyUpdatesHeader"></html:pre>
-    <html:details id="whimsyUpdatesHistory" class="whimsy-updates-history">
-      <html:summary data-l10n-id="whimsy-updates-history"/>
-      <html:ol id="whimsyUpdatesHistoryList"/>
-    </html:details>
-  </groupbox>
+    <html:pre id="whimsyUpdatesLog" hidden="hidden" tabindex="0" aria-labelledby="whimsyUpdatesShowLog"></html:pre>
+  </html:div>
 </html:template>
 
 # Settings → Tab Management: Whimsy's tab options, after Zen's workspaces

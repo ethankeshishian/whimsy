@@ -21,10 +21,6 @@ whimsy-updated-settings-tooltip =
 ## Settings → Look and Feel → Updates
 
 whimsy-updates-header = Updates
-whimsy-about-header = { -brand-short-name } version and updates
-whimsy-updates-description = { -brand-short-name } follows each new Zen release and installs it the next time you quit.
-whimsy-updates-auto =
-    .label = Update automatically
 whimsy-updates-channel = Channel
 whimsy-updates-channel-release =
     .label = Release
@@ -32,8 +28,6 @@ whimsy-updates-channel-dev =
     .label = Dev
 whimsy-updates-channel-release-note = Tested builds, published each night.
 whimsy-updates-channel-dev-note = Every change as soon as it's built. Expect rough edges.
-whimsy-updates-check =
-    .label = Check now
 whimsy-updates-show-log =
     .label = Show log
 whimsy-updates-hide-log =
@@ -45,30 +39,12 @@ whimsy-updates-rollback-none =
 whimsy-updates-rollback-confirm-title = Roll back?
 whimsy-updates-rollback-confirm = { -brand-short-name } will close, switch back to { $version }, and reopen with your tabs. Automatic updates skip the version you're leaving.
 whimsy-updates-log-empty = Nothing logged yet.
+whimsy-updates-staged = { $version } is ready. It installs the next time you quit { -brand-short-name }.
 
-whimsy-updates-browser = Up to date · { -brand-short-name } { $version }
-whimsy-updates-browser-detail = New versions download in the background and install when you restart { -brand-short-name }.
-whimsy-updates-browser-manual = Automatic updates are off · { -brand-short-name } { $version }
-whimsy-updates-browser-manual-detail = Use Check now to look for a new version.
-whimsy-updates-up-to-date = Up to date · { -brand-short-name } { $version }
-whimsy-updates-paused = Paused · { -brand-short-name } { $version }
-whimsy-updates-running = Updating: { $step }
-whimsy-updates-current = Running { -brand-short-name } { $version } until the update is ready.
-whimsy-updates-ready = { $version } is ready
-whimsy-updates-ready-detail = It installs the next time you quit { -brand-short-name }.
-whimsy-updates-checked = Last checked { $date }
-whimsy-updates-never-checked = Not checked yet. Updates run each night.
-whimsy-updates-last-problem = Last check ({ $date }): { $message }
-
-# Versions are Zen's version plus a Whimsy revision, like 1.24b-w3.
+# Versions are Zen's version plus a Whimsy revision, like 1.24b-w3. Shown
+# under the version on Firefox's version line.
 whimsy-updates-based-on = Based on Zen { $zen } · Firefox { $firefox }
 whimsy-updates-based-on-label = Based on Zen { $zen } ({ $label }) · Firefox { $firefox }
-whimsy-updates-history = Version history
-whimsy-updates-history-this = This version
-whimsy-updates-history-dev = Built from { $commit }, not released yet
-whimsy-updates-history-zen = Zen { $zen }
-whimsy-updates-history-same-code = Rebuilt with no { -brand-short-name } changes
-whimsy-updates-history-none = No releases yet.
 
 ## Settings → Look and Feel → App icon
 

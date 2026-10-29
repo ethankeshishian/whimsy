@@ -43,15 +43,17 @@
   }
 }
 
+/* Whimsy's rows at the end of Firefox's Updates group. */
 #whimsyUpdatesGroup {
-  .whimsy-updates-status {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin-block: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &[hidden] {
+    display: none;
   }
 
-  .whimsy-updates-headline {
+  .whimsy-updates-staged {
     font-weight: 600;
   }
 
@@ -61,56 +63,15 @@
 
   .whimsy-updates-channel {
     gap: 8px;
-    margin-block: 4px;
   }
 
   .whimsy-updates-buttons {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-block: 8px;
-  }
 
-  .whimsy-updates-history {
-    margin-block: 8px;
-
-    & > summary {
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    & ol {
-      list-style: none;
-      margin: 8px 0 0;
-      padding: 0;
-      max-height: 320px;
-      overflow: auto;
-    }
-
-    & ol > li + li {
-      margin-top: 10px;
-    }
-
-    & ul {
-      margin: 2px 0 0;
-      padding-inline-start: 18px;
-      color: var(--text-color-deemphasized);
-    }
-  }
-
-  .whimsy-history-heading {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
-
-    & span {
-      color: var(--text-color-deemphasized);
-      font-size: 0.9em;
-    }
-
-    & .whimsy-history-current {
-      color: var(--color-accent-primary);
+    &:not(:has(> :not([hidden]))) {
+      display: none;
     }
   }
 

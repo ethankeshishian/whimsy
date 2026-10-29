@@ -32,7 +32,6 @@ var gWhimsySettings = {
       Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
       WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
       WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
-      UpdateUtils: "resource://gre/modules/UpdateUtils.sys.mjs",
     });
     Object.defineProperty(this, "lazy", { value: lazy });
     return lazy;
@@ -75,35 +74,117 @@ var gWhimsySettings = {
     this.initLookGroup();
   },
 
-  // About Whimsy: in Settings' "About Firefox" pane (the settings
-  // redesign), after its Updates and Support groups; without the redesign,
-  // in General after Firefox's Updates group.
-  insertAboutGroup(category) {
+  // Whimsy's version and updates live in Firefox's own Updates group (the
+  // About pane with the settings redesign, General without it): Firefox's
+  // version line shows the Whimsy version with "Based on Zen … · Firefox …"
+  // under it, and Whimsy adds only the channel, plus the local updater's log
+  // and roll back. On a Mac with the local updater, Firefox's "install
+  // automatically" choice pauses or resumes it (WhimsyUpdates) and its check
+  // button asks it to check.
+  async insertAboutGroup(category) {
     const template = document.getElementById("template-whimsyAbout");
-    if (!template) {
+    // The updater and its versions only exist on macOS.
+    if (!template || AppConstants.platform != "macosx") {
       return;
     }
-    const aboutPane = document.querySelector('setting-pane[data-category="paneAbout"]');
-    const updates = document.querySelector('#mainPrefPane > setting-group[groupid="updates"][data-category="paneGeneral"]');
-    // Wait for the pane that will hold it.
-    if ((category == "paneAbout" && !aboutPane) || (category == "paneGeneral" && (aboutPane || !updates))) {
+    // With the settings redesign it goes in the About pane only.
+    const redesign = Services.prefs.getBoolPref("browser.settings-redesign.enabled", false);
+    if (this._insertingAbout || (category == "paneAbout") != redesign) {
       return;
     }
-    const group = template.content.firstElementChild;
-    template.remove();
-    // The updater and its history only exist on macOS.
-    if (AppConstants.platform != "macosx") {
-      return;
+    this._insertingAbout = true;
+    try {
+      // The redesigned About pane renders its groups after it's shown.
+      const selector =
+        category == "paneAbout"
+          ? 'setting-pane[data-category="paneAbout"] setting-group[groupid="updates"]'
+          : '#mainPrefPane > setting-group[groupid="updates"][data-category="paneGeneral"]';
+      let updates = null;
+      for (let i = 0; i < 100 && !(updates = document.querySelector(selector)); i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+      if (!updates) {
+        return;
+      }
+      await updates.updateComplete;
+      const fieldset = updates.querySelector("moz-fieldset");
+      if (!fieldset || !document.getElementById("template-whimsyAbout")) {
+        return;
+      }
+      const group = template.content.firstElementChild;
+      template.remove();
+      Preferences.addAll([{ id: "whimsy.update-channel", type: "string" }]);
+      fieldset.append(group);
+      group.hidden = false;
+      Preferences.queueUpdateOfAllElements();
+      this.hookFirefoxUpdates();
+      this.initUpdates();
+    } finally {
+      this._insertingAbout = false;
     }
-    Preferences.addAll([{ id: "whimsy.update-channel", type: "string" }]);
-    group.dataset.category = category;
-    (category == "paneAbout" ? aboutPane : updates).after(group);
-    group.hidden = false;
-    Preferences.queueUpdateOfAllElements();
-    this.initUpdates();
   },
 
-  // Tab Management: new tab position and folders, sleeping tabs, title lines.
+  // Wraps Firefox's Updates settings: the version line, and (local updater
+  // only) the update state its check button shows.
+  hookFirefoxUpdates() {
+    const info = Preferences.getSetting("updateAppInfo");
+    if (info && !info.config.whimsyHooked) {
+      const original = info.config.getControlConfig;
+      info.config.whimsyHooked = true;
+      info.config.getControlConfig = (config, ...rest) => {
+        config = original ? original.call(info.config, config, ...rest) : config;
+        const whimsy = this.versionLine;
+        if (whimsy) {
+          config.controlAttrs = { ...config.controlAttrs, ...whimsy };
+        }
+        return config;
+      };
+    }
+    const state = Preferences.getSetting("updateState");
+    if (state && !state.config.whimsyHooked) {
+      const original = state.config.get;
+      state.config.whimsyHooked = true;
+      state.config.get = function (...args) {
+        return this.whimsyPanel || original.apply(this, args);
+      };
+    }
+    // In the local updater's hands, "Check for updates" asks it to check.
+    const proto = customElements.get("update-state")?.prototype;
+    if (proto && !proto.whimsyHooked) {
+      const original = proto.handleButtonClick;
+      const settings = this;
+      proto.whimsyHooked = true;
+      proto.handleButtonClick = function (...args) {
+        const checks = ["checkForUpdates", "noUpdatesFound", "checkingFailed", "downloadFailed"];
+        if (settings.localUpdater && checks.includes(this.value)) {
+          settings.checkLocalUpdater();
+          return undefined;
+        }
+        return original.apply(this, args);
+      };
+    }
+  },
+
+  // Shows a panel of Firefox's update-state (null: Firefox's own).
+  setUpdatePanel(panel) {
+    const state = Preferences.getSetting("updateState");
+    if (state && state.config.whimsyPanel !== panel) {
+      state.config.whimsyPanel = panel;
+      state.onChange();
+    }
+  },
+
+  async checkLocalUpdater() {
+    this.setUpdatePanel("checkingForUpdates");
+    this.localCheck = true;
+    if (!(await this.lazy.WhimsyUpdates.checkNow())) {
+      this.localCheck = false;
+      this.setUpdatePanel("checkingFailed");
+      return;
+    }
+    this.refreshUpdates();
+  },
+
   insertTabsGroup() {
     const template = document.getElementById("template-whimsyTabs");
     if (!template) {
@@ -332,31 +413,10 @@ var gWhimsySettings = {
 
   initUpdates() {
     const { WhimsyUpdates } = this.lazy;
-    const auto = document.getElementById("whimsyUpdatesAuto");
-    const check = document.getElementById("whimsyUpdatesCheck");
     const showLog = document.getElementById("whimsyUpdatesShowLog");
     const rollback = document.getElementById("whimsyUpdatesRollback");
     const log = document.getElementById("whimsyUpdatesLog");
 
-    auto.addEventListener("command", async () => {
-      if (this.localUpdater) {
-        await WhimsyUpdates.setPaused(!auto.checked);
-      } else {
-        await this.lazy.UpdateUtils.setAppUpdateAutoEnabled(auto.checked);
-        this.firefoxAutoUpdate = auto.checked;
-      }
-      this.refreshUpdates();
-    });
-    check.addEventListener("command", async () => {
-      if (!this.localUpdater) {
-        // The About dialog checks for, downloads and offers to restart for updates.
-        window.browsingContext.topChromeWindow.openAboutDialog();
-        return;
-      }
-      check.disabled = true;
-      await WhimsyUpdates.checkNow();
-      this.refreshUpdates();
-    });
     showLog.addEventListener("command", async () => {
       log.hidden = !log.hidden;
       document.l10n.setAttributes(showLog, log.hidden ? "whimsy-updates-show-log" : "whimsy-updates-hide-log");
@@ -390,162 +450,69 @@ var gWhimsySettings = {
     window.addEventListener("unload", () => clearInterval(timer));
   },
 
-  formatDate(iso) {
-    if (!iso) {
-      return "";
+  // The local updater's state as a panel of Firefox's update-state.
+  localPanel(state, control) {
+    if (control?.check_requested || state?.status == "running") {
+      return "checkingForUpdates";
     }
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+    if (this.localCheck) {
+      return state?.last_result == "failed" ? "checkingFailed" : "noUpdatesFound";
+    }
+    return "checkForUpdates";
   },
-
-  // The status lines for the current updater state: [headline, detail], each
-  // [l10n id, args]. Without the local updater (an install from a published
-  // build), Firefox's own updater keeps Whimsy current.
-  describe(state, control, installed, version) {
-    if (!installed) {
-      const auto = this.firefoxAutoUpdate;
-      return [
-        [auto ? "whimsy-updates-browser" : "whimsy-updates-browser-manual", { version: version.version }],
-        [auto ? "whimsy-updates-browser-detail" : "whimsy-updates-browser-manual-detail"],
-      ];
-    }
-    const current = version.version;
-    const checked = { date: this.formatDate(state?.last_run) };
-    if (state?.status == "running") {
-      return [
-        ["whimsy-updates-running", { step: state.message || "" }],
-        ["whimsy-updates-current", { version: current }],
-      ];
-    }
-    if (state?.staged?.version) {
-      return [
-        ["whimsy-updates-ready", { version: state.staged.version }],
-        ["whimsy-updates-ready-detail"],
-      ];
-    }
-    const headline = control?.paused
-      ? ["whimsy-updates-paused", { version: current }]
-      : ["whimsy-updates-up-to-date", { version: current }];
-    if (state?.last_result == "failed" || state?.last_result == "skipped") {
-      return [headline, ["whimsy-updates-last-problem", { message: state.message || "", ...checked }]];
-    }
-    return [headline, state?.last_run ? ["whimsy-updates-checked", checked] : ["whimsy-updates-never-checked"]];
-  },
-
-  firefoxAutoUpdate: true,
 
   async refreshUpdates() {
-    const { WhimsyUpdates, UpdateUtils } = this.lazy;
-    try {
-      this.firefoxAutoUpdate = await UpdateUtils.getAppUpdateAutoEnabled();
-    } catch {}
-    const [state, control, installed, version] = await Promise.all([
+    const { WhimsyUpdates } = this.lazy;
+    const [state, control, version] = await Promise.all([
       WhimsyUpdates.readState(),
       WhimsyUpdates.readControl(),
-      WhimsyUpdates.isInstalled(),
       WhimsyUpdates.readVersion(),
     ]);
-    const [headline, detail] = this.describe(state, control, installed, version);
+    const installed = WhimsyUpdates.isInstalled();
+    this.localUpdater = installed;
     document.l10n.setAttributes(
       document.getElementById("whimsyUpdatesChannelNote"),
       WhimsyUpdates.channel == "dev" ? "whimsy-updates-channel-dev-note" : "whimsy-updates-channel-release-note"
     );
-    document.l10n.setAttributes(document.getElementById("whimsyUpdatesHeadline"), ...headline);
-    document.l10n.setAttributes(document.getElementById("whimsyUpdatesDetail"), ...detail);
-    this.renderVersion(version);
+    await this.renderVersion(version);
+    this.setUpdatePanel(installed ? this.localPanel(state, control) : null);
 
-    const auto = document.getElementById("whimsyUpdatesAuto");
-    auto.checked = installed ? !control?.paused : this.firefoxAutoUpdate;
-    document.getElementById("whimsyUpdatesCheck").disabled =
-      installed && (state?.status == "running" || !!control?.paused);
+    const staged = document.getElementById("whimsyUpdatesStaged");
+    staged.hidden = !(installed && state?.staged?.version);
+    if (!staged.hidden) {
+      document.l10n.setAttributes(staged, "whimsy-updates-staged", { version: state.staged.version });
+    }
     document.getElementById("whimsyUpdatesShowLog").hidden = !installed;
-    this.localUpdater = installed;
-
     const rollback = document.getElementById("whimsyUpdatesRollback");
     const previous = state?.previous?.version;
-    rollback.hidden = !installed;
-    rollback.disabled = !previous;
+    // Only offered when there's a previous build to go back to.
+    rollback.hidden = !installed || !previous;
     if (previous) {
       document.l10n.setAttributes(rollback, "whimsy-updates-rollback", { version: previous });
-    } else {
-      document.l10n.setAttributes(rollback, "whimsy-updates-rollback-none");
     }
   },
 
-  formatDay(day) {
-    // "2026-10-28" is a calendar day: read it as local, not UTC midnight.
-    const [y, m, d] = (day || "").split("-").map(Number);
-    return y ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(y, m - 1, d)) : "";
-  },
-
-  // "Based on Zen ..." and the version history (newest first). Only redrawn
-  // when the version changes.
-  renderVersion(info) {
+  // Firefox's version line: the Whimsy version, with its Zen and Firefox
+  // base underneath (Firefox's distribution line) and Whimsy's release notes.
+  async renderVersion(info) {
     const key = JSON.stringify(info);
     if (this.renderedVersion == key) {
       return;
     }
     this.renderedVersion = key;
-    const base = document.getElementById("whimsyUpdatesBase");
     const label = info.zen_label && info.zen_label != info.zen ? info.zen_label : null;
-    document.l10n.setAttributes(base, label ? "whimsy-updates-based-on-label" : "whimsy-updates-based-on", {
+    const base = await document.l10n.formatValue(label ? "whimsy-updates-based-on-label" : "whimsy-updates-based-on", {
       zen: info.zen,
       label,
       firefox: info.firefox || Services.appinfo.platformVersion,
     });
-
-    const list = document.getElementById("whimsyUpdatesHistoryList");
-    const entries = [...info.history];
-    if (!info.released) {
-      entries.unshift({ version: info.version, zen: info.zen, dev: true, commit: info.commit });
-    }
-    const items = entries.map((entry, index) => {
-      const item = document.createElement("li");
-      const heading = document.createElement("div");
-      heading.className = "whimsy-history-heading";
-      const name = document.createElement("strong");
-      name.textContent = entry.version;
-      heading.append(name);
-      const meta = [];
-      if (entry.date) {
-        meta.push(Object.assign(document.createElement("span"), { textContent: this.formatDay(entry.date) }));
-      }
-      const previous = entries[index + 1];
-      if (previous && previous.zen != entry.zen) {
-        const zen = document.createElement("span");
-        document.l10n.setAttributes(zen, "whimsy-updates-history-zen", { zen: entry.zen });
-        meta.push(zen);
-      }
-      if (entry.version == info.version) {
-        const current = document.createElement("span");
-        current.className = "whimsy-history-current";
-        document.l10n.setAttributes(current, "whimsy-updates-history-this");
-        meta.push(current);
-      }
-      heading.append(...meta);
-      item.append(heading);
-
-      const notes = document.createElement("ul");
-      if (entry.dev) {
-        const note = document.createElement("li");
-        document.l10n.setAttributes(note, "whimsy-updates-history-dev", { commit: entry.commit || "?" });
-        notes.append(note);
-      } else if (!entry.notes?.length) {
-        const note = document.createElement("li");
-        document.l10n.setAttributes(note, "whimsy-updates-history-same-code");
-        notes.append(note);
-      }
-      for (const line of entry.notes ?? []) {
-        notes.append(Object.assign(document.createElement("li"), { textContent: line }));
-      }
-      item.append(notes);
-      return item;
-    });
-    if (!items.length) {
-      const none = document.createElement("li");
-      document.l10n.setAttributes(none, "whimsy-updates-history-none");
-      items.push(none);
-    }
-    list.replaceChildren(...items);
+    this.versionLine = {
+      ".version": info.version,
+      ".distribution": base,
+      ".distributionId": "",
+      ...(info.notes_url ? { ".releaseNotesURL": info.notes_url } : {}),
+    };
+    Preferences.getSetting("updateAppInfo")?.onChange();
   },
 
   async refreshLog() {

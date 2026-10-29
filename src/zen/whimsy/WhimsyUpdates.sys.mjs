@@ -19,6 +19,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const SEEN_PREF = "whimsy.updates.seen-install";
 const CHANNEL_PREF = "whimsy.update-channel";
+// Firefox's "Automatically install updates" (a plain pref on macOS).
+const AUTO_PREF = "app.update.auto";
 const UPDATE_JOB = "app.whimsy.updater";
 const APPLY_JOB = "app.whimsy.applier";
 
@@ -100,7 +102,8 @@ export const WhimsyUpdates = {
   // update URL). Both channels use the same signing key and MAR channel. A
   // Mac that builds Whimsy installs its own builds (whimsy/updater), so
   // Firefox's updater gets a channel with no updates there; the local
-  // updater reads the choice from control.json.
+  // updater reads the choice (and Firefox's install-automatically choice,
+  // as paused) from control.json.
   //
   // Runs from WhimsyStartup at profile-after-change, before
   // UpdateServiceStub's entry (category entries start in name order). Firefox
@@ -113,6 +116,7 @@ export const WhimsyUpdates = {
     }
     this._channelInit = true;
     Services.prefs.addObserver(CHANNEL_PREF, () => this.applyChannel());
+    Services.prefs.addObserver(AUTO_PREF, () => this.applyChannel());
     this.applyChannel();
   },
 
@@ -123,7 +127,10 @@ export const WhimsyUpdates = {
     Services.prefs.getDefaultBranch("").setCharPref("app.update.channel", local ? "local" : this.channel);
     Services.prefs.lockPref("app.update.channel");
     if (local) {
-      this.writeControl({ channel: this.channel }).catch(e =>
+      // Firefox's install-automatically choice pauses or resumes the local
+      // updater; a check from Settings runs either way.
+      const paused = !Services.prefs.getBoolPref(AUTO_PREF, true);
+      this.writeControl({ channel: this.channel, paused }).catch(e =>
         console.error("Whimsy: update channel", e)
       );
     }

@@ -115,14 +115,13 @@ add_task(async function settings_updates() {
       const doc = browser.contentDocument;
       const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesGroup"));
       await TestUtils.waitForCondition(() => group.checkVisibility(), "Updates settings visible");
-      doc.getElementById("whimsyUpdatesHistory").open = true;
-      await TestUtils.waitForCondition(() =>
-        doc.getElementById("whimsyUpdatesHistoryList").textContent.includes("Rebuilt with no")
-      );
+      const firefox = group.closest('setting-group[groupid="updates"]');
+      const info = firefox.querySelector("update-information");
+      await TestUtils.waitForCondition(() => info.distribution?.includes("Based on Zen"), "Whimsy's version line");
       await TestUtils.waitForCondition(() =>
         doc.getElementById("whimsyUpdatesRollback").getAttribute("label")?.includes("1.24b-w1")
       );
-      group.scrollIntoView({ block: "start" });
+      firefox.scrollIntoView({ block: "start" });
       await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
       await shot("03-settings-updates", browser.browsingContext.currentWindowGlobal);
     });
