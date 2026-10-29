@@ -209,3 +209,8 @@ whimsy-space-drop-toast =
         [one] Moved to { $space }
        *[other] Moved { $count } tabs to { $space }
     }
+
+# Shown in the space icon picker when no emoji matches.
+# $query (string) - what was typed
+whimsy-emoji-search-empty =
+    .value = No emoji for “{ $query }”

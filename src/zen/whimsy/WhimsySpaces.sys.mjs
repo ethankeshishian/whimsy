@@ -17,12 +17,20 @@
 // for the session, so after a restart (or once that tab was closed) it fell
 // back to the space's first tab. Now the fallback is the space's most
 // recently used tab (tab.lastAccessed, which the session keeps).
+//
+// Emoji search (whimsy.feature.emoji-search): Zen's space icon picker
+// already has a search field, matching one word against each emoji's tags.
+// Slack- and Notion-style pickers go further: every word you type must
+// match ("red heart", "cat face"), Enter picks the first result, and an
+// empty result says so instead of showing a blank grid.
 
 const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
 const DROP_FEATURE_PREF = "whimsy.feature.space-icon-drop";
 const LAST_TAB_FEATURE_PREF = "whimsy.feature.space-last-tab";
 const DROP_TARGET_ATTR = "whimsy-drop-target";
 const LANDED_ATTR = "whimsy-landed";
+const EMOJI_FEATURE_PREF = "whimsy.feature.emoji-search";
+const EMOJI_EMPTY_ID = "whimsy-emoji-search-empty";
 
 function featureOn(pref) {
   return Services.prefs.getBoolPref(pref, true);
@@ -35,6 +43,7 @@ export const WhimsySpaces = {
     }
     this.initIconDrop(win);
     this.initLastTab(win);
+    this.initEmojiSearch(win);
   },
 
   // --- Drop tabs on space icons ---
@@ -210,5 +219,73 @@ export const WhimsySpaces = {
     };
     wrapped._whimsy = true;
     workspaces._handleTabSelection = wrapped;
+  },
+
+  // --- Emoji search ---
+
+  // Whether an emoji's tags match every word of the query.
+  emojiMatches(emoji, words) {
+    return words.every(word => emoji.emoji == word || emoji.tags.some(tag => tag.toLowerCase().includes(word)));
+  },
+
+  initEmojiSearch(win) {
+    const { document } = win;
+    const input = document.getElementById("PanelUI-zen-emojis-picker-search");
+    const list = document.getElementById("PanelUI-zen-emojis-picker-list");
+    if (!input || !list) {
+      return;
+    }
+    const visible = () => [...list.children].filter(button => !button.hidden);
+    const updateEmpty = query => {
+      let empty = document.getElementById(EMOJI_EMPTY_ID);
+      const show = !!query && !visible().length;
+      if (show && !empty) {
+        empty = document.createXULElement("label");
+        empty.id = EMOJI_EMPTY_ID;
+        list.after(empty);
+      }
+      if (empty) {
+        empty.hidden = !show;
+        if (show) {
+          document.l10n.setAttributes(empty, "whimsy-emoji-search-empty", { query });
+        }
+      }
+    };
+    // Runs after Zen's own listener (added earlier), refining its result.
+    input.addEventListener("input", () => {
+      if (!featureOn(EMOJI_FEATURE_PREF)) {
+        return;
+      }
+      const query = input.value.trim();
+      const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+      const emojis = win.gZenEmojiPicker?._emojis;
+      if (words.length > 1 && emojis) {
+        const byChar = new Map(emojis.map(e => [e.emoji, e]));
+        for (const button of list.children) {
+          const emoji = byChar.get(button.getAttribute("label"));
+          button.hidden = !emoji || !this.emojiMatches(emoji, words);
+          if (emoji) {
+            button.style.order = emoji.order;
+          }
+        }
+      }
+      updateEmpty(query);
+    });
+    input.addEventListener("keydown", event => {
+      if (event.key != "Enter" || !featureOn(EMOJI_FEATURE_PREF) || !input.value.trim()) {
+        return;
+      }
+      // The first result in display order.
+      const first = visible().sort((a, b) => (parseInt(a.style.order) || 0) - (parseInt(b.style.order) || 0))[0];
+      if (first) {
+        event.preventDefault();
+        first.doCommand();
+      }
+    });
+    document.getElementById("PanelUI-zen-emojis-picker")?.addEventListener("popupshowing", event => {
+      if (event.target.id == "PanelUI-zen-emojis-picker") {
+        updateEmpty("");
+      }
+    });
   },
 };

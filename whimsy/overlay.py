@@ -123,6 +123,8 @@ FEATURES = [
      "detect": [("src/zen/drag-and-drop", r"handle_spaceIconDrop\b|spaceIconDrop")]},
     {"id": "space-last-tab", "title": "Return to the most recently used tab in each space, also after a restart",
      "detect": [("src/zen/spaces", r"lastSelectedWorkspaceTabs\[[^\]]+\]\s*=\s*[^;]*lastAccessed")]},
+    {"id": "emoji-search", "title": "Emoji search: every word must match, Enter picks the first result, empty state",
+     "detect": [("src/zen/common/emojis", r"split\(/\\s\+/\)|no-results|emojis-picker-empty")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

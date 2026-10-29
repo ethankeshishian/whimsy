@@ -25,6 +25,8 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_duplicate_shortcut.js"]
 
+["browser_whimsy_emoji_search.js"]
+
 ["browser_whimsy_features.js"]
 
 ["browser_whimsy_folder_colors.js"]
