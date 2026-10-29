@@ -36,7 +36,10 @@ var gWhimsySettings = {
     if (!template) {
       return;
     }
-    Preferences.addAll([{ id: "whimsy.ui-zoom", type: "int" }]);
+    Preferences.addAll([
+      { id: "whimsy.ui-zoom", type: "int" },
+      { id: "whimsy.update-channel", type: "string" },
+    ]);
     const fragment = template.content;
     const groups = [...fragment.children];
     // Above Zen's first Look and Feel group, or at the end of the pane.
@@ -214,6 +217,10 @@ var gWhimsySettings = {
       WhimsyUpdates.readVersion(),
     ]);
     const [headline, detail] = this.describe(state, control, installed, version);
+    document.l10n.setAttributes(
+      document.getElementById("whimsyUpdatesChannelNote"),
+      WhimsyUpdates.channel == "dev" ? "whimsy-updates-channel-dev-note" : "whimsy-updates-channel-release-note"
+    );
     document.l10n.setAttributes(document.getElementById("whimsyUpdatesHeadline"), ...headline);
     document.l10n.setAttributes(document.getElementById("whimsyUpdatesDetail"), ...detail);
     this.renderVersion(version);

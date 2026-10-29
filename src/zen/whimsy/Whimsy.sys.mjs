@@ -42,6 +42,9 @@ export const Whimsy = {
     if (this.featureEnabled("github-reviews")) {
       run("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
+    run("update-channel", () =>
+      lazy.WhimsyUpdates.initChannel().catch(e => console.error("Whimsy: update channel", e))
+    );
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
   },
 

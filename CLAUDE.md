@@ -32,15 +32,23 @@ Each feature has a `whimsy.feature.<id>` switch. `overlay.py` turns a feature of
    - `surfer.json`, `configs/` or mozconfig: `npm run build`. sccache is on, so after the first build this takes less than an hour.
 4. **Verify:** `sh whimsy/verify.sh`, or `quick` for Whimsy tests and screenshots only. Read the PNGs in `.surfer/shots/`. Gecko draws them itself, so no Screen Recording permission is needed.
 5. **Install:** `npm run build` and `build:ui` stage the app via the updater automatically. After `mach build faster`, run `npm run install:app`. It installs right away if Whimsy is closed, otherwise when it next quits, and keeps the old app for rollback.
+6. **Ship (every finished change):** commit on `dev`, then `npm run ship`. It merges any newer published Zen release, builds, runs `verify.sh quick`, pushes `dev`, installs here, and publishes to the Dev channel in the background (`logs/publish-dev.log`).
+
+## Branches and channels
+
+- `dev`: every change. Each `npm run ship` publishes a Dev build (`1.24b-w3-dev.7`, a GitHub pre-release; the newest 5 are kept).
+- `main`: what standard users get. Nightly, the updater takes `dev` plus the newest published Zen release, runs `verify.sh gate`, moves `main` there and publishes it to the Release channel (`1.24b-w3`).
+- Settings → Updates → Channel picks Release (default) or Dev (`whimsy.update-channel`); it only changes which `update.xml` Firefox's updater reads. On a Mac with the local updater installed, Firefox's updater is parked on a channel with no updates and the local updater installs builds instead (every ship; nightly releases too when the channel is Release).
+- Whimsy only takes published Zen release tags, never Zen's branches.
 
 ## The updater
 
 `whimsy/updater/updater.py` runs as launchd jobs, installed with `sh whimsy/updater/install.sh`. Run that again after editing `updater.py`, because the jobs run a copy.
 
-- **Nightly at 3:30 am:** syncs the newest Zen release tag after `whimsy/upstream.json`, builds, runs `verify.sh gate`, and stages the result.
+- **Nightly at 3:30 am:** on `dev`, merges the newest Zen release tag after `whimsy/upstream.json`; if that or unreleased Whimsy changes need a release, builds, runs `verify.sh gate`, moves `main`, publishes (with `--publish`), and stages the result. A failure puts both branches back.
 - **Every minute:** installs a staged build once Whimsy is closed, and carries out rollbacks.
 
-State and logs are in `~/Library/Application Support/Whimsy Updater/`. The Settings → Look and Feel → Updates panel shows them. The nightly job waits while the repository has uncommitted changes or isn't on `main`, so commit your work.
+State and logs are in `~/Library/Application Support/Whimsy Updater/`. The Settings → Look and Feel → Updates panel shows them. The nightly job waits while the repository has uncommitted changes or isn't on `dev`/`main`, so commit your work. It leaves the checkout on `dev`.
 
 ## Publishing (other Macs)
 

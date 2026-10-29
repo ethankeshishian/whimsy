@@ -8,8 +8,9 @@ the overlay). The revision counts Whimsy releases on that Zen version and
 starts over at 1 when Zen's version changes. whimsy/version.json records the
 last release and the history; publish.py adds an entry each time it publishes.
 
-A build that isn't exactly a release shows the next version plus -dev and its
-commit, like 1.24b-w4-dev (e169bef).
+A build that isn't exactly a release is a dev build of the next version,
+numbered by the commits since the last release: 1.24b-w4-dev.7. Those are
+what the Dev update channel gets (publish.py --channel dev).
 
 The app itself keeps Zen's version (application.ini, the user agent):
 changing that recompiles nearly everything, and Firefox's updater orders
@@ -81,6 +82,14 @@ def is_release(repo, data):
     return changed == 0 and not dirty
 
 
+def dev_number(repo, data):
+    """Commits since the last release (not counting version.json ones)."""
+    commit = data.get("commit")
+    spec = f"{commit}..HEAD" if commit else "HEAD"
+    count = git(repo, "rev-list", "--count", spec, "--", ".", ":!whimsy/version.json")
+    return int(count or 0)
+
+
 def describe(repo=ROOT):
     """What a build of this checkout is."""
     data = load(repo)
@@ -90,7 +99,7 @@ def describe(repo=ROOT):
         version = name(zen, data["revision"])
     else:
         dirty = "+" if git(repo, "status", "--porcelain", "--untracked-files=no") else ""
-        version = f"{name(zen, next_revision(data, zen))}-dev"
+        version = f"{name(zen, next_revision(data, zen))}-dev.{dev_number(repo, data)}"
         commit += dirty
     return {
         "version": version,
@@ -98,7 +107,7 @@ def describe(repo=ROOT):
         "zen_label": zen_label(repo),
         "firefox": firefox_version(repo),
         "commit": commit,
-        "released": not version.endswith("-dev"),
+        "released": "-dev" not in version,
         "history": data.get("history", [])[:HISTORY_KEPT],
     }
 

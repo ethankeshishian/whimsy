@@ -44,7 +44,8 @@ LOG = os.path.join(LOGS, "update.log")
 APP = "/Applications/Whimsy.app"
 STAGED = os.path.join(DATA, "staged", "Whimsy.app")
 PREVIOUS = os.path.join(DATA, "previous", "Whimsy.app")
-SYNC_BRANCH = "whimsy-sync"
+DEV = "dev"    # every change; dev builds and the Dev channel
+MAIN = "main"  # what the Release channel gets, moved nightly
 MIN_FREE_GB = 15
 MAX_ATTEMPTS = 2
 PATH = ":".join([
@@ -126,13 +127,14 @@ def whimsy_running():
 
 
 class Lock:
-    def __init__(self, name):
+    def __init__(self, name, wait=False):
         os.makedirs(DATA, exist_ok=True)
         self.f = open(os.path.join(DATA, name), "w")
+        self.wait = wait
 
     def __enter__(self):
         try:
-            fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(self.f, fcntl.LOCK_EX | (0 if self.wait else fcntl.LOCK_NB))
         except BlockingIOError:
             raise Skip("another updater run is in progress")
         return self
@@ -195,8 +197,8 @@ def preflight(repo, manual):
     free_gb = shutil.disk_usage(repo).free / 1e9
     if free_gb < MIN_FREE_GB:
         raise Skip(f"only {free_gb:.0f} GB free; needs {MIN_FREE_GB} GB")
-    if git(repo, "rev-parse", "--abbrev-ref", "HEAD", quiet=True).strip() != "main":
-        raise Skip("the repository isn't on main")
+    if git(repo, "rev-parse", "--abbrev-ref", "HEAD", quiet=True).strip() not in (DEV, MAIN):
+        raise Skip("the repository isn't on dev or main")
     if git(repo, "status", "--porcelain", quiet=True).strip():
         raise Skip("the repository has uncommitted changes")
     if subprocess.run(["pgrep", "-f", "mach build|surfer build"], capture_output=True).returncode == 0:
@@ -303,34 +305,91 @@ def kick(job):
     subprocess.run(["/bin/launchctl", "kickstart", f"gui/{os.getuid()}/{job}"], capture_output=True)
 
 
-def restore_repo(repo, head):
+def branch_sha(repo, branch):
+    return git(repo, "rev-parse", "--verify", "-q", branch, check=False, quiet=True).strip() or None
+
+
+def current_branch(repo):
+    return git(repo, "rev-parse", "--abbrev-ref", "HEAD", quiet=True).strip()
+
+
+def use_dev_branch(repo):
+    """Work happens on dev; create it from main the first time."""
+    if not branch_sha(repo, DEV):
+        git(repo, "branch", DEV, MAIN, quiet=True)
+    if current_branch(repo) != DEV:
+        git(repo, "checkout", "-q", DEV, quiet=True)
+
+
+def restore_repo(repo, heads, branch):
+    """Put the branches back where they were before a failed run."""
     log("Putting the repository back the way it was")
-    git(repo, "checkout", "-f", "main", check=False, quiet=True)
-    git(repo, "reset", "--hard", head, check=False, quiet=True)
+    git(repo, "reset", "--hard", "-q", check=False, quiet=True)
     git(repo, "clean", "-fdq", check=False, quiet=True)
-    git(repo, "branch", "-D", SYNC_BRANCH, check=False, quiet=True)
+    git(repo, "checkout", "-q", "-f", DEV, check=False, quiet=True)
+    git(repo, "reset", "--hard", "-q", heads[DEV], check=False, quiet=True)
+    if heads.get(MAIN):
+        git(repo, "branch", "-f", MAIN, heads[MAIN], check=False, quiet=True)
+    if branch != DEV:
+        git(repo, "checkout", "-q", branch, check=False, quiet=True)
     try:
-        # Keep the engine matching main, for hand builds.
+        # Keep the engine matching the checkout, for hand builds.
         ensure_engine(repo)
         sh("npm run import", cwd=repo, check=False)
     except Exception as e:
-        log(f"Couldn't re-import main into the engine: {e}")
+        log(f"Couldn't re-import into the engine: {e}")
 
 
-def release_whimsy(repo):
-    """Publish Whimsy changes made since the last release, like Zen's own
-    releases: build, test, publish (other Macs pick it up within hours), and
-    stage it here. A failure leaves everything as it was; it retries nightly."""
-    upcoming = version.describe(repo)["version"].removesuffix("-dev")
-    log(f"Releasing Whimsy {upcoming}: main has unreleased changes")
-    update_state(message=f"Building Whimsy {upcoming}")
-    build_and_test(repo)
-    update_state(message=f"Publishing Whimsy {upcoming}")
-    sh(["python3", "whimsy/publish.py"], cwd=repo, timeout=3600)
-    stage(built_app(repo), *build_meta(repo))
+def sync_zen(repo, state):
+    """Take the newest published Zen release onto the current branch, as one
+    commit. Returns its tag, or None when Zen has nothing newer."""
+    base = json.load(open(os.path.join(repo, "whimsy", "upstream.json")))
+    target = pick_release(repo, base, state)
+    if not target:
+        log(f"Zen: nothing newer than {base.get('tag') or base.get('label')}")
+        return None
+    tag, sha = target
+    attempts = state.get("attempts", {}).get(tag, 0)
+    log(f"Merging Zen {tag} (attempt {attempts + 1})")
+    update_state(message=f"Merging Zen {tag}")
+    git(repo, "fetch", "--quiet", "--depth", "1", "upstream", "tag", tag, quiet=True)
+    replace_upstream_files(repo, tag)
+    report = sh(["python3", "whimsy/overlay.py", "apply"], cwd=repo, check=False)
+    with open(os.path.join(repo, "whimsy", "upstream.json"), "w") as f:
+        json.dump({"repo": base["repo"], "tag": tag, "sha": sha, "label": tag}, f, indent=2)
+        f.write("\n")
+    git(repo, "add", "-A", quiet=True)
+    git(repo, "commit", "-q", "-m", f"Sync upstream Zen {tag}\n\n{report.strip()}", quiet=True)
+    ensure_engine(repo)
+    superseded = [l for l in report.splitlines() if l.startswith("superseded:")]
+    if superseded:
+        log("; ".join(superseded))
+    return tag
+
+
+def failed(state, tag, error):
+    """Count a failed Zen release; give up on it after MAX_ATTEMPTS."""
+    attempts = dict(state.get("attempts", {}))
+    skip = list(state.get("skip_tags", []))
+    message = str(error)
+    if tag:
+        attempts[tag] = attempts.get(tag, 0) + 1
+        if attempts[tag] >= MAX_ATTEMPTS:
+            skip.append(tag)
+            message += f". Skipping Zen {tag} until a newer release"
+        else:
+            message += ". Will try again"
+    update_state(status="idle", last_result="failed", message=message, attempts=attempts, skip_tags=skip)
+
+
+def succeeded(state, tag, result):
+    attempts = {k: v for k, v in state.get("attempts", {}).items() if k != tag}
+    update_state(status="idle", last_result=result, attempts=attempts, message="")
 
 
 def cmd_run():
+    """Nightly: dev + the newest Zen release becomes main, tested, and is
+    published to the Release channel."""
     repo = config().get("repo")
     if not repo:
         log("Not installed: run whimsy/updater/install.sh")
@@ -341,71 +400,107 @@ def cmd_run():
     with Lock("run.lock"):
         update_state(status="running", message="Checking for a new Zen release", last_run=now())
         state = read_json("state.json", {})
-        head = None
+        heads, branch, tag = None, None, None
         try:
             preflight(repo, manual)
-            base = json.load(open(os.path.join(repo, "whimsy", "upstream.json")))
-            target = pick_release(repo, base, state)
-            if not target:
-                log(f"Up to date: nothing newer than {base.get('tag') or base.get('label')}")
-                if config().get("publish") and not version.describe(repo)["released"]:
-                    release_whimsy(repo)
-                    update_state(status="idle", last_result="updated", message="")
-                    return
+            branch = current_branch(repo)
+            heads = {DEV: branch_sha(repo, DEV) or branch_sha(repo, MAIN), MAIN: branch_sha(repo, MAIN)}
+            use_dev_branch(repo)
+            if subprocess.run(["git", "merge-base", "--is-ancestor", MAIN, DEV], cwd=repo).returncode:
+                # main has commits dev lacks (made by hand): bring them in.
+                git(repo, "merge", "-q", "--no-edit", MAIN, quiet=True)
+            tag = sync_zen(repo, state)
+            unreleased = not version.describe(repo)["released"]
+            if not tag and not unreleased:
+                log("Up to date: main has everything, and Zen has nothing newer")
                 update_state(status="idle", last_result="up-to-date", message="")
                 return
-            tag, sha = target
-            attempts = state.get("attempts", {}).get(tag, 0)
-            log(f"Updating to Zen {tag} (attempt {attempts + 1})")
-            update_state(message=f"Updating to Zen {tag}")
-            head = git(repo, "rev-parse", "HEAD", quiet=True).strip()
-            git(repo, "checkout", "-B", SYNC_BRANCH, quiet=True)
-            git(repo, "fetch", "--quiet", "--depth", "1", "upstream", "tag", tag, quiet=True)
-            replace_upstream_files(repo, tag)
-            report = sh(["python3", "whimsy/overlay.py", "apply"], cwd=repo, check=False)
-            with open(os.path.join(repo, "whimsy", "upstream.json"), "w") as f:
-                json.dump({"repo": base["repo"], "tag": tag, "sha": sha, "label": tag}, f, indent=2)
-                f.write("\n")
-            git(repo, "add", "-A", quiet=True)
-            git(repo, "commit", "-q", "-m", f"Sync upstream Zen {tag}\n\n{report.strip()}", quiet=True)
-            ensure_engine(repo)
+            upcoming = version.describe(repo)["version"].split("-dev")[0]
+            log(f"Building Whimsy {upcoming} for the Release channel")
             build_and_test(repo)
-            git(repo, "checkout", "-q", "main", quiet=True)
-            git(repo, "merge", "--ff-only", "-q", SYNC_BRANCH, quiet=True)
-            git(repo, "branch", "-D", SYNC_BRANCH, quiet=True)
+            git(repo, "branch", "-f", MAIN, "HEAD", quiet=True)
             if config().get("publish"):
                 # Other Macs get it through Firefox's updater (whimsy/publish.py).
-                # Publishing first lets this Mac's copy carry the release's version.
-                update_state(message=f"Publishing Zen {tag}")
+                update_state(message=f"Publishing Whimsy {upcoming}")
                 try:
                     sh(["python3", "whimsy/publish.py"], cwd=repo, timeout=3600)
+                    git(repo, "branch", "-f", MAIN, "HEAD", quiet=True)
                 except Exception as e:
                     log(f"Publishing failed (the local install is unaffected): {e}")
-            stage(built_app(repo), *build_meta(repo))
-            superseded = [l for l in report.splitlines() if l.startswith("superseded:")]
-            attempts_left = {k: v for k, v in state.get("attempts", {}).items() if k != tag}
-            update_state(status="idle", last_result="updated", attempts=attempts_left,
-                         message="; ".join(superseded))
+                if subprocess.run(["git", "push", "-q", "origin", DEV], cwd=repo).returncode:
+                    log("Couldn't push dev to GitHub")
+            if local_channel() == "release" or tag:
+                stage(built_app(repo), *build_meta(repo))
+            succeeded(state, tag, "updated")
         except Skip as e:
             log(f"Not updating tonight: {e}")
             update_state(status="idle", last_result="skipped", message=str(e))
         except Exception as e:
             log("Update failed:\n" + traceback.format_exc())
-            tag = locals().get("tag")
-            attempts = dict(state.get("attempts", {}))
-            skip = list(state.get("skip_tags", []))
-            message = str(e)
+            if heads:
+                restore_repo(repo, heads, branch)
+            failed(state, tag, e)
+
+
+def local_channel():
+    """This Mac's channel (Settings → Updates): dev installs every dev build."""
+    return read_json("control.json", {}).get("channel", "release")
+
+
+def cmd_ship():
+    """A dev build: commit first. Merges any newer Zen release, builds, tests,
+    pushes dev, installs here, and publishes to the Dev channel in the
+    background."""
+    repo = config().get("repo") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if git(repo, "status", "--porcelain", "--untracked-files=no", quiet=True).strip():
+        raise SystemExit("ship: commit your changes first")
+    print("ship: waiting for any other updater run to finish...", flush=True)
+    with Lock("run.lock", wait=True):
+        state = read_json("state.json", {})
+        branch = current_branch(repo)
+        heads = {DEV: branch_sha(repo, DEV) or branch_sha(repo, MAIN), MAIN: branch_sha(repo, MAIN)}
+        tag = None
+        try:
+            use_dev_branch(repo)
+            update_state(status="running", message="Dev build: checking Zen")
+            tag = sync_zen(repo, state)
+            update_state(message="Dev build: importing and building")
+            sh("npm run import", cwd=repo)
+            sh(["python3", "whimsy/precheck.py"], cwd=repo)
+            sh("npx surfer build", cwd=repo, timeout=4 * 3600)
+            update_state(message="Dev build: testing")
+            sh(["sh", "whimsy/verify.sh", "quick"], cwd=repo, timeout=3600)
+        except Exception as e:
+            log("Dev build failed:\n" + traceback.format_exc())
             if tag:
-                attempts[tag] = attempts.get(tag, 0) + 1
-                if attempts[tag] >= MAX_ATTEMPTS:
-                    skip.append(tag)
-                    message += f". Skipping Zen {tag} until a newer release"
-                else:
-                    message += ". Will try again tonight"
-            if head:
-                restore_repo(repo, head)
-            update_state(status="idle", last_result="failed", message=message,
-                         attempts=attempts, skip_tags=skip)
+                restore_repo(repo, heads, branch)
+            failed(state, tag, e)
+            raise SystemExit(f"ship: {e}")
+        meta, info = build_meta(repo, hand_built=True)
+        log(f"Dev build {info['version']} passed")
+        if subprocess.run(["git", "push", "-q", "origin", DEV], cwd=repo).returncode:
+            log("Couldn't push dev to GitHub")
+        succeeded(state, tag, "dev-build")
+        stage(built_app(repo), meta, info)
+    if config().get("publish"):
+        # In the background: package, sign, upload (a few minutes).
+        out = open(os.path.join(LOGS, "publish-dev.log"), "a")
+        subprocess.Popen([sys.executable, os.path.abspath(__file__), "publish-dev"], cwd=repo,
+                         stdout=out, stderr=out, start_new_session=True)
+        log(f"Publishing {info['version']} to the Dev channel in the background "
+            "(logs/publish-dev.log)")
+    cmd_apply()
+
+
+def cmd_publish_dev():
+    repo = config().get("repo")
+    with Lock("run.lock", wait=True):
+        try:
+            sh(["python3", "whimsy/publish.py", "--channel", "dev"], cwd=repo, timeout=3600)
+            log(f"Published {version.describe(repo)['version']} to the Dev channel")
+        except Exception as e:
+            log(f"Dev publish failed: {e}")
+
 
 
 # ---- installing --------------------------------------------------------------
@@ -496,6 +591,10 @@ def main():
             cmd_apply()
         elif cmd == "stage":
             cmd_stage(sys.argv[2])
+        elif cmd == "ship":
+            cmd_ship()
+        elif cmd == "publish-dev":
+            cmd_publish_dev()
         else:
             print(json.dumps({"state": read_json("state.json", {}),
                               "control": read_json("control.json", {})}, indent=2))

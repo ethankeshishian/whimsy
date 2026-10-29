@@ -48,3 +48,8 @@ The updater follows **release tags**, which sit on `dev`, and only moves forward
 ## Versions
 
 `1.24b-w3` = Zen 1.24b, third Whimsy release on it (`whimsy/version.py`, `whimsy/version.json`). Local unreleased builds show `<next>-dev` plus the commit. The app's compiled version stays Zen's; the Whimsy version and history ship in `Contents/Resources/whimsy-version.json` and appear in Settings → Updates. 1.24b-w1 is the first public release (tag `v1.24b-20261028162128`, from before versioning).
+
+## Branches and channels
+
+Work on `dev` and ship each change with `npm run ship` (Zen release check, build, quick tests, push, install here, Dev-channel publish in the background). The nightly job promotes `dev` + the newest Zen release to `main` after the full gate and publishes it to the Release channel. Users pick Release or Dev in Settings → Updates. Details in CLAUDE.md.
+

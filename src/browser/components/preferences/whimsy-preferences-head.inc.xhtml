@@ -22,6 +22,16 @@
       <html:span id="whimsyUpdatesBase" class="whimsy-updates-detail"/>
     </html:div>
     <checkbox id="whimsyUpdatesAuto" data-l10n-id="whimsy-updates-auto"/>
+    <hbox align="center" class="whimsy-updates-channel">
+      <label id="whimsyUpdatesChannelLabel" control="whimsyUpdatesChannel" data-l10n-id="whimsy-updates-channel"/>
+      <menulist id="whimsyUpdatesChannel" preference="whimsy.update-channel">
+        <menupopup>
+          <menuitem value="release" data-l10n-id="whimsy-updates-channel-release"/>
+          <menuitem value="dev" data-l10n-id="whimsy-updates-channel-dev"/>
+        </menupopup>
+      </menulist>
+      <html:span id="whimsyUpdatesChannelNote" class="whimsy-updates-detail"/>
+    </hbox>
     <html:div class="whimsy-updates-buttons">
       <button id="whimsyUpdatesCheck" data-l10n-id="whimsy-updates-check"/>
       <button id="whimsyUpdatesShowLog" data-l10n-id="whimsy-updates-show-log"/>

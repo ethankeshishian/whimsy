@@ -211,6 +211,7 @@ def apply_json_overrides(report, dry):
         "postbuild": "sh whimsy/install_app.sh",
         "postbuild:ui": "sh whimsy/install_app.sh",
         "install:app": "sh whimsy/install_app.sh",
+        "ship": "python3 whimsy/updater/updater.py ship",
     }
     if "import:strings" not in s.get("import", ""):
         s["import"] = s["import"] + " && npm run import:strings"

@@ -194,3 +194,42 @@ add_task(async function test_updates_settings_for_published_installs() {
   });
   WhimsyUpdates.isInstalled = async () => true;
 });
+
+add_task(async function test_update_channel() {
+  const defaults = Services.prefs.getDefaultBranch("");
+  const originalChannel = defaults.getCharPref("app.update.channel", "");
+  registerCleanupFunction(() => {
+    Services.prefs.unlockPref("app.update.channel");
+    defaults.setCharPref("app.update.channel", originalChannel);
+    Services.prefs.lockPref("app.update.channel");
+    Services.prefs.clearUserPref("whimsy.update-channel");
+  });
+  const { UpdateUtils } = ChromeUtils.importESModule("resource://gre/modules/UpdateUtils.sys.mjs");
+
+  // A downloaded Whimsy: Firefox's updater follows the chosen channel.
+  WhimsyUpdates.isInstalled = async () => false;
+  WhimsyUpdates._channelInit = false;
+  await WhimsyUpdates.initChannel();
+  is(UpdateUtils.UpdateChannel, "release", "Standard users are on Release");
+
+  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+    const doc = browser.contentDocument;
+    const menulist = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesChannel"));
+    is(menulist.namespaceURI, "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul", "A real menulist");
+    await TestUtils.waitForCondition(() => menulist.value == "release");
+    const note = doc.getElementById("whimsyUpdatesChannelNote");
+    await TestUtils.waitForCondition(() => note.textContent.includes("Tested builds"));
+
+    menulist.value = "dev";
+    menulist.dispatchEvent(new browser.contentWindow.Event("command", { bubbles: true }));
+    await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.update-channel") == "dev");
+    await TestUtils.waitForCondition(() => UpdateUtils.UpdateChannel == "dev", "Firefox's updater follows Dev");
+    await TestUtils.waitForCondition(() => note.textContent.includes("Every change"), "The note explains Dev");
+  });
+
+  // A Mac that builds Whimsy: its own updater installs builds, and reads the choice.
+  WhimsyUpdates.isInstalled = async () => true;
+  Services.prefs.setStringPref("whimsy.update-channel", "release");
+  await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).channel == "release");
+  is(UpdateUtils.UpdateChannel, "local", "Firefox's updater stays out of the way there");
+});

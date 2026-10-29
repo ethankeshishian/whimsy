@@ -13,6 +13,11 @@
 - name: whimsy.app-icon
   value: "daydream"
 
+# Update channel: "release" (standard: main, published nightly) or "dev"
+# (every change, as soon as it's built). See WhimsyUpdates.initChannel.
+- name: whimsy.update-channel
+  value: "release"
+
 # The install the post-update notice was last shown for.
 - name: whimsy.updates.seen-install
   value: ""

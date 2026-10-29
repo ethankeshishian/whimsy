@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const SEEN_PREF = "whimsy.updates.seen-install";
+const CHANNEL_PREF = "whimsy.update-channel";
 const UPDATE_JOB = "app.whimsy.updater";
 const APPLY_JOB = "app.whimsy.applier";
 
@@ -85,6 +86,35 @@ export const WhimsyUpdates = {
     return IOUtils.exists(
       PathUtils.join(home, "Library", "LaunchAgents", `${UPDATE_JOB}.plist`)
     );
+  },
+
+  get channel() {
+    return Services.prefs.getStringPref(CHANNEL_PREF, "release") == "dev" ? "dev" : "release";
+  },
+
+  // Points Firefox's updater at the chosen channel's update.xml
+  // (.../updates/browser/<target>/<channel>/update.xml, from %CHANNEL% in the
+  // update URL). Both channels use the same signing key and MAR channel. A
+  // Mac that builds Whimsy installs its own builds (whimsy/updater), so
+  // Firefox's updater gets a channel with no updates there; the local
+  // updater reads the choice from control.json.
+  async initChannel() {
+    if (this._channelInit) {
+      return;
+    }
+    this._channelInit = true;
+    const apply = async () => {
+      const local = await this.isInstalled();
+      // macOS locks the channel at startup (from ChannelPrefs.framework).
+      Services.prefs.unlockPref("app.update.channel");
+      Services.prefs.getDefaultBranch("").setCharPref("app.update.channel", local ? "local" : this.channel);
+      Services.prefs.lockPref("app.update.channel");
+      if (local) {
+        await this.writeControl({ channel: this.channel });
+      }
+    };
+    Services.prefs.addObserver(CHANNEL_PREF, () => apply());
+    await apply();
   },
 
   async setPaused(paused) {

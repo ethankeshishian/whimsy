@@ -2,6 +2,12 @@
 
   python3 whimsy/publish.py            package, sign, release, update update.xml
   python3 whimsy/publish.py --dry-run  everything except uploading
+  python3 whimsy/publish.py --channel dev   a dev build for the Dev channel
+
+Two update channels: Release (standard users; main, published nightly by the
+updater) and Dev (opt-in in Settings; every dev build, published by
+`npm run ship`). They differ only in the update.xml path; both use the same
+key and MAR channel.
 
 1. `mach package`: a standalone app (omni.ja, update metadata).
 2. Ad-hoc code signing (free: new users approve it once in System Settings).
@@ -196,8 +202,24 @@ def ensure_signing_key():
                   "run python3 whimsy/signing_backup.py backup", flush=True)
 
 
+DEV_KEPT = 5
+
+
+def prune_dev_releases(repo):
+    """Keep only the newest few dev pre-releases (each is ~100 MB)."""
+    listing = json.loads(gh("release", "list", "--repo", repo, "--limit", "100",
+                            "--json", "tagName,isPrerelease,createdAt"))
+    dev = sorted((r for r in listing if r["isPrerelease"] and "-dev." in r["tagName"]),
+                 key=lambda r: r["createdAt"], reverse=True)
+    for old in dev[DEV_KEPT:]:
+        gh("release", "delete", old["tagName"], "--repo", repo, "--yes", "--cleanup-tag")
+
+
 def main():
     dry = "--dry-run" in sys.argv
+    channel = sys.argv[sys.argv.index("--channel") + 1] if "--channel" in sys.argv else "release"
+    if channel not in ("release", "dev"):
+        raise SystemExit("publish: --channel is release or dev")
     ensure_signing_key()
     obj = objdir()
     check_updater_trusts_whimsy()
@@ -207,9 +229,18 @@ def main():
     repo = CONFIG["github_repo"]
     sys.path.insert(0, os.path.join(ROOT, "whimsy"))
     import version
-    revision, release = version.next_release(ROOT)
+    if channel == "dev":
+        revision, release = None, version.describe(ROOT)
+        if release["released"] or release["commit"].endswith("+"):
+            raise SystemExit("publish: dev builds need committed, unreleased changes")
+        release["notes"] = version.notes_since(ROOT, version.load(ROOT).get("commit"))
+        release["date"] = datetime.date.today().isoformat()
+    else:
+        revision, release = version.next_release(ROOT)
     tag = f"v{release['version']}"
-    release["notes_url"] = release["history"][0]["notes_url"] = f"https://github.com/{repo}/releases/tag/{tag}"
+    release["notes_url"] = f"https://github.com/{repo}/releases/tag/{tag}"
+    if channel == "release":
+        release["history"][0]["notes_url"] = release["notes_url"]
     if not dry and subprocess.run(["gh", "release", "view", tag, "--repo", repo],
                                   capture_output=True).returncode == 0:
         raise SystemExit(f"publish: {tag} is already released")
@@ -229,6 +260,15 @@ def main():
     print(f"Built {tag}: {dmg}, {mar}")
     if dry:
         return
+    if channel == "dev":
+        # The dev branch is already pushed (npm run ship); just release it.
+        commit = run(["git", "rev-parse", "HEAD"], capture=True).strip()
+        gh("release", "create", tag, dmg, mar, "--repo", repo, "--target", commit, "--prerelease",
+           "--title", f"Whimsy {release['version']} (dev)", "--notes", notes(release), capture=False)
+        publish_pages_file(f"updates/browser/{CONFIG['build_target']}/dev/update.xml", xml, f"Whimsy {tag}")
+        prune_dev_releases(repo)
+        print(f"Published {tag} to the Dev channel")
+        return
     version.record_release(ROOT, revision, release)
     run(["git", "add", "whimsy/version.json"])
     run(["git", "commit", "-q", "-m", f"Whimsy {release['version']}"])
@@ -241,7 +281,7 @@ def main():
     gh("release", "create", tag, dmg, mar, "--repo", repo, "--target", "main",
        "--title", f"Whimsy {release['version']} ({datetime.date.today():%b %d})",
        "--notes", notes(release), capture=False)
-    channel_path = f"updates/browser/{CONFIG['build_target']}/{CONFIG['channel']}/update.xml"
+    channel_path = f"updates/browser/{CONFIG['build_target']}/release/update.xml"
     publish_pages_file(channel_path, xml, f"Whimsy {tag}")
     print(f"Published {tag}: https://github.com/{repo}/releases/tag/{tag}")
 

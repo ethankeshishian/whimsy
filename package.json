@@ -37,7 +37,8 @@
     "import:strings": "python3 scripts/copy_language_pack.py en-US",
     "postbuild": "sh whimsy/install_app.sh",
     "postbuild:ui": "sh whimsy/install_app.sh",
-    "install:app": "sh whimsy/install_app.sh"
+    "install:app": "sh whimsy/install_app.sh",
+    "ship": "python3 whimsy/updater/updater.py ship"
   },
   "repository": {
     "type": "git",
