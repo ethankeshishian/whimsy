@@ -147,3 +147,11 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      and edge cases (empty state, many tabs, private/space boundaries), plus a
      screenshot check in browser_whimsy_screens.js for anything visual. Run the
      full `verify.sh quick` before each commit; nothing ships red.
+   - Next meeting: support BOTH macOS Calendar (EventKit, all its accounts) and
+     direct Google Calendar sign-in, multiple accounts of each. Google sign-in
+     needs an OAuth client ID the user must create: build macOS Calendar first,
+     leave Google as a morning item if no client ID exists.
+   - Fire button: popover with scopes This site / Last 15 min / This space /
+     Everything, burn animation; pinned tabs and Essentials survive.
+   - Linear/Jira live folders: use the signed-in website session (like GitHub
+     live folders), no API keys.
