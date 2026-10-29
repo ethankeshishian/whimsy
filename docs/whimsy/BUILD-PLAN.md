@@ -155,3 +155,17 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      Everything, burn animation; pinned tabs and Essentials survive.
    - Linear/Jira live folders: use the signed-in website session (like GitHub
      live folders), no API keys.
+   - AI: provider picker in Settings (Claude API key, Apple on-device, local
+     Ollama); summaries/grouping prefer on-device when available; the AI kill
+     switch disables all of it.
+   - Local API / Claude space: North star is Claude in Chrome. Default scope is
+     a dedicated "Claude" space; a setting allows control of the whole browser.
+     Use whatever interface is best: CLI, MCP, or both (e.g. a `whimsy` CLI
+     plus an MCP server wrapping it). Visible indicator + stop button.
+   - VPN: Mozilla VPN is paid. Firefox's built-in IP Protection (free, data
+     cap, Mozilla account) may exist in this engine (browser.ipProtection.*):
+     verify; if it works in Whimsy, expose it (per space if feasible). If it
+     needs Mozilla-only services that reject Whimsy, report in the morning.
+   - Sidebery panels => Arc's Air Traffic Control parity: per-space rules
+     (site/URL pattern) that route links opened from outside, and new tabs,
+     into a space. Verify what Zen has first (user thinks it may exist).
