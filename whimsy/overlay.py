@@ -262,6 +262,41 @@ FEATURES = [
      "detect": [("src/zen/live-folders", r"(?i)if-none-match|etag")]},
     {"id": "live-folders-rss-autodiscover", "title": "RSS: autodiscover a page's feed when the URL given isn't one",
      "detect": [("src/zen/live-folders", r"(?i)rel=.alternate.*(?:rss|atom)|autodiscover")]},
+
+    # batch7: input, files, nav, dev, URL schemes, delight
+    {"id": "seasonal-themes", "title": "Seasonal themes: a gentle accent tint and flourish for Halloween, winter holidays and spring",
+     # Firefox's old Colorways never shipped in this engine; this never matches.
+     "detect": [("prefs", r"name:\s*browser\.theme\.colorways\.enabled")]},
+    {"id": "window-close", "title": "Cmd+W on a lone empty tab closes the window (Arc); Zen already keeps the window open otherwise",
+     "detect": [("src/zen", r"(?i)zen-empty-tab[^\n]*cmd_close|cmd_close[^\n]*zen-empty-tab")]},
+    {"id": "full-url-click", "title": "A single click on the address bar selects the whole untrimmed URL (Arc, Safari)",
+     "detect": [("src/zen", r"(?i)always-full-url|full-?url-?click")]},
+    {"id": "hardware-video-decoding", "title": "Settings checkbox for media.hardware-video-decoding.enabled, with a restart prompt",
+     "detect": [("src/browser/components/preferences", r"media\.hardware-video-decoding\.enabled")]},
+    {"id": "dock-badge", "title": "Dock icon badge (download count) and one bounce when a download finishes in the background",
+     # Specifically the macOS Dock tile (not Zen's own unread-downloads
+     # badge on the Library toolbar button, zen-library-badge).
+     "detect": [("src/zen", r"(?i)dock[\w-]*badge|badge[\w-]*dock|macdocksupport[^\n]*badgeText")]},
+    {"id": "quick-look", "title": "Quick Look (Space, or the context menu) on a finished download, via qlmanage",
+     "detect": [("src/zen", r"(?i)qlmanage|QLPreviewPanel")]},
+    {"id": "drag-downloads", "title": "A panel stays open while you drag a download out of it into a site",
+     "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
+    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (Cmd+Opt+S) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
+     "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
+    {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
+     "detect": [("src/zen", r"(?i)cheat-?sheet")]},
+    {"id": "inbox-zero", "title": "Inbox-zero balloons: a small celebration when a mail tab's unread count hits 0",
+     "detect": [("src/zen", r"(?i)inbox-?zero")]},
+    {"id": "site-user-agent", "title": "Per-site user agent (\"Pretend to be...\"): Chrome, Safari (macOS/iPhone) or custom, per site",
+     "detect": [("src/zen", r"(?i)pretend to be|site-?user-?agent|per-?site.*user.?agent")]},
+    {"id": "cookie-editor", "title": "Cookie editor: list, edit, add, delete and copy-as-JSON a site's cookies",
+     "detect": [("src/zen", r"(?i)cookie-?editor")]},
+    {"id": "url-schemes", "title": "whimsy://<page> in the address bar jumps to the real page (Arc parity, address-bar half only)",
+     "detect": [("src/zen", r"(?i)whimsy://|url-?schemes")]},
+    {"id": "upload-clipboard", "title": "Opera's Easy Files: clicking an upload button offers the clipboard image, recent downloads, or the native picker",
+     "detect": [("src/zen", r"(?i)mozSetFileArray|easy-?files|upload-?clipboard")]},
+    {"id": "dev-mode", "title": "Developer mode tabs (Arc parity): localhost/port tabs get a striped outline and a top bar with Console/Network/Elements",
+     "detect": [("src/zen", r"(?i)dev-?mode[\w-]*tab|whimsy-devmode")]},
 ]
 
 

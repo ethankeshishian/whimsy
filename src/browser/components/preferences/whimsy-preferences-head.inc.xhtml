@@ -73,6 +73,12 @@
     <!-- batch13: menu bar extra -->
     <checkbox id="whimsyMenuBarExtra" data-whimsy-feature="menu-bar-extra"
               data-l10n-id="whimsy-look-menu-bar-extra" preference="whimsy.menu-bar-extra.show"/>
+    <!-- batch7: seasonal themes -->
+    <checkbox id="whimsySeasonalThemes" data-whimsy-feature="seasonal-themes"
+              data-l10n-id="whimsy-look-seasonal-themes" preference="whimsy.seasons.enabled"/>
+    <!-- batch7: full URL on click -->
+    <checkbox id="whimsyAlwaysFullUrl" data-whimsy-feature="full-url-click"
+              data-l10n-id="whimsy-look-always-full-url" preference="whimsy.urlbar.always-full-url"/>
   </groupbox>
 </html:template>
 
@@ -273,5 +279,29 @@
       <description class="description-deemphasized" id="whimsyHiddenSpacesEmpty" data-l10n-id="whimsy-hidden-spaces-empty"/>
       <html:div id="whimsyHiddenSpacesList"/>
     </vbox>
+    <!-- batch7: keep the window when the last tab closes (Arc); Zen already
+         sets the pref false, this exposes it -->
+    <checkbox id="whimsyCloseWindowWithLastTab" data-whimsy-feature="window-close"
+              data-l10n-id="whimsy-tabs-close-window-with-last-tab" preference="browser.tabs.closeWindowWithLastTab"/>
+    <!-- batch7: Dock icon badge (download count) -->
+    <checkbox id="whimsyDockBadge" data-whimsy-feature="dock-badge"
+              data-l10n-id="whimsy-downloads-dock-badge" preference="whimsy.downloads.dock-badge"/>
+    <!-- batch7: Quick Look on finished downloads -->
+    <checkbox id="whimsyQuickLook" data-whimsy-feature="quick-look"
+              data-l10n-id="whimsy-downloads-quicklook" preference="whimsy.feature.quick-look"/>
+  </groupbox>
+</html:template>
+
+# batch7: Settings → General → Performance, after Firefox's own Performance
+# group (groupid="performance").
+<html:template id="template-whimsyPerformance" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyPerformanceGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-performance-header"/></label>
+    <checkbox id="whimsyHardwareVideoDecoding" data-whimsy-feature="hardware-video-decoding"
+              data-l10n-id="whimsy-performance-hw-decode" preference="media.hardware-video-decoding.enabled"/>
+    <html:div id="whimsyHwDecodeRestart" class="whimsy-updates-detail" hidden="hidden">
+      <html:span data-l10n-id="whimsy-performance-restart-note"/>
+      <button id="whimsyHwDecodeRestartButton" data-l10n-id="whimsy-performance-restart-button"/>
+    </html:div>
   </groupbox>
 </html:template>

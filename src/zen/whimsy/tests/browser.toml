@@ -177,3 +177,30 @@ support-files = ["whimsy_push_rss.sjs"]
 
 ["browser_whimsy_live_folders_rss_autodiscover.js"]
 support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_discovered_feed.xml"]
+["browser_whimsy_seasonal_themes.js"]
+
+["browser_whimsy_window_close.js"]
+
+["browser_whimsy_full_url_click.js"]
+
+["browser_whimsy_hw_decode.js"]
+
+["browser_whimsy_downloads.js"]
+support-files = ["whimsy_slow_download.sjs"]
+
+["browser_whimsy_sidebar_nav.js"]
+
+["browser_whimsy_cheatsheet.js"]
+
+["browser_whimsy_inbox_zero.js"]
+
+["browser_whimsy_user_agent.js"]
+
+["browser_whimsy_cookie_editor.js"]
+
+["browser_whimsy_url_schemes.js"]
+
+["browser_whimsy_upload_clipboard.js"]
+support-files = ["whimsy_upload.html"]
+
+["browser_whimsy_dev_mode.js"]

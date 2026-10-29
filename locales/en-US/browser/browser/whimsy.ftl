@@ -635,3 +635,94 @@ whimsy-menu-bar-extra-no-recent-tabs =
 
 whimsy-look-menu-bar-extra =
     .label = Show a menu bar icon for a quick window and recent tabs
+## batch7: Settings → Look and Feel → Look
+
+whimsy-look-seasonal-themes =
+    .label = Seasonal themes (a small accent and flourish for Halloween, winter and spring)
+
+## batch7: Settings → Tab Management
+
+whimsy-tabs-close-window-with-last-tab =
+    .label = Close the window when the last tab closes
+
+whimsy-look-always-full-url =
+    .label = Always show the full address, not just the domain
+
+## batch7: Settings → General → Performance
+
+whimsy-performance-header = Performance
+whimsy-performance-hw-decode =
+    .label = Hardware video decoding
+whimsy-performance-restart-note = Restart Whimsy to apply this change.
+whimsy-performance-restart-button =
+    .label = Restart Whimsy
+
+## batch7: Settings → Tab Management (downloads)
+
+whimsy-downloads-dock-badge =
+    .label = Show a badge with the number of downloads in progress on the Dock icon
+whimsy-downloads-quicklook =
+    .label = Quick Look finished downloads (Space, or from the context menu)
+
+## batch7: Quick Look
+
+whimsy-quicklook-menuitem =
+    .label = Quick Look
+whimsy-quicklook-missing-toast = Item removed
+
+## batch7: shortcut cheat sheet (Cmd+/)
+
+whimsy-action-cheatsheet = Keyboard Shortcuts
+whimsy-cheatsheet-search =
+    .placeholder = Search shortcuts
+whimsy-cheatsheet-edit = Edit all shortcuts…
+whimsy-cheatsheet-duplicate-tab = Duplicate Tab
+whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
+whimsy-cheatsheet-tab-next = Next Tab in Sidebar
+whimsy-cheatsheet-tab-prev = Previous Tab in Sidebar
+whimsy-cheatsheet-focus-sidebar = Focus Sidebar
+whimsy-cheatsheet-self = Shortcut Cheat Sheet
+
+## batch7: inbox-zero balloons
+
+whimsy-inbox-zero-toast = Inbox zero
+
+## batch7: per-site user agent ("Pretend to be...")
+
+whimsy-action-useragent = Pretend to be…
+whimsy-useragent-default =
+    .label = Default (Whimsy)
+whimsy-useragent-chrome =
+    .label = Chrome (macOS)
+whimsy-useragent-safari-mac =
+    .label = Safari (macOS)
+whimsy-useragent-safari-iphone =
+    .label = Safari (iPhone)
+
+## batch7: cookie editor
+
+whimsy-action-cookie-editor = Cookies
+whimsy-cookie-editor-add =
+    .label = Add
+whimsy-cookie-editor-copy-all =
+    .label = Copy All as JSON
+whimsy-cookie-editor-delete =
+    .label = Delete
+whimsy-cookie-editor-copied-toast = Cookies copied
+
+## batch7: upload from the clipboard
+
+whimsy-upload-clipboard =
+    .label = Clipboard image
+whimsy-upload-choose-file =
+    .label = Choose file…
+
+## batch7: developer mode tabs
+
+whimsy-action-devmode-toggle = Turn on/off Developer Mode for this site
+whimsy-devmode-elements =
+    .label = Elements
+whimsy-devmode-console =
+    .label = Console
+whimsy-devmode-network =
+    .label = Network

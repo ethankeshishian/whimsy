@@ -24,6 +24,13 @@ var gWhimsySettings = {
         this.insertAboutGroup(event.detail.category);
       }
     });
+    // batch7: hardware video decoding toggle, in its own listener so it runs
+    // on paneGeneral independently of the About-group branch above.
+    document.addEventListener("paneshown", event => {
+      if (event.detail.category == "paneGeneral") {
+        this.insertPerformanceGroup();
+      }
+    });
   },
 
   get lazy() {
@@ -518,6 +525,47 @@ var gWhimsySettings = {
       ...(info.notes_url ? { ".releaseNotesURL": info.notes_url } : {}),
     };
     Preferences.getSetting("updateAppInfo")?.onChange();
+  },
+
+  // batch7: General → Performance → hardware video decoding. It's read at
+  // startup only (gfxPlatform), so changing it shows a restart prompt.
+  insertPerformanceGroup() {
+    const template = document.getElementById("template-whimsyPerformance");
+    if (!template) {
+      return;
+    }
+    const group = template.content.firstElementChild;
+    if (!this.lazy.Whimsy.featureEnabled("hardware-video-decoding")) {
+      template.remove();
+      return;
+    }
+    const anchor = document.querySelector('[groupid="performance"][data-category="paneGeneral"]');
+    template.remove();
+    if (anchor) {
+      anchor.after(group);
+    } else {
+      document.getElementById("mainPrefPane").append(group);
+    }
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+    this.initHardwareVideoDecoding();
+  },
+
+  initHardwareVideoDecoding() {
+    const checkbox = document.getElementById("whimsyHardwareVideoDecoding");
+    const note = document.getElementById("whimsyHwDecodeRestart");
+    const button = document.getElementById("whimsyHwDecodeRestartButton");
+    if (!checkbox || this._hwDecodeWired) {
+      return;
+    }
+    this._hwDecodeWired = true;
+    const startupValue = Services.prefs.getBoolPref("media.hardware-video-decoding.enabled", true);
+    checkbox.addEventListener("command", () => {
+      note.hidden = checkbox.checked == startupValue;
+    });
+    button.addEventListener("command", () => {
+      Services.startup.quit(Services.startup.eAttemptQuit | Services.startup.eRestart);
+    });
   },
 
   async refreshLog() {
