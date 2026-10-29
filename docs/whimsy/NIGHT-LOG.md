@@ -11,3 +11,4 @@
 - Shipped 1.24b-w2-dev.52 at 08:40 (batches 1–4).
 - 08:45 session at 88%: stopped scout batch 8 (Tier B research; partial file may exist, redo it). Batch 5 (media + page, from scout/batch5.md) running. After it: ship, then no new batch until the limit resets.
 - Resume order: ship batch 5 → batch 6 (scout/batch6.md) → batch 7 (scout/batch7.md) → scout+build Tier B → Tier C (answers in BUILD-PLAN.md).
+- 09:20 Codex CLI research running (launched by the lead via `codex exec`, prompt in the job tmp dir) → writes docs/whimsy/scout/batch8+.md, tier-c.md, INDEX.md. Plan to save Claude session budget: after batch 5 ships, hand BUILD batches to Codex too (`codex exec` with full access), one builder at a time; Claude reviews its log and ships.
