@@ -84,9 +84,9 @@ FEATURES = [
      "detect": [("src", r"ui-zoom|uiZoom|interface-zoom")]},
     {"id": "app-icon", "title": "App icon picker",
      "detect": [("src", r"setApplicationIcon|applicationIconImage|zen\.app-icon|app-icon-picker")]},
-    {"id": "github-mine", "title": "\"Yours\" on GitHub pull requests",
-     "detect": [("src/zen/live-folders", r"github-mine|\bYours\b"),
-                ("locales/en-US", r"github-mine|\bYours\b")]},
+    {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
+     "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
+                ("locales/en-US", r"(?i)my review requests")]},
 ]
 
 

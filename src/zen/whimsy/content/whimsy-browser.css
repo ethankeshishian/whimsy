@@ -18,11 +18,3 @@
     zoom: var(--whimsy-ui-zoom, 1);
   }
 }
-
-/* A GitHub live folder's pull requests: the user's own say "Yours" in the
-   accent color, their team's show the author. */
-.tabbrowser-tab[zen-show-sublabel="Yours"] .zen-tab-sublabel {
-  color: var(--zen-primary-color);
-  font-weight: 600;
-  opacity: 1;
-}

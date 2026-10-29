@@ -10,7 +10,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
-  WhimsyGithubMine: "resource:///modules/whimsy/WhimsyGithubMine.sys.mjs",
+  WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
 });
 
@@ -39,8 +39,8 @@ export const Whimsy = {
     if (this.featureEnabled("app-icon")) {
       run("app-icon", () => lazy.WhimsyAppIcon.init());
     }
-    if (this.featureEnabled("github-mine")) {
-      run("github-mine", () => lazy.WhimsyGithubMine.init());
+    if (this.featureEnabled("github-reviews")) {
+      run("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
   },

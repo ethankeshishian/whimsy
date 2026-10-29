@@ -68,6 +68,11 @@ whimsy-app-icon-spearmint = Spearmint
 whimsy-app-icon-sugar-rush = Sugar Rush
 whimsy-app-icon-party-popper = Party Popper
 
+## GitHub live folder options (pull requests). Mirrors Zen's PR #16183.
+
+whimsy-live-folder-github-option-my-review-requests =
+    .label = My Review Requests
+
 ## Settings → Look and Feel → Interface zoom
 
 whimsy-ui-zoom-header = Interface zoom

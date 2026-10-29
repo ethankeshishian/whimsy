@@ -5,7 +5,7 @@
 EXTRA_JS_MODULES.whimsy += [
     "Whimsy.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
-    "WhimsyGithubMine.sys.mjs",
+    "WhimsyGithubReviews.sys.mjs",
     "WhimsyUpdates.sys.mjs",
 ]
 

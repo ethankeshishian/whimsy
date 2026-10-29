@@ -9,7 +9,7 @@
 - name: whimsy.feature.app-icon
   value: true
 
-- name: whimsy.feature.github-mine
+- name: whimsy.feature.github-reviews
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.
