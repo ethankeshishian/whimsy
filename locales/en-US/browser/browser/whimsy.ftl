@@ -443,3 +443,13 @@ whimsy-upload-clipboard =
     .label = Clipboard image
 whimsy-upload-choose-file =
     .label = Choose file…
+
+## batch7: developer mode tabs
+
+whimsy-action-devmode-toggle = Turn on/off Developer Mode for this site
+whimsy-devmode-elements =
+    .label = Elements
+whimsy-devmode-console =
+    .label = Console
+whimsy-devmode-network =
+    .label = Network

@@ -177,6 +177,9 @@
 - name: whimsy.feature.upload-clipboard
   value: true
 
+- name: whimsy.feature.dev-mode
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

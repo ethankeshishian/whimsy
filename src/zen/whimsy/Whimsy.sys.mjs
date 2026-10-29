@@ -35,6 +35,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
   WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
   WhimsyProtocol: "resource:///modules/whimsy/WhimsyProtocol.sys.mjs",
+  WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -209,6 +210,27 @@ export const Whimsy = {
     // batch7: whimsy:// URL schemes (the address-bar half; see
     // WhimsyProtocol.sys.mjs for why the external-link half is deferred).
     run("url-schemes", () => lazy.WhimsyProtocol.initWindow(win));
+    // batch7: developer mode tabs (Arc parity).
+    run("dev-mode", () => {
+      lazy.WhimsyDevMode.initWindow(win);
+      lazy.WhimsyShortcuts.addCommand(win, {
+        id: "whimsy-devmode-toggle-site",
+        run: w => {
+          const uri = w.gBrowser.selectedBrowser?.currentURI;
+          if (lazy.WhimsyDevMode.enabled && uri) {
+            lazy.WhimsyDevMode.toggleSite(uri);
+          }
+        },
+      });
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-devmode-toggle",
+          command: "whimsy-devmode-toggle-site",
+          icon: "chrome://browser/skin/zen-icons/code.svg",
+          isAvailable: () => lazy.WhimsyDevMode.enabled,
+        },
+      ]);
+    });
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

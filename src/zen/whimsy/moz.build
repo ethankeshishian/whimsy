@@ -24,6 +24,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCheatSheet.sys.mjs",
     "WhimsyCookieEditor.sys.mjs",
     "WhimsyDelight.sys.mjs",
+    "WhimsyDevMode.sys.mjs",
     "WhimsyDownloads.sys.mjs",
     "WhimsyProtocol.sys.mjs",
     "WhimsySeasons.sys.mjs",

@@ -225,6 +225,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)whimsy://|url-?schemes")]},
     {"id": "upload-clipboard", "title": "Opera's Easy Files: clicking an upload button offers the clipboard image, recent downloads, or the native picker",
      "detect": [("src/zen", r"(?i)mozSetFileArray|easy-?files|upload-?clipboard")]},
+    {"id": "dev-mode", "title": "Developer mode tabs (Arc parity): localhost/port tabs get a striped outline and a top bar with Console/Network/Elements",
+     "detect": [("src/zen", r"(?i)dev-?mode[\w-]*tab|whimsy-devmode")]},
 ]
 
 

@@ -678,3 +678,31 @@ panel.whimsy-cheatsheet > input {
   from { transform: translateY(0) translateX(0); opacity: 0.95; }
   to { transform: translateY(-120vh) translateX(12px); opacity: 0; }
 }
+
+/* batch7: developer mode tabs (Arc parity). */
+tab[whimsy-devmode][selected] {
+  outline: 2px dashed;
+  outline-offset: -2px;
+  outline-color: #f5d90a;
+  border-radius: var(--zen-border-radius, 6px);
+}
+#whimsy-devmode-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 0.85em;
+  background: color-mix(in srgb, #f5d90a 16%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, #f5d90a 45%, transparent);
+}
+.whimsy-devmode-url {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+.whimsy-devmode-button {
+  font-size: 0.85em;
+}
