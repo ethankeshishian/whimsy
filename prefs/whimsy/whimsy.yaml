@@ -46,9 +46,8 @@
 - name: whimsy.tabs.newtab-button-bottom
   value: false
 
-# Folder colors picked from the folder context menu: {folderId: color}.
-- name: whimsy.folders.colors
-  value: "{}"
+# whimsy.folders.colors ({folderId: color}) has no default here: the pref
+# generator writes "{}" unquoted, which breaks firefox.js. Code falls back to {}.
 
 # Show page loading as a thin progress line across the top of the page
 # instead of Zen's pill (Settings → Tab Management).
