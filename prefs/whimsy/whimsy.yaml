@@ -54,3 +54,8 @@
 # instead of Zen's pill (Settings → Tab Management).
 - name: whimsy.tabs.loading-line
   value: true
+
+# Unread counts (from the page title) and update dots on pinned tabs and
+# Essentials (Settings → Tab Management).
+- name: whimsy.tabs.badges
+  value: true

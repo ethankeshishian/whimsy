@@ -42,6 +42,9 @@
 - name: whimsy.feature.loading-line
   value: true
 
+- name: whimsy.feature.tab-badges
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

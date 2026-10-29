@@ -32,6 +32,34 @@ const LINE_FEATURE_PREF = "whimsy.feature.loading-line";
 const LINE_PREF = "whimsy.tabs.loading-line";
 const PROGRESS_VAR = "--whimsy-load-progress";
 
+// Notification badges and dots (Arc's Favorites and pinned tabs): sites put
+// their unread count in the page title ("(3) Slack", "Inbox (12) - Gmail").
+// A pinned tab or an Essential shows that count as a small badge on its
+// icon. Firefox already marks a background tab whose title changed
+// ([titlechanged], cleared when it's selected); Zen hides Firefox's dot, and
+// whimsy-browser.css shows an Arc-style dot on pinned tabs and Essentials
+// instead, when there's no count to show. whimsy.tabs.badges turns both off.
+const BADGES_FEATURE_PREF = "whimsy.feature.tab-badges";
+const BADGES_PREF = "whimsy.tabs.badges";
+const UNREAD_ATTR = "whimsy-unread";
+const UNREAD_PATTERNS = [
+  // "(3) Slack", "[12] Discord", "(99+) Feed"
+  /^\s*[(\[](\d{1,5})\+?[)\]]/,
+  // "Inbox (3) - me@gmail.com", "Unread (5)", "Notifications (2)"
+  /\b(?:inbox|unread|notifications?|messages?)\s*\((\d{1,5})\+?\)/i,
+];
+
+export function parseUnreadCount(title) {
+  for (const pattern of UNREAD_PATTERNS) {
+    const match = pattern.exec(title ?? "");
+    if (match) {
+      const count = parseInt(match[1], 10);
+      return count > 0 ? count : 0;
+    }
+  }
+  return 0;
+}
+
 export const WhimsyTabs = {
   _prefsWatched: false,
 
@@ -67,6 +95,70 @@ export const WhimsyTabs = {
     win.gZenWorkspaces?.promiseInitialized?.then(update);
     update();
     this.initLoadingLine(win);
+    this.initBadges(win);
+  },
+
+  get badges() {
+    return Services.prefs.getBoolPref(BADGES_FEATURE_PREF, true) && Services.prefs.getBoolPref(BADGES_PREF, true);
+  },
+
+  initBadges(win) {
+    const { gBrowser } = win;
+    const updateAll = () => {
+      for (const tab of gBrowser.tabs) {
+        this.updateBadge(tab);
+      }
+    };
+    const container = gBrowser.tabContainer;
+    container.addEventListener("TabAttrModified", event => {
+      if (event.detail?.changed?.includes("label")) {
+        this.updateBadge(event.target);
+      }
+    });
+    for (const type of ["TabPinned", "TabUnpinned"]) {
+      container.addEventListener(type, event => this.updateBadge(event.target));
+    }
+    const observer = () => updateAll();
+    for (const pref of [BADGES_FEATURE_PREF, BADGES_PREF]) {
+      Services.prefs.addObserver(pref, observer);
+    }
+    win.addEventListener(
+      "unload",
+      () => {
+        for (const pref of [BADGES_FEATURE_PREF, BADGES_PREF]) {
+          Services.prefs.removeObserver(pref, observer);
+        }
+      },
+      { once: true }
+    );
+    win.gZenWorkspaces?.promiseInitialized?.then(updateAll);
+  },
+
+  // The count goes on the tab (for selectors), and on its icon stack and
+  // content row, where the badge draws it with attr(): on the icon's corner
+  // for Essentials and a collapsed sidebar, at the end of the row for a
+  // pinned tab in the expanded list. Only pinned tabs and Essentials, whose
+  // titles are hidden or fixed, get one.
+  updateBadge(tab) {
+    const stack = tab.querySelector?.(".tab-icon-stack");
+    const content = tab.querySelector?.(".tab-content");
+    if (!stack || !content) {
+      return;
+    }
+    let count = 0;
+    if (this.badges && tab.pinned) {
+      count = parseUnreadCount(tab.linkedBrowser?.contentTitle || tab.label);
+    }
+    if (count) {
+      const text = count > 99 ? "99+" : String(count);
+      for (const el of [tab, stack, content]) {
+        el.setAttribute(UNREAD_ATTR, text);
+      }
+    } else {
+      for (const el of [tab, stack, content]) {
+        el.removeAttribute(UNREAD_ATTR);
+      }
+    }
   },
 
   get loadingLine() {

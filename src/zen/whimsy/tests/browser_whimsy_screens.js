@@ -289,3 +289,35 @@ add_task(async function loading_line() {
   await loaded;
   BrowserTestUtils.removeTab(tab);
 });
+
+add_task(async function tab_badges() {
+  const setTitle = (tab, title) =>
+    SpecialPowers.spawn(tab.linkedBrowser, [title], t => {
+      content.document.title = t;
+    });
+  const tabs = [];
+  for (const [url, essential] of [["https://example.com/?e1", true], ["https://example.org/?e2", true], ["https://example.com/?p1", false], ["https://example.org/?p2", false]]) {
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+    if (essential) {
+      gZenPinnedTabManager.addToEssentials(tab);
+    } else {
+      gBrowser.pinTab(tab);
+    }
+    tabs.push(tab);
+  }
+  const current = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/");
+  await setTitle(tabs[0], "(3) Chat");
+  await setTitle(tabs[2], "Inbox (128) - Mail");
+  await setTitle(tabs[1], "Something changed");
+  await setTitle(tabs[3], "Also changed");
+  await TestUtils.waitForCondition(() => tabs[3].hasAttribute("titlechanged"), "Dots");
+  await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  await shot("15-tab-badges");
+  for (const tab of tabs) {
+    if (tab.hasAttribute("zen-essential")) {
+      gZenPinnedTabManager.removeEssentials(tab);
+    }
+    BrowserTestUtils.removeTab(tab);
+  }
+  BrowserTestUtils.removeTab(current);
+});

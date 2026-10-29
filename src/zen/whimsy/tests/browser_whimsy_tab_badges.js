@@ -1,0 +1,122 @@
+/* Any copyright is dedicated to the Public Domain.
+   https://creativecommons.org/publicdomain/zero/1.0/ */
+
+"use strict";
+
+// Notification badges and dots: a pinned tab or Essential whose page title
+// carries an unread count ("(3) Chat", "Inbox (12) - Mail") shows it as a
+// badge on its icon; a background pinned tab whose title changed shows a dot
+// until it's selected. Normal tabs show neither (their title is visible).
+
+const { parseUnreadCount } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
+
+const startTabs = new Set(gBrowser.tabs);
+registerCleanupFunction(() => {
+  for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+    if (tab.hasAttribute("zen-essential")) {
+      gZenPinnedTabManager.removeEssentials(tab);
+    }
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+function setTitle(tab, title) {
+  return SpecialPowers.spawn(tab.linkedBrowser, [title], t => {
+    content.document.title = t;
+  });
+}
+
+function stack(tab) {
+  return tab.querySelector(".tab-icon-stack");
+}
+
+// The icon-corner mark (Essentials' badge, every pinned tab's dot).
+function badge(tab) {
+  return window.getComputedStyle(stack(tab), "::after");
+}
+
+// The row-end badge of a pinned tab in the expanded list.
+function rowBadge(tab) {
+  return window.getComputedStyle(tab.querySelector(".tab-content"), "::after");
+}
+
+add_task(function test_parse() {
+  const cases = {
+    "(3) Chat": 3,
+    "[12] Discord": 12,
+    "(99+) Feed": 99,
+    "Inbox (7) - me@example.com - Mail": 7,
+    "Notifications (2) | Site": 2,
+    "(0) Nothing new": 0,
+    "Chat": 0,
+    "Release notes (2024)": 0,
+    "": 0,
+  };
+  for (const [title, count] of Object.entries(cases)) {
+    is(parseUnreadCount(title), count, `"${title}" has ${count}`);
+  }
+  is(parseUnreadCount(undefined), 0, "No title: no count");
+});
+
+add_task(async function test_badge_on_pinned_and_essentials() {
+  ok(Services.prefs.getBoolPref("whimsy.feature.tab-badges"), "The feature switch is on");
+  ok(Services.prefs.getBoolPref("whimsy.tabs.badges"), "On by default");
+  const pinned = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?pinned");
+  gBrowser.pinTab(pinned);
+  const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?essential");
+  gZenPinnedTabManager.addToEssentials(essential);
+  await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential");
+  const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?normal");
+
+  await setTitle(pinned, "(3) Chat");
+  await TestUtils.waitForCondition(() => stack(pinned).getAttribute("whimsy-unread") == "3", "The pinned tab gets a 3");
+  is(rowBadge(pinned).content, '"3"', "drawn at the end of its row in the expanded list");
+  is(badge(pinned).content, "none", "not on its icon there (it would cover the title)");
+  await setTitle(essential, "Inbox (150) - Mail");
+  await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "99+", "An Essential shows 99+ for 150");
+  is(badge(essential).content, '"99+"', "on its tile's icon");
+  await setTitle(normal, "(5) Feed");
+  await TestUtils.waitForCondition(() => normal.label == "(5) Feed", "Normal tab retitled");
+  ok(!stack(normal).hasAttribute("whimsy-unread"), "A normal tab gets no badge");
+
+  // Read everything: the count goes.
+  await setTitle(pinned, "Chat");
+  await TestUtils.waitForCondition(() => !stack(pinned).hasAttribute("whimsy-unread"), "No count, no badge");
+
+  // Unpinning drops it; pinning again brings it back.
+  await setTitle(pinned, "(4) Chat");
+  await TestUtils.waitForCondition(() => stack(pinned).hasAttribute("whimsy-unread"), "Badge again");
+  gBrowser.unpinTab(pinned);
+  await TestUtils.waitForCondition(() => !stack(pinned).hasAttribute("whimsy-unread"), "Unpinned: no badge");
+  gBrowser.pinTab(pinned);
+  await TestUtils.waitForCondition(() => stack(pinned).hasAttribute("whimsy-unread"), "Pinned again: badge back");
+
+  // Switched off: no badges.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.tabs.badges", false]] });
+  ok(!stack(pinned).hasAttribute("whimsy-unread"), "Turned off, the badge goes");
+  is(rowBadge(pinned).content, "none", "and nothing is drawn");
+  await SpecialPowers.popPrefEnv();
+  ok(stack(pinned).hasAttribute("whimsy-unread"), "On again");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.tab-badges", false]] });
+  ok(!stack(essential).hasAttribute("whimsy-unread"), "The feature switch turns it off too");
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_dot_when_background_title_changes() {
+  const pinned = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?dot");
+  gBrowser.pinTab(pinned);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?other");
+  ok(!pinned.selected, "The pinned tab is in the background");
+  await setTitle(pinned, "Something new happened");
+  await TestUtils.waitForCondition(() => pinned.hasAttribute("titlechanged"), "Firefox marks the title change");
+  is(badge(pinned).content, '""', "A dot shows on the pinned tab");
+  is(badge(pinned).width, "7px", "a small round dot");
+  gBrowser.selectedTab = pinned;
+  await TestUtils.waitForCondition(() => !pinned.hasAttribute("titlechanged"), "Selecting it clears the mark");
+  is(badge(pinned).content, "none", "and the dot");
+  gBrowser.selectedTab = other;
+  await setTitle(pinned, "(2) Something new");
+  await TestUtils.waitForCondition(() => stack(pinned).hasAttribute("whimsy-unread"), "A count");
+  is(rowBadge(pinned).content, '"2"', "shows instead of the dot");
+  is(badge(pinned).content, "none", "and the dot goes");
+});
