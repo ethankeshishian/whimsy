@@ -49,3 +49,8 @@
 # Folder colors picked from the folder context menu: {folderId: color}.
 - name: whimsy.folders.colors
   value: "{}"
+
+# Show page loading as a thin progress line across the top of the page
+# instead of Zen's pill (Settings → Tab Management).
+- name: whimsy.tabs.loading-line
+  value: true

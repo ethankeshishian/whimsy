@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 [DEFAULT]
+support-files = ["whimsy_slow_load.sjs"]
 
 ["browser_whimsy_ai_kill_switch.js"]
 
@@ -27,6 +28,8 @@ run-if = ["os == 'mac'"]
 ["browser_whimsy_features.js"]
 
 ["browser_whimsy_folder_colors.js"]
+
+["browser_whimsy_loading_line.js"]
 
 ["browser_whimsy_new_tabs.js"]
 

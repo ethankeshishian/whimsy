@@ -211,3 +211,67 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   background: var(--whimsy-swatch, var(--zen-primary-color));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 15%, transparent);
 }
+
+/* Loading progress line (WhimsyTabs, whimsy.tabs.loading-line): Zen's
+   loading pill becomes a thin Safari-style line along the top of the page.
+   ::before is the real progress (--whimsy-load-progress on the panel);
+   ::after creeps forward on its own so a page that reports no progress
+   still shows movement. Both grow from the left in the same color, so the
+   line shows whichever is further. !important outranks Zen's pulse and
+   squash animations; its opacity fade still runs. */
+@media -moz-pref("whimsy.feature.loading-line") and -moz-pref("whimsy.tabs.loading-line") {
+  #zen-loading-progress-bar,
+  #zen-loading-progress-bar[long-load="true"] {
+    --whimsy-load-color: color-mix(in srgb, var(--zen-primary-color) 85%, light-dark(black, white));
+    top: 1px !important;
+    left: 50% !important;
+    width: calc(100% - 2 * var(--zen-native-inner-radius, 8px)) !important;
+    height: 2px !important;
+    border-radius: 2px !important;
+    background: transparent !important;
+    transform: translate(-50%, 0) !important;
+    animation: none !important;
+    overflow: clip;
+
+    &::before,
+    &::after {
+      content: "" !important;
+      position: absolute;
+      inset: 0 !important;
+      width: auto !important;
+      border-radius: inherit;
+      background: var(--whimsy-load-color) !important;
+      transform-origin: left center;
+    }
+
+    &::before {
+      transform: scaleX(var(--whimsy-load-progress, 0)) !important;
+      animation: none !important;
+      transition: transform 0.25s ease-out;
+    }
+
+    &::after {
+      transform: scaleX(0.7);
+      animation: whimsy-load-creep 12s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      &::before {
+        transition: none;
+      }
+      &::after {
+        animation: none;
+        transform: scaleX(0.15);
+      }
+    }
+  }
+}
+
+@keyframes whimsy-load-creep {
+  from {
+    transform: scaleX(0.06);
+  }
+  to {
+    transform: scaleX(0.7);
+  }
+}

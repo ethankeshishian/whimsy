@@ -277,3 +277,15 @@ add_task(async function folder_colors() {
   }
   Services.prefs.clearUserPref("whimsy.folders.colors");
 });
+
+add_task(async function loading_line() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const url = "http://mochi.test:8888/browser/zen/whimsy/tests/whimsy_slow_load.sjs?delay=3000";
+  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url);
+  BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, url);
+  await TestUtils.waitForCondition(() => document.getElementById("zen-loading-progress-bar"), "Loading");
+  await new Promise(resolve => setTimeout(resolve, 1200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  await shot("14-loading-line");
+  await loaded;
+  BrowserTestUtils.removeTab(tab);
+});

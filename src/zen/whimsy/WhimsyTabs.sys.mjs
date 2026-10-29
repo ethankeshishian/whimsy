@@ -21,6 +21,17 @@ const BOTTOM_PREF = "whimsy.tabs.newtab-button-bottom";
 const TOP_PREF = "zen.view.show-newtab-button-top";
 const DOCK_CLASS = "whimsy-newtab-dock";
 
+// Loading progress line (whimsy.tabs.loading-line): Zen shows a small
+// pulsing pill above the page while it loads (ZenProgressBar,
+// zen.view.enable-loading-indicator). Safari draws a thin line that fills as
+// the page loads. With this on, whimsy-browser.css restyles Zen's indicator
+// into that line, and the listener below feeds it the page's real progress
+// as --whimsy-load-progress on the tab's panel (0 to 1, never going back
+// during a load). Zen still decides when the indicator shows and hides.
+const LINE_FEATURE_PREF = "whimsy.feature.loading-line";
+const LINE_PREF = "whimsy.tabs.loading-line";
+const PROGRESS_VAR = "--whimsy-load-progress";
+
 export const WhimsyTabs = {
   _prefsWatched: false,
 
@@ -55,6 +66,50 @@ export const WhimsyTabs = {
     }
     win.gZenWorkspaces?.promiseInitialized?.then(update);
     update();
+    this.initLoadingLine(win);
+  },
+
+  get loadingLine() {
+    return Services.prefs.getBoolPref(LINE_FEATURE_PREF, true) && Services.prefs.getBoolPref(LINE_PREF, true);
+  },
+
+  initLoadingLine(win) {
+    const { gBrowser } = win;
+    const panelOf = browser => gBrowser.getPanel?.(browser);
+    const set = (browser, value) => {
+      const panel = panelOf(browser);
+      if (!panel) {
+        return;
+      }
+      const old = parseFloat(panel.style.getPropertyValue(PROGRESS_VAR)) || 0;
+      // During a load the line only moves forward; a new load starts at 0.
+      if (value == 0 || value > old) {
+        panel.style.setProperty(PROGRESS_VAR, value.toFixed(3));
+      }
+    };
+    gBrowser.addTabsProgressListener({
+      onStateChange: (browser, webProgress, request, flags) => {
+        if (!webProgress?.isTopLevel || !this.loadingLine) {
+          return;
+        }
+        const { STATE_START, STATE_STOP, STATE_IS_NETWORK } = Ci.nsIWebProgressListener;
+        if (!(flags & STATE_IS_NETWORK)) {
+          return;
+        }
+        if (flags & STATE_START) {
+          set(browser, 0);
+        } else if (flags & STATE_STOP) {
+          set(browser, 1);
+        }
+      },
+      onProgressChange: (browser, webProgress, request, curSelf, maxSelf, curTotal, maxTotal) => {
+        if (!this.loadingLine || !(maxTotal > 0)) {
+          return;
+        }
+        // Leave the last stretch for STATE_STOP, like Safari.
+        set(browser, Math.min(0.95, curTotal / maxTotal));
+      },
+    });
   },
 
   // The two placements exclude each other: top and bottom can't both be on.
