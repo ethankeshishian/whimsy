@@ -200,3 +200,12 @@ tab-context-whimsy-group-domain =
     .accesskey = G
 # $count (number) - how many tabs, $site (string) - the site
 whimsy-group-domain-toast = Grouped { $count } tabs from { $site } into a folder
+
+## Spaces
+
+# $count (number) - how many tabs moved, $space (string) - the space's name
+whimsy-space-drop-toast =
+    { $count ->
+        [one] Moved to { $space }
+       *[other] Moved { $count } tabs to { $space }
+    }

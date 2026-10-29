@@ -119,6 +119,8 @@ FEATURES = [
     {"id": "group-domain", "title": "Group by domain: gather a site's tabs into a folder (tab context menu)",
      "detect": [("src/zen", r"(group|folder)[\w-]*by-?(domain|site)"),
                 ("src/zen/folders", r"getBaseDomain")]},
+    {"id": "space-icon-drop", "title": "Drop tabs on space icons to move them to that space (Arc)",
+     "detect": [("src/zen/drag-and-drop", r"handle_spaceIconDrop\b|spaceIconDrop")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

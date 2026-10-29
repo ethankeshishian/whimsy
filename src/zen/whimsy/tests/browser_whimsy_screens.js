@@ -338,3 +338,15 @@ add_task(async function group_by_domain() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+add_task(async function space_drop_target() {
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Work", "💼", true);
+  const button = await TestUtils.waitForCondition(() =>
+    document.querySelector(`#zen-workspaces-button toolbarbutton[zen-workspace-id="${space.uuid}"]`)
+  );
+  button.setAttribute("whimsy-drop-target", "");
+  await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  await shot("17-space-drop-target");
+  button.removeAttribute("whimsy-drop-target");
+  await gZenWorkspaces.removeWorkspace(space.uuid);
+});

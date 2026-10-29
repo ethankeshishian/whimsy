@@ -12,7 +12,7 @@
   value: 0.3
 
 - name: zen.theme.gradient.show-custom-colors
-  value: false
+  value: true # Whimsy override
 
 - name: zen.theme.essentials-favicon-bg
   value: true

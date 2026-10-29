@@ -48,6 +48,9 @@
 - name: whimsy.feature.group-domain
   value: true
 
+- name: whimsy.feature.space-icon-drop
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

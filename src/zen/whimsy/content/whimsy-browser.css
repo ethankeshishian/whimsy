@@ -361,3 +361,30 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     opacity: 0;
   }
 }
+
+/* Drop tabs on space icons: the icon under a dragged tab lights up in the
+   accent color and grows a little; on drop it bounces once. */
+#zen-workspaces-button toolbarbutton[zen-workspace-id] {
+  @media not (prefers-reduced-motion: reduce) {
+    transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1), background-color 0.16s ease;
+  }
+
+  &[whimsy-drop-target] {
+    background-color: color-mix(in srgb, var(--zen-primary-color) 30%, transparent) !important;
+    outline: 1.5px solid var(--zen-primary-color);
+    outline-offset: -1.5px;
+    transform: scale(1.15);
+  }
+
+  @media not (prefers-reduced-motion: reduce) {
+    &[whimsy-landed] {
+      animation: whimsy-space-landed 0.36s cubic-bezier(0.3, 1.5, 0.5, 1);
+    }
+  }
+}
+
+@keyframes whimsy-space-landed {
+  40% {
+    transform: scale(1.3);
+  }
+}

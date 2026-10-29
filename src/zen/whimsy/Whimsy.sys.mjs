@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFolderColors: "resource:///modules/whimsy/WhimsyFolderColors.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
 });
@@ -57,6 +58,12 @@ export const Whimsy = {
     // Watches its prefs and switches, so options apply without a restart.
     run("tabs", () => lazy.WhimsyTabs.initWindow(win));
     run("folder-colors", () => lazy.WhimsyFolderColors.initWindow(win));
+    // After Zen's spaces are ready; each part checks its switch on use.
+    run("spaces", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaces.initWindow(win))
+        .catch(e => console.error("Whimsy: spaces", e))
+    );
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());
