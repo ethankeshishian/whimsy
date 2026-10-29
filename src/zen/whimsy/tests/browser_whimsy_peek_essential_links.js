@@ -17,7 +17,9 @@ registerCleanupFunction(() => {
 
 async function openFromPinnedTab(pinnedTab, url) {
   const onOpen = BrowserTestUtils.waitForNewTab(gBrowser, url, false);
-  await SpecialPowers.spawn(pinnedTab.linkedBrowser, [url], u => content.open(u, "_blank"));
+  await SpecialPowers.spawn(pinnedTab.linkedBrowser, [url], u => {
+    content.open(u, "_blank");
+  });
   return onOpen;
 }
 
