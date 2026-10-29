@@ -47,6 +47,8 @@ export class WhimsyPageChild extends JSWindowActorChild {
       }
       case "Whimsy:SetRate":
         return this.setRate(message.data);
+      case "Whimsy:PageBounds":
+        return this.pageBounds();
     }
     return null;
   }
@@ -117,5 +119,16 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const rate = reset ? 1 : Math.round(Math.min(4, Math.max(0.25, el.playbackRate + delta)) * 100) / 100;
     el.playbackRate = rate;
     return rate;
+  }
+
+  // Capture: the whole scrollable page, in CSS pixels (what Screenshots'
+  // full-page bounds are, without its overlay).
+  pageBounds() {
+    const win = this.contentWindow;
+    const left = win.scrollMinX;
+    const top = win.scrollMinY;
+    const width = win.innerWidth + win.scrollMaxX - left;
+    const height = win.innerHeight + win.scrollMaxY - top;
+    return { left, top, right: left + width, bottom: top + height, width, height, devicePixelRatio: win.devicePixelRatio };
   }
 }

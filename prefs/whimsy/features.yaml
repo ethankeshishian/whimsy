@@ -96,6 +96,9 @@
 - name: whimsy.feature.find-selection
   value: true
 
+- name: whimsy.feature.capture
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

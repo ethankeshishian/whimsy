@@ -157,6 +157,8 @@ FEATURES = [
                 ("prefs", r"name:\s*media\.videocontrols\.picture-in-picture\.playback-speed\.enabled")]},
     {"id": "find-selection", "title": "Cmd+F opens Find with the selected text (Chrome, Safari)",
      "detect": [("prefs", r"name:\s*accessibility\.typeaheadfind\.prefillwithselection")]},
+    {"id": "capture", "title": "Capture: Arc's Cmd+Shift+2 for Screenshots, and Copy Full-Page Screenshot in one step",
+     "detect": [("src/zen", r"(?i)copy-?full-?page|fullPageScreenshot|capture-full-page")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},

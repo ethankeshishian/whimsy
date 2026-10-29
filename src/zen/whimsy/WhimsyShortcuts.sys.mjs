@@ -90,23 +90,32 @@ export const WhimsyShortcuts = {
     });
     (document.getElementById("mainCommandSet") ?? document.documentElement).append(command);
     if (key) {
-      const keyEl = document.createXULElement("key");
-      keyEl.id = key.id;
-      keyEl.setAttribute("command", id);
-      keyEl.setAttribute("modifiers", key.modifiers);
-      keyEl.setAttribute(key.keycode ? "keycode" : "key", key.keycode ?? key.key);
-      // Whimsy's own keyset, beside Firefox's (Zen rebuilds its own).
-      let keyset = document.getElementById("whimsyKeyset");
-      if (!keyset) {
-        keyset = document.createXULElement("keyset");
-        keyset.id = "whimsyKeyset";
-      }
-      keyset.append(keyEl);
-      // Gecko reads <key>s only when their keyset is (re)bound.
-      keyset.remove();
-      (document.getElementById("mainKeyset")?.parentElement ?? document.documentElement).append(keyset);
+      this.addKey(win, { ...key, command: id });
     }
     return command;
+  },
+
+  // A <key> for an existing command, in Whimsy's own keyset beside
+  // Firefox's (Zen rebuilds its own).
+  addKey(win, { id, command, key = null, keycode = null, modifiers }) {
+    const { document } = win;
+    if (document.getElementById(id)) {
+      return;
+    }
+    const keyEl = document.createXULElement("key");
+    keyEl.id = id;
+    keyEl.setAttribute("command", command);
+    keyEl.setAttribute("modifiers", modifiers);
+    keyEl.setAttribute(keycode ? "keycode" : "key", keycode ?? key);
+    let keyset = document.getElementById("whimsyKeyset");
+    if (!keyset) {
+      keyset = document.createXULElement("keyset");
+      keyset.id = "whimsyKeyset";
+    }
+    keyset.append(keyEl);
+    // Gecko reads <key>s only when their keyset is (re)bound.
+    keyset.remove();
+    (document.getElementById("mainKeyset")?.parentElement ?? document.documentElement).append(keyset);
   },
 
   // Adds actions to Zen's command bar (once per session): { l10nId (in

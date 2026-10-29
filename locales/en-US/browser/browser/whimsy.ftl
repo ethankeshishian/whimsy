@@ -246,6 +246,12 @@ whimsy-action-speed-reset = Normal Video Speed
 whimsy-speed-toast = Playback speed { NUMBER($rate, maximumFractionDigits: 2) }×
 whimsy-speed-none-toast = No video or audio on this page
 
+## Capture (shortcuts and command bar)
+
+whimsy-action-copy-full-page = Copy Full-Page Screenshot
+whimsy-capture-copied-toast = Copied a screenshot of the whole page
+whimsy-capture-failed-toast = This page can’t be captured
+
 ## Spaces
 
 # $count (number) - how many tabs moved, $space (string) - the space's name

@@ -1,0 +1,65 @@
+/* Any copyright is dedicated to the Public Domain.
+   https://creativecommons.org/publicdomain/zero/1.0/ */
+
+"use strict";
+
+// Capture: Arc's Cmd+Shift+2 opens Firefox Screenshots, and Copy Full-Page
+// Screenshot (Cmd+Opt+Shift+F, command bar) puts the whole page on the
+// clipboard in one step.
+
+const TALL = "https://example.com/document-builder.sjs?html=" + encodeURIComponent("<body style='margin:0'><div style='height:4000px;background:linear-gradient(red,blue)'>Tall</div></body>");
+const { WhimsyPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPage.sys.mjs");
+
+function clipboardHasImage() {
+  return Services.clipboard.hasDataMatchingFlavors(["image/png", "image/jpeg", "application/x-moz-nativeimage"], Services.clipboard.kGlobalClipboard);
+}
+
+function sameShortcut(a, b) {
+  const mods = k => (k.getAttribute("modifiers") || "").replace("accel", "meta").split(/[ ,]+/).filter(Boolean).sort().join();
+  return (a.getAttribute("key") || "").toLowerCase() == (b.getAttribute("key") || "").toLowerCase() && mods(a) == mods(b);
+}
+
+add_task(async function test_keys() {
+  const arc = document.getElementById("key_whimsyScreenshotArc");
+  ok(arc, "Cmd+Shift+2 exists");
+  is(arc.getAttribute("command"), "Browser:Screenshot", "and opens Screenshots");
+  const full = document.getElementById("key_whimsyCopyFullPage");
+  is(full.getAttribute("command"), "cmd_whimsyCopyFullPage", "Cmd+Opt+Shift+F copies the full page");
+  for (const key of [arc, full]) {
+    const clash = [...document.querySelectorAll("key")].filter(
+      k => k != key && k.getAttribute("disabled") != "true" && k.getAttribute("key") && sameShortcut(k, key)
+    );
+    Assert.deepEqual(clash.map(k => k.id), [], `${key.id} doesn't clash`);
+  }
+});
+
+add_task(async function test_copy_full_page() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TALL);
+  const viewport = await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.innerHeight);
+  SpecialPowers.clipboardCopyString("not an image");
+  ok(!clipboardHasImage(), "The clipboard starts with text");
+  const size = await WhimsyPage.copyFullPageScreenshot(window);
+  ok(size && size.height >= 4000 && size.height > viewport, `The whole page was captured (${size?.height}px, viewport ${viewport}px)`);
+  ok(clipboardHasImage(), "The clipboard holds the image");
+
+  // The shortcut does the same.
+  SpecialPowers.clipboardCopyString("text again");
+  tab.linkedBrowser.focus();
+  EventUtils.synthesizeKey("F", { accelKey: true, altKey: true, shiftKey: true });
+  await TestUtils.waitForCondition(clipboardHasImage, "Cmd+Opt+Shift+F copies it too");
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_command_bar_and_empty() {
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const action = globalActions.find(a => a.l10nId == "whimsy-action-copy-full-page");
+  ok(action, "The command bar has Copy Full-Page Screenshot");
+  is(action.label, "Copy Full-Page Screenshot", "labelled");
+  const blank = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  ok(!action.isAvailable(window), "Not offered on a blank tab");
+  is(await WhimsyPage.copyFullPageScreenshot(window), null, "and does nothing there");
+  BrowserTestUtils.removeTab(blank);
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.capture", false]] });
+  ok(!action.isAvailable(window), "The switch hides it");
+  await SpecialPowers.popPrefEnv();
+});

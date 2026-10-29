@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
+  WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
@@ -93,6 +94,7 @@ export const Whimsy = {
     run("actors", () => this.registerActors());
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
+    run("page", () => lazy.WhimsyPage.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());
