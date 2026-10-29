@@ -31,6 +31,18 @@
 // built. Never refreshes on window focus -- the base class's existing
 // 1-minute DeferredTask is the only trigger, same as a mail client ticking
 // in the background.
+//
+// batch11: RSS feed autodiscovery. Today, adding an RSS live folder only
+// ever works with a feed URL you already have in hand -- RssLiveFolder
+// just fetches whatever URL it's given and expects a feed. Most sites
+// advertise their feed on an ordinary page instead, via
+// `<link rel="alternate" type="application/rss+xml">` in the `<head>`
+// (the same thing a browser's own "subscribe" button used to look for).
+// `promptForFeedUrl` (a public static method) is wrapped so that, after
+// asking for a URL exactly the way Zen does, a non-feed page is
+// transparently upgraded to its advertised feed; a genuine feed URL, or a
+// page advertising none, passes through unchanged -- no regression on
+// today's behavior either way.
 
 import { WhimsyJiraLiveFolderProvider, DEFAULT_JQL } from "resource:///modules/whimsy/WhimsyJiraLiveFolder.sys.mjs";
 
@@ -41,6 +53,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const JIRA_FEATURE_PREF = "whimsy.feature.live-folders-jira";
 const PUSH_FEATURE_PREF = "whimsy.feature.live-folders-push";
+const RSS_AUTODISCOVER_PREF = "whimsy.feature.live-folders-rss-autodiscover";
 const PUSH_INTERVAL_MS = 60 * 1000;
 
 export const WhimsyLiveFolders = {
@@ -50,6 +63,10 @@ export const WhimsyLiveFolders = {
 
   get pushEnabled() {
     return Services.prefs.getBoolPref(PUSH_FEATURE_PREF, true);
+  },
+
+  get rssAutodiscoverEnabled() {
+    return Services.prefs.getBoolPref(RSS_AUTODISCOVER_PREF, true);
   },
 
   init() {
@@ -99,8 +116,62 @@ export const WhimsyLiveFolders = {
         "resource:///modules/zen/RssLiveFolder.sys.mjs"
       );
       this.wrapPushableFetchItems(nsRssLiveFolderProvider.prototype, provider => provider.state.url);
+      this.wrapRssAutodiscovery(nsRssLiveFolderProvider);
     } catch (e) {
       console.error("Whimsy: rss push hook failed", e);
+    }
+  },
+
+  // Wraps the static promptForFeedUrl Zen's manager calls when creating an
+  // RSS folder: ask for a URL exactly as Zen does, then (feature on, a URL
+  // was given, and it isn't a feed itself) try to discover the page's
+  // advertised feed and use that instead.
+  wrapRssAutodiscovery(RssProviderClass) {
+    const original = RssProviderClass.promptForFeedUrl;
+    if (typeof original != "function" || original.whimsyWrapped) {
+      return;
+    }
+    RssProviderClass.promptForFeedUrl = async function (window, initialUrl = "") {
+      const url = await original.call(this, window, initialUrl);
+      if (!url || !WhimsyLiveFolders.rssAutodiscoverEnabled) {
+        return url;
+      }
+      try {
+        const discovered = await WhimsyLiveFolders.discoverFeed(url);
+        return discovered || url;
+      } catch (e) {
+        console.error("Whimsy: feed autodiscovery failed", e);
+        return url;
+      }
+    };
+    RssProviderClass.promptForFeedUrl.whimsyWrapped = true;
+  },
+
+  // Returns the page's advertised feed URL, or null if `url` is already a
+  // feed, advertises none, or can't be fetched/parsed at all -- in every
+  // one of those cases the caller just keeps using `url` as given.
+  async discoverFeed(url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return null;
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (/(?:rss|atom|xml)/i.test(contentType)) {
+      return null; // Already a feed; nothing to discover.
+    }
+    const text = await response.text();
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    const link = doc.querySelector(
+      'link[rel="alternate"][type="application/rss+xml"], link[rel="alternate"][type="application/atom+xml"]'
+    );
+    const href = link?.getAttribute("href");
+    if (!href) {
+      return null;
+    }
+    try {
+      return new URL(href, url).href;
+    } catch {
+      return null;
     }
   },
 

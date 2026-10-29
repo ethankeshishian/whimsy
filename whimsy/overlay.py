@@ -197,6 +197,8 @@ FEATURES = [
      "detect": [("src/zen/live-folders", r"(?i)jira")]},
     {"id": "live-folders-push", "title": "\"Push\" live-folder refresh option (1-minute conditional checks)",
      "detect": [("src/zen/live-folders", r"(?i)if-none-match|etag")]},
+    {"id": "live-folders-rss-autodiscover", "title": "RSS: autodiscover a page's feed when the URL given isn't one",
+     "detect": [("src/zen/live-folders", r"(?i)rel=.alternate.*(?:rss|atom)|autodiscover")]},
 ]
 
 

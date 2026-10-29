@@ -127,3 +127,6 @@ support-files = ["whimsy_jira.sjs"]
 
 ["browser_whimsy_live_folders_push.js"]
 support-files = ["whimsy_push_rss.sjs"]
+
+["browser_whimsy_live_folders_rss_autodiscover.js"]
+support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_discovered_feed.xml"]
