@@ -31,6 +31,8 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_loading_line.js"]
 
+["browser_whimsy_media_indicators.js"]
+
 ["browser_whimsy_new_tabs.js"]
 
 ["browser_whimsy_newtab_bottom.js"]
