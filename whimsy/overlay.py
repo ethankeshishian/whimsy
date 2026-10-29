@@ -195,6 +195,8 @@ FEATURES = [
     # batch12: links & media windows
     {"id": "quick-window", "title": "Little Arc: a quick window (Cmd+Opt+N; links from other apps, per the setting above) with a \"Move to space\" button",
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    {"id": "follower-tabs", "title": "Follower tabs: a 2-pane split where clicked links land in the other pane, the source pane never navigates (Vivaldi)",
+     "detect": [("src/zen", r"(?i)follower-?tabs?|follower-?split")]},
 ]
 
 

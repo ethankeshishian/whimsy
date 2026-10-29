@@ -22,6 +22,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyUpdates.sys.mjs",
     # batch12: links & media windows
     "WhimsyQuickWindow.sys.mjs",
+    "WhimsyFollowerTabs.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

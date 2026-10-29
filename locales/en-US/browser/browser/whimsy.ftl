@@ -368,3 +368,12 @@ whimsy-action-quick-window = New Quick Window
 whimsy-quick-window-move-to-space =
     .label = Move to Space
     .tooltiptext = Adopt this page into a tab in one of your spaces
+
+## Follower tabs (tab context menu, on a tab already in a 2-pane split)
+
+tab-context-whimsy-follow =
+    .label = Make This a Follower Split
+    .accesskey = F
+tab-context-whimsy-unfollow =
+    .label = Stop Following
+    .accesskey = F

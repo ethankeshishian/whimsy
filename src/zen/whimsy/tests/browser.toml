@@ -123,3 +123,5 @@ support-files = ["whimsy_archive.sjs"]
 
 # batch12: links & media windows
 ["browser_whimsy_quick_window.js"]
+
+["browser_whimsy_follower_tabs.js"]
