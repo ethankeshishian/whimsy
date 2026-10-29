@@ -271,3 +271,23 @@ add_task(async function test_channel_applied_before_update_service() {
   is(stored.channel, UpdateUtils.UpdateChannel, "A stored Dev update isn't marked ERR_CHANNEL_CHANGE");
   WhimsyUpdates.isInstalled = () => true;
 });
+
+// Every Whimsy build of a Zen release shares its appVersion; Firefox's
+// updater must order them by build ID (whimsy-UpdateService-sys-mjs.patch),
+// not accept any build ID that merely differs.
+add_task(async function test_same_version_orders_by_build_id() {
+  const aus = Cc["@mozilla.org/updates/update-service;1"].getService(Ci.nsIApplicationUpdateService);
+  const current = Services.appinfo.appBuildID;
+  const update = buildID => ({
+    QueryInterface: ChromeUtils.generateQI(["nsIUpdate"]),
+    appVersion: Services.appinfo.version,
+    buildID,
+    type: "minor",
+    unsupported: false,
+  });
+  const older = String(Number(current.slice(0, 4)) - 1) + current.slice(4);
+  const newer = String(Number(current.slice(0, 4)) + 1) + current.slice(4);
+  is(await aus.selectUpdate([update(older)]), null, "An older build of the same version is skipped");
+  is(await aus.selectUpdate([update(current)]), null, "The running build is skipped");
+  is((await aus.selectUpdate([update(newer)]))?.buildID, newer, "A newer build is offered");
+});

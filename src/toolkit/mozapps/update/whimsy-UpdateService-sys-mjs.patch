@@ -1,0 +1,22 @@
+diff --git a/toolkit/mozapps/update/UpdateService.sys.mjs b/toolkit/mozapps/update/UpdateService.sys.mjs
+index 164381ebc1073b644ab0a95910e2aab6c397e879..c945a0d22c515a75515b3cac2f87b79b984497e9 100644
+--- a/toolkit/mozapps/update/UpdateService.sys.mjs
++++ b/toolkit/mozapps/update/UpdateService.sys.mjs
+@@ -1957,6 +1957,17 @@ function updateIsAtLeastAsOldAs(update, version, buildID) {
+     return false;
+   }
+   let versionComparison = Services.vc.compare(update.appVersion, version);
++  // Whimsy: every Whimsy build of a Zen release shares its appVersion, so at
++  // the same version order by build ID (a YYYYMMDDHHMMSS timestamp) instead
++  // of only matching it; an older build is never installed over a newer one.
++  if (
++    versionComparison == 0 &&
++    /^\d+$/.test(update.buildID) &&
++    /^\d+$/.test(buildID) &&
++    update.buildID.length == buildID.length
++  ) {
++    return update.buildID <= buildID;
++  }
+   return (
+     versionComparison < 0 ||
+     (versionComparison == 0 && update.buildID == buildID)
