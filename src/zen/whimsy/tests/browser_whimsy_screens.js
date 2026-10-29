@@ -148,3 +148,22 @@ add_task(async function updated_notice() {
   await shot("04-updated-notice");
   notification.remove();
 });
+
+add_task(async function copy_link_toast() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  await SpecialPowers.pushPrefEnv({ set: [["ui.popup.disable_autohide", true]] });
+  document.getElementById("cmd_zenCopyCurrentURL").doCommand();
+  const container = document.getElementById("zen-toast-container");
+  const toast = await TestUtils.waitForCondition(() =>
+    [...container.children].find(t => t._messageId == "whimsy-copy-toast")
+  );
+  await TestUtils.waitForCondition(() => toast.querySelector("label").textContent, "Toast text arrives");
+  await Promise.all(toast.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {})));
+  await new Promise(resolve => setTimeout(resolve, 400));
+  ok(toast.checkVisibility(), "The copy toast shows");
+  await shot("05-copy-toast");
+  toast.remove();
+  container.setAttribute("hidden", true);
+  await SpecialPowers.popPrefEnv();
+  BrowserTestUtils.removeTab(tab);
+});

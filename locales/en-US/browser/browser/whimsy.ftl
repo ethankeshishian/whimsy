@@ -97,3 +97,23 @@ whimsy-live-folder-github-option-team-review-requests =
 whimsy-ui-zoom-header = Interface zoom
 whimsy-ui-zoom-description = Make the toolbars, sidebar, menus and panels bigger or smaller. Web pages keep their own zoom.
 whimsy-ui-zoom-label = Zoom
+
+## Copy & share (WhimsyCopy.sys.mjs): Cmd+Shift+C, Cmd+Opt+Shift+C, tab menu
+
+whimsy-copy-toast =
+    { $count ->
+        [one] Copied link
+       *[other] Copied { $count } links
+    }
+whimsy-copy-markdown-toast =
+    { $count ->
+        [one] Copied link as Markdown
+       *[other] Copied { $count } links as Markdown
+    }
+tab-context-whimsy-copy-links =
+    .label =
+        { $count ->
+            [one] Copy Link
+           *[other] Copy Links
+        }
+    .accesskey = k

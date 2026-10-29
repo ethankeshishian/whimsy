@@ -84,6 +84,8 @@ FEATURES = [
      "detect": [("src", r"ui-zoom|uiZoom|interface-zoom")]},
     {"id": "app-icon", "title": "App icon picker",
      "detect": [("src", r"setApplicationIcon|applicationIconImage|zen\.app-icon|app-icon-picker")]},
+    {"id": "copy", "title": "Copy & share: rich links, selected tabs, Copy Links menu item",
+     "detect": [("src/zen", r"context_copyLinks|copySelectedTabsURL|copyTabsURLs|text/html.*copyCurrentURL")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},

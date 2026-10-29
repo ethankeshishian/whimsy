@@ -18,3 +18,11 @@
     zoom: var(--whimsy-ui-zoom, 1);
   }
 }
+
+/* Copy & share: the copied URL under the toast's message, cropped in the
+   middle so both the site and the end of the path stay readable. */
+#zen-toast-container .zen-toast .whimsy-copy-url {
+  max-width: 260px;
+  margin: 0;
+  opacity: 0.7;
+}
