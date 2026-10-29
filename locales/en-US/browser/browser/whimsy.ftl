@@ -361,3 +361,8 @@ whimsy-look-peek-essential-links =
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
+
+## batch7: Settings → Look and Feel → Look
+
+whimsy-look-seasonal-themes =
+    .label = Seasonal themes (a small accent and flourish for Halloween, winter and spring)

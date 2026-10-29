@@ -24,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
+  // batch7: new feature modules
+  WhimsySeasons: "resource:///modules/whimsy/WhimsySeasons.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -125,6 +127,9 @@ export const Whimsy = {
       lazy.WhimsyUpdates.initChannel().catch(e => console.error("Whimsy: update channel", e))
     );
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
+    // batch7: seasonal themes. Watches its own prefs, so it applies without
+    // a restart.
+    run("seasons", () => lazy.WhimsySeasons.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

@@ -192,6 +192,11 @@ FEATURES = [
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+
+    # batch7: input, files, nav, dev, URL schemes, delight
+    {"id": "seasonal-themes", "title": "Seasonal themes: a gentle accent tint and flourish for Halloween, winter holidays and spring",
+     # Firefox's old Colorways never shipped in this engine; this never matches.
+     "detect": [("prefs", r"name:\s*browser\.theme\.colorways\.enabled")]},
 ]
 
 

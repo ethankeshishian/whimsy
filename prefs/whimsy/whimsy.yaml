@@ -128,3 +128,10 @@
 # have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
 - name: whimsy.external-links.target
   value: tab
+
+# batch7: seasonal themes
+# A dated accent tint and flourish for Halloween, winter holidays and
+# spring (Settings → Look and Feel → Look); never changes a space's own
+# colours, and respects reduced motion.
+- name: whimsy.seasons.enabled
+  value: true

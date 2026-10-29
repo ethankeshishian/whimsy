@@ -120,3 +120,5 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_wayback.js"]
 support-files = ["whimsy_archive.sjs"]
+
+["browser_whimsy_seasonal_themes.js"]
