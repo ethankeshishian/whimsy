@@ -15,6 +15,9 @@
 - name: whimsy.feature.cookie-banners
   value: true
 
+- name: whimsy.feature.private-indicator
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

@@ -9,6 +9,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
@@ -37,6 +38,10 @@ export const Whimsy = {
     );
     if (this.featureEnabled("ui-zoom")) {
       run("ui-zoom", () => this.initUiZoom(win));
+    }
+    if (this.featureEnabled("private-indicator") && lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
+      // Styled by whimsy-browser.css: a violet tint and a badge.
+      win.document.documentElement.setAttribute("whimsy-private", "");
     }
     if (this.featureEnabled("app-icon")) {
       run("app-icon", () => lazy.WhimsyAppIcon.init());

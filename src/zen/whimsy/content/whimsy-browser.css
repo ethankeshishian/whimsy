@@ -26,3 +26,33 @@
   margin: 0;
   opacity: 0.7;
 }
+
+/* Private window indicator (Arc/Brave style): a private window wears a deep
+   violet tint behind the sidebar and toolbar, a violet accent, and its space
+   name ("Incognito") becomes a badge, so it can't be mistaken for a normal
+   window at a glance. Whimsy.initWindow sets [whimsy-private] (doubled to
+   outrank Zen's own [zen-private-window] colors). */
+:root[whimsy-private][whimsy-private] {
+  --whimsy-private-accent: rgb(152, 110, 255);
+  --zen-primary-color: var(--whimsy-private-accent) !important;
+
+  & :is(#zen-browser-background, #zen-toolbar-background) {
+    --zen-main-browser-background: linear-gradient(160deg, rgb(52, 30, 92) 0%, rgb(30, 20, 56) 55%, rgb(20, 15, 36) 100%) !important;
+    --zen-main-browser-background-toolbar: var(--zen-main-browser-background) !important;
+    --zen-main-browser-background-old: var(--zen-main-browser-background) !important;
+  }
+
+  & .zen-current-workspace-indicator .zen-current-workspace-indicator-name {
+    flex: 0 1 auto !important;
+    padding: 2px 9px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--whimsy-private-accent) 32%, transparent);
+    color: white;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+
+  & .zen-current-workspace-indicator-icon {
+    fill: var(--whimsy-private-accent) !important;
+  }
+}

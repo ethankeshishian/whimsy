@@ -18,6 +18,8 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_features.js"]
 
+["browser_whimsy_private_indicator.js"]
+
 ["browser_whimsy_screens.js"]
 
 ["browser_whimsy_strings_and_keys.js"]

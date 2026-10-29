@@ -89,6 +89,8 @@ FEATURES = [
     {"id": "cookie-banners", "title": "Reject cookie banners (built-in DuckDuckGo Autoconsent add-on + toggle)",
      "detect": [("src/zen", r"(?i)autoconsent|cookiebanners\.service\.mode"),
                 ("prefs", r"name:\s*cookiebanners\.service\.mode")]},
+    {"id": "private-indicator", "title": "Private window indicator (violet tint + Incognito badge)",
+     "detect": [("src/zen", r"privatebrowsingmode[^\n]*(--zen-main-browser-background|accent)")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

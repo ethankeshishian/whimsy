@@ -189,3 +189,14 @@ add_task(async function settings_cookie_banners() {
     await shot("07-settings-cookie-banners", browser.browsingContext.currentWindowGlobal);
   });
 });
+
+add_task(async function private_window() {
+  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  await win.gZenWorkspaces?.promiseInitialized;
+  BrowserTestUtils.startLoadingURIString(win.gBrowser.selectedBrowser, "https://example.com/");
+  await BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser);
+  await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "https://example.org/");
+  await new Promise(resolve => win.requestAnimationFrame(resolve));
+  await shot("08-private-window", win.browsingContext.currentWindowGlobal);
+  await BrowserTestUtils.closeWindow(win);
+});
