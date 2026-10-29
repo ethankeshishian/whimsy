@@ -388,3 +388,14 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     transform: scale(1.3);
   }
 }
+
+/* Hide the space switcher (whimsy.spaces.hide-switcher, Settings → Tab
+   Management): the row of space icons at the bottom of the sidebar goes
+   away; spaces still switch by swiping, by shortcut or from the space
+   menu. While a tab is dragged it comes back, so tabs can still be dropped
+   on a space. */
+@media -moz-pref("whimsy.feature.hide-switcher") and -moz-pref("whimsy.spaces.hide-switcher") {
+  :root:not([whimsy-tab-dragging]) #zen-workspaces-button {
+    display: none !important;
+  }
+}

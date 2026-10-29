@@ -125,6 +125,8 @@ FEATURES = [
      "detect": [("src/zen/spaces", r"lastSelectedWorkspaceTabs\[[^\]]+\]\s*=\s*[^;]*lastAccessed")]},
     {"id": "emoji-search", "title": "Emoji search: every word must match, Enter picks the first result, empty state",
      "detect": [("src/zen/common/emojis", r"split\(/\\s\+/\)|no-results|emojis-picker-empty")]},
+    {"id": "hide-switcher", "title": "Hide the space switcher (toggle, off by default)",
+     "detect": [("prefs", r"name:\s*zen\.[\w.-]*(hide|show)[\w.-]*(workspace|space)[\w.-]*(switcher|icons|button)")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

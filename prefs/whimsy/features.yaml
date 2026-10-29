@@ -57,6 +57,9 @@
 - name: whimsy.feature.emoji-search
   value: true
 
+- name: whimsy.feature.hide-switcher
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

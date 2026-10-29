@@ -23,6 +23,11 @@
 // Slack- and Notion-style pickers go further: every word you type must
 // match ("red heart", "cat face"), Enter picks the first result, and an
 // empty result says so instead of showing a blank grid.
+//
+// Hide the space switcher (whimsy.spaces.hide-switcher, whimsy-browser.css):
+// for people who switch spaces by swiping or shortcut and want the sidebar's
+// foot clear. While a tab is dragged the switcher comes back, so dropping
+// on a space still works ([whimsy-tab-dragging], set here).
 
 const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
 const DROP_FEATURE_PREF = "whimsy.feature.space-icon-drop";
@@ -44,6 +49,7 @@ export const WhimsySpaces = {
     this.initIconDrop(win);
     this.initLastTab(win);
     this.initEmojiSearch(win);
+    this.initTabDragging(win);
   },
 
   // --- Drop tabs on space icons ---
@@ -287,5 +293,23 @@ export const WhimsySpaces = {
         updateEmpty("");
       }
     });
+  },
+
+  // --- Hide the space switcher ---
+
+  initTabDragging(win) {
+    const root = win.document.documentElement;
+    win.addEventListener(
+      "dragstart",
+      event => {
+        if (event.dataTransfer?.mozTypesAt(0)[0] == TAB_DROP_TYPE) {
+          root.setAttribute("whimsy-tab-dragging", "");
+        }
+      },
+      true
+    );
+    const done = () => root.removeAttribute("whimsy-tab-dragging");
+    win.addEventListener("dragend", done, true);
+    win.addEventListener("drop", () => win.setTimeout(done, 0), true);
   },
 };

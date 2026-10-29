@@ -59,3 +59,8 @@
 # Essentials (Settings → Tab Management).
 - name: whimsy.tabs.badges
   value: true
+
+# Hide the space switcher at the bottom of the sidebar (Settings → Tab
+# Management → Spaces). Off: the switcher shows, as in Zen and Arc.
+- name: whimsy.spaces.hide-switcher
+  value: false

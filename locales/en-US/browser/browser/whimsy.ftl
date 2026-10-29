@@ -214,3 +214,8 @@ whimsy-space-drop-toast =
 # $query (string) - what was typed
 whimsy-emoji-search-empty =
     .value = No emoji for “{ $query }”
+
+## Settings → Tab Management (spaces)
+
+whimsy-spaces-hide-switcher =
+    .label = Hide the space switcher (swipe to change spaces; it shows while you drag a tab)
