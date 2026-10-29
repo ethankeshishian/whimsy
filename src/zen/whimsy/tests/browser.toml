@@ -137,3 +137,5 @@ support-files = ["whimsy_slow_download.sjs"]
 ["browser_whimsy_cheatsheet.js"]
 
 ["browser_whimsy_inbox_zero.js"]
+
+["browser_whimsy_user_agent.js"]

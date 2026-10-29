@@ -413,3 +413,15 @@ whimsy-cheatsheet-self = Shortcut Cheat Sheet
 ## batch7: inbox-zero balloons
 
 whimsy-inbox-zero-toast = Inbox zero
+
+## batch7: per-site user agent ("Pretend to be...")
+
+whimsy-action-useragent = Pretend to be…
+whimsy-useragent-default =
+    .label = Default (Whimsy)
+whimsy-useragent-chrome =
+    .label = Chrome (macOS)
+whimsy-useragent-safari-mac =
+    .label = Safari (macOS)
+whimsy-useragent-safari-iphone =
+    .label = Safari (iPhone)

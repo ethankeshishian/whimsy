@@ -32,6 +32,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySidebarNav: "resource:///modules/whimsy/WhimsySidebarNav.sys.mjs",
   WhimsyCheatSheet: "resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs",
   WhimsyDelight: "resource:///modules/whimsy/WhimsyDelight.sys.mjs",
+  WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -162,6 +163,22 @@ export const Whimsy = {
     );
     // batch7: inbox-zero balloons.
     run("inbox-zero", () => lazy.WhimsyDelight.initWindow(win));
+    // batch7: per-site user agent.
+    run("site-user-agent", () => {
+      lazy.WhimsyUserAgent.initWindow(win);
+      lazy.WhimsyShortcuts.addCommand(win, {
+        id: "whimsy-useragent-picker",
+        run: w => lazy.WhimsyUserAgent.enabled && lazy.WhimsyUserAgent.openPicker(w),
+      });
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-useragent",
+          command: "whimsy-useragent-picker",
+          icon: "chrome://browser/skin/zen-icons/globe.svg",
+          isAvailable: () => lazy.WhimsyUserAgent.enabled,
+        },
+      ]);
+    });
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

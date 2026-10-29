@@ -217,6 +217,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)cheat-?sheet")]},
     {"id": "inbox-zero", "title": "Inbox-zero balloons: a small celebration when a mail tab's unread count hits 0",
      "detect": [("src/zen", r"(?i)inbox-?zero")]},
+    {"id": "site-user-agent", "title": "Per-site user agent (\"Pretend to be...\"): Chrome, Safari (macOS/iPhone) or custom, per site",
+     "detect": [("src/zen", r"(?i)pretend to be|site-?user-?agent|per-?site.*user.?agent")]},
 ]
 
 
