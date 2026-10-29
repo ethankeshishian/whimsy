@@ -50,3 +50,6 @@ short (`| tail -20`). Build and test output: tail only.
 Per feature: done / already existed (what you exposed) / dropped (why);
 commit hashes; any Arc-vs-Zen call you made; anything the user should know.
 Leave the working tree clean on `dev`.
+
+## Never spawn sub-agents
+Do all the work yourself in this one agent. Spawning agents wastes the usage budget.
