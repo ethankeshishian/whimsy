@@ -223,6 +223,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)cookie-?editor")]},
     {"id": "url-schemes", "title": "whimsy://<page> in the address bar jumps to the real page (Arc parity, address-bar half only)",
      "detect": [("src/zen", r"(?i)whimsy://|url-?schemes")]},
+    {"id": "upload-clipboard", "title": "Opera's Easy Files: clicking an upload button offers the clipboard image, recent downloads, or the native picker",
+     "detect": [("src/zen", r"(?i)mozSetFileArray|easy-?files|upload-?clipboard")]},
 ]
 
 

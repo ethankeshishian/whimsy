@@ -143,3 +143,6 @@ support-files = ["whimsy_slow_download.sjs"]
 ["browser_whimsy_cookie_editor.js"]
 
 ["browser_whimsy_url_schemes.js"]
+
+["browser_whimsy_upload_clipboard.js"]
+support-files = ["whimsy_upload.html"]

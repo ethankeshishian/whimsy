@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<html>
+<head><meta charset="utf-8"><title>whimsy upload</title></head>
+<body>
+<input id="file-input" type="file">
+<script>
+  window.whimsyChangeCount = 0;
+  document.getElementById("file-input").addEventListener("change", () => {
+    window.whimsyChangeCount++;
+  });
+</script>
+</body>
+</html>

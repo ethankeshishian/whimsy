@@ -66,6 +66,16 @@ export const Whimsy = {
       // with the tab's own settings, so web processes may run it.
       safeForUntrustedWebProcess: true,
     });
+    // batch7: upload from the clipboard.
+    ChromeUtils.registerWindowActor("WhimsyUpload", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyUploadChild.sys.mjs",
+        events: { click: { capture: true, mozSystemGroup: true } },
+      },
+      allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {

@@ -28,6 +28,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyProtocol.sys.mjs",
     "WhimsySeasons.sys.mjs",
     "WhimsySidebarNav.sys.mjs",
+    "WhimsyUploadChild.sys.mjs",
+    "WhimsyUploadParent.sys.mjs",
     "WhimsyUrlbar.sys.mjs",
     "WhimsyUserAgent.sys.mjs",
     "WhimsyWindowClose.sys.mjs",

@@ -436,3 +436,10 @@ whimsy-cookie-editor-copy-all =
 whimsy-cookie-editor-delete =
     .label = Delete
 whimsy-cookie-editor-copied-toast = Cookies copied
+
+## batch7: upload from the clipboard
+
+whimsy-upload-clipboard =
+    .label = Clipboard image
+whimsy-upload-choose-file =
+    .label = Choose file…
