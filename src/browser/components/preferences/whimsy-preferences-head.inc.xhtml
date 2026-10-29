@@ -141,6 +141,16 @@
               data-l10n-id="whimsy-spaces-hide-switcher" preference="whimsy.spaces.hide-switcher"/>
     <checkbox id="whimsyTabBadges" data-whimsy-feature="tab-badges"
               data-l10n-id="whimsy-tabs-badges" preference="whimsy.tabs.badges"/>
+    <hbox align="center" data-whimsy-feature="background-mute">
+      <label id="whimsyBackgroundMuteLabel" control="whimsyBackgroundMute" data-l10n-id="whimsy-media-background-mute"/>
+      <menulist id="whimsyBackgroundMute" preference="whimsy.media.background-mute" data-pref-type="string">
+        <menupopup>
+          <menuitem value="prioritize" data-l10n-id="whimsy-media-background-mute-prioritize"/>
+          <menuitem value="background" data-l10n-id="whimsy-media-background-mute-background"/>
+          <menuitem value="off" data-l10n-id="whimsy-media-background-mute-off"/>
+        </menupopup>
+      </menulist>
+    </hbox>
     <hbox align="center" data-whimsy-feature="title-lines">
       <label id="whimsyTitleLinesLabel" control="whimsyTitleLines" data-l10n-id="whimsy-tabs-title-lines"/>
       <menulist id="whimsyTitleLines" preference="whimsy.tabs.title-lines">

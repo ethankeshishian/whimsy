@@ -99,7 +99,7 @@ var gWhimsySettings = {
     Preferences.addAll(
       [...group.querySelectorAll("[preference]")].map(el => ({
         id: el.getAttribute("preference"),
-        type: el.localName == "checkbox" ? "bool" : "int",
+        type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "int"),
       }))
     );
     // At the end of Zen's Workspaces section, before "Pinned Tabs".

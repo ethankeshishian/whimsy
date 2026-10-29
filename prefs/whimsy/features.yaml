@@ -78,6 +78,9 @@
 - name: whimsy.feature.strip-tracking
   value: true
 
+- name: whimsy.feature.background-mute
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

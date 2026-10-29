@@ -78,3 +78,9 @@
 # the system font. Web pages keep their own fonts.
 - name: whimsy.look.ui-font
   value: ""
+
+# Mute background tabs (Settings → Tab Management): "prioritize" mutes them
+# only while the current tab plays sound, "background" lets only the current
+# tab play, "off" lets every tab play.
+- name: whimsy.media.background-mute
+  value: prioritize
