@@ -112,3 +112,8 @@
 # alt text (Firefox hid it in Fx88).
 - name: browser.menu.showViewImageInfo
   value: true
+
+# "6 min" next to the Reader View button on articles (Settings → Look and
+# Feel).
+- name: whimsy.reader.reading-time
+  value: true

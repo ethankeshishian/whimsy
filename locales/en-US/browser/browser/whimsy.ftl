@@ -289,6 +289,13 @@ whimsy-archive-open =
 whimsy-action-translate-selection = Translate Selection
 whimsy-translate-none-toast = Select some text to translate
 
+## Reading time (address bar, next to the Reader View button)
+
+# $minutes (number) - estimated minutes to read the article
+whimsy-reading-time =
+    .value = { $minutes } min
+    .tooltiptext = About { $minutes } minutes to read
+
 ## Spaces
 
 # $count (number) - how many tabs moved, $space (string) - the space's name
@@ -333,6 +340,8 @@ whimsy-look-transparency-value =
     }
 whimsy-look-menu-icons =
     .label = Show icons in menus
+whimsy-look-reading-time =
+    .label = Show how long an article takes to read, next to the Reader View button
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font

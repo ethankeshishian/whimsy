@@ -15,6 +15,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
@@ -67,6 +68,15 @@ const TRANSLATE_FEATURE_PREF = "whimsy.feature.translate-selection";
 // here rather than in YAML (a JSON string there breaks firefox.js).
 const READER_FEATURE_PREF = "whimsy.feature.reader-fonts";
 const READER_FONTS_PREF = "reader.font_type.values";
+// Reading time (Medium's "6 min read"): when the address bar shows the
+// Reader View button (the page is an article), a small "6 min" sits next
+// to it, so you know up front whether to read now or later. It uses Reader
+// View's own reading speeds, so it agrees with Reader View's estimate.
+// whimsy.reader.reading-time (Settings → Look and Feel).
+const TIME_FEATURE_PREF = "whimsy.feature.reading-time";
+const TIME_PREF = "whimsy.reader.reading-time";
+const TIME_ID = "whimsy-reading-time";
+
 export const READER_FONTS = [
   "sans-serif",
   "serif",
@@ -106,6 +116,7 @@ export const WhimsyPage = {
     this.initAllowCopy(win);
     this.initArchive(win);
     this.initTranslateSelection(win);
+    this.initReadingTime(win);
   },
 
   actorFor(browser) {
@@ -605,5 +616,72 @@ export const WhimsyPage = {
       return;
     }
     Services.prefs.getDefaultBranch("").setStringPref(READER_FONTS_PREF, JSON.stringify(READER_FONTS));
+  },
+
+  // --- Reading time ---
+
+  get readingTimeEnabled() {
+    return Services.prefs.getBoolPref(TIME_FEATURE_PREF, true) && Services.prefs.getBoolPref(TIME_PREF, true);
+  },
+
+  // Minutes to read `length` characters in `lang`, at Reader View's average
+  // speed for the language.
+  readingMinutes(length, lang) {
+    const { cpm } = lazy.ReaderMode._getReadingSpeedForLanguage((lang || "en").split("-")[0]);
+    return Math.max(1, Math.round(length / cpm));
+  },
+
+  initReadingTime(win) {
+    const { document } = win;
+    const button = document.getElementById("reader-mode-button");
+    if (!button) {
+      return;
+    }
+    const update = () => this.updateReadingTime(win).catch(e => console.error("Whimsy: reading time", e));
+    new win.MutationObserver(update).observe(button, { attributes: true, attributeFilter: ["hidden", "readeractive"] });
+    win.gBrowser.tabContainer.addEventListener("TabSelect", update);
+    const observer = () => update();
+    Services.prefs.addObserver(TIME_PREF, observer);
+    win.addEventListener("unload", () => Services.prefs.removeObserver(TIME_PREF, observer), { once: true });
+  },
+
+  async updateReadingTime(win) {
+    const { document } = win;
+    const button = document.getElementById("reader-mode-button");
+    const browser = win.gBrowser.selectedBrowser;
+    let label = document.getElementById(TIME_ID);
+    const show = this.readingTimeEnabled && button && !button.hidden && !button.hasAttribute("readeractive") && browser.isArticle;
+    if (!show) {
+      if (label) {
+        label.hidden = true;
+      }
+      return null;
+    }
+    const spec = browser.currentURI?.spec;
+    if (browser.whimsyReadingTime?.spec != spec) {
+      let text = null;
+      try {
+        text = await this.actorFor(browser)?.sendQuery("Whimsy:ReadingLength");
+      } catch (e) {
+        // The page went away.
+      }
+      if (!text?.length || browser.currentURI?.spec != spec) {
+        return null;
+      }
+      browser.whimsyReadingTime = { spec, minutes: this.readingMinutes(text.length, text.lang) };
+    }
+    if (win.gBrowser.selectedBrowser != browser) {
+      return null;
+    }
+    if (!label) {
+      label = document.createXULElement("label");
+      label.id = TIME_ID;
+      label.className = "urlbar-page-action";
+      button.before(label);
+    }
+    const { minutes } = browser.whimsyReadingTime;
+    document.l10n.setAttributes(label, "whimsy-reading-time", { minutes });
+    label.hidden = false;
+    return minutes;
   },
 };

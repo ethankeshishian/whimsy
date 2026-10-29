@@ -117,6 +117,9 @@
 - name: whimsy.feature.reader-fonts
   value: true
 
+- name: whimsy.feature.reading-time
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

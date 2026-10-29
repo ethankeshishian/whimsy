@@ -62,6 +62,8 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.allowCopy(message.data.on);
       case "Whimsy:Selection":
         return this.selection();
+      case "Whimsy:ReadingLength":
+        return this.readingLength();
     }
     return null;
   }
@@ -221,5 +223,14 @@ export class WhimsyPageChild extends JSWindowActorChild {
       return null;
     }
     return { text, x: win.mozInnerScreenX + rect.left, y: win.mozInnerScreenY + rect.bottom };
+  }
+
+  // Reading time: how much text the article has (its <article> or <main>
+  // when it marks one, else the body) and its language.
+  readingLength() {
+    const doc = this.document;
+    const root = doc?.querySelector("article") ?? doc?.querySelector("main, [role=main]") ?? doc?.body;
+    const text = root?.innerText ?? root?.textContent ?? "";
+    return { length: text.replace(/\s+/g, " ").trim().length, lang: doc?.documentElement.lang || "" };
   }
 }

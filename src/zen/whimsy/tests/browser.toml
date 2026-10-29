@@ -77,6 +77,9 @@ support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 ["browser_whimsy_reader_fonts.js"]
 support-files = ["whimsy_article.html"]
 
+["browser_whimsy_reading_time.js"]
+support-files = ["whimsy_article.html"]
+
 ["browser_whimsy_rename_tab.js"]
 
 ["browser_whimsy_reorder_spaces.js"]
