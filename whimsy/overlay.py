@@ -185,6 +185,8 @@ FEATURES = [
                 ("locales/en-US", r"(?i)my review requests")]},
     {"id": "peek-essential-links", "title": "Settings checkbox for Zen's open-essential-external-links Glance pref",
      "detect": [("src/browser/components/preferences", r'preference="zen\.glance\.open-essential-external-links"')]},
+    {"id": "glance-split-action", "title": "\"Split Glance\" in the command bar",
+     "detect": [("src/zen/urlbar", r"cmd_zenGlanceSplit")]},
     {"id": "external-link-target", "title": "External links (from other apps) open in Glance, a tab, or a quick window",
      # Looks for Zen's own quick-window feature as code (a pref, command or
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration

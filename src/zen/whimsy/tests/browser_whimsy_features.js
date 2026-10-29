@@ -16,7 +16,15 @@ add_task(async function test_startup_hook_ran() {
     document.documentElement.hasAttribute("whimsy-ui-zoom"),
     "Zen's startup called Whimsy.initWindow for this window"
   );
-  for (const id of ["ctrl-tab", "ui-zoom", "app-icon", "github-reviews", "peek-essential-links", "external-link-target"]) {
+  for (const id of [
+    "ctrl-tab",
+    "ui-zoom",
+    "app-icon",
+    "github-reviews",
+    "peek-essential-links",
+    "glance-split-action",
+    "external-link-target",
+  ]) {
     ok(Whimsy.featureEnabled(id), `whimsy.feature.${id} is on (Zen doesn't ship it)`);
   }
 });

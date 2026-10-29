@@ -82,6 +82,21 @@ export const Whimsy = {
     // hands the shortcuts straight back to Zen.
     run("copy", () => lazy.WhimsyCopy.init(win));
     run("shortcuts", () => lazy.WhimsyShortcuts.initWindow(win));
+    // Always installed: isAvailable checks the switch on each use, so
+    // turning it off hides it from the command bar straight away.
+    run("glance-split-action", () =>
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-split-glance",
+          command: "cmd_zenGlanceSplit",
+          icon: "chrome://browser/skin/zen-icons/split.svg",
+          isAvailable: w =>
+            this.featureEnabled("glance-split-action") &&
+            !!w.gBrowser.selectedTab?.hasAttribute("glance-id") &&
+            w.document.getElementById("cmd_zenGlanceSplit")?.getAttribute("disabled") != "true",
+        },
+      ])
+    );
     // Always installed: it checks its switch and the pref on each external
     // open, so turning it off hands the link straight back to Firefox.
     run("external-links", () => lazy.WhimsyExternalLinks.init());

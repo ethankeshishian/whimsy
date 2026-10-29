@@ -295,6 +295,10 @@ whimsy-archive-open =
 ## Translate selection (shortcut and command bar)
 
 whimsy-action-translate-selection = Translate Selection
+
+## Glance
+
+whimsy-action-split-glance = Split Glance
 whimsy-translate-none-toast = Select some text to translate
 
 ## Reading time (address bar, next to the Reader View button)
