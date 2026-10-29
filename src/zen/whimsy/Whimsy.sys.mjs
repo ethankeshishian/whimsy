@@ -20,6 +20,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
+  WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
@@ -167,6 +168,15 @@ export const Whimsy = {
     }
     // Normally already done by WhimsyStartup at profile-after-change.
     run("update-channel", () => lazy.WhimsyUpdates.initChannel());
+    // batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    // Always installed: each part checks its own switch on use.
+    run("live-folders", () => {
+      lazy.WhimsyLiveFolders.init();
+      lazy.WhimsyLiveFolders.initWindow(win);
+    });
+    run("update-channel", () =>
+      lazy.WhimsyUpdates.initChannel().catch(e => console.error("Whimsy: update channel", e))
+    );
     run("updates", () => lazy.WhimsyUpdates.showUpdatedNotice(win));
     // batch8: tab lifecycle. Undo first (the others push to its stack);
     // tree tabs after Zen's spaces/folders are ready.

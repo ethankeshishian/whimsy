@@ -69,6 +69,28 @@ whimsy-live-folder-github-option-my-review-requests =
 whimsy-live-folder-github-option-team-review-requests =
     .label = Team Review Requests
 
+## batch11: Jira live folder (assigned, unresolved issues).
+
+whimsy-live-folder-jira-create =
+    .label = Jira Issues
+whimsy-live-folder-jira-option-site =
+    .label = Jira Site
+whimsy-live-folder-jira-option-jql =
+    .label = JQL Query
+whimsy-live-folder-jira-prompt-site = Enter your Jira site (for example your-team.atlassian.net)
+whimsy-live-folder-jira-prompt-jql = Enter a JQL query
+whimsy-live-folder-jira-no-site =
+    .label = Jira site not set
+    .tooltiptext = Add your Jira site in the folder's options.
+whimsy-live-folder-jira-no-auth =
+    .label = Not signed in to Jira
+    .tooltiptext = Sign back in to Jira.
+
+## batch11: "Push" live-folder refresh option.
+
+whimsy-live-folder-push-interval =
+    .label = Push
+
 ## Settings → Look and Feel → Interface zoom
 
 whimsy-ui-zoom-header = Interface zoom

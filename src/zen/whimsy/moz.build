@@ -55,6 +55,9 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyMenuBarExtra.sys.mjs",
     "WhimsyPrintClean.sys.mjs",
     "WhimsySplitFavorites.sys.mjs",
+    # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    "WhimsyJiraLiveFolder.sys.mjs",
+    "WhimsyLiveFolders.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

@@ -202,6 +202,13 @@
   value: true
 
 - name: whimsy.feature.menu-bar-extra
+- name: whimsy.feature.live-folders-jira
+  value: true
+
+- name: whimsy.feature.live-folders-push
+  value: true
+
+- name: whimsy.feature.live-folders-rss-autodiscover
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

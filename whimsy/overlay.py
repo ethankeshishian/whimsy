@@ -255,6 +255,13 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)print[\w.-]*clean[\w.-]*page")]},
     {"id": "menu-bar-extra", "title": "Menu bar extra (macOS): quick window and recent tabs",
      "detect": [("src/zen", r"(?i)menu[\w.-]*bar[\w.-]*extra|systemstatusbar")]},
+    # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    {"id": "live-folders-jira", "title": "Jira live folder: assigned, unresolved issues as a self-updating folder",
+     "detect": [("src/zen/live-folders", r"(?i)jira")]},
+    {"id": "live-folders-push", "title": "\"Push\" live-folder refresh option (1-minute conditional checks)",
+     "detect": [("src/zen/live-folders", r"(?i)if-none-match|etag")]},
+    {"id": "live-folders-rss-autodiscover", "title": "RSS: autodiscover a page's feed when the URL given isn't one",
+     "detect": [("src/zen/live-folders", r"(?i)rel=.alternate.*(?:rss|atom)|autodiscover")]},
 ]
 
 
