@@ -208,3 +208,10 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      GitHub. Fetch only on deliberate hover (dwell ~600 ms), cache, rate-limit
      hard, never crawl; note the account-flagging risk in Settings help text.
      Contacts + GitHub too.
+
+## Tier C order (user, Oct 29)
+1. VPN (Firefox IP Protection)
+2. Claude space
+3. Per-space extensions
+4. AI features (provider picker + kill switch)
+5. The rest (email aliases, Handoff, cast, playlist, speed, iOS)
