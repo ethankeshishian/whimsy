@@ -1281,6 +1281,7 @@ src/testing/profiles/mochitest/user-js.patch
 src/testing/profiles/profileserver/user-js.patch
 src/testing/xpcshell/runxpcshelltests-py.patch
 src/toolkit/actors/PictureInPictureChild-sys-mjs.patch
+src/toolkit/components/contextualidentity/ContextualIdentityService-sys-mjs.patch
 src/toolkit/components/extensions/parent/ext-runtime-js.patch
 src/toolkit/components/extensions/parent/ext-tabs-base-js.patch
 src/toolkit/components/pictureinpicture/PictureInPicture-sys-mjs.patch
@@ -1682,6 +1683,7 @@ src/zen/tests/library/browser_library_download_click.js
 src/zen/tests/library/browser_library_download_speed.js
 src/zen/tests/library/browser_library_folder_first_expand.js
 src/zen/tests/library/browser_library_rapid_toggle.js
+src/zen/tests/library/browser_library_sidebar_theme.js
 src/zen/tests/library/browser_library_space_routing.js
 src/zen/tests/library/browser_library_spaces_refresh.js
 src/zen/tests/library/browser_library_toggle_sidebar_width.js
@@ -2519,6 +2521,7 @@ src/zen/tests/spaces/browser.toml
 src/zen/tests/spaces/browser_basic_workspaces.js
 src/zen/tests/spaces/browser_bookmark_workspace_storage.js
 src/zen/tests/spaces/browser_change_to_empty.js
+src/zen/tests/spaces/browser_default_containers.js
 src/zen/tests/spaces/browser_double_click_newtab.js
 src/zen/tests/spaces/browser_issue_10455.js
 src/zen/tests/spaces/browser_issue_12112.js
