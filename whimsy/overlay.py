@@ -215,6 +215,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
     {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
      "detect": [("src/zen", r"(?i)cheat-?sheet")]},
+    {"id": "inbox-zero", "title": "Inbox-zero balloons: a small celebration when a mail tab's unread count hits 0",
+     "detect": [("src/zen", r"(?i)inbox-?zero")]},
 ]
 
 

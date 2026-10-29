@@ -31,6 +31,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDownloads: "resource:///modules/whimsy/WhimsyDownloads.sys.mjs",
   WhimsySidebarNav: "resource:///modules/whimsy/WhimsySidebarNav.sys.mjs",
   WhimsyCheatSheet: "resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs",
+  WhimsyDelight: "resource:///modules/whimsy/WhimsyDelight.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -159,6 +160,8 @@ export const Whimsy = {
         },
       ])
     );
+    // batch7: inbox-zero balloons.
+    run("inbox-zero", () => lazy.WhimsyDelight.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

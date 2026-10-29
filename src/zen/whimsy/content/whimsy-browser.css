@@ -650,3 +650,31 @@ panel.whimsy-cheatsheet > input {
 @media (prefers-reduced-motion: reduce) {
   panel.whimsy-cheatsheet { animation: none; }
 }
+
+/* batch7: inbox-zero balloons. */
+#zen-appcontent-wrapper {
+  position: relative;
+}
+.whimsy-balloons {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+.whimsy-balloon {
+  position: absolute;
+  bottom: -40px;
+  left: var(--whimsy-balloon-x, 50%);
+  width: 26px;
+  height: 34px;
+  border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+  background: linear-gradient(160deg, hsl(var(--whimsy-balloon-hue, 280) 85% 70%), hsl(calc(var(--whimsy-balloon-hue, 280) + 40) 85% 55%));
+  opacity: 0.9;
+  animation: whimsy-balloon-rise 2.3s ease-in forwards;
+  animation-delay: var(--whimsy-balloon-delay, 0ms);
+}
+@keyframes whimsy-balloon-rise {
+  from { transform: translateY(0) translateX(0); opacity: 0.95; }
+  to { transform: translateY(-120vh) translateX(12px); opacity: 0; }
+}

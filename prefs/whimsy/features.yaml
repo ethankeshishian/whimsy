@@ -162,6 +162,9 @@
 - name: whimsy.feature.cheatsheet
   value: true
 
+- name: whimsy.feature.inbox-zero
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

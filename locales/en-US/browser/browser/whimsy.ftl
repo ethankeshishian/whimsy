@@ -409,3 +409,7 @@ whimsy-cheatsheet-tab-next = Next Tab in Sidebar
 whimsy-cheatsheet-tab-prev = Previous Tab in Sidebar
 whimsy-cheatsheet-focus-sidebar = Focus Sidebar
 whimsy-cheatsheet-self = Shortcut Cheat Sheet
+
+## batch7: inbox-zero balloons
+
+whimsy-inbox-zero-toast = Inbox zero
