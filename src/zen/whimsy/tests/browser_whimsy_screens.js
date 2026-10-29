@@ -79,26 +79,48 @@ add_task(async function settings_updates() {
     status: "idle",
     last_run: new Date().toISOString(),
     last_result: "up-to-date",
-    installed: { id: "b", version: "1.24b" },
-    previous: { id: "a", version: "1.23.4b" },
+    installed: { id: "b", version: "1.24b-w2" },
+    previous: { id: "a", version: "1.24b-w1" },
+  });
+  await IOUtils.writeJSON(PathUtils.join(dir, "whimsy-version.json"), {
+    version: "1.24b-w2",
+    zen: "1.24b",
+    zen_label: "dev (2026-10-27)",
+    firefox: "159.0",
+    released: true,
+    history: [
+      {
+        version: "1.24b-w2", zen: "1.24b", date: "2026-10-28",
+        notes: ["GitHub live folders: My Review Requests, Team Review Requests", "Version history in Settings"],
+      },
+      { version: "1.24b-w1", zen: "1.24b", date: "2026-10-28", notes: ["First public release"] },
+      { version: "1.23.4b-w3", zen: "1.23.4b", date: "2026-10-20", notes: [] },
+    ],
   });
   await IOUtils.makeDirectory(PathUtils.join(dir, "logs"));
   await IOUtils.writeUTF8(
     PathUtils.join(dir, "logs", "update.log"),
     "[03:30] Checking Zen releases\n[03:31] Zen 1.24b is newer than 1.23.4b\n[04:12] Build passed, tests passed\n[04:13] Staged Zen 1.24b\n"
   );
-  const saved = { dataDir: WhimsyUpdates.dataDir, isInstalled: WhimsyUpdates.isInstalled };
+  const saved = {
+    dataDir: WhimsyUpdates.dataDir,
+    versionFile: WhimsyUpdates.versionFile,
+    isInstalled: WhimsyUpdates.isInstalled,
+  };
   WhimsyUpdates.dataDir = dir;
+  WhimsyUpdates.versionFile = PathUtils.join(dir, "whimsy-version.json");
   WhimsyUpdates.isInstalled = async () => true;
   try {
     await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
       const doc = browser.contentDocument;
       const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesGroup"));
       await TestUtils.waitForCondition(() => group.checkVisibility(), "Updates settings visible");
-      doc.getElementById("whimsyUpdatesShowLog").click();
-      await TestUtils.waitForCondition(() => doc.getElementById("whimsyUpdatesLog").textContent.includes("Staged"));
+      doc.getElementById("whimsyUpdatesHistory").open = true;
       await TestUtils.waitForCondition(() =>
-        doc.getElementById("whimsyUpdatesRollback").getAttribute("label")?.includes("1.23.4b")
+        doc.getElementById("whimsyUpdatesHistoryList").textContent.includes("Rebuilt with no")
+      );
+      await TestUtils.waitForCondition(() =>
+        doc.getElementById("whimsyUpdatesRollback").getAttribute("label")?.includes("1.24b-w1")
       );
       group.scrollIntoView({ block: "start" });
       await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));

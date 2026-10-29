@@ -232,7 +232,12 @@ def main():
     version.record_release(ROOT, revision, release)
     run(["git", "add", "whimsy/version.json"])
     run(["git", "commit", "-q", "-m", f"Whimsy {release['version']}"])
-    run(["git", "push", "origin", "HEAD:main"])
+    try:
+        run(["git", "push", "origin", "HEAD:main"])
+    except subprocess.CalledProcessError:
+        # Not published: drop the version commit so it's still unreleased.
+        run(["git", "reset", "-q", "--hard", "HEAD~1"])
+        raise SystemExit("publish: couldn't push main (has GitHub's main diverged?)")
     gh("release", "create", tag, dmg, mar, "--repo", repo, "--target", "main",
        "--title", f"Whimsy {release['version']} ({datetime.date.today():%b %d})",
        "--notes", notes(release), capture=False)

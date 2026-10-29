@@ -317,6 +317,19 @@ def restore_repo(repo, head):
         log(f"Couldn't re-import main into the engine: {e}")
 
 
+def release_whimsy(repo):
+    """Publish Whimsy changes made since the last release, like Zen's own
+    releases: build, test, publish (other Macs pick it up within hours), and
+    stage it here. A failure leaves everything as it was; it retries nightly."""
+    upcoming = version.describe(repo)["version"].removesuffix("-dev")
+    log(f"Releasing Whimsy {upcoming}: main has unreleased changes")
+    update_state(message=f"Building Whimsy {upcoming}")
+    build_and_test(repo)
+    update_state(message=f"Publishing Whimsy {upcoming}")
+    sh(["python3", "whimsy/publish.py"], cwd=repo, timeout=3600)
+    stage(built_app(repo), *build_meta(repo))
+
+
 def cmd_run():
     repo = config().get("repo")
     if not repo:
@@ -335,6 +348,10 @@ def cmd_run():
             target = pick_release(repo, base, state)
             if not target:
                 log(f"Up to date: nothing newer than {base.get('tag') or base.get('label')}")
+                if config().get("publish") and not version.describe(repo)["released"]:
+                    release_whimsy(repo)
+                    update_state(status="idle", last_result="updated", message="")
+                    return
                 update_state(status="idle", last_result="up-to-date", message="")
                 return
             tag, sha = target
