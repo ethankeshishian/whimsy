@@ -91,6 +91,19 @@ whimsy-live-folder-jira-no-auth =
 whimsy-live-folder-push-interval =
     .label = Push
 
+## linear: Linear live folder ("My Issues": assigned to you, open states).
+
+whimsy-live-folder-linear-create =
+    .label = Linear Issues
+whimsy-live-folder-linear-option-team =
+    .label = Team
+whimsy-live-folder-linear-prompt-team = Enter a team key to filter to (for example ENG), or leave blank for all your assigned issues
+whimsy-live-folder-linear-no-auth =
+    .label = Not signed in to Linear
+    .tooltiptext = Add a personal API key, or sign in to linear.app in this container.
+whimsy-live-folder-linear-apikey-title = Linear API Key
+whimsy-live-folder-linear-apikey-text = Paste a personal API key from linear.app → Settings → Security & access → Personal API keys.
+
 ## Settings → Look and Feel → Interface zoom
 
 whimsy-ui-zoom-header = Interface zoom

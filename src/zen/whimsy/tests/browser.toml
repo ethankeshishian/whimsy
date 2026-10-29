@@ -204,3 +204,7 @@ support-files = ["whimsy_slow_download.sjs"]
 support-files = ["whimsy_upload.html"]
 
 ["browser_whimsy_dev_mode.js"]
+
+# linear: Linear live folder ("My Issues": assigned to you, open states).
+["browser_whimsy_live_folders_linear.js"]
+support-files = ["whimsy_linear.sjs"]
