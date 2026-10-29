@@ -73,6 +73,7 @@ var gWhimsySettings = {
     if (keep.whimsyAppIconGroup) {
       this.initAppIcons();
     }
+    this.initLookGroup();
     if (keep.whimsyUpdatesGroup) {
       this.initUpdates();
     }
@@ -149,6 +150,51 @@ var gWhimsySettings = {
 
   // Reject cookie banners: Whimsy's built-in Autoconsent add-on
   // (WhimsyCookieBanners.sys.mjs turns it on or off with the pref).
+  // Look and Feel → Look: rows go with their feature switch; the group goes
+  // when it has none left.
+  initLookGroup() {
+    const group = document.getElementById("whimsyLookGroup");
+    if (!group) {
+      return;
+    }
+    const { Whimsy } = this.lazy;
+    const supported = {
+      // Only macOS draws the blurred material behind the window.
+      transparency: AppConstants.platform == "macosx",
+    };
+    for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
+      const id = row.dataset.whimsyFeature;
+      if (!Whimsy.featureEnabled(id) || supported[id] === false) {
+        row.remove();
+      }
+    }
+    if (!group.querySelector("[data-whimsy-feature]")) {
+      group.remove();
+      return;
+    }
+    this.initTransparency();
+  },
+
+  initTransparency() {
+    const slider = document.getElementById("whimsyTransparency");
+    if (!slider) {
+      return;
+    }
+    const PREF = "whimsy.look.transparency";
+    const output = document.getElementById("whimsyTransparencyValue");
+    const show = () => {
+      const value = Services.prefs.getIntPref(PREF, 0);
+      slider.value = value;
+      document.l10n.setAttributes(output, "whimsy-look-transparency-value", { value });
+    };
+    slider.addEventListener("input", () => {
+      Services.prefs.setIntPref(PREF, parseInt(slider.value, 10) || 0);
+    });
+    Services.prefs.addObserver(PREF, show);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(PREF, show), { once: true });
+    show();
+  },
+
   initCookieBanners() {
     this.initPrefCheckbox("whimsyRejectCookieBanners", "whimsy.reject-cookie-banners");
   },

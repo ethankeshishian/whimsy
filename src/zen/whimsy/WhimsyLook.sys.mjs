@@ -13,8 +13,20 @@
 // follows as you type, and Enter (or Zen's + button) adds it. The well
 // writes its pick back into the field. Whimsy also shows Zen's custom
 // color row by default (zen.theme.gradient.show-custom-colors).
+//
+// Transparency (whimsy.look.transparency, Settings → Look and Feel): how
+// see-through the sidebar and toolbars are, 0 to 80 %. On macOS Whimsy's
+// window sits on a blurred system material (zen.widget.macos.window-
+// vibrancy); Zen paints its space gradient over it fully opaque, with a
+// per-space opacity in the theme picker that only fades the gradient into
+// gray. This slider fades the whole painted background, everywhere at
+// once, so the desktop shows through the blur like Arc's and Safari's
+// translucent sidebars. 0 is Zen's look.
 
 const HEX_FEATURE_PREF = "whimsy.feature.hex-colors";
+const TRANSPARENCY_FEATURE_PREF = "whimsy.feature.transparency";
+const TRANSPARENCY_PREF = "whimsy.look.transparency";
+export const MAX_TRANSPARENCY = 80;
 const HEX_INPUT_ID = "whimsy-hex-input";
 
 function featureOn(pref) {
@@ -46,6 +58,7 @@ export const WhimsyLook = {
       }
     };
     run("hex-colors", () => this.initHexInput(win));
+    run("transparency", () => this.initTransparency(win));
   },
 
   // --- Hex colors ---
@@ -110,6 +123,37 @@ export const WhimsyLook = {
     const update = () => (field.hidden = !featureOn(HEX_FEATURE_PREF));
     Services.prefs.addObserver(HEX_FEATURE_PREF, update);
     win.addEventListener("unload", () => Services.prefs.removeObserver(HEX_FEATURE_PREF, update), { once: true });
+    update();
+  },
+
+  // --- Transparency ---
+
+  // The chosen transparency in percent, 0 when off or unsupported.
+  transparency() {
+    if (!featureOn(TRANSPARENCY_FEATURE_PREF)) {
+      return 0;
+    }
+    const value = Services.prefs.getIntPref(TRANSPARENCY_PREF, 0);
+    return Math.min(MAX_TRANSPARENCY, Math.max(0, value));
+  },
+
+  initTransparency(win) {
+    const root = win.document.documentElement;
+    const update = () => {
+      const value = this.transparency();
+      root.toggleAttribute("whimsy-transparency", value > 0);
+      root.style.setProperty("--whimsy-chrome-opacity", String(1 - value / 100));
+    };
+    Services.prefs.addObserver(TRANSPARENCY_PREF, update);
+    Services.prefs.addObserver(TRANSPARENCY_FEATURE_PREF, update);
+    win.addEventListener(
+      "unload",
+      () => {
+        Services.prefs.removeObserver(TRANSPARENCY_PREF, update);
+        Services.prefs.removeObserver(TRANSPARENCY_FEATURE_PREF, update);
+      },
+      { once: true }
+    );
     update();
   },
 };

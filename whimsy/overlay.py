@@ -132,6 +132,8 @@ FEATURES = [
      "detect": [("src/zen/spaces", r"openLinkIn(Workspace|Space)|open-link-in-(workspace|space)")]},
     {"id": "hex-colors", "title": "Hex colors in the theme picker (type or paste #RRGGBB)",
      "detect": [("src/zen/spaces", r"type=\"text\"[^>]*custom|custom-hex|hex-input")]},
+    {"id": "transparency", "title": "Transparency slider for the sidebar and toolbars (macOS)",
+     "detect": [("prefs", r"name:\s*zen\.(theme|view)\.[\w.-]*(transparency|translucency)")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",

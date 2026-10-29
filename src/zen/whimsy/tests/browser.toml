@@ -67,4 +67,6 @@ run-if = ["os == 'mac'"]
 
 ["browser_whimsy_title_lines.js"]
 
+["browser_whimsy_transparency.js"]
+
 ["browser_whimsy_updates.js"]

@@ -419,3 +419,15 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     outline-offset: -1px;
   }
 }
+
+/* Transparency (whimsy.look.transparency): fade the painted background of
+   the sidebar and toolbars so the window's blurred material shows through. */
+.zen-browser-generic-background {
+  @media not (prefers-reduced-motion: reduce) {
+    transition: opacity 0.2s ease;
+  }
+
+  :root[whimsy-transparency] & {
+    opacity: var(--whimsy-chrome-opacity, 1);
+  }
+}

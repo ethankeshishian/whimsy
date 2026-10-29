@@ -70,6 +70,15 @@
     </hbox>
   </groupbox>
 
+  <groupbox id="whimsyLookGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-look-header"/></label>
+    <hbox id="whimsyTransparencyRow" align="center" data-whimsy-feature="transparency">
+      <label id="whimsyTransparencyLabel" control="whimsyTransparency" data-l10n-id="whimsy-look-transparency"/>
+      <html:input type="range" id="whimsyTransparency" min="0" max="80" step="5"
+                  aria-describedby="whimsyTransparencyValue"/>
+      <html:span id="whimsyTransparencyValue" class="whimsy-updates-detail"/>
+    </hbox>
+  </groupbox>
 </html:template>
 
 # Settings → Privacy & Security: moved in above Firefox's privacy groups.

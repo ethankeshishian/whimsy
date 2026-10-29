@@ -232,3 +232,14 @@ whimsy-hex-input =
     .placeholder = #5B8CFF
     .title = Type or paste a hex color, then press Return
     .aria-label = Hex color
+
+## Settings → Look and Feel → Look
+
+whimsy-look-header = Look
+whimsy-look-transparency = Transparency
+# $value (number) - percent; 0 means opaque
+whimsy-look-transparency-value =
+    { $value ->
+        [0] Off
+       *[other] { $value }%
+    }

@@ -350,3 +350,14 @@ add_task(async function space_drop_target() {
   button.removeAttribute("whimsy-drop-target");
   await gZenWorkspaces.removeWorkspace(space.uuid);
 });
+
+add_task(async function settings_look() {
+  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+    const doc = browser.contentDocument;
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyLookGroup"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "Look group visible");
+    group.scrollIntoView({ block: "center" });
+    await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+    await shot("18-settings-look", browser.browsingContext.currentWindowGlobal);
+  });
+});

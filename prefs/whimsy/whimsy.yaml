@@ -64,3 +64,8 @@
 # Management → Spaces). Off: the switcher shows, as in Zen and Arc.
 - name: whimsy.spaces.hide-switcher
   value: false
+
+# How see-through the sidebar and toolbars are, in percent (0–80; Settings →
+# Look and Feel, macOS). 0 is Zen's opaque look.
+- name: whimsy.look.transparency
+  value: 0
