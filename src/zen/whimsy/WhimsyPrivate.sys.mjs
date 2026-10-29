@@ -388,6 +388,23 @@ export const WhimsyPrivate = {
 
   initCommands(win) {
     const { WhimsyShortcuts } = lazy;
+    if (this.featureOn) {
+      // Scratch replaces the private window on Cmd+Shift+N (BUILD-PLAN), so
+      // clear the two built-in bindings for that key in this window.
+      for (const id of ["zen-new-unsynced-window", "key_privatebrowsing"]) {
+        const keyEl = win.document.getElementById(id);
+        if (keyEl?.getAttribute("key")?.toUpperCase() === "N") {
+          keyEl.removeAttribute("key");
+          keyEl.removeAttribute("modifiers");
+          const keyset = keyEl.parentElement;
+          const parent = keyset?.parentElement;
+          if (parent) {
+            keyset.remove();
+            parent.append(keyset);
+          }
+        }
+      }
+    }
     WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyNewPrivateTab",
       run: w => this.openPrivateTab(w) ?? this.openPrivateWindow(w),

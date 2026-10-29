@@ -57,7 +57,7 @@ export const WhimsySidebarNav = {
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "whimsy-focus-sidebar",
       run: guard(w => this.focusSidebar(w)),
-      key: { id: "key_whimsyFocusSidebar", modifiers: "accel,alt", key: "S" },
+      // No default key: Cmd+Opt+S is Zen's "show sidebar" in compact mode.
     });
 
     win.gBrowser.tabContainer.addEventListener(

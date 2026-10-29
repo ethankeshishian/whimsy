@@ -34,8 +34,12 @@ EXTRA_JS_MODULES.whimsy += [
 
 XPCOM_MANIFESTS += [
     "components.conf",
-    "WhimsySpaceArchive.sys.mjs",  # batch9: spaces
-    "WhimsySpaceLock.sys.mjs",  # batch9: spaces
+]
+
+# batch9: spaces
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsySpaceArchive.sys.mjs",
+    "WhimsySpaceLock.sys.mjs",
 ]
 
 # batch9p: Scratch and private tabs
