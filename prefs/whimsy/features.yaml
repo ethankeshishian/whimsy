@@ -120,6 +120,9 @@
 - name: whimsy.feature.reading-time
   value: true
 
+- name: whimsy.feature.dark-pdf
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 

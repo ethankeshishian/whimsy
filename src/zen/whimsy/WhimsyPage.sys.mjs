@@ -77,6 +77,20 @@ const TIME_FEATURE_PREF = "whimsy.feature.reading-time";
 const TIME_PREF = "whimsy.reader.reading-time";
 const TIME_ID = "whimsy-reading-time";
 
+// Dark PDFs (Edge's and Skim's dark pages; Zen D#3982): Settings → Look
+// and Feel → "Dark pages in PDFs" sets pdf.js's own page colours (light
+// text on a dark page; images keep their colours) and its dark theme, and
+// reloads open PDFs, which read the prefs when they load. Off by default;
+// turning it off puts pdf.js's defaults back.
+const PDF_FEATURE_PREF = "whimsy.feature.dark-pdf";
+const PDF_PREF = "whimsy.pdf.dark";
+export const DARK_PDF_PREFS = {
+  "pdfjs.forcePageColors": true,
+  "pdfjs.pageColorsBackground": "#1c1b22",
+  "pdfjs.pageColorsForeground": "#e8e6e3",
+  "pdfjs.viewerCssTheme": 2,
+};
+
 export const READER_FONTS = [
   "sans-serif",
   "serif",
@@ -107,6 +121,7 @@ export const WhimsyPage = {
     }
     this._initialized = true;
     this.initReaderFonts();
+    this.initDarkPdf();
   },
 
   initWindow(win) {
@@ -683,5 +698,52 @@ export const WhimsyPage = {
     document.l10n.setAttributes(label, "whimsy-reading-time", { minutes });
     label.hidden = false;
     return minutes;
+  },
+
+  // --- Dark PDFs ---
+
+  get darkPdf() {
+    return Services.prefs.getBoolPref(PDF_FEATURE_PREF, true) && Services.prefs.getBoolPref(PDF_PREF, false);
+  },
+
+  initDarkPdf() {
+    const observer = () => {
+      try {
+        this.applyDarkPdf({ reload: true });
+      } catch (e) {
+        console.error("Whimsy: dark PDFs", e);
+      }
+    };
+    Services.prefs.addObserver(PDF_PREF, observer);
+    Services.prefs.addObserver(PDF_FEATURE_PREF, observer);
+    // Only touches pdf.js's prefs when the setting changed since last time.
+    if (this.darkPdf != Services.prefs.getBoolPref("pdfjs.forcePageColors", false)) {
+      this.applyDarkPdf({ reload: false });
+    }
+  },
+
+  applyDarkPdf({ reload }) {
+    const dark = this.darkPdf;
+    for (const [name, value] of Object.entries(DARK_PDF_PREFS)) {
+      if (!dark) {
+        Services.prefs.clearUserPref(name);
+      } else if (typeof value == "boolean") {
+        Services.prefs.setBoolPref(name, value);
+      } else if (typeof value == "number") {
+        Services.prefs.setIntPref(name, value);
+      } else {
+        Services.prefs.setStringPref(name, value);
+      }
+    }
+    if (!reload) {
+      return;
+    }
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      for (const browser of win.gBrowser?.browsers ?? []) {
+        if (browser.documentContentType == "application/pdf") {
+          browser.reload();
+        }
+      }
+    }
   },
 };

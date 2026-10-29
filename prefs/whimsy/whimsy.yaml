@@ -117,3 +117,7 @@
 # Feel).
 - name: whimsy.reader.reading-time
   value: true
+
+# Dark pages in PDFs (Settings → Look and Feel): off by default.
+- name: whimsy.pdf.dark
+  value: false

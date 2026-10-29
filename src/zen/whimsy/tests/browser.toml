@@ -29,6 +29,9 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 ["browser_whimsy_ctrl_tab_native.js"]
 run-if = ["os == 'mac'"]
 
+["browser_whimsy_dark_pdf.js"]
+support-files = ["whimsy_test.pdf"]
+
 ["browser_whimsy_dim_sleeping.js"]
 
 ["browser_whimsy_duplicate_shortcut.js"]
