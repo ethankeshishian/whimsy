@@ -361,3 +361,17 @@ add_task(async function settings_look() {
     await shot("18-settings-look", browser.browsingContext.currentWindowGlobal);
   });
 });
+
+add_task(async function tab_volume_panel() {
+  const { WhimsyMedia } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMedia.sys.mjs");
+  const panel = WhimsyMedia.openVolumePanel(window, gBrowser.selectedTab);
+  try {
+    await TestUtils.waitForCondition(() => panel.state == "open");
+    await document.l10n.translateFragment(panel);
+    await shot("19-tab-volume");
+  } finally {
+    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    panel.hidePopup();
+    await hidden;
+  }
+});
