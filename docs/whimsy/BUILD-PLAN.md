@@ -169,3 +169,11 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
    - Sidebery panels => Arc's Air Traffic Control parity: per-space rules
      (site/URL pattern) that route links opened from outside, and new tabs,
      into a space. Verify what Zen has first (user thinks it may exist).
+   - Email aliases: Firefox Relay first (verify signon.firefoxRelay.*; works
+     with Whimsy?); iCloud Hide My Email too if any usable API exists.
+   - Notification center: DEFERRED (talk later).
+   - Per-space extensions: "achieve Arc parity". In Arc, extensions differ per
+     space only because each space can use a different profile (separate
+     Chromium profiles). Gecko can't load extensions per container. Investigate;
+     nearest parity is per-space toolbar visibility (+ maybe per-space profile
+     mapping). Do the feasible part and report the gap in the morning.
