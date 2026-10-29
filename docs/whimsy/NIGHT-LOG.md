@@ -8,3 +8,6 @@
 - Batch 4: drop tabs on space icons 0af5ef0 (gap: Zen may select another tab after drop; real drag untested). Last tab per space f163197. Emoji search polish 094a978 (Zen PR #16055). Hide switcher 920de53 (OFF). Reorder spaces existed, test 1b3e61a. Open Link in Space 7a193c1. Hex colors dfaf279. Transparency 5a19664 (check on real window). Menu icons c2d3e90. Interface font 043502e. Site-tinted toolbar DROPPED (window never tints).
 - Fixed whimsy.folders.colors default that broke firefox.js parsing.
 - Scouts (read-only research) in docs/whimsy/scout/batch5–8.md.
+- Shipped 1.24b-w2-dev.52 at 08:40 (batches 1–4).
+- 08:45 session at 88%: stopped scout batch 8 (Tier B research; partial file may exist, redo it). Batch 5 (media + page, from scout/batch5.md) running. After it: ship, then no new batch until the limit resets.
+- Resume order: ship batch 5 → batch 6 (scout/batch6.md) → batch 7 (scout/batch7.md) → scout+build Tier B → Tier C (answers in BUILD-PLAN.md).
