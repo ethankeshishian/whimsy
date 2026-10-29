@@ -9,6 +9,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
+  // batch6
+  WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
 });
 
 export class WhimsyPageParent extends JSWindowActorParent {
@@ -26,6 +28,15 @@ export class WhimsyPageParent extends JSWindowActorParent {
         const browser = this.browsingContext.top.embedderElement;
         if (browser) {
           lazy.WhimsyPage.onEditingEnded(browser);
+        }
+        return null;
+      }
+      // batch6 #7
+      case "Whimsy:SplitLink": {
+        const tab = this.tab;
+        const win = tab?.ownerGlobal;
+        if (win) {
+          lazy.WhimsySplit.openLinkInSplit(win, tab, message.data.href, message.data.triggeringPrincipal);
         }
         return null;
       }

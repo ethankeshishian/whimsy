@@ -18,6 +18,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPageParent.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySpaces.sys.mjs",
+    "WhimsySplit.sys.mjs",
     "WhimsyTabs.sys.mjs",
     "WhimsyUpdates.sys.mjs",
 ]

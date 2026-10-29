@@ -192,6 +192,15 @@ FEATURES = [
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    # batch6: split view extras.
+    {"id": "split-link-click", "title": "Shift+click a link opens it in a split (Arc parity, PR#15241)",
+     "detect": [("src/zen/split-view", r"(?i)shift.*click.*split|modifier.*click.*split")]},
+    {"id": "split-close-other-panes", "title": "\"Close Other Panes\" in the command bar",
+     "detect": [("src/zen/split-view", r"cmd_zen[\w]*CloseOther")]},
+    {"id": "split-swap-panes", "title": "\"Swap Panes\" in the command bar",
+     "detect": [("src/zen/split-view", r"cmd_zen[\w]*SwapPanes|swapPanes\(")]},
+    {"id": "split-command-bar", "title": "Split Vertically/Horizontally/Grid in the command bar",
+     "detect": [("src/zen/urlbar", r"zen-action-split-(vertically|horizontally|grid)")]},
 ]
 
 

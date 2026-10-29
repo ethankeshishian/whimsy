@@ -5,6 +5,11 @@
 // The content side of Whimsy's page tools (one actor per frame, created on
 // first use). WhimsyPageParent sends the requests.
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+});
+
 // Per-tab volume: each media element keeps the volume the page set
 // ("own"); the element plays at own × the tab's level. Web Audio graphs
 // and media elements never attached to the page aren't reached.
@@ -29,7 +34,39 @@ export class WhimsyPageChild extends JSWindowActorChild {
       case "loadedmetadata":
         await this.onMediaEvent(event);
         break;
+      case "click":
+        this.onClick(event);
+        break;
     }
+  }
+
+  // batch6 #7: Shift+click a link opens it in a split beside the current
+  // tab, mirroring Arc's Shift+click. Off by default (whimsy.splitlink.shift-click),
+  // since Shift+click is Firefox's own "open in new window".
+  onClick(event) {
+    if (
+      !Services.prefs.getBoolPref("whimsy.splitlink.shift-click", false) ||
+      event.button !== 0 ||
+      !event.shiftKey ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      event.defaultPrevented
+    ) {
+      return;
+    }
+    const [href, node, principal] = lazy.BrowserUtils.hrefAndLinkNodeForClickEvent(event);
+    if (!href || !node || Services.io.extractScheme(href) == "javascript") {
+      return;
+    }
+    try {
+      Services.scriptSecurityManager.checkLoadURIStrWithPrincipal(principal, href);
+    } catch (e) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.sendAsyncMessage("Whimsy:SplitLink", { href, triggeringPrincipal: principal });
   }
 
   receiveMessage(message) {

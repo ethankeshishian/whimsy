@@ -99,6 +99,8 @@ support-files = ["whimsy_article.html"]
 
 ["browser_whimsy_space_last_tab.js"]
 
+["browser_whimsy_split_extras.js"]
+
 ["browser_whimsy_strings_and_keys.js"]
 
 ["browser_whimsy_strip_tracking.js"]

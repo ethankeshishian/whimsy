@@ -301,6 +301,16 @@ whimsy-action-translate-selection = Translate Selection
 whimsy-action-split-glance = Split Glance
 whimsy-translate-none-toast = Select some text to translate
 
+## Split view (command bar; batch6)
+
+whimsy-action-close-other-panes = Close Other Panes
+whimsy-action-swap-panes = Swap Panes
+whimsy-action-split-vertically = Split Vertically
+whimsy-action-split-horizontally = Split Horizontally
+whimsy-action-split-grid = Split Grid
+whimsy-split-shift-click =
+    .label = Shift+click a link to open it in a split (replaces "Open in New Window")
+
 ## Reading time (address bar, next to the Reader View button)
 
 # $minutes (number) - estimated minutes to read the article

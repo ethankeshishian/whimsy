@@ -128,3 +128,9 @@
 # have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
 - name: whimsy.external-links.target
   value: tab
+
+# batch6 #7: Shift+click a link opens it in a split instead of navigating
+# it. Off by default: Shift+click is Firefox's own "open in new window".
+# Settings -> Tab Management -> Tabs.
+- name: whimsy.splitlink.shift-click
+  value: false
