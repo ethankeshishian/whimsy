@@ -16,14 +16,40 @@
 // never edit either: a Jira entry is spliced in lazily, on first
 // popupshowing, the same technique WhimsyFolderColors uses for its own
 // folder-context-menu entry.
+//
+// batch11: "Push" refresh option. The fetch-interval menu
+// (ZenLiveFoldersUI#intervalOptions) only offers 15 minutes and up; the
+// user wants a "Push" choice like iOS Mail's, alongside it. There's no
+// real server push a browser can register for here, so "Push" means what
+// it means in that iOS Mail picker: check often (every minute) but cheaply
+// -- a conditional GET (If-None-Match) that gets back a 304 with no body
+// when nothing changed, so an unchanged folder costs a cheap round trip,
+// not a full re-fetch and re-render. `#intervalOptions` is a true private
+// method, unreachable from outside the class, so the *public*
+// `buildContextMenu` is wrapped instead: call it to build the normal
+// menu, then splice one more radio into the interval submenu it already
+// built. Never refreshes on window focus -- the base class's existing
+// 1-minute DeferredTask is the only trigger, same as a mail client ticking
+// in the background.
 
 import { WhimsyJiraLiveFolderProvider, DEFAULT_JQL } from "resource:///modules/whimsy/WhimsyJiraLiveFolder.sys.mjs";
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
+});
+
 const JIRA_FEATURE_PREF = "whimsy.feature.live-folders-jira";
+const PUSH_FEATURE_PREF = "whimsy.feature.live-folders-push";
+const PUSH_INTERVAL_MS = 60 * 1000;
 
 export const WhimsyLiveFolders = {
   get jiraEnabled() {
     return Services.prefs.getBoolPref(JIRA_FEATURE_PREF, true);
+  },
+
+  get pushEnabled() {
+    return Services.prefs.getBoolPref(PUSH_FEATURE_PREF, true);
   },
 
   init() {
@@ -40,6 +66,240 @@ export const WhimsyLiveFolders = {
     } catch (e) {
       console.error("Whimsy: live folders registry hook failed", e);
     }
+
+    try {
+      const { ZenLiveFoldersUI } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersUI.sys.mjs"
+      );
+      this.wrapBuildContextMenu(ZenLiveFoldersUI.prototype);
+    } catch (e) {
+      console.error("Whimsy: live folders push menu hook failed", e);
+    }
+
+    try {
+      const { nsZenLiveFolderProvider } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFolder.sys.mjs"
+      );
+      this.wrapOnOptionTrigger(nsZenLiveFolderProvider.prototype);
+    } catch (e) {
+      console.error("Whimsy: live folders push option hook failed", e);
+    }
+
+    try {
+      const { nsGithubLiveFolderProvider } = ChromeUtils.importESModule(
+        "resource:///modules/zen/GithubLiveFolder.sys.mjs"
+      );
+      this.wrapPushableFetchItems(nsGithubLiveFolderProvider.prototype, provider => provider.state.url);
+    } catch (e) {
+      console.error("Whimsy: github push hook failed", e);
+    }
+
+    try {
+      const { nsRssLiveFolderProvider } = ChromeUtils.importESModule(
+        "resource:///modules/zen/RssLiveFolder.sys.mjs"
+      );
+      this.wrapPushableFetchItems(nsRssLiveFolderProvider.prototype, provider => provider.state.url);
+    } catch (e) {
+      console.error("Whimsy: rss push hook failed", e);
+    }
+  },
+
+  // Splices a "Push" radio into the fetch-interval submenu Zen's own
+  // buildContextMenu() just built. Zen's own radios (15 min..8 hr) are
+  // left exactly as built; none of them can ever read as checked at the
+  // same time as this one, since Push's 1-minute interval doesn't match
+  // any of their values.
+  wrapBuildContextMenu(proto) {
+    const original = proto.buildContextMenu;
+    if (typeof original != "function" || original.whimsyWrapped) {
+      return;
+    }
+    proto.buildContextMenu = function (folder) {
+      original.call(this, folder);
+      if (!WhimsyLiveFolders.pushEnabled || !folder.isLiveFolder) {
+        return;
+      }
+      try {
+        WhimsyLiveFolders.addPushMenuItem(this, folder);
+      } catch (e) {
+        console.error("Whimsy: adding the Push menu item failed", e);
+      }
+    };
+    proto.buildContextMenu.whimsyWrapped = true;
+  },
+
+  addPushMenuItem(ui, folder) {
+    const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+      "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+    );
+    const liveFolder = ZenLiveFoldersManager.getFolder(folder.id);
+    if (!liveFolder) {
+      return;
+    }
+    const popup = ui.document.getElementById("context_zenLiveFolderOptions")?.querySelector("menupopup");
+    const intervalMenu = popup?.querySelector('menu[option-key="setInterval"] > menupopup');
+    if (!intervalMenu) {
+      return;
+    }
+    const item = ui.document.createXULElement("menuitem");
+    item.setAttribute("type", "radio");
+    ui.document.l10n.setAttributes(item, "whimsy-live-folder-push-interval");
+    item.setAttribute("option-folder", folder.id);
+    item.setAttribute("option-key", "whimsyPush");
+    item.setAttribute("option-value", String(PUSH_INTERVAL_MS));
+    if (liveFolder.state.whimsyPush) {
+      item.setAttribute("checked", "true");
+    }
+    intervalMenu.insertBefore(item, intervalMenu.firstChild);
+  },
+
+  // The base class's onOptionTrigger (public, called by
+  // ZenLiveFoldersUI#on_command for every provider's menu items) is
+  // wrapped once here so every provider -- Zen's own and Whimsy's --
+  // understands the "whimsyPush" key our spliced-in radio uses, since
+  // subclasses all call `super.onOptionTrigger(option)` first.
+  wrapOnOptionTrigger(proto) {
+    const original = proto.onOptionTrigger;
+    if (typeof original != "function" || original.whimsyWrapped) {
+      return;
+    }
+    proto.onOptionTrigger = function (option) {
+      const key = option.getAttribute("option-key");
+      if (key === "whimsyPush") {
+        this.state.whimsyPush = true;
+        this.state.interval = PUSH_INTERVAL_MS;
+        this.requestSave();
+        this.stop();
+        this.start();
+        return;
+      }
+      if (key === "setInterval") {
+        // Picking a normal, fixed interval leaves Push mode.
+        this.state.whimsyPush = false;
+      }
+      return original.call(this, option);
+    };
+    proto.onOptionTrigger.whimsyWrapped = true;
+  },
+
+  // Wraps a provider's fetchItems so that, in Push mode, a cheap
+  // conditional probe runs first: a 304 (nothing changed) returns the
+  // same items fetchItems returned last time -- no re-parse, no tab
+  // churn -- instead of doing the real, full fetch. Not wired up for
+  // Jira yet (left for a follow-up): this only covers Zen's own two
+  // providers, the ones named in the live-folders research as wanting it.
+  wrapPushableFetchItems(proto, urlOf) {
+    const original = proto.fetchItems;
+    if (typeof original != "function" || original.whimsyPushWrapped) {
+      return;
+    }
+    proto.fetchItems = async function (...args) {
+      if (!this.state.whimsyPush || !WhimsyLiveFolders.pushEnabled) {
+        const items = await original.apply(this, args);
+        if (Array.isArray(items)) {
+          this._whimsyLastItems = items;
+        }
+        return items;
+      }
+
+      const url = urlOf(this);
+      if (url && Array.isArray(this._whimsyLastItems)) {
+        const probe = await WhimsyLiveFolders.conditionalFetch(this, url, this.state.whimsyEtag);
+        if (probe.status === 304) {
+          return this._whimsyLastItems;
+        }
+        if (probe.etag) {
+          this.state.whimsyEtag = probe.etag;
+        }
+      }
+
+      const items = await original.apply(this, args);
+      if (Array.isArray(items)) {
+        this._whimsyLastItems = items;
+      }
+      return items;
+    };
+    proto.fetchItems.whimsyPushWrapped = true;
+  },
+
+  // A minimal conditional-GET probe: sends If-None-Match when an ETag is
+  // already known, reads the response status and ETag, then aborts the
+  // request without reading its body either way -- the real fetch (via
+  // the shared base-class fetch()) runs separately only when something
+  // actually changed. Uses the same NetUtil/channel primitives
+  // ZenLiveFolder.sys.mjs's own fetch() does, as its own, Whimsy-owned
+  // copy: that shared method isn't a Zen file we can edit to expose
+  // response headers.
+  conditionalFetch(liveFolder, url, etag) {
+    return new Promise(resolve => {
+      let resolved = false;
+      const finish = result => {
+        if (!resolved) {
+          resolved = true;
+          resolve(result);
+        }
+      };
+      try {
+        const uri = lazy.NetUtil.newURI(url);
+        let userContextId = 0;
+        const folder = liveFolder.manager.getFolderForLiveFolder?.(liveFolder);
+        if (folder) {
+          const space = folder.documentGlobal.gZenWorkspaces.getWorkspaceFromId(
+            folder.getAttribute("zen-workspace-id")
+          );
+          if (space) {
+            userContextId = space.containerTabId || 0;
+          }
+        }
+        const principal = Services.scriptSecurityManager.createContentPrincipal(uri, { userContextId });
+        const channel = lazy.NetUtil.newChannel({
+          uri,
+          contentPolicyType: Ci.nsIContentPolicy.TYPE_SAVEAS_DOWNLOAD,
+          loadingPrincipal: principal,
+          securityFlags:
+            Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL | Ci.nsILoadInfo.SEC_COOKIES_INCLUDE,
+          triggeringPrincipal: principal,
+        }).QueryInterface(Ci.nsIHttpChannel);
+        if (etag) {
+          channel.setRequestHeader("If-None-Match", etag, false);
+        }
+        channel.asyncOpen({
+          onStartRequest: request => {
+            const http = request.QueryInterface(Ci.nsIHttpChannel);
+            let status = null;
+            try {
+              status = http.responseStatus;
+            } catch {
+              status = null;
+            }
+            let newEtag = null;
+            try {
+              newEtag = http.getResponseHeader("ETag");
+            } catch {
+              newEtag = null;
+            }
+            // Headers are all that's needed either way: not-modified
+            // means "use the cached items", modified means "fetch()
+            // will re-run for real". Abort before the body downloads.
+            request.cancel(Cr.NS_BINDING_ABORTED);
+            finish({ status, etag: status === 304 ? (etag ?? null) : newEtag });
+          },
+          onDataAvailable: (request, stream, _offset, count) => {
+            try {
+              lazy.NetUtil.readInputStream(stream, count);
+            } catch {
+              // Ignore: the request is already being cancelled.
+            }
+          },
+          onStopRequest: () => {
+            finish({ status: null, etag: null });
+          },
+        });
+      } catch (e) {
+        console.error("Whimsy: live folder conditional probe failed", e);
+        finish({ status: null, etag: null });
+      }
+    });
   },
 
   // Patches the manager instance's own prototype (nsZenLiveFoldersManager),

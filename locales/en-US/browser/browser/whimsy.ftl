@@ -110,6 +110,11 @@ whimsy-live-folder-jira-no-auth =
     .label = Not signed in to Jira
     .tooltiptext = Sign back in to Jira.
 
+## batch11: "Push" live-folder refresh option.
+
+whimsy-live-folder-push-interval =
+    .label = Push
+
 ## Settings → Look and Feel → Interface zoom
 
 whimsy-ui-zoom-header = Interface zoom

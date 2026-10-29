@@ -195,6 +195,8 @@ FEATURES = [
     # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
     {"id": "live-folders-jira", "title": "Jira live folder: assigned, unresolved issues as a self-updating folder",
      "detect": [("src/zen/live-folders", r"(?i)jira")]},
+    {"id": "live-folders-push", "title": "\"Push\" live-folder refresh option (1-minute conditional checks)",
+     "detect": [("src/zen/live-folders", r"(?i)if-none-match|etag")]},
 ]
 
 

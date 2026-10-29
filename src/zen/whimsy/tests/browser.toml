@@ -124,3 +124,6 @@ support-files = ["whimsy_archive.sjs"]
 # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
 ["browser_whimsy_live_folders_jira.js"]
 support-files = ["whimsy_jira.sjs"]
+
+["browser_whimsy_live_folders_push.js"]
+support-files = ["whimsy_push_rss.sjs"]
