@@ -321,3 +321,20 @@ add_task(async function tab_badges() {
   }
   BrowserTestUtils.removeTab(current);
 });
+
+add_task(async function group_by_domain() {
+  const { WhimsyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
+  const tabs = [];
+  for (const url of ["https://example.com/a", "https://example.org/", "https://example.com/b", "https://example.com/c"]) {
+    tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, url));
+  }
+  const folder = WhimsyTabs.groupByDomain(window, tabs[0]);
+  await new Promise(resolve => setTimeout(resolve, 500)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  await shot("16-group-by-domain");
+  const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");
+  folder.delete();
+  await removed;
+  for (const tab of tabs.filter(t => !t.closing && t.isConnected)) {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

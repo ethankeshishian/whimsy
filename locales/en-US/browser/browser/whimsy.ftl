@@ -191,3 +191,12 @@ whimsy-folder-color-purple =
     .label = Purple
 whimsy-folder-color-pink =
     .label = Pink
+
+## Group by domain (tab context menu)
+
+# $count (number) - how many tabs, $site (string) - the site, e.g. github.com
+tab-context-whimsy-group-domain =
+    .label = Group { $count } Tabs from { $site }
+    .accesskey = G
+# $count (number) - how many tabs, $site (string) - the site
+whimsy-group-domain-toast = Grouped { $count } tabs from { $site } into a folder

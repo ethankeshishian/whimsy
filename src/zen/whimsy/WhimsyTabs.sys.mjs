@@ -49,6 +49,13 @@ const UNREAD_PATTERNS = [
   /\b(?:inbox|unread|notifications?|messages?)\s*\((\d{1,5})\+?\)/i,
 ];
 
+// Group by domain (Sidebery's and Vivaldi's "group tabs by site", Arc's
+// Tidy Tabs by hand): the tab context menu's "Group N Tabs from site.com"
+// gathers the space's loose tabs from that site into a new folder named
+// after it. whimsy.feature.group-domain hides it.
+const GROUP_FEATURE_PREF = "whimsy.feature.group-domain";
+const GROUP_MENU_ID = "context_whimsyGroupByDomain";
+
 export function parseUnreadCount(title) {
   for (const pattern of UNREAD_PATTERNS) {
     const match = pattern.exec(title ?? "");
@@ -96,6 +103,104 @@ export const WhimsyTabs = {
     update();
     this.initLoadingLine(win);
     this.initBadges(win);
+    this.initGroupByDomain(win);
+  },
+
+  // The site a tab belongs to ("github.com" for gist.github.com), or null
+  // for pages without one (about:, file:, data:).
+  siteOf(tab) {
+    const uri = tab.linkedBrowser?.currentURI;
+    if (!uri || !/^https?$/.test(uri.scheme)) {
+      return null;
+    }
+    try {
+      return Services.eTLD.getBaseDomain(uri);
+    } catch {
+      return uri.host?.replace(/^www\./, "") || null;
+    }
+  },
+
+  // The loose tabs in the context tab's space from the same site: not
+  // pinned, not Essentials, not already in a folder or a split, not Glance.
+  sameSiteTabs(win, tab) {
+    const site = this.siteOf(tab);
+    if (!site || tab.pinned || tab.hasAttribute("zen-essential")) {
+      return { site, tabs: [] };
+    }
+    const space = tab.getAttribute("zen-workspace-id");
+    const tabs = win.gBrowser.tabs.filter(
+      t =>
+        !t.pinned &&
+        !t.group &&
+        !t.hasAttribute("zen-essential") &&
+        !t.hasAttribute("zen-glance-tab") &&
+        !t.hasAttribute("zen-empty-tab") &&
+        t.getAttribute("zen-workspace-id") == space &&
+        this.siteOf(t) == site
+    );
+    return { site, tabs };
+  },
+
+  initGroupByDomain(win) {
+    const { document } = win;
+    const menu = document.getElementById("tabContextMenu");
+    menu?.addEventListener("popupshowing", event => {
+      if (event.target == menu) {
+        this.updateGroupMenu(win);
+      }
+    });
+  },
+
+  updateGroupMenu(win) {
+    const { document } = win;
+    let item = document.getElementById(GROUP_MENU_ID);
+    const tab = win.TabContextMenu?.contextTab;
+    const enabled = Services.prefs.getBoolPref(GROUP_FEATURE_PREF, true) && win.gZenFolders;
+    const { site, tabs } = enabled && tab ? this.sameSiteTabs(win, tab) : { tabs: [] };
+    if (tabs.length < 2) {
+      if (item) {
+        item.hidden = true;
+      }
+      return;
+    }
+    if (!item) {
+      item = document.createXULElement("menuitem");
+      item.id = GROUP_MENU_ID;
+      item.addEventListener("command", () => {
+        const contextTab = win.TabContextMenu?.contextTab;
+        if (contextTab) {
+          this.groupByDomain(win, contextTab);
+        }
+      });
+      const anchor = document.getElementById("context_zenMoveToFolder");
+      if (anchor) {
+        anchor.after(item);
+      } else {
+        document.getElementById("context_moveTabToGroup")?.before(item) ?? menu.appendChild(item);
+      }
+    }
+    item.hidden = false;
+    document.l10n.setAttributes(item, "tab-context-whimsy-group-domain", { count: tabs.length, site });
+  },
+
+  // Gather the site's loose tabs into a new folder named after the site, in
+  // the order they were in, and keep the tab you were on selected.
+  groupByDomain(win, tab) {
+    const { site, tabs } = this.sameSiteTabs(win, tab);
+    if (tabs.length < 2) {
+      return null;
+    }
+    const selected = win.gBrowser.selectedTab;
+    const folder = win.gZenFolders.createFolder(tabs, {
+      label: site,
+      renameFolder: false,
+      workspaceId: tab.getAttribute("zen-workspace-id"),
+    });
+    if (selected && !selected.closing) {
+      win.gBrowser.selectedTab = selected;
+    }
+    win.gZenUIManager?.showToast?.("whimsy-group-domain-toast", { l10nArgs: { count: tabs.length, site } });
+    return folder;
   },
 
   get badges() {
