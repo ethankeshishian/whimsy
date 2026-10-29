@@ -20,6 +20,9 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySpaces.sys.mjs",
     "WhimsyTabs.sys.mjs",
     "WhimsyUpdates.sys.mjs",
+    # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    "WhimsyJiraLiveFolder.sys.mjs",
+    "WhimsyLiveFolders.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

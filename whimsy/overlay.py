@@ -192,6 +192,9 @@ FEATURES = [
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
+    # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    {"id": "live-folders-jira", "title": "Jira live folder: assigned, unresolved issues as a self-updating folder",
+     "detect": [("src/zen/live-folders", r"(?i)jira")]},
 ]
 
 

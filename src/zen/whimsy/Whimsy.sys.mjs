@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
   WhimsyFolderColors: "resource:///modules/whimsy/WhimsyFolderColors.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
+  WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
@@ -121,6 +122,12 @@ export const Whimsy = {
     if (this.featureEnabled("github-reviews")) {
       run("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
+    // batch11: live folders (Jira + Push refresh + RSS autodiscovery).
+    // Always installed: each part checks its own switch on use.
+    run("live-folders", () => {
+      lazy.WhimsyLiveFolders.init();
+      lazy.WhimsyLiveFolders.initWindow(win);
+    });
     run("update-channel", () =>
       lazy.WhimsyUpdates.initChannel().catch(e => console.error("Whimsy: update channel", e))
     );
