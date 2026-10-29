@@ -56,3 +56,41 @@
     fill: var(--whimsy-private-accent) !important;
   }
 }
+
+/* Dim sleeping tabs (whimsy.tabs.dim-sleeping, off by default): every
+   unloaded tab (restored but not opened yet, unloaded by hand or by Zen)
+   fades its icon and title, Edge-style, so the tabs using memory stand out.
+   Firefox's own favicon-only fade is folded into this one. */
+@media -moz-pref("whimsy.feature.dim-sleeping") and -moz-pref("whimsy.tabs.dim-sleeping") {
+  .tabbrowser-tab {
+    & .tab-icon-stack,
+    & .tab-label-container {
+      transition: opacity 240ms ease-out;
+    }
+
+    &[pending]:not([selected]) {
+      /* !important: Zen pins the title at full opacity with an id selector. */
+      & .tab-icon-stack,
+      & .tab-label-container {
+        opacity: 0.5 !important;
+      }
+
+      &:hover {
+        & .tab-icon-stack,
+        & .tab-label-container {
+          opacity: 0.8 !important;
+        }
+      }
+    }
+
+    & .tab-icon-image[pending] {
+      opacity: 1 !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tabbrowser-tab :is(.tab-icon-stack, .tab-label-container) {
+      transition: none;
+    }
+  }
+}

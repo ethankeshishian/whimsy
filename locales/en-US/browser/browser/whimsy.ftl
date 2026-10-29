@@ -149,3 +149,5 @@ whimsy-tabs-new-tab-below =
     .label = Open new tabs below the current tab
 whimsy-tabs-new-tab-in-folder =
     .label = Keep tabs opened from a folder in that folder
+whimsy-tabs-dim-sleeping =
+    .label = Dim sleeping tabs that aren’t loaded

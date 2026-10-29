@@ -31,3 +31,7 @@
 # Firefox's and Whimsy's (WhimsyAI.sys.mjs). Off: AI features stay available.
 - name: whimsy.ai.blocked
   value: false
+
+# Dim sleeping (unloaded) tabs in the sidebar (Settings → Tab Management).
+- name: whimsy.tabs.dim-sleeping
+  value: false

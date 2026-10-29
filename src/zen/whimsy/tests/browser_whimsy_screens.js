@@ -211,3 +211,19 @@ add_task(async function settings_tabs() {
     await shot("09-settings-tabs", browser.browsingContext.currentWindowGlobal);
   });
 });
+
+add_task(async function dim_sleeping_tabs() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.tabs.dim-sleeping", true]] });
+  const awake = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const asleep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  gBrowser.selectedTab = awake;
+  await gBrowser.explicitUnloadTabs([asleep]);
+  await TestUtils.waitForCondition(() => asleep.hasAttribute("pending"), "Tab asleep");
+  // Let the fade finish.
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 400));
+  await shot("10-dim-sleeping-tabs");
+  BrowserTestUtils.removeTab(asleep);
+  BrowserTestUtils.removeTab(awake);
+  await SpecialPowers.popPrefEnv();
+});

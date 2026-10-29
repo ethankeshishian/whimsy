@@ -27,6 +27,9 @@
 - name: whimsy.feature.new-tab-position
   value: true
 
+- name: whimsy.feature.dim-sleeping
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 
