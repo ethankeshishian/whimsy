@@ -208,6 +208,21 @@ tab-context-whimsy-group-domain =
 # $count (number) - how many tabs, $site (string) - the site
 whimsy-group-domain-toast = Grouped { $count } tabs from { $site } into a folder
 
+## Remember muted sites (tab context menu)
+
+# $site (string) - the site, e.g. example.com
+tab-context-whimsy-mute-site =
+    .label = Mute Site
+    .accesskey = i
+# $site (string) - the site, e.g. example.com
+tab-context-whimsy-unmute-site =
+    .label = Unmute Site
+    .accesskey = i
+# $site (string) - the site, e.g. example.com
+whimsy-mute-site-toast = { $site } will always open muted
+# $site (string) - the site, e.g. example.com
+whimsy-unmute-site-toast = { $site } can play sound again
+
 ## Spaces
 
 # $count (number) - how many tabs moved, $space (string) - the space's name

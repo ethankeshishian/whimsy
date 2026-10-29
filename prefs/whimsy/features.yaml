@@ -81,6 +81,9 @@
 - name: whimsy.feature.background-mute
   value: true
 
+- name: whimsy.feature.mute-site
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 
