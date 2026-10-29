@@ -167,3 +167,14 @@ add_task(async function copy_link_toast() {
   await SpecialPowers.popPrefEnv();
   BrowserTestUtils.removeTab(tab);
 });
+
+add_task(async function settings_strip_tracking() {
+  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+    const doc = browser.contentDocument;
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyStripTrackingGroup"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "Tracking in links visible");
+    group.scrollIntoView({ block: "center" });
+    await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+    await shot("06-settings-strip-tracking", browser.browsingContext.currentWindowGlobal);
+  });
+});

@@ -117,3 +117,11 @@ tab-context-whimsy-copy-links =
            *[other] Copy Links
         }
     .accesskey = k
+
+## Settings → Privacy & Security → Tracking in links
+
+whimsy-strip-tracking-header =
+    .label = Tracking in links
+whimsy-strip-tracking-toggle =
+    .label = Remove tracking parameters from links
+    .description = Strips trackers like utm_source and fbclid from the links you open and copy, so sites can’t follow you from page to page.

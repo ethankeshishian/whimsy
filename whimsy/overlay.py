@@ -86,6 +86,8 @@ FEATURES = [
      "detect": [("src", r"setApplicationIcon|applicationIconImage|zen\.app-icon|app-icon-picker")]},
     {"id": "copy", "title": "Copy & share: rich links, selected tabs, Copy Links menu item",
      "detect": [("src/zen", r"context_copyLinks|copySelectedTabsURL|copyTabsURLs|text/html.*copyCurrentURL")]},
+    {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
+     "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "github-reviews", "title": "My Review Requests (GitHub live folders, Zen PR #16183)",
      "detect": [("src/zen/live-folders", r"user-review-requested|myReviewRequests"),
                 ("locales/en-US", r"(?i)my review requests")]},
@@ -312,6 +314,12 @@ def write_generated(report, dry, superseded):
         prefs += f"\n- name: whimsy.feature.{feature['id']}\n  value: {'false' if s else 'true'}{note}\n"
     if "ctrl-tab" not in gone:
         prefs += "\n# Arc-style Ctrl+Tab: recently used order.\n- name: browser.ctrlTab.sortByRecentlyUsed\n  value: true\n"
+    if "strip-tracking" not in gone:
+        prefs += ("\n# Strip tracking parameters (utm_*, fbclid...) from links you open, in\n"
+                  "# normal and private windows. Copy Clean Link's list already applies to\n"
+                  "# copies (privacy.query_stripping.strip_on_share.enabled).\n"
+                  "- name: privacy.query_stripping.enabled\n  value: true\n"
+                  "\n- name: privacy.query_stripping.enabled.pbmode\n  value: true\n")
     gen["prefs/whimsy/features.yaml"] = prefs
 
     for rel, text in gen.items():

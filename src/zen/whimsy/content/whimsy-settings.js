@@ -15,6 +15,8 @@ var gWhimsySettings = {
     document.addEventListener("paneshown", event => {
       if (event.detail.category == this.PANE) {
         this.insertGroups();
+      } else if (event.detail.category == "panePrivacy") {
+        this.insertPrivacyGroups();
       }
     });
   },
@@ -72,6 +74,65 @@ var gWhimsySettings = {
     if (keep.whimsyUpdatesGroup) {
       this.initUpdates();
     }
+  },
+
+  // Privacy & Security: "Remove tracking parameters from links", above
+  // Firefox's website privacy group (Global Privacy Control).
+  insertPrivacyGroups() {
+    const template = document.getElementById("template-whimsyPrivacy");
+    if (!template) {
+      return;
+    }
+    const fragment = template.content;
+    const groups = [...fragment.children];
+    const anchor =
+      document.getElementById("nonTechnicalPrivacyGroup") ||
+      document.querySelector('[groupid="nonTechnicalPrivacy2"]');
+    if (anchor) {
+      anchor.before(fragment);
+    } else {
+      document.getElementById("mainPrefPane").append(fragment);
+    }
+    template.remove();
+    if (!this.lazy.Whimsy.featureEnabled("strip-tracking")) {
+      groups.forEach(group => group.remove());
+      return;
+    }
+    for (const group of groups) {
+      group.hidden = false;
+    }
+    this.initStripTracking();
+  },
+
+  STRIP_PREFS: [
+    "privacy.query_stripping.enabled",
+    "privacy.query_stripping.enabled.pbmode",
+    "privacy.query_stripping.strip_on_share.enabled",
+  ],
+
+  // One switch for stripping links you open (normal and private windows) and
+  // links you copy (Copy Clean Link, and Whimsy's copy shortcuts). Turning it
+  // back on restores the defaults, so Tracking Protection stays "Standard".
+  initStripTracking() {
+    const checkbox = document.getElementById("whimsyStripTracking");
+    const [enabledPref] = this.STRIP_PREFS;
+    const update = () => {
+      checkbox.checked = Services.prefs.getBoolPref(enabledPref, false);
+    };
+    checkbox.addEventListener("change", () => {
+      for (const pref of this.STRIP_PREFS) {
+        if (checkbox.checked && Services.prefs.getDefaultBranch("").getBoolPref(pref, false)) {
+          Services.prefs.clearUserPref(pref);
+        } else {
+          Services.prefs.setBoolPref(pref, checkbox.checked);
+        }
+      }
+    });
+    Services.prefs.addObserver(enabledPref, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(enabledPref, update), {
+      once: true,
+    });
+    update();
   },
 
   initAppIcons() {

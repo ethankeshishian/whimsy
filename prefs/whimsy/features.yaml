@@ -12,9 +12,21 @@
 - name: whimsy.feature.copy
   value: true
 
+- name: whimsy.feature.strip-tracking
+  value: true
+
 - name: whimsy.feature.github-reviews
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
+  value: true
+
+# Strip tracking parameters (utm_*, fbclid...) from links you open, in
+# normal and private windows. Copy Clean Link's list already applies to
+# copies (privacy.query_stripping.strip_on_share.enabled).
+- name: privacy.query_stripping.enabled
+  value: true
+
+- name: privacy.query_stripping.enabled.pbmode
   value: true
