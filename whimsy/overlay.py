@@ -68,6 +68,12 @@ HOOKS = [
      r"^(\s*)return keys;\s*$",
      '{indent}keys = await ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.addKeys(actor, keys); // Whimsy hook',
      "before"),
+    # wave6/zap: the zap dust takes the space's gradient colors
+    # (WhimsyZapTint tints the captured element before it turns to dust).
+    ("zap-tint", "src/zen/boosts/ZenZapDissolve.sys.mjs",
+     r"^(\s*)this\.#loadTexture\(captureCanvas\);\s*$",
+     '{indent}ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyZapTint.sys.mjs").WhimsyZapTint.tint(ctx, captureCanvas.width, captureCanvas.height); // Whimsy hook',
+     "before"),
 ]
 
 HOTFIXES = [
@@ -857,6 +863,14 @@ FEATURES = [
     # wave5/profiles: Arc's profiles on containers (one Firefox profile/account).
     {"id": "space-profiles", "title": "Profiles: each space belongs to a profile (a container) with its own cookies, passwords, history, Essentials, search engine, downloads and extensions, like Arc",
      "detect": [("src/zen", r"(?i)zen[\w-]*space-?profiles|ZenProfiles\.sys|profile-?switcher")]},
+    # wave6/zap: Zap as a command (Zen ships zap mode only inside the Boost
+    # editor): Cmd+Shift+X, command bar, site panel, undo, space-colored dust.
+    {"id": "zap", "title": "Zap: erase page elements with Cmd+Shift+X, the command bar or the site panel; undo, space-colored dust",
+     "detect": [("src/zen", r"(?i)zen-action-zap|key_zenZap|cmd_zenZap|zen-zap-shortcut")]},
+    # wave6/zap: Link hints (Vimium's f): letter badges on everything
+    # clickable, type to click, Shift for a new tab.
+    {"id": "link-hints", "title": "Link hints: Cmd+J puts letter badges on links and buttons; type one to click it, Shift for a new tab",
+     "detect": [("src/zen", r"(?i)link-?hints|vimium|hint-?mode")]},
 ]
 
 

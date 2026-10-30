@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Link hints</title>
+<style>
+  body { margin: 0; padding: 16px; font: 16px/1.6 sans-serif; }
+  a, button, input, [role="button"] { display: block; margin: 8px 0; }
+  #covered { position: absolute; left: 16px; top: 400px; }
+  #cover { position: absolute; left: 0; top: 390px; width: 400px; height: 60px; background: white; }
+  #far { position: absolute; top: 4000px; }
+</style>
+</head>
+<body>
+<a id="first" href="#first-clicked">First link</a>
+<a id="second" href="whimsy_link_hints.html?second">Second <span>nested label</span></a>
+<button id="button" onclick="document.title = 'button clicked'">Button</button>
+<input id="field" type="text" aria-label="Field">
+<div id="custom" role="button" tabindex="0" onclick="document.title = 'custom clicked'">Custom button</div>
+<a id="hidden" href="#hidden" style="display: none">Hidden</a>
+<a id="ariahidden" href="#ariahidden" aria-hidden="true">Hidden from everyone</a>
+<a id="far" href="#far">Far below</a>
+<a id="covered" href="#covered">Covered</a>
+<div id="cover"></div>
+<script>
+  window.keysSeen = 0;
+  addEventListener("keydown", () => window.keysSeen++);
+</script>
+</body>
+</html>

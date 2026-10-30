@@ -446,3 +446,10 @@ support-files = ["whimsy_login_form.html"]
 
 # wave5/profiles: per-profile data through Sync's prefs engine (two-device round trip, merge rules).
 ["browser_whimsy_profile_sync.js"]
+
+# wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
+["browser_whimsy_zap.js"]
+
+# wave6/zap: Link hints (what gets a badge, typing clicks, Shift new tab, Esc/Backspace, layouts, page never sees keys, switch off).
+["browser_whimsy_link_hints.js"]
+support-files = ["whimsy_link_hints.html"]

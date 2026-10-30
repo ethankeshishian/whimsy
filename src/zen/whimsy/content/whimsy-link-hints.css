@@ -1,0 +1,122 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave6/zap: Link hints badges, drawn in the page's anonymous content
+   (WhimsyLinkHintsChild.sys.mjs). */
+
+#whimsy-hints {
+  --hint-bg: rgb(91, 91, 214);
+  --hint-ink: #ffffff;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  font: 650 11px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.hint {
+  position: fixed;
+  padding: 2px 4px 3px;
+  border-radius: 4px;
+  background: var(--hint-bg);
+  color: var(--hint-ink);
+  /* A light ring and a soft shadow keep the badge legible on any page. */
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.55),
+    0 1px 3px rgb(0 0 0 / 0.35);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transform-origin: top left;
+}
+
+.hint[hidden] {
+  display: none;
+}
+
+/* Letters already typed fade back, so the next letter to type stands out. */
+.hint .typed {
+  opacity: 0.45;
+}
+
+#whimsy-hints-help {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  translate: -50% 0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgb(22 22 26 / 0.9);
+  color: #ffffff;
+  font: 500 12px/1.2 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hint {
+    animation: whimsy-hint-in 160ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    transition:
+      transform 120ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 120ms ease-out;
+  }
+
+  #whimsy-hints-help {
+    animation: whimsy-hint-help-in 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  .hint.chosen {
+    transform: scale(1.18);
+  }
+
+  #whimsy-hints.leaving {
+    opacity: 0;
+    transition: opacity 120ms cubic-bezier(0.55, 0, 1, 0.45);
+  }
+
+  @keyframes whimsy-hint-in {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+  }
+
+  @keyframes whimsy-hint-help-in {
+    from {
+      opacity: 0;
+      translate: -50% 6px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint,
+  #whimsy-hints-help {
+    animation: whimsy-hint-fade 100ms ease-out backwards;
+  }
+
+  @keyframes whimsy-hint-fade {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-contrast: more) {
+  .hint {
+    box-shadow: 0 0 0 2px #000000;
+  }
+}
+
+@media (forced-colors: active) {
+  .hint,
+  #whimsy-hints-help {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+  }
+}

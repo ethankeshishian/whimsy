@@ -59,6 +59,9 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyLassoParent.sys.mjs",
     "WhimsyLibrarySection.sys.mjs",
     "WhimsyLinearLiveFolder.sys.mjs",
+    "WhimsyLinkHints.sys.mjs",
+    "WhimsyLinkHintsChild.sys.mjs",
+    "WhimsyLinkHintsParent.sys.mjs",
     "WhimsyLinkLasso.sys.mjs",
     "WhimsyLiveFolderFetch.sys.mjs",
     "WhimsyLiveFolderReading.sys.mjs",
@@ -131,6 +134,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
+    "WhimsyZap.sys.mjs",
+    "WhimsyZapTint.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

@@ -63,6 +63,7 @@
     space: { bg: "#3d5afe", ink: "#ffffff", accent: "#9cffe0", accent2: "#8f9dff" },
     longest: { bg: "#ff7a1a", ink: "#2a1000", accent: "#fff1e0", accent2: "#ffb070" },
     nightowl: { bg: "#140c3c", ink: "#f4e9ff", accent: "#ffd86b", accent2: "#3d2a8a" },
+    zapped: { bg: "#b5f23d", ink: "#172600", accent: "#ffffff", accent2: "#e4ffb0" },
     finale: { bg: "#1d1033", ink: "#ffffff", accent: "#ffd86b", accent2: "#b5a0ff" },
   };
   const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -664,6 +665,10 @@
       list.push(nightOwlSlide(percent));
       stats.push({ kind: "nightowl", label: "whimsy-year-finale-night", value: `${percent}%` });
     }
+    // wave6/zap: things zapped off pages.
+    if (m.zapped) {
+      stats.push({ kind: "zapped", label: "whimsy-year-finale-zapped", value: formatCount(m.zapped) });
+    }
     list.push(finaleSlide(data.year, stats));
     return list;
   }
@@ -779,7 +784,7 @@
   emptyEl.hidden = true;
   autoBtn.setAttribute("aria-pressed", String(auto));
 
-  model = { data, counter, topSpace, longest };
+  model = { data, counter, topSpace, longest, zapped: WhimsyStats.getZapCount() };
   renderDeck();
 
   window.__whimsyYear = {

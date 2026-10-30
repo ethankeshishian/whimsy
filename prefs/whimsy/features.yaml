@@ -432,6 +432,12 @@
 - name: whimsy.feature.space-profiles
   value: true
 
+- name: whimsy.feature.zap
+  value: true
+
+- name: whimsy.feature.link-hints
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

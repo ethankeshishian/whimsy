@@ -12,6 +12,8 @@ const FEATURE_PREF = "whimsy.feature.year-in-tabs";
 const COUNTER_PREF = "whimsy.stats.tabs-opened";
 const LONGEST_PREF = "whimsy.stats.longest-tab";
 const OPENED_ATTR = "whimsy-opened-at";
+// wave6/zap
+const ZAPPED_PREF = "whimsy.stats.zapped";
 
 // Session-restored tabs fire TabOpen too; only count tabs opened after the
 // window's own session restore has finished, so a browser restart doesn't
@@ -90,6 +92,18 @@ export const WhimsyStats = {
         ms,
       })
     );
+  },
+
+  // wave6/zap: things zapped off pages (WhimsyZap), for Year in tabs.
+  recordZap() {
+    if (!this.enabled) {
+      return;
+    }
+    Services.prefs.setIntPref(ZAPPED_PREF, Services.prefs.getIntPref(ZAPPED_PREF, 0) + 1);
+  },
+
+  getZapCount() {
+    return Services.prefs.getIntPref(ZAPPED_PREF, 0);
   },
 
   // { total, bySpace: { [workspaceId]: count }, since }.
