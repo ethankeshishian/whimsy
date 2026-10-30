@@ -446,6 +446,10 @@ PREF_OVERRIDES = {
     # batch hover: Arc's tab hover card (title, address, page preview) is
     # Firefox's tab hover preview, which Zen ships off.
     "browser.tabs.hoverPreview.enabled": True,
+    # wave6/parity: Peek opens on Shift+click, as in Arc (Zen's Glance uses
+    # Alt+click). Firefox's Shift+click "open in new window" stays in the
+    # link context menu; Alt+click goes back to Firefox's own meaning.
+    "zen.glance.activation-method": "shift",
 }
 
 # Strings Zen's markup uses that its .ftl files no longer define.
@@ -585,7 +589,7 @@ FEATURES = [
     {"id": "heavy-tabs", "title": "Find heavy tabs: the tabs using the most memory/CPU, with a close button (Opera GX)",
      "detect": [("src/zen", r"(?i)heavy-?tabs|hot-?tabs-?killer|ZenHeavyTabs")]},
     # batch6: split view extras.
-    {"id": "split-link-click", "title": "Shift+click a link opens it in a split (Arc parity, PR#15241)",
+    {"id": "split-link-click", "title": "Shift+click a link opens it in a split instead of Peek (opt-in, Zen PR#15241)",
      "detect": [("src/zen/split-view", r"(?i)shift.*click.*split|modifier.*click.*split")]},
     {"id": "split-close-other-panes", "title": "\"Close Other Panes\" in the command bar",
      "detect": [("src/zen/split-view", r"cmd_zen[\w]*CloseOther")]},
@@ -798,6 +802,9 @@ FEATURES = [
     # wave5: command registry
     {"id": "command-registry", "title": "Every Whimsy action is a named command: in the command bar and under \"Whimsy\" in Settings → Keyboard Shortcuts, so any of them can take a shortcut",
      "detect": [("src/zen", r"(?i)WHIMSY_KEY_CATEGORIES|registerKeyCategor(y|ies)|extraKeyCategories")]},
+    # wave6/parity: Arc's Option+click a tab to split it with the current one.
+    {"id": "split-alt-click", "title": "Option+click a tab in the sidebar to open it in a split with the current tab (Arc)",
+     "detect": [("src/zen/split-view", r"(?i)alt-?click|altKey")]},
 ]
 
 

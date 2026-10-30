@@ -353,3 +353,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave6/parity: the Archive's own store (no 25-tab loss), Clear Archive.
 ["browser_whimsy_archive_store.js"]
+
+# wave6/parity: Peek on Shift+click (Arc), Option+click a tab to split.
+["browser_whimsy_peek_shift_click.js"]

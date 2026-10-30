@@ -144,7 +144,7 @@
 - name: whimsy.tabs.tree-style
   value: tree
 # batch6 #7: Shift+click a link opens it in a split instead of navigating
-# it. Off by default: Shift+click is Firefox's own "open in new window".
+# it. Off by default: in Arc (and Whimsy) Shift+click opens Peek.
 # Settings -> Tab Management -> Tabs.
 - name: whimsy.splitlink.shift-click
   value: false

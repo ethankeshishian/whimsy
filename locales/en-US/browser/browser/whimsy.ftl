@@ -320,7 +320,7 @@ whimsy-action-split-vertically = Split Vertically
 whimsy-action-split-horizontally = Split Horizontally
 whimsy-action-split-grid = Split Grid
 whimsy-split-shift-click =
-    .label = Shift+click a link to open it in a split (replaces "Open in New Window")
+    .label = Shift+click a link to open it in a split (instead of Peek)
 
 ## Command bar extras (batch6)
 

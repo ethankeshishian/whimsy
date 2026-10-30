@@ -11,10 +11,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
-// #7 Open a link in split: Arc's Shift+click opens a link beside the
-// current tab instead of navigating it away. Shift+click is Firefox's own
-// "open in new window", so this only runs the link through to a split when
-// the user has explicitly turned it on (default off); the WhimsyPage actor
+// #7 Open a link in split: Shift+click opens a link beside the current tab
+// instead of navigating it away. Not Arc's: Arc's Shift+click opens Peek,
+// which is Whimsy's default too (zen.glance.activation-method), so this
+// only runs the link through to a split when the user has explicitly
+// turned it on (default off); the WhimsyPage actor
 // does the in-page detection (see WhimsyPageChild/Parent) and calls
 // openLinkInSplit below.
 const LINK_FEATURE_PREF = "whimsy.feature.split-link-click";
@@ -50,6 +51,12 @@ const COMMAND_BAR_FEATURE_PREF = "whimsy.feature.split-command-bar";
 //   whimsyCanDropIntoSplit/whimsyDropIntoSplit (set below), so the third
 //   and fourth tab join the split beside the pane you drop on.
 const FOUR_PANES_FEATURE_PREF = "whimsy.feature.split-four-panes";
+
+// wave6/parity: Arc's Option+click a tab in the sidebar opens it in a split
+// with the current tab (or adds it to the current split), instead of
+// switching to it. Option+click on a tab means nothing else in Zen or
+// Firefox on macOS.
+const ALT_CLICK_FEATURE_PREF = "whimsy.feature.split-alt-click";
 
 function enabled(pref) {
   return Services.prefs.getBoolPref(pref, true);
@@ -221,8 +228,85 @@ export const WhimsySplit = {
     return true;
   },
 
+  // The tab an Option+click should split in, or null to leave the click be.
+  altClickTarget(win, event) {
+    if (
+      !enabled(ALT_CLICK_FEATURE_PREF) ||
+      event.button != 0 ||
+      !event.altKey ||
+      event.shiftKey ||
+      event.ctrlKey ||
+      event.metaKey
+    ) {
+      return null;
+    }
+    const tab = event.target.closest?.(".tabbrowser-tab");
+    const selected = win.gBrowser.selectedTab;
+    if (
+      !tab ||
+      tab == selected ||
+      tab.closing ||
+      tab.hasAttribute("zen-essential") ||
+      tab.hasAttribute("zen-empty-tab") ||
+      event.target.closest(".tab-close-button, .tab-icon-overlay, .tab-reset-button")
+    ) {
+      return null;
+    }
+    return tab;
+  },
+
+  // Adds `tab` to the selected tab's split (Zen's own path, which also
+  // refuses a fifth pane), or splits the two.
+  splitWithSelected(win, tab) {
+    const splitter = win.gZenViewSplitter;
+    const selected = win.gBrowser.selectedTab;
+    if (!splitter || !tab || tab == selected) {
+      return false;
+    }
+    if (tab.splitView && splitter._data.some(g => g.tabs.includes(tab) && g.tabs.includes(selected))) {
+      win.gBrowser.selectedTab = tab; // Already side by side: just focus it.
+      return true;
+    }
+    return !!splitter.splitTabs([selected, tab], undefined, 1);
+  },
+
+  initAltClick(win) {
+    const container = win.gBrowser?.tabContainer;
+    if (!container) {
+      return;
+    }
+    // Capturing mousedown on the container: before the tab selects itself
+    // on mousedown, so the click splits instead of switching.
+    let swallowClick = false;
+    const onMouseDown = event => {
+      const tab = this.altClickTarget(win, event);
+      swallowClick = !!tab;
+      if (!tab) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        this.splitWithSelected(win, tab);
+      } catch (e) {
+        console.error("Whimsy: Option+click split", e);
+      }
+    };
+    // Swallow the matching click so Zen's own click handlers don't act on it.
+    const onClick = event => {
+      if (swallowClick && event.button == 0) {
+        swallowClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    container.addEventListener("mousedown", onMouseDown, true);
+    container.addEventListener("click", onClick, true);
+  },
+
   initWindow(win) {
     const { WhimsyCommands } = lazy;
+    this.initAltClick(win);
 
     this.wrapToggleShortcut(win);
     if (win.gZenViewSplitter) {
