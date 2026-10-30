@@ -88,7 +88,7 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
   // the key belongs to something focused (a text field, or Space on a
   // button such as Try Again).
   handleKey(event) {
-    if (this.gameStarted || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
+    if (this.gamePlaying() || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
       return;
     }
     const isSpace = event.key == " ";
@@ -103,11 +103,20 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
       return;
     }
     event.preventDefault();
+    if (this.gameStarted) {
+      // Back from the error page (Esc): the key only brings the game back.
+      event.stopPropagation();
+    }
     this.startGame();
   }
 
+  // The game is on screen (it hides itself again on Esc).
+  gamePlaying() {
+    return this.gameStarted && this.document.body.classList.contains("whimsy-game-embedded");
+  }
+
   handleClick(event) {
-    if (this.gameStarted || event.button != 0) {
+    if (this.gamePlaying() || event.button != 0) {
       return;
     }
     const container = (event.composedPath?.() || [event.composedTarget ?? event.target]).find(
@@ -124,8 +133,12 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
   }
 
   startGame() {
-    this.gameStarted = true;
     const doc = this.document;
+    if (this.gameStarted) {
+      doc.dispatchEvent(new this.contentWindow.Event("WhimsyGame:Show"));
+      return;
+    }
+    this.gameStarted = true;
     const win = this.contentWindow;
     const host = {
       autostart: true,

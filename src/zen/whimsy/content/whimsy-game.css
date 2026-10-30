@@ -299,16 +299,30 @@ body:has(> #whimsy-game-root) {
   }
 }
 
-#whimsy-game-embed {
-  margin: 0 auto 2rem;
-  max-width: 1000px;
+/* Embedded in the offline error page: while it's played the game is the
+   page, like Chrome's dino - the error text and buttons step aside. Esc
+   hides it again (paused) and brings the error page and Try Again back. */
+body:not(.whimsy-game-embedded) > #whimsy-game-embed {
+  display: none;
+}
+
+body.whimsy-game-embedded > :not(#whimsy-game-embed) {
+  display: none !important;
+}
+
+body.whimsy-game-embedded > #whimsy-game-embed {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  overflow: hidden;
 }
 
 #whimsy-game-embed #whimsy-game-root {
+  height: 100%;
   min-height: 0;
-  border-radius: 24px;
 }
 
-#whimsy-game-embed #whimsy-game-root[data-style="retro"] {
-  border-radius: 0;
+#whimsy-game-embed #whimsy-game-hud,
+#whimsy-game-embed #whimsy-game-stage {
+  width: min(100%, 1200px, calc((100vh - 140px) * 3));
 }

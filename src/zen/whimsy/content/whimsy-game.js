@@ -34,6 +34,7 @@
   // actor hands over a small host: pref reads, pref writes via the parent,
   // and "autostart" when the page was turned into the game by a key press.
   const host = window.WhimsyGameHost ?? null;
+  const embedded = !!host;
   const prefs = host ?? {
     get(name, fallback) {
       const P = Services.prefs;
@@ -2418,7 +2419,11 @@
   window.addEventListener("keydown", event => {
     // Browser shortcuts (Cmd+W, Cmd+T, Ctrl+Tab...) are never the game's:
     // "w" is a steering key, and swallowing Cmd+W left the tab unclosable.
-    if (event.metaKey || event.ctrlKey || event.altKey) {
+    if (event.metaKey || event.ctrlKey || event.altKey || !shown()) {
+      return;
+    }
+    if (embedded && event.key == "Escape") {
+      showEmbedded(false);
       return;
     }
     if (event.target.closest?.("button") && (event.key == " " || event.key == "Enter")) {
@@ -2444,10 +2449,40 @@
     if (held.has(event.key)) {
       held.delete(event.key);
       syncHeld();
-    } else if (event.key == " ") {
+    } else if (event.key == " " && shown()) {
       event.preventDefault();
     }
   });
+
+  // Embedded in the offline error page the game fills the page while it's
+  // played, like Chrome's dino: the error text and buttons step aside. Esc
+  // (or a reload) brings the error page and Try Again back, paused; the
+  // error page's own key/tap (WhimsyNetErrorChild) shows the game again.
+  function shown() {
+    return !embedded || document.body.classList.contains("whimsy-game-embedded");
+  }
+  function showEmbedded(on) {
+    document.body.classList.toggle("whimsy-game-embedded", on);
+    document.querySelector("net-error-card")?.shadowRoot
+      ?.querySelector(".felt-privacy-container")?.classList.toggle("whimsy-game-embedded", on);
+    held.clear();
+    syncHeld();
+    if (on) {
+      if (game.state == "paused") {
+        setPaused(false);
+      } else if (game.state == "ready") {
+        start();
+      }
+      resize();
+    } else {
+      setPaused(true);
+      document.activeElement?.blur?.();
+    }
+  }
+  if (embedded) {
+    document.addEventListener("WhimsyGame:Show", () => showEmbedded(true));
+    document.l10n.setAttributes($("whimsy-game-hint"), "whimsy-game-hint-embedded");
+  }
   function toWorld(event) {
     const rect = canvas.getBoundingClientRect();
     return {

@@ -1721,3 +1721,7 @@ whimsy-replay-tool =
         [shield] Shield paused Claude
        *[other] { $tool }
     }
+
+## fix7/game: the offline error page game
+
+whimsy-game-hint-embedded = Arrows, WASD or pointer to steer · Space or click to dash · Esc goes back to the error page
