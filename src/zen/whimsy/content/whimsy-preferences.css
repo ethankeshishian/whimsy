@@ -148,3 +148,23 @@
   margin-inline-start: 8px;
   color: var(--text-color-deemphasized);
 }
+
+/* wave4: use Settings spacing, native fields and buttons for calendars. */
+#whimsyNextMeetingGroup .whimsy-calendar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-small);
+  margin-block: var(--space-small);
+}
+#whimsyNextMeetingGroup .whimsy-calendar-row > :first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#whimsyMeetingGoogleURL {
+  width: 100%;
+}
+#whimsyMeetingGoogleError {
+  color: var(--text-color-error);
+}

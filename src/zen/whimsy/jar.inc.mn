@@ -37,7 +37,6 @@
 # wave1/fun: Whimsy network error branding
         content/browser/whimsy/whimsy-neterror.css                              (../../zen/whimsy/content/whimsy-neterror.css)
         content/browser/whimsy/whimsy-deflated-balloon.svg                        (../../zen/whimsy/content/whimsy-deflated-balloon.svg)
-        content/browser/whimsy/whimsy-library-next-meeting.mjs (../../zen/whimsy/content/whimsy-library-next-meeting.mjs)
         content/browser/whimsy/whimsy-library-space-history.mjs (../../zen/whimsy/content/whimsy-library-space-history.mjs)
 # home: homepage + changelog (about:whimsy)
         content/browser/whimsy/whimsy-home.xhtml                                (../../zen/whimsy/content/whimsy-home.xhtml)

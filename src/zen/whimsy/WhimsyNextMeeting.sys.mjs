@@ -29,11 +29,12 @@
 //
 // Refreshing: at most every 5 minutes per Google calendar, and only while a
 // browser window is open. Apple Calendar is local, so it is also re-read
-// when the Library section opens. A 30 s tick (no network) keeps "in 4 min"
+// when calendar Settings opens. A 30 s tick (no network) keeps "in 4 min"
 // and the sidebar card current.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  Localization: "resource://gre/modules/Localization.sys.mjs",
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -676,6 +677,7 @@ export const WhimsyNextMeeting = {
 
   initWindow(win) {
     this._observePrefs();
+    this._registerJoinAction();
     if (this._windows.has(win)) {
       return;
     }
@@ -708,7 +710,7 @@ export const WhimsyNextMeeting = {
   _onPrefChanged(pref) {
     if (pref == APPLE_PREF) {
       if (this.appleEnabled) {
-        // Turned on by the person (Settings or the Library): the one moment
+        // Turned on by the person (Settings): the one moment
         // Whimsy asks macOS for access.
         this.requestAppleAccess();
       } else {
@@ -727,6 +729,7 @@ export const WhimsyNextMeeting = {
       this.refresh();
     } else if (pref == FEATURE_PREF && this.enabled) {
       this.refresh();
+      this._notify();
     } else {
       this._notify();
     }
@@ -875,7 +878,7 @@ export const WhimsyNextMeeting = {
       status = "unavailable";
     }
     if (status != "fullAccess") {
-      // Never prompt from here: the Library shows "Allow access" instead.
+      // Never prompt from here: Settings shows "Allow access" instead.
       const previous = this._sources.get("apple");
       this._sources.set("apple", { events: [], fetchedAt, error: previous?.error ?? status });
       return Promise.resolve();
@@ -982,14 +985,40 @@ export const WhimsyNextMeeting = {
     return this.upcoming(now)[0] ?? null;
   },
 
-  /** The meeting the sidebar card shows right now, if any. */
+  /** One timing window shared by the sidebar and command bar. */
+  soonMeeting(now = Date.now(), { joinable = false } = {}) {
+    return this.upcoming(now).find(ev =>
+      ev.start - now <= CARD_LEAD_MS && now - ev.start <= CARD_TRAIL_MS &&
+      (!joinable || ev.join)
+    ) ?? null;
+  },
+
   cardMeeting(now = Date.now()) {
-    if (!this.cardEnabled) {
-      return null;
+    return this.cardEnabled ? this.soonMeeting(now) : null;
+  },
+
+  _registerJoinAction() {
+    const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+    const l10nId = "whimsy-action-join-meeting";
+    if (globalActions.some(action => action.l10nId == l10nId)) {
+      return;
     }
-    return (
-      this.upcoming(now).find(ev => ev.start - now <= CARD_LEAD_MS && now - ev.start <= CARD_TRAIL_MS) ?? null
-    );
+    const service = this;
+    const l10n = new lazy.Localization(["browser/whimsy.ftl"], true);
+    globalActions.push({
+      l10nId,
+      commandId: "whimsy:join-meeting",
+      extraPayload: {},
+      icon: "chrome://browser/skin/zen-icons/video-fill.svg",
+      get label() {
+        const meeting = service.soonMeeting(Date.now(), { joinable: true });
+        return l10n.formatValueSync(l10nId, {
+          meeting: meeting?.title || l10n.formatValueSync("whimsy-meeting-untitled"),
+        });
+      },
+      isAvailable: win => !win?._whimsyQuickWindow && !!service.soonMeeting(Date.now(), { joinable: true }),
+      command: win => service.join(win, service.soonMeeting(Date.now(), { joinable: true })),
+    });
   },
 
   /** Opens the meeting's call in a tab, or switches to the tab already on it. */
@@ -1088,20 +1117,20 @@ const WhimsyNextMeetingCard = {
     card.id = CARD_ID;
     card.setAttribute("role", "group");
     card.hidden = true;
-    const text = el("div", "whimsy-meeting-card-text");
+    const text = el("div", "whimsy-meeting-card-text zen-library-row-text");
     text.append(
-      el("span", "whimsy-meeting-card-title"),
-      el("span", "whimsy-meeting-card-when"),
-      el("span", "whimsy-meeting-card-now", "whimsy-meeting-now")
+      el("span", "whimsy-meeting-card-title zen-library-row-title"),
+      el("span", "whimsy-meeting-card-when zen-library-row-subtitle"),
+      el("span", "whimsy-meeting-card-now zen-library-row-subtitle", "whimsy-meeting-now")
     );
-    const join = el("button", "whimsy-meeting-card-join", "whimsy-meeting-join");
+    const join = el("button", "whimsy-meeting-card-join zen-library-filter-button", "whimsy-meeting-join");
     join.addEventListener("click", () => service.join(win, card._event));
     const close = el("button", "whimsy-meeting-card-close", "whimsy-meeting-card-dismiss");
     close.addEventListener("click", () => {
       win._whimsyMeetingDismissed = card._event?.id;
       this.update(win, service);
     });
-    card.append(el("span", "whimsy-meeting-card-dot"), text, join, close);
+    card.append(text, join, close);
     if (anchor) {
       anchor.after(card);
     } else {
@@ -1130,11 +1159,18 @@ const WhimsyNextMeetingCard = {
     }
     card._event = event;
     const until = service.formatUntil(event);
-    card.querySelector(".whimsy-meeting-card-title").textContent = event.title || "";
+    const title = card.querySelector(".whimsy-meeting-card-title");
+    if (event.title) {
+      title.removeAttribute("data-l10n-id");
+      title.textContent = event.title;
+    } else {
+      title.textContent = "";
+      doc.l10n.setAttributes(title, "whimsy-meeting-untitled");
+    }
+    title.title = event.title || "";
     card.querySelector(".whimsy-meeting-card-when").textContent = until || "";
     card.querySelector(".whimsy-meeting-card-when").hidden = !until;
     card.querySelector(".whimsy-meeting-card-now").hidden = !!until;
-    card.querySelector(".whimsy-meeting-card-dot").style.backgroundColor = event.color || "";
     card.querySelector(".whimsy-meeting-card-join").hidden = !event.join;
     card.toggleAttribute("whimsy-meeting-live", !until);
     if (card.hidden) {
