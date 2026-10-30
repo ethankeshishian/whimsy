@@ -2174,3 +2174,37 @@ whimsy-space-history-section {
     opacity: 1;
   }
 }
+
+/* wave5/quick: QR code for any page (menu icon, as the other page items). */
+@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
+  #context-whimsy-qrcode { --whimsy-menu-icon: url("chrome://browser/content/sharing/qr-code.svg"); }
+}
+
+/* wave5/quick: Copy page as Markdown (menu icon). */
+@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
+  #context-whimsy-copy-markdown { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
+}
+
+/* wave5/quick: new season toast. Zen's toast with the costumed balloon
+   before its two lines; the balloon bobs once on arrival (not with reduced
+   motion). */
+.zen-toast.whimsy-season-toast {
+  & .whimsy-season-toast-balloon {
+    width: 22px;
+    height: 34px;
+    margin-inline: 2px 0;
+    flex-shrink: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .zen-toast.whimsy-season-toast .whimsy-season-toast-balloon {
+    animation: whimsy-season-bob 1.2s cubic-bezier(0.37, 0, 0.63, 1) 0.3s 1;
+  }
+}
+
+@keyframes whimsy-season-bob {
+  50% {
+    translate: 0 -3px;
+  }
+}

@@ -806,6 +806,26 @@ FEATURES = [
     # wave5/safety: agent replay of Claude runs at whimsy://replay.
     {"id": "claude-replay", "title": "Claude replay: each Claude run is kept as a timeline of steps with page snapshots at whimsy://replay (never private tabs; Clear history clears it)",
      "detect": [("src/zen", r"(?i)agent-?replay|claude-?replay")]},
+    # wave5/quick: QR code for any page. Firefox's QR dialog (SharingUtils),
+    # exposed in the page menu and command bar; never for private tabs/Scratch.
+    {"id": "qr-code", "title": "QR code for any page: the page menu and command bar open Firefox's QR dialog (not for private tabs or Scratch)",
+     "detect": [("src/zen", r"(?i)showQRCodePanel|qr-?code-?for-?page")]},
+    # wave5/quick: Copy page as Markdown (MarkDownload/Obsidian clipper style;
+    # Zen discussion #12557). Zen only copies [title](url).
+    {"id": "copy-page-markdown", "title": "Copy Page as Markdown: the Reader View article (or a selection) as Markdown, from the page menu and command bar",
+     "detect": [("src/zen", r"(?i)copy-?(page|selection)-?as-?markdown|pageToMarkdown|turndown")]},
+    # wave5/quick: Markdown/CSV viewer (Typora/Marked/GitHub file view; built
+    # like Firefox's JSON viewer: sniffer + stream converter, no page script).
+    {"id": "doc-viewer", "title": "Markdown and CSV viewer: .md files read with reader typography and contents, CSV/TSV as a sortable table, Source toggle, live reload",
+     "detect": [("src/zen", r"(?i)text/markdown|markdown-?viewer|csv-?viewer")]},
+    # wave5/quick: link lasso (Linkclump/Snap Links): Option-drag over links
+    # makes a folder of unloaded tabs named after the page.
+    {"id": "link-lasso", "title": "Link lasso: Option-drag a rectangle over links, let go, and they become a folder of unloaded tabs",
+     "detect": [("src/zen", r"(?i)link-?lasso|lasso-?links|linkclump|snap-?links")]},
+    # wave5/quick: new season toast: the first window in a new season shows
+    # one Zen toast with the costumed balloon (respects the seasonal switch).
+    {"id": "season-toast", "title": "New season toast: the first window in a new season shows the balloon in its costume, once",
+     "detect": [("src/zen", r"(?i)season-?toast|new-?season")]},
 ]
 
 

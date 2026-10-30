@@ -136,6 +136,21 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave5/quick: QR code for any page (Firefox's QR dialog, exposed).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyQRCode: "resource:///modules/whimsy/WhimsyQRCode.sys.mjs",
+});
+
+// wave5/quick: Copy page as Markdown.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMarkdownCopy: "resource:///modules/whimsy/WhimsyMarkdownCopy.sys.mjs",
+});
+
+// wave5/quick: new season toast.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySeasonToast: "resource:///modules/whimsy/WhimsySeasonToast.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -229,6 +244,19 @@ export const Whimsy = {
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
+    // wave5/quick: link lasso. The child only acts on an Option-drag the
+    // page didn't handle; the parent makes the folder.
+    ChromeUtils.registerWindowActor("WhimsyLasso", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyLassoParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyLassoChild.sys.mjs",
+        events: { mousedown: { mozSystemGroup: true } },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
@@ -557,6 +585,18 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+
+    // wave5/quick: QR code for any page (page menu and command bar); checks
+    // its switch on use.
+    run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
+
+    // wave5/quick: Copy page as Markdown (page menu and command bar); checks
+    // its switch on use.
+    run("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
+
+    // wave5/quick: the first window in a new season says so once (after
+    // the window settles; never under test automation).
+    run("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

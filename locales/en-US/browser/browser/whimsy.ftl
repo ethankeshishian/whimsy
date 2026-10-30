@@ -1721,3 +1721,73 @@ whimsy-replay-tool =
         [shield] Shield paused Claude
        *[other] { $tool }
     }
+
+## wave5/quick: QR code for any page (Firefox's QR dialog)
+
+whimsy-context-qrcode =
+    .label = QR Code for Page
+    .accesskey = Q
+whimsy-action-qrcode = Show QR Code for Page
+
+## wave5/quick: Copy page as Markdown (Zen's "Copy current URL as Markdown" stays as is)
+
+whimsy-context-copy-page-markdown =
+    .label = Copy Page as Markdown
+    .accesskey = M
+whimsy-context-copy-selection-markdown =
+    .label = Copy Selection as Markdown
+    .accesskey = M
+whimsy-action-copy-page-markdown = Copy Page as Markdown
+whimsy-copy-page-markdown-toast = Copied page as Markdown
+whimsy-copy-selection-markdown-toast = Copied selection as Markdown
+whimsy-copy-markdown-empty-toast = Nothing to copy as Markdown here
+
+## wave5/quick: Markdown and CSV viewer (opened .md, .csv and .tsv files)
+
+whimsy-doc-viewer-source = Source
+whimsy-doc-viewer-preview = Preview
+whimsy-doc-viewer-table = Table
+whimsy-doc-viewer-contents = Contents
+whimsy-doc-viewer-empty = This file is empty.
+whimsy-doc-viewer-truncated = Showing the first 20,000 rows. Open the file in a spreadsheet app to see the rest.
+whimsy-doc-viewer-too-large = This file is too large to preview, so here is its source.
+# $words (Number) - words in the file
+whimsy-doc-viewer-meta-markdown =
+    { $words ->
+        [one] Markdown · { $words } word
+       *[other] Markdown · { $words } words
+    }
+# $kind (String) - CSV or TSV; $rows (Number) - data rows, without the header
+whimsy-doc-viewer-meta-table =
+    { $rows ->
+        [one] { $kind } · { $rows } row
+       *[other] { $kind } · { $rows } rows
+    }
+
+## wave5/quick: link lasso (Option-drag over links makes a folder)
+
+# The live count beside the pointer while lassoing.
+whimsy-link-lasso-count =
+    { $count ->
+        [0] No links
+        [one] 1 link
+       *[other] { $count } links
+    }
+# $name (String) - the new folder's name (the page's title)
+whimsy-link-lasso-toast =
+    { $count ->
+        [one] Saved 1 link to “{ $name }”
+       *[other] Saved { $count } links to “{ $name }”
+    }
+whimsy-link-lasso-private-toast = Link lasso doesn’t save links from private tabs
+
+## wave5/quick: new season toast (once per season, with the costumed balloon)
+
+whimsy-season-toast-autumn = Autumn is here
+whimsy-season-toast-autumn-description = The balloon found a pumpkin
+whimsy-season-toast-winter = Winter is here
+whimsy-season-toast-winter-description = The balloon wrapped up warm
+whimsy-season-toast-spring = Spring is here
+whimsy-season-toast-spring-description = The balloon is wearing flowers
+whimsy-season-toast-summer = Summer is here
+whimsy-season-toast-summer-description = The balloon brought sunglasses

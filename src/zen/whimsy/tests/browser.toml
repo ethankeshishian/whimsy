@@ -367,3 +367,21 @@ support-files = ["whimsy_claude_hidden.html", "whimsy_claude_injection.html"]
 # wave5/safety: agent replay of Claude runs (recording, bounds, private, Clear history, whimsy://replay).
 ["browser_whimsy_claude_replay.js"]
 support-files = ["whimsy_claude.html"]
+
+# wave5/quick: QR code for any page (page menu, command bar, private/Scratch excluded).
+["browser_whimsy_qrcode.js"]
+
+# wave5/quick: Copy page as Markdown (article, selection, fallback, converter, switch).
+["browser_whimsy_copy_page_markdown.js"]
+support-files = ["whimsy_markdown_article.html", "whimsy_markdown_plain.html"]
+
+# wave5/quick: Markdown/CSV viewer (file:// and text/plain .md, CSV sorting, Source, live reload, safety, switch).
+["browser_whimsy_doc_viewer.js"]
+support-files = ["whimsy_viewer.md", "whimsy_viewer.md^headers^", "whimsy_viewer.csv", "whimsy_viewer.csv^headers^"]
+
+# wave5/quick: link lasso (Option-drag, live count, folder of unloaded tabs, Esc, private, switch).
+["browser_whimsy_link_lasso.js"]
+support-files = ["whimsy_lasso.html"]
+
+# wave5/quick: new season toast (once per season, costume, winter across years, switches, reduced motion).
+["browser_whimsy_season_toast.js"]

@@ -72,3 +72,7 @@
         content/browser/whimsy/whimsy-replay.html                                               (../../zen/whimsy/content/whimsy-replay.html)
         content/browser/whimsy/whimsy-replay.css                                                (../../zen/whimsy/content/whimsy-replay.css)
         content/browser/whimsy/whimsy-replay.js                                                 (../../zen/whimsy/content/whimsy-replay.js)
+# wave5/quick: link lasso overlay (anonymous content over the page)
+        content/browser/whimsy/whimsy-lasso.css                                 (../../zen/whimsy/content/whimsy-lasso.css)
+# wave5/quick: new season toast (the costumed balloon, once per season)
+        content/browser/whimsy/whimsy-season-balloon.svg                         (../../zen/whimsy/content/whimsy-season-balloon.svg)
