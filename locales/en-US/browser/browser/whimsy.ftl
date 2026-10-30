@@ -854,11 +854,6 @@ whimsy-claude-copied = Copied
 whimsy-claude-new-token-note = The old token no longer works. Run the new command to reconnect.
 ## meeting: Next meeting in the sidebar
 
-whimsy-library-meetings-title = Meetings
-whimsy-library-meetings-search-placeholder =
-    .placeholder = Search meetings…
-whimsy-library-meetings-empty = No more meetings in the next 24 hours
-whimsy-library-meetings-connect = Connect a calendar to see your next meeting here, with a button to join it.
 whimsy-meeting-now = Now
 whimsy-meeting-join = Join
 whimsy-meeting-card =
@@ -872,7 +867,7 @@ whimsy-meeting-apple-connect = Connect
 whimsy-meeting-apple-allow = Allow access
 whimsy-meeting-apple-open-settings = Open System Settings
 whimsy-meeting-apple-denied = { -brand-short-name } can’t read your calendars. Turn it on in System Settings → Privacy & Security → Calendars.
-whimsy-meeting-apple-unsupported = This copy of { -brand-short-name } can’t ask for calendar access. Install the latest build.
+whimsy-meeting-apple-unsupported = Apple Calendar is unavailable. Update { -brand-short-name } to try again.
 whimsy-meeting-source-remove =
     .tooltiptext = Remove calendar
     .aria-label = Remove calendar
@@ -880,19 +875,20 @@ whimsy-meeting-google-title = Google Calendar
 whimsy-meeting-google-error = Couldn’t load this calendar. Check its address.
 whimsy-meeting-google-add = Add Google Calendar
 whimsy-meeting-google-placeholder =
-    .placeholder = Paste the secret address in iCal format
+    .placeholder = Paste a secret iCal address
 whimsy-meeting-google-help = Where do I find it?
 whimsy-meeting-google-add-confirm = Add
 whimsy-meeting-google-invalid = Paste the secret address. It starts with https://
 
-whimsy-meeting-header = Next meeting
-whimsy-meeting-description = Your next meeting in the sidebar, with a button to join its Meet, Zoom or Teams call. Add Google Calendar accounts in Library → Meetings.
+whimsy-meeting-header =
+    .label = Meetings
+whimsy-meeting-description = Join upcoming calls from the sidebar or command bar.
 whimsy-meeting-enable =
-    .label = Show the Meetings tab in the Library
+    .label = Enable meetings
 whimsy-meeting-apple-enable =
-    .label = Read Apple Calendar (every account in macOS Calendar)
+    .label = Connect Apple Calendar
 whimsy-meeting-card-enable =
-    .label = Show a card at the top of the sidebar 15 minutes before a meeting
+    .label = Show upcoming meetings in the sidebar
 # wave2: Mini Whimsy without an available destination.
 whimsy-quick-window-no-space =
     .label = Open in…
@@ -1490,3 +1486,16 @@ whimsy-watch-alert-open =
 whimsy-watch-alert-stop =
     .label = Stop Watching
 whimsy-watch-notification-title = Found on { $page }
+
+
+## wave4: calendar Settings and the command bar
+whimsy-action-join-meeting = Join { $meeting }
+whimsy-meeting-disconnect = Disconnect
+whimsy-meeting-google-address = Secret iCal address
+whimsy-meeting-connect-empty = Connect a calendar to see upcoming calls.
+whimsy-meeting-empty = No upcoming meetings.
+whimsy-meeting-ready = Your next call will appear when it’s close.
+whimsy-meeting-paused = Meetings are off.
+whimsy-meeting-connected = Connected
+whimsy-meeting-apple-detail = Connect all accounts in Apple Calendar.
+whimsy-meeting-untitled = Meeting

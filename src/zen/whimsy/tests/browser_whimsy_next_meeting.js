@@ -184,12 +184,12 @@ add_task(async function test_apple_access_only_when_turned_on() {
   await TestUtils.waitForCondition(() => mock.requests == 1, "Turning it on asks for access once");
   await TestUtils.waitForCondition(() => mock.reads > 0, "...then reads the events");
 
-  // A later refresh (the timer, the Library opening) never asks again.
+  // A later refresh (the timer, Settings opening) never asks again.
   await WhimsyNextMeeting.refresh({ force: true, apple: true });
   is(mock.requests, 1, "Refreshing doesn't ask again");
   resetAll();
 
-  // Denied: refreshes stay quiet and the Library offers System Settings.
+  // Denied: refreshes stay quiet and Settings offers System Settings.
   const denied = makeAppleMock({ status: "denied" });
   WhimsyNextMeeting.testing.setAppleCalendar(denied);
   Services.prefs.setBoolPref(APPLE, true);
@@ -331,6 +331,22 @@ add_task(async function test_sidebar_card_and_join() {
 
   card.querySelector(".whimsy-meeting-card-close").click();
   ok(card.hidden, "Hiding it lasts until the next meeting");
+  const next = { ...card._event, id: "next-card", title: "Another call" };
+  // Remove the dismissed source fixture so the next call can become first.
+  const savedSources = new Map(WhimsyNextMeeting._sources);
+  WhimsyNextMeeting._sources = new Map([["card-test", { events: [next] }]]);
+  WhimsyNextMeeting._notify();
+  ok(!card.hidden, "Dismissal does not hide the next meeting");
+  next.url = next.conference = next.location = next.notes = "";
+  next.join = null;
+  WhimsyNextMeeting._notify();
+  is(getComputedStyle(card.querySelector(".whimsy-meeting-card-join")).display, "none",
+    "Calls without a link hide Join despite the Library button display style");
+  next.title = "";
+  WhimsyNextMeeting._notify();
+  is(card.querySelector(".whimsy-meeting-card-title").getAttribute("data-l10n-id"),
+    "whimsy-meeting-untitled", "Untitled meetings still have a name");
+  WhimsyNextMeeting._sources = savedSources;
   delete window._whimsyMeetingDismissed;
 
   Services.prefs.setBoolPref(CARD, false);
@@ -348,7 +364,7 @@ add_task(async function test_library_section() {
     ok(true, "No <zen-library> in this window; nothing to check");
     return;
   }
-  ok("whimsy-next-meeting" in lib.zenLibrarySections, "Meetings is in the Library rail by default");
+  ok(!("whimsy-next-meeting" in lib.zenLibrarySections), "Meetings has no separate Library tab");
 });
 
 add_task(async function test_switch_off() {
@@ -371,9 +387,120 @@ add_task(async function test_switch_off() {
   Services.prefs.clearUserPref(FEATURE);
   if (lib?.zenLibrarySections) {
     await TestUtils.waitForCondition(
-      () => "whimsy-next-meeting" in lib.zenLibrarySections,
-      "Turning it back on restores the tab"
+      () => !("whimsy-next-meeting" in lib.zenLibrarySections),
+      "Turning it back on keeps meetings out of the Library"
     );
   }
+  resetAll();
+});
+
+
+add_task(async function test_soon_window_and_command() {
+  resetAll();
+  const now = Date.now();
+  const event = {
+    id: "soon", title: "Design review", start: now + 15 * MIN,
+    end: now + 45 * MIN, url: "https://meet.google.com/abc-defg-hij",
+  };
+  WhimsyNextMeeting._sources.set("test", { events: [event] });
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const action = globalActions.find(a => a.l10nId == "whimsy-action-join-meeting");
+  ok(action, "Join is registered in Zen's command provider");
+  is(WhimsyNextMeeting.soonMeeting(now - 1), null, "No card before fifteen minutes");
+  is(WhimsyNextMeeting.soonMeeting(now)?.id, event.id, "The lead boundary is inclusive");
+  is(WhimsyNextMeeting.soonMeeting(event.start + 10 * MIN)?.id, event.id, "The trail boundary is inclusive");
+  is(WhimsyNextMeeting.soonMeeting(event.start + 10 * MIN + 1), null, "Gone after ten minutes");
+  ok(action.isAvailable(window), "A soon call offers a command");
+  ok(action.label.includes("Design review"), "The command includes the meeting title");
+  Services.prefs.setBoolPref(CARD, false);
+  ok(action.isAvailable(window), "The command remains available with the card off");
+  const opened = [];
+  const original = window.switchToTabHavingURI;
+  window.switchToTabHavingURI = url => opened.push(String(url));
+  try {
+    action.command(window);
+  } finally {
+    window.switchToTabHavingURI = original;
+  }
+  Assert.deepEqual(opened, [event.url], "The command joins the call");
+  event.title = "Planning";
+  ok(action.label.includes("Planning"), "The label follows the current meeting");
+  event.url = "";
+  ok(!action.isAvailable(window), "A meeting without a call has no join command");
+  event.url = "https://meet.google.com/abc-defg-hij";
+  event.end = now;
+  is(WhimsyNextMeeting.soonMeeting(now), null, "Finished calls never appear");
+  event.end = now + 45 * MIN;
+  Services.prefs.setBoolPref(FEATURE, false);
+  ok(!action.isAvailable(window), "The feature switch disables the command");
+  resetAll();
+  ok(!action.isAvailable(window), "Empty calendars have no join command");
+});
+
+add_task(async function test_calendar_settings() {
+  resetAll();
+  const apple = makeAppleMock();
+  WhimsyNextMeeting.testing.setAppleCalendar(apple);
+  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+    const doc = browser.contentDocument;
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyNextMeetingGroup"));
+    const get = id => doc.getElementById(id);
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "Calendar Settings is visible");
+    ok(group.querySelector("moz-card moz-fieldset"), "Calendar connections use the native Settings card");
+    is(get("whimsyMeetingStatus").getAttribute("data-l10n-id"), "whimsy-meeting-connect-empty", "Empty state invites connection");
+    is(apple.requests, 0, "Opening Settings never requests access");
+    if (Services.appinfo.OS == "Darwin") {
+      get("whimsyMeetingAppleConnect").click();
+      await TestUtils.waitForCondition(() => apple.requests == 1, "Connect requests access once");
+      await TestUtils.waitForCondition(() =>
+        get("whimsyMeetingAppleStatus").getAttribute("data-l10n-id") == "whimsy-meeting-connected",
+        "Connected Apple state");
+      is(get("whimsyMeetingStatus").getAttribute("data-l10n-id"), "whimsy-meeting-empty", "Connected calendars with no events have a clear empty state");
+      get("whimsyMeetingAppleRemove").click();
+      ok(!WhimsyNextMeeting.appleEnabled, "Disconnect disables Apple Calendar");
+      const denied = makeAppleMock({ status: "denied" });
+      WhimsyNextMeeting.testing.setAppleCalendar(denied);
+      Services.prefs.setBoolPref(APPLE, true);
+      await WhimsyNextMeeting.refresh({ apple: true });
+      await TestUtils.waitForCondition(() =>
+        get("whimsyMeetingAppleStatus").getAttribute("data-l10n-id") == "whimsy-meeting-apple-denied",
+        "Denied access explains how to recover");
+      is(get("whimsyMeetingAppleConnect").getAttribute("data-l10n-id"),
+        "whimsy-meeting-apple-open-settings", "Denied state offers System Settings");
+      get("whimsyMeetingAppleRemove").click();
+    }
+    const form = get("whimsyMeetingGoogleForm");
+    const input = get("whimsyMeetingGoogleURL");
+    const submit = () => form.dispatchEvent(new browser.contentWindow.Event("submit", { bubbles: true, cancelable: true }));
+    input.value = "http://example.com/private.ics";
+    submit();
+    ok(!get("whimsyMeetingGoogleError").hidden, "Bad addresses show an error");
+    is(input.getAttribute("aria-invalid"), "true", "The error is accessible");
+    for (const account of ["work", "home"]) {
+      input.value = FIXTURE + "?account=" + account;
+      submit();
+      is(input.value, "", "Adding clears the secret");
+    }
+    await TestUtils.waitForCondition(() => get("whimsyMeetingGoogleAccounts").children.length == 2, "Multiple accounts appear");
+    ok(get("whimsyMeetingGoogleError").hidden, "Valid input clears the error");
+    ok(!get("whimsyMeetingGoogleAccounts").textContent.includes("?account="), "Accounts do not expose secret addresses");
+    get("whimsyMeetingGoogleAccounts").querySelector("button").click();
+    is(WhimsyNextMeeting.googleCalendars.length, 1, "Disconnect removes just that account");
+    const remaining = WhimsyNextMeeting.googleCalendars[0];
+    WhimsyNextMeeting._sources.set("google:" + remaining.id, { events: [], error: "unavailable" });
+    WhimsyNextMeeting._notify();
+    is(get("whimsyMeetingGoogleAccounts").querySelector(".description-deemphasized").getAttribute("data-l10n-id"),
+      "whimsy-meeting-google-error", "A failed account shows a recovery message");
+    const enabled = get("whimsyNextMeetingEnabled");
+    await enabled.updateComplete;
+    enabled.shadowRoot.querySelector("input").click();
+    ok(!WhimsyNextMeeting.enabled, "The Settings checkbox turns meetings off");
+    ok(input.disabled, "The feature switch disables connection controls");
+    is(get("whimsyMeetingStatus").getAttribute("data-l10n-id"), "whimsy-meeting-paused", "Disabled state is clear");
+    await enabled.updateComplete;
+    enabled.shadowRoot.querySelector("input").click();
+    ok(WhimsyNextMeeting.enabled, "The Settings checkbox turns meetings on");
+    ok(!input.disabled, "Re-enabling restores controls");
+  });
   resetAll();
 });

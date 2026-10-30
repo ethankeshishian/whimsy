@@ -1168,3 +1168,57 @@ add_task(async function ai_preview_and_watch() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+
+
+// wave4: the compact meeting card in Zen's light and dark sidebar.
+add_task(async function next_meeting_card() {
+  const { WhimsyNextMeeting: service } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs"
+  );
+  const sources = service._sources;
+  const dismissed = window._whimsyMeetingDismissed;
+  const expanded = document.documentElement.getAttribute("zen-sidebar-expanded");
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.next-meeting", true],
+    ["whimsy.next-meeting.sidebar-card", true],
+    ["whimsy.next-meeting.apple-calendar", false],
+    ["whimsy.next-meeting.google-calendars", ""],
+  ] });
+  try {
+    service.initWindow(window);
+    delete window._whimsyMeetingDismissed;
+    document.documentElement.setAttribute("zen-sidebar-expanded", "true");
+    for (const dark of [0, 1]) {
+      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+      try {
+        const now = Date.now();
+        service._sources = new Map([["screenshot", { events: [{
+          id: "meeting-shot", title: "Design review", start: now + 5 * 60000,
+          end: now + 35 * 60000, url: "https://meet.google.com/abc-defg-hij",
+        }] }]]);
+        service._notify();
+        const card = await TestUtils.waitForCondition(() => document.getElementById("whimsy-meeting-card"));
+        await TestUtils.waitForCondition(() => card.checkVisibility(), "Meeting card is visible");
+        await document.l10n.translateFragment(card);
+        await Promise.all(card.getAnimations({ subtree: true }).map(animation => animation.finished));
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        ok(card.querySelector(".zen-library-row-title"), "Uses the Library title style");
+        ok(card.querySelector(".zen-library-filter-button"), "Uses the Library button");
+        await shot("wave4-meeting-card-" + (dark ? "dark" : "light"));
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+  } finally {
+    service._sources = sources;
+    window._whimsyMeetingDismissed = dismissed;
+    if (expanded === null) {
+      document.documentElement.removeAttribute("zen-sidebar-expanded");
+    } else {
+      document.documentElement.setAttribute("zen-sidebar-expanded", expanded);
+    }
+    await SpecialPowers.popPrefEnv();
+    service._notify();
+  }
+});

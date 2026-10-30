@@ -847,10 +847,7 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// meeting: Settings → Look and Feel → Next meeting. Its own listener and
-// methods (like batch9 above), so it doesn't collide with other batches.
-// Ticking "Read Apple Calendar" flips the pref, and that is the moment
-// WhimsyNextMeeting asks macOS for access (never at startup).
+// wave4: calendar connections stay in Settings; permission is requested on click.
 document.addEventListener("paneshown", event => {
   if (event.detail.category == gWhimsySettings.PANE) {
     gWhimsySettings.insertNextMeetingGroup();
@@ -863,40 +860,98 @@ Object.assign(gWhimsySettings, {
     if (!template) {
       return;
     }
-    const fragment = template.content;
-    const group = fragment.firstElementChild;
-    template.remove();
-    if (AppConstants.platform != "macosx") {
-      group.querySelector("#whimsyNextMeetingApple")?.remove();
-    }
-    Preferences.addAll(
-      [...group.querySelectorAll("[preference]")].map(el => ({
-        id: el.getAttribute("preference"),
-        type: "bool",
-      }))
+    const { WhimsyNextMeeting: service } = ChromeUtils.importESModule(
+      "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs"
     );
+    service.initWindow(window.browsingContext.topChromeWindow);
+    const group = template.content.firstElementChild;
     const anchor = document.getElementById("whimsyLookGroup") || document.getElementById("whimsyUiZoomGroup");
-    if (anchor) {
-      anchor.after(fragment);
-    } else {
-      document.getElementById("mainPrefPane").append(fragment);
-    }
+    (anchor?.parentElement || document.getElementById("mainPrefPane")).insertBefore(
+      template.content, anchor?.nextSibling || null
+    );
+    template.remove();
     group.hidden = false;
+    const get = id => group.querySelector("#" + id);
+    const l10n = (node, id) => document.l10n.setAttributes(node, id);
     const sync = () => {
-      const on = Services.prefs.getBoolPref("whimsy.feature.next-meeting", true);
-      for (const id of ["whimsyNextMeetingApple", "whimsyNextMeetingCard"]) {
-        const box = document.getElementById(id);
-        if (box) {
-          box.disabled = !on;
+      get("whimsyNextMeetingEnabled").checked = service.enabled;
+      get("whimsyNextMeetingCard").checked = service.cardEnabled;
+      get("whimsyNextMeetingCard").disabled = !service.enabled;
+      for (const node of group.querySelectorAll("button, input")) {
+        node.disabled = !service.enabled;
+      }
+      l10n(get("whimsyMeetingStatus"), !service.enabled ? "whimsy-meeting-paused" :
+        !service.hasSources ? "whimsy-meeting-connect-empty" :
+        service.next() ? "whimsy-meeting-ready" : "whimsy-meeting-empty");
+      get("whimsyMeetingApple").hidden = AppConstants.platform != "macosx";
+      const status = service.appleStatus;
+      const denied = ["denied", "restricted"].includes(status);
+      l10n(get("whimsyMeetingAppleStatus"), denied ? "whimsy-meeting-apple-denied" :
+        ["unavailable", "missing-usage-description"].includes(status) ? "whimsy-meeting-apple-unsupported" :
+        status == "fullAccess" ? "whimsy-meeting-connected" : "whimsy-meeting-apple-detail");
+      const connect = get("whimsyMeetingAppleConnect");
+      l10n(connect, denied ? "whimsy-meeting-apple-open-settings" :
+        service.appleEnabled ? "whimsy-meeting-apple-allow" : "whimsy-meeting-apple-connect");
+      connect.hidden = status == "fullAccess" || status == "unavailable" || status == "missing-usage-description";
+      get("whimsyMeetingAppleRemove").hidden = !service.appleEnabled;
+      const list = get("whimsyMeetingGoogleAccounts");
+      list.replaceChildren();
+      for (const calendar of service.googleCalendars) {
+        const row = document.createElement("div");
+        row.className = "whimsy-calendar-row";
+        const name = document.createElement("span");
+        // Never show the secret URL, including for malformed saved accounts.
+        if (calendar.label) {
+          name.textContent = calendar.label;
+        } else {
+          l10n(name, "whimsy-meeting-google-title");
         }
+        const detail = document.createElement("span");
+        detail.className = "description-deemphasized";
+        l10n(detail, service.sourceState("google:" + calendar.id)?.error ?
+          "whimsy-meeting-google-error" : "whimsy-meeting-connected");
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.disabled = !service.enabled;
+        l10n(remove, "whimsy-meeting-disconnect");
+        remove.addEventListener("click", () => service.removeGoogleCalendar(calendar.id));
+        row.append(name, detail, remove);
+        list.append(row);
       }
     };
-    Services.prefs.addObserver("whimsy.feature.next-meeting", sync);
-    window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.feature.next-meeting", sync), {
-      once: true,
+    for (const [id, pref] of [
+      ["whimsyNextMeetingEnabled", "whimsy.feature.next-meeting"],
+      ["whimsyNextMeetingCard", "whimsy.next-meeting.sidebar-card"],
+    ]) {
+      get(id).addEventListener("change", event => Services.prefs.setBoolPref(pref, event.target.checked));
+    }
+    get("whimsyMeetingAppleConnect").addEventListener("click", () => {
+      if (["denied", "restricted"].includes(service.appleStatus)) {
+        const uri = Services.io.newURI("x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars");
+        Cc["@mozilla.org/uriloader/external-protocol-service;1"]
+          .getService(Ci.nsIExternalProtocolService).loadURI(uri);
+      } else if (service.appleEnabled) {
+        service.requestAppleAccess();
+      } else {
+        service.setAppleEnabled(true);
+      }
     });
+    get("whimsyMeetingAppleRemove").addEventListener("click", () => service.setAppleEnabled(false));
+    get("whimsyMeetingGoogleForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const input = get("whimsyMeetingGoogleURL");
+      const valid = service.addGoogleCalendar(input.value);
+      get("whimsyMeetingGoogleError").hidden = valid;
+      input.setAttribute("aria-invalid", String(!valid));
+      if (valid) {
+        input.value = "";
+      }
+      input.focus();
+    });
+    service.addListener(sync);
+    window.addEventListener("unload", () => service.removeListener(sync), { once: true });
+    service.refresh({ apple: true });
     sync();
-    Preferences.queueUpdateOfAllElements();
   },
 });
 
