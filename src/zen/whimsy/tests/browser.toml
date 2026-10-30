@@ -238,3 +238,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # wave3/tree: tree tabs collapse/expand and drag-to-reparent
 ["browser_whimsy_tree_collapse.js"]
+
+# wave3/tree: cheat sheet lists Zen and Firefox shortcuts from keysets, grouped
+["browser_whimsy_cheatsheet_catalogue.js"]

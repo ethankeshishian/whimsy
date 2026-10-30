@@ -528,3 +528,27 @@ add_task(async function tree_disclosure() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave3/tree: the full, grouped shortcut list and a search.
+add_task(async function full_shortcut_catalogue() {
+  const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.cheatsheet", true]] });
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
+    event => event.target.id == "whimsy-cheatsheet-panel");
+  WhimsyCheatSheet.open(window);
+  await shown;
+  const panel = document.getElementById("whimsy-cheatsheet-panel");
+  try {
+    await TestUtils.waitForCondition(() => panel.querySelectorAll(".whimsy-cheatsheet-group").length > 2);
+    await shot("25-shortcuts-full");
+    const search = panel.querySelector("input");
+    search.value = "tab";
+    search.dispatchEvent(new Event("input"));
+    await shot("25-shortcuts-search");
+  } finally {
+    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    panel.hidePopup();
+    await hidden;
+    await SpecialPowers.popPrefEnv();
+  }
+});

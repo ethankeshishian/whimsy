@@ -19,8 +19,10 @@ add_task(async function test_cheatsheet_shows_and_closes() {
   const panel = window.document.getElementById("whimsy-cheatsheet-panel");
   ok(panel, "The panel opened");
 
-  const row = [...panel.querySelectorAll(".whimsy-cheatsheet-row")].find(r =>
-    r.textContent.includes("D")
+  // The list is built from the keysets after the panel opens.
+  const row = await TestUtils.waitForCondition(
+    () => panel.querySelector('.whimsy-cheatsheet-row[data-key-id="zen-duplicate-tab"]'),
+    "The shortcut list rendered"
   );
   ok(row, "Duplicate Tab's row is shown with a key label");
 

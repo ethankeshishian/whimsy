@@ -931,3 +931,8 @@ whimsy-tree-collapse =
 whimsy-tree-expand =
     .aria-label = Expand subtree
     .title = Expand subtree
+
+# wave3/tree: shortcut cheat sheet lists every keyset shortcut, grouped
+whimsy-cheatsheet-group-whimsy = Whimsy
+whimsy-cheatsheet-group-other = Other
+whimsy-cheatsheet-empty = No matching shortcuts
