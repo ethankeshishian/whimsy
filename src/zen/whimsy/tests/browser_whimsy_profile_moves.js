@@ -13,6 +13,9 @@ const { WhimsyProfiles } = ChromeUtils.importESModule(
 const { WhimsyProfileMoves } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs"
 );
+const { WhimsyPrivate } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsyPrivate.sys.mjs"
+);
 const { ContextualIdentityService } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
 );
@@ -68,6 +71,33 @@ add_task(async function moving_a_tab_asks_then_reopens_it() {
   ok(tab.closing || !tab.isConnected, "The Default copy is closed");
   is(moved.linkedBrowser.currentURI?.spec ?? WhimsyProfileMoves.urlOf(moved), PAGE, "Same page");
   BrowserTestUtils.removeTab(moved);
+});
+
+// Security H1: a private tab moved into another profile's space stays
+// private (else its page reaches history, the session and Sync).
+add_task(async function a_private_tab_stays_private_in_another_profile() {
+  const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+  ok(tab && WhimsyPrivate.isPrivateTab(tab), "A private tab");
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE);
+  answers = [true];
+  asked = [];
+  gZenWorkspaces.moveTabToWorkspace(tab, workSpace.uuid);
+  const moved = await TestUtils.waitForCondition(() =>
+    tabsOf(workSpace).find(t => t.userContextId == work && t != tab), "Reopened in Work");
+  ok(WhimsyPrivate.isPrivateTab(moved), "Still a private tab");
+  if (!moved.linkedPanel) {
+    gBrowser.selectedTab = moved;
+  }
+  await TestUtils.waitForCondition(() => moved.linkedBrowser.browsingContext, "Has a browsing context");
+  ok(moved.linkedBrowser.browsingContext.usePrivateBrowsing, "…and browses privately");
+  BrowserTestUtils.removeTab(moved);
+
+  // Mini's (and the reopen's) principal keeps privateBrowsingId too.
+  const principal = Services.scriptSecurityManager.createContentPrincipal(
+    Services.io.newURI(PAGE), { privateBrowsingId: 1 });
+  const rekeyed = WhimsyProfileMoves.rekey(principal, work, true);
+  is(rekeyed.originAttributes.privateBrowsingId, 1, "Private principal stays private");
+  is(rekeyed.originAttributes.userContextId, work, "…in the new profile");
 });
 
 add_task(async function same_profile_moves_dont_ask() {
