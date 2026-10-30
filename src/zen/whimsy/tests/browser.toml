@@ -317,3 +317,8 @@ support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
 # wave3: email-aliases
 ["browser_whimsy_email_aliases.js"]
 support-files = ["whimsy_email_form.html"]
+
+# wave3: handoff
+["browser_whimsy_handoff.js"]
+run-if = ["os == 'mac'"]
+support-files = ["whimsy_article.html"]

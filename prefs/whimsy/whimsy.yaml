@@ -379,3 +379,9 @@
 # wave3: email-aliases. Show the alias button in email fields.
 - name: whimsy.email-aliases.button
   value: true
+
+
+# wave3: handoff. Offer the current page to your other Apple devices
+# (Firefox's Handoff; private tabs and Scratch are never offered).
+- name: whimsy.handoff.send
+  value: true

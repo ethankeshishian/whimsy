@@ -35,6 +35,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFollowerTabs.sys.mjs",
     "WhimsyGithubReviews.sys.mjs",
     "WhimsyGlance.sys.mjs",
+    "WhimsyHandoff.sys.mjs",
     "WhimsyHeavyTabs.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
     "WhimsyJiraLiveFolder.sys.mjs",

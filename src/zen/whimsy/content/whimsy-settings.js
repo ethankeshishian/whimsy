@@ -263,6 +263,12 @@ var gWhimsySettings = {
       vpn: () => this.initVpn(),
       // wave3: email-aliases
       "email-aliases": () => this.initPrefCheckbox("whimsyEmailAliasesButton", "whimsy.email-aliases.button"),
+
+      // wave3: handoff. Handoff only exists on macOS.
+      handoff: () =>
+        AppConstants.platform == "macosx"
+          ? this.initPrefCheckbox("whimsyHandoffSend", "whimsy.handoff.send")
+          : document.getElementById("whimsyHandoffGroup")?.remove(),
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;

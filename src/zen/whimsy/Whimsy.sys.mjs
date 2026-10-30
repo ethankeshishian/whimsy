@@ -116,6 +116,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVideoSpeed: "resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs",
 });
 
+
+// wave3: handoff. Firefox's Handoff without private tabs or Scratch.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyHandoff: "resource:///modules/whimsy/WhimsyHandoff.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -498,6 +504,10 @@ export const Whimsy = {
     // wave3/speed: speed control on videos. Registered once even when off;
     // the page side checks its switch on every event.
     run("video-speed", () => lazy.WhimsyVideoSpeed.init());
+
+    // wave3: handoff. Wraps Firefox's Handoff update (macOS only); checks
+    // its switch on every update.
+    run("handoff", () => lazy.WhimsyHandoff.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

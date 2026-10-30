@@ -1297,3 +1297,11 @@ whimsy-email-aliases-toast-network = Couldn’t reach iCloud. Try again in a mom
 whimsy-email-aliases-toast-icloud-failed = iCloud couldn’t create an address. Try again in a moment.
 whimsy-email-aliases-toast-relay-off = Firefox Relay is turned off in Settings
 whimsy-email-aliases-toast-relay-failed = Firefox Relay couldn’t create a mask
+
+## wave3: Handoff (Settings -> Privacy & Security)
+
+whimsy-handoff-header =
+    .label = Handoff
+whimsy-handoff-send =
+    .label = Continue pages on your iPhone, iPad and other Macs
+    .description = Hand off the page you're on through macOS Handoff. Only its address is shared; private tabs and Scratch are never offered.

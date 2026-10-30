@@ -749,6 +749,10 @@ FEATURES = [
     # wave3: email-aliases. iCloud Hide My Email + Firefox Relay from a button in email fields.
     {"id": "email-aliases", "title": "Email aliases: iCloud Hide My Email or a Firefox Relay mask from a button in email fields",
      "detect": [("src/zen", r"(?i)hide.?my.?email|email.?alias")]},
+
+    # wave3: handoff. Firefox's Handoff, minus private tabs and Scratch, URL only.
+    {"id": "handoff", "title": "Handoff: continue pages on your other Apple devices, never private tabs or Scratch",
+     "detect": [("src/zen", r"(?i)zen\.handoff\.|handoff-(?:private|scratch)")]},
 ]
 
 
