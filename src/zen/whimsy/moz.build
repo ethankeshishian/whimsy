@@ -69,6 +69,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPrintClean.sys.mjs",
     "WhimsyPrivate.sys.mjs",
     "WhimsyProtocol.sys.mjs",
+    "WhimsyQRCode.sys.mjs",
     "WhimsyQuickWindow.sys.mjs",
     "WhimsyRecentTabs.sys.mjs",
     "WhimsySeasons.sys.mjs",

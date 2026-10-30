@@ -789,6 +789,10 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5/quick: QR code for any page. Firefox's QR dialog (SharingUtils),
+    # exposed in the page menu and command bar; never for private tabs/Scratch.
+    {"id": "qr-code", "title": "QR code for any page: the page menu and command bar open Firefox's QR dialog (not for private tabs or Scratch)",
+     "detect": [("src/zen", r"(?i)showQRCodePanel|qr-?code-?for-?page")]},
 ]
 
 

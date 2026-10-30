@@ -136,6 +136,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave5/quick: QR code for any page (Firefox's QR dialog, exposed).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyQRCode: "resource:///modules/whimsy/WhimsyQRCode.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -557,6 +562,10 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+
+    // wave5/quick: QR code for any page (page menu and command bar); checks
+    // its switch on use.
+    run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

@@ -1611,3 +1611,10 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave5/quick: QR code for any page (Firefox's QR dialog)
+
+whimsy-context-qrcode =
+    .label = QR Code for Page
+    .accesskey = Q
+whimsy-action-qrcode = Show QR Code for Page

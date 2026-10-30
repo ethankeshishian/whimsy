@@ -2032,3 +2032,8 @@ whimsy-space-history-section {
   background: #171523 !important;
   &::after { display: none !important; }
 }
+
+/* wave5/quick: QR code for any page (menu icon, as the other page items). */
+@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
+  #context-whimsy-qrcode { --whimsy-menu-icon: url("chrome://browser/content/sharing/qr-code.svg"); }
+}
