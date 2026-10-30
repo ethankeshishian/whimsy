@@ -119,8 +119,11 @@ add_task(async function address_bar_filters_by_the_tab_profile() {
     await UrlbarTestUtils.promisePopupClose(window);
     return out;
   };
-  const tab = await BrowserTestUtils.openNewForegroundTab({ gBrowser, opening: "about:blank",
-    userContextId: work });
+  // openNewForegroundTab has no userContextId option: add the tab in Work.
+  const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { userContextId: work });
+  gBrowser.selectedTab = tab;
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, { wantLoad: "about:blank" }).catch(() => {});
+  is(gBrowser.selectedBrowser.getAttribute("usercontextid"), String(work), "Typing in a Work tab");
   try {
     await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus,
       value: "Profile history" });
