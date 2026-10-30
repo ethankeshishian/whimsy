@@ -1210,7 +1210,6 @@ add_task(async function next_meeting_card() {
     "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs"
   );
   const sources = service._sources;
-  const dismissed = window._whimsyMeetingDismissed;
   const expanded = document.documentElement.getAttribute("zen-sidebar-expanded");
   await SpecialPowers.pushPrefEnv({ set: [
     ["whimsy.feature.next-meeting", true],
@@ -1220,7 +1219,6 @@ add_task(async function next_meeting_card() {
   ] });
   try {
     service.initWindow(window);
-    delete window._whimsyMeetingDismissed;
     document.documentElement.setAttribute("zen-sidebar-expanded", "true");
     for (const dark of [0, 1]) {
       await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
@@ -1245,7 +1243,6 @@ add_task(async function next_meeting_card() {
     }
   } finally {
     service._sources = sources;
-    window._whimsyMeetingDismissed = dismissed;
     if (expanded === null) {
       document.documentElement.removeAttribute("zen-sidebar-expanded");
     } else {
@@ -1316,13 +1313,13 @@ add_task(async function addons_space_choices() {
     await BrowserTestUtils.withNewTab("about:addons", async browser => {
       const doc = browser.contentDocument;
       const manager = browser.contentWindow;
-      await TestUtils.waitForCondition(() => manager.promiseInitialized);
+      await TestUtils.waitForCondition(() => "promiseInitialized" in manager);
       await manager.promiseInitialized;
       manager.loadView("addons://list/extension");
       const card = await TestUtils.waitForCondition(() =>
-        [...doc.querySelectorAll("addon-card")].find(c => c.addon?.id === extension.id));
+        [...doc.querySelectorAll("addon-card")].find(c => c.addon?.id === extension.id), "Screenshot extension card appears");
       const item = await TestUtils.waitForCondition(() =>
-        card.querySelector("[data-whimsy-space-picker]"));
+        card.querySelector("[data-whimsy-space-picker]"), "Whimsy space picker is attached");
       card.querySelector(".more-options-button").click();
       item.click();
       const choices = card.querySelector("[data-whimsy-space-choices]");

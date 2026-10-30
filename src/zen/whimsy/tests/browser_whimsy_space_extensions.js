@@ -163,34 +163,46 @@ add_task(async function test_feature_off_clears_container_isolation() {
 
 // Exercise the user's entry points; calling ensureMenuItems directly used to
 // hide missing wiring and never tested the trigger extension ID.
-add_task(async function test_panel_gear_space_choice() {
+add_task(async function test_panel_context_space_choice() {
   await BrowserTestUtils.withNewTab("https://example.com/", async () => {
     WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, null);
     await gUnifiedExtensions.pinToToolbar(widgetId, false);
     const panel = gUnifiedExtensions.panel;
     const panelShown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
-    const view = panel.querySelector("panelmultiview").getAttribute("mainViewId");
-    await gUnifiedExtensions.togglePanel(undefined, undefined, panel, view);
+    const anchor = document.getElementById("zen-site-data-icon-button");
+    ok(anchor.checkVisibility(), "Zen's site-controls entry point is visible");
+    info("Opening the extensions panel from site controls");
+    anchor.click();
     await panelShown;
-    const gear = widgetNode().querySelector(".unified-extensions-item-menu-button");
-    const menu = document.getElementById("unified-extensions-context-menu");
-    const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
-    EventUtils.synthesizeMouseAtCenter(gear, {});
-    await shown;
+    // Zen deliberately hides Firefox's gear button in its compact panel.
+    // Its visible extension icon exposes the same actions on right-click.
+    const action = widgetNode().querySelector(".unified-extensions-item-action-button");
+    ok(action.getBoundingClientRect().width > 0, "The extension action is visible in the panel");
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", false, event =>
+      ["unified-extensions-context-menu", "toolbar-context-menu"].includes(event.target.id));
+    info("Opening the visible extension's context menu");
+    EventUtils.synthesizeMouseAtCenter(action, { type: "contextmenu", button: 2 });
+    const { target: menu } = await shown;
     const item = menu.querySelector("[data-whimsy-space-menu]");
-    ok(item && !item.hidden, "Space choice is reachable from the real gear menu");
-    is(item.extensionId, extensionId, "Gear resolves the extension without test state");
-    const popup = item.firstElementChild;
+    ok(item && !item.hidden, "Space choice is reachable from the visible panel icon");
+    is(item.extensionId, extensionId, "Panel context menu resolves the extension without test state");
+    const popup = item.menupopup;
     const pickerShown = BrowserTestUtils.waitForPopupEvent(popup, "shown");
-    item.open = true;
+    info("Opening Show in Spaces");
+    item.openMenu(true);
     await pickerShown;
     const spaceItem = [...popup.children].find(child => child.getAttribute("label") === containerSpace.name);
     ok(spaceItem, "Picker contains the other space");
     spaceItem.doCommand();
     Assert.deepEqual(WhimsySpaceExtensions.getAllowedSpaces(extensionId), [containerSpace.uuid]);
-    popup.hidePopup();
-    menu.hidePopup();
-    panel.hidePopup();
+    // Close every layer and wait, so the next test's context menu can open.
+    for (const layer of [popup, menu, panel]) {
+      if (layer.state != "closed") {
+        const hidden = BrowserTestUtils.waitForPopupEvent(layer, "hidden");
+        layer.hidePopup();
+        await hidden;
+      }
+    }
     WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, null);
     await gUnifiedExtensions.pinToToolbar(widgetId, true);
   });
@@ -198,9 +210,14 @@ add_task(async function test_panel_gear_space_choice() {
 
 add_task(async function test_toolbar_context_choice_and_switch() {
   const menu = document.getElementById("toolbar-context-menu");
+  // Zen reveals pinned extension icons in the address bar only while the
+  // pointer is over the sidebar, so hover there first as a user would.
+  const action = widgetNode().querySelector(".unified-extensions-item-action-button");
+  EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, { type: "mousemove" });
+  await TestUtils.waitForCondition(() => action.checkVisibility({ visibilityProperty: true }) &&
+    action.getBoundingClientRect().height > 0, "Hovering the sidebar shows the pinned extension");
   const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
-  EventUtils.synthesizeMouseAtCenter(widgetNode().querySelector(".unified-extensions-item-action-button"),
-    { type: "contextmenu", button: 2 });
+  EventUtils.synthesizeMouseAtCenter(action, { type: "contextmenu", button: 2 });
   await shown;
   const item = menu.querySelector("[data-whimsy-space-menu]");
   ok(item && !item.hidden, "Pinned extension has the same choice");
@@ -218,13 +235,13 @@ add_task(async function test_about_addons_can_recover_hidden_extension() {
   await BrowserTestUtils.withNewTab("about:addons", async browser => {
     const doc = browser.contentDocument;
     const manager = browser.contentWindow;
-    await TestUtils.waitForCondition(() => manager.promiseInitialized, "Add-ons manager ready");
+    await TestUtils.waitForCondition(() => "promiseInitialized" in manager, "Add-ons manager ready");
     await manager.promiseInitialized;
     manager.loadView("addons://list/extension");
     const card = await TestUtils.waitForCondition(() =>
-      [...doc.querySelectorAll("addon-card")].find(c => c.addon?.id === extensionId));
+      [...doc.querySelectorAll("addon-card")].find(c => c.addon?.id === extensionId), "Installed extension card appears");
     const item = await TestUtils.waitForCondition(() =>
-      card.querySelector("[data-whimsy-space-picker]"));
+      card.querySelector("[data-whimsy-space-picker]"), "Whimsy space picker is attached");
     ok(!item.hidden, "Hidden extension remains manageable in about:addons");
     card.querySelector(".more-options-button").click();
     item.click();

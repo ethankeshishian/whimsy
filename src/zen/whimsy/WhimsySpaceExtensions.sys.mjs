@@ -369,6 +369,15 @@ export const WhimsySpaceExtensions = {
       update();
     };
     win.addEventListener("DOMContentLoaded", event => attach(event.target), true);
+    const onDocument = doc => {
+      if (doc?.documentURI == "about:addons" &&
+          doc.defaultView?.browsingContext?.top.embedderElement?.ownerDocument.defaultView == win) {
+        doc.addEventListener("DOMContentLoaded", () => attach(doc), { once: true });
+      }
+    };
+    Services.obs.addObserver(onDocument, "document-element-inserted");
+    win.addEventListener("unload", () =>
+      Services.obs.removeObserver(onDocument, "document-element-inserted"), { once: true });
     for (const browser of win.gBrowser.browsers) {
       attach(browser.contentDocument);
     }
