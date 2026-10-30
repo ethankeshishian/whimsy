@@ -42,9 +42,18 @@
 //   doesn't record input or search history while one is selected.
 // - Scratch is a Zen space flagged whimsyScratch, left out of what Zen saves.
 //
-// Not covered: the downloads panel lists a normal window's downloads, so a
-// private tab's download is saved but only shown in the Library; "switch to
-// tab" results can offer a private tab's page in a normal tab's address bar.
+// Engine patches also keep "switch to tab" within one side: private tabs
+// register as private open pages (whimsy-Tabbrowser-sys-mjs.patch), the
+// address bar's controller asks the selected tab
+// (whimsy-UrlbarParentController-sys-mjs.patch), and switching compares
+// tabs, not windows (whimsy-URILoadingHelper-sys-mjs.patch).
+//
+// Downloads: a private tab's download is a private download (Gecko reads
+// the channel), so it stays out of history and is removed when the last
+// private tab closes. While a private tab is selected, the window's
+// downloads panel and toolbar indicator show private downloads, as a private
+// window's do (whimsy-DownloadsCommon-sys-mjs.patch reads
+// window.whimsyDownloadsPrivate; updateDownloads re-attaches them).
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -762,6 +771,47 @@ export const WhimsyPrivate = {
       // The address bar's own private checks (input history, the private
       // search engine's placeholder).
       win.gURLBar.isPrivate = isPrivate;
+    }
+    this.updateDownloads(win, isPrivate);
+  },
+
+  // Points the downloads panel and indicator at the private or the normal
+  // downloads list. Both attach to a list once, so they're detached and
+  // re-attached when the selected tab's side changes.
+  updateDownloads(win, isPrivate) {
+    if (!!win.whimsyDownloadsPrivate == isPrivate) {
+      return;
+    }
+    const panel = win.DownloadsPanel;
+    const indicator = win.DownloadsIndicatorView;
+    const panelOn = !!panel?._initialized;
+    const indicatorOn = !!indicator?._initialized;
+    try {
+      if (panelOn) {
+        panel.terminate();
+        // The view keeps the old list's rows; drop them before the other
+        // list adds its own.
+        const view = win.DownloadsView;
+        for (const download of [...(view?._downloads ?? [])]) {
+          view.onDownloadRemoved(download);
+        }
+      }
+      if (indicatorOn) {
+        indicator.ensureTerminated();
+      }
+    } catch (e) {
+      console.error("Whimsy: private downloads", e);
+    }
+    win.whimsyDownloadsPrivate = isPrivate;
+    try {
+      if (indicatorOn) {
+        indicator.ensureInitialized();
+      }
+      if (panelOn) {
+        panel.initialize();
+      }
+    } catch (e) {
+      console.error("Whimsy: private downloads", e);
     }
   },
 };

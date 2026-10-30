@@ -1,0 +1,74 @@
+diff --git a/browser/components/downloads/DownloadsCommon.sys.mjs b/browser/components/downloads/DownloadsCommon.sys.mjs
+--- a/browser/components/downloads/DownloadsCommon.sys.mjs
++++ b/browser/components/downloads/DownloadsCommon.sys.mjs
+@@ -208,6 +208,19 @@
+   },
+ 
+   /**
++   * Whimsy: whether a window's downloads UI shows private downloads. A
++   * normal window does while one of its private tabs is selected
++   * (WhimsyPrivate sets whimsyDownloadsPrivate and re-attaches the panel and
++   * indicator), the way a private window always does.
++   */
++  whimsyIsPrivate(aWindow) {
++    return (
++      !!aWindow?.whimsyDownloadsPrivate ||
++      lazy.PrivateBrowsingUtils.isContentWindowPrivate(aWindow)
++    );
++  },
++
++  /**
+    * Get access to one of the DownloadsData, PrivateDownloadsData, or
+    * HistoryDownloadsData objects, depending on the privacy status of the
+    * specified window and on whether history downloads should be included.
+@@ -225,8 +238,7 @@
+    *        `kMaxHistoryResultsForLimitedView`.
+    */
+   getData(window, history = false, privateAll = false, limited = false) {
+-    let isPrivate =
+-      window && lazy.PrivateBrowsingUtils.isContentWindowPrivate(window);
++    let isPrivate = window && this.whimsyIsPrivate(window);
+     if (isPrivate && !privateAll) {
+       return lazy.PrivateDownloadsData;
+     }
+@@ -275,7 +287,7 @@
+    * the window in question.
+    */
+   getIndicatorData(aWindow) {
+-    if (lazy.PrivateBrowsingUtils.isContentWindowPrivate(aWindow)) {
++    if (this.whimsyIsPrivate(aWindow)) {
+       return lazy.PrivateDownloadsIndicatorData;
+     }
+     return lazy.DownloadsIndicatorData;
+@@ -292,7 +304,7 @@
+    *        from the summary.
+    */
+   getSummary(aWindow, aNumToExclude) {
+-    if (lazy.PrivateBrowsingUtils.isContentWindowPrivate(aWindow)) {
++    if (this.whimsyIsPrivate(aWindow)) {
+       if (this._privateSummary) {
+         return this._privateSummary;
+       }
+@@ -1036,8 +1048,22 @@
+     // Show the panel in the most recent browser window, if present.
+     let browserWin = lazy.BrowserWindowTracker.getTopWindow({
+       private: this._isPrivate,
++      allowFromInactiveWorkspace: true,
++    });
++    // Whimsy: a private tab's download shows in the normal window where a
++    // private tab is selected, when that window is on top.
++    let topWin = lazy.BrowserWindowTracker.getTopWindow({
+       allowFromInactiveWorkspace: true,
+     });
++    if (
++      topWin &&
++      !!topWin.whimsyDownloadsPrivate == this._isPrivate &&
++      !lazy.PrivateBrowsingUtils.isWindowPrivate(topWin)
++    ) {
++      browserWin = topWin;
++    } else if (browserWin?.whimsyDownloadsPrivate) {
++      browserWin = null;
++    }
+     if (!browserWin) {
+       return;
+     }
