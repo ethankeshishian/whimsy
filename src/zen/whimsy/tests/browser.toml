@@ -367,3 +367,5 @@ support-files = ["whimsy_claude_hidden.html", "whimsy_claude_injection.html"]
 # wave5/safety: agent replay of Claude runs (recording, bounds, private, Clear history, whimsy://replay).
 ["browser_whimsy_claude_replay.js"]
 support-files = ["whimsy_claude.html"]
+
+["browser_whimsy_find_highlight_all.js"]
