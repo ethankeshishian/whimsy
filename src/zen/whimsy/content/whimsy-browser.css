@@ -1770,6 +1770,22 @@ panel.whimsy-sheet .whimsy-sheet-footer {
     flex: 1;
     margin: 0;
   }
+  /* wave5/uxfix: an action that can't be undone (Fire's "Forget …"):
+     Firefox's destructive button colours. */
+  & > .footer-button[destructive] {
+    background-color: var(--button-background-color-destructive);
+    color: var(--button-text-color-destructive);
+    &:hover {
+      background-color: var(--button-background-color-destructive-hover);
+    }
+    &:hover:active {
+      background-color: var(--button-background-color-destructive-active);
+    }
+    &:focus-visible {
+      outline: var(--focus-outline);
+      outline-offset: var(--focus-outline-offset, 2px);
+    }
+  }
 }
 
 /* Cookies: name, flags and a monospaced value field per cookie. */
