@@ -528,23 +528,32 @@ add_task(async function library_space_history() {
   }
 });
 
-// home: every tab, ready for the integration build's screenshot review
-// (legacy: 22-privacy is the About dialog's Privacy Notice).
+// home: every tab, light and dark, ready for the integration build's
+// screenshot review (legacy: 22-privacy is the About dialog's Privacy Notice).
+// Reduced motion keeps the hero's floating balloon still for the shot.
 add_task(async function whimsy_home_and_changelog() {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.home", true]] });
-  try {
-    for (const [suffix, name] of [["", "20-home"], ["?tab=changelog", "21-changelog"], ["?tab=privacy", "22-privacy"]]) {
-      await BrowserTestUtils.withNewTab(`about:whimsy${suffix}`, async browser => {
-        const doc = browser.contentDocument;
-        await doc.l10n.ready;
-        if (suffix == "?tab=changelog") {
-          await TestUtils.waitForCondition(() => doc.getElementById("whimsy-changelog-list").children.length);
-        }
-        await shot(name, browser.browsingContext.currentWindowGlobal);
-      });
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [
+      ["whimsy.feature.home", true],
+      ["ui.systemUsesDarkTheme", dark],
+      ["ui.prefersReducedMotion", 1],
+    ] });
+    try {
+      for (const [suffix, name] of [["", "20-home"], ["?tab=changelog", "21-changelog"], ["?tab=privacy", "22-privacy"]]) {
+        await BrowserTestUtils.withNewTab(`about:whimsy${suffix}`, async browser => {
+          const doc = browser.contentDocument;
+          await doc.l10n.ready;
+          if (suffix == "?tab=changelog") {
+            await TestUtils.waitForCondition(() => doc.getElementById("whimsy-changelog-list").children.length);
+            await doc.l10n.translateRoots();
+          }
+          await new Promise(r => browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(r)));
+          await shot(`${name}-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+        });
+      }
+    } finally {
+      await SpecialPowers.popPrefEnv();
     }
-  } finally {
-    await SpecialPowers.popPrefEnv();
   }
 });
 

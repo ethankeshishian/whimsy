@@ -2,57 +2,86 @@
   "groups": [
     {
       "version": "Unreleased",
-      "entries": [
-        "Whimsy now has a homepage with Settings, keyboard shortcuts, Arc import, feedback, and a Changelog tab."
+      "title": "A front door",
+      "new": [
+        "A homepage with quick links to Settings, keyboard shortcuts, Arc import and feedback.",
+        "This changelog, with every build's changes in one place."
       ]
     },
     {
       "version": "1.24b-w2-dev.74",
-      "entries": [
-        "Mute background tabs and remember muted sites.",
-        "Adjust tab volume and video playback speed.",
-        "Automatically open picture-in-picture when leaving a video and return it when switching back.",
-        "Capture screenshots, edit page text, and allow copy and paste.",
-        "Look up unavailable pages in the Internet Archive and inspect image information.",
-        "Translate selected text and customize reader typography.",
-        "See estimated reading time and optionally darken PDFs.",
-        "Find starts with selected text. Update settings appear in About Whimsy."
+      "date": "2026-10-29",
+      "title": "Sound, video and reading",
+      "new": [
+        "Mute background tabs, and remember sites you've muted.",
+        "Set a tab's volume and a video's playback speed.",
+        "Picture-in-picture opens when you leave a video and closes when you come back.",
+        "Take screenshots, edit a page's text, and copy and paste on sites that block it.",
+        "Find missing pages in the Internet Archive.",
+        "See information about any image.",
+        "Translate the text you've selected."
+      ],
+      "improved": [
+        "Reader view lets you pick its typography and shows reading time.",
+        "PDFs can follow dark mode.",
+        "Find starts with the text you've selected.",
+        "Update settings now live in About Whimsy."
       ]
     },
     {
       "version": "1.24b-w2-dev.52",
-      "entries": [
-        "Move tabs to spaces by dropping them on space icons.",
-        "Return to the last selected tab in each space.",
-        "Search space emoji and optionally hide the space switcher.",
-        "Open links in another space from the context menu.",
-        "Customize theme colors with hex values, transparency, menu icons, and the interface font."
+      "date": "2026-10-29",
+      "title": "Spaces, your way",
+      "new": [
+        "Drop tabs on a space's icon to move them there.",
+        "Open a link in another space from the context menu.",
+        "Pick theme colors by hex value, with transparency, menu icons and your own interface font."
+      ],
+      "improved": [
+        "Each space remembers the tab you were last on.",
+        "Search for a space's emoji, or hide the space switcher."
       ]
     },
     {
       "version": "1.24b-w2-dev.41",
-      "entries": [
-        "Optionally place the New Tab button at the bottom of the sidebar.",
-        "Choose folder colors and see a loading progress line.",
-        "See unread counts and update dots on pinned tabs and Essentials.",
-        "Group tabs by domain."
+      "date": "2026-10-29",
+      "title": "Tidier tabs",
+      "new": [
+        "Color your folders.",
+        "A thin line shows a page loading.",
+        "Pinned tabs and Essentials show unread counts and update dots.",
+        "Group tabs by site."
+      ],
+      "improved": [
+        "The New Tab button can sit at the bottom of the sidebar."
       ]
     },
     {
       "version": "1.24b-w2-dev.32",
-      "entries": [
-        "Copy rich links or links for multiple selected tabs.",
-        "Remove tracking parameters and reject cookie banners by default.",
-        "Identify private windows and disable browser AI features in Settings.",
-        "Duplicate tabs with Cmd+Shift+D and pin or unpin with Cmd+D on macOS.",
-        "Open new tabs below the current tab and within its folder.",
-        "Customize title wrapping and optionally dim sleeping tabs."
+      "date": "2026-10-29",
+      "title": "Links and privacy",
+      "new": [
+        "Copy rich links, or links to several tabs at once.",
+        "Turn off the browser's AI features in Settings.",
+        "Duplicate a tab with Cmd+Shift+D, and pin or unpin it with Cmd+D."
+      ],
+      "improved": [
+        "Tracking bits are removed from links, and cookie banners are declined, by default.",
+        "Private windows are easier to tell apart.",
+        "New tabs open below the current one, inside its folder.",
+        "Choose how tab titles wrap, and dim sleeping tabs."
       ]
     },
     {
       "version": "1.24b-w1",
-      "entries": [
-        "First public release: Arc-style Ctrl+Tab, app icons, interface zoom, your PRs vs your team's, automatic updates"
+      "date": "2026-10-28",
+      "title": "Hello, Whimsy",
+      "new": [
+        "Arc-style Ctrl+Tab.",
+        "App icons to choose from.",
+        "Zoom the whole interface.",
+        "See your pull requests apart from your team's.",
+        "Automatic updates."
       ]
     }
   ]

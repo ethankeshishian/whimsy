@@ -3,114 +3,256 @@
    - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
 
 <!-- home: about:whimsy, Whimsy's homepage (replaces Zen's about:home) with
-     a Changelog tab (about:whimsy?tab=changelog) and, legacy, a Privacy tab
-     (about:whimsy?tab=privacy, the About dialog's Privacy Notice). -->
+     a Changelog tab (about:whimsy?tab=changelog, or #<build> for one build)
+     and, legacy, a Privacy tab (about:whimsy?tab=privacy, the About
+     dialog's Privacy Notice). Everything is local: no network fonts,
+     images or scripts; the artwork is inline SVG. -->
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Security-Policy" content="default-src chrome:; object-src 'none'" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-l10n-id="whimsy-home-title"></title>
-    <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" media="all" />
     <link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-home.css" />
     <link rel="localization" href="browser/whimsy.ftl" />
   </head>
   <body>
     <div class="whimsy-home" id="whimsy-home">
-      <header class="whimsy-home-header">
-        <h1 id="whimsy-home-heading" data-l10n-id="whimsy-home-brand"></h1>
-        <nav class="whimsy-home-tabs" role="tablist" aria-labelledby="whimsy-home-heading">
-          <button
-            type="button"
-            id="whimsy-tab-home"
-            aria-controls="whimsy-panel-home"
-            class="whimsy-home-tab"
-            role="tab"
-            data-tab="home"
-            data-l10n-id="whimsy-home-tab-home"
-            aria-selected="true"
-          ></button>
-          <button
-            type="button"
-            id="whimsy-tab-changelog"
-            aria-controls="whimsy-panel-changelog"
-            tabindex="-1"
-            class="whimsy-home-tab"
-            role="tab"
-            data-tab="changelog"
-            data-l10n-id="whimsy-home-tab-changelog"
-            aria-selected="false"
-          ></button>
-          <button
-            type="button"
-            id="whimsy-tab-privacy"
-            aria-controls="whimsy-panel-privacy"
-            tabindex="-1"
-            class="whimsy-home-tab"
-            role="tab"
-            data-tab="privacy"
-            data-l10n-id="whimsy-home-tab-privacy"
-            aria-selected="false"
-          ></button>
-        </nav>
+      <header class="wh-nav">
+        <div class="wh-nav-inner">
+          <div class="wh-brand">
+            <svg class="wh-brand-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 40" aria-hidden="true">
+              <defs>
+                <radialGradient id="wh-mark-fill" cx="0.35" cy="0.3" r="0.8">
+                  <stop offset="0" stop-color="#ff9ad6" />
+                  <stop offset="0.5" stop-color="#f0479e" />
+                  <stop offset="1" stop-color="#9a4dff" />
+                </radialGradient>
+              </defs>
+              <path d="M16 30 C13 33 19 35 16 39" fill="none" stroke="#c06bd8" stroke-width="1.6" stroke-linecap="round" />
+              <path d="M14 31 L16 28 L18 31 Z" fill="#b34fd6" />
+              <ellipse cx="16" cy="14.5" rx="12.5" ry="14" fill="url(#wh-mark-fill)" />
+              <ellipse cx="11.5" cy="9" rx="2.6" ry="4" fill="#fff" opacity="0.6" transform="rotate(-25 11.5 9)" />
+            </svg>
+            <h1 id="whimsy-home-heading" class="wh-brand-name" data-l10n-id="whimsy-home-brand"></h1>
+          </div>
+          <nav class="whimsy-home-tabs" role="tablist" aria-labelledby="whimsy-home-heading">
+            <button
+              type="button"
+              id="whimsy-tab-home"
+              aria-controls="whimsy-panel-home"
+              class="whimsy-home-tab"
+              role="tab"
+              data-tab="home"
+              data-l10n-id="whimsy-home-tab-home"
+              aria-selected="true"
+            ></button>
+            <button
+              type="button"
+              id="whimsy-tab-changelog"
+              aria-controls="whimsy-panel-changelog"
+              tabindex="-1"
+              class="whimsy-home-tab"
+              role="tab"
+              data-tab="changelog"
+              data-l10n-id="whimsy-home-tab-changelog"
+              aria-selected="false"
+            ></button>
+            <button
+              type="button"
+              id="whimsy-tab-privacy"
+              aria-controls="whimsy-panel-privacy"
+              tabindex="-1"
+              class="whimsy-home-tab"
+              role="tab"
+              data-tab="privacy"
+              data-l10n-id="whimsy-home-tab-privacy"
+              aria-selected="false"
+            ></button>
+          </nav>
+        </div>
       </header>
 
-      <section id="whimsy-panel-home" class="whimsy-home-panel" tabindex="0" role="tabpanel" aria-labelledby="whimsy-tab-home">
-        <p class="whimsy-home-blurb" data-l10n-id="whimsy-home-blurb"></p>
+      <main>
+        <section id="whimsy-panel-home" class="whimsy-home-panel" tabindex="-1" role="tabpanel" aria-labelledby="whimsy-tab-home">
+          <div class="wh-hero">
+            <div class="wh-hero-sky" aria-hidden="true"></div>
+            <div class="wh-wrap wh-hero-inner">
+              <div class="wh-hero-copy">
+                <p class="wh-eyebrow" data-l10n-id="whimsy-home-hero-eyebrow"></p>
+                <h2 class="wh-hero-title" data-l10n-id="whimsy-home-hero-title"></h2>
+                <p class="wh-hero-lede whimsy-home-blurb" data-l10n-id="whimsy-home-blurb"></p>
+                <p class="wh-hero-hint" data-l10n-id="whimsy-home-hero-hint"></p>
+              </div>
+              <div class="wh-hero-art">
+                <span class="wh-sparkle wh-sparkle-1" aria-hidden="true"></span>
+                <span class="wh-sparkle wh-sparkle-2" aria-hidden="true"></span>
+                <span class="wh-sparkle wh-sparkle-3" aria-hidden="true"></span>
+                <span class="wh-cloud wh-cloud-1" aria-hidden="true"></span>
+                <span class="wh-cloud wh-cloud-2" aria-hidden="true"></span>
+                <button type="button" id="whimsy-home-balloon" class="wh-balloon" data-l10n-id="whimsy-home-balloon">
+                  <svg class="wh-balloon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 310" aria-hidden="true">
+                    <defs>
+                      <radialGradient id="wh-balloon-fill" cx="0.34" cy="0.28" r="0.82">
+                        <stop offset="0" stop-color="#ffa3da" />
+                        <stop offset="0.42" stop-color="#f2479f" />
+                        <stop offset="1" stop-color="#9447ff" />
+                      </radialGradient>
+                      <radialGradient id="wh-balloon-glow" cx="0.5" cy="0.5" r="0.5">
+                        <stop offset="0" stop-color="#ff8fd0" stop-opacity="0.45" />
+                        <stop offset="1" stop-color="#ff8fd0" stop-opacity="0" />
+                      </radialGradient>
+                    </defs>
+                    <circle cx="100" cy="100" r="100" fill="url(#wh-balloon-glow)" />
+                    <path class="wh-balloon-string" d="M100 197 C 90 214, 111 230, 100 248 S 90 280, 102 306" fill="none" stroke="#c46fdc" stroke-width="2.5" stroke-linecap="round" />
+                    <path d="M92 199 L100 187 L108 199 Q100 203 92 199 Z" fill="#b14bd8" />
+                    <path d="M100 6 C 152 6 184 46 184 96 C 184 146 146 186 100 190 C 54 186 16 146 16 96 C 16 46 48 6 100 6 Z" fill="url(#wh-balloon-fill)" />
+                    <ellipse cx="66" cy="58" rx="15" ry="25" fill="#fff" opacity="0.55" transform="rotate(-28 66 58)" />
+                    <circle cx="57" cy="98" r="5" fill="#fff" opacity="0.35" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
 
-        <div class="whimsy-home-links" id="whimsy-home-links">
-          <a id="whimsy-home-link-settings" class="whimsy-home-link" href="about:preferences" data-l10n-id="whimsy-home-link-settings"></a>
-          <a id="whimsy-home-link-shortcuts" class="whimsy-home-link" href="about:keyboard" data-l10n-id="whimsy-home-link-shortcuts"></a>
-          <button
-            type="button"
-            class="whimsy-home-link whimsy-home-link-button"
-            id="whimsy-home-link-import"
-            data-l10n-id="whimsy-home-link-import"
-          ></button>
-          <a
-            id="whimsy-home-link-feedback"
-            class="whimsy-home-link"
-            href="https://github.com/ethankeshishian/whimsy/issues"
-            target="_blank"
-            rel="noopener"
-            data-l10n-id="whimsy-home-link-feedback"
-          ></a>
+          <div class="wh-wrap wh-section">
+            <h2 class="wh-section-title" data-l10n-id="whimsy-home-features-title"></h2>
+            <div class="wh-features">
+              <article class="wh-feature">
+                <span class="wh-icon wh-icon-pink" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="13" rx="3" /><path d="M8 4h9a4 4 0 0 1 4 4v9" /></svg>
+                </span>
+                <h3 data-l10n-id="whimsy-home-feature-spaces-title"></h3>
+                <p data-l10n-id="whimsy-home-feature-spaces-text"></p>
+              </article>
+              <article class="wh-feature">
+                <span class="wh-icon wh-icon-violet" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" /></svg>
+                </span>
+                <h3 data-l10n-id="whimsy-home-feature-keys-title"></h3>
+                <p data-l10n-id="whimsy-home-feature-keys-text"></p>
+              </article>
+              <article class="wh-feature">
+                <span class="wh-icon wh-icon-blue" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M12 4v16" /></svg>
+                </span>
+                <h3 data-l10n-id="whimsy-home-feature-split-title"></h3>
+                <p data-l10n-id="whimsy-home-feature-split-text"></p>
+              </article>
+              <article class="wh-feature">
+                <span class="wh-icon wh-icon-peach" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" /></svg>
+                </span>
+                <h3 data-l10n-id="whimsy-home-feature-quiet-title"></h3>
+                <p data-l10n-id="whimsy-home-feature-quiet-text"></p>
+              </article>
+            </div>
+          </div>
+
+          <div class="wh-wrap wh-section">
+            <h2 class="wh-section-title" data-l10n-id="whimsy-home-links-title"></h2>
+            <div class="whimsy-home-links" id="whimsy-home-links">
+              <a id="whimsy-home-link-settings" class="whimsy-home-link" href="about:preferences">
+                <span class="wh-icon wh-icon-violet" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2.5" /><circle cx="8" cy="17" r="2.5" /></svg>
+                </span>
+                <span class="wh-link-text">
+                  <span class="wh-link-title" data-l10n-id="whimsy-home-link-settings"></span>
+                  <span class="wh-link-desc" data-l10n-id="whimsy-home-link-settings-text"></span>
+                </span>
+                <span class="wh-link-arrow" aria-hidden="true">→</span>
+              </a>
+              <a id="whimsy-home-link-shortcuts" class="whimsy-home-link" href="about:keyboard">
+                <span class="wh-icon wh-icon-pink" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5" /><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8" /></svg>
+                </span>
+                <span class="wh-link-text">
+                  <span class="wh-link-title" data-l10n-id="whimsy-home-link-shortcuts"></span>
+                  <span class="wh-link-desc" data-l10n-id="whimsy-home-link-shortcuts-text"></span>
+                </span>
+                <span class="wh-link-arrow" aria-hidden="true">→</span>
+              </a>
+              <button type="button" class="whimsy-home-link whimsy-home-link-button" id="whimsy-home-link-import">
+                <span class="wh-icon wh-icon-blue" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14" /></svg>
+                </span>
+                <span class="wh-link-text">
+                  <span class="wh-link-title" data-l10n-id="whimsy-home-link-import"></span>
+                  <span class="wh-link-desc" data-l10n-id="whimsy-home-link-import-text"></span>
+                </span>
+                <span class="wh-link-arrow" aria-hidden="true">→</span>
+              </button>
+              <a
+                id="whimsy-home-link-feedback"
+                class="whimsy-home-link"
+                href="https://github.com/ethankeshishian/whimsy/issues"
+                target="_blank"
+                rel="noopener"
+              >
+                <span class="wh-icon wh-icon-peach" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>
+                </span>
+                <span class="wh-link-text">
+                  <span class="wh-link-title" data-l10n-id="whimsy-home-link-feedback"></span>
+                  <span class="wh-link-desc" data-l10n-id="whimsy-home-link-feedback-text"></span>
+                </span>
+                <span class="wh-link-arrow" aria-hidden="true">↗</span>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="whimsy-panel-changelog"
+          class="whimsy-home-panel"
+          tabindex="-1" role="tabpanel"
+          aria-labelledby="whimsy-tab-changelog"
+          hidden="hidden"
+        >
+          <div class="wh-wrap wh-page-head">
+            <h2 class="wh-page-title" data-l10n-id="whimsy-home-tab-changelog"></h2>
+            <p class="wh-page-lede" data-l10n-id="whimsy-changelog-blurb"></p>
+          </div>
+          <div class="wh-wrap">
+            <div id="whimsy-changelog-list" class="whimsy-changelog-list"></div>
+            <p id="whimsy-changelog-empty" class="whimsy-home-empty" data-l10n-id="whimsy-changelog-empty" hidden="hidden"></p>
+          </div>
+        </section>
+
+        <!-- legacy: Whimsy's privacy note. Every service Whimsy talks to, and
+             why; keep it in step with prefs/whimsy/whimsy.yaml's legacy block. -->
+        <section
+          id="whimsy-panel-privacy"
+          class="whimsy-home-panel"
+          tabindex="-1" role="tabpanel"
+          aria-labelledby="whimsy-tab-privacy"
+          hidden="hidden"
+        >
+          <div class="wh-wrap wh-page-head">
+            <h2 class="wh-page-title" data-l10n-id="whimsy-home-tab-privacy"></h2>
+            <p class="wh-page-lede" data-l10n-id="whimsy-privacy-blurb"></p>
+          </div>
+          <div class="wh-wrap">
+            <ul class="whimsy-privacy-list">
+              <li data-l10n-id="whimsy-privacy-mozilla"></li>
+              <li data-l10n-id="whimsy-privacy-sync"></li>
+              <li data-l10n-id="whimsy-privacy-dns"></li>
+              <li data-l10n-id="whimsy-privacy-zen"></li>
+              <li data-l10n-id="whimsy-privacy-apple"></li>
+              <li data-l10n-id="whimsy-privacy-google"></li>
+              <li data-l10n-id="whimsy-privacy-updates"></li>
+              <li data-l10n-id="whimsy-privacy-search"></li>
+            </ul>
+          </div>
+        </section>
+      </main>
+
+      <footer class="wh-footer">
+        <div class="wh-wrap wh-footer-inner">
+          <p data-l10n-id="whimsy-home-footer"></p>
         </div>
-      </section>
-
-      <section
-        id="whimsy-panel-changelog"
-        class="whimsy-home-panel"
-        tabindex="0" role="tabpanel"
-        aria-labelledby="whimsy-tab-changelog"
-        hidden="hidden"
-      >
-        <p class="whimsy-home-blurb" data-l10n-id="whimsy-changelog-blurb"></p>
-        <div id="whimsy-changelog-list" class="whimsy-changelog-list"></div>
-        <p id="whimsy-changelog-empty" class="whimsy-home-empty" data-l10n-id="whimsy-changelog-empty" hidden="hidden"></p>
-      </section>
-
-      <!-- legacy: Whimsy's privacy note. Every service Whimsy talks to, and
-           why; keep it in step with prefs/whimsy/whimsy.yaml's legacy block. -->
-      <section
-        id="whimsy-panel-privacy"
-        class="whimsy-home-panel"
-        tabindex="0" role="tabpanel"
-        aria-labelledby="whimsy-tab-privacy"
-        hidden="hidden"
-      >
-        <p class="whimsy-home-blurb" data-l10n-id="whimsy-privacy-blurb"></p>
-        <ul class="whimsy-privacy-list">
-          <li data-l10n-id="whimsy-privacy-mozilla"></li>
-          <li data-l10n-id="whimsy-privacy-sync"></li>
-          <li data-l10n-id="whimsy-privacy-dns"></li>
-          <li data-l10n-id="whimsy-privacy-zen"></li>
-          <li data-l10n-id="whimsy-privacy-apple"></li>
-          <li data-l10n-id="whimsy-privacy-google"></li>
-          <li data-l10n-id="whimsy-privacy-updates"></li>
-          <li data-l10n-id="whimsy-privacy-search"></li>
-        </ul>
-      </section>
+      </footer>
     </div>
     <script src="chrome://browser/content/whimsy/whimsy-home.js"></script>
   </body>
