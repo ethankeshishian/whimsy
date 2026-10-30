@@ -828,7 +828,7 @@
       void root.offsetWidth;
       root.classList.add("whimsy-game-milestone");
       setTimeout(() => root.classList.remove("whimsy-game-milestone"), 800);
-      if (milestone % 5 == 0) {
+      if (!reduced() && milestone % 5 == 0) {
         for (let i = 0; i < 9; i++) {
           game.floaters.push({ kind: "party", x: rand(W * 0.35, W - 10), y: H + rand(0, 60), vy: -rand(30, 55), hue: i % 4 });
         }
@@ -841,11 +841,11 @@
 
     // A friend drifts by now and then; shooting stars at night.
     game.friendIn -= dt;
-    if (game.friendIn <= 0) {
+    if (!reduced() && game.friendIn <= 0) {
       game.friendIn = rand(25, 45);
       game.floaters.push({ kind: "friend", x: W + 30, y: rand(22, 40), t: 0, said: false });
     }
-    if (nightness(dayPhase()) > 0.8 && Math.random() < dt * 0.12) {
+    if (!reduced() && nightness(dayPhase()) > 0.8 && Math.random() < dt * 0.12) {
       game.floaters.push({ kind: "star", x: rand(W * 0.3, W), y: rand(5, 40), t: 0 });
     }
 
@@ -857,12 +857,15 @@
 
   function updateAmbient(dt) {
     const scroll = game.state == "running" ? game.speed : game.state == "ready" ? 30 : 0;
-    for (const c of game.clouds) {
+    for (const c of reduced() ? [] : game.clouds) {
       c.x -= (scroll * 0.18 + 6) * dt * c.s;
       if (c.x < -60) {
         c.x = W + 40;
         c.y = 14 + Math.random() * 44;
       }
+    }
+    if (reduced()) {
+      game.floaters = game.floaters.filter(f => !["friend", "party", "star"].includes(f.kind));
     }
     for (const f of game.floaters) {
       if (f.kind == "friend") {
@@ -1126,7 +1129,7 @@
     // Stars
     if (night > 0) {
       for (const s of game.stars) {
-        const a = night * (0.5 + 0.5 * Math.sin(game.clock * 2 + s.tw));
+        const a = night * (0.5 + 0.5 * Math.sin((reduced() ? 0 : game.clock * 2) + s.tw));
         ctx.fillStyle = `rgba(255,248,220,${a.toFixed(2)})`;
         if (retro()) {
           ctx.fillRect(snap(s.x), snap(s.y), PX, PX);
@@ -1286,6 +1289,9 @@
   }
 
   function drawFloaters(night) {
+    if (reduced()) {
+      game.floaters = game.floaters.filter(f => !["friend", "party", "star"].includes(f.kind));
+    }
     for (const f of game.floaters) {
       if (f.kind == "friend") {
         drawBalloon(f.x, f.y + 38, 0.7, 0.7, { friend: true, alpha: 0.85 });

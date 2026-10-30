@@ -175,15 +175,23 @@ add_task(async function offline_key_turns_the_page_into_the_game() {
 });
 
 add_task(async function offline_tap_on_the_balloon_starts_it() {
-  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
-  try {
-    await withWhimsyError("netOffline", async browser => {
-      await prepare(browser);
-      await BrowserTestUtils.synthesizeMouse("#text-container", 40, 30, {}, browser);
-      is((await gameState(browser, true)).state, "running", "Tapping the deflated balloon starts the game");
-    });
-  } finally {
-    await SpecialPowers.popPrefEnv();
+  for (const felt of [false, true]) {
+    await SpecialPowers.pushPrefEnv({ set: [...GAME_PREFS, ["security.certerrors.felt-privacy-v1", felt]] });
+    try {
+      await withWhimsyError("netOffline", async browser => {
+        await prepare(browser);
+        const point = await SpecialPowers.spawn(browser, [], () => {
+          const doc = content.document;
+          const container = doc.querySelector("net-error-card")?.shadowRoot?.querySelector(".felt-privacy-container") || doc.querySelector("#text-container");
+          const rect = container.getBoundingClientRect();
+          return { x: rect.left + 40, y: rect.top + 30 };
+        });
+        await BrowserTestUtils.synthesizeMouseAtPoint(point.x, point.y, {}, browser);
+        is((await gameState(browser, true)).state, "running", `Balloon tap starts game (felt=${felt})`);
+      });
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
   }
 });
 

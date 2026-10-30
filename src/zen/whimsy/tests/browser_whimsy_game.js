@@ -298,3 +298,24 @@ add_task(async function test_feature_off_shows_nothing_to_play() {
   });
   Services.prefs.clearUserPref("whimsy.feature.game");
 });
+
+add_task(async function reduced_motion_freezes_ambient_scenery() {
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  try {
+    await withGame(async ({ game }) => {
+      const positions = () => game.state.clouds.map(c => [c.x, c.y]);
+      const before = positions();
+      game.tick(2);
+      Assert.deepEqual(positions(), before, "Ready clouds stay still");
+      game.start();
+      game.state.bonus = 500;
+      game.state.friendIn = 0;
+      game.tick(2);
+      Assert.deepEqual(positions(), before, "Gameplay clouds stay still");
+      ok(!game.state.floaters.some(f => ["friend", "party", "star"].includes(f.kind)), "No moving decorative objects spawn");
+      ok(game.state.runTime > 0, "Gameplay continues under reduced motion");
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});

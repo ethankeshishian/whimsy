@@ -101,7 +101,9 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
     if (this.gameStarted || event.button != 0) {
       return;
     }
-    const container = event.target;
+    const container = (event.composedPath?.() || [event.composedTarget ?? event.target]).find(
+      node => node?.id == "text-container" || node?.classList?.contains("felt-privacy-container")
+    );
     if (container?.id != "text-container" && !container?.classList?.contains("felt-privacy-container")) {
       return;
     }
