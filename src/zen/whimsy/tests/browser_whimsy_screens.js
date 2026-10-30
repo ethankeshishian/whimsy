@@ -872,6 +872,27 @@ add_task(async function system_history_filters() {
   }
 });
 
+// System pass: Settings → Links, one pane for where links open, light and
+// dark.
+add_task(async function system_links_settings() {
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    try {
+      await BrowserTestUtils.withNewTab("about:preferences#whimsyLinks", async browser => {
+        const doc = browser.contentDocument;
+        const heading = await TestUtils.waitForCondition(() => doc.getElementById("whimsyLinksCategory"));
+        await TestUtils.waitForCondition(() => heading.checkVisibility(), "Links is showing");
+        await doc.l10n.translateFragment(doc.getElementById("mainPrefPane"));
+        heading.scrollIntoView({ block: "start" });
+        await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+        await shot(`system-links-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      });
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});
+
 // fixC: a private tab's page (about:privatebrowsing), Whimsy-branded.
 add_task(async function private_tab_page() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");

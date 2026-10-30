@@ -186,13 +186,12 @@ whimsy-media-background-mute-off =
     .label = Let every tab play
 whimsy-media-pip-snap-back =
     .label = Put a picture-in-picture video back in the page when you return to its tab
-whimsy-external-links-header = Links from other apps open in
 whimsy-external-links-glance =
-    .label = Glance
+    .label = Glance, over the tab you’re on
 whimsy-external-links-tab =
-    .label = A tab
+    .label = A new tab
 whimsy-external-links-quick-window =
-    .label = Mini Whimsy
+    .label = Mini Whimsy, a small window you can turn into a tab
 whimsy-archive-prompt =
     .label = When a page is gone, offer the Internet Archive’s copy
 whimsy-tabs-title-lines = Tab titles show up to
@@ -326,7 +325,7 @@ whimsy-action-split-vertically = Split Vertically
 whimsy-action-split-horizontally = Split Horizontally
 whimsy-action-split-grid = Split Grid
 whimsy-split-shift-click =
-    .label = Shift+click a link to open it in a split (replaces "Open in New Window")
+    .label = Shift-click a link to open it in a split
 
 ## Command bar extras (batch6)
 
@@ -416,7 +415,7 @@ whimsy-look-reading-time =
 whimsy-look-dark-pdf =
     .label = Dark pages in PDFs (light text on dark; images keep their colors)
 whimsy-look-peek-essential-links =
-    .label = Peek: open other-site links from pinned tabs in Glance
+    .label = Open links to other sites from pinned tabs in Glance
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
@@ -517,7 +516,7 @@ whimsy-spaces-manager-button =
     .label = Open Space Manager…
 
 whimsy-atc-label = Air Traffic Control
-whimsy-atc-description = Send links to a space automatically when they match a rule, like Arc.
+whimsy-atc-description = Open links that match a rule in the space you choose.
 whimsy-atc-button =
     .label = Manage rules…
 
@@ -1644,3 +1643,16 @@ whimsy-history-snoozed-no-match = No snoozed tabs match.
 whimsy-action-view-snoozed = View Snoozed Tabs…
 # $title (string) - the tab's title
 whimsy-snooze-cancel-toast = “{ $title }” won’t come back on its own. It’s in History → Closed.
+
+## system: Settings → Links, one pane for where links open
+
+whimsy-pane-links-title = Links
+whimsy-links-title = Links
+whimsy-links-apps-header = Links from other apps
+whimsy-links-apps-description = When you click a link in another app, open it in:
+whimsy-links-glance-header = Glance
+whimsy-links-split-header = Split view
+whimsy-links-follower =
+    .label = Follower splits: links in one pane open in the other
+whimsy-links-follower-help = To start one, right-click a tab in a split and choose Make This a Follower Split.
+whimsy-links-spaces-header = Spaces

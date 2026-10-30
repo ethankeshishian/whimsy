@@ -714,9 +714,6 @@ Object.assign(gWhimsySettings, {
     document.getElementById("whimsySpacesManagerButton")?.addEventListener("command", () => {
       chromeWin().document.getElementById("cmd_zenManageWorkspaces")?.doCommand();
     });
-    document.getElementById("whimsyAtcButton")?.addEventListener("command", () => {
-      chromeWin().document.getElementById("cmd_zenOpenSpaceRoutingSettings")?.doCommand();
-    });
     this.refreshHiddenSpaces();
   },
 
@@ -999,14 +996,6 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// batch3glance: Glance size, next to the Tabs group's Glance options. The
-// Tabs group is inserted by gWhimsySettings.init's listener, which runs first.
-document.addEventListener("paneshown", event => {
-  if (event.detail.category == "paneZenTabManagement") {
-    gWhimsySettings.insertGlanceSize();
-  }
-});
-
 // wave3/cmdbar: Settings → Search → Bang Shortcuts. The list is plain text
 // ("!w https://...{{{s}}}" per line). Save validates the whole list first,
 // so a typo never replaces a working catalog.
@@ -1017,26 +1006,6 @@ document.addEventListener("paneshown", event => {
 });
 
 Object.assign(gWhimsySettings, {
-  insertGlanceSize() {
-    const template = document.getElementById("template-whimsyGlanceSize");
-    if (!template) {
-      return;
-    }
-    const row = template.content.firstElementChild;
-    template.remove();
-    const group = document.getElementById("whimsyTabsGroup");
-    if (!group || !this.lazy.Whimsy.featureEnabled("glance-size")) {
-      return;
-    }
-    Preferences.addAll([{ id: "whimsy.glance.size", type: "string" }]);
-    const externalLinks = document.getElementById("whimsyExternalLinksTarget")?.parentElement;
-    if (externalLinks?.parentElement == group) {
-      externalLinks.after(row);
-    } else {
-      group.append(row);
-    }
-    Preferences.queueUpdateOfAllElements();
-  },
 });
 
 // batch3glance: Cmd+T in a split. Arc's behavior is the default; unchecking
@@ -1372,4 +1341,118 @@ Object.assign(gWhimsySettings, {
     window.addEventListener("unload", () => WhimsyPageWatch.removeListener(render), { once: true });
     render();
   },
+});
+
+// system: Settings → Links, one pane for where links open: links from other
+// apps (Mini Whimsy, a tab or Glance), Glance (Zen's own Glance group moves
+// here from Look and Feel, with Whimsy's size and pinned-tab rows), split
+// view (Shift-click, follower splits) and space routing (Air Traffic
+// Control). Each setting lives only here. The pane is registered like
+// Zen's own (register_module) before preferences.js's init_all runs, so
+// about:preferences#whimsyLinks opens it directly.
+const WHIMSY_LINKS_PANE = "paneWhimsyLinks";
+
+Object.assign(gWhimsySettings, {
+  registerLinksPane() {
+    if (typeof register_module != "function" || document.getElementById("category-whimsy-links")) {
+      return;
+    }
+    const after = document.getElementById("category-zen-tabs-management");
+    if (!after) {
+      return;
+    }
+    const button = document.createElementNS("http://www.w3.org/1999/xhtml", "moz-page-nav-button");
+    button.id = "category-whimsy-links";
+    button.setAttribute("view", WHIMSY_LINKS_PANE);
+    button.setAttribute("iconsrc", "chrome://browser/skin/zen-icons/link.svg");
+    button.setAttribute("data-l10n-id", "whimsy-pane-links-title");
+    after.after(button);
+    register_module(WHIMSY_LINKS_PANE, { init: () => this.buildLinksPane() });
+  },
+
+  // Moves the Links groups into the page (once) and Zen's Glance group into
+  // them. Also runs when Look and Feel is shown, so Glance never shows there.
+  buildLinksPane() {
+    const template = document.getElementById("template-whimsyLinks");
+    if (template) {
+      const fragment = template.content;
+      const { Whimsy } = this.lazy;
+      // A checkbox that is its own feature switch (follower splits) stays
+      // when the user turns it off; it goes only when Zen supersedes it.
+      const own = new Set(
+        [...fragment.querySelectorAll('[preference^="whimsy.feature."]')].map(el =>
+          el.getAttribute("preference").slice("whimsy.feature.".length)
+        )
+      );
+      const keep = id =>
+        own.has(id)
+          ? Services.prefs.getDefaultBranch("").getBoolPref(`whimsy.feature.${id}`, true)
+          : Whimsy.featureEnabled(id);
+      for (const row of [...fragment.querySelectorAll("[data-whimsy-feature]")]) {
+        if (!keep(row.dataset.whimsyFeature)) {
+          row.remove();
+        }
+      }
+      template.remove();
+      Preferences.addAll(
+        [...fragment.querySelectorAll("[preference]")]
+          .filter(el => !Preferences.get(el.getAttribute("preference")))
+          .map(el => ({
+            id: el.getAttribute("preference"),
+            type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "int"),
+          }))
+      );
+      const groups = [...fragment.children];
+      document.getElementById("mainPrefPane").append(fragment);
+      document.getElementById("whimsyAtcButton")?.addEventListener("command", () => {
+        window.browsingContext.topChromeWindow.document
+          .getElementById("cmd_zenOpenSpaceRoutingSettings")
+          ?.doCommand();
+      });
+      this.adoptZenGlance();
+      // A group left with no setting goes (the Glance group keeps Zen's).
+      for (const group of groups) {
+        if (group.localName == "groupbox" && group.isConnected && !group.querySelector("[preference], button")) {
+          group.remove();
+        }
+      }
+      Preferences.queueUpdateOfAllElements();
+    }
+    this.adoptZenGlance();
+  },
+
+  // Zen's "Glance" heading and group sit in Look and Feel's template until
+  // that pane is first shown; take them from wherever they are now.
+  adoptZenGlance() {
+    const holder = document.getElementById("whimsyLinksGlanceGroup");
+    const looks = document.getElementById("template-paneZenLooks")?.content;
+    const find = id => document.getElementById(id) || looks?.querySelector(`#${id}`);
+    find("zenGlanceCategory")?.remove();
+    const zenGroup = find("zenGlanceGroup");
+    if (!zenGroup) {
+      return;
+    }
+    if (!holder) {
+      // Links isn't built yet (or Glance already joined it): just keep
+      // Glance out of Look and Feel.
+      if (zenGroup.getAttribute("data-category") == WHIMSY_LINKS_PANE) {
+        return;
+      }
+      zenGroup.setAttribute("data-category", WHIMSY_LINKS_PANE);
+      zenGroup.hidden = true;
+      document.getElementById("mainPrefPane").append(zenGroup);
+      return;
+    }
+    zenGroup.setAttribute("data-category", WHIMSY_LINKS_PANE);
+    zenGroup.hidden = holder.hidden;
+    zenGroup.append(...[...holder.children].filter(el => !el.classList.contains("whimsy-links-own-heading")));
+    holder.replaceWith(zenGroup);
+  },
+});
+
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.registerLinksPane(), { once: true });
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenLooks") {
+    gWhimsySettings.adoptZenGlance();
+  }
 });

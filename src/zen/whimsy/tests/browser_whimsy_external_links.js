@@ -86,7 +86,7 @@ add_task(async function test_feature_off_ignores_the_glance_target() {
 
 add_task(async function test_settings() {
   Services.prefs.clearUserPref("whimsy.external-links.target");
-  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyLinks", async browser => {
     const doc = browser.contentDocument;
     const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyExternalLinksTarget"), "Settings row shown");
     await TestUtils.waitForCondition(() => group.value == "quick-window", "Shows the default target (Mini Whimsy)");

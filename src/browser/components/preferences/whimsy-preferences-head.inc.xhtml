@@ -54,8 +54,6 @@
               data-l10n-id="whimsy-look-reading-time" preference="whimsy.reader.reading-time"/>
     <checkbox id="whimsyDarkPdf" data-whimsy-feature="dark-pdf"
               data-l10n-id="whimsy-look-dark-pdf" preference="whimsy.pdf.dark"/>
-    <checkbox id="whimsyPeekEssentialLinks" data-whimsy-feature="peek-essential-links"
-              data-l10n-id="whimsy-look-peek-essential-links" preference="zen.glance.open-essential-external-links"/>
     <hbox id="whimsyUiFontRow" align="center" data-whimsy-feature="ui-font">
       <label id="whimsyUiFontLabel" control="whimsyUiFont" data-l10n-id="whimsy-look-ui-font"/>
       <menulist id="whimsyUiFont" preference="whimsy.look.ui-font" sizetopopup="none" crop="end">
@@ -290,14 +288,6 @@
     <!-- wave3: playlist -->
     <checkbox id="whimsyPlaylistOffline" data-whimsy-feature="playlist"
               data-l10n-id="whimsy-playlist-offline-setting" preference="whimsy.playlist.offline-download"/>
-    <vbox data-whimsy-feature="external-link-target">
-      <label data-l10n-id="whimsy-external-links-header"/>
-      <radiogroup id="whimsyExternalLinksTarget" preference="whimsy.external-links.target" data-pref-type="string">
-        <radio value="glance" data-l10n-id="whimsy-external-links-glance"/>
-        <radio value="tab" data-l10n-id="whimsy-external-links-tab"/>
-        <radio value="quick-window" data-l10n-id="whimsy-external-links-quick-window"/>
-      </radiogroup>
-    </vbox>
     <checkbox id="whimsyArchivePrompt" data-whimsy-feature="wayback"
               data-l10n-id="whimsy-archive-prompt" preference="whimsy.archive.prompt"/>
     <hbox align="center" data-whimsy-feature="title-lines">
@@ -310,9 +300,6 @@
         </menupopup>
       </menulist>
     </hbox>
-    <!-- batch6: split view extras -->
-    <checkbox id="whimsySplitLinkShiftClick" data-whimsy-feature="split-link-click"
-              data-l10n-id="whimsy-split-shift-click" preference="whimsy.splitlink.shift-click"/>
     <!-- batch6: command bar "New Note" target -->
     <hbox align="center" data-whimsy-feature="command-bar-create">
       <label id="whimsyNewNoteTargetLabel" control="whimsyNewNoteTarget" data-l10n-id="whimsy-new-note-target"/>
@@ -364,11 +351,10 @@
   </groupbox>
 </html:template>
 
-# batch9: spaces — Settings → Tab Management → Spaces. Two rows point to
-# Zen's own features under Arc's names instead of duplicating their logic:
-# the per-space manager (Library → Spaces: reorder, rename, recolor,
-# delete) and space-routing rules (Air Traffic Control: send a link to a
-# space automatically when it matches a rule). The third is Whimsy's own:
+# batch9: spaces — Settings → Tab Management → Spaces. One row points to
+# Zen's own per-space manager (Library → Spaces: reorder, rename, recolor,
+# delete) instead of duplicating its logic; space-routing rules (Air
+# Traffic Control) moved to Settings → Links. The rest is Whimsy's own:
 # spaces hidden with "Hide This Space" (workspace context menu) stay out of
 # the switcher without losing their tabs; restore them here.
 <html:template id="template-whimsySpaces" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
@@ -380,13 +366,6 @@
         <description class="description-deemphasized" data-l10n-id="whimsy-spaces-manager-description"/>
       </vbox>
       <button id="whimsySpacesManagerButton" data-l10n-id="whimsy-spaces-manager-button"/>
-    </hbox>
-    <hbox align="center" class="whimsy-spaces-row" data-whimsy-feature="atc-settings">
-      <vbox flex="1">
-        <label data-l10n-id="whimsy-atc-label"/>
-        <description class="description-deemphasized" data-l10n-id="whimsy-atc-description"/>
-      </vbox>
-      <button id="whimsyAtcButton" data-l10n-id="whimsy-atc-button"/>
     </hbox>
     <vbox class="whimsy-spaces-row" data-whimsy-feature="archive-space">
       <label><html:h3 data-l10n-id="whimsy-hidden-spaces-header"/></label>
@@ -497,20 +476,6 @@
   </groupbox>
 </html:template>
 
-# batch3glance: Glance size, a row added to the Tabs group (whimsyTabsGroup).
-<html:template id="template-whimsyGlanceSize" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <hbox id="whimsyGlanceSizeRow" align="center" data-whimsy-feature="glance-size">
-    <label id="whimsyGlanceSizeLabel" control="whimsyGlanceSize" data-l10n-id="whimsy-glance-size-label"/>
-    <menulist id="whimsyGlanceSize" preference="whimsy.glance.size" data-pref-type="string">
-      <menupopup>
-        <menuitem value="compact" data-l10n-id="whimsy-glance-size-compact"/>
-        <menuitem value="standard" data-l10n-id="whimsy-glance-size-standard"/>
-        <menuitem value="wide" data-l10n-id="whimsy-glance-size-wide"/>
-      </menupopup>
-    </menulist>
-  </hbox>
-</html:template>
-
 # batch3glance: Cmd+T in a split; a row added to the Tabs group (whimsyTabsGroup).
 <html:template id="template-whimsySplitNewTab" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
   <checkbox id="whimsySplitNewTab" data-l10n-id="whimsy-split-new-tab" preference="whimsy.feature.split-new-tab"/>
@@ -543,5 +508,62 @@
               data-l10n-id="whimsy-hover-people" preference="whimsy.feature.people-cards"/>
     <description id="whimsyHoverPeopleHelp" data-whimsy-feature="people-cards"
                  class="description-deemphasized" data-l10n-id="whimsy-hover-people-help"/>
+  </groupbox>
+</html:template>
+
+# system: Settings → Links. Every setting about where a link opens, in one
+# pane: links from other apps, Glance (Zen's own Glance group joins this
+# one), split view and space routing. whimsy-settings.js adds the pane to
+# the sidebar and moves these groups in when it is first shown.
+<html:template id="template-whimsyLinks" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <hbox id="whimsyLinksCategory" class="subcategory" hidden="true" data-category="paneWhimsyLinks">
+    <html:h1 data-l10n-id="whimsy-links-title"/>
+  </hbox>
+  <groupbox id="whimsyLinksAppsGroup" data-category="paneWhimsyLinks" hidden="true" class="highlighting-group">
+    <label><html:h2 id="whimsyLinksAppsHeader" data-l10n-id="whimsy-links-apps-header"/></label>
+    <description id="whimsyLinksAppsDescription" class="description-deemphasized" data-l10n-id="whimsy-links-apps-description"/>
+    <radiogroup id="whimsyExternalLinksTarget" data-whimsy-feature="external-link-target"
+                preference="whimsy.external-links.target" data-pref-type="string"
+                aria-labelledby="whimsyLinksAppsHeader" aria-describedby="whimsyLinksAppsDescription">
+      <radio value="quick-window" data-l10n-id="whimsy-external-links-quick-window"/>
+      <radio value="tab" data-l10n-id="whimsy-external-links-tab"/>
+      <radio value="glance" data-l10n-id="whimsy-external-links-glance"/>
+    </radiogroup>
+  </groupbox>
+  <groupbox id="whimsyLinksGlanceGroup" data-category="paneWhimsyLinks" hidden="true" class="highlighting-group">
+    <label class="whimsy-links-own-heading"><html:h2 data-l10n-id="whimsy-links-glance-header"/></label>
+    <hbox id="whimsyGlanceSizeRow" align="center" data-whimsy-feature="glance-size">
+      <label id="whimsyGlanceSizeLabel" control="whimsyGlanceSize" data-l10n-id="whimsy-glance-size-label"/>
+      <menulist id="whimsyGlanceSize" preference="whimsy.glance.size" data-pref-type="string">
+        <menupopup>
+          <menuitem value="compact" data-l10n-id="whimsy-glance-size-compact"/>
+          <menuitem value="standard" data-l10n-id="whimsy-glance-size-standard"/>
+          <menuitem value="wide" data-l10n-id="whimsy-glance-size-wide"/>
+        </menupopup>
+      </menulist>
+    </hbox>
+    <checkbox id="whimsyPeekEssentialLinks" data-whimsy-feature="peek-essential-links"
+              data-l10n-id="whimsy-look-peek-essential-links" preference="zen.glance.open-essential-external-links"/>
+  </groupbox>
+  <groupbox id="whimsyLinksSplitGroup" data-category="paneWhimsyLinks" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-links-split-header"/></label>
+    <checkbox id="whimsySplitLinkShiftClick" data-whimsy-feature="split-link-click"
+              data-l10n-id="whimsy-split-shift-click" preference="whimsy.splitlink.shift-click"/>
+    <checkbox id="whimsyFollowerTabs" data-whimsy-feature="follower-tabs"
+              data-l10n-id="whimsy-links-follower" preference="whimsy.feature.follower-tabs"
+              aria-describedby="whimsyFollowerTabsHelp"/>
+    <description id="whimsyFollowerTabsHelp" data-whimsy-feature="follower-tabs"
+                 class="description-deemphasized indent" data-l10n-id="whimsy-links-follower-help"/>
+  </groupbox>
+  <groupbox id="whimsyLinksSpacesGroup" data-category="paneWhimsyLinks" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-links-spaces-header"/></label>
+    <hbox align="center" class="whimsy-spaces-row" data-whimsy-feature="atc-settings">
+      <vbox flex="1">
+        <label id="whimsyAtcLabel" data-l10n-id="whimsy-atc-label"/>
+        <description id="whimsyAtcDescription" class="description-deemphasized" data-l10n-id="whimsy-atc-description"/>
+      </vbox>
+      <button id="whimsyAtcButton" data-l10n-id="whimsy-atc-button"
+              aria-describedby="whimsyAtcLabel whimsyAtcDescription"/>
+    </hbox>
   </groupbox>
 </html:template>

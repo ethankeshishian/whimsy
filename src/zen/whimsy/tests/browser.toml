@@ -353,3 +353,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # system: History's Show filter (All / Closed / Snoozed) replaces the Archive section.
 ["browser_whimsy_history_filters.js"]
+
+# system: Settings → Links gathers every setting about where links open.
+["browser_whimsy_links_settings.js"]
