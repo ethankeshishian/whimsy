@@ -1094,3 +1094,73 @@ add_task(async function liquid_glass() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+
+// wave3/ai: the AI provider card, and Tidy Tabs' sections in Today.
+add_task(async function ai_provider_and_tidy_tabs() {
+  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+    const doc = browser.contentDocument;
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProvidersGroup"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "AI provider card visible");
+    group.scrollIntoView({ block: "center" });
+    await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+    await shot("wave3-ai-provider", browser.browsingContext.currentWindowGlobal);
+  });
+
+  const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  const { WhimsyAITabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAITabs.sys.mjs");
+  WhimsyAIProviders.setTestProvider(({ prompt }) => {
+    const lines = [...prompt.matchAll(/^(\d+)\. /gm)].map(m => Number(m[1]));
+    const half = Math.ceil(lines.length / 2);
+    return JSON.stringify({
+      sections: [
+        { name: "Trip Planning", tabs: lines.slice(0, half) },
+        { name: "Reading", tabs: lines.slice(half) },
+      ],
+    });
+  });
+  const tabs = [];
+  try {
+    for (let i = 0; i < 8; i++) {
+      tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, `https://example.com/tidy-shot-${i}`));
+    }
+    await WhimsyAITabs.tidy(window);
+    await TestUtils.waitForCondition(() => document.querySelector(".whimsy-tidy-header"), "Sections drawn");
+    await shot("wave3-ai-tidy-tabs");
+  } finally {
+    WhimsyAIProviders.setTestProvider(null);
+    for (const tab of tabs) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
+});
+
+// wave3/ai: the 5-second preview card and the Watch a page dialog.
+add_task(async function ai_preview_and_watch() {
+  const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
+  const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  try {
+    const panel = WhimsyAIPage._previewPanel(window);
+    WhimsyAIPage.renderPreview(window, panel, {
+      url: "https://example.org/article",
+      title: "How espresso machines work",
+      points: ["Pumps push water at 9 bars", "Boilers hold it near 93 °C", "Grind size sets the flow"],
+    });
+    const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
+    panel.openPopupAtScreen(window.screenX + 300, window.screenY + 200, false);
+    await shown;
+    await document.l10n.translateFragment(panel);
+    await shot("wave3-ai-preview-card");
+    panel.hidePopup();
+
+    WhimsyPageWatch.openDialog(window, tab);
+    const dialog = document.getElementById("whimsy-watch-panel");
+    await BrowserTestUtils.waitForPopupEvent(dialog, "shown");
+    await document.l10n.translateFragment(dialog);
+    await shot("wave3-ai-watch-dialog");
+    dialog.hidePopup();
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

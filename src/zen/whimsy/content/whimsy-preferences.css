@@ -148,3 +148,28 @@
   margin-inline-start: 8px;
   color: var(--text-color-deemphasized);
 }
+
+/* wave3/ai: Settings → AI provider → the pages being watched. */
+.whimsy-ai-watch-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-ai-watch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+}
+
+.whimsy-ai-watch-condition {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}

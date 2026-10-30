@@ -390,3 +390,20 @@
 # wave3: playlist. Download saved media into the profile for offline play.
 - name: whimsy.playlist.offline-download
   value: true
+
+# wave3/ai: AI provider (Settings → Privacy & Security → AI provider):
+# "apple" (on-device), "claude" (API key, kept in the Keychain-encrypted
+# whimsy-ai-keys.json, never in prefs) or "ollama". Only this one is used.
+- name: whimsy.ai.provider
+  value: "apple"
+
+# Empty means Whimsy's default (the latest Claude model).
+- name: whimsy.ai.claude.model
+  value: ""
+
+- name: whimsy.ai.ollama.endpoint
+  value: "http://127.0.0.1:11434"
+
+# Picked in Settings from the models the Ollama server has.
+- name: whimsy.ai.ollama.model
+  value: ""

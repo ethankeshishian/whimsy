@@ -757,6 +757,27 @@ FEATURES = [
     # wave3: playlist. Brave Playlist v1: direct media files, saved for offline in Library.
     {"id": "playlist", "title": "Playlist: save videos and audio to Library -> Playlist and play them offline (direct files)",
      "detect": [("src/zen", r"(?i)\bplaylist\b")]},
+
+    # wave3/ai: AI v1. The provider every Whimsy AI feature uses (Claude API
+    # key, Apple on-device, local Ollama); no automatic cloud fallback.
+    {"id": "ai-providers", "title": "AI provider picker: Claude API key, Apple on-device or local Ollama, with no automatic cloud fallback",
+     "detect": [("src/zen", r"(?i)api\.anthropic\.com|FoundationModels|ollama")]},
+    # wave3/ai: Arc Max's Tidy Tabs (broom on the Today line, sections with
+    # headers) and tidy tab titles (a short name when a tab is pinned).
+    {"id": "tidy-tabs", "title": "Tidy Tabs: the broom sorts a space's Today tabs into named sections (Arc Max)",
+     "detect": [("src/zen", r"(?i)tidy-?tabs|smart-?tab-?group")]},
+    {"id": "tidy-titles", "title": "Tidy tab titles: pinning a tab gives it a short AI name (Arc Max)",
+     "detect": [("src/zen", r"(?i)tidy-?(tab-?)?titles|ai-?rename")]},
+    # wave3/ai: Arc Max's Ask on Page (Cmd+F: "Find or Ask") and 5-second
+    # previews (Shift-hover a link; plain hover on search results, X, HN).
+    {"id": "ask-on-page", "title": "Ask on Page: when Cmd+F finds nothing, ask the AI about the page instead (Arc Max)",
+     "detect": [("src/zen", r"(?i)ask-?on-?page|find-?or-?ask")]},
+    {"id": "link-previews", "title": "5-second previews: Shift-hover a link for an AI summary of the page behind it (Arc Max)",
+     "detect": [("src/zen", r"(?i)five-?second|5-?second-?preview|link-?preview[\w-]*summar")]},
+    # wave3/ai: Watch a page (Safari's Notify Me): a plain-words condition,
+    # checked on a schedule only while Whimsy runs, with the person's session.
+    {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
+     "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
 ]
 
 

@@ -1,0 +1,310 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave3/ai: AI v1 (WhimsyAI*.sys.mjs). Loaded into every browser window. */
+
+/* ---- Tidy Tabs: the broom, next to Zen's "Clear" on the pinned/Today line.
+   Zen's separator rules already fade its buttons in on sidebar hover. ---- */
+.pinned-tabs-container-separator > .whimsy-tidy-broom {
+  list-style-image: url("chrome://browser/content/whimsy/ai/broom.svg");
+  background: none !important;
+  padding-inline: 4px !important;
+  margin-inline-end: 2px;
+
+  & .toolbarbutton-text {
+    display: none !important;
+  }
+
+  & .toolbarbutton-icon {
+    width: 12px !important;
+    height: 12px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+
+  &[tidying] .toolbarbutton-icon {
+    opacity: 1 !important;
+
+    @media not (prefers-reduced-motion: reduce) {
+      animation: whimsy-tidy-sweep 0.7s ease-in-out infinite alternate;
+    }
+  }
+}
+
+@keyframes whimsy-tidy-sweep {
+  from {
+    transform: rotate(-14deg) translateX(-1px);
+  }
+  to {
+    transform: rotate(14deg) translateX(1px);
+  }
+}
+
+/* ---- Tidy Tabs: a section's header in Today. ---- */
+.whimsy-tidy-header {
+  min-height: 24px;
+  margin-top: 6px;
+  padding-inline: 10px 4px;
+  border-radius: var(--border-radius-small, 6px);
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 60%, transparent));
+  font-size: 11px;
+  font-weight: 600;
+
+  @media not (prefers-reduced-motion: reduce) {
+    @starting-style {
+      opacity: 0;
+    }
+    transition: opacity 0.18s ease-out;
+  }
+
+  :root:not([zen-sidebar-expanded="true"]) & {
+    display: none;
+  }
+
+  & .whimsy-tidy-header-label {
+    margin: 0;
+  }
+
+  & .whimsy-tidy-header-button {
+    appearance: none;
+    padding: 3px;
+    margin: 0;
+    border-radius: var(--border-radius-small, 4px);
+    opacity: 0;
+    -moz-context-properties: fill;
+    fill: currentColor;
+
+    & .toolbarbutton-icon {
+      width: 12px;
+      height: 12px;
+    }
+
+    & .toolbarbutton-text {
+      display: none;
+    }
+
+    &:hover {
+      background-color: var(--tab-hover-background-color, color-mix(in srgb, currentColor 12%, transparent));
+    }
+
+    @media not (prefers-reduced-motion: reduce) {
+      transition: opacity 0.12s ease-out;
+    }
+  }
+
+  &:hover .whimsy-tidy-header-button,
+  & .whimsy-tidy-header-button:focus-visible {
+    opacity: 1;
+  }
+
+  & .whimsy-tidy-header-folder {
+    list-style-image: url("chrome://browser/skin/zen-icons/folder.svg");
+  }
+
+  & .whimsy-tidy-header-close {
+    list-style-image: url("chrome://browser/skin/zen-icons/close.svg");
+  }
+}
+
+/* ---- Ask on Page: the Ask button in the find bar, and the answer card. ---- */
+findbar .whimsy-ask-button {
+  appearance: none;
+  margin-inline: 4px;
+  padding: 2px 10px;
+  border-radius: var(--border-radius-small, 6px);
+  background-color: var(--color-accent-primary, AccentColor);
+  color: var(--button-text-color-primary, AccentColorText);
+  font-weight: 600;
+
+  & .toolbarbutton-icon {
+    display: none;
+  }
+
+  &:hover {
+    background-color: var(--color-accent-primary-hover, AccentColor);
+  }
+
+  @media not (prefers-reduced-motion: reduce) {
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+  }
+}
+
+.whimsy-ai-panel {
+  --panel-padding: 0;
+
+  & .whimsy-ask-body,
+  & .whimsy-preview-body {
+    width: 340px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+}
+
+.whimsy-ask-question,
+.whimsy-preview-host {
+  color: var(--text-color-deemphasized, GrayText);
+  font-size: 12px;
+}
+
+.whimsy-ask-answer {
+  font-weight: 500;
+  user-select: text;
+}
+
+.whimsy-ask-quote {
+  margin: 0;
+  padding-inline-start: 10px;
+  border-inline-start: 3px solid var(--color-accent-primary, AccentColor);
+  color: var(--text-color-deemphasized, GrayText);
+  font-style: italic;
+  user-select: text;
+}
+
+.whimsy-ask-find {
+  align-self: flex-start;
+}
+
+.whimsy-ask-error,
+.whimsy-preview-error,
+.whimsy-ai-loading {
+  color: var(--text-color-deemphasized, GrayText);
+}
+
+/* ---- 5-second previews: the card. ---- */
+#whimsy-preview-card {
+  cursor: pointer;
+
+  @media not (prefers-reduced-motion: reduce) {
+    &::part(content) {
+      transition: opacity 0.14s ease-out;
+    }
+  }
+}
+
+.whimsy-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.whimsy-preview-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.whimsy-preview-titles {
+  min-width: 0;
+}
+
+.whimsy-preview-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-preview-points {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Loading lines (Ask on Page and previews). */
+.whimsy-ai-shimmer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  & > div {
+    height: 10px;
+    border-radius: 5px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+
+    &:last-child {
+      width: 60%;
+    }
+
+    @media not (prefers-reduced-motion: reduce) {
+      animation: whimsy-ai-pulse 1.1s ease-in-out infinite alternate;
+    }
+  }
+}
+
+@keyframes whimsy-ai-pulse {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---- Watch a page: the dialog (like Safari's Notify Me sheet). ---- */
+.whimsy-watch-body {
+  width: 320px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+
+  & textarea,
+  & select {
+    font: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  & textarea {
+    resize: none;
+  }
+}
+
+.whimsy-watch-heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.whimsy-watch-page,
+.whimsy-watch-note {
+  margin: 0;
+  color: var(--text-color-deemphasized, GrayText);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-watch-note {
+  white-space: normal;
+}
+
+.whimsy-watch-label {
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.whimsy-watch-error {
+  margin: 0;
+  color: var(--text-color-error, #d70022);
+}
+
+.whimsy-watch-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}

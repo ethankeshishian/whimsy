@@ -110,6 +110,62 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+  <!-- wave3/ai: the AI provider every Whimsy AI feature uses. Hidden while
+       the kill switch above is on. Only the chosen provider is contacted. -->
+  <html:div id="whimsyAIProvidersGroup" data-category="panePrivacy" data-whimsy-feature="ai-providers" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-ai-provider-header" headinglevel="3"
+                         iconsrc="chrome://global/skin/icons/highlights.svg">
+        <description class="description-deemphasized" data-l10n-id="whimsy-ai-provider-description"/>
+        <hbox align="center">
+          <label control="whimsyAIProvider" data-l10n-id="whimsy-ai-provider-label"/>
+          <menulist id="whimsyAIProvider" preference="whimsy.ai.provider" data-pref-type="string">
+            <menupopup>
+              <menuitem value="apple" data-l10n-id="whimsy-ai-provider-apple"/>
+              <menuitem value="claude" data-l10n-id="whimsy-ai-provider-claude"/>
+              <menuitem value="ollama" data-l10n-id="whimsy-ai-provider-ollama"/>
+            </menupopup>
+          </menulist>
+        </hbox>
+        <html:div id="whimsyAIAppleRow" hidden="hidden">
+          <html:div id="whimsyAIAppleStatus" class="whimsy-updates-detail" role="status"/>
+          <hbox align="center">
+            <button id="whimsyAIAppleCheck" data-l10n-id="whimsy-ai-apple-check"/>
+          </hbox>
+        </html:div>
+        <html:div id="whimsyAIClaudeRow" hidden="hidden">
+          <hbox align="center">
+            <label control="whimsyAIClaudeKey" data-l10n-id="whimsy-ai-claude-key-label"/>
+            <html:input type="password" id="whimsyAIClaudeKey" autocomplete="off" spellcheck="false"/>
+            <button id="whimsyAIClaudeSave" data-l10n-id="whimsy-ai-claude-key-save"/>
+            <button id="whimsyAIClaudeRemove" data-l10n-id="whimsy-ai-claude-key-remove"/>
+          </hbox>
+          <html:div id="whimsyAIClaudeStatus" class="whimsy-updates-detail" role="status"/>
+        </html:div>
+        <html:div id="whimsyAIOllamaRow" hidden="hidden">
+          <hbox align="center">
+            <label control="whimsyAIOllamaEndpoint" data-l10n-id="whimsy-ai-ollama-endpoint-label"/>
+            <html:input type="url" id="whimsyAIOllamaEndpoint" spellcheck="false"/>
+          </hbox>
+          <hbox align="center">
+            <label control="whimsyAIOllamaModel" data-l10n-id="whimsy-ai-ollama-model-label"/>
+            <menulist id="whimsyAIOllamaModel" sizetopopup="none">
+              <menupopup/>
+            </menulist>
+            <button id="whimsyAIOllamaRefresh" data-l10n-id="whimsy-ai-ollama-refresh"/>
+          </hbox>
+          <html:div id="whimsyAIOllamaStatus" class="whimsy-updates-detail" role="status"/>
+        </html:div>
+        <!-- One row per AI feature; each is its whimsy.feature.<id> switch. -->
+        <html:moz-checkbox id="whimsyAITidyTabs" data-feature-pref="whimsy.feature.tidy-tabs" data-l10n-id="whimsy-ai-feature-tidy-tabs"/>
+        <html:moz-checkbox id="whimsyAITidyTitles" data-feature-pref="whimsy.feature.tidy-titles" data-l10n-id="whimsy-ai-feature-tidy-titles"/>
+        <html:moz-checkbox id="whimsyAIAskOnPage" data-feature-pref="whimsy.feature.ask-on-page" data-l10n-id="whimsy-ai-feature-ask-on-page"/>
+        <html:moz-checkbox id="whimsyAILinkPreviews" data-feature-pref="whimsy.feature.link-previews" data-l10n-id="whimsy-ai-feature-link-previews"/>
+        <html:moz-checkbox id="whimsyAIPageWatch" data-feature-pref="whimsy.feature.page-watch" data-l10n-id="whimsy-ai-feature-page-watch"/>
+        <html:ul id="whimsyAIWatchList" class="whimsy-ai-watch-list"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <html:div id="whimsyStripTrackingGroup" data-category="panePrivacy" data-whimsy-feature="strip-tracking" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">
       <html:moz-fieldset data-l10n-id="whimsy-strip-tracking-header" headinglevel="3"

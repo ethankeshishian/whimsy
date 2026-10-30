@@ -1335,3 +1335,160 @@ whimsy-playlist-open-page =
     .title = Open the page it came from
 whimsy-playlist-remove =
     .title = Remove from Playlist
+
+## wave3/ai: Settings → Privacy & Security → AI provider
+
+whimsy-ai-provider-header =
+    .label = AI provider
+whimsy-ai-provider-description = Tidy Tabs, tab titles, Ask on Page, link previews and page watches use the provider you pick here, and only that one.
+whimsy-ai-provider-label =
+    .value = Provider
+whimsy-ai-provider-apple =
+    .label = Apple Intelligence (on this Mac)
+whimsy-ai-provider-claude =
+    .label = Claude (your API key)
+whimsy-ai-provider-ollama =
+    .label = Ollama (on this Mac)
+whimsy-ai-apple-check =
+    .label = Check Again
+whimsy-ai-apple-set-up =
+    .label = Set Up
+whimsy-ai-apple-status-not-set-up = Click Set Up to connect Whimsy to Apple Intelligence. It takes a minute the first time.
+whimsy-ai-apple-status-checking = Checking Apple Intelligence…
+whimsy-ai-apple-status-available = Ready. Nothing leaves this Mac.
+whimsy-ai-apple-status-unavailable = Apple Intelligence isn’t available on this Mac.
+whimsy-ai-apple-status-apple-needs-tools = Whimsy needs Apple’s command line tools to talk to Apple Intelligence. Install them with “xcode-select --install” in Terminal, then check again.
+whimsy-ai-apple-status-apple-intelligence-off = Turn on Apple Intelligence in System Settings, then check again.
+whimsy-ai-apple-status-apple-not-ready = Apple Intelligence is still getting ready. Try again in a few minutes.
+whimsy-ai-claude-key-label =
+    .value = API key
+whimsy-ai-claude-key-save =
+    .label = Save
+whimsy-ai-claude-key-remove =
+    .label = Remove
+whimsy-ai-claude-key-saved = A key is saved, encrypted with your macOS Keychain. Page text and tab titles you use AI on are sent to Anthropic.
+whimsy-ai-claude-key-missing = No key yet. Create one at console.anthropic.com.
+whimsy-ai-claude-key-error = Couldn’t save the key.
+whimsy-ai-ollama-endpoint-label =
+    .value = Server
+whimsy-ai-ollama-model-label =
+    .value = Model
+whimsy-ai-ollama-refresh =
+    .label = Refresh
+whimsy-ai-ollama-status-ready =
+    { $count ->
+        [one] Connected. 1 model installed.
+       *[other] Connected. { $count } models installed.
+    }
+whimsy-ai-ollama-status-offline = Ollama isn’t running at this address, or has no models yet.
+
+## wave3/ai: AI errors (toasts)
+
+whimsy-ai-error-blocked = AI features are turned off in Settings
+whimsy-ai-error-no-key = Add your Claude API key in Settings → Privacy & Security
+whimsy-ai-error-bad-key = Claude didn’t accept your API key
+whimsy-ai-error-rate-limited = Claude is busy. Try again in a moment.
+whimsy-ai-error-network = Couldn’t reach Claude
+whimsy-ai-error-unavailable = Your AI provider isn’t available right now
+whimsy-ai-error-no-model = Pick an Ollama model in Settings → Privacy & Security
+whimsy-ai-error-apple-needs-tools = Apple Intelligence needs Apple’s command line tools. See Settings → Privacy & Security.
+whimsy-ai-error-apple-intelligence-off = Turn on Apple Intelligence in System Settings
+whimsy-ai-error-apple-not-ready = Apple Intelligence is still getting ready
+whimsy-ai-error-apple-not-set-up = Set up Apple Intelligence in Settings → Privacy & Security → AI provider
+whimsy-ai-error-refused = The AI declined this one
+whimsy-ai-error-bad-response = The AI’s answer didn’t make sense. Try again.
+whimsy-ai-error-timeout = The AI took too long
+whimsy-ai-error-failed = Something went wrong with the AI
+
+## wave3/ai: Tidy Tabs and tidy tab titles (Arc Max)
+
+whimsy-ai-feature-tidy-tabs =
+    .label = Tidy Tabs
+    .description = With more than six Today tabs, a broom on the line above them sorts them into sections.
+whimsy-ai-feature-tidy-titles =
+    .label = Tidy tab titles
+    .description = Pinning a tab gives it a short name. Names you type are never changed.
+whimsy-tidy-broom =
+    .tooltiptext = Tidy Tabs
+    .label = Tidy Tabs
+whimsy-tidy-header-folder =
+    .tooltiptext = Move to Folder
+    .label = Move to Folder
+whimsy-tidy-header-close =
+    .tooltiptext = Close Tabs
+    .label = Close Tabs
+whimsy-tidy-menu-remove-header =
+    .label = Remove Header
+whimsy-tidy-menu-folder =
+    .label = Move to Folder
+whimsy-tidy-menu-close =
+    .label = Close Tabs
+whimsy-tidy-too-few = Tidy Tabs needs at least { $count } Today tabs
+whimsy-tidy-done =
+    { $sections ->
+        [one] Tidied { $tabs } tabs into 1 section
+       *[other] Tidied { $tabs } tabs into { $sections } sections
+    }
+
+## wave3/ai: Ask on Page and 5-second previews (Arc Max)
+
+whimsy-ai-feature-ask-on-page =
+    .label = Ask on Page
+    .description = When Find on Page (⌘F) finds nothing, ask a question about the page instead.
+whimsy-ai-feature-link-previews =
+    .label = 5-second previews
+    .description = Hold Shift on a link to see a summary of the page behind it. On search results, X, Threads and Hacker News, just rest on a link. Pages are read with your own sign-ins, never in private windows.
+whimsy-ask-button =
+    .label = Ask
+    .tooltiptext = Ask about this page
+whimsy-ask-reading = Reading this page…
+whimsy-ask-no-text = This page has no text to answer from.
+whimsy-ask-find-on-page = Find on Page
+whimsy-preview-unreadable = Couldn’t read this page.
+whimsy-preview-not-ready = Set up an AI provider in Settings → Privacy & Security to see previews.
+
+## wave3/ai: Watch a page (like Safari's Notify Me)
+
+whimsy-ai-feature-page-watch =
+    .label = Watch pages
+    .description = Right-click a tab → Watch This Page… and say what to look for. Whimsy checks with your sign-ins while it’s open and alerts you until you dismiss it.
+whimsy-ai-watch-row = { $page } · checked { $minutes ->
+        [15] every 15 minutes
+        [60] every hour
+        [360] every 6 hours
+       *[other] every day
+    }
+whimsy-ai-watch-row-met = { $page } · found, alerting until dismissed
+whimsy-ai-watch-row-error = { $page } · couldn’t check last time
+whimsy-ai-watch-stop =
+    .label = Stop Watching
+whimsy-watch-menu =
+    .label = Watch This Page…
+whimsy-watch-menu-stop =
+    .label = Stop Watching This Page
+whimsy-action-watch-page = Watch This Page
+whimsy-watch-heading = Watch this page
+whimsy-watch-page = { $page }
+whimsy-watch-condition-label = Tell me when…
+whimsy-watch-condition =
+    .placeholder = the price drops below $100
+whimsy-watch-interval-label = Check
+whimsy-watch-interval =
+    { $minutes ->
+        [15] Every 15 minutes
+        [60] Every hour
+        [360] Every 6 hours
+       *[other] Every day
+    }
+whimsy-watch-note = Only while Whimsy is open, with your sign-ins. The page’s text goes to your AI provider.
+whimsy-watch-cancel = Cancel
+whimsy-watch-done = Watch
+whimsy-watch-too-many = You’re watching as many pages as Whimsy allows. Stop one in Settings first.
+whimsy-watch-started = Watching this page
+whimsy-watch-stopped = Stopped watching this page
+whimsy-watch-alert = { $page }: “{ $condition }” { $detail }
+whimsy-watch-alert-open =
+    .label = Open Page
+whimsy-watch-alert-stop =
+    .label = Stop Watching
+whimsy-watch-notification-title = Found on { $page }

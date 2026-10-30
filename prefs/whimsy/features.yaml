@@ -363,6 +363,24 @@
 - name: whimsy.feature.playlist
   value: true
 
+- name: whimsy.feature.ai-providers
+  value: true
+
+- name: whimsy.feature.tidy-tabs
+  value: true
+
+- name: whimsy.feature.tidy-titles
+  value: true
+
+- name: whimsy.feature.ask-on-page
+  value: true
+
+- name: whimsy.feature.link-previews
+  value: true
+
+- name: whimsy.feature.page-watch
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

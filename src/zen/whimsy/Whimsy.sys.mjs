@@ -128,6 +128,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPlaylist: "resource:///modules/whimsy/WhimsyPlaylist.sys.mjs",
 });
 
+
+// wave3/ai: AI v1.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAITabs: "resource:///modules/whimsy/WhimsyAITabs.sys.mjs",
+  WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
+  WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -207,6 +215,21 @@ export const Whimsy = {
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
+    });
+
+    // wave3/ai: 5-second previews. The child only messages on Shift over a
+    // link (or resting on a result link on search sites, X, Threads, HN);
+    // the parent checks the switches, fetches and draws the card.
+    ChromeUtils.registerWindowActor("WhimsyAIPreview", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIPreviewParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyAIPreviewChild.sys.mjs",
+        events: { mouseover: {}, mouseout: {}, keydown: {}, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
     });
   },
 
@@ -518,6 +541,21 @@ export const Whimsy = {
     // wave3: playlist. "Save to Playlist" in the page menu and command bar;
     // each checks the switch when used.
     run("playlist", () => lazy.WhimsyPlaylist.initWindow(win));
+
+    // wave3/ai: AI v1. Always installed; each part checks its switch, the AI
+    // kill switch and whether a provider is set up on use, so Settings
+    // changes apply without a restart.
+    run("ai-sheet", () =>
+      win.windowUtils.loadSheetUsingURIString(
+        "chrome://browser/content/whimsy/whimsy-ai.css",
+        win.windowUtils.AUTHOR_SHEET
+      )
+    );
+    run("tidy-tabs", () => lazy.WhimsyAITabs.initWindow(win));
+    run("ask-on-page", () => lazy.WhimsyAIPage.initWindow(win));
+    // Watches are checked only while Whimsy runs (one timer, only while
+    // there are watches and AI is on).
+    run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
