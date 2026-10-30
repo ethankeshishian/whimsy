@@ -365,3 +365,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave6/parity: Arc's menu bar (Tabs menu, names, Show Toolbar, Reveal Tab, Undo label, Portrait capture, Help item).
 ["browser_whimsy_arc_menus.js"]
+
+# wave6/parity: Arc's fixed tidy-title rules (no AI).
+["browser_whimsy_tidy_titles_rules.js"]
