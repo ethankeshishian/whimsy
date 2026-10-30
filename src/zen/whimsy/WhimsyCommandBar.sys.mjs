@@ -17,8 +17,10 @@ const SLASH_FEATURE_PREF = "whimsy.feature.command-bar-slash";
 // #16: Arc's Cmd+T "New ..." actions open a fresh doc/meeting/issue before
 // you've finished thinking about it, using the ".new" shortcut domains
 // (docs.new etc., already registered by their owners) rather than
-// anything Whimsy has to keep up to date itself. "New Note" opens
-// whichever target Settings has chosen; hidden until one is.
+// anything Whimsy has to keep up to date itself. "New Document" (l10n id
+// whimsy-action-new-note; it was "New Note" until wave7/ux, which clashed
+// with the Library's Notes) opens whichever app Settings has chosen;
+// hidden until one is.
 const CREATE_FEATURE_PREF = "whimsy.feature.command-bar-create";
 const NOTE_TARGET_PREF = "whimsy.new-note.target";
 
