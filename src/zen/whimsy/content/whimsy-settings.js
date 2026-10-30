@@ -821,9 +821,18 @@ Object.assign(gWhimsySettings, {
     };
     $("whimsyClaudeCopyCommand").addEventListener("command", () => copy(WhimsyClaude.connectInfo()?.command));
     $("whimsyClaudeCopyJSON").addEventListener("command", () => copy(WhimsyClaude.connectInfo()?.json));
-    $("whimsyClaudeNewToken").addEventListener("command", () => {
-      WhimsyClaude.regenerateToken();
-      document.l10n.setAttributes(status, "whimsy-claude-new-token-note");
+    $("whimsyClaudeNewToken").addEventListener("command", async () => {
+      const button = $("whimsyClaudeNewToken");
+      button.disabled = true;
+      try {
+        await WhimsyClaude.regenerateToken();
+        document.l10n.setAttributes(status, "whimsy-claude-new-token-note");
+      } catch (e) {
+        console.error("Whimsy: Claude token", e);
+        document.l10n.setAttributes(status, "whimsy-claude-token-error");
+      } finally {
+        button.disabled = false;
+      }
     });
     $("whimsyClaudeForgetSites").addEventListener("command", () => WhimsyClaude.forgetSitePermissions());
     const prefs = ["whimsy.claude.enabled", "whimsy.ai.blocked"];

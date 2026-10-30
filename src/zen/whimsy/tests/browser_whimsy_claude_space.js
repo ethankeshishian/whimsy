@@ -98,11 +98,18 @@ add_task(async function test_off_until_turned_on() {
 
 add_task(async function test_server_and_space() {
   const activeBefore = gZenWorkspaces.activeWorkspace;
+  const legacyToken = "a".repeat(64);
+  Services.prefs.setStringPref("whimsy.claude.token", legacyToken);
   const info = await turnOn();
   ok(/^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(info.url), "Loopback only, on its own port");
-  ok(/^[0-9a-f]{64}$/.test(info.token), "With a random token");
-  ok(info.command.startsWith(`claude mcp add --transport http whimsy ${info.url} --header "Authorization: Bearer `), "The connect command is ready to copy");
-  is(JSON.parse(info.json).mcpServers.whimsy.url, info.url, "and the JSON config");
+  const token = (await IOUtils.readUTF8(PathUtils.join(PathUtils.parent(info.bridgePath), "token"))).trim();
+  ok(/^[0-9a-f]{64}$/.test(token), "With a random token");
+  ok(token != legacyToken, "Previously exposed token is retired during migration");
+  ok(!JSON.stringify(info).includes(token), "Connection info contains no secret");
+  ok(info.command.startsWith("claude mcp add whimsy -- '"), "A shell-quoted bridge command is ready to copy");
+  Assert.deepEqual(JSON.parse(info.json).mcpServers.whimsy,
+    { command: info.bridgePath, args: [] }, "Config starts the bridge without headers or secrets");
+  ok(!Services.prefs.prefHasUserValue("whimsy.claude.token"), "No token remains in prefs");
 
   const space = gZenWorkspaces.getWorkspaces().find(w => w.uuid == Services.prefs.getStringPref(SPACE));
   ok(space, "Turning it on creates the Claude space");
@@ -117,7 +124,7 @@ add_task(async function test_server_and_space() {
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", ...headers },
       body: JSON.stringify(body),
     });
-  const auth = { Authorization: `Bearer ${info.token}` };
+  const auth = { Authorization: `Bearer ${token}` };
   const init = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } } };
 
   let response = await post(init);
@@ -145,6 +152,114 @@ add_task(async function test_server_and_space() {
 
   const unknown = await WhimsyClaude.handleRpc({ jsonrpc: "2.0", id: 3, method: "nope" });
   is(unknown.error.code, -32601, "Unknown methods get Method not found");
+});
+
+// Exercise the generated executable, not a parallel JS implementation of it.
+add_task(async function test_private_bridge_and_live_rotation() {
+  const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
+  if (AppConstants.platform != "macosx") {
+    info("The stock macOS curl bridge is tested on macOS");
+    return;
+  }
+  const { Subprocess } = ChromeUtils.importESModule("resource://gre/modules/Subprocess.sys.mjs");
+  const connection = WhimsyClaude.connectInfo();
+  const dir = PathUtils.parent(connection.bridgePath);
+  const tokenPath = PathUtils.join(dir, "token");
+  for (const [path, mode] of [[dir, 0o700], [connection.bridgePath, 0o700],
+    [tokenPath, 0o600], [PathUtils.join(dir, "endpoint"), 0o600]]) {
+    is((await IOUtils.stat(path)).permissions & 0o777, mode, "Private bridge permissions");
+  }
+  const oldToken = (await IOUtils.readUTF8(tokenPath)).trim();
+  ok(!(await IOUtils.readUTF8(connection.bridgePath)).includes(oldToken), "Script has no embedded secret");
+
+  const original = WhimsyClaude.handleHttp;
+  let received = 0;
+  const session = "whimsy-test-session";
+  WhimsyClaude.handleHttp = function (request, response) {
+    if (received++) {
+      is(request.getHeader("Mcp-Session-Id"), session, "Bridge reuses the server session");
+    } else {
+      ok(!request.hasHeader("Mcp-Session-Id"), "First request has no session");
+      response.setHeader("Mcp-Session-Id", session, false);
+    }
+    return original.call(this, request, response);
+  };
+  let process;
+  try {
+    process = await Subprocess.call({ command: connection.bridgePath, stderr: "pipe" });
+    let buffered = "";
+    const readLine = async () => {
+      while (!buffered.includes("\n")) {
+        const chunk = await process.stdout.readString();
+        if (!chunk) {
+          throw new Error("Bridge closed before replying");
+        }
+        buffered += chunk;
+      }
+      const end = buffered.indexOf("\n");
+      const line = buffered.slice(0, end);
+      buffered = buffered.slice(end + 1);
+      return JSON.parse(line);
+    };
+    await process.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 10, method: "initialize" }) + "\n");
+    is((await readLine()).id, 10, "initialize relays through the executable");
+    await process.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+    await process.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 11, method: "tools/list" }) + "\n");
+    const listed = await readLine();
+    is(listed.id, 11, "202 notification emits no stdio response or blank line");
+    ok(listed.result.tools.some(t => t.name == "tabs_list"), "tools/list round-trip succeeds");
+
+    await WhimsyClaude.regenerateToken();
+    const rotated = (await IOUtils.readUTF8(tokenPath)).trim();
+    ok(rotated != oldToken, "New token rewrites the file");
+    is((await IOUtils.stat(tokenPath)).permissions & 0o777, 0o600, "Rotation keeps token private");
+    is(WhimsyClaude.connectInfo().command, connection.command, "Rotation needs no new command");
+    is(WhimsyClaude.connectInfo().json, connection.json, "Rotation needs no config update");
+    is(await rawPost(connection.url, { jsonrpc: "2.0", id: 12, method: "ping" },
+      { Authorization: `Bearer ${oldToken}`, "Mcp-Session-Id": session }), 401, "Old token is rejected");
+    await process.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 13, method: "tools/list" }) + "\n");
+    is((await readLine()).id, 13, "Running bridge reads the new token for its next request");
+    await process.stdin.close();
+    is((await process.wait()).exitCode, 0, "Bridge exits cleanly on EOF");
+    is(await process.stderr.readString(), "", "No diagnostics or secrets on stderr");
+  } finally {
+    WhimsyClaude.handleHttp = original;
+    if (process) {
+      process.kill();
+      await process.wait();
+    }
+  }
+});
+
+add_task(async function test_settings_connection_and_rotation() {
+  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyClaudeCommand")?.textContent,
+      "Settings shows the ready command");
+    const tokenPath = PathUtils.join(PathUtils.parent(WhimsyClaude.connectInfo().bridgePath), "token");
+    const before = (await IOUtils.readUTF8(tokenPath)).trim();
+    const command = doc.getElementById("whimsyClaudeCommand");
+    const config = doc.getElementById("whimsyClaudeJSON");
+    is(command.textContent, WhimsyClaude.connectInfo().command, "Settings shows the safe command");
+    ok(!command.textContent.includes(before) && !config.textContent.includes(before), "Settings contains no token");
+    const button = doc.getElementById("whimsyClaudeNewToken");
+    button.doCommand();
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyClaudeStatus").getAttribute("data-l10n-id") ==
+      "whimsy-claude-new-token-note", "Settings confirms completed rotation");
+    ok(!button.disabled, "Token button is restored after saving");
+    ok((await IOUtils.readUTF8(tokenPath)).trim() != before, "Settings rewrites the token file");
+    is(command.textContent, WhimsyClaude.connectInfo().command, "Same command remains usable");
+    const regenerate = WhimsyClaude.regenerateToken;
+    WhimsyClaude.regenerateToken = async () => { throw new Error("Test write failure"); };
+    try {
+      button.doCommand();
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyClaudeStatus").getAttribute("data-l10n-id") ==
+        "whimsy-claude-token-error", "Settings reports failed rotation");
+      ok(!button.disabled, "Token button is restored after failure");
+    } finally {
+      WhimsyClaude.regenerateToken = regenerate;
+    }
+  });
 });
 
 add_task(async function test_tools_in_claude_space() {

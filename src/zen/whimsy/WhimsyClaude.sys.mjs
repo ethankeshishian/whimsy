@@ -13,7 +13,7 @@
 // - Off until the user turns it on in Settings (whimsy.claude.enabled), and
 //   off whenever the AI kill switch is on. Nothing runs while it's off.
 // - Local only: 127.0.0.1 on a random port, every request needs the
-//   bearer token Settings shows; requests from web pages (an Origin
+//   bearer token from a private profile file; requests from web pages (an Origin
 //   header) are refused, and the Host must be the loopback address.
 // - Scope: by default only tabs in the Claude space, a space created the
 //   first time it's turned on. whimsy.claude.whole-browser widens that to
@@ -61,6 +61,79 @@ const MCP_PATH = "/mcp";
 const SERVER_NAME = "whimsy";
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
+// No secret is embedded in this script, its arguments, or curl's arguments.
+// Read credentials for every line so rotation works for an already-running client.
+const BRIDGE_SCRIPT = String.raw`#!/bin/sh
+set -eu
+umask 077
+base=$(CDPATH= cd -- "$(/usr/bin/dirname -- "$0")" && pwd)
+tmp=$(/usr/bin/mktemp -d /tmp/whimsy-mcp.XXXXXXXX)
+trap '/bin/rm -rf -- "$tmp"' EXIT
+trap 'exit 1' HUP INT TERM
+session=
+while IFS= read -r line || [ -n "$line" ]; do
+  [ -n "$line" ] || continue
+  token=$(/bin/cat "$base/token")
+  case "$token" in *[!0-9a-f]*|'') exit 1 ;; esac
+  [ "$(printf %s "$token" | /usr/bin/wc -c | /usr/bin/tr -d ' ')" = 64 ] || exit 1
+  url=$(/bin/cat "$base/endpoint")
+  case "$url" in http://127.0.0.1:*/mcp) ;; *) exit 1 ;; esac
+  printf 'Authorization: Bearer %s\n' "$token" > "$tmp/headers"
+  if [ -n "$session" ]; then
+    printf 'Mcp-Session-Id: %s\n' "$session" >> "$tmp/headers"
+  fi
+  printf %s "$line" > "$tmp/request"
+  status=$(/usr/bin/curl -q --silent --show-error --fail --noproxy '*' --proto '=http' \
+    --connect-timeout 5 --max-time 120 --request POST \
+    --header "@$tmp/headers" --header 'Content-Type: application/json' \
+    --header 'Accept: application/json, text/event-stream' \
+    --header 'MCP-Protocol-Version: 2025-06-18' \
+    --data-binary "@$tmp/request" --dump-header "$tmp/response-headers" \
+    --output "$tmp/response" --write-out '%{http_code}' "$url") || exit 1
+  received=$(/usr/bin/awk 'tolower($1) == "mcp-session-id:" {
+    sub(/\r$/, "", $2)
+    if ($2 !~ /^[!-~]+$/) bad=1
+    session=$2
+  } END { if (bad) exit 1; if (session != "") print session }' "$tmp/response-headers") || exit 1
+  if [ -n "$received" ]; then
+    session=$received
+  fi
+  case "$status" in
+    202) ;; # Notifications have no JSON-RPC response and emit no stdio line.
+    200) if [ -s "$tmp/response" ]; then
+      /bin/cat "$tmp/response"
+      printf '\n'
+    fi ;;
+    *) exit 1 ;;
+  esac
+done
+`;
+
+function newToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function bridgePath(name) {
+  return PathUtils.join(PathUtils.profileDir, "whimsy-claude", name);
+}
+
+// Create privately before writing, then replace atomically (including modes).
+async function writePrivate(name, contents, permissions = 0o600) {
+  const dir = PathUtils.parent(bridgePath(name));
+  await IOUtils.makeDirectory(dir, { permissions: 0o700 });
+  await IOUtils.setPermissions(dir, 0o700, false);
+  const tmp = await IOUtils.createUniqueFile(dir, "bridge-write", 0o600);
+  try {
+    await IOUtils.writeUTF8(tmp, contents);
+    await IOUtils.setPermissions(tmp, permissions, false);
+    await IOUtils.move(tmp, bridgePath(name));
+  } finally {
+    await IOUtils.remove(tmp, { ignoreAbsent: true });
+  }
+}
+
 // How long a tab keeps its "Claude is using this tab" glow and bar after
 // Claude's last action on it.
 const ACTIVE_MS = 15000;
@@ -87,6 +160,9 @@ class ToolError extends Error {}
 // Session state (object literals can't have private fields).
 const state = {
   server: null,
+  bridgeReady: false,
+  token: "",
+  writing: Promise.resolve(),
   starting: null,
   ensuring: null,
   observing: false,
@@ -329,9 +405,6 @@ export const WhimsyClaude = {
   },
 
   async _start() {
-    if (!Services.prefs.getStringPref(TOKEN_PREF, "")) {
-      this.regenerateToken();
-    }
     const server = new lazy.HttpServer();
     server.registerPathHandler(MCP_PATH, (request, response) => this.handleHttp(request, response));
     const saved = Services.prefs.getIntPref(PORT_PREF, 0);
@@ -358,6 +431,36 @@ export const WhimsyClaude = {
       return null;
     }
     state.server = server;
+    try {
+      state.writing = state.writing.catch(() => {}).then(async () => {
+        // Retire tokens previously exposed in commands/prefs. A malformed
+        // private token file fails closed instead of silently replacing it.
+        let token = state.token;
+        if (Services.prefs.prefHasUserValue(TOKEN_PREF)) {
+          token = newToken();
+        } else if (!token) {
+          token = (await IOUtils.exists(bridgePath("token")))
+            ? (await IOUtils.readUTF8(bridgePath("token"))).trim()
+            : newToken();
+        }
+        if (!/^[0-9a-f]{64}$/.test(token)) {
+          throw new Error("Invalid Claude token file");
+        }
+        await writePrivate("token", token + "\n");
+        state.token = token;
+        Services.prefs.clearUserPref(TOKEN_PREF);
+        await writePrivate("endpoint", `http://${HOST}:${port}${MCP_PATH}\n`);
+        await writePrivate("bridge", BRIDGE_SCRIPT, 0o700);
+      });
+      await state.writing;
+      if (!this.enabled || state.server != server) {
+        return null;
+      }
+      state.bridgeReady = true;
+    } catch (e) {
+      this.shutdown();
+      throw e;
+    }
     this.registerActor();
     const win = this.topWindow();
     if (win) {
@@ -378,6 +481,7 @@ export const WhimsyClaude = {
       return;
     }
     state.server = null;
+    state.bridgeReady = false;
     server.stop(() => {});
     try {
       ChromeUtils.unregisterWindowActor(ACTOR);
@@ -408,30 +512,30 @@ export const WhimsyClaude = {
     }
   },
 
-  regenerateToken() {
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    const token = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
-    Services.prefs.setStringPref(TOKEN_PREF, token);
-    Services.obs.notifyObservers(null, "whimsy-claude-changed");
-    return token;
+  async regenerateToken() {
+    state.writing = state.writing.catch(() => {}).then(async () => {
+      const token = newToken();
+      await writePrivate("token", token + "\n");
+      state.token = token;
+      Services.prefs.clearUserPref(TOKEN_PREF);
+      Services.obs.notifyObservers(null, "whimsy-claude-changed");
+    });
+    await state.writing;
   },
 
-  // What Settings shows: the URL, the `claude mcp add` command and the
-  // equivalent JSON config. Null while Claude is off.
+  // Settings and config contain only an executable path, never credentials.
   connectInfo() {
-    if (!state.server) {
+    if (!state.server || !state.bridgeReady) {
       return null;
     }
-    const url = `http://${HOST}:${state.server.identity.primaryPort}${MCP_PATH}`;
-    const token = Services.prefs.getStringPref(TOKEN_PREF, "");
-    const header = `Authorization: Bearer ${token}`;
+    const path = bridgePath("bridge");
+    const quoted = "'" + path.replaceAll("'", "'\"'\"'") + "'";
     return {
-      url,
-      token,
-      command: `claude mcp add --transport http ${SERVER_NAME} ${url} --header "${header}"`,
+      url: `http://${HOST}:${state.server.identity.primaryPort}${MCP_PATH}`,
+      bridgePath: path,
+      command: `claude mcp add ${SERVER_NAME} -- ${quoted}`,
       json: JSON.stringify(
-        { mcpServers: { [SERVER_NAME]: { type: "http", url, headers: { Authorization: `Bearer ${token}` } } } },
+        { mcpServers: { [SERVER_NAME]: { command: path, args: [] } } },
         null,
         2
       ),
@@ -475,9 +579,9 @@ export const WhimsyClaude = {
       return { status: 403, body: { error: "Requests from web pages aren't allowed." } };
     }
     const auth = header("Authorization") || "";
-    const token = Services.prefs.getStringPref(TOKEN_PREF, "");
+    const token = state.token;
     if (!sameSecret(auth.replace(/^Bearer\s+/i, ""), token)) {
-      return { status: 401, body: { error: "Missing or wrong token. Copy the command from Whimsy's Settings." } };
+      return { status: 401, body: { error: "Missing or wrong token. Reconnect in Whimsy Settings." } };
     }
     if (request.method != "POST") {
       return { status: 405, body: undefined };
