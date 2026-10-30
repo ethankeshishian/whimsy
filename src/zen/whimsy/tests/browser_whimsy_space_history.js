@@ -419,3 +419,38 @@ add_task(async function every_surface_resolves_to_a_space() {
     await SpaceHistory.enqueue(() => SpaceHistory.prune());
   }
 });
+
+// "Where was the tab?" lists spaces in the user's own order (Zen's space
+// strip), not by name; spaces that only survive in older visits go last.
+add_task(async function space_filter_follows_space_order() {
+  const zulu = await gZenWorkspaces.createAndSaveWorkspace("Zulu order", undefined, true);
+  const alpha = await gZenWorkspaces.createAndSaveWorkspace("Alpha order", undefined, true);
+  await historyVisit("hist-gone", "Gone space", 600, "gone");
+  const library = document.querySelector("zen-library");
+  const wasTab = library.activeTab;
+  library.activeTab = "history";
+  await library.constructor.animateProgress(1);
+  const ids = () => section._spaceOptions.map(([id]) => id);
+  let section;
+  try {
+    await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
+    section = library.querySelector("whimsy-space-history-section");
+    const expected = () => [...gZenWorkspaces.getWorkspaces().filter(s => !s.whimsyScratch).map(s => s.uuid),
+      "hist-gone"];
+    await section.refresh();
+    Assert.deepEqual(ids().filter(id => expected().includes(id)), expected(),
+      "Spaces follow the space strip, then spaces only older visits remember");
+    ok(ids().indexOf(zulu.uuid) < ids().indexOf(alpha.uuid), "Not alphabetical: Zulu was made first");
+    await gZenWorkspaces.reorderWorkspace(alpha.uuid, 0);
+    await section.refresh();
+    is(ids()[0], alpha.uuid, "Moving a space to the front moves it to the front of the filter");
+    const current = gZenWorkspaces.getWorkspaces().map(s => s.uuid);
+    ok(ids().indexOf("hist-gone") > Math.max(...current.map(id => ids().indexOf(id))),
+      "A deleted space stays after every current one");
+  } finally {
+    await library.constructor.animateProgress(0);
+    library.activeTab = wasTab;
+    await gZenWorkspaces.removeWorkspace(alpha.uuid);
+    await gZenWorkspaces.removeWorkspace(zulu.uuid);
+  }
+});
