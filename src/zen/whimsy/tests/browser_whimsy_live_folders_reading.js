@@ -65,7 +65,7 @@ add_task(function test_reader_view_urls() {
   is(WhimsyLiveFolderReading.maybeReaderItems(rss, items)[0].url, items[0].url, "Switch off: items open normally");
   ok(!rss.options.some(o => o.key == "whimsyReader"), "Switch off: no option");
   Services.prefs.clearUserPref("whimsy.feature.live-folders-rss-reader");
-  is(WhimsyLiveFolderReading.maybeReaderItems("not items", items), "not items", "Fetch errors pass through");
+  is(WhimsyLiveFolderReading.maybeReaderItems(rss, "not items"), "not items", "Fetch errors pass through");
 });
 
 add_task(async function test_unread_counts() {
