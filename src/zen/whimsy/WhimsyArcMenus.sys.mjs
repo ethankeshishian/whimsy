@@ -17,8 +17,10 @@
 //   since Arc's Cmd+Shift+D is Whimsy's Duplicate Tab).
 // - Spaces: New Space..., Edit Theme..., Rename Space.
 // - Tabs (new, after Spaces): New Tab..., Pin Tab, New Folder..., Next Tab,
-//   Previous Tab, Reveal Tab in Sidebar, Clear Today.
-// - Window: Open Library..., View Downloads...
+//   Previous Tab, Reveal Tab in Sidebar, Clear Today, Reset all tabs in
+//   this Space (every pinned tab back to its pinned page).
+// - Window: Open Library..., View Downloads..., View Media..., View
+//   Boosts... (the Library's sections).
 // - Help: Essential Keyboard Shortcuts (the Cmd+/ sheet).
 
 const lazy = {};
@@ -102,8 +104,54 @@ export const WhimsyArcMenus = {
     return true;
   },
 
+  // Arc's Tabs → Reset all tabs in this Space: Zen's per-tab "Reset Pinned
+  // Tab", for every pinned tab (not Essentials) of the current space.
+  resetSpaceTabs(win) {
+    const space = win.gZenWorkspaces?.activeWorkspace;
+    const tabs = win.gBrowser.tabs.filter(
+      tab =>
+        tab.pinned &&
+        !tab.hasAttribute("zen-essential") &&
+        (!space || tab.getAttribute("zen-workspace-id") == space)
+    );
+    for (const tab of tabs) {
+      try {
+        win.gZenPinnedTabManager?.resetPinnedTab(tab);
+      } catch (e) {
+        console.error("Whimsy: reset pinned tab", e);
+      }
+    }
+    return tabs.length;
+  },
+
+  openLibrarySection(win, section) {
+    const ZenLibrary = win.customElements.get("zen-library");
+    const lib = win.document.querySelector("zen-library");
+    if (!ZenLibrary?.toggle || (lib?.zenLibrarySections && !(section in lib.zenLibrarySections))) {
+      return false;
+    }
+    ZenLibrary.toggle(section);
+    return true;
+  },
+
   initWindow(win) {
     const { WhimsyCommands } = lazy;
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyResetSpaceTabs",
+      l10nId: "whimsy-action-reset-space-tabs",
+      run: w => this.resetSpaceTabs(w),
+      icon: "chrome://browser/skin/zen-icons/reload.svg",
+      isAvailable: w => enabled() && w.gBrowser.tabs.some(t => t.pinned && !t.hasAttribute("zen-essential")),
+    });
+    for (const [section, l10nId] of [["media", "whimsy-action-view-media"], ["boosts", "whimsy-action-view-boosts"]]) {
+      WhimsyCommands.register(win, {
+        id: `cmd_whimsyView-${section}`,
+        l10nId,
+        run: w => this.openLibrarySection(w, section),
+        icon: "chrome://browser/skin/zen-icons/library.svg",
+        isAvailable: () => enabled(),
+      });
+    }
     WhimsyCommands.register(win, {
       id: "cmd_whimsyToggleToolbar",
       l10nId: "whimsy-action-toggle-toolbar",
@@ -207,7 +255,8 @@ export const WhimsyArcMenus = {
       menuitem(document, "menu_whimsyTabsPrev", "whimsy-menu-prev-tab", "whimsy-tab-prev", "key_whimsyTabPrev"),
       menuitem(document, "menu_whimsyTabsReveal", "whimsy-menu-reveal-tab", "cmd_whimsyRevealTab"),
       document.createXULElement("menuseparator"),
-      menuitem(document, "menu_whimsyTabsClearToday", "whimsy-menu-clear-today", "cmd_zenCloseUnpinnedTabs", "zen-close-all-unpinned-tabs")
+      menuitem(document, "menu_whimsyTabsClearToday", "whimsy-menu-clear-today", "cmd_zenCloseUnpinnedTabs", "zen-close-all-unpinned-tabs"),
+      menuitem(document, "menu_whimsyTabsResetSpace", "whimsy-menu-reset-space-tabs", "cmd_whimsyResetSpaceTabs")
     );
     menu.append(popup);
     after.after(menu);
@@ -221,7 +270,9 @@ export const WhimsyArcMenus = {
     anchor.before(
       document.createXULElement("menuseparator"),
       menuitem(document, "menu_whimsyOpenLibrary", "whimsy-menu-open-library", "cmd_zenToggleLibrary", "zen-library-toggle"),
-      menuitem(document, "menu_whimsyViewDownloads", "whimsy-menu-view-downloads", "Tools:Downloads", "key_openDownloads")
+      menuitem(document, "menu_whimsyViewDownloads", "whimsy-menu-view-downloads", "Tools:Downloads", "key_openDownloads"),
+      menuitem(document, "menu_whimsyViewMedia", "whimsy-menu-view-media", "cmd_whimsyView-media"),
+      menuitem(document, "menu_whimsyViewBoosts", "whimsy-menu-view-boosts", "cmd_whimsyView-boosts")
     );
   },
 

@@ -27,6 +27,9 @@ add_task(function test_items_exist() {
     "menu_whimsyViewDownloads",
     "menu_whimsyKeyboardShortcuts",
     "menu_whimsyCapturePortrait",
+    "menu_whimsyTabsResetSpace",
+    "menu_whimsyViewMedia",
+    "menu_whimsyViewBoosts",
   ]) {
     ok(document.getElementById(id), `${id} is in the menu bar`);
   }
@@ -103,4 +106,19 @@ add_task(async function test_switch_off() {
   firePopup("whimsy-tabs-menubar-popup");
   is(pin.getAttribute("data-l10n-id"), before, "Nothing updates with the switch off");
   await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_reset_space_tabs() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?pinned-home");
+  gBrowser.pinTab(tab);
+  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "https://example.com/?wandered");
+  await loaded;
+  ok(WhimsyArcMenus.resetSpaceTabs(window) >= 1, "Resets this space's pinned tabs");
+  await TestUtils.waitForCondition(
+    () => tab.linkedBrowser.currentURI.spec.includes("pinned-home"),
+    "Back on its pinned page"
+  );
+  gBrowser.unpinTab(tab);
+  BrowserTestUtils.removeTab(tab);
 });
