@@ -28,6 +28,15 @@ const PANEL_ID = "whimsyHeavyTabsPanel";
 const POLL_INTERVAL_MS = 3000;
 const TOP_N = 8;
 
+// about:blank, data: and similar have no host; displayHost throws for them.
+function hostOf(tab) {
+  try {
+    return tab.linkedBrowser?.currentURI?.displayHost || "";
+  } catch (e) {
+    return "";
+  }
+}
+
 export const WhimsyHeavyTabs = {
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -128,7 +137,7 @@ export const WhimsyHeavyTabs = {
       for (const tab of group.tabs) {
         const item = lazy.WhimsyPanels.item(document, {
           label: tab.label,
-          subtitle: tab.linkedBrowser?.currentURI?.displayHost || "",
+          subtitle: hostOf(tab),
           icon: tab.getAttribute("image") || "chrome://global/skin/icons/defaultFavicon.svg",
           favicon: true,
           onCommand: () => {
