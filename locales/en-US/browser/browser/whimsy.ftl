@@ -1710,3 +1710,4 @@ whimsy-profile-move-tab-accept =
         [one] Move Tab
        *[other] Move Tabs
     }
+whimsy-profile-reverted-toast = Whimsy has reverted to using your Default profile for { $spaces }

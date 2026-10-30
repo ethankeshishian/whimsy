@@ -235,3 +235,29 @@ add_task(async function essentials_follow_the_space_profile() {
     await gZenWorkspaces.removeWorkspace(space.uuid);
   }
 });
+
+// Migration: nothing moves; Default is container 0 and keeps everything.
+// What's left is a profile vanishing under its spaces (deleted on another
+// synced device): Zen puts them on Default and Whimsy says so.
+add_task(async function lost_profile_falls_back_to_default_with_a_toast() {
+  is(WhimsyProfiles.profileIdOfSpace({ containerTabId: 0 }), 0, "No container is Default");
+  is(WhimsyProfiles.profileIdOfSpace({}), 0, "A space from before profiles is Default's");
+  const gone = makeProfile("Whimsy Vanishing");
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Vanishing Space", undefined, true, gone);
+  const shown = [];
+  const showToast = gZenUIManager.showToast;
+  gZenUIManager.showToast = (id, options) => shown.push({ id, options });
+  try {
+    ContextualIdentityService.remove(gone);
+    await TestUtils.waitForCondition(() => shown.some(t => t.id == "whimsy-profile-reverted-toast"),
+      "Whimsy says the space went back to Default");
+    is(shown.find(t => t.id == "whimsy-profile-reverted-toast").options.l10nArgs.spaces, "Vanishing Space",
+      "…naming the space");
+    await TestUtils.waitForCondition(() =>
+      (gZenWorkspaces.getWorkspaces().find(w => w.uuid == space.uuid)?.containerTabId ?? 0) == 0,
+    "Zen moved it to Default");
+  } finally {
+    gZenUIManager.showToast = showToast;
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+  }
+});

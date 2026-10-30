@@ -34,7 +34,6 @@ ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whim
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const FEATURE_PREF = "whimsy.feature.space-profiles";
-const MIGRATED_PREF = "whimsy.profiles.migrated";
 export const DEFAULT_KEY = "default";
 // Firefox's container colours, in its own order; a new profile takes the
 // next one so neighbours in a list differ.
@@ -256,33 +255,6 @@ export const WhimsyProfiles = {
     return true;
   },
 
-  // -- migration ---------------------------------------------------------
-
-  // Versioned steps, each run once. Default needs nothing: it IS container
-  // 0, so cookies, untagged logins, history, essentials and extensions stay
-  // where they are. Later steps register themselves here.
-  _migrations: [],
-  addMigration(version, step) {
-    this._migrations.push({ version, step });
-    this._migrations.sort((a, b) => a.version - b.version);
-  },
-
-  async migrate(win) {
-    const done = Services.prefs.getIntPref(MIGRATED_PREF, 0);
-    for (const { version, step } of this._migrations) {
-      if (version <= done) {
-        continue;
-      }
-      try {
-        await step(win);
-      } catch (e) {
-        console.error(`Whimsy: profiles migration ${version}`, e);
-        return;
-      }
-      Services.prefs.setIntPref(MIGRATED_PREF, version);
-    }
-  },
-
   // -- name sheet (create / rename) --------------------------------------
 
   /**
@@ -477,21 +449,48 @@ export const WhimsyProfiles = {
     lazy.WhimsyProfileHistory.init();
     lazy.WhimsyProfileSettings.initWindow(win);
     lazy.WhimsyProfileMoves.initWindow(win);
-    for (const hook of this._windowHooks) {
-      try {
-        hook(win);
-      } catch (e) {
-        console.error("Whimsy: profiles window hook", e);
-      }
-    }
-    if (!this._migrating) {
-      this._migrating = this.migrate(win);
-    }
+    this.watchForLostProfiles(win);
   },
 
-  // Later phases add per-window setup here.
-  _windowHooks: [],
-  onWindow(hook) {
-    this._windowHooks.push(hook);
+  // Migration needs no step: Default IS container 0, so everything from
+  // before profiles (cookies, untagged logins, unattributed history,
+  // essentials, extensions) is already Default's. What can still happen is
+  // a profile vanishing under its spaces (deleted on another synced
+  // device); Zen then puts them back on Default. Say so, as Arc does.
+  watchForLostProfiles(win) {
+    // Zen may reset the spaces (and notify) before this observer runs, so
+    // a space that just lost its container keeps the old id here until the
+    // deletion is reported.
+    const snapshot = () => {
+      const previous = win._whimsyProfileSpaces ?? new Map();
+      win._whimsyProfileSpaces = new Map(win.gZenWorkspaces.getWorkspaces().map(space => {
+        let id = Number(space.containerTabId) || 0;
+        const old = previous.get(space.uuid);
+        if (!id && old?.id && !this.exists(old.id)) {
+          id = old.id;
+        }
+        return [space.uuid, { id, name: space.name }];
+      }));
+    };
+    snapshot();
+    const onDeleted = subject => {
+      const id = subject?.wrappedJSObject?.userContextId;
+      const lost = [...(win._whimsyProfileSpaces?.values() ?? [])].filter(space => id && space.id == id);
+      for (const space of lost) {
+        space.id = 0;
+      }
+      const names = lost.map(space => space.name);
+      if (this.enabled && names.length && !win.closed) {
+        win.gZenUIManager?.showToast?.("whimsy-profile-reverted-toast", {
+          l10nArgs: { spaces: new Intl.ListFormat(undefined, { type: "conjunction" }).format(names) },
+        });
+      }
+    };
+    win.addEventListener("ZenWorkspaceDataChanged", snapshot);
+    Services.obs.addObserver(onDeleted, "contextual-identity-deleted");
+    win.addEventListener("unload", () => {
+      win.removeEventListener("ZenWorkspaceDataChanged", snapshot);
+      Services.obs.removeObserver(onDeleted, "contextual-identity-deleted");
+    }, { once: true });
   },
 };
