@@ -5,22 +5,25 @@
 // wave7/split: a split pane's actions live on the pane. Zen already draws a
 // small header at the top of each pane when you hover it (a drag handle to
 // rearrange, and a button that takes the page out of the split). Whimsy
-// adds a ⋯ button there that opens the pane's menu, and takes the same
-// actions out of the tab right-click menu, which keeps only the one item
-// that creates a split ("Add Split View" / "Open N Tabs in Split View").
-// Why: the action sits on what it changes; a tab right-click doesn't say
-// which pane it means, and each control lives in one place.
+// adds a ⋯ button there that opens the pane's menu.
 //
-// The menu, in groups (optional items last, so the fixed ones never move):
-//   Separate Page from Split View · Separate All Tabs
-//   Swap Panes · Make This a Follower Split / Stop Following (2 panes)
-//   Favorite This Split… · Share Split View… (when Zen's share is on)
-//   Close this Split Pane · Expand Current Split
-// Arc's names: "Separate Page from Split View", "Close this Split Pane" and
-// "Expand Current Split" (Arc's View menu; Expand keeps this pane and closes
-// the other panes, per Arc's command bar docs), "Separate All Tabs" (Arc's
-// split tab menu, Help Center "Split View: View Multiple Tabs at Once":
-// every pane goes back to being its own tab, nothing closes).
+// wave7/split2 (user: "Both. Copy Arc identically."): the ⋯ menu holds
+// exactly Arc's per-pane items, the ones Arc shows in the split row's
+// "<page title> ▸" submenu (WhimsySplitRow builds those from the same list):
+//   Separate from Split View
+//   ---
+//   Share ▸ · Mute · Copy Link ⇧⌘C · Copy link as Markdown
+//   ---
+//   Archive Item
+// Swap Panes, Follower Split, Favorite This Split and Expand Current Split
+// are still in the command bar and keep their keys.
+//
+// Arc's pane header is always visible: a strip over the page with back,
+// forward, reload, the page's host in the middle, and the pane's buttons
+// on the right. Whimsy keeps Zen's hover header by default; Settings →
+// Links → Split view → "Always show split pane headers"
+// (whimsy.split.always-show-headers) turns it into Arc's strip. The nav
+// buttons and host are in every header and shown only in that mode (CSS).
 //
 // Zen's own header button for "take this page out" (fullscreen icon, no
 // label) is hidden while this is on: the menu's first item does the same,
@@ -31,44 +34,56 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
-  WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
-  WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
-  WhimsySplitFavorites: "resource:///modules/whimsy/WhimsySplitFavorites.sys.mjs",
+  WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.split-pane-menu";
+export const ALWAYS_SHOW_PREF = "whimsy.split.always-show-headers";
 const MENU_ID = "whimsySplitPaneMenu";
 const BUTTON_CLASS = "whimsy-split-pane-menu-button";
 const OPEN_ATTR = "whimsy-menu-open";
+const installed = new WeakSet();
 
 function enabled(pref = FEATURE_PREF) {
   return Services.prefs.getBoolPref(pref, true);
 }
 
-// [id, l10n id] per group. Visibility is decided in updateMenu.
-const GROUPS = [
-  [
-    ["whimsySplitPane-separate", "whimsy-menu-separate-page"],
-    ["whimsySplitPane-separateAll", "whimsy-split-pane-separate-all"],
-  ],
-  [
-    ["whimsySplitPane-swap", "whimsy-split-pane-swap"],
-    ["whimsySplitPane-follow", "tab-context-whimsy-follow"],
-  ],
-  [
-    ["whimsySplitPane-favorite", "whimsy-split-pane-favorite"],
-    ["whimsySplitPane-share", "zen-share-split-view"],
-  ],
-  [
-    ["whimsySplitPane-close", "whimsy-menu-close-split-pane"],
-    ["whimsySplitPane-closeOthers", "whimsy-menu-expand-split"],
-  ],
+// Arc's per-pane items, in Arc's order. [action, l10n id]; null is a
+// separator; "share" is Firefox's Share submenu (SharingUtils).
+export const PANE_ITEMS = [
+  ["separate", "whimsy-split-pane-separate"],
+  null,
+  ["share", null],
+  ["mute", "whimsy-split-pane-mute"],
+  ["copy-link", "whimsy-split-pane-copy-link"],
+  ["copy-markdown", "whimsy-split-pane-copy-markdown"],
+  null,
+  ["archive", "whimsy-split-pane-archive"],
 ];
+
+// The ⋯ menu's ids, one per action (the row submenus use data attributes).
+const PANE_IDS = {
+  separate: "whimsySplitPane-separate",
+  share: "whimsySplitPane-share",
+  mute: "whimsySplitPane-mute",
+  "copy-link": "whimsySplitPane-copyLink",
+  "copy-markdown": "whimsySplitPane-copyMarkdown",
+  archive: "whimsySplitPane-archive",
+};
+
+function isBlank(tab) {
+  const uri = tab?.linkedBrowser?.currentURI;
+  return !uri || lazy.WhimsyCopy.isBlank(uri);
+}
 
 export const WhimsySplitPane = {
   get enabled() {
     return enabled();
+  },
+
+  get alwaysShow() {
+    return Services.prefs.getBoolPref(ALWAYS_SHOW_PREF, false);
   },
 
   // The tab shown in a pane (its .browserSidebarContainer), or null.
@@ -83,9 +98,10 @@ export const WhimsySplitPane = {
 
   initWindow(win) {
     const splitter = win.gZenViewSplitter;
-    if (!splitter) {
+    if (!splitter || installed.has(win)) {
       return;
     }
+    installed.add(win);
     // Every header Zen creates from now on gets the ⋯ button; headers of
     // splits restored before Whimsy started get it here.
     const createHeader = splitter._createHeader;
@@ -104,6 +120,16 @@ export const WhimsySplitPane = {
     for (const header of win.document.querySelectorAll(".zen-view-splitter-header-container")) {
       this.decorateHeader(win, header, header.closest(".browserSidebarContainer"));
     }
+
+    // The always-visible header shows the page's host and whether it can go
+    // back or forward; keep both current.
+    win.gBrowser.addTabsProgressListener({
+      onLocationChange: (browser, webProgress) => {
+        if (webProgress?.isTopLevel) {
+          this.updateHeaderFor(win, browser);
+        }
+      },
+    });
 
     const tabMenu = win.document.getElementById("tabContextMenu");
     // Runs after Zen's own popupshowing (TabContextMenu.updateContextMenu),
@@ -129,18 +155,48 @@ export const WhimsySplitPane = {
       return;
     }
     const { document } = win;
+    const paneTab = () => this.tabForContainer(win, container ?? header.closest(".browserSidebarContainer"));
+
+    // Arc's strip: back, forward, reload, then the host. Shown only when
+    // headers are always visible (whimsy-browser.css).
+    const nav = (cls, l10nId, act) => {
+      const el = document.createXULElement("toolbarbutton");
+      el.classList.add("whimsy-split-pane-nav", cls);
+      el.setAttribute("tabindex", "0");
+      document.l10n.setAttributes(el, l10nId);
+      el.addEventListener("command", () => {
+        const browser = paneTab()?.linkedBrowser;
+        if (browser) {
+          act(browser);
+        }
+      });
+      return el;
+    };
+    const back = nav("whimsy-split-pane-back", "whimsy-split-pane-back", b => b.canGoBack && b.goBack());
+    const forward = nav("whimsy-split-pane-forward", "whimsy-split-pane-forward", b => b.canGoForward && b.goForward());
+    const reload = nav("whimsy-split-pane-reload", "whimsy-split-pane-reload", b => b.reload());
+    const host = document.createXULElement("hbox");
+    host.classList.add("whimsy-split-pane-host");
+    host.setAttribute("align", "center");
+    host.setAttribute("pack", "center");
+    const hostIcon = document.createXULElement("image");
+    hostIcon.classList.add("whimsy-split-pane-host-icon");
+    const hostLabel = document.createXULElement("label");
+    hostLabel.classList.add("whimsy-split-pane-host-label");
+    hostLabel.setAttribute("crop", "end");
+    host.append(hostIcon, hostLabel);
+    header.prepend(back, forward, reload, host);
+
     const button = document.createXULElement("toolbarbutton");
     button.classList.add(BUTTON_CLASS);
     button.setAttribute("tabindex", "0");
     button.setAttribute("aria-haspopup", "menu");
     document.l10n.setAttributes(button, "whimsy-split-pane-menu-button");
     button.addEventListener("command", event => {
-      const pane = container ?? button.closest(".browserSidebarContainer");
-      const tab = this.tabForContainer(win, pane);
       // A toolbarbutton fires command for Enter and Space as well as a
       // click; from the keyboard, the menu opens with its first item active.
       const keyboard = event.inputSource == win.MouseEvent.MOZ_SOURCE_KEYBOARD;
-      this.openMenuForTab(win, tab, { anchor: button, keyboard });
+      this.openMenuForTab(win, paneTab(), { anchor: button, keyboard });
     });
     // Zen's drag handle had no name either.
     const drag = header.querySelector(".zen-tab-rearrange-button");
@@ -149,6 +205,117 @@ export const WhimsySplitPane = {
     }
     // Last, after Zen's two buttons.
     header.appendChild(button);
+    const browser = paneTab()?.linkedBrowser ?? container?.querySelector("browser");
+    if (browser) {
+      this.updateHeaderFor(win, browser);
+    }
+  },
+
+  // The host label and back/forward state of the header over `browser`.
+  updateHeaderFor(win, browser) {
+    const header = browser?.closest(".browserSidebarContainer")?.querySelector(".zen-view-splitter-header");
+    const label = header?.querySelector(".whimsy-split-pane-host-label");
+    if (!label) {
+      return;
+    }
+    let text = "";
+    try {
+      const uri = browser.currentURI;
+      if (uri && !lazy.WhimsyCopy.isBlank(uri)) {
+        text = uri.displayHostPort || uri.displaySpec;
+      }
+    } catch {
+      // No host (about:, data:): leave it empty.
+    }
+    label.setAttribute("value", text);
+    header.querySelector(".whimsy-split-pane-back")?.toggleAttribute("disabled", !browser.canGoBack);
+    header.querySelector(".whimsy-split-pane-forward")?.toggleAttribute("disabled", !browser.canGoForward);
+  },
+
+  // Fills `popup` with Arc's per-pane items for `tab`. `ids` gives the ⋯
+  // menu its fixed ids; the row's submenus (several panes) go without.
+  fillPaneItems(win, popup, tab, { ids = false } = {}) {
+    const { document } = win;
+    popup.replaceChildren();
+    let shareAfter = null;
+    for (const entry of PANE_ITEMS) {
+      if (!entry) {
+        popup.appendChild(document.createXULElement("menuseparator"));
+        continue;
+      }
+      const [action, l10nId] = entry;
+      if (action == "share") {
+        // Firefox's own Share ▸ (macOS share services, Copy Link, email),
+        // inserted after the item before it.
+        shareAfter = popup.lastElementChild;
+        continue;
+      }
+      const item = document.createXULElement("menuitem");
+      item.dataset.whimsyPaneAction = action;
+      if (ids) {
+        item.id = PANE_IDS[action];
+      }
+      document.l10n.setAttributes(item, l10nId);
+      switch (action) {
+        case "mute": {
+          // Arc greys Mute out on a pane that isn't playing anything.
+          const muted = tab.muted;
+          document.l10n.setAttributes(item, muted ? "whimsy-split-pane-unmute" : "whimsy-split-pane-mute");
+          item.disabled = !muted && !tab.soundPlaying;
+          break;
+        }
+        case "copy-link":
+          // Shows Copy URL's key (⇧⌘C), like Arc; the key copies the
+          // focused page, this item this pane's.
+          item.setAttribute("key", "zen-copy-url");
+          item.disabled = isBlank(tab);
+          break;
+        case "copy-markdown":
+          item.disabled = isBlank(tab);
+          break;
+      }
+      popup.appendChild(item);
+    }
+    if (shareAfter && win.SharingUtils && tab.linkedBrowser) {
+      try {
+        win.SharingUtils.ensureShareMenu(tab.linkedBrowser, null, shareAfter);
+        const share = shareAfter.nextElementSibling;
+        if (share?.matches(".share-tab-url-item")) {
+          share.dataset.whimsyPaneAction = "share";
+          if (ids) {
+            share.id = PANE_IDS.share;
+          }
+        }
+      } catch (e) {
+        console.error("Whimsy: split pane share menu", e);
+      }
+    }
+  },
+
+  // Runs one of Arc's per-pane actions on `tab`'s pane.
+  runPaneAction(win, action, tab) {
+    if (!this.splitOf(win, tab)) {
+      return false;
+    }
+    const keys = lazy.WhimsySplitKeys;
+    switch (action) {
+      case "separate":
+        // Arc keeps the page in front once it's out.
+        win.gBrowser.selectedTab = tab;
+        return keys.separatePage(win);
+      case "mute":
+        tab.toggleMuteAudio();
+        return true;
+      case "copy-link":
+      case "copy-markdown":
+        lazy.WhimsyCopy.copy(win, lazy.WhimsyCopy.linksFor([tab]), { markdown: action == "copy-markdown" });
+        return true;
+      case "archive":
+        win.gZenViewSplitter.removeTabFromGroup(tab, undefined, { forUnsplit: true, changeTab: tab.selected });
+        win.gBrowser.removeTab(tab, { animate: true });
+        return true;
+    }
+    return false;
   },
 
   ensureMenu(win) {
@@ -159,23 +326,11 @@ export const WhimsySplitPane = {
     }
     menu = document.createXULElement("menupopup");
     menu.id = MENU_ID;
-    GROUPS.forEach((group, index) => {
-      if (index) {
-        const separator = document.createXULElement("menuseparator");
-        separator.id = `whimsySplitPane-separator-${index}`;
-        menu.appendChild(separator);
-      }
-      for (const [id, l10nId] of group) {
-        const item = document.createXULElement("menuitem");
-        item.id = id;
-        document.l10n.setAttributes(item, l10nId);
-        menu.appendChild(item);
-      }
-    });
     menu.addEventListener("command", event => {
-      const tab = menu.whimsyTab;
-      if (tab) {
-        this.run(win, event.target.id, tab);
+      const action = event.target.dataset?.whimsyPaneAction;
+      // Share's own items (inside its submenu) are SharingUtils'.
+      if (action && event.target.parentNode == menu && menu.whimsyTab) {
+        this.runPaneAction(win, action, menu.whimsyTab);
       }
     });
     menu.addEventListener("popuphidden", event => {
@@ -188,42 +343,6 @@ export const WhimsySplitPane = {
     return menu;
   },
 
-  // Shows each item that applies to this pane and hides separators left
-  // with nothing on one side.
-  updateMenu(win, tab) {
-    const { document } = win;
-    const group = this.splitOf(win, tab);
-    const follower = lazy.WhimsyFollowerTabs;
-    const partner = follower.enabled ? follower.partnerOf(win, tab) : null;
-    const shown = {
-      "whimsySplitPane-separate": true,
-      "whimsySplitPane-separateAll": true,
-      "whimsySplitPane-swap": enabled("whimsy.feature.split-swap-panes"),
-      "whimsySplitPane-follow": !!partner,
-      "whimsySplitPane-favorite": lazy.WhimsySplitFavorites.enabled,
-      "whimsySplitPane-share": !!win.gZenShareManager?.enabled && !!tab.group?.hasAttribute("split-view-group"),
-      "whimsySplitPane-close": true,
-      "whimsySplitPane-closeOthers": enabled("whimsy.feature.split-close-other-panes") && (group?.tabs.length ?? 0) > 1,
-    };
-    for (const [id, show] of Object.entries(shown)) {
-      document.getElementById(id).hidden = !show;
-    }
-    if (partner) {
-      document.l10n.setAttributes(
-        document.getElementById("whimsySplitPane-follow"),
-        follower.isSource(tab) ? "tab-context-whimsy-unfollow" : "tab-context-whimsy-follow"
-      );
-    }
-    GROUPS.forEach((items, index) => {
-      if (!index) {
-        return;
-      }
-      const before = GROUPS.slice(0, index).flat().some(([id]) => shown[id]);
-      const mine = items.some(([id]) => shown[id]);
-      document.getElementById(`whimsySplitPane-separator-${index}`).hidden = !before || !mine;
-    });
-  },
-
   openMenuForTab(win, tab, { anchor = null, keyboard = false } = {}) {
     if (!this.enabled || !this.splitOf(win, tab)) {
       return false;
@@ -232,7 +351,7 @@ export const WhimsySplitPane = {
     const headerContainer = container?.querySelector(".zen-view-splitter-header-container");
     anchor ??= headerContainer?.querySelector(`.${BUTTON_CLASS}`) ?? container;
     const menu = this.ensureMenu(win);
-    this.updateMenu(win, tab);
+    this.fillPaneItems(win, menu, tab, { ids: true });
     menu.whimsyTab = tab;
     menu.whimsyHeader = headerContainer ?? null;
     // Keep the header up while its menu is open (no hover needed).
@@ -241,7 +360,7 @@ export const WhimsySplitPane = {
       menu.addEventListener(
         "popupshown",
         () => {
-          const first = [...menu.children].find(el => el.localName == "menuitem" && !el.hidden);
+          const first = [...menu.children].find(el => el.localName == "menuitem" && !el.hidden && !el.disabled);
           if (first) {
             menu.activateItem(first);
           }
@@ -253,47 +372,9 @@ export const WhimsySplitPane = {
     return true;
   },
 
-  // Each action works on the selected tab, the way its keyboard command
-  // does, so the pane is focused first.
-  run(win, id, tab) {
-    if (!this.splitOf(win, tab)) {
-      return;
-    }
-    if (win.gBrowser.selectedTab != tab) {
-      win.gBrowser.selectedTab = tab;
-    }
-    const keys = lazy.WhimsySplitKeys;
-    const split = lazy.WhimsySplit;
-    switch (id) {
-      case "whimsySplitPane-separate":
-        keys.separatePage(win);
-        break;
-      case "whimsySplitPane-separateAll":
-        win.gZenViewSplitter.unsplitCurrentView();
-        break;
-      case "whimsySplitPane-swap":
-        split.swapPanes(win);
-        break;
-      case "whimsySplitPane-follow":
-        lazy.WhimsyFollowerTabs.toggle(win, tab);
-        break;
-      case "whimsySplitPane-favorite":
-        lazy.WhimsySplitFavorites.favoriteCurrentSplit(win);
-        break;
-      case "whimsySplitPane-share":
-        win.gZenShareManager?.shareSplitView(tab.group);
-        break;
-      case "whimsySplitPane-close":
-        keys.closePane(win);
-        break;
-      case "whimsySplitPane-closeOthers":
-        split.closeOtherPanes(win);
-        break;
-    }
-  },
-
-  // The tab menu keeps one split item, the one that creates a split. On a
-  // tab that's already in one, its pane actions are on the pane instead.
+  // With the split row menu off, the tab menu keeps one split item, the one
+  // that creates a split; a split tab's actions are on the pane instead.
+  // (With it on, a split row opens WhimsySplitRow's menu, not this one.)
   updateTabMenu(win) {
     if (!this.enabled) {
       return;

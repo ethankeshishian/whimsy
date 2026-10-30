@@ -3,17 +3,28 @@
 
 "use strict";
 
-// wave7/split: a split pane's actions live in its header's ⋯ menu; the tab
-// menu keeps only the item that creates a split; Arc's split view names.
+// wave7/split: a split pane's header has a ⋯ menu. wave7/split2: it holds
+// exactly Arc's per-pane items (the split row's "<page title> ▸" submenu),
+// and "Always show split pane headers" keeps the header up like Arc's.
 
 const { WhimsySplitPane } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitPane.sys.mjs");
-const { WhimsyFollowerTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs");
-const { WhimsySplitKeys } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitKeys.sys.mjs");
 
-async function makeSplit(count) {
+// Arc's per-pane submenu (arc-ref menus-context.txt), as l10n ids.
+const ARC_PANE_ITEMS = [
+  "whimsy-split-pane-separate",
+  "-",
+  "menu-file-share-url",
+  "whimsy-split-pane-mute",
+  "whimsy-split-pane-copy-link",
+  "whimsy-split-pane-copy-markdown",
+  "-",
+  "whimsy-split-pane-archive",
+];
+
+async function makeSplit(count, prefix = "pane") {
   const tabs = [];
   for (let i = 0; i < count; i++) {
-    tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, `https://example.com/?pane-${i}`));
+    tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, `https://example.com/?${prefix}-${i}`));
   }
   gZenViewSplitter.splitTabs(tabs, "vsep", 0);
   await TestUtils.waitForCondition(() => tabs.every(t => t.splitView), `${count} panes`);
@@ -46,29 +57,22 @@ async function openPaneMenu(tab, options) {
   return paneMenu();
 }
 
-function visibleIds(menu) {
-  return [...menu.children].filter(el => el.localName == "menuitem" && !el.hidden).map(el => el.id);
+async function closePaneMenu() {
+  const hidden = BrowserTestUtils.waitForPopupEvent(paneMenu(), "hidden");
+  paneMenu().hidePopup();
+  await hidden;
+}
+
+function describe(popup) {
+  return [...popup.children]
+    .filter(el => !el.hidden)
+    .map(el => (el.localName == "menuseparator" ? "-" : document.l10n.getAttributes(el).id));
 }
 
 async function choose(id) {
   const menu = paneMenu();
   const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
   menu.activateItem(document.getElementById(id));
-  await hidden;
-}
-
-async function openTabMenu(tab) {
-  const menu = document.getElementById("tabContextMenu");
-  const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
-  EventUtils.synthesizeMouseAtCenter(tab, { type: "contextmenu", button: 2 });
-  await shown;
-  return menu;
-}
-
-async function closeTabMenu() {
-  const menu = document.getElementById("tabContextMenu");
-  const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
-  menu.hidePopup();
   await hidden;
 }
 
@@ -80,6 +84,9 @@ add_task(async function test_header_has_a_menu_button() {
   is(document.l10n.getAttributes(button).id, "whimsy-split-pane-menu-button", "The ⋯ button has a name");
   is(document.l10n.getAttributes(header.querySelector(".zen-tab-rearrange-button")).id, "whimsy-split-pane-drag", "The drag handle has a name");
   is(getComputedStyle(header.querySelector(".zen-tab-unsplit-button")).display, "none", "Zen's unlabelled separate button is gone (it's in the menu)");
+  for (const cls of ["whimsy-split-pane-back", "whimsy-split-pane-forward", "whimsy-split-pane-reload", "whimsy-split-pane-host"]) {
+    is(getComputedStyle(header.querySelector(`.${cls}`)).display, "none", `${cls} only shows with headers always on`);
+  }
 
   button.focus();
   ok(header.matches(":focus-within"), "Keyboard focus on the ⋯ button shows the header");
@@ -87,28 +94,19 @@ add_task(async function test_header_has_a_menu_button() {
   cleanup(tabs);
 });
 
-add_task(async function test_menu_lists_the_pane_actions() {
+add_task(async function test_menu_is_arcs_pane_submenu() {
   const tabs = await makeSplit(3);
   const menu = await openPaneMenu(tabs[1]);
   ok(headerOf(tabs[1]).hasAttribute("whimsy-menu-open"), "The header stays up while its menu is open");
-  const expected = [
-    "whimsySplitPane-separate",
-    "whimsySplitPane-separateAll",
-    "whimsySplitPane-swap",
-    "whimsySplitPane-favorite",
-    ...(gZenShareManager.enabled ? ["whimsySplitPane-share"] : []),
-    "whimsySplitPane-close",
-    "whimsySplitPane-closeOthers",
-  ];
-  Assert.deepEqual(visibleIds(menu), expected, "Three panes: every pane action but Follower (2 panes only)");
-  const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
-  menu.hidePopup();
-  await hidden;
+  Assert.deepEqual(describe(menu), ARC_PANE_ITEMS, "Arc's per-pane items, in Arc's order");
+  ok(document.getElementById("whimsySplitPane-mute").disabled, "Mute is greyed out on a silent pane, like Arc");
+  is(document.getElementById("whimsySplitPane-copyLink").getAttribute("key"), "zen-copy-url", "Copy Link shows ⇧⌘C");
+  await closePaneMenu();
   ok(!headerOf(tabs[1]).hasAttribute("whimsy-menu-open"), "The header hides again with the menu");
   cleanup(tabs);
 });
 
-add_task(async function test_separate_page_acts_on_its_pane() {
+add_task(async function test_separate_acts_on_its_pane() {
   const tabs = await makeSplit(3);
   is(gBrowser.selectedTab, tabs[0], "The first pane is focused");
   await openPaneMenu(tabs[2]);
@@ -119,45 +117,25 @@ add_task(async function test_separate_page_acts_on_its_pane() {
   cleanup(tabs);
 });
 
-add_task(async function test_separate_all_tabs() {
-  const tabs = await makeSplit(3);
+add_task(async function test_copy_link_copies_that_pane() {
+  const tabs = await makeSplit(2, "copy");
   await openPaneMenu(tabs[1]);
-  await choose("whimsySplitPane-separateAll");
-  await TestUtils.waitForCondition(() => tabs.every(t => !t.splitView), "Every pane is its own tab again");
+  await SimpleTest.promiseClipboardChange("https://example.com/?copy-1", () => choose("whimsySplitPane-copyLink"));
+  await openPaneMenu(tabs[0]);
+  await SimpleTest.promiseClipboardChange(
+    data => data.includes("](https://example.com/?copy-0)"),
+    () => choose("whimsySplitPane-copyMarkdown")
+  );
+  ok(true, "Each pane's own link, plain and as Markdown");
   cleanup(tabs);
 });
 
-add_task(async function test_swap_and_follower_on_two_panes() {
-  const tabs = await makeSplit(2);
-  const group = () => gZenViewSplitter._data.find(g => g.tabs.includes(tabs[0]));
-  const menu = await openPaneMenu(tabs[0]);
-  ok(visibleIds(menu).includes("whimsySplitPane-follow"), "Two panes: Follower is offered");
-  await choose("whimsySplitPane-swap");
-  await TestUtils.waitForCondition(() => WhimsySplitKeys.panes(group())[0] == tabs[1], "The panes swapped");
-
-  await openPaneMenu(tabs[0]);
-  is(document.l10n.getAttributes(document.getElementById("whimsySplitPane-follow")).id, "tab-context-whimsy-follow", "Make This a Follower Split");
-  await choose("whimsySplitPane-follow");
-  await TestUtils.waitForCondition(() => WhimsyFollowerTabs.isSource(tabs[0]), "The pane is the follower split's source");
-
-  await openPaneMenu(tabs[0]);
-  is(document.l10n.getAttributes(document.getElementById("whimsySplitPane-follow")).id, "tab-context-whimsy-unfollow", "then Stop Following");
-  await choose("whimsySplitPane-follow");
-  ok(!WhimsyFollowerTabs.isSource(tabs[0]), "Stopped");
-  cleanup(tabs);
-});
-
-add_task(async function test_close_pane_and_close_others() {
+add_task(async function test_archive_closes_that_pane() {
   const tabs = await makeSplit(3);
   await openPaneMenu(tabs[2]);
-  await choose("whimsySplitPane-close");
-  await TestUtils.waitForCondition(() => !tabs[2].isConnected || tabs[2].closing, "Close this Split Pane closes that pane");
+  await choose("whimsySplitPane-archive");
+  await TestUtils.waitForCondition(() => !tabs[2].isConnected || tabs[2].closing, "Archive Item closes that pane");
   ok(tabs[0].splitView && tabs[1].splitView, "The others stay split");
-
-  await openPaneMenu(tabs[0]);
-  await choose("whimsySplitPane-closeOthers");
-  await TestUtils.waitForCondition(() => !tabs[1].isConnected || tabs[1].closing, "Expand Current Split closes the other panes");
-  ok(tabs[0].isConnected && !tabs[0].splitView, "The pane it came from stays, on its own");
   cleanup(tabs);
 });
 
@@ -170,32 +148,41 @@ add_task(async function test_keyboard_command_opens_the_focused_panes_menu() {
   await shown;
   is(menu.whimsyTab, tabs[1], "The menu is the focused pane's");
   await TestUtils.waitForCondition(() => menu.querySelector("menuitem[_moz-menuactive]"), "Its first item is active for the arrow keys");
-  const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
-  menu.hidePopup();
-  await hidden;
+  await closePaneMenu();
   cleanup(tabs);
 });
 
-add_task(async function test_tab_menu_no_longer_duplicates_pane_actions() {
-  const tabs = await makeSplit(2);
-  await openTabMenu(tabs[1]);
-  ok(document.getElementById("context_zenSplitTabs").hidden, "No split item on a tab that's already in a split");
-  ok(document.getElementById("context_zenShareSplitView").hidden, "Share Split View is in the pane menu instead");
-  const follower = document.getElementById("context_whimsyFollowerSplit");
-  ok(!follower || follower.hidden, "Make This a Follower Split is in the pane menu instead");
-  await closeTabMenu();
+add_task(async function test_always_show_headers_setting() {
+  const tabs = await makeSplit(2, "always");
+  const header = headerOf(tabs[1]);
+  // Nothing hovers the second pane here.
+  await TestUtils.waitForCondition(() => getComputedStyle(header).opacity == "0", "Off (default): the header waits for hover");
+  ok(!Services.prefs.getBoolPref("whimsy.split.always-show-headers"), "Off by default");
 
-  const lone = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?lone");
-  await openTabMenu(lone);
-  const create = document.getElementById("context_zenSplitTabs");
-  ok(!create.hidden, "A tab on its own keeps the one item that creates a split");
-  is(document.l10n.getAttributes(create).args.tabCount, 1, "as Add Split View");
-  await closeTabMenu();
-  cleanup([...tabs, lone]);
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.split.always-show-headers", true]] });
+  await TestUtils.waitForCondition(() => getComputedStyle(header).opacity == "1", "On: the header is always up, like Arc's");
+  const container = tabs[1].linkedBrowser.closest(".browserSidebarContainer");
+  ok(parseFloat(getComputedStyle(container).paddingTop) > 0, "and the pane makes room for it");
+  is(getComputedStyle(header).pointerEvents, "auto", "Its buttons take clicks without a hover");
+  for (const cls of ["whimsy-split-pane-back", "whimsy-split-pane-forward", "whimsy-split-pane-reload"]) {
+    isnot(getComputedStyle(header.querySelector(`.${cls}`)).display, "none", `Arc's ${cls} button shows`);
+  }
+  is(header.querySelector(".whimsy-split-pane-host-label").getAttribute("value"), "example.com", "The pane's host, centred like Arc's");
+  ok(header.querySelector(".whimsy-split-pane-back").hasAttribute("disabled"), "Back is off on a fresh page");
+
+  await SpecialPowers.popPrefEnv();
+  await TestUtils.waitForCondition(() => getComputedStyle(header).opacity == "0", "Off again: back to the hover header");
+  is(parseFloat(getComputedStyle(container).paddingTop) || 0, 0, "and the page gets its room back");
+  cleanup(tabs);
 });
 
 add_task(async function test_switch_off_gives_the_tab_menu_back() {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.split-pane-menu", false]] });
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["whimsy.feature.split-pane-menu", false],
+      ["whimsy.feature.split-row-menu", false],
+    ],
+  });
   const tabs = [];
   for (let i = 0; i < 2; i++) {
     tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, `https://example.com/?off-${i}`));
@@ -203,10 +190,15 @@ add_task(async function test_switch_off_gives_the_tab_menu_back() {
   gZenViewSplitter.splitTabs(tabs, "vsep", 0);
   await TestUtils.waitForCondition(() => tabs.every(t => t.splitView), "Split");
   ok(!WhimsySplitPane.openMenuForTab(window, tabs[0]), "No pane menu with the switch off");
-  await openTabMenu(tabs[0]);
+  const menu = document.getElementById("tabContextMenu");
+  const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
+  EventUtils.synthesizeMouseAtCenter(tabs[0], { type: "contextmenu", button: 2 });
+  await shown;
   ok(!document.getElementById("context_zenSplitTabs").hidden, "Zen's item is back on a split tab");
   ok(!document.getElementById("context_whimsyFollowerSplit")?.hidden, "and so is the follower item");
-  await closeTabMenu();
+  const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
+  menu.hidePopup();
+  await hidden;
   cleanup(tabs);
   await SpecialPowers.popPrefEnv();
 });
@@ -218,6 +210,7 @@ add_task(async function test_arc_labels() {
       "browser/zen-command-palette.ftl",
       "browser/zen-workspaces.ftl",
       "browser/preferences/zen-preferences.ftl",
+      "browser/menubar.ftl",
       "browser/whimsy.ftl",
     ],
     true
@@ -236,7 +229,12 @@ add_task(async function test_arc_labels() {
   is(value("whimsy-cheatsheet-unsplit"), "Separate All Tabs", "Cheat sheet");
   is(label("whimsy-menu-expand-split"), "Expand Current Split", "Arc's View menu: keep this pane, close the others");
   is(value("whimsy-action-close-other-panes"), "Expand Current Split", "same action in the command bar");
-  is(label("whimsy-split-pane-separate-all"), "Separate All Tabs", "Pane menu: every pane its own tab");
   is(label("whimsy-menu-close-split-pane"), "Close this Split Pane", "Arc's Close this Split Pane");
-  is(label("whimsy-menu-separate-page"), "Separate Page from Split View", "One pane");
+  is(label("whimsy-menu-separate-page"), "Separate Page from Split View", "One pane (View menu)");
+  Assert.deepEqual(
+    ARC_PANE_ITEMS.filter(id => id != "-").map(id => label(id)),
+    ["Separate from Split View", "Share", "Mute", "Copy Link", "Copy link as Markdown", "Archive Item"],
+    "Arc's per-pane labels, word for word"
+  );
+  is(label("whimsy-split-always-show-headers"), "Always show split pane headers", "The setting");
 });

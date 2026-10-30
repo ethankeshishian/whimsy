@@ -207,6 +207,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySplitPane: "resource:///modules/whimsy/WhimsySplitPane.sys.mjs",
 });
+// wave7/split2: Arc's right-click menu on a split's sidebar row.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySplitRow: "resource:///modules/whimsy/WhimsySplitRow.sys.mjs",
+});
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
@@ -698,6 +702,8 @@ export const Whimsy = {
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
     // wave7/split: the pane header's ⋯ menu. Checks its switch on use.
     run("split-pane-menu", () => lazy.WhimsySplitPane.initWindow(win));
+    // wave7/split2: Arc's split row menu. Checks its switch on use.
+    run("split-row-menu", () => lazy.WhimsySplitRow.initWindow(win));
     // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
     run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
   },
