@@ -26,7 +26,12 @@ async function shot(name, windowGlobal = window.browsingContext.currentWindowGlo
   if (!SHOTS) {
     return;
   }
-  const bitmap = await windowGlobal.drawSnapshot(null, 1, "white");
+  // A page's snapshot defaults to the window's size; crop it to the page's
+  // own viewport so no white margin shows beside or below it.
+  const embedder = windowGlobal.browsingContext.embedderElement;
+  const rect = embedder?.localName == "browser" ?
+    new DOMRect(0, 0, embedder.clientWidth, embedder.clientHeight) : null;
+  const bitmap = await windowGlobal.drawSnapshot(rect, 1, "white");
   const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
