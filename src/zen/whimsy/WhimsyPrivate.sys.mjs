@@ -220,6 +220,30 @@ export const WhimsyPrivate = {
   // dropped already typed in. A private tab's address bar searches with the
   // private engine anyway (gURLBar.isPrivate, set in updateSelected).
   wrapSearchHandoff() {
+    // Firefox 159 sends the box's handoff through ContentSearch (the same
+    // path as about:newtab's search box) rather than AboutPrivateBrowsing.
+    try {
+      const { ContentSearch } = ChromeUtils.importESModule("resource:///actors/ContentSearchParent.sys.mjs");
+      const original = ContentSearch?._onMessageSearchHandoff;
+      if (typeof original == "function" && !ContentSearch._whimsyHandoff) {
+        ContentSearch._whimsyHandoff = true;
+        ContentSearch._onMessageSearchHandoff = function (message) {
+          const browser = message?.browser;
+          const win = browser?.documentGlobal;
+          if (
+            WhimsyPrivate.featureOn &&
+            win?.gURLBar &&
+            browser.currentURI?.spec?.startsWith("about:privatebrowsing")
+          ) {
+            WhimsyPrivate.focusAddressBar(win, message.data?.text || "");
+            return undefined;
+          }
+          return original.call(this, message);
+        };
+      }
+    } catch (e) {
+      console.error("Whimsy: private page search (ContentSearch)", e);
+    }
     let parentClass;
     try {
       ({ AboutPrivateBrowsingParent: parentClass } = ChromeUtils.importESModule(
@@ -260,6 +284,15 @@ export const WhimsyPrivate = {
     }
     if (text) {
       win.gURLBar.search(text);
+      // Zen's floating bar resets its value as it finishes opening; put the
+      // pasted text back once it has.
+      for (const delay of [0, 100]) {
+        win.setTimeout(() => {
+          if (win.gURLBar.focused && win.gURLBar.value != text) {
+            win.gURLBar.search(text);
+          }
+        }, delay);
+      }
     }
   },
 

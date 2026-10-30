@@ -41,12 +41,16 @@ function resetUrlbar() {
 }
 
 add_task(async function test_branding() {
-  for (const url of [
-    "chrome://branding/content/firefox-wordmark.svg",
-    "chrome://branding/content/about-logo-private.svg",
+  const wordmark = await (await fetch("chrome://branding/content/firefox-wordmark.svg")).text();
+  ok(wordmark.includes("Whimsy"), "The wordmark is Whimsy's");
+  // The private page draws the PNG logo (about-logo-private.svg isn't
+  // packaged); Firefox's own PNGs are 6,118 and 13,286 bytes.
+  for (const [url, firefoxSize] of [
+    ["chrome://branding/content/about-logo-private.png", 6118],
+    ["chrome://branding/content/about-logo-private@2x.png", 13286],
   ]) {
-    const text = await (await fetch(url)).text();
-    ok(text.includes("Whimsy"), `${url} is Whimsy's`);
+    const bytes = (await (await fetch(url)).arrayBuffer()).byteLength;
+    ok(bytes > 0 && bytes != firefoxSize, `${url} is Whimsy's (${bytes} bytes)`);
   }
   const tab = await openPrivatePage();
   const shown = await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
@@ -78,6 +82,7 @@ add_task(async function test_search_box_opens_address_bar() {
   const actor = tab.linkedBrowser.browsingContext.currentWindowGlobal.getActor("AboutPrivateBrowsing");
   actor.receiveMessage({ name: "SearchHandoff", data: { text: "whimsy private search" } });
   await TestUtils.waitForCondition(() => gURLBar.focused, "The address bar is focused");
+  await TestUtils.waitForCondition(() => gURLBar.value == "whimsy private search", "The bar finished opening");
   is(gURLBar.value, "whimsy private search", "The pasted text is in the address bar");
   ok(!gURLBar.searchMode, "Still no search mode chip");
   ok(gURLBar.isPrivate, "The address bar searches privately");
