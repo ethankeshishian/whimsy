@@ -232,3 +232,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # home: homepage + changelog (about:whimsy).
 ["browser_whimsy_home.js"]
+
+# fixD: splits up to four panes (Split Grid re-layout, drop into a split).
+["browser_whimsy_split_four_panes.js"]

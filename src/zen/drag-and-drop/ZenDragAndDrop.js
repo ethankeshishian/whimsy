@@ -937,7 +937,8 @@
         !isTab(dropElement) ||
         dropElement.hasAttribute("zen-essential") ||
         dropElement.hasAttribute("zen-glance-tab") ||
-        dropElement?.group?.hasAttribute("split-view-group") ||
+        (dropElement?.group?.hasAttribute("split-view-group") &&
+          !gZenViewSplitter.whimsyCanDropIntoSplit?.(dropElement, draggedTab)) || // Whimsy hotfix
         movingTabsSet.size > 1
       ) {
         this._clearDragOverSplit();
@@ -1305,6 +1306,11 @@
       // Clear any visuals and timer
       this._clearDragOverSplit();
 
+      if (
+        gZenViewSplitter.whimsyDropIntoSplit?.(draggedTab, droppedOnTab, dropSide, activate) // Whimsy hotfix
+      ) {
+        return true;
+      }
       const isLeft = dropSide === "left";
       gZenViewSplitter.splitTabs(
         isLeft ? [draggedTab, droppedOnTab] : [droppedOnTab, draggedTab],
