@@ -19,17 +19,24 @@ const SECTIONS = [
   { sectionId: "whimsy-notes", feature: "notes", name: "WhimsyNotesSection" },
   { sectionId: "whimsy-finder-folders", feature: "finder-folders", name: "WhimsyFinderFoldersSection" },
   { sectionId: "whimsy-files", feature: "screenshot-sidebar", name: "WhimsyFilesSection" },
-  // fixB: the Archive, right after History so the two read as a pair.
-  { sectionId: "whimsy-archive", feature: "archive-view", name: "WhimsyArchiveSection", after: "history" },
   // media: Playlist v1 (Brave Playlist-like offline saving and Library section)
   { sectionId: "whimsy-playlist", feature: "playlist", name: "WhimsyPlaylistSection" },
 ];
 
 // Zen's History has a "Closed tabs" source that relabels its tab "Archive";
-// with Whimsy's Archive beside it that would be two Archives (and two
-// controls for one thing), so Whimsy's History drops that source and this
-// pref is put back to plain History.
+// Whimsy's History has its own Closed filter (archived tabs, with why each
+// left) and a Snoozed one, so it drops that source and this pref is put
+// back to plain History.
 const ZEN_CLOSED_TABS_PREF = "zen.library.history.closed-tabs";
+// System pass: which History filter is showing: "all", "closed" or
+// "snoozed" (content/whimsy-library-space-history.mjs).
+const HISTORY_VIEW_PREF = "whimsy.library.history.view";
+const LAST_TAB_PREF = "zen.library.last-tab";
+const HIDDEN_TABS_PREF = "zen.library.hidden-tabs";
+// The Archive used to be a Library section of its own.
+const OLD_ARCHIVE_SECTION = "whimsy-archive";
+// Any of these puts Whimsy's History in place of Zen's.
+const HISTORY_FEATURES = ["space-history", "archive-view", "snooze-tab"];
 
 // Moves `id` to sit right after `afterId` in the (plain, ordered) sections
 // object, keeping the same object Zen holds.
@@ -53,6 +60,57 @@ function placeAfter(sections, id, afterId) {
 }
 
 export const WhimsyLibrarySection = {
+  // System pass: the Archive and Snooze sections became History filters.
+  // Runs at startup (WhimsyStartup), before a window's <zen-library> reads
+  // its last tab: a Library last left on the Archive opens on History →
+  // Closed, and the Archive leaves the list of hidden rail tabs.
+  migratePrefs() {
+    try {
+      if (Services.prefs.getStringPref(LAST_TAB_PREF, "") == OLD_ARCHIVE_SECTION) {
+        Services.prefs.setStringPref(LAST_TAB_PREF, "history");
+        Services.prefs.setStringPref(HISTORY_VIEW_PREF, "closed");
+      }
+      // With Closed off (archive-view), Zen's own closed-tabs source stays.
+      if (
+        Services.prefs.getBoolPref("whimsy.feature.archive-view", true) &&
+        Services.prefs.getBoolPref(ZEN_CLOSED_TABS_PREF, false)
+      ) {
+        Services.prefs.setBoolPref(ZEN_CLOSED_TABS_PREF, false);
+        Services.prefs.setStringPref(HISTORY_VIEW_PREF, "closed");
+      }
+      const hidden = Services.prefs.getStringPref(HIDDEN_TABS_PREF, "");
+      if (hidden.split(",").includes(OLD_ARCHIVE_SECTION)) {
+        Services.prefs.setStringPref(
+          HIDDEN_TABS_PREF,
+          hidden.split(",").filter(id => id && id != OLD_ARCHIVE_SECTION).join(",")
+        );
+      }
+    } catch (e) {
+      console.error("Whimsy: Library migration", e);
+    }
+  },
+
+  get historyFeatureOn() {
+    return HISTORY_FEATURES.some(id => Services.prefs.getBoolPref(`whimsy.feature.${id}`, true));
+  },
+
+  // Opens the Library on History with one of its filters ("all", "closed"
+  // or "snoozed"). Used by "View Archive…" and "View Snoozed Tabs…".
+  openHistory(win, view = "all") {
+    const ZenLibrary = win.customElements.get("zen-library");
+    const lib = win.document.querySelector("zen-library");
+    if (!ZenLibrary?.toggle || !lib?.zenLibrarySections?.history?.whimsyHistory) {
+      return false;
+    }
+    Services.prefs.setStringPref(HISTORY_VIEW_PREF, view);
+    // A History already built switches now; a new one reads the pref.
+    lib.querySelector("whimsy-space-history-section")?.setWhimsyView?.(view);
+    if (lib.activeTab != "history" || !ZenLibrary.isLibraryOpen) {
+      ZenLibrary.toggle("history");
+    }
+    return true;
+  },
+
   initWindow(win) {
     if (win._whimsyLibraryLoading) {
       return;
@@ -102,8 +160,9 @@ export const WhimsyLibrarySection = {
     const nativeHistory = lib.zenLibrarySections.history;
     const sync = () => {
       // batch hist: restore Zen immediately when the feature switch is off.
-      const history = Services.prefs.getBoolPref("whimsy.feature.space-history", true)
-        ? sections.WhimsySpaceHistorySection : nativeHistory;
+      // System pass: also with only Closed/Snoozed on (archive-view,
+      // snooze-tab), since those are History's filters now.
+      const history = this.historyFeatureOn ? sections.WhimsySpaceHistorySection : nativeHistory;
       const historyChanged = lib.zenLibrarySections.history !== history;
       lib.zenLibrarySections.history = history;
       let changed = historyChanged;
@@ -114,9 +173,6 @@ export const WhimsyLibrarySection = {
           lib.zenLibrarySections[entry.sectionId] = sections[entry.name];
           if (entry.after) {
             placeAfter(lib.zenLibrarySections, entry.sectionId, entry.after);
-          }
-          if (entry.sectionId == "whimsy-archive" && Services.prefs.getBoolPref(ZEN_CLOSED_TABS_PREF, false)) {
-            Services.prefs.setBoolPref(ZEN_CLOSED_TABS_PREF, false);
           }
           changed = true;
         } else if (!on && has) {
@@ -140,9 +196,12 @@ export const WhimsyLibrarySection = {
       return [pref, observer];
     });
     // batch hist: use the same observer lifetime as Library sections.
-    const historyObserver = () => sync();
-    Services.prefs.addObserver("whimsy.feature.space-history", historyObserver);
-    observers.push(["whimsy.feature.space-history", historyObserver]);
+    for (const id of HISTORY_FEATURES) {
+      const pref = `whimsy.feature.${id}`;
+      const historyObserver = () => sync();
+      Services.prefs.addObserver(pref, historyObserver);
+      observers.push([pref, historyObserver]);
+    }
     win.addEventListener(
       "unload",
       () => {

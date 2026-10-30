@@ -26,6 +26,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.snooze-tab";
@@ -80,6 +81,7 @@ export const WhimsySnooze = {
   },
 
   initWindow(win) {
+    this.initActions();
     if (!this.enabled) {
       return;
     }
@@ -88,6 +90,68 @@ export const WhimsySnooze = {
       this._resumed = true;
       this.resume(win);
     }
+  },
+
+  // System pass: snoozed tabs are a filter of the Library's History (with
+  // Closed), not a list of their own; this command opens it there.
+  initActions() {
+    const { WhimsyShortcuts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyShortcuts.sys.mjs");
+    WhimsyShortcuts.addActions([
+      {
+        l10nId: "whimsy-action-view-snoozed",
+        icon: "chrome://browser/skin/zen-icons/history.svg",
+        command: w => lazy.WhimsyLibrarySection.openHistory(w, "snoozed"),
+        isAvailable: () => this.enabled,
+      },
+    ]);
+  },
+
+  // The tabs still waiting to come back, soonest first. The records are the
+  // store's own objects, so they can be handed back to wakeNow/cancelSnooze.
+  async list() {
+    try {
+      const store = await this.store();
+      return [...store.data.snoozed].sort((a, b) => a.wakeAt - b.wakeAt);
+    } catch (e) {
+      console.error("Whimsy: snooze list", e);
+      return [];
+    }
+  },
+
+  // The same record, whichever copy the caller holds.
+  _sameRecord(a, b) {
+    return a == b || (a.closedId == b.closedId && a.wakeAt == b.wakeAt && a.url == b.url);
+  },
+
+  _stopTimer(record) {
+    for (const [key, timer] of this._timers) {
+      if (this._sameRecord(key, record)) {
+        try {
+          timer.win.clearTimeout(timer.timerId);
+        } catch (e) {
+          // The window is already gone; nothing to clear.
+        }
+        this._timers.delete(key);
+      }
+    }
+  },
+
+  // "Wake now" in History → Snoozed: brings the tab back right away.
+  wakeNow(win, record) {
+    this._stopTimer(record);
+    this.wake(win, record);
+  },
+
+  // "Cancel snooze": the tab stays closed (it is still in History → Closed)
+  // and never comes back on its own.
+  cancelSnooze(win, record) {
+    this._stopTimer(record);
+    this.forget(record);
+    win?.gZenUIManager?.showToast?.("whimsy-snooze-cancel-toast", { l10nArgs: { title: record.title || record.url } });
+  },
+
+  _notifyChanged() {
+    Services.obs.notifyObservers(null, "whimsy-snooze-changed");
   },
 
   initMenu(win) {
@@ -265,6 +329,7 @@ export const WhimsySnooze = {
       const store = await this.store();
       store.data.snoozed.push(record);
       store.saveSoon();
+      this._notifyChanged();
     } catch (e) {
       console.error("Whimsy: snooze persist", e);
     }
@@ -277,6 +342,7 @@ export const WhimsySnooze = {
         r => r.closedId != record.closedId || r.wakeAt != record.wakeAt
       );
       store.saveSoon();
+      this._notifyChanged();
     } catch (e) {
       // Not fatal: at worst a stale entry wakes once more and no-ops.
     }

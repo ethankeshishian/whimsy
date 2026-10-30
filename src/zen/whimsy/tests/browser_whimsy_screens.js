@@ -826,28 +826,48 @@ add_task(async function fixB_delete_space_confirm() {
   }
 });
 
-add_task(async function fixB_archive_in_library() {
+// System pass: History's Closed (the Archive) and Snoozed filters, light
+// and dark.
+add_task(async function system_history_filters() {
   const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchive.sys.mjs");
+  const { WhimsySnooze } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySnooze.sys.mjs");
+  const { WhimsyLibrarySection } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs"
+  );
   const library = document.querySelector("zen-library");
   const previous = library.activeTab;
   const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?whimsy-archive-keep");
   const idle = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?whimsy-archive-idle");
   const closed = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/?whimsy-archive-closed");
+  const snoozed = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?whimsy-snoozed");
   WhimsyArchive.archiveTabs(window, [idle], { reason: "idle", groupId: "idle-shot" });
   BrowserTestUtils.removeTab(closed);
+  await WhimsySnooze.snooze(window, snoozed, Date.now() + 20 * 3600 * 1000);
   try {
-    await TestUtils.waitForCondition(() => "whimsy-archive" in library.zenLibrarySections);
-    ok(WhimsyArchive.openPanel(window), "The Library opens on the Archive");
-    await TestUtils.waitForCondition(() => library.querySelector("whimsy-library-archive-section"));
-    const section = library.querySelector("whimsy-library-archive-section");
-    section.refresh();
-    await section.updateComplete;
-    await document.l10n.translateFragment(section);
-    await new Promise(r => setTimeout(r, 400)); // the Library's spring
-    await shot("fixB-archive");
+    for (const view of ["closed", "snoozed"]) {
+      for (const dark of [0, 1]) {
+        await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+        try {
+          ok(WhimsyLibrarySection.openHistory(window, view), `History opens on ${view}`);
+          const section = await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
+          await TestUtils.waitForCondition(() => section.whimsyView == view);
+          await section.refresh();
+          await section.updateComplete;
+          await document.l10n.translateFragment(section);
+          await new Promise(r => setTimeout(r, 400)); // the Library's spring
+          await shot(`system-history-${view}-${dark ? "dark" : "light"}`);
+        } finally {
+          await SpecialPowers.popPrefEnv();
+        }
+      }
+    }
   } finally {
+    for (const record of await WhimsySnooze.list()) {
+      WhimsySnooze.cancelSnooze(null, record);
+    }
     await library.constructor.animateProgress(0);
     library.activeTab = previous;
+    Services.prefs.clearUserPref("whimsy.library.history.view");
     BrowserTestUtils.removeTab(keep);
   }
 });

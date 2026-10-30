@@ -23,6 +23,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
 });
 
 // Private tabs (WhimsyPrivate) are never archived, like tabs in an Arc
@@ -252,17 +253,14 @@ export const WhimsyArchive = {
     ]);
   },
 
-  // fixB: the Archive is a Library section beside History
-  // (content/whimsy-library-archive.mjs). "Show Archive" opens the
-  // Library on it.
+  // System pass: the Archive is History's "Closed" filter in the Library
+  // (content/whimsy-library-space-history.mjs). "View Archive…" opens the
+  // Library on History with that filter on.
   openPanel(win) {
-    const ZenLibrary = win.customElements.get("zen-library");
-    const lib = win.document.querySelector("zen-library");
-    if (!ZenLibrary?.toggle || !lib?.zenLibrarySections || !("whimsy-archive" in lib.zenLibrarySections)) {
+    if (!this.viewEnabled) {
       return false;
     }
-    ZenLibrary.toggle("whimsy-archive");
-    return true;
+    return lazy.WhimsyLibrarySection.openHistory(win, "closed");
   },
 
   // Drops one entry from the Archive for good (SessionStore forgets it).

@@ -1830,9 +1830,9 @@ panel.whimsy-sheet .whimsy-sheet-footer {
   gap: 6px;
 }
 
-/* fixB: the Archive, a Library section beside History. History lists
-   every page visited; the Archive lists tabs that left the sidebar, each
-   with why it left and the space it goes back to. */
+/* System pass: History's Closed filter (the Archive: tabs that left the
+   sidebar, each with why it left and the space it goes back to) and its
+   Snoozed filter (tabs waiting to come back, each with its wake time). */
 .whimsy-archive-intro {
   margin: 2px 4px 10px;
   padding: 10px 12px;
@@ -1865,11 +1865,12 @@ panel.whimsy-sheet .whimsy-sheet-footer {
     background-color: color-mix(in srgb, orangered 22%, transparent);
   }
 }
-.whimsy-archive-row:focus-visible {
+:is(.whimsy-archive-row, .whimsy-snoozed-row):focus-visible {
   outline: var(--focus-outline, 2px solid AccentColor);
   outline-offset: -2px;
 }
-.whimsy-archive-space + .whimsy-archive-time::before {
+.whimsy-archive-space + .whimsy-archive-time::before,
+.whimsy-snoozed-wake + .whimsy-archive-space::before {
   content: " · ";
 }
 
@@ -1960,8 +1961,7 @@ panel.whimsy-sheet .whimsy-sheet-footer {
   [data-section="whimsy-finder-folders"],
   [data-section="whimsy-files"],
   [data-section="whimsy-next-meeting"],
-  [data-section="whimsy-playlist"],
-  [data-section="whimsy-archive"]
+  [data-section="whimsy-playlist"]
 ) :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
   width: var(--zen-library-sprite-size);
   background-size: contain;
@@ -1987,10 +1987,6 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 /* Harmless when the Meetings feature (or its module) is removed. */
 [data-section="whimsy-next-meeting"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
   background-image: url("chrome://browser/skin/zen-icons/selectable/time.svg");
-}
-
-[data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/u-turn-to-left.svg");
 }
 
 [data-section="whimsy-playlist"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {

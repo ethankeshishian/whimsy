@@ -416,3 +416,9 @@
 
 - name: whimsy.live-folders.local-servers.poll-ms
   value: 5000
+
+# system: which of History's Show filters the Library opens on: "all",
+# "closed" (archived tabs) or "snoozed". "View Archive…" and "View Snoozed
+# Tabs…" set it; the old Archive section's saved state migrates here.
+- name: whimsy.library.history.view
+  value: all

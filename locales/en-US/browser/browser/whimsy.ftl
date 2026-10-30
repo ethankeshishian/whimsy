@@ -437,7 +437,7 @@ whimsy-tabs-archive-idle-after-30d =
 whimsy-tabs-archive-idle-after-never =
     .label = Never
 whimsy-tabs-archive-view =
-    .label = Archive in the Library, beside History (command bar: “Show Archive”)
+    .label = Show closed tabs in History (command bar: “View Archive…”)
 whimsy-tabs-undo =
     .label = Undo for tab actions (Cmd+Z)
 whimsy-tabs-snooze =
@@ -455,7 +455,7 @@ whimsy-tabs-tree-style-islands =
 
 ## batch8: tab lifecycle — command bar
 
-whimsy-action-show-archive = Show Archive
+whimsy-action-show-archive = View Archive…
 whimsy-action-fire-button = Fire Button
 whimsy-action-heavy-tabs = Find Heavy Tabs
 
@@ -1270,13 +1270,9 @@ whimsy-cheatsheet-new-window = New Window
 whimsy-cheatsheet-quick-window = Mini Whimsy
 whimsy-cheatsheet-private-window = New Private Window
 
-## fixB: the Archive, a Library section beside History
+## fixB: the Archive, now History's Closed filter in the Library
 
-whimsy-library-archive-title = Archive
-whimsy-library-archive-filter-title = Filter Archive…
-whimsy-library-archive-search =
-    .placeholder = Search archived tabs
-whimsy-library-archive-intro = Tabs that left your sidebar, kept so you can put them back in their space. History, next door, lists every page you visited.
+whimsy-library-archive-intro = Tabs that left your sidebar. Click one to put it back in its space.
 # $after - how long a tab sits unused before it archives itself
 whimsy-library-archive-intro-idle =
     { $after ->
@@ -1286,8 +1282,8 @@ whimsy-library-archive-intro-idle =
        *[h12] Tabs you haven't used in 12 hours archive themselves.
     } Pinned tabs, Essentials and anything playing stay put.
 whimsy-library-archive-intro-manual = Auto-archive is off, so only tabs you close end up here.
-whimsy-library-archive-empty = Nothing archived yet.
-whimsy-library-archive-no-match = No archived tabs match.
+whimsy-library-archive-empty = No closed tabs yet.
+whimsy-library-archive-no-match = No closed tabs match.
 whimsy-library-archive-today = Today
 whimsy-library-archive-yesterday = Yesterday
 whimsy-library-archive-filter-reason = Why it left
@@ -1302,8 +1298,8 @@ whimsy-library-archive-restore =
     .tooltiptext = Restore to its space
     .aria-label = Restore to its space
 whimsy-library-archive-forget =
-    .tooltiptext = Remove from the Archive
-    .aria-label = Remove from the Archive
+    .tooltiptext = Remove from History
+    .aria-label = Remove from History
 
 ## fixC: onboarding look pages (Zen's first-run flow, after space colors)
 
@@ -1617,3 +1613,34 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## system: History's Show filter (All, Closed, Snoozed) in the Library
+
+whimsy-history-show-filter = Show
+whimsy-history-show-all = All
+whimsy-history-show-closed = Closed
+whimsy-history-show-snoozed = Snoozed
+whimsy-history-closed-when = When did it close?
+whimsy-history-search-closed =
+    .placeholder = Search closed tabs
+whimsy-history-search-snoozed =
+    .placeholder = Search snoozed tabs
+# $when - "today", "tomorrow" or "later"; $time (string) - like 6:40 PM;
+# $day (string) - like Thursday, October 30
+whimsy-history-snoozed-wakes =
+    { $when ->
+        [today] Wakes today at { $time }
+        [tomorrow] Wakes tomorrow at { $time }
+       *[later] Wakes { $day } at { $time }
+    }
+whimsy-history-snoozed-wake =
+    .tooltiptext = Wake now
+    .aria-label = Wake now
+whimsy-history-snoozed-cancel =
+    .tooltiptext = Cancel snooze
+    .aria-label = Cancel snooze
+whimsy-history-snoozed-empty = No snoozed tabs. To hide a tab until later, right-click it and choose Snooze.
+whimsy-history-snoozed-no-match = No snoozed tabs match.
+whimsy-action-view-snoozed = View Snoozed Tabs…
+# $title (string) - the tab's title
+whimsy-snooze-cancel-toast = “{ $title }” won’t come back on its own. It’s in History → Closed.

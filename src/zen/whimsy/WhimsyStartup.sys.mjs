@@ -10,6 +10,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
+  WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
 });
 
 export class WhimsyStartup {
@@ -24,5 +25,8 @@ export class WhimsyStartup {
     } catch (e) {
       console.error("Whimsy: update channel", e);
     }
+    // System pass: the old Archive Library section's saved state moves to
+    // History's Closed filter before any window builds its Library.
+    lazy.WhimsyLibrarySection.migratePrefs();
   }
 }

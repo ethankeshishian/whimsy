@@ -11,7 +11,6 @@ add_task(async function test_every_library_tab_has_an_icon() {
       ["whimsy.feature.notes", true],
       ["whimsy.feature.finder-folders", true],
       ["whimsy.feature.screenshot-sidebar", true],
-      ["whimsy.feature.archive-view", true],
       ["zen.library.hidden-tabs", ""],
     ],
   });
@@ -22,8 +21,7 @@ add_task(async function test_every_library_tab_has_an_icon() {
   await TestUtils.waitForCondition(
     () => library.zenLibrarySections["whimsy-notes"] &&
       library.zenLibrarySections["whimsy-files"] &&
-      library.zenLibrarySections["whimsy-finder-folders"] &&
-      library.zenLibrarySections["whimsy-archive"],
+      library.zenLibrarySections["whimsy-finder-folders"],
     "Whimsy sections are registered"
   );
   await library.constructor.animateProgress(1);
