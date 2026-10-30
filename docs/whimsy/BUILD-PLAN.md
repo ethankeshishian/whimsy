@@ -243,3 +243,4 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 - Speed control UI (decided): the speed number itself is editable (click it to type any value, Enter to apply, clamped 0.25-4); a small arrow beside it opens the dropdown of quarter steps.
 - Focus mode: skipped. Reader "Line focus" (dim all but 1/3/5 lines in Reader View) is a MAYBE for the future.
 - Crash reports: local only for now (build without Firefox's crash reporter). FUTURE: our own opt-in crash server (e.g. Sentry/Socorro-style) with symbol uploads and a privacy note.
+- People cards (decided): full profile cards for GitHub, LinkedIn and X using the signed-in session, rate-limited; if a site blocks or challenges, fall back to the handle-only card (never try to get past a challenge).
