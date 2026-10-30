@@ -88,6 +88,7 @@ class ToolError extends Error {}
 const state = {
   server: null,
   starting: null,
+  ensuring: null,
   observing: false,
   tabIds: new WeakMap(),
   tabs: new Map(),
@@ -315,10 +316,15 @@ export const WhimsyClaude = {
   },
 
   async start() {
+    // While starting, the server exists before the Claude space does: wait
+    // for the whole start, not just the server.
+    if (state.starting) {
+      return state.starting;
+    }
     if (state.server) {
       return this.connectInfo();
     }
-    state.starting ??= this._start().finally(() => (state.starting = null));
+    state.starting = this._start().finally(() => (state.starting = null));
     return state.starting;
   },
 
@@ -480,7 +486,7 @@ export const WhimsyClaude = {
     try {
       const stream = request.bodyInputStream;
       const count = stream.available();
-      message = JSON.parse(count ? lazy.NetUtil.readInputStreamAsString(stream, count, { charset: "UTF-8" }) : "");
+      message = JSON.parse(count ? lazy.NetUtil.readInputStreamToString(stream, count, { charset: "UTF-8" }) : "");
     } catch (e) {
       return { status: 400, body: { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } } };
     }
@@ -569,7 +575,8 @@ export const WhimsyClaude = {
       if (win.closed || lazy.PrivateBrowsingUtils.isWindowPrivate(win) || !win.gBrowser) {
         continue;
       }
-      yield* win.gBrowser.tabs;
+      // Zen's gBrowser.tabs only holds the active space's tabs.
+      yield* win.gZenWorkspaces?.workspaceEnabled ? win.gZenWorkspaces.allStoredTabs : win.gBrowser.tabs;
     }
   },
 
@@ -601,12 +608,12 @@ export const WhimsyClaude = {
     return (
       (!!id && tab.getAttribute("zen-workspace-id") == id && !tab.hasAttribute("zen-essential")) ||
       // Without Zen's spaces, Claude's space is the tabs it opened.
-      (!tab.ownerGlobal.gZenWorkspaces?.workspaceEnabled && tab.hasAttribute("whimsy-claude-tab"))
+      (!tab.documentGlobal.gZenWorkspaces?.workspaceEnabled && tab.hasAttribute("whimsy-claude-tab"))
     );
   },
 
   isPrivate(tab) {
-    const win = tab.ownerGlobal;
+    const win = tab.documentGlobal;
     return (
       lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
       lazy.WhimsyPrivate.isPrivateTab(tab) ||
@@ -619,7 +626,7 @@ export const WhimsyClaude = {
       !!tab &&
       !tab.closing &&
       !this.isPrivate(tab) &&
-      !tab.ownerGlobal._whimsyQuickWindow &&
+      !tab.documentGlobal._whimsyQuickWindow &&
       (this.inClaudeSpace(tab) || this.wholeBrowser)
     );
   },
@@ -670,14 +677,20 @@ export const WhimsyClaude = {
       tabId: this.tabId(tab),
       title: tab.label,
       url: browser?.currentURI?.spec ?? "",
-      active: tab.selected && tab.ownerGlobal == this.topWindow(),
+      active: tab.selected && tab.documentGlobal == this.topWindow(),
       claudeSpace: this.inClaudeSpace(tab),
     };
   },
 
   // --- The Claude space ---
 
-  async ensureSpace(win) {
+  ensureSpace(win) {
+    // One at a time, so concurrent callers can't make two Claude spaces.
+    state.ensuring ??= this._ensureSpace(win).finally(() => (state.ensuring = null));
+    return state.ensuring;
+  },
+
+  async _ensureSpace(win) {
     const spaces = win.gZenWorkspaces;
     if (!spaces?.workspaceEnabled || spaces.privateWindowOrDisabled) {
       return null;
@@ -729,7 +742,7 @@ export const WhimsyClaude = {
 
   waitForLoad(browser) {
     return new Promise(resolve => {
-      const gBrowser = browser.getTabBrowser?.() ?? browser.ownerGlobal.gBrowser;
+      const gBrowser = browser.getTabBrowser?.() ?? browser.documentGlobal.gBrowser;
       let timer;
       const listener = {
         onStateChange(b, webProgress, request, flags) {
@@ -782,7 +795,7 @@ export const WhimsyClaude = {
   // The prompt itself (tests replace this). Window-modal, so it's seen
   // even when the tab is in a space the user isn't looking at.
   async confirmSite(tab, { host, action }) {
-    const win = tab.ownerGlobal;
+    const win = tab.documentGlobal;
     const [title, message, once, deny, always] = await win.document.l10n.formatValues([
       { id: "whimsy-claude-confirm-title" },
       { id: "whimsy-claude-confirm-text", args: { host, action } },
@@ -819,7 +832,7 @@ export const WhimsyClaude = {
   // --- The indicator ---
 
   async markActive(tab) {
-    const win = tab.ownerGlobal;
+    const win = tab.documentGlobal;
     tab.setAttribute(ACTIVE_ATTR, "true");
     state.activeTabs.add(tab);
     lazy.clearTimeout(state.activeTimers.get(tab));
@@ -866,7 +879,7 @@ export const WhimsyClaude = {
     state.activeTimers.delete(tab);
     tab.removeAttribute(ACTIVE_ATTR);
     if (tab.linkedBrowser && !tab.closing) {
-      const box = tab.ownerGlobal.gBrowser?.getNotificationBox(tab.linkedBrowser);
+      const box = tab.documentGlobal.gBrowser?.getNotificationBox(tab.linkedBrowser);
       const bar = box?.getNotificationWithValue(BAR_ID);
       if (bar) {
         box.removeNotification(bar);
@@ -934,7 +947,8 @@ export const WhimsyClaude = {
       if (!tabs.length) {
         return "No tabs yet. Use tabs_create to open one in the Claude space.";
       }
-      return tabs;
+      // An array result is content blocks; the list goes out as JSON text.
+      return [text(tabs)];
     },
 
     async tabs_create({ url }, generation) {
@@ -951,7 +965,7 @@ export const WhimsyClaude = {
     async tabs_close(args, generation) {
       return this.withTab(args, "tabs_close", generation, tab => {
         this.clearActive(tab);
-        tab.ownerGlobal.gBrowser.removeTab(tab, { animate: true });
+        tab.documentGlobal.gBrowser.removeTab(tab, { animate: true });
         return `Closed tab ${args.tabId}.`;
       });
     },

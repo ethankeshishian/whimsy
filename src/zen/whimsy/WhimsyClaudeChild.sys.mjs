@@ -355,13 +355,15 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
         childDepth = depth + 1;
         named ||= NAME_FROM_CONTENT.has(role);
       }
-      if (el.localName == "select" || el.localName == "iframe" || el.localName == "textarea") {
+      // Form controls describe themselves; their insides (a password's real
+      // text lives in the input's UA shadow tree) are never read.
+      if (["select", "iframe", "textarea", "input"].includes(el.localName)) {
         return;
       }
       for (const child of el.childNodes) {
         walk(child, childDepth, named);
       }
-      if (el.openOrClosedShadowRoot) {
+      if (el.openOrClosedShadowRoot && !el.openOrClosedShadowRoot.isUAWidget()) {
         for (const child of el.openOrClosedShadowRoot.childNodes) {
           walk(child, childDepth, named);
         }

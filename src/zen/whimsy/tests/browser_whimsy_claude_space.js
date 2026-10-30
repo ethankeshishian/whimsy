@@ -29,6 +29,18 @@ function call(name, args = {}) {
   return WhimsyClaude.callTool(name, args);
 }
 
+function rawPost(url, body, headers) {
+  const { NetUtil } = ChromeUtils.importESModule("resource://gre/modules/NetUtil.sys.mjs");
+  const channel = NetUtil.newChannel({ uri: url, loadUsingSystemPrincipal: true }).QueryInterface(Ci.nsIHttpChannel);
+  const stream = Cc["@mozilla.org/io/string-input-stream;1"].createInstance(Ci.nsIStringInputStream);
+  stream.setUTF8Data(JSON.stringify(body));
+  channel.QueryInterface(Ci.nsIUploadChannel2).explicitSetUploadStream(stream, "application/json", -1, "POST");
+  for (const [name, value] of Object.entries(headers)) {
+    channel.setRequestHeader(name, value, false);
+  }
+  return new Promise(resolve => NetUtil.asyncFetch(channel, () => resolve(channel.responseStatus)));
+}
+
 function textOf(result) {
   return result.content
     .filter(c => c.type == "text")
@@ -112,8 +124,8 @@ add_task(async function test_server_and_space() {
   is(response.status, 401, "No token, no access");
   response = await post(init, { Authorization: "Bearer nope" });
   is(response.status, 401, "A wrong token is refused");
-  response = await post(init, { ...auth, Origin: "https://evil.example" });
-  is(response.status, 403, "Requests from web pages are refused");
+  // fetch() can't set Origin (a forbidden header), so send it on a raw channel.
+  is(await rawPost(info.url, init, { ...auth, Origin: "https://evil.example" }), 403, "Requests from web pages are refused");
 
   response = await post(init, auth);
   is(response.status, 200, "initialize works with the token");
