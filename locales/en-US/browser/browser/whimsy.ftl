@@ -931,3 +931,4 @@ whimsy-sheet-close =
     .aria-label = Close
 # The accept button of Zen's "Delete Space?" confirmation.
 whimsy-delete-space-accept = Delete Space
+whimsy-snooze-title = Snooze Tab

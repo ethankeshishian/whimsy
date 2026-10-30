@@ -25,6 +25,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.snooze-tab";
@@ -37,6 +38,12 @@ const PRESETS = [
   { key: "tomorrow", atHour: 9, days: 1 },
   { key: "next-week", atHour: 9, days: 7 },
 ];
+
+const PRESET_ICONS = {
+  "later-today": "chrome://browser/skin/zen-icons/history.svg",
+  tomorrow: "chrome://browser/skin/zen-icons/face-sun.svg",
+  "next-week": "chrome://browser/skin/zen-icons/forward.svg",
+};
 
 function wakeTimeFor(preset) {
   const now = new Date();
@@ -120,41 +127,48 @@ export const WhimsySnooze = {
     item.hidden = false;
   },
 
-  panel(win) {
-    const { document } = win;
-    let panel = document.getElementById(PANEL_ID);
-    if (panel) {
-      return panel;
-    }
-    panel = document.createXULElement("panel");
-    panel.id = PANEL_ID;
-    panel.setAttribute("type", "arrow");
-    panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("role", "dialog");
-    document.l10n.setAttributes(panel, "whimsy-snooze-panel");
-    const list = document.createXULElement("vbox");
-    for (const preset of PRESETS) {
-      const button = document.createXULElement("toolbarbutton");
-      button.className = "whimsy-snooze-preset toolbarbutton-1";
-      document.l10n.setAttributes(button, `whimsy-snooze-${preset.key}`);
-      button.addEventListener("command", () => {
-        const tab = panel.whimsyTab;
-        panel.hidePopup();
-        if (tab && tab.isConnected && !tab.closing) {
-          this.snooze(win, tab, wakeTimeFor(preset));
-        }
-      });
-      list.append(button);
-    }
-    panel.append(list);
-    win.document.getElementById("mainPopupSet")?.appendChild(panel);
-    return panel;
+  // fixB: a WhimsyPanels sheet hanging off the tab: each preset shows when
+  // the tab comes back ("6:40 PM", "Thu 9:00 AM").
+  wakeLabel(preset, wakeAt) {
+    const locales = Services.locale.appLocalesAsBCP47;
+    const options =
+      preset.key == "later-today"
+        ? { timeStyle: "short" }
+        : preset.key == "tomorrow"
+          ? { weekday: "short", hour: "numeric", minute: "2-digit" }
+          : { weekday: "short", month: "short", day: "numeric" };
+    return new Intl.DateTimeFormat(locales, options).format(new Date(wakeAt));
   },
 
   openPanel(win, tab) {
-    const panel = this.panel(win);
+    const { document } = win;
+    const { panel, body } = lazy.WhimsyPanels.create(win, {
+      id: PANEL_ID,
+      titleL10nId: "whimsy-snooze-title",
+      subtitle: tab?.label || "",
+      size: "small",
+    });
     panel.whimsyTab = tab;
-    panel.openPopup(tab, { position: "after_start", triggerEvent: null });
+    for (const preset of PRESETS) {
+      const wakeAt = wakeTimeFor(preset);
+      body.append(
+        lazy.WhimsyPanels.item(document, {
+          l10nId: `whimsy-snooze-${preset.key}`,
+          icon: PRESET_ICONS[preset.key],
+          detail: this.wakeLabel(preset, wakeAt),
+          onCommand: () => {
+            const target = panel.whimsyTab;
+            lazy.WhimsyPanels.close(panel);
+            if (target && target.isConnected && !target.closing) {
+              // Recompute: the sheet may have sat open for a while.
+              this.snooze(win, target, wakeTimeFor(preset));
+            }
+          },
+        })
+      );
+    }
+    const anchor = lazy.WhimsyPanels.visibleAnchor(win, [tab]);
+    lazy.WhimsyPanels.open(win, panel, { anchor, position: "end_before" });
   },
 
   async snooze(win, tab, wakeAt) {

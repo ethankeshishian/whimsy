@@ -48,3 +48,29 @@ add_task(async function test_snooze_undo_cancels_the_wake() {
   );
   BrowserTestUtils.removeTab(restored);
 });
+
+// fixB: the Snooze sheet (WhimsyPanels): a title, the tab's name, three
+// presets each showing when the tab comes back; arrow keys move between
+// them and Esc closes it without snoozing anything.
+add_task(async function test_snooze_sheet() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?snooze-sheet");
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsySnoozePanel");
+  WhimsySnooze.openPanel(window, tab);
+  await shown;
+  const panel = document.getElementById("whimsySnoozePanel");
+  ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
+  ok(panel.querySelector(".panel-header .whimsy-sheet-close"), "It has a close button");
+  const items = [...panel.querySelectorAll(".whimsy-sheet-item")];
+  is(items.length, 3, "Three presets");
+  ok(items.every(i => i.querySelector(".whimsy-sheet-item-detail")?.value), "Each preset shows its wake time");
+  is(document.activeElement, items[0], "The first preset has focus");
+  EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+  is(document.activeElement, items[1], "Arrow down moves to the next preset");
+
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  EventUtils.synthesizeKey("KEY_Escape", {}, window);
+  await hidden;
+  ok(tab.isConnected, "Esc closes the sheet without snoozing the tab");
+  ok(!document.getElementById("whimsySnoozePanel"), "The sheet is removed once hidden");
+  BrowserTestUtils.removeTab(tab);
+});
