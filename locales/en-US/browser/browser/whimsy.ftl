@@ -2549,3 +2549,7 @@ whimsy-menu-view-boosts =
 ## fix7/game: the offline error page game
 
 whimsy-game-hint-embedded = Arrows, WASD or pointer to steer · Space or click to dash · Esc goes back to the error page
+
+## fix7: Mini Whimsy space dropdown (caret, Cmd+Shift+O)
+whimsy-quick-window-picker-caption =
+    .label = Open in

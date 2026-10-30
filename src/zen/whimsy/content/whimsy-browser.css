@@ -2546,3 +2546,130 @@ whimsy-library-easels-section .zen-library-empty {
   0%, 40% { outline-color: AccentColor; }
   100% { outline-color: transparent; }
 }
+
+/* fix7/mini: icon-only buttons centre their glyph. A toolbarbutton always
+   carries a .toolbarbutton-text label with flex="1"; empty, it still grew
+   into the spare width and pushed the icon to the left edge (Copy Link,
+   the caret). Hide it when there's no label and make the button square. */
+#whimsy-quick-window-bar .whimsy-mini-button {
+  & > .toolbarbutton-icon {
+    margin: 0;
+  }
+  &:not([label]) {
+    width: var(--whimsy-mini-control);
+    & > .toolbarbutton-text {
+      display: none;
+    }
+  }
+}
+/* The split hairline moves from the caret's border (1px that shifted its
+   glyph off centre) to the end of the ⌘O keycap, Arc's short divider. */
+#whimsy-quick-window-bar #whimsy-quick-window-choose-space {
+  width: 24px;
+  min-width: 24px !important;
+  border-inline-start: 0 !important;
+}
+#whimsy-quick-window-open kbd {
+  line-height: 16px;
+  padding-inline-end: 8px;
+  border-inline-end: 1px solid var(--whimsy-mini-hairline);
+}
+
+/* fix7/mini: Little Arc's address strip holds Extensions and Copy Link at
+   its right end. The strip carries the fill; the address button inside it
+   is transparent and lights the whole strip on hover. Inner buttons are
+   24px with a 6px radius, concentric with the strip's 8px at 2px inset. */
+#whimsy-quick-window-address-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--whimsy-mini-control);
+  margin: 0 4px 0 2px;
+  padding-inline-end: 2px;
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  transition: background-color 120ms ease;
+
+  &:has(> #whimsy-quick-window-address:hover) {
+    background: var(--whimsy-mini-fill-hover);
+  }
+
+  & > #whimsy-quick-window-address {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+  }
+
+  #whimsy-quick-window-bar & > .whimsy-mini-button {
+    flex: none;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    opacity: 0.75;
+
+    &:not([disabled]):hover {
+      opacity: 1;
+    }
+    &[disabled] {
+      opacity: 0.35;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-quick-window-address-field {
+    transition: none;
+  }
+}
+
+/* fix7/mini: the traffic lights stop flickering. Root cause: Zen's
+   zen.widget.mac.mono-window-controls (on by default) sets the real
+   buttonbox to opacity 0 unless Zen's compact-mode hover tracker has put
+   zen-has-hover on it. An opacity-0 frame builds no display item, so it
+   registers no window-button theme geometry, and Cocoa parks the native
+   buttons above the window (nsCocoaWindow: empty windowButtonsRect hides
+   them). In Mini that tracker toggles the attribute as the pointer crosses
+   the bar and the native buttons themselves, so they vanished and came back.
+   Little Arc always shows them: keep them painted, drop Zen's stand-in dots,
+   and pin the margins Zen's collapsed-sidebar rules pull negative. */
+:root[whimsy-quick-window] #whimsy-quick-window-bar > .titlebar-buttonbox-container {
+  background-image: none !important;
+  margin: 0 4px 0 0 !important;
+  width: auto !important;
+  & > .titlebar-buttonbox {
+    opacity: 1 !important;
+  }
+}
+
+/* fix7/mini: the space dropdown (caret, Cmd+Shift+O). Zen's menu surface
+   and motion; each space's icon sits on a small tile tinted with the
+   space's own colour, so spaces read apart at a glance. */
+#whimsy-quick-window-space-picker {
+  min-width: 200px;
+
+  & > .whimsy-mini-picker-caption {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  & > .whimsy-mini-picker-space {
+    & .menu-icon {
+      box-sizing: border-box;
+      width: 20px;
+      height: 20px;
+      padding: 2px;
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--whimsy-space-color, currentColor) 22%, transparent);
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor;
+    }
+    &[default] {
+      font-weight: 600;
+    }
+  }
+}
+#whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
+  background: var(--whimsy-mini-fill-active);
+}

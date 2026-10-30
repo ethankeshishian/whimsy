@@ -12,7 +12,7 @@
 // glance at it, then either close it (Esc, Cmd+W, or the close button —
 // gone for good, no history or session entry) or press "Open in <Space name>"
 // (Cmd+O, matching Arc) to adopt it into a real tab, or pick a
-// different one (Cmd+Shift+O, the caret button). A second link while one is already
+// different one (the caret button or Cmd+Shift+O). A second link while one is already
 // open reuses the same window. (wave6: parity.md reads the 120 fps clip as
 // Arc stacking a second window and ignoring Esc, but that clip can't show
 // which window had focus; both stay as they are until verified.)
@@ -69,6 +69,8 @@ const BAR_ID = "whimsy-quick-window-bar";
 const BACK_BUTTON_ID = "whimsy-quick-window-back";
 const ADDRESS_ID = "whimsy-quick-window-address";
 const COPY_BUTTON_ID = "whimsy-quick-window-copy-link";
+const ADDRESS_FIELD_ID = "whimsy-quick-window-address-field";
+const SPACE_PICKER_ID = "whimsy-quick-window-space-picker";
 const OPEN_GROUP_ID = "whimsy-quick-window-open";
 const MOVE_BUTTON_ID = "whimsy-quick-window-move-to-space";
 const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
@@ -359,9 +361,10 @@ export const WhimsyQuickWindow = {
   // The quick window's own chrome, laid out like Arc's Little Arc: one slim
   // bar above the page, on the destination space's colours (see
   // watchDestination), holding the window controls, Back, the address
-  // (favicon + host; clicking it opens the command bar, Cmd+L), Copy URL
-  // (Cmd+Shift+C) and the "Open in <Space name>" split button (Cmd+O, with
-  // a caret for Cmd+Shift+O). Below it the page is the same inset rounded
+  // (profile + host; clicking it opens the command bar, Cmd+L) with the
+  // Extensions and Copy URL (Cmd+Shift+C) buttons inside its right end, as
+  // in Little Arc, and the "Open in <Space name>" split button (Cmd+O, with
+  // a caret for the space dropdown, Cmd+Shift+O). Below it the page is the same inset rounded
   // card as in a main window. Zen's own nav bar and sidebar stay hidden.
   initChrome(win) {
     const { document } = win;
@@ -394,8 +397,9 @@ export const WhimsyQuickWindow = {
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindowChooseSpace",
       run: w => this.openSpacePicker(w, w.document.getElementById(OPEN_GROUP_ID)),
-      // Kept (user asked for it; wave6/parity proposed dropping it to match
-      // Little Arc's chevron-only picker, pending the user's decision).
+      // fix7: Cmd+Shift+O opens the same dropdown as the chevron (the user
+      // keeps this key; wave6/parity had dropped it). Firefox's Show All
+      // Bookmarks gives it up in Mini only, see disableGlanceExpandKey.
       key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
     });
     // Arc: "quickly verify the content and hit Esc to vanish the window."
@@ -493,20 +497,36 @@ export const WhimsyQuickWindow = {
     shortcut.setAttribute("aria-hidden", "true");
     group.append(move, shortcut, choose);
 
-    bar.append(back, profile, address);
-    // Reuse Firefox's real extensions button and panel, rather than a
-    // separate picker with different extension behavior.
+    // fix7: Little Arc draws Extensions and Copy Link inside the address
+    // strip, at its right end. The strip is a plain container (a button
+    // can't hold buttons); the address button fills the rest of it.
+    const field = html("div");
+    field.id = ADDRESS_FIELD_ID;
+    field.append(address, copy);
+    bar.append(back, profile, field, group);
+    this.placeExtensionsButton(win);
+    return bar;
+  },
+
+  // Reuse Firefox's real extensions button and panel, rather than a
+  // separate picker with different extension behavior. It sits in the
+  // address strip before Copy Link. Zen's toolbar re-layout prepends it to
+  // the sidebar's top buttons again, so adoptWindowButtons calls this back.
+  placeExtensionsButton(win) {
+    const { document } = win;
     const extensions = document.getElementById("unified-extensions-button");
-    if (extensions) {
-      extensions.classList.add("whimsy-mini-button", "tabbable");
-      extensions.setAttribute("tabindex", "0");
-      bar.append(extensions);
-      // Zen normally anchors this panel to its site-controls icon. That
-      // icon is in Mini's parked nav bar; use the visible puzzle button.
+    const copy = document.getElementById(COPY_BUTTON_ID);
+    if (!extensions || !copy || extensions.nextElementSibling == copy) {
+      return;
+    }
+    extensions.classList.add("whimsy-mini-button", "tabbable");
+    extensions.setAttribute("tabindex", "0");
+    copy.before(extensions);
+    // Zen normally anchors this panel to its site-controls icon. That
+    // icon is in Mini's parked nav bar; use the visible puzzle button.
+    if (win.gUnifiedExtensions) {
       win.gUnifiedExtensions._button = extensions;
     }
-    bar.append(copy, group);
-    return bar;
   },
 
   // Popup windows (Mini opens as one, so it never lands in session history)
@@ -577,10 +597,11 @@ export const WhimsyQuickWindow = {
       if (buttons && buttons.parentNode != bar) {
         bar.prepend(buttons);
       }
+      this.placeExtensionsButton(win);
     };
     adopt();
     const observer = new win.MutationObserver(adopt);
-    for (const id of ["navigator-toolbox", NAVBAR_ID]) {
+    for (const id of ["navigator-toolbox", NAVBAR_ID, BAR_ID]) {
       const area = document.getElementById(id);
       if (area) {
         observer.observe(area, { childList: true, subtree: true });
@@ -893,7 +914,8 @@ export const WhimsyQuickWindow = {
   // when their keyset is (re)bound).
   disableGlanceExpandKey(win) {
     // Cmd+O is Zen's "Expand Glance" and Cmd+Shift+O Firefox's "Show All
-    // Bookmarks"; in a quick window both belong to Arc's move-to-space keys.
+    // Bookmarks"; in a quick window they open the page in a space and open
+    // the space dropdown.
     for (const id of [GLANCE_EXPAND_KEY_ID, "manBookmarkKb"]) {
       const key = win.document.getElementById(id);
       if (!key) {
@@ -911,31 +933,52 @@ export const WhimsyQuickWindow = {
     }
   },
 
-  // A small menu of the user's spaces, anchored under the "Open in <Space
-  // name>" pill (end-aligned, as Arc's drops from its right edge);
-  // choosing one calls moveToSpace.
+  // fix7: Little Arc's space dropdown, from the caret or Cmd+Shift+O: a
+  // Zen-style menu headed "Open in", one row per space with its icon on a
+  // tile of the space's own colour (a colour dot when it has no icon). The
+  // space Cmd+O uses shows that shortcut. Choosing a row calls moveToSpace.
+  // Anchored under the split button, end-aligned, as Arc's drops from its
+  // right edge; Zen's menu motion and reduced-motion handling apply.
   openSpacePicker(win, anchor) {
     const { document } = win;
     const spaces = this.spaces(win);
     if (!spaces.length) {
       return;
     }
-    let popup = document.getElementById("whimsy-quick-window-space-picker");
+    let popup = document.getElementById(SPACE_PICKER_ID);
     if (!popup) {
       popup = document.createXULElement("menupopup");
-      popup.id = "whimsy-quick-window-space-picker";
+      popup.id = SPACE_PICKER_ID;
       popup.addEventListener("command", event => {
         const spaceId = event.target.getAttribute("zen-workspace-id");
         if (spaceId) {
           this.moveToSpace(win, spaceId);
         }
       });
+      // The caret reads as pressed while its menu is open.
+      const choose = () => document.getElementById(CHOOSE_BUTTON_ID);
+      popup.addEventListener("popupshowing", () => choose()?.setAttribute("open", "true"));
+      popup.addEventListener("popuphidden", () => choose()?.removeAttribute("open"));
       document.getElementById("mainPopupSet")?.appendChild(popup) ?? document.documentElement.appendChild(popup);
     }
-    const main = this.mainWindow(win.opener);
+    const caption = document.createXULElement("menucaption");
+    caption.className = "whimsy-mini-picker-caption";
+    document.l10n.setAttributes(caption, "whimsy-quick-window-picker-caption");
+    const defaultId = this.defaultSpaceId(win);
     const toItem = space => {
-      const item = main.gZenWorkspaces.generateMenuItemForWorkspace(space, true);
-      item.classList.remove("zen-workspace-context-menu-item");
+      const item = document.createXULElement("menuitem");
+      item.className = "menuitem-iconic whimsy-mini-picker-space";
+      item.setAttribute("zen-workspace-id", space.uuid);
+      item.setAttribute("label", space.name);
+      item.setAttribute("image", this.spaceIcon(space) ?? this.spaceDot(space));
+      const color = this.spaceColor(space);
+      if (color) {
+        item.style.setProperty("--whimsy-space-color", color);
+      }
+      if (space.uuid == defaultId) {
+        item.setAttribute("key", "key_whimsyQuickWindowOpenInSpace");
+        item.setAttribute("default", "true");
+      }
       return item;
     };
     // wave5/profiles: spaces of the page's own profile first; the rest,
@@ -951,7 +994,22 @@ export const WhimsyQuickWindow = {
       }
       items.push(...others.map(toItem));
     }
-    popup.replaceChildren(...items);
+    popup.replaceChildren(caption, ...items);
     popup.openPopup(anchor, { position: "after_end" });
+  },
+
+  // A space's first theme colour as CSS, or null for Zen's default theme.
+  spaceColor(space) {
+    const rgb = space?.theme?.gradientColors?.[0]?.c;
+    return Array.isArray(rgb) && rgb.length >= 3 ? `rgb(${rgb.slice(0, 3).join(" ")})` : null;
+  },
+
+  // A space with no icon gets a dot in its colour (a mid grey, readable in
+  // light and dark menus, for Zen's default theme). Context paint isn't
+  // allowed for data: images, so the colour is baked in.
+  spaceDot(space) {
+    const fill = this.spaceColor(space) ?? "rgb(128 128 128)";
+    return "data:image/svg+xml," + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="${fill}"/></svg>`);
   },
 };
