@@ -464,7 +464,7 @@ var gWhimsySettings = {
 
   // The local updater's state as a panel of Firefox's update-state.
   localPanel(state, control) {
-    if (control?.check_requested || state?.status == "running") {
+    if (state?.status == "running") {
       return "checkingForUpdates";
     }
     if (this.localCheck) {

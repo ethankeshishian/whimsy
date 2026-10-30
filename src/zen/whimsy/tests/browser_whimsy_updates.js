@@ -114,14 +114,14 @@ add_task(async function test_updates_settings() {
     is(info.releaseNotesURL, VERSION.notes_url, "...linking Whimsy's release notes");
     await TestUtils.waitForCondition(() => plain(info.shadowRoot.querySelector("#distribution")?.textContent || "").startsWith("Based on Zen"));
 
-    // Firefox's check button asks the local updater.
+    // Firefox's check button only installs a staged build; it never builds.
     await TestUtils.waitForCondition(() => state.value == "checkForUpdates", "Firefox's check button");
     const button = await TestUtils.waitForCondition(() => state.shadowRoot.querySelector("moz-button, moz-box-button"));
     button.click();
-    await TestUtils.waitForCondition(() => WhimsyUpdates.kicked.includes("app.whimsy.updater"), "The updater job runs");
-    ok((await WhimsyUpdates.readControl()).check_requested, "The check request is recorded");
-    is(state.value, "checkingForUpdates", "Firefox's state shows the check");
-    await IOUtils.writeJSON(PathUtils.join(dir, "control.json"), { paused: false });
+    await TestUtils.waitForCondition(() => WhimsyUpdates.kicked.includes("app.whimsy.applier"), "The installer job runs");
+    ok(!WhimsyUpdates.kicked.includes("app.whimsy.updater"), "The build job never runs from the browser");
+    ok(!(await WhimsyUpdates.readControl()).check_requested, "No build request is written");
+    ok((await WhimsyUpdates.readControl()).install_requested, "An install request is written");
     await TestUtils.waitForCondition(() => state.value == "noUpdatesFound", "...then that it's up to date");
 
     // Firefox's install-automatically choice sets auto_install only; it never

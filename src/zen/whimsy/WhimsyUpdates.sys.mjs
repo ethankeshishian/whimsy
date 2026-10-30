@@ -156,9 +156,12 @@ export const WhimsyUpdates = {
     }
   },
 
+  // The browser is only a client: a check never builds or publishes. On a
+  // Mac that builds Whimsy it installs an already-published build that the
+  // local updater staged (when Whimsy is closed), nothing more.
   async checkNow() {
-    await this.writeControl({ check_requested: new Date().toISOString() });
-    return this.kick(UPDATE_JOB);
+    await this.writeControl({ install_requested: new Date().toISOString() });
+    return this.kick(APPLY_JOB);
   },
 
   // Rolling back swaps in the previous app, which needs Whimsy closed: the

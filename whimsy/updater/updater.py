@@ -16,7 +16,8 @@ fails twice is skipped until a newer one comes out.
 
 State lives in ~/Library/Application Support/Whimsy Updater:
   state.json    for the browser's Settings (WhimsyUpdates.sys.mjs)
-  control.json  from the browser: auto_install, check_requested, rollback, channel, app_icon;
+  control.json  from the browser: auto_install, install_requested, rollback, channel, app_icon (the
+                browser never starts a build or a publish);
                 by hand only: hold (holds the nightly build + Release publish; the
                 browser never writes it. Older builds wrote `paused`; it's ignored)
   staged/ previous/   app bundles
@@ -206,8 +207,8 @@ def git(repo, *args, **kw):
 
 def preflight(repo, manual):
     control = read_json("control.json", {})
-    # `hold` is set by hand; a manual check from Settings still runs.
-    if control.get("hold") and not manual:
+    # `hold` is set by hand and always holds.
+    if control.get("hold"):
         raise Skip("the nightly build is on hold (control.json hold)")
     if not manual and "AC Power" not in sh(["pmset", "-g", "batt"], quiet=True):
         raise Skip("on battery; waiting for power")
@@ -427,9 +428,8 @@ def cmd_run():
     if not repo:
         log("Not installed: run whimsy/updater/install.sh")
         return
-    control = read_json("control.json", {})
-    manual = bool(control.get("check_requested"))
-    update_control(check_requested=None)
+    manual = False  # only launchd or a person at the terminal runs this
+    update_control(check_requested=None)  # left by older builds; unused
     with Lock("run.lock"):
         update_state(status="running", message="Checking for a new Zen release", last_run=now())
         state = read_json("state.json", {})
@@ -634,9 +634,10 @@ def cmd_apply():
             return
         if whimsy_running():
             return
-        if control.get("auto_install") is False:
-            # Firefox's "install automatically" is off: wait for a manual check.
+        if control.get("auto_install") is False and not control.get("install_requested"):
+            # Firefox's "install automatically" is off: wait for a check from Settings.
             return
+        update_control(install_requested=None)
         log(f"Installing {staged.get('version')}")
         current = state.get("installed")
         swap_in(STAGED, keep_previous=os.path.exists(APP))
