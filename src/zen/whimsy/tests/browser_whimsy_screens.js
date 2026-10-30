@@ -1537,3 +1537,28 @@ add_task(async function wave5_seasonal_balloon() {
     }
   }
 });
+
+// wave5/uxfix: naming a Split Favorite asks in the window's own sheet (the
+// Delete Space style), in light and dark, once the sheet has settled.
+add_task(async function uxfix_split_favorite_name_sheet() {
+  const { WhimsyPanels } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs");
+  const l10n = new Localization(["browser/whimsy.ftl"], true);
+  const [title, body] = l10n.formatValuesSync([
+    "whimsy-split-favorite-name-title",
+    "whimsy-split-favorite-name-prompt",
+  ]);
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+    const asking = WhimsyPanels.ask(window, { title, body, value: "Mail + Calendar" });
+    const win = await dialog;
+    await TestUtils.waitForCondition(() =>
+      document.getAnimations().every(a =>
+        a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity),
+    "The sheet has finished opening");
+    await shot(`uxfix-split-favorite-name-${dark ? "dark" : "light"}`);
+    win.document.querySelector("dialog").getButton("cancel").click();
+    is(await asking, null, "Cancel leaves no favorite");
+    await SpecialPowers.popPrefEnv();
+  }
+});
