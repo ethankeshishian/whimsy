@@ -1012,6 +1012,12 @@ Object.assign(gWhimsySettings, {
 // it gives Zen's (a separate new tab).
 document.addEventListener("paneshown", event => {
   if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertSplitNewTabRow();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertSplitNewTabRow() {
     const template = document.getElementById("template-whimsySplitNewTab");
     const group = document.getElementById("whimsyTabsGroup");
     if (!template || !group) {
@@ -1027,7 +1033,7 @@ document.addEventListener("paneshown", event => {
       group.append(row);
     }
     Preferences.queueUpdateOfAllElements();
-  }
+  },
 });
 
 Object.assign(gWhimsySettings, {
@@ -1456,3 +1462,87 @@ document.addEventListener("paneshown", event => {
     gWhimsySettings.adoptZenGlance();
   }
 });
+
+// fix7 settings: search. Firefox's Settings search only looks at what is in
+// #mainPrefPane once every pane's template is inserted (gSearchResultsPane.
+// initializeCategories). Whimsy's groups wait in their own templates until
+// their pane is first shown, so "Claude", "Liquid Glass" or "VPN" found
+// nothing until you had opened that pane. After Firefox's own category
+// setup, every Whimsy group goes in too, hidden unless it belongs to the
+// pane on screen (the search reveals what matches).
+Object.assign(gWhimsySettings, {
+  insertAllForSearch() {
+    const pane = document.getElementById("mainPrefPane");
+    if (!pane) {
+      return;
+    }
+    const before = new Set(pane.children);
+    const steps = [
+      // Look and Feel
+      () => this.insertGroups(),
+      () => this.insertNextMeetingGroup(),
+      () => this.adoptZenGlance(),
+      // Privacy & Security
+      () => this.insertPrivacyGroups(),
+      () => this.insertClaudeGroup(),
+      // Tab Management
+      () => this.insertTabsGroup(),
+      () => this.insertSplitNewTabRow(),
+      () => this.insertSpacesGroup(),
+      () => this.insertExtensionsGroup(),
+      () => this.insertHoverGroup(),
+      // Search
+      () => this.insertBangsGroup(),
+      // General (or Tabs & Browsing with the settings redesign)
+      () =>
+        this.insertPerformanceGroup(
+          document.querySelector('[groupid="performance"]')?.getAttribute("data-category") || "paneGeneral"
+        ),
+      // About (async: it waits for Firefox's Updates group to render)
+      () =>
+        this.insertAboutGroup(
+          Services.prefs.getBoolPref("browser.settings-redesign.enabled", false) ? "paneAbout" : "paneGeneral"
+        ),
+    ];
+    for (const step of steps) {
+      try {
+        step();
+      } catch (e) {
+        console.error("Whimsy settings: inserting a group for search failed", e);
+      }
+    }
+    const current = gLastCategory?.category;
+    for (const el of pane.children) {
+      if (!before.has(el) && el.dataset.category && el.dataset.category != current) {
+        el.hidden = true;
+      }
+    }
+  },
+
+  hookSearch() {
+    const search = typeof gSearchResultsPane == "object" ? gSearchResultsPane : null;
+    if (!search || search.whimsyHooked) {
+      return;
+    }
+    search.whimsyHooked = true;
+    const settle = async () => {
+      this.insertAllForSearch();
+      if (document.hasPendingL10nMutations) {
+        await new Promise(r => document.addEventListener("L10nMutationsFinished", r, { once: true }));
+      }
+    };
+    if (search._categoriesInitialized) {
+      // Firefox already set up its panes: chain onto that.
+      search._categoriesInitialized = search._categoriesInitialized.then(settle);
+      return;
+    }
+    const original = search.runCategoryInitialization;
+    search.runCategoryInitialization = async function (...args) {
+      await original.apply(this, args);
+      await settle();
+    };
+  },
+});
+
+gWhimsySettings.hookSearch();
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.hookSearch(), { once: true });
