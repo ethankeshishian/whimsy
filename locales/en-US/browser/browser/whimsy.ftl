@@ -603,8 +603,8 @@ whimsy-library-files-delete =
 
 whimsy-action-quick-window = New Mini Whimsy
 whimsy-quick-window-move-to-space =
-    .label = Open in Current Space
-    .tooltiptext = Move this page into the space you're currently using (Cmd+O)
+    .label = Open in { $space }
+    .tooltiptext = Open in { $space } (Cmd+O)
 whimsy-quick-window-choose-space =
     .tooltiptext = Choose a different space (Cmd+Shift+O)
 
@@ -741,3 +741,7 @@ whimsy-devmode-console =
     .label = Console
 whimsy-devmode-network =
     .label = Network
+
+# wave2: Mini Whimsy without an available destination.
+whimsy-quick-window-no-space =
+    .label = Open in…
