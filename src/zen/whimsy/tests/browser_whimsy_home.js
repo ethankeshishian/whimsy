@@ -95,8 +95,11 @@ add_task(async function test_feature_off_falls_back() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.home", false]] });
 
   await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+    // The about: module serves about:home's channel under the about:whimsy
+    // URL, so check the document itself rather than its URI.
+    is(browser.remoteType, "privilegedabout", "Disabled route loads where about:home loads");
     await SpecialPowers.spawn(browser, [], async () => {
-      is(content.document.documentURI.split("?")[0], "about:home", "Disabled route loads the real home document");
+      ok(content.document.body.classList.contains("activity-stream"), "Disabled route loads the real home document");
       ok(!content.document.getElementById("whimsy-home"), "No Whimsy homepage when disabled");
     });
   });
@@ -113,7 +116,8 @@ add_task(async function test_tabs_and_keyboard() {
     changelog.click();
     is(changelog.getAttribute("aria-selected"), "true", "Click selects Changelog");
     is(home.tabIndex, -1, "Only selected tab is in the tab order");
-    ok(doc.location.search.includes("tab=changelog"), "URL follows selection");
+    // about: URLs can only change their fragment with replaceState.
+    is(doc.location.hash, "#changelog", "URL follows selection");
     changelog.focus();
     EventUtils.synthesizeKey("KEY_ArrowRight", {}, browser.contentWindow);
     is(doc.activeElement, home, "Arrow navigation wraps and focuses Home");

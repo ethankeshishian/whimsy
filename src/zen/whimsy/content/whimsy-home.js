@@ -13,9 +13,10 @@ const CHANGELOG_URL = "chrome://browser/content/whimsy/whimsy-changelog.json";
 
 function currentTabFromLocation() {
   try {
-    return new URL(document.location.href).searchParams.get("tab") == "changelog"
-      ? "changelog"
-      : "home";
+    // The fragment (set as tabs change) wins over ?tab= (the route).
+    const url = new URL(document.location.href);
+    const tab = url.hash.slice(1) || url.searchParams.get("tab");
+    return tab == "changelog" ? "changelog" : "home";
   } catch {
     return "home";
   }
@@ -34,8 +35,11 @@ function selectTab(tab) {
   document.getElementById("whimsy-panel-home").hidden = isChangelog;
   document.getElementById("whimsy-panel-changelog").hidden = !isChangelog;
   try {
-    const url = "about:whimsy" + (isChangelog ? "?tab=changelog" : "");
-    window.history.replaceState(null, "", url);
+    // about: URLs may only change their fragment. Leave a URL that already
+    // says this tab alone (the plain homepage stays about:whimsy).
+    if (currentTabFromLocation() != tab) {
+      window.history.replaceState(null, "", "#" + tab);
+    }
   } catch {
     // Best-effort: not having the address bar track the tab isn't fatal.
   }
