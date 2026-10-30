@@ -232,3 +232,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # home: homepage + changelog (about:whimsy).
 ["browser_whimsy_home.js"]
+
+# batch3glance: Glance size (Compact / Standard / Wide).
+["browser_whimsy_glance_size.js"]

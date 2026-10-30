@@ -90,6 +90,24 @@ HOTFIXES = [
         "old": '+            <label is="text-link" href="https://github.com/zen-browser/desktop" data-l10n-name="community-mozillaLink"/>',
         "new": '+            <label is="text-link" href="https://github.com/ethankeshishian/whimsy/issues" data-l10n-name="community-mozillaLink"/>',
     },
+    # batch3glance: Glance size. Zen hard-codes 80% in the arc animation and
+    # in the final width; both read Whimsy's chosen width instead.
+    {
+        "id": "glance-size-arc",
+        "file": "src/zen/glance/ZenGlanceManager.mjs",
+        "why": "Glance size (whimsy.glance.size): the opening and closing arc "
+               "must animate to the card's real width.",
+        "old": "    const widthPercent = 0.8;\n",
+        "new": "    const widthPercent = this.whimsyWidthPercent ?? 0.8; // Whimsy hotfix: Glance size\n",
+    },
+    {
+        "id": "glance-size-final",
+        "file": "src/zen/glance/ZenGlanceManager.mjs",
+        "why": "Glance size (whimsy.glance.size): the card keeps that width "
+               "once the opening animation ends.",
+        "old": '    this.browserWrapper.style.width = "80%";\n',
+        "new": "    this.browserWrapper.style.width = `${(this.whimsyWidthPercent ?? 0.8) * 100}%`; // Whimsy hotfix: Glance size\n",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -358,6 +376,9 @@ FEATURES = [
     # home: homepage + changelog.
     {"id": "home", "title": "Whimsy's homepage (about:whimsy) with a Changelog tab, replacing Zen's about:home",
      "detect": [("src/zen", r"(?i)about:whimsy")]},
+    # batch3glance: Glance size (Compact / Standard / Wide).
+    {"id": "glance-size", "title": "Glance size: Compact, Standard (Zen's 80%) or Wide",
+     "detect": [("src/zen/glance", r"glance\.(?:size|width)")]},
 ]
 
 

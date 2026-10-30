@@ -1145,3 +1145,9 @@ notification-message[value="whimsy-claude-control"] {
   max-width: 12em;
   text-overflow: ellipsis;
 }
+
+/* batch3glance: Glance size. Zen's arc animates to the same width
+   (gZenGlanceManager.whimsyWidthPercent), so the card never jumps. */
+:root[whimsy-glance-sizing] :is(.browserSidebarContainer.zen-glance-overlay, #zen-glance-detached) .browserContainer {
+  width: var(--whimsy-glance-width, 80%);
+}

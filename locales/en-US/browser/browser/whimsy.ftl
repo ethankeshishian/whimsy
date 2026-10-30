@@ -923,3 +923,12 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+
+# batch3glance: Glance size (Settings → Tab Management, below the Tabs options).
+whimsy-glance-size-label = Glance size
+whimsy-glance-size-compact =
+    .label = Compact
+whimsy-glance-size-standard =
+    .label = Standard
+whimsy-glance-size-wide =
+    .label = Wide

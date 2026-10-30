@@ -75,6 +75,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
 });
 
+// batch3glance: Glance size and split view (Arc parity).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyGlance: "resource:///modules/whimsy/WhimsyGlance.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -389,6 +394,9 @@ export const Whimsy = {
     // checks its switch on each refresh, and never asks for calendar
     // access here (only when the person turns Apple Calendar on).
     run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
+    // batch3glance: Glance size. Always installed (checks its switch on
+    // each Glance), so turning it on or off applies without a restart.
+    run("glance-size", () => lazy.WhimsyGlance.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

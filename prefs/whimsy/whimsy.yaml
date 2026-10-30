@@ -288,3 +288,7 @@
 
 - name: app.releaseNotesURL.prompt
   value: "about:whimsy?tab=changelog"
+
+# batch3glance: Glance size: compact (60%), standard (Zen's 80%) or wide (90%).
+- name: whimsy.glance.size
+  value: "standard"

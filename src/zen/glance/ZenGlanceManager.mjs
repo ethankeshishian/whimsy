@@ -813,7 +813,7 @@ class nsZenGlanceManager extends nsZenDOMOperatedFeature {
       referenceRect ??
       window.windowUtils.getBoundsWithoutFlushing(gBrowser.tabpanels);
 
-    const widthPercent = 0.8;
+    const widthPercent = this.whimsyWidthPercent ?? 0.8; // Whimsy hotfix: Glance size
     if (direction === "opening") {
       startPosition = {
         x: clientX + width / 2,
@@ -976,7 +976,7 @@ class nsZenGlanceManager extends nsZenDOMOperatedFeature {
     // Batch all style/attribute writes together to avoid interleaved
     // read/write layout thrashing.
     this.browserWrapper.style.height = "100%";
-    this.browserWrapper.style.width = "80%";
+    this.browserWrapper.style.width = `${(this.whimsyWidthPercent ?? 0.8) * 100}%`; // Whimsy hotfix: Glance size
     this.browserWrapper.removeAttribute("animate");
     this.browserWrapper.setAttribute("has-finished-animation", true);
     this.overlay.style.removeProperty("overflow");

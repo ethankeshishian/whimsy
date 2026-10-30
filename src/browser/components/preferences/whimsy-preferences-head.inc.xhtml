@@ -367,3 +367,17 @@
     <description class="description-deemphasized" data-l10n-id="whimsy-space-extensions-help"/>
   </groupbox>
 </html:template>
+
+# batch3glance: Glance size, a row added to the Tabs group (whimsyTabsGroup).
+<html:template id="template-whimsyGlanceSize" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <hbox id="whimsyGlanceSizeRow" align="center" data-whimsy-feature="glance-size">
+    <label id="whimsyGlanceSizeLabel" control="whimsyGlanceSize" data-l10n-id="whimsy-glance-size-label"/>
+    <menulist id="whimsyGlanceSize" preference="whimsy.glance.size" data-pref-type="string">
+      <menupopup>
+        <menuitem value="compact" data-l10n-id="whimsy-glance-size-compact"/>
+        <menuitem value="standard" data-l10n-id="whimsy-glance-size-standard"/>
+        <menuitem value="wide" data-l10n-id="whimsy-glance-size-wide"/>
+      </menupopup>
+    </menulist>
+  </hbox>
+</html:template>

@@ -504,3 +504,25 @@ add_task(async function whimsy_home_and_changelog() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// batch3glance: a Compact and a Wide Glance (Standard is Zen's own).
+add_task(async function glance_sizes() {
+  const { openGlanceOnTab } = ChromeUtils.importESModule("resource://testing-common/GlanceTestUtils.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.glance-size", true]] });
+  const parent = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  try {
+    for (const size of ["compact", "wide"]) {
+      Services.prefs.setStringPref("whimsy.glance.size", size);
+      await openGlanceOnTab(window, async glanceTab => {
+        const wrapper = glanceTab.linkedBrowser.closest(".browserContainer");
+        await TestUtils.waitForCondition(() => wrapper.getAttribute("has-finished-animation") == "true");
+        ok(wrapper.getBoundingClientRect().width > 0, `${size} Glance is drawn`);
+        await shot(`30-glance-${size}`);
+      });
+    }
+  } finally {
+    Services.prefs.clearUserPref("whimsy.glance.size");
+    BrowserTestUtils.removeTab(parent);
+    await SpecialPowers.popPrefEnv();
+  }
+});

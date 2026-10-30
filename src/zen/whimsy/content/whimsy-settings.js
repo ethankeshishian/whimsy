@@ -853,3 +853,34 @@ Object.assign(gWhimsySettings, {
     group.hidden = false;
   },
 });
+
+// batch3glance: Glance size, next to the Tabs group's Glance options. The
+// Tabs group is inserted by gWhimsySettings.init's listener, which runs first.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertGlanceSize();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertGlanceSize() {
+    const template = document.getElementById("template-whimsyGlanceSize");
+    if (!template) {
+      return;
+    }
+    const row = template.content.firstElementChild;
+    template.remove();
+    const group = document.getElementById("whimsyTabsGroup");
+    if (!group || !this.lazy.Whimsy.featureEnabled("glance-size")) {
+      return;
+    }
+    Preferences.addAll([{ id: "whimsy.glance.size", type: "string" }]);
+    const externalLinks = document.getElementById("whimsyExternalLinksTarget")?.parentElement;
+    if (externalLinks?.parentElement == group) {
+      externalLinks.after(row);
+    } else {
+      group.append(row);
+    }
+    Preferences.queueUpdateOfAllElements();
+  },
+});
