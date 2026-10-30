@@ -530,9 +530,46 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 .whimsy-volume-mute[muted] {
   list-style-image: url("chrome://browser/skin/zen-icons/media-mute.svg");
 }
+/* fixD: drawn by Whimsy, not the OS. The native macOS slider ignores
+   accent-color, so on some themes its filled (left) part came out dark
+   against a white track and read as filling from the right. The filled
+   part is now the accent and grows from the start side (::-moz-range-
+   progress follows the text direction); the track is a faint tint of the
+   text color, so it reads as empty on any theme. Same look as Zen's
+   media-bar progress. */
 .whimsy-volume-slider {
+  --whimsy-volume-fill: var(--zen-primary-color, AccentColor);
+  --whimsy-volume-track: color-mix(in srgb, currentColor 18%, transparent);
+  appearance: none;
   flex: 1;
-  accent-color: var(--zen-primary-color, AccentColor);
+  height: 16px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+
+  &::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--whimsy-volume-track);
+  }
+  &::-moz-range-progress {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--whimsy-volume-fill);
+  }
+  &::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--arrowpanel-background, Field);
+    border-radius: 50%;
+    background: var(--whimsy-volume-fill);
+    box-shadow: 0 0 0 1px var(--whimsy-volume-track);
+  }
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 .whimsy-volume-value {
   min-width: 4ch;

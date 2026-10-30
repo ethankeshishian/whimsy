@@ -137,3 +137,57 @@ add_task(async function test_settings() {
   });
   Services.prefs.clearUserPref("whimsy.media.background-mute");
 });
+
+// fixD: two tabs playing. Firefox drops the soundplaying flag of a muted
+// tab after 3 s, so the tab Whimsy had muted didn't count as playing when
+// you went back to it, and the other tab kept playing.
+add_task(async function test_two_tabs_swap_after_the_flag_drops() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.media.background-mute", "prioritize"]] });
+  const a = await openPlaying();
+  const b = await openPlaying();
+  await TestUtils.waitForCondition(() => muted(a), "A muted while B plays");
+  await TestUtils.waitForCondition(() => !a.soundPlaying, "A's playing flag drops while muted", 100, 100);
+  gBrowser.selectedTab = a;
+  await TestUtils.waitForCondition(() => !muted(a) && muted(b), "Back on A: A plays, B muted");
+  await new Promise(r => setTimeout(r, 1500));
+  ok(!muted(a) && muted(b), "and it stays that way");
+
+  // Straight back, within the 3 s: only soundplaying-scheduledremoval moves.
+  gBrowser.selectedTab = b;
+  await TestUtils.waitForCondition(() => !muted(b) && muted(a), "Back on B at once: B plays, A muted");
+  BrowserTestUtils.removeTab(a);
+  BrowserTestUtils.removeTab(b);
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_two_background_tabs_both_mute() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.media.background-mute", "background"]] });
+  const a = await openPlaying();
+  const b = await openPlaying();
+  await TestUtils.waitForCondition(() => muted(a), "A muted behind B");
+  const blank = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await TestUtils.waitForCondition(() => muted(a) && muted(b), "Leaving B: both background tabs are muted");
+  gBrowser.selectedTab = b;
+  await TestUtils.waitForCondition(() => !muted(b) && muted(a), "On B: only B plays");
+  gBrowser.selectedTab = blank;
+  await TestUtils.waitForCondition(() => muted(a) && muted(b), "Away again: both muted");
+  for (const tab of [a, b, blank]) {
+    BrowserTestUtils.removeTab(tab);
+  }
+  await SpecialPowers.popPrefEnv();
+});
+
+// A tab Whimsy muted while playing that paused meanwhile: selecting it
+// mutes the others only until Whimsy sees it's quiet.
+add_task(async function test_paused_while_muted_gives_sound_back() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.media.background-mute", "prioritize"]] });
+  const a = await openPlaying();
+  const b = await openPlaying();
+  await TestUtils.waitForCondition(() => muted(a), "A muted");
+  await SpecialPowers.spawn(a.linkedBrowser, [], () => content.document.getElementById("audio").pause());
+  gBrowser.selectedTab = a;
+  await TestUtils.waitForCondition(() => !muted(a) && !muted(b), "A is quiet, so B keeps (or gets back) its sound");
+  BrowserTestUtils.removeTab(a);
+  BrowserTestUtils.removeTab(b);
+  await SpecialPowers.popPrefEnv();
+});

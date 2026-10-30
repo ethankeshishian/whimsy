@@ -333,6 +333,38 @@ HOTFIXES = [
                "        .WhimsyPanels.confirmDeleteSpace(window, title, body)\n"
                "    ) {",
     },
+    # fixD: split-four-panes (see WhimsySplit.sys.mjs).
+    {
+        "id": "split-drop-onto-split-tab",
+        "file": "src/zen/drag-and-drop/ZenDragAndDrop.js",
+        "why": "Dropping a tab onto a tab in the sidebar only makes new 2-pane "
+               "splits; a tab already in a split is refused, so a third or "
+               "fourth pane can't be dragged in. Whimsy says when it can join.",
+        "old": '        dropElement?.group?.hasAttribute("split-view-group") ||\n'
+               "        movingTabsSet.size > 1\n",
+        "new": '        (dropElement?.group?.hasAttribute("split-view-group") &&\n'
+               "          !gZenViewSplitter.whimsyCanDropIntoSplit?.(dropElement, draggedTab)) || // Whimsy hotfix\n"
+               "        movingTabsSet.size > 1\n",
+    },
+    {
+        "id": "split-drop-into-split",
+        "file": "src/zen/drag-and-drop/ZenDragAndDrop.js",
+        "why": "The drop then joins the existing split beside the pane it was "
+               "dropped on, instead of Zen's new-split path.",
+        "old": "      // Clear any visuals and timer\n"
+               "      this._clearDragOverSplit();\n"
+               "\n"
+               '      const isLeft = dropSide === "left";\n',
+        "new": "      // Clear any visuals and timer\n"
+               "      this._clearDragOverSplit();\n"
+               "\n"
+               "      if (\n"
+               "        gZenViewSplitter.whimsyDropIntoSplit?.(draggedTab, droppedOnTab, dropSide, activate) // Whimsy hotfix\n"
+               "      ) {\n"
+               "        return true;\n"
+               "      }\n"
+               '      const isLeft = dropSide === "left";\n',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -647,6 +679,14 @@ FEATURES = [
     # fixC: transparency and interface font pages in Zen's onboarding.
     {"id": "welcome-look", "title": "Onboarding: transparency and interface font pages in Zen's first-run flow",
      "detect": [("src/zen/welcome", r"(?i)\b(transparency|translucency|interface[ -]?font|ui-font)\b")]},
+    # fixD: splits + media.
+    {"id": "split-four-panes", "title": "Splits up to four panes: Split Grid/Vertically/Horizontally re-lays out the current split; drop a 3rd/4th tab onto a split's tab in the sidebar",
+     # Never matches until Zen lets its sidebar drop target a split's tab.
+     "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
+    {"id": "pip-close-keeps-playing", "title": "Closing the picture-in-picture window with X keeps the video playing in its tab (Arc)",
+     "detect": [("src/zen", r"(?i)pip[\w-]*keep[\w-]*playing|isUnpipWithoutPauseShortcut")]},
+    {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
+     "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
 ]
 
 

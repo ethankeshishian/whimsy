@@ -287,3 +287,13 @@ support-files = ["whimsy_call.html"]
 
 # fixC: onboarding look pages (transparency, interface font)
 ["browser_whimsy_welcome_look.js"]
+# fixD: splits up to four panes (Split Grid re-layout, drop into a split).
+["browser_whimsy_split_four_panes.js"]
+
+# fixD: automatic picture-in-picture isn't blocked by background muting (tabs and spaces).
+["browser_whimsy_pip_auto.js"]
+support-files = ["whimsy_video_sound.html", "whimsy_video_sound.mp4", "whimsy_media.html", "whimsy_audio.ogg"]
+
+# fixD: X on the picture-in-picture window keeps the video playing (Arc).
+["browser_whimsy_pip_close.js"]
+support-files = ["whimsy_video.html", "whimsy_video.mp4"]

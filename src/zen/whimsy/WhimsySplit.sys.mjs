@@ -33,8 +33,42 @@ const SWAP_FEATURE_PREF = "whimsy.feature.split-swap-panes";
 // multiselected tabs, or the selected tab and the next one.
 const COMMAND_BAR_FEATURE_PREF = "whimsy.feature.split-command-bar";
 
+// fixD: Splits of up to four panes (Zen's MAX_TABS). Zen caps a split at
+// four because its layouts (side by side, stacked, a 2x2 grid) stop being
+// usable past that; Zen issue #10080 asked for more and was closed. Whimsy
+// keeps the cap and fixes the two ways it got in the way below four or at it:
+// - Split Vertically / Horizontally / Grid (shortcut or command bar) inside a
+//   split paired the current pane with the next tab in the list. From the
+//   last pane that's a tab outside the split, so a 4-pane split answered
+//   "Can't add more panels" and a smaller one swallowed an unrelated tab
+//   instead of changing its layout. Now a layout change re-lays out the
+//   panes you have; the same layout again still adds the next tab while
+//   there's room (Zen's behavior).
+// - Dropping a tab onto a tab in the sidebar splits them, but Zen refused
+//   tabs already in a split (it only knew how to make a new 2-pane split).
+//   Two hotfixes in whimsy/overlay.py ask gZenViewSplitter's
+//   whimsyCanDropIntoSplit/whimsyDropIntoSplit (set below), so the third
+//   and fourth tab join the split beside the pane you drop on.
+const FOUR_PANES_FEATURE_PREF = "whimsy.feature.split-four-panes";
+
 function enabled(pref) {
   return Services.prefs.getBoolPref(pref, true);
+}
+
+function findLeaf(node, tab) {
+  if (!node) {
+    return null;
+  }
+  if (node.tab === tab) {
+    return node;
+  }
+  for (const child of node.children ?? []) {
+    const found = findLeaf(child, tab);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
 }
 
 function hasActiveSplit(win) {
@@ -93,8 +127,122 @@ export const WhimsySplit = {
     splitter.applyGridLayout(group.layoutTree);
   },
 
+  // The split the selected tab is in, if the user asks for a layout that
+  // should re-lay it out rather than pull in another tab.
+  relayoutTarget(win, gridType) {
+    const splitter = win.gZenViewSplitter;
+    const selected = win.gBrowser.selectedTab;
+    if (!enabled(FOUR_PANES_FEATURE_PREF) || gridType == "unsplit" || selected?.multiselected) {
+      return null;
+    }
+    const group = splitter._data.find(g => g.tabs.includes(selected));
+    if (!group) {
+      return null;
+    }
+    const full = group.tabs.length >= splitter.MAX_TABS;
+    return group.gridType != gridType || full ? group : null;
+  },
+
+  relayout(win, group, gridType) {
+    const splitter = win.gZenViewSplitter;
+    group.gridType = gridType;
+    group.layoutTree = splitter.calculateLayoutTree(group.tabs, gridType);
+    // Session store reads the layout from _data when it saves. No
+    // ZenSplitViewTabsSplit event: window sync would re-split a full split
+    // in the other windows and show them Zen's limit toast.
+    splitter.activateSplitView(group, true);
+  },
+
+  wrapToggleShortcut(win) {
+    const splitter = win.gZenViewSplitter;
+    const original = splitter?.toggleShortcut;
+    if (typeof original != "function" || original._whimsy) {
+      return;
+    }
+    const self = this;
+    const wrapped = function (gridType) {
+      try {
+        const group = self.relayoutTarget(win, gridType);
+        if (group) {
+          self.relayout(win, group, gridType);
+          return undefined;
+        }
+      } catch (e) {
+        console.error("Whimsy: split layout", e);
+      }
+      return original.call(this, gridType);
+    };
+    wrapped._whimsy = true;
+    splitter.toggleShortcut = wrapped;
+  },
+
+  // Asked by Zen's sidebar drag code (hotfix): can this tab join the split
+  // that dropElement is a pane of?
+  canDropIntoSplit(win, dropElement, draggedTab) {
+    if (!enabled(FOUR_PANES_FEATURE_PREF) || !draggedTab || draggedTab.hasAttribute("zen-essential")) {
+      return false;
+    }
+    const splitter = win.gZenViewSplitter;
+    const group = splitter._data.find(g => g.tabs.includes(dropElement));
+    return !!group && !group.tabs.includes(draggedTab) && group.tabs.length < splitter.MAX_TABS;
+  },
+
+  // Adds draggedTab to droppedOnTab's split, on dropSide ("left"/"right")
+  // of that pane. Returns false to leave the drop to Zen (no split there).
+  dropIntoSplit(win, draggedTab, droppedOnTab, dropSide, activate = true) {
+    if (!this.canDropIntoSplit(win, droppedOnTab, draggedTab)) {
+      return false;
+    }
+    const splitter = win.gZenViewSplitter;
+    const group = splitter._data.find(g => g.tabs.includes(droppedOnTab));
+    const before = new Set(group.tabs);
+    // Zen's own path for adding to a split (moves the tab into the split's
+    // group, pins/duplicates like the split, appends a pane at the end).
+    splitter.splitTabs([droppedOnTab, draggedTab], undefined, -1, { activate: false });
+    const added = group.tabs.find(t => !before.has(t));
+    if (!added) {
+      return true;
+    }
+    // Move the new pane next to the one it was dropped on.
+    const leaf = findLeaf(group.layoutTree, added);
+    const target = findLeaf(group.layoutTree, droppedOnTab);
+    if (leaf && target && leaf.parent) {
+      splitter.removeNode(leaf);
+      splitter.splitIntoNode(target, leaf, dropSide == "left" ? "left" : "right", 0.5);
+    }
+    if (activate) {
+      if (win.gBrowser.selectedTab != added) {
+        win.gBrowser.selectedTab = added;
+      }
+      splitter.activateSplitView(group, true);
+    } else if (splitter._data[splitter.currentView] === group) {
+      splitter.activateSplitView(group, true);
+    }
+    return true;
+  },
+
   initWindow(win) {
     const { WhimsyShortcuts } = lazy;
+
+    this.wrapToggleShortcut(win);
+    if (win.gZenViewSplitter) {
+      win.gZenViewSplitter.whimsyCanDropIntoSplit = (dropElement, draggedTab) => {
+        try {
+          return this.canDropIntoSplit(win, dropElement, draggedTab);
+        } catch (e) {
+          console.error("Whimsy: split drop", e);
+          return false;
+        }
+      };
+      win.gZenViewSplitter.whimsyDropIntoSplit = (draggedTab, droppedOnTab, dropSide, activate) => {
+        try {
+          return this.dropIntoSplit(win, draggedTab, droppedOnTab, dropSide, activate);
+        } catch (e) {
+          console.error("Whimsy: split drop", e);
+          return false;
+        }
+      };
+    }
 
     // #9
     WhimsyShortcuts.addCommand(win, {
