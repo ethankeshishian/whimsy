@@ -17,6 +17,9 @@ registerCleanupFunction(() => {
   }
 });
 
+// Forty-odd screenshot tasks in one file.
+requestLongerTimeout(2);
+
 const SHOTS = Services.env.get("WHIMSY_SHOTS");
 
 async function shot(name, windowGlobal = window.browsingContext.currentWindowGlobal) {
@@ -928,6 +931,9 @@ add_task(async function compact_peek_with_transparency() {
 add_task(async function welcome_look_pages() {
   const { WhimsyWelcome } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs");
   const win = await BrowserTestUtils.openNewBrowserWindow();
+  // Let Zen finish its window setup (compact mode, then Whimsy) first:
+  // closing the window mid-setup made Zen's compact mode throw.
+  await TestUtils.waitForCondition(() => win.document.getElementById("whimsyKeyset"), "The window finished setting up");
   const doc = win.document;
   const html = (tag, attrs = {}, elementId = "") => {
     const el = doc.createElementNS("http://www.w3.org/1999/xhtml", tag);

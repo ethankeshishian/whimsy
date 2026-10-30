@@ -81,6 +81,9 @@ add_task(async function test_command_bar_navigation() {
   try {
     for (const isPrivate of [false, true]) {
       const win = isPrivate ? await BrowserTestUtils.openNewBrowserWindow({ private: true }) : window;
+      // Its own tab: navigating the window's first tab left example.com open
+      // for every later test file.
+      const tab = isPrivate ? null : await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
       try {
         await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, waitForFocus: SimpleTest.waitForFocus, value: "!local red & blue" });
         const { result } = await UrlbarTestUtils.getDetailsOfResultAt(win, 0);
@@ -95,6 +98,8 @@ add_task(async function test_command_bar_navigation() {
       } finally {
         if (isPrivate) {
           await BrowserTestUtils.closeWindow(win);
+        } else {
+          BrowserTestUtils.removeTab(tab);
         }
       }
     }
