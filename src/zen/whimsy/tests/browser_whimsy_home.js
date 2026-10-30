@@ -81,6 +81,17 @@ add_task(async function test_changelog_tab_renders_entries() {
 
       const entries = doc.querySelectorAll("#whimsy-changelog-list .whimsy-changelog-entries li");
       Assert.greater(entries.length, 0, "At least one changelog entry rendered");
+
+      const builds = doc.querySelectorAll("#whimsy-changelog-list > .whimsy-changelog-group");
+      ok(builds[0].classList.contains("is-latest"), "The newest build is highlighted");
+      ok(builds[0].querySelector(".wh-latest"), "...and labeled Latest");
+      is(doc.querySelectorAll(".is-latest").length, 1, "Only one build is highlighted");
+      for (const build of builds) {
+        ok(/^(v[\w-]+|unreleased)$/.test(build.id), `Build has an anchor id: ${build.id}`);
+        is(build.querySelector(".wh-anchor").getAttribute("href"), "#" + build.id, "Anchor link points at its build");
+        ok(build.querySelector(".wh-kind"), `${build.id} groups its notes by kind`);
+      }
+      ok(doc.querySelector("#whimsy-changelog-list time[datetime]"), "Released builds show their date");
       for (const entry of entries) {
         ok(
           !/\b[0-9a-f]{7,40}\b/.test(entry.textContent),
@@ -154,6 +165,65 @@ add_task(async function test_changelog_empty_invalid_and_text() {
     is(list.querySelector("li").textContent, entries[0], "Notes are plain text");
     ok(!list.querySelector("img"), "Markup in release notes is never interpreted");
     ok(empty.hidden, "Rendering notes hides the empty state");
+
+    render([{
+      version: "1.2b-w3",
+      date: "2026-10-30",
+      title: "A title",
+      new: ["One"],
+      improved: [],
+      fixed: ["Two", " ", 3],
+    }]);
+    const build = list.querySelector(".whimsy-changelog-group");
+    is(build.id, "v1-2b-w3", "Version becomes a URL-safe anchor");
+    is(build.querySelector(".wh-build-title span").textContent, "A title", "Title heads the build");
+    Assert.deepEqual(
+      [...build.querySelectorAll(".wh-kind")].map(k => k.className),
+      ["wh-kind wh-kind-new", "wh-kind wh-kind-fixed"],
+      "Only kinds with notes render, in New / Improved / Fixed order"
+    );
+    is(build.querySelectorAll(".wh-kind-fixed li").length, 1, "Blank and non-string notes are dropped");
+    is(build.querySelector("time").getAttribute("datetime"), "2026-10-30", "Date is machine-readable");
+  });
+});
+
+add_task(async function test_build_anchor_opens_changelog() {
+  await BrowserTestUtils.withNewTab("about:whimsy#v1-24b-w1", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("v1-24b-w1"), "The anchored build rendered");
+    is(doc.getElementById("whimsy-tab-changelog").getAttribute("aria-selected"), "true", "A build anchor opens the Changelog");
+    ok(!doc.getElementById("whimsy-panel-changelog").hidden, "...with its panel showing");
+    is(doc.location.hash, "#v1-24b-w1", "The build anchor stays in the URL");
+
+    // Following another build's link from the Home tab switches tabs too.
+    doc.getElementById("whimsy-tab-home").click();
+    ok(doc.getElementById("whimsy-panel-changelog").hidden, "Back on Home");
+    const changed = BrowserTestUtils.waitForEvent(browser.contentWindow, "hashchange");
+    doc.querySelector("#unreleased .wh-anchor, .whimsy-changelog-group .wh-anchor").click();
+    await changed;
+    ok(!doc.getElementById("whimsy-panel-changelog").hidden, "A build link shows the Changelog");
+  });
+});
+
+add_task(async function test_home_sections_and_balloon() {
+  await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+    const doc = browser.contentDocument;
+    await doc.l10n.ready;
+    await doc.l10n.translateRoots();
+    is(doc.querySelectorAll(".wh-feature").length, 4, "The what-makes-Whimsy section has four features");
+    for (const link of doc.querySelectorAll(".whimsy-home-link")) {
+      ok(link.querySelector(".wh-link-title").textContent.trim(), `${link.id} has a title`);
+      ok(link.querySelector(".wh-link-desc").textContent.trim(), `${link.id} has a description`);
+    }
+    const balloon = doc.getElementById("whimsy-home-balloon");
+    ok(balloon.getAttribute("aria-label"), "The balloon has an accessible name");
+    ok(balloon.querySelector("svg"), "Localizing the balloon keeps its artwork");
+    balloon.click();
+    ok(balloon.classList.contains("is-poked"), "Poking the balloon bounces it");
+    ok(doc.getElementById("whimsy-panel-home").hidden === false, "...and changes nothing else");
+    for (const sheet of doc.styleSheets) {
+      ok(sheet.href?.startsWith("chrome://"), `Only local stylesheets: ${sheet.href}`);
+    }
   });
 });
 

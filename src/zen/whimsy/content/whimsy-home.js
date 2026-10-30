@@ -6,26 +6,45 @@
 // Changelog and (legacy) Privacy. The requested tab comes from the URL
 // Whimsy's about: module preserves (?tab=changelog, ?tab=privacy), so
 // "What's new", whimsy://changelog and the About dialog's Privacy Notice
-// land straight on their tab.
+// land straight on their tab. A build's anchor (#v1-24b-w2) opens the
+// Changelog scrolled to that build.
 
 "use strict";
 
 const CHANGELOG_URL = "chrome://browser/content/whimsy/whimsy-changelog.json";
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 const TABS = ["home", "changelog", "privacy"];
+const KINDS = ["new", "improved", "fixed"];
+const BUILD_ANCHOR = /^(v[\w-]+|unreleased)$/;
+
+function anchorFromLocation() {
+  try {
+    return decodeURIComponent(new URL(document.location.href).hash.slice(1));
+  } catch {
+    return "";
+  }
+}
 
 function currentTabFromLocation() {
   try {
     // The fragment (set as tabs change) wins over ?tab= (the route).
     const url = new URL(document.location.href);
-    const tab = url.hash.slice(1) || url.searchParams.get("tab");
+    const hash = anchorFromLocation();
+    if (TABS.includes(hash)) {
+      return hash;
+    }
+    if (BUILD_ANCHOR.test(hash)) {
+      return "changelog";
+    }
+    const tab = url.searchParams.get("tab");
     return TABS.includes(tab) ? tab : "home";
   } catch {
     return "home";
   }
 }
 
-function selectTab(tab) {
+function selectTab(tab, { fromUser = false } = {}) {
   for (const name of TABS) {
     const button = document.getElementById(`whimsy-tab-${name}`);
     button.setAttribute("aria-selected", String(name == tab));
@@ -41,11 +60,14 @@ function selectTab(tab) {
   } catch {
     // Best-effort: not having the address bar track the tab isn't fatal.
   }
+  if (fromUser && window.scrollY > 0) {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
 }
 
 function initTabs() {
   for (const button of document.querySelectorAll(".whimsy-home-tab")) {
-    button.addEventListener("click", () => selectTab(button.dataset.tab));
+    button.addEventListener("click", () => selectTab(button.dataset.tab, { fromUser: true }));
     button.addEventListener("keydown", event => {
       if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
         return;
@@ -56,49 +78,170 @@ function initTabs() {
       const tab = event.key == "Home" ? TABS[0]
         : event.key == "End" ? TABS[TABS.length - 1]
         : TABS[(index + step + TABS.length) % TABS.length];
-      selectTab(tab);
+      selectTab(tab, { fromUser: true });
       document.getElementById(`whimsy-tab-${tab}`).focus();
     });
   }
-  window.addEventListener("popstate", () => selectTab(currentTabFromLocation()));
+  const follow = () => {
+    selectTab(currentTabFromLocation());
+    revealAnchoredBuild();
+  };
+  window.addEventListener("popstate", follow);
+  window.addEventListener("hashchange", follow);
   selectTab(currentTabFromLocation());
+}
+
+// "1.24b-w2-dev.74" -> "v1-24b-w2-dev-74"; "Unreleased" -> "unreleased".
+function buildAnchor(version) {
+  if (version == "Unreleased") {
+    return "unreleased";
+  }
+  return "v" + version.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function formatDate(date) {
+  if (typeof date != "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return "";
+  }
+  try {
+    return new Intl.DateTimeFormat(document.documentElement.lang || undefined, {
+      dateStyle: "long",
+      timeZone: "UTC",
+    }).format(new Date(date + "T00:00:00Z"));
+  } catch {
+    return date;
+  }
+}
+
+function cleanLines(value) {
+  return Array.isArray(value)
+    ? value.filter(line => typeof line == "string" && line.trim())
+    : [];
+}
+
+// A build's notes by kind. Older data had one flat `entries` list; it reads
+// as "New".
+function buildSections(group) {
+  const sections = {};
+  for (const kind of KINDS) {
+    const lines = cleanLines(group[kind]);
+    if (kind == "new") {
+      lines.push(...cleanLines(group.entries));
+    }
+    if (lines.length) {
+      sections[kind] = lines;
+    }
+  }
+  return sections;
+}
+
+function el(tag, className, text) {
+  const node = document.createElementNS(HTML_NS, tag);
+  if (className) {
+    node.className = className;
+  }
+  if (text != null) {
+    node.textContent = text;
+  }
+  return node;
+}
+
+function renderBuild(group, sections, isLatest) {
+  const unreleased = group.version == "Unreleased";
+  const anchor = buildAnchor(group.version);
+
+  const article = el("article", "whimsy-changelog-group");
+  article.id = anchor;
+  if (isLatest) {
+    article.classList.add("is-latest");
+  }
+
+  const meta = el("div", "wh-build-meta");
+  const when = el("p", "wh-build-date");
+  if (unreleased) {
+    document.l10n.setAttributes(when, "whimsy-changelog-unreleased");
+  } else {
+    const formatted = formatDate(group.date);
+    if (formatted) {
+      const time = el("time", null, formatted);
+      time.setAttribute("datetime", group.date);
+      when.appendChild(time);
+    }
+  }
+  meta.appendChild(when);
+  const chips = el("p", "wh-build-chips");
+  if (!unreleased) {
+    chips.appendChild(el("span", "whimsy-changelog-version", group.version));
+  }
+  if (isLatest) {
+    const latest = el("span", "wh-latest");
+    document.l10n.setAttributes(latest, "whimsy-changelog-latest");
+    chips.appendChild(latest);
+  }
+  meta.appendChild(chips);
+  article.appendChild(meta);
+
+  const card = el("div", "wh-build-card");
+  const heading = el("h3", "wh-build-title");
+  const title = typeof group.title == "string" && group.title.trim() ? group.title : null;
+  const titleText = el("span");
+  if (title) {
+    titleText.textContent = title;
+  } else if (unreleased) {
+    document.l10n.setAttributes(titleText, "whimsy-changelog-unreleased");
+  } else {
+    titleText.textContent = group.version;
+  }
+  heading.appendChild(titleText);
+  const link = el("a", "wh-anchor");
+  link.href = "#" + anchor;
+  document.l10n.setAttributes(link, "whimsy-changelog-anchor", { version: group.version });
+  heading.appendChild(link);
+  card.appendChild(heading);
+
+  for (const kind of KINDS) {
+    if (!sections[kind]) {
+      continue;
+    }
+    const section = el("section", `wh-kind wh-kind-${kind}`);
+    const label = el("h4", "wh-kind-label");
+    document.l10n.setAttributes(label, `whimsy-changelog-${kind}`);
+    section.appendChild(label);
+    const entries = el("ul", "whimsy-changelog-entries");
+    for (const line of sections[kind]) {
+      entries.appendChild(el("li", null, line));
+    }
+    section.appendChild(entries);
+    card.appendChild(section);
+  }
+  article.appendChild(card);
+  return article;
 }
 
 function renderChangelog(groups) {
   const list = document.getElementById("whimsy-changelog-list");
   const empty = document.getElementById("whimsy-changelog-empty");
   list.replaceChildren();
-  const nonEmptyGroups = Array.isArray(groups) ? groups.filter(g =>
-    g && typeof g.version == "string" && Array.isArray(g.entries) &&
-    g.entries.some(line => typeof line == "string" && line.trim())
-  ) : [];
-  empty.hidden = !!nonEmptyGroups.length;
-  if (!nonEmptyGroups.length) {
-    empty.hidden = false;
+  const builds = (Array.isArray(groups) ? groups : [])
+    .filter(g => g && typeof g.version == "string" && g.version.trim())
+    .map(g => [g, buildSections(g)])
+    .filter(([, sections]) => Object.keys(sections).length);
+  empty.hidden = !!builds.length;
+  builds.forEach(([group, sections], i) => {
+    list.appendChild(renderBuild(group, sections, i == 0));
+  });
+}
+
+// The changelog arrives after the first layout, so the browser's own jump
+// to the fragment has nothing to land on yet.
+function revealAnchoredBuild() {
+  const anchor = anchorFromLocation();
+  if (!BUILD_ANCHOR.test(anchor)) {
     return;
   }
-  for (const group of nonEmptyGroups) {
-    const section = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-    section.className = "whimsy-changelog-group";
-
-    const version = document.createElementNS("http://www.w3.org/1999/xhtml", "h2");
-    version.className = "whimsy-changelog-version";
-    if (group.version == "Unreleased") {
-      document.l10n.setAttributes(version, "whimsy-changelog-unreleased");
-    } else {
-      version.textContent = group.version;
-    }
-    section.appendChild(version);
-
-    const entries = document.createElementNS("http://www.w3.org/1999/xhtml", "ul");
-    entries.className = "whimsy-changelog-entries";
-    for (const line of group.entries.filter(line => typeof line == "string" && line.trim())) {
-      const item = document.createElementNS("http://www.w3.org/1999/xhtml", "li");
-      item.textContent = line;
-      entries.appendChild(item);
-    }
-    section.appendChild(entries);
-    list.appendChild(section);
+  const target = document.getElementById(anchor);
+  if (target && target.closest("#whimsy-changelog-list")) {
+    target.scrollIntoView({ block: "start" });
   }
 }
 
@@ -111,6 +254,7 @@ async function loadChangelog() {
     console.error("Whimsy: couldn't load the changelog", e);
     renderChangelog([]);
   }
+  revealAnchoredBuild();
 }
 
 function initImportFromArc() {
@@ -132,8 +276,25 @@ function initImportFromArc() {
   });
 }
 
+// The mascot bobs on its own; a poke makes it squash and spring back up.
+function initBalloon() {
+  const balloon = document.getElementById("whimsy-home-balloon");
+  balloon.addEventListener("click", () => {
+    balloon.classList.remove("is-poked");
+    // Restart the animation when poked again mid-bounce.
+    void balloon.offsetWidth;
+    balloon.classList.add("is-poked");
+  });
+  balloon.addEventListener("animationend", event => {
+    if (event.animationName == "wh-poke") {
+      balloon.classList.remove("is-poked");
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   initImportFromArc();
+  initBalloon();
   loadChangelog();
 });

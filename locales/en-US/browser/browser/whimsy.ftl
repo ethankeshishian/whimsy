@@ -918,16 +918,42 @@ whimsy-home-title = Whimsy
 whimsy-home-brand = Whimsy
 whimsy-home-tab-home = Home
 whimsy-home-tab-changelog = Changelog
-whimsy-home-blurb =
-    Whimsy is an Arc-shaped browser built on Zen and Firefox: spaces,
-    folders and splits from Zen, with Arc's shortcuts and flow layered on
-    top.
+whimsy-home-hero-eyebrow = Lighter than air
+# The <em> part gets the balloon's gradient.
+whimsy-home-hero-title = A browser with <em>a little lift</em>.
+whimsy-home-blurb = Arc's flow, built on Zen and Firefox. Spaces, splits and the shortcuts your hands already know.
+whimsy-home-hero-hint = Psst: the balloon likes a poke.
+whimsy-home-balloon =
+    .aria-label = Poke the balloon
+whimsy-home-features-title = What makes Whimsy, Whimsy
+whimsy-home-feature-spaces-title = A space for everything
+whimsy-home-feature-spaces-text = Work, home and side quests each get their own tabs, colors and pinned sites.
+whimsy-home-feature-keys-title = Arc's shortcuts, kept
+whimsy-home-feature-keys-text = Ctrl+Tab, the command bar and the keys you already reach for.
+whimsy-home-feature-split-title = Side by side, or a peek
+whimsy-home-feature-split-text = Split the window between pages, or glance at a link without leaving yours.
+whimsy-home-feature-quiet-title = Quiet by design
+whimsy-home-feature-quiet-text = No accounts and no telemetry. It's your browser, not ours.
+whimsy-home-links-title = Get settled in
 whimsy-home-link-settings = Settings
+whimsy-home-link-settings-text = Themes, tabs and everything else.
 whimsy-home-link-shortcuts = Keyboard shortcuts
+whimsy-home-link-shortcuts-text = Every shortcut on one page.
 whimsy-home-link-import = Import from Arc
+whimsy-home-link-import-text = Bring your bookmarks and history along.
 whimsy-home-link-feedback = Feedback on GitHub
-whimsy-changelog-blurb = What's changed in each build.
+whimsy-home-link-feedback-text = Found a bug or have an idea? Tell us.
+whimsy-home-footer = Whimsy is built on Zen and Firefox, with a little extra air.
+whimsy-changelog-blurb = What's new in each build, newest first.
 whimsy-changelog-empty = Nothing to show yet.
+whimsy-changelog-latest = Latest
+whimsy-changelog-new = New
+whimsy-changelog-improved = Improved
+whimsy-changelog-fixed = Fixed
+# $version (String) - a build's version, like 1.24b-w2
+whimsy-changelog-anchor =
+    .aria-label = Link to { $version }
+    .title = Link to this build
 
 ## home: Library footer (replaces Zen's donate button; see ZenLibrary.mjs)
 
