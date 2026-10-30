@@ -1662,3 +1662,8 @@ whimsy-scratch-keep-confirm-accept = Keep Space
 # wave5/uxfix: the Undo button on a result toast (Snooze, Hide Space).
 whimsy-undo-toast-button =
     .label = Undo
+
+# fix7/tabs: People card actions.
+whimsy-person-open = Open Profile
+whimsy-person-copy = Copy Link
+whimsy-person-copied = Copied

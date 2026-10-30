@@ -96,6 +96,64 @@ export const WhimsyPeople = {
     return { title: url.hostname == "linkedin.com" ? handle : `@${handle}`, url: profileUrl, description: site };
   },
 
+  // fix7/tabs: what the People card shows, from a lookup's meta tags (or
+  // none yet): the person's name without the site's decoration ("Mona Lisa
+  // (monalisa) · GitHub" is "Mona Lisa"), their handle and site, a bio
+  // without the site's boilerplate, and the counts it mentions.
+  card(found, profileUrl, { loading = false } = {}) {
+    const url = new URL(profileUrl);
+    const slug = url.pathname.split("/").filter(Boolean).at(-1);
+    const linkedIn = url.hostname == "linkedin.com";
+    const handle = linkedIn ? slug : `@${slug}`;
+    const site = SITE_NAMES[url.hostname];
+    let name = (found?.title || "").trim();
+    let headline = null;
+    for (let i = 0; i < 3; i++) {
+      name = name.replace(/\s*(?:[·|\-–—]\s*(?:GitHub|LinkedIn|X|Twitter|Overview)|\/\s*(?:X|Twitter)|on (?:X|Twitter))\s*$/i, "");
+    }
+    const paren = /^(.+?)\s*\(([^()]+)\)$/.exec(name);
+    if (paren) {
+      const [, outside, inside] = paren;
+      const same = value => value.replace(/^@/, "").toLowerCase() == slug.toLowerCase();
+      name = same(inside) ? outside : same(outside) ? inside : name;
+    }
+    if (linkedIn && name.includes(" - ")) {
+      [name, ...headline] = name.split(" - ");
+      headline = headline.join(" · ");
+    }
+    if (name == slug || name == `@${slug}`) {
+      name = "";
+    }
+    const description = (found?.description || "").trim();
+    const stats = [];
+    const statPattern = /(\d[\d,.]*\s?[KkMm]?\+?)\s+(followers|following|repositories|connections|posts|stars)\b/gi;
+    for (const [, value, label] of description.matchAll(statPattern)) {
+      if (!stats.some(stat => stat.label == label.toLowerCase())) {
+        stats.push({ value: value.replace(/\s/g, ""), label: label.toLowerCase() });
+      }
+    }
+    let bio = description
+      .replace(/^\S+ has \d[\d,]* repositor(?:y|ies) available\.?\s*/i, "")
+      .replace(/Follow their code on GitHub\.?/i, "")
+      .replace(/[·|]?\s*\d[\d,+]*\s+connections on LinkedIn\.?/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    bio = [headline, bio].filter(Boolean).join(" — ") || null;
+    const initials = (name || slug).split(/[\s_.-]+/).filter(Boolean).slice(0, 2)
+      .map(word => word.match(/[\p{L}\p{N}]/u)?.[0] ?? "").join("").toUpperCase();
+    return {
+      name: name || handle,
+      handle,
+      site,
+      bio,
+      stats,
+      initials,
+      image: found?.image?.startsWith("https://") ? found.image : null,
+      url: profileUrl,
+      loading,
+    };
+  },
+
   // Resolves to { title, url, description, image } or null. Never throws.
   async lookup(win, value, { userContextId = 0, privateBrowsingId = 0 } = {}) {
     const url = this.profile(value);

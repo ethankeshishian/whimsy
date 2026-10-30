@@ -1575,6 +1575,159 @@ panel.whimsy-cheatsheet .whimsy-cheatsheet-list {
   margin-block-end: 6px;
 }
 
+/* fix7/tabs: People cards. One clear order: who (avatar, name, handle and
+   site), what they say (bio), their numbers, then actions. Colours,
+   radius and buttons come from Zen's panel and Firefox's button tokens. */
+#whimsy-hover-card[whimsy-person] {
+  --panel-padding: 14px;
+  --panel-width: 300px;
+}
+
+.whimsy-person {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 272px;
+  margin: 0 !important;
+}
+
+.whimsy-person-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.whimsy-person-avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  outline: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  outline-offset: -1px;
+}
+
+.whimsy-person-initials {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.whimsy-person-names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.whimsy-person-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-person-handle,
+.whimsy-person-stats {
+  font-size: 12px;
+  color: var(--text-color-deemphasized);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-person-bio {
+  font-size: 13px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.whimsy-person-stats {
+  display: flex;
+  gap: 14px;
+
+  & b {
+    color: var(--panel-color, currentColor);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.whimsy-person-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  & > div {
+    height: 10px;
+    border-radius: 5px;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  & > div:last-child {
+    width: 60%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    & > div {
+      animation: whimsy-person-pulse 1.2s ease-in-out infinite alternate;
+    }
+  }
+}
+
+@keyframes whimsy-person-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+
+.whimsy-person-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.whimsy-person-action {
+  flex: 1;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--button-border-radius, 6px);
+  background: var(--button-background-color, color-mix(in srgb, currentColor 8%, transparent));
+  color: var(--button-text-color, currentColor);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+
+  &:hover {
+    background: var(--button-background-color-hover, color-mix(in srgb, currentColor 14%, transparent));
+  }
+
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset, 2px);
+  }
+
+  &.primary {
+    background: var(--button-background-color-primary, AccentColor);
+    color: var(--button-text-color-primary, AccentColorText);
+
+    &:hover {
+      background: var(--button-background-color-primary-hover, AccentColor);
+    }
+  }
+}
+
 /* fixB: sheets (WhimsyPanels.sys.mjs). Every small Whimsy panel - Snooze,
    Fire button, Find Heavy Tabs, Favorite splits, Cookies, Pretend to be,
    the shortcut cheat sheet - is one of these: Zen's panel surface and

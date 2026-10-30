@@ -1678,3 +1678,33 @@ add_task(async function fix7_email_alias_button() {
     }
   });
 });
+
+// fix7/tabs: the People card, loaded (initials, name, handle, bio, stats,
+// actions) and while loading, in light and dark.
+add_task(async function fix7_people_card() {
+  await SimpleTest.promiseFocus(window);
+  const { WhimsyHoverCard } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHoverCard.sys.mjs");
+  const { WhimsyPeople } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPeople.sys.mjs");
+  const card = WhimsyHoverCard.forWindow(window);
+  const url = "https://github.com/monalisa";
+  const loaded = WhimsyPeople.card({
+    title: "monalisa (Mona Lisa Octocat) · GitHub",
+    description: "Designer and octocat at large. Making the web a little more whimsical, one pull request at a time. 1,204 followers · 87 following",
+  }, url);
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      for (const [name, person] of [["loaded", loaded], ["loading", WhimsyPeople.card(null, url, { loading: true })]]) {
+        card.hide();
+        card.show(gBrowser.selectedTab, { person });
+        await TestUtils.waitForCondition(() => card.panel.state == "open");
+        await document.l10n.translateFragment(card.panel);
+        await settled();
+        await shot(`fix7-people-card-${name}-${dark ? "dark" : "light"}`);
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    card.hide();
+  }
+});

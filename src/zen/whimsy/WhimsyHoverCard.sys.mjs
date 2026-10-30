@@ -26,11 +26,15 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const HTML = "http://www.w3.org/1999/xhtml";
 const HISTORY_PREF = "whimsy.feature.history-preview";
 const ENTER_DELAY_MS = 600;
+// fix7/tabs: People cards open after a shorter dwell, like Arc's (~400ms),
+// with the handle and site right away while the profile loads.
+const PEOPLE_DELAY_MS = 400;
 const LEAVE_GRACE_MS = 180;
 const cards = new WeakMap();
 
 export const WhimsyHoverCard = {
   ENTER_DELAY_MS,
+  PEOPLE_DELAY_MS,
 
   forWindow(win) {
     let card = cards.get(win);
@@ -107,8 +111,10 @@ class HoverCard {
 
   // Shows the card for `anchor` after the enter delay. `load` resolves to
   // the card's data (or null for no card); `pref` is the feature switch,
-  // checked again after loading so turning it off mid-hover wins.
-  schedule(anchor, load, pref) {
+  // checked again after loading so turning it off mid-hover wins. A
+  // `placeholder` shows as soon as the delay is over and is filled in when
+  // `load` resolves (a null load leaves the placeholder).
+  schedule(anchor, load, pref, { delay = ENTER_DELAY_MS, placeholder = null } = {}) {
     this.hide();
     this.anchor = anchor;
     const generation = this.generation;
@@ -116,6 +122,9 @@ class HoverCard {
       try {
         if (!Services.prefs.getBoolPref(pref, true)) {
           return;
+        }
+        if (placeholder && generation === this.generation && (anchor.isConnected ?? true)) {
+          this.show(anchor, placeholder);
         }
         const data = await load();
         if (
@@ -130,7 +139,7 @@ class HoverCard {
       } catch (error) {
         console.debug("Whimsy: hover card unavailable", error);
       }
-    }, ENTER_DELAY_MS);
+    }, delay);
   }
 
   leave(anchor) {
@@ -168,10 +177,21 @@ class HoverCard {
   }
 
   // Everything remote is set as text or an <img> src, never as markup.
-  show(anchor, { title, url, image, avatar, description, screen, emptyImageL10nId }) {
+  show(anchor, data) {
+    const { title, url, image, avatar, description, screen, emptyImageL10nId, person } = data;
     const doc = this.win.document;
     const panel = this.#ensurePanel();
     panel.replaceChildren();
+    panel.toggleAttribute("whimsy-person", !!person);
+    if (person) {
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-label", person.name || person.handle);
+      panel.append(this.#personCard(person));
+      this.#open(anchor, screen);
+      return;
+    }
+    panel.setAttribute("role", "tooltip");
+    panel.removeAttribute("aria-label");
     if (image && /^(?:moz-page-thumb:|https:\/\/)/.test(image)) {
       const img = doc.createElementNS(HTML, "img");
       img.className = avatar ? "whimsy-hover-avatar" : "whimsy-hover-image";
@@ -198,11 +218,104 @@ class HoverCard {
         panel.append(el);
       }
     }
+    this.#open(anchor, screen);
+  }
+
+  // An open card is filled in where it is, not reopened.
+  #open(anchor, screen) {
+    const panel = this.panel;
+    if (panel.state == "open" || panel.state == "showing") {
+      return;
+    }
     if (screen) {
       panel.openPopupAtScreen(screen.x, screen.y, false);
     } else {
       panel.openPopup(anchor, "after_start", 0, 4, false, false);
     }
+  }
+
+  // fix7/tabs: the People card. Who first (avatar, name, handle and site),
+  // then what they say (bio, three lines at most), then the numbers, then
+  // what you can do. While the profile loads, the handle stands in for the
+  // name and the bio is a quiet placeholder.
+  #personCard(person) {
+    const doc = this.win.document;
+    const el = (tag, className, text) => {
+      const node = doc.createElementNS(HTML, tag);
+      if (className) {
+        node.className = className;
+      }
+      if (text) {
+        node.textContent = String(text).slice(0, 500);
+      }
+      return node;
+    };
+    const card = el("div", "whimsy-person");
+    card.toggleAttribute("loading", !!person.loading);
+    card.setAttribute("aria-busy", String(!!person.loading));
+
+    const head = el("div", "whimsy-person-head");
+    const initials = el("div", "whimsy-person-avatar whimsy-person-initials", person.initials);
+    initials.setAttribute("aria-hidden", "true");
+    if (person.image && /^https:\/\//.test(person.image)) {
+      const img = el("img", "whimsy-person-avatar");
+      img.alt = "";
+      img.referrerPolicy = "no-referrer";
+      img.addEventListener("error", () => img.replaceWith(initials), { once: true });
+      img.src = person.image;
+      head.append(img);
+    } else {
+      head.append(initials);
+    }
+    const names = el("div", "whimsy-person-names");
+    const name = el("div", "whimsy-person-name", person.name || person.handle);
+    name.title = person.name || person.handle;
+    names.append(name);
+    const handle = [person.name && person.handle != person.name ? person.handle : null, person.site]
+      .filter(Boolean).join(" · ");
+    if (handle) {
+      names.append(el("div", "whimsy-person-handle", handle));
+    }
+    head.append(names);
+    card.append(head);
+
+    if (person.loading) {
+      const skeleton = el("div", "whimsy-person-skeleton");
+      skeleton.setAttribute("aria-hidden", "true");
+      skeleton.append(el("div"), el("div"));
+      card.append(skeleton);
+    } else if (person.bio) {
+      card.append(el("div", "whimsy-person-bio", person.bio));
+    }
+
+    if (person.stats?.length) {
+      const stats = el("div", "whimsy-person-stats");
+      for (const { value, label } of person.stats.slice(0, 3)) {
+        const stat = el("span", "whimsy-person-stat");
+        stat.append(el("b", "", value), ` ${label}`);
+        stats.append(stat);
+      }
+      card.append(stats);
+    }
+
+    const actions = el("div", "whimsy-person-actions");
+    const open = el("button", "whimsy-person-action primary");
+    open.type = "button";
+    doc.l10n.setAttributes(open, "whimsy-person-open");
+    open.addEventListener("click", () => {
+      this.hide();
+      this.win.openTrustedLinkIn(person.url, "tab", { relatedToCurrent: true });
+    });
+    const copy = el("button", "whimsy-person-action");
+    copy.type = "button";
+    doc.l10n.setAttributes(copy, "whimsy-person-copy");
+    copy.addEventListener("click", () => {
+      Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(person.url);
+      doc.l10n.setAttributes(copy, "whimsy-person-copied");
+    });
+    actions.append(open, copy);
+    card.append(actions);
+    return card;
   }
 
   hide() {
