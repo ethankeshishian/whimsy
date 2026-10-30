@@ -1583,3 +1583,58 @@ add_task(async function wave5_note_live_block() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave5/captions: CC pressed, a cue translated (fake translator) over the
+// video. The page and track are installed by browser_whimsy_video_captions.js.
+add_task(async function video_captions() {
+  const { WhimsyCaptions } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCaptions.sys.mjs");
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["whimsy.feature.video-speed", true],
+      ["whimsy.feature.video-captions", true],
+    ],
+  });
+  WhimsyCaptions.testTargetLanguage = "en";
+  WhimsyCaptions.testTranslate = async () => "Where is the library?";
+  const url =
+    getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_video_captions.html";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  const browser = tab.linkedBrowser;
+  const state = () =>
+    SpecialPowers.spawn(browser, [], () => {
+      const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+      return actor ? JSON.parse(JSON.stringify(actor.testState())) : null;
+    });
+  try {
+    await SpecialPowers.spawn(browser, [], async () => {
+      const video = content.document.getElementById("video");
+      await ContentTaskUtils.waitForCondition(() => video.readyState >= 2, "The video has a frame");
+      await ContentTaskUtils.waitForCondition(
+        () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed")?.videos.has(video),
+        "The speed control knows the video"
+      );
+    });
+    await BrowserTestUtils.synthesizeMouseAtCenter("#video", { type: "mousemove" }, browser);
+    await TestUtils.waitForCondition(async () => (await state())?.shown, "The control shows");
+    const { cc } = await state();
+    await BrowserTestUtils.synthesizeMouseAtPoint(cc.x, cc.y, {}, browser);
+    await SpecialPowers.spawn(browser, [], async () => {
+      const video = content.document.getElementById("video");
+      const seeked = new Promise(resolve => video.addEventListener("seeked", resolve, { once: true }));
+      video.currentTime = 0.2;
+      await seeked;
+    });
+    await TestUtils.waitForCondition(
+      async () => (await state())?.captions?.text == "Where is the library?",
+      "The translated cue shows"
+    );
+    await BrowserTestUtils.synthesizeMouseAtCenter("#video", { type: "mousemove" }, browser);
+    await new Promise(resolve => setTimeout(resolve, 200)); // The 120ms fades.
+    await shot("wave5-video-captions", browser.browsingContext.currentWindowGlobal);
+  } finally {
+    WhimsyCaptions.testTranslate = null;
+    WhimsyCaptions.testTargetLanguage = null;
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});

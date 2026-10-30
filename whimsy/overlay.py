@@ -796,6 +796,10 @@ FEATURES = [
     # wave5: live blocks in Notes (Arc Easels' Live Captures).
     {"id": "note-blocks", "title": "Live blocks in Notes: /embed or drop a tab to keep a cropped, live region of a page in a note (Arc Live Captures)",
      "detect": [("src/zen", r"(?i)live-?capture|zen[\w-]*note[\w-]*block")]},
+    # wave5/captions: live translated captions (CC in the speed control),
+    # translated on-device by Firefox Translations.
+    {"id": "video-captions", "title": "Translated captions: CC on a video's speed control shows its captions in your language, translated on your Mac",
+     "detect": [("src/zen/media", r"(?i)(translated|live)-?captions|caption-?translat")]},
 ]
 
 

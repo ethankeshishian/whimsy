@@ -1640,3 +1640,15 @@ whimsy-note-block-picker =
 whimsy-note-block-private = Private tabs can't be embedded
 whimsy-note-block-unsupported = Only web pages can be embedded
 whimsy-note-block-paused-private = Live blocks are paused in private windows
+
+## wave5/captions: translated captions (CC in the video speed control)
+
+whimsy-video-captions-button =
+    .aria-label = Translated captions
+whimsy-video-captions-region =
+    .aria-label = Translated captions
+    .title = Drag to move. Double-click to put back
+whimsy-video-captions-none = This video has no captions to translate
+whimsy-video-captions-failed = Couldn’t translate these captions, so they’re shown as they are
+whimsy-media-video-captions =
+    .label = Add CC to the speed control: captions translated into your language, on your Mac

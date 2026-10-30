@@ -355,3 +355,7 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5: live blocks in Notes (/embed, tab drop, crop, container, private, lazy load).
 ["browser_whimsy_note_blocks.js"]
+
+# wave5/captions: CC in the speed control translates a WebVTT track (fake translator).
+["browser_whimsy_video_captions.js"]
+support-files = ["whimsy_video_captions.html", "whimsy_captions_es.vtt", "whimsy_video.mp4"]
