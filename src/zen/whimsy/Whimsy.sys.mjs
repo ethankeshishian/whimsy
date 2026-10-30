@@ -83,6 +83,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVPN: "resource:///modules/whimsy/WhimsyVPN.sys.mjs",
 });
 
+// wave7/spaceanim: space switches play one at a time (Arc).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySpaceSwitchQueue: "resource:///modules/whimsy/WhimsySpaceSwitchQueue.sys.mjs",
+});
+
 // wave3/private: RSS reading (unread counts, Reader View items).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLiveFolderReading: "resource:///modules/whimsy/WhimsyLiveFolderReading.sys.mjs",
@@ -592,6 +597,14 @@ export const Whimsy = {
       (win._whimsyQuickWindow ? Promise.resolve() : (win.gZenWorkspaces?.promiseInitialized ?? Promise.resolve()))
         .then(() => lazy.WhimsySpaceLook.initWindow(win))
         .catch(e => console.error("Whimsy: space-look", e))
+    );
+    // wave7/spaceanim: a space switch asked for mid-slide waits for the
+    // slide to finish (Arc). After Zen's spaces are ready; checks its switch
+    // on each use.
+    run("space-switch-queue", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceSwitchQueue.initWindow(win))
+        .catch(e => console.error("Whimsy: space-switch-queue", e))
     );
   },
 

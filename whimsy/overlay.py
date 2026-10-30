@@ -847,6 +847,9 @@ FEATURES = [
     # and title on every tab with sound (muted included), one click mutes.
     {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
      "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
+    # wave7/spaceanim: space-switch slides play one at a time (Arc).
+    {"id": "space-switch-queue", "title": "Space switches play one at a time (Arc): a switch asked for mid-slide waits for the slide to finish; swipes step, keys coalesce",
+     "detect": [("src/zen/spaces", r"(?i)switchQueue|pendingSwitch|queueWorkspaceChange|whimsyStep")]},
 ]
 
 

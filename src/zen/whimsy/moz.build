@@ -98,6 +98,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySpaceLock.sys.mjs",
     "WhimsySpaceLook.sys.mjs",
     "WhimsySpaces.sys.mjs",
+    "WhimsySpaceSwitchQueue.sys.mjs",
     "WhimsySplit.sys.mjs",
     "WhimsySplitFavorites.sys.mjs",
     "WhimsySplitFlow.sys.mjs",
