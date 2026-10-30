@@ -354,6 +354,12 @@
 - name: whimsy.feature.tidy-titles
   value: true
 
+- name: whimsy.feature.ask-on-page
+  value: true
+
+- name: whimsy.feature.link-previews
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

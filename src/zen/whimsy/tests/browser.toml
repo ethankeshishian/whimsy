@@ -305,3 +305,7 @@ support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 # wave3/ai: Tidy Tabs (6/7 boundary, sections, header actions) and tidy tab titles.
 ["browser_whimsy_ai_tabs.js"]
 support-files = ["whimsy_ai_page.html"]
+
+# wave3/ai: Ask on Page (find bar) and 5-second previews (Shift on a link).
+["browser_whimsy_ai_page.js"]
+support-files = ["whimsy_ai_page.html", "whimsy_ai_links.html"]

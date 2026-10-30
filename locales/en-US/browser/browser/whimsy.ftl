@@ -1327,3 +1327,20 @@ whimsy-tidy-done =
         [one] Tidied { $tabs } tabs into 1 section
        *[other] Tidied { $tabs } tabs into { $sections } sections
     }
+
+## wave3/ai: Ask on Page and 5-second previews (Arc Max)
+
+whimsy-ai-feature-ask-on-page =
+    .label = Ask on Page
+    .description = When Find on Page (⌘F) finds nothing, ask a question about the page instead.
+whimsy-ai-feature-link-previews =
+    .label = 5-second previews
+    .description = Hold Shift on a link to see a summary of the page behind it. On search results, X, Threads and Hacker News, just rest on a link. Pages are read with your own sign-ins, never in private windows.
+whimsy-ask-button =
+    .label = Ask
+    .tooltiptext = Ask about this page
+whimsy-ask-reading = Reading this page…
+whimsy-ask-no-text = This page has no text to answer from.
+whimsy-ask-find-on-page = Find on Page
+whimsy-preview-unreadable = Couldn’t read this page.
+whimsy-preview-not-ready = Set up an AI provider in Settings → Privacy & Security to see previews.

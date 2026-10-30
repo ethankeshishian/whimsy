@@ -695,6 +695,12 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)tidy-?tabs|smart-?tab-?group")]},
     {"id": "tidy-titles", "title": "Tidy tab titles: AI shortens tab titles; pinning keeps the short title as the name (Arc Max)",
      "detect": [("src/zen", r"(?i)tidy-?(tab-?)?titles|ai-?rename")]},
+    # wave3/ai: Arc Max's Ask on Page (Cmd+F: "Find or Ask") and 5-second
+    # previews (Shift-hover a link; plain hover on search results, X, HN).
+    {"id": "ask-on-page", "title": "Ask on Page: when Cmd+F finds nothing, ask the AI about the page instead (Arc Max)",
+     "detect": [("src/zen", r"(?i)ask-?on-?page|find-?or-?ask")]},
+    {"id": "link-previews", "title": "5-second previews: Shift-hover a link for an AI summary of the page behind it (Arc Max)",
+     "detect": [("src/zen", r"(?i)five-?second|5-?second-?preview|link-?preview[\w-]*summar")]},
 ]
 
 

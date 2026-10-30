@@ -109,6 +109,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave3/ai: AI v1.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAITabs: "resource:///modules/whimsy/WhimsyAITabs.sys.mjs",
+  WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -178,6 +179,20 @@ export const Whimsy = {
       },
       matches: ["https://*/*", "http://*/*", "file:///*"],
       allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
+    // wave3/ai: 5-second previews. The child only messages on Shift over a
+    // link (or resting on a result link on search sites, X, Threads, HN);
+    // the parent checks the switches, fetches and draws the card.
+    ChromeUtils.registerWindowActor("WhimsyAIPreview", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIPreviewParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyAIPreviewChild.sys.mjs",
+        events: { mouseover: {}, mouseout: {}, keydown: {}, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
   },
@@ -481,6 +496,7 @@ export const Whimsy = {
       )
     );
     run("tidy-tabs", () => lazy.WhimsyAITabs.initWindow(win));
+    run("ask-on-page", () => lazy.WhimsyAIPage.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
