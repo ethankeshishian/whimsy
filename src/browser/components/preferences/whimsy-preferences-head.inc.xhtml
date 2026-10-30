@@ -100,6 +100,32 @@
       <html:moz-fieldset data-l10n-id="whimsy-ai-header" headinglevel="3"
                          iconsrc="chrome://global/skin/icons/highlights.svg">
         <html:moz-checkbox id="whimsyBlockAI" data-l10n-id="whimsy-ai-toggle"/>
+        <html:div id="whimsyAIOptions" class="indent">
+          <hbox id="whimsyAIProviderRow" align="center">
+            <label id="whimsyAIProviderLabel" control="whimsyAIProvider" data-l10n-id="whimsy-ai-provider-label"/>
+            <menulist id="whimsyAIProvider" preference="whimsy.ai.provider">
+              <menupopup>
+                <menuitem value="apple" data-l10n-id="whimsy-ai-provider-apple"/>
+                <menuitem value="claude" data-l10n-id="whimsy-ai-provider-claude"/>
+                <menuitem value="ollama" data-l10n-id="whimsy-ai-provider-ollama"/>
+              </menupopup>
+            </menulist>
+          </hbox>
+          <hbox id="whimsyClaudeKeyRow" align="center" hidden="hidden">
+            <label id="whimsyClaudeKeyLabel" control="whimsyClaudeKey" data-l10n-id="whimsy-ai-claude-key-label"/>
+            <html:input type="password" id="whimsyClaudeKey" placeholder="sk-ant-..."/>
+            <button id="whimsySaveClaudeKey" data-l10n-id="whimsy-ai-claude-key-save"/>
+          </hbox>
+          <hbox id="whimsyOllamaRow" align="center" hidden="hidden">
+            <label id="whimsyOllamaLabel" control="whimsyOllamaEndpoint" data-l10n-id="whimsy-ai-ollama-endpoint-label"/>
+            <html:input type="text" id="whimsyOllamaEndpoint" preference="whimsy.ai.ollama.endpoint"/>
+          </hbox>
+          <html:moz-checkbox id="whimsyTidyTabs" data-l10n-id="whimsy-ai-tidy-tabs-toggle" preference="whimsy.feature.tidy-tabs"/>
+          <html:moz-checkbox id="whimsyAutoRenameTabs" data-l10n-id="whimsy-ai-auto-rename-toggle" preference="whimsy.ai.auto-rename-tabs"/>
+          <html:moz-checkbox id="whimsyAskOnPage" data-l10n-id="whimsy-ai-ask-on-page-toggle" preference="whimsy.feature.ask-on-page"/>
+          <html:moz-checkbox id="whimsyHoverPreview" data-l10n-id="whimsy-ai-hover-preview-toggle" preference="whimsy.ai.hover-preview"/>
+          <html:moz-checkbox id="whimsyPageWatch" data-l10n-id="whimsy-ai-page-watch-toggle" preference="whimsy.feature.page-watch"/>
+        </html:div>
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>

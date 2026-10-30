@@ -37,7 +37,42 @@ export class WhimsyPageChild extends JSWindowActorChild {
       case "click":
         this.onClick(event);
         break;
+      case "mouseover":
+        this.onMouseOver(event);
+        break;
+      case "mouseout":
+        this.onMouseOut(event);
+        break;
     }
+  }
+
+  onMouseOver(event) {
+    const link = event.target.closest?.("a[href]");
+    if (!link || link.contains(event.relatedTarget)) {
+      return;
+    }
+    const href = link.href;
+    if (!href || !/^https?:\/\//i.test(href)) {
+      return;
+    }
+    const host = this.document?.location?.hostname || "";
+    const isAutoHost = /^(?:www\.)?(?:google\.[a-z.]+|duckduckgo\.com|bing\.com|x\.com|twitter\.com|threads\.net|news\.ycombinator\.com)$/i.test(host);
+    if (!event.shiftKey && !isAutoHost) {
+      return;
+    }
+    this.sendAsyncMessage("Whimsy:AIHoverLink", {
+      url: href,
+      x: event.screenX,
+      y: event.screenY,
+    });
+  }
+
+  onMouseOut(event) {
+    const link = event.target.closest?.("a[href]");
+    if (!link || link.contains(event.relatedTarget)) {
+      return;
+    }
+    this.sendAsyncMessage("Whimsy:AILeaveLink");
   }
 
   // batch6 #7: Shift+click a link opens it in a split beside the current
@@ -71,6 +106,10 @@ export class WhimsyPageChild extends JSWindowActorChild {
 
   receiveMessage(message) {
     switch (message.name) {
+      case "Whimsy:ExtractPageText": {
+        const text = this.document?.body?.innerText || this.document?.documentElement?.textContent || "";
+        return { text: text.slice(0, 25000) };
+      }
       case "Whimsy:SetVolume":
         this.volumeLevel = message.data.level;
         for (const el of this.document?.querySelectorAll("audio, video") ?? []) {

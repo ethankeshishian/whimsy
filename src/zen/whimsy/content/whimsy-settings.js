@@ -255,7 +255,7 @@ var gWhimsySettings = {
     template.remove();
     const inits = {
       "cookie-banners": () => this.initCookieBanners(),
-      "ai-kill-switch": () => this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked"),
+      "ai-kill-switch": () => this.initAI(),
       "strip-tracking": () => this.initStripTracking(),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
@@ -357,6 +357,59 @@ var gWhimsySettings = {
 
   initCookieBanners() {
     this.initPrefCheckbox("whimsyRejectCookieBanners", "whimsy.reject-cookie-banners");
+  },
+
+  initAI() {
+    this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked");
+    this.initPrefCheckbox("whimsyTidyTabs", "whimsy.feature.tidy-tabs");
+    this.initPrefCheckbox("whimsyAutoRenameTabs", "whimsy.ai.auto-rename-tabs");
+    this.initPrefCheckbox("whimsyAskOnPage", "whimsy.feature.ask-on-page");
+    this.initPrefCheckbox("whimsyHoverPreview", "whimsy.ai.hover-preview");
+    this.initPrefCheckbox("whimsyPageWatch", "whimsy.feature.page-watch");
+
+    const blockCb = document.getElementById("whimsyBlockAI");
+    const options = document.getElementById("whimsyAIOptions");
+    const updateOptions = () => {
+      if (options) {
+        options.hidden = !!blockCb?.checked;
+      }
+    };
+    blockCb?.addEventListener("change", updateOptions);
+    updateOptions();
+
+    const providerSelect = document.getElementById("whimsyAIProvider");
+    const claudeRow = document.getElementById("whimsyClaudeKeyRow");
+    const ollamaRow = document.getElementById("whimsyOllamaRow");
+
+    const updateProviderRows = () => {
+      const val = providerSelect?.value || Services.prefs.getStringPref("whimsy.ai.provider", "apple");
+      if (claudeRow) {
+        claudeRow.hidden = val !== "claude";
+      }
+      if (ollamaRow) {
+        ollamaRow.hidden = val !== "ollama";
+      }
+    };
+
+    providerSelect?.addEventListener("command", updateProviderRows);
+    updateProviderRows();
+
+    // Secret storage for Claude API key via LoginManager (never preferences)
+    const keyInput = document.getElementById("whimsyClaudeKey");
+    const saveBtn = document.getElementById("whimsySaveClaudeKey");
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs")
+      .WhimsyAIProviders.getClaudeApiKey()
+      .then(k => {
+        if (keyInput && k) {
+          keyInput.value = k;
+        }
+      });
+
+    saveBtn?.addEventListener("click", async () => {
+      const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+      await WhimsyAIProviders.setClaudeApiKey(keyInput.value.trim());
+      Services.prompt?.alert(window, "Whimsy", "Claude API key saved securely in Login Manager.");
+    });
   },
 
   // A checkbox bound to a bool pref, kept in sync both ways.

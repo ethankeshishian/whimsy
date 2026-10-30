@@ -12,6 +12,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   // batch6
   WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
+  // batch-ai: 5-second hover preview
+  WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
 });
 
 export class WhimsyPageParent extends JSWindowActorParent {
@@ -44,6 +46,23 @@ export class WhimsyPageParent extends JSWindowActorParent {
       case "Whimsy:FollowLink": {
         if (this.tab) {
           lazy.WhimsyFollowerTabs.onLinkFollowed(this.tab, message.data.url);
+        }
+        return null;
+      }
+      // batch-ai: 5-second hover preview
+      case "Whimsy:AIHoverLink": {
+        const browser = this.browsingContext.top.embedderElement;
+        const win = browser?.ownerGlobal;
+        if (win) {
+          lazy.WhimsyAIPage.onLinkHover(win, browser, message.data);
+        }
+        return null;
+      }
+      case "Whimsy:AILeaveLink": {
+        const browser = this.browsingContext.top.embedderElement;
+        const win = browser?.ownerGlobal;
+        if (win) {
+          lazy.WhimsyAIPage.onLinkLeave(win, browser);
         }
         return null;
       }

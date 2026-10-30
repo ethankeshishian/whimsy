@@ -362,3 +362,23 @@
 # bundled list (WhimsyBangsData.sys.mjs).
 - name: whimsy.bangs.custom
   value: ""
+
+# batch-ai: AI provider and features
+- name: whimsy.ai.provider
+  value: "apple"
+
+- name: whimsy.ai.claude.model
+  value: "claude-3-5-haiku-20241022"
+
+- name: whimsy.ai.ollama.endpoint
+  value: "http://127.0.0.1:11434"
+
+- name: whimsy.ai.ollama.model
+  value: "llama3.2"
+
+- name: whimsy.ai.auto-rename-tabs
+  value: true
+
+- name: whimsy.ai.hover-preview
+  value: true
+

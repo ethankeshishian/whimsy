@@ -362,3 +362,17 @@
 
 - name: privacy.query_stripping.enabled.pbmode
   value: true
+
+# batch-ai: AI v1 features
+- name: whimsy.feature.ai-providers
+  value: true
+
+- name: whimsy.feature.tidy-tabs
+  value: true
+
+- name: whimsy.feature.ask-on-page
+  value: true
+
+- name: whimsy.feature.page-watch
+  value: true
+

@@ -1233,3 +1233,54 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
+
+## batch-ai: AI v1 features
+
+whimsy-ai-provider-header = AI Provider
+whimsy-ai-provider-label =
+    .value = Active Provider
+whimsy-ai-provider-apple =
+    .label = Apple on-device (Foundation Models)
+whimsy-ai-provider-claude =
+    .label = Claude (Anthropic API Key)
+whimsy-ai-provider-ollama =
+    .label = Ollama (Local)
+
+whimsy-ai-claude-key-label =
+    .value = Claude API Key
+whimsy-ai-claude-key-save =
+    .label = Save Key
+whimsy-ai-claude-key-saved = Key saved in Firefox Login Manager.
+whimsy-ai-ollama-endpoint-label =
+    .value = Ollama URL
+
+whimsy-ai-tidy-tabs-toggle =
+    .label = Arc Tidy Tabs
+    .description = Organizes more than 6 tabs in the current space into smart topic folders.
+whimsy-ai-auto-rename-toggle =
+    .label = Tidy tab titles
+    .description = Automatically shortens tab titles to concise, clean names while keeping manual renames.
+whimsy-ai-ask-on-page-toggle =
+    .label = Ask on Page
+    .description = Ask questions about the current page and get answers grounded in its text.
+whimsy-ai-hover-preview-toggle =
+    .label = 5-second hover preview
+    .description = Shift-hover or hover on supported sites to preview destination summaries without opening.
+whimsy-ai-page-watch-toggle =
+    .label = Watch a page
+    .description = Monitor pages on an interval using your logged-in session for plain-English conditions.
+
+tab-context-whimsy-tidy-tabs =
+    .label = Tidy Tabs
+tab-context-whimsy-ask-on-page =
+    .label = Ask on Page…
+tab-context-whimsy-watch-page =
+    .label = Watch This Page…
+
+whimsy-tidy-tabs-min-tabs = Needs more than 6 tabs to tidy
+whimsy-tidy-tabs-success = Tidied tabs into { $count } folders
+whimsy-page-watch-started = Watching page for: { $condition }
+whimsy-page-watch-alert-title = Page Watch Alert
+whimsy-page-watch-alert-open = Open Page
+whimsy-page-watch-alert-dismiss = Dismiss
+

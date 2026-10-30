@@ -106,6 +106,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBangs: "resource:///modules/whimsy/WhimsyBangs.sys.mjs",
 });
 
+// batch-ai: AI v1
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
+  WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
+  WhimsyAITabs: "resource:///modules/whimsy/WhimsyAITabs.sys.mjs",
+  WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -130,6 +138,9 @@ export const Whimsy = {
           volumechange: { capture: true, mozSystemGroup: true },
           // batch6: Shift+click a link -> split view (whimsy.splitlink.shift-click).
           click: { capture: true },
+          // batch-ai: 5-second hover preview
+          mouseover: { capture: true },
+          mouseout: { capture: true },
         },
       },
       allFrames: true,
@@ -466,6 +477,12 @@ export const Whimsy = {
     // wave3/cmdbar: offline bangs. Registered once even when off; the
     // provider checks its switch on every query.
     run("offline-bangs", () => lazy.WhimsyBangs.init());
+    // batch-ai: AI v1 (Arc Tidy Tabs, Ask on Page, 5-second hover preview, Page Watch)
+    if (!lazy.WhimsyAI.blocked) {
+      run("ai-tabs", () => lazy.WhimsyAITabs.initWindow(win));
+      run("ai-page", () => lazy.WhimsyAIPage.initWindow(win));
+      run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    }
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
