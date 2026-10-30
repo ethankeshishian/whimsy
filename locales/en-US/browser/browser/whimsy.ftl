@@ -1989,3 +1989,9 @@ whimsy-links-spaces-header = Spaces
 
 whimsy-tab-audio-mute = Mute tab
 whimsy-tab-audio-unmute = Unmute tab
+
+## wave7/ux: Fire Button. "Everything" asks once more; Cancel is the default.
+
+whimsy-fire-everything-confirm-title = Forget all browsing data?
+whimsy-fire-everything-confirm-body = This clears history, cookies, cache and site data for every site, and closes every unpinned tab. You can’t undo it.
+whimsy-fire-everything-confirm-accept = Forget Everything

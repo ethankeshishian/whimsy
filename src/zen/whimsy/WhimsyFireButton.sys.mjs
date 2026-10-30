@@ -228,6 +228,12 @@ export const WhimsyFireButton = {
     }
     const site = siteOf(win.gBrowser.selectedTab);
     lazy.WhimsyPanels.close(panel);
+    // wave7/ux: "Everything" can't be undone, so it asks once more in the
+    // window's own dialog (the one Delete Space uses), with Cancel as the
+    // default: Return there keeps everything.
+    if (scope.id == "everything" && !(await this.confirmEverything(win))) {
+      return;
+    }
     const root = win.document.documentElement;
     // A brief flame/burst overlay (whimsy-browser.css); reduced motion
     // skips it, and the toast confirms.
@@ -243,6 +249,17 @@ export const WhimsyFireButton = {
     }
     const id = scope.id == "site" ? "whimsy-fire-done-site" : `whimsy-fire-done-${scope.id == "last-15-min" ? "recent" : scope.id}`;
     win.gZenUIManager?.showToast?.(id, { l10nArgs: { site: site || "", count: closed } });
+  },
+
+  // wave7/ux: the second step for "Everything". Resolves true only when
+  // the red "Forget Everything" button is chosen.
+  async confirmEverything(win) {
+    const [title, body, accept] = await win.document.l10n.formatValues([
+      "whimsy-fire-everything-confirm-title",
+      "whimsy-fire-everything-confirm-body",
+      "whimsy-fire-everything-confirm-accept",
+    ]);
+    return lazy.WhimsyPanels.confirm(win, { title, body, accept, cancelDefault: true });
   },
 
   // "This Site" burns the whole site (ForgetAboutSite takes the base domain:
