@@ -68,6 +68,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPlaylist.sys.mjs",
     "WhimsyPrintClean.sys.mjs",
     "WhimsyPrivate.sys.mjs",
+    "WhimsyPrivatePageChild.sys.mjs",
     "WhimsyProtocol.sys.mjs",
     "WhimsyQuickWindow.sys.mjs",
     "WhimsyRecentTabs.sys.mjs",

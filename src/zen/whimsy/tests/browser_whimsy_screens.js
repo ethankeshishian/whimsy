@@ -878,6 +878,7 @@ add_task(async function fixB_archive_in_library() {
 });
 
 // fixC: a private tab's page (about:privatebrowsing), Whimsy-branded.
+// fix7/private: calm, with no search box and no command bar over it.
 add_task(async function private_tab_page() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const tab = WhimsyPrivate.openPrivateTab(window);
@@ -900,6 +901,28 @@ add_task(async function private_tab_page() {
     await shot("fixC-private-tab-window");
   } finally {
     BrowserTestUtils.removeTab(tab, { animate: false });
+  }
+});
+
+// fix7/private: a private window opens on the calm page, not the command bar.
+add_task(async function private_window_page() {
+  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  try {
+    await win.delayedStartupPromise;
+    const browser = win.gBrowser.selectedBrowser;
+    await TestUtils.waitForCondition(
+      () => browser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing" &&
+        !browser.webProgress.isLoadingDocument
+    );
+    await SpecialPowers.spawn(browser, [], async () => {
+      await content.document.l10n.ready;
+      await new Promise(resolve => content.requestAnimationFrame(resolve));
+    });
+    await new Promise(resolve => win.setTimeout(resolve, 300));
+    await shot("fix7-private-window", win.browsingContext.currentWindowGlobal);
+    await shot("fix7-private-window-page", browser.browsingContext.currentWindowGlobal);
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
   }
 });
 
@@ -936,6 +959,7 @@ add_task(async function private_tab_in_split() {
 });
 
 // fixC: Scratch asks before becoming a normal space, then loses its violet.
+// fix7/private: the ask is the modal prompt dialog (Cancel default).
 add_task(async function scratch_keep() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const startSpace = gZenWorkspaces.activeWorkspace;
@@ -949,7 +973,6 @@ add_task(async function scratch_keep() {
     await TestUtils.waitForCondition(
       () => gBrowser.selectedBrowser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing"
     );
-    gURLBar.blur();
     await shot("fixC-scratch-before-keep");
     const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
     document.getElementById("cmd_whimsyKeepScratch").doCommand();
@@ -960,6 +983,7 @@ add_task(async function scratch_keep() {
     await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window));
     keptId = scratch.uuid;
     await new Promise(resolve => setTimeout(resolve, 300));
+    // fix7/private: the header still says "Scratch", not "Space".
     await shot("fixC-scratch-kept");
   } finally {
     if (keptId) {
