@@ -63,6 +63,10 @@ add_task(async function test_leaving_the_tab_pops_out_unmuted() {
   await TestUtils.waitForCondition(() => video.pictureinpicture, "the tab is in PiP");
   await new Promise(r => setTimeout(r, 1500));
   ok(!muted(video), "A tab in PiP keeps its sound");
+  // fix7: Whimsy's fallback leaves it to Firefox here, so the player isn't
+  // toggled twice (a second toggle would close it).
+  is(players().length, 1, "Exactly one player, still open");
+  ok(video.pictureinpicture, "and the tab is still in PiP");
 
   const closed = BrowserTestUtils.domWindowClosed(player);
   gBrowser.selectedTab = video;
@@ -122,4 +126,52 @@ add_task(async function test_switch_off_mutes_first() {
   BrowserTestUtils.removeTab(other);
   BrowserTestUtils.removeTab(video);
   await SpecialPowers.popPrefEnv();
+});
+
+// fix7: Firefox listens for the page going hidden only while a video is on
+// screen. Scrolled down to the comments, leaving the tab still pops the
+// video out (Whimsy's fallback asks the page).
+add_task(async function test_scrolled_away_video_still_pops_out() {
+  const video = await openPlayingVideo();
+  await SpecialPowers.spawn(video.linkedBrowser, [], async () => {
+    const spacer = content.document.createElement("div");
+    spacer.style.height = "5000px";
+    content.document.body.append(spacer);
+    content.scrollTo(0, 4000);
+    const toggle = content.windowGlobalChild.getActor("PictureInPictureToggle");
+    await ContentTaskUtils.waitForCondition(
+      () => !toggle.docState.isTrackingVideos,
+      "Firefox stops watching the page once the video is off screen"
+    );
+  });
+  const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const player = await opened;
+  is(player.document.documentElement.getAttribute("windowtype"), "Toolkit:PictureInPicture", "The video popped out anyway");
+  await TestUtils.waitForCondition(() => video.pictureinpicture, "the tab is in PiP");
+  await new Promise(r => setTimeout(r, 1500));
+  is(players().length, 1, "One player");
+  ok(!muted(video), "and it keeps its sound");
+  const closed = BrowserTestUtils.domWindowClosed(player);
+  gBrowser.selectedTab = video;
+  await closed;
+  ok(true, "Back on the tab, the player closes (it was an automatic one)");
+  BrowserTestUtils.removeTab(other);
+  BrowserTestUtils.removeTab(video);
+});
+
+// fix7: closing the player by hand still skips the next automatic one.
+add_task(async function test_fallback_respects_closed_by_hand() {
+  const video = await openPlayingVideo();
+  PictureInPicture.weakAutoPipBrowserClosedDeliberately.add(video.linkedBrowser);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await new Promise(r => setTimeout(r, 1500));
+  is(players().length, 0, "No player after closing the last one by hand");
+  ok(
+    !PictureInPicture.weakAutoPipBrowserClosedDeliberately.has(video.linkedBrowser),
+    "and only that one switch is skipped"
+  );
+  await closeAllPlayers();
+  BrowserTestUtils.removeTab(other);
+  BrowserTestUtils.removeTab(video);
 });
