@@ -236,3 +236,6 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 - Handoff: first report what exists vs not.
 - Media: Speed FIRST (on every video; better than Video Speed Controller: dropdown + custom input instead of arrows), then Cast, then Playlist.
 - iOS last of everything.
+- Speed (decided): overlay on every video, hidden until hover; default 1x; dropdown in 0.25 steps from 0.25x to 4x plus a "Custom" entry for any number (clamped 0.25-4); remembered per site.
+- Handoff: Firefox already has it both ways; verify + polish (never hand off private tabs or Scratch).
+- Email aliases: Apple side being brainstormed; focus mode: user reviewing candidates.
