@@ -1,0 +1,191 @@
+/* Any copyright is dedicated to the Public Domain.
+   https://creativecommons.org/publicdomain/zero/1.0/ */
+
+"use strict";
+
+// Email aliases (whimsy.feature.email-aliases): a button in email fields
+// opens a chrome menu with iCloud Hide My Email and Firefox Relay. iCloud's
+// network calls are stubbed; no request leaves the test.
+
+const { WhimsyEmailAliases } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs"
+);
+
+const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+const PAGE = ROOT + "whimsy_email_form.html";
+const HOST_ID = "whimsy-email-aliases-host";
+
+const requests = [];
+const toasts = [];
+let signIns = 0;
+let signedIn = true;
+let failGenerate = false;
+
+const real = {
+  request: WhimsyEmailAliases._request,
+  cookie: WhimsyEmailAliases.hasICloudCookie,
+  signIn: WhimsyEmailAliases.openICloudSignIn,
+  toast: gZenUIManager.showToast,
+};
+
+add_setup(async function () {
+  WhimsyEmailAliases.hasICloudCookie = () => signedIn;
+  WhimsyEmailAliases.openICloudSignIn = () => signIns++;
+  WhimsyEmailAliases._request = async (url, body) => {
+    requests.push({ url, body: body ? JSON.parse(body) : null });
+    if (url.includes("/validate")) {
+      return {
+        status: 200,
+        json: {
+          dsInfo: { dsid: "42" },
+          webservices: { premiummailsettings: { url: "https://p99-maildomainws.icloud.com:443" } },
+        },
+      };
+    }
+    if (url.includes("/hme/generate")) {
+      return failGenerate
+        ? { status: 500, json: null }
+        : { status: 200, json: { success: true, result: { hme: "quiet.fox@icloud.com" } } };
+    }
+    if (url.includes("/hme/reserve")) {
+      return { status: 200, json: { success: true, result: {} } };
+    }
+    return { status: 404, json: null };
+  };
+  gZenUIManager.showToast = id => toasts.push(id);
+  registerCleanupFunction(() => {
+    WhimsyEmailAliases._request = real.request;
+    WhimsyEmailAliases.hasICloudCookie = real.cookie;
+    WhimsyEmailAliases.openICloudSignIn = real.signIn;
+    gZenUIManager.showToast = real.toast;
+    WhimsyEmailAliases.clearStatus();
+  });
+});
+
+function reset() {
+  requests.length = 0;
+  toasts.length = 0;
+  signIns = 0;
+  failGenerate = false;
+  WhimsyEmailAliases.clearStatus();
+}
+
+async function focusField(browser, id) {
+  await SpecialPowers.spawn(browser, [id], fieldId => content.document.getElementById(fieldId).focus());
+}
+
+function hasButton(browser) {
+  return SpecialPowers.spawn(browser, [HOST_ID], hostId => !!content.document.getElementById(hostId));
+}
+
+// Clicks the button (a trusted click from privileged code) and waits for
+// the chrome menu with its iCloud row settled.
+async function openMenu(browser) {
+  await TestUtils.waitForCondition(() => hasButton(browser), "The alias button appeared");
+  const popupShown = BrowserTestUtils.waitForEvent(document, "popupshown", false,
+    e => e.target.id == "whimsy-email-aliases-popup");
+  await SpecialPowers.spawn(browser, [HOST_ID], hostId => {
+    content.document.getElementById(hostId).openOrClosedShadowRoot.querySelector("button").click();
+  });
+  const { target: popup } = await popupShown;
+  const icloud = popup.querySelector("#whimsy-email-aliases-icloud");
+  await TestUtils.waitForCondition(() => !icloud.disabled || icloud.dataset.action === "" &&
+    icloud.getAttribute("data-l10n-id") != "whimsy-email-aliases-icloud-checking", "iCloud status settled");
+  return { popup, icloud };
+}
+
+async function choose(popup, item) {
+  const hidden = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
+  popup.activateItem(item);
+  await hidden;
+}
+
+function fieldValue(browser, id) {
+  return SpecialPowers.spawn(browser, [id], fieldId => content.document.getElementById(fieldId).value);
+}
+
+add_task(async function test_button_only_in_email_fields() {
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await focusField(browser, "name");
+    ok(!(await hasButton(browser)), "No button in a name field");
+    await focusField(browser, "email");
+    await TestUtils.waitForCondition(() => hasButton(browser), "Button in a type=email field");
+    await focusField(browser, "password");
+    await TestUtils.waitForCondition(async () => !(await hasButton(browser)), "Leaving the field hides it");
+    await focusField(browser, "contact");
+    await TestUtils.waitForCondition(() => hasButton(browser), "Button in a field named like email");
+  });
+});
+
+add_task(async function test_icloud_signed_in_fills() {
+  reset();
+  signedIn = true;
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await focusField(browser, "email");
+    const { popup, icloud } = await openMenu(browser);
+    is(icloud.getAttribute("data-l10n-id"), "whimsy-email-aliases-icloud", "Signed in: one-click Hide My Email");
+    await choose(popup, icloud);
+    await TestUtils.waitForCondition(async () => (await fieldValue(browser, "email")) == "quiet.fox@icloud.com",
+      "The new address was filled in");
+    const reserve = requests.find(r => r.url.includes("/hme/reserve"));
+    ok(reserve.url.startsWith("https://p99-maildomainws.icloud.com/v1/hme/reserve?"), "Uses the account's own service URL");
+    ok(reserve.url.includes("dsid=42"), "Sends the account's dsid");
+    is(reserve.body.hme, "quiet.fox@icloud.com", "Reserves the generated address");
+    is(reserve.body.label, "example.com", "Labelled with the site (from the principal)");
+    ok(toasts.includes("whimsy-email-aliases-toast-filled"), "A toast confirms it");
+  });
+});
+
+add_task(async function test_icloud_signed_out_opens_sign_in() {
+  reset();
+  signedIn = false;
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await focusField(browser, "email");
+    const { popup, icloud } = await openMenu(browser);
+    is(icloud.getAttribute("data-l10n-id"), "whimsy-email-aliases-icloud-sign-in", "Signed out: the row says so");
+    is(requests.length, 0, "No request without an iCloud session");
+    await choose(popup, icloud);
+    is(signIns, 1, "Choosing it opens iCloud sign-in");
+    is(await fieldValue(browser, "email"), "", "Nothing was filled");
+  });
+  signedIn = true;
+});
+
+add_task(async function test_icloud_failure_is_not_silent() {
+  reset();
+  failGenerate = true;
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await focusField(browser, "email");
+    const { popup, icloud } = await openMenu(browser);
+    await choose(popup, icloud);
+    await TestUtils.waitForCondition(() => toasts.includes("whimsy-email-aliases-toast-icloud-failed"),
+      "A failure toast appears");
+    is(await fieldValue(browser, "email"), "", "Nothing was filled");
+  });
+});
+
+add_task(async function test_relay_row_follows_firefox_pref() {
+  reset();
+  await SpecialPowers.pushPrefEnv({ set: [["signon.firefoxRelay.feature", "disabled"]] });
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await focusField(browser, "email");
+    const { popup } = await openMenu(browser);
+    ok(popup.querySelector("#whimsy-email-aliases-relay").hidden, "Relay is hidden when Firefox's Relay is off");
+    const hidden = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
+    popup.hidePopup();
+    await hidden;
+  });
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_switches_off() {
+  for (const pref of ["whimsy.feature.email-aliases", "whimsy.email-aliases.button"]) {
+    await SpecialPowers.pushPrefEnv({ set: [[pref, false]] });
+    await BrowserTestUtils.withNewTab(PAGE, async browser => {
+      await focusField(browser, "email");
+      await TestUtils.waitForTick();
+      ok(!(await hasButton(browser)), `No button with ${pref} off`);
+    });
+    await SpecialPowers.popPrefEnv();
+  }
+});

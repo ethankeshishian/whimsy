@@ -375,3 +375,7 @@
 # over it. Off: Zen's blurred material.
 - name: whimsy.look.liquid-glass
   value: false
+
+# wave3: email-aliases. Show the alias button in email fields.
+- name: whimsy.email-aliases.button
+  value: true

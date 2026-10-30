@@ -745,6 +745,10 @@ FEATURES = [
     # wave3/glass: native Liquid Glass behind the sidebar and toolbars (macOS 26+).
     {"id": "liquid-glass", "title": "Liquid Glass: the sidebar and toolbars on macOS 26's glass material (Settings, off by default)",
      "detect": [("src/widget/cocoa", r"NSGlassEffectView"), ("prefs", r"name:\s*zen\.[\w.-]*(liquid-glass|glass-effect)")]},
+
+    # wave3: email-aliases. iCloud Hide My Email + Firefox Relay from a button in email fields.
+    {"id": "email-aliases", "title": "Email aliases: iCloud Hide My Email or a Firefox Relay mask from a button in email fields",
+     "detect": [("src/zen", r"(?i)hide.?my.?email|email.?alias")]},
 ]
 
 

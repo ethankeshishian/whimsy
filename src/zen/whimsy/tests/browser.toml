@@ -313,3 +313,7 @@ support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
 
 # wave3/glass: Liquid Glass (macOS 26+) pref wiring and Settings checkbox.
 ["browser_whimsy_liquid_glass.js"]
+
+# wave3: email-aliases
+["browser_whimsy_email_aliases.js"]
+support-files = ["whimsy_email_form.html"]
