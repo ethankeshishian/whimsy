@@ -851,7 +851,8 @@ whimsy-claude-new-token =
 whimsy-claude-forget-sites =
     .label = Forget Allowed Sites
 whimsy-claude-copied = Copied
-whimsy-claude-new-token-note = The old token no longer works. Run the new command to reconnect.
+whimsy-claude-new-token-note = Token changed. Your connection is ready.
+whimsy-claude-token-error = Couldn’t change the token. Try again.
 ## meeting: Next meeting in the sidebar
 
 whimsy-library-meetings-title = Meetings
