@@ -690,10 +690,10 @@ FEATURES = [
     {"id": "ai-providers", "title": "AI provider picker: Claude API key, Apple on-device or local Ollama, with no automatic cloud fallback",
      "detect": [("src/zen", r"(?i)api\.anthropic\.com|FoundationModels|ollama")]},
     # wave3/ai: Arc Max's Tidy Tabs (broom on the Today line, sections with
-    # headers) and tidy tab titles (short titles; kept as the name on pin).
+    # headers) and tidy tab titles (a short name when a tab is pinned).
     {"id": "tidy-tabs", "title": "Tidy Tabs: the broom sorts a space's Today tabs into named sections (Arc Max)",
      "detect": [("src/zen", r"(?i)tidy-?tabs|smart-?tab-?group")]},
-    {"id": "tidy-titles", "title": "Tidy tab titles: AI shortens tab titles; pinning keeps the short title as the name (Arc Max)",
+    {"id": "tidy-titles", "title": "Tidy tab titles: pinning a tab gives it a short AI name (Arc Max)",
      "detect": [("src/zen", r"(?i)tidy-?(tab-?)?titles|ai-?rename")]},
     # wave3/ai: Arc Max's Ask on Page (Cmd+F: "Find or Ask") and 5-second
     # previews (Shift-hover a link; plain hover on search results, X, HN).

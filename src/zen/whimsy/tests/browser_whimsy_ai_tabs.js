@@ -6,9 +6,9 @@
 // Tidy Tabs (Arc Max): with more than six Today tabs, a broom on the
 // pinned/Today line sorts them into named sections under headers, still in
 // Today. New tabs open above the sections; a header can be removed, turned
-// into a folder or close its tabs. Tidy tab titles: long titles get short
-// ones, pinning keeps the short one as the name, typed names are never
-// touched. Everything uses a fake AI provider.
+// into a folder or close its tabs. Tidy tab titles (Arc parity): only
+// pinning renames a tab, Today tabs keep the page's title, typed names are
+// never touched. Everything uses a fake AI provider.
 
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAITabs, MIN_TIDY_TABS } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAITabs.sys.mjs");
@@ -198,32 +198,39 @@ add_task(async function test_switches_hide_the_broom() {
 
 add_task(async function test_tidy_titles() {
   ok(Services.prefs.getBoolPref("whimsy.feature.tidy-titles"), "The feature switch is on");
+  requests = [];
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
-  await TestUtils.waitForCondition(() => tab.label == SHORT, "A long title gets a short one");
-  ok(!tab.zenStaticLabel, "without becoming a fixed name in Today");
+  const longTitle = tab.label;
+  await new Promise(r => setTimeout(r, 1500));
+  is(tab.label, longTitle, "A Today tab keeps the page's title");
+  ok(!requests.some(r => /tab titles/i.test(r.system)), "No AI request until the tab is pinned");
 
-  // Pinning keeps it as the tab's name (Arc's Tidy Tab Titles).
+  // Pinning renames it (Arc's Tidy Tab Titles), as the tab's name.
   gBrowser.pinTab(tab);
-  await TestUtils.waitForCondition(() => tab.zenStaticLabel == SHORT, "Pinning keeps the short title as the name");
+  await TestUtils.waitForCondition(() => tab.zenStaticLabel == SHORT, "Pinning gives the tab a short name");
+  is(tab.label, SHORT, "The short name shows");
   gBrowser.unpinTab(tab);
   BrowserTestUtils.removeTab(tab);
 
-  // A name the person typed is never replaced.
-  const named = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  // A name the person typed is never replaced, pinned or not.
+  const named = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   named.zenStaticLabel = "My Name";
   requests = [];
-  BrowserTestUtils.startLoadingURIString(named.linkedBrowser, PAGE);
-  await BrowserTestUtils.browserLoaded(named.linkedBrowser);
+  gBrowser.pinTab(named);
   await new Promise(r => setTimeout(r, 1500));
-  ok(!requests.some(r => /tab titles/i.test(r.system) && /Quarterly/.test(r.prompt)), "No AI request for a named tab");
-  isnot(named.label, SHORT, "Its label isn't replaced");
+  ok(!requests.some(r => /tab titles/i.test(r.system)), "No AI request for a named tab");
+  is(named.zenStaticLabel, "My Name", "Its name isn't replaced");
+  gBrowser.unpinTab(named);
   BrowserTestUtils.removeTab(named);
 
-  // Off: titles stay as the page sets them.
+  // Off: pinning keeps the page's title.
   Services.prefs.setBoolPref("whimsy.feature.tidy-titles", false);
   const plain = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  gBrowser.pinTab(plain);
   await new Promise(r => setTimeout(r, 1500));
-  isnot(plain.label, SHORT, "With the switch off, the title stays long");
+  ok(!plain.zenStaticLabel, "With the switch off, pinning doesn't rename");
+  isnot(plain.label, SHORT, "and the title stays long");
   Services.prefs.clearUserPref("whimsy.feature.tidy-titles");
+  gBrowser.unpinTab(plain);
   BrowserTestUtils.removeTab(plain);
 });

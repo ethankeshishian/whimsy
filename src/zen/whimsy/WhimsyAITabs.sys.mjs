@@ -15,11 +15,11 @@
 // keeps the tabs. Dragging a tab into a section joins it; dragging it above
 // the first header leaves it.
 //
-// Tidy tab titles: once a page has loaded, its tab gets a short title
-// ("Inbox – me@example.com – Gmail" → "Gmail Inbox"). The user asked for
-// new tabs; Arc did it when pinning, so a tab being pinned keeps its short
-// title as its name (the same name as a manual rename, so it persists and
-// double-click still renames it). A name the person typed is never touched.
+// Tidy tab titles (Arc parity): only pinning renames a tab. A tab being
+// pinned gets a short name ("Inbox – me@example.com – Gmail" → "Gmail
+// Inbox"), stored like a manual rename, so it persists and double-click
+// still renames it. Today tabs keep the page's own title, and a name the
+// person typed is never touched.
 //
 // Both only run once the chosen AI provider is set up, and stop with the
 // AI kill switch.
@@ -41,7 +41,6 @@ const STORE_KEY = "whimsy-tidy";
 const HEADER_CLASS = "whimsy-tidy-header";
 const BROOM_CLASS = "whimsy-tidy-broom";
 const MENU_ID = "whimsy-tidy-header-menu";
-const TITLE_DELAY_MS = 800;
 // Node.DOCUMENT_POSITION_FOLLOWING (no Node global in a system module).
 const Node_FOLLOWING = 4;
 const TITLE_CACHE_MAX = 300;
@@ -73,7 +72,7 @@ export const WhimsyAITabs = {
     if (windows.has(win)) {
       return;
     }
-    const state = { renderQueued: false, titleTimers: new WeakMap(), titles: new WeakMap() };
+    const state = { renderQueued: false };
     windows.set(win, state);
     const container = win.gBrowser.tabContainer;
     const render = () => this.queueRender(win);
@@ -83,13 +82,6 @@ export const WhimsyAITabs = {
     container.addEventListener("TabOpen", event => this.onTabOpen(win, event.target));
     container.addEventListener("TabMove", event => this.onTabMove(win, event.target));
     container.addEventListener("TabPinned", event => this.onTabPinned(event.target));
-    container.addEventListener("TabAttrModified", event => {
-      // The title often arrives while the page is still loading ("busy").
-      const changed = event.detail?.changed || [];
-      if (changed.includes("label") || changed.includes("busy")) {
-        this.onTabLabel(win, event.target);
-      }
-    });
     container.addEventListener("SSTabRestoring", event => this.restoreSection(win, event.target));
     win.addEventListener("ZenWorkspacesUIUpdate", render);
     win.addEventListener("TabSelect", render);
@@ -565,48 +557,6 @@ export const WhimsyAITabs = {
 
   // ---- Tidy tab titles ----
 
-  // Pages set their title after loading, and some keep resetting it; the
-  // short title is kept for as long as the tab stays on the same page.
-  onTabLabel(win, tab) {
-    const state = windows.get(win);
-    if (!state || !this.titlesEnabled || !this.wantsShortTitle(win, tab)) {
-      return;
-    }
-    const uri = tab.linkedBrowser?.currentURI?.spec;
-    const known = state.titles.get(tab);
-    if (known && known.uri == uri) {
-      if (tab.label == known.short) {
-        return;
-      }
-      if (tab.label == known.title) {
-        this.applyShortTitle(tab, known.short);
-        return;
-      }
-    }
-    win.clearTimeout(state.titleTimers.get(tab));
-    state.titleTimers.set(
-      tab,
-      win.setTimeout(() => {
-        this.shortenTitle(win, tab).catch(error => console.debug("Whimsy: tidy tab title", error));
-      }, TITLE_DELAY_MS)
-    );
-  },
-
-  wantsShortTitle(win, tab) {
-    if (!this.isTodayTab(tab) || tab.zenStaticLabel || tab.hasAttribute("busy")) {
-      return false;
-    }
-    const uri = tab.linkedBrowser?.currentURI;
-    if (!uri || !/^https?$/.test(uri.scheme)) {
-      return false;
-    }
-    // Private pages never go to a cloud provider on their own.
-    if (lazy.WhimsyAIProviders.isCloud && lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser)) {
-      return false;
-    }
-    return (tab.label || "").length >= MIN_TITLE_LENGTH;
-  },
-
   async shortTitleFor(tab, { signal } = {}) {
     const title = tab.label || "";
     let host = "";
@@ -632,55 +582,20 @@ export const WhimsyAITabs = {
     return result;
   },
 
-  async shortenTitle(win, tab) {
-    const state = windows.get(win);
-    if (!state || !this.titlesEnabled || !this.wantsShortTitle(win, tab)) {
-      return null;
-    }
-    if (!(await lazy.WhimsyAIProviders.isReady())) {
-      return null;
-    }
-    const title = tab.label;
-    const uri = tab.linkedBrowser.currentURI.spec;
-    const short = await this.shortTitleFor(tab);
-    // Renamed by hand, navigated or closed while we asked: leave it.
-    if (
-      !short ||
-      tab.closing ||
-      tab.zenStaticLabel ||
-      tab.label != title ||
-      tab.linkedBrowser?.currentURI?.spec != uri ||
-      !this.titlesEnabled
-    ) {
-      return null;
-    }
-    state.titles.set(tab, { uri, title, short });
-    this.applyShortTitle(tab, short);
-    return short;
-  },
-
-  applyShortTitle(tab, short) {
-    tab.ownerGlobal.gBrowser._setTabLabel(tab, short, { _zenChangeLabelFlag: true });
-  },
-
-  // Arc's Tidy Tab Titles: pinning keeps the short title as the tab's name.
+  // Arc's Tidy Tab Titles: a tab being pinned gets a short name.
   onTabPinned(tab) {
     const win = tab.ownerGlobal;
-    const state = windows.get(win);
-    if (!state || !this.titlesEnabled || tab.zenStaticLabel) {
+    if (!windows.has(win) || !this.titlesEnabled || tab.zenStaticLabel || tab.hasAttribute("zen-essential")) {
       return;
     }
+    const title = tab.label;
     const apply = short => {
-      if (short && tab.pinned && !tab.zenStaticLabel) {
+      // Unpinned, renamed by hand or navigated while we asked: leave it.
+      if (short && tab.pinned && !tab.closing && !tab.zenStaticLabel && tab.label == title && this.titlesEnabled) {
         tab.zenStaticLabel = short;
         tab.ownerGlobal.gBrowser._setTabLabel(tab, short, { _zenChangeLabelFlag: true });
       }
     };
-    const known = state.titles.get(tab);
-    if (known?.short && known.uri == tab.linkedBrowser?.currentURI?.spec) {
-      apply(known.short);
-      return;
-    }
     const uri = tab.linkedBrowser?.currentURI;
     if (!uri || !/^https?$/.test(uri.scheme) || (tab.label || "").length < MIN_TITLE_LENGTH) {
       return;
