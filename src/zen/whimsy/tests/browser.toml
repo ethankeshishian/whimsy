@@ -350,3 +350,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5: live blocks in Notes (/embed, tab drop, crop, container, private, lazy load).
 ["browser_whimsy_note_blocks.js"]
+
+# wave5: Easel (create, draw, move/resize, undo, persist, captures, export, switch).
+["browser_whimsy_easel.js"]
