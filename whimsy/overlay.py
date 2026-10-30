@@ -300,6 +300,12 @@ FEATURES = [
     # linear: Linear live folder ("My Issues": assigned to you, open states).
     {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
      "detect": [("src/zen/live-folders", r"(?i)linear")]},
+
+    # ext: per-space extensions (toolbar/panel visibility per space, plus
+    # container-scoped tabs/webNavigation/webRequest/proxy isolation where a
+    # space has its own container). Zen has nothing for this.
+    {"id": "space-extensions", "title": "Per-space extensions: \"Show in Spaces…\" on each extension's gear menu, plus per-container API isolation where a space has its own container",
+     "detect": [("src/zen", r"(?i)per-?space[\w-]*extension|extension[\w-]*per-?space|space[\w-]*scoped[\w-]*extension")]},
 ]
 
 

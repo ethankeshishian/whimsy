@@ -191,3 +191,10 @@
 # batch7: Dock icon badge (download count), Settings → Tab Management.
 - name: whimsy.downloads.dock-badge
   value: true
+
+# ext: per-space extensions (WhimsySpaceExtensions.sys.mjs)
+# whimsy.extensions.space-visibility ({extensionId: {spaces: [uuid, ...]}})
+# and whimsy.extensions.space-isolation-managed ([extensionId, ...]) have no
+# default here, same reason as whimsy.folders.colors above: the generator
+# writes "{}"/"[]" unquoted, which breaks firefox.js. Code falls back to
+# "{}" and "[]".

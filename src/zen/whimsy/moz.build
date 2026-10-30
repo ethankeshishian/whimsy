@@ -46,6 +46,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySidebarNav.sys.mjs",
     "WhimsySnooze.sys.mjs",
     "WhimsySpaceArchive.sys.mjs",
+    "WhimsySpaceExtensions.sys.mjs",
     "WhimsySpaceLock.sys.mjs",
     "WhimsySpaces.sys.mjs",
     "WhimsySplit.sys.mjs",
