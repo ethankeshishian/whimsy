@@ -60,6 +60,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySpaces.sys.mjs",
     "WhimsySplit.sys.mjs",
     "WhimsySplitFavorites.sys.mjs",
+    "WhimsySplitFlow.sys.mjs",
     "WhimsyStartup.sys.mjs",
     "WhimsyStats.sys.mjs",
     "WhimsyTabs.sys.mjs",

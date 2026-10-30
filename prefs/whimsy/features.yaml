@@ -300,6 +300,9 @@
 - name: whimsy.feature.glance-size
   value: true
 
+- name: whimsy.feature.split-new-tab
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

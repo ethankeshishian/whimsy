@@ -884,3 +884,25 @@ Object.assign(gWhimsySettings, {
     Preferences.queueUpdateOfAllElements();
   },
 });
+
+// batch3glance: Cmd+T in a split. Arc's behavior is the default; unchecking
+// it gives Zen's (a separate new tab).
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenTabManagement") {
+    const template = document.getElementById("template-whimsySplitNewTab");
+    const group = document.getElementById("whimsyTabsGroup");
+    if (!template || !group) {
+      return;
+    }
+    const row = template.content.firstElementChild;
+    template.remove();
+    Preferences.addAll([{ id: "whimsy.feature.split-new-tab", type: "bool" }]);
+    const shiftClick = document.getElementById("whimsySplitLinkShiftClick");
+    if (shiftClick?.parentElement == group) {
+      shiftClick.after(row);
+    } else {
+      group.append(row);
+    }
+    Preferences.queueUpdateOfAllElements();
+  }
+});

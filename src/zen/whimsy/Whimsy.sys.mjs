@@ -78,6 +78,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // batch3glance: Glance size and split view (Arc parity).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyGlance: "resource:///modules/whimsy/WhimsyGlance.sys.mjs",
+  WhimsySplitFlow: "resource:///modules/whimsy/WhimsySplitFlow.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -397,6 +398,9 @@ export const Whimsy = {
     // batch3glance: Glance size. Always installed (checks its switch on
     // each Glance), so turning it on or off applies without a restart.
     run("glance-size", () => lazy.WhimsyGlance.initWindow(win));
+    // batch3glance: Cmd+T in a split opens into the focused pane (Arc).
+    // Always installed; checks its switch on each Cmd+T.
+    run("split-new-tab", () => lazy.WhimsySplitFlow.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

@@ -379,6 +379,9 @@ FEATURES = [
     # batch3glance: Glance size (Compact / Standard / Wide).
     {"id": "glance-size", "title": "Glance size: Compact, Standard (Zen's 80%) or Wide",
      "detect": [("src/zen/glance", r"glance\.(?:size|width)")]},
+    # batch3glance: Cmd+T in a split opens into the focused pane (Arc).
+    {"id": "split-new-tab", "title": "Cmd+T in a split view opens the result in the focused pane (Arc)",
+     "detect": [("src/zen/split-view", r"(?i)newTabInSplit|replaceFocusedPane")]},
 ]
 
 

@@ -932,3 +932,7 @@ whimsy-glance-size-standard =
     .label = Standard
 whimsy-glance-size-wide =
     .label = Wide
+
+# batch3glance: Cmd+T in a split (Settings → Tab Management, Tabs group).
+whimsy-split-new-tab =
+    .label = In a split view, a new tab opens in the focused pane
