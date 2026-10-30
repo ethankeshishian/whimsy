@@ -74,11 +74,10 @@ export const WhimsyDelight = {
       if (!this.enabled || !event.detail.changed?.includes("label")) {
         return;
       }
-      const tab = event.target;
-      if (tab != win.gBrowser.selectedTab) {
-        return;
-      }
-      this.onLabelChanged(win, tab);
+      // Every tab's count is tracked, so a mail tab that loaded in the
+      // background (or before you switched to it) already has its ">0"
+      // when you clear it; only the selected tab celebrates.
+      this.onLabelChanged(win, event.target);
     });
   },
 
@@ -94,7 +93,7 @@ export const WhimsyDelight = {
     }
     const previous = lastCount.get(tab);
     lastCount.set(tab, count);
-    if (previous > 0 && count == 0) {
+    if (previous > 0 && count == 0 && tab == win.gBrowser.selectedTab) {
       this.celebrate(win, tab);
     }
   },
