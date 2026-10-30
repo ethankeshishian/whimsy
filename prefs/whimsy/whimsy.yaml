@@ -358,7 +358,7 @@
 - name: whimsy.glance.size
   value: "standard"
 
-# wave3/cmdbar: offline bangs. The edited catalog; no user value means the
-# bundled list (WhimsyBangsData.sys.mjs).
-- name: whimsy.bangs.custom
-  value: ""
+# wave3/cmdbar: offline bangs. whimsy.bangs.custom (the edited catalog) has
+# no default on purpose: no user value means the bundled list
+# (WhimsyBangsData.sys.mjs), and a default of "" would make a saved empty
+# list ("no bangs") equal the default, which libpref stores as no value.
