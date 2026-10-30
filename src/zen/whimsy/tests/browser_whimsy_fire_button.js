@@ -62,14 +62,17 @@ add_task(async function test_fire_sheet() {
   Assert.deepEqual(scopes, ["session", "everything"], "Two choices: this session, then everything");
   const session = panel.querySelector('[whimsy-fire-scope="session"]');
   is(document.l10n.getAttributes(session.querySelector(".whimsy-sheet-item-title")).id, "whimsy-fire-session",
-    "The first row says it closes tabs and clears the last hour");
+    "The first row says it closes this space's tabs and clears its last hour");
   is(document.l10n.getAttributes(session.querySelector(".whimsy-sheet-item-subtitle")).args.count, expected,
     "...and counts the tabs it will close");
   ok(panel.querySelector('[whimsy-fire-scope="everything"]').hasAttribute("destructive"), "Everything is marked destructive");
   const summary = panel.querySelector("#whimsy-fire-summary");
-  is(document.l10n.getAttributes(summary).id, "whimsy-fire-session-summary", "The note spells out the chosen row");
+  const summaryId = WhimsyFireButton.sharesContainer(window) ? "whimsy-fire-session-summary-shared" : "whimsy-fire-session-summary";
+  is(document.l10n.getAttributes(summary).id, summaryId,
+    "The note spells out the chosen row (and warns when another space shares its profile)");
   await TestUtils.waitForCondition(() => summary.textContent.includes("last hour"), "...in words");
-  ok(/history, cookies, site data and cache/.test(summary.textContent), "...naming what goes");
+  ok(summary.textContent.includes("this space’s history"), "...saying the history is this space's");
+  ok(/cookies, site data and cache/.test(summary.textContent), "...naming what goes");
   ok(summary.textContent.includes("Pinned tabs"), "...and what stays");
   for (const id of ["site", "last-15-min", "space"]) {
     ok(!panel.querySelector(`[whimsy-fire-scope="${id}"]`), `No "${id}" row any more`);
@@ -187,33 +190,88 @@ add_task(async function test_fire_needs_the_explicit_button() {
   }
 });
 
-// wave7/fire: ending the session clears the last hour (time-scoped, never
-// all time) and closes only this space's unpinned tabs. clearData is
-// recorded, not run, so the shared profile keeps its data; the flags are
-// exactly what the sheet names.
-add_task(async function test_burn_session_clears_the_last_hour_and_this_space() {
+// wave7/fire: ending the session is per space. Only the visits recorded in
+// this space in the last hour go (another space's visit to the same URL
+// stays), and only the sites it touched lose their cookies, only in its own
+// container (the same site in another container keeps them). Real Places
+// and cookie data on test hosts; burnTabs is stubbed so the test's own tabs
+// stay open.
+add_task(async function test_burn_session_is_per_space() {
+  const { WhimsySpaceHistory } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs");
+  const { SiteDataTestUtils } = ChromeUtils.importESModule("resource://testing-common/SiteDataTestUtils.sys.mjs");
+  const spaceId = gZenWorkspaces.activeWorkspace;
+  ok(spaceId, "There is an active space");
+  const mine = WhimsyFireButton.spaceContainers(window, [])[0];
+  const other = mine == 1 ? 2 : 1;
+  const OTHER_SPACE = "whimsy-test-other-space";
+  const MINE_URL = "https://example.com/?fire-mine";
+  const ORG_URL = "https://example.org/?fire-other-space";
+  const now = Date.now();
+  // A visit here, one to the same URL from another space ten minutes ago,
+  // and one to another site from another space.
+  await PlacesUtils.history.insertMany([
+    { url: MINE_URL, visits: [{ date: new Date(now - 60000) }, { date: new Date(now - 600000) }] },
+    { url: ORG_URL, visits: [{ date: new Date(now - 120000) }] },
+  ]);
+  const db = await PlacesUtils.promiseDBConnection();
+  const rows = await db.execute(`SELECT v.id, v.visit_date, p.guid, p.url FROM moz_historyvisits v
+    JOIN moz_places p ON p.id = v.place_id WHERE p.url IN (:a, :b)`, { a: MINE_URL, b: ORG_URL });
+  const file = await WhimsySpaceHistory.file();
+  const ids = [];
+  for (const row of rows) {
+    const id = row.getResultByName("id");
+    const time = Math.floor(row.getResultByName("visit_date") / 1000);
+    const url = row.getResultByName("url");
+    const here = url == MINE_URL && time == now - 60000;
+    file.data.visits[id] = { id, time, guid: row.getResultByName("guid"),
+      spaceId: here ? spaceId : OTHER_SPACE, spaceName: here ? "Here" : "Elsewhere" };
+    ids.push(id);
+  }
+  is(ids.length, 3, "Three visits recorded with their spaces");
+  SiteDataTestUtils.addToCookies({ origin: "https://example.com", originAttributes: { userContextId: mine } });
+  SiteDataTestUtils.addToCookies({ origin: "https://example.com", originAttributes: { userContextId: other } });
+  SiteDataTestUtils.addToCookies({ origin: "https://example.org", originAttributes: { userContextId: mine } });
+
+  const originalBurnTabs = WhimsyFireButton.burnTabs;
+  WhimsyFireButton.burnTabs = () => 0;
+  try {
+    const result = await WhimsyFireButton.burnSession(window);
+    is(result.visits, 1, "One visit of this space went");
+    Assert.greaterOrEqual(result.sites, 1, "...and its site's data");
+
+    ok(!SiteDataTestUtils.hasCookies("https://example.com", null, { userContextId: mine }),
+      "The site this space visited lost its cookies in this space's container");
+    ok(SiteDataTestUtils.hasCookies("https://example.com", null, { userContextId: other }),
+      "...but keeps them in another container");
+    ok(SiteDataTestUtils.hasCookies("https://example.org", null, { userContextId: mine }),
+      "A site only another space visited keeps its cookies");
+
+    const left = await db.execute(`SELECT v.visit_date, p.url FROM moz_historyvisits v
+      JOIN moz_places p ON p.id = v.place_id WHERE p.url IN (:a, :b)`, { a: MINE_URL, b: ORG_URL });
+    const kept = left.map(row => `${row.getResultByName("url")}@${Math.floor(row.getResultByName("visit_date") / 1000)}`).sort();
+    Assert.deepEqual(kept, [`${MINE_URL}@${now - 600000}`, `${ORG_URL}@${now - 120000}`].sort(),
+      "Only this space's visit left history; another space's visits (same URL included) stay");
+  } finally {
+    WhimsyFireButton.burnTabs = originalBurnTabs;
+    for (const id of ids) {
+      delete file.data.visits[id];
+    }
+    file.saveSoon();
+    await PlacesUtils.history.remove([MINE_URL, ORG_URL]).catch(() => {});
+    await new Promise(resolve => Services.clearData.deleteDataFromSite("example.com", {}, true,
+      Ci.nsIClearDataService.CLEAR_COOKIES, { onDataDeleted: resolve }));
+    await new Promise(resolve => Services.clearData.deleteDataFromSite("example.org", {}, true,
+      Ci.nsIClearDataService.CLEAR_COOKIES, { onDataDeleted: resolve }));
+  }
+});
+
+// wave7/fire: Everything clears exactly what its note and confirm name.
+add_task(function test_everything_flags() {
   const C = Ci.nsIClearDataService;
   is(WhimsyFireButton.forgetFlags, C.CLEAR_HISTORY | C.CLEAR_COOKIES_AND_SITE_DATA | C.CLEAR_ALL_CACHES,
-    "It clears history, cookies, site data and cache, as the sheet says");
-  const pinned = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?session-pinned");
-  gBrowser.pinTab(pinned);
-  const plain = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?session-plain");
-  const calls = [];
-  const original = WhimsyFireButton.clearData;
-  WhimsyFireButton.clearData = async sinceMs => {
-    calls.push(sinceMs);
-  };
-  try {
-    const closed = await WhimsyFireButton.burnSession(window);
-    Assert.deepEqual(calls, [60 * 60 * 1000], "One clear, of the last hour");
-    Assert.greaterOrEqual(closed, 1, "It reports the tabs it closed");
-    await TestUtils.waitForCondition(() => !plain.isConnected, "This space's plain tab closes");
-    ok(pinned.isConnected, "The pinned tab stays");
-  } finally {
-    WhimsyFireButton.clearData = original;
-    gBrowser.unpinTab(pinned);
-    BrowserTestUtils.removeTab(pinned);
-  }
+    "History, cookies, site data and cache");
+  is(WhimsyFireButton.siteFlags, C.CLEAR_COOKIES_AND_SITE_DATA | C.CLEAR_ALL_CACHES,
+    "The space session clears a site's cookies, site data and cache");
 });
 
 // wave7/ux: "Everything" can't be undone, so the Forget button asks once

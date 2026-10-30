@@ -494,7 +494,7 @@ whimsy-snooze-wake-toast = “{ $title }” is back
 whimsy-fire-panel =
     .aria-label = Fire button
 # wave7/fire: two rows. Each title says what it closes and clears.
-whimsy-fire-session = Close tabs and clear the last hour
+whimsy-fire-session = Close this space’s tabs and clear its last hour
 whimsy-fire-everything = Close all tabs and clear everything
 
 ## batch8: tab lifecycle — Find heavy tabs
@@ -1192,7 +1192,12 @@ whimsy-fire-everything-detail = { $count ->
    *[other] { $count } tabs, every space, all time
 }
 # The note under the rows: exactly what the chosen row clears and keeps.
-whimsy-fire-session-summary = Clears history, cookies, site data and cache from the last hour, in every space. Pinned tabs, Essentials, bookmarks and passwords stay.
+# wave7/fire: the space session is per space. History: only visits made in
+# this space. Site data: cookies, site data and cache of the sites this space
+# visited in the last hour, only in its profile (container). "-shared" is
+# shown when another space uses the same profile, which shares those cookies.
+whimsy-fire-session-summary = Removes this space’s history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Other spaces keep theirs. Pinned tabs and Essentials stay open.
+whimsy-fire-session-summary-shared = Removes this space’s history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Spaces that share its profile are signed out of those sites too. Pinned tabs and Essentials stay open.
 whimsy-fire-everything-summary = Clears all history, cookies, site data and cache, in every space. Pinned tabs, Essentials, bookmarks and passwords stay. You can’t undo it.
 whimsy-heavy-tabs-title = Heavy Tabs
 whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
@@ -1912,11 +1917,19 @@ whimsy-fire-forget-everything =
     .label = Clear Everything…
 # Result toasts: what closed and what was cleared.
 # $count (number) - tabs closed; $site (string) - the domain.
+# $count (number) - tabs closed; $visits (number) - this space's history
+# visits removed; $sites (number) - sites whose cookies, data and cache went
 whimsy-fire-done-session = { $count ->
-    [0] Cleared the last hour’s history, cookies, site data and cache
-    [one] Closed 1 tab · cleared the last hour’s history, cookies, site data and cache
-   *[other] Closed { $count } tabs · cleared the last hour’s history, cookies, site data and cache
-}
+    [0] No tabs closed
+    [one] Closed 1 tab
+   *[other] Closed { $count } tabs
+} · removed { $visits ->
+    [one] 1 visit
+   *[other] { $visits } visits
+} and { $sites ->
+    [one] 1 site’s data
+   *[other] { $sites } sites’ data
+} from this space’s last hour
 whimsy-fire-done-everything = { $count ->
     [0] Cleared all history, cookies, site data and cache
     [one] Closed 1 tab · cleared all history, cookies, site data and cache

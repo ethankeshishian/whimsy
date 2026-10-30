@@ -157,6 +157,9 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      DuckDuckGo's point is ending the session. Two rows: close this space's
      tabs + clear the last hour (default), and Everything (confirm). Per-site
      moved to the "Forget About This Site…" command.
+     Per space (user, 2026-10-30): the default removes only this space's
+     visits from the last hour and clears the sites it touched only in its
+     container; other spaces/containers keep theirs.
    - Linear/Jira live folders: use the signed-in website session (like GitHub
      live folders), no API keys.
    - AI: provider picker in Settings (Claude API key, Apple on-device, local

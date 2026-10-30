@@ -9,9 +9,12 @@
 // batch8 shipped it as four scopes (This Site / Last 15 Minutes / This Space
 // / Everything). wave7/fire narrows it to what serves that point, as
 // DuckDuckGo does (this tab or window / everything):
-//   - "Close tabs and clear the last hour" (the default): closes this space's
-//     unpinned tabs and clears history, cookies, site data and cache from the
-//     last hour.
+//   - "Close this space's tabs and clear its last hour" (the default): closes
+//     this space's unpinned tabs, removes the history visits recorded in this
+//     space in the last hour (WhimsySpaceHistory), and clears cookies, site
+//     data and cache for the sites those visits and tabs touched, only in the
+//     space's container(s). Other spaces' history, and other containers'
+//     data, stay. (Gecko can't clear one container by time, so it's by site.)
 //   - "Close all tabs and clear everything": every space, all time, behind a
 //     second confirm with Cancel as the default.
 // Per-site forgetting isn't ending a session; it's Firefox's "Forget About
@@ -26,19 +29,39 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ForgetAboutSite: "moz-src:///toolkit/components/forgetaboutsite/ForgetAboutSite.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
 const PANEL_ID = "whimsyFirePanel";
 const LAST_HOUR_MS = 60 * 60 * 1000;
-// What both scopes clear, and exactly what the sheet names: history,
+// What Everything clears, and exactly what the sheet names: history,
 // cookies, site data and cache. Bookmarks, passwords, downloads and site
-// permissions stay.
+// permissions stay. The space session clears SITE_FLAGS per site and its
+// own history visits.
 const FORGET_FLAGS =
   Ci.nsIClearDataService.CLEAR_HISTORY |
   Ci.nsIClearDataService.CLEAR_COOKIES_AND_SITE_DATA |
   Ci.nsIClearDataService.CLEAR_ALL_CACHES;
+const SITE_FLAGS = Ci.nsIClearDataService.CLEAR_COOKIES_AND_SITE_DATA | Ci.nsIClearDataService.CLEAR_ALL_CACHES;
+
+function siteOfURL(url) {
+  try {
+    const uri = Services.io.newURI(url);
+    if (!/^https?$/.test(uri.scheme)) {
+      return null;
+    }
+    try {
+      return Services.eTLD.getBaseDomain(uri);
+    } catch {
+      return uri.host || null;
+    }
+  } catch {
+    return null;
+  }
+}
 
 function siteOf(tab) {
   const uri = tab.linkedBrowser?.currentURI;
@@ -65,8 +88,10 @@ function clearData(sinceMs = null) {
 }
 
 export const WhimsyFireButton = {
-  // What both scopes clear (the sheet names exactly these).
+  // What Everything clears (the sheet names exactly these), and what the
+  // space session clears for each site it touched.
   forgetFlags: FORGET_FLAGS,
+  siteFlags: SITE_FLAGS,
 
   // Clears FORGET_FLAGS from the last `sinceMs` (all time when null).
   clearData(sinceMs = null) {
@@ -118,13 +143,77 @@ export const WhimsyFireButton = {
     return win.gBrowser.tabs.filter(t => t.getAttribute("zen-workspace-id") == space);
   },
 
-  // The default: end this space's session. Data has no space (one cookie
-  // jar unless the space has a container), so the clear is by time, the
-  // last hour, everywhere; the sheet says so.
+  // The containers whose data belongs to this space: the one it uses
+  // (Zen's containerTabId) plus any its open tabs actually run in.
+  spaceContainers(win, tabs = this.spaceTabs(win)) {
+    const space = win.gZenWorkspaces?.getActiveWorkspace?.();
+    return [...new Set([space?.containerTabId || 0, ...tabs.map(t => t.userContextId || 0)])];
+  },
+
+  // True when another space uses one of these containers, so clearing a
+  // site there signs those spaces out of it too (the note says so).
+  sharesContainer(win, containers = this.spaceContainers(win)) {
+    const spaces = win.gZenWorkspaces;
+    const active = spaces?.activeWorkspace;
+    return !!spaces?.getWorkspaces?.()?.some(item =>
+      item.uuid != active && !item.whimsyScratch && containers.includes(item.containerTabId || 0));
+  },
+
+  // History visits recorded in this space since `since` (ms). Only visits
+  // Whimsy attributed to the space count; unknown ones stay.
+  async spaceVisits(spaceId, since) {
+    if (!spaceId) {
+      return [];
+    }
+    const rows = await lazy.WhimsySpaceHistory.query({
+      spaceId, days: (Date.now() - since) / 86400000, limit: 100000,
+    });
+    return rows.filter(row => row.spaceId == spaceId && row.date.getTime() >= since);
+  },
+
+  // One visit, not the page: other spaces' visits to the same URL stay.
+  removeVisit(visit) {
+    const ms = visit.date.getTime();
+    return lazy.PlacesUtils.history.removeVisitsByFilter({
+      url: visit.url, beginDate: new Date(ms), endDate: new Date(ms + 1),
+    });
+  },
+
+  // Cookies, site data and cache for one site (base domain, subdomains and
+  // its partitioned third-party data), in one container only.
+  clearSiteData(site, userContextId) {
+    return new Promise(resolve => {
+      Services.clearData.deleteDataFromSite(site, { userContextId, privateBrowsingId: 0 }, true, SITE_FLAGS, {
+        onDataDeleted: resolve,
+      });
+    });
+  },
+
+  // The default: end this space's session. Removes its last hour of
+  // history, clears the sites it touched in its own container(s), and
+  // closes its tabs. Returns what went, for the toast.
   async burnSession(win) {
     const tabs = this.spaceTabs(win);
-    await this.clearData(LAST_HOUR_MS);
-    return this.burnTabs(win, tabs, "session");
+    const since = Date.now() - LAST_HOUR_MS;
+    const visits = await this.spaceVisits(win.gZenWorkspaces?.activeWorkspace, since);
+    const sites = new Set();
+    for (const visit of visits) {
+      const site = siteOfURL(visit.url);
+      if (site) {
+        sites.add(site);
+      }
+    }
+    for (const tab of tabs) {
+      const site = (tab.lastAccessed || 0) >= since ? siteOf(tab) : null;
+      if (site) {
+        sites.add(site);
+      }
+    }
+    const containers = this.spaceContainers(win, tabs);
+    await Promise.all([...sites].flatMap(site => containers.map(id => this.clearSiteData(site, id))));
+    await Promise.all(visits.map(visit => this.removeVisit(visit)));
+    const count = this.burnTabs(win, tabs, "session");
+    return { count, visits: visits.length, sites: sites.size };
   },
 
   async burnEverything(win) {
@@ -244,7 +333,9 @@ export const WhimsyFireButton = {
     document.l10n.setAttributes(panel.querySelector("#whimsy-fire-forget"), `whimsy-fire-forget-${id}`);
     const summary = panel.querySelector("#whimsy-fire-summary");
     if (summary) {
-      document.l10n.setAttributes(summary, `whimsy-fire-${id}-summary`);
+      // The space session warns when another space shares its container.
+      const shared = id == "session" && this.sharesContainer(win);
+      document.l10n.setAttributes(summary, `whimsy-fire-${id}-summary${shared ? "-shared" : ""}`);
     }
   },
 
@@ -255,15 +346,17 @@ export const WhimsyFireButton = {
     // skips it, and the toast confirms.
     root.setAttribute("whimsy-fire-burning", "");
     win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
-    let closed = 0;
+    let result;
     try {
-      closed = (await burn()) || 0;
+      result = (await burn()) || 0;
     } catch (e) {
       console.error("Whimsy: fire button", e);
       win.gZenUIManager?.showToast?.("whimsy-fire-failed-toast");
       return;
     }
-    win.gZenUIManager?.showToast?.(doneL10nId, { l10nArgs: { ...args, count: closed } });
+    // A burn returns the tabs it closed, or { count, ...what else went }.
+    const what = typeof result == "number" ? { count: result } : result;
+    win.gZenUIManager?.showToast?.(doneL10nId, { l10nArgs: { ...args, ...what } });
   },
 
   // The footer button: close the sheet, confirm Everything, then run.
