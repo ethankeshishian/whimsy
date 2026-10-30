@@ -140,4 +140,22 @@ export const WhimsyShortcuts = {
       });
     }
   },
+
+  // wave6/zap: takes a Firefox or Zen <key>'s binding away so a Whimsy
+  // shortcut can use it, unless the person customized that key.
+  releaseKey(win, id) {
+    const keyEl = win.document.getElementById(id);
+    if (!keyEl || this.isCustomized(id)) {
+      return;
+    }
+    for (const attr of ATTRS) {
+      keyEl.removeAttribute(attr);
+    }
+    const keyset = keyEl.parentElement;
+    const parent = keyset?.parentElement;
+    if (parent) {
+      keyset.remove();
+      parent.append(keyset);
+    }
+  },
 };

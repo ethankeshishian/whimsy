@@ -105,6 +105,14 @@ export const WhimsyUndo = {
     return !!redoStacks.get(win)?.length;
   },
 
+  // wave6/zap: the entry Cmd+Z (peek) or Cmd+Shift+Z (peekRedo) would run.
+  peek(win) {
+    return undoStacks.get(win)?.at(-1) ?? null;
+  },
+  peekRedo(win) {
+    return redoStacks.get(win)?.at(-1) ?? null;
+  },
+
   undo(win) {
     const stack = undoStacks.get(win);
     const entry = stack?.pop();

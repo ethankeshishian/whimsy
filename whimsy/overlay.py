@@ -62,6 +62,12 @@ HOOKS = [
      r'^(\s*)\?pending=\$\{pending\}\s*$',
      '{indent}.whimsyDownload=${download}',
      "before"),
+    # wave6/zap: the zap dust takes the space's gradient colors
+    # (WhimsyZapTint tints the captured element before it turns to dust).
+    ("zap-tint", "src/zen/boosts/ZenZapDissolve.sys.mjs",
+     r"^(\s*)this\.#loadTexture\(captureCanvas\);\s*$",
+     '{indent}ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyZapTint.sys.mjs").WhimsyZapTint.tint(ctx, captureCanvas.width, captureCanvas.height); // Whimsy hook',
+     "before"),
 ]
 
 HOTFIXES = [
@@ -793,6 +799,10 @@ FEATURES = [
     # go as tabs, polled only while the folder is visible.
     {"id": "live-folders-local-servers", "title": "Local servers live folder: running localhost dev servers as tabs that appear and disappear",
      "detect": [("src/zen/live-folders", r"(?i)local-?servers|localhost")]},
+    # wave6/zap: Zap as a command (Zen ships zap mode only inside the Boost
+    # editor): Cmd+Shift+X, command bar, site panel, undo, space-colored dust.
+    {"id": "zap", "title": "Zap: erase page elements with Cmd+Shift+X, the command bar or the site panel; undo, space-colored dust",
+     "detect": [("src/zen", r"(?i)zen-action-zap|key_zenZap|cmd_zenZap|zen-zap-shortcut")]},
 ]
 
 

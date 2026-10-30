@@ -1537,3 +1537,39 @@ add_task(async function wave5_seasonal_balloon() {
     }
   }
 });
+
+// wave6/zap: zap mode entered with Whimsy's command (Zen's zap bar, one zap
+// listed for restore).
+add_task(async function wave6_zap_mode() {
+  const { gZenBoostsManager } = ChromeUtils.importESModule("resource:///modules/zen/boosts/ZenBoostsManager.sys.mjs");
+  const { WhimsyZap } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyZap.sys.mjs");
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["whimsy.feature.zap", true],
+      ["zen.boosts.enabled", true],
+      ["zen.boosts.dissolve-on-zap", false],
+    ],
+  });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  try {
+    document.getElementById(WhimsyZap.COMMAND_ID).doCommand();
+    const bar = await TestUtils.waitForCondition(
+      () => tab.linkedBrowser.closest(".browserContainer")?.querySelector("zen-zap-bar"),
+      "The zap bar shows"
+    );
+    gZenBoostsManager.addZapSelectorToActive("h1", "example.com");
+    await TestUtils.waitForCondition(() => bar.entries?.length == 1, "The zap is listed");
+    await bar.updateComplete;
+    await new Promise(resolve => setTimeout(resolve, 300));
+    ok(bar.checkVisibility(), "The zap bar is visible");
+    await shot("wave6-zap-mode");
+    document.getElementById(WhimsyZap.COMMAND_ID).doCommand();
+    await TestUtils.waitForCondition(() => !bar.isConnected, "Zap mode ends");
+  } finally {
+    for (const boost of gZenBoostsManager.loadBoostsFromStore("example.com") ?? []) {
+      gZenBoostsManager.deleteBoost(boost);
+    }
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});

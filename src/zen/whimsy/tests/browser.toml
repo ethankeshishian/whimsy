@@ -350,3 +350,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
 ["browser_whimsy_live_folders_local_servers.js"]
+
+# wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
+["browser_whimsy_zap.js"]

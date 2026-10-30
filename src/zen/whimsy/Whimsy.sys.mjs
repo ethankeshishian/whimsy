@@ -136,6 +136,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave6/zap: Zap (erase page elements).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyZap: "resource:///modules/whimsy/WhimsyZap.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -557,6 +562,9 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    // wave6/zap: Zap (Cmd+Shift+X, command bar, site panel menu). Always
+    // installed; the command checks its switch and Zen's boosts on each use.
+    run("zap", () => lazy.WhimsyZap.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

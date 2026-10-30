@@ -103,6 +103,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
+    "WhimsyZap.sys.mjs",
+    "WhimsyZapTint.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

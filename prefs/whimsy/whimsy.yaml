@@ -416,3 +416,7 @@
 
 - name: whimsy.live-folders.local-servers.poll-ms
   value: 5000
+
+# wave6/zap: things zapped off pages (WhimsyZap), counted for Year in tabs.
+- name: whimsy.stats.zapped
+  value: 0

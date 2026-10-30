@@ -1617,3 +1617,15 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave6/zap: Zap (erase page elements; Zen's zap mode as a command)
+
+whimsy-action-zap = Zap Elements
+whimsy-site-zap =
+    .label = Zap Elements…
+whimsy-site-zap-count =
+    .label = { $count ->
+        [one] Zap Elements… (1 zapped)
+       *[other] Zap Elements… ({ $count } zapped)
+    }
+whimsy-year-finale-zapped = Things zapped
