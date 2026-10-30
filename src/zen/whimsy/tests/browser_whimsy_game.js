@@ -21,11 +21,11 @@ add_task(async function test_loads_and_renders() {
 
 add_task(async function test_whimsy_url_opens_it() {
   await BrowserTestUtils.withNewTab("https://example.com/", async browser => {
-    const win = browser.ownerGlobal;
+    const win = browser.documentGlobal;
     win.gURLBar.focus();
     win.gURLBar.value = "whimsy://game";
     EventUtils.synthesizeKey("KEY_Enter", {}, win);
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => win.gBrowser.selectedBrowser.currentURI.spec == "about:whimsy?game",
       "whimsy://game opens about:whimsy?game in the current tab"
     );
