@@ -1,0 +1,48 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave5: the Redact toggle in Screenshots' panel (<screenshots-buttons>
+   shadow root). Same size and icon layout as Visible / Full Page, set off
+   from them by a divider; pressed shows the accent, like a selected chip. */
+
+:host {
+  display: flex;
+  align-items: center;
+}
+
+#whimsy-redact-wrap {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  padding-inline-end: var(--space-small, 4px);
+  margin-inline-end: var(--space-small, 4px);
+  border-inline-end: var(--border-width, 1px) solid var(--border-color, color-mix(in srgb, currentColor 15%, transparent));
+}
+
+#whimsy-redact {
+  -moz-context-properties: fill, stroke;
+  fill: currentColor;
+  stroke: var(--screenshots-icon-background-color);
+  background-image: url("chrome://browser/content/whimsy/whimsy-redact.svg");
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-size: 46px 46px;
+  min-width: 90px;
+  padding: 46px 5px 5px;
+  margin: 2px;
+  transition: background-color 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
+
+  &[aria-pressed="true"] {
+    color: var(--color-accent-primary, AccentColor);
+    border-color: var(--color-accent-primary, AccentColor);
+    background-color: color-mix(in srgb, var(--color-accent-primary, AccentColor) 14%, transparent);
+    stroke: color-mix(in srgb, var(--color-accent-primary, AccentColor) 30%, var(--screenshots-icon-background-color));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-redact {
+    transition: none;
+  }
+}

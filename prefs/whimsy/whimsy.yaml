@@ -432,3 +432,8 @@
 # when nothing is selected; %t the page title; %u its address).
 - name: whimsy.verbs.skills
   value: ""
+
+# wave5: redact. The Redact toggle in the screenshot panel, remembered
+# between captures (blurs emails, phones, keys and card numbers).
+- name: whimsy.capture.redact
+  value: false

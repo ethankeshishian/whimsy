@@ -76,3 +76,6 @@
         content/browser/whimsy/whimsy-lasso.css                                 (../../zen/whimsy/content/whimsy-lasso.css)
 # wave5/quick: new season toast (the costumed balloon, once per season)
         content/browser/whimsy/whimsy-season-balloon.svg                         (../../zen/whimsy/content/whimsy-season-balloon.svg)
+# wave5: redact toggle in the Screenshots panel
+        content/browser/whimsy/whimsy-redact.css                                 (../../zen/whimsy/content/whimsy-redact.css)
+        content/browser/whimsy/whimsy-redact.svg                                 (../../zen/whimsy/content/whimsy-redact.svg)

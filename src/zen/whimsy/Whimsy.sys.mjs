@@ -156,6 +156,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
 });
 
+// wave5: redact in screenshots.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -606,6 +611,10 @@ export const Whimsy = {
     // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
     // checks its switch on each use (off: Cmd+K is Firefox's again).
     run("selection-verbs", () => lazy.WhimsyVerbs.initWindow(win));
+
+    // wave5: redact. Adds the toggle to the Screenshots panel; it checks
+    // whimsy.feature.redact each time the panel shows.
+    run("redact", () => lazy.WhimsyRedact.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

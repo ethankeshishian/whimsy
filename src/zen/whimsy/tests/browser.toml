@@ -389,3 +389,7 @@ support-files = ["whimsy_lasso.html"]
 # wave5/verbs: Cmd+K do-with-selection verbs.
 ["browser_whimsy_selection_verbs.js"]
 support-files = ["whimsy_verbs.html"]
+
+# wave5: Redact in the Screenshots panel (detectors, click-to-blur, image pixels, cleanup).
+["browser_whimsy_redact.js"]
+support-files = ["whimsy_redact.html"]

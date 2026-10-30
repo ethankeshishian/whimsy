@@ -1815,3 +1815,8 @@ whimsy-verb-linear-new = New Linear Issue
 whimsy-verb-linear-search = Search Linear
 whimsy-verb-copied-toast = Copied as Markdown
 whimsy-verb-note-toast = Added to Notes
+
+## wave5: Redact, a toggle in the screenshot panel beside Visible and Full Page
+
+whimsy-redact-button = Redact
+    .title = Blur emails, phone numbers, keys and card numbers in the screenshot. Click any text to blur or unblur it.
