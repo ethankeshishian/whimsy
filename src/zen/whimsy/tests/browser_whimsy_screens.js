@@ -951,12 +951,12 @@ add_task(async function scratch_keep() {
     );
     gURLBar.blur();
     await shot("fixC-scratch-before-keep");
+    const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
     document.getElementById("cmd_whimsyKeepScratch").doCommand();
-    const button = await TestUtils.waitForCondition(() => document.getElementById("whimsy-scratch-keep-confirm-button"));
-    await TestUtils.waitForCondition(() => button.getAttribute("label"));
-    await new Promise(resolve => setTimeout(resolve, 600)); // the toast's spring
+    const confirmWin = await dialog;
+    await settled();
     await shot("fixC-scratch-keep-confirm");
-    button.doCommand();
+    confirmWin.document.querySelector("dialog").getButton("accept").click();
     await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window));
     keptId = scratch.uuid;
     await new Promise(resolve => setTimeout(resolve, 300));

@@ -559,8 +559,6 @@ whimsy-action-keep-scratch = Keep Scratch as a Normal Space…
 whimsy-action-close-scratch = Close Scratch
 # fixC: asked before Scratch becomes a normal space (Zen toast + button).
 whimsy-scratch-keep-confirm = Keep as a normal space? Its pages will leave private browsing.
-whimsy-scratch-keep-confirm-button =
-    .label = Keep
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->
@@ -1656,3 +1654,7 @@ whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 # wave5/uxfix: read out with a pinned tab's unread badge.
 # $count (number) - unread items the site reports
 whimsy-tab-unread-description = { $count } unread
+
+# wave5/uxfix: keeping Scratch asks in the window's sheet (it can't be undone).
+whimsy-scratch-keep-confirm-title = Keep as a Normal Space?
+whimsy-scratch-keep-confirm-accept = Keep Space
