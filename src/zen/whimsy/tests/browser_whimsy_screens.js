@@ -300,7 +300,9 @@ add_task(async function folder_colors() {
     }
   }
   Services.prefs.setStringPref("whimsy.folders.colors", JSON.stringify(colors));
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  // wave7/ux: wait for the newest folder to finish expanding; a shot taken
+  // mid-animation drew the pinned/normal line through its child.
+  await settled();
   await shot("13-folder-colors");
   for (const folder of folders) {
     const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");

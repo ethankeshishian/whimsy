@@ -423,3 +423,6 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 # wave7/ux: one hover host for links (People or link card, AI summary beneath)
 ["browser_whimsy_link_hover.js"]
+
+# wave7/ux: the pinned/normal separator sits below expanded folder children
+["browser_whimsy_folder_separator.js"]
