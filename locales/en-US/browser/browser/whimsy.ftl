@@ -2188,8 +2188,9 @@ whimsy-page-action-product = Watch price
 whimsy-page-action-product-tooltip =
     .tooltiptext = Get an alert when the price of { $name } drops
 whimsy-page-action-parcel = Track
+## $host - the tracking page's site, e.g. www.ups.com
 whimsy-page-action-parcel-tooltip =
-    .tooltiptext = Open the carrier’s tracking page
+    .tooltiptext = Open the tracking page on { $host }
 whimsy-page-action-calendar-toast = Opening the event in Calendar
 ## $price - the price shown on the page, formatted
 whimsy-page-action-price-condition = The price drops below { $price }

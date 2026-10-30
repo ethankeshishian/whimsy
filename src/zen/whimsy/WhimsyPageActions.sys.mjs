@@ -321,6 +321,14 @@ export const WhimsyPageActions = {
       const open = this.openNow(action.hours);
       args.state = open == null ? "unknown" : open ? "open" : "closed";
     }
+    if (action.kind == "parcel") {
+      // Where Track goes, in its tooltip.
+      try {
+        args.host = new URL(action.trackingUrl).host;
+      } catch {
+        args.host = "";
+      }
+    }
     return [`whimsy-page-action-${action.kind}`, args];
   },
 
@@ -355,7 +363,14 @@ export const WhimsyPageActions = {
       place: () => this.openInMaps(win, action),
       recipe: () => this.openCookMode(win, action),
       product: () => this.watchPrice(win, action),
-      parcel: () => lazy.WhimsyPrivate.openTabFor(win, action.trackingUrl, { userContextId: win.gBrowser.selectedTab.userContextId }),
+      // The tracking URL is the page's claim: it opens as the page's own
+      // link would (its principal, so no Strict cookies), not as the
+      // browser's (security L3).
+      parcel: () =>
+        lazy.WhimsyPrivate.openTabFor(win, action.trackingUrl, {
+          userContextId: win.gBrowser.selectedTab.userContextId,
+          triggeringPrincipal: browser.contentPrincipal,
+        }),
     }[action.kind];
     Promise.resolve()
       .then(run)
