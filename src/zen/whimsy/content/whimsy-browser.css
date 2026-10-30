@@ -1137,3 +1137,11 @@ notification-message[value="whimsy-claude-control"] {
     outline: 2px solid var(--zen-primary-color);
   }
 }
+
+/* batch hist: keep the Space picker beside Zen's existing History filter. */
+.whimsy-history-space {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 12em;
+  text-overflow: ellipsis;
+}

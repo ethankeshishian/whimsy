@@ -891,3 +891,9 @@ whimsy-space-extensions-menu =
     .label = Show in Spaces…
 whimsy-space-extensions-all =
     .label = All Spaces
+# batch hist: visit-time space in the Library History tab.
+whimsy-history-space-filter =
+    .aria-label = Space
+whimsy-history-all-spaces = All Spaces
+whimsy-history-unknown-space = Unknown space
+whimsy-history-where = { $space }

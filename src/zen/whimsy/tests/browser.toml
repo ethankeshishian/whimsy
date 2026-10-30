@@ -226,3 +226,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # ext: per-space extensions
 ["browser_whimsy_space_extensions.js"]
+
+# batch hist: visit metadata and the Library History space filter.
+["browser_whimsy_space_history.js"]

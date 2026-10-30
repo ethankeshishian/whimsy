@@ -322,6 +322,9 @@ FEATURES = [
     # space has its own container). Zen has nothing for this.
     {"id": "space-extensions", "title": "Per-space extensions: \"Show in Spaces…\" on each extension's gear menu, plus per-container API isolation where a space has its own container",
      "detect": [("src/zen", r"(?i)per-?space[\w-]*extension|extension[\w-]*per-?space|space[\w-]*scoped[\w-]*extension")]},
+    # batch hist: per-visit space metadata and Library filter.
+    {"id": "space-history", "title": "Space-aware History: where was the tab, and filter by space",
+     "detect": [("src/zen/library", r"(?i)history[^\n]*(?:workspaceId|spaceId)|(?:workspaceId|spaceId)[^\n]*history")]},
 ]
 
 

@@ -454,3 +454,34 @@ add_task(async function mini_whimsy_destination() {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+
+// batch hist: the existing History tab with visit-time space labels.
+add_task(async function library_space_history() {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.space-history", true],
+    ["zen.library.history.closed-tabs", false],
+  ] });
+  const library = document.querySelector("zen-library");
+  const previous = library.activeTab;
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser,
+    "https://example.com/?whimsy-history-screenshot");
+  try {
+    library.activeTab = "history";
+    await library.constructor.animateProgress(1);
+    await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
+    const section = library.querySelector("whimsy-space-history-section");
+    await TestUtils.waitForCondition(async () => {
+      await section.refresh();
+      return section._flatVisits?.some(visit => visit.url.includes("whimsy-history-screenshot") && visit.spaceId);
+    }, "The screenshot includes a recorded space label");
+    await section.updateComplete;
+    await document.l10n.translateFragment(section);
+    ok(section.querySelector(".whimsy-history-space"), "History offers its space filter");
+    await shot("history-spaces");
+  } finally {
+    await library.constructor.animateProgress(0);
+    library.activeTab = previous;
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});

@@ -19,7 +19,7 @@ const SECTIONS = [
   { sectionId: "whimsy-notes", feature: "notes", name: "WhimsyNotesSection" },
   { sectionId: "whimsy-finder-folders", feature: "finder-folders", name: "WhimsyFinderFoldersSection" },
   { sectionId: "whimsy-files", feature: "screenshot-sidebar", name: "WhimsyFilesSection" },
-  // meeting: Next meeting (TODO wave2 merge: port the module to content/*.mjs like the others)
+  // meeting: Next meeting in the Library rail.
   { sectionId: "whimsy-next-meeting", feature: "next-meeting", name: "WhimsyNextMeetingSection" },
 ];
 
@@ -54,8 +54,14 @@ export const WhimsyLibrarySection = {
     }
     lib._whimsySectionsHooked = true;
 
+    const nativeHistory = lib.zenLibrarySections.history;
     const sync = () => {
-      let changed = false;
+      // batch hist: restore Zen immediately when the feature switch is off.
+      const history = Services.prefs.getBoolPref("whimsy.feature.space-history", true)
+        ? sections.WhimsySpaceHistorySection : nativeHistory;
+      const historyChanged = lib.zenLibrarySections.history !== history;
+      lib.zenLibrarySections.history = history;
+      let changed = historyChanged;
       for (const entry of SECTIONS) {
         const on = Services.prefs.getBoolPref(`whimsy.feature.${entry.feature}`, true);
         const has = entry.sectionId in lib.zenLibrarySections;
@@ -81,6 +87,10 @@ export const WhimsyLibrarySection = {
       Services.prefs.addObserver(pref, observer);
       return [pref, observer];
     });
+    // batch hist: use the same observer lifetime as Library sections.
+    const historyObserver = () => sync();
+    Services.prefs.addObserver("whimsy.feature.space-history", historyObserver);
+    observers.push(["whimsy.feature.space-history", historyObserver]);
     win.addEventListener(
       "unload",
       () => {

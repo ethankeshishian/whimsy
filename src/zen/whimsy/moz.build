@@ -4,8 +4,8 @@
 
 EXTRA_JS_MODULES.whimsy += [
     "Whimsy.sys.mjs",
-    "WhimsyAboutPage.sys.mjs",
     "WhimsyAI.sys.mjs",
+    "WhimsyAboutPage.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
     "WhimsyArchive.sys.mjs",
     "WhimsyBionicReading.sys.mjs",
@@ -39,6 +39,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyMenuBarExtra.sys.mjs",
     "WhimsyNetErrorChild.sys.mjs",
     "WhimsyNetErrorParent.sys.mjs",
+    "WhimsyNextMeeting.sys.mjs",
     "WhimsyNotesSection.sys.mjs",
     "WhimsyPage.sys.mjs",
     "WhimsyPageChild.sys.mjs",
@@ -53,6 +54,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySnooze.sys.mjs",
     "WhimsySpaceArchive.sys.mjs",
     "WhimsySpaceExtensions.sys.mjs",
+    "WhimsySpaceHistory.sys.mjs",
     "WhimsySpaceLock.sys.mjs",
     "WhimsySpaces.sys.mjs",
     "WhimsySplit.sys.mjs",
@@ -76,14 +78,6 @@ XPCOM_MANIFESTS += [
 
 BROWSER_CHROME_MANIFESTS += [
     "tests/browser.toml",
-]
-
-# meeting: Next meeting in the sidebar (Library section, sidebar card,
-# Apple Calendar through the native reader in calendar/, Google Calendar
-# through each account's secret iCal address).
-EXTRA_JS_MODULES.whimsy += [
-    "WhimsyNextMeeting.sys.mjs",
-    "WhimsyNextMeetingSection.sys.mjs",
 ]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
