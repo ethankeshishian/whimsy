@@ -117,3 +117,29 @@ add_task(async function test_create_menu_lists_jira_and_linear() {
   ok(linear[0].hidden, "Linear's switch off hides it");
   await SpecialPowers.popPrefEnv();
 });
+
+// The real menu: right-click the tab sidebar, open "Live Folder" (Zen's
+// create menu, next to its GitHub and RSS items) and find Jira and Linear.
+add_task(async function test_create_menu_opened_for_real() {
+  const contextMenu = document.getElementById("toolbar-context-menu");
+  const shown = BrowserTestUtils.waitForPopupEvent(contextMenu, "shown");
+  EventUtils.synthesizeMouseAtCenter(gBrowser.tabContainer, { type: "contextmenu", button: 2 });
+  await shown;
+  const submenu = document.getElementById("zen-panel-ui-live-folder-create");
+  ok(BrowserTestUtils.isVisible(submenu), "The Live Folder submenu is in the sidebar's context menu");
+  const popup = submenu.menupopup;
+  const subShown = BrowserTestUtils.waitForPopupEvent(popup, "shown");
+  submenu.openMenu(true);
+  await subShown;
+  const labels = [...popup.querySelectorAll(":scope > menuitem")].filter(i => !i.hidden).map(i => i.getAttribute("data-l10n-id"));
+  ok(labels.includes("zen-live-folder-github-pull-requests"), "Zen's GitHub item is there");
+  ok(labels.includes("zen-live-folder-type-rss"), "Zen's RSS item is there");
+  ok(labels.includes("whimsy-live-folder-jira-create"), "Jira is listed beside them");
+  ok(labels.includes("whimsy-live-folder-linear-create"), "Linear is listed beside them");
+  for (const cls of ["whimsy-live-folder-jira-create", "whimsy-live-folder-linear-create"]) {
+    ok(BrowserTestUtils.isVisible(popup.querySelector(`.${cls}`)), `${cls} is visible in the open menu`);
+  }
+  const hidden = BrowserTestUtils.waitForPopupEvent(contextMenu, "hidden");
+  contextMenu.hidePopup();
+  await hidden;
+});
