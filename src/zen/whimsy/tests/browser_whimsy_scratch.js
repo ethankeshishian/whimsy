@@ -325,65 +325,193 @@ add_task(async function test_switch_and_setting_off() {
   }
 });
 
-// fixC: Keep asks first, because the space stops being private.
-// fix7/private: in a real modal dialog, the window-modal prompt Firefox uses
+// wave7/scratch: saving Scratch mirrors New Space. Keep opens Zen's own
+// create-space form (name, icon, profile, theme) with "Save Space"; the
+// "no longer private" dialog comes last.
+// fixC + fix7/private: that dialog is the window-modal prompt Firefox uses
 // for its close-window warning and Whimsy for Delete Space (not a toast or
 // notification): title, one sentence, Cancel + "Keep Space"; Cancel is the
-// default button and Esc cancels.
-add_task(async function test_keep_asks_first() {
+// default button and Esc cancels. Cancelling it returns to the form.
+
+const SAVE_FORM = "zen-workspace-creation[whimsy-scratch-save]";
+
+async function openSaveForm() {
+  ok(!document.querySelector(SAVE_FORM), "No save form yet");
+  document.getElementById("cmd_whimsyKeepScratch").doCommand();
+  const form = await TestUtils.waitForCondition(() => document.querySelector(SAVE_FORM), "The create-space form opened");
+  await TestUtils.waitForCondition(() => form.inputName?.matches(":focus"), "The name field has the focus");
+  return form;
+}
+
+async function formClosed(form, what) {
+  await TestUtils.waitForCondition(() => !form.isConnected, `${what}: the form went away`);
+  ok(!document.documentElement.hasAttribute("zen-creating-workspace"), `${what}: the window left create mode`);
+  ok(!document.getElementById("cmd_zenOpenWorkspaceCreation")?.hasAttribute("disabled"), `${what}: New Space works again`);
+}
+
+function assertStillScratch(scratch, before, tab, what) {
+  const now = WhimsyPrivate.getScratch(window);
+  is(now?.uuid, scratch.uuid, `${what}: Scratch is still Scratch`);
+  is(now.name, before.name, `${what}: its name is unchanged`);
+  is(now.icon, before.icon, `${what}: its icon is unchanged`);
+  is(JSON.stringify(now.theme), JSON.stringify(before.theme), `${what}: its theme is unchanged`);
+  if (tab) {
+    ok(tab.isConnected && !tab.closing, `${what}: its tab is still there`);
+    assertPrivate(tab, what);
+  }
+}
+
+add_task(async function test_save_scratch_form_then_confirm() {
   const startSpace = gZenWorkspaces.activeWorkspace;
   const scratch = await WhimsyPrivate.openScratch(window);
   await waitForPage(gBrowser.selectedTab);
-  let dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
-  document.getElementById("cmd_whimsyKeepScratch").doCommand();
-  let win = await dialog;
-  ok(window.gDialogBox.isOpen, "It asks in the window-modal dialog");
-  is(win.document.documentURI, "chrome://global/content/commonDialog.xhtml", "Firefox's own prompt dialog");
-  ok(
-    ![...(document.getElementById("zen-toast-container")?.children ?? [])].some(t => t._messageId?.startsWith("whimsy-scratch")),
-    "No toast asks instead"
+  const url = uniqueURL("save");
+  const privateTab = gBrowser.selectedTab;
+  BrowserTestUtils.startLoadingURIString(privateTab.linkedBrowser, url);
+  await BrowserTestUtils.browserLoaded(privateTab.linkedBrowser, false, url);
+  const before = { ...WhimsyPrivate.getScratch(window) };
+
+  // Step 1: the form, not the dialog.
+  let form = await openSaveForm();
+  ok(!window.gDialogBox.isOpen, "Nothing asks before the form");
+  is(form.localName, "zen-workspace-creation", "It is Zen's New Space form, not a copy");
+  ok(gZenWorkspaces.workspaceElement(scratch.uuid).contains(form), "It opens inside Scratch");
+  await TestUtils.waitForCondition(
+    () => form.querySelector(".zen-workspace-creation-title").textContent == "Save Scratch as a Space",
+    "Its title says what it does"
   );
-  let dialogEl = win.document.querySelector("dialog");
-  is(dialogEl.getButton("accept").label, "Keep Space", "The button says what it does");
-  ok(!dialogEl.getButton("cancel").hidden, "There's a Cancel button");
-  is(dialogEl.defaultButton, "cancel", "Cancel, the safe button, is the default");
-  is(win.document.getElementById("infoTitle").textContent, "Keep as a Normal Space?", "It has a title");
-  ok(win.document.getElementById("infoBody").textContent.includes("private browsing"), "One sentence says what changes");
-  ok(win.document.getElementById("loginContainer").hidden, "No text field takes the focus");
-  EventUtils.synthesizeKey("KEY_Escape", {}, win);
-  await TestUtils.waitForCondition(() => !window.gDialogBox.isOpen, "Esc closes the dialog");
-  ok(WhimsyPrivate.getScratch(window), "Esc changes nothing");
+  is(form.createButton.label, "Save Space", "Its button reads Save Space");
+  is(form.inputName.value, "", "The name starts empty");
+  is(form.inputName.placeholder, "Space Name", "... with Zen's placeholder");
+  ok(form.createButton.disabled, "No name, no Save");
+  ok(form.querySelector(".zen-workspace-creation-edit-theme-button"), "The theme can be changed");
+  assertStillScratch(scratch, before, privateTab, "With the form open");
 
-  dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
-  document.getElementById("cmd_whimsyKeepScratch").doCommand();
-  win = await dialog;
-  EventUtils.synthesizeKey("KEY_Enter", {}, win);
-  await TestUtils.waitForCondition(() => !window.gDialogBox.isOpen, "Return closes the dialog");
-  ok(WhimsyPrivate.getScratch(window), "Return picks Cancel and changes nothing");
+  // Esc on the form cancels and keeps Scratch private, theme included.
+  gZenWorkspaces.getActiveWorkspace().theme = { type: "gradient", gradientColors: [], opacity: 0.5, texture: 0 };
+  EventUtils.sendString("Draft");
+  EventUtils.synthesizeKey("KEY_Escape");
+  await formClosed(form, "Esc");
+  assertStillScratch(scratch, before, privateTab, "After Esc");
+  ok(!privateTab.hidden, "Scratch's tabs show again");
 
-  dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
-  document.getElementById("cmd_whimsyKeepScratch").doCommand();
-  win = await dialog;
-  win.document.querySelector("dialog").getButton("cancel").click();
-  await TestUtils.waitForCondition(() => !window.gDialogBox.isOpen, "Cancel closes the dialog");
-  ok(WhimsyPrivate.getScratch(window), "Cancel changes nothing");
+  // Cancel button: same.
+  form = await openSaveForm();
+  EventUtils.sendString("Draft");
+  form.cancelButton.doCommand();
+  await formClosed(form, "Cancel");
+  assertStillScratch(scratch, before, privateTab, "After Cancel");
 
-  dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
-  document.getElementById("cmd_whimsyKeepScratch").doCommand();
-  win = await dialog;
-  ok(WhimsyPrivate.getScratch(window), "Nothing changed yet");
+  // Return with no name does nothing (Zen's rule).
+  form = await openSaveForm();
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForTick();
+  ok(!window.gDialogBox.isOpen, "No name: no dialog");
+  ok(form.isConnected, "... and the form stays");
+
+  // A name another space already has is fine, as in New Space.
+  const taken = gZenWorkspaces.getWorkspaceFromId(startSpace).name;
+  EventUtils.sendString(taken);
+  ok(!form.createButton.disabled, "A name another space has can be saved");
+  form.inputName.select();
+  EventUtils.sendString("Reading");
+  is(form.inputName.value, "Reading", "Typed name");
+  form.inputIcon.image = "";
+  form.inputIcon.label = "🌱";
+
+  // Step 2: Save Space asks last; Esc, Return and Cancel return to the form.
+  for (const how of ["Esc", "Return", "Cancel"]) {
+    const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+    form.createButton.doCommand();
+    const win = await dialog;
+    ok(window.gDialogBox.isOpen, "It asks in the window-modal dialog");
+    is(win.document.documentURI, "chrome://global/content/commonDialog.xhtml", "Firefox's own prompt dialog");
+    const dialogEl = win.document.querySelector("dialog");
+    if (how == "Esc") {
+      is(dialogEl.getButton("accept").label, "Keep Space", "The button says what it does");
+      ok(!dialogEl.getButton("cancel").hidden, "There's a Cancel button");
+      is(dialogEl.defaultButton, "cancel", "Cancel, the safe button, is the default");
+      is(win.document.getElementById("infoTitle").textContent, "Keep as a Normal Space?", "It has a title");
+      ok(win.document.getElementById("infoBody").textContent.includes("private browsing"), "One sentence says what changes");
+      ok(win.document.getElementById("loginContainer").hidden, "No text field takes the focus");
+      ok(
+        ![...(document.getElementById("zen-toast-container")?.children ?? [])].some(t => t._messageId?.startsWith("whimsy-scratch")),
+        "No toast asks instead"
+      );
+      EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    } else if (how == "Return") {
+      EventUtils.synthesizeKey("KEY_Enter", {}, win);
+    } else {
+      dialogEl.getButton("cancel").click();
+    }
+    await TestUtils.waitForCondition(() => !window.gDialogBox.isOpen, `${how} closes the dialog`);
+    ok(form.isConnected, `${how}: back on the form`);
+    is(form.inputName.value, "Reading", `${how}: the name is still filled in`);
+    is(form.inputIcon.label, "🌱", `${how}: the icon too`);
+    await TestUtils.waitForCondition(() => form.inputName.matches(":focus"), `${how}: the name field has the focus again`);
+    assertStillScratch(scratch, before, privateTab, `${how} in the dialog`);
+  }
+
+  // Keep Space converts it with the form's settings and its tabs.
+  const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+  form.createButton.doCommand();
+  const win = await dialog;
   win.document.querySelector("dialog").getButton("accept").click();
   await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Keep made it a normal space");
+  await formClosed(form, "Keep");
   const kept = gZenWorkspaces.getWorkspaces().find(space => space.uuid == scratch.uuid);
   ok(kept && !kept.whimsyScratch, "The same space is now normal");
-  is(kept.name, "Scratch", "It keeps Scratch's name, not \"Space\"");
-  await TestUtils.waitForCondition(
-    () => gBrowser.selectedTab.getAttribute("zen-workspace-id") == kept.uuid && !WhimsyPrivate.isPrivateTab(gBrowser.selectedTab),
-    "A normal tab replaced the private one"
+  is(kept.name, "Reading", "It has the name from the form");
+  is(kept.icon, "🌱", "... and the icon");
+  is(JSON.stringify(kept.theme), JSON.stringify(before.theme), "... and Scratch's theme");
+  ok(!document.querySelector("[whimsy-scratch]"), "No element keeps Scratch's violet marks");
+  ok(
+    gZenWorkspaces.getWorkspacesForSessionStore().some(space => space.uuid == kept.uuid),
+    "It is saved like any space"
   );
-  const replacement = gBrowser.selectedTab;
-  await waitForPage(replacement, BROWSER_NEW_TAB_URL);
+  const reopened = await TestUtils.waitForCondition(() =>
+    gBrowser.tabs.find(t => !t.closing && t.linkedBrowser.currentURI?.spec == url)
+  );
+  is(reopened.getAttribute("zen-workspace-id"), kept.uuid, "Its page stays in the space");
+  ok(!reopened.hidden, "... and shows");
+  ok(!WhimsyPrivate.isPrivateTab(reopened), "... as a normal tab");
+  ok(!reopened.linkedBrowser.browsingContext.usePrivateBrowsing, "... outside private browsing");
+  await waitForPage(reopened, url);
   await gZenWorkspaces.changeWorkspaceWithID(startSpace);
-  await closeTab(replacement);
+  await closeTab(reopened);
   await gZenWorkspaces.removeWorkspace(kept.uuid);
+  await PlacesUtils.history.remove(url);
+});
+
+// Leaving Scratch or closing it mid-flow cancels: nothing is kept.
+add_task(async function test_save_scratch_interrupted() {
+  const startSpace = gZenWorkspaces.activeWorkspace;
+  const scratch = await WhimsyPrivate.openScratch(window);
+  const privateTab = gBrowser.selectedTab;
+  await waitForPage(privateTab);
+  const before = { ...WhimsyPrivate.getScratch(window) };
+
+  // From another space, Keep goes to Scratch first.
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  let form = await openSaveForm();
+  is(gZenWorkspaces.activeWorkspace, scratch.uuid, "Keep shows Scratch first");
+  EventUtils.sendString("Elsewhere");
+
+  // Another space.
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  await formClosed(form, "Switching spaces");
+  assertStillScratch(scratch, before, privateTab, "After switching spaces");
+  ok(gZenWorkspaces.getWorkspaceFromId(startSpace), "The other space is untouched");
+
+  // Closing Scratch.
+  await gZenWorkspaces.changeWorkspaceWithID(scratch.uuid);
+  form = await openSaveForm();
+  EventUtils.sendString("Gone");
+  await WhimsyPrivate.closeScratch(window);
+  await formClosed(form, "Closing Scratch");
+  ok(!WhimsyPrivate.getScratch(window), "Scratch closed");
+  ok(!gZenWorkspaces.getWorkspaces().some(space => space.name == "Gone"), "Nothing was kept");
+  if (gZenWorkspaces.activeWorkspace != startSpace) {
+    await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  }
 });

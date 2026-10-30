@@ -1660,3 +1660,10 @@ whimsy-scratch-keep-confirm-accept = Keep Space
 # wave5/uxfix: the Undo button on a result toast (Snooze, Hide Space).
 whimsy-undo-toast-button =
     .label = Undo
+
+# wave7/scratch: saving Scratch uses Zen's New Space form with these words;
+# the "Keep as a Normal Space?" dialog comes after its button.
+whimsy-scratch-save-header = Save Scratch as a Space
+whimsy-scratch-save-label = Name it and pick its look. Its tabs come with it.
+whimsy-scratch-save-button =
+    .label = Save Space
