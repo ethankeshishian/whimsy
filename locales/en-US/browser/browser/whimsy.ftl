@@ -1198,7 +1198,7 @@ whimsy-fire-everything-detail = { $count ->
 # The note under the rows: exactly what the chosen row clears and keeps.
 # $profile (string) - the profile's name; "Default" when the space has none.
 whimsy-fire-profile-summary = In the { $profile } profile: removes its history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Other profiles keep theirs. Pinned tabs and Essentials stay open.
-whimsy-fire-everything-summary = Clears all history, cookies, site data, cache, form and search history, and closed tabs, in every profile. Saved passwords, bookmarks, pinned tabs and Essentials stay. You can’t undo it.
+whimsy-fire-everything-summary = Clears all history, cookies, site data, cache, form and search history, the download list and closed tabs, in every profile. Saved passwords, bookmarks, downloaded files, pinned tabs and Essentials stay. You can’t undo it.
 whimsy-heavy-tabs-title = Heavy Tabs
 whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
@@ -2388,7 +2388,7 @@ whimsy-tab-audio-unmute = Unmute tab
 ## wave7/ux: Fire Button. "Everything" asks once more; Cancel is the default.
 
 whimsy-fire-everything-confirm-title = Fire everywhere?
-whimsy-fire-everything-confirm-body = This clears all history, cookies, site data, cache, form and search history and closed tabs for every site in every profile, and closes every unpinned tab. Saved passwords and bookmarks stay. You can’t undo it.
+whimsy-fire-everything-confirm-body = This clears all history, cookies, site data, cache, form and search history, the download list and closed tabs for every site in every profile, and closes every unpinned tab. Saved passwords, bookmarks and downloaded files stay. You can’t undo it.
 whimsy-fire-everything-confirm-accept = Fire Everywhere
 
 ## wave7/fire: Forget About This Site… (command bar). Cancel is the default.

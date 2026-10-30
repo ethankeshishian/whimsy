@@ -298,8 +298,9 @@ add_task(async function test_burn_profile_is_per_profile() {
 // wave7/fire: Everything clears exactly what its note and confirm name.
 add_task(function test_everything_flags() {
   const C = Ci.nsIClearDataService;
-  is(WhimsyFireButton.forgetFlags, C.CLEAR_HISTORY | C.CLEAR_COOKIES_AND_SITE_DATA | C.CLEAR_ALL_CACHES,
-    "History, cookies, site data and cache");
+  is(WhimsyFireButton.forgetFlags,
+    C.CLEAR_HISTORY | C.CLEAR_COOKIES_AND_SITE_DATA | C.CLEAR_ALL_CACHES | C.CLEAR_DOWNLOADS,
+    "History, cookies, site data, cache and the download list");
   is(WhimsyFireButton.siteFlags, C.CLEAR_COOKIES_AND_SITE_DATA | C.CLEAR_ALL_CACHES,
     "Fire in This Profile clears a site's cookies, site data and cache");
 });
@@ -488,5 +489,35 @@ add_task(async function test_fire_everywhere_clears_form_history_not_passwords()
     Object.assign(WhimsyFireButton, originals);
     await Services.logins.removeLoginAsync(login);
     await FormHistory.update({ op: "remove", fieldname: "whimsy-fire-test" });
+  }
+});
+
+// Coordinator: Fire Everywhere clears the download list (its flags carry
+// CLEAR_DOWNLOADS), and the downloaded file stays on disk; the note says so.
+// Only the downloads flag runs here, so the shared profile keeps the rest.
+add_task(async function test_fire_everywhere_clears_download_list_keeps_files() {
+  const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+  ok(WhimsyFireButton.forgetFlags & Ci.nsIClearDataService.CLEAR_DOWNLOADS, "Fire Everywhere includes the download list");
+  const target = PathUtils.join(PathUtils.tempDir, "whimsy-fire-download.txt");
+  await IOUtils.writeUTF8(target, "kept");
+  const list = await Downloads.getList(Downloads.ALL);
+  const download = await Downloads.createDownload({ source: "https://example.com/whimsy-fire-download.txt", target });
+  download.succeeded = true;
+  download.stopped = true;
+  await list.add(download);
+  ok((await list.getAll()).includes(download), "The download is listed");
+  try {
+    await new Promise(resolve => Services.clearData.deleteData(
+      WhimsyFireButton.forgetFlags & Ci.nsIClearDataService.CLEAR_DOWNLOADS, { onDataDeleted: resolve }));
+    await TestUtils.waitForCondition(async () => !(await list.getAll()).includes(download), "The list forgets it");
+    ok(await IOUtils.exists(target), "The downloaded file stays on disk");
+    const [note] = await document.l10n.formatValues(["whimsy-fire-everything-summary"]);
+    ok(note.includes("download list") && note.includes("downloaded files"),
+      "The note says the list goes and the files stay");
+  } finally {
+    if ((await list.getAll()).includes(download)) {
+      await list.remove(download);
+    }
+    await IOUtils.remove(target, { ignoreAbsent: true });
   }
 });

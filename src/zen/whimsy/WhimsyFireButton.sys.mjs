@@ -51,13 +51,15 @@ const FEATURE_PREF = "whimsy.feature.fire-button";
 const PANEL_ID = "whimsyFirePanel";
 const LAST_HOUR_MS = 60 * 60 * 1000;
 // What Everything clears, and exactly what the sheet names: history,
-// cookies, site data and cache. Bookmarks, passwords, downloads and site
-// permissions stay. Fire in This Profile clears SITE_FLAGS per site, and
+// cookies, site data, cache and the download list. Bookmarks, passwords,
+// downloaded files and site permissions stay. Fire in This Profile clears SITE_FLAGS per site, and
 // that profile's history visits.
 const FORGET_FLAGS =
   Ci.nsIClearDataService.CLEAR_HISTORY |
   Ci.nsIClearDataService.CLEAR_COOKIES_AND_SITE_DATA |
-  Ci.nsIClearDataService.CLEAR_ALL_CACHES;
+  Ci.nsIClearDataService.CLEAR_ALL_CACHES |
+  // The download list (Clear History's "downloads"); files on disk stay.
+  Ci.nsIClearDataService.CLEAR_DOWNLOADS;
 const SITE_FLAGS = Ci.nsIClearDataService.CLEAR_COOKIES_AND_SITE_DATA | Ci.nsIClearDataService.CLEAR_ALL_CACHES;
 
 function siteOfURL(url) {
