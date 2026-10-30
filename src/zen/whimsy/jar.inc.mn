@@ -66,3 +66,7 @@
         content/browser/whimsy/whimsy-season-winter.svg                          (../../zen/whimsy/content/whimsy-season-winter.svg)
         content/browser/whimsy/whimsy-season-spring.svg                          (../../zen/whimsy/content/whimsy-season-spring.svg)
         content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)
+# wave5/safety: Claude runs (agent replay, about:whimsy?replay)
+        content/browser/whimsy/whimsy-replay.html                                               (../../zen/whimsy/content/whimsy-replay.html)
+        content/browser/whimsy/whimsy-replay.css                                                (../../zen/whimsy/content/whimsy-replay.css)
+        content/browser/whimsy/whimsy-replay.js                                                 (../../zen/whimsy/content/whimsy-replay.js)

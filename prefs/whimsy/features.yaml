@@ -384,6 +384,9 @@
 - name: whimsy.feature.claude-shield
   value: true
 
+- name: whimsy.feature.claude-replay
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

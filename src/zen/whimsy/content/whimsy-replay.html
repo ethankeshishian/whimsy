@@ -1,0 +1,79 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-l10n-id="whimsy-replay-title"></title>
+    <link rel="localization" href="branding/brand.ftl" />
+    <link rel="localization" href="browser/whimsy.ftl" />
+    <link rel="icon" href="chrome://browser/skin/zen-icons/sparkles.svg" />
+    <link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-replay.css" />
+  </head>
+  <body>
+    <header id="whimsy-replay-header">
+      <img class="whimsy-replay-mark" src="chrome://browser/skin/zen-icons/sparkles.svg" alt="" />
+      <div class="whimsy-replay-headings">
+        <h1 data-l10n-id="whimsy-replay-heading"></h1>
+        <p class="whimsy-replay-muted" data-l10n-id="whimsy-replay-intro"></p>
+      </div>
+      <button id="whimsy-replay-clear" type="button" class="whimsy-replay-button" data-l10n-id="whimsy-replay-clear" hidden></button>
+    </header>
+
+    <main id="whimsy-replay-main">
+      <section id="whimsy-replay-empty" class="whimsy-replay-empty" hidden>
+        <img src="chrome://browser/skin/zen-icons/sparkles.svg" alt="" />
+        <h2 data-l10n-id="whimsy-replay-empty-title"></h2>
+        <p class="whimsy-replay-muted" data-l10n-id="whimsy-replay-empty"></p>
+      </section>
+      <section id="whimsy-replay-off" class="whimsy-replay-empty" hidden>
+        <img src="chrome://browser/skin/zen-icons/sparkles.svg" alt="" />
+        <p class="whimsy-replay-muted" data-l10n-id="whimsy-replay-off"></p>
+      </section>
+
+      <div id="whimsy-replay-layout" hidden>
+        <nav id="whimsy-replay-runs" data-l10n-id="whimsy-replay-runs-label"></nav>
+
+        <section id="whimsy-replay-run" aria-live="polite">
+          <div class="whimsy-replay-run-head">
+            <div>
+              <h2 id="whimsy-replay-run-title"></h2>
+              <p id="whimsy-replay-run-meta" class="whimsy-replay-muted"></p>
+            </div>
+            <div class="whimsy-replay-actions">
+              <button id="whimsy-replay-copy" type="button" class="whimsy-replay-button" data-l10n-id="whimsy-replay-copy"></button>
+              <button id="whimsy-replay-delete" type="button" class="whimsy-replay-button" data-l10n-id="whimsy-replay-delete"></button>
+            </div>
+          </div>
+
+          <figure id="whimsy-replay-stage">
+            <div id="whimsy-replay-shot">
+              <img id="whimsy-replay-thumb" alt="" hidden />
+              <p id="whimsy-replay-no-thumb" class="whimsy-replay-muted" data-l10n-id="whimsy-replay-no-thumb" hidden></p>
+            </div>
+            <figcaption id="whimsy-replay-card">
+              <span id="whimsy-replay-tool" class="whimsy-replay-chip"></span>
+              <span id="whimsy-replay-target"></span>
+              <span id="whimsy-replay-url" class="whimsy-replay-muted"></span>
+              <span id="whimsy-replay-error" hidden></span>
+              <button id="whimsy-replay-open" type="button" class="whimsy-replay-button" data-l10n-id="whimsy-replay-open"></button>
+            </figcaption>
+          </figure>
+
+          <div id="whimsy-replay-scrubber">
+            <input id="whimsy-replay-scrub" type="range" min="0" max="0" value="0" step="1" data-l10n-id="whimsy-replay-scrub" />
+            <span id="whimsy-replay-position" class="whimsy-replay-muted"></span>
+          </div>
+          <p id="whimsy-replay-trimmed" class="whimsy-replay-muted" data-l10n-id="whimsy-replay-trimmed" hidden></p>
+
+          <ol id="whimsy-replay-strip"></ol>
+        </section>
+      </div>
+      <p id="whimsy-replay-status" class="whimsy-replay-visually-hidden" role="status"></p>
+    </main>
+    <script src="chrome://browser/content/whimsy/whimsy-replay.js"></script>
+  </body>
+</html>

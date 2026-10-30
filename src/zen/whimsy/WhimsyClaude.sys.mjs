@@ -44,6 +44,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   HttpServer: "chrome://remote/content/server/httpd.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyClaudeReplay: "resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs",
   WhimsyClaudeShield: "resource:///modules/whimsy/WhimsyClaudeShield.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -383,6 +384,8 @@ export const WhimsyClaude = {
       Services.prefs.addObserver(pref, this);
     }
     Services.obs.addObserver(this, "quit-application");
+    // Agent replay: Clear history clears it even while Claude is off.
+    lazy.WhimsyClaudeReplay.init();
     this.update();
   },
 
@@ -628,6 +631,8 @@ export const WhimsyClaude = {
     const fail = (code, msg) => (isRequest ? { jsonrpc: "2.0", id, error: { code, message: msg } } : null);
     switch (method) {
       case "initialize":
+        // Claude Code connected: a new run in the replay.
+        lazy.WhimsyClaudeReplay.startRun(params.clientInfo?.name);
         return reply({
           protocolVersion: PROTOCOL_VERSIONS.includes(params.protocolVersion)
             ? params.protocolVersion
@@ -663,21 +668,63 @@ export const WhimsyClaude = {
       return { content: [text(`Unknown tool: ${name}`)], isError: true };
     }
     const generation = state.generation;
+    let outcome;
+    let before = null;
     try {
       // Paused by the shield: wait for the person's answer.
       while (state.paused) {
         await state.paused;
         this.assertLive(generation);
       }
+      before = this.stepTab(args.tabId);
       const result = await handler.call(this, args, generation);
       this.assertLive(generation);
-      return { content: Array.isArray(result) ? result : [text(result)] };
+      outcome = { content: Array.isArray(result) ? result : [text(result)] };
     } catch (e) {
       if (!(e instanceof ToolError)) {
         console.error("Whimsy: Claude tool", name, e);
       }
-      return { content: [text(e.message || String(e))], isError: true };
+      outcome = { content: [text(e.message || String(e))], isError: true };
     }
+    this.recordStep(name, args, outcome, before, generation);
+    return outcome;
+  },
+
+  // --- Agent replay ---
+
+  // The tab a call names and its page before the call (a closed tab's URL
+  // is gone afterwards). Never a private tab's.
+  stepTab(tabId) {
+    const tab = tabId === undefined || tabId === null ? null : this.tabById(tabId);
+    if (!tab || this.isPrivate(tab)) {
+      return { tab: null, private: !!tab, url: "" };
+    }
+    return { tab, private: false, url: this.inScope(tab) ? tab.linkedBrowser.currentURI?.spec ?? "" : "" };
+  },
+
+  // Steps from before and after a Stop (a new generation) are separate runs.
+  recordStep(name, args, outcome, before, generation) {
+    if (before?.private) {
+      return;
+    }
+    let tab = before?.tab ?? null;
+    if (name == "tabs_create" && !outcome.isError) {
+      try {
+        tab = this.tabById(JSON.parse(outcome.content[0].text).tabId);
+      } catch (e) {}
+    }
+    const usable = !!tab && !tab.closing && this.inScope(tab);
+    lazy.WhimsyClaudeReplay.record(
+      {
+        tool: name,
+        args,
+        ok: !outcome.isError,
+        error: outcome.isError ? outcome.content[0]?.text : "",
+        url: usable ? "" : before?.url ?? "",
+        generation,
+      },
+      usable ? tab : null
+    );
   },
 
   assertLive(generation) {
@@ -1121,6 +1168,16 @@ export const WhimsyClaude = {
       state.paused = null;
     }
     this.audit(`shield ${decision == "continue" ? "continued" : "stopped"} by the user: ${host} (${where})`);
+    lazy.WhimsyClaudeReplay.record(
+      {
+        tool: "shield",
+        args: { reasons },
+        ok: decision == "continue",
+        error: decision == "continue" ? "" : "Stopped",
+        generation,
+      },
+      tab
+    );
     const live = generation == state.generation && !!state.server;
     if (decision == "continue" && live) {
       let pages = state.shieldAllowed.get(tab);

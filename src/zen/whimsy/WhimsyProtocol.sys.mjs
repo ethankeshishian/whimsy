@@ -45,6 +45,8 @@ const ROUTES = {
   // home: the homepage and its Changelog tab (about:whimsy).
   home: { url: "about:whimsy" },
   changelog: { url: "about:whimsy?tab=changelog" },
+  // wave5/safety: Claude runs (agent replay).
+  replay: { url: "about:whimsy?replay" },
 };
 
 const PATTERN = /^whimsy:\/\/([a-z-]+)\/?$/i;

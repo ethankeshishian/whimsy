@@ -407,3 +407,8 @@
 # Picked in Settings from the models the Ollama server has.
 - name: whimsy.ai.ollama.model
   value: ""
+
+# wave5/safety: agent replay. Keep a timeline of each Claude run (steps and
+# small page snapshots) in the profile, shown at whimsy://replay.
+- name: whimsy.claude.replay
+  value: true
