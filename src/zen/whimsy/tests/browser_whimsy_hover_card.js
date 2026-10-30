@@ -102,3 +102,15 @@ add_task(async function history_row_uses_its_own_visit() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+add_task(async function firefox_owns_the_only_tab_preview_setting() {
+  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyHoverGroup"));
+    ok(!doc.getElementById("whimsyHoverTabs"), "No duplicate Whimsy tab-preview checkbox");
+    is(doc.getElementById("whimsyHoverGroup").querySelectorAll('[preference="browser.tabs.hoverPreview.enabled"]').length, 0,
+      "Whimsy leaves tab previews to Firefox’s existing setting");
+    ok(doc.getElementById("whimsyHoverHistory"), "Whimsy-only History option remains");
+    ok(doc.getElementById("whimsyHoverPeople"), "Whimsy-only People option remains");
+  });
+});
