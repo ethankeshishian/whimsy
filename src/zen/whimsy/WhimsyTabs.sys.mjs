@@ -130,6 +130,7 @@ export const WhimsyTabs = {
     const space = tab.getAttribute("zen-workspace-id");
     const tabs = win.gBrowser.tabs.filter(
       t =>
+        !t.closing &&
         !t.pinned &&
         !t.group &&
         !t.hasAttribute("zen-essential") &&
