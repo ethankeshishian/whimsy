@@ -148,7 +148,7 @@
   value: true
 
 - name: whimsy.feature.tree-tabs
-  value: true
+  value: false
 
 - name: whimsy.feature.fire-button
   value: true

@@ -233,7 +233,7 @@ FEATURES = [
     {"id": "snooze-tab", "title": "Snooze a tab: closes it now, reopens at a chosen time (SigmaOS, Edge)",
      "detect": [("src/zen", r"(?i)snooze-?tab|ZenSnoozeManager")]},
     {"id": "tree-tabs", "title": "Tree-style tabs with an Islands mode: nest a tab under whichever tab opened it",
-     "default": True,  # wave3: user asked for tree tabs on by default.
+     "default": False,  # Build-plan answer: off by default.
      "detect": [("src/zen", r"(?i)zen-?tree-?tabs|ZenTreeTabs|zen-?tab-?islands")]},
     {"id": "fire-button", "title": "Fire button: a one-click data-clearing popover (DuckDuckGo), scoped to site/15 min/space/everything",
      "detect": [("src/zen", r"(?i)fire-?button|ZenFireButton")]},
