@@ -164,7 +164,8 @@ add_task(async function offline_key_turns_the_page_into_the_game() {
         ok(browser.currentURI.spec.startsWith("about:neterror?"), "The page stays the error page");
         await SpecialPowers.spawn(browser, [], () => {
           const doc = content.document;
-          ok(doc.getElementById("tryAgainButton"), "Try Again is still there");
+          const root = doc.querySelector("net-error-card")?.shadowRoot || doc;
+          ok(root.querySelector("#tryAgainButton, .try-again"), "Try Again is still there");
           ok(doc.body.classList.contains("whimsy-game-embedded"), "The game takes the balloon's place");
         });
       });

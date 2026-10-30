@@ -285,7 +285,8 @@
         }
       }
       if (audio.state == "suspended") {
-        audio.resume();
+        // A pending autoplay resume rejects when this document is closed.
+        audio.resume().catch(() => {});
       }
     } catch (e) {
       return null;
