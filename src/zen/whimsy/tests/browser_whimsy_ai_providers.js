@@ -40,7 +40,7 @@ add_task(async function test_defaults() {
   Services.prefs.setStringPref("whimsy.ai.provider", "nonsense");
   is(WhimsyAIProviders.provider, "apple", "An unknown provider falls back to the default, not the cloud");
   Services.prefs.clearUserPref("whimsy.ai.provider");
-  is(WhimsyAIProviders.claudeModel, "claude-opus-5", "Claude defaults to the latest model");
+  is(WhimsyAIProviders.claudeModel, "claude-opus-5-5", "Claude defaults to the latest model");
 });
 
 add_task(async function test_fake_provider() {

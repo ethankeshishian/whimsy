@@ -36,7 +36,7 @@ const BLOCKED_PREF = "whimsy.ai.blocked";
 export const PROVIDERS = ["apple", "claude", "ollama"];
 const DEFAULT_PROVIDER = "apple";
 // Latest Claude (user: "Default model: latest Claude").
-const DEFAULT_CLAUDE_MODEL = "claude-opus-5";
+const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
 const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
 const KEY_FILE = "whimsy-ai-keys.json";
 const REQUEST_TIMEOUT_MS = 90 * 1000;
