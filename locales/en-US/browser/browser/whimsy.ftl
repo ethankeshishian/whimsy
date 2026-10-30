@@ -923,3 +923,9 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+
+## fixB: Whimsy's panels ("sheets", WhimsyPanels.sys.mjs)
+
+whimsy-sheet-close =
+    .tooltiptext = Close
+    .aria-label = Close
