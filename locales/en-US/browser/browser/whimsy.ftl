@@ -936,3 +936,8 @@ whimsy-live-folder-rss-option-reader =
     .label = Open in Reader View
 whimsy-live-folder-option-mark-read =
     .label = Mark All as Read
+
+## wave3/private: floating calls.
+
+whimsy-media-call-pip =
+    .label = Float a video call in picture-in-picture when you switch away from its tab

@@ -239,3 +239,7 @@ support-files = ["whimsy_slow_download.sjs"]
 
 # wave3/private: RSS live folders (unread counts, Reader View items).
 ["browser_whimsy_live_folders_reading.js"]
+
+# wave3/private: floating calls (call video goes PiP when you leave its tab).
+["browser_whimsy_call_pip.js"]
+support-files = ["whimsy_call.html"]

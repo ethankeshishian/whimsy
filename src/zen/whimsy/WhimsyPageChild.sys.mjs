@@ -104,8 +104,44 @@ export class WhimsyPageChild extends JSWindowActorChild {
       case "Whimsy:SetFollowerSource":
         this.setFollowerSource(message.data.on);
         return null;
+      // wave3: floating calls (WhimsyCallPip).
+      case "Whimsy:CallPip":
+        return this.callPip();
     }
     return null;
+  }
+
+  // wave3: floating calls. Puts the call's main video (the active speaker's
+  // tile, the biggest playing one, preferring others over your own mirrored
+  // self-view) in picture-in-picture, the way Firefox's own tab-switch PiP
+  // does for a playing video. Call videos don't qualify for that one: their
+  // sound plays from separate audio elements, so the videos are muted or
+  // have no audio track. Returns whether it opened.
+  callPip() {
+    const doc = this.document;
+    if (!doc) {
+      return false;
+    }
+    const videos = [...doc.querySelectorAll("video")];
+    if (videos.some(v => v.isCloningElementVisually)) {
+      return false; // Already in picture-in-picture.
+    }
+    const win = this.contentWindow;
+    const mirrored = v => {
+      try {
+        return new win.DOMMatrixReadOnly(win.getComputedStyle(v).transform).a < 0;
+      } catch (e) {
+        return false;
+      }
+    };
+    const live = videos.filter(v => !v.paused && v.readyState >= 2 && v.videoWidth > 0 && this.area(v) > 0);
+    if (!live.length) {
+      return false;
+    }
+    live.sort((a, b) => Number(mirrored(a)) - Number(mirrored(b)) || this.area(b) - this.area(a));
+    const launcher = this.manager.getActor("PictureInPictureLauncher");
+    launcher.togglePictureInPicture({ video: live[0], reason: "AutoPip" }, false).catch(console.error);
+    return true;
   }
 
   async onMediaEvent(event) {

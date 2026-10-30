@@ -10,6 +10,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyArchive.sys.mjs",
     "WhimsyBionicReading.sys.mjs",
     "WhimsyBionicReadingChild.sys.mjs",
+    "WhimsyCallPip.sys.mjs",
     "WhimsyCheatSheet.sys.mjs",
     "WhimsyClaude.sys.mjs",
     "WhimsyClaudeChild.sys.mjs",

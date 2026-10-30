@@ -78,6 +78,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave3/private: RSS reading (unread counts, Reader View items).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLiveFolderReading: "resource:///modules/whimsy/WhimsyLiveFolderReading.sys.mjs",
+  // wave3/private: floating calls (Arc).
+  WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -397,6 +399,9 @@ export const Whimsy = {
     // wave3/private: RSS live folders' unread counts and Reader View items.
     // Always installed: each part checks its own switch on use.
     run("live-folder-reading", () => lazy.WhimsyLiveFolderReading.initWindow(win));
+    // wave3/private: a call's video floats in picture-in-picture when you
+    // leave its tab (Arc). Checks its switch on each tab switch.
+    run("call-pip", () => lazy.WhimsyCallPip.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

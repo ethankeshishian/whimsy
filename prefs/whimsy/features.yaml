@@ -303,6 +303,9 @@
 - name: whimsy.feature.live-folders-rss-reader
   value: true
 
+- name: whimsy.feature.call-pip
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true
