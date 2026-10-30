@@ -147,8 +147,17 @@ export const WhimsyLinkHints = {
 
   initWindow(win) {
     const shortcuts = lazy.WhimsyShortcuts;
-    // Downloads is Cmd+J everywhere but Linux (Ctrl+Shift+Y there).
-    if (this.enabled && AppConstants.platform != "linux") {
+    // Downloads is Cmd+J everywhere but Linux (Ctrl+Shift+Y there). Only
+    // take it while Downloads is still on plain Cmd+J: WhimsyShortcuts runs
+    // first and moves Downloads to Shift+Cmd+J (Arc), and releasing it then
+    // would leave Downloads with no key at all.
+    const downloads = win.document.getElementById("key_openDownloads");
+    if (
+      this.enabled &&
+      AppConstants.platform != "linux" &&
+      downloads?.getAttribute("key")?.toUpperCase() == "J" &&
+      downloads.getAttribute("modifiers") == "accel"
+    ) {
       shortcuts.releaseKey(win, "key_openDownloads");
     }
     shortcuts.addCommand(win, {

@@ -41,8 +41,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
   }
 
   // batch6 #7: Shift+click a link opens it in a split beside the current
-  // tab, mirroring Arc's Shift+click. Off by default (whimsy.splitlink.shift-click),
-  // since Shift+click is Firefox's own "open in new window".
+  // tab. Off by default (whimsy.splitlink.shift-click), since Shift+click
+  // is Firefox's own "open in new window". Not Arc's (Arc's Shift+click is
+  // Peek; Whimsy keeps Zen's Option+click for Peek).
   onClick(event) {
     if (
       !Services.prefs.getBoolPref("whimsy.splitlink.shift-click", false) ||

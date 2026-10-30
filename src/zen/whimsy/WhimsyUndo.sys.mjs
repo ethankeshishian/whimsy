@@ -164,6 +164,15 @@ export const WhimsyUndo = {
     return redoStacks.get(win)?.at(-1) ?? null;
   },
 
+  // wave6/parity: what Cmd+Z would undo right now (the Edit menu names it,
+  // as Arc's "Undo Archive Tab" does), or null when it's the editor's.
+  pendingUndo(win) {
+    if (!this.enabled || isEditableTarget(win)) {
+      return null;
+    }
+    return undoStacks.get(win)?.at(-1)?.type ?? null;
+  },
+
   undo(win) {
     const stack = undoStacks.get(win);
     const entry = stack?.pop();

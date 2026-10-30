@@ -12,9 +12,10 @@
 // glance at it, then either close it (Esc, Cmd+W, or the close button —
 // gone for good, no history or session entry) or press "Open in <Space name>"
 // (Cmd+O, matching Arc) to adopt it into a real tab, or pick a
-// different one (Cmd+Shift+O, the caret button). A second link while one is
-// already open reuses the same window rather than stacking more, as Arc
-// does.
+// different one (Cmd+Shift+O, the caret button). A second link while one is already
+// open reuses the same window. (wave6: parity.md reads the 120 fps clip as
+// Arc stacking a second window and ignoring Esc, but that clip can't show
+// which window had focus; both stay as they are until verified.)
 //
 // It's an ordinary browser.xhtml window (BrowserWindowTracker.openWindow,
 // same primitive Firefox uses for every new window): no new window type,
@@ -334,6 +335,27 @@ export const WhimsyQuickWindow = {
     return adopted ?? null;
   },
 
+  // wave6/parity: Little Arc fades out in place (~100 ms, no scale) when it
+  // closes. Every close path (Esc, Cmd+W on its one tab, the close button,
+  // moving the page to a space) ends in win.close(), so that's where the
+  // fade goes; with reduced motion it closes at once.
+  fadeOnClose(win) {
+    const close = win.close.bind(win);
+    win.close = () => {
+      const root = win.document.documentElement;
+      if (root.hasAttribute("whimsy-mini-closing")) {
+        return;
+      }
+      if (win.matchMedia("(prefers-reduced-motion: reduce)").matches || win.closed) {
+        close();
+        return;
+      }
+      root.setAttribute("whimsy-mini-closing", "");
+      const ms = parseFloat(win.getComputedStyle(root).getPropertyValue("--whimsy-mini-close-duration")) || 100;
+      win.setTimeout(close, ms);
+    };
+  },
+
   // The quick window's own chrome, laid out like Arc's Little Arc: one slim
   // bar above the page, on the destination space's colours (see
   // watchDestination), holding the window controls, Back, the address
@@ -372,6 +394,8 @@ export const WhimsyQuickWindow = {
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindowChooseSpace",
       run: w => this.openSpacePicker(w, w.document.getElementById(OPEN_GROUP_ID)),
+      // Kept (user asked for it; wave6/parity proposed dropping it to match
+      // Little Arc's chevron-only picker, pending the user's decision).
       key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
     });
     // Arc: "quickly verify the content and hit Esc to vanish the window."
@@ -389,6 +413,7 @@ export const WhimsyQuickWindow = {
         win.close();
       }
     });
+    this.fadeOnClose(win);
     navbar.before(this.buildBar(win));
     this.adoptWindowButtons(win);
     this.watchDestination(win);

@@ -467,3 +467,24 @@ support-files = ["whimsy_search_results.html", "whimsy_search_card.html"]
 # wave6: Page actions: schema.org data -> Calendar, Maps, Cook mode, Track pill.
 ["browser_whimsy_page_actions.js"]
 support-files = ["whimsy_page_actions.html"]
+
+# wave6/parity: the Archive's own store (no 25-tab loss), Clear Archive.
+["browser_whimsy_archive_store.js"]
+
+# wave6/parity: Option+click a sidebar tab to split (Peek keeps Zen's Option+click on links).
+["browser_whimsy_split_alt_click.js"]
+
+# wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
+["browser_whimsy_split_arc_keys.js"]
+
+# wave6/parity: Arc's menu keys (Library, Downloads/Console, Save Page, Blank Window, Copy URL as Quote, Paste and Match Style).
+["browser_whimsy_arc_menu_keys.js"]
+
+# wave6/parity: Arc's menu bar (Tabs menu, names, Show Toolbar, Reveal Tab, Undo label, Portrait capture, Help item).
+["browser_whimsy_arc_menus.js"]
+
+# wave6/parity: Arc's fixed tidy-title rules (no AI).
+["browser_whimsy_tidy_titles_rules.js"]
+
+# wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
+["browser_whimsy_command_bar_dedup.js"]

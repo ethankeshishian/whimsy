@@ -438,6 +438,78 @@ HOTFIXES = [
                "      }\n"
                '      const isLeft = dropSide === "left";\n',
     },
+    # wave6/parity: Arc's names for Zen's commands (command bar, about:keyboard,
+    # the space's Clear button). Clear Today's tabs go to the Archive store.
+    {
+        "id": 'zen-string-arc-compact',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-toggle-compact-mode = Toggle Compact Mode',
+        "new": 'zen-action-toggle-compact-mode = Hide or Show Sidebar',
+    },
+    {
+        "id": 'zen-string-arc-library',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-open-library = Open Library\n',
+        "new": 'zen-action-open-library = Open Library…\n',
+    },
+    {
+        "id": 'zen-string-arc-new-space',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-new-space = New Space\n',
+        "new": 'zen-action-new-space = New Space…\n',
+    },
+    {
+        "id": 'zen-string-arc-restore-tab',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-reopen-closed-tab = Reopen Closed Tab',
+        "new": 'zen-action-reopen-closed-tab = Restore Last Closed Tab',
+    },
+    {
+        "id": 'zen-string-arc-blank-window',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-new-blank-window = New Blank Window',
+        "new": 'zen-action-new-blank-window = Blank Window',
+    },
+    {
+        "id": 'zen-string-arc-key-compact',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-compact-mode-shortcut-toggle = Toggle Compact Mode',
+        "new": 'zen-compact-mode-shortcut-toggle = Hide or Show Sidebar',
+    },
+    {
+        "id": 'zen-string-arc-key-library',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-library-shortcut-toggle = Toggle Library',
+        "new": 'zen-library-shortcut-toggle = Open Library…',
+    },
+    {
+        "id": 'zen-string-arc-key-clear-today',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-close-all-unpinned-tabs-shortcut = Close All Unpinned Tabs',
+        "new": 'zen-close-all-unpinned-tabs-shortcut = Clear Today',
+    },
+    {
+        "id": 'zen-string-arc-clear-today-toast',
+        "file": 'locales/en-US/browser/browser/zen-workspaces.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-workspaces-close-all-unpinned-tabs-toast = Tabs Closed! Use <span>{ $shortcut }</span> to undo.',
+        "new": 'zen-workspaces-close-all-unpinned-tabs-toast = Today’s tabs are in the Archive. Use <span>{ $shortcut }</span> to undo.',
+    },
+    {
+        "id": 'zen-string-arc-clear-today-tooltip',
+        "file": 'locales/en-US/browser/browser/zen-workspaces.ftl',
+        "why": "Arc's name for this command.",
+        "old": '    .tooltiptext = Close all unpinned tabs',
+        "new": '    .tooltiptext = Clear Today: archive every unpinned tab',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -591,7 +663,7 @@ FEATURES = [
     {"id": "heavy-tabs", "title": "Find heavy tabs: the tabs using the most memory/CPU, with a close button (Opera GX)",
      "detect": [("src/zen", r"(?i)heavy-?tabs|hot-?tabs-?killer|ZenHeavyTabs")]},
     # batch6: split view extras.
-    {"id": "split-link-click", "title": "Shift+click a link opens it in a split (Arc parity, PR#15241)",
+    {"id": "split-link-click", "title": "Shift+click a link opens it in a split (opt-in, Zen PR#15241)",
      "detect": [("src/zen/split-view", r"(?i)shift.*click.*split|modifier.*click.*split")]},
     {"id": "split-close-other-panes", "title": "\"Close Other Panes\" in the command bar",
      "detect": [("src/zen/split-view", r"cmd_zen[\w]*CloseOther")]},
@@ -890,6 +962,15 @@ FEATURES = [
     # on the page -> one address bar pill (Calendar, Maps, Cook mode...).
     {"id": "page-actions", "title": "Page actions: add events to Calendar, open places in Maps, cook mode for recipes, from the page's own data (Safari Highlights)",
      "detect": [("src/zen", r"(?i)application/ld\+json|schema\.org/(Event|Recipe)|page-?actions?-?pill")]},
+    # wave6/parity: Arc's Option+click a tab to split it with the current one.
+    {"id": "split-alt-click", "title": "Option+click a tab in the sidebar to open it in a split with the current tab (Arc)",
+     "detect": [("src/zen/split-view", r"(?i)alt-?click|altKey")]},
+    {"id": "split-arc-keys", "title": "Arc's Split View commands: Add Split View (Ctrl+Shift+=), Close this Split Pane (Ctrl+Shift+-), Separate Page, Expand Current Split, Ctrl+Shift+1-4 and [ ] to move between panes",
+     "detect": [("src/zen/split-view", r"(?i)separate-?page|focus-?pane|cmd_zenSplitView(Focus|Next|Prev)")]},
+    {"id": "command-bar-dedup", "title": "Command bar: one row per page title on Figma, Notion, GitHub and Arc's other 7 hosts (Arc's dedupByTitleAndHost)",
+     "detect": [("src/zen/urlbar", r"(?i)dedup")]},
+    {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
+     "detect": [("src/zen/common", r"(?i)reveal-?tab|tabs-menubar|portrait")]},
 ]
 
 

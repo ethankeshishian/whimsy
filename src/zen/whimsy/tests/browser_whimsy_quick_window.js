@@ -124,6 +124,7 @@ add_task(async function test_cmd_o_opens_in_current_space() {
   BrowserTestUtils.removeTab(adopted);
 });
 
+// Cmd+Shift+O (kept until the user decides; Little Arc only has the chevron).
 add_task(async function test_cmd_shift_o_opens_the_space_picker() {
   const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
   await WhimsyQuickWindow.whenReady(win);
@@ -450,8 +451,8 @@ add_task(async function mini_chrome_follows_light_and_dark() {
   }
 });
 
-// wave5/uxfix: Mini opens like Little Arc: about 150ms on Zen's ease-out
-// curve, no bounce; reduced motion opens it still.
+// wave5/uxfix: Mini opens like Little Arc: quickly (wave6/parity measured
+// ~90ms), no bounce; reduced motion opens it still.
 add_task(async function mini_open_motion_matches_arc() {
   for (const reduce of [0, 1]) {
     await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", reduce]] });
@@ -463,7 +464,7 @@ add_task(async function mini_open_motion_matches_arc() {
         is(style.animationName, "none", "Reduced motion: no opening animation");
       } else {
         is(style.animationName, "whimsy-mini-open", "Mini animates open");
-        Assert.lessOrEqual(parseFloat(style.animationDuration), 0.16, "...in about 150ms");
+        Assert.lessOrEqual(parseFloat(style.animationDuration), 0.16, "...in under 160ms");
         ok(!/1\.\d+,\s*0?\.\d+,\s*0?\.\d+\)$/.test(style.animationTimingFunction) &&
           !style.animationTimingFunction.includes("1.27"), "...without overshoot");
       }
@@ -472,4 +473,20 @@ add_task(async function mini_open_motion_matches_arc() {
       await SpecialPowers.popPrefEnv();
     }
   }
+});
+
+// wave6/parity: Little Arc's measured motion: ~90 ms grow with no overshoot,
+// ~100 ms fade on close.
+add_task(async function test_mini_motion_tokens_and_fade() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  await WhimsyQuickWindow.whenReady(win);
+  const root = win.document.documentElement;
+  const style = win.getComputedStyle(root);
+  is(style.getPropertyValue("--whimsy-mini-open-duration").trim(), "90ms", "Opens in ~90 ms");
+  is(style.getPropertyValue("--whimsy-mini-close-duration").trim(), "100ms", "Closes in ~100 ms");
+  ok(!/1\.[0-9]/.test(style.getPropertyValue("--whimsy-mini-ease-out").split(",")[1] ?? ""), "Ease-out without overshoot");
+  const closed = BrowserTestUtils.domWindowClosed(win);
+  win.close();
+  ok(win.closed || root.hasAttribute("whimsy-mini-closing"), "Closing fades first (or closes at once with reduced motion)");
+  await closed;
 });

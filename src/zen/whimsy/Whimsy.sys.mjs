@@ -207,6 +207,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
 });
 
+// wave6/parity: Arc's Split View keys.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
+  WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -690,6 +696,11 @@ export const Whimsy = {
     // wave6: Page actions. Its page actor is registered once even when off;
     // the child checks the switch on every page.
     run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
+    // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
+    // its switch on each use.
+    run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
+    // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
+    run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

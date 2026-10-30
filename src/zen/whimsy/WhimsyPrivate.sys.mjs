@@ -514,12 +514,19 @@ export const WhimsyPrivate = {
     const { WhimsyCommands } = lazy;
     if (this.featureOn) {
       // Scratch replaces the private window on Cmd+Shift+N (BUILD-PLAN), so
-      // clear the two built-in bindings for that key in this window.
+      // clear the two built-in bindings for that key in this window. wave6:
+      // Zen's New Blank Window moves to Arc's Blank Window key,
+      // Cmd+Ctrl+N, instead of losing its key (when that's free).
       for (const id of ["zen-new-unsynced-window", "key_privatebrowsing"]) {
         const keyEl = win.document.getElementById(id);
         if (keyEl?.getAttribute("key")?.toUpperCase() === "N") {
-          keyEl.removeAttribute("key");
-          keyEl.removeAttribute("modifiers");
+          const blank = { key: "N", modifiers: "accel,control" };
+          if (id == "zen-new-unsynced-window" && !WhimsyCommands.findConflict(win.document, blank, id)) {
+            keyEl.setAttribute("modifiers", blank.modifiers);
+          } else {
+            keyEl.removeAttribute("key");
+            keyEl.removeAttribute("modifiers");
+          }
           const keyset = keyEl.parentElement;
           const parent = keyset?.parentElement;
           if (parent) {

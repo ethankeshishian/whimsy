@@ -707,8 +707,8 @@ whimsy-cheatsheet-search =
 whimsy-cheatsheet-edit = Edit all shortcuts…
 whimsy-cheatsheet-duplicate-tab = Duplicate Tab
 whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
-whimsy-cheatsheet-tab-next = Next Tab in Sidebar
-whimsy-cheatsheet-tab-prev = Previous Tab in Sidebar
+whimsy-cheatsheet-tab-next = Next Tab
+whimsy-cheatsheet-tab-prev = Previous Tab
 whimsy-cheatsheet-focus-sidebar = Focus Sidebar
 whimsy-cheatsheet-self = Keyboard Shortcuts
 
@@ -1241,15 +1241,15 @@ whimsy-cheatsheet-group-page = Page
 whimsy-cheatsheet-group-windows = Windows
 whimsy-cheatsheet-new-tab = New Tab
 whimsy-cheatsheet-close-tab = Close Tab
-whimsy-cheatsheet-reopen-tab = Reopen Closed Tab
+whimsy-cheatsheet-reopen-tab = Restore Last Closed Tab
 whimsy-cheatsheet-copy-url = Copy URL
 whimsy-cheatsheet-private-tab = New Private Tab
 whimsy-cheatsheet-address-bar = Address Bar
 whimsy-cheatsheet-toggle-sidebar = Show or Hide Sidebar
-whimsy-cheatsheet-compact-mode = Compact Mode
+whimsy-cheatsheet-compact-mode = Hide or Show Sidebar
 whimsy-cheatsheet-next-space = Next Space
 whimsy-cheatsheet-prev-space = Previous Space
-whimsy-cheatsheet-library = Library
+whimsy-cheatsheet-library = Open Library…
 whimsy-cheatsheet-split-vertical = Split Side by Side
 whimsy-cheatsheet-split-horizontal = Split Top and Bottom
 whimsy-cheatsheet-split-grid = Split in a Grid
@@ -2097,8 +2097,8 @@ whimsy-library-easels-undo-button = Undo
 ## their shortcut and a name per state in the command bar.
 
 whimsy-action-capture = Capture…
-whimsy-action-tab-next = Next Tab in Sidebar
-whimsy-action-tab-prev = Previous Tab in Sidebar
+whimsy-action-tab-next = Next Tab
+whimsy-action-tab-prev = Previous Tab
 whimsy-action-focus-sidebar = Focus Sidebar
 whimsy-action-devmode-on = Turn On Developer Mode for This Site
 whimsy-action-devmode-off = Turn Off Developer Mode for This Site
@@ -2420,3 +2420,130 @@ whimsy-cook-steps = Steps
 whimsy-cook-awake = Your screen stays on while this is open.
 whimsy-page-actions-setting =
     .label = Show page actions in the address bar (add events to Calendar, open places in Maps, cook mode for recipes)
+
+## wave6/parity: the Archive keeps every tab until Clear Archive (Arc's
+## Archive menu is its History menu, so both items go there).
+
+whimsy-action-clear-archive = Clear Archive
+whimsy-menu-view-archive =
+    .label = View Archive…
+whimsy-menu-clear-archive =
+    .label = Clear Archive
+whimsy-archive-clear-title = Clear the Archive?
+whimsy-archive-clear-message = Every archived tab is removed for good, along with Reopen Closed Tab’s list. Your history stays.
+whimsy-archive-clear-button = Clear Archive
+whimsy-archive-cleared-toast = Archive cleared
+
+## wave6/parity: Arc's Split View commands (View menu) and keys.
+
+whimsy-action-add-split-view = Add Split View
+whimsy-action-close-split-pane = Close this Split Pane
+whimsy-action-separate-page = Separate Page from Split View
+whimsy-action-expand-split = Expand Current Split
+whimsy-action-focus-pane-1 = Focus First Split Pane
+whimsy-action-focus-pane-2 = Focus Second Split Pane
+whimsy-action-focus-pane-3 = Focus Third Split Pane
+whimsy-action-focus-pane-4 = Focus Fourth Split Pane
+whimsy-action-prev-pane = Previous Split Pane
+whimsy-action-next-pane = Next Split Pane
+whimsy-menu-add-split-view =
+    .label = Add Split View
+whimsy-menu-close-split-pane =
+    .label = Close this Split Pane
+whimsy-menu-separate-page =
+    .label = Separate Page from Split View
+whimsy-menu-expand-split =
+    .label = Expand Current Split
+
+## wave6/parity: Arc's Edit menu (Copy URL variants, Paste and Match Style).
+
+whimsy-action-copy-url-quote = Copy URL as Quote
+whimsy-copy-quote-toast = Copied as a quote
+whimsy-menu-copy-url =
+    .label = Copy URL
+whimsy-menu-copy-url-markdown =
+    .label = Copy URL as Markdown
+whimsy-menu-copy-url-quote =
+    .label = Copy URL as Quote
+whimsy-menu-paste-match-style =
+    .label = Paste and Match Style
+
+## wave6: Cmd+N makes a new space (BUILD-PLAN); New Window moves to Cmd+Opt+Shift+N.
+
+whimsy-action-new-space = New Space…
+
+## wave6/parity: Arc's menu bar names (WhimsyArcMenus) and missing items.
+
+whimsy-action-capture-portrait = Capture in Portrait Mode
+whimsy-action-toggle-toolbar = Show or Hide Toolbar
+whimsy-action-show-toolbar = Show Toolbar
+whimsy-action-hide-toolbar = Hide Toolbar
+whimsy-action-reveal-tab = Reveal Tab in Sidebar
+whimsy-menu-blank-window =
+    .label = Blank Window
+whimsy-menu-capture =
+    .label = Capture…
+whimsy-menu-capture-full-page =
+    .label = Capture Full Page
+whimsy-menu-capture-portrait =
+    .label = Capture in Portrait Mode
+# $action (string) - what Cmd+Z will undo: archive, pin, unpin, move or other
+whimsy-menu-undo-action =
+    .label =
+        { $action ->
+            [archive] Undo Archive Tab
+            [pin] Undo Pin Tab
+            [unpin] Undo Unpin Tab
+            [move] Undo Move Tab
+           *[other] Undo
+        }
+    .accesskey = U
+whimsy-menu-hide-sidebar =
+    .label = Hide Sidebar
+whimsy-menu-show-sidebar =
+    .label = Show Sidebar
+whimsy-menu-show-toolbar =
+    .label = Show Toolbar
+whimsy-menu-hide-toolbar =
+    .label = Hide Toolbar
+whimsy-menu-new-space =
+    .label = New Space…
+whimsy-menu-edit-theme =
+    .label = Edit Theme…
+whimsy-menu-rename-space =
+    .label = Rename Space
+whimsy-menu-tabs =
+    .label = Tabs
+whimsy-menu-new-tab =
+    .label = New Tab…
+whimsy-menu-pin-tab =
+    .label = Pin Tab
+whimsy-menu-unpin-tab =
+    .label = Unpin Tab
+whimsy-menu-new-folder =
+    .label = New Folder…
+whimsy-menu-next-tab =
+    .label = Next Tab
+whimsy-menu-prev-tab =
+    .label = Previous Tab
+whimsy-menu-reveal-tab =
+    .label = Reveal Tab in Sidebar
+whimsy-menu-clear-today =
+    .label = Clear Today
+whimsy-menu-open-library =
+    .label = Open Library…
+whimsy-menu-view-downloads =
+    .label = View Downloads…
+whimsy-menu-essential-shortcuts =
+    .label = Essential Keyboard Shortcuts
+whimsy-cheatsheet-new-scratch = New Scratch Space
+whimsy-cheatsheet-new-space = New Space…
+whimsy-action-reset-space-tabs = Reset All Tabs in This Space
+whimsy-action-view-media = View Media…
+whimsy-action-view-boosts = View Boosts…
+whimsy-menu-reset-space-tabs =
+    .label = Reset All Tabs in This Space
+whimsy-menu-view-media =
+    .label = View Media…
+whimsy-menu-view-boosts =
+    .label = View Boosts…

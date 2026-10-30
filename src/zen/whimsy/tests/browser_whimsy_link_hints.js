@@ -69,7 +69,14 @@ add_task(async function shortcut_and_action() {
   is(key.getAttribute("key"), "J", "on J");
   is(key.getAttribute("modifiers"), "accel", "with Cmd");
   if (AppConstants.platform != "linux") {
-    ok(!document.getElementById("key_openDownloads")?.getAttribute("key"), "Downloads gave up Cmd+J");
+    const downloads = document.getElementById("key_openDownloads");
+    ok(
+      !(downloads?.getAttribute("key") == "J" && downloads.getAttribute("modifiers") == "accel"),
+      "Downloads gave up Cmd+J"
+    );
+    // Arc's Shift+Cmd+J (WhimsyShortcuts): Downloads stays reachable.
+    is(downloads?.getAttribute("key")?.toUpperCase(), "J", "Downloads keeps a J shortcut");
+    is(downloads?.getAttribute("modifiers"), "accel,shift", "on Shift+Cmd+J");
   }
   const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
   const action = globalActions.find(a => a.l10nId == "whimsy-action-link-hints");

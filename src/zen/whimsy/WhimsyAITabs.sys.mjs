@@ -26,6 +26,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTidyTitles: "resource:///modules/whimsy/WhimsyTidyTitles.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
@@ -611,19 +612,27 @@ export const WhimsyAITabs = {
   // Arc's Tidy Tab Titles: a tab being pinned gets a short name.
   onTabPinned(tab) {
     const win = tab.ownerDocument.defaultView;
-    if (!windows.has(win) || !this.titlesEnabled || tab.zenStaticLabel || tab.hasAttribute("zen-essential")) {
+    const rulesOn = Services.prefs.getBoolPref(TITLES_PREF, true);
+    if (!windows.has(win) || !rulesOn || tab.zenStaticLabel || tab.hasAttribute("zen-essential")) {
       return;
     }
     const title = tab.label;
     const apply = short => {
       // Unpinned, renamed by hand or navigated while we asked: leave it.
-      if (short && tab.pinned && !tab.closing && !tab.zenStaticLabel && tab.label == title && this.titlesEnabled) {
+      if (short && tab.pinned && !tab.closing && !tab.zenStaticLabel && tab.label == title && Services.prefs.getBoolPref(TITLES_PREF, true)) {
         tab.zenStaticLabel = short;
         tab.ownerDocument.defaultView.gBrowser._setTabLabel(tab, short, { _zenChangeLabelFlag: true });
       }
     };
     const uri = tab.linkedBrowser?.currentURI;
-    if (!uri || !/^https?$/.test(uri.scheme) || (tab.label || "").length < MIN_TITLE_LENGTH) {
+    // wave6/parity: Arc's fixed rules first (no AI needed, so they work
+    // with the AI kill switch on); the AI rename only where none applies.
+    const ruled = uri ? lazy.WhimsyTidyTitles.tidy(uri, title) : null;
+    if (ruled) {
+      apply(ruled);
+      return;
+    }
+    if (!this.titlesEnabled || !uri || !/^https?$/.test(uri.scheme) || (tab.label || "").length < MIN_TITLE_LENGTH) {
       return;
     }
     if (lazy.WhimsyAIProviders.isCloud && lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser)) {
