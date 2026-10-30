@@ -107,3 +107,6 @@ mk_add_options MOZ_REQUIRE_SIGNING=
 if test -z "$SCCACHE_GHA_ENABLED" -a -x "$HOME/.mozbuild/sccache/sccache"; then
   ac_add_options --with-ccache="$HOME/.mozbuild/sccache/sccache"
 fi
+
+# Whimsy: no crash reporter; crashes stay local (macOS crash logs).
+ac_add_options --disable-crashreporter

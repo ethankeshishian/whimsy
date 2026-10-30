@@ -533,6 +533,12 @@ def apply_mozconfig(report, dry):
                'fi\n')
     if "Whimsy: cache compiles" not in new:
         new = new.rstrip("\n") + "\n" + sccache
+    # Whimsy: crash dumps stay on this Mac. Firefox's reporter would offer to
+    # send them to Mozilla's server; a Whimsy-run server is a later decision.
+    nocrash = ('\n# Whimsy: no crash reporter; crashes stay local (macOS crash logs).\n'
+               'ac_add_options --disable-crashreporter\n')
+    if "Whimsy: no crash reporter" not in new:
+        new = new.rstrip("\n") + "\n" + nocrash
     if new != text:
         if not dry:
             write(rel, new)
