@@ -1611,3 +1611,64 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave5/profiles: profiles (Arc's profiles, on containers)
+
+whimsy-profile-default-name = Default
+whimsy-profile-name-label = Profile Name
+whimsy-profile-name-empty = Enter a name for the profile.
+whimsy-profile-name-taken = A Profile with that name already exists. Choose another name.
+whimsy-profile-name-failed = Unable to save the profile. Try again.
+whimsy-profile-default-fixed = The Default profile can’t be renamed.
+whimsy-profile-create-title = New Profile
+whimsy-profile-rename-title = Rename Profile
+whimsy-profile-cancel =
+    .label = Cancel
+whimsy-profile-create-button =
+    .label = Create Profile
+whimsy-profile-rename-button =
+    .label = Rename Profile
+whimsy-profile-cancel-text = Cancel
+whimsy-profile-create-button-text = Create Profile
+whimsy-profile-rename-button-text = Rename Profile
+whimsy-profile-create-menuitem =
+    .label = Create a New Profile…
+whimsy-profiles-header = Profiles
+whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies and site data, and a new one starts empty. Spaces in the same profile share them.
+whimsy-profiles-delete-rule = Only Profiles not assigned to any Spaces can be deleted.
+whimsy-profiles-spaces =
+    { $count ->
+        [0] Not used by any space
+        [one] Used by 1 space
+       *[other] Used by { $count } spaces
+    }
+whimsy-profiles-spaces-default =
+    { $count ->
+        [0] Not used by any space · Keeps everything from before profiles
+        [one] Used by 1 space · Keeps everything from before profiles
+       *[other] Used by { $count } spaces · Keeps everything from before profiles
+    }
+whimsy-profiles-rename =
+    .label = Rename…
+    .aria-label = Rename “{ $name }”…
+whimsy-profiles-delete =
+    .label = Delete Profile…
+    .aria-label = Delete Profile “{ $name }”…
+whimsy-profiles-create =
+    .label = Create a New Profile…
+whimsy-profiles-delete-unused =
+    .label = Delete Unused Profiles…
+whimsy-profiles-delete-confirm-title = Delete the “{ $name }” profile?
+whimsy-profiles-delete-confirm-body = Its cookies and site data are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-confirm-accept = Delete Profile
+whimsy-profiles-delete-unused-confirm-title =
+    { $count ->
+        [one] Delete 1 unused profile?
+       *[other] Delete { $count } unused profiles?
+    }
+whimsy-profiles-delete-unused-confirm-body = Not used by any space: { $names }. Their cookies and site data are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-unused-confirm-accept =
+    { $count ->
+        [one] Delete Profile
+       *[other] Delete Profiles
+    }

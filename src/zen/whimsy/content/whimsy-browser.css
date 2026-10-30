@@ -2032,3 +2032,34 @@ whimsy-space-history-section {
   background: #171523 !important;
   &::after { display: none !important; }
 }
+
+/* wave5/profiles: the Profile Name sheet (create / rename). */
+.whimsy-profile-name-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 12px 8px;
+}
+.whimsy-profile-name-label {
+  font-weight: 600;
+}
+.whimsy-profile-name-input {
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, currentColor 5%, transparent);
+  color: inherit;
+  font: inherit;
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 1px;
+  }
+  &[aria-invalid] {
+    border-color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
+  }
+}
+.whimsy-profile-name-error {
+  margin: 0;
+  color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
+}

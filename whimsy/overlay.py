@@ -789,6 +789,9 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5/profiles: Arc's profiles on containers (one Firefox profile/account).
+    {"id": "space-profiles", "title": "Profiles: each space belongs to a profile (a container) with its own cookies, passwords, history, Essentials, search engine, downloads and extensions, like Arc",
+     "detect": [("src/zen", r"(?i)zen[\w-]*space-?profiles|ZenProfiles\.sys|profile-?switcher")]},
 ]
 
 

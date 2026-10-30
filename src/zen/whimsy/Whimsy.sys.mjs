@@ -136,6 +136,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave5/profiles: Arc's profiles on containers.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -557,6 +562,14 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+
+    // wave5/profiles: profiles. After Zen's spaces are ready; each part
+    // checks the switch on use, so Settings applies without a restart.
+    run("space-profiles", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyProfiles.initWindow(win))
+        .catch(e => console.error("Whimsy: space-profiles", e))
+    );
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

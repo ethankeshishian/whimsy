@@ -381,6 +381,9 @@
 - name: whimsy.feature.page-watch
   value: true
 
+- name: whimsy.feature.space-profiles
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

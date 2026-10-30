@@ -407,3 +407,7 @@
 # Picked in Settings from the models the Ollama server has.
 - name: whimsy.ai.ollama.model
   value: ""
+
+# wave5/profiles: one-time migration steps already run (WhimsyProfiles.migrate).
+- name: whimsy.profiles.migrated
+  value: 0
