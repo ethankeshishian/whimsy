@@ -61,3 +61,8 @@
 # wave3/ai: AI v1 (Tidy Tabs, Ask on Page, 5-second previews, Watch a page)
         content/browser/whimsy/whimsy-ai.css                                     (../../zen/whimsy/content/whimsy-ai.css)
         content/browser/whimsy/ai/broom.svg                                      (../../zen/whimsy/content/ai/broom.svg)
+# wave5: seasonal balloon accents on the offline error page
+        content/browser/whimsy/whimsy-season-autumn.svg                          (../../zen/whimsy/content/whimsy-season-autumn.svg)
+        content/browser/whimsy/whimsy-season-winter.svg                          (../../zen/whimsy/content/whimsy-season-winter.svg)
+        content/browser/whimsy/whimsy-season-spring.svg                          (../../zen/whimsy/content/whimsy-season-spring.svg)
+        content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)

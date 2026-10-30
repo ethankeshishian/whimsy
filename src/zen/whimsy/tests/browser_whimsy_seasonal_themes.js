@@ -5,7 +5,7 @@
 "use strict";
 
 const { WhimsySeasons } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySeasons.sys.mjs");
-requestLongerTimeout(2);
+requestLongerTimeout(4);
 
 const SEASON_FEATURE = "whimsy.feature.seasonal-themes";
 const SEASON_ENABLED = "whimsy.seasons.enabled";
@@ -166,7 +166,7 @@ add_task(async function seasonal_settings_label_and_toggle() {
       () => doc.getElementById("whimsySeasonalThemes"), "Seasonal checkbox exists"
     );
     await doc.l10n.translateElements([checkbox]);
-    is(checkbox.getAttribute("label"), "Seasonal loading colors", "Short, plain label");
+    is(checkbox.getAttribute("label"), "Seasonal colors and costumes", "Short, plain label");
     await TestUtils.waitForCondition(() => checkbox.checked, "Setting is enabled");
     checkbox.click();
     await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref(SEASON_ENABLED), "Setting turns colors off");
@@ -175,4 +175,184 @@ add_task(async function seasonal_settings_label_and_toggle() {
     await TestUtils.waitForCondition(() => Services.prefs.getBoolPref(SEASON_ENABLED), "Setting turns colors back on");
     ok(document.documentElement.hasAttribute("whimsy-season"), "Settings restores seasonal colors");
   });
+});
+
+// wave5: the Whimsy balloon dresses for the season on the homepage, the
+// offline error page and in Balloon Dash. Dates are mocked; the switches
+// take every costume off again.
+const SEASON_MONTHS = [["autumn", 10], ["winter", 12], ["spring", 4], ["summer", 7]];
+const COSTUME_DEATHS = {
+  autumn: "whimsy-game-death-seed-autumn",
+  winter: "whimsy-game-death-seed-winter",
+  spring: "whimsy-game-death-seed-spring",
+  summer: "whimsy-game-death-seed",
+};
+
+add_task(async function home_balloon_dresses_for_the_season() {
+  const original = WhimsySeasons._now;
+  try {
+    await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+      const doc = browser.contentDocument;
+      const win = browser.contentWindow;
+      const recheck = () => doc.dispatchEvent(new win.Event("visibilitychange"));
+      const shown = () => [...doc.querySelectorAll("#whimsy-home-balloon .wh-costume")]
+        .filter(g => win.getComputedStyle(g).display != "none")
+        .map(g => g.dataset.season);
+      for (const [season, month] of SEASON_MONTHS) {
+        WhimsySeasons._now = () => new Date(2026, month - 1, 15, 12);
+        recheck();
+        is(doc.documentElement.getAttribute("whimsy-season"), season, `${season}: page knows the season`);
+        Assert.deepEqual(shown(), [season], `${season}: exactly one costume shows`);
+      }
+      for (const pref of [SEASON_FEATURE, SEASON_ENABLED]) {
+        await SpecialPowers.pushPrefEnv({ set: [[pref, false]] });
+        recheck();
+        ok(!doc.documentElement.hasAttribute("whimsy-season"), `${pref} off: no season`);
+        Assert.deepEqual(shown(), [], `${pref} off: the balloon is undressed`);
+        await SpecialPowers.popPrefEnv();
+      }
+      for (const costume of doc.querySelectorAll(".wh-costume")) {
+        ok(costume.closest("svg[aria-hidden='true']"), "Costumes are decorative");
+      }
+      // Static: costumes add no animation of their own.
+      WhimsySeasons._now = () => new Date(2026, 11, 15, 12);
+      recheck();
+      for (const costume of doc.querySelectorAll(".wh-costume")) {
+        is(win.getComputedStyle(costume).animationName, "none", "No costume animation");
+      }
+    });
+  } finally {
+    WhimsySeasons._now = original;
+  }
+});
+
+add_task(async function game_wears_the_season_in_both_styles() {
+  const original = WhimsySeasons._now;
+  try {
+    for (const [season, month] of [...SEASON_MONTHS, [null, 10]]) {
+      WhimsySeasons._now = () => new Date(2026, month - 1, 15, 12);
+      if (!season) {
+        await SpecialPowers.pushPrefEnv({ set: [[SEASON_ENABLED, false]] });
+      }
+      try {
+        await BrowserTestUtils.withNewTab("about:whimsy?game", async browser => {
+          const win = browser.contentWindow;
+          const doc = browser.contentDocument;
+          const game = await TestUtils.waitForCondition(() => win.__whimsyGame, "The game has loaded");
+          game.freeze();
+          game.setAutoSpawn(false);
+          is(game.season, season, `${season}: the game reads the calendar`);
+          is(doc.getElementById("whimsy-game-root").dataset.season, season ?? undefined, "Root carries the season");
+          const radius = game.constants.HIT_R;
+          for (const style of ["retro", "gradient"]) {
+            doc.getElementById(`whimsy-game-style-${style}`).click();
+            game.start();
+            game.clear();
+            game.spawn("seed", { x: 260, y: 60, vx: -30 });
+            game.spawn("plane", { x: 330, y: 40, vx: -120, vy: 20 });
+            game.spawn("bird", { cx: 400, cy: 90, R: 16, a: 1, vx: -40 });
+            game.spawn("zap", { x: 200, t: 1.05, seed: 3 });
+            game.spawn("sparkle", { x: 170, y: 100 });
+            game.state.player.shield = 5;
+            game.state.player.invuln = 5;
+            game.tick(0.1);
+            ok(true, `${season}/${style}: every costumed sprite renders`);
+            game.clear();
+            game.state.player.shield = 0;
+            game.state.player.invuln = 0;
+            game.spawn("seed");
+            game.tick(0.4);
+            is(game.state.state, "over", `${season}/${style}: the seed still hits like a seed`);
+            is(game.state.deathKind, "seed", "Same hazard underneath");
+            is(doc.getElementById("whimsy-game-death").getAttribute("data-l10n-id"),
+              season ? COSTUME_DEATHS[season] : "whimsy-game-death-seed", "The game-over line matches the costume");
+          }
+          is(game.constants.HIT_R, radius, "Hitbox unchanged");
+          await doc.l10n.translateRoots();
+          ok(doc.getElementById("whimsy-game-death").textContent.trim(), "The seasonal line is localized");
+        });
+      } finally {
+        if (!season) {
+          await SpecialPowers.popPrefEnv();
+        }
+      }
+    }
+  } finally {
+    WhimsySeasons._now = original;
+    for (const pref of ["whimsy.game.style", "whimsy.game.high-score"]) {
+      Services.prefs.clearUserPref(pref);
+    }
+  }
+});
+
+add_task(async function error_page_balloon_and_embedded_game_wear_the_season() {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.game", true],
+    ["whimsy.feature.net-error-branding", true],
+    ["security.certerrors.felt-privacy-v1", false],
+  ] });
+  try {
+    for (const [season, month] of [...SEASON_MONTHS, [null, 10]]) {
+      if (!season) {
+        await SpecialPowers.pushPrefEnv({ set: [[SEASON_ENABLED, false]] });
+      }
+      const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+      const browser = tab.linkedBrowser;
+      try {
+        const loaded = BrowserTestUtils.waitForErrorPage(browser);
+        await SpecialPowers.spawn(browser, [], () => {
+          content.location = "about:neterror?e=netOffline&u=https%3A%2F%2Fexample.com%2F&d=Offline";
+        });
+        await loaded;
+        // Mock the date in the page's own process, then let the actor
+        // dress the page again.
+        await SpecialPowers.spawn(browser, [season, month], async (season, month) => {
+          const doc = content.document;
+          await ContentTaskUtils.waitForCondition(() => doc.getElementById("whimsy-neterror-brand"), "Branded");
+          const { WhimsySeasons } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySeasons.sys.mjs");
+          WhimsySeasons._realNow ??= WhimsySeasons._now;
+          WhimsySeasons._now = () => new Date(2026, month - 1, 15, 12);
+          content.windowGlobalChild.getActor("WhimsyNetError").handleEvent({ type: "DOMContentLoaded" });
+          doc.activeElement?.blur?.();
+          is(doc.documentElement.getAttribute("data-whimsy-season"), season, `${season}: error page knows the season`);
+          await ContentTaskUtils.waitForCondition(
+            () => doc.getElementById("whimsy-neterror-style")?.sheet, "Stylesheet loaded"
+          );
+          const image = content.getComputedStyle(doc.getElementById("text-container"), "::before").backgroundImage;
+          ok(image.includes("whimsy-deflated-balloon.svg"), "The balloon stays");
+          if (season) {
+            ok(image.includes(`whimsy-season-${season}.svg`), `${season}: the accent sits over it`);
+            ok(image.indexOf(`whimsy-season-${season}.svg`) < image.indexOf("whimsy-deflated-balloon.svg"),
+              "The accent is the top layer");
+          } else {
+            ok(!image.includes("whimsy-season-"), "Off: no accent");
+          }
+        });
+        browser.focus();
+        await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+        await SpecialPowers.spawn(browser, [season], async season => {
+          const win = content.wrappedJSObject;
+          await ContentTaskUtils.waitForCondition(() => win.__whimsyGame, "The embedded game ran");
+          is(win.__whimsyGame.season, season, `${season}: the embedded game wears the same costume`);
+        });
+      } finally {
+        await SpecialPowers.spawn(browser, [], () => {
+          const { WhimsySeasons } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySeasons.sys.mjs");
+          if (WhimsySeasons._realNow) {
+            WhimsySeasons._now = WhimsySeasons._realNow;
+            delete WhimsySeasons._realNow;
+          }
+        }).catch(() => {});
+        BrowserTestUtils.removeTab(tab);
+        if (!season) {
+          await SpecialPowers.popPrefEnv();
+        }
+      }
+    }
+  } finally {
+    await SpecialPowers.popPrefEnv();
+    for (const pref of ["whimsy.game.style", "whimsy.game.high-score"]) {
+      Services.prefs.clearUserPref(pref);
+    }
+  }
 });

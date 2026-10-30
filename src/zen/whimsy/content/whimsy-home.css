@@ -376,6 +376,19 @@ main {
   transform-origin: 100px 197px;
 }
 
+/* Seasonal costumes: the same balloon, dressed for the season. Static on
+   purpose (no extra motion), and only one is ever shown. */
+.wh-costume {
+  display: none;
+}
+
+:root[whimsy-season="autumn"] .wh-costume[data-season="autumn"],
+:root[whimsy-season="winter"] .wh-costume[data-season="winter"],
+:root[whimsy-season="spring"] .wh-costume[data-season="spring"],
+:root[whimsy-season="summer"] .wh-costume[data-season="summer"] {
+  display: inline;
+}
+
 .wh-sparkle {
   position: absolute;
   width: 18px;

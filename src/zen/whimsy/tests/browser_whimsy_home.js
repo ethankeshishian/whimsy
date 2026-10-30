@@ -299,3 +299,24 @@ add_task(async function home_decorations_finish_within_five_seconds() {
     }
   }
 });
+
+// wave5: the hero balloon carries one costume per season (the calendar and
+// its switch are covered in browser_whimsy_seasonal_themes.js).
+add_task(async function test_balloon_costumes_follow_the_switch() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.seasons.enabled", false]] });
+  try {
+    await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+      const doc = browser.contentDocument;
+      const costumes = [...doc.querySelectorAll("#whimsy-home-balloon .wh-costume")];
+      Assert.deepEqual(
+        [...new Set(costumes.map(g => g.dataset.season))].sort(),
+        ["autumn", "spring", "summer", "winter"],
+        "One costume per season"
+      );
+      ok(!doc.documentElement.hasAttribute("whimsy-season"), "Seasons off: no season on the page");
+      ok(costumes.every(g => browser.contentWindow.getComputedStyle(g).display == "none"), "...and no costume");
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});

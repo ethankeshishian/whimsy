@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 190" fill="none">
+  <!-- Winter accent layered over whimsy-deflated-balloon.svg (same viewBox):
+       a cap of snow on the balloon and a scarf tied at its knot. -->
+  <path d="M64 70c6-12 16-16 26-22 12-15 44-14 57 1 4 4 6 9 8 14-4 3-8-1-12 1-5 3-9-3-15-1-7 2-11-4-18-2-8 2-12-4-20-1-6 2-10 2-14 6-4 3-9 4-12 4Z" fill="#fff"/>
+  <path d="M70 67c5-1 8-5 14-6 7-2 11 3 19 1 7-2 11 4 18 2 6-2 10 4 15 1" stroke="#9fc4ea" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>
+  <ellipse cx="104" cy="44" rx="10" ry="3" fill="#fff" transform="rotate(-12 104 44)"/>
+  <path d="M131 121c8 0 16 3 24 7l-3 8c-8-4-15-6-23-6Z" fill="#2fa3b5"/>
+  <path d="M146 131l7 22-8 2-5-21Z" fill="#2fa3b5"/>
+  <path d="M138 122l-2 9m9-6-2 9m4 3 3 9" stroke="#fff" stroke-opacity=".7" stroke-width="2"/>
+  <path d="M146 155l-1 4m4-5 1 4m3-5 2 3" stroke="#2fa3b5" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

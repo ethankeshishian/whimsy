@@ -34,7 +34,24 @@ body:has(#whimsy-neterror-brand) #text-container::before,
   flex: 0 0 11rem;
   margin-block-end: 1.5rem;
   margin-inline-end: 2rem;
-  background: url("chrome://browser/content/whimsy/whimsy-deflated-balloon.svg") center / contain no-repeat;
+  /* The season's accent (if any) sits over the balloon in the same box. */
+  background: var(--whimsy-season-accent, none) center / contain no-repeat,
+    url("chrome://browser/content/whimsy/whimsy-deflated-balloon.svg") center / contain no-repeat;
+}
+
+/* Seasonal balloon: WhimsyNetErrorChild sets the season on the root; the
+   custom property inherits into net-error-card's shadow tree. */
+:root[data-whimsy-season="autumn"] {
+  --whimsy-season-accent: url("chrome://browser/content/whimsy/whimsy-season-autumn.svg");
+}
+:root[data-whimsy-season="winter"] {
+  --whimsy-season-accent: url("chrome://browser/content/whimsy/whimsy-season-winter.svg");
+}
+:root[data-whimsy-season="spring"] {
+  --whimsy-season-accent: url("chrome://browser/content/whimsy/whimsy-season-spring.svg");
+}
+:root[data-whimsy-season="summer"] {
+  --whimsy-season-accent: url("chrome://browser/content/whimsy/whimsy-season-summer.svg");
 }
 
 .felt-privacy-container:has(#whimsy-neterror-brand) .img-container {
