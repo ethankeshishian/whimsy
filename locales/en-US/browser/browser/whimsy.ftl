@@ -942,3 +942,7 @@ whimsy-fire-last-15-min-detail = Everything from the last 15 minutes
 whimsy-fire-space-detail = Site data and tabs in { $space }
 whimsy-fire-space-detail-unnamed = Site data and tabs in this space
 whimsy-fire-everything-detail = All browsing data and every unpinned tab
+whimsy-heavy-tabs-title = Heavy Tabs
+whimsy-heavy-tabs-subtitle = Memory by process, updated every few seconds
+whimsy-heavy-tabs-measuring = Measuring…
+whimsy-heavy-tabs-empty = No tabs to measure right now.
