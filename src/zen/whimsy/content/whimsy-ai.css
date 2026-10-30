@@ -250,3 +250,61 @@ findbar .whimsy-ask-button {
     opacity: 1;
   }
 }
+
+/* ---- Watch a page: the dialog (like Safari's Notify Me sheet). ---- */
+.whimsy-watch-body {
+  width: 320px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+
+  & textarea,
+  & select {
+    font: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  & textarea {
+    resize: none;
+  }
+}
+
+.whimsy-watch-heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.whimsy-watch-page,
+.whimsy-watch-note {
+  margin: 0;
+  color: var(--text-color-deemphasized, GrayText);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-watch-note {
+  white-space: normal;
+}
+
+.whimsy-watch-label {
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.whimsy-watch-error {
+  margin: 0;
+  color: var(--text-color-error, #d70022);
+}
+
+.whimsy-watch-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}

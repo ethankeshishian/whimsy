@@ -701,6 +701,10 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)ask-?on-?page|find-?or-?ask")]},
     {"id": "link-previews", "title": "5-second previews: Shift-hover a link for an AI summary of the page behind it (Arc Max)",
      "detect": [("src/zen", r"(?i)five-?second|5-?second-?preview|link-?preview[\w-]*summar")]},
+    # wave3/ai: Watch a page (Safari's Notify Me): a plain-words condition,
+    # checked on a schedule only while Whimsy runs, with the person's session.
+    {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
+     "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
 ]
 
 

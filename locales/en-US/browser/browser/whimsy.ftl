@@ -1344,3 +1344,49 @@ whimsy-ask-no-text = This page has no text to answer from.
 whimsy-ask-find-on-page = Find on Page
 whimsy-preview-unreadable = Couldn’t read this page.
 whimsy-preview-not-ready = Set up an AI provider in Settings → Privacy & Security to see previews.
+
+## wave3/ai: Watch a page (like Safari's Notify Me)
+
+whimsy-ai-feature-page-watch =
+    .label = Watch pages
+    .description = Right-click a tab → Watch This Page… and say what to look for. Whimsy checks with your sign-ins while it’s open and alerts you until you dismiss it.
+whimsy-ai-watch-row = { $page } · checked { $minutes ->
+        [15] every 15 minutes
+        [60] every hour
+        [360] every 6 hours
+       *[other] every day
+    }
+whimsy-ai-watch-row-met = { $page } · found, alerting until dismissed
+whimsy-ai-watch-row-error = { $page } · couldn’t check last time
+whimsy-ai-watch-stop =
+    .label = Stop Watching
+whimsy-watch-menu =
+    .label = Watch This Page…
+whimsy-watch-menu-stop =
+    .label = Stop Watching This Page
+whimsy-action-watch-page = Watch This Page
+whimsy-watch-heading = Watch this page
+whimsy-watch-page = { $page }
+whimsy-watch-condition-label = Tell me when…
+whimsy-watch-condition =
+    .placeholder = the price drops below $100
+whimsy-watch-interval-label = Check
+whimsy-watch-interval =
+    { $minutes ->
+        [15] Every 15 minutes
+        [60] Every hour
+        [360] Every 6 hours
+       *[other] Every day
+    }
+whimsy-watch-note = Only while Whimsy is open, with your sign-ins. The page’s text goes to your AI provider.
+whimsy-watch-cancel = Cancel
+whimsy-watch-done = Watch
+whimsy-watch-too-many = You’re watching as many pages as Whimsy allows. Stop one in Settings first.
+whimsy-watch-started = Watching this page
+whimsy-watch-stopped = Stopped watching this page
+whimsy-watch-alert = { $page }: “{ $condition }” { $detail }
+whimsy-watch-alert-open =
+    .label = Open Page
+whimsy-watch-alert-stop =
+    .label = Stop Watching
+whimsy-watch-notification-title = Found on { $page }

@@ -309,3 +309,7 @@ support-files = ["whimsy_ai_page.html"]
 # wave3/ai: Ask on Page (find bar) and 5-second previews (Shift on a link).
 ["browser_whimsy_ai_page.js"]
 support-files = ["whimsy_ai_page.html", "whimsy_ai_links.html"]
+
+# wave3/ai: Watch a page (dialog, dedupe, recurring alert until dismissed, containers, kill switch).
+["browser_whimsy_ai_page_watch.js"]
+support-files = ["whimsy_ai_page.html"]

@@ -1024,3 +1024,33 @@ add_task(async function ai_provider_and_tidy_tabs() {
     }
   }
 });
+
+// wave3/ai: the 5-second preview card and the Watch a page dialog.
+add_task(async function ai_preview_and_watch() {
+  const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
+  const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  try {
+    const panel = WhimsyAIPage._previewPanel(window);
+    WhimsyAIPage.renderPreview(window, panel, {
+      url: "https://example.org/article",
+      title: "How espresso machines work",
+      points: ["Pumps push water at 9 bars", "Boilers hold it near 93 °C", "Grind size sets the flow"],
+    });
+    const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
+    panel.openPopupAtScreen(window.screenX + 300, window.screenY + 200, false);
+    await shown;
+    await document.l10n.translateFragment(panel);
+    await shot("wave3-ai-preview-card");
+    panel.hidePopup();
+
+    WhimsyPageWatch.openDialog(window, tab);
+    const dialog = document.getElementById("whimsy-watch-panel");
+    await BrowserTestUtils.waitForPopupEvent(dialog, "shown");
+    await document.l10n.translateFragment(dialog);
+    await shot("wave3-ai-watch-dialog");
+    dialog.hidePopup();
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

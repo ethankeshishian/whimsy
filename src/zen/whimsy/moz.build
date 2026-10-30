@@ -56,6 +56,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPage.sys.mjs",
     "WhimsyPageChild.sys.mjs",
     "WhimsyPageParent.sys.mjs",
+    "WhimsyPageWatch.sys.mjs",
     "WhimsyPanels.sys.mjs",
     "WhimsyPeople.sys.mjs",
     "WhimsyPeopleChild.sys.mjs",

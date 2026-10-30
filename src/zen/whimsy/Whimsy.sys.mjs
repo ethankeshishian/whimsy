@@ -110,6 +110,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAITabs: "resource:///modules/whimsy/WhimsyAITabs.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
+  WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -497,6 +498,9 @@ export const Whimsy = {
     );
     run("tidy-tabs", () => lazy.WhimsyAITabs.initWindow(win));
     run("ask-on-page", () => lazy.WhimsyAIPage.initWindow(win));
+    // Watches are checked only while Whimsy runs (one timer, only while
+    // there are watches and AI is on).
+    run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
