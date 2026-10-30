@@ -171,6 +171,42 @@ export const WhimsyPage = {
         isAvailable: w => this.captureEnabled && isWebPage(w),
       },
     ]);
+    // A <key> only matches keypress, whose keyCode is 0 for a printable key
+    // and whose character is the shifted one ("!", "@" on a US layout), so
+    // neither key="2" nor keycode="VK_2" ever fired with Shift held. The
+    // <key>s stay (about:keyboard, the cheat sheet); this keydown listener,
+    // like Firefox's Ctrl+Tab, runs them by physical key (Digit1/Digit2),
+    // as long as the <key> still has its default binding and isn't disabled.
+    win.addEventListener("keydown", event => this.onCaptureKeyDown(win, event), true);
+  },
+
+  onCaptureKeyDown(win, event) {
+    if (event.defaultPrevented || event.repeat || !this.captureEnabled) {
+      return;
+    }
+    const mac = AppConstants.platform == "macosx";
+    const accel = mac ? event.metaKey : event.ctrlKey;
+    const other = mac ? event.ctrlKey : event.metaKey;
+    if (!accel || other || !event.shiftKey || event.altKey) {
+      return;
+    }
+    const keyId = { Digit1: "key_whimsyCopyFullPage", Digit2: "key_whimsyScreenshotArc" }[event.code];
+    const keyEl = keyId && win.document.getElementById(keyId);
+    if (
+      !keyEl ||
+      keyEl.getAttribute("disabled") == "true" ||
+      keyEl.getAttribute("keycode") != (event.code == "Digit1" ? "VK_1" : "VK_2") ||
+      keyEl.getAttribute("modifiers") != "accel,shift"
+    ) {
+      return;
+    }
+    const command = win.document.getElementById(keyEl.getAttribute("command"));
+    if (!command || command.getAttribute("disabled") == "true") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    command.doCommand();
   },
 
   // Copies the whole page as a PNG (Screenshots draws it). Returns the image's size in CSS pixels,
