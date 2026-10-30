@@ -112,8 +112,15 @@ button {
   user-select: text;
   outline: none;
 
+  /* Two-tone ring: the white half shows on dark video, the dark half on
+     light video. */
   &:focus-visible {
-    box-shadow: 0 0 0 2px rgb(255 255 255 / 0.9);
+    box-shadow: 0 0 0 2px rgb(255 255 255 / 0.95), 0 0 0 4px rgb(0 0 0 / 0.75);
+  }
+  @media (forced-colors: active) {
+    &:focus-visible {
+      outline: 2px solid Highlight;
+    }
   }
 }
 

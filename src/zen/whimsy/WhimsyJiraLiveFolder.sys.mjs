@@ -19,6 +19,9 @@ import { nsZenLiveFolderProvider } from "resource:///modules/zen/ZenLiveFolder.s
 
 const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"]));
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+});
 
 export const DEFAULT_JQL = "assignee = currentUser() AND resolution = Unresolved";
 
@@ -96,16 +99,16 @@ export class WhimsyJiraLiveFolderProvider extends nsZenLiveFolderProvider {
     const window = this.manager.window;
     if (key === "site") {
       const [promptText] = await lazy.l10n.formatValues(["whimsy-live-folder-jira-prompt-site"]);
-      const input = { value: this.state.site };
-      if (window && Services.prompt.prompt(window, promptText, null, input, null, { value: null })) {
-        this.state.site = normalizeSite(input.value);
+      const value = window && await lazy.WhimsyPanels.ask(window, { title: promptText, value: this.state.site });
+      if (typeof value == "string") {
+        this.state.site = normalizeSite(value);
         this.refresh();
       }
     } else if (key === "jql") {
       const [promptText] = await lazy.l10n.formatValues(["whimsy-live-folder-jira-prompt-jql"]);
-      const input = { value: this.state.jql };
-      if (window && Services.prompt.prompt(window, promptText, null, input, null, { value: null })) {
-        this.state.jql = input.value?.trim() || DEFAULT_JQL;
+      const value = window && await lazy.WhimsyPanels.ask(window, { title: promptText, value: this.state.jql });
+      if (typeof value == "string") {
+        this.state.jql = value.trim() || DEFAULT_JQL;
         this.refresh();
       }
     }
@@ -125,11 +128,11 @@ export class WhimsyJiraLiveFolderProvider extends nsZenLiveFolderProvider {
   // Asked once, when the folder is created.
   static async promptForSite(window, initialSite = "") {
     const [promptText] = await lazy.l10n.formatValues(["whimsy-live-folder-jira-prompt-site"]);
-    const input = { value: initialSite };
-    if (!Services.prompt.prompt(window, promptText, null, input, null, { value: null })) {
+    const value = await lazy.WhimsyPanels.ask(window, { title: promptText, value: initialSite });
+    if (value === null) {
       return null;
     }
-    return normalizeSite(input.value) || null;
+    return normalizeSite(value) || null;
   }
 
   serialize() {

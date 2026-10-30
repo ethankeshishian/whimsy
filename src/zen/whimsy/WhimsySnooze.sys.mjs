@@ -207,8 +207,7 @@ export const WhimsySnooze = {
     };
     this.schedule(win, record);
     this.persist(record);
-    win.gZenUIManager?.showToast?.("whimsy-snooze-toast", { l10nArgs: { title } });
-    lazy.WhimsyUndo.push(win, {
+    lazy.WhimsyUndo.showToast(win, "whimsy-snooze-toast", {
       type: "snooze",
       undo: () => {
         this.cancel(record);
@@ -217,7 +216,7 @@ export const WhimsySnooze = {
         }
       },
       redo: null,
-    });
+    }, { title });
   },
 
   schedule(win, record) {

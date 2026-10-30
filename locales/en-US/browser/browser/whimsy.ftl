@@ -565,8 +565,6 @@ whimsy-action-keep-scratch = Keep Scratch as a Normal Space…
 whimsy-action-close-scratch = Close Scratch
 # fixC: asked before Scratch becomes a normal space (Zen toast + button).
 whimsy-scratch-keep-confirm = Keep as a normal space? Its pages will leave private browsing.
-whimsy-scratch-keep-confirm-button =
-    .label = Keep
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->
@@ -583,9 +581,9 @@ whimsy-private-in-window =
 whimsy-library-notes-enable =
     .label = Notes: a markdown scratchpad in the sidebar
 whimsy-library-finder-folders-enable =
-    .label = Finder folders in the sidebar
+    .label = Folders: pin Finder folders in the Library
 whimsy-library-screenshot-sidebar-enable =
-    .label = Screenshot to sidebar
+    .label = Screenshots: keep screenshots in the Library
 
 whimsy-library-notes-title = Notes
 whimsy-library-notes-empty = No notes yet
@@ -599,20 +597,20 @@ whimsy-library-notes-title-placeholder =
     .placeholder = Title
 whimsy-library-notes-attach = Attach to this page
 
-whimsy-library-finder-folders-title = Files
+whimsy-library-finder-folders-title = Folders
 whimsy-library-finder-folders-empty = No folders pinned yet
 whimsy-library-finder-folders-search-placeholder =
-    .placeholder = Search files…
+    .placeholder = Search folders…
 whimsy-library-finder-folders-add =
     .label = Add folder
 whimsy-library-finder-folders-remove =
     .label = Remove folder
 whimsy-library-finder-folders-picker-title = Choose a folder to pin
 
-whimsy-library-files-title = Captures
-whimsy-library-files-empty = No screenshots captured yet
+whimsy-library-files-title = Screenshots
+whimsy-library-files-empty = No screenshots yet
 whimsy-library-files-search-placeholder =
-    .placeholder = Search captures…
+    .placeholder = Search screenshots…
 whimsy-library-files-delete =
     .label = Delete
 ## batch12: links & media windows (Mini Whimsy, Arc's "Little Arc")
@@ -2123,3 +2121,56 @@ whimsy-action-follower-toggle = Turn Follower Split On or Off
 whimsy-action-follow = Make This a Follower Split
 whimsy-action-unfollow = Stop Following
 whimsy-action-tab-volume = Tab Volume…
+
+# wave5/uxfix: Settings → General heading for calendar connections.
+whimsy-meeting-group-header = Meetings
+
+# wave5/uxfix: Settings → Tab Management, the collapsed list of switches for
+# features you start from the command bar or the tab menu.
+whimsy-settings-features-summary = On-demand features
+
+# wave5/uxfix: Fire Button. Rows pick what to forget; this button does it.
+whimsy-fire-scopes = What to forget
+# $site (string) - the current site's domain, e.g. example.com
+whimsy-fire-forget-site =
+    .label = Forget { $site }
+whimsy-fire-forget-recent =
+    .label = Forget Last 15 Minutes
+whimsy-fire-forget-space =
+    .label = Forget This Space
+whimsy-fire-forget-everything =
+    .label = Forget Everything
+# Result toasts. $count (number) - tabs closed; $site (string) - the domain.
+whimsy-fire-done-site = { $count ->
+    [0] Forgot { $site }
+    [one] Forgot { $site } · closed 1 tab
+   *[other] Forgot { $site } · closed { $count } tabs
+}
+whimsy-fire-done-recent = { $count ->
+    [0] Forgot the last 15 minutes
+    [one] Forgot the last 15 minutes · closed 1 tab
+   *[other] Forgot the last 15 minutes · closed { $count } tabs
+}
+whimsy-fire-done-space = { $count ->
+    [0] Forgot this space’s site data
+    [one] Forgot this space’s site data · closed 1 tab
+   *[other] Forgot this space’s site data · closed { $count } tabs
+}
+whimsy-fire-done-everything = { $count ->
+    [0] Forgot all browsing data
+    [one] Forgot all browsing data · closed 1 tab
+   *[other] Forgot all browsing data · closed { $count } tabs
+}
+whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
+
+# wave5/uxfix: read out with a pinned tab's unread badge.
+# $count (number) - unread items the site reports
+whimsy-tab-unread-description = { $count } unread
+
+# wave5/uxfix: keeping Scratch asks in the window's sheet (it can't be undone).
+whimsy-scratch-keep-confirm-title = Keep as a Normal Space?
+whimsy-scratch-keep-confirm-accept = Keep Space
+
+# wave5/uxfix: the Undo button on a result toast (Snooze, Hide Space).
+whimsy-undo-toast-button =
+    .label = Undo

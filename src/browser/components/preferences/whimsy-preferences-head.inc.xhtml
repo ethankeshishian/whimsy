@@ -337,7 +337,7 @@
     <!-- batch6: command bar "New Note" target -->
     <hbox align="center" data-whimsy-feature="command-bar-create">
       <label id="whimsyNewNoteTargetLabel" control="whimsyNewNoteTarget" data-l10n-id="whimsy-new-note-target"/>
-      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" sizetopopup="none" crop="end">
+      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" data-pref-type="string" sizetopopup="none" crop="end">
         <menupopup>
           <menuitem value="none" data-l10n-id="whimsy-new-note-target-none"/>
           <menuitem value="notion" data-l10n-id="whimsy-new-note-target-notion"/>
@@ -361,16 +361,22 @@
         </menupopup>
       </menulist>
     </hbox>
-    <checkbox id="whimsyArchiveView" data-whimsy-feature="archive-view"
-              data-l10n-id="whimsy-tabs-archive-view" preference="whimsy.feature.archive-view"/>
-    <checkbox id="whimsyUndoTabActions" data-whimsy-feature="undo-tab-actions"
-              data-l10n-id="whimsy-tabs-undo" preference="whimsy.feature.undo-tab-actions"/>
-    <checkbox id="whimsySnoozeTab" data-whimsy-feature="snooze-tab"
-              data-l10n-id="whimsy-tabs-snooze" preference="whimsy.feature.snooze-tab"/>
-    <checkbox id="whimsyFireButton" data-whimsy-feature="fire-button"
-              data-l10n-id="whimsy-tabs-fire-button" preference="whimsy.feature.fire-button"/>
-    <checkbox id="whimsyHeavyTabs" data-whimsy-feature="heavy-tabs"
-              data-l10n-id="whimsy-tabs-heavy-tabs" preference="whimsy.feature.heavy-tabs"/>
+    <!-- wave5/uxfix: switches for features you start on demand (command
+         bar, tab menu) sit in one collapsed list, so the passive options
+         above stay easy to scan. Every switch is kept. -->
+    <html:details id="whimsyTabsFeatures" class="whimsy-settings-features">
+      <html:summary data-l10n-id="whimsy-settings-features-summary"/>
+      <checkbox id="whimsyArchiveView" data-whimsy-feature="archive-view"
+                data-l10n-id="whimsy-tabs-archive-view" preference="whimsy.feature.archive-view"/>
+      <checkbox id="whimsyUndoTabActions" data-whimsy-feature="undo-tab-actions"
+                data-l10n-id="whimsy-tabs-undo" preference="whimsy.feature.undo-tab-actions"/>
+      <checkbox id="whimsySnoozeTab" data-whimsy-feature="snooze-tab"
+                data-l10n-id="whimsy-tabs-snooze" preference="whimsy.feature.snooze-tab"/>
+      <checkbox id="whimsyFireButton" data-whimsy-feature="fire-button"
+                data-l10n-id="whimsy-tabs-fire-button" preference="whimsy.feature.fire-button"/>
+      <checkbox id="whimsyHeavyTabs" data-whimsy-feature="heavy-tabs"
+                data-l10n-id="whimsy-tabs-heavy-tabs" preference="whimsy.feature.heavy-tabs"/>
+    </html:details>
     <checkbox id="whimsyTreeTabs" data-whimsy-feature="tree-tabs"
               data-l10n-id="whimsy-tabs-tree-tabs" preference="whimsy.feature.tree-tabs"/>
     <vbox class="indent" data-whimsy-feature="tree-tabs">
@@ -476,37 +482,36 @@
   </html:div>
 </html:template>
 
-# wave4: calendar connections use the native Settings card.
+# wave4: calendar connections. wave5/uxfix: one place, Settings → General
+# (it was a card in Look and Feel), in Zen's groupbox style like the groups
+# around it.
 <html:template id="template-whimsyNextMeeting" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <html:div id="whimsyNextMeetingGroup" data-category="paneZenLooks" hidden="hidden" class="whimsy-setting-card">
-    <html:moz-card role="presentation">
-      <html:moz-fieldset data-l10n-id="whimsy-meeting-header" headinglevel="3">
-        <html:p class="description-deemphasized" data-l10n-id="whimsy-meeting-description"/>
-        <html:moz-checkbox id="whimsyNextMeetingEnabled" data-l10n-id="whimsy-meeting-enable"/>
-        <html:moz-checkbox id="whimsyNextMeetingCard" data-l10n-id="whimsy-meeting-card-enable"/>
-        <html:p id="whimsyMeetingStatus" role="status"/>
-        <html:div id="whimsyMeetingApple">
-          <html:div class="whimsy-calendar-row">
-            <html:span data-l10n-id="whimsy-meeting-apple-title"/>
-            <html:button id="whimsyMeetingAppleConnect"/>
-            <html:button id="whimsyMeetingAppleRemove" data-l10n-id="whimsy-meeting-disconnect"/>
-          </html:div>
-          <html:p id="whimsyMeetingAppleStatus" class="description-deemphasized" role="status"/>
-        </html:div>
-        <html:h4 data-l10n-id="whimsy-meeting-google-title"/>
-        <html:div id="whimsyMeetingGoogleAccounts"/>
-        <html:form id="whimsyMeetingGoogleForm">
-          <html:label for="whimsyMeetingGoogleURL" data-l10n-id="whimsy-meeting-google-address"/>
-          <html:div class="whimsy-calendar-row">
-            <html:input id="whimsyMeetingGoogleURL" type="password" autocomplete="off" data-l10n-id="whimsy-meeting-google-placeholder" aria-describedby="whimsyMeetingGoogleError"/>
-            <html:button type="submit" data-l10n-id="whimsy-meeting-google-add-confirm"/>
-          </html:div>
-          <html:p id="whimsyMeetingGoogleError" role="alert" hidden="hidden" data-l10n-id="whimsy-meeting-google-invalid"/>
-        </html:form>
-        <html:a href="https://calendar.google.com/calendar/r/settings" target="_blank" data-l10n-id="whimsy-meeting-google-help"/>
-      </html:moz-fieldset>
-    </html:moz-card>
-  </html:div>
+  <groupbox id="whimsyNextMeetingGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-meeting-group-header"/></label>
+    <html:p class="description-deemphasized" data-l10n-id="whimsy-meeting-description"/>
+    <html:moz-checkbox id="whimsyNextMeetingEnabled" data-l10n-id="whimsy-meeting-enable"/>
+    <html:moz-checkbox id="whimsyNextMeetingCard" data-l10n-id="whimsy-meeting-card-enable"/>
+    <html:p id="whimsyMeetingStatus" role="status"/>
+    <html:div id="whimsyMeetingApple">
+      <html:div class="whimsy-calendar-row">
+        <html:span data-l10n-id="whimsy-meeting-apple-title"/>
+        <html:button id="whimsyMeetingAppleConnect"/>
+        <html:button id="whimsyMeetingAppleRemove" data-l10n-id="whimsy-meeting-disconnect"/>
+      </html:div>
+      <html:p id="whimsyMeetingAppleStatus" class="description-deemphasized" role="status"/>
+    </html:div>
+    <html:h4 data-l10n-id="whimsy-meeting-google-title"/>
+    <html:div id="whimsyMeetingGoogleAccounts"/>
+    <html:form id="whimsyMeetingGoogleForm">
+      <html:label for="whimsyMeetingGoogleURL" data-l10n-id="whimsy-meeting-google-address"/>
+      <html:div class="whimsy-calendar-row">
+        <html:input id="whimsyMeetingGoogleURL" type="password" autocomplete="off" data-l10n-id="whimsy-meeting-google-placeholder" aria-describedby="whimsyMeetingGoogleError"/>
+        <html:button type="submit" data-l10n-id="whimsy-meeting-google-add-confirm"/>
+      </html:div>
+      <html:p id="whimsyMeetingGoogleError" role="alert" hidden="hidden" data-l10n-id="whimsy-meeting-google-invalid"/>
+    </html:form>
+    <html:a href="https://calendar.google.com/calendar/r/settings" target="_blank" data-l10n-id="whimsy-meeting-google-help"/>
+  </groupbox>
 </html:template>
 
 # ext: per-space extensions — Settings → Tab Management → Spaces. The actual

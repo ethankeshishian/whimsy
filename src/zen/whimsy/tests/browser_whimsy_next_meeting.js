@@ -442,10 +442,18 @@ add_task(async function test_calendar_settings() {
   WhimsyNextMeeting.testing.setAppleCalendar(apple);
   await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
     const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyLookGroup"), "Look and Feel loaded");
+    ok(!doc.getElementById("whimsyNextMeetingGroup")?.checkVisibility(),
+      "Meetings are no longer in Look and Feel");
+  });
+  await BrowserTestUtils.withNewTab("about:preferences#general", async browser => {
+    const doc = browser.contentDocument;
     const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyNextMeetingGroup"));
     const get = id => doc.getElementById(id);
-    await TestUtils.waitForCondition(() => group.checkVisibility(), "Calendar Settings is visible");
-    ok(group.querySelector("moz-card moz-fieldset"), "Calendar connections use the native Settings card");
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "Calendar Settings is visible in General");
+    is(group.dataset.category, "paneGeneral", "Meetings live in General");
+    ok(group.localName == "groupbox" && group.classList.contains("highlighting-group"),
+      "Meetings use Zen's groupbox style, like the groups around it");
     is(get("whimsyMeetingStatus").getAttribute("data-l10n-id"), "whimsy-meeting-connect-empty", "Empty state invites connection");
     is(apple.requests, 0, "Opening Settings never requests access");
     if (Services.appinfo.OS == "Darwin") {

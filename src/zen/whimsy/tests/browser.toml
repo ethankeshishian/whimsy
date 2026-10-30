@@ -402,3 +402,15 @@ support-files = ["whimsy_redact.html"]
 
 # wave5: command registry (command bar, about:keyboard "Whimsy" group, rebinding, conflicts, defaults).
 ["browser_whimsy_command_registry.js"]
+
+# wave5/uxfix: in-window sheets replace native prompts.
+["browser_whimsy_inline_prompts.js"]
+
+# wave5/uxfix: visible focus on sheet search fields.
+["browser_whimsy_uxfix_focus.js"]
+
+# wave5/uxfix: Settings on-demand feature list and New Note target.
+["browser_whimsy_uxfix_settings.js"]
+
+# wave5/uxfix: Undo on reversible result toasts.
+["browser_whimsy_uxfix_undo_toast.js"]

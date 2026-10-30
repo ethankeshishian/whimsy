@@ -98,6 +98,57 @@ export const WhimsyUndo = {
     redoStacks.set(win, []); // A fresh action invalidates old redos.
   },
 
+  /**
+   * wave5/uxfix: a result toast with an Undo button bound to this exact
+   * entry (Arc shows Undo on its toasts; Cmd+Z alone was invisible). The
+   * entry is pushed too, so Cmd+Z still works. Without the feature switch,
+   * or when Zen has no toasts, it's a plain toast.
+   *
+   * @param {Window} win
+   * @param {string} messageId - the toast's Fluent id
+   * @param {object} entry - an undo entry, as for push()
+   * @param {object} [l10nArgs]
+   */
+  showToast(win, messageId, entry, l10nArgs = undefined) {
+    this.push(win, entry);
+    const ui = win.gZenUIManager;
+    if (!ui?.showToast) {
+      return;
+    }
+    if (!this.enabled) {
+      ui.showToast(messageId, { l10nArgs });
+      return;
+    }
+    const id = "whimsy-undo-toast-button";
+    ui.showToast(messageId, {
+      l10nArgs,
+      button: {
+        id,
+        command: event => {
+          event.target.closest(".zen-toast")?.remove();
+          this.undoEntry(win, entry);
+        },
+      },
+    });
+    // Zen's toast buttons have no label of their own.
+    const button = win.document.getElementById(id);
+    if (button) {
+      win.document.l10n.setAttributes(button, "whimsy-undo-toast-button");
+    }
+  },
+
+  // Undoes one specific entry, wherever it sits in the stack.
+  undoEntry(win, entry) {
+    const stack = undoStacks.get(win) || [];
+    const index = stack.lastIndexOf(entry);
+    if (index < 0) {
+      return false;
+    }
+    stack.splice(index, 1);
+    stack.push(entry);
+    return this.undo(win);
+  },
+
   canUndo(win) {
     return !!undoStacks.get(win)?.length;
   },

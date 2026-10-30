@@ -25,6 +25,9 @@ import { whimsyPostFetch } from "resource:///modules/whimsy/WhimsyLiveFolderFetc
 
 const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"]));
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+});
 
 const GRAPHQL_URL = "https://api.linear.app/graphql";
 const LOGIN_ORIGIN = "https://api.linear.app";
@@ -163,9 +166,9 @@ export class WhimsyLinearLiveFolderProvider extends nsZenLiveFolderProvider {
 
     const window = this.manager.window;
     const [promptText] = await lazy.l10n.formatValues(["whimsy-live-folder-linear-prompt-team"]);
-    const input = { value: this.state.team };
-    if (window && Services.prompt.prompt(window, promptText, null, input, null, { value: null })) {
-      this.state.team = (input.value || "").trim().toUpperCase();
+    const value = window && await lazy.WhimsyPanels.ask(window, { title: promptText, value: this.state.team });
+    if (typeof value == "string") {
+      this.state.team = value.trim().toUpperCase();
       this.refresh();
     }
 
@@ -254,11 +257,11 @@ export class WhimsyLinearLiveFolderProvider extends nsZenLiveFolderProvider {
       "whimsy-live-folder-linear-apikey-title",
       "whimsy-live-folder-linear-apikey-text",
     ]);
-    const input = { value: "" };
-    if (!Services.prompt.promptPassword(window, title, text, input)) {
+    const key = await lazy.WhimsyPanels.ask(window, { title, body: text, password: true });
+    if (key === null) {
       return false;
     }
-    return WhimsyLinearLiveFolderProvider.setApiKey(input.value);
+    return WhimsyLinearLiveFolderProvider.setApiKey(key);
   }
 
   serialize() {

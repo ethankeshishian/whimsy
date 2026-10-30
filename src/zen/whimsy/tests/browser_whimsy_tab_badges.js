@@ -120,3 +120,32 @@ add_task(async function test_dot_when_background_title_changes() {
   is(rowBadge(pinned).content, '"2"', "shows instead of the dot");
   is(badge(pinned).content, "none", "and the dot goes");
 });
+
+// wave5/uxfix: the badge passes 4.5:1, an Essential draws only its icon
+// badge (no second empty disc on its row), and the count is read out.
+add_task(async function test_badge_contrast_single_disc_and_description() {
+  const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?essential-a11y");
+  gZenPinnedTabManager.addToEssentials(essential);
+  await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential");
+  await setTitle(essential, "(128) Inbox");
+  await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "99+", "Badge shows");
+
+  const lum = rgb => {
+    const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map(Number).map(c => {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const style = badge(essential);
+  const [hi, lo] = [lum(style.color), lum(style.backgroundColor)].sort((a, b) => b - a);
+  Assert.greaterOrEqual((hi + 0.05) / (lo + 0.05), 4.5, "Badge text passes 4.5:1");
+  Assert.greaterOrEqual(parseFloat(style.fontSize), 10, "Badge text is at least 10px");
+  isnot(rowBadge(essential).backgroundColor, style.backgroundColor,
+    "The Essential's row draws no second badge disc");
+  await TestUtils.waitForCondition(() => essential.getAttribute("aria-description") == "128 unread",
+    "The count is read out with the tab");
+  await setTitle(essential, "Inbox");
+  await TestUtils.waitForCondition(() => !essential.hasAttribute("aria-description"), "...and cleared with it");
+  BrowserTestUtils.removeTab(essential);
+});

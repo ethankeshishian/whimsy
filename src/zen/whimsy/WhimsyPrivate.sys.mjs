@@ -62,6 +62,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   ZenSessionStore: "resource:///modules/zen/ZenSessionManager.sys.mjs",
 });
 
@@ -770,36 +771,26 @@ export const WhimsyPrivate = {
   },
 
   // fixC: keeping Scratch ends its private browsing, which the old "Keep as
-  // Space" didn't say. The action now reads "Keep as Normal Space…" and asks
-  // first, in Zen's own toast (the one with an action button, as for a tab
-  // opened in the background): "Keep as a normal space? Its pages will
-  // leave private browsing." with Keep. Ignoring it changes nothing.
-  confirmKeepScratch(win) {
+  // Space" didn't say, so it asks first. wave5/uxfix: it can't be undone,
+  // so it asks in the window's own sheet (like Delete Space) with an
+  // explicit "Keep Space" button, and waits; a 6-second toast was gone
+  // before a keyboard user could reach it. Cancel changes nothing.
+  async confirmKeepScratch(win) {
     if (!this.getScratch(win)) {
       return;
     }
-    const keep = () => this.keepScratch(win).catch(e => console.error("Whimsy: Scratch", e));
-    const ui = win.gZenUIManager;
-    if (!ui?.showToast) {
-      keep();
+    const [title, body, accept] = await win.document.l10n.formatValues([
+      "whimsy-scratch-keep-confirm-title",
+      "whimsy-scratch-keep-confirm",
+      "whimsy-scratch-keep-confirm-accept",
+    ]);
+    if (!(await lazy.WhimsyPanels.confirm(win, { title, body, accept }))) {
       return;
     }
-    const id = "whimsy-scratch-keep-confirm-button";
-    ui.showToast("whimsy-scratch-keep-confirm", {
-      timeout: 6000,
-      button: {
-        id,
-        command: event => {
-          event.target.closest(".zen-toast")?.remove();
-          keep();
-        },
-      },
-    });
-    // Zen's toast buttons have no label of their own.
-    const button = win.document.getElementById(id);
-    if (button) {
-      win.document.l10n.setAttributes(button, id);
+    if (!this.getScratch(win)) {
+      return;
     }
+    await this.keepScratch(win).catch(e => console.error("Whimsy: Scratch", e));
   },
 
   // Turns Scratch into a normal space. Private pages can't stop being

@@ -272,10 +272,19 @@ export const WhimsyTabs = {
       for (const el of [tab, stack, content]) {
         el.setAttribute(UNREAD_ATTR, text);
       }
+      // The badge is drawn with CSS, so screen readers need the count too
+      // ("Inbox, 128 unread"): the tab's own name stays, this describes it.
+      tab.ownerDocument.l10n?.formatValue("whimsy-tab-unread-description", { count })
+        .then(value => {
+          if (tab.getAttribute(UNREAD_ATTR) == text) {
+            tab.setAttribute("aria-description", value);
+          }
+        }).catch(() => {});
     } else {
       for (const el of [tab, stack, content]) {
         el.removeAttribute(UNREAD_ATTR);
       }
+      tab.removeAttribute("aria-description");
     }
   },
 

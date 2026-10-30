@@ -316,28 +316,28 @@ add_task(async function test_switch_and_setting_off() {
   }
 });
 
-// fixC: Keep asks first, in Zen's toast, because the space stops being
-// private; ignoring the toast changes nothing.
+// fixC: Keep asks first, because the space stops being private.
+// wave5/uxfix: in the window's own sheet (it waits, unlike a toast), with a
+// "Keep Space" button; Cancel changes nothing.
 add_task(async function test_keep_asks_first() {
   const startSpace = gZenWorkspaces.activeWorkspace;
   const scratch = await WhimsyPrivate.openScratch(window);
   await waitForPage(gBrowser.selectedTab);
+  let dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
   document.getElementById("cmd_whimsyKeepScratch").doCommand();
-  const button = await TestUtils.waitForCondition(
-    () => document.getElementById("whimsy-scratch-keep-confirm-button"),
-    "A toast asks before keeping Scratch"
-  );
-  await TestUtils.waitForCondition(() => button.getAttribute("label"), "Its button is labelled");
-  const toast = button.closest(".zen-toast");
-  is(
-    document.l10n.getAttributes(toast.querySelector("label")).id,
-    "whimsy-scratch-keep-confirm",
-    "It says the space will leave private browsing"
-  );
+  let win = await dialog;
+  ok(window.gDialogBox.isOpen, "It asks inside the window");
+  is(win.document.querySelector("dialog").getButton("accept").label, "Keep Space", "The button says what it does");
+  win.document.querySelector("dialog").getButton("cancel").click();
+  await TestUtils.waitForCondition(() => !window.gDialogBox.isOpen, "Cancel closes the sheet");
+  ok(WhimsyPrivate.getScratch(window), "Cancel changes nothing");
+
+  dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+  document.getElementById("cmd_whimsyKeepScratch").doCommand();
+  win = await dialog;
   ok(WhimsyPrivate.getScratch(window), "Nothing changed yet");
-  button.doCommand();
+  win.document.querySelector("dialog").getButton("accept").click();
   await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Keep made it a normal space");
-  ok(!toast.isConnected, "The question went away");
   const kept = gZenWorkspaces.getWorkspaces().find(space => space.uuid == scratch.uuid);
   ok(kept && !kept.whimsyScratch, "The same space is now normal");
   await TestUtils.waitForCondition(

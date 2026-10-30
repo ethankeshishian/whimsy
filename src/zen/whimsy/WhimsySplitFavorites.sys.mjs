@@ -78,17 +78,19 @@ export const WhimsySplitFavorites = {
     }
     const urls = splitData.tabs.map(tab => tab.linkedBrowser.currentURI.spec);
     const defaultName = splitData.tabs.map(tab => tab.label || tab.linkedBrowser.currentURI.spec).join(" + ");
-    const prompts = Services.prompt;
-    const input = { value: defaultName };
-    const title = await lazy.l10n.formatValue("whimsy-split-favorite-name-title");
-    const message = await lazy.l10n.formatValue("whimsy-split-favorite-name-prompt");
-    if (!prompts.prompt(win, title, message, input, null, { value: false })) {
+    const [title, message] = await lazy.l10n.formatValues([
+      "whimsy-split-favorite-name-title",
+      "whimsy-split-favorite-name-prompt",
+    ]);
+    // In-window sheet, like Delete Space (not a system prompt window).
+    const name = await lazy.WhimsyPanels.ask(win, { title, body: message, value: defaultName });
+    if (name === null) {
       return;
     }
     const favorites = await this._load();
     favorites.push({
       id: Services.uuid.generateUUID().toString(),
-      name: input.value || defaultName,
+      name: name.trim() || defaultName,
       urls,
       gridType: splitData.gridType,
       created: Date.now(),
