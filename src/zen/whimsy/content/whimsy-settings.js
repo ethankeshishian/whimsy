@@ -213,6 +213,16 @@ var gWhimsySettings = {
         row.remove();
       }
     }
+    // wave5/uxfix: drop the collapsed Features list if none of its switches is left.
+    const features = group.querySelector("#whimsyTabsFeatures");
+    if (features && !features.querySelector("[preference]")) {
+      features.remove();
+    } else if (features) {
+      // Settings search must reach the switches inside, so open the list.
+      document.getElementById("searchInput")?.addEventListener("input", () => {
+        features.open = true;
+      });
+    }
     template.remove();
     if (!group.querySelector("[preference]")) {
       return;

@@ -353,3 +353,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5/uxfix: visible focus on sheet search fields.
 ["browser_whimsy_uxfix_focus.js"]
+
+# wave5/uxfix: Settings on-demand feature list and New Note target.
+["browser_whimsy_uxfix_settings.js"]

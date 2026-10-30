@@ -316,7 +316,7 @@
     <!-- batch6: command bar "New Note" target -->
     <hbox align="center" data-whimsy-feature="command-bar-create">
       <label id="whimsyNewNoteTargetLabel" control="whimsyNewNoteTarget" data-l10n-id="whimsy-new-note-target"/>
-      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" sizetopopup="none" crop="end">
+      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" data-pref-type="string" sizetopopup="none" crop="end">
         <menupopup>
           <menuitem value="none" data-l10n-id="whimsy-new-note-target-none"/>
           <menuitem value="notion" data-l10n-id="whimsy-new-note-target-notion"/>
@@ -340,16 +340,22 @@
         </menupopup>
       </menulist>
     </hbox>
-    <checkbox id="whimsyArchiveView" data-whimsy-feature="archive-view"
-              data-l10n-id="whimsy-tabs-archive-view" preference="whimsy.feature.archive-view"/>
-    <checkbox id="whimsyUndoTabActions" data-whimsy-feature="undo-tab-actions"
-              data-l10n-id="whimsy-tabs-undo" preference="whimsy.feature.undo-tab-actions"/>
-    <checkbox id="whimsySnoozeTab" data-whimsy-feature="snooze-tab"
-              data-l10n-id="whimsy-tabs-snooze" preference="whimsy.feature.snooze-tab"/>
-    <checkbox id="whimsyFireButton" data-whimsy-feature="fire-button"
-              data-l10n-id="whimsy-tabs-fire-button" preference="whimsy.feature.fire-button"/>
-    <checkbox id="whimsyHeavyTabs" data-whimsy-feature="heavy-tabs"
-              data-l10n-id="whimsy-tabs-heavy-tabs" preference="whimsy.feature.heavy-tabs"/>
+    <!-- wave5/uxfix: switches for features you start on demand (command
+         bar, tab menu) sit in one collapsed list, so the passive options
+         above stay easy to scan. Every switch is kept. -->
+    <html:details id="whimsyTabsFeatures" class="whimsy-settings-features">
+      <html:summary data-l10n-id="whimsy-settings-features-summary"/>
+      <checkbox id="whimsyArchiveView" data-whimsy-feature="archive-view"
+                data-l10n-id="whimsy-tabs-archive-view" preference="whimsy.feature.archive-view"/>
+      <checkbox id="whimsyUndoTabActions" data-whimsy-feature="undo-tab-actions"
+                data-l10n-id="whimsy-tabs-undo" preference="whimsy.feature.undo-tab-actions"/>
+      <checkbox id="whimsySnoozeTab" data-whimsy-feature="snooze-tab"
+                data-l10n-id="whimsy-tabs-snooze" preference="whimsy.feature.snooze-tab"/>
+      <checkbox id="whimsyFireButton" data-whimsy-feature="fire-button"
+                data-l10n-id="whimsy-tabs-fire-button" preference="whimsy.feature.fire-button"/>
+      <checkbox id="whimsyHeavyTabs" data-whimsy-feature="heavy-tabs"
+                data-l10n-id="whimsy-tabs-heavy-tabs" preference="whimsy.feature.heavy-tabs"/>
+    </html:details>
     <checkbox id="whimsyTreeTabs" data-whimsy-feature="tree-tabs"
               data-l10n-id="whimsy-tabs-tree-tabs" preference="whimsy.feature.tree-tabs"/>
     <vbox class="indent" data-whimsy-feature="tree-tabs">

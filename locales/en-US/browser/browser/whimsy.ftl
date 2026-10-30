@@ -1614,3 +1614,7 @@ whimsy-game-death-seed-spring = Buzzed by a bumblebee.
 
 # wave5/uxfix: Settings → General heading for calendar connections.
 whimsy-meeting-group-header = Meetings
+
+# wave5/uxfix: Settings → Tab Management, the collapsed list of switches for
+# features you start from the command bar or the tab menu.
+whimsy-settings-features-summary = On-demand features

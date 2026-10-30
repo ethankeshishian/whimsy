@@ -193,3 +193,23 @@
 #whimsyMeetingGoogleError {
   color: var(--text-color-error);
 }
+
+/* wave5/uxfix: Settings → Tab Management → the collapsed list of on-demand
+   feature switches. The summary reads like a row label with a disclosure
+   triangle; the switches inside indent like Zen's sub-options. */
+.whimsy-settings-features {
+  margin-block-start: var(--space-small, 6px);
+
+  & > summary {
+    padding-block: var(--space-xsmall, 4px);
+    cursor: default;
+    border-radius: var(--border-radius-small, 4px);
+  }
+  & > summary:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset, 2px);
+  }
+  & > checkbox {
+    margin-inline-start: var(--space-large, 16px);
+  }
+}
