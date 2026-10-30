@@ -358,6 +358,14 @@ FEATURES = [
     # home: homepage + changelog.
     {"id": "home", "title": "Whimsy's homepage (about:whimsy) with a Changelog tab, replacing Zen's about:home",
      "detect": [("src/zen", r"(?i)about:whimsy")]},
+    # tierC-vpn: VPN (Firefox's built-in IP Protection, on by default; command
+    # bar "Turn VPN On/Off" and a Settings status card on top of Firefox's own
+    # toolbar button/panel, sign-in and per-site rules).
+    {"id": "vpn", "title": "VPN: command bar actions and a Settings status card for Firefox's own built-in IP Protection",
+     "detect": [("src/zen", r"(?i)zen[\w.-]*vpn|ZenVPN|zen[\w.-]*ip-?protection")]},
+    # vpnspace: container scope on Firefox's native VPN panel.
+    {"id": "vpnspace", "title": "VPN scope: whole browser or the current space's container",
+     "detect": [("src/zen", r"(?i)ZenVPN|zen[\w.-]*vpn[\w.-]*scope")]},
 ]
 
 

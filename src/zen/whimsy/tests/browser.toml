@@ -232,3 +232,9 @@ support-files = ["whimsy_calendar.sjs"]
 
 # home: homepage + changelog (about:whimsy).
 ["browser_whimsy_home.js"]
+
+# tierC-vpn: VPN (Firefox's built-in IP Protection).
+["browser_whimsy_vpn.js"]
+
+# vpnspace: native VPN panel, container policy and channel boundary.
+["browser_whimsy_vpnspace.js"]

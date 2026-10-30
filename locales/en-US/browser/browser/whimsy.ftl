@@ -923,3 +923,38 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+## tierC-vpn: VPN (Firefox's built-in IP Protection). Settings → Privacy &
+## Security card, and the command bar actions.
+
+whimsy-vpn-header =
+    .label = VPN (free IP Protection)
+whimsy-vpn-toggle =
+    .label = Turn on IP Protection
+whimsy-vpn-description = Hides your IP address from sites you visit by routing your traffic through Mozilla's network. Free, with a 50 GB monthly cap and a Mozilla account sign-in — look for the toolbar button beside your profile icon. Turning this off removes that button entirely.
+whimsy-vpn-manage-button =
+    .label = Open VPN panel…
+whimsy-vpn-status-off = Off
+whimsy-vpn-status-unavailable = Not available in this build
+whimsy-vpn-status-signed-out = On — open the VPN panel to sign in with a Mozilla account
+whimsy-vpn-status-ready = Signed in, not connected — open the VPN panel to connect
+whimsy-vpn-status-connecting = Connecting…
+whimsy-vpn-status-on = Connected
+whimsy-vpn-status-error = Connection error — open the VPN panel for details
+whimsy-action-vpn-on = Turn VPN On
+whimsy-action-vpn-off = Turn VPN Off
+whimsy-vpn-on-toast = VPN on
+whimsy-vpn-off-toast = VPN off
+
+# vpnspace: extend the native Firefox VPN panel and toolbar button.
+whimsy-vpn-scope-title = Protect
+whimsy-vpn-scope-browser = All spaces
+whimsy-vpn-scope-space = This space
+whimsy-vpn-scope-help = Space protection follows its container in every window, including other spaces sharing it. Tabs in other containers are excluded. Existing connections keep their route until reconnected. Site exceptions still apply.
+whimsy-vpn-scope-no-container = This space has no default container. Choose one in Edit Space to enable space protection. Existing tabs must be reopened in that container.
+whimsy-vpn-scope-covered = Spaces with VPN enabled: { $spaces }
+whimsy-vpn-scope-all = VPN enabled for all spaces.
+whimsy-vpn-scope-button-off = VPN off
+whimsy-vpn-scope-button-connecting = VPN connecting
+whimsy-vpn-scope-button-browser = VPN on · Browser
+whimsy-vpn-scope-button-space = VPN on · Space
+whimsy-vpn-scope-button-elsewhere = VPN off here

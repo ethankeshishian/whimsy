@@ -41,6 +41,14 @@ var gWhimsySettings = {
       WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
       WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
     });
+    // tierC-vpn: VPN (Firefox's built-in IP Protection) status card.
+    ChromeUtils.defineESModuleGetters(lazy, {
+      CustomizableUI: "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
+      IPProtectionService: "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
+      IPProtectionStates: "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
+      IPPProxyManager: "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
+      IPPProxyStates: "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
+    });
     Object.defineProperty(this, "lazy", { value: lazy });
     return lazy;
   },
@@ -251,6 +259,8 @@ var gWhimsySettings = {
       "strip-tracking": () => this.initStripTracking(),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
+      // tierC-vpn: VPN (Firefox's built-in IP Protection).
+      vpn: () => this.initVpn(),
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;
@@ -393,6 +403,62 @@ var gWhimsySettings = {
       once: true,
     });
     update();
+  },
+
+  // tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox IS the
+  // real master switch (browser.ipProtection.enabled); the status line and
+  // "Manage" button read/drive Firefox's own service and toolbar button, so
+  // this never duplicates them with Whimsy UI of its own.
+  initVpn() {
+    this.initPrefCheckbox("whimsyVpnEnabled", "browser.ipProtection.enabled");
+    const status = document.getElementById("whimsyVpnStatus");
+    const manage = document.getElementById("whimsyVpnManage");
+    if (!status || this._vpnWired) {
+      return;
+    }
+    this._vpnWired = true;
+    const { IPProtectionService, IPProtectionStates, IPPProxyManager, IPPProxyStates } = this.lazy;
+    const update = () => {
+      if (!Services.prefs.getBoolPref("browser.ipProtection.enabled", false)) {
+        document.l10n.setAttributes(status, "whimsy-vpn-status-off");
+        return;
+      }
+      const state = IPProtectionService.state;
+      if (state == IPProtectionStates.UNAVAILABLE || state == IPProtectionStates.UNINITIALIZED) {
+        document.l10n.setAttributes(status, "whimsy-vpn-status-unavailable");
+      } else if (state == IPProtectionStates.UNAUTHENTICATED) {
+        document.l10n.setAttributes(status, "whimsy-vpn-status-signed-out");
+      } else {
+        const proxyState = IPPProxyManager.state;
+        if (proxyState == IPPProxyStates.ACTIVE) {
+          document.l10n.setAttributes(status, "whimsy-vpn-status-on");
+        } else if (proxyState == IPPProxyStates.ACTIVATING) {
+          document.l10n.setAttributes(status, "whimsy-vpn-status-connecting");
+        } else if (proxyState == IPPProxyStates.ERROR) {
+          document.l10n.setAttributes(status, "whimsy-vpn-status-error");
+        } else {
+          document.l10n.setAttributes(status, "whimsy-vpn-status-ready");
+        }
+      }
+    };
+    IPProtectionService.addEventListener("IPProtectionService:StateChanged", update);
+    IPPProxyManager.addEventListener("IPPProxyManager:StateChanged", update);
+    const prefObserver = () => update();
+    Services.prefs.addObserver("browser.ipProtection.enabled", prefObserver);
+    window.addEventListener(
+      "unload",
+      () => {
+        IPProtectionService.removeEventListener("IPProtectionService:StateChanged", update);
+        IPPProxyManager.removeEventListener("IPPProxyManager:StateChanged", update);
+        Services.prefs.removeObserver("browser.ipProtection.enabled", prefObserver);
+      },
+      { once: true }
+    );
+    update();
+    manage?.addEventListener("command", () => {
+      const win = window.browsingContext.topChromeWindow;
+      this.lazy.CustomizableUI.getWidget("ipprotection-button")?.forWindow(win)?.node?.click();
+    });
   },
 
   initAppIcons() {

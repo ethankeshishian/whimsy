@@ -76,6 +76,13 @@ XPCOM_MANIFESTS += [
     "components.conf",
 ]
 
+# tierC-vpn: VPN (Firefox's built-in IP Protection).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyVPN.sys.mjs",
+    # vpnspace: extend Firefox's native VPN control.
+    "WhimsyVPNScope.sys.mjs",
+]
+
 BROWSER_CHROME_MANIFESTS += [
     "tests/browser.toml",
 ]

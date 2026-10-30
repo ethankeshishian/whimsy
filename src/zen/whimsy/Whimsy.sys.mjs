@@ -75,6 +75,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
 });
 
+// tierC-vpn: VPN (Firefox's built-in IP Protection).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVPN: "resource:///modules/whimsy/WhimsyVPN.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -389,6 +394,12 @@ export const Whimsy = {
     // checks its switch on each refresh, and never asks for calendar
     // access here (only when the person turns Apple Calendar on).
     run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
+    // tierC-vpn: VPN (Firefox's built-in IP Protection). The toolbar button
+    // and panel are Firefox's own (placed automatically once
+    // browser.ipProtection.enabled is true); this only adds the command bar
+    // actions. Checks its own switch on use, so turning it off just stops
+    // offering them.
+    run("vpn", () => lazy.WhimsyVPN.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

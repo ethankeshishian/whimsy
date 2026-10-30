@@ -504,3 +504,21 @@ add_task(async function whimsy_home_and_changelog() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// vpnspace: capture the native panel with its scope extension.
+add_task(async function vpn_scope_panel() {
+  if (!SHOTS || !Services.prefs.getBoolPref("whimsy.feature.vpnspace", true)) {
+    return;
+  }
+  const button = await TestUtils.waitForCondition(() => document.getElementById("ipprotection-button"));
+  button.click();
+  const scope = await TestUtils.waitForCondition(() => document.getElementById("whimsy-vpn-scope"));
+  const panel = scope.closest("panel");
+  try {
+    await TestUtils.waitForCondition(() => panel?.state === "open");
+    await document.l10n.translateFragment(scope);
+    await shot("vpn-space-scope");
+  } finally {
+    panel?.hidePopup();
+  }
+});
