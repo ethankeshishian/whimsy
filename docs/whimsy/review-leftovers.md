@@ -5,7 +5,7 @@ Status of every finding in `review/design-hig.md` (HIG) and `review/ux-all.md` (
 | Finding | Status |
 |---|---|
 | HIG 1 Fire: one key wipes data | Fixed: dev 6d0baa1 (scope rows, explicit red Forget button, result toast) and 817cfc7 (flash). wave7/ux: Forget Everything asks once more, with Cancel as the default. |
-| HIG 1b Delete Space as an Undo toast | Needs user: the user chose the Delete Space modal as the model. |
+| HIG 1b Delete Space as an Undo toast | User: keep the modal. |
 | HIG 2 Screenshot harness can't see sheets | Fixed: dev 6c0d317. fix7/tabs adds shots. The pixel-diff gate is still open (lead/harness). |
 | HIG 3 Tab badge contrast and clipping | Fixed: dev 13c0b2e, plus fix7/tabs 09cc861. |
 | HIG 4 Keep Scratch asks in a toast | Fixed: dev ff9616d. |
@@ -18,19 +18,19 @@ Status of every finding in `review/design-hig.md` (HIG) and `review/ux-all.md` (
 | HIG 10 Undo isn't offered | Fixed for Snooze and Hide Space: dev 8d216f4. Archive sweep: open (wave6 rewrites WhimsyArchive). |
 | HIG 11 Private page copy | wave7/ux: says "close your last private tab" (engine text fix). Card-in-card: open (visual). |
 | HIG 12 Startup work before first paint | Deferred: risky to land untested. Needs a profiling pass. |
-| HIG 13 Competing hover popovers | Needs user: merging the AI preview into the hover card is a product call. fix7/tabs b373f26 changes the People cards' dwell. |
+| HIG 13 Competing hover popovers | wave7/ux 66f3846 (user's call): one host, WhimsyLinkHover. The People card or a link card comes first, and the AI summary is stacked beneath it. Both share a 500 ms delay in, 180 ms out, and one transition. Conflicts with fix7/tabs' People card redesign: port its person card into the host's `#peopleCard`. |
 | HIG 14 Tree-tab glitches | Open: needs a visual pass with fresh shots. |
-| HIG 15 Folder colours: default reads as blue | Needs user: the default follows Zen's space accent. A grey default changes Zen's look. |
+| HIG 15 Folder colours | User: keep the space-accent default. The divider "cutting" a folder was the shot catching it mid-expansion. wave7/ux adds a settled-layout test and makes the shot wait. |
 | HIG 16 Updated notice | wave7/ux: "Update settings" replaces "Something broke? Roll back" (Roll back is in Settings). Title alignment is Zen's component. Dev IDs: open. |
 | HIG 17 Type and z-index sprawl | Skipped: tokens pass. |
 | UX 1–4 Commands and about:keyboard | Fixed: dev 47d6b27, e12b019, 951050f, d839358. |
-| UX 5 Private-mode naming | Partly: wave6 d03d96e (Cmd+Shift+N is Scratch). Needs user: rename Scratch to "Temporary Space" and keep to "Save Space". |
+| UX 5 Private-mode naming | Partly: wave6 d03d96e (Cmd+Shift+N is Scratch). User: Scratch keeps its name. |
 | UX 6 Archive naming | Fixed: "View Archive…", "Open in Wayback Machine", Clear Archive (wave6 291b6ac). |
 | UX 7 Mini dark only | Skipped: Mini writer (dev 8019eee). |
 | UX 8 Native modal prompts | Fixed: dev 319e1b1 (in-window sheet prompts). |
 | UX 9 Two Settings vocabularies | Open: 9 Privacy cards remain. Wait for fix/panes, since it rewrites Settings. |
 | UX 10 Feature switches | Fixed: dev 3e04bd9 (collapsed "On-demand features"). |
-| UX 11 Next Meeting placement | Fixed: dev f79eda1 (moved to General). Needs user: drop its Library tab? |
+| UX 11 Next Meeting placement | Fixed: dev f79eda1 (moved to General). No Library tab since dev 0553632, which browser_whimsy_next_meeting.js checks. The leftover sprite CSS is harmless. |
 | UX 12 Vague labels | Fixed: dev e12b019 and wave6. |
 | UX 13 Split command sprawl | Fixed: wave6 2d30723. |
 | UX 14 Duplicate controls | Archive: fixed (dev 6dbb7cb). VPN: fix7/settings 4a8d679. Confirm it still has one place. |
