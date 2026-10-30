@@ -5,6 +5,7 @@
 // "unauth" answers like a signed-out Jira site (401); anything else
 // answers with two fixed issues.
 function handleRequest(request, response) {
+  response.setHeader("Cache-Control", "no-store", false);
   const query = decodeURIComponent(request.queryString);
   response.setHeader("Content-Type", "application/json", false);
 

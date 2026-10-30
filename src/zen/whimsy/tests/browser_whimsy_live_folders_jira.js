@@ -26,11 +26,17 @@ function makeFolder(extraState = {}) {
     getFolderForLiveFolder: () => null,
     saveState: () => {},
   };
-  return new WhimsyJiraLiveFolderProvider({
+  const folder = new WhimsyJiraLiveFolderProvider({
     id: "test-jira",
     manager,
     state: { site: SITE, ...extraState },
   });
+  const originalFetch = folder.fetch;
+  folder.fetch = function (url, options) {
+    const query = new URL(url).search;
+    return originalFetch.call(this, SITE + query, options);
+  };
+  return folder;
 }
 
 add_task(async function test_main_flow() {

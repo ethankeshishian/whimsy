@@ -304,7 +304,7 @@ export const WhimsyLiveFolders = {
     proto.fetchItems.whimsyPushWrapped = true;
   },
 
-  // A minimal conditional-GET probe: sends If-None-Match when an ETag is
+  // A minimal conditional-HEAD probe: sends If-None-Match when an ETag is
   // already known, reads the response status and ETag, then aborts the
   // request without reading its body either way -- the real fetch (via
   // the shared base-class fetch()) runs separately only when something
@@ -342,6 +342,8 @@ export const WhimsyLiveFolders = {
             Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL | Ci.nsILoadInfo.SEC_COOKIES_INCLUDE,
           triggeringPrincipal: principal,
         }).QueryInterface(Ci.nsIHttpChannel);
+        // HEAD obtains validators without downloading a duplicate feed body.
+        channel.requestMethod = "HEAD";
         if (etag) {
           channel.setRequestHeader("If-None-Match", etag, false);
         }

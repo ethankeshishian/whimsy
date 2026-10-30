@@ -31,7 +31,7 @@ export const WhimsyCookieEditor = {
   },
 
   setCookie(host, originAttributes, { name, value, path = "/", secure = false, httpOnly = false, sameSite = 0 }) {
-    const oneYear = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+    const oneYear = Date.now() + 365 * 24 * 60 * 60 * 1000;
     Services.cookies.add(
       host,
       path,

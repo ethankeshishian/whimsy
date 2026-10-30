@@ -23,6 +23,8 @@ add_task(async function test_edit_and_delete_a_cookie() {
     is(a.value, "1", "With its value");
 
     WhimsyCookieEditor.setCookie(HOST, oa, { name: "a", value: "2", path: a.path });
+    const edited = WhimsyCookieEditor.cookiesFor(HOST, oa).find(c => c.name == "a");
+    ok(edited.expiry > Date.now(), "The edited cookie expires in the future (milliseconds)");
     await TestUtils.waitForCondition(
       () => SpecialPowers.spawn(browser, [], () => content.document.cookie.includes("a=2")),
       "Editing the value updates what the page sees"

@@ -15,27 +15,27 @@
 // Each entry stays out until its own whimsy.feature.<id> pref is on, and a
 // pref observer keeps that live without reopening the window.
 
-const lazy = {};
-ChromeUtils.defineESModuleGetters(
-  lazy,
-  {
-    WhimsyNotesSection: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
-    WhimsyFinderFoldersSection: "resource:///modules/whimsy/WhimsyFinderFoldersSection.sys.mjs",
-    WhimsyFilesSection: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
-  },
-  { global: "current" }
-);
-
-// Rail order: Notes and Finder folders first (least new code, per the
-// scout), then captured screenshots.
 const SECTIONS = [
-  { sectionId: "whimsy-notes", feature: "notes", get Section() { return lazy.WhimsyNotesSection; } },
-  { sectionId: "whimsy-finder-folders", feature: "finder-folders", get Section() { return lazy.WhimsyFinderFoldersSection; } },
-  { sectionId: "whimsy-files", feature: "screenshot-sidebar", get Section() { return lazy.WhimsyFilesSection; } },
+  { sectionId: "whimsy-notes", feature: "notes", name: "WhimsyNotesSection" },
+  { sectionId: "whimsy-finder-folders", feature: "finder-folders", name: "WhimsyFinderFoldersSection" },
+  { sectionId: "whimsy-files", feature: "screenshot-sidebar", name: "WhimsyFilesSection" },
 ];
 
 export const WhimsyLibrarySection = {
   initWindow(win) {
+    if (win._whimsyLibraryLoading) {
+      return;
+    }
+    win._whimsyLibraryLoading = true;
+    // A module script uses the window loader, so Lit and customElements
+    // belong to this document rather than the documentless system global.
+    const script = win.document.createElementNS("http://www.w3.org/1999/xhtml", "script");
+    script.type = "module";
+    script.src = "chrome://browser/content/whimsy/whimsy-library-sections.mjs";
+    win.document.documentElement.append(script);
+  },
+
+  registerWindow(win, sections) {
     const lib = win.document.querySelector("zen-library");
     if (!lib?.zenLibrarySections) {
       // <zen-library> should already be upgraded by the time a window's
@@ -43,7 +43,7 @@ export const WhimsyLibrarySection = {
       // try once more once it's idle rather than silently never hooking up.
       if (!win.closed && !win._whimsyLibraryRetried) {
         win._whimsyLibraryRetried = true;
-        win.requestIdleCallback(() => this.initWindow(win));
+        win.requestIdleCallback(() => this.registerWindow(win, sections));
       }
       return;
     }
@@ -58,7 +58,7 @@ export const WhimsyLibrarySection = {
         const on = Services.prefs.getBoolPref(`whimsy.feature.${entry.feature}`, true);
         const has = entry.sectionId in lib.zenLibrarySections;
         if (on && !has) {
-          lib.zenLibrarySections[entry.sectionId] = entry.Section;
+          lib.zenLibrarySections[entry.sectionId] = sections[entry.name];
           changed = true;
         } else if (!on && has) {
           delete lib.zenLibrarySections[entry.sectionId];

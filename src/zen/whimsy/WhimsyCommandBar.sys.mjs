@@ -99,8 +99,14 @@ export const WhimsyCommandBar = {
       if (!value.startsWith("/")) {
         return;
       }
+      const { UrlbarShared } = ChromeUtils.importESModule(
+        "chrome://browser/content/urlbar/UrlbarShared.mjs"
+      );
+      // Enter directly: Zen's toggle can be locked by its preceding mode
+      // animation, or toggle an existing commands mode back off.
       urlbar.value = value.slice(1);
-      win.gZenUIManager.enableCommandsMode(event);
+      urlbar.searchMode = { source: UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, isPreview: false };
+      urlbar.startQuery({ allowAutofill: false, event });
     });
   },
 };

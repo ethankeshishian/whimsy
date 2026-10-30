@@ -67,7 +67,13 @@ export const WhimsyQuickWindow = {
     const existing = this.current();
     if (existing) {
       if (url) {
-        existing.gBrowser.selectedBrowser.fixupAndLoadURIString(url, { triggeringPrincipal });
+        this.whenReady(existing).then(() => {
+          if (!existing.closed) {
+            existing.gBrowser.selectedBrowser.fixupAndLoadURIString(url, {
+              triggeringPrincipal: triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(),
+            });
+          }
+        });
       }
       existing.focus();
       return existing;
@@ -101,6 +107,28 @@ export const WhimsyQuickWindow = {
     return win;
   },
 
+  // BrowserWindowTracker returns before browser chrome exists. Reused links
+  // must wait too, including links arriving while the first window loads.
+  whenReady(win) {
+    if (win.closed || win.gBrowserInit?.delayedStartupFinished) {
+      return Promise.resolve();
+    }
+    return win._whimsyQuickReady ??= new Promise(resolve => {
+      const cleanup = () => {
+        Services.obs.removeObserver(observer, "browser-delayed-startup-finished");
+        win.removeEventListener("unload", cleanup);
+        resolve();
+      };
+      const observer = subject => {
+        if (subject == win) {
+          cleanup();
+        }
+      };
+      Services.obs.addObserver(observer, "browser-delayed-startup-finished");
+      win.addEventListener("unload", cleanup, { once: true });
+    });
+  },
+
   // The quick window already open, if there's a live one.
   current() {
     const win = this._current;
@@ -114,7 +142,7 @@ export const WhimsyQuickWindow = {
       return preferred;
     }
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
-      if (!win.closed && !win._whimsyQuickWindow) {
+      if (!win.closed && !win._whimsyQuickWindow && win.gBrowser) {
         return win;
       }
     }
@@ -131,7 +159,7 @@ export const WhimsyQuickWindow = {
   // quick window. Returns the adopted tab, or null.
   moveToSpace(win, spaceId) {
     const target = this.mainWindow(win.opener);
-    if (!target?.gZenWorkspaces || !win._whimsyQuickWindow) {
+    if (!target?.gZenWorkspaces || !win._whimsyQuickWindow || !win.gBrowser) {
       return null;
     }
     const tab = win.gBrowser.selectedTab;

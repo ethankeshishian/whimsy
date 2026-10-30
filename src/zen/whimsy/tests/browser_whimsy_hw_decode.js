@@ -12,7 +12,10 @@ add_task(async function test_hardware_video_decoding_checkbox() {
   const original = Services.prefs.getBoolPref("media.hardware-video-decoding.enabled", true);
   registerCleanupFunction(() => Services.prefs.setBoolPref("media.hardware-video-decoding.enabled", original));
 
-  await BrowserTestUtils.withNewTab("about:preferences#general", async browser => {
+  const redesigned = Services.prefs.getBoolPref("browser.settings-redesign.enabled", false) ||
+    Services.prefs.getBoolPref("browser.settings-redesign.tabsBrowsing.enabled", false);
+  const pane = redesigned ? "tabsBrowsing" : "general";
+  await BrowserTestUtils.withNewTab(`about:preferences#${pane}`, async browser => {
     const doc = browser.contentDocument;
     await TestUtils.waitForCondition(() => doc.getElementById("whimsyHardwareVideoDecoding"));
     const checkbox = doc.getElementById("whimsyHardwareVideoDecoding");

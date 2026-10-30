@@ -25,7 +25,8 @@ add_task(async function test_balloons_on_zero_transition() {
   });
   registerCleanupFunction(() => TEST_HOSTS.length = 0);
 
-  await BrowserTestUtils.withNewTab("https://example.com/", async (browser, tab) => {
+  await BrowserTestUtils.withNewTab("https://example.com/", async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
     const { WhimsyDelight } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDelight.sys.mjs");
     tab.label = "Inbox (2)";
     WhimsyDelight.onLabelChanged(window, tab);

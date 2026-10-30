@@ -18,7 +18,7 @@ add_task(async function test_typing_settings_navigates() {
     gURLBar.focus();
     gURLBar.value = "whimsy://settings";
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
-    await BrowserTestUtils.waitForCondition(
+    await TestUtils.waitForCondition(
       () => gBrowser.selectedBrowser.currentURI.spec.startsWith("about:preferences"),
       "Typing whimsy://settings opens about:preferences in the current tab"
     );

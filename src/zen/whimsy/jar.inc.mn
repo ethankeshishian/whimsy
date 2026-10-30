@@ -23,3 +23,7 @@
         builtin-addons/whimsy-cookie-banners/autoconsent/autoconsent.mjs        (../../zen/whimsy/cookie-banners/autoconsent/autoconsent.mjs)
         builtin-addons/whimsy-cookie-banners/autoconsent/content.js             (../../zen/whimsy/cookie-banners/autoconsent/content.js)
         builtin-addons/whimsy-cookie-banners/autoconsent/compact-rules.json     (../../zen/whimsy/cookie-banners/autoconsent/compact-rules.json)
+        content/browser/whimsy/whimsy-library-files.mjs (../../zen/whimsy/content/whimsy-library-files.mjs)
+        content/browser/whimsy/whimsy-library-finderfolders.mjs (../../zen/whimsy/content/whimsy-library-finderfolders.mjs)
+        content/browser/whimsy/whimsy-library-notes.mjs (../../zen/whimsy/content/whimsy-library-notes.mjs)
+        content/browser/whimsy/whimsy-library-sections.mjs (../../zen/whimsy/content/whimsy-library-sections.mjs)

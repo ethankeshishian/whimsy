@@ -9,7 +9,9 @@
 // `?bump` changes the content so the next conditional GET sees a change.
 
 function handleRequest(request, response) {
-  const state = (globalThis.__whimsyPushState ??= { version: 1, fullFetches: 0 });
+  const state = JSON.parse(getState("push") || '{"version":1,"fullFetches":0}');
+  const save = () => setState("push", JSON.stringify(state));
+  response.setHeader("Cache-Control", "no-store", false);
   const query = request.queryString;
 
   if (query === "count") {
@@ -20,6 +22,7 @@ function handleRequest(request, response) {
 
   if (query === "bump") {
     state.version++;
+    save();
     response.setStatusLine(request.httpVersion, 204, "No Content");
     return;
   }
@@ -39,7 +42,10 @@ function handleRequest(request, response) {
     return;
   }
 
-  state.fullFetches++;
+  if (request.method !== "HEAD") {
+    state.fullFetches++;
+    save();
+  }
   response.setHeader("Content-Type", "application/rss+xml", false);
   response.write(
     `<?xml version="1.0"?><rss version="2.0"><channel><title>Push test feed</title>` +

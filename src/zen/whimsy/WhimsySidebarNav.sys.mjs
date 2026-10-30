@@ -60,6 +60,48 @@ export const WhimsySidebarNav = {
       // No default key: Cmd+Opt+S is Zen's "show sidebar" in compact mode.
     });
 
+    // Firefox's tab-strip keyboard navigation requires Accel for arrows
+    // and does not bind Delete. Our explicit sidebar-focus mode offers the
+    // plain keys without changing normal tab-strip shortcuts.
+    win.gBrowser.tabContainer.addEventListener("keydown", event => {
+      if (!this.enabled || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) {
+        return;
+      }
+      const tab = event.target.closest?.("tab, .tabbrowser-tab");
+      if (!tab?.hasAttribute("whimsy-sidebar-focused")) {
+        return;
+      }
+      const tabs = visibleTabs(win);
+      const index = tabs.indexOf(tab);
+      if (index < 0) {
+        return;
+      }
+      switch (event.key) {
+        case "ArrowUp":
+        case "ArrowDown": {
+          const direction = event.key == "ArrowUp" ? -1 : 1;
+          this.focusTab(tabs[(index + direction + tabs.length) % tabs.length]);
+          break;
+        }
+        case "Enter":
+          win.gBrowser.selectedTab = tab;
+          this.focusTab(tab);
+          break;
+        case "Delete":
+        case "Backspace":
+          win.gBrowser.removeTab(tab, { animate: true });
+          break;
+        case "Escape":
+          tab.removeAttribute("whimsy-sidebar-focused");
+          win.gBrowser.selectedBrowser.focus();
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+
     win.gBrowser.tabContainer.addEventListener(
       "keypress",
       event => {
@@ -77,7 +119,10 @@ export const WhimsySidebarNav = {
   },
 
   focusSidebar(win) {
-    const tab = win.gBrowser.selectedTab;
+    this.focusTab(win.gBrowser.selectedTab);
+  },
+
+  focusTab(tab) {
     tab.setAttribute("whimsy-sidebar-focused", "");
     tab.focus();
     const clear = () => tab.removeAttribute("whimsy-sidebar-focused");

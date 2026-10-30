@@ -35,10 +35,12 @@ add_task(async function test_show_pref_adds_and_removes() {
   await TestUtils.waitForCondition(() => document.getElementById("whimsyMenuBarExtra"), "status item recreated");
   isnot(document.getElementById("whimsyMenuBarExtra"), first, "a fresh element, not the one removeItem already forgot");
 
-  await SpecialPowers.popPrefEnv();
-  await SpecialPowers.popPrefEnv();
-  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.menu-bar-extra", false]] });
   await TestUtils.waitForCondition(() => !document.getElementById("whimsyMenuBarExtra"), "cleaned up with the feature switch off");
+  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_popup_contents() {
@@ -60,5 +62,5 @@ add_task(async function test_popup_contents() {
 });
 
 registerCleanupFunction(() => {
-  document.getElementById("whimsyMenuBarExtra")?.remove();
+  WhimsyMenuBarExtra.apply();
 });

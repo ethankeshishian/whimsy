@@ -27,8 +27,8 @@ var gWhimsySettings = {
     // batch7: hardware video decoding toggle, in its own listener so it runs
     // on paneGeneral independently of the About-group branch above.
     document.addEventListener("paneshown", event => {
-      if (event.detail.category == "paneGeneral") {
-        this.insertPerformanceGroup();
+      if (["paneGeneral", "paneTabsBrowsing"].includes(event.detail.category)) {
+        this.insertPerformanceGroup(event.detail.category);
       }
     });
   },
@@ -529,9 +529,14 @@ var gWhimsySettings = {
 
   // batch7: General → Performance → hardware video decoding. It's read at
   // startup only (gfxPlatform), so changing it shows a restart prompt.
-  insertPerformanceGroup() {
+  insertPerformanceGroup(category = "paneGeneral") {
     const template = document.getElementById("template-whimsyPerformance");
     if (!template) {
+      const group = document.getElementById("whimsyPerformanceGroup");
+      if (group) {
+        group.dataset.category = category;
+        group.hidden = false;
+      }
       return;
     }
     const group = template.content.firstElementChild;
@@ -539,7 +544,9 @@ var gWhimsySettings = {
       template.remove();
       return;
     }
-    const anchor = document.querySelector('[groupid="performance"][data-category="paneGeneral"]');
+    Preferences.addAll([{ id: "media.hardware-video-decoding.enabled", type: "bool" }]);
+    const anchor = document.querySelector('[groupid="performance"]');
+    group.dataset.category = category;
     template.remove();
     if (anchor) {
       anchor.after(group);

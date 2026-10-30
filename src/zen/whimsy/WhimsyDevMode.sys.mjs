@@ -84,9 +84,9 @@ export const WhimsyDevMode = {
     };
     const listener = {
       QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
-      onLocationChange: progress => {
+      onLocationChange: (browser, progress) => {
         if (progress.isTopLevel) {
-          const tab = gBrowser.getTabForBrowser(progress.browsingContext.top.embedderElement);
+          const tab = gBrowser.getTabForBrowser(browser);
           if (tab) {
             update(tab);
           }
