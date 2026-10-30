@@ -124,14 +124,14 @@ add_task(async function test_normal_drag_and_click_untouched() {
   ok(selected.length > 3, "a plain drag still selects text");
   ok(!(await lassoState(browser)), "no lasso without Option");
 
-  // Option-click without a drag still clicks.
+  // Option-click without a drag still clicks. (On a link, Option-click is
+  // Zen's Glance, which handles the click itself; use plain text here.)
   await SpecialPowers.spawn(browser, [], () => {
-    content.document.getElementById("a2").addEventListener("click", e => {
-      content.wrappedJSObject.altClicked = true;
-      e.preventDefault();
+    content.document.getElementById("text").addEventListener("click", e => {
+      content.wrappedJSObject.altClicked = e.altKey;
     });
   });
-  await BrowserTestUtils.synthesizeMouseAtCenter("#a2", { altKey: true }, browser);
+  await BrowserTestUtils.synthesizeMouseAtCenter("#text", { altKey: true }, browser);
   ok(await SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.altClicked), "Option-click still clicks");
 
   // Fields keep Option-drag (word selection).

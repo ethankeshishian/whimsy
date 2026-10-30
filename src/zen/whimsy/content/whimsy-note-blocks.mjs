@@ -79,7 +79,7 @@ export function blockFromTab(tab) {
     return { error: "whimsy-note-block-unsupported" };
   }
   const isPrivate =
-    isPrivateWindow(tab.ownerGlobal) || lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser);
+    isPrivateWindow(tab.documentGlobal) || lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser);
   return blockFromURL(tab.linkedBrowser.currentURI?.spec ?? "", {
     title: tab.label,
     userContextId: tab.userContextId,

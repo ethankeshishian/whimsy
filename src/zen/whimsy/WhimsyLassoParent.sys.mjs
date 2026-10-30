@@ -16,7 +16,7 @@ export class WhimsyLassoParent extends JSWindowActorParent {
       return;
     }
     const browser = this.browsingContext.top.embedderElement;
-    const win = browser?.ownerGlobal;
+    const win = browser?.documentGlobal;
     if (!win?.gBrowser) {
       return;
     }

@@ -85,8 +85,13 @@ add_task(async function test_page_menu_item() {
     a.href = "https://example.org/";
     a.textContent = "a link";
     content.document.body.prepend(a);
+    // Somewhere plain to right-click: the page's top-left is now the link.
+    const plain = content.document.createElement("p");
+    plain.id = "plain";
+    plain.textContent = "plain text";
+    content.document.body.prepend(plain);
   });
-  menu = await openPageMenu(page.linkedBrowser);
+  menu = await openPageMenu(page.linkedBrowser, "#plain");
   const item = document.getElementById("context-whimsy-qrcode");
   ok(!item.hidden, "shown on the page");
   ok(item.parentNode.querySelector("#context-savepage ~ #context-whimsy-qrcode"), "sits after Save Page As");

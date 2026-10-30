@@ -33,6 +33,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  // Gecko 159 has no Services.search; the service is this module.
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
@@ -273,8 +275,8 @@ const pageLink = s => `[${escapeMarkdown(s.title)}](${s.url})`;
 function defaultEngineName(win) {
   try {
     const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
-      ? Services.search.defaultPrivateEngine
-      : Services.search.defaultEngine;
+      ? lazy.SearchService.defaultPrivateEngine
+      : lazy.SearchService.defaultEngine;
     return engine?.name ?? "";
   } catch (e) {
     // The search service isn't initialized yet.
@@ -313,8 +315,8 @@ const BUILT_IN = [
     scope: "selection",
     async run(win, s) {
       const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
-        ? await Services.search.getDefaultPrivate()
-        : await Services.search.getDefault();
+        ? await lazy.SearchService.getDefaultPrivate()
+        : await lazy.SearchService.getDefault();
       WhimsyVerbs.openTab(win, engine.getSubmission(s.text).uri.spec);
     },
   },
@@ -624,7 +626,7 @@ export const WhimsyVerbs = {
     if (subject.kind == "selection" && !subject.engineName) {
       // For the Search verb's label ("Search Google for ...").
       try {
-        await Services.search.init();
+        await lazy.SearchService.init();
       } catch (e) {
         // No engines: the label falls back to its plain form.
       }
@@ -643,7 +645,9 @@ export const WhimsyVerbs = {
     urlbar.select();
     urlbar.value = "";
     urlbar.searchMode = { source: UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, isPreview: false };
-    urlbar.startQuery({ allowAutofill: false });
+    // With an event, so the urlbar starts an engagement session: without
+    // one, picking a verb is never reported to the provider (onEngagement).
+    urlbar.startQuery({ allowAutofill: false, event: new win.Event("command") });
     // The session ends when the bar closes; plain "/" commands come back.
     urlbar.inputField.addEventListener(
       "blur",
@@ -754,7 +758,9 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
     const snippet = subject.kind == "selection" ? firstLine(subject.text, MAX_SNIPPET) : subject.title;
     const rows = WhimsyVerbs.verbsFor(win, subject)
       .map((verb, index) => ({ verb, index, label: WhimsyVerbs.labelFor(verb, subject, win) }))
-      .map(row => ({ ...row, score: score(row.label, query) }))
+      // Match the verb's name, not the selected text quoted in its label
+      // ("Search Google for “…”").
+      .map(row => ({ ...row, score: score(snippet ? row.label.replace(snippet, "") : row.label, query) }))
       .filter(row => row.score > 0)
       .sort((a, b) => b.score - a.score || a.index - b.index);
     for (const [i, { verb, label }] of rows.entries()) {

@@ -44,7 +44,9 @@ add_task(async function test_markdown_over_http() {
       meta: doc.querySelector(".bar .meta")?.textContent,
     };
   });
-  is(info.type, "text/html", "the file renders as a page");
+  // Rendered as a page, but like Firefox's JSON viewer the document keeps
+  // the file's own type, so Save Page As saves the file, not the rendering.
+  is(info.type, "text/plain", "the document keeps the file's type");
   is(info.title, "Balloon Notes", "titled by the first heading");
   is(info.h1, "h-balloon-notes", "headings get ids");
   Assert.deepEqual(info.ids, ["h-getting-started", "h-getting-started-1"], "repeated headings get unique ids");
@@ -148,8 +150,12 @@ add_task(async function test_never_claimed() {
     const frame = content.document.querySelector("iframe");
     await ContentTaskUtils.waitForCondition(() => frame.contentDocument?.readyState == "complete");
   });
-  const frameType = await SpecialPowers.spawn(tab.linkedBrowser.browsingContext.children[0], [], () => content.document.contentType);
-  is(frameType, "text/plain", "frames are left alone");
+  const framed = await SpecialPowers.spawn(tab.linkedBrowser.browsingContext.children[0], [], () => ({
+    type: content.document.contentType,
+    viewer: !!content.document.querySelector(".bar"),
+  }));
+  is(framed.type, "text/plain", "frames show the file as text");
+  ok(!framed.viewer, "frames are left alone");
   BrowserTestUtils.removeTab(tab);
 
   const other = await writeTemp("whimsy-viewer.txt", "# Not markdown\n");

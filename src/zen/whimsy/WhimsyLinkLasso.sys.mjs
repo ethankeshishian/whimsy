@@ -68,6 +68,7 @@ export const WhimsyLinkLasso = {
       const tab = gBrowser.addTab(link.url, {
         createLazyBrowser: true,
         lazyTabTitle: link.title || link.url,
+        noInitialLabel: true,
         inBackground: true,
         skipAnimation: true,
         userContextId: Number(userContextId),

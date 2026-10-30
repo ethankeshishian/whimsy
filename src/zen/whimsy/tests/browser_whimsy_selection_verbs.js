@@ -119,7 +119,10 @@ add_task(async function test_selection_lists_only_verbs() {
     );
     const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
     is(result.rowLabel?.args?.text, "Team sync Nov 3 at 3pm", "The row label shows the selection");
-    const engine = await Services.search.getDefault();
+    const { SearchService } = ChromeUtils.importESModule(
+      "moz-src:///toolkit/components/search/SearchService.sys.mjs"
+    );
+    const engine = await SearchService.getDefault();
     is(
       // Fluent wraps placeables in bidi isolation marks.
       result.payload.title.replace(/[\u2068\u2069]/g, ""),
