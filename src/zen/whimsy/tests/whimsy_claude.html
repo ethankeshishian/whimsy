@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Claude test page</title>
+</head>
+<body>
+<h1>Order form</h1>
+<p id="intro">Fill in the form to order a sandwich.</p>
+<form id="form">
+  <label for="q">Search</label>
+  <input id="q" type="text" placeholder="Type a sandwich">
+  <label for="pw">Password</label>
+  <input id="pw" type="password" value="hunter2">
+  <label><input id="extra" type="checkbox"> Extra cheese</label>
+  <label for="size">Size</label>
+  <select id="size">
+    <option value="s">Small</option>
+    <option value="m">Medium</option>
+    <option value="l">Large</option>
+  </select>
+  <button id="go" type="button">Go</button>
+  <button id="submit" type="submit">Order</button>
+</form>
+<p id="result"></p>
+<p id="hidden" style="display: none">Secret hidden text</p>
+<a id="link" href="#done">Done link</a>
+<script>
+  document.getElementById("go").addEventListener("click", () => {
+    document.getElementById("result").textContent = "clicked " + document.getElementById("q").value;
+  });
+  document.getElementById("form").addEventListener("submit", event => {
+    event.preventDefault();
+    document.getElementById("result").textContent = "submitted";
+  });
+</script>
+</body>
+</html>

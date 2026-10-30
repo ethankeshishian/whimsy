@@ -305,3 +305,34 @@
     </html:div>
   </groupbox>
 </html:template>
+
+# tierC-claude: Settings → Privacy & Security → Claude: turn the Claude space
+# on, its scope and per-site asking, and the Connect Claude Code helper
+# (shows the command and JSON to copy; never runs anything).
+<html:template id="template-whimsyClaude" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <html:div id="whimsyClaudeGroup" data-category="panePrivacy" data-whimsy-feature="claude-space" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-claude-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/sparkles.svg">
+        <html:moz-checkbox id="whimsyClaudeEnable" data-l10n-id="whimsy-claude-enable"/>
+        <html:moz-checkbox id="whimsyClaudeWholeBrowser" data-l10n-id="whimsy-claude-whole-browser"/>
+        <html:moz-checkbox id="whimsyClaudeAsk" data-l10n-id="whimsy-claude-ask"/>
+        <html:p id="whimsyClaudeAIBlocked" class="whimsy-updates-detail" data-l10n-id="whimsy-claude-ai-blocked" hidden="hidden"/>
+        <html:div id="whimsyClaudeConnect" class="whimsy-claude-connect" hidden="hidden">
+          <html:h4 class="whimsy-claude-connect-heading" data-l10n-id="whimsy-claude-connect-heading"/>
+          <html:p data-l10n-id="whimsy-claude-connect-intro"/>
+          <html:pre id="whimsyClaudeCommand" class="whimsy-claude-code" tabindex="0"></html:pre>
+          <html:p data-l10n-id="whimsy-claude-connect-json-intro"/>
+          <html:pre id="whimsyClaudeJSON" class="whimsy-claude-code" tabindex="0"></html:pre>
+          <hbox align="center" class="whimsy-claude-buttons">
+            <button id="whimsyClaudeCopyCommand" data-l10n-id="whimsy-claude-copy-command"/>
+            <button id="whimsyClaudeCopyJSON" data-l10n-id="whimsy-claude-copy-json"/>
+            <button id="whimsyClaudeNewToken" data-l10n-id="whimsy-claude-new-token"/>
+            <button id="whimsyClaudeForgetSites" data-l10n-id="whimsy-claude-forget-sites"/>
+            <html:span id="whimsyClaudeStatus" class="whimsy-updates-detail" role="status"></html:span>
+          </hbox>
+        </html:div>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
+</html:template>

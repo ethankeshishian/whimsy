@@ -224,3 +224,29 @@
 # shown, so it only shows once a year.
 - name: whimsy.year.last-toast-year
   value: 0
+# tierC-claude: the Claude space (Settings → Privacy & Security → Claude).
+# Off until the user turns it on: then Whimsy runs a local MCP server on
+# 127.0.0.1 for Claude Code, and Claude can use the tabs in the Claude space.
+- name: whimsy.claude.enabled
+  value: false
+
+# Let Claude use every normal tab, not just the Claude space (private tabs
+# and Scratch are never included).
+- name: whimsy.claude.whole-browser
+  value: false
+
+# Ask before Claude clicks, types or fills forms on a site for the first
+# time, and before it uses a tab outside the Claude space.
+- name: whimsy.claude.ask-per-site
+  value: true
+
+# The server's port (picked at random the first time, then kept so the
+# connect command keeps working), its bearer token, and the Claude space.
+- name: whimsy.claude.port
+  value: 0
+
+- name: whimsy.claude.token
+  value: ""
+
+- name: whimsy.claude.space-id
+  value: ""

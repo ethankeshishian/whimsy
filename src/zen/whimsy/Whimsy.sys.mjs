@@ -67,6 +67,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyStats: "resource:///modules/whimsy/WhimsyStats.sys.mjs",
 });
 
+// tierC-claude: the Claude space (local MCP server for Claude Code).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyClaude: "resource:///modules/whimsy/WhimsyClaude.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -382,6 +387,10 @@ export const Whimsy = {
     }
     Services.prefs.setIntPref("whimsy.year.last-toast-year", year);
     win.gZenUIManager?.showToast?.("whimsy-year-ready-toast", {});
+    // tierC-claude: the Claude space. Once per session, it only watches its
+    // switches; the server and page actor exist only while the user has
+    // turned Claude on in Settings.
+    run("claude-space", () => lazy.WhimsyClaude.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

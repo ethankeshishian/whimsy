@@ -892,3 +892,32 @@ tab[whimsy-devmode][selected] {
 .whimsy-devmode-button {
   font-size: 0.85em;
 }
+
+/* tierC-claude: a tab Claude is using glows in Claude's terracotta (a slow
+   breathing ring; a steady one with reduced motion). Its page also shows a
+   "Claude is using this tab" bar with a Stop button. */
+:root {
+  --whimsy-claude-accent: rgb(217, 119, 87);
+}
+
+.tabbrowser-tab[whimsy-claude-active] .tab-background {
+  box-shadow:
+    inset 0 0 0 1.5px var(--whimsy-claude-accent),
+    0 0 8px color-mix(in srgb, var(--whimsy-claude-accent) 45%, transparent) !important;
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .tabbrowser-tab[whimsy-claude-active] .tab-background {
+    animation: whimsy-claude-breathe 1.8s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes whimsy-claude-breathe {
+  from { box-shadow: inset 0 0 0 1.5px var(--whimsy-claude-accent), 0 0 2px transparent; }
+  to { box-shadow: inset 0 0 0 1.5px var(--whimsy-claude-accent), 0 0 10px color-mix(in srgb, var(--whimsy-claude-accent) 55%, transparent); }
+}
+
+notification-message[value="whimsy-claude-control"] {
+  --message-bar-background-color: color-mix(in srgb, var(--whimsy-claude-accent) 14%, var(--background-color-box, Canvas));
+  --message-bar-border-color: color-mix(in srgb, var(--whimsy-claude-accent) 60%, transparent);
+}

@@ -4,12 +4,16 @@
 
 EXTRA_JS_MODULES.whimsy += [
     "Whimsy.sys.mjs",
+    "WhimsyAboutPage.sys.mjs",
     "WhimsyAI.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
     "WhimsyArchive.sys.mjs",
     "WhimsyBionicReading.sys.mjs",
     "WhimsyBionicReadingChild.sys.mjs",
     "WhimsyCheatSheet.sys.mjs",
+    "WhimsyClaude.sys.mjs",
+    "WhimsyClaudeChild.sys.mjs",
+    "WhimsyClaudeParent.sys.mjs",
     "WhimsyCommandBar.sys.mjs",
     "WhimsyCookieBanners.sys.mjs",
     "WhimsyCookieEditor.sys.mjs",
@@ -33,6 +37,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyLook.sys.mjs",
     "WhimsyMedia.sys.mjs",
     "WhimsyMenuBarExtra.sys.mjs",
+    "WhimsyNetErrorChild.sys.mjs",
+    "WhimsyNetErrorParent.sys.mjs",
     "WhimsyNotesSection.sys.mjs",
     "WhimsyPage.sys.mjs",
     "WhimsyPageChild.sys.mjs",
@@ -51,6 +57,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySplit.sys.mjs",
     "WhimsySplitFavorites.sys.mjs",
     "WhimsyStartup.sys.mjs",
+    "WhimsyStats.sys.mjs",
     "WhimsyTabs.sys.mjs",
     "WhimsyTreeTabs.sys.mjs",
     "WhimsyUndo.sys.mjs",
@@ -60,11 +67,6 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyUrlbar.sys.mjs",
     "WhimsyUserAgent.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
-    # batch7b: about:whimsy (offline game + year in tabs)
-    "WhimsyAboutPage.sys.mjs",
-    "WhimsyNetErrorChild.sys.mjs",
-    "WhimsyNetErrorParent.sys.mjs",
-    "WhimsyStats.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

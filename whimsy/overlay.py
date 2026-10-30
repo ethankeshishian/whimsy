@@ -311,6 +311,9 @@ FEATURES = [
     # wave1/fun: Whimsy network error branding
     {"id": "net-error-branding", "title": "Whimsy network error illustrations",
      "detect": [("prefs", r"name:\s*browser\.neterror\.whimsy-branding")]},
+    # tierC-claude: the Claude space (Claude in Chrome parity via a local MCP server).
+    {"id": "claude-space", "title": "Claude space: a local MCP server lets Claude Code read and use tabs in a dedicated Claude space (off until turned on in Settings)",
+     "detect": [("src/zen", r"(?i)mcp-?server|claude-?space|modelcontextprotocol")]},
 ]
 
 
