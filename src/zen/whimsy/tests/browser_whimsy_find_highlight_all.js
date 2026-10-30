@@ -6,7 +6,11 @@
 // Cmd+F highlights every match like Chrome: Firefox's own "Highlight All"
 // is on by default, and the find bar's checkbox reflects it.
 add_task(async function test_highlight_all_default() {
-  ok(Services.prefs.getBoolPref("findbar.highlightAll"), "Highlight All is on by default");
+  // The test profile sets findbar.highlightAll=false (unittest-required
+  // user.js); check the shipped default, then drop that user value.
+  ok(Services.prefs.getDefaultBranch("").getBoolPref("findbar.highlightAll"), "Highlight All is on by default");
+  await SpecialPowers.pushPrefEnv({ clear: [["findbar.highlightAll"]] });
+  registerCleanupFunction(() => SpecialPowers.popPrefEnv());
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/html,<p>apple apple apple</p>");
   const findbar = await gBrowser.getFindBar();
   findbar.open();
