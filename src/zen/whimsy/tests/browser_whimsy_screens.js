@@ -746,9 +746,34 @@ add_task(async function hover_card_history() {
 
 // fixB: every rebuilt panel ("sheet"), in light and dark, plus Zen's
 // Delete Space confirm (now in-window) and the Archive in the Library.
+// wave5/uxfix: dark shots must really be dark. The system pref alone flips
+// prefers-color-scheme, but Zen paints the window from its space theme in
+// JS, so repaint it and wait for the change to land before drawing.
+async function setScheme(dark) {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["ui.systemUsesDarkTheme", dark],
+    ["browser.theme.toolbar-theme", dark ? 0 : 1],
+    ["browser.theme.content-theme", dark ? 0 : 1],
+  ] });
+  const want = dark ? "dark" : "light";
+  await TestUtils.waitForCondition(() =>
+    window.matchMedia(`(prefers-color-scheme: ${want})`).matches, `The window is ${want}`);
+  window.gZenThemePicker?.onWorkspaceChange?.(window.gZenWorkspaces?.getActiveWorkspace?.());
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+
+// Waits until every finite animation in the window has finished, so a
+// sheet or dialog isn't caught mid-fade.
+async function settled(doc = document) {
+  await TestUtils.waitForCondition(() =>
+    doc.getAnimations().every(a =>
+      a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity),
+  "Animations have settled").catch(() => info("Some animation kept running"));
+}
+
 async function sheetShot(name, panelId, open, ready = null) {
   for (const dark of [0, 1]) {
-    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    await setScheme(dark);
     const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == panelId);
     await open();
     await shown;
@@ -758,7 +783,7 @@ async function sheetShot(name, panelId, open, ready = null) {
         await TestUtils.waitForCondition(() => ready(panel), `${name} is ready`);
       }
       await document.l10n.translateFragment(panel);
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await settled();
       await shot(`fixB-${name}-${dark ? "dark" : "light"}`);
     } finally {
       const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
@@ -814,7 +839,7 @@ add_task(async function fixB_delete_space_confirm() {
     const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
     const deleting = gZenWorkspaces.contextDeleteWorkspace();
     const win = await dialog;
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await settled();
     await shot("fixB-delete-space-confirm");
     win.document.querySelector("dialog").getButton("cancel").click();
     await deleting;
@@ -1548,14 +1573,11 @@ add_task(async function uxfix_split_favorite_name_sheet() {
     "whimsy-split-favorite-name-prompt",
   ]);
   for (const dark of [0, 1]) {
-    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    await setScheme(dark);
     const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
     const asking = WhimsyPanels.ask(window, { title, body, value: "Mail + Calendar" });
     const win = await dialog;
-    await TestUtils.waitForCondition(() =>
-      document.getAnimations().every(a =>
-        a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity),
-    "The sheet has finished opening");
+    await settled();
     await shot(`uxfix-split-favorite-name-${dark ? "dark" : "light"}`);
     win.document.querySelector("dialog").getButton("cancel").click();
     is(await asking, null, "Cancel leaves no favorite");
