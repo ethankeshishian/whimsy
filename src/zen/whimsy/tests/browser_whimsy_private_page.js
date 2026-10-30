@@ -100,3 +100,46 @@ add_task(async function test_switch_off_keeps_firefox_handoff() {
   }
   await closeTab(tab);
 });
+
+// A private tab in a split: its segment of the split pill and its pane are
+// marked, the normal tab next to it isn't.
+add_task(async function test_private_tab_in_split() {
+  const ACCENT = "rgb(152, 110, 255)";
+  const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?normal");
+  const url = "https://example.com/?private-split";
+  const priv = WhimsyPrivate.openPrivateTab(window, { url });
+  ok(priv, "A private tab opened");
+  await BrowserTestUtils.browserLoaded(priv.linkedBrowser, false, url);
+  gZenViewSplitter.splitTabs([normal, priv], "vsep");
+  await TestUtils.waitForCondition(
+    () => gZenViewSplitter._data.find(group => group.tabs.includes(priv))?.tabs.length == 2,
+    "The two tabs are split"
+  );
+  gBrowser.selectedTab = priv;
+  const panel = tab => tab.linkedBrowser.closest(".browserSidebarContainer");
+  await TestUtils.waitForCondition(
+    () => panel(priv).classList.contains("deck-selected") && panel(priv).getAttribute("zen-split") == "true",
+    "The private pane is the active pane"
+  );
+  ok(priv.closest("tab-group[split-view-group]"), "The private tab sits in the split pill");
+  const ring = getComputedStyle(priv.querySelector(".tab-background")).boxShadow;
+  ok(ring.includes(ACCENT), `The private tab's segment has the violet ring (${ring})`);
+  ok(
+    !getComputedStyle(normal.querySelector(".tab-background")).boxShadow.includes(ACCENT),
+    "The normal tab's segment doesn't"
+  );
+  is(getComputedStyle(panel(priv)).outlineColor, ACCENT, "The active private pane's ring is violet");
+  isnot(getComputedStyle(panel(priv), "::after").content, "none", "The private pane shows the private badge");
+  is(getComputedStyle(panel(normal), "::after").content, "none", "The normal pane has no badge");
+
+  gBrowser.selectedTab = normal;
+  await TestUtils.waitForCondition(() => panel(normal).classList.contains("deck-selected"), "The normal pane is active");
+  const inactive = getComputedStyle(panel(priv));
+  is(inactive.outlineStyle, "solid", "An inactive private pane keeps its ring");
+  isnot(inactive.outlineColor, ACCENT, "... fainter than the active one");
+
+  gZenViewSplitter.unsplitCurrentView();
+  await TestUtils.waitForCondition(() => !gZenViewSplitter._data.some(group => group.tabs.includes(priv)), "Unsplit");
+  await closeTab(priv);
+  await closeTab(normal);
+});

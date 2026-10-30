@@ -530,3 +530,35 @@ add_task(async function private_tab_page() {
     BrowserTestUtils.removeTab(tab, { animate: false });
   }
 });
+
+// fixC: a private tab split with a normal one (tab segment and pane marked).
+add_task(async function private_tab_in_split() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const url = "https://example.org/";
+  const priv = WhimsyPrivate.openPrivateTab(window, { url });
+  if (!priv) {
+    BrowserTestUtils.removeTab(normal);
+    ok(true, "Private tabs don't open in the window here");
+    return;
+  }
+  try {
+    await BrowserTestUtils.browserLoaded(priv.linkedBrowser, false, url);
+    gZenViewSplitter.splitTabs([normal, priv], "vsep");
+    await TestUtils.waitForCondition(
+      () => gZenViewSplitter._data.find(group => group.tabs.includes(priv))?.tabs.length == 2
+    );
+    gBrowser.selectedTab = priv;
+    gURLBar.blur();
+    await TestUtils.waitForCondition(
+      () => !priv.linkedBrowser.closest(".browserSidebarContainer").getAnimations().length
+    );
+    await shot("fixC-private-split");
+  } finally {
+    if (gZenViewSplitter.currentView >= 0) {
+      gZenViewSplitter.unsplitCurrentView();
+    }
+    BrowserTestUtils.removeTab(priv, { animate: false });
+    BrowserTestUtils.removeTab(normal);
+  }
+});

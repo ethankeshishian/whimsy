@@ -729,6 +729,44 @@ toolbarbutton[zen-workspace-id][whimsy-scratch] {
   toolbarbutton[zen-workspace-id][whimsy-scratch] { animation: none; }
 }
 
+/* fixC: private tabs in a split. Zen draws a split as one pill whose tabs
+   share the selected background, so the 18% wash above got lost next to
+   normal tabs. In a split the private tab's segment gets the selected-
+   strength wash and a solid ring, and its pane wears the same violet: a
+   ring (Zen's own active-pane outline, in violet; fainter when another
+   pane is active) and the private badge in its corner. */
+tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--whimsy-private-tab-accent) 30%, transparent),
+    color-mix(in srgb, var(--whimsy-private-tab-accent) 30%, transparent)
+  ) !important;
+  box-shadow: inset 0 0 0 1.5px var(--whimsy-private-tab-accent) !important;
+}
+
+:root:not([inDOMFullscreen="true"]) #tabbrowser-tabpanels[zen-split-view="true"] > .browserSidebarContainer[zen-split="true"]:not(.zen-glance-overlay):has(browser[mozprivatebrowsing="true"]) {
+  outline: 2px solid color-mix(in srgb, var(--whimsy-private-tab-accent) 55%, transparent) !important;
+
+  &.deck-selected {
+    outline-color: var(--whimsy-private-tab-accent) !important;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    inset-inline-start: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 99px;
+    pointer-events: none;
+    background: var(--whimsy-private-tab-accent) url("chrome://browser/skin/zen-icons/private-window-small.svg") center / 14px no-repeat;
+    -moz-context-properties: fill;
+    fill: white;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    opacity: 0.92;
+  }
+}
+
 /* batch12: Mini Whimsy, Arc's "Little Arc" (quick window,
    whimsy.feature.quick-window). Hides the whole vertical sidebar (tabs,
    spaces, pinned) so just the nav bar above the content and the
