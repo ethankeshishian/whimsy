@@ -429,3 +429,17 @@
 
 - name: whimsy.profiles.saved-download
   value: ""
+
+# wave5/profiles: honour extensions.userContextIsolation.<id>.restricted
+# (set only for extensions limited to some profiles). Firefox reads this when
+# an extension starts, so it has to be on from startup.
+- name: extensions.userContextIsolation.enabled
+  value: true
+
+# Extensions per profile: extension id → profile keys (JSON; empty = none
+# limited). Synced, keyed by profile key like the profiles themselves.
+- name: whimsy.profiles.extensions
+  value: ""
+
+- name: services.sync.prefs.sync.whimsy.profiles.extensions
+  value: true

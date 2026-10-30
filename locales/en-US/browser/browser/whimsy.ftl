@@ -949,14 +949,14 @@ whimsy-quick-window-no-space =
     .label = Open in…
 ## ext: per-space extensions
 
-whimsy-space-extensions-header = Per-space extensions
+whimsy-space-extensions-header = Extensions per profile
 whimsy-space-extensions-toggle =
-    .label = Show extensions per space
-whimsy-space-extensions-help = Each space can have its own extensions.
+    .label = Run extensions only in the profiles you choose
+whimsy-space-extensions-help = Choose with Run in Profiles on an extension’s menu. Outside those profiles it can’t see your tabs or run on pages. It’s still installed once, so its settings and saved data are shared by every profile.
 whimsy-space-extensions-menu =
-    .label = Show in Spaces…
+    .label = Run in Profiles
 whimsy-space-extensions-all =
-    .label = All Spaces
+    .label = All Profiles
 # batch hist: visit-time space in the Library History tab.
 whimsy-history-space-filter = Where was the tab?
 whimsy-history-all-spaces = All Spaces
@@ -1582,8 +1582,9 @@ whimsy-meeting-apple-detail = Connect all accounts in Apple Calendar.
 whimsy-meeting-untitled = Meeting
 
 # wave4: extension space picker in about:addons
-whimsy-space-extensions-picker = Show in Spaces
-whimsy-space-extensions-all-text = All Spaces
+whimsy-space-extensions-picker = Run in Profiles
+whimsy-space-extensions-all-text = All Profiles
+whimsy-space-extensions-shared-note = Installed once: its settings and saved data are shared by every profile.
 
 # wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
 # title, $url its address.
@@ -1634,7 +1635,7 @@ whimsy-profile-rename-button-text = Rename Profile
 whimsy-profile-create-menuitem =
     .label = Create a New Profile…
 whimsy-profiles-header = Profiles
-whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data, saved passwords, history, Essentials, search engine and download folder, and a new one starts empty. Spaces in the same profile share them.
+whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data, saved passwords, history, Essentials, extensions, search engine and download folder, and a new one starts empty. Spaces in the same profile share them.
 whimsy-profiles-delete-rule = Only Profiles not assigned to any Spaces can be deleted.
 whimsy-profiles-spaces =
     { $count ->

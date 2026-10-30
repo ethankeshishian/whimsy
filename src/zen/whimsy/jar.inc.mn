@@ -66,3 +66,5 @@
         content/browser/whimsy/whimsy-season-winter.svg                          (../../zen/whimsy/content/whimsy-season-winter.svg)
         content/browser/whimsy/whimsy-season-spring.svg                          (../../zen/whimsy/content/whimsy-season-spring.svg)
         content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)
+# wave5/profiles: keeps extensions' content scripts out of other profiles' pages.
+        content/browser/whimsy/whimsy-profiles-process.js                       (../../zen/whimsy/content/whimsy-profiles-process.js)

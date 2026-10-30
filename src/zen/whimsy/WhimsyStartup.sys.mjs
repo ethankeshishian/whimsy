@@ -24,5 +24,15 @@ export class WhimsyStartup {
     } catch (e) {
       console.error("Whimsy: update channel", e);
     }
+    // wave5/profiles: before any page loads, so an extension limited to
+    // some profiles never runs its content scripts in another's restored
+    // tabs (see whimsy-profiles-process.js).
+    try {
+      if (Services.prefs.getBoolPref("whimsy.feature.space-extensions", true)) {
+        Services.ppmm.loadProcessScript("chrome://browser/content/whimsy/whimsy-profiles-process.js", true);
+      }
+    } catch (e) {
+      console.error("Whimsy: profile content-script guard", e);
+    }
   }
 }
