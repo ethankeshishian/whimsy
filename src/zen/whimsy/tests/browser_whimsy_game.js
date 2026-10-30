@@ -342,3 +342,40 @@ add_task(async function test_costumes_keep_the_rules() {
     is(game.season, null, "Unknown seasons fall back to no costume");
   });
 });
+
+// fix7/game: slow-mo slows the whole world (hazards, telegraphs, spawn
+// timers, scenery), not just hazard motion, and the balloon keeps its speed.
+add_task(async function test_slow_mo_slows_the_whole_world() {
+  await withGame(async ({ game }) => {
+    game.start();
+    game.clear();
+    const s = game.state;
+    const steer = () => {
+      s.player.x = 100;
+      s.player.vx = 0;
+      s.player.vy = 0;
+      game.setInput(1, 0);
+      game.tick(0.5);
+      game.setInput(0, 0);
+      return s.player.x - 100;
+    };
+    const normal = steer();
+    game.spawn("slow");
+    game.tick(0.3);
+    Assert.less(s.timeScale, 0.45, "The world eases into slow-mo");
+    Assert.less(Math.abs(steer() - normal), 1, "The balloon keeps full speed");
+
+    game.warn("seed");
+    const warning = s.warnings.at(-1);
+    const distance = s.distance;
+    game.tick(1);
+    Assert.less(warning.t, 0.5, "Telegraphs run slow too, so slow-mo never crowds the sky");
+    Assert.less(s.distance - distance, s.speed * 0.5, "The scenery drifts slower");
+
+    game.clear();
+    game.tick(5);
+    is(s.slowT, 0, "Slow-mo runs out");
+    is(s.timeScale, 1, "and the world is back to full speed");
+  });
+});
+
