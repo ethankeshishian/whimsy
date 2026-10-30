@@ -2042,49 +2042,35 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 
 }
 
-/* batch4: Library rail icons. These are single-frame Zen glyphs, whereas
-   Zen's native Library icons are 36-frame sprites. Nucleo glyphs use only
-   context-fill, so keep them painted even when the tab is not selected. */
-:is(.zen-library-tab, .zen-library-section):is(
-  [data-section="whimsy-notes"],
-  [data-section="whimsy-finder-folders"],
-  [data-section="whimsy-files"],
-  [data-section="whimsy-next-meeting"],
-  [data-section="whimsy-playlist"],
-  [data-section="whimsy-archive"]
-) :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  width: var(--zen-library-sprite-size);
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  fill: var(--stroke);
-  animation: none !important;
-  transform: none !important;
-}
-
+/* batch4, fix7/tabs: Library rail icons. Like Zen's own (History,
+   Downloads...), each is a 36-frame sprite in Zen's style (outline in
+   context-stroke, body in context-fill, painted only on the chosen tab),
+   drawn by whimsy/library_sprites.py, and Zen's zen-library-sprite-play
+   runs it once when the tab is chosen; with reduced motion Zen doesn't
+   play it, so the icon just fills in. */
 [data-section="whimsy-notes"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/page-portrait.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-notes-sprite.svg");
 }
 
 [data-section="whimsy-finder-folders"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/folder.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-folders-sprite.svg");
 }
 
 [data-section="whimsy-files"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/screenshot.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-screenshots-sprite.svg");
 }
 
 /* Harmless when the Meetings feature (or its module) is removed. */
 [data-section="whimsy-next-meeting"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/selectable/time.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-meeting-sprite.svg");
 }
 
 [data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/u-turn-to-left.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-archive-sprite.svg");
 }
 
 [data-section="whimsy-playlist"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/selectable/video.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-playlist-sprite.svg");
 }
 
 /* Zen scopes the URL/date swap to its original custom-element name. */

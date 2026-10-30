@@ -1620,3 +1620,30 @@ add_task(async function fix7_pinned_marks_and_essential_badge() {
     }
   }
 });
+
+// fix7/tabs: Whimsy's Library icons are sprites in Zen's style; each one is
+// caught a third of the way through its play.
+add_task(async function fix7_library_icons_mid_play() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.library.hidden-tabs", ""]] });
+  const library = document.querySelector("zen-library");
+  const wasOpen = library.constructor.isLibraryOpen;
+  try {
+    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-notes"]);
+    await library.constructor.animateProgress(1);
+    await library.updateComplete;
+    for (const tab of library.querySelectorAll('.zen-library-tab[data-section^="whimsy-"]')) {
+      tab.setAttribute("animate", "true");
+      for (const animation of tab.querySelector(".zen-library-tab-icon-image").getAnimations()) {
+        animation.pause();
+        animation.currentTime = 200;
+      }
+    }
+    await shot("fix7-library-icons-mid-play");
+  } finally {
+    for (const tab of library.querySelectorAll('.zen-library-tab[data-section^="whimsy-"]')) {
+      tab.removeAttribute("animate");
+    }
+    await library.constructor.animateProgress(wasOpen ? 1 : 0);
+    await SpecialPowers.popPrefEnv();
+  }
+});

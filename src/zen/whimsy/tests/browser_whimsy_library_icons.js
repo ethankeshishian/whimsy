@@ -44,25 +44,34 @@ add_task(async function test_every_library_tab_has_an_icon() {
     }
     const response = await fetch(url);
     ok(response.ok, `${id}'s icon is packaged`);
-    ok((await response.text()).includes("<svg"), `${id}'s icon is SVG`);
+    const svg = await response.text();
+    ok(svg.includes("<svg"), `${id}'s icon is SVG`);
 
     if (!id.startsWith("whimsy-")) {
       continue;
     }
+    // fix7/tabs: Whimsy's icons are 36-frame sprites like Zen's, so they
+    // play the same animation when chosen, and fill in only when active.
+    ok(svg.includes('x="980"'), `${id} is a 36-frame sprite`);
     const wasActive = tab.hasAttribute("active");
     const animationValue = tab.getAttribute("animate");
     try {
+      const frame = parseFloat(getComputedStyle(icon.parentElement).width);
       for (const active of [false, true]) {
         tab.toggleAttribute("active", active);
         tab.setAttribute("animate", "true");
         const style = getComputedStyle(icon);
-        is(style.width, getComputedStyle(icon.parentElement).width,
-          `${id} occupies one frame (active=${active})`);
-        is(style.animationName, "none", `${id} never plays a sprite animation`);
-        is(style.transform, "none", `${id} stays inside its clipped frame`);
-        ok(!["transparent", "rgba(0, 0, 0, 0)"].includes(style.fill),
-          `${id} stays visible when active=${active}`);
+        is(parseFloat(style.width), 36 * frame, `${id} is a strip of 36 frames (active=${active})`);
+        is(style.animationName, "zen-library-sprite-play", `${id} plays Zen's sprite animation when chosen`);
+        ok(!["transparent", "rgba(0, 0, 0, 0)"].includes(style.stroke),
+          `${id}'s outline stays visible when active=${active}`);
+        is(["transparent", "rgba(0, 0, 0, 0)"].includes(style.fill), !active,
+          `${id}'s body is painted only when active (active=${active})`);
       }
+      await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+      await TestUtils.waitForCondition(() => getComputedStyle(icon).animationName == "none",
+        `${id} doesn't play with reduced motion`);
+      await SpecialPowers.popPrefEnv();
     } finally {
       tab.toggleAttribute("active", wasActive);
       if (animationValue === null) {
