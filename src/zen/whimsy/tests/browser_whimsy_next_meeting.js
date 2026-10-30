@@ -159,7 +159,8 @@ add_task(async function test_ics_recurrence_and_time_zones() {
 add_task(async function test_calendar_addresses() {
   is(normalizeCalendarUrl("http://calendar.google.com/x/basic.ics"), null, "A secret address is never fetched over http");
   is(normalizeCalendarUrl("not a url"), null, "Garbage is refused");
-  const webcal = normalizeCalendarUrl("webcal://calendar.google.com/calendar/ical/a%40b.com/private-x/basic.ics");
+  // Adding an address fetches it, and tests may only reach the test proxy's hosts.
+  const webcal = normalizeCalendarUrl("webcal://example.com/calendar/ical/a%40b.com/private-x/basic.ics");
   ok(webcal.startsWith("https://"), "webcal:// becomes https://");
   is(labelForCalendarUrl(webcal), "a@b.com", "The account's email labels it");
 

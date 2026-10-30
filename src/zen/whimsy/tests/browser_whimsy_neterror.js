@@ -45,7 +45,7 @@ add_task(async function network_and_certificate_layouts() {
               () => root.querySelector("#whimsy-neterror-style")?.sheet,
               "The branding CSS loads, including inside the shadow root"
             );
-            const text = root.textContent;
+            const text = (root.documentElement ?? root).textContent;
             ok(!/Firefox/.test(text), "No Firefox branding in page or certificate details");
             ok(text.includes("Whimsy"), "Whimsy wording is translated");
             const art = root.querySelector(".felt-privacy-container") || doc.querySelector("#text-container");
@@ -88,7 +88,7 @@ add_task(async function switches_off_keep_native_error_controls() {
         await doc.l10n.translateRoots();
         ok(!root.querySelector("#whimsy-neterror-brand"), "Illustration switch disables the overlay");
         ok(!doc.getElementById("whimsy-neterror-game-link"), "Game switch disables its button");
-        ok(!root.textContent.includes("Firefox"), "Product strings still say Whimsy when illustration is off");
+        ok(!(root.documentElement ?? root).textContent.includes("Firefox"), "Product strings still say Whimsy when illustration is off");
         ok(root.querySelector("#tryAgainButton, #reloadButton"), "Native retry control remains");
       });
     });
