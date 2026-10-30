@@ -478,6 +478,18 @@ add_task(async function mini_whimsy_destination() {
       ok(win.document.getElementById("whimsy-quick-window-bar").checkVisibility(), `Mini's bar shows (${scheme})`);
       await new Promise(resolve => win.requestAnimationFrame(resolve));
       await shot(`mini-whimsy-${scheme}`, win.browsingContext.currentWindowGlobal);
+
+      // fix7: the space dropdown from the caret (also Cmd+Shift+O).
+      const picker = () => win.document.getElementById("whimsy-quick-window-space-picker");
+      win.document.getElementById("whimsy-quick-window-choose-space").doCommand();
+      await TestUtils.waitForCondition(() => picker()?.state == "open", `Space dropdown opens (${scheme})`);
+      ok([...picker().querySelectorAll(".whimsy-mini-picker-space")].every(row => row.checkVisibility()),
+        `Every space row is visible (${scheme})`);
+      await new Promise(resolve => win.requestAnimationFrame(resolve));
+      await shot(`mini-whimsy-space-dropdown-${scheme}`, win.browsingContext.currentWindowGlobal);
+      const hidden = BrowserTestUtils.waitForEvent(picker(), "popuphidden");
+      picker().hidePopup();
+      await hidden;
     } finally {
       await BrowserTestUtils.closeWindow(win);
     }

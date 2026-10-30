@@ -12,7 +12,7 @@
 // glance at it, then either close it (Esc, Cmd+W, or the close button —
 // gone for good, no history or session entry) or press "Open in <Space name>"
 // (Cmd+O, matching Arc) to adopt it into a real tab, or pick a
-// different one (the caret button). A second link while one is already
+// different one (the caret button or Cmd+Shift+O). A second link while one is already
 // open reuses the same window. (wave6: parity.md reads the 120 fps clip as
 // Arc stacking a second window and ignoring Esc, but that clip can't show
 // which window had focus; both stay as they are until verified.)
@@ -68,6 +68,7 @@ const BACK_BUTTON_ID = "whimsy-quick-window-back";
 const ADDRESS_ID = "whimsy-quick-window-address";
 const COPY_BUTTON_ID = "whimsy-quick-window-copy-link";
 const ADDRESS_FIELD_ID = "whimsy-quick-window-address-field";
+const SPACE_PICKER_ID = "whimsy-quick-window-space-picker";
 const OPEN_GROUP_ID = "whimsy-quick-window-open";
 const MOVE_BUTTON_ID = "whimsy-quick-window-move-to-space";
 const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
@@ -372,8 +373,10 @@ export const WhimsyQuickWindow = {
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindowChooseSpace",
       run: w => this.openSpacePicker(w, w.document.getElementById(OPEN_GROUP_ID)),
-      // wave6/parity: Little Arc picks another space from the chevron only,
-      // so no Cmd+Shift+O; Firefox's Show All Bookmarks keeps that key.
+      // fix7: Cmd+Shift+O opens the same dropdown as the chevron (the user
+      // keeps this key; wave6/parity had dropped it). Firefox's Show All
+      // Bookmarks gives it up in Mini only, see disableGlanceExpandKey.
+      key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
     });
     // Arc: "quickly verify the content and hit Esc to vanish the window."
     // Only when nothing closer to the keypress (an open popup) handled it,
@@ -770,9 +773,10 @@ export const WhimsyQuickWindow = {
   // strip its attributes, then re-add its keyset (Gecko only reads <key>s
   // when their keyset is (re)bound).
   disableGlanceExpandKey(win) {
-    // Cmd+O is Zen's "Expand Glance"; in a quick window it's Arc's
-    // move-to-space key.
-    for (const id of [GLANCE_EXPAND_KEY_ID]) {
+    // Cmd+O is Zen's "Expand Glance" and Cmd+Shift+O Firefox's "Show All
+    // Bookmarks"; in a quick window they open the page in a space and open
+    // the space dropdown.
+    for (const id of [GLANCE_EXPAND_KEY_ID, "manBookmarkKb"]) {
       const key = win.document.getElementById(id);
       if (!key) {
         continue;
@@ -789,34 +793,70 @@ export const WhimsyQuickWindow = {
     }
   },
 
-  // A small menu of the user's spaces, anchored under the "Open in <Space
-  // name>" pill (end-aligned, as Arc's drops from its right edge);
-  // choosing one calls moveToSpace.
+  // fix7: Little Arc's space dropdown, from the caret or Cmd+Shift+O: a
+  // Zen-style menu headed "Open in", one row per space with its icon on a
+  // tile of the space's own colour (a colour dot when it has no icon). The
+  // space Cmd+O uses shows that shortcut. Choosing a row calls moveToSpace.
+  // Anchored under the split button, end-aligned, as Arc's drops from its
+  // right edge; Zen's menu motion and reduced-motion handling apply.
   openSpacePicker(win, anchor) {
     const { document } = win;
     const spaces = this.spaces(win);
     if (!spaces.length) {
       return;
     }
-    let popup = document.getElementById("whimsy-quick-window-space-picker");
+    let popup = document.getElementById(SPACE_PICKER_ID);
     if (!popup) {
       popup = document.createXULElement("menupopup");
-      popup.id = "whimsy-quick-window-space-picker";
+      popup.id = SPACE_PICKER_ID;
       popup.addEventListener("command", event => {
         const spaceId = event.target.getAttribute("zen-workspace-id");
         if (spaceId) {
           this.moveToSpace(win, spaceId);
         }
       });
+      // The caret reads as pressed while its menu is open.
+      const choose = () => document.getElementById(CHOOSE_BUTTON_ID);
+      popup.addEventListener("popupshowing", () => choose()?.setAttribute("open", "true"));
+      popup.addEventListener("popuphidden", () => choose()?.removeAttribute("open"));
       document.getElementById("mainPopupSet")?.appendChild(popup) ?? document.documentElement.appendChild(popup);
     }
-    const main = this.mainWindow(win.opener);
+    const caption = document.createXULElement("menucaption");
+    caption.className = "whimsy-mini-picker-caption";
+    document.l10n.setAttributes(caption, "whimsy-quick-window-picker-caption");
+    const defaultId = this.defaultSpaceId(win);
     const items = spaces.map(space => {
-      const item = main.gZenWorkspaces.generateMenuItemForWorkspace(space, true);
-      item.classList.remove("zen-workspace-context-menu-item");
+      const item = document.createXULElement("menuitem");
+      item.className = "menuitem-iconic whimsy-mini-picker-space";
+      item.setAttribute("zen-workspace-id", space.uuid);
+      item.setAttribute("label", space.name);
+      item.setAttribute("image", this.spaceIcon(space) ?? this.spaceDot(space));
+      const color = this.spaceColor(space);
+      if (color) {
+        item.style.setProperty("--whimsy-space-color", color);
+      }
+      if (space.uuid == defaultId) {
+        item.setAttribute("key", "key_whimsyQuickWindowOpenInSpace");
+        item.setAttribute("default", "true");
+      }
       return item;
     });
-    popup.replaceChildren(...items);
+    popup.replaceChildren(caption, ...items);
     popup.openPopup(anchor, { position: "after_end" });
+  },
+
+  // A space's first theme colour as CSS, or null for Zen's default theme.
+  spaceColor(space) {
+    const rgb = space?.theme?.gradientColors?.[0]?.c;
+    return Array.isArray(rgb) && rgb.length >= 3 ? `rgb(${rgb.slice(0, 3).join(" ")})` : null;
+  },
+
+  // A space with no icon gets a dot in its colour (a mid grey, readable in
+  // light and dark menus, for Zen's default theme). Context paint isn't
+  // allowed for data: images, so the colour is baked in.
+  spaceDot(space) {
+    const fill = this.spaceColor(space) ?? "rgb(128 128 128)";
+    return "data:image/svg+xml," + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="${fill}"/></svg>`);
   },
 };

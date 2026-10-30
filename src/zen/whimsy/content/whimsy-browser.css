@@ -2160,3 +2160,34 @@ whimsy-space-history-section {
     opacity: 1 !important;
   }
 }
+
+/* fix7/mini: the space dropdown (caret, Cmd+Shift+O). Zen's menu surface
+   and motion; each space's icon sits on a small tile tinted with the
+   space's own colour, so spaces read apart at a glance. */
+#whimsy-quick-window-space-picker {
+  min-width: 200px;
+
+  & > .whimsy-mini-picker-caption {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  & > .whimsy-mini-picker-space {
+    & .menu-icon {
+      box-sizing: border-box;
+      width: 20px;
+      height: 20px;
+      padding: 2px;
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--whimsy-space-color, currentColor) 22%, transparent);
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor;
+    }
+    &[default] {
+      font-weight: 600;
+    }
+  }
+}
+#whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
+  background: var(--whimsy-mini-fill-active);
+}

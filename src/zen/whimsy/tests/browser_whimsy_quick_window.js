@@ -124,22 +124,38 @@ add_task(async function test_cmd_o_opens_in_current_space() {
   BrowserTestUtils.removeTab(adopted);
 });
 
-// wave6/parity: the picker is on the chevron only (Little Arc); Cmd+Shift+O
-// stays Firefox's Show All Bookmarks.
-add_task(async function test_chevron_opens_the_space_picker() {
+// fix7: the caret and Cmd+Shift+O both open the space dropdown (the user
+// keeps the key; Show All Bookmarks gives it up in Mini only).
+add_task(async function test_cmd_shift_o_and_caret_open_the_space_dropdown() {
   const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
   await WhimsyQuickWindow.whenReady(win);
-  ok(!win.document.getElementById("key_whimsyQuickWindowChooseSpace")?.getAttribute("key"), "No Cmd+Shift+O chooser");
-  is(win.document.getElementById("manBookmarkKb")?.getAttribute("modifiers"), "accel,shift", "Show All Bookmarks keeps it");
-  win.document.getElementById("cmd_whimsyQuickWindowChooseSpace").doCommand();
-  await TestUtils.waitForCondition(
-    () => win.document.getElementById("whimsy-quick-window-space-picker")?.state == "open",
-    "The chevron's command opens the space picker"
-  );
-  const popup = win.document.getElementById("whimsy-quick-window-space-picker");
-  ok(popup.children.length >= 1, "The picker lists at least this window's space");
+  await SimpleTest.promiseFocus(win);
+  const doc = win.document;
+  is(doc.getElementById("key_whimsyQuickWindowChooseSpace")?.getAttribute("modifiers"), "accel,shift", "Cmd+Shift+O is bound");
+  ok(!doc.getElementById("manBookmarkKb")?.getAttribute("key"), "Show All Bookmarks doesn't compete in Mini");
+  const picker = () => doc.getElementById("whimsy-quick-window-space-picker");
+  EventUtils.synthesizeKey("o", { accelKey: true, shiftKey: true }, win);
+  await TestUtils.waitForCondition(() => picker()?.state == "open", "Cmd+Shift+O opens the dropdown");
+  const popup = picker();
+  ok(popup.firstElementChild.localName == "menucaption", "Headed by a caption");
+  const rows = [...popup.querySelectorAll(".whimsy-mini-picker-space")];
+  is(rows.length, gZenWorkspaces.getWorkspaces().length, "One row per space");
+  ok(rows.every(row => row.getAttribute("image")), "Every row has an icon or colour dot");
+  const current = rows.find(row => row.getAttribute("zen-workspace-id") == gZenWorkspaces.activeWorkspace);
+  ok(current && !current.disabled, "The current space can be chosen");
+  is(current.getAttribute("key"), "key_whimsyQuickWindowOpenInSpace", "...and shows Cmd+O");
+  is(doc.getElementById("whimsy-quick-window-choose-space").getAttribute("open"), "true", "The caret reads as pressed");
+  let hidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
   popup.hidePopup();
-  await BrowserTestUtils.closeWindow(win);
+  await hidden;
+  ok(!doc.getElementById("whimsy-quick-window-choose-space").hasAttribute("open"), "...until it closes");
+  doc.getElementById("whimsy-quick-window-choose-space").doCommand();
+  await TestUtils.waitForCondition(() => picker().state == "open", "The caret opens the same dropdown");
+  const tabCountBefore = gBrowser.tabs.length;
+  popup.activateItem(current);
+  await TestUtils.waitForCondition(() => win.closed, "Choosing a space opens the page there");
+  is(gBrowser.tabs.length, tabCountBefore + 1, "The tab landed in that space");
+  BrowserTestUtils.removeTab(gBrowser.tabs[gBrowser.tabs.length - 1]);
 });
 
 add_task(async function test_escape_closes_the_window_without_a_trace() {

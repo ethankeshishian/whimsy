@@ -1767,3 +1767,7 @@ whimsy-menu-view-media =
     .label = View Media…
 whimsy-menu-view-boosts =
     .label = View Boosts…
+
+## fix7: Mini Whimsy space dropdown (caret, Cmd+Shift+O)
+whimsy-quick-window-picker-caption =
+    .label = Open in
