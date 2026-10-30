@@ -283,10 +283,20 @@ add_task(async function test_bar_has_arcs_controls_in_order() {
     const ids = [...bar.children].map(el => el.id || el.className);
     Assert.deepEqual(ids.filter(id => id.startsWith("whimsy-quick-window")), [
       "whimsy-quick-window-back",
-      "whimsy-quick-window-address",
-      "whimsy-quick-window-copy-link",
+      "whimsy-quick-window-address-field",
       "whimsy-quick-window-open",
-    ], "Back, address, Copy URL, then Open in <Space>");
+    ], "Back, the address strip, then Open in <Space>");
+    // fix7: Little Arc puts Extensions and Copy Link inside the strip, at
+    // its right end.
+    const field = doc.getElementById("whimsy-quick-window-address-field");
+    Assert.deepEqual([...field.children].map(el => el.id), [
+      "whimsy-quick-window-address",
+      "unified-extensions-button",
+      "whimsy-quick-window-copy-link",
+    ], "Address, then Extensions and Copy Link inside the strip");
+    const fieldRect = field.getBoundingClientRect();
+    const copyRect = doc.getElementById("whimsy-quick-window-copy-link").getBoundingClientRect();
+    Assert.lessOrEqual(fieldRect.right - copyRect.right, 4, "Copy Link sits at the strip's right end");
     const group = doc.getElementById("whimsy-quick-window-open");
     ok(group.contains(doc.getElementById("whimsy-quick-window-move-to-space")) &&
       group.contains(doc.getElementById("whimsy-quick-window-choose-space")),
@@ -295,7 +305,7 @@ add_task(async function test_bar_has_arcs_controls_in_order() {
       "Zen's own nav bar is not shown");
     ok(bar.querySelector(".titlebar-buttonbox-container"), "The window controls sit in the bar");
     const extensions = doc.getElementById("unified-extensions-button");
-    ok(bar.contains(extensions) && extensions.getBoundingClientRect().width > 0,
+    ok(field.contains(extensions) && extensions.getBoundingClientRect().width > 0,
       "Mini shows the real extensions button despite Zen's hidden-button default");
     is(win.gUnifiedExtensions._button, extensions, "The extensions panel uses the visible Mini anchor");
     const extLabel = extensions.querySelector(".toolbarbutton-text");
@@ -420,4 +430,29 @@ add_task(async function test_mini_motion_tokens_and_fade() {
   win.close();
   ok(win.closed || root.hasAttribute("whimsy-mini-closing"), "Closing fades first (or closes at once with reduced motion)");
   await closed;
+});
+
+// fix7: icon-only buttons centre their glyph (an empty flex label used to
+// push it left), and Zen's toolbar re-layout can't take Extensions out of
+// the address strip.
+add_task(async function test_mini_icons_are_centred_and_extensions_stay() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    const doc = win.document;
+    for (const id of ["whimsy-quick-window-copy-link", "whimsy-quick-window-choose-space", "whimsy-quick-window-back"]) {
+      const button = doc.getElementById(id);
+      const icon = button.querySelector(".toolbarbutton-icon").getBoundingClientRect();
+      const box = button.getBoundingClientRect();
+      Assert.lessOrEqual(Math.abs((icon.left + icon.right) / 2 - (box.left + box.right) / 2), 0.5, `${id}: icon centred horizontally`);
+      Assert.lessOrEqual(Math.abs((icon.top + icon.bottom) / 2 - (box.top + box.bottom) / 2), 0.5, `${id}: icon centred vertically`);
+    }
+    const extensions = doc.getElementById("unified-extensions-button");
+    doc.getElementById("navigator-toolbox").append(extensions);
+    const field = doc.getElementById("whimsy-quick-window-address-field");
+    await TestUtils.waitForCondition(() => extensions.parentNode == field, "Extensions returns to the strip");
+    is(extensions.nextElementSibling?.id, "whimsy-quick-window-copy-link", "...before Copy Link");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
 });

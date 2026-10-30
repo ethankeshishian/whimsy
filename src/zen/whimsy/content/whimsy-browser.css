@@ -2064,3 +2064,80 @@ whimsy-space-history-section {
   0%, 40% { outline-color: AccentColor; }
   100% { outline-color: transparent; }
 }
+
+/* fix7/mini: icon-only buttons centre their glyph. A toolbarbutton always
+   carries a .toolbarbutton-text label with flex="1"; empty, it still grew
+   into the spare width and pushed the icon to the left edge (Copy Link,
+   the caret). Hide it when there's no label and make the button square. */
+#whimsy-quick-window-bar .whimsy-mini-button {
+  & > .toolbarbutton-icon {
+    margin: 0;
+  }
+  &:not([label]) {
+    width: var(--whimsy-mini-control);
+    & > .toolbarbutton-text {
+      display: none;
+    }
+  }
+}
+/* The split hairline moves from the caret's border (1px that shifted its
+   glyph off centre) to the end of the ⌘O keycap, Arc's short divider. */
+#whimsy-quick-window-bar #whimsy-quick-window-choose-space {
+  width: 24px;
+  min-width: 24px !important;
+  border-inline-start: 0 !important;
+}
+#whimsy-quick-window-open kbd {
+  line-height: 16px;
+  padding-inline-end: 8px;
+  border-inline-end: 1px solid var(--whimsy-mini-hairline);
+}
+
+/* fix7/mini: Little Arc's address strip holds Extensions and Copy Link at
+   its right end. The strip carries the fill; the address button inside it
+   is transparent and lights the whole strip on hover. Inner buttons are
+   24px with a 6px radius, concentric with the strip's 8px at 2px inset. */
+#whimsy-quick-window-address-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--whimsy-mini-control);
+  margin: 0 4px 0 2px;
+  padding-inline-end: 2px;
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  transition: background-color 120ms ease;
+
+  &:has(> #whimsy-quick-window-address:hover) {
+    background: var(--whimsy-mini-fill-hover);
+  }
+
+  & > #whimsy-quick-window-address {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+  }
+
+  #whimsy-quick-window-bar & > .whimsy-mini-button {
+    flex: none;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    opacity: 0.75;
+
+    &:not([disabled]):hover {
+      opacity: 1;
+    }
+    &[disabled] {
+      opacity: 0.35;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-quick-window-address-field {
+    transition: none;
+  }
+}

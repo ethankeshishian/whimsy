@@ -67,6 +67,7 @@ const BAR_ID = "whimsy-quick-window-bar";
 const BACK_BUTTON_ID = "whimsy-quick-window-back";
 const ADDRESS_ID = "whimsy-quick-window-address";
 const COPY_BUTTON_ID = "whimsy-quick-window-copy-link";
+const ADDRESS_FIELD_ID = "whimsy-quick-window-address-field";
 const OPEN_GROUP_ID = "whimsy-quick-window-open";
 const MOVE_BUTTON_ID = "whimsy-quick-window-move-to-space";
 const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
@@ -335,9 +336,10 @@ export const WhimsyQuickWindow = {
   // The quick window's own chrome, laid out like Arc's Little Arc: one slim
   // bar above the page, on the destination space's colours (see
   // watchDestination), holding the window controls, Back, the address
-  // (favicon + host; clicking it opens the command bar, Cmd+L), Copy URL
-  // (Cmd+Shift+C) and the "Open in <Space name>" split button (Cmd+O, with
-  // a caret for the space picker). Below it the page is the same inset rounded
+  // (profile + host; clicking it opens the command bar, Cmd+L) with the
+  // Extensions and Copy URL (Cmd+Shift+C) buttons inside its right end, as
+  // in Little Arc, and the "Open in <Space name>" split button (Cmd+O, with
+  // a caret for the space dropdown, Cmd+Shift+O). Below it the page is the same inset rounded
   // card as in a main window. Zen's own nav bar and sidebar stay hidden.
   initChrome(win) {
     const { document } = win;
@@ -461,20 +463,36 @@ export const WhimsyQuickWindow = {
     shortcut.setAttribute("aria-hidden", "true");
     group.append(move, shortcut, choose);
 
-    bar.append(back, address);
-    // Reuse Firefox's real extensions button and panel, rather than a
-    // separate picker with different extension behavior.
+    // fix7: Little Arc draws Extensions and Copy Link inside the address
+    // strip, at its right end. The strip is a plain container (a button
+    // can't hold buttons); the address button fills the rest of it.
+    const field = html("div");
+    field.id = ADDRESS_FIELD_ID;
+    field.append(address, copy);
+    bar.append(back, field, group);
+    this.placeExtensionsButton(win);
+    return bar;
+  },
+
+  // Reuse Firefox's real extensions button and panel, rather than a
+  // separate picker with different extension behavior. It sits in the
+  // address strip before Copy Link. Zen's toolbar re-layout prepends it to
+  // the sidebar's top buttons again, so adoptWindowButtons calls this back.
+  placeExtensionsButton(win) {
+    const { document } = win;
     const extensions = document.getElementById("unified-extensions-button");
-    if (extensions) {
-      extensions.classList.add("whimsy-mini-button", "tabbable");
-      extensions.setAttribute("tabindex", "0");
-      bar.append(extensions);
-      // Zen normally anchors this panel to its site-controls icon. That
-      // icon is in Mini's parked nav bar; use the visible puzzle button.
+    const copy = document.getElementById(COPY_BUTTON_ID);
+    if (!extensions || !copy || extensions.nextElementSibling == copy) {
+      return;
+    }
+    extensions.classList.add("whimsy-mini-button", "tabbable");
+    extensions.setAttribute("tabindex", "0");
+    copy.before(extensions);
+    // Zen normally anchors this panel to its site-controls icon. That
+    // icon is in Mini's parked nav bar; use the visible puzzle button.
+    if (win.gUnifiedExtensions) {
       win.gUnifiedExtensions._button = extensions;
     }
-    bar.append(copy, group);
-    return bar;
   },
 
   // Popup windows (Mini opens as one, so it never lands in session history)
@@ -545,10 +563,11 @@ export const WhimsyQuickWindow = {
       if (buttons && buttons.parentNode != bar) {
         bar.prepend(buttons);
       }
+      this.placeExtensionsButton(win);
     };
     adopt();
     const observer = new win.MutationObserver(adopt);
-    for (const id of ["navigator-toolbox", NAVBAR_ID]) {
+    for (const id of ["navigator-toolbox", NAVBAR_ID, BAR_ID]) {
       const area = document.getElementById(id);
       if (area) {
         observer.observe(area, { childList: true, subtree: true });
