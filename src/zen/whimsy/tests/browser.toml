@@ -166,6 +166,7 @@ support-files = ["whimsy_article.html"]
 run-if = ["os == 'mac'"]
 
 ["browser_whimsy_print_clean.js"]
+support-files = ["whimsy_article.html"]
 
 ["browser_whimsy_split_favorites.js"]
 # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
