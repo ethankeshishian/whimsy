@@ -382,6 +382,9 @@ FEATURES = [
     # batch3glance: Cmd+T in a split opens into the focused pane (Arc).
     {"id": "split-new-tab", "title": "Cmd+T in a split view opens the result in the focused pane (Arc)",
      "detect": [("src/zen/split-view", r"(?i)newTabInSplit|replaceFocusedPane")]},
+    # batch3glance: Arc's Add Left/Right/Top/Bottom Split + Change Orientation.
+    {"id": "split-layouts", "title": "Add Left/Right/Top/Bottom Split and Change Orientation in the command bar (Arc)",
+     "detect": [("src/zen", r"(?i)(?:add-(?:left|top|bottom)-split|change-?orientation)")]},
 ]
 
 

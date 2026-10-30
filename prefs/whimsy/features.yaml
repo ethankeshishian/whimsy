@@ -303,6 +303,9 @@
 - name: whimsy.feature.split-new-tab
   value: true
 
+- name: whimsy.feature.split-layouts
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

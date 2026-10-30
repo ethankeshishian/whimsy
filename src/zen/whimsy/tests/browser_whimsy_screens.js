@@ -526,3 +526,33 @@ add_task(async function glance_sizes() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// batch3glance: a three-pane split built Arc's way (Add Bottom Split), then
+// turned with Change Orientation.
+add_task(async function split_layouts() {
+  const { WhimsySplitLayouts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitLayouts.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.split-layouts", true]] });
+  const tabs = [];
+  try {
+    for (let i = 0; i < 3; i++) {
+      tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, `data:text/html,<h1>Pane ${i + 1}</h1>`));
+    }
+    gZenViewSplitter.splitTabs(tabs.slice(0, 2), "vsep", 0);
+    await TestUtils.waitForCondition(() => tabs[0].splitView);
+    WhimsySplitLayouts.insertBeside(window, tabs[0], tabs[2], "bottom");
+    ok(tabs[2].splitView, "Three panes");
+    await new Promise(resolve => setTimeout(resolve, 400));
+    await shot("31-split-add-bottom");
+    WhimsySplitLayouts.changeOrientation(window);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    await shot("32-split-change-orientation");
+  } finally {
+    if (gZenViewSplitter.currentView >= 0) {
+      gZenViewSplitter.unsplitCurrentView();
+    }
+    for (const tab of tabs) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await SpecialPowers.popPrefEnv();
+  }
+});

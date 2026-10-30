@@ -79,6 +79,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyGlance: "resource:///modules/whimsy/WhimsyGlance.sys.mjs",
   WhimsySplitFlow: "resource:///modules/whimsy/WhimsySplitFlow.sys.mjs",
+  WhimsySplitLayouts: "resource:///modules/whimsy/WhimsySplitLayouts.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -401,6 +402,9 @@ export const Whimsy = {
     // batch3glance: Cmd+T in a split opens into the focused pane (Arc).
     // Always installed; checks its switch on each Cmd+T.
     run("split-new-tab", () => lazy.WhimsySplitFlow.initWindow(win));
+    // batch3glance: Add Left/Right/Top/Bottom Split and Change Orientation
+    // (Arc). Each action checks the switch.
+    run("split-layouts", () => lazy.WhimsySplitLayouts.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

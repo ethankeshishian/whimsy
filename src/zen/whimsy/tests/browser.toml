@@ -238,3 +238,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # batch3glance: Cmd+T in a split opens into the focused pane.
 ["browser_whimsy_split_new_tab.js"]
+
+# batch3glance: Arc's Add Left/Right/Top/Bottom Split and Change Orientation.
+["browser_whimsy_split_layouts.js"]
