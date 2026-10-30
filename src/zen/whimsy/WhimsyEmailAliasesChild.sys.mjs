@@ -2,8 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Email aliases, page side: finds email fields and shows a small mask
-// button at the right edge of the focused one. The button lives in a closed
+// Email aliases, page side: finds email fields and shows a small filled
+// mail button at the right edge of the focused one (fix7/tabs: filled, not
+// an outline, so it reads on any field; and it steps left of a password
+// manager's own inline button, 1Password's, Bitwarden's, LastPass's...,
+// instead of hiding under it). The button lives in a closed
 // shadow root, styled through CSSOM only (so page CSPs can't block it) and
 // accepts trusted clicks only. Clicking it asks the parent to open the
 // alias menu, which lives in the browser chrome; the parent sends back the
@@ -12,7 +15,26 @@
 const FEATURE_PREF = "whimsy.feature.email-aliases";
 const BUTTON_PREF = "whimsy.email-aliases.button";
 const HOST_ID = "whimsy-email-aliases-host";
-const BUTTON_SIZE = 22;
+const BUTTON_SIZE = 24;
+const EDGE_GAP = 6; // from the field's end, and between neighbours
+// Inline buttons other password managers put at a field's end. Anything
+// else small sitting there is found by hit-testing (#overlayAt).
+const OVERLAY_SELECTOR = [
+  "com-1password-button",
+  "[data-lastpass-icon-root]",
+  "[data-lastpass-root]",
+  "div[id^='__lpform_']",
+  "[data-bitwarden-autofill-button]",
+  "[class*='bitwarden' i][class*='button' i]",
+  "[data-dashlanecreated]",
+  "keeper-lock",
+  "protonpass-root",
+  "[data-protonpass-role='icon']",
+  "nordpass-icon",
+  "[data-np-icon]",
+].join(",");
+// How long after focus to keep watching for a manager's button arriving.
+const WATCH_MS = 3000;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const EXCLUDED_TYPES = new Set([
@@ -121,11 +143,17 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: "6px",
+      borderRadius: "7px",
       cursor: "pointer",
-      color: "#6e6e73",
-      opacity: "0.8",
+      // Filled like Safari's Hide My Email key: white on #0064d2 is 5.4:1,
+      // and the white ring keeps it apart from any field colour.
+      color: "#ffffff",
+      backgroundColor: "#0064d2",
+      boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.3)",
+      transition: "background-color 120ms ease-out",
     });
+    button.addEventListener("mouseenter", () => (button.style.backgroundColor = "#0050a8"));
+    button.addEventListener("mouseleave", () => (button.style.backgroundColor = "#0064d2"));
     button.append(this.#icon(doc));
     shadow.append(button);
 
@@ -145,6 +173,17 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
     this.#position();
 
     const reposition = () => this.#position();
+    // Password managers add their button after focus, often a beat later:
+    // look again when something lands in the page soon after, and give up
+    // watching after a few seconds.
+    const observer = new win.MutationObserver(records => {
+      if (records.some(r => [...r.addedNodes].some(n => n != host && n.nodeType == 1))) {
+        reposition();
+      }
+    });
+    observer.observe(doc.documentElement, { childList: true, subtree: true });
+    const stopWatching = win.setTimeout(() => observer.disconnect(), WATCH_MS);
+    const settle = [150, 600].map(ms => win.setTimeout(reposition, ms));
     const onFocusOut = e => {
       // Focus moving to something else in the page hides the button. Focus
       // leaving the page (relatedTarget null) keeps it: that's the chrome
@@ -160,6 +199,9 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       win.removeEventListener("scroll", reposition, { capture: true });
       win.removeEventListener("resize", reposition);
       doc.removeEventListener("focusout", onFocusOut, true);
+      observer.disconnect();
+      win.clearTimeout(stopWatching);
+      settle.forEach(id => win.clearTimeout(id));
     });
   }
 
@@ -173,7 +215,7 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       viewBox: "0 0 16 16",
       fill: "none",
       stroke: "currentColor",
-      "stroke-width": "1.4",
+      "stroke-width": "1.6",
       "stroke-linecap": "round",
       "stroke-linejoin": "round",
     })) {
@@ -198,8 +240,63 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
     }
     const win = input.ownerDocument.defaultView;
     host.style.display = "block";
-    host.style.top = `${rect.top + win.scrollY + (rect.height - BUTTON_SIZE) / 2}px`;
-    host.style.left = `${rect.right + win.scrollX - BUTTON_SIZE - 6}px`;
+    const top = rect.top + (rect.height - BUTTON_SIZE) / 2;
+    host.style.top = `${top + win.scrollY}px`;
+    host.style.left = `${this.#slotLeft(input, rect) + win.scrollX}px`;
+  }
+
+  // Where the button goes, in viewport x: at the field's end, then left of
+  // anything another extension (or the page) draws there.
+  #slotLeft(input, rect) {
+    let right = rect.right - EDGE_GAP;
+    // A field that reserves its end for an icon of its own (padding with a
+    // background image, the way LastPass and many sites draw theirs).
+    const style = input.ownerDocument.defaultView.getComputedStyle(input);
+    const padEnd = parseFloat(style.paddingRight) || 0;
+    if (style.backgroundImage != "none" && padEnd >= BUTTON_SIZE) {
+      right = rect.right - padEnd;
+    }
+    for (let i = 0; i < 4; i++) {
+      const overlay = this.#overlayAt(input, rect, right - BUTTON_SIZE, right);
+      if (!overlay) {
+        break;
+      }
+      right = overlay.left - EDGE_GAP;
+    }
+    return Math.max(rect.left + EDGE_GAP, right - BUTTON_SIZE);
+  }
+
+  // The box of another inline button overlapping [left, right] on the
+  // field's row, if any: a known password manager's, or any small element
+  // stacked over the field there.
+  #overlayAt(input, rect, left, right) {
+    const doc = input.ownerDocument;
+    const overlaps = box =>
+      box.width > 0 && box.height > 0 && box.width <= 64 &&
+      box.left < right && box.right > left &&
+      box.top < rect.bottom && box.bottom > rect.top;
+    for (const el of doc.querySelectorAll(OVERLAY_SELECTOR)) {
+      if (el == this.#host || el == input) {
+        continue;
+      }
+      const box = el.getBoundingClientRect();
+      if (overlaps(box)) {
+        return box;
+      }
+    }
+    const y = rect.top + rect.height / 2;
+    for (const x of [right - 2, (left + right) / 2, left + 2]) {
+      for (const el of doc.elementsFromPoint(x, y)) {
+        if (el == input || el == this.#host || el.contains(input)) {
+          break;
+        }
+        const box = el.getBoundingClientRect();
+        if (overlaps(box) && box.height <= rect.height + 16) {
+          return box;
+        }
+      }
+    }
+    return null;
   }
 
   #openMenu() {

@@ -119,7 +119,14 @@ add_task(async function hover_in_page_shows_card() {
 
         await BrowserTestUtils.synthesizeMouseAtCenter("#p", { type: "mousemove" }, browser);
         await TestUtils.waitForCondition(() => card.panel?.state == "open", "Profile link: card opens");
-        is(card.panel.querySelector(".whimsy-hover-title").textContent, "The Octocat", "Card shows the name");
+        await TestUtils.waitForCondition(
+          () => card.panel.querySelector(".whimsy-person-name")?.textContent == "The Octocat",
+          "Card shows the name once loaded");
+        is(card.panel.querySelector(".whimsy-person-handle").textContent, "@octocat · GitHub", "...the handle and site");
+        is(card.panel.querySelector(".whimsy-person-bio").textContent, "GitHub mascot", "...and the bio");
+        is(card.panel.getAttribute("role"), "dialog", "A card with actions is a dialog");
+        is(card.panel.getAttribute("aria-label"), "The Octocat", "...named after the person");
+        is(card.panel.querySelectorAll(".whimsy-person-action").length, 2, "Open Profile and Copy Link");
         is(fetches, 1, "One request for one deliberate hover");
       }
     );
@@ -127,6 +134,77 @@ add_task(async function hover_in_page_shows_card() {
     card.hide();
     WhimsyPeople.fetchProfile = original;
     WhimsyPeople._resetForTests();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// fix7/tabs: the card's content, from each site's meta tags.
+add_task(function card_model() {
+  const github = WhimsyPeople.card({
+    title: "monalisa (Mona Lisa Octocat) · GitHub",
+    description: "monalisa has 8 repositories available. Follow their code on GitHub.",
+    image: "https://avatars.example/m.png",
+  }, "https://github.com/monalisa");
+  is(github.name, "Mona Lisa Octocat", "GitHub: the name, not the handle or site");
+  is(github.handle, "@monalisa", "...the handle");
+  is(github.site, "GitHub", "...the site");
+  is(github.bio, null, "...no boilerplate bio");
+  Assert.deepEqual(github.stats, [{ value: "8", label: "repositories" }], "...the count it mentions");
+  is(github.initials, "ML", "...initials for a missing avatar");
+
+  const linkedin = WhimsyPeople.card({
+    title: "Jane Doe - Staff Engineer - Acme | LinkedIn",
+    description: "Experience: Acme · 500+ connections on LinkedIn.",
+  }, "https://linkedin.com/in/jane");
+  is(linkedin.name, "Jane Doe", "LinkedIn: the name");
+  ok(linkedin.bio.startsWith("Staff Engineer · Acme"), "...the headline leads the bio");
+  ok(!linkedin.bio.includes("connections"), "...without the connections line");
+  Assert.deepEqual(linkedin.stats, [{ value: "500+", label: "connections" }], "...which becomes a stat");
+
+  const x = WhimsyPeople.card({ title: "Sam (@sam) / X", description: "Building things." }, "https://x.com/sam");
+  is(x.name, "Sam", "X: a name that matches the handle is still the name");
+
+  const loading = WhimsyPeople.card(null, "https://x.com/sam", { loading: true });
+  is(loading.name, "@sam", "Loading: the handle stands in");
+  ok(loading.loading, "...marked loading");
+});
+
+// fix7/tabs: Arc-like dwell. The card appears ~400ms after the pointer
+// rests (the handle at once, the profile when it arrives), and leaving
+// before then cancels it.
+add_task(async function dwell_placeholder_and_cancel() {
+  Assert.lessOrEqual(WhimsyHoverCard.PEOPLE_DELAY_MS, 500, "People cards open within 500ms");
+  Assert.greaterOrEqual(WhimsyHoverCard.PEOPLE_DELAY_MS, 300, "...but not on a pass-over");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.people-cards", true]] });
+  const card = WhimsyHoverCard.forWindow(window);
+  const anchor = gBrowser.selectedBrowser;
+  const url = "https://github.com/octocat";
+  let resolve;
+  const placeholder = { person: WhimsyPeople.card(null, url, { loading: true }) };
+  try {
+    card.schedule(anchor, () => new Promise(r => (resolve = r)), "whimsy.feature.people-cards",
+      { delay: WhimsyHoverCard.PEOPLE_DELAY_MS, placeholder });
+    await TestUtils.waitForCondition(() => card.panel?.state == "open", "The placeholder opens after the dwell");
+    ok(card.panel.querySelector(".whimsy-person[loading]"), "...as a loading card");
+    is(card.panel.querySelector(".whimsy-person-name").textContent, "@octocat", "...with the handle");
+    resolve({ person: WhimsyPeople.card({ title: "The Octocat", description: "Mascot" }, url) });
+    await TestUtils.waitForCondition(
+      () => card.panel.querySelector(".whimsy-person-name")?.textContent == "The Octocat",
+      "...filled in where it is");
+    ok(!card.panel.querySelector(".whimsy-person[loading]"), "...no longer loading");
+    card.hide();
+
+    let loads = 0;
+    card.schedule(anchor, async () => {
+      loads++;
+      return placeholder;
+    }, "whimsy.feature.people-cards", { delay: WhimsyHoverCard.PEOPLE_DELAY_MS, placeholder });
+    card.leave(anchor);
+    await new Promise(r => setTimeout(r, WhimsyHoverCard.PEOPLE_DELAY_MS + 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    is(loads, 0, "Leaving before the dwell cancels the card");
+    ok(card.panel.state == "closed", "...and nothing opens");
+  } finally {
+    card.hide();
     await SpecialPowers.popPrefEnv();
   }
 });

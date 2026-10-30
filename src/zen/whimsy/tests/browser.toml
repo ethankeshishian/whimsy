@@ -488,3 +488,6 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
 ["browser_whimsy_command_bar_dedup.js"]
+
+# fix7/tabs: pinned tab marks
+["browser_whimsy_pinned_marks.js"]

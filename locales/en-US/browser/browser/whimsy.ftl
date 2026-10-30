@@ -2553,3 +2553,8 @@ whimsy-game-hint-embedded = Arrows, WASD or pointer to steer · Space or click t
 ## fix7: Mini Whimsy space dropdown (caret, Cmd+Shift+O)
 whimsy-quick-window-picker-caption =
     .label = Open in
+
+# fix7/tabs: People card actions.
+whimsy-person-open = Open Profile
+whimsy-person-copy = Copy Link
+whimsy-person-copied = Copied
