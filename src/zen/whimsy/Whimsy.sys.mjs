@@ -106,6 +106,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBangs: "resource:///modules/whimsy/WhimsyBangs.sys.mjs",
 });
 
+// wave3/speed: speed control on videos.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVideoSpeed: "resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -466,6 +471,9 @@ export const Whimsy = {
     // wave3/cmdbar: offline bangs. Registered once even when off; the
     // provider checks its switch on every query.
     run("offline-bangs", () => lazy.WhimsyBangs.init());
+    // wave3/speed: speed control on videos. Registered once even when off;
+    // the page side checks its switch on every event.
+    run("video-speed", () => lazy.WhimsyVideoSpeed.init());
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

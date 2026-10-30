@@ -46,3 +46,5 @@
         content/browser/whimsy/whimsy-changelog.json                            (../../zen/whimsy/content/whimsy-changelog.json)
 # fixB: the Archive as a Library section
         content/browser/whimsy/whimsy-library-archive.mjs (../../zen/whimsy/content/whimsy-library-archive.mjs)
+# wave3/speed: speed control on videos (drawn in page anonymous content)
+        content/browser/whimsy/whimsy-video-speed.css                           (../../zen/whimsy/content/whimsy-video-speed.css)

@@ -1233,3 +1233,16 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
+
+## wave3/speed: speed control shown over a hovered video
+
+# $rate (string) - the current speed, already formatted, like "1.5×"
+whimsy-video-speed-value =
+    .aria-label = Playback speed { $rate }. Click to type a speed
+    .title = Click to type a speed (0.25 to 4)
+whimsy-video-speed-input =
+    .aria-label = Playback speed
+whimsy-video-speed-presets =
+    .aria-label = Speeds
+whimsy-media-video-speed =
+    .label = Show a speed control when you point at a video, and remember each site’s speed

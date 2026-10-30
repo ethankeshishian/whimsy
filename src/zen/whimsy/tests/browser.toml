@@ -99,6 +99,8 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_reorder_spaces.js"]
 
 ["browser_whimsy_screens.js"]
+# wave3/speed: the video speed control shot.
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
 
 ["browser_whimsy_space_icon_drop.js"]
 
@@ -298,3 +300,7 @@ support-files = ["whimsy_video_sound.html", "whimsy_video_sound.mp4", "whimsy_me
 # fixD (user follow-up): Firefox's PiP buttons: X closes and pauses; Back to tab keeps playing.
 ["browser_whimsy_pip_close.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
+
+# wave3/speed: speed control on videos (hover, presets, typed speed, per-site memory).
+["browser_whimsy_video_speed.js"]
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]

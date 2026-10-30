@@ -21,6 +21,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  // wave3/speed: the speed each site plays at.
+  WhimsyVideoSpeed: "resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs",
 });
 
 const MUTE_FEATURE_PREF = "whimsy.feature.background-mute";
@@ -673,6 +675,8 @@ export const WhimsyMedia = {
       win.gZenUIManager?.showToast?.("whimsy-speed-none-toast");
     } else {
       win.gZenUIManager?.showToast?.("whimsy-speed-toast", { l10nArgs: { rate } });
+      // wave3/speed: the site's next videos play at it too.
+      lazy.WhimsyVideoSpeed.remember(best.actor.browsingContext, rate).catch(console.error);
     }
     return rate;
   },

@@ -685,6 +685,9 @@ FEATURES = [
      "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
     {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
      "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
+    # wave3/speed: speed control on videos (Video Speed Controller).
+    {"id": "video-speed", "title": "Speed control on videos: point at a video to see its speed, type one or pick a quarter step (0.25–4×); remembered per site",
+     "detect": [("src/zen/media", r"(?i)speed-?(overlay|controller)|video-?speed")]},
 ]
 
 
