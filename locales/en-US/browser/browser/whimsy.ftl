@@ -1017,14 +1017,14 @@ whimsy-changelog-unreleased = Unreleased
 ## Security card, and the command bar actions.
 
 whimsy-vpn-header =
-    .label = VPN (free IP Protection)
+    .label = VPN
 whimsy-vpn-toggle =
-    .label = Turn on IP Protection
-whimsy-vpn-description = Hides your IP address from sites you visit by routing your traffic through Mozilla's network. Free, with a 50 GB monthly cap and a Mozilla account sign-in — look for the toolbar button beside your profile icon. Turning this off removes that button entirely.
+    .label = Turn on VPN
+whimsy-vpn-description = Hides your location from the sites you visit, free for up to 50 GB a month. Turn it on from the button beside your profile icon — you’ll need to sign in with a Mozilla account.
 whimsy-vpn-manage-button =
     .label = Open VPN panel…
 whimsy-vpn-status-off = Off
-whimsy-vpn-status-unavailable = Not available in this build
+whimsy-vpn-status-unavailable = Not available yet
 whimsy-vpn-status-signed-out = On — open the VPN panel to sign in with a Mozilla account
 whimsy-vpn-status-ready = Signed in, not connected — open the VPN panel to connect
 whimsy-vpn-status-connecting = Connecting…
@@ -1039,8 +1039,8 @@ whimsy-vpn-off-toast = VPN off
 whimsy-vpn-scope-title = Protect
 whimsy-vpn-scope-browser = All spaces
 whimsy-vpn-scope-space = This space
-whimsy-vpn-scope-help = Space protection follows its container in every window, including other spaces sharing it. Tabs in other containers are excluded. Existing connections keep their route until reconnected. Site exceptions still apply.
-whimsy-vpn-scope-no-container = This space has no default container. Choose one in Edit Space to enable space protection. Existing tabs must be reopened in that container.
+whimsy-vpn-scope-help = Protects this space’s tabs, and any other space set up to share it — not tabs elsewhere. Tabs already open switch over once you reload them, and your site exceptions still apply.
+whimsy-vpn-scope-no-container = This space isn’t linked to a container yet. Add one in Edit Space to protect just this space — tabs already open will need reopening to pick it up.
 whimsy-vpn-scope-covered = Spaces with VPN enabled: { $spaces }
 whimsy-vpn-scope-all = VPN enabled for all spaces.
 whimsy-vpn-scope-button-off = VPN off
@@ -1162,7 +1162,7 @@ whimsy-hover-history =
 whimsy-hover-no-preview = No saved preview
 whimsy-hover-people =
     .label = Show who it is when you hover a GitHub, LinkedIn or X profile link
-whimsy-hover-people-help = Uses the tab’s signed-in session after a deliberate hover, at most 20 profiles an hour. LinkedIn and X may still flag repeated automated visits to an account. Never in private browsing.
+whimsy-hover-people-help = Uses your own sign-in after a deliberate hover, up to 20 profiles an hour. LinkedIn and X may still flag an account for repeated visits. Never in private browsing.
 
 ## fixB: Whimsy's panels ("sheets", WhimsyPanels.sys.mjs)
 
@@ -1183,7 +1183,7 @@ whimsy-fire-space-detail = Site data and tabs in { $space }
 whimsy-fire-space-detail-unnamed = Site data and tabs in this space
 whimsy-fire-everything-detail = All browsing data and every unpinned tab
 whimsy-heavy-tabs-title = Heavy Tabs
-whimsy-heavy-tabs-subtitle = Memory by process, updated every few seconds
+whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
 whimsy-heavy-tabs-empty = No tabs to measure right now.
 whimsy-split-favorites-title = Favorite Splits
@@ -1441,7 +1441,7 @@ whimsy-ai-claude-key-save =
     .label = Save
 whimsy-ai-claude-key-remove =
     .label = Remove
-whimsy-ai-claude-key-saved = A key is saved, encrypted with your macOS Keychain. Page text and tab titles you use AI on are sent to Anthropic.
+whimsy-ai-claude-key-saved = Your key is saved securely on this Mac. Page text and tab titles you use AI on are sent to Anthropic.
 whimsy-ai-claude-key-missing = No key yet. Create one at console.anthropic.com.
 whimsy-ai-claude-key-error = Couldn’t save the key.
 whimsy-ai-ollama-endpoint-label =
