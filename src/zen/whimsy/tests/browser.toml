@@ -356,3 +356,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave6/parity: Peek on Shift+click (Arc), Option+click a tab to split.
 ["browser_whimsy_peek_shift_click.js"]
+
+# wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
+["browser_whimsy_split_arc_keys.js"]

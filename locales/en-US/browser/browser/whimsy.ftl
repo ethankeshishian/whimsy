@@ -1653,3 +1653,24 @@ whimsy-archive-clear-title = Clear the Archive?
 whimsy-archive-clear-message = Every archived tab is removed for good, along with Reopen Closed Tab’s list. Your history stays.
 whimsy-archive-clear-button = Clear Archive
 whimsy-archive-cleared-toast = Archive cleared
+
+## wave6/parity: Arc's Split View commands (View menu) and keys.
+
+whimsy-action-add-split-view = Add Split View
+whimsy-action-close-split-pane = Close this Split Pane
+whimsy-action-separate-page = Separate Page from Split View
+whimsy-action-expand-split = Expand Current Split
+whimsy-action-focus-pane-1 = Focus First Split Pane
+whimsy-action-focus-pane-2 = Focus Second Split Pane
+whimsy-action-focus-pane-3 = Focus Third Split Pane
+whimsy-action-focus-pane-4 = Focus Fourth Split Pane
+whimsy-action-prev-pane = Previous Split Pane
+whimsy-action-next-pane = Next Split Pane
+whimsy-menu-add-split-view =
+    .label = Add Split View
+whimsy-menu-close-split-pane =
+    .label = Close this Split Pane
+whimsy-menu-separate-page =
+    .label = Separate Page from Split View
+whimsy-menu-expand-split =
+    .label = Expand Current Split

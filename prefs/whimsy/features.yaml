@@ -387,6 +387,9 @@
 - name: whimsy.feature.split-alt-click
   value: true
 
+- name: whimsy.feature.split-arc-keys
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

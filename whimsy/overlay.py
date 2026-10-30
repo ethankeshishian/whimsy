@@ -805,6 +805,8 @@ FEATURES = [
     # wave6/parity: Arc's Option+click a tab to split it with the current one.
     {"id": "split-alt-click", "title": "Option+click a tab in the sidebar to open it in a split with the current tab (Arc)",
      "detect": [("src/zen/split-view", r"(?i)alt-?click|altKey")]},
+    {"id": "split-arc-keys", "title": "Arc's Split View commands: Add Split View (Ctrl+Shift+=), Close this Split Pane (Ctrl+Shift+-), Separate Page, Expand Current Split, Ctrl+Shift+1-4 and [ ] to move between panes",
+     "detect": [("src/zen/split-view", r"(?i)separate-?page|focus-?pane|cmd_zenSplitView(Focus|Next|Prev)")]},
 ]
 
 

@@ -137,6 +137,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave6/parity: Arc's Split View keys.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -531,6 +536,9 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
+    // its switch on each use.
+    run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
