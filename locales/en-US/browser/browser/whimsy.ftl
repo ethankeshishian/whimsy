@@ -186,7 +186,7 @@ whimsy-external-links-glance =
 whimsy-external-links-tab =
     .label = A tab
 whimsy-external-links-quick-window =
-    .label = A quick window
+    .label = Mini Whimsy
 whimsy-archive-prompt =
     .label = When a page is gone, offer the Internet Archive’s copy
 whimsy-tabs-title-lines = Tab titles show up to
@@ -599,12 +599,14 @@ whimsy-library-files-search-placeholder =
     .placeholder = Search captures…
 whimsy-library-files-delete =
     .label = Delete
-## batch12: links & media windows
+## batch12: links & media windows (Mini Whimsy, Arc's "Little Arc")
 
-whimsy-action-quick-window = New Quick Window
+whimsy-action-quick-window = New Mini Whimsy
 whimsy-quick-window-move-to-space =
-    .label = Move to Space
-    .tooltiptext = Adopt this page into a tab in one of your spaces
+    .label = Open in Current Space
+    .tooltiptext = Move this page into the space you're currently using (Cmd+O)
+whimsy-quick-window-choose-space =
+    .tooltiptext = Choose a different space (Cmd+Opt+O)
 
 ## Follower tabs (tab context menu, on a tab already in a 2-pane split)
 
@@ -640,14 +642,14 @@ whimsy-bionic-reading-toggle =
 
 ## Menu bar extra (macOS status bar icon)
 
-whimsy-menu-bar-extra-quick-window = New Quick Window
+whimsy-menu-bar-extra-quick-window = New Mini Whimsy
 whimsy-menu-bar-extra-no-recent-tabs =
     .label = No Recently Closed Tabs
 
 ## Settings → Look and Feel → Look: menu bar extra
 
 whimsy-look-menu-bar-extra =
-    .label = Show a menu bar icon for a quick window and recent tabs
+    .label = Show a menu bar icon for Mini Whimsy and recent tabs
 ## batch7: Settings → Look and Feel → Look
 
 whimsy-look-seasonal-themes =

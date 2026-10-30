@@ -3,10 +3,13 @@
 
 "use strict";
 
-// Little Arc (Cmd+Opt+N; also where WhimsyExternalLinks lands a link when
-// the target is "quick-window"): a small window with no sidebar, just the
-// nav bar and the page. Covers the main flow (open, reuse, move to space),
-// the switch off, and closing it leaving no trace.
+// Mini Whimsy (Arc's "Little Arc"; Cmd+Opt+N, and also where
+// WhimsyExternalLinks lands a link when the target is "quick-window"): a
+// small window with no sidebar, just the nav bar and the page, floating
+// above every other window. Covers the main flow (open, reuse, float,
+// move to space by button/Cmd+O/Cmd+Opt+O, Esc to close), the switch off,
+// and closing it leaving no trace (including no geometry left behind for
+// ordinary windows to inherit).
 
 const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs");
 
@@ -27,6 +30,34 @@ add_task(async function test_open_hides_the_sidebar() {
   const sidebar = win.document.getElementById("navigator-toolbox");
   is(win.getComputedStyle(sidebar).display, "none", "The vertical sidebar is hidden");
   ok(!win.toolbar.visible, "Opened as a popup window (no trace once closed)");
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_floats_above_other_windows() {
+  const win = WhimsyQuickWindow.open("https://example.com/");
+  // Same technique engine/dom/documentpip's browser_pip_ui.js uses: the
+  // widget itself can't be introspected from here, but the chrome flag that
+  // drives NSFloatingWindowLevel on macOS (and the equivalent elsewhere) can.
+  const chromeFlags = win.docShell.treeOwner
+    .QueryInterface(Ci.nsIInterfaceRequestor)
+    .getInterface(Ci.nsIAppWindow).chromeFlags;
+  ok(
+    chromeFlags & Ci.nsIWebBrowserChrome.CHROME_ALWAYS_ON_TOP,
+    "Mini Whimsy has the alwaysontop chrome flag (Arc parity: floats above other windows)"
+  );
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_does_not_persist_its_geometry() {
+  // browser.xhtml's <html id="main-window"> persists screenX/screenY/
+  // width/height under that id for every window, quick or not; a quick
+  // window must not write its small size over an ordinary window's.
+  const win = WhimsyQuickWindow.open("https://example.com/");
+  is(
+    win.document.documentElement.getAttribute("persist"),
+    null,
+    "Mini Whimsy doesn't persist its geometry (would clobber ordinary windows')"
+  );
   await BrowserTestUtils.closeWindow(win);
 });
 
@@ -51,6 +82,38 @@ add_task(async function test_move_to_space_adopts_the_tab_and_closes_the_window(
   is(adopted.linkedBrowser.currentURI.spec, "https://example.com/", "It's the quick window's page");
   await BrowserTestUtils.waitForCondition(() => win.closed, "The quick window closes once the tab is adopted");
   BrowserTestUtils.removeTab(adopted);
+});
+
+add_task(async function test_cmd_o_opens_in_current_space() {
+  // Arc parity: Cmd+O moves the page into the current space directly, no
+  // picker. Zen's own Cmd+O ("Expand Glance") must not fire instead.
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  const tabCountBefore = gBrowser.tabs.length;
+  EventUtils.synthesizeKey("o", { accelKey: true }, win);
+  await BrowserTestUtils.waitForCondition(() => win.closed, "Cmd+O moves the tab and closes the quick window");
+  is(gBrowser.tabs.length, tabCountBefore + 1, "The tab landed in the current space");
+  const adopted = gBrowser.tabs[gBrowser.tabs.length - 1];
+  is(adopted.linkedBrowser.currentURI.spec, "https://example.com/", "It's the quick window's page");
+  BrowserTestUtils.removeTab(adopted);
+});
+
+add_task(async function test_cmd_opt_o_opens_the_space_picker() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  EventUtils.synthesizeKey("o", { accelKey: true, altKey: true }, win);
+  await BrowserTestUtils.waitForCondition(
+    () => win.document.getElementById("whimsy-quick-window-space-picker")?.state == "open",
+    "Cmd+Opt+O opens the space picker"
+  );
+  const popup = win.document.getElementById("whimsy-quick-window-space-picker");
+  ok(popup.children.length >= 1, "The picker lists at least this window's space");
+  popup.hidePopup();
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_escape_closes_the_window_without_a_trace() {
+  const win = WhimsyQuickWindow.open("https://example.com/");
+  EventUtils.synthesizeKey("KEY_Escape", {}, win);
+  await BrowserTestUtils.waitForCondition(() => win.closed, "Esc vanishes the window, as in Arc");
 });
 
 add_task(async function test_feature_off_does_nothing() {

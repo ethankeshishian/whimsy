@@ -118,8 +118,9 @@ export const Whimsy = {
     run("stylesheet", () =>
       win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET)
     );
-    // batch12: Little Arc (quick window). Set before anything else reads
-    // the document, so whimsy-browser.css's rules apply from first paint.
+    // batch12: Mini Whimsy, Arc's Little Arc (quick window). Set before
+    // anything else reads the document, so whimsy-browser.css's rules
+    // apply from first paint.
     if (win._whimsyQuickWindow) {
       win.document.documentElement.setAttribute("whimsy-quick-window", "");
     }

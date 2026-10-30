@@ -187,7 +187,7 @@ FEATURES = [
      "detect": [("src/browser/components/preferences", r'preference="zen\.glance\.open-essential-external-links"')]},
     {"id": "glance-split-action", "title": "\"Split Glance\" in the command bar",
      "detect": [("src/zen/urlbar", r"cmd_zenGlanceSplit")]},
-    {"id": "external-link-target", "title": "External links (from other apps) open in Glance, a tab, or a quick window",
+    {"id": "external-link-target", "title": "External links (from other apps) open in Glance, a tab, or Mini Whimsy",
      # Looks for Zen's own quick-window feature as code (a pref, command or
      # class name), not prose about Arc's "Little Arc" (Zen's Arc-migration
      # tests mention it only to skip it, which isn't Zen shipping one).
@@ -242,7 +242,7 @@ FEATURES = [
     {"id": "screenshot-sidebar", "title": "Screenshot to sidebar: captures also land as files in the Library, not just the clipboard",
      "detect": [("src/zen/library", r"(?i)whimsy-library-files|WhimsyFilesSection")]},
     # batch12: links & media windows
-    {"id": "quick-window", "title": "Little Arc: a quick window (Cmd+Opt+N; links from other apps, per the setting above) with a \"Move to space\" button",
+    {"id": "quick-window", "title": "Mini Whimsy (Arc's Little Arc): a quick window (Cmd+Opt+N; links from other apps, per the setting above), floating above other windows, with Cmd+O/Cmd+Opt+O to move it into a space",
      "detect": [("src/zen", r"(?i)zen[\w.-]*quick[\w.-]*window|cmd_zenQuickWindow")]},
     {"id": "follower-tabs", "title": "Follower tabs: a 2-pane split where clicked links land in the other pane, the source pane never navigates (Vivaldi)",
      "detect": [("src/zen", r"(?i)follower-?tabs?|follower-?split")]},

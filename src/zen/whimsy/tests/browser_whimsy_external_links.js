@@ -5,8 +5,9 @@
 
 // External links: where a link from another app (OPEN_EXTERNAL) lands.
 // "glance" previews it over the current tab; "quick-window" (batch12) opens
-// it in WhimsyQuickWindow's Little Arc; "tab" is Firefox's own behavior.
-// WhimsyExternalLinks wraps BrowserDOMWindow's openURI to branch on these.
+// it in Mini Whimsy, WhimsyQuickWindow's take on Arc's Little Arc; "tab" is
+// Firefox's own behavior. WhimsyExternalLinks wraps BrowserDOMWindow's
+// openURI to branch on these.
 
 const SYSTEM_PRINCIPAL = Services.scriptSecurityManager.getSystemPrincipal();
 

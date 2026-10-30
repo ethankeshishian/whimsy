@@ -123,9 +123,9 @@
   value: false
 
 # Where a link from another app opens (Settings → Tab Management):
-# "glance" (Little Arc's quick-look), "tab" (Firefox's own behavior), or
-# "quick-window" for a future Little-Arc-style quick window Whimsy doesn't
-# have yet (WhimsyExternalLinks.sys.mjs falls back to "tab" until it does).
+# "glance" (a quick-look over the current tab), "tab" (Firefox's own
+# behavior), or "quick-window" for Mini Whimsy, Arc's "Little Arc"
+# (WhimsyQuickWindow.sys.mjs, batch12).
 - name: whimsy.external-links.target
   value: tab
 
