@@ -174,7 +174,7 @@ export const WhimsyFireButton = {
           lazy.WhimsyPanels.close(panel);
           const root = win.document.documentElement;
           // A brief flame/burst overlay (whimsy-browser.css); reduced motion
-          // swaps it for an instant flash there instead.
+          // skips it, and the toast confirms.
           root.setAttribute("whimsy-fire-burning", "");
           win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
           try {

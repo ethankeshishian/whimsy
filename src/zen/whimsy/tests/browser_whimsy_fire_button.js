@@ -111,3 +111,20 @@ add_task(async function test_fire_sheet() {
   await hiddenAgain;
   BrowserTestUtils.removeTab(tab);
 });
+
+// wave5/uxfix: the flame flash stays under Zen's toasts, and reduced motion
+// drops it entirely (the toast confirms instead).
+add_task(async function test_fire_flash_layering_and_reduced_motion() {
+  const root = document.documentElement;
+  root.setAttribute("whimsy-fire-burning", "");
+  try {
+    const flash = getComputedStyle(root, "::after");
+    Assert.less(Number(flash.zIndex), 1000, "The flash sits below Zen's toast layer");
+    await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+    await TestUtils.waitForCondition(() => getComputedStyle(root, "::after").display == "none",
+      "Reduced motion hides the flash");
+    await SpecialPowers.popPrefEnv();
+  } finally {
+    root.removeAttribute("whimsy-fire-burning");
+  }
+});

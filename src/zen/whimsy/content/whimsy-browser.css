@@ -640,11 +640,13 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 
 /* Fire button: a brief full-chrome flame flash (the scope sheet is a
    WhimsyPanels sheet, styled with the others at the end of this file). */
+/* Below Zen's toast layer (#zen-toast-container, z-index 1000), so the
+   "data forgotten" toast never flashes under the flame. */
 :root[whimsy-fire-burning]::after {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 999;
   pointer-events: none;
   background: radial-gradient(circle, color-mix(in srgb, orangered 55%, transparent) 0%, transparent 70%);
   animation: whimsy-fire-flash 700ms ease-out;
@@ -653,11 +655,11 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   from { opacity: 0.9; }
   to { opacity: 0; }
 }
+/* Reduced motion: no flash at all (a sudden tint is a brightness jump);
+   the toast alone confirms the data is gone. */
 @media (prefers-reduced-motion: reduce) {
   :root[whimsy-fire-burning]::after {
-    animation: none;
-    opacity: 0.35;
-    background: color-mix(in srgb, currentColor 20%, transparent);
+    display: none;
   }
 }
 
