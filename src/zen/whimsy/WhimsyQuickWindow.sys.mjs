@@ -74,6 +74,8 @@ const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
 const GLANCE_EXPAND_KEY_ID = "zen-glance-expand";
 
 const READY_TOPIC = "whimsy-quick-window-ready";
+const pointerPositions = new WeakMap();
+const readyLayouts = new WeakMap();
 
 export const WhimsyQuickWindow = {
   get enabled() {
@@ -93,7 +95,7 @@ export const WhimsyQuickWindow = {
       return;
     }
     win.addEventListener("pointermove", event => {
-      win._whimsyMiniPointer = { x: event.screenX, y: event.screenY };
+      pointerPositions.set(win, { x: event.screenX, y: event.screenY });
     }, { passive: true });
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindow",
@@ -145,7 +147,7 @@ export const WhimsyQuickWindow = {
     const screen = opener?.screen;
     const width = Math.min(saved.width, screen?.availWidth || saved.width);
     const height = Math.min(saved.height, screen?.availHeight || saved.height);
-    const pointer = opener?._whimsyMiniPointer;
+    const pointer = opener && pointerPositions.get(opener);
     const position = pointer && screen ?
       `left=${Math.round(Math.max(screen.availLeft, Math.min(pointer.x - width / 2, screen.availLeft + screen.availWidth - width)))},top=${Math.round(Math.max(screen.availTop, Math.min(pointer.y - height / 2, screen.availTop + screen.availHeight - height)))}` : "centerscreen";
     const win = lazy.BrowserWindowTracker.openWindow({
@@ -210,6 +212,24 @@ export const WhimsyQuickWindow = {
   },
 
   whenReady(win) {
+    if (!readyLayouts.has(win)) {
+      readyLayouts.set(win, this.whenChromeReady(win).then(async () => {
+        if (win.closed) {
+          return;
+        }
+        await win.promiseDocumentFlushed(() => {});
+        const animations = win.document.getElementById("browser")?.getAnimations() || [];
+        await Promise.all(animations.filter(a => a.animationName == "whimsy-mini-open")
+          .map(a => a.finished.catch(() => {})));
+        if (!win.closed) {
+          await win.promiseDocumentFlushed(() => {});
+        }
+      }));
+    }
+    return readyLayouts.get(win);
+  },
+
+  whenChromeReady(win) {
     if (win.closed || this.isReady(win)) {
       return Promise.resolve();
     }
@@ -373,6 +393,7 @@ export const WhimsyQuickWindow = {
       const el = document.createXULElement("toolbarbutton");
       el.id = id;
       el.className = "whimsy-mini-button tabbable";
+      el.setAttribute("tabindex", "0");
       for (const [name, value] of Object.entries(attrs)) {
         el.setAttribute(name, value);
       }
@@ -425,7 +446,11 @@ export const WhimsyQuickWindow = {
     const extensions = document.getElementById("unified-extensions-button");
     if (extensions) {
       extensions.classList.add("whimsy-mini-button", "tabbable");
+      extensions.setAttribute("tabindex", "0");
       bar.append(extensions);
+      // Zen normally anchors this panel to its site-controls icon. That
+      // icon is in Mini's parked nav bar; use the visible puzzle button.
+      win.gUnifiedExtensions._button = extensions;
     }
     bar.append(copy, group);
     return bar;
@@ -441,13 +466,15 @@ export const WhimsyQuickWindow = {
       return;
     }
     win._whimsyQuickTitlebar = true;
-    const update = TabBarVisibility.update;
-    TabBarVisibility.update = function (...args) {
-      const result = update.apply(this, args);
-      CustomTitlebar.allowedBy("non-popup", true);
-      return result;
+    const allowedBy = CustomTitlebar.allowedBy;
+    CustomTitlebar.allowedBy = function (condition, allow) {
+      // Intercept the popup policy itself. Re-enabling after update() would
+      // recursively toggle it off/on through CustomTitlebar._update().
+      return allowedBy.call(this, condition,
+        condition == "non-popup" || condition == "pref" ? true : allow);
     };
     CustomTitlebar.allowedBy("non-popup", true);
+    CustomTitlebar.allowedBy("pref", true);
   },
 
   // Firefox makes a popup's address bar read-only, and Zen only floats its
@@ -469,6 +496,9 @@ export const WhimsyQuickWindow = {
   openCommandBar(win) {
     if (win.gURLBar) {
       win.gURLBar.readOnly = false;
+      // Reveal the input before focusing it: its normal toolbar is collapsed
+      // in Mini, and focusing a hidden input cannot open its popover.
+      win.gURLBar.setAttribute("breakout-extend", "true");
     }
     const command = win.document.getElementById("Browser:OpenLocation");
     if (command) {

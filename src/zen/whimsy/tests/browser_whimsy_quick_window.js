@@ -156,7 +156,10 @@ add_task(async function test_shortcut_opens_an_empty_focused_window() {
   const win = WhimsyQuickWindow.open(null, { opener: window });
   await WhimsyQuickWindow.whenReady(win);
   is(win.gBrowser.selectedBrowser.currentURI.spec, "about:blank", "An empty window for the bare shortcut");
+  const oneOffs = win.gURLBar.view.oneOffSearchButtons;
   await BrowserTestUtils.closeWindow(win);
+  const engineInfo = await oneOffs.getEngineInfo();
+  is(engineInfo.engines.length, 0, "A late search callback has no engines after Mini closes");
 });
 
 // wave2: named destination, inherited theme and Arc's separate saved size.
@@ -284,9 +287,13 @@ add_task(async function test_bar_has_arcs_controls_in_order() {
     ok(group.contains(doc.getElementById("whimsy-quick-window-move-to-space")) &&
       group.contains(doc.getElementById("whimsy-quick-window-choose-space")),
       "Open in <Space> and its caret form one split button");
-    is(win.getComputedStyle(doc.getElementById("zen-appcontent-navbar-wrapper")).display, "none",
+    is(win.getComputedStyle(doc.getElementById("zen-appcontent-navbar-wrapper")).visibility, "collapse",
       "Zen's own nav bar is not shown");
     ok(bar.querySelector(".titlebar-buttonbox-container"), "The window controls sit in the bar");
+    const extensions = doc.getElementById("unified-extensions-button");
+    ok(bar.contains(extensions) && extensions.getBoundingClientRect().width > 0,
+      "Mini shows the real extensions button despite Zen's hidden-button default");
+    is(win.gUnifiedExtensions._button, extensions, "The extensions panel uses the visible Mini anchor");
     ok(doc.documentElement.hasAttribute("customtitlebar"), "No native title bar above it (Arc has none)");
     const barRect = bar.getBoundingClientRect();
     Assert.lessOrEqual(Math.round(barRect.top), 4, "The bar is the top edge of the window");
@@ -377,6 +384,9 @@ add_task(async function mini_controls_are_keyboard_reachable() {
     await SimpleTest.promiseFocus(win);
     const doc = win.document;
     const copy = doc.getElementById("whimsy-quick-window-copy-link");
+    const extensions = doc.getElementById("unified-extensions-button");
+    extensions.focus();
+    is(doc.activeElement, extensions, "Extensions receives keyboard focus");
     copy.focus();
     is(doc.activeElement, copy, "Copy receives keyboard focus");
     EventUtils.synthesizeKey("KEY_Tab", {}, win);

@@ -829,6 +829,10 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
     position: fixed !important;
     width: 0 !important;
     min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
     pointer-events: none !important;
   }
   & #urlbar[open],
@@ -836,9 +840,18 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
     visibility: visible !important;
     pointer-events: auto !important;
   }
-  & #zen-sidebar-splitter,
-  & #zen-appcontent-navbar-wrapper {
+  & #zen-sidebar-splitter {
     display: none !important;
+  }
+  /* Zen can park the real URL bar here rather than in the sidebar. Keep
+     its ancestors in layout so focus can promote it into the top layer. */
+  & #zen-appcontent-navbar-wrapper {
+    visibility: collapse !important;
+    position: fixed !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    pointer-events: none !important;
   }
 
   /* The page: the same rounded, shadowed card a main window shows, inset
@@ -922,6 +935,10 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
     outline: 2px solid var(--focus-outline-color, AccentColor);
     outline-offset: -2px;
   }
+}
+
+:root[whimsy-quick-window] #unified-extensions-button {
+  display: flex !important;
 }
 
 #whimsy-quick-window-back {
@@ -1937,6 +1954,7 @@ panel.whimsy-sheet .whimsy-sheet-footer {
   [data-section="whimsy-finder-folders"],
   [data-section="whimsy-files"],
   [data-section="whimsy-next-meeting"],
+  [data-section="whimsy-playlist"],
   [data-section="whimsy-archive"]
 ) :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
   width: var(--zen-library-sprite-size);
@@ -1967,6 +1985,19 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 
 [data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
   background-image: url("chrome://browser/skin/zen-icons/u-turn-to-left.svg");
+}
+
+[data-section="whimsy-playlist"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/skin/zen-icons/selectable/video.svg");
+}
+
+/* Zen scopes the URL/date swap to its original custom-element name. */
+whimsy-space-history-section {
+  & .zen-library-visit-date { display: none; }
+  & .zen-library-row:hover {
+    & .zen-library-visit-url { display: none; }
+    & .zen-library-visit-date { display: inline; }
+  }
 }
 
 #whimsy-quick-window-address .whimsy-mini-profile {
