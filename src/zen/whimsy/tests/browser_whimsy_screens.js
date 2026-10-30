@@ -1647,3 +1647,34 @@ add_task(async function fix7_library_icons_mid_play() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// fix7/tabs: the email alias button, filled, alone and beside a password
+// manager's inline button (a stand-in for 1Password's).
+add_task(async function fix7_email_alias_button() {
+  await BrowserTestUtils.withNewTab("https://example.com/", async browser => {
+    for (const withOther of [false, true]) {
+      await SpecialPowers.spawn(browser, [withOther], other => {
+        const doc = content.document;
+        doc.body.innerHTML = `<form style="padding:40px;font:16px system-ui">
+          <input id="email" type="email" placeholder="you@example.com"
+            style="width:320px;height:40px;padding:0 12px;border:1px solid #ccc;border-radius:8px;font:inherit">
+        </form>`;
+        if (other) {
+          const field = doc.getElementById("email").getBoundingClientRect();
+          const badge = doc.createElement("com-1password-button");
+          Object.assign(badge.style, {
+            position: "absolute", display: "block", width: "24px", height: "24px", borderRadius: "12px",
+            background: "#1a8cff", left: `${field.right - 32}px`, top: `${field.top + 8}px`,
+          });
+          doc.body.append(badge);
+        }
+        doc.getElementById("email").focus();
+      });
+      await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [], () =>
+        !!content.document.getElementById("whimsy-email-aliases-host")), "Alias button");
+      await new Promise(resolve => setTimeout(resolve, 700)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      await shot(`fix7-email-alias-button${withOther ? "-beside-1password" : ""}`,
+        browser.browsingContext.currentWindowGlobal);
+    }
+  });
+});

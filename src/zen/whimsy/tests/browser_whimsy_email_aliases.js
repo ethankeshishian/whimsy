@@ -189,3 +189,63 @@ add_task(async function test_switches_off() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// fix7/tabs: the button is filled (white glyph on a solid blue, readable on
+// any field) and steps left of another password manager's inline button
+// instead of sitting under it, including one that arrives after focus.
+add_task(async function test_filled_and_clear_of_password_managers() {
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await focusField(browser, "email");
+    await TestUtils.waitForCondition(() => hasButton(browser), "The alias button appeared");
+    const plain = await SpecialPowers.spawn(browser, [HOST_ID], hostId => {
+      const host = content.document.getElementById(hostId);
+      const button = host.openOrClosedShadowRoot.querySelector("button");
+      const style = content.getComputedStyle(button);
+      const field = content.document.getElementById("email").getBoundingClientRect();
+      return {
+        background: style.backgroundColor,
+        color: style.color,
+        opacity: style.opacity,
+        width: host.getBoundingClientRect().width,
+        right: host.getBoundingClientRect().right,
+        fieldRight: field.right,
+      };
+    });
+    is(plain.background, "rgb(0, 100, 210)", "A solid fill, not an outline");
+    is(plain.color, "rgb(255, 255, 255)", "with a white glyph");
+    is(plain.opacity, "1", "at full strength");
+    Assert.greaterOrEqual(plain.width, 24, "A 24px target");
+    Assert.lessOrEqual(plain.fieldRight - plain.right, 8, "At the field's end when nothing else is there");
+
+    // 1Password's inline button: a <com-1password-button> laid over the
+    // field's end, added a moment after focus.
+    const placed = await SpecialPowers.spawn(browser, [HOST_ID], async hostId => {
+      const doc = content.document;
+      const field = doc.getElementById("email").getBoundingClientRect();
+      const other = doc.createElement("com-1password-button");
+      Object.assign(other.style, {
+        position: "absolute",
+        display: "block",
+        width: "24px",
+        height: "24px",
+        left: `${field.right + content.scrollX - 30}px`,
+        top: `${field.top + content.scrollY + (field.height - 24) / 2}px`,
+      });
+      doc.body.append(other);
+      const host = doc.getElementById(hostId);
+      await ContentTaskUtils.waitForCondition(
+        () => host.getBoundingClientRect().right <= other.getBoundingClientRect().left,
+        "The alias button moved left of 1Password's"
+      );
+      const result = {
+        gap: other.getBoundingClientRect().left - host.getBoundingClientRect().right,
+        insideField: host.getBoundingClientRect().left >= field.left,
+      };
+      other.remove();
+      return result;
+    });
+    Assert.greaterOrEqual(placed.gap, 0, "No overlap with the other manager's button");
+    Assert.lessOrEqual(placed.gap, 10, "...but right beside it");
+    ok(placed.insideField, "...and still inside the field");
+  });
+});
