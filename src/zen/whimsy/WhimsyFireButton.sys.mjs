@@ -53,15 +53,14 @@ export const WhimsyFireButton = {
   },
 
   initWindow(win) {
-    const { WhimsyShortcuts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyShortcuts.sys.mjs");
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-fire-button",
-        icon: "chrome://browser/skin/forget.svg",
-        command: w => this.openPanel(w),
-        isAvailable: () => this.enabled,
-      },
-    ]);
+    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyFireButton",
+      l10nId: "whimsy-action-fire-button",
+      run: w => this.openPanel(w),
+      icon: "chrome://browser/skin/forget.svg",
+      isAvailable: () => this.enabled,
+    });
   },
 
   closableTabs(win, tabs) {

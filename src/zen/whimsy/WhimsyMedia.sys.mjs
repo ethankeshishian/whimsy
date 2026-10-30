@@ -18,7 +18,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   // wave3/speed: the speed each site plays at.
@@ -313,6 +313,21 @@ export const WhimsyMedia = {
   },
 
   initMuteSite(win) {
+    // wave5: the tab menu's "Mute Site" as a command for the current tab.
+    const siteMuted = w => {
+      const site = this.siteFor(w.gBrowser.selectedBrowser);
+      return site ? this.isSiteMuted(site.principal) : null;
+    };
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyMuteSite",
+      l10nId: "whimsy-action-mute-site-toggle",
+      run: w => this.muteSiteEnabled && this.toggleSiteMute(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/media-mute.svg",
+      variants: [
+        { l10nId: "whimsy-action-mute-site", isAvailable: w => this.muteSiteEnabled && siteMuted(w) === false },
+        { l10nId: "whimsy-action-unmute-site", isAvailable: w => this.muteSiteEnabled && siteMuted(w) === true },
+      ],
+    });
     const { gBrowser, document } = win;
     gBrowser.addTabsProgressListener({
       onLocationChange: (browser, webProgress, request, location, flags) => {
@@ -469,6 +484,14 @@ export const WhimsyMedia = {
 
   initTabVolume(win) {
     const { document, gBrowser } = win;
+    // wave5: the tab menu's "Volume…" as a command for the current tab.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyTabVolume",
+      l10nId: "whimsy-action-tab-volume",
+      run: w => this.canAdjustVolume(w.gBrowser.selectedTab) && this.openVolumePanel(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/media-unmute.svg",
+      isAvailable: w => this.canAdjustVolume(w.gBrowser.selectedTab),
+    });
     const update = () => {
       for (const tab of gBrowser.tabs) {
         this.sendToFrames(tab.linkedBrowser, "Whimsy:SetVolume", { level: this.volumeFor(tab) });
@@ -628,27 +651,22 @@ export const WhimsyMedia = {
   },
 
   initPlaybackSpeed(win) {
-    const { WhimsyShortcuts } = lazy;
     const commands = [
       ["cmd_whimsySpeedUp", "key_whimsySpeedUp", ".", { delta: SPEED_STEP }, "whimsy-action-speed-up"],
       ["cmd_whimsySlowDown", "key_whimsySlowDown", ",", { delta: -SPEED_STEP }, "whimsy-action-slow-down"],
       ["cmd_whimsySpeedReset", "key_whimsySpeedReset", "0", { reset: true }, "whimsy-action-speed-reset"],
     ];
-    for (const [id, keyId, key, change] of commands) {
-      WhimsyShortcuts.addCommand(win, {
+    for (const [id, keyId, key, change, l10nId] of commands) {
+      lazy.WhimsyCommands.register(win, {
         id,
-        run: w => this.changePlaybackRate(w, change),
-        key: this.playbackSpeedEnabled ? { id: keyId, key, modifiers: "accel,alt" } : null,
-      });
-    }
-    WhimsyShortcuts.addActions(
-      commands.map(([id, , , , l10nId]) => ({
         l10nId,
-        command: id,
+        run: w => this.changePlaybackRate(w, change),
+        keyId,
+        key: this.playbackSpeedEnabled ? { key, modifiers: "accel,alt" } : null,
         icon: "chrome://browser/skin/zen-icons/media-play.svg",
         isAvailable: w => this.playbackSpeedEnabled && !!w.gBrowser.selectedTab.linkedPanel,
-      }))
-    );
+      });
+    }
   },
 
   // Finds the frame whose media the tab is about and changes its speed.

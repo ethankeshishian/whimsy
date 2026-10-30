@@ -54,6 +54,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.quick-window";
@@ -97,19 +98,15 @@ export const WhimsyQuickWindow = {
     win.addEventListener("pointermove", event => {
       pointerPositions.set(win, { x: event.screenX, y: event.screenY });
     }, { passive: true });
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyQuickWindow",
+      l10nId: "whimsy-action-quick-window",
       run: w => this.open(null, { opener: w }),
-      key: this.enabled ? { id: "key_whimsyQuickWindow", key: "N", modifiers: "accel,alt" } : null,
+      keyId: "key_whimsyQuickWindow",
+      key: this.enabled ? { key: "N", modifiers: "accel,alt" } : null,
+      icon: "chrome://browser/skin/zen-icons/link.svg",
+      isAvailable: () => this.enabled,
     });
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-quick-window",
-        command: "cmd_whimsyQuickWindow",
-        icon: "chrome://browser/skin/zen-icons/link.svg",
-        isAvailable: () => this.enabled,
-      },
-    ]);
   },
 
   // Opens `url` (or an empty, URL-bar-focused window for the shortcut) in

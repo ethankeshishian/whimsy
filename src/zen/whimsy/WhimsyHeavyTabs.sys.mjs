@@ -43,15 +43,14 @@ export const WhimsyHeavyTabs = {
   },
 
   initWindow(win) {
-    const { WhimsyShortcuts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyShortcuts.sys.mjs");
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-heavy-tabs",
-        icon: "chrome://global/skin/icons/performance.svg",
-        command: w => this.openPanel(w),
-        isAvailable: () => this.enabled,
-      },
-    ]);
+    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyHeavyTabs",
+      l10nId: "whimsy-action-heavy-tabs",
+      run: w => this.openPanel(w),
+      icon: "chrome://global/skin/icons/performance.svg",
+      isAvailable: () => this.enabled,
+    });
   },
 
   async sample(win) {

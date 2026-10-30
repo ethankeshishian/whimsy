@@ -59,8 +59,8 @@ add_task(async function test_copy_full_page() {
 add_task(async function test_command_bar_and_empty() {
   const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
   const action = globalActions.find(a => a.l10nId == "whimsy-action-copy-full-page");
-  ok(action, "The command bar has Copy Full-Page Screenshot");
-  is(action.label, "Copy Full-Page Screenshot", "labelled");
+  ok(action, "The command bar has Capture Full Page");
+  is(action.label, "Capture Full Page", "labelled with Arc's name");
   const blank = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   ok(!action.isAvailable(window), "Not offered on a blank tab");
   is(await WhimsyPage.copyFullPageScreenshot(window), null, "and does nothing there");

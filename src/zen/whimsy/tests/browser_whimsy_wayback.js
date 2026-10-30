@@ -6,7 +6,7 @@
 // Internet Archive for dead pages: a 404 shows a bar offering the
 // Wayback Machine's copy (with its date) when one exists; the button opens
 // it. No bar without a copy, for live pages, in private windows, or with
-// the setting off. "Open in Internet Archive" is in the command bar.
+// the setting off. "Open in Wayback Machine" is in the command bar.
 
 const BASE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_archive.sjs";
 const { WhimsyPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPage.sys.mjs");
@@ -57,7 +57,7 @@ add_task(async function test_no_bar() {
 add_task(async function test_command_bar() {
   const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
   const action = globalActions.find(a => a.l10nId == "whimsy-action-open-archive");
-  is(action?.label, "Open in Internet Archive", "The command bar has Open in Internet Archive");
+  is(action?.label, "Open in Wayback Machine", "The command bar has Open in Wayback Machine");
   const blank = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   ok(!action.isAvailable(window), "not for about:blank");
   BrowserTestUtils.removeTab(blank);

@@ -27,7 +27,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVPNScope: "resource:///modules/whimsy/WhimsyVPNScope.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   IPProtectionService:
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtectionStates:
@@ -113,19 +113,25 @@ export const WhimsyVPN = {
     if (!this.wrapperEnabled) {
       return;
     }
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-vpn-on",
-        command: w => this.turnOn(w),
-        icon: ICON,
-        isAvailable: () => this.wrapperEnabled && this.canTurnOn(),
+    // wave5: one command for a shortcut; the command bar names the state
+    // it moves to.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVPNToggle",
+      l10nId: "whimsy-action-vpn-toggle",
+      run: w => {
+        if (!this.wrapperEnabled) {
+          return null;
+        }
+        if (this.canTurnOff()) {
+          return this.turnOff(w);
+        }
+        return this.canTurnOn() ? this.turnOn(w) : null;
       },
-      {
-        l10nId: "whimsy-action-vpn-off",
-        command: w => this.turnOff(w),
-        icon: ICON,
-        isAvailable: () => this.wrapperEnabled && this.canTurnOff(),
-      },
-    ]);
+      icon: ICON,
+      variants: [
+        { l10nId: "whimsy-action-vpn-on", isAvailable: () => this.wrapperEnabled && this.canTurnOn() },
+        { l10nId: "whimsy-action-vpn-off", isAvailable: () => this.wrapperEnabled && this.canTurnOff() },
+      ],
+    });
   },
 };

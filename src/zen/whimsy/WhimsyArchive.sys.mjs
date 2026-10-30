@@ -241,15 +241,14 @@ export const WhimsyArchive = {
   // A command-bar action; no persistent toolbar button to avoid a second
   // place for the same control (see no-duplicate-controls).
   initArchiveAction(win) {
-    const { WhimsyShortcuts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyShortcuts.sys.mjs");
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-show-archive",
-        icon: "chrome://browser/skin/zen-icons/history.svg",
-        command: w => this.openPanel(w),
-        isAvailable: () => this.viewEnabled,
-      },
-    ]);
+    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyViewArchive",
+      l10nId: "whimsy-action-show-archive",
+      run: w => this.openPanel(w),
+      icon: "chrome://browser/skin/zen-icons/history.svg",
+      isAvailable: () => this.viewEnabled,
+    });
   },
 
   // fixB: the Archive is a Library section beside History

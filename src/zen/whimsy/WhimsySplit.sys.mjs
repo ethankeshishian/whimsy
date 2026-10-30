@@ -8,7 +8,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 // #7 Open a link in split: Arc's Shift+click opens a link beside the
@@ -222,7 +222,7 @@ export const WhimsySplit = {
   },
 
   initWindow(win) {
-    const { WhimsyShortcuts } = lazy;
+    const { WhimsyCommands } = lazy;
 
     this.wrapToggleShortcut(win);
     if (win.gZenViewSplitter) {
@@ -245,49 +245,40 @@ export const WhimsySplit = {
     }
 
     // #9
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyCloseOtherPanes",
+      l10nId: "whimsy-action-close-other-panes",
       run: w => this.closeOtherPanes(w),
-      key: { id: "key_whimsyCloseOtherPanes", key: "W", modifiers: "accel,alt,shift" },
+      keyId: "key_whimsyCloseOtherPanes",
+      key: { key: "W", modifiers: "accel,alt,shift" },
+      icon: "chrome://browser/skin/zen-icons/close.svg",
+      isAvailable: w => enabled(CLOSE_OTHERS_FEATURE_PREF) && hasActiveSplit(w),
     });
-    // #10
-    WhimsyShortcuts.addCommand(win, {
+    // #10. wave5: no default shortcut. Its old Cmd+Opt+Shift+S is where Zen
+    // moved Save Page (Cmd+S is compact mode), and a Whimsy default never
+    // shadows a Zen or Firefox one. Assign one in Settings → Keyboard
+    // Shortcuts.
+    WhimsyCommands.register(win, {
       id: "cmd_whimsySwapPanes",
+      l10nId: "whimsy-action-swap-panes",
       run: w => this.swapPanes(w),
-      key: { id: "key_whimsySwapPanes", key: "S", modifiers: "accel,alt,shift" },
+      keyId: "key_whimsySwapPanes",
+      icon: "chrome://browser/skin/zen-icons/split.svg",
+      isAvailable: w => enabled(SWAP_FEATURE_PREF) && hasActiveSplit(w),
     });
-
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-close-other-panes",
-        command: "cmd_whimsyCloseOtherPanes",
-        icon: "chrome://browser/skin/zen-icons/close.svg",
-        isAvailable: w => enabled(CLOSE_OTHERS_FEATURE_PREF) && hasActiveSplit(w),
-      },
-      {
-        l10nId: "whimsy-action-swap-panes",
-        command: "cmd_whimsySwapPanes",
-        icon: "chrome://browser/skin/zen-icons/split.svg",
-        isAvailable: w => enabled(SWAP_FEATURE_PREF) && hasActiveSplit(w),
-      },
-      {
-        l10nId: "whimsy-action-split-vertically",
-        command: w => w.gZenViewSplitter.toggleShortcut("vsep"),
+    // Zen's own split commands (and their Cmd+Opt+V/H/G keys, listed in
+    // Zen's group), offered in the command bar.
+    for (const [id, l10nId] of [
+      ["cmd_zenSplitViewVertical", "whimsy-action-split-vertically"],
+      ["cmd_zenSplitViewHorizontal", "whimsy-action-split-horizontally"],
+      ["cmd_zenSplitViewGrid", "whimsy-action-split-grid"],
+    ]) {
+      WhimsyCommands.register(win, {
+        id,
+        l10nId,
         icon: "chrome://browser/skin/zen-icons/split.svg",
         isAvailable: w => enabled(COMMAND_BAR_FEATURE_PREF) && w.gBrowser.visibleTabs.length >= 2,
-      },
-      {
-        l10nId: "whimsy-action-split-horizontally",
-        command: w => w.gZenViewSplitter.toggleShortcut("hsep"),
-        icon: "chrome://browser/skin/zen-icons/split.svg",
-        isAvailable: w => enabled(COMMAND_BAR_FEATURE_PREF) && w.gBrowser.visibleTabs.length >= 2,
-      },
-      {
-        l10nId: "whimsy-action-split-grid",
-        command: w => w.gZenViewSplitter.toggleShortcut("grid"),
-        icon: "chrome://browser/skin/zen-icons/split.svg",
-        isAvailable: w => enabled(COMMAND_BAR_FEATURE_PREF) && w.gBrowser.visibleTabs.length >= 2,
-      },
-    ]);
+      });
+    }
   },
 };

@@ -13,7 +13,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const focusedTabs = new WeakMap();
@@ -45,20 +45,35 @@ export const WhimsySidebarNav = {
         fn(w);
       }
     };
-    lazy.WhimsyShortcuts.addCommand(win, {
+    const icon = "chrome://browser/skin/zen-icons/sidebar.svg";
+    lazy.WhimsyCommands.register(win, {
       id: "whimsy-tab-next",
+      l10nId: "whimsy-action-tab-next",
       run: guard(w => cycle(w, 1)),
-      key: { id: "key_whimsyTabNext", modifiers: "accel,alt", keycode: "VK_DOWN" },
+      keyId: "key_whimsyTabNext",
+      key: { modifiers: "accel,alt", keycode: "VK_DOWN" },
+      icon,
+      isAvailable: () => this.enabled,
     });
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "whimsy-tab-prev",
+      l10nId: "whimsy-action-tab-prev",
       run: guard(w => cycle(w, -1)),
-      key: { id: "key_whimsyTabPrev", modifiers: "accel,alt", keycode: "VK_UP" },
+      keyId: "key_whimsyTabPrev",
+      key: { modifiers: "accel,alt", keycode: "VK_UP" },
+      icon,
+      isAvailable: () => this.enabled,
     });
-    lazy.WhimsyShortcuts.addCommand(win, {
+    // wave5: in the command bar and about:keyboard, unbound by default:
+    // the Cmd+Opt+S once promised is Zen's "show sidebar" in compact mode,
+    // and Arc has no default to follow.
+    lazy.WhimsyCommands.register(win, {
       id: "whimsy-focus-sidebar",
+      l10nId: "whimsy-action-focus-sidebar",
       run: guard(w => this.focusSidebar(w)),
-      // No default key: Cmd+Opt+S is Zen's "show sidebar" in compact mode.
+      keyId: "key_whimsyFocusSidebar",
+      icon,
+      isAvailable: () => this.enabled,
     });
 
     // Firefox's tab-strip keyboard navigation requires Accel for arrows
