@@ -939,6 +939,11 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
 
 :root[whimsy-quick-window] #unified-extensions-button {
   display: flex !important;
+
+  /* Arc shows only the puzzle piece; outside a toolbar the label would show. */
+  & > .toolbarbutton-text {
+    display: none;
+  }
 }
 
 #whimsy-quick-window-back {
@@ -1043,7 +1048,8 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
 #whimsy-quick-window-choose-space {
   min-width: 24px !important;
   border-inline-start: 1px solid var(--whimsy-mini-hairline) !important;
-  list-style-image: url("chrome://browser/skin/zen-icons/chevron.svg");
+  /* Arc's caret points down: it opens a list of spaces. */
+  list-style-image: url("chrome://global/skin/icons/arrow-down.svg");
 
   & > .toolbarbutton-icon {
     width: 12px !important;

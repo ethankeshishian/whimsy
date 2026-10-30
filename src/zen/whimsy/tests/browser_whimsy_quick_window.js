@@ -294,6 +294,8 @@ add_task(async function test_bar_has_arcs_controls_in_order() {
     ok(bar.contains(extensions) && extensions.getBoundingClientRect().width > 0,
       "Mini shows the real extensions button despite Zen's hidden-button default");
     is(win.gUnifiedExtensions._button, extensions, "The extensions panel uses the visible Mini anchor");
+    const extLabel = extensions.querySelector(".toolbarbutton-text");
+    ok(!extLabel || win.getComputedStyle(extLabel).display == "none", "Extensions is the puzzle icon alone, as in Arc");
     ok(doc.documentElement.hasAttribute("customtitlebar"), "No native title bar above it (Arc has none)");
     const barRect = bar.getBoundingClientRect();
     Assert.lessOrEqual(Math.round(barRect.top), 4, "The bar is the top edge of the window");
