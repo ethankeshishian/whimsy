@@ -789,6 +789,9 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5: live blocks in Notes (Arc Easels' Live Captures).
+    {"id": "note-blocks", "title": "Live blocks in Notes: /embed or drop a tab to keep a cropped, live region of a page in a note (Arc Live Captures)",
+     "detect": [("src/zen", r"(?i)live-?capture|zen[\w-]*note[\w-]*block")]},
 ]
 
 

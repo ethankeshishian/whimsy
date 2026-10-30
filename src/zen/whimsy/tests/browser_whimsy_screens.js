@@ -1537,3 +1537,46 @@ add_task(async function wave5_seasonal_balloon() {
     }
   }
 });
+
+// wave5: a live block in a note, cropped to part of the page.
+add_task(async function wave5_note_live_block() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["whimsy.feature.notes", true],
+      ["whimsy.feature.note-blocks", true],
+      ["zen.library.hidden-tabs", ""],
+    ],
+  });
+  const { gWhimsyNotesStore } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs"
+  );
+  const library = document.querySelector("zen-library");
+  const wasOpen = library.constructor.isLibraryOpen;
+  const note = await gWhimsyNotesStore.create();
+  try {
+    await customElements.whenDefined("whimsy-note-block");
+    const { blockFromURL } = customElements.get("whimsy-note-block").helpers;
+    const { block } = blockFromURL("https://example.com/", { title: "Example Domain" });
+    block.crop = { x: 0, y: 0, w: 1024, h: 420 };
+    await gWhimsyNotesStore.update(note.id, { title: "Trip", text: "Check the weather", blocks: [block] });
+    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-notes"]);
+    library.activeTab = "whimsy-notes";
+    await library.constructor.animateProgress(1);
+    const section = await TestUtils.waitForCondition(() => library.querySelector("whimsy-library-notes-section"));
+    await section.updateComplete;
+    section.editingId = note.id;
+    await section.updateComplete;
+    const el = await TestUtils.waitForCondition(() => section.querySelector("whimsy-note-block"));
+    const browser = await TestUtils.waitForCondition(() => el.browser, "The visible block loads");
+    await TestUtils.waitForCondition(
+      () => browser.currentURI?.spec == "https://example.com/" && !browser.webProgress?.isLoadingDocument,
+      "The block's page has loaded"
+    );
+    await new Promise(r => setTimeout(r, 400));
+    await shot("wave5-note-live-block");
+  } finally {
+    await gWhimsyNotesStore.remove(note.id);
+    await library.constructor.animateProgress(wasOpen ? 1 : 0);
+    await SpecialPowers.popPrefEnv();
+  }
+});

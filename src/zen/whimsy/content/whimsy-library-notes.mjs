@@ -4,6 +4,13 @@
 
 import { html, repeat } from "chrome://global/content/vendor/lit.all.mjs";
 import { ZenLibrarySearchSection } from "moz-src:///zen/library/sections/ZenLibrarySearchSection.mjs";
+import {
+  TAB_DROP_TYPE,
+  blockFromTab,
+  blockFromURL,
+  blocksEnabled,
+  parseEmbedCommand,
+} from "./whimsy-note-blocks.mjs";
 const { gWhimsyNotesStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {"TabNotes": "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs"});
@@ -106,12 +113,132 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     await this.#refresh();
   }
 
+  // wave5: live blocks (whimsy-note-blocks.mjs).
+  #toast(id) {
+    this.ownerDocument.defaultView.gZenUIManager?.showToast(id);
+  }
+
+  async #insertBlock(note, result, text = null) {
+    if (text != null && text != note.text) {
+      await this.#setText(note, text);
+    }
+    if (result.error) {
+      this.#toast(result.error);
+      return;
+    }
+    const current = (await gWhimsyNotesStore.list()).find(n => n.id == note.id) ?? note;
+    await gWhimsyNotesStore.update(note.id, { blocks: [...(current.blocks ?? []), result.block] });
+    await this.#refresh();
+  }
+
+  async #updateBlock(note, block) {
+    const current = (await gWhimsyNotesStore.list()).find(n => n.id == note.id);
+    if (!current) {
+      return;
+    }
+    const blocks = (current.blocks ?? []).map(b => (b.id == block.id ? block : b));
+    await gWhimsyNotesStore.update(note.id, { blocks });
+    await this.#refresh();
+  }
+
+  async #removeBlock(note, block) {
+    const current = (await gWhimsyNotesStore.list()).find(n => n.id == note.id);
+    if (!current) {
+      return;
+    }
+    await gWhimsyNotesStore.update(note.id, { blocks: (current.blocks ?? []).filter(b => b.id != block.id) });
+    await this.#refresh();
+  }
+
+  // "/embed" (current tab) or "/embed <url>" on its own line, then Enter.
+  #onEditorKeydown(note, event) {
+    if (event.key != "Enter" || event.shiftKey || !blocksEnabled()) {
+      return;
+    }
+    const textarea = event.target;
+    const { value, selectionStart } = textarea;
+    const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+    let lineEnd = value.indexOf("\n", selectionStart);
+    if (lineEnd == -1) {
+      lineEnd = value.length;
+    }
+    const command = parseEmbedCommand(value.slice(lineStart, lineEnd));
+    if (!command) {
+      return;
+    }
+    event.preventDefault();
+    const text = (value.slice(0, lineStart) + value.slice(lineEnd + 1)).replace(/\n$/, "");
+    textarea.value = text;
+    this.embed(note, command.url, text);
+  }
+
+  // Public for tests: embeds the selected tab, or `url` in its container.
+  embed(note, url = null, text = null) {
+    const win = this.ownerDocument.defaultView;
+    const tab = win.gBrowser.selectedTab;
+    const result = url
+      ? blockFromURL(url, {
+          userContextId: tab?.userContextId,
+          isPrivate: blockFromTab(tab).error == "whimsy-note-block-private",
+        })
+      : blockFromTab(tab);
+    return this.#insertBlock(note, result, text);
+  }
+
+  #onDragOver(event) {
+    const types = event.dataTransfer?.types ?? [];
+    if (!blocksEnabled() || !(types.includes(TAB_DROP_TYPE) || types.includes("text/x-moz-url"))) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "link";
+  }
+
+  #onDrop(note, event) {
+    if (!blocksEnabled()) {
+      return;
+    }
+    const dt = event.dataTransfer;
+    const tab = dt.mozGetDataAt(TAB_DROP_TYPE, 0);
+    if (tab) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.#insertBlock(note, blockFromTab(tab));
+      return;
+    }
+    const link = dt.getData("text/x-moz-url").split("\n")[0];
+    if (link) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.embed(note, link);
+    }
+  }
+
+  #renderBlocks(note) {
+    if (!blocksEnabled()) {
+      return "";
+    }
+    return html`
+      ${repeat(
+        note.blocks ?? [],
+        b => b.id,
+        b => html`<whimsy-note-block
+          .block=${b}
+          .onBlockChange=${block => this.#updateBlock(note, block)}
+          .onBlockRemove=${block => this.#removeBlock(note, block)}
+        ></whimsy-note-block>`
+      )}
+      <span class="whimsy-note-block-hint" data-l10n-id="whimsy-note-block-hint"></span>
+    `;
+  }
+
   #renderNote(note) {
     const query = this.searchQuery.toLowerCase();
     if (
       query &&
       !note.title?.toLowerCase().includes(query) &&
-      !note.text?.toLowerCase().includes(query)
+      !note.text?.toLowerCase().includes(query) &&
+      !note.blocks?.some(b => `${b.title} ${b.url}`.toLowerCase().includes(query))
     ) {
       return "";
     }
@@ -147,7 +274,12 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
         ${
           editing
             ? html`
-                <div class="zen-library-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+                <div
+                  class="zen-library-row whimsy-note-editor"
+                  style="flex-direction: column; align-items: stretch; gap: 6px;"
+                  @dragover=${event => this.#onDragOver(event)}
+                  @drop=${event => this.#onDrop(note, event)}
+                >
                   <input
                     type="text"
                     data-l10n-id="whimsy-library-notes-title-placeholder"
@@ -158,7 +290,9 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
                     rows="6"
                     .value=${note.text}
                     @change=${event => this.#setText(note, event.target.value)}
+                    @keydown=${event => this.#onEditorKeydown(note, event)}
                   ></textarea>
+                  ${this.#renderBlocks(note)}
                   <label>
                     <input
                       type="checkbox"
