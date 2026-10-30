@@ -794,27 +794,234 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
 }
 
 /* batch12: Mini Whimsy, Arc's "Little Arc" (quick window,
-   whimsy.feature.quick-window). Hides the whole vertical sidebar (tabs,
-   spaces, pinned) so just the nav bar above the content and the
-   "Open in Current Space"/caret buttons are left. Pre-existing bug fixed
-   here: this block, the move-to-space button rule right below it, and the
-   lock-badge rule above (batch9) had all been left nested inside earlier
-   unclosed rules by later edits, so none of them — nor anything after them
-   in the file — ever actually applied. */
+   whimsy.feature.quick-window). wave4: rebuilt to Arc's layout. No sidebar,
+   no Zen nav bar: one slim bar on the destination space's colours (window
+   controls, Back, the address pill, Copy URL, "Open in <Space>" + caret),
+   then the page as an inset rounded card. Measurements: the address pill
+   fills are Arc's own LittleBrowserCommandBarPlaceholderBackground(Hovered)
+   colours from ARC_LittleBrowser.bundle; everything else follows Arc's main
+   window (8px card radius, card inset on the frame colour, SF 13px). */
 :root[whimsy-quick-window] {
-  & #navigator-toolbox,
-  & #zen-sidebar-splitter {
+  /* Mini opens as a popup window, which drops Zen's own window minimums;
+     keep it small-friendly but usable. */
+  min-width: 360px !important;
+  min-height: 240px !important;
+
+  --whimsy-mini-bar-height: 40px;
+  --whimsy-mini-control: 28px;
+  --whimsy-mini-fill: light-dark(rgb(14 15 16 / 0.06), rgb(250 251 255 / 0.10));
+  --whimsy-mini-fill-hover: light-dark(rgb(14 15 16 / 0.10), rgb(250 251 255 / 0.15));
+  --whimsy-mini-fill-active: light-dark(rgb(14 15 16 / 0.14), rgb(250 251 255 / 0.20));
+  --whimsy-mini-hairline: light-dark(rgb(14 15 16 / 0.10), rgb(250 251 255 / 0.12));
+
+  /* The sidebar stays out of layout, but not display:none: the floating
+     command bar (the URL bar, opened from the address) lives in it and is
+     shown from the top layer. */
+  & #navigator-toolbox {
+    visibility: collapse !important;
+    position: fixed !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    pointer-events: none !important;
+  }
+  & #urlbar[open],
+  & #urlbar[breakout-extend] {
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+  & #zen-sidebar-splitter,
+  & #zen-appcontent-navbar-wrapper {
     display: none !important;
+  }
+
+  /* The page: the same rounded, shadowed card a main window shows, inset
+     evenly on the frame now that nothing sits beside it. */
+  & #zen-tabbox-wrapper {
+    margin: 0 var(--zen-element-separation) var(--zen-element-separation) !important;
+  }
+  & #tabbrowser-tabpanels .browserSidebarContainer {
+    overflow: clip;
+    box-shadow: var(--zen-big-shadow);
+    border-radius: calc(var(--zen-native-inner-radius) / var(--zen-squircle-value));
+  }
+}
+
+#whimsy-quick-window-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--whimsy-mini-bar-height);
+  min-height: var(--whimsy-mini-bar-height);
+  padding-inline: var(--zen-element-separation);
+  color: var(--toolbox-textcolor);
+  font: menu;
+  font-size: 13px;
+  /* The bar is the title bar: drag the window by any empty part of it. */
+  -moz-window-dragging: drag;
+
+  :root:is([inDOMFullscreen="true"], [inFullscreen]) & {
+    display: none;
+  }
+
+  & > * {
+    -moz-window-dragging: no-drag;
+  }
+
+  & > .titlebar-buttonbox-container {
+    -moz-window-dragging: drag;
+    margin-inline-end: 4px;
+    padding: 0;
+    & > .titlebar-buttonbox {
+      margin-inline-start: 4px;
+    }
+  }
+}
+
+#whimsy-quick-window-bar .whimsy-mini-button {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  min-width: var(--whimsy-mini-control);
+  height: var(--whimsy-mini-control);
+  border-radius: 7px;
+  justify-content: center;
+  color: inherit;
+  background: transparent;
+
+  & > .toolbarbutton-icon {
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    -moz-context-properties: fill, fill-opacity;
+    fill: currentColor;
+  }
+  & > .toolbarbutton-text {
+    padding: 0;
+  }
+
+  &:not([disabled]):hover {
+    background: var(--whimsy-mini-fill-hover);
+  }
+  &:not([disabled]):hover:active {
+    background: var(--whimsy-mini-fill-active);
+  }
+  &[disabled] {
+    opacity: 0.35;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+}
+
+#whimsy-quick-window-back {
+  list-style-image: url("chrome://browser/skin/zen-icons/back.svg");
+}
+
+#whimsy-quick-window-copy-link {
+  list-style-image: url("chrome://browser/skin/zen-icons/link.svg");
+}
+
+/* The address: favicon + bare host on Arc's translucent fill; it opens the
+   command bar rather than being a text field itself. */
+#whimsy-quick-window-address {
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--whimsy-mini-control);
+  margin: 0 4px 0 2px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: default;
+  transition: background-color 120ms ease;
+
+  &:hover {
+    background: var(--whimsy-mini-fill-hover);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+
+  & > .whimsy-mini-favicon {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+
+  & > .whimsy-mini-host {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+
+  &[blank] > .whimsy-mini-host {
+    font-weight: 400;
+    opacity: 0.6;
+  }
+}
+
+/* "Open in <Space>" + caret: one pill, split by a hairline. */
+#whimsy-quick-window-open {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: var(--whimsy-mini-control);
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  overflow: clip;
+
+  & > .whimsy-mini-button {
+    border-radius: 0;
   }
 }
 
 #whimsy-quick-window-move-to-space {
-  margin-inline-start: auto;
+  gap: 6px;
+  padding-inline: 10px 8px !important;
+  max-width: 220px;
+  font-weight: 600;
+  font-size: 12px;
+
+  & > .toolbarbutton-icon {
+    width: 14px !important;
+    height: 14px !important;
+  }
+  &:not([image]) > .toolbarbutton-icon {
+    display: none;
+  }
+  & > .toolbarbutton-text {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
 }
 
 #whimsy-quick-window-choose-space {
+  min-width: 24px !important;
+  border-inline-start: 1px solid var(--whimsy-mini-hairline) !important;
   list-style-image: url("chrome://browser/skin/zen-icons/chevron.svg");
-  margin-inline-start: 2px;
+
+  & > .toolbarbutton-icon {
+    width: 12px !important;
+    height: 12px !important;
+  }
 }
 
 /* batch7: Seasonal themes. A gentle accent tint plus one CSS flourish layer

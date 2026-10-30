@@ -437,25 +437,46 @@ add_task(async function whimsy_network_errors() {
   }
 });
 
-// wave2: Mini's destination label and space colors.
+// wave2/wave4: Mini Whimsy in Arc's Little Arc layout (one slim bar on the
+// space's colours over the page card), in light and dark, plus its blank
+// state with the command bar open.
 add_task(async function mini_whimsy_destination() {
   const { WhimsyQuickWindow } = ChromeUtils.importESModule(
     "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs"
   );
-  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
-  try {
-    await WhimsyQuickWindow.whenReady(win);
-    await TestUtils.waitForCondition(() =>
-      win.document.getElementById("whimsy-quick-window-move-to-space")?.getAttribute("label")
-    );
-    await TestUtils.waitForCondition(() =>
-      win.document.l10n.getAttributes(win.document.getElementById("whimsy-quick-window-move-to-space"))
-        .args?.space == gZenWorkspaces.getActiveWorkspace().name
-    );
-    await new Promise(resolve => win.requestAnimationFrame(resolve));
-    await shot("mini-whimsy-destination", win.browsingContext.currentWindowGlobal);
-  } finally {
-    await BrowserTestUtils.closeWindow(win);
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    const scheme = dark ? "dark" : "light";
+    let win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+    try {
+      await WhimsyQuickWindow.whenReady(win);
+      const button = () => win.document.getElementById("whimsy-quick-window-move-to-space");
+      await TestUtils.waitForCondition(() => button()?.getAttribute("label"));
+      await TestUtils.waitForCondition(() =>
+        win.document.l10n.getAttributes(button()).args?.space == gZenWorkspaces.getActiveWorkspace().name
+      );
+      const host = win.document.querySelector("#whimsy-quick-window-address .whimsy-mini-host");
+      await TestUtils.waitForCondition(() => host.textContent == "example.com", "Mini shows the host");
+      ok(win.document.getElementById("whimsy-quick-window-bar").checkVisibility(), `Mini's bar shows (${scheme})`);
+      await new Promise(resolve => win.requestAnimationFrame(resolve));
+      await shot(`mini-whimsy-${scheme}`, win.browsingContext.currentWindowGlobal);
+    } finally {
+      await BrowserTestUtils.closeWindow(win);
+    }
+
+    win = WhimsyQuickWindow.open(null, { opener: window });
+    try {
+      await WhimsyQuickWindow.whenReady(win);
+      await SimpleTest.promiseFocus(win);
+      await TestUtils.waitForCondition(() => win.gURLBar.focused, "Blank Mini opens into the command bar");
+      EventUtils.sendString("example", win);
+      await TestUtils.waitForCondition(() => win.gURLBar.view.isOpen).catch(() => {});
+      await new Promise(resolve => win.requestAnimationFrame(resolve));
+      await shot(`mini-whimsy-command-bar-${scheme}`, win.browsingContext.currentWindowGlobal);
+    } finally {
+      await BrowserTestUtils.closeWindow(win);
+    }
+    await SpecialPowers.popPrefEnv();
   }
 });
 

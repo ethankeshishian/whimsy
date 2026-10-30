@@ -4,7 +4,8 @@
 
 // Mini Whimsy (Arc calls this Little Arc; Cmd+Opt+N, and "links from other
 // apps open in: Mini Whimsy" in WhimsyExternalLinks): a small window with
-// just a URL bar and the page, no sidebar, no space switcher, no tab strip,
+// one slim bar over the page (Arc's Little Arc layout, see initChrome), no
+// sidebar, no space switcher, no tab strip, no native title bar,
 // floating above every other window (full Arc parity, decided in the
 // build plan). Arc's flow: a link from Slack or Mail, or Cmd+Opt+N for a
 // blank one, opens here so it never costs you a tab in one of your spaces;
@@ -60,7 +61,13 @@ const WIDTH = 480;
 const HEIGHT = 720;
 const SIZE_PREF = "whimsy.quick-window.size";
 const NAVBAR_ID = "zen-appcontent-navbar-wrapper";
+const BAR_ID = "whimsy-quick-window-bar";
+const BACK_BUTTON_ID = "whimsy-quick-window-back";
+const ADDRESS_ID = "whimsy-quick-window-address";
+const COPY_BUTTON_ID = "whimsy-quick-window-copy-link";
+const OPEN_GROUP_ID = "whimsy-quick-window-open";
 const MOVE_BUTTON_ID = "whimsy-quick-window-move-to-space";
+const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
 const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
 // Zen's own Cmd+O ("Expand Glance"): meaningless in a quick window, which
 // never has a Glance, so Mini Whimsy reuses the accelerator for Arc's
@@ -144,11 +151,25 @@ export const WhimsyQuickWindow = {
     this._current = win;
     // The initial about:blank document unloads before browser.xhtml loads.
     // Only an actual window close ends this window's lifetime.
+    // Before the window is first shown: Mini's look (no native title bar,
+    // no sidebar) from the first frame, not after Whimsy's later setup.
+    const beforeShow = subject => {
+      if (subject != win) {
+        return;
+      }
+      Services.obs.removeObserver(beforeShow, "browser-window-before-show");
+      win.document.documentElement.setAttribute("whimsy-quick-window", "");
+      this.useCustomTitlebar(win);
+    };
+    Services.obs.addObserver(beforeShow, "browser-window-before-show");
     const onClosed = subject => {
       if (subject != win) {
         return;
       }
       Services.obs.removeObserver(onClosed, "domwindowclosed");
+      try {
+        Services.obs.removeObserver(beforeShow, "browser-window-before-show");
+      } catch {}
       if (this._current == win) {
         this._current = null;
       }
@@ -164,7 +185,8 @@ export const WhimsyQuickWindow = {
     if (!url) {
       this.whenReady(win).then(() => {
         if (!win.closed) {
-          win.gURLBar?.focus();
+          // Arc: Cmd+Opt+N opens Little Arc straight into its command bar.
+          this.openCommandBar(win);
         }
       });
     }
@@ -263,12 +285,13 @@ export const WhimsyQuickWindow = {
     return adopted ?? null;
   },
 
-  // The quick window's own chrome: an "Open in <Space name>" button
-  // (Cmd+O) with a small caret beside it to choose a different one
-  // (Cmd+Shift+O) — Arc's split button, without relying on a toolbarbutton
-  // "menu-button" type this engine doesn't seem to use anywhere else.
-  // Added to the nav bar above the content (the sidebar it would normally
-  // sit beside is hidden by whimsy-browser.css).
+  // The quick window's own chrome, laid out like Arc's Little Arc: one slim
+  // bar above the page, on the destination space's colours (see
+  // watchDestination), holding the window controls, Back, the address
+  // (favicon + host; clicking it opens the command bar, Cmd+L), Copy URL
+  // (Cmd+Shift+C) and the "Open in <Space name>" split button (Cmd+O, with
+  // a caret for Cmd+Shift+O). Below it the page is the same inset rounded
+  // card as in a main window. Zen's own nav bar and sidebar stay hidden.
   initChrome(win) {
     const { document } = win;
     // Never let this window's size/position feed back into the ordinary
@@ -279,9 +302,11 @@ export const WhimsyQuickWindow = {
     // for this window (it reads the attribute live, at save time).
     document.documentElement.removeAttribute("persist");
     const navbar = document.getElementById(NAVBAR_ID);
-    if (!navbar || document.getElementById(MOVE_BUTTON_ID)) {
+    if (!navbar || document.getElementById(BAR_ID)) {
       return;
     }
+    this.useCustomTitlebar(win);
+    this.useFloatingCommandBar(win);
     this.disableGlanceExpandKey(win);
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindowOpenInSpace",
@@ -290,36 +315,35 @@ export const WhimsyQuickWindow = {
         if (spaceId) {
           this.moveToSpace(w, spaceId);
         } else {
-          this.openSpacePicker(w, w.document.getElementById(MOVE_BUTTON_ID));
+          this.openSpacePicker(w, w.document.getElementById(OPEN_GROUP_ID));
         }
       },
       key: { id: "key_whimsyQuickWindowOpenInSpace", key: "O", modifiers: "accel" },
     });
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindowChooseSpace",
-      run: w => this.openSpacePicker(w, w.document.getElementById(MOVE_BUTTON_ID)),
+      run: w => this.openSpacePicker(w, w.document.getElementById(OPEN_GROUP_ID)),
       key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
     });
+    // Arc: "quickly verify the content and hit Esc to vanish the window."
+    // Only when nothing closer to the keypress (an open popup) handled it,
+    // and not when that Esc is closing the command bar: whether it was
+    // open is read before the URL bar gets the key and closes itself.
+    let commandBarWasOpen = false;
     win.addEventListener("keydown", event => {
-      // Arc: "quickly verify the content and hit Esc to vanish the
-      // window." Only when nothing closer to the keypress (the URL bar
-      // reverting an edit, an open popup) already handled it.
-      if (event.key == "Escape" && !event.defaultPrevented) {
+      const urlbar = win.gURLBar;
+      commandBarWasOpen = event.key == "Escape" &&
+        !!(urlbar?.view?.isOpen || urlbar?.hasAttribute("breakout-extend"));
+    }, { capture: true });
+    win.addEventListener("keydown", event => {
+      if (event.key == "Escape" && !event.defaultPrevented && !commandBarWasOpen) {
         win.close();
       }
     });
-    const button = document.createXULElement("toolbarbutton");
-    button.id = MOVE_BUTTON_ID;
-    button.className = "toolbarbutton-1";
-    button.setAttribute("command", "cmd_whimsyQuickWindowOpenInSpace");
-    navbar.appendChild(button);
-    const choose = document.createXULElement("toolbarbutton");
-    choose.id = CHOOSE_BUTTON_ID;
-    choose.className = "toolbarbutton-1";
-    choose.setAttribute("command", "cmd_whimsyQuickWindowChooseSpace");
-    document.l10n.setAttributes(choose, "whimsy-quick-window-choose-space");
-    navbar.appendChild(choose);
+    navbar.before(this.buildBar(win));
+    this.adoptWindowButtons(win);
     this.watchDestination(win);
+    this.watchPage(win);
     const rememberSize = () => {
       if (!win.fullScreen && win.windowState == win.STATE_NORMAL &&
           win.innerWidth > 0 && win.innerHeight > 0) {
@@ -332,6 +356,194 @@ export const WhimsyQuickWindow = {
     // its widget. No coordinates or shared XUL geometry are persisted.
     win.addEventListener("resize", rememberSize);
     win.addEventListener("unload", () => win.removeEventListener("resize", rememberSize), { once: true });
+  },
+
+  buildBar(win) {
+    const { document } = win;
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const button = (id, l10nId, attrs = {}) => {
+      const el = document.createXULElement("toolbarbutton");
+      el.id = id;
+      el.className = "whimsy-mini-button";
+      for (const [name, value] of Object.entries(attrs)) {
+        el.setAttribute(name, value);
+      }
+      if (l10nId) {
+        document.l10n.setAttributes(el, l10nId);
+      }
+      return el;
+    };
+    const bar = html("div");
+    bar.id = BAR_ID;
+    bar.setAttribute("role", "toolbar");
+    document.l10n.setAttributes(bar, "whimsy-quick-window-bar");
+
+    // Arc's Little Arc has Back but no Forward. Browser:Back keeps its own
+    // disabled state, so the button never moves (it only dims).
+    const back = button(BACK_BUTTON_ID, "whimsy-quick-window-back", { command: "Browser:Back" });
+
+    // The address: what Arc shows (favicon + bare host), not an editable
+    // field. Editing happens in the command bar it opens, as in Arc.
+    const address = html("button");
+    address.id = ADDRESS_ID;
+    address.setAttribute("type", "button");
+    document.l10n.setAttributes(address, "whimsy-quick-window-address");
+    const favicon = html("img");
+    favicon.className = "whimsy-mini-favicon";
+    favicon.setAttribute("alt", "");
+    favicon.setAttribute("src", DEFAULT_FAVICON);
+    const host = html("span");
+    host.className = "whimsy-mini-host";
+    address.append(favicon, host);
+    address.addEventListener("click", () => this.openCommandBar(win));
+
+    const copy = button(COPY_BUTTON_ID, "whimsy-quick-window-copy-link", { command: "cmd_zenCopyCurrentURL" });
+
+    // "Open in <Space>" + caret, one pill split by a hairline (Arc's split
+    // button). The button's image is the space's own icon.
+    const group = html("div");
+    group.id = OPEN_GROUP_ID;
+    const move = button(MOVE_BUTTON_ID, null, { command: "cmd_whimsyQuickWindowOpenInSpace" });
+    const choose = button(CHOOSE_BUTTON_ID, "whimsy-quick-window-choose-space", {
+      command: "cmd_whimsyQuickWindowChooseSpace",
+    });
+    group.append(move, choose);
+
+    bar.append(back, address, copy, group);
+    return bar;
+  },
+
+  // Popup windows (Mini opens as one, so it never lands in session history)
+  // get a native, grey macOS title bar from Firefox's TabBarVisibility.
+  // Arc's Little Arc has none: the bar *is* the title bar, traffic lights
+  // and all. Keep the custom (drawn-in) titlebar on for this window only.
+  useCustomTitlebar(win) {
+    const { CustomTitlebar, TabBarVisibility } = win;
+    if (!CustomTitlebar?.allowedBy || !TabBarVisibility?.update || win._whimsyQuickTitlebar) {
+      return;
+    }
+    win._whimsyQuickTitlebar = true;
+    const update = TabBarVisibility.update;
+    TabBarVisibility.update = function (...args) {
+      const result = update.apply(this, args);
+      CustomTitlebar.allowedBy("non-popup", true);
+      return result;
+    };
+    CustomTitlebar.allowedBy("non-popup", true);
+  },
+
+  // Firefox makes a popup's address bar read-only, and Zen only floats its
+  // URL bar ("command bar") on some paths. Mini has no sidebar for it to
+  // sit in, so it always floats, centred over the page, like the command
+  // bar Arc opens from Little Arc's address.
+  useFloatingCommandBar(win) {
+    const urlbar = win.gURLBar;
+    if (!urlbar) {
+      return;
+    }
+    urlbar.readOnly = false;
+    Object.defineProperty(urlbar, "zenUrlbarBehavior", {
+      configurable: true,
+      get: () => "float",
+    });
+  },
+
+  openCommandBar(win) {
+    if (win.gURLBar) {
+      win.gURLBar.readOnly = false;
+    }
+    const command = win.document.getElementById("Browser:OpenLocation");
+    if (command) {
+      command.doCommand();
+    } else {
+      win.gURLBar?.select();
+    }
+  },
+
+  // The traffic lights (macOS) or caption buttons live in Zen's sidebar,
+  // which Mini hides; they belong at the bar's edge. Zen may move them
+  // back when it re-lays out its toolbars, so keep them here.
+  adoptWindowButtons(win) {
+    const { document } = win;
+    const bar = document.getElementById(BAR_ID);
+    const find = () => win.gZenVerticalTabsManager?.actualWindowButtons ??
+      document.querySelector(".titlebar-buttonbox-container");
+    const adopt = () => {
+      let buttons;
+      try {
+        buttons = find();
+      } catch {}
+      if (buttons && buttons.parentNode != bar) {
+        bar.prepend(buttons);
+      }
+    };
+    adopt();
+    const observer = new win.MutationObserver(adopt);
+    for (const id of ["navigator-toolbox", NAVBAR_ID]) {
+      const area = document.getElementById(id);
+      if (area) {
+        observer.observe(area, { childList: true, subtree: true });
+      }
+    }
+    win.addEventListener("unload", () => observer.disconnect(), { once: true });
+  },
+
+  // Keeps the address (favicon + host) and its tooltip on the current page.
+  watchPage(win) {
+    const { document, gBrowser } = win;
+    const address = document.getElementById(ADDRESS_ID);
+    const favicon = address.querySelector(".whimsy-mini-favicon");
+    const host = address.querySelector(".whimsy-mini-host");
+    const copy = document.getElementById(COPY_BUTTON_ID);
+    const update = () => {
+      if (win.closed) {
+        return;
+      }
+      const tab = gBrowser.selectedTab;
+      const uri = gBrowser.selectedBrowser.currentURI;
+      const spec = uri?.spec ?? "";
+      const blank = !spec || spec == "about:blank" || !!win.isBlankPageURL?.(spec);
+      let name = "";
+      if (!blank) {
+        try {
+          name = uri.host;
+        } catch {}
+        name = (name || uri.displaySpec || spec).replace(/^www\./, "");
+      }
+      address.toggleAttribute("blank", blank);
+      copy.disabled = blank;
+      if (blank) {
+        document.l10n.setAttributes(host, "whimsy-quick-window-address-placeholder");
+      } else {
+        host.removeAttribute("data-l10n-id");
+        host.removeAttribute("data-l10n-args");
+        host.textContent = name;
+      }
+      const icon = !blank && tab.image ? tab.image : DEFAULT_FAVICON;
+      if (favicon.getAttribute("src") != icon) {
+        favicon.setAttribute("src", icon);
+      }
+      const title = blank ? "" : tab.label || name;
+      if (address.dataset.page != `${title}\n${spec}`) {
+        address.dataset.page = `${title}\n${spec}`;
+        document.l10n.setAttributes(address, blank ? "whimsy-quick-window-address" :
+          "whimsy-quick-window-address-page", blank ? null : { title, url: uri.displaySpec || spec });
+      }
+    };
+    favicon.addEventListener("error", () => favicon.setAttribute("src", DEFAULT_FAVICON));
+    const listener = {
+      onLocationChange: update,
+      QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
+    };
+    gBrowser.addProgressListener(listener);
+    gBrowser.tabContainer.addEventListener("TabAttrModified", update);
+    gBrowser.tabContainer.addEventListener("TabSelect", update);
+    win.addEventListener("unload", () => {
+      gBrowser.removeProgressListener(listener);
+      gBrowser.tabContainer.removeEventListener("TabAttrModified", update);
+      gBrowser.tabContainer.removeEventListener("TabSelect", update);
+    }, { once: true });
+    update();
   },
 
   // Mirror the destination window's rendered Zen theme, including opacity,
@@ -391,6 +603,12 @@ export const WhimsyQuickWindow = {
       button.disabled = !space;
       doc.l10n.setAttributes(button, space ? "whimsy-quick-window-move-to-space" :
         "whimsy-quick-window-no-space", space ? { space: space.name } : null);
+      const icon = this.spaceIcon(space);
+      if (icon) {
+        button.setAttribute("image", icon);
+      } else {
+        button.removeAttribute("image");
+      }
       if (!space) {
         for (const name of attributes) {
           doc.documentElement.removeAttribute(name);
@@ -446,6 +664,22 @@ export const WhimsyQuickWindow = {
     update();
   },
 
+  // The space's icon as an image URL: Zen's SVG icons as they are, an
+  // emoji drawn into a small SVG (toolbarbutton images are URLs only).
+  spaceIcon(space) {
+    const icon = space?.icon?.trim();
+    if (!icon) {
+      return null;
+    }
+    if (icon.endsWith(".svg") || /^(chrome|resource|moz-extension|data):/.test(icon)) {
+      return icon;
+    }
+    const text = icon.replace(/[&<>"']/g, ch => `&#${ch.charCodeAt(0)};`);
+    return "data:image/svg+xml," + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">` +
+      `<text x="8" y="8" dominant-baseline="central" text-anchor="middle" font-size="13">${text}</text></svg>`);
+  },
+
   // Zen's own Cmd+O ("Expand Glance") would otherwise compete with Mini
   // Whimsy's own Cmd+O for the same accelerator in the same window; a
   // quick window never has a Glance to expand, so it's safe to clear.
@@ -472,8 +706,9 @@ export const WhimsyQuickWindow = {
     }
   },
 
-  // A small menu of the user's spaces, anchored on the "Open in <Space name>"
-  // button; choosing one calls moveToSpace.
+  // A small menu of the user's spaces, anchored under the "Open in <Space
+  // name>" pill (end-aligned, as Arc's drops from its right edge);
+  // choosing one calls moveToSpace.
   openSpacePicker(win, anchor) {
     const { document } = win;
     const spaces = this.spaces(win);
@@ -499,6 +734,6 @@ export const WhimsyQuickWindow = {
       return item;
     });
     popup.replaceChildren(...items);
-    popup.openPopup(anchor, { position: "after_start" });
+    popup.openPopup(anchor, { position: "after_end" });
   },
 };

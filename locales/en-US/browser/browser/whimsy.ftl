@@ -1234,3 +1234,21 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
+
+# wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
+# title, $url its address.
+whimsy-quick-window-bar =
+    .aria-label = Mini Whimsy
+whimsy-quick-window-back =
+    .tooltiptext = Back (Cmd+[)
+    .aria-label = Back
+whimsy-quick-window-address =
+    .title = Search or Enter URL (Cmd+L)
+    .aria-label = Search or Enter URL
+whimsy-quick-window-address-page =
+    .title = { $title } — { $url }
+    .aria-label = Edit address: { $url }
+whimsy-quick-window-address-placeholder = Search or Enter URL…
+whimsy-quick-window-copy-link =
+    .tooltiptext = Copy URL (Cmd+Shift+C)
+    .aria-label = Copy URL
