@@ -157,6 +157,26 @@ add_task(async function shift_opens_a_new_tab() {
   });
 });
 
+// wave7/security M4: the parent never trusts a principal from the content
+// process; it uses the page's own and checks the link itself.
+add_task(async function parent_ignores_a_forged_principal() {
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    const parent = browser.browsingContext.currentWindowGlobal.getActor("WhimsyLinkHints");
+    const system = Services.scriptSecurityManager.getSystemPrincipal();
+    const before = gBrowser.tabs.length;
+    for (const href of ["about:preferences", "file:///", "chrome://browser/content/browser.xhtml"]) {
+      parent.receiveMessage({ name: "Whimsy:Hints:OpenTab", data: { href, triggeringPrincipal: system } });
+    }
+    is(gBrowser.tabs.length, before, "Privileged links don't open, whatever principal the message claims");
+
+    const newTab = BrowserTestUtils.waitForNewTab(gBrowser, PAGE + "?second", true);
+    parent.receiveMessage({ name: "Whimsy:Hints:OpenTab", data: { href: PAGE + "?second" } });
+    const tab = await newTab;
+    ok(tab.linkedBrowser.contentPrincipal.isContentPrincipal, "An ordinary link opens with the page's principal");
+    BrowserTestUtils.removeTab(tab);
+  });
+});
+
 add_task(async function narrowing_backspace_and_wrong_letters() {
   // Enough targets for two-letter labels.
   const links =

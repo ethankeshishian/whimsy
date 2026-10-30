@@ -351,7 +351,8 @@ export class WhimsyLinkHintsChild extends JSWindowActorChild {
       } catch (e) {
         return;
       }
-      this.sendAsyncMessage("Whimsy:Hints:OpenTab", { href, triggeringPrincipal: principal });
+      // The parent uses its own copy of the page's principal.
+      this.sendAsyncMessage("Whimsy:Hints:OpenTab", { href });
       return;
     }
     el.focus?.({ preventScroll: true });
