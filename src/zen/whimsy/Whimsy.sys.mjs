@@ -252,7 +252,7 @@ export const Whimsy = {
         {
           l10nId: "whimsy-action-cheatsheet",
           command: "whimsy-cheatsheet",
-          icon: "chrome://browser/skin/zen-icons/key.svg",
+          icon: "chrome://browser/skin/zen-icons/selectable/key.svg",
           isAvailable: () => lazy.WhimsyCheatSheet.enabled,
         },
       ])
@@ -270,7 +270,7 @@ export const Whimsy = {
         {
           l10nId: "whimsy-action-useragent",
           command: "whimsy-useragent-picker",
-          icon: "chrome://browser/skin/zen-icons/globe.svg",
+          icon: "chrome://browser/skin/zen-icons/selectable/globe.svg",
           isAvailable: () => lazy.WhimsyUserAgent.enabled,
         },
       ]);
@@ -309,7 +309,7 @@ export const Whimsy = {
         {
           l10nId: "whimsy-action-devmode-toggle",
           command: "whimsy-devmode-toggle-site",
-          icon: "chrome://browser/skin/zen-icons/code.svg",
+          icon: "chrome://browser/skin/zen-icons/selectable/code.svg",
           isAvailable: () => lazy.WhimsyDevMode.enabled,
         },
       ]);
