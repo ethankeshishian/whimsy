@@ -351,7 +351,15 @@ export const WhimsySpaceExtensions = {
           }
         }
       };
-      const observer = new win.MutationObserver(update);
+      const observer = new win.MutationObserver(records => {
+        // Only newly inserted cards/options need wiring. Ignore text, icons,
+        // and our own picker mutations.
+        if (records.some(record => [...record.addedNodes].some(node =>
+          node.nodeType === 1 && (node.matches("addon-card, addon-options, panel-list") ||
+            node.querySelector("addon-card, addon-options, panel-list"))))) {
+          update();
+        }
+      });
       observer.observe(doc, { childList: true, subtree: true });
       Services.prefs.addObserver(FEATURE_PREF, update);
       doc.defaultView.addEventListener("unload", () => {
@@ -366,7 +374,7 @@ export const WhimsySpaceExtensions = {
     }
   },
 
-  showAddonPicker(win, card) {
+  showAddonPicker(win, card, focusSpace = null) {
     const doc = card.ownerDocument;
     card.querySelector("[data-whimsy-space-choices]")?.remove();
     const choices = doc.createElement("fieldset");
@@ -380,6 +388,7 @@ export const WhimsySpaceExtensions = {
       const label = doc.createElement("label");
       const input = doc.createElement("input");
       input.type = "checkbox";
+      input.dataset.space = uuid ?? "";
       input.checked = uuid === null ? !allowed : !!allowed?.includes(uuid);
       const text = doc.createElement("span");
       if (uuid === null) {
@@ -396,7 +405,7 @@ export const WhimsySpaceExtensions = {
         } else {
           this.toggleSpace(win, card.addon.id, uuid);
         }
-        this.showAddonPicker(win, card);
+        this.showAddonPicker(win, card, uuid);
       });
       label.append(input, text);
       choices.append(label, doc.createElement("br"));
@@ -406,7 +415,7 @@ export const WhimsySpaceExtensions = {
       addChoice(space.uuid, space.name);
     }
     card.appendChild(choices);
-    choices.querySelector("input").focus();
+    [...choices.querySelectorAll("input")].find(input => input.dataset.space === (focusSpace ?? "")).focus();
   },
 
   // -- wiring ------------------------------------------------------------

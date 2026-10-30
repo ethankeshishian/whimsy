@@ -231,7 +231,12 @@ add_task(async function test_about_addons_can_recover_hidden_extension() {
     const choices = card.querySelector("[data-whimsy-space-choices]");
     ok(choices, "Gear action opens the space choices");
     ok([...choices.querySelectorAll("input")].every(input => !input.checked), "Empty selection is preserved");
-    choices.querySelector("input").click();
+    const spaceInput = choices.querySelectorAll("input")[1];
+    spaceInput.focus();
+    const space = spaceInput.dataset.space;
+    spaceInput.click();
+    is(card.ownerDocument.activeElement.dataset.space, space, "Toggling a space preserves keyboard focus on that space");
+    card.querySelector("[data-whimsy-space-choices] input").click();
     is(WhimsySpaceExtensions.getAllowedSpaces(extensionId), null, "All Spaces restores visibility");
     ok(!widgetNode().hidden, "Toolbar returns after using the Add-ons picker");
     Services.prefs.setBoolPref(FEATURE, false);
