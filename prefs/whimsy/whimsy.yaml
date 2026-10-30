@@ -277,17 +277,10 @@
 - name: browser.startup.homepage
   value: "about:whimsy"
 
-# home: "What's new" (Help menu, About dialog's hidden release-notes link)
-# opens Whimsy's own Changelog tab instead of Zen's or Firefox's release
-# notes.
-- name: app.releaseNotesURL
-  value: "about:whimsy?tab=changelog"
-
-- name: app.releaseNotesURL.aboutDialog
-  value: "about:whimsy?tab=changelog"
-
-- name: app.releaseNotesURL.prompt
-  value: "about:whimsy?tab=changelog"
+# home: "What's new" (Help menu, About dialog's release-notes link) opens
+# Whimsy's own Changelog tab. app.releaseNotesURL* and the other branding
+# URLs are set in whimsy/engine_overrides.py (BRANDING_PREFS), not here:
+# surfer's firefox-branding.js loads after this file and would win.
 
 # legacy: Firefox/Mozilla leftovers (whimsy-handoff/legacy-audit.md).
 # Each entry says what the pref is for and why Whimsy changes it. Kept on
