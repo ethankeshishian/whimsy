@@ -136,6 +136,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave6: Already open (Arc parity).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -557,6 +562,10 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+
+    // wave6: Already open. Return on an address that's open in any space
+    // goes to that tab (Arc). Always installed; checks its switch on use.
+    run("already-open", () => lazy.WhimsyAlreadyOpen.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

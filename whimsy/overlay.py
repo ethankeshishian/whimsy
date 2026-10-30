@@ -793,6 +793,11 @@ FEATURES = [
     # go as tabs, polled only while the folder is visible.
     {"id": "live-folders-local-servers", "title": "Local servers live folder: running localhost dev servers as tabs that appear and disappear",
      "detect": [("src/zen/live-folders", r"(?i)local-?servers|localhost")]},
+    # wave6: Already open (Arc): Return on an address that's open in any
+    # space goes to that tab instead of a duplicate. Zen already lists open
+    # tabs as Switch to Tab results; this is only the typed-address case.
+    {"id": "already-open", "title": "Already open: typing an address that's open in another tab or space takes you there instead of opening a copy (Arc)",
+     "detect": [("src/zen", r"(?i)already-?open|dedupe-?tabs|prevent-?duplicate")]},
 ]
 
 

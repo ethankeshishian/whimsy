@@ -1373,3 +1373,21 @@ Object.assign(gWhimsySettings, {
     render();
   },
 });
+
+// wave6: navigation switches (Already open, Trails, Page actions), at the
+// end of Tab Management -> Tabs. Each checkbox is the feature's own switch.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category != "paneZenTabManagement") {
+    return;
+  }
+  const template = document.getElementById("template-whimsyNavigation");
+  const group = document.getElementById("whimsyTabsGroup");
+  if (!template || !group) {
+    return;
+  }
+  const rows = [...template.content.children];
+  template.remove();
+  Preferences.addAll(rows.map(row => ({ id: row.getAttribute("preference"), type: "bool" })));
+  group.append(...rows);
+  Preferences.queueUpdateOfAllElements();
+});

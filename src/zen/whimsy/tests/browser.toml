@@ -350,3 +350,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
 ["browser_whimsy_live_folders_local_servers.js"]
+
+# wave6: Already open (Arc): Return on an open address goes to its tab and space.
+["browser_whimsy_already_open.js"]

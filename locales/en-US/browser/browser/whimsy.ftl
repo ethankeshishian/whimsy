@@ -1617,3 +1617,12 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave6: Already open (Arc). Shown after Return on a typed address took you
+## to the tab that already had it, in another space or window.
+## $space - the space's name
+
+whimsy-already-open-toast = Already open in { $space }
+whimsy-already-open-toast-window = Already open in another window
+whimsy-already-open-setting =
+    .label = Go to a page that’s already open instead of opening it again
