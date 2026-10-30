@@ -297,6 +297,14 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)mozSetFileArray|easy-?files|upload-?clipboard")]},
     {"id": "dev-mode", "title": "Developer mode tabs (Arc parity): localhost/port tabs get a striped outline and a top bar with Console/Network/Elements",
      "detect": [("src/zen", r"(?i)dev-?mode[\w-]*tab|whimsy-devmode")]},
+
+    # batch7b: offline game + year in tabs (about:whimsy)
+    {"id": "game", "title": "A small original Balloon-Fight-style canvas game (Retro/Gradient style) at whimsy://game, linked from the offline/net-error page",
+     # Never matches: Firefox has no offline game in this engine.
+     "detect": [("prefs", r"name:\s*browser\.offline\.game\.enabled")]},
+    {"id": "year-in-tabs", "title": "Year in tabs: a private, on-device recap (top sites, busiest day/hour, tabs opened, longest-open tab) at whimsy://year",
+     # Never matches: nothing like this ships upstream.
+     "detect": [("prefs", r"name:\s*browser\.year-in-review\.enabled")]},
 ]
 
 

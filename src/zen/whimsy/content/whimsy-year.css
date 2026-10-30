@@ -1,0 +1,177 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  font-family: -apple-system, system-ui, sans-serif;
+  background: #120a24;
+}
+
+#whimsy-year-root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#whimsy-year-empty {
+  margin: auto;
+  color: #fff;
+  font-size: 16px;
+  max-width: 320px;
+  text-align: center;
+}
+
+#whimsy-year-deck {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#whimsy-year-deck[hidden] {
+  display: none;
+}
+
+#whimsy-year-cards {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.whimsy-year-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  padding: 48px 32px;
+  box-sizing: border-box;
+  color: #fff;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  background: linear-gradient(160deg, var(--whimsy-year-a), var(--whimsy-year-b));
+}
+
+.whimsy-year-card[data-active] {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .whimsy-year-card {
+    transition: opacity 0.25s ease;
+  }
+}
+
+.whimsy-year-card-eyebrow {
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.whimsy-year-card-title {
+  font-size: clamp(22px, 4vw, 34px);
+  font-weight: 700;
+  margin: 0;
+  max-width: 44ch;
+}
+
+.whimsy-year-card-body {
+  font-size: 16px;
+  max-width: 40ch;
+  opacity: 0.92;
+}
+
+.whimsy-year-card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
+  width: 100%;
+}
+
+.whimsy-year-card-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 14px;
+}
+
+.whimsy-year-card-list li span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+#whimsy-year-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+}
+
+#whimsy-year-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+#whimsy-year-dots span[data-active] {
+  background: #fff;
+}
+
+#whimsy-year-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px 20px;
+}
+
+#whimsy-year-nav button {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#whimsy-year-prev,
+#whimsy-year-next {
+  padding: 8px 14px;
+  font-size: 16px;
+}
+
+#whimsy-year-nav button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

@@ -191,3 +191,33 @@
 # batch7: Dock icon badge (download count), Settings → Tab Management.
 - name: whimsy.downloads.dock-badge
   value: true
+
+# batch7b: offline game (whimsy://game). Visual style: "gradient" (the app
+# icon's colours) or "retro" (a pixel palette, chiptune off by default). Its
+# own switch is on the game page itself, not in Settings.
+- name: whimsy.game.style
+  value: "gradient"
+
+# batch7b: offline game chiptune (retro style only), off by default.
+- name: whimsy.game.chiptune
+  value: false
+
+# batch7b: offline game high score.
+- name: whimsy.game.high-score
+  value: 0
+
+# batch7b: Year in tabs (whimsy://year). A local-only JSON counter of tabs
+# opened since this build first ran ({"total","bySpace","since"}); empty
+# until the first tab opens. See WhimsyStats.sys.mjs.
+- name: whimsy.stats.tabs-opened
+  value: ""
+
+# batch7b: the longest continuously open tab ever recorded, from a tab that
+# has since closed (JSON {"title","url","ms"}); empty until one does.
+- name: whimsy.stats.longest-tab
+  value: ""
+
+# batch7b: the last year Year in tabs' December 1st "ready" toast was
+# shown, so it only shows once a year.
+- name: whimsy.year.last-toast-year
+  value: 0

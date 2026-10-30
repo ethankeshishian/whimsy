@@ -72,6 +72,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyUrlbar.sys.mjs",
     "WhimsyUserAgent.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
+    # batch7b: about:whimsy (offline game + year in tabs)
+    "WhimsyAboutPage.sys.mjs",
+    "WhimsyNetErrorChild.sys.mjs",
+    "WhimsyNetErrorParent.sys.mjs",
+    "WhimsyStats.sys.mjs",
 ]
 
 BROWSER_CHROME_MANIFESTS += [

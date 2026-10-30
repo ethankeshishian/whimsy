@@ -270,6 +270,12 @@
 - name: whimsy.feature.dev-mode
   value: true
 
+- name: whimsy.feature.game
+  value: true
+
+- name: whimsy.feature.year-in-tabs
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

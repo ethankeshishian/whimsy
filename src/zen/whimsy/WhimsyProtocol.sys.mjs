@@ -25,6 +25,9 @@ const ROUTES = {
   flags: { url: "about:config" },
   keyboard: { url: "about:keyboard" },
   history: { command: "cmd_zenToggleLibrary", fallbackUrl: "about:firefoxview" },
+  // batch7b: offline game + year in tabs (about:whimsy, WhimsyAboutPage.sys.mjs).
+  game: { url: "about:whimsy?game" },
+  year: { url: "about:whimsy?year" },
 };
 
 const PATTERN = /^whimsy:\/\/([a-z-]+)\/?$/i;

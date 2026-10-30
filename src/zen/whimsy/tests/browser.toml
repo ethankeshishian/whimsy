@@ -204,3 +204,8 @@ support-files = ["whimsy_slow_download.sjs"]
 support-files = ["whimsy_upload.html"]
 
 ["browser_whimsy_dev_mode.js"]
+
+# batch7b: offline game + year in tabs (about:whimsy)
+["browser_whimsy_game.js"]
+
+["browser_whimsy_year_in_tabs.js"]
