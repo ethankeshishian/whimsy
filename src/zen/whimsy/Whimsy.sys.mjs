@@ -40,6 +40,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
   WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs", // batch9: spaces
+  WhimsySpaceExtensions: "resource:///modules/whimsy/WhimsySpaceExtensions.sys.mjs", // ext: per-space extensions
 });
 
 // batch9p: Scratch and private tabs
@@ -337,6 +338,13 @@ export const Whimsy = {
         },
       ]);
     });
+    // ext: per-space extensions. After Zen's spaces are ready, like
+    // "spaces" above; the module checks its own switch on each use.
+    run("space-extensions", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceExtensions.initWindow(win))
+        .catch(e => console.error("Whimsy: space-extensions", e))
+    );
     // batch7b: about:whimsy, shared by the offline game and Year in tabs.
     run("about-pages", () => lazy.WhimsyAboutPage.register());
     // batch7b: offline game (whimsy://game). Always installed: the command

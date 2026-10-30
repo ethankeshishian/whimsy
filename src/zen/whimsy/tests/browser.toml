@@ -223,3 +223,6 @@ support-files = ["whimsy_claude.html"]
 # meeting: Next meeting in the sidebar.
 ["browser_whimsy_next_meeting.js"]
 support-files = ["whimsy_calendar.sjs"]
+
+# ext: per-space extensions
+["browser_whimsy_space_extensions.js"]

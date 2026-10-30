@@ -818,3 +818,38 @@ Object.assign(gWhimsySettings, {
     Preferences.queueUpdateOfAllElements();
   },
 });
+
+// ext: per-space extensions. Just the feature switch and its honest
+// .description; the actual per-extension "Show in Spaces…" control lives on
+// each extension's gear menu in the extensions panel, not here.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertExtensionsGroup();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertExtensionsGroup() {
+    const template = document.getElementById("template-whimsyExtensions");
+    if (!template) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    if (!this.lazy.Whimsy.featureEnabled("space-extensions")) {
+      template.remove();
+      return;
+    }
+    template.remove();
+    const anchor =
+      document.getElementById("whimsySpacesGroup") ??
+      document.getElementById("whimsyTabsGroup") ??
+      document.getElementById("zenWorkspacesGroup");
+    if (anchor) {
+      anchor.after(fragment);
+    } else {
+      document.getElementById("mainPrefPane")?.append(fragment);
+    }
+    group.hidden = false;
+  },
+});

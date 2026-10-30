@@ -317,6 +317,11 @@ FEATURES = [
     # meeting: Next meeting in the sidebar.
     {"id": "next-meeting", "title": "Next meeting in the sidebar: Apple Calendar and Google Calendar accounts, a Join button for Meet/Zoom/Teams, and a card 15 min before",
      "detect": [("src/zen", r"(?i)EKEventStore|next-?meeting|meeting-?chip")]},
+    # ext: per-space extensions (toolbar/panel visibility per space, plus
+    # container-scoped tabs/webNavigation/webRequest/proxy isolation where a
+    # space has its own container). Zen has nothing for this.
+    {"id": "space-extensions", "title": "Per-space extensions: \"Show in Spaces…\" on each extension's gear menu, plus per-container API isolation where a space has its own container",
+     "detect": [("src/zen", r"(?i)per-?space[\w-]*extension|extension[\w-]*per-?space|space[\w-]*scoped[\w-]*extension")]},
 ]
 
 

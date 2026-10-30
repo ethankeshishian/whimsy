@@ -881,3 +881,13 @@ whimsy-meeting-card-enable =
 # wave2: Mini Whimsy without an available destination.
 whimsy-quick-window-no-space =
     .label = Open in…
+## ext: per-space extensions
+
+whimsy-space-extensions-header = Per-space extensions
+whimsy-space-extensions-toggle =
+    .label = Show extensions per space
+whimsy-space-extensions-help = Each extension gets a "Show in Spaces…" choice on its gear menu in the extensions panel, so you can keep one hidden outside the spaces it belongs to. Hiding it only hides its toolbar button and panel entry — it keeps running in the background and sharing storage like any other enabled extension; nothing short of a separate Firefox profile per space truly isolates it. When a space has its own container, Whimsy also stops the extension's tabs/webNavigation/webRequest/proxy access to that container's tabs, but not its content scripts.
+whimsy-space-extensions-menu =
+    .label = Show in Spaces…
+whimsy-space-extensions-all =
+    .label = All Spaces

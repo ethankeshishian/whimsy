@@ -335,6 +335,8 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+</html:template>
+
 # meeting: Settings → Look and Feel → Next meeting, after Whimsy's Look group.
 <html:template id="template-whimsyNextMeeting" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
   <groupbox id="whimsyNextMeetingGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
@@ -346,5 +348,19 @@
               data-l10n-id="whimsy-meeting-apple-enable" preference="whimsy.next-meeting.apple-calendar"/>
     <checkbox id="whimsyNextMeetingCard" class="indent"
               data-l10n-id="whimsy-meeting-card-enable" preference="whimsy.next-meeting.sidebar-card"/>
+  </groupbox>
+</html:template>
+
+# ext: per-space extensions — Settings → Tab Management → Spaces. The actual
+# per-extension "Show in Spaces…" choice lives on each extension's own gear
+# menu in the extensions panel (WhimsySpaceExtensions.sys.mjs); this is just
+# the feature switch and the honest explanation of what hiding does and
+# doesn't do (whimsy-space-extensions-help).
+<html:template id="template-whimsyExtensions" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyExtensionsGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-space-extensions-header"/></label>
+    <checkbox id="whimsySpaceExtensions" data-whimsy-feature="space-extensions"
+              data-l10n-id="whimsy-space-extensions-toggle" preference="whimsy.feature.space-extensions"/>
+    <description class="description-deemphasized" data-l10n-id="whimsy-space-extensions-help"/>
   </groupbox>
 </html:template>

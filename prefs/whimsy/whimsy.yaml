@@ -265,3 +265,9 @@
 # meeting until 10 minutes after it starts.
 - name: whimsy.next-meeting.sidebar-card
   value: true
+# ext: per-space extensions (WhimsySpaceExtensions.sys.mjs)
+# whimsy.extensions.space-visibility ({extensionId: {spaces: [uuid, ...]}})
+# and whimsy.extensions.space-isolation-managed ([extensionId, ...]) have no
+# default here, same reason as whimsy.folders.colors above: the generator
+# writes "{}"/"[]" unquoted, which breaks firefox.js. Code falls back to
+# "{}" and "[]".
