@@ -3,8 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // wave7/focus: paste guard, the page's side (see WhimsyPasteGuard.sys.mjs).
-// Listens to trusted paste events at the top of the event path (before the
-// page's own listeners and before the editor inserts anything). Only when
+// Listens to trusted paste events in the capture phase of the default group
+// on the chrome event target, the first stop of the event path: before any
+// page listener (even a capturing one on window) and before the editor
+// inserts anything. Not the system group, which runs after the page. A
+// held paste never reaches the page, so editors that handle paste
+// themselves (ProseMirror, Slack, Docs) are covered too. Only when
 // the text looks like a secret does it hold the paste and ask the parent;
 // "Paste" then runs the paste again (cmd_paste), letting that one through.
 // The clipboard text never leaves this function: it's read, tested and
@@ -65,7 +69,7 @@ export class WhimsyPasteGuardChild extends JSWindowActorChild {
   allowed = null;
 
   handleEvent(event) {
-    if (event.type != "paste" || !event.isTrusted || event.defaultPrevented) {
+    if (event.type != "paste" || !event.isTrusted) {
       return;
     }
     if (!Services.prefs.getBoolPref(FEATURE_PREF, true) || !Services.prefs.getBoolPref(ENABLED_PREF, true)) {

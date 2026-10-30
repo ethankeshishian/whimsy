@@ -27,7 +27,24 @@ async function openPage() {
       <input id="plain" style="width: 300px">
       <input id="secret" type="password">
       <input id="card" autocomplete="cc-number">
-      <textarea id="area" rows="12" cols="40"></textarea>`;
+      <textarea id="area" rows="12" cols="40"></textarea>
+      <div id="editor" contenteditable="true" style="min-height: 2em"></div>`;
+    // M2: a page that reads every paste first (capturing, on window) and
+    // inserts it itself, like a rich editor or a phishing page.
+    const body = content.document.body;
+    body.dataset.seen = "0";
+    content.addEventListener(
+      "paste",
+      event => {
+        event.clipboardData.getData("text/plain");
+        body.dataset.seen = String(Number(body.dataset.seen) + 1);
+        if (event.target.id == "editor") {
+          event.preventDefault();
+          event.target.textContent += event.clipboardData.getData("text/plain");
+        }
+      },
+      true
+    );
   });
   return tab;
 }
@@ -96,8 +113,12 @@ add_task(function test_detector() {
   ok(isCardNumber("5555-5555-5555-4444"), "Mastercard with dashes");
   ok(!isCardNumber("9111111111111111"), "No network starts with 9");
 
-  ok(isHome("github", "github.com") && isHome("github", "gist.github.com"), "GitHub is home for its tokens");
+  ok(isHome("github", "github.com") && isHome("aws", "signin.aws.amazon.com"), "The issuer's own sign-in is home");
   ok(!isHome("github", "notgithub.com") && !isHome("github", "github.com.evil.example"), "Look-alikes aren't");
+  // L2: hosts that serve anyone's pages are never home.
+  ok(!isHome("aws", "evil.s3.amazonaws.com") && !isHome("aws", "amazonaws.com"), "Not S3-hosted pages");
+  ok(!isHome("google", "storage.googleapis.com") && !isHome("google", "sites.google.com"), "Not Cloud Storage or Sites");
+  ok(!isHome("github", "evil.github.io") && !isHome("github", "gist.github.com"), "Exact hosts only");
   ok(!isHome("card", "example.com") && !isHome("aws", ""), "Cards and empty hosts have no home");
 });
 
@@ -141,6 +162,37 @@ add_task(async function test_sheet_cancel_and_paste() {
   await TestUtils.waitForCondition(() => !sheet(), "Cancel closes it");
   is(await valueOf(browser, "area"), "", "Cancelled");
 
+  BrowserTestUtils.removeTab(tab);
+});
+
+// M2: the guard runs before the page's own capturing listener, so a page
+// (or an editor that handles paste itself) learns nothing until "Paste".
+add_task(async function test_before_the_page() {
+  const tab = await openPage();
+  const browser = tab.linkedBrowser;
+  const seen = () => SpecialPowers.spawn(browser, [], () => Number(content.document.body.dataset.seen));
+  const editorText = () => SpecialPowers.spawn(browser, [], () => content.document.getElementById("editor").textContent);
+
+  await SimpleTest.promiseClipboardChange(AWS_KEY, () => SpecialPowers.clipboardCopyString(AWS_KEY));
+  await SpecialPowers.spawn(browser, [], () => content.document.getElementById("editor").focus());
+  browser.focus();
+  goDoCommand("cmd_paste");
+  await TestUtils.waitForCondition(sheetOpen, "A self-handling editor still asks");
+  is(await seen(), 0, "The page hasn't seen the paste");
+  sheet().querySelector(".whimsy-sheet-footer-button.primary").doCommand();
+  await TestUtils.waitForCondition(() => !sheet(), "Cancelled");
+  await new Promise(resolve => setTimeout(resolve, 300));
+  is(await seen(), 0, "and never does after Cancel");
+  is(await editorText(), "", "nothing inserted");
+
+  goDoCommand("cmd_paste");
+  await TestUtils.waitForCondition(sheetOpen, "Asks again");
+  sheet().querySelector(".whimsy-sheet-footer-button:not(.primary)").doCommand();
+  await TestUtils.waitForCondition(async () => (await editorText()) == AWS_KEY, "Paste hands it to the page's editor");
+  is(await seen(), 1, "The page sees it once, after Paste");
+
+  await paste(browser, "plain", "ordinary words");
+  is(await seen(), 2, "Ordinary pastes reach the page as usual");
   BrowserTestUtils.removeTab(tab);
 });
 

@@ -55,15 +55,18 @@ const PATTERNS = [
   { kind: "jwt", rx: /(?<![\w-])eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{16,}(?![\w-])/ },
 ];
 
-// Where each kind belongs: its own password field there is a fine place.
+// Where each kind belongs: the issuer's own sign-in and console hosts,
+// matched exactly. Never a whole domain: some (amazonaws.com via S3,
+// googleapis.com via Cloud Storage) serve anyone's pages, so a phishing
+// login there must still ask.
 const HOMES = {
-  openai: ["openai.com"],
-  anthropic: ["anthropic.com", "claude.ai", "claude.com"],
+  openai: ["platform.openai.com", "auth.openai.com"],
+  anthropic: ["console.anthropic.com", "platform.claude.com", "claude.ai"],
   github: ["github.com"],
-  aws: ["aws.amazon.com", "amazonaws.com"],
-  slack: ["slack.com"],
-  stripe: ["stripe.com"],
-  google: ["google.com", "googleapis.com"],
+  aws: ["signin.aws.amazon.com", "console.aws.amazon.com"],
+  slack: ["slack.com", "app.slack.com"],
+  stripe: ["dashboard.stripe.com"],
+  google: ["accounts.google.com", "console.cloud.google.com"],
 };
 
 function luhn(digits) {
@@ -129,10 +132,10 @@ export function detectSecret(text) {
   return isCardNumber(text) ? "card" : null;
 }
 
-/** Whether `host` is (a subdomain of) where this kind of secret belongs. */
+/** Whether `host` is exactly one of the hosts this kind of secret belongs to. */
 export function isHome(kind, host) {
-  host = (host ?? "").toLowerCase();
-  return !!host && (HOMES[kind] ?? []).some(home => host == home || host.endsWith(`.${home}`));
+  host = (host ?? "").toLowerCase().replace(/\.$/, "");
+  return !!host && (HOMES[kind] ?? []).includes(host);
 }
 
 export const WhimsyPasteGuard = {

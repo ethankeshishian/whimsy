@@ -281,12 +281,14 @@ export const Whimsy = {
     // wave7/focus: paste guard. The child looks at a trusted paste before
     // the page or the editor sees it, and asks the parent (a sheet) only
     // when the text looks like a secret; only its kind crosses over, never
-    // the text.
+    // the text. Default group, capturing, on the chrome event target (the
+    // outermost item of the event path): the system group runs only after
+    // every page listener, capture and bubble, so it would come too late.
     ChromeUtils.registerWindowActor("WhimsyPasteGuard", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardParent.sys.mjs" },
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardChild.sys.mjs",
-        events: { paste: { capture: true, mozSystemGroup: true } },
+        events: { paste: { capture: true } },
       },
       matches: ["https://*/*", "http://*/*", "file:///*"],
       allFrames: true,
