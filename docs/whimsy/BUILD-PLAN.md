@@ -222,3 +222,9 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 - Next meeting: go ahead with Apple Calendar (EventKit native component + calendar permission), plus Google.
 - Homepage + changelog right after the Claude space.
 - Space-aware history (user): in the Library History tab (filter exists there); add Arc-like "Where was the tab" info: which space each visit happened in, and filter by space.
+
+## Wave 3 order (user, 2026-10-29)
+1. Deferred items from waves 1-2 (Glance/splits, command bar, tree tabs, hover cards, calls, RSS, Quick Look, whimsy:// links, cheat sheet, private-tab leaks, Cmd+1-9).
+2. Tests for already-in-Zen features.
+3. Tier C remainder (AI features, email aliases, Handoff, cast, playlist, speed).
+4. iOS: last of everything, very low priority.
