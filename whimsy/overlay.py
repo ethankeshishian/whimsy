@@ -741,6 +741,10 @@ FEATURES = [
     # wave3/speed: speed control on videos (Video Speed Controller).
     {"id": "video-speed", "title": "Speed control on videos: point at a video to see its speed, type one or pick a quarter step (0.25–4×); remembered per site",
      "detect": [("src/zen/media", r"(?i)speed-?(overlay|controller)|video-?speed")]},
+
+    # wave3/glass: native Liquid Glass behind the sidebar and toolbars (macOS 26+).
+    {"id": "liquid-glass", "title": "Liquid Glass: the sidebar and toolbars on macOS 26's glass material (Settings, off by default)",
+     "detect": [("src/widget/cocoa", r"NSGlassEffectView"), ("prefs", r"name:\s*zen\.[\w.-]*(liquid-glass|glass-effect)")]},
 ]
 
 

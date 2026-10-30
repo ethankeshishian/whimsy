@@ -351,6 +351,9 @@
 - name: whimsy.feature.video-speed
   value: true
 
+- name: whimsy.feature.liquid-glass
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

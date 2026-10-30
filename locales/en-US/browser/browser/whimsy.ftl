@@ -1262,3 +1262,9 @@ whimsy-video-speed-presets =
     .aria-label = Speeds
 whimsy-media-video-speed =
     .label = Show a speed control when you point at a video, and remember each site’s speed
+
+## wave3/glass: Liquid Glass (Settings → Look and Feel, macOS 26 and later)
+
+whimsy-look-liquid-glass =
+    .label = Liquid Glass
+whimsy-look-liquid-glass-description = Put the sidebar and toolbars on macOS’s glass material. Uses your Transparency level, or a light one when Transparency is off.

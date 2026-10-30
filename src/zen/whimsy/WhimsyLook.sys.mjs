@@ -23,6 +23,16 @@
 // once, so the desktop shows through the blur like Arc's and Safari's
 // translucent sidebars. 0 is Zen's look.
 //
+// Liquid Glass (whimsy.look.liquid-glass, Settings → Look and Feel, off by
+// default, macOS 26+): Safari 26 and macOS Tahoe's own apps put their
+// sidebars and toolbars on Apple's adaptive glass material; Gecko only gives
+// it to menus. With the setting on, whimsy-nsCocoaWindow-mm.patch swaps the
+// window's backdrop for NSGlassEffectView and the chrome goes see-through
+// over it: at the Transparency level, or GLASS_TRANSPARENCY when the slider
+// is at 0 (glass behind an opaque sidebar would be invisible). It needs the
+// transparency switch, and with Reduce Transparency the chrome keeps the
+// slider's level (AppKit frosts the glass itself). Older macOS: no change.
+//
 // Interface font (whimsy.look.ui-font, Settings → Look and Feel): Vivaldi
 // and Zen mods let people set the browser's own font (tab titles, URL bar,
 // menus, Settings) apart from web fonts, to match their editor or system
@@ -35,6 +45,9 @@ const FONT_PREF = "whimsy.look.ui-font";
 const TRANSPARENCY_FEATURE_PREF = "whimsy.feature.transparency";
 const TRANSPARENCY_PREF = "whimsy.look.transparency";
 export const MAX_TRANSPARENCY = 80;
+const GLASS_FEATURE_PREF = "whimsy.feature.liquid-glass";
+const GLASS_PREF = "whimsy.look.liquid-glass";
+export const GLASS_TRANSPARENCY = 35;
 const HEX_INPUT_ID = "whimsy-hex-input";
 
 function featureOn(pref) {
@@ -137,29 +150,53 @@ export const WhimsyLook = {
 
   // --- Transparency ---
 
-  // The chosen transparency in percent, 0 when off or unsupported.
-  transparency() {
+  // Whether win's chrome sits on Liquid Glass: the setting is on, macOS 26
+  // or later draws it, and the system doesn't ask for less transparency.
+  liquidGlass(win) {
+    return (
+      featureOn(GLASS_FEATURE_PREF) &&
+      featureOn(TRANSPARENCY_FEATURE_PREF) &&
+      Services.prefs.getBoolPref(GLASS_PREF, false) &&
+      win.matchMedia("(-moz-mac-tahoe-theme)").matches &&
+      !win.matchMedia("(prefers-reduced-transparency: reduce)").matches
+    );
+  },
+
+  // The chosen transparency in percent, 0 when off or unsupported. With
+  // Liquid Glass on (pass the window), never 0.
+  transparency(win = null) {
     if (!featureOn(TRANSPARENCY_FEATURE_PREF)) {
       return 0;
     }
-    const value = Services.prefs.getIntPref(TRANSPARENCY_PREF, 0);
-    return Math.min(MAX_TRANSPARENCY, Math.max(0, value));
+    const value = Math.min(MAX_TRANSPARENCY, Math.max(0, Services.prefs.getIntPref(TRANSPARENCY_PREF, 0)));
+    if (!value && win && this.liquidGlass(win)) {
+      return GLASS_TRANSPARENCY;
+    }
+    return value;
   },
 
   initTransparency(win) {
     const root = win.document.documentElement;
     const update = () => {
-      const value = this.transparency();
+      const value = this.transparency(win);
       root.toggleAttribute("whimsy-transparency", value > 0);
+      root.toggleAttribute("whimsy-liquid-glass", this.liquidGlass(win));
       root.style.setProperty("--whimsy-chrome-opacity", String(1 - value / 100));
     };
-    Services.prefs.addObserver(TRANSPARENCY_PREF, update);
-    Services.prefs.addObserver(TRANSPARENCY_FEATURE_PREF, update);
+    const prefs = [TRANSPARENCY_PREF, TRANSPARENCY_FEATURE_PREF, GLASS_PREF, GLASS_FEATURE_PREF];
+    for (const pref of prefs) {
+      Services.prefs.addObserver(pref, update);
+    }
+    // Reduce Transparency can change while the window is open.
+    const reduced = win.matchMedia("(prefers-reduced-transparency: reduce)");
+    reduced.addEventListener("change", update);
     win.addEventListener(
       "unload",
       () => {
-        Services.prefs.removeObserver(TRANSPARENCY_PREF, update);
-        Services.prefs.removeObserver(TRANSPARENCY_FEATURE_PREF, update);
+        for (const pref of prefs) {
+          Services.prefs.removeObserver(pref, update);
+        }
+        reduced.removeEventListener("change", update);
       },
       { once: true }
     );

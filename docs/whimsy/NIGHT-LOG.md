@@ -89,3 +89,5 @@
 - W34 lane: merged wave3/icons; preserved the custom bangs no-default fix, checked JS junctions, syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.
 
 - W34 lane: merged wave3/speed; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.
+
+- W34 lane: merged wave3/glass; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.

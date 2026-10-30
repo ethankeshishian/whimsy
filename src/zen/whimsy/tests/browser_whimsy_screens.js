@@ -1078,3 +1078,19 @@ add_task(async function video_speed_control() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+
+// wave3/glass: Liquid Glass on, Transparency off: the sidebar and toolbars
+// at the light glass level. Gecko draws the shot itself, so the native glass
+// behind the window isn't in it; this checks the chrome's side.
+add_task(async function liquid_glass() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.look.liquid-glass", true]] });
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300)); // the fade
+    await shot("wave3-liquid-glass");
+  } finally {
+    await SpecialPowers.popPrefEnv();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
