@@ -3,7 +3,8 @@
    - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
 
 <!-- home: about:whimsy, Whimsy's homepage (replaces Zen's about:home) with
-     a Changelog tab (about:whimsy?tab=changelog). -->
+     a Changelog tab (about:whimsy?tab=changelog) and, legacy, a Privacy tab
+     (about:whimsy?tab=privacy, the About dialog's Privacy Notice). -->
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
@@ -38,6 +39,17 @@
             role="tab"
             data-tab="changelog"
             data-l10n-id="whimsy-home-tab-changelog"
+            aria-selected="false"
+          ></button>
+          <button
+            type="button"
+            id="whimsy-tab-privacy"
+            aria-controls="whimsy-panel-privacy"
+            tabindex="-1"
+            class="whimsy-home-tab"
+            role="tab"
+            data-tab="privacy"
+            data-l10n-id="whimsy-home-tab-privacy"
             aria-selected="false"
           ></button>
         </nav>
@@ -76,6 +88,28 @@
         <p class="whimsy-home-blurb" data-l10n-id="whimsy-changelog-blurb"></p>
         <div id="whimsy-changelog-list" class="whimsy-changelog-list"></div>
         <p id="whimsy-changelog-empty" class="whimsy-home-empty" data-l10n-id="whimsy-changelog-empty" hidden="hidden"></p>
+      </section>
+
+      <!-- legacy: Whimsy's privacy note. Every service Whimsy talks to, and
+           why; keep it in step with prefs/whimsy/whimsy.yaml's legacy block. -->
+      <section
+        id="whimsy-panel-privacy"
+        class="whimsy-home-panel"
+        tabindex="0" role="tabpanel"
+        aria-labelledby="whimsy-tab-privacy"
+        hidden="hidden"
+      >
+        <p class="whimsy-home-blurb" data-l10n-id="whimsy-privacy-blurb"></p>
+        <ul class="whimsy-privacy-list">
+          <li data-l10n-id="whimsy-privacy-mozilla"></li>
+          <li data-l10n-id="whimsy-privacy-sync"></li>
+          <li data-l10n-id="whimsy-privacy-dns"></li>
+          <li data-l10n-id="whimsy-privacy-zen"></li>
+          <li data-l10n-id="whimsy-privacy-apple"></li>
+          <li data-l10n-id="whimsy-privacy-google"></li>
+          <li data-l10n-id="whimsy-privacy-updates"></li>
+          <li data-l10n-id="whimsy-privacy-search"></li>
+        </ul>
       </section>
     </div>
     <script src="chrome://browser/content/whimsy/whimsy-home.js"></script>

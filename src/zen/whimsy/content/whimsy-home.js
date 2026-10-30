@@ -2,38 +2,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// home: about:whimsy. A trusted static page (no framework): two
-// tabs, Home and Changelog. The requested tab comes from the URL Whimsy's
-// about: module preserves (?tab=changelog), so "What's new" and
-// whimsy://changelog land straight on the Changelog tab.
+// home: about:whimsy. A trusted static page (no framework): tabs for Home,
+// Changelog and (legacy) Privacy. The requested tab comes from the URL
+// Whimsy's about: module preserves (?tab=changelog, ?tab=privacy), so
+// "What's new", whimsy://changelog and the About dialog's Privacy Notice
+// land straight on their tab.
 
 "use strict";
 
 const CHANGELOG_URL = "chrome://browser/content/whimsy/whimsy-changelog.json";
+
+const TABS = ["home", "changelog", "privacy"];
 
 function currentTabFromLocation() {
   try {
     // The fragment (set as tabs change) wins over ?tab= (the route).
     const url = new URL(document.location.href);
     const tab = url.hash.slice(1) || url.searchParams.get("tab");
-    return tab == "changelog" ? "changelog" : "home";
+    return TABS.includes(tab) ? tab : "home";
   } catch {
     return "home";
   }
 }
 
 function selectTab(tab) {
-  const isChangelog = tab == "changelog";
-  for (const [id, name] of [
-    ["whimsy-tab-home", "home"],
-    ["whimsy-tab-changelog", "changelog"],
-  ]) {
-    const button = document.getElementById(id);
+  for (const name of TABS) {
+    const button = document.getElementById(`whimsy-tab-${name}`);
     button.setAttribute("aria-selected", String(name == tab));
     button.tabIndex = name == tab ? 0 : -1;
+    document.getElementById(`whimsy-panel-${name}`).hidden = name != tab;
   }
-  document.getElementById("whimsy-panel-home").hidden = isChangelog;
-  document.getElementById("whimsy-panel-changelog").hidden = !isChangelog;
   try {
     // about: URLs may only change their fragment. Leave a URL that already
     // says this tab alone (the plain homepage stays about:whimsy).
@@ -53,8 +51,11 @@ function initTabs() {
         return;
       }
       event.preventDefault();
-      const tab = event.key == "Home" ? "home" : event.key == "End" ? "changelog"
-        : button.dataset.tab == "home" ? "changelog" : "home";
+      const index = TABS.indexOf(button.dataset.tab);
+      const step = event.key == "ArrowLeft" ? -1 : 1;
+      const tab = event.key == "Home" ? TABS[0]
+        : event.key == "End" ? TABS[TABS.length - 1]
+        : TABS[(index + step + TABS.length) % TABS.length];
       selectTab(tab);
       document.getElementById(`whimsy-tab-${tab}`).focus();
     });

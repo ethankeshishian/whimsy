@@ -238,3 +238,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # vpnspace: native VPN panel, container policy and channel boundary.
 ["browser_whimsy_vpnspace.js"]
+# legacy: Firefox/Zen/Mozilla leftovers (prefs, branding URLs, About dialog,
+# default bookmarks, Zen strings, and what was kept at upstream values).
+["browser_whimsy_legacy.js"]
