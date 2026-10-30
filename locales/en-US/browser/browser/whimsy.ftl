@@ -1634,7 +1634,7 @@ whimsy-profile-rename-button-text = Rename Profile
 whimsy-profile-create-menuitem =
     .label = Create a New Profile…
 whimsy-profiles-header = Profiles
-whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies and site data, and a new one starts empty. Spaces in the same profile share them.
+whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data and saved passwords, and a new one starts empty. Spaces in the same profile share them.
 whimsy-profiles-delete-rule = Only Profiles not assigned to any Spaces can be deleted.
 whimsy-profiles-spaces =
     { $count ->
@@ -1659,14 +1659,14 @@ whimsy-profiles-create =
 whimsy-profiles-delete-unused =
     .label = Delete Unused Profiles…
 whimsy-profiles-delete-confirm-title = Delete the “{ $name }” profile?
-whimsy-profiles-delete-confirm-body = Its cookies and site data are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-confirm-body = Its cookies, site data and saved passwords are deleted, and the profile is removed on every device you sync with. This can’t be undone.
 whimsy-profiles-delete-confirm-accept = Delete Profile
 whimsy-profiles-delete-unused-confirm-title =
     { $count ->
         [one] Delete 1 unused profile?
        *[other] Delete { $count } unused profiles?
     }
-whimsy-profiles-delete-unused-confirm-body = Not used by any space: { $names }. Their cookies and site data are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-unused-confirm-body = Not used by any space: { $names }. Their cookies, site data and saved passwords are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
 whimsy-profiles-delete-unused-confirm-accept =
     { $count ->
         [one] Delete Profile

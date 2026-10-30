@@ -350,3 +350,7 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5/profiles: profile model, Set Profile → Create a New Profile…, Settings → Profiles.
 ["browser_whimsy_profiles.js"]
+
+# wave5/profiles: passwords per profile (autofill, save tagging, Sync round-trip, delete).
+["browser_whimsy_profile_passwords.js"]
+support-files = ["whimsy_login_form.html"]
