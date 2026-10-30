@@ -145,11 +145,13 @@ export const WhimsyPage = {
       return;
     }
     const { WhimsyShortcuts } = lazy;
-    // Arc's capture shortcut, beside Firefox's Cmd+Shift+S.
+    // Arc's capture shortcut, beside Firefox's Cmd+Shift+S. By keycode:
+    // with Shift held, Gecko only tries the shifted character ("@" on a US
+    // layout) against key="2", so a key="2" binding never fired.
     WhimsyShortcuts.addKey(win, {
       id: "key_whimsyScreenshotArc",
       command: "Browser:Screenshot",
-      key: "2",
+      keycode: "VK_2",
       modifiers: "accel,shift",
     });
     WhimsyShortcuts.addCommand(win, {

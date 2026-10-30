@@ -25,7 +25,13 @@ add_task(async function test_keys() {
   is(arc.getAttribute("command"), "Browser:Screenshot", "and opens Screenshots");
   const full = document.getElementById("key_whimsyCopyFullPage");
   is(full.getAttribute("command"), "cmd_whimsyCopyFullPage", "Cmd+Opt+Shift+F copies the full page");
-  for (const key of [arc, full]) {
+  is(arc.getAttribute("keycode"), "VK_2", "Cmd+Shift+2 is bound by keycode (key=\"2\" never matches with Shift)");
+  const mods = k => (k.getAttribute("modifiers") || "").replace("accel", "meta").split(/[ ,]+/).filter(Boolean).sort().join();
+  const vkClash = [...document.querySelectorAll("key")].filter(
+    k => k != arc && k.getAttribute("disabled") != "true" && k.getAttribute("keycode") == "VK_2" && mods(k) == mods(arc)
+  );
+  Assert.deepEqual(vkClash.map(k => k.id), [], "Cmd+Shift+2 doesn't clash");
+  for (const key of [full]) {
     const clash = [...document.querySelectorAll("key")].filter(
       k => k != key && k.getAttribute("disabled") != "true" && k.getAttribute("key") && sameShortcut(k, key)
     );
@@ -62,4 +68,23 @@ add_task(async function test_command_bar_and_empty() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.capture", false]] });
   ok(!action.isAvailable(window), "The switch hides it");
   await SpecialPowers.popPrefEnv();
+});
+
+// Pressing Cmd+Shift+2 really runs Screenshots (the command is stopped here
+// so the Screenshots UI doesn't open in the test).
+add_task(async function test_cmd_shift_2_opens_screenshots() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const command = document.getElementById("Browser:Screenshot");
+  let fired = 0;
+  const stop = event => {
+    fired++;
+    event.stopImmediatePropagation();
+  };
+  command.addEventListener("command", stop, true);
+  tab.linkedBrowser.focus();
+  // What a US layout sends: the shifted character "@", keyCode 2.
+  EventUtils.synthesizeKey("@", { accelKey: true, shiftKey: true, code: "Digit2", keyCode: KeyEvent.DOM_VK_2 });
+  await TestUtils.waitForCondition(() => fired > 0, "Cmd+Shift+2 runs Browser:Screenshot");
+  command.removeEventListener("command", stop, true);
+  BrowserTestUtils.removeTab(tab);
 });
