@@ -407,3 +407,12 @@
 # Picked in Settings from the models the Ollama server has.
 - name: whimsy.ai.ollama.model
   value: ""
+
+# wave5/lan: Local servers live folder. Ports probed on localhost (comma
+# separated; empty means the built-in list of common dev-server ports) and
+# how often to probe while the folder is visible.
+- name: whimsy.live-folders.local-servers.ports
+  value: ""
+
+- name: whimsy.live-folders.local-servers.poll-ms
+  value: 5000

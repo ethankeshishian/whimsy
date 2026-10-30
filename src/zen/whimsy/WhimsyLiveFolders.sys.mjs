@@ -48,9 +48,19 @@
 // Registered into the same registry as Jira, right below it; see
 // WhimsyLinearLiveFolder.sys.mjs for the auth model (session first, a
 // pasted personal API key as the fallback).
+//
+// wave5/lan: Local servers live folder (dev servers on localhost, polled
+// only while the folder is visible). See WhimsyLocalServersLiveFolder.sys.mjs,
+// including why Bonjour/LAN discovery is deferred. Registered *before*
+// Zen's init() runs its #restoreState(), so saved folders of this type come
+// back after a restart (registering after, as Jira/Linear do, misses that).
 
 import { WhimsyJiraLiveFolderProvider, DEFAULT_JQL } from "resource:///modules/whimsy/WhimsyJiraLiveFolder.sys.mjs";
 import { WhimsyLinearLiveFolderProvider } from "resource:///modules/whimsy/WhimsyLinearLiveFolder.sys.mjs";
+import {
+  WhimsyLocalServersLiveFolderProvider,
+  FOLDER_ICON as LOCAL_SERVERS_ICON,
+} from "resource:///modules/whimsy/WhimsyLocalServersLiveFolder.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -62,6 +72,7 @@ const LINEAR_FEATURE_PREF = "whimsy.feature.live-folders-linear";
 const PUSH_FEATURE_PREF = "whimsy.feature.live-folders-push";
 const RSS_AUTODISCOVER_PREF = "whimsy.feature.live-folders-rss-autodiscover";
 const PUSH_INTERVAL_MS = 60 * 1000;
+const LOCAL_SERVERS_FEATURE_PREF = "whimsy.feature.live-folders-local-servers";
 
 export const WhimsyLiveFolders = {
   get jiraEnabled() {
@@ -74,6 +85,10 @@ export const WhimsyLiveFolders = {
 
   get pushEnabled() {
     return Services.prefs.getBoolPref(PUSH_FEATURE_PREF, true);
+  },
+
+  get localServersEnabled() {
+    return Services.prefs.getBoolPref(LOCAL_SERVERS_FEATURE_PREF, true);
   },
 
   get rssAutodiscoverEnabled() {
@@ -198,6 +213,22 @@ export const WhimsyLiveFolders = {
     }
     proto.buildContextMenu = function (folder) {
       original.call(this, folder);
+      // wave5/lan: providers that schedule themselves hide Zen's interval menu.
+      try {
+        const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+          "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+        );
+        const hides = folder.isLiveFolder && ZenLiveFoldersManager.getFolder(folder.id)?.constructor.hidesIntervalMenu;
+        const intervalMenu = this.document
+          .getElementById("context_zenLiveFolderOptions")
+          ?.querySelector('menu[option-key="setInterval"]');
+        if (hides) {
+          intervalMenu?.setAttribute("hidden", "true");
+          return;
+        }
+      } catch (e) {
+        console.error("Whimsy: hiding the live folder interval menu failed", e);
+      }
       if (!WhimsyLiveFolders.pushEnabled || !folder.isLiveFolder) {
         return;
       }
@@ -396,6 +427,10 @@ export const WhimsyLiveFolders = {
       return;
     }
     proto.init = async function (...args) {
+      // wave5/lan: before Zen's own init so #restoreState() finds the type.
+      if (WhimsyLiveFolders.localServersEnabled) {
+        this.registry.set(WhimsyLocalServersLiveFolderProvider.type, WhimsyLocalServersLiveFolderProvider);
+      }
       const result = await original.apply(this, args);
       if (WhimsyLiveFolders.jiraEnabled) {
         this.registry.set(WhimsyJiraLiveFolderProvider.type, WhimsyJiraLiveFolderProvider);
@@ -448,6 +483,18 @@ export const WhimsyLiveFolders = {
           menu.appendChild(linearItem);
         }
         linearItem.hidden = !this.linearEnabled;
+
+        // wave5/lan:
+        let localItem = menu.querySelector(".whimsy-live-folder-local-servers-create");
+        if (!localItem) {
+          localItem = document.createXULElement("menuitem");
+          localItem.classList.add("whimsy-live-folder-local-servers-create");
+          localItem.setAttribute("command", "cmd_zenNewLiveFolder");
+          localItem.setAttribute("image", LOCAL_SERVERS_ICON);
+          document.l10n.setAttributes(localItem, "whimsy-live-folder-local-servers-create");
+          menu.appendChild(localItem);
+        }
+        localItem.hidden = !this.localServersEnabled;
       },
       { capture: true }
     );
@@ -462,6 +509,10 @@ export const WhimsyLiveFolders = {
       }
       if (this.linearEnabled && l10nId == "whimsy-live-folder-linear-create") {
         this.createLinearFolder(win);
+      }
+      // wave5/lan:
+      if (this.localServersEnabled && l10nId == "whimsy-live-folder-local-servers-create") {
+        this.createLocalServersFolder(win);
       }
     });
   },
@@ -542,6 +593,42 @@ export const WhimsyLiveFolders = {
       ZenLiveFoldersManager.saveState();
     } catch (e) {
       console.error("Whimsy: creating a Linear live folder failed", e);
+    }
+  },
+
+  // wave5/lan: nothing to ask. Created expanded, so it probes at once and
+  // shows what's running; collapsing it stops all polling.
+  async createLocalServersFolder(win) {
+    try {
+      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+      );
+      const [label] = await win.document.l10n.formatValues(["whimsy-live-folder-local-servers-name"]);
+      const folder = win.gZenFolders.createFolder([], {
+        label: label || "Local Servers",
+        isLiveFolder: true,
+        collapsed: false,
+      });
+      win.gZenFolders.setFolderUserIcon(folder, LOCAL_SERVERS_ICON);
+
+      const liveFolder = new WhimsyLocalServersLiveFolderProvider({
+        id: folder.id,
+        state: {
+          type: WhimsyLocalServersLiveFolderProvider.type,
+          interval: 30 * 60 * 1000,
+          lastFetched: 0,
+          options: {},
+        },
+        manager: ZenLiveFoldersManager,
+      });
+
+      ZenLiveFoldersManager.liveFolders.set(folder.id, liveFolder);
+      liveFolder.start();
+      ZenLiveFoldersManager.saveState();
+      return liveFolder;
+    } catch (e) {
+      console.error("Whimsy: creating a Local Servers live folder failed", e);
+      return null;
     }
   },
 };
