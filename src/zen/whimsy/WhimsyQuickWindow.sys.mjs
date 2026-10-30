@@ -12,9 +12,10 @@
 // glance at it, then either close it (Esc, Cmd+W, or the close button —
 // gone for good, no history or session entry) or press "Open in <Space name>"
 // (Cmd+O, matching Arc) to adopt it into a real tab, or pick a
-// different one (Cmd+Shift+O, the caret button). A second link while one is
-// already open reuses the same window rather than stacking more, as Arc
-// does.
+// different one (the caret button). A second link while one is already
+// open reuses the same window. (wave6: parity.md reads the 120 fps clip as
+// Arc stacking a second window and ignoring Esc, but that clip can't show
+// which window had focus; both stay as they are until verified.)
 //
 // It's an ordinary browser.xhtml window (BrowserWindowTracker.openWindow,
 // same primitive Firefox uses for every new window): no new window type,
@@ -310,12 +311,33 @@ export const WhimsyQuickWindow = {
     return adopted ?? null;
   },
 
+  // wave6/parity: Little Arc fades out in place (~100 ms, no scale) when it
+  // closes. Every close path (Esc, Cmd+W on its one tab, the close button,
+  // moving the page to a space) ends in win.close(), so that's where the
+  // fade goes; with reduced motion it closes at once.
+  fadeOnClose(win) {
+    const close = win.close.bind(win);
+    win.close = () => {
+      const root = win.document.documentElement;
+      if (root.hasAttribute("whimsy-mini-closing")) {
+        return;
+      }
+      if (win.matchMedia("(prefers-reduced-motion: reduce)").matches || win.closed) {
+        close();
+        return;
+      }
+      root.setAttribute("whimsy-mini-closing", "");
+      const ms = parseFloat(win.getComputedStyle(root).getPropertyValue("--whimsy-mini-close-duration")) || 100;
+      win.setTimeout(close, ms);
+    };
+  },
+
   // The quick window's own chrome, laid out like Arc's Little Arc: one slim
   // bar above the page, on the destination space's colours (see
   // watchDestination), holding the window controls, Back, the address
   // (favicon + host; clicking it opens the command bar, Cmd+L), Copy URL
   // (Cmd+Shift+C) and the "Open in <Space name>" split button (Cmd+O, with
-  // a caret for Cmd+Shift+O). Below it the page is the same inset rounded
+  // a caret for the space picker). Below it the page is the same inset rounded
   // card as in a main window. Zen's own nav bar and sidebar stay hidden.
   initChrome(win) {
     const { document } = win;
@@ -348,7 +370,8 @@ export const WhimsyQuickWindow = {
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindowChooseSpace",
       run: w => this.openSpacePicker(w, w.document.getElementById(OPEN_GROUP_ID)),
-      key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
+      // wave6/parity: Little Arc picks another space from the chevron only,
+      // so no Cmd+Shift+O; Firefox's Show All Bookmarks keeps that key.
     });
     // Arc: "quickly verify the content and hit Esc to vanish the window."
     // Only when nothing closer to the keypress (an open popup) handled it,
@@ -365,6 +388,7 @@ export const WhimsyQuickWindow = {
         win.close();
       }
     });
+    this.fadeOnClose(win);
     navbar.before(this.buildBar(win));
     this.adoptWindowButtons(win);
     this.watchDestination(win);
@@ -727,9 +751,9 @@ export const WhimsyQuickWindow = {
   // strip its attributes, then re-add its keyset (Gecko only reads <key>s
   // when their keyset is (re)bound).
   disableGlanceExpandKey(win) {
-    // Cmd+O is Zen's "Expand Glance" and Cmd+Shift+O Firefox's "Show All
-    // Bookmarks"; in a quick window both belong to Arc's move-to-space keys.
-    for (const id of [GLANCE_EXPAND_KEY_ID, "manBookmarkKb"]) {
+    // Cmd+O is Zen's "Expand Glance"; in a quick window it's Arc's
+    // move-to-space key.
+    for (const id of [GLANCE_EXPAND_KEY_ID]) {
       const key = win.document.getElementById(id);
       if (!key) {
         continue;

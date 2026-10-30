@@ -2017,14 +2017,31 @@ whimsy-space-history-section {
   opacity: .7;
   padding-inline-end: 8px;
 }
+/* wave6/parity: Little Arc's measured motion (120 fps, little-095501 and
+   tabclose-095549): it grows from a small rect at its top-left to full
+   size in ~85-100 ms, ease-out, no overshoot, no dim; closing fades in
+   place in ~100 ms with no scale. MERGE NOTE: wave5/uxfix set this
+   animation to var(--whimsy-dur-fast) (150 ms) with a 96% settle; keep
+   these Arc values and tokens. */
+:root[whimsy-quick-window] {
+  --whimsy-mini-open-duration: 90ms;
+  --whimsy-mini-close-duration: 100ms;
+  --whimsy-mini-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
 @media (prefers-reduced-motion: no-preference) {
   :root[whimsy-quick-window] #browser {
-    transform-origin: center;
-    animation: whimsy-mini-open 309ms cubic-bezier(.38,1.27,.23,.96);
+    transform-origin: top left;
+    animation: whimsy-mini-open var(--whimsy-mini-open-duration) var(--whimsy-mini-ease-out);
+  }
+  :root[whimsy-quick-window] {
+    transition: opacity var(--whimsy-mini-close-duration) ease-out;
   }
 }
+:root[whimsy-quick-window][whimsy-mini-closing] {
+  opacity: 0;
+}
 @keyframes whimsy-mini-open {
-  from { transform: scale(.05); }
+  from { transform: scale(.1); }
   to { transform: scale(1); }
 }
 

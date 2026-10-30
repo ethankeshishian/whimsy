@@ -124,13 +124,17 @@ add_task(async function test_cmd_o_opens_in_current_space() {
   BrowserTestUtils.removeTab(adopted);
 });
 
-add_task(async function test_cmd_shift_o_opens_the_space_picker() {
+// wave6/parity: the picker is on the chevron only (Little Arc); Cmd+Shift+O
+// stays Firefox's Show All Bookmarks.
+add_task(async function test_chevron_opens_the_space_picker() {
   const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
   await WhimsyQuickWindow.whenReady(win);
-  EventUtils.synthesizeKey("o", { accelKey: true, shiftKey: true }, win);
+  ok(!win.document.getElementById("key_whimsyQuickWindowChooseSpace")?.getAttribute("key"), "No Cmd+Shift+O chooser");
+  is(win.document.getElementById("manBookmarkKb")?.getAttribute("modifiers"), "accel,shift", "Show All Bookmarks keeps it");
+  win.document.getElementById("cmd_whimsyQuickWindowChooseSpace").doCommand();
   await TestUtils.waitForCondition(
     () => win.document.getElementById("whimsy-quick-window-space-picker")?.state == "open",
-    "Cmd+Shift+O opens the space picker"
+    "The chevron's command opens the space picker"
   );
   const popup = win.document.getElementById("whimsy-quick-window-space-picker");
   ok(popup.children.length >= 1, "The picker lists at least this window's space");
@@ -400,4 +404,20 @@ add_task(async function mini_controls_are_keyboard_reachable() {
   } finally {
     await BrowserTestUtils.closeWindow(win);
   }
+});
+
+// wave6/parity: Little Arc's measured motion: ~90 ms grow with no overshoot,
+// ~100 ms fade on close.
+add_task(async function test_mini_motion_tokens_and_fade() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  await WhimsyQuickWindow.whenReady(win);
+  const root = win.document.documentElement;
+  const style = win.getComputedStyle(root);
+  is(style.getPropertyValue("--whimsy-mini-open-duration").trim(), "90ms", "Opens in ~90 ms");
+  is(style.getPropertyValue("--whimsy-mini-close-duration").trim(), "100ms", "Closes in ~100 ms");
+  ok(!/1\.[0-9]/.test(style.getPropertyValue("--whimsy-mini-ease-out").split(",")[1] ?? ""), "Ease-out without overshoot");
+  const closed = BrowserTestUtils.domWindowClosed(win);
+  win.close();
+  ok(win.closed || root.hasAttribute("whimsy-mini-closing"), "Closing fades first (or closes at once with reduced motion)");
+  await closed;
 });
