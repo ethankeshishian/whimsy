@@ -1100,7 +1100,7 @@ panel.whimsy-sheet {
   width: var(--whimsy-sheet-width, 300px);
 }
 
-.whimsy-sheet-header {
+panel.whimsy-sheet .whimsy-sheet-header {
   gap: 4px;
   padding: 8px 8px 6px;
   min-height: 0;
@@ -1197,15 +1197,15 @@ panel.whimsy-sheet {
   font: inherit;
 }
 
-.whimsy-sheet-body {
+panel.whimsy-sheet .whimsy-sheet-body {
   max-height: 360px;
   overflow-y: auto;
-  panel.whimsy-sheet[size="large"] & {
-    max-height: 460px;
-  }
+}
+panel.whimsy-sheet[size="large"] .whimsy-sheet-body {
+  max-height: 460px;
 }
 
-.whimsy-sheet-item {
+panel.whimsy-sheet .whimsy-sheet-item {
   gap: 10px;
   align-items: center;
   /* .subviewbutton sizes itself for one line of text. */
@@ -1263,7 +1263,7 @@ panel.whimsy-sheet {
     visibility: visible;
   }
 }
-.whimsy-sheet-item[destructive] {
+panel.whimsy-sheet .whimsy-sheet-item[destructive] {
   color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
 }
 
@@ -1328,7 +1328,7 @@ panel.whimsy-sheet {
   }
 }
 
-.whimsy-sheet-footer {
+panel.whimsy-sheet .whimsy-sheet-footer {
   gap: 8px;
   margin: 2px 12px 12px;
 
