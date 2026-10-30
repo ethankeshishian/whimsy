@@ -83,9 +83,17 @@ body:has(> #whimsy-game-root) {
   font-variant-numeric: tabular-nums;
 }
 
+/* The controls keep one font in both looks and stay pinned to the end of
+   the HUD (the retro look takes the scores, which carry the auto margin, out
+   of the flow), so toggling the style never moves or resizes them. */
 #whimsy-game-controls {
   display: flex;
   gap: 8px;
+  --game-control-font: -apple-system, system-ui, sans-serif;
+}
+
+#whimsy-game-root[data-style="retro"] #whimsy-game-controls {
+  margin-inline-start: auto;
 }
 
 #whimsy-game-style-switch {
@@ -102,7 +110,7 @@ body:has(> #whimsy-game-root) {
   border-radius: 999px;
   background: var(--game-chip);
   color: var(--game-ink);
-  font: 600 12px var(--game-font);
+  font: 600 12px var(--game-control-font);
   cursor: pointer;
 }
 
@@ -125,8 +133,6 @@ body:has(> #whimsy-game-root) {
 #whimsy-game-root[data-style="retro"] #whimsy-game-controls button,
 #whimsy-game-root[data-style="retro"] #whimsy-game-style-switch {
   border-radius: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 #whimsy-game-root[data-style="retro"] #whimsy-game-name {

@@ -379,3 +379,20 @@ add_task(async function test_slow_mo_slows_the_whole_world() {
   });
 });
 
+// fix7/game: the Smooth/Retro switch keeps its place and size.
+add_task(async function test_style_switch_never_moves() {
+  await withGame(async ({ doc }) => {
+    const sw = doc.getElementById("whimsy-game-style-switch");
+    const box = () => {
+      const r = sw.getBoundingClientRect();
+      return [r.left, r.top, r.width, r.height].map(Math.round);
+    };
+    doc.getElementById("whimsy-game-style-gradient").click();
+    const smooth = box();
+    doc.getElementById("whimsy-game-style-retro").click();
+    Assert.deepEqual(box(), smooth, "Switching to Retro leaves the switch where it was");
+    doc.getElementById("whimsy-game-style-gradient").click();
+    Assert.deepEqual(box(), smooth, "and back again");
+  });
+});
+
