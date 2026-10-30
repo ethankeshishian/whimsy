@@ -504,6 +504,23 @@ HOTFIXES = [
         "old": '    .tooltiptext = Close all unpinned tabs',
         "new": '    .tooltiptext = Clear Today: archive every unpinned tab',
     },
+    # wave7/keys: Arc's names for Zen's commands that Whimsy now gives a
+    # bindable key (WhimsyAccessCommands), so the command bar and
+    # about:keyboard agree.
+    {
+        "id": 'zen-string-arc-new-folder',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-new-folder = New Folder\n',
+        "new": 'zen-action-new-folder = New Folder…\n',
+    },
+    {
+        "id": 'zen-string-arc-atc',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-open-space-routing = Open Space Routing\n',
+        "new": 'zen-action-open-space-routing = Air Traffic Control…\n',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.

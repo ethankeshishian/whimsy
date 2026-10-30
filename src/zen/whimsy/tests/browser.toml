@@ -371,3 +371,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
 ["browser_whimsy_command_bar_dedup.js"]
+
+# wave7/keys: commands with assignable shortcuts for Settings/menu-only features (tree, hidden spaces, switcher, UI zoom, background mute, bionic, dark PDF, live/Finder folders, Manage Spaces, ATC, Claude space, What's New).
+["browser_whimsy_access_commands.js"]

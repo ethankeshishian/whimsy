@@ -1767,3 +1767,33 @@ whimsy-menu-view-media =
     .label = View Media…
 whimsy-menu-view-boosts =
     .label = View Boosts…
+
+## wave7/keys: commands for features that only had Settings, a sidebar
+## control or a context menu (command bar and about:keyboard names).
+
+whimsy-action-tree-toggle = Collapse or Expand Tab Children
+whimsy-action-tree-collapse = Collapse Tab Children
+whimsy-action-tree-expand = Expand Tab Children
+whimsy-action-show-hidden-spaces = Show Hidden Spaces…
+whimsy-action-space-switcher-toggle = Show or Hide Space Switcher
+whimsy-action-space-switcher-show = Show Space Switcher
+whimsy-action-space-switcher-hide = Hide Space Switcher
+whimsy-action-ui-zoom-in = Zoom Interface In
+whimsy-action-ui-zoom-out = Zoom Interface Out
+whimsy-action-ui-zoom-reset = Reset Interface Zoom
+whimsy-action-background-mute-toggle = Mute or Stop Muting Background Tabs
+whimsy-action-background-mute-on = Mute Background Tabs
+whimsy-action-background-mute-off = Stop Muting Background Tabs
+whimsy-action-bionic-toggle = Turn Bionic Reading On or Off
+whimsy-action-bionic-on = Turn Bionic Reading On
+whimsy-action-bionic-off = Turn Bionic Reading Off
+whimsy-action-dark-pdf-toggle = Turn Dark PDFs On or Off
+whimsy-action-dark-pdf-on = Turn Dark PDFs On
+whimsy-action-dark-pdf-off = Turn Dark PDFs Off
+whimsy-action-new-live-folder = New Live Folder…
+whimsy-action-new-folder = New Folder…
+whimsy-action-manage-spaces = Manage Spaces…
+whimsy-action-air-traffic-control = Air Traffic Control…
+whimsy-action-add-finder-folder = Add Finder Folder…
+whimsy-action-open-claude-space = Open Claude Space
+whimsy-action-whats-new = What’s New
