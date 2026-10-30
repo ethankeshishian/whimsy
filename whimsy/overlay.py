@@ -47,6 +47,16 @@ HOOKS = [
      r'^<link rel="localization" href="browser/preferences/zen-preferences\.ftl"/>',
      "#include whimsy-preferences-head.inc.xhtml",
      "after"),
+    # batch hover: History hover cards read the row's own visit.
+    ("library-history-visit", "src/zen/library/sections/ZenLibraryHistorySection.mjs",
+     r'^(\s*)@click=\$\{event => this\.#openVisit\(visit, event\)\}\s*$',
+     '{indent}.whimsyVisit=${visit}',
+     "before"),
+    # batch hover: Quick Look in the Library reads the row's own Download.
+    ("library-download-quicklook", "src/zen/library/sections/ZenLibraryDownloadsSection.mjs",
+     r'^(\s*)\?pending=\$\{pending\}\s*$',
+     '{indent}.whimsyDownload=${download}',
+     "before"),
 ]
 
 HOTFIXES = [
@@ -291,6 +301,9 @@ PREF_OVERRIDES = {
     # Automatic picture-in-picture when you leave a playing video (Arc);
     # Zen kept it off "until a settings page"; Firefox's Media settings has it.
     "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled": True,
+    # batch hover: Arc's tab hover card (title, address, page preview) is
+    # Firefox's tab hover preview, which Zen ships off.
+    "browser.tabs.hoverPreview.enabled": True,
 }
 
 # Strings Zen's markup uses that its .ftl files no longer define.
@@ -511,7 +524,7 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)pretend to be|site-?user-?agent|per-?site.*user.?agent")]},
     {"id": "cookie-editor", "title": "Cookie editor: list, edit, add, delete and copy-as-JSON a site's cookies",
      "detect": [("src/zen", r"(?i)cookie-?editor")]},
-    {"id": "url-schemes", "title": "whimsy://<page> in the address bar jumps to the real page (Arc parity, address-bar half only)",
+    {"id": "url-schemes", "title": "whimsy:// links: internal pages from the address bar, and open/new-tab links (optionally in a space) from other apps",
      "detect": [("src/zen", r"(?i)whimsy://|url-?schemes")]},
     {"id": "upload-clipboard", "title": "Opera's Easy Files: clicking an upload button offers the clipboard image, recent downloads, or the native picker",
      "detect": [("src/zen", r"(?i)mozSetFileArray|easy-?files|upload-?clipboard")]},
@@ -582,6 +595,12 @@ FEATURES = [
     # wave3/cmdbar: DuckDuckGo-style bangs resolved locally.
     {"id": "offline-bangs", "title": "Offline bang shortcuts (!w, !yt, !gh...) with any search engine, editable in Settings",
      "detect": [("src/zen", r"(?i)\bbangs?\b(?!-)|duckduckgo\.com/bang")]},
+    # batch hover: History hover cards (saved thumbnail, else title + URL).
+    {"id": "history-preview", "title": "Hover a History entry in the Library to see its saved preview, title and address",
+     "detect": [("src/zen/library", r"PageThumbs")]},
+    # batch hover: People cards (Arc parity) for GitHub, LinkedIn and X links.
+    {"id": "people-cards", "title": "People cards: hover a GitHub, LinkedIn or X profile link to see who it is",
+     "detect": [("src/zen", r"(?i)people.?cards?|profile.?(hover|card)")]},
 ]
 
 

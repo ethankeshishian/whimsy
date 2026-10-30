@@ -425,3 +425,17 @@
     </hbox>
   </groupbox>
 </html:template>
+
+# batch hover: hover cards. Tabs use Firefox's own tab preview pref.
+<html:template id="template-whimsyHover" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyHoverGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-hover-header"/></label>
+    <checkbox id="whimsyHoverTabs" data-l10n-id="whimsy-hover-tabs" preference="browser.tabs.hoverPreview.enabled"/>
+    <checkbox id="whimsyHoverHistory" data-whimsy-feature="history-preview"
+              data-l10n-id="whimsy-hover-history" preference="whimsy.feature.history-preview"/>
+    <checkbox id="whimsyHoverPeople" data-whimsy-feature="people-cards"
+              data-l10n-id="whimsy-hover-people" preference="whimsy.feature.people-cards"/>
+    <description id="whimsyHoverPeopleHelp" data-whimsy-feature="people-cards"
+                 class="description-deemphasized" data-l10n-id="whimsy-hover-people-help"/>
+  </groupbox>
+</html:template>

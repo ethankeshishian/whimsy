@@ -1062,3 +1062,14 @@ whimsy-tree-expand =
 whimsy-cheatsheet-group-whimsy = Whimsy
 whimsy-cheatsheet-group-other = Other
 whimsy-cheatsheet-empty = No matching shortcuts
+
+# batch hover: hover cards (tabs, History, People).
+whimsy-hover-header = Hover cards
+whimsy-hover-tabs =
+    .label = Show a card with the title, address and preview when you hover a tab
+whimsy-hover-history =
+    .label = Show a preview when you hover a page in History
+whimsy-hover-no-preview = No saved preview
+whimsy-hover-people =
+    .label = Show who it is when you hover a GitHub, LinkedIn or X profile link
+whimsy-hover-people-help = Uses the tab’s signed-in session after a deliberate hover, at most 20 profiles an hour. LinkedIn and X may still flag repeated automated visits to an account. Never in private browsing.

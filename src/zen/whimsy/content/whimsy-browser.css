@@ -1332,3 +1332,56 @@ panel.whimsy-cheatsheet .whimsy-cheatsheet-list {
   opacity: 0.6;
   text-align: center;
 }
+
+/* batch hover: shared hover card (History rows, People cards). Firefox's
+   arrow-panel animation already respects prefers-reduced-motion. */
+#whimsy-hover-card {
+  --panel-padding: 10px;
+  --panel-width: 300px;
+}
+#whimsy-hover-card > div {
+  max-width: 280px;
+  overflow-wrap: anywhere;
+  margin-block: 2px;
+}
+.whimsy-hover-title {
+  font-weight: 600;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.whimsy-hover-url {
+  color: var(--text-color-deemphasized);
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.whimsy-hover-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.whimsy-hover-image {
+  display: block;
+  width: 280px;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-block-end: 6px;
+}
+.whimsy-hover-empty {
+  color: var(--text-color-deemphasized);
+  font-size: 0.9em;
+  margin-block-end: 4px;
+}
+.whimsy-hover-avatar {
+  display: block;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-block-end: 6px;
+}

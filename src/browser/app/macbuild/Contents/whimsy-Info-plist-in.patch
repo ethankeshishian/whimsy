@@ -2,7 +2,24 @@ diff --git a/browser/app/macbuild/Contents/Info.plist.in b/browser/app/macbuild/
 index 32f717f..c29f854 100644
 --- a/browser/app/macbuild/Contents/Info.plist.in
 +++ b/browser/app/macbuild/Contents/Info.plist.in
-@@ -273,6 +273,12 @@
+@@ -206,6 +206,16 @@
+ 	<string>MOZB</string>
+ 	<key>CFBundleURLTypes</key>
+ 	<array>
++		<dict>
++			<key>CFBundleURLName</key>
++			<string>Whimsy link</string>
++			<key>CFBundleTypeRole</key>
++			<string>Viewer</string>
++			<key>CFBundleURLSchemes</key>
++			<array>
++				<string>whimsy</string>
++			</array>
++		</dict>
+ 		<dict>
+ 			<key>CFBundleURLIconFile</key>
+ 			<string>document.icns</string>
+@@ -273,6 +283,12 @@
    <key>MozillaDeveloperObjPath</key>
    <string>@MOZ_DEVELOPER_OBJ_PATH@</string>
  

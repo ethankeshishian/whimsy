@@ -275,3 +275,8 @@ support-files = ["whimsy_call.html"]
 
 # wave3/tree: cheat sheet lists Zen and Firefox shortcuts from keysets, grouped
 ["browser_whimsy_cheatsheet_catalogue.js"]
+# batch hover: hover cards (Firefox tab preview on; History card).
+["browser_whimsy_hover_card.js"]
+
+# batch hover: People cards (GitHub, LinkedIn, X profile links).
+["browser_whimsy_people.js"]

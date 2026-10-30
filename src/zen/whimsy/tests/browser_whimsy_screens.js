@@ -667,3 +667,23 @@ add_task(async function full_shortcut_catalogue() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// batch hover: the History hover card's text fallback (no saved thumbnail).
+add_task(async function hover_card_history() {
+  const { WhimsyHoverCard } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs"
+  );
+  const card = WhimsyHoverCard.forWindow(window);
+  card.show(gBrowser.selectedTab, {
+    title: "A page you visited last week",
+    url: "https://example.com/history",
+    emptyImageL10nId: "whimsy-hover-no-preview",
+  });
+  try {
+    await TestUtils.waitForCondition(() => card.panel.state == "open");
+    await document.l10n.translateFragment(card.panel);
+    await shot("hover-card-history");
+  } finally {
+    card.hide();
+  }
+});
