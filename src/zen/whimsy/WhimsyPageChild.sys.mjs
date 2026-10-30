@@ -117,12 +117,20 @@ export class WhimsyPageChild extends JSWindowActorChild {
   // does for a playing video. Call videos don't qualify for that one: their
   // sound plays from separate audio elements, so the videos are muted or
   // have no audio track. Returns whether it opened.
-  callPip() {
+  async callPip() {
     const doc = this.document;
     if (!doc) {
       return false;
     }
     const videos = [...doc.querySelectorAll("video")];
+    // A player that was just closed (you came back, then left again right
+    // away) lets go of its video a moment later; wait for that briefly.
+    for (let i = 0; i < 20 && videos.some(v => v.isCloningElementVisually); i++) {
+      await new Promise(resolve => this.contentWindow?.setTimeout(resolve, 50));
+      if (!this.contentWindow) {
+        return false;
+      }
+    }
     if (videos.some(v => v.isCloningElementVisually)) {
       return false; // Already in picture-in-picture.
     }

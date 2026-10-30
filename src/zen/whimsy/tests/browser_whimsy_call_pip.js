@@ -16,11 +16,28 @@ function pipWindow() {
   return Services.wm.getMostRecentWindow("Toolkit:PictureInPicture");
 }
 
+// One call for the whole file: a second getUserMedia in the same run never
+// resolved under the fake devices, so both tasks use this call and it hangs
+// up at the end.
+let sharedCall = null;
 async function openCall() {
+  if (sharedCall) {
+    gBrowser.selectedTab = sharedCall;
+    return sharedCall;
+  }
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.startCall());
   await TestUtils.waitForCondition(() => WhimsyCallPip.isInCall(tab), "The tab is in a call");
+  sharedCall = tab;
+  registerCleanupFunction(() => endCall(tab));
   return tab;
+}
+
+// Hangs up before the tab closes, as a call ends.
+async function endCall(tab) {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.endCall());
+  await TestUtils.waitForCondition(() => !WhimsyCallPip.isInCall(tab), "The call ended");
+  BrowserTestUtils.removeTab(tab);
 }
 
 async function cloned(tab, id) {
@@ -30,10 +47,24 @@ async function cloned(tab, id) {
 }
 
 add_setup(async function () {
+  const { SitePermissions } = ChromeUtils.importESModule("resource:///modules/SitePermissions.sys.mjs");
+  const principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin("https://example.com");
+  for (const id of ["camera", "microphone"]) {
+    SitePermissions.setForPrincipal(principal, id, SitePermissions.ALLOW);
+  }
+  registerCleanupFunction(() => {
+    for (const id of ["camera", "microphone"]) {
+      SitePermissions.removeFromPrincipal(principal, id);
+    }
+  });
   await SpecialPowers.pushPrefEnv({
     set: [
       ["media.navigator.streams.fake", true],
-      ["media.navigator.permission.disabled", true],
+      // Like Firefox's own WebRTC tests: fake devices behind a real, granted
+      // permission, so the tab reports camera/microphone sharing.
+      // (permission.disabled skips Firefox's WebRTC UI, so no tab would ever
+      // look like it's in a call.)
+      ["media.navigator.permission.fake", true],
       ["media.autoplay.default", 0],
       ["media.autoplay.blocking_policy", 0],
     ],
@@ -66,7 +97,6 @@ add_task(async function test_call_floats_and_returns() {
   await closed2;
 
   BrowserTestUtils.removeTab(other);
-  BrowserTestUtils.removeTab(call);
 });
 
 add_task(async function test_not_in_a_call_or_switched_off() {
@@ -89,5 +119,4 @@ add_task(async function test_not_in_a_call_or_switched_off() {
 
   gBrowser.selectedTab = call;
   BrowserTestUtils.removeTab(other);
-  BrowserTestUtils.removeTab(call);
 });

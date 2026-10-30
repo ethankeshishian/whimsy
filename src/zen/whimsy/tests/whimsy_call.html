@@ -16,6 +16,15 @@
     }
     return true;
   };
+  // Hang up: release the camera and microphone.
+  window.endCall = function () {
+    for (const id of ["speaker", "self"]) {
+      const video = document.getElementById(id);
+      video.srcObject?.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+    }
+    return true;
+  };
 </script>
 </body>
 </html>

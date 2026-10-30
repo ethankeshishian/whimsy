@@ -78,8 +78,14 @@ export const WhimsyCallPip = {
     }
     const browser = previous.linkedBrowser;
     const pip = lazy.PictureInPicture;
-    if (pip.isOriginatingBrowser?.(browser)) {
-      return false; // Already floating.
+    // Already floating: an open player shows this tab. (Firefox's
+    // isOriginatingBrowser stays true until a closing player finishes
+    // tearing down, which would skip a switch made right after coming back.)
+    const floating = [...Services.wm.getEnumerator("Toolkit:PictureInPicture")].some(
+      w => !w.closed && pip.weakWinToBrowser?.get(w) === browser
+    );
+    if (floating) {
+      return false;
     }
     // Closing the window by hand skips the next automatic one (Firefox's
     // rule for videos, which this set is shared with).
