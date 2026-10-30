@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // vpnspace: Extend Firefox's widget/panel rather than creating another VPN.
-// Policy is profile-wide, pinned to the container chosen at click time; space
+// Policy is profile-wide, pinned to containers chosen at click time; space
 // switching must never silently retarget it. Existing connections are not
 // migrated, and site exclusions and Firefox's connection modes still apply.
 const lazy = {};
@@ -31,7 +31,10 @@ export const WhimsyVPNScope = {
     return Number.isSafeInteger(id) && id > 0 ? id : null;
   },
   selectedIds() {
-    return this.ids.split(",").map(value => Number(value.trim()))
+    // Match the channel filter's decimal list syntax so the button never
+    // advertises coverage for a container the proxy would reject.
+    return this.ids.split(",").map(value => value.trim())
+      .filter(value => /^\d+$/.test(value)).map(Number)
       .filter(id => Number.isSafeInteger(id) && id > 0);
   },
   coveredSpaces(win) {
