@@ -34,10 +34,27 @@ const LOGIN_ORIGIN = "https://api.linear.app";
 const LOGIN_REALM = "Whimsy Linear API key";
 const LOGIN_USERNAME = "linear-api-key";
 
-// Open, not-yet-finished workflow states; see
-// https://developers.linear.app/docs/graphql/working-with-the-graphql-api
-// for the WorkflowState `type` enum (triage/backlog/unstarted/started are
-// all "open"; completed/canceled are not).
+// Linear's WorkflowState `type` values, in Linear's own board order (see
+// WorkflowState.type in Linear's public schema,
+// github.com/linear/linear packages/sdk/src/schema.graphql: "triage",
+// "backlog", "unstarted", "started", "completed", "canceled",
+// "duplicate"). Each one is a show/hide toggle in the folder's Statuses
+// menu. Backlog, Done (completed), Canceled and Duplicate are hidden by
+// default, so the folder is what's actually on your plate; anything else,
+// including a type Linear adds later, is shown.
+export const LINEAR_STATE_TYPES = ["triage", "backlog", "unstarted", "started", "completed", "canceled", "duplicate"];
+export const LINEAR_DEFAULT_HIDDEN = ["backlog", "completed", "canceled", "duplicate"];
+
+// Older workspaces marked duplicates with a canceled state named
+// "Duplicate" before Linear's native duplicate type; treat those the same.
+export function linearStateType(state) {
+  const type = state?.type || "";
+  if (type === "canceled" && /^duplicate$/i.test((state?.name || "").trim())) {
+    return "duplicate";
+  }
+  return type;
+}
+
 const MY_ISSUES_QUERY = `
   query WhimsyMyIssues($filter: IssueFilter) {
     viewer {
@@ -55,8 +72,14 @@ const MY_ISSUES_QUERY = `
   }
 `;
 
-function buildFilter(team) {
-  const filter = { state: { type: { nin: ["completed", "canceled"] } } };
+function buildFilter(team, hidden) {
+  const filter = {};
+  // Server-side, so the 50-issue page isn't spent on hidden ones. An
+  // older workspace's canceled "Duplicate" is caught client-side in
+  // #toItems when canceled is shown but duplicate isn't.
+  if (hidden.length) {
+    filter.state = { type: { nin: [...hidden] } };
+  }
   if (team) {
     filter.team = { key: { eq: team } };
   }
@@ -77,6 +100,10 @@ export class WhimsyLinearLiveFolderProvider extends nsZenLiveFolderProvider {
   constructor({ id, state, manager, graphqlUrl }) {
     super({ id, state, manager });
     this.state.team = (state.team || "").trim().toUpperCase();
+    // Saved folders from before the Statuses menu get the defaults.
+    this.state.hiddenStates = Array.isArray(state.hiddenStates)
+      ? state.hiddenStates.filter(t => typeof t === "string")
+      : [...LINEAR_DEFAULT_HIDDEN];
     // Test-only: lets a test fixture stand in for Linear's real GraphQL
     // endpoint. Deliberately not part of `this.state`, so it's never
     // persisted (see serialize()).
@@ -86,7 +113,7 @@ export class WhimsyLinearLiveFolderProvider extends nsZenLiveFolderProvider {
   async #query(headers) {
     const body = JSON.stringify({
       query: MY_ISSUES_QUERY,
-      variables: { filter: buildFilter(this.state.team) },
+      variables: { filter: buildFilter(this.state.team, this.state.hiddenStates) },
     });
     const { text, status } = await whimsyPostFetch(this, this._graphqlUrl, {
       body,
@@ -141,7 +168,8 @@ export class WhimsyLinearLiveFolderProvider extends nsZenLiveFolderProvider {
     if (!Array.isArray(nodes)) {
       return [];
     }
-    return nodes.map(issue => ({
+    const hidden = new Set(this.state.hiddenStates);
+    return nodes.filter(issue => !hidden.has(linearStateType(issue.state))).map(issue => ({
       // Scoped to the provider type: a Linear issue id never collides
       // with a Jira or GitHub item id in the same folder manager.
       id: `linear:${issue.id}`,
@@ -153,14 +181,49 @@ export class WhimsyLinearLiveFolderProvider extends nsZenLiveFolderProvider {
   }
 
   get options() {
-    return [{ l10nId: "whimsy-live-folder-linear-option-team", key: "team" }];
+    const hidden = new Set(this.state.hiddenStates);
+    return [
+      { l10nId: "whimsy-live-folder-linear-option-team", key: "team" },
+      {
+        l10nId: "whimsy-live-folder-option-statuses",
+        key: "statuses",
+        // Zen's submenu-of-checkboxes, like the GitHub folder's repo list.
+        options: LINEAR_STATE_TYPES.map(type => ({
+          l10nId: `whimsy-live-folder-linear-state-${type}`,
+          key: "linearState",
+          value: type,
+          checked: !hidden.has(type),
+        })),
+      },
+    ];
+  }
+
+  // Shows or hides one workflow state type and refetches.
+  toggleStateType(type) {
+    if (!LINEAR_STATE_TYPES.includes(type)) {
+      return;
+    }
+    const hidden = new Set(this.state.hiddenStates);
+    if (hidden.has(type)) {
+      hidden.delete(type);
+    } else {
+      hidden.add(type);
+    }
+    this.state.hiddenStates = LINEAR_STATE_TYPES.filter(t => hidden.has(t));
+    this.requestSave();
+    // Refetch so tabs of a newly hidden status leave the folder now.
+    this.refresh().catch(e => console.error("Whimsy: Linear live folder refresh failed", e));
   }
 
   async onOptionTrigger(option) {
     super.onOptionTrigger(option);
 
     const key = option.getAttribute("option-key");
-    if (!this.options.some(x => x.key === key)) {
+    if (key === "linearState") {
+      this.toggleStateType(option.getAttribute("option-value"));
+      return;
+    }
+    if (key !== "team") {
       return;
     }
 

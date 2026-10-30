@@ -516,6 +516,7 @@ void main() {
       "rgba(0,0,0,0)"
     );
 
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyZapTint.sys.mjs").WhimsyZapTint.tint(ctx, captureCanvas.width, captureCanvas.height); // Whimsy hook
     this.#loadTexture(captureCanvas);
     this.#bindParameters(element);
 

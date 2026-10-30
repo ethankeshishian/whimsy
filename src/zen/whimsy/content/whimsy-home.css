@@ -277,30 +277,7 @@ main {
   padding-block: 72px 88px;
 }
 
-.wh-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 12px 5px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--wh-surface) 70%, transparent);
-  border: 1px solid var(--wh-border);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--wh-accent-text);
-  box-shadow: var(--wh-shadow-sm);
-}
-
-.wh-eyebrow::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--wh-gradient);
-}
-
 .wh-hero-title {
-  margin-top: 20px;
   font-family: var(--wh-font-display);
   font-size: clamp(2.5rem, 1.6rem + 3.6vw, 4.25rem);
   line-height: 1.02;
@@ -902,11 +879,8 @@ main {
     animation-delay: 70ms;
   }
 
+  /* The hint ("pop the balloon") arrives last, after the copy. */
   .wh-hero-copy > :nth-child(3) {
-    animation-delay: 140ms;
-  }
-
-  .wh-hero-copy > :nth-child(4) {
     animation-delay: 420ms;
   }
 

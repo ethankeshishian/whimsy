@@ -171,3 +171,65 @@ add_task(async function test_settings_card() {
   Services.prefs.clearUserPref("whimsy.ai.provider");
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });
+
+// fix7: Settings said Apple's command line tools were missing although
+// "xcode-select --install" said they were installed. The tools are now
+// found wherever they are, and each failure names what's missing.
+add_task(async function test_apple_toolchain_detection() {
+  const { AI_ERROR_CODES } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  const root = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-devtools");
+  const clt = PathUtils.join(root, "CommandLineTools");
+  const xcode = PathUtils.join(root, "Xcode.app", "Contents", "Developer");
+  const swiftc = PathUtils.join(clt, "usr", "bin", "swiftc");
+  const framework = PathUtils.join(clt, "SDKs", "MacOSX.sdk", "System", "Library", "Frameworks", "FoundationModels.framework");
+  const realRun = WhimsyAIProviders._run;
+  const realDirs = WhimsyAIProviders._developerDirCandidates;
+  // xcode-select points at an Xcode that's gone (moved or deleted).
+  WhimsyAIProviders._run = async (command, args) => {
+    is(command, "/usr/bin/xcode-select", "Only xcode-select runs (xcrun could prompt)");
+    Assert.deepEqual(args, ["-p"], "asked for the selected folder");
+    return { exitCode: 0, output: xcode + "\n" };
+  };
+  WhimsyAIProviders._developerDirCandidates = [clt];
+  try {
+    is(await WhimsyAIProviders._findToolchain(), "apple-needs-tools", "No swiftc anywhere: the tools are missing");
+
+    await IOUtils.makeDirectory(PathUtils.parent(swiftc));
+    await IOUtils.writeUTF8(swiftc, "");
+    is(await WhimsyAIProviders._findToolchain(), "apple-tools-outdated", "swiftc without the FoundationModels SDK: tools too old");
+
+    await IOUtils.makeDirectory(framework);
+    Assert.deepEqual(
+      await WhimsyAIProviders._findToolchain(),
+      { developerDir: clt, sdk: PathUtils.join(clt, "SDKs", "MacOSX.sdk") },
+      "The command line tools are found even when xcode-select points at a missing Xcode"
+    );
+
+    // An Xcode with the newer SDK in its platform folder works too.
+    WhimsyAIProviders._developerDirCandidates = [];
+    const xcodeSwiftc = PathUtils.join(xcode, "Toolchains", "XcodeDefault.xctoolchain", "usr", "bin", "swiftc");
+    await IOUtils.makeDirectory(PathUtils.parent(xcodeSwiftc));
+    await IOUtils.writeUTF8(xcodeSwiftc, "");
+    const xcodeSdk = PathUtils.join(xcode, "Platforms", "MacOSX.platform", "Developer", "SDKs", "MacOSX.sdk");
+    await IOUtils.makeDirectory(PathUtils.join(xcodeSdk, "System", "Library", "Frameworks", "FoundationModels.framework"));
+    Assert.deepEqual(await WhimsyAIProviders._findToolchain(), { developerDir: xcode, sdk: xcodeSdk }, "Xcode's SDK is found");
+
+    is(
+      WhimsyAIProviders._buildFailure("You have not agreed to the Xcode license agreements."),
+      "apple-needs-license",
+      "An unaccepted Xcode license says so"
+    );
+    is(WhimsyAIProviders._buildFailure("error: cannot find 'X' in scope"), "apple-build-failed", "Other build errors aren't 'missing tools'");
+
+    const l10n = new Localization(["browser/whimsy.ftl"], true);
+    for (const code of ["apple-needs-tools", "apple-tools-outdated", "apple-needs-license", "apple-build-failed"]) {
+      ok(AI_ERROR_CODES.includes(code), `${code} is a known error`);
+      ok(l10n.formatValueSync(`whimsy-ai-error-${code}`), `${code} has a toast`);
+      ok(l10n.formatValueSync(`whimsy-ai-apple-status-${code}`), `${code} has a Settings message`);
+    }
+  } finally {
+    WhimsyAIProviders._run = realRun;
+    WhimsyAIProviders._developerDirCandidates = realDirs;
+    await IOUtils.remove(root, { recursive: true });
+  }
+});

@@ -110,6 +110,7 @@ export const WhimsyLook = {
       const text = field.value.trim();
       const parsed = parseHex(text);
       field.toggleAttribute("invalid", !!text && !parsed);
+      field.setAttribute("aria-invalid", String(!!text && !parsed));
       if (parsed) {
         well.value = parsed.rgb;
         // #RRGGBBAA carries its own opacity; plain hex means opaque.
@@ -139,6 +140,16 @@ export const WhimsyLook = {
     };
     well.addEventListener("input", fromWell);
     well.addEventListener("change", fromWell);
+    // Zen's + button adds the well's color and clears the well; the field
+    // clears with it so it never shows a color that's no longer pending.
+    const add = document.getElementById("PanelUI-zen-gradient-generator-color-custom-add");
+    if (add) {
+      document.l10n.setAttributes(add, "whimsy-hex-add");
+      add.addEventListener("command", () => {
+        field.value = "";
+        field.removeAttribute("invalid");
+      });
+    }
 
     const panel = document.getElementById("PanelUI-zen-gradient-generator");
     panel?.addEventListener("popupshowing", event => {

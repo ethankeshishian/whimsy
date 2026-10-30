@@ -127,9 +127,14 @@ add_task(function test_defaults_are_unchanged() {
     }
     is(WhimsyCommands.findConflict(document, binding, id), null, `${id} is the only key on its shortcut`);
   }
-  // Swap Panes' old Cmd+Opt+Shift+S is Zen's Save Page; Save Page keeps it.
+  // Swap Panes' old Cmd+Opt+Shift+S was Zen's Save Page; wave6 moved Save
+  // Page to Arc's Cmd+Shift+S (while Capture has Cmd+Shift+2).
   ok(!document.getElementById("key_whimsySwapPanes").hasAttribute("key"), "Swap Panes has no default");
-  is(document.getElementById("key_savePage").getAttribute("modifiers"), "accel,alt,shift", "Save Page keeps its key");
+  is(
+    document.getElementById("key_savePage").getAttribute("modifiers"),
+    Services.prefs.getBoolPref("whimsy.feature.capture", true) ? "accel,shift" : "accel,alt,shift",
+    "Save Page has Arc's key"
+  );
   // Zen's own keys stay where they are.
   is(document.getElementById("zen-compact-mode-toggle").getAttribute("key"), "S", "Cmd+S is still compact mode");
   is(document.getElementById("zen-compact-mode-show-sidebar").getAttribute("modifiers"), "accel,alt", "Cmd+Opt+S is still Zen's");

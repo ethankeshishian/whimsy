@@ -462,23 +462,76 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 }
 
-/* Hex colors: the field between Zen's color well and opacity in the theme
-   picker's custom color row. */
+/* Hex colors: Zen's custom color row (a stretched native color well, a
+   0-1 number spinner and a bare + button) becomes one field, like Arc's and
+   Figma's: a round swatch (the well, still clickable), the hex text and an
+   add button inside one bordered pill. The hex carries opacity (#RRGGBBAA),
+   so Zen's spinner hides; it stays in the DOM because Zen's addCustomColor
+   reads it, and the hex field writes the alpha into it. */
+#zen-theme-picker-color > hbox:has(> #whimsy-hex-input:not([hidden])) {
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding-inline: 6px 3px;
+  border: 1px solid var(--zen-input-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--zen-colors-input-bg);
+  transition: border-color 120ms ease-out;
+
+  &:focus-within {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-inset);
+  }
+
+  &:has(> #whimsy-hex-input[invalid]) {
+    border-color: light-dark(#d70022, #ff848b);
+  }
+
+  & > #PanelUI-zen-gradient-generator-custom-input {
+    appearance: none;
+    flex: none;
+    width: 20px !important;
+    height: 20px;
+    padding: 0 !important;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+
+    &::-moz-color-swatch {
+      border: 1px solid light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.2));
+      border-radius: 50%;
+    }
+  }
+
+  & > #PanelUI-zen-gradient-generator-custom-opacity {
+    display: none;
+  }
+
+  & > #PanelUI-zen-gradient-generator-color-custom-add {
+    flex: none;
+    margin: 0;
+    padding: 4px !important;
+    border-radius: var(--border-radius-small);
+  }
+}
+
 #whimsy-hex-input {
   flex: 1;
   min-width: 0;
-  max-width: 90px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   text-transform: uppercase;
 
   &::placeholder {
     text-transform: none;
-  }
-
-  &[invalid] {
-    outline: 1.5px solid light-dark(#d70022, #ff848b);
-    outline-offset: -1px;
   }
 }
 
@@ -2246,10 +2299,29 @@ whimsy-space-history-section {
   }
 }
 
-#whimsy-quick-window-address .whimsy-mini-profile {
-  background: var(--whimsy-mini-fill-hover);
-  border-radius: 6px;
-  padding: 3px 8px;
+/* wave5/profiles: the page's profile, a pill just before the address. */
+#whimsy-quick-window-profile {
+  appearance: none;
+  flex: none;
+  max-width: 12em;
+  height: var(--whimsy-mini-control);
+  margin: 0 0 0 2px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  &:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+  &:active { scale: 0.96; }
+  &:focus-visible { outline: var(--focus-outline, 2px solid AccentColor); outline-offset: 1px; }
+  &[hidden] { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #whimsy-quick-window-profile { transition: background-color 120ms ease-out, scale 100ms ease-out; }
 }
 #whimsy-quick-window-open kbd {
   font: menu;
@@ -2257,18 +2329,32 @@ whimsy-space-history-section {
   opacity: .7;
   padding-inline-end: 8px;
 }
+/* wave6/parity: Little Arc's measured motion (120 fps, little-095501 and
+   tabclose-095549): it grows from a small rect at its top-left to full
+   size in ~85-100 ms, ease-out, no overshoot, no dim; closing fades in
+   place in ~100 ms with no scale. MERGE NOTE: wave5/uxfix set this
+   animation to var(--whimsy-dur-fast) (150 ms) with a 96% settle; keep
+   these Arc values and tokens. */
+:root[whimsy-quick-window] {
+  --whimsy-mini-open-duration: 90ms;
+  --whimsy-mini-close-duration: 100ms;
+  --whimsy-mini-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
 @media (prefers-reduced-motion: no-preference) {
-  /* wave5/uxfix: Arc's measured opening is ~142ms, ease-out, no bounce
-     (arc-ref/animations.md): a short settle from 96% with a fade, not a
-     zoom from 5% that overshoots. */
   :root[whimsy-quick-window] #browser {
-    transform-origin: center;
-    animation: whimsy-mini-open var(--whimsy-dur-fast) var(--whimsy-ease);
+    transform-origin: top left;
+    animation: whimsy-mini-open var(--whimsy-mini-open-duration) var(--whimsy-mini-ease-out);
+  }
+  :root[whimsy-quick-window] {
+    transition: opacity var(--whimsy-mini-close-duration) ease-out;
   }
 }
+:root[whimsy-quick-window][whimsy-mini-closing] {
+  opacity: 0;
+}
 @keyframes whimsy-mini-open {
-  from { transform: scale(.96); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from { transform: scale(.1); }
+  to { transform: scale(1); }
 }
 
 :root[whimsy-quick-window] :is(#zen-browser-background, #zen-toolbar-background) {
@@ -2624,4 +2710,177 @@ panel.whimsy-space-look .whimsy-sheet-body {
       list-style-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-muted.svg") !important;
     }
   }
+}
+
+/* wave5/profiles: the Profile Name sheet (create / rename). */
+.whimsy-profile-name-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 12px 8px;
+}
+.whimsy-profile-name-label {
+  font-weight: 600;
+}
+.whimsy-profile-name-input {
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, currentColor 5%, transparent);
+  color: inherit;
+  font: inherit;
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 1px;
+  }
+  &[aria-invalid] {
+    border-color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
+  }
+}
+.whimsy-profile-name-error {
+  margin: 0;
+  color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
+}
+
+/* wave6/parity: Tabs → Reveal Tab in Sidebar marks the tab for a moment. */
+.tabbrowser-tab[whimsy-revealed] .tab-background {
+  outline: 2px solid AccentColor;
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tabbrowser-tab[whimsy-revealed] .tab-background {
+    animation: whimsy-reveal 700ms cubic-bezier(0.2, 0, 0, 1) forwards;
+  }
+}
+@keyframes whimsy-reveal {
+  0%, 40% { outline-color: AccentColor; }
+  100% { outline-color: transparent; }
+}
+
+/* fix7/mini: icon-only buttons centre their glyph. A toolbarbutton always
+   carries a .toolbarbutton-text label with flex="1"; empty, it still grew
+   into the spare width and pushed the icon to the left edge (Copy Link,
+   the caret). Hide it when there's no label and make the button square. */
+#whimsy-quick-window-bar .whimsy-mini-button {
+  & > .toolbarbutton-icon {
+    margin: 0;
+  }
+  &:not([label]) {
+    width: var(--whimsy-mini-control);
+    & > .toolbarbutton-text {
+      display: none;
+    }
+  }
+}
+/* The split hairline moves from the caret's border (1px that shifted its
+   glyph off centre) to the end of the ⌘O keycap, Arc's short divider. */
+#whimsy-quick-window-bar #whimsy-quick-window-choose-space {
+  width: 24px;
+  min-width: 24px !important;
+  border-inline-start: 0 !important;
+}
+#whimsy-quick-window-open kbd {
+  line-height: 16px;
+  padding-inline-end: 8px;
+  border-inline-end: 1px solid var(--whimsy-mini-hairline);
+}
+
+/* fix7/mini: Little Arc's address strip holds Extensions and Copy Link at
+   its right end. The strip carries the fill; the address button inside it
+   is transparent and lights the whole strip on hover. Inner buttons are
+   24px with a 6px radius, concentric with the strip's 8px at 2px inset. */
+#whimsy-quick-window-address-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--whimsy-mini-control);
+  margin: 0 4px 0 2px;
+  padding-inline-end: 2px;
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  transition: background-color 120ms ease;
+
+  &:has(> #whimsy-quick-window-address:hover) {
+    background: var(--whimsy-mini-fill-hover);
+  }
+
+  & > #whimsy-quick-window-address {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+  }
+
+  #whimsy-quick-window-bar & > .whimsy-mini-button {
+    flex: none;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    opacity: 0.75;
+
+    &:not([disabled]):hover {
+      opacity: 1;
+    }
+    &[disabled] {
+      opacity: 0.35;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-quick-window-address-field {
+    transition: none;
+  }
+}
+
+/* fix7/mini: the traffic lights stop flickering. Root cause: Zen's
+   zen.widget.mac.mono-window-controls (on by default) sets the real
+   buttonbox to opacity 0 unless Zen's compact-mode hover tracker has put
+   zen-has-hover on it. An opacity-0 frame builds no display item, so it
+   registers no window-button theme geometry, and Cocoa parks the native
+   buttons above the window (nsCocoaWindow: empty windowButtonsRect hides
+   them). In Mini that tracker toggles the attribute as the pointer crosses
+   the bar and the native buttons themselves, so they vanished and came back.
+   Little Arc always shows them: keep them painted, drop Zen's stand-in dots,
+   and pin the margins Zen's collapsed-sidebar rules pull negative. */
+:root[whimsy-quick-window] #whimsy-quick-window-bar > .titlebar-buttonbox-container {
+  background-image: none !important;
+  margin: 0 4px 0 0 !important;
+  width: auto !important;
+  & > .titlebar-buttonbox {
+    opacity: 1 !important;
+  }
+}
+
+/* fix7/mini: the space dropdown (caret, Cmd+Shift+O). Zen's menu surface
+   and motion; each space's icon sits on a small tile tinted with the
+   space's own colour, so spaces read apart at a glance. */
+#whimsy-quick-window-space-picker {
+  min-width: 200px;
+
+  & > .whimsy-mini-picker-caption {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  & > .whimsy-mini-picker-space {
+    & .menu-icon {
+      box-sizing: border-box;
+      width: 20px;
+      height: 20px;
+      padding: 2px;
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--whimsy-space-color, currentColor) 22%, transparent);
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor;
+    }
+    &[default] {
+      font-weight: 600;
+    }
+  }
+}
+#whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
+  background: var(--whimsy-mini-fill-active);
 }

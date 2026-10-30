@@ -421,15 +421,8 @@
     }
 
     async #applyChoices() {
-      await this.#pinEssentials();
-      let tabsToGroup = [];
-      if (!gBrowser.selectedTab.hasAttribute("zen-empty-tab")) {
-        tabsToGroup.push(gBrowser.selectedTab);
-      }
-      gZenFolders.createFolder(tabsToGroup, {
-        renameFolder: false,
-        label: "zen basics",
-      });
+      await this.#pinEssentials(); // Whimsy hotfix: no "zen basics" folder
+      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.finishOnboarding(window); // and no Zen first-run pages
     }
 
     async #pinEssentials() {

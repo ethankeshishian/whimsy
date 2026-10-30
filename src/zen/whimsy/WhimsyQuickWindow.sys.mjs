@@ -12,9 +12,10 @@
 // glance at it, then either close it (Esc, Cmd+W, or the close button —
 // gone for good, no history or session entry) or press "Open in <Space name>"
 // (Cmd+O, matching Arc) to adopt it into a real tab, or pick a
-// different one (Cmd+Shift+O, the caret button). A second link while one is
-// already open reuses the same window rather than stacking more, as Arc
-// does.
+// different one (the caret button or Cmd+Shift+O). A second link while one is already
+// open reuses the same window. (wave6: parity.md reads the 120 fps clip as
+// Arc stacking a second window and ignoring Esc, but that clip can't show
+// which window had focus; both stay as they are until verified.)
 //
 // It's an ordinary browser.xhtml window (BrowserWindowTracker.openWindow,
 // same primitive Firefox uses for every new window): no new window type,
@@ -55,6 +56,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.quick-window";
@@ -66,9 +69,14 @@ const BAR_ID = "whimsy-quick-window-bar";
 const BACK_BUTTON_ID = "whimsy-quick-window-back";
 const ADDRESS_ID = "whimsy-quick-window-address";
 const COPY_BUTTON_ID = "whimsy-quick-window-copy-link";
+const ADDRESS_FIELD_ID = "whimsy-quick-window-address-field";
+const SPACE_PICKER_ID = "whimsy-quick-window-space-picker";
 const OPEN_GROUP_ID = "whimsy-quick-window-open";
 const MOVE_BUTTON_ID = "whimsy-quick-window-move-to-space";
 const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
+// wave5/profiles: the profile pill (Little Arc's profile switcher).
+const PROFILE_BUTTON_ID = "whimsy-quick-window-profile";
+const PROFILE_PICKER_ID = "whimsy-quick-window-profile-picker";
 // Zen's own Cmd+O ("Expand Glance"): meaningless in a quick window, which
 // never has a Glance, so Mini Whimsy reuses the accelerator for Arc's
 // "Open in Current Space" instead (see initChrome).
@@ -130,8 +138,13 @@ export const WhimsyQuickWindow = {
       existing.focus();
       return existing;
     }
+    // wave5/profiles: a link opens in the profile of the space "Open in"
+    // points at, so adopting it later needn't change its profile. Firefox's
+    // window argument can't carry a container: open blank, then load the
+    // link in a tab of that container (it never loads in Default first).
+    const profileId = url ? this.destinationProfileId(opener) : 0;
     const args = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
-    args.data = url || "about:blank";
+    args.data = profileId ? "about:blank" : url || "about:blank";
     // `all: false` (no "toolbar" chrome flag) makes SessionStore treat this
     // as a popup window (it checks aWindow.toolbar.visible): never in the
     // closed-windows list, never restored, matching "closes without a
@@ -194,6 +207,12 @@ export const WhimsyQuickWindow = {
         if (!win.closed) {
           // Arc: Cmd+Opt+N opens Little Arc straight into its command bar.
           this.openCommandBar(win);
+        }
+      });
+    } else if (profileId) {
+      this.whenChromeReady(win).then(() => {
+        if (!win.closed) {
+          this.loadInProfile(win, url, profileId, triggeringPrincipal);
         }
       });
     }
@@ -301,6 +320,14 @@ export const WhimsyQuickWindow = {
       return null;
     }
     const tab = win.gBrowser.selectedTab;
+    // wave5/profiles: another profile's space: Arc's warning, then the page
+    // reopens there in that profile (async; nothing is adopted yet).
+    const space = target.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
+    const profileId = lazy.WhimsyProfiles.profileIdOfSpace(space);
+    if (lazy.WhimsyProfiles.enabled && (tab.userContextId ?? 0) != profileId) {
+      this.moveAcrossProfiles(win, target, tab, space, profileId).catch(console.error);
+      return null;
+    }
     const adopted = target.gBrowser.adoptTab(tab, { selectTab: true, spaceId });
     if (adopted) {
       target.gZenWorkspaces.lastSelectedWorkspaceTabs[spaceId] = adopted;
@@ -310,15 +337,52 @@ export const WhimsyQuickWindow = {
     return adopted ?? null;
   },
 
+  // wave6/parity: Little Arc fades out in place (~100 ms, no scale) when it
+  // closes. Every close path (Esc, Cmd+W on its one tab, the close button,
+  // moving the page to a space) ends in win.close(), so that's where the
+  // fade goes; with reduced motion it closes at once.
+  fadeOnClose(win) {
+    const close = win.close.bind(win);
+    win.close = () => {
+      const root = win.document.documentElement;
+      if (root.hasAttribute("whimsy-mini-closing")) {
+        return;
+      }
+      if (win.matchMedia("(prefers-reduced-motion: reduce)").matches || win.closed) {
+        close();
+        return;
+      }
+      root.setAttribute("whimsy-mini-closing", "");
+      const ms = parseFloat(win.getComputedStyle(root).getPropertyValue("--whimsy-mini-close-duration")) || 100;
+      win.setTimeout(close, ms);
+    };
+  },
+
   // The quick window's own chrome, laid out like Arc's Little Arc: one slim
   // bar above the page, on the destination space's colours (see
   // watchDestination), holding the window controls, Back, the address
-  // (favicon + host; clicking it opens the command bar, Cmd+L), Copy URL
-  // (Cmd+Shift+C) and the "Open in <Space name>" split button (Cmd+O, with
-  // a caret for Cmd+Shift+O). Below it the page is the same inset rounded
+  // (profile + host; clicking it opens the command bar, Cmd+L) with the
+  // Extensions and Copy URL (Cmd+Shift+C) buttons inside its right end, as
+  // in Little Arc, and the "Open in <Space name>" split button (Cmd+O, with
+  // a caret for the space dropdown, Cmd+Shift+O). Below it the page is the same inset rounded
   // card as in a main window. Zen's own nav bar and sidebar stay hidden.
   initChrome(win) {
     const { document } = win;
+    // Mini is often closed moments after it opens. A urlbar query still
+    // running then (Top Sites, started when its address bar wakes up) would
+    // deliver results to a window whose urlbar actor is gone, which throws in
+    // Firefox's controller; stop it as the window goes.
+    win.addEventListener(
+      "unload",
+      () => {
+        try {
+          win.gURLBar?.controller?.cancelQuery?.();
+        } catch (e) {
+          // Already torn down.
+        }
+      },
+      { once: true }
+    );
     // Never let this window's size/position feed back into the ordinary
     // browser windows': browser.xhtml persists screenX/screenY/width/height
     // under the document's root id ("main-window"), the same id every
@@ -348,6 +412,9 @@ export const WhimsyQuickWindow = {
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindowChooseSpace",
       run: w => this.openSpacePicker(w, w.document.getElementById(OPEN_GROUP_ID)),
+      // fix7: Cmd+Shift+O opens the same dropdown as the chevron (the user
+      // keeps this key; wave6/parity had dropped it). Firefox's Show All
+      // Bookmarks gives it up in Mini only, see disableGlanceExpandKey.
       key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
     });
     // Arc: "quickly verify the content and hit Esc to vanish the window."
@@ -365,6 +432,7 @@ export const WhimsyQuickWindow = {
         win.close();
       }
     });
+    this.fadeOnClose(win);
     navbar.before(this.buildBar(win));
     this.adoptWindowButtons(win);
     this.watchDestination(win);
@@ -416,10 +484,17 @@ export const WhimsyQuickWindow = {
     document.l10n.setAttributes(address, "whimsy-quick-window-address");
     const host = html("span");
     host.className = "whimsy-mini-host";
-    const profile = html("span");
+    address.append(host);
+
+    // wave5/profiles: the page's profile, a pill before the address; it
+    // opens the profile list (Little Arc's profile switcher). Hidden while
+    // profiles are off.
+    const profile = html("button");
+    profile.id = PROFILE_BUTTON_ID;
+    profile.type = "button";
     profile.className = "whimsy-mini-profile";
-    document.l10n.setAttributes(profile, "whimsy-quick-window-profile");
-    address.append(profile, host);
+    profile.setAttribute("aria-haspopup", "menu");
+    profile.addEventListener("click", () => this.openProfilePicker(win, profile));
     address.addEventListener("click", () => this.openCommandBar(win));
 
     const copy = button(COPY_BUTTON_ID, "whimsy-quick-window-copy-link", { command: "cmd_zenCopyCurrentURL" });
@@ -437,20 +512,36 @@ export const WhimsyQuickWindow = {
     shortcut.setAttribute("aria-hidden", "true");
     group.append(move, shortcut, choose);
 
-    bar.append(back, address);
-    // Reuse Firefox's real extensions button and panel, rather than a
-    // separate picker with different extension behavior.
+    // fix7: Little Arc draws Extensions and Copy Link inside the address
+    // strip, at its right end. The strip is a plain container (a button
+    // can't hold buttons); the address button fills the rest of it.
+    const field = html("div");
+    field.id = ADDRESS_FIELD_ID;
+    field.append(address, copy);
+    bar.append(back, profile, field, group);
+    this.placeExtensionsButton(win);
+    return bar;
+  },
+
+  // Reuse Firefox's real extensions button and panel, rather than a
+  // separate picker with different extension behavior. It sits in the
+  // address strip before Copy Link. Zen's toolbar re-layout prepends it to
+  // the sidebar's top buttons again, so adoptWindowButtons calls this back.
+  placeExtensionsButton(win) {
+    const { document } = win;
     const extensions = document.getElementById("unified-extensions-button");
-    if (extensions) {
-      extensions.classList.add("whimsy-mini-button", "tabbable");
-      extensions.setAttribute("tabindex", "0");
-      bar.append(extensions);
-      // Zen normally anchors this panel to its site-controls icon. That
-      // icon is in Mini's parked nav bar; use the visible puzzle button.
+    const copy = document.getElementById(COPY_BUTTON_ID);
+    if (!extensions || !copy || extensions.nextElementSibling == copy) {
+      return;
+    }
+    extensions.classList.add("whimsy-mini-button", "tabbable");
+    extensions.setAttribute("tabindex", "0");
+    copy.before(extensions);
+    // Zen normally anchors this panel to its site-controls icon. That
+    // icon is in Mini's parked nav bar; use the visible puzzle button.
+    if (win.gUnifiedExtensions) {
       win.gUnifiedExtensions._button = extensions;
     }
-    bar.append(copy, group);
-    return bar;
   },
 
   // Popup windows (Mini opens as one, so it never lands in session history)
@@ -521,10 +612,11 @@ export const WhimsyQuickWindow = {
       if (buttons && buttons.parentNode != bar) {
         bar.prepend(buttons);
       }
+      this.placeExtensionsButton(win);
     };
     adopt();
     const observer = new win.MutationObserver(adopt);
-    for (const id of ["navigator-toolbox", NAVBAR_ID]) {
+    for (const id of ["navigator-toolbox", NAVBAR_ID, BAR_ID]) {
       const area = document.getElementById(id);
       if (area) {
         observer.observe(area, { childList: true, subtree: true });
@@ -564,6 +656,7 @@ export const WhimsyQuickWindow = {
         host.removeAttribute("data-l10n-args");
         host.textContent = name;
       }
+      this.updateProfile(win);
       const title = blank ? "" : tab.label || name;
       if (address.dataset.page != `${title}\n${spec}`) {
         address.dataset.page = `${title}\n${spec}`;
@@ -704,6 +797,114 @@ export const WhimsyQuickWindow = {
     update();
   },
 
+  // -- wave5/profiles: the profile pill ---------------------------------
+
+  /** The profile of the space "Open in" points at (Default if none). */
+  destinationProfileId(opener) {
+    if (!lazy.WhimsyProfiles.enabled) {
+      return 0;
+    }
+    const space = this.mainWindow(opener)?.gZenWorkspaces?.getActiveWorkspace?.();
+    return space ? lazy.WhimsyProfiles.profileIdOfSpace(space) : 0;
+  },
+
+  principalFor(principal, userContextId) {
+    if (!principal || principal.isNullPrincipal) {
+      return Services.scriptSecurityManager.createNullPrincipal({ userContextId });
+    }
+    return principal.isContentPrincipal ?
+      Services.scriptSecurityManager.principalWithOA(principal, { userContextId }) : principal;
+  },
+
+  /** Replaces Mini's page with `url` in profile `id`'s container. */
+  loadInProfile(win, url, id, triggeringPrincipal = null) {
+    const { gBrowser } = win;
+    const old = gBrowser.selectedTab;
+    const tab = gBrowser.addTab(url, {
+      userContextId: id,
+      triggeringPrincipal: this.principalFor(
+        triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(), id),
+      skipAnimation: true,
+    });
+    gBrowser.selectedTab = tab;
+    gBrowser.removeTab(old, { animate: false });
+    this.updateProfile(win);
+    return tab;
+  },
+
+  updateProfile(win) {
+    const button = win.document.getElementById(PROFILE_BUTTON_ID);
+    if (!button) {
+      return;
+    }
+    const on = lazy.WhimsyProfiles.enabled;
+    button.hidden = !on;
+    if (!on) {
+      return;
+    }
+    const name = lazy.WhimsyProfiles.nameOf(win.gBrowser.selectedTab?.userContextId ?? 0);
+    if (button.dataset.profile != name) {
+      button.dataset.profile = name;
+      win.document.l10n.setAttributes(button, "whimsy-quick-window-profile-button", { profile: name });
+    }
+  },
+
+  openProfilePicker(win, anchor) {
+    const { document } = win;
+    let popup = document.getElementById(PROFILE_PICKER_ID);
+    if (!popup) {
+      popup = document.createXULElement("menupopup");
+      popup.id = PROFILE_PICKER_ID;
+      popup.addEventListener("command", event => {
+        const id = Number(event.target.dataset.profileId);
+        const current = win.gBrowser.selectedTab?.userContextId ?? 0;
+        if (Number.isInteger(id) && id != current) {
+          const url = win.gBrowser.selectedBrowser.currentURI?.spec || "about:blank";
+          this.loadInProfile(win, url, id, win.gBrowser.selectedBrowser.contentPrincipal);
+        }
+      });
+      document.getElementById("mainPopupSet")?.appendChild(popup) ?? document.documentElement.appendChild(popup);
+    }
+    const current = win.gBrowser.selectedTab?.userContextId ?? 0;
+    popup.replaceChildren(...lazy.WhimsyProfiles.list().map(profile => {
+      const item = document.createXULElement("menuitem");
+      item.setAttribute("type", "radio");
+      item.setAttribute("label", profile.name);
+      item.dataset.profileId = profile.id;
+      if (profile.id == current) {
+        item.setAttribute("checked", "true");
+      }
+      return item;
+    }));
+    popup.openPopup(anchor, { position: "after_start" });
+  },
+
+  async moveAcrossProfiles(win, target, tab, space, profileId) {
+    const ok = await lazy.WhimsyProfileMoves.confirm(target, {
+      titleId: "whimsy-profile-move-tab-title",
+      titleArgs: { count: 1, space: space?.name ?? "" },
+      bodyId: "whimsy-profile-move-tab-body",
+      bodyArgs: { count: 1, profile: lazy.WhimsyProfiles.nameOf(profileId) },
+      acceptId: "whimsy-profile-move-tab-accept",
+      acceptArgs: { count: 1 },
+    });
+    if (!ok || win.closed || target.closed || tab.closing) {
+      return null;
+    }
+    const url = tab.linkedBrowser.currentURI?.spec || "about:blank";
+    const principal = this.principalFor(tab.linkedBrowser.contentPrincipal, profileId);
+    const added = target.gBrowser.addTab(url, { userContextId: profileId, triggeringPrincipal: principal });
+    target.gZenWorkspaces.moveTabToWorkspace(added, space.uuid);
+    if (target.gZenWorkspaces.activeWorkspace != space.uuid) {
+      await target.gZenWorkspaces.changeWorkspaceWithID(space.uuid);
+    }
+    target.gBrowser.selectedTab = added;
+    target.gZenWorkspaces.lastSelectedWorkspaceTabs[space.uuid] = added;
+    target.focus();
+    win.close();
+    return added;
+  },
+
   // The space's icon as an image URL: Zen's SVG icons as they are, an
   // emoji drawn into a small SVG (toolbarbutton images are URLs only).
   spaceIcon(space) {
@@ -728,7 +929,8 @@ export const WhimsyQuickWindow = {
   // when their keyset is (re)bound).
   disableGlanceExpandKey(win) {
     // Cmd+O is Zen's "Expand Glance" and Cmd+Shift+O Firefox's "Show All
-    // Bookmarks"; in a quick window both belong to Arc's move-to-space keys.
+    // Bookmarks"; in a quick window they open the page in a space and open
+    // the space dropdown.
     for (const id of [GLANCE_EXPAND_KEY_ID, "manBookmarkKb"]) {
       const key = win.document.getElementById(id);
       if (!key) {
@@ -746,34 +948,83 @@ export const WhimsyQuickWindow = {
     }
   },
 
-  // A small menu of the user's spaces, anchored under the "Open in <Space
-  // name>" pill (end-aligned, as Arc's drops from its right edge);
-  // choosing one calls moveToSpace.
+  // fix7: Little Arc's space dropdown, from the caret or Cmd+Shift+O: a
+  // Zen-style menu headed "Open in", one row per space with its icon on a
+  // tile of the space's own colour (a colour dot when it has no icon). The
+  // space Cmd+O uses shows that shortcut. Choosing a row calls moveToSpace.
+  // Anchored under the split button, end-aligned, as Arc's drops from its
+  // right edge; Zen's menu motion and reduced-motion handling apply.
   openSpacePicker(win, anchor) {
     const { document } = win;
     const spaces = this.spaces(win);
     if (!spaces.length) {
       return;
     }
-    let popup = document.getElementById("whimsy-quick-window-space-picker");
+    let popup = document.getElementById(SPACE_PICKER_ID);
     if (!popup) {
       popup = document.createXULElement("menupopup");
-      popup.id = "whimsy-quick-window-space-picker";
+      popup.id = SPACE_PICKER_ID;
       popup.addEventListener("command", event => {
         const spaceId = event.target.getAttribute("zen-workspace-id");
         if (spaceId) {
           this.moveToSpace(win, spaceId);
         }
       });
+      // The caret reads as pressed while its menu is open.
+      const choose = () => document.getElementById(CHOOSE_BUTTON_ID);
+      popup.addEventListener("popupshowing", () => choose()?.setAttribute("open", "true"));
+      popup.addEventListener("popuphidden", () => choose()?.removeAttribute("open"));
       document.getElementById("mainPopupSet")?.appendChild(popup) ?? document.documentElement.appendChild(popup);
     }
-    const main = this.mainWindow(win.opener);
-    const items = spaces.map(space => {
-      const item = main.gZenWorkspaces.generateMenuItemForWorkspace(space, true);
-      item.classList.remove("zen-workspace-context-menu-item");
+    const caption = document.createXULElement("menucaption");
+    caption.className = "whimsy-mini-picker-caption";
+    document.l10n.setAttributes(caption, "whimsy-quick-window-picker-caption");
+    const defaultId = this.defaultSpaceId(win);
+    const toItem = space => {
+      const item = document.createXULElement("menuitem");
+      item.className = "menuitem-iconic whimsy-mini-picker-space";
+      item.setAttribute("zen-workspace-id", space.uuid);
+      item.setAttribute("label", space.name);
+      item.setAttribute("image", this.spaceIcon(space) ?? this.spaceDot(space));
+      const color = this.spaceColor(space);
+      if (color) {
+        item.style.setProperty("--whimsy-space-color", color);
+      }
+      if (space.uuid == defaultId) {
+        item.setAttribute("key", "key_whimsyQuickWindowOpenInSpace");
+        item.setAttribute("default", "true");
+      }
       return item;
-    });
-    popup.replaceChildren(...items);
+    };
+    // wave5/profiles: spaces of the page's own profile first; the rest,
+    // where it would reopen in another profile, after a separator.
+    const current = win.gBrowser.selectedTab?.userContextId ?? 0;
+    const mine = spaces.filter(space => !lazy.WhimsyProfiles.enabled ||
+      lazy.WhimsyProfiles.profileIdOfSpace(space) == current);
+    const others = spaces.filter(space => !mine.includes(space));
+    const items = mine.map(toItem);
+    if (others.length) {
+      if (items.length) {
+        items.push(document.createXULElement("menuseparator"));
+      }
+      items.push(...others.map(toItem));
+    }
+    popup.replaceChildren(caption, ...items);
     popup.openPopup(anchor, { position: "after_end" });
+  },
+
+  // A space's first theme colour as CSS, or null for Zen's default theme.
+  spaceColor(space) {
+    const rgb = space?.theme?.gradientColors?.[0]?.c;
+    return Array.isArray(rgb) && rgb.length >= 3 ? `rgb(${rgb.slice(0, 3).join(" ")})` : null;
+  },
+
+  // A space with no icon gets a dot in its colour (a mid grey, readable in
+  // light and dark menus, for Zen's default theme). Context paint isn't
+  // allowed for data: images, so the colour is baked in.
+  spaceDot(space) {
+    const fill = this.spaceColor(space) ?? "rgb(128 128 128)";
+    return "data:image/svg+xml," + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="${fill}"/></svg>`);
   },
 };

@@ -162,6 +162,47 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
 });
 
+// wave5/profiles: Arc's profiles on containers.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+});
+
+// wave6/zap: Zap (erase page elements).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyZap: "resource:///modules/whimsy/WhimsyZap.sys.mjs",
+});
+
+// wave6/zap: Link hints (keyboard-only clicking).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
+});
+
+// wave6/search: Instant result and the Search Deck.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
+});
+
+// wave6: Already open (Arc parity).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
+});
+
+// wave6: Trails (branching back/forward menu).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTrails: "resource:///modules/whimsy/WhimsyTrails.sys.mjs",
+});
+
+// wave6: Page actions (schema.org data -> a pill in the address bar).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
+});
+
+// wave6/parity: Arc's Split View keys.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
+  WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -270,6 +311,33 @@ export const Whimsy = {
       matches: ["https://*/*", "http://*/*", "file:///*"],
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
+    });
+    // wave6/zap: Link hints. Message-only (no events), so the child only
+    // starts in a page when Cmd+J asks for hints; top frames only.
+    ChromeUtils.registerWindowActor("WhimsyLinkHints", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyLinkHintsParent.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    // wave6/search: reads result links from a results page, only in the
+    // Search Deck's own hidden, sandboxed browsers (WhimsySearchDeck).
+    ChromeUtils.registerWindowActor("WhimsySearchDeck", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsySearchDeckChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*"],
+      messageManagerGroups: ["whimsy-search-deck"],
+      safeForUntrustedWebProcess: true,
+    });
+    // fix7/private: the private page without Firefox's search box.
+    ChromeUtils.registerWindowActor("WhimsyPrivatePage", {
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPrivatePageChild.sys.mjs",
+        events: { DOMContentLoaded: {} },
+      },
+      matches: ["about:privatebrowsing*"],
+      remoteTypes: ["privilegedabout"],
     });
   },
 
@@ -593,6 +661,38 @@ export const Whimsy = {
         .then(() => lazy.WhimsySpaceLook.initWindow(win))
         .catch(e => console.error("Whimsy: space-look", e))
     );
+
+    // wave5/profiles: profiles. After Zen's spaces are ready; each part
+    // checks the switch on use, so Settings applies without a restart.
+    run("space-profiles", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyProfiles.initWindow(win))
+        .catch(e => console.error("Whimsy: space-profiles", e))
+    );
+    // wave6/zap: Zap (Cmd+Shift+X, command bar, site panel menu). Always
+    // installed; the command checks its switch and Zen's boosts on each use.
+    run("zap", () => lazy.WhimsyZap.initWindow(win));
+    // wave6/zap: Link hints (Cmd+J, command bar). Checks its switch on use.
+    run("link-hints", () => lazy.WhimsyLinkHints.initWindow(win));
+
+    // wave6/search: Instant result (Shift+Enter) and the Search Deck. Always
+    // installed; each checks its switch on use.
+    run("search-deck", () => lazy.WhimsySearchDeck.initWindow(win));
+
+    // wave6: Already open. Return on an address that's open in any space
+    // goes to that tab (Arc). Always installed; checks its switch on use.
+    run("already-open", () => lazy.WhimsyAlreadyOpen.initWindow(win));
+    // wave6: Trails. Pages cut from Forward stay as branches in the
+    // Back/Forward menu. Always installed; checks its switch on use.
+    run("trails", () => lazy.WhimsyTrails.initWindow(win));
+    // wave6: Page actions. Its page actor is registered once even when off;
+    // the child checks the switch on every page.
+    run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
+    // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
+    // its switch on each use.
+    run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
+    // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
+    run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

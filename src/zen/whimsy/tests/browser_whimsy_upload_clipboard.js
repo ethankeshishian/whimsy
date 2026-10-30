@@ -105,3 +105,68 @@ add_task(async function test_cmd_v_pastes_into_upload_button() {
   });
   await SpecialPowers.popPrefEnv();
 });
+
+// fix7: Cmd+V failed on Benepass. Most upload buttons aren't a file input or
+// its label: a styled div clicks a hidden input, a drop zone wraps one, a
+// clicked drop zone can't even take focus. Each common pattern now gets the
+// copied file; a text field keeps its normal paste.
+add_task(async function test_cmd_v_on_custom_upload_widgets() {
+  const { WhimsyUploadParent } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs"
+  );
+  const path = PathUtils.join(PathUtils.tempDir, "whimsy-widget-paste.txt");
+  await IOUtils.writeUTF8(path, "pasted");
+  const original = WhimsyUploadParent.clipboardUpload;
+  WhimsyUploadParent.clipboardUpload = async () => ({ path, isFile: true });
+  const page = getRootDirectory(gTestPath) + "whimsy_upload_widgets.html";
+  const fileName = (browser, id) =>
+    SpecialPowers.spawn(browser, [id], i => content.document.getElementById(i).files[0]?.name);
+  const pasteOn = async (browser, id) => {
+    await SpecialPowers.spawn(browser, [id], i => content.document.getElementById(i).focus());
+    EventUtils.synthesizeKey("v", { accelKey: true });
+  };
+  try {
+    await BrowserTestUtils.withNewTab(page, async browser => {
+      for (const [focus, input, what] of [
+        ["fake-button", "widget-input", "A styled div button sets its hidden input"],
+        ["dropzone-root", "dropzone-input", "A react-dropzone root sets the input it wraps"],
+        ["aria-button", "aria-input", "A button with aria-controls sets that input"],
+      ]) {
+        await pasteOn(browser, focus);
+        await TestUtils.waitForCondition(async () => (await fileName(browser, input)) == "whimsy-widget-paste.txt", what);
+      }
+
+      // Clicked, but it can't take focus: the keystroke lands on <body>.
+      await BrowserTestUtils.synthesizeMouseAtCenter("#clickzone-text", {}, browser);
+      await SpecialPowers.spawn(browser, [], () => {
+        Assert.equal(content.document.activeElement, content.document.body, "Nothing is focused");
+      });
+      EventUtils.synthesizeKey("v", { accelKey: true });
+      await TestUtils.waitForCondition(
+        async () => (await fileName(browser, "clickzone-input")) == "whimsy-widget-paste.txt",
+        "The drop zone you just clicked gets the file"
+      );
+
+      // No input at all: the file is dropped on it.
+      await pasteOn(browser, "pure-drop");
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.whimsyDropped),
+        "A drop zone without an input gets the file as a drop"
+      );
+      is(
+        await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.whimsyDropped),
+        "whimsy-widget-paste.txt",
+        "...with the copied file"
+      );
+
+      // A text field keeps its normal paste.
+      await pasteOn(browser, "notes");
+      // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+      await new Promise(r => setTimeout(r, 300));
+      is(await fileName(browser, "notes-file"), undefined, "Cmd+V in a text field isn't taken for an upload");
+    });
+  } finally {
+    WhimsyUploadParent.clipboardUpload = original;
+    await IOUtils.remove(path, { ignoreAbsent: true });
+  }
+});

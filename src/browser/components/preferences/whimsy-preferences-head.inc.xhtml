@@ -597,3 +597,66 @@
     </hbox>
   </groupbox>
 </html:template>
+
+# wave5/profiles: Settings → Tab Management → Profiles (Arc's Settings → Profiles).
+<html:template id="template-whimsyProfiles" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyProfilesGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
+    <label><html:h2 id="whimsyProfilesHeader" data-l10n-id="whimsy-profiles-header"/></label>
+    <description class="description-deemphasized" data-l10n-id="whimsy-profiles-description"/>
+    <description id="whimsyProfilesDeleteRule" class="description-deemphasized" data-l10n-id="whimsy-profiles-delete-rule"/>
+    <html:ul id="whimsyProfilesList" class="whimsy-profiles-list" aria-labelledby="whimsyProfilesHeader"></html:ul>
+    <html:div id="whimsyProfilesCreateSlot"></html:div>
+    <hbox class="whimsy-profiles-actions" align="center">
+      <button id="whimsyProfilesCreate" data-l10n-id="whimsy-profiles-create"/>
+      <button id="whimsyProfilesDeleteUnused" data-l10n-id="whimsy-profiles-delete-unused"/>
+    </hbox>
+  </groupbox>
+</html:template>
+
+# wave6/search: Settings -> Search -> Instant Results (Shift+Enter and the
+# Search Deck), after Bang Shortcuts.
+<html:template id="template-whimsySearchDeck" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsySearchDeckGroup" data-category="paneSearch" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-search-header"/></label>
+    <checkbox id="whimsySearchInstant" preference="whimsy.feature.instant-result" data-l10n-id="whimsy-search-instant"/>
+    <checkbox id="whimsySearchDeck" class="indent" preference="whimsy.feature.search-deck" data-l10n-id="whimsy-search-deck"
+              aria-describedby="whimsySearchDeckHelp"/>
+    <description id="whimsySearchDeckHelp" class="description-deemphasized indent" data-l10n-id="whimsy-search-deck-help"/>
+  </groupbox>
+</html:template>
+
+# wave6: navigation (Already open, Trails, Page actions). whimsy-settings.js
+# adds these to Settings -> Tab Management -> Tabs.
+<html:template id="template-whimsyNavigation" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <checkbox id="whimsyAlreadyOpen"
+            data-l10n-id="whimsy-already-open-setting" preference="whimsy.feature.already-open"/>
+  <checkbox id="whimsyTrails"
+            data-l10n-id="whimsy-trails-setting" preference="whimsy.feature.trails"/>
+  <checkbox id="whimsyPageActions"
+            data-l10n-id="whimsy-page-actions-setting" preference="whimsy.feature.page-actions"/>
+</html:template>
+
+# fix/panes: Firefox 159's Appearance and Tabs and browsing panes, merged
+# into Look and Feel and Tab Management (whimsy-settings.js hides the two
+# panes). These are Firefox's own setting groups (config/appearance.mjs,
+# config/tabs-browsing.mjs, config/home-startup.mjs), so every pref and
+# behavior stays Firefox's. docs/whimsy/settings-panes.md has the inventory.
+<html:template id="template-whimsyFirefoxLooks" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <html:setting-group groupid="appearance" data-category="paneZenLooks" hidden="true"/>
+  <html:setting-group groupid="browserTheme" data-category="paneZenLooks" hidden="true"/>
+  <html:setting-group groupid="windowDensity" data-category="paneZenLooks" hidden="true"/>
+  <html:setting-group groupid="browserIconEntry" data-category="paneZenLooks" hidden="true"/>
+</html:template>
+<html:template id="template-whimsyFirefoxTabs" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <hbox id="whimsyTabsBrowsingCategory" class="subcategory" hidden="true"
+        data-category="paneZenTabManagement" data-subcategory="tabsBrowsing">
+    <html:h1 data-l10n-id="pane-tabs-browsing-title2"/>
+  </hbox>
+  <html:setting-group groupid="tabs" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="startupHome" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="defaultBrowserHome" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="pageNavigation" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="media" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="performance" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="recommendations" data-category="paneZenTabManagement" hidden="true"/>
+</html:template>

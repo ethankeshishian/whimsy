@@ -426,6 +426,42 @@
 - name: whimsy.feature.link-cards
   value: true
 
+- name: whimsy.feature.space-profiles
+  value: true
+
+- name: whimsy.feature.zap
+  value: true
+
+- name: whimsy.feature.link-hints
+  value: true
+
+- name: whimsy.feature.instant-result
+  value: true
+
+- name: whimsy.feature.search-deck
+  value: true
+
+- name: whimsy.feature.already-open
+  value: true
+
+- name: whimsy.feature.trails
+  value: true
+
+- name: whimsy.feature.page-actions
+  value: true
+
+- name: whimsy.feature.split-alt-click
+  value: true
+
+- name: whimsy.feature.split-arc-keys
+  value: true
+
+- name: whimsy.feature.command-bar-dedup
+  value: true
+
+- name: whimsy.feature.arc-menus
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

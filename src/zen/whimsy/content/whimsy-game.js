@@ -34,6 +34,7 @@
   // actor hands over a small host: pref reads, pref writes via the parent,
   // and "autostart" when the page was turned into the game by a key press.
   const host = window.WhimsyGameHost ?? null;
+  const embedded = !!host;
   const prefs = host ?? {
     get(name, fallback) {
       const P = Services.prefs;
@@ -114,6 +115,9 @@
   const COMBO_WINDOW = 2;
   const MAX_COMBO = 5;
   const DAY_LENGTH = 600; // points per full day -> night -> day
+  const SLOW_TIME = 5; // seconds of slow-mo per pickup
+  const SLOW_SCALE = 0.4; // the world's speed during slow-mo
+  const SLOW_EASE = 10; // how fast the world eases into and out of it
   const RETRY_DELAY = 0.35;
 
   const game = {
@@ -141,6 +145,8 @@
     combo: 0,
     comboAt: -10,
     slowT: 0,
+    timeScale: 1, // the world's speed (the balloon always runs at 1)
+    worldClock: 0, // game.clock at the world's speed, for hazard animation
     input: { x: 0, y: 0 },
     pointer: null,
     stats: { minSpawn: Infinity, launched: 0 },
@@ -560,6 +566,7 @@
     game.combo = 0;
     game.comboAt = -10;
     game.slowT = 0;
+    game.timeScale = 1;
     game.spawnIn = 1.2;
     game.itemIn = 0.4;
     game.powerIn = 9;
@@ -779,7 +786,7 @@
     } else if (item.kind == "magnet") {
       p.magnet = 6;
     } else {
-      game.slowT = 5;
+      game.slowT = SLOW_TIME;
     }
     floatText(item.x, item.y - 12, { shield: "SHIELD!", magnet: "MAGNET!", slow: "SLOW-MO!" }[item.kind], "#ffffff");
     burst(item.x, item.y, 14, { s0: 40, s1: 120, g: 0, colors: ["#ffffff", POWER_COLORS[item.kind]] });
@@ -788,25 +795,37 @@
 
   function updateWorld(dt) {
     game.runTime += dt;
-    game.distance += game.speed * dt;
+    // Slow-mo slows the whole world - hazards, their telegraphs, the spawn
+    // timers, items and scenery - while the balloon keeps full speed. (It
+    // used to scale hazard motion only: warnings and spawns kept real time,
+    // so slow-mo packed the sky with more hazards and nothing else looked
+    // slower.) The scale eases in and out instead of snapping.
     game.slowT = Math.max(0, game.slowT - dt);
-    const sf = game.slowT > 0 ? 0.4 : 1;
+    const target = game.slowT > 0 ? SLOW_SCALE : 1;
+    game.timeScale += (target - game.timeScale) * (1 - Math.exp(-SLOW_EASE * dt));
+    if (Math.abs(game.timeScale - target) < 0.002) {
+      game.timeScale = target;
+    }
+    const sf = game.timeScale;
+    const wdt = dt * sf;
+    game.worldClock += wdt;
+    game.distance += game.speed * wdt;
     updatePlayer(dt);
 
     if (game.autoSpawn) {
-      game.spawnIn -= dt;
+      game.spawnIn -= wdt;
       if (game.spawnIn <= 0) {
         warn(pickKind());
         game.spawnIn = Math.max(0.5, 1.7 - game.runTime * 0.02) * rand(0.8, 1.2);
       }
-      game.itemIn -= dt;
+      game.itemIn -= wdt;
       if (game.itemIn <= 0) {
         if (game.items.filter(i => i.kind == "sparkle").length < 4) {
           spawnItem("sparkle");
         }
         game.itemIn = rand(1, 1.8);
       }
-      game.powerIn -= dt;
+      game.powerIn -= wdt;
       if (game.powerIn <= 0) {
         if (!game.items.some(i => i.kind != "sparkle")) {
           spawnItem(POWERS[Math.floor(Math.random() * POWERS.length)]);
@@ -816,7 +835,7 @@
     }
 
     for (const w of game.warnings) {
-      w.t += dt;
+      w.t += wdt;
       if (w.t >= TELEGRAPH && launch(w)) {
         w.gone = true;
       }
@@ -824,7 +843,7 @@
     game.warnings = game.warnings.filter(w => !w.gone);
 
     for (const h of game.hazards) {
-      h.t += dt * sf;
+      h.t += wdt;
       if (h.kind == "zap") {
         if (h.t > 1.7) {
           h.gone = true;
@@ -849,8 +868,8 @@
     }
 
     for (const it of game.items) {
-      it.t += dt;
-      it.spin += dt * 4;
+      it.t += wdt;
+      it.spin += wdt * 4;
       if (it.t > it.life) {
         it.gone = true;
       }
@@ -932,7 +951,10 @@
     }
   }
 
-  function updateAmbient(dt) {
+  function updateAmbient(realDt) {
+    // Scenery and particles follow the world's speed (slow-mo); the
+    // balloon's own blink and fall don't.
+    const dt = realDt * (game.state == "running" ? game.timeScale : 1);
     const scroll = game.state == "running" ? game.speed : game.state == "ready" ? 30 : 0;
     for (const c of reduced() ? [] : game.clouds) {
       c.x -= (scroll * 0.18 + 6) * dt * c.s;
@@ -972,17 +994,17 @@
     game.particles = game.particles.filter(p => p.life < p.max);
 
     const p = game.player;
-    p.blinkIn -= dt;
+    p.blinkIn -= realDt;
     if (p.blinkIn <= 0) {
       p.blink = 0.12;
       p.blinkIn = rand(2, 4.5);
     }
-    p.blink = Math.max(0, p.blink - dt);
+    p.blink = Math.max(0, p.blink - realDt);
     if (p.dead && game.state == "over") {
-      p.vy += 700 * dt;
-      p.y = Math.min(GROUND, p.y + p.vy * dt);
+      p.vy += 700 * realDt;
+      p.y = Math.min(GROUND, p.y + p.vy * realDt);
     }
-    game.shake *= Math.exp(-10 * dt);
+    game.shake *= Math.exp(-10 * realDt);
   }
 
   function update(dt) {
@@ -1882,7 +1904,7 @@
       drawSprite(sprite("bee", BEE_ROWS, BEE_PAL), h.x - 7, h.y - 5);
       return;
     }
-    const flap = reduced() ? 0 : Math.sin(game.clock * 30) * 0.35;
+    const flap = reduced() ? 0 : Math.sin(game.worldClock * 30) * 0.35;
     ctx.save();
     ctx.translate(h.x, h.y);
     ctx.rotate(Math.sin(h.t * 2 + h.phase) * 0.25);
@@ -1910,7 +1932,7 @@
   }
 
   function drawBird(h) {
-    const flap = Math.floor(game.clock * 8) % 2;
+    const flap = Math.floor(game.worldClock * 8) % 2;
     if (retro()) {
       drawSprite(sprite(`bird${flap}-${season ?? ""}`, BIRD_ROWS[flap], costume.bird ?? BIRD_PAL), h.x - 7, h.y - 5);
       return;
@@ -1946,7 +1968,7 @@
       ctx.fillStyle = cloud;
       ctx.fillRect(snap(h.x - 16), 12, 32, 8);
       ctx.fillRect(snap(h.x - 10), 6, 20, 6);
-      if (!striking && Math.floor(game.clock * 6) % 2 && gather > 0.4) {
+      if (!striking && Math.floor(game.worldClock * 6) % 2 && gather > 0.4) {
         ctx.fillStyle = "#ffd86b";
         ctx.fillRect(snap(h.x - 1), 22, PX, PX * 2);
       }
@@ -1981,7 +2003,7 @@
       ctx.fillRect(h.x - 1, 24, 2, GROUND - 24);
     }
     if (striking) {
-      const r = seeded(Math.floor(h.seed + game.clock * 20));
+      const r = seeded(Math.floor(h.seed + game.worldClock * 20));
       ctx.save();
       ctx.shadowColor = "#ffe36b";
       ctx.shadowBlur = 10;
@@ -2287,9 +2309,19 @@
     drawPlayer(bob);
     drawParticles();
     drawCombo();
-    if (game.slowT > 0 && !retro()) {
-      ctx.fillStyle = "rgba(127,214,255,0.08)";
-      ctx.fillRect(0, 0, W, H);
+    // Slow-mo: a cool wash that fades with the time scale, and a bar
+    // along the top that drains as it runs out (both looks).
+    const slow = (1 - game.timeScale) / (1 - SLOW_SCALE);
+    if (slow > 0 && game.state == "running") {
+      if (!retro()) {
+        ctx.fillStyle = `rgba(127,214,255,${(0.16 * slow).toFixed(3)})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+      const left = snap((W - 16) * Math.min(1, game.slowT / SLOW_TIME));
+      ctx.fillStyle = "rgba(29,19,64,0.35)";
+      ctx.fillRect(8, 2, W - 16, PX * 2);
+      ctx.fillStyle = POWER_COLORS.slow;
+      ctx.fillRect(8, 2, left, PX * 2);
     }
 
     // Night: a soft violet dusk over everything except the sky.
@@ -2385,6 +2417,15 @@
     setInput(clamp(x, -1, 1), clamp(y, -1, 1));
   }
   window.addEventListener("keydown", event => {
+    // Browser shortcuts (Cmd+W, Cmd+T, Ctrl+Tab...) are never the game's:
+    // "w" is a steering key, and swallowing Cmd+W left the tab unclosable.
+    if (event.metaKey || event.ctrlKey || event.altKey || !shown()) {
+      return;
+    }
+    if (embedded && event.key == "Escape") {
+      showEmbedded(false);
+      return;
+    }
     if (event.target.closest?.("button") && (event.key == " " || event.key == "Enter")) {
       return;
     }
@@ -2405,13 +2446,43 @@
     }
   });
   window.addEventListener("keyup", event => {
-    if (DIR_KEYS[event.key]) {
+    if (held.has(event.key)) {
       held.delete(event.key);
       syncHeld();
-    } else if (event.key == " ") {
+    } else if (event.key == " " && shown()) {
       event.preventDefault();
     }
   });
+
+  // Embedded in the offline error page the game fills the page while it's
+  // played, like Chrome's dino: the error text and buttons step aside. Esc
+  // (or a reload) brings the error page and Try Again back, paused; the
+  // error page's own key/tap (WhimsyNetErrorChild) shows the game again.
+  function shown() {
+    return !embedded || document.body.classList.contains("whimsy-game-embedded");
+  }
+  function showEmbedded(on) {
+    document.body.classList.toggle("whimsy-game-embedded", on);
+    document.querySelector("net-error-card")?.shadowRoot
+      ?.querySelector(".felt-privacy-container")?.classList.toggle("whimsy-game-embedded", on);
+    held.clear();
+    syncHeld();
+    if (on) {
+      if (game.state == "paused") {
+        setPaused(false);
+      } else if (game.state == "ready") {
+        start();
+      }
+      resize();
+    } else {
+      setPaused(true);
+      document.activeElement?.blur?.();
+    }
+  }
+  if (embedded) {
+    document.addEventListener("WhimsyGame:Show", () => showEmbedded(true));
+    document.l10n.setAttributes($("whimsy-game-hint"), "whimsy-game-hint-embedded");
+  }
   function toWorld(event) {
     const rect = canvas.getBoundingClientRect();
     return {

@@ -480,6 +480,18 @@ add_task(async function mini_whimsy_destination() {
       ok(win.document.getElementById("whimsy-quick-window-bar").checkVisibility(), `Mini's bar shows (${scheme})`);
       await new Promise(resolve => win.requestAnimationFrame(resolve));
       await shot(`mini-whimsy-${scheme}`, win.browsingContext.currentWindowGlobal);
+
+      // fix7: the space dropdown from the caret (also Cmd+Shift+O).
+      const picker = () => win.document.getElementById("whimsy-quick-window-space-picker");
+      win.document.getElementById("whimsy-quick-window-choose-space").doCommand();
+      await TestUtils.waitForCondition(() => picker()?.state == "open", `Space dropdown opens (${scheme})`);
+      ok([...picker().querySelectorAll(".whimsy-mini-picker-space")].every(row => row.checkVisibility()),
+        `Every space row is visible (${scheme})`);
+      await new Promise(resolve => win.requestAnimationFrame(resolve));
+      await shot(`mini-whimsy-space-dropdown-${scheme}`, win.browsingContext.currentWindowGlobal);
+      const hidden = BrowserTestUtils.waitForEvent(picker(), "popuphidden");
+      picker().hidePopup();
+      await hidden;
     } finally {
       await BrowserTestUtils.closeWindow(win);
     }
@@ -921,6 +933,7 @@ add_task(async function system_links_settings() {
 });
 
 // fixC: a private tab's page (about:privatebrowsing), Whimsy-branded.
+// fix7/private: calm, with no search box and no command bar over it.
 add_task(async function private_tab_page() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const tab = WhimsyPrivate.openPrivateTab(window);
@@ -943,6 +956,28 @@ add_task(async function private_tab_page() {
     await shot("fixC-private-tab-window");
   } finally {
     BrowserTestUtils.removeTab(tab, { animate: false });
+  }
+});
+
+// fix7/private: a private window opens on the calm page, not the command bar.
+add_task(async function private_window_page() {
+  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  try {
+    await win.delayedStartupPromise;
+    const browser = win.gBrowser.selectedBrowser;
+    await TestUtils.waitForCondition(
+      () => browser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing" &&
+        !browser.webProgress.isLoadingDocument
+    );
+    await SpecialPowers.spawn(browser, [], async () => {
+      await content.document.l10n.ready;
+      await new Promise(resolve => content.requestAnimationFrame(resolve));
+    });
+    await new Promise(resolve => win.setTimeout(resolve, 300));
+    await shot("fix7-private-window", win.browsingContext.currentWindowGlobal);
+    await shot("fix7-private-window-page", browser.browsingContext.currentWindowGlobal);
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
   }
 });
 
@@ -979,6 +1014,7 @@ add_task(async function private_tab_in_split() {
 });
 
 // fixC: Scratch asks before becoming a normal space, then loses its violet.
+// fix7/private: the ask is the modal prompt dialog (Cancel default).
 add_task(async function scratch_keep() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const startSpace = gZenWorkspaces.activeWorkspace;
@@ -992,7 +1028,6 @@ add_task(async function scratch_keep() {
     await TestUtils.waitForCondition(
       () => gBrowser.selectedBrowser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing"
     );
-    gURLBar.blur();
     await shot("fixC-scratch-before-keep");
     const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
     document.getElementById("cmd_whimsyKeepScratch").doCommand();
@@ -1003,6 +1038,7 @@ add_task(async function scratch_keep() {
     await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window));
     keptId = scratch.uuid;
     await new Promise(resolve => setTimeout(resolve, 300));
+    // fix7/private: the header still says "Scratch", not "Space".
     await shot("fixC-scratch-kept");
   } finally {
     if (keptId) {
@@ -1817,6 +1853,126 @@ add_task(async function tab_audio_icon() {
     for (const tab of [playing, muted, essential, home]) {
       BrowserTestUtils.removeTab(tab);
     }
+  }
+});
+
+// wave5/profiles: Settings → Profiles and the Profile Name sheet (with its
+// inline error), light and dark.
+add_task(async function profiles_ui() {
+  const { WhimsyProfiles } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyProfiles.sys.mjs"
+  );
+  const { ContextualIdentityService } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
+  );
+  const work = WhimsyProfiles.create("Screens Work");
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Screens Work Space", undefined, true, work);
+  try {
+    for (const dark of [0, 1]) {
+      const scheme = dark ? "dark" : "light";
+      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+      await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+        const doc = browser.contentDocument;
+        const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyProfilesGroup"));
+        await TestUtils.waitForCondition(() => group.checkVisibility(), "Profiles group visible");
+        group.scrollIntoView({ block: "start" });
+        await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+        await shot(`wave5-profiles-settings-${scheme}`, browser.browsingContext.currentWindowGlobal);
+
+        doc.getElementById("whimsyProfilesCreate").doCommand();
+        const form = doc.querySelector("#whimsyProfilesCreateSlot .whimsy-profile-name-form");
+        form.querySelector("input").value = "screens work";
+        form.requestSubmit();
+        await TestUtils.waitForCondition(() => !form.querySelector(".whimsy-profile-name-error").hidden);
+        form.scrollIntoView({ block: "center" });
+        await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+        await shot(`wave5-profiles-settings-error-${scheme}`, browser.browsingContext.currentWindowGlobal);
+      });
+
+      const pending = WhimsyProfiles.promptName(window, {});
+      const panel = await TestUtils.waitForCondition(() => {
+        const p = document.getElementById("whimsy-profile-name-panel");
+        return p?.state == "open" && p;
+      });
+      panel.querySelector(".whimsy-profile-name-input").value = "Screens Work";
+      EventUtils.synthesizeKey("KEY_Enter", {}, window);
+      await TestUtils.waitForCondition(() => !panel.querySelector(".whimsy-profile-name-error").hidden);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await shot(`wave5-profiles-name-sheet-${scheme}`);
+      panel.hidePopup();
+      is(await pending, null, "Closed without creating");
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+    ContextualIdentityService.remove(work);
+  }
+});
+
+// wave6/zap: zap mode entered with Whimsy's command (Zen's zap bar, one zap
+// listed for restore).
+add_task(async function wave6_zap_mode() {
+  const { gZenBoostsManager } = ChromeUtils.importESModule("resource:///modules/zen/boosts/ZenBoostsManager.sys.mjs");
+  const { WhimsyZap } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyZap.sys.mjs");
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["whimsy.feature.zap", true],
+      ["zen.boosts.enabled", true],
+      ["zen.boosts.dissolve-on-zap", false],
+    ],
+  });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  try {
+    document.getElementById(WhimsyZap.COMMAND_ID).doCommand();
+    const bar = await TestUtils.waitForCondition(
+      () => tab.linkedBrowser.closest(".browserContainer")?.querySelector("zen-zap-bar"),
+      "The zap bar shows"
+    );
+    gZenBoostsManager.addZapSelectorToActive("h1", "example.com");
+    await TestUtils.waitForCondition(() => bar.entries?.length == 1, "The zap is listed");
+    await bar.updateComplete;
+    await new Promise(resolve => setTimeout(resolve, 300));
+    ok(bar.checkVisibility(), "The zap bar is visible");
+    await shot("wave6-zap-mode");
+    document.getElementById(WhimsyZap.COMMAND_ID).doCommand();
+    await TestUtils.waitForCondition(() => !bar.isConnected, "Zap mode ends");
+  } finally {
+    for (const boost of gZenBoostsManager.loadBoostsFromStore("example.com") ?? []) {
+      gZenBoostsManager.deleteBoost(boost);
+    }
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// wave6/zap: Link hints on a page (badges in the space's accent, help pill).
+add_task(async function wave6_link_hints() {
+  const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.link-hints", true]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const browser = tab.linkedBrowser;
+  const peek = () =>
+    browser.browsingContext.currentWindowGlobal.getActor("WhimsyLinkHints").sendQuery("Whimsy:Hints:Peek");
+  try {
+    await SpecialPowers.spawn(browser, [], () => {
+      const doc = content.document;
+      doc.body.innerHTML = `
+        <h1>Reading list</h1>
+        <p><a href="#a">An essay on calm technology</a> and <a href="#b">a follow-up</a>.</p>
+        <nav><a href="#c">Home</a> · <a href="#d">Archive</a> · <a href="#e">About</a></nav>
+        <p><button>Subscribe</button> <input placeholder="Search" aria-label="Search"></p>`;
+    });
+    document.getElementById(WhimsyLinkHints.COMMAND_ID).doCommand();
+    await TestUtils.waitForCondition(async () => (await peek()).active, "Hints show");
+    await new Promise(resolve => setTimeout(resolve, 400));
+    const { labels } = await peek();
+    Assert.greaterOrEqual(labels.length, 7, "Every link, the button and the field have a badge");
+    await shot("wave6-link-hints", browser.browsingContext.currentWindowGlobal);
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await TestUtils.waitForCondition(async () => !(await peek()).active, "Esc puts them away");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
   }
 });
 

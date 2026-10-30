@@ -1,0 +1,21 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<svg xmlns="http://www.w3.org/2000/svg" id="whimsy-kit-balloon" data-whimsy-art="balloon-concerned" width="50" height="40" viewBox="0 0 50 40" fill="none">
+  <!-- The Whimsy balloon, concerned. Replaces Firefox's Kit illustration of the same name
+       (chrome://global/skin/illustrations/kit-*.svg) via a chrome override in
+       src/zen/whimsy/jar.inc.mn, at Kit's exact size so layouts don't move. -->
+  <defs>
+    <radialGradient id="wconc-fill" cx="0.34" cy="0.28" r="0.82">
+      <stop offset="0" stop-color="#ffa3da"/><stop offset="0.42" stop-color="#f2479f"/><stop offset="1" stop-color="#9447ff"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(15.7 1) scale(0.17)"><path d="M100 197 C 90 214, 111 230, 100 248 S 90 280, 102 306" stroke="#c46fdc" stroke-width="5" stroke-linecap="round"/><path d="M92 199 L100 187 L108 199 Q100 203 92 199 Z" fill="#b14bd8"/>
+    <path d="M100 6 C 152 6 184 46 184 96 C 184 146 146 186 100 190 C 54 186 16 146 16 96 C 16 46 48 6 100 6 Z" fill="url(#wconc-fill)"/>
+    <ellipse cx="66" cy="58" rx="15" ry="25" fill="#fff" opacity="0.55" transform="rotate(-28 66 58)"/>
+    <circle cx="57" cy="98" r="5" fill="#fff" opacity="0.35"/>
+    <ellipse cx="66" cy="128" rx="10" ry="6" fill="#ff8fbf" opacity="0.7"/>
+    <ellipse cx="134" cy="128" rx="10" ry="6" fill="#ff8fbf" opacity="0.7"/>
+    <circle cx="80" cy="108" r="7.5" fill="#2a1a3e"/><circle cx="120" cy="108" r="7.5" fill="#2a1a3e"/><circle cx="82.5" cy="105.5" r="2.4" fill="#fff"/><circle cx="122.5" cy="105.5" r="2.4" fill="#fff"/><path d="M68 90 L88 84 M132 90 L112 84" stroke="#2a1a3e" stroke-width="4.5" stroke-linecap="round"/><path d="M89 134 Q94.5 128 100 134 T111 134" stroke="#2a1a3e" stroke-width="4.5" stroke-linecap="round"/></g>
+  <path d="M10.5 12 q-2.6 3.8 -2.6 5.4 a2.6 2.6 0 0 0 5.2 0 q0 -1.6 -2.6 -5.4 Z" fill="#7cc3e8"/>
+</svg>

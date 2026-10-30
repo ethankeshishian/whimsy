@@ -43,6 +43,7 @@ add_task(async function test_defaults() {
 add_task(function test_actions_registered() {
   ok(action("whimsy-action-vpn-on"), "Turn VPN On is registered");
   ok(action("whimsy-action-vpn-off"), "Turn VPN Off is registered");
+  ok(action("whimsy-action-vpn-setup"), "Set Up VPN is registered");
 });
 
 add_task(function test_not_ready_hides_both_actions() {
@@ -50,6 +51,7 @@ add_task(function test_not_ready_hides_both_actions() {
   try {
     ok(!action("whimsy-action-vpn-on").isAvailable(window), "Not signed in: no Turn On");
     ok(!action("whimsy-action-vpn-off").isAvailable(window), "Not signed in: no Turn Off");
+    ok(action("whimsy-action-vpn-setup").isAvailable(window), "Not signed in: Set Up VPN is there instead");
   } finally {
     restore();
   }
@@ -61,6 +63,7 @@ add_task(function test_ready_shows_turn_on_only() {
   try {
     ok(action("whimsy-action-vpn-on").isAvailable(window), "Ready + not connected: Turn On available");
     ok(!action("whimsy-action-vpn-off").isAvailable(window), "Ready + not connected: no Turn Off");
+    ok(!action("whimsy-action-vpn-setup").isAvailable(window), "Ready: no Set Up VPN");
   } finally {
     restoreService();
     restoreProxy();
@@ -140,4 +143,37 @@ add_task(async function test_settings_card() {
     checkbox.click();
     await TestUtils.waitForCondition(() => Services.prefs.getBoolPref("browser.ipProtection.enabled"));
   });
+});
+
+// fix7 settings: the command bar puts Firefox's VPN button back in the
+// toolbar when it isn't there, so there's always a visible control.
+add_task(function test_command_bar_shows_the_button() {
+  const id = "ipprotection-button";
+  const widget = CustomizableUI.getWidget(id);
+  if (widget?.provider != CustomizableUI.PROVIDER_API) {
+    ok(!WhimsyVPN.showButton(window), "No VPN widget: nothing to show");
+    return;
+  }
+  const placement = CustomizableUI.getPlacementOfWidget(id);
+  CustomizableUI.removeWidgetFromArea(id);
+  try {
+    const button = WhimsyVPN.showButton(window);
+    is(CustomizableUI.getPlacementOfWidget(id)?.area, CustomizableUI.AREA_NAVBAR, "The button is back in the toolbar");
+    ok(button, "and it's returned to open the panel");
+  } finally {
+    if (placement) {
+      CustomizableUI.addWidgetToArea(id, placement.area, placement.position);
+    } else {
+      CustomizableUI.removeWidgetFromArea(id);
+    }
+  }
+});
+
+// fix7 settings: the VPN is Firefox's (a Mozilla service), so Firefox's own
+// VPN strings say so instead of "Whimsy's built-in VPN".
+add_task(async function test_vpn_is_labelled_as_firefox() {
+  const l10n = new Localization(["branding/brand.ftl", "browser/ipProtection.ftl"], true);
+  const title = l10n.formatValueSync("unauthenticated-vpn-title");
+  ok(title.includes("Firefox"), `The panel names Firefox's VPN: "${title}"`);
+  ok(!/whimsy/i.test(title), "not Whimsy's");
 });

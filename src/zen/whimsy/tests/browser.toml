@@ -204,7 +204,7 @@ support-files = ["whimsy_slow_download.sjs"]
 ["browser_whimsy_url_schemes.js"]
 
 ["browser_whimsy_upload_clipboard.js"]
-support-files = ["whimsy_upload.html"]
+support-files = ["whimsy_upload.html", "whimsy_upload_widgets.html"]
 
 # Paste-to-upload regression on a plain <input type=file> form (real clipboard).
 ["browser_whimsy_upload_paste_form.js"]
@@ -427,5 +427,86 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 # wave7/ux: the pinned/normal separator sits below expanded folder children
 ["browser_whimsy_folder_separator.js"]
 
+# wave5/profiles: profile model, Set Profile → Create a New Profile…, Settings → Profiles.
+["browser_whimsy_profiles.js"]
+
+# wave5/profiles: passwords per profile (autofill, save tagging, Sync round-trip, delete).
+["browser_whimsy_profile_passwords.js"]
+support-files = ["whimsy_login_form.html"]
+
+# wave5/profiles: history per profile (sidecar attribution, Library query, address bar).
+["browser_whimsy_profile_history.js"]
+
+# wave5/profiles: per-profile search engine and download folder.
+["browser_whimsy_profile_settings.js"]
+
+# wave5/profiles: Arc's warnings, and tabs really reopen in the new profile.
+["browser_whimsy_profile_moves.js"]
+
+# wave5/profiles: Mini Whimsy's profile pill and cross-profile Open in.
+["browser_whimsy_profile_mini.js"]
+
+# wave5/profiles: per-profile data through Sync's prefs engine (two-device round trip, merge rules).
+["browser_whimsy_profile_sync.js"]
+
+# wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
+["browser_whimsy_zap.js"]
+
+# wave6/zap: Link hints (what gets a badge, typing clicks, Shift new tab, Esc/Backspace, layouts, page never sees keys, switch off).
+["browser_whimsy_link_hints.js"]
+support-files = ["whimsy_link_hints.html"]
+
+# wave6/search: Instant result (Shift+Enter) and the Search Deck (flip, swipe, promote, no history).
+["browser_whimsy_search_deck.js"]
+support-files = ["whimsy_search_results.html", "whimsy_search_card.html"]
+
+# wave6: Already open (Arc): Return on an open address goes to its tab and space.
+["browser_whimsy_already_open.js"]
+
+# wave6: Trails: pages cut from Forward stay as branch rows in the Back/Forward menu.
+["browser_whimsy_trails.js"]
+
+# wave6: Page actions: schema.org data -> Calendar, Maps, Cook mode, Track pill.
+["browser_whimsy_page_actions.js"]
+support-files = ["whimsy_page_actions.html"]
+
+# wave6/parity: the Archive's own store (no 25-tab loss), Clear Archive.
+["browser_whimsy_archive_store.js"]
+
+# wave6/parity: Option+click a sidebar tab to split (Peek keeps Zen's Option+click on links).
+["browser_whimsy_split_alt_click.js"]
+
+# wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
+["browser_whimsy_split_arc_keys.js"]
+
+# wave6/parity: Arc's menu keys (Library, Downloads/Console, Save Page, Blank Window, Copy URL as Quote, Paste and Match Style).
+["browser_whimsy_arc_menu_keys.js"]
+
+# wave6/parity: Arc's menu bar (Tabs menu, names, Show Toolbar, Reveal Tab, Undo label, Portrait capture, Help item).
+["browser_whimsy_arc_menus.js"]
+
+# wave6/parity: Arc's fixed tidy-title rules (no AI).
+["browser_whimsy_tidy_titles_rules.js"]
+
+# wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
+["browser_whimsy_command_bar_dedup.js"]
+
 # fix7/tabs: pinned tab marks
 ["browser_whimsy_pinned_marks.js"]
+
+# fix7 settings: Settings search finds every Whimsy group, in any pane.
+["browser_whimsy_settings_search.js"]
+
+# fix7 settings: command bar entries for History, Liquid Glass, Glance size, VPN.
+["browser_whimsy_settings_commands.js"]
+
+# fix7 settings: onboarding's finish leaves no zen-browser.app tabs.
+["browser_whimsy_onboarding_finish.js"]
+
+# fix/panes: Firefox's Appearance and Tabs and browsing panes merged into Zen's.
+["browser_whimsy_settings_panes.js"]
+
+["browser_whimsy_find_highlight_all.js"]
+
+# fix/kit: the Whimsy balloon replaces Kit; Settings logo glyphs are Whimsy's (overrides, promo, About icon).
+["browser_whimsy_kit_balloon.js"]

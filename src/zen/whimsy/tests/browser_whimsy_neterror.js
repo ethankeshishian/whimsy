@@ -165,8 +165,8 @@ add_task(async function offline_key_turns_the_page_into_the_game() {
         await SpecialPowers.spawn(browser, [], () => {
           const doc = content.document;
           const root = doc.querySelector("net-error-card")?.shadowRoot || doc;
-          ok(root.querySelector("#tryAgainButton, .try-again"), "Try Again is still there");
-          ok(doc.body.classList.contains("whimsy-game-embedded"), "The game takes the balloon's place");
+          ok(root.querySelector("#tryAgainButton, .try-again"), "Try Again is still in the page");
+          ok(doc.body.classList.contains("whimsy-game-embedded"), "The game takes over the page");
         });
       });
     }
@@ -258,6 +258,89 @@ add_task(async function only_offline_errors_and_never_from_a_field() {
       await BrowserTestUtils.synthesizeKey(" ", {}, browser);
       ok(!(await gameState(browser, false)).embedded, "Space on a focused button stays that button's");
     });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// fix7/game: while it's played the game is the only thing on screen (like
+// Chrome's dino); Esc brings the error page and Try Again back, paused, and
+// a key shows the game again. Browser shortcuts such as Cmd+W pass through.
+add_task(async function playing_fills_the_page_and_esc_returns() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    await withWhimsyError("netOffline", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      is((await gameState(browser, true)).state, "running", "Space starts the game");
+      await SpecialPowers.spawn(browser, [], () => {
+        const doc = content.document;
+        const win = content;
+        const embed = doc.getElementById("whimsy-game-embed");
+        const rect = embed.getBoundingClientRect();
+        is(Math.round(rect.width), win.innerWidth, "The game fills the page's width");
+        is(Math.round(rect.height), win.innerHeight, "and its height");
+        for (const el of doc.body.children) {
+          if (el != embed) {
+            is(win.getComputedStyle(el).display, "none", `${el.localName}#${el.id} is hidden while playing`);
+          }
+        }
+      });
+
+      // Cmd/Ctrl+W, and other shortcuts, are the browser's, never the game's.
+      const prevented = await SpecialPowers.spawn(browser, [], () => {
+        const win = content.wrappedJSObject;
+        win.__whimsyGame.freeze();
+        let result = null;
+        content.addEventListener("keydown", e => {
+          result = e.defaultPrevented;
+        }, { once: true });
+        content.document.body.dispatchEvent(new content.KeyboardEvent("keydown", {
+          key: "w", bubbles: true, cancelable: true, metaKey: true, ctrlKey: true,
+        }));
+        return result;
+      });
+      is(prevented, false, "Accel+W is left to the browser");
+
+      await BrowserTestUtils.synthesizeKey("KEY_Escape", {}, browser);
+      await SpecialPowers.spawn(browser, [], async () => {
+        const doc = content.document;
+        await ContentTaskUtils.waitForCondition(() => !doc.body.classList.contains("whimsy-game-embedded"), "Esc leaves the game");
+        is(content.wrappedJSObject.__whimsyGame.state.state, "paused", "and pauses it");
+        is(content.getComputedStyle(doc.getElementById("whimsy-game-embed")).display, "none", "The game is out of sight");
+        const root = doc.querySelector("net-error-card")?.shadowRoot || doc;
+        const tryAgain = root.querySelector("#tryAgainButton, .try-again");
+        Assert.greater(tryAgain.getBoundingClientRect().width, 0, "Try Again is back on screen");
+      });
+
+      await BrowserTestUtils.synthesizeKey("KEY_ArrowRight", {}, browser);
+      await SpecialPowers.spawn(browser, [], async () => {
+        const doc = content.document;
+        await ContentTaskUtils.waitForCondition(() => doc.body.classList.contains("whimsy-game-embedded"), "A key shows the game again");
+        is(content.wrappedJSObject.__whimsyGame.state.state, "running", "and picks the run back up");
+      });
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function accel_w_closes_the_game_tab() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+    const browser = tab.linkedBrowser;
+    const loaded = BrowserTestUtils.waitForErrorPage(browser);
+    const url = `about:neterror?e=netOffline&u=${encodeURIComponent("https://example.com/")}&d=x`;
+    await SpecialPowers.spawn(browser, [url], u => { content.location = u; });
+    await loaded;
+    await prepare(browser);
+    await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+    await gameState(browser, true);
+    const closed = BrowserTestUtils.waitForTabClosing(tab);
+    EventUtils.synthesizeKey("w", { accelKey: true });
+    await closed;
+    ok(!gBrowser.tabs.includes(tab), "Accel+W closes the tab the game is playing in");
   } finally {
     await SpecialPowers.popPrefEnv();
   }

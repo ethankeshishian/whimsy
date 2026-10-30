@@ -451,7 +451,8 @@ add_task(async function test_calendar_settings() {
     const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyNextMeetingGroup"));
     const get = id => doc.getElementById(id);
     await TestUtils.waitForCondition(() => group.checkVisibility(), "Calendar Settings is visible in General");
-    is(group.dataset.category, "paneGeneral", "Meetings live in General");
+    // General, or the pane Firefox's settings redesign folds General into.
+    is(group.dataset.category, browser.contentWindow.gLastCategory.category, "Meetings live in General");
     ok(group.localName == "groupbox" && group.classList.contains("highlighting-group"),
       "Meetings use Zen's groupbox style, like the groups around it");
     is(get("whimsyMeetingStatus").getAttribute("data-l10n-id"), "whimsy-meeting-connect-empty", "Empty state invites connection");

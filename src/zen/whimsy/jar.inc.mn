@@ -78,6 +78,14 @@
 # wave5/audioicon: Arc tab speaker glyphs
         content/browser/whimsy/whimsy-tab-audio-playing.svg                       (../../zen/whimsy/content/whimsy-tab-audio-playing.svg)
         content/browser/whimsy/whimsy-tab-audio-muted.svg                         (../../zen/whimsy/content/whimsy-tab-audio-muted.svg)
+# wave5/profiles: keeps extensions' content scripts out of other profiles' pages.
+        content/browser/whimsy/whimsy-profiles-process.js                       (../../zen/whimsy/content/whimsy-profiles-process.js)
+# wave6/zap: Link hints badges (drawn in page anonymous content)
+        content/browser/whimsy/whimsy-link-hints.css                             (../../zen/whimsy/content/whimsy-link-hints.css)
+# wave6/search: Search Deck dots
+        content/browser/whimsy/whimsy-search-deck.css                            (../../zen/whimsy/content/whimsy-search-deck.css)
+# wave6: navigation (Trails menu rows, Page actions pill)
+        content/browser/whimsy/whimsy-navigation.css                             (../../zen/whimsy/content/whimsy-navigation.css)
 # fix7/tabs: animated Library rail icons (whimsy/library_sprites.py)
         content/browser/whimsy/library/library-archive-sprite.svg (../../zen/whimsy/content/library/library-archive-sprite.svg)
         content/browser/whimsy/library/library-folders-sprite.svg (../../zen/whimsy/content/library/library-folders-sprite.svg)
@@ -85,3 +93,28 @@
         content/browser/whimsy/library/library-notes-sprite.svg (../../zen/whimsy/content/library/library-notes-sprite.svg)
         content/browser/whimsy/library/library-playlist-sprite.svg (../../zen/whimsy/content/library/library-playlist-sprite.svg)
         content/browser/whimsy/library/library-screenshots-sprite.svg (../../zen/whimsy/content/library/library-screenshots-sprite.svg)
+# fix/kit: the Whimsy balloon replaces Firefox's Kit mascot (chrome overrides, no Firefox files edited)
+        content/browser/whimsy/kit/balloon-happy.svg                             (../../zen/whimsy/content/kit/balloon-happy.svg)
+        content/browser/whimsy/kit/balloon-concerned.svg                         (../../zen/whimsy/content/kit/balloon-concerned.svg)
+        content/browser/whimsy/kit/balloon-confetti.svg                          (../../zen/whimsy/content/kit/balloon-confetti.svg)
+        content/browser/whimsy/kit/balloon-holding-lock.svg                      (../../zen/whimsy/content/kit/balloon-holding-lock.svg)
+        content/browser/whimsy/kit/balloon-in-circle.svg                         (../../zen/whimsy/content/kit/balloon-in-circle.svg)
+        content/browser/whimsy/kit/balloon-sympathetic.svg                       (../../zen/whimsy/content/kit/balloon-sympathetic.svg)
+% override chrome://global/skin/illustrations/kit-happy.svg chrome://browser/content/whimsy/kit/balloon-happy.svg
+% override chrome://global/skin/illustrations/kit-concerned.svg chrome://browser/content/whimsy/kit/balloon-concerned.svg
+% override chrome://global/skin/illustrations/kit-confetti.svg chrome://browser/content/whimsy/kit/balloon-confetti.svg
+% override chrome://global/skin/illustrations/kit-holding-lock.svg chrome://browser/content/whimsy/kit/balloon-holding-lock.svg
+% override chrome://global/skin/illustrations/kit-in-circle.svg chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://global/skin/illustrations/kit-sympathetic.svg chrome://browser/content/whimsy/kit/balloon-sympathetic.svg
+% override chrome://newtab/content/data/content/assets/kit-in-circle.svg chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://newtab/content/data/content/assets/kit-circle-animated.svg chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://newtab/content/data/content/assets/widget-privacy-kit.svg chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://newtab/content/data/content/assets/kit.png chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://newtab/content/data/content/assets/kit-stocks-watchlist.svg chrome://browser/content/whimsy/kit/balloon-happy.svg
+# fix/kit: Settings' app logo glyphs are Whimsy's balloon (Mozilla service logos stay Firefox's)
+        content/browser/whimsy/logos/whimsy-mono.svg                             (../../zen/whimsy/content/logos/whimsy-mono.svg)
+        content/browser/whimsy/logos/share-whimsy.svg                            (../../zen/whimsy/content/logos/share-whimsy.svg)
+        content/browser/whimsy/logos/window-whimsy.svg                           (../../zen/whimsy/content/logos/window-whimsy.svg)
+% override chrome://browser/skin/sidebar/firefox.svg chrome://browser/content/whimsy/logos/whimsy-mono.svg
+% override chrome://browser/content/logos/share-firefox.svg chrome://browser/content/whimsy/logos/share-whimsy.svg
+% override chrome://browser/skin/window-firefox.svg chrome://browser/content/whimsy/logos/window-whimsy.svg

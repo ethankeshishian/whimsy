@@ -124,18 +124,38 @@ add_task(async function test_cmd_o_opens_in_current_space() {
   BrowserTestUtils.removeTab(adopted);
 });
 
-add_task(async function test_cmd_shift_o_opens_the_space_picker() {
+// fix7: the caret and Cmd+Shift+O both open the space dropdown (the user
+// keeps the key; Show All Bookmarks gives it up in Mini only).
+add_task(async function test_cmd_shift_o_and_caret_open_the_space_dropdown() {
   const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
   await WhimsyQuickWindow.whenReady(win);
+  await SimpleTest.promiseFocus(win);
+  const doc = win.document;
+  is(doc.getElementById("key_whimsyQuickWindowChooseSpace")?.getAttribute("modifiers"), "accel,shift", "Cmd+Shift+O is bound");
+  ok(!doc.getElementById("manBookmarkKb")?.getAttribute("key"), "Show All Bookmarks doesn't compete in Mini");
+  const picker = () => doc.getElementById("whimsy-quick-window-space-picker");
   EventUtils.synthesizeKey("o", { accelKey: true, shiftKey: true }, win);
-  await TestUtils.waitForCondition(
-    () => win.document.getElementById("whimsy-quick-window-space-picker")?.state == "open",
-    "Cmd+Shift+O opens the space picker"
-  );
-  const popup = win.document.getElementById("whimsy-quick-window-space-picker");
-  ok(popup.children.length >= 1, "The picker lists at least this window's space");
+  await TestUtils.waitForCondition(() => picker()?.state == "open", "Cmd+Shift+O opens the dropdown");
+  const popup = picker();
+  ok(popup.firstElementChild.localName == "menucaption", "Headed by a caption");
+  const rows = [...popup.querySelectorAll(".whimsy-mini-picker-space")];
+  is(rows.length, gZenWorkspaces.getWorkspaces().length, "One row per space");
+  ok(rows.every(row => row.getAttribute("image")), "Every row has an icon or colour dot");
+  const current = rows.find(row => row.getAttribute("zen-workspace-id") == gZenWorkspaces.activeWorkspace);
+  ok(current && !current.disabled, "The current space can be chosen");
+  is(current.getAttribute("key"), "key_whimsyQuickWindowOpenInSpace", "...and shows Cmd+O");
+  is(doc.getElementById("whimsy-quick-window-choose-space").getAttribute("open"), "true", "The caret reads as pressed");
+  let hidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
   popup.hidePopup();
-  await BrowserTestUtils.closeWindow(win);
+  await hidden;
+  ok(!doc.getElementById("whimsy-quick-window-choose-space").hasAttribute("open"), "...until it closes");
+  doc.getElementById("whimsy-quick-window-choose-space").doCommand();
+  await TestUtils.waitForCondition(() => picker().state == "open", "The caret opens the same dropdown");
+  const tabCountBefore = gBrowser.tabs.length;
+  popup.activateItem(current);
+  await TestUtils.waitForCondition(() => win.closed, "Choosing a space opens the page there");
+  is(gBrowser.tabs.length, tabCountBefore + 1, "The tab landed in that space");
+  BrowserTestUtils.removeTab(gBrowser.tabs[gBrowser.tabs.length - 1]);
 });
 
 add_task(async function test_escape_closes_the_window_without_a_trace() {
@@ -279,10 +299,20 @@ add_task(async function test_bar_has_arcs_controls_in_order() {
     const ids = [...bar.children].map(el => el.id || el.className);
     Assert.deepEqual(ids.filter(id => id.startsWith("whimsy-quick-window")), [
       "whimsy-quick-window-back",
-      "whimsy-quick-window-address",
-      "whimsy-quick-window-copy-link",
+      "whimsy-quick-window-address-field",
       "whimsy-quick-window-open",
-    ], "Back, address, Copy URL, then Open in <Space>");
+    ], "Back, the address strip, then Open in <Space>");
+    // fix7: Little Arc puts Extensions and Copy Link inside the strip, at
+    // its right end.
+    const field = doc.getElementById("whimsy-quick-window-address-field");
+    Assert.deepEqual([...field.children].map(el => el.id), [
+      "whimsy-quick-window-address",
+      "unified-extensions-button",
+      "whimsy-quick-window-copy-link",
+    ], "Address, then Extensions and Copy Link inside the strip");
+    const fieldRect = field.getBoundingClientRect();
+    const copyRect = doc.getElementById("whimsy-quick-window-copy-link").getBoundingClientRect();
+    Assert.lessOrEqual(fieldRect.right - copyRect.right, 4, "Copy Link sits at the strip's right end");
     const group = doc.getElementById("whimsy-quick-window-open");
     ok(group.contains(doc.getElementById("whimsy-quick-window-move-to-space")) &&
       group.contains(doc.getElementById("whimsy-quick-window-choose-space")),
@@ -291,7 +321,7 @@ add_task(async function test_bar_has_arcs_controls_in_order() {
       "Zen's own nav bar is not shown");
     ok(bar.querySelector(".titlebar-buttonbox-container"), "The window controls sit in the bar");
     const extensions = doc.getElementById("unified-extensions-button");
-    ok(bar.contains(extensions) && extensions.getBoundingClientRect().width > 0,
+    ok(field.contains(extensions) && extensions.getBoundingClientRect().width > 0,
       "Mini shows the real extensions button despite Zen's hidden-button default");
     is(win.gUnifiedExtensions._button, extensions, "The extensions panel uses the visible Mini anchor");
     const extLabel = extensions.querySelector(".toolbarbutton-text");
@@ -317,7 +347,7 @@ add_task(async function test_address_shows_the_host_and_back_follows_history() {
     const host = address.querySelector(".whimsy-mini-host");
     await TestUtils.waitForCondition(() => host.textContent == "example.com", "The address shows the bare host");
     ok(!address.querySelector(".whimsy-mini-favicon"), "Measured address has no site favicon");
-    ok(address.querySelector(".whimsy-mini-profile"), "Address contains the profile pill");
+    is(address.previousElementSibling?.id, "whimsy-quick-window-profile", "The profile pill sits just before the address");
     const back = doc.getElementById("whimsy-quick-window-back");
     ok(back.disabled, "Back is dimmed with no history (it never moves)");
     ok(!doc.getElementById("whimsy-quick-window-copy-link").disabled, "Copy URL is available for a page");
@@ -450,8 +480,8 @@ add_task(async function mini_chrome_follows_light_and_dark() {
   }
 });
 
-// wave5/uxfix: Mini opens like Little Arc: about 150ms on Zen's ease-out
-// curve, no bounce; reduced motion opens it still.
+// wave5/uxfix: Mini opens like Little Arc: quickly (wave6/parity measured
+// ~90ms), no bounce; reduced motion opens it still.
 add_task(async function mini_open_motion_matches_arc() {
   for (const reduce of [0, 1]) {
     await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", reduce]] });
@@ -463,7 +493,7 @@ add_task(async function mini_open_motion_matches_arc() {
         is(style.animationName, "none", "Reduced motion: no opening animation");
       } else {
         is(style.animationName, "whimsy-mini-open", "Mini animates open");
-        Assert.lessOrEqual(parseFloat(style.animationDuration), 0.16, "...in about 150ms");
+        Assert.lessOrEqual(parseFloat(style.animationDuration), 0.16, "...in under 160ms");
         ok(!/1\.\d+,\s*0?\.\d+,\s*0?\.\d+\)$/.test(style.animationTimingFunction) &&
           !style.animationTimingFunction.includes("1.27"), "...without overshoot");
       }
@@ -471,5 +501,75 @@ add_task(async function mini_open_motion_matches_arc() {
       await BrowserTestUtils.closeWindow(win);
       await SpecialPowers.popPrefEnv();
     }
+  }
+});
+
+// wave6/parity: Little Arc's measured motion: ~90 ms grow with no overshoot,
+// ~100 ms fade on close.
+add_task(async function test_mini_motion_tokens_and_fade() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  await WhimsyQuickWindow.whenReady(win);
+  const root = win.document.documentElement;
+  const style = win.getComputedStyle(root);
+  is(style.getPropertyValue("--whimsy-mini-open-duration").trim(), "90ms", "Opens in ~90 ms");
+  is(style.getPropertyValue("--whimsy-mini-close-duration").trim(), "100ms", "Closes in ~100 ms");
+  ok(!/1\.[0-9]/.test(style.getPropertyValue("--whimsy-mini-ease-out").split(",")[1] ?? ""), "Ease-out without overshoot");
+  const closed = BrowserTestUtils.domWindowClosed(win);
+  win.close();
+  ok(win.closed || root.hasAttribute("whimsy-mini-closing"), "Closing fades first (or closes at once with reduced motion)");
+  await closed;
+});
+
+// fix7: icon-only buttons centre their glyph (an empty flex label used to
+// push it left), and Zen's toolbar re-layout can't take Extensions out of
+// the address strip.
+add_task(async function test_mini_icons_are_centred_and_extensions_stay() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    const doc = win.document;
+    for (const id of ["whimsy-quick-window-copy-link", "whimsy-quick-window-choose-space", "whimsy-quick-window-back"]) {
+      const button = doc.getElementById(id);
+      const icon = button.querySelector(".toolbarbutton-icon").getBoundingClientRect();
+      const box = button.getBoundingClientRect();
+      Assert.lessOrEqual(Math.abs((icon.left + icon.right) / 2 - (box.left + box.right) / 2), 0.5, `${id}: icon centred horizontally`);
+      Assert.lessOrEqual(Math.abs((icon.top + icon.bottom) / 2 - (box.top + box.bottom) / 2), 0.5, `${id}: icon centred vertically`);
+    }
+    const extensions = doc.getElementById("unified-extensions-button");
+    doc.getElementById("navigator-toolbox").append(extensions);
+    const field = doc.getElementById("whimsy-quick-window-address-field");
+    await TestUtils.waitForCondition(() => extensions.parentNode == field, "Extensions returns to the strip");
+    is(extensions.nextElementSibling?.id, "whimsy-quick-window-copy-link", "...before Copy Link");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
+
+// fix7: the traffic lights stay painted whatever Zen's mono-window-controls
+// hover tracking says (opacity 0 drops their theme geometry, and Cocoa then
+// hides the native buttons, which read as a flicker).
+add_task(async function test_mini_traffic_lights_never_hide() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.widget.mac.mono-window-controls", true]] });
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    const container = win.document.querySelector("#whimsy-quick-window-bar > .titlebar-buttonbox-container");
+    ok(container, "The window controls are in Mini's bar");
+    const box = container.querySelector(".titlebar-buttonbox");
+    for (const hover of [false, true, false]) {
+      if (hover) {
+        container.setAttribute("zen-has-hover", "true");
+      } else {
+        container.removeAttribute("zen-has-hover");
+      }
+      is(win.getComputedStyle(box).opacity, "1", `Buttons stay painted (hover: ${hover})`);
+    }
+    is(win.getComputedStyle(container).backgroundImage, "none", "No stand-in dots under them");
+    win.document.documentElement.setAttribute("zen-window-buttons-reversed", "true");
+    is(win.getComputedStyle(container).marginLeft, "0px", "Zen's collapsed-sidebar margin can't push them off");
+    win.document.documentElement.removeAttribute("zen-window-buttons-reversed");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+    await SpecialPowers.popPrefEnv();
   }
 });

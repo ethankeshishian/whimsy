@@ -397,8 +397,11 @@ whimsy-open-link-in-space =
 
 whimsy-hex-input =
     .placeholder = #5B8CFF
-    .title = Type or paste a hex color, then press Return
+    .title = Type or paste a hex color, then press Return. Add two digits for opacity, like #5B8CFF80.
     .aria-label = Hex color
+whimsy-hex-add =
+    .tooltiptext = Add color
+    .aria-label = Add color
 
 ## Settings → Look and Feel → Look
 
@@ -545,8 +548,6 @@ whimsy-unlock-space-toast = Unlocked “{ $space }”
 ## batch9p: Scratch (a temporary private space) and private tabs
 
 whimsy-scratch-name = Scratch
-# What Scratch is called once kept as a normal space.
-whimsy-scratch-kept-name = Space
 whimsy-menu-new-scratch =
     .label = New Scratch Space
 whimsy-menu-new-private-tab =
@@ -559,8 +560,8 @@ whimsy-action-new-private-tab = New Private Tab
 whimsy-action-new-scratch = New Scratch Space
 whimsy-action-keep-scratch = Keep Scratch as a Normal Space…
 whimsy-action-close-scratch = Close Scratch
-# fixC: asked before Scratch becomes a normal space (Zen toast + button).
-whimsy-scratch-keep-confirm = Keep as a normal space? Its pages will leave private browsing.
+# fix7/private: the one sentence of the modal dialog shown before Scratch becomes a normal space.
+whimsy-scratch-keep-confirm = Its pages reopen as normal tabs, outside private browsing, and it can’t be made private again.
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->
@@ -704,8 +705,8 @@ whimsy-cheatsheet-search =
 whimsy-cheatsheet-edit = Edit all shortcuts…
 whimsy-cheatsheet-duplicate-tab = Duplicate Tab
 whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
-whimsy-cheatsheet-tab-next = Next Tab in Sidebar
-whimsy-cheatsheet-tab-prev = Previous Tab in Sidebar
+whimsy-cheatsheet-tab-next = Next Tab
+whimsy-cheatsheet-tab-prev = Previous Tab
 whimsy-cheatsheet-focus-sidebar = Focus Sidebar
 whimsy-cheatsheet-self = Keyboard Shortcuts
 
@@ -949,14 +950,14 @@ whimsy-quick-window-no-space =
     .label = Open in…
 ## ext: per-space extensions
 
-whimsy-space-extensions-header = Per-space extensions
+whimsy-space-extensions-header = Extensions per profile
 whimsy-space-extensions-toggle =
-    .label = Show extensions per space
-whimsy-space-extensions-help = Each space can have its own extensions.
+    .label = Run extensions only in the profiles you choose
+whimsy-space-extensions-help = Choose with Run in Profiles on an extension’s menu. Outside those profiles it can’t see your tabs or run on pages. It’s still installed once, so its settings and saved data are shared by every profile.
 whimsy-space-extensions-menu =
-    .label = Show in Spaces…
+    .label = Run in Profiles
 whimsy-space-extensions-all =
-    .label = All Spaces
+    .label = All Profiles
 # batch hist: visit-time space in the Library History tab.
 whimsy-history-space-filter = Where was the tab?
 whimsy-history-all-spaces = All Spaces
@@ -967,7 +968,6 @@ whimsy-home-title = Whimsy
 whimsy-home-brand = Whimsy
 whimsy-home-tab-home = Home
 whimsy-home-tab-changelog = Changelog
-whimsy-home-hero-eyebrow = Lighter than air
 # The <em> part gets the balloon's gradient.
 whimsy-home-hero-title = A browser with <em>a little lift</em>.
 whimsy-home-blurb = Arc's flow, built on Zen and Firefox. Spaces, splits and the shortcuts your hands already know.
@@ -1017,10 +1017,10 @@ whimsy-changelog-unreleased = Unreleased
 ## Security card, and the command bar actions.
 
 whimsy-vpn-header =
-    .label = VPN
+    .label = VPN from Firefox
 whimsy-vpn-toggle =
     .label = Turn on VPN
-whimsy-vpn-description = Hides your location from the sites you visit, free for up to 50 GB a month. Turn it on from the button beside your profile icon — you’ll need to sign in with a Mozilla account.
+whimsy-vpn-description = Firefox’s free built-in VPN hides your location from the sites you visit, up to 50 GB a month. Sign in with a Mozilla account, then turn it on from the VPN button in the toolbar or the command bar.
 whimsy-vpn-manage-button =
     .label = Open VPN panel…
 whimsy-vpn-status-off = Off
@@ -1032,6 +1032,7 @@ whimsy-vpn-status-on = Connected
 whimsy-vpn-status-error = Connection error — open the VPN panel for details
 whimsy-action-vpn-on = Turn VPN On
 whimsy-action-vpn-off = Turn VPN Off
+whimsy-action-vpn-setup = Set Up VPN
 whimsy-vpn-on-toast = VPN on
 whimsy-vpn-off-toast = VPN off
 
@@ -1255,15 +1256,15 @@ whimsy-cheatsheet-group-page = Page
 whimsy-cheatsheet-group-windows = Windows
 whimsy-cheatsheet-new-tab = New Tab
 whimsy-cheatsheet-close-tab = Close Tab
-whimsy-cheatsheet-reopen-tab = Reopen Closed Tab
+whimsy-cheatsheet-reopen-tab = Restore Last Closed Tab
 whimsy-cheatsheet-copy-url = Copy URL
 whimsy-cheatsheet-private-tab = New Private Tab
 whimsy-cheatsheet-address-bar = Address Bar
 whimsy-cheatsheet-toggle-sidebar = Show or Hide Sidebar
-whimsy-cheatsheet-compact-mode = Compact Mode
+whimsy-cheatsheet-compact-mode = Hide or Show Sidebar
 whimsy-cheatsheet-next-space = Next Space
 whimsy-cheatsheet-prev-space = Previous Space
-whimsy-cheatsheet-library = Library
+whimsy-cheatsheet-library = Open Library…
 whimsy-cheatsheet-split-vertical = Split Side by Side
 whimsy-cheatsheet-split-horizontal = Split Top and Bottom
 whimsy-cheatsheet-split-grid = Split in a Grid
@@ -1283,16 +1284,16 @@ whimsy-cheatsheet-private-window = New Private Window
 
 ## fixB: the Archive, now History's Closed filter in the Library
 
-whimsy-library-archive-intro = Tabs that left your sidebar. Click one to put it back in its space.
+whimsy-library-archive-intro = Click a tab to restore it.
 # $after - how long a tab sits unused before it archives itself
 whimsy-library-archive-intro-idle =
     { $after ->
-        [h24] Tabs you haven't used in 24 hours archive themselves.
-        [d7] Tabs you haven't used in 7 days archive themselves.
-        [d30] Tabs you haven't used in 30 days archive themselves.
-       *[h12] Tabs you haven't used in 12 hours archive themselves.
-    } Pinned tabs, Essentials and anything playing stay put.
-whimsy-library-archive-intro-manual = Auto-archive is off, so only tabs you close end up here.
+        [h24] Unused tabs archive after 24 hours.
+        [d7] Unused tabs archive after 7 days.
+        [d30] Unused tabs archive after 30 days.
+       *[h12] Unused tabs archive after 12 hours.
+    }
+whimsy-library-archive-intro-manual = Auto-archive is off.
 whimsy-library-archive-empty = No closed tabs yet.
 whimsy-library-archive-no-match = No closed tabs match.
 whimsy-library-archive-today = Today
@@ -1412,6 +1413,7 @@ whimsy-playlist-exists-toast = Already in your Playlist
 whimsy-playlist-private-toast = Playlist doesn’t save from private browsing
 whimsy-playlist-unsupported-toast = This media can’t be saved (only direct files can)
 whimsy-playlist-no-media-toast = No video or audio file on this page to save
+whimsy-playlist-streamed-toast = This site streams its video in a way that can’t be saved. Playlist saves direct video and audio files.
 whimsy-playlist-state-link = Saved link
 # $progress (number) - percent downloaded
 whimsy-playlist-state-downloading = Downloading { $progress }%
@@ -1445,7 +1447,10 @@ whimsy-ai-apple-status-not-set-up = Click Set Up to connect Whimsy to Apple Inte
 whimsy-ai-apple-status-checking = Checking Apple Intelligence…
 whimsy-ai-apple-status-available = Ready. Nothing leaves this Mac.
 whimsy-ai-apple-status-unavailable = Apple Intelligence isn’t available on this Mac.
-whimsy-ai-apple-status-apple-needs-tools = Whimsy needs Apple’s command line tools to talk to Apple Intelligence. Install them with “xcode-select --install” in Terminal, then check again.
+whimsy-ai-apple-status-apple-needs-tools = Whimsy couldn’t find Swift (swiftc) from Apple’s command line tools or Xcode. Install the tools with “xcode-select --install” in Terminal, then check again.
+whimsy-ai-apple-status-apple-tools-outdated = Your command line tools don’t include the macOS 26 SDK that Apple Intelligence needs. Update them in System Settings → General → Software Update (or update Xcode), then check again.
+whimsy-ai-apple-status-apple-needs-license = Xcode’s license hasn’t been accepted yet. Run “sudo xcodebuild -license accept” in Terminal, then check again.
+whimsy-ai-apple-status-apple-build-failed = Whimsy found Apple’s tools but couldn’t build its Apple Intelligence helper. The details are in the Browser Console.
 whimsy-ai-apple-status-apple-intelligence-off = Turn on Apple Intelligence in System Settings, then check again.
 whimsy-ai-apple-status-apple-not-ready = Apple Intelligence is still getting ready. Try again in a few minutes.
 whimsy-ai-claude-key-label =
@@ -1480,6 +1485,9 @@ whimsy-ai-error-network = Couldn’t reach Claude
 whimsy-ai-error-unavailable = Your AI provider isn’t available right now
 whimsy-ai-error-no-model = Pick an Ollama model in Settings → Privacy & Security
 whimsy-ai-error-apple-needs-tools = Apple Intelligence needs Apple’s command line tools. See Settings → Privacy & Security.
+whimsy-ai-error-apple-tools-outdated = Apple Intelligence needs newer command line tools. See Settings → Privacy & Security.
+whimsy-ai-error-apple-needs-license = Accept Xcode’s license to use Apple Intelligence. See Settings → Privacy & Security.
+whimsy-ai-error-apple-build-failed = Couldn’t set up Apple Intelligence. See Settings → Privacy & Security.
 whimsy-ai-error-apple-intelligence-off = Turn on Apple Intelligence in System Settings
 whimsy-ai-error-apple-not-ready = Apple Intelligence is still getting ready
 whimsy-ai-error-apple-not-set-up = Set up Apple Intelligence in Settings → Privacy & Security → AI provider
@@ -1595,8 +1603,9 @@ whimsy-meeting-apple-detail = Connect all accounts in Apple Calendar.
 whimsy-meeting-untitled = Meeting
 
 # wave4: extension space picker in about:addons
-whimsy-space-extensions-picker = Show in Spaces
-whimsy-space-extensions-all-text = All Spaces
+whimsy-space-extensions-picker = Run in Profiles
+whimsy-space-extensions-all-text = All Profiles
+whimsy-space-extensions-shared-note = Installed once: its settings and saved data are shared by every profile.
 
 # wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
 # title, $url its address.
@@ -1616,7 +1625,9 @@ whimsy-quick-window-copy-link =
     .tooltiptext = Copy URL (Cmd+Shift+C)
     .aria-label = Copy URL
 
-whimsy-quick-window-profile = ☺ Default
+whimsy-quick-window-profile-button = { $profile }
+    .aria-label = Profile: { $profile }
+    .title = Profile: { $profile }. Choose another profile for this page.
 whimsy-history-unknown-space = Unknown space
 
 ## wave5: seasonal Balloon Dash (the seed hazard wears the season's costume)
@@ -1879,8 +1890,8 @@ whimsy-welcome-font-per-space = Want a different look for work and play? Any spa
 ## their shortcut and a name per state in the command bar.
 
 whimsy-action-capture = Capture…
-whimsy-action-tab-next = Next Tab in Sidebar
-whimsy-action-tab-prev = Previous Tab in Sidebar
+whimsy-action-tab-next = Next Tab
+whimsy-action-tab-prev = Previous Tab
 whimsy-action-focus-sidebar = Focus Sidebar
 whimsy-action-devmode-on = Turn On Developer Mode for This Site
 whimsy-action-devmode-off = Turn Off Developer Mode for This Site
@@ -1998,6 +2009,377 @@ whimsy-links-follower =
 whimsy-links-follower-help = To start one, right-click a tab in a split and choose Make This a Follower Split.
 whimsy-links-spaces-header = Spaces
 
+## wave5/profiles: profiles (Arc's profiles, on containers)
+
+whimsy-profile-default-name = Default
+whimsy-profile-name-label = Profile Name
+whimsy-profile-name-empty = Enter a name for the profile.
+whimsy-profile-name-taken = A Profile with that name already exists. Choose another name.
+whimsy-profile-name-failed = Unable to save the profile. Try again.
+whimsy-profile-default-fixed = The Default profile can’t be renamed.
+whimsy-profile-create-title = New Profile
+whimsy-profile-rename-title = Rename Profile
+whimsy-profile-cancel =
+    .label = Cancel
+whimsy-profile-create-button =
+    .label = Create Profile
+whimsy-profile-rename-button =
+    .label = Rename Profile
+whimsy-profile-cancel-text = Cancel
+whimsy-profile-create-button-text = Create Profile
+whimsy-profile-rename-button-text = Rename Profile
+whimsy-profile-create-menuitem =
+    .label = Create a New Profile…
+whimsy-profiles-header = Profiles
+whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data, saved passwords, history, Essentials, extensions, search engine and download folder, and a new one starts empty. Spaces in the same profile share them.
+whimsy-profiles-delete-rule = Only Profiles not assigned to any Spaces can be deleted.
+whimsy-profiles-spaces =
+    { $count ->
+        [0] Not used by any space
+        [one] Used by 1 space
+       *[other] Used by { $count } spaces
+    }
+whimsy-profiles-spaces-default =
+    { $count ->
+        [0] Not used by any space · Keeps everything from before profiles
+        [one] Used by 1 space · Keeps everything from before profiles
+       *[other] Used by { $count } spaces · Keeps everything from before profiles
+    }
+whimsy-profiles-rename =
+    .label = Rename…
+    .aria-label = Rename “{ $name }”…
+whimsy-profiles-delete =
+    .label = Delete Profile…
+    .aria-label = Delete Profile “{ $name }”…
+whimsy-profiles-create =
+    .label = Create a New Profile…
+whimsy-profiles-delete-unused =
+    .label = Delete Unused Profiles…
+whimsy-profiles-delete-confirm-title = Delete the “{ $name }” profile?
+whimsy-profiles-delete-confirm-body = Its cookies, site data and saved passwords are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-confirm-accept = Delete Profile
+whimsy-profiles-delete-unused-confirm-title =
+    { $count ->
+        [one] Delete 1 unused profile?
+       *[other] Delete { $count } unused profiles?
+    }
+whimsy-profiles-delete-unused-confirm-body = Not used by any space: { $names }. Their cookies, site data and saved passwords are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-unused-confirm-accept =
+    { $count ->
+        [one] Delete Profile
+       *[other] Delete Profiles
+    }
+whimsy-history-profile-filter = Profile
+whimsy-history-this-profile = This Profile
+whimsy-history-all-profiles = All Profiles
+whimsy-profiles-default-settings = Uses your Search and Downloads settings.
+whimsy-profiles-search-engine =
+    .value = Search Engine
+whimsy-profiles-same-as-default =
+    .label = Same as Default
+whimsy-profiles-same-as-default-text = Same as Default
+whimsy-profiles-download-dir =
+    .value = Default Download Location
+whimsy-profiles-download-choose =
+    .label = Choose…
+whimsy-profiles-download-reset =
+    .label = Use Default
+whimsy-profiles-download-picker-title = Choose a Download Location for This Profile
+whimsy-profile-move-space-title = Move “{ $space }” to the “{ $profile }” profile?
+whimsy-profile-move-space-body = Each Profile has different browser data, so you might get logged out of some websites, see different Favorites up top, or need to re-install extensions.
+whimsy-profile-move-space-accept = Move Space
+whimsy-profile-moved-space-toast = “{ $space }” now uses the “{ $profile }” profile
+whimsy-profile-move-tab-title =
+    { $count ->
+        [one] Move this tab to “{ $space }”?
+       *[other] Move { $count } tabs to “{ $space }”?
+    }
+whimsy-profile-move-tab-body =
+    { $count ->
+        [one] It reopens in the “{ $profile }” profile, so this webpage might look a little different.
+       *[other] They reopen in the “{ $profile }” profile, so these webpages might look a little different.
+    }
+whimsy-profile-move-tab-accept =
+    { $count ->
+        [one] Move Tab
+       *[other] Move Tabs
+    }
+whimsy-profile-reverted-toast = Whimsy has reverted to using your Default profile for { $spaces }
+
+## wave6/zap: Zap (erase page elements; Zen's zap mode as a command)
+
+whimsy-action-zap = Zap Elements
+whimsy-site-zap =
+    .label = Zap Elements…
+whimsy-site-zap-count =
+    .label = { $count ->
+        [one] Zap Elements… (1 zapped)
+       *[other] Zap Elements… ({ $count } zapped)
+    }
+whimsy-year-finale-zapped = Things zapped
+
+## wave6/zap: Link hints (keyboard-only clicking)
+
+whimsy-action-link-hints = Link Hints
+# The pill at the bottom of the page while hints show.
+whimsy-link-hints-help = Type a hint to click · Shift opens in a new tab · Esc cancels
+# Read by screen readers when hints appear.
+whimsy-link-hints-open = { $count ->
+    [one] 1 link hint. Type its letters to click it, add Shift to open a new tab, or press Escape to cancel.
+   *[other] { $count } link hints. Type a hint’s letters to click it, add Shift to open a new tab, or press Escape to cancel.
+}
+whimsy-link-hints-closed = Link hints closed
+whimsy-link-hints-none = No links to hint on this page
+
+## wave6/search: Instant result (Shift+Enter in the command bar) and the
+## Search Deck (flip through results in a Glance)
+
+whimsy-instant-finding = Opening the top result…
+whimsy-instant-none = No top result, so here’s the search
+whimsy-search-deck-none = No results to flip through
+whimsy-action-search-deck = Flip Through Results
+whimsy-search-deck-bar =
+    .aria-label = Search results
+whimsy-search-deck-prev =
+    .title = Previous result (⌥⌘←)
+    .aria-label = Previous result
+whimsy-search-deck-next =
+    .title = Next result (⌥⌘→)
+    .aria-label = Next result
+# $index (number) - the result's place in the list; $title (string) - its title
+whimsy-search-deck-dot =
+    .title = { $title }
+    .aria-label = Result { $index }: { $title }
+# $index (number), $count (number), $site (string) - e.g. "2 of 8 · example.com"
+whimsy-search-deck-position = { $index } of { $count } · { $site }
+whimsy-search-header = Instant Results
+whimsy-search-instant =
+    .label = Shift+Enter on a search opens the top result
+whimsy-search-deck =
+    .label = Show it in a deck you can flip through
+whimsy-search-deck-help = ⌥⌘→ and ⌥⌘← or a two-finger swipe over the card move between results. ⌘Enter keeps the card as a tab; Esc goes back to the results page. Results you flip past aren’t saved to history.
+
+## wave6: Already open (Arc). Shown after Return on a typed address took you
+## to the tab that already had it, in another space or window.
+## $space - the space's name
+
+whimsy-already-open-toast = Already open in { $space }
+whimsy-already-open-toast-window = Already open in another window
+whimsy-already-open-setting =
+    .label = Go to a page that’s already open instead of opening it again
+
+## wave6: Trails. Rows in the Back/Forward menu (long-press or right-click
+## Back): pages a new click cut from Forward, and where the tab came from.
+## $title - the page's title
+
+whimsy-trail-origin =
+    .label = Opened from { $title }
+whimsy-trail-branch-tooltip = A page you left by going back. Click to open it again.
+whimsy-trails-setting =
+    .label = Keep pages you went back from in the Back and Forward menus
+
+## wave6: Page actions. A pill in the address bar when the page describes one
+## event, place, recipe, product or parcel (schema.org data).
+## $name - what the page describes (event, place, recipe...), as the page names it
+## $state - open, closed or unknown (the place's listed hours, now)
+
+whimsy-page-action-event = Add to Calendar
+whimsy-page-action-event-tooltip =
+    .tooltiptext = Add “{ $name }” to Calendar
+whimsy-page-action-place =
+    { $state ->
+        [open] Maps · Open now
+        [closed] Maps · Closed
+       *[unknown] Open in Maps
+    }
+whimsy-page-action-place-tooltip =
+    .tooltiptext = Show { $name } in Maps
+whimsy-page-action-recipe = Cook mode
+whimsy-page-action-recipe-tooltip =
+    .tooltiptext = Show the ingredients and steps for { $name }, large, and keep the screen on
+whimsy-page-action-product = Watch price
+whimsy-page-action-product-tooltip =
+    .tooltiptext = Get an alert when the price of { $name } drops
+whimsy-page-action-parcel = Track
+whimsy-page-action-parcel-tooltip =
+    .tooltiptext = Open the carrier’s tracking page
+whimsy-page-action-calendar-toast = Opening the event in Calendar
+## $price - the price shown on the page, formatted
+whimsy-page-action-price-condition = The price drops below { $price }
+whimsy-page-action-price-condition-any = The price drops
+whimsy-cook-ingredients = Ingredients
+whimsy-cook-steps = Steps
+whimsy-cook-awake = Your screen stays on while this is open.
+whimsy-page-actions-setting =
+    .label = Show page actions in the address bar (add events to Calendar, open places in Maps, cook mode for recipes)
+
+## wave6/parity: the Archive keeps every tab until Clear Archive (Arc's
+## Archive menu is its History menu, so both items go there).
+
+whimsy-action-clear-archive = Clear Archive
+whimsy-menu-view-archive =
+    .label = View Archive…
+whimsy-menu-clear-archive =
+    .label = Clear Archive
+whimsy-archive-clear-title = Clear the Archive?
+whimsy-archive-clear-message = Every archived tab is removed for good, along with Reopen Closed Tab’s list. Your history stays.
+whimsy-archive-clear-button = Clear Archive
+whimsy-archive-cleared-toast = Archive cleared
+
+## wave6/parity: Arc's Split View commands (View menu) and keys.
+
+whimsy-action-add-split-view = Add Split View
+whimsy-action-close-split-pane = Close this Split Pane
+whimsy-action-separate-page = Separate Page from Split View
+whimsy-action-expand-split = Expand Current Split
+whimsy-action-focus-pane-1 = Focus First Split Pane
+whimsy-action-focus-pane-2 = Focus Second Split Pane
+whimsy-action-focus-pane-3 = Focus Third Split Pane
+whimsy-action-focus-pane-4 = Focus Fourth Split Pane
+whimsy-action-prev-pane = Previous Split Pane
+whimsy-action-next-pane = Next Split Pane
+whimsy-menu-add-split-view =
+    .label = Add Split View
+whimsy-menu-close-split-pane =
+    .label = Close this Split Pane
+whimsy-menu-separate-page =
+    .label = Separate Page from Split View
+whimsy-menu-expand-split =
+    .label = Expand Current Split
+
+## wave6/parity: Arc's Edit menu (Copy URL variants, Paste and Match Style).
+
+whimsy-action-copy-url-quote = Copy URL as Quote
+whimsy-copy-quote-toast = Copied as a quote
+whimsy-menu-copy-url =
+    .label = Copy URL
+whimsy-menu-copy-url-markdown =
+    .label = Copy URL as Markdown
+whimsy-menu-copy-url-quote =
+    .label = Copy URL as Quote
+whimsy-menu-paste-match-style =
+    .label = Paste and Match Style
+
+## wave6: Cmd+N makes a new space (BUILD-PLAN); New Window moves to Cmd+Opt+Shift+N.
+
+whimsy-action-new-space = New Space…
+
+## wave6/parity: Arc's menu bar names (WhimsyArcMenus) and missing items.
+
+whimsy-action-capture-portrait = Capture in Portrait Mode
+whimsy-action-toggle-toolbar = Show or Hide Toolbar
+whimsy-action-show-toolbar = Show Toolbar
+whimsy-action-hide-toolbar = Hide Toolbar
+whimsy-action-reveal-tab = Reveal Tab in Sidebar
+whimsy-menu-blank-window =
+    .label = Blank Window
+whimsy-menu-capture =
+    .label = Capture…
+whimsy-menu-capture-full-page =
+    .label = Capture Full Page
+whimsy-menu-capture-portrait =
+    .label = Capture in Portrait Mode
+# $action (string) - what Cmd+Z will undo: archive, pin, unpin, move or other
+whimsy-menu-undo-action =
+    .label =
+        { $action ->
+            [archive] Undo Archive Tab
+            [pin] Undo Pin Tab
+            [unpin] Undo Unpin Tab
+            [move] Undo Move Tab
+           *[other] Undo
+        }
+    .accesskey = U
+whimsy-menu-hide-sidebar =
+    .label = Hide Sidebar
+whimsy-menu-show-sidebar =
+    .label = Show Sidebar
+whimsy-menu-show-toolbar =
+    .label = Show Toolbar
+whimsy-menu-hide-toolbar =
+    .label = Hide Toolbar
+whimsy-menu-new-space =
+    .label = New Space…
+whimsy-menu-edit-theme =
+    .label = Edit Theme…
+whimsy-menu-rename-space =
+    .label = Rename Space
+whimsy-menu-tabs =
+    .label = Tabs
+whimsy-menu-new-tab =
+    .label = New Tab…
+whimsy-menu-pin-tab =
+    .label = Pin Tab
+whimsy-menu-unpin-tab =
+    .label = Unpin Tab
+whimsy-menu-new-folder =
+    .label = New Folder…
+whimsy-menu-next-tab =
+    .label = Next Tab
+whimsy-menu-prev-tab =
+    .label = Previous Tab
+whimsy-menu-reveal-tab =
+    .label = Reveal Tab in Sidebar
+whimsy-menu-clear-today =
+    .label = Clear Today
+whimsy-menu-open-library =
+    .label = Open Library…
+whimsy-menu-view-downloads =
+    .label = View Downloads…
+whimsy-menu-essential-shortcuts =
+    .label = Essential Keyboard Shortcuts
+whimsy-cheatsheet-new-scratch = New Scratch Space
+whimsy-cheatsheet-new-space = New Space…
+whimsy-action-reset-space-tabs = Reset All Tabs in This Space
+whimsy-action-view-media = View Media…
+whimsy-action-view-boosts = View Boosts…
+whimsy-menu-reset-space-tabs =
+    .label = Reset All Tabs in This Space
+whimsy-menu-view-media =
+    .label = View Media…
+whimsy-menu-view-boosts =
+    .label = View Boosts…
+
+## fix7/game: the offline error page game
+
+whimsy-game-hint-embedded = Arrows, WASD or pointer to steer · Space or click to dash · Esc goes back to the error page
+
+## fix7: Mini Whimsy space dropdown (caret, Cmd+Shift+O)
+whimsy-quick-window-picker-caption =
+    .label = Open in
+
+# fix7/tabs: People card actions.
+whimsy-person-open = Open Profile
+whimsy-person-copy = Copy Link
+whimsy-person-copied = Copied
+
+## fix7/folders: Statuses submenu on the Linear and Jira live folders.
+
+whimsy-live-folder-option-statuses =
+    .label = Statuses
+whimsy-live-folder-linear-state-triage =
+    .label = Triage
+whimsy-live-folder-linear-state-backlog =
+    .label = Backlog
+whimsy-live-folder-linear-state-unstarted =
+    .label = Todo
+whimsy-live-folder-linear-state-started =
+    .label = In Progress
+whimsy-live-folder-linear-state-completed =
+    .label = Done
+whimsy-live-folder-linear-state-canceled =
+    .label = Canceled
+whimsy-live-folder-linear-state-duplicate =
+    .label = Duplicate
+whimsy-live-folder-jira-category-new =
+    .label = To Do
+whimsy-live-folder-jira-category-indeterminate =
+    .label = In Progress
+whimsy-live-folder-jira-category-done =
+    .label = Done
+whimsy-live-folder-jira-category-undefined =
+    .label = No Category
+
 ## wave5/audioicon: the tab speaker's name (always shown, so always named)
 
 whimsy-tab-audio-mute = Mute tab
@@ -2023,7 +2405,17 @@ whimsy-hover-links =
 # Above the AI summary card, under the link or People card.
 whimsy-link-hover-ai-label = Summary
 
-# fix7/tabs: People card actions.
-whimsy-person-open = Open Profile
-whimsy-person-copy = Copy Link
-whimsy-person-copied = Copied
+# fix7 settings: command bar actions for History, Liquid Glass and Glance size.
+whimsy-action-view-history = View History
+whimsy-action-liquid-glass-on = Turn Liquid Glass On
+whimsy-action-liquid-glass-off = Turn Liquid Glass Off
+whimsy-action-glance-size-compact = Glance Size: Compact
+whimsy-action-glance-size-standard = Glance Size: Standard
+whimsy-action-glance-size-wide = Glance Size: Wide
+
+# fix/panes: breadcrumbs on Firefox's sub-pages (Containers, Browser icon),
+# whose parent pane is now Zen's.
+whimsy-pane-looks-crumb =
+    .label = Look and Feel
+whimsy-pane-tabs-crumb =
+    .label = Tab Management

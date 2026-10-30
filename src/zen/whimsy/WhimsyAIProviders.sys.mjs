@@ -104,6 +104,10 @@ export const AI_ERROR_CODES = [
   "unavailable",
   "no-model",
   "apple-needs-tools",
+  // fix7: what exactly is missing when the helper can't be built.
+  "apple-tools-outdated",
+  "apple-needs-license",
+  "apple-build-failed",
   "apple-intelligence-off",
   "apple-not-ready",
   "apple-not-set-up",
@@ -443,27 +447,78 @@ export const WhimsyAIProviders = {
     return PathUtils.join(PathUtils.profileDir, "whimsy-ai", `whimsy-fm-${HELPER_VERSION}`);
   },
 
-  // Whether swiftc is installed. Asks xcode-select, which never prompts:
-  // running xcrun without the tools pops up macOS's "install the command
-  // line developer tools" dialog.
-  async _hasSwiftc() {
-    try {
-      const proc = await lazy.Subprocess.call({ command: "/usr/bin/xcode-select", arguments: ["-p"], stderr: "stdout" });
-      const dir = (await proc.stdout.readString()).trim();
-      const { exitCode } = await proc.wait();
-      if (exitCode != 0 || !dir) {
-        return false;
-      }
-      for (const rel of ["usr/bin/swiftc", "Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]) {
-        if (await IOUtils.exists(PathUtils.join(dir, ...rel.split("/")))) {
-          return true;
-        }
-      }
-    } catch {}
-    return false;
+  // fix7: Settings said the command line tools were missing on a Mac where
+  // "xcode-select --install" says they're installed. The old check only
+  // looked in the folder xcode-select points at (often an Xcode that was
+  // moved, renamed or deleted, while the tools sit in
+  // /Library/Developer/CommandLineTools), and any failed build (tools too
+  // old to have the FoundationModels SDK, Xcode's license not accepted)
+  // was reported as "tools missing" too. Now each developer folder is
+  // checked for swiftc and for an SDK with FoundationModels, the build
+  // uses the folder that has both, and each failure says what's missing.
+  _developerDirCandidates: ["/Library/Developer/CommandLineTools", "/Applications/Xcode.app/Contents/Developer"],
+
+  // Runs a tool (never one that prompts) and returns { exitCode, output }.
+  async _run(command, args, options = {}) {
+    const proc = await lazy.Subprocess.call({ command, arguments: args, stderr: "stdout", ...options });
+    const output = await proc.stdout.readString();
+    const { exitCode } = await proc.wait();
+    return { exitCode, output };
   },
 
-  // Builds the helper once (Xcode command line tools' swiftc), then reuses it.
+  // The SDK folders a developer folder may have (command line tools, Xcode).
+  _sdkPaths(dir) {
+    return [
+      PathUtils.join(dir, "SDKs", "MacOSX.sdk"),
+      PathUtils.join(dir, "Platforms", "MacOSX.platform", "Developer", "SDKs", "MacOSX.sdk"),
+    ];
+  },
+
+  // Finds the tools to build the helper with: { developerDir, sdk } or a
+  // WhimsyAIError code: "apple-needs-tools" (no swiftc anywhere) or
+  // "apple-tools-outdated" (swiftc, but no SDK with FoundationModels).
+  // Never runs xcrun: without the tools it pops up macOS's install dialog.
+  async _findToolchain() {
+    const dirs = [];
+    try {
+      const { exitCode, output } = await this._run("/usr/bin/xcode-select", ["-p"]);
+      if (exitCode == 0 && output.trim()) {
+        dirs.push(output.trim());
+      }
+    } catch {}
+    for (const dir of this._developerDirCandidates) {
+      if (!dirs.includes(dir)) {
+        dirs.push(dir);
+      }
+    }
+    let hasSwiftc = false;
+    for (const dir of dirs) {
+      let swiftc = false;
+      for (const rel of ["usr/bin/swiftc", "Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]) {
+        if (await IOUtils.exists(PathUtils.join(dir, ...rel.split("/")))) {
+          swiftc = true;
+        }
+      }
+      if (!swiftc) {
+        continue;
+      }
+      hasSwiftc = true;
+      for (const sdk of this._sdkPaths(dir)) {
+        if (await IOUtils.exists(PathUtils.join(sdk, "System", "Library", "Frameworks", "FoundationModels.framework"))) {
+          return { developerDir: dir, sdk };
+        }
+      }
+    }
+    return hasSwiftc ? "apple-tools-outdated" : "apple-needs-tools";
+  },
+
+  // What a failed swiftc build means, from its output.
+  _buildFailure(output) {
+    return /license/i.test(output) ? "apple-needs-license" : "apple-build-failed";
+  },
+
+  // Builds the helper once (swiftc from the command line tools or Xcode),
+  // then reuses it.
   _ensureHelper() {
     if (Services.appinfo.OS != "Darwin") {
       return Promise.reject(new WhimsyAIError("unavailable"));
@@ -473,28 +528,28 @@ export const WhimsyAIProviders = {
       if (await IOUtils.exists(path)) {
         return path;
       }
-      if (!(await this._hasSwiftc())) {
-        throw new WhimsyAIError("apple-needs-tools");
+      const toolchain = await this._findToolchain();
+      if (typeof toolchain == "string") {
+        throw new WhimsyAIError(toolchain);
       }
       const dir = PathUtils.parent(path);
       await IOUtils.makeDirectory(dir, { ignoreExisting: true });
       const source = PathUtils.join(dir, "WhimsyFM.swift");
       await IOUtils.writeUTF8(source, HELPER_SOURCE);
-      let proc;
+      let result;
       try {
-        proc = await lazy.Subprocess.call({
-          command: "/usr/bin/xcrun",
-          arguments: ["swiftc", "-O", "-parse-as-library", "-o", path, source],
-          stderr: "stdout",
-        });
-      } catch {
-        throw new WhimsyAIError("apple-needs-tools");
+        result = await this._run(
+          "/usr/bin/xcrun",
+          ["swiftc", "-O", "-parse-as-library", "-sdk", toolchain.sdk, "-o", path, source],
+          { environment: { DEVELOPER_DIR: toolchain.developerDir }, environmentAppend: true }
+        );
+      } catch (e) {
+        console.error("Whimsy AI: couldn't run swiftc", e);
+        throw new WhimsyAIError("apple-build-failed");
       }
-      const output = await proc.stdout.readString();
-      const { exitCode } = await proc.wait();
-      if (exitCode != 0 || !(await IOUtils.exists(path))) {
-        console.error("Whimsy AI: building the on-device helper failed", output);
-        throw new WhimsyAIError("apple-needs-tools");
+      if (result.exitCode != 0 || !(await IOUtils.exists(path))) {
+        console.error("Whimsy AI: building the on-device helper failed", toolchain, result.output);
+        throw new WhimsyAIError(this._buildFailure(result.output));
       }
       return path;
     })();
@@ -504,6 +559,7 @@ export const WhimsyAIProviders = {
   },
 
   // "available", or why not: "unavailable", "apple-needs-tools",
+  // "apple-tools-outdated", "apple-needs-license", "apple-build-failed",
   // "apple-intelligence-off", "apple-not-ready", or (with build: false,
   // before the helper exists) "not-set-up".
   async appleStatus({ build = true } = {}) {

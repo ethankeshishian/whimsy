@@ -43,6 +43,16 @@ add_task(async function test_field() {
   ok(!field.hasAttribute("invalid"), "#RGBA is valid too");
   type(field, "#zz");
   ok(field.hasAttribute("invalid"), "Not a color: flagged");
+  is(field.getAttribute("aria-invalid"), "true", "and says so to assistive tech");
+
+  // One field: the opacity spinner hides (the hex carries alpha) and the
+  // add button has a name.
+  const opacity = document.getElementById("PanelUI-zen-gradient-generator-custom-opacity");
+  is(getComputedStyle(opacity).display, "none", "Zen's 0-1 opacity spinner is hidden");
+  type(field, "#11223380");
+  is(Number(opacity.value), 0.5, "#RRGGBBAA sets the opacity");
+  const add = document.getElementById("PanelUI-zen-gradient-generator-color-custom-add");
+  await TestUtils.waitForCondition(() => add.getAttribute("aria-label"), "The add button has a name");
 
   well.value = "#123456";
   well.dispatchEvent(new Event("input", { bubbles: true }));
