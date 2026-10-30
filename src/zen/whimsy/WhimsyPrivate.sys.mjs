@@ -907,7 +907,13 @@ export const WhimsyPrivate = {
     } catch (e) {
       console.error("Whimsy: private downloads", e);
     }
-    win.whimsyDownloadsPrivate = isPrivate;
+    // Not enumerable: it's window state, not a script global.
+    Object.defineProperty(win, "whimsyDownloadsPrivate", {
+      value: isPrivate,
+      writable: true,
+      configurable: true,
+      enumerable: false,
+    });
     try {
       if (indicatorOn) {
         indicator.ensureInitialized();
