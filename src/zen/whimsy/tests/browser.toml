@@ -347,3 +347,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # batch4: Library rail glyphs, including optional sections when present.
 ["browser_whimsy_library_icons.js"]
+
+# wave5: command registry (command bar, about:keyboard "Whimsy" group, rebinding, conflicts, defaults).
+["browser_whimsy_command_registry.js"]
