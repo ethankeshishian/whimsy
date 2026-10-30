@@ -33,7 +33,7 @@
 //    permissions/match patterns, which this pref doesn't touch), and a space
 //    without its own container can't be isolated this way at all (container
 //    0, "no container", is never restricted: too many spaces can share it).
-//    Settings spells this gap out; see whimsy-space-extensions-help.
+//    Full profile isolation is a separate design decision.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -51,7 +51,6 @@ const VISIBILITY_PREF = "whimsy.extensions.space-visibility";
 const MANAGED_ISOLATION_PREF = "whimsy.extensions.space-isolation-managed";
 const ISOLATION_ENABLED_PREF = "extensions.userContextIsolation.enabled";
 const MENU_ID = "whimsy-space-extensions-menu";
-const SEPARATOR_ID = "whimsy-space-extensions-separator";
 const MENUPOPUP_ID = "whimsy-space-extensions-menupopup";
 
 function featureOn() {
@@ -228,61 +227,62 @@ export const WhimsySpaceExtensions = {
   // -- "Show in Spaces…" submenu on the extension's gear menu ----------
 
   getExtensionIdFromMenu(menu) {
-    const { triggerNode } = menu;
-    return (
-      triggerNode?.closest?.(".unified-extensions-item")?.querySelector("toolbarbutton")
-        ?.dataset.extensionid ??
-      triggerNode?.dataset?.extensionid ??
-      null
-    );
+    const trigger = menu.triggerNode;
+    return trigger?.closest?.("[data-extensionid]")?.dataset.extensionid ??
+      trigger?.closest?.(".unified-extensions-item")
+        ?.querySelector("[data-extensionid]")?.dataset.extensionid ?? null;
   },
 
-  ensureMenuItems(win) {
-    const { document } = win;
-    const menu = document.getElementById("unified-extensions-context-menu");
-    if (!menu || document.getElementById(MENU_ID)) {
+  ensureMenuItems(win, menu = win.document.getElementById("unified-extensions-context-menu")) {
+    if (!menu || menu.querySelector("[data-whimsy-space-menu]")) {
       return menu;
     }
-    const separator = document.createXULElement("menuseparator");
-    separator.id = SEPARATOR_ID;
+    const { document } = win;
     const menuEl = document.createXULElement("menu");
-    menuEl.id = MENU_ID;
+    menuEl.setAttribute("data-whimsy-space-menu", "true");
+    if (menu.id === "unified-extensions-context-menu") {
+      menuEl.id = MENU_ID;
+    }
     document.l10n.setAttributes(menuEl, "whimsy-space-extensions-menu");
     const popup = document.createXULElement("menupopup");
-    popup.id = MENUPOPUP_ID;
-    popup.addEventListener("popupshowing", () => this.updateSpacePicker(win, popup));
+    if (menuEl.id === MENU_ID) {
+      popup.id = MENUPOPUP_ID;
+    }
+    popup.addEventListener("popupshowing", event => {
+      if (event.target === popup) {
+        this.updateSpacePicker(win, popup, menuEl.extensionId);
+      }
+    });
     menuEl.appendChild(popup);
-    menu.append(separator, menuEl);
+    menu.appendChild(menuEl);
     return menu;
   },
 
   initContextMenu(win) {
-    const menu = this.ensureMenuItems(win);
-    if (!menu || menu._whimsySpaceExt) {
-      return;
-    }
-    menu._whimsySpaceExt = true;
-    menu.addEventListener("popupshowing", event => {
-      if (event.target !== menu) {
+    // Resolve at popup time, including toolbar/overflow menus. The unified
+    // gear popup alone doesn't cover pinned actions or about:addons.
+    win.addEventListener("popupshowing", event => {
+      const menu = event.target;
+      if (!["unified-extensions-context-menu", "toolbar-context-menu",
+        "customizationPanelItemContextMenu"].includes(menu.id)) {
         return;
       }
+      this.ensureMenuItems(win, menu);
       this.updateContextMenu(win, menu);
-    });
+    }, true);
   },
 
   updateContextMenu(win, menu) {
-    const separator = win.document.getElementById(SEPARATOR_ID);
-    const item = win.document.getElementById(MENU_ID);
-    if (!item || !separator) {
+    const item = menu.querySelector("[data-whimsy-space-menu]");
+    if (!item) {
       return;
     }
-    item.hidden = separator.hidden = !featureOn();
-    this._pendingExtensionId = this.getExtensionIdFromMenu(menu);
+    item.extensionId = this.getExtensionIdFromMenu(menu);
+    item.hidden = !featureOn() || !item.extensionId;
   },
 
-  updateSpacePicker(win, popup) {
+  updateSpacePicker(win, popup, extensionId) {
     const { document } = win;
-    const extensionId = this._pendingExtensionId;
     popup.replaceChildren();
     if (!extensionId || !win.gZenWorkspaces) {
       return;
@@ -299,17 +299,114 @@ export const WhimsySpaceExtensions = {
       const item = document.createXULElement("menuitem");
       item.setAttribute("type", "checkbox");
       item.setAttribute("label", workspace.name || "");
-      const checked = !!allowed?.includes(workspace.uuid);
-      item.toggleAttribute("checked", checked);
+      item.toggleAttribute("checked", !!allowed?.includes(workspace.uuid));
       item.addEventListener("command", () => {
-        const current = this.getAllowedSpaces(extensionId) || [];
-        const next = checked
-          ? current.filter(uuid => uuid !== workspace.uuid)
-          : [...current, workspace.uuid];
-        this.setAllowedSpaces(win, extensionId, next);
+        this.toggleSpace(win, extensionId, workspace.uuid);
       });
       popup.appendChild(item);
     }
+  },
+
+  toggleSpace(win, extensionId, uuid) {
+    const current = this.getAllowedSpaces(extensionId) || [];
+    this.setAllowedSpaces(win, extensionId, current.includes(uuid)
+      ? current.filter(id => id !== uuid) : [...current, uuid]);
+  },
+
+  initAboutAddons(win) {
+    const attach = doc => {
+      if (doc?.documentURI !== "about:addons" || doc._whimsySpaceExtensions ||
+          !doc.nodePrincipal.isSystemPrincipal) {
+        return;
+      }
+      doc._whimsySpaceExtensions = true;
+      doc.l10n.addResourceIds(["browser/whimsy.ftl"]);
+      const update = () => {
+        for (const card of doc.querySelectorAll("addon-card")) {
+          const panel = card.querySelector("addon-options panel-list");
+          if (!panel || card.addon?.type !== "extension") {
+            continue;
+          }
+          let item = panel.querySelector("[data-whimsy-space-picker]");
+          if (!item) {
+            item = doc.createElement("panel-item");
+            item.setAttribute("data-whimsy-space-picker", "true");
+            doc.l10n.setAttributes(item, "whimsy-space-extensions-picker");
+            item.addEventListener("click", event => {
+              event.stopPropagation();
+              if (!featureOn()) {
+                return;
+              }
+              panel.hide();
+              this.showAddonPicker(win, card);
+            });
+            panel.appendChild(item);
+          }
+          const hidden = !featureOn();
+          if (item.hidden !== hidden) {
+            item.hidden = hidden;
+          }
+          if (hidden) {
+            card.querySelector("[data-whimsy-space-choices]")?.remove();
+          }
+        }
+      };
+      const observer = new win.MutationObserver(update);
+      observer.observe(doc, { childList: true, subtree: true });
+      Services.prefs.addObserver(FEATURE_PREF, update);
+      doc.defaultView.addEventListener("unload", () => {
+        observer.disconnect();
+        Services.prefs.removeObserver(FEATURE_PREF, update);
+      }, { once: true });
+      update();
+    };
+    win.addEventListener("DOMContentLoaded", event => attach(event.target), true);
+    for (const browser of win.gBrowser.browsers) {
+      attach(browser.contentDocument);
+    }
+  },
+
+  showAddonPicker(win, card) {
+    const doc = card.ownerDocument;
+    card.querySelector("[data-whimsy-space-choices]")?.remove();
+    const choices = doc.createElement("fieldset");
+    choices.setAttribute("data-whimsy-space-choices", "true");
+    choices.addEventListener("click", event => event.stopPropagation());
+    const legend = doc.createElement("legend");
+    doc.l10n.setAttributes(legend, "whimsy-space-extensions-picker");
+    choices.appendChild(legend);
+    const allowed = this.getAllowedSpaces(card.addon.id);
+    const addChoice = (uuid, name) => {
+      const label = doc.createElement("label");
+      const input = doc.createElement("input");
+      input.type = "checkbox";
+      input.checked = uuid === null ? !allowed : !!allowed?.includes(uuid);
+      const text = doc.createElement("span");
+      if (uuid === null) {
+        doc.l10n.setAttributes(text, "whimsy-space-extensions-all-text");
+      } else {
+        text.textContent = name;
+      }
+      input.addEventListener("change", () => {
+        if (!featureOn()) {
+          return;
+        }
+        if (uuid === null) {
+          this.setAllowedSpaces(win, card.addon.id, null);
+        } else {
+          this.toggleSpace(win, card.addon.id, uuid);
+        }
+        this.showAddonPicker(win, card);
+      });
+      label.append(input, text);
+      choices.append(label, doc.createElement("br"));
+    };
+    addChoice(null);
+    for (const space of win.gZenWorkspaces.getWorkspaces()) {
+      addChoice(space.uuid, space.name);
+    }
+    card.appendChild(choices);
+    choices.querySelector("input").focus();
   },
 
   // -- wiring ------------------------------------------------------------
@@ -359,9 +456,14 @@ export const WhimsySpaceExtensions = {
     if (!win.gZenWorkspaces?.workspaceEnabled) {
       return;
     }
+    if (win._whimsySpaceExtensions) {
+      return;
+    }
+    win._whimsySpaceExtensions = true;
+    this.initContextMenu(win);
+    this.initAboutAddons(win);
     this.wrapChangeWorkspace(win);
     this.wrapGetActivePolicies(win);
-    this.initContextMenu(win);
     this.initCustomizableUIListener(win);
     this.initAddonListener();
     const refresh = () => this.applyVisibility(win);

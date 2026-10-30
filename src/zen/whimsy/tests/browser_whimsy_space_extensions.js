@@ -61,6 +61,7 @@ add_setup(async function () {
   });
 
   extension = ExtensionTestUtils.loadExtension({
+    useAddonManager: "temporary",
     manifest: {
       browser_action: { default_title: "Whimsy test" },
     },
@@ -160,21 +161,93 @@ add_task(async function test_feature_off_clears_container_isolation() {
   WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, null);
 });
 
-add_task(async function test_show_in_spaces_menu_is_injected() {
-  const menu = WhimsySpaceExtensions.ensureMenuItems(window);
-  ok(menu, "The unified-extensions-context-menu popup exists");
-  const item = document.getElementById("whimsy-space-extensions-menu");
-  ok(item, "The Show in Spaces submenu was injected");
-  is(document.l10n.getAttributes(item).id, "whimsy-space-extensions-menu");
+// Exercise the user's entry points; calling ensureMenuItems directly used to
+// hide missing wiring and never tested the trigger extension ID.
+add_task(async function test_panel_gear_space_choice() {
+  await BrowserTestUtils.withNewTab("https://example.com/", async () => {
+    WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, null);
+    await gUnifiedExtensions.pinToToolbar(widgetId, false);
+    const panel = gUnifiedExtensions.panel;
+    const panelShown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
+    const view = panel.querySelector("panelmultiview").getAttribute("mainViewId");
+    await gUnifiedExtensions.togglePanel(undefined, undefined, panel, view);
+    await panelShown;
+    const gear = widgetNode().querySelector(".unified-extensions-item-menu-button");
+    const menu = document.getElementById("unified-extensions-context-menu");
+    const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
+    EventUtils.synthesizeMouseAtCenter(gear, {});
+    await shown;
+    const item = menu.querySelector("[data-whimsy-space-menu]");
+    ok(item && !item.hidden, "Space choice is reachable from the real gear menu");
+    is(item.extensionId, extensionId, "Gear resolves the extension without test state");
+    const popup = item.firstElementChild;
+    const pickerShown = BrowserTestUtils.waitForPopupEvent(popup, "shown");
+    item.open = true;
+    await pickerShown;
+    const spaceItem = [...popup.children].find(child => child.getAttribute("label") === containerSpace.name);
+    ok(spaceItem, "Picker contains the other space");
+    spaceItem.doCommand();
+    Assert.deepEqual(WhimsySpaceExtensions.getAllowedSpaces(extensionId), [containerSpace.uuid]);
+    popup.hidePopup();
+    menu.hidePopup();
+    panel.hidePopup();
+    WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, null);
+    await gUnifiedExtensions.pinToToolbar(widgetId, true);
+  });
+});
 
-  WhimsySpaceExtensions._pendingExtensionId = extensionId;
-  WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, [containerSpace.uuid]);
-  const popup = document.getElementById("whimsy-space-extensions-menupopup");
-  WhimsySpaceExtensions.updateSpacePicker(window, popup);
-  const allItem = popup.firstElementChild;
-  ok(!allItem.hasAttribute("checked"), "\"All Spaces\" isn't checked while restricted");
-  const spaceItem = [...popup.children].find(child => child.getAttribute("label") == containerSpace.name);
-  ok(spaceItem?.hasAttribute("checked"), "The allowed space is checked");
+add_task(async function test_toolbar_context_choice_and_switch() {
+  const menu = document.getElementById("toolbar-context-menu");
+  const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
+  EventUtils.synthesizeMouseAtCenter(widgetNode().querySelector(".unified-extensions-item-action-button"),
+    { type: "contextmenu", button: 2 });
+  await shown;
+  const item = menu.querySelector("[data-whimsy-space-menu]");
+  ok(item && !item.hidden, "Pinned extension has the same choice");
+  is(item.extensionId, extensionId, "Toolbar resolves the target extension");
+  Services.prefs.setBoolPref(FEATURE, false);
+  WhimsySpaceExtensions.updateContextMenu(window, menu);
+  ok(item.hidden, "Feature off hides the choice");
+  Services.prefs.clearUserPref(FEATURE);
+  menu.hidePopup();
+});
 
-  WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, null);
+add_task(async function test_about_addons_can_recover_hidden_extension() {
+  WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, []);
+  ok(widgetNode().hidden, "Extension hidden everywhere before opening Add-ons");
+  await BrowserTestUtils.withNewTab("about:addons", async browser => {
+    const doc = browser.contentDocument;
+    const manager = browser.contentWindow;
+    await TestUtils.waitForCondition(() => manager.promiseInitialized, "Add-ons manager ready");
+    await manager.promiseInitialized;
+    manager.loadView("addons://list/extension");
+    const card = await TestUtils.waitForCondition(() =>
+      [...doc.querySelectorAll("addon-card")].find(c => c.addon?.id === extensionId));
+    const item = await TestUtils.waitForCondition(() =>
+      card.querySelector("[data-whimsy-space-picker]"));
+    ok(!item.hidden, "Hidden extension remains manageable in about:addons");
+    card.querySelector(".more-options-button").click();
+    item.click();
+    const choices = card.querySelector("[data-whimsy-space-choices]");
+    ok(choices, "Gear action opens the space choices");
+    ok([...choices.querySelectorAll("input")].every(input => !input.checked), "Empty selection is preserved");
+    choices.querySelector("input").click();
+    is(WhimsySpaceExtensions.getAllowedSpaces(extensionId), null, "All Spaces restores visibility");
+    ok(!widgetNode().hidden, "Toolbar returns after using the Add-ons picker");
+    Services.prefs.setBoolPref(FEATURE, false);
+    await TestUtils.waitForCondition(() => item.hidden, "Feature off hides Add-ons action");
+    ok(!card.querySelector("[data-whimsy-space-choices]"), "Feature off removes open choices");
+    Services.prefs.clearUserPref(FEATURE);
+    await TestUtils.waitForCondition(() => !item.hidden, "Re-enable restores Add-ons action");
+  });
+});
+
+add_task(async function test_settings_plain_subtitle() {
+  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+    const doc = browser.contentDocument;
+    const help = await TestUtils.waitForCondition(() =>
+      doc.querySelector('#whimsyExtensionsGroup [data-l10n-id="whimsy-space-extensions-help"]'));
+    await doc.l10n.translateElements([help]);
+    is(help.textContent.trim(), "Each space can have its own extensions.", "Settings uses one plain line");
+  });
 });

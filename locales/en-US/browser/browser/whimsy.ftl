@@ -901,7 +901,7 @@ whimsy-quick-window-no-space =
 whimsy-space-extensions-header = Per-space extensions
 whimsy-space-extensions-toggle =
     .label = Show extensions per space
-whimsy-space-extensions-help = Each extension gets a "Show in Spaces…" choice on its gear menu in the extensions panel, so you can keep one hidden outside the spaces it belongs to. Hiding it only hides its toolbar button and panel entry — it keeps running in the background and sharing storage like any other enabled extension; nothing short of a separate Firefox profile per space truly isolates it. When a space has its own container, Whimsy also stops the extension's tabs/webNavigation/webRequest/proxy access to that container's tabs, but not its content scripts.
+whimsy-space-extensions-help = Each space can have its own extensions.
 whimsy-space-extensions-menu =
     .label = Show in Spaces…
 whimsy-space-extensions-all =
@@ -1234,3 +1234,7 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
+
+# wave4: extension space picker in about:addons
+whimsy-space-extensions-picker = Show in Spaces
+whimsy-space-extensions-all-text = All Spaces

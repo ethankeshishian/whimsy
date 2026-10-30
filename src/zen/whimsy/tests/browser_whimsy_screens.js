@@ -985,3 +985,45 @@ add_task(async function welcome_look_pages() {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+
+// wave4: per-space extensions use a short Settings subtitle.
+add_task(async function settings_space_extensions() {
+  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+    const doc = browser.contentDocument;
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyExtensionsGroup"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "Extension settings visible");
+    group.scrollIntoView({ block: "center" });
+    await doc.l10n.translateFragment(group);
+    await shot("wave4-settings-extensions", browser.browsingContext.currentWindowGlobal);
+  });
+});
+
+add_task(async function addons_space_choices() {
+  const extension = ExtensionTestUtils.loadExtension({
+    useAddonManager: "temporary",
+    manifest: { name: "Space choices", browser_action: { default_title: "Space choices" } },
+  });
+  await extension.startup();
+  try {
+    await BrowserTestUtils.withNewTab("about:addons", async browser => {
+      const doc = browser.contentDocument;
+      const manager = browser.contentWindow;
+      await TestUtils.waitForCondition(() => manager.promiseInitialized);
+      await manager.promiseInitialized;
+      manager.loadView("addons://list/extension");
+      const card = await TestUtils.waitForCondition(() =>
+        [...doc.querySelectorAll("addon-card")].find(c => c.addon?.id === extension.id));
+      const item = await TestUtils.waitForCondition(() =>
+        card.querySelector("[data-whimsy-space-picker]"));
+      card.querySelector(".more-options-button").click();
+      item.click();
+      const choices = card.querySelector("[data-whimsy-space-choices]");
+      ok(choices, "Extension space choices are visible in Add-ons");
+      choices.scrollIntoView({ block: "center" });
+      await doc.l10n.translateFragment(choices);
+      await shot("wave4-addons-spaces", browser.browsingContext.currentWindowGlobal);
+    });
+  } finally {
+    await extension.unload();
+  }
+});
