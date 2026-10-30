@@ -9,10 +9,15 @@ const PAGES = {
   home: "chrome://browser/content/whimsy/whimsy-home.xhtml",
   game: "chrome://browser/content/whimsy/whimsy-game.html",
   year: "chrome://browser/content/whimsy/whimsy-year.html",
+  // wave5: Easel (about:whimsy?easel&id=<id>; WhimsyEasel.sys.mjs).
+  easel: "chrome://browser/content/whimsy/whimsy-easel.html",
 };
 
 function pageIdFor(uri) {
   const query = (uri.query || "").split("&")[0].toLowerCase();
+  if (query == "easel") {
+    return "easel";
+  }
   if (!query || query.startsWith("tab=")) {
     return "home";
   }

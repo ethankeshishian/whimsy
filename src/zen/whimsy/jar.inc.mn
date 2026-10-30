@@ -68,3 +68,9 @@
         content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)
 # wave5: live blocks in Notes
         content/browser/whimsy/whimsy-note-blocks.mjs (../../zen/whimsy/content/whimsy-note-blocks.mjs)
+# wave5: Easel
+        content/browser/whimsy/whimsy-easel.html (../../zen/whimsy/content/whimsy-easel.html)
+        content/browser/whimsy/whimsy-easel.css (../../zen/whimsy/content/whimsy-easel.css)
+        content/browser/whimsy/whimsy-easel.mjs (../../zen/whimsy/content/whimsy-easel.mjs)
+        content/browser/whimsy/whimsy-easel-model.mjs (../../zen/whimsy/content/whimsy-easel-model.mjs)
+        content/browser/whimsy/whimsy-library-easels.mjs (../../zen/whimsy/content/whimsy-library-easels.mjs)

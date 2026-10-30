@@ -792,6 +792,9 @@ FEATURES = [
     # wave5: live blocks in Notes (Arc Easels' Live Captures).
     {"id": "note-blocks", "title": "Live blocks in Notes: /embed or drop a tab to keep a cropped, live region of a page in a note (Arc Live Captures)",
      "detect": [("src/zen", r"(?i)live-?capture|zen[\w-]*note[\w-]*block")]},
+    # wave5: Easel (Arc's Easels: canvas of text, drawings, shapes, images, links, captures).
+    {"id": "easel", "title": "Easel: a canvas of text, drawings, shapes, images, links and live captures, pinned like a tab (Arc Easels)",
+     "detect": [("src/zen", r"(?i)\beasels?\b")]},
 ]
 
 

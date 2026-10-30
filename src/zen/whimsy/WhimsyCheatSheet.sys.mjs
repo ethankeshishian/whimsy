@@ -75,6 +75,8 @@ const WHIMSY_TITLES = new Map([
   ["key_newNavigator", "whimsy-cheatsheet-new-window"],
   ["key_whimsyQuickWindow", "whimsy-cheatsheet-quick-window"],
   ["key_privatebrowsing", "whimsy-cheatsheet-private-window"],
+  // wave5: Easel (Arc's File > New Easel, Ctrl+Shift+E).
+  ["key_whimsyNewEasel", "whimsy-action-new-easel"],
 ]);
 
 function formatSync(id) {

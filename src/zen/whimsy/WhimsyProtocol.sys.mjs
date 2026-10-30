@@ -45,6 +45,8 @@ const ROUTES = {
   // home: the homepage and its Changelog tab (about:whimsy).
   home: { url: "about:whimsy" },
   changelog: { url: "about:whimsy?tab=changelog" },
+  // wave5: whimsy://easel makes a new easel (pinned, like Arc).
+  easel: { command: "cmd_whimsyNewEasel", fallbackUrl: "about:whimsy?easel" },
 };
 
 const PATTERN = /^whimsy:\/\/([a-z-]+)\/?$/i;
