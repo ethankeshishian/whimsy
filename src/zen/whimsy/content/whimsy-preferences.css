@@ -127,3 +127,24 @@
   flex-wrap: wrap;
   gap: var(--space-small, 6px);
 }
+
+/* wave3/cmdbar: offline bangs list */
+#whimsyBangsList {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+  resize: vertical;
+  margin-block: 4px 8px;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+#whimsyBangsList[aria-invalid="true"] {
+  outline: 2px solid var(--text-color-error, #d70022);
+  outline-offset: -1px;
+}
+
+#whimsyBangsStatus {
+  margin-inline-start: 8px;
+  color: var(--text-color-deemphasized);
+}

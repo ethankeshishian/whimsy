@@ -262,3 +262,8 @@ support-files = ["whimsy_call.html"]
 
 # batch3glance: splits restore whole into a new window (zen#12403).
 ["browser_whimsy_split_restore.js"]
+# wave3/cmdbar: recent tabs in the empty command bar.
+["browser_whimsy_recent_tabs.js"]
+
+# wave3/cmdbar: offline bangs and the Settings editor.
+["browser_whimsy_bangs.js"]

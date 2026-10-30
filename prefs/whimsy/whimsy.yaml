@@ -357,3 +357,8 @@
 # batch3glance: Glance size: compact (60%), standard (Zen's 80%) or wide (90%).
 - name: whimsy.glance.size
   value: "standard"
+
+# wave3/cmdbar: offline bangs. The edited catalog; no user value means the
+# bundled list (WhimsyBangsData.sys.mjs).
+- name: whimsy.bangs.custom
+  value: ""

@@ -576,6 +576,12 @@ FEATURES = [
     # batch3glance: restored splits keep every pane (zen#12403).
     {"id": "split-restore", "title": "Restored splits keep every pane even when the saved layout lost one (zen#12403)",
      "detect": [("src/zen/split-view", r"(?i)layoutMatches|validateLayout|12403")]},
+    # wave3/cmdbar: recent tabs in the empty command bar (Arc).
+    {"id": "command-bar-recent-tabs", "title": "Recent tabs when the command bar opens empty, like Arc",
+     "detect": [("src/zen/urlbar", r"(?i)recent-?tabs|tabsByLastAccessed")]},
+    # wave3/cmdbar: DuckDuckGo-style bangs resolved locally.
+    {"id": "offline-bangs", "title": "Offline bang shortcuts (!w, !yt, !gh...) with any search engine, editable in Settings",
+     "detect": [("src/zen", r"(?i)\bbangs?\b(?!-)|duckduckgo\.com/bang")]},
 ]
 
 

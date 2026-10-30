@@ -269,6 +269,9 @@
         <radio value="islands" data-l10n-id="whimsy-tabs-tree-style-islands"/>
       </radiogroup>
     </vbox>
+    <!-- wave3/cmdbar: recent tabs in the empty command bar -->
+    <checkbox id="whimsyCommandRecentTabs" data-l10n-id="whimsy-command-recent-tabs-toggle"
+              preference="whimsy.feature.command-bar-recent-tabs"/>
   </groupbox>
 </html:template>
 
@@ -404,4 +407,21 @@
 # batch3glance: Cmd+T in a split; a row added to the Tabs group (whimsyTabsGroup).
 <html:template id="template-whimsySplitNewTab" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
   <checkbox id="whimsySplitNewTab" data-l10n-id="whimsy-split-new-tab" preference="whimsy.feature.split-new-tab"/>
+</html:template>
+
+# wave3/cmdbar: Settings -> Search -> Bang Shortcuts, after Firefox's search
+# shortcuts. whimsy-settings.js fills and saves the list.
+<html:template id="template-whimsyBangs" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyBangsGroup" data-category="paneSearch" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-bangs-header"/></label>
+    <checkbox id="whimsyBangsEnabled" preference="whimsy.feature.offline-bangs" data-l10n-id="whimsy-bangs-enabled"/>
+    <description id="whimsyBangsHelp" class="description-deemphasized" data-l10n-id="whimsy-bangs-help"/>
+    <label id="whimsyBangsListLabel" control="whimsyBangsList" data-l10n-id="whimsy-bangs-list"/>
+    <html:textarea id="whimsyBangsList" rows="10" spellcheck="false" aria-describedby="whimsyBangsHelp whimsyBangsStatus"/>
+    <hbox align="center">
+      <button id="whimsyBangsSave" data-l10n-id="whimsy-bangs-save"/>
+      <button id="whimsyBangsReset" data-l10n-id="whimsy-bangs-reset"/>
+      <html:span id="whimsyBangsStatus" role="status" aria-live="polite"/>
+    </hbox>
+  </groupbox>
 </html:template>

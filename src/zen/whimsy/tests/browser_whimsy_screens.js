@@ -579,3 +579,44 @@ add_task(async function split_layouts() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave3/cmdbar: recent tabs when the command bar opens empty.
+add_task(async function command_bar_recent_tabs() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?recent-screenshot");
+  const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  try {
+    gURLBar.value = "";
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: "" });
+    await TestUtils.waitForCondition(
+      () => UrlbarTestUtils.getResultCount(window) && UrlbarTestUtils.getRowAt(window, 0).result.providerName == "WhimsyRecentTabs"
+    );
+    await document.l10n.translateFragment(gURLBar.view.panel);
+    await shot("command-recent-tabs");
+  } finally {
+    await UrlbarTestUtils.promisePopupClose(window);
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(anchor);
+  }
+});
+
+// wave3/cmdbar: a bang in the command bar, and Settings → Search → Bang Shortcuts.
+add_task(async function offline_bangs() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  try {
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: "!w black holes" });
+    await TestUtils.waitForCondition(
+      () => UrlbarTestUtils.getResultCount(window) && UrlbarTestUtils.getRowAt(window, 0).result.providerName == "WhimsyBangs"
+    );
+    await shot("command-bang");
+  } finally {
+    await UrlbarTestUtils.promisePopupClose(window);
+  }
+  await BrowserTestUtils.withNewTab("about:preferences#search", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyBangsList"));
+    await doc.l10n.ready;
+    doc.getElementById("whimsyBangsGroup").scrollIntoView();
+    await shot("settings-bangs", browser.browsingContext.currentWindowGlobal);
+  });
+});
