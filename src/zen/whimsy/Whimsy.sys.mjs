@@ -141,6 +141,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyQRCode: "resource:///modules/whimsy/WhimsyQRCode.sys.mjs",
 });
 
+// wave5/quick: Copy page as Markdown.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMarkdownCopy: "resource:///modules/whimsy/WhimsyMarkdownCopy.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -566,6 +571,10 @@ export const Whimsy = {
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.
     run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
+
+    // wave5/quick: Copy page as Markdown (page menu and command bar); checks
+    // its switch on use.
+    run("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

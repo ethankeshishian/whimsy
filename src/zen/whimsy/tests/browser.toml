@@ -350,3 +350,7 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5/quick: QR code for any page (page menu, command bar, private/Scratch excluded).
 ["browser_whimsy_qrcode.js"]
+
+# wave5/quick: Copy page as Markdown (article, selection, fallback, converter, switch).
+["browser_whimsy_copy_page_markdown.js"]
+support-files = ["whimsy_markdown_article.html", "whimsy_markdown_plain.html"]

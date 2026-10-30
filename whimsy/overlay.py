@@ -793,6 +793,10 @@ FEATURES = [
     # exposed in the page menu and command bar; never for private tabs/Scratch.
     {"id": "qr-code", "title": "QR code for any page: the page menu and command bar open Firefox's QR dialog (not for private tabs or Scratch)",
      "detect": [("src/zen", r"(?i)showQRCodePanel|qr-?code-?for-?page")]},
+    # wave5/quick: Copy page as Markdown (MarkDownload/Obsidian clipper style;
+    # Zen discussion #12557). Zen only copies [title](url).
+    {"id": "copy-page-markdown", "title": "Copy Page as Markdown: the Reader View article (or a selection) as Markdown, from the page menu and command bar",
+     "detect": [("src/zen", r"(?i)copy-?(page|selection)-?as-?markdown|pageToMarkdown|turndown")]},
 ]
 
 

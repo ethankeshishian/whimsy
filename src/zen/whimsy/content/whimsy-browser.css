@@ -2037,3 +2037,8 @@ whimsy-space-history-section {
 @media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
   #context-whimsy-qrcode { --whimsy-menu-icon: url("chrome://browser/content/sharing/qr-code.svg"); }
 }
+
+/* wave5/quick: Copy page as Markdown (menu icon). */
+@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
+  #context-whimsy-copy-markdown { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
+}

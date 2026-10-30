@@ -89,7 +89,7 @@ add_task(async function test_page_menu_item() {
   menu = await openPageMenu(page.linkedBrowser);
   const item = document.getElementById("context-whimsy-qrcode");
   ok(!item.hidden, "shown on the page");
-  is(item.previousElementSibling?.id, "context-savepage", "sits beside Save Page As");
+  ok(item.parentNode.querySelector("#context-savepage ~ #context-whimsy-qrcode"), "sits after Save Page As");
   menu.activateItem(item);
   const opened = await waitForQRDialog(page.linkedBrowser);
   is(opened.doc.getElementById("qrcode-url").textContent, PAGE, "the menu item encodes the page");

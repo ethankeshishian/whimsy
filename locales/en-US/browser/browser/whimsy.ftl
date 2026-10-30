@@ -1618,3 +1618,16 @@ whimsy-context-qrcode =
     .label = QR Code for Page
     .accesskey = Q
 whimsy-action-qrcode = Show QR Code for Page
+
+## wave5/quick: Copy page as Markdown (Zen's "Copy current URL as Markdown" stays as is)
+
+whimsy-context-copy-page-markdown =
+    .label = Copy Page as Markdown
+    .accesskey = M
+whimsy-context-copy-selection-markdown =
+    .label = Copy Selection as Markdown
+    .accesskey = M
+whimsy-action-copy-page-markdown = Copy Page as Markdown
+whimsy-copy-page-markdown-toast = Copied page as Markdown
+whimsy-copy-selection-markdown-toast = Copied selection as Markdown
+whimsy-copy-markdown-empty-toast = Nothing to copy as Markdown here

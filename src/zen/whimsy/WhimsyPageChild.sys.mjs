@@ -110,6 +110,12 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // media: playlist media discovery.
       case "Whimsy:GetPageMedia":
         return this.pageMedia();
+      // wave5/quick: Copy page as Markdown (WhimsyMarkdownCopy).
+      case "Whimsy:PageMarkdown":
+        return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageMarkdown.sys.mjs").pageToMarkdown(
+          this.document,
+          message.data
+        );
     }
     return null;
   }
