@@ -484,3 +484,12 @@ support-files = ["whimsy_page_actions.html"]
 
 # fix7/tabs: pinned tab marks
 ["browser_whimsy_pinned_marks.js"]
+
+# fix7 settings: Settings search finds every Whimsy group, in any pane.
+["browser_whimsy_settings_search.js"]
+
+# fix7 settings: command bar entries for History, Liquid Glass, Glance size, VPN.
+["browser_whimsy_settings_commands.js"]
+
+# fix7 settings: onboarding's finish leaves no zen-browser.app tabs.
+["browser_whimsy_onboarding_finish.js"]

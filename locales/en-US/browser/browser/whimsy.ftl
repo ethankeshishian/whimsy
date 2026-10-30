@@ -395,8 +395,11 @@ whimsy-open-link-in-space =
 
 whimsy-hex-input =
     .placeholder = #5B8CFF
-    .title = Type or paste a hex color, then press Return
+    .title = Type or paste a hex color, then press Return. Add two digits for opacity, like #5B8CFF80.
     .aria-label = Hex color
+whimsy-hex-add =
+    .tooltiptext = Add color
+    .aria-label = Add color
 
 ## Settings → Look and Feel → Look
 
@@ -968,7 +971,6 @@ whimsy-home-title = Whimsy
 whimsy-home-brand = Whimsy
 whimsy-home-tab-home = Home
 whimsy-home-tab-changelog = Changelog
-whimsy-home-hero-eyebrow = Lighter than air
 # The <em> part gets the balloon's gradient.
 whimsy-home-hero-title = A browser with <em>a little lift</em>.
 whimsy-home-blurb = Arc's flow, built on Zen and Firefox. Spaces, splits and the shortcuts your hands already know.
@@ -1018,10 +1020,10 @@ whimsy-changelog-unreleased = Unreleased
 ## Security card, and the command bar actions.
 
 whimsy-vpn-header =
-    .label = VPN
+    .label = VPN from Firefox
 whimsy-vpn-toggle =
     .label = Turn on VPN
-whimsy-vpn-description = Hides your location from the sites you visit, free for up to 50 GB a month. Turn it on from the button beside your profile icon — you’ll need to sign in with a Mozilla account.
+whimsy-vpn-description = Firefox’s free built-in VPN hides your location from the sites you visit, up to 50 GB a month. Sign in with a Mozilla account, then turn it on from the VPN button in the toolbar or the command bar.
 whimsy-vpn-manage-button =
     .label = Open VPN panel…
 whimsy-vpn-status-off = Off
@@ -1033,6 +1035,7 @@ whimsy-vpn-status-on = Connected
 whimsy-vpn-status-error = Connection error — open the VPN panel for details
 whimsy-action-vpn-on = Turn VPN On
 whimsy-action-vpn-off = Turn VPN Off
+whimsy-action-vpn-setup = Set Up VPN
 whimsy-vpn-on-toast = VPN on
 whimsy-vpn-off-toast = VPN off
 
@@ -1267,16 +1270,16 @@ whimsy-cheatsheet-private-window = New Private Window
 
 ## fixB: the Archive, now History's Closed filter in the Library
 
-whimsy-library-archive-intro = Tabs that left your sidebar. Click one to put it back in its space.
+whimsy-library-archive-intro = Click a tab to restore it.
 # $after - how long a tab sits unused before it archives itself
 whimsy-library-archive-intro-idle =
     { $after ->
-        [h24] Tabs you haven't used in 24 hours archive themselves.
-        [d7] Tabs you haven't used in 7 days archive themselves.
-        [d30] Tabs you haven't used in 30 days archive themselves.
-       *[h12] Tabs you haven't used in 12 hours archive themselves.
-    } Pinned tabs, Essentials and anything playing stay put.
-whimsy-library-archive-intro-manual = Auto-archive is off, so only tabs you close end up here.
+        [h24] Unused tabs archive after 24 hours.
+        [d7] Unused tabs archive after 7 days.
+        [d30] Unused tabs archive after 30 days.
+       *[h12] Unused tabs archive after 12 hours.
+    }
+whimsy-library-archive-intro-manual = Auto-archive is off.
 whimsy-library-archive-empty = No closed tabs yet.
 whimsy-library-archive-no-match = No closed tabs match.
 whimsy-library-archive-today = Today
@@ -2368,3 +2371,11 @@ whimsy-live-folder-jira-category-undefined =
 
 whimsy-tab-audio-mute = Mute tab
 whimsy-tab-audio-unmute = Unmute tab
+
+# fix7 settings: command bar actions for History, Liquid Glass and Glance size.
+whimsy-action-view-history = View History
+whimsy-action-liquid-glass-on = Turn Liquid Glass On
+whimsy-action-liquid-glass-off = Turn Liquid Glass Off
+whimsy-action-glance-size-compact = Glance Size: Compact
+whimsy-action-glance-size-standard = Glance Size: Standard
+whimsy-action-glance-size-wide = Glance Size: Wide

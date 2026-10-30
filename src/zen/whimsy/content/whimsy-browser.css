@@ -462,23 +462,76 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 }
 
-/* Hex colors: the field between Zen's color well and opacity in the theme
-   picker's custom color row. */
+/* Hex colors: Zen's custom color row (a stretched native color well, a
+   0-1 number spinner and a bare + button) becomes one field, like Arc's and
+   Figma's: a round swatch (the well, still clickable), the hex text and an
+   add button inside one bordered pill. The hex carries opacity (#RRGGBBAA),
+   so Zen's spinner hides; it stays in the DOM because Zen's addCustomColor
+   reads it, and the hex field writes the alpha into it. */
+#zen-theme-picker-color > hbox:has(> #whimsy-hex-input:not([hidden])) {
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding-inline: 6px 3px;
+  border: 1px solid var(--zen-input-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--zen-colors-input-bg);
+  transition: border-color 120ms ease-out;
+
+  &:focus-within {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-inset);
+  }
+
+  &:has(> #whimsy-hex-input[invalid]) {
+    border-color: light-dark(#d70022, #ff848b);
+  }
+
+  & > #PanelUI-zen-gradient-generator-custom-input {
+    appearance: none;
+    flex: none;
+    width: 20px !important;
+    height: 20px;
+    padding: 0 !important;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+
+    &::-moz-color-swatch {
+      border: 1px solid light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.2));
+      border-radius: 50%;
+    }
+  }
+
+  & > #PanelUI-zen-gradient-generator-custom-opacity {
+    display: none;
+  }
+
+  & > #PanelUI-zen-gradient-generator-color-custom-add {
+    flex: none;
+    margin: 0;
+    padding: 4px !important;
+    border-radius: var(--border-radius-small);
+  }
+}
+
 #whimsy-hex-input {
   flex: 1;
   min-width: 0;
-  max-width: 90px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   text-transform: uppercase;
 
   &::placeholder {
     text-transform: none;
-  }
-
-  &[invalid] {
-    outline: 1.5px solid light-dark(#d70022, #ff848b);
-    outline-offset: -1px;
   }
 }
 

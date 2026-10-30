@@ -6,7 +6,9 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
 
 // #13: typing "/" (Linear, VS Code's ">") in the URL bar enters Zen's
@@ -109,8 +111,26 @@ const APPEARANCE_ACTIONS = [
   "zen-action-switch-to-dark-mode",
 ];
 
+// fix7 settings: settings people looked for in the command bar and couldn't
+// find there: History (Zen's palette only had Reopen Closed Tab), Liquid
+// Glass and Glance size. Each follows its feature switch.
+const GLANCE_SIZES = ["compact", "standard", "wide"];
+
+function featureOn(id) {
+  return Services.prefs.getBoolPref(`whimsy.feature.${id}`, true);
+}
+
+function liquidGlassSupported() {
+  return (
+    featureOn("liquid-glass") &&
+    featureOn("transparency") &&
+    lazy.AppConstants.isPlatformAndVersionAtLeast("macosx", "25")
+  );
+}
+
 export const WhimsyCommandBar = {
   NEW_THINGS,
+  GLANCE_SIZES,
   NOTE_TARGETS,
   APPEARANCE_ACTIONS,
 
@@ -159,6 +179,51 @@ export const WhimsyCommandBar = {
         Services.prefs.getBoolPref(CREATE_FEATURE_PREF, true) &&
         Services.prefs.getStringPref(NOTE_TARGET_PREF, "none") != "none",
     });
+    // State-dependent settings toggles (function commands, no shortcut).
+    lazy.WhimsyShortcuts.addActions(this.settingsActions());
+  },
+
+  // History: Zen's Library on its History section (left open if it's
+  // already there), or Firefox's Library window when Zen's is off.
+  viewHistory(win) {
+    const Library = win.customElements.get("zen-library");
+    if (Library && Services.prefs.getBoolPref("zen.library.enabled", false)) {
+      if (!(Library.isLibraryOpen && Library.getInstance().activeTab == "history")) {
+        Library.toggle("history");
+      }
+      return;
+    }
+    win.PlacesCommandHook.showPlacesOrganizer("History");
+  },
+
+  settingsActions() {
+    return [
+      {
+        l10nId: "whimsy-action-view-history",
+        command: w => this.viewHistory(w),
+        icon: "chrome://browser/skin/zen-icons/history.svg",
+        isAvailable: () => true,
+      },
+      {
+        l10nId: "whimsy-action-liquid-glass-on",
+        command: () => Services.prefs.setBoolPref("whimsy.look.liquid-glass", true),
+        icon: "chrome://browser/skin/zen-icons/sparkles.svg",
+        isAvailable: () => liquidGlassSupported() && !Services.prefs.getBoolPref("whimsy.look.liquid-glass", false),
+      },
+      {
+        l10nId: "whimsy-action-liquid-glass-off",
+        command: () => Services.prefs.setBoolPref("whimsy.look.liquid-glass", false),
+        icon: "chrome://browser/skin/zen-icons/sparkles.svg",
+        isAvailable: () => liquidGlassSupported() && Services.prefs.getBoolPref("whimsy.look.liquid-glass", false),
+      },
+      ...GLANCE_SIZES.map(size => ({
+        l10nId: `whimsy-action-glance-size-${size}`,
+        command: () => Services.prefs.setStringPref("whimsy.glance.size", size),
+        icon: "chrome://browser/skin/zen-icons/window.svg",
+        isAvailable: () =>
+          featureOn("glance-size") && Services.prefs.getStringPref("whimsy.glance.size", "standard") != size,
+      })),
+    ];
   },
 
   initDedup(win) {

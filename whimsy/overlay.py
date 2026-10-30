@@ -510,6 +510,30 @@ HOTFIXES = [
         "old": '    .tooltiptext = Close all unpinned tabs',
         "new": '    .tooltiptext = Clear Today: archive every unpinned tab',
     },
+    # fix7 settings: onboarding's last step grouped the open tab into a
+    # "zen basics" folder. Zen did that to tidy its own welcome and privacy
+    # pages (zen-browser.app); Whimsy's first run opens only its homepage,
+    # so the folder just held about:whimsy under Zen's name.
+    {
+        "id": "welcome-no-zen-basics-folder",
+        "file": "src/zen/welcome/ZenWelcome.mjs",
+        "why": "Onboarding put the first tab in a folder named \"zen basics\"; "
+               "Whimsy's first run has no Zen pages to group, and any left over "
+               "from older builds close.",
+        "old": "      await this.#pinEssentials();\n"
+               "      let tabsToGroup = [];\n"
+               '      if (!gBrowser.selectedTab.hasAttribute("zen-empty-tab")) {\n'
+               "        tabsToGroup.push(gBrowser.selectedTab);\n"
+               "      }\n"
+               "      gZenFolders.createFolder(tabsToGroup, {\n"
+               "        renameFolder: false,\n"
+               '        label: "zen basics",\n'
+               "      });\n",
+        "new": "      await this.#pinEssentials(); // Whimsy hotfix: no \"zen basics\" folder\n"
+               '      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.finishOnboarding(window); // and no Zen first-run pages\n',
+        # (the second line closes zen-browser.app/welcome and /privacy-policy
+        # tabs that profiles made by pre-46fe4b3 builds still carry)
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
