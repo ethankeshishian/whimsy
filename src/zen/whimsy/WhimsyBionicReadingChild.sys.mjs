@@ -21,6 +21,25 @@ const WORD_CLASS = "whimsy-bionic-word";
 // The portion of each word's leading letters to bold. 0.5 sits in the
 // middle of the ~40-60% range the technique is usually described with.
 const BOLD_RATIO = 0.5;
+const BUTTON_SHEET =
+  "data:text/css," +
+  encodeURIComponent(`
+.whimsy-bionic-button > .whimsy-bionic-glyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 700 15px/1 Georgia, serif;
+  color: var(--icon-fill);
+  pointer-events: none;
+}
+.whimsy-bionic-button[aria-pressed="true"] {
+  background-color: var(--toolbar-button-background-active);
+  border-color: var(--toolbar-button-border-active);
+}
+.whimsy-bionic-button[aria-pressed="true"] > .whimsy-bionic-glyph {
+  color: var(--toolbar-button-foreground-active);
+}`);
 const WORD_RE = /([A-Za-z]+(?:['’][A-Za-z]+)?)|([^A-Za-z]+)/g;
 
 export class WhimsyBionicReadingChild extends JSWindowActorChild {
@@ -42,6 +61,15 @@ export class WhimsyBionicReadingChild extends JSWindowActorChild {
     this._button.title = "Bionic reading";
     this._button.setAttribute("aria-pressed", "false");
     this._button.addEventListener("click", () => this.toggle());
+    // Reader's toolbar buttons draw their icon as a background image chosen
+    // by class; this one has none, so it showed as an empty, invisible
+    // square. A bold "B" glyph marks it instead.
+    const glyph = this.document.createElement("span");
+    glyph.className = "whimsy-bionic-glyph";
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.textContent = "B";
+    this._button.append(glyph);
+    this._addStyle();
     toolbar.append(this._button);
     this._applyEnabled(this.enabled);
     try {
@@ -51,6 +79,21 @@ export class WhimsyBionicReadingChild extends JSWindowActorChild {
     } catch (e) {
       // No Fluent bundle reachable here: the title attribute already set
       // above is the fallback.
+    }
+  }
+
+  // about:reader's CSP (default-src chrome:) blocks an inline <style>, so
+  // the button's look goes in as an author sheet, as allow-copy does.
+  _addStyle() {
+    const win = this.contentWindow;
+    if (!win || this._styled) {
+      return;
+    }
+    this._styled = true;
+    try {
+      win.windowUtils.loadSheetUsingURIString(BUTTON_SHEET, win.windowUtils.AUTHOR_SHEET);
+    } catch (e) {
+      // Already loaded in this document.
     }
   }
 
