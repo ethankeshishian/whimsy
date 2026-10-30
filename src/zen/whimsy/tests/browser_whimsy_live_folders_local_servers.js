@@ -134,6 +134,33 @@ add_task(async function test_lists_running_servers() {
   await SpecialPowers.popPrefEnv();
 });
 
+// wave7/security L9: a local page's icon is fetched only from that server,
+// never from another host it names (or redirects to).
+add_task(async function test_icon_only_from_the_server_itself() {
+  const elsewhere = startServer({ icon: true });
+  const hits = [];
+  elsewhere.registerPathHandler("/beacon.png", (request, response) => {
+    hits.push(request.path);
+    response.setHeader("Content-Type", "image/png", false);
+    response.bodyOutputStream.write(PNG_BYTES, PNG_BYTES.length);
+  });
+  const other = `http://localhost:${portOf(elsewhere)}/beacon.png`;
+  const named = startServer({ html: `<title>Named</title><link rel="icon" href="${other}">` });
+  const redirecting = startServer({ html: '<title>Redirect</title><link rel="icon" href="/icon.png">' });
+  redirecting.registerPathHandler("/icon.png", (request, response) => {
+    response.setStatusLine(request.httpVersion, 302, "Found");
+    response.setHeader("Location", other, false);
+  });
+  await usePorts([portOf(named), portOf(redirecting)]);
+  const { provider } = makeProvider();
+  const items = await provider.fetchItems();
+  is(items.length, 2, "Both servers are listed");
+  ok(items.every(i => i.icon == FALLBACK_ICON), "with the fallback icon");
+  Assert.deepEqual(hits, [], "The other host was never asked");
+  await Promise.all([elsewhere, named, redirecting].map(stopServer));
+  await SpecialPowers.popPrefEnv();
+});
+
 add_task(async function test_polls_only_while_visible() {
   const app = startServer({ html: "<title>One</title>" });
   const other = startServer({ html: "<title>Two</title>" });
