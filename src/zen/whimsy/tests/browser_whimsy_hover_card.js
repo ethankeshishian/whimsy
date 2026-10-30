@@ -18,6 +18,7 @@ add_task(async function tab_hover_preview_on_by_default() {
 });
 
 add_task(async function card_delay_cancel_and_text_only() {
+  await SimpleTest.promiseFocus(window); // Panels open only in a focused window.
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.history-preview", true]] });
   const anchor = gBrowser.selectedTab;
   const card = WhimsyHoverCard.forWindow(window);

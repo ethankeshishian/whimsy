@@ -387,6 +387,7 @@ add_task(async function settings_look() {
 });
 
 add_task(async function tab_volume_panel() {
+  await SimpleTest.promiseFocus(window); // Panels open only in a focused window.
   const { WhimsyMedia } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMedia.sys.mjs");
   const panel = WhimsyMedia.openVolumePanel(window, gBrowser.selectedTab);
   try {
@@ -679,6 +680,7 @@ add_task(async function full_shortcut_catalogue() {
 
 // batch hover: the History hover card's text fallback (no saved thumbnail).
 add_task(async function hover_card_history() {
+  await SimpleTest.promiseFocus(window); // Panels open only in a focused window.
   const { WhimsyHoverCard } = ChromeUtils.importESModule(
     "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs"
   );
