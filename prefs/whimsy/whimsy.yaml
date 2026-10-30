@@ -442,6 +442,8 @@
 
 # wave5/profiles: per-profile search engine and download folder (synced maps,
 # WhimsyProfileSync: {profile key: [value, time]}; empty means none).
+# wave7/security L6: the download folder stays on this Mac (like Firefox's
+# own, it never syncs: another device could point downloads anywhere).
 - name: whimsy.profiles.search-engines
   value: ""
 
@@ -450,9 +452,6 @@
 
 - name: whimsy.profiles.download-dirs
   value: ""
-
-- name: services.sync.prefs.sync.whimsy.profiles.download-dirs
-  value: true
 
 # Login guid → profile key, and history page guid → profile keys (synced
 # maps, WhimsyProfileSync), so other devices scope passwords and history

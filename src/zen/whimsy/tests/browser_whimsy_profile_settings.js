@@ -82,6 +82,21 @@ add_task(async function download_folder_follows_the_front_profile() {
   await IOUtils.remove(dir);
 });
 
+// wave7/security L6: the download folder never syncs, and a folder in
+// ~/Library (LaunchAgents runs what lands there) is never applied.
+add_task(async function download_folder_stays_local_and_safe() {
+  ok(!Services.prefs.getDefaultBranch("").getBoolPref("services.sync.prefs.sync.whimsy.profiles.download-dirs", false),
+    "Download folders don't sync");
+  const agents = PathUtils.join(PathUtils.homeDir, "Library", "LaunchAgents");
+  await IOUtils.makeDirectory(agents, { ignoreExisting: true });
+  await WhimsyProfileSettings.setDownloadDir(workKey, agents);
+  const workTab = await inFront(work);
+  isnot(Services.prefs.getStringPref("browser.download.dir", ""), agents, "~/Library/LaunchAgents is never applied");
+  ok(!Services.prefs.prefHasUserValue("browser.download.dir"), "…the person's own folder stays");
+  await WhimsyProfileSettings.setDownloadDir(workKey, null);
+  BrowserTestUtils.removeTab(workTab);
+});
+
 add_task(async function feature_off_and_delete() {
   await WhimsyProfileSettings.setEngine(workKey, otherEngine.id);
   const workTab = await inFront(work);
