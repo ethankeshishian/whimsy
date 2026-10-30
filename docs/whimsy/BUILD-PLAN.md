@@ -221,3 +221,4 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 - Little Arc → rename "Mini Whimsy"; full Arc parity; floats above other windows (always on top).
 - Next meeting: go ahead with Apple Calendar (EventKit native component + calendar permission), plus Google.
 - Homepage + changelog right after the Claude space.
+- Space-aware history (user): in the Library History tab (filter exists there); add Arc-like "Where was the tab" info: which space each visit happened in, and filter by space.
