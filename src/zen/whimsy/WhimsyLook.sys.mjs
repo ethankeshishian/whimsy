@@ -50,6 +50,11 @@ const GLASS_PREF = "whimsy.look.liquid-glass";
 export const GLASS_TRANSPARENCY = 35;
 const HEX_INPUT_ID = "whimsy-hex-input";
 
+// wave5/look: a space's own font per window (WhimsySpaceLook): a family,
+// "" for the system font; no entry follows Settings.
+const spaceFonts = new WeakMap();
+const fontUpdaters = new WeakMap();
+
 function featureOn(pref) {
   return Services.prefs.getBoolPref(pref, true);
 }
@@ -214,10 +219,26 @@ export const WhimsyLook = {
     return Services.prefs.getStringPref(FONT_PREF, "").replace(/["\\;{}<>]/g, "").trim();
   },
 
+  // wave5/look: the active space's font for this window (undefined or
+  // null: follow Settings).
+  setSpaceFont(win, font) {
+    if (font === undefined || font === null) {
+      spaceFonts.delete(win);
+    } else {
+      spaceFonts.set(win, String(font).replace(/["\\;{}<>]/g, "").trim());
+    }
+    fontUpdaters.get(win)?.();
+  },
+
+  // The font win's interface uses: its space's, else Settings'.
+  windowFont(win) {
+    return win && spaceFonts.has(win) ? spaceFonts.get(win) : this.uiFont();
+  },
+
   initFont(win) {
     const root = win.document.documentElement;
     const update = () => {
-      const font = this.uiFont();
+      const font = this.windowFont(win);
       root.toggleAttribute("whimsy-ui-font", !!font);
       if (font) {
         root.style.setProperty("--whimsy-ui-font", `"${font}"`);
@@ -225,6 +246,7 @@ export const WhimsyLook = {
         root.style.removeProperty("--whimsy-ui-font");
       }
     };
+    fontUpdaters.set(win, update);
     Services.prefs.addObserver(FONT_PREF, update);
     Services.prefs.addObserver(FONT_FEATURE_PREF, update);
     win.addEventListener(

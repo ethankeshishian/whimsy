@@ -317,7 +317,10 @@ var gWhimsySettings = {
     const prefs = [...group.querySelectorAll("[preference]")];
     if (prefs.length) {
       Preferences.addAll(
-        prefs.map(el => ({ id: el.getAttribute("preference"), type: el.localName == "checkbox" ? "bool" : "string" }))
+        prefs.map(el => ({
+          id: el.getAttribute("preference"),
+          type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "string"),
+        }))
       );
       Preferences.queueUpdateOfAllElements();
     }

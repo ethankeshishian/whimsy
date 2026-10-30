@@ -1638,3 +1638,50 @@ add_task(async function video_captions() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave5/look: the per-space Look and Feel editor, and its button in Zen's
+// space creation form, in light and dark.
+add_task(async function wave5_space_look() {
+  const { WhimsySpaceLook } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceLook.sys.mjs");
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Reading", undefined, true);
+  try {
+    WhimsySpaceLook.setLook(window, space.uuid, { density: "roomy", lines: 2 });
+    for (const dark of [0, 1]) {
+      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+      const scheme = dark ? "dark" : "light";
+      try {
+        const panel = WhimsySpaceLook.openEditor(window, space.uuid);
+        await BrowserTestUtils.waitForPopupEvent(panel, "shown");
+        await document.l10n.translateFragment(panel);
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        ok(panel.querySelector(".whimsy-space-look-chip[aria-checked='true']"), "A density is selected");
+        await shot(`wave5-space-look-editor-${scheme}`);
+        const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+        panel.hidePopup();
+        await hidden;
+
+        await gZenWorkspaces.openWorkspaceCreation();
+        const button = await TestUtils.waitForCondition(
+          () => document.querySelector("zen-workspace-creation .whimsy-space-look-button"),
+          "The creation form offers Look and Feel"
+        );
+        const form = button.closest("zen-workspace-creation");
+        await document.l10n.translateFragment(form);
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        ok(button.getAttribute("label"), "The form's button is labelled");
+        await shot(`wave5-space-look-form-${scheme}`);
+        await form.onCancelButtonCommand();
+        await TestUtils.waitForCondition(() => !document.querySelector("zen-workspace-creation"), "The form is gone");
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+  } finally {
+    WhimsySpaceLook.reset(window, space.uuid);
+    if (gZenWorkspaces.activeWorkspace != home.uuid) {
+      await gZenWorkspaces.changeWorkspaceWithID(home.uuid);
+    }
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+  }
+});

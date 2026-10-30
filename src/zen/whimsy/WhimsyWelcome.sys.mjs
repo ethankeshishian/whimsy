@@ -153,7 +153,11 @@ export const WhimsyWelcome = {
     return {
       id: "whimsy-font",
       title: "whimsy-welcome-font-title",
-      descriptions: ["whimsy-welcome-font-description"],
+      // wave5/look: mention, never ask, that each space can differ.
+      descriptions: [
+        "whimsy-welcome-font-description",
+        ...(Services.prefs.getBoolPref("whimsy.feature.space-look", true) ? ["whimsy-welcome-font-per-space"] : []),
+      ],
       buttons: [kNextButton],
       skip() {
         return !self.fontSupported;

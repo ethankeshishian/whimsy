@@ -161,6 +161,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
 });
 
+// wave5/look: a look per space (font, density, title lines, a Zen Mod).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -615,6 +620,14 @@ export const Whimsy = {
     // wave5: redact. Adds the toggle to the Screenshots panel; it checks
     // whimsy.feature.redact each time the panel shows.
     run("redact", () => lazy.WhimsyRedact.initWindow(win));
+    // wave5/look: a look per space. After Zen's spaces are ready (Mini
+    // has none of its own and follows its destination's); it checks its
+    // switch on every change, so turning it off applies at once.
+    run("space-look", () =>
+      (win._whimsyQuickWindow ? Promise.resolve() : (win.gZenWorkspaces?.promiseInitialized ?? Promise.resolve()))
+        .then(() => lazy.WhimsySpaceLook.initWindow(win))
+        .catch(e => console.error("Whimsy: space-look", e))
+    );
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
