@@ -213,7 +213,14 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const elements = [...doc.querySelectorAll("video, audio")];
     for (const el of elements) {
       const src = el.currentSrc || el.src;
-      if (src && !src.startsWith("blob:") && !src.startsWith("mediasource:")) {
+      // fix7: streamed media (YouTube and most video sites feed the player
+      // through MediaSource, a blob: URL; calls use a live MediaStream) has
+      // no file to save. Reported so the Playlist can say so.
+      if (el.srcObject || src.startsWith("blob:") || src.startsWith("mediasource:")) {
+        results.push({ url: null, streamed: true, type: el.tagName.toLowerCase() == "audio" ? "audio" : "video" });
+        continue;
+      }
+      if (src) {
         results.push({
           url: src,
           title: doc.title || src.split("/").pop(),

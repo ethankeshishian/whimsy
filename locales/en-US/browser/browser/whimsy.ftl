@@ -1405,6 +1405,7 @@ whimsy-playlist-exists-toast = Already in your Playlist
 whimsy-playlist-private-toast = Playlist doesn’t save from private browsing
 whimsy-playlist-unsupported-toast = This media can’t be saved (only direct files can)
 whimsy-playlist-no-media-toast = No video or audio file on this page to save
+whimsy-playlist-streamed-toast = This site streams its video in a way that can’t be saved. Playlist saves direct video and audio files.
 whimsy-playlist-state-link = Saved link
 # $progress (number) - percent downloaded
 whimsy-playlist-state-downloading = Downloading { $progress }%
