@@ -504,3 +504,27 @@ add_task(async function whimsy_home_and_changelog() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave3/tree: Tree/Islands disclosure buttons and a folded branch.
+add_task(async function tree_disclosure() {
+  const { WhimsyTreeTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.tree-tabs", true]] });
+  const root = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?tree-root");
+  const child = BrowserTestUtils.addTab(gBrowser, "https://example.com/?tree-child", { openerBrowser: root.linkedBrowser });
+  await BrowserTestUtils.browserLoaded(child.linkedBrowser);
+  try {
+    WhimsyTreeTabs.render(window);
+    await document.l10n.translateFragment(root);
+    await shot("24-tree-expanded");
+    WhimsyTreeTabs.toggleBranch(window, root);
+    await shot("24-tree-collapsed");
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.tabs.tree-style", "islands"]] });
+    WhimsyTreeTabs.toggleBranch(window, root);
+    await shot("24-islands-expanded");
+    await SpecialPowers.popPrefEnv();
+  } finally {
+    await BrowserTestUtils.removeTab(child);
+    await BrowserTestUtils.removeTab(root);
+    await SpecialPowers.popPrefEnv();
+  }
+});

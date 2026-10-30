@@ -923,3 +923,11 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+
+# wave3/tree: tree tab disclosure buttons
+whimsy-tree-collapse =
+    .aria-label = Collapse subtree
+    .title = Collapse subtree
+whimsy-tree-expand =
+    .aria-label = Expand subtree
+    .title = Expand subtree

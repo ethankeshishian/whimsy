@@ -3,7 +3,7 @@
 
 "use strict";
 
-// Tree tabs (off by default): a tab opened from another gets nested under
+// Tree tabs (on by default since wave 3): a tab opened from another gets nested under
 // it; closing a parent archives the whole branch as one group instead of
 // leaving orphans, and the depth cap caps the *visual* indent, not the data.
 
@@ -60,8 +60,8 @@ add_task(async function test_depth_and_branch_archive() {
   await SpecialPowers.popPrefEnv();
 });
 
-add_task(async function test_off_by_default_and_orphan() {
-  ok(!Services.prefs.getBoolPref("whimsy.feature.tree-tabs"), "Off by default, per the build-plan answer");
+add_task(async function test_on_by_default_and_orphan() {
+  ok(Services.prefs.getBoolPref("whimsy.feature.tree-tabs"), "On by default (wave-3 request)");
   const orphan = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?orphan");
   is(WhimsyTreeTabs.depthOf(orphan), 0, "No opener at all renders at depth 0");
   BrowserTestUtils.removeTab(orphan);

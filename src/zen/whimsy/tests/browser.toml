@@ -235,3 +235,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # wave3/tree: Cmd+1-9 skip hidden spaces
 ["browser_whimsy_space_shortcuts.js"]
+
+# wave3/tree: tree tabs collapse/expand and drag-to-reparent
+["browser_whimsy_tree_collapse.js"]
