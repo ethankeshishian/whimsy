@@ -7,8 +7,8 @@
 // pane, its resized layout and its arrangement. And when the saved layout
 // lost a pane (zen#12403), the restored split still shows all its tabs.
 
-const { SessionStore } = ChromeUtils.importESModule("resource:///modules/sessionstore/SessionStore.sys.mjs");
-const { TabStateFlusher } = ChromeUtils.importESModule("resource:///modules/sessionstore/TabStateFlusher.sys.mjs");
+const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
 const { WhimsySplitRestore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitRestore.sys.mjs");
 
 function leaves(node, out = []) {

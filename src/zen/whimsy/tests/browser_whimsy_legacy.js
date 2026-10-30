@@ -112,7 +112,8 @@ add_task(async function test_default_bookmarks() {
   ok(html.includes('data-l10n-id="whimsy-default-bookmarks-heading"'), "U2: a Whimsy folder");
   ok(html.includes(`href="${CHANGELOG}"`), "U2: ...with the changelog");
   ok(html.includes(`href="${ISSUES}"`), "U2: ...and feedback");
-  ok(!/mozilla\.org/.test(html), "U2: no Mozilla links");
+  // (The MPL license comment names mozilla.org; links are what matter.)
+  ok(!/(?:href|icon)="[^"]*mozilla\.org/.test(html), "U2: no Mozilla links");
   const l10n = new Localization(["browser/whimsy.ftl"]);
   is(await l10n.formatValue("whimsy-default-bookmarks-heading"), "Whimsy", "U2: the folder is named Whimsy");
 });

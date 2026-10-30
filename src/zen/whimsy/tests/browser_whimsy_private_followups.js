@@ -15,7 +15,7 @@ const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy
 const { UrlbarProviderOpenTabs } = ChromeUtils.importESModule(
   "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs"
 );
-const { DownloadsCommon } = ChromeUtils.importESModule("resource:///modules/DownloadsCommon.sys.mjs");
+const { DownloadsCommon } = ChromeUtils.importESModule("moz-src:///browser/components/downloads/DownloadsCommon.sys.mjs");
 const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
