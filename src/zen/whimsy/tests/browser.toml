@@ -229,3 +229,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # batch hist: visit metadata and the Library History space filter.
 ["browser_whimsy_space_history.js"]
+
+# home: homepage + changelog (about:whimsy).
+["browser_whimsy_home.js"]

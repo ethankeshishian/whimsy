@@ -76,6 +76,9 @@ def check_xhtml(files):
         if f.endswith(".xhtml") and "whimsy" in f and os.path.exists(f):
             body = "".join(l for l in open(f, encoding="utf-8") if not l.startswith("#"))
             body = re.sub(r"<\?xml[^>]*\?>", "", body)
+            # home: a standalone page (not a Zen .inc.xhtml fragment) starts
+            # with a DOCTYPE, which can't appear inside the wrapper below.
+            body = re.sub(r"<!DOCTYPE[^>]*>", "", body, flags=re.I)
             wrapped = ('<root xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" '
                        'xmlns:html="http://www.w3.org/1999/xhtml">' + body + "</root>")
             try:
@@ -167,6 +170,12 @@ check_l10n_containers(files)
 overlay = subprocess.run([sys.executable, "whimsy/overlay.py", "check"], capture_output=True, text=True)
 if overlay.returncode:
     problems.append("whimsy/overlay.py check failed:\n" + overlay.stdout.strip())
+
+# home: committed release notes must match their reviewed source.
+changelog = subprocess.run([sys.executable, "whimsy/generate_changelog.py", "--check"],
+                           capture_output=True, text=True)
+if changelog.returncode:
+    problems.append(changelog.stderr.strip() or "Changelog check failed")
 
 missing_strings = [f for f in os.listdir("locales/en-US/browser/browser")
                    if f.startswith("zen") and not os.path.exists(f"engine/browser/locales/en-US/browser/{f}")]

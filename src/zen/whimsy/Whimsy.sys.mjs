@@ -65,8 +65,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // batch hist: visit-space recorder.
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
   WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
-  // batch7b: about:whimsy (offline game + year in tabs)
-  WhimsyAboutPage: "resource:///modules/whimsy/WhimsyAboutPage.sys.mjs",
   WhimsyStats: "resource:///modules/whimsy/WhimsyStats.sys.mjs",
 });
 
@@ -349,8 +347,6 @@ export const Whimsy = {
         ?.then(() => lazy.WhimsySpaceExtensions.initWindow(win))
         .catch(e => console.error("Whimsy: space-extensions", e))
     );
-    // batch7b: about:whimsy, shared by the offline game and Year in tabs.
-    run("about-pages", () => lazy.WhimsyAboutPage.register());
     // batch7b: offline game (whimsy://game). Always installed: the command
     // bar action and the net-error button both check the switch on use.
     run("game-action", () => {

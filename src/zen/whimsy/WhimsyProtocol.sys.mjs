@@ -28,6 +28,9 @@ const ROUTES = {
   // batch7b: offline game + year in tabs (about:whimsy, WhimsyAboutPage.sys.mjs).
   game: { url: "about:whimsy?game" },
   year: { url: "about:whimsy?year" },
+  // home: the homepage and its Changelog tab (about:whimsy).
+  home: { url: "about:whimsy" },
+  changelog: { url: "about:whimsy?tab=changelog" },
 };
 
 const PATTERN = /^whimsy:\/\/([a-z-]+)\/?$/i;

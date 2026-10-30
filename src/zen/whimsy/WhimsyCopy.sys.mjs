@@ -138,7 +138,15 @@ export const WhimsyCopy = {
   },
 
   isBlank(uri) {
-    return uri.spec == "about:blank" || uri.spec == "about:newtab" || uri.spec == "about:home";
+    // Home/Changelog behave like the homepage; game/year remain copyable.
+    const [page, query] = uri.specIgnoringRef.split("?");
+    return (
+      uri.spec == "about:blank" ||
+      uri.spec == "about:newtab" ||
+      uri.spec == "about:home" ||
+      (page == "about:whimsy" &&
+        (!query || query.startsWith("tab=") || query.split("&")[0] == "home"))
+    );
   },
 
   // Copy Clean Link's stripping, like Zen's copy (gURLBar.zenStrippedURI).
