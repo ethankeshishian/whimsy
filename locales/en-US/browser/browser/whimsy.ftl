@@ -1274,16 +1274,16 @@ whimsy-cheatsheet-private-window = New Private Window
 
 ## fixB: the Archive, now History's Closed filter in the Library
 
-whimsy-library-archive-intro = Tabs that left your sidebar. Click one to put it back in its space.
+whimsy-library-archive-intro = Click a tab to restore it.
 # $after - how long a tab sits unused before it archives itself
 whimsy-library-archive-intro-idle =
     { $after ->
-        [h24] Tabs you haven't used in 24 hours archive themselves.
-        [d7] Tabs you haven't used in 7 days archive themselves.
-        [d30] Tabs you haven't used in 30 days archive themselves.
-       *[h12] Tabs you haven't used in 12 hours archive themselves.
-    } Pinned tabs, Essentials and anything playing stay put.
-whimsy-library-archive-intro-manual = Auto-archive is off, so only tabs you close end up here.
+        [h24] Unused tabs archive after 24 hours.
+        [d7] Unused tabs archive after 7 days.
+        [d30] Unused tabs archive after 30 days.
+       *[h12] Unused tabs archive after 12 hours.
+    }
+whimsy-library-archive-intro-manual = Auto-archive is off.
 whimsy-library-archive-empty = No closed tabs yet.
 whimsy-library-archive-no-match = No closed tabs match.
 whimsy-library-archive-today = Today
