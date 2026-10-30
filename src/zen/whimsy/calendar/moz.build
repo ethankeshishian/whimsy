@@ -1,0 +1,31 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# meeting: Next meeting's macOS Calendar (EventKit) reader. Only built on
+# macOS (see ../moz.build); the app's Info.plist carries the calendar usage
+# strings (src/browser/app/macbuild/Contents/whimsy-Info-plist-in.patch).
+
+XPIDL_SOURCES += [
+    "nsIWhimsyCalendar.idl",
+]
+
+XPIDL_MODULE = "whimsy_calendar"
+
+EXPORTS.mozilla += [
+    "nsWhimsyCalendar.h",
+]
+
+SOURCES += [
+    "nsWhimsyCalendar.mm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+OS_LIBS += [
+    "-framework EventKit",
+]
+
+FINAL_LIBRARY = "xul"

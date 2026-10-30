@@ -765,3 +765,56 @@ Object.assign(gWhimsySettings, {
     refresh();
   },
 });
+
+// meeting: Settings → Look and Feel → Next meeting. Its own listener and
+// methods (like batch9 above), so it doesn't collide with other batches.
+// Ticking "Read Apple Calendar" flips the pref, and that is the moment
+// WhimsyNextMeeting asks macOS for access (never at startup).
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == gWhimsySettings.PANE) {
+    gWhimsySettings.insertNextMeetingGroup();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertNextMeetingGroup() {
+    const template = document.getElementById("template-whimsyNextMeeting");
+    if (!template) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    template.remove();
+    if (AppConstants.platform != "macosx") {
+      group.querySelector("#whimsyNextMeetingApple")?.remove();
+    }
+    Preferences.addAll(
+      [...group.querySelectorAll("[preference]")].map(el => ({
+        id: el.getAttribute("preference"),
+        type: "bool",
+      }))
+    );
+    const anchor = document.getElementById("whimsyLookGroup") || document.getElementById("whimsyUiZoomGroup");
+    if (anchor) {
+      anchor.after(fragment);
+    } else {
+      document.getElementById("mainPrefPane").append(fragment);
+    }
+    group.hidden = false;
+    const sync = () => {
+      const on = Services.prefs.getBoolPref("whimsy.feature.next-meeting", true);
+      for (const id of ["whimsyNextMeetingApple", "whimsyNextMeetingCard"]) {
+        const box = document.getElementById(id);
+        if (box) {
+          box.disabled = !on;
+        }
+      }
+    };
+    Services.prefs.addObserver("whimsy.feature.next-meeting", sync);
+    window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.feature.next-meeting", sync), {
+      once: true,
+    });
+    sync();
+    Preferences.queueUpdateOfAllElements();
+  },
+});

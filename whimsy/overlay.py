@@ -314,6 +314,9 @@ FEATURES = [
     # tierC-claude: the Claude space (Claude in Chrome parity via a local MCP server).
     {"id": "claude-space", "title": "Claude space: a local MCP server lets Claude Code read and use tabs in a dedicated Claude space (off until turned on in Settings)",
      "detect": [("src/zen", r"(?i)mcp-?server|claude-?space|modelcontextprotocol")]},
+    # meeting: Next meeting in the sidebar.
+    {"id": "next-meeting", "title": "Next meeting in the sidebar: Apple Calendar and Google Calendar accounts, a Join button for Meet/Zoom/Teams, and a card 15 min before",
+     "detect": [("src/zen", r"(?i)EKEventStore|next-?meeting|meeting-?chip")]},
 ]
 
 

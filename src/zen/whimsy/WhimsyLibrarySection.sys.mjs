@@ -19,6 +19,8 @@ const SECTIONS = [
   { sectionId: "whimsy-notes", feature: "notes", name: "WhimsyNotesSection" },
   { sectionId: "whimsy-finder-folders", feature: "finder-folders", name: "WhimsyFinderFoldersSection" },
   { sectionId: "whimsy-files", feature: "screenshot-sidebar", name: "WhimsyFilesSection" },
+  // meeting: Next meeting (TODO wave2 merge: port the module to content/*.mjs like the others)
+  { sectionId: "whimsy-next-meeting", feature: "next-meeting", name: "WhimsyNextMeetingSection" },
 ];
 
 export const WhimsyLibrarySection = {

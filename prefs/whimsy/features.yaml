@@ -273,7 +273,11 @@
 - name: whimsy.feature.live-folders-linear
   value: true
 
+<<<<<<< HEAD
 - name: whimsy.feature.claude-space
+=======
+- name: whimsy.feature.next-meeting
+>>>>>>> wave2/meeting
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

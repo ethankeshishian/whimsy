@@ -250,3 +250,18 @@
 
 - name: whimsy.claude.space-id
   value: ""
+# meeting: Next meeting in the sidebar (Library → Meetings).
+# Read macOS Calendar (EventKit). Off until the person turns it on, which is
+# when Whimsy asks macOS for calendar access.
+- name: whimsy.next-meeting.apple-calendar
+  value: false
+
+# Google Calendar secret iCal addresses, a list kept by the Library's
+# Meetings tab. Empty means none.
+- name: whimsy.next-meeting.google-calendars
+  value: ""
+
+# The compact card near the top of the sidebar, from 15 minutes before a
+# meeting until 10 minutes after it starts.
+- name: whimsy.next-meeting.sidebar-card
+  value: true

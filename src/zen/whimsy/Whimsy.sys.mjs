@@ -70,6 +70,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // tierC-claude: the Claude space (local MCP server for Claude Code).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyClaude: "resource:///modules/whimsy/WhimsyClaude.sys.mjs",
+  // meeting: Next meeting in the sidebar
+  WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -370,6 +372,14 @@ export const Whimsy = {
       ]);
       this.maybeShowYearToast(win);
     });
+    // tierC-claude: the Claude space. Once per session, it only watches its
+    // switches; the server and page actor exist only while the user has
+    // turned Claude on in Settings.
+    run("claude-space", () => lazy.WhimsyClaude.initWindow(win));
+    // meeting: Next meeting in the sidebar. Always installed: the service
+    // checks its switch on each refresh, and never asks for calendar
+    // access here (only when the person turns Apple Calendar on).
+    run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
@@ -387,10 +397,6 @@ export const Whimsy = {
     }
     Services.prefs.setIntPref("whimsy.year.last-toast-year", year);
     win.gZenUIManager?.showToast?.("whimsy-year-ready-toast", {});
-    // tierC-claude: the Claude space. Once per session, it only watches its
-    // switches; the server and page actor exist only while the user has
-    // turned Claude on in Settings.
-    run("claude-space", () => lazy.WhimsyClaude.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

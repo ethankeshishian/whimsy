@@ -219,3 +219,7 @@ support-files = ["whimsy_linear.sjs"]
 # tierC-claude: the Claude space (local MCP server, scope, Stop).
 ["browser_whimsy_claude_space.js"]
 support-files = ["whimsy_claude.html"]
+
+# meeting: Next meeting in the sidebar.
+["browser_whimsy_next_meeting.js"]
+support-files = ["whimsy_calendar.sjs"]

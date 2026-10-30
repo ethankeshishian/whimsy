@@ -1,0 +1,53 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * @brief Handed the answer of an nsIWhimsyCalendar call, on the main thread.
+ */
+[scriptable, function, uuid(82ba19b8-019b-4dd9-afb1-134b9be11e06)]
+interface nsIWhimsyCalendarCallback : nsISupports {
+  /**
+   * @param success Whether the call did what it was asked.
+   * @param result requestAccess: the authorization status afterwards (see
+   *        nsIWhimsyCalendar.authorizationStatus), or
+   *        "missing-usage-description" when the app's Info.plist lacks the
+   *        calendar usage strings (macOS would end the app otherwise).
+   *        upcomingEvents: a JSON array of events on success, otherwise a
+   *        short reason such as "not-authorized".
+   */
+  void onComplete(in boolean success, in AUTF8String result);
+};
+
+/**
+ * @brief The events in macOS Calendar (EventKit), every account it holds.
+ * Only Whimsy's "Next meeting" uses it, and only once the person turns on
+ * Apple Calendar there: nothing here asks for access on its own.
+ */
+[scriptable, uuid(e77b034a-6433-4fda-80c3-154621ec6385)]
+interface nsIWhimsyCalendar : nsISupports {
+  /**
+   * @brief Whether the app may read events, without asking: one of
+   * "notDetermined", "restricted", "denied", "fullAccess", "writeOnly".
+   */
+  readonly attribute ACString authorizationStatus;
+
+  /**
+   * @brief Ask macOS for full access to events. The first time, macOS shows
+   * its permission prompt; after that it answers straight away.
+   */
+  void requestAccess(in nsIWhimsyCalendarCallback callback);
+
+  /**
+   * @brief The events that haven't ended yet and start within the next
+   * `hours` hours (ones that started up to 12 hours ago and are still on
+   * are included), read off the main thread. Each one is an object with
+   * id, title, start and end (ms since the epoch), allDay, location?,
+   * notes?, url?, calendar, calendarId, account?, color?, cancelled and
+   * declined (the person declined it).
+   */
+  void upcomingEvents(in unsigned long hours,
+                      in nsIWhimsyCalendarCallback callback);
+};
