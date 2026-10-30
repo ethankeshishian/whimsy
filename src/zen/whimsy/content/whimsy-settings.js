@@ -227,11 +227,15 @@ var gWhimsySettings = {
     if (!group.querySelector("[preference]")) {
       return;
     }
+    // Skip prefs a Firefox or Zen pane already registered (Preferences
+    // throws on a second add; e.g. browser.uidensity, Firefox's Appearance).
     Preferences.addAll(
-      [...group.querySelectorAll("[preference]")].map(el => ({
-        id: el.getAttribute("preference"),
-        type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "int"),
-      }))
+      [...group.querySelectorAll("[preference]")]
+        .filter(el => !Preferences.get(el.getAttribute("preference")))
+        .map(el => ({
+          id: el.getAttribute("preference"),
+          type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "int"),
+        }))
     );
     // At the end of Zen's Workspaces section, before "Pinned Tabs".
     const anchor = document.getElementById("zenWorkspacesGroup");
@@ -327,10 +331,12 @@ var gWhimsySettings = {
     const prefs = [...group.querySelectorAll("[preference]")];
     if (prefs.length) {
       Preferences.addAll(
-        prefs.map(el => ({
-          id: el.getAttribute("preference"),
-          type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "string"),
-        }))
+        prefs
+          .filter(el => !Preferences.get(el.getAttribute("preference")))
+          .map(el => ({
+            id: el.getAttribute("preference"),
+            type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "string"),
+          }))
       );
       Preferences.queueUpdateOfAllElements();
     }

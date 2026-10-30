@@ -110,6 +110,7 @@ export const WhimsyMedia = {
     this.initMuteSite(win);
     this.initTabVolume(win);
     this.initPlaybackSpeed(win);
+    this.initSpeakerNames(win);
     win.gBrowser.tabContainer.addEventListener("TabSelect", event => {
       try {
         this.snapBackPip(event.target);
@@ -120,6 +121,44 @@ export const WhimsyMedia = {
   },
 
   // --- Mute background tabs ---
+
+  // wave5/audioicon: Arc's speaker is always on screen, so it needs a name
+  // all the time ("Mute tab" / "Unmute tab"), not only in the hover
+  // tooltip Firefox fills in.
+  initSpeakerNames(win) {
+    const name = tab => {
+      const button = tab.audioButton;
+      if (!button || !Services.prefs.getBoolPref("whimsy.feature.arc-audio-icon", true)) {
+        return;
+      }
+      // On moz-button's inner <button>: setting the host's mapped aria-label
+      // re-renders moz-button mid-update, which trips over moz-label's own
+      // DOM changes (a lit "insertBefore of null" error). moz-button leaves
+      // the inner attribute alone while its own ariaLabel stays unset.
+      const inner = button.buttonEl;
+      if (!inner) {
+        return;
+      }
+      if (!tab.hasAttribute("soundplaying") && !tab.hasAttribute("muted")) {
+        inner.removeAttribute("aria-label");
+        return;
+      }
+      const id = tab.hasAttribute("muted") ? "whimsy-tab-audio-unmute" : "whimsy-tab-audio-mute";
+      win.document.l10n
+        .formatValue(id)
+        .then(label => label && inner.setAttribute("aria-label", label))
+        .catch(e => console.error("Whimsy: speaker name", e));
+    };
+    win.gBrowser.tabContainer.addEventListener("TabAttrModified", event => {
+      if (event.detail?.changed?.some(attr => attr == "soundplaying" || attr == "muted")) {
+        // After moz-button's own update for this change has rendered.
+        const tab = event.target;
+        Promise.resolve(tab.audioButton?.updateComplete)
+          .then(() => name(tab))
+          .catch(e => console.error("Whimsy: speaker name", e));
+      }
+    });
+  },
 
   initBackgroundMute(win) {
     const { gBrowser } = win;

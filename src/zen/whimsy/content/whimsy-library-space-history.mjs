@@ -347,6 +347,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
     }
     this._spaceOptions = [...options].sort((a, b) => a[1].localeCompare(b[1]));
     this._whimsyItems = items;
+    this._whimsyItemsView = view;
     this.requestUpdate();
     await this._fitFilterPanel(generation);
   }
@@ -430,7 +431,10 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
 
   get #visibleItems() {
     const space = this.#pickedSpace;
-    let items = this._whimsyItems || [];
+    // Switching between Closed and Snoozed renders before the new list has
+    // loaded: never draw one view's items (closed tabs have no wake time)
+    // as the other's.
+    let items = this._whimsyItemsView == this.whimsyView ? this._whimsyItems || [] : [];
     if (space) {
       items = items.filter(item => item.zenWorkspace == space);
     }

@@ -2213,3 +2213,8 @@ whimsy-links-follower =
     .label = Follower splits: links in one pane open in the other
 whimsy-links-follower-help = To start one, right-click a tab in a split and choose Make This a Follower Split.
 whimsy-links-spaces-header = Spaces
+
+## wave5/audioicon: the tab speaker's name (always shown, so always named)
+
+whimsy-tab-audio-mute = Mute tab
+whimsy-tab-audio-unmute = Unmute tab

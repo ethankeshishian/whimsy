@@ -38,6 +38,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   gWhimsyNotesStore: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
@@ -690,16 +691,17 @@ export const WhimsyVerbs = {
   initWindow(win) {
     this.init();
     const shortcuts = lazy.WhimsyShortcuts;
-    shortcuts.addCommand(win, { id: COMMAND_ID, run: w => this.open(w).catch(console.error) });
+    // The command bar's "Actions for Selection" (selection or page verbs)
+    // is a registered command; Cmd+K is its own command (verbs only for a
+    // selection, else Firefox's web search), bound below.
+    lazy.WhimsyCommands.register(win, {
+      id: COMMAND_ID,
+      l10nId: "whimsy-action-selection-verbs",
+      run: w => this.open(w).catch(console.error),
+      icon: `${ICONS}bolt.svg`,
+      isAvailable: w => this.enabled && isWebPage(w),
+    });
     shortcuts.addCommand(win, { id: KEY_COMMAND_ID, run: w => this.openFromKey(w).catch(console.error) });
-    shortcuts.addActions([
-      {
-        l10nId: "whimsy-action-selection-verbs",
-        command: COMMAND_ID,
-        icon: `${ICONS}bolt.svg`,
-        isAvailable: w => this.enabled && isWebPage(w),
-      },
-    ]);
     if (!this.enabled || shortcuts.isCustomized("key_search")) {
       return;
     }

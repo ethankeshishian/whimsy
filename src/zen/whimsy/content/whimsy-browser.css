@@ -2439,7 +2439,9 @@ whimsy-library-easels-section .zen-library-empty {
     --button-size-icon-small: 20px;
     --button-min-height-small: 20px;
     --button-icon-fill: currentColor;
-    /* Zen pulls it 4px toward the favicon; Arc leaves ~6px before the title. */
+    /* Zen pulls it 4px over the favicon; Arc keeps it clear of the favicon
+       and leaves ~6px before the title. */
+    margin-inline-start: 0 !important;
     margin-inline-end: 3px !important;
 
     &[soundplaying]::part(button) {
