@@ -16,6 +16,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   CustomKeys: "moz-src:///browser/components/customkeys/CustomKeys.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -72,58 +73,36 @@ export const WhimsyShortcuts = {
     }
   },
 
-  // A Whimsy command for a window: a <command> that runs `run(win)`, and,
-  // with `key`, a <key> for it (shown in the command bar and menus).
+  // wave5: the helpers below are kept for code that hasn't moved to
+  // WhimsyCommands.register yet (and for Mini Whimsy's window-only keys,
+  // which take Cmd+O and Cmd+Shift+O there on purpose, so they skip the
+  // conflict check). They feed the same registry, so their keys are
+  // recorded and their command-bar names listed. New code calls
+  // WhimsyCommands.register(win, { id, l10nId, run, key, ... }) instead.
   addCommand(win, { id, run, key = null }) {
-    const { document } = win;
-    if (document.getElementById(id)) {
-      return document.getElementById(id);
-    }
-    const command = document.createXULElement("command");
-    command.id = id;
-    command.addEventListener("command", () => {
-      try {
-        run(win);
-      } catch (e) {
-        console.error(`Whimsy: ${id} failed`, e);
-      }
-    });
-    (document.getElementById("mainCommandSet") ?? document.documentElement).append(command);
+    const command = lazy.WhimsyCommands.addCommandElement(win, id, run);
+    lazy.WhimsyCommands.describe({ id, keyId: key?.id, key });
     if (key) {
-      this.addKey(win, { ...key, command: id });
+      lazy.WhimsyCommands.addKey(win, { ...key, command: id, allowConflict: true });
     }
     return command;
   },
 
-  // A <key> for an existing command, in Whimsy's own keyset beside
-  // Firefox's (Zen rebuilds its own).
-  addKey(win, { id, command, key = null, keycode = null, modifiers }) {
-    const { document } = win;
-    if (document.getElementById(id)) {
-      return;
-    }
-    const keyEl = document.createXULElement("key");
-    keyEl.id = id;
-    keyEl.setAttribute("command", command);
-    keyEl.setAttribute("modifiers", modifiers);
-    keyEl.setAttribute(keycode ? "keycode" : "key", keycode ?? key);
-    let keyset = document.getElementById("whimsyKeyset");
-    if (!keyset) {
-      keyset = document.createXULElement("keyset");
-      keyset.id = "whimsyKeyset";
-    }
-    keyset.append(keyEl);
-    // Gecko reads <key>s only when their keyset is (re)bound.
-    keyset.remove();
-    (document.getElementById("mainKeyset")?.parentElement ?? document.documentElement).append(keyset);
+  addKey(win, spec) {
+    lazy.WhimsyCommands.describe({ id: spec.command, keyId: spec.id, key: spec });
+    lazy.WhimsyCommands.addKey(win, { ...spec, allowConflict: true });
   },
 
   // Adds actions to Zen's command bar (once per session): { l10nId (in
   // whimsy.ftl), command (a <command> id or a function of the window),
-  // icon, isAvailable(win) }.
+  // icon, isAvailable(win) }. A function command can't take a shortcut;
+  // use WhimsyCommands.register for anything new.
   addActions(actions) {
     const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
     for (const action of actions) {
+      if (typeof action.command == "string") {
+        lazy.WhimsyCommands.describe({ id: action.command, l10nId: action.l10nId });
+      }
       if (globalActions.some(a => a.l10nId == action.l10nId)) {
         continue;
       }

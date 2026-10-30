@@ -24,6 +24,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyClaudeChild.sys.mjs",
     "WhimsyClaudeParent.sys.mjs",
     "WhimsyCommandBar.sys.mjs",
+    "WhimsyCommands.sys.mjs",
     "WhimsyCookieBanners.sys.mjs",
     "WhimsyCookieEditor.sys.mjs",
     "WhimsyCopy.sys.mjs",

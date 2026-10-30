@@ -62,6 +62,12 @@ HOOKS = [
      r'^(\s*)\?pending=\$\{pending\}\s*$',
      '{indent}.whimsyDownload=${download}',
      "before"),
+    # wave5: command registry. about:keyboard lists Whimsy's commands in a
+    # "Whimsy" group (WhimsyCommands.sys.mjs), so every one can be bound.
+    ("kbs-whimsy-commands", "src/zen/kbs/ZenKeyboardShortcuts.sys.mjs",
+     r"^(\s*)return keys;\s*$",
+     '{indent}keys = await ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.addKeys(actor, keys); // Whimsy hook',
+     "before"),
 ]
 
 HOTFIXES = [
@@ -650,7 +656,7 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)qlmanage|QLPreviewPanel")]},
     {"id": "drag-downloads", "title": "A panel stays open while you drag a download out of it into a site",
      "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
-    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (Cmd+Opt+S) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
+    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
     {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
      "detect": [("src/zen", r"(?i)cheat-?sheet")]},
@@ -789,6 +795,9 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5: command registry
+    {"id": "command-registry", "title": "Every Whimsy action is a named command: in the command bar and under \"Whimsy\" in Settings → Keyboard Shortcuts, so any of them can take a shortcut",
+     "detect": [("src/zen", r"(?i)WHIMSY_KEY_CATEGORIES|registerKeyCategor(y|ies)|extraKeyCategories")]},
 ]
 
 
