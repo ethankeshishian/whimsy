@@ -84,6 +84,15 @@ export const WhimsySnooze = {
       return;
     }
     this.initMenu(win);
+    // wave5: the tab menu's "Snooze…" as a command for the current tab.
+    const canSnooze = tab => !!tab && !tab.pinned && !tab.hasAttribute("zen-essential");
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+      id: "cmd_whimsySnoozeTab",
+      l10nId: "whimsy-action-snooze-tab",
+      run: w => canSnooze(w.gBrowser.selectedTab) && this.openPanel(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/moon-stars.svg",
+      isAvailable: w => this.enabled && canSnooze(w.gBrowser.selectedTab),
+    });
     if (!this._resumed) {
       this._resumed = true;
       this.resume(win);

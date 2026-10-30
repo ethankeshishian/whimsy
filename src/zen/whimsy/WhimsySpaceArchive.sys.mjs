@@ -58,6 +58,15 @@ export const WhimsySpaceArchive = {
       { once: true }
     );
     this.initContextMenu(win);
+    // wave5: the space menu's "Hide This Space" as a command for the
+    // current space.
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+      id: "cmd_whimsyHideSpace",
+      l10nId: "whimsy-action-hide-space",
+      run: w => featureOn() && this.toggleHidden(w, w.gZenWorkspaces.activeWorkspace),
+      icon: "chrome://browser/skin/zen-icons/selectable/eye.svg",
+      isAvailable: w => featureOn() && w.gZenWorkspaces.getWorkspaces().filter(s => !s.whimsyHidden).length > 1,
+    });
   },
 
   wrapShortcutSwitch(win) {

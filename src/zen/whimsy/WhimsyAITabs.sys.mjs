@@ -74,6 +74,17 @@ export const WhimsyAITabs = {
     }
     const state = { renderQueued: false };
     windows.set(win, state);
+    // wave5: the broom on the Today line, as a command for the current space.
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+      id: "cmd_whimsyTidyTabs",
+      l10nId: "whimsy-action-tidy-tabs",
+      run: w => this.tidy(w),
+      icon: "chrome://browser/skin/zen-icons/sparkles.svg",
+      isAvailable: w =>
+        this.tidyEnabled &&
+        !lazy.PrivateBrowsingUtils.isWindowPrivate(w) &&
+        this.todayTabs(w).length >= MIN_TIDY_TABS,
+    });
     const container = win.gBrowser.tabContainer;
     const render = () => this.queueRender(win);
     for (const type of ["TabClose", "TabPinned", "TabUnpinned", "TabShow", "TabHide", "TabGrouped"]) {
