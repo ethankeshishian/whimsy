@@ -98,7 +98,7 @@ export class WhimsyNextMeetingSection extends ZenLibrarySearchSection {
         class="zen-library-row whimsy-meeting-row"
         ?whimsy-meeting-live=${!until}
         data-meeting-id=${event.id}
-        @click=${() => service.join(this.ownerGlobal, event)}
+        @click=${() => service.join(this.documentGlobal, event)}
       >
         <span
           class="whimsy-meeting-dot"
@@ -121,7 +121,7 @@ export class WhimsyNextMeetingSection extends ZenLibrarySearchSection {
               data-l10n-id="whimsy-meeting-join"
               @click=${e => {
                 e.stopPropagation();
-                service.join(this.ownerGlobal, event);
+                service.join(this.documentGlobal, event);
               }}
             ></button>`
           : ""}
@@ -241,7 +241,7 @@ export class WhimsyNextMeetingSection extends ZenLibrarySearchSection {
             type="button"
             class="whimsy-meeting-help"
             data-l10n-id="whimsy-meeting-google-help"
-            @click=${() => this.ownerGlobal.openTrustedLinkIn(GOOGLE_HELP_URL, "tab")}
+            @click=${() => this.documentGlobal.openTrustedLinkIn(GOOGLE_HELP_URL, "tab")}
           ></button>
           <button type="submit" class="whimsy-meeting-source-action" data-l10n-id="whimsy-meeting-google-add-confirm"></button>
         </div>

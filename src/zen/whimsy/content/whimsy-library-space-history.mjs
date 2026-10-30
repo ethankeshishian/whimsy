@@ -115,7 +115,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
       for (const visit of Object.values(file.data.visits)) {
         options.set(visit.spaceId, visit.spaceName);
       }
-      for (const space of this.ownerGlobal.gZenWorkspaces?.getWorkspaces() || []) {
+      for (const space of this.documentGlobal.gZenWorkspaces?.getWorkspaces() || []) {
         if (!space.whimsyScratch) {
           // The dropdown uses today's name; each row keeps its visit-time name.
           options.set(space.uuid, space.name);

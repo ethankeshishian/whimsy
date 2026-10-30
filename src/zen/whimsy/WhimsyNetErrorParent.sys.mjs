@@ -15,7 +15,7 @@ export class WhimsyNetErrorParent extends JSWindowActorParent {
       return;
     }
     const browser = this.browsingContext.top.embedderElement;
-    const win = browser?.ownerGlobal;
+    const win = browser?.documentGlobal;
     win?.openTrustedLinkIn("about:whimsy?game", "current");
   }
 }

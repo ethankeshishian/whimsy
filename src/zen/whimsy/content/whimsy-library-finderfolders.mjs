@@ -57,12 +57,12 @@ export class WhimsyFinderFoldersSection extends ZenLibrarySearchSection {
 
   #startPolling() {
     this.#stopPolling();
-    this.#pollTimer = this.ownerGlobal.setInterval(() => this.#refreshExpanded(), POLL_MS);
+    this.#pollTimer = this.documentGlobal.setInterval(() => this.#refreshExpanded(), POLL_MS);
   }
 
   #stopPolling() {
     if (this.#pollTimer) {
-      this.ownerGlobal.clearInterval(this.#pollTimer);
+      this.documentGlobal.clearInterval(this.#pollTimer);
       this.#pollTimer = null;
     }
   }
@@ -92,7 +92,7 @@ export class WhimsyFinderFoldersSection extends ZenLibrarySearchSection {
     const [title] = await this.ownerDocument.l10n.formatValues([
       "whimsy-library-finder-folders-picker-title",
     ]);
-    picker.init(this.ownerGlobal.browsingContext, title ?? "", picker.modeGetFolder);
+    picker.init(this.documentGlobal.browsingContext, title ?? "", picker.modeGetFolder);
     const result = await new Promise(resolve => picker.open(resolve));
     if ((result != picker.returnOK && result != picker.returnReplace) || !picker.file) {
       return;

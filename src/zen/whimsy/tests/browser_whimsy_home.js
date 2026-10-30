@@ -147,7 +147,7 @@ add_task(async function test_changelog_empty_invalid_and_text() {
 });
 
 add_task(async function test_import_uses_existing_arc_migrator() {
-  const { MigrationUtils } = ChromeUtils.importESModule("resource:///modules/MigrationUtils.sys.mjs");
+  const { MigrationUtils } = ChromeUtils.importESModule("moz-src:///browser/components/migration/MigrationUtils.sys.mjs");
   const original = MigrationUtils.showMigrationWizard;
   let request;
   MigrationUtils.showMigrationWizard = (opener, options) => { request = { opener, options }; };

@@ -113,7 +113,7 @@ function initImportFromArc() {
   button.addEventListener("click", () => {
     try {
       const { MigrationUtils } = ChromeUtils.importESModule(
-        "resource:///modules/MigrationUtils.sys.mjs"
+        "moz-src:///browser/components/migration/MigrationUtils.sys.mjs"
       );
       const win = window.browsingContext.topChromeWindow;
       MigrationUtils.showMigrationWizard(win, {

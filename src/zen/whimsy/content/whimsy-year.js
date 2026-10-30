@@ -275,7 +275,7 @@
       );
       const browser = window.browsingContext.embedderElement;
       await ScreenshotsUtils.copyScreenshot(blob, browser, "WhimsyYearInTabs");
-      browser?.ownerGlobal?.gZenUIManager?.showToast?.("whimsy-year-copied-toast", {});
+      browser?.documentGlobal?.gZenUIManager?.showToast?.("whimsy-year-copied-toast", {});
     } catch (e) {
       console.error("Whimsy: Year in tabs - copy card failed", e);
     }
@@ -286,7 +286,7 @@
   copyBtn.addEventListener("click", copyCurrentCard);
   doneBtn.addEventListener("click", () => {
     const browser = window.browsingContext.embedderElement;
-    const win = browser?.ownerGlobal;
+    const win = browser?.documentGlobal;
     const tab = win?.gBrowser?.getTabForBrowser?.(browser);
     if (tab) {
       win.gBrowser.removeTab(tab);
