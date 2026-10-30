@@ -570,66 +570,35 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   opacity: 1;
 }
 
-/* Menu icons (whimsy.look.menu-icons, Settings → Look and Feel): macOS 26
-   draws a small symbol beside each item in Apple's own menus (Safari's
-   context menu included). Whimsy's context menus and tab menu get the same,
-   from Zen's icon set: monochrome, so macOS tints them with the menu text
-   (native menus read the icon from .menu-icon's content). Checkbox and
-   radio items stay plain, as on macOS. Back, Forward, Reload and Bookmark
-   keep Firefox's own icons. */
+/* Menu icons (whimsy.look.menu-icons, Settings → Look and Feel; off by
+   default): macOS 26 draws a small symbol beside each item in Apple's own
+   menus (Safari's context menu included). WhimsyMenuIcons gives each row
+   of the tab menu and the page/link/selection/media menus its icon from
+   Zen's set (the row's [whimsy-menu-icon] and --whimsy-menu-icon) and
+   moves the rows with one to the top of their section. Monochrome, so
+   macOS tints them with the menu text (native menus read the icon from
+   .menu-icon's content). Checkbox and radio items stay plain, as on
+   macOS. */
 @media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
-  #context-savepage { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/save.svg"); }
-  #context-print-selection { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/print.svg"); }
-  #context-take-screenshot { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/screenshot.svg"); }
-  #context-viewsource { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/brackets-curly.svg"); }
-  #context-inspect { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/developer.svg"); }
-  #context-sendpagetodevice { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/send-to-device.svg"); }
-  #context-translate-selection { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/translations.svg"); }
-  #context-viewpartialsource-selection { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/brackets-curly.svg"); }
-  #context-openlinkintab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/plus.svg"); }
-  #context-openlinkinsplitview { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/split.svg"); }
-  #context-openlink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/window.svg"); }
-  #context-openlinkprivate { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/private-window.svg"); }
-  #context-bookmarklink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/bookmark-hollow.svg"); }
-  #context-savelink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/downloads.svg"); }
-  #context-copylink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
-  #context-stripOnShareLink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
-  #context-sendlinktodevice { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/send-to-device.svg"); }
-  #context-undo { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/arrow-rotate-anticlockwise.svg"); }
-  #context-cut { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-cut.svg"); }
-  #context-copy { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
-  #context-paste { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-paste.svg"); }
-  #context-delete { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/trash.svg"); }
-  #context-searchselect { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/search-glass.svg"); }
-  #context-viewimage { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/open.svg"); }
-  #context-copyimage-contents { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
-  #context-saveimage { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/save.svg"); }
-  #context-sendimage { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/mail.svg"); }
-  #context-media-play { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-play.svg"); }
-  #context-media-pause { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-pause.svg"); }
-  #context-media-mute { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-mute.svg"); }
-  #context-media-unmute { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-unmute.svg"); }
-  #context-video-pictureinpicture { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/popup.svg"); }
-  #context-savevideo { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/save.svg"); }
-  #context_openANewTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/plus.svg"); }
-  #context_reloadTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/reload.svg"); }
-  #context_toggleMuteTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-mute.svg"); }
-  #context_pinTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/pin.svg"); }
-  #context_unpinTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/unpin.svg"); }
-  #context_duplicateTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/duplicate-tab.svg"); }
-  #context_bookmarkTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/bookmark-hollow.svg"); }
-  #context_closeTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/close.svg"); }
-  #context_undoCloseTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/history.svg"); }
-  #context_moveTabOptions { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/move-cursor.svg"); }
-  #context_sendTabToDevice { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/send-to-device.svg"); }
-
-  :is(#context-savepage, #context-print-selection, #context-take-screenshot, #context-viewsource, #context-inspect, #context-sendpagetodevice, #context-translate-selection, #context-viewpartialsource-selection, #context-openlinkintab, #context-openlinkinsplitview, #context-openlink, #context-openlinkprivate, #context-bookmarklink, #context-savelink, #context-copylink, #context-stripOnShareLink, #context-sendlinktodevice, #context-undo, #context-cut, #context-copy, #context-paste, #context-delete, #context-searchselect, #context-viewimage, #context-copyimage-contents, #context-saveimage, #context-sendimage, #context-media-play, #context-media-pause, #context-media-mute, #context-media-unmute, #context-video-pictureinpicture, #context-savevideo, #context_openANewTab, #context_reloadTab, #context_toggleMuteTab, #context_pinTab, #context_unpinTab, #context_duplicateTab, #context_bookmarkTab, #context_closeTab, #context_undoCloseTab, #context_moveTabOptions, #context_sendTabToDevice):not([type="checkbox"], [type="radio"]) > .menu-icon {
+  :is(#tabContextMenu, #contentAreaContextMenu) > :is(menuitem, menu)[whimsy-menu-icon]:not([type="checkbox"], [type="radio"]) > .menu-icon {
     content: var(--whimsy-menu-icon);
     display: revert;
     visibility: inherit;
     -moz-context-properties: fill, fill-opacity;
     fill: currentColor;
     fill-opacity: 0.85;
+  }
+}
+
+/* wave7/menus2: with the option off, no row of those menus shows an icon,
+   Firefox's own included (its iconic rows, e.g. the DRM "Learn more").
+   Extension rows bring theirs as an image attribute, which macOS reads
+   before this, so they keep it, as in Arc. Submenus keep the icons that
+   identify their rows (space emoji, container and tab group colors). */
+@media (not -moz-pref("whimsy.feature.menu-icons")) or (not -moz-pref("whimsy.look.menu-icons")) {
+  :is(#tabContextMenu, #contentAreaContextMenu) > :is(menuitem, menu):not([image]) > .menu-icon {
+    content: none !important;
+    display: none !important;
   }
 }
 
@@ -2501,16 +2470,6 @@ whimsy-space-history-section {
     animation: none;
     opacity: 1;
   }
-}
-
-/* wave5/quick: QR code for any page (menu icon, as the other page items). */
-@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
-  #context-whimsy-qrcode { --whimsy-menu-icon: url("chrome://browser/content/sharing/qr-code.svg"); }
-}
-
-/* wave5/quick: Copy page as Markdown (menu icon). */
-@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
-  #context-whimsy-copy-markdown { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
 }
 
 /* wave5/quick: new season toast. Zen's toast with the costumed balloon

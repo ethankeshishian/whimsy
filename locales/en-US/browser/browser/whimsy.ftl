@@ -409,7 +409,7 @@ whimsy-look-transparency-value =
        *[other] { $value }%
     }
 whimsy-look-menu-icons =
-    .label = Show icons in menus
+    .label = Show icons in right-click menus, like macOS 26
 whimsy-look-reading-time =
     .label = Show how long an article takes to read, next to the Reader View button
 whimsy-look-dark-pdf =

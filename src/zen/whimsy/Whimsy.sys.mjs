@@ -211,6 +211,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave7/menus2: Arc's archive words in the tab menu; menu icons option.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArchiveMenu: "resource:///modules/whimsy/WhimsyArchiveMenu.sys.mjs",
+  WhimsyMenuIcons: "resource:///modules/whimsy/WhimsyMenuIcons.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -710,6 +711,7 @@ export const Whimsy = {
     // Tab (checks its switch on every show), then the menu icons option,
     // last, so it sees every row the other listeners showed or added.
     run("archive-tab-menu", () => lazy.WhimsyArchiveMenu.initWindow(win));
+    run("menu-icons", () => lazy.WhimsyMenuIcons.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

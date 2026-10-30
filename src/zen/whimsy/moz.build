@@ -71,6 +71,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyMarkdownCopy.sys.mjs",
     "WhimsyMedia.sys.mjs",
     "WhimsyMenuBarExtra.sys.mjs",
+    "WhimsyMenuIcons.sys.mjs",
     "WhimsyNetErrorChild.sys.mjs",
     "WhimsyNetErrorParent.sys.mjs",
     "WhimsyNextMeeting.sys.mjs",
