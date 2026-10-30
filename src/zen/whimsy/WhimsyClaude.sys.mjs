@@ -145,6 +145,7 @@ async function writePrivate(name, contents, permissions = 0o600) {
 const ACTIVE_MS = 15000;
 const LOAD_TIMEOUT_MS = 20000;
 const MAX_SHOT_WIDTH = 1280;
+const MAX_TAB_TITLE = 200;
 
 // The Claude space's look: Claude's sparkle and its terracotta.
 const SPACE_ICON = "chrome://browser/skin/zen-icons/sparkles.svg";
@@ -856,6 +857,35 @@ export const WhimsyClaude = {
     };
   },
 
+  // Tab titles and URLs come from pages too (security M3): cleaned of
+  // invisible text, the title clipped and marked as untrusted, and a title
+  // or URL that tries to instruct Claude pauses it like page text does.
+  async guardTabs(tabs, generation) {
+    const described = tabs.map(tab => this.describeTab(tab));
+    if (!this.shieldOn) {
+      return described;
+    }
+    const shield = lazy.WhimsyClaudeShield;
+    const nonce = shield.nonce();
+    for (let i = 0; i < tabs.length; i++) {
+      const item = described[i];
+      const title = shield.clean(item.title);
+      const url = shield.clean(item.url);
+      const clipped = title.text.length > MAX_TAB_TITLE ? `${title.text.slice(0, MAX_TAB_TITLE - 1)}…` : title.text;
+      const smuggled = [title.smuggled, url.smuggled].filter(Boolean).join("\n");
+      const reasons = shield.scan(`${title.text}\n${url.text}`, smuggled);
+      if (smuggled && !reasons.includes("hidden")) {
+        reasons.push("hidden");
+      }
+      if (reasons.length) {
+        await this.shieldPause(tabs[i], reasons, generation);
+      }
+      item.title = shield.mark(clipped, nonce);
+      item.url = url.text;
+    }
+    return described;
+  },
+
   // --- The Claude space ---
 
   ensureSpace(win) {
@@ -1288,8 +1318,8 @@ export const WhimsyClaude = {
   // --- Tool handlers ---
 
   handlers: {
-    async tabs_list() {
-      const tabs = [...this.allTabs()].filter(tab => this.inScope(tab)).map(tab => this.describeTab(tab));
+    async tabs_list(args, generation) {
+      const tabs = await this.guardTabs([...this.allTabs()].filter(tab => this.inScope(tab)), generation);
       if (!tabs.length) {
         return "No tabs yet. Use tabs_create to open one in the Claude space.";
       }
@@ -1305,7 +1335,7 @@ export const WhimsyClaude = {
       if (uri) {
         await this.waitForLoad(tab.linkedBrowser);
       }
-      return this.describeTab(tab);
+      return (await this.guardTabs([tab], generation))[0];
     },
 
     async tabs_close(args, generation) {
@@ -1335,7 +1365,7 @@ export const WhimsyClaude = {
         }
         await loaded;
         this.assertLive(generation);
-        return this.describeTab(tab);
+        return (await this.guardTabs([tab], generation))[0];
       });
     },
 
