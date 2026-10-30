@@ -100,7 +100,7 @@ whimsy-live-folder-linear-option-team =
 whimsy-live-folder-linear-prompt-team = Enter a team key to filter to (for example ENG), or leave blank for all your assigned issues
 whimsy-live-folder-linear-no-auth =
     .label = Not signed in to Linear
-    .tooltiptext = Add a personal API key, or sign in to linear.app in this container.
+    .tooltiptext = Add a personal API key, or sign in to linear.app in this space’s profile.
 whimsy-live-folder-linear-apikey-title = Linear API Key
 whimsy-live-folder-linear-apikey-text = Paste a personal API key from linear.app → Settings → Security & access → Personal API keys.
 
@@ -1044,7 +1044,7 @@ whimsy-vpn-scope-title = Protect
 whimsy-vpn-scope-browser = All spaces
 whimsy-vpn-scope-space = This space
 whimsy-vpn-scope-help = Protects this space’s tabs, and any other space set up to share it — not tabs elsewhere. Tabs already open switch over once you reload them, and your site exceptions still apply.
-whimsy-vpn-scope-no-container = This space isn’t linked to a container yet. Add one in Edit Space to protect just this space — tabs already open will need reopening to pick it up.
+whimsy-vpn-scope-no-container = This space uses the Default profile, so it can’t be protected on its own. Give it another profile with Set Profile on the space’s menu to protect just this space.
 whimsy-vpn-scope-covered = Spaces with VPN enabled: { $spaces }
 whimsy-vpn-scope-all = VPN enabled for all spaces.
 whimsy-vpn-scope-button-off = VPN off
