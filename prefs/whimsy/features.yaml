@@ -273,11 +273,28 @@
 - name: whimsy.feature.live-folders-linear
   value: true
 
-<<<<<<< HEAD
+- name: whimsy.feature.game
+  value: true
+
+- name: whimsy.feature.year-in-tabs
+  value: true
+
+- name: whimsy.feature.net-error-branding
+  value: true
+
 - name: whimsy.feature.claude-space
-=======
+  value: true
+
 - name: whimsy.feature.next-meeting
->>>>>>> wave2/meeting
+  value: true
+
+- name: whimsy.feature.space-extensions
+  value: true
+
+- name: whimsy.feature.space-history
+  value: true
+
+- name: whimsy.feature.home
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.
