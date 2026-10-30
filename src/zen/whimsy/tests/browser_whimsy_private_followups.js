@@ -76,20 +76,28 @@ add_task(async function test_switch_to_tab_stays_on_its_side() {
   const priv = await openPrivateTab(privateURL);
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
 
+  // Zen selects the found tab a moment later (it may change spaces first).
+  const selects = (tab, msg) => TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, msg);
+  const settle = () => new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  await selects(other, "The blank tab is selected");
+
   // From a normal tab.
   ok(!window.switchToTabHavingURI(privateURL, false), "A normal tab can't switch to a private tab");
+  await settle();
   is(gBrowser.selectedTab, other, "Selection didn't move");
   ok(window.switchToTabHavingURI(normalURL, false), "... but can to a normal one");
-  is(gBrowser.selectedTab, normal, "Switched to the normal tab");
+  await selects(normal, "Switched to the normal tab");
 
   // From a private tab.
   gBrowser.selectedTab = priv;
+  await selects(priv, "The private tab is selected");
   const priv2 = await openPrivateTab(uniqueURL("switch-private-2"));
-  is(gBrowser.selectedTab, priv2, "A second private tab is selected");
+  await selects(priv2, "A second private tab is selected");
   ok(!window.switchToTabHavingURI(normalURL, false), "A private tab can't switch to a normal tab");
+  await settle();
   is(gBrowser.selectedTab, priv2, "Selection didn't move");
   ok(window.switchToTabHavingURI(privateURL, false), "... but can to another private one");
-  is(gBrowser.selectedTab, priv, "Switched to the private tab");
+  await selects(priv, "Switched to the private tab");
 
   await closeTab(priv2);
   await closeTab(priv);
