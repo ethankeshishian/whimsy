@@ -493,3 +493,21 @@
 # wave6/zap: things zapped off pages (WhimsyZap), counted for Year in tabs.
 - name: whimsy.stats.zapped
   value: 0
+
+# Find (Cmd+F): highlight every match like Chrome, lighter for the others
+# and stronger for the current one. Firefox's own "Highlight All", on by
+# default; the find bar's checkbox still turns it off.
+- name: findbar.highlightAll
+  value: true
+
+- name: ui.textHighlightBackground
+  value: "#fff1a8"
+
+- name: ui.textHighlightForeground
+  value: "#1d1a26"
+
+- name: ui.textSelectAttentionBackground
+  value: "#ff9632"
+
+- name: ui.textSelectAttentionForeground
+  value: "#1d1a26"

@@ -496,3 +496,5 @@ support-files = ["whimsy_page_actions.html"]
 
 # fix/panes: Firefox's Appearance and Tabs and browsing panes merged into Zen's.
 ["browser_whimsy_settings_panes.js"]
+
+["browser_whimsy_find_highlight_all.js"]
