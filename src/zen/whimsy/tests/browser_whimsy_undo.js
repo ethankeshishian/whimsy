@@ -24,6 +24,22 @@ function pressUndo({ shift = false } = {}) {
   EventUtils.synthesizeKey("z", modifiers, window);
 }
 
+function focusUndoTarget(tab) {
+  // Zen's empty sentinel is display:none, so .focus() on it is a no-op.
+  // Keep a real anchor tab selected instead of assuming blur moves focus
+  // out of the URL bar (or that the selected tab is a visible user tab).
+  ok(!tab.hasAttribute("zen-empty-tab"), "Undo target is a user tab");
+  gBrowser.selectedTab = tab;
+  gURLBar.view.close();
+  tab.focus();
+  is(document.activeElement, tab, "Undo is sent to a visible chrome tab, outside editable fields");
+}
+
+add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.undo-tab-actions", true]] });
+  await gZenWorkspaces.promiseInitialized;
+});
+
 add_task(async function test_undo_close_restores_in_place() {
   const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?anchor");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?undo-close");
@@ -33,8 +49,7 @@ add_task(async function test_undo_close_restores_in_place() {
   await recorded;
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before - 1, "Closed");
   ok(WhimsyUndo.canUndo(window), "Something to undo");
-  gBrowser.selectedTab.focus();
-  is(document.activeElement, gBrowser.selectedTab, "Undo is sent to a chrome tab, outside editable fields");
+  focusUndoTarget(anchor);
   pressUndo();
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before, "Restored");
   const restored = await TestUtils.waitForCondition(
@@ -47,7 +62,7 @@ add_task(async function test_undo_close_restores_in_place() {
 });
 
 add_task(async function test_undo_ignored_in_editable_field() {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.undo-tab-actions", true]] });
+  const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?editable-anchor");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?editable-guard");
   const recorded = BrowserTestUtils.waitForSessionStoreUpdate(tab);
   gBrowser.removeTab(tab, { animate: false });
@@ -55,14 +70,19 @@ add_task(async function test_undo_ignored_in_editable_field() {
   await TestUtils.waitForCondition(() => WhimsyUndo.canUndo(window), "A pending undo exists");
   gURLBar.focus();
   gURLBar.value = "hello";
+  gURLBar.inputField.setSelectionRange(5, 5);
+  EventUtils.synthesizeKey("x", {}, window);
+  is(gURLBar.value, "hellox", "A real text edit can be undone");
+  is(document.activeElement, gURLBar.inputField, "The URL bar input receives text undo");
   const before = gBrowser.tabs.length;
   pressUndo();
   // Cmd+Z in the URL bar is plain text undo; our stack must still have the
   // entry (nothing was popped) and no tab should have reappeared from it.
   is(gBrowser.tabs.length, before, "No tab restored while focus was in the url bar");
+  is(gURLBar.value, "hello", "Cmd+Z undoes the text edit");
   ok(WhimsyUndo.canUndo(window), "The undo entry is still there");
-  gBrowser.selectedTab.focus();
-  is(document.activeElement, gBrowser.selectedTab, "Undo is sent to a chrome tab, outside editable fields");
+  gURLBar.handleRevert();
+  focusUndoTarget(anchor);
   pressUndo();
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before + 1, "Now it restores");
   const restored = await TestUtils.waitForCondition(
@@ -70,7 +90,7 @@ add_task(async function test_undo_ignored_in_editable_field() {
     "Restored tab loaded its URL"
   );
   BrowserTestUtils.removeTab(restored);
-  await SpecialPowers.popPrefEnv();
+  BrowserTestUtils.removeTab(anchor);
 });
 
 add_task(async function test_undo_move_to_space_and_redo() {
@@ -85,12 +105,15 @@ add_task(async function test_undo_move_to_space_and_redo() {
   }
   const originalSpace = window.gZenWorkspaces.activeWorkspace;
   const other = spaces.find(s => s.uuid != originalSpace);
+  const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?move-anchor");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?move-undo");
   window.gZenWorkspaces.moveTabToWorkspace(tab, other.uuid);
   is(tab.getAttribute("zen-workspace-id"), other.uuid, "Moved");
+  focusUndoTarget(anchor);
   pressUndo();
   await TestUtils.waitForCondition(() => tab.getAttribute("zen-workspace-id") == originalSpace, "Undo moved it back");
   pressUndo({ shift: true });
   await TestUtils.waitForCondition(() => tab.getAttribute("zen-workspace-id") == other.uuid, "Redo moved it again");
   BrowserTestUtils.removeTab(tab);
+  BrowserTestUtils.removeTab(anchor);
 });
