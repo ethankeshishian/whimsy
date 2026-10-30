@@ -66,6 +66,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySpaceArchive.sys.mjs",
     "WhimsySpaceExtensions.sys.mjs",
     "WhimsySpaceHistory.sys.mjs",
+    "WhimsySpaceIcons.sys.mjs",
     "WhimsySpaceLock.sys.mjs",
     "WhimsySpaces.sys.mjs",
     "WhimsySplit.sys.mjs",

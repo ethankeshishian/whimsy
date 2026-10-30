@@ -685,6 +685,9 @@ FEATURES = [
      "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
     {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
      "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
+    # wave3/icons: Arc's space icon picker
+    {"id": "space-icon-picker", "title": "Space icon picker as Arc's: Arc's 56 glyphs first (Zen's after), 8-across grid, current icon on a plate, closes on pick, emoji skin tones",
+     "detect": [("src/zen/common/emojis", r"skin-?tone|skinTone|1f3fb|1F3FB|\\u\{1f3fb\}")]},
 ]
 
 

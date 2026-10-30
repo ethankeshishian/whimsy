@@ -106,6 +106,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBangs: "resource:///modules/whimsy/WhimsyBangs.sys.mjs",
 });
 
+// wave3/icons: Arc's space icon picker.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySpaceIcons: "resource:///modules/whimsy/WhimsySpaceIcons.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -466,6 +471,14 @@ export const Whimsy = {
     // wave3/cmdbar: offline bangs. Registered once even when off; the
     // provider checks its switch on every query.
     run("offline-bangs", () => lazy.WhimsyBangs.init());
+    // wave3/icons: Arc's space icon picker. After Zen's spaces are ready,
+    // like "spaces" above (so its picker listeners run after Zen's and
+    // emoji search's); it checks its switch each time the picker opens.
+    run("space-icon-picker", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceIcons.initWindow(win))
+        .catch(e => console.error("Whimsy: space-icon-picker", e))
+    );
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

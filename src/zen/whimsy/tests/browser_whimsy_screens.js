@@ -985,3 +985,44 @@ add_task(async function welcome_look_pages() {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+
+// wave3/icons: Arc's space icon picker: the Icon tab (Arc's 56 glyphs, the
+// current one on a plate, Zen's after the rule) and the Emoji tab in a
+// skin tone.
+add_task(async function space_icon_picker() {
+  if (!SHOTS || !Services.prefs.getBoolPref("whimsy.feature.space-icon-picker", true)) {
+    return;
+  }
+  const workspace = gZenWorkspaces.getWorkspaceFromId(gZenWorkspaces.activeWorkspace);
+  const before = workspace.icon;
+  workspace.icon = "chrome://browser/content/whimsy/space-icons/thumbs-up.svg";
+  await gZenWorkspaces.saveWorkspace(workspace);
+  Services.prefs.setIntPref("whimsy.spaces.emoji-skin-tone", 3);
+  const panel = document.getElementById("PanelUI-zen-emojis-picker");
+  try {
+    await TestUtils.waitForCondition(() =>
+      gZenWorkspaces.activeWorkspaceIndicator?.querySelector(".zen-current-workspace-indicator-icon")
+    );
+    const shown = BrowserTestUtils.waitForEvent(panel, "popupshown");
+    gZenWorkspaces.changeWorkspaceIcon();
+    await shown;
+    await document.l10n.translateFragment(panel);
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await shot("wave3-space-icon-picker");
+    document.getElementById("PanelUI-zen-emojis-picker-change-emojis").doCommand();
+    await new Promise(resolve => setTimeout(resolve, 500)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await shot("wave3-space-icon-picker-emoji-tone");
+  } finally {
+    // Picking the current glyph closes the card without an unhandled
+    // "closed without selection" rejection.
+    const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    panel.querySelector("[whimsy-current]")?.doCommand();
+    if (panel.state != "closed") {
+      panel.hidePopup();
+    }
+    await hidden;
+    Services.prefs.clearUserPref("whimsy.spaces.emoji-skin-tone");
+    workspace.icon = before;
+    await gZenWorkspaces.saveWorkspace(workspace);
+  }
+});

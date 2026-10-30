@@ -46,3 +46,10 @@
         content/browser/whimsy/whimsy-changelog.json                            (../../zen/whimsy/content/whimsy-changelog.json)
 # fixB: the Archive as a Library section
         content/browser/whimsy/whimsy-library-archive.mjs (../../zen/whimsy/content/whimsy-library-archive.mjs)
+# wave3/icons: Arc's space icon picker; glyphs Zen's set lacks (Ionicons, MIT)
+        content/browser/whimsy/space-icons/bandage.svg (../../zen/whimsy/content/space-icons/bandage.svg)
+        content/browser/whimsy/space-icons/calendar.svg (../../zen/whimsy/content/space-icons/calendar.svg)
+        content/browser/whimsy/space-icons/cloud-outline.svg (../../zen/whimsy/content/space-icons/cloud-outline.svg)
+        content/browser/whimsy/space-icons/receipt.svg (../../zen/whimsy/content/space-icons/receipt.svg)
+        content/browser/whimsy/space-icons/thumbs-up.svg (../../zen/whimsy/content/space-icons/thumbs-up.svg)
+        content/browser/whimsy/space-icons/train.svg (../../zen/whimsy/content/space-icons/train.svg)
