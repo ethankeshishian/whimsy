@@ -65,6 +65,12 @@ add_setup(async function () {
       // (permission.disabled skips Firefox's WebRTC UI, so no tab would ever
       // look like it's in a call.)
       ["media.navigator.permission.fake", true],
+      ["media.audio_loopback_dev", ""],
+      ["media.video_loopback_dev", ""],
+      // getUserMedia otherwise waits for the window to have OS focus, which
+      // a test window in the middle of a run may not (Firefox's WebRTC tests
+      // set the same).
+      ["media.getusermedia.window.focus_source.enabled", false],
       ["media.autoplay.default", 0],
       ["media.autoplay.blocking_policy", 0],
     ],

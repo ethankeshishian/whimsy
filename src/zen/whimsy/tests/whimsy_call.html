@@ -2,13 +2,16 @@
 <html>
 <head><meta charset="utf-8"><title>Whimsy call</title></head>
 <body>
-<!-- A stand-in for a video call: camera + microphone (fake streams in
+<!-- A stand-in for a video call: camera (fake stream in
      tests), shown in a muted video the way Meet shows its tiles. -->
 <video id="speaker" muted autoplay playsinline style="width: 480px; height: 360px"></video>
 <video id="self" muted autoplay playsinline style="width: 160px; height: 120px; transform: scaleX(-1)"></video>
 <script>
+  // Camera only: a fake microphone stream never resolved in a headless run
+  // after earlier tests had played audio. A camera alone already makes the
+  // tab a call (the microphone case is covered with a stub in the test).
   window.startCall = async function () {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     for (const id of ["speaker", "self"]) {
       const video = document.getElementById(id);
       video.srcObject = stream;
