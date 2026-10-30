@@ -1233,3 +1233,9 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
+
+## wave3/glass: Liquid Glass (Settings → Look and Feel, macOS 26 and later)
+
+whimsy-look-liquid-glass =
+    .label = Liquid Glass
+whimsy-look-liquid-glass-description = Put the sidebar and toolbars on macOS’s glass material. Uses your Transparency level, or a light one when Transparency is off.

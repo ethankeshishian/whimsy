@@ -685,6 +685,9 @@ FEATURES = [
      "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
     {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
      "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
+    # wave3/glass: native Liquid Glass behind the sidebar and toolbars (macOS 26+).
+    {"id": "liquid-glass", "title": "Liquid Glass: the sidebar and toolbars on macOS 26's glass material (Settings, off by default)",
+     "detect": [("src/widget/cocoa", r"NSGlassEffectView"), ("prefs", r"name:\s*zen\.[\w.-]*(liquid-glass|glass-effect)")]},
 ]
 
 

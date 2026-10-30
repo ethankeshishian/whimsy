@@ -362,3 +362,10 @@
 # bundled list (WhimsyBangsData.sys.mjs).
 - name: whimsy.bangs.custom
   value: ""
+
+# wave3/glass: Liquid Glass (Settings → Look and Feel, macOS 26 and later).
+# The window's backdrop becomes the system glass material (NSGlassEffectView,
+# whimsy-nsCocoaWindow-mm.patch) and the sidebar and toolbars go see-through
+# over it. Off: Zen's blurred material.
+- name: whimsy.look.liquid-glass
+  value: false

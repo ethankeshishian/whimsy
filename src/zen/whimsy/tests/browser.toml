@@ -298,3 +298,6 @@ support-files = ["whimsy_video_sound.html", "whimsy_video_sound.mp4", "whimsy_me
 # fixD (user follow-up): Firefox's PiP buttons: X closes and pauses; Back to tab keeps playing.
 ["browser_whimsy_pip_close.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
+
+# wave3/glass: Liquid Glass (macOS 26+) pref wiring and Settings checkbox.
+["browser_whimsy_liquid_glass.js"]

@@ -1,0 +1,92 @@
+diff --git a/widget/cocoa/nsCocoaWindow.mm b/widget/cocoa/nsCocoaWindow.mm
+index 9c3586a..83b2220 100644
+--- a/widget/cocoa/nsCocoaWindow.mm
++++ b/widget/cocoa/nsCocoaWindow.mm
+@@ -1487,6 +1487,33 @@ static void ZenWindowVibrancyPrefChanged(const char* aPref, void* aClosure) {
+   static_cast<nsCocoaWindow*>(aClosure)->UpdateWindowMaterial();
+ }
+ 
++// Whimsy: Liquid Glass (Settings > Look and Feel, off by default). On macOS
++// 26 and later the browser window's backdrop becomes the system's glass
++// material (NSGlassEffectView, as Gecko already uses for menus) instead of
++// Zen's blurred NSVisualEffectView, so the sidebar and toolbars, which
++// Whimsy's transparency makes see-through, sit on real glass. AppKit adapts
++// the glass to Reduce Transparency and Increase Contrast itself. Older
++// macOS keeps Zen's material.
++static constexpr nsLiteralCString kWhimsyLiquidGlassPrefs[] = {
++    "whimsy.look.liquid-glass"_ns,
++    "whimsy.feature.liquid-glass"_ns,
++};
++
++static bool WhimsyWantsLiquidGlass() {
++  if (@available(macOS 26.0, *)) {
++    return Preferences::GetBool("whimsy.feature.liquid-glass", true) &&
++           Preferences::GetBool("whimsy.look.liquid-glass", false);
++  }
++  return false;
++}
++
++static bool WhimsyIsLiquidGlass(NSView* aView) {
++  if (@available(macOS 26.0, *)) {
++    return [aView isKindOfClass:[NSGlassEffectView class]];
++  }
++  return false;
++}
++
+ void nsCocoaWindow::SetWindowClass(const nsAString& aXulWinType,
+                                    const nsAString& aXulWinClass,
+                                    const nsAString& aXulWinName) {
+@@ -1502,6 +1529,9 @@ static void ZenWindowVibrancyPrefChanged(const char* aPref, void* aClosure) {
+   mIsBrowserWindow = true;
+   Preferences::RegisterCallback(ZenWindowVibrancyPrefChanged,
+                                 "zen.widget.macos.window-vibrancy", this);
++  for (const auto& pref : kWhimsyLiquidGlassPrefs) {
++    Preferences::RegisterCallback(ZenWindowVibrancyPrefChanged, pref, this);
++  }
+   UpdateWindowMaterial();
+ }
+ 
+@@ -1512,14 +1542,28 @@ static void ZenWindowVibrancyPrefChanged(const char* aPref, void* aClosure) {
+     return;
+   }
+   bool wanted = StaticPrefs::zen_widget_macos_window_vibrancy();
+-  if (wanted ==
+-      [mWindow.contentView isKindOfClass:[ZenWindowMaterialView class]]) {
++  bool glass = wanted && WhimsyWantsLiquidGlass();
++  NSView* current = mWindow.contentView;
++  if (glass == WhimsyIsLiquidGlass(current) &&
++      (wanted && !glass) ==
++          [current isKindOfClass:[ZenWindowMaterialView class]]) {
+     return;
+   }
+ 
+-  NSRect frame = mWindow.contentView.frame;
+-  NSView* wrapper = wanted ? [[ZenWindowMaterialView alloc] initWithFrame:frame]
+-                           : [[NSView alloc] initWithFrame:frame];
++  NSRect frame = current.frame;
++  NSView* wrapper = nil;
++  if (glass) {
++    if (@available(macOS 26.0, *)) {
++      auto* glassView = [[NSGlassEffectView alloc] initWithFrame:frame];
++      // The window rounds its own corners.
++      glassView.cornerRadius = 0.0f;
++      wrapper = glassView;
++    }
++  }
++  if (!wrapper) {
++    wrapper = wanted ? [[ZenWindowMaterialView alloc] initWithFrame:frame]
++                     : [[NSView alloc] initWithFrame:frame];
++  }
+   wrapper.wantsLayer = YES;
+   for (NSView* view in [mWindow contentViewContents]) {
+     [view removeFromSuperviewWithoutNeedingDisplay];
+@@ -5179,6 +5223,9 @@ - (BOOL)wantsBestResolutionOpenGLSurface {
+   if (mIsBrowserWindow) {
+     Preferences::UnregisterCallback(ZenWindowVibrancyPrefChanged,
+                                     "zen.widget.macos.window-vibrancy", this);
++    for (const auto& pref : kWhimsyLiquidGlassPrefs) {
++      Preferences::UnregisterCallback(ZenWindowVibrancyPrefChanged, pref, this);
++    }
+   }
+   RemoveAllChildren();
+   if (mWindow && mWindowMadeHere) {

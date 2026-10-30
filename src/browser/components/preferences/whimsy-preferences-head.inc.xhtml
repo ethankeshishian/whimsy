@@ -70,6 +70,13 @@
                   aria-describedby="whimsyTransparencyValue"/>
       <html:span id="whimsyTransparencyValue" class="whimsy-updates-detail"/>
     </hbox>
+    <!-- wave3/glass: Liquid Glass (macOS 26+, off by default) -->
+    <vbox id="whimsyLiquidGlassRow" data-whimsy-feature="liquid-glass">
+      <checkbox id="whimsyLiquidGlass" data-l10n-id="whimsy-look-liquid-glass"
+                preference="whimsy.look.liquid-glass" aria-describedby="whimsyLiquidGlassDescription"/>
+      <description id="whimsyLiquidGlassDescription" class="description-deemphasized indent"
+                   data-l10n-id="whimsy-look-liquid-glass-description"/>
+    </vbox>
     <!-- batch13: menu bar extra -->
     <checkbox id="whimsyMenuBarExtra" data-whimsy-feature="menu-bar-extra"
               data-l10n-id="whimsy-look-menu-bar-extra" preference="whimsy.menu-bar-extra.show"/>

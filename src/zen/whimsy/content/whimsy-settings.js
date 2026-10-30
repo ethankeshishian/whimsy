@@ -288,6 +288,10 @@ var gWhimsySettings = {
       transparency: AppConstants.platform == "macosx",
       // batch13: the menu bar icon only exists on macOS.
       "menu-bar-extra": AppConstants.platform == "macosx",
+      // wave3/glass: macOS 26 (Darwin 25) draws Liquid Glass; it shows
+      // through the transparency feature.
+      "liquid-glass":
+        AppConstants.isPlatformAndVersionAtLeast("macosx", "25") && Whimsy.featureEnabled("transparency"),
     };
     for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
       const id = row.dataset.whimsyFeature;
