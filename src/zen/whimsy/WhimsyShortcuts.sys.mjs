@@ -44,6 +44,9 @@ export const SHORTCUTS = {
   "zen-toggle-pin-tab": { modifiers: "accel", key: "D" },
   addBookmarkAsKb: {},
   "zen-library-toggle": { modifiers: "accel,shift", key: "L" },
+  // DevTools' extra macOS Inspector key is Cmd+Shift+L in this Firefox, the
+  // Library's (Arc) key above; the Inspector keeps Cmd+Opt+I and Cmd+Opt+C.
+  key_inspectorMac: {},
   key_newNavigator: { modifiers: "accel,alt,shift", key: "N" },
 };
 

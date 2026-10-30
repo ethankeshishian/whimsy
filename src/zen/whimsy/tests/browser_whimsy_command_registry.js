@@ -42,7 +42,8 @@ function listed() {
 registerCleanupFunction(() => CustomKeys.resetAll());
 
 add_task(async function test_every_command_is_in_the_command_bar() {
-  const entries = listed();
+  // Commands registered with commandBar: false are keys/menus only.
+  const entries = listed().filter(entry => entry.inCommandBar !== false);
   Assert.greater(entries.length, 30, "Whimsy's commands are registered");
   for (const entry of entries) {
     const actions = globalActions.filter(a => a.command == entry.id || a.whimsyCommand == entry.id);

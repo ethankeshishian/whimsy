@@ -159,7 +159,10 @@ export const WhimsyCommands = {
     } catch (e) {
       console.error(`Whimsy: command ${spec.id}`, e);
     }
-    if (spec.l10nId && spec.commandBar !== false) {
+    // Whether the command bar offers it (some commands are keys and menu
+    // items only, e.g. focusing split pane N).
+    entry.inCommandBar = spec.commandBar !== false;
+    if (spec.l10nId && entry.inCommandBar) {
       this.addToCommandBar(entry, spec);
     }
     return command;
