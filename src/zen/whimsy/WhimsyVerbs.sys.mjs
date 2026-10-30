@@ -237,7 +237,15 @@ const icsDate = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate(
 // Floating local time: Calendar shows it at the time that was written.
 const icsLocal = d => `${icsDate(d)}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
 const icsUTC = d => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-const icsText = s => String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+// Any line break (a lone CR too) becomes "\n", and other control
+// characters go, so page text can't start a property of its own.
+const icsText = s =>
+  String(s ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n")
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
 
 /** An iCalendar file for one event (RFC 5545), with CRLF line ends. */
 export function buildICS({ start, end, allDay, title, description = "", url = "" }, now = new Date()) {

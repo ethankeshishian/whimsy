@@ -329,3 +329,14 @@ add_task(function test_parse_event() {
   const ics = buildICS({ start: new Date(2026, 10, 3, 15), end: new Date(2026, 10, 3, 16), allDay: false, title: "A, B; C" });
   ok(ics.includes("SUMMARY:A\\, B\\; C\r\n"), "iCalendar text is escaped, CRLF lines");
 });
+
+// wave7/security L4: a lone CR (or another control character) in page text
+// can't start an iCalendar property of its own.
+add_task(function test_ics_lone_cr() {
+  const evil = "Party\rATTACH:https://evil.example/x\rBEGIN:VALARM\x0bEND";
+  const ics = buildICS({ start: new Date(2026, 10, 3, 15), end: new Date(2026, 10, 3, 16), allDay: false, title: evil, description: evil });
+  const lines = ics.split("\r\n");
+  ok(!lines.some(l => /^(ATTACH|BEGIN:VALARM)/.test(l)), "No injected properties");
+  ok(!/\r(?!\n)/.test(ics), "No lone CR survives");
+  ok(lines.includes("SUMMARY:Party\\nATTACH:https://evil.example/x\\nBEGIN:VALARMEND"), "The breaks are escaped text");
+});

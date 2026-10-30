@@ -173,3 +173,15 @@ add_task(async function test_opening_hours() {
   );
   is(WhimsyPageActions.openNow({ specs: [], strings: [] }, wed10), null, "No hours, no claim");
 });
+
+// wave7/security L4: a lone CR in the page's event data can't start an
+// iCalendar property of its own.
+add_task(function test_ics_lone_cr() {
+  const ics = WhimsyPageActions.buildIcs(
+    { kind: "event", name: "Party\rATTACH:https://evil.example/x", startDate: "2026-11-05", location: "Hall\rBEGIN:VALARM", description: "a\u0000b" },
+    "https://example.com/"
+  );
+  const lines = ics.split("\r\n");
+  ok(!lines.some(l => /^(ATTACH|BEGIN:VALARM)/.test(l)), "No injected properties");
+  ok(!/\r(?!\n)/.test(ics) && !ics.includes("\u0000"), "No lone CR or NUL survives");
+});

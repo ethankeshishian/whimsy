@@ -403,7 +403,14 @@ export const WhimsyPageActions = {
   },
 
   icsEscape(text) {
-    return (text || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+    // Any line break (a lone CR too) becomes "\n", and other control
+    // characters go, so page text can't start a property of its own.
+    return (text || "")
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r\n|\r|\n/g, "\\n")
+      .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
   },
 
   // One VEVENT. An event without an end lasts an hour (a day when it has no
