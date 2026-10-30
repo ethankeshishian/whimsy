@@ -64,6 +64,18 @@
         </menupopup>
       </menulist>
     </hbox>
+    <!-- wave5/look: Firefox's density, which each space can override
+         (right-click a space → Look and Feel…). -->
+    <hbox id="whimsyDensityRow" align="center" data-whimsy-feature="space-look">
+      <label id="whimsyDensityLabel" control="whimsyDensity" data-l10n-id="whimsy-look-density"/>
+      <menulist id="whimsyDensity" preference="browser.uidensity" data-pref-type="int">
+        <menupopup>
+          <menuitem value="1" data-l10n-id="whimsy-look-density-compact"/>
+          <menuitem value="0" data-l10n-id="whimsy-look-density-normal"/>
+          <menuitem value="2" data-l10n-id="whimsy-look-density-roomy"/>
+        </menupopup>
+      </menulist>
+    </hbox>
     <hbox id="whimsyTransparencyRow" align="center" data-whimsy-feature="transparency">
       <label id="whimsyTransparencyLabel" control="whimsyTransparency" data-l10n-id="whimsy-look-transparency"/>
       <html:input type="range" id="whimsyTransparency" min="0" max="80" step="5"

@@ -110,7 +110,8 @@
     }
   }
   @media -moz-pref("whimsy.tabs.title-lines", 2), -moz-pref("whimsy.tabs.title-lines", 3) {
-    #tabbrowser-tabs .tabbrowser-tab:not([zen-essential]) {
+    /* A space with its own look (wave5/look) sets its lines below. */
+    #tabbrowser-tabs .tabbrowser-tab:not([zen-essential], zen-workspace[whimsy-look-lines] *) {
       & .tab-label-container {
         height: auto !important;
         mask-image: none !important;
@@ -2031,4 +2032,135 @@ whimsy-space-history-section {
 :root[whimsy-quick-window] :is(#zen-browser-background, #zen-toolbar-background) {
   background: #171523 !important;
   &::after { display: none !important; }
+}
+
+/* wave5/look: a look per space (WhimsySpaceLook). Each space's tab list
+   (<zen-workspace>) carries its own font, density and title lines, so the
+   lists slide (or follow a swipe) past each other each in its own look.
+   The attributes are only set once some space overrides that part; until
+   then everything is exactly the global look above. */
+:root zen-workspace[whimsy-look-font] :is(*, *::before, *::after):not(.zen-workspace-icon, .zen-emojis-picker-emoji, #whimsy-hex-input, .whimsy-font-preview) {
+  font-family: var(--whimsy-space-font), system-ui, -apple-system, sans-serif !important;
+}
+
+/* Firefox's tab heights per density (tabs.css, nova off), per list. */
+zen-workspace[whimsy-look-density="compact"] {
+  --tab-min-height: 29px;
+}
+zen-workspace[whimsy-look-density="normal"] {
+  --tab-min-height: 36px;
+}
+zen-workspace[whimsy-look-density="roomy"] {
+  --tab-min-height: 41px;
+}
+
+/* Title lines per space: the same wrapping as the global setting. */
+zen-workspace:is([whimsy-look-lines="2"], [whimsy-look-lines="3"]) .tabbrowser-tab:not([zen-essential]) {
+  & .tab-label-container {
+    height: auto !important;
+    mask-image: none !important;
+  }
+
+  & .tab-label {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--whimsy-title-lines);
+    white-space: normal;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    align-self: stretch;
+    min-width: 0;
+    padding-block: 5px;
+  }
+
+  &,
+  & .tab-stack,
+  & .tab-content {
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  & .tab-content {
+    min-height: var(--tab-min-height);
+    contain: inline-size layout !important;
+  }
+}
+
+/* The editor: Zen's sheet with a few segmented choices and menus. */
+panel.whimsy-space-look .whimsy-sheet-body {
+  padding-block: 2px 4px;
+}
+.whimsy-space-look-section {
+  gap: 6px;
+  margin: 6px 16px 10px;
+}
+.whimsy-space-look-caption {
+  gap: 8px;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--whimsy-sheet-muted);
+
+  & > label {
+    margin: 0;
+  }
+}
+.whimsy-space-look-caption-detail {
+  margin-inline-start: auto !important;
+  font-weight: 500;
+}
+.whimsy-space-look-chips {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background-color: color-mix(in srgb, currentColor 7%, transparent);
+}
+.whimsy-space-look-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 28px;
+  margin: 0;
+  padding: 4px 6px;
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.92em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    background-color: var(--whimsy-sheet-hover);
+  }
+  &[aria-checked="true"] {
+    background-color: var(--arrowpanel-background, Field);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 0 0 0.5px color-mix(in srgb, currentColor 20%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+.whimsy-space-look-menulist {
+  margin: 0;
+  width: 100%;
+}
+.whimsy-space-look-hint,
+.whimsy-space-look-note {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--whimsy-sheet-muted);
+}
+.whimsy-space-look-note {
+  margin: 0 16px 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-space-look-chip {
+    transition: none;
+  }
 }

@@ -789,6 +789,9 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5/look: a look per space (font, density, tab title lines, a Zen Mod).
+    {"id": "space-look", "title": "A look per space: its own interface font, density, tab title lines and Zen Mod, switching with the space",
+     "detect": [("src/zen/spaces", r"(?i)workspace\.(font|density|look)\b|space-?(font|density)")]},
 ]
 
 

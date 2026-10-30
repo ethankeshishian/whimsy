@@ -1611,3 +1611,53 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave5/look: a look per space (font, density, tab titles, a Zen Mod)
+
+whimsy-space-look-menu =
+    .label = Look and Feel…
+whimsy-space-look-form-button =
+    .label = Look and Feel…
+whimsy-space-look-title = Look and Feel
+# $space (string) - the space's name
+whimsy-space-look-subtitle = Just for “{ $space }”
+whimsy-space-look-font = Interface font
+whimsy-space-look-density = Density
+whimsy-space-look-lines = Tab titles
+whimsy-space-look-mod = Zen Mod
+# $value (string) - what Settings uses, like "Normal" or "2 lines"
+whimsy-space-look-follows = Settings: { $value }
+whimsy-space-look-default = Default
+    .title = Follow Settings → Look and Feel
+whimsy-space-look-density-compact = Compact
+whimsy-space-look-density-normal = Normal
+whimsy-space-look-density-roomy = Roomy
+# $lines (number) - how many lines a tab title may take
+whimsy-space-look-lines-count =
+    { $lines ->
+        [one] 1 line
+       *[other] { $lines } lines
+    }
+# $font (string) - the font chosen in Settings
+whimsy-space-look-font-default =
+    .label = Default ({ $font })
+whimsy-space-look-font-default-system =
+    .label = Default (System font)
+whimsy-space-look-font-system =
+    .label = System font
+whimsy-space-look-mod-none =
+    .label = None
+whimsy-space-look-mod-hint = Mods you turn off in Zen Mods can be turned on here, just for this space.
+whimsy-space-look-note = Default follows Settings → Look and Feel, so changing it there changes this space too.
+whimsy-space-look-reset =
+    .label = Reset to Default
+whimsy-space-look-done =
+    .label = Done
+whimsy-look-density = Density
+whimsy-look-density-compact =
+    .label = Compact
+whimsy-look-density-normal =
+    .label = Normal
+whimsy-look-density-roomy =
+    .label = Roomy
+whimsy-welcome-font-per-space = Want a different look for work and play? Any space can have its own font and density later: right-click it and choose Look and Feel.
