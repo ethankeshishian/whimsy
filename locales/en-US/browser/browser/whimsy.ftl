@@ -1611,3 +1611,23 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave5/verbs: do-with-selection verbs (Cmd+K)
+
+whimsy-action-selection-verbs = Actions for Selection
+# The command bar's group label above the verbs: the selected text (cut short).
+whimsy-verbs-row-selection = “{ $text }”
+# The same label when nothing is selected: the page's title.
+whimsy-verbs-row-page = { $text }
+whimsy-verb-translate = Translate
+whimsy-verb-translate-page = Translate Page
+whimsy-verb-search = Search the Web
+whimsy-verb-map = Show in Maps
+whimsy-verb-email = Email
+whimsy-verb-copy-markdown = Copy as Markdown
+whimsy-verb-note = Add to Note
+whimsy-verb-calendar = Add to Calendar
+whimsy-verb-linear-new = New Linear Issue
+whimsy-verb-linear-search = Search Linear
+whimsy-verb-copied-toast = Copied as Markdown
+whimsy-verb-note-toast = Added to Notes

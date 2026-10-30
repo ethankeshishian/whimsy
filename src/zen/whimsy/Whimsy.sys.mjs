@@ -136,6 +136,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave5/verbs: do-with-selection verbs.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -557,6 +562,9 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
+    // checks its switch on each use (off: Cmd+K is Firefox's again).
+    run("selection-verbs", () => lazy.WhimsyVerbs.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

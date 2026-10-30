@@ -789,6 +789,11 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5/verbs: Cmd+K lists verbs for the selection (or page) in the
+    # command bar: Translate, Search, Map, Email, Copy as Markdown, Add to
+    # Note, Add to Calendar, Linear, and your own skills.
+    {"id": "selection-verbs", "title": "Cmd+K: actions for the selected text or page (Translate, Map, Calendar, Linear, Markdown, Notes, your skills)",
+     "detect": [("src/zen", r"(?i)selection-?verbs|do-?with-?selection|universal-?actions")]},
 ]
 
 
