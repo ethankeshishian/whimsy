@@ -84,3 +84,36 @@ add_task(async function test_hidden_off_links_and_switch_off() {
   Services.prefs.clearUserPref(FEATURE);
   BrowserTestUtils.removeTab(tab);
 });
+
+// A space with its own container: the link opens in that container, marked
+// as the space's default (zenDefaultUserContextId), so Zen hides the
+// container's colour line like on its own new tabs (it showed as a border).
+add_task(async function test_space_container_has_no_stray_border() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["privacy.userContext.enabled", true],
+      ["zen.workspaces.hide-default-container-indicator", true],
+    ],
+  });
+  gZenWorkspaces.saveWorkspace({ ...secondSpace, containerTabId: 1 });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const menu = await openMenuOn(tab.linkedBrowser, "#l");
+  const item = document.getElementById("context-whimsyOpenLinkInSpace");
+  const subShown = BrowserTestUtils.waitForEvent(item.menupopup, "popupshown");
+  item.openMenu(true);
+  await subShown;
+  const opened = BrowserTestUtils.waitForNewTab(gBrowser, LINK, true);
+  item.menupopup.activateItem(item.menupopup.children[0]);
+  const newTab = await opened;
+  isnot(menu.state, "open", "The menu closed");
+  is(newTab.userContextId, 1, "The link opened in the space's container");
+  is(newTab.getAttribute("zenDefaultUserContextId"), "true", "...marked as the space's default container");
+  const line = newTab.querySelector(".tab-context-line");
+  ok(!line || getComputedStyle(line).display == "none", "No container colour line on the tab");
+
+  BrowserTestUtils.removeTab(newTab);
+  await gZenWorkspaces.changeWorkspace(firstSpace);
+  gZenWorkspaces.saveWorkspace({ ...secondSpace, containerTabId: 0 });
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});

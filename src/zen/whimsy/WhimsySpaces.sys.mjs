@@ -396,6 +396,13 @@ export const WhimsySpaces = {
         if (!tab) {
           return;
         }
+        // The container is the space's default, not one the link asked for:
+        // mark it the way Zen marks its own new tabs in a space, so Zen hides
+        // the container's colour line (zen.workspaces.hide-default-container-
+        // indicator) instead of drawing it as a stray border on the tab.
+        if (space.containerTabId) {
+          tab.setAttribute("zenDefaultUserContextId", "true");
+        }
         gZenWorkspaces.moveTabToWorkspace(tab, uuid);
         gZenWorkspaces.lastSelectedWorkspaceTabs[uuid] = tab;
         gZenWorkspaces.changeWorkspace(space).then(() => {
