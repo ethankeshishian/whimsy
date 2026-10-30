@@ -357,3 +357,6 @@ support-files = ["whimsy_login_form.html"]
 
 # wave5/profiles: history per profile (sidecar attribution, Library query, address bar).
 ["browser_whimsy_profile_history.js"]
+
+# wave5/profiles: per-profile search engine and download folder.
+["browser_whimsy_profile_settings.js"]

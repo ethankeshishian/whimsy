@@ -411,3 +411,21 @@
 # wave5/profiles: one-time migration steps already run (WhimsyProfiles.migrate).
 - name: whimsy.profiles.migrated
   value: 0
+
+# wave5/profiles: per-profile search engine (profile key → engine id, JSON;
+# empty means none) and download folder (profile key → path, JSON; per Mac).
+- name: whimsy.profiles.search-engines
+  value: ""
+
+- name: services.sync.prefs.sync.whimsy.profiles.search-engines
+  value: true
+
+- name: whimsy.profiles.download-dirs
+  value: ""
+
+# The person's own engine/folder, kept while a profile's is applied.
+- name: whimsy.profiles.saved-search-engine
+  value: ""
+
+- name: whimsy.profiles.saved-download
+  value: ""

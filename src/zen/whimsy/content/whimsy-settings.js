@@ -1609,3 +1609,120 @@ Object.assign(gWhimsySettings, {
     }
   },
 });
+
+// wave5/profiles, phase 4: Search Engine and Default Download Location on
+// each profile's row. Default uses Firefox's own Search and Downloads
+// settings, so its row says so instead of repeating them.
+gWhimsySettings._profileRowHooks = gWhimsySettings._profileRowHooks ?? [];
+gWhimsySettings._profileRowHooks.push(list => gWhimsySettings.addProfileSettings(list));
+
+Object.assign(gWhimsySettings, {
+  get profileSettings() {
+    return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSettings.sys.mjs")
+      .WhimsyProfileSettings;
+  },
+
+  async visibleEngines() {
+    const { SearchService } = ChromeUtils.importESModule(
+      "moz-src:///toolkit/components/search/SearchService.sys.mjs");
+    await SearchService.init();
+    return SearchService.getVisibleEngines();
+  },
+
+  addProfileSettings(list) {
+    const { profiles, profileSettings } = this;
+    for (const row of list.querySelectorAll(".whimsy-profile-row")) {
+      const id = Number(row.dataset.profileId);
+      if (id === 0) {
+        const note = document.createXULElement("description");
+        note.className = "description-deemphasized whimsy-profile-default-note";
+        document.l10n.setAttributes(note, "whimsy-profiles-default-settings");
+        row.append(note);
+        continue;
+      }
+      const key = profiles.keyFor(id);
+      const box = document.createXULElement("vbox");
+      box.className = "whimsy-profile-settings";
+
+      const engineRow = document.createXULElement("hbox");
+      engineRow.setAttribute("align", "center");
+      const engineLabel = document.createXULElement("label");
+      const engineListId = `whimsyProfileEngine${id}`;
+      engineLabel.setAttribute("control", engineListId);
+      document.l10n.setAttributes(engineLabel, "whimsy-profiles-search-engine");
+      const menulist = document.createXULElement("menulist");
+      menulist.id = engineListId;
+      menulist.setAttribute("sizetopopup", "none");
+      const popup = document.createXULElement("menupopup");
+      const same = document.createXULElement("menuitem");
+      same.setAttribute("value", "");
+      document.l10n.setAttributes(same, "whimsy-profiles-same-as-default");
+      popup.append(same);
+      menulist.append(popup);
+      menulist.value = "";
+      this.visibleEngines().then(engines => {
+        for (const engine of engines) {
+          const item = document.createXULElement("menuitem");
+          item.setAttribute("value", engine.id);
+          item.setAttribute("label", engine.name);
+          popup.append(item);
+        }
+        menulist.value = profileSettings.engineFor(key) ?? "";
+      }).catch(console.error);
+      menulist.addEventListener("command", () => profileSettings.setEngine(key, menulist.value));
+      engineRow.append(engineLabel, menulist);
+
+      const dirRow = document.createXULElement("hbox");
+      dirRow.setAttribute("align", "center");
+      const dirLabel = document.createXULElement("label");
+      const dirValueId = `whimsyProfileDir${id}`;
+      dirLabel.id = `${dirValueId}-label`;
+      document.l10n.setAttributes(dirLabel, "whimsy-profiles-download-dir");
+      const dirValue = document.createXULElement("description");
+      dirValue.id = dirValueId;
+      dirValue.className = "whimsy-profile-dir";
+      dirValue.setAttribute("flex", "1");
+      dirValue.setAttribute("crop", "center");
+      const path = profileSettings.downloadDirFor(key);
+      if (path) {
+        dirValue.textContent = path;
+        dirValue.setAttribute("tooltiptext", path);
+      } else {
+        document.l10n.setAttributes(dirValue, "whimsy-profiles-same-as-default-text");
+      }
+      const choose = document.createXULElement("button");
+      document.l10n.setAttributes(choose, "whimsy-profiles-download-choose");
+      choose.setAttribute("aria-describedby", `${dirValueId}-label ${dirValueId}`);
+      choose.addEventListener("command", () => this.chooseProfileDownloadDir(key));
+      dirRow.append(dirLabel, dirValue, choose);
+      if (path) {
+        const reset = document.createXULElement("button");
+        document.l10n.setAttributes(reset, "whimsy-profiles-download-reset");
+        reset.addEventListener("command", async () => {
+          await profileSettings.setDownloadDir(key, null);
+          this.renderProfiles();
+        });
+        dirRow.append(reset);
+      }
+      box.append(engineRow, dirRow);
+      row.append(box);
+    }
+  },
+
+  async chooseProfileDownloadDir(key) {
+    const picker = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    const title = await document.l10n.formatValue("whimsy-profiles-download-picker-title");
+    picker.init(window.browsingContext, title, Ci.nsIFilePicker.modeGetFolder);
+    const current = this.profileSettings.downloadDirFor(key);
+    if (current) {
+      try {
+        picker.displayDirectory = new FileUtils.File(current);
+      } catch {}
+    }
+    const result = await new Promise(resolve => picker.open(resolve));
+    if (result == Ci.nsIFilePicker.returnOK && picker.file) {
+      await this.profileSettings.setDownloadDir(key, picker.file.path);
+      this.renderProfiles();
+    }
+  },
+});

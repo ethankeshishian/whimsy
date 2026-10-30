@@ -26,6 +26,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyProfileHistory: "resource:///modules/whimsy/WhimsyProfileHistory.sys.mjs",
   WhimsyProfilePasswords: "resource:///modules/whimsy/WhimsyProfilePasswords.sys.mjs",
+  WhimsyProfileSettings: "resource:///modules/whimsy/WhimsyProfileSettings.sys.mjs",
   ZenSpacesSyncModel: "resource:///modules/zen/ZenSpacesSyncModel.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
@@ -472,6 +473,7 @@ export const WhimsyProfiles = {
     // Once per session; each part checks the switch on use.
     lazy.WhimsyProfilePasswords.init();
     lazy.WhimsyProfileHistory.init();
+    lazy.WhimsyProfileSettings.initWindow(win);
     for (const hook of this._windowHooks) {
       try {
         hook(win);
