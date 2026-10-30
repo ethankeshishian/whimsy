@@ -358,6 +358,11 @@ FEATURES = [
     # home: homepage + changelog.
     {"id": "home", "title": "Whimsy's homepage (about:whimsy) with a Changelog tab, replacing Zen's about:home",
      "detect": [("src/zen", r"(?i)about:whimsy")]},
+    # wave3/private: reading RSS live folders.
+    {"id": "live-folders-unread", "title": "RSS live folders show an unread count; unopened items get a dot",
+     "detect": [("src/zen/live-folders", r"(?i)unread")]},
+    {"id": "live-folders-rss-reader", "title": "RSS live-folder items open in Reader View (per-folder option)",
+     "detect": [("src/zen/live-folders", r"(?i)about:reader")]},
 ]
 
 

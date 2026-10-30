@@ -75,6 +75,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
 });
 
+// wave3/private: RSS reading (unread counts, Reader View items).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyLiveFolderReading: "resource:///modules/whimsy/WhimsyLiveFolderReading.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -389,6 +394,9 @@ export const Whimsy = {
     // checks its switch on each refresh, and never asks for calendar
     // access here (only when the person turns Apple Calendar on).
     run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
+    // wave3/private: RSS live folders' unread counts and Reader View items.
+    // Always installed: each part checks its own switch on use.
+    run("live-folder-reading", () => lazy.WhimsyLiveFolderReading.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

@@ -236,3 +236,6 @@ support-files = ["whimsy_calendar.sjs"]
 # wave3/private: private tabs follow-ups (switch-to-tab split, private downloads, Archive skips them). Needs the batch9p and wave3 engine patches.
 ["browser_whimsy_private_followups.js"]
 support-files = ["whimsy_slow_download.sjs"]
+
+# wave3/private: RSS live folders (unread counts, Reader View items).
+["browser_whimsy_live_folders_reading.js"]

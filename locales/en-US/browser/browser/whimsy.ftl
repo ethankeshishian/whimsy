@@ -923,3 +923,16 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+
+## wave3/private: reading RSS live folders.
+
+# $count (Number) - items in the folder that haven't been opened yet
+whimsy-live-folder-unread =
+    { $count ->
+        [one] 1 unread item
+       *[other] { $count } unread items
+    }
+whimsy-live-folder-rss-option-reader =
+    .label = Open in Reader View
+whimsy-live-folder-option-mark-read =
+    .label = Mark All as Read
