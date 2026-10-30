@@ -504,3 +504,6 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/menus: space menu order (Delete last), no Volume… row, Glance chip vs unread badge on an Essential.
 ["browser_whimsy_menu_order.js"]
+
+# wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
+["browser_whimsy_archive_tab_menu.js"]

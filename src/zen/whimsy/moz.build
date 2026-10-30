@@ -15,6 +15,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAlreadyOpen.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
     "WhimsyArchive.sys.mjs",
+    "WhimsyArchiveMenu.sys.mjs",
     "WhimsyArcMenus.sys.mjs",
     "WhimsyBangs.sys.mjs",
     "WhimsyBangsData.sys.mjs",

@@ -2383,3 +2383,31 @@ whimsy-pane-looks-crumb =
     .label = Look and Feel
 whimsy-pane-tabs-crumb =
     .label = Tab Management
+
+# wave7/menus2: Arc's words for closing tabs, which go to the Archive.
+# $tabCount (number) - how many tabs the row archives
+whimsy-tab-context-archive-tabs =
+    .label =
+        { $tabCount ->
+            [1] Archive Tab
+           *[other] Archive Tabs
+        }
+whimsy-tab-context-archive-tabs-below =
+    .label = Archive Tabs Below
+# Shown instead when closed tabs aren't archived (a private tab, or the Archive is off).
+whimsy-tab-context-close-tabs-below =
+    .label = Close Tabs Below
+# $tabCount (number) - how many tabs the last close took (Shift+Cmd+T brings them back)
+whimsy-tab-context-restore-closed-tabs =
+    .label =
+        { $tabCount ->
+            [1] Restore Last Closed Tab
+           *[other] Restore Last Closed Tabs
+        }
+# File menu, Cmd+W. $tabCount (number) - selected tabs
+whimsy-menu-archive-tab =
+    .label =
+        { $tabCount ->
+            [1] Archive Tab
+           *[other] Archive Tabs
+        }
