@@ -288,3 +288,8 @@
 
 - name: app.releaseNotesURL.prompt
   value: "about:whimsy?tab=changelog"
+
+# wave3/cmdbar: offline bangs. The edited catalog; no user value means the
+# bundled list (WhimsyBangsData.sys.mjs).
+- name: whimsy.bangs.custom
+  value: ""

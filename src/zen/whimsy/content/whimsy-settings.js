@@ -853,3 +853,81 @@ Object.assign(gWhimsySettings, {
     group.hidden = false;
   },
 });
+
+// wave3/cmdbar: Settings → Search → Bang Shortcuts. The list is plain text
+// ("!w https://...{{{s}}}" per line). Save validates the whole list first,
+// so a typo never replaces a working catalog.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneSearch") {
+    gWhimsySettings.insertBangsGroup();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertBangsGroup() {
+    const template = document.getElementById("template-whimsyBangs");
+    if (!template) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    template.remove();
+    const { WhimsyBangs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyBangs.sys.mjs");
+    Preferences.addAll([{ id: "whimsy.feature.offline-bangs", type: "bool" }]);
+    const anchor = document.getElementById("oneClickSearchProvidersGroup");
+    if (anchor) {
+      anchor.after(fragment);
+    } else {
+      document.getElementById("mainPrefPane").append(fragment);
+    }
+    group.hidden = false;
+
+    const list = document.getElementById("whimsyBangsList");
+    const status = document.getElementById("whimsyBangsStatus");
+    const report = (id, args) => {
+      document.l10n.setAttributes(status, id, args);
+      if (id == "whimsy-bangs-invalid" || id == "whimsy-bangs-too-long") {
+        list.setAttribute("aria-invalid", "true");
+      } else {
+        list.removeAttribute("aria-invalid");
+      }
+    };
+    list.value = WhimsyBangs.text;
+    // Editing again clears a stale "saved" or error message.
+    list.addEventListener("input", () => {
+      status.removeAttribute("data-l10n-id");
+      status.textContent = "";
+      list.removeAttribute("aria-invalid");
+    });
+    document.getElementById("whimsyBangsSave").addEventListener("command", () => {
+      try {
+        WhimsyBangs.save(list.value);
+        report("whimsy-bangs-saved");
+      } catch (e) {
+        const line = parseInt(e.message, 10);
+        if (Number.isInteger(line)) {
+          report("whimsy-bangs-invalid", { line });
+        } else {
+          report("whimsy-bangs-too-long");
+        }
+      }
+    });
+    document.getElementById("whimsyBangsReset").addEventListener("command", () => {
+      WhimsyBangs.reset();
+      list.value = WhimsyBangs.text;
+      report("whimsy-bangs-restored");
+    });
+    const sync = () => {
+      const on = Services.prefs.getBoolPref("whimsy.feature.offline-bangs", true);
+      for (const id of ["whimsyBangsList", "whimsyBangsSave", "whimsyBangsReset"]) {
+        document.getElementById(id).disabled = !on;
+      }
+    };
+    Services.prefs.addObserver("whimsy.feature.offline-bangs", sync);
+    window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.feature.offline-bangs", sync), {
+      once: true,
+    });
+    sync();
+    Preferences.queueUpdateOfAllElements();
+  },
+});

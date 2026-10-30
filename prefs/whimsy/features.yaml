@@ -300,6 +300,9 @@
 - name: whimsy.feature.command-bar-recent-tabs
   value: true
 
+- name: whimsy.feature.offline-bangs
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

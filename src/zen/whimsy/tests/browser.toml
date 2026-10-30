@@ -235,3 +235,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # wave3/cmdbar: recent tabs in the empty command bar.
 ["browser_whimsy_recent_tabs.js"]
+
+# wave3/cmdbar: offline bangs and the Settings editor.
+["browser_whimsy_bangs.js"]

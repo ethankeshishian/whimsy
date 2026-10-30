@@ -929,3 +929,19 @@ whimsy-command-recent-tabs = Recent Tabs
 whimsy-command-switch-tab = Switch to Tab
 whimsy-command-recent-tabs-toggle =
     .label = Show recent tabs when the command bar opens empty
+
+# wave3/cmdbar: offline bangs (Settings -> Search).
+whimsy-bangs-header = Bang Shortcuts
+whimsy-bangs-enabled =
+    .label = Use bang shortcuts in the address bar
+whimsy-bangs-help = Type !w black holes or black holes !w to search a site directly with any search engine. Bangs are resolved on this device, so no search engine sees the query first. One shortcut per line: !shortcut followed by a search URL, with { "{{{s}}}" } where the query goes.
+whimsy-bangs-list = Shortcuts
+whimsy-bangs-save =
+    .label = Save
+whimsy-bangs-reset =
+    .label = Restore Defaults
+whimsy-bangs-saved = Shortcuts saved.
+whimsy-bangs-restored = Default shortcuts restored.
+# $line (Number) - The first line that couldn't be saved.
+whimsy-bangs-invalid = Line { $line } isn't a valid shortcut. Use !shortcut and an http or https URL with { "{{{s}}}" } once, and don't repeat a shortcut. Nothing was saved.
+whimsy-bangs-too-long = The list is too long. Nothing was saved.

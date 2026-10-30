@@ -80,6 +80,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyRecentTabs: "resource:///modules/whimsy/WhimsyRecentTabs.sys.mjs",
 });
 
+// wave3/cmdbar: offline bangs.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyBangs: "resource:///modules/whimsy/WhimsyBangs.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -397,6 +402,9 @@ export const Whimsy = {
     // wave3/cmdbar: recent tabs in the empty command bar. Registered once
     // even when off; the provider checks its switch on every query.
     run("command-bar-recent-tabs", () => lazy.WhimsyRecentTabs.init());
+    // wave3/cmdbar: offline bangs. Registered once even when off; the
+    // provider checks its switch on every query.
+    run("offline-bangs", () => lazy.WhimsyBangs.init());
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
