@@ -1658,3 +1658,7 @@ whimsy-tab-unread-description = { $count } unread
 # wave5/uxfix: keeping Scratch asks in the window's sheet (it can't be undone).
 whimsy-scratch-keep-confirm-title = Keep as a Normal Space?
 whimsy-scratch-keep-confirm-accept = Keep Space
+
+# wave5/uxfix: the Undo button on a result toast (Snooze, Hide Space).
+whimsy-undo-toast-button =
+    .label = Undo

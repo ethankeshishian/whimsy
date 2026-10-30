@@ -356,3 +356,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5/uxfix: Settings on-demand feature list and New Note target.
 ["browser_whimsy_uxfix_settings.js"]
+
+# wave5/uxfix: Undo on reversible result toasts.
+["browser_whimsy_uxfix_undo_toast.js"]

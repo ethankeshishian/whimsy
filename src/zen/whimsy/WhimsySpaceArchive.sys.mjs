@@ -29,6 +29,11 @@
 // changeWorkspace calls (restore, Settings) are untouched. Next/previous
 // space cycling (changeWorkspaceShortcut) still steps through hidden spaces.
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+});
+
 const FEATURE_PREF = "whimsy.feature.archive-space";
 const HIDDEN_ATTR = "whimsy-hidden-space";
 const MENU_ID = "whimsy-hide-space-menuitem";
@@ -159,7 +164,19 @@ export const WhimsySpaceArchive = {
     workspace.whimsyHidden = true;
     gZenWorkspaces.saveWorkspace(workspace);
     this.applyHidden(win);
-    win.gZenUIManager?.showToast?.("whimsy-hide-space-toast", { l10nArgs: { space: workspace.name || "" } });
+    // wave5/uxfix: reversible, so the toast offers Undo (and Cmd+Z works).
+    lazy.WhimsyUndo.showToast(win, "whimsy-hide-space-toast", {
+      type: "hide-space",
+      undo: () => {
+        const space = gZenWorkspaces.getWorkspaces().find(w => w.uuid == uuid);
+        if (space?.whimsyHidden) {
+          delete space.whimsyHidden;
+          gZenWorkspaces.saveWorkspace(space);
+          this.applyHidden(win);
+        }
+      },
+      redo: null,
+    }, { space: workspace.name || "" });
   },
 
   // The hidden spaces in `win`, for Settings' list.
