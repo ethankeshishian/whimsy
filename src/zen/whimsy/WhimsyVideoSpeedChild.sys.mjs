@@ -157,7 +157,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       this.applied.set(el, { src: el.currentSrc, at: 0 });
       return;
     }
-    this.applied.set(el, { src: el.currentSrc, at: Cu.now() });
+    this.applied.set(el, { src: el.currentSrc, at: ChromeUtils.now() });
     el.playbackRate = this.siteRate;
   }
 
@@ -167,7 +167,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       return;
     }
     const state = this.applied.get(el);
-    if (state?.at && el.playbackRate == 1 && this.siteRate != 1 && Cu.now() - state.at < RESET_GRACE_MS) {
+    if (state?.at && el.playbackRate == 1 && this.siteRate != 1 && ChromeUtils.now() - state.at < RESET_GRACE_MS) {
       state.at = 0;
       el.playbackRate = this.siteRate;
       return;
@@ -591,6 +591,8 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       value: rect(value),
       toggle: rect(this.els.toggle),
       items: Object.fromEntries([...menu.children].map(item => [item.dataset.rate, rect(item)])),
+      // Object keys reorder integer-like rates ("1" before "0.25"); keep the menu's order.
+      itemOrder: [...menu.children].map(item => Number(item.dataset.rate)),
     };
   }
 }

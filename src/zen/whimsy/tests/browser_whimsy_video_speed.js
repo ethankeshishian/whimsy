@@ -93,7 +93,7 @@ add_task(async function test_hover_and_presets() {
   await TestUtils.waitForCondition(async () => (await control(browser)).menuOpen, "The arrow opens the presets");
   state = await control(browser);
   Assert.deepEqual(
-    Object.keys(state.items).map(Number),
+    state.itemOrder,
     [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4],
     "Quarter steps from 0.25× to 4×"
   );
