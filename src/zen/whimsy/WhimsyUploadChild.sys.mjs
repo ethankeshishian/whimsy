@@ -9,7 +9,7 @@
 // the ChromeOnly mozSetFileArray - this actor runs with chrome privileges
 // even though it's attached to the content page, so it may call it.
 // "Choose file..." bypasses us once and opens Firefox's own picker.
-// Cmd+V (Ctrl+V elsewhere) on a focused upload button, or its <label>, sets
+// Cmd+V (Ctrl+V elsewhere) on a focused upload button (see uploadTargetFor), sets
 // the clipboard's copied file or image straight away, with no popup: no
 // browser pastes into a file input, so the keystroke used to do nothing.
 
@@ -24,11 +24,82 @@ function fileInputFor(element) {
   return input?.localName == "input" && input.type == "file" && !input.disabled ? input : null;
 }
 
+// fix7: Cmd+V did nothing on Benepass. Most sites' upload buttons aren't a
+// file input or its <label>: a styled <div>/<button> calls a hidden input's
+// click(), or a drop zone (react-dropzone and friends) wraps a hidden input
+// and has tabindex but no label. And a clicked drop zone often isn't
+// focusable at all, so the keystroke lands on <body>. The upload target is
+// now also: the input an element points at (aria-controls), or the single
+// file input inside the nearest enclosing widget; with nothing focused,
+// the element you last clicked (within CLICK_MEMORY_MS). A widget with no
+// file input at all gets the file as a drop, the way dragging it in would.
+const CLICK_MEMORY_MS = 60000;
+const WIDGET_DEPTH = 5;
+
+function isEditable(element) {
+  if (!element) {
+    return false;
+  }
+  if (element.isContentEditable) {
+    return true;
+  }
+  if (element.localName == "textarea") {
+    return true;
+  }
+  return element.localName == "input" && !["file", "button", "submit", "reset", "checkbox", "radio", "image"].includes(element.type);
+}
+
+// The single enabled file input in `root`, if there's exactly one.
+function onlyFileInput(root) {
+  const inputs = [...root.querySelectorAll("input[type=file]")].filter(i => !i.disabled);
+  return inputs.length == 1 ? inputs[0] : null;
+}
+
+// What Cmd+V on `element` uploads to: { input } or { dropZone }, or null.
+export function uploadTargetFor(element) {
+  if (!element || isEditable(element)) {
+    return null;
+  }
+  const direct = fileInputFor(element) ?? fileInputFor(element.closest?.("label"));
+  if (direct) {
+    return { input: direct };
+  }
+  const doc = element.ownerDocument;
+  for (const id of (element.getAttribute?.("aria-controls") ?? "").split(/\s+/).filter(Boolean)) {
+    const input = fileInputFor(doc.getElementById(id));
+    if (input) {
+      return { input };
+    }
+  }
+  // The nearest enclosing widget with exactly one file input. Stops before
+  // <body>/<form> level so an unrelated input elsewhere on the page or form
+  // isn't picked.
+  let node = element;
+  for (let depth = 0; node && depth <= WIDGET_DEPTH; depth++, node = node.parentElement) {
+    if (["body", "html", "form"].includes(node.localName)) {
+      break;
+    }
+    const input = onlyFileInput(node);
+    if (input) {
+      return { input };
+    }
+    if (node.querySelector("input[type=file]")) {
+      return null; // Several inputs: ambiguous.
+    }
+  }
+  // A drop zone without a file input: it says so in its class or label.
+  const zone = element.closest?.("[class*=dropzone i], [class*=drop-zone i], [data-testid*=dropzone i], [aria-label*=upload i], [aria-label*=drop i]");
+  return zone ? { dropZone: zone } : null;
+}
+
 export class WhimsyUploadChild extends JSWindowActorChild {
   handleEvent(event) {
     if (event.type == "keydown") {
       this.onKeyDown(event);
       return;
+    }
+    if (event.type == "click" && event.isTrusted && event.target?.nodeType == 1) {
+      this.lastClick = { ref: Cu.getWeakReference(event.target), time: Date.now() };
     }
     if (
       event.type != "click" ||
@@ -62,19 +133,46 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     ) {
       return;
     }
-    const input = fileInputFor(event.target);
-    if (!input) {
+    let element = event.target;
+    // Nothing focused (a clicked drop zone usually can't take focus): the
+    // element you last clicked.
+    if (!element || element == this.document?.body || element == this.document?.documentElement) {
+      const last = this.lastClick;
+      const clicked = last && Date.now() - last.time < CLICK_MEMORY_MS ? last.ref.get() : null;
+      element = clicked?.isConnected ? clicked : null;
+    }
+    const target = uploadTargetFor(element);
+    if (!target) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    this.paste(input);
+    this.paste(target);
   }
 
-  async paste(input) {
+  async paste(target) {
     const result = await this.sendQuery("WhimsyUpload:Paste");
-    if (result?.file) {
-      this.setFile(input, result.file);
+    if (!result?.file) {
+      return;
+    }
+    if (target.input) {
+      this.setFile(target.input, result.file);
+    } else if (target.dropZone?.isConnected) {
+      this.dropFile(target.dropZone, result.file);
+    }
+  }
+
+  // Hands the file to a drop zone the way dragging it in does.
+  dropFile(zone, file) {
+    try {
+      const win = this.contentWindow;
+      const data = new win.DataTransfer();
+      data.items.add(file);
+      for (const type of ["dragenter", "dragover", "drop"]) {
+        zone.dispatchEvent(new win.DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+      }
+    } catch (e) {
+      console.error("Whimsy: upload from clipboard (drop) failed", e);
     }
   }
 
