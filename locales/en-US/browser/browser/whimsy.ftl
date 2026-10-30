@@ -989,3 +989,21 @@ whimsy-privacy-search = <strong>Your search engine</strong>: what you search for
 # Whimsy's home (about:whimsy) rather than Firefox Home.
 whimsy-home-mode-choice-default =
     .label = Whimsy Home (Default)
+
+## wave3/private: reading RSS live folders.
+
+# $count (Number) - items in the folder that haven't been opened yet
+whimsy-live-folder-unread =
+    { $count ->
+        [one] 1 unread item
+       *[other] { $count } unread items
+    }
+whimsy-live-folder-rss-option-reader =
+    .label = Open in Reader View
+whimsy-live-folder-option-mark-read =
+    .label = Mark All as Read
+
+## wave3/private: floating calls.
+
+whimsy-media-call-pip =
+    .label = Float a video call in picture-in-picture when you switch away from its tab

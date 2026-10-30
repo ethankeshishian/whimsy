@@ -25,6 +25,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
+// Private tabs (WhimsyPrivate) are never archived, like tabs in an Arc
+// Incognito window: the idle sweep leaves them alone, and an explicit
+// archive (fire button, closing a tree branch) just closes them, since
+// SessionStore keeps private tabs out of the closed-tab list it's built on.
+const PRIVATE_TAB_ATTR = "whimsy-private";
+
 const SWEEP_FEATURE_PREF = "whimsy.feature.auto-archive-tabs";
 const VIEW_FEATURE_PREF = "whimsy.feature.archive-view";
 const IDLE_PREF = "whimsy.tabs.archive.idle-after";
@@ -86,6 +92,7 @@ export const WhimsyArchive = {
   isSweepExempt(tab) {
     return (
       tab.selected ||
+      tab.hasAttribute(PRIVATE_TAB_ATTR) ||
       tab.pinned ||
       tab.hasAttribute("zen-essential") ||
       tab.soundPlaying ||
@@ -128,6 +135,13 @@ export const WhimsyArchive = {
   // reason-labeled one instead.
   archiveTabs(win, tabs, { reason, groupId = null } = {}) {
     tabs = tabs.filter(tab => tab && tab.isConnected && !tab.closing);
+    const privateTabs = tabs.filter(tab => tab.hasAttribute(PRIVATE_TAB_ATTR));
+    if (privateTabs.length) {
+      tabs = tabs.filter(tab => !privateTabs.includes(tab));
+      // Suppressed, so tree tabs' removeTab wrapper doesn't route these
+      // straight back here.
+      lazy.WhimsyUndo.runSuppressed(() => win.gBrowser.removeTabs(privateTabs, { animate: false }));
+    }
     if (!tabs.length) {
       return;
     }

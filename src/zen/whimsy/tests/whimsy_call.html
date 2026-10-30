@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Whimsy call</title></head>
+<body>
+<!-- A stand-in for a video call: camera + microphone (fake streams in
+     tests), shown in a muted video the way Meet shows its tiles. -->
+<video id="speaker" muted autoplay playsinline style="width: 480px; height: 360px"></video>
+<video id="self" muted autoplay playsinline style="width: 160px; height: 120px; transform: scaleX(-1)"></video>
+<script>
+  window.startCall = async function () {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    for (const id of ["speaker", "self"]) {
+      const video = document.getElementById(id);
+      video.srcObject = stream;
+      await video.play();
+    }
+    return true;
+  };
+</script>
+</body>
+</html>

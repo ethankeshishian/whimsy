@@ -1,0 +1,89 @@
+diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/components/tabbrowser/Tabbrowser.sys.mjs
+--- a/browser/components/tabbrowser/Tabbrowser.sys.mjs
++++ b/browser/components/tabbrowser/Tabbrowser.sys.mjs
+@@ -4149,7 +4149,7 @@
+             lazyBrowserURI.spec,
+             t.userContextId,
+             tabGroup?.id,
+-            lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)
++            lazy.PrivateBrowsingUtils.isBrowserPrivate(b)
+           );
+           b.registeredOpenURI = lazyBrowserURI;
+         }
+@@ -7160,7 +7160,7 @@
+         browser.registeredOpenURI.spec,
+         userContextId,
+         aTab.group?.id,
+-        lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)
++        lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)
+       );
+       delete browser.registeredOpenURI;
+     }
+@@ -7776,7 +7776,7 @@
+         otherBrowser.registeredOpenURI.spec,
+         userContextId,
+         aOtherTab.group?.id,
+-        lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)
++        lazy.PrivateBrowsingUtils.isBrowserPrivate(otherBrowser)
+       );
+       delete otherBrowser.registeredOpenURI;
+     }
+@@ -9878,13 +9878,13 @@
+         uri.spec,
+         tab.userContextId,
+         null,
+-        lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)
++        lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser)
+       );
+       lazy.UrlbarProviderOpenTabs.registerOpenTab(
+         uri.spec,
+         tab.userContextId,
+         tab.group?.id,
+-        lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)
++        lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser)
+       );
+     }
+   }
+@@ -9902,13 +9902,13 @@
+         uri.spec,
+         tab.userContextId,
+         originalGroup.id,
+-        lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)
++        lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser)
+       );
+       lazy.UrlbarProviderOpenTabs.registerOpenTab(
+         uri.spec,
+         tab.userContextId,
+         null,
+-        lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)
++        lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser)
+       );
+     }
+   }
+@@ -10202,7 +10202,7 @@
+           browser.registeredOpenURI.spec,
+           userContextId,
+           tab.group?.id,
+-          lazy.PrivateBrowsingUtils.isWindowPrivate(this.documentGlobal)
++          lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)
+         );
+         delete browser.registeredOpenURI;
+       }
+@@ -11273,7 +11273,7 @@
+           uri.spec,
+           userContextId,
+           this._tab.group?.id,
+-          lazy.PrivateBrowsingUtils.isWindowPrivate(this.#documentGlobal)
++          lazy.PrivateBrowsingUtils.isBrowserPrivate(this._browser)
+         );
+         delete this._browser.registeredOpenURI;
+       }
+@@ -11282,7 +11282,7 @@
+           aLocation.spec,
+           userContextId,
+           this._tab.group?.id,
+-          lazy.PrivateBrowsingUtils.isWindowPrivate(this.#documentGlobal)
++          lazy.PrivateBrowsingUtils.isBrowserPrivate(this._browser)
+         );
+         this._browser.registeredOpenURI = aLocation;
+ 

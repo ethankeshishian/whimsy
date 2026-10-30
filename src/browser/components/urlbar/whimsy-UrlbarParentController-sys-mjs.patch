@@ -1,0 +1,50 @@
+diff --git a/browser/components/urlbar/UrlbarParentController.sys.mjs b/browser/components/urlbar/UrlbarParentController.sys.mjs
+--- a/browser/components/urlbar/UrlbarParentController.sys.mjs
++++ b/browser/components/urlbar/UrlbarParentController.sys.mjs
+@@ -30,6 +30,7 @@
+   ContainerCreationPanel:
+     "chrome://browser/content/usercontext/ContainerCreationPanel.mjs",
+   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
++  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+   Interactions: "moz-src:///browser/components/places/Interactions.sys.mjs",
+   ProvidersManager:
+     "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
+@@ -148,7 +149,7 @@
+ 
+     this.sapName = sapName;
+     this.#isAddressbar = sapName == "urlbar";
+-    this.isPrivate = isPrivate;
++    this.#initialPrivate = isPrivate;
+     this.#actor = actor;
+ 
+     /**
+@@ -160,8 +161,29 @@
+     this.engagementEvent = new TelemetryEvent(this);
+     lazy.UrlbarProviderTopSites.addTopSitesListener(this.#topSitesListener);
+     Services.obs.addObserver(this, "intl:app-locales-changed", true);
++  }
++
++  // Whimsy: whether the input serves private browsing. A normal window can
++  // hold private tabs (WhimsyPrivate), and this controller outlives tab
++  // switches, so ask the page the input lives in (an in-content urlbar), or
++  // the window's selected tab, each time.
++  #initialPrivate = false;
++
++  get isPrivate() {
++    if (this.#initialPrivate) {
++      return true;
++    }
++    if (this.#actor?.browsingContext?.usePrivateBrowsing) {
++      return true;
++    }
++    let browser = this.browserWindow?.gBrowser?.selectedBrowser;
++    return !!browser && lazy.PrivateBrowsingUtils.isBrowserPrivate(browser);
+   }
+ 
++  set isPrivate(value) {
++    this.#initialPrivate = !!value;
++  }
++
+   /**
+    * The platform constant.
+    *

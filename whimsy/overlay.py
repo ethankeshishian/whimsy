@@ -514,6 +514,14 @@ FEATURES = [
     # vpnspace: container scope on Firefox's native VPN panel.
     {"id": "vpnspace", "title": "VPN scope: whole browser or the current space's container",
      "detect": [("src/zen", r"(?i)ZenVPN|zen[\w.-]*vpn[\w.-]*scope")]},
+    # wave3/private: reading RSS live folders.
+    {"id": "live-folders-unread", "title": "RSS live folders show an unread count; unopened items get a dot",
+     "detect": [("src/zen/live-folders", r"(?i)unread")]},
+    {"id": "live-folders-rss-reader", "title": "RSS live-folder items open in Reader View (per-folder option)",
+     "detect": [("src/zen/live-folders", r"(?i)about:reader")]},
+    # wave3/private: floating calls.
+    {"id": "call-pip", "title": "Floating calls: a Meet/Zoom/Teams call's video goes picture-in-picture when you leave its tab (Arc)",
+     "detect": [("src/zen", r"(?i)call-?pip|meet[^\n]*picture-?in-?picture")]},
 ]
 
 

@@ -1188,3 +1188,56 @@ notification-message[value="whimsy-claude-control"] {
 #ipprotection-button[whimsy-vpn-scope="elsewhere"] .toolbarbutton-icon {
   opacity: 1 !important;
 }
+
+/* wave3/private: RSS live folders. The unread count sits after the folder's
+   name; an unopened item's tab gets a dot and a heavier title. */
+.whimsy-live-unread {
+  flex: 0 0 auto;
+  margin-inline-start: 6px;
+  padding: 0 6px;
+  min-width: 18px;
+  height: 16px;
+  line-height: 16px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--zen-primary-color);
+  background: color-mix(in srgb, var(--zen-primary-color) 16%, transparent);
+  pointer-events: none;
+  animation: whimsy-live-unread-in 160ms ease-out;
+
+  :root:not([zen-sidebar-expanded="true"]) & {
+    display: none;
+  }
+}
+
+@keyframes whimsy-live-unread-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+tab[whimsy-unread] {
+  & .tab-label {
+    font-weight: 600;
+  }
+  & .tab-content::after {
+    content: "";
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    margin-inline-start: 6px;
+    border-radius: 50%;
+    background: var(--zen-primary-color);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-live-unread {
+    animation: none;
+  }
+}
