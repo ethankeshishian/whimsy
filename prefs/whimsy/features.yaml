@@ -345,6 +345,9 @@
 - name: whimsy.feature.pip-auto-before-mute
   value: true
 
+- name: whimsy.feature.space-icon-picker
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

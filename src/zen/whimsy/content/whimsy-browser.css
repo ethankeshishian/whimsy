@@ -1792,3 +1792,81 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 .whimsy-archive-space + .whimsy-archive-time::before {
   content: " · ";
 }
+
+/* wave3/icons: Arc's space icon picker (WhimsySpaceIcons.sys.mjs). Arc's
+   card: 8 glyphs across on a 31px pitch, 16px glyphs, the current icon on a
+   light plate, and a thin rule before Zen's extra glyphs. */
+#PanelUI-zen-emojis-picker[whimsy-arc-icons] {
+  --panel-width: 273px;
+
+  & #PanelUI-zen-emojis-picker-pages {
+    max-height: 236px;
+  }
+
+  & #PanelUI-zen-emojis-picker-list,
+  & #PanelUI-zen-emojis-picker-svgs {
+    grid-template-columns: repeat(8, 26px);
+    justify-content: space-between;
+    gap: 5px 0;
+  }
+
+  & #PanelUI-zen-emojis-picker-list .zen-emojis-picker-emoji,
+  & #PanelUI-zen-emojis-picker-svgs .zen-emojis-picker-svg {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+  }
+
+  & #PanelUI-zen-emojis-picker-list .zen-emojis-picker-emoji {
+    font-size: 16px;
+  }
+
+  & #PanelUI-zen-emojis-picker-svgs .zen-emojis-picker-svg {
+    padding: 5px !important;
+
+    & .toolbarbutton-icon {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  & [whimsy-current] {
+    background-color: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.25));
+    border-radius: 6px;
+  }
+
+  & .whimsy-glyph-rule {
+    grid-column: 1 / -1;
+    height: 1px;
+    margin: 3px 2px;
+    background-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
+  }
+}
+
+/* The skin tone button beside the emoji search: the hand in the tone. */
+#whimsy-emoji-skin-tone {
+  appearance: none;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0 !important;
+  border-radius: 6px;
+  font-size: 16px;
+  justify-content: center;
+
+  & .toolbarbutton-icon,
+  & .toolbarbutton-menu-dropmarker {
+    display: none;
+  }
+
+  & .toolbarbutton-text {
+    display: flex !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  &:hover,
+  &[open] {
+    background-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+  }
+}

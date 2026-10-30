@@ -1234,3 +1234,19 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
+
+## wave3/icons: skin tone button beside the emoji search in the icon picker
+
+whimsy-emoji-skin-tone-button = Skin tone
+whimsy-emoji-skin-tone-0 =
+    .label = ✋ Default
+whimsy-emoji-skin-tone-1 =
+    .label = ✋🏻 Light
+whimsy-emoji-skin-tone-2 =
+    .label = ✋🏼 Medium-light
+whimsy-emoji-skin-tone-3 =
+    .label = ✋🏽 Medium
+whimsy-emoji-skin-tone-4 =
+    .label = ✋🏾 Medium-dark
+whimsy-emoji-skin-tone-5 =
+    .label = ✋🏿 Dark

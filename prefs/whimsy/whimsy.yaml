@@ -362,3 +362,9 @@
 # no default on purpose: no user value means the bundled list
 # (WhimsyBangsData.sys.mjs), and a default of "" would make a saved empty
 # list ("no bangs") equal the default, which libpref stores as no value.
+
+# wave3/icons: the emoji skin tone in the icon picker (0 = default yellow,
+# 1-5 = light to dark), chosen from the hand beside the emoji search.
+- name: whimsy.spaces.emoji-skin-tone
+  value: 0
+

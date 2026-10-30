@@ -269,23 +269,33 @@ export const WhimsySpaces = {
     };
     // Runs after Zen's own listener (added earlier), refining its result.
     input.addEventListener("input", () => {
-      if (!featureOn(EMOJI_FEATURE_PREF)) {
+      // wave3/icons: with a skin tone (WhimsySpaceIcons.sys.mjs) a button's
+      // label isn't the emoji in Zen's data, so Zen's search hides it; the
+      // emoji it shows in a tone is in whimsy-base, and this search redoes
+      // Zen's (one phrase) when the emoji search switch is off.
+      const toned = list.hasAttribute("whimsy-skin-tone");
+      const searchOn = featureOn(EMOJI_FEATURE_PREF);
+      if (!searchOn && !toned) {
         return;
       }
       const query = input.value.trim();
-      const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+      const words = searchOn
+        ? query.toLowerCase().split(/\s+/).filter(Boolean)
+        : [query.toLowerCase()].filter(Boolean);
       const emojis = win.gZenEmojiPicker?._emojis;
-      if (words.length > 1 && emojis) {
+      if ((words.length > 1 || toned) && emojis) {
         const byChar = new Map(emojis.map(e => [e.emoji, e]));
         for (const button of list.children) {
-          const emoji = byChar.get(button.getAttribute("label"));
+          const emoji = byChar.get(button.getAttribute("whimsy-base") || button.getAttribute("label"));
           button.hidden = !emoji || !this.emojiMatches(emoji, words);
           if (emoji) {
             button.style.order = emoji.order;
           }
         }
       }
-      updateEmpty(query);
+      if (searchOn) {
+        updateEmpty(query);
+      }
     });
     input.addEventListener("keydown", event => {
       if (event.key != "Enter" || !featureOn(EMOJI_FEATURE_PREF) || !input.value.trim()) {
