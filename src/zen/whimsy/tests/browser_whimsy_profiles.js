@@ -95,6 +95,13 @@ add_task(async function set_profile_menu_creates_profile() {
 
   const prompt = WhimsyProfiles.promptName;
   WhimsyProfiles.promptName = async () => makeProfile("Whimsy From Menu");
+  // The move itself (Arc's warning, tabs reopening) is
+  // browser_whimsy_profile_moves.js; say yes here.
+  const { WhimsyProfileMoves } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs"
+  );
+  const confirm = WhimsyProfileMoves.confirm;
+  WhimsyProfileMoves.confirm = async () => true;
   try {
     window._whimsyProfileMenuSpace = space.uuid;
     popup.dispatchEvent(new Event("popupshowing", { bubbles: true }));
@@ -109,6 +116,7 @@ add_task(async function set_profile_menu_creates_profile() {
     "The space moved to the new profile");
   } finally {
     WhimsyProfiles.promptName = prompt;
+    WhimsyProfileMoves.confirm = confirm;
     window._whimsyProfileMenuSpace = null;
     space.containerTabId = original;
     await gZenWorkspaces.saveWorkspace(space);

@@ -360,3 +360,6 @@ support-files = ["whimsy_login_form.html"]
 
 # wave5/profiles: per-profile search engine and download folder.
 ["browser_whimsy_profile_settings.js"]
+
+# wave5/profiles: Arc's warnings, and tabs really reopen in the new profile.
+["browser_whimsy_profile_moves.js"]

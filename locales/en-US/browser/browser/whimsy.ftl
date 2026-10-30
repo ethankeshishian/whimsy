@@ -1689,3 +1689,22 @@ whimsy-profiles-download-choose =
 whimsy-profiles-download-reset =
     .label = Use Default
 whimsy-profiles-download-picker-title = Choose a Download Location for This Profile
+whimsy-profile-move-space-title = Move “{ $space }” to the “{ $profile }” profile?
+whimsy-profile-move-space-body = Each Profile has different browser data, so you might get logged out of some websites, see different Favorites up top, or need to re-install extensions.
+whimsy-profile-move-space-accept = Move Space
+whimsy-profile-moved-space-toast = “{ $space }” now uses the “{ $profile }” profile
+whimsy-profile-move-tab-title =
+    { $count ->
+        [one] Move this tab to “{ $space }”?
+       *[other] Move { $count } tabs to “{ $space }”?
+    }
+whimsy-profile-move-tab-body =
+    { $count ->
+        [one] It reopens in the “{ $profile }” profile, so this webpage might look a little different.
+       *[other] They reopen in the “{ $profile }” profile, so these webpages might look a little different.
+    }
+whimsy-profile-move-tab-accept =
+    { $count ->
+        [one] Move Tab
+       *[other] Move Tabs
+    }

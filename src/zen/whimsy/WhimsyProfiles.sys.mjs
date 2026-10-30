@@ -25,6 +25,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyProfileHistory: "resource:///modules/whimsy/WhimsyProfileHistory.sys.mjs",
+  WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
   WhimsyProfilePasswords: "resource:///modules/whimsy/WhimsyProfilePasswords.sys.mjs",
   WhimsyProfileSettings: "resource:///modules/whimsy/WhimsyProfileSettings.sys.mjs",
   ZenSpacesSyncModel: "resource:///modules/zen/ZenSpacesSyncModel.sys.mjs",
@@ -452,13 +453,14 @@ export const WhimsyProfiles = {
   },
 
   /**
-   * Moves a space to another profile. Later phases add Arc's warning and
-   * reopen its tabs in the new container; `fresh` means the profile was
-   * just created for this space.
+   * Moves a space to another profile: Arc's warning, then its tabs reopen
+   * in the new container (WhimsyProfileMoves). `fresh` means the profile
+   * was just created for this space; its tabs still change profile, so the
+   * warning still applies.
    */
   async moveSpaceToProfile(win, space, id, { fresh = false } = {}) {
     void fresh;
-    return this.assignSpace(win, space, id);
+    return lazy.WhimsyProfileMoves.moveSpace(win, space, id);
   },
 
   // -- wiring ------------------------------------------------------------
@@ -474,6 +476,7 @@ export const WhimsyProfiles = {
     lazy.WhimsyProfilePasswords.init();
     lazy.WhimsyProfileHistory.init();
     lazy.WhimsyProfileSettings.initWindow(win);
+    lazy.WhimsyProfileMoves.initWindow(win);
     for (const hook of this._windowHooks) {
       try {
         hook(win);
