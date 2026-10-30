@@ -1652,3 +1652,7 @@ whimsy-fire-done-everything = { $count ->
    *[other] Forgot all browsing data · closed { $count } tabs
 }
 whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
+
+# wave5/uxfix: read out with a pinned tab's unread badge.
+# $count (number) - unread items the site reports
+whimsy-tab-unread-description = { $count } unread

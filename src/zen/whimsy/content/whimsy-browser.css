@@ -300,16 +300,20 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     }
   }
 
-  /* The badge itself, wherever it's drawn. */
-  .tabbrowser-tab[pinned] :is(.tab-icon-stack, .tab-content)[whimsy-unread]::after {
-    min-width: 15px;
-    height: 15px;
+  /* The badge itself, only where it's drawn (wave5/uxfix: a broader
+     selector also painted an empty red disc on Zen's own ::after of an
+     Essential's row). White on this red is 5.6:1; the old rgb(240 82 79)
+     was 3.5:1. */
+  :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after,
+  :root[zen-sidebar-expanded="true"] .tabbrowser-tab[pinned]:not([zen-essential]) .tab-content[whimsy-unread]::after {
+    min-width: 16px;
+    height: 16px;
     padding-inline: 4px;
     box-sizing: border-box;
     border-radius: 8px;
-    background: rgb(240, 82, 79);
+    background: rgb(198, 40, 40);
     color: white;
-    font: 600 9px/15px -apple-system, system-ui, sans-serif;
+    font: 600 10px/16px -apple-system, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     text-align: center;
   }
@@ -328,7 +332,8 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
       content: attr(whimsy-unread);
       order: 99;
       flex-shrink: 0;
-      margin-inline: 6px 2px;
+      /* Stay inside the row's padding so "99+" is never cut at the edge. */
+      margin-inline: 6px 6px;
     }
 
     &:hover .tab-content[whimsy-unread]::after {
@@ -348,7 +353,8 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 
   @media not (prefers-reduced-motion: reduce) {
-    .tabbrowser-tab[pinned] :is(.tab-icon-stack, .tab-content)[whimsy-unread]::after,
+    :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after,
+    :root[zen-sidebar-expanded="true"] .tabbrowser-tab[pinned]:not([zen-essential]) .tab-content[whimsy-unread]::after,
     .tabbrowser-tab[pinned][titlechanged]:not([selected]) .tab-icon-stack::after {
       animation: whimsy-badge-in 0.22s cubic-bezier(0.3, 1.4, 0.6, 1);
     }
