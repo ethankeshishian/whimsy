@@ -3234,7 +3234,10 @@ class nsZenWorkspaces {
         args: { name: this.getWorkspaceFromId(workspaceId).name },
       },
     ]);
-    if (Services.prompt.confirm(null, title, body)) {
+    if (
+      await ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs") // Whimsy hotfix
+        .WhimsyPanels.confirmDeleteSpace(window, title, body)
+    ) {
       this.removeWorkspace(workspaceId);
     }
   }

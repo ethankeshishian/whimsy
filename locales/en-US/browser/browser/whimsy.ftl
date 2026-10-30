@@ -929,3 +929,5 @@ whimsy-changelog-unreleased = Unreleased
 whimsy-sheet-close =
     .tooltiptext = Close
     .aria-label = Close
+# The accept button of Zen's "Delete Space?" confirmation.
+whimsy-delete-space-accept = Delete Space
