@@ -145,7 +145,7 @@ add_task(async function test_slider_fills_from_the_start_in_the_accent() {
   is(style.direction, "ltr", "Fills from the left in a left-to-right UI");
   ok(style.getPropertyValue("--whimsy-volume-fill").trim(), "The fill color is set");
   const background = pseudo =>
-    InspectorUtils.getCSSStyleRules(slider, pseudo)
+    InspectorUtils.getMatchingCSSRules(slider, pseudo)
       .map(rule => rule.style?.getPropertyValue("background") ?? "")
       .join(" ");
   ok(background("::-moz-range-progress").includes("--whimsy-volume-fill"), "The filled part is the accent");
