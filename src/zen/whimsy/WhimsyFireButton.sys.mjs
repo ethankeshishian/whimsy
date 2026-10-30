@@ -37,6 +37,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ForgetAboutSite: "moz-src:///toolkit/components/forgetaboutsite/ForgetAboutSite.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
   SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
@@ -270,6 +271,13 @@ export const WhimsyFireButton = {
     return { count, visits: visits.length, sites: sites.size, profile: lazy.WhimsyProfiles.nameOf(id) };
   },
 
+  // Form & search history (and search bar/find bar text), all time, with
+  // Firefox's own Clear History item, so Fire Everywhere covers what Clear
+  // All History does. Saved passwords and bookmarks aren't touched.
+  clearFormHistory() {
+    return lazy.Sanitizer.sanitize(["formdata"]);
+  },
+
   // Every ordinary window's tabs: [[window, tabs], ...].
   allTabs() {
     const result = [];
@@ -290,6 +298,7 @@ export const WhimsyFireButton = {
     }
     await this.purgeClosed(() => true);
     await this.clearData();
+    await this.clearFormHistory();
     return count;
   },
 

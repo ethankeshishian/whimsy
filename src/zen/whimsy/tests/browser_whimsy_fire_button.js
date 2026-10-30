@@ -407,7 +407,7 @@ add_task(async function test_fire_leaves_nothing_restorable() {
     return tab;
   }
   const stubs = { profileVisits: async () => [], clearSiteData: async () => {}, removeVisit: async () => {},
-    clearData: async () => {} };
+    clearData: async () => {}, clearFormHistory: async () => {} };
   const originals = {};
   for (const [name, fn] of Object.entries(stubs)) {
     originals[name] = WhimsyFireButton[name];
@@ -456,5 +456,37 @@ add_task(async function test_fire_leaves_nothing_restorable() {
     }
     WhimsyFireButton.profileTabs = originalProfileTabs;
     WhimsyFireButton.allTabs = originalAllTabs;
+  }
+});
+
+// Coordinator: Fire Everywhere covers what Clear All History does, form and
+// search history included, after the tabs close; saved passwords stay, and
+// the note says so. Real form history (a test entry); the rest is stubbed.
+add_task(async function test_fire_everywhere_clears_form_history_not_passwords() {
+  const { FormHistory } = ChromeUtils.importESModule("resource://gre/modules/FormHistory.sys.mjs");
+  await FormHistory.update({ op: "add", fieldname: "whimsy-fire-test", value: "burn me" });
+  is(await FormHistory.count({ fieldname: "whimsy-fire-test" }), 1, "A form entry exists");
+  const login = await Services.logins.addLoginAsync(new Components.Constructor(
+    "@mozilla.org/login-manager/loginInfo;1", Ci.nsILoginInfo, "init")(
+    "https://example.com", "https://example.com", null, "fire-user", "fire-pass", "u", "p"));
+  const order = [];
+  const originals = { allTabs: WhimsyFireButton.allTabs, purgeClosed: WhimsyFireButton.purgeClosed,
+    clearData: WhimsyFireButton.clearData };
+  WhimsyFireButton.allTabs = () => [];
+  WhimsyFireButton.purgeClosed = async () => order.push("purge");
+  WhimsyFireButton.clearData = async () => order.push("clear");
+  try {
+    await WhimsyFireButton.burnEverything(window);
+    is(await FormHistory.count({ fieldname: "whimsy-fire-test" }), 0, "Form and search history went");
+    Assert.deepEqual(order, ["purge", "clear"], "Closed tabs are forgotten before data clears");
+    ok((await Services.logins.searchLoginsAsync({ origin: "https://example.com" }))
+      .some(l => l.username == "fire-user"), "Saved passwords stay");
+    const [note] = await document.l10n.formatValues(["whimsy-fire-everything-summary"]);
+    ok(note.includes("form and search history") && note.includes("Saved passwords, bookmarks"),
+      "The note says form history goes and passwords and bookmarks stay");
+  } finally {
+    Object.assign(WhimsyFireButton, originals);
+    await Services.logins.removeLoginAsync(login);
+    await FormHistory.update({ op: "remove", fieldname: "whimsy-fire-test" });
   }
 });
