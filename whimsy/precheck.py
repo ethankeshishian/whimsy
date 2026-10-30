@@ -76,6 +76,9 @@ def check_xhtml(files):
         if f.endswith(".xhtml") and "whimsy" in f and os.path.exists(f):
             body = "".join(l for l in open(f, encoding="utf-8") if not l.startswith("#"))
             body = re.sub(r"<\?xml[^>]*\?>", "", body)
+            # home: a standalone page (not a Zen .inc.xhtml fragment) starts
+            # with a DOCTYPE, which can't appear inside the wrapper below.
+            body = re.sub(r"<!DOCTYPE[^>]*>", "", body, flags=re.I)
             wrapped = ('<root xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" '
                        'xmlns:html="http://www.w3.org/1999/xhtml">' + body + "</root>")
             try:

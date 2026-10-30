@@ -191,3 +191,21 @@
 # batch7: Dock icon badge (download count), Settings → Tab Management.
 - name: whimsy.downloads.dock-badge
   value: true
+
+# home: Whimsy's homepage (about:whimsy, a Home tab + Changelog tab),
+# replacing Zen's/Firefox's about:home. whimsy.feature.home turns it off
+# (falls back to about:home; see WhimsyAboutPage.sys.mjs).
+- name: browser.startup.homepage
+  value: "about:whimsy"
+
+# home: "What's new" (Help menu, About dialog's hidden release-notes link)
+# opens Whimsy's own Changelog tab instead of Zen's or Firefox's release
+# notes.
+- name: app.releaseNotesURL
+  value: "about:whimsy?tab=changelog"
+
+- name: app.releaseNotesURL.aboutDialog
+  value: "about:whimsy?tab=changelog"
+
+- name: app.releaseNotesURL.prompt
+  value: "about:whimsy?tab=changelog"

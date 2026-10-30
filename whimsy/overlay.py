@@ -60,6 +60,46 @@ HOTFIXES = [
                "            isEssential: isEssential ? \"true\" : \"false\", // Whimsy hotfix\n"
                "          });",
     },
+    # home: Zen links the homepage task replaces (see docs/whimsy/BUILD-PLAN.md).
+    {
+        "id": "library-footer-donate-to-feedback",
+        "file": "src/zen/library/ZenLibrary.mjs",
+        "why": "The Library sidebar's footer button opens Zen's donate page; "
+               "Whimsy doesn't take donations, so it opens Whimsy's GitHub "
+               "issues instead.",
+        "old": '        l10nId: "library-footer-donate-button",\n'
+               "        command: () => {\n"
+               '          window.openTrustedLinkIn("https://www.zen-browser.app/donate", "tab");',
+        "new": '        l10nId: "whimsy-library-footer-feedback-button", // Whimsy hotfix\n'
+               "        command: () => {\n"
+               '          window.openTrustedLinkIn("https://github.com/ethankeshishian/whimsy/issues", "tab");',
+    },
+    {
+        "id": "about-dialog-community-link",
+        "file": "src/browser/base/content/aboutDialog-xhtml.patch",
+        "why": "Zen's About dialog links to its own site; Whimsy's goes to "
+               "its own homepage (about:whimsy) instead.",
+        "old": '+              <label is="text-link" href="https://zen-browser.app/about" data-l10n-name="community-exp-mozillaLink"/>',
+        "new": '+              <label is="text-link" useoriginprincipal="true" href="about:whimsy" data-l10n-name="community-exp-mozillaLink"/>',
+    },
+    {
+        "id": "about-dialog-github-link",
+        "file": "src/browser/base/content/aboutDialog-xhtml.patch",
+        "why": "Zen's About dialog links to Zen's GitHub repo; Whimsy's "
+               "links to Whimsy's issues (feedback).",
+        "old": '+            <label is="text-link" href="https://github.com/zen-browser/desktop" data-l10n-name="community-mozillaLink"/>',
+        "new": '+            <label is="text-link" href="https://github.com/ethankeshishian/whimsy/issues" data-l10n-name="community-mozillaLink"/>',
+    },
+    {
+        "id": "about-dialog-privacy-link",
+        "file": "src/browser/base/content/aboutDialog-xhtml.patch",
+        "why": "Zen's About dialog's bottom-links-privacy points at Zen's own "
+               "privacy policy; Whimsy has none, so it points at the "
+               "Whimsy repo instead. Firefox's own legal links (about:license, "
+               "about:rights) are untouched.",
+        "old": '+        <label is="text-link" class="bottom-link" href="https://www.zen-browser.app/privacy-policy/" data-l10n-id="bottom-links-privacy"/>',
+        "new": '+        <label is="text-link" class="bottom-link" href="https://github.com/ethankeshishian/whimsy" data-l10n-id="bottom-links-privacy"/>',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -300,6 +340,9 @@ FEATURES = [
     # linear: Linear live folder ("My Issues": assigned to you, open states).
     {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
      "detect": [("src/zen/live-folders", r"(?i)linear")]},
+    # home: homepage + changelog.
+    {"id": "home", "title": "Whimsy's homepage (about:whimsy) with a Changelog tab, replacing Zen's about:home",
+     "detect": [("src/zen", r"(?i)about:whimsy")]},
 ]
 
 
@@ -436,6 +479,10 @@ def apply_json_overrides(report, dry):
         s["import"] = s["import"].replace("surfer import", "python3 whimsy/engine_prepare.py && surfer import", 1)
     if "whimsy/engine_overrides.py" not in s["import"]:
         s["import"] = s["import"] + " && python3 whimsy/engine_overrides.py"
+    # home: regenerate the Changelog tab's data before syncing src/ into the
+    # engine, so a fresh NIGHT-LOG.md entry makes it into the build.
+    if "whimsy/generate_changelog.py" not in s["import"]:
+        s["import"] = s["import"].replace("surfer import", "python3 whimsy/generate_changelog.py && surfer import", 1)
     items = list(s.items())
     for key, value in wanted.items():
         if s.get(key) != value:

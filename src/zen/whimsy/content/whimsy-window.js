@@ -28,19 +28,14 @@ var WhimsyWindow = {
     );
     const links = [];
     if (!notice.rolled_back && notice.version) {
-      // Whimsy's release notes when it's a release, else Zen's for its base.
-      const pattern = Services.prefs.getStringPref("app.releaseNotesURL.prompt", "");
-      const url =
-        notice.notes_url ||
-        (pattern && notice.zen && Services.urlFormatter.formatURL(pattern.replace("%VERSION%", notice.zen)));
-      if (url) {
-        links.push({
-          url,
-          l10nId: "whimsy-updated-notes",
-          special: true,
-          icon: "chrome://browser/skin/zen-icons/sparkles.svg",
-        });
-      }
+      // home: "What's new" opens Whimsy's own Changelog tab, not Zen's or
+      // Firefox's release notes.
+      links.push({
+        url: "about:whimsy?tab=changelog",
+        l10nId: "whimsy-updated-notes",
+        special: true,
+        icon: "chrome://browser/skin/zen-icons/sparkles.svg",
+      });
     }
     links.push({
       action: () => window.openPreferences("paneAbout"),

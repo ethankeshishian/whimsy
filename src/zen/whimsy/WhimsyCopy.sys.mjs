@@ -138,7 +138,13 @@ export const WhimsyCopy = {
   },
 
   isBlank(uri) {
-    return uri.spec == "about:blank" || uri.spec == "about:newtab" || uri.spec == "about:home";
+    // home: about:whimsy is now the homepage.
+    return (
+      uri.spec == "about:blank" ||
+      uri.spec == "about:newtab" ||
+      uri.spec == "about:home" ||
+      uri.spec.startsWith("about:whimsy")
+    );
   },
 
   // Copy Clean Link's stripping, like Zen's copy (gURLBar.zenStrippedURI).

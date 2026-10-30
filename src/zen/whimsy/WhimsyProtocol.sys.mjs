@@ -25,6 +25,9 @@ const ROUTES = {
   flags: { url: "about:config" },
   keyboard: { url: "about:keyboard" },
   history: { command: "cmd_zenToggleLibrary", fallbackUrl: "about:firefoxview" },
+  // home: the homepage and its Changelog tab (about:whimsy).
+  home: { url: "about:whimsy" },
+  changelog: { url: "about:whimsy?tab=changelog" },
 };
 
 const PATTERN = /^whimsy:\/\/([a-z-]+)\/?$/i;

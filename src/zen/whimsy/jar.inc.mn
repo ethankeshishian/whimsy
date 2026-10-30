@@ -23,3 +23,8 @@
         builtin-addons/whimsy-cookie-banners/autoconsent/autoconsent.mjs        (../../zen/whimsy/cookie-banners/autoconsent/autoconsent.mjs)
         builtin-addons/whimsy-cookie-banners/autoconsent/content.js             (../../zen/whimsy/cookie-banners/autoconsent/content.js)
         builtin-addons/whimsy-cookie-banners/autoconsent/compact-rules.json     (../../zen/whimsy/cookie-banners/autoconsent/compact-rules.json)
+# home: homepage + changelog (about:whimsy)
+        content/browser/whimsy/whimsy-home.xhtml                                (../../zen/whimsy/content/whimsy-home.xhtml)
+        content/browser/whimsy/whimsy-home.css                                  (../../zen/whimsy/content/whimsy-home.css)
+        content/browser/whimsy/whimsy-home.js                                   (../../zen/whimsy/content/whimsy-home.js)
+        content/browser/whimsy/whimsy-changelog.json                            (../../zen/whimsy/content/whimsy-changelog.json)

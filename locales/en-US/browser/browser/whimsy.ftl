@@ -10,7 +10,7 @@ whimsy-updated-heading = { -brand-short-name } updated
 whimsy-rolled-back-heading = Rolled back to the previous version
 whimsy-updated-notes-label = What's new
 whimsy-updated-notes-tooltip =
-    .title = View the release notes
+    .title = See what changed
 whimsy-updated-rollback-label = Something broke? Roll back
 whimsy-updated-rollback-tooltip =
     .title = Open update settings
@@ -739,3 +739,25 @@ whimsy-devmode-console =
     .label = Console
 whimsy-devmode-network =
     .label = Network
+
+## home: homepage + changelog (about:whimsy)
+
+whimsy-home-title = Whimsy
+whimsy-home-brand = Whimsy
+whimsy-home-tab-home = Home
+whimsy-home-tab-changelog = Changelog
+whimsy-home-blurb =
+    Whimsy is an Arc-shaped browser built on Zen and Firefox: spaces,
+    folders and splits from Zen, with Arc's shortcuts and flow layered on
+    top.
+whimsy-home-link-settings = Settings
+whimsy-home-link-shortcuts = Shortcuts cheat sheet
+whimsy-home-link-import = Import from Arc
+whimsy-home-link-feedback = Feedback on GitHub
+whimsy-changelog-blurb = What's changed, one line per build.
+whimsy-changelog-empty = Nothing to show yet.
+
+## home: Library footer (replaces Zen's donate button; see ZenLibrary.mjs)
+
+whimsy-library-footer-feedback-button =
+    .label = Feedback
