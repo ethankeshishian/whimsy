@@ -683,8 +683,6 @@ FEATURES = [
     {"id": "split-four-panes", "title": "Splits up to four panes: Split Grid/Vertically/Horizontally re-lays out the current split; drop a 3rd/4th tab onto a split's tab in the sidebar",
      # Never matches until Zen lets its sidebar drop target a split's tab.
      "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
-    {"id": "pip-close-keeps-playing", "title": "Closing the picture-in-picture window with X keeps the video playing in its tab (Arc)",
-     "detect": [("src/zen", r"(?i)pip[\w-]*keep[\w-]*playing|isUnpipWithoutPauseShortcut")]},
     {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
      "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
 ]

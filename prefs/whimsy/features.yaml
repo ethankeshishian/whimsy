@@ -342,9 +342,6 @@
 - name: whimsy.feature.split-four-panes
   value: true
 
-- name: whimsy.feature.pip-close-keeps-playing
-  value: true
-
 - name: whimsy.feature.pip-auto-before-mute
   value: true
 
