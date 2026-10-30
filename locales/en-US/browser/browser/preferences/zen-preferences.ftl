@@ -196,7 +196,7 @@ category-zen-marketplace =
 
 zenCKSOption-group-zen-compact-mode = Compact Mode
 zenCKSOption-group-zen-workspace = Workspaces
-zenCKSOption-group-zen-other = Other Zen Features
+zenCKSOption-group-zen-other = Other Whimsy Features
 zenCKSOption-group-zen-split-view = Split View
 
 zen-text-action-copy-url-shortcut = Copy current URL

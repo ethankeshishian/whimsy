@@ -177,6 +177,67 @@ HOTFIXES = [
         "old": '+        <label is="text-link" class="bottom-link" href="https://www.zen-browser.app/privacy-policy/" data-l10n-id="bottom-links-privacy"/>',
         "new": '+        <label is="text-link" class="bottom-link" useoriginprincipal="true" href="about:whimsy?tab=privacy" data-l10n-id="bottom-links-privacy"/> <!-- Whimsy privacy note -->',
     },
+    # legacy: Zen's strings that say "Zen" where they mean this app (legacy
+    # audit U5). Fluent rejects a second definition of an id, so whimsy.ftl
+    # can't override them; these rewrite the line in Zen's en-US file. Kept
+    # as "Zen" on purpose: Zen Mods (Zen's mod store), "Zen's share server",
+    # and the about:credits/"built on Zen" credits.
+    {
+        "id": "zen-string-boost-receive",
+        "file": "locales/en-US/browser/browser/zen-boosts.ftl",
+        "why": "Says Zen where it means Whimsy.",
+        "old": 'zen-boost-receive-title = Add this Boost to Zen?',
+        "new": 'zen-boost-receive-title = Add this Boost to Whimsy?',
+    },
+    {
+        "id": "zen-string-share-add-space",
+        "file": "locales/en-US/browser/browser/zen-share.ftl",
+        "why": "Says Zen where it means Whimsy.",
+        "old": 'zen-share-overlay-add-space = Add Space to Zen',
+        "new": 'zen-share-overlay-add-space = Add Space to Whimsy',
+    },
+    {
+        "id": "zen-string-share-add-folder",
+        "file": "locales/en-US/browser/browser/zen-share.ftl",
+        "why": "Says Zen where it means Whimsy.",
+        "old": 'zen-share-overlay-add-folder = Add Folder to Zen',
+        "new": 'zen-share-overlay-add-folder = Add Folder to Whimsy',
+    },
+    {
+        "id": "zen-string-share-confirm",
+        "file": "locales/en-US/browser/browser/zen-share.ftl",
+        "why": "Says Zen where it means Whimsy.",
+        "old": 'zen-share-confirm-description = Zen uploads a copy of these tabs to the share server',
+        "new": "zen-share-confirm-description = Whimsy uploads a copy of these tabs to Zen's share server",
+    },
+    {
+        "id": "zen-string-window-sync",
+        "file": "locales/en-US/browser/browser/zen-general.ftl",
+        "why": "Says Zen where it means Whimsy.",
+        "old": 'zen-window-sync-migration-dialog-message = Zen now syncs windows',
+        "new": 'zen-window-sync-migration-dialog-message = Whimsy now syncs windows',
+    },
+    {
+        "id": "zen-string-library-media",
+        "file": "locales/en-US/browser/browser/zen-library.ftl",
+        "why": "Says Zen where it means Whimsy.",
+        "old": 'by showing them in the Zen Library.',
+        "new": 'by showing them in the Library.',
+    },
+    {
+        "id": "zen-string-downloads-hide",
+        "file": "locales/en-US/browser/browser/zen-library.ftl",
+        "why": "Says Zen where it means Whimsy.",
+        "old": 'library-downloads-menu-hide =\n    .label = Hide from Zen\n',
+        "new": 'library-downloads-menu-hide =\n    .label = Hide from Whimsy\n',
+    },
+    {
+        "id": "zen-string-shortcuts-group",
+        "file": "locales/en-US/browser/browser/preferences/zen-preferences.ftl",
+        "why": "Says Zen where it means Whimsy.",
+        "old": 'zenCKSOption-group-zen-other = Other Zen Features',
+        "new": 'zenCKSOption-group-zen-other = Other Whimsy Features',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
