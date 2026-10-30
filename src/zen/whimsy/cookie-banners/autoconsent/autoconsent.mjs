@@ -469,8 +469,8 @@ var DETECT_PATTERNS = [
   // "only necessary" is probably too broad
   /(?:by continuing.{0,100}cookie)|(?:cookie.{0,100}by continuing)/gi,
   /(?:by continuing.{0,100}privacy)|(?:privacy.{0,100}by continuing)/gi,
-  // a single qualifier is common: "optional", "essential", "necessary", "analytics", ...
-  /we (?:use|serve)(?: \w+)? cookies/gi,
+  // up to two qualifiers are common: "optional", "essential", "analytics", "google analytics", "third party", ...
+  /we (?:use|serve)(?: \w+){0,2} cookies/gi,
   /we are using cookies/gi,
   /use of cookies/gi,
   /website uses cookies to enhance your browsing experience/gi,
@@ -627,7 +627,10 @@ var DETECT_PATTERNS = [
   /(?:cookie|クッキー).{0,10}を(?:使用|利用)/gi,
   // Danish (DA)
   // e.g. "vi bruger cookies", "hjemmesiden bruger cookies til at ..."
-  /bruger cookies/gi
+  /bruger cookies/gi,
+  // Norwegian (NO)
+  // e.g. "vi bruker informasjonskapsler", "kan vi bruke valgfrie informasjonskapsler", "nettstedet bruker cookies"
+  /\b(?:vi|nettstedet|nettsiden|siden)\s+bruker?\s.{0,60}?(?:informasjonskapsler|cookies)/gi
 ];
 var REJECT_PATTERNS_ENGLISH = [
   // e.g. "reject", "reject all", "reject all cookies", "deny all", "refuse cookies", "decline",
@@ -769,6 +772,14 @@ var REJECT_PATTERNS_DANISH = [
   // "nej tak" (no thanks)
   /^nej(,?\s+tak)?$/is
 ];
+var REJECT_PATTERNS_NORWEGIAN = [
+  // avvis / avslå (reject verbs)
+  /(^|\s)(avvis|avslå)/is,
+  // (accept/allow/use) only necessary cookies
+  /^(godta\s+|tillat\s+|aksepter\s+|bruk\s+)?(kun|bare)\s+(strengt\s+)?nødvendige( (informasjonskapsler|cookies))?$/is,
+  // "nei" / "nei takk" (no thanks)
+  /^nei(,?\s+takk)?$/is
+];
 var REJECT_PATTERNS_CATALAN = [
   /(^|\s)rebutj/is,
   "no accepto",
@@ -824,6 +835,7 @@ var REJECT_PATTERNS = [
   ...REJECT_PATTERNS_SPANISH,
   ...REJECT_PATTERNS_SWEDISH,
   ...REJECT_PATTERNS_DANISH,
+  ...REJECT_PATTERNS_NORWEGIAN,
   ...REJECT_PATTERNS_CATALAN,
   ...REJECT_PATTERNS_GALICIAN,
   ...REJECT_PATTERNS_BASQUE,

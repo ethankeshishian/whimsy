@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Whimsy Cookie Banners",
   "description": "Rejects cookie banners for you, with DuckDuckGo's Autoconsent rules.",
-  "version": "17.0.0",
+  "version": "17.1.0",
   "browser_specific_settings": {
     "gecko": { "id": "cookie-banners@whimsy.browser" }
   },

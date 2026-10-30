@@ -45,7 +45,7 @@ Each feature has a `whimsy.feature.<id>` switch. `overlay.py` turns a feature of
 
 `whimsy/updater/updater.py` runs as launchd jobs, installed with `sh whimsy/updater/install.sh`. Run that again after editing `updater.py`, because the jobs run a copy.
 
-- **Nightly at 3:30 am:** on `dev`, merges the newest Zen release tag after `whimsy/upstream.json`; if that or unreleased Whimsy changes need a release, builds, runs `verify.sh gate`, moves `main`, publishes (with `--publish`), and stages the result. A failure puts both branches back.
+- **Nightly at 3:30 am:** on `dev`, merges the newest Zen release tag after `whimsy/upstream.json`; if that or unreleased Whimsy changes need a release, builds, runs `verify.sh gate`, moves `main`, publishes (with `--publish`), and stages the result. A failure puts both branches back. It also takes a newer DuckDuckGo Autoconsent release (the cookie banner rules, `whimsy/autoconsent.py`) as a commit on `dev`; a failed fetch is only logged, and a rules version whose build failed is skipped.
 - **Every minute:** installs a staged build once Whimsy is closed, and carries out rollbacks.
 
 State and logs are in `~/Library/Application Support/Whimsy Updater/`. Settings → About Whimsy shows them. The nightly job waits while the repository has uncommitted changes or isn't on `dev`/`main`, so commit your work. It leaves the checkout on `dev`.

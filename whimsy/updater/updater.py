@@ -401,6 +401,36 @@ def sync_zen(repo, state):
     return tag
 
 
+def refresh_autoconsent(repo, state):
+    """Cookie banners: take a newer DuckDuckGo Autoconsent release (the
+    rules behind "Reject cookie banners") as one commit on dev, so it ships
+    with tonight's build. Returns the new version, or None. Never raises: a
+    failed fetch is logged and the nightly carries on with the bundled rules.
+    A version whose nightly failed is skipped (state autoconsent_skip)."""
+    script = os.path.join(repo, "whimsy", "autoconsent.py")
+    if not os.path.exists(script):
+        return None
+    update_state(message="Checking for new cookie banner rules")
+    skip = state.get("autoconsent_skip", [])
+    try:
+        out = sh(["python3", "whimsy/autoconsent.py", "update", "--commit", "--skip", ",".join(skip)],
+                 cwd=repo, check=False, timeout=600)
+    except Exception as e:
+        out = f"failed: {e}"
+    result = (out.strip().splitlines() or [""])[-1]
+    if git(repo, "status", "--porcelain", "--", "src/zen/whimsy/cookie-banners", check=False, quiet=True).strip():
+        # Shouldn't happen (autoconsent.py only writes complete releases),
+        # but never build or commit half an update.
+        git(repo, "checkout", "-q", "--", "src/zen/whimsy/cookie-banners", check=False, quiet=True)
+    if result.startswith("updated "):
+        new = result.split()[-1]
+        log(f"Cookie banners: Autoconsent rules updated to {new}")
+        return new
+    if result.startswith("failed"):
+        log(f"Cookie banners: kept the bundled rules ({result})")
+    return None
+
+
 def failed(state, tag, error):
     """Count a failed Zen release; give up on it after MAX_ATTEMPTS."""
     attempts = dict(state.get("attempts", {}))
@@ -433,7 +463,7 @@ def cmd_run():
     with Lock("run.lock"):
         update_state(status="running", message="Checking for a new Zen release", last_run=now())
         state = read_json("state.json", {})
-        heads, branch, tag = None, None, None
+        heads, branch, tag, autoconsent = None, None, None, None
         try:
             preflight(repo, manual)
             branch = current_branch(repo)
@@ -443,6 +473,7 @@ def cmd_run():
                 # main has commits dev lacks (made by hand): bring them in.
                 git(repo, "merge", "-q", "--no-edit", MAIN, quiet=True)
             tag = sync_zen(repo, state)
+            autoconsent = refresh_autoconsent(repo, state)
             unreleased = not version.describe(repo)["released"]
             if not tag and not unreleased:
                 log("Up to date: main has everything, and Zen has nothing newer")
@@ -472,6 +503,12 @@ def cmd_run():
             log("Update failed:\n" + traceback.format_exc())
             if heads:
                 restore_repo(repo, heads, branch)
+            if autoconsent:
+                # Don't let a rules release that breaks the build hold back
+                # every later nightly; a newer one is tried as usual.
+                skip = read_json("state.json", {}).get("autoconsent_skip", [])
+                update_state(autoconsent_skip=sorted(set(skip) | {autoconsent}))
+                log(f"Cookie banners: skipping Autoconsent {autoconsent} from now on")
             failed(state, tag, e)
 
 
