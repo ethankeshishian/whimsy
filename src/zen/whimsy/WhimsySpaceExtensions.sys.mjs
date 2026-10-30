@@ -37,6 +37,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   ExtensionCommon: "resource://gre/modules/ExtensionCommon.sys.mjs",
 });
 
@@ -346,7 +347,7 @@ export const WhimsySpaceExtensions = {
     }
     this._addonListenerAdded = true;
     const self = this;
-    AddonManager.addAddonListener({
+    lazy.AddonManager.addAddonListener({
       onEnabled: () => self.refreshAllWindows(),
       onDisabled: () => self.refreshAllWindows(),
       onInstalled: () => self.refreshAllWindows(),

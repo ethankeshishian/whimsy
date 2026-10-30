@@ -16,7 +16,7 @@ const { WhimsySpaceExtensions } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySpaceExtensions.sys.mjs"
 );
 const { ContextualIdentityService } = ChromeUtils.importESModule(
-  "resource://gre/modules/ContextualIdentityService.sys.mjs"
+  "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
 );
 const { ExtensionCommon } = ChromeUtils.importESModule("resource://gre/modules/ExtensionCommon.sys.mjs");
 
@@ -42,18 +42,8 @@ add_setup(async function () {
     container.userContextId
   );
 
-  extension = ExtensionTestUtils.loadExtension({
-    manifest: {
-      browser_action: { default_title: "Whimsy test" },
-    },
-  });
-  await extension.startup();
-  extensionId = extension.extension.id;
-  widgetId = `${ExtensionCommon.makeWidgetId(extensionId)}-browser-action`;
-  // Force the CUI node into existence in the always-present toolbar, so
-  // .forWindow(window).node isn't null before the panel has ever opened.
-  await gUnifiedExtensions.pinToToolbar(widgetId, true);
-
+  // Registered before loadExtension, whose own cleanup (which runs first,
+  // in registration order) would otherwise flag the extension as left running.
   registerCleanupFunction(async () => {
     Services.prefs.clearUserPref(FEATURE);
     // Clears the map entry and re-applies, which resets the per-extension
@@ -62,13 +52,25 @@ add_setup(async function () {
     WhimsySpaceExtensions.setAllowedSpaces(window, extensionId, null);
     Services.prefs.clearUserPref(VISIBILITY_PREF);
     Services.prefs.clearUserPref(MANAGED_PREF);
-    await extension.unload();
+    await extension?.unload();
     if (gZenWorkspaces.activeWorkspace != firstSpace.uuid) {
       await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
     }
     await gZenWorkspaces.removeWorkspace(containerSpace.uuid);
     ContextualIdentityService.remove(container.userContextId);
   });
+
+  extension = ExtensionTestUtils.loadExtension({
+    manifest: {
+      browser_action: { default_title: "Whimsy test" },
+    },
+  });
+  await extension.startup();
+  extensionId = extension.id;
+  widgetId = `${ExtensionCommon.makeWidgetId(extensionId)}-browser-action`;
+  // Force the CUI node into existence in the always-present toolbar, so
+  // .forWindow(window).node isn't null before the panel has ever opened.
+  await gUnifiedExtensions.pinToToolbar(widgetId, true);
 });
 
 function widgetNode() {
