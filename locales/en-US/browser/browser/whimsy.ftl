@@ -1652,3 +1652,72 @@ whimsy-video-captions-none = This video has no captions to translate
 whimsy-video-captions-failed = Couldn’t translate these captions, so they’re shown as they are
 whimsy-media-video-captions =
     .label = Add CC to the speed control: captions translated into your language, on your Mac
+
+## wave5/safety: the Claude space's prompt-injection shield
+
+# $host (String) - the site, e.g. example.com
+whimsy-claude-shield-bar = This page tried to give Claude instructions. Claude is paused on { $host }.
+whimsy-claude-shield-continue =
+    .label = Continue
+    .accesskey = C
+whimsy-claude-shield-stop =
+    .label = Stop Claude
+    .accesskey = S
+# $host (String) - the site, e.g. example.com
+whimsy-claude-shield-toast = Claude is paused: { $host } tried to give it instructions
+
+## wave5/safety: Claude runs (agent replay, whimsy://replay)
+
+whimsy-claude-replay =
+    .label = Keep a replay of what Claude does
+    .description = Each run’s steps and small page snapshots stay on this device. Private tabs and Scratch are never recorded; clearing history clears it.
+whimsy-claude-show-runs =
+    .label = Show Claude’s Runs
+whimsy-replay-title = Claude runs
+whimsy-replay-heading = Claude runs
+whimsy-replay-intro = Every step Claude took in { -brand-short-name }, with a snapshot of the page. Kept only on this device.
+whimsy-replay-clear = Clear All
+whimsy-replay-empty-title = No runs yet
+whimsy-replay-empty = When Claude uses tabs in the Claude space, each run shows up here, step by step.
+whimsy-replay-off = Replay is off. Turn it on in Settings → Privacy & Security → Claude.
+whimsy-replay-runs-label =
+    .aria-label = Runs
+# $count (Number) - steps in a run
+whimsy-replay-steps =
+    { $count ->
+        [one] 1 step
+       *[other] { $count } steps
+    }
+# $count (Number) - failed steps in a run
+whimsy-replay-failed = { $count } failed
+# $step (Number) - the step shown; $count (Number) - steps in the run
+whimsy-replay-step-of = Step { $step } of { $count }
+whimsy-replay-scrub =
+    .aria-label = Steps
+whimsy-replay-open = Open Page
+whimsy-replay-copy = Copy Log
+whimsy-replay-copied = Log copied
+whimsy-replay-delete = Delete Run
+whimsy-replay-no-thumb = No snapshot for this step
+whimsy-replay-trimmed = This run was long, so its oldest steps were dropped.
+# $error (String) - why the step failed
+whimsy-replay-step-failed = Failed: { $error }
+# $tool (String) - the Claude tool the step used
+whimsy-replay-tool =
+    { $tool ->
+        [tabs_list] Listed tabs
+        [tabs_create] Opened a tab
+        [tabs_close] Closed a tab
+        [navigate] Went to a page
+        [read_page] Read the page
+        [get_page_text] Read the page’s text
+        [find] Searched the page
+        [click] Clicked
+        [type] Typed
+        [key] Pressed keys
+        [form_input] Filled in a field
+        [scroll] Scrolled
+        [screenshot] Took a screenshot
+        [shield] Shield paused Claude
+       *[other] { $tool }
+    }

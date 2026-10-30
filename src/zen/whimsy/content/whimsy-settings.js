@@ -796,7 +796,12 @@ Object.assign(gWhimsySettings, {
     this.initPrefCheckbox("whimsyClaudeEnable", "whimsy.claude.enabled");
     this.initPrefCheckbox("whimsyClaudeWholeBrowser", "whimsy.claude.whole-browser");
     this.initPrefCheckbox("whimsyClaudeAsk", "whimsy.claude.ask-per-site");
+    this.initPrefCheckbox("whimsyClaudeReplay", "whimsy.claude.replay");
     const $ = id => document.getElementById(id);
+    // wave5/safety: Claude runs (agent replay).
+    $("whimsyClaudeShowRuns").addEventListener("command", () =>
+      window.browsingContext.topChromeWindow.openTrustedLinkIn("about:whimsy?replay", "tab")
+    );
     const status = $("whimsyClaudeStatus");
     const copy = value => {
       if (!value) {

@@ -68,3 +68,7 @@
         content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)
 # wave5: live blocks in Notes
         content/browser/whimsy/whimsy-note-blocks.mjs (../../zen/whimsy/content/whimsy-note-blocks.mjs)
+# wave5/safety: Claude runs (agent replay, about:whimsy?replay)
+        content/browser/whimsy/whimsy-replay.html                                               (../../zen/whimsy/content/whimsy-replay.html)
+        content/browser/whimsy/whimsy-replay.css                                                (../../zen/whimsy/content/whimsy-replay.css)
+        content/browser/whimsy/whimsy-replay.js                                                 (../../zen/whimsy/content/whimsy-replay.js)

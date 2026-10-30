@@ -800,6 +800,12 @@ FEATURES = [
     # translated on-device by Firefox Translations.
     {"id": "video-captions", "title": "Translated captions: CC on a video's speed control shows its captions in your language, translated on your Mac",
      "detect": [("src/zen/media", r"(?i)(translated|live)-?captions|caption-?translat")]},
+    # wave5/safety: the Claude space's prompt-injection shield.
+    {"id": "claude-shield", "title": "Claude prompt-injection shield: hidden page text never reaches Claude, page content is marked untrusted, and pages that instruct Claude pause it (Continue / Stop)",
+     "detect": [("src/zen", r"(?i)prompt-?injection")]},
+    # wave5/safety: agent replay of Claude runs at whimsy://replay.
+    {"id": "claude-replay", "title": "Claude replay: each Claude run is kept as a timeline of steps with page snapshots at whimsy://replay (never private tabs; Clear history clears it)",
+     "detect": [("src/zen", r"(?i)agent-?replay|claude-?replay")]},
 ]
 
 
