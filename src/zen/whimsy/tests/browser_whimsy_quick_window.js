@@ -34,7 +34,8 @@ add_task(async function test_open_hides_the_sidebar() {
     "whimsy-quick-window attribute set"
   );
   const sidebar = win.document.getElementById("navigator-toolbox");
-  is(win.getComputedStyle(sidebar).display, "none", "The vertical sidebar is hidden");
+  is(win.getComputedStyle(sidebar).visibility, "collapse", "The vertical sidebar is hidden");
+  is(sidebar.getBoundingClientRect().width, 0, "...and takes no room beside the page");
   ok(!win.toolbar.visible, "Opened as a popup window (no trace once closed)");
   await BrowserTestUtils.closeWindow(win);
 });
@@ -260,4 +261,110 @@ add_task(async function test_resize_is_remembered_only_for_mini() {
     Services.prefs.setStringPref(pref, value);
     Assert.deepEqual(WhimsyQuickWindow.savedSize(), { width: 480, height: 720 }, "Invalid saved size uses defaults");
   }
+});
+
+// wave4: Arc's Little Arc layout. One bar (window controls, Back, address,
+// Copy URL, Open in <Space> + caret) over the page card; no Zen nav bar, no
+// native title bar; the address opens the floating command bar.
+add_task(async function test_bar_has_arcs_controls_in_order() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    const doc = win.document;
+    const bar = doc.getElementById("whimsy-quick-window-bar");
+    ok(bar && win.getComputedStyle(bar).display != "none", "Mini has its own bar");
+    const ids = [...bar.children].map(el => el.id || el.className);
+    Assert.deepEqual(ids.filter(id => id.startsWith("whimsy-quick-window")), [
+      "whimsy-quick-window-back",
+      "whimsy-quick-window-address",
+      "whimsy-quick-window-copy-link",
+      "whimsy-quick-window-open",
+    ], "Back, address, Copy URL, then Open in <Space>");
+    const group = doc.getElementById("whimsy-quick-window-open");
+    ok(group.contains(doc.getElementById("whimsy-quick-window-move-to-space")) &&
+      group.contains(doc.getElementById("whimsy-quick-window-choose-space")),
+      "Open in <Space> and its caret form one split button");
+    is(win.getComputedStyle(doc.getElementById("zen-appcontent-navbar-wrapper")).display, "none",
+      "Zen's own nav bar is not shown");
+    ok(bar.querySelector(".titlebar-buttonbox-container"), "The window controls sit in the bar");
+    ok(doc.documentElement.hasAttribute("customtitlebar"), "No native title bar above it (Arc has none)");
+    const barRect = bar.getBoundingClientRect();
+    Assert.lessOrEqual(Math.round(barRect.top), 4, "The bar is the top edge of the window");
+    Assert.lessOrEqual(barRect.height, 44, "The bar stays slim");
+    const card = win.gBrowser.selectedBrowser.closest(".browserSidebarContainer");
+    Assert.notEqual(win.getComputedStyle(card).borderTopLeftRadius, "0px", "The page is a rounded card");
+    Assert.greaterOrEqual(card.getBoundingClientRect().top, barRect.bottom, "The card sits below the bar");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
+
+add_task(async function test_address_shows_the_host_and_back_follows_history() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    const doc = win.document;
+    const address = doc.getElementById("whimsy-quick-window-address");
+    const host = address.querySelector(".whimsy-mini-host");
+    await TestUtils.waitForCondition(() => host.textContent == "example.com", "The address shows the bare host");
+    ok(address.querySelector(".whimsy-mini-favicon").getAttribute("src"), "The address has a favicon");
+    const back = doc.getElementById("whimsy-quick-window-back");
+    ok(back.disabled, "Back is dimmed with no history (it never moves)");
+    ok(!doc.getElementById("whimsy-quick-window-copy-link").disabled, "Copy URL is available for a page");
+    const browser = win.gBrowser.selectedBrowser;
+    const loaded = BrowserTestUtils.browserLoaded(browser, false, "https://example.org/");
+    BrowserTestUtils.startLoadingURIString(browser, "https://example.org/");
+    await loaded;
+    await TestUtils.waitForCondition(() => host.textContent == "example.org", "The address follows navigation");
+    await TestUtils.waitForCondition(() => !back.disabled, "Back becomes available");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
+
+add_task(async function test_address_opens_the_floating_command_bar() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    await SimpleTest.promiseFocus(win);
+    ok(!win.gURLBar.readOnly, "Mini's address can be edited (popups' is read-only)");
+    win.document.getElementById("whimsy-quick-window-address").click();
+    await TestUtils.waitForCondition(() => win.gURLBar.focused, "The command bar takes focus");
+    // A fresh test profile may have no top sites to show before typing.
+    EventUtils.sendString("example", win);
+    await TestUtils.waitForCondition(() => win.gURLBar.view.isOpen, "The command bar opens");
+    ok(win.gURLBar.hasAttribute("zen-floating-urlbar"), "It floats over the page");
+    is(win.getComputedStyle(win.gURLBar).visibility, "visible", "...visibly, though the sidebar is hidden");
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    await TestUtils.waitForCondition(() => !win.gURLBar.view.isOpen, "Esc closes the command bar first");
+    ok(!win.closed, "...without closing Mini");
+  } finally {
+    if (!win.closed) {
+      await BrowserTestUtils.closeWindow(win);
+    }
+  }
+});
+
+add_task(async function test_blank_mini_shows_the_placeholder() {
+  const win = WhimsyQuickWindow.open(null, { opener: window });
+  try {
+    await readyMini(win);
+    const address = win.document.getElementById("whimsy-quick-window-address");
+    ok(address.hasAttribute("blank"), "A blank Mini marks its address empty");
+    ok(win.document.getElementById("whimsy-quick-window-copy-link").disabled, "Nothing to copy yet");
+    const host = address.querySelector(".whimsy-mini-host");
+    await TestUtils.waitForCondition(() => host.textContent.length, "The placeholder is localized");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
+
+add_task(async function test_space_icon_images() {
+  is(WhimsyQuickWindow.spaceIcon(null), null, "No space, no icon");
+  is(WhimsyQuickWindow.spaceIcon({ icon: "" }), null, "A space without an icon shows none");
+  is(WhimsyQuickWindow.spaceIcon({ icon: "chrome://browser/skin/zen-icons/heart.svg" }),
+    "chrome://browser/skin/zen-icons/heart.svg", "SVG icons are used as they are");
+  const emoji = WhimsyQuickWindow.spaceIcon({ icon: "🎨" });
+  ok(emoji.startsWith("data:image/svg+xml,"), "Emoji icons are drawn into an SVG");
+  ok(decodeURIComponent(emoji).includes("🎨"), "...with the emoji in it");
 });

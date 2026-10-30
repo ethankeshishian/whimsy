@@ -1504,3 +1504,21 @@ whimsy-meeting-untitled = Meeting
 # wave4: extension space picker in about:addons
 whimsy-space-extensions-picker = Show in Spaces
 whimsy-space-extensions-all-text = All Spaces
+
+# wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
+# title, $url its address.
+whimsy-quick-window-bar =
+    .aria-label = Mini Whimsy
+whimsy-quick-window-back =
+    .tooltiptext = Back (Cmd+[)
+    .aria-label = Back
+whimsy-quick-window-address =
+    .title = Search or Enter URL (Cmd+L)
+    .aria-label = Search or Enter URL
+whimsy-quick-window-address-page =
+    .title = { $title } — { $url }
+    .aria-label = Edit address: { $url }
+whimsy-quick-window-address-placeholder = Search or Enter URL…
+whimsy-quick-window-copy-link =
+    .tooltiptext = Copy URL (Cmd+Shift+C)
+    .aria-label = Copy URL

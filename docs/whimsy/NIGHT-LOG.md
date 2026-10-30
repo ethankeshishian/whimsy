@@ -139,3 +139,5 @@
 - wave4/polish commit delivery: sandbox denied creating /Users/ethankeshishian/Repos/whimsy/.git/worktrees/w4polish/index.lock, so the actual branch cannot be committed here. An isolated temporary Git repository holds the same parent and a wave4/polish commit; /tmp/whimsy-w4polish.bundle and /tmp/whimsy-w4polish.patch deliver it for the lead to import. Working files remain ready to stage; main checkout and engine were not modified.
 
 - W34 lane: merged wave4/polish; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.
+
+- W34 lane: merged wave4/mini; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.
