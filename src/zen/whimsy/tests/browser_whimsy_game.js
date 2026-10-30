@@ -396,3 +396,21 @@ add_task(async function test_style_switch_never_moves() {
   });
 });
 
+// fix7/game: browser shortcuts (Cmd+W, Cmd+T, Cmd+L...) pass through the
+// game; only bare keys steer.
+add_task(async function test_browser_shortcuts_pass_through() {
+  await withGame(async ({ win, game }) => {
+    let prevented = null;
+    const seen = event => {
+      prevented = event.defaultPrevented;
+    };
+    win.addEventListener("keydown", seen);
+    for (const [key, mods] of [["w", { metaKey: true }], ["w", { ctrlKey: true }], ["KEY_ArrowLeft", { altKey: true }], [" ", { metaKey: true }]]) {
+      prevented = null;
+      win.dispatchEvent(new win.KeyboardEvent("keydown", { key: key.replace("KEY_", ""), bubbles: true, cancelable: true, ...mods }));
+      is(prevented, false, `${JSON.stringify(mods)}+${key} is left to the browser`);
+    }
+    is(game.state.state, "ready", "and never starts or steers the game");
+    win.removeEventListener("keydown", seen);
+  });
+});

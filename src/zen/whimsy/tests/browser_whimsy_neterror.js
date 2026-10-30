@@ -262,3 +262,25 @@ add_task(async function only_offline_errors_and_never_from_a_field() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// fix7/game: Accel+W (and other browser shortcuts) pass through the game.
+add_task(async function accel_w_closes_the_game_tab() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+    const browser = tab.linkedBrowser;
+    const loaded = BrowserTestUtils.waitForErrorPage(browser);
+    const url = `about:neterror?e=netOffline&u=${encodeURIComponent("https://example.com/")}&d=x`;
+    await SpecialPowers.spawn(browser, [url], u => { content.location = u; });
+    await loaded;
+    await prepare(browser);
+    await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+    await gameState(browser, true);
+    const closed = BrowserTestUtils.waitForTabClosing(tab);
+    EventUtils.synthesizeKey("w", { accelKey: true });
+    await closed;
+    ok(!gBrowser.tabs.includes(tab), "Accel+W closes the tab the game is playing in");
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});

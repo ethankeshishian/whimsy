@@ -2416,6 +2416,11 @@
     setInput(clamp(x, -1, 1), clamp(y, -1, 1));
   }
   window.addEventListener("keydown", event => {
+    // Browser shortcuts (Cmd+W, Cmd+T, Ctrl+Tab...) are never the game's:
+    // "w" is a steering key, and swallowing Cmd+W left the tab unclosable.
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
     if (event.target.closest?.("button") && (event.key == " " || event.key == "Enter")) {
       return;
     }
@@ -2436,7 +2441,7 @@
     }
   });
   window.addEventListener("keyup", event => {
-    if (DIR_KEYS[event.key]) {
+    if (held.has(event.key)) {
       held.delete(event.key);
       syncHeld();
     } else if (event.key == " ") {
