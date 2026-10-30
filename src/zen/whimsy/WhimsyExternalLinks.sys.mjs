@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Where a link from another app (Mail, Slack, Terminal...) opens. Arc's
-// quick window (Little Arc, Cmd+Opt+N) is the model: a link clicked outside
-// the browser doesn't have to land in a full tab. Settings → Tab Management
-// → "Links from other apps open in": Glance (a preview over the current
-// tab), a tab (Firefox's own behavior), or a quick window
-// (WhimsyQuickWindow, batch12).
+// quick window (Little Arc, renamed Mini Whimsy here; Cmd+Opt+N) is the
+// model: a link clicked outside the browser doesn't have to land in a full
+// tab. Settings → Tab Management → "Links from other apps open in": Glance
+// (a preview over the current tab), a tab (Firefox's own behavior), or
+// Mini Whimsy (WhimsyQuickWindow, batch12).
 //
 // Wraps BrowserDOMWindow's openURI (browser/modules/BrowserDOMWindow.sys.mjs),
 // Firefox's nsIBrowserDOMWindow, for OPEN_EXTERNAL opens only. Every other
@@ -65,7 +65,7 @@ export const WhimsyExternalLinks = {
   // Opens the link as a Glance over the most recent window's current tab
   // when the target is "glance". Returns true when it handled the link
   // itself (openURI should return null); false to fall through to
-  // Firefox's own handling ("tab", and "quick-window" until Whimsy has one).
+  // openInQuickWindow, and from there to Firefox's own handling ("tab").
   openInGlance(uri, triggeringPrincipal) {
     if (this.target != "glance") {
       return false;
@@ -79,7 +79,7 @@ export const WhimsyExternalLinks = {
     return true;
   },
 
-  // batch12: opens the link in Whimsy's quick window (Little Arc) when the
+  // batch12: opens the link in Mini Whimsy (Arc's Little Arc) when the
   // target is "quick-window". Same return convention as openInGlance.
   openInQuickWindow(uri, triggeringPrincipal) {
     if (this.target != "quick-window") {

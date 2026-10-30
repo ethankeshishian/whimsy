@@ -432,3 +432,25 @@ add_task(async function whimsy_network_errors() {
     }
   }
 });
+
+// wave2: Mini's destination label and space colors.
+add_task(async function mini_whimsy_destination() {
+  const { WhimsyQuickWindow } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs"
+  );
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await WhimsyQuickWindow.whenReady(win);
+    await TestUtils.waitForCondition(() =>
+      win.document.getElementById("whimsy-quick-window-move-to-space")?.getAttribute("label")
+    );
+    await TestUtils.waitForCondition(() =>
+      win.document.l10n.getAttributes(win.document.getElementById("whimsy-quick-window-move-to-space"))
+        .args?.space == gZenWorkspaces.getActiveWorkspace().name
+    );
+    await new Promise(resolve => win.requestAnimationFrame(resolve));
+    await shot("mini-whimsy-destination", win.browsingContext.currentWindowGlobal);
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
