@@ -258,6 +258,10 @@ add_task(async function test_folder_preview_on_hover() {
   // Keep the selection outside the folder: a collapsed folder still shows its
   // active tab, and the preview lists only the hidden ones.
   gBrowser.selectedTab = outside;
+  // Zen shows no preview while the URL bar has focus (an earlier test can
+  // leave a blank tab selected with the URL bar focused); focus the page.
+  gBrowser.selectedBrowser.focus();
+  await TestUtils.waitForCondition(() => !gURLBar.focused, "The page, not the URL bar, has focus");
 
   const popup = document.getElementById("zen-folder-tabs-popup");
   const label = folder.querySelector(".tab-group-label-container");
