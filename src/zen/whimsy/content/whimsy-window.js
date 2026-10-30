@@ -31,7 +31,9 @@ var WhimsyWindow = {
       // home: "What's new" opens Whimsy's own Changelog tab, not Zen's or
       // Firefox's release notes.
       links.push({
-        url: "about:whimsy?tab=changelog",
+        url: Services.prefs.getBoolPref("whimsy.feature.home", true)
+          ? "about:whimsy?tab=changelog"
+          : notice.notes_url || "about:home",
         l10nId: "whimsy-updated-notes",
         special: true,
         icon: "chrome://browser/skin/zen-icons/sparkles.svg",

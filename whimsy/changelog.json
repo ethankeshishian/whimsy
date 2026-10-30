@@ -1,0 +1,53 @@
+{
+  "groups": [
+    {
+      "version": "Unreleased",
+      "entries": [
+        "Whimsy now has a homepage with Settings, keyboard shortcuts, Arc import, feedback, and a Changelog tab."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.74",
+      "entries": [
+        "Mute background tabs and remember muted sites.",
+        "Adjust tab volume and video playback speed.",
+        "Automatically open picture-in-picture when leaving a video and return it when switching back.",
+        "Capture screenshots, edit page text, and allow copy and paste.",
+        "Look up unavailable pages in the Internet Archive and inspect image information.",
+        "Translate selected text and customize reader typography.",
+        "See estimated reading time and optionally darken PDFs.",
+        "Find starts with selected text. Update settings appear in About Whimsy."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.52",
+      "entries": [
+        "Move tabs to spaces by dropping them on space icons.",
+        "Return to the last selected tab in each space.",
+        "Search space emoji and optionally hide the space switcher.",
+        "Open links in another space from the context menu.",
+        "Customize theme colors with hex values, transparency, menu icons, and the interface font."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.41",
+      "entries": [
+        "Optionally place the New Tab button at the bottom of the sidebar.",
+        "Choose folder colors and see a loading progress line.",
+        "See unread counts and update dots on pinned tabs and Essentials.",
+        "Group tabs by domain."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.32",
+      "entries": [
+        "Copy rich links or links for multiple selected tabs.",
+        "Remove tracking parameters and reject cookie banners by default.",
+        "Identify private windows and disable browser AI features in Settings.",
+        "Duplicate tabs with Cmd+Shift+D and pin or unpin with Cmd+D on macOS.",
+        "Open new tabs below the current tab and within its folder.",
+        "Customize title wrapping and optionally dim sleeping tabs."
+      ]
+    }
+  ]
+}

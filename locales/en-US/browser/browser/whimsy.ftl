@@ -751,13 +751,18 @@ whimsy-home-blurb =
     folders and splits from Zen, with Arc's shortcuts and flow layered on
     top.
 whimsy-home-link-settings = Settings
-whimsy-home-link-shortcuts = Shortcuts cheat sheet
+whimsy-home-link-shortcuts = Keyboard shortcuts
 whimsy-home-link-import = Import from Arc
 whimsy-home-link-feedback = Feedback on GitHub
-whimsy-changelog-blurb = What's changed, one line per build.
+whimsy-changelog-blurb = What's changed in each build.
 whimsy-changelog-empty = Nothing to show yet.
 
 ## home: Library footer (replaces Zen's donate button; see ZenLibrary.mjs)
 
 whimsy-library-footer-feedback-button =
     .label = Feedback
+
+# home: homepage preference and changelog version heading.
+whimsy-home-enabled =
+    .label = Use the Whimsy homepage
+whimsy-changelog-unreleased = Unreleased

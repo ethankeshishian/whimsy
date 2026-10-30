@@ -12,6 +12,10 @@ const { WhimsyProtocol } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyProtocol.sys.mjs"
 );
 
+add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.home", true]] });
+});
+
 add_task(function test_routes() {
   is(WhimsyProtocol.route("whimsy://home").url, "about:whimsy", "whimsy://home routes to about:whimsy");
   is(
@@ -48,7 +52,7 @@ add_task(async function test_home_tab_content() {
         feedback: doc.getElementById("whimsy-home-link-feedback"),
       };
       is(links.settings.getAttribute("href"), "about:preferences", "Settings quick link");
-      is(links.shortcuts.getAttribute("href"), "about:keyboard", "Shortcuts quick link");
+      is(links.shortcuts.getAttribute("href"), "about:keyboard", "Keyboard shortcuts quick link");
       ok(links.imports, "An Import from Arc quick link exists");
       is(
         links.feedback.getAttribute("href"),
@@ -88,17 +92,91 @@ add_task(async function test_changelog_tab_renders_entries() {
 });
 
 add_task(async function test_feature_off_falls_back() {
-  Services.prefs.setBoolPref("whimsy.feature.home", false);
-  registerCleanupFunction(() => Services.prefs.clearUserPref("whimsy.feature.home"));
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.home", false]] });
 
   await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
     await SpecialPowers.spawn(browser, [], async () => {
-      ok(
-        !content.document.getElementById("whimsy-home"),
-        "With the feature off, about:whimsy no longer shows Whimsy's homepage"
-      );
+      is(content.document.documentURI.split("?")[0], "about:home", "Disabled route loads the real home document");
+      ok(!content.document.getElementById("whimsy-home"), "No Whimsy homepage when disabled");
     });
   });
 
-  Services.prefs.clearUserPref("whimsy.feature.home");
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_tabs_and_keyboard() {
+  await BrowserTestUtils.withNewTab("about:whimsy?tab=unknown", async browser => {
+    const doc = browser.contentDocument;
+    const home = doc.getElementById("whimsy-tab-home");
+    const changelog = doc.getElementById("whimsy-tab-changelog");
+    is(home.tabIndex, 0, "Unknown tab falls back to Home");
+    changelog.click();
+    is(changelog.getAttribute("aria-selected"), "true", "Click selects Changelog");
+    is(home.tabIndex, -1, "Only selected tab is in the tab order");
+    ok(doc.location.search.includes("tab=changelog"), "URL follows selection");
+    changelog.focus();
+    EventUtils.synthesizeKey("KEY_ArrowRight", {}, browser.contentWindow);
+    is(doc.activeElement, home, "Arrow navigation wraps and focuses Home");
+    EventUtils.synthesizeKey("KEY_End", {}, browser.contentWindow);
+    is(doc.activeElement, changelog, "End selects the last tab");
+    EventUtils.synthesizeKey("KEY_Home", {}, browser.contentWindow);
+    is(doc.activeElement, home, "Home selects the first tab");
+  });
+});
+
+add_task(async function test_changelog_empty_invalid_and_text() {
+  await BrowserTestUtils.withNewTab("about:whimsy?tab=changelog", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsy-changelog-list").children.length);
+    const render = browser.contentWindow.renderChangelog;
+    const list = doc.getElementById("whimsy-changelog-list");
+    const empty = doc.getElementById("whimsy-changelog-empty");
+    for (const groups of [[], null, {}, [null, { version: "empty", entries: [] }]]) {
+      render(groups);
+      ok(!empty.hidden, "Missing or invalid notes show the empty state");
+      is(list.children.length, 0, "Rendering clears previous entries");
+    }
+    const entries = Array.from({ length: 100 }, (_, i) => `Change ${i}`);
+    entries[0] = "<img src=x onerror=alert(1)>";
+    render([{ version: "test", entries }]);
+    is(list.querySelectorAll("li").length, 100, "Long changelog renders every entry");
+    is(list.querySelector("li").textContent, entries[0], "Notes are plain text");
+    ok(!list.querySelector("img"), "Markup in release notes is never interpreted");
+    ok(empty.hidden, "Rendering notes hides the empty state");
+  });
+});
+
+add_task(async function test_import_uses_existing_arc_migrator() {
+  const { MigrationUtils } = ChromeUtils.importESModule("resource:///modules/MigrationUtils.sys.mjs");
+  const original = MigrationUtils.showMigrationWizard;
+  let request;
+  MigrationUtils.showMigrationWizard = (opener, options) => { request = { opener, options }; };
+  try {
+    await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+      browser.contentDocument.getElementById("whimsy-home-link-import").click();
+      await TestUtils.waitForCondition(() => request, "Import invokes Firefox's wizard");
+      is(request.opener, window, "Wizard belongs to the browser window");
+      is(request.options.migratorKey, "arc", "Arc is selected");
+      ok(!request.options.skipSourceSelection, "Other browsers remain available if Arc is missing");
+    });
+  } finally {
+    MigrationUtils.showMigrationWizard = original;
+  }
+});
+
+add_task(async function test_load_failure_shows_empty_state() {
+  await BrowserTestUtils.withNewTab("about:whimsy?tab=changelog", async browser => {
+    const win = browser.contentWindow;
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsy-changelog-list").children.length);
+    const originalFetch = win.fetch;
+    win.fetch = async () => { throw new Error("Missing changelog fixture"); };
+    try {
+      await win.loadChangelog();
+      ok(!doc.getElementById("whimsy-changelog-empty").hidden, "Load failure shows the empty state");
+      is(doc.getElementById("whimsy-changelog-list").children.length, 0, "Failure clears stale notes");
+    } finally {
+      win.fetch = originalFetch;
+    }
+  });
 });

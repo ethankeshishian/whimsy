@@ -23,6 +23,8 @@ body {
 }
 
 .whimsy-home {
+  box-sizing: border-box;
+  min-width: 0;
   width: 100%;
   max-width: var(--whimsy-home-max-width);
   padding: 48px 24px 64px;
@@ -149,6 +151,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .whimsy-home-tab,
   .whimsy-home-link {
     transition: none;
   }

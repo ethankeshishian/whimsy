@@ -1036,9 +1036,9 @@ export class ZenLibrary extends MozLitElement {
       },
       {
         image: "chrome://browser/skin/zen-icons/heart-circle-fill.svg",
-        l10nId: "whimsy-library-footer-feedback-button", // Whimsy hotfix
+        l10nId: "library-footer-donate-button",
         command: () => {
-          window.openTrustedLinkIn("https://github.com/ethankeshishian/whimsy/issues", "tab");
+          window.openTrustedLinkIn("https://www.zen-browser.app/donate", "tab");
           ZenLibrary.animateProgress(0);
         },
       },

@@ -171,6 +171,12 @@ overlay = subprocess.run([sys.executable, "whimsy/overlay.py", "check"], capture
 if overlay.returncode:
     problems.append("whimsy/overlay.py check failed:\n" + overlay.stdout.strip())
 
+# home: committed release notes must match their reviewed source.
+changelog = subprocess.run([sys.executable, "whimsy/generate_changelog.py", "--check"],
+                           capture_output=True, text=True)
+if changelog.returncode:
+    problems.append(changelog.stderr.strip() or "Changelog check failed")
+
 missing_strings = [f for f in os.listdir("locales/en-US/browser/browser")
                    if f.startswith("zen") and not os.path.exists(f"engine/browser/locales/en-US/browser/{f}")]
 if missing_strings:

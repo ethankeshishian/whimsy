@@ -3,79 +3,56 @@
     {
       "version": "Unreleased",
       "entries": [
-        "Air Traffic Control already exists (src/zen/space-routing), PiP over full-screen exists, nsISystemStatusBar for menu bar extra",
-        "Tier C + homepage last",
-        "Release stays paused (user)",
-        "Glance shortcuts dropped (Zen already has the trigger dropdown; split key collides with Zoom In)",
-        "Remaining batch6: items 3, 4, 7\u201317; then batch7",
-        "Private-tabs research (agy): real privateBrowsingId=1 per tab NOT possible from chrome JS (MOZ_CRASH on mutation); needs ~60-line engine patch (4 files) or container approximation",
-        "Stopped per user rule; awaiting user call",
-        "User chose ENGINE PATCH for private tabs (real privateBrowsingId=1)",
-        "#15 dropped (duplicates)",
-        "Auto-PiP already on",
-        "Deferred: Meet/Zoom-specific floating calls (needs real-site testing)",
-        "Call: quick window is a normal window, not always-on-top",
-        "Gap: Cmd+1..9 don't skip hidden spaces",
-        "Deferred: space-aware history (needs user call: Library vs Whimsy panel)",
-        "Deferred: Next meeting (EventKit needs native XPCOM patch + entitlement; Google part could be done JS-only later)",
-        "Watch print-clean tab-close timing",
-        "overlay.py gained FEATURES 'default' key; precheck l10n fix",
-        "Deferred: tree collapse/expand, drag-out reparent",
-        "ctrl_tab_native runs headed only ()",
-        "User must run updater/install.sh --publish (blocked for agent)",
-        "Gaps: downloads panel, switch-to-tab leak",
-        "Partial: whimsy:// external links (needs Info.plist), Quick Look only in FF downloads panel, cheat sheet Whimsy-only",
-        "Unverified: whether Mozilla's VPN backend (Guardian) accepts a fork",
-        "Deferred: per-space VPN (needs engine patch to IPPChannelFilter for userContextId)",
-        "Deferred: whimsy CLI",
-        "Limits: synthesized input in background tabs; token in prefs.js"
+        "Whimsy now has a homepage with Settings, keyboard shortcuts, Arc import, feedback, and a Changelog tab."
       ]
     },
     {
       "version": "1.24b-w2-dev.74",
       "entries": [
-        "(resumed after limit reset 12:10): mute bg tabs , remember muted , per-tab volume (partial: no Web Audio, max 100%), PiP snaps back + auto-PiP on , speed , capture (Cmd+Shift+2), edit text , allow copy/paste , wayback , image info , translate selection (Cmd+Opt+Shift+T), reader fonts , reading time , dark PDFs (off), Cmd+F prefill , update UI moved to About Whimsy"
+        "Mute background tabs and remember muted sites.",
+        "Adjust tab volume and video playback speed.",
+        "Automatically open picture-in-picture when leaving a video and return it when switching back.",
+        "Capture screenshots, edit page text, and allow copy and paste.",
+        "Look up unavailable pages in the Internet Archive and inspect image information.",
+        "Translate selected text and customize reader typography.",
+        "See estimated reading time and optionally darken PDFs.",
+        "Find starts with selected text. Update settings appear in About Whimsy."
       ]
     },
     {
       "version": "1.24b-w2-dev.52",
       "entries": [
-        "drop tabs on space icons (gap: Zen may select another tab after drop; real drag untested)",
-        "Last tab per space",
-        "Emoji search polish (Zen PR #16055)",
-        "Hide switcher (OFF)",
-        "Reorder spaces existed, test",
-        "Open Link in Space",
-        "Hex colors",
-        "Transparency (check on real window)",
-        "Menu icons",
-        "Interface font",
-        "Site-tinted toolbar DROPPED (window never tints)",
-        "Fixed whimsy.folders.colors default that broke firefox.js parsing"
+        "Move tabs to spaces by dropping them on space icons.",
+        "Return to the last selected tab in each space.",
+        "Search space emoji and optionally hide the space switcher.",
+        "Open links in another space from the context menu.",
+        "Customize theme colors with hex values, transparency, menu icons, and the interface font."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.41",
+      "entries": [
+        "Optionally place the New Tab button at the bottom of the sidebar.",
+        "Choose folder colors and see a loading progress line.",
+        "See unread counts and update dots on pinned tabs and Essentials.",
+        "Group tabs by domain."
       ]
     },
     {
       "version": "1.24b-w2-dev.32",
       "entries": [
-        "Copy & share (rich link, multi-tab, Copy Links menu, toast)",
-        "Strip tracking (on by default, Privacy toggle)",
-        "Cookie banners: Firefox 159 removed its built-in handler \u2192 requeued as bundling DuckDuckGo autoconsent (MPL-2.0)",
-        "Zen #8894 (sites eat Cmd+Shift+C) open, untouched",
-        "Cookie banners (vendored DDG autoconsent 17.0.0 as hidden built-in add-on; whimsy/update-autoconsent.sh; engine_overrides copies addon files into engine/)",
-        "Private indicator (violet)",
-        "AI kill switch (Privacy; translations stay on)",
-        "Duplicate Cmd+Shift+D (Arc call: Pin/Unpin -> Cmd+D, Bookmark loses Cmd+D)",
-        "New tabs below + in folder",
-        "Dim sleeping (off)",
-        "Title lines",
-        "New-tab dock at bottom (toggle OFF: Arc keeps New Tab at top)",
-        "Collapse pinned: existed, test",
-        "Folder colors",
-        "Loading line",
-        "A/V badges: existed, test",
-        "Unread badges/dots (title-based)",
-        "Rename: existed (\"Change Label\u2026\"), test",
-        "Group by domain"
+        "Copy rich links or links for multiple selected tabs.",
+        "Remove tracking parameters and reject cookie banners by default.",
+        "Identify private windows and disable browser AI features in Settings.",
+        "Duplicate tabs with Cmd+Shift+D and pin or unpin with Cmd+D on macOS.",
+        "Open new tabs below the current tab and within its folder.",
+        "Customize title wrapping and optionally dim sleeping tabs."
+      ]
+    },
+    {
+      "version": "1.24b-w1",
+      "entries": [
+        "First public release: Arc-style Ctrl+Tab, app icons, interface zoom, your PRs vs your team's, automatic updates"
       ]
     }
   ]

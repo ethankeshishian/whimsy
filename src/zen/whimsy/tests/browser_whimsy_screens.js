@@ -386,3 +386,22 @@ add_task(async function tab_volume_panel() {
     await hidden;
   }
 });
+
+// home: both tabs, ready for the integration build's screenshot review.
+add_task(async function whimsy_home_and_changelog() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.home", true]] });
+  try {
+    for (const [suffix, name] of [["", "20-home"], ["?tab=changelog", "21-changelog"]]) {
+      await BrowserTestUtils.withNewTab(`about:whimsy${suffix}`, async browser => {
+        const doc = browser.contentDocument;
+        await doc.l10n.ready;
+        if (suffix) {
+          await TestUtils.waitForCondition(() => doc.getElementById("whimsy-changelog-list").children.length);
+        }
+        await shot(name, browser.browsingContext.currentWindowGlobal);
+      });
+    }
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});

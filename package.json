@@ -11,7 +11,7 @@
     "build:ui": "surfer set brand release && surfer build --ui",
     "start": "cd engine && python3 ./mach run --noprofile",
     "start:bloat": "XPCOM_MEM_BLOAT_LOG=1 npm start",
-    "import": "npm run ffprefs && npm run import:dumps && python3 whimsy/engine_prepare.py && python3 whimsy/generate_changelog.py && surfer import && npm run import:strings && python3 whimsy/engine_overrides.py",
+    "import": "npm run ffprefs && npm run import:dumps && python3 whimsy/engine_prepare.py && surfer import && npm run import:strings && python3 whimsy/engine_overrides.py",
     "import:dumps": "python3 scripts/update_service_dumps.py",
     "export": "surfer export",
     "init": "npm run download && npm run import && npm run bootstrap",

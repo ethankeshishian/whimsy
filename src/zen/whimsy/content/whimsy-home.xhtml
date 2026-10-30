@@ -12,18 +12,17 @@
     <title data-l10n-id="whimsy-home-title"></title>
     <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" media="all" />
     <link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-home.css" />
-    <linkset>
-      <link rel="localization" href="browser/whimsy.ftl" />
-    </linkset>
+    <link rel="localization" href="browser/whimsy.ftl" />
   </head>
   <body>
     <div class="whimsy-home" id="whimsy-home">
       <header class="whimsy-home-header">
-        <h1 data-l10n-id="whimsy-home-brand">Whimsy</h1>
-        <nav class="whimsy-home-tabs" role="tablist" aria-label="Whimsy">
+        <h1 id="whimsy-home-heading" data-l10n-id="whimsy-home-brand"></h1>
+        <nav class="whimsy-home-tabs" role="tablist" aria-labelledby="whimsy-home-heading">
           <button
             type="button"
             id="whimsy-tab-home"
+            aria-controls="whimsy-panel-home"
             class="whimsy-home-tab"
             role="tab"
             data-tab="home"
@@ -33,6 +32,8 @@
           <button
             type="button"
             id="whimsy-tab-changelog"
+            aria-controls="whimsy-panel-changelog"
+            tabindex="-1"
             class="whimsy-home-tab"
             role="tab"
             data-tab="changelog"
@@ -42,12 +43,12 @@
         </nav>
       </header>
 
-      <section id="whimsy-panel-home" class="whimsy-home-panel" role="tabpanel" aria-labelledby="whimsy-tab-home">
+      <section id="whimsy-panel-home" class="whimsy-home-panel" tabindex="0" role="tabpanel" aria-labelledby="whimsy-tab-home">
         <p class="whimsy-home-blurb" data-l10n-id="whimsy-home-blurb"></p>
 
         <div class="whimsy-home-links" id="whimsy-home-links">
-          <a class="whimsy-home-link" href="about:preferences" data-l10n-id="whimsy-home-link-settings"></a>
-          <a class="whimsy-home-link" href="about:keyboard" data-l10n-id="whimsy-home-link-shortcuts"></a>
+          <a id="whimsy-home-link-settings" class="whimsy-home-link" href="about:preferences" data-l10n-id="whimsy-home-link-settings"></a>
+          <a id="whimsy-home-link-shortcuts" class="whimsy-home-link" href="about:keyboard" data-l10n-id="whimsy-home-link-shortcuts"></a>
           <button
             type="button"
             class="whimsy-home-link whimsy-home-link-button"
@@ -55,6 +56,7 @@
             data-l10n-id="whimsy-home-link-import"
           ></button>
           <a
+            id="whimsy-home-link-feedback"
             class="whimsy-home-link"
             href="https://github.com/ethankeshishian/whimsy/issues"
             target="_blank"
@@ -67,7 +69,7 @@
       <section
         id="whimsy-panel-changelog"
         class="whimsy-home-panel"
-        role="tabpanel"
+        tabindex="0" role="tabpanel"
         aria-labelledby="whimsy-tab-changelog"
         hidden="hidden"
       >
@@ -76,6 +78,6 @@
         <p id="whimsy-changelog-empty" class="whimsy-home-empty" data-l10n-id="whimsy-changelog-empty" hidden="hidden"></p>
       </section>
     </div>
+    <script src="chrome://browser/content/whimsy/whimsy-home.js"></script>
   </body>
-  <script src="chrome://browser/content/whimsy/whimsy-home.js" />
 </html>

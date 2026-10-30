@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// home: about:whimsy. A chrome-privileged static page (no framework): two
+// home: about:whimsy. A trusted static page (no framework): two
 // tabs, Home and Changelog. The requested tab comes from the URL Whimsy's
 // about: module preserves (?tab=changelog), so "What's new" and
 // whimsy://changelog land straight on the Changelog tab.
@@ -27,7 +27,9 @@ function selectTab(tab) {
     ["whimsy-tab-home", "home"],
     ["whimsy-tab-changelog", "changelog"],
   ]) {
-    document.getElementById(id).setAttribute("aria-selected", String(name == tab));
+    const button = document.getElementById(id);
+    button.setAttribute("aria-selected", String(name == tab));
+    button.tabIndex = name == tab ? 0 : -1;
   }
   document.getElementById("whimsy-panel-home").hidden = isChangelog;
   document.getElementById("whimsy-panel-changelog").hidden = !isChangelog;
@@ -42,31 +44,51 @@ function selectTab(tab) {
 function initTabs() {
   for (const button of document.querySelectorAll(".whimsy-home-tab")) {
     button.addEventListener("click", () => selectTab(button.dataset.tab));
+    button.addEventListener("keydown", event => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        return;
+      }
+      event.preventDefault();
+      const tab = event.key == "Home" ? "home" : event.key == "End" ? "changelog"
+        : button.dataset.tab == "home" ? "changelog" : "home";
+      selectTab(tab);
+      document.getElementById(`whimsy-tab-${tab}`).focus();
+    });
   }
+  window.addEventListener("popstate", () => selectTab(currentTabFromLocation()));
   selectTab(currentTabFromLocation());
 }
 
 function renderChangelog(groups) {
   const list = document.getElementById("whimsy-changelog-list");
   const empty = document.getElementById("whimsy-changelog-empty");
-  const nonEmptyGroups = (groups || []).filter(g => g.entries && g.entries.length);
+  list.replaceChildren();
+  const nonEmptyGroups = Array.isArray(groups) ? groups.filter(g =>
+    g && typeof g.version == "string" && Array.isArray(g.entries) &&
+    g.entries.some(line => typeof line == "string" && line.trim())
+  ) : [];
+  empty.hidden = !!nonEmptyGroups.length;
   if (!nonEmptyGroups.length) {
     empty.hidden = false;
     return;
   }
   for (const group of nonEmptyGroups) {
-    const section = document.createElement("div");
+    const section = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
     section.className = "whimsy-changelog-group";
 
-    const version = document.createElement("p");
+    const version = document.createElementNS("http://www.w3.org/1999/xhtml", "h2");
     version.className = "whimsy-changelog-version";
-    version.textContent = group.version;
+    if (group.version == "Unreleased") {
+      document.l10n.setAttributes(version, "whimsy-changelog-unreleased");
+    } else {
+      version.textContent = group.version;
+    }
     section.appendChild(version);
 
-    const entries = document.createElement("ul");
+    const entries = document.createElementNS("http://www.w3.org/1999/xhtml", "ul");
     entries.className = "whimsy-changelog-entries";
-    for (const line of group.entries) {
-      const item = document.createElement("li");
+    for (const line of group.entries.filter(line => typeof line == "string" && line.trim())) {
+      const item = document.createElementNS("http://www.w3.org/1999/xhtml", "li");
       item.textContent = line;
       entries.appendChild(item);
     }
@@ -82,22 +104,22 @@ async function loadChangelog() {
     renderChangelog(data.groups);
   } catch (e) {
     console.error("Whimsy: couldn't load the changelog", e);
-    document.getElementById("whimsy-changelog-empty").hidden = false;
+    renderChangelog([]);
   }
 }
 
 function initImportFromArc() {
   const button = document.getElementById("whimsy-home-link-import");
-  button.addEventListener("click", async () => {
+  button.addEventListener("click", () => {
     try {
       const { MigrationUtils } = ChromeUtils.importESModule(
         "resource:///modules/MigrationUtils.sys.mjs"
       );
       const win = window.browsingContext.topChromeWindow;
-      await MigrationUtils.showMigrationWizard(win, {
+      MigrationUtils.showMigrationWizard(win, {
         migratorKey: "arc",
         entrypoint: MigrationUtils.MIGRATION_ENTRYPOINTS.UNKNOWN,
-        skipSourceSelection: true,
+        skipSourceSelection: false,
       });
     } catch (e) {
       console.error("Whimsy: couldn't open the Arc importer", e);

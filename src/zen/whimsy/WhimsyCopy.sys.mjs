@@ -143,7 +143,7 @@ export const WhimsyCopy = {
       uri.spec == "about:blank" ||
       uri.spec == "about:newtab" ||
       uri.spec == "about:home" ||
-      uri.spec.startsWith("about:whimsy")
+      uri.specIgnoringRef.split("?")[0] == "about:whimsy"
     );
   },
 
