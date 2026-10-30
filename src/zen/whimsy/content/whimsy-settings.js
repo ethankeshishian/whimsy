@@ -857,8 +857,9 @@ Object.assign(gWhimsySettings, {
 });
 
 // wave4: calendar connections stay in Settings; permission is requested on click.
+// wave5/uxfix: they live in General (one place), not Look and Feel.
 document.addEventListener("paneshown", event => {
-  if (event.detail.category == gWhimsySettings.PANE) {
+  if (event.detail.category == "paneGeneral") {
     gWhimsySettings.insertNextMeetingGroup();
   }
 });
@@ -874,7 +875,8 @@ Object.assign(gWhimsySettings, {
     );
     service.initWindow(window.browsingContext.topChromeWindow);
     const group = template.content.firstElementChild;
-    const anchor = document.getElementById("whimsyLookGroup") || document.getElementById("whimsyUiZoomGroup");
+    // After the last General group, so it sits with General's own groups.
+    const anchor = [...document.querySelectorAll('#mainPrefPane > [data-category="paneGeneral"]')].at(-1);
     (anchor?.parentElement || document.getElementById("mainPrefPane")).insertBefore(
       template.content, anchor?.nextSibling || null
     );

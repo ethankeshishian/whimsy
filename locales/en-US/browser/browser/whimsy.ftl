@@ -1611,3 +1611,6 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+# wave5/uxfix: Settings → General heading for calendar connections.
+whimsy-meeting-group-header = Meetings
