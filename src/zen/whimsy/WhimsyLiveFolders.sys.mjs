@@ -419,8 +419,11 @@ export const WhimsyLiveFolders = {
     document.addEventListener(
       "popupshowing",
       event => {
-        const menu = event.target.closest?.("#zen-panel-ui-live-folder-create");
-        if (!menu) {
+        // The items go in the submenu's popup: a menuitem appended to the
+        // <menu> itself (outside its menupopup) is never shown, which is why
+        // Jira and Linear were missing from the menu.
+        const menu = event.target;
+        if (menu.localName != "menupopup" || menu.parentElement?.id != "zen-panel-ui-live-folder-create") {
           return;
         }
         let item = menu.querySelector(".whimsy-live-folder-jira-create");

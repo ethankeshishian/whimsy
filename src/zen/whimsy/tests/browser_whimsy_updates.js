@@ -291,3 +291,48 @@ add_task(async function test_same_version_orders_by_build_id() {
   is(await aus.selectUpdate([update(current)]), null, "The running build is skipped");
   is((await aus.selectUpdate([update(newer)]))?.buildID, newer, "A newer build is offered");
 });
+
+// An update record carried over from an earlier session (ready or still
+// downloading) for the build that's now running, or an older one, is dropped
+// at startup whatever its state; it used to be staged again ("Restart to
+// update" on the installed build). The just-installed "succeeded" update stays
+// for Firefox's post-update handling.
+add_task(async function test_startup_drops_carried_over_updates() {
+  const current = Services.appinfo.appBuildID;
+  const older = String(Number(current.slice(0, 4)) - 1) + current.slice(4);
+  const newer = String(Number(current.slice(0, 4)) + 1) + current.slice(4);
+  // The engine passes Firefox's comparison; same version, build-ID order.
+  const isOld = update => update.buildID <= current;
+  const update = buildID => ({ buildID });
+  const ready = update(current);
+  const downloading = update(current);
+
+  for (const status of ["applying", "failed", "pending", "applied", "downloading"]) {
+    Assert.deepEqual(
+      WhimsyUpdates.staleActiveUpdates(status, { ready, downloading }, isOld),
+      [ready, downloading],
+      `${status}: the running build's records are dropped`
+    );
+  }
+  Assert.deepEqual(
+    WhimsyUpdates.staleActiveUpdates("succeeded", { ready, downloading }, isOld),
+    [downloading],
+    "succeeded: the just-installed update stays; a carried-over download goes"
+  );
+  const old = update(older);
+  Assert.deepEqual(
+    WhimsyUpdates.staleActiveUpdates("downloading", { ready: null, downloading: old }, isOld),
+    [old],
+    "An older build's download is dropped"
+  );
+  Assert.deepEqual(
+    WhimsyUpdates.staleActiveUpdates("pending", { ready: update(newer), downloading: null }, isOld),
+    [],
+    "A newer build is kept"
+  );
+  Assert.deepEqual(
+    WhimsyUpdates.staleActiveUpdates("none", { ready: null, downloading: null }, isOld),
+    [],
+    "No updates, nothing to drop"
+  );
+});

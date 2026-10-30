@@ -262,7 +262,10 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
         continue;
       }
       const label = action.extraPayload?.prettyName || action.label;
-      const score = this.#calculateFuzzyScore(label, query);
+      const score = Math.max(
+        this.#calculateFuzzyScore(label, query),
+        ...(action.whimsyKeywords ?? []).map(k => this.#calculateFuzzyScore(k, query) - 1)
+      ); // Whimsy hotfix: related actions
       if (
         score >
         (isPrefixed ? MINIMUM_PREFIXED_QUERY_SCORE : MINIMUM_QUERY_SCORE)

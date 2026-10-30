@@ -99,3 +99,48 @@ add_task(async function test_create_switch_hides_all_new_actions() {
   ok(!action("whimsy-action-new-note").isAvailable(window), "Switch off: hidden even with a target");
   await SpecialPowers.popPrefEnv();
 });
+
+// Searching "dark" (or "light") shows all the appearance choices, not only
+// the one whose label contains the word; the direct match ranks first.
+add_task(async function test_appearance_actions_match_each_other() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  UrlbarTestUtils.init(this);
+  const [auto, light, dark] = [
+    "zen-action-switch-to-automatic-appearance",
+    "zen-action-switch-to-light-mode",
+    "zen-action-switch-to-dark-mode",
+  ].map(action);
+  ok(light.whimsyKeywords.includes(dark.label), "Light also matches Dark's label");
+  ok(auto.whimsyKeywords.includes(light.label), "Automatic also matches Light's label");
+  ok(!dark.whimsyKeywords.includes(dark.label), "An action isn't its own keyword");
+
+  // Automatic now: Light and Dark are both offered.
+  await SpecialPowers.pushPrefEnv({ set: [["zen.view.window.scheme", 2]] });
+  const titles = async query => {
+    gURLBar.searchMode = null;
+    await typeInUrlbar(`/${query}`);
+    await UrlbarTestUtils.promiseSearchComplete(window);
+    const found = [];
+    for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+      const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+      if (result.payload.zenAction) {
+        found.push(result.payload.title);
+      }
+    }
+    return found;
+  };
+  let found = await titles("dark");
+  is(found[0], dark.label, '"dark": Dark Mode first');
+  ok(found.includes(light.label), '"dark" also shows Light Mode');
+  found = await titles("light");
+  is(found[0], light.label, '"light": Light Mode first');
+  ok(found.includes(dark.label), '"light" also shows Dark Mode');
+
+  // Dark now: "dark" still shows the other two.
+  await SpecialPowers.pushPrefEnv({ set: [["zen.view.window.scheme", 0]] });
+  found = await titles("dark");
+  ok(found.includes(light.label) && found.includes(auto.label), '"dark" in dark mode shows Light and Automatic');
+  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
+  gURLBar.searchMode = null;
+});

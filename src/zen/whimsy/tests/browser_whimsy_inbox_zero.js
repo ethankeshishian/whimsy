@@ -42,3 +42,33 @@ add_task(async function test_balloons_on_zero_transition() {
     );
   });
 });
+
+// A mail tab whose count arrived while it was in the background (it loaded
+// before you switched to it) still celebrates when you clear it; a tab that
+// hits zero in the background doesn't throw balloons over another tab.
+add_task(async function test_background_count_is_remembered() {
+  TEST_HOSTS.push({
+    match: host => host == "example.org",
+    regex: /^Inbox \((\d+)\)/,
+    zero: /^Inbox$/,
+  });
+  const { WhimsyDelight } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDelight.sys.mjs");
+  const mail = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+
+  mail.label = "Inbox (4)";
+  WhimsyDelight.onLabelChanged(window, mail);
+  mail.label = "Inbox";
+  WhimsyDelight.onLabelChanged(window, mail);
+  ok(!document.querySelector(".whimsy-balloons"), "Zero in a background tab: no balloons over another tab");
+
+  mail.label = "Inbox (1)";
+  WhimsyDelight.onLabelChanged(window, mail);
+  await BrowserTestUtils.switchTab(gBrowser, mail);
+  mail.label = "Inbox";
+  WhimsyDelight.onLabelChanged(window, mail);
+  ok(document.querySelector(".whimsy-balloons"), "The count seen in the background counts: balloons on clearing it");
+
+  BrowserTestUtils.removeTab(other);
+  BrowserTestUtils.removeTab(mail);
+});

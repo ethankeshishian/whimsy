@@ -93,3 +93,27 @@ add_task(async function test_switch_off() {
   await SpecialPowers.popPrefEnv();
   ok(WhimsyLiveFolders.linearEnabled, "and back on by default");
 });
+
+// The toolbar menu's Live Folder submenu lists Jira and Linear next to Zen's
+// GitHub and RSS items: inside the submenu's popup (they used to be appended
+// to the <menu> itself, outside its popup, and never showed), and only once.
+add_task(async function test_create_menu_lists_jira_and_linear() {
+  const submenu = document.getElementById("zen-panel-ui-live-folder-create");
+  ok(submenu, "Zen's live folder submenu exists");
+  const popup = submenu.menupopup;
+  const show = () => popup.dispatchEvent(new Event("popupshowing", { bubbles: true }));
+  show();
+  show();
+  const linear = popup.querySelectorAll(":scope > .whimsy-live-folder-linear-create");
+  const jira = popup.querySelectorAll(":scope > .whimsy-live-folder-jira-create");
+  is(linear.length, 1, "Linear is in the popup, once");
+  is(jira.length, 1, "Jira is in the popup, once");
+  ok(!linear[0].hidden && !jira[0].hidden, "Both are shown");
+  ok(!submenu.querySelector(":scope > menuitem"), "Nothing sits outside the popup");
+  is(linear[0].getAttribute("command"), "cmd_zenNewLiveFolder", "Linear runs the live folder command");
+
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.live-folders-linear", false]] });
+  show();
+  ok(linear[0].hidden, "Linear's switch off hides it");
+  await SpecialPowers.popPrefEnv();
+});

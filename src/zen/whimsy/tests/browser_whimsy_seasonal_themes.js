@@ -24,6 +24,21 @@ add_task(async function test_seasonal_themes() {
   is(flourish.animationIterationCount, "1", "The seasonal entrance ends instead of animating forever");
   ok(parseFloat(flourish.animationDuration) <= 1, "The entrance settles within a second");
 
+  // Each flourish is a real shape (a mask tile), not a dot gradient.
+  const masks = {};
+  for (const [date, kind] of [[new Date(2026, 9, 30), "leaves"], [new Date(2026, 11, 20), "snow"], [new Date(2026, 2, 25), "blossom"]]) {
+    WhimsySeasons._now = () => date;
+    WhimsySeasons.apply(window);
+    is(root.getAttribute("whimsy-season-flourish"), kind, `${kind} flourish`);
+    const style = getComputedStyle(document.getElementById("zen-appcontent-wrapper"), "::after");
+    ok(style.maskImage.includes("data:image/svg+xml"), `${kind}: drawn from an SVG shape`);
+    is(style.backgroundImage, "none", `${kind}: no dot gradient`);
+    masks[kind] = style.maskImage;
+  }
+  is(new Set(Object.values(masks)).size, 3, "Leaves, snow and blossom have their own shapes");
+  WhimsySeasons._now = () => new Date(2026, 9, 30);
+  WhimsySeasons.apply(window);
+
   WhimsySeasons._now = () => new Date(2026, 6, 1); // July 1: no season.
   WhimsySeasons.apply(window);
   ok(!root.hasAttribute("whimsy-season"), "No season on July 1");

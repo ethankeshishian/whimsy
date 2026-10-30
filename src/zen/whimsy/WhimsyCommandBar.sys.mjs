@@ -53,9 +53,35 @@ const NOTE_TARGETS = {
   word: "https://word.new",
 };
 
+// Zen's three appearance actions only match their own label, so searching
+// "dark" found Switch to Dark Mode but hid Light and Automatic (and vice
+// versa). Each now also matches its siblings' labels (the
+// "command-bar-related-actions" hotfix in whimsy/overlay.py reads
+// whimsyKeywords), ranked just below the direct match.
+const APPEARANCE_ACTIONS = [
+  "zen-action-switch-to-automatic-appearance",
+  "zen-action-switch-to-light-mode",
+  "zen-action-switch-to-dark-mode",
+];
+
 export const WhimsyCommandBar = {
   NEW_THINGS,
   NOTE_TARGETS,
+  APPEARANCE_ACTIONS,
+
+  linkAppearanceActions() {
+    const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+    const group = globalActions.filter(a => APPEARANCE_ACTIONS.includes(a.l10nId));
+    for (const action of group) {
+      if (Object.hasOwn(action, "whimsyKeywords")) {
+        continue;
+      }
+      Object.defineProperty(action, "whimsyKeywords", {
+        configurable: true,
+        get: () => group.filter(a => a != action).map(a => a.label),
+      });
+    }
+  },
 
   openNewThing(win, url) {
     win.openTrustedLinkIn(url, "tab");
@@ -63,6 +89,7 @@ export const WhimsyCommandBar = {
 
   initWindow(win) {
     this.initSlashFilter(win);
+    this.linkAppearanceActions();
     lazy.WhimsyShortcuts.addActions([
       ...NEW_THINGS.map(thing => ({
         l10nId: thing.l10nId,

@@ -484,7 +484,13 @@ whimsy-snooze-wake-toast = “{ $title }” is back
 
 whimsy-fire-panel =
     .aria-label = Fire button
-whimsy-fire-site = This Site
+# $site (string) - the current tab's site, like "example.com". The scope is
+# the whole site: every subdomain, all of its history and data, and its tabs.
+whimsy-fire-site = Everything from { $site }
+    .tooltiptext = Deletes { $site }’s history, cookies, site data and cache, including its subdomains, and closes its tabs (pinned tabs stay)
+# Shown disabled when the current tab isn't a website (a new tab, about: pages).
+whimsy-fire-site-none = This Site
+    .tooltiptext = The current tab isn’t a website
 whimsy-fire-last-15-min = Last 15 Minutes
 whimsy-fire-space = This Space
 whimsy-fire-everything = Everything
@@ -729,6 +735,9 @@ whimsy-cookie-editor-copied-toast = Cookies copied
 
 whimsy-upload-clipboard =
     .label = Clipboard image
+# $name (string) - the file name of a file copied in Finder
+whimsy-upload-clipboard-file =
+    .label = Copied file: { $name }
 whimsy-upload-choose-file =
     .label = Choose file…
 

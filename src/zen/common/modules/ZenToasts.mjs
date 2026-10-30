@@ -116,6 +116,7 @@ export class nsZenToastManager {
         continue;
       }
       child.removeAttribute("button");
+      document.l10n.setAttributes(child.querySelector("label"), messageId, options.l10nArgs); // Whimsy hotfix
       if (options.button) {
         child.querySelector("button")?.remove();
         child.appendChild(createButton());
