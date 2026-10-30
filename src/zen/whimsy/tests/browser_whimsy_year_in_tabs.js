@@ -147,3 +147,20 @@ add_task(async function test_feature_off_shows_nothing() {
   });
   Services.prefs.clearUserPref("whimsy.feature.year-in-tabs");
 });
+
+add_task(async function leaving_finale_removes_actions_from_keyboard_and_accessibility() {
+  await withYear(async ({ doc, year }) => {
+    year.goTo(year.cardCount - 1);
+    year.skip();
+    const copy = doc.getElementById("whimsy-year-copy");
+    copy.focus();
+    year.goTo(year.cardCount - 2);
+    const finale = copy.closest(".whimsy-year-slide");
+    ok(finale.inert, "Outgoing finale is inert immediately");
+    is(finale.getAttribute("aria-hidden"), "true", "Outgoing slide is hidden from assistive technology");
+    ok(!finale.contains(doc.activeElement), "Focus leaves outgoing actions");
+    copy.focus();
+    ok(doc.activeElement !== copy, "Invisible Copy action cannot regain focus");
+    await TestUtils.waitForCondition(() => !finale.hasAttribute("data-leaving"), "Outgoing paint is cleared after transition");
+  });
+});

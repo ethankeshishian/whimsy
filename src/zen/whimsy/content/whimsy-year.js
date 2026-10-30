@@ -549,11 +549,24 @@
     const s = slides[current];
     clearTimers();
     for (const other of slides) {
+      other.el.inert = other !== s;
+      other.el.setAttribute("aria-hidden", String(other !== s));
       other.el.removeAttribute("data-active");
       other.el.removeAttribute("data-leaving");
     }
     if (leaving) {
       leaving.el.setAttribute("data-leaving", "");
+      const outgoing = leaving.el;
+      // The incoming wipe lasts 750ms; the outgoing card is already inert.
+      setTimeout(() => {
+        if (!outgoing.hasAttribute("data-active")) {
+          outgoing.removeAttribute("data-leaving");
+        }
+      }, reduced() ? 0 : 750);
+      if (outgoing.contains(document.activeElement)) {
+        cardsEl.setAttribute("tabindex", "-1");
+        cardsEl.focus();
+      }
     }
     const rect = cardsEl.getBoundingClientRect();
     const ox = origin ? origin.x - rect.left : forward ? rect.width * 0.85 : rect.width * 0.15;
