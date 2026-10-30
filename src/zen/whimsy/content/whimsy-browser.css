@@ -1178,14 +1178,6 @@ notification-message[value="whimsy-claude-control"] {
   }
 }
 
-/* batch hist: keep the Space picker beside Zen's existing History filter. */
-.whimsy-history-space {
-  flex-shrink: 1;
-  min-width: 0;
-  max-width: 12em;
-  text-overflow: ellipsis;
-}
-
 /* vpnspace: Vivaldi-style compact, labelled native VPN control. */
 #whimsy-vpn-scope-badge {
   margin-inline: 5px;

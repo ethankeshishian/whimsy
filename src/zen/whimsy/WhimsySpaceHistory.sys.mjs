@@ -59,6 +59,7 @@ export const WhimsySpaceHistory = {
           }
           const visit = { id: event.visitId, time: event.visitTime,
             guid: event.pageGuid, url: event.url };
+          this.captureOpenVisit(visit);
           // Places and progress notifications can arrive in either order.
           // A one-shot task lets the corresponding location change catch up.
           setTimeout(() => {
@@ -102,6 +103,25 @@ export const WhimsySpaceHistory = {
       spaceId, spaceName: space.name });
     this._candidates = this._candidates.slice(-256);
   },
+  captureOpenVisit(visit) {
+    if (!this.recording) {
+      return;
+    }
+    // Snapshot synchronously, before the queued write: tabs can close or move
+    // while Places is being queried. Restored/already-open browsers may not
+    // have emitted a location change after initWindow. Only consider browsers
+    // displaying this new visit's URL; never backfill older history.
+    if (!this._candidates.some(item => item.url === visit.url &&
+        Math.abs(item.time - visit.time) < 2000)) {
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        for (const browser of win.gBrowser?.browsers || []) {
+          if (browser.currentURI?.spec === visit.url) {
+            this.capture(win, browser, browser.currentURI);
+          }
+        }
+      }
+    }
+  },
   async recordVisit(visit) {
     if (!this.recording) {
       return;
@@ -128,7 +148,9 @@ export const WhimsySpaceHistory = {
     if (!live.length || !this.recording) {
       return;
     }
-    this._candidates = this._candidates.filter(item => !candidates.includes(item));
+    // Consume one snapshot per visit. Removing every matching snapshot loses
+    // later same-URL visits delivered in the same Places notification batch.
+    this._candidates = this._candidates.filter(item => item !== candidate);
     file.data.visits[visit.id] = { id: visit.id, time: visit.time,
       guid: visit.guid, spaceId: candidate.spaceId, spaceName: candidate.spaceName };
     file.saveSoon();
@@ -168,12 +190,15 @@ export const WhimsySpaceHistory = {
       WHERE p.hidden = 0 AND v.visit_date >= :cutoff
         AND (:space = '' OR json_extract(m.value, '$.spaceId') = :space
           OR (:space = 'unknown' AND m.key IS NULL))
-        AND (:search = '' OR instr(lower(COALESCE(p.title, '') || ' ' || p.url), :search) > 0)
+        AND (:search = '' OR AUTOCOMPLETE_MATCH(:search, p.url, p.title,
+          NULL, 1, 1, 1, 1, :matchBehavior, :searchBehavior, NULL))
       ORDER BY ${sort === "mostvisited" ? "visits DESC," : ""} v.visit_date DESC, v.id DESC
       LIMIT :limit`, {
       metadata: JSON.stringify(file.data.visits), space: spaceId,
       cutoff: (Date.now() - days * 86400000) * 1000,
-      search: search.toLowerCase(), limit,
+      search, limit,
+      matchBehavior: Ci.mozIPlacesAutoComplete.MATCH_ANYWHERE_UNMODIFIED,
+      searchBehavior: Ci.mozIPlacesAutoComplete.BEHAVIOR_HISTORY,
     });
     return rows.map(row => {
       const get = name => row.getResultByName(name);
@@ -198,8 +223,16 @@ export const WhimsySpaceHistory = {
       },
     };
     win.gBrowser.addTabsProgressListener(listener);
+    const restored = event => {
+      const browser = event.target.linkedBrowser;
+      if (browser) {
+        this.capture(win, browser, browser.currentURI);
+      }
+    };
+    win.gBrowser.tabContainer.addEventListener("SSTabRestored", restored);
     win.addEventListener("unload", () => {
       win.gBrowser.removeTabsProgressListener(listener);
+      win.gBrowser.tabContainer.removeEventListener("SSTabRestored", restored);
     }, { once: true });
   },
 };

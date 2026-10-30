@@ -67,6 +67,47 @@ add_task(async function real_navigation_records_the_owning_space() {
   }
 });
 
+add_task(async function restored_and_already_open_tabs_capture_new_visits() {
+  const url = "https://example.com/?whimsy-history-restored";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  const spaceId = tab.getAttribute("zen-workspace-id");
+  try {
+    SpaceHistory._candidates = [];
+    tab.dispatchEvent(new Event("SSTabRestored", { bubbles: true }));
+    is(SpaceHistory._candidates[0]?.spaceId, spaceId || gZenWorkspaces.activeWorkspace,
+      "A restored tab supplies a navigation snapshot");
+    SpaceHistory._candidates = [];
+    tab.removeAttribute("zen-workspace-id");
+    SpaceHistory.captureOpenVisit({ url, time: Date.now() });
+    is(SpaceHistory._candidates[0]?.spaceId, gZenWorkspaces.activeWorkspace,
+      "A new visit from an already-open tab inherits the window's space");
+    is(SpaceHistory._candidates[0]?.url, url, "The snapshot belongs to the visited URL");
+    SpaceHistory._candidates = [];
+    const date = new Date();
+    await HistoryPlaces.history.insert({ url, title: "Restored tab",
+      visits: [{ date, transition: HistoryPlaces.history.TRANSITION_LINK }] });
+    const db = await HistoryPlaces.promiseDBConnection();
+    const rows = await db.execute(`SELECT v.id FROM moz_historyvisits v
+      JOIN moz_places p ON p.id = v.place_id WHERE p.url = :url AND v.visit_date = :time`,
+    { url, time: date.getTime() * 1000 });
+    const id = rows[0].getResultByName("id");
+    await TestUtils.waitForCondition(async () =>
+      (await SpaceHistory.file()).data.visits[id]?.spaceId === gZenWorkspaces.activeWorkspace,
+    "A visit without a location notification records the inherited space");
+    SpaceHistory._candidates = [];
+    SpaceHistory.captureOpenVisit({ url: `${url}-missing`, time: Date.now() });
+    is(SpaceHistory._candidates.length, 0, "Unrelated visits are not assigned to the selected tab");
+  } finally {
+    if (spaceId) {
+      tab.setAttribute("zen-workspace-id", spaceId);
+    }
+    BrowserTestUtils.removeTab(tab);
+    SpaceHistory._candidates = [];
+    await HistoryPlaces.history.remove(url);
+    await SpaceHistory.enqueue(() => SpaceHistory.prune());
+  }
+});
+
 add_task(async function visit_identity_and_filter_before_pagination() {
   const first = await historyVisit("hist-work", "Work");
   const second = await historyVisit("hist-home", "Home", 100);
@@ -84,9 +125,11 @@ add_task(async function visit_identity_and_filter_before_pagination() {
   is((await SpaceHistory.query({ spaceId: "hist-work", search: "missing" })).length,
     0, "Space and text filters compose, including the empty state");
 
+  is((await SpaceHistory.query({ spaceId: "hist-work", search: "fixture Space" })).length,
+    1, "History search matches words in either order like native Places search");
   await historyVisit(null, null, 200, "old");
   const unknown = await SpaceHistory.query({ spaceId: "unknown", search: "space-history.example.com/old" });
-  is(unknown.length, 1, "Untagged history remains accessible as Unknown space");
+  is(unknown.length, 1, "Older history remains accessible without a space");
 });
 
 add_task(async function switches_privacy_and_ambiguous_navigation() {
@@ -143,6 +186,16 @@ add_task(async function capture_uses_tab_space_and_excludes_scratch() {
     SpaceHistory.capture(window, tab.linkedBrowser, uri);
     is(SpaceHistory._candidates[0]?.spaceId, space.uuid, "Snapshot uses tab's space");
     is(SpaceHistory._candidates[0]?.spaceName, space.name, "Snapshot includes its name");
+    tab.removeAttribute("zen-workspace-id");
+    SpaceHistory.capture(window, tab.linkedBrowser, uri);
+    is(SpaceHistory._candidates.at(-1)?.spaceId, gZenWorkspaces.activeWorkspace,
+      "Tabs without their own space use the window's active space");
+    tab.setAttribute("zen-workspace-id", space.uuid);
+    tab.dispatchEvent(new Event("SSTabRestored", { bubbles: true }));
+    // An about:blank restored browser must not fabricate a history entry.
+    ok(!SpaceHistory._candidates.some(item => item.url === "about:blank"),
+      "Restoration only captures URLs Places can visit");
+    SpaceHistory._candidates = SpaceHistory._candidates.slice(0, 1);
     space.whimsyScratch = true;
     SpaceHistory.capture(window, tab.linkedBrowser, uri);
     is(SpaceHistory._candidates.length, 1, "Scratch contributes no navigation snapshots");
@@ -167,6 +220,7 @@ add_task(async function library_preserves_native_history_and_actions() {
   const originalClosed = Services.prefs.getBoolPref("zen.library.history.closed-tabs", false);
   await SpecialPowers.pushPrefEnv({ set: [["zen.library.history.closed-tabs", false]] });
   await historyVisit("hist-ui", "Design", 500, "ui");
+  await historyVisit(null, null, 550, "old-ui");
   library.activeTab = "history";
   await library.constructor.animateProgress(1);
   try {
@@ -174,24 +228,51 @@ add_task(async function library_preserves_native_history_and_actions() {
     const section = library.querySelector("whimsy-space-history-section");
     await section.refresh();
     await section.updateComplete;
-    const filter = section.querySelector(".whimsy-history-space");
-    ok(filter, "Space filter sits next to Zen's existing filter");
-    filter.value = "hist-ui";
-    filter.dispatchEvent(new Event("change", { bubbles: true }));
+    section.filtersOpen = true;
+    await section.updateComplete;
+    const group = [...section.querySelectorAll(".zen-library-filter-group")].find(
+      item => item.querySelector('[data-l10n-id="whimsy-history-space-filter"]'));
+    ok(group, "Space shares the native date and sort filter panel");
+    const filter = [...group.querySelectorAll(".zen-library-filter-chip")].find(
+      item => item.textContent.trim() === "Design");
+    ok(filter, "Spaces use the same chips as the other filters");
+    filter.click();
     await TestUtils.waitForCondition(() => section._flatVisits?.length === 1 &&
       section._flatVisits[0].spaceId === "hist-ui");
+    section.filtersOpen = false;
     await section.updateComplete;
     is(section.querySelectorAll(".zen-library-row").length, 1, "Space filter renders one matching visit");
     ok(section.querySelector(".whimsy-history-space-name"), "A visit has its space label");
     ok(section.querySelector('[data-l10n-id="library-history-forget-button"]'),
       "Native Forget action is preserved");
 
+    const input = section.querySelector('input[type="search"]');
+    const search = async (value, count) => {
+      input.value = value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await TestUtils.waitForCondition(() => section.searchQuery === value &&
+        section._flatVisits?.length === count, `Search for ${value} updates the visible visits`);
+      await section.updateComplete;
+    };
+    await search("fixture Space", 1);
+    await search("no-such-visit", 0);
+    ok(section.querySelector(".zen-library-empty"), "No matches show the native empty state");
+    await search("", 1);
+    section.activeFilters.delete("space:hist-ui");
+    section.onFiltersChanged();
+    await section.refresh();
+    await section.updateComplete;
+    const old = [...section.querySelectorAll(".zen-library-row")].find(
+      row => row.whimsyVisit?.url.endsWith("/old-ui"));
+    ok(old, "Older untagged visits remain in All Spaces");
+    ok(!old.querySelector(".whimsy-history-space-name"), "An unknown visit has no space label");
+
     section.activeFilters.delete("source:history");
     section.activeFilters.add("source:closed");
     section.onFiltersChanged();
     await section.updateComplete;
-    ok(section.querySelector(".whimsy-history-space").disabled,
-      "Space filtering does not pretend closed tabs are recorded visits");
+    ok(!section.filterGroups.some(item => item.id === "space"),
+      "Closed tabs do not offer a visit-space filter");
 
     await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.space-history", false]] });
     await TestUtils.waitForCondition(() => !library.querySelector("whimsy-space-history-section"));
@@ -203,6 +284,18 @@ add_task(async function library_preserves_native_history_and_actions() {
     Services.prefs.setBoolPref("zen.library.history.closed-tabs", originalClosed);
     await SpecialPowers.popPrefEnv();
   }
+});
+
+add_task(async function each_visit_consumes_one_snapshot() {
+  const visit = await historyVisit(null, null, 900, "repeat");
+  const candidate = { url: visit.url, time: visit.time,
+    spaceId: "hist-repeat", spaceName: "Repeat" };
+  SpaceHistory._candidates = [{ ...candidate }, { ...candidate, time: visit.time + 1 }];
+  await SpaceHistory.enqueue(() => SpaceHistory.recordVisit(visit));
+  is((await SpaceHistory.file()).data.visits[visit.id]?.spaceId, "hist-repeat",
+    "The first visit is recorded");
+  is(SpaceHistory._candidates.length, 1, "The next visit's snapshot remains available");
+  SpaceHistory._candidates = [];
 });
 
 add_task(async function deletion_prunes_only_deleted_visits() {
