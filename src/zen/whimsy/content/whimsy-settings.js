@@ -255,12 +255,14 @@ var gWhimsySettings = {
     template.remove();
     const inits = {
       "cookie-banners": () => this.initCookieBanners(),
-      "ai-kill-switch": () => this.initAI(),
+      "ai-kill-switch": () => this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked"),
       "strip-tracking": () => this.initStripTracking(),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
       // tierC-vpn: VPN (Firefox's built-in IP Protection).
       vpn: () => this.initVpn(),
+      // wave3/ai: the AI provider picker.
+      "ai-providers": () => this.initAIProviders(),
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;
@@ -357,59 +359,6 @@ var gWhimsySettings = {
 
   initCookieBanners() {
     this.initPrefCheckbox("whimsyRejectCookieBanners", "whimsy.reject-cookie-banners");
-  },
-
-  initAI() {
-    this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked");
-    this.initPrefCheckbox("whimsyTidyTabs", "whimsy.feature.tidy-tabs");
-    this.initPrefCheckbox("whimsyAutoRenameTabs", "whimsy.ai.auto-rename-tabs");
-    this.initPrefCheckbox("whimsyAskOnPage", "whimsy.feature.ask-on-page");
-    this.initPrefCheckbox("whimsyHoverPreview", "whimsy.ai.hover-preview");
-    this.initPrefCheckbox("whimsyPageWatch", "whimsy.feature.page-watch");
-
-    const blockCb = document.getElementById("whimsyBlockAI");
-    const options = document.getElementById("whimsyAIOptions");
-    const updateOptions = () => {
-      if (options) {
-        options.hidden = !!blockCb?.checked;
-      }
-    };
-    blockCb?.addEventListener("change", updateOptions);
-    updateOptions();
-
-    const providerSelect = document.getElementById("whimsyAIProvider");
-    const claudeRow = document.getElementById("whimsyClaudeKeyRow");
-    const ollamaRow = document.getElementById("whimsyOllamaRow");
-
-    const updateProviderRows = () => {
-      const val = providerSelect?.value || Services.prefs.getStringPref("whimsy.ai.provider", "apple");
-      if (claudeRow) {
-        claudeRow.hidden = val !== "claude";
-      }
-      if (ollamaRow) {
-        ollamaRow.hidden = val !== "ollama";
-      }
-    };
-
-    providerSelect?.addEventListener("command", updateProviderRows);
-    updateProviderRows();
-
-    // Secret storage for Claude API key via LoginManager (never preferences)
-    const keyInput = document.getElementById("whimsyClaudeKey");
-    const saveBtn = document.getElementById("whimsySaveClaudeKey");
-    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs")
-      .WhimsyAIProviders.getClaudeApiKey()
-      .then(k => {
-        if (keyInput && k) {
-          keyInput.value = k;
-        }
-      });
-
-    saveBtn?.addEventListener("click", async () => {
-      const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
-      await WhimsyAIProviders.setClaudeApiKey(keyInput.value.trim());
-      Services.prompt?.alert(window, "Whimsy", "Claude API key saved securely in Login Manager.");
-    });
   },
 
   // A checkbox bound to a bool pref, kept in sync both ways.
@@ -1142,6 +1091,155 @@ Object.assign(gWhimsySettings, {
       document.getElementById("mainPrefPane")?.append(fragment);
     }
     group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+  },
+});
+
+// wave3/ai: Settings → Privacy & Security → AI provider. Apple on-device,
+// Claude (API key) or Ollama; the card hides while the AI kill switch is on.
+// The Claude key goes straight to OSKeyStore (WhimsyAIProviders) and is
+// never shown again or written to a pref.
+Object.assign(gWhimsySettings, {
+  initAIProviders() {
+    const group = document.getElementById("whimsyAIProvidersGroup");
+    const picker = document.getElementById("whimsyAIProvider");
+    if (!group || !picker || this._aiProvidersWired) {
+      return;
+    }
+    this._aiProvidersWired = true;
+    const { WhimsyAIProviders } = ChromeUtils.importESModule(
+      "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs"
+    );
+    Preferences.addAll([{ id: "whimsy.ai.provider", type: "string" }]);
+    const rows = {
+      apple: document.getElementById("whimsyAIAppleRow"),
+      claude: document.getElementById("whimsyAIClaudeRow"),
+      ollama: document.getElementById("whimsyAIOllamaRow"),
+    };
+    const setStatus = (id, l10nId, args) => {
+      const el = document.getElementById(id);
+      if (el) {
+        document.l10n.setAttributes(el, l10nId, args);
+      }
+    };
+
+    // Apple: connecting builds a small helper once (a minute or so), so it
+    // only happens when the person clicks Set Up.
+    const appleButton = document.getElementById("whimsyAIAppleCheck");
+    const checkApple = async ({ build }) => {
+      setStatus("whimsyAIAppleStatus", "whimsy-ai-apple-status-checking");
+      appleButton.disabled = true;
+      const status = await WhimsyAIProviders.appleStatus({ build });
+      appleButton.disabled = false;
+      setStatus("whimsyAIAppleStatus", `whimsy-ai-apple-status-${status}`);
+      document.l10n.setAttributes(
+        appleButton,
+        status == "not-set-up" ? "whimsy-ai-apple-set-up" : "whimsy-ai-apple-check"
+      );
+    };
+    appleButton?.addEventListener("command", () => checkApple({ build: true }));
+
+    // Claude: the key field stays empty; the status says whether one is saved.
+    const keyInput = document.getElementById("whimsyAIClaudeKey");
+    const showKeyStatus = async () => {
+      const saved = await WhimsyAIProviders.hasClaudeKey();
+      setStatus("whimsyAIClaudeStatus", saved ? "whimsy-ai-claude-key-saved" : "whimsy-ai-claude-key-missing");
+      document.getElementById("whimsyAIClaudeRemove").disabled = !saved;
+    };
+    document.getElementById("whimsyAIClaudeSave")?.addEventListener("command", async () => {
+      if (!keyInput.value.trim()) {
+        return;
+      }
+      try {
+        await WhimsyAIProviders.setClaudeKey(keyInput.value);
+        keyInput.value = "";
+      } catch (error) {
+        console.error("Whimsy: saving the Claude API key failed", error);
+        setStatus("whimsyAIClaudeStatus", "whimsy-ai-claude-key-error");
+        return;
+      }
+      showKeyStatus();
+    });
+    keyInput?.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        document.getElementById("whimsyAIClaudeSave")?.doCommand?.();
+      }
+    });
+    document.getElementById("whimsyAIClaudeRemove")?.addEventListener("command", async () => {
+      await WhimsyAIProviders.setClaudeKey("");
+      showKeyStatus();
+    });
+
+    // Ollama: the server address and one of its models.
+    const endpoint = document.getElementById("whimsyAIOllamaEndpoint");
+    const modelList = document.getElementById("whimsyAIOllamaModel");
+    endpoint.value = Services.prefs.getStringPref("whimsy.ai.ollama.endpoint", "");
+    endpoint.addEventListener("change", () => {
+      Services.prefs.setStringPref("whimsy.ai.ollama.endpoint", endpoint.value.trim());
+      loadOllamaModels();
+    });
+    modelList.addEventListener("command", () => {
+      Services.prefs.setStringPref("whimsy.ai.ollama.model", modelList.value || "");
+    });
+    const loadOllamaModels = async () => {
+      const current = Services.prefs.getStringPref("whimsy.ai.ollama.model", "");
+      modelList.removeAllItems();
+      let models = [];
+      try {
+        models = await WhimsyAIProviders.ollamaModels();
+      } catch {
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline");
+      }
+      for (const name of new Set([...models, ...(current ? [current] : [])])) {
+        modelList.appendItem(name, name);
+      }
+      modelList.disabled = !modelList.itemCount;
+      if (current) {
+        modelList.value = current;
+      } else if (models.length) {
+        modelList.selectedIndex = 0;
+        Services.prefs.setStringPref("whimsy.ai.ollama.model", models[0]);
+      }
+      if (models.length) {
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-ready", { count: models.length });
+      } else if (!modelList.disabled || !current) {
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline");
+      }
+    };
+    document.getElementById("whimsyAIOllamaRefresh")?.addEventListener("command", () => loadOllamaModels());
+
+    const showRows = () => {
+      const provider = WhimsyAIProviders.provider;
+      for (const [id, row] of Object.entries(rows)) {
+        row.hidden = id != provider;
+      }
+      if (provider == "apple") {
+        checkApple({ build: false });
+      } else if (provider == "claude") {
+        showKeyStatus();
+      } else if (provider == "ollama") {
+        loadOllamaModels();
+      }
+    };
+    // The whole card goes away while every AI feature is turned off.
+    const showGroup = () => {
+      group.hidden = Services.prefs.getBoolPref("whimsy.ai.blocked", false);
+    };
+    const prefs = { "whimsy.ai.provider": showRows, "whimsy.ai.blocked": showGroup };
+    for (const [pref, fn] of Object.entries(prefs)) {
+      Services.prefs.addObserver(pref, fn);
+    }
+    window.addEventListener(
+      "unload",
+      () => {
+        for (const [pref, fn] of Object.entries(prefs)) {
+          Services.prefs.removeObserver(pref, fn);
+        }
+      },
+      { once: true }
+    );
+    showGroup();
+    showRows();
     Preferences.queueUpdateOfAllElements();
   },
 });

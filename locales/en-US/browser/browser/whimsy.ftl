@@ -1234,53 +1234,66 @@ whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
 
-## batch-ai: AI v1 features
+## wave3/ai: Settings → Privacy & Security → AI provider
 
-whimsy-ai-provider-header = AI Provider
+whimsy-ai-provider-header =
+    .label = AI provider
+whimsy-ai-provider-description = Tidy Tabs, tab titles, Ask on Page, link previews and page watches use the provider you pick here, and only that one.
 whimsy-ai-provider-label =
-    .value = Active Provider
+    .value = Provider
 whimsy-ai-provider-apple =
-    .label = Apple on-device (Foundation Models)
+    .label = Apple Intelligence (on this Mac)
 whimsy-ai-provider-claude =
-    .label = Claude (Anthropic API Key)
+    .label = Claude (your API key)
 whimsy-ai-provider-ollama =
-    .label = Ollama (Local)
-
+    .label = Ollama (on this Mac)
+whimsy-ai-apple-check =
+    .label = Check Again
+whimsy-ai-apple-set-up =
+    .label = Set Up
+whimsy-ai-apple-status-not-set-up = Click Set Up to connect Whimsy to Apple Intelligence. It takes a minute the first time.
+whimsy-ai-apple-status-checking = Checking Apple Intelligence…
+whimsy-ai-apple-status-available = Ready. Nothing leaves this Mac.
+whimsy-ai-apple-status-unavailable = Apple Intelligence isn’t available on this Mac.
+whimsy-ai-apple-status-apple-needs-tools = Whimsy needs Apple’s command line tools to talk to Apple Intelligence. Install them with “xcode-select --install” in Terminal, then check again.
+whimsy-ai-apple-status-apple-intelligence-off = Turn on Apple Intelligence in System Settings, then check again.
+whimsy-ai-apple-status-apple-not-ready = Apple Intelligence is still getting ready. Try again in a few minutes.
 whimsy-ai-claude-key-label =
-    .value = Claude API Key
+    .value = API key
 whimsy-ai-claude-key-save =
-    .label = Save Key
-whimsy-ai-claude-key-saved = Key saved in Firefox Login Manager.
+    .label = Save
+whimsy-ai-claude-key-remove =
+    .label = Remove
+whimsy-ai-claude-key-saved = A key is saved, encrypted with your macOS Keychain. Page text and tab titles you use AI on are sent to Anthropic.
+whimsy-ai-claude-key-missing = No key yet. Create one at console.anthropic.com.
+whimsy-ai-claude-key-error = Couldn’t save the key.
 whimsy-ai-ollama-endpoint-label =
-    .value = Ollama URL
+    .value = Server
+whimsy-ai-ollama-model-label =
+    .value = Model
+whimsy-ai-ollama-refresh =
+    .label = Refresh
+whimsy-ai-ollama-status-ready =
+    { $count ->
+        [one] Connected. 1 model installed.
+       *[other] Connected. { $count } models installed.
+    }
+whimsy-ai-ollama-status-offline = Ollama isn’t running at this address, or has no models yet.
 
-whimsy-ai-tidy-tabs-toggle =
-    .label = Arc Tidy Tabs
-    .description = Organizes more than 6 tabs in the current space into smart topic folders.
-whimsy-ai-auto-rename-toggle =
-    .label = Tidy tab titles
-    .description = Automatically shortens tab titles to concise, clean names while keeping manual renames.
-whimsy-ai-ask-on-page-toggle =
-    .label = Ask on Page
-    .description = Ask questions about the current page and get answers grounded in its text.
-whimsy-ai-hover-preview-toggle =
-    .label = 5-second hover preview
-    .description = Shift-hover or hover on supported sites to preview destination summaries without opening.
-whimsy-ai-page-watch-toggle =
-    .label = Watch a page
-    .description = Monitor pages on an interval using your logged-in session for plain-English conditions.
+## wave3/ai: AI errors (toasts)
 
-tab-context-whimsy-tidy-tabs =
-    .label = Tidy Tabs
-tab-context-whimsy-ask-on-page =
-    .label = Ask on Page…
-tab-context-whimsy-watch-page =
-    .label = Watch This Page…
-
-whimsy-tidy-tabs-min-tabs = Needs more than 6 tabs to tidy
-whimsy-tidy-tabs-success = Tidied tabs into { $count } folders
-whimsy-page-watch-started = Watching page for: { $condition }
-whimsy-page-watch-alert-title = Page Watch Alert
-whimsy-page-watch-alert-open = Open Page
-whimsy-page-watch-alert-dismiss = Dismiss
-
+whimsy-ai-error-blocked = AI features are turned off in Settings
+whimsy-ai-error-no-key = Add your Claude API key in Settings → Privacy & Security
+whimsy-ai-error-bad-key = Claude didn’t accept your API key
+whimsy-ai-error-rate-limited = Claude is busy. Try again in a moment.
+whimsy-ai-error-network = Couldn’t reach Claude
+whimsy-ai-error-unavailable = Your AI provider isn’t available right now
+whimsy-ai-error-no-model = Pick an Ollama model in Settings → Privacy & Security
+whimsy-ai-error-apple-needs-tools = Apple Intelligence needs Apple’s command line tools. See Settings → Privacy & Security.
+whimsy-ai-error-apple-intelligence-off = Turn on Apple Intelligence in System Settings
+whimsy-ai-error-apple-not-ready = Apple Intelligence is still getting ready
+whimsy-ai-error-apple-not-set-up = Set up Apple Intelligence in Settings → Privacy & Security → AI provider
+whimsy-ai-error-refused = The AI declined this one
+whimsy-ai-error-bad-response = The AI’s answer didn’t make sense. Try again.
+whimsy-ai-error-timeout = The AI took too long
+whimsy-ai-error-failed = Something went wrong with the AI

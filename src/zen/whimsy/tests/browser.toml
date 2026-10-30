@@ -299,12 +299,5 @@ support-files = ["whimsy_video_sound.html", "whimsy_video_sound.mp4", "whimsy_me
 ["browser_whimsy_pip_close.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 
-# batch-ai: AI v1 features
+# wave3/ai: the AI provider (picker, kill switch, no fallback, key storage).
 ["browser_whimsy_ai_providers.js"]
-
-["browser_whimsy_ai_tabs.js"]
-
-["browser_whimsy_ai_page.js"]
-
-["browser_whimsy_ai_page_watch.js"]
-

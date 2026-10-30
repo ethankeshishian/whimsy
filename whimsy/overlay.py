@@ -685,15 +685,10 @@ FEATURES = [
      "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
     {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
      "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
-    # batch-ai: AI v1 features
-    {"id": "ai-providers", "title": "AI provider picker (Claude API key, Apple on-device, Ollama)",
-     "detect": [("src/zen", r"whimsy\.ai\.provider")]},
-    {"id": "tidy-tabs", "title": "Arc Tidy Tabs and auto-rename tabs",
-     "detect": [("src/zen", r"whimsy\.ai\.auto-rename-tabs")]},
-    {"id": "ask-on-page", "title": "Ask on Page and 5-second hover preview",
-     "detect": [("src/zen", r"whimsy\.ai\.hover-preview")]},
-    {"id": "page-watch", "title": "Watch a page with plain language conditions",
-     "detect": [("src/zen", r"whimsy-page-watches")]},
+    # wave3/ai: AI v1. The provider every Whimsy AI feature uses (Claude API
+    # key, Apple on-device, local Ollama); no automatic cloud fallback.
+    {"id": "ai-providers", "title": "AI provider picker: Claude API key, Apple on-device or local Ollama, with no automatic cloud fallback",
+     "detect": [("src/zen", r"(?i)api\.anthropic\.com|FoundationModels|ollama")]},
 ]
 
 

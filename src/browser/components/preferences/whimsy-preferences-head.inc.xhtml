@@ -100,31 +100,54 @@
       <html:moz-fieldset data-l10n-id="whimsy-ai-header" headinglevel="3"
                          iconsrc="chrome://global/skin/icons/highlights.svg">
         <html:moz-checkbox id="whimsyBlockAI" data-l10n-id="whimsy-ai-toggle"/>
-        <html:div id="whimsyAIOptions" class="indent">
-          <hbox id="whimsyAIProviderRow" align="center">
-            <label id="whimsyAIProviderLabel" control="whimsyAIProvider" data-l10n-id="whimsy-ai-provider-label"/>
-            <menulist id="whimsyAIProvider" preference="whimsy.ai.provider">
-              <menupopup>
-                <menuitem value="apple" data-l10n-id="whimsy-ai-provider-apple"/>
-                <menuitem value="claude" data-l10n-id="whimsy-ai-provider-claude"/>
-                <menuitem value="ollama" data-l10n-id="whimsy-ai-provider-ollama"/>
-              </menupopup>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
+  <!-- wave3/ai: the AI provider every Whimsy AI feature uses. Hidden while
+       the kill switch above is on. Only the chosen provider is contacted. -->
+  <html:div id="whimsyAIProvidersGroup" data-category="panePrivacy" data-whimsy-feature="ai-providers" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-ai-provider-header" headinglevel="3"
+                         iconsrc="chrome://global/skin/icons/highlights.svg">
+        <description class="description-deemphasized" data-l10n-id="whimsy-ai-provider-description"/>
+        <hbox align="center">
+          <label control="whimsyAIProvider" data-l10n-id="whimsy-ai-provider-label"/>
+          <menulist id="whimsyAIProvider" preference="whimsy.ai.provider" data-pref-type="string">
+            <menupopup>
+              <menuitem value="apple" data-l10n-id="whimsy-ai-provider-apple"/>
+              <menuitem value="claude" data-l10n-id="whimsy-ai-provider-claude"/>
+              <menuitem value="ollama" data-l10n-id="whimsy-ai-provider-ollama"/>
+            </menupopup>
+          </menulist>
+        </hbox>
+        <html:div id="whimsyAIAppleRow" hidden="hidden">
+          <html:div id="whimsyAIAppleStatus" class="whimsy-updates-detail" role="status"/>
+          <hbox align="center">
+            <button id="whimsyAIAppleCheck" data-l10n-id="whimsy-ai-apple-check"/>
+          </hbox>
+        </html:div>
+        <html:div id="whimsyAIClaudeRow" hidden="hidden">
+          <hbox align="center">
+            <label control="whimsyAIClaudeKey" data-l10n-id="whimsy-ai-claude-key-label"/>
+            <html:input type="password" id="whimsyAIClaudeKey" autocomplete="off" spellcheck="false"/>
+            <button id="whimsyAIClaudeSave" data-l10n-id="whimsy-ai-claude-key-save"/>
+            <button id="whimsyAIClaudeRemove" data-l10n-id="whimsy-ai-claude-key-remove"/>
+          </hbox>
+          <html:div id="whimsyAIClaudeStatus" class="whimsy-updates-detail" role="status"/>
+        </html:div>
+        <html:div id="whimsyAIOllamaRow" hidden="hidden">
+          <hbox align="center">
+            <label control="whimsyAIOllamaEndpoint" data-l10n-id="whimsy-ai-ollama-endpoint-label"/>
+            <html:input type="url" id="whimsyAIOllamaEndpoint" spellcheck="false"/>
+          </hbox>
+          <hbox align="center">
+            <label control="whimsyAIOllamaModel" data-l10n-id="whimsy-ai-ollama-model-label"/>
+            <menulist id="whimsyAIOllamaModel" sizetopopup="none">
+              <menupopup/>
             </menulist>
+            <button id="whimsyAIOllamaRefresh" data-l10n-id="whimsy-ai-ollama-refresh"/>
           </hbox>
-          <hbox id="whimsyClaudeKeyRow" align="center" hidden="hidden">
-            <label id="whimsyClaudeKeyLabel" control="whimsyClaudeKey" data-l10n-id="whimsy-ai-claude-key-label"/>
-            <html:input type="password" id="whimsyClaudeKey" placeholder="sk-ant-..."/>
-            <button id="whimsySaveClaudeKey" data-l10n-id="whimsy-ai-claude-key-save"/>
-          </hbox>
-          <hbox id="whimsyOllamaRow" align="center" hidden="hidden">
-            <label id="whimsyOllamaLabel" control="whimsyOllamaEndpoint" data-l10n-id="whimsy-ai-ollama-endpoint-label"/>
-            <html:input type="text" id="whimsyOllamaEndpoint" preference="whimsy.ai.ollama.endpoint"/>
-          </hbox>
-          <html:moz-checkbox id="whimsyTidyTabs" data-l10n-id="whimsy-ai-tidy-tabs-toggle" preference="whimsy.feature.tidy-tabs"/>
-          <html:moz-checkbox id="whimsyAutoRenameTabs" data-l10n-id="whimsy-ai-auto-rename-toggle" preference="whimsy.ai.auto-rename-tabs"/>
-          <html:moz-checkbox id="whimsyAskOnPage" data-l10n-id="whimsy-ai-ask-on-page-toggle" preference="whimsy.feature.ask-on-page"/>
-          <html:moz-checkbox id="whimsyHoverPreview" data-l10n-id="whimsy-ai-hover-preview-toggle" preference="whimsy.ai.hover-preview"/>
-          <html:moz-checkbox id="whimsyPageWatch" data-l10n-id="whimsy-ai-page-watch-toggle" preference="whimsy.feature.page-watch"/>
+          <html:div id="whimsyAIOllamaStatus" class="whimsy-updates-detail" role="status"/>
         </html:div>
       </html:moz-fieldset>
     </html:moz-card>
