@@ -67,6 +67,8 @@ const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
 // "Open in Current Space" instead (see initChrome).
 const GLANCE_EXPAND_KEY_ID = "zen-glance-expand";
 
+const READY_TOPIC = "whimsy-quick-window-ready";
+
 export const WhimsyQuickWindow = {
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -76,7 +78,12 @@ export const WhimsyQuickWindow = {
   // no-ops there: a quick window doesn't open another quick window).
   initWindow(win) {
     if (win._whimsyQuickWindow) {
-      this.initChrome(win);
+      try {
+        this.initChrome(win);
+      } finally {
+        win._whimsyQuickChromeReady = true;
+        Services.obs.notifyObservers(win, READY_TOPIC);
+      }
       return;
     }
     lazy.WhimsyShortcuts.addCommand(win, {
@@ -166,28 +173,29 @@ export const WhimsyQuickWindow = {
 
   // BrowserWindowTracker returns before browser chrome exists. Reused links
   // must wait too, including links arriving while the first window loads.
+  // Ready means delayed startup finished and Whimsy has set up Mini's own
+  // chrome (Zen's startup calls Whimsy.initWindow later than that).
+  isReady(win) {
+    return !!(win.gBrowserInit?.delayedStartupFinished && win._whimsyQuickChromeReady);
+  },
+
   whenReady(win) {
-    if (win.closed || win.gBrowserInit?.delayedStartupFinished) {
+    if (win.closed || this.isReady(win)) {
       return Promise.resolve();
     }
     return win._whimsyQuickReady ??= new Promise(resolve => {
-      const cleanup = () => {
-        Services.obs.removeObserver(observer, "browser-delayed-startup-finished");
-        Services.obs.removeObserver(onClosed, "domwindowclosed");
-        resolve();
-      };
-      const onClosed = subject => {
-        if (subject == win) {
-          cleanup();
-        }
-      };
+      const topics = ["browser-delayed-startup-finished", READY_TOPIC, "domwindowclosed"];
       const observer = subject => {
-        if (subject == win) {
-          cleanup();
+        if (subject == win && (win.closed || this.isReady(win) || !win._whimsyQuickWindow)) {
+          for (const topic of topics) {
+            Services.obs.removeObserver(observer, topic);
+          }
+          resolve();
         }
       };
-      Services.obs.addObserver(observer, "browser-delayed-startup-finished");
-      Services.obs.addObserver(onClosed, "domwindowclosed");
+      for (const topic of topics) {
+        Services.obs.addObserver(observer, topic);
+      }
     });
   },
 
@@ -390,12 +398,15 @@ export const WhimsyQuickWindow = {
         style.textContent = "";
         return;
       }
+      // Doubled attribute: outranks Zen's own window-state rules such as
+      // :root[zen-unsynced-window="true"] (Mini opens unsynced).
+      const root = ":root[whimsy-quick-window][whimsy-quick-window]";
       const rules = [
-        [":root", source.document.documentElement,
+        [root, source.document.documentElement,
           ["--zen-primary-color", "--toolbox-textcolor", "--toolbar-color-scheme", "color-scheme"]],
-        ["#zen-browser-background", source.document.getElementById("zen-browser-background"),
+        [`${root} #zen-browser-background`, source.document.getElementById("zen-browser-background"),
           ["--zen-main-browser-background", "--zen-grainy-background-opacity"]],
-        ["#zen-toolbar-background", source.document.getElementById("zen-toolbar-background"),
+        [`${root} #zen-toolbar-background`, source.document.getElementById("zen-toolbar-background"),
           ["--zen-main-browser-background-toolbar", "--zen-grainy-background-opacity"]],
       ];
       const css = rules.map(([selector, element, properties]) => {
