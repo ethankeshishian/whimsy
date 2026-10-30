@@ -28,6 +28,9 @@ add_task(async function test_onboarding_finish_leaves_no_zen_tabs() {
   ok(!WhimsyWelcome.isZenFirstRunPage("https://zen-browser.app/mods/"), "other Zen pages aren't");
   ok(!WhimsyWelcome.isZenFirstRunPage("https://example.com/welcome/"), "nor other sites");
 
+  // Zen syncs tabs between windows: remember this window's tabs so what
+  // the test window adds can be tidied up here too.
+  const mainTabs = new Set(window.gBrowser.tabs);
   const win = await BrowserTestUtils.openNewBrowserWindow();
   const { gBrowser, document } = win;
   WhimsyWelcome.skipPagesForTest = true;
@@ -64,5 +67,8 @@ add_task(async function test_onboarding_finish_leaves_no_zen_tabs() {
   } finally {
     WhimsyWelcome.skipPagesForTest = false;
     await BrowserTestUtils.closeWindow(win);
+    for (const tab of window.gBrowser.tabs.filter(t => !mainTabs.has(t))) {
+      BrowserTestUtils.removeTab(tab);
+    }
   }
 });
