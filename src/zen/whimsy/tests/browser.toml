@@ -232,3 +232,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # home: homepage + changelog (about:whimsy).
 ["browser_whimsy_home.js"]
+
+# fixC: private page branding and search box
+["browser_whimsy_private_page.js"]

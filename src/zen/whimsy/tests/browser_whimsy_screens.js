@@ -504,3 +504,29 @@ add_task(async function whimsy_home_and_changelog() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// fixC: a private tab's page (about:privatebrowsing), Whimsy-branded.
+add_task(async function private_tab_page() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const tab = WhimsyPrivate.openPrivateTab(window);
+  if (!tab) {
+    ok(true, "Private tabs don't open in the window here");
+    return;
+  }
+  try {
+    await TestUtils.waitForCondition(
+      () => tab.linkedBrowser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing" &&
+        !tab.linkedBrowser.webProgress.isLoadingDocument
+    );
+    gURLBar.blur();
+    gBrowser.selectedBrowser.focus();
+    await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
+      await content.document.l10n.ready;
+      await new Promise(resolve => content.requestAnimationFrame(resolve));
+    });
+    await shot("fixC-private-page", tab.linkedBrowser.browsingContext.currentWindowGlobal);
+    await shot("fixC-private-tab-window");
+  } finally {
+    BrowserTestUtils.removeTab(tab, { animate: false });
+  }
+});
