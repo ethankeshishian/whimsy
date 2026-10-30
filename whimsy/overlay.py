@@ -238,6 +238,48 @@ HOTFIXES = [
         "old": 'zenCKSOption-group-zen-other = Other Zen Features',
         "new": 'zenCKSOption-group-zen-other = Other Whimsy Features',
     },
+    # batch3glance: Glance size. Zen hard-codes 80% in the arc animation and
+    # in the final width; both read Whimsy's chosen width instead.
+    {
+        "id": "glance-size-arc",
+        "file": "src/zen/glance/ZenGlanceManager.mjs",
+        "why": "Glance size (whimsy.glance.size): the opening and closing arc "
+               "must animate to the card's real width.",
+        "old": "    const widthPercent = 0.8;\n",
+        "new": "    const widthPercent = this.whimsyWidthPercent ?? 0.8; // Whimsy hotfix: Glance size\n",
+    },
+    {
+        "id": "glance-size-final",
+        "file": "src/zen/glance/ZenGlanceManager.mjs",
+        "why": "Glance size (whimsy.glance.size): the card keeps that width "
+               "once the opening animation ends.",
+        "old": '    this.browserWrapper.style.width = "80%";\n',
+        "new": "    this.browserWrapper.style.width = `${(this.whimsyWidthPercent ?? 0.8) * 100}%`; // Whimsy hotfix: Glance size\n",
+    },
+    # batch3glance: splits restore whole (zen#12403), see WhimsySplitRestore.
+    {
+        "id": "split-restore-layout",
+        "file": "src/zen/split-view/ZenViewSplitter.mjs",
+        "why": "zen#12403: a restored split whose saved layout lost a pane "
+               "(tab id not found, or a pinned tab copied) drew only some of "
+               "its tabs. Rebuild the layout when it doesn't match the tabs.",
+        "old": "        if (splitData) {\n"
+               "          splitData.layoutTree = layout;\n",
+        "new": "        if (splitData) {\n"
+               "          splitData.layoutTree = ChromeUtils.importESModule(\"resource:///modules/whimsy/WhimsySplitRestore.sys.mjs\").WhimsySplitRestore.layoutFor(layout, splitData, this); // Whimsy hotfix: zen#12403\n",
+    },
+    {
+        "id": "split-restore-legacy-continue",
+        "file": "src/zen/split-view/ZenViewSplitter.mjs",
+        "why": "A split saved without a layout tree (older sessions) ended the "
+               "restore loop, so every split after it in the window stayed "
+               "unsplit. Go on to the next split instead.",
+        "old": "          this.splitTabs(group.tabs, group.gridType);\n"
+               "          delete this._sessionRestoring;\n"
+               "          return;\n",
+        "new": "          this.splitTabs(group.tabs, group.gridType);\n"
+               "          continue; // Whimsy hotfix: restore the remaining splits too\n",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -522,6 +564,18 @@ FEATURES = [
     # wave3/private: floating calls.
     {"id": "call-pip", "title": "Floating calls: a Meet/Zoom/Teams call's video goes picture-in-picture when you leave its tab (Arc)",
      "detect": [("src/zen", r"(?i)call-?pip|meet[^\n]*picture-?in-?picture")]},
+    # batch3glance: Glance size (Compact / Standard / Wide).
+    {"id": "glance-size", "title": "Glance size: Compact, Standard (Zen's 80%) or Wide",
+     "detect": [("src/zen/glance", r"glance\.(?:size|width)")]},
+    # batch3glance: Cmd+T in a split opens into the focused pane (Arc).
+    {"id": "split-new-tab", "title": "Cmd+T in a split view opens the result in the focused pane (Arc)",
+     "detect": [("src/zen/split-view", r"(?i)newTabInSplit|replaceFocusedPane")]},
+    # batch3glance: Arc's Add Left/Right/Top/Bottom Split + Change Orientation.
+    {"id": "split-layouts", "title": "Add Left/Right/Top/Bottom Split and Change Orientation in the command bar (Arc)",
+     "detect": [("src/zen", r"(?i)(?:add-(?:left|top|bottom)-split|change-?orientation)")]},
+    # batch3glance: restored splits keep every pane (zen#12403).
+    {"id": "split-restore", "title": "Restored splits keep every pane even when the saved layout lost one (zen#12403)",
+     "detect": [("src/zen/split-view", r"(?i)layoutMatches|validateLayout|12403")]},
 ]
 
 

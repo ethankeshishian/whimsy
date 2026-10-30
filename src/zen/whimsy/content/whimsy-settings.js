@@ -919,3 +919,56 @@ Object.assign(gWhimsySettings, {
     group.hidden = false;
   },
 });
+
+// batch3glance: Glance size, next to the Tabs group's Glance options. The
+// Tabs group is inserted by gWhimsySettings.init's listener, which runs first.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertGlanceSize();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertGlanceSize() {
+    const template = document.getElementById("template-whimsyGlanceSize");
+    if (!template) {
+      return;
+    }
+    const row = template.content.firstElementChild;
+    template.remove();
+    const group = document.getElementById("whimsyTabsGroup");
+    if (!group || !this.lazy.Whimsy.featureEnabled("glance-size")) {
+      return;
+    }
+    Preferences.addAll([{ id: "whimsy.glance.size", type: "string" }]);
+    const externalLinks = document.getElementById("whimsyExternalLinksTarget")?.parentElement;
+    if (externalLinks?.parentElement == group) {
+      externalLinks.after(row);
+    } else {
+      group.append(row);
+    }
+    Preferences.queueUpdateOfAllElements();
+  },
+});
+
+// batch3glance: Cmd+T in a split. Arc's behavior is the default; unchecking
+// it gives Zen's (a separate new tab).
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenTabManagement") {
+    const template = document.getElementById("template-whimsySplitNewTab");
+    const group = document.getElementById("whimsyTabsGroup");
+    if (!template || !group) {
+      return;
+    }
+    const row = template.content.firstElementChild;
+    template.remove();
+    Preferences.addAll([{ id: "whimsy.feature.split-new-tab", type: "bool" }]);
+    const shiftClick = document.getElementById("whimsySplitLinkShiftClick");
+    if (shiftClick?.parentElement == group) {
+      shiftClick.after(row);
+    } else {
+      group.append(row);
+    }
+    Preferences.queueUpdateOfAllElements();
+  }
+});

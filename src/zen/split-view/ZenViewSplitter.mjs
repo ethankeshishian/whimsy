@@ -2462,8 +2462,7 @@ class nsZenViewSplitter extends nsZenDOMOperatedFeature {
         group.setAttribute("split-view-group", "true");
         if (!groupData?.layoutTree) {
           this.splitTabs(group.tabs, group.gridType);
-          delete this._sessionRestoring;
-          return;
+          continue; // Whimsy hotfix: restore the remaining splits too
         }
 
         const deserializeNode = nodeData => {
@@ -2495,7 +2494,7 @@ class nsZenViewSplitter extends nsZenDOMOperatedFeature {
         const layout = deserializeNode(groupData.layoutTree);
         const splitData = this.splitTabs(group.tabs, groupData.gridType, -1);
         if (splitData) {
-          splitData.layoutTree = layout;
+          splitData.layoutTree = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitRestore.sys.mjs").WhimsySplitRestore.layoutFor(layout, splitData, this); // Whimsy hotfix: zen#12403
         } else {
           gBrowser.removeTabGroup(group);
         }

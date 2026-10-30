@@ -527,3 +527,55 @@ add_task(async function vpn_scope_panel() {
     panel?.hidePopup();
   }
 });
+
+// batch3glance: a Compact and a Wide Glance (Standard is Zen's own).
+add_task(async function glance_sizes() {
+  const { openGlanceOnTab } = ChromeUtils.importESModule("resource://testing-common/GlanceTestUtils.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.glance-size", true]] });
+  const parent = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  try {
+    for (const size of ["compact", "wide"]) {
+      Services.prefs.setStringPref("whimsy.glance.size", size);
+      await openGlanceOnTab(window, async glanceTab => {
+        const wrapper = glanceTab.linkedBrowser.closest(".browserContainer");
+        await TestUtils.waitForCondition(() => wrapper.getAttribute("has-finished-animation") == "true");
+        ok(wrapper.getBoundingClientRect().width > 0, `${size} Glance is drawn`);
+        await shot(`30-glance-${size}`);
+      });
+    }
+  } finally {
+    Services.prefs.clearUserPref("whimsy.glance.size");
+    BrowserTestUtils.removeTab(parent);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// batch3glance: a three-pane split built Arc's way (Add Bottom Split), then
+// turned with Change Orientation.
+add_task(async function split_layouts() {
+  const { WhimsySplitLayouts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitLayouts.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.split-layouts", true]] });
+  const tabs = [];
+  try {
+    for (let i = 0; i < 3; i++) {
+      tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, `data:text/html,<h1>Pane ${i + 1}</h1>`));
+    }
+    gZenViewSplitter.splitTabs(tabs.slice(0, 2), "vsep", 0);
+    await TestUtils.waitForCondition(() => tabs[0].splitView);
+    WhimsySplitLayouts.insertBeside(window, tabs[0], tabs[2], "bottom");
+    ok(tabs[2].splitView, "Three panes");
+    await new Promise(resolve => setTimeout(resolve, 400));
+    await shot("31-split-add-bottom");
+    WhimsySplitLayouts.changeOrientation(window);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    await shot("32-split-change-orientation");
+  } finally {
+    if (gZenViewSplitter.currentView >= 0) {
+      gZenViewSplitter.unsplitCurrentView();
+    }
+    for (const tab of tabs) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await SpecialPowers.popPrefEnv();
+  }
+});

@@ -251,3 +251,14 @@ support-files = ["whimsy_slow_download.sjs"]
 # wave3/private: floating calls (call video goes PiP when you leave its tab).
 ["browser_whimsy_call_pip.js"]
 support-files = ["whimsy_call.html"]
+# batch3glance: Glance size (Compact / Standard / Wide).
+["browser_whimsy_glance_size.js"]
+
+# batch3glance: Cmd+T in a split opens into the focused pane.
+["browser_whimsy_split_new_tab.js"]
+
+# batch3glance: Arc's Add Left/Right/Top/Bottom Split and Change Orientation.
+["browser_whimsy_split_layouts.js"]
+
+# batch3glance: splits restore whole into a new window (zen#12403).
+["browser_whimsy_split_restore.js"]

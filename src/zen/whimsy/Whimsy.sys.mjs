@@ -87,6 +87,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
 });
 
+// batch3glance: Glance size and split view (Arc parity).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyGlance: "resource:///modules/whimsy/WhimsyGlance.sys.mjs",
+  WhimsySplitFlow: "resource:///modules/whimsy/WhimsySplitFlow.sys.mjs",
+  WhimsySplitLayouts: "resource:///modules/whimsy/WhimsySplitLayouts.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -413,6 +420,15 @@ export const Whimsy = {
     // wave3/private: a call's video floats in picture-in-picture when you
     // leave its tab (Arc). Checks its switch on each tab switch.
     run("call-pip", () => lazy.WhimsyCallPip.initWindow(win));
+    // batch3glance: Glance size. Always installed (checks its switch on
+    // each Glance), so turning it on or off applies without a restart.
+    run("glance-size", () => lazy.WhimsyGlance.initWindow(win));
+    // batch3glance: Cmd+T in a split opens into the focused pane (Arc).
+    // Always installed; checks its switch on each Cmd+T.
+    run("split-new-tab", () => lazy.WhimsySplitFlow.initWindow(win));
+    // batch3glance: Add Left/Right/Top/Bottom Split and Change Orientation
+    // (Arc). Each action checks the switch.
+    run("split-layouts", () => lazy.WhimsySplitLayouts.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

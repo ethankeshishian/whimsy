@@ -1007,3 +1007,23 @@ whimsy-live-folder-option-mark-read =
 
 whimsy-media-call-pip =
     .label = Float a video call in picture-in-picture when you switch away from its tab
+
+# batch3glance: Glance size (Settings → Tab Management, below the Tabs options).
+whimsy-glance-size-label = Glance size
+whimsy-glance-size-compact =
+    .label = Compact
+whimsy-glance-size-standard =
+    .label = Standard
+whimsy-glance-size-wide =
+    .label = Wide
+
+# batch3glance: Cmd+T in a split (Settings → Tab Management, Tabs group).
+whimsy-split-new-tab =
+    .label = In a split view, a new tab opens in the focused pane
+
+# batch3glance: Arc's split layout actions (command bar).
+whimsy-action-add-split-right = Add Right Split
+whimsy-action-add-split-left = Add Left Split
+whimsy-action-add-split-top = Add Top Split
+whimsy-action-add-split-bottom = Add Bottom Split
+whimsy-action-split-change-orientation = Change Split View Orientation

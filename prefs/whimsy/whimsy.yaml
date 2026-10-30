@@ -353,3 +353,7 @@
 # Mozilla Connect (same place as the Library footer and about:whimsy).
 - name: app.feedback.baseURL
   value: "https://github.com/ethankeshishian/whimsy/issues"
+
+# batch3glance: Glance size: compact (60%), standard (Zen's 80%) or wide (90%).
+- name: whimsy.glance.size
+  value: "standard"
