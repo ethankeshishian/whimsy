@@ -160,6 +160,10 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      Per space (user, 2026-10-30): the default removes only this space's
      visits from the last hour and clears the sites it touched only in its
      container; other spaces/containers keep theirs.
+     Then (user, 2026-10-30): "Fire in This Profile" / "Fire Everywhere";
+     scope is the space's profile (all its spaces). Security H2: burns close
+     tabs first without closed-tab entries, forget closed tabs in scope,
+     write the session, then clear.
    - Linear/Jira live folders: use the signed-in website session (like GitHub
      live folders), no API keys.
    - AI: provider picker in Settings (Claude API key, Apple on-device, local

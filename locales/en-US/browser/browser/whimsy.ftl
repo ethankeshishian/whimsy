@@ -496,9 +496,10 @@ whimsy-snooze-wake-toast = “{ $title }” is back
 
 whimsy-fire-panel =
     .aria-label = Fire button
-# wave7/fire: two rows. Each title says what it closes and clears.
-whimsy-fire-session = Close this space’s tabs and clear its last hour
-whimsy-fire-everything = Close all tabs and clear everything
+# wave7/fire: two rows, in the user's words; the line under each says
+# exactly what's removed.
+whimsy-fire-profile = Fire in This Profile
+whimsy-fire-everything = Fire Everywhere
 
 ## batch8: tab lifecycle — Find heavy tabs
 
@@ -1175,31 +1176,29 @@ whimsy-delete-space-accept = Delete Space
 whimsy-snooze-title = Snooze Tab
 whimsy-fire-title = Fire Button
 whimsy-fire-subtitle = Start fresh: close tabs and erase what they left behind
-# $count (number) - unpinned tabs that will close; $space (string) - the space's name
-whimsy-fire-session-detail = { $count ->
-    [0] No tabs to close in { $space }
-    [one] 1 tab in { $space }
-   *[other] { $count } tabs in { $space }
+# $count (number) - unpinned tabs that will close; $spaces (string) - the
+# names of the spaces that use this profile, as a list ("Work and Side
+# Projects").
+whimsy-fire-profile-detail = { $count ->
+    [0] Clears the last hour in { $spaces }
+    [one] Closes 1 tab in { $spaces } and clears their last hour
+   *[other] Closes { $count } tabs in { $spaces } and clears their last hour
 }
-whimsy-fire-session-detail-unnamed = { $count ->
-    [0] No tabs to close in this space
-    [one] 1 tab in this space
-   *[other] { $count } tabs in this space
+whimsy-fire-profile-detail-unnamed = { $count ->
+    [0] Clears this profile’s last hour
+    [one] Closes 1 tab and clears this profile’s last hour
+   *[other] Closes { $count } tabs and clears this profile’s last hour
 }
-# $count (number) - unpinned tabs in every space that will close
+# $count (number) - unpinned tabs in every window that will close
 whimsy-fire-everything-detail = { $count ->
-    [0] Every space, all time
-    [one] 1 tab, every space, all time
-   *[other] { $count } tabs, every space, all time
+    [0] Clears all history and site data, in every profile
+    [one] Closes 1 tab and clears all history and site data
+   *[other] Closes { $count } tabs and clears all history and site data
 }
 # The note under the rows: exactly what the chosen row clears and keeps.
-# wave7/fire: the space session is per space. History: only visits made in
-# this space. Site data: cookies, site data and cache of the sites this space
-# visited in the last hour, only in its profile (container). "-shared" is
-# shown when another space uses the same profile, which shares those cookies.
-whimsy-fire-session-summary = Removes this space’s history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Other spaces keep theirs. Pinned tabs and Essentials stay open.
-whimsy-fire-session-summary-shared = Removes this space’s history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Spaces that share its profile are signed out of those sites too. Pinned tabs and Essentials stay open.
-whimsy-fire-everything-summary = Clears all history, cookies, site data and cache, in every space. Pinned tabs, Essentials, bookmarks and passwords stay. You can’t undo it.
+# $profile (string) - the profile's name; "Default" when the space has none.
+whimsy-fire-profile-summary = In the { $profile } profile: removes its history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Other profiles keep theirs. Pinned tabs and Essentials stay open.
+whimsy-fire-everything-summary = Clears all history, cookies, site data and cache, in every profile. Pinned tabs, Essentials, bookmarks and passwords stay. You can’t undo it.
 whimsy-heavy-tabs-title = Heavy Tabs
 whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
@@ -1922,15 +1921,16 @@ whimsy-settings-features-summary = On-demand features
 
 # wave5/uxfix: Fire Button. Rows pick what to clear; this button does it.
 whimsy-fire-scopes = What to clear
-whimsy-fire-forget-session =
-    .label = Close Tabs and Clear
+whimsy-fire-forget-profile =
+    .label = Fire in This Profile
 whimsy-fire-forget-everything =
-    .label = Clear Everything…
+    .label = Fire Everywhere…
 # Result toasts: what closed and what was cleared.
 # $count (number) - tabs closed; $site (string) - the domain.
-# $count (number) - tabs closed; $visits (number) - this space's history
-# visits removed; $sites (number) - sites whose cookies, data and cache went
-whimsy-fire-done-session = { $count ->
+# $count (number) - tabs closed; $visits (number) - the profile's history
+# visits removed; $sites (number) - sites whose cookies, data and cache went;
+# $profile (string) - the profile's name
+whimsy-fire-done-profile = { $count ->
     [0] No tabs closed
     [one] Closed 1 tab
    *[other] Closed { $count } tabs
@@ -1940,7 +1940,7 @@ whimsy-fire-done-session = { $count ->
 } and { $sites ->
     [one] 1 site’s data
    *[other] { $sites } sites’ data
-} from this space’s last hour
+} from { $profile }’s last hour
 whimsy-fire-done-everything = { $count ->
     [0] Cleared all history, cookies, site data and cache
     [one] Closed 1 tab · cleared all history, cookies, site data and cache
@@ -2387,9 +2387,9 @@ whimsy-tab-audio-unmute = Unmute tab
 
 ## wave7/ux: Fire Button. "Everything" asks once more; Cancel is the default.
 
-whimsy-fire-everything-confirm-title = Clear everything?
-whimsy-fire-everything-confirm-body = This clears all history, cookies, site data and cache for every site, and closes every unpinned tab. You can’t undo it.
-whimsy-fire-everything-confirm-accept = Clear Everything
+whimsy-fire-everything-confirm-title = Fire everywhere?
+whimsy-fire-everything-confirm-body = This clears all history, cookies, site data and cache for every site in every profile, and closes every unpinned tab. You can’t undo it.
+whimsy-fire-everything-confirm-accept = Fire Everywhere
 
 ## wave7/fire: Forget About This Site… (command bar). Cancel is the default.
 

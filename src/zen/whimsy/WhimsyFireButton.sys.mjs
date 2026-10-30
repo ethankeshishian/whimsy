@@ -7,16 +7,18 @@
 // so you can start fresh.
 //
 // batch8 shipped it as four scopes (This Site / Last 15 Minutes / This Space
-// / Everything). wave7/fire narrows it to what serves that point, as
-// DuckDuckGo does (this tab or window / everything):
-//   - "Close this space's tabs and clear its last hour" (the default): closes
-//     this space's unpinned tabs, removes the history visits recorded in this
-//     space in the last hour (WhimsySpaceHistory), and clears cookies, site
-//     data and cache for the sites those visits and tabs touched, only in the
-//     space's container(s). Other spaces' history, and other containers'
-//     data, stay. (Gecko can't clear one container by time, so it's by site.)
-//   - "Close all tabs and clear everything": every space, all time, behind a
-//     second confirm with Cancel as the default.
+// / Everything). wave7/fire narrows it to what serves that point, in the
+// user's words:
+//   - "Fire in This Profile" (the default): the profile (container) the
+//     current space uses. Closes the unpinned tabs of every space in that
+//     profile, removes that profile's history visits from the last hour
+//     (WhimsySpaceHistory's per-visit profile; unattributed visits count as
+//     Default, as the History filter does), and clears cookies, site data
+//     and cache for the sites those visits and tabs touched, only in that
+//     container. Other profiles keep theirs. (Gecko can't clear one
+//     container by time, so it's by site.)
+//   - "Fire Everywhere": every profile, all time, behind a second confirm
+//     with Cancel as the default.
 // Per-site forgetting isn't ending a session; it's Firefox's "Forget About
 // This Site" (History), and stays reachable as the "Forget About This Site…"
 // command. The old "This Space" scope is the default row now; "Last 15
@@ -24,14 +26,24 @@
 //
 // Build-plan answer: pinned tabs and Essentials survive (DuckDuckGo's
 // Fireproof): they're left out of the close step, not the clear.
+//
+// Security review H2: burned tabs must not come back. Each burn closes its
+// tabs FIRST, with skipSessionStore (so they never enter the closed-tab
+// list, the Archive or Undo), forgets the closed tabs/windows in its scope
+// that are already there, writes the session file, and only then clears
+// data.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ForgetAboutSite: "moz-src:///toolkit/components/forgetaboutsite/ForgetAboutSite.sys.mjs",
-  WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
+  SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
@@ -39,8 +51,8 @@ const PANEL_ID = "whimsyFirePanel";
 const LAST_HOUR_MS = 60 * 60 * 1000;
 // What Everything clears, and exactly what the sheet names: history,
 // cookies, site data and cache. Bookmarks, passwords, downloads and site
-// permissions stay. The space session clears SITE_FLAGS per site and its
-// own history visits.
+// permissions stay. Fire in This Profile clears SITE_FLAGS per site, and
+// that profile's history visits.
 const FORGET_FLAGS =
   Ci.nsIClearDataService.CLEAR_HISTORY |
   Ci.nsIClearDataService.CLEAR_COOKIES_AND_SITE_DATA |
@@ -89,7 +101,7 @@ function clearData(sinceMs = null) {
 
 export const WhimsyFireButton = {
   // What Everything clears (the sheet names exactly these), and what the
-  // space session clears for each site it touched.
+  // profile fire clears for each site it touched.
   forgetFlags: FORGET_FLAGS,
   siteFlags: SITE_FLAGS,
 
@@ -126,52 +138,87 @@ export const WhimsyFireButton = {
     return tabs.filter(tab => tab && !tab.pinned && !tab.hasAttribute("zen-essential") && !tab.closing);
   },
 
+  // Closes tabs for good: no closed-tab entry (Cmd+Shift+T, Recently
+  // Closed), no Archive entry (it skips skipSessionStore closes) and no
+  // Undo. Returns how many closed.
   burnTabs(win, tabs, reason) {
     const closable = this.closableTabs(win, tabs);
     if (closable.length) {
-      lazy.WhimsyArchive.archiveTabs(win, closable, { reason: "fire", groupId: `fire-${reason}-${Date.now()}` });
+      lazy.WhimsyUndo.runSuppressed(() =>
+        win.gBrowser.removeTabs(closable, { animate: false, skipSessionStore: true }));
     }
     return closable.length;
   },
 
-  // The tabs of the space you're in (all visible tabs without spaces).
-  spaceTabs(win) {
-    const space = win.gZenWorkspaces?.activeWorkspace;
-    if (!space) {
-      return [...win.gBrowser.visibleTabs];
+  // Forgets already-closed tabs and windows that `matches(tabState,
+  // closedAt)` accepts, in every ordinary window, then writes the session
+  // file so none of them stay on disk.
+  async purgeClosed(matches) {
+    const SS = lazy.SessionStore;
+    for (const w of Services.wm.getEnumerator("navigator:browser")) {
+      if (w.closed || lazy.PrivateBrowsingUtils.isWindowPrivate(w)) {
+        continue;
+      }
+      for (const item of SS.getClosedTabDataForWindow(w)) {
+        if (matches(item.state ?? {}, item.closedAt ?? 0)) {
+          try {
+            SS.forgetClosedTabById(item.closedId, w);
+          } catch (e) {
+            console.error("Whimsy: fire forget closed tab", e);
+          }
+        }
+      }
     }
-    return win.gBrowser.tabs.filter(t => t.getAttribute("zen-workspace-id") == space);
-  },
-
-  // The containers whose data belongs to this space: the one it uses
-  // (Zen's containerTabId) plus any its open tabs actually run in.
-  spaceContainers(win, tabs = this.spaceTabs(win)) {
-    const space = win.gZenWorkspaces?.getActiveWorkspace?.();
-    return [...new Set([space?.containerTabId || 0, ...tabs.map(t => t.userContextId || 0)])];
-  },
-
-  // True when another space uses one of these containers, so clearing a
-  // site there signs those spaces out of it too (the note says so).
-  sharesContainer(win, containers = this.spaceContainers(win)) {
-    const spaces = win.gZenWorkspaces;
-    const active = spaces?.activeWorkspace;
-    return !!spaces?.getWorkspaces?.()?.some(item =>
-      item.uuid != active && !item.whimsyScratch && containers.includes(item.containerTabId || 0));
-  },
-
-  // History visits recorded in this space since `since` (ms). Only visits
-  // Whimsy attributed to the space count; unknown ones stay.
-  async spaceVisits(spaceId, since) {
-    if (!spaceId) {
-      return [];
+    for (const winData of SS.getClosedWindowData()) {
+      const tabs = [...(winData.tabs ?? []), ...(winData._closedTabs ?? []).map(item => item.state ?? {})];
+      if (tabs.some(tab => matches(tab, winData.closedAt ?? 0))) {
+        try {
+          SS.forgetClosedWindowById(winData.closedId);
+        } catch (e) {
+          console.error("Whimsy: fire forget closed window", e);
+        }
+      }
     }
+    await lazy.SessionSaver.run();
+  },
+
+  // The profile (container id) the current space uses; 0 is Default.
+  profileId(win) {
+    return lazy.WhimsyProfiles.activeProfileId(win);
+  },
+
+  // The spaces using a profile, in Zen's order.
+  profileSpaces(win, id = this.profileId(win)) {
+    return lazy.WhimsyProfiles.spacesFor(id, win).filter(space => !space.whimsyScratch);
+  },
+
+  // Every tab, in every ordinary window, that lives in one of the profile's
+  // spaces: [[window, tabs], ...].
+  profileTabs(win, id = this.profileId(win)) {
+    const uuids = new Set(this.profileSpaces(win, id).map(space => space.uuid));
+    const result = [];
+    for (const w of Services.wm.getEnumerator("navigator:browser")) {
+      if (w.closed || !w.gBrowser || lazy.PrivateBrowsingUtils.isWindowPrivate(w)) {
+        continue;
+      }
+      const tabs = w.gBrowser.tabs.filter(t => uuids.has(t.getAttribute("zen-workspace-id")));
+      if (tabs.length) {
+        result.push([w, tabs]);
+      }
+    }
+    return result;
+  },
+
+  // History visits of a profile since `since` (ms), as the History
+  // profile filter sees them.
+  async profileVisits(id, since) {
     const rows = await lazy.WhimsySpaceHistory.query({
-      spaceId, days: (Date.now() - since) / 86400000, limit: 100000,
+      profile: lazy.WhimsyProfiles.keyFor(id), days: (Date.now() - since) / 86400000, limit: 100000,
     });
-    return rows.filter(row => row.spaceId == spaceId && row.date.getTime() >= since);
+    return rows.filter(row => row.date.getTime() >= since);
   },
 
-  // One visit, not the page: other spaces' visits to the same URL stay.
+  // One visit, not the page: other profiles' visits to the same URL stay.
   removeVisit(visit) {
     const ms = visit.date.getTime();
     return lazy.PlacesUtils.history.removeVisitsByFilter({
@@ -189,13 +236,14 @@ export const WhimsyFireButton = {
     });
   },
 
-  // The default: end this space's session. Removes its last hour of
-  // history, clears the sites it touched in its own container(s), and
-  // closes its tabs. Returns what went, for the toast.
-  async burnSession(win) {
-    const tabs = this.spaceTabs(win);
+  // The default: fire this profile. Removes its last hour of history,
+  // clears the sites it touched in its container only, and closes the
+  // unpinned tabs of its spaces. Returns what went, for the toast.
+  async burnProfile(win) {
+    const id = this.profileId(win);
     const since = Date.now() - LAST_HOUR_MS;
-    const visits = await this.spaceVisits(win.gZenWorkspaces?.activeWorkspace, since);
+    const groups = this.profileTabs(win, id);
+    const visits = await this.profileVisits(id, since);
     const sites = new Set();
     for (const visit of visits) {
       const site = siteOfURL(visit.url);
@@ -203,22 +251,46 @@ export const WhimsyFireButton = {
         sites.add(site);
       }
     }
-    for (const tab of tabs) {
-      const site = (tab.lastAccessed || 0) >= since ? siteOf(tab) : null;
-      if (site) {
-        sites.add(site);
+    for (const [, tabs] of groups) {
+      for (const tab of tabs) {
+        const site = (tab.lastAccessed || 0) >= since ? siteOf(tab) : null;
+        if (site) {
+          sites.add(site);
+        }
       }
     }
-    const containers = this.spaceContainers(win, tabs);
-    await Promise.all([...sites].flatMap(site => containers.map(id => this.clearSiteData(site, id))));
+    // H2: close and forget first, then clear.
+    let count = 0;
+    for (const [w, tabs] of groups) {
+      count += this.burnTabs(w, tabs, "profile");
+    }
+    await this.purgeClosed((tab, closedAt) => (tab.userContextId || 0) == id && closedAt >= since);
+    await Promise.all([...sites].map(site => this.clearSiteData(site, id)));
     await Promise.all(visits.map(visit => this.removeVisit(visit)));
-    const count = this.burnTabs(win, tabs, "session");
-    return { count, visits: visits.length, sites: sites.size };
+    return { count, visits: visits.length, sites: sites.size, profile: lazy.WhimsyProfiles.nameOf(id) };
   },
 
+  // Every ordinary window's tabs: [[window, tabs], ...].
+  allTabs() {
+    const result = [];
+    for (const w of Services.wm.getEnumerator("navigator:browser")) {
+      if (!w.closed && w.gBrowser && !lazy.PrivateBrowsingUtils.isWindowPrivate(w)) {
+        result.push([w, [...w.gBrowser.tabs]]);
+      }
+    }
+    return result;
+  },
+
+  // Fire Everywhere: close every unpinned tab in every window, forget every
+  // closed tab and window, then clear (H2: that order).
   async burnEverything(win) {
+    let count = 0;
+    for (const [w, tabs] of this.allTabs(win)) {
+      count += this.burnTabs(w, tabs, "everything");
+    }
+    await this.purgeClosed(() => true);
     await this.clearData();
-    return this.burnTabs(win, win.gBrowser.tabs, "everything");
+    return count;
   },
 
   // "Forget About This Site…" (command bar): ForgetAboutSite takes the base
@@ -228,8 +300,13 @@ export const WhimsyFireButton = {
     if (!site) {
       return 0;
     }
+    let count = 0;
+    for (const [w, tabs] of this.allTabs(win)) {
+      count += this.burnTabs(w, tabs.filter(t => siteOf(t) == site), "site");
+    }
+    await this.purgeClosed(tab => (tab.entries ?? []).some(entry => siteOfURL(entry.url) == site));
     await lazy.ForgetAboutSite.removeDataFromBaseDomain(site);
-    return this.burnTabs(win, win.gBrowser.tabs.filter(t => siteOf(t) == site), "site");
+    return count;
   },
 
   async forgetSite(win) {
@@ -254,7 +331,6 @@ export const WhimsyFireButton = {
   // acts, so Return on a row never clears anything.
   panel(win) {
     const { document } = win;
-    const spaceName = win.gZenWorkspaces?.getActiveWorkspace?.()?.name || "";
     const { panel, body, footer } = lazy.WhimsyPanels.create(win, {
       id: PANEL_ID,
       titleL10nId: "whimsy-fire-title",
@@ -262,15 +338,21 @@ export const WhimsyFireButton = {
       size: "medium",
       footer: true,
     });
-    const sessionCount = this.closableTabs(win, this.spaceTabs(win)).length;
-    const allCount = this.closableTabs(win, win.gBrowser.tabs).length;
+    const profileId = this.profileId(win);
+    const profileCount = this.profileTabs(win, profileId)
+      .reduce((sum, [w, tabs]) => sum + this.closableTabs(w, tabs).length, 0);
+    const allCount = this.allTabs(win).reduce((sum, [w, tabs]) => sum + this.closableTabs(w, tabs).length, 0);
+    const lang = Services.locale.appLocalesAsBCP47;
+    const spaceNames = new Intl.ListFormat(lang, { style: "long", type: "conjunction" })
+      .format(this.profileSpaces(win, profileId).map(space => space.name).filter(Boolean));
+    panel._whimsyFireProfile = lazy.WhimsyProfiles.nameOf(profileId);
     const scopes = [
       {
-        id: "session",
-        run: () => this.burnSession(win),
+        id: "profile",
+        run: () => this.burnProfile(win),
         icon: "chrome://browser/skin/zen-icons/history.svg",
-        subtitleL10nId: spaceName ? "whimsy-fire-session-detail" : "whimsy-fire-session-detail-unnamed",
-        subtitleArgs: { count: sessionCount, ...(spaceName ? { space: spaceName } : {}) },
+        subtitleL10nId: spaceNames ? "whimsy-fire-profile-detail" : "whimsy-fire-profile-detail-unnamed",
+        subtitleArgs: { count: profileCount, ...(spaceNames ? { spaces: spaceNames } : {}) },
       },
       {
         id: "everything",
@@ -282,7 +364,7 @@ export const WhimsyFireButton = {
       },
     ];
     const forget = lazy.WhimsyPanels.footerButton(document, {
-      l10nId: "whimsy-fire-forget-session",
+      l10nId: "whimsy-fire-forget-profile",
       onCommand: () => this.forget(win, panel),
     });
     forget.id = "whimsy-fire-forget";
@@ -333,9 +415,8 @@ export const WhimsyFireButton = {
     document.l10n.setAttributes(panel.querySelector("#whimsy-fire-forget"), `whimsy-fire-forget-${id}`);
     const summary = panel.querySelector("#whimsy-fire-summary");
     if (summary) {
-      // The space session warns when another space shares its container.
-      const shared = id == "session" && this.sharesContainer(win);
-      document.l10n.setAttributes(summary, `whimsy-fire-${id}-summary${shared ? "-shared" : ""}`);
+      document.l10n.setAttributes(summary, `whimsy-fire-${id}-summary`,
+        id == "profile" ? { profile: panel._whimsyFireProfile } : null);
     }
   },
 
@@ -388,9 +469,9 @@ export const WhimsyFireButton = {
 
   openPanel(win) {
     const panel = this.panel(win);
-    // Start on ending this space's session; nothing runs until the footer
-    // button is pressed.
-    this.selectScope(win, panel, "session");
+    // Start on this profile; nothing runs until the footer button is
+    // pressed.
+    this.selectScope(win, panel, "profile");
     lazy.WhimsyPanels.open(win, panel);
   },
 };
