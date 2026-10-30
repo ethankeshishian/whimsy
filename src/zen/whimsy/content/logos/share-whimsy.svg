@@ -1,0 +1,14 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<svg xmlns="http://www.w3.org/2000/svg" id="whimsy-logo" width="16" height="16" viewBox="0 0 16 16" fill="context-fill" fill-opacity="context-fill-opacity">
+  <!-- Share Whimsy: the balloon with Firefox's share arrow. Replaces chrome://browser/content/logos/share-firefox.svg. -->
+  <mask id="sgap" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16"><rect width="16" height="16" fill="#fff"/><path d="M15.8799 11.9089L13.6909 9.7199C13.4339 9.4629 12.9939 9.6449 12.9939 10.0089V11.0089C10.4319 11.1899 8.33094 13.0399 7.80994 15.4929C7.71894 15.9189 8.26394 16.1879 8.52694 15.8409C9.56694 14.4719 11.1719 13.5649 12.9939 13.4449V14.3859C12.9939 14.7499 13.4339 14.9319 13.6909 14.6749L15.8799 12.4859C16.0389 12.3269 16.0389 12.0679 15.8799 11.9089Z" stroke="#000" stroke-width="2.4" stroke-linejoin="round"/></mask>
+  <g mask="url(#sgap)"><g transform="translate(0.6 0.1) scale(0.056)">
+    <mask id="shl" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="270"><rect width="200" height="270" fill="#fff"/><ellipse cx="66" cy="62" rx="15" ry="27" fill="#000" transform="rotate(-28 66 62)"/></mask>
+    <path d="M100 6 C 152 6 184 46 184 96 C 184 146 146 186 100 190 C 54 186 16 146 16 96 C 16 46 48 6 100 6 Z" mask="url(#shl)"/>
+    <path d="M86 202 L100 186 L114 202 Q100 208 86 202 Z"/>
+    <path d="M100 204 C 88 220, 114 236, 100 262" stroke="context-fill" stroke-width="20" stroke-linecap="round" fill="none"/>
+  </g></g>
+  <path d="M15.8799 11.9089L13.6909 9.7199C13.4339 9.4629 12.9939 9.6449 12.9939 10.0089V11.0089C10.4319 11.1899 8.33094 13.0399 7.80994 15.4929C7.71894 15.9189 8.26394 16.1879 8.52694 15.8409C9.56694 14.4719 11.1719 13.5649 12.9939 13.4449V14.3859C12.9939 14.7499 13.4339 14.9319 13.6909 14.6749L15.8799 12.4859C16.0389 12.3269 16.0389 12.0679 15.8799 11.9089Z"/>
+</svg>
