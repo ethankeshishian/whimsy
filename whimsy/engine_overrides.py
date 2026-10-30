@@ -16,6 +16,8 @@ which src/ can't patch as text). Runs at the end of `npm run import`.
 - legacy: a new profile's default bookmarks are Whimsy's (a "Whimsy"
   folder: Changelog, Feedback) instead of Firefox's "Mozilla Firefox"
   folder of Mozilla help and community links.
+- legacy: small text fixes in Firefox's own files (ENGINE_TEXT_FIXES), each
+  applied only while Firefox's original text is still there.
 """
 import glob
 import json
@@ -100,6 +102,52 @@ def override_default_bookmarks():
     print(f"engine_overrides: default bookmarks are Whimsy's ({int(changed)} files updated)")
 
 
+# legacy: (id, file under engine/, Firefox's text, Whimsy's text, why).
+ENGINE_TEXT_FIXES = [
+    ("home-option-is-whimsy", "browser/components/preferences/config/home-startup.mjs",
+     'const DEFAULT_HOMEPAGE_URL = "about:home";',
+     'const DEFAULT_HOMEPAGE_URL = "about:whimsy"; // Whimsy (whimsy/engine_overrides.py)',
+     "Settings > Home's built-in choice sets about:home and is labelled "
+     "Firefox Home (Default), while Whimsy's default is about:whimsy, which "
+     "showed as Custom URLs. The choice now means Whimsy's home."),
+    ("home-option-label", "browser/components/preferences/config/home-startup.mjs",
+     '        id: "homepageNewWindows",\n'
+     '        subcategory: "homeOverride",\n'
+     '        control: "moz-select",\n'
+     '        l10nId: "home-homepage-new-windows",\n'
+     '        options: [\n'
+     '          {\n'
+     '            value: "home",\n'
+     '            l10nId: "home-mode-choice-default-fx",\n',
+     '        id: "homepageNewWindows",\n'
+     '        subcategory: "homeOverride",\n'
+     '        control: "moz-select",\n'
+     '        l10nId: "home-homepage-new-windows",\n'
+     '        options: [\n'
+     '          {\n'
+     '            value: "home",\n'
+     '            l10nId: "whimsy-home-mode-choice-default", // Whimsy\n',
+     "The homepage choice reads Whimsy Home (Default). New tabs keep Firefox "
+     "Home: they still open Firefox's new tab page."),
+]
+
+
+def apply_engine_text_fixes():
+    changed = 0
+    for fix_id, rel, old, new, _why in ENGINE_TEXT_FIXES:
+        path = os.path.join(ROOT, "engine", rel)
+        text = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
+        if new in text:
+            continue
+        if old not in text:
+            print(f"engine_overrides: {fix_id} obsolete (Firefox changed {rel})")
+            continue
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text.replace(old, new, 1))
+        changed += 1
+    print(f"engine_overrides: Firefox text fixes ({changed} applied)")
+
+
 def main():
     if not os.path.isdir(UPDATER):
         print("engine_overrides: no engine yet, skipping")
@@ -116,6 +164,7 @@ def main():
     copy_builtin_addons()
     override_branding_prefs()
     override_default_bookmarks()
+    apply_engine_text_fixes()
 
 
 if __name__ == "__main__":

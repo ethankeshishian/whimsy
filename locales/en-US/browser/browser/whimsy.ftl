@@ -949,3 +949,8 @@ whimsy-privacy-apple = <strong>Apple</strong>: captive.apple.com, to check that 
 whimsy-privacy-google = <strong>Google</strong>: Safe Browsing lists and checks of downloaded apps.
 whimsy-privacy-updates = <strong>GitHub</strong>: Whimsy's updates.
 whimsy-privacy-search = <strong>Your search engine</strong>: what you search for, as with any browser.
+
+# Settings → Home → Homepage and new windows: the built-in choice, which is
+# Whimsy's home (about:whimsy) rather than Firefox Home.
+whimsy-home-mode-choice-default =
+    .label = Whimsy Home (Default)
