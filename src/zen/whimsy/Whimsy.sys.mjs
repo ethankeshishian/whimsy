@@ -162,9 +162,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
 });
 
-// wave7/focus: Do Not Disturb.
+// wave7/focus: Do Not Disturb and paste guard.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
+  WhimsyPasteGuard: "resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -273,6 +274,22 @@ export const Whimsy = {
         events: { mousedown: { mozSystemGroup: true } },
       },
       matches: ["https://*/*", "http://*/*", "file:///*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
+    // wave7/focus: paste guard. The child looks at a trusted paste before
+    // the page or the editor sees it, and asks the parent (a sheet) only
+    // when the text looks like a secret; only its kind crosses over, never
+    // the text.
+    ChromeUtils.registerWindowActor("WhimsyPasteGuard", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardChild.sys.mjs",
+        events: { paste: { capture: true, mozSystemGroup: true } },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
@@ -599,9 +616,10 @@ export const Whimsy = {
         .catch(e => console.error("Whimsy: space-look", e))
     );
 
-    // wave7/focus: Do Not Disturb (pause site notifications). The command
-    // checks its switch on use.
+    // wave7/focus: Do Not Disturb (pause site notifications) and paste
+    // guard. Each command checks its switch on use.
     run("do-not-disturb", () => lazy.WhimsyDoNotDisturb.initWindow(win));
+    run("paste-guard", () => lazy.WhimsyPasteGuard.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

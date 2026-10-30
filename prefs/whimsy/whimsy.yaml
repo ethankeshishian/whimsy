@@ -438,3 +438,8 @@
 # Tabs…" set it; the old Archive section's saved state migrates here.
 - name: whimsy.library.history.view
   value: all
+
+# wave7/focus: paste guard. The person's own on/off ("Turn Paste Guard On/Off"
+# in the command bar); whimsy.feature.paste-guard is the master switch.
+- name: whimsy.paste-guard.enabled
+  value: true

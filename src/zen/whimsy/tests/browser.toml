@@ -421,3 +421,5 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
 
+# wave7/focus: paste guard (detector, sheet Cancel/Esc/Paste, ordinary text, card field, command, switches).
+["browser_whimsy_paste_guard.js"]
