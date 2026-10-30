@@ -544,13 +544,17 @@ whimsy-menu-new-scratch =
 whimsy-menu-new-private-tab =
     .label = New Private Tab
 whimsy-scratch-keep =
-    .label = Keep as Space
+    .label = Keep as Normal Space…
 whimsy-scratch-close =
     .label = Close Scratch
 whimsy-action-new-private-tab = New Private Tab
 whimsy-action-new-scratch = New Scratch Space
-whimsy-action-keep-scratch = Keep Scratch as a Space
+whimsy-action-keep-scratch = Keep Scratch as a Normal Space…
 whimsy-action-close-scratch = Close Scratch
+# fixC: asked before Scratch becomes a normal space (Zen toast + button).
+whimsy-scratch-keep-confirm = Keep as a normal space? Its pages will leave private browsing.
+whimsy-scratch-keep-confirm-button =
+    .label = Keep
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->

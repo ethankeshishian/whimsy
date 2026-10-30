@@ -504,7 +504,7 @@ export const WhimsyPrivate = {
     });
     WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyKeepScratch",
-      run: w => this.keepScratch(w).catch(e => console.error("Whimsy: Scratch", e)),
+      run: w => this.confirmKeepScratch(w),
     });
     WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyCloseScratch",
@@ -727,6 +727,39 @@ export const WhimsyPrivate = {
     }
   },
 
+  // fixC: keeping Scratch ends its private browsing, which the old "Keep as
+  // Space" didn't say. The action now reads "Keep as Normal Space…" and asks
+  // first, in Zen's own toast (the one with an action button, as for a tab
+  // opened in the background): "Keep as a normal space? Its pages will
+  // leave private browsing." with Keep. Ignoring it changes nothing.
+  confirmKeepScratch(win) {
+    if (!this.getScratch(win)) {
+      return;
+    }
+    const keep = () => this.keepScratch(win).catch(e => console.error("Whimsy: Scratch", e));
+    const ui = win.gZenUIManager;
+    if (!ui?.showToast) {
+      keep();
+      return;
+    }
+    const id = "whimsy-scratch-keep-confirm-button";
+    ui.showToast("whimsy-scratch-keep-confirm", {
+      timeout: 6000,
+      button: {
+        id,
+        command: event => {
+          event.target.closest(".zen-toast")?.remove();
+          keep();
+        },
+      },
+    });
+    // Zen's toast buttons have no label of their own.
+    const button = win.document.getElementById(id);
+    if (button) {
+      win.document.l10n.setAttributes(button, id);
+    }
+  },
+
   // Turns Scratch into a normal space. Private pages can't stop being
   // private, so each reopens as a normal tab in the same place.
   async keepScratch(win) {
@@ -743,6 +776,13 @@ export const WhimsyPrivate = {
     const kept = { ...scratch, name: name || "Space", icon: undefined };
     delete kept.whimsyScratch;
     spaces.saveWorkspace(kept);
+    // fixC: the private look goes the moment it's a normal space. Zen only
+    // redraws a space's name and icon when it is switched to or renamed
+    // inline (ZenSpace.onIndicatorRenameFinished sets the text itself), so
+    // the header kept saying "Scratch" with the private icon; and the marks
+    // were only cleared at the very end, after waiting for tab switches.
+    spaces.updateWorkspaceIndicator?.(kept, spaces.workspaceElement(kept.uuid)?.indicator);
+    this.refreshScratchMarks(win);
     let reopened = 0;
     let selectedCopy = null;
     for (const tab of privateTabs) {
@@ -773,7 +813,13 @@ export const WhimsyPrivate = {
     }
     if (selectedCopy && gBrowser.selectedTab != selectedCopy) {
       await new Promise(resolve => {
-        gBrowser.addEventListener("TabSwitchDone", resolve, { once: true });
+        // Don't hang the rest (closing the private pages) on a switch that
+        // never reports back.
+        const timer = win.setTimeout(resolve, 2000);
+        gBrowser.addEventListener("TabSwitchDone", () => {
+          win.clearTimeout(timer);
+          resolve();
+        }, { once: true });
         gBrowser.selectedTab = selectedCopy;
       });
     }

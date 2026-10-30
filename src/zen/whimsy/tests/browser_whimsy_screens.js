@@ -562,3 +562,39 @@ add_task(async function private_tab_in_split() {
     BrowserTestUtils.removeTab(normal);
   }
 });
+
+// fixC: Scratch asks before becoming a normal space, then loses its violet.
+add_task(async function scratch_keep() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const startSpace = gZenWorkspaces.activeWorkspace;
+  const scratch = await WhimsyPrivate.openScratch(window);
+  if (!scratch) {
+    ok(true, "Scratch isn't available here");
+    return;
+  }
+  let keptId = null;
+  try {
+    await TestUtils.waitForCondition(
+      () => gBrowser.selectedBrowser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing"
+    );
+    gURLBar.blur();
+    await shot("fixC-scratch-before-keep");
+    document.getElementById("cmd_whimsyKeepScratch").doCommand();
+    const button = await TestUtils.waitForCondition(() => document.getElementById("whimsy-scratch-keep-confirm-button"));
+    await TestUtils.waitForCondition(() => button.getAttribute("label"));
+    await new Promise(resolve => setTimeout(resolve, 600)); // the toast's spring
+    await shot("fixC-scratch-keep-confirm");
+    button.doCommand();
+    await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window));
+    keptId = scratch.uuid;
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await shot("fixC-scratch-kept");
+  } finally {
+    if (keptId) {
+      await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+      await gZenWorkspaces.removeWorkspace(keptId);
+    } else {
+      await WhimsyPrivate.closeScratch(window);
+    }
+  }
+});
