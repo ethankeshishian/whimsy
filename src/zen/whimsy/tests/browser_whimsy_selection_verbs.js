@@ -83,7 +83,26 @@ add_task(function test_cmd_k_is_taken_from_focus_search() {
   ok(key, "Whimsy's Cmd+K key exists");
   is(key.getAttribute("key"), "K", "On K");
   is(key.getAttribute("modifiers"), "accel", "With Cmd");
-  ok(!document.getElementById("key_search")?.getAttribute("key"), "Firefox's Focus Search lost Cmd+K");
+  ok(!document.getElementById("key_search")?.getAttribute("key"), "Firefox's Focus Search key moved to Whimsy's");
+});
+
+// Cmd+K with nothing selected is exactly Zen's Cmd+K: Firefox's web search
+// (Tools:Search), never the page verbs.
+add_task(async function test_cmd_k_without_selection_is_web_search() {
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await select(browser, null);
+    const command = document.getElementById("Tools:Search");
+    const searched = BrowserTestUtils.waitForEvent(command, "command");
+    gBrowser.selectedBrowser.focus();
+    EventUtils.synthesizeKey("k", { accelKey: true });
+    await searched;
+    ok(true, "Cmd+K ran Firefox's web search command");
+    await TestUtils.waitForCondition(() => gURLBar.focused, "The web search has focus");
+    ok(!WhimsyVerbs.sessions.get(window), "No verb session");
+    isnot(gURLBar.searchMode?.source, UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, "Not the command bar's actions mode");
+    gURLBar.blur();
+    gURLBar.searchMode = null;
+  });
 });
 
 add_task(async function test_selection_lists_only_verbs() {
@@ -95,11 +114,18 @@ add_task(async function test_selection_lists_only_verbs() {
     const verbs = await shownVerbs();
     Assert.deepEqual(
       verbs,
-      ["translate", "search", "map", "email", "copy-markdown", "note", "calendar"],
-      "Only the selection's verbs, fixed ones first, Add to Calendar for a date"
+      ["search", "translate", "map", "email", "copy-markdown", "note", "calendar"],
+      "Only the selection's verbs, Search first, Add to Calendar for a date"
     );
     const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
     is(result.rowLabel?.args?.text, "Team sync Nov 3 at 3pm", "The row label shows the selection");
+    const engine = await Services.search.getDefault();
+    is(
+      // Fluent wraps placeables in bidi isolation marks.
+      result.payload.title.replace(/[\u2068\u2069]/g, ""),
+      `Search ${engine.name} for “Team sync Nov 3 at 3pm”`,
+      "The first verb searches the default engine for the selection"
+    );
 
     // Typing filters the verbs.
     gURLBar.value = "map";

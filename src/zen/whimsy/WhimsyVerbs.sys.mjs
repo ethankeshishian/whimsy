@@ -4,20 +4,21 @@
 
 // wave5/verbs: do-with-selection verbs (idea #20). Select text, press
 // Cmd+K, and the command bar opens in its actions mode listing only what
-// you can do with that text: Translate, Search, Map, Email, Copy as
-// Markdown, Add to Note, then the ones that depend on the text or setup
-// (Add to Calendar when it holds a date, New Linear Issue / Search Linear
-// when a Linear live folder exists) and your own skills. With nothing
-// selected they act on the page. The pattern is the "act on what's
+// you can do with that text: Search <default engine> for it first (so
+// Cmd+K still searches, as it always has), then Translate, Map, Email,
+// Copy as Markdown, Add to Note, then the ones that depend on the text or
+// setup (Add to Calendar when it holds a date, New Linear Issue / Search
+// Linear when a Linear live folder exists) and your own skills. The page
+// verbs (nothing selected) are reachable from the command bar ("Actions
+// for Selection"), never from Cmd+K. The pattern is the "act on what's
 // selected" menu of PopClip, Raycast and Alfred's Universal Actions, put
 // where Whimsy's command bar already is.
 //
-// Cmd+K: Firefox binds it to "focus the web search" (key_search), which in
-// Zen, with no search bar, just opens the URL bar in search mode (Cmd+L /
-// Cmd+T already do). Arc never bound it. Whimsy takes it, the way Linear,
-// Raycast and Slack use Cmd+K for "actions on this", and hands it back to
-// Firefox's command when the switch is off, on a non-web tab, or when the
-// person moved Focus Search elsewhere themselves (CustomKeys).
+// Cmd+K: Firefox binds it to web search (key_search -> Tools:Search), and
+// people rely on it (Chesterton's fence). Whimsy's Cmd+K runs exactly that
+// command whenever nothing is selected, and also when the switch is off,
+// on a non-web tab, or when the person moved Focus Search elsewhere
+// themselves (CustomKeys, then Cmd+K stays Firefox's own key).
 //
 // The registry: verbs and skills share one list (registerVerb). Built-ins
 // are below; user skills come from whimsy.verbs.skills, one per line,
@@ -45,6 +46,8 @@ const SKILLS_PREF = "whimsy.verbs.skills";
 const NOTES_PREF = "whimsy.feature.notes";
 const COMMAND_ID = "cmd_whimsySelectionVerbs";
 const KEY_ID = "key_whimsySelectionVerbs";
+// Cmd+K's own command: verbs only for a selection, else Firefox's search.
+const KEY_COMMAND_ID = "cmd_whimsySelectionVerbsKey";
 const DYNAMIC_TYPE = "whimsy-verb";
 const ICONS = "chrome://browser/skin/zen-icons/";
 const MAX_SNIPPET = 40;
@@ -266,6 +269,19 @@ const firstLine = (text, max = 80) => {
 const escapeMarkdown = text => text.replace(/([\\[\]])/g, "\\$1");
 const pageLink = s => `[${escapeMarkdown(s.title)}](${s.url})`;
 
+// The default search engine's name (the private one in private windows).
+function defaultEngineName(win) {
+  try {
+    const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+      ? Services.search.defaultPrivateEngine
+      : Services.search.defaultEngine;
+    return engine?.name ?? "";
+  } catch (e) {
+    // The search service isn't initialized yet.
+    return "";
+  }
+}
+
 function isWebPage(win) {
   const tab = win?.gBrowser?.selectedTab;
   const spec = tab?.linkedBrowser?.currentURI?.spec ?? "";
@@ -286,6 +302,23 @@ function linearWorkspace(win) {
 
 const BUILT_IN = [
   {
+    id: "search",
+    l10nId: "whimsy-verb-search",
+    l10n(win, s) {
+      const engine = s.engineName || defaultEngineName(win);
+      const text = firstLine(s.text, MAX_SNIPPET);
+      return engine ? { id: "whimsy-verb-search", args: { engine, text } } : { id: "whimsy-verb-search-web", args: { text } };
+    },
+    icon: `${ICONS}search-glass.svg`,
+    scope: "selection",
+    async run(win, s) {
+      const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+        ? await Services.search.getDefaultPrivate()
+        : await Services.search.getDefault();
+      WhimsyVerbs.openTab(win, engine.getSubmission(s.text).uri.spec);
+    },
+  },
+  {
     id: "translate",
     l10nId: "whimsy-verb-translate",
     pageL10nId: "whimsy-verb-translate-page",
@@ -301,18 +334,6 @@ const BUILT_IN = [
         return win.SelectTranslationsPanel.open(null, s.x, s.y, s.text, true, lazy.WhimsyPage.langPair(win, s.text));
       }
       return win.FullPageTranslationsPanel.open(new win.Event("command"));
-    },
-  },
-  {
-    id: "search",
-    l10nId: "whimsy-verb-search",
-    icon: `${ICONS}search-glass.svg`,
-    scope: "selection",
-    async run(win, s) {
-      const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
-        ? await Services.search.getDefaultPrivate()
-        : await Services.search.getDefault();
-      WhimsyVerbs.openTab(win, engine.getSubmission(s.text).uri.spec);
     },
   },
   {
@@ -490,9 +511,13 @@ export const WhimsyVerbs = {
     });
   },
 
-  labelFor(verb, subject) {
+  labelFor(verb, subject, win = null) {
     if (verb.label) {
       return verb.label;
+    }
+    if (verb.l10n) {
+      const { id, args } = verb.l10n(win, subject);
+      return lazy.l10n.formatValueSync(id, args);
     }
     const id = subject.kind == "page" && verb.pageL10nId ? verb.pageL10nId : verb.l10nId;
     return lazy.l10n.formatValueSync(id);
@@ -565,19 +590,46 @@ export const WhimsyVerbs = {
     return { kind: "page", text: "", markdown: pageLink({ title, url }), url, title, event: null };
   },
 
-  /** Cmd+K: the command bar with the verbs for the selection or page. */
+  /** Command bar: the verbs for the selection, else for the page. */
   async open(win) {
     const subject = this.enabled ? await this.subjectFor(win) : null;
     if (!subject) {
-      // Firefox's own Cmd+K (focus the web search).
-      win.document.getElementById("Tools:Search")?.doCommand();
+      this.search(win);
       return null;
     }
-    this.start(win, subject);
+    await this.start(win, subject);
     return subject;
   },
 
-  start(win, subject) {
+  /**
+   * Cmd+K: with text selected, its verbs (Search first); otherwise exactly
+   * Firefox's Cmd+K, the web search.
+   */
+  async openFromKey(win) {
+    const subject = this.enabled ? await this.subjectFor(win) : null;
+    if (subject?.kind != "selection") {
+      this.search(win);
+      return null;
+    }
+    await this.start(win, subject);
+    return subject;
+  },
+
+  // Firefox's own Cmd+K (key_search): focus the web search.
+  search(win) {
+    win.document.getElementById("Tools:Search")?.doCommand();
+  },
+
+  async start(win, subject) {
+    if (subject.kind == "selection" && !subject.engineName) {
+      // For the Search verb's label ("Search Google for ...").
+      try {
+        await Services.search.init();
+      } catch (e) {
+        // No engines: the label falls back to its plain form.
+      }
+      subject.engineName = defaultEngineName(win);
+    }
     subject.id = ++nextSubjectId;
     this.subjects.set(subject.id, subject);
     for (const id of this.subjects.keys()) {
@@ -635,6 +687,7 @@ export const WhimsyVerbs = {
     this.init();
     const shortcuts = lazy.WhimsyShortcuts;
     shortcuts.addCommand(win, { id: COMMAND_ID, run: w => this.open(w).catch(console.error) });
+    shortcuts.addCommand(win, { id: KEY_COMMAND_ID, run: w => this.openFromKey(w).catch(console.error) });
     shortcuts.addActions([
       {
         l10nId: "whimsy-action-selection-verbs",
@@ -658,7 +711,7 @@ export const WhimsyVerbs = {
       keyset.remove();
       parent.append(keyset);
     }
-    shortcuts.addKey(win, { id: KEY_ID, command: COMMAND_ID, key: "K", modifiers: "accel" });
+    shortcuts.addKey(win, { id: KEY_ID, command: KEY_COMMAND_ID, key: "K", modifiers: "accel" });
   },
 };
 
@@ -700,7 +753,7 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
     const query = context.searchString ?? "";
     const snippet = subject.kind == "selection" ? firstLine(subject.text, MAX_SNIPPET) : subject.title;
     const rows = WhimsyVerbs.verbsFor(win, subject)
-      .map((verb, index) => ({ verb, index, label: WhimsyVerbs.labelFor(verb, subject) }))
+      .map((verb, index) => ({ verb, index, label: WhimsyVerbs.labelFor(verb, subject, win) }))
       .map(row => ({ ...row, score: score(row.label, query) }))
       .filter(row => row.score > 0)
       .sort((a, b) => b.score - a.score || a.index - b.index);

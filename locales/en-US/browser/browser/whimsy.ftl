@@ -1801,7 +1801,11 @@ whimsy-verbs-row-selection = “{ $text }”
 whimsy-verbs-row-page = { $text }
 whimsy-verb-translate = Translate
 whimsy-verb-translate-page = Translate Page
-whimsy-verb-search = Search the Web
+# $engine (String) - the default search engine, e.g. Google
+# $text (String) - the start of the selected text
+whimsy-verb-search = Search { $engine } for “{ $text }”
+# $text (String) - the start of the selected text
+whimsy-verb-search-web = Search the Web for “{ $text }”
 whimsy-verb-map = Show in Maps
 whimsy-verb-email = Email
 whimsy-verb-copy-markdown = Copy as Markdown
