@@ -42,6 +42,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         exclusive: true,
         options: [
           { id: "all", l10nId: "whimsy-history-all-spaces" },
+          { id: "unknown", l10nId: "whimsy-history-unknown-space" },
           ...(this._spaceOptions || []).map(([id, label]) => ({ id, label })),
         ],
       });
@@ -123,7 +124,8 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
     try {
       const sort = ["date", "site", "mostvisited", "lastvisited"].find(
         id => this.isFilterActive("sort", id)) || "date";
-      const spaceId = this._spaceOptions.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
+      const spaceId = this.isFilterActive("space", "unknown") ? "unknown" :
+        this._spaceOptions.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
       const visits = await WhimsySpaceHistory.query({ spaceId,
         search: this.searchQuery, days: this.activeWhenDays ?? 120,
         sort, limit: this._spaceLimit });

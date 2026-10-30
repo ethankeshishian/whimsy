@@ -1602,3 +1602,5 @@ whimsy-quick-window-address-placeholder = Search or Enter URL…
 whimsy-quick-window-copy-link =
     .tooltiptext = Copy URL (Cmd+Shift+C)
     .aria-label = Copy URL
+
+whimsy-history-unknown-space = Unknown space

@@ -266,6 +266,8 @@ add_task(async function library_preserves_native_history_and_actions() {
       row => row.whimsyVisit?.url.endsWith("/old-ui"));
     ok(old, "Older untagged visits remain in All Spaces");
     ok(!old.querySelector(".whimsy-history-space-name"), "An unknown visit has no space label");
+    ok(section.filterGroups.find(group => group.id === "space").options.some(option => option.id === "unknown"),
+      "Unknown space remains selectable in the History filter");
 
     section.activeFilters.delete("source:history");
     section.activeFilters.add("source:closed");
