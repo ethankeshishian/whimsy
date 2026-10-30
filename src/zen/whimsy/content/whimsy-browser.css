@@ -2034,6 +2034,14 @@ whimsy-space-history-section {
 }
 
 /* wave5: live blocks in Notes (whimsy-note-blocks.mjs). */
+/* The open note's editor reuses Zen's row look, but not its paint-skipping
+   containment: `contain: strict` sizes a row at 34px and clips the rest, which
+   hid the text area and kept live blocks from ever counting as visible. */
+.zen-library-row.whimsy-note-editor {
+  contain: none;
+  content-visibility: visible;
+}
+
 .whimsy-note-block {
   display: flex;
   flex-direction: column;

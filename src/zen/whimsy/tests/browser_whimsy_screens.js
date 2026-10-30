@@ -1559,14 +1559,17 @@ add_task(async function wave5_note_live_block() {
     const { block } = blockFromURL("https://example.com/", { title: "Example Domain" });
     block.crop = { x: 0, y: 0, w: 1024, h: 420 };
     await gWhimsyNotesStore.update(note.id, { title: "Trip", text: "Check the weather", blocks: [block] });
-    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-notes"]);
+    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-notes"], "Notes section registered");
     library.activeTab = "whimsy-notes";
     await library.constructor.animateProgress(1);
-    const section = await TestUtils.waitForCondition(() => library.querySelector("whimsy-library-notes-section"));
+    const section = await TestUtils.waitForCondition(
+      () => library.querySelector("whimsy-library-notes-section"),
+      "Notes section shown"
+    );
     await section.updateComplete;
     section.editingId = note.id;
     await section.updateComplete;
-    const el = await TestUtils.waitForCondition(() => section.querySelector("whimsy-note-block"));
+    const el = await TestUtils.waitForCondition(() => section.querySelector("whimsy-note-block"), "Block shown");
     const browser = await TestUtils.waitForCondition(() => el.browser, "The visible block loads");
     await TestUtils.waitForCondition(
       () => browser.currentURI?.spec == "https://example.com/" && !browser.webProgress?.isLoadingDocument,
