@@ -340,6 +340,10 @@ function sameSecret(a, b) {
   return diff == 0;
 }
 
+// Calls (their args objects) that filled a one-time code or card field:
+// agent replay keeps the step but not the text (security L5).
+const secretCalls = new WeakSet();
+
 function text(value) {
   return { type: "text", text: typeof value == "string" ? value : JSON.stringify(value, null, 1) };
 }
@@ -718,7 +722,7 @@ export const WhimsyClaude = {
     lazy.WhimsyClaudeReplay.record(
       {
         tool: name,
-        args,
+        args: secretCalls.has(args) ? { ...args, text: "•••", value: "•••" } : args,
         ok: !outcome.isError,
         error: outcome.isError ? outcome.content[0]?.text : "",
         url: usable ? "" : before?.url ?? "",
@@ -1424,7 +1428,10 @@ export const WhimsyClaude = {
 
     async type(args, generation) {
       return this.withTab(args, "type", generation, async tab => {
-        const { typed, into } = await this.page(tab, "Claude:Type", { text: args.text, ref: args.ref });
+        const { typed, into, secret } = await this.page(tab, "Claude:Type", { text: args.text, ref: args.ref });
+        if (secret) {
+          secretCalls.add(args);
+        }
         return `Typed ${typed} characters into ${into}.`;
       });
     },
@@ -1438,7 +1445,10 @@ export const WhimsyClaude = {
 
     async form_input(args, generation) {
       return this.withTab(args, "form_input", generation, async tab => {
-        const result = await this.page(tab, "Claude:FormInput", { ref: args.ref, value: args.value });
+        const { secret, ...result } = await this.page(tab, "Claude:FormInput", { ref: args.ref, value: args.value });
+        if (secret) {
+          secretCalls.add(args);
+        }
         return result;
       });
     },

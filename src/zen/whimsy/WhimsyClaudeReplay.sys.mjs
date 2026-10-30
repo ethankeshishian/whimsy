@@ -41,6 +41,20 @@ const THUMB_WIDTH = 320;
 const SAVE_DELAY_MS = 1000;
 const CLIP = 120;
 
+// A page's address without its query or fragment, where magic-link tokens
+// and one-time codes travel (like the audit log's; security L5).
+function pageURL(spec) {
+  if (!spec) {
+    return "";
+  }
+  try {
+    const uri = Services.io.newURI(String(spec));
+    return uri.prePath + uri.filePath;
+  } catch {
+    return String(spec ?? "").split(/[?#]/)[0];
+  }
+}
+
 function clip(value, max = CLIP) {
   const text = String(value ?? "")
     .replace(/\s+/g, " ")
@@ -124,7 +138,7 @@ export const WhimsyClaudeReplay = {
     switch (tool) {
       case "tabs_create":
       case "navigate":
-        return clip(args.url);
+        return clip(pageURL(args.url));
       case "click":
         return args.ref ? clip(args.ref) : Array.isArray(args.coordinate) ? `(${args.coordinate.map(Math.round).join(", ")})` : "";
       case "type":
@@ -171,7 +185,7 @@ export const WhimsyClaudeReplay = {
       t: Date.now(),
       tool: String(tool),
       target: this.target(tool, args),
-      url: web ? uri.spec : clip(url, 2000),
+      url: web ? pageURL(uri.spec) : clip(pageURL(url), 2000),
       title: clip(web ? tab.label : title, 200),
       ok: !!ok,
     };
