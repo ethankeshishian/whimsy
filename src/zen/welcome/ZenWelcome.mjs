@@ -422,6 +422,7 @@
 
     async #applyChoices() {
       await this.#pinEssentials(); // Whimsy hotfix: no "zen basics" folder
+      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.finishOnboarding(window); // and no Zen first-run pages
     }
 
     async #pinEssentials() {

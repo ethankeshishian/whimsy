@@ -434,7 +434,8 @@ HOTFIXES = [
         "id": "welcome-no-zen-basics-folder",
         "file": "src/zen/welcome/ZenWelcome.mjs",
         "why": "Onboarding put the first tab in a folder named \"zen basics\"; "
-               "Whimsy's first run has no Zen pages to group.",
+               "Whimsy's first run has no Zen pages to group, and any left over "
+               "from older builds close.",
         "old": "      await this.#pinEssentials();\n"
                "      let tabsToGroup = [];\n"
                '      if (!gBrowser.selectedTab.hasAttribute("zen-empty-tab")) {\n'
@@ -444,7 +445,10 @@ HOTFIXES = [
                "        renameFolder: false,\n"
                '        label: "zen basics",\n'
                "      });\n",
-        "new": "      await this.#pinEssentials(); // Whimsy hotfix: no \"zen basics\" folder\n",
+        "new": "      await this.#pinEssentials(); // Whimsy hotfix: no \"zen basics\" folder\n"
+               '      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.finishOnboarding(window); // and no Zen first-run pages\n',
+        # (the second line closes zen-browser.app/welcome and /privacy-policy
+        # tabs that profiles made by pre-46fe4b3 builds still carry)
     },
 ]
 

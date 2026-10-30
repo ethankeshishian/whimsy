@@ -362,3 +362,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # fix7 settings: command bar entries for History, Liquid Glass, Glance size, VPN.
 ["browser_whimsy_settings_commands.js"]
+
+# fix7 settings: onboarding's finish leaves no zen-browser.app tabs.
+["browser_whimsy_onboarding_finish.js"]
