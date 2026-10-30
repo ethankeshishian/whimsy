@@ -235,3 +235,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # batch hover: hover cards (Firefox tab preview on; History card).
 ["browser_whimsy_hover_card.js"]
+
+# batch hover: People cards (GitHub, LinkedIn, X profile links).
+["browser_whimsy_people.js"]

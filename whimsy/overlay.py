@@ -369,6 +369,9 @@ FEATURES = [
     # batch hover: History hover cards (saved thumbnail, else title + URL).
     {"id": "history-preview", "title": "Hover a History entry in the Library to see its saved preview, title and address",
      "detect": [("src/zen/library", r"PageThumbs")]},
+    # batch hover: People cards (Arc parity) for GitHub, LinkedIn and X links.
+    {"id": "people-cards", "title": "People cards: hover a GitHub, LinkedIn or X profile link to see who it is",
+     "detect": [("src/zen", r"(?i)people.?cards?|profile.?(hover|card)")]},
 ]
 
 

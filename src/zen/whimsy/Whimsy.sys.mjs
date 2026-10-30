@@ -130,6 +130,18 @@ export const Whimsy = {
       allFrames: true,
       safeForUntrustedWebProcess: true,
     });
+    // batch hover: People cards. The child only messages for links to the
+    // profile sites; the parent rate-limits and fetches.
+    ChromeUtils.registerWindowActor("WhimsyPeople", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPeopleParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPeopleChild.sys.mjs",
+        events: { mouseover: {}, mouseout: {} },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {
