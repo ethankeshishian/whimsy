@@ -393,6 +393,9 @@
 - name: whimsy.feature.link-lasso
   value: true
 
+- name: whimsy.feature.season-toast
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

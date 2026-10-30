@@ -805,6 +805,10 @@ FEATURES = [
     # makes a folder of unloaded tabs named after the page.
     {"id": "link-lasso", "title": "Link lasso: Option-drag a rectangle over links, let go, and they become a folder of unloaded tabs",
      "detect": [("src/zen", r"(?i)link-?lasso|lasso-?links|linkclump|snap-?links")]},
+    # wave5/quick: new season toast: the first window in a new season shows
+    # one Zen toast with the costumed balloon (respects the seasonal switch).
+    {"id": "season-toast", "title": "New season toast: the first window in a new season shows the balloon in its costume, once",
+     "detect": [("src/zen", r"(?i)season-?toast|new-?season")]},
 ]
 
 

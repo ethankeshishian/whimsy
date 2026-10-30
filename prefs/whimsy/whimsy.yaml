@@ -407,3 +407,8 @@
 # Picked in Settings from the models the Ollama server has.
 - name: whimsy.ai.ollama.model
   value: ""
+
+# wave5/quick: new season toast. The season that already had its toast
+# ("2026-autumn"); empty until the first one.
+- name: whimsy.seasons.last-toast
+  value: ""

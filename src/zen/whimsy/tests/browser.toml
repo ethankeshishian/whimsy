@@ -362,3 +362,6 @@ support-files = ["whimsy_viewer.md", "whimsy_viewer.md^headers^", "whimsy_viewer
 # wave5/quick: link lasso (Option-drag, live count, folder of unloaded tabs, Esc, private, switch).
 ["browser_whimsy_link_lasso.js"]
 support-files = ["whimsy_lasso.html"]
+
+# wave5/quick: new season toast (once per season, costume, winter across years, switches, reduced motion).
+["browser_whimsy_season_toast.js"]

@@ -80,6 +80,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyQuickWindow.sys.mjs",
     "WhimsyRecentTabs.sys.mjs",
     "WhimsySeasons.sys.mjs",
+    "WhimsySeasonToast.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySidebarNav.sys.mjs",
     "WhimsySnooze.sys.mjs",

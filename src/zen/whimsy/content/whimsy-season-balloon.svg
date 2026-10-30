@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 -4 200 314" fill="none">
+  <!-- This Source Code Form is subject to the terms of the Mozilla Public
+     - License, v. 2.0. If a copy of the MPL was not distributed with this
+     - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+  <!-- The Whimsy balloon (as on the homepage, whimsy-home.xhtml) in its
+       seasonal costume, for the new-season toast. The costume is picked by
+       the URL's fragment: whimsy-season-balloon.svg#winter. -->
+  <style>
+    .costume { display: none; }
+    .costume:target { display: inline; }
+  </style>
+  <defs>
+    <radialGradient id="fill" cx="0.34" cy="0.28" r="0.82">
+      <stop offset="0" stop-color="#ffa3da"/>
+      <stop offset="0.42" stop-color="#f2479f"/>
+      <stop offset="1" stop-color="#9447ff"/>
+    </radialGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb347"/>
+      <stop offset="1" stop-color="#d9542b"/>
+    </linearGradient>
+    <radialGradient id="pumpkin" cx="0.38" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#ffc07a"/>
+      <stop offset="0.55" stop-color="#f08a3c"/>
+      <stop offset="1" stop-color="#c9661c"/>
+    </radialGradient>
+    <g id="flower">
+      <circle cx="0" cy="-5.5" r="4.4"/><circle cx="5.2" cy="-1.7" r="4.4"/><circle cx="3.2" cy="4.4" r="4.4"/>
+      <circle cx="-3.2" cy="4.4" r="4.4"/><circle cx="-5.2" cy="-1.7" r="4.4"/>
+    </g>
+  </defs>
+  <path d="M100 197 C 90 214, 111 230, 100 248 S 90 280, 102 306" stroke="#c46fdc" stroke-width="5" stroke-linecap="round"/>
+  <path d="M92 199 L100 187 L108 199 Q100 203 92 199 Z" fill="#b14bd8"/>
+  <path d="M100 6 C 152 6 184 46 184 96 C 184 146 146 186 100 190 C 54 186 16 146 16 96 C 16 46 48 6 100 6 Z" fill="url(#fill)"/>
+  <ellipse cx="66" cy="58" rx="15" ry="25" fill="#fff" opacity="0.55" transform="rotate(-28 66 58)"/>
+  <circle cx="57" cy="98" r="5" fill="#fff" opacity="0.35"/>
+  <g id="autumn" class="costume">
+    <ellipse cx="102" cy="297" rx="14" ry="10.5" fill="url(#pumpkin)"/>
+    <path d="M102 287 c-5 4 -5 16 0 20 M102 287 c5 4 5 16 0 20" stroke="#b8541f" stroke-opacity="0.55" stroke-width="1.5"/>
+    <path d="M101 288 c0 -4 1 -6 4 -8" stroke="#5d9b4a" stroke-width="2.6" stroke-linecap="round"/>
+    <g transform="rotate(32 138 14)">
+      <path d="M138 -4 c14 7 15 24 0 36 c-15 -12 -14 -29 0 -36 Z" fill="url(#leaf)"/>
+      <path d="M138 0 v37 M138 12 l7 -6 M138 22 l-7 -6" stroke="#a8431f" stroke-opacity="0.7" stroke-width="1.8" stroke-linecap="round"/>
+    </g>
+  </g>
+  <g id="winter" class="costume">
+    <path d="M28 46 C 34 18 64 0 100 0 C 136 0 166 18 172 46 C 166 52 160 44 152 50 C 144 56 136 46 126 52 C 116 58 108 48 100 52 C 92 58 84 48 74 52 C 64 56 56 46 48 50 C 40 54 34 50 28 46 Z" fill="#fff"/>
+    <path d="M40 48 C 52 52 60 46 70 49 M130 49 C 140 46 148 52 160 48" stroke="#9fc4ea" stroke-opacity="0.6" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M80 186 Q 100 196 120 186 L 122 197 Q 100 208 78 197 Z" fill="#2fa3b5"/>
+    <path d="M110 198 L 118 232 L 108 234 L 102 200 Z" fill="#2fa3b5"/>
+    <path d="M90 190 l-1 11 M100 193 v11 M110 190 l1 11 M113 214 l7 -1 M115 223 l7 -1" stroke="#fff" stroke-opacity="0.7" stroke-width="2.2"/>
+  </g>
+  <g id="spring" class="costume">
+    <path d="M30 56 C 52 26 76 18 100 18 C 124 18 148 26 170 56" stroke="#5d9b4a" stroke-width="3" stroke-linecap="round"/>
+    <path d="M56 32 c-5 -1 -8 2 -9 6 c5 1 8 -1 9 -6 Z M86 19 c1 -5 5 -7 9 -6 c-1 5 -5 7 -9 6 Z M146 32 c5 -1 8 2 9 6 c-5 1 -8 -1 -9 -6 Z" fill="#7cb85f"/>
+    <use href="#flower" x="36" y="49" fill="#fff"/><circle cx="36" cy="49" r="2.8" fill="#ffd86b"/>
+    <use href="#flower" x="66" y="27" fill="#ffe08a"/><circle cx="66" cy="27" r="2.8" fill="#ff8fbf"/>
+    <use href="#flower" x="100" y="18" fill="#fff"/><circle cx="100" cy="18" r="2.8" fill="#ffd86b"/>
+    <use href="#flower" x="134" y="27" fill="#ffe08a"/><circle cx="134" cy="27" r="2.8" fill="#ff8fbf"/>
+    <use href="#flower" x="164" y="49" fill="#fff"/><circle cx="164" cy="49" r="2.8" fill="#ffd86b"/>
+  </g>
+  <g id="summer" class="costume">
+    <path d="M52 84 h40 v8 c0 11 -8 17 -20 17 s-20 -6 -20 -17 Z M108 84 h40 v8 c0 11 -8 17 -20 17 s-20 -6 -20 -17 Z" fill="#2a1a3e"/>
+    <path d="M92 87 c5 -4 11 -4 16 0" stroke="#2a1a3e" stroke-width="4" stroke-linecap="round"/>
+    <path d="M60 91 l9 -4 M116 91 l9 -4" stroke="#fff" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

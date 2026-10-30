@@ -68,3 +68,5 @@
         content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)
 # wave5/quick: link lasso overlay (anonymous content over the page)
         content/browser/whimsy/whimsy-lasso.css                                 (../../zen/whimsy/content/whimsy-lasso.css)
+# wave5/quick: new season toast (the costumed balloon, once per season)
+        content/browser/whimsy/whimsy-season-balloon.svg                         (../../zen/whimsy/content/whimsy-season-balloon.svg)

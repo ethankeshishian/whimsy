@@ -1670,3 +1670,14 @@ whimsy-link-lasso-toast =
        *[other] Saved { $count } links to “{ $name }”
     }
 whimsy-link-lasso-private-toast = Link lasso doesn’t save links from private tabs
+
+## wave5/quick: new season toast (once per season, with the costumed balloon)
+
+whimsy-season-toast-autumn = Autumn is here
+whimsy-season-toast-autumn-description = The balloon found a pumpkin
+whimsy-season-toast-winter = Winter is here
+whimsy-season-toast-winter-description = The balloon wrapped up warm
+whimsy-season-toast-spring = Spring is here
+whimsy-season-toast-spring-description = The balloon is wearing flowers
+whimsy-season-toast-summer = Summer is here
+whimsy-season-toast-summer-description = The balloon brought sunglasses

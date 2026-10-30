@@ -146,6 +146,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyMarkdownCopy: "resource:///modules/whimsy/WhimsyMarkdownCopy.sys.mjs",
 });
 
+// wave5/quick: new season toast.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySeasonToast: "resource:///modules/whimsy/WhimsySeasonToast.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -588,6 +593,10 @@ export const Whimsy = {
     // wave5/quick: Copy page as Markdown (page menu and command bar); checks
     // its switch on use.
     run("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
+
+    // wave5/quick: the first window in a new season says so once (after
+    // the window settles; never under test automation).
+    run("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
