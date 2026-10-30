@@ -18,7 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.playlist";
@@ -299,17 +299,12 @@ export const WhimsyPlaylist = {
       item.hidden = !this.enabled || !(onMedia || onLink) || !!context?.browser?.browsingContext?.usePrivateBrowsing;
     });
 
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyPlaylistSave",
+      l10nId: "whimsy-action-playlist-save",
       run: w => this.saveFromPage(w).catch(e => console.error("Whimsy: playlist", e)),
+      icon: "chrome://browser/skin/zen-icons/selectable/video.svg",
+      isAvailable: () => this.enabled,
     });
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-playlist-save",
-        command: "cmd_whimsyPlaylistSave",
-        icon: "chrome://browser/skin/zen-icons/selectable/video.svg",
-        isAvailable: () => this.enabled,
-      },
-    ]);
   },
 };

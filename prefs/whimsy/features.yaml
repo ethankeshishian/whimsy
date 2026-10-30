@@ -423,6 +423,9 @@
 - name: whimsy.feature.easel
   value: true
 
+- name: whimsy.feature.command-registry
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

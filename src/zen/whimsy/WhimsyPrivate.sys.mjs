@@ -61,7 +61,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   ZenSessionStore: "resource:///modules/zen/ZenSessionManager.sys.mjs",
 });
 
@@ -510,7 +510,7 @@ export const WhimsyPrivate = {
   // --- Shortcuts, menus, command bar ---
 
   initCommands(win) {
-    const { WhimsyShortcuts } = lazy;
+    const { WhimsyCommands } = lazy;
     if (this.featureOn) {
       // Scratch replaces the private window on Cmd+Shift+N (BUILD-PLAN), so
       // clear the two built-in bindings for that key in this window.
@@ -528,13 +528,19 @@ export const WhimsyPrivate = {
         }
       }
     }
-    WhimsyShortcuts.addCommand(win, {
+    const icon = "chrome://browser/skin/zen-icons/private-window.svg";
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyNewPrivateTab",
+      l10nId: "whimsy-action-new-private-tab",
       run: w => this.openPrivateTab(w) ?? this.openPrivateWindow(w),
-      key: this.featureOn ? { id: "key_whimsyNewPrivateTab", key: "T", modifiers: "accel,alt" } : null,
+      keyId: "key_whimsyNewPrivateTab",
+      key: this.featureOn ? { key: "T", modifiers: "accel,alt" } : null,
+      icon,
+      isAvailable: () => this.inWindow,
     });
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyNewScratch",
+      l10nId: "whimsy-action-new-scratch",
       run: w => {
         if (!this.inWindow || !w.gZenWorkspaces?.workspaceEnabled) {
           this.openPrivateWindow(w);
@@ -542,33 +548,25 @@ export const WhimsyPrivate = {
         }
         this.openScratch(w).catch(e => console.error("Whimsy: Scratch", e));
       },
-      key: this.featureOn ? { id: "key_whimsyNewScratch", key: "N", modifiers: "accel,shift" } : null,
+      keyId: "key_whimsyNewScratch",
+      key: this.featureOn ? { key: "N", modifiers: "accel,shift" } : null,
+      icon,
+      isAvailable: () => this.inWindow,
     });
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyKeepScratch",
+      l10nId: "whimsy-action-keep-scratch",
       run: w => this.confirmKeepScratch(w),
+      icon,
+      isAvailable: w => this.featureOn && !!this.getScratch(w),
     });
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyCloseScratch",
+      l10nId: "whimsy-action-close-scratch",
       run: w => this.closeScratch(w).catch(e => console.error("Whimsy: Scratch", e)),
+      icon,
+      isAvailable: w => this.featureOn && !!this.getScratch(w),
     });
-    const icon = "chrome://browser/skin/zen-icons/private-window.svg";
-    WhimsyShortcuts.addActions([
-      { l10nId: "whimsy-action-new-private-tab", command: "cmd_whimsyNewPrivateTab", icon, isAvailable: () => this.inWindow },
-      { l10nId: "whimsy-action-new-scratch", command: "cmd_whimsyNewScratch", icon, isAvailable: () => this.inWindow },
-      {
-        l10nId: "whimsy-action-keep-scratch",
-        command: "cmd_whimsyKeepScratch",
-        icon,
-        isAvailable: w => this.featureOn && !!this.getScratch(w),
-      },
-      {
-        l10nId: "whimsy-action-close-scratch",
-        command: "cmd_whimsyCloseScratch",
-        icon,
-        isAvailable: w => this.featureOn && !!this.getScratch(w),
-      },
-    ]);
   },
 
   initMenus(win) {

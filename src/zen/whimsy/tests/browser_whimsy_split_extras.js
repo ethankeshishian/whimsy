@@ -94,7 +94,7 @@ add_task(async function test_split_from_command_bar() {
   gBrowser.selectedTab = tabA;
 
   ok(action("whimsy-action-split-vertically").isAvailable(window), "Offered with 2+ tabs");
-  action("whimsy-action-split-vertically").command(window);
+  document.getElementById(action("whimsy-action-split-vertically").command).doCommand();
   await TestUtils.waitForCondition(() => splitOf(tabA), "toggleShortcut split the selected tab and its neighbor");
   is(splitOf(tabA).gridType, "vsep", "Vertical split");
 

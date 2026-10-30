@@ -67,7 +67,7 @@ add_task(function test_new_thing_opens_its_url() {
   const original = window.openTrustedLinkIn;
   window.openTrustedLinkIn = stub;
   try {
-    action("whimsy-action-new-doc").command(window);
+    document.getElementById(action("whimsy-action-new-doc").command).doCommand();
     Assert.deepEqual(opened, [{ url: "https://docs.new", where: "tab" }], "Opens docs.new in a new tab");
   } finally {
     window.openTrustedLinkIn = original;
@@ -83,7 +83,7 @@ add_task(async function test_new_note_hidden_until_configured() {
   const original = window.openTrustedLinkIn;
   window.openTrustedLinkIn = (url, where) => opened.push({ url, where });
   try {
-    action("whimsy-action-new-note").command(window);
+    document.getElementById(action("whimsy-action-new-note").command).doCommand();
     Assert.deepEqual(opened, [{ url: "https://notion.new", where: "tab" }], "Opens the chosen target");
   } finally {
     window.openTrustedLinkIn = original;

@@ -268,14 +268,14 @@ whimsy-volume-mute =
 
 whimsy-action-speed-up = Speed Up Video
 whimsy-action-slow-down = Slow Down Video
-whimsy-action-speed-reset = Normal Video Speed
+whimsy-action-speed-reset = Reset Video Speed
 # $rate (number) - the playback rate, e.g. 1.25
 whimsy-speed-toast = Playback speed { NUMBER($rate, maximumFractionDigits: 2) }×
 whimsy-speed-none-toast = No video or audio on this page
 
 ## Capture (shortcuts and command bar)
 
-whimsy-action-copy-full-page = Copy Full-Page Screenshot
+whimsy-action-copy-full-page = Capture Full Page
 whimsy-capture-copied-toast = Copied a screenshot of the whole page
 whimsy-capture-failed-toast = This page can’t be captured
 
@@ -301,7 +301,7 @@ whimsy-disallow-copy-toast = { $site } can block copy and paste again
 
 ## Internet Archive (notification bar and command bar)
 
-whimsy-action-open-archive = Open in Internet Archive
+whimsy-action-open-archive = Open in Wayback Machine
 whimsy-archive-bar = This page is gone, but the Internet Archive has a copy.
 # $date (string) - when the copy was saved, e.g. "Jun 2024"
 whimsy-archive-bar-dated = This page is gone, but the Internet Archive has a copy from { $date }.
@@ -455,8 +455,8 @@ whimsy-tabs-tree-style-islands =
 
 ## batch8: tab lifecycle — command bar
 
-whimsy-action-show-archive = Show Archive
-whimsy-action-fire-button = Fire Button
+whimsy-action-show-archive = View Archive…
+whimsy-action-fire-button = Forget Site Data…
 whimsy-action-heavy-tabs = Find Heavy Tabs
 
 ## batch8: tab lifecycle — Archive view panel
@@ -636,12 +636,12 @@ tab-context-whimsy-unfollow =
 
 ## Print a clean page (command bar)
 
-whimsy-action-print-clean = Print a Clean Page
+whimsy-action-print-clean = Print Clean Page
 
 ## Pin or favorite a split (command bar)
 
 whimsy-action-favorite-split = Favorite This Split
-whimsy-action-open-split-favorites = Open a Favorite Split…
+whimsy-action-open-split-favorites = Open Favorite Split…
 whimsy-split-favorite-name-title = Favorite This Split
 whimsy-split-favorite-name-prompt = Name this split, so it's easy to find later:
 whimsy-split-favorite-saved-toast = Split saved to your favorites
@@ -713,7 +713,7 @@ whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
 whimsy-cheatsheet-tab-next = Next Tab in Sidebar
 whimsy-cheatsheet-tab-prev = Previous Tab in Sidebar
 whimsy-cheatsheet-focus-sidebar = Focus Sidebar
-whimsy-cheatsheet-self = Shortcut Cheat Sheet
+whimsy-cheatsheet-self = Keyboard Shortcuts
 
 ## batch7: inbox-zero balloons
 
@@ -721,7 +721,7 @@ whimsy-inbox-zero-toast = Inbox zero
 
 ## batch7: per-site user agent ("Pretend to be...")
 
-whimsy-action-useragent = Pretend to be…
+whimsy-action-useragent = Change User Agent…
 whimsy-useragent-default =
     .label = Default (Whimsy)
 whimsy-useragent-chrome =
@@ -733,7 +733,7 @@ whimsy-useragent-safari-iphone =
 
 ## batch7: cookie editor
 
-whimsy-action-cookie-editor = Cookies
+whimsy-action-cookie-editor = Edit Cookies for This Site…
 whimsy-cookie-editor-add =
     .label = Add Cookie
 whimsy-cookie-editor-copy-all =
@@ -755,7 +755,7 @@ whimsy-upload-choose-file =
 
 ## batch7: developer mode tabs
 
-whimsy-action-devmode-toggle = Turn on/off Developer Mode for this site
+whimsy-action-devmode-toggle = Turn Developer Mode On or Off
 whimsy-devmode-elements =
     .label = Elements
 whimsy-devmode-console =
@@ -791,7 +791,7 @@ whimsy-game-hint = Arrows, WASD or pointer to steer · Space or click to dash ·
 ## batch7b: Year in tabs (whimsy://year)
 ## $year is a plain string (never a formatted number).
 
-whimsy-action-year = Year in Tabs
+whimsy-action-year = Open Year in Tabs
 whimsy-year-ready-toast = Your Year in Tabs is ready
 whimsy-year-title = Your Year in Tabs
 whimsy-year-progress = { $current } of { $total }
@@ -1261,8 +1261,8 @@ whimsy-cheatsheet-swap-panes = Swap Panes
 whimsy-cheatsheet-close-other-panes = Close Other Panes
 whimsy-cheatsheet-find = Find in Page
 whimsy-cheatsheet-reader = Reader View
-whimsy-cheatsheet-copy-full-page = Copy Full-Page Screenshot
-whimsy-cheatsheet-capture = Capture
+whimsy-cheatsheet-copy-full-page = Capture Full Page
+whimsy-cheatsheet-capture = Capture…
 whimsy-cheatsheet-translate = Translate Selection
 whimsy-cheatsheet-speed-up = Play Faster
 whimsy-cheatsheet-slow-down = Play Slower
@@ -2094,3 +2094,32 @@ whimsy-library-easels-items = { $count ->
 # $title (String) - the easel's name
 whimsy-library-easels-deleted = Deleted { $title }
 whimsy-library-easels-undo-button = Undo
+
+## wave5: command registry. Every Whimsy command has one name, used in the
+## command bar, in Settings → Keyboard Shortcuts (under "Whimsy") and in
+## the shortcut cheat sheet. State-aware commands have a neutral name for
+## their shortcut and a name per state in the command bar.
+
+whimsy-action-capture = Capture…
+whimsy-action-tab-next = Next Tab in Sidebar
+whimsy-action-tab-prev = Previous Tab in Sidebar
+whimsy-action-focus-sidebar = Focus Sidebar
+whimsy-action-devmode-on = Turn On Developer Mode for This Site
+whimsy-action-devmode-off = Turn Off Developer Mode for This Site
+whimsy-action-vpn-toggle = Turn VPN On or Off
+whimsy-action-allow-copy-toggle = Allow or Stop Allowing Copy and Paste
+whimsy-action-join-next-meeting = Join Next Meeting
+whimsy-action-snooze-tab = Snooze Tab…
+whimsy-action-group-by-site = Group Tabs by Site
+whimsy-action-mute-site-toggle = Mute or Unmute Site
+whimsy-action-mute-site = Mute Site
+whimsy-action-unmute-site = Unmute Site
+whimsy-action-lock-space-toggle = Lock or Unlock This Space
+whimsy-action-lock-space = Lock This Space
+whimsy-action-unlock-space = Unlock This Space
+whimsy-action-hide-space = Hide This Space
+whimsy-action-tidy-tabs = Tidy Tabs
+whimsy-action-follower-toggle = Turn Follower Split On or Off
+whimsy-action-follow = Make This a Follower Split
+whimsy-action-unfollow = Stop Following
+whimsy-action-tab-volume = Tab Volume…

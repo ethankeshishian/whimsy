@@ -255,6 +255,7 @@ class nsZenKeyboardShortcuts {
         Object.assign((keys[label] ??= {}), entries);
       }
     }
+    keys = await ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.addKeys(actor, keys); // Whimsy hook
     return keys;
   }
 

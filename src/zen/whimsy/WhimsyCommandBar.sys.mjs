@@ -6,7 +6,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 // #13: typing "/" (Linear, VS Code's ">") in the URL bar enters Zen's
@@ -90,27 +90,29 @@ export const WhimsyCommandBar = {
   initWindow(win) {
     this.initSlashFilter(win);
     this.linkAppearanceActions();
-    lazy.WhimsyShortcuts.addActions([
-      ...NEW_THINGS.map(thing => ({
+    for (const thing of NEW_THINGS) {
+      lazy.WhimsyCommands.register(win, {
+        id: `whimsy-cmd-new-${thing.id}`,
         l10nId: thing.l10nId,
-        command: w => this.openNewThing(w, thing.url),
+        run: w => this.openNewThing(w, thing.url),
         icon: "chrome://browser/skin/zen-icons/plus.svg",
         isAvailable: () => Services.prefs.getBoolPref(CREATE_FEATURE_PREF, true),
-      })),
-      {
-        l10nId: "whimsy-action-new-note",
-        command: w => {
-          const url = NOTE_TARGETS[Services.prefs.getStringPref(NOTE_TARGET_PREF, "none")];
-          if (url) {
-            this.openNewThing(w, url);
-          }
-        },
-        icon: "chrome://browser/skin/zen-icons/plus.svg",
-        isAvailable: () =>
-          Services.prefs.getBoolPref(CREATE_FEATURE_PREF, true) &&
-          Services.prefs.getStringPref(NOTE_TARGET_PREF, "none") != "none",
+      });
+    }
+    lazy.WhimsyCommands.register(win, {
+      id: "whimsy-cmd-new-note",
+      l10nId: "whimsy-action-new-note",
+      run: w => {
+        const url = NOTE_TARGETS[Services.prefs.getStringPref(NOTE_TARGET_PREF, "none")];
+        if (url) {
+          this.openNewThing(w, url);
+        }
       },
-    ]);
+      icon: "chrome://browser/skin/zen-icons/plus.svg",
+      isAvailable: () =>
+        Services.prefs.getBoolPref(CREATE_FEATURE_PREF, true) &&
+        Services.prefs.getStringPref(NOTE_TARGET_PREF, "none") != "none",
+    });
   },
 
   initSlashFilter(win) {

@@ -46,6 +46,19 @@ export const WhimsySpaceLock = {
     }
     this.wrapChangeWorkspace(win);
     this.initContextMenu(win);
+    // wave5: the space menu's "Lock This Space" as a command for the
+    // current space.
+    const active = w => w.gZenWorkspaces.getWorkspaces().find(s => s.uuid == w.gZenWorkspaces.activeWorkspace);
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+      id: "cmd_whimsyLockSpace",
+      l10nId: "whimsy-action-lock-space-toggle",
+      run: w => featureOn() && active(w) && this.toggleLocked(w, active(w).uuid),
+      icon: "chrome://browser/skin/zen-icons/selectable/lock-closed.svg",
+      variants: [
+        { l10nId: "whimsy-action-lock-space", isAvailable: w => featureOn() && !!active(w) && !active(w).whimsyLocked },
+        { l10nId: "whimsy-action-unlock-space", isAvailable: w => featureOn() && !!active(w)?.whimsyLocked },
+      ],
+    });
     this.applyBadges(win);
     const refresh = () => this.applyBadges(win);
     win.addEventListener("ZenWorkspaceDataChanged", refresh);

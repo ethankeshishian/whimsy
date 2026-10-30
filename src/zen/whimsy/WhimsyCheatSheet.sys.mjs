@@ -29,7 +29,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CustomKeysParent: "moz-src:///browser/components/customkeys/CustomKeysParent.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   ZenKeyboardShortcuts: "resource:///modules/zen/kbs/ZenKeyboardShortcuts.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () =>
@@ -116,14 +116,18 @@ export const WhimsyCheatSheet = {
   },
 
   initWindow(win) {
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "whimsy-cheatsheet",
+      l10nId: "whimsy-action-cheatsheet",
       run: w => {
         if (this.enabled) {
           this.toggle(w);
         }
       },
-      key: { id: "key_whimsyCheatsheet", key: "/", modifiers: "accel" },
+      keyId: "key_whimsyCheatsheet",
+      key: { key: "/", modifiers: "accel" },
+      icon: "chrome://browser/skin/zen-icons/selectable/key.svg",
+      isAvailable: () => this.enabled,
     });
   },
 
@@ -181,6 +185,8 @@ export const WhimsyCheatSheet = {
       const l10nId = WHIMSY_TITLES.get(keyEl.id);
       const command = keyEl.getAttribute("command");
       return (
+        // wave5: a Whimsy command has one name everywhere.
+        lazy.WhimsyCommands.title(lazy.WhimsyCommands.forKey(keyEl.id)) ||
         (l10nId && formatSync(l10nId)) ||
         keyEl.getAttribute("label") ||
         (command && document.getElementById(command)?.getAttribute("label")) ||
@@ -197,7 +203,7 @@ export const WhimsyCheatSheet = {
       for (const [heading, entries] of Object.entries(categories ?? {})) {
         for (const [id, data] of Object.entries(entries)) {
           const keyEl = document.getElementById(id);
-          const title = WHIMSY_TITLES.has(id) ? titleOf(keyEl) : text(data.title);
+          const title = WHIMSY_TITLES.has(id) || lazy.WhimsyCommands.forKey(id) ? titleOf(keyEl) : text(data.title);
           add(text(heading), keyEl, title);
         }
       }

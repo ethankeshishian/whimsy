@@ -144,6 +144,18 @@ export const WhimsyTabs = {
 
   initGroupByDomain(win) {
     const { document } = win;
+    // wave5: the tab menu's "Group N Tabs from site" as a command for the
+    // current tab.
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+      id: "cmd_whimsyGroupBySite",
+      l10nId: "whimsy-action-group-by-site",
+      run: w => this.groupByDomain(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/folder.svg",
+      isAvailable: w =>
+        Services.prefs.getBoolPref(GROUP_FEATURE_PREF, true) &&
+        !!w.gZenFolders &&
+        this.sameSiteTabs(w, w.gBrowser.selectedTab).tabs.length >= 2,
+    });
     const menu = document.getElementById("tabContextMenu");
     menu?.addEventListener("popupshowing", event => {
       if (event.target == menu) {
