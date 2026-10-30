@@ -654,6 +654,8 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   background-size: 7px;
   background-position: center;
   background-repeat: no-repeat;
+}
+
 /* batch9p: Scratch and private tabs (WhimsyPrivate.sys.mjs). A private tab
    in a normal window gets a violet wash, a violet ring and the private
    icon before its favicon; while one is selected the address bar gets the
@@ -725,9 +727,16 @@ toolbarbutton[zen-workspace-id][whimsy-scratch] {
 
 @media (prefers-reduced-motion: reduce) {
   toolbarbutton[zen-workspace-id][whimsy-scratch] { animation: none; }
-/* batch12: Little Arc (quick window, whimsy.feature.quick-window). Hides
-   the whole vertical sidebar (tabs, spaces, pinned) so just the nav bar
-   above the content and the "Move to space" button are left. */
+}
+
+/* batch12: Mini Whimsy, Arc's "Little Arc" (quick window,
+   whimsy.feature.quick-window). Hides the whole vertical sidebar (tabs,
+   spaces, pinned) so just the nav bar above the content and the
+   "Open in Current Space"/caret buttons are left. Pre-existing bug fixed
+   here: this block, the move-to-space button rule right below it, and the
+   lock-badge rule above (batch9) had all been left nested inside earlier
+   unclosed rules by later edits, so none of them — nor anything after them
+   in the file — ever actually applied. */
 :root[whimsy-quick-window] {
   & #navigator-toolbox,
   & #zen-sidebar-splitter {
@@ -737,6 +746,13 @@ toolbarbutton[zen-workspace-id][whimsy-scratch] {
 
 #whimsy-quick-window-move-to-space {
   margin-inline-start: auto;
+}
+
+#whimsy-quick-window-choose-space {
+  list-style-image: url("chrome://browser/skin/zen-icons/chevron.svg");
+  margin-inline-start: 2px;
+}
+
 /* batch7: Seasonal themes. A gentle accent tint plus one CSS flourish layer
    over the content area; never touches a space's own colours. */
 :root[whimsy-season="halloween"] {
