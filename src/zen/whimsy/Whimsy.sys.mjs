@@ -111,7 +111,11 @@ export const Whimsy = {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs" },
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyUploadChild.sys.mjs",
-        events: { click: { capture: true, mozSystemGroup: true } },
+        events: {
+          click: { capture: true, mozSystemGroup: true },
+          // fixA: Cmd+V on a focused upload button.
+          keydown: { capture: true, mozSystemGroup: true },
+        },
       },
       allFrames: true,
       safeForUntrustedWebProcess: true,

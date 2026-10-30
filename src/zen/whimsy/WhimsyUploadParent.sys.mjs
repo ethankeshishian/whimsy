@@ -8,6 +8,8 @@
 // one (Cmd+Ctrl+Shift+4 on macOS), click any upload button, click the
 // thumbnail.
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
@@ -43,6 +45,46 @@ async function clipboardImagePath() {
   }
 }
 
+// A file copied in Finder (Cmd+C): the clipboard holds its path. Finder also
+// puts the file's icon there as an image, so a copied file wins over
+// clipboardImagePath (otherwise pasting a copied PDF uploads its icon).
+function clipboardFilePath() {
+  const flavor = "application/x-moz-file";
+  if (!Services.clipboard.hasDataMatchingFlavors([flavor], Ci.nsIClipboard.kGlobalClipboard)) {
+    return null;
+  }
+  try {
+    const transferable = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
+    transferable.init(null);
+    transferable.addDataFlavor(flavor);
+    Services.clipboard.getData(transferable, Ci.nsIClipboard.kGlobalClipboard);
+    const data = {};
+    transferable.getTransferData(flavor, data);
+    const file = data.value?.QueryInterface(Ci.nsIFile);
+    return file?.exists() && file.isFile() ? file.path : null;
+  } catch (e) {
+    console.error("Whimsy: reading the clipboard file failed", e);
+    return null;
+  }
+}
+
+// What Cmd+V uploads: a copied file, else the clipboard image.
+// { path, isFile } or null. Overridable for tests.
+export async function clipboardUpload() {
+  const file = clipboardFilePath();
+  if (file) {
+    return { path: file, isFile: true };
+  }
+  const image = await clipboardImagePath();
+  return image ? { path: image, isFile: false } : null;
+}
+
+const isPasteKey = e =>
+  e.key?.toLowerCase() == "v" &&
+  (AppConstants.platform == "macosx" ? e.metaKey : e.ctrlKey) &&
+  !e.altKey &&
+  !e.shiftKey;
+
 async function recentDownloads() {
   try {
     const list = await lazy.Downloads.getList(lazy.Downloads.PUBLIC);
@@ -58,16 +100,24 @@ async function recentDownloads() {
 }
 
 export class WhimsyUploadParent extends JSWindowActorParent {
+  // Overridable for tests.
+  static clipboardUpload = clipboardUpload;
+
   async receiveMessage(message) {
+    // Cmd+V on a focused upload button: the clipboard's file or image, no popup.
+    if (message.name == "WhimsyUpload:Paste") {
+      const clip = await WhimsyUploadParent.clipboardUpload();
+      return clip ? { path: clip.path } : null;
+    }
     if (message.name != "WhimsyUpload:Pick") {
       return null;
     }
     const win = this.browsingContext.topChromeWindow;
-    const [clipboardPath, downloads] = await Promise.all([clipboardImagePath(), recentDownloads()]);
-    return this.showPopup(win, message.data, { clipboardPath, downloads });
+    const [clip, downloads] = await Promise.all([WhimsyUploadParent.clipboardUpload(), recentDownloads()]);
+    return this.showPopup(win, message.data, { clip, downloads });
   }
 
-  showPopup(win, { screenX, screenY }, { clipboardPath, downloads }) {
+  showPopup(win, { screenX, screenY }, { clip, downloads }) {
     return new Promise(resolve => {
       const { document } = win;
       document.getElementById("whimsy-upload-panel")?.remove();
@@ -86,15 +136,19 @@ export class WhimsyUploadParent extends JSWindowActorParent {
         panel.hidePopup();
       };
 
-      const addRow = (l10nId, onPick) => {
+      const addRow = (l10nId, onPick, args) => {
         const row = document.createXULElement("toolbarbutton");
         row.className = "subviewbutton";
-        document.l10n.setAttributes(row, l10nId);
+        document.l10n.setAttributes(row, l10nId, args);
         row.addEventListener("command", () => finish(onPick()));
         panel.appendChild(row);
+        return row;
       };
-      if (clipboardPath) {
-        addRow("whimsy-upload-clipboard", () => ({ path: clipboardPath }));
+      if (clip) {
+        const row = clip.isFile
+          ? addRow("whimsy-upload-clipboard-file", () => ({ path: clip.path }), { name: PathUtils.filename(clip.path) })
+          : addRow("whimsy-upload-clipboard", () => ({ path: clip.path }));
+        row.classList.add("whimsy-upload-clipboard-row");
       }
       for (const download of downloads) {
         const row = document.createXULElement("toolbarbutton");
@@ -105,7 +159,15 @@ export class WhimsyUploadParent extends JSWindowActorParent {
       }
       addRow("whimsy-upload-choose-file", () => ({ useNativePicker: true }));
 
-      panel.addEventListener("keydown", e => e.key == "Escape" && finish(null));
+      panel.addEventListener("keydown", e => {
+        if (e.key == "Escape") {
+          finish(null);
+        } else if (isPasteKey(e) && clip) {
+          // Cmd+V in the popup takes the clipboard row.
+          e.preventDefault();
+          finish({ path: clip.path });
+        }
+      });
       panel.addEventListener("popuphidden", () => {
         finish(null);
         panel.remove();

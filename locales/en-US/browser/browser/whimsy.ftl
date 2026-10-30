@@ -735,6 +735,9 @@ whimsy-cookie-editor-copied-toast = Cookies copied
 
 whimsy-upload-clipboard =
     .label = Clipboard image
+# $name (string) - the file name of a file copied in Finder
+whimsy-upload-clipboard-file =
+    .label = Copied file: { $name }
 whimsy-upload-choose-file =
     .label = Choose file…
 

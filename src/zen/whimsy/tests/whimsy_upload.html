@@ -5,6 +5,9 @@
 <head><meta charset="utf-8"><title>whimsy upload</title></head>
 <body>
 <input id="file-input" type="file">
+<!-- A site's styled upload button: a label over a hidden input. -->
+<label id="styled" for="hidden-input" tabindex="0">Upload</label>
+<input id="hidden-input" type="file" hidden>
 <script>
   window.whimsyChangeCount = 0;
   document.getElementById("file-input").addEventListener("change", () => {
