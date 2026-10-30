@@ -70,3 +70,11 @@ body:has(#whimsy-neterror-brand) #text-container::before,
   #whimsy-neterror-brand { color: CanvasText; }
   #whimsy-neterror-game-link { color: ButtonText; background: ButtonFace; }
 }
+
+/* Offline: the page became the game (Space/arrow/tap); the game takes the
+   balloon's place and the invitation goes away. */
+body.whimsy-game-embedded #text-container::before,
+.felt-privacy-container.whimsy-game-embedded::before,
+body.whimsy-game-embedded #whimsy-neterror-game-link {
+  display: none;
+}

@@ -759,41 +759,95 @@ whimsy-devmode-network =
 
 ## batch7b: offline game (whimsy://game)
 
-whimsy-action-game = Play Balloon Drift
-whimsy-game-title = Balloon Drift
+whimsy-action-game = Play Balloon Dash
+whimsy-game-title = Balloon Dash
+whimsy-game-style-group =
+    .aria-label = Look
 whimsy-game-style-retro = Retro
-whimsy-game-style-gradient = Gradient
+whimsy-game-style-gradient = Smooth
+whimsy-game-sound = Sound
 whimsy-game-score = Score
 whimsy-game-best = Best
-whimsy-game-paused = Paused
-whimsy-game-game-over = Game over
-whimsy-game-hint = Space, Up, or click to flap. Arrows steer. P pauses.
-whimsy-game-play-again = Play again
+whimsy-game-start-title = Balloon Dash
+whimsy-game-start-hint = Press an arrow key or Space, or click, to start. Grab the sparkles, dodge everything else.
+whimsy-game-start-short = Press an arrow key or Space to start
+whimsy-game-paused = Paused. Press Space to keep going.
+whimsy-game-over-title = Pop!
+whimsy-game-death-seed = Caught by a thistle seed.
+whimsy-game-death-plane = That paper plane had right of way.
+whimsy-game-death-zap = Zapped by a grumpy cloud.
+whimsy-game-death-bird = A bird wanted a closer look.
+whimsy-game-new-best = New best!
+whimsy-game-retry-hint = Space or click to go again
+whimsy-game-play-again = Go again
+whimsy-game-hint = Arrows, WASD or pointer to steer · Space or click to dash · P pauses
 
 ## batch7b: Year in tabs (whimsy://year)
+## $year is a plain string (never a formatted number).
 
 whimsy-action-year = Year in Tabs
 whimsy-year-ready-toast = Your Year in Tabs is ready
 whimsy-year-title = Your Year in Tabs
 whimsy-year-progress = { $current } of { $total }
-whimsy-year-welcome-title = { $year }, so far
-whimsy-year-welcome-body = All on this device. Nothing here is sent anywhere.
-whimsy-year-opened-title = Tabs opened
-whimsy-year-opened-body = You opened { $count } tabs.
-whimsy-year-opened-space = Busiest in { $space }.
-whimsy-year-topsites-title = Top sites
-whimsy-year-busiest-title = Busiest day & hour
-whimsy-year-busiest-body = { $day }s around { $hour }.
-whimsy-year-space-title = Most-used space
-whimsy-year-space-body = { $space } — { $percent }% of your tabs.
-whimsy-year-longest-title = Longest-open tab
-whimsy-year-longest-body = { $title } — open for { $duration }.
-whimsy-year-nightowl-title = Night owl score
-whimsy-year-nightowl-body = { $percent }% of your visits were between 10pm and 4am.
-whimsy-year-nightowl-low = Early to bed.
-whimsy-year-nightowl-mid = A bit of a night owl.
-whimsy-year-nightowl-high = Certified night owl.
-whimsy-year-empty = Not enough data yet — come back after browsing a bit more.
+whimsy-year-prev =
+    .aria-label = Previous
+whimsy-year-next =
+    .aria-label = Next
+whimsy-year-auto = Auto-play
+whimsy-year-tap-hint = Tap, Space or → to keep going
+whimsy-year-intro-kicker = Psst. It’s ready.
+whimsy-year-intro-label = Your year in tabs, so far.
+whimsy-year-intro-reveal = Grab a snack. We kept score.
+whimsy-year-opened-kicker = First, a little confession.
+whimsy-year-opened-label = tabs opened
+whimsy-year-opened-reveal = That’s about { $perDay } a day. Who’s counting? (Us. We were.)
+whimsy-year-opened-space = Most of them in { $space }.
+whimsy-year-topsites-kicker = You had a favorite. You know the one.
+whimsy-year-topsites-label = was your number one
+whimsy-year-topsites-visits =
+    { $count ->
+        [one] 1 visit
+       *[other] { $count } visits
+    }
+whimsy-year-topsites-reveal = Close behind:
+whimsy-year-busiest-kicker = Everyone has a peak hour. Here’s yours.
+whimsy-year-busiest-day = { $day }s
+whimsy-year-busiest-hour = around { $hour }
+whimsy-year-busiest-reveal = Your tabs were never busier. Coincidence? Probably not.
+whimsy-year-space-kicker = One space ruled them all.
+whimsy-year-space-label = of your tabs lived in { $space }
+whimsy-year-space-reveal = At this point it pays rent.
+whimsy-year-longest-kicker = One tab outlasted them all.
+whimsy-year-longest-days = { $count ->
+        [one] day open
+       *[other] days open
+    }
+whimsy-year-longest-hours = { $count ->
+        [one] hour open
+       *[other] hours open
+    }
+whimsy-year-longest-minutes = { $count ->
+        [one] minute open
+       *[other] minutes open
+    }
+whimsy-year-longest-reveal = Still not ready to let go? Same.
+whimsy-year-nightowl-kicker = And when the sun went down…
+whimsy-year-nightowl-label = of your browsing happened between 10pm and 4am
+whimsy-year-nightowl-low = Early to bed. Your tabs got their beauty sleep.
+whimsy-year-nightowl-mid = A bit of a night owl. We won’t tell.
+whimsy-year-nightowl-high = Certified night owl. The moon knows your name.
+whimsy-year-finale-kicker = That’s a wrap.
+whimsy-year-finale-label = in tabs
+whimsy-year-finale-opened = Tabs opened
+whimsy-year-finale-topsite = Top site
+whimsy-year-finale-peak = Peak time
+whimsy-year-finale-space = Top space
+whimsy-year-finale-night = Night owl
+whimsy-year-finale-longest = Longest tab
+whimsy-year-finale-peak-value = { $day }s, { $hour }
+whimsy-year-finale-signoff = Here’s to next year’s tabs.
+whimsy-year-replay = Watch again
+whimsy-year-empty = Not much to look back on yet. Browse a little, then come back for your recap.
 whimsy-year-copy-card = Copy card
 whimsy-year-copied-toast = Card copied
 whimsy-year-done = Done

@@ -1351,3 +1351,85 @@ add_task(async function library_rail_icons() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave4/fun: Balloon Dash (smooth and retro) and the Year in tabs story.
+add_task(async function wave4_fun_game() {
+  await BrowserTestUtils.withNewTab("about:whimsy?game", async browser => {
+    const win = browser.contentWindow;
+    const doc = browser.contentDocument;
+    const wg = browser.browsingContext.currentWindowGlobal;
+    const game = await TestUtils.waitForCondition(() => win.__whimsyGame, "The game has loaded");
+    const frames = () => new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+    game.freeze();
+    game.setAutoSpawn(false);
+    await doc.l10n.ready;
+    await frames();
+    await shot("wave4-game-ready", wg);
+
+    const scene = () => {
+      game.clear();
+      game.spawn("seed", { x: 260, y: 60, vx: -30 });
+      game.spawn("plane", { x: 330, y: 40, vx: -120, vy: 20 });
+      game.spawn("bird", { cx: 400, cy: 90, R: 16, a: 1, vx: -40 });
+      game.spawn("zap", { x: 200, t: 1.05, seed: 3 });
+      game.spawn("sparkle", { x: 170, y: 100 });
+      game.spawn("shield", { x: 420, y: 50 });
+      game.spawn("magnet", { x: 60, y: 40 });
+      game.warn("plane");
+      game.state.player.shield = 5;
+      game.state.player.invuln = 5;
+      game.state.combo = 3;
+      game.state.comboAt = game.state.clock;
+      game.tick(0.1);
+    };
+    game.start();
+    scene();
+    await frames();
+    await shot("wave4-game-running", wg);
+
+    doc.getElementById("whimsy-game-style-retro").click();
+    game.state.runTime = 180;
+    scene();
+    await frames();
+    await shot("wave4-game-retro-night", wg);
+
+    game.clear();
+    game.state.player.shield = 0;
+    game.state.player.invuln = 0;
+    game.spawn("seed");
+    game.tick(0.4);
+    await frames();
+    await shot("wave4-game-retro-over", wg);
+
+    doc.getElementById("whimsy-game-style-gradient").click();
+    game.render();
+    await new Promise(resolve => setTimeout(resolve, 700)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await shot("wave4-game-over", wg);
+  });
+  for (const pref of ["whimsy.game.style", "whimsy.game.high-score"]) {
+    Services.prefs.clearUserPref(pref);
+  }
+});
+
+add_task(async function wave4_fun_year() {
+  const { PlacesTestUtils } = ChromeUtils.importESModule("resource://testing-common/PlacesTestUtils.sys.mjs");
+  await PlacesUtils.history.clear();
+  for (const [url, n] of [["https://example.com/", 6], ["https://example.org/", 3], ["https://mozilla.org/", 1]]) {
+    for (let i = 0; i < n; i++) {
+      await PlacesTestUtils.addVisits(url);
+    }
+  }
+  await BrowserTestUtils.withNewTab("about:whimsy?year", async browser => {
+    const win = browser.contentWindow;
+    const wg = browser.browsingContext.currentWindowGlobal;
+    const year = await TestUtils.waitForCondition(() => win.__whimsyYear, "The recap has loaded");
+    for (const [i, kind] of year.kinds.entries()) {
+      year.goTo(i);
+      year.skip();
+      // Let the slide wipe and the reveal transitions settle.
+      await new Promise(resolve => setTimeout(resolve, 1200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      await shot(`wave4-year-${i}-${kind}`, wg);
+    }
+  });
+  await PlacesUtils.history.clear();
+});

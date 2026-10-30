@@ -115,3 +115,141 @@ add_task(async function game_button_opens_game() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave4/fun: like Chrome's offline dino, an offline error page turns into
+// Balloon Dash in place on Space, an arrow key or a tap on the balloon.
+const GAME_PREFS = [
+  ["whimsy.feature.game", true],
+  ["whimsy.feature.net-error-branding", true],
+  ["security.certerrors.felt-privacy-v1", false],
+];
+
+async function prepare(browser) {
+  await SpecialPowers.spawn(browser, [], async () => {
+    await ContentTaskUtils.waitForCondition(
+      () => content.document.getElementById("whimsy-neterror-brand") || content.document.querySelector("net-error-card"),
+      "The Whimsy actor has set up the page"
+    );
+    content.document.activeElement?.blur?.();
+  });
+  browser.focus();
+}
+
+async function gameState(browser, wait) {
+  return SpecialPowers.spawn(browser, [wait], async wait => {
+    const win = content.wrappedJSObject;
+    if (wait) {
+      await ContentTaskUtils.waitForCondition(() => win.__whimsyGame, "The game script ran in the page");
+    } else {
+      // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+      await new Promise(resolve => content.setTimeout(resolve, 400));
+    }
+    return {
+      state: win.__whimsyGame?.state.state ?? null,
+      embedded: !!content.document.getElementById("whimsy-game-embed"),
+    };
+  });
+}
+
+add_task(async function offline_key_turns_the_page_into_the_game() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    for (const key of [" ", "KEY_ArrowRight"]) {
+      await withWhimsyError("netOffline", async browser => {
+        await prepare(browser);
+        await BrowserTestUtils.synthesizeKey(key, {}, browser);
+        const { state, embedded } = await gameState(browser, true);
+        is(state, "running", `${key} starts the run at once`);
+        ok(embedded, "The game is drawn in the error page itself");
+        ok(browser.currentURI.spec.startsWith("about:neterror?"), "The page stays the error page");
+        await SpecialPowers.spawn(browser, [], () => {
+          const doc = content.document;
+          ok(doc.getElementById("tryAgainButton"), "Try Again is still there");
+          ok(doc.body.classList.contains("whimsy-game-embedded"), "The game takes the balloon's place");
+        });
+      });
+    }
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function offline_tap_on_the_balloon_starts_it() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    await withWhimsyError("netOffline", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeMouse("#text-container", 40, 30, {}, browser);
+      is((await gameState(browser, true)).state, "running", "Tapping the deflated balloon starts the game");
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function embedded_game_saves_the_high_score() {
+  await SpecialPowers.pushPrefEnv({ set: [...GAME_PREFS, ["whimsy.game.high-score", 0]] });
+  try {
+    await withWhimsyError("netOffline", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      await gameState(browser, true);
+      await SpecialPowers.spawn(browser, [], () => {
+        const game = content.wrappedJSObject.__whimsyGame;
+        game.freeze();
+        game.setAutoSpawn(false);
+        game.clear();
+        game.state.bonus = 40;
+        game.spawn("seed");
+        game.tick(1 / 60);
+        is(game.state.state, "over", "The run ends on a hit");
+      });
+      await TestUtils.waitForCondition(
+        () => Services.prefs.getIntPref("whimsy.game.high-score", 0) >= 40,
+        "The parent saves the embedded game's high score"
+      );
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function only_offline_errors_and_never_from_a_field() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    // Online, a DNS error is not "offline": no game.
+    await withWhimsyError("dnsNotFound", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      ok(!(await gameState(browser, false)).embedded, "Not for errors other than offline");
+    });
+    await withWhimsyError("certificate", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeKey("KEY_ArrowRight", {}, browser);
+      ok(!(await gameState(browser, false)).embedded, "Never on a certificate warning");
+    }, true);
+    await withWhimsyError("netOffline", async browser => {
+      await prepare(browser);
+      await SpecialPowers.spawn(browser, [], () => {
+        const doc = content.document;
+        const field = doc.createElement("input");
+        field.id = "whimsy-test-field";
+        doc.body.append(field);
+        field.focus();
+      });
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      await BrowserTestUtils.synthesizeKey("KEY_ArrowLeft", {}, browser);
+      ok(!(await gameState(browser, false)).embedded, "Typing in a text field never starts it");
+      await SpecialPowers.spawn(browser, [], () => {
+        const doc = content.document;
+        const button = doc.createElement("button");
+        doc.body.append(button);
+        button.focus();
+      });
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      ok(!(await gameState(browser, false)).embedded, "Space on a focused button stays that button's");
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
