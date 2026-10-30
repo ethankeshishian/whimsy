@@ -1584,3 +1584,39 @@ add_task(async function uxfix_split_favorite_name_sheet() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// fix7/tabs: pinned tabs in the space's own container (no line), in another
+// container (a short pill on the leading edge), and an Essential with an
+// unread count on its tile's corner.
+add_task(async function fix7_pinned_marks_and_essential_badge() {
+  const space = gZenWorkspaces.getActiveWorkspaceFromCache();
+  const oldContainer = space.containerTabId;
+  space.containerTabId = 1;
+  const tabs = [];
+  try {
+    for (const [url, userContextId] of [["https://example.com/?own", 1], ["https://example.org/?other", 2]]) {
+      const tab = BrowserTestUtils.addTab(gBrowser, url, { userContextId });
+      await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+      gBrowser.pinTab(tab);
+      tabs.push(tab);
+    }
+    const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?mail");
+    gZenPinnedTabManager.addToEssentials(essential);
+    tabs.push(essential);
+    await SpecialPowers.spawn(essential.linkedBrowser, [], () => {
+      content.document.title = "Inbox (12) - Mail";
+    });
+    await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/").then(t => tabs.push(t));
+    await TestUtils.waitForCondition(() => essential.hasAttribute("whimsy-unread"), "Badge");
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await shot("fix7-pinned-marks-essential-badge");
+  } finally {
+    space.containerTabId = oldContainer;
+    for (const tab of tabs) {
+      if (tab.hasAttribute("zen-essential")) {
+        gZenPinnedTabManager.removeEssentials(tab);
+      }
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
+});

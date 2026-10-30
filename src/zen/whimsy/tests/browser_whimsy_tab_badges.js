@@ -74,7 +74,18 @@ add_task(async function test_badge_on_pinned_and_essentials() {
   is(badge(pinned).content, "none", "not on its icon there (it would cover the title)");
   await setTitle(essential, "Inbox (150) - Mail");
   await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "99+", "An Essential shows 99+ for 150");
-  is(badge(essential).content, '"99+"', "on its tile's icon");
+  is(badge(essential).content, '"99+"', "on its tile");
+  // fix7/tabs: on the tile's corner like Arc's Favorites, not on the
+  // favicon (where Gmail draws its own count): the icon stack is no longer
+  // the anchor, and the badge sits inside the tile's top end corner.
+  is(getComputedStyle(stack(essential)).position, "static", "The favicon isn't the badge's anchor");
+  const tile = essential.querySelector(".tab-content").getBoundingClientRect();
+  const icon = stack(essential).getBoundingClientRect();
+  const top = parseFloat(badge(essential).top);
+  const end = parseFloat(badge(essential).right);
+  Assert.greaterOrEqual(top, 0, "The badge stays inside the tile's top edge");
+  Assert.greaterOrEqual(end, 0, "...and its end edge (not clipped by the Essentials grid)");
+  Assert.less(end, tile.right - icon.right, "...out at the corner, clear of the favicon");
   await setTitle(normal, "(5) Feed");
   await TestUtils.waitForCondition(() => normal.label == "(5) Feed", "Normal tab retitled");
   ok(!stack(normal).hasAttribute("whimsy-unread"), "A normal tab gets no badge");

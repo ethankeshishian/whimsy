@@ -330,9 +330,9 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     text-align: center;
   }
 
-  /* On the icon: Essentials, and every pinned tab when the sidebar is
-     collapsed. */
-  :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after {
+  /* On the icon: every pinned tab when the sidebar is collapsed
+     (Essentials put it on the tile's corner, below). */
+  :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]:not([zen-essential]) .tab-icon-stack[whimsy-unread]::after {
     content: attr(whimsy-unread);
     top: -6px;
     inset-inline-end: -8px;
@@ -362,6 +362,33 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     height: 7px;
     border-radius: 50%;
     background: var(--zen-primary-color);
+  }
+
+  /* fix7/tabs: an Essential wears it on the tile's corner, like Arc's
+     Favorites, not on the favicon's. On the 16px icon the pill (and its
+     ring in the sidebar's colour, which isn't the tile's) sat over the
+     favicon's own corner (Gmail draws its count there too) and the tile's
+     edge, so it read as a smudge. The icon stack stops being the anchor;
+     the tile's content box (position: relative in Firefox) is. */
+  .tabbrowser-tab[zen-essential] {
+    & .tab-icon-stack {
+      position: static;
+    }
+
+    & .tab-icon-stack::after {
+      box-shadow: 0 0 0 1px light-dark(rgb(255 255 255 / 0.9), rgb(0 0 0 / 0.35)), 0 1px 2px rgb(0 0 0 / 0.25);
+    }
+
+    & .tab-icon-stack[whimsy-unread]::after {
+      content: attr(whimsy-unread);
+      top: calc(var(--tab-margin-block, 0px) + 4px);
+      inset-inline-end: 4px;
+    }
+
+    &[titlechanged]:not([selected], [whimsy-unread]) .tab-icon-stack::after {
+      top: calc(var(--tab-margin-block, 0px) + 6px);
+      inset-inline-end: 6px;
+    }
   }
 
   @media not (prefers-reduced-motion: reduce) {
