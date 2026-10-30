@@ -33,17 +33,24 @@ add_task(async function test_open_hides_the_sidebar() {
   await BrowserTestUtils.closeWindow(win);
 });
 
-add_task(async function test_floats_above_other_windows() {
+add_task(async function test_floats_above_other_windows_on_its_own_space() {
   const win = WhimsyQuickWindow.open("https://example.com/");
   // Same technique engine/dom/documentpip's browser_pip_ui.js uses: the
-  // widget itself can't be introspected from here, but the chrome flag that
-  // drives NSFloatingWindowLevel on macOS (and the equivalent elsewhere) can.
+  // widget itself can't be introspected from here, but the chrome flags
+  // that drive NSFloatingWindowLevel + FullScreenAuxiliary (and not
+  // CanJoinAllSpaces) on macOS can be. Arc's Little Arc floats on its own
+  // Space, not every Space (see the module's banner comment for the
+  // evidence) -- CHROME_ALWAYS_ON_TOP alone would be a deviation from Arc.
   const chromeFlags = win.docShell.treeOwner
     .QueryInterface(Ci.nsIInterfaceRequestor)
     .getInterface(Ci.nsIAppWindow).chromeFlags;
   ok(
     chromeFlags & Ci.nsIWebBrowserChrome.CHROME_ALWAYS_ON_TOP,
-    "Mini Whimsy has the alwaysontop chrome flag (Arc parity: floats above other windows)"
+    "Mini Whimsy floats (Arc parity)"
+  );
+  ok(
+    chromeFlags & Ci.nsIWebBrowserChrome.CHROME_ALWAYS_ON_TOP_FULLSCREEN_AUX,
+    "...but only above its own Space / a full-screen app, not every Space (Arc parity)"
   );
   await BrowserTestUtils.closeWindow(win);
 });

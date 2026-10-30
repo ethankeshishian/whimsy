@@ -22,19 +22,32 @@
 // runs, which sets `whimsy-quick-window` on <html> for whimsy-browser.css
 // to hide the sidebar.
 //
-// Floating above other windows: the `alwaysontop` window-open feature
-// (nsWindowWatcher.cpp parses it into nsIWebBrowserChrome.CHROME_ALWAYS_ON_TOP,
-// which nsAppShellService.cpp turns into widget::InitData.mAlwaysOnTop) is
-// the mechanism — on macOS, nsCocoaWindow.mm sets NSFloatingWindowLevel and
-// NSWindowCollectionBehaviorCanJoinAllSpaces for it (the same flag Firefox's
-// own PiP and DevTools-as-window already use; there's no separate
-// nsIAppWindow.zLevel in this engine, it was folded into this flag). One
-// trade-off worth knowing: an always-on-top *non-popup* window (ours is an
-// ordinary WindowType::TopLevel, not Popup) is deliberately shown with
-// `orderFront:` rather than `makeKeyAndOrderFront:` so it doesn't steal
-// focus just by existing (nsCocoaWindow.mm's Show()) — so `open()` below
-// calls `win.focus()` itself once the window exists, which goes through
-// nsCocoaWindow::SetFocus and *does* raise+activate it, same as clicking it.
+// Floating above other windows, matching Arc exactly (no deviation): Arc's
+// own Little Arc is NOT pinned to every macOS Space — AltTab-macos issue
+// #6092 (github.com/lwouis/alt-tab-macos) logged its window level as 0,
+// the same as Arc's ordinary AXStandardWindow, and its own bug report
+// described opening "a Little Arc window on the same Space as another
+// app's window", i.e. it lives on the current Space like a normal window,
+// not everywhere at once. But Arc's "Little Arc does not switch the
+// desktop, keeping you in the full-screen app" (confirmed behavior, and
+// issue #6007 also logged elevated levels of 3/24 at other times) means it
+// *can* float above another application's full-screen Space when needed —
+// that specific ability is the only part of "always on top" Arc actually
+// has. This engine's plain `alwaysontop` window feature doesn't separate
+// those two things: nsCocoaWindow.mm bundles NSFloatingWindowLevel with
+// NSWindowCollectionBehaviorCanJoinAllSpaces (pinned to *every* Space)
+// unconditionally, which is the DevTools-as-window/alert behavior, not
+// Arc's. whimsy-alwaysontop-fullscreen-aux.patch (src/widget/cocoa/) adds a
+// new `alwaysontopfullscreenaux` window feature/CHROME_ALWAYS_ON_TOP_FULLSCREEN_AUX
+// flag that keeps NSFloatingWindowLevel (so `open()`'s `win.focus()` below
+// still raises it properly — always-on-top non-popup windows are shown
+// with `orderFront:` rather than `makeKeyAndOrderFront:`, so they don't
+// steal focus just by existing) but skips CanJoinAllSpaces, and instead
+// gives the window NSWindowCollectionBehaviorFullScreenAuxiliary (the same
+// behavior the media Picture-in-Picture player already uses for the exact
+// same reason) so it can still appear over a full-screen app. Existing
+// `alwaysontop` consumers (DevTools-as-window, alerts, media PiP) are
+// untouched; this is a new, separate, additive flag.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -101,13 +114,15 @@ export const WhimsyQuickWindow = {
     // as a popup window (it checks aWindow.toolbar.visible): never in the
     // closed-windows list, never restored, matching "closes without a
     // trace". `location` keeps the nav bar/URL bar Mini Whimsy still needs.
-    // `alwaysontop` is the floating-above-everything half of Arc parity
-    // (see the file banner comment for how this reaches the Cocoa widget).
+    // `alwaysontopfullscreenaux` is the floating half of Arc parity: its
+    // own Space, plus able to float over another app's full-screen Space,
+    // but not pinned to every ordinary Space (see the file banner comment
+    // for the Arc evidence and how this reaches the Cocoa widget).
     const win = lazy.BrowserWindowTracker.openWindow({
       openerWindow: opener,
       args,
       all: false,
-      features: `location,resizable,centerscreen,alwaysontop,width=${WIDTH},height=${HEIGHT}`,
+      features: `location,resizable,centerscreen,alwaysontopfullscreenaux,width=${WIDTH},height=${HEIGHT}`,
     });
     win._whimsyQuickWindow = true;
     this._current = win;

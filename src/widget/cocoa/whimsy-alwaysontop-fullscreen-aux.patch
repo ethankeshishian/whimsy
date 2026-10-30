@@ -1,0 +1,119 @@
+diff --git a/toolkit/components/browser/nsIWebBrowserChrome.idl b/toolkit/components/browser/nsIWebBrowserChrome.idl
+index 2a615b3..5974d1b 100644
+--- a/toolkit/components/browser/nsIWebBrowserChrome.idl
++++ b/toolkit/components/browser/nsIWebBrowserChrome.idl
+@@ -71,7 +71,11 @@ interface nsIWebBrowserChrome : nsISupports
+     const unsigned long CHROME_PRIVATE_WINDOW         = 1 << 16;
+     const unsigned long CHROME_NON_PRIVATE_WINDOW     = 1 << 17;
+ 
+-    // Free bit here.
++    // Only meaningful alongside CHROME_ALWAYS_ON_TOP: the window floats
++    // above its own Space (and above another application's full-screen
++    // Space, like the media Picture-in-Picture player) instead of joining
++    // every ordinary Space the way a plain always-on-top window does.
++    const unsigned long CHROME_ALWAYS_ON_TOP_FULLSCREEN_AUX = 1 << 18;
+ 
+     const unsigned long CHROME_ALWAYS_ON_TOP          = 1 << 19;
+ 
+diff --git a/toolkit/components/windowwatcher/nsWindowWatcher.cpp b/toolkit/components/windowwatcher/nsWindowWatcher.cpp
+index a104433..c81c4d1 100644
+--- a/toolkit/components/windowwatcher/nsWindowWatcher.cpp
++++ b/toolkit/components/windowwatcher/nsWindowWatcher.cpp
+@@ -2021,6 +2021,11 @@ uint32_t nsWindowWatcher::CalculateChromeFlagsForSystem(
+   if (aFeatures.GetBoolWithDefault("alwaysontop", false)) {
+     chromeFlags |= nsIWebBrowserChrome::CHROME_ALWAYS_ON_TOP;
+   }
++  // Implies alwaysontop; see CHROME_ALWAYS_ON_TOP_FULLSCREEN_AUX's comment.
++  if (aFeatures.GetBoolWithDefault("alwaysontopfullscreenaux", false)) {
++    chromeFlags |= nsIWebBrowserChrome::CHROME_ALWAYS_ON_TOP |
++                    nsIWebBrowserChrome::CHROME_ALWAYS_ON_TOP_FULLSCREEN_AUX;
++  }
+   if (aFeatures.GetBoolWithDefault("mediapip", false)) {
+     chromeFlags |= nsIWebBrowserChrome::CHROME_MEDIA_PIP;
+   }
+diff --git a/widget/InitData.h b/widget/InitData.h
+index dfdecbd..6a25ed6 100644
+--- a/widget/InitData.h
++++ b/widget/InitData.h
+@@ -100,6 +100,11 @@ struct InitData {
+   // true if the window should support an alpha channel, if available.
+   bool mHasRemoteContent = false;
+   bool mAlwaysOnTop = false;
++  // Only meaningful with mAlwaysOnTop: keeps the window off every ordinary
++  // Space (unlike plain mAlwaysOnTop) while still letting it float above
++  // another application's full-screen Space, the way PiPType::MediaPiP
++  // already does.
++  bool mAlwaysOnTopFullScreenAux = false;
+   PiPType mPiPType = PiPType::NoPiP;
+   // True if the window is user-resizable.
+   bool mResizable = false;
+diff --git a/widget/cocoa/nsCocoaWindow.h b/widget/cocoa/nsCocoaWindow.h
+index 5b27b2c..d302c2a 100644
+--- a/widget/cocoa/nsCocoaWindow.h
++++ b/widget/cocoa/nsCocoaWindow.h
+@@ -686,6 +686,8 @@ class nsCocoaWindow final : public nsIWidget {
+   bool mInResize = false;           // true if in a call to DoResize().
+   bool mWindowTransformIsIdentity = true;
+   bool mAlwaysOnTop = false;
++  // See InitData.h's mAlwaysOnTopFullScreenAux.
++  bool mAlwaysOnTopFullScreenAux = false;
+   bool mAspectRatioLocked = false;
+   bool mIsAlert = false;  // True if this is an non-native alert window.
+   // True if this window should not auto-enter native fullscreen on its initial
+diff --git a/widget/cocoa/nsCocoaWindow.mm b/widget/cocoa/nsCocoaWindow.mm
+index 478bcb6..9c3586a 100644
+--- a/widget/cocoa/nsCocoaWindow.mm
++++ b/widget/cocoa/nsCocoaWindow.mm
+@@ -5252,6 +5252,7 @@ DesktopToLayoutDeviceScale ParentBackingScaleFactor(nsIWidget* aParent) {
+   Inherited::BaseCreate(aParent, aInitData);
+ 
+   mAlwaysOnTop = aInitData.mAlwaysOnTop;
++  mAlwaysOnTopFullScreenAux = aInitData.mAlwaysOnTopFullScreenAux;
+   mIsAlert = aInitData.mIsAlert;
+   mIsInitialFullscreenSuppressed = aInitData.mIsInitialFullscreenSuppressed;
+ 
+@@ -5467,8 +5468,14 @@ static unsigned int WindowMaskForBorderStyle(BorderStyle aBorderStyle) {
+ 
+   if (mAlwaysOnTop || mIsAlert) {
+     mWindow.level = NSFloatingWindowLevel;
+-    mWindow.collectionBehavior =
+-        mWindow.collectionBehavior | NSWindowCollectionBehaviorCanJoinAllSpaces;
++    // mAlwaysOnTopFullScreenAux windows opt out of joining every ordinary
++    // Space (unlike a plain always-on-top window, e.g. DevTools-as-window);
++    // they still get the fullscreen-Space-crossing collection behavior
++    // below, which is the only part they actually need.
++    if (!mAlwaysOnTopFullScreenAux) {
++      mWindow.collectionBehavior =
++          mWindow.collectionBehavior | NSWindowCollectionBehaviorCanJoinAllSpaces;
++    }
+   }
+ 
+   // Let the Picture-in-Picture player float above other applications'
+@@ -5511,7 +5518,11 @@ static unsigned int WindowMaskForBorderStyle(BorderStyle aBorderStyle) {
+       (features & NSWindowStyleMaskTitled)) {
+     // A non-activating player must stay Auxiliary: FullScreenPrimary would
+     // stop it from being shown on another application's fullscreen Space.
+-    const bool pipOverFullScreen = mPiPType == PiPType::MediaPiP;
++    // mAlwaysOnTopFullScreenAux windows (Whimsy's Mini Whimsy, Arc's Little
++    // Arc) need exactly the same Auxiliary treatment, for the same reason,
++    // despite being an ordinary activating window rather than a PiP player.
++    const bool pipOverFullScreen =
++        mPiPType == PiPType::MediaPiP || mAlwaysOnTopFullScreenAux;
+     NSWindowCollectionBehavior fsBehavior =
+         ((features & NSWindowStyleMaskResizable) && !pipOverFullScreen)
+             ? (NSWindowCollectionBehaviorFullScreenPrimary |
+diff --git a/xpfe/appshell/nsAppShellService.cpp b/xpfe/appshell/nsAppShellService.cpp
+index 705fbc0..28076b9 100644
+--- a/xpfe/appshell/nsAppShellService.cpp
++++ b/xpfe/appshell/nsAppShellService.cpp
+@@ -502,6 +502,10 @@ nsresult nsAppShellService::JustCreateTopWindow(
+     widgetInitData.mAlwaysOnTop = true;
+   }
+ 
++  if (aChromeMask & nsIWebBrowserChrome::CHROME_ALWAYS_ON_TOP_FULLSCREEN_AUX) {
++    widgetInitData.mAlwaysOnTopFullScreenAux = true;
++  }
++
+   if (aChromeMask & nsIWebBrowserChrome::CHROME_REMOTE_WINDOW) {
+     widgetInitData.mHasRemoteContent = true;
+   }
