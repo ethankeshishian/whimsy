@@ -165,7 +165,7 @@ add_task(async function offline_key_turns_the_page_into_the_game() {
         await SpecialPowers.spawn(browser, [], () => {
           const doc = content.document;
           const root = doc.querySelector("net-error-card")?.shadowRoot || doc;
-          ok(root.querySelector("#tryAgainButton, .try-again"), "Try Again is still in the page");
+          ok(root.querySelector("#neterrorTryAgainButton, #tryAgainButton"), "Try Again is still in the page");
           ok(doc.body.classList.contains("whimsy-game-embedded"), "The game takes over the page");
         });
       });
@@ -309,7 +309,7 @@ add_task(async function playing_fills_the_page_and_esc_returns() {
         is(content.wrappedJSObject.__whimsyGame.state.state, "paused", "and pauses it");
         is(content.getComputedStyle(doc.getElementById("whimsy-game-embed")).display, "none", "The game is out of sight");
         const root = doc.querySelector("net-error-card")?.shadowRoot || doc;
-        const tryAgain = root.querySelector("#tryAgainButton, .try-again");
+        const tryAgain = root.querySelector("#neterrorTryAgainButton, #tryAgainButton");
         Assert.greater(tryAgain.getBoundingClientRect().width, 0, "Try Again is back on screen");
       });
 
