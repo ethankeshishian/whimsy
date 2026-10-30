@@ -599,7 +599,7 @@ export const WhimsyAITabs = {
 
   // Arc's Tidy Tab Titles: a tab being pinned gets a short name.
   onTabPinned(tab) {
-    const win = tab.ownerGlobal;
+    const win = tab.ownerDocument.defaultView;
     if (!windows.has(win) || !this.titlesEnabled || tab.zenStaticLabel || tab.hasAttribute("zen-essential")) {
       return;
     }
@@ -608,7 +608,7 @@ export const WhimsyAITabs = {
       // Unpinned, renamed by hand or navigated while we asked: leave it.
       if (short && tab.pinned && !tab.closing && !tab.zenStaticLabel && tab.label == title && this.titlesEnabled) {
         tab.zenStaticLabel = short;
-        tab.ownerGlobal.gBrowser._setTabLabel(tab, short, { _zenChangeLabelFlag: true });
+        tab.ownerDocument.defaultView.gBrowser._setTabLabel(tab, short, { _zenChangeLabelFlag: true });
       }
     };
     const uri = tab.linkedBrowser?.currentURI;

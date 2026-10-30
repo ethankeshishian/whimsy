@@ -77,7 +77,7 @@ export class WhimsyPlaylistSection extends ZenLibrarySearchSection {
   }
 
   #openPage(item) {
-    this.ownerGlobal.openTrustedLinkIn(item.pageURL || item.url, "tab");
+    this.ownerDocument.defaultView.openTrustedLinkIn(item.pageURL || item.url, "tab");
   }
 
   #renderPlayer(item) {

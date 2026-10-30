@@ -215,6 +215,7 @@ export const Whimsy = {
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
+      safeForUntrustedWebProcess: true,
     });
 
     // wave3/ai: 5-second previews. The child only messages on Shift over a

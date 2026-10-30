@@ -12,7 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 export class WhimsyAIPreviewParent extends JSWindowActorParent {
   receiveMessage({ name, data }) {
     const browser = this.browsingContext.top.embedderElement;
-    const win = browser?.ownerGlobal;
+    const win = browser?.ownerDocument.defaultView;
     if (!win?.gBrowser || win.closed) {
       return;
     }

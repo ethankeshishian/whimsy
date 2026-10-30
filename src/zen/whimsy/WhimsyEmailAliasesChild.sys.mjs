@@ -196,7 +196,7 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       host.style.display = "none";
       return;
     }
-    const win = input.ownerGlobal;
+    const win = input.ownerDocument.defaultView;
     host.style.display = "block";
     host.style.top = `${rect.top + win.scrollY + (rect.height - BUTTON_SIZE) / 2}px`;
     host.style.left = `${rect.right + win.scrollX - BUTTON_SIZE - 6}px`;
@@ -208,7 +208,7 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       return;
     }
     const rect = input.getBoundingClientRect();
-    const win = input.ownerGlobal;
+    const win = input.ownerDocument.defaultView;
     this.sendAsyncMessage("WhimsyEmailAliases:OpenMenu", {
       screenX: win.mozInnerScreenX + rect.left,
       screenY: win.mozInnerScreenY + rect.bottom,
