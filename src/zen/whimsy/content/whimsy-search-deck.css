@@ -1,0 +1,151 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave6/search: the Search Deck's dots, a small floating pill at the top of
+   the deck card (WhimsySearchDeck.sys.mjs). Loaded the first time a window
+   opens a deck. */
+
+.whimsy-search-deck-bar {
+  --whimsy-deck-fg: light-dark(rgb(28, 28, 30), rgb(242, 242, 247));
+  --whimsy-deck-bg: light-dark(rgba(250, 250, 252, 0.78), rgba(36, 36, 40, 0.74));
+  --whimsy-deck-edge: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.12));
+
+  color-scheme: var(--toolbar-color-scheme, light dark);
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100% - 32px);
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--whimsy-deck-edge);
+  background: var(--whimsy-deck-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  color: var(--whimsy-deck-fg);
+  font: menu;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+
+  /* Hidden while Zen's opening arc scales the card. */
+  .browserContainer:not([has-finished-animation="true"]) > & {
+    opacity: 0;
+  }
+
+  @media not (prefers-reduced-motion: reduce) {
+    transition: opacity 0.18s ease-out;
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    --whimsy-deck-bg: light-dark(rgb(250, 250, 252), rgb(36, 36, 40));
+    backdrop-filter: none;
+  }
+
+  @media (prefers-contrast: more) {
+    --whimsy-deck-edge: currentColor;
+  }
+
+  & button {
+    appearance: none;
+    margin: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: default;
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-outline-color, AccentColor);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.whimsy-search-deck-prev,
+.whimsy-search-deck-next {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+
+  &::before {
+    content: "";
+    display: block;
+    width: 12px;
+    height: 12px;
+    margin: auto;
+    background: currentColor;
+    mask: url("chrome://global/skin/icons/arrow-left.svg") center / contain no-repeat;
+  }
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  &:active:not(:disabled) {
+    background: color-mix(in srgb, currentColor 16%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+  }
+}
+
+.whimsy-search-deck-next::before {
+  mask-image: url("chrome://global/skin/icons/arrow-right.svg");
+}
+
+.whimsy-search-deck-dots {
+  display: flex;
+  align-items: center;
+}
+
+/* 6px dots in 16px targets, so they're easy to hit without looking big. */
+.whimsy-search-deck-dot {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 24px;
+  padding: 0;
+
+  &::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.28;
+
+    @media not (prefers-reduced-motion: reduce) {
+      transition:
+        opacity 0.15s ease-out,
+        width 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+
+  &:hover::before {
+    opacity: 0.55;
+  }
+
+  &[aria-current="true"]::before {
+    width: 14px;
+    opacity: 0.9;
+  }
+}
+
+.whimsy-search-deck-position {
+  padding-inline: 6px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 24ch;
+  opacity: 0.75;
+}

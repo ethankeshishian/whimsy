@@ -871,6 +871,12 @@ FEATURES = [
     # clickable, type to click, Shift for a new tab.
     {"id": "link-hints", "title": "Link hints: Cmd+J puts letter badges on links and buttons; type one to click it, Shift for a new tab",
      "detect": [("src/zen", r"(?i)link-?hints|vimium|hint-?mode")]},
+    # wave6/search: Instant result (Arc Max Instant Links) and the Search
+    # Deck (flip through results in a Glance).
+    {"id": "instant-result", "title": "Instant result: Shift+Enter on a search in the command bar opens the top result (Arc Max Instant Links)",
+     "detect": [("src/zen", r"(?i)instant-?(result|link)s?")]},
+    {"id": "search-deck", "title": "Search Deck: flip through search results one by one in a Glance; Cmd+Enter keeps one as a tab",
+     "detect": [("src/zen", r"(?i)search-?deck|result-?deck")]},
 ]
 
 

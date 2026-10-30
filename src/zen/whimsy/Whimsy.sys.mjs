@@ -187,6 +187,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
 });
 
+// wave6/search: Instant result and the Search Deck.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -303,6 +308,15 @@ export const Whimsy = {
       child: { esModuleURI: "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs" },
       matches: ["https://*/*", "http://*/*", "file:///*"],
       messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    // wave6/search: reads result links from a results page, only in the
+    // Search Deck's own hidden, sandboxed browsers (WhimsySearchDeck).
+    ChromeUtils.registerWindowActor("WhimsySearchDeck", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsySearchDeckChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*"],
+      messageManagerGroups: ["whimsy-search-deck"],
       safeForUntrustedWebProcess: true,
     });
   },
@@ -647,6 +661,10 @@ export const Whimsy = {
     run("zap", () => lazy.WhimsyZap.initWindow(win));
     // wave6/zap: Link hints (Cmd+J, command bar). Checks its switch on use.
     run("link-hints", () => lazy.WhimsyLinkHints.initWindow(win));
+
+    // wave6/search: Instant result (Shift+Enter) and the Search Deck. Always
+    // installed; each checks its switch on use.
+    run("search-deck", () => lazy.WhimsySearchDeck.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

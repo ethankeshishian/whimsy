@@ -453,3 +453,7 @@ support-files = ["whimsy_login_form.html"]
 # wave6/zap: Link hints (what gets a badge, typing clicks, Shift new tab, Esc/Backspace, layouts, page never sees keys, switch off).
 ["browser_whimsy_link_hints.js"]
 support-files = ["whimsy_link_hints.html"]
+
+# wave6/search: Instant result (Shift+Enter) and the Search Deck (flip, swipe, promote, no history).
+["browser_whimsy_search_deck.js"]
+support-files = ["whimsy_search_results.html", "whimsy_search_card.html"]
