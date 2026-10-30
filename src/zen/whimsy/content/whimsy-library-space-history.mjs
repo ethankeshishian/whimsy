@@ -33,7 +33,20 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
   }
   get filterGroups() {
     const groups = super.filterGroups;
-    return WhimsySpaceHistorySection.archiveSection ? groups.filter(group => group.id != "source") : groups;
+    const visible = WhimsySpaceHistorySection.archiveSection ?
+      groups.filter(group => group.id !== "source") : groups;
+    if (this.spaceMode) {
+      visible.push({
+        id: "space",
+        titleL10nId: "whimsy-history-space-filter",
+        exclusive: true,
+        options: [
+          { id: "all", l10nId: "whimsy-history-all-spaces" },
+          ...(this._spaceOptions || []).map(([id, label]) => ({ id, label })),
+        ],
+      });
+    }
+    return visible;
   }
 
   get spaceMode() {
@@ -56,7 +69,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
   }
 
   connectedCallback() {
-    this._spaceId = "";
+    this.activeFilters.add("space:all");
     this._spaceLimit = 100;
     this._generation = 0;
     this._spaceOptions = [];
@@ -74,28 +87,13 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
     super.disconnectedCallback();
   }
 
-  renderTopButton() {
-    const native = super.renderTopButton();
-    if (!WhimsySpaceHistory.enabled) {
-      return native;
-    }
-    return html`${native}<select class="whimsy-history-space zen-library-filter-chip"
-      data-l10n-id="whimsy-history-space-filter" data-l10n-attrs="aria-label"
-      ?disabled=${!this.spaceMode} .value=${this._spaceId || ""}
-      @change=${event => {
-        this._spaceId = event.target.value;
-        this._spaceLimit = 100;
-        this.refresh().catch(console.error);
-      }}>
-      <option value="" data-l10n-id="whimsy-history-all-spaces"></option>
-      <option value="unknown" data-l10n-id="whimsy-history-unknown-space"></option>
-      ${(this._spaceOptions || []).map(([id, name]) =>
-        html`<option value=${id}>${name}</option>`)}
-    </select>`;
-  }
-
   onSearchChanged() {
-    super.onSearchChanged();
+    // The sidecar owns the visible results. Do not start a second Places
+    // search whose completion can trigger another refresh of this query.
+    if (!this.spaceMode) {
+      super.onSearchChanged();
+      return;
+    }
     this._spaceLimit = 100;
     this.refresh().catch(console.error);
   }
@@ -125,7 +123,8 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
     try {
       const sort = ["date", "site", "mostvisited", "lastvisited"].find(
         id => this.isFilterActive("sort", id)) || "date";
-      const visits = await WhimsySpaceHistory.query({ spaceId: this._spaceId,
+      const spaceId = this._spaceOptions.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
+      const visits = await WhimsySpaceHistory.query({ spaceId,
         search: this.searchQuery, days: this.activeWhenDays ?? 120,
         sort, limit: this._spaceLimit });
       const file = await WhimsySpaceHistory.file();
@@ -162,6 +161,11 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         this._flatVisits = [...this._spaceVisits.values()].flat();
       }
       this.requestUpdate();
+      await this.updateComplete;
+      if (this.filtersOpen && this.isConnected && generation === this._generation) {
+        const inner = this.querySelector(".zen-library-filter-panel-inner");
+        this.style.setProperty("--zen-library-filter-height", `${inner.scrollHeight + 8}px`);
+      }
     } finally {
       if (generation === this._generation) {
         this._spaceLoading = false;
@@ -178,8 +182,9 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         label?.remove();
         continue;
       }
-      const visit = this._flatVisits?.[index];
-      if (!visit) {
+      const visit = row.whimsyVisit || this._flatVisits?.[index];
+      if (!visit?.spaceId || !visit.spaceName) {
+        label?.remove();
         continue;
       }
       if (!label) {
@@ -187,13 +192,9 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         label.className = "whimsy-history-space-name zen-library-row-subtitle";
         row.querySelector(".zen-library-row-text").appendChild(label);
       }
-      if (visit.spaceId) {
-        this.ownerDocument.l10n.setAttributes(label, "whimsy-history-where", {
-          space: visit.spaceName,
-        });
-      } else {
-        this.ownerDocument.l10n.setAttributes(label, "whimsy-history-unknown-space");
-      }
+      this.ownerDocument.l10n.setAttributes(label, "whimsy-history-where", {
+        space: visit.spaceName,
+      });
     }
   }
 }

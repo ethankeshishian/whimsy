@@ -480,7 +480,11 @@ add_task(async function library_space_history() {
     }, "The screenshot includes a recorded space label");
     await section.updateComplete;
     await document.l10n.translateFragment(section);
-    ok(section.querySelector(".whimsy-history-space"), "History offers its space filter");
+    section.filtersOpen = true;
+    await section.updateComplete;
+    await document.l10n.translateFragment(section);
+    ok(section.querySelector('[data-l10n-id="whimsy-history-space-filter"]'),
+      "History offers spaces beside date and sort filters");
     await shot("history-spaces");
   } finally {
     await library.constructor.animateProgress(0);
