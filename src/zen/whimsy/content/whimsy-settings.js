@@ -261,6 +261,11 @@ var gWhimsySettings = {
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
       // tierC-vpn: VPN (Firefox's built-in IP Protection).
       vpn: () => this.initVpn(),
+      // wave3: handoff. Handoff only exists on macOS.
+      handoff: () =>
+        AppConstants.platform == "macosx"
+          ? this.initPrefCheckbox("whimsyHandoffSend", "whimsy.handoff.send")
+          : document.getElementById("whimsyHandoffGroup")?.remove(),
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;

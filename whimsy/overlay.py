@@ -685,6 +685,9 @@ FEATURES = [
      "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
     {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
      "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
+    # wave3: handoff. Firefox's Handoff, minus private tabs and Scratch, URL only.
+    {"id": "handoff", "title": "Handoff: continue pages on your other Apple devices, never private tabs or Scratch",
+     "detect": [("src/zen", r"(?i)zen\.handoff\.|handoff-(?:private|scratch)")]},
 ]
 
 

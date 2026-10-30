@@ -1233,3 +1233,11 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
+
+## wave3: Handoff (Settings -> Privacy & Security)
+
+whimsy-handoff-header =
+    .label = Handoff
+whimsy-handoff-send =
+    .label = Continue pages on your iPhone, iPad and other Macs
+    .description = Hand off the page you're on through macOS Handoff. Only its address is shared; private tabs and Scratch are never offered.
