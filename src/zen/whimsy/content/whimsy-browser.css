@@ -1607,6 +1607,11 @@ panel.whimsy-sheet .whimsy-sheet-header {
   border-radius: 8px;
   background-color: color-mix(in srgb, currentColor 6%, transparent);
 }
+/* The input itself drops its ring; the whole pill shows focus instead. */
+.whimsy-sheet-search:focus-within {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -1px;
+}
 .whimsy-sheet-search-icon {
   width: 14px;
   height: 14px;
