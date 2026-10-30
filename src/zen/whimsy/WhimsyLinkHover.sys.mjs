@@ -33,6 +33,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
+  buildPersonCard: "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs",
   WhimsyPeople: "resource:///modules/whimsy/WhimsyPeople.sys.mjs",
 });
 
@@ -297,48 +298,36 @@ class LinkHover {
     return card;
   }
 
-  // Who it is: the handle and site at once, filled in when the profile
-  // loads (WhimsyPeople rate-limits and caches; a failed lookup keeps the
-  // handle).
+  // Who it is: fix7/tabs' People card (avatar or initials, name, handle and
+  // site, bio, stats, Open Profile and Copy Link), showing the handle and a
+  // quiet placeholder at once and filled in place when the profile loads
+  // (WhimsyPeople rate-limits and caches; a failed lookup keeps the handle).
+  // Its own 400ms dwell gave way to the host's one delay.
   #peopleCard(target) {
     const card = this.#card("people");
     const profileUrl = lazy.WhimsyPeople.profile(target.url);
-    const fill = data => {
-      const doc = this.win.document;
-      card.replaceChildren();
-      const head = doc.createElementNS(HTML, "div");
-      head.className = "whimsy-link-hover-head";
-      if (data.image && /^https:\/\//.test(data.image)) {
-        const img = doc.createElementNS(HTML, "img");
-        img.className = "whimsy-hover-avatar";
-        img.alt = "";
-        img.referrerPolicy = "no-referrer";
-        img.addEventListener("error", () => img.remove(), { once: true });
-        img.src = data.image;
-        head.append(img);
-      }
-      const titles = doc.createElementNS(HTML, "div");
-      titles.className = "whimsy-link-hover-titles";
-      titles.append(this.#text("whimsy-hover-title", data.title));
-      titles.append(this.#text("whimsy-hover-url", data.url));
-      head.append(titles);
-      card.append(head);
-      if (data.description) {
-        card.append(this.#text("whimsy-hover-description", data.description));
-      }
+    const close = () => this.hide({ animate: false });
+    const fill = (found, loading) => {
+      const person = lazy.WhimsyPeople.card(found, profileUrl, { loading });
+      card.replaceChildren(lazy.buildPersonCard(this.win, person, { close }));
+      card.setAttribute("aria-label", person.name || person.handle);
     };
-    fill(lazy.WhimsyPeople.fallback(profileUrl));
-    card.setAttribute("aria-busy", "true");
+    fill(null, true);
     const { signal } = target.controller;
     lazy.WhimsyPeople.lookup(this.win, profileUrl, { userContextId: target.userContextId || 0 })
+      .catch(() => null)
       .then(found => {
-        if (found && !signal.aborted) {
-          fill(found);
+        if (!signal.aborted) {
+          fill(found, false);
         }
-      })
-      .catch(() => {})
-      .finally(() => card.removeAttribute("aria-busy"));
-    card.addEventListener("click", event => this.#follow(event, profileUrl));
+      });
+    card.setAttribute("role", "dialog");
+    // Its buttons act; a click elsewhere on the card opens the profile.
+    card.addEventListener("click", event => {
+      if (!event.target.closest("button")) {
+        this.#follow(event, profileUrl);
+      }
+    });
     return card;
   }
 

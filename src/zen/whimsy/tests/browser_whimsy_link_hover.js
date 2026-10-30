@@ -80,7 +80,7 @@ add_task(async function profile_link_people_only_normal_link_link_only() {
       await openCards();
       Assert.deepEqual(cards(), ["people"], "A profile link: the People card only");
       await TestUtils.waitForCondition(
-        () => panel().querySelector('[data-card="people"] .whimsy-hover-title')?.textContent == "The Octocat",
+        () => panel().querySelector('[data-card="people"] .whimsy-person-name')?.textContent == "The Octocat",
         "...filled in with who it is"
       );
 

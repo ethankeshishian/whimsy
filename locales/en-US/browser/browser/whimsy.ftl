@@ -2004,3 +2004,8 @@ whimsy-hover-links =
     .label = Show where a link goes when you Shift-hover it
 # Above the AI summary card, under the link or People card.
 whimsy-link-hover-ai-label = Summary
+
+# fix7/tabs: People card actions.
+whimsy-person-open = Open Profile
+whimsy-person-copy = Copy Link
+whimsy-person-copied = Copied

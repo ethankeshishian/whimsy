@@ -1819,3 +1819,127 @@ add_task(async function tab_audio_icon() {
     }
   }
 });
+
+// fix7/tabs: pinned tabs in the space's own container (no line), in another
+// container (a short pill on the leading edge), and an Essential with an
+// unread count on its tile's corner.
+add_task(async function fix7_pinned_marks_and_essential_badge() {
+  const space = gZenWorkspaces.getActiveWorkspaceFromCache();
+  const oldContainer = space.containerTabId;
+  space.containerTabId = 1;
+  const tabs = [];
+  try {
+    for (const [url, userContextId] of [["https://example.com/?own", 1], ["https://example.org/?other", 2]]) {
+      const tab = BrowserTestUtils.addTab(gBrowser, url, { userContextId });
+      await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+      gBrowser.pinTab(tab);
+      tabs.push(tab);
+    }
+    const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?mail");
+    gZenPinnedTabManager.addToEssentials(essential);
+    tabs.push(essential);
+    await SpecialPowers.spawn(essential.linkedBrowser, [], () => {
+      content.document.title = "Inbox (12) - Mail";
+    });
+    await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/").then(t => tabs.push(t));
+    await TestUtils.waitForCondition(() => essential.hasAttribute("whimsy-unread"), "Badge");
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await shot("fix7-pinned-marks-essential-badge");
+  } finally {
+    space.containerTabId = oldContainer;
+    for (const tab of tabs) {
+      if (tab.hasAttribute("zen-essential")) {
+        gZenPinnedTabManager.removeEssentials(tab);
+      }
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
+});
+
+// fix7/tabs: Whimsy's Library icons are sprites in Zen's style; each one is
+// caught a third of the way through its play.
+add_task(async function fix7_library_icons_mid_play() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.library.hidden-tabs", ""]] });
+  const library = document.querySelector("zen-library");
+  const wasOpen = library.constructor.isLibraryOpen;
+  try {
+    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-notes"]);
+    await library.constructor.animateProgress(1);
+    await library.updateComplete;
+    for (const tab of library.querySelectorAll('.zen-library-tab[data-section^="whimsy-"]')) {
+      tab.setAttribute("animate", "true");
+      for (const animation of tab.querySelector(".zen-library-tab-icon-image").getAnimations()) {
+        animation.pause();
+        animation.currentTime = 200;
+      }
+    }
+    await shot("fix7-library-icons-mid-play");
+  } finally {
+    for (const tab of library.querySelectorAll('.zen-library-tab[data-section^="whimsy-"]')) {
+      tab.removeAttribute("animate");
+    }
+    await library.constructor.animateProgress(wasOpen ? 1 : 0);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// fix7/tabs: the email alias button, filled, alone and beside a password
+// manager's inline button (a stand-in for 1Password's).
+add_task(async function fix7_email_alias_button() {
+  await BrowserTestUtils.withNewTab("https://example.com/", async browser => {
+    for (const withOther of [false, true]) {
+      await SpecialPowers.spawn(browser, [withOther], other => {
+        const doc = content.document;
+        doc.body.innerHTML = `<form style="padding:40px;font:16px system-ui">
+          <input id="email" type="email" placeholder="you@example.com"
+            style="width:320px;height:40px;padding:0 12px;border:1px solid #ccc;border-radius:8px;font:inherit">
+        </form>`;
+        if (other) {
+          const field = doc.getElementById("email").getBoundingClientRect();
+          const badge = doc.createElement("com-1password-button");
+          Object.assign(badge.style, {
+            position: "absolute", display: "block", width: "24px", height: "24px", borderRadius: "12px",
+            background: "#1a8cff", left: `${field.right - 32}px`, top: `${field.top + 8}px`,
+          });
+          doc.body.append(badge);
+        }
+        doc.getElementById("email").focus();
+      });
+      await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [], () =>
+        !!content.document.getElementById("whimsy-email-aliases-host")), "Alias button");
+      await new Promise(resolve => setTimeout(resolve, 700)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      await shot(`fix7-email-alias-button${withOther ? "-beside-1password" : ""}`,
+        browser.browsingContext.currentWindowGlobal);
+    }
+  });
+});
+
+// fix7/tabs: the People card, loaded (initials, name, handle, bio, stats,
+// actions) and while loading, in light and dark.
+add_task(async function fix7_people_card() {
+  await SimpleTest.promiseFocus(window);
+  const { WhimsyHoverCard } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHoverCard.sys.mjs");
+  const { WhimsyPeople } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPeople.sys.mjs");
+  const card = WhimsyHoverCard.forWindow(window);
+  const url = "https://github.com/monalisa";
+  const loaded = WhimsyPeople.card({
+    title: "monalisa (Mona Lisa Octocat) · GitHub",
+    description: "Designer and octocat at large. Making the web a little more whimsical, one pull request at a time. 1,204 followers · 87 following",
+  }, url);
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      for (const [name, person] of [["loaded", loaded], ["loading", WhimsyPeople.card(null, url, { loading: true })]]) {
+        card.hide();
+        card.show(gBrowser.selectedTab, { person });
+        await TestUtils.waitForCondition(() => card.panel.state == "open");
+        await document.l10n.translateFragment(card.panel);
+        await settled();
+        await shot(`fix7-people-card-${name}-${dark ? "dark" : "light"}`);
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    card.hide();
+  }
+});

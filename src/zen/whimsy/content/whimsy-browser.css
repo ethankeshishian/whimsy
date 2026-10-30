@@ -331,9 +331,9 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     text-align: center;
   }
 
-  /* On the icon: Essentials, and every pinned tab when the sidebar is
-     collapsed. */
-  :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after {
+  /* On the icon: every pinned tab when the sidebar is collapsed
+     (Essentials put it on the tile's corner, below). */
+  :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]:not([zen-essential]) .tab-icon-stack[whimsy-unread]::after {
     content: attr(whimsy-unread);
     top: -6px;
     inset-inline-end: -8px;
@@ -365,6 +365,33 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     background: var(--zen-primary-color);
   }
 
+  /* fix7/tabs: an Essential wears it on the tile's corner, like Arc's
+     Favorites, not on the favicon's. On the 16px icon the pill (and its
+     ring in the sidebar's colour, which isn't the tile's) sat over the
+     favicon's own corner (Gmail draws its count there too) and the tile's
+     edge, so it read as a smudge. The icon stack stops being the anchor;
+     the tile's content box (position: relative in Firefox) is. */
+  .tabbrowser-tab[zen-essential] {
+    & .tab-icon-stack {
+      position: static;
+    }
+
+    & .tab-icon-stack::after {
+      box-shadow: 0 0 0 1px light-dark(rgb(255 255 255 / 0.9), rgb(0 0 0 / 0.35)), 0 1px 2px rgb(0 0 0 / 0.25);
+    }
+
+    & .tab-icon-stack[whimsy-unread]::after {
+      content: attr(whimsy-unread);
+      top: calc(var(--tab-margin-block, 0px) + 4px);
+      inset-inline-end: 4px;
+    }
+
+    &[titlechanged]:not([selected], [whimsy-unread]) .tab-icon-stack::after {
+      top: calc(var(--tab-margin-block, 0px) + 6px);
+      inset-inline-end: 6px;
+    }
+  }
+
   @media not (prefers-reduced-motion: reduce) {
     :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after,
     :root[zen-sidebar-expanded="true"] .tabbrowser-tab[pinned]:not([zen-essential]) .tab-content[whimsy-unread]::after,
@@ -372,6 +399,22 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
       animation: whimsy-badge-in var(--whimsy-dur-base) var(--whimsy-ease);
     }
   }
+}
+
+/* fix7/tabs: a pinned tab or Essential in a container other than its
+   space's keeps Firefox's container colour, but as a short pill centred on
+   the tile's leading edge (like a sidebar selection marker) instead of a
+   2px line the full height of a rounded tile, which read as a stray
+   border. Tabs in their space's own container get no line at all
+   (WhimsyTabs marks them so Zen hides it). */
+#tabbrowser-tabs .tabbrowser-tab[pinned][usercontextid]:not([zenDefaultUserContextId="true"]) > .tab-stack > .tab-background > .tab-context-line {
+  flex: none;
+  align-self: flex-start;
+  width: 3px !important;
+  height: 14px !important;
+  margin-block: auto !important;
+  margin-inline: 3px 0 !important;
+  border-radius: 1.5px;
 }
 
 @keyframes whimsy-badge-in {
@@ -1533,6 +1576,159 @@ panel.whimsy-cheatsheet .whimsy-cheatsheet-list {
   margin-block-end: 6px;
 }
 
+/* fix7/tabs: People cards. One clear order: who (avatar, name, handle and
+   site), what they say (bio), their numbers, then actions. Colours,
+   radius and buttons come from Zen's panel and Firefox's button tokens. */
+#whimsy-hover-card[whimsy-person] {
+  --panel-padding: 14px;
+  --panel-width: 300px;
+}
+
+.whimsy-person {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 272px;
+  margin: 0 !important;
+}
+
+.whimsy-person-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.whimsy-person-avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  outline: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  outline-offset: -1px;
+}
+
+.whimsy-person-initials {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.whimsy-person-names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.whimsy-person-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-person-handle,
+.whimsy-person-stats {
+  font-size: 12px;
+  color: var(--text-color-deemphasized);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-person-bio {
+  font-size: 13px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.whimsy-person-stats {
+  display: flex;
+  gap: 14px;
+
+  & b {
+    color: var(--panel-color, currentColor);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.whimsy-person-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  & > div {
+    height: 10px;
+    border-radius: 5px;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  & > div:last-child {
+    width: 60%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    & > div {
+      animation: whimsy-person-pulse 1.2s ease-in-out infinite alternate;
+    }
+  }
+}
+
+@keyframes whimsy-person-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+
+.whimsy-person-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.whimsy-person-action {
+  flex: 1;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--button-border-radius, 6px);
+  background: var(--button-background-color, color-mix(in srgb, currentColor 8%, transparent));
+  color: var(--button-text-color, currentColor);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+
+  &:hover {
+    background: var(--button-background-color-hover, color-mix(in srgb, currentColor 14%, transparent));
+  }
+
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset, 2px);
+  }
+
+  &.primary {
+    background: var(--button-background-color-primary, AccentColor);
+    color: var(--button-text-color-primary, AccentColorText);
+
+    &:hover {
+      background: var(--button-background-color-primary-hover, AccentColor);
+    }
+  }
+}
+
 /* fixB: sheets (WhimsyPanels.sys.mjs). Every small Whimsy panel - Snooze,
    Fire button, Find Heavy Tabs, Favorite splits, Cookies, Pretend to be,
    the shortcut cheat sheet - is one of these: Zen's panel surface and
@@ -2001,44 +2197,35 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 
 }
 
-/* batch4: Library rail icons. These are single-frame Zen glyphs, whereas
-   Zen's native Library icons are 36-frame sprites. Nucleo glyphs use only
-   context-fill, so keep them painted even when the tab is not selected. */
-:is(.zen-library-tab, .zen-library-section):is(
-  [data-section="whimsy-notes"],
-  [data-section="whimsy-finder-folders"],
-  [data-section="whimsy-files"],
-  [data-section="whimsy-next-meeting"],
-  [data-section="whimsy-playlist"]
-) :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  width: var(--zen-library-sprite-size);
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  fill: var(--stroke);
-  animation: none !important;
-  transform: none !important;
-}
-
+/* batch4, fix7/tabs: Library rail icons. Like Zen's own (History,
+   Downloads...), each is a 36-frame sprite in Zen's style (outline in
+   context-stroke, body in context-fill, painted only on the chosen tab),
+   drawn by whimsy/library_sprites.py, and Zen's zen-library-sprite-play
+   runs it once when the tab is chosen; with reduced motion Zen doesn't
+   play it, so the icon just fills in. */
 [data-section="whimsy-notes"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/page-portrait.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-notes-sprite.svg");
 }
 
 [data-section="whimsy-finder-folders"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/folder.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-folders-sprite.svg");
 }
 
 [data-section="whimsy-files"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/screenshot.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-screenshots-sprite.svg");
 }
 
 /* Harmless when the Meetings feature (or its module) is removed. */
 [data-section="whimsy-next-meeting"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/selectable/time.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-meeting-sprite.svg");
+}
+
+[data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/content/whimsy/library/library-archive-sprite.svg");
 }
 
 [data-section="whimsy-playlist"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/selectable/video.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-playlist-sprite.svg");
 }
 
 /* Zen scopes the URL/date swap to its original custom-element name. */

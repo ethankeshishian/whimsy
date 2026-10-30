@@ -426,3 +426,6 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 # wave7/ux: the pinned/normal separator sits below expanded folder children
 ["browser_whimsy_folder_separator.js"]
+
+# fix7/tabs: pinned tab marks
+["browser_whimsy_pinned_marks.js"]

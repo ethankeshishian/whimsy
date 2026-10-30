@@ -474,3 +474,14 @@ findbar .whimsy-ask-button {
     display: revert;
   }
 }
+
+/* The People card (fix7/tabs' design) as card 1: it fills the shared width
+   and keeps its own roomier padding. */
+.whimsy-link-hover-card[data-card="people"] {
+  padding: 14px;
+  cursor: default;
+
+  & .whimsy-person {
+    width: auto;
+  }
+}
