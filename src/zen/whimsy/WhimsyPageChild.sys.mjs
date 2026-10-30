@@ -216,6 +216,8 @@ export class WhimsyPageChild extends JSWindowActorChild {
       return null;
     }
     const rate = reset ? 1 : Math.round(Math.min(4, Math.max(0.25, el.playbackRate + delta)) * 100) / 100;
+    // wave3/speed: the user's speed; the speed control never puts it back.
+    this.manager.getExistingActor("WhimsyVideoSpeed")?.userChanged(el, rate);
     el.playbackRate = rate;
     return rate;
   }

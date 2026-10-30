@@ -84,6 +84,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyUploadParent.sys.mjs",
     "WhimsyUrlbar.sys.mjs",
     "WhimsyUserAgent.sys.mjs",
+    "WhimsyVideoSpeed.sys.mjs",
+    "WhimsyVideoSpeedChild.sys.mjs",
     "WhimsyVPN.sys.mjs",
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",

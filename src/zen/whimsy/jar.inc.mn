@@ -53,3 +53,5 @@
         content/browser/whimsy/space-icons/receipt.svg (../../zen/whimsy/content/space-icons/receipt.svg)
         content/browser/whimsy/space-icons/thumbs-up.svg (../../zen/whimsy/content/space-icons/thumbs-up.svg)
         content/browser/whimsy/space-icons/train.svg (../../zen/whimsy/content/space-icons/train.svg)
+# wave3/speed: speed control on videos (drawn in page anonymous content)
+        content/browser/whimsy/whimsy-video-speed.css                           (../../zen/whimsy/content/whimsy-video-speed.css)

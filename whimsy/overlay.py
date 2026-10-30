@@ -738,6 +738,9 @@ FEATURES = [
     # wave3/icons: Arc's space icon picker
     {"id": "space-icon-picker", "title": "Space icon picker as Arc's: Arc's 56 glyphs first (Zen's after), 8-across grid, current icon on a plate, closes on pick, emoji skin tones",
      "detect": [("src/zen/common/emojis", r"skin-?tone|skinTone|1f3fb|1F3FB|\\u\{1f3fb\}")]},
+    # wave3/speed: speed control on videos (Video Speed Controller).
+    {"id": "video-speed", "title": "Speed control on videos: point at a video to see its speed, type one or pick a quarter step (0.25–4×); remembered per site",
+     "detect": [("src/zen/media", r"(?i)speed-?(overlay|controller)|video-?speed")]},
 ]
 
 

@@ -1,0 +1,170 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave3/speed: the speed control drawn over a hovered video. It lives in the
+   page's anonymous content (WhimsyVideoSpeedChild.sys.mjs), so page styles
+   never reach it and it stays above the page, fullscreen players included. */
+
+:host {
+  display: contents;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
+  background: rgb(18 18 20 / 0.72);
+  backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 2px 8px rgb(0 0 0 / 0.25);
+  color: #fff;
+  font: 600 12px/1 system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0;
+  translate: 0 -2px;
+  transition:
+    opacity 120ms ease-out,
+    translate 120ms ease-out;
+  z-index: 2147483647;
+
+  &[data-shown] {
+    pointer-events: auto;
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+button {
+  appearance: none;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  /* A comfortable target without growing the pill. */
+  min-width: 26px;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.12);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgb(255 255 255 / 0.9);
+    outline-offset: -2px;
+  }
+}
+
+#value {
+  padding: 0 4px 0 9px;
+  border-radius: 8px 0 0 8px;
+}
+
+#toggle {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  min-width: 22px;
+  padding: 0 4px 0 2px;
+  border-radius: 0 8px 8px 0;
+
+  & > svg {
+    width: 10px;
+    height: 10px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: rotate 140ms ease-out;
+  }
+
+  &[aria-expanded="true"] > svg {
+    rotate: 180deg;
+  }
+}
+
+#input {
+  box-sizing: border-box;
+  width: 52px;
+  margin: 3px 2px 3px 4px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 5px;
+  background: rgb(255 255 255 / 0.16);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  user-select: text;
+  outline: none;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px rgb(255 255 255 / 0.9);
+  }
+}
+
+#menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 44px);
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgb(18 18 20 / 0.86);
+  backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 6px 20px rgb(0 0 0 / 0.35);
+  transform-origin: top left;
+  animation: whimsy-speed-menu 140ms ease-out;
+
+  & > button {
+    height: 26px;
+    padding: 0;
+    border-radius: 6px;
+    font-weight: 500;
+
+    &[aria-checked="true"] {
+      background: rgb(255 255 255 / 0.22);
+      font-weight: 700;
+    }
+  }
+}
+
+@keyframes whimsy-speed-menu {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bar,
+  #toggle > svg {
+    transition: none;
+  }
+
+  #bar {
+    translate: none;
+  }
+
+  #menu {
+    animation: none;
+  }
+}

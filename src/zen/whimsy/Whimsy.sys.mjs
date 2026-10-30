@@ -111,6 +111,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceIcons: "resource:///modules/whimsy/WhimsySpaceIcons.sys.mjs",
 });
 
+// wave3/speed: speed control on videos.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVideoSpeed: "resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -479,6 +484,9 @@ export const Whimsy = {
         ?.then(() => lazy.WhimsySpaceIcons.initWindow(win))
         .catch(e => console.error("Whimsy: space-icon-picker", e))
     );
+    // wave3/speed: speed control on videos. Registered once even when off;
+    // the page side checks its switch on every event.
+    run("video-speed", () => lazy.WhimsyVideoSpeed.init());
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

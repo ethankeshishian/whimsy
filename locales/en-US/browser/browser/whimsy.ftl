@@ -1250,3 +1250,15 @@ whimsy-emoji-skin-tone-4 =
     .label = ✋🏾 Medium-dark
 whimsy-emoji-skin-tone-5 =
     .label = ✋🏿 Dark
+## wave3/speed: speed control shown over a hovered video
+
+# $rate (string) - the current speed, already formatted, like "1.5×"
+whimsy-video-speed-value =
+    .aria-label = Playback speed { $rate }. Click to type a speed
+    .title = Click to type a speed (0.25 to 4)
+whimsy-video-speed-input =
+    .aria-label = Playback speed
+whimsy-video-speed-presets =
+    .aria-label = Speeds
+whimsy-media-video-speed =
+    .label = Show a speed control when you point at a video, and remember each site’s speed

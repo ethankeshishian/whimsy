@@ -1043,3 +1043,38 @@ add_task(async function space_icon_picker() {
     await gZenWorkspaces.saveWorkspace(workspace);
   }
 });
+
+// wave3/speed: the speed control over a hovered video, presets open.
+add_task(async function video_speed_control() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.video-speed", true]] });
+  const url =
+    getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_video_speed.html";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  const browser = tab.linkedBrowser;
+  const state = () =>
+    SpecialPowers.spawn(browser, [], () => {
+      const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+      return actor ? JSON.parse(JSON.stringify(actor.testState())) : null;
+    });
+  try {
+    await SpecialPowers.spawn(browser, [], async () => {
+      const video = content.document.getElementById("video");
+      await ContentTaskUtils.waitForCondition(() => video.readyState >= 2, "The video has a frame");
+      await ContentTaskUtils.waitForCondition(
+        () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed")?.videos.has(video),
+        "The speed control knows the video"
+      );
+    });
+    await BrowserTestUtils.synthesizeMouseAtCenter("#shield", { type: "mousemove" }, browser);
+    await TestUtils.waitForCondition(async () => (await state())?.shown, "The control shows");
+    await shot("wave3-video-speed-hover", browser.browsingContext.currentWindowGlobal);
+    const { toggle } = await state();
+    await BrowserTestUtils.synthesizeMouseAtPoint(toggle.x, toggle.y, {}, browser);
+    await TestUtils.waitForCondition(async () => (await state())?.menuOpen, "The presets open");
+    await new Promise(resolve => setTimeout(resolve, 200)); // The menu's 140ms entrance.
+    await shot("wave3-video-speed-presets", browser.browsingContext.currentWindowGlobal);
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});

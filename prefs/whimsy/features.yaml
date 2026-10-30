@@ -348,6 +348,9 @@
 - name: whimsy.feature.space-icon-picker
   value: true
 
+- name: whimsy.feature.video-speed
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true
