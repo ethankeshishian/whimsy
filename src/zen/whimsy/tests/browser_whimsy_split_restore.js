@@ -73,7 +73,16 @@ async function cleanup(tabs) {
   }
 }
 
+const startTabs = new Set(gBrowser.tabs);
+
 add_setup(async function () {
+  // Zen's window sync can leave a placeholder tab behind here when the
+  // restored window closes; take every tab this file added with it.
+  registerCleanupFunction(() => {
+    for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  });
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.split-restore", true]] });
 });
 
