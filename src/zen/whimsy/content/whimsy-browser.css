@@ -875,3 +875,46 @@ tab[whimsy-devmode][selected] {
 .whimsy-devmode-button {
   font-size: 0.85em;
 }
+
+/* vpnspace: Vivaldi-style compact, labelled native VPN control. */
+#whimsy-vpn-scope-badge {
+  margin-inline: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+#ipprotection-button[whimsy-vpn-scope="browser"],
+#ipprotection-button[whimsy-vpn-scope="space"] {
+  color: var(--zen-primary-color, AccentColor);
+}
+#whimsy-vpn-scope {
+  margin: 8px 12px 12px;
+  padding: 12px;
+  border: 1px solid var(--panel-separator-color);
+  border-radius: 8px;
+  max-width: 320px;
+}
+#whimsy-vpn-scope label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-block: 6px;
+}
+#whimsy-vpn-scope p {
+  font-size: 0.9em;
+  color: var(--text-color-deemphasized);
+  margin-block-end: 0;
+}
+/* The native manager is global; suppress its green on icon for a tab outside
+   the chosen container while retaining the native off artwork underneath. */
+#ipprotection-button[whimsy-vpn-scope="elsewhere"] {
+  list-style-image: url("chrome://browser/content/ipprotection/assets/toolbaricons/ipprotection-off.svg");
+  fill: var(--toolbarbutton-icon-fill);
+  stroke: currentColor;
+}
+#ipprotection-button[whimsy-vpn-scope="elsewhere"] .ipprotection-icon-layer {
+  opacity: 0 !important;
+}
+#ipprotection-button[whimsy-vpn-scope="elsewhere"] .toolbarbutton-icon {
+  opacity: 1 !important;
+}

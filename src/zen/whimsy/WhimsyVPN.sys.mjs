@@ -21,15 +21,12 @@
 // inclusions on, "always use") specific sites. See
 // https://support.mozilla.org/en-US/kb/built-in-vpn.
 //
-// Per-space "always use VPN" (a container-aware rule, Arc/space-level) is
-// NOT implemented: IPPChannelFilter/IPPSiteRuleManager (engine/toolkit) match
-// only on a request's principal (URL), with no knowledge of which space/
-// container a tab belongs to, and `engine` is read-only here — making a rule
-// provider container-aware is an engine patch, out of scope for an overlay
-// batch. See docs/whimsy/scout/tierC.md.
+// vpnspace: Container scoping extends the native control in WhimsyVPNScope;
+// the channel boundary is implemented by the Whimsy IPPChannelFilter patch.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVPNScope: "resource:///modules/whimsy/WhimsyVPNScope.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   IPProtectionService:
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
@@ -111,6 +108,8 @@ export const WhimsyVPN = {
   },
 
   initWindow(win) {
+    // vpnspace: Keep the native panel and widget as the single VPN control.
+    lazy.WhimsyVPNScope.initWindow(win);
     if (!this.wrapperEnabled) {
       return;
     }

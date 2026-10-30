@@ -761,3 +761,17 @@ whimsy-action-vpn-on = Turn VPN On
 whimsy-action-vpn-off = Turn VPN Off
 whimsy-vpn-on-toast = VPN on
 whimsy-vpn-off-toast = VPN off
+
+# vpnspace: extend the native Firefox VPN panel and toolbar button.
+whimsy-vpn-scope-title = Protect
+whimsy-vpn-scope-browser = All spaces
+whimsy-vpn-scope-space = This space
+whimsy-vpn-scope-help = Space protection follows its container in every window, including other spaces sharing it. Tabs in other containers are excluded. Existing connections keep their route until reconnected. Site exceptions still apply.
+whimsy-vpn-scope-no-container = This space has no default container. Choose one in Edit Space to enable space protection. Existing tabs must be reopened in that container.
+whimsy-vpn-scope-covered = Spaces with VPN enabled: { $spaces }
+whimsy-vpn-scope-all = VPN enabled for all spaces.
+whimsy-vpn-scope-button-off = VPN off
+whimsy-vpn-scope-button-connecting = VPN connecting
+whimsy-vpn-scope-button-browser = VPN on · Browser
+whimsy-vpn-scope-button-space = VPN on · Space
+whimsy-vpn-scope-button-elsewhere = VPN off here

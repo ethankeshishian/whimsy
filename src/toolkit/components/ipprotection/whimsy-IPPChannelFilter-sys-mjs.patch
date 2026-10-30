@@ -1,0 +1,29 @@
+--- a/toolkit/components/ipprotection/IPPChannelFilter.sys.mjs
++++ b/toolkit/components/ipprotection/IPPChannelFilter.sys.mjs
+@@ -252,6 +252,26 @@
+    *    False: The Channel should NOT be proxied.
+    */
+   shouldProxy(channel) {
++    // vpnspace: Apply the container boundary before site inclusions, so an
++    // "always use VPN" rule cannot tunnel a different space's requests.
++    // Empty means all containers; malformed non-empty lists fail closed.
++    if (
++      Services.prefs.getBoolPref("whimsy.feature.vpn", true) &&
++      Services.prefs.getBoolPref("whimsy.feature.vpnspace", true)
++    ) {
++      const ids = Services.prefs.getStringPref(
++        "browser.ipProtection.whimsy.userContextIds", ""
++      );
++      if (ids.trim()) {
++        const id = channel.loadInfo?.originAttributes?.userContextId;
++        if (!ids.split(",").some(value =>
++          /^\d+$/.test(value.trim()) && Number(value.trim()) === id
++        )) {
++          return false;
++        }
++      }
++    }
++
+     // Exclude system channels essential to starting the proxy until the proxy is ready.
+     if (
+       !this.proxyInfo &&

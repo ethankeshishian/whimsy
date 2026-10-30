@@ -305,6 +305,9 @@ FEATURES = [
     # toolbar button/panel, sign-in and per-site rules).
     {"id": "vpn", "title": "VPN: command bar actions and a Settings status card for Firefox's own built-in IP Protection",
      "detect": [("src/zen", r"(?i)zen[\w.-]*vpn|ZenVPN|zen[\w.-]*ip-?protection")]},
+    # vpnspace: container scope on Firefox's native VPN panel.
+    {"id": "vpnspace", "title": "VPN scope: whole browser or the current space's container",
+     "detect": [("src/zen", r"(?i)ZenVPN|zen[\w.-]*vpn[\w.-]*scope")]},
 ]
 
 

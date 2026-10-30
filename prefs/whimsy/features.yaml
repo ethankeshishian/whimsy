@@ -276,6 +276,9 @@
 - name: whimsy.feature.vpn
   value: true
 
+- name: whimsy.feature.vpnspace
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

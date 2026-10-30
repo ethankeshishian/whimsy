@@ -203,3 +203,7 @@
   value: true
 - name: browser.ipProtection.features.siteInclusions
   value: true
+
+# vpnspace: empty protects all containers; otherwise comma-separated context IDs.
+- name: browser.ipProtection.whimsy.userContextIds
+  value: ""
