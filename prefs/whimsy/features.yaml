@@ -297,6 +297,12 @@
 - name: whimsy.feature.home
   value: true
 
+- name: whimsy.feature.vpn
+  value: true
+
+- name: whimsy.feature.vpnspace
+  value: true
+
 - name: whimsy.feature.live-folders-unread
   value: true
 
@@ -304,6 +310,42 @@
   value: true
 
 - name: whimsy.feature.call-pip
+  value: true
+
+- name: whimsy.feature.glance-size
+  value: true
+
+- name: whimsy.feature.split-new-tab
+  value: true
+
+- name: whimsy.feature.split-layouts
+  value: true
+
+- name: whimsy.feature.split-restore
+  value: true
+
+- name: whimsy.feature.command-bar-recent-tabs
+  value: true
+
+- name: whimsy.feature.offline-bangs
+  value: true
+
+- name: whimsy.feature.history-preview
+  value: true
+
+- name: whimsy.feature.people-cards
+  value: true
+
+- name: whimsy.feature.welcome-look
+  value: true
+
+- name: whimsy.feature.split-four-panes
+  value: true
+
+- name: whimsy.feature.pip-close-keeps-playing
+  value: true
+
+- name: whimsy.feature.pip-auto-before-mute
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.
