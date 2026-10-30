@@ -449,3 +449,27 @@ add_task(async function mini_chrome_follows_light_and_dark() {
     }
   }
 });
+
+// wave5/uxfix: Mini opens like Little Arc: about 150ms on Zen's ease-out
+// curve, no bounce; reduced motion opens it still.
+add_task(async function mini_open_motion_matches_arc() {
+  for (const reduce of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", reduce]] });
+    const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+    try {
+      await readyMini(win);
+      const style = win.getComputedStyle(win.document.getElementById("browser"));
+      if (reduce) {
+        is(style.animationName, "none", "Reduced motion: no opening animation");
+      } else {
+        is(style.animationName, "whimsy-mini-open", "Mini animates open");
+        Assert.lessOrEqual(parseFloat(style.animationDuration), 0.16, "...in about 150ms");
+        ok(!/1\.\d+,\s*0?\.\d+,\s*0?\.\d+\)$/.test(style.animationTimingFunction) &&
+          !style.animationTimingFunction.includes("1.27"), "...without overshoot");
+      }
+    } finally {
+      await BrowserTestUtils.closeWindow(win);
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});

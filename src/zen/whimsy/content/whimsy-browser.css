@@ -4,6 +4,18 @@
 
 /* Loaded into each browser window by Whimsy.initWindow. */
 
+/* wave5/uxfix: one motion system. Zen's own curve (it uses this one
+   throughout src/zen), two durations, exits at 0.75 of the enter, and one
+   overshoot kept for the only gesture with momentum: dropping a tab on a
+   space. */
+:root {
+  --whimsy-ease: cubic-bezier(0.075, 0.82, 0.165, 1);
+  --whimsy-ease-momentum: cubic-bezier(0.3, 1.5, 0.5, 1);
+  --whimsy-dur-fast: 150ms;
+  --whimsy-dur-base: 240ms;
+  --whimsy-dur-exit: 180ms;
+}
+
 /* Interface zoom (whimsy.ui-zoom). Everything around the web page is zoomed:
    the sidebar, the top toolbar, Firefox's sidebar panel, the find bar, menus
    and panels. Web pages keep their own zoom, so nothing that holds a page is
@@ -356,7 +368,7 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after,
     :root[zen-sidebar-expanded="true"] .tabbrowser-tab[pinned]:not([zen-essential]) .tab-content[whimsy-unread]::after,
     .tabbrowser-tab[pinned][titlechanged]:not([selected]) .tab-icon-stack::after {
-      animation: whimsy-badge-in 0.22s cubic-bezier(0.3, 1.4, 0.6, 1);
+      animation: whimsy-badge-in var(--whimsy-dur-base) var(--whimsy-ease);
     }
   }
 }
@@ -372,7 +384,7 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
    accent color and grows a little; on drop it bounces once. */
 #zen-workspaces-button toolbarbutton[zen-workspace-id] {
   @media not (prefers-reduced-motion: reduce) {
-    transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1), background-color 0.16s ease;
+    transition: transform var(--whimsy-dur-fast) var(--whimsy-ease), background-color var(--whimsy-dur-fast) var(--whimsy-ease);
   }
 
   &[whimsy-drop-target] {
@@ -384,7 +396,7 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 
   @media not (prefers-reduced-motion: reduce) {
     &[whimsy-landed] {
-      animation: whimsy-space-landed 0.36s cubic-bezier(0.3, 1.5, 0.5, 1);
+      animation: whimsy-space-landed 0.36s var(--whimsy-ease-momentum);
     }
   }
 }
@@ -1410,7 +1422,7 @@ tab[whimsy-unread] {
   margin: 2px;
   background-color: currentColor;
   mask: url("chrome://global/skin/icons/arrow-down-12.svg") center / 12px no-repeat;
-  transition: transform 150ms cubic-bezier(0.2, 0, 0, 1);
+  transition: transform var(--whimsy-dur-fast) var(--whimsy-ease);
 }
 .whimsy-tree-toggle[aria-expanded="false"]::before { transform: rotate(-90deg); }
 .whimsy-tree-toggle:dir(rtl)[aria-expanded="false"]::before { transform: rotate(90deg); }
@@ -2053,14 +2065,17 @@ whimsy-space-history-section {
   padding-inline-end: 8px;
 }
 @media (prefers-reduced-motion: no-preference) {
+  /* wave5/uxfix: Arc's measured opening is ~142ms, ease-out, no bounce
+     (arc-ref/animations.md): a short settle from 96% with a fade, not a
+     zoom from 5% that overshoots. */
   :root[whimsy-quick-window] #browser {
     transform-origin: center;
-    animation: whimsy-mini-open 309ms cubic-bezier(.38,1.27,.23,.96);
+    animation: whimsy-mini-open var(--whimsy-dur-fast) var(--whimsy-ease);
   }
 }
 @keyframes whimsy-mini-open {
-  from { transform: scale(.05); }
-  to { transform: scale(1); }
+  from { transform: scale(.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 :root[whimsy-quick-window] :is(#zen-browser-background, #zen-toolbar-background) {
