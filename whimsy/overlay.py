@@ -90,6 +90,20 @@ HOTFIXES = [
         "old": '+            <label is="text-link" href="https://github.com/zen-browser/desktop" data-l10n-name="community-mozillaLink"/>',
         "new": '+            <label is="text-link" href="https://github.com/ethankeshishian/whimsy/issues" data-l10n-name="community-mozillaLink"/>',
     },
+    # fixA: command bar related actions
+    {
+        "id": "command-bar-related-actions",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "Command bar actions only match their own label, so \"dark\" "
+               "finds Switch to Dark Mode but not Light or Automatic; an "
+               "action's whimsyKeywords (WhimsyCommandBar) match too, ranked "
+               "just below a direct match.",
+        "old": "      const score = this.#calculateFuzzyScore(label, query);",
+        "new": "      const score = Math.max(\n"
+               "        this.#calculateFuzzyScore(label, query),\n"
+               "        ...(action.whimsyKeywords ?? []).map(k => this.#calculateFuzzyScore(k, query) - 1)\n"
+               "      ); // Whimsy hotfix: related actions",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
