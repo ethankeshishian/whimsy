@@ -2379,3 +2379,10 @@ whimsy-action-liquid-glass-off = Turn Liquid Glass Off
 whimsy-action-glance-size-compact = Glance Size: Compact
 whimsy-action-glance-size-standard = Glance Size: Standard
 whimsy-action-glance-size-wide = Glance Size: Wide
+
+# fix/panes: breadcrumbs on Firefox's sub-pages (Containers, Browser icon),
+# whose parent pane is now Zen's.
+whimsy-pane-looks-crumb =
+    .label = Look and Feel
+whimsy-pane-tabs-crumb =
+    .label = Tab Management

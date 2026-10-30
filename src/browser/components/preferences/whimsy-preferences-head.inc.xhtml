@@ -632,3 +632,28 @@
   <checkbox id="whimsyPageActions"
             data-l10n-id="whimsy-page-actions-setting" preference="whimsy.feature.page-actions"/>
 </html:template>
+
+# fix/panes: Firefox 159's Appearance and Tabs and browsing panes, merged
+# into Look and Feel and Tab Management (whimsy-settings.js hides the two
+# panes). These are Firefox's own setting groups (config/appearance.mjs,
+# config/tabs-browsing.mjs, config/home-startup.mjs), so every pref and
+# behavior stays Firefox's. docs/whimsy/settings-panes.md has the inventory.
+<html:template id="template-whimsyFirefoxLooks" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <html:setting-group groupid="appearance" data-category="paneZenLooks" hidden="true"/>
+  <html:setting-group groupid="browserTheme" data-category="paneZenLooks" hidden="true"/>
+  <html:setting-group groupid="windowDensity" data-category="paneZenLooks" hidden="true"/>
+  <html:setting-group groupid="browserIconEntry" data-category="paneZenLooks" hidden="true"/>
+</html:template>
+<html:template id="template-whimsyFirefoxTabs" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <hbox id="whimsyTabsBrowsingCategory" class="subcategory" hidden="true"
+        data-category="paneZenTabManagement" data-subcategory="tabsBrowsing">
+    <html:h1 data-l10n-id="pane-tabs-browsing-title2"/>
+  </hbox>
+  <html:setting-group groupid="tabs" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="startupHome" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="defaultBrowserHome" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="pageNavigation" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="media" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="performance" data-category="paneZenTabManagement" hidden="true"/>
+  <html:setting-group groupid="recommendations" data-category="paneZenTabManagement" hidden="true"/>
+</html:template>
