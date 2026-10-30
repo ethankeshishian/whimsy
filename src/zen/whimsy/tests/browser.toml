@@ -232,3 +232,7 @@ support-files = ["whimsy_calendar.sjs"]
 
 # home: homepage + changelog (about:whimsy).
 ["browser_whimsy_home.js"]
+
+# legacy: Firefox/Zen/Mozilla leftovers (prefs, branding URLs, About dialog,
+# default bookmarks, Zen strings, and what was kept at upstream values).
+["browser_whimsy_legacy.js"]

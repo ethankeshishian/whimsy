@@ -138,6 +138,10 @@ add_task(async function about_dialog() {
   const dialog = await opened;
   const logo = dialog.getComputedStyle(dialog.document.getElementById("leftBox")).backgroundImage;
   ok(logo.includes("about-logo"), "The About window shows the branding logo");
+  // legacy: Whimsy's wording, no Mozilla donation ask (overlay.py hotfixes).
+  await dialog.document.l10n.ready;
+  const community = dialog.document.getElementById("communityDesc");
+  await TestUtils.waitForCondition(() => community.textContent.includes("built on"), "Whimsy's About wording");
   await new Promise(resolve => dialog.requestAnimationFrame(() => dialog.setTimeout(resolve, 300)));
   await shot("03b-about-dialog", dialog.browsingContext.currentWindowGlobal);
   await BrowserTestUtils.closeWindow(dialog);
@@ -486,15 +490,16 @@ add_task(async function library_space_history() {
   }
 });
 
-// home: both tabs, ready for the integration build's screenshot review.
+// home: every tab, ready for the integration build's screenshot review
+// (legacy: 22-privacy is the About dialog's Privacy Notice).
 add_task(async function whimsy_home_and_changelog() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.home", true]] });
   try {
-    for (const [suffix, name] of [["", "20-home"], ["?tab=changelog", "21-changelog"]]) {
+    for (const [suffix, name] of [["", "20-home"], ["?tab=changelog", "21-changelog"], ["?tab=privacy", "22-privacy"]]) {
       await BrowserTestUtils.withNewTab(`about:whimsy${suffix}`, async browser => {
         const doc = browser.contentDocument;
         await doc.l10n.ready;
-        if (suffix) {
+        if (suffix == "?tab=changelog") {
           await TestUtils.waitForCondition(() => doc.getElementById("whimsy-changelog-list").children.length);
         }
         await shot(name, browser.browsingContext.currentWindowGlobal);
