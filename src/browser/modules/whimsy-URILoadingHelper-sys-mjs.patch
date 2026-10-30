@@ -1,0 +1,41 @@
+diff --git a/browser/modules/URILoadingHelper.sys.mjs b/browser/modules/URILoadingHelper.sys.mjs
+--- a/browser/modules/URILoadingHelper.sys.mjs
++++ b/browser/modules/URILoadingHelper.sys.mjs
+@@ -989,12 +989,22 @@
+ 
+     let isBrowserWindow = !!window.gBrowser;
+ 
++    // Whimsy: private tabs live in normal windows, so privacy is compared
++    // per tab (the source's selected tab against each candidate tab below)
++    // rather than per window.
++    const sourcePrivate = isBrowserWindow
++      ? PrivateBrowsingUtils.isBrowserPrivate(window.gBrowser.selectedBrowser)
++      : PrivateBrowsingUtils.isWindowPrivate(window);
++
+     // This will switch to the tab in aWindow having aURI, if present.
+     function switchIfURIInWindow(aWindow) {
++      // aURI is a URI by the time this runs.
++      const checkPrivate = !kPrivateBrowsingURLs.has(aURI.spec);
+       // We can switch tab only if if both the source and destination windows have
+       // the same private-browsing status.
+       if (
+-        !kPrivateBrowsingURLs.has(aURI.spec) &&
++        checkPrivate &&
++        !aWindow.gBrowser &&
+         PrivateBrowsingUtils.isWindowPrivate(window) !==
+           PrivateBrowsingUtils.isWindowPrivate(aWindow)
+       ) {
+@@ -1033,6 +1043,13 @@
+       let browsers = aWindow.gZenWorkspaces.allUsedBrowsers;
+       for (let i = 0; i < browsers.length; i++) {
+         let browser = browsers[i];
++        // Whimsy: never switch across a tab's private-browsing boundary.
++        if (
++          checkPrivate &&
++          sourcePrivate !== PrivateBrowsingUtils.isBrowserPrivate(browser)
++        ) {
++          continue;
++        }
+         let browserCompare = cleanURL(
+           browser.currentURI.displaySpec,
+           ignoreQueryString || replaceQueryString,
