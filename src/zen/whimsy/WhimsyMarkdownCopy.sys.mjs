@@ -17,7 +17,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "ClipboardHelper", () =>
   Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper)
@@ -70,18 +70,13 @@ export const WhimsyMarkdownCopy = {
 
   initWindow(win) {
     const { document } = win;
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: COMMAND_ID,
+      l10nId: "whimsy-action-copy-page-markdown",
       run: w => this.copy(w).catch(e => console.error("Whimsy: copy page as Markdown", e)),
+      icon: "chrome://browser/skin/zen-icons/edit-copy.svg",
+      isAvailable: w => this.enabled && this.isCopyable(w.gBrowser.selectedBrowser),
     });
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-copy-page-markdown",
-        command: COMMAND_ID,
-        icon: "chrome://browser/skin/zen-icons/edit-copy.svg",
-        isAvailable: w => this.enabled && this.isCopyable(w.gBrowser.selectedBrowser),
-      },
-    ]);
 
     const menu = document.getElementById("contentAreaContextMenu");
     if (!menu) {

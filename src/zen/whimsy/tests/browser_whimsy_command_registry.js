@@ -162,6 +162,9 @@ add_task(async function test_rebinding_works_and_persists() {
     return (await IOUtils.exists(path)) && (await IOUtils.readUTF8(path)).includes(keyId);
   }, "Saved to customKeys.json, so it lasts across restarts");
 
+  // Zen syncs tabs between windows: the new window's first tab also lands
+  // here, so remember what was open to tidy up after.
+  const tabsBefore = new Set(gBrowser.tabs);
   const win = await BrowserTestUtils.openNewBrowserWindow();
   await TestUtils.waitForCondition(() => win.document.getElementById(keyId), "The new window has the command");
   await TestUtils.waitForCondition(
@@ -169,6 +172,9 @@ add_task(async function test_rebinding_works_and_persists() {
     "A new window gets the customized shortcut"
   );
   await BrowserTestUtils.closeWindow(win);
+  for (const tab of gBrowser.tabs.filter(t => !tabsBefore.has(t))) {
+    BrowserTestUtils.removeTab(tab);
+  }
 
   WhimsyCommands.reset("whimsy-focus-sidebar");
   ok(!keyEl.hasAttribute("key"), "Reset goes back to no shortcut");

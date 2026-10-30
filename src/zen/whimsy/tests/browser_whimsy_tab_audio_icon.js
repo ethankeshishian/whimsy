@@ -32,6 +32,10 @@ add_setup(async function () {
       ["whimsy.media.background-mute", "off"],
       ["whimsy.feature.arc-audio-icon", true],
       ["zen.view.sidebar-expanded", true],
+      // The clicks rest the mouse on the tab; Firefox's hover preview would
+      // open over it, and its "Add note" badge throws a lit error in this
+      // engine (moz-badge inside a XUL toolbarbutton), unrelated to the speaker.
+      ["browser.tabs.hoverPreview.enabled", false],
     ],
   });
 });
@@ -47,7 +51,9 @@ function shown(el) {
 }
 
 // The glyph a row's speaker button draws.
-const rowGlyph = tab => getComputedStyle(tab.audioButton.buttonEl).backgroundImage;
+// (moz-button's ::part(button) is the span inside its <button>.)
+const rowGlyph = tab =>
+  getComputedStyle(tab.audioButton.shadowRoot.querySelector('[part~="button"]')).backgroundImage;
 // The glyph an icon badge (Essentials, collapsed sidebar) draws.
 const badgeGlyph = tab => getComputedStyle(tab.overlayIcon).listStyleImage;
 
@@ -77,7 +83,10 @@ add_task(async function test_row_speaker() {
   const speaker = tab.audioButton;
   ok(shown(speaker), "A playing tab shows its speaker");
   ok(rowGlyph(tab).includes(PLAYING), "Arc's speaker-with-waves glyph");
-  const name = speaker.getAttribute("aria-label");
+  // moz-button moves aria-label from its host to its inner <button>.
+  const ariaName = () => speaker.buttonEl.getAttribute("aria-label");
+  await TestUtils.waitForCondition(ariaName, "The speaker gets its name");
+  const name = ariaName();
   ok(name, `The speaker has an accessible name: "${name}"`);
 
   // Arc's place: after the favicon, before the title.
@@ -90,7 +99,8 @@ add_task(async function test_row_speaker() {
   await clickToggles(tab, () => tab.audioButton, "Row");
   ok(shown(tab.audioButton), "The muted tab keeps its speaker");
   ok(rowGlyph(tab).includes(MUTED), "struck through");
-  ok(speaker.getAttribute("aria-label") && speaker.getAttribute("aria-label") != name, "and its name now offers to unmute");
+  await TestUtils.waitForCondition(() => ariaName() != name, "The name follows the state");
+  ok(ariaName() && ariaName() != name, "and its name now offers to unmute");
   await clickToggles(tab, () => tab.audioButton, "Row");
   ok(rowGlyph(tab).includes(PLAYING), "Unmuted: the playing glyph is back");
   BrowserTestUtils.removeTab(tab);

@@ -22,7 +22,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SharingUtils: "moz-src:///browser/components/sharing/SharingUtils.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.qr-code";
@@ -85,15 +85,15 @@ export const WhimsyQRCode = {
 
   initWindow(win) {
     const { document } = win;
-    lazy.WhimsyShortcuts.addCommand(win, { id: COMMAND_ID, run: w => this.show(w) });
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-qrcode",
-        command: COMMAND_ID,
-        icon: QR_ICON,
-        isAvailable: w => !!this.urlFor(w),
-      },
-    ]);
+    // One registered command: the command bar and about:keyboard (no
+    // default shortcut, but one can be assigned there).
+    lazy.WhimsyCommands.register(win, {
+      id: COMMAND_ID,
+      l10nId: "whimsy-action-qrcode",
+      run: w => this.show(w),
+      icon: QR_ICON,
+      isAvailable: w => !!this.urlFor(w),
+    });
 
     const menu = document.getElementById("contentAreaContextMenu");
     if (menu) {

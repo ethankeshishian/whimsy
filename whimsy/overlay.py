@@ -915,16 +915,9 @@ FEATURES = [
     # Note, Add to Calendar, Linear, and your own skills.
     {"id": "selection-verbs", "title": "Cmd+K: actions for the selected text or page (Translate, Map, Calendar, Linear, Markdown, Notes, your skills)",
      "detect": [("src/zen", r"(?i)selection-?verbs|do-?with-?selection|universal-?actions")]},
-    # wave5: redact: a toggle in the Screenshots panel that blurs emails,
-    # phones, keys/tokens and card numbers (click text to blur/unblur).
-    {"id": "redact", "title": "Redact in screenshots: blur emails, phone numbers, keys and card numbers before capturing; click text to blur it",
-     "detect": [("src/zen", r"(?i)redact")]},
     # wave5/look: a look per space (font, density, tab title lines, a Zen Mod).
     {"id": "space-look", "title": "A look per space: its own interface font, density, tab title lines and Zen Mod, switching with the space",
      "detect": [("src/zen/spaces", r"(?i)workspace\.(font|density|look)\b|space-?(font|density)")]},
-    # wave5: Easel (Arc's Easels: canvas of text, drawings, shapes, images, links, captures).
-    {"id": "easel", "title": "Easel: a canvas of text, drawings, shapes, images, links and live captures, pinned like a tab (Arc Easels)",
-     "detect": [("src/zen", r"(?i)\beasels?\b")]},
     # wave5: command registry
     {"id": "command-registry", "title": "Every Whimsy action is a named command: in the command bar and under \"Whimsy\" in Settings → Keyboard Shortcuts, so any of them can take a shortcut",
      "detect": [("src/zen", r"(?i)WHIMSY_KEY_CATEGORIES|registerKeyCategor(y|ies)|extraKeyCategories")]},

@@ -30,43 +30,11 @@ export const MIN_CROP = 24;
 // so signed-in pages still work in their container.
 export const BLOCK_SANDBOX_FLAGS = 0x2 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x10000;
 
-// A sandboxed remote <browser> showing `url` in the given container, out of
-// global history, appended to `parent`. Shared with Easel's live captures.
-export function createLiveBrowser(parent, { url, userContextId = 0, className, group }) {
-  const doc = parent.ownerDocument;
-  const browser = doc.createXULElement("browser");
-  browser.setAttribute("type", "content");
-  browser.setAttribute("remote", "true");
-  browser.setAttribute("maychangeremoteness", "true");
-  browser.setAttribute("nodefaultsrc", "true");
-  browser.setAttribute("disableglobalhistory", "true");
-  browser.setAttribute("messagemanagergroup", group);
-  browser.setAttribute("tooltip", "aHTMLTooltip");
-  if (userContextId) {
-    browser.setAttribute("usercontextid", String(userContextId));
-  }
-  browser.className = className;
-  parent.append(browser);
-  if (browser.browsingContext) {
-    browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;
-  }
-  browser.addEventListener("DidChangeBrowserRemoteness", () => {
-    if (browser.browsingContext) {
-      browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;
-    }
-  });
-  browser.loadURI(Services.io.newURI(url), {
-    triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId: userContextId || 0 }),
-    loadFlags: Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_HISTORY,
-  });
-  return browser;
-}
-
 export function blocksEnabled() {
   return Services.prefs.getBoolPref(FEATURE_PREF, false);
 }
 
-export function isPrivateWindow(win) {
+function isPrivateWindow(win) {
   return !!win && lazy.PrivateBrowsingUtils.isWindowPrivate(win);
 }
 
@@ -248,11 +216,32 @@ class WhimsyNoteBlock extends HTMLElement {
       this.#stage.replaceWith(paused);
       return;
     }
-    this.#browser = createLiveBrowser(this.#stage, {
-      url: this.block.url,
-      userContextId: this.block.userContextId,
-      className: "whimsy-note-block-browser",
-      group: "whimsy-note-blocks",
+    const userContextId = this.block.userContextId || 0;
+    const browser = doc.createXULElement("browser");
+    browser.setAttribute("type", "content");
+    browser.setAttribute("remote", "true");
+    browser.setAttribute("maychangeremoteness", "true");
+    browser.setAttribute("nodefaultsrc", "true");
+    browser.setAttribute("disableglobalhistory", "true");
+    browser.setAttribute("messagemanagergroup", "whimsy-note-blocks");
+    browser.setAttribute("tooltip", "aHTMLTooltip");
+    if (userContextId) {
+      browser.setAttribute("usercontextid", String(userContextId));
+    }
+    browser.className = "whimsy-note-block-browser";
+    this.#stage.append(browser);
+    this.#browser = browser;
+    if (browser.browsingContext) {
+      browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;
+    }
+    browser.addEventListener("DidChangeBrowserRemoteness", () => {
+      if (browser.browsingContext) {
+        browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;
+      }
+    });
+    browser.loadURI(Services.io.newURI(this.block.url), {
+      triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
+      loadFlags: Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_HISTORY,
     });
     this.setAttribute("loaded", "true");
   }
