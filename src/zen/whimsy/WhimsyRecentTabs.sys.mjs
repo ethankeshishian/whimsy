@@ -131,7 +131,7 @@ export class WhimsyRecentTabsProvider extends UrlbarProvider {
 
   onEngagement(_context, _controller, details) {
     const tab = targets.get(details.result?.payload.target)?.deref();
-    const win = tab?.ownerGlobal;
+    const win = tab?.documentGlobal;
     // The tab may have closed (or moved space) since the bar opened.
     if (!win || !tab.isConnected || tab.closing || !Services.prefs.getBoolPref(PREF, true)) {
       return;

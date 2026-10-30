@@ -22,7 +22,7 @@ export class WhimsyPeopleParent extends JSWindowActorParent {
 
   receiveMessage({ name, data }) {
     const browser = this.#browser;
-    const win = browser?.ownerGlobal;
+    const win = browser?.documentGlobal;
     if (!win?.gBrowser || win.gBrowser.selectedBrowser != browser) {
       return;
     }
@@ -67,8 +67,8 @@ export class WhimsyPeopleParent extends JSWindowActorParent {
     } catch {
       return; // The browsing context is already gone.
     }
-    if (browser?.ownerGlobal?.gBrowser) {
-      lazy.WhimsyHoverCard.forWindow(browser.ownerGlobal).leave(browser);
+    if (browser?.documentGlobal?.gBrowser) {
+      lazy.WhimsyHoverCard.forWindow(browser.documentGlobal).leave(browser);
     }
   }
 }
