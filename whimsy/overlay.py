@@ -847,6 +847,11 @@ FEATURES = [
     # and title on every tab with sound (muted included), one click mutes.
     {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
      "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
+    # wave7/focus: Do Not Disturb: one command pauses site notifications
+    # (Firefox's "pause until restart"; macOS Focus already silences them
+    # through Notification Center) and holds Whimsy's unprompted toasts.
+    {"id": "do-not-disturb", "title": "Do Not Disturb: one command pauses site notifications until you turn it off or quit, and holds Whimsy's unprompted toasts",
+     "detect": [("src/zen", r"(?i)manualDoNotDisturb|suppressForScreenSharing|do-?not-?disturb")]},
 ]
 
 

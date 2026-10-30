@@ -423,6 +423,9 @@
 - name: whimsy.feature.arc-audio-icon
   value: true
 
+- name: whimsy.feature.do-not-disturb
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

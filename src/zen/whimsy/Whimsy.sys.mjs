@@ -162,6 +162,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
 });
 
+// wave7/focus: Do Not Disturb.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -593,11 +598,16 @@ export const Whimsy = {
         .then(() => lazy.WhimsySpaceLook.initWindow(win))
         .catch(e => console.error("Whimsy: space-look", e))
     );
+
+    // wave7/focus: Do Not Disturb (pause site notifications). The command
+    // checks its switch on use.
+    run("do-not-disturb", () => lazy.WhimsyDoNotDisturb.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
   maybeShowYearToast(win) {
-    if (!lazy.WhimsyStats.enabled) {
+    // wave7/focus: not while Do Not Disturb is on (it asks again next window).
+    if (!lazy.WhimsyStats.enabled || lazy.WhimsyDoNotDisturb.quiet) {
       return;
     }
     const now = new Date();

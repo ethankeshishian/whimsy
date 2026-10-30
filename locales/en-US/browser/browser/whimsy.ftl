@@ -1989,3 +1989,14 @@ whimsy-links-spaces-header = Spaces
 
 whimsy-tab-audio-mute = Mute tab
 whimsy-tab-audio-unmute = Unmute tab
+
+## wave7/focus: Do Not Disturb (pauses site notifications until you turn
+## it off or quit; macOS Focus already silences them on its own)
+
+whimsy-action-dnd-toggle = Turn Do Not Disturb On or Off
+whimsy-action-dnd-on = Turn On Do Not Disturb
+whimsy-action-dnd-off = Turn Off Do Not Disturb
+whimsy-dnd-on-toast = Do Not Disturb on
+whimsy-dnd-on-toast-description = Site notifications are paused until you turn it off or quit
+whimsy-dnd-off-toast = Do Not Disturb off
+

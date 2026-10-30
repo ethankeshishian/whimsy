@@ -417,3 +417,7 @@ support-files = ["whimsy_verbs.html"]
 # wave5/audioicon: Arc's tab speaker (rows, pinned, Essentials, auto-muted, one-click mute, volume slider kept).
 ["browser_whimsy_tab_audio_icon.js"]
 support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
+
+# wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
+["browser_whimsy_do_not_disturb.js"]
+

@@ -36,6 +36,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyDevMode.sys.mjs",
     "WhimsyDocRender.sys.mjs",
     "WhimsyDocViewer.sys.mjs",
+    "WhimsyDoNotDisturb.sys.mjs",
     "WhimsyDownloads.sys.mjs",
     "WhimsyEmailAliases.sys.mjs",
     "WhimsyEmailAliasesChild.sys.mjs",
