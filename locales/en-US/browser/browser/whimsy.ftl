@@ -923,3 +923,10 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+
+## legacy: Firefox/Mozilla leftovers replaced with Whimsy's own.
+
+# A new profile's Bookmarks Menu folder (whimsy/default-bookmarks.html).
+whimsy-default-bookmarks-heading = Whimsy
+whimsy-default-bookmarks-changelog = Whimsy Changelog
+whimsy-default-bookmarks-feedback = Whimsy Feedback on GitHub

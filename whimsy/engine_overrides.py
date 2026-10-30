@@ -13,6 +13,9 @@ which src/ can't patch as text). Runs at the end of `npm run import`.
   preferences in reverse alphabetical order), so prefs/whimsy can't
   override them. A Whimsy block appended to the file wins instead: a later
   pref() in the same file replaces the earlier default.
+- legacy: a new profile's default bookmarks are Whimsy's (a "Whimsy"
+  folder: Changelog, Feedback) instead of Firefox's "Mozilla Firefox"
+  folder of Mozilla help and community links.
 """
 import glob
 import json
@@ -81,6 +84,22 @@ def override_branding_prefs():
     print(f"engine_overrides: branding prefs point at Whimsy's pages ({changed} files updated)")
 
 
+DEFAULT_BOOKMARKS = os.path.join(ROOT, "whimsy", "default-bookmarks.html")
+
+
+def override_default_bookmarks():
+    dest = os.path.join(ROOT, "engine", "browser", "base", "content", "default-bookmarks.html")
+    if not os.path.exists(dest):
+        print("engine_overrides: PROBLEM: Firefox no longer has default-bookmarks.html")
+        return
+    want = open(DEFAULT_BOOKMARKS, "rb").read()
+    changed = open(dest, "rb").read() != want
+    if changed:
+        with open(dest, "wb") as f:
+            f.write(want)
+    print(f"engine_overrides: default bookmarks are Whimsy's ({int(changed)} files updated)")
+
+
 def main():
     if not os.path.isdir(UPDATER):
         print("engine_overrides: no engine yet, skipping")
@@ -96,6 +115,7 @@ def main():
     print(f"engine_overrides: updater trusts Whimsy's certificate ({changed} files updated)")
     copy_builtin_addons()
     override_branding_prefs()
+    override_default_bookmarks()
 
 
 if __name__ == "__main__":

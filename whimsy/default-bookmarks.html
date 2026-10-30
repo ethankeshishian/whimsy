@@ -1,0 +1,32 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!-- legacy: Whimsy's default bookmarks for a new profile. engine_overrides.py
+     copies this over Firefox's browser/base/content/default-bookmarks.html,
+     whose "Mozilla Firefox" folder linked to Mozilla's help and community
+     pages. Same structure as Firefox's: one folder in the Bookmarks Menu. -->
+<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none';">
+    <!-- These localization links are not automatically applied to any XHR
+         response body and must be applied manually as well.  They are included
+         so that viewing the file directly shows the results. -->
+    <link rel="localization" href="branding/brand.ftl"/>
+    <link rel="localization" href="browser/profile/default-bookmarks.ftl"/>
+    <link rel="localization" href="browser/whimsy.ftl"/>
+    <title data-l10n-id="default-bookmarks-title">default-bookmarks-title</title>
+</head>
+<body>
+<h1 data-l10n-id="default-bookmarks-heading">default-bookmarks-heading</h1>
+
+<dl><p>
+    <dt><h3 data-l10n-id="whimsy-default-bookmarks-heading">whimsy-default-bookmarks-heading</h3></dt>
+        <dl><p>
+            <dt><a href="about:whimsy?tab=changelog" data-l10n-id="whimsy-default-bookmarks-changelog">whimsy-default-bookmarks-changelog</a></dt>
+            <dt><a href="https://github.com/ethankeshishian/whimsy/issues" data-l10n-id="whimsy-default-bookmarks-feedback">whimsy-default-bookmarks-feedback</a></dt>
+        </dl><p>
+</dl>
+</body>
+</html>
