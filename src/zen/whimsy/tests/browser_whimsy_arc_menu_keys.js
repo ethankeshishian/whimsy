@@ -74,3 +74,13 @@ add_task(function test_copy_quote_and_paste_style() {
   is(paste.getAttribute("internal"), "true", "Paste and Match Style's key is display-only (the editor runs it)");
   is(binding("key_whimsyPasteMatchStyle"), "accel,shift|V", "shown as Cmd+Shift+V");
 });
+
+// wave6: Cmd+N = New Space (BUILD-PLAN); New Window keeps a key.
+add_task(function test_cmd_n_new_space() {
+  is(binding("key_whimsyNewSpace"), "accel|N", "Cmd+N is New Space");
+  is(document.getElementById("key_whimsyNewSpace").getAttribute("command"), "cmd_zenOpenWorkspaceCreation", "Zen's create-space command");
+  noOtherKey("key_whimsyNewSpace");
+  is(binding("key_newNavigator"), "accel,alt,shift|N", "New Window moved to Cmd+Opt+Shift+N");
+  is(document.getElementById("key_newNavigator").getAttribute("command"), "cmd_newNavigator", "and still opens a window");
+  noOtherKey("key_newNavigator");
+});

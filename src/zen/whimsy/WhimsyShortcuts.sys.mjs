@@ -13,6 +13,10 @@
 // - Bookmark This Page loses Cmd+D to pinning (still in the Bookmarks menu
 //   and the star), since Whimsy's pinned tabs are its bookmarks.
 //
+// wave6: Cmd+N makes a new space (BUILD-PLAN answer 1, confirmed by the
+// user over Arc's New Window). New Window keeps working on
+// Cmd+Opt+Shift+N (and the File menu, Dock menu and command bar).
+//
 // wave6/parity, Arc's menu keys:
 // - Open Library...: Cmd+Shift+L (Zen's Opt+Shift+L).
 // - Save Page As: Cmd+Shift+S (Zen moved it to Cmd+Opt+Shift+S). Firefox's
@@ -40,7 +44,10 @@ export const SHORTCUTS = {
   "zen-toggle-pin-tab": { modifiers: "accel", key: "D" },
   addBookmarkAsKb: {},
   "zen-library-toggle": { modifiers: "accel,shift", key: "L" },
+  key_newNavigator: { modifiers: "accel,alt,shift", key: "N" },
 };
+
+export const NEW_SPACE_KEY = { key: "N", modifiers: "accel" };
 
 // Applied only while Whimsy's Capture (Cmd+Shift+2) is on.
 export const CAPTURE_SHORTCUTS = {
@@ -80,6 +87,15 @@ export const WhimsyShortcuts = {
       keysets.add(keyEl.parentElement);
     }
     this.rebindKeysets(keysets);
+    // Cmd+N: Zen's "create space" command, now that New Window has moved.
+    // Zen's command bar already lists "New Space", so not added there again.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_zenOpenWorkspaceCreation",
+      l10nId: "whimsy-action-new-space",
+      keyId: "key_whimsyNewSpace",
+      key: NEW_SPACE_KEY,
+      commandBar: false,
+    });
     // The Browser Console's key exists only after DevTools hooks the window.
     const onReady = subject => {
       if (subject != win) {

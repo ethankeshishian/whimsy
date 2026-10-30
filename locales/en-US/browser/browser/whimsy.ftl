@@ -1687,3 +1687,7 @@ whimsy-menu-copy-url-quote =
     .label = Copy URL as Quote
 whimsy-menu-paste-match-style =
     .label = Paste and Match Style
+
+## wave6: Cmd+N makes a new space (BUILD-PLAN); New Window moves to Cmd+Opt+Shift+N.
+
+whimsy-action-new-space = New Space…
