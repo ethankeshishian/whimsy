@@ -168,3 +168,12 @@ add_task(function test_command_bar_shows_the_button() {
     }
   }
 });
+
+// fix7 settings: the VPN is Firefox's (a Mozilla service), so Firefox's own
+// VPN strings say so instead of "Whimsy's built-in VPN".
+add_task(async function test_vpn_is_labelled_as_firefox() {
+  const l10n = new Localization(["branding/brand.ftl", "browser/ipProtection.ftl"], true);
+  const title = l10n.formatValueSync("unauthenticated-vpn-title");
+  ok(title.includes("Firefox"), `The panel names Firefox's VPN: "${title}"`);
+  ok(!/whimsy/i.test(title), "not Whimsy's");
+});

@@ -131,6 +131,36 @@ ENGINE_TEXT_FIXES = [
      "Home: they still open Firefox's new tab page."),
 ]
 
+# fix7 settings: Firefox's VPN (IP Protection) is Mozilla's service, but its
+# strings say "{ -brand-product-name }'s built-in VPN", which reads "Whimsy's
+# built-in VPN". The VPN is Firefox's, so it says so; lines about the browser
+# you're in ("while browsing in Whimsy") keep the brand. The Android promo
+# offers Firefox for Android, not a Whimsy app.
+_VPN_FTL = "browser/locales/en-US/browser/ipProtection.ftl"
+ENGINE_TEXT_FIXES += [
+    (f"vpn-is-firefox-{string_id}", _VPN_FTL,
+     f"{string_id} = {before}{{ -brand-product-name }}\u2019s built-in VPN",
+     f"{string_id} = {before}Firefox\u2019s built-in VPN",
+     "Firefox's VPN, not Whimsy's.")
+    for string_id, before in [
+        ("ipprotection-feature-introduction-title-1", 'Try '),
+        ("ipprotection-feature-introduction-description-summer-promo", 'Go farther with '),
+        ("ipprotection-feature-introduction-title-private-browsing", 'Maximize privacy with '),
+        ("ipprotection-feature-introduction-title-captive-portal", 'On public Wi-Fi? Try '),
+        ("ipprotection-location-selection-callout-description-1", '<a data-l10n-name="learn-more-vpn">'),
+        ("unauthenticated-vpn-title", 'Try '),
+    ]
+] + [
+    ("vpn-panel-heading-is-firefox", _VPN_FTL,
+     "  .heading = Try { -brand-short-name }\u2019s built-in VPN",
+     "  .heading = Try Firefox\u2019s built-in VPN",
+     "Firefox's VPN, not Whimsy's."),
+    ("vpn-android-promo-is-firefox", _VPN_FTL,
+     "Scan the QR code to get { -brand-product-name } for Android",
+     "Scan the QR code to get Firefox for Android",
+     "The promo's app is Firefox for Android."),
+]
+
 
 def apply_engine_text_fixes():
     changed = 0

@@ -1025,10 +1025,10 @@ whimsy-changelog-unreleased = Unreleased
 ## Security card, and the command bar actions.
 
 whimsy-vpn-header =
-    .label = VPN
+    .label = VPN from Firefox
 whimsy-vpn-toggle =
     .label = Turn on VPN
-whimsy-vpn-description = Hides your location from the sites you visit, free for up to 50 GB a month. Turn it on from the button beside your profile icon — you’ll need to sign in with a Mozilla account.
+whimsy-vpn-description = Firefox’s free built-in VPN hides your location from the sites you visit, up to 50 GB a month. Sign in with a Mozilla account, then turn it on from the VPN button in the toolbar or the command bar.
 whimsy-vpn-manage-button =
     .label = Open VPN panel…
 whimsy-vpn-status-off = Off
