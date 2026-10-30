@@ -624,3 +624,14 @@
     <description id="whimsySearchDeckHelp" class="description-deemphasized indent" data-l10n-id="whimsy-search-deck-help"/>
   </groupbox>
 </html:template>
+
+# wave6: navigation (Already open, Trails, Page actions). whimsy-settings.js
+# adds these to Settings -> Tab Management -> Tabs.
+<html:template id="template-whimsyNavigation" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <checkbox id="whimsyAlreadyOpen"
+            data-l10n-id="whimsy-already-open-setting" preference="whimsy.feature.already-open"/>
+  <checkbox id="whimsyTrails"
+            data-l10n-id="whimsy-trails-setting" preference="whimsy.feature.trails"/>
+  <checkbox id="whimsyPageActions"
+            data-l10n-id="whimsy-page-actions-setting" preference="whimsy.feature.page-actions"/>
+</html:template>

@@ -192,6 +192,21 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
 });
 
+// wave6: Already open (Arc parity).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
+});
+
+// wave6: Trails (branching back/forward menu).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTrails: "resource:///modules/whimsy/WhimsyTrails.sys.mjs",
+});
+
+// wave6: Page actions (schema.org data -> a pill in the address bar).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -665,6 +680,16 @@ export const Whimsy = {
     // wave6/search: Instant result (Shift+Enter) and the Search Deck. Always
     // installed; each checks its switch on use.
     run("search-deck", () => lazy.WhimsySearchDeck.initWindow(win));
+
+    // wave6: Already open. Return on an address that's open in any space
+    // goes to that tab (Arc). Always installed; checks its switch on use.
+    run("already-open", () => lazy.WhimsyAlreadyOpen.initWindow(win));
+    // wave6: Trails. Pages cut from Forward stay as branches in the
+    // Back/Forward menu. Always installed; checks its switch on use.
+    run("trails", () => lazy.WhimsyTrails.initWindow(win));
+    // wave6: Page actions. Its page actor is registered once even when off;
+    // the child checks the switch on every page.
+    run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

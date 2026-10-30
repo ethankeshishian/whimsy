@@ -877,6 +877,19 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)instant-?(result|link)s?")]},
     {"id": "search-deck", "title": "Search Deck: flip through search results one by one in a Glance; Cmd+Enter keeps one as a tab",
      "detect": [("src/zen", r"(?i)search-?deck|result-?deck")]},
+    # wave6: Already open (Arc): Return on an address that's open in any
+    # space goes to that tab instead of a duplicate. Zen already lists open
+    # tabs as Switch to Tab results; this is only the typed-address case.
+    {"id": "already-open", "title": "Already open: typing an address that's open in another tab or space takes you there instead of opening a copy (Arc)",
+     "detect": [("src/zen", r"(?i)already-?open|dedupe-?tabs|prevent-?duplicate")]},
+    # wave6: Trails (Horse, Nyxt): forward pages a new click would drop stay
+    # as branches in the Back/Forward menu, plus where the tab came from.
+    {"id": "trails", "title": "Trails: pages you went back from stay in the Back/Forward menu as branches, with where the tab came from",
+     "detect": [("src/zen", r"(?i)OnHistoryTruncate\s*[(:]\s*\w|history-?tree|branch(ing)?-?history")]},
+    # wave6: Page actions (Safari Highlights): schema.org JSON-LD/microdata
+    # on the page -> one address bar pill (Calendar, Maps, Cook mode...).
+    {"id": "page-actions", "title": "Page actions: add events to Calendar, open places in Maps, cook mode for recipes, from the page's own data (Safari Highlights)",
+     "detect": [("src/zen", r"(?i)application/ld\+json|schema\.org/(Event|Recipe)|page-?actions?-?pill")]},
 ]
 
 

@@ -457,3 +457,13 @@ support-files = ["whimsy_link_hints.html"]
 # wave6/search: Instant result (Shift+Enter) and the Search Deck (flip, swipe, promote, no history).
 ["browser_whimsy_search_deck.js"]
 support-files = ["whimsy_search_results.html", "whimsy_search_card.html"]
+
+# wave6: Already open (Arc): Return on an open address goes to its tab and space.
+["browser_whimsy_already_open.js"]
+
+# wave6: Trails: pages cut from Forward stay as branch rows in the Back/Forward menu.
+["browser_whimsy_trails.js"]
+
+# wave6: Page actions: schema.org data -> Calendar, Maps, Cook mode, Track pill.
+["browser_whimsy_page_actions.js"]
+support-files = ["whimsy_page_actions.html"]

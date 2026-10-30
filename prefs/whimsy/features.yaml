@@ -444,6 +444,15 @@
 - name: whimsy.feature.search-deck
   value: true
 
+- name: whimsy.feature.already-open
+  value: true
+
+- name: whimsy.feature.trails
+  value: true
+
+- name: whimsy.feature.page-actions
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

@@ -93,3 +93,5 @@
         content/browser/whimsy/whimsy-link-hints.css                             (../../zen/whimsy/content/whimsy-link-hints.css)
 # wave6/search: Search Deck dots
         content/browser/whimsy/whimsy-search-deck.css                            (../../zen/whimsy/content/whimsy-search-deck.css)
+# wave6: navigation (Trails menu rows, Page actions pill)
+        content/browser/whimsy/whimsy-navigation.css                             (../../zen/whimsy/content/whimsy-navigation.css)
