@@ -395,8 +395,11 @@ whimsy-open-link-in-space =
 
 whimsy-hex-input =
     .placeholder = #5B8CFF
-    .title = Type or paste a hex color, then press Return
+    .title = Type or paste a hex color, then press Return. Add two digits for opacity, like #5B8CFF80.
     .aria-label = Hex color
+whimsy-hex-add =
+    .tooltiptext = Add color
+    .aria-label = Add color
 
 ## Settings → Look and Feel → Look
 
