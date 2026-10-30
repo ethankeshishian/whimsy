@@ -93,6 +93,10 @@ export const WhimsyAIReader = {
       browser.style.width = browser.style.minWidth = `${BROWSER_SIZE.width}px`;
       browser.style.height = browser.style.minHeight = `${BROWSER_SIZE.height}px`;
       doc.documentElement.appendChild(browser);
+      // Match PageExtractor's capability restrictions, while retaining the
+      // container's authenticated session and scripts needed for rendering.
+      browser.browsingContext.sandboxFlags |=
+        0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000;
       browser.browsingContext?.mediaController?.mute();
       browser.addEventListener("DidChangeBrowserRemoteness", () =>
         browser.browsingContext?.mediaController?.mute()

@@ -97,8 +97,8 @@ export const WhimsyPageWatch = {
     return [...(await this.load())];
   },
 
-  async watchFor(url) {
-    return (await this.load()).find(w => w.url == url) ?? null;
+  async watchFor(url, userContextId = 0) {
+    return (await this.load()).find(w => w.url == url && (w.userContextId || 0) == userContextId) ?? null;
   },
 
   /**
@@ -452,7 +452,7 @@ export const WhimsyPageWatch = {
       const tab = win.TabContextMenu?.contextTab;
       item.hidden = !this.canWatch(win, tab);
       if (!item.hidden) {
-        const watched = await this.watchFor(tab.linkedBrowser.currentURI.spec);
+        const watched = await this.watchFor(tab.linkedBrowser.currentURI.spec, tab.linkedBrowser.getAttribute("usercontextid") | 0);
         doc.l10n.setAttributes(item, watched ? "whimsy-watch-menu-stop" : "whimsy-watch-menu");
       }
     });
@@ -480,7 +480,7 @@ export const WhimsyPageWatch = {
     if (!this.canWatch(win, tab)) {
       return;
     }
-    const watched = await this.watchFor(tab.linkedBrowser.currentURI.spec);
+    const watched = await this.watchFor(tab.linkedBrowser.currentURI.spec, tab.linkedBrowser.getAttribute("usercontextid") | 0);
     if (watched) {
       await this.remove(watched.id);
       win.gZenUIManager?.showToast("whimsy-watch-stopped");

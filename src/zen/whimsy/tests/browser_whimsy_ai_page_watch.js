@@ -173,3 +173,21 @@ add_task(async function test_kill_switch_and_private() {
   ok(!WhimsyPageWatch.canWatch(win, tab), "Private pages can't be watched");
   await BrowserTestUtils.closeWindow(win);
 });
+
+add_task(async function watch_controls_separate_accounts() {
+  const a = await WhimsyPageWatch.add({ url: PAGE, condition: "in stock", userContextId: 1 });
+  const b = await WhimsyPageWatch.add({ url: PAGE, condition: "in stock", userContextId: 2 });
+  try {
+    is((await WhimsyPageWatch.watchFor(PAGE, 1)).id, a.id, "Account one's watch");
+    is((await WhimsyPageWatch.watchFor(PAGE, 2)).id, b.id, "Account two's independent watch");
+    const tab = await BrowserTestUtils.openNewForegroundTab({ gBrowser, url: PAGE, userContextId: 2 });
+    try {
+      await WhimsyPageWatch.toggleForTab(window, tab);
+      is(await WhimsyPageWatch.watchFor(PAGE, 2), null, "Stop targets the tab's account");
+      is((await WhimsyPageWatch.watchFor(PAGE, 1)).id, a.id, "Other account remains watched");
+    } finally { BrowserTestUtils.removeTab(tab); }
+  } finally {
+    await WhimsyPageWatch.remove(a.id);
+    await WhimsyPageWatch.remove(b.id);
+  }
+});

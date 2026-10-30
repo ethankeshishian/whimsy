@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><title>Hidden reader capabilities</title>
+<body><form action="?submitted"><input name="submitted" value="1"></form>
+<a href="whimsy_video.mp4" download="hidden-preview.mp4">Download</a>
+<script>
+if (location.search.includes("submitted")) {
+  document.body.textContent = "FORM_SUBMITTED";
+} else {
+  const popup = window.open("about:blank", "_blank");
+  document.querySelector("a").click();
+  document.querySelector("form").submit();
+  setTimeout(() => { document.body.textContent = "SCRIPT_RAN FORM_BLOCKED " + (popup ? "POPUP_OPENED" : "POPUP_BLOCKED"); }, 300);
+}
+</script>

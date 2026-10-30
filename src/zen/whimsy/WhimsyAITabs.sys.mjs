@@ -109,6 +109,7 @@ export const WhimsyAITabs = {
   isTodayTab(tab) {
     return (
       tab?.localName == "tab" &&
+      !lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) &&
       !tab.pinned &&
       !tab.closing &&
       !tab.hasAttribute("zen-essential") &&
@@ -172,10 +173,13 @@ export const WhimsyAITabs = {
   // TabOpen handlers, so Zen has put the tab in its space first.
   onTabOpen(win, tab) {
     const state = windows.get(win);
-    if (state?.reordering) {
+    if (!this.tidyEnabled || state?.reordering) {
       return;
     }
     win.setTimeout(() => {
+      if (!this.tidyEnabled) {
+        return;
+      }
       // Session restore brings its section back; leave restored tabs be.
       this.restoreSection(win, tab, { render: false });
       if (
@@ -229,7 +233,7 @@ export const WhimsyAITabs = {
   // after one of a section's tabs. Above the first header, it leaves.
   onTabMove(win, tab) {
     const state = windows.get(win);
-    if (state?.reordering || !this.isTodayTab(tab)) {
+    if (!this.tidyEnabled || state?.reordering || !this.isTodayTab(tab)) {
       this.queueRender(win);
       return;
     }
@@ -264,6 +268,14 @@ export const WhimsyAITabs = {
   // section is gone, and shows each space's broom when it can tidy.
   render(win) {
     const doc = win.document;
+    if (!this.tidyEnabled) {
+      // Keep saved membership for re-enabling, but remove interactive headers.
+      doc.querySelectorAll(`.${HEADER_CLASS}`).forEach(header => header.remove());
+      for (const separator of doc.querySelectorAll(".pinned-tabs-container-separator")) {
+        this.updateBroom(win, separator);
+      }
+      return;
+    }
     const sections = new Map();
     for (const tab of win.gBrowser.tabs) {
       const id = this.sectionOf(tab);
@@ -464,6 +476,9 @@ export const WhimsyAITabs = {
         'Reply as JSON: {"sections": [{"name": "Trip Planning", "tabs": [0, 4, 5]}]}\n\n' +
         lazy.WhimsyAIProviders.clip(list);
       const answer = await lazy.WhimsyAIProviders.completeJSON({ system: TIDY_SYSTEM, prompt, maxTokens: 800 });
+      if (!this.tidyEnabled) {
+        return null;
+      }
       const sections = this.parseSections(answer, tabs);
       if (!sections.length) {
         throw Object.assign(new Error("No sections"), { code: "bad-response" });

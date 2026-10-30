@@ -234,3 +234,41 @@ add_task(async function test_tidy_titles() {
   gBrowser.unpinTab(plain);
   BrowserTestUtils.removeTab(plain);
 });
+
+add_task(async function tidy_excludes_private_tabs() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.provider", "claude"]] });
+  const tab = WhimsyPrivate.openPrivateTab(window);
+  try {
+    await TestUtils.waitForCondition(() => tab.linkedBrowser.browsingContext.usePrivateBrowsing);
+    tab.label = "SECRET PRIVATE TITLE";
+    requests = [];
+    ok(!WhimsyAITabs.todayTabs(window).includes(tab), "Private tab excluded before constructing metadata");
+    await openTodayTabs(Math.max(0, 7 - WhimsyAITabs.todayTabs(window).length));
+    await WhimsyAITabs.tidy(window);
+    ok(!requests.some(r => r.prompt.includes("SECRET PRIVATE TITLE")), "Claude request excludes private metadata");
+    ok(!WhimsyAITabs.sectionOf(tab), "Private tab never assigned a section");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function tidy_disabled_stops_mutating_tabs() {
+  for (const [pref, value] of [["whimsy.feature.tidy-tabs", false], ["whimsy.ai.blocked", true]]) {
+    await WhimsyAITabs.tidy(window);
+    await SpecialPowers.pushPrefEnv({ set: [[pref, value]] });
+    try {
+      await TestUtils.waitForCondition(() => !headers().length, "Disabled headers are removed");
+      const tab = (await openTodayTabs(1))[0];
+      const members = WhimsyAITabs.todayTabs(window).filter(t => t.hasAttribute("whimsy-tidy-section"));
+      if (members.length) {
+        gBrowser.moveTabAfter(tab, members[0]);
+        WhimsyAITabs.onTabMove(window, tab);
+      }
+      await TestUtils.waitForTick();
+      ok(!tab.hasAttribute("whimsy-tidy-section"), "Opening and moving cannot join sections while disabled");
+      BrowserTestUtils.removeTab(tab);
+    } finally { await SpecialPowers.popPrefEnv(); }
+  }
+});

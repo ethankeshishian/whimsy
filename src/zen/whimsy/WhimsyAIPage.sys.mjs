@@ -296,7 +296,7 @@ export const WhimsyAIPage = {
     if (!ready && data.how != "shift") {
       return;
     }
-    if (state.preview?.url == data.url) {
+    if (state.preview?.url == data.url && state.preview.browser == browser) {
       win.clearTimeout(state.preview.leaveTimer);
       return;
     }
@@ -327,7 +327,8 @@ export const WhimsyAIPage = {
   },
 
   async summarize(url, { userContextId = 0, signal } = {}) {
-    const cached = previewCache.get(url);
+    const cacheKey = JSON.stringify([userContextId, url]);
+    const cached = previewCache.get(cacheKey);
     if (cached && Date.now() - cached.at < PREVIEW_CACHE_MS) {
       return cached.data;
     }
@@ -367,7 +368,7 @@ export const WhimsyAIPage = {
       throw Object.assign(new Error("No points"), { code: "bad-response" });
     }
     const data = { title: String(result?.title || page.title || "").trim().slice(0, 140), points };
-    previewCache.set(url, { at: Date.now(), data });
+    previewCache.set(cacheKey, { at: Date.now(), data });
     if (previewCache.size > PREVIEW_CACHE_MAX) {
       previewCache.delete(previewCache.keys().next().value);
     }

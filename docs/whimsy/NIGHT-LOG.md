@@ -145,3 +145,5 @@
 - W34 lane: merged wave4/home; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.
 
 - W34 lane: merged wave4/fun; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.
+
+- W34 resume — AI review: restricted hidden readers to PageExtractor's sandbox capabilities; separated preview caches and watches by container; excluded private tabs from Tidy metadata; stopped rearrangement and removed headers when Tidy/AI is disabled. Added regression coverage for all five w3ai findings and a hostile hidden-reader fixture. Full merged build previously passed; fresh browser verification cannot launch plugin-container (macOS sandbox_extension_issue_file_to_process: Operation not permitted), so no browser test pass is claimed. Static syntax/precheck passed.

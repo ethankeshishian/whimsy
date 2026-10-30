@@ -198,3 +198,39 @@ add_task(async function test_no_preview_in_private_windows() {
   is(read.length, 0, "and nothing is fetched behind the scenes");
   await BrowserTestUtils.closeWindow(win);
 });
+
+add_task(async function preview_cache_separates_accounts() {
+  const reads = [];
+  WhimsyAIReader.setTestReader((_url, { userContextId }) => {
+    reads.push(userContextId);
+    return `Account ${userContextId} private dashboard`;
+  });
+  WhimsyAIProviders.setTestProvider(({ prompt }) => JSON.stringify({
+    title: prompt.includes("Account 1 private") ? "Account one" : "Account two",
+    points: ["Account-specific content"],
+  }));
+  try {
+    const url = PAGE + "?cache-isolation";
+    const first = await WhimsyAIPage.summarize(url, { userContextId: 1 });
+    const second = await WhimsyAIPage.summarize(url, { userContextId: 2 });
+    is(first.title, "Account one", "First account's summary");
+    is(second.title, "Account two", "Second account never sees first account's cached text");
+    await WhimsyAIPage.summarize(url, { userContextId: 1 });
+    Assert.deepEqual(reads, [1, 2], "Caches are independent within each container");
+  } finally {
+    WhimsyAIReader.setTestReader(null);
+    WhimsyAIProviders.setTestProvider(fakeProvider);
+  }
+});
+
+add_task(async function hidden_reader_blocks_active_capabilities() {
+  const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+  const list = await Downloads.getList(Downloads.ALL);
+  const before = new Set(await list.getAll());
+  WhimsyAIReader.setTestReader(null);
+  const result = await WhimsyAIReader.readUrl(ROOT + "whimsy_ai_sandbox.html");
+  ok(result.text.includes("FORM_BLOCKED"), "Hidden page cannot submit a form");
+  ok(result.text.includes("POPUP_BLOCKED"), "Hidden page cannot open a popup");
+  ok(result.text.includes("SCRIPT_RAN"), "Rendering scripts still run");
+  Assert.deepEqual((await list.getAll()).filter(item => !before.has(item)), [], "Hidden page cannot download");
+});
