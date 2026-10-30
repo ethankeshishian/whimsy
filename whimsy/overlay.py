@@ -797,6 +797,10 @@ FEATURES = [
     # Zen discussion #12557). Zen only copies [title](url).
     {"id": "copy-page-markdown", "title": "Copy Page as Markdown: the Reader View article (or a selection) as Markdown, from the page menu and command bar",
      "detect": [("src/zen", r"(?i)copy-?(page|selection)-?as-?markdown|pageToMarkdown|turndown")]},
+    # wave5/quick: Markdown/CSV viewer (Typora/Marked/GitHub file view; built
+    # like Firefox's JSON viewer: sniffer + stream converter, no page script).
+    {"id": "doc-viewer", "title": "Markdown and CSV viewer: .md files read with reader typography and contents, CSV/TSV as a sortable table, Source toggle, live reload",
+     "detect": [("src/zen", r"(?i)text/markdown|markdown-?viewer|csv-?viewer")]},
 ]
 
 

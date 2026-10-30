@@ -29,6 +29,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCopy.sys.mjs",
     "WhimsyDelight.sys.mjs",
     "WhimsyDevMode.sys.mjs",
+    "WhimsyDocRender.sys.mjs",
+    "WhimsyDocViewer.sys.mjs",
     "WhimsyDownloads.sys.mjs",
     "WhimsyEmailAliases.sys.mjs",
     "WhimsyEmailAliasesChild.sys.mjs",

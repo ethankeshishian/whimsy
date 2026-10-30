@@ -354,3 +354,7 @@ support-files = ["whimsy_ai_page.html"]
 # wave5/quick: Copy page as Markdown (article, selection, fallback, converter, switch).
 ["browser_whimsy_copy_page_markdown.js"]
 support-files = ["whimsy_markdown_article.html", "whimsy_markdown_plain.html"]
+
+# wave5/quick: Markdown/CSV viewer (file:// and text/plain .md, CSV sorting, Source, live reload, safety, switch).
+["browser_whimsy_doc_viewer.js"]
+support-files = ["whimsy_viewer.md", "whimsy_viewer.md^headers^", "whimsy_viewer.csv", "whimsy_viewer.csv^headers^"]

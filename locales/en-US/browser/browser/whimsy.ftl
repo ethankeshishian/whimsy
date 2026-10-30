@@ -1631,3 +1631,25 @@ whimsy-action-copy-page-markdown = Copy Page as Markdown
 whimsy-copy-page-markdown-toast = Copied page as Markdown
 whimsy-copy-selection-markdown-toast = Copied selection as Markdown
 whimsy-copy-markdown-empty-toast = Nothing to copy as Markdown here
+
+## wave5/quick: Markdown and CSV viewer (opened .md, .csv and .tsv files)
+
+whimsy-doc-viewer-source = Source
+whimsy-doc-viewer-preview = Preview
+whimsy-doc-viewer-table = Table
+whimsy-doc-viewer-contents = Contents
+whimsy-doc-viewer-empty = This file is empty.
+whimsy-doc-viewer-truncated = Showing the first 20,000 rows. Open the file in a spreadsheet app to see the rest.
+whimsy-doc-viewer-too-large = This file is too large to preview, so here is its source.
+# $words (Number) - words in the file
+whimsy-doc-viewer-meta-markdown =
+    { $words ->
+        [one] Markdown · { $words } word
+       *[other] Markdown · { $words } words
+    }
+# $kind (String) - CSV or TSV; $rows (Number) - data rows, without the header
+whimsy-doc-viewer-meta-table =
+    { $rows ->
+        [one] { $kind } · { $rows } row
+       *[other] { $kind } · { $rows } rows
+    }
