@@ -83,6 +83,22 @@ export const WhimsyLibrarySection = {
     }
     lib._whimsySectionsHooked = true;
 
+    // Zen keeps every section it has shown mounted (a private Set) and
+    // renders each with zenLibrarySections[id].render(), so a section
+    // removed while mounted (its switch turned off) threw on the next
+    // render. A removed Whimsy section reads as an empty one instead; every
+    // other lookup, key list and `in` check goes to Zen's own object.
+    const removed = new Set();
+    const emptySection = id => ({ id, render: () => null });
+    lib.zenLibrarySections = new Proxy(lib.zenLibrarySections, {
+      get(target, key, receiver) {
+        if (typeof key == "string" && !(key in target) && removed.has(key)) {
+          return emptySection(key);
+        }
+        return Reflect.get(target, key, receiver);
+      },
+    });
+
     const nativeHistory = lib.zenLibrarySections.history;
     const sync = () => {
       // batch hist: restore Zen immediately when the feature switch is off.
@@ -105,6 +121,7 @@ export const WhimsyLibrarySection = {
           changed = true;
         } else if (!on && has) {
           delete lib.zenLibrarySections[entry.sectionId];
+          removed.add(entry.sectionId);
           if (lib.activeTab === entry.sectionId) {
             lib.activeTab = "history";
           }

@@ -1192,6 +1192,7 @@ whimsy-cheatsheet-private-window = New Private Window
 ## fixB: the Archive, a Library section beside History
 
 whimsy-library-archive-title = Archive
+whimsy-library-archive-filter-title = Filter Archive…
 whimsy-library-archive-search =
     .placeholder = Search archived tabs
 whimsy-library-archive-intro = Tabs that left your sidebar, kept so you can put them back in their space. History, next door, lists every page you visited.

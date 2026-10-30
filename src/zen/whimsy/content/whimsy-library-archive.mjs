@@ -109,6 +109,12 @@ export class WhimsyArchiveSection extends ZenLibrarySearchSection {
     return "whimsy-library-archive-search";
   }
 
+  // The filter panel's heading (Zen's sections each name theirs; without
+  // one the heading had no string and Fluent threw).
+  get filterTitleL10nId() {
+    return "whimsy-library-archive-filter-title";
+  }
+
   get filterGroups() {
     return [
       whenFilterGroup("library-history-filter-when"),

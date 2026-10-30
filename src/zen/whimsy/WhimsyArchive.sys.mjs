@@ -258,7 +258,7 @@ export const WhimsyArchive = {
   openPanel(win) {
     const ZenLibrary = win.customElements.get("zen-library");
     const lib = win.document.querySelector("zen-library");
-    if (!ZenLibrary?.toggle || !lib?.zenLibrarySections?.["whimsy-archive"]) {
+    if (!ZenLibrary?.toggle || !lib?.zenLibrarySections || !("whimsy-archive" in lib.zenLibrarySections)) {
       return false;
     }
     ZenLibrary.toggle("whimsy-archive");
