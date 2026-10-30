@@ -101,7 +101,7 @@ export const WhimsyFollowerTabs = {
 
   // Marks the tab as the source of its split (its partner the follower),
   // or clears it back to a plain split.
-  toggle(win, tab) {
+  async toggle(win, tab) {
     if (!this.enabled) {
       return;
     }
@@ -115,7 +115,7 @@ export const WhimsyFollowerTabs = {
     }
     this.stopSource(partner); // only one source per split
     SOURCES.add(tab);
-    this.setListening(tab, true);
+    await this.setListening(tab, true);
   },
 
   stopSource(tab) {
@@ -124,11 +124,11 @@ export const WhimsyFollowerTabs = {
     }
   },
 
-  setListening(tab, on) {
+  async setListening(tab, on) {
     try {
-      tab.linkedBrowser?.browsingContext?.currentWindowGlobal
+      return await tab.linkedBrowser?.browsingContext?.currentWindowGlobal
         ?.getActor("WhimsyPage")
-        ?.sendAsyncMessage("Whimsy:SetFollowerSource", { on });
+        ?.sendQuery("Whimsy:SetFollowerSource", { on });
     } catch (e) {
       // The browser hasn't loaded a window global yet, or is already gone.
     }
@@ -140,7 +140,7 @@ export const WhimsyFollowerTabs = {
     if (!this.enabled || !tab || !this.isSource(tab)) {
       return;
     }
-    const partner = this.partnerOf(tab.ownerGlobal, tab);
+    const partner = this.partnerOf(tab.ownerDocument.defaultView, tab);
     if (!partner || partner.closing) {
       this.stopSource(tab);
       return;

@@ -179,7 +179,8 @@ export const WhimsyArchive = {
     const raw = lazy.SessionStore.getClosedTabDataForWindow(win) || [];
     const entries = [];
     for (const data of raw) {
-      const active = data.entries?.[(data.index || data.entries.length) - 1] || data.entries?.at?.(-1);
+      const state = data.state;
+      const active = state.entries?.[(state.index || state.entries.length) - 1] || state.entries?.at(-1);
       const title = active?.title || data.title || active?.url || "";
       const url = active?.url || "";
       if (q && !title.toLowerCase().includes(q) && !url.toLowerCase().includes(q)) {
@@ -190,10 +191,10 @@ export const WhimsyArchive = {
         title,
         url,
         image: data.image || "",
-        reason: data.extData?.[REASON_KEY] || "closed",
-        groupId: data.extData?.[GROUP_KEY] || null,
+        reason: state.extData?.[REASON_KEY] || "closed",
+        groupId: state.extData?.[GROUP_KEY] || null,
         closedAt: data.closedAt || Date.now(),
-        zenWorkspace: data.zenWorkspace || "",
+        zenWorkspace: state.zenWorkspace || "",
       });
     }
     return entries;

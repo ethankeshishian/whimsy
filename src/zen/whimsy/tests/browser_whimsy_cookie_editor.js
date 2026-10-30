@@ -23,8 +23,10 @@ add_task(async function test_edit_and_delete_a_cookie() {
     is(a.value, "1", "With its value");
 
     WhimsyCookieEditor.setCookie(HOST, oa, { name: "a", value: "2", path: a.path });
-    const updated = await SpecialPowers.spawn(browser, [], () => content.document.cookie);
-    ok(updated.includes("a=2"), "Editing the value updates what the page sees");
+    await TestUtils.waitForCondition(
+      () => SpecialPowers.spawn(browser, [], () => content.document.cookie.includes("a=2")),
+      "Editing the value updates what the page sees"
+    );
 
     WhimsyCookieEditor.removeCookie(HOST, "a", a.path, oa);
     cookies = WhimsyCookieEditor.cookiesFor(HOST, oa);

@@ -3,6 +3,8 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
+
 // Undo for tab actions: Cmd+Z reverses the last close/pin/move, but never
 // steals the key from an editable field (where it must stay plain text undo).
 

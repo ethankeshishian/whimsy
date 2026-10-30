@@ -28,9 +28,7 @@ async function split(tabA, tabB) {
 }
 
 function clickLink(browser) {
-  return SpecialPowers.spawn(browser, [], () => {
-    content.document.getElementById("link").click();
-  });
+  return BrowserTestUtils.synthesizeMouseAtCenter("#link", {}, browser);
 }
 
 registerCleanupFunction(() => Services.prefs.clearUserPref("whimsy.feature.follower-tabs"));
@@ -40,7 +38,7 @@ add_task(async function test_follow_redirects_clicks_to_the_partner_pane() {
   const follower = await addTab("about:blank");
   await split(source, follower);
 
-  WhimsyFollowerTabs.toggle(window, source);
+  await WhimsyFollowerTabs.toggle(window, source);
   ok(WhimsyFollowerTabs.isSource(source), "Marked as the split's source");
 
   await clickLink(source.linkedBrowser);
@@ -58,7 +56,7 @@ add_task(async function test_a_link_clicked_inside_the_follower_pane_navigates_i
   const source = await addTab(SOURCE_PAGE);
   const follower = await addTab(SOURCE_PAGE);
   await split(source, follower);
-  WhimsyFollowerTabs.toggle(window, source);
+  await WhimsyFollowerTabs.toggle(window, source);
 
   await clickLink(follower.linkedBrowser);
   await TestUtils.waitForCondition(
@@ -75,7 +73,7 @@ add_task(async function test_direct_navigation_in_the_source_is_not_redirected()
   const source = await addTab(SOURCE_PAGE);
   const follower = await addTab("about:blank");
   await split(source, follower);
-  WhimsyFollowerTabs.toggle(window, source);
+  await WhimsyFollowerTabs.toggle(window, source);
 
   BrowserTestUtils.startLoadingURIString(source.linkedBrowser, "https://example.com/");
   await BrowserTestUtils.browserLoaded(source.linkedBrowser, false, "https://example.com/");
@@ -102,7 +100,7 @@ add_task(async function test_feature_off_ignores_toggle() {
   await split(source, follower);
 
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.follower-tabs", false]] });
-  WhimsyFollowerTabs.toggle(window, source);
+  await WhimsyFollowerTabs.toggle(window, source);
   ok(!WhimsyFollowerTabs.isSource(source), "The switch off: toggle does nothing");
 
   await clickLink(source.linkedBrowser);

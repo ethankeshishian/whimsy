@@ -9,7 +9,8 @@
 // the permission.
 
 add_task(async function test_localhost_is_dev_mode_example_org_is_not() {
-  await BrowserTestUtils.withNewTab("http://mochi.test:8888/", async (browser, tab) => {
+  await BrowserTestUtils.withNewTab("http://mochi.test:8888/", async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
     // mochi.test:8888 has an explicit port, so it counts as a dev host.
     await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-devmode"));
     ok(tab.hasAttribute("whimsy-devmode"), "A host with an explicit port is Developer Mode");
@@ -17,7 +18,8 @@ add_task(async function test_localhost_is_dev_mode_example_org_is_not() {
     ok(bar && !bar.hidden, "The top bar is visible for the selected dev-mode tab");
   });
 
-  await BrowserTestUtils.withNewTab("https://example.org/", async (browser, tab) => {
+  await BrowserTestUtils.withNewTab("https://example.org/", async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
     ok(!tab.hasAttribute("whimsy-devmode"), "A plain https host is not Developer Mode");
   });
 });

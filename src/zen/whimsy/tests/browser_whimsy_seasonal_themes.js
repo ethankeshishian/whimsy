@@ -20,6 +20,10 @@ add_task(async function test_seasonal_themes() {
   is(root.getAttribute("whimsy-season"), "halloween", "Halloween season is set");
   is(root.getAttribute("whimsy-season-flourish"), "leaves", "Halloween flourish is leaves");
 
+  const flourish = getComputedStyle(document.getElementById("zen-appcontent-wrapper"), "::after");
+  is(flourish.animationIterationCount, "1", "The seasonal entrance ends instead of animating forever");
+  ok(parseFloat(flourish.animationDuration) <= 1, "The entrance settles within a second");
+
   WhimsySeasons._now = () => new Date(2026, 6, 1); // July 1: no season.
   WhimsySeasons.apply(window);
   ok(!root.hasAttribute("whimsy-season"), "No season on July 1");

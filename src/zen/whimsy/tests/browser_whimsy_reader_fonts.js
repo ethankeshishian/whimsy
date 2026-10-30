@@ -3,6 +3,8 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
+
 // Reader typography: Reader View's font list has the macOS reading fonts,
 // and choosing one sets the page's font.
 

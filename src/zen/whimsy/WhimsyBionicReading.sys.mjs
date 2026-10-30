@@ -16,19 +16,35 @@ export const WhimsyBionicReading = {
   },
 
   init() {
-    if (this._initialized || !this.enabled) {
+    if (this._initialized) {
       return;
     }
     this._initialized = true;
     ChromeUtils.registerWindowActor("WhimsyBionicReading", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyBionicReading.sys.mjs" },
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyBionicReadingChild.sys.mjs",
         events: {
-          DOMContentLoaded: {},
+          AboutReaderContentReady: { wantUntrusted: true },
         },
       },
       matches: ["about:reader*"],
       allFrames: false,
+      includeChrome: true,
+      safeForUntrustedWebProcess: true,
     });
   },
 };
+
+// Content actors cannot write profile preferences. Keep the persistent toggle
+// in the parent and return its value to the reader that requested the change.
+export class WhimsyBionicReadingParent extends JSWindowActorParent {
+  receiveMessage(message) {
+    if (message.name == "Whimsy:SetBionic" && WhimsyBionicReading.enabled) {
+      const on = !!message.data.on;
+      Services.prefs.setBoolPref("whimsy.reader.bionic", on);
+      return on;
+    }
+    return false;
+  }
+}

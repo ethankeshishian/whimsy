@@ -21,6 +21,8 @@
 //   suspends auto-hide on the panel that owns the drag, for the drag's
 //   duration, so dropping into Gmail/Slack/Drive doesn't need two trips.
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",

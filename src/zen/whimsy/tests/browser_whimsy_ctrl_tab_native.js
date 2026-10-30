@@ -3,6 +3,8 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
+
 // Whimsy: Ctrl+Tab pressed through the native macOS key path (NSEvent), the
 // way a real keyboard reaches the app, including menu key equivalents.
 

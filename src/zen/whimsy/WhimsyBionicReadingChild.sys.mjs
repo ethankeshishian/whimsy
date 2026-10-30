@@ -25,7 +25,7 @@ const WORD_RE = /([A-Za-z]+(?:['’][A-Za-z]+)?)|([^A-Za-z]+)/g;
 
 export class WhimsyBionicReadingChild extends JSWindowActorChild {
   handleEvent(event) {
-    if (event.type == "DOMContentLoaded") {
+    if (event.type == "AboutReaderContentReady" && Services.prefs.getBoolPref("whimsy.feature.bionic-reading", true)) {
       this.onReady();
     }
   }
@@ -62,17 +62,17 @@ export class WhimsyBionicReadingChild extends JSWindowActorChild {
     }
   }
 
-  toggle() {
-    const next = !this.enabled;
+  async toggle() {
     try {
-      Services.prefs.setBoolPref(PREF, next);
+      const on = await this.sendQuery("Whimsy:SetBionic", { on: !this._enabled });
+      this._applyEnabled(on);
     } catch (e) {
       console.error("Whimsy: bionic reading toggle failed", e);
     }
-    this._applyEnabled(next);
   }
 
   _applyEnabled(on) {
+    this._enabled = on;
     this._button?.setAttribute("aria-pressed", String(on));
     this._button?.classList.toggle("active", on);
     if (on) {

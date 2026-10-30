@@ -18,6 +18,7 @@ function addTab(url) {
 // switching back to the parent reselects it (gZenGlanceManager.onLocationChange).
 add_task(async function test_glance_reselects_its_parent_tab_on_switch_back() {
   const other = await addTab("data:text/plain,other");
+  const parent = await addTab("data:text/plain,parent");
   await openGlanceOnTab(
     window,
     async glanceTab => {
@@ -30,9 +31,10 @@ add_task(async function test_glance_reselects_its_parent_tab_on_switch_back() {
         "Switching back to the parent reselects its Glance"
       );
     },
-    false
+    true
   );
   BrowserTestUtils.removeTab(other);
+  BrowserTestUtils.removeTab(parent);
 });
 
 // #12: SessionStore-sys-mjs.patch saves gZenViewSplitter.storeDataForSessionStore()

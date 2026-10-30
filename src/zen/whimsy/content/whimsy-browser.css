@@ -780,7 +780,8 @@ toolbarbutton[zen-workspace-id][whimsy-scratch] {
   opacity: 0.4;
   background-image: radial-gradient(circle, var(--whimsy-season-tint) 0 2px, transparent 3px);
   background-size: 48px 64px;
-  animation: whimsy-season-fall 9s linear infinite;
+  /* A brief entrance, then idle: never keep the compositor awake all season. */
+  animation: whimsy-season-fall 900ms ease-out forwards;
 }
 @keyframes whimsy-season-fall {
   from { transform: translateY(-20%); }

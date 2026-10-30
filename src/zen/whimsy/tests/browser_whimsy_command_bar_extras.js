@@ -14,7 +14,8 @@ function action(l10nId) {
 }
 
 async function typeInUrlbar(text) {
-  gURLBar.focus();
+  gURLBar.blur();
+  await EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, {});
   await TestUtils.waitForCondition(() => gURLBar.hasAttribute("breakout-extend"), "URL bar expanded");
   gURLBar.value = text;
   gURLBar.inputField.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));

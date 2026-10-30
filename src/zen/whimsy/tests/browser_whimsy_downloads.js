@@ -4,6 +4,8 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
+
 const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
 const { WhimsyDownloads } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDownloads.sys.mjs");
 

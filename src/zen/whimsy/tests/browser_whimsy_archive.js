@@ -53,7 +53,8 @@ add_task(async function test_sweep_exemptions_and_idle_close() {
   ok(pinned.isConnected, "The pinned tab survived");
   ok(fresh.isConnected, "The fresh tab survived");
 
-  const [entry] = WhimsyArchive.listEntries(window);
+  await TestUtils.waitForCondition(() => WhimsyArchive.listEntries(window).some(e => e.url == "https://example.com/?idle"), "SessionStore recorded the idle tab");
+  const entry = WhimsyArchive.listEntries(window).find(e => e.url == "https://example.com/?idle");
   is(entry.reason, "idle", "Tagged as an idle archive");
 
   await SpecialPowers.popPrefEnv();
@@ -74,6 +75,7 @@ add_task(async function test_restore_lands_in_original_space() {
   is(entry.reason, "manual", "Reason survived the close");
   const restored = WhimsyArchive.restore(window, entry.closedId);
   ok(restored, "Something came back");
+  await BrowserTestUtils.browserLoaded(restored.linkedBrowser, false, "https://example.com/?restore-me");
   is(restored.linkedBrowser?.currentURI?.spec, "https://example.com/?restore-me", "The right tab");
   is(gBrowser.selectedTab, restored, "Selected after restoring");
   BrowserTestUtils.removeTab(restored);

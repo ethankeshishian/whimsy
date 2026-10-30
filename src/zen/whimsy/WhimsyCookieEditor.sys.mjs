@@ -31,10 +31,9 @@ export const WhimsyCookieEditor = {
   },
 
   setCookie(host, originAttributes, { name, value, path = "/", secure = false, httpOnly = false, sameSite = 0 }) {
-    const base = this.baseDomain(host);
     const oneYear = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
     Services.cookies.add(
-      base,
+      host,
       path,
       name,
       value,
@@ -50,7 +49,7 @@ export const WhimsyCookieEditor = {
   },
 
   removeCookie(host, name, path, originAttributes) {
-    Services.cookies.remove(this.baseDomain(host), name, path, originAttributes);
+    Services.cookies.remove(host, name, path, originAttributes);
   },
 
   copyAllAsJSON(win, host, originAttributes) {
@@ -130,7 +129,7 @@ export const WhimsyCookieEditor = {
     value.value = cookie.value;
     value.className = "whimsy-cookie-editor-value";
     value.addEventListener("change", () => {
-      this.setCookie(host, originAttributes, {
+      this.setCookie(cookie.host, originAttributes, {
         name: cookie.name,
         value: value.value,
         path: cookie.path,
@@ -144,7 +143,7 @@ export const WhimsyCookieEditor = {
     remove.className = "whimsy-cookie-editor-delete";
     document.l10n.setAttributes(remove, "whimsy-cookie-editor-delete");
     remove.addEventListener("command", () => {
-      this.removeCookie(host, cookie.name, cookie.path, originAttributes);
+      this.removeCookie(cookie.host, cookie.name, cookie.path, originAttributes);
       rerender();
     });
 
