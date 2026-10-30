@@ -40,7 +40,7 @@ add_task(async function test_copy_screenshot_also_saves_a_file() {
   // copyScreenshot consumes telemetry from the active capture overlay.
   await actor.sendQuery("Screenshots:ShowOverlay");
   try {
-    await ScreenshotsUtils.copyScreenshot(blob, tab.linkedBrowser, "whimsyTest");
+    await ScreenshotsUtils.copyScreenshot(blob, tab.linkedBrowser, "OverlayCopy");
   } finally {
     await actor.sendQuery("Screenshots:HideOverlay");
   }

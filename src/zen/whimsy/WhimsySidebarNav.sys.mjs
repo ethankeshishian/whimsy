@@ -6,9 +6,8 @@
 // next tab in sidebar order (across essentials, folders and pinned tabs,
 // skipping collapsed folders), and "Focus Sidebar" moves keyboard focus into
 // the tab strip so Up/Down/Enter/Delete/Esc work without a mouse. Firefox
-// already handles Up/Down/Enter/Delete/Esc once a tab has focus
-// (tabs.mjs on_keydown); the hard part Zen doesn't solve is reaching the
-// strip at all. This also adds Space to open a Glance for the focused tab,
+// uses ariaFocusedItem for keyboard navigation while DOM focus stays on
+// the selected tab. This also adds Space to open a Glance for the focused tab,
 // a peek that doesn't change your selected tab.
 // whimsy.feature.sidebar-nav; off hands all three keys back to Zen (unbound).
 
@@ -16,6 +15,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
+
+const focusedTabs = new WeakMap();
 
 const FEATURE_PREF = "whimsy.feature.sidebar-nav";
 
@@ -67,8 +68,9 @@ export const WhimsySidebarNav = {
       if (!this.enabled || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) {
         return;
       }
-      const tab = event.target.closest?.("tab, .tabbrowser-tab");
-      if (!tab?.hasAttribute("whimsy-sidebar-focused")) {
+      const tab = focusedTabs.get(win);
+      const focus = win.document.activeElement;
+      if (!tab || !win.gBrowser.tabContainer.contains(focus)) {
         return;
       }
       const tabs = visibleTabs(win);
@@ -92,7 +94,7 @@ export const WhimsySidebarNav = {
           win.gBrowser.removeTab(tab, { animate: true });
           break;
         case "Escape":
-          tab.removeAttribute("whimsy-sidebar-focused");
+          this.clearFocus(win);
           win.gBrowser.selectedBrowser.focus();
           break;
         default:
@@ -102,13 +104,19 @@ export const WhimsySidebarNav = {
       event.stopImmediatePropagation();
     }, true);
 
+    win.gBrowser.tabContainer.addEventListener("focusout", event => {
+      if (focusedTabs.has(win) && !win.gBrowser.tabContainer.contains(event.relatedTarget)) {
+        this.clearFocus(win);
+      }
+    });
+
     win.gBrowser.tabContainer.addEventListener(
       "keypress",
       event => {
         if (event.key != " " || !this.enabled) {
           return;
         }
-        const tab = event.target.closest?.("tab, .tabbrowser-tab");
+        const tab = focusedTabs.get(win);
         if (tab) {
           event.preventDefault();
           this.glance(win, tab);
@@ -122,11 +130,22 @@ export const WhimsySidebarNav = {
     this.focusTab(win.gBrowser.selectedTab);
   },
 
+  clearFocus(win) {
+    focusedTabs.get(win)?.removeAttribute("whimsy-sidebar-focused");
+    focusedTabs.delete(win);
+    win.gBrowser.tabContainer.ariaFocusedItem = null;
+  },
+
   focusTab(tab) {
+    const win = tab.ownerDocument.defaultView;
+    focusedTabs.get(win)?.removeAttribute("whimsy-sidebar-focused");
+    // XUL's tab strip keeps DOM focus on the selected tab. Moving DOM focus
+    // to an unselected tab can fail; key events still target the selected
+    // tab. Keep the navigation cursor separately, as Firefox does.
+    win.gBrowser.selectedTab.focus();
+    win.gBrowser.tabContainer.ariaFocusedItem = tab;
+    focusedTabs.set(win, tab);
     tab.setAttribute("whimsy-sidebar-focused", "");
-    tab.focus();
-    const clear = () => tab.removeAttribute("whimsy-sidebar-focused");
-    tab.addEventListener("blur", clear, { once: true });
   },
 
   glance(win, tab) {

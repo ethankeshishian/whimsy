@@ -17,7 +17,10 @@ const FEATURE_PREF = "whimsy.feature.window-close";
 
 function isLoneEmptyTab(win) {
   const { gBrowser } = win;
-  if (gBrowser.tabs.length != 1) {
+  // Zen keeps internal empty-tab sentinels alongside real tabs (and may
+  // retain more than one across spaces). They aren't user tabs. Pinned,
+  // Essential and background-space tabs still prevent closing the window.
+  if (gBrowser.tabs.some(tab => !tab.hasAttribute("zen-empty-tab"))) {
     return false;
   }
   const tab = gBrowser.selectedTab;
@@ -37,7 +40,8 @@ export const WhimsyWindowClose = {
           return;
         }
         if (isLoneEmptyTab(win)) {
-          event.stopPropagation();
+          event.preventDefault();
+          event.stopImmediatePropagation();
           win.close();
         }
       },

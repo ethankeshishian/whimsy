@@ -191,3 +191,7 @@
 # batch7: Dock icon badge (download count), Settings → Tab Management.
 - name: whimsy.downloads.dock-badge
   value: true
+
+# Library page-attached notes use Firefox canonical URLs and TabNotes storage.
+- name: browser.tabs.notes.enabled
+  value: true

@@ -56,14 +56,30 @@ add_task(async function test_swap_panes() {
   await TestUtils.waitForCondition(() => splitOf(tabA)?.tabs.length == 2, "2-pane split");
   gBrowser.selectedTab = tabA;
 
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  await TestUtils.waitForCondition(
+    () => !tabA.linkedBrowser.closest(".browserSidebarContainer").getAnimations().length,
+    "Initial split transition finished"
+  );
   const rectBefore = tabA.linkedBrowser.closest(".browserSidebarContainer").getBoundingClientRect();
   ok(action("whimsy-action-swap-panes").isAvailable(window), "Offered while in a split");
   WhimsySplit.swapPanes(window);
+  await TestUtils.waitForCondition(
+    () => tabA.linkedBrowser.closest(".browserSidebarContainer").getBoundingClientRect().left > rectBefore.left,
+    "Swap animation moves A to the other side"
+  );
   const rectAfter = tabA.linkedBrowser.closest(".browserSidebarContainer").getBoundingClientRect();
   ok(rectAfter.left > rectBefore.left, "A's pane moved to the other side");
 
+  // Finish the first transition before testing the reverse swap.
+  await TestUtils.waitForCondition(
+    () => !tabA.linkedBrowser.closest(".browserSidebarContainer").getAnimations().length,
+    "First swap transition finished"
+  );
   WhimsySplit.swapPanes(window);
+  await TestUtils.waitForCondition(
+    () => Math.round(tabA.linkedBrowser.closest(".browserSidebarContainer").getBoundingClientRect().left) == Math.round(rectBefore.left),
+    "Reverse swap animation returned A to its original position"
+  );
   const rectBack = tabA.linkedBrowser.closest(".browserSidebarContainer").getBoundingClientRect();
   is(Math.round(rectBack.left), Math.round(rectBefore.left), "Swapping again returns to the start");
 

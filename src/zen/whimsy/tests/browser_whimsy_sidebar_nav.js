@@ -31,6 +31,9 @@ add_task(async function test_sidebar_keyboard_navigation() {
   ok(tabC.hasAttribute("whimsy-sidebar-focused"), "A visible focus ring is set");
 
   EventUtils.synthesizeKey("KEY_ArrowUp", {}, window);
+  is(gBrowser.tabContainer.ariaFocusedItem, tabB, "ArrowUp moves the sidebar cursor to B");
+  is(document.activeElement, tabC, "Keys still go to the selected tab C");
+  is(gBrowser.selectedTab, tabC, "Moving the cursor does not select B yet");
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
   await TestUtils.waitForCondition(() => gBrowser.selectedTab == tabB);
   is(gBrowser.selectedTab, tabB, "ArrowUp then Enter selects the second tab");
