@@ -14,6 +14,51 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // since "/path" is a (rare) valid query someone could type on purpose.
 const SLASH_FEATURE_PREF = "whimsy.feature.command-bar-slash";
 
+// wave6/parity: Arc's command bar shows one row per page title on these
+// sites (its dedupByTitleAndHostList), where many URLs share one title
+// (a Figma file's frames, a Notion page's blocks, a GitHub repo's tabs).
+const DEDUP_FEATURE_PREF = "whimsy.feature.command-bar-dedup";
+export const DEDUP_HOSTS = new Set([
+  "figma.com",
+  "maps.google.com",
+  "notion.so",
+  "app.notion.com",
+  "zoom.us",
+  "opentable.com",
+  "zillow.com",
+  "github.com",
+  "app.mode.com",
+  "console.cloud.google.com",
+]);
+
+// Drops later results with the same title and host as an earlier one, on
+// Arc's hosts only. The heuristic (first) result always stays.
+export function dedupResults(results) {
+  const seen = new Set();
+  return results.filter((result, i) => {
+    const url = result.payload?.url;
+    const title = (result.payload?.title ?? "").trim();
+    if (!url || !title || (i == 0 && result.heuristic)) {
+      return true;
+    }
+    let host;
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "");
+    } catch (e) {
+      return true;
+    }
+    if (!DEDUP_HOSTS.has(host)) {
+      return true;
+    }
+    const key = `${host}\n${title}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 // #16: Arc's Cmd+T "New ..." actions open a fresh doc/meeting/issue before
 // you've finished thinking about it, using the ".new" shortcut domains
 // (docs.new etc., already registered by their owners) rather than
@@ -89,6 +134,7 @@ export const WhimsyCommandBar = {
 
   initWindow(win) {
     this.initSlashFilter(win);
+    this.initDedup(win);
     this.linkAppearanceActions();
     for (const thing of NEW_THINGS) {
       lazy.WhimsyCommands.register(win, {
@@ -113,6 +159,25 @@ export const WhimsyCommandBar = {
         Services.prefs.getBoolPref(CREATE_FEATURE_PREF, true) &&
         Services.prefs.getStringPref(NOTE_TARGET_PREF, "none") != "none",
     });
+  },
+
+  initDedup(win) {
+    const controller = win.gURLBar?.controller;
+    if (!controller || controller._whimsyDedup) {
+      return;
+    }
+    controller._whimsyDedup = true;
+    const receiveResults = controller.receiveResults;
+    controller.receiveResults = function (queryContext) {
+      try {
+        if (Services.prefs.getBoolPref(DEDUP_FEATURE_PREF, true) && queryContext?.results?.length > 1) {
+          queryContext.results = dedupResults(queryContext.results);
+        }
+      } catch (e) {
+        console.error("Whimsy: command bar dedup", e);
+      }
+      return receiveResults.call(this, queryContext);
+    };
   },
 
   initSlashFilter(win) {

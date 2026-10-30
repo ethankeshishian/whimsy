@@ -368,3 +368,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave6/parity: Arc's fixed tidy-title rules (no AI).
 ["browser_whimsy_tidy_titles_rules.js"]
+
+# wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
+["browser_whimsy_command_bar_dedup.js"]
