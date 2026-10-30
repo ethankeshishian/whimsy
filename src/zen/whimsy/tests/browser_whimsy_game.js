@@ -319,3 +319,26 @@ add_task(async function reduced_motion_freezes_ambient_scenery() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave5: seasonal costumes are art only - every hazard still hits the same
+// way in every season, and the costume can be taken off again.
+add_task(async function test_costumes_keep_the_rules() {
+  await withGame(async ({ doc, game }) => {
+    for (const season of ["autumn", "winter", "spring", "summer", null]) {
+      game.setSeason(season);
+      is(game.season, season, `Wearing ${season}`);
+      is(doc.getElementById("whimsy-game-root").dataset.season, season ?? undefined, "Root reflects it");
+      for (const kind of ["seed", "plane", "bird", "zap"]) {
+        game.start();
+        game.clear();
+        game.state.player.invuln = 0;
+        game.state.player.shield = 0;
+        game.spawn(kind);
+        game.tick(1 / 60);
+        is(game.state.deathKind, kind, `${season}: a ${kind} still pops the balloon`);
+      }
+    }
+    game.setSeason("nonsense");
+    is(game.season, null, "Unknown seasons fall back to no costume");
+  });
+});

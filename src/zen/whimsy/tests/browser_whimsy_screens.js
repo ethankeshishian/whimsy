@@ -1436,3 +1436,102 @@ add_task(async function wave4_fun_year() {
   });
   await PlacesUtils.history.clear();
 });
+
+// wave5: the seasonal balloon - homepage hero (light/dark), the offline
+// error page, and Balloon Dash in both looks - for each season.
+add_task(async function wave5_seasonal_balloon() {
+  const SEASONS_URL = "resource:///modules/whimsy/WhimsySeasons.sys.mjs";
+  const { WhimsySeasons } = ChromeUtils.importESModule(SEASONS_URL);
+  const original = WhimsySeasons._now;
+  const months = [["autumn", 10], ["winter", 12], ["spring", 4], ["summer", 7]];
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.seasonal-themes", true], ["whimsy.seasons.enabled", true],
+    ["whimsy.feature.home", true], ["whimsy.feature.game", true],
+    ["whimsy.feature.net-error-branding", true],
+    ["security.certerrors.felt-privacy-v1", false],
+    ["browser.netError.searchCTA.enabled", false],
+    ["ui.prefersReducedMotion", 1],
+  ] });
+  try {
+    for (const dark of [0, 1]) {
+      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+      try {
+        for (const [season, month] of months) {
+          WhimsySeasons._now = () => new Date(2026, month - 1, 15, 12);
+          await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+            const doc = browser.contentDocument;
+            await doc.l10n.ready;
+            await new Promise(r => browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(r)));
+            await shot(`wave5-home-${season}-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+          });
+        }
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+
+    for (const [season, month] of months) {
+      const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+      const browser = tab.linkedBrowser;
+      try {
+        const loaded = BrowserTestUtils.waitForErrorPage(browser);
+        await SpecialPowers.spawn(browser, [], () => {
+          content.location = "about:neterror?e=netOffline&u=https%3A%2F%2Fexample.com%2F&d=Offline";
+        });
+        await loaded;
+        await SpecialPowers.spawn(browser, [month, SEASONS_URL], async (month, url) => {
+          const doc = content.document;
+          await ContentTaskUtils.waitForCondition(() => doc.getElementById("whimsy-neterror-brand"), "Branded");
+          const { WhimsySeasons: seasons } = ChromeUtils.importESModule(url);
+          const real = seasons._now;
+          seasons._now = () => new Date(2026, month - 1, 15, 12);
+          content.windowGlobalChild.getActor("WhimsyNetError").handleEvent({ type: "DOMContentLoaded" });
+          seasons._now = real;
+          await doc.l10n.translateRoots();
+          await ContentTaskUtils.waitForCondition(() => doc.getElementById("whimsy-neterror-style")?.sheet, "Styled");
+          // Let the accent SVG decode before the snapshot.
+          await new Promise(resolve => content.setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+          await new Promise(resolve => content.requestAnimationFrame(() => content.requestAnimationFrame(resolve)));
+        });
+        await shot(`wave5-neterror-${season}`, browser.browsingContext.currentWindowGlobal);
+      } finally {
+        BrowserTestUtils.removeTab(tab);
+      }
+    }
+
+    await BrowserTestUtils.withNewTab("about:whimsy?game", async browser => {
+      const win = browser.contentWindow;
+      const doc = browser.contentDocument;
+      const wg = browser.browsingContext.currentWindowGlobal;
+      const game = await TestUtils.waitForCondition(() => win.__whimsyGame, "The game has loaded");
+      const frames = () => new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+      game.freeze();
+      game.setAutoSpawn(false);
+      await doc.l10n.ready;
+      for (const [season] of months) {
+        game.setSeason(season);
+        for (const style of ["gradient", "retro"]) {
+          doc.getElementById(`whimsy-game-style-${style}`).click();
+          game.start();
+          game.clear();
+          game.spawn("seed", { x: 260, y: 60, vx: -30 });
+          game.spawn("seed", { x: 380, y: 100, vx: -30, phase: 1 });
+          game.spawn("plane", { x: 330, y: 40, vx: -120, vy: 20 });
+          game.spawn("bird", { cx: 420, cy: 70, R: 16, a: 1, vx: -40 });
+          game.spawn("sparkle", { x: 170, y: 100 });
+          game.spawn("sparkle", { x: 200, y: 70 });
+          game.state.player.invuln = 0;
+          game.tick(0.05);
+          await frames();
+          await shot(`wave5-game-${season}-${style}`, wg);
+        }
+      }
+    });
+  } finally {
+    WhimsySeasons._now = original;
+    await SpecialPowers.popPrefEnv();
+    for (const pref of ["whimsy.game.style", "whimsy.game.high-score"]) {
+      Services.prefs.clearUserPref(pref);
+    }
+  }
+});

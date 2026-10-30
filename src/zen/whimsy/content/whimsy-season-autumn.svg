@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 190" fill="none">
+  <!-- Autumn accent layered over whimsy-deflated-balloon.svg (same viewBox):
+       a leaf that settled on the balloon and a small pumpkin beside it. -->
+  <defs>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffb347"/><stop offset="1" stop-color="#d9542b"/>
+    </linearGradient>
+    <radialGradient id="pumpkin" cx=".38" cy=".32" r=".8">
+      <stop stop-color="#ffc07a"/><stop offset=".55" stop-color="#f08a3c"/><stop offset="1" stop-color="#c9661c"/>
+    </radialGradient>
+  </defs>
+  <g transform="rotate(28 116 40)">
+    <path d="M116 26c12 6 13 20 0 30-13-10-12-24 0-30Z" fill="url(#leaf)"/>
+    <path d="M116 29v31m0-21 6-5m-6 13-6-5" stroke="#a8431f" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+  <ellipse cx="34" cy="160" rx="16" ry="3" fill="#a78ac4" opacity=".16"/>
+  <ellipse cx="34" cy="149" rx="15" ry="11" fill="url(#pumpkin)"/>
+  <path d="M34 138c-5 4-5 18 0 22m0-22c5 4 5 18 0 22" stroke="#b8541f" stroke-opacity=".55" stroke-width="1.5"/>
+  <path d="M33 139c0-4 1-7 4-9" stroke="#5d9b4a" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M37 132c4-3 8-1 9 2-4 2-7 1-9-2Z" fill="#7cb85f"/>
+</svg>

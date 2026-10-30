@@ -224,15 +224,84 @@
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
 
-  const SKY = [
-    { at: 0.0, top: "#8fc8ff", bottom: "#f5e6ff", far: "#b9a6f0", near: "#8ccf86" },
-    { at: 0.42, top: "#8fc8ff", bottom: "#f5e6ff", far: "#b9a6f0", near: "#8ccf86" },
-    { at: 0.52, top: "#7a54d8", bottom: "#ffa7c4", far: "#9a6fc7", near: "#6fae78" },
-    { at: 0.62, top: "#140e3a", bottom: "#3a2a78", far: "#2c2160", near: "#1f3b4a" },
-    { at: 0.88, top: "#140e3a", bottom: "#3a2a78", far: "#2c2160", near: "#1f3b4a" },
-    { at: 0.95, top: "#b08cff", bottom: "#ffd6b3", far: "#b393e0", near: "#7cc283" },
-    { at: 1.0, top: "#8fc8ff", bottom: "#f5e6ff", far: "#b9a6f0", near: "#8ccf86" },
-  ];
+  // ---------------------------------------------------------------------
+  // Seasons: the same game in a seasonal costume, from Whimsy's calendar
+  // (WhimsySeasons; the seasonal switch turns it off). Art only: hitboxes,
+  // speeds, telegraphs and power-up colours never change, so a run plays
+  // the same in any month and nothing new has to be learned.
+  const DAY = { top: "#8fc8ff", bottom: "#f5e6ff", far: "#b9a6f0", near: "#8ccf86" };
+  const DUSK = { top: "#7a54d8", bottom: "#ffa7c4", far: "#9a6fc7", near: "#6fae78" };
+  const GROUND_DAY = { grass: "#8fdc8a", soil: "#6b4fa0", dots: "#8a6cc0" };
+  const COSTUMES = {
+    autumn: {
+      day: { top: "#8fbfe8", bottom: "#ffe4cc", far: "#c99ad8", near: "#e3a256" },
+      dusk: { top: "#7a54d8", bottom: "#ffb08a", far: "#a0679f", near: "#b9783f" },
+      ground: { grass: "#e6a64e", soil: "#6b4fa0", dots: "#d9774a" },
+      seed: "leaf",
+      bird: { k: "#6e4a5e", K: "#3a2230", o: "#ffb04a" },
+      plane: "#f0c9a0",
+      sparkle: { y: "#ffb347", W: "#fff0c8" },
+    },
+    winter: {
+      day: { top: "#a6d2ff", bottom: "#f6ecff", far: "#c3c2ee", near: "#e4eefc" },
+      dusk: { top: "#6f62d0", bottom: "#ffc0d8", far: "#9a8cd0", near: "#b9c4e8" },
+      ground: { grass: "#f4f8ff", soil: "#7d74b8", dots: "#a59ad6" },
+      seed: "snow",
+      bird: { k: "#c8364f", K: "#7a1f35", o: "#ffb04a" },
+      sparkle: { y: "#9fdcff", W: "#ffffff" },
+    },
+    spring: {
+      day: { top: "#9fd3ff", bottom: "#ffe6f2", far: "#c2b0f2", near: "#93d987" },
+      ground: { grass: "#a3e88f", soil: "#6b4fa0", dots: "#ff9fc8" },
+      seed: "bee",
+      bird: { k: "#4f7fd6", K: "#2a3f80", o: "#ff9b54" },
+      sparkle: { y: "#ff8fbf", W: "#ffd86b" },
+      blossom: true,
+    },
+    summer: {
+      day: { top: "#72c0ff", bottom: "#fff0d9", far: "#b9a6f0", near: "#7fcf7a" },
+      seed: "seed",
+      bird: { k: "#3e4660", K: "#8a93ab", o: "#ff9b54" },
+    },
+  };
+  function readSeason() {
+    // Embedded in the error page, the actor passes the season along.
+    if (host) {
+      return host.season in COSTUMES ? host.season : null;
+    }
+    try {
+      const { WhimsySeasons } = ChromeUtils.importESModule(
+        "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
+      );
+      return WhimsySeasons.current()?.id ?? null;
+    } catch (e) {
+      return null;
+    }
+  }
+  let season = null;
+  let costume = {};
+  let SKY = [];
+  function setSeason(id) {
+    season = id in COSTUMES ? id : null;
+    costume = season ? COSTUMES[season] : {};
+    if (season) {
+      root.dataset.season = season;
+    } else {
+      delete root.dataset.season;
+    }
+    const day = { ...DAY, ...costume.day };
+    const dusk = { ...DUSK, ...costume.dusk };
+    SKY = [
+      { at: 0.0, ...day },
+      { at: 0.42, ...day },
+      { at: 0.52, ...dusk },
+      { at: 0.62, top: "#140e3a", bottom: "#3a2a78", far: "#2c2160", near: "#1f3b4a" },
+      { at: 0.88, top: "#140e3a", bottom: "#3a2a78", far: "#2c2160", near: "#1f3b4a" },
+      { at: 0.95, top: "#b08cff", bottom: "#ffd6b3", far: "#b393e0", near: "#7cc283" },
+      { at: 1.0, ...day },
+    ];
+  }
+  setSeason(readSeason());
 
   function dayPhase() {
     return ((game.score % DAY_LENGTH) + DAY_LENGTH) % DAY_LENGTH / DAY_LENGTH;
@@ -540,9 +609,16 @@
       }
     }
     scoreEl.textContent = String(game.score);
-    document.l10n.setAttributes(deathEl, `whimsy-game-death-${kind}`);
+    document.l10n.setAttributes(deathEl, deathId(kind));
     newBestEl.hidden = !game.newBest;
     setState("over");
+  }
+
+  // The seed hazard wears the season's costume, so its line does too.
+  function deathId(kind) {
+    return kind == "seed" && costume.seed && costume.seed != "seed"
+      ? `whimsy-game-death-seed-${season}`
+      : `whimsy-game-death-${kind}`;
   }
 
   function setPaused(paused) {
@@ -1050,6 +1126,60 @@
     }
     return rows;
   }
+  // Seasonal accessories on the pixel balloon, in the same 13x19 grid: a
+  // leaf and a pumpkin basket, a snow cap and scarf, a flower crown, or
+  // sunglasses. The basket keeps its costume when the balloon pops.
+  function costumeRows(rows, face) {
+    const set = (x, y, ch) => {
+      rows[y] = rows[y].slice(0, x) + ch + rows[y].slice(x + 1);
+    };
+    if (season == "autumn") {
+      for (let y = 16; y <= 18; y++) {
+        for (let x = 4; x <= 8; x++) {
+          set(x, y, x == 4 || x == 6 || x == 8 ? "O" : "o");
+        }
+      }
+      set(6, 15, "g");
+    }
+    if (face == "dead") {
+      return rows;
+    }
+    if (season == "autumn") {
+      set(7, 0, "o");
+      set(8, 0, "o");
+      set(8, 1, "O");
+    } else if (season == "winter") {
+      for (let x = 4; x <= 8; x++) {
+        set(x, 0, "W");
+      }
+      for (let x = 2; x <= 10; x++) {
+        set(x, 1, "W");
+      }
+      for (const x of [2, 3, 5, 7, 9, 10]) {
+        set(x, 2, "W");
+      }
+      for (let x = 4; x <= 8; x++) {
+        set(x, 14, "s");
+      }
+      set(9, 15, "s");
+      set(9, 16, "s");
+    } else if (season == "spring") {
+      for (const [x, y, ch] of [[4, 0, "f"], [5, 0, "Y"], [6, 0, "f"], [7, 0, "Y"], [8, 0, "f"], [2, 1, "f"], [10, 1, "f"]]) {
+        set(x, y, ch);
+      }
+    } else if (season == "summer") {
+      for (let x = 3; x <= 9; x++) {
+        set(x, 7, "k");
+      }
+      for (const x of [3, 4, 5, 7, 8, 9]) {
+        set(x, 8, "k");
+      }
+      set(4, 7, "w");
+      set(8, 7, "w");
+    }
+    return rows;
+  }
+  const COSTUME_PAL = { o: "#f08a3c", O: "#b8541f", g: "#5d9b4a", W: "#ffffff", s: "#2fa3b5", f: "#ff8fbf", Y: "#ffd86b" };
   const BALLOON_PAL = { a: "#b5a0ff", b: "#f09ac8", w: "#f3edff", k: "#3a2462", r: "#7a4a2e", y: "#d9954f", p: "#ff6f9f" };
   const FRIEND_PAL = { a: "#7fd6c2", b: "#ffd86b", w: "#f2fff9", k: "#245a52", r: "#7a4a2e", y: "#d9954f", p: "#ff8fa8" };
   const PARTY_COLORS = ["#ff8fb8", "#ffd86b", "#7fd6c2", "#b5a0ff"];
@@ -1089,6 +1219,35 @@
     ["..y..", "..y..", "yyWyy", "..y..", "..y.."],
   ];
   const SPARKLE_PAL = { y: "#ffcf4a", W: "#fff6d0" };
+  const BLOSSOM_ROWS = [".fff.", "ffYff", "fYYYf", "ffYff", ".fff."];
+  const LEAF_ROWS = [
+    "....oo.",
+    "..oooo.",
+    ".ooOoo.",
+    ".oOoo..",
+    ".Ooo...",
+    "O......",
+    ".......",
+  ];
+  const LEAF_PAL = { o: "#f08a3c", O: "#a8431f" };
+  const SNOW_ROWS = [
+    "b..w..b",
+    ".w.w.w.",
+    "..www..",
+    "wwwWwww",
+    "..www..",
+    ".w.w.w.",
+    "b..w..b",
+  ];
+  const SNOW_PAL = { w: "#ffffff", W: "#bfe8ff", b: "#8fc3ee" };
+  const BEE_ROWS = [
+    "..w.w..",
+    "..www..",
+    ".ykyky.",
+    "ykykykk",
+    ".ykyky.",
+  ];
+  const BEE_PAL = { w: "#f3edff", y: "#ffcf4a", k: "#3a2462" };
 
   const snap = v => Math.round(v / PX) * PX;
   function drawSprite(img, x, y, sx = 1, sy = 1) {
@@ -1264,9 +1423,10 @@
   }
 
   function drawGround(night) {
-    const grass = mix("#8fdc8a", "#2f5d58", night);
-    const soil = mix("#6b4fa0", "#2a2050", night);
-    const dots = mix("#8a6cc0", "#3a2d6a", night);
+    const day = costume.ground ?? GROUND_DAY;
+    const grass = mix(day.grass, "#2f5d58", night);
+    const soil = mix(day.soil, "#2a2050", night);
+    const dots = mix(day.dots, "#3a2d6a", night);
     ctx.fillStyle = soil;
     ctx.fillRect(0, GROUND, W, H - GROUND);
     ctx.fillStyle = grass;
@@ -1357,8 +1517,10 @@
       ctx.save();
       ctx.globalAlpha = alpha;
       const face = dead ? "dead" : blink ? "blink" : "open";
-      const key = `balloon-${friend ? "f" : "p"}-${face}`;
-      const img = sprite(key, balloonRows(face, true), friend ? FRIEND_PAL : BALLOON_PAL);
+      const dressed = !friend && season;
+      const key = `balloon-${friend ? "f" : "p"}-${face}-${dressed || ""}`;
+      const rows = dressed ? costumeRows(balloonRows(face, true), face) : balloonRows(face, true);
+      const img = sprite(key, rows, friend ? FRIEND_PAL : { ...BALLOON_PAL, ...COSTUME_PAL });
       const w = img.width * PX * sx;
       const h = img.height * PX * sy;
       drawSprite(img, x - w / 2, y - h, sx, sy);
@@ -1389,6 +1551,9 @@
     ctx.fillStyle = "#a8682f";
     ctx.fillRect(-5.5, -8, 11, 1.6);
     ctx.fillRect(-5.5, -4, 11, 0.8);
+    if (!friend && season == "autumn") {
+      drawPumpkinBasket();
+    }
     if (flame) {
       const f = 1 + Math.sin(game.clock * 40) * 0.2;
       const g = ctx.createLinearGradient(0, -18, 0, -9);
@@ -1463,8 +1628,121 @@
         ctx.arc(0, -23, 2.2, Math.PI * 0.15, Math.PI * 0.85);
         ctx.stroke();
       }
+      if (!friend && season) {
+        drawCostume();
+      }
     }
     ctx.restore();
+  }
+
+  // Gradient accessories, in the balloon's own space (envelope centre
+  // 0,-28, radius 13): small, flat and soft-shaded like the balloon.
+  function drawPumpkinBasket() {
+    ctx.fillStyle = "#f08a3c";
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 6.5, 4.4, 0, 0, 6.29);
+    ctx.fill();
+    ctx.strokeStyle = "#b8541f";
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 2.6, 4.4, 0, 0, 6.29);
+    ctx.stroke();
+    ctx.fillStyle = "#5d9b4a";
+    ctx.fillRect(-0.6, -9.6, 1.2, 1.8);
+  }
+  function petals(x, y, r, color, center) {
+    ctx.fillStyle = color;
+    for (let k = 0; k < 5; k++) {
+      const a = (k * Math.PI * 2) / 5 - Math.PI / 2;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.75, 0, 6.29);
+      ctx.fill();
+    }
+    ctx.fillStyle = center;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.6, 0, 6.29);
+    ctx.fill();
+  }
+  function drawCostume() {
+    if (season == "autumn") {
+      // A leaf that landed on top.
+      ctx.save();
+      ctx.translate(4, -41);
+      ctx.rotate(0.5);
+      const g = ctx.createLinearGradient(0, -4, 0, 4);
+      g.addColorStop(0, "#ffb347");
+      g.addColorStop(1, "#d9542b");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(0, -4.5);
+      ctx.quadraticCurveTo(4, -1, 0, 4.5);
+      ctx.quadraticCurveTo(-4, -1, 0, -4.5);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(168,67,31,0.7)";
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(0, -3.5);
+      ctx.lineTo(0, 5.5);
+      ctx.stroke();
+      ctx.restore();
+    } else if (season == "winter") {
+      // Snow cap with a soft scalloped edge, and a teal scarf at the neck.
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(0, -28, 13.6, Math.PI * 1.13, Math.PI * 1.87);
+      for (let k = 0; k <= 6; k++) {
+        const x = 11 - k * (22 / 6);
+        ctx.quadraticCurveTo(x + 1.8, -33 + (k % 2 ? 2.2 : 0), x, -34 + (k % 2 ? 0 : 1));
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "rgba(127,184,230,0.35)";
+      ctx.fillRect(-8, -35.2, 16, 0.8);
+      ctx.fillStyle = "#2fa3b5";
+      ctx.beginPath();
+      ctx.roundRect(-6, -17.4, 12, 3, 1.5);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect(2.6, -15.6, 2.6, 6, 1);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.fillRect(-2.5, -17.4, 1, 3);
+      ctx.fillRect(1.5, -17.4, 1, 3);
+    } else if (season == "spring") {
+      // A flower crown along the top of the envelope.
+      ctx.strokeStyle = "#5d9b4a";
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.arc(0, -28, 12.6, Math.PI * 1.2, Math.PI * 1.8);
+      ctx.stroke();
+      const colors = ["#ffffff", "#ff8fbf", "#ffe08a", "#ff8fbf", "#ffffff"];
+      for (let k = 0; k < 5; k++) {
+        const a = Math.PI * (1.22 + k * 0.14);
+        petals(Math.cos(a) * 12.6, -28 + Math.sin(a) * 12.6, 1.5, colors[k], k == 2 ? "#ff8fbf" : "#ffd86b");
+      }
+    } else if (season == "summer") {
+      // Sunglasses over the eyes.
+      ctx.fillStyle = "#2a1a3e";
+      for (const ex of [-4, 4]) {
+        ctx.beginPath();
+        ctx.roundRect(ex - 3, -28, 6, 4, [1, 1, 2.4, 2.4]);
+        ctx.fill();
+      }
+      ctx.strokeStyle = "#2a1a3e";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-1, -27.4);
+      ctx.lineTo(1, -27.4);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.55)";
+      ctx.lineWidth = 0.7;
+      for (const ex of [-4, 4]) {
+        ctx.beginPath();
+        ctx.moveTo(ex - 1.8, -26.6);
+        ctx.lineTo(ex - 0.4, -27.4);
+        ctx.stroke();
+      }
+    }
   }
 
   function drawPlane(x, y, angle) {
@@ -1472,7 +1750,8 @@
     ctx.translate(x, y);
     ctx.rotate(angle);
     if (retro()) {
-      ctx.drawImage(sprite("plane", PLANE_ROWS, PLANE_PAL), -9 * PX, -2 * PX, 9 * PX, 5 * PX);
+      const pal = costume.plane ? { ...PLANE_PAL, l: costume.plane } : PLANE_PAL;
+      ctx.drawImage(sprite(`plane-${costume.plane ?? ""}`, PLANE_ROWS, pal), -9 * PX, -2 * PX, 9 * PX, 5 * PX);
       ctx.restore();
       return;
     }
@@ -1487,7 +1766,7 @@
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = "#d7d0f0";
+    ctx.fillStyle = costume.plane ?? "#d7d0f0";
     ctx.beginPath();
     ctx.moveTo(-9, 0);
     ctx.lineTo(4, 1);
@@ -1499,6 +1778,19 @@
   }
 
   function drawSeed(h) {
+    const look = costume.seed ?? "seed";
+    if (look == "leaf") {
+      drawLeaf(h);
+      return;
+    }
+    if (look == "snow") {
+      drawSnowflake(h);
+      return;
+    }
+    if (look == "bee") {
+      drawBee(h);
+      return;
+    }
     if (retro()) {
       drawSprite(sprite("seed", SEED_ROWS, SEED_PAL), h.x - 7, h.y - 7);
       return;
@@ -1526,14 +1818,105 @@
     ctx.restore();
   }
 
+  // Seasonal stand-ins for the seed: the same size, path and hitbox.
+  function drawLeaf(h) {
+    if (retro()) {
+      drawSprite(sprite("leaf", LEAF_ROWS, LEAF_PAL), h.x - 7, h.y - 7);
+      return;
+    }
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.rotate(Math.sin(h.t * 2 + h.phase) * 0.9);
+    const g = ctx.createLinearGradient(0, -7, 0, 7);
+    g.addColorStop(0, "#ffb347");
+    g.addColorStop(1, "#d9542b");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.quadraticCurveTo(7, -2, 0, 7);
+    ctx.quadraticCurveTo(-7, -2, 0, -7);
+    ctx.fill();
+    ctx.strokeStyle = "#a8431f";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(0, -5);
+    ctx.lineTo(0, 9);
+    ctx.moveTo(0, -1);
+    ctx.lineTo(2.6, -3);
+    ctx.moveTo(0, 2);
+    ctx.lineTo(-2.6, 0);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawSnowflake(h) {
+    if (retro()) {
+      drawSprite(sprite("snow", SNOW_ROWS, SNOW_PAL), h.x - 7, h.y - 7);
+      return;
+    }
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.rotate(h.t * 0.6 + h.phase);
+    ctx.shadowColor = "#5f9fd6";
+    ctx.shadowBlur = 3;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = (k * Math.PI) / 3;
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(c * 7, s * 7);
+      for (const side of [-1, 1]) {
+        ctx.moveTo(c * 4.2, s * 4.2);
+        ctx.lineTo(c * 4.2 + Math.cos(a + side * 0.8) * 2.4, s * 4.2 + Math.sin(a + side * 0.8) * 2.4);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawBee(h) {
+    if (retro()) {
+      drawSprite(sprite("bee", BEE_ROWS, BEE_PAL), h.x - 7, h.y - 5);
+      return;
+    }
+    const flap = reduced() ? 0 : Math.sin(game.clock * 30) * 0.35;
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.rotate(Math.sin(h.t * 2 + h.phase) * 0.25);
+    ctx.fillStyle = "rgba(243,237,255,0.85)";
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * 2.2, -4, 2.2, 3.4, side * (0.5 + flap), 0, 6.29);
+      ctx.fill();
+    }
+    const body = new Path2D();
+    body.ellipse(0, 0, 6, 4.2, 0, 0, 6.29);
+    ctx.fillStyle = "#ffcf4a";
+    ctx.fill(body);
+    ctx.save();
+    ctx.clip(body);
+    ctx.fillStyle = "#3a2462";
+    ctx.fillRect(-2.6, -5, 1.8, 10);
+    ctx.fillRect(1, -5, 1.8, 10);
+    ctx.restore();
+    ctx.fillStyle = "#3a2462";
+    ctx.beginPath();
+    ctx.arc(-4, -0.8, 0.8, 0, 6.29);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawBird(h) {
     const flap = Math.floor(game.clock * 8) % 2;
     if (retro()) {
-      drawSprite(sprite(`bird${flap}`, BIRD_ROWS[flap], BIRD_PAL), h.x - 7, h.y - 5);
+      drawSprite(sprite(`bird${flap}-${season ?? ""}`, BIRD_ROWS[flap], costume.bird ?? BIRD_PAL), h.x - 7, h.y - 5);
       return;
     }
+    const pal = costume.bird ?? BIRD_PAL;
     const w = flap ? -4 : 3;
-    ctx.strokeStyle = "#5a4a8a";
+    ctx.strokeStyle = pal.k;
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.beginPath();
@@ -1541,11 +1924,11 @@
     ctx.quadraticCurveTo(h.x - 3, h.y - 2, h.x, h.y);
     ctx.quadraticCurveTo(h.x + 3, h.y - 2, h.x + 8, h.y + w);
     ctx.stroke();
-    ctx.fillStyle = "#2a1a3e";
+    ctx.fillStyle = pal.K;
     ctx.beginPath();
     ctx.ellipse(h.x, h.y + 1, 3.5, 2.6, 0, 0, 6.29);
     ctx.fill();
-    ctx.fillStyle = "#ff9b54";
+    ctx.fillStyle = pal.o;
     ctx.beginPath();
     ctx.moveTo(h.x + (h.vx < 0 ? -3 : 3), h.y);
     ctx.lineTo(h.x + (h.vx < 0 ? -6 : 6), h.y + 1);
@@ -1647,15 +2030,24 @@
     if (it.kind == "sparkle") {
       if (retro()) {
         const frame = Math.floor(game.clock * 4) % 2;
-        drawSprite(sprite(`sparkle${frame}`, SPARKLE_ROWS[frame], SPARKLE_PAL), it.x - 5, it.y - 5 + snap(bob));
+        const pal = costume.sparkle ?? SPARKLE_PAL;
+        const rows = costume.blossom ? BLOSSOM_ROWS : SPARKLE_ROWS[frame];
+        const key = costume.blossom ? `blossom-${season}` : `sparkle${frame}-${season ?? ""}`;
+        drawSprite(sprite(key, rows, { ...pal, f: pal.y, Y: pal.W }), it.x - 5, it.y - 5 + snap(bob));
         return;
       }
       ctx.save();
       ctx.translate(it.x, it.y + bob);
       ctx.rotate(it.spin * 0.3);
-      ctx.shadowColor = "#ffd86b";
+      const glow = costume.sparkle?.y ?? "#ffd86b";
+      ctx.shadowColor = glow;
       ctx.shadowBlur = 10;
-      ctx.fillStyle = "#ffd86b";
+      if (costume.blossom) {
+        petals(0, 0, 3.4, glow, costume.sparkle.W);
+        ctx.restore();
+        return;
+      }
+      ctx.fillStyle = glow;
       ctx.beginPath();
       for (let k = 0; k < 8; k++) {
         const r = k % 2 ? 2.4 : 7;
@@ -1859,7 +2251,7 @@
       pixelTextCentered(pixelStrings.paused || "", mid, 52, "#ffffff", 1);
     } else if (game.state == "over" && game.clock - game.overAt > 0.25) {
       pixelTextCentered(pixelStrings.over || "", mid, 22, "#ffffff", 3);
-      pixelTextCentered(pixelStrings[game.deathKind] || "", mid, 58, "#ffffff", 1);
+      pixelTextCentered(pixelStrings[deathId(game.deathKind)] || pixelStrings[game.deathKind] || "", mid, 58, "#ffffff", 1);
       if (game.newBest) {
         pixelTextCentered(pixelStrings.best || "", mid, 72, "#ffd86b", 1);
       }
@@ -2086,9 +2478,17 @@
       "whimsy-game-death-bird",
       "whimsy-game-new-best",
       "whimsy-game-retry-hint",
+      "whimsy-game-death-seed-autumn",
+      "whimsy-game-death-seed-winter",
+      "whimsy-game-death-seed-spring",
     ])
-    .then(([title, start, paused, over, seed, plane, zap, bird, best, again]) => {
+    .then(([title, start, paused, over, seed, plane, zap, bird, best, again, autumn, winter, spring]) => {
       Object.assign(pixelStrings, { title, start, paused, over, seed, plane, zap, bird, best, again });
+      Object.assign(pixelStrings, {
+        "whimsy-game-death-seed-autumn": autumn,
+        "whimsy-game-death-seed-winter": winter,
+        "whimsy-game-death-seed-spring": spring,
+      });
     })
     .catch(() => {});
 
@@ -2145,6 +2545,14 @@
       game.pointer = x === null ? null : { x, y };
     },
     render,
+    get season() {
+      return season;
+    },
+    // Dress the game for a season (null: no costume) without a date mock.
+    setSeason(id) {
+      setSeason(id);
+      render();
+    },
     constants: { W, H, GROUND, HIT_R, SAFE_SPAWN, TELEGRAPH, CLOSE_PAD, CLOSE_BONUS, SPARKLE_POINTS, COMBO_WINDOW, DASH_COOLDOWN, RETRY_DELAY },
   };
 })();

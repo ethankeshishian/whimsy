@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 190" fill="none">
+  <!-- Spring accent layered over whimsy-deflated-balloon.svg (same viewBox):
+       a flower garland draped along the balloon's top. -->
+  <defs>
+    <g id="f">
+      <circle cx="0" cy="-5" r="4"/><circle cx="4.8" cy="-1.5" r="4"/><circle cx="3" cy="4" r="4"/>
+      <circle cx="-3" cy="4" r="4"/><circle cx="-4.8" cy="-1.5" r="4"/>
+    </g>
+  </defs>
+  <path d="M66 70c8-10 16-14 26-20 16-12 38-12 54 2 5 5 7 10 9 15" stroke="#5d9b4a" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M80 58c-4-1-7 1-8 4 4 1 7 0 8-4Zm42-14c1-4 4-6 8-5-1 4-4 6-8 5Zm28 14c4-2 7-1 8 2-4 2-7 1-8-2Z" fill="#7cb85f"/>
+  <use href="#f" x="70" y="64" fill="#fff"/><circle cx="70" cy="64" r="2.6" fill="#ffd86b"/>
+  <use href="#f" x="92" y="49" fill="#ff8fbf"/><circle cx="92" cy="49" r="2.6" fill="#ffd86b"/>
+  <use href="#f" x="117" y="41" fill="#ffe08a"/><circle cx="117" cy="41" r="2.6" fill="#ff8fbf"/>
+  <use href="#f" x="140" y="46" fill="#ff8fbf"/><circle cx="140" cy="46" r="2.6" fill="#ffd86b"/>
+  <use href="#f" x="155" y="64" fill="#fff"/><circle cx="155" cy="64" r="2.6" fill="#ffd86b"/>
+</svg>

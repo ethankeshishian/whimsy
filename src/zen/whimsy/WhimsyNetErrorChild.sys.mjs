@@ -11,6 +11,7 @@ const LINK_ID = "whimsy-neterror-game-link";
 // game. netOffline always; the usual no-connection errors only while the
 // browser really has no network.
 const OFFLINE_ERRORS = ["dnsNotFound", "connectionFailure", "netTimeout", "netReset", "netInterrupt"];
+const SEASONS_URL = "resource:///modules/whimsy/WhimsySeasons.sys.mjs";
 const GAME_PREFS = ["whimsy.game.style", "whimsy.game.chiptune", "whimsy.game.high-score"];
 
 export class WhimsyNetErrorChild extends JSWindowActorChild {
@@ -39,6 +40,14 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
       }
       const container = card?.shadowRoot?.querySelector(".container") ||
         doc.querySelector("#text-container");
+      // The deflated balloon dresses for the season (whimsy-neterror.css
+      // layers the accent over it); custom properties reach the shadow tree.
+      const season = this.season();
+      if (season) {
+        doc.documentElement.setAttribute("data-whimsy-season", season);
+      } else {
+        doc.documentElement.removeAttribute("data-whimsy-season");
+      }
       if (container && !container.querySelector("#whimsy-neterror-brand")) {
         const brand = doc.createElement("p");
         brand.id = "whimsy-neterror-brand";
@@ -120,6 +129,7 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
     const win = this.contentWindow;
     const host = {
       autostart: true,
+      season: this.season(),
       get(name, fallback) {
         const P = Services.prefs;
         return typeof fallback == "boolean" ? P.getBoolPref(name, fallback)
@@ -147,6 +157,14 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
     const script = doc.createElement("script");
     script.src = `${BASE}whimsy-game.js`;
     doc.head.append(script);
+  }
+
+  season() {
+    try {
+      return ChromeUtils.importESModule(SEASONS_URL).WhimsySeasons.current()?.id ?? null;
+    } catch {
+      return null;
+    }
   }
 
   addStyle(root) {

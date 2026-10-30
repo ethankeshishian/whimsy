@@ -292,7 +292,33 @@ function initBalloon() {
   });
 }
 
+// The balloon dresses for the season (whimsy-home.css shows the costume).
+// Rechecked whenever the page is shown, so a tab kept open across a season
+// boundary or the seasonal switch catches up without a timer.
+function applySeason() {
+  let season = null;
+  try {
+    const { WhimsySeasons } = ChromeUtils.importESModule(
+      "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
+    );
+    season = WhimsySeasons.current()?.id ?? null;
+  } catch {
+    // No calendar: the balloon simply stays undressed.
+  }
+  if (season) {
+    document.documentElement.setAttribute("whimsy-season", season);
+  } else {
+    document.documentElement.removeAttribute("whimsy-season");
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  applySeason();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState == "visible") {
+      applySeason();
+    }
+  });
   initTabs();
   initImportFromArc();
   initBalloon();

@@ -663,7 +663,7 @@ whimsy-look-menu-bar-extra =
 ## batch7: Settings → Look and Feel → Look
 
 whimsy-look-seasonal-themes =
-    .label = Seasonal loading colors
+    .label = Seasonal colors and costumes
 
 ## batch7: Settings → Tab Management
 
@@ -1605,3 +1605,9 @@ whimsy-quick-window-copy-link =
 
 whimsy-quick-window-profile = ☺ Default
 whimsy-history-unknown-space = Unknown space
+
+## wave5: seasonal Balloon Dash (the seed hazard wears the season's costume)
+
+whimsy-game-death-seed-autumn = Caught by a falling leaf.
+whimsy-game-death-seed-winter = Caught by a snowflake.
+whimsy-game-death-seed-spring = Buzzed by a bumblebee.

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 190" fill="none">
+  <!-- Summer accent layered over whimsy-deflated-balloon.svg (same viewBox):
+       sunglasses resting on the balloon, and the sun keeping it company. -->
+  <defs>
+    <radialGradient id="sun" cx=".4" cy=".35" r=".7">
+      <stop stop-color="#fff2a8"/><stop offset="1" stop-color="#ffc24a"/>
+    </radialGradient>
+  </defs>
+  <circle cx="206" cy="30" r="13" fill="url(#sun)"/>
+  <path d="M206 9v-4m0 50v-4m21-21h4m-50 0h4m15-15-3-3m27 27 3 3m0-27 3-3m-33 33-3 3" stroke="#ffc24a" stroke-width="2.4" stroke-linecap="round"/>
+  <g transform="rotate(-8 112 86)">
+    <path d="M88 80h20v6c0 6-4 9-10 9s-10-3-10-9Zm28 0h20v6c0 6-4 9-10 9s-10-3-10-9Z" fill="#2a1a3e"/>
+    <path d="M108 82c3-2 5-2 8 0" stroke="#2a1a3e" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M92 84l4-2m24 2 4-2" stroke="#fff" stroke-opacity=".55" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+</svg>
