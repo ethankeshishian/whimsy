@@ -114,7 +114,19 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
     }
   }
 
+  // Resolves once the view shows the newest query: a refresh superseded by a
+  // later one (a filter change or a Places notification) waits for that one.
   async refresh() {
+    let run = this._refreshNow();
+    this._latestRefresh = run;
+    await run;
+    while (this._latestRefresh !== run) {
+      run = this._latestRefresh;
+      await run;
+    }
+  }
+
+  async _refreshNow() {
     const generation = ++this._generation;
     if (!this.spaceMode) {
       this.requestUpdate();

@@ -82,6 +82,17 @@ add_task(async function restored_and_already_open_tabs_capture_new_visits() {
     is(SpaceHistory._candidates[0]?.spaceId, gZenWorkspaces.activeWorkspace,
       "A new visit from an already-open tab inherits the window's space");
     is(SpaceHistory._candidates[0]?.url, url, "The snapshot belongs to the visited URL");
+    // The tab's own (earlier) visit may be recorded after a later visit's
+    // snapshot was taken; it must not take that snapshot.
+    const db0 = await HistoryPlaces.promiseDBConnection();
+    const [opened] = await db0.execute(`SELECT v.id, v.visit_date, p.guid FROM moz_historyvisits v
+      JOIN moz_places p ON p.id = v.place_id WHERE p.url = :url ORDER BY v.visit_date DESC LIMIT 1`, { url });
+    const openedVisit = { id: opened.getResultByName("id"), guid: opened.getResultByName("guid"),
+      time: Math.floor(opened.getResultByName("visit_date") / 1000), url };
+    SpaceHistory._candidates = [];
+    SpaceHistory.captureOpenVisit({ id: openedVisit.id + 1000, url, time: Date.now() });
+    await SpaceHistory.enqueue(() => SpaceHistory.recordVisit(openedVisit));
+    is(SpaceHistory._candidates.length, 1, "An earlier visit doesn't consume a later visit's snapshot");
     SpaceHistory._candidates = [];
     const date = new Date();
     await HistoryPlaces.history.insert({ url, title: "Restored tab",
@@ -223,6 +234,8 @@ add_task(async function library_preserves_native_history_and_actions() {
   await historyVisit(null, null, 550, "old-ui");
   library.activeTab = "history";
   await library.constructor.animateProgress(1);
+  // animateProgress starts a spring; content ignores the pointer until it settles.
+  await TestUtils.waitForCondition(() => !library.hasAttribute("transitioning"), "The Library finished opening");
   try {
     await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
     const section = library.querySelector("whimsy-space-history-section");
@@ -233,6 +246,10 @@ add_task(async function library_preserves_native_history_and_actions() {
     const group = [...section.querySelectorAll(".zen-library-filter-group")].find(
       item => item.querySelector('[data-l10n-id="whimsy-history-space-filter"]'));
     ok(group, "Space shares the native date and sort filter panel");
+    // A Places notification can start a newer refresh that supersedes the
+    // one awaited above; the space list arrives with whichever finishes last.
+    await TestUtils.waitForCondition(() => [...group.querySelectorAll(".zen-library-filter-chip")]
+      .some(item => item.textContent.trim() === "Design"), "The Design space chip renders");
     const filter = [...group.querySelectorAll(".zen-library-filter-chip")].find(
       item => item.textContent.trim() === "Design");
     ok(filter, "Spaces use the same chips as the other filters");

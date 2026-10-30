@@ -81,7 +81,7 @@ export const WhimsySpaceHistory = {
     IOUtils.exists(PathUtils.join(PathUtils.profileDir, "whimsy-space-history.json"))
       .then(exists => exists && this.enqueue(() => this.prune())).catch(console.error);
   },
-  capture(win, browser, uri) {
+  capture(win, browser, uri, visitId = null) {
     if (!this.recording || !uri || !lazy.PlacesUtils.history.canAddURI(uri)) {
       return;
     }
@@ -99,8 +99,10 @@ export const WhimsySpaceHistory = {
     }
     const now = Date.now();
     this._candidates = this._candidates.filter(item => now - item.time < 10000);
+    // A snapshot taken for a known Places visit belongs to that visit only;
+    // an earlier visit to the same URL must not consume it.
     this._candidates.push({ url: uri.spec, time: now,
-      spaceId, spaceName: space.name });
+      spaceId, spaceName: space.name, ...(visitId == null ? {} : { visitId }) });
     this._candidates = this._candidates.slice(-256);
   },
   captureOpenVisit(visit) {
@@ -112,11 +114,12 @@ export const WhimsySpaceHistory = {
     // have emitted a location change after initWindow. Only consider browsers
     // displaying this new visit's URL; never backfill older history.
     if (!this._candidates.some(item => item.url === visit.url &&
+        (item.visitId == null || item.visitId === visit.id) &&
         Math.abs(item.time - visit.time) < 2000)) {
       for (const win of Services.wm.getEnumerator("navigator:browser")) {
         for (const browser of win.gBrowser?.browsers || []) {
           if (browser.currentURI?.spec === visit.url) {
-            this.capture(win, browser, browser.currentURI);
+            this.capture(win, browser, browser.currentURI, visit.id);
           }
         }
       }
@@ -130,6 +133,7 @@ export const WhimsySpaceHistory = {
     // when the navigation snapshots agree. Concurrent visits to the same URL
     // in different spaces remain unknown, rather than attaching a wrong space.
     const candidates = this._candidates.filter(item => item.url === visit.url &&
+      (item.visitId == null || item.visitId === visit.id) &&
       Math.abs(item.time - visit.time) < 2000);
     if (!candidates.length || new Set(candidates.map(item => item.spaceId)).size !== 1) {
       return;
