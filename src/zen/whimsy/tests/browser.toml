@@ -352,3 +352,6 @@ support-files = ["whimsy_ai_page.html"]
 ["browser_whimsy_live_folders_local_servers.js"]
 
 ["browser_whimsy_live_folders_restart.js"]
+
+# wave5: live blocks in Notes (/embed, tab drop, crop, container, private, lazy load).
+["browser_whimsy_note_blocks.js"]

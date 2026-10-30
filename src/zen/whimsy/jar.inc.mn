@@ -66,3 +66,5 @@
         content/browser/whimsy/whimsy-season-winter.svg                          (../../zen/whimsy/content/whimsy-season-winter.svg)
         content/browser/whimsy/whimsy-season-spring.svg                          (../../zen/whimsy/content/whimsy-season-spring.svg)
         content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)
+# wave5: live blocks in Notes
+        content/browser/whimsy/whimsy-note-blocks.mjs (../../zen/whimsy/content/whimsy-note-blocks.mjs)

@@ -1617,3 +1617,26 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave5: live blocks in Notes (Arc Easels' Live Captures)
+
+whimsy-note-blocks-enable =
+    .label = Live blocks in notes: type /embed or drop a tab to keep part of a page live
+whimsy-note-block-hint = Type /embed or drop a tab here to add a live block
+whimsy-note-block-crop =
+    .title = Choose the part to show
+    .aria-label = Choose the part to show
+whimsy-note-block-reload =
+    .title = Reload
+    .aria-label = Reload
+whimsy-note-block-open =
+    .title = Open page
+    .aria-label = Open page
+whimsy-note-block-remove =
+    .title = Remove block
+    .aria-label = Remove block
+whimsy-note-block-picker =
+    .aria-label = Drag over the part of the page to keep. A small click shows the whole page; Escape cancels.
+whimsy-note-block-private = Private tabs can't be embedded
+whimsy-note-block-unsupported = Only web pages can be embedded
+whimsy-note-block-paused-private = Live blocks are paused in private windows

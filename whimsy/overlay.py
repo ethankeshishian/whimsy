@@ -793,6 +793,9 @@ FEATURES = [
     # go as tabs, polled only while the folder is visible.
     {"id": "live-folders-local-servers", "title": "Local servers live folder: running localhost dev servers as tabs that appear and disappear",
      "detect": [("src/zen/live-folders", r"(?i)local-?servers|localhost")]},
+    # wave5: live blocks in Notes (Arc Easels' Live Captures).
+    {"id": "note-blocks", "title": "Live blocks in Notes: /embed or drop a tab to keep a cropped, live region of a page in a note (Arc Live Captures)",
+     "detect": [("src/zen", r"(?i)live-?capture|zen[\w-]*note[\w-]*block")]},
 ]
 
 
