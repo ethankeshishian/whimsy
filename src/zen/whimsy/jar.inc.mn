@@ -66,3 +66,6 @@
         content/browser/whimsy/whimsy-season-winter.svg                          (../../zen/whimsy/content/whimsy-season-winter.svg)
         content/browser/whimsy/whimsy-season-spring.svg                          (../../zen/whimsy/content/whimsy-season-spring.svg)
         content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)
+# wave5/audioicon: Arc tab speaker glyphs
+        content/browser/whimsy/whimsy-tab-audio-playing.svg                       (../../zen/whimsy/content/whimsy-tab-audio-playing.svg)
+        content/browser/whimsy/whimsy-tab-audio-muted.svg                         (../../zen/whimsy/content/whimsy-tab-audio-muted.svg)

@@ -1537,3 +1537,32 @@ add_task(async function wave5_seasonal_balloon() {
     }
   }
 });
+
+// wave5/audioicon: Arc's tab speaker on a playing row, a muted row and a
+// playing Essential, in light and dark.
+add_task(async function tab_audio_icon() {
+  const playing = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?playing");
+  const muted = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?muted");
+  const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?essential");
+  gZenPinnedTabManager.addToEssentials(essential);
+  await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"));
+  const home = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  for (const tab of [playing, muted, essential]) {
+    tab.setAttribute("soundplaying", "true");
+  }
+  muted.toggleMuteAudio();
+  try {
+    for (const dark of [0, 1]) {
+      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await shot(`wave5-tab-audio-${dark ? "dark" : "light"}`);
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    muted.toggleMuteAudio();
+    gZenPinnedTabManager.removeEssentials(essential);
+    for (const tab of [playing, muted, essential, home]) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
+});

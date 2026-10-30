@@ -793,6 +793,10 @@ FEATURES = [
     # go as tabs, polled only while the folder is visible.
     {"id": "live-folders-local-servers", "title": "Local servers live folder: running localhost dev servers as tabs that appear and disappear",
      "detect": [("src/zen/live-folders", r"(?i)local-?servers|localhost")]},
+    # wave5/audioicon: Arc's tab speaker: an outline speaker between favicon
+    # and title on every tab with sound (muted included), one click mutes.
+    {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
+     "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
 ]
 
 
