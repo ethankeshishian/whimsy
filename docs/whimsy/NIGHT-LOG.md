@@ -38,3 +38,4 @@
 - wave2/meeting written (e1f22b3): nsIWhimsyCalendar EventKit component (cocoa), Info.plist usage strings patch, Google via secret iCal URL (multi-account, 5-min refresh). Manual checks after build: permission prompt, real events, Google secret URL, Join.
 - wave1/fun written (a6247cf): about:whimsy module, Balloon Drift offline game + net-error button, Year in tabs (Places + WhimsyStats). Goes into wave 2 merge. Fixed 3 command-bar icon paths on dev (9d7a408).
 - wave2/mini written (732619b): Mini Whimsy rename, alwaysontop (also joins all macOS Spaces), Cmd+O/Cmd+Opt+O, Esc. Gap: theme from target space; no remembered size. CSS brace fix taken to dev.
+- wave2/ext written (62f3f9f): per-space extension visibility + container-scoped API isolation (userContextIsolation). Not isolated: content scripts, background, storage, spaces without containers.
