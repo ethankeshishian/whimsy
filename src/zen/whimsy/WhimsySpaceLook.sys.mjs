@@ -622,6 +622,10 @@ export const WhimsySpaceLook = {
     const popup = win.document.getElementById("zenWorkspaceMoreActions");
     popup?.addEventListener("popupshowing", event => {
       if (event.target == popup) {
+        // Zen gives only "Delete Space" an access key in this menu, so the
+        // menu has mixed access keys (Firefox's AccessKeyConflictError).
+        // macOS menus don't show them; drop that one, as Firefox advises.
+        popup.querySelector(":scope > #context_zenDeleteWorkspace")?.removeAttribute("accesskey");
         this.updateContextMenu(win, popup, event);
       }
     });

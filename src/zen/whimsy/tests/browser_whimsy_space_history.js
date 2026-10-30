@@ -305,9 +305,28 @@ add_task(async function library_preserves_native_history_and_actions() {
     ok(!section.filterGroups.some(item => item.id === "space"),
       "Closed tabs do not offer a visit-space filter");
 
+    // History also hosts Closed and Snoozed (wave5/system), so with only
+    // this switch off the section stays, without its space filter...
     await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.space-history", false]] });
-    await TestUtils.waitForCondition(() => !library.querySelector("whimsy-space-history-section"));
+    const stays = await TestUtils.waitForCondition(
+      () => library.querySelector("whimsy-space-history-section"),
+      "History stays Whimsy's for Closed and Snoozed"
+    );
+    await stays.refresh();
+    ok(!stays.filterGroups.some(group => group.id == "space"), "Switch off drops the space filter");
+    // ...and with all three off, Zen's native History is back.
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        ["whimsy.feature.archive-view", false],
+        ["whimsy.feature.snooze-tab", false],
+      ],
+    });
+    await TestUtils.waitForCondition(
+      () => !library.querySelector("whimsy-space-history-section"),
+      "Whimsy's History goes away"
+    );
     ok(library.querySelector("zen-library-history-section"), "Switch off restores Zen's native History");
+    await SpecialPowers.popPrefEnv();
     await SpecialPowers.popPrefEnv();
   } finally {
     await library.constructor.animateProgress(0);
