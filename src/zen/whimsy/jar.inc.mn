@@ -76,3 +76,28 @@
         content/browser/whimsy/whimsy-lasso.css                                 (../../zen/whimsy/content/whimsy-lasso.css)
 # wave5/quick: new season toast (the costumed balloon, once per season)
         content/browser/whimsy/whimsy-season-balloon.svg                         (../../zen/whimsy/content/whimsy-season-balloon.svg)
+# fix/kit: the Whimsy balloon replaces Firefox's Kit mascot (chrome overrides, no Firefox files edited)
+        content/browser/whimsy/kit/balloon-happy.svg                             (../../zen/whimsy/content/kit/balloon-happy.svg)
+        content/browser/whimsy/kit/balloon-concerned.svg                         (../../zen/whimsy/content/kit/balloon-concerned.svg)
+        content/browser/whimsy/kit/balloon-confetti.svg                          (../../zen/whimsy/content/kit/balloon-confetti.svg)
+        content/browser/whimsy/kit/balloon-holding-lock.svg                      (../../zen/whimsy/content/kit/balloon-holding-lock.svg)
+        content/browser/whimsy/kit/balloon-in-circle.svg                         (../../zen/whimsy/content/kit/balloon-in-circle.svg)
+        content/browser/whimsy/kit/balloon-sympathetic.svg                       (../../zen/whimsy/content/kit/balloon-sympathetic.svg)
+% override chrome://global/skin/illustrations/kit-happy.svg chrome://browser/content/whimsy/kit/balloon-happy.svg
+% override chrome://global/skin/illustrations/kit-concerned.svg chrome://browser/content/whimsy/kit/balloon-concerned.svg
+% override chrome://global/skin/illustrations/kit-confetti.svg chrome://browser/content/whimsy/kit/balloon-confetti.svg
+% override chrome://global/skin/illustrations/kit-holding-lock.svg chrome://browser/content/whimsy/kit/balloon-holding-lock.svg
+% override chrome://global/skin/illustrations/kit-in-circle.svg chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://global/skin/illustrations/kit-sympathetic.svg chrome://browser/content/whimsy/kit/balloon-sympathetic.svg
+% override chrome://newtab/content/data/content/assets/kit-in-circle.svg chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://newtab/content/data/content/assets/kit-circle-animated.svg chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://newtab/content/data/content/assets/widget-privacy-kit.svg chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://newtab/content/data/content/assets/kit.png chrome://browser/content/whimsy/kit/balloon-in-circle.svg
+% override chrome://newtab/content/data/content/assets/kit-stocks-watchlist.svg chrome://browser/content/whimsy/kit/balloon-happy.svg
+# fix/kit: Settings' app logo glyphs are Whimsy's balloon (Mozilla service logos stay Firefox's)
+        content/browser/whimsy/logos/whimsy-mono.svg                             (../../zen/whimsy/content/logos/whimsy-mono.svg)
+        content/browser/whimsy/logos/share-whimsy.svg                            (../../zen/whimsy/content/logos/share-whimsy.svg)
+        content/browser/whimsy/logos/window-whimsy.svg                           (../../zen/whimsy/content/logos/window-whimsy.svg)
+% override chrome://browser/skin/sidebar/firefox.svg chrome://browser/content/whimsy/logos/whimsy-mono.svg
+% override chrome://browser/content/logos/share-firefox.svg chrome://browser/content/whimsy/logos/share-whimsy.svg
+% override chrome://browser/skin/window-firefox.svg chrome://browser/content/whimsy/logos/window-whimsy.svg

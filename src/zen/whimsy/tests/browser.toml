@@ -385,3 +385,6 @@ support-files = ["whimsy_lasso.html"]
 
 # wave5/quick: new season toast (once per season, costume, winter across years, switches, reduced motion).
 ["browser_whimsy_season_toast.js"]
+
+# fix/kit: the Whimsy balloon replaces Kit; Settings logo glyphs are Whimsy's (overrides, promo, About icon).
+["browser_whimsy_kit_balloon.js"]

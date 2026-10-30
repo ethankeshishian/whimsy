@@ -1,0 +1,12 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<svg xmlns="http://www.w3.org/2000/svg" id="whimsy-logo" width="26" height="26" viewBox="0 0 16 16" fill="context-fill" fill-opacity="context-fill-opacity">
+  <!-- Whimsy's balloon as a one-colour icon. Replaces Firefox's logo glyph (chrome://browser/skin/sidebar/firefox.svg: Settings' About Whimsy, Browser icon, Language) via a chrome override in src/zen/whimsy/jar.inc.mn. -->
+  <g transform="translate(2.1 0.2) scale(0.059)">
+    <mask id="mhl" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="270"><rect width="200" height="270" fill="#fff"/><ellipse cx="66" cy="62" rx="15" ry="27" fill="#000" transform="rotate(-28 66 62)"/></mask>
+    <path d="M100 6 C 152 6 184 46 184 96 C 184 146 146 186 100 190 C 54 186 16 146 16 96 C 16 46 48 6 100 6 Z" mask="url(#mhl)"/>
+    <path d="M86 202 L100 186 L114 202 Q100 208 86 202 Z"/>
+    <path d="M100 204 C 88 220, 114 236, 100 262" stroke="context-fill" stroke-width="20" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>
