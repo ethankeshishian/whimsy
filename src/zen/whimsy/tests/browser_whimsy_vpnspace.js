@@ -14,7 +14,6 @@ const { IPPSiteRuleManager, IPPPrincipalRules } = ChromeUtils.importESModule(
 const { IPPProxyManager, IPPProxyStates } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
-const { NetUtil } = ChromeUtils.importESModule("resource://gre/modules/NetUtil.sys.mjs");
 
 function scopeWindow(containerId, tabId = containerId) {
   return {
@@ -102,6 +101,9 @@ add_task(async function popover_toggles_multiple_spaces() {
   const view = document.createElementNS(root.namespaceURI, "div");
   view.id = "PanelUI-ipprotection";
   root.append(button, view);
+  // Connected, hidden: a checkbox outside the document never fires change.
+  root.hidden = true;
+  document.documentElement.append(root);
   const spaces = [
     { name: "Work", containerTabId: 4 },
     { name: "Home", containerTabId: 5 },
@@ -151,6 +153,7 @@ add_task(async function popover_toggles_multiple_spaces() {
     WhimsyVPNScope.updateWindow(win);
     is(button.getAttribute("whimsy-vpn-scope"), "browser", "All spaces covers a previously unselected space");
   } finally {
+    root.remove();
     if (original) {
       Object.defineProperty(IPPProxyManager, "state", original);
     } else {
@@ -234,6 +237,9 @@ add_task(async function native_panel_scope_controls() {
     button.click();
     const group = await TestUtils.waitForCondition(() => document.getElementById("whimsy-vpn-scope"));
     panel = group.closest("panel");
+    if (panel.state != "open") {
+      await BrowserTestUtils.waitForPopupEvent(panel, "shown");
+    }
     ok(document.querySelector("ipprotection-content"), "Native VPN content retained");
     is(document.querySelectorAll("#ipprotection-button").length, 1, "One VPN button");
     const space = group.querySelector('[value="space"]');
