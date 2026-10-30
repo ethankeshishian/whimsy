@@ -2022,7 +2022,9 @@ whimsy-space-history-section {
    size in ~85-100 ms, ease-out, no overshoot, no dim; closing fades in
    place in ~100 ms with no scale. MERGE NOTE: wave5/uxfix set this
    animation to var(--whimsy-dur-fast) (150 ms) with a 96% settle; keep
-   these Arc values and tokens. */
+   these Arc values and tokens. wave7: no shared --whimsy-ease/-dur tokens
+   exist on this base, so Mini keeps its own; the bar-only panel's
+   materialise grow (WhimsyQuickWindow.materialise) reads these too. */
 :root[whimsy-quick-window] {
   --whimsy-mini-open-duration: 90ms;
   --whimsy-mini-close-duration: 100ms;
@@ -2190,4 +2192,61 @@ whimsy-space-history-section {
 }
 #whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
   background: var(--whimsy-mini-fill-active);
+}
+
+/* wave7/mini: Cmd+Opt+N's bar-only panel (Arc's Little Arc before Return,
+   little-095501: just the command bar, ~510x335pt at the screen's
+   top-right). No Mini bar (so no traffic lights: Cocoa hides them while
+   their box isn't painted) and no page; the floating command bar fills the
+   panel instead of centring over a page. The page stays laid out, only
+   hidden, so its browser keeps loading. */
+:root[whimsy-quick-window][whimsy-mini-bar-only] {
+  & #whimsy-quick-window-bar {
+    display: none;
+  }
+  /* The panel sits at the screen's top-right, so it grows from there. */
+  & #browser {
+    transform-origin: top right !important;
+  }
+  & #tabbrowser-tabbox {
+    visibility: hidden;
+  }
+  & #urlbar[zen-floating-urlbar="true"] {
+    top: 0 !important;
+    left: 0 !important;
+    translate: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  /* The panel is the window: its own rounded edge and shadow already
+     frame the bar. */
+  & #urlbar .urlbar-background {
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 16px !important;
+  }
+  /* Five rows fit, as in Arc's panel; any more scroll. */
+  & #urlbar .urlbarView {
+    max-height: calc(100vh - var(--urlbar-container-height, 62px));
+    overflow-y: auto;
+  }
+}
+
+/* wave7/mini: after Return the panel materialises at Mini's full size,
+   showing the destination space's gradient where the page will be until
+   the page has loaded (Arc: little-095501, 1.7-4.1 s); the page then
+   fades in over the gradient. */
+:root[whimsy-quick-window][whimsy-mini-placeholder] {
+  & #tabbrowser-tabpanels .browserStack {
+    background: var(--whimsy-mini-space-gradient, var(--whimsy-mini-fill)) !important;
+  }
+  & #tabbrowser-tabpanels .browserStack > browser {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[whimsy-quick-window] #tabbrowser-tabpanels .browserStack > browser {
+    transition: opacity var(--whimsy-mini-close-duration) ease-out;
+  }
 }
