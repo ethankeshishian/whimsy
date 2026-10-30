@@ -326,3 +326,6 @@ support-files = ["whimsy_article.html"]
 # wave3: playlist
 ["browser_whimsy_playlist.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
+
+# wave3: zen-parity (verify-only: Back closes tab, lazy pinned tabs, edit pinned URL, folder previews)
+["browser_whimsy_zen_parity.js"]
