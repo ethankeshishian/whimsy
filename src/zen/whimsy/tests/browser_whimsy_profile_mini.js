@@ -69,7 +69,10 @@ add_task(async function pill_names_and_switches_the_profile() {
     picker.activateItem(workItem);
     await TestUtils.waitForCondition(() => win.gBrowser.selectedTab.userContextId == work,
       "The page reopened in Work");
-    await BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser, false, PAGE).catch(() => {});
+    await TestUtils.waitForCondition(
+      () => win.gBrowser.selectedBrowser.currentURI?.spec == PAGE && !win.gBrowser.selectedBrowser.webProgress?.isLoadingDocument,
+      "The page loaded in Work"
+    );
     is(win.gBrowser.tabs.length, 1, "Still one page in Mini");
     await TestUtils.waitForCondition(() => pill.textContent == "Whimsy Mini Work", "Pill follows");
   } finally {
@@ -92,7 +95,11 @@ add_task(async function links_open_in_the_destination_profile() {
 
 add_task(async function open_in_another_profiles_space_warns_then_reopens() {
   const win = await openMini(PAGE);
-  await BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser, false, PAGE).catch(() => {});
+  // The page may have loaded already (browserLoaded would then never fire).
+  await TestUtils.waitForCondition(
+    () => win.gBrowser.selectedBrowser.currentURI?.spec == PAGE && !win.gBrowser.selectedBrowser.webProgress?.isLoadingDocument,
+    "The page is in Mini"
+  );
   let asked = null;
   WhimsyProfileMoves.confirm = async (w, request) => {
     asked = request;
