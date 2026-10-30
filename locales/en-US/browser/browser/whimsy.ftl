@@ -575,9 +575,9 @@ whimsy-private-in-window =
 whimsy-library-notes-enable =
     .label = Notes: a markdown scratchpad in the sidebar
 whimsy-library-finder-folders-enable =
-    .label = Finder folders in the sidebar
+    .label = Folders: pin Finder folders in the Library
 whimsy-library-screenshot-sidebar-enable =
-    .label = Screenshot to sidebar
+    .label = Screenshots: keep screenshots in the Library
 
 whimsy-library-notes-title = Notes
 whimsy-library-notes-empty = No notes yet
@@ -591,20 +591,20 @@ whimsy-library-notes-title-placeholder =
     .placeholder = Title
 whimsy-library-notes-attach = Attach to this page
 
-whimsy-library-finder-folders-title = Files
+whimsy-library-finder-folders-title = Folders
 whimsy-library-finder-folders-empty = No folders pinned yet
 whimsy-library-finder-folders-search-placeholder =
-    .placeholder = Search files…
+    .placeholder = Search folders…
 whimsy-library-finder-folders-add =
     .label = Add folder
 whimsy-library-finder-folders-remove =
     .label = Remove folder
 whimsy-library-finder-folders-picker-title = Choose a folder to pin
 
-whimsy-library-files-title = Captures
-whimsy-library-files-empty = No screenshots captured yet
+whimsy-library-files-title = Screenshots
+whimsy-library-files-empty = No screenshots yet
 whimsy-library-files-search-placeholder =
-    .placeholder = Search captures…
+    .placeholder = Search screenshots…
 whimsy-library-files-delete =
     .label = Delete
 ## batch12: links & media windows (Mini Whimsy, Arc's "Little Arc")
