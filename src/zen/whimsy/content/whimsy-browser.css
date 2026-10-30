@@ -373,6 +373,22 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 }
 
+/* fix7/tabs: a pinned tab or Essential in a container other than its
+   space's keeps Firefox's container colour, but as a short pill centred on
+   the tile's leading edge (like a sidebar selection marker) instead of a
+   2px line the full height of a rounded tile, which read as a stray
+   border. Tabs in their space's own container get no line at all
+   (WhimsyTabs marks them so Zen hides it). */
+#tabbrowser-tabs .tabbrowser-tab[pinned][usercontextid]:not([zenDefaultUserContextId="true"]) > .tab-stack > .tab-background > .tab-context-line {
+  flex: none;
+  align-self: flex-start;
+  width: 3px !important;
+  height: 14px !important;
+  margin-block: auto !important;
+  margin-inline: 3px 0 !important;
+  border-radius: 1.5px;
+}
+
 @keyframes whimsy-badge-in {
   from {
     transform: scale(0.4);
