@@ -44,14 +44,13 @@ const SITE_REASON = "whimsy-site";
 const SITE_MENU_ID = "context_whimsyMuteSite";
 
 // Per-tab volume (the Volume Master extension, Opera GX's per-tab limiter):
-// right-click a tab's speaker, or "Volume…" in the tab menu, and drag the
-// slider. Gecko has no per-tab volume, so WhimsyPageChild scales every
+// right-click a tab's speaker, or run "Tab Volume…" from the command bar,
+// and drag the slider. Gecko has no per-tab volume, so WhimsyPageChild scales every
 // audio and video element in the tab (each keeps the volume the page set).
 // The level survives reloads and restarts (session store). Web Audio
 // isn't reached, and there's no boost above 100%.
 const VOLUME_FEATURE_PREF = "whimsy.feature.tab-volume";
 const VOLUME_KEY = "whimsy-volume";
-const VOLUME_MENU_ID = "context_whimsyTabVolume";
 const VOLUME_PANEL_ID = "whimsy-volume-panel";
 
 // PiP snaps back (Arc): going back to a tab whose video is in a
@@ -583,7 +582,7 @@ export const WhimsyMedia = {
 
   initTabVolume(win) {
     const { document, gBrowser } = win;
-    // wave5: the tab menu's "Volume…" as a command for the current tab.
+    // wave5: "Tab Volume…" as a command for the current tab.
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyTabVolume",
       l10nId: "whimsy-action-tab-volume",
@@ -601,13 +600,10 @@ export const WhimsyMedia = {
     };
     Services.prefs.addObserver(VOLUME_FEATURE_PREF, update);
     win.addEventListener("unload", () => Services.prefs.removeObserver(VOLUME_FEATURE_PREF, update), { once: true });
-    const menu = document.getElementById("tabContextMenu");
-    menu?.addEventListener("popupshowing", event => {
-      if (event.target == menu) {
-        this.updateVolumeMenu(win);
-      }
-    });
-    // Right-clicking a tab's speaker opens the slider instead of the menu.
+    // wave7/menus: the tab menu has no "Volume…" row (no duplicate
+    // controls): right-clicking a tab's speaker opens the slider instead
+    // of the menu, and the command bar's "Tab Volume" (assignable in
+    // about:keyboard) opens it from the keyboard.
     gBrowser.tabContainer.addEventListener(
       "contextmenu",
       event => {
@@ -622,34 +618,6 @@ export const WhimsyMedia = {
       },
       true
     );
-  },
-
-  updateVolumeMenu(win) {
-    const { document } = win;
-    let item = document.getElementById(VOLUME_MENU_ID);
-    const tab = win.TabContextMenu?.contextTab;
-    const show = !!tab && !tab.multiselected && this.canAdjustVolume(tab);
-    if (!show) {
-      if (item) {
-        item.hidden = true;
-      }
-      return;
-    }
-    if (!item) {
-      item = document.createXULElement("menuitem");
-      item.id = VOLUME_MENU_ID;
-      document.l10n.setAttributes(item, "tab-context-whimsy-volume");
-      item.addEventListener("command", () => {
-        const contextTab = win.TabContextMenu?.contextTab;
-        if (contextTab) {
-          this.openVolumePanel(win, contextTab);
-        }
-      });
-      const anchor =
-        document.getElementById("context_toggleMuteSelectedTabs") || document.getElementById("context_toggleMuteTab");
-      anchor ? anchor.after(item) : document.getElementById("tabContextMenu").appendChild(item);
-    }
-    item.hidden = false;
   },
 
   volumePanel(win) {
