@@ -16,7 +16,9 @@ fails twice is skipped until a newer one comes out.
 
 State lives in ~/Library/Application Support/Whimsy Updater:
   state.json    for the browser's Settings (WhimsyUpdates.sys.mjs)
-  control.json  from the browser: paused, check_requested, rollback, channel, app_icon
+  control.json  from the browser: auto_install, check_requested, rollback, channel, app_icon;
+                by hand only: hold (holds the nightly build + Release publish; the
+                browser never writes it. Older builds wrote `paused`; it's ignored)
   staged/ previous/   app bundles
   logs/update.log
 """
@@ -204,9 +206,9 @@ def git(repo, *args, **kw):
 
 def preflight(repo, manual):
     control = read_json("control.json", {})
-    # Paused is Firefox's "check but let you choose": a manual check still runs.
-    if control.get("paused") and not manual:
-        raise Skip("updates are paused")
+    # `hold` is set by hand; a manual check from Settings still runs.
+    if control.get("hold") and not manual:
+        raise Skip("the nightly build is on hold (control.json hold)")
     if not manual and "AC Power" not in sh(["pmset", "-g", "batt"], quiet=True):
         raise Skip("on battery; waiting for power")
     free_gb = shutil.disk_usage(repo).free / 1e9
@@ -631,6 +633,9 @@ def cmd_apply():
         if not staged or not os.path.isdir(STAGED):
             return
         if whimsy_running():
+            return
+        if control.get("auto_install") is False:
+            # Firefox's "install automatically" is off: wait for a manual check.
             return
         log(f"Installing {staged.get('version')}")
         current = state.get("installed")

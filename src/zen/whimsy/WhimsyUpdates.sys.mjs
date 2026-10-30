@@ -6,7 +6,7 @@
 // updater runs as two launchd jobs and keeps its state in
 // ~/Library/Application Support/Whimsy Updater:
 //   state.json    written by the updater: what's installed, staged, previous
-//   control.json  written here: paused, rollback requests
+//   control.json  written here: auto_install, rollback requests (never hold)
 //   logs/update.log
 // Each Whimsy.app also carries Contents/Resources/whimsy-version.json
 // (whimsy/version.py): its Whimsy version, Zen base and version history.
@@ -103,7 +103,8 @@ export const WhimsyUpdates = {
   // Mac that builds Whimsy installs its own builds (whimsy/updater), so
   // Firefox's updater gets a channel with no updates there; the local
   // updater reads the choice (and Firefox's install-automatically choice,
-  // as paused) from control.json.
+  // as auto_install) from control.json. `hold` there is the nightly
+  // build-and-publish pause; it's set by hand and the browser never writes it.
   //
   // Runs from WhimsyStartup at profile-after-change, before
   // UpdateServiceStub's entry (category entries start in name order). Firefox
@@ -127,17 +128,17 @@ export const WhimsyUpdates = {
     Services.prefs.getDefaultBranch("").setCharPref("app.update.channel", local ? "local" : this.channel);
     Services.prefs.lockPref("app.update.channel");
     if (local) {
-      // Firefox's install-automatically choice pauses or resumes the local
-      // updater; a check from Settings runs either way.
-      const paused = !Services.prefs.getBoolPref(AUTO_PREF, true);
-      this.writeControl({ channel: this.channel, paused }).catch(e =>
+      // Firefox's install-automatically choice only decides whether a staged
+      // build installs by itself; it never pauses the nightly build/publish.
+      const auto_install = Services.prefs.getBoolPref(AUTO_PREF, true);
+      this.writeControl({ channel: this.channel, auto_install }).catch(e =>
         console.error("Whimsy: update channel", e)
       );
     }
   },
 
-  async setPaused(paused) {
-    await this.writeControl({ paused });
+  async setAutoInstall(auto_install) {
+    await this.writeControl({ auto_install });
   },
 
   // Starts a launchd job now (it's a no-op if the job is already running).

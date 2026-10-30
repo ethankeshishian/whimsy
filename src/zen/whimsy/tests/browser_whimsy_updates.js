@@ -124,15 +124,18 @@ add_task(async function test_updates_settings() {
     await IOUtils.writeJSON(PathUtils.join(dir, "control.json"), { paused: false });
     await TestUtils.waitForCondition(() => state.value == "noUpdatesFound", "...then that it's up to date");
 
-    // Firefox's install-automatically choice pauses and resumes the updater.
+    // Firefox's install-automatically choice sets auto_install only; it never
+    // touches the nightly publish pause.
+    await IOUtils.writeJSON(PathUtils.join(dir, "control.json"), { hold: true });
     const defaults = Services.prefs.getDefaultBranch("");
     const channel = defaults.getCharPref("app.update.channel", "");
     WhimsyUpdates._channelInit = false;
     WhimsyUpdates.initChannel();
     Services.prefs.setBoolPref("app.update.auto", false);
-    await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).paused === true, "Paused");
+    await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).auto_install === false, "Auto-install off");
     Services.prefs.setBoolPref("app.update.auto", true);
-    await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).paused === false, "Resumed");
+    await TestUtils.waitForCondition(async () => (await WhimsyUpdates.readControl()).auto_install === true, "Auto-install on");
+    is((await WhimsyUpdates.readControl()).hold, true, "The publish hold is untouched");
     Services.prefs.clearUserPref("app.update.auto");
     Services.prefs.unlockPref("app.update.channel");
     defaults.setCharPref("app.update.channel", channel);

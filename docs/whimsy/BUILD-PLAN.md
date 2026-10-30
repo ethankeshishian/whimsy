@@ -120,9 +120,9 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
    Essentials stay per container (Arc's model) unless the user says otherwise.
 
 5. (User, Oct 29, before sleep)
-   - Release is HELD tonight: `paused: true` in the updater's control.json (only
+   - Release is HELD: `hold: true` in the updater's control.json (only
      the nightly checks it; ship still works). Only Dev gets tonight's work.
-     Morning: remove `paused` from control.json to resume nightly releases.
+     Morning: remove `hold` from control.json to resume nightly releases.
    - Defaults: every new feature defaults ON unless its note says otherwise.
    - A feature that gets stuck (failing test not fixable in reasonable time):
      revert it, note why in the morning report, move on. Ship stays green.
