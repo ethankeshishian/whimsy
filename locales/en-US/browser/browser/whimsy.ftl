@@ -1611,3 +1611,15 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave5/captions: translated captions (CC in the video speed control)
+
+whimsy-video-captions-button =
+    .aria-label = Translated captions
+whimsy-video-captions-region =
+    .aria-label = Translated captions
+    .title = Drag to move. Double-click to put back
+whimsy-video-captions-none = This video has no captions to translate
+whimsy-video-captions-failed = Couldn’t translate these captions, so they’re shown as they are
+whimsy-media-video-captions =
+    .label = Add CC to the speed control: captions translated into your language, on your Mac

@@ -789,6 +789,10 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5/captions: live translated captions (CC in the speed control),
+    # translated on-device by Firefox Translations.
+    {"id": "video-captions", "title": "Translated captions: CC on a video's speed control shows its captions in your language, translated on your Mac",
+     "detect": [("src/zen/media", r"(?i)(translated|live)-?captions|caption-?translat")]},
 ]
 
 

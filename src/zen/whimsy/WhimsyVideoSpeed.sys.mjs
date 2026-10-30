@@ -11,6 +11,11 @@
 const FEATURE_PREF = "whimsy.feature.video-speed";
 const CONTENT_PREF = "whimsy.video-speed";
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyCaptions: "resource:///modules/whimsy/WhimsyCaptions.sys.mjs",
+});
+
 const cps2 = () => Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
 
 export const WhimsyVideoSpeed = {
@@ -120,6 +125,9 @@ export class WhimsyVideoSpeedParent extends JSWindowActorParent {
         return WhimsyVideoSpeed.getRate(this.browsingContext);
       case "WhimsyVideoSpeed:Set":
         return WhimsyVideoSpeed.remember(this.browsingContext, Number(message.data?.rate));
+      // wave5/captions: a cue to translate (CC in the speed control).
+      case "WhimsyCaptions:Translate":
+        return lazy.WhimsyCaptions.translate(message.data);
     }
     return null;
   }

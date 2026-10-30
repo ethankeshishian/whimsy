@@ -154,9 +154,106 @@ button {
   }
 }
 
+/* wave5/captions: CC, last in the bar so the speed never moves. */
+#bar:has(> #cc:not([hidden])) > #toggle {
+  border-radius: 0;
+}
+
+#cc {
+  display: grid;
+  place-items: center;
+  padding: 0 8px 0 7px;
+  border-left: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 0 8px 8px 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+
+  &[aria-pressed="true"] {
+    background: rgb(255 255 255 / 0.9);
+    color: rgb(18 18 20);
+  }
+}
+
+/* The translated captions: Reader View's typeface on a dark plate, its
+   bottom centre at the point WhimsyCaptionsChild places. Drag to move. */
+#captions {
+  --size: 18px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: max-content;
+  translate: -50% -100%;
+  padding: 0.2em 0.55em 0.25em;
+  border-radius: 0.4em;
+  background: rgb(8 8 10 / 0.78);
+  color: #fff;
+  font-family: sans-serif;
+  font-size: var(--size);
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  white-space: pre-line;
+  user-select: none;
+  cursor: grab;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  z-index: 2147483646;
+
+  &[data-shown] {
+    pointer-events: auto;
+    opacity: 1;
+  }
+
+  &[data-dragging] {
+    cursor: grabbing;
+    transition: none;
+  }
+
+  &[data-font="serif"] {
+    font-family: serif;
+  }
+
+  &[data-font="monospace"] {
+    font-family: monospace;
+  }
+
+  &[data-weight="light"] {
+    font-weight: 400;
+  }
+
+  &[data-weight="bold"] {
+    font-weight: 700;
+  }
+}
+
+#cue[data-pending] {
+  /* The original, until its translation is back. */
+  color: rgb(255 255 255 / 0.62);
+}
+
+#note {
+  font-size: 0.72em;
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.8);
+
+  &:empty {
+    display: none;
+  }
+}
+
+#cue:empty {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   #bar,
-  #toggle > svg {
+  #toggle > svg,
+  #captions {
     transition: none;
   }
 
