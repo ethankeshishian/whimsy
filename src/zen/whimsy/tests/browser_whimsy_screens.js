@@ -1573,3 +1573,34 @@ add_task(async function wave6_zap_mode() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave6/zap: Link hints on a page (badges in the space's accent, help pill).
+add_task(async function wave6_link_hints() {
+  const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.link-hints", true]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const browser = tab.linkedBrowser;
+  const peek = () =>
+    browser.browsingContext.currentWindowGlobal.getActor("WhimsyLinkHints").sendQuery("Whimsy:Hints:Peek");
+  try {
+    await SpecialPowers.spawn(browser, [], () => {
+      const doc = content.document;
+      doc.body.innerHTML = `
+        <h1>Reading list</h1>
+        <p><a href="#a">An essay on calm technology</a> and <a href="#b">a follow-up</a>.</p>
+        <nav><a href="#c">Home</a> · <a href="#d">Archive</a> · <a href="#e">About</a></nav>
+        <p><button>Subscribe</button> <input placeholder="Search" aria-label="Search"></p>`;
+    });
+    document.getElementById(WhimsyLinkHints.COMMAND_ID).doCommand();
+    await TestUtils.waitForCondition(async () => (await peek()).active, "Hints show");
+    await new Promise(resolve => setTimeout(resolve, 400));
+    const { labels } = await peek();
+    Assert.greaterOrEqual(labels.length, 7, "Every link, the button and the field have a badge");
+    await shot("wave6-link-hints", browser.browsingContext.currentWindowGlobal);
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await TestUtils.waitForCondition(async () => !(await peek()).active, "Esc puts them away");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});

@@ -1629,3 +1629,16 @@ whimsy-site-zap-count =
        *[other] Zap Elements… ({ $count } zapped)
     }
 whimsy-year-finale-zapped = Things zapped
+
+## wave6/zap: Link hints (keyboard-only clicking)
+
+whimsy-action-link-hints = Link Hints
+# The pill at the bottom of the page while hints show.
+whimsy-link-hints-help = Type a hint to click · Shift opens in a new tab · Esc cancels
+# Read by screen readers when hints appear.
+whimsy-link-hints-open = { $count ->
+    [one] 1 link hint. Type its letters to click it, add Shift to open a new tab, or press Escape to cancel.
+   *[other] { $count } link hints. Type a hint’s letters to click it, add Shift to open a new tab, or press Escape to cancel.
+}
+whimsy-link-hints-closed = Link hints closed
+whimsy-link-hints-none = No links to hint on this page

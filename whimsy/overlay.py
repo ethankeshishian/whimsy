@@ -803,6 +803,10 @@ FEATURES = [
     # editor): Cmd+Shift+X, command bar, site panel, undo, space-colored dust.
     {"id": "zap", "title": "Zap: erase page elements with Cmd+Shift+X, the command bar or the site panel; undo, space-colored dust",
      "detect": [("src/zen", r"(?i)zen-action-zap|key_zenZap|cmd_zenZap|zen-zap-shortcut")]},
+    # wave6/zap: Link hints (Vimium's f): letter badges on everything
+    # clickable, type to click, Shift for a new tab.
+    {"id": "link-hints", "title": "Link hints: Cmd+J puts letter badges on links and buttons; type one to click it, Shift for a new tab",
+     "detect": [("src/zen", r"(?i)link-?hints|vimium|hint-?mode")]},
 ]
 
 

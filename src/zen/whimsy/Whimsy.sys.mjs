@@ -141,6 +141,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyZap: "resource:///modules/whimsy/WhimsyZap.sys.mjs",
 });
 
+// wave6/zap: Link hints (keyboard-only clicking).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -234,6 +239,15 @@ export const Whimsy = {
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    // wave6/zap: Link hints. Message-only (no events), so the child only
+    // starts in a page when Cmd+J asks for hints; top frames only.
+    ChromeUtils.registerWindowActor("WhimsyLinkHints", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyLinkHintsParent.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
@@ -565,6 +579,8 @@ export const Whimsy = {
     // wave6/zap: Zap (Cmd+Shift+X, command bar, site panel menu). Always
     // installed; the command checks its switch and Zen's boosts on each use.
     run("zap", () => lazy.WhimsyZap.initWindow(win));
+    // wave6/zap: Link hints (Cmd+J, command bar). Checks its switch on use.
+    run("link-hints", () => lazy.WhimsyLinkHints.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
