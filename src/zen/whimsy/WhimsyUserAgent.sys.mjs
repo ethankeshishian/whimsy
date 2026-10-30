@@ -13,6 +13,11 @@
 // list and clear them) plus a JSON pref for the string itself.
 // whimsy.feature.site-user-agent.
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+});
+
 const FEATURE_PREF = "whimsy.feature.site-user-agent";
 const SITES_PREF = "whimsy.useragent.sites";
 const PERM_TYPE = "whimsy-useragent";
@@ -109,8 +114,10 @@ export const WhimsyUserAgent = {
     tab.linkedBrowser.reload();
   },
 
-  // "Pretend to be..." (command bar): a small panel of presets for the
-  // current tab's site.
+  // "Pretend to be..." (command bar). fixB: a WhimsyPanels sheet hanging
+  // off the address bar's site button (centred when the bar is hidden): a
+  // radio list of browsers for this site, plus a custom string. Choosing
+  // one reloads the tab once.
   openPicker(win) {
     const { document, gBrowser } = win;
     const tab = gBrowser.selectedTab;
@@ -118,12 +125,14 @@ export const WhimsyUserAgent = {
     if (!host) {
       return;
     }
-    document.getElementById("whimsy-useragent-panel")?.remove();
-    const panel = document.createXULElement("panel");
-    panel.id = "whimsy-useragent-panel";
-    panel.className = "whimsy-useragent-panel";
-    panel.setAttribute("noautohide", "false");
-    panel.setAttribute("type", "arrow");
+    const { panel, body } = lazy.WhimsyPanels.create(win, {
+      id: "whimsy-useragent-panel",
+      titleL10nId: "whimsy-useragent-title",
+      subtitleL10nId: "whimsy-useragent-subtitle",
+      subtitleArgs: { site: host },
+      size: "medium",
+    });
+    panel.classList.add("whimsy-useragent-panel");
 
     const choose = (preset, custom) => {
       if (preset) {
@@ -132,27 +141,67 @@ export const WhimsyUserAgent = {
         this.clear(host);
       }
       this.reload(win, tab);
-      panel.hidePopup();
+      lazy.WhimsyPanels.close(panel);
     };
+    const entry = readSites()[host];
+    const activePreset = entry?.preset ?? null;
     const OPTIONS = [
-      [null, "whimsy-useragent-default"],
-      ["chrome-mac", "whimsy-useragent-chrome"],
-      ["safari-mac", "whimsy-useragent-safari-mac"],
-      ["safari-iphone", "whimsy-useragent-safari-iphone"],
+      [null, "whimsy-useragent-option-default", "whimsy-useragent-option-default-detail"],
+      ["chrome-mac", "whimsy-useragent-option-chrome", "whimsy-useragent-option-chrome-detail"],
+      ["safari-mac", "whimsy-useragent-option-safari-mac", "whimsy-useragent-option-safari-mac-detail"],
+      ["safari-iphone", "whimsy-useragent-option-safari-iphone", "whimsy-useragent-option-safari-iphone-detail"],
+      ["custom", "whimsy-useragent-option-custom", "whimsy-useragent-option-custom-detail"],
     ];
-    const sites = readSites();
-    const activePreset = sites[host]?.preset ?? null;
-    for (const [preset, l10nId] of OPTIONS) {
-      const item = document.createXULElement("toolbarbutton");
-      item.className = "subviewbutton";
-      document.l10n.setAttributes(item, l10nId);
-      item.setAttribute("aria-checked", preset == activePreset);
-      item.addEventListener("command", () => choose(preset));
-      panel.appendChild(item);
+
+    // The custom string: a field and Apply, shown under the Custom row.
+    const customBox = document.createXULElement("vbox");
+    customBox.className = "whimsy-useragent-custom-box";
+    customBox.hidden = activePreset != "custom";
+    const field = document.createElementNS("http://www.w3.org/1999/xhtml", "input");
+    field.className = "whimsy-useragent-custom";
+    field.setAttribute("spellcheck", "false");
+    field.value = entry?.custom ?? "";
+    document.l10n.setAttributes(field, "whimsy-useragent-custom-field");
+    const apply = lazy.WhimsyPanels.footerButton(document, {
+      l10nId: "whimsy-useragent-custom-apply",
+      primary: true,
+      onCommand: () => {
+        const value = field.value.trim();
+        if (value) {
+          choose("custom", value);
+        } else {
+          field.focus();
+        }
+      },
+    });
+    apply.classList.add("small-button");
+    field.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        apply.doCommand();
+      }
+    });
+    customBox.append(field, apply);
+
+    for (const [preset, l10nId, detailId] of OPTIONS) {
+      const item = lazy.WhimsyPanels.item(document, {
+        l10nId,
+        subtitleL10nId: detailId,
+        checked: preset == activePreset,
+        onCommand: () => {
+          if (preset == "custom") {
+            customBox.hidden = false;
+            field.focus();
+            return;
+          }
+          choose(preset);
+        },
+      });
+      item.setAttribute("whimsy-useragent-preset", preset ?? "default");
+      body.append(item);
     }
-    panel.addEventListener("keydown", e => e.key == "Escape" && panel.hidePopup());
-    panel.addEventListener("popuphidden", () => panel.remove());
-    document.documentElement.appendChild(panel);
-    panel.openPopup(gBrowser.selectedBrowser, "overlap");
+    body.append(customBox);
+    const anchor = lazy.WhimsyPanels.visibleAnchor(win, ["zen-site-data-icon-button", "identity-icon-box", "urlbar"]);
+    lazy.WhimsyPanels.open(win, panel, { anchor, position: "after_start" });
   },
 };
