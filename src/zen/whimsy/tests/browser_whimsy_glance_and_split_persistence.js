@@ -39,9 +39,8 @@ add_task(async function test_glance_reselects_its_parent_tab_on_switch_back() {
 
 // #12: SessionStore-sys-mjs.patch saves gZenViewSplitter.storeDataForSessionStore()
 // into winData.splitViewData. This only checks the save side (the layout
-// tree, grid type and tab ids); restoring into a fresh window, and
-// issue #12403 (a pinned 3-pane split restoring only the last tab), need a
-// build to exercise and are left for a batch that can run one.
+// tree, grid type and tab ids); restoring into a fresh window and
+// issue #12403 are covered by browser_whimsy_split_restore.js.
 add_task(async function test_split_view_data_is_saved_for_session_store() {
   const tabA = await addTab("data:text/plain,tabA");
   const tabB = await addTab("data:text/plain,tabB");

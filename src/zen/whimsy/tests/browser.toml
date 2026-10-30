@@ -241,3 +241,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # batch3glance: Arc's Add Left/Right/Top/Bottom Split and Change Orientation.
 ["browser_whimsy_split_layouts.js"]
+
+# batch3glance: splits restore whole into a new window (zen#12403).
+["browser_whimsy_split_restore.js"]

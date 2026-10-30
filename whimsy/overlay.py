@@ -108,6 +108,30 @@ HOTFIXES = [
         "old": '    this.browserWrapper.style.width = "80%";\n',
         "new": "    this.browserWrapper.style.width = `${(this.whimsyWidthPercent ?? 0.8) * 100}%`; // Whimsy hotfix: Glance size\n",
     },
+    # batch3glance: splits restore whole (zen#12403), see WhimsySplitRestore.
+    {
+        "id": "split-restore-layout",
+        "file": "src/zen/split-view/ZenViewSplitter.mjs",
+        "why": "zen#12403: a restored split whose saved layout lost a pane "
+               "(tab id not found, or a pinned tab copied) drew only some of "
+               "its tabs. Rebuild the layout when it doesn't match the tabs.",
+        "old": "        if (splitData) {\n"
+               "          splitData.layoutTree = layout;\n",
+        "new": "        if (splitData) {\n"
+               "          splitData.layoutTree = ChromeUtils.importESModule(\"resource:///modules/whimsy/WhimsySplitRestore.sys.mjs\").WhimsySplitRestore.layoutFor(layout, splitData, this); // Whimsy hotfix: zen#12403\n",
+    },
+    {
+        "id": "split-restore-legacy-continue",
+        "file": "src/zen/split-view/ZenViewSplitter.mjs",
+        "why": "A split saved without a layout tree (older sessions) ended the "
+               "restore loop, so every split after it in the window stayed "
+               "unsplit. Go on to the next split instead.",
+        "old": "          this.splitTabs(group.tabs, group.gridType);\n"
+               "          delete this._sessionRestoring;\n"
+               "          return;\n",
+        "new": "          this.splitTabs(group.tabs, group.gridType);\n"
+               "          continue; // Whimsy hotfix: restore the remaining splits too\n",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -385,6 +409,9 @@ FEATURES = [
     # batch3glance: Arc's Add Left/Right/Top/Bottom Split + Change Orientation.
     {"id": "split-layouts", "title": "Add Left/Right/Top/Bottom Split and Change Orientation in the command bar (Arc)",
      "detect": [("src/zen", r"(?i)(?:add-(?:left|top|bottom)-split|change-?orientation)")]},
+    # batch3glance: restored splits keep every pane (zen#12403).
+    {"id": "split-restore", "title": "Restored splits keep every pane even when the saved layout lost one (zen#12403)",
+     "detect": [("src/zen/split-view", r"(?i)layoutMatches|validateLayout|12403")]},
 ]
 
 
