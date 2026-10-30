@@ -1,5 +1,5 @@
 diff --git a/toolkit/mozapps/update/UpdateService.sys.mjs b/toolkit/mozapps/update/UpdateService.sys.mjs
-index 164381ebc1073b644ab0a95910e2aab6c397e879..c945a0d22c515a75515b3cac2f87b79b984497e9 100644
+index 164381ebc1073b644ab0a95910e2aab6c397e879..360e482c1475424219357aa9ef311b93c2010701 100644
 --- a/toolkit/mozapps/update/UpdateService.sys.mjs
 +++ b/toolkit/mozapps/update/UpdateService.sys.mjs
 @@ -1957,6 +1957,17 @@ function updateIsAtLeastAsOldAs(update, version, buildID) {
@@ -20,3 +20,61 @@ index 164381ebc1073b644ab0a95910e2aab6c397e879..c945a0d22c515a75515b3cac2f87b79b
    return (
      versionComparison < 0 ||
      (versionComparison == 0 && update.buildID == buildID)
+@@ -3116,6 +3127,57 @@ export class UpdateService {
+       }
+     }
+ 
++    // Whimsy: the check above skips a ready update that was mid-staging
++    // ("applying") or failed, and the downloading update in those states, so
++    // an update carried over from an earlier session could be staged again
++    // over the build that's already running ("Restart to update" on the
++    // installed build). Drop any such update whatever the state
++    // (WhimsyUpdates.staleActiveUpdates says which).
++    let whimsyStale = [];
++    try {
++      const { WhimsyUpdates } = ChromeUtils.importESModule(
++        "resource:///modules/whimsy/WhimsyUpdates.sys.mjs"
++      );
++      whimsyStale = WhimsyUpdates.staleActiveUpdates(
++        status,
++        {
++          ready: lazy.UM.internal.readyUpdate,
++          downloading: lazy.UM.internal.downloadingUpdate,
++        },
++        update =>
++          updateIsAtLeastAsOldAs(
++            update,
++            Services.appinfo.version,
++            Services.appinfo.appBuildID
++          )
++      );
++    } catch (e) {
++      LOG("UpdateService:#asyncInit - Whimsy stale update check failed: " + e);
++    }
++    if (whimsyStale.length) {
++      for (let update of whimsyStale) {
++        LOG(
++          "UpdateService:#asyncInit - Whimsy: removing carried-over update " +
++            "for the running or an older build. update build ID: " +
++            update.buildID +
++            ", application build ID: " +
++            Services.appinfo.appBuildID
++        );
++        update.state = STATE_FAILED;
++        update.statusText =
++          lazy.gUpdateBundle.GetStringFromName("statusFailed");
++        update.errorCode = ERR_OLDER_VERSION_OR_SAME_BUILD;
++      }
++      if (whimsyStale.includes(lazy.UM.internal.readyUpdate)) {
++        await cleanupActiveUpdates();
++        return;
++      }
++      await cleanupDownloadingUpdate();
++      if (status == STATE_DOWNLOADING) {
++        return;
++      }
++    }
++
+     pingStateAndStatusCodes(
+       status == STATE_DOWNLOADING
+         ? lazy.UM.internal.downloadingUpdate

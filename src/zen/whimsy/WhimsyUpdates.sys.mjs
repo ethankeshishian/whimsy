@@ -137,6 +137,25 @@ export const WhimsyUpdates = {
     }
   },
 
+  // Which of Firefox's active updates to drop at startup
+  // (whimsy-UpdateService-sys-mjs.patch, in UpdateService's #asyncInit):
+  // any ready or downloading update for the running build or an older one
+  // (`isOld`, Firefox's updateIsAtLeastAsOldAs with Whimsy's build-ID order),
+  // whatever the update state. Otherwise an update carried over from an
+  // earlier session is staged again over the build that's already running.
+  // A "succeeded" ready update is the build that was just installed: Firefox's
+  // post-update handling still needs it.
+  staleActiveUpdates(status, { ready, downloading }, isOld) {
+    const stale = [];
+    if (ready && status != "succeeded" && isOld(ready)) {
+      stale.push(ready);
+    }
+    if (downloading && isOld(downloading)) {
+      stale.push(downloading);
+    }
+    return stale;
+  },
+
   async setAutoInstall(auto_install) {
     await this.writeControl({ auto_install });
   },
