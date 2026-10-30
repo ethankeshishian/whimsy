@@ -195,9 +195,11 @@ add_task(async function home_balloon_dresses_for_the_season() {
       const doc = browser.contentDocument;
       const win = browser.contentWindow;
       const recheck = () => doc.dispatchEvent(new win.Event("visibilitychange"));
-      const shown = () => [...doc.querySelectorAll("#whimsy-home-balloon .wh-costume")]
+      // The seasons shown (autumn dresses the balloon in two pieces:
+      // a leaf on top and a pumpkin on the string).
+      const shown = () => [...new Set([...doc.querySelectorAll("#whimsy-home-balloon .wh-costume")]
         .filter(g => win.getComputedStyle(g).display != "none")
-        .map(g => g.dataset.season);
+        .map(g => g.dataset.season))];
       for (const [season, month] of SEASON_MONTHS) {
         WhimsySeasons._now = () => new Date(2026, month - 1, 15, 12);
         recheck();
