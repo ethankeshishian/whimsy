@@ -141,6 +141,7 @@ export const WhimsyFireButton = {
     for (const [id, run] of scopes) {
       const button = document.createXULElement("toolbarbutton");
       button.className = "whimsy-fire-scope toolbarbutton-1";
+      button.dataset.scope = id;
       document.l10n.setAttributes(button, `whimsy-fire-${id}`);
       button.addEventListener("command", async () => {
         panel.hidePopup();
@@ -162,8 +163,23 @@ export const WhimsyFireButton = {
     return panel;
   },
 
+  // "This Site" burns the whole site (ForgetAboutSite takes the base domain:
+  // every subdomain, its history and data, and its tabs), so the row names
+  // it ("Everything from example.com"); it's disabled off the web.
+  updateSiteScope(win, panel) {
+    const button = panel.querySelector('.whimsy-fire-scope[data-scope="site"]');
+    const site = siteOf(win.gBrowser.selectedTab);
+    if (site) {
+      win.document.l10n.setAttributes(button, "whimsy-fire-site", { site });
+    } else {
+      win.document.l10n.setAttributes(button, "whimsy-fire-site-none");
+    }
+    button.disabled = !site;
+  },
+
   openPanel(win) {
     const panel = this.panel(win);
+    this.updateSiteScope(win, panel);
     panel.openPopup(win.document.documentElement, { position: "overlap", triggerEvent: null });
   },
 };
