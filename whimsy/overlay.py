@@ -309,6 +309,17 @@ HOTFIXES = [
                "        ...(action.whimsyKeywords ?? []).map(k => this.#calculateFuzzyScore(k, query) - 1)\n"
                "      ); // Whimsy hotfix: related actions",
     },
+    # merge3: the first command bar action wasn't placed first
+    {
+        "id": "command-bar-top-action-first",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "suggestedIndex is a getter/setter on UrlbarResult now, so "
+               "`delete` left the best match with the same index as the next "
+               "one and the view could show the weaker match first (\"dark\" "
+               "listed Light Mode above Dark Mode).",
+        "old": "          delete result.suggestedIndex;\n",
+        "new": "          result.suggestedIndex = undefined; // Whimsy hotfix: delete is a no-op on the accessor\n",
+    },
     # fixA: reused toast keeps stale args
     {
         "id": "toast-reuse-updates-args",

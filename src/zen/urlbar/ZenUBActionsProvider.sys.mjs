@@ -428,7 +428,7 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
       .forEach(result => {
         if (isPrefixed && !isWorkspaceSearch && i === 0 && query.length > 1) {
           result.heuristic = true;
-          delete result.suggestedIndex;
+          result.suggestedIndex = undefined; // Whimsy hotfix: delete is a no-op on the accessor
         } else if (typeof result.suggestedIndex === "number") {
           result.suggestedIndex += shown;
           shown++;
