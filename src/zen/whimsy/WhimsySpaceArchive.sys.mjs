@@ -22,9 +22,12 @@
 // Management → Spaces), since a hidden space has no menu of its own once
 // it's out of the switcher.
 //
-// Known limitation: Cmd+1..9 and other space-cycling shortcuts aren't
-// filtered to skip hidden spaces (that logic lives in Zen files); a hidden
-// space can still be reached by typing its shortcut directly.
+// wave3: Cmd+1-9 (and Zen's tenth switch shortcut) count only the spaces
+// visible in the switcher, so a hidden space's number goes to the next one
+// (Arc numbers what the sidebar shows). Wraps gZenWorkspaces.shortcutSwitchTo,
+// the single entry point Zen's cmd_zenWorkspaceSwitchN commands call; direct
+// changeWorkspace calls (restore, Settings) are untouched. Next/previous
+// space cycling (changeWorkspaceShortcut) still steps through hidden spaces.
 
 const FEATURE_PREF = "whimsy.feature.archive-space";
 const HIDDEN_ATTR = "whimsy-hidden-space";
@@ -39,6 +42,7 @@ export const WhimsySpaceArchive = {
     if (!win.gZenWorkspaces?.workspaceEnabled) {
       return;
     }
+    this.wrapShortcutSwitch(win);
     const refresh = () => this.applyHidden(win);
     this.applyHidden(win);
     win.addEventListener("ZenWorkspaceDataChanged", refresh);
@@ -54,6 +58,24 @@ export const WhimsySpaceArchive = {
       { once: true }
     );
     this.initContextMenu(win);
+  },
+
+  wrapShortcutSwitch(win) {
+    const spaces = win.gZenWorkspaces;
+    const original = spaces.shortcutSwitchTo;
+    if (typeof original != "function" || original._whimsyVisibleSpaces) {
+      return;
+    }
+    const wrapped = function (index) {
+      if (!featureOn()) {
+        return original.apply(this, arguments);
+      }
+      const visible = this.getWorkspaces().filter(space => !space.whimsyHidden);
+      const target = Number.isInteger(index) && index >= 0 ? visible[index] : null;
+      return target ? this.changeWorkspace(target) : undefined;
+    };
+    wrapped._whimsyVisibleSpaces = true;
+    spaces.shortcutSwitchTo = wrapped;
   },
 
   // Every hidden space's switcher icon gets `hidden`; everything else loses
