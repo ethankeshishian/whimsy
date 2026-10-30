@@ -1233,3 +1233,32 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
 whimsy-welcome-font-system = System font
+
+## wave3: email-aliases (WhimsyEmailAliases*.sys.mjs; Settings -> Privacy & Security)
+
+whimsy-email-aliases-header =
+    .label = Email aliases
+whimsy-email-aliases-button =
+    .label = Offer a private email address in email fields
+    .description = A button in email fields creates an iCloud Hide My Email address (with your iCloud.com sign-in) or a Firefox Relay mask, and fills it in.
+whimsy-email-aliases-icloud-checking =
+    .label = Hide My Email (checking iCloud…)
+whimsy-email-aliases-icloud =
+    .label = Hide My Email
+whimsy-email-aliases-icloud-sign-in =
+    .label = Sign in to iCloud to use Hide My Email
+whimsy-email-aliases-icloud-unavailable =
+    .label = Hide My Email needs iCloud+
+whimsy-email-aliases-icloud-error =
+    .label = Can’t reach iCloud. Sign in again…
+whimsy-email-aliases-relay =
+    .label = Use a Firefox Relay mask
+whimsy-email-aliases-toast-creating = Creating a Hide My Email address…
+whimsy-email-aliases-toast-filled = Filled in { $address }
+whimsy-email-aliases-toast-copied = Copied { $address }
+whimsy-email-aliases-toast-signed-out = Sign in to iCloud to use Hide My Email
+whimsy-email-aliases-toast-unavailable = Hide My Email needs iCloud+
+whimsy-email-aliases-toast-network = Couldn’t reach iCloud. Try again in a moment.
+whimsy-email-aliases-toast-icloud-failed = iCloud couldn’t create an address. Try again in a moment.
+whimsy-email-aliases-toast-relay-off = Firefox Relay is turned off in Settings
+whimsy-email-aliases-toast-relay-failed = Firefox Relay couldn’t create a mask

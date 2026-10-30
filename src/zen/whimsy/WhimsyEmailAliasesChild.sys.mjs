@@ -1,0 +1,240 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+// Email aliases, page side: finds email fields and shows a small mask
+// button at the right edge of the focused one. The button lives in a closed
+// shadow root, styled through CSSOM only (so page CSPs can't block it) and
+// accepts trusted clicks only. Clicking it asks the parent to open the
+// alias menu, which lives in the browser chrome; the parent sends back the
+// address to fill. Nothing here talks to iCloud or Relay.
+
+const FEATURE_PREF = "whimsy.feature.email-aliases";
+const BUTTON_PREF = "whimsy.email-aliases.button";
+const HOST_ID = "whimsy-email-aliases-host";
+const BUTTON_SIZE = 22;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+const EXCLUDED_TYPES = new Set([
+  "hidden", "password", "submit", "button", "checkbox", "radio", "file",
+  "range", "color", "date", "datetime-local", "month", "week", "time",
+  "image", "reset", "number", "tel", "url", "search",
+]);
+const EMAIL_HINT = /e-?mail|邮箱|correo|courriel/i;
+
+export function isEmailField(element) {
+  if (!HTMLInputElement.isInstance(element)) {
+    return false;
+  }
+  const type = (element.type || "text").toLowerCase();
+  if (EXCLUDED_TYPES.has(type) || element.readOnly || element.disabled) {
+    return false;
+  }
+  if (type == "email") {
+    return true;
+  }
+  const autocomplete = (element.getAttribute("autocomplete") || "").toLowerCase();
+  if (autocomplete.split(/\s+/).includes("email")) {
+    return true;
+  }
+  return [element.name, element.id, element.placeholder, element.getAttribute("aria-label")].some(
+    value => value && EMAIL_HINT.test(value)
+  );
+}
+
+export class WhimsyEmailAliasesChild extends JSWindowActorChild {
+  #input = null; // WeakRef to the field the button belongs to
+  #host = null;
+  #cleanup = [];
+
+  handleEvent(event) {
+    switch (event.type) {
+      case "focusin":
+        this.#onFocusIn(event);
+        break;
+      case "pagehide":
+        this.#remove();
+        break;
+    }
+  }
+
+  receiveMessage(message) {
+    if (message.name == "WhimsyEmailAliases:Fill") {
+      return this.#fill(message.data.address);
+    }
+    return undefined;
+  }
+
+  didDestroy() {
+    this.#remove();
+  }
+
+  #onFocusIn(event) {
+    const input = event.composedTarget ?? event.target;
+    if (
+      !Services.prefs.getBoolPref(FEATURE_PREF, true) ||
+      !Services.prefs.getBoolPref(BUTTON_PREF, true) ||
+      this.browsingContext.usePrivateBrowsing
+    ) {
+      return;
+    }
+    if (!isEmailField(input)) {
+      return;
+    }
+    if (this.#input?.deref() == input && this.#host?.isConnected) {
+      this.#position();
+      return;
+    }
+    this.#attach(input);
+  }
+
+  #attach(input) {
+    this.#remove();
+    const doc = input.ownerDocument;
+    const win = doc.defaultView;
+    if (!doc.documentElement || !win) {
+      return;
+    }
+    this.#input = new WeakRef(input);
+
+    const host = doc.createElement("div");
+    host.id = HOST_ID;
+    Object.assign(host.style, {
+      position: "absolute",
+      zIndex: "2147483647",
+      width: `${BUTTON_SIZE}px`,
+      height: `${BUTTON_SIZE}px`,
+      margin: "0",
+      padding: "0",
+      border: "0",
+    });
+    const shadow = host.attachShadow({ mode: "closed" });
+    const button = doc.createElement("button");
+    button.type = "button";
+    button.tabIndex = -1;
+    button.setAttribute("aria-label", "Email alias");
+    Object.assign(button.style, {
+      all: "initial",
+      boxSizing: "border-box",
+      width: `${BUTTON_SIZE}px`,
+      height: `${BUTTON_SIZE}px`,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: "6px",
+      cursor: "pointer",
+      color: "#6e6e73",
+      opacity: "0.8",
+    });
+    button.append(this.#icon(doc));
+    shadow.append(button);
+
+    // Keep focus (and the page's own field state) on the input.
+    button.addEventListener("mousedown", e => e.isTrusted && e.preventDefault());
+    button.addEventListener("click", e => {
+      if (!e.isTrusted) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      this.#openMenu();
+    });
+
+    doc.documentElement.append(host);
+    this.#host = host;
+    this.#position();
+
+    const reposition = () => this.#position();
+    const onFocusOut = e => {
+      // Focus moving to something else in the page hides the button. Focus
+      // leaving the page (relatedTarget null) keeps it: that's the chrome
+      // menu opening.
+      if (e.target == input && e.relatedTarget && e.relatedTarget != host) {
+        this.#remove();
+      }
+    };
+    win.addEventListener("scroll", reposition, { capture: true, passive: true });
+    win.addEventListener("resize", reposition, { passive: true });
+    doc.addEventListener("focusout", onFocusOut, true);
+    this.#cleanup.push(() => {
+      win.removeEventListener("scroll", reposition, { capture: true });
+      win.removeEventListener("resize", reposition);
+      doc.removeEventListener("focusout", onFocusOut, true);
+    });
+  }
+
+  // A mask glyph, drawn as SVG nodes (no inline style or image for a CSP to
+  // block).
+  #icon(doc) {
+    const svg = doc.createElementNS(SVG_NS, "svg");
+    for (const [k, v] of Object.entries({
+      width: "16",
+      height: "16",
+      viewBox: "0 0 16 16",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "1.4",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+    })) {
+      svg.setAttribute(k, v);
+    }
+    const path = doc.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", "M2 4.5h12v7H2zM2.5 5l5.5 4 5.5-4");
+    svg.append(path);
+    return svg;
+  }
+
+  #position() {
+    const input = this.#input?.deref();
+    const host = this.#host;
+    if (!input || !host) {
+      return;
+    }
+    const rect = input.getBoundingClientRect();
+    if (!input.isConnected || !rect.width || !rect.height) {
+      host.style.display = "none";
+      return;
+    }
+    const win = input.ownerGlobal;
+    host.style.display = "block";
+    host.style.top = `${rect.top + win.scrollY + (rect.height - BUTTON_SIZE) / 2}px`;
+    host.style.left = `${rect.right + win.scrollX - BUTTON_SIZE - 6}px`;
+  }
+
+  #openMenu() {
+    const input = this.#input?.deref();
+    if (!input) {
+      return;
+    }
+    const rect = input.getBoundingClientRect();
+    const win = input.ownerGlobal;
+    this.sendAsyncMessage("WhimsyEmailAliases:OpenMenu", {
+      screenX: win.mozInnerScreenX + rect.left,
+      screenY: win.mozInnerScreenY + rect.bottom,
+    });
+  }
+
+  // Fills the field the menu was opened for, like typing would.
+  #fill(address) {
+    const input = this.#input?.deref();
+    if (!input?.isConnected || typeof address != "string") {
+      return false;
+    }
+    input.focus();
+    input.setUserInput(address);
+    this.#remove();
+    return true;
+  }
+
+  #remove() {
+    for (const fn of this.#cleanup.splice(0)) {
+      try {
+        fn();
+      } catch {}
+    }
+    this.#host?.remove();
+    this.#host = null;
+    this.#input = null;
+  }
+}

@@ -175,6 +175,17 @@ export const Whimsy = {
       allFrames: true,
       safeForUntrustedWebProcess: true,
     });
+    // wave3: email-aliases. The child only shows a button in email fields;
+    // the menu, iCloud and Relay calls live in the parent.
+    ChromeUtils.registerWindowActor("WhimsyEmailAliases", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyEmailAliasesParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyEmailAliasesChild.sys.mjs",
+        events: { focusin: { capture: true }, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+    });
   },
 
   initWindow(win) {

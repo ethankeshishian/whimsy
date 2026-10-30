@@ -685,6 +685,9 @@ FEATURES = [
      "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
     {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
      "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
+    # wave3: email-aliases. iCloud Hide My Email + Firefox Relay from a button in email fields.
+    {"id": "email-aliases", "title": "Email aliases: iCloud Hide My Email or a Firefox Relay mask from a button in email fields",
+     "detect": [("src/zen", r"(?i)hide.?my.?email|email.?alias")]},
 ]
 
 

@@ -261,6 +261,8 @@ var gWhimsySettings = {
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
       // tierC-vpn: VPN (Firefox's built-in IP Protection).
       vpn: () => this.initVpn(),
+      // wave3: email-aliases
+      "email-aliases": () => this.initPrefCheckbox("whimsyEmailAliasesButton", "whimsy.email-aliases.button"),
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;

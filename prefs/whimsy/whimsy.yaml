@@ -362,3 +362,7 @@
 # bundled list (WhimsyBangsData.sys.mjs).
 - name: whimsy.bangs.custom
   value: ""
+
+# wave3: email-aliases. Show the alias button in email fields.
+- name: whimsy.email-aliases.button
+  value: true
