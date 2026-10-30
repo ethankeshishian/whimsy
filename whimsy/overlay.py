@@ -685,6 +685,9 @@ FEATURES = [
      "detect": [("src/zen/drag-and-drop", r"canDropIntoSplit|addTabToExistingSplit")]},
     {"id": "pip-auto-before-mute", "title": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
      "detect": [("src/zen", r"(?i)auto-?pip[\w-]*(?:mute|grace)|mute[\w-]*auto-?pip")]},
+    # wave3: playlist. Brave Playlist v1: direct media files, saved for offline in Library.
+    {"id": "playlist", "title": "Playlist: save videos and audio to Library -> Playlist and play them offline (direct files)",
+     "detect": [("src/zen", r"(?i)\bplaylist\b")]},
 ]
 
 

@@ -362,3 +362,7 @@
 # bundled list (WhimsyBangsData.sys.mjs).
 - name: whimsy.bangs.custom
   value: ""
+
+# wave3: playlist. Download saved media into the profile for offline play.
+- name: whimsy.playlist.offline-download
+  value: true

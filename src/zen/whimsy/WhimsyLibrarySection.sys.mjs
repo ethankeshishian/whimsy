@@ -23,6 +23,8 @@ const SECTIONS = [
   { sectionId: "whimsy-next-meeting", feature: "next-meeting", name: "WhimsyNextMeetingSection" },
   // fixB: the Archive, right after History so the two read as a pair.
   { sectionId: "whimsy-archive", feature: "archive-view", name: "WhimsyArchiveSection", after: "history" },
+  // media: Playlist v1 (Brave Playlist-like offline saving and Library section)
+  { sectionId: "whimsy-playlist", feature: "playlist", name: "WhimsyPlaylistSection" },
 ];
 
 // Zen's History has a "Closed tabs" source that relabels its tab "Archive";

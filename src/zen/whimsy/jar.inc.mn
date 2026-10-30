@@ -46,3 +46,5 @@
         content/browser/whimsy/whimsy-changelog.json                            (../../zen/whimsy/content/whimsy-changelog.json)
 # fixB: the Archive as a Library section
         content/browser/whimsy/whimsy-library-archive.mjs (../../zen/whimsy/content/whimsy-library-archive.mjs)
+# media: Playlist v1 Library section
+        content/browser/whimsy/whimsy-library-playlist.mjs (../../zen/whimsy/content/whimsy-library-playlist.mjs)

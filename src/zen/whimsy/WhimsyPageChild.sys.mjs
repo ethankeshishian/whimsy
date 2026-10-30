@@ -107,6 +107,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // wave3: floating calls (WhimsyCallPip).
       case "Whimsy:CallPip":
         return this.callPip();
+      // media: playlist media discovery.
+      case "Whimsy:GetPageMedia":
+        return this.pageMedia();
     }
     return null;
   }
@@ -142,6 +145,39 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const launcher = this.manager.getActor("PictureInPictureLauncher");
     launcher.togglePictureInPicture({ video: live[0], reason: "AutoPip" }, false).catch(console.error);
     return true;
+  }
+
+  // Finds direct media elements (<video>, <audio>) and links on the page.
+  pageMedia() {
+    const doc = this.document;
+    if (!doc) {
+      return [];
+    }
+    const results = [];
+    const elements = [...doc.querySelectorAll("video, audio")];
+    for (const el of elements) {
+      const src = el.currentSrc || el.src;
+      if (src && !src.startsWith("blob:") && !src.startsWith("mediasource:")) {
+        results.push({
+          url: src,
+          title: doc.title || src.split("/").pop(),
+          type: el.tagName.toLowerCase() == "audio" ? "audio" : "video",
+          duration: el.duration && !isNaN(el.duration) ? el.duration : null,
+        });
+      }
+    }
+    const links = [...doc.querySelectorAll('a[href$=".mp4"], a[href$=".webm"], a[href$=".mp3"], a[href$=".ogg"], a[href$=".m4a"], a[href$=".wav"]')];
+    for (const a of links) {
+      if (a.href && !results.some(r => r.url === a.href)) {
+        results.push({
+          url: a.href,
+          title: a.textContent.trim() || a.href.split("/").pop(),
+          type: a.href.match(/\.(mp3|ogg|m4a|wav)($|\?)/i) ? "audio" : "video",
+          duration: null,
+        });
+      }
+    }
+    return results;
   }
 
   async onMediaEvent(event) {
