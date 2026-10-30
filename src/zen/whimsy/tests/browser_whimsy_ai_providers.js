@@ -150,7 +150,7 @@ add_task(async function test_error_toasts() {
 });
 
 add_task(async function test_settings_card() {
-  await openPreferences("panePrivacy");
+  await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#privacy");
   const doc = gBrowser.selectedBrowser.contentDocument;
   const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProvidersGroup"), "The card is there");
   ok(!group.hidden, "and showing");

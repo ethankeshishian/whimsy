@@ -152,8 +152,8 @@ export const WhimsyPageWatch = {
     }
     watches.splice(index, 1);
     this.clearAlerts(id);
-    await this.save();
     this.schedule();
+    await this.save();
     return true;
   },
 

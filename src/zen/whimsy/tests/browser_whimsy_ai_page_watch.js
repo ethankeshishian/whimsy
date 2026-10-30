@@ -180,7 +180,10 @@ add_task(async function watch_controls_separate_accounts() {
   try {
     is((await WhimsyPageWatch.watchFor(PAGE, 1)).id, a.id, "Account one's watch");
     is((await WhimsyPageWatch.watchFor(PAGE, 2)).id, b.id, "Account two's independent watch");
-    const tab = await BrowserTestUtils.openNewForegroundTab({ gBrowser, url: PAGE, userContextId: 2 });
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, () => {
+      gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: 2 });
+    });
+    is(tab.linkedBrowser.browsingContext.originAttributes.userContextId, 2, "The controlled tab uses account two");
     try {
       await WhimsyPageWatch.toggleForTab(window, tab);
       is(await WhimsyPageWatch.watchFor(PAGE, 2), null, "Stop targets the tab's account");

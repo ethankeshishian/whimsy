@@ -5,9 +5,12 @@
 if (location.search.includes("submitted")) {
   document.body.textContent = "FORM_SUBMITTED";
 } else {
-  const popup = window.open("about:blank", "_blank");
+  let popup = null;
+  try { popup = window.open("about:blank", "_blank"); } catch (error) {
+    if (error.name != "InvalidAccessError") { throw error; }
+  }
   document.querySelector("a").click();
   document.querySelector("form").submit();
-  setTimeout(() => { document.body.textContent = "SCRIPT_RAN FORM_BLOCKED " + (popup ? "POPUP_OPENED" : "POPUP_BLOCKED"); }, 300);
+  document.body.textContent = "SCRIPT_RAN FORM_BLOCKED " + (popup ? "POPUP_OPENED" : "POPUP_BLOCKED");
 }
 </script>
