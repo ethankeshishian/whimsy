@@ -1603,4 +1603,5 @@ whimsy-quick-window-copy-link =
     .tooltiptext = Copy URL (Cmd+Shift+C)
     .aria-label = Copy URL
 
+whimsy-quick-window-profile = ☺ Default
 whimsy-history-unknown-space = Unknown space

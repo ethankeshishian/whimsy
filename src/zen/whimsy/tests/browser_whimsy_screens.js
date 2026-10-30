@@ -483,7 +483,10 @@ add_task(async function mini_whimsy_destination() {
       await SimpleTest.promiseFocus(win);
       await TestUtils.waitForCondition(() => win.gURLBar.focused, "Blank Mini opens into the command bar");
       EventUtils.sendString("example", win);
-      await TestUtils.waitForCondition(() => win.gURLBar.view.isOpen).catch(() => {});
+      await TestUtils.waitForCondition(() => win.gURLBar.view.isOpen, "Mini command bar opens");
+      const bounds = win.gURLBar.panel.getBoundingClientRect();
+      ok(win.gURLBar.panel.checkVisibility() && bounds.width > 0 && bounds.height > 0,
+        "Command bar is visible with nonzero bounds");
       await new Promise(resolve => win.requestAnimationFrame(resolve));
       await shot(`mini-whimsy-command-bar-${scheme}`, win.browsingContext.currentWindowGlobal);
     } finally {

@@ -57,8 +57,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const FEATURE_PREF = "whimsy.feature.quick-window";
-const WIDTH = 480;
-const HEIGHT = 720;
+const WIDTH = 1260;
+const HEIGHT = 780;
 const SIZE_PREF = "whimsy.quick-window.size";
 const NAVBAR_ID = "zen-appcontent-navbar-wrapper";
 const BAR_ID = "whimsy-quick-window-bar";
@@ -67,7 +67,6 @@ const ADDRESS_ID = "whimsy-quick-window-address";
 const COPY_BUTTON_ID = "whimsy-quick-window-copy-link";
 const OPEN_GROUP_ID = "whimsy-quick-window-open";
 const MOVE_BUTTON_ID = "whimsy-quick-window-move-to-space";
-const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
 const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
 // Zen's own Cmd+O ("Expand Glance"): meaningless in a quick window, which
 // never has a Glance, so Mini Whimsy reuses the accelerator for Arc's
@@ -93,6 +92,9 @@ export const WhimsyQuickWindow = {
       }
       return;
     }
+    win.addEventListener("pointermove", event => {
+      win._whimsyMiniPointer = { x: event.screenX, y: event.screenY };
+    }, { passive: true });
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindow",
       run: w => this.open(null, { opener: w }),
@@ -139,13 +141,19 @@ export const WhimsyQuickWindow = {
     // own Space, plus able to float over another app's full-screen Space,
     // but not pinned to every ordinary Space (see the file banner comment
     // for the Arc evidence and how this reaches the Cocoa widget).
-    const { width, height } = this.savedSize();
+    const saved = this.savedSize();
+    const screen = opener?.screen;
+    const width = Math.min(saved.width, screen?.availWidth || saved.width);
+    const height = Math.min(saved.height, screen?.availHeight || saved.height);
+    const pointer = opener?._whimsyMiniPointer;
+    const position = pointer && screen ?
+      `left=${Math.round(Math.max(screen.availLeft, Math.min(pointer.x - width / 2, screen.availLeft + screen.availWidth - width)))},top=${Math.round(Math.max(screen.availTop, Math.min(pointer.y - height / 2, screen.availTop + screen.availHeight - height)))}` : "centerscreen";
     const win = lazy.BrowserWindowTracker.openWindow({
       openerWindow: opener,
       args,
       zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false),
       all: false,
-      features: `location,resizable,centerscreen,alwaysontopfullscreenaux,width=${width},height=${height}`,
+      features: `location,resizable,${position},alwaysontopfullscreenaux,width=${width},height=${height}`,
     });
     win._whimsyQuickWindow = true;
     this._current = win;
@@ -364,7 +372,7 @@ export const WhimsyQuickWindow = {
     const button = (id, l10nId, attrs = {}) => {
       const el = document.createXULElement("toolbarbutton");
       el.id = id;
-      el.className = "whimsy-mini-button";
+      el.className = "whimsy-mini-button tabbable";
       for (const [name, value] of Object.entries(attrs)) {
         el.setAttribute(name, value);
       }
@@ -388,13 +396,12 @@ export const WhimsyQuickWindow = {
     address.id = ADDRESS_ID;
     address.setAttribute("type", "button");
     document.l10n.setAttributes(address, "whimsy-quick-window-address");
-    const favicon = html("img");
-    favicon.className = "whimsy-mini-favicon";
-    favicon.setAttribute("alt", "");
-    favicon.setAttribute("src", DEFAULT_FAVICON);
     const host = html("span");
     host.className = "whimsy-mini-host";
-    address.append(favicon, host);
+    const profile = html("span");
+    profile.className = "whimsy-mini-profile";
+    document.l10n.setAttributes(profile, "whimsy-quick-window-profile");
+    address.append(profile, host);
     address.addEventListener("click", () => this.openCommandBar(win));
 
     const copy = button(COPY_BUTTON_ID, "whimsy-quick-window-copy-link", { command: "cmd_zenCopyCurrentURL" });
@@ -407,9 +414,20 @@ export const WhimsyQuickWindow = {
     const choose = button(CHOOSE_BUTTON_ID, "whimsy-quick-window-choose-space", {
       command: "cmd_whimsyQuickWindowChooseSpace",
     });
-    group.append(move, choose);
+    const shortcut = html("kbd");
+    shortcut.textContent = "⌘O";
+    shortcut.setAttribute("aria-hidden", "true");
+    group.append(move, shortcut, choose);
 
-    bar.append(back, address, copy, group);
+    bar.append(back, address);
+    // Reuse Firefox's real extensions button and panel, rather than a
+    // separate picker with different extension behavior.
+    const extensions = document.getElementById("unified-extensions-button");
+    if (extensions) {
+      extensions.classList.add("whimsy-mini-button", "tabbable");
+      bar.append(extensions);
+    }
+    bar.append(copy, group);
     return bar;
   },
 
@@ -492,7 +510,6 @@ export const WhimsyQuickWindow = {
   watchPage(win) {
     const { document, gBrowser } = win;
     const address = document.getElementById(ADDRESS_ID);
-    const favicon = address.querySelector(".whimsy-mini-favicon");
     const host = address.querySelector(".whimsy-mini-host");
     const copy = document.getElementById(COPY_BUTTON_ID);
     const update = () => {
@@ -513,15 +530,12 @@ export const WhimsyQuickWindow = {
       address.toggleAttribute("blank", blank);
       copy.disabled = blank;
       if (blank) {
-        document.l10n.setAttributes(host, "whimsy-quick-window-address-placeholder");
+        host.removeAttribute("data-l10n-id");
+        host.textContent = "about:blank";
       } else {
         host.removeAttribute("data-l10n-id");
         host.removeAttribute("data-l10n-args");
         host.textContent = name;
-      }
-      const icon = !blank && tab.image ? tab.image : DEFAULT_FAVICON;
-      if (favicon.getAttribute("src") != icon) {
-        favicon.setAttribute("src", icon);
       }
       const title = blank ? "" : tab.label || name;
       if (address.dataset.page != `${title}\n${spec}`) {
@@ -530,7 +544,6 @@ export const WhimsyQuickWindow = {
           "whimsy-quick-window-address-page", blank ? null : { title, url: uri.displaySpec || spec });
       }
     };
-    favicon.addEventListener("error", () => favicon.setAttribute("src", DEFAULT_FAVICON));
     const listener = {
       onLocationChange: update,
       QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),

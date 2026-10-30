@@ -807,10 +807,17 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   min-width: 360px !important;
   min-height: 240px !important;
 
-  --whimsy-mini-bar-height: 40px;
+  --whimsy-mini-bar-height: 48px;
+  --toolbox-textcolor: #fafbff;
+  --toolbar-color: #fafbff;
+  --toolbar-bgcolor: #171523;
+  --zen-main-browser-background: #171523;
+  background: #171523 !important;
+  border-radius: 16px;
+  --zen-native-inner-radius: 0px;
   --whimsy-mini-control: 28px;
-  --whimsy-mini-fill: light-dark(rgb(14 15 16 / 0.06), rgb(250 251 255 / 0.10));
-  --whimsy-mini-fill-hover: light-dark(rgb(14 15 16 / 0.10), rgb(250 251 255 / 0.15));
+  --whimsy-mini-fill: #292637;
+  --whimsy-mini-fill-hover: #332838;
   --whimsy-mini-fill-active: light-dark(rgb(14 15 16 / 0.14), rgb(250 251 255 / 0.20));
   --whimsy-mini-hairline: light-dark(rgb(14 15 16 / 0.10), rgb(250 251 255 / 0.12));
 
@@ -837,12 +844,12 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   /* The page: the same rounded, shadowed card a main window shows, inset
      evenly on the frame now that nothing sits beside it. */
   & #zen-tabbox-wrapper {
-    margin: 0 var(--zen-element-separation) var(--zen-element-separation) !important;
+    margin: 0 !important;
   }
   & #tabbrowser-tabpanels .browserSidebarContainer {
     overflow: clip;
-    box-shadow: var(--zen-big-shadow);
-    border-radius: calc(var(--zen-native-inner-radius) / var(--zen-squircle-value));
+    box-shadow: none;
+    border-radius: 0;
   }
 }
 
@@ -855,9 +862,10 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   height: var(--whimsy-mini-bar-height);
   min-height: var(--whimsy-mini-bar-height);
   padding-inline: var(--zen-element-separation);
-  color: var(--toolbox-textcolor);
+  color: #fafbff;
+  background: #171523;
   font: menu;
-  font-size: 13px;
+  font-size: 12px;
   /* The bar is the title bar: drag the window by any empty part of it. */
   -moz-window-dragging: drag;
 
@@ -963,10 +971,12 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   }
 
   & > .whimsy-mini-host {
+    flex: 1;
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    text-align: center;
     font-weight: 500;
   }
 
@@ -1957,4 +1967,31 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 
 [data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
   background-image: url("chrome://browser/skin/zen-icons/u-turn-to-left.svg");
+}
+
+#whimsy-quick-window-address .whimsy-mini-profile {
+  background: #332838;
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+#whimsy-quick-window-open kbd {
+  font: menu;
+  font-size: 11px;
+  opacity: .7;
+  padding-inline-end: 8px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[whimsy-quick-window] #browser {
+    transform-origin: center;
+    animation: whimsy-mini-open 309ms cubic-bezier(.38,1.27,.23,.96);
+  }
+}
+@keyframes whimsy-mini-open {
+  from { transform: scale(.05); }
+  to { transform: scale(1); }
+}
+
+:root[whimsy-quick-window] :is(#zen-browser-background, #zen-toolbar-background) {
+  background: #171523 !important;
+  &::after { display: none !important; }
 }

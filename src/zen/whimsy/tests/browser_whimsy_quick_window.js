@@ -259,7 +259,7 @@ add_task(async function test_resize_is_remembered_only_for_mini() {
   }
   for (const value of ["invalid", "null", '{"width":-1,"height":0}', '{"width":"480","height":720}']) {
     Services.prefs.setStringPref(pref, value);
-    Assert.deepEqual(WhimsyQuickWindow.savedSize(), { width: 480, height: 720 }, "Invalid saved size uses defaults");
+    Assert.deepEqual(WhimsyQuickWindow.savedSize(), { width: 1260, height: 780 }, "Invalid saved size uses measured defaults");
   }
 });
 
@@ -290,9 +290,9 @@ add_task(async function test_bar_has_arcs_controls_in_order() {
     ok(doc.documentElement.hasAttribute("customtitlebar"), "No native title bar above it (Arc has none)");
     const barRect = bar.getBoundingClientRect();
     Assert.lessOrEqual(Math.round(barRect.top), 4, "The bar is the top edge of the window");
-    Assert.lessOrEqual(barRect.height, 44, "The bar stays slim");
+    is(Math.round(barRect.height), 48, "Bar matches the measured 48pt height");
     const card = win.gBrowser.selectedBrowser.closest(".browserSidebarContainer");
-    Assert.notEqual(win.getComputedStyle(card).borderTopLeftRadius, "0px", "The page is a rounded card");
+    is(win.getComputedStyle(card).borderTopLeftRadius, "0px", "Page meets bar without a card inset");
     Assert.greaterOrEqual(card.getBoundingClientRect().top, barRect.bottom, "The card sits below the bar");
   } finally {
     await BrowserTestUtils.closeWindow(win);
@@ -307,7 +307,8 @@ add_task(async function test_address_shows_the_host_and_back_follows_history() {
     const address = doc.getElementById("whimsy-quick-window-address");
     const host = address.querySelector(".whimsy-mini-host");
     await TestUtils.waitForCondition(() => host.textContent == "example.com", "The address shows the bare host");
-    ok(address.querySelector(".whimsy-mini-favicon").getAttribute("src"), "The address has a favicon");
+    ok(!address.querySelector(".whimsy-mini-favicon"), "Measured address has no site favicon");
+    ok(address.querySelector(".whimsy-mini-profile"), "Address contains the profile pill");
     const back = doc.getElementById("whimsy-quick-window-back");
     ok(back.disabled, "Back is dimmed with no history (it never moves)");
     ok(!doc.getElementById("whimsy-quick-window-copy-link").disabled, "Copy URL is available for a page");
@@ -362,9 +363,29 @@ add_task(async function test_blank_mini_shows_the_placeholder() {
 add_task(async function test_space_icon_images() {
   is(WhimsyQuickWindow.spaceIcon(null), null, "No space, no icon");
   is(WhimsyQuickWindow.spaceIcon({ icon: "" }), null, "A space without an icon shows none");
-  is(WhimsyQuickWindow.spaceIcon({ icon: "chrome://browser/skin/zen-icons/heart.svg" }),
-    "chrome://browser/skin/zen-icons/heart.svg", "SVG icons are used as they are");
+  is(WhimsyQuickWindow.spaceIcon({ icon: "chrome://browser/skin/zen-icons/link.svg" }),
+    "chrome://browser/skin/zen-icons/link.svg", "SVG icons are used as they are");
   const emoji = WhimsyQuickWindow.spaceIcon({ icon: "🎨" });
   ok(emoji.startsWith("data:image/svg+xml,"), "Emoji icons are drawn into an SVG");
   ok(decodeURIComponent(emoji).includes("🎨"), "...with the emoji in it");
+});
+
+add_task(async function mini_controls_are_keyboard_reachable() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    await SimpleTest.promiseFocus(win);
+    const doc = win.document;
+    const copy = doc.getElementById("whimsy-quick-window-copy-link");
+    copy.focus();
+    is(doc.activeElement, copy, "Copy receives keyboard focus");
+    EventUtils.synthesizeKey("KEY_Tab", {}, win);
+    is(doc.activeElement.id, "whimsy-quick-window-move-to-space", "Tab reaches Open in Space");
+    EventUtils.synthesizeKey("KEY_Tab", {}, win);
+    is(doc.activeElement.id, "whimsy-quick-window-choose-space", "Tab reaches the space picker");
+    EventUtils.synthesizeKey(" ", {}, win);
+    await TestUtils.waitForCondition(() => doc.querySelector("#whimsy-quick-window-space-picker")?.state == "open", "Keyboard activates the picker");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
 });
