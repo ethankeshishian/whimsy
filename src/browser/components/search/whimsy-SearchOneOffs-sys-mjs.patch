@@ -1,0 +1,16 @@
+diff --git a/browser/components/search/SearchOneOffs.sys.mjs b/browser/components/search/SearchOneOffs.sys.mjs
+--- a/browser/components/search/SearchOneOffs.sys.mjs
++++ b/browser/components/search/SearchOneOffs.sys.mjs
+@@ -353,6 +353,12 @@
+   }
+ 
+   async getEngineInfo() {
++    // A URL bar query can finish after its popup window has closed.
++    // The privacy context requires a live docshell; no engines can be
++    // presented once that window is gone.
++    if (this.window?.closed || !this.window?.docShell) {
++      return { default: null, engines: [], willHide: true };
++    }
+     if (this._engineInfo) {
+       return this._engineInfo;
+     }

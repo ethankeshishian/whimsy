@@ -10,6 +10,10 @@ export class ZenGlanceParent extends JSWindowActorParent {
   }
 
   async receiveMessage(message) {
+    // Whimsy hotfix: the tab/window may close while an actor message is in flight.
+    if (!this.browsingContext.topChromeWindow?.gZenGlanceManager) {
+      return;
+    }
     switch (message.name) {
       case "ZenGlance:OpenGlance": {
         this.openGlance(this.browsingContext.topChromeWindow, message.data);

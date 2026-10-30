@@ -310,6 +310,17 @@ HOTFIXES = [
                "      return;\n"
                "    }\n",
     },
+    {
+        "id": "glance-closed-window-message",
+        "file": "src/zen/glance/actors/ZenGlanceParent.sys.mjs",
+        "why": "An Escape key query can arrive after Mini closes its top-level window.",
+        "old": "  async receiveMessage(message) {\n",
+        "new": "  async receiveMessage(message) {\n"
+               "    // Whimsy hotfix: the tab/window may close while an actor message is in flight.\n"
+               "    if (!this.browsingContext.topChromeWindow?.gZenGlanceManager) {\n"
+               "      return;\n"
+               "    }\n",
+    },
     # batch3glance: splits restore whole (zen#12403), see WhimsySplitRestore.
     {
         "id": "split-restore-layout",
