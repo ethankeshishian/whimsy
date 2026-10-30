@@ -24,6 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ContextualIdentityService: "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyProfileHistory: "resource:///modules/whimsy/WhimsyProfileHistory.sys.mjs",
   WhimsyProfilePasswords: "resource:///modules/whimsy/WhimsyProfilePasswords.sys.mjs",
   ZenSpacesSyncModel: "resource:///modules/zen/ZenSpacesSyncModel.sys.mjs",
 });
@@ -470,6 +471,7 @@ export const WhimsyProfiles = {
     this.initSpaceMenus(win);
     // Once per session; each part checks the switch on use.
     lazy.WhimsyProfilePasswords.init();
+    lazy.WhimsyProfileHistory.init();
     for (const hook of this._windowHooks) {
       try {
         hook(win);

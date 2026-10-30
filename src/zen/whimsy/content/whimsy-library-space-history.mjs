@@ -8,6 +8,9 @@ import { ZenLibraryHistorySection } from "moz-src:///zen/library/sections/ZenLib
 const { WhimsySpaceHistory } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs"
 );
+const { WhimsyProfiles } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsyProfiles.sys.mjs"
+);
 
 export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
   static render(library) {
@@ -46,6 +49,18 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
           ...(this._spaceOptions || []).map(([id, label]) => ({ id, label })),
         ],
       });
+      // wave5/profiles: the current profile's history by default (Arc).
+      if (WhimsyProfiles.enabled) {
+        visible.push({
+          id: "profile",
+          titleL10nId: "whimsy-history-profile-filter",
+          exclusive: true,
+          options: [
+            { id: "current", l10nId: "whimsy-history-this-profile" },
+            { id: "all", l10nId: "whimsy-history-all-profiles" },
+          ],
+        });
+      }
     }
     return visible;
   }
@@ -71,6 +86,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
 
   connectedCallback() {
     this.activeFilters.add("space:all");
+    this.activeFilters.add("profile:current");
     this._spaceLimit = 100;
     this._generation = 0;
     this._spaceOptions = [];
@@ -138,7 +154,9 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         id => this.isFilterActive("sort", id)) || "date";
       const spaceId = this.isFilterActive("space", "unknown") ? "unknown" :
         this._spaceOptions.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
-      const visits = await WhimsySpaceHistory.query({ spaceId,
+      const profile = WhimsyProfiles.enabled && !this.isFilterActive("profile", "all") ?
+        WhimsyProfiles.keyFor(WhimsyProfiles.activeProfileId(this.documentGlobal)) : "";
+      const visits = await WhimsySpaceHistory.query({ spaceId, profile,
         search: this.searchQuery, days: this.activeWhenDays ?? 120,
         sort, limit: this._spaceLimit });
       const file = await WhimsySpaceHistory.file();
@@ -147,7 +165,9 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
       }
       const options = new Map();
       for (const visit of Object.values(file.data.visits)) {
-        options.set(visit.spaceId, visit.spaceName);
+        if (visit.spaceId) {
+          options.set(visit.spaceId, visit.spaceName);
+        }
       }
       for (const space of this.documentGlobal.gZenWorkspaces?.getWorkspaces() || []) {
         if (!space.whimsyScratch) {

@@ -1634,7 +1634,7 @@ whimsy-profile-rename-button-text = Rename Profile
 whimsy-profile-create-menuitem =
     .label = Create a New Profile…
 whimsy-profiles-header = Profiles
-whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data and saved passwords, and a new one starts empty. Spaces in the same profile share them.
+whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data, saved passwords and history, and a new one starts empty. Spaces in the same profile share them.
 whimsy-profiles-delete-rule = Only Profiles not assigned to any Spaces can be deleted.
 whimsy-profiles-spaces =
     { $count ->
@@ -1672,3 +1672,6 @@ whimsy-profiles-delete-unused-confirm-accept =
         [one] Delete Profile
        *[other] Delete Profiles
     }
+whimsy-history-profile-filter = Profile
+whimsy-history-this-profile = This Profile
+whimsy-history-all-profiles = All Profiles

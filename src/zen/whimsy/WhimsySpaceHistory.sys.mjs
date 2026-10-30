@@ -12,10 +12,17 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 const PREF = "whimsy.feature.space-history";
 const TOPIC = "whimsy-space-history-changed";
 const EVENTS = ["page-visited", "page-removed", "history-cleared", "purge-caches"];
+
+// Several snapshots that disagree on the space still name one profile only
+// when they all carry one.
+function allNameAProfile(candidates) {
+  return candidates.every(item => item.profile);
+}
 
 export const WhimsySpaceHistory = {
   _candidates: [],
@@ -33,6 +40,7 @@ export const WhimsySpaceHistory = {
         dataPostProcessor: data => ({ visits: data?.visits || {} }),
       });
       await file.load();
+      await this.rebuildIndex(file).catch(console.error);
       return file;
     })();
     return this._filePromise;
@@ -97,12 +105,15 @@ export const WhimsySpaceHistory = {
     if (!space || space.whimsyScratch) {
       return;
     }
+    // wave5/profiles: the profile is the tab's own container (what Gecko
+    // really used), not the space's current one.
+    const profile = lazy.WhimsyProfiles.keyFor(tab.userContextId ?? 0);
     const now = Date.now();
     this._candidates = this._candidates.filter(item => now - item.time < 10000);
     // A snapshot taken for a known Places visit belongs to that visit only;
     // an earlier visit to the same URL must not consume it.
     this._candidates.push({ url: uri.spec, time: now,
-      spaceId, spaceName: space.name, ...(visitId == null ? {} : { visitId }) });
+      spaceId, spaceName: space.name, profile, ...(visitId == null ? {} : { visitId }) });
     this._candidates = this._candidates.slice(-256);
   },
   captureOpenVisit(visit) {
@@ -135,7 +146,14 @@ export const WhimsySpaceHistory = {
     const candidates = this._candidates.filter(item => item.url === visit.url &&
       (item.visitId == null || item.visitId === visit.id) &&
       Math.abs(item.time - visit.time) < 2000);
-    if (!candidates.length || new Set(candidates.map(item => item.spaceId)).size !== 1) {
+    if (!candidates.length) {
+      return;
+    }
+    // wave5/profiles: two spaces of one profile can't tell the space, but
+    // still tell the profile.
+    const oneSpace = new Set(candidates.map(item => item.spaceId)).size === 1;
+    if (!oneSpace && (!allNameAProfile(candidates) ||
+        new Set(candidates.map(item => item.profile)).size !== 1)) {
       return;
     }
     const candidate = candidates.reduce((a, b) =>
@@ -155,8 +173,10 @@ export const WhimsySpaceHistory = {
     // Consume one snapshot per visit. Removing every matching snapshot loses
     // later same-URL visits delivered in the same Places notification batch.
     this._candidates = this._candidates.filter(item => item !== candidate);
-    file.data.visits[visit.id] = { id: visit.id, time: visit.time,
-      guid: visit.guid, spaceId: candidate.spaceId, spaceName: candidate.spaceName };
+    file.data.visits[visit.id] = { id: visit.id, time: visit.time, guid: visit.guid,
+      spaceId: oneSpace ? candidate.spaceId : null, spaceName: oneSpace ? candidate.spaceName : null,
+      ...(candidate.profile ? { profile: candidate.profile } : {}) };
+    this.indexVisit(file.data.visits[visit.id], visit.url);
     file.saveSoon();
     this.changed();
   },
@@ -175,10 +195,64 @@ export const WhimsySpaceHistory = {
         delete file.data.visits[id];
       }
     }
+    await this.rebuildIndex(file);
     file.saveSoon();
     this.changed();
   },
-  async query({ spaceId = "", search = "", days = 120, sort = "date", limit = 100 } = {}) {
+  // wave5/profiles: which profiles visited a URL (and an origin), from the
+  // visits recorded since profiles, kept in memory only (the sidecar never
+  // copies URLs: they're looked up in Places). Unattributed history isn't in
+  // here.
+  async rebuildIndex(file) {
+    const attributed = Object.values(file.data.visits).filter(visit => visit.profile);
+    const urls = new Map();
+    if (attributed.length) {
+      const db = await lazy.PlacesUtils.promiseDBConnection();
+      const rows = await db.execute(`SELECT p.guid, p.url FROM moz_places p
+        WHERE p.guid IN (SELECT value FROM json_each(:guids))`,
+      { guids: JSON.stringify([...new Set(attributed.map(visit => visit.guid))]) });
+      for (const row of rows) {
+        urls.set(row.getResultByName("guid"), row.getResultByName("url"));
+      }
+    }
+    this._urlProfiles = new Map();
+    this._originProfiles = new Map();
+    for (const visit of attributed) {
+      this.indexVisit(visit, urls.get(visit.guid));
+    }
+  },
+  indexVisit(visit, url) {
+    if (!url || !visit?.profile || !this._urlProfiles) {
+      return;
+    }
+    const add = (map, key) => {
+      let set = map.get(key);
+      if (!set) {
+        set = new Set();
+        map.set(key, set);
+      }
+      set.add(visit.profile);
+    };
+    add(this._urlProfiles, url);
+    try {
+      add(this._originProfiles, new URL(url).origin);
+    } catch {}
+  },
+  /** Profile keys that visited `url` (or its origin), or null if unknown. */
+  profilesFor(url, { origin = false } = {}) {
+    if (!this._urlProfiles) {
+      return null;
+    }
+    if (origin) {
+      try {
+        return this._originProfiles.get(new URL(url).origin) ?? null;
+      } catch {
+        return null;
+      }
+    }
+    return this._urlProfiles.get(url) ?? null;
+  },
+  async query({ spaceId = "", search = "", days = 120, sort = "date", limit = 100, profile = "" } = {}) {
     await this._queue;
     const file = await this.file();
     const db = await lazy.PlacesUtils.promiseDBConnection();
@@ -193,12 +267,13 @@ export const WhimsySpaceHistory = {
         AND p.guid = json_extract(m.value, '$.guid')
       WHERE p.hidden = 0 AND v.visit_date >= :cutoff
         AND (:space = '' OR json_extract(m.value, '$.spaceId') = :space
-          OR (:space = 'unknown' AND m.key IS NULL))
+          OR (:space = 'unknown' AND json_extract(m.value, '$.spaceId') IS NULL))
+        AND (:profile = '' OR COALESCE(json_extract(m.value, '$.profile'), 'default') = :profile)
         AND (:search = '' OR AUTOCOMPLETE_MATCH(:search, p.url, p.title,
           NULL, 1, 1, 1, 1, :matchBehavior, :searchBehavior, NULL))
       ORDER BY ${sort === "mostvisited" ? "visits DESC," : ""} v.visit_date DESC, v.id DESC
       LIMIT :limit`, {
-      metadata: JSON.stringify(file.data.visits), space: spaceId,
+      metadata: JSON.stringify(file.data.visits), space: spaceId, profile,
       cutoff: (Date.now() - days * 86400000) * 1000,
       search, limit,
       matchBehavior: Ci.mozIPlacesAutoComplete.MATCH_ANYWHERE_UNMODIFIED,
