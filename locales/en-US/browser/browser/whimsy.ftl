@@ -946,3 +946,5 @@ whimsy-heavy-tabs-title = Heavy Tabs
 whimsy-heavy-tabs-subtitle = Memory by process, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
 whimsy-heavy-tabs-empty = No tabs to measure right now.
+whimsy-split-favorites-title = Favorite Splits
+whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split” in the command bar.

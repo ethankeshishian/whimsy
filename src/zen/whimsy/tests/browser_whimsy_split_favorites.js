@@ -87,3 +87,28 @@ add_task(async function test_feature_switch_off() {
   ok(!WhimsySplitFavorites.enabled, "the switch turns the feature off");
   await SpecialPowers.popPrefEnv();
 });
+
+// fixB: the Favorite splits sheet (WhimsyPanels): a row per favorite with
+// its sites, a remove button, and the empty state once the last is gone.
+add_task(async function test_favorites_sheet() {
+  await clearFavorites();
+  const favorites = await WhimsySplitFavorites._load();
+  favorites.push({ id: "sheet", name: "Mail + Calendar", urls: ["https://example.com/", "https://example.org/"], gridType: "vsep" });
+  WhimsySplitFavorites.store.saveSoon();
+
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsySplitFavoritesPanel");
+  await WhimsySplitFavorites.openFavoritesPanel(window);
+  await shown;
+  const panel = document.getElementById("whimsySplitFavoritesPanel");
+  ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
+  const row = panel.querySelector(".whimsy-split-favorite-row");
+  is(row.querySelector(".whimsy-sheet-item-title").value, "Mail + Calendar", "The favorite's name");
+  is(row.querySelector(".whimsy-sheet-item-subtitle").value, "example.com + example.org", "Its sites");
+  row.querySelector(".whimsy-split-favorite-remove").doCommand();
+  await TestUtils.waitForCondition(() => panel.querySelector(".whimsy-sheet-empty"), "Empty state after removing the last one");
+  ok(!(await WhimsySplitFavorites._load()).length, "The favorite is removed from the store");
+
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  EventUtils.synthesizeKey("KEY_Escape", {}, window);
+  await hidden;
+});
