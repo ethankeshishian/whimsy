@@ -54,6 +54,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.quick-window";
@@ -68,6 +70,9 @@ const COPY_BUTTON_ID = "whimsy-quick-window-copy-link";
 const OPEN_GROUP_ID = "whimsy-quick-window-open";
 const MOVE_BUTTON_ID = "whimsy-quick-window-move-to-space";
 const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
+// wave5/profiles: the profile pill (Little Arc's profile switcher).
+const PROFILE_BUTTON_ID = "whimsy-quick-window-profile";
+const PROFILE_PICKER_ID = "whimsy-quick-window-profile-picker";
 // Zen's own Cmd+O ("Expand Glance"): meaningless in a quick window, which
 // never has a Glance, so Mini Whimsy reuses the accelerator for Arc's
 // "Open in Current Space" instead (see initChrome).
@@ -133,8 +138,13 @@ export const WhimsyQuickWindow = {
       existing.focus();
       return existing;
     }
+    // wave5/profiles: a link opens in the profile of the space "Open in"
+    // points at, so adopting it later needn't change its profile. Firefox's
+    // window argument can't carry a container: open blank, then load the
+    // link in a tab of that container (it never loads in Default first).
+    const profileId = url ? this.destinationProfileId(opener) : 0;
     const args = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
-    args.data = url || "about:blank";
+    args.data = profileId ? "about:blank" : url || "about:blank";
     // `all: false` (no "toolbar" chrome flag) makes SessionStore treat this
     // as a popup window (it checks aWindow.toolbar.visible): never in the
     // closed-windows list, never restored, matching "closes without a
@@ -197,6 +207,12 @@ export const WhimsyQuickWindow = {
         if (!win.closed) {
           // Arc: Cmd+Opt+N opens Little Arc straight into its command bar.
           this.openCommandBar(win);
+        }
+      });
+    } else if (profileId) {
+      this.whenChromeReady(win).then(() => {
+        if (!win.closed) {
+          this.loadInProfile(win, url, profileId, triggeringPrincipal);
         }
       });
     }
@@ -304,6 +320,14 @@ export const WhimsyQuickWindow = {
       return null;
     }
     const tab = win.gBrowser.selectedTab;
+    // wave5/profiles: another profile's space: Arc's warning, then the page
+    // reopens there in that profile (async; nothing is adopted yet).
+    const space = target.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
+    const profileId = lazy.WhimsyProfiles.profileIdOfSpace(space);
+    if (lazy.WhimsyProfiles.enabled && (tab.userContextId ?? 0) != profileId) {
+      this.moveAcrossProfiles(win, target, tab, space, profileId).catch(console.error);
+      return null;
+    }
     const adopted = target.gBrowser.adoptTab(tab, { selectTab: true, spaceId });
     if (adopted) {
       target.gZenWorkspaces.lastSelectedWorkspaceTabs[spaceId] = adopted;
@@ -419,10 +443,17 @@ export const WhimsyQuickWindow = {
     document.l10n.setAttributes(address, "whimsy-quick-window-address");
     const host = html("span");
     host.className = "whimsy-mini-host";
-    const profile = html("span");
+    address.append(host);
+
+    // wave5/profiles: the page's profile, a pill before the address; it
+    // opens the profile list (Little Arc's profile switcher). Hidden while
+    // profiles are off.
+    const profile = html("button");
+    profile.id = PROFILE_BUTTON_ID;
+    profile.type = "button";
     profile.className = "whimsy-mini-profile";
-    document.l10n.setAttributes(profile, "whimsy-quick-window-profile");
-    address.append(profile, host);
+    profile.setAttribute("aria-haspopup", "menu");
+    profile.addEventListener("click", () => this.openProfilePicker(win, profile));
     address.addEventListener("click", () => this.openCommandBar(win));
 
     const copy = button(COPY_BUTTON_ID, "whimsy-quick-window-copy-link", { command: "cmd_zenCopyCurrentURL" });
@@ -440,7 +471,7 @@ export const WhimsyQuickWindow = {
     shortcut.setAttribute("aria-hidden", "true");
     group.append(move, shortcut, choose);
 
-    bar.append(back, address);
+    bar.append(back, profile, address);
     // Reuse Firefox's real extensions button and panel, rather than a
     // separate picker with different extension behavior.
     const extensions = document.getElementById("unified-extensions-button");
@@ -567,6 +598,7 @@ export const WhimsyQuickWindow = {
         host.removeAttribute("data-l10n-args");
         host.textContent = name;
       }
+      this.updateProfile(win);
       const title = blank ? "" : tab.label || name;
       if (address.dataset.page != `${title}\n${spec}`) {
         address.dataset.page = `${title}\n${spec}`;
@@ -707,6 +739,114 @@ export const WhimsyQuickWindow = {
     update();
   },
 
+  // -- wave5/profiles: the profile pill ---------------------------------
+
+  /** The profile of the space "Open in" points at (Default if none). */
+  destinationProfileId(opener) {
+    if (!lazy.WhimsyProfiles.enabled) {
+      return 0;
+    }
+    const space = this.mainWindow(opener)?.gZenWorkspaces?.getActiveWorkspace?.();
+    return space ? lazy.WhimsyProfiles.profileIdOfSpace(space) : 0;
+  },
+
+  principalFor(principal, userContextId) {
+    if (!principal || principal.isNullPrincipal) {
+      return Services.scriptSecurityManager.createNullPrincipal({ userContextId });
+    }
+    return principal.isContentPrincipal ?
+      Services.scriptSecurityManager.principalWithOA(principal, { userContextId }) : principal;
+  },
+
+  /** Replaces Mini's page with `url` in profile `id`'s container. */
+  loadInProfile(win, url, id, triggeringPrincipal = null) {
+    const { gBrowser } = win;
+    const old = gBrowser.selectedTab;
+    const tab = gBrowser.addTab(url, {
+      userContextId: id,
+      triggeringPrincipal: this.principalFor(
+        triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(), id),
+      skipAnimation: true,
+    });
+    gBrowser.selectedTab = tab;
+    gBrowser.removeTab(old, { animate: false });
+    this.updateProfile(win);
+    return tab;
+  },
+
+  updateProfile(win) {
+    const button = win.document.getElementById(PROFILE_BUTTON_ID);
+    if (!button) {
+      return;
+    }
+    const on = lazy.WhimsyProfiles.enabled;
+    button.hidden = !on;
+    if (!on) {
+      return;
+    }
+    const name = lazy.WhimsyProfiles.nameOf(win.gBrowser.selectedTab?.userContextId ?? 0);
+    if (button.dataset.profile != name) {
+      button.dataset.profile = name;
+      win.document.l10n.setAttributes(button, "whimsy-quick-window-profile-button", { profile: name });
+    }
+  },
+
+  openProfilePicker(win, anchor) {
+    const { document } = win;
+    let popup = document.getElementById(PROFILE_PICKER_ID);
+    if (!popup) {
+      popup = document.createXULElement("menupopup");
+      popup.id = PROFILE_PICKER_ID;
+      popup.addEventListener("command", event => {
+        const id = Number(event.target.dataset.profileId);
+        const current = win.gBrowser.selectedTab?.userContextId ?? 0;
+        if (Number.isInteger(id) && id != current) {
+          const url = win.gBrowser.selectedBrowser.currentURI?.spec || "about:blank";
+          this.loadInProfile(win, url, id, win.gBrowser.selectedBrowser.contentPrincipal);
+        }
+      });
+      document.getElementById("mainPopupSet")?.appendChild(popup) ?? document.documentElement.appendChild(popup);
+    }
+    const current = win.gBrowser.selectedTab?.userContextId ?? 0;
+    popup.replaceChildren(...lazy.WhimsyProfiles.list().map(profile => {
+      const item = document.createXULElement("menuitem");
+      item.setAttribute("type", "radio");
+      item.setAttribute("label", profile.name);
+      item.dataset.profileId = profile.id;
+      if (profile.id == current) {
+        item.setAttribute("checked", "true");
+      }
+      return item;
+    }));
+    popup.openPopup(anchor, { position: "after_start" });
+  },
+
+  async moveAcrossProfiles(win, target, tab, space, profileId) {
+    const ok = await lazy.WhimsyProfileMoves.confirm(target, {
+      titleId: "whimsy-profile-move-tab-title",
+      titleArgs: { count: 1, space: space?.name ?? "" },
+      bodyId: "whimsy-profile-move-tab-body",
+      bodyArgs: { count: 1, profile: lazy.WhimsyProfiles.nameOf(profileId) },
+      acceptId: "whimsy-profile-move-tab-accept",
+      acceptArgs: { count: 1 },
+    });
+    if (!ok || win.closed || target.closed || tab.closing) {
+      return null;
+    }
+    const url = tab.linkedBrowser.currentURI?.spec || "about:blank";
+    const principal = this.principalFor(tab.linkedBrowser.contentPrincipal, profileId);
+    const added = target.gBrowser.addTab(url, { userContextId: profileId, triggeringPrincipal: principal });
+    target.gZenWorkspaces.moveTabToWorkspace(added, space.uuid);
+    if (target.gZenWorkspaces.activeWorkspace != space.uuid) {
+      await target.gZenWorkspaces.changeWorkspaceWithID(space.uuid);
+    }
+    target.gBrowser.selectedTab = added;
+    target.gZenWorkspaces.lastSelectedWorkspaceTabs[space.uuid] = added;
+    target.focus();
+    win.close();
+    return added;
+  },
+
   // The space's icon as an image URL: Zen's SVG icons as they are, an
   // emoji drawn into a small SVG (toolbarbutton images are URLs only).
   spaceIcon(space) {
@@ -771,11 +911,24 @@ export const WhimsyQuickWindow = {
       document.getElementById("mainPopupSet")?.appendChild(popup) ?? document.documentElement.appendChild(popup);
     }
     const main = this.mainWindow(win.opener);
-    const items = spaces.map(space => {
+    const toItem = space => {
       const item = main.gZenWorkspaces.generateMenuItemForWorkspace(space, true);
       item.classList.remove("zen-workspace-context-menu-item");
       return item;
-    });
+    };
+    // wave5/profiles: spaces of the page's own profile first; the rest,
+    // where it would reopen in another profile, after a separator.
+    const current = win.gBrowser.selectedTab?.userContextId ?? 0;
+    const mine = spaces.filter(space => !lazy.WhimsyProfiles.enabled ||
+      lazy.WhimsyProfiles.profileIdOfSpace(space) == current);
+    const others = spaces.filter(space => !mine.includes(space));
+    const items = mine.map(toItem);
+    if (others.length) {
+      if (items.length) {
+        items.push(document.createXULElement("menuseparator"));
+      }
+      items.push(...others.map(toItem));
+    }
     popup.replaceChildren(...items);
     popup.openPopup(anchor, { position: "after_end" });
   },

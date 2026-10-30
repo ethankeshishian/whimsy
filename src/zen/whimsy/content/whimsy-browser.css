@@ -2006,10 +2006,29 @@ whimsy-space-history-section {
   }
 }
 
-#whimsy-quick-window-address .whimsy-mini-profile {
-  background: #332838;
-  border-radius: 6px;
-  padding: 3px 8px;
+/* wave5/profiles: the page's profile, a pill just before the address. */
+#whimsy-quick-window-profile {
+  appearance: none;
+  flex: none;
+  max-width: 12em;
+  height: var(--whimsy-mini-control);
+  margin: 0 0 0 2px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  &:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+  &:active { scale: 0.96; }
+  &:focus-visible { outline: var(--focus-outline, 2px solid AccentColor); outline-offset: 1px; }
+  &[hidden] { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #whimsy-quick-window-profile { transition: background-color 120ms ease-out, scale 100ms ease-out; }
 }
 #whimsy-quick-window-open kbd {
   font: menu;

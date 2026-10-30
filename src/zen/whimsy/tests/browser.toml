@@ -363,3 +363,6 @@ support-files = ["whimsy_login_form.html"]
 
 # wave5/profiles: Arc's warnings, and tabs really reopen in the new profile.
 ["browser_whimsy_profile_moves.js"]
+
+# wave5/profiles: Mini Whimsy's profile pill and cross-profile Open in.
+["browser_whimsy_profile_mini.js"]
