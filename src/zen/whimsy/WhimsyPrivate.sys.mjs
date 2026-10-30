@@ -738,12 +738,14 @@ export const WhimsyPrivate = {
     if (!scratch) {
       return null;
     }
-    const [name] = await win.document.l10n.formatValues([{ id: "whimsy-scratch-kept-name" }]);
     const { gBrowser } = win;
     const privateTabs = gBrowser.tabs.filter(
       tab => !tab.closing && tab.getAttribute("zen-workspace-id") == scratch.uuid && this.isPrivateTab(tab)
     );
-    const kept = { ...scratch, name: name || "Space", icon: undefined };
+    // fix7/private: the kept space keeps the name it had ("Scratch", or
+    // what the person renamed it to). It used to take a fixed string,
+    // whimsy-scratch-kept-name, whose value was "Space". Rename inline later.
+    const kept = { ...scratch, name: scratch.name || "Scratch", icon: undefined };
     delete kept.whimsyScratch;
     spaces.saveWorkspace(kept);
     // fixC: the private look goes the moment it's a normal space. Zen only

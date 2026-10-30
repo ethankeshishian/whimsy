@@ -252,8 +252,17 @@ add_task(async function test_keep_scratch_as_space() {
   const url = uniqueURL("keep");
   BrowserTestUtils.startLoadingURIString(gBrowser.selectedBrowser, url);
   await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser, false, url);
+  const nameBefore = scratch.name;
   const kept = await WhimsyPrivate.keepScratch(window);
   is(kept?.uuid, scratch.uuid, "The same space stays");
+  // fix7/private: it used to be renamed to a fixed "Space".
+  is(kept.name, nameBefore, "The kept space keeps Scratch's name");
+  is(
+    gZenWorkspaces.getWorkspaces().find(space => space.uuid == kept.uuid)?.name,
+    nameBefore,
+    "... in the saved spaces too"
+  );
+  isnot(kept.name, "Space", "Not the generic \"Space\"");
   ok(!WhimsyPrivate.getScratch(window), "It isn't Scratch any more");
   // fixC: none of the private look stays behind.
   ok(!document.querySelector("[whimsy-scratch]"), "No element keeps Scratch's violet marks");
@@ -367,6 +376,7 @@ add_task(async function test_keep_asks_first() {
   await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Keep made it a normal space");
   const kept = gZenWorkspaces.getWorkspaces().find(space => space.uuid == scratch.uuid);
   ok(kept && !kept.whimsyScratch, "The same space is now normal");
+  is(kept.name, "Scratch", "It keeps Scratch's name, not \"Space\"");
   await TestUtils.waitForCondition(
     () => gBrowser.selectedTab.getAttribute("zen-workspace-id") == kept.uuid && !WhimsyPrivate.isPrivateTab(gBrowser.selectedTab),
     "A normal tab replaced the private one"

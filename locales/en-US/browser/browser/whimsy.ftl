@@ -543,8 +543,6 @@ whimsy-unlock-space-toast = Unlocked “{ $space }”
 ## batch9p: Scratch (a temporary private space) and private tabs
 
 whimsy-scratch-name = Scratch
-# What Scratch is called once kept as a normal space.
-whimsy-scratch-kept-name = Space
 whimsy-menu-new-scratch =
     .label = New Scratch Space
 whimsy-menu-new-private-tab =
