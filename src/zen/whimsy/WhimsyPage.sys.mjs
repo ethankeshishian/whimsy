@@ -7,7 +7,7 @@
 // Capture (Arc's Capture, Edge's Web Capture): Firefox Screenshots is the
 // capture tool (drag a region, click an element, or Visible / Full Page,
 // then Copy or Download). Whimsy adds Arc's Cmd+Shift+2 for it, and a
-// one-step "Copy Full-Page Screenshot" (Cmd+Opt+Shift+F and the command
+// one-step "Copy Full-Page Screenshot" (Cmd+Shift+1 and the command
 // bar) that drops the whole page on the clipboard with no editor between.
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
@@ -159,7 +159,9 @@ export const WhimsyPage = {
     WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyCopyFullPage",
       run: w => this.copyFullPageScreenshot(w),
-      key: { id: "key_whimsyCopyFullPage", key: "F", modifiers: "accel,alt,shift" },
+      // Cmd+Shift+1, beside Cmd+Shift+2 (Screenshots); by keycode for the
+      // same reason as that one.
+      key: { id: "key_whimsyCopyFullPage", keycode: "VK_1", modifiers: "accel,shift" },
     });
     WhimsyShortcuts.addActions([
       {

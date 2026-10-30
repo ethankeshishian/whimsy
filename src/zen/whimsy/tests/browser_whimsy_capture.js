@@ -4,7 +4,7 @@
 "use strict";
 
 // Capture: Arc's Cmd+Shift+2 opens Firefox Screenshots, and Copy Full-Page
-// Screenshot (Cmd+Opt+Shift+F, command bar) puts the whole page on the
+// Screenshot (Cmd+Shift+1, command bar) puts the whole page on the
 // clipboard in one step.
 
 const TALL = "https://example.com/document-builder.sjs?html=" + encodeURIComponent("<body style='margin:0'><div style='height:4000px;background:linear-gradient(red,blue)'>Tall</div></body>");
@@ -14,29 +14,29 @@ function clipboardHasImage() {
   return Services.clipboard.hasDataMatchingFlavors(["image/png", "image/jpeg", "application/x-moz-nativeimage"], Services.clipboard.kGlobalClipboard);
 }
 
-function sameShortcut(a, b) {
-  const mods = k => (k.getAttribute("modifiers") || "").replace("accel", "meta").split(/[ ,]+/).filter(Boolean).sort().join();
-  return (a.getAttribute("key") || "").toLowerCase() == (b.getAttribute("key") || "").toLowerCase() && mods(a) == mods(b);
-}
-
 add_task(async function test_keys() {
   const arc = document.getElementById("key_whimsyScreenshotArc");
   ok(arc, "Cmd+Shift+2 exists");
   is(arc.getAttribute("command"), "Browser:Screenshot", "and opens Screenshots");
   const full = document.getElementById("key_whimsyCopyFullPage");
-  is(full.getAttribute("command"), "cmd_whimsyCopyFullPage", "Cmd+Opt+Shift+F copies the full page");
+  is(full.getAttribute("command"), "cmd_whimsyCopyFullPage", "Cmd+Shift+1 copies the full page");
+  is(full.getAttribute("keycode"), "VK_1", "Cmd+Shift+1 is bound by keycode, like Cmd+Shift+2");
+  is(full.getAttribute("modifiers"), "accel,shift", "...with Cmd+Shift");
   is(arc.getAttribute("keycode"), "VK_2", "Cmd+Shift+2 is bound by keycode (key=\"2\" never matches with Shift)");
   const mods = k => (k.getAttribute("modifiers") || "").replace("accel", "meta").split(/[ ,]+/).filter(Boolean).sort().join();
   const vkClash = [...document.querySelectorAll("key")].filter(
     k => k != arc && k.getAttribute("disabled") != "true" && k.getAttribute("keycode") == "VK_2" && mods(k) == mods(arc)
   );
   Assert.deepEqual(vkClash.map(k => k.id), [], "Cmd+Shift+2 doesn't clash");
-  for (const key of [full]) {
-    const clash = [...document.querySelectorAll("key")].filter(
-      k => k != key && k.getAttribute("disabled") != "true" && k.getAttribute("key") && sameShortcut(k, key)
-    );
-    Assert.deepEqual(clash.map(k => k.id), [], `${key.id} doesn't clash`);
-  }
+  // Nothing in Zen or Firefox uses Cmd+Shift+1 (by keycode, or as key="1"/"!").
+  const oneClash = [...document.querySelectorAll("key")].filter(
+    k =>
+      k != full &&
+      k.getAttribute("disabled") != "true" &&
+      mods(k) == mods(full) &&
+      (k.getAttribute("keycode") == "VK_1" || ["1", "!"].includes(k.getAttribute("key")))
+  );
+  Assert.deepEqual(oneClash.map(k => k.id), [], "Cmd+Shift+1 doesn't clash");
 });
 
 add_task(async function test_copy_full_page() {
@@ -51,8 +51,8 @@ add_task(async function test_copy_full_page() {
   // The shortcut does the same.
   SpecialPowers.clipboardCopyString("text again");
   tab.linkedBrowser.focus();
-  EventUtils.synthesizeKey("F", { accelKey: true, altKey: true, shiftKey: true });
-  await TestUtils.waitForCondition(clipboardHasImage, "Cmd+Opt+Shift+F copies it too");
+  EventUtils.synthesizeKey("!", { accelKey: true, shiftKey: true, code: "Digit1", keyCode: KeyEvent.DOM_VK_1 });
+  await TestUtils.waitForCondition(clipboardHasImage, "Cmd+Shift+1 copies it too");
   BrowserTestUtils.removeTab(tab);
 });
 
