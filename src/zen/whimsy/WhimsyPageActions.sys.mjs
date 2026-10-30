@@ -184,7 +184,7 @@ export const WhimsyPageActions = {
       return;
     }
     this._actions.set(browser, { spec: browser.currentURI.spec, action });
-    const win = browser.ownerGlobal;
+    const win = browser.documentGlobal;
     if (win?.gBrowser?.selectedBrowser == browser) {
       this.update(win);
     }

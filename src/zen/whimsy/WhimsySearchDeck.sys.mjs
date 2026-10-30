@@ -31,8 +31,10 @@ import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+  // Gecko 159 has no Services.search; the service is this module.
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
+  SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
@@ -179,7 +181,7 @@ export const WhimsySearchDeck = {
     if (/(^|\s)![^\s!]/.test(query) || /(^|\s)![^\s!]/.test(value)) {
       return null;
     }
-    const engine = engineName && Services.search.getEngineByName(engineName);
+    const engine = engineName && lazy.SearchService.getEngineByName(engineName);
     if (!query || !engine) {
       return null;
     }
@@ -318,7 +320,7 @@ export const WhimsySearchDeck = {
       return null;
     }
     try {
-      const info = Services.search.parseSubmissionURL(url);
+      const info = lazy.SearchService.parseSubmissionURL(url);
       return info?.engine && info.terms ? info : null;
     } catch {
       return null;
