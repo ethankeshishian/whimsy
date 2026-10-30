@@ -739,3 +739,44 @@ whimsy-devmode-console =
     .label = Console
 whimsy-devmode-network =
     .label = Network
+
+## batch7b: offline game (whimsy://game)
+
+whimsy-action-game = Play Balloon Drift
+whimsy-game-title = Balloon Drift
+whimsy-game-style-retro = Retro
+whimsy-game-style-gradient = Gradient
+whimsy-game-score = Score
+whimsy-game-best = Best
+whimsy-game-paused = Paused
+whimsy-game-game-over = Game over
+whimsy-game-hint = Space, Up, or click to flap. Arrows steer. P pauses.
+whimsy-game-play-again = Play again
+
+## batch7b: Year in tabs (whimsy://year)
+
+whimsy-action-year = Year in Tabs
+whimsy-year-ready-toast = Your Year in Tabs is ready
+whimsy-year-title = Your Year in Tabs
+whimsy-year-progress = { $current } of { $total }
+whimsy-year-welcome-title = { $year }, so far
+whimsy-year-welcome-body = All on this device. Nothing here is sent anywhere.
+whimsy-year-opened-title = Tabs opened
+whimsy-year-opened-body = You opened { $count } tabs.
+whimsy-year-opened-space = Busiest in { $space }.
+whimsy-year-topsites-title = Top sites
+whimsy-year-busiest-title = Busiest day & hour
+whimsy-year-busiest-body = { $day }s around { $hour }.
+whimsy-year-space-title = Most-used space
+whimsy-year-space-body = { $space } — { $percent }% of your tabs.
+whimsy-year-longest-title = Longest-open tab
+whimsy-year-longest-body = { $title } — open for { $duration }.
+whimsy-year-nightowl-title = Night owl score
+whimsy-year-nightowl-body = { $percent }% of your visits were between 10pm and 4am.
+whimsy-year-nightowl-low = Early to bed.
+whimsy-year-nightowl-mid = A bit of a night owl.
+whimsy-year-nightowl-high = Certified night owl.
+whimsy-year-empty = Not enough data yet — come back after browsing a bit more.
+whimsy-year-copy-card = Copy card
+whimsy-year-copied-toast = Card copied
+whimsy-year-done = Done

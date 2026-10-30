@@ -1,0 +1,29 @@
+--- a/toolkit/locales/en-US/toolkit/neterror/netError.ftl
++++ b/toolkit/locales/en-US/toolkit/neterror/netError.ftl
+@@ -9,7 +9,7 @@
+ certerror-sts-page-title = Did Not Connect: Potential Security Issue
+ neterror-blocked-by-policy-page-title = Blocked Page
+ neterror-captive-portal-page-title = Log in to network
+-neterror-dns-not-found-title = Server Not Found
++neterror-dns-not-found-title = Whimsy can’t find this site
+ neterror-malformed-uri-page-title = Invalid URL
+ general-body-title = Be careful. Something doesn’t look right.
+ problem-with-this-site-title = Looks like there’s a problem with this site
+@@ -34,7 +34,7 @@
+ ## browser.netError.searchCTA.enabled is true. Offers a one-click web search
+ ## derived from the address that failed to resolve.
+ 
+-neterror-search-cta-title = This site can’t be reached
++neterror-search-cta-title = Whimsy can’t reach this site
+ 
+ # $hostname (String) - The host of the address that failed to load, including
+ # any subdomains, for example "docs.example.com". The host is emphasized.
+@@ -251,7 +251,7 @@
+ 
+ ## Felt Privacy V1 Strings
+ 
+-fp-neterror-offline-body-title = Looks like there’s a problem with your internet connection
++fp-neterror-offline-body-title = Whimsy is waiting for a connection
+ 
+ ## Variables:
+ ##   $hostname (String) - Hostname of the website to which the user was trying to connect.

@@ -386,3 +386,49 @@ add_task(async function tab_volume_panel() {
     await hidden;
   }
 });
+
+// wave1/fun: both about:neterror layouts and a real certificate warning.
+add_task(async function whimsy_network_errors() {
+  for (const felt of [false, true]) {
+    await SpecialPowers.pushPrefEnv({ set: [
+      ["security.certerrors.felt-privacy-v1", felt],
+      ["whimsy.feature.net-error-branding", true],
+      ["browser.netError.searchCTA.enabled", false],
+    ] });
+    try {
+      for (const error of ["dnsNotFound", "netOffline", "certificate"]) {
+        const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+        const browser = tab.linkedBrowser;
+        try {
+          const loaded = BrowserTestUtils.waitForErrorPage(browser);
+          if (error === "certificate") {
+            BrowserTestUtils.startLoadingURIString(browser, "https://expired.example.com/");
+          } else {
+            await SpecialPowers.spawn(browser, [error], error => {
+              content.location = `about:neterror?e=${error}&u=https%3A%2F%2Fexample.com%2F&d=Connection%20failed`;
+            });
+          }
+          await loaded;
+          await SpecialPowers.spawn(browser, [], async () => {
+            const doc = content.document;
+            const root = doc.querySelector("net-error-card")?.shadowRoot || doc;
+            await ContentTaskUtils.waitForCondition(
+              () => root.querySelector("#whimsy-neterror-brand"), "Whimsy error branding is ready"
+            );
+            await doc.l10n.translateRoots();
+            await ContentTaskUtils.waitForCondition(
+              () => root.querySelector("#whimsy-neterror-style")?.sheet, "Whimsy error stylesheet loaded"
+            );
+            await content.document.fonts.ready;
+            await new Promise(resolve => content.requestAnimationFrame(() => content.requestAnimationFrame(resolve)));
+          });
+          await shot(`20-neterror-${felt ? "felt" : "legacy"}-${error}`, browser.browsingContext.currentWindowGlobal);
+        } finally {
+          BrowserTestUtils.removeTab(tab);
+        }
+      }
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});

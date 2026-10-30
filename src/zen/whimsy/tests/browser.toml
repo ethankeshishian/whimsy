@@ -208,3 +208,10 @@ support-files = ["whimsy_upload.html"]
 # linear: Linear live folder ("My Issues": assigned to you, open states).
 ["browser_whimsy_live_folders_linear.js"]
 support-files = ["whimsy_linear.sjs"]
+# batch7b: offline game + year in tabs (about:whimsy)
+["browser_whimsy_game.js"]
+
+["browser_whimsy_year_in_tabs.js"]
+
+# wave1/fun: Whimsy network error branding
+["browser_whimsy_neterror.js"]

@@ -1,0 +1,36 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-l10n-id="whimsy-game-title"></title>
+    <link rel="localization" href="browser/whimsy.ftl" />
+    <link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-game.css" />
+  </head>
+  <body>
+    <div id="whimsy-game-root" data-style="gradient">
+      <div id="whimsy-game-hud">
+        <span id="whimsy-game-score-label" data-l10n-id="whimsy-game-score"></span>
+        <span id="whimsy-game-score">0</span>
+        <span id="whimsy-game-best-label" data-l10n-id="whimsy-game-best"></span>
+        <span id="whimsy-game-best">0</span>
+        <span id="whimsy-game-style-switch" role="group">
+          <button id="whimsy-game-style-retro" type="button" data-l10n-id="whimsy-game-style-retro"></button>
+          <button id="whimsy-game-style-gradient" type="button" data-l10n-id="whimsy-game-style-gradient"></button>
+        </span>
+      </div>
+      <canvas id="whimsy-game-canvas"></canvas>
+      <p id="whimsy-game-hint" data-l10n-id="whimsy-game-hint"></p>
+      <div id="whimsy-game-overlay" hidden>
+        <p id="whimsy-game-overlay-paused" data-l10n-id="whimsy-game-paused" hidden></p>
+        <p id="whimsy-game-overlay-gameover" data-l10n-id="whimsy-game-game-over" hidden></p>
+        <button id="whimsy-game-play-again" type="button" data-l10n-id="whimsy-game-play-again" hidden></button>
+      </div>
+    </div>
+    <script src="chrome://browser/content/whimsy/whimsy-game.js"></script>
+  </body>
+</html>

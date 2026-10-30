@@ -62,6 +62,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
   WhimsyProtocol: "resource:///modules/whimsy/WhimsyProtocol.sys.mjs",
   WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
+  // batch7b: about:whimsy (offline game + year in tabs)
+  WhimsyAboutPage: "resource:///modules/whimsy/WhimsyAboutPage.sys.mjs",
+  WhimsyStats: "resource:///modules/whimsy/WhimsyStats.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -102,6 +105,18 @@ export const Whimsy = {
         esModuleURI: "resource:///modules/whimsy/WhimsyUploadChild.sys.mjs",
         events: { click: { capture: true, mozSystemGroup: true } },
       },
+      allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
+    // batch7b + wave1/fun: Whimsy network/certificate error branding and
+    // the offline game invitation (whimsy://game).
+    ChromeUtils.registerWindowActor("WhimsyNetError", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyNetErrorParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyNetErrorChild.sys.mjs",
+        events: { DOMContentLoaded: {}, AboutNetErrorLoad: { wantUntrusted: true } },
+      },
+      matches: ["about:neterror?*", "about:certerror?*"],
       allFrames: true,
       safeForUntrustedWebProcess: true,
     });
@@ -314,6 +329,59 @@ export const Whimsy = {
         },
       ]);
     });
+    // batch7b: about:whimsy, shared by the offline game and Year in tabs.
+    run("about-pages", () => lazy.WhimsyAboutPage.register());
+    // batch7b: offline game (whimsy://game). Always installed: the command
+    // bar action and the net-error button both check the switch on use.
+    run("game-action", () => {
+      lazy.WhimsyShortcuts.addCommand(win, {
+        id: "whimsy-game-open",
+        run: w => w.openTrustedLinkIn("about:whimsy?game", "current"),
+      });
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-game",
+          command: "whimsy-game-open",
+          icon: "chrome://browser/skin/zen-icons/selectable/game-controller.svg",
+          isAvailable: () => Services.prefs.getBoolPref("whimsy.feature.game", true),
+        },
+      ]);
+    });
+    // batch7b: Year in tabs (whimsy://year). Always installed: initWindow
+    // checks the switch itself before counting anything (WhimsyStats.sys.mjs).
+    run("year-in-tabs", () => {
+      lazy.WhimsyStats.initWindow(win);
+      lazy.WhimsyShortcuts.addCommand(win, {
+        id: "whimsy-year-open",
+        run: w => w.openTrustedLinkIn("about:whimsy?year", "current"),
+      });
+      lazy.WhimsyShortcuts.addActions([
+        {
+          l10nId: "whimsy-action-year",
+          command: "whimsy-year-open",
+          icon: "chrome://browser/skin/zen-icons/selectable/stats-chart.svg",
+          isAvailable: () => lazy.WhimsyStats.enabled,
+        },
+      ]);
+      this.maybeShowYearToast(win);
+    });
+  },
+
+  // batch7b: from December 1, once a year, a toast points at Year in tabs.
+  maybeShowYearToast(win) {
+    if (!lazy.WhimsyStats.enabled) {
+      return;
+    }
+    const now = new Date();
+    if (now.getMonth() != 11) {
+      return;
+    }
+    const year = now.getFullYear();
+    if (Services.prefs.getIntPref("whimsy.year.last-toast-year", 0) >= year) {
+      return;
+    }
+    Services.prefs.setIntPref("whimsy.year.last-toast-year", year);
+    win.gZenUIManager?.showToast?.("whimsy-year-ready-toast", {});
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web

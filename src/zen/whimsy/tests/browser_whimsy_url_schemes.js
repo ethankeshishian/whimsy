@@ -11,6 +11,28 @@ add_task(function test_route_table() {
   is(WhimsyProtocol.route("whimsy://downloads").url, "about:downloads", "downloads routes to the downloads page");
   is(WhimsyProtocol.route("whimsy://nonsense"), null, "An unknown page has no route");
   is(WhimsyProtocol.route("not-a-whimsy-url"), null, "A non-whimsy:// value has no route");
+  // batch7b: offline game + year in tabs (about:whimsy).
+  is(WhimsyProtocol.route("whimsy://game").url, "about:whimsy?game", "game routes to about:whimsy?game");
+  is(WhimsyProtocol.route("whimsy://year").url, "about:whimsy?year", "year routes to about:whimsy?year");
+});
+
+// batch7b: about:whimsy itself (WhimsyAboutPage.sys.mjs) serves a real
+// chrome document per query string, and falls back for an unknown one.
+add_task(async function test_about_whimsy_routes_by_query() {
+  await BrowserTestUtils.withNewTab("about:whimsy?game", async browser => {
+    is(
+      browser.contentDocument.location.href,
+      "about:whimsy?game",
+      "The address bar keeps about:whimsy?game, not the chrome:// URL"
+    );
+    ok(browser.contentDocument.getElementById("whimsy-game-canvas"), "It served the game page");
+  });
+  await BrowserTestUtils.withNewTab("about:whimsy?year", async browser => {
+    ok(browser.contentDocument.getElementById("whimsy-year-root"), "It served the Year in tabs page");
+  });
+  await BrowserTestUtils.withNewTab("about:whimsy?nonsense", async browser => {
+    ok(browser.contentDocument.getElementById("whimsy-game-canvas"), "An unknown query string falls back to the game");
+  });
 });
 
 add_task(async function test_typing_settings_navigates() {
