@@ -347,3 +347,7 @@ support-files = ["whimsy_ai_page.html"]
 
 # batch4: Library rail glyphs, including optional sections when present.
 ["browser_whimsy_library_icons.js"]
+
+# wave5: Redact in the Screenshots panel (detectors, click-to-blur, image pixels, cleanup).
+["browser_whimsy_redact.js"]
+support-files = ["whimsy_redact.html"]

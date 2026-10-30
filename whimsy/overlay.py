@@ -789,6 +789,10 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5: redact: a toggle in the Screenshots panel that blurs emails,
+    # phones, keys/tokens and card numbers (click text to blur/unblur).
+    {"id": "redact", "title": "Redact in screenshots: blur emails, phone numbers, keys and card numbers before capturing; click text to blur it",
+     "detect": [("src/zen", r"(?i)redact")]},
 ]
 
 

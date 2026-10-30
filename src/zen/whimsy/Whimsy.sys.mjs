@@ -136,6 +136,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave5: redact in screenshots.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -557,6 +562,9 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    // wave5: redact. Adds the toggle to the Screenshots panel; it checks
+    // whimsy.feature.redact each time the panel shows.
+    run("redact", () => lazy.WhimsyRedact.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

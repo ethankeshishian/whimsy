@@ -1611,3 +1611,8 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave5: Redact, a toggle in the screenshot panel beside Visible and Full Page
+
+whimsy-redact-button = Redact
+    .title = Blur emails, phone numbers, keys and card numbers in the screenshot. Click any text to blur or unblur it.
