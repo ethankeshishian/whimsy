@@ -12,8 +12,8 @@
 //   alt-tabbing to a whole other window.
 // - Scratch (Cmd+Shift+N): a temporary private space, added to the right of
 //   every space. Everything opened in it is private. Closing its last tab
-//   (or Close Scratch) removes it; it is never saved or restored. "Keep as
-//   Space" walks through Zen's New Space form (name, icon, profile, theme),
+//   (or Close Scratch) removes it; it is never saved or restored. "Save as
+//   Space…" walks through Zen's New Space form (name, icon, profile, theme),
 //   then asks, then turns it into a normal space (its pages reopen outside
 //   private browsing). A tab moved to another space stays private there.
 //
@@ -492,7 +492,7 @@ export const WhimsyPrivate = {
       { l10nId: "whimsy-action-new-private-tab", command: "cmd_whimsyNewPrivateTab", icon, isAvailable: () => this.inWindow },
       { l10nId: "whimsy-action-new-scratch", command: "cmd_whimsyNewScratch", icon, isAvailable: () => this.inWindow },
       {
-        l10nId: "whimsy-action-keep-scratch",
+        l10nId: "whimsy-action-save-scratch",
         command: "cmd_whimsyKeepScratch",
         icon,
         isAvailable: w => this.featureOn && !!this.getScratch(w),
@@ -542,7 +542,7 @@ export const WhimsyPrivate = {
       const separator = document.createXULElement("menuseparator");
       separator.id = "context_whimsyScratchSeparator";
       const items = [
-        ["context_whimsyKeepScratch", "whimsy-scratch-keep", "cmd_whimsyKeepScratch"],
+        ["context_whimsyKeepScratch", "whimsy-scratch-save", "cmd_whimsyKeepScratch"],
         ["context_whimsyCloseScratch", "whimsy-scratch-close", "cmd_whimsyCloseScratch"],
       ].map(([id, l10nId, command]) => {
         const item = document.createXULElement("menuitem");
@@ -707,12 +707,12 @@ export const WhimsyPrivate = {
   },
 
   // wave7/scratch: saving Scratch walks through the same steps as New
-  // Space, and the "no longer private" question comes last. Keep opens
+  // Space, and the "no longer private" question comes last. Save as Space… opens
   // Zen's own create-space form (<zen-workspace-creation>: name, icon,
   // profile, Change Theme) inside Scratch, over its tabs, with an empty name
   // (Zen's "Space Name" placeholder) and Scratch's theme. Its button reads
   // "Save Space"; pressing it asks askKeepScratch's modal, Cancel there
-  // returns to the form with everything still filled in, and Keep Space
+  // returns to the form with everything still filled in, and Save Space
   // converts Scratch with those settings and its tabs. Cancel or Esc on the
   // form, switching spaces or closing Scratch leave it private and as it
   // was. The form is Zen's, not a copy: only its three handlers are
@@ -943,14 +943,14 @@ export const WhimsyPrivate = {
   // can't be undone, so it asks in a modal dialog, the same window-modal
   // prompt as Firefox's close-window warning and Whimsy's Delete Space
   // (never a toast or notification): a title, one sentence, Cancel and
-  // "Keep Space". Cancel is the default (Return and Esc both cancel).
+  // "Save Space" (wave7: one verb, Save, through the flow). Cancel is the default (Return and Esc both cancel).
   // wave7/scratch: it is the last step of saveScratch. Resolves true for
-  // Keep Space.
+  // Save Space.
   async askKeepScratch(win) {
     const [title, body, accept] = await win.document.l10n.formatValues([
-      "whimsy-scratch-keep-confirm-title",
-      "whimsy-scratch-keep-confirm",
-      "whimsy-scratch-keep-confirm-accept",
+      "whimsy-scratch-save-confirm-title",
+      "whimsy-scratch-save-confirm",
+      "whimsy-scratch-save-confirm-accept",
     ]);
     return lazy.WhimsyPanels.confirm(win, { title, body, accept, cancelDefault: true });
   },

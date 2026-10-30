@@ -330,7 +330,7 @@ add_task(async function test_switch_and_setting_off() {
 // "no longer private" dialog comes last.
 // fixC + fix7/private: that dialog is the window-modal prompt Firefox uses
 // for its close-window warning and Whimsy for Delete Space (not a toast or
-// notification): title, one sentence, Cancel + "Keep Space"; Cancel is the
+// notification): title, one sentence, Cancel + "Save Space"; Cancel is the
 // default button and Esc cancels. Cancelling it returns to the form.
 
 const SAVE_FORM = "zen-workspace-creation[whimsy-scratch-save]";
@@ -428,10 +428,10 @@ add_task(async function test_save_scratch_form_then_confirm() {
     is(win.document.documentURI, "chrome://global/content/commonDialog.xhtml", "Firefox's own prompt dialog");
     const dialogEl = win.document.querySelector("dialog");
     if (how == "Esc") {
-      is(dialogEl.getButton("accept").label, "Keep Space", "The button says what it does");
+      is(dialogEl.getButton("accept").label, "Save Space", "The button says what it does");
       ok(!dialogEl.getButton("cancel").hidden, "There's a Cancel button");
       is(dialogEl.defaultButton, "cancel", "Cancel, the safe button, is the default");
-      is(win.document.getElementById("infoTitle").textContent, "Keep as a Normal Space?", "It has a title");
+      is(win.document.getElementById("infoTitle").textContent, "Save as a Space?", "It has a title");
       ok(win.document.getElementById("infoBody").textContent.includes("private browsing"), "One sentence says what changes");
       ok(win.document.getElementById("loginContainer").hidden, "No text field takes the focus");
       ok(
@@ -452,7 +452,7 @@ add_task(async function test_save_scratch_form_then_confirm() {
     assertStillScratch(scratch, before, privateTab, `${how} in the dialog`);
   }
 
-  // Keep Space converts it with the form's settings and its tabs.
+  // Save Space in the dialog converts it with the form's settings and its tabs.
   const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
   form.createButton.doCommand();
   const win = await dialog;
