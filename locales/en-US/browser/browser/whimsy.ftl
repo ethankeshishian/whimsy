@@ -2547,3 +2547,7 @@ whimsy-menu-view-media =
     .label = View Media…
 whimsy-menu-view-boosts =
     .label = View Boosts…
+
+## fix7/game: the offline error page game
+
+whimsy-game-hint-embedded = Arrows, WASD or pointer to steer · Space or click to dash · Esc goes back to the error page
