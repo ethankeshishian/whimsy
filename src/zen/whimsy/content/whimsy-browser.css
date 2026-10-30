@@ -1792,3 +1792,43 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 .whimsy-archive-space + .whimsy-archive-time::before {
   content: " · ";
 }
+
+/* batch4: Library rail icons. These are single-frame Zen glyphs, whereas
+   Zen's native Library icons are 36-frame sprites. Nucleo glyphs use only
+   context-fill, so keep them painted even when the tab is not selected. */
+:is(.zen-library-tab, .zen-library-section):is(
+  [data-section="whimsy-notes"],
+  [data-section="whimsy-finder-folders"],
+  [data-section="whimsy-files"],
+  [data-section="whimsy-next-meeting"],
+  [data-section="whimsy-archive"]
+) :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  width: var(--zen-library-sprite-size);
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  fill: var(--stroke);
+  animation: none !important;
+  transform: none !important;
+}
+
+[data-section="whimsy-notes"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/skin/zen-icons/page-portrait.svg");
+}
+
+[data-section="whimsy-finder-folders"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/skin/zen-icons/folder.svg");
+}
+
+[data-section="whimsy-files"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/skin/zen-icons/screenshot.svg");
+}
+
+/* Harmless when the Meetings feature (or its module) is removed. */
+[data-section="whimsy-next-meeting"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/skin/zen-icons/selectable/time.svg");
+}
+
+[data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/skin/zen-icons/u-turn-to-left.svg");
+}

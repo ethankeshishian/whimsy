@@ -302,3 +302,6 @@ support-files = ["whimsy_video_sound.html", "whimsy_video_sound.mp4", "whimsy_me
 # fixD (user follow-up): Firefox's PiP buttons: X closes and pauses; Back to tab keeps playing.
 ["browser_whimsy_pip_close.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
+
+# batch4: Library rail glyphs, including optional sections when present.
+["browser_whimsy_library_icons.js"]
