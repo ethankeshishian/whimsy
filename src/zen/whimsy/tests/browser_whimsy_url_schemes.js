@@ -77,3 +77,89 @@ add_task(async function test_disabled_feature_leaves_the_value_alone() {
   });
   Services.prefs.clearUserPref("whimsy.feature.url-schemes");
 });
+
+// batch hover: whimsy:// links from other apps.
+add_task(function test_link_routes_are_strict() {
+  const open = WhimsyProtocol.linkRoute("whimsy://open?space=Work&url=https%3A%2F%2Fexample.com%2Fa%3Fb%3D1");
+  is(open.action, "open", "open action");
+  is(open.space, "Work", "Space kept");
+  is(open.url, "https://example.com/a?b=1", "Target decoded once");
+  is(WhimsyProtocol.linkRoute("whimsy://new-tab?url=https://example.com/").action, "new-tab", "new-tab action");
+  for (const uri of [
+    "whimsy://open?url=javascript:alert(1)",
+    "whimsy://open?url=file:///etc/passwd",
+    "whimsy://open?url=about:config",
+    "whimsy://open?url=https://example.com/&url=https://example.org/",
+    "whimsy://open?url=https://user:pw@example.com/",
+    "whimsy://open?url=https://example.com/&extra=1",
+    "whimsy://new-tab?url=https://example.com/&space=Work",
+    "whimsy://delete?url=https://example.com/",
+    "whimsy://open",
+  ]) {
+    is(WhimsyProtocol.linkRoute(uri), null, `Rejected: ${uri}`);
+  }
+});
+
+add_task(async function test_command_line_takes_whimsy_args_only() {
+  const { WhimsyCommandLine } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyProtocol.sys.mjs"
+  );
+  const args = ["-url", "whimsy://settings", "-url", "https://example.com/", "whimsy://downloads"];
+  const commandLine = {
+    get length() {
+      return args.length;
+    },
+    getArgument: i => args[i],
+    removeArguments(first, last) {
+      args.splice(first, last - first + 1);
+    },
+    state: Ci.nsICommandLine.STATE_REMOTE_EXPLICIT,
+    preventDefault: false,
+  };
+  const original = WhimsyProtocol.openExternal;
+  const received = [];
+  WhimsyProtocol.openExternal = async value => received.push(value);
+  try {
+    const handler = new WhimsyCommandLine();
+    handler.handle(commandLine);
+    await handler._pending;
+    Assert.deepEqual(received, ["whimsy://settings", "whimsy://downloads"], "In order");
+    Assert.deepEqual(args, ["-url", "https://example.com/"], "Other links left to Firefox");
+    ok(commandLine.preventDefault, "No extra window for a running app");
+  } finally {
+    WhimsyProtocol.openExternal = original;
+  }
+});
+
+add_task(async function test_open_in_space_and_pages() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.external-links.target", "tab"]] });
+  const tabCount = gBrowser.tabs.length;
+  try {
+    ok(await WhimsyProtocol.openExternal("whimsy://settings"), "A page link opens");
+    await TestUtils.waitForCondition(() => gBrowser.selectedBrowser.currentURI.spec.startsWith("about:preferences"));
+    is(gBrowser.tabs.length, tabCount + 1, "In a new tab, not over the current one");
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
+
+    const active = gZenWorkspaces.getActiveWorkspace();
+    ok(
+      !(await WhimsyProtocol.openExternal("whimsy://open?space=No%20such%20space&url=https://example.com/")),
+      "An unknown space opens nothing"
+    );
+    is(gZenWorkspaces.activeWorkspace, active.uuid, "And doesn't switch spaces");
+
+    const loaded = BrowserTestUtils.waitForNewTab(gBrowser, "https://example.com/", true);
+    ok(
+      await WhimsyProtocol.openExternal(`whimsy://open?space=${encodeURIComponent(active.name)}&url=https://example.com/`),
+      "A space link opens"
+    );
+    const tab = await loaded;
+    is(tab.getAttribute("zen-workspace-id"), active.uuid, "In that space");
+    BrowserTestUtils.removeTab(tab);
+
+    Services.prefs.setBoolPref("whimsy.feature.url-schemes", false);
+    ok(!(await WhimsyProtocol.openExternal("whimsy://settings")), "Feature off: nothing opens");
+  } finally {
+    Services.prefs.clearUserPref("whimsy.feature.url-schemes");
+    await SpecialPowers.popPrefEnv();
+  }
+});
