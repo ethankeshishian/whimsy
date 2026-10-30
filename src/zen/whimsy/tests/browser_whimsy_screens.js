@@ -620,3 +620,77 @@ add_task(async function compact_peek_with_transparency() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// fixC: Whimsy's onboarding pages, drawn in Zen's onboarding markup and
+// styles (zen-welcome.css) with Zen's own option cards.
+add_task(async function welcome_look_pages() {
+  const { WhimsyWelcome } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs");
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  const doc = win.document;
+  const html = (tag, attrs = {}, elementId = "") => {
+    const el = doc.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    if (elementId) {
+      el.id = elementId;
+    }
+    for (const [name, value] of Object.entries(attrs)) {
+      el.setAttribute(name, value);
+    }
+    return el;
+  };
+  // ZenWelcome.mjs's createOption().
+  const createOption = ({ id, group, checked, l10n, text }) => {
+    const label = html("label", { class: "zen-welcome-option", for: id });
+    const input = html("input", { type: "radio", id, name: group });
+    input.checked = !!checked;
+    const radio = html("span", { class: "zen-welcome-option-radio no-squircles" });
+    const labelText = html("span", { class: "zen-welcome-option-label" });
+    if (l10n) {
+      doc.l10n.setAttributes(labelText, l10n);
+    } else {
+      labelText.textContent = text;
+    }
+    label.append(input, radio, labelText);
+    return label;
+  };
+  const pages = WhimsyWelcome.extendPages(win, [{ id: "colors" }, { id: "finish" }], {
+    createOption,
+    kNextButton: { l10n: "zen-generic-next", primary: true },
+  }).filter(page => page.id.startsWith("whimsy-"));
+  const root = html("div", { style: "position: fixed; inset: 0; z-index: 10000;" }, "zen-welcome");
+  try {
+    for (const page of pages) {
+      root.replaceChildren();
+      const card = html("div", { style: "display: flex; opacity: 1;" }, "zen-welcome-pages");
+      const sidebar = html("div", {}, "zen-welcome-page-sidebar");
+      const text = html("div", {}, "zen-welcome-page-sidebar-content");
+      const words = html("div", { class: "zen-welcome-text" });
+      const title = html("h1");
+      doc.l10n.setAttributes(title, page.title);
+      words.append(title);
+      for (const id of page.descriptions) {
+        const p = html("p");
+        doc.l10n.setAttributes(p, id);
+        words.append(p);
+      }
+      text.append(words);
+      const buttons = html("div", {}, "zen-welcome-page-sidebar-buttons");
+      const next = html("button", { class: "zen-big-accent-button primary" });
+      doc.l10n.setAttributes(next, "zen-generic-next");
+      buttons.append(next);
+      sidebar.append(text, buttons);
+      const contentArea = html("div", {}, "zen-welcome-page-content");
+      const content = html("div", { class: "zen-welcome-page", page: page.id, style: "opacity: 1;" });
+      contentArea.append(content);
+      card.append(sidebar, contentArea);
+      root.append(card);
+      doc.getElementById("browser").append(root);
+      await page.render(content);
+      await doc.l10n.translateFragment(root);
+      await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+      await shot(`fixC-welcome-${page.id}`, win.browsingContext.currentWindowGlobal);
+    }
+  } finally {
+    root.remove();
+    await BrowserTestUtils.closeWindow(win);
+  }
+});

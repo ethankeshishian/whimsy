@@ -297,6 +297,9 @@
 - name: whimsy.feature.home
   value: true
 
+- name: whimsy.feature.welcome-look
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

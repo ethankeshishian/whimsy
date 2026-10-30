@@ -927,3 +927,14 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+
+## fixC: onboarding look pages (Zen's first-run flow, after space colors)
+
+whimsy-welcome-transparency-title = Let your desktop shine through?
+whimsy-welcome-transparency-description = { -brand-short-name } can let your wallpaper glow softly through the sidebar. Pick one to try it. You can always change it later!
+whimsy-welcome-transparency-solid = <strong>NO</strong>, keep it solid.
+whimsy-welcome-transparency-subtle = <strong>A LITTLE</strong>, just a hint of my wallpaper.
+whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
+whimsy-welcome-font-title = Pick your interface font.
+whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
+whimsy-welcome-font-system = System font

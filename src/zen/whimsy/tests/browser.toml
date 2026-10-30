@@ -235,3 +235,6 @@ support-files = ["whimsy_calendar.sjs"]
 
 # fixC: private page branding and search box
 ["browser_whimsy_private_page.js"]
+
+# fixC: onboarding look pages (transparency, interface font)
+["browser_whimsy_welcome_look.js"]

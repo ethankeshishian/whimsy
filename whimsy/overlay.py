@@ -46,6 +46,11 @@ HOOKS = [
     ("settings", "src/browser/components/preferences/zen-preferences-links.xhtml",
      r'^<link rel="localization" href="browser/preferences/zen-preferences\.ftl"/>',
      "#include whimsy-preferences-head.inc.xhtml",
+     "after"),    # fixC: onboarding look pages (WhimsyWelcome.sys.mjs). ZenWelcome keeps
+    # its page list in a closure; this hands it over with Zen's own helpers.
+    ("welcome-pages", "src/zen/welcome/ZenWelcome.mjs",
+     r"^(\s*)this\.#pages = pages;\s*$",
+     '{indent}this.#pages = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.extendPages(window, pages, { createOption, kNextButton }); // Whimsy hook',
      "after"),
 ]
 
@@ -358,6 +363,9 @@ FEATURES = [
     # home: homepage + changelog.
     {"id": "home", "title": "Whimsy's homepage (about:whimsy) with a Changelog tab, replacing Zen's about:home",
      "detect": [("src/zen", r"(?i)about:whimsy")]},
+    # fixC: transparency and interface font pages in Zen's onboarding.
+    {"id": "welcome-look", "title": "Onboarding: transparency and interface font pages in Zen's first-run flow",
+     "detect": [("src/zen/welcome", r"(?i)\b(transparency|translucency|interface[ -]?font|ui-font)\b")]},
 ]
 
 
