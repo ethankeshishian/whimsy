@@ -201,6 +201,13 @@ export const WhimsySpaceIcons = {
         document.getElementById("PanelUI-zen-emojis-picker-change-emojis")?.doCommand();
       }
     });
+    // Zen's search matches a button by its label, which a skin tone changed;
+    // after it runs (on the input itself), match toned buttons by base emoji.
+    panel.addEventListener("input", event => {
+      if (event.target == picker.searchInput) {
+        this.filterToned(win, picker.searchInput.value);
+      }
+    });
 
     const onTone = () => {
       if (panel.state == "open" && panel.hasAttribute(ATTR)) {
@@ -333,6 +340,24 @@ export const WhimsySpaceIcons = {
       if (button.getAttribute("label") != label) {
         button.setAttribute("label", label);
       }
+    }
+  },
+
+  filterToned(win, query) {
+    const picker = win.gZenEmojiPicker;
+    const list = picker?.emojiList;
+    if (!list?.hasAttribute("whimsy-skin-tone") || !picker._emojis) {
+      return;
+    }
+    const value = query.trim().toLowerCase();
+    const byEmoji = new Map(picker._emojis.map(emoji => [emoji.emoji, emoji]));
+    for (const button of list.children) {
+      const emoji = byEmoji.get(button.getAttribute(BASE_ATTR));
+      if (!emoji) {
+        continue;
+      }
+      button.hidden = !emoji.tags.some(tag => tag.toLowerCase().includes(value));
+      button.style.order = emoji.order;
     }
   },
 

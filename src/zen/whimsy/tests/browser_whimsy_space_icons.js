@@ -141,16 +141,17 @@ add_task(async function test_skin_tones() {
   ok(tone && !tone.hidden, "The skin tone button is beside the search");
   is(tone.getAttribute("label"), "✋\u{1F3FD}", "showing the hand in the tone");
 
-  const thumbs = emojiButton("👍");
+  // Zen's data spells thumbs up with the emoji presentation selector.
+  const thumbs = emojiButton("👍\uFE0F");
   is(thumbs.getAttribute("label"), "👍\u{1F3FD}", "Hands show in the tone");
   is(emojiButton("😀").getAttribute("label"), "😀", "Faces don't take a tone");
 
-  search("thumbs");
+  search("thumb"); // Zen's tags for 👍: +1, good, hand, like, thumb, up, yes
   ok(!thumbs.hidden, "Search still finds toned emoji");
   ok(emojiButton("🚀").hidden, "and only what matches");
 
   Services.prefs.setIntPref(TONE, 0);
-  is(thumbs.getAttribute("label"), "👍", "Back to the default tone while open");
+  is(thumbs.getAttribute("label"), "👍\uFE0F", "Back to the default tone while open");
   ok(!thumbs.hidden, "and the search keeps it");
   Services.prefs.setIntPref(TONE, 5);
   is(thumbs.getAttribute("label"), "👍\u{1F3FF}", "Another tone applies at once");
@@ -182,7 +183,7 @@ add_task(async function test_switch_off() {
   ok(!gZenEmojiPicker.svgList.querySelector(".whimsy-glyph-rule"), "No rule");
   ok(!glyph("whimsy-train.svg"), "No extra glyphs");
   ok(document.getElementById("whimsy-emoji-skin-tone").hidden, "No skin tone button");
-  is(emojiButton("👍").getAttribute("label"), "👍", "No tones");
+  is(emojiButton("👍\uFE0F").getAttribute("label"), "👍\uFE0F", "No tones");
 
   glyph("heart.svg").doCommand();
   await TestUtils.waitForCondition(() => space().icon == gZenEmojiPicker.getSVGURL("heart.svg"));
