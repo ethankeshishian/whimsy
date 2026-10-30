@@ -457,7 +457,9 @@ whimsy-tabs-tree-style-islands =
 ## batch8: tab lifecycle — command bar
 
 whimsy-action-show-archive = View Archive…
-whimsy-action-fire-button = Forget Site Data…
+whimsy-action-fire-button = Fire Button…
+# wave7/fire: per-site forgetting, moved out of the Fire Button sheet.
+whimsy-action-forget-site = Forget About This Site…
 whimsy-action-heavy-tabs = Find Heavy Tabs
 
 ## batch8: tab lifecycle — Archive view panel
@@ -491,16 +493,9 @@ whimsy-snooze-wake-toast = “{ $title }” is back
 
 whimsy-fire-panel =
     .aria-label = Fire button
-# $site (string) - the current tab's site, like "example.com". The scope is
-# the whole site: every subdomain, all of its history and data, and its tabs.
-whimsy-fire-site = Everything from { $site }
-    .tooltiptext = Deletes { $site }’s history, cookies, site data and cache, including its subdomains, and closes its tabs (pinned tabs stay)
-# Shown disabled when the current tab isn't a website (a new tab, about: pages).
-whimsy-fire-site-none = This Site
-    .tooltiptext = The current tab isn’t a website
-whimsy-fire-last-15-min = Last 15 Minutes
-whimsy-fire-space = This Space
-whimsy-fire-everything = Everything
+# wave7/fire: two rows. Each title says what it closes and clears.
+whimsy-fire-session = Close tabs and clear the last hour
+whimsy-fire-everything = Close all tabs and clear everything
 
 ## batch8: tab lifecycle — Find heavy tabs
 
@@ -1178,15 +1173,27 @@ whimsy-sheet-close =
 whimsy-delete-space-accept = Delete Space
 whimsy-snooze-title = Snooze Tab
 whimsy-fire-title = Fire Button
-whimsy-fire-subtitle = Clears data, then closes the tabs. Pinned tabs stay.
-# $site (string) - the current site's domain, e.g. example.com
-whimsy-fire-site-detail = Cookies, cache and history for { $site }, plus its tabs
-whimsy-fire-site-none-detail = This page isn't a website
-whimsy-fire-last-15-min-detail = Everything from the last 15 minutes
-# $space (string) - the current space's name
-whimsy-fire-space-detail = Site data and tabs in { $space }
-whimsy-fire-space-detail-unnamed = Site data and tabs in this space
-whimsy-fire-everything-detail = All browsing data and every unpinned tab
+whimsy-fire-subtitle = Start fresh: close tabs and erase what they left behind
+# $count (number) - unpinned tabs that will close; $space (string) - the space's name
+whimsy-fire-session-detail = { $count ->
+    [0] No tabs to close in { $space }
+    [one] 1 tab in { $space }
+   *[other] { $count } tabs in { $space }
+}
+whimsy-fire-session-detail-unnamed = { $count ->
+    [0] No tabs to close in this space
+    [one] 1 tab in this space
+   *[other] { $count } tabs in this space
+}
+# $count (number) - unpinned tabs in every space that will close
+whimsy-fire-everything-detail = { $count ->
+    [0] Every space, all time
+    [one] 1 tab, every space, all time
+   *[other] { $count } tabs, every space, all time
+}
+# The note under the rows: exactly what the chosen row clears and keeps.
+whimsy-fire-session-summary = Clears history, cookies, site data and cache from the last hour, in every space. Pinned tabs, Essentials, bookmarks and passwords stay.
+whimsy-fire-everything-summary = Clears all history, cookies, site data and cache, in every space. Pinned tabs, Essentials, bookmarks and passwords stay. You can’t undo it.
 whimsy-heavy-tabs-title = Heavy Tabs
 whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
@@ -1897,37 +1904,28 @@ whimsy-meeting-group-header = Meetings
 # features you start from the command bar or the tab menu.
 whimsy-settings-features-summary = On-demand features
 
-# wave5/uxfix: Fire Button. Rows pick what to forget; this button does it.
-whimsy-fire-scopes = What to forget
-# $site (string) - the current site's domain, e.g. example.com
-whimsy-fire-forget-site =
-    .label = Forget { $site }
-whimsy-fire-forget-recent =
-    .label = Forget Last 15 Minutes
-whimsy-fire-forget-space =
-    .label = Forget This Space
+# wave5/uxfix: Fire Button. Rows pick what to clear; this button does it.
+whimsy-fire-scopes = What to clear
+whimsy-fire-forget-session =
+    .label = Close Tabs and Clear
 whimsy-fire-forget-everything =
-    .label = Forget Everything
-# Result toasts. $count (number) - tabs closed; $site (string) - the domain.
+    .label = Clear Everything…
+# Result toasts: what closed and what was cleared.
+# $count (number) - tabs closed; $site (string) - the domain.
+whimsy-fire-done-session = { $count ->
+    [0] Cleared the last hour’s history, cookies, site data and cache
+    [one] Closed 1 tab · cleared the last hour’s history, cookies, site data and cache
+   *[other] Closed { $count } tabs · cleared the last hour’s history, cookies, site data and cache
+}
+whimsy-fire-done-everything = { $count ->
+    [0] Cleared all history, cookies, site data and cache
+    [one] Closed 1 tab · cleared all history, cookies, site data and cache
+   *[other] Closed { $count } tabs · cleared all history, cookies, site data and cache
+}
 whimsy-fire-done-site = { $count ->
     [0] Forgot { $site }
     [one] Forgot { $site } · closed 1 tab
    *[other] Forgot { $site } · closed { $count } tabs
-}
-whimsy-fire-done-recent = { $count ->
-    [0] Forgot the last 15 minutes
-    [one] Forgot the last 15 minutes · closed 1 tab
-   *[other] Forgot the last 15 minutes · closed { $count } tabs
-}
-whimsy-fire-done-space = { $count ->
-    [0] Forgot this space’s site data
-    [one] Forgot this space’s site data · closed 1 tab
-   *[other] Forgot this space’s site data · closed { $count } tabs
-}
-whimsy-fire-done-everything = { $count ->
-    [0] Forgot all browsing data
-    [one] Forgot all browsing data · closed 1 tab
-   *[other] Forgot all browsing data · closed { $count } tabs
 }
 whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 
@@ -1994,9 +1992,16 @@ whimsy-tab-audio-unmute = Unmute tab
 
 ## wave7/ux: Fire Button. "Everything" asks once more; Cancel is the default.
 
-whimsy-fire-everything-confirm-title = Forget all browsing data?
-whimsy-fire-everything-confirm-body = This clears history, cookies, cache and site data for every site, and closes every unpinned tab. You can’t undo it.
-whimsy-fire-everything-confirm-accept = Forget Everything
+whimsy-fire-everything-confirm-title = Clear everything?
+whimsy-fire-everything-confirm-body = This clears all history, cookies, site data and cache for every site, and closes every unpinned tab. You can’t undo it.
+whimsy-fire-everything-confirm-accept = Clear Everything
+
+## wave7/fire: Forget About This Site… (command bar). Cancel is the default.
+
+# $site (string) - the current tab's base domain, e.g. example.com
+whimsy-fire-site-confirm-title = Forget { $site }?
+whimsy-fire-site-confirm-body = This deletes { $site }’s history, cookies, site data and cache, including its subdomains, and closes its tabs. Pinned tabs stay. You can’t undo it.
+whimsy-fire-site-confirm-accept = Forget Site
 
 ## wave7/ux: link hover cards (WhimsyLinkHover)
 

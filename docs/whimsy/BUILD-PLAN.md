@@ -153,6 +153,10 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      leave Google as a morning item if no client ID exists.
    - Fire button: popover with scopes This site / Last 15 min / This space /
      Everything, burn animation; pinned tabs and Essentials survive.
+     Revised 2026-10-30 (user: four options confused; "be true to the point"):
+     DuckDuckGo's point is ending the session. Two rows: close this space's
+     tabs + clear the last hour (default), and Everything (confirm). Per-site
+     moved to the "Forget About This Site…" command.
    - Linear/Jira live folders: use the signed-in website session (like GitHub
      live folders), no API keys.
    - AI: provider picker in Settings (Claude API key, Apple on-device, local
