@@ -340,6 +340,15 @@ export const Whimsy = {
       messageManagerGroups: ["whimsy-search-deck"],
       safeForUntrustedWebProcess: true,
     });
+    // fix7/private: the private page without Firefox's search box.
+    ChromeUtils.registerWindowActor("WhimsyPrivatePage", {
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPrivatePageChild.sys.mjs",
+        events: { DOMContentLoaded: {} },
+      },
+      matches: ["about:privatebrowsing*"],
+      remoteTypes: ["privilegedabout"],
+    });
   },
 
   initWindow(win) {

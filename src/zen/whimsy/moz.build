@@ -91,6 +91,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPlaylist.sys.mjs",
     "WhimsyPrintClean.sys.mjs",
     "WhimsyPrivate.sys.mjs",
+    "WhimsyPrivatePageChild.sys.mjs",
     "WhimsyProfileHistory.sys.mjs",
     "WhimsyProfileMoves.sys.mjs",
     "WhimsyProfilePasswords.sys.mjs",

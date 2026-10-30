@@ -548,8 +548,6 @@ whimsy-unlock-space-toast = Unlocked “{ $space }”
 ## batch9p: Scratch (a temporary private space) and private tabs
 
 whimsy-scratch-name = Scratch
-# What Scratch is called once kept as a normal space.
-whimsy-scratch-kept-name = Space
 whimsy-menu-new-scratch =
     .label = New Scratch Space
 whimsy-menu-new-private-tab =
@@ -562,8 +560,8 @@ whimsy-action-new-private-tab = New Private Tab
 whimsy-action-new-scratch = New Scratch Space
 whimsy-action-keep-scratch = Keep Scratch as a Normal Space…
 whimsy-action-close-scratch = Close Scratch
-# fixC: asked before Scratch becomes a normal space (Zen toast + button).
-whimsy-scratch-keep-confirm = Keep as a normal space? Its pages will leave private browsing.
+# fix7/private: the one sentence of the modal dialog shown before Scratch becomes a normal space.
+whimsy-scratch-keep-confirm = Its pages reopen as normal tabs, outside private browsing, and it can’t be made private again.
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->
