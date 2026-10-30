@@ -24,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
+  SessionHistory: "resource://gre/modules/sessionstore/SessionHistory.sys.mjs",
+  TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
 });
@@ -152,6 +154,31 @@ export const WhimsyArchive = {
     );
   },
 
+  // SessionStore copies a closing tab's history from its cache, which the
+  // parent fills in asynchronously after a navigation. A tab closed right
+  // after its page loaded can still have an empty cache, so SessionStore
+  // and the Archive would both lose it. Collect it now, the way SessionStore
+  // does, into that cache (this runs before SessionStore's own TabClose).
+  ensureHistoryCollected(tab) {
+    const browser = tab.linkedBrowser;
+    const sh = browser?.browsingContext?.sessionHistory;
+    if (!sh?.count) {
+      return;
+    }
+    try {
+      const cached = JSON.parse(lazy.SessionStore.getTabState(tab));
+      if (cached.entries?.length) {
+        return;
+      }
+      const history = lazy.SessionHistory.collectFromParent(browser.currentURI?.spec, true, sh);
+      if (history?.entries?.length) {
+        lazy.TabStateCache.update(browser.permanentKey, { history });
+      }
+    } catch (e) {
+      console.error("Whimsy: archive history", e);
+    }
+  },
+
   // What SessionStore itself would keep (no private, empty or Glance tabs),
   // trimmed to what restoring needs: no form data or session storage.
   recordClose(win, tab) {
@@ -169,6 +196,7 @@ export const WhimsyArchive = {
     if (tab.id && this.storedEntries.some(e => e.tabId == tab.id && now - e.closedAt < SYNC_DEDUPE_MS)) {
       return null;
     }
+    this.ensureHistoryCollected(tab);
     const id = `a${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     lazy.SessionStore.setCustomTabValue(tab, ID_KEY, id);
     const full = JSON.parse(lazy.SessionStore.getTabState(tab));
