@@ -853,3 +853,45 @@ Object.assign(gWhimsySettings, {
     group.hidden = false;
   },
 });
+
+// batch hover: Settings → Tabs → "Hover cards", after Whimsy's Tabs group.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertHoverGroup();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertHoverGroup() {
+    const template = document.getElementById("template-whimsyHover");
+    if (!template) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
+      // A superseded feature (overlay.py defaults it off because Zen ships
+      // its own) loses its row; the user's own choice keeps the checkbox.
+      const pref = `whimsy.feature.${row.dataset.whimsyFeature}`;
+      if (!Services.prefs.getDefaultBranch("").getBoolPref(pref, true)) {
+        row.remove();
+      }
+    }
+    template.remove();
+    Preferences.addAll(
+      [...group.querySelectorAll("[preference]")].map(el => ({
+        id: el.getAttribute("preference"),
+        type: "bool",
+      }))
+    );
+    const anchor =
+      document.getElementById("whimsyTabsGroup") ?? document.getElementById("zenWorkspacesGroup");
+    if (anchor) {
+      anchor.after(fragment);
+    } else {
+      document.getElementById("mainPrefPane")?.append(fragment);
+    }
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+  },
+});

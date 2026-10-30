@@ -61,6 +61,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDelight: "resource:///modules/whimsy/WhimsyDelight.sys.mjs",
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
   WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
+  // batch hover: shared hover card (History rows, People cards).
+  WhimsyHoverCard: "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs",
   WhimsyProtocol: "resource:///modules/whimsy/WhimsyProtocol.sys.mjs",
   // batch hist: visit-space recorder.
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
@@ -319,6 +321,9 @@ export const Whimsy = {
     // batch7: whimsy:// URL schemes (the address-bar half; see
     // WhimsyProtocol.sys.mjs for why the external-link half is deferred).
     run("url-schemes", () => lazy.WhimsyProtocol.initWindow(win));
+    // batch hover: History hover cards in Zen's Library (tab cards are
+    // Firefox's own browser.tabs.hoverPreview).
+    run("history-preview", () => lazy.WhimsyHoverCard.initWindow(win));
     // batch7: developer mode tabs (Arc parity).
     run("dev-mode", () => {
       lazy.WhimsyDevMode.initWindow(win);

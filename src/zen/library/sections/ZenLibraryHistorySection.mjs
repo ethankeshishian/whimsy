@@ -662,6 +662,7 @@ export class ZenLibraryHistorySection extends ZenLibrarySearchSection {
       <div
         class="zen-library-row"
         draggable="true"
+        .whimsyVisit=${visit}
         @click=${event => this.#openVisit(visit, event)}
         @auxclick=${event => {
           if (event.button === 1) {

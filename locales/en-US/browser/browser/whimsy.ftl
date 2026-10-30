@@ -923,3 +923,11 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+
+# batch hover: hover cards (tabs, History, People).
+whimsy-hover-header = Hover cards
+whimsy-hover-tabs =
+    .label = Show a card with the title, address and preview when you hover a tab
+whimsy-hover-history =
+    .label = Show a preview when you hover a page in History
+whimsy-hover-no-preview = No saved preview

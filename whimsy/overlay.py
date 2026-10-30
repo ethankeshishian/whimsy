@@ -47,6 +47,11 @@ HOOKS = [
      r'^<link rel="localization" href="browser/preferences/zen-preferences\.ftl"/>',
      "#include whimsy-preferences-head.inc.xhtml",
      "after"),
+    # batch hover: History hover cards read the row's own visit.
+    ("library-history-visit", "src/zen/library/sections/ZenLibraryHistorySection.mjs",
+     r'^(\s*)@click=\$\{event => this\.#openVisit\(visit, event\)\}\s*$',
+     '{indent}.whimsyVisit=${visit}',
+     "before"),
 ]
 
 HOTFIXES = [
@@ -101,6 +106,9 @@ PREF_OVERRIDES = {
     # Automatic picture-in-picture when you leave a playing video (Arc);
     # Zen kept it off "until a settings page"; Firefox's Media settings has it.
     "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled": True,
+    # batch hover: Arc's tab hover card (title, address, page preview) is
+    # Firefox's tab hover preview, which Zen ships off.
+    "browser.tabs.hoverPreview.enabled": True,
 }
 
 # Strings Zen's markup uses that its .ftl files no longer define.
@@ -358,6 +366,9 @@ FEATURES = [
     # home: homepage + changelog.
     {"id": "home", "title": "Whimsy's homepage (about:whimsy) with a Changelog tab, replacing Zen's about:home",
      "detect": [("src/zen", r"(?i)about:whimsy")]},
+    # batch hover: History hover cards (saved thumbnail, else title + URL).
+    {"id": "history-preview", "title": "Hover a History entry in the Library to see its saved preview, title and address",
+     "detect": [("src/zen/library", r"PageThumbs")]},
 ]
 
 
