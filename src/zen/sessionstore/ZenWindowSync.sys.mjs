@@ -50,6 +50,8 @@ const OBSERVING = [
 const INSTANT_EVENTS = ["SSWindowClosing", "TabSelect", "focus"];
 const UNSYNCED_WINDOW_EVENTS = ["TabOpen"];
 const EVENTS = [
+  "SSWindowStateBusy", // Whimsy hotfix: local session restore transaction
+  "SSWindowStateReady",
   "TabClose",
 
   "ZenTabIconChanged",
@@ -83,6 +85,7 @@ const SYNC_FLAG_ICON = 1 << 1;
 const SYNC_FLAG_MOVE = 1 << 2;
 
 class nsZenWindowSync {
+  #whimsyRestoringWindows = new WeakSet(); // Whimsy hotfix: local session restore
   #initialized = false;
   constructor() {}
 
@@ -385,6 +388,18 @@ class nsZenWindowSync {
 
   handleEvent(aEvent) {
     const window = aEvent.currentTarget.documentGlobal ?? aEvent.currentTarget;
+    // Whimsy hotfix: discard restore mutations at emission, before the async queue.
+    if (aEvent.type === "SSWindowStateBusy") {
+      this.#whimsyRestoringWindows.add(window);
+      return;
+    }
+    if (aEvent.type === "SSWindowStateReady") {
+      this.#whimsyRestoringWindows.delete(window);
+      return;
+    }
+    if (this.#whimsyRestoringWindows.has(window)) {
+      return;
+    }
     // The library builds copies of tabs and folders that fire these same
     // events while being built, and this listens in the capture phase, ahead
     // of anything the library could do to hold them back. Nothing a copy
