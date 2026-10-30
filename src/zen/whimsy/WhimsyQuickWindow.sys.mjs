@@ -368,6 +368,21 @@ export const WhimsyQuickWindow = {
   // card as in a main window. Zen's own nav bar and sidebar stay hidden.
   initChrome(win) {
     const { document } = win;
+    // Mini is often closed moments after it opens. A urlbar query still
+    // running then (Top Sites, started when its address bar wakes up) would
+    // deliver results to a window whose urlbar actor is gone, which throws in
+    // Firefox's controller; stop it as the window goes.
+    win.addEventListener(
+      "unload",
+      () => {
+        try {
+          win.gURLBar?.controller?.cancelQuery?.();
+        } catch (e) {
+          // Already torn down.
+        }
+      },
+      { once: true }
+    );
     // Never let this window's size/position feed back into the ordinary
     // browser windows': browser.xhtml persists screenX/screenY/width/height
     // under the document's root id ("main-window"), the same id every

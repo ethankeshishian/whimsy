@@ -879,14 +879,18 @@ Object.assign(gWhimsySettings, {
 
 // wave4: calendar connections stay in Settings; permission is requested on click.
 // wave5/uxfix: they live in General (one place), not Look and Feel.
+// Firefox's settings redesign (on in Zen) folds General into its first
+// pane: about:preferences#general opens paneSync there.
+const whimsyGeneralPane = () =>
+  Services.prefs.getBoolPref("browser.settings-redesign.enabled", false) ? "paneSync" : "paneGeneral";
 document.addEventListener("paneshown", event => {
-  if (event.detail.category == "paneGeneral") {
-    gWhimsySettings.insertNextMeetingGroup();
+  if (event.detail.category == whimsyGeneralPane()) {
+    gWhimsySettings.insertNextMeetingGroup(event.detail.category);
   }
 });
 
 Object.assign(gWhimsySettings, {
-  insertNextMeetingGroup() {
+  insertNextMeetingGroup(pane = "paneGeneral") {
     const template = document.getElementById("template-whimsyNextMeeting");
     if (!template) {
       return;
@@ -896,8 +900,9 @@ Object.assign(gWhimsySettings, {
     );
     service.initWindow(window.browsingContext.topChromeWindow);
     const group = template.content.firstElementChild;
+    group.dataset.category = pane;
     // After the last General group, so it sits with General's own groups.
-    const anchor = [...document.querySelectorAll('#mainPrefPane > [data-category="paneGeneral"]')].at(-1);
+    const anchor = [...document.querySelectorAll(`#mainPrefPane > [data-category="${pane}"]`)].at(-1);
     (anchor?.parentElement || document.getElementById("mainPrefPane")).insertBefore(
       template.content, anchor?.nextSibling || null
     );
