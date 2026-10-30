@@ -550,13 +550,17 @@ whimsy-menu-new-scratch =
 whimsy-menu-new-private-tab =
     .label = New Private Tab
 whimsy-scratch-keep =
-    .label = Keep as Space
+    .label = Keep as Normal Space…
 whimsy-scratch-close =
     .label = Close Scratch
 whimsy-action-new-private-tab = New Private Tab
 whimsy-action-new-scratch = New Scratch Space
-whimsy-action-keep-scratch = Keep Scratch as a Space
+whimsy-action-keep-scratch = Keep Scratch as a Normal Space…
 whimsy-action-close-scratch = Close Scratch
+# fixC: asked before Scratch becomes a normal space (Zen toast + button).
+whimsy-scratch-keep-confirm = Keep as a normal space? Its pages will leave private browsing.
+whimsy-scratch-keep-confirm-button =
+    .label = Keep
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->
@@ -1218,3 +1222,14 @@ whimsy-library-archive-restore =
 whimsy-library-archive-forget =
     .tooltiptext = Remove from the Archive
     .aria-label = Remove from the Archive
+
+## fixC: onboarding look pages (Zen's first-run flow, after space colors)
+
+whimsy-welcome-transparency-title = Let your desktop shine through?
+whimsy-welcome-transparency-description = { -brand-short-name } can let your wallpaper glow softly through the sidebar. Pick one to try it. You can always change it later!
+whimsy-welcome-transparency-solid = <strong>NO</strong>, keep it solid.
+whimsy-welcome-transparency-subtle = <strong>A LITTLE</strong>, just a hint of my wallpaper.
+whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
+whimsy-welcome-font-title = Pick your interface font.
+whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
+whimsy-welcome-font-system = System font

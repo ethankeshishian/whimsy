@@ -239,6 +239,7 @@
 
     constructor(pages) {
       this.#pages = pages;
+      this.#pages = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.extendPages(window, pages, { createOption, kNextButton }); // Whimsy hook
       this.init();
       this.next();
     }

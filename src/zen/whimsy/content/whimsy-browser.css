@@ -432,6 +432,17 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 }
 
+/* fixC: compact mode. The sidebar (and top toolbar) that slides out over
+   the page paints its own background, .zen-toolbar-background, which Zen
+   gives a solid base color (light-dark(#e9e9e9, #131313)) under the space
+   gradient, or with zen.theme.acrylic-sidebar its own 42px blur, exactly
+   so it reads over whatever page is under it. Fading that element let the
+   page's text show straight through. The window's own background (docked
+   chrome over the desktop's blurred material) still fades. */
+:root[whimsy-transparency][zen-compact-mode="true"] .zen-browser-generic-background.zen-toolbar-background {
+  opacity: 1;
+}
+
 /* Menu icons (whimsy.look.menu-icons, Settings → Look and Feel): macOS 26
    draws a small symbol beside each item in Apple's own menus (Safari's
    context menu included). Whimsy's context menus and tab menu get the same,
@@ -499,7 +510,7 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
    interface in the chosen family, falling back to the system font for
    characters it lacks. Web pages are separate documents and keep theirs. */
 :root[whimsy-ui-font],
-:root[whimsy-ui-font] :is(*, *::before, *::after):not(.zen-workspace-icon, .zen-emojis-picker-emoji, #whimsy-hex-input) {
+:root[whimsy-ui-font] :is(*, *::before, *::after):not(.zen-workspace-icon, .zen-emojis-picker-emoji, #whimsy-hex-input, .whimsy-font-preview) {
   font-family: var(--whimsy-ui-font), system-ui, -apple-system, sans-serif !important;
 }
 
@@ -705,6 +716,44 @@ toolbarbutton[zen-workspace-id][whimsy-scratch] {
 
 @media (prefers-reduced-motion: reduce) {
   toolbarbutton[zen-workspace-id][whimsy-scratch] { animation: none; }
+}
+
+/* fixC: private tabs in a split. Zen draws a split as one pill whose tabs
+   share the selected background, so the 18% wash above got lost next to
+   normal tabs. In a split the private tab's segment gets the selected-
+   strength wash and a solid ring, and its pane wears the same violet: a
+   ring (Zen's own active-pane outline, in violet; fainter when another
+   pane is active) and the private badge in its corner. */
+tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--whimsy-private-tab-accent) 30%, transparent),
+    color-mix(in srgb, var(--whimsy-private-tab-accent) 30%, transparent)
+  ) !important;
+  box-shadow: inset 0 0 0 1.5px var(--whimsy-private-tab-accent) !important;
+}
+
+:root:not([inDOMFullscreen="true"]) #tabbrowser-tabpanels[zen-split-view="true"] > .browserSidebarContainer[zen-split="true"]:not(.zen-glance-overlay):has(browser[mozprivatebrowsing="true"]) {
+  outline: 2px solid color-mix(in srgb, var(--whimsy-private-tab-accent) 55%, transparent) !important;
+
+  &.deck-selected {
+    outline-color: var(--whimsy-private-tab-accent) !important;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    inset-inline-start: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 99px;
+    pointer-events: none;
+    background: var(--whimsy-private-tab-accent) url("chrome://browser/skin/zen-icons/private-window-small.svg") center / 14px no-repeat;
+    -moz-context-properties: fill;
+    fill: white;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    opacity: 0.92;
+  }
 }
 
 /* batch12: Mini Whimsy, Arc's "Little Arc" (quick window,

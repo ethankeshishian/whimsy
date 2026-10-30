@@ -179,6 +179,7 @@ export const WhimsyPrivate = {
         return addToFormHistory.call(this, isPrivate || WhimsyPrivate.selectedTabIsPrivate(), ...rest);
       };
     }
+    this.wrapSearchHandoff();
     // Zen saves the last normal window to close straight from its data,
     // which is also what Undo Close Window would bring back.
     const store = lazy.ZenSessionStore;
@@ -202,6 +203,63 @@ export const WhimsyPrivate = {
     lazy.PrivacyFilter.filterPrivateTabs?.(winData);
     if (Array.isArray(winData.spaces)) {
       winData.spaces = winData.spaces.filter(space => !space.whimsyScratch);
+    }
+  },
+
+  // fixC: the private page's search box. about:privatebrowsing's box is a
+  // fake: Firefox hands it off to the address bar (AboutPrivateBrowsingParent
+  // "SearchHandoff"), so typing never lives in the page, the private search
+  // engine and suggestions come from the one real search field, and the
+  // page can't be scripted into searching. That fence stays: the text still
+  // goes to the address bar. What changes is how: Firefox focuses the bar
+  // invisibly ("hidden focus", with a fake caret in the page) and moves
+  // into search mode for the private engine on the first key, which in
+  // Zen's floating bar reads as a separate command mode popping up from
+  // nowhere. In Whimsy the box opens the address bar exactly as a new tab
+  // does (Browser:OpenLocation, Zen's floating bar), with anything pasted or
+  // dropped already typed in. A private tab's address bar searches with the
+  // private engine anyway (gURLBar.isPrivate, set in updateSelected).
+  wrapSearchHandoff() {
+    let parentClass;
+    try {
+      ({ AboutPrivateBrowsingParent: parentClass } = ChromeUtils.importESModule(
+        "resource:///actors/AboutPrivateBrowsingParent.sys.mjs"
+      ));
+    } catch (e) {
+      console.error("Whimsy: private page search", e);
+      return;
+    }
+    const proto = parentClass?.prototype;
+    if (!proto || proto._whimsyHandoff || typeof proto.receiveMessage != "function") {
+      return;
+    }
+    const receiveMessage = proto.receiveMessage;
+    proto._whimsyHandoff = true;
+    proto.receiveMessage = function (message) {
+      if (message?.name == "SearchHandoff" && WhimsyPrivate.featureOn) {
+        const win = this.browsingContext?.top?.embedderElement?.documentGlobal;
+        if (win?.gURLBar) {
+          // The page drops its fake focus; the real bar has it.
+          this.sendAsyncMessage("ShowSearch");
+          WhimsyPrivate.focusAddressBar(win, message.data?.text || "");
+          return undefined;
+        }
+      }
+      return receiveMessage.call(this, message);
+    };
+  },
+
+  // Opens the address bar the way a new tab does (Zen floats it), with
+  // `text` typed in when given.
+  focusAddressBar(win, text = "") {
+    const command = win.document.getElementById("Browser:OpenLocation");
+    if (command) {
+      command.doCommand();
+    } else {
+      win.gURLBar.select();
+    }
+    if (text) {
+      win.gURLBar.search(text);
     }
   },
 
@@ -404,8 +462,9 @@ export const WhimsyPrivate = {
     }
     if (!inBackground) {
       gBrowser.selectedTab = tab;
-      if (!url) {
-        win.gURLBar?.select();
+      if (!url && win.gURLBar) {
+        // Like Cmd+T: the address bar opens, ready to type.
+        this.focusAddressBar(win);
       }
     }
     return tab;
@@ -454,7 +513,7 @@ export const WhimsyPrivate = {
     });
     WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyKeepScratch",
-      run: w => this.keepScratch(w).catch(e => console.error("Whimsy: Scratch", e)),
+      run: w => this.confirmKeepScratch(w),
     });
     WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyCloseScratch",
@@ -677,6 +736,39 @@ export const WhimsyPrivate = {
     }
   },
 
+  // fixC: keeping Scratch ends its private browsing, which the old "Keep as
+  // Space" didn't say. The action now reads "Keep as Normal Space…" and asks
+  // first, in Zen's own toast (the one with an action button, as for a tab
+  // opened in the background): "Keep as a normal space? Its pages will
+  // leave private browsing." with Keep. Ignoring it changes nothing.
+  confirmKeepScratch(win) {
+    if (!this.getScratch(win)) {
+      return;
+    }
+    const keep = () => this.keepScratch(win).catch(e => console.error("Whimsy: Scratch", e));
+    const ui = win.gZenUIManager;
+    if (!ui?.showToast) {
+      keep();
+      return;
+    }
+    const id = "whimsy-scratch-keep-confirm-button";
+    ui.showToast("whimsy-scratch-keep-confirm", {
+      timeout: 6000,
+      button: {
+        id,
+        command: event => {
+          event.target.closest(".zen-toast")?.remove();
+          keep();
+        },
+      },
+    });
+    // Zen's toast buttons have no label of their own.
+    const button = win.document.getElementById(id);
+    if (button) {
+      win.document.l10n.setAttributes(button, id);
+    }
+  },
+
   // Turns Scratch into a normal space. Private pages can't stop being
   // private, so each reopens as a normal tab in the same place.
   async keepScratch(win) {
@@ -693,6 +785,13 @@ export const WhimsyPrivate = {
     const kept = { ...scratch, name: name || "Space", icon: undefined };
     delete kept.whimsyScratch;
     spaces.saveWorkspace(kept);
+    // fixC: the private look goes the moment it's a normal space. Zen only
+    // redraws a space's name and icon when it is switched to or renamed
+    // inline (ZenSpace.onIndicatorRenameFinished sets the text itself), so
+    // the header kept saying "Scratch" with the private icon; and the marks
+    // were only cleared at the very end, after waiting for tab switches.
+    spaces.updateWorkspaceIndicator?.(kept, spaces.workspaceElement(kept.uuid)?.indicator);
+    this.refreshScratchMarks(win);
     let reopened = 0;
     let selectedCopy = null;
     for (const tab of privateTabs) {
@@ -723,7 +822,13 @@ export const WhimsyPrivate = {
     }
     if (selectedCopy && gBrowser.selectedTab != selectedCopy) {
       await new Promise(resolve => {
-        gBrowser.addEventListener("TabSwitchDone", resolve, { once: true });
+        // Don't hang the rest (closing the private pages) on a switch that
+        // never reports back.
+        const timer = win.setTimeout(resolve, 2000);
+        gBrowser.addEventListener("TabSwitchDone", () => {
+          win.clearTimeout(timer);
+          resolve();
+        }, { once: true });
         gBrowser.selectedTab = selectedCopy;
       });
     }

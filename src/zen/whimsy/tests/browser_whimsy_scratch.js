@@ -255,6 +255,14 @@ add_task(async function test_keep_scratch_as_space() {
   const kept = await WhimsyPrivate.keepScratch(window);
   is(kept?.uuid, scratch.uuid, "The same space stays");
   ok(!WhimsyPrivate.getScratch(window), "It isn't Scratch any more");
+  // fixC: none of the private look stays behind.
+  ok(!document.querySelector("[whimsy-scratch]"), "No element keeps Scratch's violet marks");
+  const indicator = gZenWorkspaces.workspaceElement(kept.uuid)?.indicator;
+  is(
+    indicator?.querySelector(".zen-current-workspace-indicator-name")?.textContent,
+    kept.name,
+    "The space's header shows its new name right away"
+  );
   ok(
     gZenWorkspaces.getWorkspacesForSessionStore().some(space => space.uuid == kept.uuid),
     "It is saved like any space"
@@ -306,4 +314,39 @@ add_task(async function test_switch_and_setting_off() {
     is(gZenWorkspaces.getWorkspaces().length, spaces, `${what}, no space was added`);
     await SpecialPowers.popPrefEnv();
   }
+});
+
+// fixC: Keep asks first, in Zen's toast, because the space stops being
+// private; ignoring the toast changes nothing.
+add_task(async function test_keep_asks_first() {
+  const startSpace = gZenWorkspaces.activeWorkspace;
+  const scratch = await WhimsyPrivate.openScratch(window);
+  await waitForPage(gBrowser.selectedTab);
+  document.getElementById("cmd_whimsyKeepScratch").doCommand();
+  const button = await TestUtils.waitForCondition(
+    () => document.getElementById("whimsy-scratch-keep-confirm-button"),
+    "A toast asks before keeping Scratch"
+  );
+  await TestUtils.waitForCondition(() => button.getAttribute("label"), "Its button is labelled");
+  const toast = button.closest(".zen-toast");
+  is(
+    document.l10n.getAttributes(toast.querySelector("label")).id,
+    "whimsy-scratch-keep-confirm",
+    "It says the space will leave private browsing"
+  );
+  ok(WhimsyPrivate.getScratch(window), "Nothing changed yet");
+  button.doCommand();
+  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Keep made it a normal space");
+  ok(!toast.isConnected, "The question went away");
+  const kept = gZenWorkspaces.getWorkspaces().find(space => space.uuid == scratch.uuid);
+  ok(kept && !kept.whimsyScratch, "The same space is now normal");
+  await TestUtils.waitForCondition(
+    () => gBrowser.selectedTab.getAttribute("zen-workspace-id") == kept.uuid && !WhimsyPrivate.isPrivateTab(gBrowser.selectedTab),
+    "A normal tab replaced the private one"
+  );
+  const replacement = gBrowser.selectedTab;
+  await waitForPage(replacement, BROWSER_NEW_TAB_URL);
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  await closeTab(replacement);
+  await gZenWorkspaces.removeWorkspace(kept.uuid);
 });

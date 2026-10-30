@@ -282,3 +282,8 @@ support-files = ["whimsy_call.html"]
 ["browser_whimsy_people.js"]
 # fixB: Delete Space confirms inside the window.
 ["browser_whimsy_space_delete_confirm.js"]
+# fixC: private page branding and search box
+["browser_whimsy_private_page.js"]
+
+# fixC: onboarding look pages (transparency, interface font)
+["browser_whimsy_welcome_look.js"]

@@ -85,6 +85,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyUserAgent.sys.mjs",
     "WhimsyVPN.sys.mjs",
     "WhimsyVPNScope.sys.mjs",
+    "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
 ]
 
