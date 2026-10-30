@@ -2426,3 +2426,44 @@ whimsy-library-easels-section .zen-library-empty {
   outline: 2px solid AccentColor;
   outline-offset: 2px;
 }
+
+/* wave5/audioicon: Arc's tab speaker. Every tab with sound (playing, or
+   muted by you, by background muting or by a muted site) shows an outline
+   speaker (SF speaker.wave.2 / speaker.slash) between its favicon and title,
+   in the text colour, static. One click mutes or unmutes; right-click
+   still opens the volume slider (WhimsyMedia). Essentials and the collapsed
+   sidebar keep Firefox's badge on the icon, with the same glyphs. */
+@media -moz-pref("whimsy.feature.arc-audio-icon") {
+  #tabbrowser-tabs[orient="vertical"] .tab-audio-button {
+    --icon-size: 14px;
+    --button-size-icon-small: 20px;
+    --button-min-height-small: 20px;
+    --button-icon-fill: currentColor;
+    /* Zen pulls it 4px toward the favicon; Arc leaves ~6px before the title. */
+    margin-inline-end: 3px !important;
+
+    &[soundplaying]::part(button) {
+      background-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-playing.svg") !important;
+    }
+    &[muted]::part(button) {
+      background-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-muted.svg") !important;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      &::part(button) {
+        transition: scale 100ms ease-out, background-color 100ms ease-out;
+      }
+      &:active::part(button) {
+        scale: 0.88;
+      }
+    }
+  }
+
+  .tab-icon-overlay:not([crashed]) {
+    &[soundplaying] {
+      list-style-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-playing.svg") !important;
+    }
+    &[muted] {
+      list-style-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-muted.svg") !important;
+    }
+  }
+}

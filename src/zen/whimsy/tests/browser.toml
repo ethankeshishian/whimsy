@@ -420,3 +420,7 @@ support-files = ["whimsy_redact.html"]
 
 # system: Settings → Links gathers every setting about where links open.
 ["browser_whimsy_links_settings.js"]
+
+# wave5/audioicon: Arc's tab speaker (rows, pinned, Essentials, auto-muted, one-click mute, volume slider kept).
+["browser_whimsy_tab_audio_icon.js"]
+support-files = ["whimsy_media.html", "whimsy_audio.ogg"]

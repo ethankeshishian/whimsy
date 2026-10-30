@@ -84,3 +84,6 @@
         content/browser/whimsy/whimsy-easel.mjs (../../zen/whimsy/content/whimsy-easel.mjs)
         content/browser/whimsy/whimsy-easel-model.mjs (../../zen/whimsy/content/whimsy-easel-model.mjs)
         content/browser/whimsy/whimsy-library-easels.mjs (../../zen/whimsy/content/whimsy-library-easels.mjs)
+# wave5/audioicon: Arc tab speaker glyphs
+        content/browser/whimsy/whimsy-tab-audio-playing.svg                       (../../zen/whimsy/content/whimsy-tab-audio-playing.svg)
+        content/browser/whimsy/whimsy-tab-audio-muted.svg                         (../../zen/whimsy/content/whimsy-tab-audio-muted.svg)

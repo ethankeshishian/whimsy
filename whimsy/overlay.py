@@ -850,6 +850,10 @@ FEATURES = [
     # wave5: command registry
     {"id": "command-registry", "title": "Every Whimsy action is a named command: in the command bar and under \"Whimsy\" in Settings → Keyboard Shortcuts, so any of them can take a shortcut",
      "detect": [("src/zen", r"(?i)WHIMSY_KEY_CATEGORIES|registerKeyCategor(y|ies)|extraKeyCategories")]},
+    # wave5/audioicon: Arc's tab speaker: an outline speaker between favicon
+    # and title on every tab with sound (muted included), one click mutes.
+    {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
+     "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
 ]
 
 
