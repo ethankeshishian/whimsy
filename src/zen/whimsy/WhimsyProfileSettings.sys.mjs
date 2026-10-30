@@ -14,13 +14,16 @@
 // download that starts from a background window's tab follows the front
 // window's profile; that's the honest limit of applying a global setting.
 //
-// Engines sync with the profile (keyed by profile key); folders are per Mac.
+// Both choices sync (keyed by profile key, WhimsyProfileSync: merged per
+// entry, newest wins). A folder that doesn't exist on this Mac, or an engine
+// it doesn't have, falls back to the person's own.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsySyncedMap: "resource:///modules/whimsy/WhimsyProfileSync.sys.mjs",
 });
 
 const ENGINES_PREF = "whimsy.profiles.search-engines";
@@ -29,23 +32,6 @@ const SAVED_ENGINE_PREF = "whimsy.profiles.saved-search-engine";
 const SAVED_DOWNLOAD_PREF = "whimsy.profiles.saved-download";
 const DIR_PREF = "browser.download.dir";
 const FOLDER_LIST_PREF = "browser.download.folderList";
-
-function readMap(pref) {
-  try {
-    const value = JSON.parse(Services.prefs.getStringPref(pref, "") || "{}");
-    return value && typeof value == "object" ? value : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeMap(pref, map) {
-  if (Object.keys(map).length) {
-    Services.prefs.setStringPref(pref, JSON.stringify(map));
-  } else {
-    Services.prefs.clearUserPref(pref);
-  }
-}
 
 export const WhimsyProfileSettings = {
   QueryInterface: ChromeUtils.generateQI(["nsIObserver", "nsISupportsWeakReference"]),
@@ -60,42 +46,38 @@ export const WhimsyProfileSettings = {
 
   // -- stored choices ------------------------------------------------------
 
+  get engines() {
+    this._engines ??= new lazy.WhimsySyncedMap({ pref: ENGINES_PREF, file: "whimsy-profile-engines.json" });
+    return this._engines;
+  },
+
+  get dirs() {
+    this._dirs ??= new lazy.WhimsySyncedMap({ pref: DIRS_PREF, file: "whimsy-profile-download-dirs.json" });
+    return this._dirs;
+  },
+
   engineFor(key) {
-    return readMap(ENGINES_PREF)[key] ?? null;
+    return this.engines.get(key) || null;
   },
 
   setEngine(key, engineId) {
-    const map = readMap(ENGINES_PREF);
-    if (engineId) {
-      map[key] = engineId;
-    } else {
-      delete map[key];
-    }
-    writeMap(ENGINES_PREF, map);
+    this.engines.set(key, engineId || null);
     return this.applyFront();
   },
 
   downloadDirFor(key) {
-    return readMap(DIRS_PREF)[key] ?? null;
+    return this.dirs.get(key) || null;
   },
 
   setDownloadDir(key, path) {
-    const map = readMap(DIRS_PREF);
-    if (path) {
-      map[key] = path;
-    } else {
-      delete map[key];
-    }
-    writeMap(DIRS_PREF, map);
+    this.dirs.set(key, path || null);
     return this.applyFront();
   },
 
   forget(key) {
-    for (const pref of [ENGINES_PREF, DIRS_PREF]) {
-      const map = readMap(pref);
-      if (key in map) {
-        delete map[key];
-        writeMap(pref, map);
+    for (const map of [this.engines, this.dirs]) {
+      if (map.get(key)) {
+        map.set(key, null);
       }
     }
   },
@@ -128,7 +110,12 @@ export const WhimsyProfileSettings = {
   /** Applies `key`'s choices (null: the person's own everywhere). */
   async apply(key) {
     await this.applyEngine(key ? this.engineFor(key) : null);
-    await this.applyDownloadDir(key ? this.downloadDirFor(key) : null);
+    let dir = key ? this.downloadDirFor(key) : null;
+    // Synced from another Mac where that folder exists, but not here.
+    if (dir && !(await IOUtils.exists(dir).catch(() => false))) {
+      dir = null;
+    }
+    await this.applyDownloadDir(dir);
   },
 
   async applyEngine(engineId) {

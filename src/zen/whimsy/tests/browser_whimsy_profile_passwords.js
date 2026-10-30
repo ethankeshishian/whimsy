@@ -154,7 +154,7 @@ add_task(async function sync_round_trip_of_the_tag() {
   await store.applyIncoming(incoming);
   const [arrived] = await Services.logins.searchLoginsAsync({ guid, origin: ORIGIN });
   ok(arrived, "The incoming login was stored");
-  ok(!(guid in WhimsyProfilePasswords.file().data.logins), "No local sidecar entry for it");
+  is(WhimsyProfilePasswords.tags.get(guid), undefined, "Nothing in the synced map for it yet");
   is(WhimsyProfilePasswords.keyOfLogin(arrived), "builtin-2", "Its profile came with it");
 
   // And it goes back out unchanged (stock Firefox does the same).

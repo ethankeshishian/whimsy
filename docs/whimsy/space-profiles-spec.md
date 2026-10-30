@@ -20,6 +20,10 @@
 | Zen's space editor needs "renaming container references" | Zen already shows **Profile** in the new-space form and **Set Profile** in the space menu (`context_zenWorkspacesOpenInContainerTab`), backed by containers. Changing it only updates `containerTabId`; open tabs keep their old container | Reuse both. Whimsy adds "Create a New Profile…" to both lists, Arc's warning, and reopens the space's tabs in the new container so the move really happens |
 | `gBrowser.changeTabContextId` | Doesn't exist. Firefox's "Reopen in Container" adds a new tab with the target `userContextId` and a principal re-keyed to it | Same technique, keeping space, pinned/essential state and position |
 
+## 0b. What syncs, and how
+
+Per-profile facts Whimsy keeps itself travel in synced maps (`WhimsyProfileSync`) carried by Firefox Sync's prefs engine, with a local file per map as a cache: `whimsy.profiles.login-tags` (login guid → profile key), `whimsy.profiles.history-places` (Places page guid → profile keys, last 90 days, ≤1500 pages), `whimsy.profiles.search-engines`, `whimsy.profiles.download-dirs` (used only if the folder exists on that Mac), `whimsy.profiles.extensions`. Entries are `[value, time]`; merges are per entry, newest wins, exact ties go to the smaller value, deletions are tombstones. The login tag is also kept in `unknownFields` for stock Firefox round-trips. Profiles and space assignments travel in Zen's Spaces sync.
+
 ## 1. Architecture
 
 - A **Profile** is a public Contextual Identity plus the implicit **Default** (`userContextId` 0). `WhimsyProfiles.sys.mjs` is the facade.

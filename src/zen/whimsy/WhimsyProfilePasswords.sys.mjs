@@ -19,14 +19,14 @@
 // The tag lives in the login's `unknownFields` (a JSON string of extra
 // record fields that Firefox Sync uploads as top-level fields and keeps when
 // it downloads them), as `whimsyProfile: <profile key>`, so it syncs to
-// Whimsy on other devices and stock Firefox keeps it intact. A sidecar file
-// (guid → key) backs it locally, which is all there is when Firefox's Rust
-// login store is active (it doesn't expose unknownFields to JS). Untagged
-// logins — everything saved before profiles — are Default's. Changing only
-// unknownFields doesn't mark a login for upload, so a new login is tagged
-// before its first upload, and re-tagging an old one travels with its next
-// real change. Not covered: HTTP-auth prompts and about:logins, which still
-// list every login.
+// Whimsy on other devices and stock Firefox keeps it intact. Changing only
+// unknownFields doesn't mark a login for upload, and Firefox's Rust login
+// store doesn't expose unknownFields to JS at all, so the tag also travels
+// in a synced map (login guid → profile key, WhimsyProfileSync: Firefox
+// Sync's prefs engine, merged per entry, newest wins), with a local file as
+// its cache. The map wins over unknownFields when both have the login.
+// Untagged logins — everything saved before profiles — are Default's. Not
+// covered: HTTP-auth prompts and about:logins, which still list every login.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -34,10 +34,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
   LoginManagerParent: "resource://gre/modules/LoginManagerParent.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsySyncedMap: "resource:///modules/whimsy/WhimsyProfileSync.sys.mjs",
 });
 
 export const TAG = "whimsyProfile";
 const FILE_NAME = "whimsy-login-profiles.json";
+export const TAGS_PREF = "whimsy.profiles.login-tags";
 // A save prompt can sit open for a while before the person answers it.
 const PENDING_MS = 30 * 60 * 1000;
 
@@ -59,15 +61,10 @@ export const WhimsyProfilePasswords = {
 
   // -- the tag -----------------------------------------------------------
 
-  file() {
-    if (!this._file) {
-      this._file = new lazy.JSONFile({
-        path: PathUtils.join(PathUtils.profileDir, FILE_NAME),
-        dataPostProcessor: data => ({ logins: data?.logins || {} }),
-      });
-      this._file.ensureDataReady();
-    }
-    return this._file;
+  /** login guid → profile key, synced (see the banner). */
+  get tags() {
+    this._tags ??= new lazy.WhimsySyncedMap({ pref: TAGS_PREF, file: FILE_NAME, maxEntries: 10000 });
+    return this._tags;
   },
 
   parseUnknown(login) {
@@ -82,24 +79,24 @@ export const WhimsyProfilePasswords = {
   /** The profile key a login belongs to. */
   keyOfLogin(login) {
     login.QueryInterface?.(Ci.nsILoginMetaInfo);
+    const mapped = this.tags.get(login.guid);
+    if (typeof mapped == "string" && mapped) {
+      return mapped;
+    }
     const synced = this.parseUnknown(login)[TAG];
     if (typeof synced == "string" && synced) {
       return synced;
     }
-    return this.file().data.logins[login.guid] || lazy.WhimsyProfiles.DEFAULT_KEY;
+    return lazy.WhimsyProfiles.DEFAULT_KEY;
   },
 
   /** Gives a stored login to a profile (by key). */
   async tag(login, key) {
     login.QueryInterface(Ci.nsILoginMetaInfo);
-    const file = this.file();
     const isDefault = !key || key == lazy.WhimsyProfiles.DEFAULT_KEY;
-    if (isDefault) {
-      delete file.data.logins[login.guid];
-    } else {
-      file.data.logins[login.guid] = key;
-    }
-    file.saveSoon();
+    // An explicit "default" (not a removal), so moving a login back to
+    // Default reaches devices that had it elsewhere.
+    this.tags.set(login.guid, isDefault ? lazy.WhimsyProfiles.DEFAULT_KEY : key);
     if (this.rustStore) {
       return;
     }
@@ -237,10 +234,8 @@ export const WhimsyProfilePasswords = {
       this.onLoginAdded(subject).catch(e => console.error("Whimsy: tag login", e));
     } else if (data == "removeLogin") {
       subject.QueryInterface(Ci.nsILoginMetaInfo);
-      const file = this.file();
-      if (subject.guid in file.data.logins) {
-        delete file.data.logins[subject.guid];
-        file.saveSoon();
+      if (this.tags.get(subject.guid) !== undefined) {
+        this.tags.set(subject.guid, null);
       }
     }
   },

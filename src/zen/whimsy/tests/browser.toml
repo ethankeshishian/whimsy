@@ -366,3 +366,6 @@ support-files = ["whimsy_login_form.html"]
 
 # wave5/profiles: Mini Whimsy's profile pill and cross-profile Open in.
 ["browser_whimsy_profile_mini.js"]
+
+# wave5/profiles: per-profile data through Sync's prefs engine (two-device round trip, merge rules).
+["browser_whimsy_profile_sync.js"]

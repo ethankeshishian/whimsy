@@ -408,8 +408,8 @@
 - name: whimsy.ai.ollama.model
   value: ""
 
-# wave5/profiles: per-profile search engine (profile key → engine id, JSON;
-# empty means none) and download folder (profile key → path, JSON; per Mac).
+# wave5/profiles: per-profile search engine and download folder (synced maps,
+# WhimsyProfileSync: {profile key: [value, time]}; empty means none).
 - name: whimsy.profiles.search-engines
   value: ""
 
@@ -418,6 +418,24 @@
 
 - name: whimsy.profiles.download-dirs
   value: ""
+
+- name: services.sync.prefs.sync.whimsy.profiles.download-dirs
+  value: true
+
+# Login guid → profile key, and history page guid → profile keys (synced
+# maps, WhimsyProfileSync), so other devices scope passwords and history
+# the same way.
+- name: whimsy.profiles.login-tags
+  value: ""
+
+- name: services.sync.prefs.sync.whimsy.profiles.login-tags
+  value: true
+
+- name: whimsy.profiles.history-places
+  value: ""
+
+- name: services.sync.prefs.sync.whimsy.profiles.history-places
+  value: true
 
 # The person's own engine/folder, kept while a profile's is applied.
 - name: whimsy.profiles.saved-search-engine

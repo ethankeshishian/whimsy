@@ -13,6 +13,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsySyncedMap: "resource:///modules/whimsy/WhimsyProfileSync.sys.mjs",
 });
 const PREF = "whimsy.feature.space-history";
 const TOPIC = "whimsy-space-history-changed";
@@ -24,7 +25,27 @@ function allNameAProfile(candidates) {
   return candidates.every(item => item.profile);
 }
 
+export const HISTORY_PROFILES_PREF = "whimsy.profiles.history-places";
+
 export const WhimsySpaceHistory = {
+  // wave5/profiles: which profiles visited a page (Places guid → profile
+  // keys), synced so another device filters the same way. Firefox Sync's
+  // history records carry no profile, and the visit sidecar is per device,
+  // so this page-level map (recent pages only, newest wins) is what travels.
+  get placeProfiles() {
+    if (!this._placeProfiles) {
+      this._placeProfiles = new lazy.WhimsySyncedMap({
+        pref: HISTORY_PROFILES_PREF, file: "whimsy-history-profiles.json",
+        maxEntries: 1500, maxAgeMs: 90 * 86400000,
+      });
+      this._placeProfiles.onChange(() => {
+        if (this._filePromise) {
+          this.file().then(file => this.rebuildIndex(file)).catch(console.error);
+        }
+      });
+    }
+    return this._placeProfiles;
+  },
   _candidates: [],
   _queue: Promise.resolve(),
   get enabled() {
@@ -177,6 +198,12 @@ export const WhimsySpaceHistory = {
       spaceId: oneSpace ? candidate.spaceId : null, spaceName: oneSpace ? candidate.spaceName : null,
       ...(candidate.profile ? { profile: candidate.profile } : {}) };
     this.indexVisit(file.data.visits[visit.id], visit.url);
+    if (candidate.profile) {
+      const keys = this.placeProfiles.get(visit.guid) ?? [];
+      if (!keys.includes(candidate.profile)) {
+        this.placeProfiles.set(visit.guid, [...keys, candidate.profile].sort());
+      }
+    }
     file.saveSoon();
     this.changed();
   },
@@ -195,6 +222,20 @@ export const WhimsySpaceHistory = {
         delete file.data.visits[id];
       }
     }
+    // Pages gone from history (deleted here, or by history sync) leave the
+    // synced page map too.
+    const mapped = this.placeProfiles.entries().map(([guid]) => guid);
+    if (mapped.length) {
+      const existing = new Set((await db.execute(`SELECT guid FROM moz_places
+        WHERE guid IN (SELECT value FROM json_each(:guids))`, { guids: JSON.stringify(mapped) }))
+        .map(row => row.getResultByName("guid")));
+      for (const guid of mapped) {
+        // A day's grace: history sync may not have brought the page yet.
+        if (!existing.has(guid) && Date.now() - this.placeProfiles.time(guid) > 86400000) {
+          this.placeProfiles.set(guid, null);
+        }
+      }
+    }
     await this.rebuildIndex(file);
     file.saveSoon();
     this.changed();
@@ -205,6 +246,12 @@ export const WhimsySpaceHistory = {
   // here.
   async rebuildIndex(file) {
     const attributed = Object.values(file.data.visits).filter(visit => visit.profile);
+    // Pages other devices attributed (synced), as visit-like entries.
+    for (const [guid, keys] of this.placeProfiles.entries()) {
+      for (const profile of Array.isArray(keys) ? keys : []) {
+        attributed.push({ guid, profile });
+      }
+    }
     const urls = new Map();
     if (attributed.length) {
       const db = await lazy.PlacesUtils.promiseDBConnection();
@@ -268,12 +315,18 @@ export const WhimsySpaceHistory = {
       WHERE p.hidden = 0 AND v.visit_date >= :cutoff
         AND (:space = '' OR json_extract(m.value, '$.spaceId') = :space
           OR (:space = 'unknown' AND json_extract(m.value, '$.spaceId') IS NULL))
-        AND (:profile = '' OR COALESCE(json_extract(m.value, '$.profile'), 'default') = :profile)
+        AND (:profile = '' OR (json_extract(m.value, '$.profile') IS NOT NULL
+            AND json_extract(m.value, '$.profile') = :profile)
+          OR (json_extract(m.value, '$.profile') IS NULL AND (
+            CASE WHEN json_type(:places, '$."' || p.guid || '"') IS NULL THEN :profile = 'default'
+              ELSE EXISTS (SELECT 1 FROM json_each(:places, '$."' || p.guid || '"') WHERE value = :profile)
+            END)))
         AND (:search = '' OR AUTOCOMPLETE_MATCH(:search, p.url, p.title,
           NULL, 1, 1, 1, 1, :matchBehavior, :searchBehavior, NULL))
       ORDER BY ${sort === "mostvisited" ? "visits DESC," : ""} v.visit_date DESC, v.id DESC
       LIMIT :limit`, {
       metadata: JSON.stringify(file.data.visits), space: spaceId, profile,
+      places: JSON.stringify(Object.fromEntries(this.placeProfiles.entries())),
       cutoff: (Date.now() - days * 86400000) * 1000,
       search, limit,
       matchBehavior: Ci.mozIPlacesAutoComplete.MATCH_ANYWHERE_UNMODIFIED,

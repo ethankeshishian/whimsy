@@ -73,6 +73,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyProfilePasswords.sys.mjs",
     "WhimsyProfiles.sys.mjs",
     "WhimsyProfileSettings.sys.mjs",
+    "WhimsyProfileSync.sys.mjs",
     "WhimsyProtocol.sys.mjs",
     "WhimsyQuickWindow.sys.mjs",
     "WhimsyRecentTabs.sys.mjs",

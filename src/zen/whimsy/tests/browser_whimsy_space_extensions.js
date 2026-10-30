@@ -102,8 +102,8 @@ add_task(async function test_visibility_follows_the_space_profile() {
   ok(!widgetNode().hidden, "Shown in a space of its profile");
   await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
   ok(widgetNode().hidden, "Hidden again switching back");
-  Assert.deepEqual(JSON.parse(Services.prefs.getStringPref(PROFILES_PREF)), { [extensionId]: [containerKey] },
-    "Stored by profile key");
+  Assert.deepEqual(JSON.parse(Services.prefs.getStringPref(PROFILES_PREF))[extensionId][0], [containerKey],
+    "Stored by profile key, in the synced map");
 });
 
 add_task(async function test_isolation_includes_default() {
@@ -163,7 +163,7 @@ add_task(async function test_feature_switch_off_restores_everything() {
 });
 
 add_task(async function test_show_in_spaces_migrates_to_profiles() {
-  Services.prefs.clearUserPref(PROFILES_PREF);
+  WhimsySpaceExtensions.setAllowedProfiles(extensionId, null);
   Services.prefs.setStringPref(OLD_PREF, JSON.stringify({ [extensionId]: { spaces: [containerSpace.uuid] } }));
   WhimsySpaceExtensions.migrateSpaceChoices(window);
   Assert.deepEqual(WhimsySpaceExtensions.getAllowedProfiles(extensionId), [containerKey],

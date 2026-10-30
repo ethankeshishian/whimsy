@@ -21,14 +21,15 @@
 // Honest limit: it's still one install with one background page and one
 // storage.local shared by every profile; Settings says so.
 //
-// The choice is stored by profile key (synced with the profile):
-// whimsy.profiles.extensions = {extensionId: [key, ...]}.
+// The choice is stored by profile key in a synced map (WhimsyProfileSync,
+// merged per extension, newest wins): extension id → [key, ...].
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   ExtensionCommon: "resource://gre/modules/ExtensionCommon.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsySyncedMap: "resource:///modules/whimsy/WhimsyProfileSync.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.space-extensions";
@@ -64,22 +65,29 @@ export const WhimsySpaceExtensions = {
 
   // -- storage --------------------------------------------------------
 
-  getProfileMap() {
-    return readJSON(PROFILES_PREF, "{}");
+  get choices() {
+    if (!this._choices) {
+      this._choices = new lazy.WhimsySyncedMap({ pref: PROFILES_PREF, file: "whimsy-profile-extensions.json" });
+      // Another device changed a choice: apply it here too.
+      this._choices.onChange(() => {
+        if (this._initializedChoices) {
+          this.applyContainerIsolation();
+          this.refreshAllWindows();
+        }
+      });
+    }
+    return this._choices;
   },
 
-  setProfileMap(map) {
-    if (Object.keys(map).length) {
-      Services.prefs.setStringPref(PROFILES_PREF, JSON.stringify(map));
-    } else {
-      Services.prefs.clearUserPref(PROFILES_PREF);
-    }
+  /** {extensionId: [key, ...]} for every limited extension. */
+  getProfileMap() {
+    return Object.fromEntries(this.choices.entries().filter(([, keys]) => Array.isArray(keys)));
   },
 
   // null = all profiles (Arc's default for an extension nobody limited);
   // an array = exactly those profile keys.
   getAllowedProfiles(extensionId) {
-    const entry = this.getProfileMap()[extensionId];
+    const entry = this.choices.get(extensionId);
     return Array.isArray(entry) ? entry : null;
   },
 
@@ -89,13 +97,7 @@ export const WhimsySpaceExtensions = {
   },
 
   setAllowedProfiles(extensionId, keysOrNull) {
-    const map = this.getProfileMap();
-    if (!keysOrNull) {
-      delete map[extensionId];
-    } else {
-      map[extensionId] = [...new Set(keysOrNull)];
-    }
-    this.setProfileMap(map);
+    this.choices.set(extensionId, keysOrNull ? [...new Set(keysOrNull)].sort() : null);
     this.applyContainerIsolation();
     this.refreshAllWindows();
   },
@@ -108,26 +110,18 @@ export const WhimsySpaceExtensions = {
   },
 
   forgetExtension(extensionId) {
-    const map = this.getProfileMap();
-    if (extensionId in map) {
-      delete map[extensionId];
-      this.setProfileMap(map);
+    if (this.getAllowedProfiles(extensionId)) {
+      this.choices.set(extensionId, null);
     }
     this.applyContainerIsolation();
     this.refreshAllWindows();
   },
 
   forgetProfile(key) {
-    const map = this.getProfileMap();
-    let changed = false;
-    for (const [id, keys] of Object.entries(map)) {
-      if (Array.isArray(keys) && keys.includes(key)) {
-        map[id] = keys.filter(item => item != key);
-        changed = true;
+    for (const [id, keys] of Object.entries(this.getProfileMap())) {
+      if (keys.includes(key)) {
+        this.choices.set(id, keys.filter(item => item != key));
       }
-    }
-    if (changed) {
-      this.setProfileMap(map);
     }
   },
 
@@ -138,17 +132,15 @@ export const WhimsySpaceExtensions = {
     }
     const old = readJSON(VISIBILITY_PREF, "{}");
     const spaces = win?.gZenWorkspaces?.getWorkspaces?.() ?? [];
-    const map = this.getProfileMap();
     for (const [extensionId, entry] of Object.entries(old)) {
-      if (!Array.isArray(entry?.spaces) || extensionId in map) {
+      if (!Array.isArray(entry?.spaces) || this.getAllowedProfiles(extensionId)) {
         continue;
       }
-      map[extensionId] = [...new Set(entry.spaces
+      this.setAllowedProfiles(extensionId, entry.spaces
         .map(uuid => spaces.find(space => space.uuid == uuid))
         .filter(Boolean)
-        .map(space => lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.profileIdOfSpace(space))))];
+        .map(space => lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.profileIdOfSpace(space))));
     }
-    this.setProfileMap(map);
     Services.prefs.clearUserPref(VISIBILITY_PREF);
   },
 
@@ -551,6 +543,7 @@ export const WhimsySpaceExtensions = {
       return;
     }
     win._whimsySpaceExtensions = true;
+    this._initializedChoices = true;
     this.migrateSpaceChoices(win);
     this.loadProcessScript();
     this.initIdentityObserver();
