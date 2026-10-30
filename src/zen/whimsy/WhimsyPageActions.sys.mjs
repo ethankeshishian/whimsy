@@ -22,6 +22,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.page-actions";
@@ -354,7 +355,7 @@ export const WhimsyPageActions = {
       place: () => this.openInMaps(win, action),
       recipe: () => this.openCookMode(win, action),
       product: () => this.watchPrice(win, action),
-      parcel: () => win.openTrustedLinkIn(action.trackingUrl, "tab", { userContextId: win.gBrowser.selectedTab.userContextId }),
+      parcel: () => lazy.WhimsyPrivate.openTabFor(win, action.trackingUrl, { userContextId: win.gBrowser.selectedTab.userContextId }),
     }[action.kind];
     Promise.resolve()
       .then(run)
@@ -474,7 +475,7 @@ export const WhimsyPageActions = {
       service.loadURI(Services.io.newURI(`maps://?${query}`), Services.scriptSecurityManager.getSystemPrincipal());
       return;
     }
-    win.openTrustedLinkIn(`https://maps.apple.com/?${query}`, "tab", {
+    lazy.WhimsyPrivate.openTabFor(win, `https://maps.apple.com/?${query}`, {
       userContextId: win.gBrowser.selectedTab.userContextId,
     });
   },

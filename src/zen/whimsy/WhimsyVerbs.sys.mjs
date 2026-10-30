@@ -40,6 +40,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   gWhimsyNotesStore: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
@@ -272,10 +273,16 @@ const firstLine = (text, max = 80) => {
 const escapeMarkdown = text => text.replace(/([\\[\]])/g, "\\$1");
 const pageLink = s => `[${escapeMarkdown(s.title)}](${s.url})`;
 
-// The default search engine's name (the private one in private windows).
+// A private window, or a private tab in a normal one.
+function isPrivate(win) {
+  return lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
+    lazy.WhimsyPrivate.isPrivateTab(win?.gBrowser?.selectedTab);
+}
+
+// The default search engine's name (the private one in private browsing).
 function defaultEngineName(win) {
   try {
-    const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+    const engine = isPrivate(win)
       ? lazy.SearchService.defaultPrivateEngine
       : lazy.SearchService.defaultEngine;
     return engine?.name ?? "";
@@ -315,7 +322,7 @@ const BUILT_IN = [
     icon: `${ICONS}search-glass.svg`,
     scope: "selection",
     async run(win, s) {
-      const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+      const engine = isPrivate(win)
         ? await lazy.SearchService.getDefaultPrivate()
         : await lazy.SearchService.getDefault();
       WhimsyVerbs.openTab(win, engine.getSubmission(s.text).uri.spec);
@@ -528,7 +535,8 @@ export const WhimsyVerbs = {
 
   // ---- Side effects, one place each so tests can stub them.
   openTab(win, url) {
-    win.openTrustedLinkIn(url, "tab");
+    // From a private tab, the result opens private too.
+    lazy.WhimsyPrivate.openTabFor(win, url);
   },
   openExternal(spec) {
     Cc["@mozilla.org/uriloader/external-protocol-service;1"]

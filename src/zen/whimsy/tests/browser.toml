@@ -501,3 +501,6 @@ support-files = ["whimsy_page_actions.html"]
 
 # fix/kit: the Whimsy balloon replaces Kit; Settings logo glyphs are Whimsy's (overrides, promo, About icon).
 ["browser_whimsy_kit_balloon.js"]
+
+# wave7/security: private tabs' follow-ups stay private (verbs, page actions).
+["browser_whimsy_security_private.js"]
