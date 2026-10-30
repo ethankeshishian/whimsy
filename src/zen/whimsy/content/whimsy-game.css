@@ -2,7 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-:root {
+
+/* The standalone page (whimsy://game). Embedded in the offline error page
+   the game lives in #whimsy-game-embed and leaves the page's own styles alone. */
+body:has(> #whimsy-game-root) {
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #120b2a;
+}
+
+#whimsy-game-root {
   color-scheme: dark;
   --game-ink: #ffffff;
   --game-ink-soft: rgba(255, 255, 255, 0.72);
@@ -12,19 +22,10 @@
   --game-bg: radial-gradient(120% 90% at 50% 0%, #3b2a78 0%, #1d1340 55%, #120b2a 100%);
   --game-radius: 22px;
   --game-font: -apple-system, system-ui, sans-serif;
-}
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  overflow: hidden;
-  font-family: var(--game-font);
-  background: #120b2a;
-  color: var(--game-ink);
-}
-
-#whimsy-game-root {
   display: flex;
+  font-family: var(--game-font);
+  color: var(--game-ink);
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -290,4 +291,18 @@ body {
   75% {
     opacity: 0.2;
   }
+}
+
+#whimsy-game-embed {
+  margin: 0 auto 2rem;
+  max-width: 1000px;
+}
+
+#whimsy-game-embed #whimsy-game-root {
+  min-height: 0;
+  border-radius: 24px;
+}
+
+#whimsy-game-embed #whimsy-game-root[data-style="retro"] {
+  border-radius: 0;
 }
