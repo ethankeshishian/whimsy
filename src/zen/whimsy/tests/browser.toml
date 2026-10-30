@@ -365,3 +365,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # fix7 settings: onboarding's finish leaves no zen-browser.app tabs.
 ["browser_whimsy_onboarding_finish.js"]
+
+# fix/panes: Firefox's Appearance and Tabs and browsing panes merged into Zen's.
+["browser_whimsy_settings_panes.js"]

@@ -4,7 +4,8 @@
 
 "use strict";
 
-// Settings → General → Performance: the hardware video decoding checkbox
+// Settings → General → Performance (Tab Management with the settings
+// redesign, where Firefox's Performance group moved): the hardware video decoding checkbox
 // reflects the pref, toggling it writes the pref, and a restart prompt
 // appears (the decode path itself needs real hardware, so it's untested).
 
@@ -14,7 +15,7 @@ add_task(async function test_hardware_video_decoding_checkbox() {
 
   const redesigned = Services.prefs.getBoolPref("browser.settings-redesign.enabled", false) ||
     Services.prefs.getBoolPref("browser.settings-redesign.tabsBrowsing.enabled", false);
-  const pane = redesigned ? "tabsBrowsing" : "general";
+  const pane = redesigned ? "zenTabManagement" : "general";
   await BrowserTestUtils.withNewTab(`about:preferences#${pane}`, async browser => {
     const doc = browser.contentDocument;
     await TestUtils.waitForCondition(() => doc.getElementById("whimsyHardwareVideoDecoding"));
