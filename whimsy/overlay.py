@@ -789,6 +789,10 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5/lan: Local servers live folder: dev servers on localhost come and
+    # go as tabs, polled only while the folder is visible.
+    {"id": "live-folders-local-servers", "title": "Local servers live folder: running localhost dev servers as tabs that appear and disappear",
+     "detect": [("src/zen/live-folders", r"(?i)local-?servers|localhost")]},
 ]
 
 

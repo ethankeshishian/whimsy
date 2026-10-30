@@ -347,3 +347,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # batch4: Library rail glyphs, including optional sections when present.
 ["browser_whimsy_library_icons.js"]
+
+# wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
+["browser_whimsy_live_folders_local_servers.js"]

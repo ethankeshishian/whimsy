@@ -104,6 +104,12 @@ whimsy-live-folder-linear-no-auth =
 whimsy-live-folder-linear-apikey-title = Linear API Key
 whimsy-live-folder-linear-apikey-text = Paste a personal API key from linear.app → Settings → Security & access → Personal API keys.
 
+## wave5/lan: Local servers live folder (dev servers running on this machine).
+
+whimsy-live-folder-local-servers-create =
+    .label = Local Servers
+whimsy-live-folder-local-servers-name = Local Servers
+
 ## Settings → Look and Feel → Interface zoom
 
 whimsy-ui-zoom-header = Interface zoom

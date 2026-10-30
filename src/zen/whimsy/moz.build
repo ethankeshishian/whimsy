@@ -50,6 +50,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyLiveFolderFetch.sys.mjs",
     "WhimsyLiveFolderReading.sys.mjs",
     "WhimsyLiveFolders.sys.mjs",
+    "WhimsyLocalServersLiveFolder.sys.mjs",
     "WhimsyLook.sys.mjs",
     "WhimsyMedia.sys.mjs",
     "WhimsyMenuBarExtra.sys.mjs",
