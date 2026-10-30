@@ -1302,3 +1302,22 @@ add_task(async function addons_space_choices() {
     await extension.unload();
   }
 });
+
+// batch4: the rail must show glyphs for all enabled Whimsy sections. Meetings
+// is deliberately optional: this screenshot still works after its removal.
+add_task(async function library_rail_icons() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["zen.library.hidden-tabs", ""]],
+  });
+  const library = document.querySelector("zen-library");
+  const wasOpen = library.constructor.isLibraryOpen;
+  try {
+    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-notes"]);
+    await library.constructor.animateProgress(1);
+    await library.updateComplete;
+    await shot("batch4-library-rail-icons");
+  } finally {
+    await library.constructor.animateProgress(wasOpen ? 1 : 0);
+    await SpecialPowers.popPrefEnv();
+  }
+});
