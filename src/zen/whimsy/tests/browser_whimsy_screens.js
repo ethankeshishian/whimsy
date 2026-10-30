@@ -986,7 +986,7 @@ add_task(async function welcome_look_pages() {
   }
 });
 
-// wave4/fun: Balloon Hop (smooth and retro) and the Year in tabs story.
+// wave4/fun: Balloon Dash (smooth and retro) and the Year in tabs story.
 add_task(async function wave4_fun_game() {
   await BrowserTestUtils.withNewTab("about:whimsy?game", async browser => {
     const win = browser.contentWindow;
@@ -1000,34 +1000,37 @@ add_task(async function wave4_fun_game() {
     await frames();
     await shot("wave4-game-ready", wg);
 
-    const { GROUND, PLAYER_X } = game.constants;
     const scene = () => {
       game.clear();
-      game.spawn("thistle", { x: PLAYER_X + 150, n: 3, w: 38, h: 26 });
-      game.spawn("plane", { x: PLAYER_X + 250, y: GROUND - 64 });
-      game.spawn("sparkle", { x: PLAYER_X + 90, y: GROUND - 40 });
-      game.spawn("pond", { x: PLAYER_X + 300, w: 70 });
+      game.spawn("seed", { x: 260, y: 60, vx: -30 });
+      game.spawn("plane", { x: 330, y: 40, vx: -120, vy: 20 });
+      game.spawn("bird", { cx: 400, cy: 90, R: 16, a: 1, vx: -40 });
+      game.spawn("zap", { x: 200, t: 1.05, seed: 3 });
+      game.spawn("sparkle", { x: 170, y: 100 });
+      game.spawn("shield", { x: 420, y: 50 });
+      game.spawn("magnet", { x: 60, y: 40 });
+      game.warn("plane");
+      game.state.player.shield = 5;
+      game.state.player.invuln = 5;
+      game.state.combo = 3;
+      game.state.comboAt = game.state.clock;
+      game.tick(0.1);
     };
     game.start();
-    game.press();
-    game.tick(0.2);
     scene();
-    game.render();
     await frames();
     await shot("wave4-game-running", wg);
 
     doc.getElementById("whimsy-game-style-retro").click();
-    game.state.distance = 700 * 12;
-    game.tick(1 / 60);
+    game.state.runTime = 180;
     scene();
-    game.render();
     await frames();
     await shot("wave4-game-retro-night", wg);
 
-    game.release();
-    game.tick(1);
     game.clear();
-    game.spawn("thistle");
+    game.state.player.shield = 0;
+    game.state.player.invuln = 0;
+    game.spawn("seed");
     game.tick(0.4);
     await frames();
     await shot("wave4-game-retro-over", wg);

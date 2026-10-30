@@ -759,8 +759,8 @@ whimsy-devmode-network =
 
 ## batch7b: offline game (whimsy://game)
 
-whimsy-action-game = Play Balloon Hop
-whimsy-game-title = Balloon Hop
+whimsy-action-game = Play Balloon Dash
+whimsy-game-title = Balloon Dash
 whimsy-game-style-group =
     .aria-label = Look
 whimsy-game-style-retro = Retro
@@ -768,17 +768,19 @@ whimsy-game-style-gradient = Smooth
 whimsy-game-sound = Sound
 whimsy-game-score = Score
 whimsy-game-best = Best
-whimsy-game-start-title = Balloon Hop
-whimsy-game-start-hint = Press Space or click to hop. Hold to float.
-whimsy-game-paused = Paused. Press Space to keep hopping.
+whimsy-game-start-title = Balloon Dash
+whimsy-game-start-hint = Press an arrow key or Space, or click, to start. Grab the sparkles, dodge everything else.
+whimsy-game-start-short = Press an arrow key or Space to start
+whimsy-game-paused = Paused. Press Space to keep going.
 whimsy-game-over-title = Pop!
-whimsy-game-death-thistle = Pricked by a thistle.
+whimsy-game-death-seed = Caught by a thistle seed.
 whimsy-game-death-plane = That paper plane had right of way.
-whimsy-game-death-pond = Splash! Balloons can’t swim.
+whimsy-game-death-zap = Zapped by a grumpy cloud.
+whimsy-game-death-bird = A bird wanted a closer look.
 whimsy-game-new-best = New best!
 whimsy-game-retry-hint = Space or click to go again
-whimsy-game-play-again = Hop again
-whimsy-game-hint = Space, ↑ or click to hop · Hold to float · P pauses
+whimsy-game-play-again = Go again
+whimsy-game-hint = Arrows, WASD or pointer to steer · Space or click to dash · P pauses
 
 ## batch7b: Year in tabs (whimsy://year)
 ## $year is a plain string (never a formatted number).

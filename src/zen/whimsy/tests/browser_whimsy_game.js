@@ -4,10 +4,10 @@
 
 "use strict";
 
-// Balloon Hop (whimsy://game). The page exposes window.__whimsyGame so the
+// Balloon Dash (whimsy://game). The page exposes window.__whimsyGame so the
 // simulation can be driven deterministically: freeze() stops the real-time
 // loop from advancing the world, tick(seconds) steps it by hand, and
-// spawn(kind) places an obstacle right at the balloon.
+// spawn(kind) places a hazard or item right on the balloon.
 
 registerCleanupFunction(() => {
   for (const pref of ["whimsy.feature.game", "whimsy.game.style", "whimsy.game.high-score", "whimsy.game.chiptune"]) {
@@ -24,16 +24,6 @@ async function withGame(fn) {
     game.setAutoSpawn(false);
     await fn({ browser, win, doc: browser.contentDocument, game });
   });
-}
-
-// The lowest point (smallest y) the balloon reaches within `seconds`.
-function peak(game, seconds) {
-  let top = Infinity;
-  for (let i = 0; i < seconds * 120; i++) {
-    game.tick(1 / 120);
-    top = Math.min(top, game.state.player.y);
-  }
-  return top;
 }
 
 add_task(async function test_loads_ready() {
@@ -59,74 +49,68 @@ add_task(async function test_whimsy_url_opens_it() {
   });
 });
 
-add_task(async function test_space_starts_instantly_with_a_hop() {
-  await withGame(async ({ win, doc, game }) => {
+add_task(async function test_first_key_starts_instantly() {
+  for (const key of [" ", "KEY_ArrowRight"]) {
+    await withGame(async ({ win, doc, game }) => {
+      win.focus();
+      EventUtils.synthesizeKey(key, {}, win);
+      is(game.state.state, "running", `${key} starts the run at once`);
+      ok(doc.getElementById("whimsy-game-overlay-ready").hidden, "No start card left");
+    });
+  }
+});
+
+add_task(async function test_arrow_keys_steer() {
+  await withGame(async ({ win, game }) => {
+    game.start();
+    const x = game.state.player.x;
     win.focus();
-    EventUtils.synthesizeKey(" ", {}, win);
-    is(game.state.state, "running", "Space starts the run at once");
-    ok(doc.getElementById("whimsy-game-overlay-ready").hidden, "The start card goes away");
-    game.tick(1 / 120);
-    Assert.less(game.state.player.vy, 0, "The first press is also a hop");
+    EventUtils.synthesizeKey("KEY_ArrowRight", { type: "keydown" }, win);
+    game.tick(0.5);
+    EventUtils.synthesizeKey("KEY_ArrowRight", { type: "keyup" }, win);
+    Assert.greater(game.state.player.x, x + 20, "Holding → moves the balloon right");
+    const y = game.state.player.y;
+    EventUtils.synthesizeKey("w", { type: "keydown" }, win);
+    game.tick(0.3);
+    EventUtils.synthesizeKey("w", { type: "keyup" }, win);
+    Assert.less(game.state.player.y, y - 5, "W moves it up");
   });
 });
 
-add_task(async function test_holding_hops_higher_than_a_tap() {
+add_task(async function test_pointer_steers() {
   await withGame(async ({ game }) => {
-    const ground = game.constants.GROUND;
-    game.press();
-    game.release();
-    const tap = peak(game, 1);
-    is(game.state.player.y, ground, "The tap hop lands again");
-    game.press();
-    const hold = peak(game, 1);
-    game.release();
-    Assert.less(hold, tap - 10, `Holding hops higher (${ground - hold}) than a tap (${ground - tap})`);
-  });
-});
-
-add_task(async function test_holding_on_the_way_down_floats() {
-  await withGame(async ({ game }) => {
-    game.press();
-    game.tick(0.45); // held through the peak of a full hop
-    ok(game.state.player.floating, "Holding while falling fires the burner");
-    Assert.lessOrEqual(game.state.player.vy, 90, "and caps the fall speed");
-    game.release();
-  });
-});
-
-add_task(async function test_coyote_time() {
-  await withGame(async ({ game }) => {
-    const { PLAYER_X } = game.constants;
     game.start();
-    game.tick(0.05);
-    game.spawn("pond", { x: PLAYER_X - 30, w: 140 });
-    game.tick(0.04);
-    ok(!game.state.player.onGround, "The ground has ended under the balloon");
-    game.press();
-    game.tick(1 / 120);
-    Assert.less(game.state.player.vy, 0, "A press just after the edge still hops (coyote time)");
-    game.release();
-
-    game.start();
-    game.tick(0.05);
-    game.spawn("pond", { x: PLAYER_X - 30, w: 140 });
-    game.tick(0.15);
-    game.press();
-    game.tick(1 / 120);
-    Assert.greaterOrEqual(game.state.player.vy, 0, "A press well after the edge doesn't");
-    game.release();
+    const p = game.state.player;
+    game.pointer(400, 40);
+    const before = Math.hypot(400 - p.x, 40 - (p.y - 24));
+    game.tick(2.5);
+    const after = Math.hypot(400 - p.x, 40 - (p.y - 24));
+    Assert.less(after, Math.min(20, before / 4), "The balloon follows the pointer there");
+    game.pointer(null);
   });
 });
 
-add_task(async function test_thistle_pops_records_best_and_retries() {
+add_task(async function test_soft_edges() {
+  await withGame(async ({ game }) => {
+    game.start();
+    game.setInput(-1, 1);
+    game.tick(4);
+    game.setInput(0, 0);
+    is(game.state.state, "running", "Running into the edges never ends the run");
+    Assert.greaterOrEqual(game.state.player.x, 0, "The balloon stays in the arena");
+    Assert.lessOrEqual(game.state.player.y, game.constants.GROUND, "and above the meadow");
+  });
+});
+
+add_task(async function test_hazard_pops_records_best_and_retries() {
   Services.prefs.clearUserPref("whimsy.game.high-score");
   await withGame(async ({ doc, game }) => {
     game.start();
-    game.state.distance = 50 * 12;
-    game.spawn("thistle");
+    game.state.bonus = 50;
+    game.spawn("seed");
     game.tick(1 / 60);
-    is(game.state.state, "over", "Touching a thistle pops the balloon");
-    is(game.state.deathKind, "thistle", "and says why");
+    is(game.state.state, "over", "A thistle seed pops the balloon");
+    is(game.state.deathKind, "seed", "and says why");
     ok(!doc.getElementById("whimsy-game-overlay-gameover").hidden, "The game-over card shows");
     await TestUtils.waitForCondition(() => doc.getElementById("whimsy-game-death").textContent, "The death line is localized");
     const best = Services.prefs.getIntPref("whimsy.game.high-score");
@@ -138,54 +122,125 @@ add_task(async function test_thistle_pops_records_best_and_retries() {
     is(game.state.state, "over", "A press in the same instant doesn't restart (no accidental retry)");
     game.tick(0.4);
     game.press();
-    game.release();
     is(game.state.state, "running", "A press a moment later restarts at once");
     is(game.state.score, 0, "from zero");
   });
 });
 
-add_task(async function test_planes_at_two_heights() {
+add_task(async function test_every_hazard_kind_hits() {
+  for (const kind of ["plane", "bird", "zap"]) {
+    await withGame(async ({ game }) => {
+      game.start();
+      game.spawn(kind);
+      game.tick(1 / 60);
+      is(game.state.deathKind, kind, `A ${kind} on the balloon pops it`);
+    });
+  }
+});
+
+add_task(async function test_dash_cooldown_and_invulnerability() {
   await withGame(async ({ game }) => {
-    const { GROUND } = game.constants;
     game.start();
-    game.spawn("plane", { y: GROUND - 64 });
+    ok(game.dash(), "Dash is ready at the start");
+    game.spawn("seed");
     game.tick(1 / 60);
-    is(game.state.state, "running", "A high plane passes over a balloon that stays down");
+    is(game.state.state, "running", "A dash is briefly invulnerable");
     game.clear();
-    game.spawn("plane");
-    game.tick(1 / 60);
-    is(game.state.state, "over", "A low plane has to be hopped over");
-    is(game.state.deathKind, "plane", "and says so");
+    ok(!game.dash(), "and then has a cooldown");
+    game.tick(game.constants.DASH_COOLDOWN + 0.05);
+    ok(game.dash(), "until it's ready again");
   });
 });
 
-add_task(async function test_falling_in_a_pond() {
+add_task(async function test_close_call_bonus() {
   await withGame(async ({ game }) => {
-    const { PLAYER_X } = game.constants;
+    const { HIT_R, CLOSE_PAD, CLOSE_BONUS } = game.constants;
     game.start();
-    game.spawn("pond", { x: PLAYER_X - 30, w: 400 });
-    game.tick(0.5);
-    is(game.state.state, "over", "Dropping into a pond ends the run");
-    is(game.state.deathKind, "pond", "with a splash");
+    const p = game.state.player;
+    // A seed skimming past just outside the hit circle, then moving away.
+    game.spawn("seed", { x: p.x + HIT_R + 4 + CLOSE_PAD / 2, vx: 0, vy: 0 });
+    game.tick(1 / 60);
+    game.state.hazards[0].x += 40;
+    game.tick(1 / 60);
+    is(game.state.state, "running", "A near miss is a miss");
+    is(game.state.bonus, CLOSE_BONUS, "and earns a close-call bonus");
   });
 });
 
-add_task(async function test_sparkle_bonus() {
+add_task(async function test_sparkle_combo() {
   await withGame(async ({ game }) => {
+    const { SPARKLE_POINTS } = game.constants;
     game.start();
     game.spawn("sparkle");
     game.tick(1 / 60);
-    is(game.state.bonus, game.constants.SPARKLE_BONUS, "Catching a sparkle adds a bonus");
+    is(game.state.bonus, SPARKLE_POINTS, "A sparkle scores");
+    game.spawn("sparkle");
+    game.tick(1 / 60);
+    is(game.state.combo, 2, "A quick second one builds a combo");
+    is(game.state.bonus, SPARKLE_POINTS * 3, "worth double");
+    game.tick(game.constants.COMBO_WINDOW + 0.1);
+    game.spawn("sparkle");
+    game.tick(1 / 60);
+    is(game.state.combo, 1, "A slow one starts the combo over");
   });
 });
 
-add_task(async function test_speed_and_score_rise() {
+add_task(async function test_power_ups() {
+  await withGame(async ({ game }) => {
+    game.start();
+    game.spawn("shield");
+    game.tick(1 / 60);
+    Assert.greater(game.state.player.shield, 0, "Shield picked up");
+    game.spawn("seed");
+    game.tick(1 / 60);
+    is(game.state.state, "running", "The shield absorbs one hit");
+    is(game.state.player.shield, 0, "and is used up");
+
+    game.spawn("slow");
+    game.tick(1 / 60);
+    Assert.greater(game.state.slowT, 0, "Slow-mo picked up");
+    const plane = game.spawn("plane", { x: 300, y: 30, vx: -100, vy: 0 });
+    game.tick(0.5);
+    Assert.greater(plane.x, 300 - 50 + 20, "Hazards move slower in slow-mo");
+
+    game.spawn("magnet");
+    game.tick(1 / 60);
+    const p = game.state.player;
+    const far = game.spawn("sparkle", { x: p.x + 100, y: p.y - 24 });
+    game.tick(0.2);
+    Assert.less(far.x, p.x + 100 - 20, "The magnet pulls sparkles in");
+  });
+});
+
+add_task(async function test_spawns_are_telegraphed_and_never_on_the_balloon() {
+  await withGame(async ({ game }) => {
+    const { SAFE_SPAWN, TELEGRAPH } = game.constants;
+    game.start();
+    game.warn("seed");
+    is(game.state.warnings.length, 1, "A hazard is announced at the edge first");
+    is(game.state.hazards.length, 0, "before it appears");
+    game.tick(TELEGRAPH + 0.05);
+    is(game.state.hazards.length, 1, "and arrives after the warning");
+
+    game.setAutoSpawn(true);
+    game.start();
+    game.state.player.invuln = 1e6; // survive, so we can watch 40 s of spawns
+    for (let i = 0; i < 40 * 4; i++) {
+      game.setInput(Math.sin(i / 7), Math.cos(i / 5));
+      game.tick(0.25);
+    }
+    game.setInput(0, 0);
+    Assert.greater(game.state.stats.launched, 20, "Plenty of hazards came");
+    Assert.greaterOrEqual(game.state.stats.minSpawn, SAFE_SPAWN, "none of them appeared next to the balloon");
+    game.setAutoSpawn(false);
+  });
+});
+
+add_task(async function test_score_rises_over_time() {
   await withGame(async ({ doc, game }) => {
     game.start();
-    const speed = game.state.speed;
     game.tick(3);
-    Assert.greater(game.state.speed, speed, "The world speeds up");
-    Assert.greater(game.state.score, 30, "The score climbs with distance");
+    Assert.greaterOrEqual(game.state.score, 5, "Surviving scores");
     is(doc.getElementById("whimsy-game-score").textContent, String(game.state.score), "The HUD shows it");
   });
 });
