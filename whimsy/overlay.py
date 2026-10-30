@@ -90,6 +90,93 @@ HOTFIXES = [
         "old": '+            <label is="text-link" href="https://github.com/zen-browser/desktop" data-l10n-name="community-mozillaLink"/>',
         "new": '+            <label is="text-link" href="https://github.com/ethankeshishian/whimsy/issues" data-l10n-name="community-mozillaLink"/>',
     },
+    # legacy: the About dialog reads as Whimsy's (legacy audit U3). Mozilla's
+    # donation ask and "designed by <vendor>, a global community" go; the
+    # credits link to Zen (about:credits) stays. Whimsy's strings come from
+    # whimsy.ftl, which the dialog doesn't load by itself. The new linkset
+    # hunk adds a line, so later hunks' new-file starts move by one.
+    {
+        "id": "about-dialog-whimsy-strings",
+        "file": "src/browser/base/content/aboutDialog-xhtml.patch",
+        "why": "The About dialog only loads brand.ftl and aboutDialog.ftl; "
+               "Whimsy's wording lives in whimsy.ftl.",
+        "old": "+++ b/browser/base/content/aboutDialog.xhtml\n"
+               "@@ -102,10 +102,6 @@\n",
+        "new": "+++ b/browser/base/content/aboutDialog.xhtml\n"
+               "@@ -34,7 +34,8 @@\n"
+               "     />\n"
+               " \n"
+               '     <html:link rel="localization" href="branding/brand.ftl"/>\n'
+               '     <html:link rel="localization" href="browser/aboutDialog.ftl"/>\n'
+               '+    <html:link rel="localization" href="browser/whimsy.ftl"/> <!-- Whimsy strings -->\n'
+               "   </linkset>\n"
+               " \n"
+               '   <html:div id="aboutDialogContainer">\n'
+               "@@ -102,10 +103,6 @@\n",
+    },
+    {
+        "id": "about-dialog-whimsy-wording",
+        "file": "src/browser/base/content/aboutDialog-xhtml.patch",
+        "why": "Mozilla's lines read \"Whimsy is designed by Whimsy, a global "
+               "community working together to keep the Web open\" "
+               "(-vendor-short-name = Whimsy) and \"Want to help? Make a "
+               "donation or get involved\" (Mozilla's donation and "
+               "contribute pages). The paragraphs keep their ids "
+               "(aboutDialog.js unhides contributeDesc) with Whimsy's text; "
+               "Fluent drops the links a message doesn't use. One hotfix for "
+               "the whole hunk: its last line stops being context, so the "
+               "hunk takes the next line as trailing context (git apply "
+               "anchors a hunk without trailing context to the end of the "
+               "file) and the header's sizes change with it.",
+        "old": (
+               '@@ -120,12 +116,12 @@\n'
+               '           <vbox id="experimental" hidden="true">\n'
+               '             <description class="text-blurb" id="warningDesc" data-l10n-id="warningDesc-version"></description>\n'
+               '             <description class="text-blurb" id="communityExperimentalDesc" data-l10n-id="community-exp">\n'
+               '-              <label is="text-link" href="https://www.mozilla.org/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="community-exp-mozillaLink"/>\n'
+               '+              <label is="text-link" useoriginprincipal="true" href="about:whimsy" data-l10n-name="community-exp-mozillaLink"/> <!-- Whimsy homepage -->\n'
+               '               <label is="text-link" useoriginprincipal="true" href="about:credits" data-l10n-name="community-exp-creditsLink"/>\n'
+               '             </description>\n'
+               '           </vbox>\n'
+               '           <description class="text-blurb" id="communityDesc" data-l10n-id="community-2">\n'
+               '-            <label is="text-link" href="https://www.mozilla.org/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="community-mozillaLink"/>\n'
+               '+            <label is="text-link" href="https://github.com/ethankeshishian/whimsy/issues" data-l10n-name="community-mozillaLink"/>\n'
+               '             <label is="text-link" useoriginprincipal="true" href="about:credits" data-l10n-name="community-creditsLink"/>\n'
+               '           </description>\n'
+               '           <description class="text-blurb" id="contributeDesc" data-l10n-id="helpus">\n'
+               '@@ -144,8 +140,8 @@\n'
+        ),
+        "new": (
+               '@@ -120,13 +117,13 @@\n'
+               '           <vbox id="experimental" hidden="true">\n'
+               '             <description class="text-blurb" id="warningDesc" data-l10n-id="warningDesc-version"></description>\n'
+               '-            <description class="text-blurb" id="communityExperimentalDesc" data-l10n-id="community-exp">\n'
+               '+            <description class="text-blurb" id="communityExperimentalDesc" data-l10n-id="whimsy-about-community-exp"> <!-- Whimsy -->\n'
+               '-              <label is="text-link" href="https://www.mozilla.org/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="community-exp-mozillaLink"/>\n'
+               '+              <label is="text-link" useoriginprincipal="true" href="about:whimsy" data-l10n-name="community-exp-mozillaLink"/> <!-- Whimsy homepage -->\n'
+               '               <label is="text-link" useoriginprincipal="true" href="about:credits" data-l10n-name="community-exp-creditsLink"/>\n'
+               '             </description>\n'
+               '           </vbox>\n'
+               '-          <description class="text-blurb" id="communityDesc" data-l10n-id="community-2">\n'
+               '+          <description class="text-blurb" id="communityDesc" data-l10n-id="whimsy-about-community"> <!-- Whimsy -->\n'
+               '-            <label is="text-link" href="https://www.mozilla.org/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="community-mozillaLink"/>\n'
+               '+            <label is="text-link" href="https://github.com/ethankeshishian/whimsy/issues" data-l10n-name="community-mozillaLink"/>\n'
+               '             <label is="text-link" useoriginprincipal="true" href="about:credits" data-l10n-name="community-creditsLink"/>\n'
+               '           </description>\n'
+               '-          <description class="text-blurb" id="contributeDesc" data-l10n-id="helpus">\n'
+               '+          <description class="text-blurb" id="contributeDesc" data-l10n-id="whimsy-about-no-telemetry"> <!-- Whimsy -->\n'
+               '             <label is="text-link" href="https://foundation.mozilla.org/?form=firefox-about" data-l10n-name="helpus-donateLink"/>\n'
+               '@@ -144,8 +141,8 @@\n'
+        ),
+    },
+    {
+        "id": "about-dialog-privacy-link",
+        "file": "src/browser/base/content/aboutDialog-xhtml.patch",
+        "why": "Zen's About dialog links its own privacy policy; Whimsy's "
+               "privacy note is about:whimsy's Privacy tab.",
+        "old": '+        <label is="text-link" class="bottom-link" href="https://www.zen-browser.app/privacy-policy/" data-l10n-id="bottom-links-privacy"/>',
+        "new": '+        <label is="text-link" class="bottom-link" useoriginprincipal="true" href="about:whimsy?tab=privacy" data-l10n-id="bottom-links-privacy"/> <!-- Whimsy privacy note -->',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.

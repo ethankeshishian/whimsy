@@ -114,13 +114,20 @@ add_task(async function test_tabs_and_keyboard() {
     is(changelog.getAttribute("aria-selected"), "true", "Click selects Changelog");
     is(home.tabIndex, -1, "Only selected tab is in the tab order");
     ok(doc.location.search.includes("tab=changelog"), "URL follows selection");
+    // legacy: a third tab, Privacy, comes after Changelog.
+    const privacy = doc.getElementById("whimsy-tab-privacy");
     changelog.focus();
     EventUtils.synthesizeKey("KEY_ArrowRight", {}, browser.contentWindow);
+    is(doc.activeElement, privacy, "Arrow navigation moves on to Privacy");
+    ok(!doc.getElementById("whimsy-panel-privacy").hidden, "...and shows its panel");
+    EventUtils.synthesizeKey("KEY_ArrowRight", {}, browser.contentWindow);
     is(doc.activeElement, home, "Arrow navigation wraps and focuses Home");
-    EventUtils.synthesizeKey("KEY_End", {}, browser.contentWindow);
-    is(doc.activeElement, changelog, "End selects the last tab");
+    EventUtils.synthesizeKey("KEY_ArrowLeft", {}, browser.contentWindow);
+    is(doc.activeElement, privacy, "ArrowLeft wraps back to the last tab");
     EventUtils.synthesizeKey("KEY_Home", {}, browser.contentWindow);
     is(doc.activeElement, home, "Home selects the first tab");
+    EventUtils.synthesizeKey("KEY_End", {}, browser.contentWindow);
+    is(doc.activeElement, privacy, "End selects the last tab");
   });
 });
 

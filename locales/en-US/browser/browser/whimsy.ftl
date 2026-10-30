@@ -930,3 +930,22 @@ whimsy-changelog-unreleased = Unreleased
 whimsy-default-bookmarks-heading = Whimsy
 whimsy-default-bookmarks-changelog = Whimsy Changelog
 whimsy-default-bookmarks-feedback = Whimsy Feedback on GitHub
+
+# About dialog (overlay.py about-dialog-* hotfixes). "Zen" links to Zen's
+# credits page (about:credits); the GitHub link opens Whimsy's issues.
+whimsy-about-community = { -brand-short-name } is a personal browser built on <label data-l10n-name="community-creditsLink">Zen</label> and Firefox. Found a bug or have an idea? <label data-l10n-name="community-mozillaLink">Tell us on GitHub</label>.
+whimsy-about-community-exp = { -brand-short-name } is a personal browser built on <label data-l10n-name="community-exp-creditsLink">Zen</label> and Firefox.
+whimsy-about-no-telemetry = { -brand-short-name } sends no telemetry or crash reports. The Privacy Notice below lists the services it talks to.
+
+# about:whimsy?tab=privacy, the About dialog's Privacy Notice. Keep it in
+# step with what Whimsy actually contacts (prefs/whimsy/whimsy.yaml).
+whimsy-home-tab-privacy = Privacy
+whimsy-privacy-blurb = Whimsy has no servers or accounts of its own, and sends no telemetry or crash reports. These are the services it talks to, and why.
+whimsy-privacy-mozilla = <strong>Mozilla</strong>: security, blocklist and search updates (Remote Settings), add-on updates, web push notifications, video plugins (Widevine, OpenH264), translation models (translation runs on this Mac), your country for search defaults, and a one-off check after a certificate error that looks like interception.
+whimsy-privacy-sync = <strong>Mozilla account and Sync</strong>: only if you sign in. What you sync is end-to-end encrypted.
+whimsy-privacy-dns = <strong>Cloudflare</strong>: in some countries, Firefox's DNS over HTTPS turns on by itself and sends lookups to Cloudflare's resolver for Mozilla. Change it in Settings → Privacy & Security.
+whimsy-privacy-zen = <strong>Zen</strong>: when you share a space or folder, its tab titles and links go to Zen's share server, and anyone with the link can open it for 30 days. Zen Mods come from Zen's mod store.
+whimsy-privacy-apple = <strong>Apple</strong>: captive.apple.com, to check that you're online and to spot Wi-Fi sign-in pages. macOS makes the same check.
+whimsy-privacy-google = <strong>Google</strong>: Safe Browsing lists and checks of downloaded apps.
+whimsy-privacy-updates = <strong>GitHub</strong>: Whimsy's updates.
+whimsy-privacy-search = <strong>Your search engine</strong>: what you search for, as with any browser.
