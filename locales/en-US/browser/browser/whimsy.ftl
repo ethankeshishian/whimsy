@@ -663,7 +663,7 @@ whimsy-look-menu-bar-extra =
 ## batch7: Settings → Look and Feel → Look
 
 whimsy-look-seasonal-themes =
-    .label = Seasonal themes (a small accent and flourish for Halloween, winter and spring)
+    .label = Seasonal loading colors
 
 ## batch7: Settings → Tab Management
 
