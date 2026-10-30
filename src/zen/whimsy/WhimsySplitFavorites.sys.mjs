@@ -65,7 +65,7 @@ export const WhimsySplitFavorites = {
       {
         l10nId: "whimsy-action-favorite-split",
         command: "whimsy-cmd-favorite-split",
-        icon: "chrome://browser/skin/zen-icons/star.svg",
+        icon: "chrome://browser/skin/zen-icons/bookmark.svg",
         isAvailable: w => this.enabled && !!w.gZenViewSplitter?.splitViewActive,
       },
       {

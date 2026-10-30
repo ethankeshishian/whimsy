@@ -39,7 +39,7 @@ export const WhimsyPrintClean = {
       {
         l10nId: "whimsy-action-print-clean",
         command: COMMAND_ID,
-        icon: "chrome://browser/skin/zen-icons/reader-view.svg",
+        icon: "chrome://browser/skin/zen-icons/reader-mode.svg",
         isAvailable: w => this.enabled && !!w.gBrowser.selectedBrowser?.currentURI?.spec,
       },
     ]);
