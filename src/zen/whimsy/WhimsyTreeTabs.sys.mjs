@@ -199,7 +199,7 @@ export const WhimsyTreeTabs = {
       if (!this.eligible(tab) || !tab.isConnected || moved.has(this.openerOf(tab))) {
         continue;
       }
-      const branch = this.descendantsOf(win, tab).sort((a, b) => a._tPos - b._tPos);
+      const branch = this.descendantsOf(win, tab).sort((a, b) => a.index - b.index);
       const tabs = win.gBrowser.tabs;
       let previous = tabs.slice(0, tabs.indexOf(tab)).reverse().find(t =>
         !moved.has(t) && !branch.includes(t) && this.eligible(t) && t.visible &&

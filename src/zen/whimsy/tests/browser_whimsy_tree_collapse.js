@@ -127,11 +127,11 @@ add_task(async function test_drop_reparents() {
   const { root, child, leaf, other } = await makeTree();
   try {
     // What a native drop leaves behind: the child moved after `other`.
-    gBrowser.moveTabTo(child, { tabIndex: other._tPos + 1 });
+    gBrowser.moveTabTo(child, { tabIndex: other.index + 1 });
     WhimsyTreeTabs.reparentDropped(window, [child], 0);
     is(WhimsyTreeTabs.openerOf(child), null, "Dropped at the outer edge: detached into a root");
     is(WhimsyTreeTabs.openerOf(leaf), child, "Its own subtree stays with it");
-    is(leaf._tPos, child._tPos + 1, "...and follows it in tab order");
+    is(leaf.index, child.index + 1, "...and follows it in tab order");
 
     WhimsyTreeTabs.reparentDropped(window, [child], 1);
     is(WhimsyTreeTabs.openerOf(child), other, "Dropped one indent in: nested under the tab above");
