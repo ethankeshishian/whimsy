@@ -156,7 +156,7 @@ add_task(async function test_close_pane_and_close_others() {
 
   await openPaneMenu(tabs[0]);
   await choose("whimsySplitPane-closeOthers");
-  await TestUtils.waitForCondition(() => !tabs[1].isConnected || tabs[1].closing, "Close Other Panes closes the rest");
+  await TestUtils.waitForCondition(() => !tabs[1].isConnected || tabs[1].closing, "Expand Current Split closes the other panes");
   ok(tabs[0].isConnected && !tabs[0].splitView, "The pane it came from stays, on its own");
   cleanup(tabs);
 });
@@ -234,6 +234,9 @@ add_task(async function test_arc_labels() {
   is(value("zen-split-view-shortcut-unsplit"), "Separate All Tabs", "Shortcuts: undo");
   is(value("zen-new-empty-split-view-shortcut"), "Add Split View", "Shortcuts: create");
   is(value("whimsy-cheatsheet-unsplit"), "Separate All Tabs", "Cheat sheet");
-  is(label("whimsy-menu-expand-split"), "Separate All Tabs", "View menu and pane menu");
+  is(label("whimsy-menu-expand-split"), "Expand Current Split", "Arc's View menu: keep this pane, close the others");
+  is(value("whimsy-action-close-other-panes"), "Expand Current Split", "same action in the command bar");
+  is(label("whimsy-split-pane-separate-all"), "Separate All Tabs", "Pane menu: every pane its own tab");
+  is(label("whimsy-menu-close-split-pane"), "Close this Split Pane", "Arc's Close this Split Pane");
   is(label("whimsy-menu-separate-page"), "Separate Page from Split View", "One pane");
 });

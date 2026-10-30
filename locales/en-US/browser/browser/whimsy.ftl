@@ -319,7 +319,7 @@ whimsy-translate-none-toast = Select some text to translate
 
 ## Split view (command bar; batch6)
 
-whimsy-action-close-other-panes = Close Other Panes
+whimsy-action-close-other-panes = Expand Current Split
 whimsy-action-swap-panes = Swap Panes
 whimsy-action-split-vertically = Split Vertically
 whimsy-action-split-horizontally = Split Horizontally
@@ -1256,7 +1256,7 @@ whimsy-cheatsheet-split-horizontal = Split Top and Bottom
 whimsy-cheatsheet-split-grid = Split in a Grid
 whimsy-cheatsheet-unsplit = Separate All Tabs
 whimsy-cheatsheet-swap-panes = Swap Panes
-whimsy-cheatsheet-close-other-panes = Close Other Panes
+whimsy-cheatsheet-close-other-panes = Expand Current Split
 whimsy-cheatsheet-find = Find in Page
 whimsy-cheatsheet-reader = Reader View
 whimsy-cheatsheet-copy-full-page = Capture Full Page
@@ -2218,7 +2218,7 @@ whimsy-archive-cleared-toast = Archive cleared
 whimsy-action-add-split-view = Add Split View
 whimsy-action-close-split-pane = Close this Split Pane
 whimsy-action-separate-page = Separate Page from Split View
-whimsy-action-expand-split = Separate All Tabs
+whimsy-action-expand-split = Expand Current Split
 whimsy-action-focus-pane-1 = Focus First Split Pane
 whimsy-action-focus-pane-2 = Focus Second Split Pane
 whimsy-action-focus-pane-3 = Focus Third Split Pane
@@ -2232,7 +2232,7 @@ whimsy-menu-close-split-pane =
 whimsy-menu-separate-page =
     .label = Separate Page from Split View
 whimsy-menu-expand-split =
-    .label = Separate All Tabs
+    .label = Expand Current Split
 
 ## wave6/parity: Arc's Edit menu (Copy URL variants, Paste and Match Style).
 
@@ -2389,7 +2389,8 @@ whimsy-pane-tabs-crumb =
 
 ## wave7/split: a split pane's ⋯ menu (on the pane's hover header).
 ## Arc's names: Separate Page from Split View, Close this Split Pane,
-## Separate All Tabs.
+## Expand Current Split (keep this pane, close the others; View menu and
+## command bar), Separate All Tabs (every pane its own tab; tab menu).
 
 whimsy-split-pane-menu-button =
     .tooltiptext = Pane Actions
@@ -2400,6 +2401,6 @@ whimsy-split-pane-swap =
     .label = Swap Panes
 whimsy-split-pane-favorite =
     .label = Favorite This Split…
-whimsy-split-pane-close-others =
-    .label = Close Other Panes
+whimsy-split-pane-separate-all =
+    .label = Separate All Tabs
 whimsy-action-split-pane-menu = Split Pane Actions…

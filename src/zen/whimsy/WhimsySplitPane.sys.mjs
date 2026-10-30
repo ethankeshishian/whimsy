@@ -15,10 +15,12 @@
 //   Separate Page from Split View · Separate All Tabs
 //   Swap Panes · Make This a Follower Split / Stop Following (2 panes)
 //   Favorite This Split… · Share Split View… (when Zen's share is on)
-//   Close this Split Pane · Close Other Panes
-// Arc's names: "Separate Page from Split View" and "Close this Split Pane"
-// (Arc's View menu), "Separate All Tabs" (Arc's split tab menu, Help
-// Center "Split View: View Multiple Tabs at Once").
+//   Close this Split Pane · Expand Current Split
+// Arc's names: "Separate Page from Split View", "Close this Split Pane" and
+// "Expand Current Split" (Arc's View menu; Expand keeps this pane and closes
+// the other panes, per Arc's command bar docs), "Separate All Tabs" (Arc's
+// split tab menu, Help Center "Split View: View Multiple Tabs at Once":
+// every pane goes back to being its own tab, nothing closes).
 //
 // Zen's own header button for "take this page out" (fullscreen icon, no
 // label) is hidden while this is on: the menu's first item does the same,
@@ -48,7 +50,7 @@ function enabled(pref = FEATURE_PREF) {
 const GROUPS = [
   [
     ["whimsySplitPane-separate", "whimsy-menu-separate-page"],
-    ["whimsySplitPane-separateAll", "whimsy-menu-expand-split"],
+    ["whimsySplitPane-separateAll", "whimsy-split-pane-separate-all"],
   ],
   [
     ["whimsySplitPane-swap", "whimsy-split-pane-swap"],
@@ -60,7 +62,7 @@ const GROUPS = [
   ],
   [
     ["whimsySplitPane-close", "whimsy-menu-close-split-pane"],
-    ["whimsySplitPane-closeOthers", "whimsy-split-pane-close-others"],
+    ["whimsySplitPane-closeOthers", "whimsy-menu-expand-split"],
   ],
 ];
 

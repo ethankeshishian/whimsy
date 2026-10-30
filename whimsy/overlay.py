@@ -1036,14 +1036,14 @@ FEATURES = [
     # wave6/parity: Arc's Option+click a tab to split it with the current one.
     {"id": "split-alt-click", "title": "Option+click a tab in the sidebar to open it in a split with the current tab (Arc)",
      "detect": [("src/zen/split-view", r"(?i)alt-?click|altKey")]},
-    {"id": "split-arc-keys", "title": "Arc's Split View commands: Add Split View (Ctrl+Shift+=), Close this Split Pane (Ctrl+Shift+-), Separate Page, Separate All Tabs, Ctrl+Shift+1-4 and [ ] to move between panes",
+    {"id": "split-arc-keys", "title": "Arc's Split View commands: Add Split View (Ctrl+Shift+=), Close this Split Pane (Ctrl+Shift+-), Separate Page, Expand Current Split, Ctrl+Shift+1-4 and [ ] to move between panes",
      "detect": [("src/zen/split-view", r"(?i)separate-?page|focus-?pane|cmd_zenSplitView(Focus|Next|Prev)")]},
     {"id": "command-bar-dedup", "title": "Command bar: one row per page title on Figma, Notion, GitHub and Arc's other 7 hosts (Arc's dedupByTitleAndHost)",
      "detect": [("src/zen/urlbar", r"(?i)dedup")]},
     {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
      "detect": [("src/zen/common", r"(?i)reveal-?tab|tabs-menubar|portrait")]},
     # wave7/split: a split pane's actions on the pane (hover header ⋯ menu).
-    {"id": "split-pane-menu", "title": "Split pane menu: a ⋯ button on each pane's header holds that pane's actions (Separate Page, Separate All Tabs, Swap, Follower, Favorite, Close); the tab menu keeps only Add Split View",
+    {"id": "split-pane-menu", "title": "Split pane menu: a ⋯ button on each pane's header holds that pane's actions (Separate Page, Separate All Tabs, Swap, Follower, Favorite, Close, Expand Current Split); the tab menu keeps only Add Split View",
      "detect": [("src/zen/split-view", r"(?i)pane-?menu|splitter-header[^\n]*menupopup|header-menu")]},
 ]
 
