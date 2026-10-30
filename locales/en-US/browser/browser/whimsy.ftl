@@ -1674,3 +1674,16 @@ whimsy-menu-separate-page =
     .label = Separate Page from Split View
 whimsy-menu-expand-split =
     .label = Expand Current Split
+
+## wave6/parity: Arc's Edit menu (Copy URL variants, Paste and Match Style).
+
+whimsy-action-copy-url-quote = Copy URL as Quote
+whimsy-copy-quote-toast = Copied as a quote
+whimsy-menu-copy-url =
+    .label = Copy URL
+whimsy-menu-copy-url-markdown =
+    .label = Copy URL as Markdown
+whimsy-menu-copy-url-quote =
+    .label = Copy URL as Quote
+whimsy-menu-paste-match-style =
+    .label = Paste and Match Style

@@ -359,3 +359,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
 ["browser_whimsy_split_arc_keys.js"]
+
+# wave6/parity: Arc's menu keys (Library, Downloads/Console, Save Page, Blank Window, Copy URL as Quote, Paste and Match Style).
+["browser_whimsy_arc_menu_keys.js"]
