@@ -284,3 +284,11 @@ add_task(async function hover_previews_are_anonymous_and_public_only() {
     WhimsyAIReader.setTestReader(null);
   }
 });
+
+// wave7/security L7: the hidden reader can't launch external apps
+// (SANDBOXED_TOPLEVEL_NAVIGATION_CUSTOM_PROTOCOLS).
+add_task(async function hidden_reader_blocks_custom_protocols() {
+  WhimsyAIReader.setTestReader(null);
+  const flags = await WhimsyAIReader.withHiddenPage(PAGE, {}, async browser => browser.browsingContext.sandboxFlags);
+  ok(flags & 0x40000, "No navigation to custom protocols");
+});

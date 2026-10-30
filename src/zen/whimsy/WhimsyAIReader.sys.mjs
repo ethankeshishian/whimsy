@@ -189,8 +189,10 @@ export const WhimsyAIReader = {
       doc.documentElement.appendChild(browser);
       // Match PageExtractor's capability restrictions, while retaining the
       // container's authenticated session and scripts needed for rendering.
+      // wave7/security L7: and no zoommtg:/slack:/vscode: launches from a
+      // page nobody sees (SANDBOXED_TOPLEVEL_NAVIGATION_CUSTOM_PROTOCOLS).
       browser.browsingContext.sandboxFlags |=
-        0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000;
+        0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000 | 0x40000;
       browser.browsingContext?.mediaController?.mute();
       browser.addEventListener("DidChangeBrowserRemoteness", () =>
         browser.browsingContext?.mediaController?.mute()
