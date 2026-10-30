@@ -2,56 +2,47 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// ext: per-space extensions (whimsy.feature.space-extensions)
+// ext → wave5/profiles: extensions per profile (Arc: each profile has its
+// own extensions). Replaces "Show in Spaces…": an extension runs in All
+// Profiles (the default) or only in the profiles picked from "Run in
+// Profiles" on its menu (unified-extensions panel, toolbar, about:addons).
 //
-// Arc associates extensions with a space only because each Arc space can be
-// a different Chromium *profile*; profiles separate browsing state and
-// settings entirely. Gecko doesn't load extensions per container/profile
-// inside one window, so true per-space extensions would need distinct
-// Firefox profiles mapped into Whimsy's spaces — a separate architectural
-// project, not an overlay change. This module does the two parts that *are*
-// reachable from an overlay, without any engine patch:
+// What that means, all of it real Firefox behaviour:
+// 1. Outside its profiles, the extension's tabs, webNavigation, webRequest
+//    and proxy APIs can't see or act on tabs:
+//    extensions.userContextIsolation.<id>.restricted lists every other
+//    profile's container (Extension.sys.mjs#canAccessContainer). Whimsy
+//    turns extensions.userContextIsolation.enabled on by default (it's read
+//    when an extension starts) and also flips it on running extensions.
+// 2. Its content scripts don't run in those profiles' pages: a Whimsy
+//    process script (content/whimsy-profiles-process.js) declines them
+//    before ExtensionContent injects anything.
+// 3. Its toolbar button and panel row hide in those profiles' spaces.
+// Honest limit: it's still one install with one background page and one
+// storage.local shared by every profile; Settings says so.
 //
-// 1. Per-extension "Show in Spaces…" (a submenu added to the extension's
-//    existing gear menu in the unified-extensions panel, same injection
-//    pattern as WhimsySpaceLock's workspace-context-menu item): pick "All
-//    Spaces" (the default) or specific spaces, stored by stable space uuid.
-//    On every space switch, matching extensions' toolbar buttons (pinned or
-//    overflowed into the panel) and their panel-list rows are hidden or
-//    shown. This never touches the browser's separate enable/disable state
-//    (AddonManager) — a hidden extension is still installed and enabled.
-//
-// 2. Where a space has its own container (workspace.containerTabId), go one
-//    step further using Firefox's real (if rarely enabled) per-container
-//    extension restriction: `extensions.userContextIsolation.<id>.restricted`
-//    (see toolkit/components/extensions/Extension.sys.mjs#canAccessContainer).
-//    Setting it stops the extension's `tabs`, `webNavigation`, `webRequest`
-//    and `proxy` APIs from seeing or acting on tabs in restricted containers
-//    — real isolation for background-script automation, no patch needed.
-//    It does NOT stop the extension's content scripts from running inside
-//    pages loaded in those tabs (content-script injection is driven by host
-//    permissions/match patterns, which this pref doesn't touch), and a space
-//    without its own container can't be isolated this way at all (container
-//    0, "no container", is never restricted: too many spaces can share it).
-//    Full profile isolation is a separate design decision.
+// The choice is stored by profile key in a synced map (WhimsyProfileSync,
+// merged per extension, newest wins): extension id → [key, ...].
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   ExtensionCommon: "resource://gre/modules/ExtensionCommon.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsySyncedMap: "resource:///modules/whimsy/WhimsyProfileSync.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.space-extensions";
-// {extensionId: {spaces: [uuid, ...]}}; no entry (or entry.spaces == null)
-// means "all spaces", Arc's default.
+// {extensionId: [profile key, ...]}; no entry means all profiles.
+const PROFILES_PREF = "whimsy.profiles.extensions";
+// The old per-space choice, migrated once to profiles.
 const VISIBILITY_PREF = "whimsy.extensions.space-visibility";
-// Extension ids whose extensions.userContextIsolation.<id>.restricted pref
-// Whimsy currently manages, so turning the feature off (or clearing a
-// restriction) resets exactly those and nothing a user set by hand.
+// Extension ids whose restricted pref Whimsy currently manages, so turning
+// the feature off (or clearing a choice) resets exactly those.
 const MANAGED_ISOLATION_PREF = "whimsy.extensions.space-isolation-managed";
-const ISOLATION_ENABLED_PREF = "extensions.userContextIsolation.enabled";
 const MENU_ID = "whimsy-space-extensions-menu";
 const MENUPOPUP_ID = "whimsy-space-extensions-menupopup";
+export const PROCESS_SCRIPT = "chrome://browser/content/whimsy/whimsy-profiles-process.js";
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -59,54 +50,98 @@ function featureOn() {
 
 function readJSON(pref, fallback) {
   try {
-    return JSON.parse(Services.prefs.getStringPref(pref, fallback));
+    return JSON.parse(Services.prefs.getStringPref(pref, "") || fallback);
   } catch (e) {
     return JSON.parse(fallback);
   }
 }
 
+function restrictedPref(extensionId) {
+  return `extensions.userContextIsolation.${extensionId}.restricted`;
+}
+
 export const WhimsySpaceExtensions = {
+  PROFILES_PREF,
+
   // -- storage --------------------------------------------------------
 
-  getVisibilityMap() {
-    return readJSON(VISIBILITY_PREF, "{}");
-  },
-
-  setVisibilityMap(map) {
-    Services.prefs.setStringPref(VISIBILITY_PREF, JSON.stringify(map));
-  },
-
-  // null = all spaces (the default, Arc parity for an un-customized
-  // extension); an array = exactly those space uuids.
-  getAllowedSpaces(extensionId) {
-    const entry = this.getVisibilityMap()[extensionId];
-    return Array.isArray(entry?.spaces) ? entry.spaces : null;
-  },
-
-  isVisibleInSpace(extensionId, spaceUuid) {
-    const allowed = this.getAllowedSpaces(extensionId);
-    return !allowed || !spaceUuid || allowed.includes(spaceUuid);
-  },
-
-  setAllowedSpaces(win, extensionId, spacesOrNull) {
-    const map = this.getVisibilityMap();
-    if (!spacesOrNull) {
-      delete map[extensionId];
-    } else {
-      map[extensionId] = { spaces: spacesOrNull };
+  get choices() {
+    if (!this._choices) {
+      this._choices = new lazy.WhimsySyncedMap({ pref: PROFILES_PREF, file: "whimsy-profile-extensions.json" });
+      // Another device changed a choice: apply it here too.
+      this._choices.onChange(() => {
+        if (this._initializedChoices) {
+          this.applyContainerIsolation();
+          this.refreshAllWindows();
+        }
+      });
     }
-    this.setVisibilityMap(map);
-    this.applyContainerIsolation(win);
+    return this._choices;
+  },
+
+  /** {extensionId: [key, ...]} for every limited extension. */
+  getProfileMap() {
+    return Object.fromEntries(this.choices.entries().filter(([, keys]) => Array.isArray(keys)));
+  },
+
+  // null = all profiles (Arc's default for an extension nobody limited);
+  // an array = exactly those profile keys.
+  getAllowedProfiles(extensionId) {
+    const entry = this.choices.get(extensionId);
+    return Array.isArray(entry) ? entry : null;
+  },
+
+  isAllowedIn(extensionId, key) {
+    const allowed = this.getAllowedProfiles(extensionId);
+    return !allowed || allowed.includes(key);
+  },
+
+  setAllowedProfiles(extensionId, keysOrNull) {
+    this.choices.set(extensionId, keysOrNull ? [...new Set(keysOrNull)].sort() : null);
+    this.applyContainerIsolation();
     this.refreshAllWindows();
+  },
+
+  toggleProfile(extensionId, key) {
+    const current = this.getAllowedProfiles(extensionId) ??
+      lazy.WhimsyProfiles.list().map(profile => profile.key);
+    this.setAllowedProfiles(extensionId, current.includes(key) ?
+      current.filter(item => item != key) : [...current, key]);
   },
 
   forgetExtension(extensionId) {
-    const map = this.getVisibilityMap();
-    if (extensionId in map) {
-      delete map[extensionId];
-      this.setVisibilityMap(map);
+    if (this.getAllowedProfiles(extensionId)) {
+      this.choices.set(extensionId, null);
     }
+    this.applyContainerIsolation();
     this.refreshAllWindows();
+  },
+
+  forgetProfile(key) {
+    for (const [id, keys] of Object.entries(this.getProfileMap())) {
+      if (keys.includes(key)) {
+        this.choices.set(id, keys.filter(item => item != key));
+      }
+    }
+  },
+
+  // "Show in Spaces" lists become the profiles of those spaces, once.
+  migrateSpaceChoices(win) {
+    if (!Services.prefs.prefHasUserValue(VISIBILITY_PREF)) {
+      return;
+    }
+    const old = readJSON(VISIBILITY_PREF, "{}");
+    const spaces = win?.gZenWorkspaces?.getWorkspaces?.() ?? [];
+    for (const [extensionId, entry] of Object.entries(old)) {
+      if (!Array.isArray(entry?.spaces) || this.getAllowedProfiles(extensionId)) {
+        continue;
+      }
+      this.setAllowedProfiles(extensionId, entry.spaces
+        .map(uuid => spaces.find(space => space.uuid == uuid))
+        .filter(Boolean)
+        .map(space => lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.profileIdOfSpace(space))));
+    }
+    Services.prefs.clearUserPref(VISIBILITY_PREF);
   },
 
   // -- toolbar / panel visibility --------------------------------------
@@ -115,21 +150,24 @@ export const WhimsySpaceExtensions = {
     return `${lazy.ExtensionCommon.makeWidgetId(extensionId)}-browser-action`;
   },
 
+  activeKey(win) {
+    return lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.activeProfileId(win));
+  },
+
   // Hides/shows the CUI node for every extension with a browser action
   // (toolbar-pinned or overflowed into the unified-extensions panel) to
-  // match the active space. Extensions without a browser action are
-  // handled by wrapGetActivePolicies, since they only ever exist as rows
-  // the panel builds from that list.
+  // match the active space's profile. Extensions without a browser action
+  // are handled by wrapGetActivePolicies. Never touches enable/disable.
   applyVisibility(win) {
     if (!win || win.closed || !win.gZenWorkspaces) {
       return;
     }
-    const activeUuid = win.gZenWorkspaces.activeWorkspace;
+    const key = this.activeKey(win);
     for (const policy of WebExtensionPolicy.getActiveExtensions()) {
       if (policy.extension?.type !== "extension") {
         continue;
       }
-      const visible = !featureOn() || this.isVisibleInSpace(policy.id, activeUuid);
+      const visible = !featureOn() || this.isAllowedIn(policy.id, key);
       const widget = win.CustomizableUI?.getWidget(this.widgetIdFor(policy.id));
       const node = widget?.forWindow(win)?.node;
       if (node) {
@@ -148,11 +186,8 @@ export const WhimsySpaceExtensions = {
     }
   },
 
-  // Panel-list rows (extensions without a browser action) are built fresh
-  // from gUnifiedExtensions.getActivePolicies() every time the panel opens
-  // (see onPanelViewShowing in browser-addons.js), and that same list feeds
-  // the attention dot and empty-state checks. Filtering it here covers all
-  // of that in one place without touching Zen/Firefox's file.
+  // Panel-list rows (extensions without a browser action) are built from
+  // gUnifiedExtensions.getActivePolicies() each time the panel opens.
   wrapGetActivePolicies(win) {
     const gUE = win.gUnifiedExtensions;
     const original = gUE?.getActivePolicies;
@@ -165,66 +200,76 @@ export const WhimsySpaceExtensions = {
       if (!featureOn()) {
         return policies;
       }
-      const activeUuid = win.gZenWorkspaces?.activeWorkspace;
-      return policies.filter(policy => self.isVisibleInSpace(policy.id, activeUuid));
+      const key = self.activeKey(win);
+      return policies.filter(policy => self.isAllowedIn(policy.id, key));
     };
     wrapped._whimsySpaceExt = true;
     gUE.getActivePolicies = wrapped;
   },
 
-  // -- container (tabs/webNavigation/webRequest/proxy) isolation -------
+  // -- isolation (tabs/webNavigation/webRequest/proxy + content scripts) --
 
-  // Only restricts a container that belongs exclusively to spaces the
-  // extension isn't allowed in; a container shared with an allowed space,
-  // or the default "no container" (0), is never restricted.
-  applyContainerIsolation(win) {
-    const workspaces = win?.gZenWorkspaces?.getWorkspaces?.() ?? [];
-    const containerOf = new Map(workspaces.map(w => [w.uuid, w.containerTabId || 0]));
-    const defaults = Services.prefs.getDefaultBranch("");
-    const map = this.getVisibilityMap();
-    const previouslyManaged = new Set(readJSON(MANAGED_ISOLATION_PREF, "[]"));
-    const nowManaged = new Set();
-    let anyRestricted = false;
-
-    if (featureOn()) {
-      for (const [extensionId, entry] of Object.entries(map)) {
-        const allowed = entry?.spaces;
-        if (!Array.isArray(allowed)) {
-          continue;
-        }
-        const allowedContainers = new Set(
-          allowed.map(uuid => containerOf.get(uuid)).filter(id => !!id)
-        );
-        const restricted = [
-          ...new Set(
-            workspaces
-              .filter(w => !allowed.includes(w.uuid))
-              .map(w => containerOf.get(w.uuid))
-              .filter(id => !!id && !allowedContainers.has(id))
-          ),
-        ];
-        defaults.setStringPref(
-          `extensions.userContextIsolation.${extensionId}.restricted`,
-          JSON.stringify(restricted)
-        );
-        nowManaged.add(extensionId);
-        if (restricted.length) {
-          anyRestricted = true;
-        }
-      }
+  // Every profile this device has that the extension isn't allowed in,
+  // Default (container 0) included.
+  restrictedIdsFor(extensionId) {
+    const allowed = this.getAllowedProfiles(extensionId);
+    if (!allowed) {
+      return [];
     }
-
-    for (const extensionId of previouslyManaged) {
-      if (!nowManaged.has(extensionId)) {
-        defaults.setStringPref(`extensions.userContextIsolation.${extensionId}.restricted`, "[]");
-      }
-    }
-
-    Services.prefs.setStringPref(MANAGED_ISOLATION_PREF, JSON.stringify([...nowManaged]));
-    defaults.setBoolPref(ISOLATION_ENABLED_PREF, anyRestricted);
+    return lazy.WhimsyProfiles.list()
+      .filter(profile => !allowed.includes(profile.key))
+      .map(profile => profile.id);
   },
 
-  // -- "Show in Spaces…" submenu on the extension's gear menu ----------
+  applyContainerIsolation() {
+    const previouslyManaged = new Set(readJSON(MANAGED_ISOLATION_PREF, "[]"));
+    const nowManaged = new Set();
+    if (featureOn()) {
+      for (const extensionId of Object.keys(this.getProfileMap())) {
+        Services.prefs.setStringPref(restrictedPref(extensionId),
+          JSON.stringify(this.restrictedIdsFor(extensionId)));
+        nowManaged.add(extensionId);
+      }
+    }
+    for (const extensionId of previouslyManaged) {
+      if (!nowManaged.has(extensionId)) {
+        Services.prefs.clearUserPref(restrictedPref(extensionId));
+        // An older build kept it on the default branch.
+        Services.prefs.getDefaultBranch("").setStringPref(restrictedPref(extensionId), "[]");
+      }
+    }
+    if (nowManaged.size) {
+      Services.prefs.setStringPref(MANAGED_ISOLATION_PREF, JSON.stringify([...nowManaged]));
+    } else {
+      Services.prefs.clearUserPref(MANAGED_ISOLATION_PREF);
+    }
+    // Firefox reads extensions.userContextIsolation.enabled when an
+    // extension starts; extensions already running get it here.
+    if (nowManaged.size) {
+      for (const policy of WebExtensionPolicy.getActiveExtensions()) {
+        if (policy.extension && nowManaged.has(policy.id)) {
+          policy.extension.userContextIsolation = true;
+        }
+      }
+    }
+  },
+
+  loadProcessScript() {
+    if (this._processScript) {
+      return;
+    }
+    this._processScript = true;
+    try {
+      // WhimsyStartup usually loaded it already, before any page.
+      if (!Services.ppmm.getDelayedProcessScripts().some(([url]) => url == PROCESS_SCRIPT)) {
+        Services.ppmm.loadProcessScript(PROCESS_SCRIPT, true);
+      }
+    } catch (e) {
+      console.error("Whimsy: profile content-script guard", e);
+    }
+  },
+
+  // -- "Run in Profiles" submenu on the extension's menus -------------
 
   getExtensionIdFromMenu(menu) {
     const trigger = menu.triggerNode;
@@ -234,12 +279,12 @@ export const WhimsySpaceExtensions = {
   },
 
   ensureMenuItems(win, menu = win.document.getElementById("unified-extensions-context-menu")) {
-    if (!menu || menu.querySelector("[data-whimsy-space-menu]")) {
+    if (!menu || menu.querySelector("[data-whimsy-profile-menu]")) {
       return menu;
     }
     const { document } = win;
     const menuEl = document.createXULElement("menu");
-    menuEl.setAttribute("data-whimsy-space-menu", "true");
+    menuEl.setAttribute("data-whimsy-profile-menu", "true");
     if (menu.id === "unified-extensions-context-menu") {
       menuEl.id = MENU_ID;
     }
@@ -250,7 +295,7 @@ export const WhimsySpaceExtensions = {
     }
     popup.addEventListener("popupshowing", event => {
       if (event.target === popup) {
-        this.updateSpacePicker(win, popup, menuEl.extensionId);
+        this.updateProfilePicker(win, popup, menuEl.extensionId);
       }
     });
     menuEl.appendChild(popup);
@@ -273,7 +318,7 @@ export const WhimsySpaceExtensions = {
   },
 
   updateContextMenu(win, menu) {
-    const item = menu.querySelector("[data-whimsy-space-menu]");
+    const item = menu.querySelector("[data-whimsy-profile-menu]");
     if (!item) {
       return;
     }
@@ -281,36 +326,29 @@ export const WhimsySpaceExtensions = {
     item.hidden = !featureOn() || !item.extensionId;
   },
 
-  updateSpacePicker(win, popup, extensionId) {
+  updateProfilePicker(win, popup, extensionId) {
     const { document } = win;
     popup.replaceChildren();
-    if (!extensionId || !win.gZenWorkspaces) {
+    if (!extensionId) {
       return;
     }
-    const allowed = this.getAllowedSpaces(extensionId);
+    const allowed = this.getAllowedProfiles(extensionId);
     const allItem = document.createXULElement("menuitem");
     allItem.setAttribute("type", "checkbox");
     document.l10n.setAttributes(allItem, "whimsy-space-extensions-all");
     allItem.toggleAttribute("checked", !allowed);
-    allItem.addEventListener("command", () => this.setAllowedSpaces(win, extensionId, null));
+    allItem.addEventListener("command", () => this.setAllowedProfiles(extensionId, null));
     popup.appendChild(allItem);
     popup.appendChild(document.createXULElement("menuseparator"));
-    for (const workspace of win.gZenWorkspaces.getWorkspaces()) {
+    for (const profile of lazy.WhimsyProfiles.list()) {
       const item = document.createXULElement("menuitem");
       item.setAttribute("type", "checkbox");
-      item.setAttribute("label", workspace.name || "");
-      item.toggleAttribute("checked", !!allowed?.includes(workspace.uuid));
-      item.addEventListener("command", () => {
-        this.toggleSpace(win, extensionId, workspace.uuid);
-      });
+      item.setAttribute("label", profile.name);
+      item.dataset.profileKey = profile.key;
+      item.toggleAttribute("checked", !allowed || allowed.includes(profile.key));
+      item.addEventListener("command", () => this.toggleProfile(extensionId, profile.key));
       popup.appendChild(item);
     }
-  },
-
-  toggleSpace(win, extensionId, uuid) {
-    const current = this.getAllowedSpaces(extensionId) || [];
-    this.setAllowedSpaces(win, extensionId, current.includes(uuid)
-      ? current.filter(id => id !== uuid) : [...current, uuid]);
   },
 
   initAboutAddons(win) {
@@ -327,10 +365,10 @@ export const WhimsySpaceExtensions = {
           if (!panel || card.addon?.type !== "extension") {
             continue;
           }
-          let item = panel.querySelector("[data-whimsy-space-picker]");
+          let item = panel.querySelector("[data-whimsy-profile-picker]");
           if (!item) {
             item = doc.createElement("panel-item");
-            item.setAttribute("data-whimsy-space-picker", "true");
+            item.setAttribute("data-whimsy-profile-picker", "true");
             doc.l10n.setAttributes(item, "whimsy-space-extensions-picker");
             item.addEventListener("click", event => {
               event.stopPropagation();
@@ -347,7 +385,7 @@ export const WhimsySpaceExtensions = {
             item.hidden = hidden;
           }
           if (hidden) {
-            card.querySelector("[data-whimsy-space-choices]")?.remove();
+            card.querySelector("[data-whimsy-profile-choices]")?.remove();
           }
         }
       };
@@ -383,24 +421,24 @@ export const WhimsySpaceExtensions = {
     }
   },
 
-  showAddonPicker(win, card, focusSpace = null) {
+  showAddonPicker(win, card, focusKey = null) {
     const doc = card.ownerDocument;
-    card.querySelector("[data-whimsy-space-choices]")?.remove();
+    card.querySelector("[data-whimsy-profile-choices]")?.remove();
     const choices = doc.createElement("fieldset");
-    choices.setAttribute("data-whimsy-space-choices", "true");
+    choices.setAttribute("data-whimsy-profile-choices", "true");
     choices.addEventListener("click", event => event.stopPropagation());
     const legend = doc.createElement("legend");
     doc.l10n.setAttributes(legend, "whimsy-space-extensions-picker");
     choices.appendChild(legend);
-    const allowed = this.getAllowedSpaces(card.addon.id);
-    const addChoice = (uuid, name) => {
+    const allowed = this.getAllowedProfiles(card.addon.id);
+    const addChoice = (key, name) => {
       const label = doc.createElement("label");
       const input = doc.createElement("input");
       input.type = "checkbox";
-      input.dataset.space = uuid ?? "";
-      input.checked = uuid === null ? !allowed : !!allowed?.includes(uuid);
+      input.dataset.profile = key ?? "";
+      input.checked = key === null ? !allowed : !allowed || allowed.includes(key);
       const text = doc.createElement("span");
-      if (uuid === null) {
+      if (key === null) {
         doc.l10n.setAttributes(text, "whimsy-space-extensions-all-text");
       } else {
         text.textContent = name;
@@ -409,22 +447,26 @@ export const WhimsySpaceExtensions = {
         if (!featureOn()) {
           return;
         }
-        if (uuid === null) {
-          this.setAllowedSpaces(win, card.addon.id, null);
+        if (key === null) {
+          this.setAllowedProfiles(card.addon.id, input.checked ? null : []);
         } else {
-          this.toggleSpace(win, card.addon.id, uuid);
+          this.toggleProfile(card.addon.id, key);
         }
-        this.showAddonPicker(win, card, uuid);
+        this.showAddonPicker(win, card, key);
       });
       label.append(input, text);
       choices.append(label, doc.createElement("br"));
     };
     addChoice(null);
-    for (const space of win.gZenWorkspaces.getWorkspaces()) {
-      addChoice(space.uuid, space.name);
+    for (const profile of lazy.WhimsyProfiles.list()) {
+      addChoice(profile.key, profile.name);
     }
+    const note = doc.createElement("p");
+    note.className = "whimsy-profile-choices-note";
+    doc.l10n.setAttributes(note, "whimsy-space-extensions-shared-note");
+    choices.appendChild(note);
     card.appendChild(choices);
-    [...choices.querySelectorAll("input")].find(input => input.dataset.space === (focusSpace ?? "")).focus();
+    [...choices.querySelectorAll("input")].find(input => input.dataset.profile === (focusKey ?? ""))?.focus();
   },
 
   // -- wiring ------------------------------------------------------------
@@ -470,6 +512,29 @@ export const WhimsySpaceExtensions = {
     });
   },
 
+  initIdentityObserver() {
+    if (this._identityObserver) {
+      return;
+    }
+    // A new profile is off-limits to limited extensions from the start; a
+    // deleted one drops out of every list.
+    this._identityObserver = (subject, topic) => {
+      if (topic == "contextual-identity-deleted") {
+        this.forgetProfile(lazy.WhimsyProfiles.keyFor(subject?.wrappedJSObject?.userContextId));
+      }
+      this.applyContainerIsolation();
+      this.refreshAllWindows();
+    };
+    for (const topic of ["contextual-identity-created", "contextual-identity-deleted"]) {
+      Services.obs.addObserver(this._identityObserver, topic);
+    }
+    Services.prefs.addObserver(FEATURE_PREF, () => {
+      this.applyContainerIsolation();
+      this.refreshAllWindows();
+    });
+    lazy.WhimsyProfiles.onDelete((id, key) => this.forgetProfile(key));
+  },
+
   initWindow(win) {
     if (!win.gZenWorkspaces?.workspaceEnabled) {
       return;
@@ -478,6 +543,10 @@ export const WhimsySpaceExtensions = {
       return;
     }
     win._whimsySpaceExtensions = true;
+    this._initializedChoices = true;
+    this.migrateSpaceChoices(win);
+    this.loadProcessScript();
+    this.initIdentityObserver();
     this.initContextMenu(win);
     this.initAboutAddons(win);
     this.wrapChangeWorkspace(win);
@@ -498,6 +567,6 @@ export const WhimsySpaceExtensions = {
       { once: true }
     );
     this.applyVisibility(win);
-    this.applyContainerIsolation(win);
+    this.applyContainerIsolation();
   },
 };

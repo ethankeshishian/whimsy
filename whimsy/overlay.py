@@ -695,7 +695,7 @@ FEATURES = [
     # ext: per-space extensions (toolbar/panel visibility per space, plus
     # container-scoped tabs/webNavigation/webRequest/proxy isolation where a
     # space has its own container). Zen has nothing for this.
-    {"id": "space-extensions", "title": "Per-space extensions: \"Show in Spaces…\" on each extension's gear menu, plus per-container API isolation where a space has its own container",
+    {"id": "space-extensions", "title": "Extensions per profile: \"Run in Profiles\" on each extension's menu; outside them its tabs/webRequest/proxy APIs and content scripts are kept out (shared storage stays shared)",
      "detect": [("src/zen", r"(?i)per-?space[\w-]*extension|extension[\w-]*per-?space|space[\w-]*scoped[\w-]*extension")]},
     # batch hist: per-visit space metadata and Library filter.
     {"id": "space-history", "title": "Space-aware History: where was the tab, and filter by space",
@@ -854,6 +854,9 @@ FEATURES = [
     # and title on every tab with sound (muted included), one click mutes.
     {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
      "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
+    # wave5/profiles: Arc's profiles on containers (one Firefox profile/account).
+    {"id": "space-profiles", "title": "Profiles: each space belongs to a profile (a container) with its own cookies, passwords, history, Essentials, search engine, downloads and extensions, like Arc",
+     "detect": [("src/zen", r"(?i)zen[\w-]*space-?profiles|ZenProfiles\.sys|profile-?switcher")]},
 ]
 
 

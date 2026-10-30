@@ -1476,3 +1476,356 @@ document.addEventListener("paneshown", event => {
     gWhimsySettings.adoptZenGlance();
   }
 });
+
+// wave5/profiles: Settings → Tab Management → Profiles (Arc's Settings →
+// Profiles). One row per profile: its name, how many spaces use it, Rename
+// and Delete this Profile; then Create a New Profile… and Delete Unused
+// Profiles. Names are edited inline, checked on submit, with the reason
+// under the field. Deleting asks first, because it removes the profile's
+// browser data.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertProfilesGroup();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  get profiles() {
+    return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs").WhimsyProfiles;
+  },
+
+  insertProfilesGroup() {
+    const template = document.getElementById("template-whimsyProfiles");
+    if (!template) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    template.remove();
+    if (!this.lazy.Whimsy.featureEnabled("space-profiles")) {
+      return;
+    }
+    const anchor = document.getElementById("whimsySpacesGroup") ??
+      document.getElementById("whimsyTabsGroup") ?? document.getElementById("zenWorkspacesGroup");
+    if (anchor) {
+      anchor.after(fragment);
+    } else {
+      document.getElementById("mainPrefPane")?.append(fragment);
+    }
+    group.hidden = false;
+    this.initProfilesGroup();
+  },
+
+  initProfilesGroup() {
+    const chromeWin = window.browsingContext.topChromeWindow;
+    const refresh = () => this.renderProfiles();
+    document.getElementById("whimsyProfilesCreate").addEventListener("command", () => {
+      this.showProfileNameForm(document.getElementById("whimsyProfilesCreateSlot"), {
+        submitL10nId: "whimsy-profile-create-button",
+        onSubmit: name => this.profiles.create(name),
+      });
+    });
+    document.getElementById("whimsyProfilesDeleteUnused").addEventListener("command", () =>
+      this.deleteUnusedProfiles());
+    const topics = ["contextual-identity-created", "contextual-identity-updated",
+      "contextual-identity-deleted"];
+    for (const topic of topics) {
+      Services.obs.addObserver(refresh, topic);
+    }
+    chromeWin?.addEventListener("ZenWorkspaceDataChanged", refresh);
+    window.addEventListener("unload", () => {
+      for (const topic of topics) {
+        Services.obs.removeObserver(refresh, topic);
+      }
+      chromeWin?.removeEventListener("ZenWorkspaceDataChanged", refresh);
+    }, { once: true });
+    this.renderProfiles();
+  },
+
+  renderProfiles() {
+    const list = document.getElementById("whimsyProfilesList");
+    if (!list || list.querySelector(".whimsy-profile-name-form")) {
+      // Never pull a half-typed name out from under the person.
+      return;
+    }
+    const { profiles } = this;
+    const chromeWin = window.browsingContext.topChromeWindow;
+    list.replaceChildren();
+    for (const profile of profiles.list()) {
+      list.append(this.profileRow(profile, profiles.spacesFor(profile.id, chromeWin).length));
+    }
+    for (const hook of this._profileRowHooks ?? []) {
+      hook(list);
+    }
+    document.getElementById("whimsyProfilesDeleteUnused").disabled =
+      !profiles.unusedIds(chromeWin).length;
+  },
+
+  profileRow(profile, spaceCount) {
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const row = html("li");
+    row.className = "whimsy-profile-row";
+    row.dataset.profileId = profile.id;
+    const head = document.createXULElement("hbox");
+    head.setAttribute("align", "center");
+    head.className = "whimsy-profile-head";
+    const dot = html("span");
+    dot.className = "whimsy-profile-dot";
+    dot.dataset.color = profile.isDefault ? "default" : profile.color ?? "";
+    dot.setAttribute("aria-hidden", "true");
+    const titles = document.createXULElement("vbox");
+    titles.setAttribute("flex", "1");
+    const name = html("h3");
+    name.className = "whimsy-profile-name";
+    name.textContent = profile.name;
+    const meta = document.createXULElement("description");
+    meta.className = "description-deemphasized whimsy-profile-meta";
+    document.l10n.setAttributes(meta, profile.isDefault ? "whimsy-profiles-spaces-default" :
+      "whimsy-profiles-spaces", { count: spaceCount });
+    titles.append(name, meta);
+    head.append(dot, titles);
+    if (!profile.isDefault) {
+      const rename = document.createXULElement("button");
+      document.l10n.setAttributes(rename, "whimsy-profiles-rename", { name: profile.name });
+      rename.addEventListener("command", () => {
+        this.showProfileNameForm(row, {
+          initial: profile.name,
+          submitL10nId: "whimsy-profile-rename-button",
+          onSubmit: value => this.profiles.rename(profile.id, value),
+        });
+      });
+      const remove = document.createXULElement("button");
+      remove.className = "whimsy-profile-delete";
+      document.l10n.setAttributes(remove, "whimsy-profiles-delete", { name: profile.name });
+      remove.disabled = spaceCount > 0;
+      if (remove.disabled) {
+        remove.setAttribute("aria-describedby", "whimsyProfilesDeleteRule");
+      }
+      remove.addEventListener("command", () => this.deleteProfile(profile));
+      head.append(rename, remove);
+    }
+    row.append(head);
+    return row;
+  },
+
+  // An inline "Profile Name" field with its submit/cancel buttons, in
+  // `slot`. onSubmit throws an Error whose message is the l10n id of the
+  // reason; it's shown under the field, which keeps focus.
+  showProfileNameForm(slot, { initial = "", submitL10nId, onSubmit }) {
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    slot.querySelector(".whimsy-profile-name-form")?.remove();
+    const form = html("form");
+    form.className = "whimsy-profile-name-form";
+    const id = `whimsyProfileName${Date.now()}`;
+    const label = html("label");
+    label.htmlFor = id;
+    document.l10n.setAttributes(label, "whimsy-profile-name-label");
+    const input = html("input");
+    input.id = id;
+    input.type = "text";
+    input.maxLength = 40;
+    input.value = initial;
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("aria-describedby", `${id}-error`);
+    const error = html("p");
+    error.id = `${id}-error`;
+    error.className = "whimsy-profile-name-error";
+    error.hidden = true;
+    const buttons = html("div");
+    buttons.className = "whimsy-profile-name-buttons";
+    const cancel = html("button");
+    cancel.type = "button";
+    document.l10n.setAttributes(cancel, "whimsy-profile-cancel-text");
+    const submit = html("button");
+    submit.type = "submit";
+    submit.className = "primary";
+    document.l10n.setAttributes(submit, `${submitL10nId}-text`);
+    buttons.append(cancel, submit);
+    form.append(label, input, error, buttons);
+    const close = () => {
+      form.remove();
+      this.renderProfiles();
+    };
+    cancel.addEventListener("click", close);
+    form.addEventListener("keydown", event => {
+      if (event.key == "Escape") {
+        event.preventDefault();
+        close();
+      }
+    });
+    input.addEventListener("input", () => {
+      error.hidden = true;
+      input.removeAttribute("aria-invalid");
+    });
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      try {
+        onSubmit(input.value);
+      } catch (e) {
+        error.hidden = false;
+        input.setAttribute("aria-invalid", "true");
+        document.l10n.setAttributes(error,
+          e.message?.startsWith("whimsy-") ? e.message : "whimsy-profile-name-failed");
+        input.focus();
+        return;
+      }
+      close();
+    });
+    slot.append(form);
+    input.focus();
+    input.select();
+    return form;
+  },
+
+  async deleteProfile(profile) {
+    const chromeWin = window.browsingContext.topChromeWindow;
+    const { WhimsyPanels } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs");
+    const [title, body, accept] = await document.l10n.formatValues([
+      { id: "whimsy-profiles-delete-confirm-title", args: { name: profile.name } },
+      { id: "whimsy-profiles-delete-confirm-body" },
+      { id: "whimsy-profiles-delete-confirm-accept" },
+    ]);
+    if (await WhimsyPanels.confirm(chromeWin, { title, body, accept })) {
+      await this.profiles.delete(profile.id, chromeWin);
+      this.renderProfiles();
+    }
+  },
+
+  async deleteUnusedProfiles() {
+    const chromeWin = window.browsingContext.topChromeWindow;
+    const { profiles } = this;
+    const ids = profiles.unusedIds(chromeWin);
+    if (!ids.length) {
+      return;
+    }
+    const { WhimsyPanels } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs");
+    const names = new Intl.ListFormat(undefined, { type: "conjunction" })
+      .format(ids.map(id => profiles.nameOf(id)));
+    const [title, body, accept] = await document.l10n.formatValues([
+      { id: "whimsy-profiles-delete-unused-confirm-title", args: { count: ids.length } },
+      { id: "whimsy-profiles-delete-unused-confirm-body", args: { names } },
+      { id: "whimsy-profiles-delete-unused-confirm-accept", args: { count: ids.length } },
+    ]);
+    if (await WhimsyPanels.confirm(chromeWin, { title, body, accept })) {
+      await profiles.deleteUnused(chromeWin);
+      this.renderProfiles();
+    }
+  },
+});
+
+// wave5/profiles, phase 4: Search Engine and Default Download Location on
+// each profile's row. Default uses Firefox's own Search and Downloads
+// settings, so its row says so instead of repeating them.
+gWhimsySettings._profileRowHooks = gWhimsySettings._profileRowHooks ?? [];
+gWhimsySettings._profileRowHooks.push(list => gWhimsySettings.addProfileSettings(list));
+
+Object.assign(gWhimsySettings, {
+  get profileSettings() {
+    return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSettings.sys.mjs")
+      .WhimsyProfileSettings;
+  },
+
+  async visibleEngines() {
+    const { SearchService } = ChromeUtils.importESModule(
+      "moz-src:///toolkit/components/search/SearchService.sys.mjs");
+    await SearchService.init();
+    return SearchService.getVisibleEngines();
+  },
+
+  addProfileSettings(list) {
+    const { profiles, profileSettings } = this;
+    for (const row of list.querySelectorAll(".whimsy-profile-row")) {
+      const id = Number(row.dataset.profileId);
+      if (id === 0) {
+        const note = document.createXULElement("description");
+        note.className = "description-deemphasized whimsy-profile-default-note";
+        document.l10n.setAttributes(note, "whimsy-profiles-default-settings");
+        row.append(note);
+        continue;
+      }
+      const key = profiles.keyFor(id);
+      const box = document.createXULElement("vbox");
+      box.className = "whimsy-profile-settings";
+
+      const engineRow = document.createXULElement("hbox");
+      engineRow.setAttribute("align", "center");
+      const engineLabel = document.createXULElement("label");
+      const engineListId = `whimsyProfileEngine${id}`;
+      engineLabel.setAttribute("control", engineListId);
+      document.l10n.setAttributes(engineLabel, "whimsy-profiles-search-engine");
+      const menulist = document.createXULElement("menulist");
+      menulist.id = engineListId;
+      menulist.setAttribute("sizetopopup", "none");
+      const popup = document.createXULElement("menupopup");
+      const same = document.createXULElement("menuitem");
+      same.setAttribute("value", "");
+      document.l10n.setAttributes(same, "whimsy-profiles-same-as-default");
+      popup.append(same);
+      menulist.append(popup);
+      menulist.value = "";
+      this.visibleEngines().then(engines => {
+        for (const engine of engines) {
+          const item = document.createXULElement("menuitem");
+          item.setAttribute("value", engine.id);
+          item.setAttribute("label", engine.name);
+          popup.append(item);
+        }
+        menulist.value = profileSettings.engineFor(key) ?? "";
+      }).catch(console.error);
+      menulist.addEventListener("command", () => profileSettings.setEngine(key, menulist.value));
+      engineRow.append(engineLabel, menulist);
+
+      const dirRow = document.createXULElement("hbox");
+      dirRow.setAttribute("align", "center");
+      const dirLabel = document.createXULElement("label");
+      const dirValueId = `whimsyProfileDir${id}`;
+      dirLabel.id = `${dirValueId}-label`;
+      document.l10n.setAttributes(dirLabel, "whimsy-profiles-download-dir");
+      const dirValue = document.createXULElement("description");
+      dirValue.id = dirValueId;
+      dirValue.className = "whimsy-profile-dir";
+      dirValue.setAttribute("flex", "1");
+      dirValue.setAttribute("crop", "center");
+      const path = profileSettings.downloadDirFor(key);
+      if (path) {
+        dirValue.textContent = path;
+        dirValue.setAttribute("tooltiptext", path);
+      } else {
+        document.l10n.setAttributes(dirValue, "whimsy-profiles-same-as-default-text");
+      }
+      const choose = document.createXULElement("button");
+      document.l10n.setAttributes(choose, "whimsy-profiles-download-choose");
+      choose.setAttribute("aria-describedby", `${dirValueId}-label ${dirValueId}`);
+      choose.addEventListener("command", () => this.chooseProfileDownloadDir(key));
+      dirRow.append(dirLabel, dirValue, choose);
+      if (path) {
+        const reset = document.createXULElement("button");
+        document.l10n.setAttributes(reset, "whimsy-profiles-download-reset");
+        reset.addEventListener("command", async () => {
+          await profileSettings.setDownloadDir(key, null);
+          this.renderProfiles();
+        });
+        dirRow.append(reset);
+      }
+      box.append(engineRow, dirRow);
+      row.append(box);
+    }
+  },
+
+  async chooseProfileDownloadDir(key) {
+    const picker = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    const title = await document.l10n.formatValue("whimsy-profiles-download-picker-title");
+    picker.init(window.browsingContext, title, Ci.nsIFilePicker.modeGetFolder);
+    const current = this.profileSettings.downloadDirFor(key);
+    if (current) {
+      try {
+        picker.displayDirectory = new FileUtils.File(current);
+      } catch {}
+    }
+    const result = await new Promise(resolve => picker.open(resolve));
+    if (result == Ci.nsIFilePicker.returnOK && picker.file) {
+      await this.profileSettings.setDownloadDir(key, picker.file.path);
+      this.renderProfiles();
+    }
+  },
+});

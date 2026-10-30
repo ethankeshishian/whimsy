@@ -1863,3 +1863,56 @@ add_task(async function tab_audio_icon() {
     }
   }
 });
+
+// wave5/profiles: Settings → Profiles and the Profile Name sheet (with its
+// inline error), light and dark.
+add_task(async function profiles_ui() {
+  const { WhimsyProfiles } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyProfiles.sys.mjs"
+  );
+  const { ContextualIdentityService } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
+  );
+  const work = WhimsyProfiles.create("Screens Work");
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Screens Work Space", undefined, true, work);
+  try {
+    for (const dark of [0, 1]) {
+      const scheme = dark ? "dark" : "light";
+      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+      await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+        const doc = browser.contentDocument;
+        const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyProfilesGroup"));
+        await TestUtils.waitForCondition(() => group.checkVisibility(), "Profiles group visible");
+        group.scrollIntoView({ block: "start" });
+        await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+        await shot(`wave5-profiles-settings-${scheme}`, browser.browsingContext.currentWindowGlobal);
+
+        doc.getElementById("whimsyProfilesCreate").doCommand();
+        const form = doc.querySelector("#whimsyProfilesCreateSlot .whimsy-profile-name-form");
+        form.querySelector("input").value = "screens work";
+        form.requestSubmit();
+        await TestUtils.waitForCondition(() => !form.querySelector(".whimsy-profile-name-error").hidden);
+        form.scrollIntoView({ block: "center" });
+        await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+        await shot(`wave5-profiles-settings-error-${scheme}`, browser.browsingContext.currentWindowGlobal);
+      });
+
+      const pending = WhimsyProfiles.promptName(window, {});
+      const panel = await TestUtils.waitForCondition(() => {
+        const p = document.getElementById("whimsy-profile-name-panel");
+        return p?.state == "open" && p;
+      });
+      panel.querySelector(".whimsy-profile-name-input").value = "Screens Work";
+      EventUtils.synthesizeKey("KEY_Enter", {}, window);
+      await TestUtils.waitForCondition(() => !panel.querySelector(".whimsy-profile-name-error").hidden);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await shot(`wave5-profiles-name-sheet-${scheme}`);
+      panel.hidePopup();
+      is(await pending, null, "Closed without creating");
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+    ContextualIdentityService.remove(work);
+  }
+});

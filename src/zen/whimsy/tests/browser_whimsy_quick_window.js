@@ -317,7 +317,7 @@ add_task(async function test_address_shows_the_host_and_back_follows_history() {
     const host = address.querySelector(".whimsy-mini-host");
     await TestUtils.waitForCondition(() => host.textContent == "example.com", "The address shows the bare host");
     ok(!address.querySelector(".whimsy-mini-favicon"), "Measured address has no site favicon");
-    ok(address.querySelector(".whimsy-mini-profile"), "Address contains the profile pill");
+    is(address.previousElementSibling?.id, "whimsy-quick-window-profile", "The profile pill sits just before the address");
     const back = doc.getElementById("whimsy-quick-window-back");
     ok(back.disabled, "Back is dimmed with no history (it never moves)");
     ok(!doc.getElementById("whimsy-quick-window-copy-link").disabled, "Copy URL is available for a page");

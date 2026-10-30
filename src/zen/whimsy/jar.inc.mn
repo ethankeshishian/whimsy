@@ -87,3 +87,5 @@
 # wave5/audioicon: Arc tab speaker glyphs
         content/browser/whimsy/whimsy-tab-audio-playing.svg                       (../../zen/whimsy/content/whimsy-tab-audio-playing.svg)
         content/browser/whimsy/whimsy-tab-audio-muted.svg                         (../../zen/whimsy/content/whimsy-tab-audio-muted.svg)
+# wave5/profiles: keeps extensions' content scripts out of other profiles' pages.
+        content/browser/whimsy/whimsy-profiles-process.js                       (../../zen/whimsy/content/whimsy-profiles-process.js)
