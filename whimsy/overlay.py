@@ -572,7 +572,7 @@ FEATURES = [
      "detect": [("src/zen/live-folders", r"(?i)rel=.alternate.*(?:rss|atom)|autodiscover")]},
 
     # batch7: input, files, nav, dev, URL schemes, delight
-    {"id": "seasonal-themes", "title": "Seasonal themes: a gentle accent tint and flourish for Halloween, winter holidays and spring",
+    {"id": "seasonal-themes", "title": "Seasonal themes: seasonal gradients on loading indicators",
      # Firefox's old Colorways never shipped in this engine; this never matches.
      "detect": [("prefs", r"name:\s*browser\.theme\.colorways\.enabled")]},
     {"id": "window-close", "title": "Cmd+W on a lone empty tab closes the window (Arc); Zen already keeps the window open otherwise",

@@ -985,3 +985,39 @@ add_task(async function welcome_look_pages() {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+
+// wave4: Seasonal loading colors on real busy tabs and the progress line.
+add_task(async function seasonal_loading_colors() {
+  const { WhimsySeasons } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
+  );
+  const original = WhimsySeasons._now;
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.seasonal-themes", true], ["whimsy.seasons.enabled", true],
+    ["zen.view.enable-loading-indicator", true],
+    ["whimsy.feature.loading-line", true], ["whimsy.tabs.loading-line", true],
+    ["zen.theme.hide-tab-throbber", false], ["ui.prefersReducedMotion", 1],
+  ] });
+  try {
+    for (const [season, month] of [["autumn", 10], ["winter", 12], ["spring", 4], ["summer", 7]]) {
+      WhimsySeasons._now = () => new Date(2026, month - 1, 15, 12);
+      WhimsySeasons.apply(window);
+      const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+      try {
+        const url = `http://mochi.test:8888/browser/zen/whimsy/tests/whimsy_slow_load.sjs?delay=2500&season=${season}`;
+        const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url);
+        BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, url);
+        await TestUtils.waitForCondition(() => document.getElementById("zen-loading-progress-bar"), "Loading");
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        await shot(`seasonal-loading-${season}`);
+        await loaded;
+      } finally {
+        BrowserTestUtils.removeTab(tab);
+      }
+    }
+  } finally {
+    WhimsySeasons._now = original;
+    await SpecialPowers.popPrefEnv();
+    WhimsySeasons.apply(window);
+  }
+});

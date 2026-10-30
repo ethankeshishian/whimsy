@@ -2,33 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Seasonal themes: a small, dated surprise (like Google Doodles or Firefox's
-// old Colorways), never changing a space's own colours. A gentle accent tint
-// plus one flourish (falling leaves or snow), off under reduced motion, and
-// off entirely with Settings → Look and Feel → "Seasonal themes" or
-// whimsy.seasons.enabled. Nothing in Firefox or Zen does this.
-// whimsy.feature.seasonal-themes gates the whole thing.
+// Seasonal loading colors: a small calendar surprise on existing indicators.
+// Space colors stay the user's own. Both switches restore native styling.
 
 const FEATURE_PREF = "whimsy.feature.seasonal-themes";
 const ENABLED_PREF = "whimsy.seasons.enabled";
 const ATTR = "whimsy-season";
 
-// Ranges are inclusive, [month, day] (month is 1-based), and may wrap the
-// year end (winter). `flourish` names the CSS layer in whimsy-browser.css;
-// null means a tint only.
+// Inclusive local-calendar ranges; winter wraps across the year boundary.
 const SEASONS = [
-  { id: "halloween", from: [10, 24], to: [10, 31], flourish: "leaves" },
-  { id: "winter", from: [12, 15], to: [12, 31], flourish: "snow" },
-  { id: "winter", from: [1, 1], to: [1, 1], flourish: "snow" },
-  { id: "spring", from: [3, 20], to: [4, 10], flourish: "blossom" },
+  { id: "autumn", from: 922, to: 1130 },
+  { id: "winter", from: 1201, to: 229 }, // Include leap day.
+  { id: "spring", from: 301, to: 531 },
+  { id: "summer", from: 601, to: 921 },
 ];
-
-function inRange(month, day, [fromMonth, fromDay], [toMonth, toDay]) {
-  const key = month * 100 + day;
-  const from = fromMonth * 100 + fromDay;
-  const to = toMonth * 100 + toDay;
-  return key >= from && key <= to;
-}
 
 export const WhimsySeasons = {
   // Overridable in tests.
@@ -47,18 +34,30 @@ export const WhimsySeasons = {
       return null;
     }
     const now = this._now();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    return SEASONS.find(s => inRange(month, day, s.from, s.to)) ?? null;
+    const key = (now.getMonth() + 1) * 100 + now.getDate();
+    return SEASONS.find(({ from, to }) =>
+      from <= to ? key >= from && key <= to : key >= from || key <= to
+    ) ?? null;
   },
 
   initWindow(win) {
     const update = () => this.apply(win);
+    // Recheck on focus and navigation so windows left open across a season
+    // boundary update without a polling timer.
+    const onTabChange = event => {
+      if (event.detail.changed.includes("busy")) {
+        update();
+      }
+    };
+    win.addEventListener("focus", update);
+    win.gBrowser.tabContainer.addEventListener("TabAttrModified", onTabChange);
     Services.prefs.addObserver(FEATURE_PREF, update);
     Services.prefs.addObserver(ENABLED_PREF, update);
     win.addEventListener(
       "unload",
       () => {
+        win.removeEventListener("focus", update);
+        win.gBrowser.tabContainer.removeEventListener("TabAttrModified", onTabChange);
         Services.prefs.removeObserver(FEATURE_PREF, update);
         Services.prefs.removeObserver(ENABLED_PREF, update);
       },
@@ -72,10 +71,8 @@ export const WhimsySeasons = {
     const season = this.current();
     if (season) {
       root.setAttribute(ATTR, season.id);
-      root.setAttribute("whimsy-season-flourish", season.flourish);
     } else {
       root.removeAttribute(ATTR);
-      root.removeAttribute("whimsy-season-flourish");
     }
   },
 };
