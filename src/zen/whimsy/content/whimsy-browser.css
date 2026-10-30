@@ -1055,20 +1055,20 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
     }
   }
 
-  & .tab-throbber[busy] {
-    background: var(--whimsy-season-gradient) !important;
-    mask: url("chrome://global/skin/icons/loading.svg") center / contain no-repeat;
-    mask-mode: alpha;
-    -moz-context-properties: fill;
-    fill: black;
-
-    /* Replace the sprite paint, retaining native busy/visibility handling. */
-    &::before {
-      content: none !important;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
+    & .tab-throbber[busy] {
+      background: var(--whimsy-season-gradient) !important;
+      mask: url("chrome://global/skin/icons/loading.svg") center / contain no-repeat;
+      mask-mode: alpha;
+      -moz-context-properties: fill;
+      fill: black;
+
+      /* Replace the sprite paint, retaining native busy/visibility handling. */
+      &::before {
+        content: none !important;
+      }
+    }
+
     & #zen-loading-progress-bar,
     & #zen-loading-progress-bar::before,
     & #zen-loading-progress-bar::after {

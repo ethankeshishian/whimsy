@@ -111,9 +111,14 @@ add_task(async function real_loading_indicators_and_restored_accent() {
           for (const [season, month] of [["autumn", 10], ["winter", 12], ["spring", 4], ["summer", 7]]) {
             WhimsySeasons._now = () => new Date(2026, month - 1, 15, 12);
             WhimsySeasons.apply(window);
-            assertSeasonGradient(throbber, null, season);
-            ok(getComputedStyle(throbber).maskImage.includes("loading.svg"), "Native loading icon masks the gradient");
-            is(getComputedStyle(throbber, "::before").content, "none", "No native sprite over the gradient");
+            if (reduced) {
+              assertSeasonGradient(throbber, null, season);
+              ok(getComputedStyle(throbber).maskImage.includes("loading.svg"), "Reduced motion uses the static native icon");
+              is(getComputedStyle(throbber, "::before").content, "none", "No sprite over the static gradient");
+            } else {
+              isnot(getComputedStyle(throbber, "::before").animationName, "none", "Normal motion retains the native spinning throbber");
+              isnot(getComputedStyle(throbber, "::before").content, "none", "Native animated sprite remains present");
+            }
             assertSeasonGradient(bar, "::before", season);
             if (line) {
               assertSeasonGradient(bar, "::after", season);
