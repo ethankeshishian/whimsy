@@ -606,7 +606,7 @@ whimsy-quick-window-move-to-space =
     .label = Open in Current Space
     .tooltiptext = Move this page into the space you're currently using (Cmd+O)
 whimsy-quick-window-choose-space =
-    .tooltiptext = Choose a different space (Cmd+Opt+O)
+    .tooltiptext = Choose a different space (Cmd+Shift+O)
 
 ## Follower tabs (tab context menu, on a tab already in a 2-pane split)
 

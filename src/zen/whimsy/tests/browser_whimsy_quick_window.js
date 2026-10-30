@@ -7,7 +7,7 @@
 // WhimsyExternalLinks lands a link when the target is "quick-window"): a
 // small window with no sidebar, just the nav bar and the page, floating
 // above every other window. Covers the main flow (open, reuse, float,
-// move to space by button/Cmd+O/Cmd+Opt+O, Esc to close), the switch off,
+// move to space by button/Cmd+O/Cmd+Shift+O, Esc to close), the switch off,
 // and closing it leaving no trace (including no geometry left behind for
 // ordinary windows to inherit).
 
@@ -97,12 +97,12 @@ add_task(async function test_cmd_o_opens_in_current_space() {
   BrowserTestUtils.removeTab(adopted);
 });
 
-add_task(async function test_cmd_opt_o_opens_the_space_picker() {
+add_task(async function test_cmd_shift_o_opens_the_space_picker() {
   const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
-  EventUtils.synthesizeKey("o", { accelKey: true, altKey: true }, win);
+  EventUtils.synthesizeKey("o", { accelKey: true, shiftKey: true }, win);
   await BrowserTestUtils.waitForCondition(
     () => win.document.getElementById("whimsy-quick-window-space-picker")?.state == "open",
-    "Cmd+Opt+O opens the space picker"
+    "Cmd+Shift+O opens the space picker"
   );
   const popup = win.document.getElementById("whimsy-quick-window-space-picker");
   ok(popup.children.length >= 1, "The picker lists at least this window's space");

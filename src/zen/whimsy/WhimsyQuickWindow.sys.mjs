@@ -11,7 +11,7 @@
 // glance at it, then either close it (Esc, Cmd+W, or the close button —
 // gone for good, no history or session entry) or press "Open in Current
 // Space" (Cmd+O, matching Arc) to adopt it into a real tab, or pick a
-// different one (Cmd+Opt+O, the caret button). A second link while one is
+// different one (Cmd+Shift+O, the caret button). A second link while one is
 // already open reuses the same window rather than stacking more, as Arc
 // does.
 //
@@ -182,7 +182,7 @@ export const WhimsyQuickWindow = {
 
   // The quick window's own chrome: an "Open in Current Space" button
   // (Cmd+O) with a small caret beside it to choose a different one
-  // (Cmd+Opt+O) — Arc's split button, without relying on a toolbarbutton
+  // (Cmd+Shift+O) — Arc's split button, without relying on a toolbarbutton
   // "menu-button" type this engine doesn't seem to use anywhere else.
   // Added to the nav bar above the content (the sidebar it would normally
   // sit beside is hidden by whimsy-browser.css).
@@ -215,7 +215,7 @@ export const WhimsyQuickWindow = {
     lazy.WhimsyShortcuts.addCommand(win, {
       id: "cmd_whimsyQuickWindowChooseSpace",
       run: w => this.openSpacePicker(w, w.document.getElementById(MOVE_BUTTON_ID)),
-      key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,alt" },
+      key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
     });
     win.addEventListener("keydown", event => {
       // Arc: "quickly verify the content and hit Esc to vanish the
@@ -246,19 +246,22 @@ export const WhimsyQuickWindow = {
   // strip its attributes, then re-add its keyset (Gecko only reads <key>s
   // when their keyset is (re)bound).
   disableGlanceExpandKey(win) {
-    const key = win.document.getElementById(GLANCE_EXPAND_KEY_ID);
-    if (!key) {
-      return;
-    }
-    key.removeAttribute("key");
-    key.removeAttribute("keycode");
-    key.removeAttribute("modifiers");
-    key.removeAttribute("command");
-    const keyset = key.parentElement;
-    if (keyset) {
-      const parent = keyset.parentElement;
-      keyset.remove();
-      parent?.append(keyset);
+    // Cmd+O is Zen's "Expand Glance" and Cmd+Shift+O Firefox's "Show All
+    // Bookmarks"; in a quick window both belong to Arc's move-to-space keys.
+    for (const id of [GLANCE_EXPAND_KEY_ID, "manBookmarkKb"]) {
+      const key = win.document.getElementById(id);
+      if (!key) {
+        continue;
+      }
+      for (const attr of ["data-l10n-id", "key", "keycode", "modifiers", "command"]) {
+        key.removeAttribute(attr);
+      }
+      const keyset = key.parentElement;
+      if (keyset) {
+        const parent = keyset.parentElement;
+        keyset.remove();
+        parent?.append(keyset);
+      }
     }
   },
 
