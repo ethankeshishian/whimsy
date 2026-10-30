@@ -401,3 +401,51 @@ add_task(async function mini_controls_are_keyboard_reachable() {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+
+// wave5/uxfix: Mini's chrome follows the theme (light frame in light mode,
+// dark in dark), with readable text and a pressed fill you can see.
+function resolvedRGB(win, value) {
+  const canvas = win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, 1, 1);
+  ctx.fillStyle = value;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+}
+function luminance([r, g, b]) {
+  const lin = c => (c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+add_task(async function mini_chrome_follows_light_and_dark() {
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+    try {
+      await readyMini(win);
+      const bar = win.document.getElementById("whimsy-quick-window-bar");
+      const style = win.getComputedStyle(bar);
+      const frame = resolvedRGB(win, style.backgroundColor);
+      const text = resolvedRGB(win, style.color);
+      // Resolve the pressed token on an element (it uses light-dark()).
+      const probe = win.document.createXULElement("box");
+      probe.style.background = "var(--whimsy-mini-fill-active)";
+      bar.append(probe);
+      const active = resolvedRGB(win, win.getComputedStyle(probe).backgroundColor);
+      probe.remove();
+      const scheme = dark ? "dark" : "light";
+      is(luminance(frame) > 0.4, !dark, `Mini's frame is ${scheme} in ${scheme} mode`);
+      Assert.greaterOrEqual(contrast(frame, text), 4.5, `Bar text is readable in ${scheme} mode`);
+      Assert.greater(contrast(frame, active), 1.15, `Pressed fill stands off the frame in ${scheme} mode`);
+    } finally {
+      await BrowserTestUtils.closeWindow(win);
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});
