@@ -1611,3 +1611,16 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave5/safety: the Claude space's prompt-injection shield
+
+# $host (String) - the site, e.g. example.com
+whimsy-claude-shield-bar = This page tried to give Claude instructions. Claude is paused on { $host }.
+whimsy-claude-shield-continue =
+    .label = Continue
+    .accesskey = C
+whimsy-claude-shield-stop =
+    .label = Stop Claude
+    .accesskey = S
+# $host (String) - the site, e.g. example.com
+whimsy-claude-shield-toast = Claude is paused: { $host } tried to give it instructions

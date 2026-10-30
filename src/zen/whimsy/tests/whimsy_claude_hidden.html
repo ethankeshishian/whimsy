@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bakery</title>
+<style>
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<h1>Welcome to the bakery</h1>
+<p>Fresh Bre&#x200B;ad every morning.</p>
+<button id="order" type="button">Order</button>
+<p style="display: none">HIDDEN-DISPLAY</p>
+<p style="visibility: hidden">HIDDEN-VISIBILITY</p>
+<p style="opacity: 0">HIDDEN-OPACITY</p>
+<div aria-hidden="true"><p>HIDDEN-ARIA</p></div>
+<div style="width: 0; height: 0; overflow: hidden"><p>HIDDEN-ZERO</p></div>
+<div style="position: absolute; left: -10000px; top: 0">HIDDEN-OFFSCREEN</div>
+<p style="text-indent: -9999px">HIDDEN-INDENT</p>
+<span class="sr">HIDDEN-CLIP</span>
+<p style="font-size: 1px">HIDDEN-TINY</p>
+<p style="color: rgb(254, 254, 254)">HIDDEN-SAMECOLOR</p>
+<p style="color: rgba(0, 0, 0, 0)">HIDDEN-TRANSPARENT</p>
+</body>
+</html>

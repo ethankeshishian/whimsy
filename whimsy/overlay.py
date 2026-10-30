@@ -789,6 +789,9 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5/safety: the Claude space's prompt-injection shield.
+    {"id": "claude-shield", "title": "Claude prompt-injection shield: hidden page text never reaches Claude, page content is marked untrusted, and pages that instruct Claude pause it (Continue / Stop)",
+     "detect": [("src/zen", r"(?i)prompt-?injection")]},
 ]
 
 
