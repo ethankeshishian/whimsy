@@ -106,6 +106,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBangs: "resource:///modules/whimsy/WhimsyBangs.sys.mjs",
 });
 
+// wave3/ai: AI v1.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAITabs: "resource:///modules/whimsy/WhimsyAITabs.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -466,6 +471,16 @@ export const Whimsy = {
     // wave3/cmdbar: offline bangs. Registered once even when off; the
     // provider checks its switch on every query.
     run("offline-bangs", () => lazy.WhimsyBangs.init());
+    // wave3/ai: AI v1. Always installed; each part checks its switch, the AI
+    // kill switch and whether a provider is set up on use, so Settings
+    // changes apply without a restart.
+    run("ai-sheet", () =>
+      win.windowUtils.loadSheetUsingURIString(
+        "chrome://browser/content/whimsy/whimsy-ai.css",
+        win.windowUtils.AUTHOR_SHEET
+      )
+    );
+    run("tidy-tabs", () => lazy.WhimsyAITabs.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

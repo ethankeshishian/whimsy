@@ -1238,6 +1238,10 @@ Object.assign(gWhimsySettings, {
       },
       { once: true }
     );
+    // The AI features' own switches (a row each, added with each feature).
+    for (const box of group.querySelectorAll("[data-feature-pref]")) {
+      this.initPrefCheckbox(box.id, box.dataset.featurePref);
+    }
     showGroup();
     showRows();
     Preferences.queueUpdateOfAllElements();

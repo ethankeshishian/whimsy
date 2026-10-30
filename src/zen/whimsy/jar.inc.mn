@@ -46,3 +46,6 @@
         content/browser/whimsy/whimsy-changelog.json                            (../../zen/whimsy/content/whimsy-changelog.json)
 # fixB: the Archive as a Library section
         content/browser/whimsy/whimsy-library-archive.mjs (../../zen/whimsy/content/whimsy-library-archive.mjs)
+# wave3/ai: AI v1 (Tidy Tabs, Ask on Page, 5-second previews, Watch a page)
+        content/browser/whimsy/whimsy-ai.css                                     (../../zen/whimsy/content/whimsy-ai.css)
+        content/browser/whimsy/ai/broom.svg                                      (../../zen/whimsy/content/ai/broom.svg)

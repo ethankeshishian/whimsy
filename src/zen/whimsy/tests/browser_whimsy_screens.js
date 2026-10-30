@@ -985,3 +985,42 @@ add_task(async function welcome_look_pages() {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+
+// wave3/ai: the AI provider card, and Tidy Tabs' sections in Today.
+add_task(async function ai_provider_and_tidy_tabs() {
+  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+    const doc = browser.contentDocument;
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProvidersGroup"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "AI provider card visible");
+    group.scrollIntoView({ block: "center" });
+    await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+    await shot("wave3-ai-provider", browser.browsingContext.currentWindowGlobal);
+  });
+
+  const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  const { WhimsyAITabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAITabs.sys.mjs");
+  WhimsyAIProviders.setTestProvider(({ prompt }) => {
+    const lines = [...prompt.matchAll(/^(\d+)\. /gm)].map(m => Number(m[1]));
+    const half = Math.ceil(lines.length / 2);
+    return JSON.stringify({
+      sections: [
+        { name: "Trip Planning", tabs: lines.slice(0, half) },
+        { name: "Reading", tabs: lines.slice(half) },
+      ],
+    });
+  });
+  const tabs = [];
+  try {
+    for (let i = 0; i < 8; i++) {
+      tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, `https://example.com/tidy-shot-${i}`));
+    }
+    await WhimsyAITabs.tidy(window);
+    await TestUtils.waitForCondition(() => document.querySelector(".whimsy-tidy-header"), "Sections drawn");
+    await shot("wave3-ai-tidy-tabs");
+  } finally {
+    WhimsyAIProviders.setTestProvider(null);
+    for (const tab of tabs) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
+});

@@ -1,0 +1,108 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave3/ai: AI v1 (WhimsyAI*.sys.mjs). Loaded into every browser window. */
+
+/* ---- Tidy Tabs: the broom, next to Zen's "Clear" on the pinned/Today line.
+   Zen's separator rules already fade its buttons in on sidebar hover. ---- */
+.pinned-tabs-container-separator > .whimsy-tidy-broom {
+  list-style-image: url("chrome://browser/content/whimsy/ai/broom.svg");
+  background: none !important;
+  padding-inline: 4px !important;
+  margin-inline-end: 2px;
+
+  & .toolbarbutton-text {
+    display: none !important;
+  }
+
+  & .toolbarbutton-icon {
+    width: 12px !important;
+    height: 12px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+
+  &[tidying] .toolbarbutton-icon {
+    opacity: 1 !important;
+
+    @media not (prefers-reduced-motion: reduce) {
+      animation: whimsy-tidy-sweep 0.7s ease-in-out infinite alternate;
+    }
+  }
+}
+
+@keyframes whimsy-tidy-sweep {
+  from {
+    transform: rotate(-14deg) translateX(-1px);
+  }
+  to {
+    transform: rotate(14deg) translateX(1px);
+  }
+}
+
+/* ---- Tidy Tabs: a section's header in Today. ---- */
+.whimsy-tidy-header {
+  min-height: 24px;
+  margin-top: 6px;
+  padding-inline: 10px 4px;
+  border-radius: var(--border-radius-small, 6px);
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 60%, transparent));
+  font-size: 11px;
+  font-weight: 600;
+
+  @media not (prefers-reduced-motion: reduce) {
+    @starting-style {
+      opacity: 0;
+    }
+    transition: opacity 0.18s ease-out;
+  }
+
+  :root:not([zen-sidebar-expanded="true"]) & {
+    display: none;
+  }
+
+  & .whimsy-tidy-header-label {
+    margin: 0;
+  }
+
+  & .whimsy-tidy-header-button {
+    appearance: none;
+    padding: 3px;
+    margin: 0;
+    border-radius: var(--border-radius-small, 4px);
+    opacity: 0;
+    -moz-context-properties: fill;
+    fill: currentColor;
+
+    & .toolbarbutton-icon {
+      width: 12px;
+      height: 12px;
+    }
+
+    & .toolbarbutton-text {
+      display: none;
+    }
+
+    &:hover {
+      background-color: var(--tab-hover-background-color, color-mix(in srgb, currentColor 12%, transparent));
+    }
+
+    @media not (prefers-reduced-motion: reduce) {
+      transition: opacity 0.12s ease-out;
+    }
+  }
+
+  &:hover .whimsy-tidy-header-button,
+  & .whimsy-tidy-header-button:focus-visible {
+    opacity: 1;
+  }
+
+  & .whimsy-tidy-header-folder {
+    list-style-image: url("chrome://browser/skin/zen-icons/folder.svg");
+  }
+
+  & .whimsy-tidy-header-close {
+    list-style-image: url("chrome://browser/skin/zen-icons/close.svg");
+  }
+}

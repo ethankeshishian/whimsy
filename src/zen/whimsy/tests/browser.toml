@@ -301,3 +301,7 @@ support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 
 # wave3/ai: the AI provider (picker, kill switch, no fallback, key storage).
 ["browser_whimsy_ai_providers.js"]
+
+# wave3/ai: Tidy Tabs (6/7 boundary, sections, header actions) and tidy tab titles.
+["browser_whimsy_ai_tabs.js"]
+support-files = ["whimsy_ai_page.html"]

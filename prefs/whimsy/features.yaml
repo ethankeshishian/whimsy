@@ -348,6 +348,12 @@
 - name: whimsy.feature.ai-providers
   value: true
 
+- name: whimsy.feature.tidy-tabs
+  value: true
+
+- name: whimsy.feature.tidy-titles
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

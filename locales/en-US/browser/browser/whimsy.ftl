@@ -1297,3 +1297,33 @@ whimsy-ai-error-refused = The AI declined this one
 whimsy-ai-error-bad-response = The AI’s answer didn’t make sense. Try again.
 whimsy-ai-error-timeout = The AI took too long
 whimsy-ai-error-failed = Something went wrong with the AI
+
+## wave3/ai: Tidy Tabs and tidy tab titles (Arc Max)
+
+whimsy-ai-feature-tidy-tabs =
+    .label = Tidy Tabs
+    .description = With more than six Today tabs, a broom on the line above them sorts them into sections.
+whimsy-ai-feature-tidy-titles =
+    .label = Tidy tab titles
+    .description = Shortens long tab titles. Pinning a tab keeps its short title as its name. Names you type are never changed.
+whimsy-tidy-broom =
+    .tooltiptext = Tidy Tabs
+    .label = Tidy Tabs
+whimsy-tidy-header-folder =
+    .tooltiptext = Move to Folder
+    .label = Move to Folder
+whimsy-tidy-header-close =
+    .tooltiptext = Close Tabs
+    .label = Close Tabs
+whimsy-tidy-menu-remove-header =
+    .label = Remove Header
+whimsy-tidy-menu-folder =
+    .label = Move to Folder
+whimsy-tidy-menu-close =
+    .label = Close Tabs
+whimsy-tidy-too-few = Tidy Tabs needs at least { $count } Today tabs
+whimsy-tidy-done =
+    { $sections ->
+        [one] Tidied { $tabs } tabs into 1 section
+       *[other] Tidied { $tabs } tabs into { $sections } sections
+    }
