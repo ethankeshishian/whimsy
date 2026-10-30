@@ -121,3 +121,28 @@ add_task(async function test_context_menu_and_page_media() {
   });
   await SpecialPowers.popPrefEnv();
 });
+
+// fix7: YouTube streams through MediaSource (a blob: URL), which has no file
+// to save. Save Video to Playlist says so instead of "no video on this page".
+add_task(async function test_streamed_video_explains_itself() {
+  await BrowserTestUtils.withNewTab(ROOT + "whimsy_video.html", async browser => {
+    await SpecialPowers.spawn(browser, [], () => {
+      const doc = content.document;
+      for (const el of doc.querySelectorAll("video, audio, a")) {
+        el.remove();
+      }
+      const video = doc.createElement("video");
+      video.src = content.URL.createObjectURL(new content.MediaSource());
+      doc.body.append(video);
+    });
+    toasts.length = 0;
+    is(await WhimsyPlaylist.saveFromPage(window), null, "Nothing saved");
+    Assert.deepEqual(toasts, ["whimsy-playlist-streamed-toast"], "The toast says the site streams its video");
+
+    await SpecialPowers.spawn(browser, [], () => content.document.querySelector("video").remove());
+    toasts.length = 0;
+    await WhimsyPlaylist.saveFromPage(window);
+    Assert.deepEqual(toasts, ["whimsy-playlist-no-media-toast"], "No media at all: the plain message");
+  });
+  is((await WhimsyPlaylist.list()).length, 0, "Nothing was added");
+});

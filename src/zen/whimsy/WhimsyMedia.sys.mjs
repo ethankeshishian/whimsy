@@ -96,6 +96,17 @@ const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
 const PIP_GRACE = Symbol("whimsyPipGrace");
 const PIP_GRACE_MS = 1000;
 
+// fix7: automatic PiP still didn't happen on dev.413 (tabs and spaces).
+// Firefox only pops a video out when the page reports it went hidden, and
+// its page script listens for that only while a video is on screen (its
+// hover-toggle tracking): scroll down to a video's comments, or switch
+// before tracking starts (it waits for an idle moment), and nothing ever
+// fires. Zen can also keep a tab you left rendered (space switches, split
+// view), so the page never goes hidden. A moment after the switch, Whimsy
+// now asks the page itself: when Firefox's path isn't going to fire, the
+// page pops the video out (WhimsyPageChild.autoPip).
+const AUTO_PIP_FALLBACK_MS = 400;
+
 export const WhimsyMedia = {
   get backgroundMuteMode() {
     if (!Services.prefs.getBoolPref(MUTE_FEATURE_PREF, true)) {
@@ -135,6 +146,7 @@ export const WhimsyMedia = {
     container.addEventListener("TabSelect", event => {
       try {
         this.giveAutoPipAMoment(win, event.detail?.previousTab, update);
+        this.ensureAutoPip(win, event.detail?.previousTab);
       } catch (e) {
         console.error("Whimsy: auto PiP before mute", e);
       }
@@ -257,6 +269,54 @@ export const WhimsyMedia = {
       return false;
     }
     return lazy.PictureInPicture.getEligiblePipVideoCount(browser).totalPipCount > 0;
+  },
+
+  // fix7: makes sure a playing video in the tab you left pops out, when
+  // Firefox's own auto-PiP can't see the switch (see AUTO_PIP_FALLBACK_MS).
+  // Closing the player by hand still skips the next automatic one.
+  ensureAutoPip(win, tab) {
+    if (!this.autoPipCandidate(tab)) {
+      return false;
+    }
+    const PiP = lazy.PictureInPicture;
+    const browser = tab.linkedBrowser;
+    // Read now: Firefox's path clears it as soon as it sees the page hide.
+    const skip = !!PiP.weakAutoPipBrowserClosedDeliberately?.has(browser);
+    win.setTimeout(() => {
+      try {
+        if (skip) {
+          PiP.weakAutoPipBrowserClosedDeliberately?.delete(browser);
+          return;
+        }
+        this.requestAutoPip(tab);
+      } catch (e) {
+        console.error("Whimsy: auto PiP fallback", e);
+      }
+    }, AUTO_PIP_FALLBACK_MS);
+    return true;
+  },
+
+  // Asks each frame with a PiP-able video to pop it out; the page skips it
+  // when Firefox's own auto-PiP has it (or the video is already out).
+  requestAutoPip(tab) {
+    if (!this.autoPipCandidate(tab) || this.hasPlayer(tab.linkedBrowser)) {
+      return 0;
+    }
+    let asked = 0;
+    for (const { windowGlobal, pipCount } of lazy.PictureInPicture.windowGlobalPipCountGenerator(tab.linkedBrowser)) {
+      if (pipCount > 0) {
+        windowGlobal.getActor("WhimsyPage").sendAsyncMessage("Whimsy:AutoPip");
+        asked++;
+      }
+    }
+    return asked;
+  },
+
+  hasPlayer(browser) {
+    const PiP = lazy.PictureInPicture;
+    return [...Services.wm.getEnumerator("Toolkit:PictureInPicture")].some(
+      w => !w.closed && PiP.weakWinToBrowser?.get(w) === browser
+    );
   },
 
   setMuted(tab, muted) {

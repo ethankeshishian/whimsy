@@ -108,6 +108,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // wave3: floating calls (WhimsyCallPip).
       case "Whimsy:CallPip":
         return this.callPip();
+      // fix7: automatic picture-in-picture fallback (WhimsyMedia).
+      case "Whimsy:AutoPip":
+        return this.autoPip();
       // media: playlist media discovery.
       case "Whimsy:GetPageMedia":
         return this.pageMedia();
@@ -169,6 +172,51 @@ export class WhimsyPageChild extends JSWindowActorChild {
     return true;
   }
 
+  // fix7: the tab was switched away from while its video played. Firefox
+  // pops the video out itself when the page goes hidden, but listens for
+  // that only while a video is on screen (PictureInPictureToggleChild's
+  // tracking). If it's listening, wait for the page to hide and leave it to
+  // Firefox; otherwise (scrolled away, tracking not started yet, or Zen
+  // kept the tab rendered) run Firefox's own auto toggle, which checks the
+  // video plays, has sound and may be put in picture-in-picture.
+  async autoPip() {
+    const doc = this.document;
+    if (!doc) {
+      return false;
+    }
+    const firefoxListens = () => {
+      try {
+        return !!this.manager.getActor("PictureInPictureToggle")?.docState?.isTrackingVideos;
+      } catch (e) {
+        return false;
+      }
+    };
+    if (firefoxListens() && doc.visibilityState != "hidden") {
+      await new Promise(resolve => {
+        const timer = this.contentWindow.setTimeout(resolve, 600);
+        doc.addEventListener(
+          "visibilitychange",
+          () => {
+            this.contentWindow?.clearTimeout(timer);
+            resolve();
+          },
+          { once: true }
+        );
+      });
+      if (!this.contentWindow) {
+        return false;
+      }
+    }
+    if (doc.visibilityState == "hidden" && firefoxListens()) {
+      return false; // Firefox's own auto-PiP has it.
+    }
+    if ([...doc.querySelectorAll("video")].some(v => v.isCloningElementVisually)) {
+      return false; // Already in picture-in-picture.
+    }
+    this.manager.getActor("PictureInPictureLauncher").autoToggle();
+    return true;
+  }
+
   // Finds direct media elements (<video>, <audio>) and links on the page.
   pageMedia() {
     const doc = this.document;
@@ -179,7 +227,14 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const elements = [...doc.querySelectorAll("video, audio")];
     for (const el of elements) {
       const src = el.currentSrc || el.src;
-      if (src && !src.startsWith("blob:") && !src.startsWith("mediasource:")) {
+      // fix7: streamed media (YouTube and most video sites feed the player
+      // through MediaSource, a blob: URL; calls use a live MediaStream) has
+      // no file to save. Reported so the Playlist can say so.
+      if (el.srcObject || src.startsWith("blob:") || src.startsWith("mediasource:")) {
+        results.push({ url: null, streamed: true, type: el.tagName.toLowerCase() == "audio" ? "audio" : "video" });
+        continue;
+      }
+      if (src) {
         results.push({
           url: src,
           title: doc.title || src.split("/").pop(),

@@ -204,7 +204,7 @@ support-files = ["whimsy_slow_download.sjs"]
 ["browser_whimsy_url_schemes.js"]
 
 ["browser_whimsy_upload_clipboard.js"]
-support-files = ["whimsy_upload.html"]
+support-files = ["whimsy_upload.html", "whimsy_upload_widgets.html"]
 
 # Paste-to-upload regression on a plain <input type=file> form (real clipboard).
 ["browser_whimsy_upload_paste_form.js"]

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<html>
+<head><meta charset="utf-8"><title>whimsy upload widgets</title></head>
+<body>
+<!-- A styled div button that clicks a hidden input (Benepass-style). -->
+<div class="uploader">
+  <div id="fake-button" role="button" tabindex="0">Upload receipt</div>
+  <input id="widget-input" type="file" style="display:none">
+</div>
+<!-- react-dropzone: a focusable root wrapping its input. -->
+<div id="dropzone-root" tabindex="0" role="presentation">
+  <input id="dropzone-input" type="file" style="display:none">
+  <p>Drag files here, or click to select</p>
+</div>
+<!-- A drop zone that can't take focus: you click it, then press Cmd+V. -->
+<section>
+  <div id="clickzone"><span id="clickzone-text">Click or drop a file</span><input id="clickzone-input" type="file" hidden></div>
+</section>
+<!-- A button pointing at its input. -->
+<button id="aria-button" aria-controls="aria-input">Attach</button>
+<input id="aria-input" type="file" hidden>
+<!-- A drop zone with no file input at all. -->
+<div id="pure-drop" class="file-dropzone" tabindex="0">Drop here</div>
+<!-- A text field next to an upload input: Cmd+V stays a normal paste. -->
+<div><textarea id="notes"></textarea><input id="notes-file" type="file" hidden></div>
+<script>
+  window.whimsyDropped = null;
+  const zone = document.getElementById("pure-drop");
+  zone.addEventListener("dragover", e => e.preventDefault());
+  zone.addEventListener("drop", e => {
+    e.preventDefault();
+    window.whimsyDropped = e.dataTransfer.files[0]?.name ?? null;
+  });
+</script>
+</body>
+</html>
