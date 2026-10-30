@@ -12,10 +12,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 // #7 Open a link in split: Shift+click opens a link beside the current tab
-// instead of navigating it away. Not Arc's: Arc's Shift+click opens Peek,
-// which is Whimsy's default too (zen.glance.activation-method), so this
-// only runs the link through to a split when the user has explicitly
-// turned it on (default off); the WhimsyPage actor
+// instead of navigating it away. Not Arc's (Arc's Shift+click opens Peek;
+// Whimsy keeps Zen's Option+click for Peek). Shift+click is Firefox's own
+// "open in new window", so this only runs the link through to a split when
+// the user has explicitly turned it on (default off); the WhimsyPage actor
 // does the in-page detection (see WhimsyPageChild/Parent) and calls
 // openLinkInSplit below.
 const LINK_FEATURE_PREF = "whimsy.feature.split-link-click";
@@ -55,7 +55,8 @@ const FOUR_PANES_FEATURE_PREF = "whimsy.feature.split-four-panes";
 // wave6/parity: Arc's Option+click a tab in the sidebar opens it in a split
 // with the current tab (or adds it to the current split), instead of
 // switching to it. Option+click on a tab means nothing else in Zen or
-// Firefox on macOS.
+// Firefox on macOS; Zen's Option+click Peek is for links in the page
+// (and bookmarks), never sidebar tabs, so the two don't meet.
 const ALT_CLICK_FEATURE_PREF = "whimsy.feature.split-alt-click";
 
 function enabled(pref) {

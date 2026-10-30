@@ -3,14 +3,15 @@
 
 "use strict";
 
-// wave6/parity: Peek opens on Shift+click, as in Arc; Shift+click-to-split
-// stays an opt-in; Option+click a tab splits it with the current one.
+// wave6/parity: Peek stays on Zen's Option+click (user decision);
+// Shift+click-to-split stays an opt-in; Option+click a sidebar tab splits
+// it with the current one.
 
-add_task(function test_peek_on_shift_click() {
+add_task(function test_peek_keeps_zen_trigger() {
   is(
     Services.prefs.getDefaultBranch("").getStringPref("zen.glance.activation-method"),
-    "shift",
-    "Glance (Peek) opens on Shift+click by default"
+    "alt",
+    "Glance (Peek) keeps Zen's Option+click"
   );
   ok(!Services.prefs.getDefaultBranch("").getBoolPref("whimsy.splitlink.shift-click"), "Shift+click to split stays off");
 });
