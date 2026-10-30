@@ -44,7 +44,7 @@ add_task(async function test_session_auth() {
   const folder = makeFolder();
   const items = await folder.fetchItems();
   ok(Array.isArray(items), "Fetches an array of issues over the signed-in session, no API key needed");
-  is(items.length, 2, "Both fixture issues come back");
+  is(items.length, 3, "Triage, Todo and In Progress issues come back by default");
   is(items[0].title, "Fix the login bug", "Title comes from the issue's title");
   is(items[0].subtitle, "ENG-1 · In Progress", "Subtitle carries the identifier and state");
   ok(items[0].url.endsWith("/issue/ENG-1"), "The URL points at the issue");
@@ -59,7 +59,7 @@ add_task(async function test_api_key_fallback() {
     const folder = makeFolder({ team: "SESSIONFAIL" });
     const items = await folder.fetchItems();
     ok(Array.isArray(items), "Falls back to the stored API key when the session isn't authenticated");
-    is(items.length, 2, "The fixture's issues come back over the API-key request");
+    is(items.length, 3, "The fixture's open issues come back over the API-key request");
   } finally {
     await WhimsyLinearLiveFolderProvider.clearApiKey();
   }
@@ -142,4 +142,64 @@ add_task(async function test_create_menu_opened_for_real() {
   const hidden = BrowserTestUtils.waitForPopupEvent(contextMenu, "hidden");
   contextMenu.hidePopup();
   await hidden;
+});
+
+// Statuses: Backlog, Done, Canceled and Duplicate are hidden by default;
+// every Linear workflow state type has its own toggle in the folder's
+// Statuses submenu.
+add_task(async function test_status_filters() {
+  await WhimsyLinearLiveFolderProvider.clearApiKey();
+  const folder = makeFolder();
+  Assert.deepEqual(
+    folder.state.hiddenStates,
+    ["backlog", "completed", "canceled", "duplicate"],
+    "A new (or pre-existing, unsaved) folder hides Backlog, Done, Canceled and Duplicate"
+  );
+  let items = await folder.fetchItems();
+  Assert.deepEqual(
+    items.map(i => i.subtitle.split(" · ")[0]).sort(),
+    ["ENG-1", "ENG-2", "ENG-3"],
+    "Only triage, unstarted and started issues show by default"
+  );
+
+  const statuses = folder.options.find(o => o.key === "statuses");
+  ok(statuses, "The folder's options have a Statuses submenu");
+  Assert.deepEqual(
+    statuses.options.map(o => o.value),
+    ["triage", "backlog", "unstarted", "started", "completed", "canceled", "duplicate"],
+    "One toggle per Linear workflow state type, in Linear's order"
+  );
+  Assert.deepEqual(
+    statuses.options.filter(o => o.checked).map(o => o.value),
+    ["triage", "unstarted", "started"],
+    "Checked means shown"
+  );
+  for (const o of statuses.options) {
+    ok(o.l10nId.startsWith("whimsy-live-folder-linear-state-"), `${o.value} has its own label`);
+  }
+
+  // Showing Canceled brings back canceled issues, but not an older
+  // workspace's canceled "Duplicate" while Duplicate stays hidden.
+  folder.toggleStateType("canceled");
+  items = await folder.fetchItems();
+  const ids = items.map(i => i.id);
+  ok(ids.includes("linear:issue-6"), "Showing Canceled brings back a canceled issue");
+  ok(!ids.includes("linear:issue-8"), "A canceled state named Duplicate still counts as Duplicate");
+  ok(!ids.includes("linear:issue-7"), "A native duplicate stays hidden");
+
+  folder.toggleStateType("duplicate");
+  items = await folder.fetchItems();
+  ok(items.some(i => i.id === "linear:issue-7"), "Showing Duplicate brings back native duplicates");
+  ok(items.some(i => i.id === "linear:issue-8"), "and legacy canceled duplicates");
+
+  folder.toggleStateType("started");
+  items = await folder.fetchItems();
+  ok(!items.some(i => i.id === "linear:issue-1"), "Hiding In Progress drops started issues");
+
+  folder.toggleStateType("not-a-type");
+  ok(!folder.state.hiddenStates.includes("not-a-type"), "Unknown types are ignored");
+
+  const saved = makeFolder({ hiddenStates: [] });
+  items = await saved.fetchItems();
+  is(items.length, 8, "With nothing hidden, every status shows");
 });

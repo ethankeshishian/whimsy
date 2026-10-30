@@ -351,3 +351,106 @@ add_task(async function clear_all_history_removes_space_metadata() {
   is(Object.keys((await SpaceHistory.file()).data.visits).length, 0,
     "Clearing all Places visits also clears all space metadata");
 });
+
+// The ways a visit used to end up with no space: essentials (shared by
+// every space), Glance, a stale space id, a window without spaces (Mini
+// Whimsy, a site's popup), and session restore before spaces load.
+add_task(async function every_surface_resolves_to_a_space() {
+  const active = gZenWorkspaces.activeWorkspace;
+  const other = await gZenWorkspaces.createAndSaveWorkspace("History other", undefined, true);
+  await gZenWorkspaces.changeWorkspace(gZenWorkspaces.getWorkspaceFromId(active));
+  // Stand-in tabs: only their attributes matter, and the real tab strip
+  // isn't disturbed.
+  const fakeTab = attrs => ({
+    hasAttribute: name => name in attrs,
+    getAttribute: name => attrs[name] ?? null,
+  });
+  const browser = gBrowser.selectedBrowser;
+  try {
+    is(SpaceHistory.spaceIdFor(window, browser, fakeTab({ "zen-workspace-id": other.uuid })),
+      other.uuid, "A normal tab keeps its own space");
+    is(SpaceHistory.spaceIdFor(window, browser,
+      fakeTab({ "zen-workspace-id": other.uuid, "zen-essential": "true" })), active,
+    "An essential belongs to the space showing it, not its stale id");
+    is(SpaceHistory.spaceIdFor(window, browser,
+      fakeTab({ "zen-workspace-id": other.uuid, "zen-glance-tab": "true" })), active,
+    "A Glance belongs to the active space");
+    is(SpaceHistory.spaceIdFor(window, browser, fakeTab({ "zen-workspace-id": "no-such-space" })),
+      active, "A stale space id falls back to the active space");
+
+    // A window without spaces (a site's popup) inherits the space of the
+    // page that opened it.
+    const openerTab = gBrowser.selectedTab;
+    const openerSpace = SpaceHistory.spaceIdFor(window, browser, openerTab);
+    ok(openerSpace, "The opener tab has a space");
+    const popupBrowser = { browsingContext: { opener: { top: { embedderElement: browser } } } };
+    const popupWin = { gZenWorkspaces: { workspaceEnabled: false } };
+    is(SpaceHistory.spaceIdFor(popupWin, popupBrowser, fakeTab({})), openerSpace,
+      "A popup's visit belongs to its opener tab's space");
+    // Mini Whimsy, opened on its own: the space Move to Space would pick.
+    const mini = { _whimsyQuickWindow: true, opener: window, gZenWorkspaces: { workspaceEnabled: true } };
+    is(SpaceHistory.spaceIdFor(mini, { browsingContext: null }, fakeTab({})), active,
+      "A Mini Whimsy visit belongs to the opener window's active space");
+
+    // At startup a tab's space can be restored before the window's spaces
+    // load: the id is kept and named when the visit is recorded.
+    const url = "https://space-history.example.com/early";
+    const date = new Date(Date.now() - 5000);
+    await HistoryPlaces.history.insert({ url, title: "Early",
+      visits: [{ date, transition: HistoryPlaces.history.TRANSITION_LINK }] });
+    const db = await HistoryPlaces.promiseDBConnection();
+    const [row] = await db.execute(`SELECT v.id, p.guid FROM moz_historyvisits v
+      JOIN moz_places p ON p.id = v.place_id WHERE p.url = :url AND v.visit_date = :time`,
+    { url, time: date.getTime() * 1000 });
+    const visit = { id: row.getResultByName("id"), guid: row.getResultByName("guid"), time: date.getTime(), url };
+    SpaceHistory._candidates = [{ url, time: visit.time, spaceId: other.uuid, spaceName: "" }];
+    await SpaceHistory.enqueue(() => SpaceHistory.recordVisit(visit));
+    const file = await SpaceHistory.file();
+    is(file.data.visits[visit.id]?.spaceName, "History other",
+      "A snapshot taken before spaces loaded is named when recorded");
+    delete file.data.visits[visit.id];
+    SpaceHistory._candidates = [{ url, time: visit.time, spaceId: "gone-space", spaceName: "" }];
+    await SpaceHistory.enqueue(() => SpaceHistory.recordVisit(visit));
+    ok(!file.data.visits[visit.id], "A space that never turns up leaves the visit unlabeled");
+    await HistoryPlaces.history.remove(url);
+  } finally {
+    SpaceHistory._candidates = [];
+    await gZenWorkspaces.removeWorkspace(other.uuid);
+    await SpaceHistory.enqueue(() => SpaceHistory.prune());
+  }
+});
+
+// "Where was the tab?" lists spaces in the user's own order (Zen's space
+// strip), not by name; spaces that only survive in older visits go last.
+add_task(async function space_filter_follows_space_order() {
+  const zulu = await gZenWorkspaces.createAndSaveWorkspace("Zulu order", undefined, true);
+  const alpha = await gZenWorkspaces.createAndSaveWorkspace("Alpha order", undefined, true);
+  await historyVisit("hist-gone", "Gone space", 600, "gone");
+  const library = document.querySelector("zen-library");
+  const wasTab = library.activeTab;
+  library.activeTab = "history";
+  await library.constructor.animateProgress(1);
+  const ids = () => section._spaceOptions.map(([id]) => id);
+  let section;
+  try {
+    await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
+    section = library.querySelector("whimsy-space-history-section");
+    const expected = () => [...gZenWorkspaces.getWorkspaces().filter(s => !s.whimsyScratch).map(s => s.uuid),
+      "hist-gone"];
+    await section.refresh();
+    Assert.deepEqual(ids().filter(id => expected().includes(id)), expected(),
+      "Spaces follow the space strip, then spaces only older visits remember");
+    ok(ids().indexOf(zulu.uuid) < ids().indexOf(alpha.uuid), "Not alphabetical: Zulu was made first");
+    await gZenWorkspaces.reorderWorkspace(alpha.uuid, 0);
+    await section.refresh();
+    is(ids()[0], alpha.uuid, "Moving a space to the front moves it to the front of the filter");
+    const current = gZenWorkspaces.getWorkspaces().map(s => s.uuid);
+    ok(ids().indexOf("hist-gone") > Math.max(...current.map(id => ids().indexOf(id))),
+      "A deleted space stays after every current one");
+  } finally {
+    await library.constructor.animateProgress(0);
+    library.activeTab = wasTab;
+    await gZenWorkspaces.removeWorkspace(alpha.uuid);
+    await gZenWorkspaces.removeWorkspace(zulu.uuid);
+  }
+});

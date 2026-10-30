@@ -13,8 +13,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
   WhimsySyncedMap: "resource:///modules/whimsy/WhimsyProfileSync.sys.mjs",
 });
+// Places can notify a visit up to this long before the tab's location
+// change lands (slow commits, busy startup); later attempts let it catch up.
+const RECORD_ATTEMPTS_MS = [250, 1000, 2500];
 const PREF = "whimsy.feature.space-history";
 const TOPIC = "whimsy-space-history-changed";
 const EVENTS = ["page-visited", "page-removed", "history-cleared", "purge-caches"];
@@ -90,10 +94,13 @@ export const WhimsySpaceHistory = {
             guid: event.pageGuid, url: event.url };
           this.captureOpenVisit(visit);
           // Places and progress notifications can arrive in either order.
-          // A one-shot task lets the corresponding location change catch up.
-          setTimeout(() => {
-            this.enqueue(() => this.recordVisit(visit)).catch(console.error);
-          }, 250);
+          // A few one-shot tasks let the location change catch up; the
+          // first one that finds a snapshot records it, the rest no-op.
+          for (const delay of RECORD_ATTEMPTS_MS) {
+            setTimeout(() => {
+              this.enqueue(() => this.recordVisit(visit)).catch(console.error);
+            }, delay);
+          }
         } else {
           this.enqueue(() => this.prune()).catch(console.error);
         }
@@ -110,6 +117,59 @@ export const WhimsySpaceHistory = {
     IOUtils.exists(PathUtils.join(PathUtils.profileDir, "whimsy-space-history.json"))
       .then(exists => exists && this.enqueue(() => this.prune())).catch(console.error);
   },
+  // A space by id from any window: spaces are shared between windows, and
+  // a window that has none of its own (Mini Whimsy, popups) still has
+  // visits that belong to one.
+  findSpace(spaceId) {
+    if (!spaceId) {
+      return null;
+    }
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      const space = win.gZenWorkspaces?.getWorkspaceFromId?.(spaceId);
+      if (space) {
+        return space;
+      }
+    }
+    return null;
+  },
+  // Which space a browser's navigation belongs to, or "" when nowhere.
+  // Every way a page can be shown resolves to the space it's shown in:
+  // - an essential is shared by every space, so its visit is in whichever
+  //   space is showing it (its zen-workspace-id can be another space's);
+  // - a Glance always opens over the active space, whatever its parent;
+  // - a tab whose id isn't a known space falls back to the window's
+  //   active space, except at startup, before the window's spaces load,
+  //   when the id is kept and resolved when the visit is recorded;
+  // - a window without spaces (Mini Whimsy, a site's popup) belongs to
+  //   the page that opened it, or to the space Mini Whimsy would move into.
+  spaceIdFor(win, browser, tab, depth = 0) {
+    const spaces = win.gZenWorkspaces;
+    const hasSpaces = !!spaces?.workspaceEnabled && !win._whimsyQuickWindow;
+    const active = hasSpaces ? spaces.activeWorkspace || "" : "";
+    if (hasSpaces) {
+      if (tab.hasAttribute("zen-essential") || tab.hasAttribute("zen-glance-tab")) {
+        return active;
+      }
+      const own = tab.getAttribute("zen-workspace-id");
+      if (own && (spaces.getWorkspaceFromId(own) || !spaces.getWorkspaces().length)) {
+        return own;
+      }
+      return active;
+    }
+    const opener = browser.browsingContext?.opener?.top?.embedderElement;
+    const openerWin = opener?.documentGlobal;
+    const openerTab = openerWin?.gBrowser?.getTabForBrowser?.(opener);
+    if (openerTab && openerWin !== win && depth < 3) {
+      return this.spaceIdFor(openerWin, opener, openerTab, depth + 1);
+    }
+    if (win._whimsyQuickWindow) {
+      return lazy.WhimsyQuickWindow.defaultSpaceId(win) || "";
+    }
+    const main = Services.wm.getMostRecentNonPBWindow?.("navigator:browser") ||
+      Services.wm.getMostRecentWindow("navigator:browser");
+    return main && main !== win && main.gZenWorkspaces?.workspaceEnabled ?
+      main.gZenWorkspaces.activeWorkspace || "" : "";
+  },
   capture(win, browser, uri, visitId = null) {
     if (!this.recording || !uri || !lazy.PlacesUtils.history.canAddURI(uri)) {
       return;
@@ -120,10 +180,11 @@ export const WhimsySpaceHistory = {
         lazy.WhimsyPrivate.isPrivateTab(tab)) {
       return;
     }
-    const spaces = win.gZenWorkspaces;
-    const spaceId = tab.getAttribute("zen-workspace-id") || spaces?.activeWorkspace;
-    const space = spaces?.getWorkspaces().find(item => item.uuid === spaceId);
-    if (!space || space.whimsyScratch) {
+    const spaceId = this.spaceIdFor(win, browser, tab);
+    const space = this.findSpace(spaceId);
+    // A space that isn't loaded yet (session restore at startup) keeps its
+    // id; recordVisit names it, or drops it if it never turns up.
+    if (!spaceId || space?.whimsyScratch) {
       return;
     }
     // wave5/profiles: the profile is the tab's own container (what Gecko
@@ -134,7 +195,7 @@ export const WhimsySpaceHistory = {
     // A snapshot taken for a known Places visit belongs to that visit only;
     // an earlier visit to the same URL must not consume it.
     this._candidates.push({ url: uri.spec, time: now,
-      spaceId, spaceName: space.name, profile, ...(visitId == null ? {} : { visitId }) });
+      spaceId, spaceName: space?.name || "", profile, ...(visitId == null ? {} : { visitId }) });
     this._candidates = this._candidates.slice(-256);
   },
   captureOpenVisit(visit) {
@@ -180,7 +241,15 @@ export const WhimsySpaceHistory = {
     const candidate = candidates.reduce((a, b) =>
       Math.abs(a.time - visit.time) < Math.abs(b.time - visit.time) ? a : b);
     const file = await this.file();
-    if (!this.recording) {
+    if (!this.recording || file.data.visits[visit.id]) {
+      return;
+    }
+    // A snapshot taken before its window's spaces loaded is named now; one
+    // whose space never turned up (or is Scratch) is left unattributed.
+    // (wave5/profiles: with no single space, only the profile is kept.)
+    const space = oneSpace ? this.findSpace(candidate.spaceId) : null;
+    const spaceName = oneSpace ? space?.name || candidate.spaceName : null;
+    if (oneSpace && (space?.whimsyScratch || !spaceName)) {
       return;
     }
     const db = await lazy.PlacesUtils.promiseDBConnection();
@@ -195,7 +264,7 @@ export const WhimsySpaceHistory = {
     // later same-URL visits delivered in the same Places notification batch.
     this._candidates = this._candidates.filter(item => item !== candidate);
     file.data.visits[visit.id] = { id: visit.id, time: visit.time, guid: visit.guid,
-      spaceId: oneSpace ? candidate.spaceId : null, spaceName: oneSpace ? candidate.spaceName : null,
+      spaceId: oneSpace ? candidate.spaceId : null, spaceName,
       ...(candidate.profile ? { profile: candidate.profile } : {}) };
     this.indexVisit(file.data.visits[visit.id], visit.url);
     if (candidate.profile) {

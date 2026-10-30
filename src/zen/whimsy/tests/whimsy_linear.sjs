@@ -35,29 +35,33 @@ function authErrorBody() {
   });
 }
 
-function issuesBody() {
+// One issue per workflow state type, plus an older workspace's canceled
+// state named "Duplicate". Like Linear, the server applies the
+// state.type.nin filter the request carries.
+const ISSUES = [
+  ["issue-1", "ENG-1", "Fix the login bug", "In Progress", "started"],
+  ["issue-2", "ENG-2", "Write the changelog", "Todo", "unstarted"],
+  ["issue-3", "ENG-3", "Sort incoming reports", "Triage", "triage"],
+  ["issue-4", "ENG-4", "Someday: dark mode", "Backlog", "backlog"],
+  ["issue-5", "ENG-5", "Ship the release", "Done", "completed"],
+  ["issue-6", "ENG-6", "Old idea", "Canceled", "canceled"],
+  ["issue-7", "ENG-7", "Same as ENG-1", "Duplicate", "duplicate"],
+  ["issue-8", "ENG-8", "Also same as ENG-1", "Duplicate", "canceled"],
+].map(([id, identifier, title, name, type]) => ({
+  id,
+  identifier,
+  title,
+  url: `https://linear.app/whimsy/issue/${identifier}`,
+  state: { name, type },
+}));
+
+function issuesBody(filter) {
+  const nin = filter?.state?.type?.nin || [];
   return JSON.stringify({
     data: {
       viewer: {
         id: "viewer-1",
-        assignedIssues: {
-          nodes: [
-            {
-              id: "issue-1",
-              identifier: "ENG-1",
-              title: "Fix the login bug",
-              url: "https://linear.app/whimsy/issue/ENG-1",
-              state: { name: "In Progress", type: "started" },
-            },
-            {
-              id: "issue-2",
-              identifier: "ENG-2",
-              title: "Write the changelog",
-              url: "https://linear.app/whimsy/issue/ENG-2",
-              state: { name: "Todo", type: "unstarted" },
-            },
-          ],
-        },
+        assignedIssues: { nodes: ISSUES.filter(issue => !nin.includes(issue.state.type)) },
       },
     },
   });
@@ -77,9 +81,9 @@ function handleRequest(request, response) {
   const authHeader = request.hasHeader("Authorization") ? request.getHeader("Authorization") : null;
 
   if (authHeader === null) {
-    response.write(team === "SESSIONFAIL" ? authErrorBody() : issuesBody());
+    response.write(team === "SESSIONFAIL" ? authErrorBody() : issuesBody(body?.variables?.filter));
     return;
   }
 
-  response.write(authHeader === VALID_KEY ? issuesBody() : authErrorBody());
+  response.write(authHeader === VALID_KEY ? issuesBody(body?.variables?.filter) : authErrorBody());
 }

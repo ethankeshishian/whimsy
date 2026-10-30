@@ -323,6 +323,18 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
     }
   }
 
+  // The filter lists spaces in the user's own order (Zen's space strip);
+  // spaces that only live on in older visits follow, by name.
+  #orderSpaces(options) {
+    const order = (this.win.gZenWorkspaces?.getWorkspaces() || []).map(space => space.uuid);
+    const rank = id => {
+      const index = order.indexOf(id);
+      return index === -1 ? Infinity : index;
+    };
+    return [...options].sort((a, b) =>
+      rank(a[0]) - rank(b[0]) || (rank(a[0]) === Infinity ? a[1].localeCompare(b[1]) : 0));
+  }
+
   #spaceName(id) {
     if (!id) {
       return "";
@@ -361,7 +373,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         options.set(item.zenWorkspace, name);
       }
     }
-    this._spaceOptions = [...options].sort((a, b) => a[1].localeCompare(b[1]));
+    this._spaceOptions = this.#orderSpaces(options);
     this._whimsyItems = items;
     this.requestUpdate();
     await this._fitFilterPanel(generation);
@@ -404,7 +416,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
           options.set(space.uuid, space.name);
         }
       }
-      this._spaceOptions = [...options].sort((a, b) => a[1].localeCompare(b[1]));
+      this._spaceOptions = this.#orderSpaces(options);
       this._flatVisits = visits;
       this._spaceExhausted = visits.length < this._spaceLimit;
       if (this.searchQuery || ["mostvisited", "lastvisited"].includes(sort)) {
