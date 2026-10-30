@@ -26,12 +26,15 @@ async function closeSplit(tabs) {
 }
 
 async function pressCmdT() {
+  await SimpleTest.promiseFocus(window);
   EventUtils.synthesizeKey("t", { accelKey: true });
   await TestUtils.waitForCondition(() => gURLBar.hasAttribute("zen-newtab"), "The floating URL bar opened");
 }
 
 async function pressEscape() {
-  EventUtils.synthesizeKey("KEY_Escape");
+  await SimpleTest.promiseFocus(window); // Keys reach the URL bar only in a focused window.
+    await TestUtils.waitForCondition(() => gURLBar.focused && gURLBar.view.isOpen, "The URL bar is focused with its results open");
+    EventUtils.synthesizeKey("KEY_Escape");
   await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "The URL bar closed");
 }
 
@@ -49,8 +52,10 @@ add_task(async function test_cmd_t_loads_into_the_focused_pane() {
     await pressCmdT();
     const url = "https://example.com/?replacement";
     const loaded = BrowserTestUtils.browserLoaded(b.linkedBrowser, false, url);
-    gURLBar.value = url;
-    gURLBar.inputField.dispatchEvent(new Event("input", { bubbles: true }));
+    const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+    UrlbarTestUtils.init(this);
+    // Type it and wait for results, so Enter has a result to pick.
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: url });
     EventUtils.synthesizeKey("KEY_Enter");
     await loaded;
     is(gBrowser.tabs.length, count, "No new tab: the page opened in the pane");
@@ -98,7 +103,10 @@ add_task(async function test_switch_off_and_unsplit_tabs_keep_zen() {
   // A tab that isn't in a split: Cmd+T is Zen's/Firefox's own new tab.
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.split-new-tab", true]] });
   const lone = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
-  const opened = BrowserTestUtils.waitForNewTab(gBrowser);
+  // TabOpen, not waitForNewTab: about:newtab can come from the preloaded
+  // browser, which never fires a load.
+  const opened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen").then(e => e.target);
+  await SimpleTest.promiseFocus(window);
   EventUtils.synthesizeKey("t", { accelKey: true });
   const newTab = await opened;
   ok(!newTab.splitView, "Outside a split, Cmd+T opens an ordinary new tab");

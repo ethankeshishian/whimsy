@@ -103,6 +103,8 @@ add_task(async function test_add_split_from_the_url_bar() {
     // Escape: nothing added.
     ok(WhimsySplitLayouts.addSplit(window, "top"), "Started");
     await TestUtils.waitForCondition(() => gURLBar.hasAttribute("zen-newtab"), "URL bar open");
+    await SimpleTest.promiseFocus(window); // Keys reach the URL bar only in a focused window.
+    await TestUtils.waitForCondition(() => gURLBar.focused && gURLBar.view.isOpen, "The URL bar is focused with its results open");
     EventUtils.synthesizeKey("KEY_Escape");
     await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"));
     is(WhimsySplitLayouts.group(window, b).tabs.length, 2, "Escape adds no pane");
@@ -132,6 +134,8 @@ add_task(async function test_starting_a_split_uses_zens_empty_pane() {
     ok(WhimsySplitLayouts.addSplit(window, "left"), "Started");
     await TestUtils.waitForCondition(() => gURLBar.hasAttribute("zen-newtab"), "URL bar open");
     ok(a.splitView, "Zen's empty pane is beside the tab");
+    await SimpleTest.promiseFocus(window); // Keys reach the URL bar only in a focused window.
+    await TestUtils.waitForCondition(() => gURLBar.focused && gURLBar.view.isOpen, "The URL bar is focused with its results open");
     EventUtils.synthesizeKey("KEY_Escape");
     await TestUtils.waitForCondition(() => !a.splitView, "Escape removes the empty pane");
   } finally {

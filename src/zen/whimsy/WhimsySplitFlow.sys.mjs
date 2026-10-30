@@ -30,21 +30,34 @@ export const WhimsySplitFlow = {
       pending = null;
     };
 
+    // Cmd+T runs cmd_newNavigatorTabNoEvent, so its openTab() call carries
+    // no event; note that it came from the key (the command element's own
+    // listener runs before the command set's handler calls openTab).
+    let fromKey = false;
+    win.document.getElementById("cmd_newNavigatorTabNoEvent")?.addEventListener("command", () => {
+      fromKey = true;
+      win.setTimeout(() => {
+        fromKey = false;
+      }, 0);
+    });
+
     const commands = win.BrowserCommands;
     const openTab = commands.openTab;
     commands.openTab = function (options = {}) {
       const { event, url } = options;
       const tab = win.gBrowser.selectedTab;
-      // Only the user's Cmd+T / new tab button (they carry an event); Zen's
-      // own internal openTab() calls and modified clicks stay as they are.
+      const byUser = !!event || fromKey;
+      fromKey = false;
+      // Only the user's Cmd+T / new tab button; Zen's own internal openTab()
+      // calls and modified clicks stay as they are.
       if (
         !enabled() ||
-        !event ||
+        !byUser ||
         url ||
         !tab?.splitView ||
-        event.altKey ||
-        event.shiftKey ||
-        event.button > 0 ||
+        event?.altKey ||
+        event?.shiftKey ||
+        event?.button > 0 ||
         win.gZenUIManager.newTabButtonWantsClipboard(event)
       ) {
         return openTab.call(this, options);
