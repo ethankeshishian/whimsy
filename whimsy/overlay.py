@@ -667,7 +667,7 @@ FEATURES = [
     {"id": "dev-mode", "title": "Developer mode tabs (Arc parity): localhost/port tabs get a striped outline and a top bar with Console/Network/Elements",
      "detect": [("src/zen", r"(?i)dev-?mode[\w-]*tab|whimsy-devmode")]},
     # linear: Linear live folder ("My Issues": assigned to you, open states).
-    {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
+    {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, over your linear.app sign-in (API key optional)",
      "detect": [("src/zen/live-folders", r"(?i)linear")]},
 
     # batch7b: offline game + year in tabs (about:whimsy)

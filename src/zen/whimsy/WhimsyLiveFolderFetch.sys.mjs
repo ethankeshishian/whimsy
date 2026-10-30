@@ -18,6 +18,33 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 /**
+ * The container (userContextId) a live folder's requests run as: the one
+ * its space uses, exactly like the base class's own fetch(). With Space
+ * Profiles a space's profile *is* its container (workspace.containerTabId),
+ * so this also picks the profile's cookies.
+ *
+ * @param {object} liveFolder - a nsZenLiveFolderProvider instance.
+ * @returns {number}
+ */
+export function whimsyLiveFolderUserContextId(liveFolder) {
+  try {
+    const folder = liveFolder?.manager?.getFolderForLiveFolder?.(liveFolder);
+    if (folder) {
+      const space = folder.documentGlobal.gZenWorkspaces.getWorkspaceFromId(
+        folder.getAttribute("zen-workspace-id")
+      );
+      if (space) {
+        return Number(space.containerTabId) || 0;
+      }
+    }
+  } catch {
+    // No real folder behind this provider (e.g. a test double): the
+    // default container is the right fallback.
+  }
+  return 0;
+}
+
+/**
  * @param {object} liveFolder - a nsZenLiveFolderProvider instance (or any
  *   object with a `.manager.getFolderForLiveFolder`), used only to
  *   resolve the folder's container (userContextId), exactly like the
@@ -27,36 +54,34 @@ ChromeUtils.defineESModuleGetters(lazy, {
  * @param {string} options.body - the raw request body, already serialized.
  * @param {string} [options.contentType]
  * @param {object} [options.headers] - extra request headers (e.g. Authorization).
+ * @param {string} [options.principalURL] - the site the request is made
+ *   as (its Origin header and SameSite context). Defaults to `url`
+ *   itself. Linear's session path sets https://linear.app, the page its
+ *   own web app runs on, for a request to client-api.linear.app.
  * @param {number} [options.maxContentLength]
- * @returns {Promise<{text: string, status: number|null}>}
+ * @returns {Promise<{text: string, status: number|null, header: (name: string) => string|null}>}
  */
 export function whimsyPostFetch(
   liveFolder,
   url,
-  { body, contentType = "application/json", headers = {}, maxContentLength = 5 * 1024 * 1024 } = {}
+  {
+    body,
+    contentType = "application/json",
+    headers = {},
+    principalURL = null,
+    maxContentLength = 5 * 1024 * 1024,
+  } = {}
 ) {
   const uri = lazy.NetUtil.newURI(url);
 
-  // Same container resolution as the base class's fetch(): a live folder
-  // that lives in a container space sends its request (and therefore its
-  // cookies) as that container, never the default one.
-  let userContextId = 0;
-  try {
-    const folder = liveFolder?.manager?.getFolderForLiveFolder?.(liveFolder);
-    if (folder) {
-      const space = folder.documentGlobal.gZenWorkspaces.getWorkspaceFromId(
-        folder.getAttribute("zen-workspace-id")
-      );
-      if (space) {
-        userContextId = space.containerTabId || 0;
-      }
-    }
-  } catch {
-    // No real folder behind this provider (e.g. a test double): the
-    // default container is the right fallback.
-  }
+  // A live folder that lives in a container space sends its request (and
+  // therefore its cookies) as that container, never the default one.
+  const userContextId = whimsyLiveFolderUserContextId(liveFolder);
 
-  const principal = Services.scriptSecurityManager.createContentPrincipal(uri, { userContextId });
+  const principal = Services.scriptSecurityManager.createContentPrincipal(
+    principalURL ? lazy.NetUtil.newURI(principalURL) : uri,
+    { userContextId }
+  );
 
   const channel = lazy.NetUtil.newChannel({
     uri,
@@ -81,6 +106,15 @@ export function whimsyPostFetch(
   }
 
   let httpStatus = null;
+  // Response headers are read on demand (e.g. a rate limit's reset time);
+  // nothing here ever reads or keeps the request's cookies.
+  const header = name => {
+    try {
+      return channel.getResponseHeader(name);
+    } catch {
+      return null;
+    }
+  };
   const byteChunks = [];
   let totalLength = 0;
 
@@ -115,7 +149,7 @@ export function whimsyPostFetch(
         offset += chunk.byteLength;
       }
 
-      resolve({ text: new TextDecoder("utf-8").decode(bytes), status: httpStatus });
+      resolve({ text: new TextDecoder("utf-8").decode(bytes), status: httpStatus, header });
     },
   });
 
