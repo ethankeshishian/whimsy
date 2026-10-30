@@ -19,6 +19,7 @@ const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppC
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
@@ -195,16 +196,40 @@ export const WhimsyPageActions = {
     return entry && sameDocument(entry.spec, browser.currentURI?.spec) ? entry.action : null;
   },
 
-  // Whether this action can run here (Watch price needs Watch a page).
+  // Whether this action can run here (Watch price needs Watch a page, and
+  // an AI provider that's set up: checking a watch is an AI request).
   available(win, action) {
     if (action?.kind == "product") {
       try {
-        return lazy.WhimsyPageWatch.canWatch(win, win.gBrowser.selectedTab);
+        if (!lazy.WhimsyPageWatch.canWatch(win, win.gBrowser.selectedTab)) {
+          return false;
+        }
       } catch {
         return false;
       }
+      this.checkAIReady(win);
+      return this._aiReady === true;
     }
     return !!action;
+  },
+
+  // Readiness is async (it may look for the on-device helper); remember the
+  // answer and refresh the pill when it changes.
+  checkAIReady(win) {
+    if (this._aiChecking) {
+      return;
+    }
+    this._aiChecking = lazy.WhimsyAIProviders.isReady()
+      .catch(() => false)
+      .then(ready => {
+        this._aiChecking = null;
+        if (ready !== this._aiReady) {
+          this._aiReady = ready;
+          if (!win.closed) {
+            this.update(win);
+          }
+        }
+      });
   },
 
   // --- Opening hours ---
