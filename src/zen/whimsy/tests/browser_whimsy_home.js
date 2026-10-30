@@ -277,3 +277,25 @@ add_task(async function test_fun_pages_with_home_disabled() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+add_task(async function home_decorations_finish_within_five_seconds() {
+  for (const reduced of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", reduced]] });
+    try {
+      await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+        await SpecialPowers.spawn(browser, [reduced], async motion => {
+          await ContentTaskUtils.waitForCondition(() => content.document.querySelector(".wh-balloon"));
+          for (const animation of content.document.getAnimations()) {
+            const timing = animation.effect.getComputedTiming();
+            ok(Number.isFinite(timing.endTime) && timing.endTime <= 5000, "Automatic animation ends within five seconds");
+            if (motion) {
+              is(timing.activeDuration, 0, "Reduced motion disables automatic decoration");
+            }
+          }
+        });
+      });
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});

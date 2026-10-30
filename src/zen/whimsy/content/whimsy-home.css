@@ -898,7 +898,7 @@ main {
   }
 
   .wh-hero-sky {
-    animation: wh-drift 28s ease-in-out infinite alternate;
+    animation: wh-drift 4s ease-in-out 1 alternate;
   }
 
   /* On the wrapper, so ending a poke never replays the arrival. */
@@ -907,11 +907,11 @@ main {
   }
 
   .wh-balloon-svg {
-    animation: wh-bob 6s ease-in-out infinite;
+    animation: wh-bob 4s ease-in-out 1;
   }
 
   .wh-balloon-string {
-    animation: wh-sway 3s ease-in-out infinite alternate;
+    animation: wh-sway 4s ease-in-out 1 alternate;
   }
 
   .wh-balloon.is-poked {
@@ -919,7 +919,7 @@ main {
   }
 
   .wh-sparkle {
-    animation: wh-twinkle 3.2s ease-in-out infinite;
+    animation: wh-twinkle 2.5s ease-in-out 1;
   }
 
   .wh-sparkle-2 {
@@ -931,11 +931,11 @@ main {
   }
 
   .wh-cloud-1 {
-    animation: wh-float-x 14s ease-in-out infinite alternate;
+    animation: wh-float-x 4s ease-in-out 1 alternate;
   }
 
   .wh-cloud-2 {
-    animation: wh-float-x 18s ease-in-out -6s infinite alternate-reverse;
+    animation: wh-float-x 4s ease-in-out 1 alternate-reverse;
   }
 
   .whimsy-home-link,
