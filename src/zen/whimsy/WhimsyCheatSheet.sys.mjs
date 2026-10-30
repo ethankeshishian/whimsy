@@ -74,7 +74,9 @@ const WHIMSY_TITLES = new Map([
   ["key_whimsySlowDown", "whimsy-cheatsheet-slow-down"],
   ["key_newNavigator", "whimsy-cheatsheet-new-window"],
   ["key_whimsyQuickWindow", "whimsy-cheatsheet-quick-window"],
-  ["key_privatebrowsing", "whimsy-cheatsheet-private-window"],
+  // wave6: Cmd+Shift+N is Scratch, not a private window; Cmd+N a new space.
+  ["key_whimsyNewScratch", "whimsy-cheatsheet-new-scratch"],
+  ["key_whimsyNewSpace", "whimsy-cheatsheet-new-space"],
 ]);
 
 function formatSync(id) {

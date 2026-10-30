@@ -169,6 +169,15 @@ export const WhimsyPage = {
       icon: "chrome://browser/skin/zen-icons/screenshot.svg",
       isAvailable: w => this.captureEnabled && isWebPage(w),
     });
+    // wave6/parity: Arc's File → Capture in Portrait Mode: the visible page
+    // cropped to a centred 9:16 frame (a phone-shaped shot), copied.
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyCapturePortrait",
+      l10nId: "whimsy-action-capture-portrait",
+      run: w => this.copyPortraitScreenshot(w),
+      icon: "chrome://browser/skin/zen-icons/screenshot.svg",
+      isAvailable: w => this.captureEnabled && isWebPage(w),
+    });
     // A <key> only matches keypress, whose keyCode is 0 for a printable key
     // and whose character is the shifted one ("!", "@" on a US layout), so
     // neither key="2" nor keycode="VK_2" ever fired with Shift held. The
@@ -219,6 +228,43 @@ export const WhimsyPage = {
       rect = await browser.browsingContext.currentWindowGlobal.getActor("WhimsyPage").sendQuery("Whimsy:PageBounds");
     } catch (e) {
       console.error("Whimsy: full-page capture", e);
+      win.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
+      return null;
+    }
+    const canvas = await ScreenshotsUtils.createCanvas(rect, browser);
+    const blob = await canvas.convertToBlob();
+    BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
+    win.gZenUIManager?.showToast?.("whimsy-capture-copied-toast");
+    const ratio = rect.devicePixelRatio || 1;
+    return { width: canvas.width / ratio, height: canvas.height / ratio };
+  },
+
+  // The largest centred 9:16 rect inside the visible area.
+  portraitRect(rect) {
+    const ratio = 9 / 16;
+    let { left, top, width, height } = rect;
+    if (width / height > ratio) {
+      const w = Math.round(height * ratio);
+      left += Math.round((width - w) / 2);
+      width = w;
+    } else {
+      const h = Math.round(width / ratio);
+      top += Math.round((height - h) / 2);
+      height = h;
+    }
+    return { ...rect, left, top, width, height, right: left + width, bottom: top + height };
+  },
+
+  async copyPortraitScreenshot(win, browser = win.gBrowser.selectedBrowser) {
+    if (!this.captureEnabled || !isWebPage(win)) {
+      return null;
+    }
+    const { ScreenshotsUtils, BrowserUtils } = lazy;
+    let rect;
+    try {
+      rect = this.portraitRect(await ScreenshotsUtils.fetchVisibleBounds(browser));
+    } catch (e) {
+      console.error("Whimsy: portrait capture", e);
       win.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
       return null;
     }

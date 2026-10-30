@@ -2,12 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-zen-action-toggle-compact-mode = Toggle Compact Mode
+zen-action-toggle-compact-mode = Hide or Show Sidebar
 zen-action-open-theme-picker = Open Theme Picker
-zen-action-open-library = Open Library
+zen-action-open-library = Open Library…
 zen-action-new-split-view = New Split View
 zen-action-unsplit-view = Expand current view
-zen-action-new-space = New Space
+zen-action-new-space = New Space…
 zen-action-new-folder = New Folder
 zen-action-collapse-all-folders = Collapse All Folders
 zen-action-expand-all-folders = Expand All Folders
@@ -15,7 +15,7 @@ zen-action-copy-current-url = Copy Current URL
 zen-action-settings = Settings
 zen-action-open-private-window = Open Private Window
 zen-action-open-new-window = Open New Window
-zen-action-new-blank-window = New Blank Window
+zen-action-new-blank-window = Blank Window
 zen-action-pin-tab = Pin Tab
 zen-action-unpin-tab = Unpin Tab
 zen-action-open-space-routing = Open Space Routing
@@ -23,7 +23,7 @@ zen-action-new-boost = New Boost
 zen-action-next-space = Next Space
 zen-action-previous-space = Previous Space
 zen-action-close-tab = Close Tab
-zen-action-reopen-closed-tab = Reopen Closed Tab
+zen-action-reopen-closed-tab = Restore Last Closed Tab
 zen-action-duplicate-tab = Duplicate Current Tab
 zen-action-reset-pinned-tab = Reset Pinned Tab
 zen-action-reload-tab = Reload Tab
