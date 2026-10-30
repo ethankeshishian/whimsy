@@ -1640,3 +1640,16 @@ whimsy-action-follower-toggle = Turn Follower Split On or Off
 whimsy-action-follow = Make This a Follower Split
 whimsy-action-unfollow = Stop Following
 whimsy-action-tab-volume = Tab Volume…
+
+## wave6/parity: the Archive keeps every tab until Clear Archive (Arc's
+## Archive menu is its History menu, so both items go there).
+
+whimsy-action-clear-archive = Clear Archive
+whimsy-menu-view-archive =
+    .label = View Archive…
+whimsy-menu-clear-archive =
+    .label = Clear Archive
+whimsy-archive-clear-title = Clear the Archive?
+whimsy-archive-clear-message = Every archived tab is removed for good, along with Reopen Closed Tab’s list. Your history stays.
+whimsy-archive-clear-button = Clear Archive
+whimsy-archive-cleared-toast = Archive cleared
