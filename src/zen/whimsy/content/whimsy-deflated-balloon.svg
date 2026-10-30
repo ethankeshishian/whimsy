@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 190" fill="none">
+  <!-- Original Whimsy artwork: soft violet/pink gradients and a tired balloon. -->
+  <defs>
+    <linearGradient id="balloon" x1="66" y1="46" x2="160" y2="137" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b5a0ff"/><stop offset=".52" stop-color="#d995e6"/><stop offset="1" stop-color="#f6a5ba"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="119" cy="158" rx="81" ry="8" fill="#a78ac4" opacity=".16"/>
+  <path d="M146 132c-1 20 44 9 41 25s-51 3-49 20" stroke="#9c80b1" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="m136 126 17 3-6 10-11-4z" fill="#d58bc6"/>
+  <path d="M55 108c-10-18 1-42 17-48 8-4 13-3 18-10 12-15 44-12 57 2 9 10 5 22 16 30 17 13 10 34-7 44-19 12-36 4-49 10-19 8-43-8-52-28Z" fill="url(#balloon)"/>
+  <path d="M75 67c-9 8-13 20-10 29" stroke="#fff" stroke-opacity=".55" stroke-width="7" stroke-linecap="round"/>
+  <path d="M90 116c15-6 25 7 39 1m6-46c-8 11-4 19 5 25" stroke="#9e65af" stroke-opacity=".4" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="m42 59-8-7m20-8-2-10m130 81 11 2" stroke="#cbb2e6" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -305,6 +305,9 @@ FEATURES = [
     {"id": "year-in-tabs", "title": "Year in tabs: a private, on-device recap (top sites, busiest day/hour, tabs opened, longest-open tab) at whimsy://year",
      # Never matches: nothing like this ships upstream.
      "detect": [("prefs", r"name:\s*browser\.year-in-review\.enabled")]},
+    # wave1/fun: Whimsy network error branding
+    {"id": "net-error-branding", "title": "Whimsy network error illustrations",
+     "detect": [("prefs", r"name:\s*browser\.neterror\.whimsy-branding")]},
 ]
 
 

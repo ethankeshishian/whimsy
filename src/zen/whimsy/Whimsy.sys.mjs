@@ -108,15 +108,15 @@ export const Whimsy = {
       allFrames: true,
       safeForUntrustedWebProcess: true,
     });
-    // batch7b: "Play while you wait" button on Firefox's net-error page,
-    // linking to the offline game (whimsy://game).
+    // batch7b + wave1/fun: Whimsy network/certificate error branding and
+    // the offline game invitation (whimsy://game).
     ChromeUtils.registerWindowActor("WhimsyNetError", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyNetErrorParent.sys.mjs" },
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyNetErrorChild.sys.mjs",
-        events: { DOMContentLoaded: {} },
+        events: { DOMContentLoaded: {}, AboutNetErrorLoad: { wantUntrusted: true } },
       },
-      matches: ["about:neterror?*"],
+      matches: ["about:neterror?*", "about:certerror?*"],
       allFrames: true,
       safeForUntrustedWebProcess: true,
     });

@@ -1,0 +1,11 @@
+--- a/toolkit/content/aboutNetError.html
++++ b/toolkit/content/aboutNetError.html
+@@ -17,7 +17,7 @@
+       media="all"
+     />
+     <link rel="icon" id="favicon" />
+-    <link rel="localization" href="branding/brand.ftl" />
++    <link rel="localization" href="browser/whimsy-neterror.ftl" />
+     <link rel="localization" href="toolkit/neterror/certError.ftl" />
+     <link rel="localization" href="toolkit/neterror/netError.ftl" />
+     <link rel="localization" href="toolkit/global/mozMessageBar.ftl" />

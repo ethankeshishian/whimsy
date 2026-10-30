@@ -2,60 +2,59 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Adds a small "Play while you wait" button to Firefox's own net-error page
-// (about:neterror, e.g. when you're offline), linking to Whimsy's own
-// Balloon-Fight-style canvas game at whimsy://game. Registered as its own
-// JS window actor (WhimsyNetErrorChild/Parent, matches "about:neterror?*")
-// instead of patching aboutNetError.* - an overlay, not an engine change.
-// The page is a different document with its own Fluent bundle
-// (toolkit/neterror/netError.ftl), so the button's text is plain English
-// rather than pulled from whimsy.ftl, to avoid reaching across bundles.
-// whimsy.feature.game (checked on every load, so turning it off just stops
-// adding the button; an already-open error page is left alone).
-
-const FEATURE_PREF = "whimsy.feature.game";
+// Keep Gecko's recovery actions, diagnostics and certificate warnings intact.
+// AboutNetErrorLoad also covers the asynchronous felt-privacy card render.
+const BASE = "chrome://browser/content/whimsy/";
+const STYLE_ID = "whimsy-neterror-style";
 const LINK_ID = "whimsy-neterror-game-link";
 
 export class WhimsyNetErrorChild extends JSWindowActorChild {
   handleEvent(event) {
-    if (event.type != "DOMContentLoaded" || !Services.prefs.getBoolPref(FEATURE_PREF, true)) {
+    if (!["DOMContentLoaded", "AboutNetErrorLoad"].includes(event.type)) {
       return;
     }
     const doc = this.document;
-    if (!doc || doc.getElementById(LINK_ID)) {
+    if (!doc?.body) {
       return;
     }
-    const button = doc.createElement("button");
-    button.id = LINK_ID;
-    button.type = "button";
-    button.textContent = "🎈 Play while you wait";
-    button.addEventListener("click", () => this.sendAsyncMessage("WhimsyNetError:PlayGame"));
-    const style = doc.createElement("style");
-    style.textContent = `
-      #${LINK_ID} {
-        position: fixed;
-        left: 50%;
-        bottom: 32px;
-        transform: translateX(-50%);
-        z-index: 2147483647;
-        padding: 10px 18px;
-        border: none;
-        border-radius: 999px;
-        font: inherit;
-        font-weight: 600;
-        font-size: 14px;
-        color: #fff;
-        background: linear-gradient(135deg, #7c5cff, #ff7cd4);
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-        cursor: pointer;
+    if (Services.prefs.getBoolPref("whimsy.feature.net-error-branding", true)) {
+      this.addStyle(doc.head);
+      const card = doc.querySelector("net-error-card");
+      // The stylesheet must live inside Lit's shadow tree as well.
+      if (card?.shadowRoot) {
+        this.addStyle(card.shadowRoot);
       }
-      #${LINK_ID}:hover { filter: brightness(1.08); }
-      @media (prefers-reduced-motion: no-preference) {
-        #${LINK_ID} { transition: transform 0.15s ease, filter 0.15s ease; }
-        #${LINK_ID}:hover { transform: translateX(-50%) translateY(-1px); }
+      const container = card?.shadowRoot?.querySelector(".container") ||
+        doc.querySelector("#text-container");
+      if (container && !container.querySelector("#whimsy-neterror-brand")) {
+        const brand = doc.createElement("p");
+        brand.id = "whimsy-neterror-brand";
+        doc.l10n.setAttributes(brand, "whimsy-neterror-brand");
+        container.prepend(brand);
       }
-    `;
-    doc.head.append(style);
-    doc.body.append(button);
+    }
+    // Never distract from a certificate warning with a game invitation.
+    if (doc.documentURI.startsWith("about:neterror?") &&
+        Services.prefs.getBoolPref("whimsy.feature.game", true) &&
+        !doc.getElementById(LINK_ID)) {
+      this.addStyle(doc.head);
+      const button = doc.createElement("button");
+      button.id = LINK_ID;
+      button.type = "button";
+      doc.l10n.setAttributes(button, "whimsy-neterror-play");
+      button.addEventListener("click", () => this.sendAsyncMessage("WhimsyNetError:PlayGame"));
+      doc.body.append(button);
+    }
+  }
+
+  addStyle(root) {
+    if (root.querySelector(`#${STYLE_ID}`)) {
+      return;
+    }
+    const link = this.document.createElement("link");
+    link.id = STYLE_ID;
+    link.rel = "stylesheet";
+    link.href = `${BASE}whimsy-neterror.css`;
+    root.append(link);
   }
 }

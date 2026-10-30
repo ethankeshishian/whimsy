@@ -276,6 +276,9 @@
 - name: whimsy.feature.year-in-tabs
   value: true
 
+- name: whimsy.feature.net-error-branding
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

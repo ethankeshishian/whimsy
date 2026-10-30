@@ -9,7 +9,9 @@
 
 export class WhimsyNetErrorParent extends JSWindowActorParent {
   receiveMessage(message) {
-    if (message.name != "WhimsyNetError:PlayGame") {
+    if (message.name != "WhimsyNetError:PlayGame" ||
+        !Services.prefs.getBoolPref("whimsy.feature.game", true) ||
+        !this.manager.documentURI.spec.startsWith("about:neterror?")) {
       return;
     }
     const browser = this.browsingContext.top.embedderElement;

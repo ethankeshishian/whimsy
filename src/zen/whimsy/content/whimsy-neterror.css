@@ -1,0 +1,72 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Shared by the legacy document and the felt-privacy shadow tree. */
+body:has(#whimsy-neterror-brand),
+body:has(net-error-card) {
+  padding-block-end: 7rem;
+}
+
+#whimsy-neterror-brand {
+  color: light-dark(#7142a0, #d5a7f0);
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  margin-block: 0 1rem;
+}
+
+/* Only replace artwork when the branding actor has added its label. */
+body:has(#whimsy-neterror-brand) .title {
+  background-image: none !important;
+  padding-inline-start: 0;
+  margin-inline-start: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+body:has(#whimsy-neterror-brand) #text-container::before,
+.felt-privacy-container:has(#whimsy-neterror-brand)::before {
+  content: "";
+  display: block;
+  width: 11rem;
+  height: 9rem;
+  flex: 0 0 11rem;
+  margin-block-end: 1.5rem;
+  margin-inline-end: 2rem;
+  background: url("chrome://browser/content/whimsy/whimsy-deflated-balloon.svg") center / contain no-repeat;
+}
+
+.felt-privacy-container:has(#whimsy-neterror-brand) .img-container {
+  display: none;
+}
+
+#whimsy-neterror-game-link {
+  display: block;
+  margin: 2rem auto 0;
+  border-radius: 999px;
+  padding: 0.7rem 1.3rem;
+  font: inherit;
+  font-weight: 600;
+  color: light-dark(#4b286c, #f3e4ff);
+  background: light-dark(#f0e3fa, #392849);
+  border: 1px solid light-dark(#d6b8ec, #73518e);
+  cursor: pointer;
+  transition: none;
+}
+
+@media (max-width: 640px) {
+  .felt-privacy-container:has(#whimsy-neterror-brand)::before {
+    flex-basis: auto;
+    margin-inline-end: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #whimsy-neterror-game-link { transition: background-color 150ms ease; }
+}
+
+@media (forced-colors: active) {
+  #whimsy-neterror-brand { color: CanvasText; }
+  #whimsy-neterror-game-link { color: ButtonText; background: ButtonFace; }
+}

@@ -209,3 +209,6 @@ support-files = ["whimsy_upload.html"]
 ["browser_whimsy_game.js"]
 
 ["browser_whimsy_year_in_tabs.js"]
+
+# wave1/fun: Whimsy network error branding
+["browser_whimsy_neterror.js"]

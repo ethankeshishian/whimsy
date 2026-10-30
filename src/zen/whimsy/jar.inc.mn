@@ -30,3 +30,6 @@
         content/browser/whimsy/whimsy-year.html                                  (../../zen/whimsy/content/whimsy-year.html)
         content/browser/whimsy/whimsy-year.css                                   (../../zen/whimsy/content/whimsy-year.css)
         content/browser/whimsy/whimsy-year.js                                    (../../zen/whimsy/content/whimsy-year.js)
+# wave1/fun: Whimsy network error branding
+        content/browser/whimsy/whimsy-neterror.css                              (../../zen/whimsy/content/whimsy-neterror.css)
+        content/browser/whimsy/whimsy-deflated-balloon.svg                        (../../zen/whimsy/content/whimsy-deflated-balloon.svg)
