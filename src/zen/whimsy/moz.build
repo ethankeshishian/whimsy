@@ -91,6 +91,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyStartup.sys.mjs",
     "WhimsyStats.sys.mjs",
     "WhimsyTabs.sys.mjs",
+    "WhimsyTrails.sys.mjs",
     "WhimsyTreeTabs.sys.mjs",
     "WhimsyUndo.sys.mjs",
     "WhimsyUpdates.sys.mjs",

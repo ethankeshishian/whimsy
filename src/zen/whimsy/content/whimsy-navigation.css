@@ -1,0 +1,24 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave6: navigation (Trails, Page actions). */
+
+/* Trails: pages a new click cut from Forward, as faded branch rows indented
+   under the page they left from in the Back/Forward menu. Full strength on
+   hover/keyboard focus, so they read as secondary but never disabled. */
+.whimsy-trail-branch {
+  padding-inline-start: 18px;
+  opacity: 0.68;
+}
+.whimsy-trail-branch[_moz-menuactive] {
+  opacity: 1;
+}
+.whimsy-trail-origin {
+  font-style: italic;
+}
+@media (prefers-contrast: more) {
+  .whimsy-trail-branch {
+    opacity: 1;
+  }
+}

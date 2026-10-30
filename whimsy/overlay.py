@@ -798,6 +798,10 @@ FEATURES = [
     # tabs as Switch to Tab results; this is only the typed-address case.
     {"id": "already-open", "title": "Already open: typing an address that's open in another tab or space takes you there instead of opening a copy (Arc)",
      "detect": [("src/zen", r"(?i)already-?open|dedupe-?tabs|prevent-?duplicate")]},
+    # wave6: Trails (Horse, Nyxt): forward pages a new click would drop stay
+    # as branches in the Back/Forward menu, plus where the tab came from.
+    {"id": "trails", "title": "Trails: pages you went back from stay in the Back/Forward menu as branches, with where the tab came from",
+     "detect": [("src/zen", r"(?i)OnHistoryTruncate\s*[(:]\s*\w|history-?tree|branch(ing)?-?history")]},
 ]
 
 

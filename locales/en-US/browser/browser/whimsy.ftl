@@ -1626,3 +1626,13 @@ whimsy-already-open-toast = Already open in { $space }
 whimsy-already-open-toast-window = Already open in another window
 whimsy-already-open-setting =
     .label = Go to a page that’s already open instead of opening it again
+
+## wave6: Trails. Rows in the Back/Forward menu (long-press or right-click
+## Back): pages a new click cut from Forward, and where the tab came from.
+## $title - the page's title
+
+whimsy-trail-origin =
+    .label = Opened from { $title }
+whimsy-trail-branch-tooltip = A page you left by going back. Click to open it again.
+whimsy-trails-setting =
+    .label = Keep pages you went back from in the Back and Forward menus

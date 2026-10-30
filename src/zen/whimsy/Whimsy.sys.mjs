@@ -141,6 +141,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
 });
 
+// wave6: Trails (branching back/forward menu).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTrails: "resource:///modules/whimsy/WhimsyTrails.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -566,6 +571,9 @@ export const Whimsy = {
     // wave6: Already open. Return on an address that's open in any space
     // goes to that tab (Arc). Always installed; checks its switch on use.
     run("already-open", () => lazy.WhimsyAlreadyOpen.initWindow(win));
+    // wave6: Trails. Pages cut from Forward stay as branches in the
+    // Back/Forward menu. Always installed; checks its switch on use.
+    run("trails", () => lazy.WhimsyTrails.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
