@@ -288,3 +288,57 @@
 
 - name: app.releaseNotesURL.prompt
   value: "about:whimsy?tab=changelog"
+
+# legacy: Firefox/Mozilla leftovers (whimsy-handoff/legacy-audit.md).
+# Each entry says what the pref is for and why Whimsy changes it. Kept on
+# purpose, with reasons in the audit commit: Remote Settings, push, GMP,
+# region lookup, system add-on updates, DoH rollout, MITM priming, Firefox
+# Labs, Sync, Zen's share server and search partner codes.
+
+# Nimbus rollouts let Mozilla flip the defaults of any unlocked pref
+# remotely, aimed at Firefox release users (Whimsy reports channel
+# "release"). They can undo Zen's and Whimsy's own defaults, and Whimsy gets
+# Gecko fixes with each Zen release instead. Firefox Labs (opt-in, Settings)
+# still works. Not locked: about:config can turn rollouts back on.
+- name: nimbus.rollouts.enabled
+  value: false
+
+# The daily "usage-reporting" ping counts Firefox's daily users for Mozilla
+# and ignores the telemetry switch. Nothing in the browser reads it.
+# Settings can still turn it on.
+- name: datareporting.usage.uploadEnabled
+  value: false
+
+# Captive-portal ("log in to this network" bar) and connectivity checks stay
+# on, but ask Apple's endpoint (the one macOS itself uses) instead of
+# Mozilla's firefox-portal-detection.com. Apple answers with a 200 and this
+# exact page, which CaptiveDetect compares byte for byte; the \n is part of
+# the body. The connectivity check only needs the request to succeed, over
+# IPv4 and IPv6 (captive.apple.com has A and AAAA records).
+- name: captivedetect.canonicalURL
+  value: "http://captive.apple.com/hotspot-detect.html"
+
+- name: captivedetect.canonicalContent
+  value: '<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>\n'
+
+- name: network.connectivity-service.IPv4.url
+  value: "http://captive.apple.com/hotspot-detect.html"
+
+- name: network.connectivity-service.IPv6.url
+  value: "http://captive.apple.com/hotspot-detect.html"
+
+# ASRouter's remote providers bring Mozilla's Firefox promos and
+# recommendations (spotlights, callouts, infobars): "cfr" from Remote
+# Settings, "messaging-experiments" from Nimbus. Each value is Firefox's own
+# (firefox.js) with only "enabled" changed. message-groups (frequency caps
+# and the user-pref gates) and the local providers stay on.
+- name: browser.newtabpage.activity-stream.asrouter.providers.cfr
+  value: '{"id":"cfr","enabled":false,"type":"remote-settings","collection":"cfr","updateCycleInMs":3600000}'
+
+- name: browser.newtabpage.activity-stream.asrouter.providers.messaging-experiments
+  value: '{"id":"messaging-experiments","enabled":false,"type":"remote-experiments","updateCycleInMs":3600000}'
+
+# Help → Share Ideas and Feedback opens Whimsy's GitHub issues instead of
+# Mozilla Connect (same place as the Library footer and about:whimsy).
+- name: app.feedback.baseURL
+  value: "https://github.com/ethankeshishian/whimsy/issues"
