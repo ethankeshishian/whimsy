@@ -260,8 +260,7 @@ export const WhimsySpaceHistory = {
         AND CAST(v.visit_date / 1000 AS INTEGER) = json_extract(m.value, '$.time')
         AND p.guid = json_extract(m.value, '$.guid')
       WHERE p.hidden = 0 AND v.visit_date >= :cutoff
-        AND (:space = '' OR json_extract(m.value, '$.spaceId') = :space
-          OR (:space = 'unknown' AND m.key IS NULL))
+        AND (:space = '' OR json_extract(m.value, '$.spaceId') = :space)
         AND (:search = '' OR AUTOCOMPLETE_MATCH(:search, p.url, p.title,
           NULL, 1, 1, 1, 1, :matchBehavior, :searchBehavior, NULL))
       ORDER BY ${sort === "mostvisited" ? "visits DESC," : ""} v.visit_date DESC, v.id DESC

@@ -139,8 +139,11 @@ add_task(async function visit_identity_and_filter_before_pagination() {
   is((await SpaceHistory.query({ spaceId: "hist-work", search: "fixture Space" })).length,
     1, "History search matches words in either order like native Places search");
   await historyVisit(null, null, 200, "old");
-  const unknown = await SpaceHistory.query({ spaceId: "unknown", search: "space-history.example.com/old" });
-  is(unknown.length, 1, "Older history remains accessible without a space");
+  const unknown = await SpaceHistory.query({ search: "space-history.example.com/old" });
+  is(unknown.length, 1, "Older history without a space shows in All spaces");
+  is(unknown[0].spaceId, null, "unlabeled");
+  is((await SpaceHistory.query({ spaceId: "hist-work", search: "space-history.example.com/old" })).length,
+    0, "and in no single space");
 });
 
 add_task(async function switches_privacy_and_ambiguous_navigation() {
@@ -295,8 +298,10 @@ add_task(async function library_preserves_native_history_and_actions() {
       row => row.whimsyVisit?.url.endsWith("/old-ui"));
     ok(old, "Older untagged visits remain in All Spaces");
     ok(!old.querySelector(".whimsy-history-space-name"), "An unknown visit has no space label");
-    ok(section.filterGroups.find(group => group.id === "space").options.some(option => option.id === "unknown"),
-      "Unknown space remains selectable in the History filter");
+    ok(!section.filterGroups.find(group => group.id === "space").options.some(option => option.id === "unknown"),
+      "No Unknown space chip: unresolved visits fold into All spaces");
+    ok(!section.querySelector('[data-l10n-id="whimsy-history-unknown-space"]'),
+      "The History filter panel shows no Unknown space chip");
 
     section.activeFilters.delete("source:history");
     section.activeFilters.add("source:closed");
