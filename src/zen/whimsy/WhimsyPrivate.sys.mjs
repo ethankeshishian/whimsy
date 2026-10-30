@@ -706,10 +706,12 @@ export const WhimsyPrivate = {
   },
 
   // fixC: keeping Scratch ends its private browsing, which the old "Keep as
-  // Space" didn't say, so it asks first. wave5/uxfix: it can't be undone,
-  // so it asks in the window's own sheet (like Delete Space) with an
-  // explicit "Keep Space" button, and waits; a 6-second toast was gone
-  // before a keyboard user could reach it. Cancel changes nothing.
+  // Space" didn't say, so it asks first. wave5/uxfix + fix7/private: it
+  // can't be undone, so it asks in a modal dialog, the same window-modal
+  // prompt as Firefox's close-window warning and Whimsy's Delete Space
+  // (never a toast or notification): a title, one sentence, Cancel and
+  // "Keep Space". Cancel is the default (Return and Esc both cancel), and
+  // Cancel changes nothing.
   async confirmKeepScratch(win) {
     if (!this.getScratch(win)) {
       return;
@@ -719,7 +721,7 @@ export const WhimsyPrivate = {
       "whimsy-scratch-keep-confirm",
       "whimsy-scratch-keep-confirm-accept",
     ]);
-    if (!(await lazy.WhimsyPanels.confirm(win, { title, body, accept }))) {
+    if (!(await lazy.WhimsyPanels.confirm(win, { title, body, accept, cancelDefault: true }))) {
       return;
     }
     if (!this.getScratch(win)) {
