@@ -793,6 +793,12 @@ FEATURES = [
     # go as tabs, polled only while the folder is visible.
     {"id": "live-folders-local-servers", "title": "Local servers live folder: running localhost dev servers as tabs that appear and disappear",
      "detect": [("src/zen/live-folders", r"(?i)local-?servers|localhost")]},
+    # wave6/search: Instant result (Arc Max Instant Links) and the Search
+    # Deck (flip through results in a Glance).
+    {"id": "instant-result", "title": "Instant result: Shift+Enter on a search in the command bar opens the top result (Arc Max Instant Links)",
+     "detect": [("src/zen", r"(?i)instant-?(result|link)s?")]},
+    {"id": "search-deck", "title": "Search Deck: flip through search results one by one in a Glance; Cmd+Enter keeps one as a tab",
+     "detect": [("src/zen", r"(?i)search-?deck|result-?deck")]},
 ]
 
 

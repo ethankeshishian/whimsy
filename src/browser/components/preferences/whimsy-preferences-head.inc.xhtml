@@ -545,3 +545,15 @@
                  class="description-deemphasized" data-l10n-id="whimsy-hover-people-help"/>
   </groupbox>
 </html:template>
+
+# wave6/search: Settings -> Search -> Instant Results (Shift+Enter and the
+# Search Deck), after Bang Shortcuts.
+<html:template id="template-whimsySearchDeck" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsySearchDeckGroup" data-category="paneSearch" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-search-header"/></label>
+    <checkbox id="whimsySearchInstant" preference="whimsy.feature.instant-result" data-l10n-id="whimsy-search-instant"/>
+    <checkbox id="whimsySearchDeck" class="indent" preference="whimsy.feature.search-deck" data-l10n-id="whimsy-search-deck"
+              aria-describedby="whimsySearchDeckHelp"/>
+    <description id="whimsySearchDeckHelp" class="description-deemphasized indent" data-l10n-id="whimsy-search-deck-help"/>
+  </groupbox>
+</html:template>

@@ -1617,3 +1617,31 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave6/search: Instant result (Shift+Enter in the command bar) and the
+## Search Deck (flip through results in a Glance)
+
+whimsy-instant-finding = Opening the top result…
+whimsy-instant-none = No top result, so here’s the search
+whimsy-search-deck-none = No results to flip through
+whimsy-action-search-deck = Flip Through Results
+whimsy-search-deck-bar =
+    .aria-label = Search results
+whimsy-search-deck-prev =
+    .title = Previous result (⌥⌘←)
+    .aria-label = Previous result
+whimsy-search-deck-next =
+    .title = Next result (⌥⌘→)
+    .aria-label = Next result
+# $index (number) - the result's place in the list; $title (string) - its title
+whimsy-search-deck-dot =
+    .title = { $title }
+    .aria-label = Result { $index }: { $title }
+# $index (number), $count (number), $site (string) - e.g. "2 of 8 · example.com"
+whimsy-search-deck-position = { $index } of { $count } · { $site }
+whimsy-search-header = Instant Results
+whimsy-search-instant =
+    .label = Shift+Enter on a search opens the top result
+whimsy-search-deck =
+    .label = Show it in a deck you can flip through
+whimsy-search-deck-help = ⌥⌘→ and ⌥⌘← or a two-finger swipe over the card move between results. ⌘Enter keeps the card as a tab; Esc goes back to the results page. Results you flip past aren’t saved to history.

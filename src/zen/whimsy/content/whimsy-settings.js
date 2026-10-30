@@ -1373,3 +1373,40 @@ Object.assign(gWhimsySettings, {
     render();
   },
 });
+
+// wave6/search: Settings → Search → Instant Results, after Bang Shortcuts
+// (inserted by the listener above, which runs first). The deck only applies
+// while Shift+Enter is on.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category != "paneSearch") {
+    return;
+  }
+  const template = document.getElementById("template-whimsySearchDeck");
+  if (!template) {
+    return;
+  }
+  const fragment = template.content;
+  template.remove();
+  Preferences.addAll([
+    { id: "whimsy.feature.instant-result", type: "bool" },
+    { id: "whimsy.feature.search-deck", type: "bool" },
+  ]);
+  const anchor = document.getElementById("whimsyBangsGroup") ?? document.getElementById("oneClickSearchProvidersGroup");
+  if (anchor) {
+    anchor.after(fragment);
+  } else {
+    document.getElementById("mainPrefPane").append(fragment);
+  }
+  const group = document.getElementById("whimsySearchDeckGroup");
+  group?.removeAttribute("hidden");
+  const sync = () => {
+    const on = Services.prefs.getBoolPref("whimsy.feature.instant-result", true);
+    document.getElementById("whimsySearchDeck")?.toggleAttribute("disabled", !on);
+  };
+  Services.prefs.addObserver("whimsy.feature.instant-result", sync);
+  window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.feature.instant-result", sync), {
+    once: true,
+  });
+  sync();
+  Preferences.queueUpdateOfAllElements();
+});

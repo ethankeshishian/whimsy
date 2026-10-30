@@ -136,6 +136,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
+// wave6/search: Instant result and the Search Deck.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -230,6 +235,15 @@ export const Whimsy = {
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
       messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    // wave6/search: reads result links from a results page, only in the
+    // Search Deck's own hidden, sandboxed browsers (WhimsySearchDeck).
+    ChromeUtils.registerWindowActor("WhimsySearchDeck", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsySearchDeckChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*"],
+      messageManagerGroups: ["whimsy-search-deck"],
       safeForUntrustedWebProcess: true,
     });
   },
@@ -557,6 +571,10 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+
+    // wave6/search: Instant result (Shift+Enter) and the Search Deck. Always
+    // installed; each checks its switch on use.
+    run("search-deck", () => lazy.WhimsySearchDeck.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
