@@ -122,6 +122,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyHandoff: "resource:///modules/whimsy/WhimsyHandoff.sys.mjs",
 });
 
+
+// wave3: playlist.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPlaylist: "resource:///modules/whimsy/WhimsyPlaylist.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -508,6 +514,10 @@ export const Whimsy = {
     // wave3: handoff. Wraps Firefox's Handoff update (macOS only); checks
     // its switch on every update.
     run("handoff", () => lazy.WhimsyHandoff.initWindow(win));
+
+    // wave3: playlist. "Save to Playlist" in the page menu and command bar;
+    // each checks the switch when used.
+    run("playlist", () => lazy.WhimsyPlaylist.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

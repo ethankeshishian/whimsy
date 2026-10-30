@@ -360,6 +360,9 @@
 - name: whimsy.feature.handoff
   value: true
 
+- name: whimsy.feature.playlist
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

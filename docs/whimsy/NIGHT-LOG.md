@@ -97,3 +97,5 @@
 - W34 lane: merged wave3/aliases; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.
 
 - W34 lane: merged wave3/handoff; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.
+
+- W34 lane: merged wave3/castplay; preserved both branch intents at junctions; checked touched JS syntax, sorted moz.build, Fluent/TOML uniqueness, overlay and precheck.

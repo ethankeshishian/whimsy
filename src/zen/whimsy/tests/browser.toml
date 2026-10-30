@@ -322,3 +322,7 @@ support-files = ["whimsy_email_form.html"]
 ["browser_whimsy_handoff.js"]
 run-if = ["os == 'mac'"]
 support-files = ["whimsy_article.html"]
+
+# wave3: playlist
+["browser_whimsy_playlist.js"]
+support-files = ["whimsy_video.html", "whimsy_video.mp4"]

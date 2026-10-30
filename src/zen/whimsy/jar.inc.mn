@@ -55,3 +55,6 @@
         content/browser/whimsy/space-icons/train.svg (../../zen/whimsy/content/space-icons/train.svg)
 # wave3/speed: speed control on videos (drawn in page anonymous content)
         content/browser/whimsy/whimsy-video-speed.css                           (../../zen/whimsy/content/whimsy-video-speed.css)
+
+# media: Playlist v1 Library section
+        content/browser/whimsy/whimsy-library-playlist.mjs (../../zen/whimsy/content/whimsy-library-playlist.mjs)

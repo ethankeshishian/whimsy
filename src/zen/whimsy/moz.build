@@ -58,6 +58,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPeople.sys.mjs",
     "WhimsyPeopleChild.sys.mjs",
     "WhimsyPeopleParent.sys.mjs",
+    "WhimsyPlaylist.sys.mjs",
     "WhimsyPrintClean.sys.mjs",
     "WhimsyPrivate.sys.mjs",
     "WhimsyProtocol.sys.mjs",

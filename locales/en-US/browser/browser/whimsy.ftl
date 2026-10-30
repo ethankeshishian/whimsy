@@ -1305,3 +1305,33 @@ whimsy-handoff-header =
 whimsy-handoff-send =
     .label = Continue pages on your iPhone, iPad and other Macs
     .description = Hand off the page you're on through macOS Handoff. Only its address is shared; private tabs and Scratch are never offered.
+
+## wave3: playlist (WhimsyPlaylist.sys.mjs, Library -> Playlist)
+
+whimsy-library-playlist-title = Playlist
+whimsy-library-playlist-search =
+    .placeholder = Search playlist…
+whimsy-playlist-empty = Nothing saved yet. Right-click a video or audio file and choose Save to Playlist.
+whimsy-playlist-no-results = No matches
+whimsy-context-playlist-add =
+    .label = Save to Playlist
+    .accesskey = y
+whimsy-action-playlist-save = Save Video to Playlist
+whimsy-playlist-offline-setting =
+    .label = Download Playlist videos and audio to play offline
+whimsy-playlist-added-toast = Saved to Playlist
+whimsy-playlist-exists-toast = Already in your Playlist
+whimsy-playlist-private-toast = Playlist doesn’t save from private browsing
+whimsy-playlist-unsupported-toast = This media can’t be saved (only direct files can)
+whimsy-playlist-no-media-toast = No video or audio file on this page to save
+whimsy-playlist-state-link = Saved link
+# $progress (number) - percent downloaded
+whimsy-playlist-state-downloading = Downloading { $progress }%
+whimsy-playlist-state-offline = Available offline
+whimsy-playlist-state-failed = Download failed (link kept)
+whimsy-playlist-download =
+    .title = Download to play offline
+whimsy-playlist-open-page =
+    .title = Open the page it came from
+whimsy-playlist-remove =
+    .title = Remove from Playlist

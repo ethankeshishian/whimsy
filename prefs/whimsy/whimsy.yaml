@@ -385,3 +385,8 @@
 # (Firefox's Handoff; private tabs and Scratch are never offered).
 - name: whimsy.handoff.send
   value: true
+
+
+# wave3: playlist. Download saved media into the profile for offline play.
+- name: whimsy.playlist.offline-download
+  value: true
