@@ -94,6 +94,12 @@ const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
 const PIP_GRACE = Symbol("whimsyPipGrace");
 const PIP_GRACE_MS = 1000;
 
+// fixD: the X on the picture-in-picture window. Firefox pauses the video
+// when you close the player (Shift+X doesn't); Arc closes the player and
+// the video keeps playing back in its tab. Whimsy makes X act like Shift+X.
+const PIP_CLOSE_FEATURE_PREF = "whimsy.feature.pip-close-keeps-playing";
+const PIP_WINDOW_TYPE = "Toolkit:PictureInPicture";
+
 export const WhimsyMedia = {
   get backgroundMuteMode() {
     if (!Services.prefs.getBoolPref(MUTE_FEATURE_PREF, true)) {
@@ -108,6 +114,7 @@ export const WhimsyMedia = {
     this.initMuteSite(win);
     this.initTabVolume(win);
     this.initPlaybackSpeed(win);
+    this.initPipClose();
     win.gBrowser.tabContainer.addEventListener("TabSelect", event => {
       try {
         this.snapBackPip(event.target);
@@ -617,6 +624,59 @@ export const WhimsyMedia = {
       }
     }
     return closed;
+  },
+
+  // Closing the player with X keeps the video playing (see
+  // PIP_CLOSE_FEATURE_PREF). The player's X pauses unless Shift is held, so
+  // a plain click on X is replaced by a Shift+click on it. The player
+  // window's script keeps its state to itself, hence the click.
+  initPipClose() {
+    if (this._pipWindowObserver) {
+      return;
+    }
+    this._pipWindowObserver = (subject, topic) => {
+      if (topic != "domwindowopened") {
+        return;
+      }
+      subject.addEventListener("load", () => this.initPlayerWindow(subject), { once: true });
+    };
+    Services.ww.registerNotification(this._pipWindowObserver);
+  },
+
+  initPlayerWindow(playerWin) {
+    if (playerWin.document?.documentElement?.getAttribute("windowtype") != PIP_WINDOW_TYPE) {
+      return;
+    }
+    playerWin.addEventListener(
+      "click",
+      event => {
+        const close = event.target;
+        if (
+          close?.id != "close" ||
+          event.shiftKey ||
+          event.button != 0 ||
+          !Services.prefs.getBoolPref(PIP_CLOSE_FEATURE_PREF, true)
+        ) {
+          return;
+        }
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        close.dispatchEvent(
+          new playerWin.MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            view: playerWin,
+            button: 0,
+            shiftKey: true,
+            screenX: event.screenX,
+            screenY: event.screenY,
+            clientX: event.clientX,
+            clientY: event.clientY,
+          })
+        );
+      },
+      true
+    );
   },
 
   // --- Playback speed ---
