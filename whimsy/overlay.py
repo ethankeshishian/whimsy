@@ -52,6 +52,11 @@ HOOKS = [
      r'^(\s*)@click=\$\{event => this\.#openVisit\(visit, event\)\}\s*$',
      '{indent}.whimsyVisit=${visit}',
      "before"),
+    # batch hover: Quick Look in the Library reads the row's own Download.
+    ("library-download-quicklook", "src/zen/library/sections/ZenLibraryDownloadsSection.mjs",
+     r'^(\s*)\?pending=\$\{pending\}\s*$',
+     '{indent}.whimsyDownload=${download}',
+     "before"),
 ]
 
 HOTFIXES = [

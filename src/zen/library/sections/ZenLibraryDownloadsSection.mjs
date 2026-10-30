@@ -690,6 +690,7 @@ export class ZenLibraryDownloadsSection extends ZenLibrarySearchSection {
       <div
         class="zen-library-row"
         draggable="true"
+        .whimsyDownload=${download}
         ?pending=${pending}
         ?missing=${this.#isMissing(download)}
         ?indeterminate=${pending && !download.hasProgress}

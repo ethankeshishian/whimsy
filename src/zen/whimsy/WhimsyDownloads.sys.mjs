@@ -108,10 +108,27 @@ export const WhimsyDownloads = {
     return Services.prefs.getBoolPref(QUICKLOOK_PREF, true);
   },
 
+  // Space again closes the preview, as in Finder and Arc: a second call
+  // for the same file only closes the one that's open.
   async showQuickLook(path) {
+    const open = this._quickLook;
+    if (open) {
+      this._quickLook = null;
+      open.process.kill();
+      if (open.path == path) {
+        return;
+      }
+    }
     try {
-      const file = await lazy.Subprocess.call({ command: "/usr/bin/qlmanage", arguments: ["-p", path] });
-      file.stdin.close();
+      const process = await lazy.Subprocess.call({ command: "/usr/bin/qlmanage", arguments: ["-p", path] });
+      process.stdin.close();
+      const entry = { path, process };
+      this._quickLook = entry;
+      process.wait().then(() => {
+        if (this._quickLook == entry) {
+          this._quickLook = null;
+        }
+      });
     } catch (e) {
       console.error("Whimsy: Quick Look failed", e);
     }
@@ -119,6 +136,7 @@ export const WhimsyDownloads = {
 
   initWindow(win) {
     this.initQuickLook(win);
+    this.initLibraryQuickLook(win);
     this.initDragKeepOpen(win);
   },
 
@@ -174,6 +192,91 @@ export const WhimsyDownloads = {
       });
       menu.appendChild(item);
     });
+  },
+
+  // ---- Quick Look in Zen's Library (Downloads section) ----
+  // Zen's Library draws its own rows (Lit), not Firefox's DownloadsView.
+  // A one-line overlay.py hook gives each row its Download as
+  // `whimsyDownload`, so a filtered list or two files with the same name
+  // never preview the wrong one. Space previews the focused row, or else
+  // the row under the pointer (the Library has no row selection); the row
+  // menu gets "Quick Look" too, as in Arc's Library.
+
+  initLibraryQuickLook(win) {
+    if (AppConstants.platform != "macosx" || win._whimsyLibraryQuickLook) {
+      return;
+    }
+    win._whimsyLibraryQuickLook = true;
+    const doc = win.document;
+    const ROW = "[data-section='downloads'] .zen-library-row";
+    doc.addEventListener(
+      "keydown",
+      event => {
+        if (
+          event.key != " " ||
+          event.repeat ||
+          event.altKey ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          !this.quickLookEnabled ||
+          event.target.closest?.("input, textarea, select, [contenteditable]") ||
+          event.target.localName == "browser"
+        ) {
+          return;
+        }
+        const row = event.target.closest?.(ROW) ?? doc.querySelector(`${ROW}:hover`);
+        if (!this.canQuickLook(row?.whimsyDownload)) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        this.previewLibraryDownload(win, row.whimsyDownload);
+      },
+      true
+    );
+    doc.addEventListener("popupshowing", event => {
+      const menu = event.target;
+      if (!menu.classList?.contains("zen-library-downloads-menu")) {
+        return;
+      }
+      let item = menu.querySelector(".whimsy-library-quicklook");
+      const download = doc.querySelector(`${ROW}[menu-open]`)?.whimsyDownload;
+      if (!this.quickLookEnabled) {
+        item?.remove();
+        menu.querySelector(".whimsy-library-quicklook-separator")?.remove();
+        return;
+      }
+      if (!item) {
+        const separator = doc.createXULElement("menuseparator");
+        separator.className = "whimsy-library-quicklook-separator";
+        item = doc.createXULElement("menuitem");
+        item.className = "whimsy-library-quicklook";
+        doc.l10n.setAttributes(item, "whimsy-quicklook-menuitem");
+        item.addEventListener("command", () => this.previewLibraryDownload(win, item._whimsyDownload));
+        menu.prepend(item, separator);
+      }
+      item._whimsyDownload = download;
+      item.disabled = !this.canQuickLook(download);
+    });
+  },
+
+  canQuickLook(download) {
+    return !!(download?.succeeded && !download.deleted && download.target?.path);
+  },
+
+  // Returns true when the preview opened (or closed, on a second Space).
+  async previewLibraryDownload(win, download) {
+    if (!this.quickLookEnabled || !this.canQuickLook(download)) {
+      return false;
+    }
+    const { path } = download.target;
+    if (!(await IOUtils.exists(path))) {
+      win.gZenUIManager?.showToast?.("whimsy-quicklook-missing-toast", {});
+      return false;
+    }
+    await this.showQuickLook(path);
+    return true;
   },
 
   // ---- Keep a panel open across a download drag ----
