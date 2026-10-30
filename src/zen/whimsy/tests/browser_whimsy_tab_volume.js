@@ -131,3 +131,27 @@ add_task(async function test_switch_off() {
   await SpecialPowers.popPrefEnv();
   BrowserTestUtils.removeTab(tab);
 });
+
+// fixD: the native macOS slider ignores accent-color; on some themes its
+// filled part came out dark against a white track and looked like it
+// filled from the right. Whimsy draws it: accent fill from the start side.
+add_task(async function test_slider_fills_from_the_start_in_the_accent() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const panel = WhimsyMedia.openVolumePanel(window, tab);
+  await TestUtils.waitForCondition(() => panel.state == "open", "The volume panel opens");
+  const slider = panel.querySelector(".whimsy-volume-slider");
+  const style = getComputedStyle(slider);
+  is(style.appearance, "none", "Drawn by Whimsy, not the OS");
+  is(style.direction, "ltr", "Fills from the left in a left-to-right UI");
+  ok(style.getPropertyValue("--whimsy-volume-fill").trim(), "The fill color is set");
+  const background = pseudo =>
+    InspectorUtils.getCSSStyleRules(slider, pseudo)
+      .map(rule => rule.style?.getPropertyValue("background") ?? "")
+      .join(" ");
+  ok(background("::-moz-range-progress").includes("--whimsy-volume-fill"), "The filled part is the accent");
+  ok(background("::-moz-range-track").includes("--whimsy-volume-track"), "The rest is a faint track");
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  panel.hidePopup();
+  await hidden;
+  BrowserTestUtils.removeTab(tab);
+});
