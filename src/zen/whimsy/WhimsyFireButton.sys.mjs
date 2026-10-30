@@ -56,7 +56,7 @@ export const WhimsyFireButton = {
     WhimsyShortcuts.addActions([
       {
         l10nId: "whimsy-action-fire-button",
-        icon: "chrome://browser/skin/zen-icons/fire.svg",
+        icon: "chrome://browser/skin/forget.svg",
         command: w => this.openPanel(w),
         isAvailable: () => this.enabled,
       },
