@@ -47,6 +47,7 @@ add_task(async function test_group() {
   const a3 = await open("https://example.com/three");
   const pinned = await open("https://example.com/pinned");
   gBrowser.pinTab(pinned);
+  await TestUtils.waitForCondition(() => pinned.pinned, "The pinned tab is pinned");
   gBrowser.selectedTab = other;
 
   let menu = await openMenu(a1);

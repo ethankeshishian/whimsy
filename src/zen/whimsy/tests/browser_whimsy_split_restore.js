@@ -106,6 +106,8 @@ add_task(async function test_split_restores_whole_into_a_new_window() {
       tabs.map(t => t.id).sort(),
       "The same tabs, by their saved ids"
     );
+    // Zen's window sync settles the source window's tabs asynchronously.
+    await TestUtils.waitForCondition(() => tabs.every(t => t.splitView), "The source split settles").catch(() => {});
     ok(tabs.every(t => t.splitView), "The source split is untouched");
   } finally {
     if (win) {
