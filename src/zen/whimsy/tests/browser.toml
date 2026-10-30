@@ -356,3 +356,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # system: Settings → Links gathers every setting about where links open.
 ["browser_whimsy_links_settings.js"]
+
+# wave7/folders: Jira/Linear/Local Servers live folders survive a restart, even when a provider registers late.
+["browser_whimsy_live_folders_restore.js"]
