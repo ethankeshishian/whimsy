@@ -643,7 +643,9 @@ export const WhimsyPrivate = {
     const scratchId = this.getScratch(win)?.uuid;
     const { document } = win;
     for (const el of document.querySelectorAll(`[${SCRATCH_ATTR}]`)) {
-      if (el.id != scratchId && el.getAttribute("zen-workspace-id") != scratchId) {
+      // With no Scratch (just kept), every mark goes: null != undefined is
+      // false, so the plain comparison kept them all.
+      if (!scratchId || (el.id != scratchId && el.getAttribute("zen-workspace-id") != scratchId)) {
         el.removeAttribute(SCRATCH_ATTR);
       }
     }
@@ -800,7 +802,7 @@ export const WhimsyPrivate = {
         continue;
       }
       const copy = gBrowser.addTrustedTab(url, {
-        tabIndex: tab._tPos,
+        tabIndex: tab.index,
         inBackground: true,
         relatedToCurrent: false,
         zenWorkspaceId: scratch.uuid,
