@@ -63,7 +63,7 @@ export const WhimsySidebarNav = {
     // Firefox's tab-strip keyboard navigation requires Accel for arrows
     // and does not bind Delete. Our explicit sidebar-focus mode offers the
     // plain keys without changing normal tab-strip shortcuts.
-    win.gBrowser.tabContainer.addEventListener("keydown", event => {
+    win.addEventListener("keydown", event => {
       if (!this.enabled || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) {
         return;
       }

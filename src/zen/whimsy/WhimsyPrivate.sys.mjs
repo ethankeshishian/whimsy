@@ -132,6 +132,20 @@ export const WhimsyPrivate = {
       return;
     }
     this._globalDone = true;
+    // UnifiedExtensions asks about every installed extension on TabSelect.
+    // TabBase deliberately throws for extensions without private permission;
+    // avoid constructing that wrapper for a private tab in a normal window.
+    const { OriginControls } = ChromeUtils.importESModule(
+      "resource://gre/modules/ExtensionPermissions.sys.mjs"
+    );
+    const getState = OriginControls.getState;
+    OriginControls.getState = function (policy, tab) {
+      if (WhimsyPrivate.isPrivateTab(tab) && !policy?.extension?.privateBrowsingAllowed) {
+        return { noAccess: true };
+      }
+      return getState.call(this, policy, tab);
+    };
+
     // The address bar's controller learns whether it's private once, from
     // the window. Keep a private tab's typing out of input and search
     // history.

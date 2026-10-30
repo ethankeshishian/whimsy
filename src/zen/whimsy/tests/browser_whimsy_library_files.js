@@ -36,7 +36,14 @@ add_task(async function test_copy_screenshot_also_saves_a_file() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
 
-  await ScreenshotsUtils.copyScreenshot(blob, tab.linkedBrowser, "whimsyTest");
+  const actor = ScreenshotsUtils.getActor(tab.linkedBrowser);
+  // copyScreenshot consumes telemetry from the active capture overlay.
+  await actor.sendQuery("Screenshots:ShowOverlay");
+  try {
+    await ScreenshotsUtils.copyScreenshot(blob, tab.linkedBrowser, "whimsyTest");
+  } finally {
+    await actor.sendQuery("Screenshots:HideOverlay");
+  }
 
   await TestUtils.waitForCondition(
     () => listCaptures().length > before,

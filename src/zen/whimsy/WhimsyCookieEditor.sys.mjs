@@ -30,9 +30,19 @@ export const WhimsyCookieEditor = {
     return Services.cookies.getCookiesFromHost(base, originAttributes);
   },
 
-  setCookie(host, originAttributes, { name, value, path = "/", secure = false, httpOnly = false, sameSite = 0 }) {
+  setCookie(host, originAttributes, details) {
+    const { name, value, path = "/" } = details;
+    // Keep the original cookie's transport/SameSite attributes on edits.
+    // SameSite=None without Secure is rejected by Gecko validation.
+    const previous = this.cookiesFor(host, originAttributes).find(
+      cookie => cookie.host == host && cookie.name == name && cookie.path == path
+    );
+    const secure = details.secure ?? previous?.isSecure ?? false;
+    const httpOnly = details.httpOnly ?? previous?.isHttpOnly ?? false;
+    const sameSite = details.sameSite ?? previous?.sameSite ?? Ci.nsICookie.SAMESITE_LAX;
+    const schemeMap = details.schemeMap ?? previous?.schemeMap ?? Ci.nsICookie.SCHEME_HTTPS;
     const oneYear = Date.now() + 365 * 24 * 60 * 60 * 1000;
-    Services.cookies.add(
+    const validation = Services.cookies.add(
       host,
       path,
       name,
@@ -43,9 +53,12 @@ export const WhimsyCookieEditor = {
       oneYear,
       originAttributes,
       sameSite,
-      Ci.nsICookie.SCHEME_UNSET,
-      false // isPartitioned
+      schemeMap,
+      details.isPartitioned ?? previous?.isPartitioned ?? false // isPartitioned
     );
+    if (validation.result != Ci.nsICookieValidation.eOK) {
+      throw new Error(validation.errorString);
+    }
   },
 
   removeCookie(host, name, path, originAttributes) {
@@ -136,6 +149,8 @@ export const WhimsyCookieEditor = {
         secure: cookie.isSecure,
         httpOnly: cookie.isHttpOnly,
         sameSite: cookie.sameSite,
+        schemeMap: cookie.schemeMap,
+        isPartitioned: cookie.isPartitioned,
       });
     });
 

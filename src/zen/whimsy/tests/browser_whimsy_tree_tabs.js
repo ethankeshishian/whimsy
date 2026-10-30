@@ -41,6 +41,10 @@ add_task(async function test_depth_and_branch_archive() {
   const closedBefore = WhimsyArchive.listEntries(window).length;
   gBrowser.removeTab(root, { animate: false });
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before - 3, "The whole branch closed together");
+  await TestUtils.waitForCondition(
+    () => WhimsyArchive.listEntries(window).length >= closedBefore + 3,
+    "SessionStore recorded the entire branch"
+  );
   const entries = WhimsyArchive.listEntries(window).slice(0, 3);
   ok(entries.every(e => e.reason == "tree"), "All three tagged as a tree-close");
   const groupIds = new Set(entries.map(e => e.groupId));
@@ -49,7 +53,8 @@ add_task(async function test_depth_and_branch_archive() {
   for (const entry of entries) {
     const tab = WhimsyArchive.restore(window, entry.closedId);
     if (tab) {
-      BrowserTestUtils.removeTab(tab);
+      await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, entry.url);
+      await BrowserTestUtils.removeTab(tab);
     }
   }
   await SpecialPowers.popPrefEnv();

@@ -31,7 +31,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
-  WhimsyFolderColors: "resource:///modules/whimsy/WhimsyFolderColors.sys.mjs",
+  FOLDER_COLORS: "resource:///modules/whimsy/WhimsyFolderColors.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
@@ -137,7 +137,7 @@ export const WhimsyTreeTabs = {
   },
 
   colorFor(tab) {
-    const colors = Object.values(lazy.WhimsyFolderColors.FOLDER_COLORS);
+    const colors = Object.values(lazy.FOLDER_COLORS);
     const id = tab.getAttribute("id") || tab.linkedPanel || "";
     let hash = 0;
     for (let i = 0; i < id.length; i++) {

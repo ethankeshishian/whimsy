@@ -211,7 +211,11 @@ add_task(async function test_scratch_space() {
   is(again.uuid, scratch.uuid, "There is only one Scratch");
   is(gZenWorkspaces.getWorkspaces().length, before + 1, "No second space");
   await waitForPage(gBrowser.selectedTab);
-  const scratchTabs = gBrowser.tabs.filter(t => t.getAttribute("zen-workspace-id") == scratch.uuid);
+  // Zen keeps an internal empty-tab sentinel for each workspace; it isn't
+  // a user tab and removeTabs deliberately excludes it.
+  const scratchTabs = gBrowser.tabs.filter(t =>
+    t.getAttribute("zen-workspace-id") == scratch.uuid && !t.hasAttribute("zen-empty-tab")
+  );
 
   const closed = await Promise.all([
     WhimsyPrivate.closeScratch(window),

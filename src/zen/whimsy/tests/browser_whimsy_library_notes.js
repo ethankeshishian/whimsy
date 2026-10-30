@@ -23,6 +23,17 @@ async function cleanupNote(id) {
   await gWhimsyNotesStore.remove(id);
 }
 
+add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [["browser.tabs.notes.enabled", true]] });
+});
+
+async function openNoteTab() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
+  await TestUtils.waitForCondition(() => TabNotes.isEligible(tab), "Canonical URL is ready for TabNotes");
+  return tab;
+}
+
 add_task(async function test_create_update_delete() {
   const note = await gWhimsyNotesStore.create();
   registerCleanupFunction(() => cleanupNote(note.id));
@@ -46,8 +57,7 @@ add_task(async function test_create_update_delete() {
 });
 
 add_task(async function test_page_attached_note_uses_tab_notes() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
-  registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
+  const tab = await openNoteTab();
 
   const note = await gWhimsyNotesStore.create();
   registerCleanupFunction(() => cleanupNote(note.id));
@@ -81,8 +91,7 @@ add_task(async function test_switch_off_removes_the_tab() {
 });
 
 add_task(async function test_empty_text_does_not_throw_tab_notes() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
-  registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
+  const tab = await openNoteTab();
   // TabNotes.set throws RangeError on an empty string; the section guards
   // against that so clearing an attached note's text can't crash the UI.
   await TabNotes.set(tab, " ");

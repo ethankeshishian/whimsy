@@ -35,7 +35,7 @@ export class WhimsyPageParent extends JSWindowActorParent {
       // batch6 #7
       case "Whimsy:SplitLink": {
         const tab = this.tab;
-        const win = tab?.ownerGlobal;
+        const win = tab?.ownerDocument?.defaultView;
         if (win) {
           lazy.WhimsySplit.openLinkInSplit(win, tab, message.data.href, message.data.triggeringPrincipal);
         }

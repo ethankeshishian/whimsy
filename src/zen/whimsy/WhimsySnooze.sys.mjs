@@ -21,6 +21,7 @@ import { REASON_KEY } from "resource:///modules/whimsy/WhimsyArchive.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  TabStateFlusher: "moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
@@ -156,7 +157,11 @@ export const WhimsySnooze = {
     panel.openPopup(tab, { position: "after_start", triggerEvent: null });
   },
 
-  snooze(win, tab, wakeAt) {
+  async snooze(win, tab, wakeAt) {
+    await lazy.TabStateFlusher.flush(tab.linkedBrowser);
+    if (!tab.isConnected || tab.closing) {
+      return;
+    }
     const title = tab.label;
     const url = tab.linkedBrowser?.currentURI?.spec || "";
     lazy.WhimsyUndo.runSuppressed(() => {
@@ -167,7 +172,9 @@ export const WhimsySnooze = {
       }
       win.gBrowser.removeTab(tab, { animate: false });
     });
-    const [justClosed] = lazy.WhimsyArchive.listEntries(win);
+    // The state was flushed before removal; pick this tab rather than a
+    // different recent close from another workspace.
+    const justClosed = lazy.WhimsyArchive.listEntries(win).find(entry => entry.url == url);
     const record = {
       closedId: justClosed?.closedId ?? null,
       wakeAt,

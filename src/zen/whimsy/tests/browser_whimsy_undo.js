@@ -28,12 +28,18 @@ add_task(async function test_undo_close_restores_in_place() {
   const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?anchor");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?undo-close");
   const before = gBrowser.tabs.length;
+  const recorded = BrowserTestUtils.waitForSessionStoreUpdate(tab);
   gBrowser.removeTab(tab, { animate: false });
+  await recorded;
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before - 1, "Closed");
   ok(WhimsyUndo.canUndo(window), "Something to undo");
+  gBrowser.tabContainer.focus();
   pressUndo();
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before, "Restored");
-  const restored = gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == "https://example.com/?undo-close");
+  const restored = await TestUtils.waitForCondition(
+    () => gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == "https://example.com/?undo-close"),
+    "Restored tab loaded its URL"
+  );
   ok(restored, "The right tab came back");
   BrowserTestUtils.removeTab(restored);
   BrowserTestUtils.removeTab(anchor);
@@ -42,7 +48,9 @@ add_task(async function test_undo_close_restores_in_place() {
 add_task(async function test_undo_ignored_in_editable_field() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.undo-tab-actions", true]] });
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?editable-guard");
+  const recorded = BrowserTestUtils.waitForSessionStoreUpdate(tab);
   gBrowser.removeTab(tab, { animate: false });
+  await recorded;
   await TestUtils.waitForCondition(() => WhimsyUndo.canUndo(window), "A pending undo exists");
   gURLBar.focus();
   gURLBar.value = "hello";
@@ -52,10 +60,13 @@ add_task(async function test_undo_ignored_in_editable_field() {
   // entry (nothing was popped) and no tab should have reappeared from it.
   is(gBrowser.tabs.length, before, "No tab restored while focus was in the url bar");
   ok(WhimsyUndo.canUndo(window), "The undo entry is still there");
-  gURLBar.blur();
+  gBrowser.tabContainer.focus();
   pressUndo();
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before + 1, "Now it restores");
-  const restored = gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == "https://example.com/?editable-guard");
+  const restored = await TestUtils.waitForCondition(
+    () => gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == "https://example.com/?editable-guard"),
+    "Restored tab loaded its URL"
+  );
   BrowserTestUtils.removeTab(restored);
   await SpecialPowers.popPrefEnv();
 });

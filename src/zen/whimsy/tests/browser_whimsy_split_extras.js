@@ -22,9 +22,13 @@ function splitOf(tab) {
   return gZenViewSplitter._data.find(g => g.tabs.includes(tab));
 }
 
-registerCleanupFunction(() => {
+const initialTabs = new Set(gBrowser.tabs);
+registerCleanupFunction(async () => {
   if (gZenViewSplitter.currentView >= 0) {
     gZenViewSplitter.unsplitCurrentView();
+  }
+  for (const tab of gBrowser.tabs.filter(t => !initialTabs.has(t))) {
+    await BrowserTestUtils.removeTab(tab);
   }
 });
 
@@ -38,7 +42,7 @@ add_task(async function test_close_other_panes() {
 
   ok(action("whimsy-action-close-other-panes").isAvailable(window), "Offered while in a split");
   document.getElementById("cmd_whimsyCloseOtherPanes").doCommand();
-  await TestUtils.waitForCondition(() => gBrowser.tabs.length == 2, "tabA and tabC closed");
+  await TestUtils.waitForCondition(() => !tabA.isConnected && !tabC.isConnected, "tabA and tabC closed");
   ok(!tabB.splitView, "B is no longer in a split");
   ok(!action("whimsy-action-close-other-panes").isAvailable(window), "Not offered once unsplit");
 
@@ -52,6 +56,7 @@ add_task(async function test_swap_panes() {
   await TestUtils.waitForCondition(() => splitOf(tabA)?.tabs.length == 2, "2-pane split");
   gBrowser.selectedTab = tabA;
 
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const rectBefore = tabA.linkedBrowser.closest(".browserSidebarContainer").getBoundingClientRect();
   ok(action("whimsy-action-swap-panes").isAvailable(window), "Offered while in a split");
   WhimsySplit.swapPanes(window);

@@ -87,22 +87,30 @@ export const WhimsyQuickWindow = {
     const win = lazy.BrowserWindowTracker.openWindow({
       openerWindow: opener,
       args,
+      zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false),
       all: false,
       features: `location,resizable,centerscreen,width=${WIDTH},height=${HEIGHT}`,
     });
     win._whimsyQuickWindow = true;
     this._current = win;
-    win.addEventListener(
-      "unload",
-      () => {
-        if (this._current == win) {
-          this._current = null;
-        }
-      },
-      { once: true }
-    );
+    // The initial about:blank document unloads before browser.xhtml loads.
+    // Only an actual window close ends this window's lifetime.
+    const onClosed = subject => {
+      if (subject != win) {
+        return;
+      }
+      Services.obs.removeObserver(onClosed, "domwindowclosed");
+      if (this._current == win) {
+        this._current = null;
+      }
+    };
+    Services.obs.addObserver(onClosed, "domwindowclosed");
     if (!url) {
-      win.addEventListener("MozAfterPaint", () => win.gURLBar?.focus(), { once: true });
+      this.whenReady(win).then(() => {
+        if (!win.closed) {
+          win.gURLBar?.focus();
+        }
+      });
     }
     return win;
   },
@@ -116,8 +124,13 @@ export const WhimsyQuickWindow = {
     return win._whimsyQuickReady ??= new Promise(resolve => {
       const cleanup = () => {
         Services.obs.removeObserver(observer, "browser-delayed-startup-finished");
-        win.removeEventListener("unload", cleanup);
+        Services.obs.removeObserver(onClosed, "domwindowclosed");
         resolve();
+      };
+      const onClosed = subject => {
+        if (subject == win) {
+          cleanup();
+        }
       };
       const observer = subject => {
         if (subject == win) {
@@ -125,7 +138,7 @@ export const WhimsyQuickWindow = {
         }
       };
       Services.obs.addObserver(observer, "browser-delayed-startup-finished");
-      win.addEventListener("unload", cleanup, { once: true });
+      Services.obs.addObserver(onClosed, "domwindowclosed");
     });
   },
 

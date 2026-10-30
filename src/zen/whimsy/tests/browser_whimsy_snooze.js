@@ -21,7 +21,7 @@ registerCleanupFunction(() => {
 add_task(async function test_snooze_closes_and_wakes() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?snooze-me");
   const before = gBrowser.tabs.length;
-  WhimsySnooze.snooze(window, tab, Date.now() + 200);
+  await WhimsySnooze.snooze(window, tab, Date.now() + 200);
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before - 1, "Closes immediately");
   ok(!tab.isConnected, "The original tab element is gone");
   await TestUtils.waitForCondition(
@@ -37,11 +37,14 @@ add_task(async function test_snooze_closes_and_wakes() {
 add_task(async function test_snooze_undo_cancels_the_wake() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?snooze-undo");
   const before = gBrowser.tabs.length;
-  WhimsySnooze.snooze(window, tab, Date.now() + 60000);
+  await WhimsySnooze.snooze(window, tab, Date.now() + 60000);
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before - 1, "Closed");
   ok(WhimsyUndo.canUndo(window), "Pushed an undo entry");
   ok(WhimsyUndo.undo(window), "Undo it");
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before, "Restored right away, not in a minute");
-  const restored = gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == "https://example.com/?snooze-undo");
+  const restored = await TestUtils.waitForCondition(
+    () => gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == "https://example.com/?snooze-undo"),
+    "The restored tab finished navigating"
+  );
   BrowserTestUtils.removeTab(restored);
 });

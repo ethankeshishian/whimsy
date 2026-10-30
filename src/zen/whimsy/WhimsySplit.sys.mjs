@@ -76,10 +76,10 @@ export const WhimsySplit = {
 
   swapPanes(win) {
     const splitter = win.gZenViewSplitter;
-    if (splitter.currentView < 0) {
+    const group = splitter._data.find(group => group.tabs.includes(win.gBrowser.selectedTab));
+    if (!group) {
       return;
     }
-    const group = splitter._data[splitter.currentView];
     const node = splitter.getSplitNodeFromTab(win.gBrowser.selectedTab);
     if (!node?.parent) {
       return;

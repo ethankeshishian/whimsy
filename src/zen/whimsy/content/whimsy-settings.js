@@ -568,6 +568,7 @@ var gWhimsySettings = {
     this._hwDecodeWired = true;
     const startupValue = Services.prefs.getBoolPref("media.hardware-video-decoding.enabled", true);
     checkbox.addEventListener("command", () => {
+      Preferences.get("media.hardware-video-decoding.enabled").value = checkbox.checked;
       note.hidden = checkbox.checked == startupValue;
     });
     button.addEventListener("command", () => {

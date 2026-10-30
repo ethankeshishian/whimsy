@@ -31,8 +31,23 @@ add_task(async function test_disabled_feature_leaves_the_value_alone() {
   await BrowserTestUtils.withNewTab("https://example.com/", async () => {
     gURLBar.focus();
     gURLBar.value = "whimsy://settings";
-    EventUtils.synthesizeKey("KEY_Enter", {}, window);
-    await new Promise(r => window.setTimeout(r, 50));
+    // This capture listener runs after Whimsy's listener and stops Firefox's
+    // public search fallback once we've checked that Whimsy left Enter alone.
+    let passedThrough = false;
+    const stopSearch = event => {
+      if (event.key == "Enter") {
+        passedThrough = !event.defaultPrevented;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    gURLBar.inputField.addEventListener("keydown", stopSearch, true);
+    try {
+      EventUtils.synthesizeKey("KEY_Enter", {}, window);
+      ok(passedThrough, "Disabled protocol handler leaves Enter unhandled");
+    } finally {
+      gURLBar.inputField.removeEventListener("keydown", stopSearch, true);
+    }
     ok(
       !gBrowser.selectedBrowser.currentURI.spec.startsWith("about:preferences"),
       "With the feature off, whimsy:// is left to Firefox's own (failing) navigation"

@@ -73,7 +73,7 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
   async #setText(note, text) {
     if (note.pageAttached) {
       try {
-        await lazy.TabNotes.set(this.ownerGlobal.gBrowser.selectedTab, text || " ");
+        await lazy.TabNotes.set(this.ownerDocument.defaultView.gBrowser.selectedTab, text || " ");
       } catch (e) {
         console.error("Whimsy: set page note", e);
       }
@@ -89,7 +89,7 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
 
   async #toggleAttach(note) {
     if (!note.pageAttached) {
-      const tab = this.ownerGlobal.gBrowser.selectedTab;
+      const tab = this.ownerDocument.defaultView.gBrowser.selectedTab;
       if (!tab?.canonicalUrl) {
         return;
       }
