@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 24" width="84" height="24" fill="none">
+  <!-- Halloween: three pumpkins sitting on the command bar's top edge (the
+       bottom of this box is the edge). Same pumpkin as the balloon's. -->
+  <defs>
+    <radialGradient id="p" cx=".38" cy=".32" r=".8">
+      <stop stop-color="#ffc07a"/><stop offset=".55" stop-color="#f08a3c"/><stop offset="1" stop-color="#c9661c"/>
+    </radialGradient>
+  </defs>
+  <!-- small, left -->
+  <ellipse cx="17" cy="18.2" rx="8" ry="5.8" fill="url(#p)"/>
+  <path d="M17 12.6c-2.6 2-2.6 9.2 0 11.2m0-11.2c2.6 2 2.6 9.2 0 11.2" stroke="#b8541f" stroke-opacity=".5" stroke-width="1"/>
+  <path d="M16.6 13c0-2 .5-3.2 2-4.2" stroke="#5d9b4a" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- big, middle, with a friendly face -->
+  <ellipse cx="41" cy="14.6" rx="13" ry="9.4" fill="url(#p)"/>
+  <path d="M41 5.4c-4.4 3.4-4.4 15 0 18.4m0-18.4c4.4 3.4 4.4 15 0 18.4M41 5.4c-8.4 2-8.4 16.4 0 18.4m0-18.4c8.4 2 8.4 16.4 0 18.4" stroke="#b8541f" stroke-opacity=".45" stroke-width="1.1"/>
+  <path d="M40.4 6c0-2.6.6-4.2 2.6-5.4" stroke="#5d9b4a" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M43 2.2c2.8-2 5.6-.8 6.2 1.4-2.8 1.4-5 .8-6.2-1.4Z" fill="#7cb85f"/>
+  <path d="M35.2 13.4l1.8-2.8 1.8 2.8Zm8 0 1.8-2.8 1.8 2.8Z" fill="#6e3210"/>
+  <path d="M36.4 17.2c2.8 2 6.4 2 9.2 0" stroke="#6e3210" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- medium, right -->
+  <ellipse cx="66" cy="17" rx="10" ry="7" fill="url(#p)"/>
+  <path d="M66 10c-3.4 2.4-3.4 11.6 0 14m0-14c3.4 2.4 3.4 11.6 0 14" stroke="#b8541f" stroke-opacity=".5" stroke-width="1"/>
+  <path d="M65.6 10.6c0-2.2.8-3.6 2.6-4.6" stroke="#5d9b4a" stroke-width="2" stroke-linecap="round"/>
+  <path d="M68.6 6.4c1.8-1.4 4.4-1.2 5.4.6" stroke="#7cb85f" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

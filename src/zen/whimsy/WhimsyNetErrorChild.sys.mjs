@@ -143,6 +143,8 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
     const host = {
       autostart: true,
       season: this.season(),
+      // wave7/season: an occasion (halloween, holidays) dresses the game further.
+      look: this.look(),
       get(name, fallback) {
         const P = Services.prefs;
         return typeof fallback == "boolean" ? P.getBoolPref(name, fallback)
@@ -175,6 +177,14 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
   season() {
     try {
       return ChromeUtils.importESModule(SEASONS_URL).WhimsySeasons.current()?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  look() {
+    try {
+      return ChromeUtils.importESModule(SEASONS_URL).WhimsySeasons.look()?.id ?? null;
     } catch {
       return null;
     }

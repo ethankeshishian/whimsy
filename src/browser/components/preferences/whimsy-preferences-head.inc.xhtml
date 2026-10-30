@@ -94,8 +94,13 @@
     <checkbox id="whimsyMenuBarExtra" data-whimsy-feature="menu-bar-extra"
               data-l10n-id="whimsy-look-menu-bar-extra" preference="whimsy.menu-bar-extra.show"/>
     <!-- batch7: seasonal themes -->
-    <checkbox id="whimsySeasonalThemes" data-whimsy-feature="seasonal-themes"
-              data-l10n-id="whimsy-look-seasonal-themes" preference="whimsy.seasons.enabled"/>
+    <!-- wave7/season: one switch for every seasonal touch, now described -->
+    <vbox id="whimsySeasonalThemesRow" data-whimsy-feature="seasonal-themes">
+      <checkbox id="whimsySeasonalThemes" data-l10n-id="whimsy-look-seasonal-themes"
+                preference="whimsy.seasons.enabled" aria-describedby="whimsySeasonalThemesDescription"/>
+      <description id="whimsySeasonalThemesDescription" class="description-deemphasized indent"
+                   data-l10n-id="whimsy-look-seasonal-themes-description"/>
+    </vbox>
     <!-- batch7: full URL on click -->
     <checkbox id="whimsyAlwaysFullUrl" data-whimsy-feature="full-url-click"
               data-l10n-id="whimsy-look-always-full-url" preference="whimsy.urlbar.always-full-url"/>

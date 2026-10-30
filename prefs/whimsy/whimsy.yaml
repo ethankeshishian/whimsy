@@ -177,9 +177,9 @@
 - name: whimsy.reader.bionic
   value: false
 # batch7: seasonal themes
-# A dated accent tint and flourish for Halloween, winter holidays and
-# spring (Settings → Look and Feel → Look); never changes a space's own
-# colours, and respects reduced motion.
+# Seasonal touches (WhimsySeasons' calendar): loading colors, balloon costumes,
+# command bar trim, Balloon Dash and changelog art (Settings → Look and Feel → Look);
+# never changes a space's own colours, and respects reduced motion.
 - name: whimsy.seasons.enabled
   value: true
 

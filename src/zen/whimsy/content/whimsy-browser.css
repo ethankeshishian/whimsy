@@ -2871,3 +2871,175 @@ panel.whimsy-space-look .whimsy-sheet-body {
 #whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
   background: var(--whimsy-mini-fill-active);
 }
+
+/* wave7/season: seasonal trim on the floating command bar (Cmd+T / Cmd+L).
+   WhimsySeasons adds an aria-hidden overlay to the URL bar and sets
+   whimsy-season-decor (an occasion or a season) while the seasonal switch
+   is on. The art sits outside the bar's box: on top of its top edge, or
+   hanging from its bottom edge. It never takes pointer events, never
+   covers the input or the results, and never changes the bar's size.
+   Clusters stay near the corners so the middle (where you type) stays
+   quiet; the one motion is the holiday lights' slow twinkle, which stops
+   under reduced motion. */
+.whimsy-season-trim {
+  display: none;
+}
+
+:root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
+  display: block;
+  position: absolute;
+  /* Matches .urlbar-background, which overhangs the bar while it's open. */
+  inset: calc(-1 * var(--urlbar-background-overhang-open, 0px));
+  pointer-events: none;
+
+  :root:not([whimsy-season-decor="holidays"]) & {
+    @media (prefers-color-scheme: dark) {
+      opacity: 0.85;
+    }
+  }
+
+  & > .whimsy-season-trim-top,
+  & > .whimsy-season-trim-bottom {
+    position: absolute;
+    inset-inline: 22px;
+    pointer-events: none;
+  }
+
+  /* Sits on the top edge: the strip's bottom is the bar's top. */
+  & > .whimsy-season-trim-top {
+    bottom: 100%;
+    height: 24px;
+
+    &::before,
+    &::after {
+      position: absolute;
+      bottom: 0;
+      width: var(--whimsy-trim-width);
+      height: var(--whimsy-trim-height);
+      background: var(--whimsy-trim-art) no-repeat center bottom / contain;
+      pointer-events: none;
+    }
+
+    /* A mirrored copy at the start corner, so the two ends don't match
+       stamp for stamp. */
+    &::before {
+      inset-inline-start: 0;
+      transform: scaleX(-1);
+    }
+
+    &::after {
+      inset-inline-end: 0;
+    }
+  }
+
+  /* Hangs from the bottom edge: the strip's top is the bar's bottom. */
+  & > .whimsy-season-trim-bottom {
+    top: 100%;
+    height: 18px;
+    inset-inline: 14px;
+
+    &::before,
+    &::after {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+  }
+}
+
+:root[whimsy-season-decor="halloween"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-halloween.svg");
+  --whimsy-trim-width: 84px;
+  --whimsy-trim-height: 24px;
+  /* Three pumpkins at the end corner are enough. */
+  &::after {
+    content: "";
+  }
+}
+
+:root[whimsy-season-decor="autumn"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-autumn.svg");
+  --whimsy-trim-width: 90px;
+  --whimsy-trim-height: 16px;
+}
+
+:root[whimsy-season-decor="winter"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-winter.svg");
+  --whimsy-trim-width: 96px;
+  --whimsy-trim-height: 16px;
+}
+
+:root[whimsy-season-decor="spring"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-spring.svg");
+  --whimsy-trim-width: 96px;
+  --whimsy-trim-height: 18px;
+}
+
+:root[whimsy-season-decor="summer"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-summer.svg");
+  --whimsy-trim-width: 80px;
+  --whimsy-trim-height: 18px;
+}
+
+:root:is([whimsy-season-decor="autumn"], [whimsy-season-decor="winter"],
+         [whimsy-season-decor="spring"], [whimsy-season-decor="summer"]) .whimsy-season-trim-top {
+  &::before,
+  &::after {
+    content: "";
+  }
+}
+
+/* Winter holidays: a string of lights along the whole bottom edge. Two
+   glow layers (every other bulb) fade in turn; static at half glow under
+   reduced motion. */
+:root[whimsy-season-decor="holidays"] .whimsy-season-trim-bottom {
+  background: url("chrome://browser/content/whimsy/season/trim-lights.svg") left top / auto 18px;
+  background-repeat: round no-repeat;
+
+  &::before,
+  &::after {
+    content: "";
+    background: url("chrome://browser/content/whimsy/season/trim-lights-a.svg") left top / auto 18px;
+    background-repeat: round no-repeat;
+    opacity: 0.5;
+  }
+
+  &::after {
+    background-image: url("chrome://browser/content/whimsy/season/trim-lights-b.svg");
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
+    & > .whimsy-season-trim-top,
+    & > .whimsy-season-trim-bottom {
+      animation: whimsy-season-trim-in 240ms cubic-bezier(0.2, 0, 0, 1) 80ms both;
+    }
+  }
+
+  :root[whimsy-season-decor="holidays"] #urlbar[open][zen-floating-urlbar="true"] .whimsy-season-trim-bottom {
+    &::before,
+    &::after {
+      animation: whimsy-season-twinkle 3.2s ease-in-out infinite alternate;
+    }
+
+    &::after {
+      animation-delay: -3.2s;
+    }
+  }
+}
+
+@keyframes whimsy-season-trim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes whimsy-season-twinkle {
+  from {
+    opacity: 0.15;
+  }
+  to {
+    opacity: 0.9;
+  }
+}

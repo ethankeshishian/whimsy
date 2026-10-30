@@ -118,3 +118,12 @@
 % override chrome://browser/skin/sidebar/firefox.svg chrome://browser/content/whimsy/logos/whimsy-mono.svg
 % override chrome://browser/content/logos/share-firefox.svg chrome://browser/content/whimsy/logos/share-whimsy.svg
 % override chrome://browser/skin/window-firefox.svg chrome://browser/content/whimsy/logos/window-whimsy.svg
+# wave7/season: seasonal trim on the floating command bar
+        content/browser/whimsy/season/trim-autumn.svg                            (../../zen/whimsy/content/season/trim-autumn.svg)
+        content/browser/whimsy/season/trim-halloween.svg                         (../../zen/whimsy/content/season/trim-halloween.svg)
+        content/browser/whimsy/season/trim-lights.svg                            (../../zen/whimsy/content/season/trim-lights.svg)
+        content/browser/whimsy/season/trim-lights-a.svg                          (../../zen/whimsy/content/season/trim-lights-a.svg)
+        content/browser/whimsy/season/trim-lights-b.svg                          (../../zen/whimsy/content/season/trim-lights-b.svg)
+        content/browser/whimsy/season/trim-spring.svg                            (../../zen/whimsy/content/season/trim-spring.svg)
+        content/browser/whimsy/season/trim-summer.svg                            (../../zen/whimsy/content/season/trim-summer.svg)
+        content/browser/whimsy/season/trim-winter.svg                            (../../zen/whimsy/content/season/trim-winter.svg)

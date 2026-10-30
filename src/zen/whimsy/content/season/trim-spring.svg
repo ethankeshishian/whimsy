@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 18" width="96" height="18" fill="none">
+  <!-- Spring: a sprig of small flowers growing along the command bar's top
+       edge (the bottom of this box). Same five-petal flower as the
+       balloon's garland. -->
+  <defs>
+    <g id="f">
+      <circle cx="0" cy="-3.2" r="2.6"/><circle cx="3" cy="-1" r="2.6"/><circle cx="1.9" cy="2.6" r="2.6"/>
+      <circle cx="-1.9" cy="2.6" r="2.6"/><circle cx="-3" cy="-1" r="2.6"/>
+    </g>
+  </defs>
+  <path d="M2 17.4C22 16.2 44 15.6 94 17.4" stroke="#5d9b4a" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M14 16.6c-.4-2.6.2-4.6 1.4-6.2M38 16c.2-3 .8-5.4 2.2-7.6M64 16.2c0-2 .4-3.6 1.4-5M84 16.8c-.4-1.8 0-3.2.8-4.4" stroke="#5d9b4a" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M24 16.2c-1.2-3 .6-5.2 3.6-5.4.2 3-1.2 5-3.6 5.4ZM52 15.8c1.2-2.8 3.6-3.6 6-2.6-1.2 2.6-3.4 3.4-6 2.6ZM74 16.4c-.6-2.4.8-4 3.2-4.2 0 2.4-1 3.8-3.2 4.2Z" fill="#7cb85f"/>
+  <use href="#f" x="15.4" y="8" fill="#ff8fbf"/><circle cx="15.4" cy="8" r="1.8" fill="#ffd86b"/>
+  <use href="#f" x="40.2" y="6" fill="#ffe08a"/><circle cx="40.2" cy="6" r="1.8" fill="#ff8fbf"/>
+  <use href="#f" x="65.4" y="9" fill="#c9b6ff"/><circle cx="65.4" cy="9" r="1.8" fill="#ffd86b"/>
+  <g transform="translate(84.8 11) scale(.75)"><use href="#f" fill="#ff8fbf"/><circle r="1.8" fill="#ffd86b"/></g>
+</svg>

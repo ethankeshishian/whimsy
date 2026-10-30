@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 18" width="120" height="18">
+  <!-- Holiday lights: the glow of every other bulb (set a), layered over
+       trim-lights.svg; sets a and b fade in turn for a gentle twinkle. -->
+  <radialGradient id="pink"><stop stop-color="#ff8fbf" stop-opacity=".75"/><stop offset="1" stop-color="#ff8fbf" stop-opacity="0"/></radialGradient>
+  <radialGradient id="teal"><stop stop-color="#5fc9b4" stop-opacity=".75"/><stop offset="1" stop-color="#5fc9b4" stop-opacity="0"/></radialGradient>
+  <circle cx="15" cy="10.8" r="7" fill="url(#pink)"/>
+  <circle cx="75" cy="10.8" r="7" fill="url(#teal)"/>
+</svg>
