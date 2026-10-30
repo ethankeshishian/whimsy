@@ -17,7 +17,7 @@ zen-panel-ui-live-folder-create =
     .label = Live Folder
 
 zen-panel-ui-new-empty-split =
-    .label = New Split
+    .label = Add Split View
 
 zen-workspaces-panel-context-delete =
     .label = Delete Space

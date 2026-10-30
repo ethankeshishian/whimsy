@@ -11,8 +11,10 @@
 // - Close this Split Pane, Ctrl+Shift+-: closes (archives) the focused pane.
 // - Separate Page from Split View: takes the focused page out of the
 //   split, as its own tab, and keeps it in front.
-// - Expand Current Split: Zen's unsplit ("Expand current view"): every
-//   pane goes back to being its own tab.
+// - Separate All Tabs (Arc's menu bar calls it Expand Current Split; its
+//   tab menu, Separate All Tabs, which says what happens): Zen's unsplit,
+//   every pane goes back to being its own tab. wave7/split renamed it so
+//   no two different actions share "Split" wording.
 // - Ctrl+Shift+1-4 focus the first to fourth pane; Ctrl+Shift+[ and ]
 //   focus the previous and next pane.
 //
@@ -140,6 +142,9 @@ export const WhimsySplitKeys = {
         run: w => this.addSplitView(w),
         keyId: "key_whimsyAddSplitView",
         isAvailable: () => enabled(),
+        // wave7/split: Zen's own command bar row has the same name now
+        // ("Add Split View", same command), so it isn't listed twice.
+        commandBar: false,
       },
       {
         id: "cmd_whimsyCloseSplitPane",
@@ -159,6 +164,8 @@ export const WhimsySplitKeys = {
         l10nId: "whimsy-action-expand-split",
         run: w => this.expandSplit(w),
         isAvailable: inSplit,
+        // wave7/split: Zen's unsplit row is "Separate All Tabs" too.
+        commandBar: false,
       },
       ...[1, 2, 3, 4].map(n => ({
         id: `cmd_whimsyFocusPane${n}`,

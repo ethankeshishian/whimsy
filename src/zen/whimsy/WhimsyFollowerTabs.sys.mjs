@@ -4,8 +4,9 @@
 
 // Follower tabs (Vivaldi 7.9): in a 2-pane split, one pane is "the
 // source" and the other is wherever a link clicked in the source lands —
-// the source itself never navigates. "Make This a Follower Split" (tab
-// context menu, offered only on a tab already in a 2-pane split) marks
+// the source itself never navigates. "Make This a Follower Split" (the
+// pane's ⋯ menu, offered only in a 2-pane split; the tab menu when the
+// pane menu is switched off) marks
 // the tab as the source; its partner becomes the follower. People use it
 // for research/reading flows: a reference page (docs, a wiki, a forum
 // thread) stays put while every link you click opens beside it, one
@@ -89,7 +90,10 @@ export const WhimsyFollowerTabs = {
     const { document } = win;
     let item = document.getElementById(MENU_ID);
     const tab = win.TabContextMenu?.contextTab;
-    const partner = this.enabled && tab && !tab.multiselected ? this.partnerOf(win, tab) : null;
+    // wave7/split: with the pane menu on, this lives in the pane's ⋯ menu
+    // (WhimsySplitPane), not the tab menu.
+    const onPane = Services.prefs.getBoolPref("whimsy.feature.split-pane-menu", true);
+    const partner = this.enabled && !onPane && tab && !tab.multiselected ? this.partnerOf(win, tab) : null;
     if (!partner) {
       if (item) {
         item.hidden = true;

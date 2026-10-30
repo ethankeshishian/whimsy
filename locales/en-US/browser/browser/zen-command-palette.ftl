@@ -5,8 +5,8 @@
 zen-action-toggle-compact-mode = Hide or Show Sidebar
 zen-action-open-theme-picker = Open Theme Picker
 zen-action-open-library = Open Library…
-zen-action-new-split-view = New Split View
-zen-action-unsplit-view = Expand current view
+zen-action-new-split-view = Add Split View
+zen-action-unsplit-view = Separate All Tabs
 zen-action-new-space = New Space…
 zen-action-new-folder = New Folder
 zen-action-collapse-all-folders = Collapse All Folders

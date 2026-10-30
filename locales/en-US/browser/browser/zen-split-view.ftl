@@ -5,14 +5,14 @@
 tab-zen-split-tabs =
     .label =
         { $tabCount ->
-            [-1] Split Out Tab
-            [1] Add Split View...
-           *[other] Join { $tabCount } Tabs
+            [-1] Separate Page from Split View
+            [1] Add Split View
+           *[other] Open { $tabCount } Tabs in Split View
         }
     .accesskey = S
 
 zen-split-link =
-    .label = Split Link to New Tab
+    .label = Open Link in Split View
     .accesskey = S
 
 zen-split-view-modifier-header = Split View

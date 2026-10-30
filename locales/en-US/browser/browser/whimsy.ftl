@@ -644,7 +644,7 @@ whimsy-split-favorite-name-title = Favorite This Split
 whimsy-split-favorite-name-prompt = Name this split, so it's easy to find later:
 whimsy-split-favorite-saved-toast = Split saved to your favorites
 whimsy-split-favorites-empty =
-    .value = No favorite splits yet. Favorite one from the command bar.
+    .value = No favorite splits yet. Favorite one from a pane’s ⋯ menu.
 whimsy-split-favorite-remove =
     .label = Remove
     .tooltiptext = Remove this favorite
@@ -1191,7 +1191,7 @@ whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
 whimsy-heavy-tabs-empty = No tabs to measure right now.
 whimsy-split-favorites-title = Favorite Splits
-whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split” in the command bar.
+whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split…” from a pane’s ⋯ menu.
 whimsy-cookie-editor-title = Cookies
 whimsy-cookie-editor-search =
     .placeholder = Search cookies
@@ -1254,7 +1254,7 @@ whimsy-cheatsheet-library = Open Library…
 whimsy-cheatsheet-split-vertical = Split Side by Side
 whimsy-cheatsheet-split-horizontal = Split Top and Bottom
 whimsy-cheatsheet-split-grid = Split in a Grid
-whimsy-cheatsheet-unsplit = Unsplit
+whimsy-cheatsheet-unsplit = Separate All Tabs
 whimsy-cheatsheet-swap-panes = Swap Panes
 whimsy-cheatsheet-close-other-panes = Close Other Panes
 whimsy-cheatsheet-find = Find in Page
@@ -1993,7 +1993,7 @@ whimsy-links-glance-header = Glance
 whimsy-links-split-header = Split view
 whimsy-links-follower =
     .label = Follower splits: links in one pane open in the other
-whimsy-links-follower-help = To start one, right-click a tab in a split and choose Make This a Follower Split.
+whimsy-links-follower-help = To start one, open the ⋯ menu at the top of a pane and choose Make This a Follower Split.
 whimsy-links-spaces-header = Spaces
 
 ## wave5/profiles: profiles (Arc's profiles, on containers)
@@ -2218,7 +2218,7 @@ whimsy-archive-cleared-toast = Archive cleared
 whimsy-action-add-split-view = Add Split View
 whimsy-action-close-split-pane = Close this Split Pane
 whimsy-action-separate-page = Separate Page from Split View
-whimsy-action-expand-split = Expand Current Split
+whimsy-action-expand-split = Separate All Tabs
 whimsy-action-focus-pane-1 = Focus First Split Pane
 whimsy-action-focus-pane-2 = Focus Second Split Pane
 whimsy-action-focus-pane-3 = Focus Third Split Pane
@@ -2232,7 +2232,7 @@ whimsy-menu-close-split-pane =
 whimsy-menu-separate-page =
     .label = Separate Page from Split View
 whimsy-menu-expand-split =
-    .label = Expand Current Split
+    .label = Separate All Tabs
 
 ## wave6/parity: Arc's Edit menu (Copy URL variants, Paste and Match Style).
 
@@ -2386,3 +2386,20 @@ whimsy-pane-looks-crumb =
     .label = Look and Feel
 whimsy-pane-tabs-crumb =
     .label = Tab Management
+
+## wave7/split: a split pane's ⋯ menu (on the pane's hover header).
+## Arc's names: Separate Page from Split View, Close this Split Pane,
+## Separate All Tabs.
+
+whimsy-split-pane-menu-button =
+    .tooltiptext = Pane Actions
+    .aria-label = Pane Actions
+whimsy-split-pane-drag =
+    .tooltiptext = Drag to Rearrange Panes
+whimsy-split-pane-swap =
+    .label = Swap Panes
+whimsy-split-pane-favorite =
+    .label = Favorite This Split…
+whimsy-split-pane-close-others =
+    .label = Close Other Panes
+whimsy-action-split-pane-menu = Split Pane Actions…
