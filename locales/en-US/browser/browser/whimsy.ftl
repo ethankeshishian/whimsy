@@ -932,3 +932,13 @@ whimsy-sheet-close =
 # The accept button of Zen's "Delete Space?" confirmation.
 whimsy-delete-space-accept = Delete Space
 whimsy-snooze-title = Snooze Tab
+whimsy-fire-title = Fire Button
+whimsy-fire-subtitle = Clears data, then closes the tabs. Pinned tabs stay.
+# $site (string) - the current site's domain, e.g. example.com
+whimsy-fire-site-detail = Cookies, cache and history for { $site }, plus its tabs
+whimsy-fire-site-none = This page isn't a website
+whimsy-fire-last-15-min-detail = Everything from the last 15 minutes
+# $space (string) - the current space's name
+whimsy-fire-space-detail = Site data and tabs in { $space }
+whimsy-fire-space-detail-unnamed = Site data and tabs in this space
+whimsy-fire-everything-detail = All browsing data and every unpinned tab

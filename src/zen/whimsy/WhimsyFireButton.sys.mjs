@@ -20,6 +20,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ForgetAboutSite: "moz-src:///toolkit/components/forgetaboutsite/ForgetAboutSite.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
@@ -118,52 +119,78 @@ export const WhimsyFireButton = {
     this.burnTabs(win, win.gBrowser.tabs, "everything");
   },
 
-  panel(win) {
-    const { document } = win;
-    let panel = document.getElementById(PANEL_ID);
-    if (panel) {
-      return panel;
-    }
-    panel = document.createXULElement("panel");
-    panel.id = PANEL_ID;
-    panel.setAttribute("type", "arrow");
-    panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("role", "dialog");
-    panel.className = "whimsy-fire-panel";
-    document.l10n.setAttributes(panel, "whimsy-fire-panel");
-    const scopes = [
-      ["site", () => this.burnSite(win)],
-      ["last-15-min", () => this.burnLast15Min(win)],
-      ["space", () => this.burnSpace(win)],
-      ["everything", () => this.burnEverything(win)],
-    ];
-    const list = document.createXULElement("vbox");
-    for (const [id, run] of scopes) {
-      const button = document.createXULElement("toolbarbutton");
-      button.className = "whimsy-fire-scope toolbarbutton-1";
-      document.l10n.setAttributes(button, `whimsy-fire-${id}`);
-      button.addEventListener("command", async () => {
-        panel.hidePopup();
-        const root = win.document.documentElement;
-        // A brief flame/burst overlay (whimsy-browser.css); reduced motion
-        // swaps it for an instant flash/checkmark there instead.
-        root.setAttribute("whimsy-fire-burning", "");
-        win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
-        try {
-          await run();
-        } catch (e) {
-          console.error("Whimsy: fire button", e);
-        }
-      });
-      list.append(button);
-    }
-    panel.append(list);
-    document.getElementById("mainPopupSet")?.appendChild(panel);
-    return panel;
-  },
-
+  // fixB: a WhimsyPanels sheet, centred like the command bar it opens
+  // from. Each scope says exactly what it clears; the last one is red.
   openPanel(win) {
-    const panel = this.panel(win);
-    panel.openPopup(win.document.documentElement, { position: "overlap", triggerEvent: null });
+    const { document, gBrowser } = win;
+    const site = siteOf(gBrowser.selectedTab);
+    const spaceName = win.gZenWorkspaces?.getActiveWorkspace?.()?.name || "";
+    const { panel, body } = lazy.WhimsyPanels.create(win, {
+      id: PANEL_ID,
+      titleL10nId: "whimsy-fire-title",
+      subtitleL10nId: "whimsy-fire-subtitle",
+      size: "medium",
+    });
+    const scopes = [
+      {
+        id: "site",
+        run: () => this.burnSite(win),
+        icon: gBrowser.selectedTab.getAttribute("image") || "chrome://global/skin/icons/defaultFavicon.svg",
+        favicon: true,
+        subtitleL10nId: site ? "whimsy-fire-site-detail" : "whimsy-fire-site-none",
+        subtitleArgs: site ? { site } : null,
+        disabled: !site,
+      },
+      {
+        id: "last-15-min",
+        run: () => this.burnLast15Min(win),
+        icon: "chrome://browser/skin/zen-icons/history.svg",
+        subtitleL10nId: "whimsy-fire-last-15-min-detail",
+      },
+      {
+        id: "space",
+        run: () => this.burnSpace(win),
+        icon: "chrome://browser/skin/zen-icons/window.svg",
+        subtitleL10nId: spaceName ? "whimsy-fire-space-detail" : "whimsy-fire-space-detail-unnamed",
+        subtitleArgs: spaceName ? { space: spaceName } : null,
+      },
+      {
+        id: "everything",
+        run: () => this.burnEverything(win),
+        icon: "chrome://browser/skin/zen-icons/forget.svg",
+        subtitleL10nId: "whimsy-fire-everything-detail",
+        destructive: true,
+      },
+    ];
+    for (const scope of scopes) {
+      const item = lazy.WhimsyPanels.item(document, {
+        l10nId: `whimsy-fire-${scope.id}`,
+        icon: scope.icon,
+        favicon: scope.favicon,
+        subtitleL10nId: scope.subtitleL10nId,
+        subtitleArgs: scope.subtitleArgs,
+        destructive: scope.destructive,
+        onCommand: async () => {
+          lazy.WhimsyPanels.close(panel);
+          const root = win.document.documentElement;
+          // A brief flame/burst overlay (whimsy-browser.css); reduced motion
+          // swaps it for an instant flash there instead.
+          root.setAttribute("whimsy-fire-burning", "");
+          win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
+          try {
+            await scope.run();
+          } catch (e) {
+            console.error("Whimsy: fire button", e);
+          }
+        },
+      });
+      item.classList.add("whimsy-fire-scope");
+      item.setAttribute("whimsy-fire-scope", scope.id);
+      if (scope.disabled) {
+        item.setAttribute("disabled", "true");
+      }
+      body.append(item);
+    }
+    lazy.WhimsyPanels.open(win, panel);
   },
 };
