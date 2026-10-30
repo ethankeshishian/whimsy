@@ -52,7 +52,11 @@ add_task(async function test_switches_space() {
   const empty = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   is(empty.getAttribute("zen-workspace-id"), secondSpace.uuid, "Typing from a tab in Work");
 
-  const tabsBefore = gBrowser.tabs.length;
+  // gBrowser.tabs only lists the active space's tabs in Zen, so count tab
+  // opens instead of comparing lengths across a space switch.
+  let opens = 0;
+  const onOpen = () => opens++;
+  gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
   await typeAndEnter(window, URL);
   await TestUtils.waitForCondition(
     () => gBrowser.selectedTab == original && gZenWorkspaces.activeWorkspace == firstSpace.uuid,
@@ -60,14 +64,16 @@ add_task(async function test_switches_space() {
   );
   await TestUtils.waitForCondition(() => !empty.isConnected || empty.closing, "The empty tab closed");
   is(countTabsWith(window, URL), 1, "No duplicate");
-  Assert.lessOrEqual(gBrowser.tabs.length, tabsBefore, "No new tab");
+  gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
+  is(opens, 0, "No new tab");
   BrowserTestUtils.removeTab(original);
 });
 
 add_task(async function test_modifier_and_switch_off_keep_both() {
   const original = await BrowserTestUtils.openNewForegroundTab(gBrowser, URL);
-  // Option-Return: Firefox opens a new tab, on purpose.
-  const first = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  // Option-Return: Firefox opens a new tab, on purpose. (From a page: in an
+  // empty tab Firefox reuses that tab instead, by design.)
+  const first = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
   let opened = BrowserTestUtils.waitForNewTab(gBrowser, URL, true);
   await typeAndEnter(window, URL, { altKey: true });
   const copy = await opened;
