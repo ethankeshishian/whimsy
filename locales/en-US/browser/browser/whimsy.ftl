@@ -739,3 +739,10 @@ whimsy-devmode-console =
     .label = Console
 whimsy-devmode-network =
     .label = Network
+
+# batch hist: visit-time space in the Library History tab.
+whimsy-history-space-filter =
+    .aria-label = Space
+whimsy-history-all-spaces = All Spaces
+whimsy-history-unknown-space = Unknown space
+whimsy-history-where = { $space }

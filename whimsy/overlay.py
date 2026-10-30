@@ -300,6 +300,9 @@ FEATURES = [
     # linear: Linear live folder ("My Issues": assigned to you, open states).
     {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
      "detect": [("src/zen/live-folders", r"(?i)linear")]},
+    # batch hist: per-visit space metadata and Library filter.
+    {"id": "space-history", "title": "Space-aware History: where was the tab, and filter by space",
+     "detect": [("src/zen/library", r"(?i)history[^\n]*(?:workspaceId|spaceId)|(?:workspaceId|spaceId)[^\n]*history")]},
 ]
 
 

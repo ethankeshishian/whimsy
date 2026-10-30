@@ -875,3 +875,11 @@ tab[whimsy-devmode][selected] {
 .whimsy-devmode-button {
   font-size: 0.85em;
 }
+
+/* batch hist: keep the Space picker beside Zen's existing History filter. */
+.whimsy-history-space {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 12em;
+  text-overflow: ellipsis;
+}

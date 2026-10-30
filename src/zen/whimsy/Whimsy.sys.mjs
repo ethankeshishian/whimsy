@@ -61,6 +61,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
   WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
   WhimsyProtocol: "resource:///modules/whimsy/WhimsyProtocol.sys.mjs",
+  // batch hist: visit-space recorder.
+  WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
   WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
 });
 
@@ -173,6 +175,8 @@ export const Whimsy = {
     run("actors", () => this.registerActors());
     // Library sidebar panels (Notes, Finder folders, Screenshot to
     // sidebar): each one checks its own whimsy.feature.<id> switch.
+    // batch hist: lightweight navigation observer; sidecar opened lazily.
+    run("space-history", () => lazy.WhimsySpaceHistory.initWindow(win));
     run("library-sections", () => lazy.WhimsyLibrarySection.initWindow(win));
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));

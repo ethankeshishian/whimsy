@@ -46,6 +46,9 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySidebarNav.sys.mjs",
     "WhimsySnooze.sys.mjs",
     "WhimsySpaceArchive.sys.mjs",
+    # batch hist: space-aware history
+    "WhimsySpaceHistory.sys.mjs",
+    "WhimsySpaceHistorySection.sys.mjs",
     "WhimsySpaceLock.sys.mjs",
     "WhimsySpaces.sys.mjs",
     "WhimsySplit.sys.mjs",

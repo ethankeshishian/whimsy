@@ -21,6 +21,8 @@ ChromeUtils.defineESModuleGetters(
   {
     WhimsyNotesSection: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
     WhimsyFinderFoldersSection: "resource:///modules/whimsy/WhimsyFinderFoldersSection.sys.mjs",
+    // batch hist: space-aware history in the existing History tab.
+    WhimsySpaceHistorySection: "resource:///modules/whimsy/WhimsySpaceHistorySection.sys.mjs",
     WhimsyFilesSection: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
   },
   { global: "current" }
@@ -52,8 +54,14 @@ export const WhimsyLibrarySection = {
     }
     lib._whimsySectionsHooked = true;
 
+    const nativeHistory = lib.zenLibrarySections.history;
     const sync = () => {
-      let changed = false;
+      // batch hist: restore Zen immediately when the feature switch is off.
+      const history = Services.prefs.getBoolPref("whimsy.feature.space-history", true)
+        ? lazy.WhimsySpaceHistorySection : nativeHistory;
+      const historyChanged = lib.zenLibrarySections.history !== history;
+      lib.zenLibrarySections.history = history;
+      let changed = historyChanged;
       for (const entry of SECTIONS) {
         const on = Services.prefs.getBoolPref(`whimsy.feature.${entry.feature}`, true);
         const has = entry.sectionId in lib.zenLibrarySections;
@@ -79,6 +87,10 @@ export const WhimsyLibrarySection = {
       Services.prefs.addObserver(pref, observer);
       return [pref, observer];
     });
+    // batch hist: use the same observer lifetime as Library sections.
+    const historyObserver = () => sync();
+    Services.prefs.addObserver("whimsy.feature.space-history", historyObserver);
+    observers.push(["whimsy.feature.space-history", historyObserver]);
     win.addEventListener(
       "unload",
       () => {
