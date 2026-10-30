@@ -14,7 +14,7 @@
 // If one of these fails after a Zen merge, upstream changed the feature.
 
 const { SessionStore } = ChromeUtils.importESModule(
-  "resource:///modules/sessionstore/SessionStore.sys.mjs"
+  "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs"
 );
 
 async function waitForTabGone(tab) {

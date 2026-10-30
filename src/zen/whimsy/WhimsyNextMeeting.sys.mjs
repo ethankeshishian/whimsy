@@ -34,7 +34,6 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  Localization: "resource://gre/modules/Localization.sys.mjs",
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -1004,7 +1003,7 @@ export const WhimsyNextMeeting = {
       return;
     }
     const service = this;
-    const l10n = new lazy.Localization(["browser/whimsy.ftl"], true);
+    const l10n = new Localization(["browser/whimsy.ftl"], true);
     globalActions.push({
       l10nId,
       commandId: "whimsy:join-meeting",

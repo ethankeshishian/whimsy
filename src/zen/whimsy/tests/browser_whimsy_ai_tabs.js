@@ -71,6 +71,26 @@ async function openTodayTabs(count) {
   return tabs;
 }
 
+add_task(async function test_section_session_restore() {
+  const { SessionStore } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs"
+  );
+  await BrowserTestUtils.withNewTab("about:blank", async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    const section = { id: crypto.randomUUID(), name: "Saved reading" };
+    WhimsyAITabs.setSection(tab, section);
+    is(SessionStore.getCustomTabValue(tab, "whimsy-tidy"), JSON.stringify(section),
+      "Tidy sections use the engine's SessionStore module");
+    tab.removeAttribute("whimsy-tidy-section");
+    tab.removeAttribute("whimsy-tidy-name");
+    WhimsyAITabs.restoreSection(window, tab, { render: false });
+    is(WhimsyAITabs.sectionOf(tab), section.id, "The saved section is restored");
+    is(tab.getAttribute("whimsy-tidy-name"), section.name, "The saved name is restored");
+    WhimsyAITabs.setSection(tab, null);
+    is(SessionStore.getCustomTabValue(tab, "whimsy-tidy"), "", "Removing the section clears session data");
+  });
+});
+
 add_task(async function test_six_seven_boundary() {
   ok(Services.prefs.getBoolPref("whimsy.feature.tidy-tabs"), "The feature switch is on");
   is(MIN_TIDY_TABS, 7, "Arc: more than six Today tabs");
