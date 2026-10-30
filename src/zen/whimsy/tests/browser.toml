@@ -235,3 +235,7 @@ support-files = ["whimsy_calendar.sjs"]
 
 # fixD: splits up to four panes (Split Grid re-layout, drop into a split).
 ["browser_whimsy_split_four_panes.js"]
+
+# fixD: automatic picture-in-picture isn't blocked by background muting (tabs and spaces).
+["browser_whimsy_pip_auto.js"]
+support-files = ["whimsy_video_sound.html", "whimsy_video_sound.mp4", "whimsy_media.html", "whimsy_audio.ogg"]

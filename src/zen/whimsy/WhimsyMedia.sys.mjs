@@ -69,6 +69,31 @@ const PIP_PREF = "whimsy.media.pip-snap-back";
 const SPEED_FEATURE_PREF = "whimsy.feature.playback-speed";
 const SPEED_STEP = 0.25;
 
+// fixD: two tabs playing, and switching tabs left one of them audible.
+// Firefox drops a tab's soundplaying flag 3 s after it goes quiet, and a
+// muted tab counts as quiet; unmuted again within those 3 s, only
+// soundplaying-scheduledremoval changes. So the tab you selected, which
+// Whimsy had muted, didn't count as playing (no one was muted for it) and
+// nothing checked again once it was audible: the other tab stayed on.
+// Whimsy now remembers that a tab it muted was playing, re-checks on
+// either attribute, and once more a moment after every switch.
+const WAS_PLAYING = Symbol("whimsyMutedWhilePlaying");
+const RECHECK_MS = 1000;
+
+// fixD: automatic picture-in-picture (Arc pops a playing video out when you
+// switch tabs or spaces). Firefox's own auto-PiP does this (on by default
+// in Whimsy), deciding once the page reports it went hidden, after the
+// switch, and never for a muted tab. Background muting muted the tab on
+// the switch itself, so the video never popped out. A playing tab with a
+// PiP-able video now gets a moment to pop out before Whimsy mutes it (a
+// tab in PiP keeps its sound). Zen spaces switch by selecting a tab in the
+// other space, so the same path covers them.
+const AUTO_PIP_FEATURE_PREF = "whimsy.feature.pip-auto-before-mute";
+const AUTO_PIP_PREF = "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled";
+const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
+const PIP_GRACE = Symbol("whimsyPipGrace");
+const PIP_GRACE_MS = 1000;
+
 export const WhimsyMedia = {
   get backgroundMuteMode() {
     if (!Services.prefs.getBoolPref(MUTE_FEATURE_PREF, true)) {
@@ -104,7 +129,17 @@ export const WhimsyMedia = {
         console.error("Whimsy: background mute", e);
       }
     };
-    container.addEventListener("TabSelect", update);
+    let recheck = null;
+    container.addEventListener("TabSelect", event => {
+      try {
+        this.giveAutoPipAMoment(win, event.detail?.previousTab, update);
+      } catch (e) {
+        console.error("Whimsy: auto PiP before mute", e);
+      }
+      update();
+      win.clearTimeout(recheck);
+      recheck = win.setTimeout(update, RECHECK_MS);
+    });
     container.addEventListener("TabAttrModified", event => {
       const changed = event.detail?.changed ?? [];
       if (changed.includes("muted") && !this._muting) {
@@ -113,7 +148,11 @@ export const WhimsyMedia = {
           tab[USER_UNMUTED] = true;
         }
       }
-      if (changed.includes("soundplaying") || changed.includes("pictureinpicture")) {
+      if (
+        changed.includes("soundplaying") ||
+        changed.includes("soundplaying-scheduledremoval") ||
+        changed.includes("pictureinpicture")
+      ) {
         update();
       }
     });
@@ -153,7 +192,7 @@ export const WhimsyMedia = {
     const quiet = new Set();
     if (mode == "background" || (mode == "prioritize" && this.playsSound(gBrowser, selected))) {
       for (const tab of gBrowser.tabs) {
-        if (this.isExempt(tab, selected) || tab[USER_UNMUTED]) {
+        if (this.isExempt(tab, selected) || tab[USER_UNMUTED] || tab[PIP_GRACE]) {
           continue;
         }
         if (this.isAutoMuted(tab) || (tab.soundPlaying && !tab.hasAttribute("muted"))) {
@@ -171,11 +210,51 @@ export const WhimsyMedia = {
     }
   },
 
-  // The current tab, or a tab beside it in split view, is making sound.
+  // The current tab, or a tab beside it in split view, is making sound, or
+  // was when Whimsy muted it (it's about to be unmuted).
   playsSound(gBrowser, selected) {
     return gBrowser.tabs.some(
-      tab => tab.soundPlaying && !tab.hasAttribute("muted") && this.isExempt(tab, selected) && !tab.pictureinpicture
+      tab =>
+        this.isExempt(tab, selected) &&
+        !tab.pictureinpicture &&
+        ((tab.soundPlaying && !tab.hasAttribute("muted")) ||
+          (this.isAutoMuted(tab) && (tab.soundPlaying || tab[WAS_PLAYING])))
     );
+  },
+
+  // A tab you just left that Firefox may pop into picture-in-picture: auto
+  // PiP is on, the tab plays sound unmuted, and its page has a PiP-able
+  // video. It isn't muted for PIP_GRACE_MS, then it's checked again.
+  giveAutoPipAMoment(win, tab, update) {
+    if (!this.autoPipCandidate(tab)) {
+      return;
+    }
+    tab[PIP_GRACE] = true;
+    win.setTimeout(() => {
+      delete tab[PIP_GRACE];
+      update();
+    }, PIP_GRACE_MS);
+  },
+
+  autoPipCandidate(tab) {
+    if (
+      !tab ||
+      tab.closing ||
+      tab.selected ||
+      !Services.prefs.getBoolPref(AUTO_PIP_FEATURE_PREF, true) ||
+      !Services.prefs.getBoolPref(PIP_ENABLED_PREF, false) ||
+      !Services.prefs.getBoolPref(AUTO_PIP_PREF, false) ||
+      !tab.soundPlaying ||
+      tab.hasAttribute("muted") ||
+      tab.pictureinpicture
+    ) {
+      return false;
+    }
+    const browser = tab.linkedBrowser;
+    if (!browser?.browsingContext) {
+      return false;
+    }
+    return lazy.PictureInPicture.getEligiblePipVideoCount(browser).totalPipCount > 0;
   },
 
   setMuted(tab, muted) {
@@ -184,8 +263,10 @@ export const WhimsyMedia = {
     }
     this._muting = true;
     try {
+      const playing = tab.soundPlaying;
       tab.toggleMuteAudio(muted ? MUTE_REASON : null);
       tab[USER_UNMUTED] = muted ? false : undefined;
+      tab[WAS_PLAYING] = muted ? playing : undefined;
     } finally {
       this._muting = false;
     }
