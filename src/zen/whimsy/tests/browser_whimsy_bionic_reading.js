@@ -22,6 +22,13 @@ add_task(async function test_toggle_bolds_and_restores_exactly() {
     "the toggle button was added"
   );
 
+  const look = await SpecialPowers.spawn(browser, [], () => {
+    const glyph = content.document.querySelector(".whimsy-bionic-button > .whimsy-bionic-glyph");
+    return { text: glyph?.textContent, display: glyph && content.getComputedStyle(glyph).display };
+  });
+  is(look.text, "B", "the button shows a glyph (it was an empty, invisible square)");
+  is(look.display, "grid", "its sheet loads despite about:reader's CSP");
+
   const originalText = await SpecialPowers.spawn(browser, [], () =>
     content.document.querySelector(".moz-reader-content")?.textContent
   );

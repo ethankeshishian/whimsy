@@ -4,15 +4,20 @@
 
 // "Print a clean page" (Edge's reading-view print path): printing a page
 // as-is bleeds a sidebar, nav and ad placeholders across the job. Reader
-// mode already strips all of that down to the article (Readability's
-// extraction, the same pipeline batch5's reading-time estimate reads), so
-// the only new work is wiring "reader mode, then print" into one command
-// instead of two manual steps, without changing the tab the person's
-// actually looking at.
+// mode already strips all of that down to the article (Readability), and
+// Firefox's own print dialog can print that version: its "Simplify page"
+// source option renders the article through about:reader into the
+// preview. So this opens the print dialog on the tab the person is looking
+// at and picks "Simplify page" for them, leaving the tab itself alone.
+//
+// An earlier version loaded about:reader in a hidden background tab and
+// printed that, closing the tab right away. The tab-modal print dialog
+// lives inside its source tab, so closing the tab closed the dialog too
+// (the user saw a tab flash open and shut), and about:reader's STATE_STOP
+// fires before the article is rendered anyway.
 //
 // A page Readability can't parse as an article (browser.isArticle is
-// false) has no clean version to print, so this falls back to a normal
-// print rather than failing silently.
+// false) has no clean version to print, so this is a normal print there.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -47,58 +52,39 @@ export const WhimsyPrintClean = {
 
   run(win) {
     const browser = win.gBrowser.selectedBrowser;
-    if (!browser?.isArticle) {
-      win.PrintUtils?.startPrintWindow(browser.browsingContext, {});
+    if (!browser || !win.PrintUtils) {
       return;
     }
-    this._printCleanCopy(win, browser.currentURI.spec).catch(e =>
-      console.error("Whimsy: print a clean page failed", e)
-    );
-  },
-
-  async _printCleanCopy(win, url) {
-    const tab = win.gBrowser.addTab(`about:reader?url=${encodeURIComponent(url)}`, {
-      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-      inBackground: true,
-      skipAnimation: true,
-    });
-    const browser = tab.linkedBrowser;
-    const removeTab = () => {
-      if (win.gBrowser.tabs.includes(tab)) {
-        win.gBrowser.removeTab(tab, { skipPermitUnload: true });
-      }
-    };
     try {
-      await this._waitForLoad(win, browser);
-      // The tab-modal print preview clones the page's content synchronously
-      // when it opens, so the background tab can close right after.
-      win.PrintUtils?.startPrintWindow(browser.browsingContext, {});
-    } finally {
-      removeTab();
+      win.PrintUtils.startPrintWindow(browser.browsingContext, {});
+    } catch (e) {
+      // Already printing this tab: its dialog is open.
+      console.error("Whimsy: print a clean page failed", e);
+      return;
+    }
+    if (browser.isArticle) {
+      this._chooseSimplified(win, browser).catch(e =>
+        console.error("Whimsy: print a clean page could not simplify", e)
+      );
     }
   },
 
-  _waitForLoad(win, browser) {
-    return new Promise((resolve, reject) => {
-      const timer = win.setTimeout(() => {
-        win.gBrowser.removeTabsProgressListener(listener);
-        reject(new Error("timed out waiting for the clean copy to load"));
-      }, 15000);
-      const listener = {
-        onStateChange: (b, webProgress, request, flags) => {
-          if (b != browser || !webProgress.isTopLevel) {
-            return;
-          }
-          const done = Ci.nsIWebProgressListener.STATE_STOP | Ci.nsIWebProgressListener.STATE_IS_WINDOW;
-          if ((flags & done) != done) {
-            return;
-          }
-          win.clearTimeout(timer);
-          win.gBrowser.removeTabsProgressListener(listener);
-          resolve();
-        },
-      };
-      win.gBrowser.addTabsProgressListener(listener);
-    });
+  // Selects the print dialog's "Simplify page" option once the dialog has
+  // initialized, exactly as if the person had clicked it.
+  async _chooseSimplified(win, browser) {
+    const manager = win.PrintUtils.getTabDialogBox(browser).getTabDialogManager();
+    const dialog = manager._dialogs.findLast(d => d._box?.querySelector("print-preview"));
+    if (!dialog) {
+      // The system dialog or silent printing is configured: nothing to pick.
+      return;
+    }
+    await dialog._dialogReady;
+    const printWin = dialog.frameContentWindow;
+    await printWin?._initialized;
+    const radio = printWin?.document.getElementById("source-version-simplified-radio");
+    if (!radio || radio.checked || radio.closest("label")?.hidden || radio.closest("section")?.hidden) {
+      return;
+    }
+    radio.click();
   },
 };
