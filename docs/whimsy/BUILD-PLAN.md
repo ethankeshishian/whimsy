@@ -228,3 +228,11 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 2. Tests for already-in-Zen features.
 3. Tier C remainder (AI features, email aliases, Handoff, cast, playlist, speed).
 4. iOS: last of everything, very low priority.
+
+## Wave 3+ definitions (user, 2026-10-29)
+- Custom space icons: strict Arc parity. Liquid Glass: scout first. Focus mode: Zen's Cmd+S exists; look at other browsers' "focus mode" for a different feature.
+- AI v1: Tidy Tabs + auto-rename, page summary / 5-second preview, and a "watch this page for something" feature like Safari's.
+- Email aliases: Relay + iCloud Hide My Email picker in email fields.
+- Handoff: first report what exists vs not.
+- Media: Speed FIRST (on every video; better than Video Speed Controller: dropdown + custom input instead of arrows), then Cast, then Playlist.
+- iOS last of everything.
