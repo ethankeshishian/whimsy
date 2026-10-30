@@ -347,7 +347,6 @@ add_task(async function test_sidebar_card_and_join() {
   is(card.querySelector(".whimsy-meeting-card-title").getAttribute("data-l10n-id"),
     "whimsy-meeting-untitled", "Untitled meetings still have a name");
   WhimsyNextMeeting._sources = savedSources;
-  delete window._whimsyMeetingDismissed;
 
   Services.prefs.setBoolPref(CARD, false);
   is(WhimsyNextMeeting.cardMeeting(), null, "With the card setting off there's no card");

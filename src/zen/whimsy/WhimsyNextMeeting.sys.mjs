@@ -1084,6 +1084,7 @@ export const WhimsyNextMeeting = {
 // The compact sidebar card (near the top, only while a meeting is close)
 
 const CARD_ID = "whimsy-meeting-card";
+const dismissedMeetings = new WeakMap();
 
 const WhimsyNextMeetingCard = {
   attach(win, service) {
@@ -1126,7 +1127,7 @@ const WhimsyNextMeetingCard = {
     join.addEventListener("click", () => service.join(win, card._event));
     const close = el("button", "whimsy-meeting-card-close", "whimsy-meeting-card-dismiss");
     close.addEventListener("click", () => {
-      win._whimsyMeetingDismissed = card._event?.id;
+      dismissedMeetings.set(win, card._event?.id);
       this.update(win, service);
     });
     card.append(text, join, close);
@@ -1144,7 +1145,10 @@ const WhimsyNextMeetingCard = {
     }
     const doc = win.document;
     const event = service.enabled ? service.cardMeeting() : null;
-    const show = !!event && win._whimsyMeetingDismissed != event.id;
+    if (event && dismissedMeetings.get(win) != event.id) {
+      dismissedMeetings.delete(win);
+    }
+    const show = !!event && dismissedMeetings.get(win) != event.id;
     let card = doc.getElementById(CARD_ID);
     if (!show) {
       if (card && !card.hidden) {
