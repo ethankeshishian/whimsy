@@ -267,3 +267,11 @@ support-files = ["whimsy_call.html"]
 
 # wave3/cmdbar: offline bangs and the Settings editor.
 ["browser_whimsy_bangs.js"]
+# wave3/tree: Cmd+1-9 skip hidden spaces
+["browser_whimsy_space_shortcuts.js"]
+
+# wave3/tree: tree tabs collapse/expand and drag-to-reparent
+["browser_whimsy_tree_collapse.js"]
+
+# wave3/tree: cheat sheet lists Zen and Firefox shortcuts from keysets, grouped
+["browser_whimsy_cheatsheet_catalogue.js"]

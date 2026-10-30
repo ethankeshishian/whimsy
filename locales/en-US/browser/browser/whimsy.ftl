@@ -1049,3 +1049,16 @@ whimsy-bangs-restored = Default shortcuts restored.
 # $line (Number) - The first line that couldn't be saved.
 whimsy-bangs-invalid = Line { $line } isn't a valid shortcut. Use !shortcut and an http or https URL with { "{{{s}}}" } once, and don't repeat a shortcut. Nothing was saved.
 whimsy-bangs-too-long = The list is too long. Nothing was saved.
+
+# wave3/tree: tree tab disclosure buttons
+whimsy-tree-collapse =
+    .aria-label = Collapse subtree
+    .title = Collapse subtree
+whimsy-tree-expand =
+    .aria-label = Expand subtree
+    .title = Expand subtree
+
+# wave3/tree: shortcut cheat sheet lists every keyset shortcut, grouped
+whimsy-cheatsheet-group-whimsy = Whimsy
+whimsy-cheatsheet-group-other = Other
+whimsy-cheatsheet-empty = No matching shortcuts

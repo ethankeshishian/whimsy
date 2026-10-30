@@ -550,6 +550,30 @@ add_task(async function glance_sizes() {
   }
 });
 
+// wave3/tree: Tree/Islands disclosure buttons and a folded branch.
+add_task(async function tree_disclosure() {
+  const { WhimsyTreeTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.tree-tabs", true]] });
+  const root = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?tree-root");
+  const child = BrowserTestUtils.addTab(gBrowser, "https://example.com/?tree-child", { openerBrowser: root.linkedBrowser });
+  await BrowserTestUtils.browserLoaded(child.linkedBrowser);
+  try {
+    WhimsyTreeTabs.render(window);
+    await document.l10n.translateFragment(root);
+    await shot("24-tree-expanded");
+    WhimsyTreeTabs.toggleBranch(window, root);
+    await shot("24-tree-collapsed");
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.tabs.tree-style", "islands"]] });
+    WhimsyTreeTabs.toggleBranch(window, root);
+    await shot("24-islands-expanded");
+    await SpecialPowers.popPrefEnv();
+  } finally {
+    await BrowserTestUtils.removeTab(child);
+    await BrowserTestUtils.removeTab(root);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // batch3glance: a three-pane split built Arc's way (Add Bottom Split), then
 // turned with Change Orientation.
 add_task(async function split_layouts() {
@@ -619,4 +643,27 @@ add_task(async function offline_bangs() {
     doc.getElementById("whimsyBangsGroup").scrollIntoView();
     await shot("settings-bangs", browser.browsingContext.currentWindowGlobal);
   });
+});
+// wave3/tree: the full, grouped shortcut list and a search.
+add_task(async function full_shortcut_catalogue() {
+  const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.cheatsheet", true]] });
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
+    event => event.target.id == "whimsy-cheatsheet-panel");
+  WhimsyCheatSheet.open(window);
+  await shown;
+  const panel = document.getElementById("whimsy-cheatsheet-panel");
+  try {
+    await TestUtils.waitForCondition(() => panel.querySelectorAll(".whimsy-cheatsheet-group").length > 2);
+    await shot("25-shortcuts-full");
+    const search = panel.querySelector("input");
+    search.value = "tab";
+    search.dispatchEvent(new Event("input"));
+    await shot("25-shortcuts-search");
+  } finally {
+    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    panel.hidePopup();
+    await hidden;
+    await SpecialPowers.popPrefEnv();
+  }
 });
