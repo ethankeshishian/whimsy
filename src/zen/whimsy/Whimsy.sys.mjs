@@ -166,6 +166,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
 });
 
+// wave5: Easel.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -628,6 +633,9 @@ export const Whimsy = {
         .then(() => lazy.WhimsySpaceLook.initWindow(win))
         .catch(e => console.error("Whimsy: space-look", e))
     );
+    // wave5: Easel (Arc's Easels). Always installed: the command, the
+    // capture button and the page each check whimsy.feature.easel on use.
+    run("easel", () => lazy.WhimsyEasel.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

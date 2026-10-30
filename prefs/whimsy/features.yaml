@@ -420,6 +420,9 @@
 - name: whimsy.feature.space-look
   value: true
 
+- name: whimsy.feature.easel
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

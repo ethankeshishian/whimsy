@@ -838,6 +838,9 @@ FEATURES = [
     # wave5/look: a look per space (font, density, tab title lines, a Zen Mod).
     {"id": "space-look", "title": "A look per space: its own interface font, density, tab title lines and Zen Mod, switching with the space",
      "detect": [("src/zen/spaces", r"(?i)workspace\.(font|density|look)\b|space-?(font|density)")]},
+    # wave5: Easel (Arc's Easels: canvas of text, drawings, shapes, images, links, captures).
+    {"id": "easel", "title": "Easel: a canvas of text, drawings, shapes, images, links and live captures, pinned like a tab (Arc Easels)",
+     "detect": [("src/zen", r"(?i)\beasels?\b")]},
 ]
 
 
