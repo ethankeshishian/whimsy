@@ -456,3 +456,32 @@ add_task(async function test_mini_icons_are_centred_and_extensions_stay() {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+
+// fix7: the traffic lights stay painted whatever Zen's mono-window-controls
+// hover tracking says (opacity 0 drops their theme geometry, and Cocoa then
+// hides the native buttons, which read as a flicker).
+add_task(async function test_mini_traffic_lights_never_hide() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.widget.mac.mono-window-controls", true]] });
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    const container = win.document.querySelector("#whimsy-quick-window-bar > .titlebar-buttonbox-container");
+    ok(container, "The window controls are in Mini's bar");
+    const box = container.querySelector(".titlebar-buttonbox");
+    for (const hover of [false, true, false]) {
+      if (hover) {
+        container.setAttribute("zen-has-hover", "true");
+      } else {
+        container.removeAttribute("zen-has-hover");
+      }
+      is(win.getComputedStyle(box).opacity, "1", `Buttons stay painted (hover: ${hover})`);
+    }
+    is(win.getComputedStyle(container).backgroundImage, "none", "No stand-in dots under them");
+    win.document.documentElement.setAttribute("zen-window-buttons-reversed", "true");
+    is(win.getComputedStyle(container).marginLeft, "0px", "Zen's collapsed-sidebar margin can't push them off");
+    win.document.documentElement.removeAttribute("zen-window-buttons-reversed");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+    await SpecialPowers.popPrefEnv();
+  }
+});

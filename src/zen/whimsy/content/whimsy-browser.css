@@ -2141,3 +2141,22 @@ whimsy-space-history-section {
     transition: none;
   }
 }
+
+/* fix7/mini: the traffic lights stop flickering. Root cause: Zen's
+   zen.widget.mac.mono-window-controls (on by default) sets the real
+   buttonbox to opacity 0 unless Zen's compact-mode hover tracker has put
+   zen-has-hover on it. An opacity-0 frame builds no display item, so it
+   registers no window-button theme geometry, and Cocoa parks the native
+   buttons above the window (nsCocoaWindow: empty windowButtonsRect hides
+   them). In Mini that tracker toggles the attribute as the pointer crosses
+   the bar and the native buttons themselves, so they vanished and came back.
+   Little Arc always shows them: keep them painted, drop Zen's stand-in dots,
+   and pin the margins Zen's collapsed-sidebar rules pull negative. */
+:root[whimsy-quick-window] #whimsy-quick-window-bar > .titlebar-buttonbox-container {
+  background-image: none !important;
+  margin: 0 4px 0 0 !important;
+  width: auto !important;
+  & > .titlebar-buttonbox {
+    opacity: 1 !important;
+  }
+}
