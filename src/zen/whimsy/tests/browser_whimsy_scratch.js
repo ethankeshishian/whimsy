@@ -12,6 +12,7 @@ const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy
 const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
 const { PrivacyFilter } = ChromeUtils.importESModule("resource://gre/modules/sessionstore/PrivacyFilter.sys.mjs");
 const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
 const { TabState } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabState.sys.mjs");
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 
@@ -29,6 +30,24 @@ async function openPrivateTab(url) {
   return tab;
 }
 
+// TabOpen and a BrowsingContext alone don't mean the initial navigation or
+// deferred extension TabOpen handlers have finished. Don't tear it down then.
+async function waitForPage(tab, url = "about:privatebrowsing") {
+  await TestUtils.waitForCondition(() =>
+    tab.linkedBrowser.browsingContext?.currentWindowGlobal?.documentURI.spec == url &&
+    !tab.linkedBrowser.webProgress.isLoadingDocument,
+    "The initial page finished opening"
+  );
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {});
+  await TestUtils.waitForTick();
+}
+
+async function closeTab(tab) {
+  BrowserTestUtils.removeTab(tab, { animate: false });
+  await TestUtils.waitForCondition(() => !tab.isConnected, "The tab was removed");
+  await TestUtils.waitForTick();
+}
+
 function savedURLs() {
   const state = SessionStore.getCurrentState(true);
   PrivacyFilter.filterPrivateWindowsAndTabs(state);
@@ -41,7 +60,11 @@ function assertPrivate(tab, what) {
   ok(bc.usePrivateBrowsing, `${what}: its BrowsingContext browses privately`);
   is(bc.originAttributes.privateBrowsingId, 1, `${what}: privateBrowsingId is 1`);
   ok(PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser), `${what}: isBrowserPrivate agrees`);
-  ok(/privateBrowsingId=1/.test(tab.linkedBrowser.remoteType), `${what}: runs in a private process`);
+  // Privileged about: pages use a dedicated process type without origin
+  // attributes in its name. Web pages must run in a private web process.
+  if (/^https?:/.test(tab.linkedBrowser.currentURI.spec)) {
+    ok(/privateBrowsingId=1/.test(tab.linkedBrowser.remoteType), `${what}: runs in a private process`);
+  }
 }
 
 registerCleanupFunction(async () => {
@@ -63,9 +86,9 @@ add_task(async function test_shortcuts() {
   EventUtils.synthesizeKey("t", { accelKey: true, altKey: true });
   const { target: tab } = await opened;
   ok(tab.hasAttribute("whimsy-private"), "Cmd+Option+T opened a private tab");
-  await TestUtils.waitForCondition(() => tab.linkedBrowser.browsingContext, "Its browser is inserted");
+  await waitForPage(tab);
   ok(tab.linkedBrowser.browsingContext.usePrivateBrowsing, "... that browses privately");
-  BrowserTestUtils.removeTab(tab);
+  await closeTab(tab);
 });
 
 add_task(async function test_private_tab_is_private() {
@@ -105,8 +128,8 @@ add_task(async function test_private_tab_is_private() {
   ok(!gURLBar.isPrivate, "Back on a normal tab, the address bar isn't private");
   ok(!document.documentElement.hasAttribute("whimsy-private-tab"), "... and the window isn't marked");
 
-  BrowserTestUtils.removeTab(tab);
-  BrowserTestUtils.removeTab(normal);
+  await closeTab(tab);
+  await closeTab(normal);
 });
 
 add_task(async function test_not_saved_no_history() {
@@ -116,6 +139,8 @@ add_task(async function test_not_saved_no_history() {
   const tab = await openPrivateTab(privateURL);
 
   ok(TabState.collect(tab).isPrivate, "Its session data is marked private");
+  await TabStateFlusher.flush(normal.linkedBrowser);
+  await TabStateFlusher.flush(tab.linkedBrowser);
   const urls = savedURLs();
   ok(urls.includes(normalURL), "The normal tab is in the saved session");
   ok(!urls.includes(privateURL), "The private tab is not");
@@ -124,9 +149,9 @@ add_task(async function test_not_saved_no_history() {
   ok(!(await PlacesUtils.history.hasVisits(privateURL)), "The private visit doesn't");
 
   const closedBefore = SessionStore.getClosedTabCountForWindow(window);
-  BrowserTestUtils.removeTab(tab);
+  await closeTab(tab);
   is(SessionStore.getClosedTabCountForWindow(window), closedBefore, "Undo Close Tab doesn't offer it");
-  BrowserTestUtils.removeTab(normal);
+  await closeTab(normal);
   await PlacesUtils.history.remove(normalURL);
 });
 
@@ -147,8 +172,8 @@ add_task(async function test_window_open_stays_private() {
   assertPrivate(popup, "window.open tab");
   ok(!savedURLs().includes(popupURL), "The opened tab isn't saved either");
   ok(!(await PlacesUtils.history.hasVisits(popupURL)), "... nor in history");
-  BrowserTestUtils.removeTab(popup);
-  BrowserTestUtils.removeTab(tab);
+  await closeTab(popup);
+  await closeTab(tab);
   await SpecialPowers.popPrefEnv();
 });
 
@@ -162,6 +187,7 @@ add_task(async function test_scratch_space() {
   is(spaces.at(-1).uuid, scratch.uuid, "Scratch is right of every space");
   is(gZenWorkspaces.activeWorkspace, scratch.uuid, "Scratch is the active space");
   const first = gBrowser.selectedTab;
+  await waitForPage(first);
   assertPrivate(first, "Scratch's first tab");
   await TestUtils.waitForCondition(() => first.getAttribute("zen-workspace-id") == scratch.uuid, "It is in Scratch");
   ok(gZenWorkspaces.workspaceElement(scratch.uuid)?.hasAttribute("whimsy-scratch"), "Scratch's space is marked");
@@ -184,9 +210,14 @@ add_task(async function test_scratch_space() {
   const again = await WhimsyPrivate.openScratch(window);
   is(again.uuid, scratch.uuid, "There is only one Scratch");
   is(gZenWorkspaces.getWorkspaces().length, before + 1, "No second space");
+  await waitForPage(gBrowser.selectedTab);
   const scratchTabs = gBrowser.tabs.filter(t => t.getAttribute("zen-workspace-id") == scratch.uuid);
 
-  ok(await WhimsyPrivate.closeScratch(window), "Close Scratch");
+  const closed = await Promise.all([
+    WhimsyPrivate.closeScratch(window),
+    WhimsyPrivate.closeScratch(window),
+  ]);
+  ok(closed.every(Boolean), "Concurrent Close Scratch calls complete together");
   ok(!gZenWorkspaces.getWorkspaces().some(space => space.uuid == scratch.uuid), "Scratch is gone");
   ok(
     scratchTabs.every(t => t.closing || !t.isConnected),
@@ -202,7 +233,8 @@ add_task(async function test_closing_last_scratch_tab_removes_it() {
   const startSpace = gZenWorkspaces.activeWorkspace;
   const scratch = await WhimsyPrivate.openScratch(window);
   ok(scratch, "Scratch opened");
-  BrowserTestUtils.removeTab(gBrowser.selectedTab);
+  await waitForPage(gBrowser.selectedTab);
+  await closeTab(gBrowser.selectedTab);
   await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Closing its last tab removes Scratch");
   if (gZenWorkspaces.activeWorkspace != startSpace) {
     await gZenWorkspaces.changeWorkspaceWithID(startSpace);
@@ -212,6 +244,7 @@ add_task(async function test_closing_last_scratch_tab_removes_it() {
 add_task(async function test_keep_scratch_as_space() {
   const startSpace = gZenWorkspaces.activeWorkspace;
   const scratch = await WhimsyPrivate.openScratch(window);
+  await waitForPage(gBrowser.selectedTab);
   const url = uniqueURL("keep");
   BrowserTestUtils.startLoadingURIString(gBrowser.selectedBrowser, url);
   await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser, false, url);
@@ -227,11 +260,32 @@ add_task(async function test_keep_scratch_as_space() {
   );
   ok(!reopened.hasAttribute("whimsy-private"), "Its page reopened as a normal tab");
   ok(!reopened.linkedBrowser.browsingContext.usePrivateBrowsing, "... outside private browsing");
+  await waitForPage(reopened, url);
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  await closeTab(reopened);
   await gZenWorkspaces.removeWorkspace(kept.uuid);
   if (gZenWorkspaces.activeWorkspace != startSpace) {
     await gZenWorkspaces.changeWorkspaceWithID(startSpace);
   }
   await PlacesUtils.history.remove(url);
+});
+
+add_task(async function test_keep_empty_scratch_as_space() {
+  const startSpace = gZenWorkspaces.activeWorkspace;
+  const scratch = await WhimsyPrivate.openScratch(window);
+  const privateTab = gBrowser.selectedTab;
+  await waitForPage(privateTab);
+  const kept = await WhimsyPrivate.keepScratch(window);
+  is(kept.uuid, scratch.uuid, "Keeping an empty Scratch preserves its space");
+  ok(!privateTab.isConnected, "The private new-tab browser was removed");
+  const replacement = gBrowser.selectedTab;
+  is(replacement.getAttribute("zen-workspace-id"), kept.uuid, "A replacement stays in the kept space");
+  ok(!WhimsyPrivate.isPrivateTab(replacement), "The replacement tab is normal");
+  ok(!replacement.linkedBrowser.browsingContext.usePrivateBrowsing, "Its context is normal too");
+  await waitForPage(replacement, BROWSER_NEW_TAB_URL);
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  await closeTab(replacement);
+  await gZenWorkspaces.removeWorkspace(kept.uuid);
 });
 
 add_task(async function test_switch_and_setting_off() {

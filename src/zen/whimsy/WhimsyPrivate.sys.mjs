@@ -199,6 +199,14 @@ export const WhimsyPrivate = {
     // While addTab builds a private tab: the URL it will load.
     let pending = null;
 
+    // TabOpen observers (including window sync and extensions) must see the
+    // privacy marker, rather than learning about it after addTab returns.
+    gBrowser.tabContainer.addEventListener("TabOpen", event => {
+      if (pending) {
+        self.markTab(event.target);
+      }
+    }, { capture: true });
+
     const addTab = gBrowser.addTab;
     gBrowser.addTab = function (uriString, options = {}) {
       let makePrivate = false;
@@ -606,13 +614,44 @@ export const WhimsyPrivate = {
 
   // Removes Scratch and everything in it.
   async closeScratch(win) {
+    if (win._whimsyClosingScratch) {
+      return win._whimsyClosingScratch;
+    }
     const scratch = this.getScratch(win);
     if (!scratch) {
       return false;
     }
-    await win.gZenWorkspaces.removeWorkspace(scratch.uuid);
-    this.refreshScratchMarks(win);
-    return true;
+    // Leave the space before closing its browsers. Zen otherwise selects a
+    // tab in a workspace which is being removed, while TabClose schedules a
+    // second removal of the same workspace.
+    const closing = (async () => {
+      const spaces = win.gZenWorkspaces;
+      const destination = spaces.getWorkspaces().find(space => space.uuid != scratch.uuid);
+      if (!destination) {
+        return false;
+      }
+      if (spaces.activeWorkspace == scratch.uuid) {
+        await spaces.changeWorkspaceWithID(destination.uuid);
+      }
+      const tabs = win.gBrowser.tabs.filter(tab =>
+        !tab.closing && tab.getAttribute("zen-workspace-id") == scratch.uuid &&
+        !tab.hasAttribute("zen-empty-tab") && !tab.hasAttribute("zen-essential")
+      );
+      // Let queued TabOpen observers run before destroying newly opened tabs.
+      await new Promise(resolve => win.setTimeout(resolve, 0));
+      win.gBrowser.removeTabs(tabs, { closeWindowWithLastTab: false, animate: false });
+      // TabClose observers still need the workspace while they finish.
+      await new Promise(resolve => win.setTimeout(resolve, 0));
+      await spaces.removeWorkspace(scratch.uuid);
+      this.refreshScratchMarks(win);
+      return true;
+    })();
+    win._whimsyClosingScratch = closing;
+    try {
+      return await closing;
+    } finally {
+      delete win._whimsyClosingScratch;
+    }
   },
 
   // Turns Scratch into a normal space. Private pages can't stop being
@@ -626,27 +665,46 @@ export const WhimsyPrivate = {
     const [name] = await win.document.l10n.formatValues([{ id: "whimsy-scratch-kept-name" }]);
     const { gBrowser } = win;
     const privateTabs = gBrowser.tabs.filter(
-      tab => tab.getAttribute("zen-workspace-id") == scratch.uuid && this.isPrivateTab(tab)
+      tab => !tab.closing && tab.getAttribute("zen-workspace-id") == scratch.uuid && this.isPrivateTab(tab)
     );
     const kept = { ...scratch, name: name || "Space", icon: undefined };
     delete kept.whimsyScratch;
     spaces.saveWorkspace(kept);
     let reopened = 0;
+    let selectedCopy = null;
     for (const tab of privateTabs) {
       const url = tab.linkedBrowser.currentURI?.spec;
       if (!url || url == PRIVATE_NEW_TAB_URL || url == "about:blank") {
         continue;
       }
       const copy = gBrowser.addTrustedTab(url, {
-        index: tab._tPos,
-        inBackground: !tab.selected,
+        tabIndex: tab._tPos,
+        inBackground: true,
         relatedToCurrent: false,
+        zenWorkspaceId: scratch.uuid,
+        skipRoute: true,
       });
       if (copy && tab.selected) {
-        gBrowser.selectedTab = copy;
+        selectedCopy = copy;
       }
-      reopened++;
+      if (copy) {
+        reopened++;
+      }
     }
+    // Keep an empty Scratch usable too, without selecting a browser about
+    // to be destroyed. Private new-tab pages have no public page to reopen.
+    if (privateTabs.some(tab => tab.selected) && !selectedCopy) {
+      selectedCopy = gBrowser.addTrustedTab(win.BROWSER_NEW_TAB_URL, {
+        inBackground: true, zenWorkspaceId: scratch.uuid, skipRoute: true,
+      });
+    }
+    if (selectedCopy && gBrowser.selectedTab != selectedCopy) {
+      await new Promise(resolve => {
+        gBrowser.addEventListener("TabSwitchDone", resolve, { once: true });
+        gBrowser.selectedTab = selectedCopy;
+      });
+    }
+    await new Promise(resolve => win.setTimeout(resolve, 0));
     gBrowser.removeTabs(privateTabs, { closeWindowWithLastTab: false, animate: false });
     this.refreshScratchMarks(win);
     win.gZenUIManager?.showToast("whimsy-scratch-kept-toast", { l10nArgs: { count: reopened } });
@@ -655,13 +713,16 @@ export const WhimsyPrivate = {
 
   // Closing Scratch's last tab closes Scratch.
   onTabClose(win, tab) {
+    if (win._whimsyClosingScratch) {
+      return;
+    }
     const scratch = this.getScratch(win);
     if (!scratch || tab.getAttribute("zen-workspace-id") != scratch.uuid) {
       return;
     }
     win.setTimeout(() => {
       const current = this.getScratch(win);
-      if (!current || current.uuid != scratch.uuid) {
+      if (win._whimsyClosingScratch || !current || current.uuid != scratch.uuid) {
         return;
       }
       const left = win.gBrowser.tabs.some(
