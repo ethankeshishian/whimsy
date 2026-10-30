@@ -186,11 +186,34 @@ export const WhimsyFireButton = {
       });
       item.classList.add("whimsy-fire-scope");
       item.setAttribute("whimsy-fire-scope", scope.id);
-      if (scope.disabled) {
-        item.setAttribute("disabled", "true");
-      }
+      item.dataset.scope = scope.id;
       body.append(item);
     }
+    return panel;
+  },
+
+  // "This Site" burns the whole site (ForgetAboutSite takes the base domain:
+  // every subdomain, its history and data, and its tabs), so the row names
+  // it ("Everything from example.com"); it's disabled off the web.
+  updateSiteScope(win, panel) {
+    const { document } = win;
+    const button = panel.querySelector('.whimsy-fire-scope[data-scope="site"]');
+    const title = button.querySelector(".whimsy-sheet-item-title");
+    const subtitle = button.querySelector(".whimsy-sheet-item-subtitle");
+    const site = siteOf(win.gBrowser.selectedTab);
+    if (site) {
+      document.l10n.setAttributes(title, "whimsy-fire-site", { site });
+      document.l10n.setAttributes(subtitle, "whimsy-fire-site-detail", { site });
+    } else {
+      document.l10n.setAttributes(title, "whimsy-fire-site-none");
+      document.l10n.setAttributes(subtitle, "whimsy-fire-site-none-detail");
+    }
+    button.disabled = !site;
+  },
+
+  openPanel(win) {
+    const panel = this.panel(win);
+    this.updateSiteScope(win, panel);
     lazy.WhimsyPanels.open(win, panel);
   },
 };
