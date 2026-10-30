@@ -57,6 +57,21 @@ async function restoreInNewWindow(state) {
   const restored = new Promise(resolve => win.addEventListener("SSWindowRestored", resolve, { once: true }));
   SessionStore.setWindowState(win, JSON.stringify(state), true);
   await restored;
+  // A real tab opened after SSWindowStateReady goes through Zen's FIFO sync
+  // queue. Its arrival and removal in the source window prove that all earlier
+  // restore events have drained and that ordinary sync resumed. Merely waiting
+  // for SSWindowRestored can assert before queued closes destroy the source.
+  const marker = win.gBrowser.addTrustedTab("about:blank", { inBackground: true });
+  await TestUtils.waitForCondition(
+    () => document.getElementById(marker.id),
+    "Post-restore tab creation syncs to the source"
+  );
+  const sourceMarker = document.getElementById(marker.id);
+  await BrowserTestUtils.removeTab(marker);
+  await TestUtils.waitForCondition(
+    () => !sourceMarker.isConnected,
+    "Post-restore tab closure syncs to the source"
+  );
   await TestUtils.waitForCondition(
     () => win.gZenViewSplitter._data.some(s => s.tabs.length === 3),
     "The split came back in the new window"
@@ -106,9 +121,12 @@ add_task(async function test_split_restores_whole_into_a_new_window() {
       tabs.map(t => t.id).sort(),
       "The same tabs, by their saved ids"
     );
-    // Zen's window sync settles the source window's tabs asynchronously.
-    await TestUtils.waitForCondition(() => tabs.every(t => t.splitView), "The source split settles").catch(() => {});
-    ok(tabs.every(t => t.splitView), "The source split is untouched");
+    ok(tabs.every(t => t.isConnected && t.splitView), "The source split is untouched");
+    Assert.deepEqual(
+      leaves(group.layoutTree).map(p => Math.round(p.sizeInParent)),
+      [50, 25, 25],
+      "The source pane widths are untouched after the sync queue drains"
+    );
   } finally {
     if (win) {
       await BrowserTestUtils.closeWindow(win);
@@ -135,6 +153,7 @@ add_task(async function test_layout_missing_a_pane_still_restores_every_tab() {
       "Each pane is one of the split's tabs"
     );
     is(split.layoutTree.direction, "row", "Rebuilt in its saved arrangement (side by side)");
+    ok(tabs.every(t => t.isConnected && t.splitView), "Rebuilding the restored layout preserves the source split");
   } finally {
     if (win) {
       await BrowserTestUtils.closeWindow(win);

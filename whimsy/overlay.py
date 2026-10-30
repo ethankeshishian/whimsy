@@ -271,6 +271,45 @@ HOTFIXES = [
         "old": '    this.browserWrapper.style.width = "80%";\n',
         "new": "    this.browserWrapper.style.width = `${(this.whimsyWidthPercent ?? 0.8) * 100}%`; // Whimsy hotfix: Glance size\n",
     },
+    {
+        "id": "window-sync-restore-events",
+        "file": "src/zen/sessionstore/ZenWindowSync.sys.mjs",
+        "why": "SessionStore replacement is local to its window; observe its "
+               "transaction boundaries before accepting sync events.",
+        "old": "const EVENTS = [\n",
+        "new": "const EVENTS = [\n"
+               "  \"SSWindowStateBusy\", // Whimsy hotfix: local session restore transaction\n"
+               "  \"SSWindowStateReady\",\n",
+    },
+    {
+        "id": "window-sync-restore-state",
+        "file": "src/zen/sessionstore/ZenWindowSync.sys.mjs",
+        "why": "Track restore transactions per window without retaining closed windows.",
+        "old": "class nsZenWindowSync {\n",
+        "new": "class nsZenWindowSync {\n"
+               "  #whimsyRestoringWindows = new WeakSet(); // Whimsy hotfix: local session restore\n",
+    },
+    {
+        "id": "window-sync-local-restore",
+        "file": "src/zen/sessionstore/ZenWindowSync.sys.mjs",
+        "why": "Restoring a synced window removes cloned tabs and groups. Do not "
+               "broadcast those local replacement events or enqueue them for "
+               "later, when they would close or unsplit the source window.",
+        "old": "    const window = aEvent.currentTarget.documentGlobal ?? aEvent.currentTarget;\n",
+        "new": "    const window = aEvent.currentTarget.documentGlobal ?? aEvent.currentTarget;\n"
+               "    // Whimsy hotfix: discard restore mutations at emission, before the async queue.\n"
+               "    if (aEvent.type === \"SSWindowStateBusy\") {\n"
+               "      this.#whimsyRestoringWindows.add(window);\n"
+               "      return;\n"
+               "    }\n"
+               "    if (aEvent.type === \"SSWindowStateReady\") {\n"
+               "      this.#whimsyRestoringWindows.delete(window);\n"
+               "      return;\n"
+               "    }\n"
+               "    if (this.#whimsyRestoringWindows.has(window)) {\n"
+               "      return;\n"
+               "    }\n",
+    },
     # batch3glance: splits restore whole (zen#12403), see WhimsySplitRestore.
     {
         "id": "split-restore-layout",
