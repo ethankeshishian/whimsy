@@ -148,6 +148,21 @@ def apply_engine_text_fixes():
     print(f"engine_overrides: Firefox text fixes ({changed} applied)")
 
 
+# wave7/ux: the private page said data goes "when you close all your
+# private windows", but Whimsy's private tabs and Scratch live in normal
+# windows and are wiped when the last private tab closes (WhimsyPrivate).
+# Both models are covered: a real private window still works the old way.
+ENGINE_TEXT_FIXES += [
+    ("private-page-last-private-tab", "browser/locales/en-US/browser/aboutPrivateBrowsing.ftl",
+     "about-private-browsing-felt-privacy-v1-info-body = { -brand-short-name} deletes your cookies, "
+     "history, and site data when you close all your private windows.",
+     "about-private-browsing-felt-privacy-v1-info-body = { -brand-short-name} deletes your cookies, "
+     "history, and site data when you close your last private tab.",
+     "Whimsy's private tabs and Scratch are wiped when the last private tab closes, "
+     "not when a private window closes."),
+]
+
+
 def main():
     if not os.path.isdir(UPDATER):
         print("engine_overrides: no engine yet, skipping")

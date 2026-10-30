@@ -417,3 +417,6 @@ support-files = ["whimsy_verbs.html"]
 # wave5/audioicon: Arc's tab speaker (rows, pinned, Essentials, auto-muted, one-click mute, volume slider kept).
 ["browser_whimsy_tab_audio_icon.js"]
 support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
+
+# wave7/ux: private page copy
+["browser_whimsy_private_page_copy.js"]
