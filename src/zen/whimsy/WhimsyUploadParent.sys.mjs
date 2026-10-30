@@ -13,7 +13,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
-  FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
+  NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
 });
 
 async function clipboardImagePath() {
@@ -31,14 +31,15 @@ async function clipboardImagePath() {
     const imgTools = Cc["@mozilla.org/image/tools;1"].getService(Ci.imgITools);
     const stream = imgTools.encodeImage(container, "image/png");
     const available = stream.available();
-    const binary = NetUtil.readInputStreamToString(stream, available);
+    const binary = lazy.NetUtil.readInputStreamToString(stream, available);
     const bytes = new Uint8Array(available);
     for (let i = 0; i < available; i++) {
       bytes[i] = binary.charCodeAt(i) & 0xff;
     }
-    const file = lazy.FileUtils.getFile("TmpD", ["whimsy-clipboard-upload.png"]);
-    await IOUtils.write(file.path, bytes);
-    return file.path;
+    // FileUtils.getFile is gone from Firefox; PathUtils gives the temp dir.
+    const path = PathUtils.join(PathUtils.tempDir, "whimsy-clipboard-upload.png");
+    await IOUtils.write(path, bytes);
+    return path;
   } catch (e) {
     console.error("Whimsy: reading the clipboard image failed", e);
     return null;
@@ -99,6 +100,22 @@ async function recentDownloads() {
   }
 }
 
+// The File itself is made here and sent with the answer: a web content
+// process may not create a File from a path (dom.file.createInChild is off
+// outside tests; BackgroundParentImpl refuses with InvalidStateError), so
+// pasting an image into an upload button failed there.
+async function withFile(result) {
+  if (!result?.path) {
+    return result;
+  }
+  try {
+    return { ...result, file: await File.createFromFileName(result.path) };
+  } catch (e) {
+    console.error("Whimsy: reading the file to upload failed", e);
+    return null;
+  }
+}
+
 export class WhimsyUploadParent extends JSWindowActorParent {
   // Overridable for tests.
   static clipboardUpload = clipboardUpload;
@@ -107,14 +124,14 @@ export class WhimsyUploadParent extends JSWindowActorParent {
     // Cmd+V on a focused upload button: the clipboard's file or image, no popup.
     if (message.name == "WhimsyUpload:Paste") {
       const clip = await WhimsyUploadParent.clipboardUpload();
-      return clip ? { path: clip.path } : null;
+      return clip ? withFile({ path: clip.path }) : null;
     }
     if (message.name != "WhimsyUpload:Pick") {
       return null;
     }
     const win = this.browsingContext.topChromeWindow;
     const [clip, downloads] = await Promise.all([WhimsyUploadParent.clipboardUpload(), recentDownloads()]);
-    return this.showPopup(win, message.data, { clip, downloads });
+    return withFile(await this.showPopup(win, message.data, { clip, downloads }));
   }
 
   showPopup(win, { screenX, screenY }, { clip, downloads }) {

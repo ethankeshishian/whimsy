@@ -204,6 +204,10 @@ support-files = ["whimsy_slow_download.sjs"]
 ["browser_whimsy_upload_clipboard.js"]
 support-files = ["whimsy_upload.html"]
 
+# Paste-to-upload regression on a plain <input type=file> form (real clipboard).
+["browser_whimsy_upload_paste_form.js"]
+support-files = ["whimsy_upload_form.html"]
+
 ["browser_whimsy_dev_mode.js"]
 
 # linear: Linear live folder ("My Issues": assigned to you, open states).

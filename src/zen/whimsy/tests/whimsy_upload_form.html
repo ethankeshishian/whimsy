@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<!-- A plain file upload form, like the w3schools input type=file example. -->
+<html>
+<head><meta charset="utf-8"><title>File upload form</title></head>
+<body>
+<h1>Define a file-select field</h1>
+<form action="about:blank">
+  <label for="myfile">Select a file:</label>
+  <input type="file" id="myfile" name="myfile">
+  <br><br>
+  <input type="submit">
+</form>
+<script>
+  window.changes = 0;
+  document.getElementById("myfile").addEventListener("change", () => window.changes++);
+</script>
+</body>
+</html>

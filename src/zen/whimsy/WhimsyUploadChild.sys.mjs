@@ -73,14 +73,14 @@ export class WhimsyUploadChild extends JSWindowActorChild {
 
   async paste(input) {
     const result = await this.sendQuery("WhimsyUpload:Paste");
-    if (result?.path) {
-      await this.setFile(input, result.path);
+    if (result?.file) {
+      this.setFile(input, result.file);
     }
   }
 
-  async setFile(input, path) {
+  // `file` comes from the parent (see WhimsyUploadParent's withFile).
+  setFile(input, file) {
     try {
-      const file = await File.createFromFileName(path);
       input.mozSetFileArray([file]);
       input.dispatchEvent(new this.contentWindow.Event("input", { bubbles: true }));
       input.dispatchEvent(new this.contentWindow.Event("change", { bubbles: true }));
@@ -104,8 +104,8 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       input.showPicker();
       return;
     }
-    if (result.path) {
-      await this.setFile(input, result.path);
+    if (result.file) {
+      this.setFile(input, result.file);
     }
   }
 }
