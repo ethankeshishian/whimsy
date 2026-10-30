@@ -1636,3 +1636,38 @@ whimsy-trail-origin =
 whimsy-trail-branch-tooltip = A page you left by going back. Click to open it again.
 whimsy-trails-setting =
     .label = Keep pages you went back from in the Back and Forward menus
+
+## wave6: Page actions. A pill in the address bar when the page describes one
+## event, place, recipe, product or parcel (schema.org data).
+## $name - what the page describes (event, place, recipe...), as the page names it
+## $state - open, closed or unknown (the place's listed hours, now)
+
+whimsy-page-action-event = Add to Calendar
+whimsy-page-action-event-tooltip =
+    .tooltiptext = Add “{ $name }” to Calendar
+whimsy-page-action-place =
+    { $state ->
+        [open] Maps · Open now
+        [closed] Maps · Closed
+       *[unknown] Open in Maps
+    }
+whimsy-page-action-place-tooltip =
+    .tooltiptext = Show { $name } in Maps
+whimsy-page-action-recipe = Cook mode
+whimsy-page-action-recipe-tooltip =
+    .tooltiptext = Show the ingredients and steps for { $name }, large, and keep the screen on
+whimsy-page-action-product = Watch price
+whimsy-page-action-product-tooltip =
+    .tooltiptext = Get an alert when the price of { $name } drops
+whimsy-page-action-parcel = Track
+whimsy-page-action-parcel-tooltip =
+    .tooltiptext = Open the carrier’s tracking page
+whimsy-page-action-calendar-toast = Opening the event in Calendar
+## $price - the price shown on the page, formatted
+whimsy-page-action-price-condition = The price drops below { $price }
+whimsy-page-action-price-condition-any = The price drops
+whimsy-cook-ingredients = Ingredients
+whimsy-cook-steps = Steps
+whimsy-cook-awake = Your screen stays on while this is open.
+whimsy-page-actions-setting =
+    .label = Show page actions in the address bar (add events to Calendar, open places in Maps, cook mode for recipes)

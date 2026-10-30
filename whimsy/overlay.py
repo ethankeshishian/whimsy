@@ -802,6 +802,10 @@ FEATURES = [
     # as branches in the Back/Forward menu, plus where the tab came from.
     {"id": "trails", "title": "Trails: pages you went back from stay in the Back/Forward menu as branches, with where the tab came from",
      "detect": [("src/zen", r"(?i)OnHistoryTruncate\s*[(:]\s*\w|history-?tree|branch(ing)?-?history")]},
+    # wave6: Page actions (Safari Highlights): schema.org JSON-LD/microdata
+    # on the page -> one address bar pill (Calendar, Maps, Cook mode...).
+    {"id": "page-actions", "title": "Page actions: add events to Calendar, open places in Maps, cook mode for recipes, from the page's own data (Safari Highlights)",
+     "detect": [("src/zen", r"(?i)application/ld\+json|schema\.org/(Event|Recipe)|page-?actions?-?pill")]},
 ]
 
 

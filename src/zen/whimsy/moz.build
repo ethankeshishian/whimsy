@@ -60,6 +60,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyNextMeeting.sys.mjs",
     "WhimsyNotesSection.sys.mjs",
     "WhimsyPage.sys.mjs",
+    "WhimsyPageActions.sys.mjs",
+    "WhimsyPageActionsChild.sys.mjs",
     "WhimsyPageChild.sys.mjs",
     "WhimsyPageParent.sys.mjs",
     "WhimsyPageWatch.sys.mjs",

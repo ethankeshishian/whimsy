@@ -146,6 +146,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTrails: "resource:///modules/whimsy/WhimsyTrails.sys.mjs",
 });
 
+// wave6: Page actions (schema.org data -> a pill in the address bar).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -574,6 +579,9 @@ export const Whimsy = {
     // wave6: Trails. Pages cut from Forward stay as branches in the
     // Back/Forward menu. Always installed; checks its switch on use.
     run("trails", () => lazy.WhimsyTrails.initWindow(win));
+    // wave6: Page actions. Its page actor is registered once even when off;
+    // the child checks the switch on every page.
+    run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

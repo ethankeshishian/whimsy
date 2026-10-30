@@ -356,3 +356,7 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave6: Trails: pages cut from Forward stay as branch rows in the Back/Forward menu.
 ["browser_whimsy_trails.js"]
+
+# wave6: Page actions: schema.org data -> Calendar, Maps, Cook mode, Track pill.
+["browser_whimsy_page_actions.js"]
+support-files = ["whimsy_page_actions.html"]
