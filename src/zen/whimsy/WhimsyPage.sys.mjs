@@ -15,6 +15,8 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  LanguageDetector: "resource://gre/modules/translations/LanguageDetector.sys.mjs",
+  TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
@@ -620,10 +622,50 @@ export const WhimsyPage = {
       return null;
     }
     const panel = win.SelectTranslationsPanel;
-    panel
-      .open(null, found.x, found.y, found.text, true, panel.getLangPairPromise(found.text))
-      .catch(console.error);
+    panel.open(null, found.x, found.y, found.text, true, this.langPair(win, found.text)).catch(console.error);
     return found.text;
+  },
+
+  // The panel's languages: from = the language of the selected text itself
+  // (Firefox's on-device language identification, not the page's lang),
+  // to = the user's own language. Firefox's own pair is kept where it agrees:
+  // it maps a detected language onto the exact tag its models use; but when
+  // it can't (no model list yet) it falls back to the page's language and
+  // English, which gave "English -> English" for foreign text.
+  async langPair(win, text) {
+    let pair = {};
+    try {
+      pair = (await win.SelectTranslationsPanel?.getLangPairPromise(text)) ?? {};
+    } catch (e) {
+      console.error("Whimsy: translate selection languages", e);
+    }
+    const base = tag => (tag || "").split("-")[0].toLowerCase();
+    let detected = null;
+    try {
+      const { language, languages } = await lazy.LanguageDetector.detectLanguage(text);
+      detected = languages?.[0]?.languageCode || language || null;
+    } catch (e) {
+      console.error("Whimsy: language detection", e);
+    }
+    if (detected == "un" || detected == "und") {
+      detected = null;
+    }
+    let sourceLanguage = pair.sourceLanguage;
+    if (detected && base(sourceLanguage) != base(detected)) {
+      sourceLanguage = detected;
+    }
+    let userLanguages = [];
+    try {
+      userLanguages = lazy.TranslationsParent.getPreferredLanguages({ excludeLangTags: sourceLanguage ? [sourceLanguage] : [] });
+    } catch (e) {
+      userLanguages = [Services.locale.appLocaleAsBCP47];
+    }
+    let targetLanguage = pair.targetLanguage;
+    const userLanguage = userLanguages.find(tag => base(tag) != base(sourceLanguage));
+    if (!targetLanguage || base(targetLanguage) == base(sourceLanguage) || (userLanguage && base(targetLanguage) != base(userLanguage))) {
+      targetLanguage = userLanguage ? base(userLanguage) : targetLanguage;
+    }
+    return { sourceLanguage, targetLanguage };
   },
 
   // --- Reader typography ---

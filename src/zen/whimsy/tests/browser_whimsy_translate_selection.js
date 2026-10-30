@@ -61,3 +61,38 @@ add_task(async function test_empty_ai_and_switch() {
   is(globalActions.find(a => a.l10nId == "whimsy-action-translate-selection")?.label, "Translate Selection", "In the command bar");
   BrowserTestUtils.removeTab(tab);
 });
+
+// The source is the selected text's own language, detected on-device, even on
+// an English page; the target is the user's language. (It used to open as
+// English -> English for foreign text.)
+add_task(async function test_detects_selected_language() {
+  const german = "Das ist ein kurzer deutscher Satz, den wir gerne in eine andere Sprache übersetzen möchten.";
+  const page =
+    "https://example.com/document-builder.sjs?html=" +
+    encodeURIComponent(`<html lang="en"><body><p>An English page.</p><p id=p>${german}</p></body></html>`);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  await select(tab.linkedBrowser);
+
+  const pair = await WhimsyPage.langPair(window, german);
+  is(pair.sourceLanguage?.split("-")[0], "de", "The source is the selection's language (German), not the page's");
+  is(pair.targetLanguage?.split("-")[0], Services.locale.appLocaleAsBCP47.split("-")[0], "The target is the user's language");
+  isnot(pair.sourceLanguage, pair.targetLanguage, "Never X -> X");
+
+  // The panel is opened with that pair.
+  const panel = window.SelectTranslationsPanel;
+  const original = panel.open;
+  let opened = null;
+  panel.open = async (...args) => {
+    opened = { text: args[3], pair: await args[5] };
+  };
+  try {
+    await WhimsyPage.translateSelection(window);
+    await TestUtils.waitForCondition(() => opened, "The panel was asked to open");
+  } finally {
+    panel.open = original;
+  }
+  is(opened.text, german, "...with the selected text");
+  is(opened.pair.sourceLanguage?.split("-")[0], "de", "...from German");
+  is(opened.pair.targetLanguage?.split("-")[0], "en", "...to the user's English");
+  BrowserTestUtils.removeTab(tab);
+});
