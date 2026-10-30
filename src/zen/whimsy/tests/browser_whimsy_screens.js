@@ -8,6 +8,15 @@
 //   WHIMSY_SHOTS=/some/dir npm test -- ui/browser_whimsy_screens.js
 // Without WHIMSY_SHOTS it only does a quick smoke check.
 
+// Screenshot tasks open and close windows and spaces; Zen can leave a
+// blank placeholder tab behind in this window. Take any extra tabs along.
+const screensStartTabs = new Set(gBrowser.tabs);
+registerCleanupFunction(() => {
+  for (const tab of gBrowser.tabs.filter(t => !screensStartTabs.has(t))) {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
 const SHOTS = Services.env.get("WHIMSY_SHOTS");
 
 async function shot(name, windowGlobal = window.browsingContext.currentWindowGlobal) {
