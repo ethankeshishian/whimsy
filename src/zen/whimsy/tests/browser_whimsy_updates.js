@@ -336,3 +336,23 @@ add_task(async function test_startup_drops_carried_over_updates() {
     "No updates, nothing to drop"
   );
 });
+
+// wave7/ux: after an update the notice offers "What's new" and a quiet
+// "Update settings" (Roll back lives there), never a scary "Roll back" row
+// at the same weight as "What's new".
+add_task(async function test_updated_notice_has_no_rollback_row() {
+  if (!window.WhimsyWindow) {
+    Services.scriptloader.loadSubScript("chrome://browser/content/whimsy/whimsy-window.js", window);
+  }
+  const notification = await window.WhimsyWindow.showUpdatedNotice(
+    { id: "wave7", version: "1.24b-w2", zen: "1.24b", notes_url: "https://example.com/notes" },
+    { force: true }
+  );
+  ok(notification, "The notice appears");
+  try {
+    const ids = notification.links.map(link => link.l10nId);
+    Assert.deepEqual(ids, ["whimsy-updated-notes", "whimsy-updated-settings"], "What's new, then Update settings");
+  } finally {
+    notification.remove();
+  }
+});
