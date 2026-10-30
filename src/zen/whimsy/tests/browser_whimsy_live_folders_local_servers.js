@@ -22,11 +22,24 @@ const PNG_BYTES = atob(
 function startServer({ html, contentType = "text/html; charset=utf-8", server: serverHeader, icon = false } = {}) {
   const server = new HttpServer();
   server.registerPathHandler("/", (request, response) => {
-    response.setHeader("Content-Type", contentType, false);
+    const body = html ?? "plain text, no page";
     if (serverHeader) {
-      response.setHeader("Server", serverHeader, false);
+      // httpd.js always overwrites the Server header with its own, so a
+      // different server (e.g. AirPlay's AirTunes) needs a raw response.
+      response.seizePower();
+      response.write(
+        "HTTP/1.1 200 OK\r\n" +
+          `Server: ${serverHeader}\r\n` +
+          `Content-Type: ${contentType}\r\n` +
+          `Content-Length: ${body.length}\r\n` +
+          "Connection: close\r\n\r\n" +
+          body
+      );
+      response.finish();
+      return;
     }
-    response.write(html ?? "plain text, no page");
+    response.setHeader("Content-Type", contentType, false);
+    response.write(body);
   });
   if (icon) {
     server.registerPathHandler("/icon.png", (request, response) => {
@@ -142,7 +155,9 @@ add_task(async function test_polls_only_while_visible() {
   await provider.refresh();
   is(fetches.length, 1, "An unchanged set of servers doesn't touch the folder");
 
-  manager.dismissedItems.add(`test-local:${portOf(other)}`);
+  // A stopped server has no port any more, so remember it first.
+  const otherPort = portOf(other);
+  manager.dismissedItems.add(`test-local:${otherPort}`);
   await stopServer(other);
   await provider.refresh();
   is(fetches.length, 2, "A server stopping updates the folder");
@@ -151,7 +166,7 @@ add_task(async function test_polls_only_while_visible() {
     ["One"],
     "and its tab goes away"
   );
-  ok(!manager.dismissedItems.has(`test-local:${portOf(other)}`), "Closing a server's tab lasts only while it runs");
+  ok(!manager.dismissedItems.has(`test-local:${otherPort}`), "Closing a server's tab lasts only while it runs");
 
   // The real listener wiring, through the window's document.
   folder.collapsed = true;
