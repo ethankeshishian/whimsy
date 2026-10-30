@@ -1656,3 +1656,30 @@ whimsy-links-follower =
     .label = Follower splits: links in one pane open in the other
 whimsy-links-follower-help = To start one, right-click a tab in a split and choose Make This a Follower Split.
 whimsy-links-spaces-header = Spaces
+
+## fix7/folders: Statuses submenu on the Linear and Jira live folders.
+
+whimsy-live-folder-option-statuses =
+    .label = Statuses
+whimsy-live-folder-linear-state-triage =
+    .label = Triage
+whimsy-live-folder-linear-state-backlog =
+    .label = Backlog
+whimsy-live-folder-linear-state-unstarted =
+    .label = Todo
+whimsy-live-folder-linear-state-started =
+    .label = In Progress
+whimsy-live-folder-linear-state-completed =
+    .label = Done
+whimsy-live-folder-linear-state-canceled =
+    .label = Canceled
+whimsy-live-folder-linear-state-duplicate =
+    .label = Duplicate
+whimsy-live-folder-jira-category-new =
+    .label = To Do
+whimsy-live-folder-jira-category-indeterminate =
+    .label = In Progress
+whimsy-live-folder-jira-category-done =
+    .label = Done
+whimsy-live-folder-jira-category-undefined =
+    .label = No Category

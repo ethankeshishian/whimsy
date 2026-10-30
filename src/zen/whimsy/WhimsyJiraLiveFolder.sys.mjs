@@ -22,6 +22,32 @@ ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whim
 
 export const DEFAULT_JQL = "assignee = currentUser() AND resolution = Unresolved";
 
+// Jira's status categories -- the fixed buckets every site's own statuses
+// map to (statusCategory.key in the REST API: "new" is To Do,
+// "indeterminate" is In Progress, "done" is Done, "undefined" is No
+// Category). Each is a show/hide toggle in the folder's Statuses menu;
+// Done is hidden by default. JQL takes the category ids, which, unlike
+// the names, aren't translated.
+export const JIRA_STATUS_CATEGORIES = ["new", "indeterminate", "done", "undefined"];
+export const JIRA_DEFAULT_HIDDEN = ["done"];
+const JIRA_CATEGORY_IDS = { undefined: 1, new: 2, done: 3, indeterminate: 4 };
+
+// With the default query the status filter goes into the JQL, so hidden
+// issues don't use up the page and showing Done really brings them back
+// (the old default's "resolution = Unresolved" would keep them out). A
+// custom query is left as written and filtered client-side.
+export function jiraQuery(jql, hidden) {
+  if (jql && jql !== DEFAULT_JQL) {
+    return jql;
+  }
+  const clauses = ["assignee = currentUser()"];
+  const ids = hidden.map(key => JIRA_CATEGORY_IDS[key]).filter(Boolean);
+  if (ids.length) {
+    clauses.push(`statusCategory not in (${ids.join(", ")})`);
+  }
+  return `${clauses.join(" AND ")} ORDER BY updated DESC`;
+}
+
 function normalizeSite(site) {
   return (site || "").trim().replace(/\/+$/, "");
 }
@@ -33,6 +59,9 @@ export class WhimsyJiraLiveFolderProvider extends nsZenLiveFolderProvider {
     super({ id, state, manager });
     this.state.site = normalizeSite(state.site);
     this.state.jql = state.jql || DEFAULT_JQL;
+    this.state.hiddenCategories = Array.isArray(state.hiddenCategories)
+      ? state.hiddenCategories.filter(k => typeof k === "string")
+      : [...JIRA_DEFAULT_HIDDEN];
   }
 
   async fetchItems() {
@@ -42,7 +71,7 @@ export class WhimsyJiraLiveFolderProvider extends nsZenLiveFolderProvider {
     }
     try {
       const url = new URL(`${site}/rest/api/2/search`);
-      url.searchParams.set("jql", this.state.jql || DEFAULT_JQL);
+      url.searchParams.set("jql", jiraQuery(this.state.jql, this.state.hiddenCategories));
       url.searchParams.set("fields", "summary,status");
 
       const { text, status } = await this.fetch(url.href, {
@@ -63,15 +92,18 @@ export class WhimsyJiraLiveFolderProvider extends nsZenLiveFolderProvider {
         return "zen-live-folder-failed-fetch";
       }
 
+      const hidden = new Set(this.state.hiddenCategories);
       const issues = Array.isArray(data?.issues) ? data.issues : [];
-      return issues.map(issue => ({
-        // Scoped by site: two folders for two Jira sites never collide.
-        id: `${site}:${issue.key}`,
-        title: issue.fields?.summary || issue.key,
-        subtitle: issue.fields?.status?.name,
-        icon: "chrome://browser/skin/zen-icons/selectable/ticket.svg",
-        url: `${site}/browse/${issue.key}`,
-      }));
+      return issues
+        .filter(issue => !hidden.has(issue.fields?.status?.statusCategory?.key))
+        .map(issue => ({
+          // Scoped by site: two folders for two Jira sites never collide.
+          id: `${site}:${issue.key}`,
+          title: issue.fields?.summary || issue.key,
+          subtitle: issue.fields?.status?.name,
+          icon: "chrome://browser/skin/zen-icons/selectable/ticket.svg",
+          url: `${site}/browse/${issue.key}`,
+        }));
     } catch (e) {
       console.error("Whimsy: Jira live folder fetch failed", e);
       return "zen-live-folder-failed-fetch";
@@ -79,17 +111,48 @@ export class WhimsyJiraLiveFolderProvider extends nsZenLiveFolderProvider {
   }
 
   get options() {
+    const hidden = new Set(this.state.hiddenCategories);
     return [
       { l10nId: "whimsy-live-folder-jira-option-site", key: "site" },
       { l10nId: "whimsy-live-folder-jira-option-jql", key: "jql" },
+      {
+        l10nId: "whimsy-live-folder-option-statuses",
+        key: "statuses",
+        options: JIRA_STATUS_CATEGORIES.map(category => ({
+          l10nId: `whimsy-live-folder-jira-category-${category}`,
+          key: "jiraCategory",
+          value: category,
+          checked: !hidden.has(category),
+        })),
+      },
     ];
+  }
+
+  // Shows or hides one status category and refetches.
+  toggleCategory(category) {
+    if (!JIRA_STATUS_CATEGORIES.includes(category)) {
+      return;
+    }
+    const hidden = new Set(this.state.hiddenCategories);
+    if (hidden.has(category)) {
+      hidden.delete(category);
+    } else {
+      hidden.add(category);
+    }
+    this.state.hiddenCategories = JIRA_STATUS_CATEGORIES.filter(k => hidden.has(k));
+    this.requestSave();
+    this.refresh().catch(e => console.error("Whimsy: Jira live folder refresh failed", e));
   }
 
   async onOptionTrigger(option) {
     super.onOptionTrigger(option);
 
     const key = option.getAttribute("option-key");
-    if (!this.options.some(x => x.key === key)) {
+    if (key === "jiraCategory") {
+      this.toggleCategory(option.getAttribute("option-value"));
+      return;
+    }
+    if (key !== "site" && key !== "jql") {
       return;
     }
 

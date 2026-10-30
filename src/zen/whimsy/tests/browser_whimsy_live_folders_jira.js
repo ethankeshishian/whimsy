@@ -10,7 +10,7 @@
 // cookie (no API key), so a 401/403 means "not signed in to this Jira
 // site", surfaced distinctly from a generic failed fetch.
 
-const { WhimsyJiraLiveFolderProvider } = ChromeUtils.importESModule(
+const { WhimsyJiraLiveFolderProvider, jiraQuery, DEFAULT_JQL } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyJiraLiveFolder.sys.mjs"
 );
 const { WhimsyLiveFolders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs");
@@ -43,7 +43,7 @@ add_task(async function test_main_flow() {
   const folder = makeFolder();
   const items = await folder.fetchItems();
   ok(Array.isArray(items), "Fetches an array of issues");
-  is(items.length, 2, "Both fixture issues come back");
+  is(items.length, 2, "The To Do and In Progress issues come back; Done is hidden by default");
   is(items[0].title, "Fix the login bug", "Title comes from the issue's summary");
   is(items[0].subtitle, "In Progress", "Subtitle comes from the issue's status");
   ok(items[0].url.endsWith("/browse/ABC-1"), "The URL points at the issue");
@@ -75,4 +75,38 @@ add_task(async function test_switch_off() {
   ok(!WhimsyLiveFolders.jiraEnabled, "The feature switch is off");
   await SpecialPowers.popPrefEnv();
   ok(WhimsyLiveFolders.jiraEnabled, "and back on by default");
+});
+
+// Statuses: one toggle per Jira status category; Done is hidden by default.
+add_task(async function test_status_categories() {
+  const folder = makeFolder();
+  Assert.deepEqual(folder.state.hiddenCategories, ["done"], "Done is hidden by default");
+  is(
+    jiraQuery(DEFAULT_JQL, ["done"]),
+    "assignee = currentUser() AND statusCategory not in (3) ORDER BY updated DESC",
+    "The default query filters hidden categories by id, not by the unresolved flag"
+  );
+  is(jiraQuery(DEFAULT_JQL, []), "assignee = currentUser() ORDER BY updated DESC", "Nothing hidden, no clause");
+  is(jiraQuery("project = X", ["done"]), "project = X", "A custom query is left as written");
+
+  const statuses = folder.options.find(o => o.key === "statuses");
+  ok(statuses, "The folder's options have a Statuses submenu");
+  Assert.deepEqual(
+    statuses.options.map(o => [o.value, o.checked]),
+    [["new", true], ["indeterminate", true], ["done", false], ["undefined", true]],
+    "One toggle per status category; checked means shown"
+  );
+
+  folder.toggleCategory("done");
+  let items = await folder.fetchItems();
+  ok(items.some(i => i.id.endsWith(":ABC-3")), "Showing Done brings back done issues");
+
+  folder.toggleCategory("new");
+  items = await folder.fetchItems();
+  ok(!items.some(i => i.id.endsWith(":ABC-2")), "Hiding To Do drops to-do issues");
+
+  // A custom query isn't rewritten, so the filter applies client-side.
+  const custom = makeFolder({ jql: "project = ABC" });
+  items = await custom.fetchItems();
+  ok(!items.some(i => i.id.endsWith(":ABC-3")), "Done is hidden client-side for a custom query too");
 });
