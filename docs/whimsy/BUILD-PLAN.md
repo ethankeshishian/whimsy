@@ -239,3 +239,6 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
 - Speed (decided): overlay on every video, hidden until hover; default 1x; dropdown in 0.25 steps from 0.25x to 4x plus a "Custom" entry for any number (clamped 0.25-4); remembered per site.
 - Handoff: Firefox already has it both ways; verify + polish (never hand off private tabs or Scratch).
 - Email aliases: Apple side being brainstormed; focus mode: user reviewing candidates.
+- Email aliases, iCloud side (decided): option 2 — one-click alias via the user's own signed-in iCloud.com session (the same calls the website makes). Detect sign-in state up front: signed in -> create + fill in one click; signed out -> the menu says "Sign in to iCloud to use Hide My Email" and opens iCloud sign-in (in a Glance), never a silent failure. Relay stays the other provider.
+- Speed control UI (decided): the speed number itself is editable (click it to type any value, Enter to apply, clamped 0.25-4); a small arrow beside it opens the dropdown of quarter steps.
+- Focus mode: skipped. Reader "Line focus" (dim all but 1/3/5 lines in Reader View) is a MAYBE for the future.
