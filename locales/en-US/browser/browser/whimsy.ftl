@@ -431,7 +431,7 @@ whimsy-tabs-archive-idle-after-30d =
 whimsy-tabs-archive-idle-after-never =
     .label = Never
 whimsy-tabs-archive-view =
-    .label = Archive view (command bar: “Show Archive”)
+    .label = Archive in the Library, beside History (command bar: “Show Archive”)
 whimsy-tabs-undo =
     .label = Undo for tab actions (Cmd+Z)
 whimsy-tabs-snooze =
@@ -696,6 +696,7 @@ whimsy-quicklook-missing-toast = Item removed
 whimsy-action-cheatsheet = Keyboard Shortcuts
 whimsy-cheatsheet-search =
     .placeholder = Search shortcuts
+    .aria-label = Search shortcuts
 whimsy-cheatsheet-edit = Edit all shortcuts…
 whimsy-cheatsheet-duplicate-tab = Duplicate Tab
 whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
@@ -724,11 +725,12 @@ whimsy-useragent-safari-iphone =
 
 whimsy-action-cookie-editor = Cookies
 whimsy-cookie-editor-add =
-    .label = Add
+    .label = Add Cookie
 whimsy-cookie-editor-copy-all =
     .label = Copy All as JSON
 whimsy-cookie-editor-delete =
     .label = Delete
+    .tooltiptext = Delete this cookie
 whimsy-cookie-editor-copied-toast = Cookies copied
 
 ## batch7: upload from the clipboard
@@ -1082,3 +1084,137 @@ whimsy-hover-no-preview = No saved preview
 whimsy-hover-people =
     .label = Show who it is when you hover a GitHub, LinkedIn or X profile link
 whimsy-hover-people-help = Uses the tab’s signed-in session after a deliberate hover, at most 20 profiles an hour. LinkedIn and X may still flag repeated automated visits to an account. Never in private browsing.
+
+## fixB: Whimsy's panels ("sheets", WhimsyPanels.sys.mjs)
+
+whimsy-sheet-close =
+    .tooltiptext = Close
+    .aria-label = Close
+# The accept button of Zen's "Delete Space?" confirmation.
+whimsy-delete-space-accept = Delete Space
+whimsy-snooze-title = Snooze Tab
+whimsy-fire-title = Fire Button
+whimsy-fire-subtitle = Clears data, then closes the tabs. Pinned tabs stay.
+# $site (string) - the current site's domain, e.g. example.com
+whimsy-fire-site-detail = Cookies, cache and history for { $site }, plus its tabs
+whimsy-fire-site-none-detail = This page isn't a website
+whimsy-fire-last-15-min-detail = Everything from the last 15 minutes
+# $space (string) - the current space's name
+whimsy-fire-space-detail = Site data and tabs in { $space }
+whimsy-fire-space-detail-unnamed = Site data and tabs in this space
+whimsy-fire-everything-detail = All browsing data and every unpinned tab
+whimsy-heavy-tabs-title = Heavy Tabs
+whimsy-heavy-tabs-subtitle = Memory by process, updated every few seconds
+whimsy-heavy-tabs-measuring = Measuring…
+whimsy-heavy-tabs-empty = No tabs to measure right now.
+whimsy-split-favorites-title = Favorite Splits
+whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split” in the command bar.
+whimsy-cookie-editor-title = Cookies
+whimsy-cookie-editor-search =
+    .placeholder = Search cookies
+    .aria-label = Search cookies
+whimsy-cookie-editor-new-name =
+    .placeholder = Name
+    .aria-label = New cookie name
+whimsy-cookie-editor-new-value =
+    .placeholder = Value
+    .aria-label = New cookie value
+whimsy-cookie-editor-save-new =
+    .label = Add
+# $name (string) - the cookie's name
+whimsy-cookie-editor-value =
+    .aria-label = Value of { $name }
+# $site (string) - the site's domain
+whimsy-cookie-editor-empty = No cookies for { $site }
+whimsy-cookie-editor-no-match = No cookies match your search
+whimsy-cookie-editor-flag-secure = Secure
+whimsy-cookie-editor-flag-httponly = HttpOnly
+whimsy-cookie-editor-flag-session = Session
+whimsy-useragent-title = Pretend to Be
+# $site (string) - the current site's host
+whimsy-useragent-subtitle = On { $site }; the page reloads
+whimsy-useragent-option-default = Whimsy
+whimsy-useragent-option-default-detail = No disguise (Firefox's own)
+whimsy-useragent-option-chrome = Chrome
+whimsy-useragent-option-chrome-detail = For sites that only work in Chrome
+whimsy-useragent-option-safari-mac = Safari
+whimsy-useragent-option-safari-mac-detail = Safari on a Mac
+whimsy-useragent-option-safari-iphone = iPhone
+whimsy-useragent-option-safari-iphone-detail = Safari on iPhone, for a site's mobile layout
+whimsy-useragent-option-custom = Custom…
+whimsy-useragent-option-custom-detail = Any user agent string
+whimsy-useragent-custom-field =
+    .placeholder = Mozilla/5.0 …
+    .aria-label = Custom user agent
+whimsy-useragent-custom-apply =
+    .label = Apply
+whimsy-cheatsheet-title = Keyboard Shortcuts
+whimsy-cheatsheet-no-match = No shortcut matches.
+whimsy-cheatsheet-edit-button =
+    .label = Edit Shortcuts…
+whimsy-cheatsheet-group-tabs = Tabs
+whimsy-cheatsheet-group-sidebar = Sidebar and Spaces
+whimsy-cheatsheet-group-split = Split View
+whimsy-cheatsheet-group-page = Page
+whimsy-cheatsheet-group-windows = Windows
+whimsy-cheatsheet-new-tab = New Tab
+whimsy-cheatsheet-close-tab = Close Tab
+whimsy-cheatsheet-reopen-tab = Reopen Closed Tab
+whimsy-cheatsheet-copy-url = Copy URL
+whimsy-cheatsheet-private-tab = New Private Tab
+whimsy-cheatsheet-address-bar = Address Bar
+whimsy-cheatsheet-toggle-sidebar = Show or Hide Sidebar
+whimsy-cheatsheet-compact-mode = Compact Mode
+whimsy-cheatsheet-next-space = Next Space
+whimsy-cheatsheet-prev-space = Previous Space
+whimsy-cheatsheet-library = Library
+whimsy-cheatsheet-split-vertical = Split Side by Side
+whimsy-cheatsheet-split-horizontal = Split Top and Bottom
+whimsy-cheatsheet-split-grid = Split in a Grid
+whimsy-cheatsheet-unsplit = Unsplit
+whimsy-cheatsheet-swap-panes = Swap Panes
+whimsy-cheatsheet-close-other-panes = Close Other Panes
+whimsy-cheatsheet-find = Find in Page
+whimsy-cheatsheet-reader = Reader View
+whimsy-cheatsheet-copy-full-page = Copy Full-Page Screenshot
+whimsy-cheatsheet-capture = Capture
+whimsy-cheatsheet-translate = Translate Selection
+whimsy-cheatsheet-speed-up = Play Faster
+whimsy-cheatsheet-slow-down = Play Slower
+whimsy-cheatsheet-new-window = New Window
+whimsy-cheatsheet-quick-window = Mini Whimsy
+whimsy-cheatsheet-private-window = New Private Window
+
+## fixB: the Archive, a Library section beside History
+
+whimsy-library-archive-title = Archive
+whimsy-library-archive-search =
+    .placeholder = Search archived tabs
+whimsy-library-archive-intro = Tabs that left your sidebar, kept so you can put them back in their space. History, next door, lists every page you visited.
+# $after - how long a tab sits unused before it archives itself
+whimsy-library-archive-intro-idle =
+    { $after ->
+        [h24] Tabs you haven't used in 24 hours archive themselves.
+        [d7] Tabs you haven't used in 7 days archive themselves.
+        [d30] Tabs you haven't used in 30 days archive themselves.
+       *[h12] Tabs you haven't used in 12 hours archive themselves.
+    } Pinned tabs, Essentials and anything playing stay put.
+whimsy-library-archive-intro-manual = Auto-archive is off, so only tabs you close end up here.
+whimsy-library-archive-empty = Nothing archived yet.
+whimsy-library-archive-no-match = No archived tabs match.
+whimsy-library-archive-today = Today
+whimsy-library-archive-yesterday = Yesterday
+whimsy-library-archive-filter-reason = Why it left
+whimsy-library-archive-reason-idle = Unused
+whimsy-library-archive-reason-closed = Closed
+whimsy-library-archive-reason-tree = Closed with its branch
+whimsy-library-archive-reason-snooze = Snoozed
+whimsy-library-archive-reason-fire = Burned
+# $space (string) - the name of the space the tab goes back to
+whimsy-library-archive-in-space = { $space }
+whimsy-library-archive-restore =
+    .tooltiptext = Restore to its space
+    .aria-label = Restore to its space
+whimsy-library-archive-forget =
+    .tooltiptext = Remove from the Archive
+    .aria-label = Remove from the Archive

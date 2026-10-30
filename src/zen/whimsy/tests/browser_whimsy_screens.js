@@ -687,3 +687,111 @@ add_task(async function hover_card_history() {
     card.hide();
   }
 });
+
+// fixB: every rebuilt panel ("sheet"), in light and dark, plus Zen's
+// Delete Space confirm (now in-window) and the Archive in the Library.
+async function sheetShot(name, panelId, open, ready = null) {
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == panelId);
+    await open();
+    await shown;
+    const panel = document.getElementById(panelId);
+    try {
+      if (ready) {
+        await TestUtils.waitForCondition(() => ready(panel), `${name} is ready`);
+      }
+      await document.l10n.translateFragment(panel);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await shot(`fixB-${name}-${dark ? "dark" : "light"}`);
+    } finally {
+      const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+      panel.hidePopup();
+      await hidden;
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+add_task(async function fixB_sheets() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?whimsy-sheets");
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+    content.document.cookie = "session_id=3f9a1c2e8b7d4e6f";
+    content.document.cookie = "theme=dark";
+  });
+  const { WhimsySnooze } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySnooze.sys.mjs");
+  const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFireButton.sys.mjs");
+  const { WhimsyHeavyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs");
+  const { WhimsySplitFavorites } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitFavorites.sys.mjs");
+  const { WhimsyCookieEditor } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs");
+  const { WhimsyUserAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUserAgent.sys.mjs");
+  const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+  const favorites = await WhimsySplitFavorites._load();
+  const savedFavorites = favorites.splice(0);
+  favorites.push({ id: "shot", name: "Mail + Calendar", urls: ["https://example.com/", "https://example.org/"], gridType: "vsep" });
+  try {
+    await sheetShot("snooze", "whimsySnoozePanel", () => WhimsySnooze.openPanel(window, tab));
+    await sheetShot("fire", "whimsyFirePanel", () => WhimsyFireButton.openPanel(window));
+    await sheetShot("heavy-tabs", "whimsyHeavyTabsPanel", async () => {
+      WhimsyHeavyTabs.openPanel(window);
+    }, panel => panel.querySelector(".whimsy-heavy-tabs-group"));
+    await sheetShot("split-favorites", "whimsySplitFavoritesPanel", () => WhimsySplitFavorites.openFavoritesPanel(window));
+    await sheetShot("cookies", "whimsy-cookie-editor-panel", () => WhimsyCookieEditor.open(window));
+    await sheetShot("pretend-to-be", "whimsy-useragent-panel", () => WhimsyUserAgent.openPicker(window));
+    await sheetShot("cheat-sheet", "whimsy-cheatsheet-panel", () => WhimsyCheatSheet.open(window));
+  } finally {
+    favorites.splice(0, favorites.length, ...savedFavorites);
+    await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      for (const name of ["session_id", "theme"]) {
+        content.document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      }
+    });
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function fixB_delete_space_confirm() {
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Old Projects", undefined, true);
+  const original = gZenWorkspaces.getActiveWorkspace();
+  await gZenWorkspaces.changeWorkspace(space);
+  try {
+    const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+    const deleting = gZenWorkspaces.contextDeleteWorkspace();
+    const win = await dialog;
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await shot("fixB-delete-space-confirm");
+    win.document.querySelector("dialog").getButton("cancel").click();
+    await deleting;
+  } finally {
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+    if (original && gZenWorkspaces.getWorkspaceFromId(original.uuid)) {
+      await gZenWorkspaces.changeWorkspace(original);
+    }
+  }
+});
+
+add_task(async function fixB_archive_in_library() {
+  const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchive.sys.mjs");
+  const library = document.querySelector("zen-library");
+  const previous = library.activeTab;
+  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?whimsy-archive-keep");
+  const idle = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?whimsy-archive-idle");
+  const closed = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/?whimsy-archive-closed");
+  WhimsyArchive.archiveTabs(window, [idle], { reason: "idle", groupId: "idle-shot" });
+  BrowserTestUtils.removeTab(closed);
+  try {
+    await TestUtils.waitForCondition(() => "whimsy-archive" in library.zenLibrarySections);
+    ok(WhimsyArchive.openPanel(window), "The Library opens on the Archive");
+    await TestUtils.waitForCondition(() => library.querySelector("whimsy-library-archive-section"));
+    const section = library.querySelector("whimsy-library-archive-section");
+    section.refresh();
+    await section.updateComplete;
+    await document.l10n.translateFragment(section);
+    await new Promise(r => setTimeout(r, 400)); // the Library's spring
+    await shot("fixB-archive");
+  } finally {
+    await library.constructor.animateProgress(0);
+    library.activeTab = previous;
+    BrowserTestUtils.removeTab(keep);
+  }
+});

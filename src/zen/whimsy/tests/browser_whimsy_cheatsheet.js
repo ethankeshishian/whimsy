@@ -25,6 +25,18 @@ add_task(async function test_cheatsheet_shows_and_closes() {
     "The shortcut list rendered"
   );
   ok(row, "Duplicate Tab's row is shown with a key label");
+  is(row.getAttribute("whimsy-key"), "zen-duplicate-tab", "...tagged with its key");
+  ok(row.querySelector(".whimsy-sheet-item-keys").value.includes("D"), "With its key caps");
+  ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
+  ok(panel.querySelectorAll(".whimsy-sheet-caption").length >= 3, "Shortcuts are grouped");
+
+  // Typing filters; groups with nothing left hide.
+  const search = panel.querySelector(".whimsy-sheet-search-input");
+  is(document.activeElement, search, "The search field has focus");
+  EventUtils.sendString("duplicate", window);
+  ok(panel.querySelector('.whimsy-cheatsheet-row[whimsy-key="zen-duplicate-tab"]:not([hidden])'),
+    "The matching row stays");
+  ok(panel.querySelector('.whimsy-cheatsheet-row[whimsy-key="key_find"]')?.hidden ?? true, "Others hide");
 
   const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
   EventUtils.synthesizeKey("KEY_Escape", {}, window);

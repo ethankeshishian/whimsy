@@ -590,24 +590,8 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   border-inline-start: 2px solid color-mix(in srgb, currentColor 18%, transparent);
 }
 
-/* Archive view panel */
-.whimsy-archive-panel { padding: 8px; max-width: 320px; }
-.whimsy-archive-search { width: 100%; margin-bottom: 6px; box-sizing: border-box; }
-.whimsy-archive-list { max-height: 360px; overflow-y: auto; }
-.whimsy-archive-day { opacity: 0.6; font-size: 0.82em; margin-top: 6px; }
-.whimsy-archive-row { padding: 4px 2px; gap: 6px; border-radius: 4px; }
-.whimsy-archive-row:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
-.whimsy-archive-title { flex: 1; }
-.whimsy-archive-icon { width: 16px; height: 16px; }
-.whimsy-archive-empty { opacity: 0.6; padding: 12px 4px; text-align: center; }
-
-/* Snooze presets popover */
-#whimsySnoozePanel { padding: 4px; }
-.whimsy-snooze-preset { justify-content: flex-start; width: 100%; }
-
-/* Fire button: scope popover + a brief full-chrome flame flash. */
-#whimsyFirePanel { padding: 4px; }
-.whimsy-fire-scope { justify-content: flex-start; width: 100%; }
+/* Fire button: a brief full-chrome flame flash (the scope sheet is a
+   WhimsyPanels sheet, styled with the others at the end of this file). */
 :root[whimsy-fire-burning]::after {
   content: "";
   position: fixed;
@@ -629,12 +613,6 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 }
 
-/* Heavy tabs popover */
-#whimsyHeavyTabsPanel { padding: 6px; min-width: 260px; }
-.whimsy-heavy-tabs-group { justify-content: space-between; padding: 4px 2px; opacity: 0.7; font-size: 0.85em; }
-.whimsy-heavy-tabs-row { padding: 3px 2px; gap: 6px; }
-.whimsy-heavy-tabs-title { flex: 1; }
-.whimsy-heavy-tabs-icon { width: 16px; height: 16px; }
 /* batch9: spaces — a small lock glyph on a locked space's switcher icon. */
 #zen-workspaces-button toolbarbutton[whimsy-locked-space] {
   position: relative;
@@ -811,45 +789,6 @@ tab[whimsy-sidebar-focused] {
   outline: 2px solid var(--zen-primary-color, AccentColor);
   outline-offset: -2px;
   border-radius: var(--zen-border-radius, 6px);
-}
-
-/* batch7: shortcut cheat sheet. */
-panel.whimsy-cheatsheet {
-  width: 360px;
-  max-height: 420px;
-  padding: 12px;
-  animation: whimsy-cheatsheet-in 140ms ease-out;
-}
-panel.whimsy-cheatsheet > input {
-  width: 100%;
-  box-sizing: border-box;
-  margin-bottom: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
-}
-.whimsy-cheatsheet-list {
-  max-height: 320px;
-  overflow-y: auto;
-}
-.whimsy-cheatsheet-row {
-  justify-content: space-between;
-  padding: 4px 2px;
-}
-.whimsy-cheatsheet-key {
-  opacity: 0.7;
-  font-variant-numeric: tabular-nums;
-}
-.whimsy-cheatsheet-edit {
-  display: block;
-  margin-top: 8px;
-  font-size: 0.9em;
-  cursor: pointer;
-}
-@keyframes whimsy-cheatsheet-in {
-  from { opacity: 0; transform: scale(0.96); }
-}
-@media (prefers-reduced-motion: reduce) {
-  panel.whimsy-cheatsheet { animation: none; }
 }
 
 /* batch7: inbox-zero balloons. */
@@ -1399,4 +1338,371 @@ panel.whimsy-cheatsheet .whimsy-cheatsheet-list {
   border-radius: 50%;
   object-fit: cover;
   margin-block-end: 6px;
+}
+
+/* fixB: sheets (WhimsyPanels.sys.mjs). Every small Whimsy panel - Snooze,
+   Fire button, Find Heavy Tabs, Favorite splits, Cookies, Pretend to be,
+   the shortcut cheat sheet - is one of these: Zen's panel surface and
+   Firefox's panel vocabulary (.panel-header, .subviewbutton, .panel-footer),
+   so it reads like Zen's own site panel and app menu. Only spacing and the
+   few Whimsy-specific pieces live here; colours come from Zen's panel
+   variables, so light and dark both follow the theme. */
+panel.whimsy-sheet {
+  --panel-padding: 0;
+  --whimsy-sheet-muted: color-mix(in srgb, currentColor 62%, transparent);
+  --whimsy-sheet-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
+  --whimsy-sheet-active: var(--panel-item-active-bgcolor, color-mix(in srgb, currentColor 14%, transparent));
+  width: var(--whimsy-sheet-width, 300px);
+}
+
+panel.whimsy-sheet .whimsy-sheet-header {
+  gap: 4px;
+  padding: 8px 8px 6px;
+  min-height: 0;
+}
+.whimsy-sheet-titles {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  /* Centre the title between the edge and the close button. */
+  margin-inline-start: 28px;
+}
+.whimsy-sheet-title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.whimsy-sheet-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.85em;
+  color: var(--whimsy-sheet-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.whimsy-sheet-icon-button {
+  appearance: none;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 4px;
+  border-radius: 6px;
+  justify-content: center;
+  align-items: center;
+  color: inherit;
+  background: transparent;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+
+  & > .toolbarbutton-icon {
+    width: 16px;
+    height: 16px;
+  }
+  & > .toolbarbutton-text {
+    display: none;
+  }
+  &:hover {
+    background-color: var(--whimsy-sheet-hover);
+  }
+  &:hover:active {
+    background-color: var(--whimsy-sheet-active);
+  }
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: -2px;
+  }
+}
+.whimsy-sheet-close {
+  fill-opacity: 0.7;
+  &:hover {
+    fill-opacity: 1;
+  }
+}
+
+/* The search field, as in Zen's folder search popup: borderless, under
+   the title. */
+.whimsy-sheet-search {
+  gap: 8px;
+  margin: 0 8px 6px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background-color: color-mix(in srgb, currentColor 6%, transparent);
+}
+.whimsy-sheet-search-icon {
+  width: 14px;
+  height: 14px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+  opacity: 0.6;
+}
+.whimsy-sheet-search-input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 0;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  color: inherit;
+  font: inherit;
+}
+
+panel.whimsy-sheet .whimsy-sheet-body {
+  max-height: 360px;
+  overflow-y: auto;
+}
+panel.whimsy-sheet[size="large"] .whimsy-sheet-body {
+  max-height: 460px;
+}
+
+panel.whimsy-sheet .whimsy-sheet-item {
+  gap: 10px;
+  align-items: center;
+  /* .subviewbutton sizes itself for one line of text. */
+  min-height: 32px;
+}
+.whimsy-sheet-item-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  -moz-context-properties: fill;
+  fill: currentColor;
+
+  &:not([src]) {
+    display: none;
+  }
+}
+.whimsy-sheet-item-text {
+  min-width: 0;
+  gap: 1px;
+}
+.whimsy-sheet-item-title,
+.whimsy-sheet-item-subtitle,
+.whimsy-sheet-item-detail {
+  margin: 0;
+}
+.whimsy-sheet-item-subtitle {
+  font-size: 0.85em;
+  color: var(--whimsy-sheet-muted);
+}
+.whimsy-sheet-item-detail {
+  flex-shrink: 0;
+  color: var(--whimsy-sheet-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* A shortcut, drawn as small key caps (the cheat sheet). */
+.whimsy-sheet-item-keys {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  background-color: color-mix(in srgb, currentColor 5%, transparent);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.whimsy-sheet-item-check {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  visibility: hidden;
+  -moz-context-properties: fill;
+  fill: currentColor;
+  .whimsy-sheet-item[checked="true"] > & {
+    visibility: visible;
+  }
+}
+panel.whimsy-sheet .whimsy-sheet-item[destructive] {
+  color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
+}
+
+/* A row with secondary actions (close a tab, delete, remove): they fade
+   in on hover or keyboard focus. */
+.whimsy-sheet-line {
+  position: relative;
+}
+.whimsy-sheet-line-actions {
+  position: absolute;
+  inset-inline-end: calc(var(--arrowpanel-menuitem-margin-inline, 8px) + 6px);
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  .whimsy-sheet-line:is(:hover, :focus-within) > & {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  @media not (prefers-reduced-motion: reduce) {
+    transition: opacity 120ms ease-out;
+  }
+}
+/* Make room for the actions so text doesn't run under them. */
+.whimsy-sheet-line:is(:hover, :focus-within) > .whimsy-sheet-item > .whimsy-sheet-item-detail {
+  visibility: hidden;
+}
+
+.whimsy-sheet-caption {
+  margin: 8px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + var(--arrowpanel-menuitem-padding-inline, 8px)) 2px;
+  gap: 8px;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--whimsy-sheet-muted);
+
+  & > label {
+    margin: 0;
+  }
+  &:first-child {
+    margin-top: 2px;
+  }
+}
+.whimsy-sheet-caption-detail {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.whimsy-sheet-empty {
+  gap: 8px;
+  padding: 20px 16px 22px;
+  text-align: center;
+  color: var(--whimsy-sheet-muted);
+
+  & > image {
+    width: 20px;
+    height: 20px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+  & > description {
+    margin: 0;
+    max-width: 30ch;
+  }
+}
+
+panel.whimsy-sheet .whimsy-sheet-footer {
+  gap: 8px;
+  margin: 2px 12px 12px;
+
+  & > .footer-button {
+    flex: 1;
+    margin: 0;
+  }
+}
+
+/* Cookies: name, flags and a monospaced value field per cookie. */
+.whimsy-cookie {
+  margin: 2px var(--arrowpanel-menuitem-margin-inline, 8px);
+  padding: 6px 8px 8px;
+  gap: 4px;
+  border-radius: var(--arrowpanel-menuitem-border-radius, 6px);
+
+  &:is(:hover, :focus-within) {
+    background-color: color-mix(in srgb, currentColor 5%, transparent);
+  }
+}
+.whimsy-cookie-head {
+  gap: 6px;
+  min-height: 24px;
+}
+.whimsy-cookie-name {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-weight: 600;
+}
+.whimsy-cookie-flag {
+  margin: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.75em;
+  line-height: 1.6;
+  color: var(--whimsy-sheet-muted);
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+.whimsy-cookie-delete {
+  opacity: 0;
+  .whimsy-cookie:is(:hover, :focus-within) & {
+    opacity: 1;
+  }
+}
+.whimsy-cookie-value,
+.whimsy-cookie-new-name,
+.whimsy-cookie-new-value,
+.whimsy-useragent-custom {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  background-color: color-mix(in srgb, currentColor 4%, transparent);
+  color: inherit;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.85em;
+
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: -1px;
+  }
+}
+.whimsy-cookie-value[saved] {
+  border-color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, transparent);
+  @media not (prefers-reduced-motion: reduce) {
+    transition: border-color 200ms ease-out;
+  }
+}
+.whimsy-cookie-new {
+  margin: 2px var(--arrowpanel-menuitem-margin-inline, 8px) 6px;
+  gap: 6px;
+}
+.whimsy-useragent-custom-box {
+  margin: 4px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + 4px) 4px;
+  gap: 6px;
+}
+
+/* fixB: the Archive, a Library section beside History. History lists
+   every page visited; the Archive lists tabs that left the sidebar, each
+   with why it left and the space it goes back to. */
+.whimsy-archive-intro {
+  margin: 2px 4px 10px;
+  padding: 10px 12px;
+  gap: 4px;
+  border-radius: var(--zen-border-radius, 8px);
+  background-color: color-mix(in srgb, currentColor 5%, transparent);
+  font-size: 0.85em;
+  line-height: 1.4;
+
+  & > p {
+    margin: 0;
+  }
+  & > p + p {
+    color: color-mix(in srgb, currentColor 65%, transparent);
+  }
+}
+.whimsy-archive-reason {
+  display: inline-block;
+  margin-inline-end: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.9em;
+  line-height: 1.5;
+  background-color: color-mix(in srgb, currentColor 9%, transparent);
+
+  &[data-reason="idle"] {
+    background-color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 24%, transparent);
+  }
+  &[data-reason="fire"] {
+    background-color: color-mix(in srgb, orangered 22%, transparent);
+  }
+}
+.whimsy-archive-row:focus-visible {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -2px;
+}
+.whimsy-archive-space + .whimsy-archive-time::before {
+  content: " · ";
 }

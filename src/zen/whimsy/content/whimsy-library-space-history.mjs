@@ -15,6 +15,27 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
       data-section="history" .library=${library}></whimsy-space-history-section>`;
   }
 
+  // fixB: with Whimsy's Archive section beside History, Zen's "Closed
+  // tabs" source (which relabels this tab "Archive") would be a second
+  // Archive. History stays history; closed tabs live in the Archive.
+  static get archiveSection() {
+    return Services.prefs.getBoolPref("whimsy.feature.archive-view", true);
+  }
+  static get tabLabel() {
+    return this.archiveSection ? this.label : super.tabLabel;
+  }
+  constructor() {
+    super();
+    if (WhimsySpaceHistorySection.archiveSection && this.activeFilters.has("source:closed")) {
+      this.activeFilters.delete("source:closed");
+      this.activeFilters.add("source:history");
+    }
+  }
+  get filterGroups() {
+    const groups = super.filterGroups;
+    return WhimsySpaceHistorySection.archiveSection ? groups.filter(group => group.id != "source") : groups;
+  }
+
   get spaceMode() {
     return WhimsySpaceHistory.enabled && !this.isFilterActive("source", "closed");
   }

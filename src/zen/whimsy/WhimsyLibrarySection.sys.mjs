@@ -21,7 +21,36 @@ const SECTIONS = [
   { sectionId: "whimsy-files", feature: "screenshot-sidebar", name: "WhimsyFilesSection" },
   // meeting: Next meeting in the Library rail.
   { sectionId: "whimsy-next-meeting", feature: "next-meeting", name: "WhimsyNextMeetingSection" },
+  // fixB: the Archive, right after History so the two read as a pair.
+  { sectionId: "whimsy-archive", feature: "archive-view", name: "WhimsyArchiveSection", after: "history" },
 ];
+
+// Zen's History has a "Closed tabs" source that relabels its tab "Archive";
+// with Whimsy's Archive beside it that would be two Archives (and two
+// controls for one thing), so Whimsy's History drops that source and this
+// pref is put back to plain History.
+const ZEN_CLOSED_TABS_PREF = "zen.library.history.closed-tabs";
+
+// Moves `id` to sit right after `afterId` in the (plain, ordered) sections
+// object, keeping the same object Zen holds.
+function placeAfter(sections, id, afterId) {
+  if (!(id in sections) || !(afterId in sections)) {
+    return;
+  }
+  const entries = Object.entries(sections);
+  for (const [key] of entries) {
+    delete sections[key];
+  }
+  for (const [key, value] of entries) {
+    if (key == id) {
+      continue;
+    }
+    sections[key] = value;
+    if (key == afterId) {
+      sections[id] = entries.find(([k]) => k == id)[1];
+    }
+  }
+}
 
 export const WhimsyLibrarySection = {
   initWindow(win) {
@@ -67,6 +96,12 @@ export const WhimsyLibrarySection = {
         const has = entry.sectionId in lib.zenLibrarySections;
         if (on && !has) {
           lib.zenLibrarySections[entry.sectionId] = sections[entry.name];
+          if (entry.after) {
+            placeAfter(lib.zenLibrarySections, entry.sectionId, entry.after);
+          }
+          if (entry.sectionId == "whimsy-archive" && Services.prefs.getBoolPref(ZEN_CLOSED_TABS_PREF, false)) {
+            Services.prefs.setBoolPref(ZEN_CLOSED_TABS_PREF, false);
+          }
           changed = true;
         } else if (!on && has) {
           delete lib.zenLibrarySections[entry.sectionId];

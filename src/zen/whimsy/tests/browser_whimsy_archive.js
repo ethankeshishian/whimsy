@@ -80,3 +80,60 @@ add_task(async function test_restore_lands_in_original_space() {
   is(gBrowser.selectedTab, restored, "Selected after restoring");
   BrowserTestUtils.removeTab(restored);
 });
+
+// fixB: the Archive is a Library section right after History. It says what
+// it is (and how it differs from History), shows why each tab left and
+// restores on click; Zen's "Closed tabs" source leaves History so there is
+// one Archive, not two.
+add_task(async function test_archive_library_section() {
+  const library = document.querySelector("zen-library");
+  await TestUtils.waitForCondition(() => "whimsy-archive" in library.zenLibrarySections, "The Archive section registers");
+  const order = Object.keys(library.zenLibrarySections);
+  is(order[order.indexOf("history") + 1], "whimsy-archive", "It sits right after History");
+
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?archive-section");
+  await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?archive-keep");
+  WhimsyArchive.archiveTabs(window, [tab], { reason: "idle", groupId: "idle-test" });
+  await TestUtils.waitForCondition(
+    () => WhimsyArchive.listEntries(window).some(e => e.url.includes("archive-section")),
+    "The tab is archived"
+  );
+  const entry = WhimsyArchive.listEntries(window).find(e => e.url.includes("archive-section"));
+
+  const wasTab = library.activeTab;
+  try {
+    ok(WhimsyArchive.openPanel(window), "Show Archive opens the Library");
+    await TestUtils.waitForCondition(() => library.activeTab == "whimsy-archive", "On the Archive");
+    await TestUtils.waitForCondition(() => library.querySelector("whimsy-library-archive-section"));
+    const section = library.querySelector("whimsy-library-archive-section");
+    await section.updateComplete;
+    ok(section.querySelector(".whimsy-archive-intro"), "It explains itself");
+    const row = section.querySelector(`.whimsy-archive-row[data-closed-id="${entry.closedId}"]`);
+    ok(row, "The archived tab has a row");
+    is(row.querySelector(".whimsy-archive-reason").dataset.reason, "idle", "The row says why it left");
+    ok(!section.filterGroups.some(g => g.id == "source"), "Its own filters are when and why");
+
+    if (Services.prefs.getBoolPref("whimsy.feature.space-history", true)) {
+      library.activeTab = "history";
+      await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
+      const history = library.querySelector("whimsy-space-history-section");
+      ok(!history.filterGroups.some(g => g.id == "source"), "History no longer offers Closed tabs");
+      library.activeTab = "whimsy-archive";
+      await section.updateComplete;
+    }
+
+    row.click();
+    await TestUtils.waitForCondition(
+      () => gBrowser.selectedBrowser.currentURI.spec.includes("archive-section"),
+      "Clicking the row restores the tab and selects it"
+    );
+  } finally {
+    await library.constructor.animateProgress(0);
+    library.activeTab = wasTab;
+  }
+
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.archive-view", false]] });
+  await TestUtils.waitForCondition(() => !("whimsy-archive" in library.zenLibrarySections), "The switch removes it");
+  ok(!WhimsyArchive.openPanel(window), "Show Archive does nothing while it's off");
+  await SpecialPowers.popPrefEnv();
+});

@@ -20,6 +20,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ForgetAboutSite: "moz-src:///toolkit/components/forgetaboutsite/ForgetAboutSite.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
@@ -118,68 +119,78 @@ export const WhimsyFireButton = {
     this.burnTabs(win, win.gBrowser.tabs, "everything");
   },
 
+  // fixB: a WhimsyPanels sheet, centred like the command bar it opens
+  // from. Each scope says exactly what it clears; the last one is red.
+  // Built (not yet open) fresh each time; openPanel() shows it.
   panel(win) {
-    const { document } = win;
-    let panel = document.getElementById(PANEL_ID);
-    if (panel) {
-      return panel;
-    }
-    panel = document.createXULElement("panel");
-    panel.id = PANEL_ID;
-    panel.setAttribute("type", "arrow");
-    panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("role", "dialog");
-    panel.className = "whimsy-fire-panel";
-    document.l10n.setAttributes(panel, "whimsy-fire-panel");
+    const { document, gBrowser } = win;
+    const spaceName = win.gZenWorkspaces?.getActiveWorkspace?.()?.name || "";
+    const { panel, body } = lazy.WhimsyPanels.create(win, {
+      id: PANEL_ID,
+      titleL10nId: "whimsy-fire-title",
+      subtitleL10nId: "whimsy-fire-subtitle",
+      size: "medium",
+    });
     const scopes = [
-      ["site", () => this.burnSite(win)],
-      ["last-15-min", () => this.burnLast15Min(win)],
-      ["space", () => this.burnSpace(win)],
-      ["everything", () => this.burnEverything(win)],
+      {
+        id: "site",
+        l10nId: "whimsy-fire-site-none",
+        run: () => this.burnSite(win),
+        icon: gBrowser.selectedTab.getAttribute("image") || "chrome://global/skin/icons/defaultFavicon.svg",
+        favicon: true,
+        // updateSiteScope() names the site (or not) once the sheet exists.
+        subtitleL10nId: "whimsy-fire-site-none-detail",
+      },
+      {
+        id: "last-15-min",
+        run: () => this.burnLast15Min(win),
+        icon: "chrome://browser/skin/zen-icons/history.svg",
+        subtitleL10nId: "whimsy-fire-last-15-min-detail",
+      },
+      {
+        id: "space",
+        run: () => this.burnSpace(win),
+        icon: "chrome://browser/skin/zen-icons/window.svg",
+        subtitleL10nId: spaceName ? "whimsy-fire-space-detail" : "whimsy-fire-space-detail-unnamed",
+        subtitleArgs: spaceName ? { space: spaceName } : null,
+      },
+      {
+        id: "everything",
+        run: () => this.burnEverything(win),
+        icon: "chrome://browser/skin/zen-icons/forget.svg",
+        subtitleL10nId: "whimsy-fire-everything-detail",
+        destructive: true,
+      },
     ];
-    const list = document.createXULElement("vbox");
-    for (const [id, run] of scopes) {
-      const button = document.createXULElement("toolbarbutton");
-      button.className = "whimsy-fire-scope toolbarbutton-1";
-      button.dataset.scope = id;
-      document.l10n.setAttributes(button, `whimsy-fire-${id}`);
-      button.addEventListener("command", async () => {
-        panel.hidePopup();
-        const root = win.document.documentElement;
-        // A brief flame/burst overlay (whimsy-browser.css); reduced motion
-        // swaps it for an instant flash/checkmark there instead.
-        root.setAttribute("whimsy-fire-burning", "");
-        win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
-        try {
-          await run();
-        } catch (e) {
-          console.error("Whimsy: fire button", e);
-        }
+    for (const scope of scopes) {
+      const item = lazy.WhimsyPanels.item(document, {
+        l10nId: scope.l10nId ?? `whimsy-fire-${scope.id}`,
+        icon: scope.icon,
+        favicon: scope.favicon,
+        subtitleL10nId: scope.subtitleL10nId,
+        subtitleArgs: scope.subtitleArgs,
+        destructive: scope.destructive,
+        onCommand: async () => {
+          lazy.WhimsyPanels.close(panel);
+          const root = win.document.documentElement;
+          // A brief flame/burst overlay (whimsy-browser.css); reduced motion
+          // swaps it for an instant flash there instead.
+          root.setAttribute("whimsy-fire-burning", "");
+          win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
+          try {
+            await scope.run();
+          } catch (e) {
+            console.error("Whimsy: fire button", e);
+          }
+        },
       });
-      list.append(button);
+      item.classList.add("whimsy-fire-scope");
+      item.setAttribute("whimsy-fire-scope", scope.id);
+      if (scope.disabled) {
+        item.setAttribute("disabled", "true");
+      }
+      body.append(item);
     }
-    panel.append(list);
-    document.getElementById("mainPopupSet")?.appendChild(panel);
-    return panel;
-  },
-
-  // "This Site" burns the whole site (ForgetAboutSite takes the base domain:
-  // every subdomain, its history and data, and its tabs), so the row names
-  // it ("Everything from example.com"); it's disabled off the web.
-  updateSiteScope(win, panel) {
-    const button = panel.querySelector('.whimsy-fire-scope[data-scope="site"]');
-    const site = siteOf(win.gBrowser.selectedTab);
-    if (site) {
-      win.document.l10n.setAttributes(button, "whimsy-fire-site", { site });
-    } else {
-      win.document.l10n.setAttributes(button, "whimsy-fire-site-none");
-    }
-    button.disabled = !site;
-  },
-
-  openPanel(win) {
-    const panel = this.panel(win);
-    this.updateSiteScope(win, panel);
-    panel.openPopup(win.document.documentElement, { position: "overlap", triggerEvent: null });
+    lazy.WhimsyPanels.open(win, panel);
   },
 };

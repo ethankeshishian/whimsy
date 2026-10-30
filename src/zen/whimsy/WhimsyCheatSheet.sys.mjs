@@ -18,11 +18,17 @@
 // and call `getKeyData(id)`, so they run against this window directly
 // instead of through the about:keyboard actor. Cleared and disabled keys
 // are left out, and a key appears once, in the first group that claims it.
+//
+// fixB: shown as a WhimsyPanels sheet, centred like the command bar, each
+// shortcut as key caps. Typing filters; Enter or a click runs the
+// shortcut's command, the way macOS's Help menu search does; "Edit
+// Shortcuts…" opens about:keyboard.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   CustomKeysParent: "moz-src:///browser/components/customkeys/CustomKeysParent.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   ZenKeyboardShortcuts: "resource:///modules/zen/kbs/ZenKeyboardShortcuts.sys.mjs",
 });
@@ -30,6 +36,7 @@ ChromeUtils.defineLazyGetter(lazy, "l10n", () =>
   new Localization(["browser/customkeys.ftl", "browser/whimsy.ftl"], true));
 
 const FEATURE_PREF = "whimsy.feature.cheatsheet";
+const PANEL_ID = "whimsy-cheatsheet-panel";
 
 // Names for keys whose Whimsy wording differs from (or is missing in) the
 // about:keyboard metadata. Bindings always come from the <key> elements.
@@ -40,6 +47,34 @@ const WHIMSY_TITLES = new Map([
   ["key_whimsyTabPrev", "whimsy-cheatsheet-tab-prev"],
   ["key_whimsyFocusSidebar", "whimsy-cheatsheet-focus-sidebar"],
   ["key_whimsyCheatsheet", "whimsy-cheatsheet-self"],
+  // fixB: clearer names for the shortcuts people use most.
+  ["key_newNavigatorTab", "whimsy-cheatsheet-new-tab"],
+  ["key_close", "whimsy-cheatsheet-close-tab"],
+  ["key_restoreLastClosedTabOrWindowOrSession", "whimsy-cheatsheet-reopen-tab"],
+  ["zen-copy-url", "whimsy-cheatsheet-copy-url"],
+  ["key_whimsyNewPrivateTab", "whimsy-cheatsheet-private-tab"],
+  ["focusURLBar", "whimsy-cheatsheet-address-bar"],
+  ["zen-toggle-sidebar", "whimsy-cheatsheet-toggle-sidebar"],
+  ["zen-compact-mode-toggle", "whimsy-cheatsheet-compact-mode"],
+  ["zen-workspace-forward", "whimsy-cheatsheet-next-space"],
+  ["zen-workspace-backward", "whimsy-cheatsheet-prev-space"],
+  ["zen-library-toggle", "whimsy-cheatsheet-library"],
+  ["zen-split-view-vertical", "whimsy-cheatsheet-split-vertical"],
+  ["zen-split-view-horizontal", "whimsy-cheatsheet-split-horizontal"],
+  ["zen-split-view-grid", "whimsy-cheatsheet-split-grid"],
+  ["zen-split-view-unsplit", "whimsy-cheatsheet-unsplit"],
+  ["key_whimsySwapPanes", "whimsy-cheatsheet-swap-panes"],
+  ["key_whimsyCloseOtherPanes", "whimsy-cheatsheet-close-other-panes"],
+  ["key_find", "whimsy-cheatsheet-find"],
+  ["key_toggleReaderMode", "whimsy-cheatsheet-reader"],
+  ["key_whimsyCopyFullPage", "whimsy-cheatsheet-copy-full-page"],
+  ["key_whimsyScreenshotArc", "whimsy-cheatsheet-capture"],
+  ["key_whimsyTranslateSelection", "whimsy-cheatsheet-translate"],
+  ["key_whimsySpeedUp", "whimsy-cheatsheet-speed-up"],
+  ["key_whimsySlowDown", "whimsy-cheatsheet-slow-down"],
+  ["key_newNavigator", "whimsy-cheatsheet-new-window"],
+  ["key_whimsyQuickWindow", "whimsy-cheatsheet-quick-window"],
+  ["key_privatebrowsing", "whimsy-cheatsheet-private-window"],
 ]);
 
 function formatSync(id) {
@@ -188,55 +223,54 @@ export const WhimsyCheatSheet = {
   },
 
   toggle(win) {
-    const existing = win.document.getElementById("whimsy-cheatsheet-panel");
+    const existing = win.document.getElementById(PANEL_ID);
     if (existing) {
-      existing.hidePopup();
+      lazy.WhimsyPanels.close(existing);
       return;
     }
     this.open(win);
   },
 
-  open(win) {
+  run(win, keyId) {
+    const { document } = win;
+    const keyEl = document.getElementById(keyId);
+    const commandId = keyEl?.getAttribute("command");
+    const target = commandId ? document.getElementById(commandId) : keyEl;
+    try {
+      target?.doCommand();
+    } catch (e) {
+      console.error("Whimsy: cheat sheet", keyId, e);
+    }
+  },
+
+  async open(win) {
     if (!this.enabled) {
       return;
     }
     const { document } = win;
-    const panel = document.createXULElement("panel");
-    panel.id = "whimsy-cheatsheet-panel";
-    panel.setAttribute("noautohide", "false");
-    panel.setAttribute("type", "arrow");
-    panel.className = "whimsy-cheatsheet";
+    if (document.getElementById(PANEL_ID)) {
+      return;
+    }
+    let catalogue = [];
+    try {
+      catalogue = await this.catalogue(win);
+    } catch (e) {
+      console.error("Whimsy: shortcut sheet", e);
+    }
+    if (document.getElementById(PANEL_ID)) {
+      return; // Opened twice in a row; the first one wins.
+    }
 
-    const search = document.createElementNS("http://www.w3.org/1999/xhtml", "input");
-    search.setAttribute("type", "search");
-    document.l10n.setAttributes(search, "whimsy-cheatsheet-search");
-    panel.appendChild(search);
-
-    const list = document.createXULElement("vbox");
-    list.className = "whimsy-cheatsheet-list";
-    panel.appendChild(list);
-
-    const editLink = document.createXULElement("label");
-    editLink.className = "whimsy-cheatsheet-edit text-link";
-    document.l10n.setAttributes(editLink, "whimsy-cheatsheet-edit");
-    editLink.addEventListener("click", () => {
-      win.switchToTabHavingURI(Services.io.newURI("about:keyboard"), true);
-      panel.hidePopup();
-    });
-    panel.appendChild(editLink);
-
-    // Built once per opening; typing only filters it.
-    let catalogue = null;
-    const render = () => {
-      list.replaceChildren();
-      if (!catalogue) {
-        return;
-      }
-      const query = search.value.trim().toLocaleLowerCase();
+    let body = null;
+    let panel = null;
+    // Typing rebuilds the list from the catalogue, read once per opening.
+    const render = (query = "") => {
+      body.replaceChildren();
+      const q = query.trim().toLocaleLowerCase();
       for (const group of catalogue) {
-        const headingMatches = query && group.heading.toLocaleLowerCase().includes(query);
+        const headingMatches = q && group.heading.toLocaleLowerCase().includes(q);
         const rows = group.rows.filter(
-          row => !query || headingMatches || `${row.title} ${row.label}`.toLocaleLowerCase().includes(query)
+          row => !q || headingMatches || `${row.title} ${row.label}`.toLocaleLowerCase().includes(q)
         );
         if (!rows.length) {
           continue;
@@ -245,56 +279,55 @@ export const WhimsyCheatSheet = {
         section.className = "whimsy-cheatsheet-group";
         section.setAttribute("role", "group");
         section.setAttribute("aria-label", group.heading);
-        const heading = document.createXULElement("label");
-        heading.className = "whimsy-cheatsheet-heading";
-        heading.textContent = group.heading;
-        section.appendChild(heading);
+        const caption = lazy.WhimsyPanels.caption(document, { text: group.heading });
+        caption.classList.add("whimsy-cheatsheet-heading");
+        section.append(caption);
         for (const row of rows) {
-          const line = document.createXULElement("hbox");
-          line.className = "whimsy-cheatsheet-row";
-          line.setAttribute("data-key-id", row.keyId);
-          const name = document.createXULElement("label");
-          name.textContent = row.title;
-          const key = document.createXULElement("label");
-          key.className = "whimsy-cheatsheet-key";
-          key.textContent = row.label;
-          line.append(name, key);
-          section.appendChild(line);
+          const item = lazy.WhimsyPanels.item(document, {
+            label: row.title,
+            keys: row.label,
+            onCommand: () => {
+              lazy.WhimsyPanels.close(panel);
+              if (row.keyId != "key_whimsyCheatsheet") {
+                this.run(win, row.keyId);
+              }
+            },
+          });
+          item.classList.add("whimsy-cheatsheet-row");
+          item.setAttribute("data-key-id", row.keyId);
+          item.setAttribute("whimsy-key", row.keyId);
+          item.setAttribute("aria-label", `${row.title}, ${row.label}`);
+          section.append(item);
         }
-        list.appendChild(section);
+        body.append(section);
       }
-      if (!list.childElementCount) {
-        const empty = document.createXULElement("label");
-        empty.className = "whimsy-cheatsheet-empty";
-        document.l10n.setAttributes(empty, "whimsy-cheatsheet-empty");
-        list.appendChild(empty);
+      if (!body.childElementCount) {
+        const empty = lazy.WhimsyPanels.empty(document, { l10nId: "whimsy-cheatsheet-empty" });
+        empty.classList.add("whimsy-cheatsheet-empty");
+        body.append(empty);
       }
     };
-    search.addEventListener("input", render);
-    panel.addEventListener("popupshown", () => {
-      search.focus();
-      this.catalogue(win)
-        .then(result => {
-          if (panel.isConnected) {
-            catalogue = result;
-            render();
-          }
-        })
-        .catch(e => console.error("Whimsy: shortcut sheet", e));
-    });
-    panel.addEventListener("keydown", event => {
-      if (event.key == "Escape") {
-        panel.hidePopup();
-      }
-    });
-    panel.addEventListener("popuphidden", () => panel.remove());
+    let footer;
+    ({ panel, body, footer } = lazy.WhimsyPanels.create(win, {
+      id: PANEL_ID,
+      titleL10nId: "whimsy-cheatsheet-title",
+      size: "large",
+      search: { l10nId: "whimsy-cheatsheet-search", onInput: render },
+      footer: true,
+    }));
+    panel.classList.add("whimsy-cheatsheet");
+    // Filled once it shows, after the sheet has focused its search field.
+    panel.addEventListener("popupshown", () => render(), { once: true });
 
-    document.documentElement.appendChild(panel);
-    const { screenX, outerWidth, screenY, outerHeight } = win;
-    panel.openPopupAtScreen(
-      screenX + Math.max(24, outerWidth / 2 - 260),
-      screenY + Math.max(24, outerHeight / 2 - 240),
-      false
+    footer.append(
+      lazy.WhimsyPanels.footerButton(document, {
+        l10nId: "whimsy-cheatsheet-edit-button",
+        onCommand: () => {
+          lazy.WhimsyPanels.close(panel);
+          win.switchToTabHavingURI(Services.io.newURI("about:keyboard"), true);
+        },
+      })
     );
+    lazy.WhimsyPanels.open(win, panel);
   },
 };

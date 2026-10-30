@@ -280,3 +280,5 @@ support-files = ["whimsy_call.html"]
 
 # batch hover: People cards (GitHub, LinkedIn, X profile links).
 ["browser_whimsy_people.js"]
+# fixB: Delete Space confirms inside the window.
+["browser_whimsy_space_delete_confirm.js"]

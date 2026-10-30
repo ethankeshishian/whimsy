@@ -315,6 +315,19 @@ HOTFIXES = [
         "new": '      child.removeAttribute("button");\n'
                '      document.l10n.setAttributes(child.querySelector("label"), messageId, options.l10nArgs); // Whimsy hotfix\n',
     },
+    # fixB: delete-space confirm
+    {
+        "id": "space-delete-confirm",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Deleting a space asks with a parentless prompt, which macOS "
+               "shows as a separate system alert window; ask inside the "
+               "window instead (Zen's own dialog style), with a Delete button.",
+        "old": "    if (Services.prompt.confirm(null, title, body)) {",
+        "new": "    if (\n"
+               "      await ChromeUtils.importESModule(\"resource:///modules/whimsy/WhimsyPanels.sys.mjs\") // Whimsy hotfix\n"
+               "        .WhimsyPanels.confirmDeleteSpace(window, title, body)\n"
+               "    ) {",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.

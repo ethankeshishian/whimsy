@@ -20,6 +20,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -124,49 +125,61 @@ export const WhimsySplitFavorites = {
     win.gZenViewSplitter?.splitTabs(tabs, favorite.gridType);
   },
 
+  // fixB: a WhimsyPanels sheet, centred like the command bar it opens
+  // from: one row per favorite (its name, then the sites in it), with a
+  // remove button on hover or focus.
   async openFavoritesPanel(win) {
     const { document } = win;
     const favorites = await this._load();
-    let panel = document.getElementById("whimsySplitFavoritesPanel");
-    if (panel) {
-      panel.remove();
-    }
-    panel = document.createXULElement("panel");
-    panel.id = "whimsySplitFavoritesPanel";
-    panel.setAttribute("type", "arrow");
-    panel.setAttribute("noautofocus", "true");
-    const box = document.createXULElement("vbox");
-    box.className = "whimsy-split-favorites-list";
+    const { panel, body } = lazy.WhimsyPanels.create(win, {
+      id: "whimsySplitFavoritesPanel",
+      titleL10nId: "whimsy-split-favorites-title",
+      size: "medium",
+    });
+    const showEmpty = () =>
+      body.append(
+        lazy.WhimsyPanels.empty(document, {
+          l10nId: "whimsy-split-favorites-empty-state",
+          icon: "chrome://browser/skin/zen-icons/split.svg",
+        })
+      );
     if (!favorites.length) {
-      const empty = document.createXULElement("label");
-      empty.setAttribute("data-l10n-id", "whimsy-split-favorites-empty");
-      box.append(empty);
+      showEmpty();
     }
     for (const favorite of favorites) {
-      const row = document.createXULElement("hbox");
-      row.className = "whimsy-split-favorite-row";
-      const open = document.createXULElement("toolbarbutton");
-      open.className = "whimsy-split-favorite-open";
-      open.setAttribute("label", favorite.name);
-      open.setAttribute("flex", "1");
-      open.addEventListener("command", () => {
-        panel.hidePopup();
-        this.openFavorite(win, favorite);
+      const hosts = favorite.urls.map(url => {
+        try {
+          return Services.io.newURI(url).displayHost || url;
+        } catch (e) {
+          return url;
+        }
       });
-      const remove = document.createXULElement("toolbarbutton");
-      remove.className = "whimsy-split-favorite-remove";
-      remove.setAttribute("data-l10n-id", "whimsy-split-favorite-remove");
-      remove.addEventListener("command", async () => {
-        await this.removeFavorite(favorite.id);
-        row.remove();
+      const item = lazy.WhimsyPanels.item(document, {
+        label: favorite.name,
+        subtitle: hosts.join(" + "),
+        icon: "chrome://browser/skin/zen-icons/split.svg",
+        onCommand: () => {
+          lazy.WhimsyPanels.close(panel);
+          this.openFavorite(win, favorite);
+        },
       });
-      row.append(open, remove);
-      box.append(row);
+      item.classList.add("whimsy-split-favorite-open");
+      const remove = lazy.WhimsyPanels.iconButton(document, {
+        icon: "chrome://browser/skin/zen-icons/trash.svg",
+        l10nId: "whimsy-split-favorite-remove",
+        onCommand: async () => {
+          await this.removeFavorite(favorite.id);
+          line.remove();
+          if (!body.querySelector(".whimsy-sheet-line")) {
+            showEmpty();
+          }
+        },
+      });
+      remove.classList.add("whimsy-split-favorite-remove");
+      const line = lazy.WhimsyPanels.line(document, item, remove);
+      line.classList.add("whimsy-split-favorite-row");
+      body.append(line);
     }
-    panel.append(box);
-    (document.getElementById("mainPopupSet") ?? document.documentElement).append(panel);
-    document.l10n?.translateFragment(panel).catch(() => {});
-    const anchor = document.getElementById("urlbar-container") ?? document.documentElement;
-    panel.openPopup(anchor, "bottomcenter topleft");
+    lazy.WhimsyPanels.open(win, panel);
   },
 };
