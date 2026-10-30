@@ -359,3 +359,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # fix7 settings: Settings search finds every Whimsy group, in any pane.
 ["browser_whimsy_settings_search.js"]
+
+# fix7 settings: command bar entries for History, Liquid Glass, Glance size, VPN.
+["browser_whimsy_settings_commands.js"]
