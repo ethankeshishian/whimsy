@@ -1989,3 +1989,23 @@ whimsy-links-spaces-header = Spaces
 
 whimsy-tab-audio-mute = Mute tab
 whimsy-tab-audio-unmute = Unmute tab
+
+## wave7/teach: Teach once (WhimsyTeach.sys.mjs). One small hint beside what
+## the person just did, shown once. { $key } is the shortcut as it's bound
+## right now (e.g. ⇧⌘C), shown as a key cap.
+
+whimsy-teach-mini = Keep this page with <kbd>{ $key }</kbd>: it moves into your space. <kbd>Esc</kbd> lets it go.
+# $key is the Glance modifier (⌥ by default).
+whimsy-teach-glance = Just looking? <kbd>{ $key }</kbd>-click a link to Glance at it without opening a tab.
+whimsy-teach-verbs = Next time, select text and press <kbd>{ $key }</kbd> to translate, map, search or save it.
+whimsy-teach-split = <kbd>{ $key }</kbd> puts the selected tabs side by side.
+whimsy-teach-archive = Tabs you hadn’t used in a while moved to the Archive. <kbd>{ $key }</kbd> opens the Library, where they wait.
+whimsy-teach-pin = <kbd>{ $key }</kbd> pins or unpins the tab you’re on.
+whimsy-teach-copy-url = <kbd>{ $key }</kbd> copies this page’s link from anywhere.
+whimsy-teach-next-space = <kbd>{ $key }</kbd> goes to the next space. A two-finger swipe does too.
+whimsy-action-teach-reset = Reset Tips
+whimsy-teach-reset-toast = Tips will show again
+whimsy-teach-header = Tips
+whimsy-teach-enabled =
+    .label = Show tips the first time a shortcut could help
+whimsy-teach-enabled-help = Each tip shows once. To see them again, run Reset Tips from the command bar.

@@ -171,6 +171,8 @@ export const WhimsyArchive = {
       undo: () => this.undoLastArchive(win, count),
       redo: null, // the original tab objects are gone; nothing sane to redo.
     });
+    // wave7/teach: lets Teach once explain the first auto-archive.
+    Services.obs.notifyObservers(win, "whimsy-tabs-archived", reason);
   },
 
   // Cmd+Shift+T-style: the most recently closed tabs are always index 0,

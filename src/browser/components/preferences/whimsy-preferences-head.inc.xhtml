@@ -594,3 +594,15 @@
     </hbox>
   </groupbox>
 </html:template>
+
+# wave7/teach: Settings → General → Tips, after Firefox's Browsing group:
+# "Show tips" for Teach once (WhimsyTeach.sys.mjs). Reset Tips is a command
+# (command bar), not a second control here.
+<html:template id="template-whimsyTeach" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyTeachGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-teach-header"/></label>
+    <checkbox id="whimsyTeachEnabled" data-l10n-id="whimsy-teach-enabled" preference="whimsy.teach.enabled"
+              aria-describedby="whimsyTeachHelp"/>
+    <description id="whimsyTeachHelp" class="description-deemphasized indent" data-l10n-id="whimsy-teach-enabled-help"/>
+  </groupbox>
+</html:template>

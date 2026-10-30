@@ -438,3 +438,19 @@
 # Tabs…" set it; the old Archive section's saved state migrates here.
 - name: whimsy.library.history.view
   value: all
+
+# wave7/teach: Teach once (WhimsyTeach.sys.mjs). "Show tips" in Settings →
+# General → Tips; the hints already shown (or already known: their shortcut
+# was used), comma-separated. Both sync, so a tip seen on one Mac isn't
+# repeated on another. "Reset Tips" clears the list.
+- name: whimsy.teach.enabled
+  value: true
+
+- name: whimsy.teach.seen
+  value: ""
+
+- name: services.sync.prefs.sync.whimsy.teach.enabled
+  value: true
+
+- name: services.sync.prefs.sync.whimsy.teach.seen
+  value: true

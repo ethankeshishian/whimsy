@@ -2429,3 +2429,48 @@ panel.whimsy-space-look .whimsy-sheet-body {
     }
   }
 }
+
+/* wave7/teach: Teach once (WhimsyTeach.sys.mjs). One sentence on Zen's
+   panel surface, pointing at what the person just touched: a lightbulb,
+   the sentence with the shortcut as a key cap, and a close button. The
+   arrow panel's own open/close animation already honours reduced motion;
+   colours come from the panel, so light and dark both follow the theme. */
+panel.whimsy-teach {
+  --panel-padding: 8px 6px 8px 10px;
+  /* The sheets' close button (WhimsyPanels.iconButton) reads these. */
+  --whimsy-sheet-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
+  --whimsy-sheet-active: var(--panel-item-active-bgcolor, color-mix(in srgb, currentColor 14%, transparent));
+}
+.whimsy-teach-body {
+  gap: 8px;
+  max-width: 280px;
+}
+.whimsy-teach-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-block-start: 2px;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+  fill-opacity: 0.7;
+}
+.whimsy-teach-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  /* Wraps to two lines: give it room to breathe. */
+  line-height: 1.4;
+  text-wrap: pretty;
+
+  & kbd {
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 0 4px;
+    border-radius: 4px;
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+  }
+}
+.whimsy-teach-close {
+  margin-block-start: -2px;
+}

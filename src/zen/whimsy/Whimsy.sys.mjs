@@ -162,6 +162,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
 });
 
+// wave7/teach: Teach once.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTeach: "resource:///modules/whimsy/WhimsyTeach.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -593,6 +598,10 @@ export const Whimsy = {
         .then(() => lazy.WhimsySpaceLook.initWindow(win))
         .catch(e => console.error("Whimsy: space-look", e))
     );
+    // wave7/teach: Teach once.
+    if (this.featureEnabled("teach-once")) {
+      run("teach-once", () => lazy.WhimsyTeach.initWindow(win));
+    }
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

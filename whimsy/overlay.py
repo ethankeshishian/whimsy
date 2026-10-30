@@ -847,6 +847,11 @@ FEATURES = [
     # and title on every tab with sound (muted included), one click mutes.
     {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
      "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
+    # wave7/teach: Teach once: one small anchored hint the first time a
+    # feature could help (its shortcut, or what just happened), then never
+    # again; "Show tips" in Settings, "Reset Tips" in the command bar.
+    {"id": "teach-once", "title": "Teach once: one small hint the first time a shortcut or feature could help, then never again",
+     "detect": [("src/zen", r"(?i)teach-?once|first-?use-?hints?|zen\.tips\.")]},
 ]
 
 
