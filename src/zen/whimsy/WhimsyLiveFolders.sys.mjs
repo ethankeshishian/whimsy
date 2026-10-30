@@ -8,7 +8,7 @@
 // `static type` -- so a new provider is registered into it, never patched
 // into Zen's own `providers` array. `ZenLiveFoldersManager.init()` is
 // wrapped (public method, never edited) to add Jira to the registry right
-// after Zen populates its own two; this re-runs every init()/uninit()
+// before Zen restores saved folders; this re-runs every init()/uninit()
 // cycle (e.g. closing the last window), so the entry survives that.
 //
 // The "+" toolbar menu's "Create a live folder" list (built once by Zen's
@@ -53,7 +53,7 @@
 // only while the folder is visible). See WhimsyLocalServersLiveFolder.sys.mjs,
 // including why Bonjour/LAN discovery is deferred. Registered *before*
 // Zen's init() runs its #restoreState(), so saved folders of this type come
-// back after a restart (registering after, as Jira/Linear do, misses that).
+// back after a restart (as Jira and Linear now are too).
 
 import { WhimsyJiraLiveFolderProvider, DEFAULT_JQL } from "resource:///modules/whimsy/WhimsyJiraLiveFolder.sys.mjs";
 import { WhimsyLinearLiveFolderProvider } from "resource:///modules/whimsy/WhimsyLinearLiveFolder.sys.mjs";
@@ -427,21 +427,42 @@ export const WhimsyLiveFolders = {
       return;
     }
     proto.init = async function (...args) {
-      // wave5/lan: before Zen's own init so #restoreState() finds the type.
-      if (WhimsyLiveFolders.localServersEnabled) {
-        this.registry.set(WhimsyLocalServersLiveFolderProvider.type, WhimsyLocalServersLiveFolderProvider);
-      }
-      const result = await original.apply(this, args);
-      if (WhimsyLiveFolders.jiraEnabled) {
-        this.registry.set(WhimsyJiraLiveFolderProvider.type, WhimsyJiraLiveFolderProvider);
-      }
-      // linear:
-      if (WhimsyLiveFolders.linearEnabled) {
-        this.registry.set(WhimsyLinearLiveFolderProvider.type, WhimsyLinearLiveFolderProvider);
-      }
-      return result;
+      // Before Zen's own init: its #restoreState() skips saved folders whose
+      // type isn't registered yet, and the next saveState() then drops them,
+      // so registering afterwards loses Jira/Linear/local-servers folders on
+      // every restart. Zen's init only adds to the registry, never clears it.
+      WhimsyLiveFolders.registerProviders(this);
+      return original.apply(this, args);
     };
     proto.init.whimsyWrapped = true;
+  },
+
+  registerProviders(manager) {
+    const providers = [
+      [this.jiraEnabled, WhimsyJiraLiveFolderProvider],
+      [this.linearEnabled, WhimsyLinearLiveFolderProvider],
+      [this.localServersEnabled, WhimsyLocalServersLiveFolderProvider],
+    ];
+    for (const [enabled, Provider] of providers) {
+      if (enabled) {
+        manager.registry.set(Provider.type, Provider);
+      }
+    }
+  },
+
+  // Called at profile-after-change by WhimsyStartup, before any window: Zen
+  // runs ZenLiveFoldersManager.init() from browser-window-delayed-startup,
+  // which is earlier than Whimsy.initWindow, so wrapping it from init()
+  // below would come too late for the first window's restore.
+  installManagerHook() {
+    try {
+      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+      );
+      this.wrapManagerInit(ZenLiveFoldersManager);
+    } catch (e) {
+      console.error("Whimsy: live folders registry hook failed", e);
+    }
   },
 
   initWindow(win) {

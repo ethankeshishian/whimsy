@@ -9,6 +9,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
 });
 
@@ -23,6 +24,13 @@ export class WhimsyStartup {
       lazy.WhimsyUpdates.initChannel();
     } catch (e) {
       console.error("Whimsy: update channel", e);
+    }
+    // Live folder providers must be registered before Zen restores saved
+    // live folders in the first window (see WhimsyLiveFolders).
+    try {
+      lazy.WhimsyLiveFolders.installManagerHook();
+    } catch (e) {
+      console.error("Whimsy: live folders", e);
     }
   }
 }

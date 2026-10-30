@@ -350,3 +350,5 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
 ["browser_whimsy_live_folders_local_servers.js"]
+
+["browser_whimsy_live_folders_restart.js"]
