@@ -290,6 +290,12 @@ export const WhimsyAIPage = {
     if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
       return;
     }
+    // Resting on a search result (nobody asked) reads public pages only,
+    // without the person's cookies; Shift reads with the tab's session.
+    const anonymous = data.how != "shift";
+    if (anonymous && !lazy.WhimsyAIReader.isPublicUrl(data.url)) {
+      return;
+    }
     // Resting on a search result only works once a provider is set up; a
     // deliberate Shift-hover says what's missing.
     const ready = await lazy.WhimsyAIProviders.isReady();
@@ -314,6 +320,7 @@ export const WhimsyAIPage = {
     try {
       const summary = await this.summarize(data.url, {
         userContextId: browser.getAttribute("usercontextid") | 0,
+        anonymous,
         signal: controller.signal,
       });
       if (state.preview == preview && !controller.signal.aborted) {
@@ -326,8 +333,8 @@ export const WhimsyAIPage = {
     }
   },
 
-  async summarize(url, { userContextId = 0, signal } = {}) {
-    const cacheKey = JSON.stringify([userContextId, url]);
+  async summarize(url, { userContextId = 0, anonymous = false, signal } = {}) {
+    const cacheKey = JSON.stringify([anonymous ? "anonymous" : userContextId, url]);
     const cached = previewCache.get(cacheKey);
     if (cached && Date.now() - cached.at < PREVIEW_CACHE_MS) {
       return cached.data;
@@ -336,6 +343,7 @@ export const WhimsyAIPage = {
     try {
       page = await lazy.WhimsyAIReader.readUrl(url, {
         userContextId,
+        anonymous,
         signal,
         removeBoilerplate: true,
         sufficientLength: 15000,

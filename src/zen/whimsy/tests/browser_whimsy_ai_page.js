@@ -234,3 +234,53 @@ add_task(async function hidden_reader_blocks_active_capabilities() {
   ok(result.text.includes("SCRIPT_RAN"), "Rendering scripts still run");
   Assert.deepEqual((await list.getAll()).filter(item => !before.has(item)), [], "Hidden page cannot download");
 });
+
+// wave7/security M5: resting on a link (nobody asked) reads public pages
+// only, and without the person's cookies; Shift keeps the tab's session.
+add_task(async function hover_previews_are_anonymous_and_public_only() {
+  ok(WhimsyAIReader.isPublicUrl("https://example.com/a"), "A public page");
+  for (const url of [
+    "http://localhost:3000/admin/reset",
+    "http://127.0.0.1/",
+    "http://2130706433/",
+    "http://192.168.1.1/apply.cgi",
+    "http://10.0.0.8/",
+    "http://172.20.1.1/",
+    "http://169.254.169.254/latest/meta-data/",
+    "http://[::1]/",
+    "http://[fd00::1]/",
+    "http://printer.local/",
+    "http://router/",
+  ]) {
+    ok(!WhimsyAIReader.isPublicUrl(url), `Not public: ${url}`);
+  }
+
+  const reads = [];
+  WhimsyAIReader.setTestReader((url, options) => {
+    reads.push({ url, ...options });
+    return "The offsite is on March 14 in Lisbon.";
+  });
+  const at = { x: 10, y: 10, width: 10, height: 10 };
+  try {
+    await BrowserTestUtils.withNewTab(LINKS, async browser => {
+      await WhimsyAIPage.showPreview(window, browser, { url: "http://192.168.1.1/apply.cgi?reset=1", how: "hover", ...at });
+      is(reads.length, 0, "Resting on a local-network link reads nothing");
+      WhimsyAIPage.hidePreview(window);
+
+      const url = PAGE + "?hover-anonymous";
+      await WhimsyAIPage.showPreview(window, browser, { url, how: "hover", ...at });
+      await TestUtils.waitForCondition(() => reads.length == 1, "A public link is read");
+      ok(reads[0].anonymous, "anonymously");
+      isnot(reads[0].userContextId, browser.getAttribute("usercontextid") | 0, "outside the tab's cookie jar");
+      is(reads[0].userContextId, WhimsyAIReader.anonymousContextId(), "in Firefox's internal background container");
+      WhimsyAIPage.hidePreview(window);
+
+      await WhimsyAIPage.showPreview(window, browser, { url: url + "&shift", how: "shift", ...at });
+      await TestUtils.waitForCondition(() => reads.length == 2, "Shift reads too");
+      ok(!reads[1].anonymous, "Shift keeps the tab's session");
+      WhimsyAIPage.hidePreview(window);
+    });
+  } finally {
+    WhimsyAIReader.setTestReader(null);
+  }
+});
