@@ -89,7 +89,7 @@ add_task(async function test_settings() {
   await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
     const doc = browser.contentDocument;
     const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyExternalLinksTarget"), "Settings row shown");
-    await TestUtils.waitForCondition(() => group.value == "tab", "Shows the default target");
+    await TestUtils.waitForCondition(() => group.value == "quick-window", "Shows the default target (Mini Whimsy)");
     group.value = "glance";
     group.dispatchEvent(new browser.contentWindow.Event("command", { bubbles: true }));
     await TestUtils.waitForCondition(
