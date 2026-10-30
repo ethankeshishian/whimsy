@@ -3,7 +3,6 @@ import { WhimsyNotesSection } from "./whimsy-library-notes.mjs";
 import { WhimsyFinderFoldersSection } from "./whimsy-library-finderfolders.mjs";
 import { WhimsyFilesSection } from "./whimsy-library-files.mjs";
 import { WhimsySpaceHistorySection } from "./whimsy-library-space-history.mjs";
-import { WhimsyArchiveSection } from "./whimsy-library-archive.mjs";
 import { WhimsyPlaylistSection } from "./whimsy-library-playlist.mjs";
 // wave5: Easels.
 import { WhimsyEaselsSection } from "./whimsy-library-easels.mjs";
@@ -12,6 +11,6 @@ const { WhimsyLibrarySection } = ChromeUtils.importESModule(
 );
 WhimsyLibrarySection.registerWindow(window, {
   WhimsyNotesSection, WhimsyFinderFoldersSection, WhimsyFilesSection,
-  WhimsySpaceHistorySection, WhimsyArchiveSection, WhimsyPlaylistSection,
+  WhimsySpaceHistorySection, WhimsyPlaylistSection,
   WhimsyEaselsSection,
 });

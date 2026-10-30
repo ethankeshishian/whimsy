@@ -52,7 +52,7 @@ add_task(async function test_pref_off_opens_a_normal_tab() {
 });
 
 add_task(async function test_settings() {
-  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyLinks", async browser => {
     const doc = browser.contentDocument;
     const checkbox = await TestUtils.waitForCondition(
       () => doc.getElementById("whimsyPeekEssentialLinks"),
@@ -70,9 +70,9 @@ add_task(async function test_settings() {
 
 add_task(async function test_feature_switch_hides_the_row() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.peek-essential-links", false]] });
-  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyLinks", async browser => {
     const doc = browser.contentDocument;
-    await TestUtils.waitForCondition(() => doc.getElementById("whimsyLookGroup"), "Look group shown");
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyLinksCategory"), "Links pane shown");
     is(doc.getElementById("whimsyPeekEssentialLinks"), null, "The row isn't added when the feature is off");
   });
   await SpecialPowers.popPrefEnv();

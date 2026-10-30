@@ -186,13 +186,12 @@ whimsy-media-background-mute-off =
     .label = Let every tab play
 whimsy-media-pip-snap-back =
     .label = Put a picture-in-picture video back in the page when you return to its tab
-whimsy-external-links-header = Links from other apps open in
 whimsy-external-links-glance =
-    .label = Glance
+    .label = Glance, over the tab you’re on
 whimsy-external-links-tab =
-    .label = A tab
+    .label = A new tab
 whimsy-external-links-quick-window =
-    .label = Mini Whimsy
+    .label = Mini Whimsy, a small window you can turn into a tab
 whimsy-archive-prompt =
     .label = When a page is gone, offer the Internet Archive’s copy
 whimsy-tabs-title-lines = Tab titles show up to
@@ -326,7 +325,7 @@ whimsy-action-split-vertically = Split Vertically
 whimsy-action-split-horizontally = Split Horizontally
 whimsy-action-split-grid = Split Grid
 whimsy-split-shift-click =
-    .label = Shift+click a link to open it in a split (replaces "Open in New Window")
+    .label = Shift-click a link to open it in a split
 
 ## Command bar extras (batch6)
 
@@ -416,7 +415,7 @@ whimsy-look-reading-time =
 whimsy-look-dark-pdf =
     .label = Dark pages in PDFs (light text on dark; images keep their colors)
 whimsy-look-peek-essential-links =
-    .label = Peek: open other-site links from pinned tabs in Glance
+    .label = Open links to other sites from pinned tabs in Glance
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
@@ -437,7 +436,7 @@ whimsy-tabs-archive-idle-after-30d =
 whimsy-tabs-archive-idle-after-never =
     .label = Never
 whimsy-tabs-archive-view =
-    .label = Archive in the Library, beside History (command bar: “Show Archive”)
+    .label = Show closed tabs in History (command bar: “View Archive…”)
 whimsy-tabs-undo =
     .label = Undo for tab actions (Cmd+Z)
 whimsy-tabs-snooze =
@@ -517,7 +516,7 @@ whimsy-spaces-manager-button =
     .label = Open Space Manager…
 
 whimsy-atc-label = Air Traffic Control
-whimsy-atc-description = Send links to a space automatically when they match a rule, like Arc.
+whimsy-atc-description = Open links that match a rule in the space you choose.
 whimsy-atc-button =
     .label = Manage rules…
 
@@ -1268,13 +1267,9 @@ whimsy-cheatsheet-new-window = New Window
 whimsy-cheatsheet-quick-window = Mini Whimsy
 whimsy-cheatsheet-private-window = New Private Window
 
-## fixB: the Archive, a Library section beside History
+## fixB: the Archive, now History's Closed filter in the Library
 
-whimsy-library-archive-title = Archive
-whimsy-library-archive-filter-title = Filter Archive…
-whimsy-library-archive-search =
-    .placeholder = Search archived tabs
-whimsy-library-archive-intro = Tabs that left your sidebar, kept so you can put them back in their space. History, next door, lists every page you visited.
+whimsy-library-archive-intro = Tabs that left your sidebar. Click one to put it back in its space.
 # $after - how long a tab sits unused before it archives itself
 whimsy-library-archive-intro-idle =
     { $after ->
@@ -1284,8 +1279,8 @@ whimsy-library-archive-intro-idle =
        *[h12] Tabs you haven't used in 12 hours archive themselves.
     } Pinned tabs, Essentials and anything playing stay put.
 whimsy-library-archive-intro-manual = Auto-archive is off, so only tabs you close end up here.
-whimsy-library-archive-empty = Nothing archived yet.
-whimsy-library-archive-no-match = No archived tabs match.
+whimsy-library-archive-empty = No closed tabs yet.
+whimsy-library-archive-no-match = No closed tabs match.
 whimsy-library-archive-today = Today
 whimsy-library-archive-yesterday = Yesterday
 whimsy-library-archive-filter-reason = Why it left
@@ -1300,8 +1295,8 @@ whimsy-library-archive-restore =
     .tooltiptext = Restore to its space
     .aria-label = Restore to its space
 whimsy-library-archive-forget =
-    .tooltiptext = Remove from the Archive
-    .aria-label = Remove from the Archive
+    .tooltiptext = Remove from History
+    .aria-label = Remove from History
 
 ## fixC: onboarding look pages (Zen's first-run flow, after space colors)
 
@@ -2174,3 +2169,47 @@ whimsy-scratch-keep-confirm-accept = Keep Space
 # wave5/uxfix: the Undo button on a result toast (Snooze, Hide Space).
 whimsy-undo-toast-button =
     .label = Undo
+
+## system: History's Show filter (All, Closed, Snoozed) in the Library
+
+whimsy-history-show-filter = Show
+whimsy-history-show-all = All
+whimsy-history-show-closed = Closed
+whimsy-history-show-snoozed = Snoozed
+whimsy-history-closed-when = When did it close?
+whimsy-history-search-closed =
+    .placeholder = Search closed tabs
+whimsy-history-search-snoozed =
+    .placeholder = Search snoozed tabs
+# $when - "today", "tomorrow" or "later"; $time (string) - like 6:40 PM;
+# $day (string) - like Thursday, October 30
+whimsy-history-snoozed-wakes =
+    { $when ->
+        [today] Wakes today at { $time }
+        [tomorrow] Wakes tomorrow at { $time }
+       *[later] Wakes { $day } at { $time }
+    }
+whimsy-history-snoozed-wake =
+    .tooltiptext = Wake now
+    .aria-label = Wake now
+whimsy-history-snoozed-cancel =
+    .tooltiptext = Cancel snooze
+    .aria-label = Cancel snooze
+whimsy-history-snoozed-empty = No snoozed tabs. To hide a tab until later, right-click it and choose Snooze.
+whimsy-history-snoozed-no-match = No snoozed tabs match.
+whimsy-action-view-snoozed = View Snoozed Tabs…
+# $title (string) - the tab's title
+whimsy-snooze-cancel-toast = “{ $title }” won’t come back on its own. It’s in History → Closed.
+
+## system: Settings → Links, one pane for where links open
+
+whimsy-pane-links-title = Links
+whimsy-links-title = Links
+whimsy-links-apps-header = Links from other apps
+whimsy-links-apps-description = When you click a link in another app, open it in:
+whimsy-links-glance-header = Glance
+whimsy-links-split-header = Split view
+whimsy-links-follower =
+    .label = Follower splits: links in one pane open in the other
+whimsy-links-follower-help = To start one, right-click a tab in a split and choose Make This a Follower Split.
+whimsy-links-spaces-header = Spaces

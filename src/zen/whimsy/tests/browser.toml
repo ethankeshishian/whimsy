@@ -414,3 +414,9 @@ support-files = ["whimsy_redact.html"]
 
 # wave5/uxfix: Undo on reversible result toasts.
 ["browser_whimsy_uxfix_undo_toast.js"]
+
+# system: History's Show filter (All / Closed / Snoozed) replaces the Archive section.
+["browser_whimsy_history_filters.js"]
+
+# system: Settings → Links gathers every setting about where links open.
+["browser_whimsy_links_settings.js"]
