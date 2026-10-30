@@ -718,11 +718,12 @@ whimsy-useragent-safari-iphone =
 
 whimsy-action-cookie-editor = Cookies
 whimsy-cookie-editor-add =
-    .label = Add
+    .label = Add Cookie
 whimsy-cookie-editor-copy-all =
     .label = Copy All as JSON
 whimsy-cookie-editor-delete =
     .label = Delete
+    .tooltiptext = Delete this cookie
 whimsy-cookie-editor-copied-toast = Cookies copied
 
 ## batch7: upload from the clipboard
@@ -948,3 +949,24 @@ whimsy-heavy-tabs-measuring = Measuring…
 whimsy-heavy-tabs-empty = No tabs to measure right now.
 whimsy-split-favorites-title = Favorite Splits
 whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split” in the command bar.
+whimsy-cookie-editor-title = Cookies
+whimsy-cookie-editor-search =
+    .placeholder = Search cookies
+    .aria-label = Search cookies
+whimsy-cookie-editor-new-name =
+    .placeholder = Name
+    .aria-label = New cookie name
+whimsy-cookie-editor-new-value =
+    .placeholder = Value
+    .aria-label = New cookie value
+whimsy-cookie-editor-save-new =
+    .label = Add
+# $name (string) - the cookie's name
+whimsy-cookie-editor-value =
+    .aria-label = Value of { $name }
+# $site (string) - the site's domain
+whimsy-cookie-editor-empty = No cookies for { $site }
+whimsy-cookie-editor-no-match = No cookies match your search
+whimsy-cookie-editor-flag-secure = Secure
+whimsy-cookie-editor-flag-httponly = HttpOnly
+whimsy-cookie-editor-flag-session = Session
