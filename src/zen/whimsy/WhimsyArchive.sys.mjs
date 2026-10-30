@@ -44,8 +44,6 @@ const IDLE_MS = {
   never: Infinity,
 };
 
-const PANEL_ID = "whimsyArchivePanel";
-
 export const WhimsyArchive = {
   get sweepEnabled() {
     return Services.prefs.getBoolPref(SWEEP_FEATURE_PREF, true);
@@ -204,7 +202,7 @@ export const WhimsyArchive = {
   // keeps working even if other tabs closed in the meantime) and forces it
   // back into the space it left, in case the restore's own placement landed
   // it in whichever space is currently active instead.
-  restore(win, closedId, { targetWin = win } = {}) {
+  restore(win, closedId, { targetWin = win, select = true } = {}) {
     const [entry] = this.listEntries(win).filter(e => e.closedId == closedId);
     let tab;
     try {
@@ -220,7 +218,7 @@ export const WhimsyArchive = {
         // Best-effort: SessionStore's own restore usually gets this right.
       }
     }
-    if (tab) {
+    if (tab && select) {
       targetWin.gBrowser.selectedTab = tab;
     }
     return tab;
@@ -240,90 +238,25 @@ export const WhimsyArchive = {
     ]);
   },
 
-  panel(win) {
-    const { document } = win;
-    let panel = document.getElementById(PANEL_ID);
-    if (panel) {
-      return panel;
-    }
-    panel = document.createXULElement("panel");
-    panel.id = PANEL_ID;
-    panel.setAttribute("type", "arrow");
-    panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("role", "dialog");
-    panel.className = "whimsy-archive-panel";
-    document.l10n.setAttributes(panel, "whimsy-archive-panel");
-
-    const search = document.createElementNS("http://www.w3.org/1999/xhtml", "input");
-    search.type = "search";
-    search.className = "whimsy-archive-search";
-    document.l10n.setAttributes(search, "whimsy-archive-search");
-
-    const list = document.createXULElement("vbox");
-    list.className = "whimsy-archive-list";
-
-    const empty = document.createXULElement("description");
-    empty.className = "whimsy-archive-empty";
-    document.l10n.setAttributes(empty, "whimsy-archive-empty");
-
-    panel.append(search, list, empty);
-    search.addEventListener("input", () => this.renderPanel(win, search.value));
-    document.getElementById("mainPopupSet")?.appendChild(panel);
-    return panel;
-  },
-
-  renderPanel(win, query = "") {
-    const panel = this.panel(win);
-    const list = panel.querySelector(".whimsy-archive-list");
-    const empty = panel.querySelector(".whimsy-archive-empty");
-    list.textContent = "";
-    const entries = this.listEntries(win, { query });
-    empty.hidden = !!entries.length;
-    const { document } = win;
-    let lastDay = "";
-    const now = new Date();
-    for (const entry of entries) {
-      const day = new Date(entry.closedAt);
-      const dayKey = day.toDateString();
-      if (dayKey != lastDay) {
-        lastDay = dayKey;
-        const heading = document.createXULElement("label");
-        heading.className = "whimsy-archive-day";
-        heading.textContent =
-          dayKey == now.toDateString()
-            ? "Today"
-            : day.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-        list.append(heading);
-      }
-      const row = document.createXULElement("hbox");
-      row.className = "whimsy-archive-row";
-      row.setAttribute("align", "center");
-      row.setAttribute("whimsy-archive-reason", entry.reason);
-      const icon = document.createXULElement("image");
-      icon.className = "whimsy-archive-icon";
-      if (entry.image) {
-        icon.setAttribute("src", entry.image);
-      }
-      const label = document.createXULElement("label");
-      label.className = "whimsy-archive-title";
-      label.setAttribute("crop", "end");
-      label.textContent = entry.title || entry.url;
-      const restore = document.createXULElement("toolbarbutton");
-      restore.className = "whimsy-archive-restore toolbarbutton-1";
-      document.l10n.setAttributes(restore, "whimsy-archive-restore");
-      restore.addEventListener("command", () => {
-        this.restore(win, entry.closedId);
-        panel.hidePopup();
-      });
-      row.append(icon, label, restore);
-      list.append(row);
-    }
-  },
-
+  // fixB: the Archive is a Library section beside History
+  // (content/whimsy-library-archive.mjs). "Show Archive" opens the
+  // Library on it.
   openPanel(win) {
-    const panel = this.panel(win);
-    panel.querySelector(".whimsy-archive-search").value = "";
-    this.renderPanel(win, "");
-    panel.openPopup(win.document.documentElement, { position: "overlap", triggerEvent: null });
+    const ZenLibrary = win.customElements.get("zen-library");
+    const lib = win.document.querySelector("zen-library");
+    if (!ZenLibrary?.toggle || !lib?.zenLibrarySections?.["whimsy-archive"]) {
+      return false;
+    }
+    ZenLibrary.toggle("whimsy-archive");
+    return true;
+  },
+
+  // Drops one entry from the Archive for good (SessionStore forgets it).
+  forget(win, closedId) {
+    try {
+      lazy.SessionStore.forgetClosedTabById(closedId, win);
+    } catch (e) {
+      console.error("Whimsy: archive forget", e);
+    }
   },
 };

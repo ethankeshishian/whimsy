@@ -44,3 +44,5 @@
         content/browser/whimsy/whimsy-home.css                                  (../../zen/whimsy/content/whimsy-home.css)
         content/browser/whimsy/whimsy-home.js                                   (../../zen/whimsy/content/whimsy-home.js)
         content/browser/whimsy/whimsy-changelog.json                            (../../zen/whimsy/content/whimsy-changelog.json)
+# fixB: the Archive as a Library section
+        content/browser/whimsy/whimsy-library-archive.mjs (../../zen/whimsy/content/whimsy-library-archive.mjs)

@@ -4,10 +4,12 @@ import { WhimsyFinderFoldersSection } from "./whimsy-library-finderfolders.mjs";
 import { WhimsyFilesSection } from "./whimsy-library-files.mjs";
 import { WhimsyNextMeetingSection } from "./whimsy-library-next-meeting.mjs";
 import { WhimsySpaceHistorySection } from "./whimsy-library-space-history.mjs";
+import { WhimsyArchiveSection } from "./whimsy-library-archive.mjs";
 const { WhimsyLibrarySection } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs"
 );
 WhimsyLibrarySection.registerWindow(window, {
   WhimsyNotesSection, WhimsyFinderFoldersSection, WhimsyFilesSection,
   WhimsyNextMeetingSection, WhimsySpaceHistorySection,
+  WhimsyArchiveSection,
 });

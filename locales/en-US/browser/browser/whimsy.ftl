@@ -431,7 +431,7 @@ whimsy-tabs-archive-idle-after-30d =
 whimsy-tabs-archive-idle-after-never =
     .label = Never
 whimsy-tabs-archive-view =
-    .label = Archive view (command bar: “Show Archive”)
+    .label = Archive in the Library, beside History (command bar: “Show Archive”)
 whimsy-tabs-undo =
     .label = Undo for tab actions (Cmd+Z)
 whimsy-tabs-snooze =
@@ -1025,3 +1025,37 @@ whimsy-cheatsheet-slow-down = Play Slower
 whimsy-cheatsheet-new-window = New Window
 whimsy-cheatsheet-quick-window = Mini Whimsy
 whimsy-cheatsheet-private-window = New Private Window
+
+## fixB: the Archive, a Library section beside History
+
+whimsy-library-archive-title = Archive
+whimsy-library-archive-search =
+    .placeholder = Search archived tabs
+whimsy-library-archive-intro = Tabs that left your sidebar, kept so you can put them back in their space. History, next door, lists every page you visited.
+# $after - how long a tab sits unused before it archives itself
+whimsy-library-archive-intro-idle =
+    { $after ->
+        [h24] Tabs you haven't used in 24 hours archive themselves.
+        [d7] Tabs you haven't used in 7 days archive themselves.
+        [d30] Tabs you haven't used in 30 days archive themselves.
+       *[h12] Tabs you haven't used in 12 hours archive themselves.
+    } Pinned tabs, Essentials and anything playing stay put.
+whimsy-library-archive-intro-manual = Auto-archive is off, so only tabs you close end up here.
+whimsy-library-archive-empty = Nothing archived yet.
+whimsy-library-archive-no-match = No archived tabs match.
+whimsy-library-archive-today = Today
+whimsy-library-archive-yesterday = Yesterday
+whimsy-library-archive-filter-reason = Why it left
+whimsy-library-archive-reason-idle = Unused
+whimsy-library-archive-reason-closed = Closed
+whimsy-library-archive-reason-tree = Closed with its branch
+whimsy-library-archive-reason-snooze = Snoozed
+whimsy-library-archive-reason-fire = Burned
+# $space (string) - the name of the space the tab goes back to
+whimsy-library-archive-in-space = { $space }
+whimsy-library-archive-restore =
+    .tooltiptext = Restore to its space
+    .aria-label = Restore to its space
+whimsy-library-archive-forget =
+    .tooltiptext = Remove from the Archive
+    .aria-label = Remove from the Archive

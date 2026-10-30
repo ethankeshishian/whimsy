@@ -1448,3 +1448,6 @@ panel.whimsy-sheet {
   outline: var(--focus-outline, 2px solid AccentColor);
   outline-offset: -2px;
 }
+.whimsy-archive-space + .whimsy-archive-time::before {
+  content: " · ";
+}
