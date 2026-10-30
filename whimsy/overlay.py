@@ -826,6 +826,11 @@ FEATURES = [
     # one Zen toast with the costumed balloon (respects the seasonal switch).
     {"id": "season-toast", "title": "New season toast: the first window in a new season shows the balloon in its costume, once",
      "detect": [("src/zen", r"(?i)season-?toast|new-?season")]},
+    # wave5/verbs: Cmd+K lists verbs for the selection (or page) in the
+    # command bar: Translate, Search, Map, Email, Copy as Markdown, Add to
+    # Note, Add to Calendar, Linear, and your own skills.
+    {"id": "selection-verbs", "title": "Cmd+K: actions for the selected text or page (Translate, Map, Calendar, Linear, Markdown, Notes, your skills)",
+     "detect": [("src/zen", r"(?i)selection-?verbs|do-?with-?selection|universal-?actions")]},
 ]
 
 

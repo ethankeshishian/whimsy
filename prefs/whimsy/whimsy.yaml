@@ -426,3 +426,9 @@
 # ("2026-autumn"); empty until the first one.
 - name: whimsy.seasons.last-toast
   value: ""
+
+# wave5/verbs: your own selection verbs (skills), one per line:
+# "Label | https://example.com/?q=%s" (%s the selection, or the page address
+# when nothing is selected; %t the page title; %u its address).
+- name: whimsy.verbs.skills
+  value: ""

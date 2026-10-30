@@ -116,6 +116,13 @@ export class WhimsyPageChild extends JSWindowActorChild {
           this.document,
           message.data
         );
+      // wave5/verbs: the selection as Markdown (Copy as Markdown verb).
+      case "Whimsy:SelectionMarkdown": {
+        const { selectionToMarkdown } = ChromeUtils.importESModule(
+          "resource:///modules/whimsy/WhimsySelectionMarkdown.sys.mjs"
+        );
+        return this.contentWindow ? selectionToMarkdown(this.contentWindow) : "";
+      }
     }
     return null;
   }

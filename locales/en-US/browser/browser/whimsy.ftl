@@ -1791,3 +1791,23 @@ whimsy-season-toast-spring = Spring is here
 whimsy-season-toast-spring-description = The balloon is wearing flowers
 whimsy-season-toast-summer = Summer is here
 whimsy-season-toast-summer-description = The balloon brought sunglasses
+
+## wave5/verbs: do-with-selection verbs (Cmd+K)
+
+whimsy-action-selection-verbs = Actions for Selection
+# The command bar's group label above the verbs: the selected text (cut short).
+whimsy-verbs-row-selection = “{ $text }”
+# The same label when nothing is selected: the page's title.
+whimsy-verbs-row-page = { $text }
+whimsy-verb-translate = Translate
+whimsy-verb-translate-page = Translate Page
+whimsy-verb-search = Search the Web
+whimsy-verb-map = Show in Maps
+whimsy-verb-email = Email
+whimsy-verb-copy-markdown = Copy as Markdown
+whimsy-verb-note = Add to Note
+whimsy-verb-calendar = Add to Calendar
+whimsy-verb-linear-new = New Linear Issue
+whimsy-verb-linear-search = Search Linear
+whimsy-verb-copied-toast = Copied as Markdown
+whimsy-verb-note-toast = Added to Notes

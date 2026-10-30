@@ -385,3 +385,7 @@ support-files = ["whimsy_lasso.html"]
 
 # wave5/quick: new season toast (once per season, costume, winter across years, switches, reduced motion).
 ["browser_whimsy_season_toast.js"]
+
+# wave5/verbs: Cmd+K do-with-selection verbs.
+["browser_whimsy_selection_verbs.js"]
+support-files = ["whimsy_verbs.html"]

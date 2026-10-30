@@ -151,6 +151,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySeasonToast: "resource:///modules/whimsy/WhimsySeasonToast.sys.mjs",
 });
 
+// wave5/verbs: do-with-selection verbs.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -597,6 +602,10 @@ export const Whimsy = {
     // wave5/quick: the first window in a new season says so once (after
     // the window settles; never under test automation).
     run("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
+
+    // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
+    // checks its switch on each use (off: Cmd+K is Firefox's again).
+    run("selection-verbs", () => lazy.WhimsyVerbs.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
