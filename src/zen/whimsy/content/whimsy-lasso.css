@@ -1,0 +1,46 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Link lasso overlay (anonymous content over the page, WhimsyLassoChild).
+   The system accent, like a macOS selection rectangle; the count is a
+   small pill that follows the pointer, like Zen's toasts. */
+
+.whimsy-lasso {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  font: menu;
+}
+
+.whimsy-lasso-rect {
+  position: absolute;
+  border: 1.5px solid AccentColor;
+  border-radius: 6px;
+  background: color-mix(in srgb, AccentColor 12%, transparent);
+}
+
+.whimsy-lasso-hit {
+  position: absolute;
+  border-radius: 4px;
+  outline: 2px solid AccentColor;
+  background: color-mix(in srgb, AccentColor 18%, transparent);
+}
+
+.whimsy-lasso-count {
+  position: absolute;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, Canvas 92%, AccentColor);
+  color: CanvasText;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+
+  &:empty {
+    display: none;
+  }
+}

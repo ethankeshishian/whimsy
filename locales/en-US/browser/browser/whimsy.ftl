@@ -1653,3 +1653,20 @@ whimsy-doc-viewer-meta-table =
         [one] { $kind } · { $rows } row
        *[other] { $kind } · { $rows } rows
     }
+
+## wave5/quick: link lasso (Option-drag over links makes a folder)
+
+# The live count beside the pointer while lassoing.
+whimsy-link-lasso-count =
+    { $count ->
+        [0] No links
+        [one] 1 link
+       *[other] { $count } links
+    }
+# $name (String) - the new folder's name (the page's title)
+whimsy-link-lasso-toast =
+    { $count ->
+        [one] Saved 1 link to “{ $name }”
+       *[other] Saved { $count } links to “{ $name }”
+    }
+whimsy-link-lasso-private-toast = Link lasso doesn’t save links from private tabs

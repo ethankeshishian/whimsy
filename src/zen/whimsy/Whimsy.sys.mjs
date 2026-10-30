@@ -242,6 +242,19 @@ export const Whimsy = {
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
+
+    // wave5/quick: link lasso. The child only acts on an Option-drag the
+    // page didn't handle; the parent makes the folder.
+    ChromeUtils.registerWindowActor("WhimsyLasso", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyLassoParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyLassoChild.sys.mjs",
+        events: { mousedown: { mozSystemGroup: true } },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {

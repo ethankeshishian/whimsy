@@ -66,3 +66,5 @@
         content/browser/whimsy/whimsy-season-winter.svg                          (../../zen/whimsy/content/whimsy-season-winter.svg)
         content/browser/whimsy/whimsy-season-spring.svg                          (../../zen/whimsy/content/whimsy-season-spring.svg)
         content/browser/whimsy/whimsy-season-summer.svg                          (../../zen/whimsy/content/whimsy-season-summer.svg)
+# wave5/quick: link lasso overlay (anonymous content over the page)
+        content/browser/whimsy/whimsy-lasso.css                                 (../../zen/whimsy/content/whimsy-lasso.css)

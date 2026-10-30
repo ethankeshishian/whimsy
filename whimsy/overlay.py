@@ -801,6 +801,10 @@ FEATURES = [
     # like Firefox's JSON viewer: sniffer + stream converter, no page script).
     {"id": "doc-viewer", "title": "Markdown and CSV viewer: .md files read with reader typography and contents, CSV/TSV as a sortable table, Source toggle, live reload",
      "detect": [("src/zen", r"(?i)text/markdown|markdown-?viewer|csv-?viewer")]},
+    # wave5/quick: link lasso (Linkclump/Snap Links): Option-drag over links
+    # makes a folder of unloaded tabs named after the page.
+    {"id": "link-lasso", "title": "Link lasso: Option-drag a rectangle over links, let go, and they become a folder of unloaded tabs",
+     "detect": [("src/zen", r"(?i)link-?lasso|lasso-?links|linkclump|snap-?links")]},
 ]
 
 

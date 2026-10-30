@@ -358,3 +358,7 @@ support-files = ["whimsy_markdown_article.html", "whimsy_markdown_plain.html"]
 # wave5/quick: Markdown/CSV viewer (file:// and text/plain .md, CSV sorting, Source, live reload, safety, switch).
 ["browser_whimsy_doc_viewer.js"]
 support-files = ["whimsy_viewer.md", "whimsy_viewer.md^headers^", "whimsy_viewer.csv", "whimsy_viewer.csv^headers^"]
+
+# wave5/quick: link lasso (Option-drag, live count, folder of unloaded tabs, Esc, private, switch).
+["browser_whimsy_link_lasso.js"]
+support-files = ["whimsy_lasso.html"]

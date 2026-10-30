@@ -390,6 +390,9 @@
 - name: whimsy.feature.doc-viewer
   value: true
 
+- name: whimsy.feature.link-lasso
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true
