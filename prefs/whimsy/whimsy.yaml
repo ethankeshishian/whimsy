@@ -202,7 +202,7 @@
 - name: whimsy.game.style
   value: "gradient"
 
-# batch7b: offline game chiptune (retro style only), off by default.
+# batch7b: offline game sound (square-wave chiptune in retro, softer in smooth), off by default.
 - name: whimsy.game.chiptune
   value: false
 

@@ -985,3 +985,82 @@ add_task(async function welcome_look_pages() {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+
+// wave4/fun: Balloon Hop (smooth and retro) and the Year in tabs story.
+add_task(async function wave4_fun_game() {
+  await BrowserTestUtils.withNewTab("about:whimsy?game", async browser => {
+    const win = browser.contentWindow;
+    const doc = browser.contentDocument;
+    const wg = browser.browsingContext.currentWindowGlobal;
+    const game = await TestUtils.waitForCondition(() => win.__whimsyGame, "The game has loaded");
+    const frames = () => new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+    game.freeze();
+    game.setAutoSpawn(false);
+    await doc.l10n.ready;
+    await frames();
+    await shot("wave4-game-ready", wg);
+
+    const { GROUND, PLAYER_X } = game.constants;
+    const scene = () => {
+      game.clear();
+      game.spawn("thistle", { x: PLAYER_X + 150, n: 3, w: 38, h: 26 });
+      game.spawn("plane", { x: PLAYER_X + 250, y: GROUND - 64 });
+      game.spawn("sparkle", { x: PLAYER_X + 90, y: GROUND - 40 });
+      game.spawn("pond", { x: PLAYER_X + 300, w: 70 });
+    };
+    game.start();
+    game.press();
+    game.tick(0.2);
+    scene();
+    game.render();
+    await frames();
+    await shot("wave4-game-running", wg);
+
+    doc.getElementById("whimsy-game-style-retro").click();
+    game.state.distance = 700 * 12;
+    game.tick(1 / 60);
+    scene();
+    game.render();
+    await frames();
+    await shot("wave4-game-retro-night", wg);
+
+    game.release();
+    game.tick(1);
+    game.clear();
+    game.spawn("thistle");
+    game.tick(0.4);
+    await frames();
+    await shot("wave4-game-retro-over", wg);
+
+    doc.getElementById("whimsy-game-style-gradient").click();
+    game.render();
+    await new Promise(resolve => setTimeout(resolve, 700)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await shot("wave4-game-over", wg);
+  });
+  for (const pref of ["whimsy.game.style", "whimsy.game.high-score"]) {
+    Services.prefs.clearUserPref(pref);
+  }
+});
+
+add_task(async function wave4_fun_year() {
+  const { PlacesTestUtils } = ChromeUtils.importESModule("resource://testing-common/PlacesTestUtils.sys.mjs");
+  await PlacesUtils.history.clear();
+  for (const [url, n] of [["https://example.com/", 6], ["https://example.org/", 3], ["https://mozilla.org/", 1]]) {
+    for (let i = 0; i < n; i++) {
+      await PlacesTestUtils.addVisits(url);
+    }
+  }
+  await BrowserTestUtils.withNewTab("about:whimsy?year", async browser => {
+    const win = browser.contentWindow;
+    const wg = browser.browsingContext.currentWindowGlobal;
+    const year = await TestUtils.waitForCondition(() => win.__whimsyYear, "The recap has loaded");
+    for (const [i, kind] of year.kinds.entries()) {
+      year.goTo(i);
+      year.skip();
+      // Let the slide wipe and the reveal transitions settle.
+      await new Promise(resolve => setTimeout(resolve, 1200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      await shot(`wave4-year-${i}-${kind}`, wg);
+    }
+  });
+  await PlacesUtils.history.clear();
+});

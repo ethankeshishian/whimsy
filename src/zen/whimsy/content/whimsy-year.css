@@ -3,121 +3,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
+  --year-font: -apple-system, system-ui, sans-serif;
+  --year-spring: cubic-bezier(0.2, 1.25, 0.35, 1);
+  --year-ease: cubic-bezier(0.65, 0, 0.25, 1);
 }
 
 body {
   margin: 0;
   height: 100vh;
   overflow: hidden;
-  font-family: -apple-system, system-ui, sans-serif;
+  font-family: var(--year-font);
   background: #120a24;
-}
-
-#whimsy-year-root {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-#whimsy-year-empty {
-  margin: auto;
   color: #fff;
-  font-size: 16px;
-  max-width: 320px;
-  text-align: center;
-}
-
-#whimsy-year-deck {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-#whimsy-year-deck[hidden] {
-  display: none;
-}
-
-#whimsy-year-cards {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-}
-
-.whimsy-year-card {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 18px;
-  padding: 48px 32px;
-  box-sizing: border-box;
-  color: #fff;
-  text-align: center;
-  opacity: 0;
-  visibility: hidden;
-  background: linear-gradient(160deg, var(--whimsy-year-a), var(--whimsy-year-b));
-}
-
-.whimsy-year-card[data-active] {
-  opacity: 1;
-  visibility: visible;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .whimsy-year-card {
-    transition: opacity 0.25s ease;
-  }
-}
-
-.whimsy-year-card-eyebrow {
-  font-size: 13px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  opacity: 0.75;
-}
-
-.whimsy-year-card-title {
-  font-size: clamp(22px, 4vw, 34px);
-  font-weight: 700;
-  margin: 0;
-  max-width: 44ch;
-}
-
-.whimsy-year-card-body {
-  font-size: 16px;
-  max-width: 40ch;
-  opacity: 0.92;
-}
-
-.whimsy-year-card-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 420px;
-  width: 100%;
-}
-
-.whimsy-year-card-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 14px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 14px;
-}
-
-.whimsy-year-card-list li span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .whimsy-visually-hidden {
@@ -125,53 +24,745 @@ body {
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+#whimsy-year-root {
+  position: relative;
+  height: 100vh;
+}
+
+#whimsy-year-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: #6c3cf0;
+}
+
+#whimsy-year-empty p {
+  max-width: 22em;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+}
+
+#whimsy-year-empty[hidden],
+#whimsy-year-deck[hidden] {
+  display: none;
+}
+
+/* Deck chrome: light ink by default, dark ink on the bright slides. */
+
+#whimsy-year-deck {
+  --chrome: #ffffff;
+  position: absolute;
+  inset: 0;
+}
+
+#whimsy-year-deck:is([data-kind="opened"], [data-kind="topsites"], [data-kind="busiest"], [data-kind="longest"]) {
+  --chrome: #1a0d12;
 }
 
 #whimsy-year-dots {
+  position: absolute;
+  inset: 14px 16px auto;
+  z-index: 5;
   display: flex;
-  justify-content: center;
   gap: 6px;
-  padding: 10px 0;
+  pointer-events: none;
 }
 
-#whimsy-year-dots span {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
+.whimsy-year-seg {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--chrome) 28%, transparent);
 }
 
-#whimsy-year-dots span[data-active] {
-  background: #fff;
+.whimsy-year-seg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 0;
+  border-radius: inherit;
+  background: var(--chrome);
+}
+
+.whimsy-year-seg.is-current::after {
+  width: 15%;
+}
+
+.whimsy-year-seg.is-full::after {
+  width: 100%;
 }
 
 #whimsy-year-nav {
+  position: absolute;
+  inset: auto 16px 16px;
+  z-index: 5;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 8px 16px 20px;
+  gap: 8px;
+  color: var(--chrome);
 }
 
 #whimsy-year-nav button {
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid color-mix(in srgb, var(--chrome) 45%, transparent);
   border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 600;
+  background: transparent;
+  color: inherit;
+  font: 700 13px var(--year-font);
   cursor: pointer;
 }
 
 #whimsy-year-prev,
 #whimsy-year-next {
-  padding: 8px 14px;
-  font-size: 16px;
+  padding: 0;
+  font-size: 22px !important;
+  line-height: 1;
 }
 
 #whimsy-year-nav button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+#whimsy-year-nav button[aria-pressed="true"] {
+  background: var(--chrome);
+  color: #1d1033;
+}
+
+#whimsy-year-deck:is([data-kind="opened"], [data-kind="topsites"], [data-kind="busiest"], [data-kind="longest"]) #whimsy-year-nav button[aria-pressed="true"] {
+  color: #ffffff;
+}
+
+#whimsy-year-hint {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0.7;
+}
+
+#whimsy-year-deck:not([data-kind="intro"]) #whimsy-year-hint {
+  visibility: hidden;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--chrome, #fff);
+  outline-offset: 2px;
+}
+
+/* Slides */
+
+#whimsy-year-cards {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+.whimsy-year-slide {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.whimsy-year-slide[data-active],
+.whimsy-year-slide[data-leaving] {
+  display: grid;
+}
+
+.whimsy-year-slide[data-active] {
+  z-index: 2;
+}
+
+.whimsy-year-slide[data-leaving] {
+  z-index: 1;
+}
+
+.whimsy-year-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  width: min(100% - 64px, 920px);
+  padding: 72px 0 96px;
+}
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+.is-shown[data-reveal] {
+  opacity: 1;
+  transform: none;
+}
+
+.whimsy-year-kicker {
+  margin: 0;
+  font-size: clamp(18px, 2.6vw, 28px);
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.is-shown.whimsy-year-kicker {
+  opacity: 0.85;
+}
+
+.whimsy-year-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(16px, 3vw, 36px);
+  max-width: 100%;
+}
+
+.whimsy-year-big {
+  display: inline-block;
+  font-size: clamp(80px, 17vw, 220px);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.055em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 0 var(--accent);
+}
+
+.whimsy-year-big.is-landed {
+  text-shadow: 0.05em 0.05em 0 var(--accent);
+}
+
+.whimsy-year-label {
+  margin: 0;
+  font-size: clamp(22px, 3.2vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.whimsy-year-aside {
+  margin: 0;
+  font-size: clamp(16px, 1.9vw, 20px);
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.whimsy-year-punch {
+  margin: 10px 0 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.is-shown.whimsy-year-punch {
+  transform: rotate(-1.5deg);
+}
+
+/* Intro: the year rolls in digit by digit. */
+
+.whimsy-year-odometer {
+  gap: 0;
+  overflow: hidden;
+  font-size: clamp(110px, 24vw, 300px);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+  text-shadow: 0.04em 0.04em 0 var(--accent2);
+}
+
+.whimsy-year-digit {
+  display: inline-block;
+  transform: translateY(105%);
+}
+
+.is-shown .whimsy-year-digit {
+  transform: none;
+}
+
+/* Top sites: a slot machine landing on the winner. */
+
+.whimsy-year-slot-name {
+  display: inline-block;
+  max-width: 100%;
+  font-size: clamp(44px, 9vw, 120px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  overflow-wrap: anywhere;
+}
+
+.whimsy-year-slot-name.is-landed {
+  background: linear-gradient(transparent 62%, var(--accent) 62% 90%, transparent 90%);
+}
+
+.whimsy-year-list-wrap {
+  margin-top: 10px;
+}
+
+.whimsy-year-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-inline-start: 1.6em;
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 700;
+}
+
+.whimsy-year-list li {
+  opacity: 0;
+  transform: translateX(-12px);
+}
+
+.is-shown .whimsy-year-list li {
+  opacity: 1;
+  transform: none;
+}
+
+.whimsy-year-list-count {
+  margin-inline-start: 0.6em;
+  font-weight: 600;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Busiest: a clock sweeps to the hour. */
+
+.whimsy-year-clock {
+  flex: none;
+  width: clamp(88px, 14vw, 170px);
+  height: auto;
+}
+
+.whimsy-year-clock-face {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 5;
+}
+
+.whimsy-year-clock-tick {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.whimsy-year-clock-hand {
+  stroke: var(--ink);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  transform: rotate(0deg);
+}
+
+.is-landed .whimsy-year-clock-hand {
+  transform: rotate(var(--angle));
+}
+
+.whimsy-year-clock-pin {
+  fill: var(--accent);
+}
+
+.whimsy-year-day {
+  font-size: clamp(48px, 11vw, 150px);
+}
+
+/* Space: a ring fills to the share. */
+
+.whimsy-year-ring {
+  flex: none;
+  width: clamp(110px, 16vw, 200px);
+  height: auto;
+  transform: rotate(-90deg);
+}
+
+.whimsy-year-ring-track,
+.whimsy-year-ring-fill {
+  fill: none;
+  stroke-width: 14;
+}
+
+.whimsy-year-ring-track {
+  stroke: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+.whimsy-year-ring-fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+}
+
+.is-landed .whimsy-year-ring-fill {
+  stroke-dashoffset: calc(100 - var(--percent));
+}
+
+/* Longest tab: the tab itself, as a chip. */
+
+.whimsy-year-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin: 4px 0 0;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--ink);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.45);
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 700;
+}
+
+.whimsy-year-chip-dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.whimsy-year-chip-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Night owl: dusk falls, stars come out, the moon rises. */
+
+.whimsy-year-slide[data-kind="nightowl"] {
+  background: linear-gradient(180deg, #0a0524 0%, #1d1152 60%, #3d2a8a 100%);
+}
+
+.whimsy-year-night-sky {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.is-dusk .whimsy-year-night-sky {
+  opacity: 1;
+}
+
+.whimsy-year-star {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff6dc;
+}
+
+.whimsy-year-moon {
+  position: absolute;
+  top: 12%;
+  right: 12%;
+  width: clamp(70px, 12vw, 140px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    inset -18px -10px 0 0 #f1c94a,
+    0 0 80px 10px rgba(255, 216, 107, 0.35);
+  transform: translateY(60px);
+  opacity: 0;
+}
+
+.is-dusk .whimsy-year-moon {
+  transform: none;
+  opacity: 1;
+}
+
+/* Decorations */
+
+.whimsy-year-deco {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.whimsy-year-blob {
+  position: absolute;
+  width: 70vmax;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--accent2), transparent);
+  opacity: 0.55;
+}
+
+.whimsy-year-blob-a {
+  top: -35vmax;
+  right: -25vmax;
+}
+
+.whimsy-year-blob-b {
+  bottom: -40vmax;
+  left: -30vmax;
+  opacity: 0.35;
+}
+
+/* Finale */
+
+.whimsy-year-slide[data-kind="finale"] {
+  background: radial-gradient(120% 90% at 50% 0%, #3b2a78 0%, #1d1033 60%, #120a24 100%);
+}
+
+.whimsy-year-slide[data-kind="finale"] .whimsy-year-inner {
+  align-items: center;
+  text-align: center;
+}
+
+.whimsy-year-finale-card {
+  width: min(100%, 560px);
+  padding: 28px;
+  box-sizing: border-box;
+  border-radius: 28px;
+  background: linear-gradient(150deg, #b5a0ff 0%, #d995e6 55%, #f6a5ba 100%);
+  color: #1d1033;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.7);
+  text-align: start;
+}
+
+.whimsy-year-finale-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.whimsy-year-finale-year {
+  font-size: clamp(56px, 9vw, 88px);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.055em;
+}
+
+.whimsy-year-finale-label {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.whimsy-year-finale-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.whimsy-year-tile {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--tile);
+  color: var(--tile-ink);
+  transform: scale(0.85);
+  opacity: 0;
+}
+
+.is-shown .whimsy-year-tile {
+  transform: none;
+  opacity: 1;
+}
+
+.whimsy-year-tile dt {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.whimsy-year-tile dd {
+  margin: 4px 0 0;
+  overflow: hidden;
+  font-size: clamp(16px, 1.2vw + 10px, 20px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.whimsy-year-finale-signoff {
+  margin: 18px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.whimsy-year-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.whimsy-year-action {
+  min-height: 42px;
+  padding: 0 20px;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: 700 14px var(--year-font);
+  cursor: pointer;
+}
+
+.whimsy-year-action-primary {
+  border-color: #fff;
+  background: #fff;
+  color: #1d1033;
+}
+
+/* Motion (only when welcome) */
+
+@media (prefers-reduced-motion: no-preference) {
+  .whimsy-year-slide[data-active] {
+    animation: whimsy-year-wipe 0.75s var(--year-ease) both;
+  }
+
+  [data-reveal] {
+    transition:
+      opacity 0.5s ease,
+      transform 0.7s var(--year-spring);
+  }
+
+  .whimsy-year-big.is-landed,
+  .whimsy-year-slot-name.is-landed {
+    animation: whimsy-year-pop 0.45s var(--year-spring);
+  }
+
+  .whimsy-year-big {
+    transition: text-shadow 0.35s var(--year-spring);
+  }
+
+  .whimsy-year-digit {
+    transition: transform 0.8s var(--year-spring) calc(var(--i) * 110ms);
+  }
+
+  .whimsy-year-list li {
+    transition:
+      opacity 0.4s ease calc(var(--i) * 90ms),
+      transform 0.5s var(--year-spring) calc(var(--i) * 90ms);
+  }
+
+  .whimsy-year-clock-hand {
+    transition: transform 1.3s cubic-bezier(0.3, 1.15, 0.45, 1);
+  }
+
+  .whimsy-year-ring-fill {
+    transition: stroke-dashoffset 1.3s cubic-bezier(0.3, 1, 0.4, 1);
+  }
+
+  .is-instant .whimsy-year-clock-hand,
+  .is-instant .whimsy-year-ring-fill {
+    transition: none;
+  }
+
+  .whimsy-year-night-sky {
+    transition: opacity 1.6s ease;
+  }
+
+  .whimsy-year-moon {
+    transition:
+      transform 2.2s var(--year-spring) 0.4s,
+      opacity 1.2s ease 0.4s;
+  }
+
+  .whimsy-year-star {
+    animation: whimsy-year-twinkle 2.8s ease-in-out var(--d) infinite;
+  }
+
+  .whimsy-year-blob {
+    animation: whimsy-year-drift 16s ease-in-out infinite alternate;
+  }
+
+  .whimsy-year-blob-b {
+    animation-duration: 21s;
+    animation-direction: alternate-reverse;
+  }
+
+  .whimsy-year-tile {
+    transition:
+      transform 0.5s var(--year-spring) calc(0.15s + var(--i) * 90ms),
+      opacity 0.3s ease calc(0.15s + var(--i) * 90ms);
+  }
+
+  .whimsy-year-seg::after {
+    transition: width 0.5s var(--year-ease);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-year-slide[data-active] {
+    animation: whimsy-year-fade 0.2s ease both;
+  }
+
+  [data-reveal],
+  .whimsy-year-list li,
+  .whimsy-year-tile,
+  .whimsy-year-digit,
+  .whimsy-year-moon {
+    transform: none;
+  }
+
+  [data-reveal] {
+    transition: opacity 0.2s ease;
+  }
+}
+
+@keyframes whimsy-year-wipe {
+  from {
+    clip-path: circle(0 at var(--ox, 50%) var(--oy, 50%));
+  }
+  to {
+    clip-path: circle(150vmax at var(--ox, 50%) var(--oy, 50%));
+  }
+}
+
+@keyframes whimsy-year-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes whimsy-year-pop {
+  40% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes whimsy-year-twinkle {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes whimsy-year-drift {
+  to {
+    transform: translate(-6vmax, 5vmax) scale(1.08);
+  }
 }

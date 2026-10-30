@@ -5,7 +5,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="dark" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-l10n-id="whimsy-year-title"></title>
     <link rel="localization" href="browser/whimsy.ftl" />
@@ -13,16 +13,18 @@
   </head>
   <body>
     <div id="whimsy-year-root">
-      <div id="whimsy-year-empty" data-l10n-id="whimsy-year-empty" hidden></div>
-      <div id="whimsy-year-deck">
+      <div id="whimsy-year-empty" hidden>
+        <p data-l10n-id="whimsy-year-empty"></p>
+      </div>
+      <div id="whimsy-year-deck" hidden>
+        <div id="whimsy-year-dots" aria-hidden="true"></div>
         <div id="whimsy-year-cards"></div>
         <div id="whimsy-year-status" aria-live="polite" class="whimsy-visually-hidden"></div>
-        <div id="whimsy-year-dots"></div>
         <div id="whimsy-year-nav">
-          <button id="whimsy-year-prev" type="button" aria-label="Previous">‹</button>
-          <button id="whimsy-year-copy" type="button" data-l10n-id="whimsy-year-copy-card"></button>
-          <button id="whimsy-year-next" type="button" aria-label="Next">›</button>
-          <button id="whimsy-year-done" type="button" data-l10n-id="whimsy-year-done"></button>
+          <button id="whimsy-year-prev" type="button" data-l10n-id="whimsy-year-prev">‹</button>
+          <button id="whimsy-year-auto" type="button" aria-pressed="false" data-l10n-id="whimsy-year-auto"></button>
+          <p id="whimsy-year-hint" data-l10n-id="whimsy-year-tap-hint"></p>
+          <button id="whimsy-year-next" type="button" data-l10n-id="whimsy-year-next">›</button>
         </div>
       </div>
     </div>
