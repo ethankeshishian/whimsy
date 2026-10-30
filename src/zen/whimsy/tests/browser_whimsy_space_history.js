@@ -243,6 +243,18 @@ add_task(async function library_preserves_native_history_and_actions() {
     await section.updateComplete;
     is(section.querySelectorAll(".zen-library-row").length, 1, "Space filter renders one matching visit");
     ok(section.querySelector(".whimsy-history-space-name"), "A visit has its space label");
+    const row = section.querySelector(".zen-library-row");
+    const rowURL = row.querySelector(".zen-library-visit-url");
+    const rowDate = row.querySelector(".zen-library-visit-date");
+    EventUtils.synthesizeMouseAtCenter(section.querySelector('input[type="search"]'), { type: "mousemove" });
+    await TestUtils.waitForCondition(() => !row.matches(":hover"), "Pointer is outside the row");
+    is(getComputedStyle(rowDate).display, "none", "The date does not run into the URL");
+    isnot(getComputedStyle(rowURL).display, "none", "The URL is visible at rest");
+    EventUtils.synthesizeMouseAtCenter(row, { type: "mousemove" });
+    await TestUtils.waitForCondition(() => row.matches(":hover"), "Hovering the history row");
+    is(getComputedStyle(rowURL).display, "none", "Hover replaces the URL");
+    is(getComputedStyle(rowDate).display, "inline", "with the visit date, matching Zen");
+    EventUtils.synthesizeMouseAtCenter(section.querySelector('input[type="search"]'), { type: "mousemove" });
     ok(section.querySelector('[data-l10n-id="library-history-forget-button"]'),
       "Native Forget action is preserved");
 
