@@ -202,3 +202,28 @@ add_task(async function settings_feature_off() {
   });
   Services.prefs.clearUserPref(FEATURE);
 });
+
+// Essentials per profile are Zen's own container-specific essentials
+// (zen.workspaces.separate-essentials, on by default): a space shows its
+// profile's strip only.
+add_task(async function essentials_follow_the_space_profile() {
+  ok(Services.prefs.getBoolPref("zen.workspaces.separate-essentials"), "Zen's per-container essentials are on");
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const work = makeProfile("Whimsy Essentials Work");
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Essentials Work", undefined, true, work);
+  const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true, userContextId: work });
+  try {
+    gZenPinnedTabManager.addToEssentials(tab);
+    is(tab.parentNode.getAttribute("container"), String(work), "The essential lives in Work's strip");
+    await gZenWorkspaces.changeWorkspace(space);
+    ok(!gZenWorkspaces.getEssentialsSection(work).hasAttribute("hidden"), "Work's strip shows in a Work space");
+    await gZenWorkspaces.changeWorkspace(home);
+    ok(gZenWorkspaces.getEssentialsSection(work).hasAttribute("hidden"), "…and not in a Default space");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    if (gZenWorkspaces.activeWorkspace != home.uuid) {
+      await gZenWorkspaces.changeWorkspace(home);
+    }
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+  }
+});
