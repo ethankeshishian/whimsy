@@ -1075,11 +1075,13 @@ Object.assign(gWhimsySettings, {
       }
     }
     template.remove();
+    // Firefox's own Tabs settings already register
+    // browser.tabs.hoverPreview.enabled; adding a pref twice throws.
     Preferences.addAll(
-      [...group.querySelectorAll("[preference]")].map(el => ({
-        id: el.getAttribute("preference"),
-        type: "bool",
-      }))
+      [...group.querySelectorAll("[preference]")]
+        .map(el => el.getAttribute("preference"))
+        .filter(id => !Preferences.get(id))
+        .map(id => ({ id, type: "bool" }))
     );
     const anchor =
       document.getElementById("whimsyTabsGroup") ?? document.getElementById("zenWorkspacesGroup");
