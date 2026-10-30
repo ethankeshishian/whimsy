@@ -397,9 +397,6 @@ support-files = ["whimsy_redact.html"]
 # wave5/look: a look per space (switch applies/restores, inheritance, reset, mods, switch off, editor).
 ["browser_whimsy_space_look.js"]
 
-# wave5: Easel (create, draw, move/resize, undo, persist, captures, export, switch).
-["browser_whimsy_easel.js"]
-
 # wave5: command registry (command bar, about:keyboard "Whimsy" group, rebinding, conflicts, defaults).
 ["browser_whimsy_command_registry.js"]
 

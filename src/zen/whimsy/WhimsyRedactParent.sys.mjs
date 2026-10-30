@@ -195,7 +195,7 @@ export const WhimsyRedact = {
       button.id = "whimsy-redact";
       button.className = "screenshot-button footer-button";
       doc.l10n.setAttributes(button, "whimsy-redact-button");
-      button.addEventListener("click", () => this.toggle(el.documentGlobal));
+      button.addEventListener("click", () => this.toggle(el.ownerGlobal));
       wrap.append(button);
       // First, so Visible and Full Page keep their places.
       root.querySelector("moz-button-group").before(link, wrap);

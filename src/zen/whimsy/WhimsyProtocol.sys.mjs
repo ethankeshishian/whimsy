@@ -47,8 +47,6 @@ const ROUTES = {
   changelog: { url: "about:whimsy?tab=changelog" },
   // wave5/safety: Claude runs (agent replay).
   replay: { url: "about:whimsy?replay" },
-  // wave5: whimsy://easel makes a new easel (pinned, like Arc).
-  easel: { command: "cmd_whimsyNewEasel", fallbackUrl: "about:whimsy?easel" },
 };
 
 const PATTERN = /^whimsy:\/\/([a-z-]+)\/?$/i;
