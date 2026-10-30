@@ -273,6 +273,9 @@
 - name: whimsy.feature.live-folders-linear
   value: true
 
+- name: whimsy.feature.next-meeting
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

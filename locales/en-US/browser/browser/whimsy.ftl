@@ -739,3 +739,45 @@ whimsy-devmode-console =
     .label = Console
 whimsy-devmode-network =
     .label = Network
+
+## meeting: Next meeting in the sidebar
+
+whimsy-library-meetings-title = Meetings
+whimsy-library-meetings-search-placeholder =
+    .placeholder = Search meetings…
+whimsy-library-meetings-empty = No more meetings in the next 24 hours
+whimsy-library-meetings-connect = Connect a calendar to see your next meeting here, with a button to join it.
+whimsy-meeting-now = Now
+whimsy-meeting-join = Join
+whimsy-meeting-card =
+    .aria-label = Next meeting
+whimsy-meeting-card-dismiss =
+    .title = Hide until the next meeting
+    .aria-label = Hide until the next meeting
+whimsy-meeting-calendars = Calendars
+whimsy-meeting-apple-title = Apple Calendar
+whimsy-meeting-apple-connect = Connect
+whimsy-meeting-apple-allow = Allow access
+whimsy-meeting-apple-open-settings = Open System Settings
+whimsy-meeting-apple-denied = { -brand-short-name } can’t read your calendars. Turn it on in System Settings → Privacy & Security → Calendars.
+whimsy-meeting-apple-unsupported = This copy of { -brand-short-name } can’t ask for calendar access. Install the latest build.
+whimsy-meeting-source-remove =
+    .tooltiptext = Remove calendar
+    .aria-label = Remove calendar
+whimsy-meeting-google-title = Google Calendar
+whimsy-meeting-google-error = Couldn’t load this calendar. Check its address.
+whimsy-meeting-google-add = Add Google Calendar
+whimsy-meeting-google-placeholder =
+    .placeholder = Paste the secret address in iCal format
+whimsy-meeting-google-help = Where do I find it?
+whimsy-meeting-google-add-confirm = Add
+whimsy-meeting-google-invalid = Paste the secret address. It starts with https://
+
+whimsy-meeting-header = Next meeting
+whimsy-meeting-description = Your next meeting in the sidebar, with a button to join its Meet, Zoom or Teams call. Add Google Calendar accounts in Library → Meetings.
+whimsy-meeting-enable =
+    .label = Show the Meetings tab in the Library
+whimsy-meeting-apple-enable =
+    .label = Read Apple Calendar (every account in macOS Calendar)
+whimsy-meeting-card-enable =
+    .label = Show a card at the top of the sidebar 15 minutes before a meeting

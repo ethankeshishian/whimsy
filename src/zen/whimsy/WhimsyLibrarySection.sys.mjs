@@ -22,6 +22,8 @@ ChromeUtils.defineESModuleGetters(
     WhimsyNotesSection: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
     WhimsyFinderFoldersSection: "resource:///modules/whimsy/WhimsyFinderFoldersSection.sys.mjs",
     WhimsyFilesSection: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
+    // meeting: Next meeting
+    WhimsyNextMeetingSection: "resource:///modules/whimsy/WhimsyNextMeetingSection.sys.mjs",
   },
   { global: "current" }
 );
@@ -32,6 +34,8 @@ const SECTIONS = [
   { sectionId: "whimsy-notes", feature: "notes", get Section() { return lazy.WhimsyNotesSection; } },
   { sectionId: "whimsy-finder-folders", feature: "finder-folders", get Section() { return lazy.WhimsyFinderFoldersSection; } },
   { sectionId: "whimsy-files", feature: "screenshot-sidebar", get Section() { return lazy.WhimsyFilesSection; } },
+  // meeting: Next meeting
+  { sectionId: "whimsy-next-meeting", feature: "next-meeting", get Section() { return lazy.WhimsyNextMeetingSection; } },
 ];
 
 export const WhimsyLibrarySection = {

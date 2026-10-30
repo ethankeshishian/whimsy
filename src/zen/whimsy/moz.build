@@ -84,3 +84,14 @@ EXTRA_JS_MODULES.whimsy += [
 BROWSER_CHROME_MANIFESTS += [
     "tests/browser.toml",
 ]
+
+# meeting: Next meeting in the sidebar (Library section, sidebar card,
+# Apple Calendar through the native reader in calendar/, Google Calendar
+# through each account's secret iCal address).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyNextMeeting.sys.mjs",
+    "WhimsyNextMeetingSection.sys.mjs",
+]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
+    DIRS += ["calendar"]

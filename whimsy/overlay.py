@@ -300,6 +300,9 @@ FEATURES = [
     # linear: Linear live folder ("My Issues": assigned to you, open states).
     {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
      "detect": [("src/zen/live-folders", r"(?i)linear")]},
+    # meeting: Next meeting in the sidebar.
+    {"id": "next-meeting", "title": "Next meeting in the sidebar: Apple Calendar and Google Calendar accounts, a Join button for Meet/Zoom/Teams, and a card 15 min before",
+     "detect": [("src/zen", r"(?i)EKEventStore|next-?meeting|meeting-?chip")]},
 ]
 
 

@@ -208,3 +208,7 @@ support-files = ["whimsy_upload.html"]
 # linear: Linear live folder ("My Issues": assigned to you, open states).
 ["browser_whimsy_live_folders_linear.js"]
 support-files = ["whimsy_linear.sjs"]
+
+# meeting: Next meeting in the sidebar.
+["browser_whimsy_next_meeting.js"]
+support-files = ["whimsy_calendar.sjs"]

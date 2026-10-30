@@ -62,6 +62,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
   WhimsyProtocol: "resource:///modules/whimsy/WhimsyProtocol.sys.mjs",
   WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
+  // meeting: Next meeting in the sidebar
+  WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -314,6 +316,10 @@ export const Whimsy = {
         },
       ]);
     });
+    // meeting: Next meeting in the sidebar. Always installed: the service
+    // checks its switch on each refresh, and never asks for calendar
+    // access here (only when the person turns Apple Calendar on).
+    run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
   },
 
   // Interface zoom: scales the toolbars, sidebar, menus and panels, never web
