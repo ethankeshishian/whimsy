@@ -847,6 +847,10 @@ FEATURES = [
     # and title on every tab with sound (muted included), one click mutes.
     {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
      "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
+    # wave7/ux: link cards. One hover host for page links: the People card
+    # or a link card, and the AI summary stacked beneath when that's on.
+    {"id": "link-cards", "title": "Link cards: Shift over a link (or rest on a result link) shows where it goes, with the AI summary beneath",
+     "detect": [("src/zen", r"(?i)zen-?link-?(hover-?)?card|zenLinkPreview")]},
 ]
 
 

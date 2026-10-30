@@ -1997,3 +1997,10 @@ whimsy-tab-audio-unmute = Unmute tab
 whimsy-fire-everything-confirm-title = Forget all browsing data?
 whimsy-fire-everything-confirm-body = This clears history, cookies, cache and site data for every site, and closes every unpinned tab. You can’t undo it.
 whimsy-fire-everything-confirm-accept = Forget Everything
+
+## wave7/ux: link hover cards (WhimsyLinkHover)
+
+whimsy-hover-links =
+    .label = Show where a link goes when you Shift-hover it
+# Above the AI summary card, under the link or People card.
+whimsy-link-hover-ai-label = Summary

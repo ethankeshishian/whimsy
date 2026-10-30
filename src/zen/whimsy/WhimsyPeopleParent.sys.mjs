@@ -7,13 +7,10 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyHoverCard: "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs",
+  WhimsyLinkHover: "resource:///modules/whimsy/WhimsyLinkHover.sys.mjs",
   WhimsyPeople: "resource:///modules/whimsy/WhimsyPeople.sys.mjs",
 });
 
-const FEATURE_PREF = "whimsy.feature.people-cards";
-const CARD_WIDTH = 320;
-const CARD_HEIGHT = 200;
 
 export class WhimsyPeopleParent extends JSWindowActorParent {
   get #browser() {
@@ -26,9 +23,12 @@ export class WhimsyPeopleParent extends JSWindowActorParent {
     if (!win?.gBrowser || win.gBrowser.selectedBrowser != browser) {
       return;
     }
-    const card = lazy.WhimsyHoverCard.forWindow(win);
+    // wave7/ux: People cards are the first card of the link hover host
+    // (WhimsyLinkHover), which owns the delay, the lookup and placement, and
+    // stacks the AI summary beneath when that's on.
+    const host = lazy.WhimsyLinkHover.forWindow(win);
     if (name == "Whimsy:PersonLeave") {
-      card.leave(browser);
+      host.leave(browser);
       return;
     }
     const { originAttributes } = this.manager.documentPrincipal;
@@ -36,28 +36,16 @@ export class WhimsyPeopleParent extends JSWindowActorParent {
     if (!url || originAttributes.privateBrowsingId || !lazy.WhimsyPeople.enabled) {
       return;
     }
-    // Only the container matters for which session is used; the page's
-    // own first-party/partition keys belong to the page, not the profile.
-    const attributes = {
-      userContextId: originAttributes.userContextId || 0,
-      privateBrowsingId: 0,
-    };
-    const screen = {
-      x: Math.max(win.screenX, Math.min(Number(data.x) || 0, win.screenX + win.outerWidth - CARD_WIDTH)),
-      y: Math.max(win.screenY, Math.min((Number(data.y) || 0) + 16, win.screenY + win.outerHeight - CARD_HEIGHT)),
-    };
-    card.schedule(
+    const point = { x: Number(data.x) || 0, y: Number(data.y) || 0 };
+    const rect = data.rect ?? { x: point.x - 1, y: point.y - 8, width: 2, height: 16 };
+    host.enter({
+      source: "people",
       browser,
-      async () => {
-        const found = await lazy.WhimsyPeople.lookup(win, url, attributes);
-        return {
-          ...(found ?? lazy.WhimsyPeople.fallback(url)),
-          avatar: true,
-          screen,
-        };
-      },
-      FEATURE_PREF
-    );
+      url: data.url,
+      how: "hover",
+      ...rect,
+      userContextId: originAttributes.userContextId || 0,
+    });
   }
 
   didDestroy() {
@@ -68,7 +56,7 @@ export class WhimsyPeopleParent extends JSWindowActorParent {
       return; // The browsing context is already gone.
     }
     if (browser?.documentGlobal?.gBrowser) {
-      lazy.WhimsyHoverCard.forWindow(browser.documentGlobal).leave(browser);
+      lazy.WhimsyLinkHover.forWindow(browser.documentGlobal).leave(browser);
     }
   }
 }

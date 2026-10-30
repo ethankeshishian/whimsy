@@ -420,3 +420,6 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 # wave7/ux: private page copy
 ["browser_whimsy_private_page_copy.js"]
+
+# wave7/ux: one hover host for links (People or link card, AI summary beneath)
+["browser_whimsy_link_hover.js"]

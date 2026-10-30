@@ -4,8 +4,8 @@
 // batch hover: People cards. No real network: fetchProfile is stubbed.
 
 const { WhimsyPeople } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPeople.sys.mjs");
-const { WhimsyHoverCard } = ChromeUtils.importESModule(
-  "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs"
+const { WhimsyLinkHover } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsyLinkHover.sys.mjs"
 );
 
 add_task(async function profile_links_only() {
@@ -97,7 +97,9 @@ add_task(async function hover_in_page_shows_card() {
     ++fetches;
     return { title: "The Octocat", url, description: "GitHub mascot", image: null };
   };
-  const card = WhimsyHoverCard.forWindow(window);
+  // wave7/ux: People cards are card 1 of the link hover host.
+  const host = WhimsyLinkHover.forWindow(window);
+  const panel = () => document.getElementById(WhimsyLinkHover.PANEL_ID);
   try {
     // The actor matches web pages only (not data:), so use the test server.
     await BrowserTestUtils.withNewTab(
@@ -113,18 +115,21 @@ add_task(async function hover_in_page_shows_card() {
         for (const id of ["o", "r"]) {
           await BrowserTestUtils.synthesizeMouseAtCenter(`#${id}`, { type: "mousemove" }, browser);
         }
-        await new Promise(resolve => setTimeout(resolve, WhimsyHoverCard.ENTER_DELAY_MS + 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
-        ok(!card.panel || card.panel.state == "closed", "Non-profile links: no card");
+        await new Promise(resolve => setTimeout(resolve, WhimsyLinkHover.ENTER_DELAY_MS + 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+        ok(!panel() || panel().state == "closed", "Non-profile links: no card");
         is(fetches, 0, "Non-profile links: no request");
 
         await BrowserTestUtils.synthesizeMouseAtCenter("#p", { type: "mousemove" }, browser);
-        await TestUtils.waitForCondition(() => card.panel?.state == "open", "Profile link: card opens");
-        is(card.panel.querySelector(".whimsy-hover-title").textContent, "The Octocat", "Card shows the name");
+        await TestUtils.waitForCondition(() => panel()?.state == "open", "Profile link: card opens");
+        await TestUtils.waitForCondition(
+          () => panel().querySelector('[data-card="people"] .whimsy-hover-title')?.textContent == "The Octocat",
+          "Card shows the name"
+        );
         is(fetches, 1, "One request for one deliberate hover");
       }
     );
   } finally {
-    card.hide();
+    host.hide({ animate: false });
     WhimsyPeople.fetchProfile = original;
     WhimsyPeople._resetForTests();
     await SpecialPowers.popPrefEnv();

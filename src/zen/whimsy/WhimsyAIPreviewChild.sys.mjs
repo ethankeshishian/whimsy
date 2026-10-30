@@ -9,17 +9,22 @@
 
 const PREF = "whimsy.feature.link-previews";
 const BLOCKED_PREF = "whimsy.ai.blocked";
-const HOVER_DELAY_MS = 500;
+// wave7/ux: the link card (where a link goes) shows on the same triggers,
+// with or without AI. The parent's hover host waits its one delay, so this
+// side reports a hover right away.
+const LINK_CARDS_PREF = "whimsy.feature.link-cards";
 // Arc: "Google, DuckDuckGo, Bing, X, Threads and Hacker News".
 const HOVER_SITES =
   /(^|\.)(google\.[a-z.]+|duckduckgo\.com|bing\.com|x\.com|twitter\.com|threads\.net|threads\.com|news\.ycombinator\.com)$/i;
 
 export class WhimsyAIPreviewChild extends JSWindowActorChild {
   link = null;
-  timer = null;
 
   get enabled() {
-    return Services.prefs.getBoolPref(PREF, true) && !Services.prefs.getBoolPref(BLOCKED_PREF, false);
+    return (
+      Services.prefs.getBoolPref(LINK_CARDS_PREF, true) ||
+      (Services.prefs.getBoolPref(PREF, true) && !Services.prefs.getBoolPref(BLOCKED_PREF, false))
+    );
   }
 
   handleEvent(event) {
@@ -58,7 +63,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     if (event.shiftKey) {
       this.show("shift");
     } else if (this.isHoverSite() && this.isOutbound(link)) {
-      this.timer = this.contentWindow.setTimeout(() => this.show("hover"), HOVER_DELAY_MS);
+      this.show("hover");
     }
   }
 
@@ -87,12 +92,12 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     if (!link?.isConnected || !win) {
       return;
     }
-    win.clearTimeout(this.timer);
     const rect = link.getBoundingClientRect();
     this.shown = true;
     this.sendAsyncMessage("WhimsyAIPreview:Show", {
       url: link.href,
       how,
+      title: (link.title || link.textContent || "").replace(/\s+/g, " ").trim().slice(0, 200),
       x: win.mozInnerScreenX + rect.left,
       y: win.mozInnerScreenY + rect.top,
       width: rect.width,
@@ -103,7 +108,6 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
   leave() {
     const link = this.link;
     this.link = null;
-    this.contentWindow?.clearTimeout(this.timer);
     if (link && this.shown) {
       this.shown = false;
       this.sendAsyncMessage("WhimsyAIPreview:Leave", { url: link.href });

@@ -1249,18 +1249,33 @@ add_task(async function ai_preview_and_watch() {
   const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   try {
-    const panel = WhimsyAIPage._previewPanel(window);
-    WhimsyAIPage.renderPreview(window, panel, {
-      url: "https://example.org/article",
+    // wave7/ux: the link card with the AI summary stacked beneath it.
+    const { WhimsyLinkHover } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHover.sys.mjs");
+    const { previewMode, summarize } = WhimsyAIPage;
+    WhimsyAIPage.previewMode = async () => "ready";
+    WhimsyAIPage.summarize = async () => ({
       title: "How espresso machines work",
       points: ["Pumps push water at 9 bars", "Boilers hold it near 93 °C", "Grind size sets the flow"],
     });
-    const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
-    panel.openPopupAtScreen(window.screenX + 300, window.screenY + 200, false);
-    await shown;
-    await document.l10n.translateFragment(panel);
-    await shot("wave3-ai-preview-card");
-    panel.hidePopup();
+    const host = WhimsyLinkHover.forWindow(window);
+    try {
+      host.enter({
+        source: "link", browser: gBrowser.selectedBrowser, how: "shift",
+        url: "https://example.org/article", title: "How espresso machines work",
+        x: window.mozInnerScreenX + 300, y: window.mozInnerScreenY + 200, width: 160, height: 18,
+      });
+      const panel = await TestUtils.waitForCondition(() => {
+        const p = document.getElementById(WhimsyLinkHover.PANEL_ID);
+        return p?.hasAttribute("whimsy-open") && p.querySelector(".whimsy-preview-points") && p;
+      }, "Both cards are open");
+      await document.l10n.translateFragment(panel);
+      await settled();
+      await shot("wave3-ai-preview-card");
+    } finally {
+      host.hide({ animate: false });
+      WhimsyAIPage.previewMode = previewMode;
+      WhimsyAIPage.summarize = summarize;
+    }
 
     WhimsyPageWatch.openDialog(window, tab);
     const dialog = document.getElementById("whimsy-watch-panel");
