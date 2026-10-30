@@ -23,6 +23,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
@@ -49,11 +50,27 @@ export const WhimsyProfileMoves = {
         principal = lazy.E10SUtils.deserializePrincipal(state.triggeringPrincipal_base64);
       } catch {}
     }
+    return this.rekey(principal, userContextId, this.isPrivate(tab));
+  },
+
+  // A private tab stays private in its new profile: it keeps its other
+  // origin attributes (privateBrowsingId) and opens as a private tab, so
+  // its page never reaches history, the session or Sync.
+  isPrivate(tab) {
+    return lazy.WhimsyPrivate.isPrivateTab(tab) || lazy.WhimsyPrivate.isPrivateBrowser(tab?.linkedBrowser);
+  },
+
+  rekey(principal, userContextId, isPrivate = false) {
+    const privateBrowsingId = isPrivate ? 1 : 0;
     if (!principal || principal.isNullPrincipal) {
-      return Services.scriptSecurityManager.createNullPrincipal({ userContextId });
+      return Services.scriptSecurityManager.createNullPrincipal({ userContextId, privateBrowsingId });
     }
     if (principal.isContentPrincipal) {
-      return Services.scriptSecurityManager.principalWithOA(principal, { userContextId });
+      return Services.scriptSecurityManager.principalWithOA(principal, {
+        ...principal.originAttributes,
+        userContextId,
+        privateBrowsingId: Math.max(privateBrowsingId, principal.originAttributes.privateBrowsingId || 0),
+      });
     }
     return principal;
   },
@@ -77,8 +94,10 @@ export const WhimsyProfileMoves = {
       return null;
     }
     const selected = gBrowser.selectedTab == tab;
+    const isPrivate = this.isPrivate(tab);
     const newTab = gBrowser.addTab(this.urlOf(tab), {
       userContextId,
+      whimsyPrivate: isPrivate,
       tabIndex: tab._tPos + 1,
       triggeringPrincipal: this.principalFor(tab, userContextId),
       skipAnimation: true,

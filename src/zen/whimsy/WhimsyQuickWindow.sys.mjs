@@ -808,22 +808,21 @@ export const WhimsyQuickWindow = {
     return space ? lazy.WhimsyProfiles.profileIdOfSpace(space) : 0;
   },
 
-  principalFor(principal, userContextId) {
-    if (!principal || principal.isNullPrincipal) {
-      return Services.scriptSecurityManager.createNullPrincipal({ userContextId });
-    }
-    return principal.isContentPrincipal ?
-      Services.scriptSecurityManager.principalWithOA(principal, { userContextId }) : principal;
+  // Keeps a private page private (WhimsyProfileMoves.rekey).
+  principalFor(principal, userContextId, isPrivate = false) {
+    return lazy.WhimsyProfileMoves.rekey(principal, userContextId, isPrivate);
   },
 
   /** Replaces Mini's page with `url` in profile `id`'s container. */
   loadInProfile(win, url, id, triggeringPrincipal = null) {
     const { gBrowser } = win;
     const old = gBrowser.selectedTab;
+    const isPrivate = lazy.WhimsyProfileMoves.isPrivate(old);
     const tab = gBrowser.addTab(url, {
       userContextId: id,
+      whimsyPrivate: isPrivate,
       triggeringPrincipal: this.principalFor(
-        triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(), id),
+        triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(), id, isPrivate),
       skipAnimation: true,
     });
     gBrowser.selectedTab = tab;
@@ -892,8 +891,13 @@ export const WhimsyQuickWindow = {
       return null;
     }
     const url = tab.linkedBrowser.currentURI?.spec || "about:blank";
-    const principal = this.principalFor(tab.linkedBrowser.contentPrincipal, profileId);
-    const added = target.gBrowser.addTab(url, { userContextId: profileId, triggeringPrincipal: principal });
+    const isPrivate = lazy.WhimsyProfileMoves.isPrivate(tab);
+    const principal = this.principalFor(tab.linkedBrowser.contentPrincipal, profileId, isPrivate);
+    const added = target.gBrowser.addTab(url, {
+      userContextId: profileId,
+      whimsyPrivate: isPrivate,
+      triggeringPrincipal: principal,
+    });
     target.gZenWorkspaces.moveTabToWorkspace(added, space.uuid);
     if (target.gZenWorkspaces.activeWorkspace != space.uuid) {
       await target.gZenWorkspaces.changeWorkspaceWithID(space.uuid);
