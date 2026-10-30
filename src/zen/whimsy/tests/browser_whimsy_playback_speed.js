@@ -87,3 +87,26 @@ add_task(async function test_command_bar() {
   is(action.label, "Speed Up Video", "labelled");
   is(action.command, "cmd_whimsySpeedUp", "runs the same command");
 });
+
+// Pressing the shortcut again while the toast is still up reuses Zen's toast;
+// it must say the new speed, not the first one (hotfix
+// "toast-reuse-updates-args" in whimsy/overlay.py).
+add_task(async function test_toast_shows_current_speed() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("video").play());
+  const { WhimsyMedia } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMedia.sys.mjs");
+  const toastLabels = () =>
+    [...document.querySelectorAll("label")].filter(l => document.l10n.getAttributes(l).id == "whimsy-speed-toast");
+
+  await WhimsyMedia.changePlaybackRate(window, { delta: 0.25 });
+  await TestUtils.waitForCondition(() => toastLabels().length == 1, "The speed toast shows");
+  await WhimsyMedia.changePlaybackRate(window, { delta: 0.25 });
+  await WhimsyMedia.changePlaybackRate(window, { delta: 0.25 });
+  const labels = toastLabels();
+  is(labels.length, 1, "One toast, reused");
+  is(document.l10n.getAttributes(labels[0]).args.rate, 1.75, "It says the current speed");
+  await TestUtils.waitForCondition(() => labels[0].textContent.includes("1.75"), "...in its text too");
+
+  await WhimsyMedia.changePlaybackRate(window, { reset: true });
+  BrowserTestUtils.removeTab(tab);
+});

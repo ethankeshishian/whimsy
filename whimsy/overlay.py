@@ -104,6 +104,17 @@ HOTFIXES = [
                "        ...(action.whimsyKeywords ?? []).map(k => this.#calculateFuzzyScore(k, query) - 1)\n"
                "      ); // Whimsy hotfix: related actions",
     },
+    # fixA: reused toast keeps stale args
+    {
+        "id": "toast-reuse-updates-args",
+        "file": "src/zen/common/modules/ZenToasts.mjs",
+        "why": "A toast shown again while still visible is reused with its "
+               "first Fluent args, so Cmd+Opt+. pressed twice said the old "
+               "playback speed (and copy toasts the old count).",
+        "old": '      child.removeAttribute("button");\n',
+        "new": '      child.removeAttribute("button");\n'
+               '      document.l10n.setAttributes(child.querySelector("label"), messageId, options.l10nArgs); // Whimsy hotfix\n',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
