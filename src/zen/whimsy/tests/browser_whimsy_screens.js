@@ -504,3 +504,23 @@ add_task(async function whimsy_home_and_changelog() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave3/cmdbar: recent tabs when the command bar opens empty.
+add_task(async function command_bar_recent_tabs() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?recent-screenshot");
+  const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  try {
+    gURLBar.value = "";
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: "" });
+    await TestUtils.waitForCondition(
+      () => UrlbarTestUtils.getResultCount(window) && UrlbarTestUtils.getRowAt(window, 0).result.providerName == "WhimsyRecentTabs"
+    );
+    await document.l10n.translateFragment(gURLBar.view.panel);
+    await shot("command-recent-tabs");
+  } finally {
+    await UrlbarTestUtils.promisePopupClose(window);
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(anchor);
+  }
+});

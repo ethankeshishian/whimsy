@@ -923,3 +923,9 @@ whimsy-library-footer-feedback-button =
 whimsy-home-enabled =
     .label = Use the Whimsy homepage
 whimsy-changelog-unreleased = Unreleased
+
+# wave3/cmdbar: recent tabs in the empty command bar (Arc).
+whimsy-command-recent-tabs = Recent Tabs
+whimsy-command-switch-tab = Switch to Tab
+whimsy-command-recent-tabs-toggle =
+    .label = Show recent tabs when the command bar opens empty

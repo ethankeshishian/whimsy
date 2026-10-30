@@ -75,6 +75,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
 });
 
+// wave3/cmdbar: recent tabs in the empty command bar.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyRecentTabs: "resource:///modules/whimsy/WhimsyRecentTabs.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -389,6 +394,9 @@ export const Whimsy = {
     // checks its switch on each refresh, and never asks for calendar
     // access here (only when the person turns Apple Calendar on).
     run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
+    // wave3/cmdbar: recent tabs in the empty command bar. Registered once
+    // even when off; the provider checks its switch on every query.
+    run("command-bar-recent-tabs", () => lazy.WhimsyRecentTabs.init());
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

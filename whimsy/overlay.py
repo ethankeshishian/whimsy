@@ -358,6 +358,9 @@ FEATURES = [
     # home: homepage + changelog.
     {"id": "home", "title": "Whimsy's homepage (about:whimsy) with a Changelog tab, replacing Zen's about:home",
      "detect": [("src/zen", r"(?i)about:whimsy")]},
+    # wave3/cmdbar: recent tabs in the empty command bar (Arc).
+    {"id": "command-bar-recent-tabs", "title": "Recent tabs when the command bar opens empty, like Arc",
+     "detect": [("src/zen/urlbar", r"(?i)recent-?tabs|tabsByLastAccessed")]},
 ]
 
 

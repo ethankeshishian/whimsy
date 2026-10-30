@@ -48,6 +48,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPrivate.sys.mjs",
     "WhimsyProtocol.sys.mjs",
     "WhimsyQuickWindow.sys.mjs",
+    "WhimsyRecentTabs.sys.mjs",
     "WhimsySeasons.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySidebarNav.sys.mjs",
