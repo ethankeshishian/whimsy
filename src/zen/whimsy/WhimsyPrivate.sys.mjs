@@ -161,6 +161,22 @@ export const WhimsyPrivate = {
     win.requestAnimationFrame(calm);
     // Firefox selects the bar during startup, possibly after this runs.
     win.delayedStartupPromise?.then(() => win.setTimeout(calm, 0)).catch(() => {});
+    // The private page may commit after all of that (the first tab starts
+    // on about:blank): calm once more when it arrives.
+    const { gBrowser } = win;
+    if (gBrowser?.selectedBrowser?.currentURI?.spec != PRIVATE_NEW_TAB_URL) {
+      const listener = {
+        onLocationChange(webProgress, request, location) {
+          if (webProgress?.isTopLevel && location?.spec == PRIVATE_NEW_TAB_URL) {
+            gBrowser.removeProgressListener(listener);
+            calm();
+          }
+        },
+      };
+      gBrowser.addProgressListener(listener);
+      // Only the window's opening counts.
+      win.setTimeout(() => gBrowser.removeProgressListener(listener), 10000);
+    }
   },
 
   // Once per session: wrappers on shared modules.
