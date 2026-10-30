@@ -975,7 +975,6 @@ whimsy-home-title = Whimsy
 whimsy-home-brand = Whimsy
 whimsy-home-tab-home = Home
 whimsy-home-tab-changelog = Changelog
-whimsy-home-hero-eyebrow = Lighter than air
 # The <em> part gets the balloon's gradient.
 whimsy-home-hero-title = A browser with <em>a little lift</em>.
 whimsy-home-blurb = Arc's flow, built on Zen and Firefox. Spaces, splits and the shortcuts your hands already know.
