@@ -66,7 +66,7 @@ const ICONS = {
 };
 
 // Zen's live folder kinds (its own menu's ids, which its command handler
-// reads), then Whimsy's.
+// reads), then Whimsy's: used only if Zen's menu isn't there.
 const LIVE_FOLDER_KINDS = [
   { l10nId: "zen-live-folder-github-pull-requests", image: "chrome://browser/skin/zen-icons/selectable/logo-github.svg" },
   { l10nId: "zen-live-folder-github-issues", image: "chrome://browser/skin/zen-icons/selectable/logo-github.svg" },
@@ -229,15 +229,36 @@ export const WhimsyAccessCommands = {
     return !!win.document.getElementById("cmd_zenNewLiveFolder") && !!win.gZenFolders;
   },
 
-  // Each item is a menuitem running Zen's cmd_zenNewLiveFolder, labelled
-  // with the id Zen's (and Whimsy's) handler reads.
+  // The kinds in the sidebar's New Live Folder menu, as menuitems running
+  // Zen's cmd_zenNewLiveFolder, named by the l10n id its handler (and
+  // Whimsy's) reads. Taken from that menu after its popupshowing listeners
+  // add Whimsy's kinds, so a kind added there shows here too; the fixed
+  // list is the fallback.
+  liveFolderKinds(win) {
+    const menu = win.document.querySelector("#zen-panel-ui-live-folder-create > menupopup");
+    if (menu) {
+      try {
+        menu.dispatchEvent(new win.Event("popupshowing", { bubbles: true }));
+      } catch (e) {
+        console.error("Whimsy: live folder kinds", e);
+      }
+      const kinds = [...menu.querySelectorAll(":scope > menuitem[command='cmd_zenNewLiveFolder']")]
+        .filter(item => !item.hidden && item.getAttribute("data-l10n-id"))
+        .map(item => ({ l10nId: item.getAttribute("data-l10n-id"), image: item.getAttribute("image") }));
+      if (kinds.length) {
+        return kinds;
+      }
+    }
+    return LIVE_FOLDER_KINDS.filter(kind => kind.isAvailable?.() ?? true);
+  },
+
   newLiveFolder(win) {
     if (!this.liveFoldersAvailable(win)) {
       return null;
     }
     return this.showChooser(
       win,
-      LIVE_FOLDER_KINDS.filter(kind => kind.isAvailable?.() ?? true).map(kind => ({
+      this.liveFolderKinds(win).map(kind => ({
         l10nId: kind.l10nId,
         image: kind.image,
         command: "cmd_zenNewLiveFolder",
