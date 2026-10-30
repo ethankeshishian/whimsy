@@ -61,3 +61,29 @@ add_task(async function test_settings_slider() {
     Services.prefs.clearUserPref(PREF);
   });
 });
+
+// fixC: in compact mode the sidebar that slides out over the page keeps its
+// own solid (or Zen's acrylic) background, so the page doesn't show through.
+add_task(async function test_compact_mode_peek_stays_readable() {
+  const toolbar = document.getElementById("zen-toolbar-background");
+  ok(toolbar, "The floating sidebar's background exists");
+  const wasCompact = gZenCompactModeManager.preference;
+  Services.prefs.setIntPref(PREF, 40);
+  try {
+    gZenCompactModeManager.preference = true;
+    await TestUtils.waitForCondition(
+      () => document.documentElement.getAttribute("zen-compact-mode") == "true" &&
+        !document.documentElement.hasAttribute("zen-compact-animating"),
+      "Compact mode is on"
+    );
+    is(parseFloat(window.getComputedStyle(toolbar).opacity), 1, "The floating sidebar's background stays opaque");
+    await TestUtils.waitForCondition(() => Math.abs(backgroundOpacity() - 0.6) < 0.01, "The window's background still fades");
+  } finally {
+    gZenCompactModeManager.preference = wasCompact;
+    await TestUtils.waitForCondition(
+      () => !document.documentElement.hasAttribute("zen-compact-animating"),
+      "Compact mode settled"
+    );
+    Services.prefs.clearUserPref(PREF);
+  }
+});

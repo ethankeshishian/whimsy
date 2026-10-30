@@ -598,3 +598,25 @@ add_task(async function scratch_keep() {
     }
   }
 });
+
+// fixC: compact mode with transparency on, the sidebar peeking out over a
+// page: it must stay readable (the page doesn't show through).
+add_task(async function compact_peek_with_transparency() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const wasCompact = gZenCompactModeManager.preference;
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.look.transparency", 50]] });
+  const toolbox = document.getElementById("navigator-toolbox");
+  try {
+    gZenCompactModeManager.preference = true;
+    await TestUtils.waitForCondition(() => !document.documentElement.hasAttribute("zen-compact-animating"));
+    toolbox.setAttribute("zen-user-show", "true");
+    await new Promise(resolve => setTimeout(resolve, 700)); // the slide-out
+    await shot("fixC-compact-peek-transparency");
+  } finally {
+    toolbox.removeAttribute("zen-user-show");
+    gZenCompactModeManager.preference = wasCompact;
+    await TestUtils.waitForCondition(() => !document.documentElement.hasAttribute("zen-compact-animating"));
+    await SpecialPowers.popPrefEnv();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
