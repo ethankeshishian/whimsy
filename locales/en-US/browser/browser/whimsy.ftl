@@ -1610,7 +1610,6 @@ whimsy-quick-window-copy-link =
     .aria-label = Copy URL
 
 whimsy-quick-window-profile = ☺ Default
-whimsy-history-unknown-space = Unknown space
 
 ## wave5: seasonal Balloon Dash (the seed hazard wears the season's costume)
 

@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
+  WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
 });
 
 export class WhimsyStartup {
@@ -36,5 +37,13 @@ export class WhimsyStartup {
     // System pass: the old Archive Library section's saved state moves to
     // History's Closed filter before any window builds its Library.
     lazy.WhimsyLibrarySection.migratePrefs();
+    // wave7/folders: Jira, Linear and Local Servers live folders register
+    // before the first window's delayed startup runs Zen's live-folder
+    // restore, so they come back after a restart.
+    try {
+      lazy.WhimsyLiveFolders.installManagerHooks();
+    } catch (e) {
+      console.error("Whimsy: live folders startup hook", e);
+    }
   }
 }

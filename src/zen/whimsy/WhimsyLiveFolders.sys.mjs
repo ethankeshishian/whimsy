@@ -7,8 +7,8 @@
 // public Map built for exactly this -- a provider class keyed by its
 // `static type` -- so a new provider is registered into it, never patched
 // into Zen's own `providers` array. `ZenLiveFoldersManager.init()` is
-// wrapped (public method, never edited) to add Jira to the registry right
-// before Zen restores saved folders; this re-runs every init()/uninit()
+// wrapped (public method, never edited) to add Jira to the registry next to
+// Zen's own two (before its restore; see wave7/folders); this re-runs every init()/uninit()
 // cycle (e.g. closing the last window), so the entry survives that.
 //
 // The "+" toolbar menu's "Create a live folder" list (built once by Zen's
@@ -53,8 +53,25 @@
 // only while the folder is visible). See WhimsyLocalServersLiveFolder.sys.mjs,
 // including why Bonjour/LAN discovery is deferred. Registered *before*
 // Zen's init() runs its #restoreState(), so saved folders of this type come
-// back after a restart (as Jira and Linear now are too).
+// back after a restart (registering after, as Jira/Linear do, misses that).
+//
+// wave7/folders: restarts lost Jira, Linear and Local Servers folders. The
+// init() wrap above was only installed from Whimsy.initWindow, which runs
+// after SessionStore.promiseAllWindowsRestored -- long after the first
+// window's browser-window-delayed-startup has already run Zen's init() and
+// its #restoreState(). Zen skips a saved entry whose type isn't in the
+// registry, and its next saveState() writes only what it knows, so the
+// folder fell back to a plain folder for good. Two fixes:
+//  1. WhimsyStartup installs the wrap at profile-after-change (before any
+//     window), and the wrap registers every Whimsy provider *before* Zen's
+//     init(), so #restoreState() finds them.
+//  2. A saved entry whose provider still isn't registered (its feature is
+//     switched off, or a provider registers late) is held as an inert
+//     placeholder in the manager's liveFolders -- never fetching, saved back
+//     exactly as read -- and swapped for the real provider as soon as that
+//     type registers (registerProviders, a feature switch turning on).
 
+import { nsZenLiveFolderProvider } from "resource:///modules/zen/ZenLiveFolder.sys.mjs";
 import { WhimsyJiraLiveFolderProvider, DEFAULT_JQL } from "resource:///modules/whimsy/WhimsyJiraLiveFolder.sys.mjs";
 import { WhimsyLinearLiveFolderProvider } from "resource:///modules/whimsy/WhimsyLinearLiveFolder.sys.mjs";
 import {
@@ -73,6 +90,39 @@ const PUSH_FEATURE_PREF = "whimsy.feature.live-folders-push";
 const RSS_AUTODISCOVER_PREF = "whimsy.feature.live-folders-rss-autodiscover";
 const PUSH_INTERVAL_MS = 60 * 1000;
 const LOCAL_SERVERS_FEATURE_PREF = "whimsy.feature.live-folders-local-servers";
+// wave7/folders: Zen's live-folder store (ZenLiveFoldersManager#saveFilename).
+const STORE_FILENAME = "zen-live-folders.jsonlz4";
+const DEFAULT_FETCH_INTERVAL = 30 * 60 * 1000;
+const PROVIDER_PREFS = [JIRA_FEATURE_PREF, LINEAR_FEATURE_PREF, LOCAL_SERVERS_FEATURE_PREF];
+
+// wave7/folders: an inert stand-in for a saved live folder whose provider
+// isn't registered (yet). Keeps the folder's saved type and state so Zen's
+// saveState() writes it back unchanged; never fetches, so the folder's tabs
+// are left exactly as session restore brought them back.
+function makePendingLiveFolder(entry, manager) {
+  const Pending = class extends nsZenLiveFolderProvider {
+    static type = entry.type;
+    get whimsyPending() {
+      return true;
+    }
+    start() {}
+    stop() {}
+    async refresh() {
+      return null;
+    }
+    fetchItems() {
+      return null;
+    }
+    onOptionTrigger() {}
+    onActionButtonClick() {}
+    serialize() {
+      return { state: this.state };
+    }
+  };
+  const pending = new Pending({ id: entry.id, manager, state: entry.data?.state || {} });
+  pending.tabsState = entry.tabsState || [];
+  return pending;
+}
 
 export const WhimsyLiveFolders = {
   get jiraEnabled() {
@@ -105,7 +155,13 @@ export const WhimsyLiveFolders = {
       const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
         "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
       );
-      this.wrapManagerInit(ZenLiveFoldersManager);
+      this.installManagerHooks();
+      // wave7/folders: a provider switched on later registers right away and
+      // picks up any folder held for it since startup.
+      this._prefObserver = () => this.registerProviders(ZenLiveFoldersManager);
+      for (const pref of PROVIDER_PREFS) {
+        Services.prefs.addObserver(pref, this._prefObserver);
+      }
     } catch (e) {
       console.error("Whimsy: live folders registry hook failed", e);
     }
@@ -417,6 +473,115 @@ export const WhimsyLiveFolders = {
     });
   },
 
+  // wave7/folders: installs the init() wrap. Called from WhimsyStartup at
+  // profile-after-change, so it is in place before the first window's
+  // browser-window-delayed-startup runs Zen's init(). If Zen's init() has
+  // already run unwrapped (Zen fills its registry synchronously as init()
+  // starts), catch up once its restore is done: hold the saved folders it
+  // skipped, then register, which re-attaches them.
+  installManagerHooks() {
+    const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+      "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+    );
+    const proto = Object.getPrototypeOf(ZenLiveFoldersManager);
+    const alreadyWrapped = proto.init?.whimsyWrapped;
+    this.wrapManagerInit(ZenLiveFoldersManager);
+    if (alreadyWrapped || !ZenLiveFoldersManager.registry.size) {
+      return;
+    }
+    const saved = this.readSavedFolders();
+    ZenLiveFoldersManager.stateRestored.promise
+      .then(async () => {
+        await this.holdUnknownSavedFolders(ZenLiveFoldersManager, await saved);
+        this.registerProviders(ZenLiveFoldersManager);
+      })
+      .catch(e => console.error("Whimsy: live folders late restore failed", e));
+  },
+
+  // Registers every enabled Whimsy provider into Zen's registry, then swaps
+  // any placeholder held for a now-registered type for the real provider.
+  registerProviders(manager) {
+    const providers = [
+      // wave5/lan:
+      [this.localServersEnabled, WhimsyLocalServersLiveFolderProvider],
+      [this.jiraEnabled, WhimsyJiraLiveFolderProvider],
+      // linear:
+      [this.linearEnabled, WhimsyLinearLiveFolderProvider],
+    ];
+    for (const [enabled, Provider] of providers) {
+      if (enabled) {
+        manager.registry.set(Provider.type, Provider);
+      }
+    }
+    this.upgradePendingFolders(manager);
+  },
+
+  // The saved store, read the same way Zen reads it (mozlz4 JSON). Null if
+  // missing or unreadable.
+  async readSavedFolders() {
+    try {
+      const data = await IOUtils.readJSON(PathUtils.join(PathUtils.profileDir, STORE_FILENAME), {
+        decompress: true,
+      });
+      return Array.isArray(data) ? data : null;
+    } catch {
+      return null;
+    }
+  },
+
+  // After Zen's restore: every saved entry Zen skipped (provider not in its
+  // registry) whose folder still exists is held as a placeholder, so the
+  // next saveState() keeps it instead of dropping it.
+  async holdUnknownSavedFolders(manager, data) {
+    const win = manager.window;
+    if (!Array.isArray(data) || !win?.gZenWorkspaces) {
+      return;
+    }
+    await win.gZenWorkspaces.promiseInitialized;
+    const folders = win.gZenWorkspaces.allTabGroups;
+    for (const entry of data) {
+      if (!entry?.id || !entry.type || manager.liveFolders.has(entry.id)) {
+        continue;
+      }
+      if (manager.registry.has(entry.type) || !folders.some(f => f.id === entry.id)) {
+        // Registered types were Zen's to restore; a missing folder is gone.
+        continue;
+      }
+      manager.liveFolders.set(entry.id, makePendingLiveFolder(entry, manager));
+      if (Array.isArray(entry.dismissedItems)) {
+        entry.dismissedItems.forEach(id => manager.dismissedItems.add(id));
+      }
+    }
+  },
+
+  // Swaps each placeholder whose type is now registered for the real
+  // provider, built the way Zen's #restoreState() builds one, and starts it.
+  upgradePendingFolders(manager) {
+    let changed = false;
+    for (const [id, liveFolder] of manager.liveFolders) {
+      if (!liveFolder.whimsyPending) {
+        continue;
+      }
+      const Provider = manager.registry.get(liveFolder.constructor.type);
+      if (!Provider) {
+        continue;
+      }
+      const state = { ...liveFolder.state };
+      state.interval ||= DEFAULT_FETCH_INTERVAL;
+      state.lastFetched ||= 0;
+      state.options ||= {};
+      const real = new Provider({ id, state, manager });
+      real.tabsState = liveFolder.tabsState || [];
+      real.state.lastErrorId = state.lastErrorId;
+      manager.liveFolders.set(id, real);
+      real.start();
+      changed = true;
+    }
+    if (changed) {
+      manager.saveState();
+    }
+  },
+
   // Patches the manager instance's own prototype (nsZenLiveFoldersManager),
   // not the singleton itself, so it keeps working across uninit()/init()
   // cycles (e.g. the last window closing, then a new one opening).
@@ -427,12 +592,19 @@ export const WhimsyLiveFolders = {
       return;
     }
     proto.init = async function (...args) {
-      // Before Zen's own init: its #restoreState() skips saved folders whose
-      // type isn't registered yet, and the next saveState() then drops them,
-      // so registering afterwards loses Jira/Linear/local-servers folders on
-      // every restart. Zen's init only adds to the registry, never clears it.
+      // wave7/folders: every Whimsy provider registers before Zen's own init
+      // so #restoreState() finds its type. Zen's init() fills its registry
+      // with set(), so these entries stay. The store is read up front, before
+      // anything Zen restores can save over it.
       WhimsyLiveFolders.registerProviders(this);
-      return original.apply(this, args);
+      const saved = WhimsyLiveFolders.readSavedFolders();
+      const result = await original.apply(this, args);
+      try {
+        await WhimsyLiveFolders.holdUnknownSavedFolders(this, await saved);
+      } catch (e) {
+        console.error("Whimsy: holding unregistered live folders failed", e);
+      }
+      return result;
     };
     proto.init.whimsyWrapped = true;
   },

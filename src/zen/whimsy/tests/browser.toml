@@ -497,3 +497,5 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/ux: the pinned/normal separator sits below expanded folder children
 ["browser_whimsy_folder_separator.js"]
+# wave7/folders: Jira/Linear/Local Servers live folders survive a restart, even when a provider registers late.
+["browser_whimsy_live_folders_restore.js"]

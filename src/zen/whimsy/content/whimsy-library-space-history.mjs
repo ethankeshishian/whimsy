@@ -159,8 +159,9 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         titleL10nId: "whimsy-history-space-filter",
         exclusive: true,
         options: [
+          // wave7/folders: no "Unknown space" choice. A visit whose space
+          // couldn't be resolved shows under All spaces, unlabeled.
           { id: "all", l10nId: "whimsy-history-all-spaces" },
-          ...(view ? [] : [{ id: "unknown", l10nId: "whimsy-history-unknown-space" }]),
           ...(this._spaceOptions || []).map(([id, label]) => ({ id, label })),
         ],
       });
@@ -256,7 +257,6 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         for (const [id] of this._spaceOptions || []) {
           this.activeFilters.delete(`space:${id}`);
         }
-        this.activeFilters.delete("space:unknown");
         this.activeFilters.add("space:all");
       }
       this._shownView = view;
@@ -380,8 +380,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
     try {
       const sort = ["date", "site", "mostvisited", "lastvisited"].find(
         id => this.isFilterActive("sort", id)) || "date";
-      const spaceId = this.isFilterActive("space", "unknown") ? "unknown" :
-        this._spaceOptions.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
+      const spaceId = this._spaceOptions.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
       const visits = await WhimsySpaceHistory.query({ spaceId,
         search: this.searchQuery, days: this.activeWhenDays ?? 120,
         sort, limit: this._spaceLimit });
