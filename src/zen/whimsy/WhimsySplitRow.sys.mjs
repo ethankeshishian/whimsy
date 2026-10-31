@@ -110,7 +110,7 @@ export const WhimsySplitRow = {
   // The split tab a right-click on the sidebar is about, or null.
   tabFromEvent(win, event) {
     const target = event.target;
-    if (!target?.closest || target.ownerGlobal != win) {
+    if (!target?.closest || target.ownerDocument?.defaultView != win) {
       return null;
     }
     let tab = target.closest(".tabbrowser-tab");

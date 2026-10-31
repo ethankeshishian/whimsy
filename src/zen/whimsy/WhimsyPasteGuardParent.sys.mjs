@@ -38,7 +38,8 @@ export class WhimsyPasteGuardParent extends JSWindowActorParent {
       return null;
     }
     const browser = this.browsingContext.top.embedderElement;
-    const win = browser?.ownerGlobal;
+    // ownerGlobal isn't defined on elements seen from a module.
+    const win = browser?.ownerDocument?.defaultView;
     if (!win || win.closed || !win.gBrowser) {
       return { paste: false };
     }

@@ -176,7 +176,9 @@ add_task(async function test_before_the_page() {
   await SimpleTest.promiseClipboardChange(AWS_KEY, () => SpecialPowers.clipboardCopyString(AWS_KEY));
   await SpecialPowers.spawn(browser, [], () => content.document.getElementById("editor").focus());
   browser.focus();
-  goDoCommand("cmd_paste");
+  // Cmd+V, as a person pastes: the parent's cached paste-command state for a
+  // contenteditable focused from script can lag, so the chrome command may no-op.
+  EventUtils.synthesizeKey("v", { accelKey: true });
   await TestUtils.waitForCondition(sheetOpen, "A self-handling editor still asks");
   is(await seen(), 0, "The page hasn't seen the paste");
   sheet().querySelector(".whimsy-sheet-footer-button.primary").doCommand();
@@ -185,7 +187,7 @@ add_task(async function test_before_the_page() {
   is(await seen(), 0, "and never does after Cancel");
   is(await editorText(), "", "nothing inserted");
 
-  goDoCommand("cmd_paste");
+  EventUtils.synthesizeKey("v", { accelKey: true });
   await TestUtils.waitForCondition(sheetOpen, "Asks again");
   sheet().querySelector(".whimsy-sheet-footer-button:not(.primary)").doCommand();
   await TestUtils.waitForCondition(async () => (await editorText()) == AWS_KEY, "Paste hands it to the page's editor");
