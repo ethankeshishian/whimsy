@@ -176,6 +176,8 @@ add_task(async function narrowing_backspace_and_wrong_letters() {
     ok(state.active, "One letter of two keeps hints open");
     ok(state.labels.every(l => l.startsWith(target[0])), "and narrows them to that letter");
     EventUtils.synthesizeKey("KEY_Backspace", {}, window);
+    // The key and the query reach the page on different channels.
+    await TestUtils.waitForCondition(async () => (await peek(browser)).typed == "", "Backspace arrives");
     state = await peek(browser);
     is(state.typed, "", "Backspace takes the letter back");
     is(state.labels.length, 30, "and every hint returns");
