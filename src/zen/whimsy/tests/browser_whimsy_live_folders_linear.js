@@ -135,6 +135,20 @@ add_task(async function test_sign_in_action_and_auto_refresh() {
   const folder = makeFolder({}, { userContextId: CONTAINER, win: window });
   is(await folder.fetchItems(), LINEAR_ERROR_SIGNED_OUT, "Signed out in the space's container");
 
+  // The folder lives in a space of that container (wave8/isolation keeps
+  // every tab in a space of its own container), so the button is pressed
+  // there.
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Linear Container", undefined, true, CONTAINER);
+  await gZenWorkspaces.changeWorkspace(space);
+  registerCleanupFunction(async () => {
+    if (gZenWorkspaces.activeWorkspace != home.uuid) {
+      await gZenWorkspaces.changeWorkspace(home);
+    }
+    if (gZenWorkspaces.getWorkspaces().some(w => w.uuid == space.uuid)) {
+      await gZenWorkspaces.removeWorkspace(space.uuid);
+    }
+  });
   const tabOpened = BrowserTestUtils.waitForNewTab(gBrowser, SIGN_IN_URL);
   await folder.onActionButtonClick(LINEAR_ERROR_SIGNED_OUT);
   const tab = await tabOpened;
@@ -161,6 +175,8 @@ add_task(async function test_sign_in_action_and_auto_refresh() {
     folder.stop();
     BrowserTestUtils.removeTab(tab);
     signOutEverywhere();
+    await gZenWorkspaces.changeWorkspace(home);
+    await gZenWorkspaces.removeWorkspace(space.uuid);
   }
 });
 
