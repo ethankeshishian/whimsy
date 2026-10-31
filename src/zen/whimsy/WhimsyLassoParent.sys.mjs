@@ -15,12 +15,12 @@ export class WhimsyLassoParent extends JSWindowActorParent {
     const browser = this.browsingContext?.top?.embedderElement;
     const win = browser?.documentGlobal;
     if (!win?.gBrowser) {
-      return;
+      return undefined;
     }
 
     if (message.name == "WhimsyLasso:Dismissed") {
       lazy.WhimsyLinkLasso.clearSelected(win, browser);
-      return;
+      return undefined;
     }
 
     // Only plain web links, and only as many as a folder/window should hold.
@@ -37,7 +37,7 @@ export class WhimsyLassoParent extends JSWindowActorParent {
           pageTitle,
           pageURL,
         });
-        break;
+        return { canMakeFolder: !lazy.WhimsyLinkLasso.isPrivate(win, browser) };
       case "WhimsyLasso:OpenTabs":
         lazy.WhimsyLinkLasso.openTabs(win, browser, {
           links,
@@ -54,5 +54,6 @@ export class WhimsyLassoParent extends JSWindowActorParent {
         });
         break;
     }
+    return undefined;
   }
 }

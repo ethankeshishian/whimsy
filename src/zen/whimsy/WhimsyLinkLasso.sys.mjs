@@ -6,11 +6,15 @@
 // opening ten results, a docs index or a reading list one Cmd+click at a
 // time. Option-drag a rectangle over the links instead (the page shows a
 // live count), let go, and a small pill offers "Open as Tabs" and "Make Folder".
-// Both actions are also registered WhimsyCommands with NO default shortcut.
+// Both actions are also registered WhimsyCommands with NO default shortcut
+// ("Open Lassoed Links as Tabs", "Make Folder from Lassoed Links"); the
+// selection outlives the page losing focus, so they work from the command bar.
 // Private tabs, private windows and Scratch never make folders (folders
-// are kept; private pages aren't).
+// are kept; private pages aren't): the pill doesn't offer it there, and
+// Open as Tabs opens the links as private tabs.
 
 const lazy = {};
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
@@ -48,7 +52,9 @@ export const WhimsyLinkLasso = {
         name = new URL(pageURL).hostname.replace(/^www\./, "");
       } catch (e) {}
     }
-    return name.length > 60 ? `${name.slice(0, 59).trim()}…` : name || "Links";
+    return name.length > 60
+      ? `${name.slice(0, 59).trim()}…`
+      : name || lazy.l10n.formatValueSync("whimsy-link-lasso-untitled-folder");
   },
 
   setSelected(win, browser, data) {
@@ -92,12 +98,9 @@ export const WhimsyLinkLasso = {
     if (!this.enabled || !links?.length || !browser || !win?.gBrowser) {
       return null;
     }
-    if (this.isPrivate(win, browser)) {
-      win.gZenUIManager?.showToast?.("whimsy-link-lasso-private-toast");
-      this.clearSelected(win, browser);
-      this.closeChildLasso(browser);
-      return null;
-    }
+    // Opening tabs keeps nothing, so private tabs, private windows and
+    // Scratch can too: tabs opened from a private page are private
+    // (WhimsyPrivate's addTab rule, from the private principal).
     const { gBrowser } = win;
     const selected = gBrowser.selectedTab;
     const userContextId = browser.getAttribute("usercontextid") || 0;
@@ -188,19 +191,31 @@ export const WhimsyLinkLasso = {
   },
 
   initWindow(win) {
+    // Switching tabs ends a lasso (the selection belongs to the page you left).
+    win.gBrowser.tabContainer.addEventListener("TabSelect", event => {
+      const previous = event.detail?.previousTab?.linkedBrowser;
+      if (previous && this.selectionByBrowser.has(previous)) {
+        this.clearSelected(win, previous);
+        this.closeChildLasso(previous);
+      }
+    });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyLassoOpenTabs",
-      l10nId: "whimsy-command-lasso-open-tabs",
+      l10nId: "whimsy-action-lasso-open-tabs",
+      icon: "chrome://browser/skin/zen-icons/plus.svg",
       run: w => this.openTabs(w),
       menu: "whimsy-tabs-menubar",
       isAvailable: w => this.enabled && this.hasSelection(w),
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyLassoMakeFolder",
-      l10nId: "whimsy-command-lasso-make-folder",
+      l10nId: "whimsy-action-lasso-make-folder",
+      icon: "chrome://browser/skin/zen-icons/folder.svg",
       run: w => this.createFolder(w),
       menu: "whimsy-tabs-menubar",
-      isAvailable: w => this.enabled && this.hasSelection(w),
+      // Private tabs, private windows and Scratch never keep a folder.
+      isAvailable: w =>
+        this.enabled && this.hasSelection(w) && !this.isPrivate(w, w.gBrowser.selectedBrowser),
     });
   },
 };

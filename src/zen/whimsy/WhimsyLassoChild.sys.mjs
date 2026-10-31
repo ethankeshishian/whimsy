@@ -69,8 +69,18 @@ export class WhimsyLassoChild extends JSWindowActorChild {
         }
         break;
       case "blur":
-        // The window losing focus, not an element in the page.
-        if (!event.target?.nodeType) {
+        // The window losing focus, not an element in the page. Mid-drag that
+        // cancels. Once the pill shows, the selection stays: opening the
+        // command bar (⌘L, ⌘T) blurs the page, and its "Open Lassoed Links
+        // as Tabs" / "Make Folder from Lassoed Links" rows need it (design-full-4
+        // M1). Scroll, Esc, a click elsewhere, navigation, switching tabs or
+        // running a command still end it.
+        if (!event.target?.nodeType && !this.lasso?.pillActive) {
+          this.end({ cancel: true, released: false });
+        }
+        break;
+      case "visibilitychange":
+        if (this.document?.hidden) {
           this.end({ cancel: true, released: false });
         }
         break;
@@ -104,21 +114,13 @@ export class WhimsyLassoChild extends JSWindowActorChild {
     }
   }
 
+  // The pill's own short labels (the commands say what they act on).
   loadStrings() {
-    const fallback = {
-      openTabs: "Open as Tabs",
-      makeFolder: "Make Folder",
-    };
-    try {
-      const openTabs = lazy.l10n.formatValueSync("whimsy-command-lasso-open-tabs");
-      const makeFolder = lazy.l10n.formatValueSync("whimsy-command-lasso-make-folder");
-      return {
-        openTabs: openTabs || fallback.openTabs,
-        makeFolder: makeFolder || fallback.makeFolder,
-      };
-    } catch (e) {
-      return fallback;
-    }
+    const [openTabs, makeFolder] = lazy.l10n.formatValuesSync([
+      { id: "whimsy-link-lasso-pill-open-tabs" },
+      { id: "whimsy-link-lasso-pill-make-folder" },
+    ]);
+    return { openTabs, makeFolder };
   }
 
   onMouseDown(event) {
@@ -162,6 +164,7 @@ export class WhimsyLassoChild extends JSWindowActorChild {
     for (const type of ["mousemove", "mouseup", "keydown", "scroll", "blur", "pagehide"]) {
       win.addEventListener(type, this, { capture: true, mozSystemGroup: true });
     }
+    this.document.addEventListener("visibilitychange", this, { mozSystemGroup: true });
   }
 
   onMouseMove(event) {
@@ -301,16 +304,6 @@ export class WhimsyLassoChild extends JSWindowActorChild {
     lasso.tabsBtn = tabsBtn;
     lasso.folderBtn = folderBtn;
 
-    lazy.l10n.formatValue("whimsy-command-lasso-open-tabs").then(text => {
-      if (text && this.lasso?.tabsBtn) {
-        this.lasso.tabsBtn.textContent = text;
-      }
-    }).catch(() => {});
-    lazy.l10n.formatValue("whimsy-command-lasso-make-folder").then(text => {
-      if (text && this.lasso?.folderBtn) {
-        this.lasso.folderBtn.textContent = text;
-      }
-    }).catch(() => {});
   }
 
   // Redraws the rectangle and the matched links, at most once a frame.
@@ -407,12 +400,20 @@ export class WhimsyLassoChild extends JSWindowActorChild {
     // Listen for click events on the window to catch clicks on the pill
     win?.addEventListener("click", this, { capture: true, mozSystemGroup: true });
 
-    // Notify parent of the selection
-    this.sendAsyncMessage("WhimsyLasso:Selected", {
+    // Tell the parent (the commands use it). In private tabs, private
+    // windows and Scratch nothing is kept, so Make Folder isn't offered
+    // (design-full-4 M2); Open as Tabs opens them privately.
+    this.sendQuery("WhimsyLasso:Selected", {
       links: lasso.selectedLinks,
       pageTitle: this.document.title,
       pageURL: this.document.documentURI,
-    });
+    })
+      .then(reply => {
+        if (this.lasso == lasso && reply?.canMakeFolder === false) {
+          lasso.folderBtn.hidden = true;
+        }
+      })
+      .catch(() => {});
   }
 
   executeAction(action) {
@@ -440,6 +441,7 @@ export class WhimsyLassoChild extends JSWindowActorChild {
     for (const type of ["mousemove", "mouseup", "keydown", "scroll", "blur", "pagehide", "click"]) {
       win?.removeEventListener(type, this, { capture: true, mozSystemGroup: true });
     }
+    this.document?.removeEventListener("visibilitychange", this, { mozSystemGroup: true });
     if (lasso.frame) {
       win?.cancelAnimationFrame(lasso.frame);
     }
