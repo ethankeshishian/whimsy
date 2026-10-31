@@ -332,7 +332,7 @@ add_task(async function test_changelog_includes_builds_through_dev580_and_wave7(
       );
 
       const expectedBuilds = [
-        "vwave-7",
+        "v1-24b-w2-dev-711",
         "v1-24b-w2-dev-580",
         "v1-24b-w2-dev-413",
         "v1-24b-w2-dev-339",
