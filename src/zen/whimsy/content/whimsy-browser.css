@@ -1528,42 +1528,151 @@ tab[whimsy-unread] {
   .whimsy-tree-toggle::before { transition: none; }
 }
 
-/* wave3/tree: the cheat sheet lists every shortcut in groups, so it is wider
-   and taller, and long Firefox/Zen names wrap beside the binding. */
-panel.whimsy-cheatsheet {
-  width: 520px;
-  max-width: calc(100vw - 48px);
-  max-height: min(600px, 80vh);
+/* wave8/cheatsheet: the Cmd+/ reference. Menu-bar groups in two columns,
+   each shortcut as separate key caps, custom shortcuts marked. Colours are
+   currentColor mixes and Zen's accent, so light, dark and every Zen theme
+   follow; nothing moves but the panel itself (Firefox's panel animation,
+   which honours reduced motion) and a 100ms focus fill. */
+panel.whimsy-sheet.whimsy-cheatsheet {
+  max-width: calc(100vw - 24px);
+  --whimsy-cheatsheet-accent: var(--zen-primary-color, AccentColor);
 }
-panel.whimsy-cheatsheet .whimsy-cheatsheet-list {
-  max-height: min(480px, calc(80vh - 120px));
+panel.whimsy-sheet.whimsy-cheatsheet .whimsy-sheet-body {
+  max-height: min(540px, calc(100vh - 220px));
+  padding: 4px 8px 8px;
+  overscroll-behavior: contain;
 }
-.whimsy-cheatsheet-group + .whimsy-cheatsheet-group {
-  margin-top: 12px;
+.whimsy-cheatsheet-columns {
+  /* Two columns when the sheet is wide enough, one when it isn't. */
+  columns: 2 280px;
+  column-gap: 16px;
+}
+.whimsy-cheatsheet-group {
+  break-inside: avoid;
+  padding-block: 4px 10px;
+
+  &[hidden] {
+    display: none;
+  }
 }
 .whimsy-cheatsheet-heading {
-  margin: 0 2px 2px;
+  margin: 0 8px 2px;
   font-size: 0.85em;
   font-weight: 600;
-  opacity: 0.6;
+  line-height: 1.6;
+  color: var(--whimsy-sheet-muted);
+}
+.whimsy-cheatsheet-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .whimsy-cheatsheet-row {
-  gap: 16px;
+  display: flex;
   align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  line-height: 1.3;
+  cursor: default;
+  outline: none;
+
+  &[hidden] {
+    display: none;
+  }
+  &:focus-visible {
+    background-color: var(--whimsy-sheet-hover);
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: -2px;
+  }
+  @media not (prefers-reduced-motion: reduce) {
+    transition: background-color 100ms ease-out;
+  }
 }
-.whimsy-cheatsheet-row > label:first-child {
+/* Long Firefox names wrap beside the caps instead of being cut off. */
+.whimsy-cheatsheet-title {
   flex: 1;
   min-width: 0;
-  margin-inline-start: 2px;
+  overflow-wrap: anywhere;
 }
-.whimsy-cheatsheet-key {
+/* "Custom": a word, not only a colour, with Zen's accent as a dot. */
+.whimsy-cheatsheet-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
+  font-size: 0.85em;
+  font-weight: 500;
+  color: var(--whimsy-sheet-muted);
+
+  &::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--whimsy-cheatsheet-accent);
+  }
+}
+.whimsy-cheatsheet-keys {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+/* One cap per key, the same height and at least as wide as tall, so
+   ⌘ D and ⇧ ⌘ D line up down the column. */
+.whimsy-cheatsheet-keys > kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  background-color: color-mix(in srgb, currentColor 7%, transparent);
+  box-shadow:
+    inset 0 0 0 0.5px color-mix(in srgb, currentColor 20%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, currentColor 12%, transparent);
+
+  &[wide] {
+    padding: 0 6px;
+  }
+  .whimsy-cheatsheet-row[customized] & {
+    background-color: color-mix(in srgb, var(--whimsy-cheatsheet-accent) 14%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-cheatsheet-accent) 55%, transparent);
+  }
+  @media (prefers-contrast: more) {
+    box-shadow: inset 0 0 0 1px currentColor;
+  }
+}
+.whimsy-cheatsheet-empty[hidden],
+.whimsy-cheatsheet-columns[hidden] {
+  display: none;
+}
+/* Read by screen readers only. */
+.whimsy-cheatsheet-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
-.whimsy-cheatsheet-empty {
-  padding: 16px 2px;
-  opacity: 0.6;
-  text-align: center;
+/* One quiet action, at the trailing edge, not a full-width button. */
+panel.whimsy-sheet.whimsy-cheatsheet .whimsy-sheet-footer {
+  justify-content: flex-end;
+  margin-top: 0;
+
+  & > .footer-button.whimsy-cheatsheet-edit {
+    flex: 0 0 auto;
+  }
 }
 
 /* batch hover: shared hover card (History rows, People cards). Firefox's

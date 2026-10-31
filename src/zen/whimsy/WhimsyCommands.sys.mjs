@@ -91,6 +91,48 @@ function formatSync(l10nId) {
   }
 }
 
+// wave8/cheatsheet: the menu-bar menu each command belongs to, by command
+// id or <key> id, for commands that aren't (yet) items in the menu bar.
+// The shortcut cheat sheet groups by these, so a shortcut is listed where
+// a Mac user would look for it. A command that is a menu item is grouped
+// by where it actually sits; this table is the fallback.
+const MENU_OF = {
+  "file-menu": [
+    "cmd_whimsyNewPrivateTab", "cmd_whimsyQuickWindow", "Browser:Screenshot", "cmd_whimsyCopyFullPage",
+    "cmd_whimsyCapturePortrait", "whimsy-cmd-new-note", "whimsy-cmd-print-clean", "cmd_whimsyCast",
+    "cmd_whimsyCastStop", "cmd_whimsyShowQRCode", "key_whimsyQuickWindowChooseSpace",
+    "key_whimsyQuickWindowOpenInSpace",
+  ],
+  "edit-menu": [
+    "cmd_whimsyCopyURLQuote", "cmd_whimsyCopyPageMarkdown", "cmd_whimsyTranslateSelection", "cmd_whimsyEditPage",
+    "cmd_whimsyAllowCopy", "cmd_whimsyPasteGuard", "cmd_whimsyCreateEmailAlias", "cmd_whimsySelectionVerbs",
+  ],
+  "view-menu": [
+    "whimsy-focus-sidebar", "cmd_whimsyToggleToolbar", "cmd_whimsySplitChangeOrientation", "cmd_whimsySplitPaneMenu",
+    "cmd_whimsySwapPanes", "cmd_whimsyCloseOtherPanes", "cmd_whimsyFollowerSplit", "cmd_zenGlanceSplit",
+    "whimsy-cmd-favorite-split", "whimsy-cmd-open-split-favorites", "cmd_whimsyDoNotDisturb", "key_whimsyLinkHints",
+    "key_whimsyAddSplitView", "key_whimsyCloseSplitPane", "key_whimsyNextPane", "key_whimsyPrevPane",
+    "key_whimsySplitGlance", "key_whimsySpeedUp", "key_whimsySlowDown", "whimsy-game-open", "whimsy-year-open",
+  ],
+  "zen-spaces-menubar": [
+    "cmd_zenOpenWorkspaceCreation", "cmd_whimsyNewScratch", "cmd_whimsyKeepScratch", "cmd_whimsyCloseScratch",
+    "cmd_whimsyLockSpace", "cmd_whimsyHideSpace", "cmd_whimsyResetSpaceTabs", "cmd_whimsyMoveToNewSpace",
+    "cmd_whimsyViewArchive", "cmd_whimsyClearArchive", "key_whimsyManageSpaces",
+  ],
+  "whimsy-tabs-menubar": [
+    "whimsy-tab-next", "whimsy-tab-prev", "cmd_whimsyRevealTab", "cmd_whimsySnoozeTab", "cmd_whimsyGroupBySite",
+    "cmd_whimsyTidyTabs", "cmd_whimsyMuteSite", "cmd_whimsyTabVolume", "cmd_whimsyHeavyTabs",
+    "cmd_whimsyPlaylistSave", "key_whimsyNewFolder", "key_whimsyZap",
+  ],
+  "tools-menu": [
+    "cmd_whimsyVPNToggle", "cmd_whimsyFireButton", "cmd_whimsyForgetSite", "cmd_whimsyWatchPage",
+    "whimsy-useragent-picker", "whimsy-cookie-editor", "whimsy-devmode-toggle-site", "cmd_whimsyJoinMeeting",
+  ],
+  "windowMenu": ["key_whimsyAirTrafficControl"],
+  "helpMenu": ["whimsy-cheatsheet", "cmd_whimsyTeachReset"],
+};
+const MENU_BY_ID = new Map(Object.entries(MENU_OF).flatMap(([menu, ids]) => ids.map(id => [id, menu])));
+
 export const WhimsyCommands = {
   get listed() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -108,6 +150,22 @@ export const WhimsyCommands = {
   // The entry whose <key> has this id.
   forKey(keyId) {
     return this.entries.find(entry => entry.keyId == keyId) ?? null;
+  },
+
+  // wave8/cheatsheet: the menu-bar menu id a command or <key> belongs to
+  // (see MENU_OF), or null. `spec.menu` on register() wins.
+  menuOf(...ids) {
+    for (const id of ids) {
+      if (!id) {
+        continue;
+      }
+      const entry = entries.get(id) ?? this.forKey(id);
+      const menu = entry?.menu ?? MENU_BY_ID.get(id) ?? (entry && (MENU_BY_ID.get(entry.id) ?? MENU_BY_ID.get(entry.keyId)));
+      if (menu) {
+        return menu;
+      }
+    }
+    return null;
   },
 
   // The command's name, as the command bar and about:keyboard show it.
@@ -138,6 +196,8 @@ export const WhimsyCommands = {
    *   command keeps one neutral name (spec.l10nId) for its shortcut.
    * @param {boolean} [spec.commandBar=true] false to leave it out of the
    *   command bar (the module offers it there some other way).
+   * @param {string} [spec.menu] The menu-bar menu id it belongs to, for
+   *   the cheat sheet's grouping (else MENU_OF, else where it sits).
    * @returns {Element|null} The <command>.
    */
   register(win, spec) {
@@ -175,6 +235,7 @@ export const WhimsyCommands = {
     entry.l10nId ??= spec.l10nId ?? null;
     entry.keyId ??= spec.keyId ?? null;
     entry.defaultKey ??= bindingOf(spec.key);
+    entry.menu ??= spec.menu ?? null;
     for (const variant of spec.variants ?? []) {
       if (!entry.variants.includes(variant.l10nId)) {
         entry.variants.push(variant.l10nId);

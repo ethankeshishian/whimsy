@@ -2996,3 +2996,21 @@ whimsy-isolation-reopened-toast =
        *[other] { $count } tabs reopened in their space’s profile, without their old sign-ins
     }
 whimsy-snooze-private-toast = Private tabs can’t be snoozed: a snoozed tab is saved and comes back as a normal tab
+## wave8/cheatsheet: the redesigned Cmd+/ sheet. A shortcut the person
+## changed in about:keyboard is marked "Custom".
+## $title (string) - the command's name
+## $shortcut (string) - its current shortcut, e.g. ⇧⌘D
+## $default (string) - the shortcut it had before it was changed
+## $count (number) - how many shortcuts a search leaves
+
+whimsy-cheatsheet-custom = Custom
+whimsy-cheatsheet-custom-tooltip = Changed from { $shortcut }
+whimsy-cheatsheet-custom-tooltip-none = Added by you
+whimsy-cheatsheet-row = { $title }, { $shortcut }
+whimsy-cheatsheet-row-custom = { $title }, { $shortcut }, custom shortcut (was { $default })
+whimsy-cheatsheet-row-added = { $title }, { $shortcut }, custom shortcut
+whimsy-cheatsheet-results =
+    { $count ->
+        [one] 1 shortcut
+       *[other] { $count } shortcuts
+    }

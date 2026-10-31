@@ -4,50 +4,185 @@
 
 "use strict";
 
-// Open with the key -> the panel shows the "zen-duplicate-tab" row with
-// its current binding. Customize a key -> the sheet shows the new binding.
-// Esc closes it.
+// wave8/cheatsheet: the Cmd+/ sheet. Cmd+/ opens it with the search
+// focused; shortcuts are grouped by menu with one key cap per key; typing
+// filters at once (by name, menu, key names or "custom") with an empty
+// state; arrows move through the rows and back to the search; rows run
+// nothing; Esc clears a search, then closes; Cmd+/ again closes;
+// "Edit Shortcuts…" opens about:keyboard; a customized shortcut says so.
 
-add_task(async function test_cheatsheet_shows_and_closes() {
-  const command = window.document.getElementById("whimsy-cheatsheet");
-  ok(command, "The cheat sheet command is registered");
+const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
 
-  const shown = BrowserTestUtils.waitForEvent(window.document, "popupshown", true,
-    e => e.target.id == "whimsy-cheatsheet-panel");
-  command.doCommand();
+const PANEL_ID = "whimsy-cheatsheet-panel";
+
+async function openSheet(how = () => document.getElementById("whimsy-cheatsheet").doCommand()) {
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == PANEL_ID);
+  how();
   await shown;
-  const panel = window.document.getElementById("whimsy-cheatsheet-panel");
-  ok(panel, "The panel opened");
+  return document.getElementById(PANEL_ID);
+}
 
-  // The list is built from the keysets after the panel opens.
-  const row = await TestUtils.waitForCondition(
-    () => panel.querySelector('.whimsy-cheatsheet-row[data-key-id="zen-duplicate-tab"]'),
-    "The shortcut list rendered"
-  );
-  ok(row, "Duplicate Tab's row is shown with a key label");
-  is(row.getAttribute("whimsy-key"), "zen-duplicate-tab", "...tagged with its key");
-  ok(row.querySelector(".whimsy-sheet-item-keys").value.includes("D"), "With its key caps");
-  ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
-  ok(panel.querySelectorAll(".whimsy-sheet-caption").length >= 3, "Shortcuts are grouped");
+async function closeSheet(panel) {
+  if (panel?.state == "open") {
+    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    panel.hidePopup();
+    await hidden;
+  }
+}
 
-  // Typing filters; groups with nothing left hide.
+function type(panel, text) {
   const search = panel.querySelector(".whimsy-sheet-search-input");
-  is(document.activeElement, search, "The search field has focus");
-  EventUtils.sendString("duplicate", window);
-  ok(panel.querySelector('.whimsy-cheatsheet-row[whimsy-key="zen-duplicate-tab"]:not([hidden])'),
-    "The matching row stays");
-  ok(panel.querySelector('.whimsy-cheatsheet-row[whimsy-key="key_find"]')?.hidden ?? true, "Others hide");
+  search.value = text;
+  search.dispatchEvent(new Event("input"));
+}
 
-  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
-  EventUtils.synthesizeKey("KEY_Escape", {}, window);
+const visibleRows = panel => [...panel.querySelectorAll(".whimsy-cheatsheet-row")].filter(
+  row => !row.hidden && !row.closest(".whimsy-cheatsheet-group").hidden);
+
+add_task(async function test_opens_grouped_with_key_caps() {
+  const panel = await openSheet(() => EventUtils.synthesizeKey("/", { accelKey: true }, window));
+  try {
+    ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
+    is(document.activeElement, panel.querySelector(".whimsy-sheet-search-input"), "The search field has focus");
+
+    const groups = panel.querySelectorAll(".whimsy-cheatsheet-group");
+    Assert.greaterOrEqual(groups.length, 4, "Shortcuts are grouped");
+    const file = panel.querySelector('.whimsy-cheatsheet-group[data-menu="file-menu"]');
+    is(file?.querySelector("h2").textContent, document.getElementById("file-menu").label, "...by menu-bar menu");
+    const other = panel.querySelector('.whimsy-cheatsheet-group[data-menu="other"]');
+    ok(!other || other == groups[groups.length - 1], "Other, when there is one, comes last");
+
+    const row = panel.querySelector('.whimsy-cheatsheet-row[data-key-id="zen-duplicate-tab"]');
+    ok(row, "Duplicate Tab is listed");
+    const caps = [...row.querySelectorAll("kbd")].map(kbd => kbd.textContent);
+    Assert.greaterOrEqual(caps.length, 2, "...as separate key caps");
+    is(caps.at(-1), "D", "...ending with its key");
+    ok(row.getAttribute("aria-label").includes(row.querySelector(".whimsy-cheatsheet-title").textContent),
+      "Rows have an accessible name with the command");
+
+    // Exactly one action: Edit Shortcuts….
+    const footerButtons = panel.querySelectorAll(".whimsy-sheet-footer .footer-button");
+    is(footerButtons.length, 1, "One footer action");
+    ok(footerButtons[0].classList.contains("whimsy-cheatsheet-edit"), "...Edit Shortcuts…");
+    ok(!panel.querySelector(".whimsy-cheatsheet-row toolbarbutton, .whimsy-cheatsheet-row button"),
+      "Rows hold no buttons of their own");
+  } finally {
+    await closeSheet(panel);
+  }
+});
+
+add_task(async function test_search_filters_instantly() {
+  const panel = await openSheet();
+  try {
+    const all = visibleRows(panel).length;
+    type(panel, "duplicate");
+    ok(visibleRows(panel).some(row => row.dataset.keyId == "zen-duplicate-tab"), "The matching row stays");
+    ok(visibleRows(panel).every(row => row.dataset.keyId != "key_find"), "Others hide at once");
+    ok(panel.querySelectorAll(".whimsy-cheatsheet-group:not([hidden])").length < panel.querySelectorAll(".whimsy-cheatsheet-group").length,
+      "Groups with nothing left hide");
+    ok(panel.querySelector(".whimsy-cheatsheet-status").textContent, "The count is announced");
+
+    type(panel, document.getElementById("file-menu").label);
+    ok(visibleRows(panel).some(row => row.dataset.keyId == "key_newNavigatorTab"), "A menu's name shows its shortcuts");
+
+    const caps = [...panel.querySelectorAll('.whimsy-cheatsheet-row[data-key-id="key_newNavigatorTab"] kbd')].map(k => k.textContent);
+    type(panel, caps.join(AppConstants.platform == "macosx" ? "" : "+"));
+    ok(visibleRows(panel).some(row => row.dataset.keyId == "key_newNavigatorTab"), "Typing the keys finds the shortcut");
+    if (AppConstants.platform == "macosx") {
+      type(panel, "cmd t");
+      ok(visibleRows(panel).some(row => row.dataset.keyId == "key_newNavigatorTab"), "So do key names");
+    }
+
+    type(panel, "no such shortcut 824831");
+    is(visibleRows(panel).length, 0, "No rows for a miss");
+    ok(!panel.querySelector(".whimsy-cheatsheet-empty").hidden, "...and an empty state");
+
+    type(panel, "");
+    is(visibleRows(panel).length, all, "Clearing the search shows everything again");
+    ok(panel.querySelector(".whimsy-cheatsheet-empty").hidden, "...without the empty state");
+  } finally {
+    await closeSheet(panel);
+  }
+});
+
+add_task(async function test_keyboard() {
+  const panel = await openSheet();
+  try {
+    const search = panel.querySelector(".whimsy-sheet-search-input");
+    const rows = visibleRows(panel);
+    EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+    is(document.activeElement, rows[0], "Down moves into the list");
+    EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+    is(document.activeElement, rows[1], "...and along it");
+    EventUtils.synthesizeKey("KEY_End", {}, window);
+    is(document.activeElement, rows.at(-1), "End goes to the last shortcut");
+    EventUtils.synthesizeKey("KEY_Home", {}, window);
+    is(document.activeElement, rows[0], "Home to the first");
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    is(panel.state, "open", "Enter on a row runs nothing; the sheet stays");
+    EventUtils.synthesizeKey("KEY_ArrowUp", {}, window);
+    is(document.activeElement, search, "Up from the first row returns to the search");
+
+    EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+    EventUtils.sendString("dup", window);
+    is(document.activeElement, search, "Typing on a row goes back to the search");
+    is(search.value, "dup", "...with what was typed");
+
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    is(panel.state, "open", "Esc with a search clears it");
+    is(search.value, "", "...emptying the field");
+    is(visibleRows(panel).length, rows.length, "...and showing everything");
+
+    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await hidden;
+    ok(!document.getElementById(PANEL_ID), "A second Esc closes and removes the sheet");
+  } finally {
+    await closeSheet(document.getElementById(PANEL_ID));
+  }
+});
+
+add_task(async function test_toggle_and_edit_link() {
+  let panel = await openSheet();
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  document.getElementById("whimsy-cheatsheet").doCommand();
   await hidden;
-  ok(!window.document.getElementById("whimsy-cheatsheet-panel"), "Esc closes and removes the panel");
+  ok(!document.getElementById(PANEL_ID), "The shortcut again closes it");
+
+  panel = await openSheet();
+  const opened = BrowserTestUtils.waitForNewTab(gBrowser, "about:keyboard", true);
+  panel.querySelector(".whimsy-cheatsheet-edit").doCommand();
+  const tab = await opened;
+  ok(!document.getElementById(PANEL_ID), "Edit Shortcuts… closes the sheet");
+  is(gBrowser.selectedBrowser.currentURI.spec, "about:keyboard", "...and opens about:keyboard");
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_customized_rows() {
+  registerCleanupFunction(() => WhimsyCommands.reset("whimsy-tab-next"));
+  ok(WhimsyCommands.rebind("whimsy-tab-next", { modifiers: "accel,alt,shift", key: "U" }).ok, "Next Tab gets a custom key");
+  const panel = await openSheet();
+  try {
+    const row = panel.querySelector('.whimsy-cheatsheet-row[data-key-id="key_whimsyTabNext"]');
+    is(row?.getAttribute("customized"), "true", "The row is marked customized");
+    ok(row.querySelector(".whimsy-cheatsheet-custom")?.textContent, "...with a word, not only a colour");
+    ok(row.title, "...and the default in its tooltip");
+    is(row.querySelector("kbd:last-child").textContent, "U", "...showing the custom key");
+    ok(!panel.querySelector('.whimsy-cheatsheet-row[data-key-id="key_whimsyCheatsheet"]').hasAttribute("customized"),
+      "Default shortcuts aren't marked");
+
+    type(panel, await new Localization(["browser/whimsy.ftl"]).formatValue("whimsy-cheatsheet-custom"));
+    ok(visibleRows(panel).includes(row), "Searching \"custom\" finds it");
+  } finally {
+    await closeSheet(panel);
+    WhimsyCommands.reset("whimsy-tab-next");
+  }
 });
 
 add_task(async function test_disabled_feature_does_nothing() {
-  Services.prefs.setBoolPref("whimsy.feature.cheatsheet", false);
-  registerCleanupFunction(() => Services.prefs.clearUserPref("whimsy.feature.cheatsheet"));
-  window.document.getElementById("whimsy-cheatsheet").doCommand();
-  ok(!window.document.getElementById("whimsy-cheatsheet-panel"), "With the feature off, nothing opens");
-  Services.prefs.clearUserPref("whimsy.feature.cheatsheet");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.cheatsheet", false]] });
+  document.getElementById("whimsy-cheatsheet").doCommand();
+  await new Promise(resolve => setTimeout(resolve, 100));
+  ok(!document.getElementById(PANEL_ID), "With the feature off, nothing opens");
+  await SpecialPowers.popPrefEnv();
 });
