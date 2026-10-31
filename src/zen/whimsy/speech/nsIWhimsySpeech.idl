@@ -1,0 +1,93 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * @brief Handed the answer of nsIWhimsySpeech.requestAccess, on the main
+ * thread.
+ */
+[scriptable, function, uuid(b8e0ac30-d3cf-46aa-a43d-f8b6fb61b3ac)]
+interface nsIWhimsySpeechCallback : nsISupports {
+  /**
+   * @param result The authorization status afterwards (see
+   *        nsIWhimsySpeech.authorizationStatus), or
+   *        "missing-usage-description" when the app's Info.plist lacks
+   *        NSSpeechRecognitionUsageDescription (macOS would end the app).
+   */
+  void onComplete(in boolean granted, in AUTF8String result);
+};
+
+/**
+ * @brief Hears what a recognition session makes of its audio, on the main
+ * thread.
+ */
+[scriptable, uuid(11fd4132-c7f7-47cc-ac30-09b681dece4d)]
+interface nsIWhimsySpeechListener : nsISupports {
+  /**
+   * @param text What was said in the current stretch of audio so far,
+   *        punctuated where macOS can. A session starts a new stretch every
+   *        so often (and after each pause macOS ends), so `text` restarts
+   *        then.
+   * @param isFinal Whether this stretch is done; the next text starts a
+   *        new one.
+   */
+  void onText(in AUTF8String text, in boolean isFinal);
+
+  /**
+   * @param reason "unavailable" (no on-device recognizer for the locale),
+   *        "not-authorized" or "failed". The session has stopped.
+   */
+  void onError(in AUTF8String reason);
+};
+
+/**
+ * @brief One live recognition: audio in, text out. Main thread only.
+ */
+[scriptable, uuid(6d0ad660-b761-4e21-93d6-beda794bcc62)]
+interface nsIWhimsySpeechSession : nsISupports {
+  /**
+   * @brief Feeds mono samples (-1..1) at `sampleRate` Hz. A rate change
+   * starts a new stretch.
+   */
+  void appendAudio(in Array<float> samples, in unsigned long sampleRate);
+
+  /** @brief Ends the session; its listener hears nothing more. */
+  void stop();
+
+  readonly attribute AUTF8String locale;
+};
+
+/**
+ * @brief Apple's speech recognizer (Speech framework), on this Mac only:
+ * every session sets requiresOnDeviceRecognition, so no audio leaves the
+ * Mac, and a locale without an on-device model is refused. Only Whimsy's
+ * live captions use it, and only once the person turns on CC for a video
+ * without captions: nothing here asks for access on its own.
+ */
+[scriptable, uuid(e1b2d7c4-3f0a-4d2e-9b6c-5a8f1e2d4c37)]
+interface nsIWhimsySpeech : nsISupports {
+  /**
+   * @brief One of "notDetermined", "denied", "restricted", "authorized".
+   */
+  readonly attribute ACString authorizationStatus;
+
+  /** @brief Asks macOS (its prompt shows the first time only). */
+  void requestAccess(in nsIWhimsySpeechCallback callback);
+
+  /**
+   * @brief The locales ("en-US", "es-ES", ...) with an on-device model on
+   * this Mac. Models come with Dictation's languages (System Settings →
+   * Keyboard → Dictation).
+   */
+  readonly attribute Array<AUTF8String> onDeviceLocales;
+
+  /**
+   * @brief Starts recognizing speech in `locale` (one of onDeviceLocales).
+   * Fails with NS_ERROR_NOT_AVAILABLE when access isn't granted or the
+   * locale has no on-device model.
+   */
+  nsIWhimsySpeechSession start(in AUTF8String locale,
+                               in nsIWhimsySpeechListener listener);
+};

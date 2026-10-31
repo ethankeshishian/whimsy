@@ -165,6 +165,9 @@ add_task(async function test_translation_fails() {
 
 add_task(async function test_no_captions() {
   calls.length = 0;
+  // Live captions from speech have their own test
+  // (browser_whimsy_video_speech_captions.js).
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.video-speech-captions", false]] });
   const { tab, browser } = await openPage();
   await clickCC(browser, "#plain");
   await TestUtils.waitForCondition(async () => (await control(browser))?.captions?.note, "A video without captions says so");
@@ -173,6 +176,7 @@ add_task(async function test_no_captions() {
   ok(!state.cc.pressed, "and CC stays off");
   is(calls.length, 0, "Nothing translated");
   BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_switch_off() {

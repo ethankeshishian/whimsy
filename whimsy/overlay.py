@@ -985,6 +985,10 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r"(?i)dedup")]},
     {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
      "detect": [("src/zen/common", r"(?i)reveal-?tab|tabs-menubar|portrait")]},
+    # w7native: live captions from a video's speech when it has none (Apple's
+    # on-device speech recognizer, then the translated-captions path).
+    {"id": "video-speech-captions", "title": "Live captions for videos without any: CC turns the video's speech into captions on your Mac, then translates them",
+     "detect": [("src/zen/media", r"(?i)speech-?to-?text|SFSpeechRecognizer|live-?transcri")]},
 ]
 
 

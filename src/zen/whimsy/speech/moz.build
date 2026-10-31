@@ -1,0 +1,33 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# w7native/captions: Apple's on-device speech recognizer (Speech framework)
+# for live captions of videos without any. Only built on macOS (see
+# ../moz.build); the app's Info.plist carries
+# NSSpeechRecognitionUsageDescription (whimsy-Info-plist-in.patch).
+
+XPIDL_SOURCES += [
+    "nsIWhimsySpeech.idl",
+]
+
+XPIDL_MODULE = "whimsy_speech"
+
+EXPORTS.mozilla += [
+    "nsWhimsySpeech.h",
+]
+
+SOURCES += [
+    "nsWhimsySpeech.mm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+OS_LIBS += [
+    "-framework AVFoundation",
+    "-framework Speech",
+]
+
+FINAL_LIBRARY = "xul"

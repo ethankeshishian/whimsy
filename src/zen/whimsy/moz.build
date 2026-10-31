@@ -65,6 +65,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyLiveFolderFetch.sys.mjs",
     "WhimsyLiveFolderReading.sys.mjs",
     "WhimsyLiveFolders.sys.mjs",
+    "WhimsyLiveSpeech.sys.mjs",
     "WhimsyLocalServersLiveFolder.sys.mjs",
     "WhimsyLook.sys.mjs",
     "WhimsyMarkdownCopy.sys.mjs",
@@ -146,10 +147,15 @@ BROWSER_CHROME_MANIFESTS += [
     "tests/browser.toml",
 ]
 
-# Native components, Objective-C++ for macOS: calendar/ (Next meeting,
-# EventKit) and bonjour/ (Local servers' LAN services, dns_sd).
+# Native components. audiotap/ is plain C++ over MediaTrackGraph (live
+# captions' audio, in the content process). The rest are Objective-C++ for
+# macOS: calendar/ (Next meeting, EventKit), bonjour/ (Local servers' LAN
+# services, dns_sd) and speech/ (live captions, on-device Speech).
+DIRS += ["audiotap"]
+
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     DIRS += [
         "bonjour",
         "calendar",
+        "speech",
     ]

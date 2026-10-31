@@ -2286,3 +2286,14 @@ whimsy-pane-looks-crumb =
     .label = Look and Feel
 whimsy-pane-tabs-crumb =
     .label = Tab Management
+
+## w7native: live captions from a video's speech (CC on a video without
+## captions), recognized on this Mac by macOS, then translated.
+
+whimsy-media-video-speech-captions =
+    .label = When a video has no captions, CC makes them from its speech, on your Mac
+whimsy-video-captions-listening = Listening to the video for live captions…
+whimsy-video-captions-speech-denied = Allow Speech Recognition in System Settings → Privacy & Security to get live captions
+whimsy-video-captions-speech-unavailable = Live captions need an on-device Dictation language in System Settings → Keyboard
+whimsy-video-captions-speech-protected = This video is protected, so it can’t be captioned
+whimsy-video-captions-speech-no-audio = This video has no sound to caption
