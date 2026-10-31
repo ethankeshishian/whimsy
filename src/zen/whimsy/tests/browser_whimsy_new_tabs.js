@@ -143,7 +143,14 @@ add_task(async function test_drag_reorders_tabs_opened_below_current() {
     Math.max(0.5, Services.prefs.getIntPref("browser.tabs.dragDrop.moveOverThresholdPercent") / 100) + 0.01
   );
   const bounds = el => window.windowUtils.getBoundsWithoutFlushing(el);
+  // Settled: no tab is still animating into place after the last move.
+  const settled = () =>
+    TestUtils.waitForCondition(
+      () => !document.getAnimations().some(a => a.playState == "running" && a.effect?.target?.closest?.(".tabbrowser-tab")),
+      "Tabs settle"
+    );
   async function drop(source, target, clientY) {
+    await settled();
     await TestUtils.waitForCondition(() => {
       const r = bounds(source);
       return r.width && r.height &&
@@ -164,13 +171,16 @@ add_task(async function test_drag_reorders_tabs_opened_below_current() {
     source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer: dt }));
     ok(!gBrowser.tabContainer.tabDragAndDrop._tempDragImageParent, "The drag image goes away when the drag ends");
   }
-  const dropAfter = (source, target) => {
-    const r = bounds(target);
-    return drop(source, target, Math.ceil(r.top + (threshold + 0.5) * r.height) - bounds(source).height / 2);
+  // Measured once the tabs have settled (with a layout flush).
+  const dropAfter = async (source, target) => {
+    await settled();
+    const r = target.getBoundingClientRect();
+    return drop(source, target, Math.ceil(r.top + (threshold + 0.5) * r.height) - source.getBoundingClientRect().height / 2);
   };
-  const dropBefore = (source, target) => {
-    const r = bounds(target);
-    return drop(source, target, Math.floor(r.top + (0.5 - threshold) * r.height) + bounds(source).height / 2);
+  const dropBefore = async (source, target) => {
+    await settled();
+    const r = target.getBoundingClientRect();
+    return drop(source, target, Math.floor(r.top + (0.5 - threshold) * r.height) + source.getBoundingClientRect().height / 2);
   };
 
   await dropAfter(tab3, tab2);
