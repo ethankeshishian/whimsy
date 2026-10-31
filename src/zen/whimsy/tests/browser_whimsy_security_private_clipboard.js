@@ -9,7 +9,6 @@
 // verbs, person cards) used the chrome window's context, which is never
 // private for a private tab, so they now mark it themselves.
 
-const { MockRegistrar } = ChromeUtils.importESModule("resource://testing-common/MockRegistrar.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 const { WhimsyCopy } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCopy.sys.mjs");
 const { WhimsyVerbs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVerbs.sys.mjs");
@@ -17,24 +16,26 @@ const { WhimsyVerbs } = ChromeUtils.importESModule("resource:///modules/whimsy/W
 const PRIVATE_URL = "https://example.com/?secfix-clip-private";
 const NORMAL_URL = "https://example.org/?secfix-clip-normal";
 
-// Records what reaches the system clipboard, and whether it was private.
+// Records what Whimsy hands the system clipboard, and whether as private
+// data. The transferable's private flag isn't readable from JS (and a mock
+// clipboard service breaks launching content processes), so this records at
+// Whimsy's two clipboard writers: writeClipboard (whose transferable takes
+// its private flag from the load context it's initialized with) and
+// copyText (nsIClipboardHelper's Sensitive flag).
 const written = [];
-const mockClipboard = {
-  QueryInterface: ChromeUtils.generateQI(["nsIClipboard"]),
-  setData(transferable) {
-    const data = {};
-    transferable.getTransferData("text/plain", data);
-    written.push({
-      text: data.value?.QueryInterface(Ci.nsISupportsString).data,
-      isPrivate: transferable.isPrivateData,
-    });
-  },
-  isClipboardTypeSupported: () => true,
-};
 
 add_setup(function () {
-  const cid = MockRegistrar.register("@mozilla.org/widget/clipboard;1", mockClipboard);
-  registerCleanupFunction(() => MockRegistrar.unregister(cid));
+  const { writeClipboard, copyText, loadContextFor } = WhimsyCopy;
+  WhimsyCopy.writeClipboard = function (win, data, options = {}) {
+    const context = loadContextFor.call(this, win, !!options.isPrivate);
+    written.push({ text: data.text, isPrivate: context.usePrivateBrowsing });
+    return writeClipboard.call(this, win, data, options);
+  };
+  WhimsyCopy.copyText = function (text, isPrivate) {
+    written.push({ text, isPrivate: !!isPrivate });
+    return copyText.call(this, text, isPrivate);
+  };
+  registerCleanupFunction(() => Object.assign(WhimsyCopy, { writeClipboard, copyText }));
 });
 
 async function withTabs(fn) {

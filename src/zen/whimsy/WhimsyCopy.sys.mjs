@@ -222,12 +222,16 @@ export const WhimsyCopy = {
     };
   },
 
+  // The transferable takes its private flag from the load context it's
+  // initialized with (isPrivateData isn't scriptable). A private tab in a
+  // normal window has no private chrome context, so use a private one.
+  loadContextFor(win, isPrivate) {
+    return isPrivate ? Cu.createPrivateLoadContext() : win.docShell.QueryInterface(Ci.nsILoadContext);
+  },
+
   writeClipboard(win, { text, html }, { isPrivate = false } = {}) {
     const transferable = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
-    transferable.init(win.docShell.QueryInterface(Ci.nsILoadContext));
-    if (isPrivate) {
-      transferable.isPrivateData = true;
-    }
+    transferable.init(this.loadContextFor(win, isPrivate));
     const put = (flavor, data) => {
       const str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
       str.data = data;
