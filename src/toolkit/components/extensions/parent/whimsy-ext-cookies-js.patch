@@ -1,0 +1,48 @@
+diff --git a/toolkit/components/extensions/parent/ext-cookies.js b/toolkit/components/extensions/parent/ext-cookies.js
+--- a/toolkit/components/extensions/parent/ext-cookies.js
++++ b/toolkit/components/extensions/parent/ext-cookies.js
+@@ -315,6 +315,12 @@ const oaFromDetails = (details, context, allowPattern) => {
+         "Extension disallowed access to the private cookies storeId."
+       );
+     }
++  } else if (!canAccessCookieContainer(context.extension, originAttributes.userContextId)) {
++    // Whimsy: an extension limited to some profiles (containers) can't
++    // reach another profile's cookies, as its tabs and webRequest can't.
++    throw new ExtensionError(
++      `Extension disallowed access to the cookie store id: "${storeId}"`
++    );
+   }
+ 
+   // If any of the originAttributes's keys are deleted, isPattern becomes true.
+@@ -359,6 +365,14 @@ const oaFromDetails = (details, context, allowPattern) => {
+   };
+ };
+ 
++// Whimsy: Firefox's container isolation (canAccessContainer) for cookies.
++function canAccessCookieContainer(extension, userContextId) {
++  return (
++    !extension?.userContextIsolation ||
++    extension.canAccessContainer(userContextId ?? 0)
++  );
++}
++
+ /**
+  * Query the cookie store for matching cookies.
+  *
+@@ -549,7 +563,15 @@ this.cookies = class extends ExtensionAPIPersistent {
+         let notify = (removed, cookie, cause) => {
+           cookie.QueryInterface(Ci.nsICookie);
+ 
+-          if (this.extension.allowedOrigins.matchesCookie(cookie)) {
++          if (
++            this.extension.allowedOrigins.matchesCookie(cookie) &&
++            // Whimsy: not another profile's cookies.
++            (topic == "private-cookie-changed" ||
++              canAccessCookieContainer(
++                this.extension,
++                cookie.originAttributes.userContextId
++              ))
++          ) {
+             fire.async({
+               removed,
+               cookie: convertCookie({

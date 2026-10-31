@@ -633,3 +633,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_security_private_stats.js"]
 # wave9/secfix (security-full-2 M1): the paste guard checks pastes with no field, and in srcdoc/about:blank frames.
 ["browser_whimsy_security_paste_guard_frames.js"]
+# wave9/secfix (security-full-2 M2): a profile-limited extension can't read other profiles' cookies, and its DNR rules skip them (needs the whimsy-ext-cookies-js / whimsy-ExtensionDNR-sys-mjs engine patches).
+["browser_whimsy_security_ext_profiles.js"]
