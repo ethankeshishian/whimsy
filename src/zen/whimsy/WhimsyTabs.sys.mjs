@@ -325,7 +325,22 @@ export const WhimsyTabs = {
     }
     let count = 0;
     if (this.badges && tab.pinned) {
-      count = parseUnreadCount(tab.linkedBrowser?.contentTitle || tab.label);
+      const title = tab.linkedBrowser?.contentTitle || tab.label || "";
+      count = parseUnreadCount(title);
+      // batch8: W8-06: Gmail badge persistence while viewing an email thread
+      const url = tab.linkedBrowser?.currentURI?.spec || "";
+      const isGmail = /mail\.google\.com/.test(url) || /@gmail\.com| - Gmail$/.test(title);
+      if (isGmail) {
+        if (count > 0) {
+          tab._whimsyLastUnreadCount = count;
+        } else if (/\binbox\b/i.test(title)) {
+          tab._whimsyLastUnreadCount = 0;
+        } else if (tab._whimsyLastUnreadCount) {
+          count = tab._whimsyLastUnreadCount;
+        }
+      } else {
+        tab._whimsyLastUnreadCount = 0;
+      }
     }
     if (count) {
       const text = count > 99 ? "99+" : String(count);
