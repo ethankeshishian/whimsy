@@ -99,6 +99,12 @@ export const WhimsyUserAgent = {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },
 
+  // W9-04: the stored choice for a host ({ preset, custom }), or null. The
+  // site panel's "This Site" section shows it and can put it back on Undo.
+  entry(host, options = {}) {
+    return entryFor(host, options);
+  },
+
   // Returns the stored UA string for a host, or null.
   uaFor(host, options = {}) {
     const entry = entryFor(host, options);
@@ -209,10 +215,12 @@ export const WhimsyUserAgent = {
   // off the address bar's site button (centred when the bar is hidden): a
   // radio list of browsers for this site, plus a custom string. Choosing
   // one reloads the tab once.
-  openPicker(win) {
+  // W9-04: `siteHost` names the site when the tab shows it in Reader View
+  // (about:reader has no host of its own).
+  openPicker(win, siteHost = null) {
     const { document, gBrowser } = win;
     const tab = gBrowser.selectedTab;
-    const host = tab.linkedBrowser?.currentURI?.asciiHost;
+    const host = siteHost || tab.linkedBrowser?.currentURI?.asciiHost;
     if (!host) {
       return;
     }

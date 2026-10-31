@@ -4230,3 +4230,67 @@ panel.whimsy-sheet.whimsy-snooze {
     min-width: 0;
   }
 }
+
+/* wave9: W9-04 site settings ("This Site" in Zen's site panel). The rows
+   reuse Zen's permission-row classes; these give each its icon, the
+   trailing Forget button and a focus ring for keyboard use. */
+.permission-popup-permission-item.whimsy-site-settings-zoom {
+  list-style-image: url("chrome://browser/skin/zen-icons/search-glass.svg") !important;
+}
+.permission-popup-permission-item.whimsy-site-settings-reader {
+  list-style-image: url("chrome://browser/skin/zen-icons/reader-mode.svg") !important;
+}
+.permission-popup-permission-item.whimsy-site-settings-fullscreen {
+  list-style-image: url("chrome://browser/skin/zen-icons/fullscreen.svg") !important;
+}
+.permission-popup-permission-item.whimsy-site-settings-useragent {
+  list-style-image: url("chrome://browser/skin/zen-icons/selectable/globe.svg") !important;
+}
+
+.whimsy-site-settings-item {
+  border-radius: 8px;
+
+  &:not([actionable]) .permission-popup-permission-icon::before {
+    transform: none !important;
+  }
+
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: -2px;
+  }
+}
+
+.whimsy-site-settings-forget {
+  appearance: none;
+  margin: 0;
+  padding: 6px;
+  min-width: 0;
+  border-radius: 6px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+  opacity: 0.6;
+
+  & .toolbarbutton-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  & .toolbarbutton-text {
+    display: none;
+  }
+
+  &:hover {
+    opacity: 1;
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  &:focus-visible {
+    opacity: 1;
+    outline: var(--focus-outline);
+  }
+}
+
+#whimsy-site-settings-forget-all:focus-visible {
+  opacity: 1;
+  outline: var(--focus-outline);
+}

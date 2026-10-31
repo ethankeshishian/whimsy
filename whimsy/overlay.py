@@ -1226,6 +1226,11 @@ FEATURES = [
     # Firefox's read-only address bar and identity in the top strip.
     {"id": "site-popup-chrome", "title": "Sign-in popups show their address: a site's popup window keeps Firefox's read-only address bar and identity",
      "detect": [("src/zen", r"(?i)popup-?window[^\n]{0,80}(nav-?bar|urlbar)[^\n]{0,40}visib")]},
+    # wave9: W9-04 site settings (Lens's "Settings for each site"): a "This
+    # Site" section in Zen's site panel for zoom, autoplay, always Reader,
+    # full screen and the user agent, each forgettable, plus Forget All.
+    {"id": "site-settings", "title": "Site settings: the site panel remembers a site's zoom, autoplay, Reader View, full screen and user agent, and forgets them one by one or all at once",
+     "detect": [("src/zen", r"(?i)always-?open-?in-?reader|per-?site-?settings|site-?settings-?section")]},
 ]
 
 
