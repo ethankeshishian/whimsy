@@ -631,3 +631,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_security_actor_principals.js"]
 # wave9/secfix M6: Year in Tabs never records private tabs; Clear History and Forget About This Site clear the longest tab.
 ["browser_whimsy_security_private_stats.js"]
+# wave9/secfix (security-full-2 M1): the paste guard checks pastes with no field, and in srcdoc/about:blank frames.
+["browser_whimsy_security_paste_guard_frames.js"]

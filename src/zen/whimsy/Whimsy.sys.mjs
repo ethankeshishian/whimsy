@@ -447,7 +447,9 @@ export const Whimsy = {
         esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardChild.sys.mjs",
         events: { paste: { capture: true } },
       },
-      matches: ["https://*/*", "http://*/*", "file:///*"],
+      // wave9/secfix (security-full-2 M1): no URL matches, so about:blank,
+      // srcdoc, blob: and data: frames are guarded too; the child skips
+      // anything that isn't a web (content or null principal) document.
       allFrames: true,
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
