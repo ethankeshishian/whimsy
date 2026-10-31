@@ -97,6 +97,7 @@ add_task(async function test_a_second_link_stacks_a_second_window() {
     is(first.gBrowser.selectedBrowser.currentURI.spec, "https://example.com/", "The first keeps its page");
     const screen = first.screen;
     const roomBelow = first.screenY + 28 + second.outerHeight <= screen.availTop + screen.availHeight;
+    info(`first y=${first.screenY} h=${first.outerHeight}; second y=${second.screenY} h=${second.outerHeight}; avail ${screen.availTop}+${screen.availHeight}`);
     if (roomBelow) {
       is(second.screenY - first.screenY, 28, "Stacked 28px below the first");
       is(second.screenX, first.screenX, "...at the same left edge");

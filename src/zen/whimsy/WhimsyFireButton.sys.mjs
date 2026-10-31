@@ -205,7 +205,9 @@ export const WhimsyFireButton = {
         continue;
       }
       // Every space's tabs: gBrowser.tabs holds only the showing space's.
-      const tabs = (w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs).filter(t => uuids.has(t.getAttribute("zen-workspace-id")));
+      // Not Zen's shared empty tab, which carries a space id too.
+      const tabs = (w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs).filter(t =>
+        uuids.has(t.getAttribute("zen-workspace-id")) && !t.hasAttribute("zen-empty-tab"));
       if (tabs.length) {
         result.push([w, tabs]);
       }
@@ -287,7 +289,7 @@ export const WhimsyFireButton = {
     for (const w of Services.wm.getEnumerator("navigator:browser")) {
       if (!w.closed && w.gBrowser && !lazy.PrivateBrowsingUtils.isWindowPrivate(w)) {
         // Every space's tabs, not just the showing space's (gBrowser.tabs).
-        result.push([w, [...(w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs)]]);
+        result.push([w, (w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs).filter(t => !t.hasAttribute("zen-empty-tab"))]);
       }
     }
     return result;

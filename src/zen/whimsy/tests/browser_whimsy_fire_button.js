@@ -227,6 +227,9 @@ add_task(async function test_burn_profile_is_per_profile() {
 
   const MINE_URL = "https://example.com/?fire-mine";
   const NET_URL = "https://example.net/?fire-other-profile";
+  // Earlier tests may have visited example.net in this profile within the
+  // hour, which rightly makes it a site this profile touched; start clean.
+  await PlacesUtils.history.removeByFilter({ host: "example.net" });
   const now = Date.now();
   await PlacesUtils.history.insertMany([
     { url: MINE_URL, visits: [{ date: new Date(now - 60000) }, { date: new Date(now - 600000) }] },

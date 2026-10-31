@@ -47,7 +47,7 @@ add_setup(async function () {
 function tabsOf(space) {
   // Every space's tabs (gBrowser.tabs holds only the showing space's).
   return gZenWorkspaces.allStoredTabs.filter(tab => tab.getAttribute("zen-workspace-id") == space.uuid &&
-    !tab.hasAttribute("zen-essential"));
+    !tab.hasAttribute("zen-essential") && !tab.hasAttribute("zen-empty-tab"));
 }
 
 add_task(async function moving_a_tab_asks_then_reopens_it() {

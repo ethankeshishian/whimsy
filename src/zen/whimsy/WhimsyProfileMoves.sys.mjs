@@ -235,7 +235,9 @@ export const WhimsyProfileMoves = {
     // gBrowser.tabs holds only the showing space's tabs (Zen); a space
     // being moved is often another one.
     return (win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs).filter(tab =>
-      tab.getAttribute("zen-workspace-id") == space.uuid && !tab.hasAttribute("zen-essential"));
+      tab.getAttribute("zen-workspace-id") == space.uuid && !tab.hasAttribute("zen-essential") &&
+      // Zen's shared empty tab carries a space id too; it isn't the space's.
+      !tab.hasAttribute("zen-empty-tab"));
   },
 
   async moveSpace(win, space, id) {
