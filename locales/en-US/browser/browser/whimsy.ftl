@@ -9,18 +9,10 @@
 whimsy-updated-heading = { -brand-short-name } updated
 whimsy-rolled-back-heading = Rolled back to the previous version
 whimsy-updated-notes-label = What's new
-whimsy-updated-notes-tooltip =
-    .title = See what changed
 whimsy-updated-rollback-label = Something broke? Roll back
-whimsy-updated-rollback-tooltip =
-    .title = Open update settings
-whimsy-updated-settings-label = Update settings
-whimsy-updated-settings-tooltip =
-    .title = Open update settings
 
 ## Settings → Look and Feel → Updates
 
-whimsy-updates-header = Updates
 whimsy-updates-channel = Channel
 whimsy-updates-channel-release =
     .label = Release
@@ -463,15 +455,6 @@ whimsy-action-heavy-tabs = Find Heavy Tabs
 
 ## batch8: tab lifecycle — Archive view panel
 
-whimsy-archive-panel =
-    .aria-label = Archive
-whimsy-archive-search =
-    .placeholder = Search the archive
-    .aria-label = Search the archive
-whimsy-archive-empty =
-    .value = Nothing archived yet
-whimsy-archive-restore =
-    .tooltiptext = Restore, back where it was
 
 ## batch8: tab lifecycle — Snooze a tab
 
@@ -505,8 +488,6 @@ whimsy-fire-everything = Everything
 
 ## batch8: tab lifecycle — Find heavy tabs
 
-whimsy-heavy-tabs-panel =
-    .aria-label = Heavy tabs
 whimsy-heavy-tabs-close-tab =
     .tooltiptext = Close this tab
 ## Settings → Tab Management → Spaces — batch9: spaces
@@ -643,8 +624,6 @@ whimsy-action-open-split-favorites = Open Favorite Split…
 whimsy-split-favorite-name-title = Favorite This Split
 whimsy-split-favorite-name-prompt = Name this split, so it's easy to find later:
 whimsy-split-favorite-saved-toast = Split saved to your favorites
-whimsy-split-favorites-empty =
-    .value = No favorite splits yet. Favorite one from the command bar.
 whimsy-split-favorite-remove =
     .label = Remove
     .tooltiptext = Remove this favorite
@@ -705,7 +684,6 @@ whimsy-action-cheatsheet = Keyboard Shortcuts
 whimsy-cheatsheet-search =
     .placeholder = Search shortcuts
     .aria-label = Search shortcuts
-whimsy-cheatsheet-edit = Edit all shortcuts…
 whimsy-cheatsheet-duplicate-tab = Duplicate Tab
 whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
 whimsy-cheatsheet-tab-next = Next Tab
@@ -720,14 +698,6 @@ whimsy-inbox-zero-toast = Inbox zero
 ## batch7: per-site user agent ("Pretend to be...")
 
 whimsy-action-useragent = Change User Agent…
-whimsy-useragent-default =
-    .label = Default (Whimsy)
-whimsy-useragent-chrome =
-    .label = Chrome (macOS)
-whimsy-useragent-safari-mac =
-    .label = Safari (macOS)
-whimsy-useragent-safari-iphone =
-    .label = Safari (iPhone)
 
 ## batch7: cookie editor
 
@@ -920,32 +890,23 @@ whimsy-meeting-card =
 whimsy-meeting-card-dismiss =
     .title = Hide until the next meeting
     .aria-label = Hide until the next meeting
-whimsy-meeting-calendars = Calendars
 whimsy-meeting-apple-title = Apple Calendar
 whimsy-meeting-apple-connect = Connect
 whimsy-meeting-apple-allow = Allow access
 whimsy-meeting-apple-open-settings = Open System Settings
 whimsy-meeting-apple-denied = { -brand-short-name } can’t read your calendars. Turn it on in System Settings → Privacy & Security → Calendars.
 whimsy-meeting-apple-unsupported = Apple Calendar is unavailable. Update { -brand-short-name } to try again.
-whimsy-meeting-source-remove =
-    .tooltiptext = Remove calendar
-    .aria-label = Remove calendar
 whimsy-meeting-google-title = Google Calendar
 whimsy-meeting-google-error = Couldn’t load this calendar. Check its address.
-whimsy-meeting-google-add = Add Google Calendar
 whimsy-meeting-google-placeholder =
     .placeholder = Paste a secret iCal address
 whimsy-meeting-google-help = Where do I find it?
 whimsy-meeting-google-add-confirm = Add
 whimsy-meeting-google-invalid = Paste the secret address. It starts with https://
 
-whimsy-meeting-header =
-    .label = Meetings
 whimsy-meeting-description = Join upcoming calls from the sidebar or command bar.
 whimsy-meeting-enable =
     .label = Enable meetings
-whimsy-meeting-apple-enable =
-    .label = Connect Apple Calendar
 whimsy-meeting-card-enable =
     .label = Show upcoming meetings in the sidebar
 # wave2: Mini Whimsy without an available destination.
@@ -1232,14 +1193,8 @@ whimsy-useragent-custom-field =
 whimsy-useragent-custom-apply =
     .label = Apply
 whimsy-cheatsheet-title = Keyboard Shortcuts
-whimsy-cheatsheet-no-match = No shortcut matches.
 whimsy-cheatsheet-edit-button =
     .label = Edit Shortcuts…
-whimsy-cheatsheet-group-tabs = Tabs
-whimsy-cheatsheet-group-sidebar = Sidebar and Spaces
-whimsy-cheatsheet-group-split = Split View
-whimsy-cheatsheet-group-page = Page
-whimsy-cheatsheet-group-windows = Windows
 whimsy-cheatsheet-new-tab = New Tab
 whimsy-cheatsheet-close-tab = Close Tab
 whimsy-cheatsheet-reopen-tab = Restore Last Closed Tab
@@ -1266,7 +1221,6 @@ whimsy-cheatsheet-speed-up = Play Faster
 whimsy-cheatsheet-slow-down = Play Slower
 whimsy-cheatsheet-new-window = New Window
 whimsy-cheatsheet-quick-window = Mini Whimsy
-whimsy-cheatsheet-private-window = New Private Window
 
 ## fixB: the Archive, now History's Closed filter in the Library
 
@@ -1605,7 +1559,6 @@ whimsy-quick-window-address =
 whimsy-quick-window-address-page =
     .title = { $title } — { $url }
     .aria-label = Edit address: { $url }
-whimsy-quick-window-address-placeholder = Search or Enter URL…
 whimsy-quick-window-copy-link =
     .tooltiptext = Copy URL (Cmd+Shift+C)
     .aria-label = Copy URL

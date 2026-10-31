@@ -508,3 +508,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: the archive sweep's Undo toast.
 ["browser_whimsy_archive_sweep_undo.js"]
+
+# wave7/small: Settings cleanup (dead strings gone, every string resolves).
+["browser_whimsy_settings_strings.js"]
