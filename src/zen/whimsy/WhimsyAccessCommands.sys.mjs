@@ -355,6 +355,15 @@ export const WhimsyAccessCommands = {
   },
 
   initWindow(win) {
+    // batch8: W8-04: When expanding a parent folder, keep collapsed subfolder containers hidden
+    win.addEventListener("TabGroupExpand", event => {
+      const group = event.target;
+      if (!group?.isZenFolder) return;
+      for (const child of group.querySelectorAll("zen-folder[collapsed]")) {
+        child.groupContainer?.setAttribute("hidden", "true");
+      }
+    });
+
     const { WhimsyCommands } = lazy;
     const register = spec => {
       try {
@@ -498,5 +507,47 @@ export const WhimsyAccessCommands = {
       icon: ICONS.claude,
       isAvailable: () => feature("claude-replay"),
     });
+
+    // batch8: W8-04 Collapse/Expand All Folders (Arc parity)
+    register({
+      id: "cmd_whimsyCollapseAllFolders",
+      l10nId: "whimsy-action-collapse-all-folders",
+      run: w => this.collapseAllFolders(w),
+      icon: "chrome://browser/skin/zen-icons/arrows-collapse.svg",
+      isAvailable: w => this.hasExpandedFolders(w),
+    });
+    register({
+      id: "cmd_whimsyExpandAllFolders",
+      l10nId: "whimsy-action-expand-all-folders",
+      run: w => this.expandAllFolders(w),
+      icon: "chrome://browser/skin/zen-icons/arrows-expand.svg",
+      isAvailable: w => this.hasCollapsedFolders(w),
+    });
+  },
+
+  hasExpandedFolders(win) {
+    return !!win.gZenFolders?.activeSpaceFolders?.some(f => !f.collapsed);
+  },
+
+  hasCollapsedFolders(win) {
+    return !!win.gZenFolders?.activeSpaceFolders?.some(f => f.collapsed);
+  },
+
+  async collapseAllFolders(win) {
+    if (win.gZenFolders) {
+      await win.gZenFolders.collapseAllFolders();
+      for (const folder of win.gZenFolders.activeSpaceFolders) {
+        folder.collapsed = true;
+      }
+    }
+  },
+
+  async expandAllFolders(win) {
+    if (win.gZenFolders) {
+      await win.gZenFolders.expandAllFolders();
+      for (const folder of win.gZenFolders.activeSpaceFolders) {
+        folder.collapsed = false;
+      }
+    }
   },
 };

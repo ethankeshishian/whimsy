@@ -142,3 +142,51 @@ add_task(async function test_containers_and_private_never_match() {
   BrowserTestUtils.removeTab(normal);
   BrowserTestUtils.removeTab(contained);
 });
+
+add_task(async function test_promote_open_tabs() {
+  const dummyHeuristic = { heuristic: true, type: 2, payload: {} };
+  const dummyHistory = { heuristic: false, type: 3, payload: { url: "https://example.com/hist" } };
+  const dummyTabSwitch1 = { heuristic: false, type: 1, payload: { url: "https://example.com/tab1" } };
+  const dummyTabSwitch2 = { heuristic: false, source: 4, payload: { url: "https://example.com/tab2" } };
+
+  // 1: tab switch results are promoted right below heuristic
+  const qc1 = {
+    results: [dummyHeuristic, dummyHistory, dummyTabSwitch1, dummyTabSwitch2],
+  };
+  WhimsyAlreadyOpen.promoteOpenTabs(qc1);
+  Assert.deepEqual(
+    qc1.results,
+    [dummyHeuristic, dummyTabSwitch1, dummyTabSwitch2, dummyHistory],
+    "Tab switch results promoted to index 1 below heuristic"
+  );
+
+  // 2: non-heuristic query promotes tab switch to index 0
+  const qc2 = {
+    results: [dummyHistory, dummyTabSwitch1],
+  };
+  WhimsyAlreadyOpen.promoteOpenTabs(qc2);
+  Assert.deepEqual(
+    qc2.results,
+    [dummyTabSwitch1, dummyHistory],
+    "Tab switch result promoted to index 0 when no heuristic"
+  );
+
+  // 3: disabled pref leaves order intact
+  await SpecialPowers.pushPrefEnv({ set: [[FEATURE, false]] });
+  const qc3 = {
+    results: [dummyHeuristic, dummyHistory, dummyTabSwitch1],
+  };
+  WhimsyAlreadyOpen.promoteOpenTabs(qc3);
+  Assert.deepEqual(
+    qc3.results,
+    [dummyHeuristic, dummyHistory, dummyTabSwitch1],
+    "When disabled, result order is unchanged"
+  );
+  await SpecialPowers.popPrefEnv();
+
+  // 4: view hook in window is active
+  WhimsyAlreadyOpen.initWindow(window);
+  if (window.gURLBar.view) {
+    ok(window.gURLBar.view._whimsyRankHooked, "UrlbarView onQueryResults is hooked");
+  }
+});

@@ -134,6 +134,57 @@ export const WhimsyPage = {
     this.initArchive(win);
     this.initTranslateSelection(win);
     this.initReadingTime(win);
+    this.initFindSelection(win);
+  },
+
+  // batch8: W8-08: Find with selection (Cmd+F searches immediately)
+  initFindSelection(win) {
+    const hookFindbar = findbar => {
+      if (!findbar || findbar._whimsyHookedSelection) {
+        return;
+      }
+      findbar._whimsyHookedSelection = true;
+      const originalOnCurrentSelection = findbar.onCurrentSelection;
+      findbar.onCurrentSelection = function (selectionString, isInitialSelection) {
+        originalOnCurrentSelection.apply(this, arguments);
+        if (isInitialSelection && selectionString) {
+          try {
+            this._find(selectionString);
+          } catch (e) {
+            console.error("Whimsy: find with selection", e);
+          }
+        }
+      };
+    };
+
+    win.addEventListener("TabFindInitialized", event => {
+      const findbar = win.gBrowser?.getCachedFindBar?.(event.target);
+      if (findbar) {
+        hookFindbar(findbar);
+      }
+    });
+
+    if (win.gBrowser?.getFindBar) {
+      const origGetFindBar = win.gBrowser.getFindBar.bind(win.gBrowser);
+      win.gBrowser.getFindBar = async function () {
+        const findbar = await origGetFindBar(...arguments);
+        if (findbar) {
+          hookFindbar(findbar);
+        }
+        return findbar;
+      };
+    }
+
+    if (win.gBrowser?.tabs) {
+      for (const tab of win.gBrowser.tabs) {
+        if (win.gBrowser.isFindBarInitialized?.(tab)) {
+          const findbar = win.gBrowser.getCachedFindBar(tab);
+          if (findbar) {
+            hookFindbar(findbar);
+          }
+        }
+      }
+    }
   },
 
   actorFor(browser) {

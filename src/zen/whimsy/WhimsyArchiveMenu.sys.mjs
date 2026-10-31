@@ -165,6 +165,10 @@ export const WhimsyArchiveMenu = {
 
     // Firefox already set { tabCount } on both rows; only the ids change.
     if (close) {
+      // batch8: W8-05: close/delete an Essential directly from its context menu
+      if (contextTabs.some(t => t.hasAttribute("zen-essential"))) {
+        close.hidden = false;
+      }
       if (archives) {
         this.setL10nId(close, "whimsy-tab-context-archive-tabs");
       } else if (close.getAttribute("data-l10n-id")?.startsWith("whimsy-")) {

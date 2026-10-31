@@ -32,6 +32,8 @@ const COMMANDS = {
   cmd_whimsyOpenClaudeSpace: "whimsy-action-open-claude-space",
   cmd_whimsyWhatsNew: "whimsy-action-whats-new",
   cmd_whimsyViewClaudeReplays: "whimsy-action-view-claude-replays",
+  cmd_whimsyCollapseAllFolders: "whimsy-action-collapse-all-folders",
+  cmd_whimsyExpandAllFolders: "whimsy-action-expand-all-folders",
 };
 
 // Unused on macOS (the registry test uses Cmd+Shift+Y).
@@ -205,3 +207,12 @@ add_task(async function test_whats_new() {
   is(tab.linkedBrowser.currentURI.spec, "about:whimsy?tab=changelog", "What's New opens the changelog");
   BrowserTestUtils.removeTab(tab);
 });
+
+// batch8: W8-04 Collapse/Expand All Folders with nested structures
+add_task(async function test_collapse_and_expand_all_folders() {
+  ok(document.getElementById("cmd_whimsyCollapseAllFolders"), "Collapse All Folders command exists");
+  ok(document.getElementById("cmd_whimsyExpandAllFolders"), "Expand All Folders command exists");
+  ok(typeof WhimsyAccessCommands.collapseAllFolders == "function", "collapseAllFolders is a function");
+  ok(typeof WhimsyAccessCommands.expandAllFolders == "function", "expandAllFolders is a function");
+});
+

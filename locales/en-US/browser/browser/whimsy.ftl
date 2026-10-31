@@ -3138,4 +3138,7 @@ whimsy-action-move-tab-prev-space = Move Tab to Previous Space
 whimsy-action-create-note = New Note
 whimsy-context-new-note = New Note
 whimsy-note-created-toast = Created a new note
+## batch8: W8-04 Collapse All Folders
+whimsy-action-collapse-all-folders = Collapse All Folders
+whimsy-action-expand-all-folders = Expand All Folders
 
