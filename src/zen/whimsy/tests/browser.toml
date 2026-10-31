@@ -640,3 +640,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
 # wave9/secfix L1: Zap is off in private browsing, so a private site never reaches the Boost store.
 ["browser_whimsy_security_private_zap.js"]
+# wave9/secfix (security-full-2 L3): Whimsy's copy commands mark private-browsing data private on the clipboard.
+["browser_whimsy_security_private_clipboard.js"]

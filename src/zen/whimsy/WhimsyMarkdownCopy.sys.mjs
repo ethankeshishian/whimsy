@@ -18,6 +18,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "ClipboardHelper", () =>
   Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper)
@@ -61,7 +62,8 @@ export const WhimsyMarkdownCopy = {
       win.gZenUIManager?.showToast?.("whimsy-copy-markdown-empty-toast");
       return null;
     }
-    lazy.ClipboardHelper.copyString(result.markdown);
+    // Private browsing: marked private on the clipboard (security-full-2 L3).
+    lazy.WhimsyCopy.copyText(result.markdown, lazy.WhimsyCopy.browserIsPrivate(win, browser));
     win.gZenUIManager?.showToast?.(
       result.kind == "selection" ? "whimsy-copy-selection-markdown-toast" : "whimsy-copy-page-markdown-toast"
     );
