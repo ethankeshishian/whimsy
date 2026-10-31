@@ -3,16 +3,16 @@
 
 "use strict";
 
-// Fire button: every scope clears real data and then closes the tabs it
-// affected — except pinned tabs and Essentials, which keep their cookies
-// burned but stay open (the build-plan answer: a pinned Gmail tab may lose
-// its cookies without losing the tab). This only exercises the tab-closing
-// half (closableTabs/burnTabs): the scopes themselves call the real,
-// already-tested ForgetAboutSite/Services.clearData, which this test
-// deliberately doesn't invoke so it isn't wiping the shared test profile's
-// cookies and cache.
+// Fire button: one press ends the session, closing its tabs and clearing
+// what they left, so you can start fresh. Pinned tabs and Essentials stay
+// open (their data is still cleared). The real ForgetAboutSite /
+// Services.clearData calls are stubbed or recorded so the shared test
+// profile isn't wiped.
 
 const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFireButton.sys.mjs");
+const { ContextualIdentityService } = ChromeUtils.importESModule(
+  "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
+);
 
 const startTabs = new Set(gBrowser.tabs);
 registerCleanupFunction(() => {
@@ -48,68 +48,87 @@ add_task(async function test_burn_tabs_closes_only_closable_ones() {
   ok(!plain.isConnected, "The plain tab didn't");
 });
 
-// "This Site" clears the whole site (base domain, subdomains included), so
-// the row names the site and explains the scope; it's disabled off the web.
-add_task(async function test_site_scope_names_the_site() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://www.example.com/?fire-label");
-  const panel = WhimsyFireButton.panel(window);
-  const button = panel.querySelector('.whimsy-fire-scope[data-scope="site"]');
-  // fixB: the row is a sheet item; its title carries the label.
-  const title = button.querySelector(".whimsy-sheet-item-title");
-  WhimsyFireButton.updateSiteScope(window, panel);
-  let { id, args } = document.l10n.getAttributes(title);
-  is(id, "whimsy-fire-site", "A website names its site");
-  is(args.site, "example.com", "...by base domain, the scope that's cleared");
-  ok(!button.disabled, "...and is enabled");
-  const [message] = await document.l10n.formatMessages([{ id, args }]);
-  ok(message.value.includes("example.com"), "The label names the site");
-  ok(message.attributes.find(a => a.name == "tooltiptext")?.value.includes("subdomains"),
-    "The tooltip says subdomains, history and tabs go too");
-
-  BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "about:robots");
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, "about:robots");
-  WhimsyFireButton.updateSiteScope(window, panel);
-  ({ id } = document.l10n.getAttributes(title));
-  is(id, "whimsy-fire-site-none", "Off the web the row is generic");
-  ok(button.disabled, "...and disabled");
-  panel.remove();
-  BrowserTestUtils.removeTab(tab);
-});
-
-// fixB: the Fire sheet (WhimsyPanels): four scopes, each saying what it
-// clears (the site row names the site), "Everything" marked destructive,
-// and "This Site" disabled on a page that has no site. Closing it with
-// the close button burns nothing.
+// wave7/fire: the sheet serves the Fire Button's point (end the session,
+// start fresh), in the user's words: "Fire in This Profile" first, then
+// "Fire Everywhere" (red). The line under the first counts the tabs and
+// names the profile's spaces; the note under them names the profile and
+// says exactly what's cleared and kept. Closing the sheet burns nothing.
 add_task(async function test_fire_sheet() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fire-sheet");
+  const id = WhimsyFireButton.profileId(window);
+  const expected = WhimsyFireButton.profileTabs(window, id)
+    .reduce((sum, [w, tabs]) => sum + WhimsyFireButton.closableTabs(w, tabs).length, 0);
+  ok(WhimsyFireButton.profileTabs(window, id).some(([, tabs]) => tabs.includes(tab)),
+    "The new tab is in this profile's tabs");
   const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
   WhimsyFireButton.openPanel(window);
   await shown;
   const panel = document.getElementById("whimsyFirePanel");
   ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
   const scopes = [...panel.querySelectorAll(".whimsy-fire-scope")].map(i => i.getAttribute("whimsy-fire-scope"));
-  Assert.deepEqual(scopes, ["site", "last-15-min", "space", "everything"], "Four scopes, narrowest first");
-  const site = panel.querySelector('[whimsy-fire-scope="site"]');
-  Assert.deepEqual(document.l10n.getAttributes(site.querySelector(".whimsy-sheet-item-subtitle")).args,
-    { site: "example.com" }, "The site row names the site it clears");
-  ok(panel.querySelector('[whimsy-fire-scope="everything"]').hasAttribute("destructive"), "Everything is marked destructive");
+  Assert.deepEqual(scopes, ["profile", "everything"], "Two choices: this profile, then everywhere");
+  const row = panel.querySelector('[whimsy-fire-scope="profile"]');
+  const title = row.querySelector(".whimsy-sheet-item-title");
+  is(document.l10n.getAttributes(title).id, "whimsy-fire-profile", "The first row is Fire in This Profile");
+  await TestUtils.waitForCondition(() => (title.value || title.textContent) == "Fire in This Profile", "...in the user's words");
+  const detail = document.l10n.getAttributes(row.querySelector(".whimsy-sheet-item-subtitle"));
+  is(detail.args.count, expected, "Its line counts the tabs it will close");
+  const spaceName = gZenWorkspaces.getActiveWorkspace().name;
+  if (spaceName) {
+    ok(detail.args.spaces.includes(spaceName), "...and names this profile's spaces");
+  }
+  ok(panel.querySelector('[whimsy-fire-scope="everything"]').hasAttribute("destructive"), "Fire Everywhere is red");
+  const summary = panel.querySelector("#whimsy-fire-summary");
+  Assert.deepEqual(document.l10n.getAttributes(summary),
+    { id: "whimsy-fire-profile-summary", args: { profile: WhimsyFireButton.nameOf(id) } },
+    "The note names the profile");
+  await TestUtils.waitForCondition(() => summary.textContent.includes("last hour"), "...in words");
+  if (id == 0) {
+    ok(summary.textContent.includes("Default profile"), "No profile reads as the Default profile");
+  }
+  ok(/cookies, site data and cache/.test(summary.textContent), "...naming what goes");
+  ok(summary.textContent.includes("Other profiles keep theirs"), "...what other profiles keep");
+  ok(summary.textContent.includes("Pinned tabs"), "...and what stays open");
+  for (const old of ["site", "last-15-min", "space", "session"]) {
+    ok(!panel.querySelector(`[whimsy-fire-scope="${old}"]`), `No "${old}" row`);
+  }
 
   const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
   panel.querySelector(".whimsy-sheet-close").doCommand();
   await hidden;
   ok(tab.isConnected, "Closing the sheet burns nothing");
-
-  BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "about:blank");
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, "about:blank");
-  const shownAgain = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
-  WhimsyFireButton.openPanel(window);
-  await shownAgain;
-  const again = document.getElementById("whimsyFirePanel");
-  ok(again.querySelector('[whimsy-fire-scope="site"]').hasAttribute("disabled"), "No site, no This Site");
-  const hiddenAgain = BrowserTestUtils.waitForEvent(again, "popuphidden");
-  EventUtils.synthesizeKey("KEY_Escape", {}, window);
-  await hiddenAgain;
   BrowserTestUtils.removeTab(tab);
+});
+
+// wave7/fire: per-site forgetting left the sheet but stays reachable as the
+// "Forget About This Site…" command (only on a website), which names the
+// site and asks first with Cancel as the default. Return there forgets
+// nothing.
+add_task(async function test_forget_site_is_a_command_that_confirms() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  ok(WhimsyCommands.get("cmd_whimsyForgetSite"), "Forget About This Site… is a registered command");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://www.example.com/?forget-site");
+  const original = WhimsyFireButton.burnSite;
+  let burned = 0;
+  WhimsyFireButton.burnSite = async () => {
+    burned++;
+    return 0;
+  };
+  try {
+    const dialogOpen = BrowserTestUtils.promiseAlertDialogOpen();
+    const forgetting = WhimsyFireButton.forgetSite(window);
+    const dialogWin = await dialogOpen;
+    is(dialogWin.Dialog.args.defaultButtonNum, 1, "Cancel is the default button");
+    ok(dialogWin.Dialog.args.title.includes("example.com"), "The question names the base domain");
+    ok(dialogWin.Dialog.args.text.includes("subdomains"), "...and says subdomains and tabs go too");
+    EventUtils.synthesizeKey("KEY_Enter", {}, dialogWin);
+    await forgetting;
+    is(burned, 0, "Return forgets nothing");
+    ok(tab.isConnected, "...and closes nothing");
+  } finally {
+    WhimsyFireButton.burnSite = original;
+    BrowserTestUtils.removeTab(tab);
+  }
 });
 
 // wave5/uxfix: the flame flash stays under Zen's toasts, and reduced motion
@@ -130,43 +149,158 @@ add_task(async function test_fire_flash_layering_and_reduced_motion() {
 });
 
 // wave5/uxfix: rows only choose a scope. Focus starts on the list, Return on
-// a row never forgets anything, and only the red "Forget …" footer button
-// runs it, followed by a toast saying what went.
-add_task(async function test_fire_needs_the_explicit_forget_button() {
+// a row clears nothing, and only the red footer button runs it, followed
+// by a toast saying what closed and what was cleared. burnProfile is
+// stubbed (it would clear the test profile's last hour) but closes the tab
+// for real.
+add_task(async function test_fire_needs_the_explicit_button() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fire-explicit");
-  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
-  WhimsyFireButton.openPanel(window);
-  await shown;
-  const panel = document.getElementById("whimsyFirePanel");
-  const site = panel.querySelector('[whimsy-fire-scope="site"]');
-  await TestUtils.waitForCondition(() => document.activeElement == site, "Focus starts on the first scope row");
-  is(site.getAttribute("role"), "radio", "Scope rows are radios");
-  is(site.getAttribute("aria-checked"), "true", "The narrowest scope starts chosen");
-  const forget = panel.querySelector("#whimsy-fire-forget");
-  ok(forget.hasAttribute("destructive"), "The action is the red footer button");
-  Assert.deepEqual(document.l10n.getAttributes(forget),
-    { id: "whimsy-fire-forget-site", args: { site: "example.com" } }, "It names what it forgets");
+  const original = WhimsyFireButton.burnProfile;
+  let burned = 0;
+  WhimsyFireButton.burnProfile = async win => {
+    burned++;
+    return { count: WhimsyFireButton.burnTabs(win, [tab], "profile"), visits: 0, sites: 0, profile: "Default" };
+  };
+  try {
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
+    WhimsyFireButton.openPanel(window);
+    await shown;
+    const panel = document.getElementById("whimsyFirePanel");
+    const session = panel.querySelector('[whimsy-fire-scope="profile"]');
+    await TestUtils.waitForCondition(() => document.activeElement == session, "Focus starts on the first row");
+    is(session.getAttribute("role"), "radio", "Rows are radios");
+    is(session.getAttribute("aria-checked"), "true", "Fire in This Profile starts chosen");
+    const forget = panel.querySelector("#whimsy-fire-forget");
+    ok(forget.hasAttribute("destructive"), "The action is the red footer button");
+    is(document.l10n.getAttributes(forget).id, "whimsy-fire-forget-profile", "It names the choice");
 
-  EventUtils.synthesizeKey("KEY_Enter", {}, window);
-  is(panel.state, "open", "Return on a row keeps the sheet open");
-  ok(tab.isConnected, "...and forgets nothing");
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    is(panel.state, "open", "Return on a row keeps the sheet open");
+    is(burned, 0, "...and clears nothing");
 
-  const recent = panel.querySelector('[whimsy-fire-scope="last-15-min"]');
-  recent.doCommand();
-  is(recent.getAttribute("aria-checked"), "true", "Choosing another row moves the choice");
-  is(site.getAttribute("aria-checked"), "false", "...off the first");
-  is(document.l10n.getAttributes(forget).id, "whimsy-fire-forget-recent", "The button follows the choice");
+    const everything = panel.querySelector('[whimsy-fire-scope="everything"]');
+    everything.doCommand();
+    is(everything.getAttribute("aria-checked"), "true", "Choosing the other row moves the choice");
+    is(session.getAttribute("aria-checked"), "false", "...off the first");
+    is(document.l10n.getAttributes(forget).id, "whimsy-fire-forget-everything", "The button follows the choice");
+    is(document.l10n.getAttributes(panel.querySelector("#whimsy-fire-summary")).id, "whimsy-fire-everything-summary",
+      "...and so does the note");
 
-  site.doCommand();
-  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
-  const toastShown = TestUtils.waitForCondition(() =>
-    [...document.querySelectorAll("#zen-toast-container label")].some(l =>
-      document.l10n.getAttributes(l).id == "whimsy-fire-done-site"),
-  "A toast says what was forgotten");
-  forget.doCommand();
-  await hidden;
-  await TestUtils.waitForCondition(() => !tab.isConnected, "Forget closes the site's tabs");
-  await toastShown;
+    session.doCommand();
+    const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    const toastShown = TestUtils.waitForCondition(() =>
+      [...document.querySelectorAll("#zen-toast-container label")].some(l =>
+        document.l10n.getAttributes(l).id == "whimsy-fire-done-profile"),
+    "A toast says what closed and what was cleared");
+    forget.doCommand();
+    await hidden;
+    await TestUtils.waitForCondition(() => !tab.isConnected, "The space's tabs close");
+    is(burned, 1, "It ran once");
+    await toastShown;
+  } finally {
+    WhimsyFireButton.burnProfile = original;
+    if (tab.isConnected) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
+});
+
+// wave7/fire: Fire in This Profile is per profile. It closes the tabs of
+// every space in the profile (not another profile's), removes only this
+// profile's visits from the last hour (another profile's visit to the same
+// URL stays), and clears the sites they touched only in this profile's
+// container (the same site in another profile keeps its cookies; a site
+// only another profile visited is untouched). Real Places and cookie data
+// on test hosts; burnTabs is recorded so the test's tabs stay open.
+add_task(async function test_burn_profile_is_per_profile() {
+  const { WhimsySpaceHistory } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs");
+  const { SiteDataTestUtils } = ChromeUtils.importESModule("resource://testing-common/SiteDataTestUtils.sys.mjs");
+  const mine = WhimsyFireButton.profileId(window);
+  const other = ContextualIdentityService.create("Fire Other", "fingerprint", "blue").userContextId;
+  const sibling = await gZenWorkspaces.createAndSaveWorkspace("Fire Sibling", undefined, true, mine);
+  const elsewhere = await gZenWorkspaces.createAndSaveWorkspace("Fire Elsewhere", undefined, true, other);
+  const siblingTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  siblingTab.setAttribute("zen-workspace-id", sibling.uuid);
+  const elsewhereTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  elsewhereTab.setAttribute("zen-workspace-id", elsewhere.uuid);
+
+  const MINE_URL = "https://example.com/?fire-mine";
+  const NET_URL = "https://example.net/?fire-other-profile";
+  const now = Date.now();
+  await PlacesUtils.history.insertMany([
+    { url: MINE_URL, visits: [{ date: new Date(now - 60000) }, { date: new Date(now - 600000) }] },
+    { url: NET_URL, visits: [{ date: new Date(now - 120000) }] },
+  ]);
+  const db = await PlacesUtils.promiseDBConnection();
+  const rows = await db.execute(`SELECT v.id, v.visit_date, p.guid, p.url FROM moz_historyvisits v
+    JOIN moz_places p ON p.id = v.place_id WHERE p.url IN (:a, :b)`, { a: MINE_URL, b: NET_URL });
+  const file = await WhimsySpaceHistory.file();
+  const ids = [];
+  for (const row of rows) {
+    const id = row.getResultByName("id");
+    const time = Math.floor(row.getResultByName("visit_date") / 1000);
+    const here = row.getResultByName("url") == MINE_URL && time == now - 60000;
+    file.data.visits[id] = { id, time, guid: row.getResultByName("guid"),
+      spaceId: here ? gZenWorkspaces.activeWorkspace : elsewhere.uuid, spaceName: here ? "Here" : "Fire Elsewhere" };
+    ids.push(id);
+  }
+  is(ids.length, 3, "Three visits recorded, attributed to this profile's space or the other one's");
+  SiteDataTestUtils.addToCookies({ origin: "https://example.com", originAttributes: { userContextId: mine } });
+  SiteDataTestUtils.addToCookies({ origin: "https://example.com", originAttributes: { userContextId: other } });
+  SiteDataTestUtils.addToCookies({ origin: "https://example.net", originAttributes: { userContextId: mine } });
+
+  const originalBurnTabs = WhimsyFireButton.burnTabs;
+  const closing = [];
+  WhimsyFireButton.burnTabs = (w, tabs) => {
+    closing.push(...tabs);
+    return tabs.length;
+  };
+  try {
+    const result = await WhimsyFireButton.burnProfile(window);
+    ok(closing.includes(siblingTab), "Another space in this profile has its tabs closed too");
+    ok(!closing.includes(elsewhereTab), "...but not a space in another profile");
+    Assert.greaterOrEqual(result.visits, 1, "This profile's visit went");
+    is(result.profile, WhimsyFireButton.nameOf(mine), "The toast names the profile");
+
+    ok(!SiteDataTestUtils.hasCookies("https://example.com", null, { userContextId: mine }),
+      "The site this profile visited lost its cookies in this profile");
+    ok(SiteDataTestUtils.hasCookies("https://example.com", null, { userContextId: other }),
+      "...but keeps them in another profile");
+    ok(SiteDataTestUtils.hasCookies("https://example.net", null, { userContextId: mine }),
+      "A site only another profile visited keeps its cookies");
+
+    const left = await db.execute(`SELECT v.visit_date, p.url FROM moz_historyvisits v
+      JOIN moz_places p ON p.id = v.place_id WHERE p.url IN (:a, :b)`, { a: MINE_URL, b: NET_URL });
+    const kept = left.map(row => `${row.getResultByName("url")}@${Math.floor(row.getResultByName("visit_date") / 1000)}`).sort();
+    Assert.deepEqual(kept, [`${MINE_URL}@${now - 600000}`, `${NET_URL}@${now - 120000}`].sort(),
+      "Only this profile's visit left history; another profile's visits (same URL included) stay");
+  } finally {
+    WhimsyFireButton.burnTabs = originalBurnTabs;
+    for (const id of ids) {
+      delete file.data.visits[id];
+    }
+    file.saveSoon();
+    await PlacesUtils.history.remove([MINE_URL, NET_URL]).catch(() => {});
+    for (const site of ["example.com", "example.net"]) {
+      await new Promise(resolve => Services.clearData.deleteDataFromSite(site, {}, true,
+        Ci.nsIClearDataService.CLEAR_COOKIES, { onDataDeleted: resolve }));
+    }
+    BrowserTestUtils.removeTab(siblingTab);
+    BrowserTestUtils.removeTab(elsewhereTab);
+    await gZenWorkspaces.removeWorkspace(sibling.uuid);
+    await gZenWorkspaces.removeWorkspace(elsewhere.uuid);
+    ContextualIdentityService.remove(other);
+  }
+});
+
+// wave7/fire: Everything clears exactly what its note and confirm name.
+add_task(function test_everything_flags() {
+  const C = Ci.nsIClearDataService;
+  is(WhimsyFireButton.forgetFlags,
+    C.CLEAR_HISTORY | C.CLEAR_COOKIES_AND_SITE_DATA | C.CLEAR_ALL_CACHES | C.CLEAR_DOWNLOADS,
+    "History, cookies, site data, cache and the download list");
+  is(WhimsyFireButton.siteFlags, C.CLEAR_COOKIES_AND_SITE_DATA | C.CLEAR_ALL_CACHES,
+    "Fire in This Profile clears a site's cookies, site data and cache");
 });
 
 // wave7/ux: "Everything" can't be undone, so the Forget button asks once
@@ -201,7 +335,7 @@ add_task(async function test_fire_everything_confirms_with_cancel_default() {
     is(dialogWin.Dialog.args.defaultButtonNum, 1, "Cancel is the default button");
     const dialogEl = dialogWin.document.querySelector("dialog");
     is(dialogEl.defaultButton, "cancel", "...so Return cancels");
-    is(dialogEl.getButton("accept").label, "Forget Everything", "The accept button names the action");
+    is(dialogEl.getButton("accept").label, "Fire Everywhere", "The accept button names the action");
     EventUtils.synthesizeKey("KEY_Enter", {}, dialogWin);
     await forgetting;
     is(burned, 0, "Return in the confirm forgets nothing");
@@ -226,26 +360,162 @@ add_task(async function test_fire_everything_confirms_with_cancel_default() {
   }
 });
 
-// wave7/ux: narrower scopes don't ask; the sheet's explicit button is enough.
-add_task(async function test_fire_narrow_scopes_do_not_confirm() {
+// wave7/ux: Fire in This Profile doesn't ask again; the sheet's explicit
+// button (which names it) is enough.
+add_task(async function test_fire_profile_does_not_confirm() {
   const original = WhimsyFireButton.confirmEverything;
   let asked = 0;
   WhimsyFireButton.confirmEverything = async () => {
     asked++;
     return false;
   };
-  const originalSpace = WhimsyFireButton.burnSpace;
-  WhimsyFireButton.burnSpace = async () => 0;
+  const originalProfile = WhimsyFireButton.burnProfile;
+  WhimsyFireButton.burnProfile = async () => 0;
   try {
     const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
     WhimsyFireButton.openPanel(window);
     await shown;
     const panel = document.getElementById("whimsyFirePanel");
-    panel.querySelector('[whimsy-fire-scope="space"]').doCommand();
     await WhimsyFireButton.forget(window, panel);
-    is(asked, 0, "This Space doesn't ask a second time");
+    is(asked, 0, "Fire in This Profile doesn't ask a second time");
   } finally {
     WhimsyFireButton.confirmEverything = original;
-    WhimsyFireButton.burnSpace = originalSpace;
+    WhimsyFireButton.burnProfile = originalProfile;
+  }
+});
+
+// Security review H2: burned tabs never come back. Both choices close their
+// tabs first without a closed-tab entry, forget closed tabs already in
+// scope, write the session file, and only then clear. Afterwards
+// Cmd+Shift+T restores nothing burned and the session file has none of the
+// burned URLs. Data clearing is stubbed (the shared profile keeps its data).
+add_task(async function test_fire_leaves_nothing_restorable() {
+  const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+  const { SessionSaver } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs");
+  const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
+  const recovery = PathUtils.join(PathUtils.profileDir, "sessionstore-backups", "recovery.jsonlz4");
+  const closedURLs = () => SessionStore.getClosedTabDataForWindow(window)
+    .flatMap(item => (item.state?.entries ?? []).map(entry => entry.url));
+  async function sessionText() {
+    await SessionSaver.run();
+    return JSON.stringify(await IOUtils.readJSON(recovery, { decompress: true }));
+  }
+  async function openFlushed(url) {
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+    await TabStateFlusher.flush(tab.linkedBrowser);
+    return tab;
+  }
+  const stubs = { profileVisits: async () => [], clearSiteData: async () => {}, removeVisit: async () => {},
+    clearData: async () => {}, clearFormHistory: async () => {} };
+  const originals = {};
+  for (const [name, fn] of Object.entries(stubs)) {
+    originals[name] = WhimsyFireButton[name];
+    WhimsyFireButton[name] = fn;
+  }
+  const originalProfileTabs = WhimsyFireButton.profileTabs;
+  const originalAllTabs = WhimsyFireButton.allTabs;
+  try {
+    // Fire in This Profile: a tab of this profile closed earlier in the hour,
+    // and one burned now.
+    const EARLIER = "https://example.com/?fire-h2-closed-earlier";
+    const BURNED = "https://example.com/?fire-h2-burned";
+    const earlier = await openFlushed(EARLIER);
+    BrowserTestUtils.removeTab(earlier);
+    await TestUtils.waitForCondition(() => closedURLs().includes(EARLIER), "A normal close is restorable");
+    const burned = await openFlushed(BURNED);
+    WhimsyFireButton.profileTabs = () => [[window, [burned]]];
+    await WhimsyFireButton.burnProfile(window);
+    ok(!burned.isConnected, "The burned tab closed");
+    ok(!closedURLs().includes(BURNED), "It never entered the closed-tab list");
+    ok(!closedURLs().includes(EARLIER), "The profile's earlier closed tab is forgotten too");
+    let text = await sessionText();
+    ok(!text.includes("fire-h2-burned") && !text.includes("fire-h2-closed-earlier"),
+      "The session file has neither URL");
+    const restored = SessionStore.undoCloseTab(window, 0);
+    if (restored) {
+      ok(!/fire-h2/.test(SessionStore.getTabState(restored)), "Cmd+Shift+T brings back nothing burned");
+      BrowserTestUtils.removeTab(restored);
+    } else {
+      ok(true, "Cmd+Shift+T has nothing to restore");
+    }
+
+    // Fire Everywhere: same order, everything closed is forgotten.
+    const ALL = "https://example.com/?fire-h2-everywhere";
+    const everywhere = await openFlushed(ALL);
+    WhimsyFireButton.allTabs = () => [[window, [everywhere]]];
+    await WhimsyFireButton.burnEverything(window);
+    ok(!everywhere.isConnected, "Fire Everywhere closed the tab");
+    is(SessionStore.getClosedTabCountForWindow(window), 0, "Nothing is left to reopen");
+    is(SessionStore.getClosedWindowCount(), 0, "...and no closed windows");
+    text = await sessionText();
+    ok(!text.includes("fire-h2-everywhere"), "The session file doesn't have it");
+  } finally {
+    for (const [name, fn] of Object.entries(originals)) {
+      WhimsyFireButton[name] = fn;
+    }
+    WhimsyFireButton.profileTabs = originalProfileTabs;
+    WhimsyFireButton.allTabs = originalAllTabs;
+  }
+});
+
+// Coordinator: Fire Everywhere covers what Clear All History does, form and
+// search history included, after the tabs close; saved passwords stay, and
+// the note says so. Real form history (a test entry); the rest is stubbed.
+add_task(async function test_fire_everywhere_clears_form_history_not_passwords() {
+  const { FormHistory } = ChromeUtils.importESModule("resource://gre/modules/FormHistory.sys.mjs");
+  await FormHistory.update({ op: "add", fieldname: "whimsy-fire-test", value: "burn me" });
+  is(await FormHistory.count({ fieldname: "whimsy-fire-test" }), 1, "A form entry exists");
+  const login = await Services.logins.addLoginAsync(new Components.Constructor(
+    "@mozilla.org/login-manager/loginInfo;1", Ci.nsILoginInfo, "init")(
+    "https://example.com", "https://example.com", null, "fire-user", "fire-pass", "u", "p"));
+  const order = [];
+  const originals = { allTabs: WhimsyFireButton.allTabs, purgeClosed: WhimsyFireButton.purgeClosed,
+    clearData: WhimsyFireButton.clearData };
+  WhimsyFireButton.allTabs = () => [];
+  WhimsyFireButton.purgeClosed = async () => order.push("purge");
+  WhimsyFireButton.clearData = async () => order.push("clear");
+  try {
+    await WhimsyFireButton.burnEverything(window);
+    is(await FormHistory.count({ fieldname: "whimsy-fire-test" }), 0, "Form and search history went");
+    Assert.deepEqual(order, ["purge", "clear"], "Closed tabs are forgotten before data clears");
+    ok((await Services.logins.searchLoginsAsync({ origin: "https://example.com" }))
+      .some(l => l.username == "fire-user"), "Saved passwords stay");
+    const [note] = await document.l10n.formatValues(["whimsy-fire-everything-summary"]);
+    ok(note.includes("form and search history") && note.includes("Saved passwords, bookmarks"),
+      "The note says form history goes and passwords and bookmarks stay");
+  } finally {
+    Object.assign(WhimsyFireButton, originals);
+    await Services.logins.removeLoginAsync(login);
+    await FormHistory.update({ op: "remove", fieldname: "whimsy-fire-test" });
+  }
+});
+
+// Coordinator: Fire Everywhere clears the download list (its flags carry
+// CLEAR_DOWNLOADS), and the downloaded file stays on disk; the note says so.
+// Only the downloads flag runs here, so the shared profile keeps the rest.
+add_task(async function test_fire_everywhere_clears_download_list_keeps_files() {
+  const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+  ok(WhimsyFireButton.forgetFlags & Ci.nsIClearDataService.CLEAR_DOWNLOADS, "Fire Everywhere includes the download list");
+  const target = PathUtils.join(PathUtils.tempDir, "whimsy-fire-download.txt");
+  await IOUtils.writeUTF8(target, "kept");
+  const list = await Downloads.getList(Downloads.ALL);
+  const download = await Downloads.createDownload({ source: "https://example.com/whimsy-fire-download.txt", target });
+  download.succeeded = true;
+  download.stopped = true;
+  await list.add(download);
+  ok((await list.getAll()).includes(download), "The download is listed");
+  try {
+    await new Promise(resolve => Services.clearData.deleteData(
+      WhimsyFireButton.forgetFlags & Ci.nsIClearDataService.CLEAR_DOWNLOADS, { onDataDeleted: resolve }));
+    await TestUtils.waitForCondition(async () => !(await list.getAll()).includes(download), "The list forgets it");
+    ok(await IOUtils.exists(target), "The downloaded file stays on disk");
+    const [note] = await document.l10n.formatValues(["whimsy-fire-everything-summary"]);
+    ok(note.includes("download list") && note.includes("downloaded files"),
+      "The note says the list goes and the files stay");
+  } finally {
+    if ((await list.getAll()).includes(download)) {
+      await list.remove(download);
+    }
+    await IOUtils.remove(target, { ignoreAbsent: true });
   }
 });

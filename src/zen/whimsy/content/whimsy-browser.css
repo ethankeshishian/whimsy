@@ -758,6 +758,15 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     display: none;
   }
 }
+/* wave7/fire: the note under the two rows that says exactly what the
+   chosen one clears and keeps. It wraps (the rows crop to one line) and
+   starts where the rows' icons do. */
+#whimsy-fire-summary {
+  margin: 4px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + var(--arrowpanel-menuitem-padding-inline, 8px)) 8px;
+  font-size: 0.9em;
+  line-height: 1.4;
+  color: var(--whimsy-sheet-muted);
+}
 
 /* batch9: spaces — a small lock glyph on a locked space's switcher icon. */
 #zen-workspaces-button toolbarbutton[whimsy-locked-space] {
@@ -2252,6 +2261,10 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 /* Harmless when the Meetings feature (or its module) is removed. */
 [data-section="whimsy-next-meeting"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
   background-image: url("chrome://browser/content/whimsy/library/library-meeting-sprite.svg");
+}
+
+[data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/content/whimsy/library/library-archive-sprite.svg");
 }
 
 [data-section="whimsy-playlist"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {

@@ -422,6 +422,37 @@ support-files = ["whimsy_verbs.html"]
 ["browser_whimsy_tab_audio_icon.js"]
 support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
+# wave7/ux: private page copy
+["browser_whimsy_private_page_copy.js"]
+
+# wave7/ux: one hover host for links (People or link card, AI summary beneath)
+["browser_whimsy_link_hover.js"]
+
+# wave7/ux: the pinned/normal separator sits below expanded folder children
+["browser_whimsy_folder_separator.js"]
+
+# wave5/profiles: profile model, Set Profile → Create a New Profile…, Settings → Profiles.
+["browser_whimsy_profiles.js"]
+
+# wave5/profiles: passwords per profile (autofill, save tagging, Sync round-trip, delete).
+["browser_whimsy_profile_passwords.js"]
+support-files = ["whimsy_login_form.html"]
+
+# wave5/profiles: history per profile (sidecar attribution, Library query, address bar).
+["browser_whimsy_profile_history.js"]
+
+# wave5/profiles: per-profile search engine and download folder.
+["browser_whimsy_profile_settings.js"]
+
+# wave5/profiles: Arc's warnings, and tabs really reopen in the new profile.
+["browser_whimsy_profile_moves.js"]
+
+# wave5/profiles: Mini Whimsy's profile pill and cross-profile Open in.
+["browser_whimsy_profile_mini.js"]
+
+# wave5/profiles: per-profile data through Sync's prefs engine (two-device round trip, merge rules).
+["browser_whimsy_profile_sync.js"]
+
 # wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
 ["browser_whimsy_zap.js"]
 
@@ -489,14 +520,6 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
 ["browser_whimsy_archive_tab_menu.js"]
-# wave7/ux: private page copy
-["browser_whimsy_private_page_copy.js"]
-
-# wave7/ux: one hover host for links (People or link card, AI summary beneath)
-["browser_whimsy_link_hover.js"]
-
-# wave7/ux: the pinned/normal separator sits below expanded folder children
-["browser_whimsy_folder_separator.js"]
 # wave7/folders: Jira/Linear/Local Servers live folders survive a restart, even when a provider registers late.
 ["browser_whimsy_live_folders_restore.js"]
 # wave7/keys: commands with assignable shortcuts for Settings/menu-only features (tree, hidden spaces, switcher, UI zoom, background mute, bionic, dark PDF, live/Finder folders, Manage Spaces, ATC, Claude space, What's New).
