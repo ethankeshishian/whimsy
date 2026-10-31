@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(
   lazy,
   {
     FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
+    PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
     ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   },
   { global: "current" }
@@ -36,6 +37,15 @@ function filenameFor(date) {
   return `whimsy-capture-${date.toISOString().replace(/[:.]/g, "-")}.png`;
 }
 
+export function isPrivateCapture(browser) {
+  try {
+    return !browser || lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) ||
+      lazy.PrivateBrowsingUtils.isWindowPrivate(browser.ownerGlobal);
+  } catch {
+    return true; // Can't tell: keep it off disk.
+  }
+}
+
 let installed = false;
 function installCaptureHook() {
   if (installed) {
@@ -45,6 +55,12 @@ function installCaptureHook() {
   const original = lazy.ScreenshotsUtils.copyScreenshot;
   lazy.ScreenshotsUtils.copyScreenshot = async function (blob, browser, eventName) {
     await original.call(this, blob, browser, eventName);
+    // wave9/secfix (security-full-1 M3): a private page's capture stays on
+    // the clipboard only, as in Firefox (private windows, private tabs and
+    // Scratch).
+    if (isPrivateCapture(browser)) {
+      return;
+    }
     try {
       const dir = capturesDir();
       await IOUtils.makeDirectory(dir, { ignoreExisting: true });

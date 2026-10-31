@@ -625,3 +625,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_security_sandboxed_private.js"]
 # wave9/secfix M2: a normal tab adopted into Scratch from another window leaves it; Mini never offers Scratch.
 ["browser_whimsy_security_scratch_adopt.js"]
+# wave9/secfix M3: a private page's copied screenshot is never saved to the Library.
+["browser_whimsy_security_private_captures.js"]
