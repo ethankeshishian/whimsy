@@ -559,7 +559,7 @@ export const WhimsyClaude = {
     return {
       url: `http://${HOST}:${state.server.identity.primaryPort}${MCP_PATH}`,
       bridgePath: path,
-      command: `claude mcp add ${SERVER_NAME} -- ${quoted}`,
+      command: `claude mcp add -s user ${SERVER_NAME} -- ${quoted}`,
       json: JSON.stringify(
         { mcpServers: { [SERVER_NAME]: { command: path, args: [] } } },
         null,

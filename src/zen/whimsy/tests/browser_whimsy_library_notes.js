@@ -99,3 +99,26 @@ add_task(async function test_empty_text_does_not_throw_tab_notes() {
   ok(stored, "Setting whitespace, not empty, keeps TabNotes.set from throwing");
   await TabNotes.delete(tab);
 });
+
+// W8-49: Notes are strictly partitioned per profile.
+add_task(async function test_w8_49_notes_per_profile() {
+  const noteDef = await gWhimsyNotesStore.create({ profileKey: "default", title: "Default Note" });
+  const noteWork = await gWhimsyNotesStore.create({ profileKey: "work-profile", title: "Work Note" });
+  registerCleanupFunction(async () => {
+    await gWhimsyNotesStore.remove(noteDef.id);
+    await gWhimsyNotesStore.remove(noteWork.id);
+  });
+
+  const defNotes = await gWhimsyNotesStore.list("default");
+  ok(defNotes.some(n => n.id == noteDef.id), "Default profile sees default note");
+  ok(!defNotes.some(n => n.id == noteWork.id), "Default profile does not see work note");
+
+  const workNotes = await gWhimsyNotesStore.list("work-profile");
+  ok(workNotes.some(n => n.id == noteWork.id), "Work profile sees work note");
+  ok(!workNotes.some(n => n.id == noteDef.id), "Work profile does not see default note");
+
+  // Deleting a profile cleans up its notes
+  await gWhimsyNotesStore.removeForProfile("work-profile");
+  const postDelete = await gWhimsyNotesStore.list("work-profile");
+  is(postDelete.length, 0, "Deleting profile cleans up its notes");
+});

@@ -13,6 +13,11 @@ add_task(function test_peek_keeps_zen_trigger() {
     "alt",
     "Glance (Peek) keeps Zen's Option+click"
   );
+  isnot(
+    Services.prefs.getDefaultBranch("").getStringPref("zen.glance.activation-method"),
+    "shift",
+    "W8-16: Glance is not activated by Shift (decided against Arc; keeps Option+click)"
+  );
   ok(!Services.prefs.getDefaultBranch("").getBoolPref("whimsy.splitlink.shift-click"), "Shift+click to split stays off");
 });
 

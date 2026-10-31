@@ -161,3 +161,12 @@
 - Crash follow-up, Gecko DOM compatibility: replaced every remaining ownerGlobal access in the merged AI preview/title, alias positioning/menu, and Playlist link code with ownerDocument.defaultView; Node.webidl exposes documentGlobal rather than ownerGlobal in this engine. Enabled the aliases actor for web processes under Gecko's safeForUntrustedWebProcess enforcement. Targeted AI page/titles and email-alias tests now pass; no assertions weakened or skips added.
 - Crash follow-up, AI: stop the watch timer synchronously when the last watch is removed, before awaiting persistence; create the regression's account-two tab through BrowserTestUtils.addTab (openNewForegroundTab ignores userContextId); load Settings through a browserLoaded-aware helper. The hostile hidden-reader fixture now catches Gecko's expected InvalidAccessError on blocked window.open and still attempts forms/downloads, with synchronous rendering markers. Targeted AI pages, watches, provider Settings, and tab tests all pass, including the new real SessionStore regression.
 - Crash follow-up, Game: handle audio.resume's asynchronous rejection when closing a game with a pending autoplay request. The offline-game recovery assertion now finds the native retry control inside the felt-privacy shadow root as well as the legacy document. Targeted game and net-error suites pass, including actual balloon taps, keyboard startup, feature-off, and reduced-motion coverage.
+
+- Wave 8 misc batch (code-only on wave8/misc): All 7 tickets completed and committed.
+  - W8-16 (893e0872): Glance keeps Zen Option-click trigger over Arc Shift-click.
+  - W8-31 (45739311): Auto PiP pops playing video out to floating window instead of only sidebar; min-video-secs: 0.
+  - W8-32 (a05d2613): Apple Intelligence helper build failure explains exact reason (e.g. tools outdated or developer directory invalid) and remediation in UI.
+  - W8-33 (22a18e72): Claude MCP registration specifies user scope (`claude mcp add -s user`) to avoid interactive CLI prompt.
+  - W8-39 (a6e1a62e): Removed inert Browser theme section from Look and Feel (lightweight themes have no effect in Zen chrome).
+  - W8-41 (0234fde5): Set Up VPN enables master pref, initiates connection if ready, opens native IP Protection panel, or presents sign-in guidance.
+  - W8-49 (06f4704d): Partitioned Notes and per-site user agent strictly per profile and preserved private browsing isolation.

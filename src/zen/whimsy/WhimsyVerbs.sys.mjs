@@ -41,6 +41,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   gWhimsyNotesStore: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
@@ -408,15 +409,16 @@ const BUILT_IN = [
     l10nId: "whimsy-verb-note",
     icon: `${ICONS}reader-mode.svg`,
     scope: "both",
-    // wave8/isolation: Notes are saved to disk and shared by every profile,
-    // so a private page's text and address never go in one.
+    // wave8/isolation & W8-49: a private page's text and address never go to notes.
     isAvailable: win => Services.prefs.getBoolPref(NOTES_PREF, true) && !isPrivate(win),
     async run(win, s) {
       if (isPrivate(win)) {
         return;
       }
       const text = s.kind == "selection" ? `${s.markdown}\n\n${pageLink(s)}` : pageLink(s);
-      const note = await lazy.gWhimsyNotesStore.create();
+      const userContextId = win.gBrowser?.selectedTab?.userContextId ?? 0;
+      const profileKey = lazy.WhimsyProfiles.keyFor(userContextId);
+      const note = await lazy.gWhimsyNotesStore.create({ profileKey });
       await lazy.gWhimsyNotesStore.update(note.id, { title: s.title, text, url: s.url });
       win.gZenUIManager?.showToast?.("whimsy-verb-note-toast");
     },

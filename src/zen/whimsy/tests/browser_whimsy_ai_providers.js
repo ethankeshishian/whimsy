@@ -219,10 +219,20 @@ add_task(async function test_apple_toolchain_detection() {
       "apple-needs-license",
       "An unaccepted Xcode license says so"
     );
+    is(
+      WhimsyAIProviders._buildFailure("error: active developer path (/Applications/Xcode.app) does not exist"),
+      "apple-tools-path-invalid",
+      "Invalid developer path diagnosed"
+    );
+    is(
+      WhimsyAIProviders._buildFailure("error: no such module 'FoundationModels'"),
+      "apple-tools-outdated",
+      "Missing FoundationModels module diagnosed as outdated tools"
+    );
     is(WhimsyAIProviders._buildFailure("error: cannot find 'X' in scope"), "apple-build-failed", "Other build errors aren't 'missing tools'");
 
     const l10n = new Localization(["browser/whimsy.ftl"], true);
-    for (const code of ["apple-needs-tools", "apple-tools-outdated", "apple-needs-license", "apple-build-failed"]) {
+    for (const code of ["apple-needs-tools", "apple-tools-outdated", "apple-tools-path-invalid", "apple-needs-license", "apple-build-failed"]) {
       ok(AI_ERROR_CODES.includes(code), `${code} is a known error`);
       ok(l10n.formatValueSync(`whimsy-ai-error-${code}`), `${code} has a toast`);
       ok(l10n.formatValueSync(`whimsy-ai-apple-status-${code}`), `${code} has a Settings message`);

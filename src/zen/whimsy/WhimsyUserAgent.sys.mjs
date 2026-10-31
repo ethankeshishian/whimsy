@@ -17,6 +17,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.site-user-agent";
@@ -37,9 +38,19 @@ export const PRESETS = {
 
 function readSites() {
   try {
-    return JSON.parse(Services.prefs.getStringPref(SITES_PREF, "{}"));
+    const raw = JSON.parse(Services.prefs.getStringPref(SITES_PREF, "{}"));
+    if (!raw || typeof raw !== "object") {
+      return { default: {} };
+    }
+    // Backward compatibility: if raw has host keys directly (e.g. raw["example.com"] = { preset: "..." })
+    // wrap it into { default: raw }
+    const firstVal = Object.values(raw)[0];
+    if (firstVal && (firstVal.preset !== undefined || typeof firstVal !== "object")) {
+      return { default: raw };
+    }
+    return raw;
   } catch (e) {
-    return {};
+    return { default: {} };
   }
 }
 
@@ -47,10 +58,9 @@ function writeSites(sites) {
   Services.prefs.setStringPref(SITES_PREF, JSON.stringify(sites));
 }
 
-// wave8/isolation: a choice made in a private tab stays in memory and
-// applies to private tabs only (host -> entry, or null for "Default"). The
-// pref and the permission are saved to disk, so writing there would record
-// which sites were visited privately. Gone when the last private tab closes.
+// wave8/isolation & W8-49: a choice made in a private tab stays in memory and
+// applies to private tabs only (host -> entry, or null for "Default"). Gone
+// when the last private tab closes.
 const privateSites = new Map();
 let watchingPrivate = false;
 
@@ -62,11 +72,26 @@ function watchPrivateEnd() {
   Services.obs.addObserver(() => privateSites.clear(), "last-pb-context-exited");
 }
 
-function entryFor(host, isPrivate = false) {
+function parseOptions(opts) {
+  if (typeof opts === "boolean") {
+    return { isPrivate: opts, profileKey: "default" };
+  }
+  if (typeof opts === "string") {
+    return { isPrivate: false, profileKey: opts };
+  }
+  return {
+    isPrivate: !!opts?.isPrivate,
+    profileKey: opts?.profileKey || "default",
+  };
+}
+
+function entryFor(host, opts = {}) {
+  const { isPrivate, profileKey } = parseOptions(opts);
   if (isPrivate && privateSites.has(host)) {
     return privateSites.get(host);
   }
-  return readSites()[host] ?? null;
+  const sites = readSites();
+  return sites[profileKey]?.[host] ?? null;
 }
 
 export const WhimsyUserAgent = {
@@ -75,44 +100,66 @@ export const WhimsyUserAgent = {
   },
 
   // Returns the stored UA string for a host, or null.
-  uaFor(host, isPrivate = false) {
-    const entry = entryFor(host, isPrivate);
+  uaFor(host, options = {}) {
+    const entry = entryFor(host, options);
     if (!entry) {
       return null;
     }
     return entry.preset == "custom" ? entry.custom || null : PRESETS[entry.preset] || null;
   },
 
-  set(host, preset, custom, { isPrivate = false } = {}) {
+  set(host, preset, custom, options = {}) {
+    const { isPrivate, profileKey } = parseOptions(options);
     if (isPrivate) {
       watchPrivateEnd();
       privateSites.set(host, preset == "custom" ? { preset, custom } : { preset });
       return;
     }
     const sites = readSites();
-    sites[host] = preset == "custom" ? { preset, custom } : { preset };
+    sites[profileKey] ??= {};
+    sites[profileKey][host] = preset == "custom" ? { preset, custom } : { preset };
     writeSites(sites);
     try {
       const uri = Services.io.newURI(`https://${host}/`);
-      const principal = Services.scriptSecurityManager.createContentPrincipal(uri, {});
+      const userContextId = lazy.WhimsyProfiles.idForKey(profileKey);
+      const principal = Services.scriptSecurityManager.createContentPrincipal(uri, {
+        userContextId,
+      });
       Services.perms.addFromPrincipal(principal, PERM_TYPE, Services.perms.ALLOW_ACTION);
     } catch (e) {}
   },
 
-  clear(host, { isPrivate = false } = {}) {
+  clear(host, options = {}) {
+    const { isPrivate, profileKey } = parseOptions(options);
     if (isPrivate) {
       watchPrivateEnd();
       privateSites.set(host, null);
       return;
     }
     const sites = readSites();
-    delete sites[host];
-    writeSites(sites);
+    if (sites[profileKey]) {
+      delete sites[profileKey][host];
+      writeSites(sites);
+    }
     try {
       const uri = Services.io.newURI(`https://${host}/`);
-      const principal = Services.scriptSecurityManager.createContentPrincipal(uri, {});
+      const userContextId = lazy.WhimsyProfiles.idForKey(profileKey);
+      const principal = Services.scriptSecurityManager.createContentPrincipal(uri, {
+        userContextId,
+      });
       Services.perms.removeFromPrincipal(principal, PERM_TYPE);
     } catch (e) {}
+  },
+
+  removeProfile(profileKey) {
+    if (!profileKey || profileKey === "default") {
+      return;
+    }
+    const sites = readSites();
+    if (sites[profileKey]) {
+      delete sites[profileKey];
+      writeSites(sites);
+    }
   },
 
   initWindow(win) {
@@ -122,18 +169,30 @@ export const WhimsyUserAgent = {
         if (!this.enabled || !progress.isTopLevel) {
           return;
         }
-        this.applyTo(progress.browsingContext, location.asciiHost);
+        const bc = progress.browsingContext;
+        const attrs = bc?.top?.originAttributes ?? {};
+        const isPrivate = (attrs.privateBrowsingId || 0) > 0;
+        const userContextId = attrs.userContextId || 0;
+        const profileKey = lazy.WhimsyProfiles.keyFor(userContextId);
+        this.applyTo(bc, location?.asciiHost, { isPrivate, profileKey });
       },
     };
     win.gBrowser.addTabsProgressListener?.(listener) ?? win.gBrowser.addProgressListener(listener);
     win._whimsyUserAgentListener = listener;
   },
 
-  applyTo(browsingContext, host) {
+  applyTo(browsingContext, host, options = null) {
     if (!browsingContext) {
       return;
     }
-    const ua = host ? this.uaFor(host, !!browsingContext.usePrivateBrowsing) : null;
+    if (!options) {
+      const attrs = browsingContext.top?.originAttributes ?? {};
+      const isPrivate = (attrs.privateBrowsingId || 0) > 0;
+      const userContextId = attrs.userContextId || 0;
+      const profileKey = lazy.WhimsyProfiles.keyFor(userContextId);
+      options = { isPrivate, profileKey };
+    }
+    const ua = host ? this.uaFor(host, options) : null;
     const current = browsingContext.customUserAgent || "";
     if ((ua || "") != current) {
       browsingContext.customUserAgent = ua || "";
@@ -157,6 +216,11 @@ export const WhimsyUserAgent = {
     if (!host) {
       return;
     }
+    const isPrivate = lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser);
+    const userContextId = tab.userContextId || 0;
+    const profileKey = lazy.WhimsyProfiles.keyFor(userContextId);
+    const options = { isPrivate, profileKey };
+
     const { panel, body } = lazy.WhimsyPanels.create(win, {
       id: "whimsy-useragent-panel",
       titleL10nId: "whimsy-useragent-title",
@@ -166,17 +230,16 @@ export const WhimsyUserAgent = {
     });
     panel.classList.add("whimsy-useragent-panel");
 
-    const isPrivate = lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser);
     const choose = (preset, custom) => {
       if (preset) {
-        this.set(host, preset, custom, { isPrivate });
+        this.set(host, preset, custom, options);
       } else {
-        this.clear(host, { isPrivate });
+        this.clear(host, options);
       }
       this.reload(win, tab);
       lazy.WhimsyPanels.close(panel);
     };
-    const entry = entryFor(host, isPrivate);
+    const entry = entryFor(host, options);
     const activePreset = entry?.preset ?? null;
     const OPTIONS = [
       [null, "whimsy-useragent-option-default", "whimsy-useragent-option-default-detail"],
@@ -238,3 +301,8 @@ export const WhimsyUserAgent = {
     lazy.WhimsyPanels.open(win, panel, { anchor, position: "after_start" });
   },
 };
+
+// W8-49: clean up per-site UA overrides when a custom profile is deleted.
+try {
+  lazy.WhimsyProfiles.onDelete?.((id, key) => WhimsyUserAgent.removeProfile(key));
+} catch (e) {}
