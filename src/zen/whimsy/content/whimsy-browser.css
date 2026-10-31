@@ -3332,3 +3332,19 @@ panel.whimsy-teach {
 menupopup > [whimsy-menu-pref-hidden] {
   display: none !important;
 }
+
+/* wave9: Form protection subtle indicator (W9-03) */
+.tabbrowser-tab[whimsy-form-protected] .tab-icon-stack::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  inset-inline-start: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--zen-warning-color, #f59e0b);
+  box-shadow: 0 0 0 1.5px var(--zen-colors-bg, #1e1e2e);
+  z-index: 2;
+  pointer-events: none;
+}
+

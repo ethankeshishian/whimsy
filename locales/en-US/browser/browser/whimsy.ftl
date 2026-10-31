@@ -2991,3 +2991,13 @@ whimsy-site-zap-restore-all =
     .label = Restore All Zapped Elements
 whimsy-site-zap-restored-toast = Restored { $selector }
 whimsy-site-zap-restored-all-toast = Restored all zapped elements
+
+## wave9: form protection (W9-03)
+
+whimsy-tabs-form-protection =
+    .label = Protect tabs with unsaved forms from auto-archive
+whimsy-action-protect-form = Protect Tab from Auto-Archive
+whimsy-tab-form-protected-description = Form protected: contains unsaved form text
+whimsy-tab-form-protected-tooltip = This tab has unsaved form text and is exempt from auto-archive
+whimsy-form-protected-toast = Protected tab with unsaved form text from auto-archive
+

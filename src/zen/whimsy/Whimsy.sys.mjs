@@ -284,6 +284,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTeachHints: "resource:///modules/whimsy/WhimsyTeachHints.sys.mjs",
 });
 
+// wave9: form protection (W9-03)
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFormProtection: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -871,6 +876,9 @@ export const Whimsy = {
     // wave7/small: Link hints and Instant result Teach once hints; they
     // register only in a build that has WhimsyTeach (once per session).
     later("teach-hints", () => lazy.WhimsyTeachHints.init());
+
+    // wave9: form protection (W9-03)
+    run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

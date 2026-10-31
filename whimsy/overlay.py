@@ -1150,6 +1150,9 @@ FEATURES = [
     # command bar) moves the tab or its whole split into the new space.
     {"id": "move-to-new-space", "title": "Move to > New Space...: make a space and move the tab (or its whole split) into it (Arc)",
      "detect": [("src/zen", r"(?i)move-?to-?new-?(space|workspace)")]},
+    # batch wave9: form protection (W9-03)
+    {"id": "form-protection", "title": "Form protection: tabs with half-filled forms are exempt from auto-archive and show a subtle indicator",
+     "detect": [("src/zen", r"(?i)form-?protection|whimsy-?form-?protected")]},
 ]
 
 

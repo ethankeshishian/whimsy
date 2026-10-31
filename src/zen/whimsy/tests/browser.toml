@@ -601,3 +601,8 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: lazy init of command-bar-only parts.
 ["browser_whimsy_lazy_init.js"]
+
+# batch wave9: form protection (W9-03)
+["browser_whimsy_form_protection.js"]
+support-files = ["whimsy_email_form.html"]
+

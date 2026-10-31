@@ -28,6 +28,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
+  WhimsyFormProtection: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -298,7 +299,8 @@ export const WhimsyArchive = {
       tab.closing ||
       tab.hasAttribute("zen-glance-tab") ||
       tab.hasAttribute("zen-empty-tab") ||
-      !!tab.group?.hasAttribute("split-view-group")
+      !!tab.group?.hasAttribute("split-view-group") ||
+      lazy.WhimsyFormProtection.isFormProtected(tab)
     );
   },
 
