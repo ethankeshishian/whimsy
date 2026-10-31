@@ -4186,6 +4186,20 @@ panel.whimsy-sheet.whimsy-snooze {
    4px inset), the highlight in the bar's own hover fill rather than the
    system's blue, and each space's icon on a tile of its colour. Keyboard
    (arrows, Return, Esc) and accessibility stay the menupopup's own. */
+/* Zen's zen-panel-ui.css forces every macOS menupopup native, with
+   !important, in a rule whose nesting carries an ID's specificity
+   (:not(#feature-callout)); a doubled ID outranks it for just these. */
+#whimsy-quick-window-space-picker#whimsy-quick-window-space-picker {
+  appearance: none !important;
+  background-color: transparent !important;
+  --panel-background-color: var(--whimsy-mini-frame) !important;
+  --panel-border-color: var(--whimsy-mini-hairline) !important;
+
+  &::part(content) {
+    background-color: var(--whimsy-mini-frame) !important;
+  }
+}
+
 #whimsy-quick-window-space-picker {
   appearance: none;
   background-color: transparent;
