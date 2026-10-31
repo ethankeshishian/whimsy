@@ -157,3 +157,48 @@ add_task(async function test_new_note_command_and_context_menu() {
   window.gContextMenu = originalGContextMenu;
 });
 
+
+// wave9/designfix (M9): deleting a note in the Library shows "Deleted note
+// · Undo", and Undo brings the same note back; the row's icon is a page.
+add_task(async function test_delete_note_can_be_undone() {
+  const lib = getLibrary();
+  if (!lib) {
+    ok(true, "No <zen-library> in this window; nothing to check");
+    return;
+  }
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  const note = await gWhimsyNotesStore.create({ title: "Undo me", text: "keep this" });
+  registerCleanupFunction(() => cleanupNote(note.id));
+
+  const wasOpen = lib.constructor.isLibraryOpen;
+  await TestUtils.waitForCondition(() => lib.zenLibrarySections["whimsy-notes"]);
+  lib.activeTab = "whimsy-notes";
+  await lib.constructor.animateProgress(1);
+  registerCleanupFunction(() => lib.constructor.animateProgress(wasOpen ? 1 : 0));
+  const section = await TestUtils.waitForCondition(() => lib.querySelector("whimsy-library-notes-section"));
+  const row = await TestUtils.waitForCondition(
+    () => [...section.querySelectorAll(".zen-library-row")].find(r => r.textContent.includes("Undo me")),
+    "The note has a row"
+  );
+  ok(row.querySelector(".zen-library-row-icon").src.endsWith("page-portrait.svg"), "Its icon is a page, not Copy");
+
+  row.querySelector('toolbarbutton[data-l10n-id="whimsy-library-notes-delete"]').click();
+  await TestUtils.waitForCondition(
+    async () => !(await gWhimsyNotesStore.list()).some(n => n.id == note.id),
+    "Delete removes it"
+  );
+  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast says so");
+  is(toast._messageId, "whimsy-library-notes-deleted-toast", "Deleted note");
+  const undo = toast.querySelector(".whimsy-toast-action");
+  ok(undo, "with Undo");
+  undo.click();
+  const back = await TestUtils.waitForCondition(
+    async () => (await gWhimsyNotesStore.list()).find(n => n.id == note.id),
+    "Undo brings it back"
+  );
+  is(back.text, "keep this", "as it was");
+  await TestUtils.waitForCondition(
+    () => [...section.querySelectorAll(".zen-library-row")].some(r => r.textContent.includes("Undo me")),
+    "and its row returns"
+  );
+});

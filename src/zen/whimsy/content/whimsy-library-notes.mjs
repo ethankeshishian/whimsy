@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TabNotes: "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
 function preview(text) {
@@ -106,12 +107,24 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     this.editingId = note.id;
   }
 
+  // wave9/designfix (M9): "Deleted note · Undo" (and Cmd+Z), not one
+  // click to lose it.
   async #removeNote(id) {
     if (this.editingId == id) {
       this.editingId = null;
     }
-    await gWhimsyNotesStore.remove(id);
+    const removed = await gWhimsyNotesStore.remove(id);
     await this.#refresh();
+    if (!removed) {
+      return;
+    }
+    lazy.WhimsyUndo.showToast(
+      this.ownerGlobal,
+      "whimsy-library-notes-deleted-toast",
+      { type: "library-delete", undo: () => gWhimsyNotesStore.restore(removed) },
+      undefined,
+      { detail: removed.title || preview(removed.text) || undefined }
+    );
   }
 
   async #setText(note, text) {
@@ -296,7 +309,7 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
             this.editingId = editing ? null : note.id;
           }}
         >
-          <img class="zen-library-row-icon" src="chrome://browser/skin/zen-icons/edit-copy.svg" alt="" />
+          <img class="zen-library-row-icon" src="chrome://browser/skin/zen-icons/page-portrait.svg" alt="" />
           <div class="zen-library-row-text">
             <span class="zen-library-row-title">${note.title || preview(note.text) || "—"}</span>
             <span class="zen-library-row-subtitle">${

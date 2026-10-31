@@ -17,6 +17,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(
   lazy,
   {
+    BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
     FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
     ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   },
@@ -77,6 +78,72 @@ export function listCaptures() {
   } catch {
     return [];
   }
+}
+
+// wave9/designfix (M9): deleting a screenshot from the Library can be
+// undone. The file moves to a hidden folder inside the captures folder
+// (listCaptures skips folders) instead of being removed; Undo moves it
+// back. Each session holds its own folder, and the next session empties
+// the old ones, so a deleted screenshot is really gone after a restart.
+const HOLD_PREFIX = ".deleted-";
+const HOLD_NAME = `${HOLD_PREFIX}${Date.now()}`;
+let purged = false;
+
+async function purgeOldHolds(dir) {
+  if (purged) {
+    return;
+  }
+  purged = true;
+  try {
+    for (const child of await IOUtils.getChildren(dir)) {
+      const name = PathUtils.filename(child);
+      if (name.startsWith(HOLD_PREFIX) && name != HOLD_NAME) {
+        await IOUtils.remove(child, { recursive: true, ignoreAbsent: true });
+      }
+    }
+  } catch (e) {
+    console.error("Whimsy: clear deleted captures", e);
+  }
+}
+
+/**
+ * Deletes a capture so that it can be undone.
+ *
+ * @param {string} path
+ * @returns {Promise<{restore: () => Promise<boolean>}|null>} null if it failed
+ */
+export async function deleteCapture(path) {
+  const dir = PathUtils.parent(path);
+  const holdDir = PathUtils.join(dir, HOLD_NAME);
+  const held = PathUtils.join(holdDir, PathUtils.filename(path));
+  try {
+    await purgeOldHolds(dir);
+    await IOUtils.makeDirectory(holdDir, { ignoreExisting: true });
+    await IOUtils.move(path, held);
+  } catch (e) {
+    console.error("Whimsy: delete capture", e);
+    return null;
+  }
+  Services.obs.notifyObservers(null, SAVED_TOPIC);
+  return {
+    held,
+    async restore() {
+      try {
+        await IOUtils.move(held, path, { noOverwrite: true });
+      } catch (e) {
+        console.error("Whimsy: restore capture", e);
+        return false;
+      }
+      Services.obs.notifyObservers(null, SAVED_TOPIC, path);
+      return true;
+    },
+  };
+}
+
+/** Puts a capture's image on the clipboard. */
+export async function copyCapture(path) {
+  const bytes = await IOUtils.read(path);
+  lazy.BrowserUtils.copyImageToClipboard(bytes.buffer);
 }
 
 installCaptureHook();

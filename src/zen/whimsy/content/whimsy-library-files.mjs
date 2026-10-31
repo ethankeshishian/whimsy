@@ -4,9 +4,14 @@
 
 import { html, repeat } from "chrome://global/content/vendor/lit.all.mjs";
 import { ZenLibrarySearchSection } from "moz-src:///zen/library/sections/ZenLibrarySearchSection.mjs";
-const { listCaptures } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFilesSection.sys.mjs");
+const { listCaptures, deleteCapture, copyCapture } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs"
+);
 const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {"FileUtils": "resource://gre/modules/FileUtils.sys.mjs"});
+ChromeUtils.defineESModuleGetters(lazy, {
+  FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+});
 const SAVED_TOPIC = "whimsy-capture-saved";
 
 export class WhimsyFilesSection extends ZenLibrarySearchSection {
@@ -41,6 +46,9 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
   disconnectedCallback() {
     super.disconnectedCallback();
     Services.obs.removeObserver(this.#observer, SAVED_TOPIC);
+    this.#menu?.hidePopup();
+    this.#menu?.remove();
+    this.#menu = null;
   }
 
   #refresh() {
@@ -71,13 +79,86 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
     }
   }
 
-  #remove(file) {
-    try {
-      new lazy.FileUtils.File(file.path).remove(false);
-    } catch (e) {
-      console.error("Whimsy: delete capture", e);
-    }
+  // wave9/designfix (M9): Delete can be undone, from the toast or with
+  // Cmd+Z, like Arc's "Deleted · Undo"; it was one click to lose the file.
+  async #remove(file) {
+    const deleted = await deleteCapture(file.path);
     this.#refresh();
+    if (!deleted) {
+      return;
+    }
+    const win = this.ownerGlobal;
+    lazy.WhimsyUndo.showToast(
+      win,
+      "whimsy-library-files-deleted-toast",
+      { type: "library-delete", undo: () => deleted.restore() },
+      undefined,
+      { detail: file.leafName }
+    );
+  }
+
+  async #copy(file) {
+    try {
+      await copyCapture(file.path);
+      this.ownerGlobal.gZenUIManager?.showToast("whimsy-library-files-copied-toast");
+    } catch (e) {
+      console.error("Whimsy: copy capture", e);
+    }
+  }
+
+  // wave9/designfix (M9): right-click opens a menu (Open, Show in Finder,
+  // Copy, Delete), as Finder and Arc's Library do; it used to reveal the
+  // file at once.
+  #menu = null;
+  #menuFile = null;
+
+  #buildMenu() {
+    const doc = this.ownerDocument;
+    const menu = this.ownerGlobal.MozXULElement.parseXULToFragment(`
+      <menupopup class="whimsy-library-files-menu">
+        <menuitem data-action="open" data-l10n-id="whimsy-library-files-menu-open"/>
+        <menuitem data-action="reveal" data-l10n-id="whimsy-library-files-menu-reveal"/>
+        <menuitem data-action="copy" data-l10n-id="whimsy-library-files-menu-copy"/>
+        <menuseparator/>
+        <menuitem data-action="delete" data-l10n-id="whimsy-library-files-menu-delete"/>
+      </menupopup>
+    `).firstElementChild;
+    menu.addEventListener("command", event => {
+      const file = this.#menuFile;
+      if (!file) {
+        return;
+      }
+      switch (event.target.dataset.action) {
+        case "open":
+          this.#open(file);
+          break;
+        case "reveal":
+          this.#reveal(file);
+          break;
+        case "copy":
+          this.#copy(file);
+          break;
+        case "delete":
+          this.#remove(file);
+          break;
+      }
+    });
+    menu.addEventListener("popuphidden", event => {
+      if (event.target == menu) {
+        this.querySelector(".zen-library-row[menu-open]")?.removeAttribute("menu-open");
+        this.#menuFile = null;
+      }
+    });
+    doc.getElementById("mainPopupSet").appendChild(menu);
+    return menu;
+  }
+
+  #openMenu(file, row, event) {
+    this.#menu ??= this.#buildMenu();
+    this.querySelector(".zen-library-row[menu-open]")?.removeAttribute("menu-open");
+    this.#menuFile = file;
+    row.setAttribute("menu-open", "true");
+    this.#menu.openPopupAtScreen(event.screenX, event.screenY, true, event);
   }
 
   #renderFile(file) {
@@ -98,7 +179,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
         }}
         @contextmenu=${event => {
           event.preventDefault();
-          this.#reveal(file);
+          this.#openMenu(file, event.currentTarget, event);
         }}
       >
         <img class="zen-library-row-icon" src=${url} alt="" />

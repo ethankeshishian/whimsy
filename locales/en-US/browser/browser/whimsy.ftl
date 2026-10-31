@@ -3167,3 +3167,19 @@ whimsy-game-reload-page = Reload
 ## wave9/designfix: Tips can be turned off from the tip (H2).
 whimsy-teach-turn-off = Turn Off Tips
 whimsy-teach-off-toast = Tips are off. Turn them on again in Settings → Look and Feel.
+## wave9/designfix: Library deletes can be undone; screenshots get a menu (M9).
+whimsy-library-files-deleted-toast = Deleted screenshot
+whimsy-library-notes-deleted-toast = Deleted note
+whimsy-library-files-copied-toast = Copied screenshot
+whimsy-library-files-menu-open =
+    .label = Open
+whimsy-library-files-menu-reveal =
+    .label =
+        { PLATFORM() ->
+            [macos] Show in Finder
+           *[other] Show in Folder
+        }
+whimsy-library-files-menu-copy =
+    .label = Copy
+whimsy-library-files-menu-delete =
+    .label = Delete
