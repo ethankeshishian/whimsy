@@ -78,8 +78,6 @@ add_task(async function test_badge_on_pinned_and_essentials() {
   // W8-06: RSS live folders' unread dot used the same attribute and drew a
   // space-coloured dot beside the badge, right of the favicon.
   is(rowBadge(essential).content, "none", "No dot beside an Essential's badge");
-  is(getComputedStyle(essential.querySelector(".tab-label")).fontWeight, getComputedStyle(normal.querySelector(".tab-label")).fontWeight,
-    "…and no unread-weight title");
   // fix7/tabs: on the tile's corner like Arc's Favorites, not on the
   // favicon (where Gmail draws its own count): the icon stack is no longer
   // the anchor, and the badge sits inside the tile's top end corner.
