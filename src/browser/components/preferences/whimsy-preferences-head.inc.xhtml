@@ -66,8 +66,9 @@
       </menulist>
     </hbox>
     <!-- wave5/look: Firefox's density, which each space can override
-         (right-click a space → Look and Feel…). -->
-    <hbox id="whimsyDensityRow" align="center" data-whimsy-feature="space-look">
+         (right-click a space → Edit Look…). wave9/designfix: the only
+         density control; old #appearance-windowDensity links land here. -->
+    <hbox id="whimsyDensityRow" align="center" data-whimsy-feature="space-look" data-subcategory="windowDensity">
       <label id="whimsyDensityLabel" control="whimsyDensity" data-l10n-id="whimsy-look-density"/>
       <menulist id="whimsyDensity" preference="browser.uidensity" data-pref-type="int">
         <menupopup>
@@ -204,7 +205,7 @@
   <!-- tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox is the
        real master switch (browser.ipProtection.enabled): off removes
        Firefox's own toolbar button too, not just this card. -->
-  <html:div id="whimsyVpnGroup" data-category="panePrivacy" data-whimsy-feature="vpn" hidden="hidden" class="whimsy-setting-card">
+  <html:div id="whimsyVpnGroup" data-category="panePrivacy" data-subcategory="vpn" data-whimsy-feature="vpn" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">
       <html:moz-fieldset data-l10n-id="whimsy-vpn-header" headinglevel="3"
                          iconsrc="chrome://browser/skin/zen-icons/selectable/lock-closed.svg">

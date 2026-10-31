@@ -448,6 +448,15 @@ var gWhimsySettings = {
   // this never duplicates them with Whimsy UI of its own.
   initVpn() {
     this.initPrefCheckbox("whimsyVpnEnabled", "browser.ipProtection.enabled");
+    // wave9/designfix (M7): one VPN section. Firefox's own VPN group has
+    // no on/off switch, only what follows from it (start automatically,
+    // site exceptions, data used), so it stays, right under Whimsy's card,
+    // which holds the switch, the status and Manage.
+    const card = document.getElementById("whimsyVpnGroup");
+    const firefoxVpn = document.querySelector('setting-group[groupid="ipprotection"]');
+    if (card && firefoxVpn && card.nextElementSibling != firefoxVpn) {
+      firefoxVpn.before(card);
+    }
     const status = document.getElementById("whimsyVpnStatus");
     const manage = document.getElementById("whimsyVpnManage");
     if (!status || this._vpnWired) {
@@ -2112,9 +2121,15 @@ Object.assign(gWhimsySettings, {
   // and Browser icon, at the top of the pane. W8-39: no Browser theme group;
   // Firefox's lightweight themes don't reach Zen's chrome.
   insertFirefoxLooks() {
-    const groups = this.takeFirefoxGroups("template-whimsyFirefoxLooks");
+    let groups = this.takeFirefoxGroups("template-whimsyFirefoxLooks");
     if (!groups) {
       return;
+    }
+    // wave9/designfix (M7): one Density control. Whimsy's (Look group) sets
+    // the same browser.uidensity and each space can override it, so
+    // Firefox's Window density group only stays when that row is off.
+    if (this.lazy.Whimsy.featureEnabled("space-look")) {
+      groups = groups.filter(group => group.getAttribute("groupid") != "windowDensity");
     }
     const anchor = document.getElementById("zenVerticalTabsCategory") ?? document.getElementById("zenVerticalTabsGroup");
     this.placeFirefoxGroups(groups, anchor, "before");
