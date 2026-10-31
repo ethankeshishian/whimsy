@@ -675,6 +675,13 @@ export const WhimsyQuickWindow = {
     const shortcut = html("kbd");
     shortcut.textContent = "⌘O";
     shortcut.setAttribute("aria-hidden", "true");
+    // wave9/mini W8-21: Arc's "Open in <Space> ⌘O" is one target; the
+    // keycap shares the button's highlight (whimsy-browser.css) and click.
+    shortcut.addEventListener("click", event => {
+      if (event.button == 0 && !move.disabled) {
+        move.doCommand();
+      }
+    });
     group.append(move, shortcut, choose);
 
     // fix7: Little Arc draws Extensions and Copy Link inside the address
@@ -1144,6 +1151,8 @@ export const WhimsyQuickWindow = {
     if (!popup) {
       popup = document.createXULElement("menupopup");
       popup.id = SPACE_PICKER_ID;
+      // wave9/mini W8-22: drawn as Arc's popover, never the system menu.
+      popup.setAttribute("nonnative", "true");
       popup.addEventListener("command", event => {
         const spaceId = event.target.getAttribute("zen-workspace-id");
         if (spaceId) {
