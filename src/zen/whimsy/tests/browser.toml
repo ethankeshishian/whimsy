@@ -508,3 +508,5 @@ support-files = ["whimsy_page_actions.html"]
 ["browser_whimsy_paste_guard.js"]
 # wave7/teach: Teach once (shows once, Esc/close/tab switch dismiss, never reappears, switches, shortcut retires it, Reset Tips, registry).
 ["browser_whimsy_teach.js"]
+# wave7/spaceanim: space switches play one at a time (Arc): keys coalesce, swipes step, mid-slide swipes deferred.
+["browser_whimsy_space_switch_queue.js"]

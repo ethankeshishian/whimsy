@@ -1023,6 +1023,9 @@ FEATURES = [
     # again; "Show tips" in Settings, "Reset Tips" in the command bar.
     {"id": "teach-once", "title": "Teach once: one small hint the first time a shortcut or feature could help, then never again",
      "detect": [("src/zen", r"(?i)teach-?once|first-?use-?hints?|zen\.tips\.")]},
+    # wave7/spaceanim: space-switch slides play one at a time (Arc).
+    {"id": "space-switch-queue", "title": "Space switches play one at a time (Arc): a switch asked for mid-slide waits for the slide to finish; swipes step, keys coalesce",
+     "detect": [("src/zen/spaces", r"(?i)switchQueue|pendingSwitch|queueWorkspaceChange|whimsyStep")]},
 ]
 
 
