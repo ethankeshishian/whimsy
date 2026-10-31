@@ -1,8 +1,8 @@
 diff --git a/dom/base/nsFrameLoader.cpp b/dom/base/nsFrameLoader.cpp
-index d053fbe..7e770d0 100644
+index d053fbe..e84d106 100644
 --- a/dom/base/nsFrameLoader.cpp
 +++ b/dom/base/nsFrameLoader.cpp
-@@ -348,6 +348,18 @@ static bool InitialLoadIsRemote(Element* aOwner) {
+@@ -348,6 +348,30 @@ static bool InitialLoadIsRemote(Element* aOwner) {
    return aOwner->IsXULElement() && aOwner->GetBoolAttr(nsGkAtoms::remote);
  }
  
@@ -18,10 +18,22 @@ index d053fbe..7e770d0 100644
 +                             nsGkAtoms::_true, eCaseMatters);
 +}
 +
++// Whimsy: Easel (about:whimsy?easel&id=<id>) is a system-principal page shown
++// in a tab, so its docshell is a content docshell. Like about:addons in the
++// list in TryRemoteBrowserInternal, it may host remote <browser type="content"
++// remote="true"> elements: its live captures. Without this the frame loader
++// refuses to go remote and fires oop-browser-crashed with childID 0.
++static bool WhimsyMayHostRemoteBrowsers(Document* aDoc,
++                                        const nsACString& aSpec) {
++  return aDoc && aDoc->NodePrincipal()->IsSystemPrincipal() &&
++         (aSpec.EqualsLiteral("about:whimsy?easel") ||
++          StringBeginsWith(aSpec, "about:whimsy?easel&"_ns));
++}
++
  static already_AddRefed<BrowsingContextGroup> InitialBrowsingContextGroup(
      Element* aOwner) {
    nsAutoString attrString;
-@@ -435,6 +447,24 @@ already_AddRefed<nsFrameLoader> nsFrameLoader::Create(
+@@ -435,6 +459,24 @@ already_AddRefed<nsFrameLoader> nsFrameLoader::Create(
      remoteType = RemoteType::NotRemote();
    }
  
@@ -46,7 +58,18 @@ index d053fbe..7e770d0 100644
    RefPtr<nsFrameLoader> fl =
        new nsFrameLoader(aOwner, context, isRemoteFrame, aNetworkCreated);
    fl->mOpenWindowInfo = aOpenWindowInfo;
-@@ -3782,6 +3812,19 @@ bool nsFrameLoader::EnsureBrowsingContextAttached() {
+@@ -2643,6 +2685,10 @@ bool nsFrameLoader::TryRemoteBrowserInternal() {
+           }
+         }
+ 
++        if (WhimsyMayHostRemoteBrowsers(doc, specIgnoringRef)) {
++          return true;
++        }
++
+         if (xpc::IsInAutomation() &&
+             StringBeginsWith(specIgnoringRef,
+                              "chrome://mochitests/content/chrome/"_ns)) {
+@@ -3782,6 +3828,19 @@ bool nsFrameLoader::EnsureBrowsingContextAttached() {
    bool useRemoteSubframes = parentContext->UseRemoteSubframes();
    bool useRemoteTabs = parentContext->UseRemoteTabs();
  

@@ -335,6 +335,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySiteSettings: "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs",
 });
 
+// wave5: Easel.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -980,6 +985,10 @@ export const Whimsy = {
         menu: "tools-menu",
       });
     });
+
+    // wave5: Easel (Arc's Easels). Always installed: the command, the
+    // capture button and the page each check whimsy.feature.easel on use.
+    run("easel", () => lazy.WhimsyEasel.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },
