@@ -281,8 +281,9 @@ nsWhimsyAirPlay::Cast(const nsACString& aURL, double aStartTime, double aScreenX
   }
 
   sPlayer = [[AVPlayer alloc] initWithURL:url];
+  // usesExternalPlaybackWhileExternalScreenIsActive is iOS/tvOS only; on
+  // macOS allowsExternalPlayback alone routes to the chosen AirPlay device.
   sPlayer.allowsExternalPlayback = YES;
-  sPlayer.usesExternalPlaybackWhileExternalScreenIsActive = YES;
   if (std::isfinite(aStartTime) && aStartTime > 0) {
     [sPlayer seekToTime:CMTimeMakeWithSeconds(aStartTime, 600)];
   }
