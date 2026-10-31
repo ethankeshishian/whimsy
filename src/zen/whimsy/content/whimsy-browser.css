@@ -2773,7 +2773,11 @@ panel.whimsy-look-picker {
   width: var(--panel-width);
 }
 .whimsy-look-picker-view {
-  /* The panel's own padding (--panel-padding, as Zen's picker sets it). */
+  /* The panel's own padding (--panel-padding, as Zen's picker sets it).
+     W10-04: fill the panel's width, so every field runs edge to edge. */
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
   gap: 10px;
   max-height: min(680px, calc(100vh - 40px));
 }

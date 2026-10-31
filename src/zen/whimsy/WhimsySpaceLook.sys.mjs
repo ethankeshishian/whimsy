@@ -847,6 +847,9 @@ export const WhimsySpaceLook = {
     panel.id = PANEL_ID;
     panel.className = "whimsy-look-picker";
     panel.setAttribute("type", "arrow");
+    // W10-04: the panel's content box is a row by default, which sized the
+    // editor to its widest label and left the fields short of the edges.
+    panel.setAttribute("orient", "vertical");
     panel.setAttribute("role", "dialog");
     panel.setAttribute("noautofocus", "true");
     panel.setAttribute("hidepopovertail", "true");
