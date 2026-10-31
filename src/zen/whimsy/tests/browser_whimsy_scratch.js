@@ -340,7 +340,7 @@ add_task(async function test_keep_asks_first() {
   ok(window.gDialogBox.isOpen, "It asks in the window-modal dialog");
   is(win.document.documentURI, "chrome://global/content/commonDialog.xhtml", "Firefox's own prompt dialog");
   ok(
-    ![...(document.getElementById("zen-toast-container")?.children ?? [])].some(t => t._messageId?.startsWith("whimsy-scratch")),
+    ![...(document.getElementById("zen-toast-container")?.children ?? [])].some(t => t._messageId?.startsWith("whimsy-scratch-keep-confirm")),
     "No toast asks instead"
   );
   let dialogEl = win.document.querySelector("dialog");

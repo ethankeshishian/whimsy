@@ -172,6 +172,7 @@ add_task(async function narrowing_backspace_and_wrong_letters() {
     const target = labels.find(l => l.length == 2);
     ok(target, "Some labels have two letters");
     type(target[0]);
+    await TestUtils.waitForCondition(async () => (await peek(browser)).typed == target[0], "The letter arrives");
     let state = await peek(browser);
     ok(state.active, "One letter of two keeps hints open");
     ok(state.labels.every(l => l.startsWith(target[0])), "and narrows them to that letter");
