@@ -3821,6 +3821,9 @@ menupopup > [whimsy-menu-pref-hidden] {
   #whimsy-urlbar-private-badge {
     background: transparent;
     outline: 1px solid currentColor;
+  }
+}
+
 /* wave8/snooze (W8-37): the one toast for every undoable Whimsy action
    (WhimsyToast.sys.mjs). It sits in Zen's toast corner with Zen's toast
    shape (14px corners, 42px tall, 48px on macOS) on Zen's panel surface,
