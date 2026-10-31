@@ -259,8 +259,31 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
 });
 
+// wave7/small: Cast to AirPlay.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyCast: "resource:///modules/whimsy/WhimsyCast.sys.mjs",
+});
+
+// wave7/small: Create Email Alias in the command bar.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
+});
+
+// wave7/small: Move to ▸ New Space… (tab menu, split row menu, command bar).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyNewSpaceMove: "resource:///modules/whimsy/WhimsyNewSpaceMove.sys.mjs",
+});
+
+// wave7/small: Teach once hints for Link hints and Instant result.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTeachHints: "resource:///modules/whimsy/WhimsyTeachHints.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
+// wave7/small: lazy init (see initWindow).
+const LAZY_INIT_PREF = "whimsy.startup.lazy-init";
+const DEFER_TIMEOUT_MS = 2000;
 
 export const Whimsy = {
   featureEnabled(id) {
@@ -423,6 +446,15 @@ export const Whimsy = {
         console.error(`Whimsy: ${name} failed`, e);
       }
     };
+    // wave7/small: lazy init. Parts nobody can see or reach in the first
+    // moments of a window (command-bar-only actions, network refreshers,
+    // once-a-season toasts) start once the window is idle, so the window
+    // is interactive sooner. Everything visible from first paint (sheets,
+    // zoom, look, spaces, tabs), every shortcut, page actor and session
+    // piece (undo, archive, private tabs, live folders, split restore)
+    // stays above. Deferred parts run in their original order.
+    const deferred = [];
+    const later = (name, fn) => deferred.push([name, fn]);
     run("stylesheet", () =>
       win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET)
     );
@@ -496,7 +528,7 @@ export const Whimsy = {
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());
     run("ai-kill-switch", () => lazy.WhimsyAI.init());
     if (this.featureEnabled("github-reviews")) {
-      run("github-reviews", () => lazy.WhimsyGithubReviews.init());
+      later("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
     // batch11: live folders (Jira + Push refresh + RSS autodiscovery).
     // Always installed: each part checks its own switch on use.
@@ -536,9 +568,9 @@ export const Whimsy = {
     run("private", () => lazy.WhimsyPrivate.initWindow(win));
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
-    run("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
+    later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
     run("bionic-reading", () => lazy.WhimsyBionicReading.init());
-    run("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
+    later("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
     run("split-favorites", () => lazy.WhimsySplitFavorites.initWindow(win));
     // batch7: seasonal themes. Watches its own prefs, so it applies without
     // a restart.
@@ -571,7 +603,7 @@ export const Whimsy = {
       });
     });
     // batch7: cookie editor.
-    run("cookie-editor", () => {
+    later("cookie-editor", () => {
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-cookie-editor",
         l10nId: "whimsy-action-cookie-editor",
@@ -585,7 +617,7 @@ export const Whimsy = {
     run("url-schemes", () => lazy.WhimsyProtocol.initWindow(win));
     // batch hover: History hover cards in Zen's Library (tab cards are
     // Firefox's own browser.tabs.hoverPreview).
-    run("history-preview", () => lazy.WhimsyHoverCard.initWindow(win));
+    later("history-preview", () => lazy.WhimsyHoverCard.initWindow(win));
     // batch7: developer mode tabs (Arc parity).
     run("dev-mode", () => {
       lazy.WhimsyDevMode.initWindow(win);
@@ -620,7 +652,7 @@ export const Whimsy = {
     );
     // batch7b: offline game (whimsy://game). Always installed: the command
     // bar action and the net-error button both check the switch on use.
-    run("game-action", () => {
+    later("game-action", () => {
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-game-open",
         l10nId: "whimsy-action-game",
@@ -649,7 +681,7 @@ export const Whimsy = {
     // meeting: Next meeting in the sidebar. Always installed: the service
     // checks its switch on each refresh, and never asks for calendar
     // access here (only when the person turns Apple Calendar on).
-    run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
+    later("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
     // tierC-vpn: VPN (Firefox's built-in IP Protection). The toolbar button
     // and panel are Firefox's own (placed automatically once
     // browser.ipProtection.enabled is true); this only adds the command bar
@@ -710,15 +742,15 @@ export const Whimsy = {
     run("ask-on-page", () => lazy.WhimsyAIPage.initWindow(win));
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
-    run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    later("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
 
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.
-    run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
+    later("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
 
     // wave5/quick: Copy page as Markdown (page menu and command bar); checks
     // its switch on use.
-    run("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
+    later("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
 
     // wave7/native1: macOS Focus (once per session; reads Focus's state
     // now and when it changes, so the toasts below can wait for it).
@@ -726,7 +758,7 @@ export const Whimsy = {
 
     // wave5/quick: the first window in a new season says so once (after
     // the window settles; never under test automation).
-    run("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
+    later("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
 
     // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
     // checks its switch on each use (off: Cmd+K is Firefox's again).
@@ -813,6 +845,47 @@ export const Whimsy = {
         ?.then(() => lazy.WhimsySpaceSwitchQueue.initWindow(win))
         .catch(e => console.error("Whimsy: space-switch-queue", e))
     );
+
+    // wave7/small: Cast to AirPlay (View > Cast..., command bar). Each part
+    // checks its switch and the native player on use.
+    later("cast", () => lazy.WhimsyCast.initWindow(win));
+    // wave7/small: Create Email Alias (command bar), at the focused email
+    // field. Checks its switch on use.
+    later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
+    // into the space it makes. After Zen's spaces are ready.
+    run("move-to-new-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyNewSpaceMove.initWindow(win))
+        .catch(e => console.error("Whimsy: move-to-new-space", e))
+    );
+    // wave7/small: Link hints and Instant result Teach once hints; they
+    // register only in a build that has WhimsyTeach (once per session).
+    later("teach-hints", () => lazy.WhimsyTeachHints.init());
+
+    this.runDeferred(win, deferred, run);
+  },
+
+  // wave7/small: runs a window's deferred init when it's first idle (at
+  // most DEFER_TIMEOUT_MS later). win.whimsyDeferredInit resolves after.
+  runDeferred(win, deferred, run) {
+    let resolve;
+    win.whimsyDeferredInit = new Promise(r => (resolve = r));
+    const flush = () => {
+      if (!win.closed) {
+        for (const [name, fn] of deferred) {
+          run(name, fn);
+        }
+      }
+      resolve();
+    };
+    if (!Services.prefs.getBoolPref(LAZY_INIT_PREF, true) || typeof win.requestIdleCallback != "function") {
+      flush();
+      return;
+    }
+    // A window closed before it was idle never runs its callback.
+    win.addEventListener("unload", () => resolve(), { once: true });
+    win.requestIdleCallback(flush, { timeout: DEFER_TIMEOUT_MS });
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

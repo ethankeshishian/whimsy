@@ -1100,6 +1100,14 @@ FEATURES = [
     # on-device speech recognizer, then the translated-captions path).
     {"id": "video-speech-captions", "title": "Live captions for videos without any: CC turns the video's speech into captions on your Mac, then translates them",
      "detect": [("src/zen/media", r"(?i)speech-?to-?text|SFSpeechRecognizer|live-?transcri")]},
+    # wave7/small: Cast to AirPlay (Arc's View > Cast...), a native AVPlayer
+    # and AVKit route picker for the page's video; Screen Mirroring otherwise.
+    {"id": "cast", "title": "Cast to AirPlay: send the page's video to an Apple TV or AirPlay screen (View > Cast...)",
+     "detect": [("src/zen", r"(?i)airplay|AVRoutePicker|cast-?to-?tv")]},
+    # wave7/small: Arc's Move to > New Space... (tab menu, split row menu,
+    # command bar) moves the tab or its whole split into the new space.
+    {"id": "move-to-new-space", "title": "Move to > New Space...: make a space and move the tab (or its whole split) into it (Arc)",
+     "detect": [("src/zen", r"(?i)move-?to-?new-?(space|workspace)")]},
 ]
 
 

@@ -25,6 +25,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCallPip.sys.mjs",
     "WhimsyCaptions.sys.mjs",
     "WhimsyCaptionsChild.sys.mjs",
+    "WhimsyCast.sys.mjs",
     "WhimsyCheatSheet.sys.mjs",
     "WhimsyClaude.sys.mjs",
     "WhimsyClaudeChild.sys.mjs",
@@ -80,6 +81,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyMenuPrefs.sys.mjs",
     "WhimsyNetErrorChild.sys.mjs",
     "WhimsyNetErrorParent.sys.mjs",
+    "WhimsyNewSpaceMove.sys.mjs",
     "WhimsyNextMeeting.sys.mjs",
     "WhimsyNotesSection.sys.mjs",
     "WhimsyPage.sys.mjs",
@@ -139,6 +141,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyStats.sys.mjs",
     "WhimsyTabs.sys.mjs",
     "WhimsyTeach.sys.mjs",
+    "WhimsyTeachHints.sys.mjs",
     "WhimsyTidyTitles.sys.mjs",
     "WhimsyTidyTitlesData.sys.mjs",
     "WhimsyTrails.sys.mjs",
@@ -170,15 +173,16 @@ BROWSER_CHROME_MANIFESTS += [
 
 # Native components. audiotap/ is plain C++ over MediaTrackGraph (live
 # captions' audio, in the content process). The rest are Objective-C++ for
-# macOS: calendar/ (Next meeting's EventKit reader, and Add to Calendar's
-# writer; dropped from here by a moz.build re-sort, 1545592, so it wasn't
-# built), bonjour/ (Local servers' LAN services, dns_sd), focus/ (macOS
-# Focus for Whimsy's own toasts) and speech/ (live captions, on-device
-# Speech).
+# macOS: airplay/ (Cast to AirPlay's native player and route picker),
+# calendar/ (Next meeting's EventKit reader, and Add to Calendar's writer;
+# dropped from here by a moz.build re-sort, 1545592, so it wasn't built),
+# bonjour/ (Local servers' LAN services, dns_sd), focus/ (macOS Focus for
+# Whimsy's own toasts) and speech/ (live captions, on-device Speech).
 DIRS += ["audiotap"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     DIRS += [
+        "airplay",
         "bonjour",
         "calendar",
         "focus",

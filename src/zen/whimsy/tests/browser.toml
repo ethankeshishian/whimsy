@@ -563,3 +563,33 @@ skip-if = ["headless"] # runs in verify.sh's whimsy-native suite
 # w7native: live captions from speech (stand-ins for the recognizer, capture and tap; the real tap on a Web Audio track).
 ["browser_whimsy_video_speech_captions.js"]
 support-files = ["whimsy_video_captions.html", "whimsy_captions_es.vtt", "whimsy_video.mp4"]
+# wave7/small: Capture in Portrait Mode lays the page out at phone width.
+["browser_whimsy_capture_portrait.js"]
+
+# wave7/small: Cast to AirPlay (native player stubbed).
+["browser_whimsy_cast.js"]
+support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
+
+# wave7/small: Create Email Alias in the command bar.
+["browser_whimsy_email_alias_command.js"]
+
+# wave7/small: Move to > New Space... moves the tab or its split.
+["browser_whimsy_move_to_new_space.js"]
+
+# wave7/small: Teach once hints for Link hints and Instant result.
+["browser_whimsy_teach_hints.js"]
+
+# wave7/small: changelog dev build IDs only on the Dev channel.
+["browser_whimsy_changelog_channel.js"]
+
+# wave7/small: Search Linear's URL (linear.app/<workspace>/search?q=).
+["browser_whimsy_linear_search_url.js"]
+
+# wave7/small: the archive sweep's Undo toast.
+["browser_whimsy_archive_sweep_undo.js"]
+
+# wave7/small: Settings cleanup (dead strings gone, every string resolves).
+["browser_whimsy_settings_strings.js"]
+
+# wave7/small: lazy init of command-bar-only parts.
+["browser_whimsy_lazy_init.js"]

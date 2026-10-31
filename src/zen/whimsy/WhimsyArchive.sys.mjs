@@ -365,6 +365,22 @@ export const WhimsyArchive = {
     if (selected && selected.isConnected && !selected.closing && !tabs.includes(selected)) {
       win.gBrowser.selectedTab = selected;
     }
+    // wave7/small: the idle sweep happens on its own, so it says so in a
+    // toast with Undo (Arc does), which brings back exactly the swept tabs
+    // (by their batch), even after other tabs were closed since.
+    if (reason == "idle" && groupId) {
+      lazy.WhimsyUndo.showToast(
+        win,
+        "whimsy-archive-swept-toast",
+        {
+          type: `archive:${reason}`,
+          undo: () => this.undoGroup(win, groupId, count),
+          redo: null,
+        },
+        { count }
+      );
+      return;
+    }
     lazy.WhimsyUndo.push(win, {
       type: `archive:${reason}`,
       undo: () => this.undoLastArchive(win, count),
@@ -372,6 +388,31 @@ export const WhimsyArchive = {
     });
     // wave7/teach: lets Teach once explain the first auto-archive.
     Services.obs.notifyObservers(win, "whimsy-tabs-archived", reason);
+  },
+
+  // wave7/small: restores every tab archived in one batch (the sweep's
+  // groupId) into its space, without changing the selected tab. Falls back
+  // to the last `count` closed tabs if the batch can't be found. Returns
+  // the restored tabs.
+  undoGroup(win, groupId, count) {
+    const batch = this.listEntries(win).filter(e => e.groupId == groupId);
+    if (!batch.length) {
+      this.undoLastArchive(win, count);
+      return [];
+    }
+    const selected = win.gBrowser.selectedTab;
+    const restored = [];
+    // Oldest first, so the tabs come back in the order they had.
+    for (const entry of batch.reverse()) {
+      const tab = this.restore(win, entry.closedId, { select: false });
+      if (tab) {
+        restored.push(tab);
+      }
+    }
+    if (selected?.isConnected && !selected.closing) {
+      win.gBrowser.selectedTab = selected;
+    }
+    return restored;
   },
 
   // Cmd+Shift+T-style: the most recently closed tabs are always index 0,

@@ -239,7 +239,8 @@ export const WhimsyPage = {
     return { width: canvas.width / ratio, height: canvas.height / ratio };
   },
 
-  // The largest centred 9:16 rect inside the visible area.
+  // The largest 9:16 rect inside the visible area: centred across, from the
+  // top down (a phone shows the top of what's scrolled to).
   portraitRect(rect) {
     const ratio = 9 / 16;
     let { left, top, width, height } = rect;
@@ -248,32 +249,45 @@ export const WhimsyPage = {
       left += Math.round((width - w) / 2);
       width = w;
     } else {
-      const h = Math.round(width / ratio);
-      top += Math.round((height - h) / 2);
-      height = h;
+      height = Math.round(width / ratio);
     }
     return { ...rect, left, top, width, height, right: left + width, bottom: top + height };
   },
+
+  // wave7/small: Arc's Capture in Portrait Mode shoots the page as a phone
+  // shows it, so the page is laid out at a phone's width (390 CSS px, an
+  // iPhone) for the moment of the shot: the browser is narrowed, the page
+  // reflows, the top of the viewport is drawn in a 9:16 frame, and the
+  // browser goes back. A page that doesn't reflow is cropped to 9:16 instead.
+  PORTRAIT_WIDTH: 390,
 
   async copyPortraitScreenshot(win, browser = win.gBrowser.selectedBrowser) {
     if (!this.captureEnabled || !isWebPage(win)) {
       return null;
     }
     const { ScreenshotsUtils, BrowserUtils } = lazy;
-    let rect;
+    const { style } = browser;
+    const saved = { maxWidth: style.maxWidth, marginInline: style.marginInline };
+    let rect, canvas;
     try {
-      rect = this.portraitRect(await ScreenshotsUtils.fetchVisibleBounds(browser));
+      style.maxWidth = `${this.PORTRAIT_WIDTH}px`;
+      style.marginInline = "auto";
+      const actor = browser.browsingContext.currentWindowGlobal.getActor("WhimsyPage");
+      rect = this.portraitRect(await actor.sendQuery("Whimsy:PortraitBounds", { width: this.PORTRAIT_WIDTH }));
+      canvas = await ScreenshotsUtils.createCanvas(rect, browser);
     } catch (e) {
       console.error("Whimsy: portrait capture", e);
       win.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
       return null;
+    } finally {
+      style.maxWidth = saved.maxWidth;
+      style.marginInline = saved.marginInline;
     }
-    const canvas = await ScreenshotsUtils.createCanvas(rect, browser);
     const blob = await canvas.convertToBlob();
     BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
     win.gZenUIManager?.showToast?.("whimsy-capture-copied-toast");
     const ratio = rect.devicePixelRatio || 1;
-    return { width: canvas.width / ratio, height: canvas.height / ratio };
+    return { width: canvas.width / ratio, height: canvas.height / ratio, layoutWidth: rect.layoutWidth };
   },
 
   // --- Edit text on page ---

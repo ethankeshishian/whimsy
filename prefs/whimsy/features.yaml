@@ -492,6 +492,12 @@
 - name: whimsy.feature.video-speech-captions
   value: true
 
+- name: whimsy.feature.cast
+  value: true
+
+- name: whimsy.feature.move-to-new-space
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

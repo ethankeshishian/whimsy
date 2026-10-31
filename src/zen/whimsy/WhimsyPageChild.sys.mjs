@@ -94,6 +94,14 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.setRate(message.data);
       case "Whimsy:PageBounds":
         return this.pageBounds();
+      // wave7/small: Cast to AirPlay (WhimsyCast).
+      case "Whimsy:CastSource":
+        return this.castSource();
+      case "Whimsy:CastControl":
+        return this.castControl(message.data);
+      // wave7/small: Capture in Portrait Mode (WhimsyPage).
+      case "Whimsy:PortraitBounds":
+        return this.portraitBounds(message.data.width);
       case "Whimsy:SetEditable":
         return this.setEditable(message.data.on);
       case "Whimsy:AllowCopy":
@@ -310,6 +318,40 @@ export class WhimsyPageChild extends JSWindowActorChild {
     return media[0] ?? null;
   }
 
+  // wave7/small: Cast to AirPlay. The main video's address, where it is,
+  // and whether a receiver could load it on its own (an http(s) file or
+  // HLS, not Media Source or a stream).
+  castVideo() {
+    const videos = [...(this.document?.querySelectorAll("video") ?? [])].filter(
+      el => el.readyState > 0 || el.src || el.currentSrc || el.srcObject
+    );
+    videos.sort((a, b) => Number(a.paused) - Number(b.paused) || this.area(b) - this.area(a));
+    return videos[0] ?? null;
+  }
+
+  castSource() {
+    const el = this.castVideo();
+    if (!el) {
+      return null;
+    }
+    const src = el.currentSrc || el.src || "";
+    const direct = !el.srcObject && /^https?:/i.test(src);
+    return { src: direct ? src : "", direct, time: el.currentTime || 0, paused: el.paused };
+  }
+
+  castControl({ action, time }) {
+    const el = this.castVideo();
+    if (!el) {
+      return false;
+    }
+    if (action == "pause") {
+      el.pause();
+    } else if (action == "seek" && Number.isFinite(time)) {
+      el.currentTime = Math.max(0, Number.isFinite(el.duration) ? Math.min(time, el.duration) : time);
+    }
+    return true;
+  }
+
   area(el) {
     const rect = el.getBoundingClientRect();
     return rect.width * rect.height;
@@ -336,6 +378,40 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const width = win.innerWidth + win.scrollMaxX - left;
     const height = win.innerHeight + win.scrollMaxY - top;
     return { left, top, right: left + width, bottom: top + height, width, height, devicePixelRatio: win.devicePixelRatio };
+  }
+
+  // wave7/small: waits for the page to reflow at the narrowed width (or a
+  // second), then returns the visible area, the layout width included.
+  async portraitBounds(width) {
+    const win = this.contentWindow;
+    if (win.innerWidth > width + 1) {
+      await new Promise(resolve => {
+        const done = () => {
+          win.removeEventListener("resize", onResize);
+          win.clearTimeout(timer);
+          resolve();
+        };
+        const onResize = () => win.innerWidth <= width + 1 && done();
+        const timer = win.setTimeout(done, 1000);
+        win.addEventListener("resize", onResize);
+      });
+    }
+    await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+    const root = this.document.documentElement;
+    const clientWidth = root?.clientWidth || win.innerWidth;
+    const clientHeight = root?.clientHeight && root.clientHeight <= win.innerHeight ? root.clientHeight : win.innerHeight;
+    const left = win.scrollX;
+    const top = win.scrollY;
+    return {
+      left,
+      top,
+      right: left + clientWidth,
+      bottom: top + clientHeight,
+      width: clientWidth,
+      height: clientHeight,
+      layoutWidth: win.innerWidth,
+      devicePixelRatio: win.devicePixelRatio,
+    };
   }
 
   // Edit text on page: designMode, with Esc to finish.
