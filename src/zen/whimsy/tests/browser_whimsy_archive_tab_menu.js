@@ -131,17 +131,24 @@ add_task(async function test_pinned() {
   BrowserTestUtils.removeTab(tab);
 });
 
-// batch8: W8-05 Close/delete Essential directly from context menu
+// W8-05: an Essential is deleted straight from its menu (Arc's Remove
+// Favorite), without taking it out of Essentials first. Zen hides the
+// Close row there; Whimsy shows it (as Archive Tab when archiving is on).
 add_task(async function test_essential_close_tab() {
-  const [tab] = await openTabs(["essential"]);
-  tab.setAttribute("zen-essential", "true");
-  gBrowser.pinTab(tab);
+  const [tab, other] = await openTabs(["essential", "other"]);
+  gZenPinnedTabManager.addToEssentials(tab);
+  await TestUtils.waitForCondition(() => tab.hasAttribute("zen-essential"), "An Essential");
+  const before = gBrowser._numZenEssentials;
   const menu = await openTabMenu(tab);
   const close = document.getElementById("context_closeTab");
-  ok(!close.hidden, "Close tab is visible on an Essential");
-  await closeMenu(menu);
-  tab.removeAttribute("zen-essential");
-  gBrowser.unpinTab(tab);
-  BrowserTestUtils.removeTab(tab);
+  ok(!close.hidden, "The Essential's menu has a Close row");
+  ok(!document.getElementById("context_zen-remove-essential").hidden, "Zen's Remove from Essentials stays beside it");
+  const removed = BrowserTestUtils.waitForEvent(tab, "TabClose");
+  menu.activateItem(close);
+  await removed;
+  await TestUtils.waitForCondition(() => !tab.isConnected, "The Essential is gone");
+  is(gBrowser._numZenEssentials, before - 1, "One Essential fewer");
+  ok(!gBrowser.tabs.some(t => t.linkedBrowser?.currentURI?.spec == BASE + "essential"), "Not left behind as a normal tab");
+  BrowserTestUtils.removeTab(other);
 });
 
