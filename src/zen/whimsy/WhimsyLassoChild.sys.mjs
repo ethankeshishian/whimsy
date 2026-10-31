@@ -24,6 +24,11 @@ export class WhimsyLassoChild extends JSWindowActorChild {
   lasso = null;
 
   handleEvent(event) {
+    // wave9/secfix (security-full-1 L3): a page's synthetic mouse events
+    // must not draw or reshape the selection.
+    if (!event.isTrusted) {
+      return;
+    }
     switch (event.type) {
       case "mousedown":
         this.onMouseDown(event);

@@ -635,3 +635,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_security_paste_guard_frames.js"]
 # wave9/secfix (security-full-2 M2): a profile-limited extension can't read other profiles' cookies, and its DNR rules skip them (needs the whimsy-ext-cookies-js / whimsy-ExtensionDNR-sys-mjs engine patches).
 ["browser_whimsy_security_ext_profiles.js"]
+# wave9/secfix L2/L3: follower panes, link lasso and link hints ignore a page's synthetic events.
+["browser_whimsy_security_untrusted_events.js"]
+support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
