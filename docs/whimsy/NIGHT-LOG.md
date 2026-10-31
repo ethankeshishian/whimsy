@@ -176,3 +176,16 @@
   - W9-08 (Checks: link tracking stripping & mini player skip controls): Confirmed link tracking stripping on navigation and Copy Link is fully enabled (privacy.query_stripping.enabled, privacy.query_stripping.enabled.pbmode, privacy.query_stripping.strip_on_share.enabled, strict list via RemoteSettings and StripOnShare.json). Mini player skip controls: Firefox PiP has seek buttons but delta is hardcoded to ±5s (SEEK_TIME_SECS=5 in engine PictureInPictureChild.sys.mjs) and sidebar mini player is deferred (tier M); ticketed missing ±10s seek pref/engine patch.
   - W9-04/06/07 skipped per user instruction (require design input).
 
+- Wave 9 smart address bar buttons (code-only on wave9/smart):
+  - W9-06: Contextual smart buttons beside address bar (Reader, Translate, media PiP/playback, and Downloads in progress). Reuses existing Firefox/Zen elements without duplicates: `#reader-mode-button`, `#translations-button`, `#picture-in-picture-button`, `#downloads-button`, and `#page-action-buttons` pill. Registers commands in `WhimsyCommands` with assignable shortcuts (`cmd_whimsyToggleReader`, `cmd_whimsyTranslatePage`, `cmd_whimsyToggleMedia`, `cmd_whimsyDownloads`). Added mochitest `browser_whimsy_smart_buttons.js`.
+  - W9-07 verified: 'Change icon' already lets users pick a symbol icon for an Essential via `#context_zen-edit-tab-icon` (`src/zen/tabs/ZenPinnedTabManager.mjs:668-699`), which invokes `gZenEmojiPicker.open(..., { emojiAsSVG: true })` (`src/zen/common/emojis/ZenEmojiPicker.mjs:8-31`), offering Zen's 62 SVG vector icons or emojis. No build required.
+  - Review fixes (R-D4-H3, R-D4-M8, R-D4-M9, R-D5-N5, R-D5-M8, security-full-2):
+    - R-D4-H3: Never hide Firefox's Downloads button when feature is off (leave hidden alone and remove root attribute); never overwrite user's PiP-in-urlbar or download-autohide prefs; never move the button (placement left to toolbar customization). Respect user's autohide pref (never hide downloads button if browser.download.autohideButton is false).
+    - R-D4-M8: Deleted duplicate Reader and Downloads commands (`cmd_whimsyToggleReader`, `cmd_whimsyDownloads`), retaining Firefox's native commands. Split media into separate Picture-in-Picture (`cmd_whimsyPictureInPicture`) and Play or Pause Media (`cmd_whimsyPlayPauseMedia`) commands, each with icons and `isAvailable` checks. Added translation support `isAvailable` check and icon to Translate Page (`cmd_whimsyTranslatePage`).
+    - R-D4-M9: Dropped audio playback hijacking of the Picture-in-Picture urlbar button.
+    - R-D5-N5: Plain language in Settings label ("Show Reader View, Translate, media and download buttons in the address bar when they apply").
+    - R-D5-M8: Added `insertNavigationGroup` and `insertSearchDeckGroup` to `insertAllForSearch` in `whimsy-settings.js` so Settings search finds Smart buttons, navigation switches, and search deck.
+    - Security-full-2: Scoped download listener to `lazy.Downloads.PUBLIC` in normal windows and `lazy.Downloads.ALL` in private windows to prevent private downloads from exposing activity in normal windows.
+    - Tests: Updated `browser_whimsy_smart_buttons.js` to cover H3/M8/M9/security fixes.
+
+

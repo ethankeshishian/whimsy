@@ -659,3 +659,5 @@ support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
 ["browser_whimsy_form_protection.js"]
 support-files = ["whimsy_email_form.html"]
 
+# batch9: W9-06 smart address bar buttons
+["browser_whimsy_smart_buttons.js"]

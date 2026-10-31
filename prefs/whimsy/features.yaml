@@ -513,6 +513,9 @@
 - name: whimsy.feature.form-protection
   value: true
 
+- name: whimsy.feature.smart-buttons
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

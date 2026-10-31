@@ -305,6 +305,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFormProtection: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
 });
 
+// batch9: W9-06 smart address bar buttons.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySmartButtons: "resource:///modules/whimsy/WhimsySmartButtons.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -917,6 +922,9 @@ export const Whimsy = {
 
     // wave9: form protection (W9-03)
     run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));
+
+    // batch9: W9-06 smart address bar buttons.
+    run("smart-buttons", () => lazy.WhimsySmartButtons.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

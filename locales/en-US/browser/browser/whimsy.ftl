@@ -3438,4 +3438,11 @@ whimsy-tab-form-protected-tooltip = { $reason ->
     }
 whimsy-form-protected-toast = This tab won’t be auto-archived
 whimsy-form-unprotected-toast = This tab can be auto-archived again
+## batch9: W9-06 smart address bar buttons
+whimsy-smart-buttons-setting =
+    .label = Show Reader View, Translate, media and download buttons in the address bar when they apply
+whimsy-action-picture-in-picture = Picture-in-Picture
+whimsy-action-play-pause-media = Play or Pause Media
+whimsy-action-translate-page = Translate Page
+
 

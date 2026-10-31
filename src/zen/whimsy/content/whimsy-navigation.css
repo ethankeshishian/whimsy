@@ -130,3 +130,27 @@
   font-size: 0.8em;
   opacity: 0.6;
 }
+
+/* batch9: W9-06 smart address bar buttons (Reader, Translate, media, Downloads in progress) */
+:root[whimsy-smart-buttons] #page-action-buttons {
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+}
+
+:root[whimsy-smart-buttons] #page-action-buttons > .urlbar-page-action {
+  flex-shrink: 0;
+}
+
+:root[whimsy-smart-buttons] #reader-mode-button:not([hidden]) {
+  display: flex !important;
+}
+
+:root[whimsy-smart-buttons] #picture-in-picture-button:not([hidden]) {
+  display: flex !important;
+}
+
+:root[whimsy-smart-buttons] #translations-button:not([hidden]) {
+  display: flex !important;
+}
+

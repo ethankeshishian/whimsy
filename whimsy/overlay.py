@@ -1210,6 +1210,9 @@ FEATURES = [
     # batch wave9: form protection (W9-03)
     {"id": "form-protection", "title": "Form protection: tabs with half-filled forms are exempt from auto-archive and show a subtle indicator",
      "detect": [("src/zen", r"(?i)form-?protection|whimsy-?form-?protected")]},
+    # batch9: W9-06 smart address bar buttons (Reader, Translate, media, Downloads in progress)
+    {"id": "smart-buttons", "title": "Smart address bar buttons: Reader, Translate, media and Downloads in progress beside the address bar when relevant",
+     "detect": [("src/zen", r"(?i)smart-?(address-?bar|buttons)")]},
 ]
 
 
