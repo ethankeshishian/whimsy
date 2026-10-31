@@ -3014,3 +3014,8 @@ whimsy-cheatsheet-results =
         [one] 1 shortcut
        *[other] { $count } shortcuts
     }
+## W8-17/18: the private command bar (Cmd+Option+T)
+
+# A small badge at the end of the command bar while it's for a private tab.
+# It is also read out as the address field's description.
+whimsy-urlbar-private-badge = Private

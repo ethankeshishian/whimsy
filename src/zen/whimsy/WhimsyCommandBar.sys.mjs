@@ -8,6 +8,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
 
@@ -150,8 +151,9 @@ export const WhimsyCommandBar = {
     }
   },
 
+  // W8-17: from the private command bar (or a private tab) it opens private.
   openNewThing(win, url) {
-    win.openTrustedLinkIn(url, "tab");
+    lazy.WhimsyPrivate.openTabFor(win, url);
   },
 
   initWindow(win) {

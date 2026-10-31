@@ -81,13 +81,22 @@ add_task(async function test_shortcuts() {
   is(tabKey?.getAttribute("key"), "T", "Private tab is on T");
   is(tabKey?.getAttribute("modifiers"), "accel,alt", "... with Cmd+Option");
 
-  // The shortcut itself opens a private tab.
-  const opened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen");
+  // W8-17: the shortcut opens the private command bar; Enter opens the
+  // private tab (browser_whimsy_private_command_bar.js covers the rest).
   EventUtils.synthesizeKey("t", { accelKey: true, altKey: true });
+  await TestUtils.waitForCondition(
+    () => gURLBar.focused && gURLBar.hasAttribute("whimsy-private"),
+    "Cmd+Option+T opened the private command bar"
+  );
+  const url = uniqueURL("shortcut");
+  EventUtils.sendString(url);
+  const opened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen");
+  EventUtils.synthesizeKey("KEY_Enter");
   const { target: tab } = await opened;
-  ok(tab.hasAttribute("whimsy-private"), "Cmd+Option+T opened a private tab");
-  await waitForPage(tab);
+  ok(tab.hasAttribute("whimsy-private"), "Enter opened a private tab");
+  await waitForPage(tab, url);
   ok(tab.linkedBrowser.browsingContext.usePrivateBrowsing, "... that browses privately");
+  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "The bar closed");
   await closeTab(tab);
 });
 
