@@ -191,7 +191,7 @@ export const WhimsyToast = {
       s.win.clearTimeout(s.timer);
       s.cleanup?.();
     }
-    const win = toast.ownerGlobal;
+    const win = toast.ownerDocument.defaultView; // ownerGlobal is gone for modules (Gecko 159)
     // Keyboard focus in a vanishing toast would be lost; hand it back to
     // the page.
     const hadFocus = toast.contains(toast.ownerDocument.activeElement);
