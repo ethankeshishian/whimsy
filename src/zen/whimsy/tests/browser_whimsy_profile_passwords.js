@@ -33,6 +33,16 @@ function newLogin(username, password = `${username}-secret`) {
 }
 
 add_setup(async function () {
+  // Firefox's password manager ships off here (signon.rememberSignons), and
+  // with it off nothing autofills; per-profile logins only matter with it on.
+  // As Firefox's own password tests do (passwordmgr/test/browser/head.js).
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["signon.rememberSignons", true],
+      ["signon.testOnlyUserHasInteractedByPrefValue", true],
+      ["signon.testOnlyUserHasInteractedWithDocument", true],
+    ],
+  });
   WhimsyProfilePasswords.init();
   work = WhimsyProfiles.create("Whimsy Passwords Work");
   registerCleanupFunction(async () => {
@@ -45,9 +55,13 @@ add_setup(async function () {
 });
 
 async function filledUsername(userContextId) {
-  const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId });
+  // In front, as a login page is: Firefox defers autofill in a hidden
+  // (background) document until it's shown.
+  const tab = await BrowserTestUtils.openNewForegroundTab({
+    gBrowser,
+    opening: () => (gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId })),
+  });
   try {
-    await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
     return await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
       const field = content.document.getElementById("username");
       // Autofill runs shortly after load; give it a moment, then read.

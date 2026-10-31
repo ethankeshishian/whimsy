@@ -42,7 +42,11 @@ add_setup(async function () {
 });
 
 async function inFront(userContextId) {
-  const tab = await BrowserTestUtils.openNewForegroundTab({ gBrowser, opening: "about:blank", userContextId });
+  // openNewForegroundTab has no userContextId option; open it through addTab.
+  const tab = await BrowserTestUtils.openNewForegroundTab({
+    gBrowser,
+    opening: () => (gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, "about:blank", { userContextId })),
+  });
   await WhimsyProfileSettings.applyFront();
   return tab;
 }

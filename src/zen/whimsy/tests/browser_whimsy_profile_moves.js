@@ -45,7 +45,8 @@ add_setup(async function () {
 });
 
 function tabsOf(space) {
-  return gBrowser.tabs.filter(tab => tab.getAttribute("zen-workspace-id") == space.uuid &&
+  // Every space's tabs (gBrowser.tabs holds only the showing space's).
+  return gZenWorkspaces.allStoredTabs.filter(tab => tab.getAttribute("zen-workspace-id") == space.uuid &&
     !tab.hasAttribute("zen-essential"));
 }
 
@@ -70,7 +71,8 @@ add_task(async function moving_a_tab_asks_then_reopens_it() {
     tabsOf(workSpace).find(t => t.userContextId == work), "Yes: reopened in Work");
   ok(tab.closing || !tab.isConnected, "The Default copy is closed");
   is(moved.getAttribute("zen-workspace-id"), workSpace.uuid, "The new tab has its space id");
-  is(moved.linkedBrowser.currentURI?.spec ?? WhimsyProfileMoves.urlOf(moved), PAGE, "Same page");
+  // The reopened tab loads its page (about:blank until the load commits).
+  await TestUtils.waitForCondition(() => WhimsyProfileMoves.urlOf(moved) == PAGE, "Same page");
   assertSwitcherIsLive();
   BrowserTestUtils.removeTab(moved);
 });
@@ -182,10 +184,13 @@ add_task(async function moving_a_space_reopens_its_tabs() {
     await TestUtils.waitForCondition(() => gBrowser.selectedTab == reopened, "Back on the reopened tab");
     assertSwitcherIsLive();
   } finally {
+    // Leave the space first: closing the selected (last) tab of the showing
+    // space leaves nothing to select in testing mode (Zen's empty-tab
+    // selection is off there), and the switcher kept the closed tab.
+    await gZenWorkspaces.changeWorkspace(home);
     for (const tab of tabsOf(space)) {
       BrowserTestUtils.removeTab(tab);
     }
-    await gZenWorkspaces.changeWorkspace(home);
     await gZenWorkspaces.removeWorkspace(space.uuid);
   }
 });
@@ -207,12 +212,16 @@ add_task(async function set_profile_menu_goes_through_the_warning() {
 
 add_task(async function feature_off_is_zen_behaviour() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.space-profiles", false]] });
+  const previous = gBrowser.selectedTab;
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   asked = [];
   gZenWorkspaces.moveTabToWorkspace(tab, workSpace.uuid);
   await new Promise(resolve => setTimeout(resolve, 100));
   is(asked.length, 0, "No warning when off");
   is(tab.userContextId, 0, "Zen's move: container unchanged");
+  // Zen moved the selected tab away; select a tab here before closing it
+  // (testing mode has no empty-tab fallback, so the switcher would keep it).
+  gBrowser.selectedTab = previous;
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
 });

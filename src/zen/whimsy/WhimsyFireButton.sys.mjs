@@ -204,7 +204,8 @@ export const WhimsyFireButton = {
       if (w.closed || !w.gBrowser || lazy.PrivateBrowsingUtils.isWindowPrivate(w)) {
         continue;
       }
-      const tabs = w.gBrowser.tabs.filter(t => uuids.has(t.getAttribute("zen-workspace-id")));
+      // Every space's tabs: gBrowser.tabs holds only the showing space's.
+      const tabs = (w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs).filter(t => uuids.has(t.getAttribute("zen-workspace-id")));
       if (tabs.length) {
         result.push([w, tabs]);
       }
@@ -285,7 +286,8 @@ export const WhimsyFireButton = {
     const result = [];
     for (const w of Services.wm.getEnumerator("navigator:browser")) {
       if (!w.closed && w.gBrowser && !lazy.PrivateBrowsingUtils.isWindowPrivate(w)) {
-        result.push([w, [...w.gBrowser.tabs]]);
+        // Every space's tabs, not just the showing space's (gBrowser.tabs).
+        result.push([w, [...(w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs)]]);
       }
     }
     return result;

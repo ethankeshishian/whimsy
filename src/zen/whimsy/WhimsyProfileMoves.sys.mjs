@@ -232,7 +232,9 @@ export const WhimsyProfileMoves = {
   // -- spaces ---------------------------------------------------------------
 
   spaceTabs(win, space) {
-    return win.gBrowser.tabs.filter(tab =>
+    // gBrowser.tabs holds only the showing space's tabs (Zen); a space
+    // being moved is often another one.
+    return (win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs).filter(tab =>
       tab.getAttribute("zen-workspace-id") == space.uuid && !tab.hasAttribute("zen-essential"));
   },
 

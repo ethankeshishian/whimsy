@@ -329,9 +329,11 @@ add_task(async function test_bar_has_arcs_controls_in_order() {
     const ids = [...bar.children].map(el => el.id || el.className);
     Assert.deepEqual(ids.filter(id => id.startsWith("whimsy-quick-window")), [
       "whimsy-quick-window-back",
+      // wave7/profiles: the page's profile pill, just before the strip.
+      "whimsy-quick-window-profile",
       "whimsy-quick-window-address-field",
       "whimsy-quick-window-open",
-    ], "Back, the address strip, then Open in <Space>");
+    ], "Back, the profile pill, the address strip, then Open in <Space>");
     // fix7: Little Arc puts Extensions and Copy Link inside the strip, at
     // its right end.
     const field = doc.getElementById("whimsy-quick-window-address-field");
@@ -377,7 +379,7 @@ add_task(async function test_address_shows_the_host_and_back_follows_history() {
     const host = address.querySelector(".whimsy-mini-host");
     await TestUtils.waitForCondition(() => host.textContent == "example.com", "The address shows the bare host");
     ok(!address.querySelector(".whimsy-mini-favicon"), "Measured address has no site favicon");
-    is(address.previousElementSibling?.id, "whimsy-quick-window-profile", "The profile pill sits just before the address");
+    is(address.parentElement.previousElementSibling?.id, "whimsy-quick-window-profile", "The profile pill sits just before the address strip");
     const back = doc.getElementById("whimsy-quick-window-back");
     ok(back.disabled, "Back is dimmed with no history (it never moves)");
     ok(!doc.getElementById("whimsy-quick-window-copy-link").disabled, "Copy URL is available for a page");
