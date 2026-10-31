@@ -79,6 +79,9 @@
         content/browser/whimsy/whimsy-tab-audio-playing.svg                       (../../zen/whimsy/content/whimsy-tab-audio-playing.svg)
         content/browser/whimsy/whimsy-tab-audio-muted.svg                         (../../zen/whimsy/content/whimsy-tab-audio-muted.svg)
 # wave5/profiles: keeps extensions' content scripts out of other profiles' pages.
+# wave5: redact toggle in the Screenshots panel
+        content/browser/whimsy/whimsy-redact.css                                 (../../zen/whimsy/content/whimsy-redact.css)
+        content/browser/whimsy/whimsy-redact.svg                                 (../../zen/whimsy/content/whimsy-redact.svg)
         content/browser/whimsy/whimsy-profiles-process.js                       (../../zen/whimsy/content/whimsy-profiles-process.js)
 # wave6/zap: Link hints badges (drawn in page anonymous content)
         content/browser/whimsy/whimsy-link-hints.css                             (../../zen/whimsy/content/whimsy-link-hints.css)
