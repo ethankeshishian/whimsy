@@ -688,6 +688,19 @@ export const WhimsyMenuPrefs = {
     }
   },
 
+  // Applies Settings → Menus again to a popup whose rows changed after its
+  // popupshowing (WhimsyMenuParity adds rows to the split menus, which are
+  // built on first use, once their popup exists).
+  refresh(win, popup) {
+    if (!this.enabled || popup?.localName != "menupopup") {
+      return;
+    }
+    const menu = MENUS.filter(m => popup.matches(m.popup)).find(m => !m.when || m.when(win));
+    if (menu) {
+      this.apply(win, popup, menu.id);
+    }
+  },
+
   // Marks the hidden rows of `popup` and tidies its separators. Returns
   // whether any row that would have shown was hidden.
   apply(win, popup, menuId) {

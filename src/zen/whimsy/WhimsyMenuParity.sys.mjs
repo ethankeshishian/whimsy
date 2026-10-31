@@ -34,6 +34,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
+  WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyPlaylist: "resource:///modules/whimsy/WhimsyPlaylist.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
@@ -643,6 +644,11 @@ export const WhimsyMenuParity = {
           listen(late);
           try {
             this.updateRows(win, late, specs);
+            // It's built while opening: Settings → Menus already ran on it
+            // without these rows.
+            if (["showing", "open"].includes(late.state)) {
+              lazy.WhimsyMenuPrefs.refresh(win, late);
+            }
           } catch (e) {
             console.error("Whimsy: menu parity rows", e);
           }
