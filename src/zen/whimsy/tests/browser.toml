@@ -102,6 +102,10 @@ support-files = ["whimsy_article.html"]
 # wave3/speed: the video speed control shot.
 support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
 
+["browser_whimsy_screens_2.js"]
+# wave3/speed: the video speed control shot.
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+
 ["browser_whimsy_space_icon_drop.js"]
 
 ["browser_whimsy_space_last_tab.js"]
