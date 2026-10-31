@@ -175,3 +175,21 @@ add_task(async function test_fallback_respects_closed_by_hand() {
   BrowserTestUtils.removeTab(other);
   BrowserTestUtils.removeTab(video);
 });
+
+// W8-31: leaving a tab with a playing video pops out a floating PiP window
+// rather than only showing in the sidebar.
+add_task(async function test_w8_31_auto_pip_floating_window() {
+  const video = await openPlayingVideo();
+  const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const player = await opened;
+  is(
+    player.document.documentElement.getAttribute("windowtype"),
+    "Toolkit:PictureInPicture",
+    "Video popped out into a floating Picture-in-Picture window"
+  );
+  ok(video.pictureinpicture, "Tab is marked as in PiP");
+  await closeAllPlayers();
+  BrowserTestUtils.removeTab(other);
+  BrowserTestUtils.removeTab(video);
+});

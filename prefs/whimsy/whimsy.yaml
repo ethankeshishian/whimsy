@@ -94,6 +94,10 @@
 - name: media.videocontrols.picture-in-picture.playback-speed.enabled
   value: true
 
+# Allow auto Picture-in-Picture for videos of any duration (Arc parity, W8-31).
+- name: media.videocontrols.picture-in-picture.video-toggle.min-video-secs
+  value: 0
+
 # Cmd+F with text selected opens Find with the selection, like Chrome and
 # Safari (macOS Firefox leaves it off and uses Cmd+E for that).
 - name: accessibility.typeaheadfind.prefillwithselection

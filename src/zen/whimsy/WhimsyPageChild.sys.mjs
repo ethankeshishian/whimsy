@@ -180,48 +180,27 @@ export class WhimsyPageChild extends JSWindowActorChild {
     return true;
   }
 
-  // fix7: the tab was switched away from while its video played. Firefox
-  // pops the video out itself when the page goes hidden, but listens for
-  // that only while a video is on screen (PictureInPictureToggleChild's
-  // tracking). If it's listening, wait for the page to hide and leave it to
-  // Firefox; otherwise (scrolled away, tracking not started yet, or Zen
-  // kept the tab rendered) run Firefox's own auto toggle, which checks the
-  // video plays, has sound and may be put in picture-in-picture.
+  // fix7 / W8-31: the tab was switched away from while its video played.
+  // Pops the playing video into a floating Picture-in-Picture window.
   async autoPip() {
     const doc = this.document;
     if (!doc) {
       return false;
     }
-    const firefoxListens = () => {
-      try {
-        return !!this.manager.getActor("PictureInPictureToggle")?.docState?.isTrackingVideos;
-      } catch (e) {
-        return false;
-      }
-    };
-    if (firefoxListens() && doc.visibilityState != "hidden") {
-      await new Promise(resolve => {
-        const timer = this.contentWindow.setTimeout(resolve, 600);
-        doc.addEventListener(
-          "visibilitychange",
-          () => {
-            this.contentWindow?.clearTimeout(timer);
-            resolve();
-          },
-          { once: true }
-        );
-      });
-      if (!this.contentWindow) {
-        return false;
-      }
-    }
-    if (doc.visibilityState == "hidden" && firefoxListens()) {
-      return false; // Firefox's own auto-PiP has it.
-    }
-    if ([...doc.querySelectorAll("video")].some(v => v.isCloningElementVisually)) {
+    const videos = [...doc.querySelectorAll("video")];
+    if (videos.some(v => v.isCloningElementVisually)) {
       return false; // Already in picture-in-picture.
     }
-    this.manager.getActor("PictureInPictureLauncher").autoToggle();
+    const live = videos.filter(
+      v => !v.paused && v.readyState >= 2 && !v.isCloningElementVisually && (this.area(v) > 0 || v.videoWidth > 0)
+    );
+    const launcher = this.manager.getActor("PictureInPictureLauncher");
+    if (live.length) {
+      live.sort((a, b) => this.area(b) - this.area(a) || (b.duration || 0) - (a.duration || 0));
+      launcher.togglePictureInPicture({ video: live[0], reason: "AutoPip" }, false).catch(console.error);
+      return true;
+    }
+    launcher.autoToggle();
     return true;
   }
 
