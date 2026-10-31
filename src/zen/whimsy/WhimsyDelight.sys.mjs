@@ -105,6 +105,11 @@ export const WhimsyDelight = {
       return;
     }
     lastCelebrated.set(tab, now);
+    // wave7/native1: no celebration during a macOS Focus (it's of the
+    // moment, so it isn't saved for later).
+    if (ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFocus.sys.mjs").WhimsyFocus.quiet) {
+      return;
+    }
     const reduced = win.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced || !win.gZenUIManager?.showToast) {
       win.gZenUIManager?.showToast?.("whimsy-inbox-zero-toast", {});

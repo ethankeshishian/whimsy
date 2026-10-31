@@ -46,6 +46,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFilesSection.sys.mjs",
     "WhimsyFinderFoldersSection.sys.mjs",
     "WhimsyFireButton.sys.mjs",
+    "WhimsyFocus.sys.mjs",
     "WhimsyFolderColors.sys.mjs",
     "WhimsyFollowerTabs.sys.mjs",
     "WhimsyGithubReviews.sys.mjs",
@@ -148,8 +149,10 @@ BROWSER_CHROME_MANIFESTS += [
 
 # wave7/native1: the macOS native components. calendar/ (Next meeting's
 # EventKit reader, and Add to Calendar's writer) was dropped from here by a
-# moz.build re-sort (1545592), so it wasn't built.
+# moz.build re-sort (1545592), so it wasn't built; focus/ is macOS Focus for
+# Whimsy's own toasts.
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     DIRS += [
         "calendar",
+        "focus",
     ]

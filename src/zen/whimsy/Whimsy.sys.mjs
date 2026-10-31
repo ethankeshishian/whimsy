@@ -157,6 +157,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
 });
 
+// wave7/native1: Whimsy's own toasts follow macOS Focus.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFocus: "resource:///modules/whimsy/WhimsyFocus.sys.mjs",
+});
+
 // wave5/look: a look per space (font, density, title lines, a Zen Mod).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
@@ -641,6 +646,10 @@ export const Whimsy = {
     // its switch on use.
     run("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
 
+    // wave7/native1: macOS Focus (once per session; reads Focus's state
+    // now and when it changes, so the toasts below can wait for it).
+    run("macos-focus", () => lazy.WhimsyFocus.init());
+
     // wave5/quick: the first window in a new season says so once (after
     // the window settles; never under test automation).
     run("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
@@ -689,6 +698,10 @@ export const Whimsy = {
     }
     const now = new Date();
     if (now.getMonth() != 11) {
+      return;
+    }
+    // wave7/native1: not during a macOS Focus; shown when it ends.
+    if (lazy.WhimsyFocus.holdToast(win, "year-in-tabs", w => this.maybeShowYearToast(w))) {
       return;
     }
     const year = now.getFullYear();

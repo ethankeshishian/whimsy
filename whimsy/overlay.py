@@ -985,6 +985,10 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r"(?i)dedup")]},
     {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
      "detect": [("src/zen/common", r"(?i)reveal-?tab|tabs-menubar|portrait")]},
+    # wave7/native1: Whimsy's own unprompted toasts wait during a macOS
+    # Focus (native component src/zen/whimsy/focus).
+    {"id": "macos-focus", "title": "Whimsy's own pop-up messages (new season, Year in tabs, celebrations) wait while a macOS Focus is on",
+     "detect": [("src/zen", r"(?i)INFocusStatusCenter|DoNotDisturb/DB")]},
 ]
 
 

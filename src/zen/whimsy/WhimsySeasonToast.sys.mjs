@@ -71,6 +71,17 @@ export const WhimsySeasonToast = {
     if (!pending || !win.gZenUIManager?.showToast) {
       return null;
     }
+    // wave7/native1: waits (unclaimed) during a macOS Focus; shown when it
+    // ends.
+    if (
+      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFocus.sys.mjs").WhimsyFocus.holdToast(
+        win,
+        "season",
+        w => this.maybeShow(w)
+      )
+    ) {
+      return null;
+    }
     // Claimed first, so a second window opening now doesn't repeat it.
     Services.prefs.setStringPref(SEEN_PREF, pending.key);
     const id = pending.season.id;
