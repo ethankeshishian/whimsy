@@ -1,0 +1,11 @@
+--- a/browser/locales/en-US/browser/customkeys.ftl
++++ b/browser/locales/en-US/browser/customkeys.ftl
+@@ -65,7 +65,7 @@
+ customkeys-file-duplicate-tab = Duplicate Tab
+ customkeys-file-focus-search = Focus the Search Bar
+ 
+-customkeys-history-reopen-tab = Reopen Last Closed Tab
++customkeys-history-reopen-tab = Restore Last Closed Tab
+ customkeys-history-reopen-window = Reopen Last Closed window
+ 
+ customkeys-sidebar-toggle = Toggle Sidebar
