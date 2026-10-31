@@ -2097,8 +2097,9 @@ Object.assign(gWhimsySettings, {
     }
   },
 
-  // Look and Feel: Website appearance (Automatic/Light/Dark), Browser theme,
-  // Window density and Browser icon, at the top of the pane.
+  // Look and Feel: Website appearance (Automatic/Light/Dark), Window density
+  // and Browser icon, at the top of the pane. W8-39: no Browser theme group;
+  // Firefox's lightweight themes don't reach Zen's chrome.
   insertFirefoxLooks() {
     const groups = this.takeFirefoxGroups("template-whimsyFirefoxLooks");
     if (!groups) {
@@ -2106,7 +2107,7 @@ Object.assign(gWhimsySettings, {
     }
     const anchor = document.getElementById("zenVerticalTabsCategory") ?? document.getElementById("zenVerticalTabsGroup");
     this.placeFirefoxGroups(groups, anchor, "before");
-    // Zen's "Manage themes" line repeats Firefox's Browser theme link.
+    // Zen's "Manage themes" line links the same inert themes (W8-39).
     document.querySelector('#zenVerticalTabsGroup [data-l10n-id="preferences-web-appearance-footer"]')?.remove();
     // Old links to Firefox's Browser layout land on Zen's layout chooser.
     document.getElementById("zenVerticalTabsGroup")?.setAttribute("data-subcategory", "layout");

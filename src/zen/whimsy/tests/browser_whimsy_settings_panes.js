@@ -51,7 +51,6 @@ const STARTUP = [
 // Always shown here, whatever the platform.
 const CORE = [
   "web-appearance-chooser",
-  "web-appearance-manage-themes-link",
   "linkTargeting",
   "switchToNewTabs",
   "ctrlTabRecentlyUsedOrder",
