@@ -15,6 +15,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.cast";
@@ -98,28 +99,17 @@ export const WhimsyCast = {
     });
   },
 
+  // wave9/designfix (M5): WhimsyToast, not Zen's toast. Zen's hides a
+  // button's text and leaves after 2s, so Stop and Screen Mirroring were
+  // blank pills gone before anyone reached them (the bug W8-37 fixed for
+  // Undo). This one says the action in words and stays 6s, longer while
+  // hovered or focused; each cast toast replaces the one before.
   toast(win, messageId, button = null) {
-    const ui = win.gZenUIManager;
-    if (!ui?.showToast) {
-      return;
+    const o = { l10nId: messageId };
+    if (button) {
+      o.action = { id: TOAST_BUTTON_ID, l10nId: button.l10nId, onCommand: () => button.run() };
     }
-    if (!button) {
-      ui.showToast(messageId);
-      return;
-    }
-    ui.showToast(messageId, {
-      button: {
-        id: TOAST_BUTTON_ID,
-        command: event => {
-          event.target.closest(".zen-toast")?.remove();
-          button.run();
-        },
-      },
-    });
-    const el = win.document.getElementById(TOAST_BUTTON_ID);
-    if (el) {
-      win.document.l10n.setAttributes(el, button.l10nId);
-    }
+    return lazy.WhimsyToast.show(win, o);
   },
 
   actor(browser) {

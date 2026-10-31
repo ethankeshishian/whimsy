@@ -11,8 +11,6 @@
 // [setting id, pane, setting whose visibility it also needs]
 const LOOKS = [
   ["web-appearance-chooser", "paneZenLooks"],
-  ["uiDensity", "paneZenLooks"],
-  ["uiDensityAutoTouchMode", "paneZenLooks", "uiDensity"],
   ["browser-icon-box-group", "paneZenLooks"],
 ];
 const TABS = [
@@ -120,6 +118,14 @@ add_task(async function test_panes_are_merged() {
     ok(doc.getElementById("category-zen-looks") && doc.getElementById("category-zen-tabs-management"), "Zen's panes stay");
 
     checkControls(win, LOOKS);
+    // wave9/designfix (M7): one Density control, Whimsy's (spaces override it).
+    if (Services.prefs.getBoolPref("whimsy.feature.space-look", true)) {
+      ok(!doc.querySelector('setting-group[groupid="windowDensity"]'), "Firefox's Window density group is gone");
+      ok(!control(doc, "uiDensity"), "and so is its density control");
+      const density = await TestUtils.waitForCondition(() => doc.getElementById("whimsyDensity"), "Whimsy's Density menu");
+      is(paneOf(density), "paneZenLooks", "in Look and Feel");
+      is(doc.querySelectorAll('[preference="browser.uidensity"]').length, 1, "one control writes browser.uidensity");
+    }
     ok(
       !doc.querySelector('setting-group[groupid="browserTheme"]'),
       "W8-39: Browser theme group is removed (lightweight themes do not affect Zen chrome)"

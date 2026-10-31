@@ -8,7 +8,7 @@
 
 whimsy-updated-heading = { -brand-short-name } updated
 whimsy-rolled-back-heading = Rolled back to the previous version
-whimsy-updated-notes-label = What's new
+whimsy-updated-notes-label = What’s new
 whimsy-updated-rollback-label = Something broke? Roll back
 # Built from the link ids by Zen's sidebar notification (<id>-label, <id>-tooltip).
 whimsy-updated-notes-tooltip =
@@ -25,7 +25,7 @@ whimsy-updates-channel-release =
 whimsy-updates-channel-dev =
     .label = Dev
 whimsy-updates-channel-release-note = Tested builds, published each night.
-whimsy-updates-channel-dev-note = Every change as soon as it's built. Expect rough edges.
+whimsy-updates-channel-dev-note = Every change as soon as it’s built. Expect rough edges.
 whimsy-updates-show-log =
     .label = Show log
 whimsy-updates-hide-log =
@@ -35,7 +35,7 @@ whimsy-updates-rollback =
 whimsy-updates-rollback-none =
     .label = Roll back
 whimsy-updates-rollback-confirm-title = Roll back?
-whimsy-updates-rollback-confirm = { -brand-short-name } will close, switch back to { $version }, and reopen with your tabs. Automatic updates skip the version you're leaving.
+whimsy-updates-rollback-confirm = { -brand-short-name } will close, switch back to { $version }, and reopen with your tabs. Automatic updates skip the version you’re leaving.
 whimsy-updates-log-empty = Nothing logged yet.
 whimsy-updates-staged = { $version } is ready. It installs the next time you quit { -brand-short-name }.
 
@@ -79,7 +79,7 @@ whimsy-live-folder-jira-prompt-site = Enter your Jira site (for example your-tea
 whimsy-live-folder-jira-prompt-jql = Enter a JQL query
 whimsy-live-folder-jira-no-site =
     .label = Jira site not set
-    .tooltiptext = Add your Jira site in the folder's options.
+    .tooltiptext = Add your Jira site in the folder’s options.
 whimsy-live-folder-jira-no-auth =
     .label = Not signed in to Jira
     .tooltiptext = Sign back in to Jira.
@@ -345,18 +345,9 @@ whimsy-action-new-miro = New Miro Board
 whimsy-action-new-loom = New Loom Video
 whimsy-action-new-canva = New Canva Design
 whimsy-action-new-playlist = New Spotify Playlist
-# wave7/ux: "New Note" read like the Library's Notes pad, but it opens a
-# document in another app, so it's named for what it makes.
-whimsy-action-new-note = New Document
-whimsy-new-note-target = New Document app
-whimsy-new-note-target-none =
-    .label = Off
-whimsy-new-note-target-notion =
-    .label = Notion
-whimsy-new-note-target-google-docs =
-    .label = Google Docs
-whimsy-new-note-target-word =
-    .label = Word
+# wave9/designfix (L5): New Notion Page, New Google Doc and New Word
+# Document also match this when typed in the command bar.
+whimsy-action-new-document-keyword = New Document
 
 ## Reading time (address bar, next to the Reader View button)
 
@@ -454,7 +445,7 @@ whimsy-tabs-archive-idle-after-30d =
 whimsy-tabs-archive-idle-after-never =
     .label = Never
 whimsy-tabs-archive-view =
-    .label = Show closed tabs in History (command bar: “View Archive…”)
+    .label = Keep closed tabs in the Archive (History → Archive, or “View Archive…”)
 whimsy-tabs-undo =
     .label = Undo for tab actions (Cmd+Z)
 whimsy-tabs-snooze =
@@ -646,7 +637,7 @@ whimsy-action-print-clean = Print Clean Page
 whimsy-action-favorite-split = Favorite This Split
 whimsy-action-open-split-favorites = Open Favorite Split…
 whimsy-split-favorite-name-title = Favorite This Split
-whimsy-split-favorite-name-prompt = Name this split, so it's easy to find later:
+whimsy-split-favorite-name-prompt = Name this split, so it’s easy to find later:
 whimsy-split-favorite-saved-toast = Split saved to your favorites
 whimsy-split-favorites-empty =
     .value = No favorite splits yet. Favorite one from a pane’s ⋯ menu.
@@ -962,19 +953,19 @@ whimsy-home-tab-home = Home
 whimsy-home-tab-changelog = Changelog
 # The <em> part gets the balloon's gradient.
 whimsy-home-hero-title = A browser with <em>a little lift</em>.
-whimsy-home-blurb = Arc's flow, built on Zen and Firefox. Spaces, splits and the shortcuts your hands already know.
+whimsy-home-blurb = Arc’s flow, built on Zen and Firefox. Spaces, splits and the shortcuts your hands already know.
 whimsy-home-hero-hint = Psst: the balloon likes a poke.
 whimsy-home-balloon =
     .aria-label = Poke the balloon
 whimsy-home-features-title = What makes Whimsy, Whimsy
 whimsy-home-feature-spaces-title = A space for everything
 whimsy-home-feature-spaces-text = Work, home and side quests each get their own tabs, colors and pinned sites.
-whimsy-home-feature-keys-title = Arc's shortcuts, kept
+whimsy-home-feature-keys-title = Arc’s shortcuts, kept
 whimsy-home-feature-keys-text = Ctrl+Tab, the command bar and the keys you already reach for.
 whimsy-home-feature-split-title = Side by side, or a peek
 whimsy-home-feature-split-text = Split the window between pages, or glance at a link without leaving yours.
 whimsy-home-feature-quiet-title = Quiet by design
-whimsy-home-feature-quiet-text = No accounts and no telemetry. It's your browser, not ours.
+whimsy-home-feature-quiet-text = No accounts and no telemetry. It’s your browser, not ours.
 whimsy-home-links-title = Get settled in
 whimsy-home-link-settings = Settings
 whimsy-home-link-settings-text = Themes, tabs and everything else.
@@ -985,7 +976,7 @@ whimsy-home-link-import-text = Bring your bookmarks and history along.
 whimsy-home-link-feedback = Feedback on GitHub
 whimsy-home-link-feedback-text = Found a bug or have an idea? Tell us.
 whimsy-home-footer = Whimsy is built on Zen and Firefox, with a little extra air.
-whimsy-changelog-blurb = What's new in each build, newest first.
+whimsy-changelog-blurb = What’s new in each build, newest first.
 whimsy-changelog-empty = Nothing to show yet.
 whimsy-changelog-latest = Latest
 whimsy-changelog-new = New
@@ -1038,8 +1029,8 @@ whimsy-vpn-scope-covered = Spaces with VPN enabled: { $spaces }
 whimsy-vpn-scope-all = VPN enabled for all spaces.
 whimsy-vpn-scope-button-off = VPN off
 whimsy-vpn-scope-button-connecting = VPN connecting
-whimsy-vpn-scope-button-browser = VPN on · Browser
-whimsy-vpn-scope-button-space = VPN on · Space
+whimsy-vpn-scope-button-browser = VPN on · All spaces
+whimsy-vpn-scope-button-space = VPN on · This space
 whimsy-vpn-scope-button-elsewhere = VPN off here
 
 ## legacy: Firefox/Mozilla leftovers replaced with Whimsy's own.
@@ -1061,11 +1052,11 @@ whimsy-home-tab-privacy = Privacy
 whimsy-privacy-blurb = Whimsy has no servers or accounts of its own, and sends no telemetry or crash reports. These are the services it talks to, and why.
 whimsy-privacy-mozilla = <strong>Mozilla</strong>: security, blocklist and search updates (Remote Settings), add-on updates, web push notifications, video plugins (Widevine, OpenH264), translation models (translation runs on this Mac), your country for search defaults, and a one-off check after a certificate error that looks like interception.
 whimsy-privacy-sync = <strong>Mozilla account and Sync</strong>: only if you sign in. What you sync is end-to-end encrypted.
-whimsy-privacy-dns = <strong>Cloudflare</strong>: in some countries, Firefox's DNS over HTTPS turns on by itself and sends lookups to Cloudflare's resolver for Mozilla. Change it in Settings → Privacy & Security.
-whimsy-privacy-zen = <strong>Zen</strong>: when you share a space or folder, its tab titles and links go to Zen's share server, and anyone with the link can open it for 30 days. Zen Mods come from Zen's mod store.
-whimsy-privacy-apple = <strong>Apple</strong>: captive.apple.com, to check that you're online and to spot Wi-Fi sign-in pages. macOS makes the same check.
+whimsy-privacy-dns = <strong>Cloudflare</strong>: in some countries, Firefox’s DNS over HTTPS turns on by itself and sends lookups to Cloudflare’s resolver for Mozilla. Change it in Settings → Privacy & Security.
+whimsy-privacy-zen = <strong>Zen</strong>: when you share a space or folder, its tab titles and links go to Zen’s share server, and anyone with the link can open it for 30 days. Zen Mods come from Zen’s mod store.
+whimsy-privacy-apple = <strong>Apple</strong>: captive.apple.com, to check that you’re online and to spot Wi-Fi sign-in pages. macOS makes the same check.
 whimsy-privacy-google = <strong>Google</strong>: Safe Browsing lists and checks of downloaded apps.
-whimsy-privacy-updates = <strong>GitHub</strong>: Whimsy's updates.
+whimsy-privacy-updates = <strong>GitHub</strong>: Whimsy’s updates.
 whimsy-privacy-search = <strong>Your search engine</strong>: what you search for, as with any browser.
 
 # Settings → Home → Homepage and new windows: the built-in choice, which is
@@ -1130,7 +1121,7 @@ whimsy-bangs-reset =
 whimsy-bangs-saved = Shortcuts saved.
 whimsy-bangs-restored = Default shortcuts restored.
 # $line (Number) - The first line that couldn't be saved.
-whimsy-bangs-invalid = Line { $line } isn't a valid shortcut. Use !shortcut and an http or https URL with { "{{{s}}}" } once, and don't repeat a shortcut. Nothing was saved.
+whimsy-bangs-invalid = Line { $line } isn’t a valid shortcut. Use !shortcut and an http or https URL with { "{{{s}}}" } once, and don’t repeat a shortcut. Nothing was saved.
 whimsy-bangs-too-long = The list is too long. Nothing was saved.
 
 # wave3/tree: tree tab disclosure buttons
@@ -1221,13 +1212,13 @@ whimsy-useragent-title = Pretend to Be
 # $site (string) - the current site's host
 whimsy-useragent-subtitle = On { $site }; the page reloads
 whimsy-useragent-option-default = Whimsy
-whimsy-useragent-option-default-detail = No disguise (Firefox's own)
+whimsy-useragent-option-default-detail = No disguise (Firefox’s own)
 whimsy-useragent-option-chrome = Chrome
 whimsy-useragent-option-chrome-detail = For sites that only work in Chrome
 whimsy-useragent-option-safari-mac = Safari
 whimsy-useragent-option-safari-mac-detail = Safari on a Mac
 whimsy-useragent-option-safari-iphone = iPhone
-whimsy-useragent-option-safari-iphone-detail = Safari on iPhone, for a site's mobile layout
+whimsy-useragent-option-safari-iphone-detail = Safari on iPhone, for a site’s mobile layout
 whimsy-useragent-option-custom = Custom…
 whimsy-useragent-option-custom-detail = Any user agent string
 whimsy-useragent-custom-field =
@@ -1299,12 +1290,12 @@ whimsy-library-archive-forget =
 ## fixC: onboarding look pages (Zen's first-run flow, after space colors)
 
 whimsy-welcome-transparency-title = Let your desktop shine through?
-whimsy-welcome-transparency-description = { -brand-short-name } can let your wallpaper glow softly through the sidebar. Pick one to try it. You can always change it later!
+whimsy-welcome-transparency-description = { -brand-short-name } can let your wallpaper glow softly through the sidebar. Pick one to try it. You can always change it later.
 whimsy-welcome-transparency-solid = <strong>NO</strong>, keep it solid.
 whimsy-welcome-transparency-subtle = <strong>A LITTLE</strong>, just a hint of my wallpaper.
 whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
-whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later!
+whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later.
 whimsy-welcome-font-system = System font
 
 ## wave3/icons: skin tone button beside the emoji search in the icon picker
@@ -1376,7 +1367,7 @@ whimsy-handoff-header =
     .label = Handoff
 whimsy-handoff-send =
     .label = Continue pages on your iPhone, iPad and other Macs
-    .description = Hand off the page you're on through macOS Handoff. Only its address is shared; private tabs and Scratch are never offered.
+    .description = Hand off the page you’re on through macOS Handoff. Only its address is shared; private tabs and Scratch are never offered.
 
 ## wave3: playlist (WhimsyPlaylist.sys.mjs, Library -> Playlist)
 
@@ -1644,7 +1635,7 @@ whimsy-note-block-remove =
     .aria-label = Remove block
 whimsy-note-block-picker =
     .aria-label = Drag over the part of the page to keep. A small click shows the whole page; Escape cancels.
-whimsy-note-block-private = Private tabs can't be embedded
+whimsy-note-block-private = Private tabs can’t be embedded
 whimsy-note-block-unsupported = Only web pages can be embedded
 whimsy-note-block-paused-private = Live blocks are paused in private windows
 
@@ -1830,10 +1821,13 @@ whimsy-redact-button = Redact
 
 ## wave5/look: a look per space (font, density, tab titles, a Zen Mod)
 
+# wave9/designfix (L4): the space menu row's name, shared by every string
+# that tells you to use it, so they can't drift apart.
+-whimsy-edit-look = Edit Look…
 whimsy-space-look-menu =
-    .label = Edit Look…
+    .label = { -whimsy-edit-look }
 whimsy-space-look-form-button =
-    .label = Edit Look…
+    .label = { -whimsy-edit-look }
 # The command bar's name for opening the current space's look editor.
 whimsy-action-space-look = Edit Space Look…
 # W8-36: the look editor, an overlay like Zen's theme picker.
@@ -1881,7 +1875,7 @@ whimsy-look-density-normal =
     .label = Normal
 whimsy-look-density-roomy =
     .label = Roomy
-whimsy-welcome-font-per-space = Want a different look for work and play? Any space can have its own font and density later: right-click it and choose Look and Feel.
+whimsy-welcome-font-per-space = Want a different look for work and play? Any space can have its own font and density later: right-click it and choose { -whimsy-edit-look }
 
 ## wave5: command registry. Every Whimsy command has one name, used in the
 ## command bar, in Settings → Keyboard Shortcuts (under "Whimsy") and in
@@ -1962,15 +1956,15 @@ whimsy-scratch-save-confirm-title = Save as a Space?
 whimsy-scratch-save-confirm-accept = Save Space
 
 
-## system: History's Show filter (All, Closed, Snoozed) in the Library
+## system: History's Show filter (All, Archive, Snoozed) in the Library
 
 whimsy-history-show-filter = Show
 whimsy-history-show-all = All
-whimsy-history-show-closed = Closed
+whimsy-history-show-closed = Archive
 whimsy-history-show-snoozed = Snoozed
 whimsy-history-closed-when = When did it close?
 whimsy-history-search-closed =
-    .placeholder = Search closed tabs
+    .placeholder = Search the Archive
 whimsy-history-search-snoozed =
     .placeholder = Search snoozed tabs
 # $when - "today", "tomorrow" or "later"; $time (string) - like 6:40 PM;
@@ -1991,7 +1985,7 @@ whimsy-history-snoozed-empty = No snoozed tabs. To hide a tab until later, right
 whimsy-history-snoozed-no-match = No snoozed tabs match.
 whimsy-action-view-snoozed = View Snoozed Tabs…
 # $title (string) - the tab's title
-whimsy-snooze-cancel-toast = “{ $title }” won’t come back on its own. It’s in History → Closed.
+whimsy-snooze-cancel-toast = “{ $title }” won’t come back on its own. It’s in the Archive.
 
 ## system: Settings → Links, one pane for where links open
 
@@ -2029,7 +2023,7 @@ whimsy-profile-create-menuitem =
     .label = Create a New Profile…
 whimsy-profiles-header = Profiles
 whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data, saved passwords, history, Essentials, extensions, search engine and download folder, and a new one starts empty. Spaces in the same profile share them.
-whimsy-profiles-delete-rule = Only Profiles not assigned to any Spaces can be deleted.
+whimsy-profiles-delete-rule = Only profiles that no space uses can be deleted.
 whimsy-profiles-spaces =
     { $count ->
         [0] Not used by any space
@@ -2154,6 +2148,7 @@ whimsy-search-instant =
     .label = Shift+Enter on a search opens the top result
 whimsy-search-deck =
     .label = Show it in a deck you can flip through
+    .searchkeywords = Search Deck
 whimsy-search-deck-help = ⌥⌘→ and ⌥⌘← or a two-finger swipe over the card move between results. ⌘Enter keeps the card as a tab; Esc goes back to the results page. Results you flip past aren’t saved to history.
 
 ## wave6: Already open (Arc). Shown after Return on a typed address took you
@@ -2174,6 +2169,7 @@ whimsy-trail-origin =
 whimsy-trail-branch-tooltip = A page you left by going back. Click to open it again.
 whimsy-trails-setting =
     .label = Keep pages you went back from in the Back and Forward menus
+    .searchkeywords = Trails
 
 ## wave6: Page actions. A pill in the address bar when the page describes one
 ## event, place, recipe, product or parcel (schema.org data).
@@ -2539,7 +2535,7 @@ whimsy-teach-reset-toast = Tips will show again
 whimsy-teach-header = Tips
 whimsy-teach-enabled =
     .label = Show tips the first time a shortcut could help
-whimsy-teach-enabled-help = Each tip shows once. To see them again, run Reset Tips from the command bar.
+whimsy-teach-enabled-help = Each tip shows once. To see them all again, run Reset Tips from the command bar.
 # wave7/scratch: saving Scratch uses Zen's New Space form with these words;
 # the "Save as a Space?" dialog comes after its button.
 whimsy-scratch-save-header = Save Scratch as a Space
@@ -2855,9 +2851,9 @@ whimsy-menus-space-change-icon =
 whimsy-menus-space-edit-theme =
     .label = Edit Theme…
 whimsy-menus-space-look =
-    .label = Edit Look…
+    .label = { -whimsy-edit-look }
 whimsy-menus-space-profile =
-    .label = Profile
+    .label = Set Profile
 whimsy-menus-space-new =
     .label = New Space…
 whimsy-menus-space-manage =
@@ -3174,3 +3170,27 @@ whimsy-isolation-scratch-moved-toast =
 whimsy-split-favorite-private-toast = Splits with private tabs can’t be saved as favorites
 ## wave9/restore (W9-07): Zen's Change Icon for the current tab, as a command
 whimsy-action-change-tab-icon = Change Tab Icon…
+## wave9/designfix: Tips can be turned off from the tip (H2).
+whimsy-teach-turn-off = Turn Off Tips
+whimsy-teach-off-toast = Tips are off. Turn them on again in Settings → Look and Feel.
+## wave9/designfix: Library deletes can be undone; screenshots get a menu (M9).
+whimsy-library-files-deleted-toast = Deleted screenshot
+whimsy-library-notes-deleted-toast = Deleted note
+whimsy-library-files-copied-toast = Copied screenshot
+whimsy-library-files-menu-open =
+    .label = Open
+whimsy-library-files-menu-reveal =
+    .label =
+        { PLATFORM() ->
+            [macos] Show in Finder
+           *[other] Show in Folder
+        }
+whimsy-library-files-menu-copy =
+    .label = Copy
+whimsy-library-files-menu-delete =
+    .label = Delete
+## wave9/designfix: text that was hard-coded in English (L6).
+whimsy-year-off = Your Year in Tabs is turned off.
+whimsy-game-off = Balloon Dash is turned off.
+whimsy-email-aliases-field-button = Email alias
+whimsy-bionic-reader-button = Bionic reading

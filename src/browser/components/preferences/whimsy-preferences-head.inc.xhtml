@@ -66,8 +66,9 @@
       </menulist>
     </hbox>
     <!-- wave5/look: Firefox's density, which each space can override
-         (right-click a space → Look and Feel…). -->
-    <hbox id="whimsyDensityRow" align="center" data-whimsy-feature="space-look">
+         (right-click a space → Edit Look…). wave9/designfix: the only
+         density control; old #appearance-windowDensity links land here. -->
+    <hbox id="whimsyDensityRow" align="center" data-whimsy-feature="space-look" data-subcategory="windowDensity">
       <label id="whimsyDensityLabel" control="whimsyDensity" data-l10n-id="whimsy-look-density"/>
       <menulist id="whimsyDensity" preference="browser.uidensity" data-pref-type="int">
         <menupopup>
@@ -204,7 +205,7 @@
   <!-- tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox is the
        real master switch (browser.ipProtection.enabled): off removes
        Firefox's own toolbar button too, not just this card. -->
-  <html:div id="whimsyVpnGroup" data-category="panePrivacy" data-whimsy-feature="vpn" hidden="hidden" class="whimsy-setting-card">
+  <html:div id="whimsyVpnGroup" data-category="panePrivacy" data-subcategory="vpn" data-whimsy-feature="vpn" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">
       <html:moz-fieldset data-l10n-id="whimsy-vpn-header" headinglevel="3"
                          iconsrc="chrome://browser/skin/zen-icons/selectable/lock-closed.svg">
@@ -323,18 +324,6 @@
           <menuitem value="1" data-l10n-id="whimsy-tabs-title-lines-1"/>
           <menuitem value="2" data-l10n-id="whimsy-tabs-title-lines-2"/>
           <menuitem value="3" data-l10n-id="whimsy-tabs-title-lines-3"/>
-        </menupopup>
-      </menulist>
-    </hbox>
-    <!-- batch6: command bar "New Note" target -->
-    <hbox align="center" data-whimsy-feature="command-bar-create">
-      <label id="whimsyNewNoteTargetLabel" control="whimsyNewNoteTarget" data-l10n-id="whimsy-new-note-target"/>
-      <menulist id="whimsyNewNoteTarget" preference="whimsy.new-note.target" data-pref-type="string" sizetopopup="none" crop="end">
-        <menupopup>
-          <menuitem value="none" data-l10n-id="whimsy-new-note-target-none"/>
-          <menuitem value="notion" data-l10n-id="whimsy-new-note-target-notion"/>
-          <menuitem value="google-docs" data-l10n-id="whimsy-new-note-target-google-docs"/>
-          <menuitem value="word" data-l10n-id="whimsy-new-note-target-word"/>
         </menupopup>
       </menulist>
     </hbox>
@@ -633,7 +622,7 @@
   <groupbox id="whimsySearchDeckGroup" data-category="paneSearch" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-search-header"/></label>
     <checkbox id="whimsySearchInstant" preference="whimsy.feature.instant-result" data-l10n-id="whimsy-search-instant"/>
-    <checkbox id="whimsySearchDeck" class="indent" preference="whimsy.feature.search-deck" data-l10n-id="whimsy-search-deck"
+    <checkbox id="whimsySearchDeck" class="indent" preference="whimsy.feature.search-deck" data-l10n-id="whimsy-search-deck" data-l10n-attrs="searchkeywords"
               aria-describedby="whimsySearchDeckHelp"/>
     <description id="whimsySearchDeckHelp" class="description-deemphasized indent" data-l10n-id="whimsy-search-deck-help"/>
   </groupbox>
@@ -644,7 +633,7 @@
 <html:template id="template-whimsyNavigation" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
   <checkbox id="whimsyAlreadyOpen"
             data-l10n-id="whimsy-already-open-setting" preference="whimsy.feature.already-open"/>
-  <checkbox id="whimsyTrails"
+  <checkbox id="whimsyTrails" data-l10n-attrs="searchkeywords"
             data-l10n-id="whimsy-trails-setting" preference="whimsy.feature.trails"/>
   <checkbox id="whimsyPageActions"
             data-l10n-id="whimsy-page-actions-setting" preference="whimsy.feature.page-actions"/>
@@ -673,11 +662,12 @@
   <html:setting-group groupid="performance" data-category="paneZenTabManagement" hidden="true"/>
   <html:setting-group groupid="recommendations" data-category="paneZenTabManagement" hidden="true"/>
 </html:template>
-# wave7/teach: Settings → General → Tips, after Firefox's Browsing group:
-# "Show tips" for Teach once (WhimsyTeach.sys.mjs). Reset Tips is a command
-# (command bar), not a second control here.
+# wave7/teach: Settings → Look and Feel → Tips (wave9/designfix: General is
+# hidden with the settings redesign), after Whimsy's Look group: "Show tips"
+# for Teach once (WhimsyTeach.sys.mjs). Reset Tips is a command (command
+# bar), not a second control here.
 <html:template id="template-whimsyTeach" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <groupbox id="whimsyTeachGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
+  <groupbox id="whimsyTeachGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-teach-header"/></label>
     <checkbox id="whimsyTeachEnabled" data-l10n-id="whimsy-teach-enabled" preference="whimsy.teach.enabled"
               aria-describedby="whimsyTeachHelp"/>

@@ -241,3 +241,51 @@ add_task(async function test_registry_trigger() {
   await new Promise(resolve => setTimeout(resolve, 500));
   ok(!document.getElementById("whimsy-teach"), "a seen hint's trigger does nothing");
 });
+
+// wave9/designfix (M11): Esc closes the tip but still reaches whatever it
+// was meant for (a page's dialog, the find bar, the address bar).
+add_task(async function test_esc_is_not_taken() {
+  Services.prefs.setStringPref(SEEN_PREF, "");
+  WhimsyTeach._resetSession();
+  const panel = await shown(await WhimsyTeach.trigger(window, HINT_A));
+  let seen = null;
+  const listener = event => {
+    if (event.key == "Escape") {
+      seen = { prevented: event.defaultPrevented };
+    }
+  };
+  document.addEventListener("keydown", listener);
+  EventUtils.synthesizeKey("KEY_Escape");
+  document.removeEventListener("keydown", listener);
+  await hidden(panel);
+  ok(seen, "the Esc went on past the tip");
+  ok(!seen?.prevented, "and wasn't cancelled");
+});
+
+// wave9/designfix (H2): "Turn Off Tips" on the tip itself; its toast undoes.
+add_task(async function test_turn_off_from_the_tip() {
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  Services.prefs.setStringPref(SEEN_PREF, "");
+  WhimsyTeach._resetSession();
+  const panel = await shown(await WhimsyTeach.trigger(window, HINT_A));
+  const off = panel.querySelector(".whimsy-teach-off");
+  ok(off, "the tip has a Turn Off Tips button");
+  is(off.textContent, "Turn Off Tips", "it says so in words");
+  EventUtils.synthesizeMouseAtCenter(off, {});
+  await hidden(panel);
+  ok(!Services.prefs.getBoolPref(ENABLED_PREF), "tips are off");
+  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "a toast says so");
+  await TestUtils.waitForCondition(
+    () => toast.querySelector(".whimsy-toast-message")?.textContent.includes("Look and Feel"),
+    "and says where to turn them on again"
+  );
+  Services.prefs.setStringPref(SEEN_PREF, "");
+  WhimsyTeach._resetSession();
+  is(await WhimsyTeach.trigger(window, HINT_A), null, "no more tips");
+
+  const undo = toast.querySelector(".whimsy-toast-action");
+  ok(undo, "the toast offers Undo");
+  undo.click();
+  ok(Services.prefs.getBoolPref(ENABLED_PREF), "Undo turns tips back on");
+  Services.prefs.setBoolPref(ENABLED_PREF, true);
+});

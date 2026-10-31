@@ -74,29 +74,11 @@ add_task(function test_new_thing_opens_its_url() {
   }
 });
 
-add_task(async function test_new_note_hidden_until_configured() {
-  ok(!action("whimsy-action-new-note").isAvailable(window), "Hidden with no target chosen");
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.new-note.target", "notion"]] });
-  ok(action("whimsy-action-new-note").isAvailable(window), "Shown once a target is set");
-
-  const opened = [];
-  const original = window.openTrustedLinkIn;
-  window.openTrustedLinkIn = (url, where) => opened.push({ url, where });
-  try {
-    document.getElementById(action("whimsy-action-new-note").command).doCommand();
-    Assert.deepEqual(opened, [{ url: "https://notion.new", where: "tab" }], "Opens the chosen target");
-  } finally {
-    window.openTrustedLinkIn = original;
-  }
-  await SpecialPowers.popPrefEnv();
-});
-
 add_task(async function test_create_switch_hides_all_new_actions() {
   await SpecialPowers.pushPrefEnv({
-    set: [["whimsy.feature.command-bar-create", false], ["whimsy.new-note.target", "notion"]],
+    set: [["whimsy.feature.command-bar-create", false]],
   });
   ok(!action("whimsy-action-new-doc").isAvailable(window), "Switch off: hidden");
-  ok(!action("whimsy-action-new-note").isAvailable(window), "Switch off: hidden even with a target");
   await SpecialPowers.popPrefEnv();
 });
 
@@ -145,18 +127,28 @@ add_task(async function test_appearance_actions_match_each_other() {
   gURLBar.searchMode = null;
 });
 
-// wave7/ux: the configurable "New ..." opens Notion, Google Docs or Word,
-// so it mustn't share a name with the Library's Notes pad.
-add_task(async function test_new_document_is_not_named_like_notes() {
-  const [command, setting, off, notes] = await document.l10n.formatMessages([
-    { id: "whimsy-action-new-note" },
-    { id: "whimsy-new-note-target" },
-    { id: "whimsy-new-note-target-none" },
-    { id: "whimsy-library-notes-title" },
-  ]);
-  is(command.value, "New Document", "The command is named for what it makes");
-  ok(!/note/i.test(command.value), "...not like the Notes pad");
-  ok(!/note/i.test(setting.value), "The setting's label matches the command");
-  is(off.attributes.find(a => a.name == "label").value, "Off", "Its first choice is a short Off");
-  is(notes.value, "Notes", "The Library's Notes keeps its own name");
+// wave9/designfix (L5): no separate "New Document" command or Settings
+// target (each of its targets has its own command). Typing "new doc"
+// still lists New Notion Page, New Google Doc and New Word Document.
+add_task(async function test_new_doc_finds_the_three_document_commands() {
+  ok(!action("whimsy-action-new-note"), "No New Document command");
+  ok(!document.getElementById("whimsy-cmd-new-note"), "and no <command> for it");
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  UrlbarTestUtils.init(this);
+  const wanted = ["whimsy-action-new-notion", "whimsy-action-new-doc", "whimsy-action-new-word"].map(id => action(id).label);
+  gURLBar.searchMode = null;
+  await typeInUrlbar("/new doc");
+  await UrlbarTestUtils.promiseSearchComplete(window);
+  const found = [];
+  for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+    const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+    if (result.payload.zenAction) {
+      found.push(result.payload.title);
+    }
+  }
+  for (const title of wanted) {
+    ok(found.includes(title), `"new doc" lists ${title} (${found.join(", ")})`);
+  }
+  ok(!found.includes("New Document"), "and nothing called New Document");
+  gURLBar.searchMode = null;
 });

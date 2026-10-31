@@ -135,6 +135,18 @@ add_task(async function test_settings_card() {
     const status = doc.getElementById("whimsyVpnStatus");
     ok(status && status.textContent, "A status line is shown");
 
+    // wave9/designfix (M7): one VPN section, one switch. Firefox's group
+    // (start automatically, exceptions) sits right under Whimsy's card.
+    const firefoxVpn = doc.querySelector('setting-group[groupid="ipprotection"]');
+    if (firefoxVpn) {
+      is(doc.getElementById("whimsyVpnGroup").nextElementSibling, firefoxVpn, "Firefox's VPN options follow the card");
+      ok(
+        ![...firefoxVpn.querySelectorAll("moz-toggle, moz-checkbox")].some(el => el.id == "ipProtectionVisible"),
+        "Firefox's group has no second on/off switch"
+      );
+    }
+    is(doc.getElementById("whimsyVpnGroup").dataset.subcategory, "vpn", "#privacy-vpn links land on the switch");
+
     checkbox.click();
     await TestUtils.waitForCondition(
       () => !Services.prefs.getBoolPref("browser.ipProtection.enabled"),

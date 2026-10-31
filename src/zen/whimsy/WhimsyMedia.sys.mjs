@@ -675,11 +675,36 @@ export const WhimsyMedia = {
     return panel;
   },
 
+  // wave9/designfix (M6): opened from the keyboard (the command bar or a
+  // shortcut: no anchor), the slider takes focus, so the arrow keys change
+  // the volume and Tab reaches Mute; closing hands focus back to where it
+  // was (the page, usually). From the speaker (a pointer) focus stays put.
   openVolumePanel(win, tab, anchor = null) {
     const panel = this.volumePanel(win);
     panel.whimsyTab = tab;
     panel.whimsyUpdate();
     const target = anchor?.getBoundingClientRect().width ? anchor : tab;
+    if (!anchor && panel.state == "closed") {
+      const doc = win.document;
+      const previous = doc.activeElement;
+      panel.addEventListener(
+        "popupshown",
+        () => panel.querySelector(".whimsy-volume-slider")?.focus(),
+        { once: true }
+      );
+      panel.addEventListener(
+        "popuphidden",
+        () => {
+          const active = doc.activeElement;
+          if (active && active != doc.documentElement && !panel.contains(active)) {
+            return; // focus already went somewhere on purpose
+          }
+          const back = previous?.isConnected && previous != doc.documentElement ? previous : win.gBrowser?.selectedBrowser;
+          back?.focus();
+        },
+        { once: true }
+      );
+    }
     panel.openPopup(target, { position: "after_start", triggerEvent: null });
     return panel;
   },

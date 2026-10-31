@@ -154,10 +154,6 @@
 - name: whimsy.splitlink.shift-click
   value: false
 
-# batch6 #16: what the command bar's "New Note" action opens. "none" hides
-# it. Settings -> Tab Management -> Tabs.
-- name: whimsy.new-note.target
-  value: none
 # batch9p: Scratch and private tabs open inside the window (Settings →
 # Privacy & Security). Off: Cmd+Shift+N and Cmd+Option+T open a private
 # window instead.

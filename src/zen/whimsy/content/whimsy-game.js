@@ -67,7 +67,7 @@
     off.style.color = "#fff";
     off.style.margin = "auto";
     off.style.fontFamily = "system-ui, sans-serif";
-    off.textContent = "The offline game is turned off (whimsy.feature.game).";
+    document.l10n?.setAttributes(off, "whimsy-game-off"); // wave9/designfix (L6)
     root.append(off);
     return;
   }

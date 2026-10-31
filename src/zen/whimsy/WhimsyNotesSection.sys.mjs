@@ -98,9 +98,23 @@ class NotesStore {
     return note;
   }
 
+  /** @returns {object|null} the note that was removed (for Undo) */
   async remove(id) {
     const file = await this.#ensureLoaded();
+    const removed = file.data.notes.find(n => n.id == id) ?? null;
     file.data.notes = file.data.notes.filter(n => n.id != id);
+    file.saveSoon();
+    Services.obs.notifyObservers(null, NOTES_CHANGED_TOPIC);
+    return removed;
+  }
+
+  // wave9/designfix (M9): Undo of a deleted note puts it back as it was.
+  async restore(note) {
+    const file = await this.#ensureLoaded();
+    if (!note?.id || file.data.notes.some(n => n.id == note.id)) {
+      return;
+    }
+    file.data.notes.push(note);
     file.saveSoon();
     Services.obs.notifyObservers(null, NOTES_CHANGED_TOPIC);
   }

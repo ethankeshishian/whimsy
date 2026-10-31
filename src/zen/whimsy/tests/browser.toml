@@ -646,3 +646,5 @@ support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
 ["browser_whimsy_security_private_commands.js"]
 # wave9/restore: Zen's space init no longer strips "selected" from the selected tab (restore over cloned pinned tabs).
 ["browser_whimsy_zen_restore_selection.js"]
+# wave9/designfix: one name for the Archive, real row names in copy, VPN badge words, no hard-coded English, curly apostrophes.
+["browser_whimsy_designfix_copy.js"]

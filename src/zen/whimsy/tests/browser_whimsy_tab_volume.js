@@ -154,3 +154,38 @@ add_task(async function test_slider_fills_from_the_start_in_the_accent() {
   await hidden;
   BrowserTestUtils.removeTab(tab);
 });
+
+// wave9/designfix (M6): from the keyboard the slider takes focus, so the
+// arrow keys change the volume (not scroll the page), Tab reaches Mute,
+// and closing gives focus back to the page.
+add_task(async function test_keyboard_reaches_the_slider() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.tab-volume", true]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  await play(tab.linkedBrowser);
+  await TestUtils.waitForCondition(() => tab.soundPlaying, "playing");
+  WhimsyMedia.setTabVolume(tab, 0.5);
+  tab.linkedBrowser.focus();
+  is(document.activeElement, tab.linkedBrowser, "focus starts in the page");
+
+  document.getElementById("cmd_whimsyTabVolume").doCommand();
+  const panel = document.getElementById("whimsy-volume-panel");
+  await BrowserTestUtils.waitForPopupEvent(panel, "shown");
+  const slider = panel.querySelector(".whimsy-volume-slider");
+  await TestUtils.waitForCondition(() => document.activeElement == slider, "the slider has focus");
+
+  EventUtils.synthesizeKey("KEY_ArrowRight");
+  await TestUtils.waitForCondition(() => WhimsyMedia.volumeFor(tab) == 0.55, "→ turns it up a step");
+  EventUtils.synthesizeKey("KEY_ArrowLeft");
+  EventUtils.synthesizeKey("KEY_ArrowLeft");
+  await TestUtils.waitForCondition(() => WhimsyMedia.volumeFor(tab) == 0.45, "← turns it down");
+
+  EventUtils.synthesizeKey("KEY_Tab", { shiftKey: true });
+  ok(panel.contains(document.activeElement), "Shift+Tab stays in the panel (Mute)");
+
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  EventUtils.synthesizeKey("KEY_Escape");
+  await hidden;
+  await TestUtils.waitForCondition(() => document.activeElement == tab.linkedBrowser, "focus goes back to the page");
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});

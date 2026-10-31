@@ -31,7 +31,7 @@
     off.style.color = "#fff";
     off.style.margin = "auto";
     off.style.fontFamily = "system-ui, sans-serif";
-    off.textContent = "Year in tabs is turned off (whimsy.feature.year-in-tabs).";
+    document.l10n.setAttributes(off, "whimsy-year-off"); // wave9/designfix (L6)
     root.append(off);
     return;
   }
@@ -66,11 +66,14 @@
     zapped: { bg: "#b5f23d", ink: "#172600", accent: "#ffffff", accent2: "#e4ffb0" },
     finale: { bg: "#1d1033", ink: "#ffffff", accent: "#ffd86b", accent2: "#b5a0ff" },
   };
-  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  // wave9/designfix (L6): day and hour names in the app's language.
+  // 0 is Sunday (SQLite's %w); 1 January 2023 was a Sunday.
+  const formatWeekday = new Intl.DateTimeFormat(locale, { weekday: "long" }).format;
+  const formatHour = new Intl.DateTimeFormat(locale, { hour: "numeric" }).format;
+  const DAY_NAMES = Array.from({ length: 7 }, (_, d) => formatWeekday(new Date(2023, 0, 1 + d)));
 
   function hourLabel(h) {
-    const hour12 = h % 12 == 0 ? 12 : h % 12;
-    return `${hour12}${h < 12 ? "am" : "pm"}`;
+    return formatHour(new Date(2023, 0, 1, h));
   }
 
   function hostFromUrl(url) {

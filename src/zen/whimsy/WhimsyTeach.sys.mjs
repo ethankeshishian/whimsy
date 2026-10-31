@@ -65,6 +65,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -708,7 +709,7 @@ export const WhimsyTeach = {
     panel.setAttribute("type", "arrow");
     panel.setAttribute("noautofocus", "true");
     panel.setAttribute("consumeoutsideclicks", "false");
-    // Keys keep going to the page; only Esc is ours (below).
+    // Keys keep going to the page; Esc also closes it (below).
     panel.setAttribute("ignorekeys", "true");
     panel.setAttribute("role", "status");
     panel.setAttribute("aria-live", "polite");
@@ -721,21 +722,30 @@ export const WhimsyTeach = {
     icon.className = "whimsy-teach-icon";
     icon.setAttribute("src", ICON);
     icon.setAttribute("role", "presentation");
+    const main = doc.createElementNS(HTML_NS, "div");
+    main.className = "whimsy-teach-main";
     const text = doc.createElementNS(HTML_NS, "p");
     text.className = "whimsy-teach-text";
     doc.l10n.setAttributes(text, hint.l10nId, { key: label });
+    // wave9/designfix (H2): the way out is on the tip itself, as Arc's
+    // and macOS's tips offer, not only in Settings.
+    const off = doc.createElementNS(HTML_NS, "button");
+    off.className = "whimsy-teach-off";
+    doc.l10n.setAttributes(off, "whimsy-teach-turn-off");
+    off.addEventListener("click", () => this.turnOff(win));
+    main.append(text, off);
     const close = lazy.WhimsyPanels.iconButton(doc, {
       icon: CLOSE_ICON,
       l10nId: "whimsy-sheet-close",
       onCommand: () => this.dismiss(),
     });
     close.classList.add("whimsy-sheet-close", "whimsy-teach-close");
-    body.append(icon, text, close);
+    body.append(icon, main, close);
     panel.append(body);
     (doc.getElementById("mainPopupSet") ?? doc.documentElement).append(panel);
 
     // Translate first, so it opens at its final size.
-    await doc.l10n.translateElements([text, close]);
+    await doc.l10n.translateElements([text, off, close]);
     if (win.closed || !anchor.isConnected || !this.enabled) {
       panel.remove();
       return null;
@@ -746,10 +756,11 @@ export const WhimsyTeach = {
       lazy.clearTimeout(timer);
       timer = lazy.setTimeout(() => this.dismiss(), ms);
     };
+    // wave9/designfix (M11): Esc also closes the tip, but it isn't taken:
+    // the tip appears unasked, so a page's dialog, a full-screen video, the
+    // find bar or the address bar still get the Esc that was meant for them.
     const onKey = event => {
-      if (event.key == "Escape" && !event.defaultPrevented && panel.state == "open") {
-        event.preventDefault();
-        event.stopPropagation();
+      if (event.key == "Escape" && panel.state == "open") {
         this.dismiss();
       }
     };
@@ -777,6 +788,18 @@ export const WhimsyTeach = {
     this._current = { win, panel, id: hint.id };
     panel.openPopup(anchor, { position: hint.position ?? this._position(win, anchor) });
     return panel;
+  },
+
+  // wave9/designfix (H2): "Turn Off Tips" on the tip. Settings → Look and
+  // Feel → Tips turns them back on; the toast's Undo does too.
+  turnOff(win) {
+    this.dismiss();
+    Services.prefs.setBoolPref(ENABLED_PREF, false);
+    lazy.WhimsyUndo.showToast(win, "whimsy-teach-off-toast", {
+      type: "teach-off",
+      undo: () => Services.prefs.setBoolPref(ENABLED_PREF, true),
+      redo: () => Services.prefs.setBoolPref(ENABLED_PREF, false),
+    });
   },
 
   // Closes the open hint, if any.

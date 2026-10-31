@@ -99,7 +99,7 @@ function formatSync(l10nId) {
 const MENU_OF = {
   "file-menu": [
     "cmd_whimsyNewPrivateTab", "cmd_whimsyQuickWindow", "Browser:Screenshot", "cmd_whimsyCopyFullPage",
-    "cmd_whimsyCapturePortrait", "whimsy-cmd-new-note", "whimsy-cmd-print-clean", "cmd_whimsyCast",
+    "cmd_whimsyCapturePortrait", "whimsy-cmd-print-clean", "cmd_whimsyCast",
     "cmd_whimsyCastStop", "cmd_whimsyShowQRCode", "key_whimsyQuickWindowChooseSpace",
     "key_whimsyQuickWindowOpenInSpace",
   ],
