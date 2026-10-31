@@ -537,3 +537,39 @@
 # shows on hover or keyboard focus. Settings → Links → Split view.
 - name: whimsy.split.always-show-headers
   value: false
+
+# wave7/menuprefs: Settings → Menus. The right-click menu rows each menu
+# hides, as item ids (WhimsyMenuPrefs.sys.mjs), comma-separated. Empty:
+# every row shows (the user picks the defaults later, here).
+- name: whimsy.menus.hidden.tab
+  value: ""
+
+- name: whimsy.menus.hidden.essential
+  value: ""
+
+- name: whimsy.menus.hidden.link
+  value: ""
+
+- name: whimsy.menus.hidden.page
+  value: ""
+
+- name: whimsy.menus.hidden.selection
+  value: ""
+
+- name: whimsy.menus.hidden.image
+  value: ""
+
+- name: whimsy.menus.hidden.space
+  value: ""
+
+- name: whimsy.menus.hidden.sidebar
+  value: ""
+
+- name: whimsy.menus.hidden.folder
+  value: ""
+
+- name: whimsy.menus.hidden.split-row
+  value: ""
+
+- name: whimsy.menus.hidden.split-pane
+  value: ""

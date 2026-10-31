@@ -2189,3 +2189,202 @@ document.addEventListener("paneshown", event => {
   group.hidden = false;
   Preferences.queueUpdateOfAllElements();
 });
+
+// wave7/menuprefs: Settings → Menus. Every right-click menu, each item a
+// switch (on = it shows), in the menu's own order with a hairline where
+// the menu has a separator; Restore Defaults per menu; a note when every
+// item of a menu is off (that menu then doesn't open). The list comes from
+// WhimsyMenuPrefs, so a row added there shows up here. Registered like
+// Links (register_module before init_all), so about:preferences#whimsyMenus
+// opens it and Settings search finds it.
+const WHIMSY_MENUS_PANE = "paneWhimsyMenus";
+
+Object.assign(gWhimsySettings, {
+  get menuPrefs() {
+    return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs").WhimsyMenuPrefs;
+  },
+
+  registerMenusPane() {
+    if (
+      typeof register_module != "function" ||
+      document.getElementById("category-whimsy-menus") ||
+      !this.lazy.Whimsy.featureEnabled("menu-prefs")
+    ) {
+      return;
+    }
+    const after =
+      document.getElementById("category-whimsy-links") || document.getElementById("category-zen-tabs-management");
+    if (!after) {
+      return;
+    }
+    const button = document.createElementNS("http://www.w3.org/1999/xhtml", "moz-page-nav-button");
+    button.id = "category-whimsy-menus";
+    button.setAttribute("view", WHIMSY_MENUS_PANE);
+    button.setAttribute("iconsrc", "chrome://browser/skin/zen-icons/menu.svg");
+    button.setAttribute("data-l10n-id", "whimsy-pane-menus-title");
+    after.after(button);
+    register_module(WHIMSY_MENUS_PANE, { init: () => this.buildMenusPane() });
+  },
+
+  buildMenusPane() {
+    if (document.getElementById("whimsyMenusCategory")) {
+      return;
+    }
+    const pane = document.getElementById("mainPrefPane");
+    if (!pane) {
+      return;
+    }
+    const prefs = this.menuPrefs;
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+
+    // The pane's title, and one line on what it does.
+    const header = document.createXULElement("hbox");
+    header.id = "whimsyMenusCategory";
+    header.className = "subcategory whimsy-menus-header";
+    header.setAttribute("data-category", WHIMSY_MENUS_PANE);
+    header.hidden = true;
+    const title = html("h1");
+    document.l10n.setAttributes(title, "whimsy-menus-title");
+    const intro = document.createXULElement("description");
+    intro.id = "whimsyMenusIntro";
+    intro.className = "description-deemphasized";
+    document.l10n.setAttributes(intro, "whimsy-menus-intro");
+    header.append(title, intro);
+
+    const groups = prefs.menus.filter(menu => prefs.available(menu)).map(menu => this.buildMenuGroup(menu));
+    pane.append(header, ...groups);
+
+    const observer = {
+      observe: (subject, topic, pref) => {
+        const id = pref.slice(prefs.prefName("").length);
+        const group = document.getElementById(`whimsyMenus-${id}`);
+        if (group) {
+          this.refreshMenuGroup(group);
+        }
+      },
+    };
+    Services.prefs.addObserver(prefs.prefName(""), observer);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(prefs.prefName(""), observer), {
+      once: true,
+    });
+  },
+
+  buildMenuGroup(menu) {
+    const prefs = this.menuPrefs;
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const base = `whimsyMenus-${menu.id}`;
+
+    const group = document.createXULElement("groupbox");
+    group.id = base;
+    group.className = "highlighting-group whimsy-menus-group";
+    group.setAttribute("data-category", WHIMSY_MENUS_PANE);
+    group.dataset.menu = menu.id;
+    group.hidden = true;
+
+    const label = document.createXULElement("label");
+    const heading = html("h2");
+    heading.id = `${base}-header`;
+    document.l10n.setAttributes(heading, menu.l10n);
+    label.append(heading);
+
+    const description = document.createXULElement("description");
+    description.id = `${base}-description`;
+    description.className = "description-deemphasized";
+    document.l10n.setAttributes(description, `${menu.l10n}-description`);
+
+    // Filled only while every item is off; a live region, so turning the
+    // last one off is announced.
+    const note = html("div");
+    note.id = `${base}-note`;
+    note.className = "whimsy-menus-note";
+    note.setAttribute("role", "status");
+
+    const list = html("div");
+    list.className = "whimsy-menus-list";
+    list.setAttribute("role", "group");
+    list.setAttribute("aria-labelledby", heading.id);
+    let previous = null;
+    for (const entry of prefs.groupedItems(menu.id)) {
+      if (prefs.isSeparator(entry)) {
+        // Only between two rows.
+        if (previous && !prefs.isSeparator(previous)) {
+          const divider = html("div");
+          divider.className = "whimsy-menus-divider";
+          divider.setAttribute("aria-hidden", "true");
+          list.append(divider);
+        }
+        previous = entry;
+        continue;
+      }
+      const toggle = html("moz-toggle");
+      toggle.dataset.item = entry.id;
+      document.l10n.setAttributes(toggle, entry.l10n);
+      toggle.addEventListener("toggle", () => prefs.setHidden(menu.id, entry.id, !toggle.pressed));
+      list.append(toggle);
+      previous = entry;
+    }
+    if (list.lastElementChild?.classList.contains("whimsy-menus-divider")) {
+      list.lastElementChild.remove();
+    }
+    // Up/Down (and Home/End) move between the switches, as in a list; Tab
+    // still visits each one.
+    list.addEventListener("keydown", event => {
+      const toggles = [...list.querySelectorAll("moz-toggle")];
+      const index = toggles.indexOf(event.target.closest?.("moz-toggle") ?? event.target);
+      if (index == -1 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      const next = {
+        ArrowDown: Math.min(index + 1, toggles.length - 1),
+        ArrowUp: Math.max(index - 1, 0),
+        Home: 0,
+        End: toggles.length - 1,
+      }[event.key];
+      if (next === undefined) {
+        return;
+      }
+      event.preventDefault();
+      toggles[next].focus();
+    });
+
+    const actions = document.createXULElement("hbox");
+    actions.className = "whimsy-menus-actions";
+    const restore = document.createXULElement("button");
+    restore.id = `${base}-restore`;
+    restore.className = "whimsy-menus-restore";
+    document.l10n.setAttributes(restore, "whimsy-menus-restore");
+    // "Restore Defaults, Tab": which menu it restores.
+    restore.setAttribute("aria-describedby", heading.id);
+    restore.addEventListener("command", () => {
+      prefs.restoreDefaults(menu.id);
+      // Focus stays in the group (the button is now disabled).
+      list.querySelector("moz-toggle")?.focus();
+    });
+    actions.append(restore);
+
+    group.append(label, description, note, list, actions);
+    this.refreshMenuGroup(group);
+    return group;
+  },
+
+  refreshMenuGroup(group) {
+    const prefs = this.menuPrefs;
+    const menuId = group.dataset.menu;
+    const hidden = prefs.hiddenIds(menuId);
+    for (const toggle of group.querySelectorAll("moz-toggle")) {
+      toggle.pressed = !hidden.has(toggle.dataset.item);
+    }
+    group.querySelector(".whimsy-menus-restore").disabled = prefs.isDefault(menuId);
+    const note = group.querySelector(".whimsy-menus-note");
+    if (prefs.allHidden(menuId)) {
+      if (note.getAttribute("data-l10n-id") != "whimsy-menus-all-off") {
+        document.l10n.setAttributes(note, "whimsy-menus-all-off");
+      }
+    } else if (note.hasAttribute("data-l10n-id")) {
+      note.removeAttribute("data-l10n-id");
+      note.textContent = "";
+    }
+  },
+});
+
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.registerMenusPane(), { once: true });

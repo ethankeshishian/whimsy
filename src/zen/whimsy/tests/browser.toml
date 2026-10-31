@@ -542,3 +542,6 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/split2: Arc's split row right-click menu (items, order, labels, per-pane submenus).
 ["browser_whimsy_split_row_menu.js"]
+
+# wave7/menuprefs: Settings → Menus (turn any right-click menu item off; separators collapse; Restore Defaults; search).
+["browser_whimsy_menu_prefs.js"]

@@ -1089,6 +1089,9 @@ FEATURES = [
     # batch wave7/split2: Arc's right-click menu on a split's sidebar row.
     {"id": "split-row-menu", "title": "Split row menu: right-clicking a split in the sidebar opens Arc's split menu (Share Split View, Separate All Tabs, Add Tab, Convert to Vertical/Horizontal, a submenu per pane, Change Icon, Rename, Duplicate, Move to, Archive)",
      "detect": [("src/zen/split-view", r"(?i)convert-?to-?(vertical|horizontal)|split-?row-?menu")]},
+    # wave7/menuprefs: menu-prefs
+    {"id": "menu-prefs", "title": "Settings → Menus: turn any right-click menu item on or off (tab, link, page, selection, image, space, sidebar, folder and split menus)",
+     "detect": [("src/zen", r"(?i)context-?menu-?(items?-?)?(visibility|customi[sz])|hidden-?menu-?items")]},
 ]
 
 

@@ -3313,4 +3313,9 @@ panel.whimsy-teach {
       order: 3;
     }
   }
+/* wave7/menuprefs: a right-click menu row turned off in Settings → Menus
+   (WhimsyMenuPrefs marks it, and the separators it would leave behind,
+   on popupshowing). */
+menupopup > [whimsy-menu-pref-hidden] {
+  display: none !important;
 }
