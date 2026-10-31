@@ -26,6 +26,8 @@ add_task(async function test_prefill() {
   await TestUtils.waitForCondition(() => !findBar.hidden, "Cmd+F opens the find bar");
   await TestUtils.waitForCondition(() => findBar._findField.value == "brown fox", "filled with the selection");
   is(findBar._findField.value, "brown fox", "The find field holds the selected text");
+  // batch8: W8-08: search runs immediately without Enter
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.finder?.searchString == "brown fox" || findBar._findField.getAttribute("status") != null, "searched immediately");
   findBar.close(true);
 
   // No selection: it opens, and the field doesn't get page text.
