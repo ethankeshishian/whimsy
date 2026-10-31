@@ -245,7 +245,7 @@ export const WhimsyInspector = {
       }
       lazy.ClipboardHelper.copyString(value);
       try {
-        win.gZenUIManager?.showToast?.("whimsy-font-copied-toast", { value: label || value });
+        this.showToast(win, "whimsy-font-copied-toast", { value: label || value });
       } catch (e) {}
     };
 
@@ -622,17 +622,35 @@ export const WhimsyInspector = {
     this._activePickers.delete(win);
   },
 
+  showToast(win, messageId, l10nArgs = {}) {
+    if (!win.gZenUIManager?.showToast) {
+      return;
+    }
+    win.gZenUIManager.showToast(messageId, { l10nArgs });
+    // Zen reuses a toast that is still showing if messageId matches,
+    // keeping its old text. Refresh the label like WhimsyCopy does.
+    const container = win.document?.getElementById("zen-toast-container");
+    if (!container) {
+      return;
+    }
+    const toast = [...container.children].find(t => t._messageId == messageId);
+    if (!toast) {
+      return;
+    }
+    const label = toast.firstElementChild?.querySelector("label:not(.whimsy-copy-url)");
+    if (label) {
+      win.document.l10n.setAttributes(label, messageId, l10nArgs);
+    }
+  },
+
   onGapMeasured(win, data) {
     if (!data) {
       return;
     }
     try {
-      const msg = lazy.l10n.formatValueSync("whimsy-element-gap-toast", {
+      this.showToast(win, "whimsy-element-gap-toast", {
         gapX: data.gapX,
         gapY: data.gapY,
-      });
-      win.gZenUIManager?.showToast?.("whimsy-font-copied-toast", {
-        value: msg,
       });
     } catch (e) {}
   },

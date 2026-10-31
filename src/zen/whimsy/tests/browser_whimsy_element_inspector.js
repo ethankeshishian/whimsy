@@ -119,14 +119,30 @@ add_task(async function test_element_inspector_gap_measurement() {
 
   ok(gapResult.gapY >= 0, `Measured vertical gap between elements: ${gapResult.gapY}px`);
 
-  // Verify onGapMeasured notification handler
+  // Verify onGapMeasured notification handler displays whimsy-element-gap-toast
+  let shownToast = null;
+  const originalShowToast = window.gZenUIManager?.showToast;
+  window.gZenUIManager = window.gZenUIManager || {};
+  window.gZenUIManager.showToast = (id, options) => {
+    shownToast = { id, options };
+  };
+
   WhimsyInspector.onGapMeasured(window, {
     firstSelector: "#box-card",
     secondSelector: "#box-neighbor",
     gapX: 0,
     gapY: gapResult.gapY,
   });
-  ok(true, "onGapMeasured handled without error");
+
+  is(shownToast?.id, "whimsy-element-gap-toast", "onGapMeasured uses dedicated gap toast, not copied toast");
+  is(shownToast?.options?.l10nArgs?.gapX, 0, "Toast l10nArgs has gapX");
+  is(shownToast?.options?.l10nArgs?.gapY, gapResult.gapY, "Toast l10nArgs has gapY");
+
+  if (originalShowToast) {
+    window.gZenUIManager.showToast = originalShowToast;
+  } else {
+    delete window.gZenUIManager.showToast;
+  }
 
   BrowserTestUtils.removeTab(tab);
 });
