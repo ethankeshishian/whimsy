@@ -22,6 +22,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  WhimsyIsolation: "resource:///modules/whimsy/WhimsyIsolation.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
@@ -172,8 +173,12 @@ export const WhimsyProfileMoves = {
       newTab.setAttribute("zen-workspace-id", spaceId);
     }
     try {
-      if (tab.group && tab.group != newTab.group) {
-        tab.group.addTabs?.([newTab]);
+      // Its folder, when that folder is in the destination space (a split
+      // stays behind: it can't hold tabs of two spaces).
+      const group = tab.group;
+      if (group && group != newTab.group && !group.hasAttribute("split-view-group") &&
+          (group.getAttribute("zen-workspace-id") || spaceId) == spaceId) {
+        group.addTabs?.([newTab]);
       }
     } catch (e) {
       console.error("Whimsy: keep the tab in its folder", e);
@@ -244,9 +249,9 @@ export const WhimsyProfileMoves = {
     if (!space || WhimsyProfiles.profileIdOfSpace(space) == id) {
       return false;
     }
-    if (!WhimsyProfiles.enabled) {
-      return WhimsyProfiles.assignSpace(win, space, id);
-    }
+    // With the Profiles switch off too (wave8/isolation): Zen's Set
+    // Container only changed the field, leaving every open tab in the old
+    // container's cookie jar.
     const ok = await this.confirm(win, {
       titleId: "whimsy-profile-move-space-title",
       titleArgs: { space: space.name, profile: WhimsyProfiles.nameOf(id) },
@@ -256,9 +261,11 @@ export const WhimsyProfileMoves = {
     if (!ok) {
       return false;
     }
-    await WhimsyProfiles.assignSpace(win, space, id);
+    // WhimsyIsolation leaves the space's tabs to this while it moves.
+    this._movingSpace = true;
     this._moving = true;
     try {
+      await WhimsyProfiles.assignSpace(win, space, id);
       for (const tab of this.spaceTabs(win, space)) {
         if ((tab.userContextId ?? 0) != id) {
           this.reopen(win, tab, id, space.uuid);
@@ -266,6 +273,7 @@ export const WhimsyProfileMoves = {
       }
     } finally {
       this._moving = false;
+      this._movingSpace = false;
     }
     win.gZenUIManager?.showToast?.("whimsy-profile-moved-space-toast", {
       l10nArgs: { space: space.name, profile: WhimsyProfiles.nameOf(id) },
@@ -278,7 +286,7 @@ export const WhimsyProfileMoves = {
   initSetProfile(win) {
     win.addEventListener("command", event => {
       const item = event.target;
-      if (!lazy.WhimsyProfiles.enabled || item.hasAttribute?.("data-whimsy-create-profile") ||
+      if (item.hasAttribute?.("data-whimsy-create-profile") ||
           item.parentNode?.parentNode?.id != "context_zenWorkspacesOpenInContainerTab") {
         return;
       }
@@ -294,7 +302,10 @@ export const WhimsyProfileMoves = {
 
   // -- tabs -----------------------------------------------------------------
 
-  crossing(win, tabs, spaceId) {
+  // The tabs `items` would carry into `spaceId` whose container (profile)
+  // isn't that space's. An item is a tab, a folder or a split; Zen moves a
+  // split as a whole, so each member counts.
+  crossing(win, items, spaceId) {
     const space = win.gZenWorkspaces.getWorkspaceFromId?.(spaceId) ??
       win.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
     if (!space) {
@@ -302,23 +313,29 @@ export const WhimsyProfileMoves = {
     }
     const id = lazy.WhimsyProfiles.profileIdOfSpace(space);
     const out = [];
-    for (const item of tabs) {
-      const members = item.tabs ?? [item];
+    for (const item of items) {
+      const members = item.group?.hasAttribute?.("split-view-group") ? item.group.tabs :
+        item.tabs ?? [item];
       for (const tab of members) {
         const from = tab.getAttribute?.("zen-workspace-id");
-        if (from && from != spaceId && !tab.hasAttribute("zen-essential") &&
-            (tab.userContextId ?? 0) != id) {
-          out.push({ tab, from });
+        if (from && from != spaceId && !tab.hasAttribute("zen-essential") && !tab.closing &&
+            (tab.userContextId ?? 0) != id && !out.some(entry => entry.tab == tab)) {
+          out.push({ tab, from, item });
         }
       }
     }
     return out;
   },
 
-  async confirmTabMove(win, moved, spaceId, original) {
+  // Asks with Arc's warning, then reopens `moved` (tabs still in their own
+  // space) fresh in `spaceId`'s container. No: nothing moves.
+  async confirmTabMove(win, moved, spaceId, original = null) {
     const { WhimsyProfiles } = lazy;
     const space = win.gZenWorkspaces.getWorkspaceFromId?.(spaceId) ??
       win.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
+    if (!space) {
+      return false;
+    }
     const id = WhimsyProfiles.profileIdOfSpace(space);
     const ok = await this.confirm(win, {
       titleId: "whimsy-profile-move-tab-title",
@@ -330,21 +347,31 @@ export const WhimsyProfileMoves = {
     });
     this._moving = true;
     try {
-      if (ok) {
+      if (ok && !win.closed) {
+        // Folders go with their tabs (Zen moves a folder as a whole); then
+        // each tab reopens inside it, in the new container.
+        for (const folder of new Set(moved.map(({ tab }) => tab.group).filter(group =>
+          group?.isZenFolder && group.getAttribute("zen-workspace-id") != spaceId))) {
+          lazy.WhimsyIsolation.quietly(win, () => win.gZenFolders?.changeFolderToSpace(folder, spaceId));
+        }
         for (const { tab } of moved) {
-          this.reopen(win, tab, id, spaceId);
+          if (!tab.closing && tab.isConnected) {
+            this.reopen(win, tab, id, spaceId);
+          }
         }
         return true;
       }
-      // No: put them back.
-      const back = new Map();
-      for (const { tab, from } of moved) {
-        if (!tab.closing) {
-          back.set(from, [...(back.get(from) ?? []), tab]);
+      // No. A caller that moved first (older paths) gets its tabs back.
+      if (original) {
+        const back = new Map();
+        for (const { tab, from } of moved) {
+          if (!tab.closing && tab.getAttribute("zen-workspace-id") == spaceId) {
+            back.set(from, [...(back.get(from) ?? []), tab]);
+          }
         }
-      }
-      for (const [from, tabs] of back) {
-        original.call(win.gZenWorkspaces, tabs, from);
+        for (const [from, tabs] of back) {
+          original.call(win.gZenWorkspaces, tabs, from);
+        }
       }
       return false;
     } finally {
@@ -352,6 +379,14 @@ export const WhimsyProfileMoves = {
     }
   },
 
+  // Isolation (wave8): every move through Zen's API (Move to Space, Move to
+  // New Space, space-icon drop, Claude, Mini, split row, undo, archive…).
+  // A tab never sits in a space of another profile, not even while Arc's
+  // warning is up: crossing tabs are held back, the rest move, then the
+  // warning asks and Yes reopens them fresh in the space's container
+  // (no history, form data, sessionStorage or cookies come along). Always
+  // on, with or without the Profiles switch: a space's container is Zen's
+  // too. Paths that set zen-workspace-id directly are WhimsyIsolation's.
   wrapMoveTabs(win) {
     const workspaces = win.gZenWorkspaces;
     const original = workspaces.moveTabsToWorkspace;
@@ -360,16 +395,19 @@ export const WhimsyProfileMoves = {
     }
     const self = this;
     const wrapped = function (tabs, workspaceID, ...rest) {
-      const moved = !self._moving && lazy.WhimsyProfiles.enabled ?
-        self.crossing(win, tabs ?? [], workspaceID) : [];
-      const result = original.call(this, tabs, workspaceID, ...rest);
-      if (moved.length) {
-        self.confirmTabMove(win, moved, workspaceID, original)
-          .catch(e => console.error("Whimsy: move tab across profiles", e));
+      const moved = self._moving ? [] : self.crossing(win, tabs ?? [], workspaceID);
+      if (!moved.length) {
+        return original.call(this, tabs, workspaceID, ...rest);
       }
+      const held = new Set(moved.map(entry => entry.item));
+      const rest2 = (tabs ?? []).filter(item => !held.has(item));
+      const result = rest2.length ? original.call(this, rest2, workspaceID, ...rest) : true;
+      self.confirmTabMove(win, moved, workspaceID)
+        .catch(e => console.error("Whimsy: move tab across profiles", e));
       return result;
     };
     wrapped._whimsyProfiles = true;
+    wrapped._whimsyOriginal = original;
     workspaces.moveTabsToWorkspace = wrapped;
   },
 

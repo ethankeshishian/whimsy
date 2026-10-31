@@ -369,7 +369,9 @@ export const WhimsyQuickWindow = {
     // reopens there in that profile (async; nothing is adopted yet).
     const space = target.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
     const profileId = lazy.WhimsyProfiles.profileIdOfSpace(space);
-    if (lazy.WhimsyProfiles.enabled && (tab.userContextId ?? 0) != profileId) {
+    // Always (wave8/isolation): with the Profiles switch off the space's
+    // container still decides the tab's cookies.
+    if ((tab.userContextId ?? 0) != profileId) {
       this.moveAcrossProfiles(win, target, tab, space, profileId).catch(console.error);
       return null;
     }

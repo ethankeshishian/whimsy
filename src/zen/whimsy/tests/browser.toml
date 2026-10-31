@@ -598,3 +598,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: lazy init of command-bar-only parts.
 ["browser_whimsy_lazy_init.js"]
+
+# wave8/isolation: a tab never lives in a space of another profile (every move path, cookies, private history).
+["browser_whimsy_isolation.js"]

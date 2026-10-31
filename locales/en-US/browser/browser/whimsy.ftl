@@ -2970,3 +2970,23 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## wave8/isolation: a tab never lives in a space of another profile.
+## $count (number) - how many tabs
+
+whimsy-isolation-sorted-toast =
+    { $count ->
+        [one] A tab moved to a space of its own profile, so its sign-ins stay private
+       *[other] { $count } tabs moved to spaces of their own profiles, so their sign-ins stay private
+    }
+whimsy-isolation-scratch-toast =
+    { $count ->
+        [one] Only private tabs go in Scratch. The tab stayed where it was.
+       *[other] Only private tabs go in Scratch. The tabs stayed where they were.
+    }
+whimsy-isolation-reopened-toast =
+    { $count ->
+        [one] A tab reopened in this space’s profile, without its old sign-ins
+       *[other] { $count } tabs reopened in their space’s profile, without their old sign-ins
+    }
+whimsy-snooze-private-toast = Private tabs can’t be snoozed: a snoozed tab is saved and comes back as a normal tab

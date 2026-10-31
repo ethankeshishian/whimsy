@@ -58,6 +58,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyHandoff.sys.mjs",
     "WhimsyHeavyTabs.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
+    "WhimsyIsolation.sys.mjs",
     "WhimsyJiraLiveFolder.sys.mjs",
     "WhimsyLassoChild.sys.mjs",
     "WhimsyLassoParent.sys.mjs",
