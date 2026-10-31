@@ -150,12 +150,22 @@ add_task(async function test_toggle_and_edit_link() {
   ok(!document.getElementById(PANEL_ID), "The shortcut again closes it");
 
   panel = await openSheet();
-  const opened = BrowserTestUtils.waitForNewTab(gBrowser, "about:keyboard", true);
+  // about:keyboard loads in the parent process, often before a load
+  // listener on the new tab is in place: wait for its address instead.
+  const before = new Set(gBrowser.tabs);
   panel.querySelector(".whimsy-cheatsheet-edit").doCommand();
-  const tab = await opened;
+  await TestUtils.waitForCondition(() => gBrowser.selectedBrowser.currentURI?.spec == "about:keyboard",
+    "about:keyboard opened");
+  const tab = gBrowser.selectedTab;
+  info(`about:keyboard ${before.has(tab) ? "reused the blank tab" : "opened in a new tab"}`);
   ok(!document.getElementById(PANEL_ID), "Edit Shortcuts… closes the sheet");
   is(gBrowser.selectedBrowser.currentURI.spec, "about:keyboard", "...and opens about:keyboard");
-  BrowserTestUtils.removeTab(tab);
+  if (before.has(tab)) {
+    BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "about:blank");
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, "about:blank");
+  } else {
+    BrowserTestUtils.removeTab(tab);
+  }
 });
 
 add_task(async function test_customized_rows() {
