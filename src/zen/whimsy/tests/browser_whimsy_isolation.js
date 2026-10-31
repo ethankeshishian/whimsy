@@ -211,8 +211,12 @@ add_task(async function a_moved_tab_does_not_keep_its_old_cookies() {
     gBrowser.selectedTab = moved;
   }
   await TestUtils.waitForCondition(() => moved.linkedBrowser.currentURI?.spec == PAGE, "Loaded in Work");
-  await BrowserTestUtils.browserLoaded(moved.linkedBrowser, false, PAGE).catch(() => {});
-  const seen = await SpecialPowers.spawn(moved.linkedBrowser, [], () => content.document.cookie);
+  // The load may already be over by now (browserLoaded would then wait
+  // forever): wait for the document itself instead.
+  const seen = await SpecialPowers.spawn(moved.linkedBrowser, [], async () => {
+    await ContentTaskUtils.waitForCondition(() => content.document.readyState == "complete", "page loaded");
+    return content.document.cookie;
+  });
   ok(!seen.includes("whimsy_isolation"), "The Work tab can't read Default's cookie");
   is(moved.linkedBrowser.contentPrincipal.originAttributes.userContextId, work, "Its page runs as Work");
   ok(!Services.cookies.getCookiesFromHost("example.com", { userContextId: work })
@@ -408,9 +412,15 @@ async function setDefaultCookie(tab, name) {
 
 async function assertMovedClean(old, name) {
   const moved = await reopenedInWork(old);
-  await BrowserTestUtils.browserLoaded(moved.linkedBrowser, { wantLoad: url => url.startsWith(PAGE) }).catch(() => {});
-  await TestUtils.waitForCondition(() => moved.linkedBrowser.currentURI?.spec.startsWith(PAGE), "The page loads in Work");
-  const seen = await SpecialPowers.spawn(moved.linkedBrowser, [], () => content.document.cookie);
+  await TestUtils.waitForCondition(
+    () => moved.linkedBrowser.browsingContext && moved.linkedBrowser.currentURI?.spec.startsWith(PAGE),
+    "The page loads in Work"
+  );
+  // Not browserLoaded: the load can be over already, and it would wait forever.
+  const seen = await SpecialPowers.spawn(moved.linkedBrowser, [], async () => {
+    await ContentTaskUtils.waitForCondition(() => content.document.readyState == "complete", "page loaded");
+    return content.document.cookie;
+  });
   ok(!seen.includes(name), `The Work tab can't read Default's ${name}`);
   assertNoTabCrosses("After the move");
   return moved;

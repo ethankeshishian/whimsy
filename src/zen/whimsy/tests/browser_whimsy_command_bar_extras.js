@@ -24,7 +24,13 @@ async function typeInUrlbar(text, inputType = "insertText") {
 // "/" into the empty bar enters commands mode (only a lone "/" does, M7),
 // then the query is typed there.
 async function typeCommand(query) {
+  // Start from a closed, empty bar, as a person does.
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  if (gURLBar.view.isOpen) {
+    await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.view.close());
+  }
   gURLBar.searchMode = null;
+  gURLBar.value = "";
   await typeInUrlbar("/");
   await TestUtils.waitForCondition(
     () => gURLBar.searchMode?.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS,
