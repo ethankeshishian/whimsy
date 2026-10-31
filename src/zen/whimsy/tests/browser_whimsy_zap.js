@@ -15,7 +15,8 @@ const { WhimsyStats } = ChromeUtils.importESModule("resource:///modules/whimsy/W
 const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
 
 const DOMAIN = "example.com";
-const PAGE = "https://example.com/";
+// A page with a real <h1>, so "hidden" can never pass on a missing heading.
+const PAGE = "https://example.com/browser/zen/whimsy/tests/whimsy_article.html";
 
 function zapBar(browser) {
   return browser.closest(".browserContainer")?.querySelector("zen-zap-bar");
@@ -31,7 +32,10 @@ function zapSelectors() {
 function headingHidden(browser) {
   return SpecialPowers.spawn(browser, [], () => {
     const h1 = content.document.querySelector("h1");
-    return !h1 || content.getComputedStyle(h1).display == "none";
+    if (!h1) {
+      throw new Error("The test page has no <h1>");
+    }
+    return content.getComputedStyle(h1).display == "none";
   });
 }
 

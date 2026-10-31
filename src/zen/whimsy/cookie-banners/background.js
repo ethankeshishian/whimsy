@@ -63,3 +63,12 @@ async function onMessage(msg, sender) {
 browser.runtime.onMessage.addListener((msg, sender) => {
   onMessage(msg, sender).catch(e => console.error("Whimsy cookie banners:", e));
 });
+
+// Autoconsent's content script opens an "instance-<id>" port on load (its
+// own background uses it to notice the frame going away). Accept it; with no
+// listener, every page load rejects with "Receiving end does not exist".
+browser.runtime.onConnect.addListener(port => {
+  if (!port.name.startsWith("instance-")) {
+    port.disconnect();
+  }
+});

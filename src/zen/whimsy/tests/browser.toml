@@ -424,6 +424,7 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 # wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
 ["browser_whimsy_zap.js"]
+support-files = ["whimsy_article.html"]
 
 # wave6/zap: Link hints (what gets a badge, typing clicks, Shift new tab, Esc/Backspace, layouts, page never sees keys, switch off).
 ["browser_whimsy_link_hints.js"]
