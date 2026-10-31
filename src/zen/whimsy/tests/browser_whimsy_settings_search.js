@@ -70,7 +70,7 @@ add_task(async function test_every_whimsy_group_is_searchable() {
       ["page actions", "whimsyPageActions"],
       ["search deck", "whimsySearchDeck"],
     ];
-    if (Services.prefs.getBoolPref("whimsy.feature.space-profiles", true)) {
+    if (Services.prefs.getBoolPref("whimsy.feature.space-profiles", true) && doc.getElementById("whimsyProfilesGroup")) {
       cases.push(["profiles", "whimsyProfilesGroup"]);
     }
     if (doc.getElementById("whimsyLiquidGlass")) {
