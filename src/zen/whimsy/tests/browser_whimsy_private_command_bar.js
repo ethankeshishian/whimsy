@@ -29,6 +29,14 @@ function uniqueURL(tag) {
 }
 
 async function barClosed() {
+  // An empty bar in a headless test window never becomes Zen's floating
+  // popover, so blurring it doesn't run Zen's close (UrlbarInputBase
+  // #closePopover returns early); in the app the empty bar floats and
+  // closes on blur. Do what that blur does.
+  await TestUtils.waitForTick();
+  if (!gURLBar.focused && gURLBar.hasAttribute("zen-newtab") && !gURLBar.matches(":popover-open")) {
+    gURLBar._zenHandleUrlbarClose?.();
+  }
   await TestUtils.waitForCondition(
     () => !gURLBar.hasAttribute("zen-newtab") && !gURLBar.view.isOpen,
     "The command bar closed"

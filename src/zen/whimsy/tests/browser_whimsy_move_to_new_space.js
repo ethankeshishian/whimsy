@@ -135,7 +135,7 @@ add_task(async function test_command_bar_move_to_space() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
 
   const home = gZenWorkspaces.activeWorkspace;
-  const targetSpace = await gZenWorkspaces.createAndSaveWorkspace("Command Bar Target Space", undefined, false, 0);
+  const targetSpace = await gZenWorkspaces.createAndSaveWorkspace("Command Bar Target Space", undefined, true, 0);
   WhimsySpaces.syncSpaceActions(window);
 
   const moveAction = globalActions.find(a => a.commandId == `whimsy:move-to-space-${targetSpace.uuid}`);

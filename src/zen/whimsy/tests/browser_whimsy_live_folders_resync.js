@@ -93,15 +93,20 @@ add_task(async function test_menu_option_triggers_resync() {
 });
 
 add_task(async function test_resync_menuitem_spliced() {
-  const popup = document.createXULElement("menupopup");
+  // Zen's own Live Options menu when the window has it, else a stand-in.
+  let container = document.getElementById("context_zenLiveFolderOptions");
+  const standIn = !container;
+  if (standIn) {
+    container = document.createXULElement("menu");
+    container.id = "context_zenLiveFolderOptions";
+    container.append(document.createXULElement("menupopup"));
+    document.body.appendChild(container);
+  }
+  const popup = container.querySelector("menupopup");
+  const saved = [...popup.childNodes];
   const refresh = document.createXULElement("menuitem");
   refresh.setAttribute("option-key", "refresh");
-  popup.appendChild(refresh);
-
-  const container = document.createXULElement("menu");
-  container.id = "context_zenLiveFolderOptions";
-  container.appendChild(popup);
-  document.body.appendChild(container);
+  popup.replaceChildren(refresh);
 
   try {
     const fakeUi = { document };
@@ -113,7 +118,10 @@ add_task(async function test_resync_menuitem_spliced() {
     is(resyncItem.getAttribute("option-folder"), "foldertest", "option-folder attribute is set");
     is(resyncItem.previousElementSibling, refresh, "Resync is placed directly after refresh");
   } finally {
-    container.remove();
+    popup.replaceChildren(...saved);
+    if (standIn) {
+      container.remove();
+    }
   }
 });
 

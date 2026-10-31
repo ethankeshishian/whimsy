@@ -43,6 +43,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
+let moveToLabel = null; // "Move to", before the space's name in the command bar
 const DROP_FEATURE_PREF = "whimsy.feature.space-icon-drop";
 const LAST_TAB_FEATURE_PREF = "whimsy.feature.space-last-tab";
 const DROP_TARGET_ATTR = "whimsy-drop-target";
@@ -126,7 +127,8 @@ export const WhimsySpaces = {
       globalActions.push({
         l10nId: `whimsy-move-to-space-${workspace.uuid}`,
         get label() {
-          return "Move to";
+          moveToLabel ??= new Localization(["browser/whimsy.ftl"], true).formatValueSync("whimsy-action-move-to");
+          return moveToLabel;
         },
         extraPayload: {
           workspaceId: workspace.uuid,

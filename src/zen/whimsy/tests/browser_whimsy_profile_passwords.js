@@ -55,6 +55,15 @@ add_setup(async function () {
 });
 
 async function filledUsername(userContextId) {
+  // A profile's page opens in a space of that profile (wave8/isolation
+  // keeps every tab in a space of its own container).
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = userContextId
+    ? await gZenWorkspaces.createAndSaveWorkspace(`Passwords ${userContextId}`, undefined, true, userContextId)
+    : null;
+  if (space) {
+    await gZenWorkspaces.changeWorkspace(space);
+  }
   // In front, as a login page is: Firefox defers autofill in a hidden
   // (background) document until it's shown.
   const tab = await BrowserTestUtils.openNewForegroundTab({
@@ -62,6 +71,7 @@ async function filledUsername(userContextId) {
     opening: () => (gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId })),
   });
   try {
+    is(tab.userContextId, userContextId, "The page is in that profile");
     return await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
       const field = content.document.getElementById("username");
       // Autofill runs shortly after load; give it a moment, then read.
@@ -69,7 +79,13 @@ async function filledUsername(userContextId) {
       return field.value;
     });
   } finally {
+    if (space) {
+      await gZenWorkspaces.changeWorkspace(home);
+    }
     BrowserTestUtils.removeTab(tab);
+    if (space) {
+      await gZenWorkspaces.removeWorkspace(space.uuid);
+    }
   }
 }
 
