@@ -19,6 +19,7 @@ const ATTR = "zen-workspace-id";
 add_task(async function an_adopted_normal_tab_leaves_scratch() {
   WhimsyIsolation.initWindow(window);
   const home = gZenWorkspaces.getActiveWorkspace();
+  const before = new Set(gZenWorkspaces.allStoredTabs ?? gBrowser.tabs);
   const scratch = await WhimsyPrivate.openScratch(window);
   ok(scratch, "Scratch is open");
 
@@ -39,13 +40,16 @@ add_task(async function an_adopted_normal_tab_leaves_scratch() {
     t.getAttribute(ATTR) == scratch.uuid && !t.closing && !t.hasAttribute("zen-empty-tab"));
   ok(inScratch.every(t => WhimsyPrivate.isPrivateTab(t)), "Scratch holds only private tabs");
 
-  if (adopted.isConnected) {
-    BrowserTestUtils.removeTab(adopted);
-  }
   await BrowserTestUtils.closeWindow(other);
   await WhimsyPrivate.closeScratch(window);
   if (gZenWorkspaces.activeWorkspace != home.uuid) {
     await gZenWorkspaces.changeWorkspace(home);
+  }
+  // The move reopens the tab in its own space: close whatever this made.
+  for (const tab of [...(gZenWorkspaces.allStoredTabs ?? gBrowser.tabs)]) {
+    if (!before.has(tab) && !tab.closing && !tab.hasAttribute("zen-empty-tab") && !tab.pinned) {
+      BrowserTestUtils.removeTab(tab);
+    }
   }
 });
 

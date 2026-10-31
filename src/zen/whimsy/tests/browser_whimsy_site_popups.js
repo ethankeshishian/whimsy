@@ -60,7 +60,11 @@ add_task(async function test_sign_in_popup_from_a_normal_window() {
       "...showing where the popup is (the security indicator a sign-in needs)");
     ok(doc.getElementById("identity-box")?.checkVisibility(), "The site identity is visible");
     const toolbox = doc.getElementById("navigator-toolbox");
-    ok(!toolbox.checkVisibility() || toolbox.getBoundingClientRect().width == 0, "No sidebar in a popup");
+    // Zen may leave its few-px splitter strip; what matters is no tabs and
+    // no sidebar to use.
+    ok(!toolbox.checkVisibility() || toolbox.getBoundingClientRect().width < 20, "No sidebar in a popup");
+    const tabList = doc.getElementById("tabbrowser-tabs");
+    ok(!tabList?.checkVisibility() || tabList.getBoundingClientRect().width < 20, "...and no tab list to use");
     const page = popupBrowser.getBoundingClientRect();
     Assert.greater(page.height, 300, `The page has the room it asked for (${page.width}x${page.height})`);
     Assert.lessOrEqual(Math.abs(popup.innerWidth - 420), 40, `The width the page asked for (${popup.innerWidth})`);

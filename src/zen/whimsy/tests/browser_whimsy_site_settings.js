@@ -59,8 +59,8 @@ async function closePanel() {
 function clearAll() {
   for (const oa of [NORMAL, { userContextId: 0, privateBrowsingId: 1 }, { userContextId: 2, privateBrowsingId: 0 }]) {
     const principal = WhimsySiteSettings.sitePrincipal(HOST, oa);
-    for (const type of Object.values(PERM_TYPES)) {
-      Services.perms.removeFromPrincipal(principal, type);
+    for (const kind of Object.keys(PERM_TYPES)) {
+      Services.perms.removeFromPrincipal(principal, WhimsySiteSettings.permType(kind, oa));
     }
     Services.perms.removeFromPrincipal(principal, "autoplay-media");
   }
@@ -139,6 +139,9 @@ add_task(async function test_zoom_row_and_reset() {
 
 add_task(async function test_autoplay_reuses_firefox_permission() {
   clearAll();
+  // Firefox's real default, Block audio (the harness allows autoplay, which
+  // would make Allow the default and nothing to remember).
+  await SpecialPowers.pushPrefEnv({ set: [["media.autoplay.default", 1]] });
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
     const principal = browser.contentPrincipal;
     SitePermissions.setForPrincipal(principal, "autoplay-media", SitePermissions.ALLOW);
@@ -152,9 +155,17 @@ add_task(async function test_autoplay_reuses_firefox_permission() {
     is(row.getAttribute("state"), "allow", "Autoplay is remembered here");
     ok(row.querySelector(".whimsy-site-settings-forget"), "with a Forget button");
 
+    // A click cycles Allow → Block audio → Block all. Block audio is the
+    // default, so Firefox keeps no decision for it.
     row.click();
-    is(Services.perms.getPermissionObject(principal, "autoplay-media", true)?.capability, SitePermissions.BLOCK,
-      "A click cycles Allow to Block audio");
+    ok(!Services.perms.getPermissionObject(principal, "autoplay-media", true),
+      "A click cycles Allow to Block audio, the default (nothing stored)");
+    row = rowOf("autoplay");
+    is(row.getAttribute("state"), "block", "The row shows Block audio");
+    ok(!row.querySelector(".whimsy-site-settings-forget"), "with nothing to forget");
+    row.click();
+    is(Services.perms.getPermissionObject(principal, "autoplay-media", true)?.capability,
+      SitePermissions.AUTOPLAY_BLOCKED_ALL, "Another click blocks audio and video");
     row = rowOf("autoplay");
     row.querySelector(".whimsy-site-settings-forget").doCommand();
     ok(!Services.perms.getPermissionObject(principal, "autoplay-media", true), "Forget removes Firefox's permission");
@@ -180,6 +191,7 @@ add_task(async function test_autoplay_reuses_firefox_permission() {
   });
   Services.prefs.clearUserPref(FEATURE_PREF);
   clearAll();
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_always_open_in_reader() {
