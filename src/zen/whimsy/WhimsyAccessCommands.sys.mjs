@@ -35,6 +35,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs",
+  WhimsySplitRow: "resource:///modules/whimsy/WhimsySplitRow.sys.mjs",
   WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
   gWhimsyFinderFoldersStore: "resource:///modules/whimsy/WhimsyFinderFoldersSection.sys.mjs",
 });
@@ -63,6 +64,7 @@ const ICONS = {
   routing: "chrome://browser/skin/zen-icons/forward.svg",
   claude: "chrome://browser/skin/zen-icons/sparkles.svg",
   news: "chrome://browser/skin/zen-icons/history.svg",
+  tabIcon: "chrome://browser/skin/zen-icons/face-sun.svg",
 };
 
 // Zen's live folder kinds (its own menu's ids, which its command handler
@@ -514,5 +516,31 @@ export const WhimsyAccessCommands = {
       run: w => w.gZenFolders?.expandAllFolders(),
       commandBar: false,
     });
+
+    // wave9/restore (W9-07): Zen's Change Icon (tab right-click menu, on
+    // Essentials, pinned and normal tabs) for the current tab, so it can
+    // get a shortcut too. Same picker, same saved icon.
+    register({
+      id: "cmd_whimsyChangeTabIcon",
+      l10nId: "whimsy-action-change-tab-icon",
+      run: w => this.changeTabIcon(w),
+      icon: ICONS.tabIcon,
+      isAvailable: w => !!this.iconTab(w),
+    });
+  },
+
+  // The tab Change Tab Icon… acts on: the current one, never Zen's empty
+  // placeholder tab.
+  iconTab(win) {
+    const tab = win.gBrowser?.selectedTab;
+    if (!win.gZenEmojiPicker || !tab || tab.closing || tab.hasAttribute("zen-empty-tab")) {
+      return null;
+    }
+    return tab;
+  },
+
+  changeTabIcon(win) {
+    const tab = this.iconTab(win);
+    return tab ? lazy.WhimsySplitRow.changeIcon(win, tab) : false;
   },
 };

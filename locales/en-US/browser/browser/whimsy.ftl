@@ -3162,3 +3162,5 @@ whimsy-action-expand-all-folders = Expand All Folders
 whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
+## wave9/restore (W9-07): Zen's Change Icon for the current tab, as a command
+whimsy-action-change-tab-icon = Change Tab Icon…
