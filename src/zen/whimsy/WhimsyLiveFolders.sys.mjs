@@ -46,8 +46,9 @@
 //
 // linear: Linear live folder ("My Issues": assigned to you, open states).
 // Registered into the same registry as Jira, right below it; see
-// WhimsyLinearLiveFolder.sys.mjs for the auth model (session first, a
-// pasted personal API key as the fallback).
+// WhimsyLinearLiveFolder.sys.mjs for the auth model (the linear.app
+// session of the space's container; a personal API key only as an
+// advanced fallback).
 //
 // wave5/lan: Local servers live folder (dev servers on localhost, polled
 // only while the folder is visible). See WhimsyLocalServersLiveFolder.sys.mjs,
@@ -752,9 +753,9 @@ export const WhimsyLiveFolders = {
 
   // linear: Unlike Jira, nothing has to be asked up front: "My Issues" needs no
   // site, and the optional team filter can be set afterwards from the
-  // folder's own options menu. Auth (session, then a pasted API key) is
-  // only discovered on the first fetch, surfaced as the folder's error
-  // state if neither works.
+  // folder's own options menu. Auth (the linear.app session, else a
+  // stored API key) is only discovered on the first fetch; signed out, the
+  // folder shows "Sign in to Linear".
   async createLinearFolder(win) {
     try {
       const { ZenLiveFoldersManager } = ChromeUtils.importESModule(

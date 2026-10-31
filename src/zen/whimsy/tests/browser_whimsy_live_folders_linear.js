@@ -5,83 +5,309 @@
 
 // Linear live folder: "My Issues" (assigned, open states) as a
 // self-updating folder, the same model as Zen's GitHub live folder and
-// Whimsy's Jira folder. Unlike those two, Linear's GraphQL API has no
-// documented cookie/session path, so this tries the signed-in linear.app
-// session first and falls back to a personal API key, stored in the
-// login manager, when that doesn't authenticate.
+// Whimsy's Jira folder. It rides the linear.app session (the cookie of
+// the space's container, sent the way linear.app's own web app sends it,
+// with Origin: the linear.app page) -- no API key. A personal API key is
+// only an advanced fallback. whimsy_linear.sjs plays both endpoints.
 
-const { WhimsyLinearLiveFolderProvider } = ChromeUtils.importESModule(
-  "resource:///modules/whimsy/WhimsyLinearLiveFolder.sys.mjs"
-);
+const {
+  WhimsyLinearLiveFolderProvider,
+  LINEAR_ERROR_SIGNED_OUT,
+  LINEAR_ERROR_KEY_REJECTED,
+  LINEAR_ERROR_RATE_LIMITED,
+  classifyLinearResponse,
+} = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinearLiveFolder.sys.mjs");
 const { WhimsyLiveFolders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs");
 
 const GRAPHQL_URL =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_linear.sjs";
+// Stands in for https://linear.app: a different host on the same site as
+// the endpoint, like linear.app and client-api.linear.app.
+const SESSION_ORIGIN = "https://test1.example.com";
+const SIGN_IN_URL = "https://example.com/?whimsy-linear-sign-in";
 const VALID_KEY = "lin_api_test_key";
+const COOKIE = "whimsy_linear_session";
+const CONTAINER = 2;
 
-// A minimal stand-in for the manager: no window, no real tab-group
-// folder, so the fetch runs with userContextId 0 and nothing touches tab UI.
-function makeFolder(extraState = {}) {
+// A minimal stand-in for the manager. With `userContextId`, the folder
+// sits in a space whose container (profile) is that id.
+function makeFolder(extraState = {}, { userContextId = 0, win = null } = {}) {
+  const tabGroup = userContextId
+    ? {
+        documentGlobal: {
+          gZenWorkspaces: { getWorkspaceFromId: () => ({ containerTabId: userContextId }) },
+        },
+        getAttribute: () => "space-1",
+      }
+    : null;
   const manager = {
-    window: null,
-    getFolderForLiveFolder: () => null,
+    window: win,
+    getFolderForLiveFolder: () => tabGroup,
     saveState: () => {},
   };
   return new WhimsyLinearLiveFolderProvider({
     id: "test-linear",
     manager,
     graphqlUrl: GRAPHQL_URL,
+    sessionUrl: GRAPHQL_URL,
+    sessionOrigin: SESSION_ORIGIN,
+    signInUrl: SIGN_IN_URL,
     state: { ...extraState },
   });
 }
 
+// A domain cookie on .example.com, like linear.app's session cookie that
+// client-api.linear.app also receives.
+function signIn(value, userContextId = 0) {
+  Services.cookies.add(
+    ".example.com",
+    "/",
+    COOKIE,
+    value,
+    true,
+    true,
+    true,
+    Date.now() + 60 * 60 * 1000,
+    { userContextId },
+    Ci.nsICookie.SAMESITE_LAX,
+    Ci.nsICookie.SCHEME_HTTPS
+  );
+}
+
+function signOut(userContextId = 0) {
+  Services.cookies.remove(".example.com", COOKIE, "/", { userContextId });
+}
+
+function signOutEverywhere() {
+  signOut(0);
+  signOut(CONTAINER);
+}
+
 registerCleanupFunction(async () => {
+  signOutEverywhere();
   await WhimsyLinearLiveFolderProvider.clearApiKey();
 });
 
 add_task(async function test_session_auth() {
   await WhimsyLinearLiveFolderProvider.clearApiKey();
+  signIn("solo");
+  try {
+    const folder = makeFolder();
+    const items = await folder.fetchItems();
+    ok(Array.isArray(items), "Fetches issues over the signed-in linear.app session, no API key needed");
+    is(items.length, 3, "Triage, Todo and In Progress issues come back by default");
+    is(items[0].title, "Fix the login bug", "Title comes from the issue's title");
+    is(items[0].subtitle, "ENG-1 · In Progress", "Subtitle carries the identifier and state");
+    ok(items[0].url.endsWith("/issue/ENG-1"), "The URL points at the issue");
+    ok(!folder.isWatchingForSignIn, "Signed in: nothing listens for cookies");
+    ok(
+      !folder.options.some(o => o.key === "workspace"),
+      "One workspace: no Workspace menu"
+    );
+    ok(!folder.options.some(o => o.key === "linearApiKey"), "Signed in: no API key option at all");
+    const saved = JSON.stringify(folder.serialize());
+    ok(!saved.includes("solo") && !saved.includes(COOKIE), "Nothing about the session is saved with the folder");
+  } finally {
+    signOutEverywhere();
+  }
+});
+
+add_task(async function test_signed_out_offers_sign_in() {
+  await WhimsyLinearLiveFolderProvider.clearApiKey();
+  signOutEverywhere();
   const folder = makeFolder();
-  const items = await folder.fetchItems();
-  ok(Array.isArray(items), "Fetches an array of issues over the signed-in session, no API key needed");
-  is(items.length, 3, "Triage, Todo and In Progress issues come back by default");
-  is(items[0].title, "Fix the login bug", "Title comes from the issue's title");
-  is(items[0].subtitle, "ENG-1 · In Progress", "Subtitle carries the identifier and state");
-  ok(items[0].url.endsWith("/issue/ENG-1"), "The URL points at the issue");
+  const result = await folder.fetchItems();
+  is(result, LINEAR_ERROR_SIGNED_OUT, "Signed out with no key: the Sign in to Linear state, not a key prompt");
+  is(result, "whimsy-live-folder-linear-signed-out", "with its own error id");
+  ok(folder.isWatchingForSignIn, "and it listens for the sign-in");
+  folder.state.lastErrorId = result;
+  ok(
+    folder.options.some(o => o.key === "linearApiKey"),
+    "The API key is offered as an advanced option once the session path failed"
+  );
+  folder.stop();
+  ok(!folder.isWatchingForSignIn, "Stopping the folder stops listening");
+});
+
+add_task(async function test_sign_in_action_and_auto_refresh() {
+  await WhimsyLinearLiveFolderProvider.clearApiKey();
+  signOutEverywhere();
+  const folder = makeFolder({}, { userContextId: CONTAINER, win: window });
+  is(await folder.fetchItems(), LINEAR_ERROR_SIGNED_OUT, "Signed out in the space's container");
+
+  const tabOpened = BrowserTestUtils.waitForNewTab(gBrowser, SIGN_IN_URL);
+  await folder.onActionButtonClick(LINEAR_ERROR_SIGNED_OUT);
+  const tab = await tabOpened;
+  is(gBrowser.selectedTab, tab, "Sign in to Linear opens and selects the sign-in page");
+  is(tab.userContextId, CONTAINER, "in the space's container, so the session lands where the folder reads");
+
+  const oldDebounce = WhimsyLinearLiveFolderProvider.signInDebounceMs;
+  WhimsyLinearLiveFolderProvider.signInDebounceMs = 0;
+  let refreshed = 0;
+  folder.refresh = async () => {
+    refreshed++;
+  };
+  try {
+    signIn("solo", 0);
+    await new Promise(r => setTimeout(r, 50));
+    is(refreshed, 0, "A sign-in in another container doesn't refresh this folder");
+    signIn("solo", CONTAINER);
+    await TestUtils.waitForCondition(() => refreshed === 1, "Signing in refreshes the folder by itself");
+    const items = await folder.fetchItems();
+    ok(Array.isArray(items) && items.length === 3, "and then the container's session works");
+    ok(!folder.isWatchingForSignIn, "Once signed in, it stops listening");
+  } finally {
+    WhimsyLinearLiveFolderProvider.signInDebounceMs = oldDebounce;
+    folder.stop();
+    BrowserTestUtils.removeTab(tab);
+    signOutEverywhere();
+  }
+});
+
+add_task(async function test_container_cookies_only() {
+  await WhimsyLinearLiveFolderProvider.clearApiKey();
+  signIn("solo", CONTAINER);
+  try {
+    const inDefault = makeFolder();
+    is(await inDefault.fetchItems(), LINEAR_ERROR_SIGNED_OUT, "A default-container space doesn't see a container's session");
+    inDefault.stop();
+    const inContainer = makeFolder({}, { userContextId: CONTAINER });
+    const items = await inContainer.fetchItems();
+    ok(Array.isArray(items) && items.length === 3, "A space in that container (its profile) does");
+  } finally {
+    signOutEverywhere();
+  }
+});
+
+add_task(async function test_multiple_workspaces() {
+  await WhimsyLinearLiveFolderProvider.clearApiKey();
+  signIn("multi");
+  try {
+    const folder = makeFolder();
+    let items = await folder.fetchItems();
+    Assert.deepEqual(
+      items.map(i => i.id),
+      ["linear:issue-1", "linear:issue-2", "linear:issue-3", "linear:side-1"],
+      "Every workspace of the signed-in account is fetched, merged in order"
+    );
+
+    const menu = folder.options.find(o => o.key === "workspace");
+    ok(menu, "Two workspaces: a Workspace menu");
+    Assert.deepEqual(
+      menu.options.map(o => [o.value, o.checked]),
+      [
+        ["", true],
+        ["org-a", false],
+        ["org-b", false],
+      ],
+      "All Workspaces, then each workspace; All is the default"
+    );
+    Assert.deepEqual(menu.options[2].l10nArgs, { name: "Side Project" }, "Workspaces are labelled by name");
+
+    folder.setWorkspace("org-b");
+    is(folder.state.workspace, "org-b", "The choice is saved with the folder");
+    items = await folder.fetchItems();
+    Assert.deepEqual(items.map(i => i.id), ["linear:side-1"], "Only the picked workspace's issues");
+
+    folder.setWorkspace("org-gone");
+    items = await folder.fetchItems();
+    is(items.length, 4, "A workspace that's gone falls back to all of them");
+  } finally {
+    signOutEverywhere();
+  }
+});
+
+add_task(async function test_locked_workspace() {
+  await WhimsyLinearLiveFolderProvider.clearApiKey();
+  signIn("locked");
+  try {
+    const folder = makeFolder();
+    const items = await folder.fetchItems();
+    ok(Array.isArray(items), "One locked workspace doesn't sign the whole folder out");
+    is(items.length, 3, "The other workspace's issues still come back");
+  } finally {
+    signOutEverywhere();
+  }
+});
+
+add_task(async function test_rate_limited() {
+  await WhimsyLinearLiveFolderProvider.clearApiKey();
+  signIn("ratelimited");
+  try {
+    const folder = makeFolder();
+    is(await folder.fetchItems(), LINEAR_ERROR_RATE_LIMITED, "A rate limit has its own state (tabs stay put)");
+    const until = folder._rateLimitedUntil;
+    ok(until > Date.now() + 5 * 60 * 1000, "It backs off until Linear's X-RateLimit-Requests-Reset");
+    ok(until <= Date.now() + 60 * 60 * 1000, "but never more than an hour");
+
+    // Signed in properly now, but still inside the window: no request.
+    signIn("solo");
+    is(await folder.fetchItems(), LINEAR_ERROR_RATE_LIMITED, "Inside the window it doesn't ask again");
+    folder._rateLimitedUntil = Date.now() - 1;
+    ok(Array.isArray(await folder.fetchItems()), "After the window it fetches again");
+  } finally {
+    signOutEverywhere();
+  }
+});
+
+add_task(async function test_classify() {
+  is(classifyLinearResponse({ status: 429, data: null }), "rate-limited", "429 is a rate limit");
+  is(
+    classifyLinearResponse({ status: 400, data: { errors: [{ message: "x", extensions: { code: "RATELIMITED" } }] } }),
+    "rate-limited",
+    "RATELIMITED is a rate limit"
+  );
+  is(
+    classifyLinearResponse({ status: 200, data: { errors: [{ message: "Authentication required." }] } }),
+    "unauthenticated",
+    "An authentication message is signed out"
+  );
+  is(classifyLinearResponse({ status: 401, data: null }), "unauthenticated", "401 is signed out");
+  is(classifyLinearResponse({ status: 200, data: { data: { viewer: {} } } }), "ok", "Data is fine");
+  is(
+    classifyLinearResponse({ status: 400, data: { errors: [{ message: "Cannot query field" }] } }),
+    "failed",
+    "Any other error is a plain failed fetch, not a sign-out"
+  );
+  is(classifyLinearResponse({ status: 502, data: null }), "failed", "So is a server error");
 });
 
 add_task(async function test_api_key_fallback() {
-  // The "SESSIONFAIL" marker makes the fixture answer the first,
-  // session-only request as unauthenticated, exactly like a signed-out
-  // linear.app session would -- the real trigger for the API-key path.
+  signOutEverywhere();
   await WhimsyLinearLiveFolderProvider.setApiKey(VALID_KEY);
   try {
-    const folder = makeFolder({ team: "SESSIONFAIL" });
+    const folder = makeFolder();
     const items = await folder.fetchItems();
-    ok(Array.isArray(items), "Falls back to the stored API key when the session isn't authenticated");
+    ok(Array.isArray(items), "Signed out, a stored API key still works as the fallback");
     is(items.length, 3, "The fixture's open issues come back over the API-key request");
+    ok(folder.options.some(o => o.key === "linearRemoveApiKey"), "and the key can be removed from the folder's menu");
   } finally {
     await WhimsyLinearLiveFolderProvider.clearApiKey();
   }
 });
 
-add_task(async function test_no_auth() {
-  await WhimsyLinearLiveFolderProvider.clearApiKey();
-  const folder = makeFolder({ team: "SESSIONFAIL" });
-  const result = await folder.fetchItems();
-  is(
-    result,
-    "whimsy-live-folder-linear-no-auth",
-    "Neither the session nor a stored key: the folder's own no-auth error id, not a generic failed fetch"
-  );
+add_task(async function test_session_wins_over_key() {
+  await WhimsyLinearLiveFolderProvider.setApiKey("lin_api_wrong_key");
+  signIn("solo");
+  try {
+    const folder = makeFolder();
+    const items = await folder.fetchItems();
+    ok(Array.isArray(items) && items.length === 3, "Signed in, the session is used and the key never matters");
+  } finally {
+    signOutEverywhere();
+    await WhimsyLinearLiveFolderProvider.clearApiKey();
+  }
 });
 
 add_task(async function test_rejected_api_key() {
+  signOutEverywhere();
   await WhimsyLinearLiveFolderProvider.setApiKey("lin_api_wrong_key");
   try {
-    const folder = makeFolder({ team: "SESSIONFAIL" });
+    const folder = makeFolder();
     const result = await folder.fetchItems();
-    is(result, "whimsy-live-folder-linear-no-auth", "A key the server rejects also surfaces as no-auth");
+    is(result, LINEAR_ERROR_KEY_REJECTED, "Signed out and a key the server rejects: the key-rejected state");
+    ok(folder.isWatchingForSignIn, "Signing in to linear.app would still fix it, so it listens");
+    folder.stop();
   } finally {
     await WhimsyLinearLiveFolderProvider.clearApiKey();
   }
@@ -149,6 +375,8 @@ add_task(async function test_create_menu_opened_for_real() {
 // Statuses submenu.
 add_task(async function test_status_filters() {
   await WhimsyLinearLiveFolderProvider.clearApiKey();
+  signIn("solo");
+  registerCleanupFunction(signOutEverywhere);
   const folder = makeFolder();
   Assert.deepEqual(
     folder.state.hiddenStates,

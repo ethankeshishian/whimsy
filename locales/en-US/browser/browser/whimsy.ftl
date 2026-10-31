@@ -101,6 +101,8 @@ whimsy-live-folder-linear-prompt-team = Enter a team key to filter to (for examp
 whimsy-live-folder-linear-no-auth =
     .label = Not signed in to Linear
     .tooltiptext = Add a personal API key, or sign in to linear.app in this space’s profile.
+    .label = Linear API key not accepted
+    .tooltiptext = Paste a new personal API key, or remove the key from this folder’s menu and sign in to linear.app instead.
 whimsy-live-folder-linear-apikey-title = Linear API Key
 whimsy-live-folder-linear-apikey-text = Paste a personal API key from linear.app → Settings → Security & access → Personal API keys.
 
@@ -2427,3 +2429,21 @@ whimsy-scratch-save-header = Save Scratch as a Space
 whimsy-scratch-save-label = Name it and pick its look. Its tabs come with it.
 whimsy-scratch-save-button =
     .label = Save Space
+## wave7/linear: the Linear live folder uses your linear.app sign-in; no API key needed.
+
+whimsy-live-folder-linear-signed-out =
+    .label = Sign in to Linear
+    .tooltiptext = Opens linear.app in this space’s profile. The folder fills in once you’re signed in.
+whimsy-live-folder-linear-rate-limited =
+    .label = Linear asked to slow down
+    .tooltiptext = Linear is rate limiting requests. The folder keeps its tabs and refreshes again on its own.
+whimsy-live-folder-linear-option-workspace =
+    .label = Workspace
+whimsy-live-folder-linear-workspace-all =
+    .label = All Workspaces
+whimsy-live-folder-linear-workspace =
+    .label = { $name }
+whimsy-live-folder-linear-option-use-api-key =
+    .label = Use an API Key Instead…
+whimsy-live-folder-linear-option-remove-api-key =
+    .label = Remove API Key
