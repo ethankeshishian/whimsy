@@ -422,6 +422,28 @@ support-files = ["whimsy_verbs.html"]
 ["browser_whimsy_tab_audio_icon.js"]
 support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
+# wave5/profiles: profile model, Set Profile → Create a New Profile…, Settings → Profiles.
+["browser_whimsy_profiles.js"]
+
+# wave5/profiles: passwords per profile (autofill, save tagging, Sync round-trip, delete).
+["browser_whimsy_profile_passwords.js"]
+support-files = ["whimsy_login_form.html"]
+
+# wave5/profiles: history per profile (sidecar attribution, Library query, address bar).
+["browser_whimsy_profile_history.js"]
+
+# wave5/profiles: per-profile search engine and download folder.
+["browser_whimsy_profile_settings.js"]
+
+# wave5/profiles: Arc's warnings, and tabs really reopen in the new profile.
+["browser_whimsy_profile_moves.js"]
+
+# wave5/profiles: Mini Whimsy's profile pill and cross-profile Open in.
+["browser_whimsy_profile_mini.js"]
+
+# wave5/profiles: per-profile data through Sync's prefs engine (two-device round trip, merge rules).
+["browser_whimsy_profile_sync.js"]
+
 # wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
 ["browser_whimsy_zap.js"]
 

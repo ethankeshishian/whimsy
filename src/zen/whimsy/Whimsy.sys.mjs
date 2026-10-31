@@ -162,6 +162,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
 });
 
+// wave5/profiles: Arc's profiles on containers.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+});
+
 // wave6/zap: Zap (erase page elements).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyZap: "resource:///modules/whimsy/WhimsyZap.sys.mjs",
@@ -655,6 +660,14 @@ export const Whimsy = {
       (win._whimsyQuickWindow ? Promise.resolve() : (win.gZenWorkspaces?.promiseInitialized ?? Promise.resolve()))
         .then(() => lazy.WhimsySpaceLook.initWindow(win))
         .catch(e => console.error("Whimsy: space-look", e))
+    );
+
+    // wave5/profiles: profiles. After Zen's spaces are ready; each part
+    // checks the switch on use, so Settings applies without a restart.
+    run("space-profiles", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyProfiles.initWindow(win))
+        .catch(e => console.error("Whimsy: space-profiles", e))
     );
     // wave6/zap: Zap (Cmd+Shift+X, command bar, site panel menu). Always
     // installed; the command checks its switch and Zen's boosts on each use.
