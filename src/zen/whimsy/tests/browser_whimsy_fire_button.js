@@ -108,6 +108,10 @@ add_task(async function test_fire_sheet() {
 add_task(async function test_forget_site_is_a_command_that_confirms() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
   ok(WhimsyCommands.get("cmd_whimsyForgetSite"), "Forget About This Site… is a registered command");
+  ok(WhimsyCommands.get("cmd_whimsyFireProfile"), "Fire in This Profile is a registered command");
+  ok(WhimsyCommands.get("cmd_whimsyFireEverywhere"), "Fire Everywhere is a registered command");
+  is(WhimsyCommands.title(WhimsyCommands.get("cmd_whimsyFireProfile")), "Fire in This Profile", "Profile command title");
+  is(WhimsyCommands.title(WhimsyCommands.get("cmd_whimsyFireEverywhere")), "Fire Everywhere", "Everywhere command title");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://www.example.com/?forget-site");
   const original = WhimsyFireButton.burnSite;
   let burned = 0;

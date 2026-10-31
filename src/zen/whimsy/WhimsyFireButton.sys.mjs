@@ -135,6 +135,25 @@ export const WhimsyFireButton = {
       icon: "chrome://browser/skin/forget.svg",
       isAvailable: w => this.enabled && !!siteOf(w.gBrowser.selectedTab),
     });
+    // wave8/cmds: W8-46 direct commands for Fire in This Profile and Fire Everywhere
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyFireProfile",
+      l10nId: "whimsy-fire-profile",
+      run: w => this.run(w, () => this.burnProfile(w), "whimsy-fire-done-profile"),
+      icon: "chrome://browser/skin/forget.svg",
+      isAvailable: () => this.enabled,
+    });
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyFireEverywhere",
+      l10nId: "whimsy-fire-everything",
+      run: async w => {
+        if (await this.confirmEverything(w)) {
+          await this.run(w, () => this.burnEverything(w), "whimsy-fire-done-everything");
+        }
+      },
+      icon: "chrome://browser/skin/forget.svg",
+      isAvailable: () => this.enabled,
+    });
   },
 
   closableTabs(win, tabs) {
