@@ -321,7 +321,9 @@ findbar .whimsy-ask-button {
   --panel-border-color: transparent;
   --panel-shadow: none;
   --panel-padding: 0;
-  --panel-shadow-margin: 0;
+  /* Gecko 159 name (was --panel-shadow-margin): no -8px shadow margin, so
+     the cards sit where the link rect puts them. */
+  --panel-box-shadow-margin: 0;
   --whimsy-link-hover-width: 320px;
 
   &::part(content) {
