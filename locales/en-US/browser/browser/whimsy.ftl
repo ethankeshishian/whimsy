@@ -2970,3 +2970,8 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## wave8/folders: History space filter: Deleted spaces option (W8-38).
+
+whimsy-history-deleted-spaces = Deleted spaces
+

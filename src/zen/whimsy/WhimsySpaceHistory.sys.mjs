@@ -368,8 +368,14 @@ export const WhimsySpaceHistory = {
     }
     return this._urlProfiles.get(url) ?? null;
   },
-  async query({ spaceId = "", search = "", days = 120, sort = "date", limit = 100, profile = "" } = {}) {
+  async query({ spaceId = "", search = "", days = 120, sort = "date", limit = 100, profile = "", activeSpaces = null } = {}) {
     await this._queue;
+    if (activeSpaces == null && spaceId === "deleted") {
+      const win = Services.wm.getMostRecentWindow("navigator:browser");
+      activeSpaces = (win?.gZenWorkspaces?.getWorkspaces() || [])
+        .filter(s => !s.whimsyScratch)
+        .map(s => s.uuid);
+    }
     const file = await this.file();
     const db = await lazy.PlacesUtils.promiseDBConnection();
     const rows = await db.execute(`
@@ -382,7 +388,11 @@ export const WhimsySpaceHistory = {
         AND CAST(v.visit_date / 1000 AS INTEGER) = json_extract(m.value, '$.time')
         AND p.guid = json_extract(m.value, '$.guid')
       WHERE p.hidden = 0 AND v.visit_date >= :cutoff
-        AND (:space = '' OR json_extract(m.value, '$.spaceId') = :space
+        AND (:space = ''
+          OR (:space = 'deleted' AND json_extract(m.value, '$.spaceId') IS NOT NULL AND (
+             json_extract(m.value, '$.spaceId') NOT IN (SELECT value FROM json_each(:activeSpaces))
+          ))
+          OR json_extract(m.value, '$.spaceId') = :space
           OR (:space = 'unknown' AND json_extract(m.value, '$.spaceId') IS NULL))
         AND (:profile = '' OR (json_extract(m.value, '$.profile') IS NOT NULL
             AND json_extract(m.value, '$.profile') = :profile)
@@ -395,6 +405,7 @@ export const WhimsySpaceHistory = {
       ORDER BY ${sort === "mostvisited" ? "visits DESC," : ""} v.visit_date DESC, v.id DESC
       LIMIT :limit`, {
       metadata: JSON.stringify(file.data.visits), space: spaceId, profile,
+      activeSpaces: JSON.stringify(Array.isArray(activeSpaces) ? activeSpaces : []),
       places: JSON.stringify(Object.fromEntries(this.placeProfiles.entries())),
       cutoff: (Date.now() - days * 86400000) * 1000,
       search, limit,
