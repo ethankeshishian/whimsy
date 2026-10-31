@@ -499,3 +499,5 @@ support-files = ["whimsy_page_actions.html"]
 ["browser_whimsy_folder_separator.js"]
 # wave7/folders: Jira/Linear/Local Servers live folders survive a restart, even when a provider registers late.
 ["browser_whimsy_live_folders_restore.js"]
+# wave7/keys: commands with assignable shortcuts for Settings/menu-only features (tree, hidden spaces, switcher, UI zoom, background mute, bionic, dark PDF, live/Finder folders, Manage Spaces, ATC, Claude space, What's New).
+["browser_whimsy_access_commands.js"]

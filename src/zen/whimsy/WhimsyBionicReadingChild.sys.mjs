@@ -114,6 +114,14 @@ export class WhimsyBionicReadingChild extends JSWindowActorChild {
     }
   }
 
+  // wave7/keys: the "Turn Bionic Reading On/Off" command saved the choice
+  // in the parent; show it on this page.
+  receiveMessage(message) {
+    if (message.name == "Whimsy:ApplyBionic") {
+      this._applyEnabled(!!message.data?.on);
+    }
+  }
+
   _applyEnabled(on) {
     this._enabled = on;
     this._button?.setAttribute("aria-pressed", String(on));

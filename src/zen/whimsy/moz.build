@@ -5,6 +5,7 @@
 EXTRA_JS_MODULES.whimsy += [
     "Whimsy.sys.mjs",
     "WhimsyAboutPage.sys.mjs",
+    "WhimsyAccessCommands.sys.mjs",
     "WhimsyAI.sys.mjs",
     "WhimsyAIPage.sys.mjs",
     "WhimsyAIPreviewChild.sys.mjs",
