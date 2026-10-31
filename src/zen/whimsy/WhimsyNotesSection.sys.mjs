@@ -26,6 +26,9 @@ ChromeUtils.defineESModuleGetters(
 );
 
 const STORE_FILENAME = "whimsy-notes.json";
+// Notified after any note is created, changed or removed, so an open Notes
+// section shows notes added elsewhere (verbs, other windows, tab drops).
+export const NOTES_CHANGED_TOPIC = "whimsy-notes-changed";
 
 class NotesStore {
   #file = null;
@@ -70,6 +73,7 @@ class NotesStore {
     };
     file.data.notes.push(note);
     file.saveSoon();
+    Services.obs.notifyObservers(null, NOTES_CHANGED_TOPIC);
     return note;
   }
 
@@ -81,6 +85,7 @@ class NotesStore {
     }
     Object.assign(note, changes, { updated: Date.now() });
     file.saveSoon();
+    Services.obs.notifyObservers(null, NOTES_CHANGED_TOPIC);
     return note;
   }
 
@@ -88,6 +93,7 @@ class NotesStore {
     const file = await this.#ensureLoaded();
     file.data.notes = file.data.notes.filter(n => n.id != id);
     file.saveSoon();
+    Services.obs.notifyObservers(null, NOTES_CHANGED_TOPIC);
   }
 }
 

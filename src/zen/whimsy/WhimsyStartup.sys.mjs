@@ -9,7 +9,9 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
+  WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
 });
 
 export class WhimsyStartup {
@@ -24,5 +26,15 @@ export class WhimsyStartup {
     } catch (e) {
       console.error("Whimsy: update channel", e);
     }
+    // Live folder providers must be registered before Zen restores saved
+    // live folders in the first window (see WhimsyLiveFolders).
+    try {
+      lazy.WhimsyLiveFolders.installManagerHook();
+    } catch (e) {
+      console.error("Whimsy: live folders", e);
+    }
+    // System pass: the old Archive Library section's saved state moves to
+    // History's Closed filter before any window builds its Library.
+    lazy.WhimsyLibrarySection.migratePrefs();
   }
 }

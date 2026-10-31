@@ -36,6 +36,18 @@ export const WhimsyFollowerTabs = {
   },
 
   initWindow(win) {
+    // wave5: the tab menu's follower toggle as a command for the current tab.
+    const partnered = w => this.enabled && !!this.partnerOf(w, w.gBrowser.selectedTab);
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+      id: "cmd_whimsyFollowerSplit",
+      l10nId: "whimsy-action-follower-toggle",
+      run: w => this.toggle(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/split.svg",
+      variants: [
+        { l10nId: "whimsy-action-follow", isAvailable: w => partnered(w) && !this.isSource(w.gBrowser.selectedTab) },
+        { l10nId: "whimsy-action-unfollow", isAvailable: w => partnered(w) && this.isSource(w.gBrowser.selectedTab) },
+      ],
+    });
     const menu = win.document.getElementById("tabContextMenu");
     menu?.addEventListener("popupshowing", event => {
       if (event.target == menu) {

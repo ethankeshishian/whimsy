@@ -21,7 +21,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.print-clean";
@@ -36,18 +36,13 @@ export const WhimsyPrintClean = {
     if (!this.enabled) {
       return;
     }
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: COMMAND_ID,
+      l10nId: "whimsy-action-print-clean",
       run: w => this.run(w),
+      icon: "chrome://browser/skin/zen-icons/reader-mode.svg",
+      isAvailable: w => this.enabled && !!w.gBrowser.selectedBrowser?.currentURI?.spec,
     });
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-print-clean",
-        command: COMMAND_ID,
-        icon: "chrome://browser/skin/zen-icons/reader-mode.svg",
-        isAvailable: w => this.enabled && !!w.gBrowser.selectedBrowser?.currentURI?.spec,
-      },
-    ]);
   },
 
   run(win) {

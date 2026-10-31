@@ -27,7 +27,8 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVPNScope: "resource:///modules/whimsy/WhimsyVPNScope.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  CustomizableUI: "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   IPProtectionService:
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtectionStates:
@@ -43,6 +44,7 @@ const FEATURE_PREF = "whimsy.feature.vpn";
 // backend service). Whimsy defaults it to true; this is the real on/off.
 const MASTER_PREF = "browser.ipProtection.enabled";
 const ICON = "chrome://browser/skin/zen-icons/selectable/lock-closed.svg";
+const WIDGET_ID = "ipprotection-button";
 
 export const WhimsyVPN = {
   FEATURE_PREF,
@@ -87,6 +89,7 @@ export const WhimsyVPN = {
     if (!this.canTurnOn()) {
       return;
     }
+    this.showButton(win);
     try {
       await lazy.IPPProxyManager.start();
       win.gZenUIManager?.showToast?.("whimsy-vpn-on-toast");
@@ -107,25 +110,74 @@ export const WhimsyVPN = {
     }
   },
 
+  // fix7 settings: Firefox's VPN button. Firefox places it once, next to
+  // the account or extensions button; in Zen's layouts that spot can be
+  // hidden or the button can end up in the overflow palette, so people
+  // couldn't find it. Asking for the VPN from the command bar puts it back
+  // in the toolbar, then returns the button (null when Firefox hasn't made
+  // the widget, i.e. the VPN isn't available).
+  showButton(win) {
+    const { CustomizableUI } = lazy;
+    const widget = CustomizableUI.getWidget(WIDGET_ID);
+    if (!widget || widget.provider != CustomizableUI.PROVIDER_API) {
+      return null;
+    }
+    if (!CustomizableUI.getPlacementOfWidget(WIDGET_ID)) {
+      const next = CustomizableUI.getPlacementOfWidget("unified-extensions-button");
+      CustomizableUI.addWidgetToArea(
+        WIDGET_ID,
+        CustomizableUI.AREA_NAVBAR,
+        next?.area == CustomizableUI.AREA_NAVBAR ? next.position : undefined
+      );
+    }
+    return widget.forWindow(win)?.node ?? null;
+  },
+
+  // Signed out (or the VPN is switched off in Settings): open Firefox's VPN
+  // panel to sign in, or Settings' VPN card when there's no panel yet.
+  setUp(win) {
+    const button = this.masterEnabled ? this.showButton(win) : null;
+    if (button?.checkVisibility?.()) {
+      button.click();
+      return;
+    }
+    win.openPreferences("privacy");
+  },
+
+  canSetUp() {
+    return this.wrapperEnabled && !this.ready;
+  },
+
   initWindow(win) {
     // vpnspace: Keep the native panel and widget as the single VPN control.
     lazy.WhimsyVPNScope.initWindow(win);
     if (!this.wrapperEnabled) {
       return;
     }
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-vpn-on",
-        command: w => this.turnOn(w),
-        icon: ICON,
-        isAvailable: () => this.wrapperEnabled && this.canTurnOn(),
+    // wave5: one command for a shortcut; the command bar names the state
+    // it moves to.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVPNToggle",
+      l10nId: "whimsy-action-vpn-toggle",
+      run: w => {
+        if (!this.wrapperEnabled) {
+          return null;
+        }
+        if (this.canTurnOff()) {
+          return this.turnOff(w);
+        }
+        if (this.canSetUp()) {
+          // fix7 settings: before sign-in neither On nor Off applies.
+          return this.setUp(w);
+        }
+        return this.canTurnOn() ? this.turnOn(w) : null;
       },
-      {
-        l10nId: "whimsy-action-vpn-off",
-        command: w => this.turnOff(w),
-        icon: ICON,
-        isAvailable: () => this.wrapperEnabled && this.canTurnOff(),
-      },
-    ]);
+      icon: ICON,
+      variants: [
+        { l10nId: "whimsy-action-vpn-on", isAvailable: () => this.wrapperEnabled && this.canTurnOn() },
+        { l10nId: "whimsy-action-vpn-off", isAvailable: () => this.wrapperEnabled && this.canTurnOff() },
+        { l10nId: "whimsy-action-vpn-setup", isAvailable: () => this.canSetUp() },
+      ],
+    });
   },
 };

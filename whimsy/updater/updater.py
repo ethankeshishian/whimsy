@@ -270,12 +270,39 @@ def ensure_engine(repo):
     sh("./mach --no-interactive bootstrap --application-choice browser", cwd=os.path.join(repo, "engine"))
 
 
+def pin_build_date():
+    """One build ID per build. Gecko stamps buildid.h with the current time
+    whenever it's regenerated, so the binaries and the later-preprocessed
+    application.ini/platform.ini (and `mach package` while publishing) got
+    different IDs. update.xml publishes the application.ini one, which is
+    newer than the ID the running app reports, so every build kept offering
+    itself as an update. MOZ_BUILD_DATE (14 digits) pins it; publishing
+    reuses the same value from state.json."""
+    date = os.environ.get("MOZ_BUILD_DATE")
+    if not (date and len(date) == 14 and date.isdigit()):
+        date = time.strftime("%Y%m%d%H%M%S")
+        os.environ["MOZ_BUILD_DATE"] = date
+    state = read_json("state.json", {})
+    state["build_date"] = date
+    write_json("state.json", state)
+    return date
+
+
+def reuse_build_date():
+    """Publishing after a build: package with the build's pinned ID."""
+    if not os.environ.get("MOZ_BUILD_DATE"):
+        date = read_json("state.json", {}).get("build_date")
+        if date:
+            os.environ["MOZ_BUILD_DATE"] = date
+
+
 def build_and_test(repo):
     update_state(message="Importing patches")
     sh("npm run import", cwd=repo)
     sh(["python3", "whimsy/overlay.py", "check"], cwd=repo)
     sh(["python3", "whimsy/precheck.py"], cwd=repo)
     update_state(message="Building (this takes a while after a Firefox update)")
+    pin_build_date()
     sh("npx surfer set brand release && npx surfer build", cwd=repo, timeout=4 * 3600)
     update_state(message="Testing")
     sh(["sh", "whimsy/verify.sh", "gate"], cwd=repo, timeout=3600)
@@ -535,6 +562,7 @@ def cmd_ship():
             update_state(status="running", message="Dev build: checking Zen")
             tag = sync_zen(repo, state)
             update_state(message="Dev build: importing and building")
+            pin_build_date()
             sh("npm run import", cwd=repo)
             sh(["python3", "whimsy/precheck.py"], cwd=repo)
             sh("npx surfer set brand release && npx surfer build", cwd=repo, timeout=4 * 3600)
@@ -564,6 +592,7 @@ def cmd_ship():
 
 def cmd_publish_dev():
     repo = config().get("repo")
+    reuse_build_date()
     with Lock("run.lock", wait=True):
         try:
             sh(["python3", "whimsy/publish.py", "--channel", "dev"], cwd=repo, timeout=3600)

@@ -13,6 +13,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyCookieBanners: "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
@@ -136,14 +137,65 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
 });
 
-// wave5: Easel.
+// wave5/quick: QR code for any page (Firefox's QR dialog, exposed).
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
+  WhimsyQRCode: "resource:///modules/whimsy/WhimsyQRCode.sys.mjs",
 });
 
-// wave5: redact in screenshots.
+// wave5/quick: Copy page as Markdown.
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
+  WhimsyMarkdownCopy: "resource:///modules/whimsy/WhimsyMarkdownCopy.sys.mjs",
+});
+
+// wave5/quick: new season toast.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySeasonToast: "resource:///modules/whimsy/WhimsySeasonToast.sys.mjs",
+});
+
+// wave5/verbs: do-with-selection verbs.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
+});
+
+// wave5/look: a look per space (font, density, title lines, a Zen Mod).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
+});
+
+// wave6/zap: Zap (erase page elements).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyZap: "resource:///modules/whimsy/WhimsyZap.sys.mjs",
+});
+
+// wave6/zap: Link hints (keyboard-only clicking).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
+});
+
+// wave6/search: Instant result and the Search Deck.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
+});
+
+// wave6: Already open (Arc parity).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
+});
+
+// wave6: Trails (branching back/forward menu).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTrails: "resource:///modules/whimsy/WhimsyTrails.sys.mjs",
+});
+
+// wave6: Page actions (schema.org data -> a pill in the address bar).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
+});
+
+// wave6/parity: Arc's Split View keys.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
+  WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -242,6 +294,46 @@ export const Whimsy = {
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
+
+    // wave5/quick: link lasso. The child only acts on an Option-drag the
+    // page didn't handle; the parent makes the folder.
+    ChromeUtils.registerWindowActor("WhimsyLasso", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyLassoParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyLassoChild.sys.mjs",
+        events: { mousedown: { mozSystemGroup: true } },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    // wave6/zap: Link hints. Message-only (no events), so the child only
+    // starts in a page when Cmd+J asks for hints; top frames only.
+    ChromeUtils.registerWindowActor("WhimsyLinkHints", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyLinkHintsParent.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    // wave6/search: reads result links from a results page, only in the
+    // Search Deck's own hidden, sandboxed browsers (WhimsySearchDeck).
+    ChromeUtils.registerWindowActor("WhimsySearchDeck", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsySearchDeckChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*"],
+      messageManagerGroups: ["whimsy-search-deck"],
+      safeForUntrustedWebProcess: true,
+    });
+    // fix7/private: the private page without Firefox's search box.
+    ChromeUtils.registerWindowActor("WhimsyPrivatePage", {
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPrivatePageChild.sys.mjs",
+        events: { DOMContentLoaded: {} },
+      },
+      matches: ["about:privatebrowsing*"],
+      remoteTypes: ["privilegedabout"],
+    });
   },
 
   initWindow(win) {
@@ -279,17 +371,16 @@ export const Whimsy = {
     // Always installed: isAvailable checks the switch on each use, so
     // turning it off hides it from the command bar straight away.
     run("glance-split-action", () =>
-      lazy.WhimsyShortcuts.addActions([
-        {
-          l10nId: "whimsy-action-split-glance",
-          command: "cmd_zenGlanceSplit",
-          icon: "chrome://browser/skin/zen-icons/split.svg",
-          isAvailable: w =>
-            this.featureEnabled("glance-split-action") &&
-            !!w.gBrowser.selectedTab?.hasAttribute("glance-id") &&
-            w.document.getElementById("cmd_zenGlanceSplit")?.getAttribute("disabled") != "true",
-        },
-      ])
+      lazy.WhimsyCommands.register(win, {
+        id: "cmd_zenGlanceSplit",
+        keyId: "key_whimsySplitGlance",
+        l10nId: "whimsy-action-split-glance",
+        icon: "chrome://browser/skin/zen-icons/split.svg",
+        isAvailable: w =>
+          this.featureEnabled("glance-split-action") &&
+          !!w.gBrowser.selectedTab?.hasAttribute("glance-id") &&
+          w.document.getElementById("cmd_zenGlanceSplit")?.getAttribute("disabled") != "true",
+      })
     );
     // Always installed: it checks its switch and the pref on each external
     // open, so turning it off hands the link straight back to Firefox.
@@ -387,48 +478,28 @@ export const Whimsy = {
     run("sidebar-nav", () => lazy.WhimsySidebarNav.initWindow(win));
     // batch7: shortcut cheat sheet.
     run("cheatsheet", () => lazy.WhimsyCheatSheet.initWindow(win));
-    run("cheatsheet-action", () =>
-      lazy.WhimsyShortcuts.addActions([
-        {
-          l10nId: "whimsy-action-cheatsheet",
-          command: "whimsy-cheatsheet",
-          icon: "chrome://browser/skin/zen-icons/selectable/key.svg",
-          isAvailable: () => lazy.WhimsyCheatSheet.enabled,
-        },
-      ])
-    );
     // batch7: inbox-zero balloons.
     run("inbox-zero", () => lazy.WhimsyDelight.initWindow(win));
     // batch7: per-site user agent.
     run("site-user-agent", () => {
       lazy.WhimsyUserAgent.initWindow(win);
-      lazy.WhimsyShortcuts.addCommand(win, {
+      lazy.WhimsyCommands.register(win, {
         id: "whimsy-useragent-picker",
+        l10nId: "whimsy-action-useragent",
         run: w => lazy.WhimsyUserAgent.enabled && lazy.WhimsyUserAgent.openPicker(w),
+        icon: "chrome://browser/skin/zen-icons/selectable/globe.svg",
+        isAvailable: () => lazy.WhimsyUserAgent.enabled,
       });
-      lazy.WhimsyShortcuts.addActions([
-        {
-          l10nId: "whimsy-action-useragent",
-          command: "whimsy-useragent-picker",
-          icon: "chrome://browser/skin/zen-icons/selectable/globe.svg",
-          isAvailable: () => lazy.WhimsyUserAgent.enabled,
-        },
-      ]);
     });
     // batch7: cookie editor.
     run("cookie-editor", () => {
-      lazy.WhimsyShortcuts.addCommand(win, {
+      lazy.WhimsyCommands.register(win, {
         id: "whimsy-cookie-editor",
+        l10nId: "whimsy-action-cookie-editor",
         run: w => lazy.WhimsyCookieEditor.enabled && lazy.WhimsyCookieEditor.open(w),
+        icon: "chrome://browser/skin/zen-icons/cookies-fill.svg",
+        isAvailable: () => lazy.WhimsyCookieEditor.enabled,
       });
-      lazy.WhimsyShortcuts.addActions([
-        {
-          l10nId: "whimsy-action-cookie-editor",
-          command: "whimsy-cookie-editor",
-          icon: "chrome://browser/skin/zen-icons/cookies-fill.svg",
-          isAvailable: () => lazy.WhimsyCookieEditor.enabled,
-        },
-      ]);
     });
     // batch7: whimsy:// URL schemes (the address-bar half; see
     // WhimsyProtocol.sys.mjs for why the external-link half is deferred).
@@ -439,23 +510,27 @@ export const Whimsy = {
     // batch7: developer mode tabs (Arc parity).
     run("dev-mode", () => {
       lazy.WhimsyDevMode.initWindow(win);
-      lazy.WhimsyShortcuts.addCommand(win, {
+      // wave5: one command, named for what it does now in the command
+      // bar ("Turn On/Off Developer Mode"), neutral in about:keyboard.
+      const siteIsDev = w => {
+        const uri = w.gBrowser.selectedBrowser?.currentURI;
+        return !!uri && lazy.WhimsyDevMode.isDevMode(uri);
+      };
+      lazy.WhimsyCommands.register(win, {
         id: "whimsy-devmode-toggle-site",
+        l10nId: "whimsy-action-devmode-toggle",
         run: w => {
           const uri = w.gBrowser.selectedBrowser?.currentURI;
           if (lazy.WhimsyDevMode.enabled && uri) {
             lazy.WhimsyDevMode.toggleSite(uri);
           }
         },
+        icon: "chrome://browser/skin/zen-icons/selectable/code.svg",
+        variants: [
+          { l10nId: "whimsy-action-devmode-on", isAvailable: w => lazy.WhimsyDevMode.enabled && !siteIsDev(w) },
+          { l10nId: "whimsy-action-devmode-off", isAvailable: w => lazy.WhimsyDevMode.enabled && siteIsDev(w) },
+        ],
       });
-      lazy.WhimsyShortcuts.addActions([
-        {
-          l10nId: "whimsy-action-devmode-toggle",
-          command: "whimsy-devmode-toggle-site",
-          icon: "chrome://browser/skin/zen-icons/selectable/code.svg",
-          isAvailable: () => lazy.WhimsyDevMode.enabled,
-        },
-      ]);
     });
     // ext: per-space extensions. After Zen's spaces are ready, like
     // "spaces" above; the module checks its own switch on each use.
@@ -467,35 +542,25 @@ export const Whimsy = {
     // batch7b: offline game (whimsy://game). Always installed: the command
     // bar action and the net-error button both check the switch on use.
     run("game-action", () => {
-      lazy.WhimsyShortcuts.addCommand(win, {
+      lazy.WhimsyCommands.register(win, {
         id: "whimsy-game-open",
+        l10nId: "whimsy-action-game",
         run: w => w.openTrustedLinkIn("about:whimsy?game", "current"),
+        icon: "chrome://browser/skin/zen-icons/selectable/game-controller.svg",
+        isAvailable: () => Services.prefs.getBoolPref("whimsy.feature.game", true),
       });
-      lazy.WhimsyShortcuts.addActions([
-        {
-          l10nId: "whimsy-action-game",
-          command: "whimsy-game-open",
-          icon: "chrome://browser/skin/zen-icons/selectable/game-controller.svg",
-          isAvailable: () => Services.prefs.getBoolPref("whimsy.feature.game", true),
-        },
-      ]);
     });
     // batch7b: Year in tabs (whimsy://year). Always installed: initWindow
     // checks the switch itself before counting anything (WhimsyStats.sys.mjs).
     run("year-in-tabs", () => {
       lazy.WhimsyStats.initWindow(win);
-      lazy.WhimsyShortcuts.addCommand(win, {
+      lazy.WhimsyCommands.register(win, {
         id: "whimsy-year-open",
+        l10nId: "whimsy-action-year",
         run: w => w.openTrustedLinkIn("about:whimsy?year", "current"),
+        icon: "chrome://browser/skin/zen-icons/selectable/stats-chart.svg",
+        isAvailable: () => lazy.WhimsyStats.enabled,
       });
-      lazy.WhimsyShortcuts.addActions([
-        {
-          l10nId: "whimsy-action-year",
-          command: "whimsy-year-open",
-          icon: "chrome://browser/skin/zen-icons/selectable/stats-chart.svg",
-          isAvailable: () => lazy.WhimsyStats.enabled,
-        },
-      ]);
       this.maybeShowYearToast(win);
     });
     // tierC-claude: the Claude space. Once per session, it only watches its
@@ -567,12 +632,54 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
-    // wave5: Easel (Arc's Easels). Always installed: the command, the
-    // capture button and the page each check whimsy.feature.easel on use.
-    run("easel", () => lazy.WhimsyEasel.initWindow(win));
-    // wave5: redact. Adds the toggle to the Screenshots panel; it checks
-    // whimsy.feature.redact each time the panel shows.
-    run("redact", () => lazy.WhimsyRedact.initWindow(win));
+
+    // wave5/quick: QR code for any page (page menu and command bar); checks
+    // its switch on use.
+    run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
+
+    // wave5/quick: Copy page as Markdown (page menu and command bar); checks
+    // its switch on use.
+    run("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
+
+    // wave5/quick: the first window in a new season says so once (after
+    // the window settles; never under test automation).
+    run("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
+
+    // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
+    // checks its switch on each use (off: Cmd+K is Firefox's again).
+    run("selection-verbs", () => lazy.WhimsyVerbs.initWindow(win));
+    // wave5/look: a look per space. After Zen's spaces are ready (Mini
+    // has none of its own and follows its destination's); it checks its
+    // switch on every change, so turning it off applies at once.
+    run("space-look", () =>
+      (win._whimsyQuickWindow ? Promise.resolve() : (win.gZenWorkspaces?.promiseInitialized ?? Promise.resolve()))
+        .then(() => lazy.WhimsySpaceLook.initWindow(win))
+        .catch(e => console.error("Whimsy: space-look", e))
+    );
+    // wave6/zap: Zap (Cmd+Shift+X, command bar, site panel menu). Always
+    // installed; the command checks its switch and Zen's boosts on each use.
+    run("zap", () => lazy.WhimsyZap.initWindow(win));
+    // wave6/zap: Link hints (Cmd+J, command bar). Checks its switch on use.
+    run("link-hints", () => lazy.WhimsyLinkHints.initWindow(win));
+
+    // wave6/search: Instant result (Shift+Enter) and the Search Deck. Always
+    // installed; each checks its switch on use.
+    run("search-deck", () => lazy.WhimsySearchDeck.initWindow(win));
+
+    // wave6: Already open. Return on an address that's open in any space
+    // goes to that tab (Arc). Always installed; checks its switch on use.
+    run("already-open", () => lazy.WhimsyAlreadyOpen.initWindow(win));
+    // wave6: Trails. Pages cut from Forward stay as branches in the
+    // Back/Forward menu. Always installed; checks its switch on use.
+    run("trails", () => lazy.WhimsyTrails.initWindow(win));
+    // wave6: Page actions. Its page actor is registered once even when off;
+    // the child checks the switch on every page.
+    run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
+    // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
+    // its switch on each use.
+    run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
+    // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
+    run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

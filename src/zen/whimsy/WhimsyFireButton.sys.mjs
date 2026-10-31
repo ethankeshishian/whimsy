@@ -53,15 +53,14 @@ export const WhimsyFireButton = {
   },
 
   initWindow(win) {
-    const { WhimsyShortcuts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyShortcuts.sys.mjs");
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-fire-button",
-        icon: "chrome://browser/skin/forget.svg",
-        command: w => this.openPanel(w),
-        isAvailable: () => this.enabled,
-      },
-    ]);
+    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyFireButton",
+      l10nId: "whimsy-action-fire-button",
+      run: w => this.openPanel(w),
+      icon: "chrome://browser/skin/forget.svg",
+      isAvailable: () => this.enabled,
+    });
   },
 
   closableTabs(win, tabs) {
@@ -73,16 +72,17 @@ export const WhimsyFireButton = {
     if (closable.length) {
       lazy.WhimsyArchive.archiveTabs(win, closable, { reason: "fire", groupId: `fire-${reason}-${Date.now()}` });
     }
+    return closable.length;
   },
 
   async burnSite(win) {
     const tab = win.gBrowser.selectedTab;
     const site = siteOf(tab);
     if (!site) {
-      return;
+      return 0;
     }
     await lazy.ForgetAboutSite.removeDataFromBaseDomain(site);
-    this.burnTabs(win, win.gBrowser.tabs.filter(t => siteOf(t) == site), "site");
+    return this.burnTabs(win, win.gBrowser.tabs.filter(t => siteOf(t) == site), "site");
   },
 
   async burnLast15Min(win) {
@@ -96,7 +96,7 @@ export const WhimsyFireButton = {
         { onDataDeleted: resolve }
       );
     });
-    this.burnTabs(win, win.gBrowser.tabs.filter(t => (t.lastAccessed || 0) >= now - FIFTEEN_MIN_MS), "recent");
+    return this.burnTabs(win, win.gBrowser.tabs.filter(t => (t.lastAccessed || 0) >= now - FIFTEEN_MIN_MS), "recent");
   },
 
   async burnSpace(win) {
@@ -111,25 +111,30 @@ export const WhimsyFireButton = {
           })
       )
     );
-    this.burnTabs(win, tabsInSpace, "space");
+    return this.burnTabs(win, tabsInSpace, "space");
   },
 
   async burnEverything(win) {
     await clearDataCallback();
-    this.burnTabs(win, win.gBrowser.tabs, "everything");
+    return this.burnTabs(win, win.gBrowser.tabs, "everything");
   },
 
   // fixB: a WhimsyPanels sheet, centred like the command bar it opens
   // from. Each scope says exactly what it clears; the last one is red.
   // Built (not yet open) fresh each time; openPanel() shows it.
+  // wave5/uxfix: rows only choose a scope (radio rows, focus starts there);
+  // the red footer button names what it forgets and is the only thing that
+  // forgets, so Return on the first row can never wipe a site. A toast
+  // reports what went.
   panel(win) {
     const { document, gBrowser } = win;
     const spaceName = win.gZenWorkspaces?.getActiveWorkspace?.()?.name || "";
-    const { panel, body } = lazy.WhimsyPanels.create(win, {
+    const { panel, body, footer } = lazy.WhimsyPanels.create(win, {
       id: PANEL_ID,
       titleL10nId: "whimsy-fire-title",
       subtitleL10nId: "whimsy-fire-subtitle",
       size: "medium",
+      footer: true,
     });
     const scopes = [
       {
@@ -162,6 +167,14 @@ export const WhimsyFireButton = {
         destructive: true,
       },
     ];
+    const forget = lazy.WhimsyPanels.footerButton(document, {
+      l10nId: "whimsy-fire-forget-recent",
+      onCommand: () => this.forget(win, panel),
+    });
+    forget.id = "whimsy-fire-forget";
+    forget.setAttribute("destructive", "true");
+    footer.append(forget);
+    panel._whimsyFireScopes = new Map();
     for (const scope of scopes) {
       const item = lazy.WhimsyPanels.item(document, {
         l10nId: scope.l10nId ?? `whimsy-fire-${scope.id}`,
@@ -170,26 +183,66 @@ export const WhimsyFireButton = {
         subtitleL10nId: scope.subtitleL10nId,
         subtitleArgs: scope.subtitleArgs,
         destructive: scope.destructive,
-        onCommand: async () => {
-          lazy.WhimsyPanels.close(panel);
-          const root = win.document.documentElement;
-          // A brief flame/burst overlay (whimsy-browser.css); reduced motion
-          // swaps it for an instant flash there instead.
-          root.setAttribute("whimsy-fire-burning", "");
-          win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
-          try {
-            await scope.run();
-          } catch (e) {
-            console.error("Whimsy: fire button", e);
-          }
-        },
+        checked: false,
+        onCommand: () => this.selectScope(win, panel, scope.id),
       });
       item.classList.add("whimsy-fire-scope");
+      item.setAttribute("role", "radio");
       item.setAttribute("whimsy-fire-scope", scope.id);
       item.dataset.scope = scope.id;
+      panel._whimsyFireScopes.set(scope.id, scope);
       body.append(item);
     }
+    body.setAttribute("role", "radiogroup");
+    document.l10n.formatValue("whimsy-fire-scopes").then(label => body.setAttribute("aria-label", label));
     return panel;
+  },
+
+  // Marks one scope chosen and names it on the footer button.
+  selectScope(win, panel, id) {
+    const { document } = win;
+    for (const item of panel.querySelectorAll(".whimsy-fire-scope")) {
+      const on = item.dataset.scope == id;
+      item.setAttribute("aria-checked", on ? "true" : "false");
+      if (on) {
+        item.setAttribute("checked", "true");
+      } else {
+        item.removeAttribute("checked");
+      }
+    }
+    panel.dataset.scope = id;
+    const forget = panel.querySelector("#whimsy-fire-forget");
+    const site = siteOf(win.gBrowser.selectedTab);
+    if (id == "site" && site) {
+      document.l10n.setAttributes(forget, "whimsy-fire-forget-site", { site });
+    } else {
+      document.l10n.setAttributes(forget, `whimsy-fire-forget-${id == "last-15-min" ? "recent" : id}`);
+    }
+  },
+
+  // The footer button: close the sheet, flash, forget, then say what went.
+  async forget(win, panel) {
+    const scope = panel._whimsyFireScopes?.get(panel.dataset.scope);
+    if (!scope) {
+      return;
+    }
+    const site = siteOf(win.gBrowser.selectedTab);
+    lazy.WhimsyPanels.close(panel);
+    const root = win.document.documentElement;
+    // A brief flame/burst overlay (whimsy-browser.css); reduced motion
+    // skips it, and the toast confirms.
+    root.setAttribute("whimsy-fire-burning", "");
+    win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
+    let closed = 0;
+    try {
+      closed = (await scope.run()) || 0;
+    } catch (e) {
+      console.error("Whimsy: fire button", e);
+      win.gZenUIManager?.showToast?.("whimsy-fire-failed-toast");
+      return;
+    }
+    const id = scope.id == "site" ? "whimsy-fire-done-site" : `whimsy-fire-done-${scope.id == "last-15-min" ? "recent" : scope.id}`;
+    win.gZenUIManager?.showToast?.(id, { l10nArgs: { site: site || "", count: closed } });
   },
 
   // "This Site" burns the whole site (ForgetAboutSite takes the base domain:
@@ -214,6 +267,9 @@ export const WhimsyFireButton = {
   openPanel(win) {
     const panel = this.panel(win);
     this.updateSiteScope(win, panel);
+    // Start on the narrowest scope that applies; nothing runs until the
+    // footer button is pressed.
+    this.selectScope(win, panel, siteOf(win.gBrowser.selectedTab) ? "site" : "last-15-min");
     lazy.WhimsyPanels.open(win, panel);
   },
 };

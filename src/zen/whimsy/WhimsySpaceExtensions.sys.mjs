@@ -137,7 +137,12 @@ export const WhimsySpaceExtensions = {
         node.toggleAttribute("whimsy-hidden-space-extension", !visible);
       }
     }
-    win.gUnifiedExtensions?.updateAttention?.();
+    // Firefox reads the selected tab's page for this; a lazy (unloaded) or
+    // closing tab has none, and it updates again once a tab is shown.
+    const tab = win.gBrowser?.selectedTab;
+    if (tab?.linkedPanel && !tab.closing && tab.linkedBrowser?.isConnected) {
+      win.gUnifiedExtensions?.updateAttention?.();
+    }
   },
 
   refreshAllWindows() {

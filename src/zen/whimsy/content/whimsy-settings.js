@@ -25,9 +25,11 @@ var gWhimsySettings = {
       }
     });
     // batch7: hardware video decoding toggle, in its own listener so it runs
-    // on paneGeneral independently of the About-group branch above.
+    // on paneGeneral independently of the About-group branch above. With the
+    // settings redesign, Firefox's Performance group is in Tab Management
+    // (fix/panes).
     document.addEventListener("paneshown", event => {
-      if (["paneGeneral", "paneTabsBrowsing"].includes(event.detail.category)) {
+      if (["paneGeneral", "paneZenTabManagement"].includes(event.detail.category)) {
         this.insertPerformanceGroup(event.detail.category);
       }
     });
@@ -213,15 +215,29 @@ var gWhimsySettings = {
         row.remove();
       }
     }
+    // wave5/uxfix: drop the collapsed Features list if none of its switches is left.
+    const features = group.querySelector("#whimsyTabsFeatures");
+    if (features && !features.querySelector("[preference]")) {
+      features.remove();
+    } else if (features) {
+      // Settings search must reach the switches inside, so open the list.
+      document.getElementById("searchInput")?.addEventListener("input", () => {
+        features.open = true;
+      });
+    }
     template.remove();
     if (!group.querySelector("[preference]")) {
       return;
     }
+    // Skip prefs a Firefox or Zen pane already registered (Preferences
+    // throws on a second add; e.g. browser.uidensity, Firefox's Appearance).
     Preferences.addAll(
-      [...group.querySelectorAll("[preference]")].map(el => ({
-        id: el.getAttribute("preference"),
-        type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "int"),
-      }))
+      [...group.querySelectorAll("[preference]")]
+        .filter(el => !Preferences.get(el.getAttribute("preference")))
+        .map(el => ({
+          id: el.getAttribute("preference"),
+          type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "int"),
+        }))
     );
     // At the end of Zen's Workspaces section, before "Pinned Tabs".
     const anchor = document.getElementById("zenWorkspacesGroup");
@@ -317,7 +333,12 @@ var gWhimsySettings = {
     const prefs = [...group.querySelectorAll("[preference]")];
     if (prefs.length) {
       Preferences.addAll(
-        prefs.map(el => ({ id: el.getAttribute("preference"), type: el.localName == "checkbox" ? "bool" : "string" }))
+        prefs
+          .filter(el => !Preferences.get(el.getAttribute("preference")))
+          .map(el => ({
+            id: el.getAttribute("preference"),
+            type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "string"),
+          }))
       );
       Preferences.queueUpdateOfAllElements();
     }
@@ -714,9 +735,6 @@ Object.assign(gWhimsySettings, {
     document.getElementById("whimsySpacesManagerButton")?.addEventListener("command", () => {
       chromeWin().document.getElementById("cmd_zenManageWorkspaces")?.doCommand();
     });
-    document.getElementById("whimsyAtcButton")?.addEventListener("command", () => {
-      chromeWin().document.getElementById("cmd_zenOpenSpaceRoutingSettings")?.doCommand();
-    });
     this.refreshHiddenSpaces();
   },
 
@@ -796,7 +814,12 @@ Object.assign(gWhimsySettings, {
     this.initPrefCheckbox("whimsyClaudeEnable", "whimsy.claude.enabled");
     this.initPrefCheckbox("whimsyClaudeWholeBrowser", "whimsy.claude.whole-browser");
     this.initPrefCheckbox("whimsyClaudeAsk", "whimsy.claude.ask-per-site");
+    this.initPrefCheckbox("whimsyClaudeReplay", "whimsy.claude.replay");
     const $ = id => document.getElementById(id);
+    // wave5/safety: Claude runs (agent replay).
+    $("whimsyClaudeShowRuns").addEventListener("command", () =>
+      window.browsingContext.topChromeWindow.openTrustedLinkIn("about:whimsy?replay", "tab")
+    );
     const status = $("whimsyClaudeStatus");
     const copy = value => {
       if (!value) {
@@ -857,14 +880,19 @@ Object.assign(gWhimsySettings, {
 });
 
 // wave4: calendar connections stay in Settings; permission is requested on click.
+// wave5/uxfix: they live in General (one place), not Look and Feel.
+// Firefox's settings redesign (on in Zen) folds General into its first
+// pane: about:preferences#general opens paneSync there.
+const whimsyGeneralPane = () =>
+  Services.prefs.getBoolPref("browser.settings-redesign.enabled", false) ? "paneSync" : "paneGeneral";
 document.addEventListener("paneshown", event => {
-  if (event.detail.category == gWhimsySettings.PANE) {
-    gWhimsySettings.insertNextMeetingGroup();
+  if (event.detail.category == whimsyGeneralPane()) {
+    gWhimsySettings.insertNextMeetingGroup(event.detail.category);
   }
 });
 
 Object.assign(gWhimsySettings, {
-  insertNextMeetingGroup() {
+  insertNextMeetingGroup(pane = "paneGeneral") {
     const template = document.getElementById("template-whimsyNextMeeting");
     if (!template) {
       return;
@@ -874,7 +902,9 @@ Object.assign(gWhimsySettings, {
     );
     service.initWindow(window.browsingContext.topChromeWindow);
     const group = template.content.firstElementChild;
-    const anchor = document.getElementById("whimsyLookGroup") || document.getElementById("whimsyUiZoomGroup");
+    group.dataset.category = pane;
+    // After the last General group, so it sits with General's own groups.
+    const anchor = [...document.querySelectorAll(`#mainPrefPane > [data-category="${pane}"]`)].at(-1);
     (anchor?.parentElement || document.getElementById("mainPrefPane")).insertBefore(
       template.content, anchor?.nextSibling || null
     );
@@ -999,14 +1029,6 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// batch3glance: Glance size, next to the Tabs group's Glance options. The
-// Tabs group is inserted by gWhimsySettings.init's listener, which runs first.
-document.addEventListener("paneshown", event => {
-  if (event.detail.category == "paneZenTabManagement") {
-    gWhimsySettings.insertGlanceSize();
-  }
-});
-
 // wave3/cmdbar: Settings → Search → Bang Shortcuts. The list is plain text
 // ("!w https://...{{{s}}}" per line). Save validates the whole list first,
 // so a typo never replaces a working catalog.
@@ -1017,32 +1039,18 @@ document.addEventListener("paneshown", event => {
 });
 
 Object.assign(gWhimsySettings, {
-  insertGlanceSize() {
-    const template = document.getElementById("template-whimsyGlanceSize");
-    if (!template) {
-      return;
-    }
-    const row = template.content.firstElementChild;
-    template.remove();
-    const group = document.getElementById("whimsyTabsGroup");
-    if (!group || !this.lazy.Whimsy.featureEnabled("glance-size")) {
-      return;
-    }
-    Preferences.addAll([{ id: "whimsy.glance.size", type: "string" }]);
-    const externalLinks = document.getElementById("whimsyExternalLinksTarget")?.parentElement;
-    if (externalLinks?.parentElement == group) {
-      externalLinks.after(row);
-    } else {
-      group.append(row);
-    }
-    Preferences.queueUpdateOfAllElements();
-  },
 });
 
 // batch3glance: Cmd+T in a split. Arc's behavior is the default; unchecking
 // it gives Zen's (a separate new tab).
 document.addEventListener("paneshown", event => {
   if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertSplitNewTabRow();
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertSplitNewTabRow() {
     const template = document.getElementById("template-whimsySplitNewTab");
     const group = document.getElementById("whimsyTabsGroup");
     if (!template || !group) {
@@ -1058,7 +1066,7 @@ document.addEventListener("paneshown", event => {
       group.append(row);
     }
     Preferences.queueUpdateOfAllElements();
-  }
+  },
 });
 
 Object.assign(gWhimsySettings, {
@@ -1373,3 +1381,432 @@ Object.assign(gWhimsySettings, {
     render();
   },
 });
+
+// system: Settings → Links, one pane for where links open: links from other
+// apps (Mini Whimsy, a tab or Glance), Glance (Zen's own Glance group moves
+// here from Look and Feel, with Whimsy's size and pinned-tab rows), split
+// view (Shift-click, follower splits) and space routing (Air Traffic
+// Control). Each setting lives only here. The pane is registered like
+// Zen's own (register_module) before preferences.js's init_all runs, so
+// about:preferences#whimsyLinks opens it directly.
+const WHIMSY_LINKS_PANE = "paneWhimsyLinks";
+
+Object.assign(gWhimsySettings, {
+  registerLinksPane() {
+    if (typeof register_module != "function" || document.getElementById("category-whimsy-links")) {
+      return;
+    }
+    const after = document.getElementById("category-zen-tabs-management");
+    if (!after) {
+      return;
+    }
+    const button = document.createElementNS("http://www.w3.org/1999/xhtml", "moz-page-nav-button");
+    button.id = "category-whimsy-links";
+    button.setAttribute("view", WHIMSY_LINKS_PANE);
+    button.setAttribute("iconsrc", "chrome://browser/skin/zen-icons/link.svg");
+    button.setAttribute("data-l10n-id", "whimsy-pane-links-title");
+    after.after(button);
+    register_module(WHIMSY_LINKS_PANE, { init: () => this.buildLinksPane() });
+  },
+
+  // Moves the Links groups into the page (once) and Zen's Glance group into
+  // them. Also runs when Look and Feel is shown, so Glance never shows there.
+  buildLinksPane() {
+    const template = document.getElementById("template-whimsyLinks");
+    if (template) {
+      const fragment = template.content;
+      const { Whimsy } = this.lazy;
+      // A checkbox that is its own feature switch (follower splits) stays
+      // when the user turns it off; it goes only when Zen supersedes it.
+      const own = new Set(
+        [...fragment.querySelectorAll('[preference^="whimsy.feature."]')].map(el =>
+          el.getAttribute("preference").slice("whimsy.feature.".length)
+        )
+      );
+      const keep = id =>
+        own.has(id)
+          ? Services.prefs.getDefaultBranch("").getBoolPref(`whimsy.feature.${id}`, true)
+          : Whimsy.featureEnabled(id);
+      for (const row of [...fragment.querySelectorAll("[data-whimsy-feature]")]) {
+        if (!keep(row.dataset.whimsyFeature)) {
+          row.remove();
+        }
+      }
+      template.remove();
+      Preferences.addAll(
+        [...fragment.querySelectorAll("[preference]")]
+          .filter(el => !Preferences.get(el.getAttribute("preference")))
+          .map(el => ({
+            id: el.getAttribute("preference"),
+            type: el.dataset.prefType || (el.localName == "checkbox" ? "bool" : "int"),
+          }))
+      );
+      const groups = [...fragment.children];
+      document.getElementById("mainPrefPane").append(fragment);
+      document.getElementById("whimsyAtcButton")?.addEventListener("command", () => {
+        window.browsingContext.topChromeWindow.document
+          .getElementById("cmd_zenOpenSpaceRoutingSettings")
+          ?.doCommand();
+      });
+      this.adoptZenGlance();
+      // A group left with no setting goes (the Glance group keeps Zen's).
+      for (const group of groups) {
+        if (group.localName == "groupbox" && group.isConnected && !group.querySelector("[preference], button")) {
+          group.remove();
+        }
+      }
+      Preferences.queueUpdateOfAllElements();
+    }
+    this.adoptZenGlance();
+  },
+
+  // Zen's "Glance" heading and group sit in Look and Feel's template until
+  // that pane is first shown; take them from wherever they are now.
+  adoptZenGlance() {
+    const holder = document.getElementById("whimsyLinksGlanceGroup");
+    const looks = document.getElementById("template-paneZenLooks")?.content;
+    const find = id => document.getElementById(id) || looks?.querySelector(`#${id}`);
+    find("zenGlanceCategory")?.remove();
+    const zenGroup = find("zenGlanceGroup");
+    if (!zenGroup) {
+      return;
+    }
+    if (!holder) {
+      // Links isn't built yet (or Glance already joined it): just keep
+      // Glance out of Look and Feel.
+      if (zenGroup.getAttribute("data-category") == WHIMSY_LINKS_PANE) {
+        return;
+      }
+      zenGroup.setAttribute("data-category", WHIMSY_LINKS_PANE);
+      zenGroup.hidden = true;
+      document.getElementById("mainPrefPane").append(zenGroup);
+      return;
+    }
+    zenGroup.setAttribute("data-category", WHIMSY_LINKS_PANE);
+    zenGroup.hidden = holder.hidden;
+    zenGroup.append(...[...holder.children].filter(el => !el.classList.contains("whimsy-links-own-heading")));
+    holder.replaceWith(zenGroup);
+  },
+});
+
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.registerLinksPane(), { once: true });
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneZenLooks") {
+    gWhimsySettings.adoptZenGlance();
+  }
+});
+
+// wave6/search: Settings → Search → Instant Results, after Bang Shortcuts
+// (inserted by the listener above, which runs first). The deck only applies
+// while Shift+Enter is on.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category != "paneSearch") {
+    return;
+  }
+  const template = document.getElementById("template-whimsySearchDeck");
+  if (!template) {
+    return;
+  }
+  const fragment = template.content;
+  template.remove();
+  Preferences.addAll([
+    { id: "whimsy.feature.instant-result", type: "bool" },
+    { id: "whimsy.feature.search-deck", type: "bool" },
+  ]);
+  const anchor = document.getElementById("whimsyBangsGroup") ?? document.getElementById("oneClickSearchProvidersGroup");
+  if (anchor) {
+    anchor.after(fragment);
+  } else {
+    document.getElementById("mainPrefPane").append(fragment);
+  }
+  const group = document.getElementById("whimsySearchDeckGroup");
+  group?.removeAttribute("hidden");
+  const sync = () => {
+    const on = Services.prefs.getBoolPref("whimsy.feature.instant-result", true);
+    document.getElementById("whimsySearchDeck")?.toggleAttribute("disabled", !on);
+  };
+  Services.prefs.addObserver("whimsy.feature.instant-result", sync);
+  window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.feature.instant-result", sync), {
+    once: true,
+  });
+  sync();
+  Preferences.queueUpdateOfAllElements();
+});
+
+// wave6: navigation switches (Already open, Trails, Page actions), at the
+// end of Tab Management -> Tabs. Each checkbox is the feature's own switch.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category != "paneZenTabManagement") {
+    return;
+  }
+  const template = document.getElementById("template-whimsyNavigation");
+  const group = document.getElementById("whimsyTabsGroup");
+  if (!template || !group) {
+    return;
+  }
+  const rows = [...template.content.children];
+  template.remove();
+  Preferences.addAll(rows.map(row => ({ id: row.getAttribute("preference"), type: "bool" })));
+  group.append(...rows);
+  Preferences.queueUpdateOfAllElements();
+});
+
+// fix7 settings: search. Firefox's Settings search only looks at what is in
+// #mainPrefPane once every pane's template is inserted (gSearchResultsPane.
+// initializeCategories). Whimsy's groups wait in their own templates until
+// their pane is first shown, so "Claude", "Liquid Glass" or "VPN" found
+// nothing until you had opened that pane. After Firefox's own category
+// setup, every Whimsy group goes in too, hidden unless it belongs to the
+// pane on screen (the search reveals what matches).
+Object.assign(gWhimsySettings, {
+  insertAllForSearch() {
+    const pane = document.getElementById("mainPrefPane");
+    if (!pane) {
+      return;
+    }
+    const before = new Set(pane.children);
+    const steps = [
+      // Look and Feel
+      () => this.insertGroups(),
+      () => this.insertNextMeetingGroup(),
+      () => this.adoptZenGlance(),
+      // Privacy & Security
+      () => this.insertPrivacyGroups(),
+      () => this.insertClaudeGroup(),
+      // Tab Management
+      () => this.insertTabsGroup(),
+      () => this.insertSplitNewTabRow(),
+      () => this.insertSpacesGroup(),
+      () => this.insertExtensionsGroup(),
+      () => this.insertHoverGroup(),
+      // Search
+      () => this.insertBangsGroup(),
+      // General (or Tab Management with the settings redesign)
+      () =>
+        this.insertPerformanceGroup(
+          document.querySelector('[groupid="performance"]')?.getAttribute("data-category") || "paneGeneral"
+        ),
+      // About (async: it waits for Firefox's Updates group to render)
+      () =>
+        this.insertAboutGroup(
+          Services.prefs.getBoolPref("browser.settings-redesign.enabled", false) ? "paneAbout" : "paneGeneral"
+        ),
+    ];
+    for (const step of steps) {
+      try {
+        step();
+      } catch (e) {
+        console.error("Whimsy settings: inserting a group for search failed", e);
+      }
+    }
+    const current = gLastCategory?.category;
+    for (const el of pane.children) {
+      if (!before.has(el) && el.dataset.category && el.dataset.category != current) {
+        el.hidden = true;
+      }
+    }
+  },
+
+  hookSearch() {
+    const search = typeof gSearchResultsPane == "object" ? gSearchResultsPane : null;
+    if (!search || search.whimsyHooked) {
+      return;
+    }
+    search.whimsyHooked = true;
+    const settle = async () => {
+      this.insertAllForSearch();
+      this.hideHiddenHomeFromSearch();
+      if (document.hasPendingL10nMutations) {
+        await new Promise(r => document.addEventListener("L10nMutationsFinished", r, { once: true }));
+      }
+    };
+    if (search._categoriesInitialized) {
+      // Firefox already set up its panes: chain onto that.
+      search._categoriesInitialized = search._categoriesInitialized.then(settle);
+      return;
+    }
+    const original = search.runCategoryInitialization;
+    search.runCategoryInitialization = async function (...args) {
+      await original.apply(this, args);
+      await settle();
+    };
+  },
+});
+
+gWhimsySettings.hookSearch();
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.hookSearch(), { once: true });
+
+// fix/panes: Firefox 159's Appearance and Tabs and browsing panes overlap
+// Zen's Look and Feel and Tab Management. Their settings move into Zen's two
+// panes as Firefox's own setting groups (same prefs, same behavior), the two
+// panes leave the sidebar, and links to them (#appearance, #tabsBrowsing-drm,
+// …) land where the setting went. Left out because Zen already has each one:
+// Browser layout (sidebar.verticalTabs is locked; Zen's Layout chooser),
+// Keyboard shortcuts (a link to about:keyboard; Zen's Keyboard Shortcuts)
+// and Related settings (links to panes in the sidebar).
+// docs/whimsy/settings-panes.md has the full inventory.
+const WHIMSY_MERGED_PANES = {
+  appearance: "zenLooks",
+  tabsBrowsing: "zenTabManagement",
+};
+
+Object.assign(gWhimsySettings, {
+  // Runs on DOMContentLoaded before preferences.js's init_all (this file's
+  // listener is added first), so the panes are never built.
+  mergeFirefoxPanes() {
+    if (this._panesMerged || typeof SettingPaneManager != "object" || typeof register_module != "function") {
+      return;
+    }
+    this._panesMerged = true;
+
+    // Registered without groups: no page and no sidebar button. Their
+    // sub-pages (Containers, Browser icon) hang off Zen's pane instead, for
+    // the breadcrumb, the back arrow and the sidebar highlight.
+    const registerPane = SettingPaneManager.registerPane;
+    SettingPaneManager.registerPane = function (id, config) {
+      if (id in WHIMSY_MERGED_PANES) {
+        config = { ...config, groupIds: [] };
+      } else if (config.parent in WHIMSY_MERGED_PANES) {
+        config = { ...config, parent: WHIMSY_MERGED_PANES[config.parent] };
+      }
+      return registerPane.call(this, id, config);
+    };
+    registerPane.call(SettingPaneManager, "zenLooks", { l10nId: "whimsy-pane-looks-crumb", groupIds: [] });
+    registerPane.call(SettingPaneManager, "zenTabManagement", { l10nId: "whimsy-pane-tabs-crumb", groupIds: [] });
+    for (const id of ["category-appearance", "category-tabs-browsing"]) {
+      document.getElementById(id)?.remove();
+    }
+    this.redirectMergedPanes();
+
+    // Firefox's groups go in while Zen's pane is set up, before Firefox
+    // shows the pane's elements and scrolls to a linked subcategory.
+    const inserts = {
+      paneZenLooks: () => this.insertFirefoxLooks(),
+      paneZenTabManagement: () => this.insertFirefoxTabs(),
+    };
+    const registerModule = register_module;
+    window.register_module = function (name, module) {
+      const result = registerModule.call(this, name, module);
+      const entry = inserts[name] && gCategoryInits.get(name);
+      if (entry) {
+        const init = entry.init;
+        entry.init = function () {
+          const first = !this._initted;
+          init.call(this);
+          if (first) {
+            try {
+              inserts[name]();
+            } catch (e) {
+              console.error("Whimsy settings: adding Firefox's groups failed", e);
+            }
+          }
+        };
+      }
+      return result;
+    };
+  },
+
+  redirectMergedPanes() {
+    const { LEGACY_PANE_MAPPINGS } = ChromeUtils.importESModule(
+      "chrome://browser/content/preferences/config/LegacyPaneMappings.mjs",
+      { global: "current" }
+    );
+    const layout = { category: "zenLooks", subcategory: "layout" };
+    // Firefox's own redirects into the two panes (#general-drm, …).
+    for (const [key, dest] of LEGACY_PANE_MAPPINGS) {
+      if (dest.category in WHIMSY_MERGED_PANES) {
+        LEGACY_PANE_MAPPINGS.set(
+          key,
+          dest.subcategory == "layout"
+            ? layout
+            : { category: WHIMSY_MERGED_PANES[dest.category], subcategory: dest.subcategory }
+        );
+      }
+    }
+    // Any other #appearance-… or #tabsBrowsing-… falls back to these.
+    LEGACY_PANE_MAPPINGS.set("appearance", { category: "zenLooks" });
+    LEGACY_PANE_MAPPINGS.set("appearance-windowDensity", { category: "zenLooks", subcategory: "windowDensity" });
+    LEGACY_PANE_MAPPINGS.set("tabsBrowsing", { category: "zenTabManagement", subcategory: "tabsBrowsing" });
+    LEGACY_PANE_MAPPINGS.set("tabsBrowsing-layout", layout);
+    for (const sub of ["drm", "link-preview", "cfraddons", "cfrfeatures"]) {
+      LEGACY_PANE_MAPPINGS.set(`tabsBrowsing-${sub}`, { category: "zenTabManagement", subcategory: sub });
+    }
+  },
+
+  // Look and Feel: Website appearance (Automatic/Light/Dark), Browser theme,
+  // Window density and Browser icon, at the top of the pane.
+  insertFirefoxLooks() {
+    const groups = this.takeFirefoxGroups("template-whimsyFirefoxLooks");
+    if (!groups) {
+      return;
+    }
+    const anchor = document.getElementById("zenVerticalTabsCategory") ?? document.getElementById("zenVerticalTabsGroup");
+    this.placeFirefoxGroups(groups, anchor, "before");
+    // Zen's "Manage themes" line repeats Firefox's Browser theme link.
+    document.querySelector('#zenVerticalTabsGroup [data-l10n-id="preferences-web-appearance-footer"]')?.remove();
+    // Old links to Firefox's Browser layout land on Zen's layout chooser.
+    document.getElementById("zenVerticalTabsGroup")?.setAttribute("data-subcategory", "layout");
+  },
+
+  // Tab Management: a "Tabs and browsing" section after Pinned Tabs.
+  insertFirefoxTabs() {
+    const template = document.getElementById("template-whimsyFirefoxTabs");
+    if (!template) {
+      return;
+    }
+    // Startup and default browser also live in Firefox's Home pane, which
+    // Zen hides while its URL bar replaces the new tab page. They come here
+    // only then, so they're in one place either way.
+    if (this.homePaneHidden) {
+      ChromeUtils.importESModule("chrome://browser/content/preferences/config/home-startup.mjs", { global: "current" });
+    } else {
+      for (const id of ["startupHome", "defaultBrowserHome"]) {
+        template.content.querySelector(`[groupid="${id}"]`)?.remove();
+      }
+    }
+    const groups = this.takeFirefoxGroups("template-whimsyFirefoxTabs");
+    this.placeFirefoxGroups(groups, document.getElementById("zenPinnedTabsManagerGroup"), "after");
+  },
+
+  get homePaneHidden() {
+    return Services.prefs.getBoolPref("zen.urlbar.replace-newtab", true);
+  },
+
+  takeFirefoxGroups(templateId) {
+    const template = document.getElementById(templateId);
+    if (!template) {
+      return null;
+    }
+    const fragment = template.content;
+    template.remove();
+    return [...fragment.children];
+  },
+
+  placeFirefoxGroups(groups, anchor, where) {
+    if (anchor) {
+      anchor[where](...groups);
+    } else {
+      document.getElementById("mainPrefPane")?.append(...groups);
+    }
+    for (const group of groups) {
+      if (group.localName == "setting-group") {
+        initSettingGroup(group.getAttribute("groupid"));
+      }
+    }
+  },
+
+  // Search: the Home pane's copies of Startup and Default browser stay out
+  // of the results while that pane is hidden; Tab Management has them.
+  hideHiddenHomeFromSearch() {
+    if (!this.homePaneHidden) {
+      return;
+    }
+    for (const group of document.querySelectorAll(
+      'setting-pane[data-category="paneHome"] setting-group:is([groupid="startupHome"], [groupid="defaultBrowserHome"])'
+    )) {
+      group.setAttribute("data-hidden-from-search", "true");
+    }
+  },
+});
+
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.mergeFirefoxPanes(), { once: true });

@@ -191,10 +191,16 @@ add_task(async function test_notes_section_embed_and_switch() {
   }, "The block is saved with the note");
   is(stored.text, "groceries", "The command line is removed from the text");
   is(stored.blocks[0].url, PAGE, "It embeds the current tab");
-  await TestUtils.waitForCondition(
+  const shown = await TestUtils.waitForCondition(
     () => section.querySelector("whimsy-note-block"),
     "The note shows the live block"
   );
+  const editor = section.querySelector(".whimsy-note-editor");
+  ok(
+    editor.getBoundingClientRect().bottom >= shown.getBoundingClientRect().bottom,
+    "The editor grows to fit the block instead of clipping it"
+  );
+  await TestUtils.waitForCondition(() => shown.browser, "The block in the open note loads its page");
 
   // A plain Enter is still a newline.
   textarea.value = "plain";

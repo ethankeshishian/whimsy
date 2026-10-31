@@ -61,7 +61,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   ZenSessionStore: "resource:///modules/zen/ZenSessionManager.sys.mjs",
 });
 
@@ -118,8 +119,12 @@ export const WhimsyPrivate = {
   // --- Window setup ---
 
   initWindow(win) {
-    if (this.isWindowPrivate(win) || !win.gBrowser) {
+    if (this.isWindowPrivate(win) && win.gBrowser) {
       // Everything in a private window is private already.
+      this.calmPrivateWindow(win);
+      return;
+    }
+    if (!win.gBrowser) {
       return;
     }
     this.initGlobal();
@@ -133,6 +138,45 @@ export const WhimsyPrivate = {
     win.gZenWorkspaces?.promiseInitialized
       ?.then(() => this.initSpaces(win))
       .catch(e => console.error("Whimsy: Scratch", e));
+  },
+
+  // fix7/private: Firefox selects the address bar when a private window
+  // opens on the private page, which in Zen reads as the command bar opening
+  // by itself. The window opens on the page instead; Cmd+L still opens the
+  // bar. Only an untouched, empty bar is given up.
+  calmPrivateWindow(win) {
+    if (!this.featureOn) {
+      return;
+    }
+    const calm = () => {
+      const { gBrowser, gURLBar } = win;
+      if (
+        gURLBar?.focused && !gURLBar.value && !gURLBar.view?.isOpen &&
+        gBrowser?.selectedBrowser?.currentURI?.spec == PRIVATE_NEW_TAB_URL
+      ) {
+        gBrowser.selectedBrowser.focus();
+      }
+    };
+    calm();
+    win.requestAnimationFrame(calm);
+    // Firefox selects the bar during startup, possibly after this runs.
+    win.delayedStartupPromise?.then(() => win.setTimeout(calm, 0)).catch(() => {});
+    // The private page may commit after all of that (the first tab starts
+    // on about:blank): calm once more when it arrives.
+    const { gBrowser } = win;
+    if (gBrowser?.selectedBrowser?.currentURI?.spec != PRIVATE_NEW_TAB_URL) {
+      const listener = {
+        onLocationChange(webProgress, request, location) {
+          if (webProgress?.isTopLevel && location?.spec == PRIVATE_NEW_TAB_URL) {
+            gBrowser.removeProgressListener(listener);
+            calm();
+          }
+        },
+      };
+      gBrowser.addProgressListener(listener);
+      // Only the window's opening counts.
+      win.setTimeout(() => gBrowser.removeProgressListener(listener), 10000);
+    }
   },
 
   // Once per session: wrappers on shared modules.
@@ -179,7 +223,6 @@ export const WhimsyPrivate = {
         return addToFormHistory.call(this, isPrivate || WhimsyPrivate.selectedTabIsPrivate(), ...rest);
       };
     }
-    this.wrapSearchHandoff();
     // Zen saves the last normal window to close straight from its data,
     // which is also what Undo Close Window would bring back.
     const store = lazy.ZenSessionStore;
@@ -203,96 +246,6 @@ export const WhimsyPrivate = {
     lazy.PrivacyFilter.filterPrivateTabs?.(winData);
     if (Array.isArray(winData.spaces)) {
       winData.spaces = winData.spaces.filter(space => !space.whimsyScratch);
-    }
-  },
-
-  // fixC: the private page's search box. about:privatebrowsing's box is a
-  // fake: Firefox hands it off to the address bar (AboutPrivateBrowsingParent
-  // "SearchHandoff"), so typing never lives in the page, the private search
-  // engine and suggestions come from the one real search field, and the
-  // page can't be scripted into searching. That fence stays: the text still
-  // goes to the address bar. What changes is how: Firefox focuses the bar
-  // invisibly ("hidden focus", with a fake caret in the page) and moves
-  // into search mode for the private engine on the first key, which in
-  // Zen's floating bar reads as a separate command mode popping up from
-  // nowhere. In Whimsy the box opens the address bar exactly as a new tab
-  // does (Browser:OpenLocation, Zen's floating bar), with anything pasted or
-  // dropped already typed in. A private tab's address bar searches with the
-  // private engine anyway (gURLBar.isPrivate, set in updateSelected).
-  wrapSearchHandoff() {
-    // Firefox 159 sends the box's handoff through ContentSearch (the same
-    // path as about:newtab's search box) rather than AboutPrivateBrowsing.
-    try {
-      const { ContentSearch } = ChromeUtils.importESModule("resource:///actors/ContentSearchParent.sys.mjs");
-      const original = ContentSearch?._onMessageSearchHandoff;
-      if (typeof original == "function" && !ContentSearch._whimsyHandoff) {
-        ContentSearch._whimsyHandoff = true;
-        ContentSearch._onMessageSearchHandoff = function (message) {
-          const browser = message?.browser;
-          const win = browser?.documentGlobal;
-          if (
-            WhimsyPrivate.featureOn &&
-            win?.gURLBar &&
-            browser.currentURI?.spec?.startsWith("about:privatebrowsing")
-          ) {
-            WhimsyPrivate.focusAddressBar(win, message.data?.text || "");
-            return undefined;
-          }
-          return original.call(this, message);
-        };
-      }
-    } catch (e) {
-      console.error("Whimsy: private page search (ContentSearch)", e);
-    }
-    let parentClass;
-    try {
-      ({ AboutPrivateBrowsingParent: parentClass } = ChromeUtils.importESModule(
-        "resource:///actors/AboutPrivateBrowsingParent.sys.mjs"
-      ));
-    } catch (e) {
-      console.error("Whimsy: private page search", e);
-      return;
-    }
-    const proto = parentClass?.prototype;
-    if (!proto || proto._whimsyHandoff || typeof proto.receiveMessage != "function") {
-      return;
-    }
-    const receiveMessage = proto.receiveMessage;
-    proto._whimsyHandoff = true;
-    proto.receiveMessage = function (message) {
-      if (message?.name == "SearchHandoff" && WhimsyPrivate.featureOn) {
-        const win = this.browsingContext?.top?.embedderElement?.documentGlobal;
-        if (win?.gURLBar) {
-          // The page drops its fake focus; the real bar has it.
-          this.sendAsyncMessage("ShowSearch");
-          WhimsyPrivate.focusAddressBar(win, message.data?.text || "");
-          return undefined;
-        }
-      }
-      return receiveMessage.call(this, message);
-    };
-  },
-
-  // Opens the address bar the way a new tab does (Zen floats it), with
-  // `text` typed in when given.
-  focusAddressBar(win, text = "") {
-    const command = win.document.getElementById("Browser:OpenLocation");
-    if (command) {
-      command.doCommand();
-    } else {
-      win.gURLBar.select();
-    }
-    if (text) {
-      win.gURLBar.search(text);
-      // Zen's floating bar resets its value as it finishes opening; put the
-      // pasted text back once it has.
-      for (const delay of [0, 100]) {
-        win.setTimeout(() => {
-          if (win.gURLBar.focused && win.gURLBar.value != text) {
-            win.gURLBar.search(text);
-          }
-        }, delay);
-      }
     }
   },
 
@@ -488,17 +441,14 @@ export const WhimsyPrivate = {
       whimsyPrivate: true,
       inBackground,
       relatedToCurrent: true,
-      focusUrlBar: !url && !inBackground,
     });
     if (!tab || !this.isPrivateTab(tab)) {
       return tab;
     }
     if (!inBackground) {
+      // fix7/private: the private page opens calm, with no command bar
+      // popping up over it; Cmd+L or Cmd+T opens the address bar.
       gBrowser.selectedTab = tab;
-      if (!url && win.gURLBar) {
-        // Like Cmd+T: the address bar opens, ready to type.
-        this.focusAddressBar(win);
-      }
     }
     return tab;
   },
@@ -510,15 +460,22 @@ export const WhimsyPrivate = {
   // --- Shortcuts, menus, command bar ---
 
   initCommands(win) {
-    const { WhimsyShortcuts } = lazy;
+    const { WhimsyCommands } = lazy;
     if (this.featureOn) {
       // Scratch replaces the private window on Cmd+Shift+N (BUILD-PLAN), so
-      // clear the two built-in bindings for that key in this window.
+      // clear the two built-in bindings for that key in this window. wave6:
+      // Zen's New Blank Window moves to Arc's Blank Window key,
+      // Cmd+Ctrl+N, instead of losing its key (when that's free).
       for (const id of ["zen-new-unsynced-window", "key_privatebrowsing"]) {
         const keyEl = win.document.getElementById(id);
         if (keyEl?.getAttribute("key")?.toUpperCase() === "N") {
-          keyEl.removeAttribute("key");
-          keyEl.removeAttribute("modifiers");
+          const blank = { key: "N", modifiers: "accel,control" };
+          if (id == "zen-new-unsynced-window" && !WhimsyCommands.findConflict(win.document, blank, id)) {
+            keyEl.setAttribute("modifiers", blank.modifiers);
+          } else {
+            keyEl.removeAttribute("key");
+            keyEl.removeAttribute("modifiers");
+          }
           const keyset = keyEl.parentElement;
           const parent = keyset?.parentElement;
           if (parent) {
@@ -528,13 +485,19 @@ export const WhimsyPrivate = {
         }
       }
     }
-    WhimsyShortcuts.addCommand(win, {
+    const icon = "chrome://browser/skin/zen-icons/private-window.svg";
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyNewPrivateTab",
+      l10nId: "whimsy-action-new-private-tab",
       run: w => this.openPrivateTab(w) ?? this.openPrivateWindow(w),
-      key: this.featureOn ? { id: "key_whimsyNewPrivateTab", key: "T", modifiers: "accel,alt" } : null,
+      keyId: "key_whimsyNewPrivateTab",
+      key: this.featureOn ? { key: "T", modifiers: "accel,alt" } : null,
+      icon,
+      isAvailable: () => this.inWindow,
     });
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyNewScratch",
+      l10nId: "whimsy-action-new-scratch",
       run: w => {
         if (!this.inWindow || !w.gZenWorkspaces?.workspaceEnabled) {
           this.openPrivateWindow(w);
@@ -542,33 +505,25 @@ export const WhimsyPrivate = {
         }
         this.openScratch(w).catch(e => console.error("Whimsy: Scratch", e));
       },
-      key: this.featureOn ? { id: "key_whimsyNewScratch", key: "N", modifiers: "accel,shift" } : null,
+      keyId: "key_whimsyNewScratch",
+      key: this.featureOn ? { key: "N", modifiers: "accel,shift" } : null,
+      icon,
+      isAvailable: () => this.inWindow,
     });
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyKeepScratch",
+      l10nId: "whimsy-action-keep-scratch",
       run: w => this.confirmKeepScratch(w),
+      icon,
+      isAvailable: w => this.featureOn && !!this.getScratch(w),
     });
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyCloseScratch",
+      l10nId: "whimsy-action-close-scratch",
       run: w => this.closeScratch(w).catch(e => console.error("Whimsy: Scratch", e)),
+      icon,
+      isAvailable: w => this.featureOn && !!this.getScratch(w),
     });
-    const icon = "chrome://browser/skin/zen-icons/private-window.svg";
-    WhimsyShortcuts.addActions([
-      { l10nId: "whimsy-action-new-private-tab", command: "cmd_whimsyNewPrivateTab", icon, isAvailable: () => this.inWindow },
-      { l10nId: "whimsy-action-new-scratch", command: "cmd_whimsyNewScratch", icon, isAvailable: () => this.inWindow },
-      {
-        l10nId: "whimsy-action-keep-scratch",
-        command: "cmd_whimsyKeepScratch",
-        icon,
-        isAvailable: w => this.featureOn && !!this.getScratch(w),
-      },
-      {
-        l10nId: "whimsy-action-close-scratch",
-        command: "cmd_whimsyCloseScratch",
-        icon,
-        isAvailable: w => this.featureOn && !!this.getScratch(w),
-      },
-    ]);
   },
 
   initMenus(win) {
@@ -772,36 +727,28 @@ export const WhimsyPrivate = {
   },
 
   // fixC: keeping Scratch ends its private browsing, which the old "Keep as
-  // Space" didn't say. The action now reads "Keep as Normal Space…" and asks
-  // first, in Zen's own toast (the one with an action button, as for a tab
-  // opened in the background): "Keep as a normal space? Its pages will
-  // leave private browsing." with Keep. Ignoring it changes nothing.
-  confirmKeepScratch(win) {
+  // Space" didn't say, so it asks first. wave5/uxfix + fix7/private: it
+  // can't be undone, so it asks in a modal dialog, the same window-modal
+  // prompt as Firefox's close-window warning and Whimsy's Delete Space
+  // (never a toast or notification): a title, one sentence, Cancel and
+  // "Keep Space". Cancel is the default (Return and Esc both cancel), and
+  // Cancel changes nothing.
+  async confirmKeepScratch(win) {
     if (!this.getScratch(win)) {
       return;
     }
-    const keep = () => this.keepScratch(win).catch(e => console.error("Whimsy: Scratch", e));
-    const ui = win.gZenUIManager;
-    if (!ui?.showToast) {
-      keep();
+    const [title, body, accept] = await win.document.l10n.formatValues([
+      "whimsy-scratch-keep-confirm-title",
+      "whimsy-scratch-keep-confirm",
+      "whimsy-scratch-keep-confirm-accept",
+    ]);
+    if (!(await lazy.WhimsyPanels.confirm(win, { title, body, accept, cancelDefault: true }))) {
       return;
     }
-    const id = "whimsy-scratch-keep-confirm-button";
-    ui.showToast("whimsy-scratch-keep-confirm", {
-      timeout: 6000,
-      button: {
-        id,
-        command: event => {
-          event.target.closest(".zen-toast")?.remove();
-          keep();
-        },
-      },
-    });
-    // Zen's toast buttons have no label of their own.
-    const button = win.document.getElementById(id);
-    if (button) {
-      win.document.l10n.setAttributes(button, id);
+    if (!this.getScratch(win)) {
+      return;
     }
+    await this.keepScratch(win).catch(e => console.error("Whimsy: Scratch", e));
   },
 
   // Turns Scratch into a normal space. Private pages can't stop being
@@ -812,12 +759,14 @@ export const WhimsyPrivate = {
     if (!scratch) {
       return null;
     }
-    const [name] = await win.document.l10n.formatValues([{ id: "whimsy-scratch-kept-name" }]);
     const { gBrowser } = win;
     const privateTabs = gBrowser.tabs.filter(
       tab => !tab.closing && tab.getAttribute("zen-workspace-id") == scratch.uuid && this.isPrivateTab(tab)
     );
-    const kept = { ...scratch, name: name || "Space", icon: undefined };
+    // fix7/private: the kept space keeps the name it had ("Scratch", or
+    // what the person renamed it to). It used to take a fixed string,
+    // whimsy-scratch-kept-name, whose value was "Space". Rename inline later.
+    const kept = { ...scratch, name: scratch.name || "Scratch", icon: undefined };
     delete kept.whimsyScratch;
     spaces.saveWorkspace(kept);
     // fixC: the private look goes the moment it's a normal space. Zen only

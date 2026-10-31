@@ -70,6 +70,36 @@ export const WhimsyAIReader = {
       const text = await this._testReader(url, { userContextId, removeBoilerplate });
       return { text: String(text ?? ""), title: "", url };
     }
+    return this.withHiddenPage(url, { userContextId, signal }, async browser => {
+      const actor = browser.browsingContext.currentWindowGlobal.getActor("PageExtractor");
+      // Lets client-rendered pages (most logged-in apps) fill in.
+      await actor.waitForPageReady(undefined, 1500);
+      const result = await actor.getText({ sufficientLength, removeBoilerplate, useSimpleText: true });
+      return {
+        text: result?.text ?? "",
+        title: browser.contentTitle || "",
+        url: browser.currentURI?.spec || url,
+      };
+    });
+  },
+
+  /**
+   * Loads `url` in a hidden, sandboxed browser (no forms, popups, downloads,
+   * top-level navigation or history; muted) and calls `fn(browser)` once it
+   * has loaded. The browser is destroyed when `fn` settles. Shared by the AI
+   * reader and the Search Deck (wave6/search), so both keep one sandbox.
+   *
+   * @param {string} url
+   * @param {object} options
+   * @param {number} [options.userContextId]
+   * @param {AbortSignal} [options.signal]
+   * @param {string} [options.messageManagerGroup] Which actors the page gets.
+   * @param {(browser: Element) => Promise<any>} fn
+   */
+  async withHiddenPage(url, { userContextId = 0, signal, messageManagerGroup = "headless-browsers" } = {}, fn) {
+    if (!this.isReadableUrl(url)) {
+      throw new Error("Only http(s) pages can be read");
+    }
     const uri = Services.io.newURI(url);
     const frame = new lazy.HiddenFrame();
     let timer;
@@ -86,7 +116,7 @@ export const WhimsyAIReader = {
       browser.setAttribute("nodefaultsrc", "true");
       browser.setAttribute("disableglobalhistory", "true");
       // PageExtractor's actor is registered for this group as well.
-      browser.setAttribute("messagemanagergroup", "headless-browsers");
+      browser.setAttribute("messagemanagergroup", messageManagerGroup);
       if (userContextId) {
         browser.setAttribute("usercontextid", String(userContextId));
       }
@@ -119,6 +149,7 @@ export const WhimsyAIReader = {
         };
         browser.addProgressListener(listener, Ci.nsIWebProgress.NOTIFY_STATE_WINDOW);
         timer = setTimeout(() => reject(new Error("The page took too long to load")), LOAD_TIMEOUT_MS);
+        signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
       });
 
       browser.loadURI(uri, {
@@ -129,15 +160,7 @@ export const WhimsyAIReader = {
       if (signal?.aborted) {
         throw new Error("aborted");
       }
-      const actor = browser.browsingContext.currentWindowGlobal.getActor("PageExtractor");
-      // Lets client-rendered pages (most logged-in apps) fill in.
-      await actor.waitForPageReady(undefined, 1500);
-      const result = await actor.getText({ sufficientLength, removeBoilerplate, useSimpleText: true });
-      return {
-        text: result?.text ?? "",
-        title: browser.contentTitle || "",
-        url: browser.currentURI?.spec || url,
-      };
+      return await fn(browser);
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);

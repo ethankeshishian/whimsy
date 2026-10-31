@@ -381,13 +381,79 @@
 - name: whimsy.feature.page-watch
   value: true
 
+- name: whimsy.feature.live-folders-local-servers
+  value: true
+
 - name: whimsy.feature.note-blocks
   value: true
 
-- name: whimsy.feature.easel
+- name: whimsy.feature.video-captions
   value: true
 
-- name: whimsy.feature.redact
+- name: whimsy.feature.claude-shield
+  value: true
+
+- name: whimsy.feature.claude-replay
+  value: true
+
+- name: whimsy.feature.qr-code
+  value: true
+
+- name: whimsy.feature.copy-page-markdown
+  value: true
+
+- name: whimsy.feature.doc-viewer
+  value: true
+
+- name: whimsy.feature.link-lasso
+  value: true
+
+- name: whimsy.feature.season-toast
+  value: true
+
+- name: whimsy.feature.selection-verbs
+  value: true
+
+- name: whimsy.feature.space-look
+  value: true
+
+- name: whimsy.feature.command-registry
+  value: true
+
+- name: whimsy.feature.arc-audio-icon
+  value: true
+
+- name: whimsy.feature.zap
+  value: true
+
+- name: whimsy.feature.link-hints
+  value: true
+
+- name: whimsy.feature.instant-result
+  value: true
+
+- name: whimsy.feature.search-deck
+  value: true
+
+- name: whimsy.feature.already-open
+  value: true
+
+- name: whimsy.feature.trails
+  value: true
+
+- name: whimsy.feature.page-actions
+  value: true
+
+- name: whimsy.feature.split-alt-click
+  value: true
+
+- name: whimsy.feature.split-arc-keys
+  value: true
+
+- name: whimsy.feature.command-bar-dedup
+  value: true
+
+- name: whimsy.feature.arc-menus
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

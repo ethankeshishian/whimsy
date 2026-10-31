@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Card</title>
+</head>
+<body>
+<!-- wave6/search: one Search Deck card; ?n= picks which. -->
+<h1 id="card">Card</h1>
+<script>
+  const n = new URLSearchParams(location.search).get("n");
+  document.title = "Card " + n;
+  document.getElementById("card").textContent = "Card " + n;
+</script>
+</body>
+</html>

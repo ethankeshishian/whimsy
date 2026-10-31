@@ -7,7 +7,7 @@
 // automatically - a striped outline on the tab, and a bar across the top
 // of the window with the full URL plus Console/Network/Elements buttons,
 // so devs never hunt for DevTools or lose track of the port and path.
-// "Turn on/off Developer Mode for this site" (command bar) stores a manual
+// "Turn On/Off Developer Mode for This Site" (command bar) stores a manual
 // override as a permission, for sites that aren't on a dev host at all.
 // whimsy.feature.dev-mode.
 

@@ -145,6 +145,7 @@
   value: tree
 # batch6 #7: Shift+click a link opens it in a split instead of navigating
 # it. Off by default: Shift+click is Firefox's own "open in new window".
+# (Not Arc's: Arc's Shift+click opens Peek; Whimsy keeps Zen's Option+click.)
 # Settings -> Tab Management -> Tabs.
 - name: whimsy.splitlink.shift-click
   value: false
@@ -408,7 +409,55 @@
 - name: whimsy.ai.ollama.model
   value: ""
 
-# wave5: redact. The Redact toggle in the screenshot panel, remembered
-# between captures (blurs emails, phones, keys and card numbers).
-- name: whimsy.capture.redact
-  value: false
+# wave5/lan: Local servers live folder. Ports probed on localhost (comma
+# separated; empty means the built-in list of common dev-server ports) and
+# how often to probe while the folder is visible.
+- name: whimsy.live-folders.local-servers.ports
+  value: ""
+
+- name: whimsy.live-folders.local-servers.poll-ms
+  value: 5000
+
+# wave5/safety: agent replay. Keep a timeline of each Claude run (steps and
+# small page snapshots) in the profile, shown at whimsy://replay.
+- name: whimsy.claude.replay
+  value: true
+
+# wave5/quick: new season toast. The season that already had its toast
+# ("2026-autumn"); empty until the first one.
+- name: whimsy.seasons.last-toast
+  value: ""
+
+# wave5/verbs: your own selection verbs (skills), one per line:
+# "Label | https://example.com/?q=%s" (%s the selection, or the page address
+# when nothing is selected; %t the page title; %u its address).
+- name: whimsy.verbs.skills
+  value: ""
+
+# system: which of History's Show filters the Library opens on: "all",
+# "closed" (archived tabs) or "snoozed". "View Archive…" and "View Snoozed
+# Tabs…" set it; the old Archive section's saved state migrates here.
+- name: whimsy.library.history.view
+  value: all
+
+# wave6/zap: things zapped off pages (WhimsyZap), counted for Year in tabs.
+- name: whimsy.stats.zapped
+  value: 0
+
+# Find (Cmd+F): highlight every match like Chrome, lighter for the others
+# and stronger for the current one. Firefox's own "Highlight All", on by
+# default; the find bar's checkbox still turns it off.
+- name: findbar.highlightAll
+  value: true
+
+- name: ui.textHighlightBackground
+  value: "#fff1a8"
+
+- name: ui.textHighlightForeground
+  value: "#1d1a26"
+
+- name: ui.textSelectAttentionBackground
+  value: "#ff9632"
+
+- name: ui.textSelectAttentionForeground
+  value: "#1d1a26"

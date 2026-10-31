@@ -4,6 +4,18 @@
 
 /* Loaded into each browser window by Whimsy.initWindow. */
 
+/* wave5/uxfix: one motion system. Zen's own curve (it uses this one
+   throughout src/zen), two durations, exits at 0.75 of the enter, and one
+   overshoot kept for the only gesture with momentum: dropping a tab on a
+   space. */
+:root {
+  --whimsy-ease: cubic-bezier(0.075, 0.82, 0.165, 1);
+  --whimsy-ease-momentum: cubic-bezier(0.3, 1.5, 0.5, 1);
+  --whimsy-dur-fast: 150ms;
+  --whimsy-dur-base: 240ms;
+  --whimsy-dur-exit: 180ms;
+}
+
 /* Interface zoom (whimsy.ui-zoom). Everything around the web page is zoomed:
    the sidebar, the top toolbar, Firefox's sidebar panel, the find bar, menus
    and panels. Web pages keep their own zoom, so nothing that holds a page is
@@ -110,7 +122,8 @@
     }
   }
   @media -moz-pref("whimsy.tabs.title-lines", 2), -moz-pref("whimsy.tabs.title-lines", 3) {
-    #tabbrowser-tabs .tabbrowser-tab:not([zen-essential]) {
+    /* A space with its own look (wave5/look) sets its lines below. */
+    #tabbrowser-tabs .tabbrowser-tab:not([zen-essential], zen-workspace[whimsy-look-lines] *) {
       & .tab-label-container {
         height: auto !important;
         mask-image: none !important;
@@ -300,23 +313,27 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     }
   }
 
-  /* The badge itself, wherever it's drawn. */
-  .tabbrowser-tab[pinned] :is(.tab-icon-stack, .tab-content)[whimsy-unread]::after {
-    min-width: 15px;
-    height: 15px;
+  /* The badge itself, only where it's drawn (wave5/uxfix: a broader
+     selector also painted an empty red disc on Zen's own ::after of an
+     Essential's row). White on this red is 5.6:1; the old rgb(240 82 79)
+     was 3.5:1. */
+  :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after,
+  :root[zen-sidebar-expanded="true"] .tabbrowser-tab[pinned]:not([zen-essential]) .tab-content[whimsy-unread]::after {
+    min-width: 16px;
+    height: 16px;
     padding-inline: 4px;
     box-sizing: border-box;
     border-radius: 8px;
-    background: rgb(240, 82, 79);
+    background: rgb(198, 40, 40);
     color: white;
-    font: 600 9px/15px -apple-system, system-ui, sans-serif;
+    font: 600 10px/16px -apple-system, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     text-align: center;
   }
 
-  /* On the icon: Essentials, and every pinned tab when the sidebar is
-     collapsed. */
-  :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after {
+  /* On the icon: every pinned tab when the sidebar is collapsed
+     (Essentials put it on the tile's corner, below). */
+  :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]:not([zen-essential]) .tab-icon-stack[whimsy-unread]::after {
     content: attr(whimsy-unread);
     top: -6px;
     inset-inline-end: -8px;
@@ -328,7 +345,8 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
       content: attr(whimsy-unread);
       order: 99;
       flex-shrink: 0;
-      margin-inline: 6px 2px;
+      /* Stay inside the row's padding so "99+" is never cut at the edge. */
+      margin-inline: 6px 6px;
     }
 
     &:hover .tab-content[whimsy-unread]::after {
@@ -347,12 +365,56 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     background: var(--zen-primary-color);
   }
 
-  @media not (prefers-reduced-motion: reduce) {
-    .tabbrowser-tab[pinned] :is(.tab-icon-stack, .tab-content)[whimsy-unread]::after,
-    .tabbrowser-tab[pinned][titlechanged]:not([selected]) .tab-icon-stack::after {
-      animation: whimsy-badge-in 0.22s cubic-bezier(0.3, 1.4, 0.6, 1);
+  /* fix7/tabs: an Essential wears it on the tile's corner, like Arc's
+     Favorites, not on the favicon's. On the 16px icon the pill (and its
+     ring in the sidebar's colour, which isn't the tile's) sat over the
+     favicon's own corner (Gmail draws its count there too) and the tile's
+     edge, so it read as a smudge. The icon stack stops being the anchor;
+     the tile's content box (position: relative in Firefox) is. */
+  .tabbrowser-tab[zen-essential] {
+    & .tab-icon-stack {
+      position: static;
+    }
+
+    & .tab-icon-stack::after {
+      box-shadow: 0 0 0 1px light-dark(rgb(255 255 255 / 0.9), rgb(0 0 0 / 0.35)), 0 1px 2px rgb(0 0 0 / 0.25);
+    }
+
+    & .tab-icon-stack[whimsy-unread]::after {
+      content: attr(whimsy-unread);
+      top: calc(var(--tab-margin-block, 0px) + 4px);
+      inset-inline-end: 4px;
+    }
+
+    &[titlechanged]:not([selected], [whimsy-unread]) .tab-icon-stack::after {
+      top: calc(var(--tab-margin-block, 0px) + 6px);
+      inset-inline-end: 6px;
     }
   }
+
+  @media not (prefers-reduced-motion: reduce) {
+    :is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[pinned]) .tab-icon-stack[whimsy-unread]::after,
+    :root[zen-sidebar-expanded="true"] .tabbrowser-tab[pinned]:not([zen-essential]) .tab-content[whimsy-unread]::after,
+    .tabbrowser-tab[pinned][titlechanged]:not([selected]) .tab-icon-stack::after {
+      animation: whimsy-badge-in var(--whimsy-dur-base) var(--whimsy-ease);
+    }
+  }
+}
+
+/* fix7/tabs: a pinned tab or Essential in a container other than its
+   space's keeps Firefox's container colour, but as a short pill centred on
+   the tile's leading edge (like a sidebar selection marker) instead of a
+   2px line the full height of a rounded tile, which read as a stray
+   border. Tabs in their space's own container get no line at all
+   (WhimsyTabs marks them so Zen hides it). */
+#tabbrowser-tabs .tabbrowser-tab[pinned][usercontextid]:not([zenDefaultUserContextId="true"]) > .tab-stack > .tab-background > .tab-context-line {
+  flex: none;
+  align-self: flex-start;
+  width: 3px !important;
+  height: 14px !important;
+  margin-block: auto !important;
+  margin-inline: 3px 0 !important;
+  border-radius: 1.5px;
 }
 
 @keyframes whimsy-badge-in {
@@ -366,7 +428,7 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
    accent color and grows a little; on drop it bounces once. */
 #zen-workspaces-button toolbarbutton[zen-workspace-id] {
   @media not (prefers-reduced-motion: reduce) {
-    transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1), background-color 0.16s ease;
+    transition: transform var(--whimsy-dur-fast) var(--whimsy-ease), background-color var(--whimsy-dur-fast) var(--whimsy-ease);
   }
 
   &[whimsy-drop-target] {
@@ -378,7 +440,7 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 
   @media not (prefers-reduced-motion: reduce) {
     &[whimsy-landed] {
-      animation: whimsy-space-landed 0.36s cubic-bezier(0.3, 1.5, 0.5, 1);
+      animation: whimsy-space-landed 0.36s var(--whimsy-ease-momentum);
     }
   }
 }
@@ -400,23 +462,76 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 }
 
-/* Hex colors: the field between Zen's color well and opacity in the theme
-   picker's custom color row. */
+/* Hex colors: Zen's custom color row (a stretched native color well, a
+   0-1 number spinner and a bare + button) becomes one field, like Arc's and
+   Figma's: a round swatch (the well, still clickable), the hex text and an
+   add button inside one bordered pill. The hex carries opacity (#RRGGBBAA),
+   so Zen's spinner hides; it stays in the DOM because Zen's addCustomColor
+   reads it, and the hex field writes the alpha into it. */
+#zen-theme-picker-color > hbox:has(> #whimsy-hex-input:not([hidden])) {
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding-inline: 6px 3px;
+  border: 1px solid var(--zen-input-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--zen-colors-input-bg);
+  transition: border-color 120ms ease-out;
+
+  &:focus-within {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-inset);
+  }
+
+  &:has(> #whimsy-hex-input[invalid]) {
+    border-color: light-dark(#d70022, #ff848b);
+  }
+
+  & > #PanelUI-zen-gradient-generator-custom-input {
+    appearance: none;
+    flex: none;
+    width: 20px !important;
+    height: 20px;
+    padding: 0 !important;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+
+    &::-moz-color-swatch {
+      border: 1px solid light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.2));
+      border-radius: 50%;
+    }
+  }
+
+  & > #PanelUI-zen-gradient-generator-custom-opacity {
+    display: none;
+  }
+
+  & > #PanelUI-zen-gradient-generator-color-custom-add {
+    flex: none;
+    margin: 0;
+    padding: 4px !important;
+    border-radius: var(--border-radius-small);
+  }
+}
+
 #whimsy-hex-input {
   flex: 1;
   min-width: 0;
-  max-width: 90px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   text-transform: uppercase;
 
   &::placeholder {
     text-transform: none;
-  }
-
-  &[invalid] {
-    outline: 1.5px solid light-dark(#d70022, #ff848b);
-    outline-offset: -1px;
   }
 }
 
@@ -640,11 +755,13 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 
 /* Fire button: a brief full-chrome flame flash (the scope sheet is a
    WhimsyPanels sheet, styled with the others at the end of this file). */
+/* Below Zen's toast layer (#zen-toast-container, z-index 1000), so the
+   "data forgotten" toast never flashes under the flame. */
 :root[whimsy-fire-burning]::after {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 999;
   pointer-events: none;
   background: radial-gradient(circle, color-mix(in srgb, orangered 55%, transparent) 0%, transparent 70%);
   animation: whimsy-fire-flash 700ms ease-out;
@@ -653,11 +770,11 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   from { opacity: 0.9; }
   to { opacity: 0; }
 }
+/* Reduced motion: no flash at all (a sudden tint is a brightness jump);
+   the toast alone confirms the data is gone. */
 @media (prefers-reduced-motion: reduce) {
   :root[whimsy-fire-burning]::after {
-    animation: none;
-    opacity: 0.35;
-    background: color-mix(in srgb, currentColor 20%, transparent);
+    display: none;
   }
 }
 
@@ -808,18 +925,24 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   min-height: 240px !important;
 
   --whimsy-mini-bar-height: 48px;
-  --toolbox-textcolor: #fafbff;
-  --toolbar-color: #fafbff;
-  --toolbar-bgcolor: #171523;
-  --zen-main-browser-background: #171523;
-  background: #171523 !important;
+  /* Arc's Little Arc chrome is a dark plum (#171523) with lighter pills
+     (#292637 / #332838): a frame a few percent off the page, tinted by the
+     theme. Derive the same steps from Zen's theme so light mode gets a
+     light frame and the accent colour tints it, never raw hex. */
+  --whimsy-mini-frame: color-mix(in srgb, var(--zen-primary-color) 8%, var(--zen-dialog-background));
+  --whimsy-mini-text: var(--zen-branding-bg-reverse);
+  --toolbox-textcolor: var(--whimsy-mini-text);
+  --toolbar-color: var(--whimsy-mini-text);
+  --toolbar-bgcolor: var(--whimsy-mini-frame);
+  --zen-main-browser-background: var(--whimsy-mini-frame);
+  background: var(--whimsy-mini-frame) !important;
   border-radius: 16px;
   --zen-native-inner-radius: 0px;
   --whimsy-mini-control: 28px;
-  --whimsy-mini-fill: #292637;
-  --whimsy-mini-fill-hover: #332838;
-  --whimsy-mini-fill-active: light-dark(rgb(14 15 16 / 0.14), rgb(250 251 255 / 0.20));
-  --whimsy-mini-hairline: light-dark(rgb(14 15 16 / 0.10), rgb(250 251 255 / 0.12));
+  --whimsy-mini-fill: color-mix(in srgb, var(--whimsy-mini-text) 8%, var(--whimsy-mini-frame));
+  --whimsy-mini-fill-hover: color-mix(in srgb, var(--whimsy-mini-text) 13%, var(--whimsy-mini-frame));
+  --whimsy-mini-fill-active: color-mix(in srgb, var(--whimsy-mini-text) 20%, var(--whimsy-mini-frame));
+  --whimsy-mini-hairline: color-mix(in srgb, var(--whimsy-mini-text) 14%, transparent);
 
   /* The sidebar stays out of layout, but not display:none: the floating
      command bar (the URL bar, opened from the address) lives in it and is
@@ -875,8 +998,8 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   height: var(--whimsy-mini-bar-height);
   min-height: var(--whimsy-mini-bar-height);
   padding-inline: var(--zen-element-separation);
-  color: #fafbff;
-  background: #171523;
+  color: var(--whimsy-mini-text);
+  background: var(--whimsy-mini-frame);
   font: menu;
   font-size: 12px;
   /* The bar is the title bar: drag the window by any empty part of it. */
@@ -1396,7 +1519,7 @@ tab[whimsy-unread] {
   margin: 2px;
   background-color: currentColor;
   mask: url("chrome://global/skin/icons/arrow-down-12.svg") center / 12px no-repeat;
-  transition: transform 150ms cubic-bezier(0.2, 0, 0, 1);
+  transition: transform var(--whimsy-dur-fast) var(--whimsy-ease);
 }
 .whimsy-tree-toggle[aria-expanded="false"]::before { transform: rotate(-90deg); }
 .whimsy-tree-toggle:dir(rtl)[aria-expanded="false"]::before { transform: rotate(90deg); }
@@ -1506,6 +1629,159 @@ panel.whimsy-cheatsheet .whimsy-cheatsheet-list {
   margin-block-end: 6px;
 }
 
+/* fix7/tabs: People cards. One clear order: who (avatar, name, handle and
+   site), what they say (bio), their numbers, then actions. Colours,
+   radius and buttons come from Zen's panel and Firefox's button tokens. */
+#whimsy-hover-card[whimsy-person] {
+  --panel-padding: 14px;
+  --panel-width: 300px;
+}
+
+.whimsy-person {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 272px;
+  margin: 0 !important;
+}
+
+.whimsy-person-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.whimsy-person-avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  outline: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  outline-offset: -1px;
+}
+
+.whimsy-person-initials {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.whimsy-person-names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.whimsy-person-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-person-handle,
+.whimsy-person-stats {
+  font-size: 12px;
+  color: var(--text-color-deemphasized);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-person-bio {
+  font-size: 13px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.whimsy-person-stats {
+  display: flex;
+  gap: 14px;
+
+  & b {
+    color: var(--panel-color, currentColor);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.whimsy-person-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  & > div {
+    height: 10px;
+    border-radius: 5px;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  & > div:last-child {
+    width: 60%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    & > div {
+      animation: whimsy-person-pulse 1.2s ease-in-out infinite alternate;
+    }
+  }
+}
+
+@keyframes whimsy-person-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+
+.whimsy-person-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.whimsy-person-action {
+  flex: 1;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--button-border-radius, 6px);
+  background: var(--button-background-color, color-mix(in srgb, currentColor 8%, transparent));
+  color: var(--button-text-color, currentColor);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+
+  &:hover {
+    background: var(--button-background-color-hover, color-mix(in srgb, currentColor 14%, transparent));
+  }
+
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset, 2px);
+  }
+
+  &.primary {
+    background: var(--button-background-color-primary, AccentColor);
+    color: var(--button-text-color-primary, AccentColorText);
+
+    &:hover {
+      background: var(--button-background-color-primary-hover, AccentColor);
+    }
+  }
+}
+
 /* fixB: sheets (WhimsyPanels.sys.mjs). Every small Whimsy panel - Snooze,
    Fire button, Find Heavy Tabs, Favorite splits, Cookies, Pretend to be,
    the shortcut cheat sheet - is one of these: Zen's panel surface and
@@ -1598,6 +1874,11 @@ panel.whimsy-sheet .whimsy-sheet-header {
   padding: 0 8px;
   border-radius: 8px;
   background-color: color-mix(in srgb, currentColor 6%, transparent);
+}
+/* The input itself drops its ring; the whole pill shows focus instead. */
+.whimsy-sheet-search:focus-within {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -1px;
 }
 .whimsy-sheet-search-icon {
   width: 14px;
@@ -1757,6 +2038,22 @@ panel.whimsy-sheet .whimsy-sheet-footer {
     flex: 1;
     margin: 0;
   }
+  /* wave5/uxfix: an action that can't be undone (Fire's "Forget …"):
+     Firefox's destructive button colours. */
+  & > .footer-button[destructive] {
+    background-color: var(--button-background-color-destructive);
+    color: var(--button-text-color-destructive);
+    &:hover {
+      background-color: var(--button-background-color-destructive-hover);
+    }
+    &:hover:active {
+      background-color: var(--button-background-color-destructive-active);
+    }
+    &:focus-visible {
+      outline: var(--focus-outline);
+      outline-offset: var(--focus-outline-offset, 2px);
+    }
+  }
 }
 
 /* Cookies: name, flags and a monospaced value field per cookie. */
@@ -1830,9 +2127,9 @@ panel.whimsy-sheet .whimsy-sheet-footer {
   gap: 6px;
 }
 
-/* fixB: the Archive, a Library section beside History. History lists
-   every page visited; the Archive lists tabs that left the sidebar, each
-   with why it left and the space it goes back to. */
+/* System pass: History's Closed filter (the Archive: tabs that left the
+   sidebar, each with why it left and the space it goes back to) and its
+   Snoozed filter (tabs waiting to come back, each with its wake time). */
 .whimsy-archive-intro {
   margin: 2px 4px 10px;
   padding: 10px 12px;
@@ -1865,11 +2162,12 @@ panel.whimsy-sheet .whimsy-sheet-footer {
     background-color: color-mix(in srgb, orangered 22%, transparent);
   }
 }
-.whimsy-archive-row:focus-visible {
+:is(.whimsy-archive-row, .whimsy-snoozed-row):focus-visible {
   outline: var(--focus-outline, 2px solid AccentColor);
   outline-offset: -2px;
 }
-.whimsy-archive-space + .whimsy-archive-time::before {
+.whimsy-archive-space + .whimsy-archive-time::before,
+.whimsy-snoozed-wake + .whimsy-archive-space::before {
   content: " · ";
 }
 
@@ -1952,49 +2250,31 @@ panel.whimsy-sheet .whimsy-sheet-footer {
 
 }
 
-/* batch4: Library rail icons. These are single-frame Zen glyphs, whereas
-   Zen's native Library icons are 36-frame sprites. Nucleo glyphs use only
-   context-fill, so keep them painted even when the tab is not selected. */
-:is(.zen-library-tab, .zen-library-section):is(
-  [data-section="whimsy-notes"],
-  [data-section="whimsy-finder-folders"],
-  [data-section="whimsy-files"],
-  [data-section="whimsy-next-meeting"],
-  [data-section="whimsy-playlist"],
-  [data-section="whimsy-archive"]
-) :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  width: var(--zen-library-sprite-size);
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  fill: var(--stroke);
-  animation: none !important;
-  transform: none !important;
-}
-
+/* batch4, fix7/tabs: Library rail icons. Like Zen's own (History,
+   Downloads...), each is a 36-frame sprite in Zen's style (outline in
+   context-stroke, body in context-fill, painted only on the chosen tab),
+   drawn by whimsy/library_sprites.py, and Zen's zen-library-sprite-play
+   runs it once when the tab is chosen; with reduced motion Zen doesn't
+   play it, so the icon just fills in. */
 [data-section="whimsy-notes"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/page-portrait.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-notes-sprite.svg");
 }
 
 [data-section="whimsy-finder-folders"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/folder.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-folders-sprite.svg");
 }
 
 [data-section="whimsy-files"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/screenshot.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-screenshots-sprite.svg");
 }
 
 /* Harmless when the Meetings feature (or its module) is removed. */
 [data-section="whimsy-next-meeting"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/selectable/time.svg");
-}
-
-[data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/u-turn-to-left.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-meeting-sprite.svg");
 }
 
 [data-section="whimsy-playlist"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  background-image: url("chrome://browser/skin/zen-icons/selectable/video.svg");
+  background-image: url("chrome://browser/content/whimsy/library/library-playlist-sprite.svg");
 }
 
 /* Zen scopes the URL/date swap to its original custom-element name. */
@@ -2007,7 +2287,7 @@ whimsy-space-history-section {
 }
 
 #whimsy-quick-window-address .whimsy-mini-profile {
-  background: #332838;
+  background: var(--whimsy-mini-fill-hover);
   border-radius: 6px;
   padding: 3px 8px;
 }
@@ -2017,23 +2297,48 @@ whimsy-space-history-section {
   opacity: .7;
   padding-inline-end: 8px;
 }
+/* wave6/parity: Little Arc's measured motion (120 fps, little-095501 and
+   tabclose-095549): it grows from a small rect at its top-left to full
+   size in ~85-100 ms, ease-out, no overshoot, no dim; closing fades in
+   place in ~100 ms with no scale. MERGE NOTE: wave5/uxfix set this
+   animation to var(--whimsy-dur-fast) (150 ms) with a 96% settle; keep
+   these Arc values and tokens. */
+:root[whimsy-quick-window] {
+  --whimsy-mini-open-duration: 90ms;
+  --whimsy-mini-close-duration: 100ms;
+  --whimsy-mini-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
 @media (prefers-reduced-motion: no-preference) {
   :root[whimsy-quick-window] #browser {
-    transform-origin: center;
-    animation: whimsy-mini-open 309ms cubic-bezier(.38,1.27,.23,.96);
+    transform-origin: top left;
+    animation: whimsy-mini-open var(--whimsy-mini-open-duration) var(--whimsy-mini-ease-out);
+  }
+  :root[whimsy-quick-window] {
+    transition: opacity var(--whimsy-mini-close-duration) ease-out;
   }
 }
+:root[whimsy-quick-window][whimsy-mini-closing] {
+  opacity: 0;
+}
 @keyframes whimsy-mini-open {
-  from { transform: scale(.05); }
+  from { transform: scale(.1); }
   to { transform: scale(1); }
 }
 
 :root[whimsy-quick-window] :is(#zen-browser-background, #zen-toolbar-background) {
-  background: #171523 !important;
+  background: var(--whimsy-mini-frame) !important;
   &::after { display: none !important; }
 }
 
 /* wave5: live blocks in Notes (whimsy-note-blocks.mjs). */
+/* The open note's editor reuses Zen's row look, but not its paint-skipping
+   containment: `contain: strict` sizes a row at 34px and clips the rest, which
+   hid the text area and kept live blocks from ever counting as visible. */
+.zen-library-row.whimsy-note-editor {
+  contain: none;
+  content-visibility: visible;
+}
+
 .whimsy-note-block {
   display: flex;
   flex-direction: column;
@@ -2167,42 +2472,352 @@ whimsy-space-history-section {
   }
 }
 
-/* wave5: Easels in the Library (same treatment as the batch4 rail icons). */
-:is(.zen-library-tab, .zen-library-section)[data-section="whimsy-easels"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  width: var(--zen-library-sprite-size);
-  background-image: url("chrome://browser/skin/zen-icons/paintbrush.svg");
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  fill: var(--stroke);
-  animation: none !important;
-  transform: none !important;
+/* wave5/quick: QR code for any page (menu icon, as the other page items). */
+@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
+  #context-whimsy-qrcode { --whimsy-menu-icon: url("chrome://browser/content/sharing/qr-code.svg"); }
 }
 
-whimsy-library-easels-section .zen-library-empty {
+/* wave5/quick: Copy page as Markdown (menu icon). */
+@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
+  #context-whimsy-copy-markdown { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
+}
+
+/* wave5/quick: new season toast. Zen's toast with the costumed balloon
+   before its two lines; the balloon bobs once on arrival (not with reduced
+   motion). */
+.zen-toast.whimsy-season-toast {
+  & .whimsy-season-toast-balloon {
+    width: 22px;
+    height: 34px;
+    margin-inline: 2px 0;
+    flex-shrink: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .zen-toast.whimsy-season-toast .whimsy-season-toast-balloon {
+    animation: whimsy-season-bob 1.2s cubic-bezier(0.37, 0, 0.63, 1) 0.3s 1;
+  }
+}
+
+@keyframes whimsy-season-bob {
+  50% {
+    translate: 0 -3px;
+  }
+}
+
+/* wave5/look: a look per space (WhimsySpaceLook). Each space's tab list
+   (<zen-workspace>) carries its own font, density and title lines, so the
+   lists slide (or follow a swipe) past each other each in its own look.
+   The attributes are only set once some space overrides that part; until
+   then everything is exactly the global look above. */
+:root zen-workspace[whimsy-look-font] :is(*, *::before, *::after):not(.zen-workspace-icon, .zen-emojis-picker-emoji, #whimsy-hex-input, .whimsy-font-preview) {
+  font-family: var(--whimsy-space-font), system-ui, -apple-system, sans-serif !important;
+}
+
+/* Firefox's tab heights per density (tabs.css, nova off), per list. */
+zen-workspace[whimsy-look-density="compact"] {
+  --tab-min-height: 29px;
+}
+zen-workspace[whimsy-look-density="normal"] {
+  --tab-min-height: 36px;
+}
+zen-workspace[whimsy-look-density="roomy"] {
+  --tab-min-height: 41px;
+}
+
+/* Title lines per space: the same wrapping as the global setting. */
+zen-workspace:is([whimsy-look-lines="2"], [whimsy-look-lines="3"]) .tabbrowser-tab:not([zen-essential]) {
+  & .tab-label-container {
+    height: auto !important;
+    mask-image: none !important;
+  }
+
+  & .tab-label {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--whimsy-title-lines);
+    white-space: normal;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    align-self: stretch;
+    min-width: 0;
+    padding-block: 5px;
+  }
+
+  &,
+  & .tab-stack,
+  & .tab-content {
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  & .tab-content {
+    min-height: var(--tab-min-height);
+    contain: inline-size layout !important;
+  }
+}
+
+/* The editor: Zen's sheet with a few segmented choices and menus. */
+panel.whimsy-space-look .whimsy-sheet-body {
+  padding-block: 2px 4px;
+}
+.whimsy-space-look-section {
+  gap: 6px;
+  margin: 6px 16px 10px;
+}
+.whimsy-space-look-caption {
+  gap: 8px;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--whimsy-sheet-muted);
+
+  & > label {
+    margin: 0;
+  }
+}
+.whimsy-space-look-caption-detail {
+  margin-inline-start: auto !important;
+  font-weight: 500;
+}
+.whimsy-space-look-chips {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.whimsy-library-easels-new {
-  appearance: none;
-  border: 1px solid light-dark(rgb(0 0 0 / 0.12), rgb(255 255 255 / 0.14));
+  gap: 2px;
+  padding: 2px;
   border-radius: 8px;
-  padding: 6px 12px;
+  background-color: color-mix(in srgb, currentColor 7%, transparent);
+}
+.whimsy-space-look-chip {
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 28px;
-  background: light-dark(rgb(0 0 0 / 0.04), rgb(255 255 255 / 0.06));
+  margin: 0;
+  padding: 4px 6px;
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
   color: inherit;
   font: inherit;
-  font-weight: 600;
+  font-size: 0.92em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    background-color: var(--whimsy-sheet-hover);
+  }
+  &[aria-checked="true"] {
+    background-color: var(--arrowpanel-background, Field);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 0 0 0.5px color-mix(in srgb, currentColor 20%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+.whimsy-space-look-menulist {
+  margin: 0;
+  width: 100%;
+}
+.whimsy-space-look-hint,
+.whimsy-space-look-note {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--whimsy-sheet-muted);
+}
+.whimsy-space-look-note {
+  margin: 0 16px 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-space-look-chip {
+    transition: none;
+  }
 }
 
-.whimsy-library-easels-new:hover {
-  background: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.1));
+/* wave5/audioicon: Arc's tab speaker. Every tab with sound (playing, or
+   muted by you, by background muting or by a muted site) shows an outline
+   speaker (SF speaker.wave.2 / speaker.slash) between its favicon and title,
+   in the text colour, static. One click mutes or unmutes; right-click
+   still opens the volume slider (WhimsyMedia). Essentials and the collapsed
+   sidebar keep Firefox's badge on the icon, with the same glyphs. */
+@media -moz-pref("whimsy.feature.arc-audio-icon") {
+  #tabbrowser-tabs[orient="vertical"] .tab-audio-button {
+    --icon-size: 14px;
+    --button-size-icon-small: 20px;
+    --button-min-height-small: 20px;
+    --button-icon-fill: currentColor;
+    /* Zen pulls it 4px over the favicon; Arc keeps it clear of the favicon
+       and leaves ~6px before the title. */
+    margin-inline-start: 0 !important;
+    margin-inline-end: 3px !important;
+
+    &[soundplaying]::part(button) {
+      background-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-playing.svg") !important;
+    }
+    &[muted]::part(button) {
+      background-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-muted.svg") !important;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      &::part(button) {
+        transition: scale 100ms ease-out, background-color 100ms ease-out;
+      }
+      &:active::part(button) {
+        scale: 0.88;
+      }
+    }
+  }
+
+  .tab-icon-overlay:not([crashed]) {
+    &[soundplaying] {
+      list-style-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-playing.svg") !important;
+    }
+    &[muted] {
+      list-style-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-muted.svg") !important;
+    }
+  }
 }
 
-.whimsy-library-easels-new:focus-visible {
+/* wave6/parity: Tabs → Reveal Tab in Sidebar marks the tab for a moment. */
+.tabbrowser-tab[whimsy-revealed] .tab-background {
   outline: 2px solid AccentColor;
-  outline-offset: 2px;
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tabbrowser-tab[whimsy-revealed] .tab-background {
+    animation: whimsy-reveal 700ms cubic-bezier(0.2, 0, 0, 1) forwards;
+  }
+}
+@keyframes whimsy-reveal {
+  0%, 40% { outline-color: AccentColor; }
+  100% { outline-color: transparent; }
+}
+
+/* fix7/mini: icon-only buttons centre their glyph. A toolbarbutton always
+   carries a .toolbarbutton-text label with flex="1"; empty, it still grew
+   into the spare width and pushed the icon to the left edge (Copy Link,
+   the caret). Hide it when there's no label and make the button square. */
+#whimsy-quick-window-bar .whimsy-mini-button {
+  & > .toolbarbutton-icon {
+    margin: 0;
+  }
+  &:not([label]) {
+    width: var(--whimsy-mini-control);
+    & > .toolbarbutton-text {
+      display: none;
+    }
+  }
+}
+/* The split hairline moves from the caret's border (1px that shifted its
+   glyph off centre) to the end of the ⌘O keycap, Arc's short divider. */
+#whimsy-quick-window-bar #whimsy-quick-window-choose-space {
+  width: 24px;
+  min-width: 24px !important;
+  border-inline-start: 0 !important;
+}
+#whimsy-quick-window-open kbd {
+  line-height: 16px;
+  padding-inline-end: 8px;
+  border-inline-end: 1px solid var(--whimsy-mini-hairline);
+}
+
+/* fix7/mini: Little Arc's address strip holds Extensions and Copy Link at
+   its right end. The strip carries the fill; the address button inside it
+   is transparent and lights the whole strip on hover. Inner buttons are
+   24px with a 6px radius, concentric with the strip's 8px at 2px inset. */
+#whimsy-quick-window-address-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--whimsy-mini-control);
+  margin: 0 4px 0 2px;
+  padding-inline-end: 2px;
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  transition: background-color 120ms ease;
+
+  &:has(> #whimsy-quick-window-address:hover) {
+    background: var(--whimsy-mini-fill-hover);
+  }
+
+  & > #whimsy-quick-window-address {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+  }
+
+  #whimsy-quick-window-bar & > .whimsy-mini-button {
+    flex: none;
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    opacity: 0.75;
+
+    &:not([disabled]):hover {
+      opacity: 1;
+    }
+    &[disabled] {
+      opacity: 0.35;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-quick-window-address-field {
+    transition: none;
+  }
+}
+
+/* fix7/mini: the traffic lights stop flickering. Root cause: Zen's
+   zen.widget.mac.mono-window-controls (on by default) sets the real
+   buttonbox to opacity 0 unless Zen's compact-mode hover tracker has put
+   zen-has-hover on it. An opacity-0 frame builds no display item, so it
+   registers no window-button theme geometry, and Cocoa parks the native
+   buttons above the window (nsCocoaWindow: empty windowButtonsRect hides
+   them). In Mini that tracker toggles the attribute as the pointer crosses
+   the bar and the native buttons themselves, so they vanished and came back.
+   Little Arc always shows them: keep them painted, drop Zen's stand-in dots,
+   and pin the margins Zen's collapsed-sidebar rules pull negative. */
+:root[whimsy-quick-window] #whimsy-quick-window-bar > .titlebar-buttonbox-container {
+  background-image: none !important;
+  margin: 0 4px 0 0 !important;
+  width: auto !important;
+  & > .titlebar-buttonbox {
+    opacity: 1 !important;
+  }
+}
+
+/* fix7/mini: the space dropdown (caret, Cmd+Shift+O). Zen's menu surface
+   and motion; each space's icon sits on a small tile tinted with the
+   space's own colour, so spaces read apart at a glance. */
+#whimsy-quick-window-space-picker {
+  min-width: 200px;
+
+  & > .whimsy-mini-picker-caption {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  & > .whimsy-mini-picker-space {
+    & .menu-icon {
+      box-sizing: border-box;
+      width: 20px;
+      height: 20px;
+      padding: 2px;
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--whimsy-space-color, currentColor) 22%, transparent);
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor;
+    }
+    &[default] {
+      font-weight: 600;
+    }
+  }
+}
+#whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
+  background: var(--whimsy-mini-fill-active);
 }

@@ -478,6 +478,18 @@ add_task(async function mini_whimsy_destination() {
       ok(win.document.getElementById("whimsy-quick-window-bar").checkVisibility(), `Mini's bar shows (${scheme})`);
       await new Promise(resolve => win.requestAnimationFrame(resolve));
       await shot(`mini-whimsy-${scheme}`, win.browsingContext.currentWindowGlobal);
+
+      // fix7: the space dropdown from the caret (also Cmd+Shift+O).
+      const picker = () => win.document.getElementById("whimsy-quick-window-space-picker");
+      win.document.getElementById("whimsy-quick-window-choose-space").doCommand();
+      await TestUtils.waitForCondition(() => picker()?.state == "open", `Space dropdown opens (${scheme})`);
+      ok([...picker().querySelectorAll(".whimsy-mini-picker-space")].every(row => row.checkVisibility()),
+        `Every space row is visible (${scheme})`);
+      await new Promise(resolve => win.requestAnimationFrame(resolve));
+      await shot(`mini-whimsy-space-dropdown-${scheme}`, win.browsingContext.currentWindowGlobal);
+      const hidden = BrowserTestUtils.waitForEvent(picker(), "popuphidden");
+      picker().hidePopup();
+      await hidden;
     } finally {
       await BrowserTestUtils.closeWindow(win);
     }
@@ -746,9 +758,34 @@ add_task(async function hover_card_history() {
 
 // fixB: every rebuilt panel ("sheet"), in light and dark, plus Zen's
 // Delete Space confirm (now in-window) and the Archive in the Library.
+// wave5/uxfix: dark shots must really be dark. The system pref alone flips
+// prefers-color-scheme, but Zen paints the window from its space theme in
+// JS, so repaint it and wait for the change to land before drawing.
+async function setScheme(dark) {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["ui.systemUsesDarkTheme", dark],
+    ["browser.theme.toolbar-theme", dark ? 0 : 1],
+    ["browser.theme.content-theme", dark ? 0 : 1],
+  ] });
+  const want = dark ? "dark" : "light";
+  await TestUtils.waitForCondition(() =>
+    window.matchMedia(`(prefers-color-scheme: ${want})`).matches, `The window is ${want}`);
+  window.gZenThemePicker?.onWorkspaceChange?.(window.gZenWorkspaces?.getActiveWorkspace?.());
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+
+// Waits until every finite animation in the window has finished, so a
+// sheet or dialog isn't caught mid-fade.
+async function settled(doc = document) {
+  await TestUtils.waitForCondition(() =>
+    doc.getAnimations().every(a =>
+      a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity),
+  "Animations have settled").catch(() => info("Some animation kept running"));
+}
+
 async function sheetShot(name, panelId, open, ready = null) {
   for (const dark of [0, 1]) {
-    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    await setScheme(dark);
     const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == panelId);
     await open();
     await shown;
@@ -758,7 +795,7 @@ async function sheetShot(name, panelId, open, ready = null) {
         await TestUtils.waitForCondition(() => ready(panel), `${name} is ready`);
       }
       await document.l10n.translateFragment(panel);
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await settled();
       await shot(`fixB-${name}-${dark ? "dark" : "light"}`);
     } finally {
       const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
@@ -814,7 +851,7 @@ add_task(async function fixB_delete_space_confirm() {
     const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
     const deleting = gZenWorkspaces.contextDeleteWorkspace();
     const win = await dialog;
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await settled();
     await shot("fixB-delete-space-confirm");
     win.document.querySelector("dialog").getButton("cancel").click();
     await deleting;
@@ -826,33 +863,75 @@ add_task(async function fixB_delete_space_confirm() {
   }
 });
 
-add_task(async function fixB_archive_in_library() {
+// System pass: History's Closed (the Archive) and Snoozed filters, light
+// and dark.
+add_task(async function system_history_filters() {
   const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchive.sys.mjs");
+  const { WhimsySnooze } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySnooze.sys.mjs");
+  const { WhimsyLibrarySection } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs"
+  );
   const library = document.querySelector("zen-library");
   const previous = library.activeTab;
   const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?whimsy-archive-keep");
   const idle = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?whimsy-archive-idle");
   const closed = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/?whimsy-archive-closed");
+  const snoozed = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?whimsy-snoozed");
   WhimsyArchive.archiveTabs(window, [idle], { reason: "idle", groupId: "idle-shot" });
   BrowserTestUtils.removeTab(closed);
+  await WhimsySnooze.snooze(window, snoozed, Date.now() + 20 * 3600 * 1000);
   try {
-    await TestUtils.waitForCondition(() => "whimsy-archive" in library.zenLibrarySections);
-    ok(WhimsyArchive.openPanel(window), "The Library opens on the Archive");
-    await TestUtils.waitForCondition(() => library.querySelector("whimsy-library-archive-section"));
-    const section = library.querySelector("whimsy-library-archive-section");
-    section.refresh();
-    await section.updateComplete;
-    await document.l10n.translateFragment(section);
-    await new Promise(r => setTimeout(r, 400)); // the Library's spring
-    await shot("fixB-archive");
+    for (const view of ["closed", "snoozed"]) {
+      for (const dark of [0, 1]) {
+        await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+        try {
+          ok(WhimsyLibrarySection.openHistory(window, view), `History opens on ${view}`);
+          const section = await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
+          await TestUtils.waitForCondition(() => section.whimsyView == view);
+          await section.refresh();
+          await section.updateComplete;
+          await document.l10n.translateFragment(section);
+          await new Promise(r => setTimeout(r, 400)); // the Library's spring
+          await shot(`system-history-${view}-${dark ? "dark" : "light"}`);
+        } finally {
+          await SpecialPowers.popPrefEnv();
+        }
+      }
+    }
   } finally {
+    for (const record of await WhimsySnooze.list()) {
+      WhimsySnooze.cancelSnooze(null, record);
+    }
     await library.constructor.animateProgress(0);
     library.activeTab = previous;
+    Services.prefs.clearUserPref("whimsy.library.history.view");
     BrowserTestUtils.removeTab(keep);
   }
 });
 
+// System pass: Settings → Links, one pane for where links open, light and
+// dark.
+add_task(async function system_links_settings() {
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+    try {
+      await BrowserTestUtils.withNewTab("about:preferences#whimsyLinks", async browser => {
+        const doc = browser.contentDocument;
+        const heading = await TestUtils.waitForCondition(() => doc.getElementById("whimsyLinksCategory"));
+        await TestUtils.waitForCondition(() => heading.checkVisibility(), "Links is showing");
+        await doc.l10n.translateFragment(doc.getElementById("mainPrefPane"));
+        heading.scrollIntoView({ block: "start" });
+        await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+        await shot(`system-links-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      });
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});
+
 // fixC: a private tab's page (about:privatebrowsing), Whimsy-branded.
+// fix7/private: calm, with no search box and no command bar over it.
 add_task(async function private_tab_page() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const tab = WhimsyPrivate.openPrivateTab(window);
@@ -875,6 +954,28 @@ add_task(async function private_tab_page() {
     await shot("fixC-private-tab-window");
   } finally {
     BrowserTestUtils.removeTab(tab, { animate: false });
+  }
+});
+
+// fix7/private: a private window opens on the calm page, not the command bar.
+add_task(async function private_window_page() {
+  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  try {
+    await win.delayedStartupPromise;
+    const browser = win.gBrowser.selectedBrowser;
+    await TestUtils.waitForCondition(
+      () => browser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing" &&
+        !browser.webProgress.isLoadingDocument
+    );
+    await SpecialPowers.spawn(browser, [], async () => {
+      await content.document.l10n.ready;
+      await new Promise(resolve => content.requestAnimationFrame(resolve));
+    });
+    await new Promise(resolve => win.setTimeout(resolve, 300));
+    await shot("fix7-private-window", win.browsingContext.currentWindowGlobal);
+    await shot("fix7-private-window-page", browser.browsingContext.currentWindowGlobal);
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
   }
 });
 
@@ -911,6 +1012,7 @@ add_task(async function private_tab_in_split() {
 });
 
 // fixC: Scratch asks before becoming a normal space, then loses its violet.
+// fix7/private: the ask is the modal prompt dialog (Cancel default).
 add_task(async function scratch_keep() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const startSpace = gZenWorkspaces.activeWorkspace;
@@ -924,17 +1026,17 @@ add_task(async function scratch_keep() {
     await TestUtils.waitForCondition(
       () => gBrowser.selectedBrowser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing"
     );
-    gURLBar.blur();
     await shot("fixC-scratch-before-keep");
+    const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
     document.getElementById("cmd_whimsyKeepScratch").doCommand();
-    const button = await TestUtils.waitForCondition(() => document.getElementById("whimsy-scratch-keep-confirm-button"));
-    await TestUtils.waitForCondition(() => button.getAttribute("label"));
-    await new Promise(resolve => setTimeout(resolve, 600)); // the toast's spring
+    const confirmWin = await dialog;
+    await settled();
     await shot("fixC-scratch-keep-confirm");
-    button.doCommand();
+    confirmWin.document.querySelector("dialog").getButton("accept").click();
     await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window));
     keptId = scratch.uuid;
     await new Promise(resolve => setTimeout(resolve, 300));
+    // fix7/private: the header still says "Scratch", not "Space".
     await shot("fixC-scratch-kept");
   } finally {
     if (keptId) {
@@ -1437,207 +1539,4 @@ add_task(async function wave4_fun_year() {
     }
   });
   await PlacesUtils.history.clear();
-});
-
-// wave5: the seasonal balloon - homepage hero (light/dark), the offline
-// error page, and Balloon Dash in both looks - for each season.
-add_task(async function wave5_seasonal_balloon() {
-  const SEASONS_URL = "resource:///modules/whimsy/WhimsySeasons.sys.mjs";
-  const { WhimsySeasons } = ChromeUtils.importESModule(SEASONS_URL);
-  const original = WhimsySeasons._now;
-  const months = [["autumn", 10], ["winter", 12], ["spring", 4], ["summer", 7]];
-  await SpecialPowers.pushPrefEnv({ set: [
-    ["whimsy.feature.seasonal-themes", true], ["whimsy.seasons.enabled", true],
-    ["whimsy.feature.home", true], ["whimsy.feature.game", true],
-    ["whimsy.feature.net-error-branding", true],
-    ["security.certerrors.felt-privacy-v1", false],
-    ["browser.netError.searchCTA.enabled", false],
-    ["ui.prefersReducedMotion", 1],
-  ] });
-  try {
-    for (const dark of [0, 1]) {
-      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
-      try {
-        for (const [season, month] of months) {
-          WhimsySeasons._now = () => new Date(2026, month - 1, 15, 12);
-          await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
-            const doc = browser.contentDocument;
-            await doc.l10n.ready;
-            await new Promise(r => browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(r)));
-            await shot(`wave5-home-${season}-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
-          });
-        }
-      } finally {
-        await SpecialPowers.popPrefEnv();
-      }
-    }
-
-    for (const [season, month] of months) {
-      const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
-      const browser = tab.linkedBrowser;
-      try {
-        const loaded = BrowserTestUtils.waitForErrorPage(browser);
-        await SpecialPowers.spawn(browser, [], () => {
-          content.location = "about:neterror?e=netOffline&u=https%3A%2F%2Fexample.com%2F&d=Offline";
-        });
-        await loaded;
-        await SpecialPowers.spawn(browser, [month, SEASONS_URL], async (month, url) => {
-          const doc = content.document;
-          await ContentTaskUtils.waitForCondition(() => doc.getElementById("whimsy-neterror-brand"), "Branded");
-          const { WhimsySeasons: seasons } = ChromeUtils.importESModule(url);
-          const real = seasons._now;
-          seasons._now = () => new Date(2026, month - 1, 15, 12);
-          content.windowGlobalChild.getActor("WhimsyNetError").handleEvent({ type: "DOMContentLoaded" });
-          seasons._now = real;
-          await doc.l10n.translateRoots();
-          await ContentTaskUtils.waitForCondition(() => doc.getElementById("whimsy-neterror-style")?.sheet, "Styled");
-          // Let the accent SVG decode before the snapshot.
-          await new Promise(resolve => content.setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
-          await new Promise(resolve => content.requestAnimationFrame(() => content.requestAnimationFrame(resolve)));
-        });
-        await shot(`wave5-neterror-${season}`, browser.browsingContext.currentWindowGlobal);
-      } finally {
-        BrowserTestUtils.removeTab(tab);
-      }
-    }
-
-    await BrowserTestUtils.withNewTab("about:whimsy?game", async browser => {
-      const win = browser.contentWindow;
-      const doc = browser.contentDocument;
-      const wg = browser.browsingContext.currentWindowGlobal;
-      const game = await TestUtils.waitForCondition(() => win.__whimsyGame, "The game has loaded");
-      const frames = () => new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
-      game.freeze();
-      game.setAutoSpawn(false);
-      await doc.l10n.ready;
-      for (const [season] of months) {
-        game.setSeason(season);
-        for (const style of ["gradient", "retro"]) {
-          doc.getElementById(`whimsy-game-style-${style}`).click();
-          game.start();
-          game.clear();
-          game.spawn("seed", { x: 260, y: 60, vx: -30 });
-          game.spawn("seed", { x: 380, y: 100, vx: -30, phase: 1 });
-          game.spawn("plane", { x: 330, y: 40, vx: -120, vy: 20 });
-          game.spawn("bird", { cx: 420, cy: 70, R: 16, a: 1, vx: -40 });
-          game.spawn("sparkle", { x: 170, y: 100 });
-          game.spawn("sparkle", { x: 200, y: 70 });
-          game.state.player.invuln = 0;
-          game.tick(0.05);
-          await frames();
-          await shot(`wave5-game-${season}-${style}`, wg);
-        }
-      }
-    });
-  } finally {
-    WhimsySeasons._now = original;
-    await SpecialPowers.popPrefEnv();
-    for (const pref of ["whimsy.game.style", "whimsy.game.high-score"]) {
-      Services.prefs.clearUserPref(pref);
-    }
-  }
-});
-
-// wave5: a live block in a note, cropped to part of the page.
-add_task(async function wave5_note_live_block() {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      ["whimsy.feature.notes", true],
-      ["whimsy.feature.note-blocks", true],
-      ["zen.library.hidden-tabs", ""],
-    ],
-  });
-  const { gWhimsyNotesStore } = ChromeUtils.importESModule(
-    "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs"
-  );
-  const library = document.querySelector("zen-library");
-  const wasOpen = library.constructor.isLibraryOpen;
-  const note = await gWhimsyNotesStore.create();
-  try {
-    await customElements.whenDefined("whimsy-note-block");
-    const { blockFromURL } = customElements.get("whimsy-note-block").helpers;
-    const { block } = blockFromURL("https://example.com/", { title: "Example Domain" });
-    block.crop = { x: 0, y: 0, w: 1024, h: 420 };
-    await gWhimsyNotesStore.update(note.id, { title: "Trip", text: "Check the weather", blocks: [block] });
-    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-notes"]);
-    library.activeTab = "whimsy-notes";
-    await library.constructor.animateProgress(1);
-    const section = await TestUtils.waitForCondition(() => library.querySelector("whimsy-library-notes-section"));
-    await section.updateComplete;
-    section.editingId = note.id;
-    await section.updateComplete;
-    const el = await TestUtils.waitForCondition(() => section.querySelector("whimsy-note-block"));
-    const browser = await TestUtils.waitForCondition(() => el.browser, "The visible block loads");
-    await TestUtils.waitForCondition(
-      () => browser.currentURI?.spec == "https://example.com/" && !browser.webProgress?.isLoadingDocument,
-      "The block's page has loaded"
-    );
-    await new Promise(r => setTimeout(r, 400));
-    await shot("wave5-note-live-block");
-  } finally {
-    await gWhimsyNotesStore.remove(note.id);
-    await library.constructor.animateProgress(wasOpen ? 1 : 0);
-    await SpecialPowers.popPrefEnv();
-  }
-});
-
-// wave5: Easel, light and dark: text, a drawing, shapes, a link and a
-// selected capture with its bar, plus the empty state.
-add_task(async function wave5_easel() {
-  const { WhimsyEasel, gWhimsyEaselStore } = ChromeUtils.importESModule(
-    "resource:///modules/whimsy/WhimsyEasel.sys.mjs"
-  );
-  for (const dark of [0, 1]) {
-    await SpecialPowers.pushPrefEnv({
-      set: [
-        ["whimsy.feature.easel", true],
-        ["ui.systemUsesDarkTheme", dark],
-        ["ui.prefersReducedMotion", 1],
-      ],
-    });
-    const scheme = dark ? "dark" : "light";
-    const empty = await WhimsyEasel.newEasel(window);
-    const easel = await gWhimsyEaselStore.create({ title: "Weekend in Lisbon" });
-    try {
-      let browser = gBrowser.selectedBrowser;
-      await TestUtils.waitForCondition(() => browser.contentDocument?.documentElement?.getAttribute("ready") == "true");
-      await shot(`wave5-easel-empty-${scheme}`, browser.browsingContext.currentWindowGlobal);
-      gBrowser.unpinTab(gBrowser.selectedTab);
-      BrowserTestUtils.removeTab(gBrowser.selectedTab);
-
-      const pageTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
-      const capture = await WhimsyEasel.captureRegion(pageTab.linkedBrowser, {
-        region: { left: 0, top: 0, right: 640, bottom: 300 },
-        devicePixelRatio: 2,
-        viewportWidth: 1280,
-        viewportHeight: 800,
-      });
-      BrowserTestUtils.removeTab(pageTab);
-      const image = await gWhimsyEaselStore.saveImage(easel.id, new Uint8Array(await capture.blob.arrayBuffer()));
-      const items = [
-        { id: "t1", type: "text", x: 0, y: 0, w: 360, h: 58, text: "Weekend in Lisbon", font: "serif", size: 44, color: "ink", auto: false },
-        { id: "t2", type: "text", x: 2, y: 70, w: 320, h: 24, text: "Pastéis, tram 28, sunset at the miradouro", font: "sans", size: 18, color: "gray", auto: false },
-        { id: "c1", type: "capture", ...capture.item, image, x: 0, y: 130, w: 420, h: 197 },
-        { id: "s1", type: "shape", shape: "rect", x: 470, y: 130, w: 220, h: 120, color: "orange", width: 4, fill: "tint" },
-        { id: "s2", type: "shape", shape: "arrow", x: 430, y: 255, w: 90, h: 60, color: "purple", width: 4, fill: null, flipX: true, flipY: false },
-        { id: "p1", type: "pen", x: 490, y: 160, w: 180, h: 60, vw: 180, vh: 60, d: "M4 40Q30 6 60 30Q90 54 120 24Q150 2 176 30", color: "blue", width: 4 },
-        { id: "h1", type: "pen", x: 0, y: 64, w: 230, h: 36, vw: 230, vh: 36, d: "M8 18L222 18", color: "yellow", width: 16, highlighter: true },
-        { id: "l1", type: "link", x: 470, y: 280, w: 300, h: 72, url: "https://example.com/", title: "Example Domain" },
-      ];
-      await gWhimsyEaselStore.update(easel.id, { items, view: { x: 120, y: 120, zoom: 1 } });
-      const tab = WhimsyEasel.openEasel(window, easel.id);
-      browser = tab.linkedBrowser;
-      await TestUtils.waitForCondition(() => browser.contentDocument?.documentElement?.getAttribute("ready") == "true");
-      const app = browser.contentWindow.gWhimsyEasel;
-      app.select(["c1"]);
-      await TestUtils.waitForCondition(() => [...browser.contentDocument.images].every(i => i.complete));
-      await new Promise(r => browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(r)));
-      await shot(`wave5-easel-${scheme}`, browser.browsingContext.currentWindowGlobal);
-      BrowserTestUtils.removeTab(tab);
-    } finally {
-      await gWhimsyEaselStore.remove(easel.id);
-      await gWhimsyEaselStore.remove(empty.id);
-      await SpecialPowers.popPrefEnv();
-    }
-  }
 });

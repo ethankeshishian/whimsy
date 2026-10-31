@@ -20,6 +20,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "QueryStringStripper", () =>
   Cc["@mozilla.org/url-query-string-stripper;1"].getService(Ci.nsIURLQueryStringStripper)
@@ -68,6 +69,7 @@ export const WhimsyCopy = {
       },
       true
     );
+    this.initEditMenu(win);
     const menu = win.document.getElementById("tabContextMenu");
     menu?.addEventListener("popupshowing", event => {
       if (event.target == menu) {
@@ -269,6 +271,99 @@ export const WhimsyCopy = {
     } else {
       detail?.remove();
     }
+  },
+
+  // wave6/parity: Arc's Edit menu. Copy URL (Cmd+Shift+C), Copy URL as
+  // Markdown (Cmd+Opt+Shift+C), Copy URL as Quote (Cmd+Ctrl+Shift+C) after
+  // Copy, and Paste and Match Style (Cmd+Shift+V) after Paste.
+  initEditMenu(win) {
+    const { document } = win;
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyCopyURLQuote",
+      l10nId: "whimsy-action-copy-url-quote",
+      run: w => this.copyQuote(w),
+      keyId: "key_whimsyCopyURLQuote",
+      key: { key: "C", modifiers: "accel,control,shift" },
+      icon: "chrome://browser/skin/zen-icons/link.svg",
+      isAvailable: w => this.enabled && !this.isBlank(w.gBrowser.selectedBrowser?.currentURI),
+    });
+    // Gecko's editors already paste without formatting on Cmd+Shift+V
+    // (ShortcutKeyDefinitions); the menu item runs the same command, and its
+    // key is internal (display only), like Firefox's own Paste.
+    lazy.WhimsyCommands.addCommandElement(win, "cmd_whimsyPasteMatchStyle", w => w.goDoCommand("cmd_pasteNoFormatting"));
+    if (!document.getElementById("key_whimsyPasteMatchStyle")) {
+      const key = document.createXULElement("key");
+      key.id = "key_whimsyPasteMatchStyle";
+      key.setAttribute("modifiers", "accel,shift");
+      key.setAttribute("key", "V");
+      key.setAttribute("internal", "true");
+      document.getElementById("key_paste")?.after(key);
+    }
+    const copy = document.getElementById("menu_copy");
+    const paste = document.getElementById("menu_paste");
+    if (!copy || !paste || document.getElementById("menu_whimsyCopyURL")) {
+      return;
+    }
+    const item = (id, l10nId, command, key) => {
+      const el = document.createXULElement("menuitem");
+      el.id = id;
+      el.setAttribute("data-l10n-id", l10nId);
+      el.setAttribute("command", command);
+      el.setAttribute("key", key);
+      return el;
+    };
+    const urlItems = [
+      item("menu_whimsyCopyURL", "whimsy-menu-copy-url", "cmd_zenCopyCurrentURL", "zen-copy-url"),
+      item("menu_whimsyCopyURLMarkdown", "whimsy-menu-copy-url-markdown", "cmd_zenCopyCurrentURLMarkdown", "zen-copy-url-markdown"),
+      item("menu_whimsyCopyURLQuote", "whimsy-menu-copy-url-quote", "cmd_whimsyCopyURLQuote", "key_whimsyCopyURLQuote"),
+    ];
+    copy.after(...urlItems);
+    paste.after(item("menu_whimsyPasteMatchStyle", "whimsy-menu-paste-match-style", "cmd_whimsyPasteMatchStyle", "key_whimsyPasteMatchStyle"));
+    copy.parentElement.addEventListener("popupshowing", event => {
+      if (event.target != copy.parentElement) {
+        return;
+      }
+      const blank = this.isBlank(win.gBrowser.selectedBrowser?.currentURI);
+      for (const el of urlItems) {
+        el.hidden = !this.enabled;
+        el.disabled = blank;
+      }
+    });
+  },
+
+  // A Markdown quote: the page's selected text (or its title) as a
+  // blockquote, then the source as a link. Rich editors get the same as
+  // HTML. Arc's exact output is unverified.
+  async copyQuote(win) {
+    if (!this.enabled) {
+      return;
+    }
+    const browser = win.gBrowser.selectedBrowser;
+    const tab = win.gBrowser.selectedTab;
+    const [uri] = win.gURLBar.zenStrippedURI ?? [browser.currentURI];
+    const link = { url: this.displaySpec(uri), title: tab.label };
+    let selected = null;
+    try {
+      selected = await browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage").sendQuery("Whimsy:Selection");
+    } catch (e) {
+      // No page actor here (a privileged page): quote the title.
+    }
+    this.writeClipboard(win, this.formatQuote(link, selected?.text));
+    win.gZenUIManager?.showToast?.("whimsy-copy-quote-toast", { timeout: TOAST_TIMEOUT_MS });
+  },
+
+  formatQuote(link, text) {
+    const title = link.title?.trim() || link.url;
+    const quote = (text?.trim() || title).replace(/\r\n?/g, "\n");
+    const md = quote
+      .split("\n")
+      .map(line => (line ? `> ${line}` : ">"))
+      .join("\n");
+    const html = escapeHTML(quote).replace(/\n/g, "<br>");
+    return {
+      text: `${md}\n\n[${escapeMarkdown(title)}](${link.url})`,
+      html: `<blockquote>${html}</blockquote><p><a href="${escapeHTML(link.url)}">${escapeHTML(title)}</a></p>`,
+    };
   },
 
   // "Copy Link" / "Copy Links" in the tab context menu, after Duplicate.

@@ -81,15 +81,16 @@ add_task(async function test_restore_lands_in_original_space() {
   BrowserTestUtils.removeTab(restored);
 });
 
-// fixB: the Archive is a Library section right after History. It says what
-// it is (and how it differs from History), shows why each tab left and
-// restores on click; Zen's "Closed tabs" source leaves History so there is
-// one Archive, not two.
-add_task(async function test_archive_library_section() {
+// System pass: the Archive is History's Closed filter. "View Archive…"
+// opens History on it; it says what it is, shows why each tab left and
+// restores on click; there is no Archive section of its own any more.
+add_task(async function test_archive_is_history_closed() {
   const library = document.querySelector("zen-library");
-  await TestUtils.waitForCondition(() => "whimsy-archive" in library.zenLibrarySections, "The Archive section registers");
-  const order = Object.keys(library.zenLibrarySections);
-  is(order[order.indexOf("history") + 1], "whimsy-archive", "It sits right after History");
+  await TestUtils.waitForCondition(
+    () => library.zenLibrarySections.history?.whimsyHistory,
+    "Whimsy's History is in place"
+  );
+  ok(!("whimsy-archive" in library.zenLibrarySections), "No separate Archive section");
 
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?archive-section");
   await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?archive-keep");
@@ -102,25 +103,18 @@ add_task(async function test_archive_library_section() {
 
   const wasTab = library.activeTab;
   try {
-    ok(WhimsyArchive.openPanel(window), "Show Archive opens the Library");
-    await TestUtils.waitForCondition(() => library.activeTab == "whimsy-archive", "On the Archive");
-    await TestUtils.waitForCondition(() => library.querySelector("whimsy-library-archive-section"));
-    const section = library.querySelector("whimsy-library-archive-section");
-    await section.updateComplete;
+    ok(WhimsyArchive.openPanel(window), "View Archive opens the Library");
+    await TestUtils.waitForCondition(() => library.activeTab == "history", "On History");
+    const section = await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
+    await TestUtils.waitForCondition(() => section.whimsyView == "closed", "With Closed showing");
+    const row = await TestUtils.waitForCondition(
+      () => section.querySelector(`.whimsy-archive-row[data-closed-id="${entry.closedId}"]`),
+      "The archived tab has a row"
+    );
     ok(section.querySelector(".whimsy-archive-intro"), "It explains itself");
-    const row = section.querySelector(`.whimsy-archive-row[data-closed-id="${entry.closedId}"]`);
-    ok(row, "The archived tab has a row");
     is(row.querySelector(".whimsy-archive-reason").dataset.reason, "idle", "The row says why it left");
-    ok(!section.filterGroups.some(g => g.id == "source"), "Its own filters are when and why");
-
-    if (Services.prefs.getBoolPref("whimsy.feature.space-history", true)) {
-      library.activeTab = "history";
-      await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
-      const history = library.querySelector("whimsy-space-history-section");
-      ok(!history.filterGroups.some(g => g.id == "source"), "History no longer offers Closed tabs");
-      library.activeTab = "whimsy-archive";
-      await section.updateComplete;
-    }
+    const ids = section.filterGroups.map(g => g.id);
+    ok(ids.includes("show") && ids.includes("reason") && !ids.includes("source"), "Show, when and why; no Zen source");
 
     row.click();
     await TestUtils.waitForCondition(
@@ -130,10 +124,10 @@ add_task(async function test_archive_library_section() {
   } finally {
     await library.constructor.animateProgress(0);
     library.activeTab = wasTab;
+    Services.prefs.clearUserPref("whimsy.library.history.view");
   }
 
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.archive-view", false]] });
-  await TestUtils.waitForCondition(() => !("whimsy-archive" in library.zenLibrarySections), "The switch removes it");
-  ok(!WhimsyArchive.openPanel(window), "Show Archive does nothing while it's off");
+  ok(!WhimsyArchive.openPanel(window), "View Archive does nothing while it's off");
   await SpecialPowers.popPrefEnv();
 });

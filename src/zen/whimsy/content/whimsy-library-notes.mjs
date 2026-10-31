@@ -11,7 +11,9 @@ import {
   blocksEnabled,
   parseEmbedCommand,
 } from "./whimsy-note-blocks.mjs";
-const { gWhimsyNotesStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
+const { gWhimsyNotesStore, NOTES_CHANGED_TOPIC } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs"
+);
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {"TabNotes": "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs"});
 
@@ -46,9 +48,19 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     this.editingId = null;
   }
 
+  // Notes can change while this section stays mounted (the library keeps it
+  // for a while after closing): "Add to Note", another window, a tab drop.
+  #observer = () => this.#refresh();
+
   connectedCallback() {
     super.connectedCallback();
+    Services.obs.addObserver(this.#observer, NOTES_CHANGED_TOPIC);
     this.#refresh();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    Services.obs.removeObserver(this.#observer, NOTES_CHANGED_TOPIC);
   }
 
   async #refresh() {

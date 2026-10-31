@@ -102,6 +102,10 @@ support-files = ["whimsy_article.html"]
 # wave3/speed: the video speed control shot.
 support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
 
+["browser_whimsy_screens_2.js"]
+# wave3/speed: the video speed control shot.
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+
 ["browser_whimsy_space_icon_drop.js"]
 
 ["browser_whimsy_space_last_tab.js"]
@@ -204,7 +208,7 @@ support-files = ["whimsy_slow_download.sjs"]
 ["browser_whimsy_url_schemes.js"]
 
 ["browser_whimsy_upload_clipboard.js"]
-support-files = ["whimsy_upload.html"]
+support-files = ["whimsy_upload.html", "whimsy_upload_widgets.html"]
 
 # Paste-to-upload regression on a plain <input type=file> form (real clipboard).
 ["browser_whimsy_upload_paste_form.js"]
@@ -356,3 +360,134 @@ support-files = ["whimsy_ai_page.html"]
 # wave5: Redact in the Screenshots panel (detectors, click-to-blur, image pixels, cleanup).
 ["browser_whimsy_redact.js"]
 support-files = ["whimsy_redact.html"]
+# wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
+["browser_whimsy_live_folders_local_servers.js"]
+
+["browser_whimsy_live_folders_restart.js"]
+
+# wave5: live blocks in Notes (/embed, tab drop, crop, container, private, lazy load).
+["browser_whimsy_note_blocks.js"]
+
+# wave5/captions: CC in the speed control translates a WebVTT track (fake translator).
+["browser_whimsy_video_captions.js"]
+support-files = ["whimsy_video_captions.html", "whimsy_captions_es.vtt", "whimsy_video.mp4"]
+
+# wave5/safety: the Claude prompt-injection shield (hidden text, markers, pause with Continue / Stop, audit).
+["browser_whimsy_claude_shield.js"]
+support-files = ["whimsy_claude_hidden.html", "whimsy_claude_injection.html"]
+
+# wave5/safety: agent replay of Claude runs (recording, bounds, private, Clear history, whimsy://replay).
+["browser_whimsy_claude_replay.js"]
+support-files = ["whimsy_claude.html"]
+
+# wave5/quick: QR code for any page (page menu, command bar, private/Scratch excluded).
+["browser_whimsy_qrcode.js"]
+
+# wave5/quick: Copy page as Markdown (article, selection, fallback, converter, switch).
+["browser_whimsy_copy_page_markdown.js"]
+support-files = ["whimsy_markdown_article.html", "whimsy_markdown_plain.html"]
+
+# wave5/quick: Markdown/CSV viewer (file:// and text/plain .md, CSV sorting, Source, live reload, safety, switch).
+["browser_whimsy_doc_viewer.js"]
+support-files = ["whimsy_viewer.md", "whimsy_viewer.md^headers^", "whimsy_viewer.csv", "whimsy_viewer.csv^headers^"]
+
+# wave5/quick: link lasso (Option-drag, live count, folder of unloaded tabs, Esc, private, switch).
+["browser_whimsy_link_lasso.js"]
+support-files = ["whimsy_lasso.html"]
+
+# wave5/quick: new season toast (once per season, costume, winter across years, switches, reduced motion).
+["browser_whimsy_season_toast.js"]
+
+# wave5/verbs: Cmd+K do-with-selection verbs.
+["browser_whimsy_selection_verbs.js"]
+support-files = ["whimsy_verbs.html"]
+
+# wave5/look: a look per space (switch applies/restores, inheritance, reset, mods, switch off, editor).
+["browser_whimsy_space_look.js"]
+
+# wave5: command registry (command bar, about:keyboard "Whimsy" group, rebinding, conflicts, defaults).
+["browser_whimsy_command_registry.js"]
+
+# wave5/uxfix: in-window sheets replace native prompts.
+["browser_whimsy_inline_prompts.js"]
+
+# wave5/uxfix: visible focus on sheet search fields.
+["browser_whimsy_uxfix_focus.js"]
+
+# wave5/uxfix: Settings on-demand feature list and New Note target.
+["browser_whimsy_uxfix_settings.js"]
+
+# wave5/uxfix: Undo on reversible result toasts.
+["browser_whimsy_uxfix_undo_toast.js"]
+
+# system: History's Show filter (All / Closed / Snoozed) replaces the Archive section.
+["browser_whimsy_history_filters.js"]
+
+# system: Settings → Links gathers every setting about where links open.
+["browser_whimsy_links_settings.js"]
+
+# wave5/audioicon: Arc's tab speaker (rows, pinned, Essentials, auto-muted, one-click mute, volume slider kept).
+["browser_whimsy_tab_audio_icon.js"]
+support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
+
+# wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
+["browser_whimsy_zap.js"]
+
+# wave6/zap: Link hints (what gets a badge, typing clicks, Shift new tab, Esc/Backspace, layouts, page never sees keys, switch off).
+["browser_whimsy_link_hints.js"]
+support-files = ["whimsy_link_hints.html"]
+
+# wave6/search: Instant result (Shift+Enter) and the Search Deck (flip, swipe, promote, no history).
+["browser_whimsy_search_deck.js"]
+support-files = ["whimsy_search_results.html", "whimsy_search_card.html"]
+
+# wave6: Already open (Arc): Return on an open address goes to its tab and space.
+["browser_whimsy_already_open.js"]
+
+# wave6: Trails: pages cut from Forward stay as branch rows in the Back/Forward menu.
+["browser_whimsy_trails.js"]
+
+# wave6: Page actions: schema.org data -> Calendar, Maps, Cook mode, Track pill.
+["browser_whimsy_page_actions.js"]
+support-files = ["whimsy_page_actions.html"]
+
+# wave6/parity: the Archive's own store (no 25-tab loss), Clear Archive.
+["browser_whimsy_archive_store.js"]
+
+# wave6/parity: Option+click a sidebar tab to split (Peek keeps Zen's Option+click on links).
+["browser_whimsy_split_alt_click.js"]
+
+# wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
+["browser_whimsy_split_arc_keys.js"]
+
+# wave6/parity: Arc's menu keys (Library, Downloads/Console, Save Page, Blank Window, Copy URL as Quote, Paste and Match Style).
+["browser_whimsy_arc_menu_keys.js"]
+
+# wave6/parity: Arc's menu bar (Tabs menu, names, Show Toolbar, Reveal Tab, Undo label, Portrait capture, Help item).
+["browser_whimsy_arc_menus.js"]
+
+# wave6/parity: Arc's fixed tidy-title rules (no AI).
+["browser_whimsy_tidy_titles_rules.js"]
+
+# wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
+["browser_whimsy_command_bar_dedup.js"]
+
+# fix7/tabs: pinned tab marks
+["browser_whimsy_pinned_marks.js"]
+
+# fix7 settings: Settings search finds every Whimsy group, in any pane.
+["browser_whimsy_settings_search.js"]
+
+# fix7 settings: command bar entries for History, Liquid Glass, Glance size, VPN.
+["browser_whimsy_settings_commands.js"]
+
+# fix7 settings: onboarding's finish leaves no zen-browser.app tabs.
+["browser_whimsy_onboarding_finish.js"]
+
+# fix/panes: Firefox's Appearance and Tabs and browsing panes merged into Zen's.
+["browser_whimsy_settings_panes.js"]
+
+["browser_whimsy_find_highlight_all.js"]
+
+# fix/kit: the Whimsy balloon replaces Kit; Settings logo glyphs are Whimsy's (overrides, promo, About icon).
+["browser_whimsy_kit_balloon.js"]

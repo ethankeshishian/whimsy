@@ -460,12 +460,17 @@ export const WhimsyPanels = {
    * @param {string} o.title
    * @param {string} o.body
    * @param {string} [o.accept] - the accept button's label
+   * @param {boolean} [o.cancelDefault] - Cancel is the default button
+   *   (Return cancels), for what can't be undone
    */
-  async confirm(win, { title, body, accept = null }) {
+  async confirm(win, { title, body, accept = null, cancelDefault = false }) {
     const ps = Services.prompt;
-    const flags = accept
+    let flags = accept
       ? ps.BUTTON_POS_0 * ps.BUTTON_TITLE_IS_STRING + ps.BUTTON_POS_1 * ps.BUTTON_TITLE_CANCEL
       : ps.STD_OK_CANCEL_BUTTONS;
+    if (cancelDefault) {
+      flags += ps.BUTTON_POS_1_DEFAULT;
+    }
     try {
       const result = await ps.asyncConfirmEx(
         win.browsingContext,
@@ -483,6 +488,34 @@ export const WhimsyPanels = {
     } catch (e) {
       console.error("Whimsy: confirm", e);
       return false;
+    }
+  },
+
+  /**
+   * Asks for one line of text in the window's own sheet, the same in-window
+   * dialog Zen styles for "Delete Space" (never a separate system window).
+   * Resolves the entered text, or null when the person cancels.
+   *
+   * @param {Window} win
+   * @param {object} o
+   * @param {string} o.title
+   * @param {string} [o.body]
+   * @param {string} [o.value] - prefilled text
+   * @param {boolean} [o.password] - mask the field (API keys)
+   */
+  async ask(win, { title, body = "", value = "", password = false }) {
+    const ps = Services.prompt;
+    try {
+      const args = [win.browsingContext, ps.MODAL_TYPE_INTERNAL_WINDOW, title ?? "", body ?? "",
+        value ?? "", null, false];
+      const result = password ? await ps.asyncPromptPassword(...args) : await ps.asyncPrompt(...args);
+      if (!result.getProperty("ok")) {
+        return null;
+      }
+      return String(result.getProperty(password ? "pass" : "value") ?? "");
+    } catch (e) {
+      console.error("Whimsy: ask", e);
+      return null;
     }
   },
 

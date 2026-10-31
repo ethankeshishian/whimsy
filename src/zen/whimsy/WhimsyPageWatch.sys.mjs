@@ -22,7 +22,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const PREF = "whimsy.feature.page-watch";
@@ -456,14 +456,13 @@ export const WhimsyPageWatch = {
         doc.l10n.setAttributes(item, watched ? "whimsy-watch-menu-stop" : "whimsy-watch-menu");
       }
     });
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-watch-page",
-        command: w => this.toggleForTab(w, w.gBrowser.selectedTab),
-        icon: "chrome://browser/skin/zen-icons/sparkles.svg",
-        isAvailable: w => !!w && this.canWatch(w, w.gBrowser.selectedTab),
-      },
-    ]);
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyWatchPage",
+      l10nId: "whimsy-action-watch-page",
+      run: w => this.toggleForTab(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/sparkles.svg",
+      isAvailable: w => !!w && this.canWatch(w, w.gBrowser.selectedTab),
+    });
   },
 
   canWatch(win, tab) {

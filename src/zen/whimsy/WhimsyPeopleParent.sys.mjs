@@ -13,7 +13,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const FEATURE_PREF = "whimsy.feature.people-cards";
 const CARD_WIDTH = 320;
-const CARD_HEIGHT = 200;
+const CARD_HEIGHT = 220;
 
 export class WhimsyPeopleParent extends JSWindowActorParent {
   get #browser() {
@@ -46,17 +46,15 @@ export class WhimsyPeopleParent extends JSWindowActorParent {
       x: Math.max(win.screenX, Math.min(Number(data.x) || 0, win.screenX + win.outerWidth - CARD_WIDTH)),
       y: Math.max(win.screenY, Math.min((Number(data.y) || 0) + 16, win.screenY + win.outerHeight - CARD_HEIGHT)),
     };
+    const people = lazy.WhimsyPeople;
     card.schedule(
       browser,
-      async () => {
-        const found = await lazy.WhimsyPeople.lookup(win, url, attributes);
-        return {
-          ...(found ?? lazy.WhimsyPeople.fallback(url)),
-          avatar: true,
-          screen,
-        };
-      },
-      FEATURE_PREF
+      async () => ({ person: people.card(await people.lookup(win, url, attributes), url), screen }),
+      FEATURE_PREF,
+      {
+        delay: lazy.WhimsyHoverCard.PEOPLE_DELAY_MS,
+        placeholder: { person: people.card(null, url, { loading: true }), screen },
+      }
     );
   }
 

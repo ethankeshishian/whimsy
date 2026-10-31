@@ -17,7 +17,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.split-layouts";
@@ -164,19 +164,21 @@ export const WhimsySplitLayouts = {
       return;
     }
     installed.add(win);
-    lazy.WhimsyShortcuts.addActions([
-      ...SPLIT_SIDES.map(side => ({
+    for (const side of SPLIT_SIDES) {
+      lazy.WhimsyCommands.register(win, {
+        id: `cmd_whimsyAddSplit-${side}`,
         l10nId: `whimsy-action-add-split-${side}`,
-        command: w => this.addSplit(w, side),
+        run: w => this.addSplit(w, side),
         icon: "chrome://browser/skin/zen-icons/split.svg",
         isAvailable: w => this.canAddSplit(w),
-      })),
-      {
-        l10nId: "whimsy-action-split-change-orientation",
-        command: w => this.changeOrientation(w),
-        icon: "chrome://browser/skin/zen-icons/split.svg",
-        isAvailable: w => enabled() && !!w.gBrowser.selectedTab?.splitView,
-      },
-    ]);
+      });
+    }
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsySplitChangeOrientation",
+      l10nId: "whimsy-action-split-change-orientation",
+      run: w => this.changeOrientation(w),
+      icon: "chrome://browser/skin/zen-icons/split.svg",
+      isAvailable: w => enabled() && !!w.gBrowser.selectedTab?.splitView,
+    });
   },
 };

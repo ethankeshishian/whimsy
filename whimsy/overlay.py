@@ -62,6 +62,18 @@ HOOKS = [
      r'^(\s*)\?pending=\$\{pending\}\s*$',
      '{indent}.whimsyDownload=${download}',
      "before"),
+    # wave5: command registry. about:keyboard lists Whimsy's commands in a
+    # "Whimsy" group (WhimsyCommands.sys.mjs), so every one can be bound.
+    ("kbs-whimsy-commands", "src/zen/kbs/ZenKeyboardShortcuts.sys.mjs",
+     r"^(\s*)return keys;\s*$",
+     '{indent}keys = await ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.addKeys(actor, keys); // Whimsy hook',
+     "before"),
+    # wave6/zap: the zap dust takes the space's gradient colors
+    # (WhimsyZapTint tints the captured element before it turns to dust).
+    ("zap-tint", "src/zen/boosts/ZenZapDissolve.sys.mjs",
+     r"^(\s*)this\.#loadTexture\(captureCanvas\);\s*$",
+     '{indent}ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyZapTint.sys.mjs").WhimsyZapTint.tint(ctx, captureCanvas.width, captureCanvas.height); // Whimsy hook',
+     "before"),
 ]
 
 HOTFIXES = [
@@ -426,6 +438,102 @@ HOTFIXES = [
                "      }\n"
                '      const isLeft = dropSide === "left";\n',
     },
+    # wave6/parity: Arc's names for Zen's commands (command bar, about:keyboard,
+    # the space's Clear button). Clear Today's tabs go to the Archive store.
+    {
+        "id": 'zen-string-arc-compact',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-toggle-compact-mode = Toggle Compact Mode',
+        "new": 'zen-action-toggle-compact-mode = Hide or Show Sidebar',
+    },
+    {
+        "id": 'zen-string-arc-library',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-open-library = Open Library\n',
+        "new": 'zen-action-open-library = Open Library…\n',
+    },
+    {
+        "id": 'zen-string-arc-new-space',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-new-space = New Space\n',
+        "new": 'zen-action-new-space = New Space…\n',
+    },
+    {
+        "id": 'zen-string-arc-restore-tab',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-reopen-closed-tab = Reopen Closed Tab',
+        "new": 'zen-action-reopen-closed-tab = Restore Last Closed Tab',
+    },
+    {
+        "id": 'zen-string-arc-blank-window',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-new-blank-window = New Blank Window',
+        "new": 'zen-action-new-blank-window = Blank Window',
+    },
+    {
+        "id": 'zen-string-arc-key-compact',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-compact-mode-shortcut-toggle = Toggle Compact Mode',
+        "new": 'zen-compact-mode-shortcut-toggle = Hide or Show Sidebar',
+    },
+    {
+        "id": 'zen-string-arc-key-library',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-library-shortcut-toggle = Toggle Library',
+        "new": 'zen-library-shortcut-toggle = Open Library…',
+    },
+    {
+        "id": 'zen-string-arc-key-clear-today',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-close-all-unpinned-tabs-shortcut = Close All Unpinned Tabs',
+        "new": 'zen-close-all-unpinned-tabs-shortcut = Clear Today',
+    },
+    {
+        "id": 'zen-string-arc-clear-today-toast',
+        "file": 'locales/en-US/browser/browser/zen-workspaces.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-workspaces-close-all-unpinned-tabs-toast = Tabs Closed! Use <span>{ $shortcut }</span> to undo.',
+        "new": 'zen-workspaces-close-all-unpinned-tabs-toast = Today’s tabs are in the Archive. Use <span>{ $shortcut }</span> to undo.',
+    },
+    {
+        "id": 'zen-string-arc-clear-today-tooltip',
+        "file": 'locales/en-US/browser/browser/zen-workspaces.ftl',
+        "why": "Arc's name for this command.",
+        "old": '    .tooltiptext = Close all unpinned tabs',
+        "new": '    .tooltiptext = Clear Today: archive every unpinned tab',
+    },
+    # fix7 settings: onboarding's last step grouped the open tab into a
+    # "zen basics" folder. Zen did that to tidy its own welcome and privacy
+    # pages (zen-browser.app); Whimsy's first run opens only its homepage,
+    # so the folder just held about:whimsy under Zen's name.
+    {
+        "id": "welcome-no-zen-basics-folder",
+        "file": "src/zen/welcome/ZenWelcome.mjs",
+        "why": "Onboarding put the first tab in a folder named \"zen basics\"; "
+               "Whimsy's first run has no Zen pages to group, and any left over "
+               "from older builds close.",
+        "old": "      await this.#pinEssentials();\n"
+               "      let tabsToGroup = [];\n"
+               '      if (!gBrowser.selectedTab.hasAttribute("zen-empty-tab")) {\n'
+               "        tabsToGroup.push(gBrowser.selectedTab);\n"
+               "      }\n"
+               "      gZenFolders.createFolder(tabsToGroup, {\n"
+               "        renameFolder: false,\n"
+               '        label: "zen basics",\n'
+               "      });\n",
+        "new": "      await this.#pinEssentials(); // Whimsy hotfix: no \"zen basics\" folder\n"
+               '      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.finishOnboarding(window); // and no Zen first-run pages\n',
+        # (the second line closes zen-browser.app/welcome and /privacy-policy
+        # tabs that profiles made by pre-46fe4b3 builds still carry)
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -579,7 +687,7 @@ FEATURES = [
     {"id": "heavy-tabs", "title": "Find heavy tabs: the tabs using the most memory/CPU, with a close button (Opera GX)",
      "detect": [("src/zen", r"(?i)heavy-?tabs|hot-?tabs-?killer|ZenHeavyTabs")]},
     # batch6: split view extras.
-    {"id": "split-link-click", "title": "Shift+click a link opens it in a split (Arc parity, PR#15241)",
+    {"id": "split-link-click", "title": "Shift+click a link opens it in a split (opt-in, Zen PR#15241)",
      "detect": [("src/zen/split-view", r"(?i)shift.*click.*split|modifier.*click.*split")]},
     {"id": "split-close-other-panes", "title": "\"Close Other Panes\" in the command bar",
      "detect": [("src/zen/split-view", r"cmd_zen[\w]*CloseOther")]},
@@ -650,7 +758,7 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)qlmanage|QLPreviewPanel")]},
     {"id": "drag-downloads", "title": "A panel stays open while you drag a download out of it into a site",
      "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
-    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (Cmd+Opt+S) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
+    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
     {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
      "detect": [("src/zen", r"(?i)cheat-?sheet")]},
@@ -789,16 +897,94 @@ FEATURES = [
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
      "detect": [("src/zen", r"(?i)page-?watch|notify-?me|watch-?(this-)?page")]},
+    # wave5/lan: Local servers live folder: dev servers on localhost come and
+    # go as tabs, polled only while the folder is visible.
+    {"id": "live-folders-local-servers", "title": "Local servers live folder: running localhost dev servers as tabs that appear and disappear",
+     "detect": [("src/zen/live-folders", r"(?i)local-?servers|localhost")]},
     # wave5: live blocks in Notes (Arc Easels' Live Captures).
     {"id": "note-blocks", "title": "Live blocks in Notes: /embed or drop a tab to keep a cropped, live region of a page in a note (Arc Live Captures)",
      "detect": [("src/zen", r"(?i)live-?capture|zen[\w-]*note[\w-]*block")]},
-    # wave5: Easel (Arc's Easels: canvas of text, drawings, shapes, images, links, captures).
-    {"id": "easel", "title": "Easel: a canvas of text, drawings, shapes, images, links and live captures, pinned like a tab (Arc Easels)",
-     "detect": [("src/zen", r"(?i)\beasels?\b")]},
-    # wave5: redact: a toggle in the Screenshots panel that blurs emails,
-    # phones, keys/tokens and card numbers (click text to blur/unblur).
-    {"id": "redact", "title": "Redact in screenshots: blur emails, phone numbers, keys and card numbers before capturing; click text to blur it",
-     "detect": [("src/zen", r"(?i)redact")]},
+    # wave5/captions: live translated captions (CC in the speed control),
+    # translated on-device by Firefox Translations.
+    {"id": "video-captions", "title": "Translated captions: CC on a video's speed control shows its captions in your language, translated on your Mac",
+     "detect": [("src/zen/media", r"(?i)(translated|live)-?captions|caption-?translat")]},
+    # wave5/safety: the Claude space's prompt-injection shield.
+    {"id": "claude-shield", "title": "Claude prompt-injection shield: hidden page text never reaches Claude, page content is marked untrusted, and pages that instruct Claude pause it (Continue / Stop)",
+     "detect": [("src/zen", r"(?i)prompt-?injection")]},
+    # wave5/safety: agent replay of Claude runs at whimsy://replay.
+    {"id": "claude-replay", "title": "Claude replay: each Claude run is kept as a timeline of steps with page snapshots at whimsy://replay (never private tabs; Clear history clears it)",
+     "detect": [("src/zen", r"(?i)agent-?replay|claude-?replay")]},
+    # wave5/quick: QR code for any page. Firefox's QR dialog (SharingUtils),
+    # exposed in the page menu and command bar; never for private tabs/Scratch.
+    {"id": "qr-code", "title": "QR code for any page: the page menu and command bar open Firefox's QR dialog (not for private tabs or Scratch)",
+     "detect": [("src/zen", r"(?i)showQRCodePanel|qr-?code-?for-?page")]},
+    # wave5/quick: Copy page as Markdown (MarkDownload/Obsidian clipper style;
+    # Zen discussion #12557). Zen only copies [title](url).
+    {"id": "copy-page-markdown", "title": "Copy Page as Markdown: the Reader View article (or a selection) as Markdown, from the page menu and command bar",
+     "detect": [("src/zen", r"(?i)copy-?(page|selection)-?as-?markdown|pageToMarkdown|turndown")]},
+    # wave5/quick: Markdown/CSV viewer (Typora/Marked/GitHub file view; built
+    # like Firefox's JSON viewer: sniffer + stream converter, no page script).
+    {"id": "doc-viewer", "title": "Markdown and CSV viewer: .md files read with reader typography and contents, CSV/TSV as a sortable table, Source toggle, live reload",
+     "detect": [("src/zen", r"(?i)text/markdown|markdown-?viewer|csv-?viewer")]},
+    # wave5/quick: link lasso (Linkclump/Snap Links): Option-drag over links
+    # makes a folder of unloaded tabs named after the page.
+    {"id": "link-lasso", "title": "Link lasso: Option-drag a rectangle over links, let go, and they become a folder of unloaded tabs",
+     "detect": [("src/zen", r"(?i)link-?lasso|lasso-?links|linkclump|snap-?links")]},
+    # wave5/quick: new season toast: the first window in a new season shows
+    # one Zen toast with the costumed balloon (respects the seasonal switch).
+    {"id": "season-toast", "title": "New season toast: the first window in a new season shows the balloon in its costume, once",
+     "detect": [("src/zen", r"(?i)season-?toast|new-?season")]},
+    # wave5/verbs: Cmd+K lists verbs for the selection (or page) in the
+    # command bar: Translate, Search, Map, Email, Copy as Markdown, Add to
+    # Note, Add to Calendar, Linear, and your own skills.
+    {"id": "selection-verbs", "title": "Cmd+K: actions for the selected text or page (Translate, Map, Calendar, Linear, Markdown, Notes, your skills)",
+     "detect": [("src/zen", r"(?i)selection-?verbs|do-?with-?selection|universal-?actions")]},
+    # wave5/look: a look per space (font, density, tab title lines, a Zen Mod).
+    {"id": "space-look", "title": "A look per space: its own interface font, density, tab title lines and Zen Mod, switching with the space",
+     "detect": [("src/zen/spaces", r"(?i)workspace\.(font|density|look)\b|space-?(font|density)")]},
+    # wave5: command registry
+    {"id": "command-registry", "title": "Every Whimsy action is a named command: in the command bar and under \"Whimsy\" in Settings → Keyboard Shortcuts, so any of them can take a shortcut",
+     "detect": [("src/zen", r"(?i)WHIMSY_KEY_CATEGORIES|registerKeyCategor(y|ies)|extraKeyCategories")]},
+    # wave5/audioicon: Arc's tab speaker: an outline speaker between favicon
+    # and title on every tab with sound (muted included), one click mutes.
+    {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
+     "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
+    # wave6/zap: Zap as a command (Zen ships zap mode only inside the Boost
+    # editor): Cmd+Shift+X, command bar, site panel, undo, space-colored dust.
+    {"id": "zap", "title": "Zap: erase page elements with Cmd+Shift+X, the command bar or the site panel; undo, space-colored dust",
+     "detect": [("src/zen", r"(?i)zen-action-zap|key_zenZap|cmd_zenZap|zen-zap-shortcut")]},
+    # wave6/zap: Link hints (Vimium's f): letter badges on everything
+    # clickable, type to click, Shift for a new tab.
+    {"id": "link-hints", "title": "Link hints: Cmd+J puts letter badges on links and buttons; type one to click it, Shift for a new tab",
+     "detect": [("src/zen", r"(?i)link-?hints|vimium|hint-?mode")]},
+    # wave6/search: Instant result (Arc Max Instant Links) and the Search
+    # Deck (flip through results in a Glance).
+    {"id": "instant-result", "title": "Instant result: Shift+Enter on a search in the command bar opens the top result (Arc Max Instant Links)",
+     "detect": [("src/zen", r"(?i)instant-?(result|link)s?")]},
+    {"id": "search-deck", "title": "Search Deck: flip through search results one by one in a Glance; Cmd+Enter keeps one as a tab",
+     "detect": [("src/zen", r"(?i)search-?deck|result-?deck")]},
+    # wave6: Already open (Arc): Return on an address that's open in any
+    # space goes to that tab instead of a duplicate. Zen already lists open
+    # tabs as Switch to Tab results; this is only the typed-address case.
+    {"id": "already-open", "title": "Already open: typing an address that's open in another tab or space takes you there instead of opening a copy (Arc)",
+     "detect": [("src/zen", r"(?i)already-?open|dedupe-?tabs|prevent-?duplicate")]},
+    # wave6: Trails (Horse, Nyxt): forward pages a new click would drop stay
+    # as branches in the Back/Forward menu, plus where the tab came from.
+    {"id": "trails", "title": "Trails: pages you went back from stay in the Back/Forward menu as branches, with where the tab came from",
+     "detect": [("src/zen", r"(?i)OnHistoryTruncate\s*[(:]\s*\w|history-?tree|branch(ing)?-?history")]},
+    # wave6: Page actions (Safari Highlights): schema.org JSON-LD/microdata
+    # on the page -> one address bar pill (Calendar, Maps, Cook mode...).
+    {"id": "page-actions", "title": "Page actions: add events to Calendar, open places in Maps, cook mode for recipes, from the page's own data (Safari Highlights)",
+     "detect": [("src/zen", r"(?i)application/ld\+json|schema\.org/(Event|Recipe)|page-?actions?-?pill")]},
+    # wave6/parity: Arc's Option+click a tab to split it with the current one.
+    {"id": "split-alt-click", "title": "Option+click a tab in the sidebar to open it in a split with the current tab (Arc)",
+     "detect": [("src/zen/split-view", r"(?i)alt-?click|altKey")]},
+    {"id": "split-arc-keys", "title": "Arc's Split View commands: Add Split View (Ctrl+Shift+=), Close this Split Pane (Ctrl+Shift+-), Separate Page, Expand Current Split, Ctrl+Shift+1-4 and [ ] to move between panes",
+     "detect": [("src/zen/split-view", r"(?i)separate-?page|focus-?pane|cmd_zenSplitView(Focus|Next|Prev)")]},
+    {"id": "command-bar-dedup", "title": "Command bar: one row per page title on Figma, Notion, GitHub and Arc's other 7 hosts (Arc's dedupByTitleAndHost)",
+     "detect": [("src/zen/urlbar", r"(?i)dedup")]},
+    {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
+     "detect": [("src/zen/common", r"(?i)reveal-?tab|tabs-menubar|portrait")]},
 ]
 
 

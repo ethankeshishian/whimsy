@@ -8,11 +8,12 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
-// #7 Open a link in split: Arc's Shift+click opens a link beside the
-// current tab instead of navigating it away. Shift+click is Firefox's own
+// #7 Open a link in split: Shift+click opens a link beside the current tab
+// instead of navigating it away. Not Arc's (Arc's Shift+click opens Peek;
+// Whimsy keeps Zen's Option+click for Peek). Shift+click is Firefox's own
 // "open in new window", so this only runs the link through to a split when
 // the user has explicitly turned it on (default off); the WhimsyPage actor
 // does the in-page detection (see WhimsyPageChild/Parent) and calls
@@ -50,6 +51,13 @@ const COMMAND_BAR_FEATURE_PREF = "whimsy.feature.split-command-bar";
 //   whimsyCanDropIntoSplit/whimsyDropIntoSplit (set below), so the third
 //   and fourth tab join the split beside the pane you drop on.
 const FOUR_PANES_FEATURE_PREF = "whimsy.feature.split-four-panes";
+
+// wave6/parity: Arc's Option+click a tab in the sidebar opens it in a split
+// with the current tab (or adds it to the current split), instead of
+// switching to it. Option+click on a tab means nothing else in Zen or
+// Firefox on macOS; Zen's Option+click Peek is for links in the page
+// (and bookmarks), never sidebar tabs, so the two don't meet.
+const ALT_CLICK_FEATURE_PREF = "whimsy.feature.split-alt-click";
 
 function enabled(pref) {
   return Services.prefs.getBoolPref(pref, true);
@@ -221,8 +229,97 @@ export const WhimsySplit = {
     return true;
   },
 
+  // The tab an Option+click should split in, or null to leave the click be.
+  altClickTarget(win, event, { ignoreSwitch = false } = {}) {
+    if (
+      (!ignoreSwitch && !enabled(ALT_CLICK_FEATURE_PREF)) ||
+      event.button != 0 ||
+      !event.altKey ||
+      event.shiftKey ||
+      event.ctrlKey ||
+      event.metaKey
+    ) {
+      return null;
+    }
+    const tab = event.target.closest?.(".tabbrowser-tab");
+    const selected = win.gBrowser.selectedTab;
+    if (
+      !tab ||
+      tab == selected ||
+      tab.closing ||
+      tab.hasAttribute("zen-essential") ||
+      tab.hasAttribute("zen-empty-tab") ||
+      event.target.closest(".tab-close-button, .tab-icon-overlay, .tab-reset-button")
+    ) {
+      return null;
+    }
+    return tab;
+  },
+
+  // Adds `tab` to the selected tab's split (Zen's own path, which also
+  // refuses a fifth pane), or splits the two.
+  splitWithSelected(win, tab) {
+    const splitter = win.gZenViewSplitter;
+    const selected = win.gBrowser.selectedTab;
+    if (!splitter || !tab || tab == selected) {
+      return false;
+    }
+    if (tab.splitView && splitter._data.some(g => g.tabs.includes(tab) && g.tabs.includes(selected))) {
+      win.gBrowser.selectedTab = tab; // Already side by side: just focus it.
+      return true;
+    }
+    return !!splitter.splitTabs([selected, tab], undefined, 1);
+  },
+
+  initAltClick(win) {
+    const container = win.gBrowser?.tabContainer;
+    if (!container) {
+      return;
+    }
+    // Capturing mousedown on the container: before the tab selects itself
+    // on mousedown, so the click splits instead of switching.
+    let swallowClick = false;
+    const onMouseDown = event => {
+      if (!enabled(ALT_CLICK_FEATURE_PREF)) {
+        // The switch owns Option+click on a tab. Zen's tab patch never
+        // selects on Option+mousedown and splits on the click instead; with
+        // the switch off, an Option+click is just a click: select the tab and
+        // keep the click from Zen's split.
+        const plain = this.altClickTarget(win, event, { ignoreSwitch: true });
+        swallowClick = !!plain;
+        if (plain) {
+          win.gBrowser.selectedTab = plain;
+        }
+        return;
+      }
+      const tab = this.altClickTarget(win, event);
+      swallowClick = !!tab;
+      if (!tab) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        this.splitWithSelected(win, tab);
+      } catch (e) {
+        console.error("Whimsy: Option+click split", e);
+      }
+    };
+    // Swallow the matching click so Zen's own click handlers don't act on it.
+    const onClick = event => {
+      if (swallowClick && event.button == 0) {
+        swallowClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    container.addEventListener("mousedown", onMouseDown, true);
+    container.addEventListener("click", onClick, true);
+  },
+
   initWindow(win) {
-    const { WhimsyShortcuts } = lazy;
+    const { WhimsyCommands } = lazy;
+    this.initAltClick(win);
 
     this.wrapToggleShortcut(win);
     if (win.gZenViewSplitter) {
@@ -245,49 +342,40 @@ export const WhimsySplit = {
     }
 
     // #9
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyCloseOtherPanes",
+      l10nId: "whimsy-action-close-other-panes",
       run: w => this.closeOtherPanes(w),
-      key: { id: "key_whimsyCloseOtherPanes", key: "W", modifiers: "accel,alt,shift" },
+      keyId: "key_whimsyCloseOtherPanes",
+      key: { key: "W", modifiers: "accel,alt,shift" },
+      icon: "chrome://browser/skin/zen-icons/close.svg",
+      isAvailable: w => enabled(CLOSE_OTHERS_FEATURE_PREF) && hasActiveSplit(w),
     });
-    // #10
-    WhimsyShortcuts.addCommand(win, {
+    // #10. wave5: no default shortcut. Its old Cmd+Opt+Shift+S is where Zen
+    // moved Save Page (Cmd+S is compact mode), and a Whimsy default never
+    // shadows a Zen or Firefox one. Assign one in Settings → Keyboard
+    // Shortcuts.
+    WhimsyCommands.register(win, {
       id: "cmd_whimsySwapPanes",
+      l10nId: "whimsy-action-swap-panes",
       run: w => this.swapPanes(w),
-      key: { id: "key_whimsySwapPanes", key: "S", modifiers: "accel,alt,shift" },
+      keyId: "key_whimsySwapPanes",
+      icon: "chrome://browser/skin/zen-icons/split.svg",
+      isAvailable: w => enabled(SWAP_FEATURE_PREF) && hasActiveSplit(w),
     });
-
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-close-other-panes",
-        command: "cmd_whimsyCloseOtherPanes",
-        icon: "chrome://browser/skin/zen-icons/close.svg",
-        isAvailable: w => enabled(CLOSE_OTHERS_FEATURE_PREF) && hasActiveSplit(w),
-      },
-      {
-        l10nId: "whimsy-action-swap-panes",
-        command: "cmd_whimsySwapPanes",
-        icon: "chrome://browser/skin/zen-icons/split.svg",
-        isAvailable: w => enabled(SWAP_FEATURE_PREF) && hasActiveSplit(w),
-      },
-      {
-        l10nId: "whimsy-action-split-vertically",
-        command: w => w.gZenViewSplitter.toggleShortcut("vsep"),
+    // Zen's own split commands (and their Cmd+Opt+V/H/G keys, listed in
+    // Zen's group), offered in the command bar.
+    for (const [id, l10nId] of [
+      ["cmd_zenSplitViewVertical", "whimsy-action-split-vertically"],
+      ["cmd_zenSplitViewHorizontal", "whimsy-action-split-horizontally"],
+      ["cmd_zenSplitViewGrid", "whimsy-action-split-grid"],
+    ]) {
+      WhimsyCommands.register(win, {
+        id,
+        l10nId,
         icon: "chrome://browser/skin/zen-icons/split.svg",
         isAvailable: w => enabled(COMMAND_BAR_FEATURE_PREF) && w.gBrowser.visibleTabs.length >= 2,
-      },
-      {
-        l10nId: "whimsy-action-split-horizontally",
-        command: w => w.gZenViewSplitter.toggleShortcut("hsep"),
-        icon: "chrome://browser/skin/zen-icons/split.svg",
-        isAvailable: w => enabled(COMMAND_BAR_FEATURE_PREF) && w.gBrowser.visibleTabs.length >= 2,
-      },
-      {
-        l10nId: "whimsy-action-split-grid",
-        command: w => w.gZenViewSplitter.toggleShortcut("grid"),
-        icon: "chrome://browser/skin/zen-icons/split.svg",
-        isAvailable: w => enabled(COMMAND_BAR_FEATURE_PREF) && w.gBrowser.visibleTabs.length >= 2,
-      },
-    ]);
+      });
+    }
   },
 };

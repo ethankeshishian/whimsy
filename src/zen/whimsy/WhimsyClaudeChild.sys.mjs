@@ -10,11 +10,20 @@
 //
 // It never reveals or fills password fields (Whimsy keeps Claude away from
 // passwords and the password manager entirely).
+//
+// With the prompt-injection shield on (data.shield, see
+// WhimsyClaudeShield.sys.mjs), reading skips text the person can't see:
+// aria-hidden, zero opacity, zero size, off-screen, clipped, tiny or
+// background-colored text. What it skipped comes back as `concealed`, so
+// the parent can check it for hidden instructions; it never reaches Claude.
 
 const MAX_LINES = 1500;
 const MAX_TEXT = 60000;
 const MAX_NAME = 100;
 const MAX_FIND = 20;
+const MAX_CONCEALED = 8000;
+// Elements whose insides are never page text.
+const NOT_TEXT = ["script", "style", "noscript", "template", "head"];
 
 const INTERACTIVE = new Set([
   "link",
@@ -109,16 +118,21 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
   #refs = new Map();
   #refOf = new WeakMap();
   #nextRef = 1;
+  // Per read: whether the shield is on, what it skipped, background colors.
+  #shield = false;
+  #concealed = [];
+  #concealedLength = 0;
+  #backgrounds = new Map();
 
   receiveMessage({ name, data }) {
     try {
       switch (name) {
         case "Claude:ReadPage":
-          return this.readPage(data);
+          return this.reading(data, () => this.readPage(data));
         case "Claude:PageText":
-          return this.pageText();
+          return this.reading(data, () => this.pageText());
         case "Claude:Find":
-          return this.find(data);
+          return this.reading(data, () => this.find(data));
         case "Claude:Click":
           return this.click(data);
         case "Claude:Type":
@@ -309,6 +323,144 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     return this.contentWindow.getComputedStyle(el).display == "contents";
   }
 
+  // --- The shield: text the person can't see ---
+
+  reading(data, fn) {
+    this.#shield = !!data?.shield;
+    this.#concealed = [];
+    this.#concealedLength = 0;
+    this.#backgrounds = new Map();
+    try {
+      const result = fn();
+      result.concealed = this.#concealed.join("\n");
+      return result;
+    } finally {
+      this.#concealed = [];
+      this.#backgrounds = new Map();
+    }
+  }
+
+  // Visible to the person: what reading uses. Skipped elements' text is
+  // kept aside for the parent's check.
+  shown(el) {
+    const visible = this.visible(el);
+    if (visible && !(this.#shield && this.concealment(el))) {
+      return true;
+    }
+    if (this.#shield && this.#concealedLength < MAX_CONCEALED) {
+      const text = clip(el.textContent, 1000);
+      if (text) {
+        this.#concealed.push(text);
+        this.#concealedLength += text.length;
+      }
+    }
+    return false;
+  }
+
+  hasOwnText(el) {
+    return [...el.childNodes].some(n => n.nodeType == n.TEXT_NODE && n.data.trim());
+  }
+
+  // Why a rendered element is still hidden from the person, or "".
+  concealment(el) {
+    const win = this.contentWindow;
+    const style = win.getComputedStyle(el);
+    if (!style || style.display == "contents") {
+      return "";
+    }
+    if (!el.checkVisibility({ checkOpacity: true }) || parseFloat(style.opacity) < 0.1) {
+      return "opacity";
+    }
+    // The page itself is never "too small" or "off the page".
+    if (el == this.doc.body || el == this.doc.documentElement) {
+      return "";
+    }
+    const ownText = this.hasOwnText(el);
+    const rect = el.getBoundingClientRect();
+    const clips = /hidden|clip/.test(style.overflow) || /hidden|clip/.test(style.overflowX + style.overflowY);
+    if ((rect.width <= 1 || rect.height <= 1) && (clips || (ownText && (!rect.width || !rect.height)))) {
+      return "zero-size";
+    }
+    // Off the page: above or left of the document, or past its far edge.
+    const fixed = style.position == "fixed";
+    const left = rect.left + (fixed ? 0 : win.scrollX);
+    const top = rect.top + (fixed ? 0 : win.scrollY);
+    const root = this.doc.documentElement;
+    const width = Math.max(root?.scrollWidth || 0, win.innerWidth);
+    if (left + rect.width <= 0 || top + rect.height <= 0 || left >= width + 50 || parseFloat(style.textIndent) < -999) {
+      return "off-screen";
+    }
+    if (this.clipped(style)) {
+      return "clipped";
+    }
+    if (ownText) {
+      if (parseFloat(style.fontSize) < 3) {
+        return "tiny";
+      }
+      const color = this.rgba(style.color);
+      if (color && color[3] < 0.1) {
+        return "transparent";
+      }
+      const background = this.background(el);
+      if (color && background && color.slice(0, 3).every((c, i) => Math.abs(c - background[i]) <= 12)) {
+        return "same-color";
+      }
+    }
+    return "";
+  }
+
+  clipped(style) {
+    const clip = /^rect\(([^)]*)\)/.exec(style.clip || "");
+    if (clip && /absolute|fixed/.test(style.position)) {
+      const [top, right, bottom, left] = clip[1].split(/[\s,]+/).map(v => parseFloat(v));
+      if ([top, right, bottom, left].every(Number.isFinite) && (right - left <= 1 || bottom - top <= 1)) {
+        return true;
+      }
+    }
+    const path = style.clipPath || "";
+    return /inset\(\s*(?:5\d|[6-9]\d|100)%/.test(path) || /circle\(\s*0(?:px)?\b/.test(path);
+  }
+
+  rgba(value) {
+    const m = /rgba?\(([^)]+)\)/.exec(value || "");
+    if (!m) {
+      return null;
+    }
+    const parts = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    return [parts[0], parts[1], parts[2], parts.length > 3 ? parts[3] : 1];
+  }
+
+  // The solid color behind an element, or null when an image or gradient
+  // makes it unknowable.
+  background(el) {
+    const path = [];
+    let color = null;
+    for (let node = el; node && node.nodeType == node.ELEMENT_NODE; node = node.parentElement) {
+      if (this.#backgrounds.has(node)) {
+        color = this.#backgrounds.get(node);
+        break;
+      }
+      path.push(node);
+      const style = this.contentWindow.getComputedStyle(node);
+      if (style.backgroundImage && style.backgroundImage != "none") {
+        break;
+      }
+      const bg = this.rgba(style.backgroundColor);
+      if (bg && bg[3] > 0.9) {
+        color = bg;
+        break;
+      }
+      if (!node.parentElement) {
+        // The canvas: white unless the page says it's dark.
+        color = style.colorScheme?.includes("dark") ? null : [255, 255, 255, 1];
+      }
+    }
+    for (const node of path) {
+      this.#backgrounds.set(node, color);
+    }
+    return color;
+  }
+
   line(el, role, depth) {
     const name = this.name(el, role);
     const details = this.details(el, role);
@@ -345,7 +497,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
         return;
       }
       const el = node;
-      if (["script", "style", "noscript", "template", "head"].includes(el.localName) || !this.visible(el)) {
+      if (NOT_TEXT.includes(el.localName) || !this.shown(el)) {
         return;
       }
       const role = this.role(el);
@@ -379,13 +531,67 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
   }
 
   pageText() {
-    const text = this.doc.body?.innerText || "";
+    const text = this.#shield ? this.shownText() : this.doc.body?.innerText || "";
     return {
       title: this.doc.title,
       url: this.doc.URL,
       text: text.length > MAX_TEXT ? text.slice(0, MAX_TEXT) : text,
       truncated: text.length > MAX_TEXT,
     };
+  }
+
+  // Like innerText, but only text the person can see.
+  shownText() {
+    const parts = [];
+    let length = 0;
+    const walk = node => {
+      if (length > MAX_TEXT) {
+        return;
+      }
+      if (node.nodeType == node.TEXT_NODE) {
+        const text = node.data.replace(/\s+/g, " ");
+        if (text.trim()) {
+          parts.push(text);
+          length += text.length;
+        }
+        return;
+      }
+      if (node.nodeType != node.ELEMENT_NODE) {
+        return;
+      }
+      const el = node;
+      if (NOT_TEXT.includes(el.localName) || ["select", "textarea", "input", "iframe"].includes(el.localName)) {
+        return;
+      }
+      if (el.localName == "br") {
+        parts.push("\n");
+        return;
+      }
+      if (!this.shown(el)) {
+        return;
+      }
+      const block = !this.contentWindow.getComputedStyle(el).display.startsWith("inline");
+      if (block) {
+        parts.push("\n");
+      }
+      for (const child of el.childNodes) {
+        walk(child);
+      }
+      if (el.openOrClosedShadowRoot && !el.openOrClosedShadowRoot.isUAWidget()) {
+        for (const child of el.openOrClosedShadowRoot.childNodes) {
+          walk(child);
+        }
+      }
+      if (block) {
+        parts.push("\n");
+      }
+    };
+    walk(this.doc.body || this.doc.documentElement);
+    return parts
+      .join("")
+      .replace(/[ \t]*\n[ \t]*/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   }
 
   // Elements whose role, name, value or placeholder contain every word of
@@ -411,7 +617,11 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
         matches.push({ el, role, score: INTERACTIVE.has(role) ? 2 : 1 });
       }
     };
-    const walker = this.doc.createTreeWalker(this.doc.body || this.doc.documentElement, 1 /* SHOW_ELEMENT */);
+    // With the shield on, a hidden element's whole subtree is skipped.
+    const filter = this.#shield
+      ? { acceptNode: el => (NOT_TEXT.includes(el.localName) || !this.shown(el) ? 2 /* REJECT */ : 1 /* ACCEPT */) }
+      : null;
+    const walker = this.doc.createTreeWalker(this.doc.body || this.doc.documentElement, 1 /* SHOW_ELEMENT */, filter);
     for (let el = walker.currentNode; el; el = walker.nextNode()) {
       if (["script", "style", "noscript", "template"].includes(el.localName)) {
         continue;

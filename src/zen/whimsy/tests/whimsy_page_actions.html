@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Whimsy page actions</title>
+<!-- One page, several shapes: ?event, ?recipe, ?product, ?parcel, ?events
+     (a listing: two events), ?place (microdata), ?none. The script copies
+     the matching JSON-LD into the document before load. -->
+<script>
+  const DATA = {
+    event: { "@context": "https://schema.org", "@type": "MusicEvent", name: "Night Gig", startDate: "2026-11-05T19:30:00-05:00", location: { "@type": "Place", name: "The Hall", address: { streetAddress: "1 Main St", addressLocality: "Springfield" } } },
+    events: [{ "@type": "Event", name: "One", startDate: "2026-11-05" }, { "@type": "Event", name: "Two", startDate: "2026-11-06" }],
+    recipe: { "@context": "https://schema.org", "@graph": [{ "@type": "Organization", name: "Food Site", address: "Somewhere" }, { "@type": "Recipe", name: "Tomato Soup", recipeYield: "4 servings", totalTime: "PT45M", recipeIngredient: ["4 tomatoes", "1 onion"], recipeInstructions: [{ "@type": "HowToStep", text: "Chop everything." }, { "@type": "HowToStep", text: "Simmer for 30 minutes." }] }] },
+    product: { "@type": "Product", name: "Desk Lamp", offers: { "@type": "Offer", price: "49.00", priceCurrency: "USD" } },
+    parcel: { "@type": "ParcelDelivery", trackingUrl: "https://example.com/track?id=1", itemShipped: { name: "Shoes" } },
+    bad: { "@type": "ParcelDelivery", trackingUrl: "javascript:alert(1)" },
+  };
+  const kind = location.search.slice(1);
+  if (DATA[kind]) {
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify(DATA[kind]);
+    document.head.append(script);
+  }
+</script>
+<div id="place" hidden itemscope itemtype="https://schema.org/Restaurant">
+  <span itemprop="name">Corner Café</span>
+  <div itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+    <span itemprop="streetAddress">2 Side St</span>
+  </div>
+  <meta itemprop="openingHours" content="Mo-Su 00:00-00:00">
+</div>
+<script>
+  if (location.search != "?place") {
+    document.getElementById("place").remove();
+  }
+</script>
+<p>Page actions test page.</p>

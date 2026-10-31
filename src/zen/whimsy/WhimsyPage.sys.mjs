@@ -21,7 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const CAPTURE_FEATURE_PREF = "whimsy.feature.capture";
@@ -47,7 +47,7 @@ const COPY_PERMISSION = "whimsy-allow-copy";
 // Internet Archive for dead pages (Brave's Wayback Machine prompt and the
 // official extension): when a page is gone (404, 410, 451, 5xx) or its
 // site can't be reached, a bar offers the Wayback Machine's latest copy,
-// with its date. "Open in Internet Archive" in the command bar works on any
+// with its date. "Open in Wayback Machine" in the command bar works on any
 // page. Never asked for private windows or local addresses.
 const ARCHIVE_FEATURE_PREF = "whimsy.feature.wayback";
 const ARCHIVE_PROMPT_PREF = "whimsy.archive.prompt";
@@ -146,31 +146,38 @@ export const WhimsyPage = {
     if (!this.captureEnabled) {
       return;
     }
-    const { WhimsyShortcuts } = lazy;
+    const { WhimsyCommands } = lazy;
     // Arc's capture shortcut, beside Firefox's Cmd+Shift+S. By keycode:
     // with Shift held, Gecko only tries the shifted character ("@" on a US
-    // layout) against key="2", so a key="2" binding never fired.
-    WhimsyShortcuts.addKey(win, {
-      id: "key_whimsyScreenshotArc",
-      command: "Browser:Screenshot",
-      keycode: "VK_2",
-      modifiers: "accel,shift",
+    // layout) against key="2", so a key="2" binding never fired. Zen's
+    // command bar already offers this command ("Capture Screenshot").
+    WhimsyCommands.register(win, {
+      id: "Browser:Screenshot",
+      l10nId: "whimsy-action-capture",
+      keyId: "key_whimsyScreenshotArc",
+      key: { keycode: "VK_2", modifiers: "accel,shift" },
+      commandBar: false,
     });
-    WhimsyShortcuts.addCommand(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyCopyFullPage",
+      l10nId: "whimsy-action-copy-full-page",
       run: w => this.copyFullPageScreenshot(w),
       // Cmd+Shift+1, beside Cmd+Shift+2 (Screenshots); by keycode for the
       // same reason as that one.
-      key: { id: "key_whimsyCopyFullPage", keycode: "VK_1", modifiers: "accel,shift" },
+      keyId: "key_whimsyCopyFullPage",
+      key: { keycode: "VK_1", modifiers: "accel,shift" },
+      icon: "chrome://browser/skin/zen-icons/screenshot.svg",
+      isAvailable: w => this.captureEnabled && isWebPage(w),
     });
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-copy-full-page",
-        command: "cmd_whimsyCopyFullPage",
-        icon: "chrome://browser/skin/zen-icons/screenshot.svg",
-        isAvailable: w => this.captureEnabled && isWebPage(w),
-      },
-    ]);
+    // wave6/parity: Arc's File → Capture in Portrait Mode: the visible page
+    // cropped to a centred 9:16 frame (a phone-shaped shot), copied.
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyCapturePortrait",
+      l10nId: "whimsy-action-capture-portrait",
+      run: w => this.copyPortraitScreenshot(w),
+      icon: "chrome://browser/skin/zen-icons/screenshot.svg",
+      isAvailable: w => this.captureEnabled && isWebPage(w),
+    });
     // A <key> only matches keypress, whose keyCode is 0 for a printable key
     // and whose character is the shifted one ("!", "@" on a US layout), so
     // neither key="2" nor keycode="VK_2" ever fired with Shift held. The
@@ -232,6 +239,43 @@ export const WhimsyPage = {
     return { width: canvas.width / ratio, height: canvas.height / ratio };
   },
 
+  // The largest centred 9:16 rect inside the visible area.
+  portraitRect(rect) {
+    const ratio = 9 / 16;
+    let { left, top, width, height } = rect;
+    if (width / height > ratio) {
+      const w = Math.round(height * ratio);
+      left += Math.round((width - w) / 2);
+      width = w;
+    } else {
+      const h = Math.round(width / ratio);
+      top += Math.round((height - h) / 2);
+      height = h;
+    }
+    return { ...rect, left, top, width, height, right: left + width, bottom: top + height };
+  },
+
+  async copyPortraitScreenshot(win, browser = win.gBrowser.selectedBrowser) {
+    if (!this.captureEnabled || !isWebPage(win)) {
+      return null;
+    }
+    const { ScreenshotsUtils, BrowserUtils } = lazy;
+    let rect;
+    try {
+      rect = this.portraitRect(await ScreenshotsUtils.fetchVisibleBounds(browser));
+    } catch (e) {
+      console.error("Whimsy: portrait capture", e);
+      win.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
+      return null;
+    }
+    const canvas = await ScreenshotsUtils.createCanvas(rect, browser);
+    const blob = await canvas.convertToBlob();
+    BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
+    win.gZenUIManager?.showToast?.("whimsy-capture-copied-toast");
+    const ratio = rect.devicePixelRatio || 1;
+    return { width: canvas.width / ratio, height: canvas.height / ratio };
+  },
+
   // --- Edit text on page ---
 
   get editPageEnabled() {
@@ -240,19 +284,13 @@ export const WhimsyPage = {
 
   initEditPage(win) {
     const { document, gBrowser } = win;
-    const { WhimsyShortcuts } = lazy;
-    WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyEditPage",
+      l10nId: "whimsy-action-edit-page",
       run: w => this.toggleEditing(w),
+      icon: "chrome://browser/skin/zen-icons/edit-theme.svg",
+      isAvailable: w => this.editPageEnabled && isWebPage(w),
     });
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-edit-page",
-        command: "cmd_whimsyEditPage",
-        icon: "chrome://browser/skin/zen-icons/edit-theme.svg",
-        isAvailable: w => this.editPageEnabled && isWebPage(w),
-      },
-    ]);
     const menu = document.getElementById("contentAreaContextMenu");
     menu?.addEventListener("popupshowing", event => {
       if (event.target == menu) {
@@ -365,23 +403,18 @@ export const WhimsyPage = {
   },
 
   initAllowCopy(win) {
-    const { WhimsyShortcuts } = lazy;
     const available = (w, allowed) =>
       this.allowCopyEnabled && !!lazy.WhimsyMedia.siteFor(w.gBrowser.selectedBrowser) && this.copyAllowed(w.gBrowser.selectedBrowser) == allowed;
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-allow-copy",
-        command: w => this.toggleAllowCopy(w),
-        icon: "chrome://browser/skin/zen-icons/edit-copy.svg",
-        isAvailable: w => available(w, false),
-      },
-      {
-        l10nId: "whimsy-action-disallow-copy",
-        command: w => this.toggleAllowCopy(w),
-        icon: "chrome://browser/skin/zen-icons/edit-copy.svg",
-        isAvailable: w => available(w, true),
-      },
-    ]);
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyAllowCopy",
+      l10nId: "whimsy-action-allow-copy-toggle",
+      run: w => this.allowCopyEnabled && this.toggleAllowCopy(w),
+      icon: "chrome://browser/skin/zen-icons/edit-copy.svg",
+      variants: [
+        { l10nId: "whimsy-action-allow-copy", isAvailable: w => available(w, false) },
+        { l10nId: "whimsy-action-disallow-copy", isAvailable: w => available(w, true) },
+      ],
+    });
     win.gBrowser.addTabsProgressListener({
       onLocationChange: (browser, webProgress, request, location, flags) => {
         if (
@@ -474,16 +507,14 @@ export const WhimsyPage = {
   },
 
   initArchive(win) {
-    const { WhimsyShortcuts } = lazy;
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-open-archive",
-        command: w => this.openInArchive(w),
-        icon: "chrome://browser/skin/zen-icons/history.svg",
-        isAvailable: w =>
-          this.archiveEnabled && !!this.archivableURL(this.originalURI(w.gBrowser.selectedBrowser)),
-      },
-    ]);
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyOpenInWayback",
+      l10nId: "whimsy-action-open-archive",
+      run: w => this.openInArchive(w),
+      icon: "chrome://browser/skin/zen-icons/history.svg",
+      isAvailable: w =>
+        this.archiveEnabled && !!this.archivableURL(this.originalURI(w.gBrowser.selectedBrowser)),
+    });
     if (lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
       return;
     }
@@ -591,7 +622,7 @@ export const WhimsyPage = {
     });
   },
 
-  // The command bar's "Open in Internet Archive": the latest copy of the
+  // The command bar's "Open in Wayback Machine": the latest copy of the
   // current page (the Wayback Machine redirects to it).
   openInArchive(win) {
     const browser = win.gBrowser.selectedBrowser;
@@ -615,20 +646,15 @@ export const WhimsyPage = {
   },
 
   initTranslateSelection(win) {
-    const { WhimsyShortcuts } = lazy;
-    WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyTranslateSelection",
+      l10nId: "whimsy-action-translate-selection",
       run: w => this.translateSelection(w),
-      key: { id: "key_whimsyTranslateSelection", key: "T", modifiers: "accel,alt,shift" },
+      keyId: "key_whimsyTranslateSelection",
+      key: { key: "T", modifiers: "accel,alt,shift" },
+      icon: "chrome://browser/skin/zen-icons/translations.svg",
+      isAvailable: w => this.translateSelectionEnabled && isWebPage(w),
     });
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-translate-selection",
-        command: "cmd_whimsyTranslateSelection",
-        icon: "chrome://browser/skin/zen-icons/translations.svg",
-        isAvailable: w => this.translateSelectionEnabled && isWebPage(w),
-      },
-    ]);
   },
 
   // The selected text in the tab (any frame) and where it is on screen.

@@ -8,7 +8,7 @@
 // accounts without reaching for DevTools' Storage panel. Everything goes
 // through Services.cookies, honouring the tab's own originAttributes
 // (containers matter: a cookie in one container isn't in another).
-// whimsy.feature.cookie-editor; the command bar action "Cookies" opens it.
+// whimsy.feature.cookie-editor; the command bar action "Edit Cookies for This Site…" opens it.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {

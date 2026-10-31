@@ -677,6 +677,15 @@ export const WhimsyNextMeeting = {
   initWindow(win) {
     this._observePrefs();
     this._registerJoinAction();
+    // wave5: the same action as a command that can take a shortcut. The
+    // command bar keeps the entry above, named after the meeting.
+    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyJoinMeeting",
+      l10nId: "whimsy-action-join-next-meeting",
+      run: w => this.join(w, this.soonMeeting(Date.now(), { joinable: true })),
+      commandBar: false,
+    });
     if (this._windows.has(win)) {
       return;
     }
@@ -1007,6 +1016,7 @@ export const WhimsyNextMeeting = {
     globalActions.push({
       l10nId,
       commandId: "whimsy:join-meeting",
+      whimsyCommand: "cmd_whimsyJoinMeeting",
       extraPayload: {},
       icon: "chrome://browser/skin/zen-icons/video-fill.svg",
       get label() {

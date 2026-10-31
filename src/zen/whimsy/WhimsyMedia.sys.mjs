@@ -18,7 +18,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   // wave3/speed: the speed each site plays at.
@@ -96,6 +96,17 @@ const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
 const PIP_GRACE = Symbol("whimsyPipGrace");
 const PIP_GRACE_MS = 1000;
 
+// fix7: automatic PiP still didn't happen on dev.413 (tabs and spaces).
+// Firefox only pops a video out when the page reports it went hidden, and
+// its page script listens for that only while a video is on screen (its
+// hover-toggle tracking): scroll down to a video's comments, or switch
+// before tracking starts (it waits for an idle moment), and nothing ever
+// fires. Zen can also keep a tab you left rendered (space switches, split
+// view), so the page never goes hidden. A moment after the switch, Whimsy
+// now asks the page itself: when Firefox's path isn't going to fire, the
+// page pops the video out (WhimsyPageChild.autoPip).
+const AUTO_PIP_FALLBACK_MS = 400;
+
 export const WhimsyMedia = {
   get backgroundMuteMode() {
     if (!Services.prefs.getBoolPref(MUTE_FEATURE_PREF, true)) {
@@ -110,6 +121,7 @@ export const WhimsyMedia = {
     this.initMuteSite(win);
     this.initTabVolume(win);
     this.initPlaybackSpeed(win);
+    this.initSpeakerNames(win);
     win.gBrowser.tabContainer.addEventListener("TabSelect", event => {
       try {
         this.snapBackPip(event.target);
@@ -120,6 +132,44 @@ export const WhimsyMedia = {
   },
 
   // --- Mute background tabs ---
+
+  // wave5/audioicon: Arc's speaker is always on screen, so it needs a name
+  // all the time ("Mute tab" / "Unmute tab"), not only in the hover
+  // tooltip Firefox fills in.
+  initSpeakerNames(win) {
+    const name = tab => {
+      const button = tab.audioButton;
+      if (!button || !Services.prefs.getBoolPref("whimsy.feature.arc-audio-icon", true)) {
+        return;
+      }
+      // On moz-button's inner <button>: setting the host's mapped aria-label
+      // re-renders moz-button mid-update, which trips over moz-label's own
+      // DOM changes (a lit "insertBefore of null" error). moz-button leaves
+      // the inner attribute alone while its own ariaLabel stays unset.
+      const inner = button.buttonEl;
+      if (!inner) {
+        return;
+      }
+      if (!tab.hasAttribute("soundplaying") && !tab.hasAttribute("muted")) {
+        inner.removeAttribute("aria-label");
+        return;
+      }
+      const id = tab.hasAttribute("muted") ? "whimsy-tab-audio-unmute" : "whimsy-tab-audio-mute";
+      win.document.l10n
+        .formatValue(id)
+        .then(label => label && inner.setAttribute("aria-label", label))
+        .catch(e => console.error("Whimsy: speaker name", e));
+    };
+    win.gBrowser.tabContainer.addEventListener("TabAttrModified", event => {
+      if (event.detail?.changed?.some(attr => attr == "soundplaying" || attr == "muted")) {
+        // After moz-button's own update for this change has rendered.
+        const tab = event.target;
+        Promise.resolve(tab.audioButton?.updateComplete)
+          .then(() => name(tab))
+          .catch(e => console.error("Whimsy: speaker name", e));
+      }
+    });
+  },
 
   initBackgroundMute(win) {
     const { gBrowser } = win;
@@ -135,6 +185,7 @@ export const WhimsyMedia = {
     container.addEventListener("TabSelect", event => {
       try {
         this.giveAutoPipAMoment(win, event.detail?.previousTab, update);
+        this.ensureAutoPip(win, event.detail?.previousTab);
       } catch (e) {
         console.error("Whimsy: auto PiP before mute", e);
       }
@@ -259,6 +310,54 @@ export const WhimsyMedia = {
     return lazy.PictureInPicture.getEligiblePipVideoCount(browser).totalPipCount > 0;
   },
 
+  // fix7: makes sure a playing video in the tab you left pops out, when
+  // Firefox's own auto-PiP can't see the switch (see AUTO_PIP_FALLBACK_MS).
+  // Closing the player by hand still skips the next automatic one.
+  ensureAutoPip(win, tab) {
+    if (!this.autoPipCandidate(tab)) {
+      return false;
+    }
+    const PiP = lazy.PictureInPicture;
+    const browser = tab.linkedBrowser;
+    // Read now: Firefox's path clears it as soon as it sees the page hide.
+    const skip = !!PiP.weakAutoPipBrowserClosedDeliberately?.has(browser);
+    win.setTimeout(() => {
+      try {
+        if (skip) {
+          PiP.weakAutoPipBrowserClosedDeliberately?.delete(browser);
+          return;
+        }
+        this.requestAutoPip(tab);
+      } catch (e) {
+        console.error("Whimsy: auto PiP fallback", e);
+      }
+    }, AUTO_PIP_FALLBACK_MS);
+    return true;
+  },
+
+  // Asks each frame with a PiP-able video to pop it out; the page skips it
+  // when Firefox's own auto-PiP has it (or the video is already out).
+  requestAutoPip(tab) {
+    if (!this.autoPipCandidate(tab) || this.hasPlayer(tab.linkedBrowser)) {
+      return 0;
+    }
+    let asked = 0;
+    for (const { windowGlobal, pipCount } of lazy.PictureInPicture.windowGlobalPipCountGenerator(tab.linkedBrowser)) {
+      if (pipCount > 0) {
+        windowGlobal.getActor("WhimsyPage").sendAsyncMessage("Whimsy:AutoPip");
+        asked++;
+      }
+    }
+    return asked;
+  },
+
+  hasPlayer(browser) {
+    const PiP = lazy.PictureInPicture;
+    return [...Services.wm.getEnumerator("Toolkit:PictureInPicture")].some(
+      w => !w.closed && PiP.weakWinToBrowser?.get(w) === browser
+    );
+  },
+
   setMuted(tab, muted) {
     if (tab.hasAttribute("muted") == muted) {
       return;
@@ -313,6 +412,21 @@ export const WhimsyMedia = {
   },
 
   initMuteSite(win) {
+    // wave5: the tab menu's "Mute Site" as a command for the current tab.
+    const siteMuted = w => {
+      const site = this.siteFor(w.gBrowser.selectedBrowser);
+      return site ? this.isSiteMuted(site.principal) : null;
+    };
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyMuteSite",
+      l10nId: "whimsy-action-mute-site-toggle",
+      run: w => this.muteSiteEnabled && this.toggleSiteMute(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/media-mute.svg",
+      variants: [
+        { l10nId: "whimsy-action-mute-site", isAvailable: w => this.muteSiteEnabled && siteMuted(w) === false },
+        { l10nId: "whimsy-action-unmute-site", isAvailable: w => this.muteSiteEnabled && siteMuted(w) === true },
+      ],
+    });
     const { gBrowser, document } = win;
     gBrowser.addTabsProgressListener({
       onLocationChange: (browser, webProgress, request, location, flags) => {
@@ -469,6 +583,14 @@ export const WhimsyMedia = {
 
   initTabVolume(win) {
     const { document, gBrowser } = win;
+    // wave5: the tab menu's "Volume…" as a command for the current tab.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyTabVolume",
+      l10nId: "whimsy-action-tab-volume",
+      run: w => this.canAdjustVolume(w.gBrowser.selectedTab) && this.openVolumePanel(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/media-unmute.svg",
+      isAvailable: w => this.canAdjustVolume(w.gBrowser.selectedTab),
+    });
     const update = () => {
       for (const tab of gBrowser.tabs) {
         this.sendToFrames(tab.linkedBrowser, "Whimsy:SetVolume", { level: this.volumeFor(tab) });
@@ -628,27 +750,22 @@ export const WhimsyMedia = {
   },
 
   initPlaybackSpeed(win) {
-    const { WhimsyShortcuts } = lazy;
     const commands = [
       ["cmd_whimsySpeedUp", "key_whimsySpeedUp", ".", { delta: SPEED_STEP }, "whimsy-action-speed-up"],
       ["cmd_whimsySlowDown", "key_whimsySlowDown", ",", { delta: -SPEED_STEP }, "whimsy-action-slow-down"],
       ["cmd_whimsySpeedReset", "key_whimsySpeedReset", "0", { reset: true }, "whimsy-action-speed-reset"],
     ];
-    for (const [id, keyId, key, change] of commands) {
-      WhimsyShortcuts.addCommand(win, {
+    for (const [id, keyId, key, change, l10nId] of commands) {
+      lazy.WhimsyCommands.register(win, {
         id,
-        run: w => this.changePlaybackRate(w, change),
-        key: this.playbackSpeedEnabled ? { id: keyId, key, modifiers: "accel,alt" } : null,
-      });
-    }
-    WhimsyShortcuts.addActions(
-      commands.map(([id, , , , l10nId]) => ({
         l10nId,
-        command: id,
+        run: w => this.changePlaybackRate(w, change),
+        keyId,
+        key: this.playbackSpeedEnabled ? { key, modifiers: "accel,alt" } : null,
         icon: "chrome://browser/skin/zen-icons/media-play.svg",
         isAvailable: w => this.playbackSpeedEnabled && !!w.gBrowser.selectedTab.linkedPanel,
-      }))
-    );
+      });
+    }
   },
 
   // Finds the frame whose media the tab is about and changes its speed.

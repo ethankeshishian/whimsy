@@ -252,8 +252,17 @@ add_task(async function test_keep_scratch_as_space() {
   const url = uniqueURL("keep");
   BrowserTestUtils.startLoadingURIString(gBrowser.selectedBrowser, url);
   await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser, false, url);
+  const nameBefore = scratch.name;
   const kept = await WhimsyPrivate.keepScratch(window);
   is(kept?.uuid, scratch.uuid, "The same space stays");
+  // fix7/private: it used to be renamed to a fixed "Space".
+  is(kept.name, nameBefore, "The kept space keeps Scratch's name");
+  is(
+    gZenWorkspaces.getWorkspaces().find(space => space.uuid == kept.uuid)?.name,
+    nameBefore,
+    "... in the saved spaces too"
+  );
+  isnot(kept.name, "Space", "Not the generic \"Space\"");
   ok(!WhimsyPrivate.getScratch(window), "It isn't Scratch any more");
   // fixC: none of the private look stays behind.
   ok(!document.querySelector("[whimsy-scratch]"), "No element keeps Scratch's violet marks");
@@ -316,30 +325,58 @@ add_task(async function test_switch_and_setting_off() {
   }
 });
 
-// fixC: Keep asks first, in Zen's toast, because the space stops being
-// private; ignoring the toast changes nothing.
+// fixC: Keep asks first, because the space stops being private.
+// fix7/private: in a real modal dialog, the window-modal prompt Firefox uses
+// for its close-window warning and Whimsy for Delete Space (not a toast or
+// notification): title, one sentence, Cancel + "Keep Space"; Cancel is the
+// default button and Esc cancels.
 add_task(async function test_keep_asks_first() {
   const startSpace = gZenWorkspaces.activeWorkspace;
   const scratch = await WhimsyPrivate.openScratch(window);
   await waitForPage(gBrowser.selectedTab);
+  let dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
   document.getElementById("cmd_whimsyKeepScratch").doCommand();
-  const button = await TestUtils.waitForCondition(
-    () => document.getElementById("whimsy-scratch-keep-confirm-button"),
-    "A toast asks before keeping Scratch"
+  let win = await dialog;
+  ok(window.gDialogBox.isOpen, "It asks in the window-modal dialog");
+  is(win.document.documentURI, "chrome://global/content/commonDialog.xhtml", "Firefox's own prompt dialog");
+  ok(
+    ![...(document.getElementById("zen-toast-container")?.children ?? [])].some(t => t._messageId?.startsWith("whimsy-scratch-keep-confirm")),
+    "No toast asks instead"
   );
-  await TestUtils.waitForCondition(() => button.getAttribute("label"), "Its button is labelled");
-  const toast = button.closest(".zen-toast");
-  is(
-    document.l10n.getAttributes(toast.querySelector("label")).id,
-    "whimsy-scratch-keep-confirm",
-    "It says the space will leave private browsing"
-  );
+  let dialogEl = win.document.querySelector("dialog");
+  is(dialogEl.getButton("accept").label, "Keep Space", "The button says what it does");
+  ok(!dialogEl.getButton("cancel").hidden, "There's a Cancel button");
+  is(dialogEl.defaultButton, "cancel", "Cancel, the safe button, is the default");
+  is(win.document.getElementById("infoTitle").textContent, "Keep as a Normal Space?", "It has a title");
+  ok(win.document.getElementById("infoBody").textContent.includes("private browsing"), "One sentence says what changes");
+  ok(win.document.getElementById("loginContainer").hidden, "No text field takes the focus");
+  EventUtils.synthesizeKey("KEY_Escape", {}, win);
+  await TestUtils.waitForCondition(() => !window.gDialogBox.isOpen, "Esc closes the dialog");
+  ok(WhimsyPrivate.getScratch(window), "Esc changes nothing");
+
+  dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+  document.getElementById("cmd_whimsyKeepScratch").doCommand();
+  win = await dialog;
+  EventUtils.synthesizeKey("KEY_Enter", {}, win);
+  await TestUtils.waitForCondition(() => !window.gDialogBox.isOpen, "Return closes the dialog");
+  ok(WhimsyPrivate.getScratch(window), "Return picks Cancel and changes nothing");
+
+  dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+  document.getElementById("cmd_whimsyKeepScratch").doCommand();
+  win = await dialog;
+  win.document.querySelector("dialog").getButton("cancel").click();
+  await TestUtils.waitForCondition(() => !window.gDialogBox.isOpen, "Cancel closes the dialog");
+  ok(WhimsyPrivate.getScratch(window), "Cancel changes nothing");
+
+  dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+  document.getElementById("cmd_whimsyKeepScratch").doCommand();
+  win = await dialog;
   ok(WhimsyPrivate.getScratch(window), "Nothing changed yet");
-  button.doCommand();
+  win.document.querySelector("dialog").getButton("accept").click();
   await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Keep made it a normal space");
-  ok(!toast.isConnected, "The question went away");
   const kept = gZenWorkspaces.getWorkspaces().find(space => space.uuid == scratch.uuid);
   ok(kept && !kept.whimsyScratch, "The same space is now normal");
+  is(kept.name, "Scratch", "It keeps Scratch's name, not \"Space\"");
   await TestUtils.waitForCondition(
     () => gBrowser.selectedTab.getAttribute("zen-workspace-id") == kept.uuid && !WhimsyPrivate.isPrivateTab(gBrowser.selectedTab),
     "A normal tab replaced the private one"

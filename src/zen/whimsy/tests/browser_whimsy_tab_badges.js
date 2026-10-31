@@ -74,7 +74,18 @@ add_task(async function test_badge_on_pinned_and_essentials() {
   is(badge(pinned).content, "none", "not on its icon there (it would cover the title)");
   await setTitle(essential, "Inbox (150) - Mail");
   await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "99+", "An Essential shows 99+ for 150");
-  is(badge(essential).content, '"99+"', "on its tile's icon");
+  is(badge(essential).content, '"99+"', "on its tile");
+  // fix7/tabs: on the tile's corner like Arc's Favorites, not on the
+  // favicon (where Gmail draws its own count): the icon stack is no longer
+  // the anchor, and the badge sits inside the tile's top end corner.
+  is(getComputedStyle(stack(essential)).position, "static", "The favicon isn't the badge's anchor");
+  const tile = essential.querySelector(".tab-content").getBoundingClientRect();
+  const icon = stack(essential).getBoundingClientRect();
+  const top = parseFloat(badge(essential).top);
+  const end = parseFloat(badge(essential).right);
+  Assert.greaterOrEqual(top, 0, "The badge stays inside the tile's top edge");
+  Assert.greaterOrEqual(end, 0, "...and its end edge (not clipped by the Essentials grid)");
+  Assert.less(end, tile.right - icon.right, "...out at the corner, clear of the favicon");
   await setTitle(normal, "(5) Feed");
   await TestUtils.waitForCondition(() => normal.label == "(5) Feed", "Normal tab retitled");
   ok(!stack(normal).hasAttribute("whimsy-unread"), "A normal tab gets no badge");
@@ -119,4 +130,33 @@ add_task(async function test_dot_when_background_title_changes() {
   await TestUtils.waitForCondition(() => stack(pinned).hasAttribute("whimsy-unread"), "A count");
   is(rowBadge(pinned).content, '"2"', "shows instead of the dot");
   is(badge(pinned).content, "none", "and the dot goes");
+});
+
+// wave5/uxfix: the badge passes 4.5:1, an Essential draws only its icon
+// badge (no second empty disc on its row), and the count is read out.
+add_task(async function test_badge_contrast_single_disc_and_description() {
+  const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?essential-a11y");
+  gZenPinnedTabManager.addToEssentials(essential);
+  await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential");
+  await setTitle(essential, "(128) Inbox");
+  await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "99+", "Badge shows");
+
+  const lum = rgb => {
+    const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map(Number).map(c => {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const style = badge(essential);
+  const [hi, lo] = [lum(style.color), lum(style.backgroundColor)].sort((a, b) => b - a);
+  Assert.greaterOrEqual((hi + 0.05) / (lo + 0.05), 4.5, "Badge text passes 4.5:1");
+  Assert.greaterOrEqual(parseFloat(style.fontSize), 10, "Badge text is at least 10px");
+  isnot(rowBadge(essential).backgroundColor, style.backgroundColor,
+    "The Essential's row draws no second badge disc");
+  await TestUtils.waitForCondition(() => essential.getAttribute("aria-description") == "128 unread",
+    "The count is read out with the tab");
+  await setTitle(essential, "Inbox");
+  await TestUtils.waitForCondition(() => !essential.hasAttribute("aria-description"), "...and cleared with it");
+  BrowserTestUtils.removeTab(essential);
 });

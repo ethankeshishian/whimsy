@@ -18,7 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.playlist";
@@ -232,15 +232,19 @@ export const WhimsyPlaylist = {
     }
   },
 
-  // The first direct media file the page's frames play or link to.
-  async findPageMedia(browser) {
+  // The first direct media file the page's frames play or link to. With
+  // { streamed: true } when there's none but the page plays streamed media.
+  async findPageMedia(browser, result = {}) {
     const contexts = browser?.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
     for (const context of contexts) {
       try {
         const found = await context.currentWindowGlobal?.getActor("WhimsyPage").sendQuery("Whimsy:GetPageMedia");
-        const media = found?.find(m => this.isSavableURL(m.url));
+        const media = found?.find(m => m.url && this.isSavableURL(m.url));
         if (media) {
           return media;
+        }
+        if (found?.some(m => m.streamed)) {
+          result.streamed = true;
         }
       } catch {
         // The frame went away or has no actor.
@@ -251,9 +255,11 @@ export const WhimsyPlaylist = {
 
   async saveFromPage(win) {
     const browser = win.gBrowser.selectedBrowser;
-    const media = await this.findPageMedia(browser);
+    const result = {};
+    const media = await this.findPageMedia(browser, result);
     if (!media) {
-      win.gZenUIManager?.showToast("whimsy-playlist-no-media-toast");
+      // fix7: on YouTube this said there was no video at all.
+      win.gZenUIManager?.showToast(result.streamed ? "whimsy-playlist-streamed-toast" : "whimsy-playlist-no-media-toast");
       return null;
     }
     return this.add(win, { url: media.url, title: media.title, type: media.type, browser });
@@ -299,17 +305,12 @@ export const WhimsyPlaylist = {
       item.hidden = !this.enabled || !(onMedia || onLink) || !!context?.browser?.browsingContext?.usePrivateBrowsing;
     });
 
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyPlaylistSave",
+      l10nId: "whimsy-action-playlist-save",
       run: w => this.saveFromPage(w).catch(e => console.error("Whimsy: playlist", e)),
+      icon: "chrome://browser/skin/zen-icons/selectable/video.svg",
+      isAvailable: () => this.enabled,
     });
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-playlist-save",
-        command: "cmd_whimsyPlaylistSave",
-        icon: "chrome://browser/skin/zen-icons/selectable/video.svg",
-        isAvailable: () => this.enabled,
-      },
-    ]);
   },
 };

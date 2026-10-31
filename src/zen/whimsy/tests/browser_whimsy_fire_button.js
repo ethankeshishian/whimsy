@@ -111,3 +111,60 @@ add_task(async function test_fire_sheet() {
   await hiddenAgain;
   BrowserTestUtils.removeTab(tab);
 });
+
+// wave5/uxfix: the flame flash stays under Zen's toasts, and reduced motion
+// drops it entirely (the toast confirms instead).
+add_task(async function test_fire_flash_layering_and_reduced_motion() {
+  const root = document.documentElement;
+  root.setAttribute("whimsy-fire-burning", "");
+  try {
+    const flash = getComputedStyle(root, "::after");
+    Assert.less(Number(flash.zIndex), 1000, "The flash sits below Zen's toast layer");
+    await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+    await TestUtils.waitForCondition(() => getComputedStyle(root, "::after").display == "none",
+      "Reduced motion hides the flash");
+    await SpecialPowers.popPrefEnv();
+  } finally {
+    root.removeAttribute("whimsy-fire-burning");
+  }
+});
+
+// wave5/uxfix: rows only choose a scope. Focus starts on the list, Return on
+// a row never forgets anything, and only the red "Forget …" footer button
+// runs it, followed by a toast saying what went.
+add_task(async function test_fire_needs_the_explicit_forget_button() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fire-explicit");
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
+  WhimsyFireButton.openPanel(window);
+  await shown;
+  const panel = document.getElementById("whimsyFirePanel");
+  const site = panel.querySelector('[whimsy-fire-scope="site"]');
+  await TestUtils.waitForCondition(() => document.activeElement == site, "Focus starts on the first scope row");
+  is(site.getAttribute("role"), "radio", "Scope rows are radios");
+  is(site.getAttribute("aria-checked"), "true", "The narrowest scope starts chosen");
+  const forget = panel.querySelector("#whimsy-fire-forget");
+  ok(forget.hasAttribute("destructive"), "The action is the red footer button");
+  Assert.deepEqual(document.l10n.getAttributes(forget),
+    { id: "whimsy-fire-forget-site", args: { site: "example.com" } }, "It names what it forgets");
+
+  EventUtils.synthesizeKey("KEY_Enter", {}, window);
+  is(panel.state, "open", "Return on a row keeps the sheet open");
+  ok(tab.isConnected, "...and forgets nothing");
+
+  const recent = panel.querySelector('[whimsy-fire-scope="last-15-min"]');
+  recent.doCommand();
+  is(recent.getAttribute("aria-checked"), "true", "Choosing another row moves the choice");
+  is(site.getAttribute("aria-checked"), "false", "...off the first");
+  is(document.l10n.getAttributes(forget).id, "whimsy-fire-forget-recent", "The button follows the choice");
+
+  site.doCommand();
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  const toastShown = TestUtils.waitForCondition(() =>
+    [...document.querySelectorAll("#zen-toast-container label")].some(l =>
+      document.l10n.getAttributes(l).id == "whimsy-fire-done-site"),
+  "A toast says what was forgotten");
+  forget.doCommand();
+  await hidden;
+  await TestUtils.waitForCondition(() => !tab.isConnected, "Forget closes the site's tabs");
+  await toastShown;
+});

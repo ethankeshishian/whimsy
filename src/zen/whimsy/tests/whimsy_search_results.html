@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Fake Search</title>
+</head>
+<body>
+<!-- wave6/search: a local results page for the Search Deck tests. Result
+     links go to example.org (another site); one is wrapped in this page's
+     own redirect (?url=), one repeats, and the page's own links (home,
+     related searches) have no heading. With ?late=1 the results only
+     appear after the page has loaded, like client-rendered engines. -->
+<header><a href="./whimsy_search_results.html">Fake Search</a></header>
+<main id="results"></main>
+<footer><a href="https://example.net/about">About this search</a></footer>
+<script>
+  const params = new URLSearchParams(location.search);
+  document.title = "Results for " + (params.get("q") || "");
+  const card = n => {
+    const url = new URL("whimsy_search_card.html?n=" + n, location.href);
+    url.hostname = "example.org";
+    return url.href;
+  };
+  const wrapped = n => "whimsy_search_results.html?url=" + encodeURIComponent(card(n));
+  const results = [
+    [card(1), "Card one"],
+    [wrapped(2), "Card two"],
+    [card(3), "Card three"],
+    [card(1), "Card one again"],
+  ];
+  function render() {
+    const main = document.getElementById("results");
+    for (const [href, title] of results) {
+      const item = document.createElement("div");
+      const link = document.createElement("a");
+      link.href = href;
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      link.append(heading);
+      item.append(link);
+      main.append(item);
+    }
+    const related = document.createElement("a");
+    related.href = "?q=related";
+    related.textContent = "Related search";
+    main.append(related);
+  }
+  if (params.get("late")) {
+    window.addEventListener("load", () => setTimeout(render, 400));
+  } else {
+    render();
+  }
+</script>
+</body>
+</html>

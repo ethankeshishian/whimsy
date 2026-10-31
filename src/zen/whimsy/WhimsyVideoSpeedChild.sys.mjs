@@ -23,6 +23,11 @@ import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
+// wave5/captions: "CC" (translated captions) lives in this control.
+ChromeUtils.defineESModuleGetters(lazy, {
+  VideoCaptions: "resource:///modules/whimsy/WhimsyCaptionsChild.sys.mjs",
+});
+const CAPTIONS_PREF = "whimsy.feature.video-captions";
 
 const FEATURE_PREF = "whimsy.feature.video-speed";
 const MIN_RATE = 0.25;
@@ -48,8 +53,10 @@ const MARKUP = `<template>
     <button id="toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menu">
       <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.75 5 6.75 8 3.75"/></svg>
     </button>
+    <button id="cc" type="button" aria-pressed="false" hidden="">CC</button>
     <div id="menu" role="menu" hidden=""></div>
   </div>
+  <div id="captions" role="region" hidden=""><div id="note"></div><div id="cue" dir="auto"></div></div>
 </template>`;
 
 export const clampRate = rate => Math.round(Math.min(MAX_RATE, Math.max(MIN_RATE, rate)) * 100) / 100;
@@ -70,6 +77,12 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   siteRate = null;
   // The video the control is showing for.
   current = null;
+
+  // wave5/captions: translated captions, made the first time CC is used.
+  get captions() {
+    this._captions ??= new lazy.VideoCaptions(this);
+    return this._captions;
+  }
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -95,6 +108,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         break;
       case "fullscreenchange":
         this.hide();
+        this._captions?.schedulePlace();
         break;
       case "pointerdown":
       case "mousedown":
@@ -115,6 +129,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
 
   didDestroy() {
     this.clearTimers();
+    this._captions?.stop();
     if (this.anon) {
       try {
         this.document?.removeAnonymousContent(this.anon);
@@ -216,6 +231,10 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   }
 
   onPointer(event) {
+    if (this._captions?.dragging) {
+      this._captions.drag(event);
+      return;
+    }
     if (!this.enabled) {
       this.hide();
       return;
@@ -335,7 +354,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   place() {
     const r = this.current.getBoundingClientRect();
     const win = this.contentWindow;
-    const left = Math.min(Math.max(r.left, 0) + INSET, Math.max(INSET, win.innerWidth - 120));
+    const left = Math.min(Math.max(r.left, 0) + INSET, Math.max(INSET, win.innerWidth - 160));
     const top = Math.min(Math.max(r.top, 0) + INSET, Math.max(INSET, win.innerHeight - 34));
     this.els.bar.style.left = `${Math.round(left)}px`;
     this.els.bar.style.top = `${Math.round(top)}px`;
@@ -357,6 +376,10 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     for (const item of menu.children) {
       item.setAttribute("aria-checked", String(Number(item.dataset.rate) == rate));
     }
+    // CC goes last, so the speed never moves when it's there or not.
+    const { cc } = this.els;
+    cc.hidden = !Services.prefs.getBoolPref(CAPTIONS_PREF, true);
+    cc.setAttribute("aria-pressed", String(!!this._captions?.isOn(this.current)));
   }
 
   // Builds the control in the document's anonymous content the first time a
@@ -383,6 +406,10 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       input: root.getElementById("input"),
       toggle: root.getElementById("toggle"),
       menu: root.getElementById("menu"),
+      cc: root.getElementById("cc"),
+      captions: root.getElementById("captions"),
+      note: root.getElementById("note"),
+      cue: root.getElementById("cue"),
     };
     this.strings = this.loadStrings();
     const { value, input, toggle, menu } = this.els;
@@ -392,6 +419,8 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     toggle.title = this.strings.presets;
     toggle.setAttribute("aria-label", this.strings.presets);
     menu.setAttribute("aria-label", this.strings.presets);
+    this.els.cc.title = this.strings.captions;
+    this.els.cc.setAttribute("aria-label", this.strings.captions);
     for (const rate of PRESETS) {
       const item = doc.createElement("button");
       item.type = "button";
@@ -406,6 +435,11 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         // Unhidden but transparent, so the first appearance fades in too.
         this.sheetReady = true;
         this.els.bar.hidden = false;
+        this.els.captions.hidden = false;
+        if (this._captions) {
+          this._captions.label();
+          this._captions.refresh();
+        }
         if (this.pointer && this.current) {
           this.contentWindow?.requestAnimationFrame(() => this.updateHover());
         }
@@ -421,6 +455,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       valueTitle: "Type a speed",
       input: "Playback speed",
       presets: "Speeds",
+      captions: "Translated captions",
     };
     try {
       const [value, input, presets] = lazy.l10n.formatMessagesSync([
@@ -434,9 +469,20 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         valueTitle: attr(value, "title") ?? fallback.valueTitle,
         input: attr(input, "aria-label") ?? fallback.input,
         presets: attr(presets, "aria-label") ?? fallback.presets,
+        captions: this.loadCaptionsString() ?? fallback.captions,
       };
     } catch (e) {
       return fallback;
+    }
+  }
+
+  // Its own batch: a missing string can't blank the speed control's.
+  loadCaptionsString() {
+    try {
+      const [message] = lazy.l10n.formatMessagesSync([{ id: "whimsy-video-captions-button" }]);
+      return message?.attributes?.find(a => a.name == "aria-label")?.value ?? null;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -446,6 +492,9 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   // player toggles play); the control acts on clicks itself.
   onPointerButton(event) {
     const target = event.originalTarget;
+    if (this._captions?.dragging && (event.type == "mouseup" || event.type == "pointerup")) {
+      this._captions.endDrag();
+    }
     if (!this.inControl(target)) {
       if (event.type == "mousedown" && this.busy) {
         this.closeMenu();
@@ -458,12 +507,31 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     if (event.type == "contextmenu" || event.type == "dblclick") {
       event.preventDefault();
     }
+    // wave5/captions: drag the captions; double-click puts them back.
+    const element = target.nodeType == target.ELEMENT_NODE ? target : target.parentElement;
+    if (element?.closest("#captions")) {
+      if (event.type == "mousedown") {
+        this._captions?.startDrag(event);
+      } else if (event.type == "dblclick") {
+        this._captions?.resetPlace();
+      }
+      return;
+    }
     if (event.type != "click" || event.button != 0) {
       return;
     }
     const button = target.closest?.("button") ?? target.parentElement?.closest("button");
-    const { value, toggle, menu } = this.els;
-    if (button == value) {
+    const { value, toggle, menu, cc } = this.els;
+    if (button == cc) {
+      this.closeMenu();
+      this.cancelEdit();
+      if (!this.captions.isOn(this.current)) {
+        this.captions.label();
+      }
+      this.captions.toggle(this.current);
+      this.render();
+      this.release();
+    } else if (button == value) {
       this.startEdit();
     } else if (button == toggle) {
       if (menu.hidden) {
@@ -593,6 +661,8 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       items: Object.fromEntries([...menu.children].map(item => [item.dataset.rate, rect(item)])),
       // Object keys reorder integer-like rates ("1" before "0.25"); keep the menu's order.
       itemOrder: [...menu.children].map(item => Number(item.dataset.rate)),
+      cc: { shown: !this.els.cc.hidden, pressed: this.els.cc.getAttribute("aria-pressed") == "true", ...rect(this.els.cc) },
+      captions: this._captions?.testState() ?? null,
     };
   }
 }

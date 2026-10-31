@@ -18,7 +18,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
 });
@@ -54,28 +54,20 @@ export const WhimsySplitFavorites = {
     if (!this.enabled) {
       return;
     }
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "whimsy-cmd-favorite-split",
+      l10nId: "whimsy-action-favorite-split",
       run: w => this.favoriteCurrentSplit(w),
+      icon: "chrome://browser/skin/zen-icons/bookmark.svg",
+      isAvailable: w => this.enabled && !!w.gZenViewSplitter?.splitViewActive,
     });
-    lazy.WhimsyShortcuts.addCommand(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "whimsy-cmd-open-split-favorites",
+      l10nId: "whimsy-action-open-split-favorites",
       run: w => this.openFavoritesPanel(w),
+      icon: "chrome://browser/skin/zen-icons/split.svg",
+      isAvailable: () => this.enabled,
     });
-    lazy.WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-favorite-split",
-        command: "whimsy-cmd-favorite-split",
-        icon: "chrome://browser/skin/zen-icons/bookmark.svg",
-        isAvailable: w => this.enabled && !!w.gZenViewSplitter?.splitViewActive,
-      },
-      {
-        l10nId: "whimsy-action-open-split-favorites",
-        command: "whimsy-cmd-open-split-favorites",
-        icon: "chrome://browser/skin/zen-icons/split.svg",
-        isAvailable: () => this.enabled,
-      },
-    ]);
   },
 
   async favoriteCurrentSplit(win) {
@@ -86,17 +78,19 @@ export const WhimsySplitFavorites = {
     }
     const urls = splitData.tabs.map(tab => tab.linkedBrowser.currentURI.spec);
     const defaultName = splitData.tabs.map(tab => tab.label || tab.linkedBrowser.currentURI.spec).join(" + ");
-    const prompts = Services.prompt;
-    const input = { value: defaultName };
-    const title = await lazy.l10n.formatValue("whimsy-split-favorite-name-title");
-    const message = await lazy.l10n.formatValue("whimsy-split-favorite-name-prompt");
-    if (!prompts.prompt(win, title, message, input, null, { value: false })) {
+    const [title, message] = await lazy.l10n.formatValues([
+      "whimsy-split-favorite-name-title",
+      "whimsy-split-favorite-name-prompt",
+    ]);
+    // In-window sheet, like Delete Space (not a system prompt window).
+    const name = await lazy.WhimsyPanels.ask(win, { title, body: message, value: defaultName });
+    if (name === null) {
       return;
     }
     const favorites = await this._load();
     favorites.push({
       id: Services.uuid.generateUUID().toString(),
-      name: input.value || defaultName,
+      name: name.trim() || defaultName,
       urls,
       gridType: splitData.gridType,
       created: Date.now(),

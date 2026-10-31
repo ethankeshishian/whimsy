@@ -70,8 +70,51 @@ export const WhimsyWelcome = {
     return this.featureOn && featureOn(FONT_FEATURE_PREF);
   },
 
+  // Tests set this to skip every page, so the controller goes straight to
+  // Zen's real finish() (and so to finishOnboarding below).
+  skipPagesForTest: false,
+
+  // Zen's own first-run pages on its website. Builds before 46fe4b3 opened
+  // the first two on a new profile (startup.homepage_welcome_url and
+  // .additional from surfer's branding), and the session keeps them; Zen's
+  // onboarding then filed them into its "zen basics" folder.
+  isZenFirstRunPage(url) {
+    try {
+      const uri = Services.io.newURI(url);
+      return (
+        /^(www\.)?zen-browser\.app$/.test(uri.host) &&
+        /^\/(welcome|privacy-policy|whatsnew)(\/|$|\?)/.test(uri.pathQueryRef)
+      );
+    } catch {
+      return false;
+    }
+  },
+
+  // Called by the overlay hotfix at the end of Zen's onboarding: closes any
+  // tab still showing one of Zen's first-run pages. When those are the only
+  // tabs, Whimsy's homepage takes their place.
+  finishOnboarding(win) {
+    try {
+      const { gBrowser } = win;
+      const tabs = gBrowser.tabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("zen-empty-tab"));
+      const zenPages = tabs.filter(tab => this.isZenFirstRunPage(tab.linkedBrowser?.currentURI?.spec ?? ""));
+      if (!zenPages.length) {
+        return;
+      }
+      if (zenPages.length == tabs.length) {
+        gBrowser.selectedTab = gBrowser.addTrustedTab("about:whimsy");
+      }
+      gBrowser.removeTabs(zenPages, { animate: false, skipSessionStore: true });
+    } catch (e) {
+      console.error("Whimsy: onboarding cleanup", e);
+    }
+  },
+
   // Called by the overlay hook with Zen's page list; returns the list to use.
   extendPages(win, pages, helpers) {
+    if (this.skipPagesForTest && Array.isArray(pages)) {
+      return pages.map(page => ({ ...page, skip: () => true }));
+    }
     try {
       if (!this.featureOn || !Array.isArray(pages) || pages.some(page => page?.id?.startsWith("whimsy-"))) {
         return pages;
@@ -153,7 +196,11 @@ export const WhimsyWelcome = {
     return {
       id: "whimsy-font",
       title: "whimsy-welcome-font-title",
-      descriptions: ["whimsy-welcome-font-description"],
+      // wave5/look: mention, never ask, that each space can differ.
+      descriptions: [
+        "whimsy-welcome-font-description",
+        ...(Services.prefs.getBoolPref("whimsy.feature.space-look", true) ? ["whimsy-welcome-font-per-space"] : []),
+      ],
       buttons: [kNextButton],
       skip() {
         return !self.fontSupported;

@@ -104,6 +104,66 @@ export const WhimsyTabs = {
     this.initLoadingLine(win);
     this.initBadges(win);
     this.initGroupByDomain(win);
+    this.initPinnedMarks(win);
+  },
+
+  // fix7/tabs: stray blue lines on pinned tabs. Two things drew them:
+  // - Firefox's container line. Zen hides it when the container is the
+  //   space's own (zenDefaultUserContextId), but tabs that reached a space
+  //   another way (moved in, restored from an older session, opened by a
+  //   path that doesn't mark them) kept a full-height line down the tile's
+  //   edge. A tab whose container is its space's gets the mark here; a tab
+  //   in a different container keeps its line, drawn as a short pill (CSS).
+  // - Firefox's multi-tab drag "stack" (small-stack/big-stack, two box-
+  //   shadow lines in the focus blue). Zen draws its own drag image and
+  //   finishes some drops (Essentials, another space, a folder) without
+  //   Firefox's reset, so the lines stayed under the dropped tabs.
+  initPinnedMarks(win) {
+    const { gBrowser } = win;
+    const container = gBrowser.tabContainer;
+    const mark = tab => this.markDefaultContainer(win, tab);
+    for (const type of ["TabOpen", "TabPinned", "TabSelect"]) {
+      container.addEventListener(type, event => mark(event.target));
+    }
+    win.addEventListener("ZenWorkspaceDataChanged", () => this.markAllDefaultContainers(win));
+    win.gZenWorkspaces?.promiseInitialized?.then(() => this.markAllDefaultContainers(win));
+    const clearStacks = () => {
+      win.setTimeout(() => {
+        if (!container.hasAttribute("movingtab")) {
+          this.clearDragStacks(win);
+        }
+      }, 0);
+    };
+    win.addEventListener("dragend", clearStacks, true);
+    win.addEventListener("drop", clearStacks, true);
+  },
+
+  markAllDefaultContainers(win) {
+    for (const tab of win.gBrowser.tabs) {
+      this.markDefaultContainer(win, tab);
+    }
+  },
+
+  markDefaultContainer(win, tab) {
+    if (tab?.localName != "tab" || !tab.pinned || tab.getAttribute("zenDefaultUserContextId") == "true") {
+      return;
+    }
+    const userContextId = tab.userContextId || parseInt(tab.getAttribute("usercontextid")) || 0;
+    if (!userContextId) {
+      return;
+    }
+    const uuid = tab.getAttribute("zen-workspace-id");
+    const space = uuid && win.gZenWorkspaces?.getWorkspaceFromId?.(uuid);
+    if (space?.containerTabId == userContextId) {
+      tab.setAttribute("zenDefaultUserContextId", "true");
+    }
+  },
+
+  clearDragStacks(win) {
+    for (const el of win.document.querySelectorAll("[small-stack], [big-stack]")) {
+      el.removeAttribute("small-stack");
+      el.removeAttribute("big-stack");
+    }
   },
 
   // The site a tab belongs to ("github.com" for gist.github.com), or null
@@ -144,6 +204,18 @@ export const WhimsyTabs = {
 
   initGroupByDomain(win) {
     const { document } = win;
+    // wave5: the tab menu's "Group N Tabs from site" as a command for the
+    // current tab.
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+      id: "cmd_whimsyGroupBySite",
+      l10nId: "whimsy-action-group-by-site",
+      run: w => this.groupByDomain(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/folder.svg",
+      isAvailable: w =>
+        Services.prefs.getBoolPref(GROUP_FEATURE_PREF, true) &&
+        !!w.gZenFolders &&
+        this.sameSiteTabs(w, w.gBrowser.selectedTab).tabs.length >= 2,
+    });
     const menu = document.getElementById("tabContextMenu");
     menu?.addEventListener("popupshowing", event => {
       if (event.target == menu) {
@@ -260,10 +332,19 @@ export const WhimsyTabs = {
       for (const el of [tab, stack, content]) {
         el.setAttribute(UNREAD_ATTR, text);
       }
+      // The badge is drawn with CSS, so screen readers need the count too
+      // ("Inbox, 128 unread"): the tab's own name stays, this describes it.
+      tab.ownerDocument.l10n?.formatValue("whimsy-tab-unread-description", { count })
+        .then(value => {
+          if (tab.getAttribute(UNREAD_ATTR) == text) {
+            tab.setAttribute("aria-description", value);
+          }
+        }).catch(() => {});
     } else {
       for (const el of [tab, stack, content]) {
         el.removeAttribute(UNREAD_ATTR);
       }
+      tab.removeAttribute("aria-description");
     }
   },
 
