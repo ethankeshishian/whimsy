@@ -489,6 +489,9 @@
 - name: whimsy.feature.macos-focus
   value: true
 
+- name: whimsy.feature.video-speech-captions
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

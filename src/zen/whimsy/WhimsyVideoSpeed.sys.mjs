@@ -14,6 +14,7 @@ const CONTENT_PREF = "whimsy.video-speed";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCaptions: "resource:///modules/whimsy/WhimsyCaptions.sys.mjs",
+  WhimsyLiveSpeech: "resource:///modules/whimsy/WhimsyLiveSpeech.sys.mjs",
 });
 
 const cps2 = () => Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
@@ -128,7 +129,24 @@ export class WhimsyVideoSpeedParent extends JSWindowActorParent {
       // wave5/captions: a cue to translate (CC in the speed control).
       case "WhimsyCaptions:Translate":
         return lazy.WhimsyCaptions.translate(message.data);
+      // w7native: live captions from speech (a video without captions).
+      case "WhimsyCaptions:SpeechStart":
+        this._speechStarted = true;
+        return lazy.WhimsyLiveSpeech.start(this, message.data);
+      case "WhimsyCaptions:SpeechAudio":
+        lazy.WhimsyLiveSpeech.audio(this, message.data);
+        break;
+      case "WhimsyCaptions:SpeechStop":
+        lazy.WhimsyLiveSpeech.stop(this, message.data);
+        break;
     }
     return null;
+  }
+
+  didDestroy() {
+    // Only loaded if a session ever started.
+    if (this._speechStarted) {
+      lazy.WhimsyLiveSpeech.stopAll(this);
+    }
   }
 }

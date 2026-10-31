@@ -1,0 +1,32 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# w7native: Bonjour (DNS-SD) browser for the Local servers live folder.
+# Only built on macOS (see ../moz.build); the app's Info.plist lists the
+# browsed types in NSBonjourServices (whimsy-Info-plist-in.patch). dns_sd
+# is part of libSystem; SystemConfiguration gives this Mac's .local name.
+
+XPIDL_SOURCES += [
+    "nsIWhimsyBonjour.idl",
+]
+
+XPIDL_MODULE = "whimsy_bonjour"
+
+EXPORTS.mozilla += [
+    "nsWhimsyBonjour.h",
+]
+
+SOURCES += [
+    "nsWhimsyBonjour.mm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+OS_LIBS += [
+    "-framework SystemConfiguration",
+]
+
+FINAL_LIBRARY = "xul"

@@ -38,3 +38,20 @@ diff --git a/browser/app/macbuild/Contents/Info.plist.in b/browser/app/macbuild/
    <key>NSCameraUsageDescription</key>
    <string>Only sites you allow within @MAC_APP_NAME@ will be able to use the camera.</string>
  
+@@ -312,6 +328,16 @@
+   <key>NSLocalNetworkUsageDescription</key>
+   <string>@MAC_APP_NAME@ needs this access to open websites and services on your network.</string>
+ 
++  <key>NSBonjourServices</key>
++  <array>
++    <string>_http._tcp</string>
++    <string>_https._tcp</string>
++    <string>_http-alt._tcp</string>
++  </array>
++
++  <key>NSSpeechRecognitionUsageDescription</key>
++  <string>@MAC_APP_NAME@ turns a video's speech into live captions, on this Mac, when you turn on captions for a video that has none.</string>
++
+   <key>ASWebAuthenticationSessionWebBrowserSupportCapabilities</key>
+   <dict>
+     <key>IsSupported</key>

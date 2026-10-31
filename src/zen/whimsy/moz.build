@@ -70,6 +70,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyLiveFolderFetch.sys.mjs",
     "WhimsyLiveFolderReading.sys.mjs",
     "WhimsyLiveFolders.sys.mjs",
+    "WhimsyLiveSpeech.sys.mjs",
     "WhimsyLocalServersLiveFolder.sys.mjs",
     "WhimsyLook.sys.mjs",
     "WhimsyMarkdownCopy.sys.mjs",
@@ -167,12 +168,19 @@ BROWSER_CHROME_MANIFESTS += [
     "tests/browser.toml",
 ]
 
-# wave7/native1: the macOS native components. calendar/ (Next meeting's
-# EventKit reader, and Add to Calendar's writer) was dropped from here by a
-# moz.build re-sort (1545592), so it wasn't built; focus/ is macOS Focus for
-# Whimsy's own toasts.
+# Native components. audiotap/ is plain C++ over MediaTrackGraph (live
+# captions' audio, in the content process). The rest are Objective-C++ for
+# macOS: calendar/ (Next meeting's EventKit reader, and Add to Calendar's
+# writer; dropped from here by a moz.build re-sort, 1545592, so it wasn't
+# built), bonjour/ (Local servers' LAN services, dns_sd), focus/ (macOS
+# Focus for Whimsy's own toasts) and speech/ (live captions, on-device
+# Speech).
+DIRS += ["audiotap"]
+
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     DIRS += [
+        "bonjour",
         "calendar",
         "focus",
+        "speech",
     ]

@@ -1,0 +1,54 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * @brief Told about the services an nsIWhimsyBonjour browse finds, on the
+ * main thread.
+ */
+[scriptable, uuid(7d582538-6711-4f88-aa65-5185dde2f900)]
+interface nsIWhimsyBonjourListener : nsISupports {
+  /**
+   * @param json Every resolved service found so far, as a JSON array of
+   *        { name, type, domain, host, port, path?, local }: `host` is the
+   *        advertised host name without its final dot ("printer.local"),
+   *        `path` the TXT record's "path" key when there is one, and
+   *        `local` whether the host is this Mac.
+   */
+  void onServicesChanged(in AUTF8String json);
+
+  /**
+   * @param reason "denied" (Local Network access is off for the app),
+   *        "missing-bonjour-services" (no type asked for is listed in the
+   *        app's NSBonjourServices) or "failed".
+   */
+  void onError(in AUTF8String reason);
+};
+
+/**
+ * @brief Browses Bonjour (DNS-SD, mDNS on the local network) for services
+ * of the given types and resolves each one to a host and port. Only the
+ * Local servers live folder uses it, and only while the folder is shown:
+ * nothing here runs until start().
+ */
+[scriptable, uuid(5cd6c249-cf86-4f12-bd4d-f6bd4c96c17b)]
+interface nsIWhimsyBonjour : nsISupports {
+  /**
+   * @brief The types the app may browse: its Info.plist's NSBonjourServices.
+   */
+  readonly attribute Array<ACString> allowedTypes;
+
+  /**
+   * @brief Starts browsing `types` (such as "_http._tcp"); types not in
+   * allowedTypes are skipped. Replaces any browse already running. The
+   * listener hears the full list each time it changes.
+   */
+  void start(in Array<ACString> types, in nsIWhimsyBonjourListener listener);
+
+  /** @brief Stops browsing; the listener hears nothing more. */
+  void stop();
+
+  readonly attribute boolean browsing;
+};

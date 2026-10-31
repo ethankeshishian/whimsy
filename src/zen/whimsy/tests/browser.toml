@@ -560,3 +560,6 @@ run-if = ["os == 'mac'"]
 ["browser_whimsy_native_services.js"]
 run-if = ["os == 'mac'"]
 skip-if = ["headless"] # runs in verify.sh's whimsy-native suite
+# w7native: live captions from speech (stand-ins for the recognizer, capture and tap; the real tap on a Web Audio track).
+["browser_whimsy_video_speech_captions.js"]
+support-files = ["whimsy_video_captions.html", "whimsy_captions_es.vtt", "whimsy_video.mp4"]

@@ -1,0 +1,45 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+webidl MediaStreamTrack;
+
+/**
+ * @brief Collects the audio of one captured media track (an audio track of
+ * HTMLMediaElement.captureStream()) as mono PCM for on-device speech
+ * recognition: live captions for a video that has none.
+ *
+ * Chrome only (XPCOM is never exposed to pages). Unlike Web Audio or
+ * MediaRecorder it reads the samples whatever the track's principal, so
+ * cross-origin video without CORS gets captions too; the samples only ever
+ * go to the on-device recognizer. EME media can't be captured at all
+ * (captureStream() refuses), so it never gets here.
+ */
+[scriptable, uuid(242d8d30-2407-450e-bc75-0efcc27da5d8)]
+interface nsIWhimsyAudioTap : nsISupports {
+  /**
+   * @brief Starts collecting `track`'s audio, replacing any track tapped
+   * before. Throws NS_ERROR_INVALID_ARG for a video or ended track.
+   */
+  void start(in MediaStreamTrack track);
+
+  /** @brief Stops collecting and drops what wasn't taken. */
+  void stop();
+
+  readonly attribute boolean active;
+
+  /**
+   * @brief The rate of the samples take() returns: the graph's rate divided
+   * down to about 16 kHz (16000 for 48 kHz, 14700 for 44.1 kHz). 0 until
+   * the first audio arrives.
+   */
+  readonly attribute unsigned long sampleRate;
+
+  /**
+   * @brief The mono samples (-1..1) since the last call, oldest first. At
+   * most the last 10 seconds are kept between calls.
+   */
+  Array<float> take();
+};
