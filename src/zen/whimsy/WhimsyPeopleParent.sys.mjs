@@ -38,6 +38,12 @@ export class WhimsyPeopleParent extends JSWindowActorParent {
     }
     const point = { x: Number(data.x) || 0, y: Number(data.y) || 0 };
     const rect = data.rect ?? { x: point.x - 1, y: point.y - 8, width: 2, height: 16 };
+    // wave9/mini W8-28: the link's own name and photo, trusted only on the
+    // profile's own site (this page's real host, not the child's word).
+    let pageHost = null;
+    try {
+      pageHost = this.manager.documentURI?.host ?? null;
+    } catch {}
     host.enter({
       source: "people",
       browser,
@@ -45,6 +51,7 @@ export class WhimsyPeopleParent extends JSWindowActorParent {
       how: "hover",
       ...rect,
       userContextId: originAttributes.userContextId || 0,
+      context: lazy.WhimsyPeople.pageContext(url, pageHost, data.context),
     });
   }
 

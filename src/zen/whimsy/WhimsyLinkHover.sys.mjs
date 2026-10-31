@@ -41,11 +41,19 @@ const HTML = "http://www.w3.org/1999/xhtml";
 const PANEL_ID = "whimsy-link-hover";
 const LINK_CARDS_PREF = "whimsy.feature.link-cards";
 const ENTER_DELAY_MS = 500;
-const LEAVE_GRACE_MS = 180;
+// wave9/mini W8-28: long enough to cross from the link to the card and
+// reach its buttons (180 ms lost the card on LinkedIn's dense layouts).
+const LEAVE_GRACE_MS = 400;
 // Space between the link and the stack (the cards' own gap is CSS).
 const LINK_GAP_PX = 4;
 const OPEN_ATTR = "whimsy-open";
 const hosts = new WeakMap();
+
+// One person or place, however the page spells the link (LinkedIn adds
+// ?miniProfileUrn=..., trailing slashes, www.): the same card stays open.
+function keyOf(url) {
+  return lazy.WhimsyPeople.profile(url) ?? url;
+}
 
 export const WhimsyLinkHover = {
   ENTER_DELAY_MS,
@@ -70,13 +78,21 @@ class LinkHover {
   constructor(win) {
     this.win = win;
     this.target = null;
+    // wave9/mini W8-28: a link crossed on the way to the shown card waits
+    // here (the hover bridge) instead of replacing the card at once.
+    this.pending = null;
+    this.overPanel = false;
     this.onKey = event => {
       // Shift is how you ask for a card; other keys (Esc above all) close it.
       if (!["Shift", "Control", "Alt", "Meta"].includes(event.key)) {
+        this.cancelPending();
         this.hide();
       }
     };
-    this.onDismiss = () => this.hide();
+    this.onDismiss = () => {
+      this.cancelPending();
+      this.hide();
+    };
     win.addEventListener("keydown", this.onKey, true);
     win.addEventListener("TabSelect", this.onDismiss);
     win.addEventListener("blur", this.onDismiss);
@@ -111,9 +127,12 @@ class LinkHover {
     if (!browser || !url || lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
       return;
     }
+    const key = keyOf(url);
     const target = this.target;
-    if (target && target.url == url && target.browser == browser) {
-      // The same link again (the other child, or Shift pressed on it).
+    if (target && target.key == key && target.browser == browser) {
+      // The same link again (the other child, or Shift pressed on it, or
+      // back onto it from the way to the card).
+      this.cancelPending();
       this.win.clearTimeout(target.leaveTimer);
       target.title ||= req.title;
       if (req.how == "shift" && !target.shown) {
@@ -123,20 +142,63 @@ class LinkHover {
       }
       return;
     }
-    this.hide({ animate: false });
-    const kind = this.kindFor(req);
-    const controller = new AbortController();
+    const pending = this.pending;
+    if (pending && pending.key == key && pending.browser == browser) {
+      pending.title ||= req.title;
+      if (req.how == "shift") {
+        this.#promote(pending);
+      }
+      return;
+    }
+    this.cancelPending();
     const next = {
       ...req,
-      kind,
-      controller,
+      key,
+      kind: this.kindFor(req),
+      controller: new AbortController(),
       shown: false,
       // Decided during the delay so both cards can open on the same frame.
       aiMode: lazy.WhimsyAIPage.previewMode(browser, url, req.how).catch(() => null),
     };
+    if (target?.shown && req.how == "hover") {
+      // wave9/mini W8-28, the hover bridge: the pointer is probably on its
+      // way to the open card and crossing other links (LinkedIn stacks a
+      // person's photo, name and headline as separate links). The card
+      // stays; this link takes over only if the pointer rests on it for the
+      // whole delay, and never once the pointer reaches the card.
+      this.pending = next;
+      next.enterTimer = this.win.setTimeout(() => this.#promote(next), ENTER_DELAY_MS);
+      return;
+    }
+    this.hide({ animate: false });
     this.target = next;
     const delay = req.how == "shift" ? 0 : ENTER_DELAY_MS;
     next.enterTimer = this.win.setTimeout(() => this.#open(next), delay);
+  }
+
+  // The bridged link won: it replaces whatever card is still showing.
+  #promote(next) {
+    if (this.pending != next) {
+      return;
+    }
+    this.win.clearTimeout(next.enterTimer);
+    this.pending = null;
+    if (this.overPanel) {
+      next.controller.abort();
+      return;
+    }
+    this.hide({ animate: false });
+    this.target = next;
+    this.#open(next);
+  }
+
+  cancelPending() {
+    const pending = this.pending;
+    if (pending) {
+      this.pending = null;
+      this.win.clearTimeout(pending.enterTimer);
+      pending.controller.abort();
+    }
   }
 
   // Card 1: People on a profile link (when People cards are on), else the
@@ -150,8 +212,14 @@ class LinkHover {
 
   // The pointer left the link (browser given) or a card (url only checked).
   leave(browser = null, url = null) {
+    const pending = this.pending;
+    if (pending && (browser || url) && (!browser || pending.browser == browser) &&
+        (!url || pending.key == keyOf(url))) {
+      // Only passing over it on the way to the card.
+      this.cancelPending();
+    }
     const target = this.target;
-    if (!target || (browser && target.browser != browser) || (url && target.url != url)) {
+    if (!target || (browser && target.browser != browser) || (url && target.key != keyOf(url))) {
       return;
     }
     if (!target.shown) {
@@ -159,9 +227,15 @@ class LinkHover {
       return;
     }
     this.win.clearTimeout(target.leaveTimer);
+    if (this.overPanel) {
+      // The page's mouseout arrives over IPC, often after the pointer is
+      // already on the card: never start the countdown from there.
+      return;
+    }
     target.leaveTimer = this.win.setTimeout(() => {
-      if (this.target == target && !this.panel?.matches(":hover")) {
-        this.hide();
+      if (this.target == target && !this.overPanel && !this.panel?.matches(":hover")) {
+        // A link the pointer is resting on may still take over.
+        this.hide({ keepPending: true });
       }
     }, LEAVE_GRACE_MS);
   }
@@ -232,14 +306,24 @@ class LinkHover {
       });
     });
     panel.addEventListener("popuphidden", () => {
+      this.overPanel = false;
       panel.removeAttribute(OPEN_ATTR);
       if (this.target?.shown) {
         this.target.controller.abort();
         this.target = null;
       }
     });
-    panel.addEventListener("mouseenter", () => this.win.clearTimeout(this.target?.leaveTimer));
-    panel.addEventListener("mouseleave", () => this.leave());
+    // wave9/mini W8-28: tracked here rather than read from :hover, which
+    // the popup's own widget doesn't always report in time.
+    panel.addEventListener("mouseenter", () => {
+      this.overPanel = true;
+      this.win.clearTimeout(this.target?.leaveTimer);
+      this.cancelPending();
+    });
+    panel.addEventListener("mouseleave", () => {
+      this.overPanel = false;
+      this.leave();
+    });
     doc.getElementById("mainPopupSet").append(panel);
     return panel;
   }
@@ -312,13 +396,16 @@ class LinkHover {
       card.replaceChildren(lazy.buildPersonCard(this.win, person, { close }));
       card.setAttribute("aria-label", person.name || person.handle);
     };
-    fill(null, true);
+    // wave9/mini W8-28: the link's own name and photo (on its own site)
+    // show at once and fill whatever the lookup can't.
+    const context = target.context ?? null;
+    fill(context, true);
     const { signal } = target.controller;
     lazy.WhimsyPeople.lookup(this.win, profileUrl, { userContextId: target.userContextId || 0 })
       .catch(() => null)
       .then(found => {
         if (!signal.aborted) {
-          fill(found, false);
+          fill(lazy.WhimsyPeople.merge(found, context), false);
         }
       });
     card.setAttribute("role", "dialog");
@@ -364,7 +451,10 @@ class LinkHover {
 
   // Both cards leave together: one attribute off, one shared exit, then the
   // popup closes. Reduced motion has no transition, so it closes at once.
-  hide({ animate = true } = {}) {
+  hide({ animate = true, keepPending = false } = {}) {
+    if (!keepPending) {
+      this.cancelPending();
+    }
     const target = this.target;
     if (target) {
       this.win.clearTimeout(target.enterTimer);
@@ -408,6 +498,7 @@ class LinkHover {
   }
 
   destroy() {
+    this.cancelPending();
     this.hide({ animate: false });
     this.win.removeEventListener("keydown", this.onKey, true);
     this.win.removeEventListener("TabSelect", this.onDismiss);
