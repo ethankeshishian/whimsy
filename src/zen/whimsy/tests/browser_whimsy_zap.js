@@ -257,3 +257,59 @@ add_task(async function dust_takes_space_colors() {
     "and shared with the pages"
   );
 });
+
+add_task(async function zap_cursor_and_escape() {
+  deleteBoosts();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await zapModeOn(browser);
+    ok(WhimsyZap.isZapping(window), "Zap mode active");
+
+    await TestUtils.waitForCondition(async () => {
+      return SpecialPowers.spawn(browser, [], () => {
+        const h1 = content.document.querySelector("h1");
+        return content.getComputedStyle(h1).cursor === "crosshair";
+      });
+    }, "Crosshair cursor applied in zap mode");
+
+    const styles = await SpecialPowers.spawn(browser, [], () => {
+      const h1 = content.document.querySelector("h1");
+      const a = content.document.createElement("a");
+      a.href = "#";
+      content.document.body.appendChild(a);
+      const h1Style = content.getComputedStyle(h1);
+      const aStyle = content.getComputedStyle(a);
+      const res = {
+        h1Cursor: h1Style.cursor,
+        h1UserSelect: h1Style.userSelect,
+        aCursor: aStyle.cursor,
+      };
+      a.remove();
+      return res;
+    });
+    is(styles.h1Cursor, "crosshair", "Heading has crosshair cursor in zap mode");
+    is(styles.h1UserSelect, "none", "Heading has user-select: none in zap mode");
+    is(styles.aCursor, "crosshair", "Link has crosshair cursor in zap mode");
+
+    // Escape exits Zap mode
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await TestUtils.waitForCondition(() => !zapBar(browser), "Escape exited zap mode");
+    ok(!WhimsyZap.isZapping(window), "Zap mode is off after Escape");
+  });
+});
+
+add_task(async function zap_escape_from_content() {
+  deleteBoosts();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await zapModeOn(browser);
+    ok(WhimsyZap.isZapping(window), "Zap mode active");
+
+    browser.focus();
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.body.focus();
+      const event = new content.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      content.window.dispatchEvent(event);
+    });
+    await TestUtils.waitForCondition(() => !zapBar(browser), "Escape from content exited zap mode");
+    ok(!WhimsyZap.isZapping(window), "Zap mode is off after content Escape");
+  });
+});

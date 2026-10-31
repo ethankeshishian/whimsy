@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   // batch6
   WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
+  WhimsyZap: "resource:///modules/whimsy/WhimsyZap.sys.mjs",
 });
 
 export class WhimsyPageParent extends JSWindowActorParent {
@@ -44,6 +45,14 @@ export class WhimsyPageParent extends JSWindowActorParent {
       case "Whimsy:FollowLink": {
         if (this.tab) {
           lazy.WhimsyFollowerTabs.onLinkFollowed(this.tab, message.data.url);
+        }
+        return null;
+      }
+      case "Whimsy:ZapExit": {
+        const browser = this.browsingContext.top.embedderElement;
+        const win = browser?.ownerDocument?.defaultView;
+        if (win) {
+          lazy.WhimsyZap.exit(win, browser);
         }
         return null;
       }

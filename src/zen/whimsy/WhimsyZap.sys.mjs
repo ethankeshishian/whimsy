@@ -137,6 +137,21 @@ export const WhimsyZap = {
     return true;
   },
 
+  async exit(win, browser) {
+    browser = browser || win?.gBrowser?.selectedBrowser;
+    const container = browser?.closest(".browserSidebarContainer");
+    if (container?.hasAttribute("zen-zapping")) {
+      try {
+        const actor = browser.browsingContext?.currentWindowGlobal?.getActor("ZenBoosts");
+        await actor?.sendQuery("ZenBoost:ToggleZapMode", { mode: "zap" });
+      } catch (e) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  },
+
   // The space's gradient colors ([[r, g, b], ...]) for the dust, shared with
   // the content processes (WhimsyZapTint reads them there).
   async updateTint(win) {
@@ -288,7 +303,16 @@ export const WhimsyZap = {
     popup?.addEventListener("popupshowing", onShowing);
 
     const onKeyDown = event => {
-      if (event.key?.toLowerCase() != "z" || event.altKey || !this.isZapping(win)) {
+      if (!this.isZapping(win)) {
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.exit(win);
+        return;
+      }
+      if (event.key?.toLowerCase() != "z" || event.altKey) {
         return;
       }
       const mac = Services.appinfo.OS == "Darwin";
@@ -302,6 +326,22 @@ export const WhimsyZap = {
     };
     win.addEventListener("keydown", onKeyDown, true);
 
+    const zapObserver = new win.MutationObserver(mutations => {
+      for (const m of mutations) {
+        if (m.type === "attributes" && m.attributeName === "zen-zapping") {
+          const container = m.target;
+          const browser = container.querySelector("browser");
+          const isZapping = container.hasAttribute("zen-zapping");
+          const actor = browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+          actor?.sendAsyncMessage("Whimsy:ZapActive", { active: isZapping });
+        }
+      }
+    });
+    const tabpanels = win.document.getElementById("tabbrowser-tabpanels");
+    if (tabpanels) {
+      zapObserver.observe(tabpanels, { attributes: true, subtree: true, attributeFilter: ["zen-zapping"] });
+    }
+
     const onGradient = () => {
       if (Services.wm.getMostRecentWindow("navigator:browser") == win) {
         this.updateTint(win);
@@ -314,6 +354,7 @@ export const WhimsyZap = {
     win.addEventListener(
       "unload",
       () => {
+        zapObserver.disconnect();
         win.removeEventListener("ZenWorkspacesUIUpdate", onGradient);
         popup?.removeEventListener("popupshowing", onShowing);
         win.removeEventListener("keydown", onKeyDown, true);
