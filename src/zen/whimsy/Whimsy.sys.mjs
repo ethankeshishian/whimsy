@@ -284,6 +284,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTeachHints: "resource:///modules/whimsy/WhimsyTeachHints.sys.mjs",
 });
 
+// wave8/isolation: a tab never lives in a space of another profile.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyIsolation: "resource:///modules/whimsy/WhimsyIsolation.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -871,6 +876,14 @@ export const Whimsy = {
     // wave7/small: Link hints and Instant result Teach once hints; they
     // register only in a build that has WhimsyTeach (once per session).
     later("teach-hints", () => lazy.WhimsyTeachHints.init());
+    // wave8/isolation: a tab never lives in a space of another profile
+    // (container). Always on, no switch: after Zen's spaces are ready it
+    // guards every move and repairs what an older session left crossed.
+    run("isolation", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyIsolation.initWindow(win))
+        .catch(e => console.error("Whimsy: isolation", e))
+    );
 
     this.runDeferred(win, deferred, run);
   },

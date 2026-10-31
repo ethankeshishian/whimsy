@@ -210,15 +210,19 @@ add_task(async function set_profile_menu_goes_through_the_warning() {
   WhimsyProfiles.setContextMenuSpace(window, null);
 });
 
-add_task(async function feature_off_is_zen_behaviour() {
+// wave8/isolation: with the switch off a space's container still decides a
+// tab's cookies, so a move across containers still asks, and No leaves the
+// tab where it was (Zen's plain move carried the old cookies across).
+add_task(async function feature_off_still_isolates() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.space-profiles", false]] });
   const previous = gBrowser.selectedTab;
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   asked = [];
+  answers = [false];
   gZenWorkspaces.moveTabToWorkspace(tab, workSpace.uuid);
-  await new Promise(resolve => setTimeout(resolve, 100));
-  is(asked.length, 0, "No warning when off");
-  is(tab.userContextId, 0, "Zen's move: container unchanged");
+  await TestUtils.waitForCondition(() => asked.length == 1, "Still Arc's warning when off");
+  is(tab.getAttribute("zen-workspace-id"), home.uuid, "No: the tab stays in its own space");
+  is(tab.userContextId, 0, "…and container");
   // Zen moved the selected tab away; select a tab here before closing it
   // (testing mode has no empty-tab fallback, so the switcher would keep it).
   gBrowser.selectedTab = previous;

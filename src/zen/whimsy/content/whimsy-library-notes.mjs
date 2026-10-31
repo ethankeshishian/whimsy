@@ -16,6 +16,9 @@ const { gWhimsyNotesStore, NOTES_CHANGED_TOPIC } = ChromeUtils.importESModule(
 );
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {"TabNotes": "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs"});
+ChromeUtils.defineESModuleGetters(lazy, {
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+});
 
 function preview(text) {
   const firstLine = (text ?? "").split("\n").find(l => l.trim()) ?? "";
@@ -110,6 +113,12 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     if (!note.pageAttached) {
       const tab = this.ownerDocument.defaultView.gBrowser.selectedTab;
       if (!tab?.canonicalUrl) {
+        return;
+      }
+      // wave8/isolation: attaching saves the page's address (Firefox's
+      // TabNotes and this note), so never for a private page.
+      if (lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) ||
+          tab.hasAttribute("whimsy-private")) {
         return;
       }
       try {

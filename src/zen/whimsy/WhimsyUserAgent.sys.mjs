@@ -15,6 +15,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
 });
 
@@ -46,22 +47,48 @@ function writeSites(sites) {
   Services.prefs.setStringPref(SITES_PREF, JSON.stringify(sites));
 }
 
+// wave8/isolation: a choice made in a private tab stays in memory and
+// applies to private tabs only (host -> entry, or null for "Default"). The
+// pref and the permission are saved to disk, so writing there would record
+// which sites were visited privately. Gone when the last private tab closes.
+const privateSites = new Map();
+let watchingPrivate = false;
+
+function watchPrivateEnd() {
+  if (watchingPrivate) {
+    return;
+  }
+  watchingPrivate = true;
+  Services.obs.addObserver(() => privateSites.clear(), "last-pb-context-exited");
+}
+
+function entryFor(host, isPrivate = false) {
+  if (isPrivate && privateSites.has(host)) {
+    return privateSites.get(host);
+  }
+  return readSites()[host] ?? null;
+}
+
 export const WhimsyUserAgent = {
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },
 
   // Returns the stored UA string for a host, or null.
-  uaFor(host) {
-    const sites = readSites();
-    const entry = sites[host];
+  uaFor(host, isPrivate = false) {
+    const entry = entryFor(host, isPrivate);
     if (!entry) {
       return null;
     }
     return entry.preset == "custom" ? entry.custom || null : PRESETS[entry.preset] || null;
   },
 
-  set(host, preset, custom) {
+  set(host, preset, custom, { isPrivate = false } = {}) {
+    if (isPrivate) {
+      watchPrivateEnd();
+      privateSites.set(host, preset == "custom" ? { preset, custom } : { preset });
+      return;
+    }
     const sites = readSites();
     sites[host] = preset == "custom" ? { preset, custom } : { preset };
     writeSites(sites);
@@ -72,7 +99,12 @@ export const WhimsyUserAgent = {
     } catch (e) {}
   },
 
-  clear(host) {
+  clear(host, { isPrivate = false } = {}) {
+    if (isPrivate) {
+      watchPrivateEnd();
+      privateSites.set(host, null);
+      return;
+    }
     const sites = readSites();
     delete sites[host];
     writeSites(sites);
@@ -101,7 +133,7 @@ export const WhimsyUserAgent = {
     if (!browsingContext) {
       return;
     }
-    const ua = host ? this.uaFor(host) : null;
+    const ua = host ? this.uaFor(host, !!browsingContext.usePrivateBrowsing) : null;
     const current = browsingContext.customUserAgent || "";
     if ((ua || "") != current) {
       browsingContext.customUserAgent = ua || "";
@@ -134,16 +166,17 @@ export const WhimsyUserAgent = {
     });
     panel.classList.add("whimsy-useragent-panel");
 
+    const isPrivate = lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser);
     const choose = (preset, custom) => {
       if (preset) {
-        this.set(host, preset, custom);
+        this.set(host, preset, custom, { isPrivate });
       } else {
-        this.clear(host);
+        this.clear(host, { isPrivate });
       }
       this.reload(win, tab);
       lazy.WhimsyPanels.close(panel);
     };
-    const entry = readSites()[host];
+    const entry = entryFor(host, isPrivate);
     const activePreset = entry?.preset ?? null;
     const OPTIONS = [
       [null, "whimsy-useragent-option-default", "whimsy-useragent-option-default-detail"],
