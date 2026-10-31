@@ -22,11 +22,16 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "ClipboardHelper", () =>
   Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper)
+);
+ChromeUtils.defineLazyGetter(lazy, "l10n", () =>
+  new Localization(["browser/whimsy.ftl"], true)
 );
 
 const FONT_FEATURE_PREF = "whimsy.feature.font-inspector";
@@ -36,6 +41,7 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 export const WhimsyInspector = {
   _sessionInitialized: false,
   _activePickers: new WeakMap(),
+  _lastInspectedFont: null,
 
   get fontInspectorEnabled() {
     return Services.prefs.getBoolPref(FONT_FEATURE_PREF, true);
@@ -81,6 +87,14 @@ export const WhimsyInspector = {
       l10nId: "whimsy-action-inspect-font",
       run: w => this.inspectFont(w),
       icon: "chrome://browser/skin/zen-icons/signature.svg",
+      isAvailable: w => this.fontInspectorEnabled,
+    });
+
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsySearchFont",
+      l10nId: "whimsy-action-search-font",
+      run: w => this.searchFont(w),
+      icon: "chrome://browser/skin/zen-icons/search-glass.svg",
       isAvailable: w => this.fontInspectorEnabled,
     });
 
@@ -136,7 +150,7 @@ export const WhimsyInspector = {
     if (!this.fontInspectorEnabled) {
       return;
     }
-    const browser = win.gBrowser.selectedBrowser;
+    const browser = win.gBrowser?.selectedBrowser;
     const actor = this.actorFor(browser);
     if (!actor) {
       return;
@@ -154,11 +168,68 @@ export const WhimsyInspector = {
     this.startPicker(win, "font");
   },
 
+  // Search for the rendered font name in a new tab next to current one
+  async searchFont(win, fontName = null) {
+    if (!this.fontInspectorEnabled) {
+      return;
+    }
+    const openPanel = win.document?.getElementById("whimsy-font-inspector-panel");
+    if (openPanel) {
+      lazy.WhimsyPanels.close(openPanel);
+    }
+
+    let font = fontName || this._lastInspectedFont?.renderedFont;
+    if (!font) {
+      const browser = win.gBrowser?.selectedBrowser;
+      const actor = this.actorFor(browser);
+      if (actor) {
+        try {
+          const result = await actor.sendQuery("Whimsy:InspectFontSelection");
+          if (result?.renderedFont) {
+            font = result.renderedFont;
+          }
+        } catch (e) {}
+      }
+    }
+    if (!font) {
+      return;
+    }
+    await this.performFontSearch(win, font);
+  },
+
+  async performFontSearch(win, fontName) {
+    if (!fontName) {
+      return;
+    }
+    const isPrivate =
+      lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
+      lazy.WhimsyPrivate.isPrivateTab?.(win.gBrowser?.selectedTab);
+
+    let url = null;
+    try {
+      await lazy.SearchService.init();
+      const engine = isPrivate
+        ? (await lazy.SearchService.getDefaultPrivate()) || (await lazy.SearchService.getDefault())
+        : await lazy.SearchService.getDefault();
+      const submission = engine?.getSubmission(fontName);
+      if (submission?.uri?.spec) {
+        url = submission.uri.spec;
+      }
+    } catch (e) {}
+
+    if (!url) {
+      url = `https://www.google.com/search?q=${encodeURIComponent(fontName)}`;
+    }
+
+    lazy.WhimsyPrivate.openTabFor(win, url, { relatedToCurrent: true });
+  },
+
   // Display the Font Inspector popover matching Whimsy's panel styling.
   showFontPopover(win, data, anchor = null) {
     if (!data) {
       return;
     }
+    this._lastInspectedFont = data;
     const { document: doc } = win;
 
     const { panel, body } = lazy.WhimsyPanels.create(win, {
@@ -181,7 +252,8 @@ export const WhimsyInspector = {
     // Hero Font Face Card
     const card = doc.createElementNS(HTML_NS, "div");
     card.className = "whimsy-font-face-card";
-    card.title = "Click to copy font name";
+    card.title = lazy.l10n.formatValueSync("whimsy-font-card-copy-hint");
+    doc.l10n.setAttributes(card, "whimsy-font-card-copy-hint");
     card.addEventListener("click", () => copyValue(data.renderedFont));
 
     const headRow = doc.createElementNS(HTML_NS, "div");
@@ -193,7 +265,8 @@ export const WhimsyInspector = {
 
     const badge = doc.createElementNS(HTML_NS, "span");
     badge.className = "whimsy-font-rendered-badge";
-    badge.textContent = "Rendered";
+    badge.textContent = lazy.l10n.formatValueSync("whimsy-font-rendered-badge");
+    doc.l10n.setAttributes(badge, "whimsy-font-rendered-badge");
 
     headRow.append(name, badge);
 
@@ -201,7 +274,7 @@ export const WhimsyInspector = {
     preview.className = "whimsy-font-preview";
     preview.style.fontFamily = `"${data.renderedFont}", ${data.cssStack}`;
     preview.style.fontWeight = data.weight;
-    preview.textContent = data.previewText || "The quick brown fox jumps over the lazy dog";
+    preview.textContent = data.previewText || lazy.l10n.formatValueSync("whimsy-font-sample-text");
 
     const stack = doc.createElementNS(HTML_NS, "div");
     stack.className = "whimsy-font-css-stack";
@@ -214,14 +287,16 @@ export const WhimsyInspector = {
     const list = doc.createElementNS(HTML_NS, "div");
     list.className = "whimsy-font-props-list";
 
-    const addPropRow = (label, value, copyVal = value, isColor = false) => {
+    const addPropRow = (l10nId, value, copyVal = value, isColor = false) => {
       const row = doc.createElementNS(HTML_NS, "div");
       row.className = "whimsy-font-prop-row";
-      row.title = `Click to copy ${value}`;
+      row.title = lazy.l10n.formatValueSync("whimsy-font-prop-copy-hint", { value });
+      doc.l10n.setAttributes(row, "whimsy-font-prop-copy-hint", { value });
 
       const lbl = doc.createElementNS(HTML_NS, "span");
       lbl.className = "whimsy-font-prop-label";
-      lbl.textContent = label;
+      lbl.textContent = lazy.l10n.formatValueSync(l10nId);
+      doc.l10n.setAttributes(lbl, l10nId);
 
       const val = doc.createElementNS(HTML_NS, "span");
       val.className = "whimsy-font-prop-value";
@@ -240,7 +315,8 @@ export const WhimsyInspector = {
 
       const hint = doc.createElementNS(HTML_NS, "span");
       hint.className = "whimsy-copy-hint";
-      hint.textContent = "Copy";
+      hint.textContent = lazy.l10n.formatValueSync("whimsy-font-copy-hint");
+      doc.l10n.setAttributes(hint, "whimsy-font-copy-hint");
       val.append(hint);
 
       row.append(lbl, val);
@@ -248,11 +324,11 @@ export const WhimsyInspector = {
       list.append(row);
     };
 
-    addPropRow("Size", data.size);
-    addPropRow("Weight", data.weight);
-    addPropRow("Line Height", data.lineHeight || "normal");
-    addPropRow("Letter Spacing", data.letterSpacing || "normal");
-    addPropRow("Colour", data.colorHex, data.colorHex, true);
+    addPropRow("whimsy-font-size-label", data.size);
+    addPropRow("whimsy-font-weight-label", data.weight);
+    addPropRow("whimsy-font-line-height-label", data.lineHeight || "normal");
+    addPropRow("whimsy-font-letter-spacing-label", data.letterSpacing || "normal");
+    addPropRow("whimsy-font-color-label", data.colorHex, data.colorHex, true);
 
     body.append(list);
 
@@ -262,7 +338,8 @@ export const WhimsyInspector = {
 
     const copyCssBtn = doc.createElementNS(HTML_NS, "button");
     copyCssBtn.className = "whimsy-inspector-button primary";
-    copyCssBtn.textContent = "Copy CSS";
+    copyCssBtn.textContent = lazy.l10n.formatValueSync("whimsy-font-copy-css");
+    doc.l10n.setAttributes(copyCssBtn, "whimsy-font-copy-css");
     copyCssBtn.addEventListener("click", () => {
       const css =
         `font-family: "${data.renderedFont}", ${data.cssStack};\n` +
@@ -271,12 +348,21 @@ export const WhimsyInspector = {
         `line-height: ${data.lineHeight || "normal"};\n` +
         `letter-spacing: ${data.letterSpacing || "normal"};\n` +
         `color: ${data.colorHex};`;
-      copyValue(css, "CSS");
+      copyValue(css, lazy.l10n.formatValueSync("whimsy-font-css-label"));
+    });
+
+    const searchFontBtn = doc.createElementNS(HTML_NS, "button");
+    searchFontBtn.className = "whimsy-inspector-button";
+    searchFontBtn.textContent = lazy.l10n.formatValueSync("whimsy-font-search-button");
+    doc.l10n.setAttributes(searchFontBtn, "whimsy-font-search-button");
+    searchFontBtn.addEventListener("click", () => {
+      this.searchFont(win, data.renderedFont);
     });
 
     const inspectElementBtn = doc.createElementNS(HTML_NS, "button");
     inspectElementBtn.className = "whimsy-inspector-button";
-    inspectElementBtn.textContent = "Inspect Element";
+    inspectElementBtn.textContent = lazy.l10n.formatValueSync("whimsy-font-inspect-element");
+    doc.l10n.setAttributes(inspectElementBtn, "whimsy-font-inspect-element");
     inspectElementBtn.addEventListener("click", () => {
       lazy.WhimsyPanels.close(panel);
       if (data.selector) {
@@ -286,7 +372,7 @@ export const WhimsyInspector = {
       }
     });
 
-    actions.append(copyCssBtn, inspectElementBtn);
+    actions.append(copyCssBtn, searchFontBtn, inspectElementBtn);
     body.append(actions);
 
     lazy.WhimsyPanels.open(win, panel, { anchor });
@@ -332,7 +418,8 @@ export const WhimsyInspector = {
 
     const marginLabel = doc.createElementNS(HTML_NS, "span");
     marginLabel.className = "whimsy-box-label";
-    marginLabel.textContent = "margin";
+    marginLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-margin-box");
+    doc.l10n.setAttributes(marginLabel, "whimsy-element-margin-box");
     const mTop = doc.createElementNS(HTML_NS, "span");
     mTop.className = "whimsy-box-val-top";
     mTop.textContent = bm.margin.top;
@@ -350,7 +437,8 @@ export const WhimsyInspector = {
     borderBox.className = "whimsy-box-border";
     const borderLabel = doc.createElementNS(HTML_NS, "span");
     borderLabel.className = "whimsy-box-label";
-    borderLabel.textContent = "border";
+    borderLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-border-box");
+    doc.l10n.setAttributes(borderLabel, "whimsy-element-border-box");
     const bTop = doc.createElementNS(HTML_NS, "span");
     bTop.className = "whimsy-box-val-top";
     bTop.textContent = bm.border.top;
@@ -368,7 +456,8 @@ export const WhimsyInspector = {
     paddingBox.className = "whimsy-box-padding";
     const paddingLabel = doc.createElementNS(HTML_NS, "span");
     paddingLabel.className = "whimsy-box-label";
-    paddingLabel.textContent = "padding";
+    paddingLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-padding-box");
+    doc.l10n.setAttributes(paddingLabel, "whimsy-element-padding-box");
     const pTop = doc.createElementNS(HTML_NS, "span");
     pTop.className = "whimsy-box-val-top";
     pTop.textContent = bm.padding.top;
@@ -427,7 +516,8 @@ export const WhimsyInspector = {
 
     const badge = doc.createElementNS(HTML_NS, "span");
     badge.className = `whimsy-wcag-badge ${data.colors.passAA ? "pass" : "fail"}`;
-    badge.textContent = `WCAG ${data.colors.rating}`;
+    badge.textContent = lazy.l10n.formatValueSync("whimsy-element-wcag-badge", { rating: data.colors.rating });
+    doc.l10n.setAttributes(badge, "whimsy-element-wcag-badge", { rating: data.colors.rating });
 
     ratioBox.append(ratio, badge);
     cRow.append(swatches, ratioBox);
@@ -440,7 +530,8 @@ export const WhimsyInspector = {
 
     const devtoolsBtn = doc.createElementNS(HTML_NS, "button");
     devtoolsBtn.className = "whimsy-inspector-button primary";
-    devtoolsBtn.textContent = "Open in DevTools";
+    devtoolsBtn.textContent = lazy.l10n.formatValueSync("whimsy-element-open-devtools");
+    doc.l10n.setAttributes(devtoolsBtn, "whimsy-element-open-devtools");
     devtoolsBtn.addEventListener("click", () => {
       lazy.WhimsyPanels.close(panel);
       try {
@@ -452,7 +543,8 @@ export const WhimsyInspector = {
 
     const fontBtn = doc.createElementNS(HTML_NS, "button");
     fontBtn.className = "whimsy-inspector-button";
-    fontBtn.textContent = "Inspect Font";
+    fontBtn.textContent = lazy.l10n.formatValueSync("whimsy-action-inspect-font");
+    doc.l10n.setAttributes(fontBtn, "whimsy-action-inspect-font");
     fontBtn.addEventListener("click", () => {
       lazy.WhimsyPanels.close(panel);
       if (data.font) {
@@ -462,7 +554,8 @@ export const WhimsyInspector = {
 
     const pickBtn = doc.createElementNS(HTML_NS, "button");
     pickBtn.className = "whimsy-inspector-button";
-    pickBtn.textContent = "Pick Another";
+    pickBtn.textContent = lazy.l10n.formatValueSync("whimsy-element-pick-another");
+    doc.l10n.setAttributes(pickBtn, "whimsy-element-pick-another");
     pickBtn.addEventListener("click", () => {
       lazy.WhimsyPanels.close(panel);
       this.startPicker(win, "element");
@@ -524,8 +617,12 @@ export const WhimsyInspector = {
       return;
     }
     try {
+      const msg = lazy.l10n.formatValueSync("whimsy-element-gap-toast", {
+        gapX: data.gapX,
+        gapY: data.gapY,
+      });
       win.gZenUIManager?.showToast?.("whimsy-font-copied-toast", {
-        value: `Gap: ${data.gapX}px horizontal, ${data.gapY}px vertical`,
+        value: msg,
       });
     } catch (e) {}
   },

@@ -6,6 +6,11 @@
 // Works via a JSWindowActor. Anonymous content ensures the page's DOM is untouched.
 // In private browsing tabs, state is transient in-memory and never written to storage.
 
+const lazy = {};
+ChromeUtils.defineLazyGetter(lazy, "l10n", () =>
+  new Localization(["browser/whimsy.ftl"], true)
+);
+
 const OVERLAY_STYLESHEET = "chrome://browser/content/whimsy/whimsy-inspector.css";
 
 function colorToHex(colorStr, win = null) {
@@ -213,7 +218,7 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
       letterSpacing: style.letterSpacing,
       colorHex,
       colorRgb: style.color,
-      previewText: point?.text || element.textContent?.trim().slice(0, 60) || "The quick brown fox jumps over the lazy dog",
+      previewText: point?.text || element.textContent?.trim().slice(0, 60) || lazy.l10n.formatValueSync("whimsy-font-sample-text") || "The quick brown fox jumps over the lazy dog",
       tagName: element.tagName.toLowerCase(),
       selector: generateSelector(element),
       x,
@@ -571,7 +576,9 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
         this._selectedOutline.style.left = `${r.left}px`;
         this._selectedOutline.style.width = `${r.width}px`;
         this._selectedOutline.style.height = `${r.height}px`;
-        this._selectedChip.textContent = `Selected: ${target.tagName.toLowerCase()}`;
+        this._selectedChip.textContent =
+          lazy.l10n.formatValueSync("whimsy-element-selected-chip", { tag: target.tagName.toLowerCase() }) ||
+          `Selected: ${target.tagName.toLowerCase()}`;
       }
       const data = this._extractElementInfo(target);
       this.sendAsyncMessage("Whimsy:ElementInspected", data);
