@@ -214,6 +214,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyMenuIcons: "resource:///modules/whimsy/WhimsyMenuIcons.sys.mjs",
 });
 
+// wave7/menuprefs: Settings → Menus (which right-click menu rows show).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -712,6 +717,10 @@ export const Whimsy = {
     // last, so it sees every row the other listeners showed or added.
     run("archive-tab-menu", () => lazy.WhimsyArchiveMenu.initWindow(win));
     run("menu-icons", () => lazy.WhimsyMenuIcons.initWindow(win));
+    // wave7/menuprefs: rows turned off in Settings → Menus. Keep this the
+    // last menu listener: it hides rows after every other module has shown
+    // or moved them. Always installed; checks its switch on every show.
+    run("menu-prefs", () => lazy.WhimsyMenuPrefs.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

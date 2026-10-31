@@ -299,3 +299,49 @@
   margin: 6px 0 0;
   padding-inline-start: 22px;
 }
+
+/* wave7/menuprefs: Settings → Menus. One group per right-click menu: its
+   rows as switches, in the menu's order, a hairline where the menu has a
+   separator, and Restore Defaults under them. */
+.whimsy-menus-list {
+  display: flex;
+  flex-direction: column;
+  margin-block: var(--space-small, 8px) 0;
+  max-width: 560px;
+}
+
+.whimsy-menus-list > moz-toggle {
+  /* A row is the whole width, so the switches line up in one column. */
+  display: block;
+  padding-block: var(--space-xsmall, 4px);
+}
+
+.whimsy-menus-divider {
+  height: 1px;
+  margin-block: var(--space-xsmall, 4px);
+  background: var(--border-color-deemphasized, color-mix(in srgb, currentColor 15%, transparent));
+}
+
+.whimsy-menus-note {
+  margin-block: var(--space-small, 8px) 0;
+  padding: var(--space-small, 8px) var(--space-medium, 12px);
+  border-radius: var(--border-radius-medium, 8px);
+  background: var(--background-color-information, color-mix(in srgb, currentColor 8%, transparent));
+  max-width: 560px;
+  box-sizing: border-box;
+}
+
+.whimsy-menus-actions {
+  margin-block-start: var(--space-small, 8px);
+  & button { margin-inline: 0; }
+}
+
+.whimsy-menus-header {
+  flex-direction: column;
+  align-items: start;
+}
+
+/* Empty until every item of the menu is off. */
+.whimsy-menus-note:empty {
+  display: none;
+}

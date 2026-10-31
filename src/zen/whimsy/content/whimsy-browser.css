@@ -2842,3 +2842,10 @@ panel.whimsy-space-look .whimsy-sheet-body {
 #whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
   background: var(--whimsy-mini-fill-active);
 }
+
+/* wave7/menuprefs: a right-click menu row turned off in Settings → Menus
+   (WhimsyMenuPrefs marks it, and the separators it would leave behind,
+   on popupshowing). */
+menupopup > [whimsy-menu-pref-hidden] {
+  display: none !important;
+}

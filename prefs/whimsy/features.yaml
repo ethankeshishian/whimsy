@@ -462,6 +462,9 @@
 - name: whimsy.feature.archive-tab-menu
   value: true
 
+- name: whimsy.feature.menu-prefs
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

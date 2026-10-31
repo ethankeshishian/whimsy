@@ -991,6 +991,9 @@ FEATURES = [
     # wave7/menus2: archive-tab-menu
     {"id": "archive-tab-menu", "title": "Tab menu in Arc's words: Archive Tab, Archive Tabs Below, Restore Last Closed Tab (closed tabs go to the Archive)",
      "detect": [("src/zen/tabs", r"(?i)archive-?tabs?-?below")]},
+    # wave7/menuprefs: menu-prefs
+    {"id": "menu-prefs", "title": "Settings → Menus: turn any right-click menu item on or off (tab, link, page, selection, image, space, sidebar, folder and split menus)",
+     "detect": [("src/zen", r"(?i)context-?menu-?(items?-?)?(visibility|customi[sz])|hidden-?menu-?items")]},
 ]
 
 

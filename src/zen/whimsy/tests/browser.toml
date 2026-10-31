@@ -507,3 +507,6 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
 ["browser_whimsy_archive_tab_menu.js"]
+
+# wave7/menuprefs: Settings → Menus (turn any right-click menu item off; separators collapse; Restore Defaults; search).
+["browser_whimsy_menu_prefs.js"]
