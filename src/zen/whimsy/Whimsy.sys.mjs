@@ -315,6 +315,16 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLinkLasso: "resource:///modules/whimsy/WhimsyLinkLasso.sys.mjs",
 });
 
+// wave9: Inspector (Font Inspector & Element Inspector lite).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyInspector: "resource:///modules/whimsy/WhimsyInspector.sys.mjs",
+});
+
+// wave9/pagedev: Fonts on This Page, Page Colors, Built With.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPageDev: "resource:///modules/whimsy/WhimsyPageDev.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -933,6 +943,13 @@ export const Whimsy = {
 
     // wave9: W8-29 link lasso commands.
     run("link-lasso", () => lazy.WhimsyLinkLasso.initWindow(win));
+
+    // wave9: Font Inspector and Element Inspector Lite.
+    run("font-inspector", () => lazy.WhimsyInspector.initWindow(win));
+
+    // wave9/pagedev: page developer tools, grouped with the inspectors in
+    // Tools > Browser Tools (after them, so their commands exist).
+    run("page-dev", () => lazy.WhimsyPageDev.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

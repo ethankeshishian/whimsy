@@ -1213,6 +1213,15 @@ FEATURES = [
     # batch9: W9-06 smart address bar buttons (Reader, Translate, media, Downloads in progress)
     {"id": "smart-buttons", "title": "Smart address bar buttons: Reader, Translate, media and Downloads in progress beside the address bar when relevant",
      "detect": [("src/zen", r"(?i)smart-?(address-?bar|buttons)")]},
+    # wave9: Font Inspector (What Font Is This?)
+    {"id": "font-inspector", "title": "Font Inspector: What Font Is This? Popover with rendered font, size, weight, line-height, spacing, and colour",
+     "detect": [("src/zen", r"(?i)font-?inspector|what-?font-?is-?this")]},
+    # wave9: Element inspector lite
+    {"id": "element-inspector", "title": "Element Inspector lite: box model, colours, contrast ratio, gap measurement, and Open in DevTools",
+     "detect": [("src/zen", r"(?i)element-?inspector-?lite|measure-?gap")]},
+    # wave9/pagedev: page developer tools (Lens browser's developer menu)
+    {"id": "page-dev", "title": "Page developer tools: Fonts on This Page, Page Colors (palette and contrast) and Built With (tech stack), in Tools > Browser Tools",
+     "detect": [("src/zen", r"(?i)fonts-?on-?this-?page|built-?with-?(panel|detect)")]},
 ]
 
 

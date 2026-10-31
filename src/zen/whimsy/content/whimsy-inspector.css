@@ -1,0 +1,499 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave9: Font Inspector and Element Inspector Lite styling.
+ * Matches Whimsy's panel and sheet styling using Zen CSS variables.
+ */
+
+/* --- Font Inspector Sheet --- */
+.whimsy-font-inspector-panel {
+  --whimsy-sheet-width: 320px;
+}
+
+.whimsy-font-face-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.2));
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.whimsy-font-face-card:hover {
+  background: var(--zen-colors-input-bg-hover, rgba(255, 255, 255, 0.1));
+  border-color: var(--zen-primary-color, #0969da);
+}
+
+.whimsy-font-face-card:focus-visible {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -1px;
+}
+
+.whimsy-font-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.whimsy-font-family-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color, currentColor);
+  user-select: text;
+}
+
+.whimsy-font-rendered-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(var(--zen-primary-color-rgb, 9, 105, 218), 0.15);
+  color: var(--zen-primary-color, #0969da);
+}
+
+.whimsy-font-preview {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 4px;
+  color: var(--text-color, currentColor);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+
+.whimsy-font-css-stack {
+  font-size: 11px;
+  color: var(--panel-description-color, #888);
+  font-family: var(--font-family-monospace, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-font-props-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.whimsy-font-prop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  box-sizing: border-box;
+  transition: background 0.12s ease;
+  user-select: none;
+}
+
+.whimsy-font-prop-row:hover {
+  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.08));
+}
+
+.whimsy-font-prop-row:focus-visible {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -1px;
+}
+
+.whimsy-font-prop-label {
+  font-size: 12px;
+  color: var(--panel-description-color, #888);
+}
+
+.whimsy-font-prop-value {
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-family-monospace, monospace);
+  color: var(--text-color, currentColor);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.whimsy-color-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.whimsy-color-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.whimsy-copy-hint {
+  font-size: 11px;
+  color: var(--panel-description-color, #888);
+  margin-left: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.whimsy-font-prop-row:hover .whimsy-copy-hint,
+.whimsy-font-prop-row:focus-visible .whimsy-copy-hint,
+.whimsy-font-face-card:hover .whimsy-copy-hint,
+.whimsy-font-face-card:focus-visible .whimsy-copy-hint {
+  opacity: 1;
+}
+
+/* --- Element Inspector Sheet --- */
+.whimsy-element-inspector-panel {
+  --whimsy-sheet-width: 360px;
+}
+
+.whimsy-element-header-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
+  border-radius: 6px;
+  border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.2));
+  font-family: var(--font-family-monospace, monospace);
+  font-size: 12px;
+}
+
+.whimsy-element-tag {
+  font-weight: 600;
+  color: var(--zen-primary-color, #0969da);
+}
+
+.whimsy-element-dims {
+  color: var(--panel-description-color, #888);
+  font-size: 11px;
+}
+
+/* --- Box Model Diagram --- */
+.whimsy-box-model-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+  user-select: none;
+}
+
+.whimsy-box-margin {
+  padding: 18px 22px;
+  background: rgba(246, 178, 107, 0.2);
+  border: 1px dashed rgba(246, 178, 107, 0.7);
+  border-radius: 8px;
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.whimsy-box-border {
+  padding: 16px 20px;
+  background: rgba(255, 229, 153, 0.25);
+  border: 1px solid rgba(255, 229, 153, 0.8);
+  border-radius: 6px;
+  position: relative;
+  text-align: center;
+}
+
+.whimsy-box-padding {
+  padding: 14px 18px;
+  background: rgba(182, 215, 168, 0.25);
+  border: 1px dashed rgba(182, 215, 168, 0.8);
+  border-radius: 4px;
+  position: relative;
+  text-align: center;
+}
+
+.whimsy-box-content {
+  padding: 8px 14px;
+  background: rgba(164, 194, 244, 0.35);
+  border: 1px solid rgba(164, 194, 244, 0.8);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-family-monospace, monospace);
+  color: var(--text-color, currentColor);
+  white-space: nowrap;
+}
+
+.whimsy-box-label {
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  opacity: 0.75;
+}
+
+.whimsy-box-val-top {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-family: var(--font-family-monospace, monospace);
+}
+
+.whimsy-box-val-bottom {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-family: var(--font-family-monospace, monospace);
+}
+
+.whimsy-box-val-left {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-family: var(--font-family-monospace, monospace);
+}
+
+.whimsy-box-val-right {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-family: var(--font-family-monospace, monospace);
+}
+
+/* --- Colours & Contrast Card --- */
+.whimsy-contrast-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.2));
+  border-radius: 8px;
+}
+
+.whimsy-contrast-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.whimsy-contrast-swatches {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.whimsy-contrast-ratio-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.whimsy-contrast-label {
+  font-size: 11px;
+  color: var(--panel-description-color, #888);
+}
+
+.whimsy-contrast-values {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.whimsy-inspector-section-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--panel-description-color, #888);
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+.whimsy-color-chip-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.whimsy-color-chip-label {
+  font-size: 11px;
+  color: var(--panel-description-color, #888);
+}
+
+.whimsy-contrast-ratio {
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-family-monospace, monospace);
+}
+
+.whimsy-wcag-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+.whimsy-wcag-badge.pass {
+  background: #238636;
+  color: #ffffff;
+}
+
+.whimsy-wcag-badge.fail {
+  background: #da3633;
+  color: #ffffff;
+}
+
+/* --- Action buttons --- */
+.whimsy-inspector-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.whimsy-inspector-button {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.3));
+  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-color, currentColor);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.whimsy-inspector-button:hover {
+  background: var(--zen-colors-input-bg-hover, rgba(255, 255, 255, 0.12));
+  border-color: var(--zen-primary-color, #0969da);
+}
+
+.whimsy-inspector-button:focus-visible {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -1px;
+}
+
+.whimsy-inspector-button.primary {
+  background: var(--zen-primary-color, #0969da);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.whimsy-inspector-button.primary:hover {
+  opacity: 0.9;
+}
+
+/* --- Page Anonymous Overlay --- */
+#whimsy-inspector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 2147483647;
+}
+
+.whimsy-hover-outline {
+  position: fixed;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 2px solid var(--zen-primary-color, #0969da);
+  background: rgba(var(--zen-primary-color-rgb, 9, 105, 218), 0.08);
+  transition: all 0.04s ease-out;
+}
+
+.whimsy-selected-outline {
+  position: fixed;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 2px solid #a855f7;
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.whimsy-picker-chip {
+  position: absolute;
+  top: -24px;
+  left: 0;
+  background: #1c1b22;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.whimsy-picker-instruction-pill {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c1b22;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 2147483647;
+}
+
+.whimsy-gap-guide {
+  position: fixed;
+  pointer-events: none;
+  z-index: 2147483647;
+}
+
+.whimsy-gap-guide.horizontal {
+  border-top: 1.5px dashed #f59e0b;
+}
+
+.whimsy-gap-guide.vertical {
+  border-left: 1.5px dashed #f59e0b;
+}
+
+.whimsy-gap-chip {
+  position: absolute;
+  background: #f59e0b;
+  color: #000000;
+  font-family: var(--font-family-monospace, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}

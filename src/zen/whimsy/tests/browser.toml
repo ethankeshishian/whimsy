@@ -661,3 +661,12 @@ support-files = ["whimsy_email_form.html"]
 
 # batch9: W9-06 smart address bar buttons
 ["browser_whimsy_smart_buttons.js"]
+# wave9: Font Inspector ("What Font Is This?").
+["browser_whimsy_font_inspector.js"]
+
+# wave9: Element inspector lite.
+["browser_whimsy_element_inspector.js"]
+
+# wave9/pagedev: Fonts on This Page, Page Colors, Built With.
+["browser_whimsy_pagedev.js"]
+support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf"]
