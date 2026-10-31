@@ -3145,3 +3145,12 @@ whimsy-action-expand-all-folders = Expand All Folders
 whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
+## batch9: W9-06 smart address bar buttons
+whimsy-smart-buttons-setting =
+    .label = Contextual smart buttons beside the address bar
+whimsy-action-toggle-reader = Toggle Reader View
+whimsy-action-translate-page = Translate Page
+whimsy-action-media-pip = Toggle Picture-in-Picture
+whimsy-action-downloads = Show Downloads
+
+

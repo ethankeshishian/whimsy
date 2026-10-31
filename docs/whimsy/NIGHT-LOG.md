@@ -170,3 +170,8 @@
   - W8-39 (a6e1a62e): Removed inert Browser theme section from Look and Feel (lightweight themes have no effect in Zen chrome).
   - W8-41 (0234fde5): Set Up VPN enables master pref, initiates connection if ready, opens native IP Protection panel, or presents sign-in guidance.
   - W8-49 (06f4704d): Partitioned Notes and per-site user agent strictly per profile and preserved private browsing isolation.
+
+- Wave 9 smart address bar buttons (code-only on wave9/smart):
+  - W9-06: Contextual smart buttons beside address bar (Reader, Translate, media PiP/playback, and Downloads in progress). Reuses existing Firefox/Zen elements without duplicates: `#reader-mode-button`, `#translations-button`, `#picture-in-picture-button`, `#downloads-button`, and `#page-action-buttons` pill. Registers commands in `WhimsyCommands` with assignable shortcuts (`cmd_whimsyToggleReader`, `cmd_whimsyTranslatePage`, `cmd_whimsyToggleMedia`, `cmd_whimsyDownloads`). Added mochitest `browser_whimsy_smart_buttons.js`.
+  - W9-07 verified: 'Change icon' already lets users pick a symbol icon for an Essential via `#context_zen-edit-tab-icon` (`src/zen/tabs/ZenPinnedTabManager.mjs:668-699`), which invokes `gZenEmojiPicker.open(..., { emojiAsSVG: true })` (`src/zen/common/emojis/ZenEmojiPicker.mjs:8-31`), offering Zen's 62 SVG vector icons or emojis. No build required.
+

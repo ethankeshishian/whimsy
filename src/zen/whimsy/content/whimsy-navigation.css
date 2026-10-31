@@ -130,3 +130,48 @@
   font-size: 0.8em;
   opacity: 0.6;
 }
+
+/* batch9: W9-06 smart address bar buttons (Reader, Translate, media, Downloads in progress) */
+:root:not([whimsy-smart-buttons="false"]) #page-action-buttons {
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #page-action-buttons > .urlbar-page-action {
+  flex-shrink: 0;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #reader-mode-button:not([hidden]) {
+  display: flex !important;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #picture-in-picture-button:not([hidden]) {
+  display: flex !important;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #picture-in-picture-button[whimsy-audio-playing="true"] > .urlbar-icon {
+  list-style-image: url("chrome://browser/skin/zen-icons/media-unmute.svg") !important;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #picture-in-picture-button[whimsy-audio-playing="true"][muted] > .urlbar-icon {
+  list-style-image: url("chrome://browser/skin/zen-icons/media-mute.svg") !important;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #translations-button:not([hidden]) {
+  display: flex !important;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #downloads-button {
+  align-self: center;
+  margin-inline-start: 2px;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #downloads-button:not([hidden]) {
+  display: flex !important;
+}
+
+:root:not([whimsy-smart-buttons="false"]) #downloads-button[hidden] {
+  display: none !important;
+}
+

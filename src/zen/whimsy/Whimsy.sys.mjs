@@ -294,6 +294,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 
+// batch9: W9-06 smart address bar buttons.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySmartButtons: "resource:///modules/whimsy/WhimsySmartButtons.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -892,6 +897,8 @@ export const Whimsy = {
     );
     // wave8/cmds: W8-42 New Note command and menu item.
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
+    // batch9: W9-06 smart address bar buttons.
+    run("smart-buttons", () => lazy.WhimsySmartButtons.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

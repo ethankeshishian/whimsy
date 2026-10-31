@@ -613,3 +613,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave8: Finder Open With document types (.md, .csv, etc.)
 ["browser_whimsy_document_types.js"]
+
+# batch9: W9-06 smart address bar buttons
+["browser_whimsy_smart_buttons.js"]
