@@ -154,7 +154,9 @@ export const WhimsySmartButtons = {
       if (pipPrefEnabled) {
         const pipCount = lazy.PictureInPicture.getEligiblePipVideoCount(browser);
         const hasPipVideo = Boolean(pipCount && pipCount.totalPipCount > 0);
-        const isPipActive = Boolean(lazy.PictureInPicture.getPanelForBrowser?.(browser));
+        // The tab's own state (getPanelForBrowser creates the panel, so
+        // it's always truthy).
+        const isPipActive = Boolean(gBrowser.getTabForBrowser(browser)?.pictureinpicture);
         if (hasPipVideo || isPipActive) {
           pipBtn.removeAttribute("hidden");
         }
@@ -197,7 +199,7 @@ export const WhimsySmartButtons = {
           return false;
         }
         const count = lazy.PictureInPicture.getEligiblePipVideoCount(browser);
-        return Boolean((count && count.totalPipCount > 0) || lazy.PictureInPicture.getPanelForBrowser?.(browser));
+        return Boolean((count && count.totalPipCount > 0) || w.gBrowser.getTabForBrowser(browser)?.pictureinpicture);
       },
       run: w => {
         w.PictureInPicture?.toggleUrlbar?.(new w.Event("command"));
