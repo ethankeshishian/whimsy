@@ -173,7 +173,8 @@ export const WhimsySplitRow = {
       menu.appendChild(item);
     }
     // Arc's "Tab Options" is a greyed heading over the pane submenus.
-    document.getElementById(PANES_START)?.setAttribute("disabled", "true");
+    // (Looked up in the menu: it isn't in the document yet.)
+    menu.querySelector(`#${PANES_START}`)?.setAttribute("disabled", "true");
     menu.addEventListener("command", event => {
       const tab = menu.whimsyTab;
       if (tab) {

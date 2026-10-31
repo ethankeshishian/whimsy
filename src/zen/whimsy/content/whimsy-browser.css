@@ -2953,12 +2953,16 @@ whimsy-library-easels-section .zen-library-empty {
   :root[whimsy-quick-window] #tabbrowser-tabpanels .browserStack > browser {
     transition: opacity var(--whimsy-mini-close-duration) ease-out;
   }
+}
+
 /* wave7/focus: paste guard. One line under the question, in the sheet's
    muted ink; the footer and buttons are the shared sheet's. */
 panel.whimsy-paste-guard .whimsy-paste-guard-note {
   margin: 8px 16px 4px;
   color: var(--whimsy-sheet-muted);
   line-height: 1.4;
+}
+
 /* wave7/teach: Teach once (WhimsyTeach.sys.mjs). One sentence on Zen's
    panel surface, pointing at what the person just touched: a lightbulb,
    the sentence with the shortcut as a key cap, and a close button. The
@@ -3003,6 +3007,7 @@ panel.whimsy-teach {
 .whimsy-teach-close {
   margin-block-start: -2px;
 }
+
 /* wave7/season: seasonal trim on the floating command bar (Cmd+T / Cmd+L).
    WhimsySeasons adds an aria-hidden overlay to the URL bar and sets
    whimsy-season-decor (an occasion or a season) while the seasonal switch
@@ -3074,65 +3079,6 @@ panel.whimsy-teach {
       position: absolute;
       inset: 0;
       pointer-events: none;
-/* wave7/split: a split pane's header (whimsy.feature.split-pane-menu). Zen
-   fades the header in on hover (opacity, 0.1s after a 0.1s delay); it now
-   also shows, with no delay, while one of its buttons has keyboard focus or
-   its ⋯ menu is open. Buttons get a 24px target, a hover fill, a press
-   scale and a visible focus ring (Zen's had outline: none). Zen's unlabelled
-   "take this page out" button goes: the menu's first item does the same. */
-@media -moz-pref("whimsy.feature.split-pane-menu") {
-  .zen-view-splitter-header-container:is(:focus-within, [whimsy-menu-open]) {
-    pointer-events: all;
-    opacity: 1;
-    transition-delay: 0s;
-  }
-
-  .zen-view-splitter-header-container .zen-view-splitter-header {
-    gap: 2px;
-    padding: 2px 4px;
-  }
-
-  .zen-view-splitter-header-container toolbarbutton {
-    width: 24px;
-    height: 24px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    transition: background-color 0.15s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s cubic-bezier(0.2, 0, 0, 1), scale 0.1s cubic-bezier(0.2, 0, 0, 1);
-
-    &:hover,
-    &[open],
-    &:focus-visible {
-      opacity: 1;
-      background-color: color-mix(in srgb, currentColor 14%, transparent);
-    }
-
-    &:hover:active {
-      scale: 0.96;
-    }
-
-    &:focus-visible {
-      outline: var(--focus-outline, 2px solid AccentColor);
-      outline-offset: -2px;
-    }
-  }
-
-  .zen-view-splitter-header-container .zen-tab-unsplit-button {
-    display: none;
-  }
-
-  .whimsy-split-pane-menu-button {
-    list-style-image: url("chrome://browser/skin/zen-icons/menu.svg");
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .zen-view-splitter-header-container,
-    .zen-view-splitter-header-container toolbarbutton {
-      transition: none;
-    }
-
-    .zen-view-splitter-header-container toolbarbutton:hover:active {
-      scale: none;
     }
   }
 }
@@ -3231,7 +3177,72 @@ panel.whimsy-teach {
   }
   to {
     opacity: 0.9;
-/* wave7/split: the pane menu's icons, every item or none (menu-icons rule). */
+  }
+}
+
+/* wave7/split: a split pane's header (whimsy.feature.split-pane-menu). Zen
+   fades the header in on hover (opacity, 0.1s after a 0.1s delay); it now
+   also shows, with no delay, while one of its buttons has keyboard focus or
+   its ⋯ menu is open. Buttons get a 24px target, a hover fill, a press
+   scale and a visible focus ring (Zen's had outline: none). Zen's unlabelled
+   "take this page out" button goes: the menu's first item does the same. */
+@media -moz-pref("whimsy.feature.split-pane-menu") {
+  .zen-view-splitter-header-container:is(:focus-within, [whimsy-menu-open]) {
+    pointer-events: all;
+    opacity: 1;
+    transition-delay: 0s;
+  }
+
+  .zen-view-splitter-header-container .zen-view-splitter-header {
+    gap: 2px;
+    padding: 2px 4px;
+  }
+
+  .zen-view-splitter-header-container toolbarbutton {
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background-color 0.15s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s cubic-bezier(0.2, 0, 0, 1), scale 0.1s cubic-bezier(0.2, 0, 0, 1);
+
+    &:hover,
+    &[open],
+    &:focus-visible {
+      opacity: 1;
+      background-color: color-mix(in srgb, currentColor 14%, transparent);
+    }
+
+    &:hover:active {
+      scale: 0.96;
+    }
+
+    &:focus-visible {
+      outline: var(--focus-outline, 2px solid AccentColor);
+      outline-offset: -2px;
+    }
+  }
+
+  .zen-view-splitter-header-container .zen-tab-unsplit-button {
+    display: none;
+  }
+
+  .whimsy-split-pane-menu-button {
+    list-style-image: url("chrome://browser/skin/zen-icons/menu.svg");
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .zen-view-splitter-header-container,
+    .zen-view-splitter-header-container toolbarbutton {
+      transition: none;
+    }
+
+    .zen-view-splitter-header-container toolbarbutton:hover:active {
+      scale: none;
+    }
+  }
+}
+
 /* wave7/split: the pane menu's icons, every item or none (menu-icons rule).
    wave7/split2: Arc's per-pane items. */
 @media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
@@ -3353,6 +3364,8 @@ panel.whimsy-teach {
       order: 3;
     }
   }
+}
+
 /* wave7/menuprefs: a right-click menu row turned off in Settings → Menus
    (WhimsyMenuPrefs marks it, and the separators it would leave behind,
    on popupshowing). */

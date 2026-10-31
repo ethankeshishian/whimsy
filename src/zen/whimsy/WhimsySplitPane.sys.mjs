@@ -282,6 +282,10 @@ export const WhimsySplitPane = {
         const share = shareAfter.nextElementSibling;
         if (share?.matches(".share-tab-url-item")) {
           share.dataset.whimsyPaneAction = "share";
+          // Firefox's string has an access key and Arc's items don't;
+          // a menu mixing the two trips Gecko's access-key check.
+          document.l10n.setAttributes(share, "whimsy-menus-split-pane-share");
+          share.removeAttribute("accesskey");
           if (ids) {
             share.id = PANE_IDS.share;
           }

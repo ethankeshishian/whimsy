@@ -13,7 +13,7 @@ const { WhimsySplitPane } = ChromeUtils.importESModule("resource:///modules/whim
 const ARC_PANE_ITEMS = [
   "whimsy-split-pane-separate",
   "-",
-  "menu-file-share-url",
+  "whimsy-menus-split-pane-share", // Firefox's Share ▸, labelled without its access key
   "whimsy-split-pane-mute",
   "whimsy-split-pane-copy-link",
   "whimsy-split-pane-copy-markdown",
