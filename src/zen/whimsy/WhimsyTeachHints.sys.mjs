@@ -122,9 +122,16 @@ export function instantUsed(win, used) {
   if (!input) {
     return null;
   }
+  // Search Deck handles Shift+Enter on the window and stops the key there,
+  // so it also announces it; a Shift+Enter it didn't take still counts.
   const onKeyDown = event => shiftEnter(event) && used();
+  const onInstant = () => used();
   input.addEventListener("keydown", onKeyDown, true);
-  return () => input.removeEventListener("keydown", onKeyDown, true);
+  win.addEventListener("WhimsyInstantResultUsed", onInstant);
+  return () => {
+    input.removeEventListener("keydown", onKeyDown, true);
+    win.removeEventListener("WhimsyInstantResultUsed", onInstant);
+  };
 }
 
 function urlbarAnchor(win) {

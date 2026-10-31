@@ -138,7 +138,10 @@ add_task(async function test_tab_switch_dismisses() {
   WhimsyTeach._resetSession();
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   const panel = await shown(await WhimsyTeach.trigger(window, HINT_A));
-  await BrowserTestUtils.switchTab(gBrowser, gBrowser.tabs.find(t => t != tab && !t.pinned) ?? gBrowser.tabs[0]);
+  // A real tab to switch to: not Zen's hidden empty tab, which would leave
+  // later hints nothing visible to point at.
+  await BrowserTestUtils.switchTab(gBrowser,
+    gBrowser.tabs.find(t => t != tab && !t.pinned && !t.hasAttribute("zen-empty-tab")) ?? gBrowser.tabs[0]);
   await hidden(panel);
   BrowserTestUtils.removeTab(tab);
 });

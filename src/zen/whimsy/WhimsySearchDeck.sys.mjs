@@ -226,6 +226,9 @@ export const WhimsySearchDeck = {
     }
     event.preventDefault();
     event.stopImmediatePropagation();
+    // The key never reaches anyone else; say it was used (Teach once
+    // retires its Instant result hint on this).
+    win.dispatchEvent(new win.CustomEvent("WhimsyInstantResultUsed"));
     this.instant(win, target).catch(e => console.error("Whimsy: instant result", e));
   },
 
