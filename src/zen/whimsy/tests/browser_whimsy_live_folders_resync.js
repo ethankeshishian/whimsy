@@ -124,24 +124,28 @@ add_task(async function test_command_registered() {
 });
 
 add_task(async function test_switch_off() {
-  await SpecialPowers.pushPrefEnv({
-    set: [["whimsy.feature.live-folders-resync", false]],
-  });
-  ok(!WhimsyLiveFolders.resyncEnabled, "Feature switch turns Resync off");
-
-  const popup = document.createXULElement("menupopup");
-  const refresh = document.createXULElement("menuitem");
-  refresh.setAttribute("option-key", "refresh");
-  popup.appendChild(refresh);
-  const container = document.createXULElement("menu");
-  container.id = "context_zenLiveFolderOptions";
-  container.appendChild(popup);
-  document.body.appendChild(container);
-
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const action = globalActions.find(a => a.whimsyCommand == "cmd_whimsyResyncLiveFolder");
+  ok(action, "Resync Live Folder is in the command bar");
+  const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+    "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+  );
+  // A live folder exists, so only the switch decides.
+  const added = !ZenLiveFoldersManager.liveFolders.has("whimsy-resync-test");
+  if (added) {
+    ZenLiveFoldersManager.liveFolders.set("whimsy-resync-test", {});
+  }
   try {
-    ok(!popup.querySelector('menuitem[option-key="whimsyResync"]'), "Resync menu item not present when off");
-  } finally {
-    container.remove();
+    ok(action.isAvailable(window), "Offered while a live folder exists");
+    await SpecialPowers.pushPrefEnv({
+      set: [["whimsy.feature.live-folders-resync", false]],
+    });
+    ok(!WhimsyLiveFolders.resyncEnabled, "Feature switch turns Resync off");
+    ok(!action.isAvailable(window), "Not offered in the command bar when off");
     await SpecialPowers.popPrefEnv();
+  } finally {
+    if (added) {
+      ZenLiveFoldersManager.liveFolders.delete("whimsy-resync-test");
+    }
   }
 });
