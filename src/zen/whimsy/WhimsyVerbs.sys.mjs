@@ -291,16 +291,37 @@ function isWebPage(win) {
   return !!tab?.linkedPanel && !tab.hasAttribute("zen-empty-tab") && /^(https?|file):|^about:reader/.test(spec);
 }
 
-// The workspace slug of the person's Linear (from any open linear.app tab,
-// which the Linear live folder's issues are), for its search page.
-function linearWorkspace(win) {
+// The workspace slug of the person's Linear, for its search page: from any
+// tab on a workspace page (the Linear live folder's issues are such tabs),
+// else the last one seen. wave7/small: Linear doesn't document a search
+// URL; its app routes everything under linear.app/<workspace>/, and its
+// search page is linear.app/<workspace>/search?q=<terms> (what the app
+// itself shows after a search). Without a workspace, linear.app/search
+// would be read as a workspace named "search", so there's no fallback URL.
+const LINEAR_WORKSPACE_PREF = "whimsy.verbs.linear-workspace";
+const LINEAR_PAGE =
+  /^https:\/\/linear\.app\/([\w-]+)\/(?:issue|issues|project|projects|team|view|views|my-issues|inbox|search|initiative|initiatives|document|cycle|settings)(?:[/?#]|$)/;
+
+// linear.app's own site pages, never a workspace (linear.app/docs/search
+// is the docs' Search page).
+const LINEAR_SITE_ROOTS = new Set([
+  "docs", "changelog", "pricing", "features", "about", "blog", "careers", "customers",
+  "method", "contact", "login", "signup", "join", "integrations", "developers", "now", "homepage",
+]);
+
+export function linearWorkspace(win) {
   for (const tab of win.gBrowser.tabs) {
-    const m = tab.linkedBrowser?.currentURI?.spec.match(/^https:\/\/linear\.app\/([\w-]+)\/(?:issue|project|team|view)\//);
-    if (m) {
+    const m = tab.linkedBrowser?.currentURI?.spec.match(LINEAR_PAGE);
+    if (m && !LINEAR_SITE_ROOTS.has(m[1].toLowerCase())) {
+      Services.prefs.setStringPref(LINEAR_WORKSPACE_PREF, m[1]);
       return m[1];
     }
   }
-  return null;
+  return Services.prefs.getStringPref(LINEAR_WORKSPACE_PREF, "") || null;
+}
+
+export function linearSearchUrl(workspace, terms) {
+  return workspace ? `https://linear.app/${enc(workspace)}/search?q=${enc(terms)}` : null;
 }
 
 const BUILT_IN = [
@@ -415,9 +436,17 @@ const BUILT_IN = [
     scope: "selection",
     isAvailable: () => WhimsyVerbs.linearConfigured(),
     run(win, s) {
-      const workspace = linearWorkspace(win);
-      const base = workspace ? `https://linear.app/${workspace}/search` : "https://linear.app/search";
-      WhimsyVerbs.openTab(win, `${base}?q=${enc(firstLine(s.text, 200))}`);
+      const terms = firstLine(s.text, 200);
+      const url = linearSearchUrl(linearWorkspace(win), terms);
+      if (url) {
+        WhimsyVerbs.openTab(win, url);
+        return;
+      }
+      // No workspace known yet: Linear opens the person's own workspace;
+      // the terms are on the clipboard for its search (/).
+      WhimsyVerbs.copy(terms);
+      WhimsyVerbs.openTab(win, "https://linear.app/");
+      win.gZenUIManager?.showToast?.("whimsy-verb-linear-copied-toast");
     },
   },
 ];

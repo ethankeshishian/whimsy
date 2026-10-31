@@ -502,3 +502,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: changelog dev build IDs only on the Dev channel.
 ["browser_whimsy_changelog_channel.js"]
+
+# wave7/small: Search Linear's URL (linear.app/<workspace>/search?q=).
+["browser_whimsy_linear_search_url.js"]

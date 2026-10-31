@@ -461,3 +461,8 @@
 
 - name: ui.textSelectAttentionForeground
   value: "#1d1a26"
+
+# wave7/small: the Linear workspace Search Linear last saw in a tab
+# (linear.app/<workspace>/...), for its search page. Set by Whimsy.
+- name: whimsy.verbs.linear-workspace
+  value: ""

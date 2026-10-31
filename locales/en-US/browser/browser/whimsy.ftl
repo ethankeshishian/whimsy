@@ -2326,3 +2326,7 @@ whimsy-teach-instant = <kbd>{ $key }</kbd> on a search skips the results page an
 ## on Release an untitled dev build is headed by this.
 
 whimsy-changelog-dev-build = Update
+
+## wave7/small: Search Linear before Whimsy knows the Linear workspace.
+
+whimsy-verb-linear-copied-toast = Copied your search. Press / in Linear to paste it.

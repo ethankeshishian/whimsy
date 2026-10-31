@@ -213,8 +213,12 @@ add_task(async function test_verb_actions() {
         Assert.deepEqual(ids.slice(-2), ["linear-new", "linear-search"], "Linear verbs come last");
         await WhimsyVerbs.runVerb(window, "linear-new", subject);
         ok(calls.at(-1).url.startsWith("https://linear.new?title=Team%20sync"), "New Linear Issue prefilled");
+        // wave7/small: no workspace known: Linear's home, terms copied.
+        await SpecialPowers.pushPrefEnv({ clear: [["whimsy.verbs.linear-workspace"]] });
         await WhimsyVerbs.runVerb(window, "linear-search", subject);
-        ok(calls.at(-1).url.includes("linear.app/") && calls.at(-1).url.includes("q=Team"), "Search Linear");
+        is(calls.at(-1).url, "https://linear.app/", "Search Linear without a workspace opens Linear");
+        ok(calls.at(-2).text.startsWith("Team"), "...with the terms on the clipboard");
+        await SpecialPowers.popPrefEnv();
       } finally {
         WhimsyVerbs.linearConfigured = originalLinear;
       }
