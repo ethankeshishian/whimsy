@@ -172,15 +172,18 @@ export const WhimsySpaceSwitchQueue = {
       // Count from where the queue lands, as Zen counts from the active space.
       const workspaces = this.getWorkspaces();
       const fromId = self.projectedTarget(win);
-      const from = Math.max(
-        0,
-        workspaces.findIndex(space => space.uuid == fromId)
-      );
-      let index = from + offset;
-      if (this.shouldWrapAroundNavigation && !disableWrap) {
-        index = (((index % workspaces.length) + workspaces.length) % workspaces.length);
-      } else {
-        index = Math.max(0, Math.min(workspaces.length - 1, index));
+      let from = workspaces.findIndex(space => space.uuid == fromId);
+      if (from < 0) {
+        from = Math.max(0, workspaces.findIndex(space => space.uuid == this.activeWorkspace));
+      }
+      // W10-03: within a burst (a slide is playing) the edge is a wall.
+      // Zen wraps one deliberate press past the first or last space (its
+      // wrap-around setting), but counting a burst from where the queue lands
+      // carried fast presses (or a held key) past the first space straight
+      // round to the rightmost one. Arc stops at the edge.
+      const index = Math.max(0, Math.min(workspaces.length - 1, from + offset));
+      if (index == from) {
+        return Promise.resolve(workspaces[from]);
       }
       // A swipe or wheel step is a step; a key press is a destination.
       return this.changeWorkspace(workspaces[index], { whileScrolling: false, whimsyStep: !!whileScrolling });
@@ -296,7 +299,10 @@ export const WhimsySpaceSwitchQueue = {
         const isRTL = win.document.documentElement.matches(":-moz-locale-dir(rtl)");
         const moveForward = (event.direction == event.DIRECTION_RIGHT) !== isRTL;
         const offset = (moveForward ? 1 : -1) * (spaces.naturalScroll ? -1 : 1);
-        spaces.changeWorkspaceShortcut(offset, true)?.catch?.(console.error);
+        // A swipe begun mid-slide never wraps either (W10-03): at an edge
+        // Zen gives the swipe to the Library or a new space, never the
+        // space at the other end.
+        spaces.changeWorkspaceShortcut(offset, true, true)?.catch?.(console.error);
         break;
       }
       case "MozSwipeGestureEnd":
