@@ -26,9 +26,10 @@ export const PICK_HEIGHT = 1200;
 export const MIN_CROP = 24;
 
 // No popups, pointer lock, autoplay-style automatic features, modals,
-// orientation lock, presentation or downloads. Scripts, forms and storage stay
-// so signed-in pages still work in their container.
-export const BLOCK_SANDBOX_FLAGS = 0x2 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x10000;
+// orientation lock, presentation, downloads or external-app links (zoommtg:,
+// slack:, ... without a click: wave7/security L7). Scripts, forms and storage
+// stay so signed-in pages still work in their container.
+export const BLOCK_SANDBOX_FLAGS = 0x2 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x10000 | 0x40000;
 
 export function blocksEnabled() {
   return Services.prefs.getBoolPref(FEATURE_PREF, false);

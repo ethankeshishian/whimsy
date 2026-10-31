@@ -170,3 +170,47 @@ add_task(async function test_cmd_v_on_custom_upload_widgets() {
     await IOUtils.remove(path, { ignoreAbsent: true });
   }
 });
+
+// wave7/security L1: the parent hands out the clipboard's file only right
+// after a Cmd+V it saw itself, and an aria-label alone doesn't make a drop
+// zone.
+add_task(async function test_paste_needs_a_real_cmd_v() {
+  const { WhimsyUploadParent } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs"
+  );
+  const path = PathUtils.join(PathUtils.tempDir, "whimsy-gesture-paste.txt");
+  await IOUtils.writeUTF8(path, "pasted");
+  const original = WhimsyUploadParent.clipboardUpload;
+  WhimsyUploadParent.clipboardUpload = async () => ({ path, isFile: true });
+  try {
+    await BrowserTestUtils.withNewTab(TEST_PAGE, async browser => {
+      const parent = browser.browsingContext.currentWindowGlobal.getActor("WhimsyUpload");
+      // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+      await new Promise(r => setTimeout(r, 2100));
+      is(await parent.receiveMessage({ name: "WhimsyUpload:Paste" }), null,
+        "Without a Cmd+V just now, a page's request gets nothing");
+
+      await SpecialPowers.spawn(browser, [], () => content.document.getElementById("file-input").focus());
+      EventUtils.synthesizeKey("v", { accelKey: true });
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(browser, [], () => content.document.getElementById("file-input").files[0]?.name),
+        "A real Cmd+V still uploads"
+      );
+
+      const labelled = await SpecialPowers.spawn(browser, [], () => {
+        const { uploadTargetFor } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUploadChild.sys.mjs");
+        const doc = content.document;
+        const wrap = doc.createElement("div");
+        wrap.setAttribute("aria-label", "Upload anything");
+        const inner = doc.createElement("span");
+        wrap.append(inner);
+        doc.body.append(wrap);
+        return !!uploadTargetFor(inner);
+      });
+      ok(!labelled, "An aria-label alone doesn't make a drop zone");
+    });
+  } finally {
+    WhimsyUploadParent.clipboardUpload = original;
+    await IOUtils.remove(path, { ignoreAbsent: true });
+  }
+});

@@ -301,6 +301,12 @@ export const WhimsyAIPage = {
     if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
       return null;
     }
+    // wave7/security M5: resting on a link (nobody asked) reads public
+    // pages only, without the person's cookies; Shift reads with the tab's
+    // session. A non-public page gets no automatic card at all.
+    if (how != "shift" && !lazy.WhimsyAIReader.isPublicUrl(url)) {
+      return null;
+    }
     // Resting on a link only works once a provider is set up; a deliberate
     // Shift-hover says what's missing.
     if (await lazy.WhimsyAIProviders.isReady()) {
@@ -317,17 +323,21 @@ export const WhimsyAIPage = {
    *
    * @param {ChromeWindow} win
    * @param {Element} container The AI card's body.
-   * @param {{ url: string, browser: MozBrowser, mode: string, signal: AbortSignal }} o
+   * @param {{ url: string, browser: MozBrowser, mode: string, how: string, signal: AbortSignal }} o
    */
-  async fillPreview(win, container, { url, browser, mode, signal }) {
+  async fillPreview(win, container, { url, browser, mode, how, signal }) {
     if (mode != "ready") {
       this.renderPreview(win, container, { url, error: mode });
       return;
     }
     this.renderPreview(win, container, { url, loading: true });
+    // wave7/security M5: cookieless (anonymous) unless this card was asked
+    // for with Shift, matching previewMode's own gate above.
+    const anonymous = how != "shift";
     try {
       const summary = await this.summarize(url, {
         userContextId: browser.getAttribute("usercontextid") | 0,
+        anonymous,
         signal,
       });
       if (!signal.aborted) {
@@ -340,8 +350,8 @@ export const WhimsyAIPage = {
     }
   },
 
-  async summarize(url, { userContextId = 0, signal } = {}) {
-    const cacheKey = JSON.stringify([userContextId, url]);
+  async summarize(url, { userContextId = 0, anonymous = false, signal } = {}) {
+    const cacheKey = JSON.stringify([anonymous ? "anonymous" : userContextId, url]);
     const cached = previewCache.get(cacheKey);
     if (cached && Date.now() - cached.at < PREVIEW_CACHE_MS) {
       return cached.data;
@@ -350,6 +360,7 @@ export const WhimsyAIPage = {
     try {
       page = await lazy.WhimsyAIReader.readUrl(url, {
         userContextId,
+        anonymous,
         signal,
         removeBoilerplate: true,
         sufficientLength: 15000,

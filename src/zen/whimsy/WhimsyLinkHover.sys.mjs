@@ -346,6 +346,7 @@ class LinkHover {
       url: target.url,
       browser: target.browser,
       mode,
+      how: target.how,
       signal: target.controller.signal,
     }).catch(error => console.error("Whimsy: link preview", error));
     card.addEventListener("click", event => this.#follow(event, target.url));

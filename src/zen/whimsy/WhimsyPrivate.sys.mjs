@@ -455,6 +455,28 @@ export const WhimsyPrivate = {
     return tab;
   },
 
+  // Opens `url` in a new foreground tab on behalf of the page the person
+  // is on (verbs, page actions). From a private tab it opens private, so a
+  // selection or a tracking number never reaches normal history and
+  // cookies. `params` are openTrustedLinkIn's (userContextId,
+  // triggeringPrincipal).
+  openTabFor(win, url, params = {}) {
+    const { gBrowser } = win;
+    if (!this.isPrivateTab(gBrowser.selectedTab)) {
+      win.openTrustedLinkIn(url, "tab", params);
+      return;
+    }
+    const tab = gBrowser.addTab(url, {
+      ...params,
+      triggeringPrincipal: params.triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(),
+      whimsyPrivate: true,
+      relatedToCurrent: true,
+    });
+    if (tab) {
+      gBrowser.selectedTab = tab;
+    }
+  },
+
   openPrivateWindow(win) {
     win.OpenBrowserWindow({ private: true });
   },

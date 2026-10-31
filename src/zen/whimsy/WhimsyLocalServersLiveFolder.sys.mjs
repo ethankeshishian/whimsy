@@ -102,7 +102,7 @@ export function parseIconHref(html, baseUrl) {
   return new URL("/favicon.ico", baseUrl).href;
 }
 
-async function timedFetch(url, timeoutMs) {
+async function timedFetch(url, timeoutMs, { redirect = "follow" } = {}) {
   const controller = new AbortController();
   const timer = lazy.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -110,7 +110,7 @@ async function timedFetch(url, timeoutMs) {
       signal: controller.signal,
       credentials: "omit",
       cache: "no-store",
-      redirect: "follow",
+      redirect,
     });
   } catch {
     return null;
@@ -375,8 +375,10 @@ export class WhimsyLocalServersLiveFolderProvider extends nsZenLiveFolderProvide
       const href = parseIconHref(html, pageUrl);
       if (href.startsWith("data:image/")) {
         icon = href;
-      } else if (/^https?:/.test(href)) {
-        const response = await timedFetch(href, PROBE_TIMEOUT_MS);
+      } else if (/^https?:/.test(href) && new URL(href).origin == origin) {
+        // Only the server's own icon: a page can't make the browser call
+        // other hosts (the LAN) from here (wave7/security L9).
+        const response = await timedFetch(href, PROBE_TIMEOUT_MS, { redirect: "error" });
         const type = (response?.headers.get("content-type") || "").split(";")[0].trim();
         if (response?.ok && type.startsWith("image/")) {
           const bytes = await readCapped(response, MAX_ICON_BYTES + 1);

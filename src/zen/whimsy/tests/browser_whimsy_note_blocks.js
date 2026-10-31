@@ -95,6 +95,8 @@ add_task(async function test_live_block_loads_sandboxed_in_container() {
   is(browser.getAttribute("usercontextid"), "2", "Same container as the tab's space");
   is(browser.browsingContext.originAttributes.userContextId, 2, "Loaded in that container");
   is(browser.browsingContext.sandboxFlags & BLOCK_SANDBOX_FLAGS, BLOCK_SANDBOX_FLAGS, "The block is sandboxed");
+  // wave7/security L7: SANDBOXED_TOPLEVEL_NAVIGATION_CUSTOM_PROTOCOLS.
+  ok(browser.browsingContext.sandboxFlags & 0x40000, "and can't launch external apps by itself");
   ok(browser.isRemoteBrowser, "The page runs out of process");
   is(el.querySelector(".whimsy-note-block-title").textContent, "Example", "Shows the page title");
 

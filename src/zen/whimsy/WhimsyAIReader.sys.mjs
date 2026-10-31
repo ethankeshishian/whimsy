@@ -10,11 +10,16 @@
 //     PageExtractor's own headless reader, it runs in the space's container
 //     with the person's cookies (the user asked for "the logged-in
 //     session"), and keeps the visit out of history and the media session.
+//     Previews nobody asked for (resting on a search result) are read
+//     `anonymous`: in Firefox's internal thumbnail container, without the
+//     person's cookies, and never on local or private-network hosts
+//     (security M5).
 
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  ContextualIdentityService: "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   HiddenFrame: "resource://gre/modules/HiddenFrame.sys.mjs",
 });
 
@@ -34,6 +39,50 @@ export const WhimsyAIReader = {
 
   isReadableUrl(url) {
     return /^https?:\/\//i.test(String(url ?? ""));
+  },
+
+  // An http(s) page on the public internet: not this machine, the local
+  // network (RFC 1918, link-local, CGNAT, IPv6 ULA) or a .local/one-word
+  // intranet name. A page can't get these read just by being hovered.
+  isPublicUrl(url) {
+    if (!this.isReadableUrl(url)) {
+      return false;
+    }
+    let host;
+    try {
+      host = new URL(url).hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+    } catch {
+      return false;
+    }
+    if (!host || host == "localhost" || /\.(localhost|local|internal|home\.arpa)$/.test(host)) {
+      return false;
+    }
+    const v4 = host.replace(/^::ffff:/, "").match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (v4) {
+      const [a, b] = [Number(v4[1]), Number(v4[2])];
+      return !(
+        a == 0 || a == 10 || a == 127 || a >= 224 ||
+        (a == 100 && b >= 64 && b < 128) ||
+        (a == 169 && b == 254) ||
+        (a == 172 && b >= 16 && b < 32) ||
+        (a == 192 && b == 168)
+      );
+    }
+    if (host.includes(":")) {
+      return !(host == "::" || host == "::1" || /^f[cd]/.test(host) || /^fe[89ab]/.test(host) || host.startsWith("::ffff:"));
+    }
+    // One-word names resolve on the local network.
+    return host.includes(".");
+  },
+
+  // Firefox's own internal container for background loads (page
+  // thumbnails): none of the person's cookies, cleared after each read.
+  anonymousContextId() {
+    const id = lazy.ContextualIdentityService.getPrivateIdentity("userContextIdInternal.thumbnail")?.userContextId;
+    if (!id) {
+      throw new Error("No container for anonymous reads");
+    }
+    return id;
   },
 
   /**
@@ -56,20 +105,35 @@ export const WhimsyAIReader = {
    * @param {string} url
    * @param {object} [options]
    * @param {number} [options.userContextId] The container (space) to load it in.
+   * @param {boolean} [options.anonymous] Without the person's cookies, and
+   *   public hosts only (previews nobody asked for).
    * @param {AbortSignal} [options.signal]
    * @param {number} [options.sufficientLength]
    * @param {boolean} [options.removeBoilerplate] Reader-mode text (previews);
    *   off keeps everything on the page (watches look for prices, stock...).
    * @returns {Promise<{ text: string, title: string, url: string }>}
    */
-  async readUrl(url, { userContextId = 0, signal, sufficientLength = 30000, removeBoilerplate = false } = {}) {
-    if (!this.isReadableUrl(url)) {
+  async readUrl(url, { userContextId = 0, anonymous = false, signal, sufficientLength = 30000, removeBoilerplate = false } = {}) {
+    if (!(anonymous ? this.isPublicUrl(url) : this.isReadableUrl(url))) {
       throw new Error("Only http(s) pages can be read");
     }
+    if (anonymous) {
+      userContextId = this.anonymousContextId();
+    }
     if (this._testReader) {
-      const text = await this._testReader(url, { userContextId, removeBoilerplate });
+      const text = await this._testReader(url, { userContextId, anonymous, removeBoilerplate });
       return { text: String(text ?? ""), title: "", url };
     }
+    try {
+      return await this._readHidden(url, { userContextId, signal, sufficientLength, removeBoilerplate });
+    } finally {
+      if (anonymous) {
+        Services.clearData.deleteDataFromOriginAttributesPattern({ userContextId });
+      }
+    }
+  },
+
+  _readHidden(url, { userContextId, signal, sufficientLength, removeBoilerplate }) {
     return this.withHiddenPage(url, { userContextId, signal }, async browser => {
       const actor = browser.browsingContext.currentWindowGlobal.getActor("PageExtractor");
       // Lets client-rendered pages (most logged-in apps) fill in.
@@ -125,8 +189,10 @@ export const WhimsyAIReader = {
       doc.documentElement.appendChild(browser);
       // Match PageExtractor's capability restrictions, while retaining the
       // container's authenticated session and scripts needed for rendering.
+      // wave7/security L7: and no zoommtg:/slack:/vscode: launches from a
+      // page nobody sees (SANDBOXED_TOPLEVEL_NAVIGATION_CUSTOM_PROTOCOLS).
       browser.browsingContext.sandboxFlags |=
-        0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000;
+        0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000 | 0x40000;
       browser.browsingContext?.mediaController?.mute();
       browser.addEventListener("DidChangeBrowserRemoteness", () =>
         browser.browsingContext?.mediaController?.mute()

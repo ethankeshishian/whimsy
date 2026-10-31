@@ -145,6 +145,7 @@ async function writePrivate(name, contents, permissions = 0o600) {
 const ACTIVE_MS = 15000;
 const LOAD_TIMEOUT_MS = 20000;
 const MAX_SHOT_WIDTH = 1280;
+const MAX_TAB_TITLE = 200;
 
 // The Claude space's look: Claude's sparkle and its terracotta.
 const SPACE_ICON = "chrome://browser/skin/zen-icons/sparkles.svg";
@@ -338,6 +339,10 @@ function sameSecret(a, b) {
   }
   return diff == 0;
 }
+
+// Calls (their args objects) that filled a one-time code or card field:
+// agent replay keeps the step but not the text (security L5).
+const secretCalls = new WeakSet();
 
 function text(value) {
   return { type: "text", text: typeof value == "string" ? value : JSON.stringify(value, null, 1) };
@@ -717,7 +722,7 @@ export const WhimsyClaude = {
     lazy.WhimsyClaudeReplay.record(
       {
         tool: name,
-        args,
+        args: secretCalls.has(args) ? { ...args, text: "•••", value: "•••" } : args,
         ok: !outcome.isError,
         error: outcome.isError ? outcome.content[0]?.text : "",
         url: usable ? "" : before?.url ?? "",
@@ -854,6 +859,35 @@ export const WhimsyClaude = {
       active: tab.selected && tab.documentGlobal == this.topWindow(),
       claudeSpace: this.inClaudeSpace(tab),
     };
+  },
+
+  // Tab titles and URLs come from pages too (security M3): cleaned of
+  // invisible text, the title clipped and marked as untrusted, and a title
+  // or URL that tries to instruct Claude pauses it like page text does.
+  async guardTabs(tabs, generation) {
+    const described = tabs.map(tab => this.describeTab(tab));
+    if (!this.shieldOn) {
+      return described;
+    }
+    const shield = lazy.WhimsyClaudeShield;
+    const nonce = shield.nonce();
+    for (let i = 0; i < tabs.length; i++) {
+      const item = described[i];
+      const title = shield.clean(item.title);
+      const url = shield.clean(item.url);
+      const clipped = title.text.length > MAX_TAB_TITLE ? `${title.text.slice(0, MAX_TAB_TITLE - 1)}…` : title.text;
+      const smuggled = [title.smuggled, url.smuggled].filter(Boolean).join("\n");
+      const reasons = shield.scan(`${title.text}\n${url.text}`, smuggled);
+      if (smuggled && !reasons.includes("hidden")) {
+        reasons.push("hidden");
+      }
+      if (reasons.length) {
+        await this.shieldPause(tabs[i], reasons, generation);
+      }
+      item.title = shield.mark(clipped, nonce);
+      item.url = url.text;
+    }
+    return described;
   },
 
   // --- The Claude space ---
@@ -1288,8 +1322,8 @@ export const WhimsyClaude = {
   // --- Tool handlers ---
 
   handlers: {
-    async tabs_list() {
-      const tabs = [...this.allTabs()].filter(tab => this.inScope(tab)).map(tab => this.describeTab(tab));
+    async tabs_list(args, generation) {
+      const tabs = await this.guardTabs([...this.allTabs()].filter(tab => this.inScope(tab)), generation);
       if (!tabs.length) {
         return "No tabs yet. Use tabs_create to open one in the Claude space.";
       }
@@ -1305,7 +1339,7 @@ export const WhimsyClaude = {
       if (uri) {
         await this.waitForLoad(tab.linkedBrowser);
       }
-      return this.describeTab(tab);
+      return (await this.guardTabs([tab], generation))[0];
     },
 
     async tabs_close(args, generation) {
@@ -1335,7 +1369,7 @@ export const WhimsyClaude = {
         }
         await loaded;
         this.assertLive(generation);
-        return this.describeTab(tab);
+        return (await this.guardTabs([tab], generation))[0];
       });
     },
 
@@ -1394,7 +1428,10 @@ export const WhimsyClaude = {
 
     async type(args, generation) {
       return this.withTab(args, "type", generation, async tab => {
-        const { typed, into } = await this.page(tab, "Claude:Type", { text: args.text, ref: args.ref });
+        const { typed, into, secret } = await this.page(tab, "Claude:Type", { text: args.text, ref: args.ref });
+        if (secret) {
+          secretCalls.add(args);
+        }
         return `Typed ${typed} characters into ${into}.`;
       });
     },
@@ -1408,7 +1445,10 @@ export const WhimsyClaude = {
 
     async form_input(args, generation) {
       return this.withTab(args, "form_input", generation, async tab => {
-        const result = await this.page(tab, "Claude:FormInput", { ref: args.ref, value: args.value });
+        const { secret, ...result } = await this.page(tab, "Claude:FormInput", { ref: args.ref, value: args.value });
+        if (secret) {
+          secretCalls.add(args);
+        }
         return result;
       });
     },

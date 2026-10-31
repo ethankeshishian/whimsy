@@ -40,6 +40,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   gWhimsyNotesStore: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
@@ -236,7 +237,15 @@ const icsDate = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate(
 // Floating local time: Calendar shows it at the time that was written.
 const icsLocal = d => `${icsDate(d)}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
 const icsUTC = d => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-const icsText = s => String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+// Any line break (a lone CR too) becomes "\n", and other control
+// characters go, so page text can't start a property of its own.
+const icsText = s =>
+  String(s ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n")
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
 
 /** An iCalendar file for one event (RFC 5545), with CRLF line ends. */
 export function buildICS({ start, end, allDay, title, description = "", url = "" }, now = new Date()) {
@@ -272,10 +281,16 @@ const firstLine = (text, max = 80) => {
 const escapeMarkdown = text => text.replace(/([\\[\]])/g, "\\$1");
 const pageLink = s => `[${escapeMarkdown(s.title)}](${s.url})`;
 
-// The default search engine's name (the private one in private windows).
+// A private window, or a private tab in a normal one.
+function isPrivate(win) {
+  return lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
+    lazy.WhimsyPrivate.isPrivateTab(win?.gBrowser?.selectedTab);
+}
+
+// The default search engine's name (the private one in private browsing).
 function defaultEngineName(win) {
   try {
-    const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+    const engine = isPrivate(win)
       ? lazy.SearchService.defaultPrivateEngine
       : lazy.SearchService.defaultEngine;
     return engine?.name ?? "";
@@ -315,7 +330,7 @@ const BUILT_IN = [
     icon: `${ICONS}search-glass.svg`,
     scope: "selection",
     async run(win, s) {
-      const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+      const engine = isPrivate(win)
         ? await lazy.SearchService.getDefaultPrivate()
         : await lazy.SearchService.getDefault();
       WhimsyVerbs.openTab(win, engine.getSubmission(s.text).uri.spec);
@@ -528,7 +543,8 @@ export const WhimsyVerbs = {
 
   // ---- Side effects, one place each so tests can stub them.
   openTab(win, url) {
-    win.openTrustedLinkIn(url, "tab");
+    // From a private tab, the result opens private too.
+    lazy.WhimsyPrivate.openTabFor(win, url);
   },
   openExternal(spec) {
     Cc["@mozilla.org/uriloader/external-protocol-service;1"]

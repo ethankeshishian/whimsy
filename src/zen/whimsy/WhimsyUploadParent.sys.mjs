@@ -116,13 +116,41 @@ async function withFile(result) {
   }
 }
 
+// Security L1: when the person last pressed Cmd+V (Ctrl+V elsewhere) in
+// each window, as the parent saw it. The child's paste request is honoured
+// only right after one, so a page (or a compromised content process) can't
+// pull the clipboard's file whenever it likes.
+const pasteKeys = new WeakMap();
+const PASTE_GESTURE_MS = 2000;
+
 export class WhimsyUploadParent extends JSWindowActorParent {
   // Overridable for tests.
   static clipboardUpload = clipboardUpload;
 
+  static initWindow(win) {
+    win.addEventListener("keydown", event => {
+      if (
+        event.isTrusted &&
+        event.key?.toLowerCase() == "v" &&
+        (AppConstants.platform == "macosx" ? event.metaKey : event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey
+      ) {
+        pasteKeys.set(win, Date.now());
+      }
+    }, { capture: true, mozSystemGroup: true });
+  }
+
+  static pastedJustNow(win) {
+    return !!win && Date.now() - (pasteKeys.get(win) ?? -Infinity) < PASTE_GESTURE_MS;
+  }
+
   async receiveMessage(message) {
     // Cmd+V on a focused upload button: the clipboard's file or image, no popup.
     if (message.name == "WhimsyUpload:Paste") {
+      if (!WhimsyUploadParent.pastedJustNow(this.browsingContext.topChromeWindow)) {
+        return null;
+      }
       const clip = await WhimsyUploadParent.clipboardUpload();
       return clip ? withFile({ path: clip.path }) : null;
     }

@@ -237,3 +237,32 @@ add_task(async function test_replay_page() {
   });
   BrowserTestUtils.removeTab(tab);
 });
+
+// wave7/security L5: replay keeps no magic-link tokens (query strings) and
+// no one-time codes Claude typed or filled.
+add_task(async function test_no_tokens_or_codes_on_disk() {
+  await turnOn();
+  const url = PAGE + "?token=SECRET-TOKEN-123#frag";
+  const { tabId } = JSON.parse(textOf(await okCall("tabs_create", { url })));
+  const tab = WhimsyClaude.tabById(tabId);
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+    content.document.getElementById("q").setAttribute("autocomplete", "one-time-code");
+  });
+  const tree = textOf(await okCall("read_page", { tabId }));
+  const ref = tree
+    .split("\n")
+    .find(l => l.includes("Type a sandwich"))
+    ?.match(/\[(ref_\d+)\]/)?.[1];
+  ok(ref, "The code field has a ref");
+  await okCall("type", { tabId, ref, text: "482913" });
+  await okCall("form_input", { tabId, ref, value: "771204" });
+  await okCall("navigate", { tabId, url: PAGE + "?magic=SECRET-MAGIC-456" });
+  await WhimsyClaudeReplay.flush();
+  const saved = await IOUtils.readUTF8(FILE);
+  ok(!saved.includes("SECRET-TOKEN-123") && !saved.includes("SECRET-MAGIC-456"), "No query strings on disk");
+  ok(!saved.includes("482913") && !saved.includes("771204"), "No one-time codes on disk");
+  const [run] = await WhimsyClaudeReplay.runs();
+  ok(run.steps.some(s => s.tool == "type") && run.steps.some(s => s.tool == "form_input"), "The steps themselves are kept");
+  ok(run.steps.some(s => s.url == PAGE), "with the page's address");
+  BrowserTestUtils.removeTab(tab);
+});

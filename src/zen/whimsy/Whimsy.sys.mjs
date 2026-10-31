@@ -230,6 +230,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTeach: "resource:///modules/whimsy/WhimsyTeach.sys.mjs",
 });
 
+// wave7/security: upload from the clipboard checks Cmd+V in the parent.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyUploadParent: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -728,6 +733,9 @@ export const Whimsy = {
     // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
     // its switch on each use.
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
+    // wave7/security: the clipboard's file goes to a page only right after
+    // Cmd+V (Ctrl+V) that the parent itself saw.
+    run("upload-clipboard", () => lazy.WhimsyUploadParent.initWindow(win));
     // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
     run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
     // wave7/menus: the space menu's order. Its listener runs after every

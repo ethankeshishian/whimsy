@@ -114,6 +114,12 @@ function isPassword(el) {
   return el?.localName == "input" && (el.type == "password" || /password/i.test(el.autocomplete || ""));
 }
 
+// A one-time code or card field: Claude may fill it, but agent replay
+// doesn't keep what went in (security L5).
+function isSecret(el) {
+  return el?.localName == "input" && /\b(one-time-code|cc-number|cc-csc)\b/i.test(el.autocomplete || "");
+}
+
 export class WhimsyClaudeChild extends JSWindowActorChild {
   #refs = new Map();
   #refOf = new WeakMap();
@@ -760,7 +766,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     } else {
       this.doc.execCommand("insertText", false, text);
     }
-    return { typed: text.length, into: this.describe(el) };
+    return { typed: text.length, into: this.describe(el), secret: isSecret(el) };
   }
 
   // One or more key presses, space-separated: "Enter", "Tab", "cmd+a",
@@ -893,7 +899,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     if (el.localName == "input" || el.localName == "textarea") {
       el.focus();
       el.setUserInput(String(value ?? ""));
-      return { set: this.describe(el), value: el.value };
+      return { set: this.describe(el), value: el.value, ...(isSecret(el) ? { secret: true } : {}) };
     }
     if (el.isContentEditable) {
       el.focus();

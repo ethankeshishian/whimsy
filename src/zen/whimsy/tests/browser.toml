@@ -510,3 +510,5 @@ support-files = ["whimsy_page_actions.html"]
 ["browser_whimsy_teach.js"]
 # wave7/spaceanim: space switches play one at a time (Arc): keys coalesce, swipes step, mid-slide swipes deferred.
 ["browser_whimsy_space_switch_queue.js"]
+# wave7/security: private tabs' follow-ups stay private (verbs, page actions).
+["browser_whimsy_security_private.js"]
