@@ -345,18 +345,9 @@ whimsy-action-new-miro = New Miro Board
 whimsy-action-new-loom = New Loom Video
 whimsy-action-new-canva = New Canva Design
 whimsy-action-new-playlist = New Spotify Playlist
-# wave7/ux: "New Note" read like the Library's Notes pad, but it opens a
-# document in another app, so it's named for what it makes.
-whimsy-action-new-note = New Document
-whimsy-new-note-target = New Document app
-whimsy-new-note-target-none =
-    .label = Off
-whimsy-new-note-target-notion =
-    .label = Notion
-whimsy-new-note-target-google-docs =
-    .label = Google Docs
-whimsy-new-note-target-word =
-    .label = Word
+# wave9/designfix (L5): New Notion Page, New Google Doc and New Word
+# Document also match this when typed in the command bar.
+whimsy-action-new-document-keyword = New Document
 
 ## Reading time (address bar, next to the Reader View button)
 

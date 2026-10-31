@@ -118,7 +118,7 @@ left out.
 | Look and Feel | Library | `whimsy.feature.notes`, `.finder-folders`, `.screenshot-sidebar` | No |
 | Look and Feel | Look | `whimsy.look.menu-icons`, `whimsy.reader.reading-time`, `whimsy.pdf.dark`, `whimsy.look.ui-font`, `whimsy.look.liquid-glass`, `whimsy.menu-bar-extra.show`, `whimsy.seasons.enabled`, `whimsy.urlbar.always-full-url`, `whimsy.feature.home` | No |
 | Look and Feel | Next meeting | Whimsy calendar settings | No |
-| Tab Management | Tabs | `browser.tabs.insertAfterCurrent`, `zen.folders.owned-tabs-in-folder`, `whimsy.tabs.*`, `zen.view.enable-loading-indicator`, `whimsy.spaces.hide-switcher`, `whimsy.media.*`, `whimsy.playlist.offline-download`, `whimsy.archive.prompt`, `whimsy.new-note.target`, `whimsy.feature.*` tab features, `whimsy.feature.split-new-tab` | No |
+| Tab Management | Tabs | `browser.tabs.insertAfterCurrent`, `zen.folders.owned-tabs-in-folder`, `whimsy.tabs.*`, `zen.view.enable-loading-indicator`, `whimsy.spaces.hide-switcher`, `whimsy.media.*`, `whimsy.playlist.offline-download`, `whimsy.archive.prompt`, `whimsy.feature.*` tab features, `whimsy.feature.split-new-tab` | No |
 | Tab Management | Spaces | space manager, hidden spaces, `browser.tabs.closeWindowWithLastTab`, `whimsy.downloads.dock-badge`, `whimsy.feature.quick-look` | No |
 | Tab Management | Extensions per space | `whimsy.feature.space-extensions` | No |
 | Tab Management | Hover cards | `whimsy.feature.history-preview`, `whimsy.feature.people-cards` | No |

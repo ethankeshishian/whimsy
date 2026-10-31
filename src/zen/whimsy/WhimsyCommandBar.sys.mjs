@@ -65,12 +65,13 @@ export function dedupResults(results) {
 // #16: Arc's Cmd+T "New ..." actions open a fresh doc/meeting/issue before
 // you've finished thinking about it, using the ".new" shortcut domains
 // (docs.new etc., already registered by their owners) rather than
-// anything Whimsy has to keep up to date itself. "New Document" (l10n id
-// whimsy-action-new-note; it was "New Note" until wave7/ux, which clashed
-// with the Library's Notes) opens whichever app Settings has chosen;
-// hidden until one is.
+// anything Whimsy has to keep up to date itself.
+// wave9/designfix (L5): no separate "New Document" command (and its
+// Settings target): each of its targets already had its own command. The
+// three document commands also answer to "New Document", so typing
+// "new doc" still lists Notion, Google Docs and Word.
 const CREATE_FEATURE_PREF = "whimsy.feature.command-bar-create";
-const NOTE_TARGET_PREF = "whimsy.new-note.target";
+const DOCUMENT_THINGS = new Set(["doc", "notion", "word"]);
 
 const NEW_THINGS = [
   { id: "doc", url: "https://docs.new", l10nId: "whimsy-action-new-doc" },
@@ -93,15 +94,6 @@ const NEW_THINGS = [
   { id: "canva", url: "https://canva.new", l10nId: "whimsy-action-new-canva" },
   { id: "playlist", url: "https://playlist.new", l10nId: "whimsy-action-new-playlist" },
 ];
-
-// "New Note" targets: only sites with a stable, accountless ".new"-style
-// URL. Confluence needs a workspace domain Whimsy doesn't have, so it's
-// left out rather than shipping a link that 404s for everyone.
-const NOTE_TARGETS = {
-  notion: "https://notion.new",
-  "google-docs": "https://docs.new",
-  word: "https://word.new",
-};
 
 // Zen's three appearance actions only match their own label, so searching
 // "dark" found Switch to Dark Mode but hid Light and Automatic (and vice
@@ -134,8 +126,13 @@ function liquidGlassSupported() {
 export const WhimsyCommandBar = {
   NEW_THINGS,
   GLANCE_SIZES,
-  NOTE_TARGETS,
   APPEARANCE_ACTIONS,
+
+  get l10n() {
+    const l10n = new Localization(["browser/whimsy.ftl"], true);
+    Object.defineProperty(this, "l10n", { value: l10n });
+    return l10n;
+  },
 
   linkAppearanceActions() {
     const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
@@ -160,6 +157,7 @@ export const WhimsyCommandBar = {
     this.initSlashFilter(win);
     this.initDedup(win);
     this.linkAppearanceActions();
+    const documentKeywords = [this.l10n.formatValueSync("whimsy-action-new-document-keyword")];
     for (const thing of NEW_THINGS) {
       lazy.WhimsyCommands.register(win, {
         id: `whimsy-cmd-new-${thing.id}`,
@@ -167,22 +165,9 @@ export const WhimsyCommandBar = {
         run: w => this.openNewThing(w, thing.url),
         icon: "chrome://browser/skin/zen-icons/plus.svg",
         isAvailable: () => Services.prefs.getBoolPref(CREATE_FEATURE_PREF, true),
+        ...(DOCUMENT_THINGS.has(thing.id) ? { whimsyKeywords: documentKeywords } : {}),
       });
     }
-    lazy.WhimsyCommands.register(win, {
-      id: "whimsy-cmd-new-note",
-      l10nId: "whimsy-action-new-note",
-      run: w => {
-        const url = NOTE_TARGETS[Services.prefs.getStringPref(NOTE_TARGET_PREF, "none")];
-        if (url) {
-          this.openNewThing(w, url);
-        }
-      },
-      icon: "chrome://browser/skin/zen-icons/plus.svg",
-      isAvailable: () =>
-        Services.prefs.getBoolPref(CREATE_FEATURE_PREF, true) &&
-        Services.prefs.getStringPref(NOTE_TARGET_PREF, "none") != "none",
-    });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyLiquidGlassToggle",
       l10nId: "whimsy-action-liquid-glass",

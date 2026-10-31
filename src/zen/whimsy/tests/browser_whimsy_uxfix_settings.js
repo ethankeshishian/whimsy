@@ -30,11 +30,6 @@ add_task(async function on_demand_switches_are_grouped_and_kept() {
     ok(group.querySelector("#whimsyDimSleepingTabs")?.closest("details") == null,
       "Passive options stay outside the list");
 
-    const note = doc.getElementById("whimsyNewNoteTarget");
-    if (note) {
-      await TestUtils.waitForCondition(() => note.selectedItem, "New Note target has a selection");
-      is(note.value, Services.prefs.getStringPref("whimsy.new-note.target"), "It shows the saved choice");
-      ok(note.label, "...with a visible label (it used to render empty)");
-    }
+    ok(!doc.getElementById("whimsyNewNoteTarget"), "wave9/designfix (L5): no New Document app setting");
   });
 });
