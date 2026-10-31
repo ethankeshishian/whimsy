@@ -539,6 +539,8 @@ export const WhimsyPage = {
     if (
       !host ||
       host == "localhost" ||
+      // wave9/secfix (security-full-2 M3): one-label intranet names.
+      !host.includes(".") ||
       /\.(local|localhost|internal|lan|home\.arpa)$/.test(host) ||
       /^(\d+\.){3}\d+$/.test(host) ||
       host.includes(":")
@@ -624,38 +626,65 @@ export const WhimsyPage = {
     return browser?.currentURI ?? null;
   },
 
-  async offerArchive(win, browser, uri) {
+  // wave9/secfix (security-full-2 M3): nothing reaches archive.org until
+  // the person asks. A dead page shows the bar first; "Look for a Copy"
+  // then asks for the page's address without its query or fragment
+  // (tokens, one-time links). Never in private browsing (private windows,
+  // private tabs, Scratch).
+  offerArchive(win, browser, uri) {
     const url = this.archivableURL(uri);
     if (!url || !this.archiveEnabled || !Services.prefs.getBoolPref(ARCHIVE_PROMPT_PREF, true)) {
       return null;
     }
-    const snapshot = await this.findSnapshot(url);
-    // Still on that page?
-    if (!snapshot || browser.currentURI?.spec != url) {
+    if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) || lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
       return null;
     }
     const box = win.gBrowser.getNotificationBox(browser);
     if (box.getNotificationWithValue(ARCHIVE_BAR)) {
       return null;
     }
-    const date = snapshot.date
-      ? new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" }).format(snapshot.date)
-      : "";
     return box.appendNotification(
       ARCHIVE_BAR,
       {
-        label: { "l10n-id": date ? "whimsy-archive-bar-dated" : "whimsy-archive-bar", "l10n-args": { date } },
+        label: { "l10n-id": "whimsy-archive-bar-ask" },
         priority: box.PRIORITY_INFO_MEDIUM,
       },
       [
         {
-          "l10n-id": "whimsy-archive-open",
-          callback: () => {
-            this.loadArchived(browser, snapshot.url);
+          "l10n-id": "whimsy-archive-look",
+          callback: notification => {
+            this.lookUpArchived(win, browser, url, notification).catch(e => console.error("Whimsy: archive lookup", e));
+            return true; // Stays open while it looks.
           },
         },
       ]
     );
+  },
+
+  // The address sent to archive.org: scheme, host and path only.
+  archiveLookupURL(url) {
+    try {
+      const uri = Services.io.newURI(url);
+      return uri.prePath + uri.filePath;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async lookUpArchived(win, browser, url, notification) {
+    const lookup = this.archiveLookupURL(url);
+    const snapshot = lookup ? await this.findSnapshot(lookup) : null;
+    notification?.close?.();
+    // Still on that page?
+    if (browser.currentURI?.spec != url) {
+      return null;
+    }
+    if (!snapshot) {
+      win.gZenUIManager?.showToast?.("whimsy-archive-none-toast");
+      return null;
+    }
+    this.loadArchived(browser, snapshot.url);
+    return snapshot;
   },
 
   // The Wayback Machine's nearest copy of a page: { url, date }, or null.

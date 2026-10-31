@@ -298,12 +298,12 @@ whimsy-disallow-copy-toast = { $site } can block copy and paste again
 ## Internet Archive (notification bar and command bar)
 
 whimsy-action-open-archive = Open in Wayback Machine
-whimsy-archive-bar = This page is gone, but the Internet Archive has a copy.
-# $date (string) - when the copy was saved, e.g. "Jun 2024"
-whimsy-archive-bar-dated = This page is gone, but the Internet Archive has a copy from { $date }.
-whimsy-archive-open =
-    .label = Open the Archived Copy
-    .accesskey = O
+# wave9/secfix: the bar asks first; nothing goes to archive.org until "Look for a Copy".
+whimsy-archive-bar-ask = This page didn’t load. The Internet Archive may have a copy.
+whimsy-archive-look =
+    .label = Look for a Copy
+    .accesskey = L
+whimsy-archive-none-toast = The Internet Archive has no copy of this page
 
 ## Translate selection (shortcut and command bar)
 
