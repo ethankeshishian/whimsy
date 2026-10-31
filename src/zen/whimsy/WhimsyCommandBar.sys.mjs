@@ -127,7 +127,7 @@ function liquidGlassSupported() {
   return (
     featureOn("liquid-glass") &&
     featureOn("transparency") &&
-    lazy.AppConstants.platform == "macosx"
+    lazy.AppConstants.isPlatformAndVersionAtLeast("macosx", "25")
   );
 }
 
