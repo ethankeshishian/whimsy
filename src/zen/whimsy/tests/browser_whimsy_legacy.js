@@ -201,8 +201,9 @@ add_task(async function test_readme_rebranded_to_whimsy() {
   let dir = Services.dirsvc.get("CurWorkD", Ci.nsIFile).path;
   let readmePath = null;
   for (let i = 0; i < 5; i++) {
+    // The repository root (beside surfer.json), not the engine's own README.
     const candidate = PathUtils.join(dir, "README.md");
-    if (await IOUtils.exists(candidate)) {
+    if (await IOUtils.exists(candidate) && await IOUtils.exists(PathUtils.join(dir, "surfer.json"))) {
       readmePath = candidate;
       break;
     }
