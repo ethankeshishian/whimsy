@@ -845,6 +845,44 @@ add_task(async function fixB_sheets() {
   }
 });
 
+// wave8/snooze (W8-37): the one Undo toast (Snooze, Hide Space, the
+// archive sweep): message, the tab's title, "Undo" in words and ⌘Z; light,
+// dark, and with keyboard focus on Undo. (The Snooze picker is a popup,
+// which drawSnapshot doesn't draw; browser_whimsy_snooze.js checks it.)
+add_task(async function w8_undo_toast() {
+  const { WhimsyUndo } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs");
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    let toast = null;
+    try {
+      toast = WhimsyUndo.showToast(
+        window,
+        "whimsy-snooze-undo-toast",
+        { type: "shot", undo() {}, redo: null },
+        { when: "tomorrow", time: "9:00 AM", day: "" },
+        { detail: "Quarterly planning notes — Google Docs" }
+      );
+      ok(toast, "The undo toast shows");
+      await document.l10n.translateFragment(toast);
+      await settled();
+      ok(toast.checkVisibility(), "It is visible");
+      await shot(`w8-undo-toast-${dark ? "dark" : "light"}`);
+      if (!dark) {
+        toast.querySelector(".whimsy-toast-action").focus();
+        await settled();
+        await shot("w8-undo-toast-focus-light");
+      }
+    } finally {
+      if (toast) {
+        WhimsyToast._dismissNow(toast);
+      }
+      WhimsyUndo.undo(window);
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});
+
 add_task(async function fixB_delete_space_confirm() {
   const space = await gZenWorkspaces.createAndSaveWorkspace("Old Projects", undefined, true);
   const original = gZenWorkspaces.getActiveWorkspace();

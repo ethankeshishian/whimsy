@@ -472,11 +472,16 @@ tab-context-whimsy-snooze =
     .accesskey = z
 whimsy-snooze-panel =
     .aria-label = Snooze tab
-whimsy-snooze-later-today = Later today
-whimsy-snooze-tomorrow = Tomorrow morning
-whimsy-snooze-next-week = Next week
-# $title (string) - the snoozed tab's title
-whimsy-snooze-toast = Snoozed “{ $title }”
+whimsy-snooze-later-today = Later Today
+whimsy-snooze-tonight = Tonight
+whimsy-snooze-tomorrow = Tomorrow
+# $next (string) - "true" on a Saturday or Sunday, when it means the next one
+whimsy-snooze-weekend =
+    { $next ->
+        [true] Next Weekend
+       *[other] This Weekend
+    }
+whimsy-snooze-next-week = Next Week
 # $title (string) - the tab's title
 whimsy-snooze-wake-toast = “{ $title }” is back
 
@@ -1937,9 +1942,6 @@ whimsy-tab-unread-description = { $count } unread
 whimsy-scratch-save-confirm-title = Save as a Space?
 whimsy-scratch-save-confirm-accept = Save Space
 
-# wave5/uxfix: the Undo button on a result toast (Snooze, Hide Space).
-whimsy-undo-toast-button =
-    .label = Undo
 
 ## system: History's Show filter (All, Closed, Snoozed) in the Library
 
@@ -2256,7 +2258,8 @@ whimsy-menu-capture-full-page =
     .label = Capture Full Page
 whimsy-menu-capture-portrait =
     .label = Capture in Portrait Mode
-# $action (string) - what Cmd+Z will undo: archive, pin, unpin, move or other
+# $action (string) - what Cmd+Z will undo: archive, pin, unpin, move,
+# snooze, hide-space or other
 whimsy-menu-undo-action =
     .label =
         { $action ->
@@ -2264,6 +2267,8 @@ whimsy-menu-undo-action =
             [pin] Undo Pin Tab
             [unpin] Undo Unpin Tab
             [move] Undo Move Tab
+            [snooze] Undo Snooze Tab
+            [hide-space] Undo Hide Space
            *[other] Undo
         }
     .accesskey = U
@@ -3024,3 +3029,58 @@ whimsy-cheatsheet-results =
 # A small badge at the end of the command bar while it's for a private tab.
 # It is also read out as the address field's description.
 whimsy-urlbar-private-badge = Private
+## wave8/snooze (W8-37): the Snooze picker and the Undo toast
+
+# The picker's field: people type when the tab should come back.
+whimsy-snooze-field =
+    .placeholder = Type a time: “fri 2pm”, “in 3 hours”…
+    .aria-label = When should this tab come back?
+# Where a snooze lands. $when is "today", "tomorrow", "week" (within six
+# days) or "later"; $time (string) - like 9:00 AM; $day (string) - like
+# Saturday, or Mon, Nov 9.
+whimsy-snooze-when =
+    { $when ->
+        [today] Today, { $time }
+        [tomorrow] Tomorrow, { $time }
+        [week] { $day }, { $time }
+       *[later] { $day }, { $time }
+    }
+# A preset that no longer makes sense today (Tonight at 9 PM).
+whimsy-snooze-unavailable = Too late today
+whimsy-snooze-past = That time has already passed
+whimsy-snooze-no-match = Try “tomorrow 3pm”, “fri”, “in 2 hours” or “nov 12”.
+whimsy-snooze-pick = Pick Date & Time…
+whimsy-snooze-date =
+    .aria-label = Date
+whimsy-snooze-time =
+    .aria-label = Time
+# $when, $time, $day - as for whimsy-snooze-when
+whimsy-snooze-custom-summary =
+    { $when ->
+        [today] Comes back today at { $time }
+        [tomorrow] Comes back tomorrow at { $time }
+       *[other] Comes back { $day } at { $time }
+    }
+whimsy-snooze-custom-incomplete = Choose a date and a time
+whimsy-snooze-custom-button =
+    .label = Snooze
+# $count (number) - tabs waiting to come back
+whimsy-snooze-view-snoozed =
+    .label = Snoozed Tabs ({ $count })
+# The Undo toast after snoozing. $when, $time, $day - as for whimsy-snooze-when
+whimsy-snooze-undo-toast =
+    { $when ->
+        [today] Snoozed until { $time }
+        [tomorrow] Snoozed until tomorrow, { $time }
+       *[other] Snoozed until { $day }, { $time }
+    }
+# The button on every Whimsy toast whose action can be undone (Snooze,
+# Hide Space, the archive sweep). The shortcut is shown beside it.
+whimsy-undo-toast-action = Undo
+whimsy-action-undo-tab-action = Undo Last Tab Action
+whimsy-action-redo-tab-action = Redo Last Tab Action
+whimsy-action-snooze-later-today = Snooze Tab Until Later Today
+whimsy-action-snooze-tonight = Snooze Tab Until Tonight
+whimsy-action-snooze-tomorrow = Snooze Tab Until Tomorrow
+whimsy-action-snooze-weekend = Snooze Tab Until the Weekend
+whimsy-action-snooze-next-week = Snooze Tab Until Next Week

@@ -65,7 +65,8 @@ export function undoAction(type) {
   if (type == "close" || type.startsWith("archive")) {
     return "archive";
   }
-  return ["pin", "unpin", "move"].includes(type) ? type : "other";
+  // wave8/snooze: Snooze and Hide Space name themselves too.
+  return ["pin", "unpin", "move", "snooze", "hide-space"].includes(type) ? type : "other";
 }
 
 export const WhimsyArcMenus = {

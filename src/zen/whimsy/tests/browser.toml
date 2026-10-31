@@ -606,3 +606,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_isolation.js"]
 # W8-17/18: the private command bar (Cmd+Option+T opens a private tab only on Enter, Esc creates nothing, Cmd+T over a private tab is normal, Cmd+L on one is violet, no history). Needs the batch9p engine patches.
 ["browser_whimsy_private_command_bar.js"]
+# wave8/snooze (W8-37): Snooze presets and typed times from a pinned clock.
+["browser_whimsy_snooze_time.js"]

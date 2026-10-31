@@ -27,39 +27,24 @@ ChromeUtils.defineESModuleGetters(lazy, {
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsySnoozePicker: "resource:///modules/whimsy/WhimsySnoozePicker.sys.mjs",
+  WhimsySnoozeTime: "resource:///modules/whimsy/WhimsySnoozeTime.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.snooze-tab";
 const MENU_ID = "context_whimsySnooze";
-const PANEL_ID = "whimsySnoozePanel";
 const STORE_FILENAME = "whimsy-snoozed-tabs.json";
 
-const PRESETS = [
-  { key: "later-today", hours: 4 },
-  { key: "tomorrow", atHour: 9, days: 1 },
-  { key: "next-week", atHour: 9, days: 7 },
-];
-
-const PRESET_ICONS = {
-  "later-today": "chrome://browser/skin/zen-icons/history.svg",
-  tomorrow: "chrome://browser/skin/zen-icons/face-sun.svg",
-  "next-week": "chrome://browser/skin/zen-icons/forward.svg",
+// wave8/snooze: the presets and the time reading live in
+// WhimsySnoozeTime; the picker in WhimsySnoozePicker.
+const PRESET_COMMANDS = {
+  "later-today": "cmd_whimsySnoozeLaterToday",
+  tonight: "cmd_whimsySnoozeTonight",
+  tomorrow: "cmd_whimsySnoozeTomorrow",
+  weekend: "cmd_whimsySnoozeWeekend",
+  "next-week": "cmd_whimsySnoozeNextWeek",
 };
-
-function wakeTimeFor(preset) {
-  const now = new Date();
-  if (preset.hours) {
-    return now.getTime() + preset.hours * 3600 * 1000;
-  }
-  const at = new Date(now);
-  at.setDate(at.getDate() + preset.days);
-  at.setHours(preset.atHour, 0, 0, 0);
-  if (at.getTime() <= now.getTime()) {
-    at.setDate(at.getDate() + 1);
-  }
-  return at.getTime();
-}
 
 export const WhimsySnooze = {
   _timers: new Map(), // record -> { win, timerId }
@@ -82,38 +67,52 @@ export const WhimsySnooze = {
   },
 
   initWindow(win) {
-    this.initActions();
     if (!this.enabled) {
       return;
     }
     this.initMenu(win);
     // wave5: the tab menu's "Snooze…" as a command for the current tab.
-    const canSnooze = tab => !!tab && !tab.pinned && !tab.hasAttribute("zen-essential");
-    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+    const canSnooze = tab => !!tab && !tab.pinned && !tab.hasAttribute("zen-essential") && !this.isPrivate(tab);
+    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+    WhimsyCommands.register(win, {
       id: "cmd_whimsySnoozeTab",
       l10nId: "whimsy-action-snooze-tab",
       run: w => canSnooze(w.gBrowser.selectedTab) && this.openPanel(w, w.gBrowser.selectedTab),
       icon: "chrome://browser/skin/zen-icons/moon-stars.svg",
       isAvailable: w => this.enabled && canSnooze(w.gBrowser.selectedTab),
     });
+    // wave8/snooze: each preset as its own command ("Snooze Tab Until
+    // Tomorrow"), so the command bar snoozes in one step, and any of them
+    // can take a shortcut in about:keyboard.
+    for (const [key, id] of Object.entries(PRESET_COMMANDS)) {
+      WhimsyCommands.register(win, {
+        id,
+        l10nId: `whimsy-action-snooze-${key}`,
+        run: w => {
+          const tab = w.gBrowser.selectedTab;
+          const preset = lazy.WhimsySnoozeTime.resolvePreset(key, new Date());
+          if (canSnooze(tab) && preset.available) {
+            this.snooze(w, tab, preset.at.getTime());
+          }
+        },
+        icon: "chrome://browser/skin/zen-icons/moon-stars.svg",
+        isAvailable: w =>
+          this.enabled && canSnooze(w.gBrowser.selectedTab) &&
+          lazy.WhimsySnoozeTime.resolvePreset(key, new Date()).available,
+      });
+    }
+    // History → Snoozed, where snoozed tabs are seen and managed.
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyViewSnoozedTabs",
+      l10nId: "whimsy-action-view-snoozed",
+      run: w => lazy.WhimsyLibrarySection.openHistory(w, "snoozed"),
+      icon: "chrome://browser/skin/zen-icons/history.svg",
+      isAvailable: () => this.enabled,
+    });
     if (!this._resumed) {
       this._resumed = true;
       this.resume(win);
     }
-  },
-
-  // System pass: snoozed tabs are a filter of the Library's History (with
-  // Closed), not a list of their own; this command opens it there.
-  initActions() {
-    const { WhimsyShortcuts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyShortcuts.sys.mjs");
-    WhimsyShortcuts.addActions([
-      {
-        l10nId: "whimsy-action-view-snoozed",
-        icon: "chrome://browser/skin/zen-icons/history.svg",
-        command: w => lazy.WhimsyLibrarySection.openHistory(w, "snoozed"),
-        isAvailable: () => this.enabled,
-      },
-    ]);
   },
 
   // The tabs still waiting to come back, soonest first. The records are the
@@ -192,7 +191,22 @@ export const WhimsySnooze = {
       document.l10n.setAttributes(item, "tab-context-whimsy-snooze");
       item.addEventListener("command", () => {
         const contextTab = win.TabContextMenu?.contextTab;
-        if (contextTab) {
+        if (!contextTab) {
+          return;
+        }
+        // wave8/snooze: open once the menu has gone, so the picker isn't
+        // caught in the menu's own close (and a compact sidebar has
+        // settled) before it's placed.
+        const menu = document.getElementById("tabContextMenu");
+        if (menu && menu.state != "closed") {
+          const onHidden = event => {
+            if (event.target == menu) {
+              menu.removeEventListener("popuphidden", onHidden);
+              this.openPanel(win, contextTab);
+            }
+          };
+          menu.addEventListener("popuphidden", onHidden);
+        } else {
           this.openPanel(win, contextTab);
         }
       });
@@ -200,19 +214,6 @@ export const WhimsySnooze = {
       anchor ? anchor.after(item) : document.getElementById("tabContextMenu").appendChild(item);
     }
     item.hidden = false;
-  },
-
-  // fixB: a WhimsyPanels sheet hanging off the tab: each preset shows when
-  // the tab comes back ("6:40 PM", "Thu 9:00 AM").
-  wakeLabel(preset, wakeAt) {
-    const locales = Services.locale.appLocalesAsBCP47;
-    const options =
-      preset.key == "later-today"
-        ? { timeStyle: "short" }
-        : preset.key == "tomorrow"
-          ? { weekday: "short", hour: "numeric", minute: "2-digit" }
-          : { weekday: "short", month: "short", day: "numeric" };
-    return new Intl.DateTimeFormat(locales, options).format(new Date(wakeAt));
   },
 
   // wave8/isolation: a snoozed tab's URL and title are saved to disk and it
@@ -229,38 +230,23 @@ export const WhimsySnooze = {
     return true;
   },
 
-  openPanel(win, tab) {
+  // wave8/snooze (W8-37): the picker (WhimsySnoozePicker): five presets
+  // with where each lands, a field that reads typed times, and a date and
+  // time; hung off the tab.
+  async openPanel(win, tab) {
     if (this.refusePrivate(win, tab)) {
-      return;
+      return null;
     }
     const { document } = win;
-    const { panel, body } = lazy.WhimsyPanels.create(win, {
-      id: PANEL_ID,
-      titleL10nId: "whimsy-snooze-title",
-      subtitle: tab?.label || "",
-      size: "small",
-    });
-    panel.whimsyTab = tab;
-    for (const preset of PRESETS) {
-      const wakeAt = wakeTimeFor(preset);
-      body.append(
-        lazy.WhimsyPanels.item(document, {
-          l10nId: `whimsy-snooze-${preset.key}`,
-          icon: PRESET_ICONS[preset.key],
-          detail: this.wakeLabel(preset, wakeAt),
-          onCommand: () => {
-            const target = panel.whimsyTab;
-            lazy.WhimsyPanels.close(panel);
-            if (target && target.isConnected && !target.closing) {
-              // Recompute: the sheet may have sat open for a while.
-              this.snooze(win, target, wakeTimeFor(preset));
-            }
-          },
-        })
-      );
+    if (!tab?.isConnected || tab.closing || !document) {
+      return null;
     }
-    const anchor = lazy.WhimsyPanels.visibleAnchor(win, [tab]);
-    lazy.WhimsyPanels.open(win, panel, { anchor, position: "end_before" });
+    const snoozedCount = (await this.list()).length;
+    return lazy.WhimsySnoozePicker.open(win, tab, {
+      snoozedCount,
+      onPick: (target, wakeAt) => this.snooze(win, target, wakeAt),
+      onViewSnoozed: () => lazy.WhimsyLibrarySection.openHistory(win, "snoozed"),
+    });
   },
 
   async snooze(win, tab, wakeAt) {
@@ -294,16 +280,24 @@ export const WhimsySnooze = {
     };
     this.schedule(win, record);
     this.persist(record);
-    lazy.WhimsyUndo.showToast(win, "whimsy-snooze-toast", {
-      type: "snooze",
-      undo: () => {
-        this.cancel(record);
-        if (record.closedId != null) {
-          lazy.WhimsyArchive.restore(win, record.closedId);
-        }
+    // wave8/snooze: "Snoozed until tomorrow, 9:00 AM" over the tab's title,
+    // with Undo.
+    lazy.WhimsyUndo.showToast(
+      win,
+      "whimsy-snooze-undo-toast",
+      {
+        type: "snooze",
+        undo: () => {
+          this.cancel(record);
+          if (record.closedId != null) {
+            lazy.WhimsyArchive.restore(win, record.closedId);
+          }
+        },
+        redo: null,
       },
-      redo: null,
-    }, { title });
+      lazy.WhimsySnoozeTime.whenArgs(wakeAt, new Date(), Services.locale.appLocalesAsBCP47),
+      { detail: title }
+    );
   },
 
   schedule(win, record) {
