@@ -88,14 +88,14 @@ add_task(async function test_unread_counts() {
   WhimsyLiveFolderReading.updateWindow(window, folder.id);
   const badge = () => folder.querySelector(".whimsy-live-unread");
   is(badge()?.textContent, "3", "Three unread items");
-  ok(tabs.every(t => t.hasAttribute("whimsy-unread")), "Each unopened item has a dot");
+  ok(tabs.every(t => t.hasAttribute("whimsy-live-unread")), "Each unopened item has a dot");
   await TestUtils.waitForCondition(() => badge().getAttribute("aria-label"), "The count is labelled");
   is(badge().getAttribute("aria-label"), "3 unread items", "... for screen readers");
 
   // Opening an item reads it.
   gBrowser.selectedTab = tabs[0];
   is(badge()?.textContent, "2", "Opening one leaves two");
-  ok(!tabs[0].hasAttribute("whimsy-unread"), "The opened item lost its dot");
+  ok(!tabs[0].hasAttribute("whimsy-live-unread"), "The opened item lost its dot");
   ok(rss.state.whimsyRead.includes(`${folder.id}:one`), "Read state is saved on the folder");
 
   // A later fetch prunes items the feed no longer lists.
@@ -106,7 +106,7 @@ add_task(async function test_unread_counts() {
   ok(rss.options.some(o => o.key == "whimsyMarkAllRead"), "The folder's options offer Mark All as Read");
   rss.onOptionTrigger(fakeOption("whimsyMarkAllRead"));
   ok(!badge(), "No count when everything is read");
-  ok(tabs.every(t => !t.hasAttribute("whimsy-unread")), "No dots either");
+  ok(tabs.every(t => !t.hasAttribute("whimsy-live-unread")), "No dots either");
 
   // Switch off: no counts at all.
   rss.state.whimsyRead = [];
@@ -114,7 +114,7 @@ add_task(async function test_unread_counts() {
   Services.prefs.setBoolPref("whimsy.feature.live-folders-unread", false);
   WhimsyLiveFolderReading.updateWindow(window, folder.id);
   ok(!badge(), "Switch off: no count");
-  ok(tabs.every(t => !t.hasAttribute("whimsy-unread")), "Switch off: no dots");
+  ok(tabs.every(t => !t.hasAttribute("whimsy-live-unread")), "Switch off: no dots");
   Services.prefs.clearUserPref("whimsy.feature.live-folders-unread");
 
   gBrowser.selectedTab = keep;

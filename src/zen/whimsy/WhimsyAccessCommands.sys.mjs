@@ -355,15 +355,6 @@ export const WhimsyAccessCommands = {
   },
 
   initWindow(win) {
-    // batch8: W8-04: When expanding a parent folder, keep collapsed subfolder containers hidden
-    win.addEventListener("TabGroupExpand", event => {
-      const group = event.target;
-      if (!group?.isZenFolder) return;
-      for (const child of group.querySelectorAll("zen-folder[collapsed]")) {
-        child.groupContainer?.setAttribute("hidden", "true");
-      }
-    });
-
     const { WhimsyCommands } = lazy;
     const register = spec => {
       try {
@@ -508,46 +499,20 @@ export const WhimsyAccessCommands = {
       isAvailable: () => feature("claude-replay"),
     });
 
-    // batch8: W8-04 Collapse/Expand All Folders (Arc parity)
+    // W8-04: Zen's own Collapse / Expand All Folders (nested folders
+    // included, innermost first) get an assignable shortcut. The command
+    // bar already lists Zen's rows, so no second one here.
     register({
       id: "cmd_whimsyCollapseAllFolders",
       l10nId: "whimsy-action-collapse-all-folders",
-      run: w => this.collapseAllFolders(w),
-      icon: "chrome://browser/skin/zen-icons/arrows-collapse.svg",
-      isAvailable: w => this.hasExpandedFolders(w),
+      run: w => w.gZenFolders?.collapseAllFolders(),
+      commandBar: false,
     });
     register({
       id: "cmd_whimsyExpandAllFolders",
       l10nId: "whimsy-action-expand-all-folders",
-      run: w => this.expandAllFolders(w),
-      icon: "chrome://browser/skin/zen-icons/arrows-expand.svg",
-      isAvailable: w => this.hasCollapsedFolders(w),
+      run: w => w.gZenFolders?.expandAllFolders(),
+      commandBar: false,
     });
-  },
-
-  hasExpandedFolders(win) {
-    return !!win.gZenFolders?.activeSpaceFolders?.some(f => !f.collapsed);
-  },
-
-  hasCollapsedFolders(win) {
-    return !!win.gZenFolders?.activeSpaceFolders?.some(f => f.collapsed);
-  },
-
-  async collapseAllFolders(win) {
-    if (win.gZenFolders) {
-      await win.gZenFolders.collapseAllFolders();
-      for (const folder of win.gZenFolders.activeSpaceFolders) {
-        folder.collapsed = true;
-      }
-    }
-  },
-
-  async expandAllFolders(win) {
-    if (win.gZenFolders) {
-      await win.gZenFolders.expandAllFolders();
-      for (const folder of win.gZenFolders.activeSpaceFolders) {
-        folder.collapsed = false;
-      }
-    }
   },
 };

@@ -1537,7 +1537,7 @@ notification-message[value="whimsy-claude-control"] {
   }
 }
 
-tab:not([pinned]):not([zen-essential])[whimsy-unread] {
+tab[whimsy-live-unread] {
   & .tab-label {
     font-weight: 600;
   }

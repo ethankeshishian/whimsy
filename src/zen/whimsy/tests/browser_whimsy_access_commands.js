@@ -32,8 +32,6 @@ const COMMANDS = {
   cmd_whimsyOpenClaudeSpace: "whimsy-action-open-claude-space",
   cmd_whimsyWhatsNew: "whimsy-action-whats-new",
   cmd_whimsyViewClaudeReplays: "whimsy-action-view-claude-replays",
-  cmd_whimsyCollapseAllFolders: "whimsy-action-collapse-all-folders",
-  cmd_whimsyExpandAllFolders: "whimsy-action-expand-all-folders",
 };
 
 // Unused on macOS (the registry test uses Cmd+Shift+Y).
@@ -208,11 +206,50 @@ add_task(async function test_whats_new() {
   BrowserTestUtils.removeTab(tab);
 });
 
-// batch8: W8-04 Collapse/Expand All Folders with nested structures
+// W8-04: Collapse All Folders reaches nested folders, and a folder you
+// open again keeps its collapsed subfolder shut. Zen's command-bar rows are
+// the only ones; the commands exist for a shortcut.
 add_task(async function test_collapse_and_expand_all_folders() {
-  ok(document.getElementById("cmd_whimsyCollapseAllFolders"), "Collapse All Folders command exists");
-  ok(document.getElementById("cmd_whimsyExpandAllFolders"), "Expand All Folders command exists");
-  ok(typeof WhimsyAccessCommands.collapseAllFolders == "function", "collapseAllFolders is a function");
-  ok(typeof WhimsyAccessCommands.expandAllFolders == "function", "expandAllFolders is a function");
-});
+  for (const id of ["cmd_whimsyCollapseAllFolders", "cmd_whimsyExpandAllFolders"]) {
+    const entry = WhimsyCommands.get(id);
+    ok(entry && document.getElementById(entry.keyId), `${id} has a <key>, so a shortcut can be assigned`);
+    ok(!globalActions.some(a => a.whimsyCommand == id), `${id} adds no second command-bar row`);
+  }
+  ok(action("zen-action-collapse-all-folders"), "Zen's Collapse All Folders row stays");
 
+  const parentTab = BrowserTestUtils.addTab(gBrowser, "data:text/html,parent");
+  const childTab = BrowserTestUtils.addTab(gBrowser, "data:text/html,child");
+  const subfolder = await gZenFolders.createFolder([childTab], { renameFolder: false, label: "Sub" });
+  const parent = await gZenFolders.createFolder([parentTab], { renameFolder: false, label: "Parent" });
+  parentTab.after(subfolder);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  try {
+    is(subfolder.parentElement?.closest("zen-folder"), parent, "The subfolder is nested");
+    document.getElementById("cmd_whimsyCollapseAllFolders").doCommand();
+    await TestUtils.waitForCondition(() => parent.collapsed && subfolder.collapsed, "Both levels collapse");
+    await TestUtils.waitForCondition(() => childTab.getBoundingClientRect().height == 0, "The nested tab is hidden");
+
+    parent.collapsed = false;
+    await TestUtils.waitForCondition(() => parentTab.getBoundingClientRect().height > 0, "The parent opens");
+    await new Promise(resolve => setTimeout(resolve, 400)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    ok(subfolder.collapsed, "The subfolder stays collapsed");
+    is(childTab.getBoundingClientRect().height, 0, "…and its tab stays hidden");
+
+    document.getElementById("cmd_whimsyExpandAllFolders").doCommand();
+    await TestUtils.waitForCondition(() => !parent.collapsed && !subfolder.collapsed, "Expand All opens both");
+    await TestUtils.waitForCondition(() => childTab.getBoundingClientRect().height > 0, "The nested tab shows");
+  } finally {
+    for (const folder of [subfolder, parent]) {
+      if (folder.isConnected) {
+        const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");
+        folder.delete();
+        await removed;
+      }
+    }
+    for (const tab of [parentTab, childTab]) {
+      if (tab.isConnected && !tab.closing) {
+        BrowserTestUtils.removeTab(tab);
+      }
+    }
+  }
+});

@@ -34,7 +34,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const UNREAD_FEATURE_PREF = "whimsy.feature.live-folders-unread";
 const READER_FEATURE_PREF = "whimsy.feature.live-folders-rss-reader";
 const ITEM_ATTR = "zen-live-folder-item-id";
-const UNREAD_ATTR = "whimsy-unread";
+// Not "whimsy-unread": that is the unread-count badge (WhimsyTabs) on
+// pinned tabs and Essentials, and sharing it drew this dot beside the badge
+// (W8-06).
+const UNREAD_ATTR = "whimsy-live-unread";
 const BADGE_CLASS = "whimsy-live-unread";
 const READER_PREFIX = "about:reader?url=";
 const READ_KEY = "whimsyRead";
