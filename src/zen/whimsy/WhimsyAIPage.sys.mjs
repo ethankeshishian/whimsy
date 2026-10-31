@@ -127,7 +127,12 @@ export const WhimsyAIPage = {
     findbar.addEventListener(
       "keypress",
       event => {
-        if (event.target == field && event.keyCode == event.DOM_VK_RETURN && !event.getModifierState("Accel") && askable()) {
+        // wave9/secfix (security-full-2 L2): in private browsing with a
+        // cloud provider, Return (muscle memory for "find again") never
+        // sends the page away; only the Ask button does.
+        const privateCloud = lazy.WhimsyAIProviders.isCloud && lazy.PrivateBrowsingUtils.isBrowserPrivate(findbar.browser);
+        if (event.target == field && event.keyCode == event.DOM_VK_RETURN && !event.getModifierState("Accel") &&
+            !privateCloud && askable()) {
           event.preventDefault();
           event.stopPropagation();
           send();

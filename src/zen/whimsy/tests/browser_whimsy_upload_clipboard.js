@@ -215,3 +215,28 @@ add_task(async function test_paste_needs_a_real_cmd_v() {
     await IOUtils.remove(path, { ignoreAbsent: true });
   }
 });
+
+// wave9/secfix (security-full-1 L7): the Cmd+V has to be in that tab's
+// page: one in the address bar or in another tab doesn't hand this tab
+// the clipboard's file.
+add_task(async function test_paste_gesture_is_per_tab() {
+  const { WhimsyUploadParent } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs"
+  );
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?secfix-l7");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_PAGE);
+  const browser = tab.linkedBrowser;
+
+  gURLBar.focus();
+  EventUtils.synthesizeKey("v", { accelKey: true });
+  ok(!WhimsyUploadParent.pastedJustNow(window, browser), "Cmd+V in the address bar doesn't count for the page");
+
+  gBrowser.selectedTab = other;
+  other.linkedBrowser.focus();
+  EventUtils.synthesizeKey("v", { accelKey: true });
+  ok(WhimsyUploadParent.pastedJustNow(window, other.linkedBrowser), "Cmd+V in a page counts for that page");
+  ok(!WhimsyUploadParent.pastedJustNow(window, browser), "…not for another tab");
+
+  BrowserTestUtils.removeTab(tab);
+  BrowserTestUtils.removeTab(other);
+});

@@ -39,3 +39,15 @@ add_task(async function test_switch_off_skips_discovery() {
   await SpecialPowers.popPrefEnv();
   ok(WhimsyLiveFolders.rssAutodiscoverEnabled, "and back on by default");
 });
+
+// wave9/secfix (security-full-1 L4): a page can't point a live folder's
+// polling at a local file or the local network; the typed URL is used.
+add_task(async function test_discovered_feed_must_be_public_http() {
+  const page = href => "https://example.com/document-builder.sjs?html=" +
+    encodeURIComponent(`<head><link rel="alternate" type="application/rss+xml" href="${href}"></head><body>Hi</body>`);
+  is(await WhimsyLiveFolders.discoverFeed(page("file:///etc/hosts")), null, "Never a file: feed");
+  is(await WhimsyLiveFolders.discoverFeed(page("http://192.168.1.1/feed.xml")), null, "Never the local network");
+  is(await WhimsyLiveFolders.discoverFeed(page("http://localhost:631/feed")), null, "Never this machine");
+  is(await WhimsyLiveFolders.discoverFeed(page("http://intranet/feed")), null, "Never a one-word intranet name");
+  is(await WhimsyLiveFolders.discoverFeed(page("/feed.xml")), "https://example.com/feed.xml", "The page's own host is fine");
+});

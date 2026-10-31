@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PageThumbs: "resource://gre/modules/PageThumbs.sys.mjs",
   PageThumbsStorage: "resource://gre/modules/PageThumbs.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
 });
 
 const HTML = "http://www.w3.org/1999/xhtml";
@@ -110,7 +111,8 @@ export function buildPersonCard(win, person, { close } = {}) {
   copy.type = "button";
   doc.l10n.setAttributes(copy, "whimsy-person-copy");
   copy.addEventListener("click", () => {
-    Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(person.url);
+    // Private browsing: marked private on the clipboard (security-full-2 L3).
+    lazy.WhimsyCopy.copyText(person.url, lazy.WhimsyCopy.browserIsPrivate(win));
     doc.l10n.setAttributes(copy, "whimsy-person-copied");
   });
   actions.append(open, copy);

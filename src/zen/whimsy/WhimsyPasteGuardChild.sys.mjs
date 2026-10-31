@@ -75,7 +75,18 @@ export class WhimsyPasteGuardChild extends JSWindowActorChild {
     if (!Services.prefs.getBoolPref(FEATURE_PREF, true) || !Services.prefs.getBoolPref(ENABLED_PREF, true)) {
       return;
     }
-    const target = editableTarget(event);
+    // wave9/secfix (security-full-2 M1): every web document (about:blank,
+    // srcdoc, blob: and data: frames included; Whimsy.sys.mjs registers the
+    // actor without URL matches), never a privileged one.
+    const principal = this.document?.nodePrincipal;
+    if (!principal || !(principal.isContentPrincipal || principal.isNullPrincipal)) {
+      return;
+    }
+    // Every trusted paste, not only into a field: a page with no field can
+    // read the clipboard from its own paste listener. The field, when
+    // there is one, anchors the sheet and decides the exceptions.
+    const field = editableTarget(event);
+    const target = field ?? this.document.activeElement ?? this.document.body ?? this.document.documentElement;
     const data = event.clipboardData;
     if (!target || !data) {
       return;
@@ -97,11 +108,13 @@ export class WhimsyPasteGuardChild extends JSWindowActorChild {
     if (allowed && allowed.kind == kind && Date.now() < allowed.until) {
       return;
     }
-    const host = this.document?.location?.hostname ?? "";
-    if (isPasswordField(target) && lazy.isHome(kind, host)) {
+    // The page's own host, also for an about:blank or srcdoc frame (its
+    // principal is its parent's); none for a sandboxed page.
+    const host = principal.isContentPrincipal ? principal.host || this.document.location?.hostname || "" : "";
+    if (field && isPasswordField(field) && lazy.isHome(kind, host)) {
       return;
     }
-    if (kind == "card" && isCardField(target)) {
+    if (field && kind == "card" && isCardField(field)) {
       return;
     }
     event.preventDefault();
@@ -147,7 +160,7 @@ export class WhimsyPasteGuardChild extends JSWindowActorChild {
     }
     this.allowed = { kind, until: Date.now() + ALLOW_MS };
     try {
-      if (target.ownerDocument.activeElement != target && typeof target.focus == "function") {
+      if (editableTarget({ target }) && target.ownerDocument.activeElement != target && typeof target.focus == "function") {
         target.focus();
       }
       this.docShell.doCommand("cmd_paste");

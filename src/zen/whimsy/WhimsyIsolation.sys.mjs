@@ -228,7 +228,7 @@ export const WhimsyIsolation = {
         for (const tab of fresh.keys()) {
           pendingFresh.delete(tab);
         }
-        const still = new Map([...fresh].filter(([tab]) => this.violates(win, tab)));
+        const still = new Map([...fresh].filter(([tab, old]) => this.violates(win, tab) || this.intoScratch(win, tab, old)));
         if (still.size && !win.closed) {
           this.repair(win, still, { interactive: true });
         }
@@ -236,12 +236,15 @@ export const WhimsyIsolation = {
     }
   },
 
-  // A normal tab moved from a space of this window into Scratch.
+  // A normal tab that arrived in Scratch: moved from a space of this
+  // window, or (wave9/secfix, security-full-1 M2) with no earlier space
+  // here at all: adopted from another window, window sync, Mini. Pinned
+  // tabs keep Scratch's own rules (WhimsyPrivate.shouldOpenPrivate).
   intoScratch(win, tab, from) {
     const to = tab.getAttribute(ATTR);
-    return !this.exempt(tab) && !!from && from != to && !!this.spaceOf(win, from) &&
+    return !this.exempt(tab) && !tab.pinned && from != to &&
       lazy.WhimsyPrivate.isScratchId(win, to) && !lazy.WhimsyProfileMoves.isPrivate(tab) &&
-      !lazy.WhimsyPrivate.isScratchId(win, from);
+      !(from && lazy.WhimsyPrivate.isScratchId(win, from));
   },
 
   // -- the repair ---------------------------------------------------------
@@ -257,6 +260,7 @@ export const WhimsyIsolation = {
     let sorted = 0;
     let reopened = 0;
     let scratch = 0;
+    let scratchMoved = 0;
     for (const [tab, from] of tabs) {
       if (tab.closing || !tab.isConnected) {
         continue;
@@ -264,8 +268,22 @@ export const WhimsyIsolation = {
       const to = tab.getAttribute(ATTR);
       const own = tab.userContextId ?? 0;
       if (this.intoScratch(win, tab, from) && !this.violates(win, tab)) {
-        this.putBack(win, [tab], from);
-        scratch++;
+        if (from && this.spaceOf(win, from)) {
+          this.putBack(win, [tab], from);
+          scratch++;
+          continue;
+        }
+        // No earlier space here: its own profile's space, else the first
+        // other space, reopened in that space's profile.
+        const home = this.homeFor(win, tab) ??
+          (win.gZenWorkspaces.getWorkspaces?.() ?? []).find(space => !space.whimsyScratch);
+        if (home && lazy.WhimsyProfiles.profileIdOfSpace(home) === own) {
+          this.quietly(win, () => this.moveTo(win, [tab], home.uuid));
+          scratchMoved++;
+        } else if (home) {
+          lazy.WhimsyProfileMoves.reopen(win, tab, lazy.WhimsyProfiles.profileIdOfSpace(home), home.uuid);
+          scratchMoved++;
+        }
         continue;
       }
       if (inPlace) {
@@ -327,6 +345,9 @@ export const WhimsyIsolation = {
     }
     if (scratch) {
       win.gZenUIManager?.showToast?.("whimsy-isolation-scratch-toast", { l10nArgs: { count: scratch } });
+    }
+    if (scratchMoved) {
+      win.gZenUIManager?.showToast?.("whimsy-isolation-scratch-moved-toast", { l10nArgs: { count: scratchMoved } });
     }
   },
 

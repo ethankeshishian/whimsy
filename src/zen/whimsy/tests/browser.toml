@@ -616,3 +616,31 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave8 lane: every Whimsy menu row has a .label (native menus).
 ["browser_whimsy_menu_labels.js"]
+
+# wave9/secfix H1: extensions without private permission can't list, watch, capture or drive private tabs in normal windows (needs the whimsy-ext-*-js engine patches).
+["browser_whimsy_security_ext_private.js"]
+# wave9/secfix H2: Fire, Clear History and Forget About This Site purge the Archive and Snooze stores.
+["browser_whimsy_security_purge_stores.js"]
+# wave9/secfix M1: a sandboxed (null-principal) private page, or a Glance owned by a private tab, opens private tabs.
+["browser_whimsy_security_sandboxed_private.js"]
+# wave9/secfix M2: a normal tab adopted into Scratch from another window leaves it; Mini never offers Scratch.
+["browser_whimsy_security_scratch_adopt.js"]
+# wave9/secfix M3: a private page's copied screenshot is never saved to the Library.
+["browser_whimsy_security_private_captures.js"]
+# wave9/secfix M5: Whimsy:SplitLink and ZenGlance:OpenGlance ignore a principal sent by content (glance-parent-principal hotfix).
+["browser_whimsy_security_actor_principals.js"]
+# wave9/secfix M6: Year in Tabs never records private tabs; Clear History and Forget About This Site clear the longest tab.
+["browser_whimsy_security_private_stats.js"]
+# wave9/secfix (security-full-2 M1): the paste guard checks pastes with no field, and in srcdoc/about:blank frames.
+["browser_whimsy_security_paste_guard_frames.js"]
+# wave9/secfix (security-full-2 M2): a profile-limited extension can't read other profiles' cookies, and its DNR rules skip them (needs the whimsy-ext-cookies-js / whimsy-ExtensionDNR-sys-mjs engine patches).
+["browser_whimsy_security_ext_profiles.js"]
+# wave9/secfix L2/L3: follower panes, link lasso and link hints ignore a page's synthetic events.
+["browser_whimsy_security_untrusted_events.js"]
+support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
+# wave9/secfix L1: Zap is off in private browsing, so a private site never reaches the Boost store.
+["browser_whimsy_security_private_zap.js"]
+# wave9/secfix (security-full-2 L3): Whimsy's copy commands mark private-browsing data private on the clipboard.
+["browser_whimsy_security_private_clipboard.js"]
+# wave9/secfix (security-full-2 L4): Developer Mode in private browsing is session-only; the Calendar verb is not offered there.
+["browser_whimsy_security_private_commands.js"]

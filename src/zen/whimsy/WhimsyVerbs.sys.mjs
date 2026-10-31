@@ -32,6 +32,7 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   // Gecko 159 has no Services.search; the service is this module.
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
@@ -400,7 +401,7 @@ const BUILT_IN = [
     icon: `${ICONS}edit-copy.svg`,
     scope: "both",
     run(win, s) {
-      WhimsyVerbs.copy(s.markdown);
+      WhimsyVerbs.copy(s.markdown, win);
       win.gZenUIManager?.showToast?.("whimsy-verb-copied-toast");
     },
   },
@@ -429,7 +430,10 @@ const BUILT_IN = [
     l10nId: "whimsy-verb-calendar",
     icon: `${ICONS}history.svg`,
     scope: "selection",
-    isAvailable: (win, s) => !!s.event,
+    // Not from private browsing (wave9/secfix, security-full-2 L4): the
+    // event carries the selection and the page's URL into Calendar, which
+    // syncs.
+    isAvailable: (win, s) => !!s.event && !isPrivate(win),
     async run(win, s) {
       const event = { ...s.event, title: s.event.title || firstLine(s.title), description: `${s.text}\n\n${s.url}`, url: s.url };
       // wave7/native1: straight into macOS Calendar through EventKit
@@ -472,7 +476,7 @@ const BUILT_IN = [
       }
       // No workspace known yet: Linear opens the person's own workspace;
       // the terms are on the clipboard for its search (/).
-      WhimsyVerbs.copy(terms);
+      WhimsyVerbs.copy(terms, win);
       WhimsyVerbs.openTab(win, "https://linear.app/");
       win.gZenUIManager?.showToast?.("whimsy-verb-linear-copied-toast");
     },
@@ -593,8 +597,8 @@ export const WhimsyVerbs = {
       .getService(Ci.nsIExternalProtocolService)
       .loadURI(Services.io.newURI(spec), Services.scriptSecurityManager.getSystemPrincipal());
   },
-  copy(text) {
-    Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(text);
+  copy(text, win = null) {
+    lazy.WhimsyCopy.copyText(text, !!win && lazy.WhimsyCopy.browserIsPrivate(win));
   },
   launchFile(path) {
     const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);

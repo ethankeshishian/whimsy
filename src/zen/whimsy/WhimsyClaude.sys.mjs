@@ -1116,9 +1116,17 @@ export const WhimsyClaude = {
     if (action != "tabs_close" && action != "navigate") {
       this.checkPage(tab);
     }
+    // wave9/secfix (security-full-2 L1): the person approves one page. If
+    // another document took the tab while the prompt was up, the action
+    // would land there (a coordinate click, keys), so it stops instead.
+    const approved = tab.linkedBrowser.browsingContext?.currentWindowGlobal ?? null;
     await this.checkPermission(tab, action, generation);
     this.assertLive(generation);
     this.scopedTab(args.tabId);
+    if (action != "navigate" && action != "tabs_close" &&
+        (tab.linkedBrowser.browsingContext?.currentWindowGlobal ?? null) != approved) {
+      throw new ToolError("The page changed while waiting for permission. Read it again, then retry.");
+    }
     this.markActive(tab).catch(e => console.error("Whimsy: Claude bar", e));
     return fn(tab);
   },

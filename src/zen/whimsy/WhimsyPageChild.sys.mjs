@@ -571,7 +571,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
   }
 
   onFollowerClick(event) {
-    if (event.defaultPrevented || event.button != 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+    // wave9/secfix (security-full-1 L2): only the person's own clicks; a
+    // page's synthetic click must not drive the follower pane.
+    if (!event.isTrusted || event.defaultPrevented || event.button != 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
       return;
     }
     const link = event.target?.closest?.("a[href]");

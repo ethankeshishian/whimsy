@@ -14,9 +14,10 @@
 // download that starts from a background window's tab follows the front
 // window's profile; that's the honest limit of applying a global setting.
 //
-// Both choices sync (keyed by profile key, WhimsyProfileSync: merged per
-// entry, newest wins). A folder that doesn't exist on this Mac, or an engine
-// it doesn't have, falls back to the person's own.
+// The engine syncs (keyed by profile key, WhimsyProfileSync: merged per
+// entry, newest wins); the download folder stays on this Mac (wave7/security
+// L6). A folder that doesn't exist, or sits in ~/Library, or an engine this
+// Mac doesn't have, falls back to the person's own.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -111,11 +112,28 @@ export const WhimsyProfileSettings = {
   async apply(key) {
     await this.applyEngine(key ? this.engineFor(key) : null);
     let dir = key ? this.downloadDirFor(key) : null;
-    // Synced from another Mac where that folder exists, but not here.
-    if (dir && !(await IOUtils.exists(dir).catch(() => false))) {
+    // Saved before download folders stopped syncing, from another Mac where
+    // that folder exists but not here, or somewhere downloads must never
+    // land silently (security L6).
+    if (dir && !(await this.usableDownloadDir(dir))) {
       dir = null;
     }
     await this.applyDownloadDir(dir);
+  },
+
+  // An existing folder, outside ~/Library (where a file in LaunchAgents
+  // runs at login).
+  async usableDownloadDir(dir) {
+    try {
+      if (!PathUtils.isAbsolute(dir) || (await IOUtils.stat(dir)).type != "directory") {
+        return false;
+      }
+      const library = PathUtils.join(PathUtils.homeDir, "Library");
+      const path = PathUtils.normalize(dir);
+      return path != library && !path.startsWith(library + "/");
+    } catch {
+      return false;
+    }
   },
 
   async applyEngine(engineId) {

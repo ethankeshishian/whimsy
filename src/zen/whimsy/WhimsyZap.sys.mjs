@@ -33,6 +33,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   gZenBoostsManager: "resource:///modules/zen/boosts/ZenBoostsManager.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyStats: "resource:///modules/whimsy/WhimsyStats.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
@@ -72,8 +73,12 @@ export const WhimsyZap = {
     }
   },
 
+  // Not in private browsing (wave9/secfix, security-full-1 L1): a zap
+  // writes the site to Zen's Boost store on disk.
   canZap(win) {
-    return this.enabled && !!this.domainFor(win?.gBrowser?.selectedBrowser);
+    const browser = win?.gBrowser?.selectedBrowser;
+    return this.enabled && !!this.domainFor(browser) &&
+      !lazy.PrivateBrowsingUtils.isWindowPrivate(win) && !lazy.PrivateBrowsingUtils.isBrowserPrivate(browser);
   },
 
   isZapping(win) {

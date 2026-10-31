@@ -142,19 +142,24 @@ export class WhimsyUploadParent extends JSWindowActorParent {
         !event.altKey &&
         !event.shiftKey
       ) {
-        pasteKeys.set(win, Date.now());
+        // wave9/secfix (security-full-1 L7): and in which page: only a
+        // Cmd+V into a tab's page counts, for that tab alone (not the
+        // address bar, nor another tab or pane).
+        const target = event.composedTarget ?? event.target;
+        pasteKeys.set(win, { time: Date.now(), browser: target?.localName == "browser" ? target : null });
       }
     }, { capture: true, mozSystemGroup: true });
   }
 
-  static pastedJustNow(win) {
-    return !!win && Date.now() - (pasteKeys.get(win) ?? -Infinity) < PASTE_GESTURE_MS;
+  static pastedJustNow(win, browser) {
+    const last = win ? pasteKeys.get(win) : null;
+    return !!last?.browser && last.browser == browser && Date.now() - last.time < PASTE_GESTURE_MS;
   }
 
   async receiveMessage(message) {
     // Cmd+V on a focused upload button: the clipboard's file or image, no popup.
     if (message.name == "WhimsyUpload:Paste") {
-      if (!WhimsyUploadParent.pastedJustNow(this.browsingContext.topChromeWindow)) {
+      if (!WhimsyUploadParent.pastedJustNow(this.browsingContext.topChromeWindow, this.browsingContext.top?.embedderElement)) {
         return null;
       }
       const clip = await WhimsyUploadParent.clipboardUpload();

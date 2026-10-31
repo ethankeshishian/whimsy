@@ -22,6 +22,31 @@ export class WhimsyPageParent extends JSWindowActorParent {
     return browser?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browser) ?? null;
   }
 
+  // wave9/secfix (security-full-1 M5): only the URL comes from content. The
+  // principal is the one the parent holds for the page (content or, for a
+  // sandboxed page, null; never system), and the parent itself checks the
+  // page may load the link, as Link Hints does: a compromised renderer
+  // can't open privileged URLs as the system.
+  pagePrincipal(href) {
+    const principal = this.manager?.documentPrincipal;
+    if (typeof href != "string" || !principal || !(principal.isContentPrincipal || principal.isNullPrincipal)) {
+      return null;
+    }
+    try {
+      if (["javascript", "data"].includes(Services.io.extractScheme(href))) {
+        return null;
+      }
+      Services.scriptSecurityManager.checkLoadURIStrWithPrincipal(
+        principal,
+        href,
+        Ci.nsIScriptSecurityManager.DISALLOW_INHERIT_PRINCIPAL
+      );
+    } catch (e) {
+      return null;
+    }
+    return principal;
+  }
+
   receiveMessage(message) {
     switch (message.name) {
       case "Whimsy:VolumeLevel":
@@ -37,8 +62,10 @@ export class WhimsyPageParent extends JSWindowActorParent {
       case "Whimsy:SplitLink": {
         const tab = this.tab;
         const win = tab?.ownerDocument?.defaultView;
-        if (win) {
-          lazy.WhimsySplit.openLinkInSplit(win, tab, message.data.href, message.data.triggeringPrincipal);
+        const href = message.data?.href;
+        const triggeringPrincipal = this.pagePrincipal(href);
+        if (win && triggeringPrincipal) {
+          lazy.WhimsySplit.openLinkInSplit(win, tab, href, triggeringPrincipal);
         }
         return null;
       }

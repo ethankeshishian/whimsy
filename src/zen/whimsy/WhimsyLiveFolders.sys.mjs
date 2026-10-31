@@ -83,6 +83,7 @@ import {
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
+  WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
 });
 
 const JIRA_FEATURE_PREF = "whimsy.feature.live-folders-jira";
@@ -239,7 +240,9 @@ export const WhimsyLiveFolders = {
   // feed, advertises none, or can't be fetched/parsed at all -- in every
   // one of those cases the caller just keeps using `url` as given.
   async discoverFeed(url) {
-    const response = await fetch(url);
+    // wave9/secfix (security-full-1 L4): no cookies; the page only says
+    // where its feed is.
+    const response = await fetch(url, { credentials: "omit" });
     if (!response.ok) {
       return null;
     }
@@ -257,7 +260,17 @@ export const WhimsyLiveFolders = {
       return null;
     }
     try {
-      return new URL(href, url).href;
+      const found = new URL(href, url);
+      // Only an http(s) feed on the public internet, or on the page's own
+      // host: a page can't point polling at file:, jar:, localhost or the
+      // local network (security-full-1 L4). The typed URL is used instead.
+      if (!["http:", "https:"].includes(found.protocol)) {
+        return null;
+      }
+      if (found.host != new URL(url).host && !lazy.WhimsyAIReader.isPublicUrl(found.href)) {
+        return null;
+      }
+      return found.href;
     } catch {
       return null;
     }

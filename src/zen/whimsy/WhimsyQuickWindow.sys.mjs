@@ -353,8 +353,10 @@ export const WhimsyQuickWindow = {
   },
 
   // The spaces a quick window's tab can be moved to.
+  // Not Scratch (wave9/secfix, security-full-1 M2): only private tabs go
+  // there, and Mini's tab is a normal one.
   spaces(win) {
-    return this.mainWindow(win.opener)?.gZenWorkspaces?.getWorkspaces() ?? [];
+    return (this.mainWindow(win.opener)?.gZenWorkspaces?.getWorkspaces() ?? []).filter(space => !space.whimsyScratch);
   },
 
   // The space Cmd+O / the main button's click adopts into: whichever space
@@ -376,6 +378,9 @@ export const WhimsyQuickWindow = {
     // wave5/profiles: another profile's space: Arc's warning, then the page
     // reopens there in that profile (async; nothing is adopted yet).
     const space = target.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
+    if (!space || space.whimsyScratch) {
+      return null;
+    }
     const profileId = lazy.WhimsyProfiles.profileIdOfSpace(space);
     // Always (wave8/isolation): with the Profiles switch off the space's
     // container still decides the tab's cookies.

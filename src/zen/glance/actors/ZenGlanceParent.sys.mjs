@@ -16,7 +16,20 @@ export class ZenGlanceParent extends JSWindowActorParent {
     }
     switch (message.name) {
       case "ZenGlance:OpenGlance": {
-        this.openGlance(this.browsingContext.topChromeWindow, message.data);
+        // Whimsy hotfix: only the URL comes from content; the principal is the
+        // parent's own for the page (content or null, never system).
+        const url = message.data?.url;
+        const principal = this.manager?.documentPrincipal;
+        if (
+          typeof url !== "string" ||
+          !(principal?.isContentPrincipal || principal?.isNullPrincipal)
+        ) {
+          break;
+        }
+        this.openGlance(this.browsingContext.topChromeWindow, {
+          url,
+          triggeringPrincipal: principal,
+        });
         break;
       }
       case "ZenGlance:CloseGlance": {

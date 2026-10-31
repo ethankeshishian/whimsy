@@ -298,12 +298,12 @@ whimsy-disallow-copy-toast = { $site } can block copy and paste again
 ## Internet Archive (notification bar and command bar)
 
 whimsy-action-open-archive = Open in Wayback Machine
-whimsy-archive-bar = This page is gone, but the Internet Archive has a copy.
-# $date (string) - when the copy was saved, e.g. "Jun 2024"
-whimsy-archive-bar-dated = This page is gone, but the Internet Archive has a copy from { $date }.
-whimsy-archive-open =
-    .label = Open the Archived Copy
-    .accesskey = O
+# wave9/secfix: the bar asks first; nothing goes to archive.org until "Look for a Copy".
+whimsy-archive-bar-ask = This page didn’t load. The Internet Archive may have a copy.
+whimsy-archive-look =
+    .label = Look for a Copy
+    .accesskey = L
+whimsy-archive-none-toast = The Internet Archive has no copy of this page
 
 ## Translate selection (shortcut and command bar)
 
@@ -1590,7 +1590,7 @@ whimsy-meeting-untitled = Meeting
 # wave4: extension space picker in about:addons
 whimsy-space-extensions-picker = Run in Profiles
 whimsy-space-extensions-all-text = All Profiles
-whimsy-space-extensions-shared-note = Installed once: its settings and saved data are shared by every profile.
+whimsy-space-extensions-shared-note = Installed once: its settings and saved data are shared by every profile, and it can still read history and downloads from all of them.
 
 # wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
 # title, $url its address.
@@ -3162,3 +3162,13 @@ whimsy-action-expand-all-folders = Expand All Folders
 whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
+
+# wave9/secfix: a normal tab that arrived in Scratch from another window or Mini.
+whimsy-isolation-scratch-moved-toast =
+    { $count ->
+        [one] Only private tabs go in Scratch. The tab moved to another space.
+       *[other] Only private tabs go in Scratch. The tabs moved to another space.
+    }
+
+# wave9/secfix: Favorite This Split refuses a split with a private pane.
+whimsy-split-favorite-private-toast = Splits with private tabs can’t be saved as favorites

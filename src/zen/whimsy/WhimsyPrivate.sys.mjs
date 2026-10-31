@@ -421,10 +421,20 @@ export const WhimsyPrivate = {
     if (PRIVATE_REMOTE_TYPE.test(options.triggeringRemoteType || "")) {
       return true;
     }
+    // wave9/secfix (security-full-1 M1): any principal, not only content
+    // ones. A sandboxed page (CSP sandbox, or a sandboxed frame) has a null
+    // principal that still carries privateBrowsingId, and Glance, split
+    // links and space routing pass only that principal.
     for (const principal of [options.triggeringPrincipal, options.originPrincipal]) {
-      if (principal?.isContentPrincipal && principal.originAttributes?.privateBrowsingId > 0) {
+      if (principal?.originAttributes?.privateBrowsingId > 0) {
         return true;
       }
+    }
+    // A page-started open (Glance) owned by a private tab. Chrome's own
+    // opens (system principal: loadTabs, captive portal) keep their rules.
+    const trigger = options.triggeringPrincipal;
+    if (this.isPrivateTab(options.ownerTab) && trigger && !trigger.isSystemPrincipal) {
+      return true;
     }
     // openPrivateTab already checked the switch and setting. A load from
     // the address bar while it serves private browsing (W8-17) is private

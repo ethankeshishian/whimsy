@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -74,6 +75,13 @@ export const WhimsySplitFavorites = {
     const splitter = win.gZenViewSplitter;
     const splitData = splitter?.splitViewActive ? splitter._data?.[splitter.currentView] : null;
     if (!splitData?.tabs?.length) {
+      return;
+    }
+    // wave9/secfix (security-full-1 L6): a private pane's address is never
+    // saved (it would reopen as a normal tab, and stay on disk).
+    if (lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
+        splitData.tabs.some(tab => lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser))) {
+      win.gZenUIManager?.showToast?.("whimsy-split-favorite-private-toast");
       return;
     }
     const urls = splitData.tabs.map(tab => tab.linkedBrowser.currentURI.spec);

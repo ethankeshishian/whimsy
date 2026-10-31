@@ -1,0 +1,15 @@
+diff --git a/browser/components/extensions/parent/ext-browser.js b/browser/components/extensions/parent/ext-browser.js
+--- a/browser/components/extensions/parent/ext-browser.js
++++ b/browser/components/extensions/parent/ext-browser.js
+@@ -1308,6 +1308,11 @@ class TabManager extends TabManagerBase {
+     if (!this.extension.canAccessWindow(nativeTab.documentGlobal)) {
+       return false;
+     }
++    // Whimsy: private tabs and Scratch live in normal windows, so the
++    // window check can't see them; check the tab itself.
++    if (!this.extension.privateBrowsingAllowed && isPrivateTab(nativeTab)) {
++      return false;
++    }
+     if (
+       this.extension.userContextIsolation &&
+       !this.extension.canAccessContainer(nativeTab.userContextId)

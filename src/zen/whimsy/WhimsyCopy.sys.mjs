@@ -19,9 +19,29 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
+
+// wave9/secfix (security-full-2 L3): what Whimsy copies from private
+// browsing (a private window, a private tab or Scratch) is marked private
+// on the clipboard, as Firefox's own copy is there: clipboard managers
+// skip it (macOS ConcealedType) and large data stays off the disk cache.
+export function browserIsPrivate(win, browser = win?.gBrowser?.selectedBrowser) {
+  try {
+    return lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
+      (!!browser && lazy.PrivateBrowsingUtils.isBrowserPrivate(browser));
+  } catch (e) {
+    return false;
+  }
+}
+
+export function copyText(text, isPrivate) {
+  Cc["@mozilla.org/widget/clipboardhelper;1"]
+    .getService(Ci.nsIClipboardHelper)
+    .copyString(text, null, isPrivate ? Ci.nsIClipboardHelper.Sensitive : Ci.nsIClipboardHelper.NotSensitive);
+}
 ChromeUtils.defineLazyGetter(lazy, "QueryStringStripper", () =>
   Cc["@mozilla.org/url-query-string-stripper;1"].getService(Ci.nsIURLQueryStringStripper)
 );
@@ -46,6 +66,10 @@ function escapeMarkdown(text) {
 }
 
 export const WhimsyCopy = {
+  // For other modules' lazy getters (security-full-2 L3).
+  browserIsPrivate,
+  copyText,
+
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },
@@ -117,7 +141,11 @@ export const WhimsyCopy = {
     for (const tab of tabs) {
       const uri = this.tabURI(tab);
       if (uri && !this.isBlank(uri)) {
-        links.push({ url: this.displaySpec(this.clean(uri)), title: tab.label });
+        links.push({
+          url: this.displaySpec(this.clean(uri)),
+          title: tab.label,
+          isPrivate: !!tab.linkedBrowser && lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser),
+        });
       }
     }
     return links;
@@ -194,9 +222,12 @@ export const WhimsyCopy = {
     };
   },
 
-  writeClipboard(win, { text, html }) {
+  writeClipboard(win, { text, html }, { isPrivate = false } = {}) {
     const transferable = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
     transferable.init(win.docShell.QueryInterface(Ci.nsILoadContext));
+    if (isPrivate) {
+      transferable.isPrivateData = true;
+    }
     const put = (flavor, data) => {
       const str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
       str.data = data;
@@ -207,14 +238,17 @@ export const WhimsyCopy = {
       put("text/html", html);
     }
     put("text/plain", text);
-    Services.clipboard.setData(transferable, null, Ci.nsIClipboard.kGlobalClipboard);
+    Cc["@mozilla.org/widget/clipboard;1"].getService(Ci.nsIClipboard)
+      .setData(transferable, null, Ci.nsIClipboard.kGlobalClipboard);
   },
 
   copy(win, links, { markdown }) {
     if (!links.length) {
       return;
     }
-    this.writeClipboard(win, this.format(links, { markdown }));
+    this.writeClipboard(win, this.format(links, { markdown }), {
+      isPrivate: browserIsPrivate(win) || links.some(link => link.isPrivate),
+    });
     this.showToast(win, links, { markdown });
   },
 

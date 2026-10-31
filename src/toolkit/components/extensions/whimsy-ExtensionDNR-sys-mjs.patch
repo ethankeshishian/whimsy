@@ -1,0 +1,20 @@
+diff --git a/toolkit/components/extensions/ExtensionDNR.sys.mjs b/toolkit/components/extensions/ExtensionDNR.sys.mjs
+--- a/toolkit/components/extensions/ExtensionDNR.sys.mjs
++++ b/toolkit/components/extensions/ExtensionDNR.sys.mjs
+@@ -2019,6 +2019,16 @@ const NetworkIntegration = {
+         rm => rm.extension.privateBrowsingAllowed
+       );
+     }
++    // Whimsy: an extension limited to some profiles (containers) doesn't
++    // act on another profile's requests, as its webRequest doesn't.
++    if (ruleManagers.length) {
++      const { userContextId } = channel.loadInfo.originAttributes;
++      ruleManagers = ruleManagers.filter(
++        rm =>
++          !rm.extension.userContextIsolation ||
++          rm.extension.canAccessContainer(userContextId)
++      );
++    }
+     if (ruleManagers.length && !lazy.gMatchRequestsFromOtherExtensions) {
+       const policy = channel.loadInfo.loadingPrincipal?.addonPolicy;
+       if (policy) {

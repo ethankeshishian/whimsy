@@ -447,7 +447,9 @@ export const Whimsy = {
         esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardChild.sys.mjs",
         events: { paste: { capture: true } },
       },
-      matches: ["https://*/*", "http://*/*", "file:///*"],
+      // wave9/secfix (security-full-2 M1): no URL matches, so about:blank,
+      // srcdoc, blob: and data: frames are guarded too; the child skips
+      // anything that isn't a web (content or null principal) document.
       allFrames: true,
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
@@ -641,7 +643,7 @@ export const Whimsy = {
       // bar ("Turn On/Off Developer Mode"), neutral in about:keyboard.
       const siteIsDev = w => {
         const uri = w.gBrowser.selectedBrowser?.currentURI;
-        return !!uri && lazy.WhimsyDevMode.isDevMode(uri);
+        return !!uri && lazy.WhimsyDevMode.isDevMode(uri, lazy.WhimsyDevMode.isPrivate(w.gBrowser.selectedBrowser));
       };
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-devmode-toggle-site",
@@ -649,7 +651,7 @@ export const Whimsy = {
         run: w => {
           const uri = w.gBrowser.selectedBrowser?.currentURI;
           if (lazy.WhimsyDevMode.enabled && uri) {
-            lazy.WhimsyDevMode.toggleSite(uri);
+            lazy.WhimsyDevMode.toggleSite(uri, lazy.WhimsyDevMode.isPrivate(w.gBrowser.selectedBrowser));
           }
         },
         icon: "chrome://browser/skin/zen-icons/selectable/code.svg",

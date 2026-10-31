@@ -277,6 +277,7 @@ export const WhimsySnooze = {
       url,
       zenWorkspace: justClosed?.zenWorkspace || "",
       userContextId: tab.userContextId ?? 0,
+      snoozedAt: Date.now(),
     };
     this.schedule(win, record);
     this.persist(record);
@@ -376,6 +377,45 @@ export const WhimsySnooze = {
     } catch (e) {
       // Not fatal: at worst a stale entry wakes once more and no-ops.
     }
+  },
+
+  // wave9/secfix (security-full-1 H2): Fire, Clear History and Forget
+  // About This Site forget snoozed tabs too, so they never wake. `matches`
+  // takes a closed tab's state and close time (WhimsyArchive.purge); a
+  // record is matched through its Archive entry, or else its own URL and
+  // profile. Returns how many went.
+  async purge(matches) {
+    const store = await this.store();
+    const stored = new Map(lazy.WhimsyArchive.storedEntries.map(e => [e.id, e]));
+    const gone = [];
+    const kept = store.data.snoozed.filter(record => {
+      const entry = record.closedId != null ? stored.get(record.closedId) : null;
+      const state = entry?.state ?? {
+        entries: record.url ? [{ url: record.url }] : [],
+        userContextId: Number(record.userContextId) || 0,
+      };
+      let hit = true;
+      try {
+        hit = matches(state, entry?.closedAt ?? record.snoozedAt ?? 0);
+      } catch (e) {
+        // Can't tell: forget it rather than keep it.
+      }
+      if (hit) {
+        gone.push(record);
+      }
+      return !hit;
+    });
+    if (!gone.length) {
+      return 0;
+    }
+    for (const record of gone) {
+      this._stopTimer(record);
+    }
+    store.data.snoozed = kept;
+    store._saver?.disarm();
+    await store._save();
+    this._notifyChanged();
+    return gone.length;
   },
 
   // Re-arms (or, if overdue, immediately wakes) whatever was still pending

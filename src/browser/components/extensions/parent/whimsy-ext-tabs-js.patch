@@ -1,0 +1,46 @@
+diff --git a/browser/components/extensions/parent/ext-tabs.js b/browser/components/extensions/parent/ext-tabs.js
+--- a/browser/components/extensions/parent/ext-tabs.js
++++ b/browser/components/extensions/parent/ext-tabs.js
+@@ -233,6 +233,10 @@ this.tabs = class extends ExtensionAPIPersistent {
+           windowWrapper.getHighlightedTabs(),
+           tab => tab.id
+         );
++        // Whimsy: only private tabs (hidden from this extension) changed.
++        if (!tabIds.length) {
++          return;
++        }
+         fire.async({ tabIds: tabIds, windowId: event.windowId });
+       };
+ 
+@@ -454,7 +458,8 @@ this.tabs = class extends ExtensionAPIPersistent {
+         let { gBrowser } = browser.documentGlobal;
+         let tabElem = gBrowser.getTabForBrowser(browser);
+         if (tabElem) {
+-          if (!extension.canAccessWindow(tabElem.documentGlobal)) {
++          // Whimsy: per tab, so private tabs in normal windows stay hidden.
++          if (!tabManager.canAccessTab(tabElem)) {
+             return;
+           }
+ 
+@@ -1025,6 +1030,10 @@ this.tabs = class extends ExtensionAPIPersistent {
+               : windowTracker.getWindow(windowId, context);
+ 
+           let tab = tabManager.getWrapper(window.gBrowser.selectedTab);
++          // Whimsy: a private tab in a normal window.
++          if (!tab) {
++            throw new ExtensionError("Cannot access activeTab");
++          }
+           if (
+             !extension.hasPermission("<all_urls>") &&
+             !tab.hasActiveTabPermission
+@@ -1367,6 +1376,10 @@ this.tabs = class extends ExtensionAPIPersistent {
+                 // We only care about zoom events in the top-level browser of a tab.
+                 return;
+               }
++              // Whimsy: private tabs in normal windows.
++              if (!tabManager.canAccessTab(nativeTab)) {
++                return;
++              }
+ 
+               let oldZoomFactor = zoomLevels.get(browser);
+               let newZoomFactor = getZoomLevel(browser);

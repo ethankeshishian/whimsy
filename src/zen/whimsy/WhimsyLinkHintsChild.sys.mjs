@@ -124,7 +124,9 @@ export class WhimsyLinkHintsChild extends JSWindowActorChild {
   }
 
   handleEvent(event) {
-    if (!this.active) {
+    // wave9/secfix (security-full-1 L3): a page's synthetic keys must not
+    // pick a hint.
+    if (!this.active || !event.isTrusted) {
       return;
     }
     switch (event.type) {

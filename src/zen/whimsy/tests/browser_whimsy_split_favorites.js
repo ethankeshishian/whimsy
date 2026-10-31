@@ -112,3 +112,33 @@ add_task(async function test_favorites_sheet() {
   EventUtils.synthesizeKey("KEY_Escape", {}, window);
   await hidden;
 });
+
+// wave9/secfix (security-full-1 L6): a split with a private pane is never
+// saved, so its address can't stay on disk or reopen as a normal tab.
+add_task(async function test_private_pane_is_never_saved() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const { WhimsyPanels } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs");
+  await clearFavorites();
+  const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fav-normal");
+  const priv = WhimsyPrivate.openPrivateTab(window, { url: "https://example.org/?fav-private", force: true });
+  await BrowserTestUtils.browserLoaded(priv.linkedBrowser, false, "https://example.org/?fav-private");
+  gBrowser.selectedTab = normal;
+  gZenViewSplitter.splitTabs([normal, priv], "vsep");
+  await TestUtils.waitForCondition(() => gZenViewSplitter.splitViewActive, "A split with a private pane");
+  const realAsk = WhimsyPanels.ask;
+  let asked = false;
+  WhimsyPanels.ask = async () => {
+    asked = true;
+    return "Leaky";
+  };
+  try {
+    await WhimsySplitFavorites.favoriteCurrentSplit(window);
+  } finally {
+    WhimsyPanels.ask = realAsk;
+  }
+  ok(!asked, "It doesn't even ask for a name");
+  is((await WhimsySplitFavorites._load()).length, 0, "Nothing was saved");
+  gZenViewSplitter.unsplitCurrentView();
+  BrowserTestUtils.removeTab(priv);
+  BrowserTestUtils.removeTab(normal);
+});
