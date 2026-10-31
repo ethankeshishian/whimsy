@@ -175,11 +175,15 @@ add_task(async function test_tab_badges_gmail_persistence() {
 
   // Opening an email thread: title has subject and Gmail but no count
   await setTitle(tab, "Project Review - test@gmail.com - Gmail");
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.contentTitle == "Project Review - test@gmail.com - Gmail",
+    "The thread's title arrived");
   WhimsyTabs.updateBadge(tab);
   is(stack(tab).getAttribute("whimsy-unread"), "5", "Count persists when opening an email");
 
   // Returning to Inbox with 0 unread
   await setTitle(tab, "Inbox - test@gmail.com - Gmail");
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.contentTitle == "Inbox - test@gmail.com - Gmail",
+    "The inbox's title arrived");
   WhimsyTabs.updateBadge(tab);
   is(stack(tab).getAttribute("whimsy-unread"), null, "Count cleared when in Inbox with 0 unread");
 
