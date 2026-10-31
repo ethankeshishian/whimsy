@@ -128,3 +128,43 @@ add_task(async function test_command_bar() {
   ok(action, "The command bar has Move to New Space…");
   ok(action.isAvailable(window), "offered for the current tab");
 });
+
+add_task(async function test_command_bar_move_to_space() {
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const { WhimsySpaces } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaces.sys.mjs");
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+
+  const home = gZenWorkspaces.activeWorkspace;
+  const targetSpace = await gZenWorkspaces.createAndSaveWorkspace("Command Bar Target Space", undefined, false, 0);
+  WhimsySpaces.syncSpaceActions(window);
+
+  const moveAction = globalActions.find(a => a.commandId == `whimsy:move-to-space-${targetSpace.uuid}`);
+  ok(moveAction, "Move to space action is in globalActions");
+  is(moveAction.label, "Move to", "Action label is Move to");
+  is(moveAction.extraPayload.prettyName, "Command Bar Target Space", "Payload prettyName matches space name");
+  ok(moveAction.whimsyKeywords.includes("Move"), "Has Move keyword");
+  ok(moveAction.whimsyKeywords.includes("Move to"), "Has Move to keyword");
+
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?cmd-bar-move");
+  ok(moveAction.isAvailable(window), "Action is available for foreground web tab");
+
+  let moved = false;
+  const originalMoveToSpace = WhimsySpaces.moveToSpace;
+  WhimsySpaces.moveToSpace = (win, t, id) => {
+    moved = id == targetSpace.uuid && t == tab;
+    return originalMoveToSpace.call(WhimsySpaces, win, t, id);
+  };
+  moveAction.command(window);
+  ok(moved, "Executing command moves tab to the target space");
+  WhimsySpaces.moveToSpace = originalMoveToSpace;
+
+  const nextCmd = WhimsyCommands.get("cmd_whimsyMoveTabToNextSpace");
+  const prevCmd = WhimsyCommands.get("cmd_whimsyMoveTabToPrevSpace");
+  ok(nextCmd, "cmd_whimsyMoveTabToNextSpace is registered");
+  ok(prevCmd, "cmd_whimsyMoveTabToPrevSpace is registered");
+  is(WhimsyCommands.title(nextCmd), "Move Tab to Next Space", "Title matches");
+  is(WhimsyCommands.title(prevCmd), "Move Tab to Previous Space", "Title matches");
+
+  await cleanup(home, [tab]);
+});
+

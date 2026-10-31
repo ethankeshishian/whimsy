@@ -777,6 +777,7 @@ export const WhimsyVerbs = {
   },
 
   async runVerb(win, verbId, subject) {
+    subject ??= await this.subjectFor(win);
     const verb = this.verbsFor(win, subject).find(v => v.id == verbId);
     if (!verb) {
       return false;
@@ -833,6 +834,106 @@ export const WhimsyVerbs = {
       parent.append(keyset);
     }
     shortcuts.addKey(win, { id: KEY_ID, command: KEY_COMMAND_ID, key: "K", modifiers: "accel" });
+    this.initCommands(win);
+    this.initContextMenu(win);
+  },
+
+  initCommands(win) {
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVerbMap",
+      l10nId: "whimsy-verb-map",
+      run: w => this.runVerb(w, "map"),
+      icon: `${ICONS}geo.svg`,
+      isAvailable: w => this.enabled && isWebPage(w),
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVerbEmail",
+      l10nId: "whimsy-verb-email",
+      run: w => this.runVerb(w, "email"),
+      icon: `${ICONS}mail.svg`,
+      isAvailable: w => this.enabled && isWebPage(w),
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVerbNote",
+      l10nId: "whimsy-verb-note",
+      run: w => this.runVerb(w, "note"),
+      icon: `${ICONS}reader-mode.svg`,
+      isAvailable: w => this.enabled && Services.prefs.getBoolPref(NOTES_PREF, true) && isWebPage(w),
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVerbCalendar",
+      l10nId: "whimsy-verb-calendar",
+      run: w => this.runVerb(w, "calendar"),
+      icon: `${ICONS}history.svg`,
+      isAvailable: w => this.enabled && isWebPage(w),
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVerbLinearNew",
+      l10nId: "whimsy-verb-linear-new",
+      run: w => this.runVerb(w, "linear-new"),
+      icon: `${ICONS}plus.svg`,
+      isAvailable: w => this.enabled && this.linearConfigured() && isWebPage(w),
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVerbLinearSearch",
+      l10nId: "whimsy-verb-linear-search",
+      run: w => this.runVerb(w, "linear-search"),
+      icon: `${ICONS}search-page.svg`,
+      isAvailable: w => this.enabled && this.linearConfigured() && isWebPage(w),
+    });
+  },
+
+  initContextMenu(win) {
+    const menu = win.document.getElementById("contentAreaContextMenu");
+    if (!menu) {
+      return;
+    }
+    menu.addEventListener("popupshowing", event => {
+      if (event.target == menu) {
+        this.updateContextMenu(win);
+      }
+    });
+  },
+
+  updateContextMenu(win) {
+    const { document } = win;
+    const context = win.gContextMenu;
+    const isSelection = this.enabled && !!context?.isContentSelected && !context.onTextInput && !context.onEditable;
+    const selectedText = (context?.selectionInfo?.fullText || context?.selectedText || "").trim();
+
+    const verbsToOffer = [
+      { verb: "map", domId: "context-whimsy-verb-map", l10nId: "whimsy-verb-map", available: selectedText.length > 0 && selectedText.length <= 200 },
+      { verb: "email", domId: "context-whimsy-verb-email", l10nId: "whimsy-verb-email", available: selectedText.length > 0 },
+      { verb: "note", domId: "context-whimsy-verb-note", l10nId: "whimsy-verb-note", available: selectedText.length > 0 && Services.prefs.getBoolPref(NOTES_PREF, true) },
+      { verb: "calendar", domId: "context-whimsy-verb-calendar", l10nId: "whimsy-verb-calendar", available: selectedText.length > 0 && !!parseEvent(selectedText) },
+      { verb: "linear-new", domId: "context-whimsy-verb-linear-new", l10nId: "whimsy-verb-linear-new", available: selectedText.length > 0 && this.linearConfigured() },
+      { verb: "linear-search", domId: "context-whimsy-verb-linear-search", l10nId: "whimsy-verb-linear-search", available: selectedText.length > 0 && this.linearConfigured() },
+    ];
+
+    let anchor = document.getElementById("context-whimsy-copy-markdown") || document.getElementById("context-copy");
+
+    for (const v of verbsToOffer) {
+      let item = document.getElementById(v.domId);
+      if (!isSelection || !v.available) {
+        if (item) {
+          item.hidden = true;
+        }
+        continue;
+      }
+      if (!item) {
+        item = document.createXULElement("menuitem");
+        item.id = v.domId;
+        item.setAttribute("data-l10n-id", v.l10nId);
+        item.addEventListener("command", () => {
+          this.runVerb(win, v.verb).catch(console.error);
+        });
+      }
+      item.hidden = false;
+      if (anchor && anchor.nextElementSibling != item) {
+        anchor.after(item);
+      }
+      anchor = item;
+    }
   },
 };
 

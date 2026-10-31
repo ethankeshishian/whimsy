@@ -122,3 +122,38 @@ add_task(async function test_w8_49_notes_per_profile() {
   const postDelete = await gWhimsyNotesStore.list("work-profile");
   is(postDelete.length, 0, "Deleting profile cleans up its notes");
 });
+
+add_task(async function test_new_note_command_and_context_menu() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const { WhimsyMenuPrefs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs");
+  const { WhimsyNotes, gWhimsyNotesStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
+
+  const cmd = WhimsyCommands.get("cmd_whimsyCreateNote");
+  ok(cmd, "cmd_whimsyCreateNote is registered in WhimsyCommands");
+  is(WhimsyCommands.title(cmd), "New Note", "Command title is New Note");
+
+  const pageMenu = WhimsyMenuPrefs.menu("page");
+  ok(pageMenu, "Page menu exists in WhimsyMenuPrefs");
+  ok(pageMenu.items.some(item => item.id == "new-note"), "Page menu in Menus settings offers new-note");
+
+  const originalGContextMenu = window.gContextMenu;
+  window.gContextMenu = {
+    isContentSelected: false,
+    onTextInput: false,
+    onEditable: false,
+  };
+
+  WhimsyNotes.updateContextMenu(window);
+  const noteMenuItem = document.getElementById("context-whimsy-new-note");
+  ok(noteMenuItem && !noteMenuItem.hidden, "New Note context menu item exists and is visible on page");
+
+  const countBefore = (await gWhimsyNotesStore.list()).length;
+  const createdNote = await WhimsyNotes.createNote(window, { title: "Test Note" });
+  ok(createdNote, "Note created");
+  const countAfter = (await gWhimsyNotesStore.list()).length;
+  is(countAfter, countBefore + 1, "Notes store has one more note");
+
+  await gWhimsyNotesStore.remove(createdNote.id);
+  window.gContextMenu = originalGContextMenu;
+});
+

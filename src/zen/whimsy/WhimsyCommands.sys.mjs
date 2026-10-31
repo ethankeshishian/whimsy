@@ -371,20 +371,22 @@ export const WhimsyCommands = {
   // Command-bar actions are session-wide (Zen keeps one list).
   addToCommandBar(entry, spec) {
     const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
-    const actions = spec.variants?.length ? spec.variants : [{ l10nId: spec.l10nId, isAvailable: spec.isAvailable }];
+    const actions = spec.variants?.length ? spec.variants : [{ l10nId: spec.l10nId, isAvailable: spec.isAvailable, run: spec.run }];
     for (const variant of actions) {
       if (globalActions.some(a => a.l10nId == variant.l10nId)) {
         continue;
       }
       let label = null;
       const isAvailable = variant.isAvailable ?? spec.isAvailable ?? (() => true);
+      const run = variant.run ?? spec.run;
       globalActions.push({
         l10nId: variant.l10nId,
-        command: entry.id,
+        command: typeof run == "function" ? run : entry.id,
         commandId: entry.id,
         icon: spec.icon,
         extraPayload: {},
         whimsyCommand: entry.id,
+        whimsyKeywords: spec.whimsyKeywords ?? variant.whimsyKeywords,
         isAvailable: win => {
           try {
             return !!isAvailable(win);

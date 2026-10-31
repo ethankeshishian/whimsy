@@ -1561,7 +1561,7 @@ tab[whimsy-unread] {
 /* batch3glance: Glance size. Zen's arc animates to the same width
    (gZenGlanceManager.whimsyWidthPercent), so the card never jumps. */
 :root[whimsy-glance-sizing] :is(.browserSidebarContainer.zen-glance-overlay, #zen-glance-detached) .browserContainer {
-  width: var(--whimsy-glance-width, 80%);
+  width: var(--whimsy-glance-width, 80%) !important;
 }
 
 /* wave3/tree: tree disclosure buttons. Folding hides tabs with its own

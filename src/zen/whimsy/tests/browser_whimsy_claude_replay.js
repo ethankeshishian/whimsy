@@ -266,3 +266,12 @@ add_task(async function test_no_tokens_or_codes_on_disk() {
   ok(run.steps.some(s => s.url == PAGE), "with the page's address");
   BrowserTestUtils.removeTab(tab);
 });
+
+add_task(async function test_view_claude_replays_command() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const entry = WhimsyCommands.get("cmd_whimsyViewClaudeReplays");
+  ok(entry, "View Claude in Whimsy Replays command is registered");
+  is(WhimsyCommands.title(entry), "View Claude in Whimsy Replays", "Title matches");
+  const commandEl = document.getElementById("cmd_whimsyViewClaudeReplays");
+  ok(commandEl, "Command element exists in window");
+});

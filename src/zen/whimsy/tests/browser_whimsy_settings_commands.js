@@ -46,11 +46,13 @@ add_task(async function test_glance_size() {
 });
 
 add_task(async function test_liquid_glass() {
+  const cmd = document.getElementById("cmd_whimsyLiquidGlassToggle");
+  ok(cmd, "cmd_whimsyLiquidGlassToggle is registered");
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.look.liquid-glass", false]] });
   const on = action("whimsy-action-liquid-glass-on");
   const off = action("whimsy-action-liquid-glass-off");
-  if (!AppConstants.isPlatformAndVersionAtLeast("macosx", "25")) {
-    ok(!on.isAvailable(window) && !off.isAvailable(window), "No Liquid Glass before macOS 26");
+  if (AppConstants.platform != "macosx") {
+    ok(!on.isAvailable(window) && !off.isAvailable(window), "No Liquid Glass outside macOS");
   } else {
     ok(on.isAvailable(window) && !off.isAvailable(window), "Off: Turn On is offered");
     on.command(window);

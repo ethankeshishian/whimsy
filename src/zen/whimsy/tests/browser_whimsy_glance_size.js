@@ -71,3 +71,32 @@ add_task(async function test_switch_off_hands_back_to_zen() {
   ok(document.documentElement.hasAttribute("whimsy-glance-sizing"), "Turning it back on applies at once");
   Services.prefs.clearUserPref(SIZE_PREF);
 });
+
+add_task(async function test_resizes_already_open_glance() {
+  const parent = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  Services.prefs.setStringPref(SIZE_PREF, "standard");
+  await openGlanceOnTab(window, async glanceTab => {
+    const wrapper = glanceTab.linkedBrowser.closest(".browserContainer");
+    await TestUtils.waitForCondition(
+      () => wrapper.getAttribute("has-finished-animation") == "true",
+      "The Glance finished opening"
+    );
+    const panels = gBrowser.tabpanels.getBoundingClientRect().width;
+    let fraction = wrapper.getBoundingClientRect().width / panels;
+    Assert.less(Math.abs(fraction - 0.8), 0.01, "Starts standard (80%)");
+
+    Services.prefs.setStringPref(SIZE_PREF, "wide");
+    await TestUtils.waitForCondition(
+      () => Math.abs(wrapper.getBoundingClientRect().width / panels - 0.9) < 0.01,
+      "Resized to wide (90%) while open"
+    );
+
+    Services.prefs.setStringPref(SIZE_PREF, "compact");
+    await TestUtils.waitForCondition(
+      () => Math.abs(wrapper.getBoundingClientRect().width / panels - 0.6) < 0.01,
+      "Resized to compact (60%) while open"
+    );
+  });
+  BrowserTestUtils.removeTab(parent);
+  Services.prefs.clearUserPref(SIZE_PREF);
+});

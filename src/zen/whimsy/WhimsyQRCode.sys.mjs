@@ -90,6 +90,7 @@ export const WhimsyQRCode = {
     lazy.WhimsyCommands.register(win, {
       id: COMMAND_ID,
       l10nId: "whimsy-action-qrcode",
+      whimsyKeywords: ["QR Code", "Create QR Code", "Share QR Code", "QR"],
       run: w => this.show(w),
       icon: QR_ICON,
       isAvailable: w => !!this.urlFor(w),

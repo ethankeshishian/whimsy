@@ -289,6 +289,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyIsolation: "resource:///modules/whimsy/WhimsyIsolation.sys.mjs",
 });
 
+// wave8/cmds: W8-42 New Note command and menu item.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -756,7 +761,7 @@ export const Whimsy = {
 
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.
-    later("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
+    run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
 
     // wave5/quick: Copy page as Markdown (page menu and command bar); checks
     // its switch on use.
@@ -884,6 +889,8 @@ export const Whimsy = {
         ?.then(() => lazy.WhimsyIsolation.initWindow(win))
         .catch(e => console.error("Whimsy: isolation", e))
     );
+    // wave8/cmds: W8-42 New Note command and menu item.
+    run("notes", () => lazy.WhimsyNotes.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

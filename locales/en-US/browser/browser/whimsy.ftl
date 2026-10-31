@@ -2407,6 +2407,7 @@ whimsy-link-hover-ai-label = Summary
 
 # fix7 settings: command bar actions for History, Liquid Glass and Glance size.
 whimsy-action-view-history = View History
+whimsy-action-liquid-glass = Liquid Glass
 whimsy-action-liquid-glass-on = Turn Liquid Glass On
 whimsy-action-liquid-glass-off = Turn Liquid Glass Off
 whimsy-action-glance-size-compact = Glance Size: Compact
@@ -2791,6 +2792,8 @@ whimsy-menus-page-qr-code =
     .label = QR Code for Page
 whimsy-menus-page-copy-markdown =
     .label = Copy Page as Markdown
+whimsy-menus-page-new-note =
+    .label = New Note
 whimsy-menus-page-screenshot =
     .label = Take Screenshot
 whimsy-menus-page-edit-text =
@@ -2810,6 +2813,18 @@ whimsy-menus-selection-copy =
     .label = Copy
 whimsy-menus-selection-copy-markdown =
     .label = Copy Selection as Markdown
+whimsy-menus-selection-map =
+    .label = Show in Maps
+whimsy-menus-selection-email =
+    .label = Email
+whimsy-menus-selection-note =
+    .label = Add to Note
+whimsy-menus-selection-calendar =
+    .label = Add to Calendar
+whimsy-menus-selection-linear-new =
+    .label = New Linear Issue
+whimsy-menus-selection-linear-search =
+    .label = Search Linear
 whimsy-menus-selection-print =
     .label = Print Selection…
 whimsy-menus-selection-copy-highlight =
@@ -3111,4 +3126,16 @@ whimsy-history-deleted-spaces = Deleted spaces
 whimsy-live-folder-resync = Resync
 whimsy-action-resync-live-folder = Resync Live Folder
 
+## wave8/cmds: View Claude in Whimsy Replays command
+whimsy-action-view-claude-replays = View Claude in Whimsy Replays
+
+## wave8/cmds: W8-10 Move tab to another space (Arc parity)
+whimsy-action-move-to = Move to
+whimsy-action-move-tab-next-space = Move Tab to Next Space
+whimsy-action-move-tab-prev-space = Move Tab to Previous Space
+
+## wave8/cmds: W8-42 New Note command and menu item
+whimsy-action-create-note = New Note
+whimsy-context-new-note = New Note
+whimsy-note-created-toast = Created a new note
 

@@ -47,6 +47,8 @@ add_task(async function test_downloads_and_console() {
     is(consoleKey.getAttribute("modifiers"), "accel,alt", "The Browser Console moved to Cmd+Opt+J");
     noOtherKey("key_browserConsole");
   }
+  is(binding("zen-library-toggle"), "accel,shift|L", "Open Library remains Cmd+Shift+L after delayed startup");
+  noOtherKey("zen-library-toggle");
 });
 
 add_task(function test_blank_window() {

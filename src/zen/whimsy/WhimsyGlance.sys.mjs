@@ -32,13 +32,20 @@ export const WhimsyGlance = {
   apply(win) {
     const root = win.document.documentElement;
     const width = this.widthPercent();
+    const wrapper = win.gZenGlanceManager?.browserWrapper;
     if (width === null) {
       root.style.removeProperty("--whimsy-glance-width");
       root.removeAttribute("whimsy-glance-sizing");
+      if (wrapper) {
+        wrapper.style.width = "80%";
+      }
       return;
     }
     root.style.setProperty("--whimsy-glance-width", `${width}%`);
     root.setAttribute("whimsy-glance-sizing", "true");
+    if (wrapper) {
+      wrapper.style.width = `${width}%`;
+    }
   },
 
   initWindow(win) {
