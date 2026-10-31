@@ -123,6 +123,20 @@ def playlist(t):
             f'<path fill="context-stroke" d="{play}"/><path {STROKE} d="{play}"/></g>')
 
 
+def easels(t):
+    # An easel: the canvas rocks on its stand as a stroke is painted across
+    # it (Arc's Easels), then settles.
+    tilt = -7 * spring(t, freq=1.1, decay=5.0)
+    canvas = "M22 18h84a8 8 0 0 1 8 8v52a8 8 0 0 1-8 8H22a8 8 0 0 1-8-8V26a8 8 0 0 1 8-8Z"
+    legs = line("M40 86 28 116") + line("M88 86l12 30") + line("M64 86v30")
+    if t == 0:
+        k = 1.0
+    else:
+        k = ease_in_out((t - 0.1) / 0.45)
+    stroke = line(f"M34 62c10-14 20-14 30 0s20 14 30 0", f'stroke-dasharray="72" stroke-dashoffset="{72 * (1 - k):.2f}"') if k > 0.02 else ""
+    return (f'<g transform="rotate({tilt:.2f} 64 116)">{body(canvas)}{stroke}</g>{legs}')
+
+
 ICONS = {
     "notes": notes,
     "folders": folders,
@@ -130,6 +144,7 @@ ICONS = {
     "meeting": meeting,
     "archive": archive,
     "playlist": playlist,
+    "easels": easels,
 }
 
 

@@ -294,6 +294,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 
+// wave5: Easel.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -892,6 +897,10 @@ export const Whimsy = {
     );
     // wave8/cmds: W8-42 New Note command and menu item.
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
+
+    // wave5: Easel (Arc's Easels). Always installed: the command, the
+    // capture button and the page each check whimsy.feature.easel on use.
+    run("easel", () => lazy.WhimsyEasel.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },
