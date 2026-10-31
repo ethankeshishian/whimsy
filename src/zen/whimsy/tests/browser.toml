@@ -638,3 +638,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 # wave9/secfix L2/L3: follower panes, link lasso and link hints ignore a page's synthetic events.
 ["browser_whimsy_security_untrusted_events.js"]
 support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
+# wave9/secfix L1: Zap is off in private browsing, so a private site never reaches the Boost store.
+["browser_whimsy_security_private_zap.js"]
