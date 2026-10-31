@@ -616,3 +616,7 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave8 lane: every Whimsy menu row has a .label (native menus).
 ["browser_whimsy_menu_labels.js"]
+
+# wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
+["browser_whimsy_site_settings.js"]
+support-files = ["whimsy_article.html"]

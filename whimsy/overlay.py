@@ -1153,6 +1153,11 @@ FEATURES = [
     # wave8/folders: Live folders: a Resync option that brings back tabs closed by hand (W8-26).
     {"id": "live-folders-resync", "title": "Resync live folder: bring back tabs closed by hand",
      "detect": [("src/zen/live-folders", r"(?i)resync")]},
+    # wave9: W9-04 site settings (Lens's "Settings for each site"): a "This
+    # Site" section in Zen's site panel for zoom, autoplay, always Reader,
+    # full screen and the user agent, each forgettable, plus Forget All.
+    {"id": "site-settings", "title": "Site settings: the site panel remembers a site's zoom, autoplay, Reader View, full screen and user agent, and forgets them one by one or all at once",
+     "detect": [("src/zen", r"(?i)always-?open-?in-?reader|per-?site-?settings|site-?settings-?section")]},
 ]
 
 

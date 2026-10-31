@@ -3162,3 +3162,28 @@ whimsy-action-expand-all-folders = Expand All Folders
 whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
+## wave9: W9-04 site settings ("This Site" in the site panel)
+whimsy-action-site-settings = Site Settings…
+whimsy-site-settings-title = This Site
+whimsy-site-settings-forget-all = Forget All
+whimsy-site-settings-forget =
+    .tooltiptext = Forget
+    .aria-label = Forget
+whimsy-site-settings-zoom = Zoom
+# $percent (number) - the page's zoom level, e.g. 110
+whimsy-site-settings-zoom-value = { $percent }%
+whimsy-site-settings-zoom-reset =
+    .tooltiptext = Reset Zoom
+    .aria-label = Reset Zoom
+whimsy-site-settings-reader = Always Open in Reader View
+whimsy-site-settings-fullscreen = Open in Full Screen
+whimsy-site-settings-on = On
+whimsy-site-settings-off = Off
+whimsy-site-settings-useragent = Pretend to Be
+whimsy-site-settings-useragent-default = Whimsy (default)
+whimsy-site-settings-useragent-chrome-mac = Chrome
+whimsy-site-settings-useragent-safari-mac = Safari
+whimsy-site-settings-useragent-safari-iphone = iPhone (mobile site)
+whimsy-site-settings-useragent-custom = Custom
+# $site (string) - the site's host, e.g. example.com
+whimsy-site-settings-forgot-toast = Forgot settings for { $site }

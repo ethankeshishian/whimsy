@@ -294,6 +294,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 
+// wave9: W9-04 site settings ("This Site" in Zen's site panel).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySiteSettings: "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -892,6 +897,20 @@ export const Whimsy = {
     );
     // wave8/cmds: W8-42 New Note command and menu item.
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
+    // wave9: W9-04 site settings. Always wired (each part checks the
+    // switch on use) so turning the switch on needs no restart; the
+    // "Site Settings…" command opens Zen's site panel on the section.
+    run("site-settings", () => {
+      lazy.WhimsySiteSettings.initWindow(win);
+      lazy.WhimsyCommands.register(win, {
+        id: "cmd_whimsySiteSettings",
+        l10nId: "whimsy-action-site-settings",
+        run: w => lazy.WhimsySiteSettings.open(w),
+        icon: "chrome://browser/skin/zen-icons/settings.svg",
+        isAvailable: w => lazy.WhimsySiteSettings.enabled && !!lazy.WhimsySiteSettings.siteOf(w.gBrowser.selectedBrowser),
+        menu: "tools-menu",
+      });
+    });
 
     this.runDeferred(win, deferred, run);
   },
