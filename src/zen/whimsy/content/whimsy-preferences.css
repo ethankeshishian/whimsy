@@ -213,3 +213,11 @@
     margin-inline-start: var(--space-large, 16px);
   }
 }
+
+/* fix/panes: Firefox's Browser theme group (with its Manage themes link) is
+   the one home for themes in Look and Feel. Zen's stylesheet hides every
+   browserTheme group; bring back just this one, and only while its pane
+   shows it. */
+setting-group[groupid="browserTheme"][data-category="paneZenLooks"]:not([hidden]) {
+  display: inline !important;
+}
