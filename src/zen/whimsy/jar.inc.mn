@@ -100,6 +100,7 @@
         content/browser/whimsy/library/library-folders-sprite.svg (../../zen/whimsy/content/library/library-folders-sprite.svg)
         content/browser/whimsy/library/library-meeting-sprite.svg (../../zen/whimsy/content/library/library-meeting-sprite.svg)
         content/browser/whimsy/library/library-notes-sprite.svg (../../zen/whimsy/content/library/library-notes-sprite.svg)
+        content/browser/whimsy/library/library-easels-sprite.svg (../../zen/whimsy/content/library/library-easels-sprite.svg)
         content/browser/whimsy/library/library-playlist-sprite.svg (../../zen/whimsy/content/library/library-playlist-sprite.svg)
         content/browser/whimsy/library/library-screenshots-sprite.svg (../../zen/whimsy/content/library/library-screenshots-sprite.svg)
 # fix/kit: the Whimsy balloon replaces Firefox's Kit mascot (chrome overrides, no Firefox files edited)

@@ -2642,16 +2642,10 @@ panel.whimsy-space-look .whimsy-sheet-body {
   }
 }
 
-/* wave5: Easels in the Library (same treatment as the batch4 rail icons). */
-:is(.zen-library-tab, .zen-library-section)[data-section="whimsy-easels"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
-  width: var(--zen-library-sprite-size);
-  background-image: url("chrome://browser/skin/zen-icons/paintbrush.svg");
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  fill: var(--stroke);
-  animation: none !important;
-  transform: none !important;
+/* wave5: Easels in the Library: a 36-frame sprite like the other rail
+   icons (whimsy/library_sprites.py), so it plays and fills in the same way. */
+[data-section="whimsy-easels"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/content/whimsy/library/library-easels-sprite.svg");
 }
 
 whimsy-library-easels-section .zen-library-empty {
