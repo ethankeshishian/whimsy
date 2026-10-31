@@ -341,67 +341,6 @@ add_task(async function wave5_space_look() {
   }
 });
 
-// wave5: Easel, light and dark: text, a drawing, shapes, a link and a
-// selected capture with its bar, plus the empty state.
-add_task(async function wave5_easel() {
-  const { WhimsyEasel, gWhimsyEaselStore } = ChromeUtils.importESModule(
-    "resource:///modules/whimsy/WhimsyEasel.sys.mjs"
-  );
-  for (const dark of [0, 1]) {
-    await SpecialPowers.pushPrefEnv({
-      set: [
-        ["whimsy.feature.easel", true],
-        ["ui.systemUsesDarkTheme", dark],
-        ["ui.prefersReducedMotion", 1],
-      ],
-    });
-    const scheme = dark ? "dark" : "light";
-    const empty = await WhimsyEasel.newEasel(window);
-    const easel = await gWhimsyEaselStore.create({ title: "Weekend in Lisbon" });
-    try {
-      let browser = gBrowser.selectedBrowser;
-      await TestUtils.waitForCondition(() => browser.contentDocument?.documentElement?.getAttribute("ready") == "true");
-      await shot(`wave5-easel-empty-${scheme}`, browser.browsingContext.currentWindowGlobal);
-      gBrowser.unpinTab(gBrowser.selectedTab);
-      BrowserTestUtils.removeTab(gBrowser.selectedTab);
-
-      const pageTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
-      const capture = await WhimsyEasel.captureRegion(pageTab.linkedBrowser, {
-        region: { left: 0, top: 0, right: 640, bottom: 300 },
-        devicePixelRatio: 2,
-        viewportWidth: 1280,
-        viewportHeight: 800,
-      });
-      BrowserTestUtils.removeTab(pageTab);
-      const image = await gWhimsyEaselStore.saveImage(easel.id, new Uint8Array(await capture.blob.arrayBuffer()));
-      const items = [
-        { id: "t1", type: "text", x: 0, y: 0, w: 360, h: 58, text: "Weekend in Lisbon", font: "serif", size: 44, color: "ink", auto: false },
-        { id: "t2", type: "text", x: 2, y: 70, w: 320, h: 24, text: "Pastéis, tram 28, sunset at the miradouro", font: "sans", size: 18, color: "gray", auto: false },
-        { id: "c1", type: "capture", ...capture.item, image, x: 0, y: 130, w: 420, h: 197 },
-        { id: "s1", type: "shape", shape: "rect", x: 470, y: 130, w: 220, h: 120, color: "orange", width: 4, fill: "tint" },
-        { id: "s2", type: "shape", shape: "arrow", x: 430, y: 255, w: 90, h: 60, color: "purple", width: 4, fill: null, flipX: true, flipY: false },
-        { id: "p1", type: "pen", x: 490, y: 160, w: 180, h: 60, vw: 180, vh: 60, d: "M4 40Q30 6 60 30Q90 54 120 24Q150 2 176 30", color: "blue", width: 4 },
-        { id: "h1", type: "pen", x: 0, y: 64, w: 230, h: 36, vw: 230, vh: 36, d: "M8 18L222 18", color: "yellow", width: 16, highlighter: true },
-        { id: "l1", type: "link", x: 470, y: 280, w: 300, h: 72, url: "https://example.com/", title: "Example Domain" },
-      ];
-      await gWhimsyEaselStore.update(easel.id, { items, view: { x: 120, y: 120, zoom: 1 } });
-      const tab = WhimsyEasel.openEasel(window, easel.id);
-      browser = tab.linkedBrowser;
-      await TestUtils.waitForCondition(() => browser.contentDocument?.documentElement?.getAttribute("ready") == "true");
-      const app = browser.contentWindow.gWhimsyEasel;
-      app.select(["c1"]);
-      await TestUtils.waitForCondition(() => [...browser.contentDocument.images].every(i => i.complete));
-      await new Promise(r => browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(r)));
-      await shot(`wave5-easel-${scheme}`, browser.browsingContext.currentWindowGlobal);
-      BrowserTestUtils.removeTab(tab);
-    } finally {
-      await gWhimsyEaselStore.remove(easel.id);
-      await gWhimsyEaselStore.remove(empty.id);
-      await SpecialPowers.popPrefEnv();
-    }
-  }
-});
-
 // wave5/uxfix: naming a Split Favorite asks in the window's own sheet (the
 // Delete Space style), in light and dark, once the sheet has settled.
 add_task(async function uxfix_split_favorite_name_sheet() {

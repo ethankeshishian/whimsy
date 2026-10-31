@@ -284,11 +284,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTeachHints: "resource:///modules/whimsy/WhimsyTeachHints.sys.mjs",
 });
 
-// wave5: Easel.
-ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
-});
-
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -876,10 +871,6 @@ export const Whimsy = {
     // wave7/small: Link hints and Instant result Teach once hints; they
     // register only in a build that has WhimsyTeach (once per session).
     later("teach-hints", () => lazy.WhimsyTeachHints.init());
-
-    // wave5: Easel (Arc's Easels). Always installed: the command, the
-    // capture button and the page each check whimsy.feature.easel on use.
-    run("easel", () => lazy.WhimsyEasel.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

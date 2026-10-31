@@ -420,9 +420,6 @@
 - name: whimsy.feature.space-look
   value: true
 
-- name: whimsy.feature.easel
-  value: true
-
 - name: whimsy.feature.command-registry
   value: true
 
