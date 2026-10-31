@@ -312,6 +312,10 @@ support-files = ["whimsy_video_sound.html", "whimsy_video_sound.mp4", "whimsy_me
 ["browser_whimsy_pip_close.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 
+# W9-15: the pointer stays visible after every way of popping a video out.
+["browser_whimsy_pip_cursor.js"]
+support-files = ["whimsy_pip_cursor.html", "whimsy_video_sound.mp4"]
+
 # wave3/icons: Arc's space icon picker (glyph order, plate, close on pick, skin tones).
 ["browser_whimsy_space_icons.js"]
 # wave3/speed: speed control on videos (hover, presets, typed speed, per-site memory).

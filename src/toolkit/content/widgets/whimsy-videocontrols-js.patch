@@ -1,0 +1,29 @@
+diff --git a/toolkit/content/widgets/videocontrols.js b/toolkit/content/widgets/videocontrols.js
+index b0cfc4b4b5ed3195455618e7a3e39fa4945e0c68..63fabe7817f91a9b7e3eaea6b03f46eeb01fb3f3 100644
+--- a/toolkit/content/widgets/videocontrols.js
++++ b/toolkit/content/widgets/videocontrols.js
+@@ -1095,6 +1095,11 @@ this.VideoControlsImplWidget = class {
+           VideoControlsWidget.isPictureInPictureVideo(this.video);
+         this.pictureInPictureOverlay.hidden = !showMessage;
+         this.isShowingPictureInPictureMessage = showMessage;
++        if (showMessage) {
++          // Whimsy (W9-15): the video is in the player now; never keep the
++          // pointer hidden over its placeholder.
++          this.controlsSpacer.removeAttribute("hideCursor");
++        }
+       },
+ 
+       hasSources() {
+@@ -1753,6 +1758,12 @@ this.VideoControlsImplWidget = class {
+ 
+         if (this.isVideoInFullScreen) {
+           this.startFadeOut(this.controlBar, true);
++        } else {
++          // Whimsy (W9-15): the pointer is only hidden while the video is full
++          // screen. Leaving it (Esc, or popping the video out to
++          // Picture-in-Picture) with the controls faded left the pointer
++          // hidden over the video until they faded in again.
++          this.controlsSpacer.removeAttribute("hideCursor");
+         }
+ 
+         this.setFullscreenButtonState();
