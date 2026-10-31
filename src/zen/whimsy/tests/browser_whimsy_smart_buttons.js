@@ -6,6 +6,12 @@
 // wave9: W9-06 Smart address bar buttons (Lens/Arc parity).
 // Reader, Translate, media, and Downloads in progress appear beside the address
 // bar only when relevant, reusing existing Firefox/Zen buttons without duplicates.
+// Reviews R-D4-H3, R-D4-M8, R-D4-M9, R-D5-N5, R-D5-M8, security-full-2:
+// - never hide Firefox's Downloads button when the feature is off
+// - never overwrite the user's PiP-in-urlbar or download-autohide prefs
+// - don't move the button; leave placement to toolbar customization
+// - drop audio repurposing of PiP button; separate PiP & Media commands with isAvailable & icons
+// - scope download watcher to public in normal windows
 
 ChromeUtils.defineESModuleGetters(this, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
@@ -13,44 +19,122 @@ ChromeUtils.defineESModuleGetters(this, {
 });
 
 const FEATURE_PREF = "whimsy.feature.smart-buttons";
+const PIP_URLBAR_PREF = "media.videocontrols.picture-in-picture.urlbar-button.enabled";
+const DOWNLOADS_AUTOHIDE_PREF = "browser.download.autohideButton";
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
       [FEATURE_PREF, true],
-      ["media.videocontrols.picture-in-picture.urlbar-button.enabled", true],
-      ["browser.download.autohideButton", true],
+      [PIP_URLBAR_PREF, true],
+      [DOWNLOADS_AUTOHIDE_PREF, true],
     ],
   });
   WhimsySmartButtons.initWindow(window);
 });
 
-add_task(async function test_smart_buttons_registry_and_layout() {
+add_task(async function test_smart_buttons_registry_and_availability() {
   ok(WhimsySmartButtons.enabled, "Smart buttons feature is enabled");
 
-  // Commands in WhimsyCommands registry with assignable shortcuts
-  const readerCmd = WhimsyCommands.get("cmd_whimsyToggleReader");
-  ok(readerCmd, "cmd_whimsyToggleReader is registered");
-  is(readerCmd.l10nId, "whimsy-action-toggle-reader", "Reader command l10n id");
+  // Duplicate commands removed: Firefox's native commands are used
+  ok(!WhimsyCommands.get("cmd_whimsyToggleReader"), "cmd_whimsyToggleReader duplicate is not registered");
+  ok(!WhimsyCommands.get("cmd_whimsyDownloads"), "cmd_whimsyDownloads duplicate is not registered");
 
+  // Picture-in-Picture command with icon and availability check
+  const pipCmd = WhimsyCommands.get("cmd_whimsyPictureInPicture");
+  ok(pipCmd, "cmd_whimsyPictureInPicture is registered");
+  is(pipCmd.l10nId, "whimsy-action-picture-in-picture", "PiP command l10n id");
+  is(pipCmd.icon, "chrome://global/skin/media/picture-in-picture-open.svg", "PiP command icon");
+  ok(typeof pipCmd.isAvailable === "function", "PiP command has isAvailable function");
+  is(pipCmd.isAvailable(window), false, "PiP command is unavailable without eligible video");
+
+  // Play or Pause Media command with icon and availability check
+  const mediaCmd = WhimsyCommands.get("cmd_whimsyPlayPauseMedia");
+  ok(mediaCmd, "cmd_whimsyPlayPauseMedia is registered");
+  is(mediaCmd.l10nId, "whimsy-action-play-pause-media", "Media command l10n id");
+  is(mediaCmd.icon, "chrome://browser/skin/zen-icons/media-unmute.svg", "Media command icon");
+  ok(typeof mediaCmd.isAvailable === "function", "Media command has isAvailable function");
+
+  const tab = gBrowser.selectedTab;
+  tab.soundplaying = true;
+  is(mediaCmd.isAvailable(window), true, "Media command is available when sound is playing");
+  tab.soundplaying = false;
+
+  // Translate Page command with icon and availability check
   const translateCmd = WhimsyCommands.get("cmd_whimsyTranslatePage");
   ok(translateCmd, "cmd_whimsyTranslatePage is registered");
   is(translateCmd.l10nId, "whimsy-action-translate-page", "Translate command l10n id");
+  is(translateCmd.icon, "chrome://browser/skin/translations.svg", "Translate command icon");
+  ok(typeof translateCmd.isAvailable === "function", "Translate command has isAvailable function");
 
-  const mediaCmd = WhimsyCommands.get("cmd_whimsyToggleMedia");
-  ok(mediaCmd, "cmd_whimsyToggleMedia is registered");
-  is(mediaCmd.l10nId, "whimsy-action-media-pip", "Media PiP command l10n id");
+  // Running commands executes cleanly
+  pipCmd.run(window);
+  mediaCmd.run(window);
+  translateCmd.run(window);
+});
 
-  const downloadsCmd = WhimsyCommands.get("cmd_whimsyDownloads");
-  ok(downloadsCmd, "cmd_whimsyDownloads is registered");
-  is(downloadsCmd.l10nId, "whimsy-action-downloads", "Downloads command l10n id");
-
-  // Downloads button layout beside address bar
+add_task(async function test_downloads_button_not_moved() {
   const dlBtn = document.getElementById("downloads-button");
   const urlbarContainer = document.getElementById("urlbar-container");
   ok(dlBtn, "Downloads button exists");
   ok(urlbarContainer, "Urlbar container exists");
-  is(dlBtn.previousElementSibling, urlbarContainer, "Downloads button is placed beside address bar");
+  // Don't move the button: customization belongs to the user
+  ok(
+    dlBtn.previousElementSibling !== urlbarContainer,
+    "Downloads button is not forcibly inserted after urlbar-container"
+  );
+});
+
+add_task(async function test_user_prefs_never_overwritten() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [PIP_URLBAR_PREF, false],
+      [DOWNLOADS_AUTOHIDE_PREF, false],
+    ],
+  });
+
+  // Re-run initWindow
+  WhimsySmartButtons.initWindow(window);
+
+  is(
+    Services.prefs.getBoolPref(PIP_URLBAR_PREF),
+    false,
+    "User's PiP-in-urlbar pref was not overwritten"
+  );
+  is(
+    Services.prefs.getBoolPref(DOWNLOADS_AUTOHIDE_PREF),
+    false,
+    "User's download-autohide pref was not overwritten"
+  );
+});
+
+add_task(async function test_downloads_autohide_pref_respected() {
+  const dlBtn = document.getElementById("downloads-button");
+
+  // 1. When user disabled autohide (button should stay visible):
+  await SpecialPowers.pushPrefEnv({
+    set: [[DOWNLOADS_AUTOHIDE_PREF, false]],
+  });
+  await WhimsySmartButtons.updateDownloadsButton(window, {
+    getAll: async () => [{ stopped: true }],
+  });
+  ok(!dlBtn.hidden, "Downloads button is never hidden when autohide pref is false");
+
+  // 2. When autohide pref is true:
+  await SpecialPowers.pushPrefEnv({
+    set: [[DOWNLOADS_AUTOHIDE_PREF, true]],
+  });
+  // Active download -> unhidden
+  await WhimsySmartButtons.updateDownloadsButton(window, {
+    getAll: async () => [{ stopped: false }],
+  });
+  ok(!dlBtn.hidden, "Downloads button appears when download is in progress");
+
+  // Finished download -> hides
+  await WhimsySmartButtons.updateDownloadsButton(window, {
+    getAll: async () => [{ stopped: true }],
+  });
+  ok(dlBtn.hidden, "Downloads button hides when download is stopped and autohide is enabled");
 });
 
 add_task(async function test_reader_button_contextual() {
@@ -81,77 +165,34 @@ add_task(async function test_reader_button_contextual() {
   browser.isArticle = originalIsArticle;
 });
 
-add_task(async function test_media_button_contextual() {
+add_task(async function test_pip_button_no_audio_repurposing() {
   const pipBtn = document.getElementById("picture-in-picture-button");
-  ok(pipBtn, "PiP/Media button exists in address bar");
+  ok(pipBtn, "PiP button exists in address bar");
 
   const tab = gBrowser.selectedTab;
-
-  // Simulating audio playing in tab
   tab.soundplaying = true;
+
+  // With audio playing, PiP button must NOT be repurposed with audio-playing attribute
   WhimsySmartButtons.updateButtons(window);
-  ok(!pipBtn.hidden, "Media button is visible when audio is playing");
-  ok(pipBtn.hasAttribute("whimsy-audio-playing"), "Whimsy audio-playing attribute set");
-
-  // Clicking toggles mute on tab
-  pipBtn.click();
-  ok(tab.muted, "Clicking media button while audio playing toggled mute");
-  pipBtn.click();
-  ok(!tab.muted, "Clicking media button again unmuted");
-
-  // Stop audio -> media button hidden
+  ok(
+    !pipBtn.hasAttribute("whimsy-audio-playing"),
+    "PiP button does not hijack audio playback (M9 parity)"
+  );
   tab.soundplaying = false;
-  WhimsySmartButtons.updateButtons(window);
-  ok(pipBtn.hidden, "Media button is hidden when audio stops");
 });
 
-add_task(async function test_downloads_button_contextual() {
+add_task(async function test_feature_switch_off_never_hides_downloads() {
   const dlBtn = document.getElementById("downloads-button");
+  dlBtn.removeAttribute("hidden");
 
-  // No active downloads -> hidden
-  await WhimsySmartButtons.updateDownloadsButton(window, {
-    getAll: async () => [{ stopped: true }],
-  });
-  ok(dlBtn.hidden, "Downloads button is hidden when no downloads in progress");
-
-  // Active download in progress -> unhidden
-  await WhimsySmartButtons.updateDownloadsButton(window, {
-    getAll: async () => [{ stopped: false }],
-  });
-  ok(!dlBtn.hidden, "Downloads button appears beside address bar when download is in progress");
-
-  // Finished download -> hides again
-  await WhimsySmartButtons.updateDownloadsButton(window, {
-    getAll: async () => [{ stopped: true }],
-  });
-  ok(dlBtn.hidden, "Downloads button hides when download finishes");
-});
-
-add_task(async function test_page_action_overlap_and_commands() {
-  const pageActions = document.getElementById("page-action-buttons");
-  ok(pageActions, "Page action buttons container exists");
-
-  // Ensure commands run without exception
-  const readerCmd = WhimsyCommands.get("cmd_whimsyToggleReader");
-  readerCmd.run(window);
-
-  const mediaCmd = WhimsyCommands.get("cmd_whimsyToggleMedia");
-  mediaCmd.run(window);
-
-  const dlCmd = WhimsyCommands.get("cmd_whimsyDownloads");
-  dlCmd.run(window);
-});
-
-add_task(async function test_feature_switch_off() {
+  // Turn feature off
   await SpecialPowers.pushPrefEnv({
     set: [[FEATURE_PREF, false]],
   });
 
-  is(
-    document.documentElement.getAttribute("whimsy-smart-buttons"),
-    "false",
-    "Root has whimsy-smart-buttons='false' when disabled"
+  ok(
+    !document.documentElement.hasAttribute("whimsy-smart-buttons"),
+    "Root attribute whimsy-smart-buttons is removed when feature is off"
   );
-  const dlBtn = document.getElementById("downloads-button");
-  ok(dlBtn.hidden, "Downloads button is hidden when feature disabled");
+  ok(!dlBtn.hidden, "Downloads button is never hidden when feature is off (H3 fix)");
 });

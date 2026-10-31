@@ -12,6 +12,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
@@ -37,42 +38,10 @@ export const WhimsySmartButtons = {
     const syncState = () => {
       const isEnabled = this.enabled;
       document.documentElement.toggleAttribute("whimsy-smart-buttons", isEnabled);
-      if (!isEnabled) {
-        document.documentElement.setAttribute("whimsy-smart-buttons", "false");
-        const dlBtn = document.getElementById("downloads-button");
-        if (dlBtn) {
-          dlBtn.hidden = true;
-        }
-        const pipBtn = document.getElementById("picture-in-picture-button");
-        if (pipBtn && pipBtn.hasAttribute("whimsy-audio-playing")) {
-          pipBtn.removeAttribute("whimsy-audio-playing");
-          pipBtn.hidden = true;
-        }
-      } else {
-        document.documentElement.removeAttribute("whimsy-smart-buttons");
+      if (isEnabled) {
         this.updateButtons(win);
       }
     };
-
-    // Ensure Firefox PiP urlbar button pref & downloads autohide are active
-    if (this.enabled) {
-      try {
-        if (!Services.prefs.getBoolPref(PIP_URLBAR_PREF, false)) {
-          Services.prefs.setBoolPref(PIP_URLBAR_PREF, true);
-        }
-        if (!Services.prefs.getBoolPref(DOWNLOADS_AUTOHIDE_PREF, false)) {
-          Services.prefs.setBoolPref(DOWNLOADS_AUTOHIDE_PREF, true);
-        }
-      } catch (e) {
-        console.error("WhimsySmartButtons: error setting helper prefs", e);
-      }
-    }
-
-    // Place downloads button beside the address bar
-    this.setupDownloadsButton(win);
-
-    // Setup media & audio observation
-    this.setupMediaListeners(win);
 
     // Setup download progress listener for smart downloads visibility
     this.setupDownloadListeners(win);
@@ -83,8 +52,8 @@ export const WhimsySmartButtons = {
         this.updateButtons(win);
       }
     };
-    gBrowser.tabContainer.addEventListener("TabSelect", updateHandler);
-    gBrowser.tabContainer.addEventListener("TabAttrModified", updateHandler);
+    gBrowser.tabContainer?.addEventListener("TabSelect", updateHandler);
+    gBrowser.tabContainer?.addEventListener("TabAttrModified", updateHandler);
     win.addEventListener("pageshow", updateHandler);
 
     const prefObserver = () => syncState();
@@ -94,8 +63,8 @@ export const WhimsySmartButtons = {
       "unload",
       () => {
         Services.prefs.removeObserver(FEATURE_PREF, prefObserver);
-        gBrowser.tabContainer.removeEventListener("TabSelect", updateHandler);
-        gBrowser.tabContainer.removeEventListener("TabAttrModified", updateHandler);
+        gBrowser.tabContainer?.removeEventListener("TabSelect", updateHandler);
+        gBrowser.tabContainer?.removeEventListener("TabAttrModified", updateHandler);
         win.removeEventListener("pageshow", updateHandler);
       },
       { once: true }
@@ -104,18 +73,10 @@ export const WhimsySmartButtons = {
     syncState();
   },
 
-  setupDownloadsButton(win) {
-    const { document } = win;
-    const dlBtn = document.getElementById("downloads-button");
-    const urlbarContainer = document.getElementById("urlbar-container");
-    if (dlBtn && urlbarContainer && dlBtn.previousElementSibling != urlbarContainer) {
-      urlbarContainer.after(dlBtn);
-    }
-  },
-
   async setupDownloadListeners(win) {
     try {
-      const list = await lazy.Downloads.getList(lazy.Downloads.ALL);
+      const isPrivate = lazy.PrivateBrowsingUtils.isWindowPrivate(win);
+      const list = await lazy.Downloads.getList(isPrivate ? lazy.Downloads.ALL : lazy.Downloads.PUBLIC);
       if (win.closed) {
         return;
       }
@@ -139,9 +100,18 @@ export const WhimsySmartButtons = {
   },
 
   async updateDownloadsButton(win, list) {
+    if (!this.enabled) {
+      return;
+    }
     const { document } = win;
     const dlBtn = document.getElementById("downloads-button");
     if (!dlBtn) {
+      return;
+    }
+    // Respect user's autohide pref: if the user turned off download-autohide, never hide it
+    const autohide = Services.prefs.getBoolPref(DOWNLOADS_AUTOHIDE_PREF, true);
+    if (!autohide) {
+      dlBtn.removeAttribute("hidden");
       return;
     }
     try {
@@ -157,48 +127,12 @@ export const WhimsySmartButtons = {
     }
   },
 
-  setupMediaListeners(win) {
-    const { document, gBrowser } = win;
-    const pipBtn = document.getElementById("picture-in-picture-button");
-    if (!pipBtn) {
+  updateButtons(win) {
+    if (!this.enabled) {
       return;
     }
-
-    pipBtn.addEventListener(
-      "click",
-      event => {
-        if (!this.enabled) {
-          return;
-        }
-        // If audio playing mode without video PiP, toggle audio mute on click
-        if (pipBtn.hasAttribute("whimsy-audio-playing")) {
-          const browser = gBrowser.selectedBrowser;
-          const tab = gBrowser.selectedTab;
-          const count = lazy.PictureInPicture.getEligiblePipVideoCount(browser);
-          if (!count || count.totalPipCount === 0) {
-            event.stopPropagation();
-            event.preventDefault();
-            if (browser?.browsingContext?.mediaController) {
-              const mc = browser.browsingContext.mediaController;
-              if (mc.isPlaying) {
-                mc.pause();
-              } else {
-                mc.play();
-              }
-            } else if (tab) {
-              tab.toggleMuteAudio();
-            }
-          }
-        }
-      },
-      true
-    );
-  },
-
-  updateButtons(win) {
     const { document, gBrowser } = win;
-    const browser = gBrowser.selectedBrowser;
-    const tab = gBrowser.selectedTab;
+    const browser = gBrowser?.selectedBrowser;
     if (!browser) {
       return;
     }
@@ -213,26 +147,17 @@ export const WhimsySmartButtons = {
       }
     }
 
-    // 2. Picture-in-Picture / Media Button:
+    // 2. Picture-in-Picture Button:
     const pipBtn = document.getElementById("picture-in-picture-button");
     if (pipBtn) {
-      const pipCount = lazy.PictureInPicture.getEligiblePipVideoCount(browser);
-      const hasPipVideo = Boolean(pipCount && pipCount.totalPipCount > 0);
-      const isPipActive = Boolean(lazy.PictureInPicture.getPanelForBrowser?.(browser));
-      const isSoundPlaying = Boolean(tab?.soundplaying);
-      const isMuted = Boolean(tab?.muted);
-
-      if (hasPipVideo || isPipActive) {
-        pipBtn.removeAttribute("hidden");
-        pipBtn.removeAttribute("whimsy-audio-playing");
-      } else if (isSoundPlaying || isMuted) {
-        pipBtn.removeAttribute("hidden");
-        pipBtn.setAttribute("whimsy-audio-playing", "true");
-        pipBtn.toggleAttribute("muted", isMuted);
-      } else if (!hasPipVideo && !isPipActive && !isSoundPlaying && !isMuted) {
-        pipBtn.removeAttribute("whimsy-audio-playing");
-        pipBtn.removeAttribute("muted");
-        pipBtn.setAttribute("hidden", "true");
+      const pipPrefEnabled = Services.prefs.getBoolPref(PIP_URLBAR_PREF, true);
+      if (pipPrefEnabled) {
+        const pipCount = lazy.PictureInPicture.getEligiblePipVideoCount(browser);
+        const hasPipVideo = Boolean(pipCount && pipCount.totalPipCount > 0);
+        const isPipActive = Boolean(lazy.PictureInPicture.getPanelForBrowser?.(browser));
+        if (hasPipVideo || isPipActive) {
+          pipBtn.removeAttribute("hidden");
+        }
       }
     }
   },
@@ -240,64 +165,71 @@ export const WhimsySmartButtons = {
   registerCommands(win) {
     const { WhimsyCommands } = lazy;
 
-    // Toggle Reader View command
-    WhimsyCommands.register(win, {
-      id: "cmd_whimsyToggleReader",
-      l10nId: "whimsy-action-toggle-reader",
-      run: w => {
-        const btn = w.document.getElementById("reader-mode-button");
-        if (btn && (!btn.hidden || btn.hasAttribute("readeractive"))) {
-          w.AboutReaderParent?.toggleReaderMode(new w.Event("command"));
-        } else if (w.gBrowser?.selectedBrowser?.isArticle) {
-          w.AboutReaderParent?.toggleReaderMode(new w.Event("command"));
-        }
-      },
-      keyId: "key_whimsyToggleReader",
-      key: { key: "r", modifiers: "accel,alt" },
-    });
-
     // Translate Page command
     WhimsyCommands.register(win, {
       id: "cmd_whimsyTranslatePage",
       l10nId: "whimsy-action-translate-page",
+      icon: "chrome://browser/skin/translations.svg",
+      isAvailable: w => {
+        const btn = w.document?.getElementById("translations-button");
+        if (btn && !btn.hidden) {
+          return true;
+        }
+        if (w.TranslationsParent) {
+          return !w.TranslationsParent.isFullPageTranslationsRestrictedForPage(w.gBrowser);
+        }
+        return false;
+      },
       run: w => {
         w.FullPageTranslationsPanel?.open(new w.Event("command"));
       },
       keyId: "key_whimsyTranslatePage",
     });
 
-    // Media / Picture-in-Picture command
+    // Picture-in-Picture command
     WhimsyCommands.register(win, {
-      id: "cmd_whimsyToggleMedia",
-      l10nId: "whimsy-action-media-pip",
-      run: w => {
-        const browser = w.gBrowser.selectedBrowser;
-        const tab = w.gBrowser.selectedTab;
+      id: "cmd_whimsyPictureInPicture",
+      l10nId: "whimsy-action-picture-in-picture",
+      icon: "chrome://global/skin/media/picture-in-picture-open.svg",
+      isAvailable: w => {
+        const browser = w.gBrowser?.selectedBrowser;
+        if (!browser) {
+          return false;
+        }
         const count = lazy.PictureInPicture.getEligiblePipVideoCount(browser);
-        if (count?.totalPipCount > 0 || lazy.PictureInPicture.getPanelForBrowser?.(browser)) {
-          w.PictureInPicture.toggleUrlbar(new w.Event("command"));
-        } else if (browser?.browsingContext?.mediaController) {
-          const mc = browser.browsingContext.mediaController;
+        return Boolean((count && count.totalPipCount > 0) || lazy.PictureInPicture.getPanelForBrowser?.(browser));
+      },
+      run: w => {
+        w.PictureInPicture?.toggleUrlbar?.(new w.Event("command"));
+      },
+      keyId: "key_whimsyPictureInPicture",
+    });
+
+    // Play or Pause Media command
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyPlayPauseMedia",
+      l10nId: "whimsy-action-play-pause-media",
+      icon: "chrome://browser/skin/zen-icons/media-unmute.svg",
+      isAvailable: w => {
+        const browser = w.gBrowser?.selectedBrowser;
+        const tab = w.gBrowser?.selectedTab;
+        const mc = browser?.browsingContext?.mediaController;
+        return Boolean(mc?.hasPlayback || tab?.soundplaying || tab?.muted);
+      },
+      run: w => {
+        const browser = w.gBrowser?.selectedBrowser;
+        const mc = browser?.browsingContext?.mediaController;
+        if (mc) {
           if (mc.isPlaying) {
             mc.pause();
           } else {
             mc.play();
           }
-        } else if (tab?.soundplaying || tab?.muted) {
-          tab.toggleMuteAudio();
+        } else if (w.gBrowser?.selectedTab) {
+          w.gBrowser.selectedTab.toggleMuteAudio();
         }
       },
-      keyId: "key_whimsyToggleMedia",
-    });
-
-    // Downloads command
-    WhimsyCommands.register(win, {
-      id: "cmd_whimsyDownloads",
-      l10nId: "whimsy-action-downloads",
-      run: w => {
-        w.DownloadsPanel?.showPanel();
-      },
-      keyId: "key_whimsyDownloads",
+      keyId: "key_whimsyPlayPauseMedia",
     });
   },
 };
