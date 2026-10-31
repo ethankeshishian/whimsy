@@ -48,7 +48,13 @@ function matches(match = {}, path, fragment) {
 export const WhimsyTidyTitles = {
   hostRules(host) {
     host = (host || "").toLowerCase().replace(/^www\./, "");
-    return TIDY_TITLES[host] ?? null;
+    if (TIDY_TITLES[host]) {
+      return TIDY_TITLES[host];
+    }
+    if (host.endsWith(".atlassian.net")) {
+      return TIDY_TITLES["atlassian.net"];
+    }
+    return null;
   },
 
   /**
@@ -68,7 +74,10 @@ export const WhimsyTidyTitles = {
     if (!/^https?:$/.test(url.protocol)) {
       return null;
     }
-    const site = this.hostRules(url.hostname);
+    let site = this.hostRules(url.hostname);
+    if (!site && /\/browse\/[A-Z0-9]+-[0-9]+/.test(url.pathname) && / - (?:Jira|Atlassian.*)$/.test(title ?? "")) {
+      site = TIDY_TITLES["atlassian.net"];
+    }
     if (!site) {
       return null;
     }

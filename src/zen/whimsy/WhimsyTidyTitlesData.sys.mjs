@@ -7,6 +7,22 @@
 // patterns are kept exactly as Arc wrote them.
 
 export const TIDY_TITLES = {
+  "atlassian.net": {
+    "siteName": "Jira",
+    "rules": [
+      {
+        "match": {
+          "pathContainsRegex": "^/(?:jira/)?browse/[A-Z0-9]+-[0-9]+"
+        },
+        "title": {
+          "removingPatterns": [
+            "^\\([0-9]+\\)\\s+",
+            "\\s+-\\s+(?:Jira|Atlassian.*)$"
+          ]
+        }
+      }
+    ]
+  },
   "linkedin.com": {
     "siteName": "LinkedIn",
     "rules": [
@@ -128,6 +144,28 @@ export const TIDY_TITLES = {
         },
         "title": {
           "removingPattern": " - .+$"
+        }
+      },
+      {
+        "match": {
+          "fragmentContainsRegex": "^(?:inbox|all|sent|starred|snoozed|trash|spam|imp|scheduled)/.+"
+        },
+        "title": {
+          "removingPatterns": [
+            "^\\([0-9]+\\)\\s+",
+            "\\s+-\\s+[^@\\s]+@[^@\\s]+\\s+-\\s+Gmail$",
+            "\\s+-\\s+Gmail$"
+          ]
+        }
+      },
+      {
+        "match": {},
+        "title": {
+          "removingPatterns": [
+            "^\\([0-9]+\\)\\s+",
+            "\\s+-\\s+[^@\\s]+@[^@\\s]+\\s+-\\s+Gmail$",
+            "\\s+-\\s+Gmail$"
+          ]
         }
       }
     ]
@@ -757,7 +795,11 @@ export const TIDY_TITLES = {
           "pathContainsRegex": "^/.+/pull/[0-9]+"
         },
         "title": {
-          "removingPattern": "\\s+by\\s+[a-zA-Z0-9_.-]+\\s+·.*"
+          "removingPatterns": [
+            "^\\([0-9]+\\)\\s+",
+            "\\s+(?:by\\s+[^·\\s]+\\s+)?·\\s+Pull Request.*$",
+            "\\s+·\\s+GitHub$"
+          ]
         }
       }
     ]
