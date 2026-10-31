@@ -333,6 +333,30 @@ HOTFIXES = [
                "      return;\n"
                "    }\n",
     },
+    # wave9/secfix (security-full-1 M5): Glance trusts only the URL from content.
+    {
+        "id": "glance-parent-principal",
+        "file": "src/zen/glance/actors/ZenGlanceParent.sys.mjs",
+        "why": "ZenGlance:OpenGlance forwarded the content-supplied principal, "
+               "and the load check ran with it: a compromised renderer could "
+               "send a system principal and open file:, about:config or "
+               "chrome: URLs. Use the parent's own principal for the page.",
+        "old": "        this.openGlance(this.browsingContext.topChromeWindow, message.data);\n",
+        "new": "        // Whimsy hotfix: only the URL comes from content; the principal is the\n"
+               "        // parent's own for the page (content or null, never system).\n"
+               "        const url = message.data?.url;\n"
+               "        const principal = this.manager?.documentPrincipal;\n"
+               "        if (\n"
+               "          typeof url !== \"string\" ||\n"
+               "          !(principal?.isContentPrincipal || principal?.isNullPrincipal)\n"
+               "        ) {\n"
+               "          break;\n"
+               "        }\n"
+               "        this.openGlance(this.browsingContext.topChromeWindow, {\n"
+               "          url,\n"
+               "          triggeringPrincipal: principal,\n"
+               "        });\n",
+    },
     # batch3glance: splits restore whole (zen#12403), see WhimsySplitRestore.
     {
         "id": "split-restore-layout",

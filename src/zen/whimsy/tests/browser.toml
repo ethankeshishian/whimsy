@@ -627,3 +627,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_security_scratch_adopt.js"]
 # wave9/secfix M3: a private page's copied screenshot is never saved to the Library.
 ["browser_whimsy_security_private_captures.js"]
+# wave9/secfix M5: Whimsy:SplitLink and ZenGlance:OpenGlance ignore a principal sent by content (glance-parent-principal hotfix).
+["browser_whimsy_security_actor_principals.js"]
