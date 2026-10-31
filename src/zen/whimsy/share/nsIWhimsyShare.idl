@@ -1,0 +1,33 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * @brief The macOS share services for some web addresses, so a Share
+ * submenu can list them (AirDrop, Messages, Mail, Notes...) the way Arc's
+ * and Safari's do, instead of opening the system picker as a second menu.
+ * macOS only.
+ */
+[scriptable, uuid(b9c136c2-703e-494c-88e4-adf040a9f38a)]
+interface nsIWhimsyShare : nsISupports {
+  /**
+   * @brief The services that can share `urls`, in macOS's order, as three
+   * lists of the same length: each service's name (pass it to share()),
+   * its title (the row's label) and its icon as a PNG data: URI ("" when it
+   * has none).
+   */
+  void getServices(in Array<AUTF8String> urls,
+                   out Array<AUTF8String> names,
+                   out Array<AUTF8String> titles,
+                   out Array<AUTF8String> icons);
+
+  /**
+   * @brief Shares `urls` with the service named `name` (from getServices).
+   * `subject` is the page title, for services that use one (Mail).
+   * The service shows its own sheet; returns false when it can't run.
+   */
+  boolean share(in AUTF8String name, in Array<AUTF8String> urls,
+                in AUTF8String subject);
+};
