@@ -1150,6 +1150,12 @@ FEATURES = [
     # command bar) moves the tab or its whole split into the new space.
     {"id": "move-to-new-space", "title": "Move to > New Space...: make a space and move the tab (or its whole split) into it (Arc)",
      "detect": [("src/zen", r"(?i)move-?to-?new-?(space|workspace)")]},
+    # wave9: Font Inspector (What Font Is This?)
+    {"id": "font-inspector", "title": "Font Inspector: What Font Is This? Popover with rendered font, size, weight, line-height, spacing, and colour",
+     "detect": [("src/zen", r"(?i)font-?inspector|what-?font-?is-?this")]},
+    # wave9: Element inspector lite
+    {"id": "element-inspector", "title": "Element Inspector lite: box model, colours, contrast ratio, gap measurement, and Open in DevTools",
+     "detect": [("src/zen", r"(?i)element-?inspector-?lite|measure-?gap")]},
 ]
 
 

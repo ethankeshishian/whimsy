@@ -284,6 +284,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTeachHints: "resource:///modules/whimsy/WhimsyTeachHints.sys.mjs",
 });
 
+// wave9: Inspector (Font Inspector & Element Inspector lite).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyInspector: "resource:///modules/whimsy/WhimsyInspector.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -871,6 +876,9 @@ export const Whimsy = {
     // wave7/small: Link hints and Instant result Teach once hints; they
     // register only in a build that has WhimsyTeach (once per session).
     later("teach-hints", () => lazy.WhimsyTeachHints.init());
+
+    // wave9: Font Inspector and Element Inspector Lite.
+    run("font-inspector", () => lazy.WhimsyInspector.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

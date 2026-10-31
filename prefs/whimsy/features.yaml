@@ -501,6 +501,12 @@
 - name: whimsy.feature.move-to-new-space
   value: true
 
+- name: whimsy.feature.font-inspector
+  value: true
+
+- name: whimsy.feature.element-inspector
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

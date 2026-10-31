@@ -130,3 +130,5 @@
         content/browser/whimsy/season/trim-spring.svg                            (../../zen/whimsy/content/season/trim-spring.svg)
         content/browser/whimsy/season/trim-summer.svg                            (../../zen/whimsy/content/season/trim-summer.svg)
         content/browser/whimsy/season/trim-winter.svg                            (../../zen/whimsy/content/season/trim-winter.svg)
+# wave9: Font inspector and Element inspector lite
+        content/browser/whimsy/whimsy-inspector.css                              (../../zen/whimsy/content/whimsy-inspector.css)

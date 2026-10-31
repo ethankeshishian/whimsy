@@ -216,6 +216,7 @@ const MENUS = [
       SEPARATOR,
       item("view-source", "whimsy-menus-selection-view-source", ["context-viewpartialsource-selection"]),
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      item("inspect-font", "whimsy-menus-selection-inspect-font", ["context-whimsy-inspect-font"]),
     ],
   },
   {

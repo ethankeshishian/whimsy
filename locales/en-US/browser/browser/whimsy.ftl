@@ -2976,3 +2976,46 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## wave9: Font Inspector (What Font Is This?) and Element Inspector Lite.
+
+whimsy-font-inspector-title = Font Inspector
+whimsy-font-inspector-subtitle = { $font }
+whimsy-action-inspect-font = Inspect Font
+whimsy-context-inspect-font =
+    .label = What Font Is This?
+    .accesskey = F
+whimsy-menus-selection-inspect-font = What Font Is This?
+whimsy-font-rendered-label = Rendered Font
+whimsy-font-css-stack = CSS Family Stack
+whimsy-font-size-label = Size
+whimsy-font-weight-label = Weight
+whimsy-font-line-height-label = Line Height
+whimsy-font-letter-spacing-label = Letter Spacing
+whimsy-font-color-label = Colour
+whimsy-font-copy-css = Copy CSS
+whimsy-font-copied-toast = Copied { $value } to clipboard
+whimsy-font-pick-another = Pick Another Element
+whimsy-font-sample-text = The quick brown fox jumps over the lazy dog
+whimsy-font-inspect-element = Inspect Element
+
+whimsy-element-inspector-title = Element Inspector
+whimsy-action-inspect-element = Inspect Element (Lite)
+whimsy-action-measure-gap = Measure Distance / Gap
+whimsy-element-open-devtools = Open in DevTools
+whimsy-element-box-model = Box Model
+whimsy-element-margin = Margin
+whimsy-element-border = Border
+whimsy-element-padding = Padding
+whimsy-element-content = Content
+whimsy-element-colors-heading = Colours & Contrast
+whimsy-element-text-color = Text Colour
+whimsy-element-bg-color = Background
+whimsy-element-contrast-ratio = Contrast Ratio
+whimsy-element-wcag-pass-aaa = WCAG AAA Pass
+whimsy-element-wcag-pass-aa = WCAG AA Pass
+whimsy-element-wcag-fail = WCAG Fail
+whimsy-element-gap-heading = Gap Measurement
+whimsy-element-gap-hint = Hold Option or click another element to measure gap
+whimsy-element-pick-button = Pick Element
+
