@@ -249,9 +249,10 @@ export const WhimsyInspector = {
       } catch (e) {}
     };
 
-    // Hero Font Face Card
-    const card = doc.createElementNS(HTML_NS, "div");
-    card.className = "whimsy-font-face-card";
+    // Hero Font Face Card (accessible button for keyboard navigation and copying)
+    const card = doc.createElementNS(HTML_NS, "button");
+    card.type = "button";
+    card.className = "whimsy-font-face-card whimsy-sheet-item";
     const [cardHintMsg] = lazy.l10n.formatMessagesSync([{ id: "whimsy-font-card-copy-hint" }]);
     const cardTitle = cardHintMsg?.attributes?.find(a => a.name === "title")?.value || "";
     if (cardTitle) {
@@ -292,8 +293,9 @@ export const WhimsyInspector = {
     list.className = "whimsy-font-props-list";
 
     const addPropRow = (l10nId, value, copyVal = value, isColor = false) => {
-      const row = doc.createElementNS(HTML_NS, "div");
-      row.className = "whimsy-font-prop-row";
+      const row = doc.createElementNS(HTML_NS, "button");
+      row.type = "button";
+      row.className = "whimsy-font-prop-row whimsy-sheet-item";
       const [propHintMsg] = lazy.l10n.formatMessagesSync([{ id: "whimsy-font-prop-copy-hint", args: { value } }]);
       const propTitle = propHintMsg?.attributes?.find(a => a.name === "title")?.value || "";
       if (propTitle) {

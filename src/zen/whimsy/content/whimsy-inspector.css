@@ -15,17 +15,26 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
   padding: 10px 12px;
   background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
   border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.2));
   border-radius: 8px;
   cursor: pointer;
+  text-align: left;
+  font: inherit;
+  box-sizing: border-box;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .whimsy-font-face-card:hover {
   background: var(--zen-colors-input-bg-hover, rgba(255, 255, 255, 0.1));
   border-color: var(--zen-primary-color, #0969da);
+}
+
+.whimsy-font-face-card:focus-visible {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -1px;
 }
 
 .whimsy-font-header-row {
@@ -81,15 +90,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 6px 8px;
+  background: transparent;
+  border: none;
   border-radius: 6px;
   cursor: pointer;
+  text-align: left;
+  font: inherit;
+  box-sizing: border-box;
   transition: background 0.12s ease;
   user-select: none;
 }
 
 .whimsy-font-prop-row:hover {
   background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.08));
+}
+
+.whimsy-font-prop-row:focus-visible {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -1px;
 }
 
 .whimsy-font-prop-label {
@@ -132,7 +152,9 @@
 }
 
 .whimsy-font-prop-row:hover .whimsy-copy-hint,
-.whimsy-font-face-card:hover .whimsy-copy-hint {
+.whimsy-font-prop-row:focus-visible .whimsy-copy-hint,
+.whimsy-font-face-card:hover .whimsy-copy-hint,
+.whimsy-font-face-card:focus-visible .whimsy-copy-hint {
   opacity: 1;
 }
 
@@ -340,6 +362,11 @@
 .whimsy-inspector-button:hover {
   background: var(--zen-colors-input-bg-hover, rgba(255, 255, 255, 0.12));
   border-color: var(--zen-primary-color, #0969da);
+}
+
+.whimsy-inspector-button:focus-visible {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -1px;
 }
 
 .whimsy-inspector-button.primary {

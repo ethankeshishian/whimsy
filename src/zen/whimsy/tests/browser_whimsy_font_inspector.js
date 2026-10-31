@@ -89,12 +89,16 @@ add_task(async function test_inspect_font_popover_and_values() {
   is(badge?.textContent, "Rendered", "Rendered badge displays localized text");
   is(badge?.getAttribute("data-l10n-id"), "whimsy-font-rendered-badge", "Badge has data-l10n-id");
 
-  // Check card copy hint
+  // Check card copy hint and keyboard accessible button markup
   const card = panel.querySelector(".whimsy-font-face-card");
+  is(card?.tagName, "BUTTON", "Card is a keyboard-accessible button element");
+  ok(card?.classList.contains("whimsy-sheet-item"), "Card has whimsy-sheet-item class for arrow navigation");
   is(card?.title, "Click to copy font name", "Card has copy hint tooltip");
   is(card?.getAttribute("data-l10n-id"), "whimsy-font-card-copy-hint", "Card has data-l10n-id");
 
   const rows = Array.from(panel.querySelectorAll(".whimsy-font-prop-row"));
+  ok(rows.every(r => r.tagName === "BUTTON" && r.classList.contains("whimsy-sheet-item")),
+    "All property rows are keyboard-accessible button elements with whimsy-sheet-item");
   const rowLabels = rows.map(r => r.querySelector(".whimsy-font-prop-label")?.textContent);
   ok(rowLabels.includes("Size"), "Size row exists");
   ok(rowLabels.includes("Weight"), "Weight row exists");
