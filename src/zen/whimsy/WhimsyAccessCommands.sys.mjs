@@ -490,5 +490,13 @@ export const WhimsyAccessCommands = {
       icon: ICONS.news,
       isAvailable: () => feature("home"),
     });
+    // wave8/cmds: W8-11 View Claude in Whimsy Replays
+    register({
+      id: "cmd_whimsyViewClaudeReplays",
+      l10nId: "whimsy-action-view-claude-replays",
+      run: w => w.openTrustedLinkIn("about:whimsy?replay", "tab"),
+      icon: ICONS.claude,
+      isAvailable: () => feature("claude-replay"),
+    });
   },
 };

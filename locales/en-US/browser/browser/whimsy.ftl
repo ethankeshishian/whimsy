@@ -2970,3 +2970,7 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## wave8/cmds: View Claude in Whimsy Replays command
+whimsy-action-view-claude-replays = View Claude in Whimsy Replays
+
