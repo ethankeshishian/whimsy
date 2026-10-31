@@ -90,8 +90,8 @@ export const WhimsyFollowerTabs = {
     const { document } = win;
     let item = document.getElementById(MENU_ID);
     const tab = win.TabContextMenu?.contextTab;
-    // wave7/split: with the pane menu on, this lives in the pane's ⋯ menu
-    // (WhimsySplitPane), not the tab menu.
+    // wave7/split: with the pane menu on, this isn't in the tab menu
+    // (wave7/split2: Arc's menus don't have it; the command bar does).
     const onPane = Services.prefs.getBoolPref("whimsy.feature.split-pane-menu", true);
     const partner = this.enabled && !onPane && tab && !tab.multiselected ? this.partnerOf(win, tab) : null;
     if (!partner) {

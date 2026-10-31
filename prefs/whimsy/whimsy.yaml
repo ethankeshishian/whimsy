@@ -528,3 +528,9 @@
 
 - name: services.sync.prefs.sync.whimsy.teach.seen
   value: true
+
+# wave7/split2: split pane headers always visible, like Arc's (back,
+# forward, reload, the page's host, the pane's ⋯ menu). Off: Zen's header
+# shows on hover or keyboard focus. Settings → Links → Split view.
+- name: whimsy.split.always-show-headers
+  value: false

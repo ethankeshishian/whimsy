@@ -1081,8 +1081,11 @@ FEATURES = [
     {"id": "space-switch-queue", "title": "Space switches play one at a time (Arc): a switch asked for mid-slide waits for the slide to finish; swipes step, keys coalesce",
      "detect": [("src/zen/spaces", r"(?i)switchQueue|pendingSwitch|queueWorkspaceChange|whimsyStep")]},
     # wave7/split: a split pane's actions on the pane (hover header ⋯ menu).
-    {"id": "split-pane-menu", "title": "Split pane menu: a ⋯ button on each pane's header holds that pane's actions (Separate Page, Separate All Tabs, Swap, Follower, Favorite, Close, Expand Current Split); the tab menu keeps only Add Split View",
+    {"id": "split-pane-menu", "title": "Split pane menu: a ⋯ button on each pane's header holds Arc's per-pane actions (Separate from Split View, Share, Mute, Copy Link, Copy link as Markdown, Archive Item); optionally always-visible headers like Arc's",
      "detect": [("src/zen/split-view", r"(?i)pane-?menu|splitter-header[^\n]*menupopup|header-menu")]},
+    # batch wave7/split2: Arc's right-click menu on a split's sidebar row.
+    {"id": "split-row-menu", "title": "Split row menu: right-clicking a split in the sidebar opens Arc's split menu (Share Split View, Separate All Tabs, Add Tab, Convert to Vertical/Horizontal, a submenu per pane, Change Icon, Rename, Duplicate, Move to, Archive)",
+     "detect": [("src/zen/split-view", r"(?i)convert-?to-?(vertical|horizontal)|split-?row-?menu")]},
 ]
 
 

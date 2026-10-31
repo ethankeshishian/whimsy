@@ -3129,15 +3129,14 @@ panel.whimsy-teach {
   to {
     opacity: 0.9;
 /* wave7/split: the pane menu's icons, every item or none (menu-icons rule). */
+/* wave7/split: the pane menu's icons, every item or none (menu-icons rule).
+   wave7/split2: Arc's per-pane items. */
 @media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
   #whimsySplitPane-separate { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/fullscreen.svg"); }
-  #whimsySplitPane-separateAll { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/arrows-expand.svg"); }
-  #whimsySplitPane-swap { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/move-cursor.svg"); }
-  #whimsySplitPane-follow { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
-  #whimsySplitPane-favorite { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/bookmark-hollow.svg"); }
-  #whimsySplitPane-share { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/share.svg"); }
-  #whimsySplitPane-close { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/close.svg"); }
-  #whimsySplitPane-closeOthers { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/close-filled-round.svg"); }
+  #whimsySplitPane-mute { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-mute.svg"); }
+  #whimsySplitPane-copyLink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
+  #whimsySplitPane-copyMarkdown { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
+  #whimsySplitPane-archive { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/close.svg"); }
 
   #whimsySplitPaneMenu > menuitem > .menu-icon {
     content: var(--whimsy-menu-icon);
@@ -3146,5 +3145,109 @@ panel.whimsy-teach {
     -moz-context-properties: fill, fill-opacity;
     fill: currentColor;
     fill-opacity: 0.85;
+  }
+}
+
+/* wave7/split2: Arc's always-visible pane header
+   (whimsy.split.always-show-headers, Settings → Links → Split view, off by
+   default). Every header carries back, forward, reload and the page's
+   host (WhimsySplitPane); they show only in this mode. On, Zen's floating
+   hover tab becomes Arc's strip across the top of the pane: nav buttons on
+   the left, "🔗 host" centred, the drag handle and ⋯ on the right, in the
+   page's own colour with a hairline under it. The pane makes room for it
+   (padding), so it never covers the page. */
+.zen-view-splitter-header :is(.whimsy-split-pane-nav, .whimsy-split-pane-host) {
+  display: none;
+}
+
+@media -moz-pref("whimsy.feature.split-pane-menu") and -moz-pref("whimsy.split.always-show-headers") {
+  :root:not([inDOMFullscreen="true"]) #tabbrowser-tabpanels[zen-split-view="true"] .browserSidebarContainer[zen-split="true"]:not(.zen-glance-overlay) {
+    --whimsy-split-header-height: 34px;
+    padding-top: var(--whimsy-split-header-height);
+
+    & > .zen-view-splitter-header-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--whimsy-split-header-height);
+      transform: none;
+      opacity: 1;
+      pointer-events: auto;
+      transition: none;
+      z-index: 1;
+    }
+
+    & .zen-view-splitter-header {
+      position: absolute;
+      inset: 0;
+      transform: none;
+      box-sizing: border-box;
+      padding: 0 6px;
+      gap: 2px;
+      border-radius: 0;
+      box-shadow: none;
+      background-color: light-dark(rgb(255, 255, 255), rgb(32, 32, 32));
+      border-bottom: 1px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+      color: light-dark(rgb(60, 60, 67), rgb(235, 235, 245));
+    }
+
+    & .zen-view-splitter-header-container toolbarbutton {
+      color: inherit;
+      opacity: 0.7;
+
+      &:hover,
+      &[open],
+      &:focus-visible {
+        opacity: 1;
+      }
+    }
+
+    & .whimsy-split-pane-nav {
+      display: flex;
+      order: 0;
+
+      &[disabled] {
+        opacity: 0.3;
+        background-color: transparent;
+      }
+    }
+
+    & .whimsy-split-pane-back { list-style-image: url("chrome://browser/skin/zen-icons/back.svg"); }
+    & .whimsy-split-pane-forward { list-style-image: url("chrome://browser/skin/zen-icons/forward.svg"); }
+    & .whimsy-split-pane-reload { list-style-image: url("chrome://browser/skin/zen-icons/reload.svg"); }
+
+    & .whimsy-split-pane-host {
+      display: flex;
+      order: 1;
+      flex: 1;
+      min-width: 0;
+      gap: 6px;
+      font-size: 12px;
+      opacity: 0.8;
+      /* Arc centres the address on the pane, not between the buttons. */
+      padding-inline-end: 24px;
+    }
+
+    & .whimsy-split-pane-host-icon {
+      width: 12px;
+      height: 12px;
+      list-style-image: url("chrome://browser/skin/zen-icons/link.svg");
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor;
+    }
+
+    & .whimsy-split-pane-host-label {
+      margin: 0;
+      min-width: 0;
+    }
+
+    & .zen-tab-rearrange-button {
+      order: 2;
+    }
+
+    & .whimsy-split-pane-menu-button {
+      order: 3;
+    }
   }
 }

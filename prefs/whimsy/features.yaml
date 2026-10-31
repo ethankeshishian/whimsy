@@ -477,6 +477,9 @@
 - name: whimsy.feature.split-pane-menu
   value: true
 
+- name: whimsy.feature.split-row-menu
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

@@ -516,3 +516,6 @@ support-files = ["whimsy_page_actions.html"]
 ["browser_whimsy_seasonal_decor.js"]
 # wave7/split: pane header ⋯ menu, tab menu without duplicates, Arc split labels.
 ["browser_whimsy_split_pane_menu.js"]
+
+# wave7/split2: Arc's split row right-click menu (items, order, labels, per-pane submenus).
+["browser_whimsy_split_row_menu.js"]

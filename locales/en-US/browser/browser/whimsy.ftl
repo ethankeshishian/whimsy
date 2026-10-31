@@ -1995,7 +1995,7 @@ whimsy-links-glance-header = Glance
 whimsy-links-split-header = Split view
 whimsy-links-follower =
     .label = Follower splits: links in one pane open in the other
-whimsy-links-follower-help = To start one, open the ⋯ menu at the top of a pane and choose Make This a Follower Split.
+whimsy-links-follower-help = To start one, open the command bar in a split and choose Make This a Follower Split.
 whimsy-links-spaces-header = Spaces
 
 ## wave6/zap: Zap (erase page elements; Zen's zap mode as a command)
@@ -2457,10 +2457,61 @@ whimsy-split-pane-menu-button =
     .aria-label = Pane Actions
 whimsy-split-pane-drag =
     .tooltiptext = Drag to Rearrange Panes
-whimsy-split-pane-swap =
-    .label = Swap Panes
-whimsy-split-pane-favorite =
-    .label = Favorite This Split…
-whimsy-split-pane-separate-all =
-    .label = Separate All Tabs
 whimsy-action-split-pane-menu = Split Pane Actions…
+
+## wave7/split2: Arc's split menus, copied exactly (arc-ref menus-context.txt).
+## The sidebar row's right-click menu, then each pane's submenu (the same
+## items as the pane header's ⋯ menu).
+
+whimsy-split-row-share =
+    .label = Share Split View…
+whimsy-split-row-separate-all =
+    .label = Separate All Tabs
+whimsy-split-row-add-tab =
+    .label = Add Tab…
+# Arc's names: side-by-side panes are a horizontal split, stacked panes a
+# vertical one.
+whimsy-split-row-convert-vertical =
+    .label = Convert to Vertical Split View
+whimsy-split-row-convert-horizontal =
+    .label = Convert to Horizontal Split View
+whimsy-split-row-tab-options =
+    .label = Tab Options
+whimsy-split-row-change-icon =
+    .label = Change Icon…
+whimsy-split-row-rename =
+    .label = Rename…
+whimsy-split-row-duplicate =
+    .label = Duplicate
+whimsy-split-row-move-to =
+    .label = Move to
+whimsy-split-row-new-space =
+    .label = New Space…
+whimsy-split-row-archive =
+    .label = Archive Item
+whimsy-split-row-archive-below =
+    .label = Archive Tabs Below
+whimsy-split-pane-separate =
+    .label = Separate from Split View
+whimsy-split-pane-mute =
+    .label = Mute
+whimsy-split-pane-unmute =
+    .label = Unmute
+whimsy-split-pane-copy-link =
+    .label = Copy Link
+whimsy-split-pane-copy-markdown =
+    .label = Copy link as Markdown
+whimsy-split-pane-archive =
+    .label = Archive Item
+whimsy-split-pane-back =
+    .tooltiptext = Back
+    .aria-label = Back
+whimsy-split-pane-forward =
+    .tooltiptext = Forward
+    .aria-label = Forward
+whimsy-split-pane-reload =
+    .tooltiptext = Reload
+    .aria-label = Reload
+whimsy-split-always-show-headers =
+    .label = Always show split pane headers
+whimsy-split-always-show-headers-help = Each pane keeps a bar at its top with back, forward, reload, the site’s address and the pane’s menu, like Arc. Off, the bar shows only while you point at a pane.
