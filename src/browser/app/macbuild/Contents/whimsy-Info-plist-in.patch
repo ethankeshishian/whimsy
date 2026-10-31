@@ -32,3 +32,17 @@ index 32f717f..c29f854 100644
    <key>NSCameraUsageDescription</key>
    <string>Only sites you allow within @MAC_APP_NAME@ will be able to use the camera.</string>
  
+@@ -312,6 +328,13 @@
+   <key>NSLocalNetworkUsageDescription</key>
+   <string>@MAC_APP_NAME@ needs this access to open websites and services on your network.</string>
+ 
++  <key>NSBonjourServices</key>
++  <array>
++    <string>_http._tcp</string>
++    <string>_https._tcp</string>
++    <string>_http-alt._tcp</string>
++  </array>
++
+   <key>ASWebAuthenticationSessionWebBrowserSupportCapabilities</key>
+   <dict>
+     <key>IsSupported</key>

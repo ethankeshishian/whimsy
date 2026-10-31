@@ -9,8 +9,20 @@
 // space, window shown) and does no work at all otherwise.
 
 const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
-const { WhimsyLocalServersLiveFolderProvider, PORTS_PREF, POLL_PREF, parsePorts, parseTitle, parseIconHref, DEFAULT_PORTS } =
-  ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLocalServersLiveFolder.sys.mjs");
+const {
+  WhimsyLocalServersLiveFolderProvider,
+  PORTS_PREF,
+  POLL_PREF,
+  BONJOUR_PREF,
+  BONJOUR_TYPES,
+  BonjourTesting,
+  LAN_ICON,
+  bonjourItems,
+  parsePorts,
+  parseTitle,
+  parseIconHref,
+  DEFAULT_PORTS,
+} = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLocalServersLiveFolder.sys.mjs");
 const { WhimsyLiveFolders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs");
 
 const FALLBACK_ICON = "chrome://browser/skin/zen-icons/selectable/code.svg";
@@ -89,6 +101,12 @@ function makeProvider({ collapsed = false } = {}) {
   });
   return { provider, folder, fetches, manager };
 }
+
+// The real Bonjour browse would ask macOS for Local Network access, so it
+// stays off except where a stand-in replaces it.
+add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [[BONJOUR_PREF, false]] });
+});
 
 add_task(async function test_parsers() {
   is(parseTitle("<html><head><title> My  App &amp; Co </title>"), "My App & Co", "Titles are trimmed and decoded");
@@ -219,4 +237,127 @@ add_task(async function test_create_menu_and_switch() {
   ok(items[0].hidden, "and the menu item is hidden");
   await SpecialPowers.popPrefEnv();
   ok(WhimsyLiveFolders.localServersEnabled, "On by default");
+});
+
+// w7native: Bonjour services on the LAN, through a stand-in for the native
+// browser (nsIWhimsyBonjour).
+function makeBonjourMock() {
+  const mock = {
+    starts: [],
+    stops: 0,
+    listener: null,
+    browsing: false,
+    allowedTypes: BONJOUR_TYPES,
+    start(types, listener) {
+      this.starts.push([...types]);
+      this.listener = listener;
+      this.browsing = true;
+    },
+    stop() {
+      this.stops++;
+      this.browsing = false;
+    },
+    announce(services) {
+      this.listener.onServicesChanged(JSON.stringify(services));
+    },
+  };
+  BonjourTesting.factory = () => mock;
+  return mock;
+}
+
+add_task(async function test_bonjour_items() {
+  const services = [
+    { name: "Office NAS", type: "_http._tcp", domain: "local.", host: "nas.local.", port: 5000, local: false },
+    { name: "Office NAS", type: "_https._tcp", domain: "local.", host: "nas.local", port: 5001, local: false },
+    { name: "Printer", type: "_http._tcp", domain: "local.", host: "printer.local", port: 80, path: "/admin", local: false },
+    { name: "My dev server", type: "_http._tcp", domain: "local.", host: "mac.local", port: 3000, local: true },
+    { name: "Other port", type: "_http._tcp", domain: "local.", host: "mac.local", port: 4100, local: true },
+    { name: "Broken", type: "_http._tcp", domain: "local.", host: "bad host", port: 80 },
+    { name: "No port", type: "_http._tcp", domain: "local.", host: "x.local", port: 0 },
+  ];
+  const items = bonjourItems(services, [3000]);
+  Assert.deepEqual(
+    items.map(i => i.title),
+    ["Office NAS", "Other port", "Printer"],
+    "Sorted by name; this Mac's service on a probed port, bad hosts and port 0 are left out"
+  );
+  const nas = items.find(i => i.title == "Office NAS");
+  is(nas.url, "https://nas.local:5001/", "A name on both http and https opens https");
+  is(nas.subtitle, "nas.local:5001", "The subtitle is host:port");
+  ok(nas.lan, "marked as a LAN item");
+  is(items.find(i => i.title == "Printer").url, "http://printer.local/admin", "Default port dropped, TXT path kept");
+  is(items.find(i => i.title == "Other port").url, "http://mac.local:4100/", "This Mac's service on another port stays");
+  Assert.deepEqual(bonjourItems(null), [], "Nothing in, nothing out");
+});
+
+add_task(async function test_bonjour_browses_only_while_polling() {
+  await usePorts([await closedPort()]);
+  await SpecialPowers.pushPrefEnv({ set: [[BONJOUR_PREF, true]] });
+  const mock = makeBonjourMock();
+
+  const { provider, folder, fetches } = makeProvider({ collapsed: true });
+  provider.start();
+  is(mock.starts.length, 0, "A collapsed folder doesn't browse the LAN");
+
+  folder.collapsed = false;
+  provider.handleEvent({ type: "TabGroupExpand" });
+  await TestUtils.waitForCondition(() => provider.isPolling, "Expanding starts polling");
+  is(mock.starts.length, 1, "and the Bonjour browse");
+  Assert.deepEqual(mock.starts[0], BONJOUR_TYPES, "for the HTTP types in Info.plist");
+  ok(provider.isBrowsing, "The provider says it's browsing");
+
+  const before = fetches.length;
+  mock.announce([{ name: "Office NAS", type: "_http._tcp", domain: "local.", host: "nas.invalid", port: 5000, local: false }]);
+  await TestUtils.waitForCondition(() => fetches.length > before && fetches.at(-1).some(i => i.lan), "A found service updates the folder");
+  const item = fetches.at(-1).find(i => i.lan);
+  is(item.title, "Office NAS", "named by Bonjour");
+  is(item.url, "http://nas.invalid:5000/", "opening its address");
+  is(item.icon, LAN_ICON, "with the LAN icon when it has no favicon");
+  is(item.id, "lan:office nas", "and a stable id");
+
+  mock.listener.onError("denied");
+  is(provider.lanError, "denied", "A refusal is kept for the folder");
+
+  folder.collapsed = true;
+  provider.handleEvent({ type: "TabGroupCollapse" });
+  await TestUtils.waitForCondition(() => !provider.isPolling, "Collapsing stops polling");
+  is(mock.stops, 1, "and the browse");
+  ok(!provider.isBrowsing, "Nothing browses while collapsed");
+
+  // A late answer from a stopped browse is ignored.
+  const count = fetches.length;
+  mock.announce([{ name: "Late", type: "_http._tcp", host: "late.invalid", port: 80 }]);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  is(fetches.length, count, "A stopped browse can't change the folder");
+
+  provider.stop();
+  BonjourTesting.factory = null;
+  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_bonjour_pref_off() {
+  await usePorts([await closedPort()]);
+  const mock = makeBonjourMock();
+  const { provider } = makeProvider();
+  provider.start();
+  await TestUtils.waitForCondition(() => provider.isPolling, "The folder polls");
+  is(mock.starts.length, 0, "With the Bonjour pref off nothing browses the LAN");
+  provider.stop();
+  BonjourTesting.factory = null;
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_bonjour_native_component() {
+  // The real component, without starting it (that would prompt for Local
+  // Network access): it's registered on macOS and reads Info.plist.
+  if (AppConstants.platform != "macosx") {
+    ok(!Cc["@whimsy/bonjour;1"], "Only built on macOS");
+    return;
+  }
+  const bonjour = Cc["@whimsy/bonjour;1"].createInstance(Ci.nsIWhimsyBonjour);
+  ok(!bonjour.browsing, "A new browser isn't browsing");
+  ok(Array.isArray(bonjour.allowedTypes), "Its allowed types are a list");
+  bonjour.stop();
+  ok(!bonjour.browsing, "stop() without start() is harmless");
 });

@@ -461,3 +461,9 @@
 
 - name: ui.textSelectAttentionForeground
   value: "#1d1a26"
+
+# w7native/lan: the Local servers folder also lists HTTP services advertised
+# over Bonjour on the local network (native nsIWhimsyBonjour), browsed only
+# while the folder is visible.
+- name: whimsy.live-folders.local-servers.bonjour
+  value: true

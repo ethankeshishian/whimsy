@@ -145,3 +145,11 @@ XPCOM_MANIFESTS += [
 BROWSER_CHROME_MANIFESTS += [
     "tests/browser.toml",
 ]
+
+# Native components, Objective-C++ for macOS: calendar/ (Next meeting,
+# EventKit) and bonjour/ (Local servers' LAN services, dns_sd).
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
+    DIRS += [
+        "bonjour",
+        "calendar",
+    ]
