@@ -503,7 +503,13 @@ export const WhimsyArchive = {
       }
       if (!tab) {
         try {
-          tab = targetWin.gBrowser.addTrustedTab("about:blank", { skipAnimation: true });
+          // In the archived tab's own container: setTabState keeps the
+          // tab's container, so a blank tab of another one would get this
+          // tab's history in the wrong cookie jar (wave8/isolation).
+          tab = targetWin.gBrowser.addTrustedTab("about:blank", {
+            skipAnimation: true,
+            userContextId: Number(stored.state?.userContextId) || 0,
+          });
           lazy.SessionStore.setTabState(tab, stored.state);
         } catch (e) {
           console.error("Whimsy: archive restore", e);

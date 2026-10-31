@@ -26,6 +26,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
 });
 
@@ -177,7 +178,8 @@ export const WhimsySnooze = {
     const { document } = win;
     let item = document.getElementById(MENU_ID);
     const tab = win.TabContextMenu?.contextTab;
-    const show = this.enabled && !!tab && !tab.pinned && !tab.hasAttribute("zen-essential") && !tab.multiselected;
+    const show = this.enabled && !!tab && !tab.pinned && !tab.hasAttribute("zen-essential") && !tab.multiselected &&
+      !this.isPrivate(tab);
     if (!show) {
       if (item) {
         item.hidden = true;
@@ -213,7 +215,24 @@ export const WhimsySnooze = {
     return new Intl.DateTimeFormat(locales, options).format(new Date(wakeAt));
   },
 
+  // wave8/isolation: a snoozed tab's URL and title are saved to disk and it
+  // comes back as a normal tab, so a private tab is never snoozed.
+  isPrivate(tab) {
+    return lazy.WhimsyPrivate.isPrivateTab(tab) || lazy.WhimsyPrivate.isPrivateBrowser(tab?.linkedBrowser);
+  },
+
+  refusePrivate(win, tab) {
+    if (!this.isPrivate(tab)) {
+      return false;
+    }
+    win.gZenUIManager?.showToast?.("whimsy-snooze-private-toast");
+    return true;
+  },
+
   openPanel(win, tab) {
+    if (this.refusePrivate(win, tab)) {
+      return;
+    }
     const { document } = win;
     const { panel, body } = lazy.WhimsyPanels.create(win, {
       id: PANEL_ID,
@@ -245,6 +264,9 @@ export const WhimsySnooze = {
   },
 
   async snooze(win, tab, wakeAt) {
+    if (this.refusePrivate(win, tab)) {
+      return;
+    }
     await lazy.TabStateFlusher.flush(tab.linkedBrowser);
     if (!tab.isConnected || tab.closing) {
       return;
@@ -268,6 +290,7 @@ export const WhimsySnooze = {
       title,
       url,
       zenWorkspace: justClosed?.zenWorkspace || "",
+      userContextId: tab.userContextId ?? 0,
     };
     this.schedule(win, record);
     this.persist(record);
@@ -318,8 +341,13 @@ export const WhimsySnooze = {
     // The closed-tab entry didn't survive (a restart regenerates closedIds)
     // — reopen the URL fresh rather than lose the tab entirely.
     if (record.url) {
+      // In the container of the space it comes back to (isolation), else
+      // the one it left.
+      const space = record.zenWorkspace && win.gZenWorkspaces?.getWorkspaceFromId?.(record.zenWorkspace);
+      const userContextId = space ? Number(space.containerTabId) || 0 : Number(record.userContextId) || 0;
       const tab = win.gBrowser.addTab(record.url, {
         triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+        userContextId,
       });
       if (record.zenWorkspace && win.gZenWorkspaces) {
         try {
