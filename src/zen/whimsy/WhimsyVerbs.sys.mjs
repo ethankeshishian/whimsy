@@ -841,6 +841,9 @@ export const WhimsyVerbs = {
   initCommands(win) {
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyVerbMap",
+      // The command bar already offers it as a verb (WhimsyVerbsProvider);
+      // registered for its assignable shortcut only.
+      commandBar: false,
       l10nId: "whimsy-verb-map",
       run: w => this.runVerb(w, "map"),
       icon: `${ICONS}geo.svg`,
@@ -848,6 +851,7 @@ export const WhimsyVerbs = {
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyVerbEmail",
+      commandBar: false,
       l10nId: "whimsy-verb-email",
       run: w => this.runVerb(w, "email"),
       icon: `${ICONS}mail.svg`,
@@ -855,6 +859,7 @@ export const WhimsyVerbs = {
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyVerbNote",
+      commandBar: false,
       l10nId: "whimsy-verb-note",
       run: w => this.runVerb(w, "note"),
       icon: `${ICONS}reader-mode.svg`,
@@ -862,6 +867,7 @@ export const WhimsyVerbs = {
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyVerbCalendar",
+      commandBar: false,
       l10nId: "whimsy-verb-calendar",
       run: w => this.runVerb(w, "calendar"),
       icon: `${ICONS}history.svg`,
@@ -869,6 +875,7 @@ export const WhimsyVerbs = {
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyVerbLinearNew",
+      commandBar: false,
       l10nId: "whimsy-verb-linear-new",
       run: w => this.runVerb(w, "linear-new"),
       icon: `${ICONS}plus.svg`,
@@ -876,6 +883,7 @@ export const WhimsyVerbs = {
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyVerbLinearSearch",
+      commandBar: false,
       l10nId: "whimsy-verb-linear-search",
       run: w => this.runVerb(w, "linear-search"),
       icon: `${ICONS}search-page.svg`,
@@ -904,7 +912,7 @@ export const WhimsyVerbs = {
     const verbsToOffer = [
       { verb: "map", domId: "context-whimsy-verb-map", l10nId: "whimsy-verb-map", available: selectedText.length > 0 && selectedText.length <= 200 },
       { verb: "email", domId: "context-whimsy-verb-email", l10nId: "whimsy-verb-email", available: selectedText.length > 0 },
-      { verb: "note", domId: "context-whimsy-verb-note", l10nId: "whimsy-verb-note", available: selectedText.length > 0 && Services.prefs.getBoolPref(NOTES_PREF, true) },
+      { verb: "note", domId: "context-whimsy-verb-note", l10nId: "whimsy-verb-note", available: selectedText.length > 0 && Services.prefs.getBoolPref(NOTES_PREF, true) && !isPrivate(win) },
       { verb: "calendar", domId: "context-whimsy-verb-calendar", l10nId: "whimsy-verb-calendar", available: selectedText.length > 0 && !!parseEvent(selectedText) },
       { verb: "linear-new", domId: "context-whimsy-verb-linear-new", l10nId: "whimsy-verb-linear-new", available: selectedText.length > 0 && this.linearConfigured() },
       { verb: "linear-search", domId: "context-whimsy-verb-linear-search", l10nId: "whimsy-verb-linear-search", available: selectedText.length > 0 && this.linearConfigured() },
