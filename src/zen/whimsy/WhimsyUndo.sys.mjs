@@ -101,40 +101,38 @@ export const WhimsyUndo = {
   /**
    * wave5/uxfix: a result toast with an Undo button bound to this exact
    * entry (Arc shows Undo on its toasts; Cmd+Z alone was invisible). The
-   * entry is pushed too, so Cmd+Z still works. Without the feature switch,
-   * or when Zen has no toasts, it's a plain toast.
+   * entry is pushed too, so Cmd+Z still works. Without the feature switch
+   * it's a plain toast.
+   *
+   * wave8/snooze (W8-37): drawn by WhimsyToast, the one toast every Whimsy
+   * undoable action uses: the message, an "Undo" button that says so in
+   * words, and the shortcut (⌘Z) beside it. Zen's toast hid the button's
+   * text and left after 2s.
    *
    * @param {Window} win
    * @param {string} messageId - the toast's Fluent id
    * @param {object} entry - an undo entry, as for push()
    * @param {object} [l10nArgs]
+   * @param {object} [options] - { detail } a plain-text second line
    */
-  showToast(win, messageId, entry, l10nArgs = undefined) {
+  showToast(win, messageId, entry, l10nArgs = undefined, options = {}) {
     this.push(win, entry);
-    const ui = win.gZenUIManager;
-    if (!ui?.showToast) {
-      return;
+    const toast = { l10nId: messageId, l10nArgs, detail: options.detail };
+    if (this.enabled) {
+      const keys = lazy().WhimsyToast.undoKeys();
+      toast.action = {
+        id: "whimsy-undo-toast-button",
+        l10nId: "whimsy-undo-toast-action",
+        keys,
+        ariaKeys: AppConstants.platform == "macosx" ? "Meta+Z" : "Control+Z",
+        onCommand: () => this.undoEntry(win, entry),
+      };
     }
-    if (!this.enabled) {
-      ui.showToast(messageId, { l10nArgs });
-      return;
+    const shown = lazy().WhimsyToast.show(win, toast);
+    if (shown) {
+      shown._undoEntry = entry; // Cmd+Z on this entry also hides its toast.
     }
-    const id = "whimsy-undo-toast-button";
-    ui.showToast(messageId, {
-      l10nArgs,
-      button: {
-        id,
-        command: event => {
-          event.target.closest(".zen-toast")?.remove();
-          this.undoEntry(win, entry);
-        },
-      },
-    });
-    // Zen's toast buttons have no label of their own.
-    const button = win.document.getElementById(id);
-    if (button) {
-      win.document.l10n.setAttributes(button, "whimsy-undo-toast-button");
-    }
+    return shown;
   },
 
   // Undoes one specific entry, wherever it sits in the stack.
@@ -179,6 +177,11 @@ export const WhimsyUndo = {
     if (!entry) {
       return false;
     }
+    // wave8/snooze: the toast offering this undo has done its job.
+    const toast = lazy().WhimsyToast.current(win);
+    if (toast && toast._undoEntry == entry) {
+      lazy().WhimsyToast.dismiss(toast);
+    }
     this.runSuppressed(() => {
       try {
         entry.undo();
@@ -215,6 +218,7 @@ export const WhimsyUndo = {
 
   initWindow(win) {
     this.wrapTabActions(win);
+    this.registerCommands(win);
     const onKeyDown = event => {
       if (!this.enabled || event.key?.toLowerCase() != "z" || event.altKey) {
         return;
@@ -239,6 +243,28 @@ export const WhimsyUndo = {
     // <key> (cmd_undo/cmd_redo) from firing too.
     win.addEventListener("keydown", onKeyDown, true);
     win.addEventListener("unload", () => win.removeEventListener("keydown", onKeyDown, true), { once: true });
+  },
+
+  // wave8/snooze: Undo and Redo as commands, so the command bar offers
+  // them and about:keyboard can bind them. No default key: Cmd+Z and
+  // Cmd+Shift+Z stay the editor's, and the keydown handler above takes
+  // them only when there's a tab action to undo.
+  registerCommands(win) {
+    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyUndoTabAction",
+      l10nId: "whimsy-action-undo-tab-action",
+      run: w => this.undo(w),
+      icon: "chrome://browser/skin/zen-icons/arrow-rotate-anticlockwise.svg",
+      isAvailable: w => this.enabled && this.canUndo(w),
+    });
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyRedoTabAction",
+      l10nId: "whimsy-action-redo-tab-action",
+      run: w => this.redo(w),
+      icon: "chrome://browser/skin/zen-icons/forward.svg",
+      isAvailable: w => this.enabled && this.canRedo(w),
+    });
   },
 
   // Wraps gBrowser.removeTab/removeTabs (close), pinTab/unpinTab, and
@@ -330,10 +356,14 @@ export const WhimsyUndo = {
 };
 
 // A tiny lazy-import helper so the close-undo entry above doesn't need a
-// module-level `lazy` object of its own just for SessionStore.
+// module-level `lazy` object of its own just for SessionStore (and, since
+// wave8/snooze, WhimsyToast).
 function lazy() {
   if (!lazy._mod) {
-    lazy._mod = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+    lazy._mod = {
+      ...ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs"),
+      ...ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs"),
+    };
   }
   return lazy._mod;
 }

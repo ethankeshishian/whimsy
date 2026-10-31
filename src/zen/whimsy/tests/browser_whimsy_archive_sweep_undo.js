@@ -45,7 +45,7 @@ add_task(async function test_sweep_toast_undo_restores_the_batch() {
     "The swept tabs are in the Archive"
   );
 
-  button.doCommand();
+  button.click();
   await TestUtils.waitForCondition(
     () => openUrls().includes(IDLE_A) && openUrls().includes(IDLE_B),
     "Undo brought both swept tabs back"
@@ -62,7 +62,7 @@ add_task(async function test_sweep_toast_undo_restores_the_batch() {
 
 add_task(async function test_manual_archive_has_no_sweep_toast() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?manual");
-  document.getElementById("whimsy-undo-toast-button")?.closest(".zen-toast")?.remove();
+  document.getElementById("whimsy-undo-toast-button")?.closest(".whimsy-toast")?.remove();
   WhimsyArchive.archiveTabs(window, [tab], { reason: "manual" });
   ok(!document.getElementById("whimsy-undo-toast-button"), "A manual archive doesn't show the sweep toast");
   is(WhimsyUndo.peek(window)?.type, "archive:manual", "and is still undoable with Cmd+Z");

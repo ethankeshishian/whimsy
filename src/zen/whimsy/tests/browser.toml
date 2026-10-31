@@ -598,3 +598,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: lazy init of command-bar-only parts.
 ["browser_whimsy_lazy_init.js"]
+
+# wave8/snooze (W8-37): Snooze presets and typed times from a pinned clock.
+["browser_whimsy_snooze_time.js"]
