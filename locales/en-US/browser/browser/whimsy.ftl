@@ -3446,3 +3446,12 @@ whimsy-action-play-pause-media = Play or Pause Media
 whimsy-action-translate-page = Translate Page
 
 
+## wave9: W8-29 link lasso (Open as Tabs, Make Folder)
+whimsy-command-lasso-open-tabs = Open as Tabs
+whimsy-command-lasso-make-folder = Make Folder
+whimsy-link-lasso-open-toast =
+    { $count ->
+        [one] Opened 1 tab
+       *[other] Opened { $count } tabs
+    }
+

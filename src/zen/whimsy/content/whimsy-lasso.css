@@ -44,3 +44,70 @@
     display: none;
   }
 }
+
+.whimsy-lasso-pill {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, Canvas 92%, AccentColor);
+  color: CanvasText;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22);
+  white-space: nowrap;
+  pointer-events: auto;
+  user-select: none;
+  font: menu;
+  font-size: 12px;
+  animation: whimsy-lasso-pill-in 120ms ease-out;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+@keyframes whimsy-lasso-pill-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-lasso-pill {
+    animation: none;
+  }
+}
+
+.whimsy-lasso-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: CanvasText;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, AccentColor 20%, transparent);
+  }
+
+  &:active {
+    background: color-mix(in srgb, AccentColor 32%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid AccentColor;
+    outline-offset: 1px;
+  }
+}

@@ -310,6 +310,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySmartButtons: "resource:///modules/whimsy/WhimsySmartButtons.sys.mjs",
 });
 
+// wave9: W8-29 link lasso commands.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyLinkLasso: "resource:///modules/whimsy/WhimsyLinkLasso.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -925,6 +930,9 @@ export const Whimsy = {
 
     // batch9: W9-06 smart address bar buttons.
     run("smart-buttons", () => lazy.WhimsySmartButtons.initWindow(win));
+
+    // wave9: W8-29 link lasso commands.
+    run("link-lasso", () => lazy.WhimsyLinkLasso.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },
