@@ -238,3 +238,21 @@ add_task(async function test_feature_switch_disabled() {
   await SpecialPowers.popPrefEnv();
   ok(WhimsyInspector.fontInspectorEnabled, "Font inspector switch is on again");
 });
+
+// wave9/pagedev: the popover's own stylesheet is loaded into the window
+// (it used to reach only the page overlay, leaving the popover unstyled).
+add_task(async function test_popover_is_styled() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  await selectTargetText(tab.linkedBrowser);
+  await WhimsyInspector.inspectFont(window);
+  const panel = document.getElementById("whimsy-font-inspector-panel");
+  if (panel.state != "open") {
+    await BrowserTestUtils.waitForPopupEvent(panel, "shown");
+  }
+  const card = panel.querySelector(".whimsy-font-face-card");
+  is(getComputedStyle(card).borderTopLeftRadius, "8px", "whimsy-inspector.css applies to the popover");
+  is(getComputedStyle(card).display, "flex", "The font card lays out as designed");
+  panel.hidePopup();
+  await BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  BrowserTestUtils.removeTab(tab);
+});

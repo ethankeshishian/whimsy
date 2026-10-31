@@ -38,8 +38,11 @@ const FONT_FEATURE_PREF = "whimsy.feature.font-inspector";
 const ELEMENT_FEATURE_PREF = "whimsy.feature.element-inspector";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
+const PANEL_SHEET = "chrome://browser/content/whimsy/whimsy-inspector.css";
+
 export const WhimsyInspector = {
   _sessionInitialized: false,
+  _sheetLoaded: new WeakSet(),
   _activePickers: new WeakMap(),
   _lastInspectedFont: null,
 
@@ -224,11 +227,26 @@ export const WhimsyInspector = {
     lazy.WhimsyPrivate.openTabFor(win, url, { relatedToCurrent: true });
   },
 
+  // The popovers' styles live in whimsy-inspector.css, which nothing else
+  // loads into the browser window: load it once per window, on first use.
+  _loadSheet(win) {
+    if (this._sheetLoaded.has(win)) {
+      return;
+    }
+    this._sheetLoaded.add(win);
+    try {
+      win.windowUtils.loadSheetUsingURIString(PANEL_SHEET, win.windowUtils.AUTHOR_SHEET);
+    } catch (e) {
+      console.error("Whimsy: inspector sheet", e);
+    }
+  },
+
   // Display the Font Inspector popover matching Whimsy's panel styling.
   showFontPopover(win, data, anchor = null) {
     if (!data) {
       return;
     }
+    this._loadSheet(win);
     this._lastInspectedFont = data;
     const { document: doc } = win;
 
@@ -393,6 +411,7 @@ export const WhimsyInspector = {
     if (!data) {
       return;
     }
+    this._loadSheet(win);
     const { document: doc } = win;
 
     const { panel, body } = lazy.WhimsyPanels.create(win, {
