@@ -15,6 +15,8 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySeasons: "resource:///modules/whimsy/WhimsySeasons.sys.mjs",
+  // wave7/focus: Do Not Disturb holds unprompted toasts.
+  WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
@@ -68,7 +70,8 @@ export const WhimsySeasonToast = {
   // element, or null.
   maybeShow(win) {
     const pending = this.pending(win);
-    if (!pending || !win.gZenUIManager?.showToast) {
+    // wave7/focus: waits (unclaimed) while Do Not Disturb is on.
+    if (!pending || !win.gZenUIManager?.showToast || lazy.WhimsyDoNotDisturb.quiet) {
       return null;
     }
     // Claimed first, so a second window opening now doesn't repeat it.

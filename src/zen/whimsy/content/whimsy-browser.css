@@ -2850,4 +2850,10 @@ panel.whimsy-space-look .whimsy-sheet-body {
   :root[whimsy-quick-window] #tabbrowser-tabpanels .browserStack > browser {
     transition: opacity var(--whimsy-mini-close-duration) ease-out;
   }
+/* wave7/focus: paste guard. One line under the question, in the sheet's
+   muted ink; the footer and buttons are the shared sheet's. */
+panel.whimsy-paste-guard .whimsy-paste-guard-note {
+  margin: 8px 16px 4px;
+  color: var(--whimsy-sheet-muted);
+  line-height: 1.4;
 }

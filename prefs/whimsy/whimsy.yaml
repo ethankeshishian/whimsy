@@ -461,3 +461,7 @@
 
 - name: ui.textSelectAttentionForeground
   value: "#1d1a26"
+# wave7/focus: paste guard. The person's own on/off ("Turn Paste Guard On/Off"
+# in the command bar); whimsy.feature.paste-guard is the master switch.
+- name: whimsy.paste-guard.enabled
+  value: true

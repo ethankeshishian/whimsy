@@ -1009,6 +1009,15 @@ FEATURES = [
     # or a link card, and the AI summary stacked beneath when that's on.
     {"id": "link-cards", "title": "Link cards: Shift over a link (or rest on a result link) shows where it goes, with the AI summary beneath",
      "detect": [("src/zen", r"(?i)zen-?link-?(hover-?)?card|zenLinkPreview")]},
+    # wave7/focus: Do Not Disturb: one command pauses site notifications
+    # (Firefox's "pause until restart"; macOS Focus already silences them
+    # through Notification Center) and holds Whimsy's unprompted toasts.
+    {"id": "do-not-disturb", "title": "Do Not Disturb: one command pauses site notifications until you turn it off or quit, and holds Whimsy's unprompted toasts",
+     "detect": [("src/zen", r"(?i)manualDoNotDisturb|suppressForScreenSharing|do-?not-?disturb")]},
+    # wave7/focus: paste guard: asks before a secret-looking paste
+    # (API key, private key, card number, JWT) reaches a web page.
+    {"id": "paste-guard", "title": "Paste guard: asks before you paste something that looks like an API key, private key, card number or sign-in token into a web page",
+     "detect": [("src/zen", r"(?i)paste-?guard|looks like an? (api key|secret)")]},
 ]
 
 

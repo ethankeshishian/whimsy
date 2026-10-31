@@ -99,6 +99,10 @@ export const WhimsyDelight = {
   },
 
   celebrate(win, tab) {
+    // wave7/focus: no celebration while Do Not Disturb is on.
+    if (ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs").WhimsyDoNotDisturb.quiet) {
+      return;
+    }
     const now = Date.now();
     const last = lastCelebrated.get(tab) || 0;
     if (now - last < THROTTLE_MS) {

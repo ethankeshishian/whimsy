@@ -214,6 +214,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAccessCommands: "resource:///modules/whimsy/WhimsyAccessCommands.sys.mjs",
 });
 
+// wave7/focus: Do Not Disturb and paste guard.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
+  WhimsyPasteGuard: "resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -349,6 +355,24 @@ export const Whimsy = {
       },
       matches: ["about:privatebrowsing*"],
       remoteTypes: ["privilegedabout"],
+    });
+
+    // wave7/focus: paste guard. The child looks at a trusted paste before
+    // the page or the editor sees it, and asks the parent (a sheet) only
+    // when the text looks like a secret; only its kind crosses over, never
+    // the text. Default group, capturing, on the chrome event target (the
+    // outermost item of the event path): the system group runs only after
+    // every page listener, capture and bubble, so it would come too late.
+    ChromeUtils.registerWindowActor("WhimsyPasteGuard", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardChild.sys.mjs",
+        events: { paste: { capture: true } },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
     });
   },
 
@@ -708,11 +732,17 @@ export const Whimsy = {
     // that only had Settings, a sidebar control or a context menu. Each
     // checks its feature's switch on use.
     run("access-commands", () => lazy.WhimsyAccessCommands.initWindow(win));
+
+    // wave7/focus: Do Not Disturb (pause site notifications) and paste
+    // guard. Each command checks its switch on use.
+    run("do-not-disturb", () => lazy.WhimsyDoNotDisturb.initWindow(win));
+    run("paste-guard", () => lazy.WhimsyPasteGuard.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
   maybeShowYearToast(win) {
-    if (!lazy.WhimsyStats.enabled) {
+    // wave7/focus: not while Do Not Disturb is on (it asks again next window).
+    if (!lazy.WhimsyStats.enabled || lazy.WhimsyDoNotDisturb.quiet) {
       return;
     }
     const now = new Date();

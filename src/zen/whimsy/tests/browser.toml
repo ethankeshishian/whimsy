@@ -501,3 +501,8 @@ support-files = ["whimsy_page_actions.html"]
 ["browser_whimsy_live_folders_restore.js"]
 # wave7/keys: commands with assignable shortcuts for Settings/menu-only features (tree, hidden spaces, switcher, UI zoom, background mute, bionic, dark PDF, live/Finder folders, Manage Spaces, ATC, Claude space, What's New).
 ["browser_whimsy_access_commands.js"]
+# wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
+["browser_whimsy_do_not_disturb.js"]
+
+# wave7/focus: paste guard (detector, sheet Cancel/Esc/Paste, ordinary text, card field, command, switches).
+["browser_whimsy_paste_guard.js"]

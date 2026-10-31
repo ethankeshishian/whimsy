@@ -1979,3 +1979,32 @@ add_task(async function fix7_people_card() {
     card.hide();
   }
 });
+
+// wave7/focus: the paste guard's sheet under a field, in light and dark.
+add_task(async function paste_guard_sheet() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?whimsy-paste-guard-shot");
+  const browser = tab.linkedBrowser;
+  await SpecialPowers.spawn(browser, [], () => {
+    content.document.body.innerHTML =
+      '<label style="font: 15px system-ui; display: block; margin: 40px 40px 6px">Message</label>' +
+      '<input id="field" style="margin: 0 40px; width: 360px; font: 15px system-ui; padding: 8px">';
+  });
+  const key = "AKIAIOSFODNN7EXAMPLE";
+  await SimpleTest.promiseClipboardChange(key, () => SpecialPowers.clipboardCopyString(key));
+  try {
+    for (const dark of [0, 1]) {
+      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
+      await SpecialPowers.spawn(browser, [], () => content.document.getElementById("field").focus());
+      browser.focus();
+      goDoCommand("cmd_paste");
+      await TestUtils.waitForCondition(() => document.getElementById("whimsy-paste-guard")?.state == "open");
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await shot(`wave7-paste-guard-${dark ? "dark" : "light"}`);
+      document.getElementById("whimsy-paste-guard").hidePopup();
+      await TestUtils.waitForCondition(() => !document.getElementById("whimsy-paste-guard"));
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

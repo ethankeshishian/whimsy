@@ -2353,3 +2353,46 @@ whimsy-action-air-traffic-control = Air Traffic Control…
 whimsy-action-add-finder-folder = Add Finder Folder…
 whimsy-action-open-claude-space = Open Claude Space
 whimsy-action-whats-new = What’s New
+## wave7/focus: Do Not Disturb (pauses site notifications until you turn
+## it off or quit; macOS Focus already silences them on its own)
+
+whimsy-action-dnd-toggle = Turn Do Not Disturb On or Off
+whimsy-action-dnd-on = Turn On Do Not Disturb
+whimsy-action-dnd-off = Turn Off Do Not Disturb
+whimsy-dnd-on-toast = Do Not Disturb on
+whimsy-dnd-on-toast-description = Site notifications are paused until you turn it off or quit
+whimsy-dnd-off-toast = Do Not Disturb off
+
+## wave7/focus: paste guard (asks before pasting something that looks
+## like a secret into a web page)
+
+whimsy-action-paste-guard-toggle = Turn Paste Guard On or Off
+whimsy-action-paste-guard-on = Turn On Paste Guard
+whimsy-action-paste-guard-off = Turn Off Paste Guard
+whimsy-paste-guard-on-toast = Paste guard on
+whimsy-paste-guard-on-toast-description = Whimsy asks before you paste a key or card number into a page
+whimsy-paste-guard-off-toast = Paste guard off
+# $kind (string) - what the clipboard looks like: openai, anthropic, github,
+# aws, slack, stripe, google, private-key, jwt, card.
+whimsy-paste-guard-title =
+    { $kind ->
+        [openai] This looks like an OpenAI API key
+        [anthropic] This looks like an Anthropic API key
+        [github] This looks like a GitHub token
+        [aws] This looks like an AWS access key
+        [slack] This looks like a Slack token
+        [stripe] This looks like a Stripe secret key
+        [google] This looks like a Google API key
+        [private-key] This looks like a private key
+        [jwt] This looks like a sign-in token
+        [card] This looks like a card number
+       *[other] This looks like a secret
+    }
+# $host (string) - the site the paste would go to, like "example.com".
+whimsy-paste-guard-subtitle = Paste into { $host }?
+whimsy-paste-guard-subtitle-page = Paste into this page?
+whimsy-paste-guard-note = Anyone who can see this page may be able to read it. Whimsy checked it on this device and kept nothing.
+whimsy-paste-guard-paste =
+    .label = Paste
+whimsy-paste-guard-cancel =
+    .label = Cancel
