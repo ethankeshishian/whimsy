@@ -4,19 +4,29 @@
   python3 whimsy/publish.py --dry-run  everything except uploading
   python3 whimsy/publish.py --channel dev   a dev build for the Dev channel
 
-Two update channels: Release (standard users; main, published nightly by the
-updater) and Dev (opt-in in Settings; every dev build, published by
-`npm run ship`). They differ only in the update.xml path; both use the same
-key and MAR channel.
+Two update channels: Release (standard users; main, published by the nightly
+updater from the promoted `release` tag) and Dev (opt-in in Settings; every
+dev build, published by `npm run ship`). Each has its own update.xml path and
+MAR channel ID (`mar_channels` in publish.json: whimsy-release, whimsy-dev).
+While `mar_channel_bridge` is true, both still sign with the old shared ID
+("release"), which is all that builds from before wave 9 accept; set it to
+false once every install runs a wave 9 build (they accept the new IDs too).
+`hold` in the updater's control.json refuses a Release publish.
+
+The MAR's signed product version is the build's ID as YYYYMMDD.HHMMSS, not
+Zen's version. Whimsy's updater (whimsy-updater-cpp.patch) compares it with
+the installed build's ID, so a signed but older build is refused as a
+downgrade, whatever update.xml claims (security-full-3 M3).
 
 1. `mach package`: a standalone app (omni.ja, update metadata).
 2. Ad-hoc code signing (free: new users approve it once in System Settings).
 3. Whimsy-<version>.dmg with an Applications shortcut, for first installs.
 4. A full .mar update signed with Whimsy's key. Installed Whimsys only accept
    .mar files signed by it (whimsy/engine_overrides.py puts the public
-   certificate in the updater). The private key stays on this Mac, in
-   ~/Library/Application Support/Whimsy Updater/signing. Back it up: without it,
-   existing installs can't take updates.
+   certificate in the updater). The private key lives only in 1Password
+   (whimsy/signing_backup.py): it's fetched while signing, into a private
+   temporary folder that is wiped afterwards. Commands never carry a password,
+   and none is printed.
 Each release is Zen's version plus a Whimsy revision, like 1.24b-w3
 (whimsy/version.py); whimsy/version.json records it and the history.
 
@@ -31,7 +41,10 @@ import glob
 import hashlib
 import json
 import os
+import re
+import secrets
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -39,17 +52,41 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENGINE = os.path.join(ROOT, "engine")
 CONFIG = json.load(open(os.path.join(ROOT, "whimsy", "publish.json")))
-SIGNING = os.path.expanduser("~/Library/Application Support/Whimsy Updater/signing")
 WORK = os.path.expanduser("~/Library/Application Support/Whimsy Updater/publish")
+CONTROL = os.path.expanduser("~/Library/Application Support/Whimsy Updater/control.json")
+PUBLIC_DER = os.path.join(ROOT, "whimsy", "signing", "whimsy-mar.der")
+sys.path.insert(0, os.path.join(ROOT, "whimsy"))
+import signing_backup  # noqa: E402
 PATH = ":".join([os.path.expanduser("~/.cargo/bin"), "/opt/homebrew/bin", "/usr/local/bin",
                  "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
 
 
-def run(cmd, cwd=ROOT, env=None, capture=False):
-    print("$", cmd if isinstance(cmd, str) else " ".join(cmd), flush=True)
-    return subprocess.run(cmd, cwd=cwd, shell=isinstance(cmd, str), check=True, text=True,
+# Arguments whose value is a secret unless it names a file or variable.
+SECRET_FLAGS = {"-passout", "-passin", "-W", "-K", "-password", "--password"}
+
+
+def redact(cmd):
+    """The command as printed (and so logged): never a password (security-full-3 L1)."""
+    if isinstance(cmd, str):
+        return re.sub(r"pass:\S+", "pass:***", cmd)
+    out, hide = [], False
+    for arg in cmd:
+        arg = str(arg)
+        if hide and not arg.startswith(("file:", "env:", "fd:")) and arg != "":
+            arg = "***"
+        elif arg.startswith("pass:"):
+            arg = "pass:***"
+        hide = arg in SECRET_FLAGS
+        out.append(arg)
+    return " ".join(out)
+
+
+def run(cmd, cwd=ROOT, env=None, capture=False, input=None):
+    print("$", redact(cmd), flush=True)
+    kw = {"input": input} if input is not None else {}
+    return subprocess.run(cmd, cwd=cwd, shell=isinstance(cmd, str), check=True, text=input is None,
                           env=dict(os.environ, PATH=PATH, _ZO_DOCTOR="0", **(env or {})),
-                          stdout=subprocess.PIPE if capture else None).stdout
+                          stdout=subprocess.PIPE if capture else None, **kw).stdout
 
 
 def objdir():
@@ -107,27 +144,70 @@ def make_dmg(app, out, version):
     shutil.rmtree(root)
 
 
-def make_mar(obj, app, out):
+def mar_channel_id(channel):
+    """The MAR channel ID a channel's updates are signed with."""
+    if CONFIG.get("mar_channel_bridge", True):
+        # Builds from before wave 9 only accept the old shared ID.
+        return CONFIG["channel"]
+    return CONFIG["mar_channels"][channel]
+
+
+def mar_product_version(build_id):
+    """The signed product version: the build ID as YYYYMMDD.HHMMSS (each part
+    fits Firefox's version comparator). Whimsy's updater compares it with the
+    installed build's ID and refuses older builds."""
+    if not re.fullmatch(r"\d{14}", build_id or ""):
+        raise SystemExit(f"publish: the build ID {build_id!r} isn't YYYYMMDDHHMMSS")
+    return f"{build_id[:8]}.{build_id[8:]}"
+
+
+def sign_mar(obj, unsigned, out):
+    """Sign with the key from 1Password. The PEM only ever goes to openssl on
+    stdin; the PKCS#12 export and the NSS database live in a private folder
+    that's wiped afterwards, and both are protected by random passwords that
+    are never on a command line or in the log. signmar reads the database's
+    password from stdin, so the database is never password-less, even if this
+    process is killed before the cleanup."""
+    signmar = os.path.join(obj, "dist", "bin", "signmar")
+    env = {"DYLD_LIBRARY_PATH": os.path.join(obj, "dist", "bin")}
+    key = signing_backup.signing_key()
+    with signing_backup.private_dir() as tmp:
+        cert = os.path.join(tmp, "cert.pem")
+        run(["openssl", "x509", "-inform", "DER", "-in", PUBLIC_DER, "-out", cert])
+        p12_password, db_password = secrets.token_hex(24), secrets.token_hex(24)
+        p12_pass_file = os.path.join(tmp, "p12.pass")
+        db_pass_file = os.path.join(tmp, "db.pass")
+        signing_backup.write_private(p12_pass_file, p12_password.encode() + b"\n")
+        signing_backup.write_private(db_pass_file, db_password.encode() + b"\n")
+        p12 = os.path.join(tmp, "key.p12")
+        run(["openssl", "pkcs12", "-export", "-inkey", "/dev/stdin", "-in", cert, "-name", "mar_sig",
+             "-passout", f"file:{p12_pass_file}", "-out", p12], input=key)
+        del key
+        db = os.path.join(tmp, "nssdb")
+        os.mkdir(db, 0o700)
+        run(["certutil", "-N", "-d", db, "-f", db_pass_file])
+        run(["pk12util", "-i", p12, "-d", db, "-w", p12_pass_file, "-k", db_pass_file])
+        # Only the database (password-protected) is needed from here on.
+        for name in (p12, p12_pass_file, db_pass_file):
+            signing_backup.shred(name)
+        run([signmar, "-d", db, "-n", "mar_sig", "-s", unsigned, out], env=env,
+            input=(db_password + "\n").encode())
+
+
+def make_mar(obj, app, out, channel="release"):
     unsigned = out + ".unsigned"
     env = {"MAR": os.path.join(obj, "dist", "host", "bin", "mar"),
-           "MAR_CHANNEL_ID": CONFIG["channel"], "MOZ_PRODUCT_VERSION": app_info(app)["version"]}
+           "MAR_CHANNEL_ID": mar_channel_id(channel),
+           "MOZ_PRODUCT_VERSION": mar_product_version(app_info(app)["build_id"])}
     run(["./tools/update-packaging/make_full_update.sh", unsigned, app], cwd=ENGINE, env=env)
-    signmar = os.path.join(obj, "dist", "bin", "signmar")
-    db = tempfile.mkdtemp()
-    password = base64.b16encode(os.urandom(16)).decode()
-    p12 = os.path.join(db, "key.p12")
-    run(["openssl", "pkcs12", "-export", "-inkey", os.path.join(SIGNING, "private_key.pem"),
-         "-in", os.path.join(SIGNING, "cert.pem"), "-name", "mar_sig",
-         "-passout", f"pass:{password}", "-out", p12])
-    # An NSS database with an empty password, so signmar needn't prompt.
-    run(["certutil", "-N", "-d", db, "--empty-password"])
-    run(["pk12util", "-i", p12, "-d", db, "-W", password, "-K", ""])
-    env = {"DYLD_LIBRARY_PATH": os.path.join(obj, "dist", "bin")}
-    run([signmar, "-d", db, "-n", "mar_sig", "-s", unsigned, out], env=env)
+    try:
+        sign_mar(obj, unsigned, out)
+    finally:
+        if os.path.exists(unsigned):
+            os.remove(unsigned)
     # Verify against the certificate the updater ships with.
-    run([signmar, "-D", os.path.join(ROOT, "whimsy", "signing", "whimsy-mar.der"), "-v", out], env=env)
-    shutil.rmtree(db)
-    os.remove(unsigned)
+    signmar = os.path.join(obj, "dist", "bin", "signmar")
+    run([signmar, "-D", PUBLIC_DER, "-v", out], env={"DYLD_LIBRARY_PATH": os.path.join(obj, "dist", "bin")})
 
 
 def update_xml(info, release, tag, mar):
@@ -188,18 +268,19 @@ def notes(release):
 """
 
 
-def ensure_signing_key():
-    """Restore the key from 1Password if missing; back it up if it never was."""
-    sys.path.insert(0, os.path.join(ROOT, "whimsy"))
-    import signing_backup
-    if not os.path.exists(signing_backup.KEY):
-        signing_backup.restore()
-    if not signing_backup.is_backed_up():
-        try:
-            signing_backup.backup()
-        except Exception as e:
-            print(f"publish: couldn't back up the signing key to 1Password ({e}); "
-                  "run python3 whimsy/signing_backup.py backup", flush=True)
+def on_hold():
+    """`hold` (set by hand in the updater's control.json) stops every Release
+    publish, whoever starts it."""
+    try:
+        with open(CONTROL) as f:
+            return bool(json.load(f).get("hold"))
+    except (OSError, ValueError):
+        return False
+
+
+def exit_on_signal(signum, frame):
+    # Turn SIGTERM/SIGHUP into an exception, so the signing folder's cleanup runs.
+    raise SystemExit(f"publish: stopped by signal {signum}")
 
 
 DEV_KEPT = 5
@@ -220,7 +301,15 @@ def main():
     channel = sys.argv[sys.argv.index("--channel") + 1] if "--channel" in sys.argv else "release"
     if channel not in ("release", "dev"):
         raise SystemExit("publish: --channel is release or dev")
-    ensure_signing_key()
+    if channel == "release" and on_hold():
+        raise SystemExit("publish: control.json has hold: not publishing to Release")
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, exit_on_signal)
+    try:
+        # Fail before packaging when signing can't work.
+        signing_backup.configured_vault()
+    except RuntimeError as e:
+        raise SystemExit(f"publish: {e}")
     obj = objdir()
     check_updater_trusts_whimsy()
     run(["./mach", "package"], cwd=ENGINE)
@@ -254,7 +343,7 @@ def main():
     dmg = os.path.join(out, f"Whimsy-{release['version']}-macos-arm64.dmg")
     make_dmg(signed_app, dmg, release["version"])
     mar = os.path.join(out, "whimsy-macos-arm64.mar")
-    make_mar(obj, signed_app, mar)
+    make_mar(obj, signed_app, mar, channel)
     xml = update_xml(info, release, tag, mar)
     open(os.path.join(out, "update.xml"), "w").write(xml)
     print(f"Built {tag}: {dmg}, {mar}")

@@ -1,0 +1,56 @@
+diff --git a/toolkit/mozapps/update/updater/updater.cpp b/toolkit/mozapps/update/updater/updater.cpp
+index 52ec6e3..7af2a8b 100644
+--- a/toolkit/mozapps/update/updater/updater.cpp
++++ b/toolkit/mozapps/update/updater/updater.cpp
+@@ -3365,6 +3365,35 @@ static int PopulategMARStrings() {
+ }
+ #endif  // MOZ_VERIFY_MAR_SIGNATURE
+ 
++#if defined(MOZ_VERIFY_MAR_SIGNATURE) && defined(XP_MACOSX)
++/**
++ * Whimsy: the version a MAR must be at least as new as. Whimsy signs each
++ * MAR's product version as its build ID, "YYYYMMDD.HHMMSS" (whimsy/publish.py),
++ * since every Whimsy build of a Zen release has the same app version. So this
++ * is the installed build's ID from its application.ini in the same format,
++ * and a signed but older build is refused as a downgrade. If the ID can't be
++ * read, Firefox's own check against MOZ_APP_VERSION applies.
++ */
++static void GetWhimsyInstalledVersion(char* aBuf, size_t aLen) {
++  snprintf(aBuf, aLen, "%s", MOZ_APP_VERSION);
++  NS_tchar iniPath[MAXPATHLEN];
++  NS_tsnprintf(iniPath, sizeof(iniPath) / sizeof(iniPath[0]),
++               NS_T("%s/Contents/Resources/application.ini"), gInstallDirPath);
++  mozilla::UniquePtr<char[]> buildID;
++  if (ReadStrings(iniPath, "BuildID\0", 1, &buildID, "App") != OK ||
++      !buildID) {
++    LOG(("Whimsy: no BuildID in application.ini; checking MOZ_APP_VERSION"));
++    return;
++  }
++  const char* id = buildID.get();
++  if (strlen(id) != 14 || strspn(id, "0123456789") != 14) {
++    LOG(("Whimsy: unexpected BuildID; checking MOZ_APP_VERSION"));
++    return;
++  }
++  snprintf(aBuf, aLen, "%.8s.%s", id, id + 8);
++}
++#endif
++
+ static int GetUpdateFileName(NS_tchar* fileName, int maxChars) {
+   NS_tsnprintf(fileName, maxChars, NS_T("%s/update.mar"), gPatchDirPath);
+   return OK;
+@@ -3390,8 +3419,15 @@ static void UpdateThreadFunc(void* param) {
+     if (rv == OK) {
+       rv = PopulategMARStrings();
+       if (rv == OK) {
++#  ifdef XP_MACOSX
++        char whimsyVersion[64];
++        GetWhimsyInstalledVersion(whimsyVersion, sizeof(whimsyVersion));
++        rv = gArchiveReader.VerifyProductInformation(
++            gMARStrings.MARChannelID.get(), whimsyVersion);
++#  else
+         rv = gArchiveReader.VerifyProductInformation(
+             gMARStrings.MARChannelID.get(), MOZ_APP_VERSION);
++#  endif
+       }
+     }
+ #endif

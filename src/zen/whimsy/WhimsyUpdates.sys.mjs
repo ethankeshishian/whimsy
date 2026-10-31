@@ -99,7 +99,10 @@ export const WhimsyUpdates = {
 
   // Points Firefox's updater at the chosen channel's update.xml
   // (.../updates/browser/<target>/<channel>/update.xml, from %CHANNEL% in the
-  // update URL). Both channels use the same signing key and MAR channel. A
+  // update URL). Both channels use the same signing key; each signs its MARs
+  // with its own MAR channel ID (whimsy-release, whimsy-dev; publish.json),
+  // and the signed product version is the build date, so Firefox's updater
+  // never installs an older build than the one running. A
   // Mac that builds Whimsy installs its own builds (whimsy/updater), so
   // Firefox's updater gets a channel with no updates there; the local
   // updater reads the choice (and Firefox's install-automatically choice,

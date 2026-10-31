@@ -1302,6 +1302,8 @@ def apply_json_overrides(report, dry):
         "postbuild:ui": "sh whimsy/install_app.sh",
         "install:app": "sh whimsy/install_app.sh",
         "ship": "python3 whimsy/updater/updater.py ship",
+        # wave9/release: move the release tag to a verified dev commit.
+        "promote": "python3 whimsy/updater/updater.py promote",
         # Pin the brand like "ci" does (`surfer build` has no --brand), so a
         # fresh clone can't build Nightly.app from surfer's default brand.
         "build": "surfer set brand release && surfer build",
