@@ -3169,3 +3169,6 @@ whimsy-isolation-scratch-moved-toast =
         [one] Only private tabs go in Scratch. The tab moved to another space.
        *[other] Only private tabs go in Scratch. The tabs moved to another space.
     }
+
+# wave9/secfix: Favorite This Split refuses a split with a private pane.
+whimsy-split-favorite-private-toast = Splits with private tabs can’t be saved as favorites
