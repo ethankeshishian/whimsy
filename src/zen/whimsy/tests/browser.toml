@@ -616,3 +616,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave8 lane: every Whimsy menu row has a .label (native menus).
 ["browser_whimsy_menu_labels.js"]
+
+# wave9/restore: Zen's space init no longer strips "selected" from the selected tab (restore over cloned pinned tabs).
+["browser_whimsy_zen_restore_selection.js"]
