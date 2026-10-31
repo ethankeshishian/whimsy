@@ -551,6 +551,60 @@ HOTFIXES = [
         "old": 'zen-action-open-space-routing = Open Space Routing\n',
         "new": 'zen-action-open-space-routing = Air Traffic Control…\n',
     },
+    # wave7/split: Arc's split view names. Zen's tab menu item said "Split
+    # Out Tab" for the opposite of splitting, "Join N Tabs" for splitting,
+    # and the unsplit command was "Expand current view" / "Close Split View".
+    # Create = Add Split View / Open in Split View; undo = Separate Page from
+    # Split View (one pane) and Separate All Tabs (the whole split).
+    {
+        "id": 'zen-string-arc-split-tabs',
+        "file": 'locales/en-US/browser/browser/zen-split-view.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": '            [-1] Split Out Tab\n            [1] Add Split View...\n           *[other] Join { $tabCount } Tabs\n',
+        "new": '            [-1] Separate Page from Split View\n            [1] Add Split View\n           *[other] Open { $tabCount } Tabs in Split View\n',
+    },
+    {
+        "id": 'zen-string-arc-split-link',
+        "file": 'locales/en-US/browser/browser/zen-split-view.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-split-link =\n    .label = Split Link to New Tab\n',
+        "new": 'zen-split-link =\n    .label = Open Link in Split View\n',
+    },
+    {
+        "id": 'zen-string-arc-new-split',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-action-new-split-view = New Split View\n',
+        "new": 'zen-action-new-split-view = Add Split View\n',
+    },
+    {
+        "id": 'zen-string-arc-unsplit',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-action-unsplit-view = Expand current view\n',
+        "new": 'zen-action-unsplit-view = Separate All Tabs\n',
+    },
+    {
+        "id": 'zen-string-arc-key-unsplit',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-split-view-shortcut-unsplit = Close Split View\n',
+        "new": 'zen-split-view-shortcut-unsplit = Separate All Tabs\n',
+    },
+    {
+        "id": 'zen-string-arc-key-new-split',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-new-empty-split-view-shortcut = New Empty Split View\n',
+        "new": 'zen-new-empty-split-view-shortcut = Add Split View\n',
+    },
+    {
+        "id": 'zen-string-arc-panel-new-split',
+        "file": 'locales/en-US/browser/browser/zen-workspaces.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-panel-ui-new-empty-split =\n    .label = New Split\n',
+        "new": 'zen-panel-ui-new-empty-split =\n    .label = Add Split View\n',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -1026,6 +1080,9 @@ FEATURES = [
     # wave7/spaceanim: space-switch slides play one at a time (Arc).
     {"id": "space-switch-queue", "title": "Space switches play one at a time (Arc): a switch asked for mid-slide waits for the slide to finish; swipes step, keys coalesce",
      "detect": [("src/zen/spaces", r"(?i)switchQueue|pendingSwitch|queueWorkspaceChange|whimsyStep")]},
+    # wave7/split: a split pane's actions on the pane (hover header ⋯ menu).
+    {"id": "split-pane-menu", "title": "Split pane menu: a ⋯ button on each pane's header holds that pane's actions (Separate Page, Separate All Tabs, Swap, Follower, Favorite, Close, Expand Current Split); the tab menu keeps only Add Split View",
+     "detect": [("src/zen/split-view", r"(?i)pane-?menu|splitter-header[^\n]*menupopup|header-menu")]},
 ]
 
 

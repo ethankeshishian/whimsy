@@ -318,7 +318,7 @@ whimsy-translate-none-toast = Select some text to translate
 
 ## Split view (command bar; batch6)
 
-whimsy-action-close-other-panes = Close Other Panes
+whimsy-action-close-other-panes = Expand Current Split
 whimsy-action-swap-panes = Swap Panes
 whimsy-action-split-vertically = Split Vertically
 whimsy-action-split-horizontally = Split Horizontally
@@ -645,7 +645,7 @@ whimsy-split-favorite-name-title = Favorite This Split
 whimsy-split-favorite-name-prompt = Name this split, so it's easy to find later:
 whimsy-split-favorite-saved-toast = Split saved to your favorites
 whimsy-split-favorites-empty =
-    .value = No favorite splits yet. Favorite one from the command bar.
+    .value = No favorite splits yet. Favorite one from a pane’s ⋯ menu.
 whimsy-split-favorite-remove =
     .label = Remove
     .tooltiptext = Remove this favorite
@@ -1193,7 +1193,7 @@ whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
 whimsy-heavy-tabs-empty = No tabs to measure right now.
 whimsy-split-favorites-title = Favorite Splits
-whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split” in the command bar.
+whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split…” from a pane’s ⋯ menu.
 whimsy-cookie-editor-title = Cookies
 whimsy-cookie-editor-search =
     .placeholder = Search cookies
@@ -1256,9 +1256,9 @@ whimsy-cheatsheet-library = Open Library…
 whimsy-cheatsheet-split-vertical = Split Side by Side
 whimsy-cheatsheet-split-horizontal = Split Top and Bottom
 whimsy-cheatsheet-split-grid = Split in a Grid
-whimsy-cheatsheet-unsplit = Unsplit
+whimsy-cheatsheet-unsplit = Separate All Tabs
 whimsy-cheatsheet-swap-panes = Swap Panes
-whimsy-cheatsheet-close-other-panes = Close Other Panes
+whimsy-cheatsheet-close-other-panes = Expand Current Split
 whimsy-cheatsheet-find = Find in Page
 whimsy-cheatsheet-reader = Reader View
 whimsy-cheatsheet-copy-full-page = Capture Full Page
@@ -1995,7 +1995,7 @@ whimsy-links-glance-header = Glance
 whimsy-links-split-header = Split view
 whimsy-links-follower =
     .label = Follower splits: links in one pane open in the other
-whimsy-links-follower-help = To start one, right-click a tab in a split and choose Make This a Follower Split.
+whimsy-links-follower-help = To start one, open the ⋯ menu at the top of a pane and choose Make This a Follower Split.
 whimsy-links-spaces-header = Spaces
 
 ## wave6/zap: Zap (erase page elements; Zen's zap mode as a command)
@@ -2447,3 +2447,20 @@ whimsy-live-folder-linear-option-use-api-key =
     .label = Use an API Key Instead…
 whimsy-live-folder-linear-option-remove-api-key =
     .label = Remove API Key
+## wave7/split: a split pane's ⋯ menu (on the pane's hover header).
+## Arc's names: Separate Page from Split View, Close this Split Pane,
+## Expand Current Split (keep this pane, close the others; View menu and
+## command bar), Separate All Tabs (every pane its own tab; tab menu).
+
+whimsy-split-pane-menu-button =
+    .tooltiptext = Pane Actions
+    .aria-label = Pane Actions
+whimsy-split-pane-drag =
+    .tooltiptext = Drag to Rearrange Panes
+whimsy-split-pane-swap =
+    .label = Swap Panes
+whimsy-split-pane-favorite =
+    .label = Favorite This Split…
+whimsy-split-pane-separate-all =
+    .label = Separate All Tabs
+whimsy-action-split-pane-menu = Split Pane Actions…

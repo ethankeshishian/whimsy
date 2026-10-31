@@ -123,6 +123,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySplitFlow.sys.mjs",
     "WhimsySplitKeys.sys.mjs",
     "WhimsySplitLayouts.sys.mjs",
+    "WhimsySplitPane.sys.mjs",
     "WhimsySplitRestore.sys.mjs",
     "WhimsyStartup.sys.mjs",
     "WhimsyStats.sys.mjs",

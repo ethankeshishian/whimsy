@@ -514,3 +514,5 @@ support-files = ["whimsy_page_actions.html"]
 ["browser_whimsy_security_private.js"]
 # wave7/season: seasonal command bar trim, Balloon Dash occasions and weather, changelog header art (mocked dates, switch, reduced motion, no overlap).
 ["browser_whimsy_seasonal_decor.js"]
+# wave7/split: pane header ⋯ menu, tab menu without duplicates, Arc split labels.
+["browser_whimsy_split_pane_menu.js"]

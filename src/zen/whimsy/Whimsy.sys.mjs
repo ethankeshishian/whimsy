@@ -235,6 +235,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUploadParent: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs",
 });
 
+// wave7/split: a split pane's ⋯ menu on its hover header.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySplitPane: "resource:///modules/whimsy/WhimsySplitPane.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -736,6 +741,8 @@ export const Whimsy = {
     // wave7/security: the clipboard's file goes to a page only right after
     // Cmd+V (Ctrl+V) that the parent itself saw.
     run("upload-clipboard", () => lazy.WhimsyUploadParent.initWindow(win));
+    // wave7/split: the pane header's ⋯ menu. Checks its switch on use.
+    run("split-pane-menu", () => lazy.WhimsySplitPane.initWindow(win));
     // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
     run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
     // wave7/menus: the space menu's order. Its listener runs after every

@@ -11,8 +11,10 @@
 // - Close this Split Pane, Ctrl+Shift+-: closes (archives) the focused pane.
 // - Separate Page from Split View: takes the focused page out of the
 //   split, as its own tab, and keeps it in front.
-// - Expand Current Split: Zen's unsplit ("Expand current view"): every
-//   pane goes back to being its own tab.
+// - Expand Current Split: Arc's, keeps the focused pane and closes the
+//   other panes (Arc's command bar docs). wave7/split: it used to run Zen's
+//   unsplit, which closes nothing and is Arc's "Separate All Tabs" (the
+//   name Zen's unsplit now has everywhere).
 // - Ctrl+Shift+1-4 focus the first to fourth pane; Ctrl+Shift+[ and ]
 //   focus the previous and next pane.
 //
@@ -26,6 +28,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.split-arc-keys";
@@ -107,7 +110,11 @@ export const WhimsySplitKeys = {
   },
 
   expandSplit(win) {
-    win.document.getElementById("cmd_zenSplitViewUnsplit")?.doCommand();
+    if (!this.currentGroup(win)) {
+      return false;
+    }
+    lazy.WhimsySplit.closeOtherPanes(win);
+    return true;
   },
 
   focusPane(win, index) {
@@ -140,6 +147,9 @@ export const WhimsySplitKeys = {
         run: w => this.addSplitView(w),
         keyId: "key_whimsyAddSplitView",
         isAvailable: () => enabled(),
+        // wave7/split: Zen's own command bar row has the same name now
+        // ("Add Split View", same command), so it isn't listed twice.
+        commandBar: false,
       },
       {
         id: "cmd_whimsyCloseSplitPane",
@@ -159,6 +169,9 @@ export const WhimsySplitKeys = {
         l10nId: "whimsy-action-expand-split",
         run: w => this.expandSplit(w),
         isAvailable: inSplit,
+        // wave7/split: cmd_whimsyCloseOtherPanes (same action, with a key) is
+        // listed under this name, so it isn't listed twice.
+        commandBar: false,
       },
       ...[1, 2, 3, 4].map(n => ({
         id: `cmd_whimsyFocusPane${n}`,
