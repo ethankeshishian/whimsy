@@ -2970,3 +2970,22 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## wave8/cheatsheet: the redesigned Cmd+/ sheet. A shortcut the person
+## changed in about:keyboard is marked "Custom".
+## $title (string) - the command's name
+## $shortcut (string) - its current shortcut, e.g. ⇧⌘D
+## $default (string) - the shortcut it had before it was changed
+## $count (number) - how many shortcuts a search leaves
+
+whimsy-cheatsheet-custom = Custom
+whimsy-cheatsheet-custom-tooltip = Changed from { $shortcut }
+whimsy-cheatsheet-custom-tooltip-none = Added by you
+whimsy-cheatsheet-row = { $title }, { $shortcut }
+whimsy-cheatsheet-row-custom = { $title }, { $shortcut }, custom shortcut (was { $default })
+whimsy-cheatsheet-row-added = { $title }, { $shortcut }, custom shortcut
+whimsy-cheatsheet-results =
+    { $count ->
+        [one] 1 shortcut
+       *[other] { $count } shortcuts
+    }

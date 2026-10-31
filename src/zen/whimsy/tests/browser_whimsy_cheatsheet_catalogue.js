@@ -3,14 +3,17 @@
 
 "use strict";
 
-// wave3: the cheat sheet lists Zen's and Firefox's shortcuts too, read from
-// the window's live keysets and grouped like about:keyboard (Whimsy, Zen's
-// groups, Firefox's menus, Other). Bindings are the current ones, cleared and
-// disabled keys are left out, each key shows once, and search filters rows
-// (or a whole group by its heading) with an empty state.
+// wave8/cheatsheet: the cheat sheet's catalogue. Every shortcut in the
+// window, grouped by menu-bar menu in menu-bar order (then "Other"), with
+// its current binding as key caps in the platform's order, its registry
+// name, and whether the person customized it. Cleared and disabled keys
+// are left out and each key shows once.
 
-const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+const { WhimsyCheatSheet, keyCaps } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
 const { ShortcutUtils } = ChromeUtils.importESModule("resource://gre/modules/ShortcutUtils.sys.mjs");
+
+const FREE = { modifiers: "accel,shift", key: "Y" };
 
 function groupOf(catalogue, keyId) {
   return catalogue.find(group => group.rows.some(row => row.keyId == keyId));
@@ -31,36 +34,72 @@ function addProbeKey({ id, label = null, key = "Q", modifiers = "accel,alt,shift
   return keyEl;
 }
 
-add_task(async function test_groups() {
+add_task(async function test_groups_follow_the_menu_bar() {
   const catalogue = await WhimsyCheatSheet.catalogue(window);
-  ok(catalogue.length >= 3, "Several groups");
+  ok(catalogue.length >= 4, "Several groups");
+  const menubar = document.getElementById("main-menubar");
+  const menuIds = [...menubar.children].filter(menu => menu.localName == "menu").map(menu => menu.id);
+  let last = -1;
   for (const group of catalogue) {
-    ok(group.heading, "Every group has a heading");
+    ok(group.heading && !group.heading.startsWith("customkeys-"), `"${group.heading}" is readable`);
     ok(group.rows.length, `"${group.heading}" isn't empty`);
+    if (group.id == "other") {
+      is(group, catalogue.at(-1), "Other comes last");
+      continue;
+    }
+    const index = menuIds.indexOf(group.id);
+    Assert.greater(index, last, `${group.id} follows the menu bar's order`);
+    is(group.heading, document.getElementById(group.id).label, `${group.id} is headed by the menu's name`);
+    last = index;
   }
 
-  const whimsy = groupOf(catalogue, "key_whimsyCheatsheet");
-  ok(whimsy, "Whimsy's own shortcuts are listed");
-  is(catalogue[0], whimsy, "...first");
-
-  const zen = groupOf(catalogue, "zen-compact-mode-toggle");
-  ok(zen, "Zen's shortcuts are listed");
-  isnot(zen, whimsy, "...in a Zen group");
-
-  const file = groupOf(catalogue, "key_newNavigatorTab");
-  ok(file, "Firefox's New Tab is listed");
-  is(file.heading, document.getElementById("file-menu").label, "...under Firefox's File menu");
-
-  ok(catalogue.every(group => !group.heading.startsWith("customkeys-")),
-    "Fluent-only headings (e.g. Navigation) are resolved to text");
+  is(groupOf(catalogue, "key_newNavigatorTab")?.id, "file-menu", "New Tab is under File");
+  is(groupOf(catalogue, "key_find")?.id, "edit-menu", "Find is under Edit");
+  is(groupOf(catalogue, "key_whimsyCheatsheet")?.id, "helpMenu", "Keyboard Shortcuts is under Help");
 
   const ids = catalogue.flatMap(group => group.rows.map(row => row.keyId)).filter(Boolean);
   is(new Set(ids).size, ids.length, "Each key appears once");
+});
 
-  const newTab = file.rows.find(row => row.keyId == "key_newNavigatorTab");
+add_task(async function test_registry_is_the_source() {
+  const catalogue = await WhimsyCheatSheet.catalogue(window);
+  const menubar = document.getElementById("main-menubar");
+  let checked = 0;
+  for (const group of catalogue) {
+    for (const row of group.rows) {
+      const entry = WhimsyCommands.forKey(row.keyId);
+      if (!entry?.l10nId) {
+        continue;
+      }
+      is(row.title, WhimsyCommands.title(entry), `${row.keyId} has its command's name`);
+      const keyEl = document.getElementById(row.keyId);
+      const inMenu = menubar.querySelector(`menuitem[key="${row.keyId}"], menuitem[command="${keyEl.getAttribute("command")}"]`);
+      const menu = WhimsyCommands.menuOf(row.keyId, entry.id);
+      if (!inMenu && menu && document.getElementById(menu)) {
+        is(group.id, menu, `${row.keyId} is under the registry's menu`);
+      }
+      checked++;
+    }
+  }
+  Assert.greater(checked, 3, "Whimsy's own shortcuts are listed");
+  is(WhimsyCommands.menuOf("key_whimsyCheatsheet"), "helpMenu", "The registry knows the sheet's menu");
+});
+
+add_task(async function test_key_caps() {
+  const isMac = AppConstants.platform == "macosx";
+  Assert.deepEqual(keyCaps({ modifiers: "accel,shift", key: "d" }), isMac ? ["⇧", "⌘", "D"] : ["Ctrl", "Shift", "D"],
+    "Caps come one per key, modifiers in the platform's order");
+  if (isMac) {
+    Assert.deepEqual(keyCaps({ modifiers: "shift,alt,control,accel", key: "k" }), ["⌃", "⌥", "⇧", "⌘", "K"],
+      "Apple's order: Control, Option, Shift, Command");
+  }
+  Assert.deepEqual(keyCaps({}), [], "Nothing bound, no caps");
+
+  const rows = await WhimsyCheatSheet.rows(window);
+  const newTab = rows.find(row => row.keyId == "key_newNavigatorTab");
   is(newTab.label, ShortcutUtils.prettifyShortcut(document.getElementById("key_newNavigatorTab")),
-    "Bindings use the platform's shortcut formatting");
-  ok(!newTab.title.startsWith("customkeys-") && !newTab.title.startsWith("key"), "Titles are readable names");
+    "The label is the platform's formatting");
+  is(newTab.caps.at(-1), "T", "The last cap is the key");
 });
 
 add_task(async function test_live_keys() {
@@ -76,7 +115,7 @@ add_task(async function test_live_keys() {
 
   keyEl.setAttribute("key", "W");
   row = (await WhimsyCheatSheet.rows(window)).find(r => r.keyId == keyEl.id);
-  is(row.label, ShortcutUtils.prettifyShortcut(keyEl), "A rebinding shows the new binding");
+  is(row.caps.at(-1), "W", "A rebinding shows the new binding");
 
   keyEl.setAttribute("disabled", "true");
   ok(!(await WhimsyCheatSheet.rows(window)).some(r => r.keyId == keyEl.id), "Disabled keys are left out");
@@ -85,39 +124,31 @@ add_task(async function test_live_keys() {
   ok(!(await WhimsyCheatSheet.rows(window)).some(r => r.keyId == keyEl.id), "Cleared keys are left out");
 });
 
-add_task(async function test_panel_search() {
-  addProbeKey({ id: "key_whimsySearchProbe", label: "Zebra probe 4417", key: "Y" });
-  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
-    e => e.target.id == "whimsy-cheatsheet-panel");
-  WhimsyCheatSheet.open(window);
-  await shown;
-  const panel = document.getElementById("whimsy-cheatsheet-panel");
-  try {
-    await TestUtils.waitForCondition(() => panel.querySelector(".whimsy-cheatsheet-group"), "The list rendered");
-    ok(panel.querySelectorAll(".whimsy-cheatsheet-heading").length >= 3, "Group headings are shown");
+add_task(async function test_customized_shortcuts() {
+  registerCleanupFunction(() => {
+    WhimsyCommands.reset("whimsy-cheatsheet");
+    WhimsyCommands.reset("whimsy-focus-sidebar");
+  });
+  let row = (await WhimsyCheatSheet.rows(window)).find(r => r.keyId == "key_whimsyCheatsheet");
+  ok(!row.customized, "A default shortcut isn't marked");
 
-    const search = panel.querySelector("input");
-    is(document.activeElement, search, "Search has focus");
-    search.value = "zebra probe 4417";
-    search.dispatchEvent(new Event("input"));
-    const rows = panel.querySelectorAll(".whimsy-cheatsheet-row");
-    is(rows.length, 1, "Search narrows to the matching row");
-    is(rows[0].getAttribute("data-key-id"), "key_whimsySearchProbe", "...the right one");
-    is(panel.querySelectorAll(".whimsy-cheatsheet-group").length, 1, "Groups without matches are hidden");
+  ok(WhimsyCommands.rebind("whimsy-cheatsheet", FREE).ok, "Keyboard Shortcuts moves to a free key");
+  row = (await WhimsyCheatSheet.rows(window)).find(r => r.keyId == "key_whimsyCheatsheet");
+  ok(row.customized, "A changed shortcut is marked custom");
+  Assert.deepEqual(row.caps, keyCaps(FREE), "...showing the new keys");
+  is(row.defaultLabel, keyCaps({ key: "/", modifiers: "accel" }).join(AppConstants.platform == "macosx" ? "" : "+"),
+    "...and remembering the default");
 
-    const heading = document.getElementById("file-menu").label;
-    search.value = heading;
-    search.dispatchEvent(new Event("input"));
-    ok(panel.querySelector('.whimsy-cheatsheet-row[data-key-id="key_newNavigatorTab"]'),
-      "Searching a group's heading shows the whole group");
+  ok(WhimsyCommands.rebind("whimsy-focus-sidebar", { modifiers: "accel,alt,shift", key: "U" }).ok,
+    "Focus Sidebar (no default) gets a shortcut");
+  row = (await WhimsyCheatSheet.rows(window)).find(r => r.keyId == "key_whimsyFocusSidebar");
+  ok(row?.customized, "An added shortcut is listed and marked custom");
+  is(row.defaultLabel, "", "...with no default");
 
-    search.value = "no such shortcut 824831";
-    search.dispatchEvent(new Event("input"));
-    ok(!panel.querySelector(".whimsy-cheatsheet-row"), "No rows for a miss");
-    ok(panel.querySelector(".whimsy-cheatsheet-empty"), "...and an empty state");
-  } finally {
-    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-    panel.hidePopup();
-    await hidden;
-  }
+  WhimsyCommands.reset("whimsy-cheatsheet");
+  WhimsyCommands.reset("whimsy-focus-sidebar");
+  row = (await WhimsyCheatSheet.rows(window)).find(r => r.keyId == "key_whimsyCheatsheet");
+  ok(!row.customized, "Reset clears the mark");
+  ok(!(await WhimsyCheatSheet.rows(window)).some(r => r.keyId == "key_whimsyFocusSidebar"),
+    "An unbound command isn't on the sheet");
 });
