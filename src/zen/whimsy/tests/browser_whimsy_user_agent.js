@@ -77,3 +77,28 @@ add_task(async function test_pretend_sheet() {
     is(WhimsyUserAgent.uaFor(HOST), PRESETS["chrome-mac"], "Choosing Chrome stores it");
   });
 });
+
+// W8-49: Per-site user agent is partitioned per profile and private browsing.
+add_task(async function test_w8_49_user_agent_per_profile() {
+  const host = "profile-ua.example";
+  registerCleanupFunction(() => {
+    WhimsyUserAgent.clear(host, "work");
+    WhimsyUserAgent.clear(host, "default");
+  });
+
+  WhimsyUserAgent.set(host, "safari-iphone", null, "work");
+  is(WhimsyUserAgent.uaFor(host, "work"), PRESETS["safari-iphone"], "Work profile has iPhone UA");
+  is(WhimsyUserAgent.uaFor(host, "default"), null, "Default profile does not have override");
+
+  // Private browsing choice is in-memory only and cleared on exit
+  WhimsyUserAgent.set(host, "chrome-mac", null, { isPrivate: true });
+  is(WhimsyUserAgent.uaFor(host, { isPrivate: true }), PRESETS["chrome-mac"], "Private has Chrome");
+  is(WhimsyUserAgent.uaFor(host, "default"), null, "Normal default still has no override");
+
+  Services.obs.notifyObservers(null, "last-pb-context-exited");
+  is(WhimsyUserAgent.uaFor(host, { isPrivate: true }), null, "Private choice cleared on exit");
+
+  // Removing profile removes its overrides
+  WhimsyUserAgent.removeProfile("work");
+  is(WhimsyUserAgent.uaFor(host, "work"), null, "Removed profile overrides cleared");
+});

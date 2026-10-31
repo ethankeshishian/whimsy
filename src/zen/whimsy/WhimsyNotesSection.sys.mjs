@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(
   {
     JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
     TabNotes: "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs",
+    WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   },
   { global: "current" }
 );
@@ -55,21 +56,27 @@ class NotesStore {
     return this.#file;
   }
 
-  async list() {
+  async list(profileKey = null) {
     const file = await this.#ensureLoaded();
-    return [...file.data.notes].sort((a, b) => b.updated - a.updated);
+    let notes = file.data.notes;
+    if (profileKey) {
+      notes = notes.filter(n => (n.profileKey || "default") === profileKey);
+    }
+    return [...notes].sort((a, b) => b.updated - a.updated);
   }
 
-  async create() {
+  async create(data = {}) {
     const file = await this.#ensureLoaded();
     const note = {
       id: Services.uuid.generateUUID().toString(),
-      title: "",
-      text: "",
-      pageAttached: false,
-      url: null,
+      title: data.title || "",
+      text: data.text || "",
+      profileKey: data.profileKey || "default",
+      pageAttached: !!data.pageAttached,
+      url: data.url || null,
       created: Date.now(),
       updated: Date.now(),
+      ...(data.blocks ? { blocks: data.blocks } : {}),
     };
     file.data.notes.push(note);
     file.saveSoon();
@@ -95,6 +102,21 @@ class NotesStore {
     file.saveSoon();
     Services.obs.notifyObservers(null, NOTES_CHANGED_TOPIC);
   }
+
+  async removeForProfile(profileKey) {
+    if (!profileKey || profileKey === "default") {
+      return;
+    }
+    const file = await this.#ensureLoaded();
+    file.data.notes = file.data.notes.filter(n => (n.profileKey || "default") !== profileKey);
+    file.saveSoon();
+    Services.obs.notifyObservers(null, NOTES_CHANGED_TOPIC);
+  }
 }
 
 export const gWhimsyNotesStore = new NotesStore();
+
+// W8-49: clean up notes when a custom profile is deleted.
+try {
+  lazy.WhimsyProfiles.onDelete?.((id, key) => gWhimsyNotesStore.removeForProfile(key));
+} catch (e) {}

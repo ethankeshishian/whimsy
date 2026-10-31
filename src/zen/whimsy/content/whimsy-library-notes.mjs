@@ -15,7 +15,11 @@ const { gWhimsyNotesStore, NOTES_CHANGED_TOPIC } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs"
 );
 const lazy = {};
-ChromeUtils.defineESModuleGetters(lazy, {"TabNotes": "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs"});
+ChromeUtils.defineESModuleGetters(lazy, {
+  TabNotes: "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+});
 
 function preview(text) {
   const firstLine = (text ?? "").split("\n").find(l => l.trim()) ?? "";
@@ -48,23 +52,44 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     this.editingId = null;
   }
 
+  // W8-49: Notes are per-profile (matching active space's container).
+  get profileKey() {
+    const win = this.ownerDocument?.defaultView;
+    if (!win) {
+      return "default";
+    }
+    const profileId = lazy.WhimsyProfiles.activeProfileId(win);
+    return lazy.WhimsyProfiles.keyFor(profileId);
+  }
+
   // Notes can change while this section stays mounted (the library keeps it
-  // for a while after closing): "Add to Note", another window, a tab drop.
+  // for a while after closing): "Add to Note", another window, a tab drop,
+  // or switching to a space of another profile.
   #observer = () => this.#refresh();
 
   connectedCallback() {
     super.connectedCallback();
     Services.obs.addObserver(this.#observer, NOTES_CHANGED_TOPIC);
+    const win = this.ownerDocument?.defaultView;
+    if (win) {
+      win.addEventListener("ZenWorkspacesUIUpdate", this.#observer);
+      win.addEventListener("TabSelect", this.#observer);
+    }
     this.#refresh();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     Services.obs.removeObserver(this.#observer, NOTES_CHANGED_TOPIC);
+    const win = this.ownerDocument?.defaultView;
+    if (win) {
+      win.removeEventListener("ZenWorkspacesUIUpdate", this.#observer);
+      win.removeEventListener("TabSelect", this.#observer);
+    }
   }
 
   async #refresh() {
-    this.notes = await gWhimsyNotesStore.list();
+    this.notes = await gWhimsyNotesStore.list(this.profileKey);
   }
 
   get searchPlaceholderL10nId() {
@@ -76,7 +101,7 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
   }
 
   async #addNote() {
-    const note = await gWhimsyNotesStore.create();
+    const note = await gWhimsyNotesStore.create({ profileKey: this.profileKey });
     await this.#refresh();
     this.editingId = note.id;
   }
@@ -110,6 +135,14 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     if (!note.pageAttached) {
       const tab = this.ownerDocument.defaultView.gBrowser.selectedTab;
       if (!tab?.canonicalUrl) {
+        return;
+      }
+      // wave8/isolation: attaching saves the page's address (Firefox's
+      // TabNotes and this note), so never for a private page.
+      if (
+        lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) ||
+        tab.hasAttribute("whimsy-private")
+      ) {
         return;
       }
       try {
