@@ -493,3 +493,30 @@ add_task(async function test_switches_turn_it_off() {
   Services.prefs.clearUserPref(ENABLED);
   ok(!WhimsyClaude.running, "Turning it off in Settings stops it");
 });
+
+// wave9/secfix (security-full-2 L1): the person approves one page. If the
+// tab navigates while "Allow Claude to click on …?" is up, the action
+// stops rather than landing on the new page.
+add_task(async function test_page_changing_during_the_prompt() {
+  await turnOn();
+  WhimsyClaude.forgetSitePermissions();
+  const { tabId } = JSON.parse(textOf(await ok_call("tabs_create", { url: PAGE })));
+  const tab = WhimsyClaude.tabById(tabId);
+  const go = refIn(textOf(await ok_call("read_page", { tabId })), /button "Go"/);
+  const OTHER = "https://example.org/?secfix-claude-other";
+  const stub = WhimsyClaude.confirmSite;
+  WhimsyClaude.confirmSite = async () => {
+    const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, OTHER);
+    BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, OTHER);
+    await loaded;
+    return "once";
+  };
+  try {
+    const result = await call("click", { tabId, ref: go });
+    ok(result.isError && textOf(result).includes("page changed"), `The click stops: ${textOf(result)}`);
+  } finally {
+    WhimsyClaude.confirmSite = stub;
+  }
+  await ok_call("tabs_close", { tabId });
+  Services.prefs.clearUserPref(ENABLED);
+});
