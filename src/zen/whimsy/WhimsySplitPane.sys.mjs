@@ -194,7 +194,7 @@ export const WhimsySplitPane = {
     document.l10n.setAttributes(button, "whimsy-split-pane-menu-button");
     button.addEventListener("command", event => {
       // A toolbarbutton fires command for Enter and Space as well as a
-      // click; from the keyboard, the menu opens with its first item active.
+      // click; from the keyboard, the first arrow key picks its first item.
       const keyboard = event.inputSource == win.MouseEvent.MOZ_SOURCE_KEYBOARD;
       this.openMenuForTab(win, paneTab(), { anchor: button, keyboard });
     });
@@ -207,13 +207,15 @@ export const WhimsySplitPane = {
     header.appendChild(button);
     const browser = paneTab()?.linkedBrowser ?? container?.querySelector("browser");
     if (browser) {
-      this.updateHeaderFor(win, browser);
+      // This header may not be in the pane yet, so pass it rather than
+      // look it up from the browser (an already-loaded page fires no
+      // further location change to fill it later).
+      this.updateHeaderFor(win, browser, header);
     }
   },
 
   // The host label and back/forward state of the header over `browser`.
-  updateHeaderFor(win, browser) {
-    const header = browser?.closest(".browserSidebarContainer")?.querySelector(".zen-view-splitter-header");
+  updateHeaderFor(win, browser, header = browser?.closest(".browserSidebarContainer")?.querySelector(".zen-view-splitter-header")) {
     const label = header?.querySelector(".whimsy-split-pane-host-label");
     if (!label) {
       return;
@@ -360,18 +362,10 @@ export const WhimsySplitPane = {
     menu.whimsyHeader = headerContainer ?? null;
     // Keep the header up while its menu is open (no hover needed).
     headerContainer?.setAttribute(OPEN_ATTR, "true");
-    if (keyboard) {
-      menu.addEventListener(
-        "popupshown",
-        () => {
-          const first = [...menu.children].find(el => el.localName == "menuitem" && !el.hidden && !el.disabled);
-          if (first) {
-            menu.activateItem(first);
-          }
-        },
-        { once: true }
-      );
-    }
+    // From the keyboard the menu opens with nothing chosen, like a macOS
+    // menu: the first arrow key highlights the first item. (activateItem
+    // would *run* that item, Separate from Split View, and close the menu;
+    // JS can't pre-select a menupopup row.)
     menu.openPopup(anchor, { position: "after_end", triggerEvent: null });
     return true;
   },

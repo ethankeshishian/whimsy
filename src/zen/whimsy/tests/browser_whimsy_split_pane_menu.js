@@ -147,7 +147,12 @@ add_task(async function test_keyboard_command_opens_the_focused_panes_menu() {
   document.getElementById("cmd_whimsySplitPaneMenu").doCommand();
   await shown;
   is(menu.whimsyTab, tabs[1], "The menu is the focused pane's");
-  await TestUtils.waitForCondition(() => menu.querySelector("menuitem[_moz-menuactive]"), "Its first item is active for the arrow keys");
+  await new Promise(resolve => setTimeout(resolve, 300));
+  is(menu.state, "open", "Opening it runs no item: the menu stays open");
+  ok(tabs.every(t => t.splitView), "and the panes stay split");
+  EventUtils.synthesizeKey("KEY_ArrowDown");
+  const first = [...menu.children].find(el => el.localName == "menuitem" && !el.hidden && !el.disabled);
+  await TestUtils.waitForCondition(() => first.hasAttribute("_moz-menuactive"), "The first arrow key highlights its first item");
   await closePaneMenu();
   cleanup(tabs);
 });
