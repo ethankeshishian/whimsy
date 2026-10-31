@@ -59,6 +59,10 @@ add_setup(async () => {
     ],
   });
   await SimpleTest.promiseFocus(window);
+  // The hints point at the selected tab: start from a real, visible one
+  // (an earlier test file may leave Zen's hidden empty tab selected).
+  const anchorTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  registerCleanupFunction(() => BrowserTestUtils.removeTab(anchorTab));
 
   // A command and a <key> to teach.
   const command = document.createXULElement("command");

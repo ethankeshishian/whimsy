@@ -34,14 +34,14 @@ const primary = tag => normal(tag).split("-")[0].toLowerCase();
 export function pickLocale(available, wanted) {
   const locales = (Array.isArray(available) ? available : []).map(normal).filter(Boolean);
   const tags = (Array.isArray(wanted) ? wanted : []).map(normal).filter(tag => LANG_RE.test(tag));
+  // Language by language, in order: the page's hinted language beats the
+  // app's locale even when only the app's has an exact match.
+  const region = tags.map(tag => tag.split("-")[1]).find(part => part && /^[a-zA-Z]{2}$/.test(part));
   for (const tag of tags) {
     const exact = locales.find(locale => locale.toLowerCase() == tag.toLowerCase());
     if (exact) {
       return exact;
     }
-  }
-  const region = tags.map(tag => tag.split("-")[1]).find(part => part && /^[a-zA-Z]{2}$/.test(part));
-  for (const tag of tags) {
     const same = locales.filter(locale => primary(locale) == primary(tag));
     if (same.length) {
       return same.find(locale => region && locale.split("-")[1]?.toLowerCase() == region.toLowerCase()) ?? same[0];
@@ -170,7 +170,9 @@ export const WhimsyLiveSpeech = {
     if (!Number.isInteger(rate) || rate < 8000 || rate > 192000) {
       return;
     }
-    if (!(samples instanceof Float32Array) && !Array.isArray(samples)) {
+    // isView, not instanceof: a typed array from another global (a test, a
+    // different compartment) isn't an instance of this module's Float32Array.
+    if (!(ArrayBuffer.isView(samples) && !(samples instanceof DataView)) && !Array.isArray(samples)) {
       return;
     }
     const list = Array.from(samples.length > MAX_SAMPLES ? samples.slice(-MAX_SAMPLES) : samples, x =>
