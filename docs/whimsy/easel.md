@@ -60,6 +60,16 @@ the selection, then returns to the pointer.
 - `content/whimsy-easel.{html,css,mjs}` and `whimsy-easel-model.mjs`: the page.
 - `content/whimsy-library-easels.mjs`: Library → Easels.
 - Live captures reuse `createLiveBrowser` from `content/whimsy-note-blocks.mjs`.
+- The easel page is a system-principal document in a tab, so its docshell is a
+  content docshell. Gecko refuses a remote `<browser>` there unless the page is
+  on `nsFrameLoader::TryRemoteBrowserInternal`'s allow list (about:addons and a
+  few others); otherwise the browser never gets a process and fires
+  `oop-browser-crashed` with childID 0 (why Easel was reverted in waves 5 and
+  7). `src/dom/base/whimsy-nsFrameLoader-cpp.patch` allows
+  `about:whimsy?easel…` (system principal only), so it needs a binaries build.
+  An `<iframe>` is no way around it: a parent-process document's subframes
+  can't switch process. A live capture that crashes anyway goes back to its
+  still image with a note; Cmd+R tries again.
 - Switch: `whimsy.feature.easel` (Settings, under Notes). Off hides the command,
   the capture button and the Library section; open easels say they're off; data stays.
 - Tests: `tests/browser_whimsy_easel.js`; screenshots `wave5-easel-*` in `browser_whimsy_screens.js`.

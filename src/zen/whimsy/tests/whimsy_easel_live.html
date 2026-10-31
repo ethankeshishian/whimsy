@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Easel live capture</title>
+<style>
+  html, body { margin: 0; height: 100%; background: rgb(255, 0, 170); }
+  #marker { font: 24px sans-serif; color: rgb(255, 0, 170); }
+</style>
+<p id="marker">easel-live-marker</p>
+<script>
+  // Proves scripts run in the capture (it's sandboxed, not script-less).
+  document.getElementById("marker").dataset.ran = "yes";
+</script>

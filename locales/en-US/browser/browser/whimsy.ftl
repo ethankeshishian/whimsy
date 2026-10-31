@@ -2053,6 +2053,7 @@ whimsy-easel-empty-paste = Paste an image or link
 whimsy-easel-empty-capture = Capture part of any page
 
 whimsy-easel-live-private = Live captures are paused in private windows
+whimsy-easel-live-stopped = The live page stopped. Press ⌘R to try again.
 whimsy-easel-off-title = Easels are turned off
 whimsy-easel-off-body = Turn them on in Settings, under Whimsy.
 whimsy-easel-missing-title = This easel was deleted
@@ -2084,6 +2085,7 @@ whimsy-easel-status-undo = Undone
 whimsy-easel-status-redo = Redone
 whimsy-easel-status-live-on = Live capture on
 whimsy-easel-status-live-off = Live capture paused
+whimsy-easel-status-live-stopped = The live page stopped. Showing the capture.
 whimsy-easel-status-copied-image = Copied the easel as an image
 whimsy-easel-status-saved-png = Saved the easel as a PNG
 whimsy-easel-status-export-failed = Couldn't export the easel. Try again, or export a smaller part.

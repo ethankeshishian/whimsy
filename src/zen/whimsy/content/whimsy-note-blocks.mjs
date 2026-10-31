@@ -33,7 +33,10 @@ export const BLOCK_SANDBOX_FLAGS = 0x2 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 
 
 // A sandboxed remote <browser> showing `url` in the given container, out of
 // global history, appended to `parent`. Shared with Easel's live captures.
-export function createLiveBrowser(parent, { url, userContextId = 0, className, group }) {
+// `onCrashed` (optional) hears oop-browser-crashed; it's added before the
+// browser is inserted because a <browser> that can't get a content process
+// reports that synchronously, during its first load.
+export function createLiveBrowser(parent, { url, userContextId = 0, className, group, onCrashed = null }) {
   const doc = parent.ownerDocument;
   const browser = doc.createXULElement("browser");
   browser.setAttribute("type", "content");
@@ -47,6 +50,9 @@ export function createLiveBrowser(parent, { url, userContextId = 0, className, g
     browser.setAttribute("usercontextid", String(userContextId));
   }
   browser.className = className;
+  if (onCrashed) {
+    browser.addEventListener("oop-browser-crashed", onCrashed);
+  }
   parent.append(browser);
   if (browser.browsingContext) {
     browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;

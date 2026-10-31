@@ -19,6 +19,26 @@ const { ScreenshotsUtils } = ChromeUtils.importESModule(
 );
 
 const PAGE = "https://example.com/";
+const LIVE_PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_easel_live.html";
+// Its own site (and so its own web process) for the crash test, so crashing
+// it takes down no other tab's page.
+const CRASH_PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.org") + "whimsy_easel_live.html";
+
+// wave8/isolation: a container tab lives in a space of its own container,
+// so the test opens one there (the isolation guard would move it anyway).
+async function containerSpace(userContextId) {
+  const space = await gZenWorkspaces.createAndSaveWorkspace(`Container ${userContextId}`, undefined, true, userContextId);
+  registerCleanupFunction(async () => {
+    for (const tab of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == space.uuid &&
+      !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    if (gZenWorkspaces.getWorkspaces().some(w => w.uuid == space.uuid)) {
+      await gZenWorkspaces.removeWorkspace(space.uuid);
+    }
+  });
+  return space;
+}
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
@@ -214,11 +234,16 @@ add_task(async function test_text_drawing_shapes_move_resize_undo() {
 
 add_task(async function test_captures_static_live_and_private() {
   const pageTab = await BrowserTestUtils.openNewForegroundTab({ gBrowser, opening: PAGE, forceNewProcess: true });
+  registerCleanupFunction(() => BrowserTestUtils.removeTab(pageTab));
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await containerSpace(2);
+  await gZenWorkspaces.changeWorkspace(space);
   const container = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: 2 });
   await BrowserTestUtils.browserLoaded(container.linkedBrowser);
   registerCleanupFunction(() => {
-    BrowserTestUtils.removeTab(pageTab);
-    BrowserTestUtils.removeTab(container);
+    if (container.isConnected) {
+      BrowserTestUtils.removeTab(container);
+    }
   });
   const region = { left: 0, top: 0, right: 400, bottom: 200, width: 400, height: 200 };
   gBrowser.selectedTab = container;
@@ -230,6 +255,8 @@ add_task(async function test_captures_static_live_and_private() {
   is(capture.item.userContextId, 2, "and the container");
   Assert.deepEqual(capture.item.crop, { x: 0, y: 0, w: 400, h: 200 }, "and the region");
   is(capture.item.live, false, "Captures start still, like Arc");
+  // The easel itself opens in the normal space.
+  await gZenWorkspaces.changeWorkspace(home);
 
   // Nonsense regions are refused.
   is((await WhimsyEasel.captureRegion(pageTab.linkedBrowser, { region: { left: 0, top: 0, right: 1, bottom: 1 } })).error, "whimsy-capture-failed-toast", "Tiny regions are refused");
@@ -495,4 +522,120 @@ add_task(async function test_sync() {
   Services.prefs.clearUserPref(SYNC_PREF);
   Services.prefs.clearUserPref("whimsy.easel.sync-known");
   await SpecialPowers.popPrefEnv();
+});
+
+// wave9: a live capture's <browser> sits in the easel page, a system-principal
+// document in a tab's (content) docshell. Gecko only lets such a document
+// host a remote <browser> when it's allowed (about:addons, and about:whimsy
+// ?easel via whimsy-nsFrameLoader-cpp.patch); otherwise the browser never gets
+// a content process and fires oop-browser-crashed with childID 0 (wave 7).
+// Play must give it a live web process that runs and paints the page.
+add_task(async function test_live_capture_gets_a_live_process_and_renders() {
+  const pageTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, LIVE_PAGE);
+  registerCleanupFunction(() => pageTab.isConnected && BrowserTestUtils.removeTab(pageTab));
+  const region = { left: 0, top: 0, right: 300, bottom: 150, width: 300, height: 150 };
+  const capture = await WhimsyEasel.captureRegion(pageTab.linkedBrowser, { region, devicePixelRatio: 1, viewportWidth: 800, viewportHeight: 600 });
+  is(capture.item?.url, LIVE_PAGE, "The test page is captured");
+
+  const { easel, tab, win, app } = await openNewEasel();
+  const crashes = [];
+  // Capture phase on the easel window: hears the event before the capture's
+  // own handler stops it.
+  win.addEventListener("oop-browser-crashed", e => crashes.push(e.childID), true);
+  // And the tab browser must never hear a crash from inside the easel.
+  const tabCrashes = [];
+  const onTabCrash = e => tabCrashes.push(e.originalTarget);
+  gBrowser.tabpanels.addEventListener("oop-browser-crashed", onTabCrash);
+  registerCleanupFunction(() => gBrowser.tabpanels.removeEventListener("oop-browser-crashed", onTabCrash));
+
+  await WhimsyEasel.addCaptureTo(window, easel.id, capture);
+  const item = await TestUtils.waitForCondition(() => app.items.find(i => i.type == "capture"), "The capture is on the easel");
+  const el = app.els.get(item.id);
+  app.select([item.id]);
+  win.document.querySelector('#contextbar [data-action="live"]').click();
+  ok(app.find(item.id).live, "Play makes it live");
+
+  const browser = await TestUtils.waitForCondition(() => el.querySelector(".capture-browser"), "The live <browser> is made");
+  await TestUtils.waitForCondition(
+    () => browser.currentURI?.spec == LIVE_PAGE && browser.browsingContext?.currentWindowGlobal && !browser.webProgress?.isLoadingDocument,
+    "The live capture loads the test page"
+  );
+  Assert.deepEqual(crashes, [], "No oop-browser-crashed from the live capture");
+  Assert.deepEqual(tabCrashes, [], "No crash reached the tab browser");
+  ok(browser.isConnected && el.contains(browser), "The live browser is still on the easel");
+  ok(!el.querySelector(".capture-note"), "No stopped note");
+  ok(browser.isRemoteBrowser, "The live capture runs out of process");
+  ok(browser.frameLoader.childID > 0, `It has a content process (childID ${browser.frameLoader.childID})`);
+  ok(browser.remoteType?.startsWith("web"), `In a web process (${browser.remoteType})`);
+  const wgp = browser.browsingContext.currentWindowGlobal;
+  ok(wgp.osPid > 0 && wgp.osPid != Services.appinfo.processID, "Not in the parent process");
+  ok(browser.browsingContext.sandboxFlags & 0x2, "Sandboxed like note blocks");
+
+  // The page's own script ran in that process.
+  const ran = await SpecialPowers.spawn(browser, [], () => content.document.getElementById("marker")?.dataset.ran);
+  is(ran, "yes", "The page's script runs in the live capture");
+
+  // It paints: the content process draws the page's magenta background.
+  const stage = el.querySelector(".capture-stage");
+  await TestUtils.waitForCondition(() => stage.classList.contains("ready"), "The stage shows the live page");
+  const box = browser.getBoundingClientRect();
+  ok(box.width > 0 && box.height > 0, "The live browser has a size on the easel");
+  const bitmap = await wgp.drawSnapshot(new DOMRect(0, 60, 40, 40), 1, "white");
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0);
+  const [r, g, b] = ctx.getImageData(Math.floor(bitmap.width / 2), Math.floor(bitmap.height / 2), 1, 1).data;
+  ok(r > 230 && g < 30 && b > 150 && b < 190, `The live capture renders the page (rgb ${r}, ${g}, ${b})`);
+
+  // Still alive after the tab goes to the background and comes back.
+  gBrowser.selectedTab = pageTab;
+  gBrowser.selectedTab = tab;
+  await new Promise(r => win.requestAnimationFrame(r));
+  Assert.deepEqual(crashes, [], "Still no crash after switching tabs");
+  ok(browser.isRemoteBrowser && browser.frameLoader.childID > 0, "Still live");
+
+  // Pause drops the live page.
+  app.select([item.id]);
+  win.document.querySelector('#contextbar [data-action="live"]').click();
+  ok(!el.querySelector(".capture-browser"), "Paused: the live page is gone");
+  gBrowser.tabpanels.removeEventListener("oop-browser-crashed", onTabCrash);
+  BrowserTestUtils.removeTab(pageTab);
+});
+
+// A live capture whose <browser> crashes goes back to the still capture with
+// a note, and the crash never reaches the tab browser; Cmd+R tries again.
+add_task(async function test_live_capture_crash_falls_back_to_still() {
+  const pageTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, CRASH_PAGE);
+  registerCleanupFunction(() => pageTab.isConnected && BrowserTestUtils.removeTab(pageTab));
+  const region = { left: 0, top: 0, right: 300, bottom: 150, width: 300, height: 150 };
+  const capture = await WhimsyEasel.captureRegion(pageTab.linkedBrowser, { region, devicePixelRatio: 1, viewportWidth: 800, viewportHeight: 600 });
+  const { easel, win, app } = await openNewEasel();
+  await WhimsyEasel.addCaptureTo(window, easel.id, capture);
+  const item = await TestUtils.waitForCondition(() => app.items.find(i => i.type == "capture"), "The capture is on the easel");
+  const el = app.els.get(item.id);
+  app.select([item.id]);
+  win.document.querySelector('#contextbar [data-action="live"]').click();
+  const browser = await TestUtils.waitForCondition(() => el.querySelector(".capture-browser"), "The live <browser> is made");
+  await TestUtils.waitForCondition(() => browser.browsingContext?.currentWindowGlobal?.documentURI?.spec == CRASH_PAGE, "Loaded");
+
+  // The test page's tab shares the capture's web process: close it first so
+  // only the capture crashes.
+  BrowserTestUtils.removeTab(pageTab);
+  const tabCrashes = [];
+  const onTabCrash = e => e.originalTarget == browser && tabCrashes.push(e.originalTarget);
+  gBrowser.tabpanels.addEventListener("oop-browser-crashed", onTabCrash);
+  registerCleanupFunction(() => gBrowser.tabpanels.removeEventListener("oop-browser-crashed", onTabCrash));
+  await BrowserTestUtils.crashFrame(browser, /* shouldShowTabCrashPage */ false);
+  await TestUtils.waitForCondition(() => !el.querySelector(".capture-stage"), "The crashed live page is taken down");
+  ok(el.querySelector("img"), "The still capture shows");
+  const note = el.querySelector(".capture-note");
+  is(note?.getAttribute("data-l10n-id"), "whimsy-easel-live-stopped", "A note says the live page stopped");
+  Assert.deepEqual(tabCrashes, [], "The crash never reached the tab browser");
+  ok(app.find(item.id).live, "The capture stays live in the easel's document");
+
+  // Cmd+R (refresh) tries again.
+  app.refreshLive();
+  const again = await TestUtils.waitForCondition(() => el.querySelector(".capture-browser"), "Refresh makes a new live <browser>");
+  await TestUtils.waitForCondition(() => again.isRemoteBrowser && again.frameLoader.childID > 0, "with a live process");
+  ok(!el.querySelector(".capture-note"), "The note is gone");
 });

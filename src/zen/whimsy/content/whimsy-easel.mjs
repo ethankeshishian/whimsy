@@ -101,6 +101,11 @@ class EaselApp {
   #suppressMouseDown = false;
   #started = false;
   #liveObserver = null;
+  // Live captures whose page stopped (its process crashed, or the <browser>
+  // never got one): they show the still capture and a note until Play,
+  // Pause or Refresh tries again, so a page that can't load isn't retried
+  // on every render.
+  #liveStopped = new Set();
   #untitled = "Untitled Easel";
   #textPlaceholder = "";
   #viewAnimation = 0;
@@ -612,16 +617,21 @@ class EaselApp {
   // ---------- Live captures ----------
 
   updateLive(item, el) {
-    const wantLive = item.live && item.url && !this.isPrivate;
+    const stopped = this.#liveStopped.has(item.id);
+    const wantLive = item.live && item.url && !this.isPrivate && !stopped;
     const stage = el.querySelector(".capture-stage");
     let note = el.querySelector(".capture-note");
-    if (item.live && this.isPrivate) {
+    const noteId = !item.live ? null
+      : this.isPrivate ? "whimsy-easel-live-private"
+      : stopped ? "whimsy-easel-live-stopped"
+      : null;
+    if (noteId) {
       if (!note) {
         note = document.createElement("div");
         note.className = "capture-note";
-        document.l10n.setAttributes(note, "whimsy-easel-live-private");
         el.append(note);
       }
+      document.l10n.setAttributes(note, noteId);
     } else {
       note?.remove();
     }
@@ -675,11 +685,24 @@ class EaselApp {
     this.layoutStage(item, stage);
     const url = item.url;
     const userContextId = item.userContextId || 0;
+    // The page's process crashed, or the <browser> never got one (Gecko
+    // refuses a remote <browser> in a document that may not host one and
+    // reports that as a crash with childID 0; see the nsFrameLoader patch).
+    // Go back to the still capture and say so. Stop the event here: it would
+    // bubble out of this page to the tab browser, whose crash handler expects
+    // one of its own tabs. It can fire while the browser is still being set
+    // up, so the stage is taken down a moment later.
+    const onCrashed = event => {
+      event.stopPropagation();
+      console.error(`Whimsy: easel live capture stopped (childID ${event.childID})`);
+      setTimeout(() => this.stopLive(item.id, event.target), 0);
+    };
     const browser = createLiveBrowser(stage, {
       url,
       userContextId,
       className: "capture-browser",
       group: "whimsy-easel",
+      onCrashed,
     });
     // The static capture stays underneath until the page has drawn.
     const ready = () => stage.classList.add("ready");
@@ -703,8 +726,16 @@ class EaselApp {
     // there, or the stage never hears that the page drew.
     browser.addEventListener("DidChangeBrowserRemoteness", listen);
     // A frame loader made again (the element re-bound) starts on
-    // about:blank and forgets the page; load the capture's page again.
+    // about:blank and forgets the page; load the capture's page again. A
+    // process switch also makes a new frame loader, but Gecko carries the
+    // load over to it: don't start the page again then.
+    let switchingProcess = false;
+    browser.addEventListener("WillChangeBrowserRemoteness", () => (switchingProcess = true));
     browser.addEventListener("XULFrameLoaderCreated", () => {
+      if (switchingProcess) {
+        switchingProcess = false;
+        return;
+      }
       Promise.resolve().then(() => {
         if (browser.isConnected && (browser.currentURI?.spec ?? "about:blank") == "about:blank") {
           reloadLiveBrowser(browser, url, userContextId);
@@ -714,6 +745,24 @@ class EaselApp {
     });
     setTimeout(ready, 3000);
     return browser;
+  }
+
+  stopLive(id, browser) {
+    const stage = browser.closest(".capture-stage");
+    if (!stage?.isConnected) {
+      return;
+    }
+    this.#liveStopped.add(id);
+    stage.remove();
+    if (this.activeId == id) {
+      this.activate(null);
+    }
+    const item = this.find(id);
+    const el = this.els.get(id);
+    if (item && el) {
+      this.updateLive(item, el);
+    }
+    this.announce("whimsy-easel-status-live-stopped");
   }
 
   layoutStage(item, stage) {
@@ -727,10 +776,21 @@ class EaselApp {
   }
 
   refreshLive() {
-    let count = 0;
+    // A stopped capture gets another try (a fresh load, so no reload below).
+    const restarted = new Set();
+    for (const id of [...this.#liveStopped]) {
+      this.#liveStopped.delete(id);
+      const item = this.find(id);
+      const el = this.els.get(id);
+      if (item && el) {
+        this.updateLive(item, el);
+        restarted.add(el);
+      }
+    }
+    let count = restarted.size;
     for (const el of this.els.values()) {
       const browser = el.querySelector(".capture-browser");
-      if (browser) {
+      if (browser && !restarted.has(el)) {
         browser.reload();
         count++;
       }
@@ -740,6 +800,7 @@ class EaselApp {
 
   setLive(item, live) {
     if (!item?.url || item.type != "capture") return;
+    this.#liveStopped.delete(item.id);
     this.change(() => {
       item.live = live;
     });
