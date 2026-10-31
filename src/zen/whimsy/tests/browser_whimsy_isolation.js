@@ -376,3 +376,99 @@ add_task(async function add_to_note_is_not_offered_on_a_private_page() {
   BrowserTestUtils.removeTab(normal);
   await cleanup();
 });
+
+// wave8 lane: paths wave 8 added or changed. Each one must go through the
+// guard: the tab ends up in Work's container, can't read Default's cookie,
+// and nothing is left crossing.
+async function setDefaultCookie(tab, name) {
+  await SpecialPowers.spawn(tab.linkedBrowser, [name], n => {
+    content.document.cookie = `${n}=signed-in; path=/`;
+  });
+  ok(Services.cookies.getCookiesFromHost("example.com", { userContextId: 0 }).some(c => c.name == name),
+    `Default has ${name}`);
+}
+
+async function assertMovedClean(old, name) {
+  const moved = await reopenedInWork(old);
+  await BrowserTestUtils.browserLoaded(moved.linkedBrowser, { wantLoad: url => url.startsWith(PAGE) }).catch(() => {});
+  await TestUtils.waitForCondition(() => moved.linkedBrowser.currentURI?.spec.startsWith(PAGE), "The page loads in Work");
+  const seen = await SpecialPowers.spawn(moved.linkedBrowser, [], () => content.document.cookie);
+  ok(!seen.includes(name), `The Work tab can't read Default's ${name}`);
+  assertNoTabCrosses("After the move");
+  return moved;
+}
+
+// wave8/cmds: the command bar's "Move to <space>" rows.
+add_task(async function command_bar_move_to_space_goes_through_the_guard() {
+  const tab = await openHomeTab(PAGE + "?cmdbar");
+  await setDefaultCookie(tab, "whimsy_cmdbar");
+  WhimsySpaces.syncSpaceActions(window);
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const row = globalActions.find(a => a.commandId == `whimsy:move-to-space-${workSpace.uuid}`);
+  ok(row?.isAvailable(window), "Move to Isolation Work is offered");
+  answers = [true];
+  asked = [];
+  row.command(window);
+  is(tab.getAttribute(ATTR), home.uuid, "Held back while asking");
+  await assertMovedClean(tab, "whimsy_cmdbar");
+  is(asked.length, 1, "Arc's warning was shown once");
+  await cleanup();
+});
+
+// wave8/cmds: Move Tab to Next / Previous Space.
+add_task(async function next_and_previous_space_moves_go_through_the_guard() {
+  const spaces = gZenWorkspaces.getWorkspaces();
+  const i = spaces.findIndex(s => s.uuid == home.uuid);
+  const next = spaces[(i + 1) % spaces.length]?.uuid == workSpace.uuid;
+  const prev = spaces[(i - 1 + spaces.length) % spaces.length]?.uuid == workSpace.uuid;
+  ok(next || prev, "Work is next to the home space");
+  const tab = await openHomeTab(PAGE + "?relative");
+  await setDefaultCookie(tab, "whimsy_relative");
+  answers = [true];
+  asked = [];
+  document.getElementById(next ? "cmd_whimsyMoveTabToNextSpace" : "cmd_whimsyMoveTabToPrevSpace").doCommand();
+  await assertMovedClean(tab, "whimsy_relative");
+  await cleanup();
+});
+
+// wave8/snooze: a snoozed tab whose closed entry is gone comes back fresh in
+// the container of the space it returns to.
+add_task(async function snooze_wake_opens_in_the_space_container() {
+  if (gZenWorkspaces.activeWorkspace != home.uuid) {
+    await gZenWorkspaces.changeWorkspace(home);
+  }
+  const before = new Set(gZenWorkspaces.allStoredTabs);
+  WhimsySnooze.wake(window, {
+    url: PAGE + "?snoozed", title: "Snoozed", zenWorkspace: workSpace.uuid,
+    userContextId: 0, closedId: null, wakeAt: Date.now(),
+  });
+  const woke = await TestUtils.waitForCondition(
+    () => gZenWorkspaces.allStoredTabs.find(t => !before.has(t) && !t.closing),
+    "The snoozed tab came back");
+  await TestUtils.waitForCondition(() => woke.getAttribute(ATTR) == workSpace.uuid, "In Work");
+  is(woke.userContextId, work, "In Work's container, not Default's");
+  assertNoTabCrosses("After waking");
+  await cleanup();
+});
+
+// Archive: a tab archived from Work comes back in Work's container, even
+// restored while another space shows.
+add_task(async function archive_restore_keeps_the_container() {
+  const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchive.sys.mjs");
+  await gZenWorkspaces.changeWorkspace(workSpace);
+  const tab = BrowserTestUtils.addTab(gBrowser, PAGE + "?archived", { userContextId: work });
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  gZenWorkspaces.moveTabToWorkspace(tab, workSpace.uuid);
+  await TestUtils.waitForCondition(() => tab.getAttribute(ATTR) == workSpace.uuid, "The tab is in Work");
+  is(tab.userContextId, work, "…in Work's container");
+  BrowserTestUtils.removeTab(tab);
+  const entry = await TestUtils.waitForCondition(
+    () => WhimsyArchive.listEntries(window).find(e => e.url == PAGE + "?archived"), "Archived");
+  await gZenWorkspaces.changeWorkspace(home);
+  const back = WhimsyArchive.restore(window, entry.closedId);
+  ok(back, "Restored");
+  await TestUtils.waitForCondition(() => back.getAttribute(ATTR) == workSpace.uuid, "Back in Work");
+  is(back.userContextId, work, "In Work's container");
+  assertNoTabCrosses("After restoring");
+  await cleanup();
+});
