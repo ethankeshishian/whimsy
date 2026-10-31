@@ -11,6 +11,16 @@
 // This module only keeps the add-on's enabled state in step with
 // whimsy.reject-cookie-banners (Settings → Privacy & Security) and the
 // whimsy.feature.cookie-banners switch.
+//
+// The manifest's content script deliberately has no match_origin_as_fallback.
+// With it, the document_start script also matched a new tab's initial
+// about:blank (whose origin falls back to the opener's) and blocked that
+// document's parser until the script was ready. A navigation that started
+// meanwhile (a tab created and loaded in one go) folded into the unfinished
+// about:blank load, so its STATE_START was treated as the blank page's and the
+// tab never got "busy": no throbber, no loading indicator. Autoconsent's frame
+// rules match on the frame's real URL, so about:blank/srcdoc frames gained it
+// nothing.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {

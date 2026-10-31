@@ -16,8 +16,7 @@
       "matches": ["*://*/*"],
       "js": ["autoconsent/content.js"],
       "run_at": "document_start",
-      "all_frames": true,
-      "match_origin_as_fallback": true
+      "all_frames": true
     }
   ],
   "permissions": ["scripting", "*://*/*"]
