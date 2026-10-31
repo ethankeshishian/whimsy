@@ -57,6 +57,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyGlance.sys.mjs",
     "WhimsyHandoff.sys.mjs",
     "WhimsyHeavyTabs.sys.mjs",
+    "WhimsyHexPicker.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
     "WhimsyIsolation.sys.mjs",
     "WhimsyJiraLiveFolder.sys.mjs",

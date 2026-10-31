@@ -394,11 +394,27 @@ whimsy-open-link-in-space =
 
 whimsy-hex-input =
     .placeholder = #5B8CFF
-    .title = Type or paste a hex color, then press Return. Add two digits for opacity, like #5B8CFF80.
+    .title = Type or paste a hex color; the space changes as you type. Add two digits for opacity, like #5B8CFF80. Esc undoes.
     .aria-label = Hex color
+whimsy-hex-well =
+    .title = Pick a color
+    .aria-label = Pick a color
 whimsy-hex-add =
-    .tooltiptext = Add color
-    .aria-label = Add color
+    .tooltiptext = New color (Return)
+    .aria-label = New color
+whimsy-hex-copy =
+    .tooltiptext = Copy hex
+    .aria-label = Copy hex color
+# $hex (String) - a hex color, like #5B8CFF
+whimsy-hex-copied = Copied { $hex }
+# $hex (String) - a hex color, like #5B8CFF
+whimsy-hex-edit-color =
+    .title = Edit { $hex }
+    .aria-label = Edit color { $hex }
+# $hex (String) - a hex color, like #5B8CFF
+whimsy-hex-remove-color =
+    .tooltiptext = Remove { $hex }
+    .aria-label = Remove color { $hex }
 
 ## Settings → Look and Feel → Look
 
