@@ -1153,6 +1153,10 @@ FEATURES = [
     # wave8/folders: Live folders: a Resync option that brings back tabs closed by hand (W8-26).
     {"id": "live-folders-resync", "title": "Resync live folder: bring back tabs closed by hand",
      "detect": [("src/zen/live-folders", r"(?i)resync")]},
+    # wave9/mini: W8-23 a site's popup window (a sign-in window) shows
+    # Firefox's read-only address bar and identity in the top strip.
+    {"id": "site-popup-chrome", "title": "Sign-in popups show their address: a site's popup window keeps Firefox's read-only address bar and identity",
+     "detect": [("src/zen", r"(?i)popup-?window[^\n]{0,80}(nav-?bar|urlbar)[^\n]{0,40}visib")]},
 ]
 
 

@@ -742,7 +742,9 @@ export const WhimsyClaude = {
 
   topWindow() {
     for (const win of lazy.BrowserWindowTracker.orderedWindows) {
-      if (!win.closed && !win._whimsyQuickWindow && !lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
+      // wave9/mini: nor a site's popup window (a sign-in popup is often on top).
+      if (!win.closed && !win._whimsyQuickWindow && win.toolbar.visible &&
+          !lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
         return win;
       }
     }
@@ -806,6 +808,7 @@ export const WhimsyClaude = {
       !tab.closing &&
       !this.isPrivate(tab) &&
       !tab.documentGlobal._whimsyQuickWindow &&
+      tab.documentGlobal.toolbar.visible &&
       (this.inClaudeSpace(tab) || this.wholeBrowser)
     );
   },

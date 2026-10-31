@@ -4155,3 +4155,25 @@ panel.whimsy-sheet.whimsy-snooze {
     border-top: 1px solid var(--whimsy-mini-hairline);
   }
 }
+
+/* wave9/mini W8-23: a site's popup window (WhimsySitePopups): the top strip
+   holds Firefox's read-only address bar and identity, always shown (never
+   Zen's hover-to-reveal or should-hide), since the address is the popup's
+   security indicator. */
+:root[whimsy-site-popup] #zen-appcontent-navbar-wrapper {
+  visibility: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+
+  & #zen-appcontent-navbar-container {
+    pointer-events: auto !important;
+  }
+  & #nav-bar {
+    visibility: visible !important;
+    flex: 1;
+    min-width: 0;
+  }
+}

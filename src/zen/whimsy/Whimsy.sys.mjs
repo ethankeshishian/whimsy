@@ -152,6 +152,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyMarkdownCopy: "resource:///modules/whimsy/WhimsyMarkdownCopy.sys.mjs",
 });
 
+// wave9/mini: a site's popup window shows its read-only address (W8-23).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySitePopups: "resource:///modules/whimsy/WhimsySitePopups.sys.mjs",
+});
+
 // wave5/quick: new season toast.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySeasonToast: "resource:///modules/whimsy/WhimsySeasonToast.sys.mjs",
@@ -892,6 +897,11 @@ export const Whimsy = {
     );
     // wave8/cmds: W8-42 New Note command and menu item.
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
+    // wave9/mini: W8-23 a site's popup (a sign-in window) shows Firefox's
+    // read-only address bar and identity, which Zen's sidebar layout hides.
+    if (this.featureEnabled("site-popup-chrome")) {
+      run("site-popup-chrome", () => lazy.WhimsySitePopups.initWindow(win));
+    }
 
     this.runDeferred(win, deferred, run);
   },

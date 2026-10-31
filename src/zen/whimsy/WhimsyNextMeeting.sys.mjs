@@ -698,7 +698,8 @@ export const WhimsyNextMeeting = {
       },
       { once: true }
     );
-    if (!win._whimsyQuickWindow) {
+    // wave9/mini: no meeting card in a site's popup window either.
+    if (!win._whimsyQuickWindow && win.toolbar.visible) {
       WhimsyNextMeetingCard.attach(win, this);
     }
     this._updateTimer();
