@@ -171,7 +171,7 @@ add_task(async function updated_notice() {
   );
   ok(notification, "The after-update notice appears in the sidebar");
   await TestUtils.waitForCondition(
-    () => notification.shadowRoot?.textContent.includes("What's new"),
+    () => notification.shadowRoot?.textContent.includes("What’s new"),
     "The notice is labelled"
   );
   // Let its slide-in animation finish.

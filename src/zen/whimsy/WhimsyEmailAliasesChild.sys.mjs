@@ -12,6 +12,8 @@
 // alias menu, which lives in the browser chrome; the parent sends back the
 // address to fill. Nothing here talks to iCloud or Relay.
 
+const lazy = {};
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 const FEATURE_PREF = "whimsy.feature.email-aliases";
 const BUTTON_PREF = "whimsy.email-aliases.button";
 const HOST_ID = "whimsy-email-aliases-host";
@@ -169,7 +171,7 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
     const button = doc.createElement("button");
     button.type = "button";
     button.tabIndex = -1;
-    button.setAttribute("aria-label", "Email alias");
+    button.setAttribute("aria-label", lazy.l10n.formatValueSync("whimsy-email-aliases-field-button")); // wave9/designfix (L6)
     Object.assign(button.style, {
       all: "initial",
       boxSizing: "border-box",

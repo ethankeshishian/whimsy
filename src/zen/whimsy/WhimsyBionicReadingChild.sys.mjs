@@ -16,6 +16,8 @@
 // feature is off, and so toggling is exactly reversible rather than a
 // purely visual undo.
 
+const lazy = {};
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 const PREF = "whimsy.reader.bionic";
 const WORD_CLASS = "whimsy-bionic-word";
 // The portion of each word's leading letters to bold. 0.5 sits in the
@@ -58,7 +60,7 @@ export class WhimsyBionicReadingChild extends JSWindowActorChild {
     this._content = content;
     this._button = this.document.createElement("button");
     this._button.className = "toolbar-button whimsy-bionic-button";
-    this._button.title = "Bionic reading";
+    this._button.title = lazy.l10n.formatValueSync("whimsy-bionic-reader-button"); // wave9/designfix (L6)
     this._button.setAttribute("aria-pressed", "false");
     this._button.addEventListener("click", () => this.toggle());
     // Reader's toolbar buttons draw their icon as a background image chosen
