@@ -253,8 +253,8 @@ export const WhimsyPlaylist = {
     return null;
   },
 
-  async saveFromPage(win) {
-    const browser = win.gBrowser.selectedBrowser;
+  // wave9/menus: `browser` is the tab menu's tab when it isn't the current one.
+  async saveFromPage(win, browser = win.gBrowser.selectedBrowser) {
     const result = {};
     const media = await this.findPageMedia(browser, result);
     if (!media) {

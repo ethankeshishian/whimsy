@@ -616,3 +616,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave8 lane: every Whimsy menu row has a .label (native menus).
 ["browser_whimsy_menu_labels.js"]
+
+# wave9/menus: W9-09 right-click <-> command parity (commands, rows off by default, Allow Copy on blocking pages, Share submenu), W9-10 container rows off.
+["browser_whimsy_menu_parity.js"]

@@ -38,7 +38,55 @@ export class WhimsyPageChild extends JSWindowActorChild {
       case "click":
         this.onClick(event);
         break;
+      case "contextmenu":
+        this.onContextMenu(event);
+        break;
     }
+  }
+
+  // wave9/menus (W9-09): tells the parent, before Firefox's context menu
+  // opens, whether this page looks like it blocks copying: it listens for
+  // copy, cut or selectstart on the window, document or body (the usual
+  // blockers), sets an on* handler for them, or turns off text selection
+  // on the page or under the pointer. Already allowed: nothing to offer.
+  onContextMenu(event) {
+    let blocked = false;
+    try {
+      blocked = !this.copyGuard && this.pageBlocksCopy(event.composedTarget ?? event.target);
+    } catch (e) {
+      // A page torn down mid-event.
+    }
+    this.sendAsyncMessage("Whimsy:CopyBlocked", { blocked });
+  }
+
+  pageBlocksCopy(target) {
+    const win = this.contentWindow;
+    const doc = this.document;
+    if (!win || !doc) {
+      return false;
+    }
+    const types = new Set(["copy", "cut", "selectstart"]);
+    const nodes = [win, doc, doc.documentElement, doc.body].filter(Boolean);
+    for (const node of nodes) {
+      for (const type of types) {
+        if (node[`on${type}`]) {
+          return true;
+        }
+      }
+      for (const info of Services.els.getListenerInfoFor(node)) {
+        if (types.has(info.type) && !info.inSystemEventGroup && info.enabled) {
+          return true;
+        }
+      }
+    }
+    const noSelect = el => !!el && win.getComputedStyle(el)?.userSelect == "none";
+    if (noSelect(doc.body) || noSelect(doc.documentElement)) {
+      return true;
+    }
+    // Text under the pointer that can't be selected (not a control).
+    const el = target?.nodeType == 1 ? target : target?.parentElement;
+    const control = el?.closest?.("button, a, input, select, textarea, label, [role=button], [contenteditable]");
+    return !control && noSelect(el) && !!el?.textContent?.trim();
   }
 
   // Shift+click a link (W8-16): Arc's Peek, so Zen's Glance, as Option+click

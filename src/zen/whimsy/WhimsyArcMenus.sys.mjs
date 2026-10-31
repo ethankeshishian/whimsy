@@ -108,8 +108,8 @@ export const WhimsyArcMenus = {
 
   // Arc's Tabs → Reset all tabs in this Space: Zen's per-tab "Reset Pinned
   // Tab", for every pinned tab (not Essentials) of the current space.
-  resetSpaceTabs(win) {
-    const space = win.gZenWorkspaces?.activeWorkspace;
+  // wave9/menus: `space` is the space menu's space when it isn't the current one.
+  resetSpaceTabs(win, space = win.gZenWorkspaces?.activeWorkspace) {
     const tabs = win.gBrowser.tabs.filter(
       tab =>
         tab.pinned &&

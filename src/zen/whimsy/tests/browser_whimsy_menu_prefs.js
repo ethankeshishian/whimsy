@@ -9,7 +9,7 @@
 // Restore Defaults brings everything back, a menu with every item off
 // doesn't open, and Settings search finds the pane.
 
-const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR } = ChromeUtils.importESModule(
+const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR, ADDED_HIDDEN } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs"
 );
 
@@ -50,6 +50,18 @@ function checkSeparators(menu, what) {
       isnot(rows[i - 1].localName, "menuseparator", `${what}: no two separators together (${rows[i].id || i})`);
     }
   }
+}
+
+// wave9/menus: rows that start off (W9-09/W9-10) are collapsed by default;
+// nothing else is, apart from the separators they leave behind.
+function onlyDefaultsMarked(menu, menuId, what) {
+  const defaults = WhimsyMenuPrefs.items(menuId)
+    .filter(item => WhimsyMenuPrefs.defaultHiddenIds(menuId).has(item.id))
+    .flatMap(item => item.selectors);
+  const others = [...menu.querySelectorAll(`:scope > [${HIDDEN_ATTR}]`)].filter(
+    node => node.localName != "menuseparator" && !defaults.some(selector => node.matches(selector))
+  );
+  Assert.deepEqual(others.map(node => node.id), [], what);
 }
 
 async function openTabMenu(tab) {
@@ -95,12 +107,20 @@ add_task(async function test_registry() {
       items.every(item => item.l10n && item.selectors.length),
       `${menu.id}: every item has a label and a row to match`
     );
-    is(Services.prefs.getStringPref(WhimsyMenuPrefs.prefName(menu.id), "x"), "", `${menu.id}: nothing hidden by default`);
+    // wave9/menus: only the rows W9-09/W9-10 added start off.
+    is(
+      Services.prefs.getStringPref(WhimsyMenuPrefs.prefName(menu.id), "x"),
+      (ADDED_HIDDEN[1][menu.id] ?? []).join(","),
+      `${menu.id}: only the new rows are hidden by default`
+    );
+    for (const id of ADDED_HIDDEN[1][menu.id] ?? []) {
+      ok(items.some(item => item.id == id), `${menu.id}: ${id} (off by default) is a row of the menu`);
+    }
   }
   // Stored in the menu's order, whatever order they were turned off in.
   WhimsyMenuPrefs.setHidden("tab", "mute", true);
   WhimsyMenuPrefs.setHidden("tab", "reload", true);
-  is(Services.prefs.getStringPref("whimsy.menus.hidden.tab"), "reload,mute", "The pref reads in menu order");
+  ok(Services.prefs.getStringPref("whimsy.menus.hidden.tab").startsWith("reload,mute,"), "The pref reads in menu order");
   WhimsyMenuPrefs.setHidden("tab", "reload", false);
   WhimsyMenuPrefs.setHidden("tab", "mute", false);
   ok(WhimsyMenuPrefs.isDefault("tab"), "Turning both back on is the default again");
@@ -111,7 +131,7 @@ add_task(async function test_tab_menu_hides_rows_and_separators() {
   let menu = await openTabMenu(tab);
   ok(shows(document.getElementById("context_reloadTab")), "Reload Tab shows by default");
   ok(shows(document.getElementById("context_duplicateTab")), "Duplicate Tab shows by default");
-  ok(!menu.querySelector(`[${HIDDEN_ATTR}]`), "Nothing is marked while every item is on");
+  onlyDefaultsMarked(menu, "tab", "Only the rows that start off are marked");
   await closeMenu(menu);
 
   // A whole group (Reload … Snooze), and the first row of the menu.
@@ -144,7 +164,7 @@ add_task(async function test_tab_menu_hides_rows_and_separators() {
   menu = await openTabMenu(tab);
   ok(shows(document.getElementById("context_reloadTab")), "Reload Tab is back");
   ok(shows(document.getElementById("context_duplicateTab")), "Duplicate Tab is back");
-  ok(!menu.querySelector(`[${HIDDEN_ATTR}]`), "Nothing is marked after Restore Defaults");
+  onlyDefaultsMarked(menu, "tab", "Only the rows that start off are marked after Restore Defaults");
   await closeMenu(menu);
   BrowserTestUtils.removeTab(tab);
 });
@@ -185,7 +205,7 @@ add_task(async function test_hidden_rows_are_collapsed_for_native_menus() {
   unload.setAttribute("collapsed", "true");
   menu = await openTabMenu(tab);
   ok(!reload.hasAttribute("collapsed"), "Back on: Reload Tab is no longer collapsed");
-  ok(!menu.querySelector(`[${COLLAPSED_ATTR}]`), "Back on: no Whimsy collapse is left");
+  onlyDefaultsMarked(menu, "tab", "Back on: no other Whimsy collapse is left");
   is(unload.getAttribute("collapsed"), "true", "A row collapsed by someone else is left alone");
   await closeMenu(menu);
   unload.removeAttribute("collapsed");
@@ -294,7 +314,11 @@ add_task(async function test_settings_pane() {
       "Every tab menu item, in order"
     );
     await TestUtils.waitForCondition(() => toggles.every(t => t.label), "Every switch has a label");
-    ok(toggles.every(t => t.pressed), "Every switch is on");
+    const startOff = WhimsyMenuPrefs.defaultHiddenIds("tab");
+    ok(
+      toggles.every(t => t.pressed == !startOff.has(t.dataset.item)),
+      "Every switch is on, except the rows that start off"
+    );
     const restore = doc.getElementById("whimsyMenus-tab-restore");
     ok(restore.disabled, "Restore Defaults waits until something changes");
     is(restore.getAttribute("aria-describedby"), "whimsyMenus-tab-header", "Restore Defaults names its menu");

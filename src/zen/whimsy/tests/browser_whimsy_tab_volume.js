@@ -65,12 +65,15 @@ add_task(async function test_panel_and_menu() {
   await TestUtils.waitForCondition(() => tab.soundPlaying, "playing");
 
   // wave7/menus: no "Volume…" row in the tab menu (no duplicate controls).
+  // wave9/menus (W9-09): the user asked for one in Settings → Menus, off by
+  // default, so by default it still doesn't show.
   const menu = document.getElementById("tabContextMenu");
   for (const t of [quiet, tab]) {
     const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
     EventUtils.synthesizeMouseAtCenter(t, { type: "contextmenu", button: 2 });
     await shown;
-    ok(!document.getElementById("context_whimsyTabVolume"), "The tab menu has no Volume row");
+    const row = document.getElementById("context_whimsyTabVolume");
+    ok(!row || row.hidden || row.getAttribute("collapsed") == "true", "The tab menu shows no Volume row by default");
     const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
     menu.hidePopup();
     await hidden;
