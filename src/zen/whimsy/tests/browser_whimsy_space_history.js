@@ -259,11 +259,15 @@ add_task(async function library_preserves_native_history_and_actions() {
       item => item.textContent.trim() === "Deleted spaces");
     ok(filter, "Spaces use the same chips as the other filters");
     filter.click();
-    await TestUtils.waitForCondition(() => section._flatVisits?.length === 1 &&
-      section._flatVisits[0].spaceId === "hist-ui");
+    // Every visit of a space that's gone (earlier tasks' too), and only those.
+    const current = new Set(gZenWorkspaces.getWorkspaces().map(w => w.uuid));
+    await TestUtils.waitForCondition(() => section._flatVisits?.some(v => v.spaceId === "hist-ui") &&
+      section._flatVisits.every(v => v.spaceId && !current.has(v.spaceId)), "Deleted spaces shows their visits");
+    const deletedCount = section._flatVisits.length;
     section.filtersOpen = false;
     await section.updateComplete;
-    is(section.querySelectorAll(".zen-library-row").length, 1, "Space filter renders one matching visit");
+    is(section.querySelectorAll(".zen-library-row").length, section._flatVisits.length,
+      "Space filter renders the matching visits");
     ok(section.querySelector(".whimsy-history-space-name"), "A visit has its space label");
     const row = section.querySelector(".zen-library-row");
     const rowURL = row.querySelector(".zen-library-visit-url");
@@ -288,10 +292,16 @@ add_task(async function library_preserves_native_history_and_actions() {
         section._flatVisits?.length === count, `Search for ${value} updates the visible visits`);
       await section.updateComplete;
     };
-    await search("fixture Space", 1);
+    // Other deleted spaces' visits can match too; this task's is among them.
+    input.value = "fixture Space";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await TestUtils.waitForCondition(() => section.searchQuery === "fixture Space" &&
+      section._flatVisits?.some(v => v.spaceId === "hist-ui") && section._flatVisits.length <= deletedCount,
+      "Search for fixture Space narrows the visible visits");
+    await section.updateComplete;
     await search("no-such-visit", 0);
     ok(section.querySelector(".zen-library-empty"), "No matches show the native empty state");
-    await search("", 1);
+    await search("", deletedCount);
     section.activeFilters.delete("space:deleted");
     section.onFiltersChanged();
     await section.refresh();
@@ -474,18 +484,20 @@ add_task(async function space_filter_follows_space_order() {
   try {
     await TestUtils.waitForCondition(() => library.querySelector("whimsy-space-history-section"));
     section = library.querySelector("whimsy-space-history-section");
+    // W8-38: spaces only older visits remember are one "Deleted spaces" entry.
     const expected = () => [...gZenWorkspaces.getWorkspaces().filter(s => !s.whimsyScratch).map(s => s.uuid),
-      "hist-gone"];
+      "deleted"];
     await section.refresh();
     Assert.deepEqual(ids().filter(id => expected().includes(id)), expected(),
-      "Spaces follow the space strip, then spaces only older visits remember");
+      "Spaces follow the space strip, then Deleted spaces");
+    ok(!ids().includes("hist-gone"), "A deleted space has no entry of its own");
     ok(ids().indexOf(zulu.uuid) < ids().indexOf(alpha.uuid), "Not alphabetical: Zulu was made first");
     await gZenWorkspaces.reorderWorkspace(alpha.uuid, 0);
     await section.refresh();
     is(ids()[0], alpha.uuid, "Moving a space to the front moves it to the front of the filter");
     const current = gZenWorkspaces.getWorkspaces().map(s => s.uuid);
-    ok(ids().indexOf("hist-gone") > Math.max(...current.map(id => ids().indexOf(id))),
-      "A deleted space stays after every current one");
+    ok(ids().indexOf("deleted") > Math.max(...current.map(id => ids().indexOf(id))),
+      "Deleted spaces stays after every current one");
   } finally {
     await library.constructor.animateProgress(0);
     library.activeTab = wasTab;
