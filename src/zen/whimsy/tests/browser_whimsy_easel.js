@@ -174,8 +174,9 @@ add_task(async function test_text_drawing_shapes_move_resize_undo() {
   // Move the shape by dragging it.
   const before = { x: shape.x, y: shape.y };
   const s = app.toScreen(shape);
-  // Grab the outline (an unfilled shape is picked by its line).
-  await drag(win, at(s.x + 3, s.y + s.h / 2), at(s.x + 63, s.y + s.h / 2 + 40), { modifiers: { altKey: true } });
+  // Grab the outline (an unfilled shape is picked by its line), away from
+  // the selected shape's edge-midpoint resize handles.
+  await drag(win, at(s.x + 3, s.y + s.h / 4), at(s.x + 63, s.y + s.h / 4 + 40), { modifiers: { altKey: true } });
   ok(Math.abs(shape.x - before.x - 60 / app.view.zoom) < 1, "Moved right");
   ok(Math.abs(shape.y - before.y - 40 / app.view.zoom) < 1, "Moved down");
 
@@ -314,7 +315,7 @@ add_task(async function test_capture_button_and_picker() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
   const browser = tab.linkedBrowser;
-  ScreenshotsUtils.start(browser);
+  ScreenshotsUtils.start(browser, "ToolbarButton");
   await TestUtils.waitForCondition(
     () => SpecialPowers.spawn(browser, [], () => {
       const overlay = content.windowGlobalChild.getActor("ScreenshotsComponent").overlay;

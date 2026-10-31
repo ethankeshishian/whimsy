@@ -21,6 +21,19 @@ async function typeInUrlbar(text, inputType = "insertText") {
   gURLBar.inputField.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType, data: text }));
 }
 
+// "/" into the empty bar enters commands mode (only a lone "/" does, M7),
+// then the query is typed there.
+async function typeCommand(query) {
+  gURLBar.searchMode = null;
+  await typeInUrlbar("/");
+  await TestUtils.waitForCondition(
+    () => gURLBar.searchMode?.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS,
+    "Commands mode entered"
+  );
+  gURLBar.value = query;
+  gURLBar.inputField.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType: "insertText", data: query }));
+}
+
 registerCleanupFunction(() => {
   gURLBar.searchMode = null;
   gURLBar.value = "";
@@ -102,8 +115,7 @@ add_task(async function test_appearance_actions_match_each_other() {
   // Automatic now: Light and Dark are both offered.
   await SpecialPowers.pushPrefEnv({ set: [["zen.view.window.scheme", 2]] });
   const titles = async query => {
-    gURLBar.searchMode = null;
-    await typeInUrlbar(`/${query}`);
+    await typeCommand(query);
     await UrlbarTestUtils.promiseSearchComplete(window);
     const found = [];
     for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
@@ -139,8 +151,7 @@ add_task(async function test_new_doc_finds_the_three_document_commands() {
   const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
   UrlbarTestUtils.init(this);
   const wanted = ["whimsy-action-new-notion", "whimsy-action-new-doc", "whimsy-action-new-word"].map(id => action(id).label);
-  gURLBar.searchMode = null;
-  await typeInUrlbar("/new doc");
+  await typeCommand("new doc");
   await UrlbarTestUtils.promiseSearchComplete(window);
   const found = [];
   for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {

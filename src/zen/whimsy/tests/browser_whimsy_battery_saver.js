@@ -180,6 +180,7 @@ add_task(async function test_custom_user_pref_preserved() {
     15000,
     "Custom 15000ms delay restored"
   );
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_feature_switch_disables() {
@@ -247,7 +248,10 @@ add_task(async function test_settings_switch_is_reachable() {
 
     const checkbox = doc.getElementById("whimsyBatterySaverEnabled");
     await TestUtils.waitForCondition(() => checkbox.label?.includes("20%"), "The checkbox has a label");
-    ok(!checkbox.textContent.trim(), "The message is an attribute, not text content");
+    // design-full-4 H2: a message with a value instead of .label makes Fluent
+    // replace the checkbox's own children (its box and label) with text.
+    ok(checkbox.hasAttribute("label"), "The message sets the label attribute");
+    ok(checkbox.querySelector(".checkbox-check"), "…and leaves the checkbox's own children in place");
     ok(checkbox.checked, "On by default");
 
     const pref = WhimsyBatterySaver.ENABLED_PREF;

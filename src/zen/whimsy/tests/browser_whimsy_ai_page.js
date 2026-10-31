@@ -308,6 +308,9 @@ add_task(async function hidden_reader_blocks_custom_protocols() {
 // button still asks.
 add_task(async function test_private_return_doesnt_ask_the_cloud() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  // The other tasks use the stand-in provider; this one needs the cloud one.
+  const testProvider = WhimsyAIProviders._testProvider;
+  WhimsyAIProviders._testProvider = null;
   Services.prefs.setStringPref("whimsy.ai.provider", "claude");
   ok(WhimsyAIProviders.isCloud, "A cloud provider");
   const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
@@ -330,6 +333,7 @@ add_task(async function test_private_return_doesnt_ask_the_cloud() {
     findbar.close();
   } finally {
     WhimsyAIPage.askOnPage = realAsk;
+    WhimsyAIProviders._testProvider = testProvider;
     Services.prefs.clearUserPref("whimsy.ai.provider");
     BrowserTestUtils.removeTab(tab);
   }

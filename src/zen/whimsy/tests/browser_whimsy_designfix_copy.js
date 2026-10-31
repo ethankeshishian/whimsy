@@ -8,7 +8,7 @@
 // words; nothing that reaches the user is hard-coded English; one kind of
 // apostrophe; calm onboarding copy.
 
-const l10n = new Localization(["browser/whimsy.ftl", "browser/zen-workspaces.ftl"], true);
+const l10n = new Localization(["branding/brand.ftl", "browser/whimsy.ftl", "browser/zen-workspaces.ftl"], true);
 
 function value(id, args) {
   return l10n.formatValueSync(id, args);
