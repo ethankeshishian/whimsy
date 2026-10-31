@@ -147,9 +147,9 @@
 # "islands" (Opera Tab Islands-style, one level, colored pill per root).
 - name: whimsy.tabs.tree-style
   value: tree
-# batch6 #7: Shift+click a link opens it in a split instead of navigating
-# it. Off by default: Shift+click is Firefox's own "open in new window".
-# (Not Arc's: Arc's Shift+click opens Peek; Whimsy keeps Zen's Option+click.)
+# batch6 #7: Shift+click a link opens it in a split instead of Peek. Off by
+# default: Shift+click opens Peek (Glance) as in Arc (W8-16), beside Zen's
+# Option+click.
 # Settings -> Tab Management -> Tabs.
 - name: whimsy.splitlink.shift-click
   value: false

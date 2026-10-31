@@ -319,7 +319,8 @@ export const Whimsy = {
         events: {
           play: { capture: true, mozSystemGroup: true },
           volumechange: { capture: true, mozSystemGroup: true },
-          // batch6: Shift+click a link -> split view (whimsy.splitlink.shift-click).
+          // Shift+click a link -> Peek (W8-16), or a split with
+          // whimsy.splitlink.shift-click on (batch6).
           click: { capture: true },
         },
       },

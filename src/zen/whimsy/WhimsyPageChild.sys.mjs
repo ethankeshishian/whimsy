@@ -41,13 +41,14 @@ export class WhimsyPageChild extends JSWindowActorChild {
     }
   }
 
-  // batch6 #7: Shift+click a link opens it in a split beside the current
-  // tab. Off by default (whimsy.splitlink.shift-click), since Shift+click
-  // is Firefox's own "open in new window". Not Arc's (Arc's Shift+click is
-  // Peek; Whimsy keeps Zen's Option+click for Peek).
+  // Shift+click a link (W8-16): Arc's Peek, so Zen's Glance, as Option+click
+  // already does. Firefox's own Shift+click (a new window) is what the user
+  // got instead. batch6 #7's opt-in (whimsy.splitlink.shift-click, Settings
+  // -> Tab Management -> Tabs) still wins: with it on, Shift+click opens the
+  // link in a split beside the current tab. Top frame only, like Zen's own
+  // Glance trigger.
   onClick(event) {
     if (
-      !Services.prefs.getBoolPref("whimsy.splitlink.shift-click", false) ||
       event.button !== 0 ||
       !event.shiftKey ||
       event.ctrlKey ||
@@ -55,6 +56,15 @@ export class WhimsyPageChild extends JSWindowActorChild {
       event.metaKey ||
       event.defaultPrevented
     ) {
+      return;
+    }
+    const split = Services.prefs.getBoolPref("whimsy.splitlink.shift-click", false);
+    const glance =
+      !split &&
+      !this.browsingContext.parent &&
+      Services.prefs.getBoolPref("zen.glance.enabled", true) &&
+      Services.prefs.getStringPref("zen.glance.activation-method", "alt") != "shift";
+    if (!split && !glance) {
       return;
     }
     const [href, node, principal] = lazy.BrowserUtils.hrefAndLinkNodeForClickEvent(event);
@@ -66,9 +76,21 @@ export class WhimsyPageChild extends JSWindowActorChild {
     } catch (e) {
       return;
     }
+    if (split) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.sendAsyncMessage("Whimsy:SplitLink", { href, triggeringPrincipal: principal });
+      return;
+    }
+    let actor = null;
+    try {
+      actor = this.manager.getActor("ZenGlance");
+    } catch (e) {
+      return; // No Glance on this page (a non-web process, or Glance off).
+    }
     event.preventDefault();
     event.stopPropagation();
-    this.sendAsyncMessage("Whimsy:SplitLink", { href, triggeringPrincipal: principal });
+    actor.sendAsyncMessage("ZenGlance:OpenGlance", { url: href, triggeringPrincipal: principal });
   }
 
   receiveMessage(message) {
