@@ -126,7 +126,7 @@ function liquidGlassSupported() {
   return (
     featureOn("liquid-glass") &&
     featureOn("transparency") &&
-    lazy.AppConstants.isPlatformAndVersionAtLeast("macosx", "25")
+    lazy.AppConstants.platform == "macosx"
   );
 }
 
@@ -181,6 +181,27 @@ export const WhimsyCommandBar = {
         Services.prefs.getBoolPref(CREATE_FEATURE_PREF, true) &&
         Services.prefs.getStringPref(NOTE_TARGET_PREF, "none") != "none",
     });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyLiquidGlassToggle",
+      l10nId: "whimsy-action-liquid-glass",
+      run: () => {
+        const current = Services.prefs.getBoolPref("whimsy.look.liquid-glass", false);
+        Services.prefs.setBoolPref("whimsy.look.liquid-glass", !current);
+      },
+      icon: "chrome://browser/skin/zen-icons/sparkles.svg",
+      variants: [
+        {
+          l10nId: "whimsy-action-liquid-glass-on",
+          run: () => Services.prefs.setBoolPref("whimsy.look.liquid-glass", true),
+          isAvailable: () => liquidGlassSupported() && !Services.prefs.getBoolPref("whimsy.look.liquid-glass", false),
+        },
+        {
+          l10nId: "whimsy-action-liquid-glass-off",
+          run: () => Services.prefs.setBoolPref("whimsy.look.liquid-glass", false),
+          isAvailable: () => liquidGlassSupported() && Services.prefs.getBoolPref("whimsy.look.liquid-glass", false),
+        },
+      ],
+    });
     // State-dependent settings toggles (function commands, no shortcut).
     lazy.WhimsyShortcuts.addActions(this.settingsActions());
   },
@@ -205,18 +226,6 @@ export const WhimsyCommandBar = {
         command: w => this.viewHistory(w),
         icon: "chrome://browser/skin/zen-icons/history.svg",
         isAvailable: () => true,
-      },
-      {
-        l10nId: "whimsy-action-liquid-glass-on",
-        command: () => Services.prefs.setBoolPref("whimsy.look.liquid-glass", true),
-        icon: "chrome://browser/skin/zen-icons/sparkles.svg",
-        isAvailable: () => liquidGlassSupported() && !Services.prefs.getBoolPref("whimsy.look.liquid-glass", false),
-      },
-      {
-        l10nId: "whimsy-action-liquid-glass-off",
-        command: () => Services.prefs.setBoolPref("whimsy.look.liquid-glass", false),
-        icon: "chrome://browser/skin/zen-icons/sparkles.svg",
-        isAvailable: () => liquidGlassSupported() && Services.prefs.getBoolPref("whimsy.look.liquid-glass", false),
       },
       ...GLANCE_SIZES.map(size => ({
         l10nId: `whimsy-action-glance-size-${size}`,

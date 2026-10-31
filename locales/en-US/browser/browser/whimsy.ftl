@@ -2373,6 +2373,7 @@ whimsy-link-hover-ai-label = Summary
 
 # fix7 settings: command bar actions for History, Liquid Glass and Glance size.
 whimsy-action-view-history = View History
+whimsy-action-liquid-glass = Liquid Glass
 whimsy-action-liquid-glass-on = Turn Liquid Glass On
 whimsy-action-liquid-glass-off = Turn Liquid Glass Off
 whimsy-action-glance-size-compact = Glance Size: Compact
