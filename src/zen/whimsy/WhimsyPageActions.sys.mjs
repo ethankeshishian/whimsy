@@ -513,6 +513,10 @@ export const WhimsyPageActions = {
     return params.toString();
   },
 
+  // Apple Maps on the web (where the maps: app isn't used). Tests point it
+  // at a local host: the harness forbids outside connections.
+  mapsOrigin: "https://maps.apple.com",
+
   openInMaps(win, action) {
     const query = this.mapsUrl(action);
     if (AppConstants.platform == "macosx" && !this._testing) {
@@ -522,7 +526,7 @@ export const WhimsyPageActions = {
       service.loadURI(Services.io.newURI(`maps://?${query}`), Services.scriptSecurityManager.getSystemPrincipal());
       return;
     }
-    lazy.WhimsyPrivate.openTabFor(win, `https://maps.apple.com/?${query}`, {
+    lazy.WhimsyPrivate.openTabFor(win, `${this.mapsOrigin}/?${query}`, {
       userContextId: win.gBrowser.selectedTab.userContextId,
     });
   },

@@ -46,8 +46,15 @@ add_task(async function page_actions_from_a_private_tab_open_private() {
   registerCleanupFunction(() => (WhimsyPageActions._testing = false));
   await withPrivateTab(async () => {
     const action = { kind: "place", name: "Corner Café" };
-    const url = `https://maps.apple.com/?${WhimsyPageActions.mapsUrl(action)}`;
-    await expectPrivate(url, () => WhimsyPageActions.openInMaps(window, action));
+    // A local stand-in for maps.apple.com: the harness forbids outside hosts.
+    const { mapsOrigin } = WhimsyPageActions;
+    WhimsyPageActions.mapsOrigin = "https://example.com";
+    try {
+      const url = `https://example.com/?${WhimsyPageActions.mapsUrl(action)}`;
+      await expectPrivate(url, () => WhimsyPageActions.openInMaps(window, action));
+    } finally {
+      WhimsyPageActions.mapsOrigin = mapsOrigin;
+    }
   });
 });
 
