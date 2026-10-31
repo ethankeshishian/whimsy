@@ -86,12 +86,17 @@ const isPasteKey = e =>
   !e.altKey &&
   !e.shiftKey;
 
-async function recentDownloads() {
+// wave8/isolation: only the asking page's own side and profile. A private
+// tab sees private downloads (as a private window's panel does), a normal
+// tab none of them; a tab sees only downloads made in its own container
+// (profile), so one profile's files are never offered to another's pages.
+export async function recentDownloads({ isPrivate = false, userContextId = 0 } = {}) {
   try {
-    const list = await lazy.Downloads.getList(lazy.Downloads.PUBLIC);
+    const list = await lazy.Downloads.getList(isPrivate ? lazy.Downloads.PRIVATE : lazy.Downloads.PUBLIC);
     const all = await list.getAll();
     return all
-      .filter(d => d.succeeded && d.target?.path)
+      .filter(d => d.succeeded && d.target?.path && !!d.source?.isPrivate == isPrivate &&
+        (d.source?.userContextId || 0) == (userContextId || 0))
       .sort((a, b) => (b.startTime || 0) - (a.startTime || 0))
       .slice(0, 5)
       .map(d => ({ path: d.target.path, name: PathUtils.filename(d.target.path) }));
@@ -126,6 +131,7 @@ const PASTE_GESTURE_MS = 2000;
 export class WhimsyUploadParent extends JSWindowActorParent {
   // Overridable for tests.
   static clipboardUpload = clipboardUpload;
+  static recentDownloads = recentDownloads;
 
   static initWindow(win) {
     win.addEventListener("keydown", event => {
@@ -158,7 +164,14 @@ export class WhimsyUploadParent extends JSWindowActorParent {
       return null;
     }
     const win = this.browsingContext.topChromeWindow;
-    const [clip, downloads] = await Promise.all([WhimsyUploadParent.clipboardUpload(), recentDownloads()]);
+    const attrs = this.browsingContext.top?.originAttributes ?? {};
+    const [clip, downloads] = await Promise.all([
+      WhimsyUploadParent.clipboardUpload(),
+      WhimsyUploadParent.recentDownloads({
+        isPrivate: (attrs.privateBrowsingId || 0) > 0,
+        userContextId: attrs.userContextId || 0,
+      }),
+    ]);
     return withFile(await this.showPopup(win, message.data, { clip, downloads }));
   }
 

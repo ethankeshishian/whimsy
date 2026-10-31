@@ -304,3 +304,75 @@ add_task(async function a_normal_tab_never_moves_into_scratch() {
   BrowserTestUtils.removeTab(tab);
   await cleanup();
 });
+
+// Per-site user agent: a choice made in a private tab is never saved (the
+// pref and permission would record the site) and never reaches normal tabs.
+add_task(async function a_private_user_agent_choice_stays_private() {
+  const { WhimsyUserAgent, PRESETS } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs"
+  );
+  const host = "whimsy-isolation-ua.example";
+  WhimsyUserAgent.set(host, "safari-iphone", null, { isPrivate: true });
+  is(WhimsyUserAgent.uaFor(host, true), PRESETS["safari-iphone"], "Private tabs get it");
+  is(WhimsyUserAgent.uaFor(host), null, "Normal tabs don't");
+  ok(!Services.prefs.getStringPref("whimsy.useragent.sites", "{}").includes(host), "Not saved to prefs");
+  const principal = Services.scriptSecurityManager.createContentPrincipal(
+    Services.io.newURI(`https://${host}/`), {});
+  is(Services.perms.testPermissionFromPrincipal(principal, "whimsy-useragent"),
+    Services.perms.UNKNOWN_ACTION, "No permission saved");
+  Services.obs.notifyObservers(null, "last-pb-context-exited");
+  is(WhimsyUserAgent.uaFor(host, true), null, "Forgotten when private browsing ends");
+});
+
+// Upload from the clipboard offers recent downloads: only the asking page's
+// own side (private/normal) and profile.
+add_task(async function upload_offers_only_this_profiles_downloads() {
+  const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+  const { WhimsyUploadParent } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs"
+  );
+  const made = [];
+  async function download(name, source, kind) {
+    const list = await Downloads.getList(kind);
+    const target = PathUtils.join(PathUtils.tempDir, name);
+    const d = await Downloads.createDownload({ source: { url: "data:text/plain,iso", ...source }, target });
+    await list.add(d);
+    await d.start();
+    made.push([list, d, target]);
+  }
+  await download("iso-default.txt", {}, Downloads.PUBLIC);
+  await download("iso-work.txt", { userContextId: work }, Downloads.PUBLIC);
+  await download("iso-private.txt", { isPrivate: true }, Downloads.PRIVATE);
+  try {
+    const names = async opts => (await WhimsyUploadParent.recentDownloads(opts)).map(d => d.name);
+    const inDefault = await names({});
+    ok(inDefault.includes("iso-default.txt"), "Default sees its own download");
+    ok(!inDefault.includes("iso-work.txt"), "…not Work's");
+    ok(!inDefault.includes("iso-private.txt"), "…nor a private one");
+    const inWork = await names({ userContextId: work });
+    ok(inWork.includes("iso-work.txt") && !inWork.includes("iso-default.txt"), "Work sees only Work's");
+    const inPrivate = await names({ isPrivate: true });
+    ok(inPrivate.includes("iso-private.txt") && !inPrivate.includes("iso-default.txt"),
+      "A private tab sees only private downloads");
+  } finally {
+    for (const [list, d, target] of made) {
+      await list.remove(d);
+      await IOUtils.remove(target, { ignoreAbsent: true });
+    }
+  }
+});
+
+// Notes are saved to disk and shared by every profile: "Add to Note" isn't
+// offered on a private page.
+add_task(async function add_to_note_is_not_offered_on_a_private_page() {
+  const { WhimsyVerbs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVerbs.sys.mjs");
+  const subject = { kind: "page", url: PAGE, title: "Page", text: "", markdown: "" };
+  const normal = await openHomeTab(PAGE + "?note");
+  ok(WhimsyVerbs.verbsFor(window, subject).some(v => v.id == "note"), "Offered on a normal page");
+  const priv = WhimsyPrivate.openPrivateTab(window, { url: PAGE + "?private-note", force: true });
+  gBrowser.selectedTab = priv;
+  ok(!WhimsyVerbs.verbsFor(window, subject).some(v => v.id == "note"), "Not on a private page");
+  BrowserTestUtils.removeTab(priv);
+  BrowserTestUtils.removeTab(normal);
+  await cleanup();
+});
