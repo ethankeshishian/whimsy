@@ -13,7 +13,9 @@ async function containerSpace(userContextId) {
       !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
       BrowserTestUtils.removeTab(tab);
     }
-    await gZenWorkspaces.removeWorkspace(space.uuid);
+    if (gZenWorkspaces.getWorkspaces().some(w => w.uuid == space.uuid)) {
+      await gZenWorkspaces.removeWorkspace(space.uuid);
+    }
   });
   return space;
 }

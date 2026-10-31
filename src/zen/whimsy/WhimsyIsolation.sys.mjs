@@ -44,6 +44,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const ATTR = "zen-workspace-id";
 const observers = new WeakMap();
+// New tabs waiting their one turn in onRecords: the profile-change sweep
+// leaves them alone, or a tab opened in another container (Open Link in New
+// Container Tab, a note block's Open) was reopened in place, in the showing
+// space's container, before it could go to a space of its own profile.
+const pendingFresh = new WeakSet();
 
 export const WhimsyIsolation = {
   // -- the rule -----------------------------------------------------------
@@ -132,11 +137,30 @@ export const WhimsyIsolation = {
       }
     };
     win.gBrowser.tabContainer.addEventListener("TabSelect", onSelect);
+    // A space's remembered tab must never be one that's gone: Zen selects it
+    // on the next switch to that space, and selecting a removed tab leaves
+    // the tab switcher on a null browser (every later tab switch hangs).
+    // Reopens close tabs often, so clear such entries as tabs close.
+    const onClose = event => {
+      const last = win.gZenWorkspaces?.lastSelectedWorkspaceTabs;
+      for (const [id, tab] of Object.entries(last ?? {})) {
+        if (tab == event.target) {
+          const replacement = lazy.WhimsyProfileMoves.replacementOf(tab);
+          if (replacement != tab && !replacement.closing && replacement.getAttribute(ATTR) == id) {
+            last[id] = replacement;
+          } else {
+            delete last[id];
+          }
+        }
+      }
+    };
+    win.gBrowser.tabContainer.addEventListener("TabClose", onClose);
     win.addEventListener("unload", () => {
       observer.disconnect();
       observers.delete(win);
       win.removeEventListener("ZenWorkspaceDataChanged", onDataChanged);
       win.gBrowser?.tabContainer?.removeEventListener("TabSelect", onSelect);
+      win.gBrowser?.tabContainer?.removeEventListener("TabClose", onClose);
     }, { once: true });
     // Session restore and window sync ran before this window's spaces were
     // ready, and a session saved by an older build can hold tabs that
@@ -159,7 +183,7 @@ export const WhimsyIsolation = {
 
   sweep(win) {
     const tabs = win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs;
-    const crossing = tabs.filter(tab => this.violates(win, tab));
+    const crossing = tabs.filter(tab => !pendingFresh.has(tab) && this.violates(win, tab));
     if (crossing.length) {
       this.repair(win, new Map(crossing.map(tab => [tab, null])), { inPlace: true });
     }
@@ -197,7 +221,13 @@ export const WhimsyIsolation = {
       this.repair(win, from, { interactive: true });
     }
     if (fresh.size) {
+      for (const tab of fresh.keys()) {
+        pendingFresh.add(tab);
+      }
       win.setTimeout(() => {
+        for (const tab of fresh.keys()) {
+          pendingFresh.delete(tab);
+        }
         const still = new Map([...fresh].filter(([tab]) => this.violates(win, tab)));
         if (still.size && !win.closed) {
           this.repair(win, still, { interactive: true });
@@ -337,6 +367,17 @@ export const WhimsyIsolation = {
     }
   },
 
+  // Zen's changeFolderToSpace, without its switch to that space and the
+  // async re-index that follows (it threw on a folder whose tab was being
+  // reopened meanwhile): the folder moves into the space's pinned list.
+  moveFolder(win, folder, spaceId) {
+    const pinned = win.gZenWorkspaces.workspaceElement(spaceId)?.pinnedTabsContainer;
+    if (pinned && folder.parentElement != pinned) {
+      pinned.insertBefore(folder, pinned.lastChild);
+    }
+    win.gZenFolders.changeFolderToSpace(folder, spaceId, { hasDndSwitch: true });
+  },
+
   /** Puts `tabs` back in space `from` (a folder goes back whole). */
   putBack(win, tabs, from) {
     this.quietly(win, () => {
@@ -352,7 +393,7 @@ export const WhimsyIsolation = {
       }
       for (const folder of folders) {
         try {
-          win.gZenFolders.changeFolderToSpace(folder, from);
+          this.moveFolder(win, folder, from);
         } catch (e) {
           console.error("Whimsy: isolation, folder back", e);
         }

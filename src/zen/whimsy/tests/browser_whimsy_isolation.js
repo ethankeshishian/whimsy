@@ -92,11 +92,13 @@ async function reopenedInWork(old) {
 }
 
 async function cleanup() {
-  for (const tab of tabsOf(workSpace)) {
-    BrowserTestUtils.removeTab(tab);
-  }
+  // Home first: closing the showing space's last (selected) tab is Zen's own
+  // business (its empty tab); a test shouldn't pull it out from under it.
   if (gZenWorkspaces.activeWorkspace != home.uuid) {
     await gZenWorkspaces.changeWorkspace(home);
+  }
+  for (const tab of tabsOf(workSpace)) {
+    BrowserTestUtils.removeTab(tab);
   }
   assertNoTabCrosses("After the case");
 }
@@ -167,11 +169,26 @@ add_task(async function a_folder_moved_across_profiles_reopens_its_tabs() {
   ok(folder, "A folder");
   answers = [true];
   asked = [];
+  // Zen's Move to space switches to the space, then puts the folder first
+  // there; wait for that last step before the folder goes.
+  const realMove = gBrowser.moveTabTo;
+  const placed = new Promise(resolve => {
+    gBrowser.moveTabTo = function (element, ...args) {
+      const result = realMove.call(this, element, ...args);
+      if (element == folder) {
+        gBrowser.moveTabTo = realMove;
+        resolve();
+      }
+      return result;
+    };
+  });
+  registerCleanupFunction(() => (gBrowser.moveTabTo = realMove));
   gZenFolders.changeFolderToSpace(folder, workSpace.uuid);
   await TestUtils.waitForCondition(() => asked.length == 1, "Arc's warning");
   const moved = await reopenedInWork(tab);
   is(moved.group, folder, "The reopened tab is in its folder");
   is(folder.getAttribute(ATTR), workSpace.uuid, "…and the folder is in Work");
+  await placed;
   await folder.delete();
   await cleanup();
 });
@@ -186,6 +203,7 @@ add_task(async function a_moved_tab_does_not_keep_its_old_cookies() {
     .some(c => c.name == "whimsy_isolation"), "Default has the sign-in cookie");
 
   answers = [true];
+  asked = [];
   gZenWorkspaces.moveTabToWorkspace(tab, workSpace.uuid);
   const moved = await reopenedInWork(tab);
   if (!moved.linkedPanel) {
@@ -471,4 +489,22 @@ add_task(async function archive_restore_keeps_the_container() {
   is(back.userContextId, work, "In Work's container");
   assertNoTabCrosses("After restoring");
   await cleanup();
+});
+
+// Open Link in New Container Tab (and any opener passing a container): a
+// new tab of another profile goes to that profile's space with its page,
+// not reopened blank in the showing space's container.
+add_task(async function a_new_container_tab_goes_to_its_space_with_its_page() {
+  const opener = await openHomeTab(PAGE + "?opener");
+  const before = new Set(gZenWorkspaces.allStoredTabs);
+  openTrustedLinkIn(PAGE + "?in-work", "tab", { userContextId: work });
+  const tab = await TestUtils.waitForCondition(() => gZenWorkspaces.allStoredTabs.find(t =>
+    !before.has(t) && !t.closing && t.getAttribute(ATTR) == workSpace.uuid), "It went to the Work space");
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI?.spec == PAGE + "?in-work", "…with its page");
+  is(tab.userContextId, work, "…in Work's container");
+  ok(!gZenWorkspaces.allStoredTabs.some(t => !before.has(t) && t != tab && !t.closing && t.getAttribute(ATTR) == home.uuid),
+    "No blank copy was left in the home space");
+  assertNoTabCrosses("After opening");
+  await cleanup();
+  BrowserTestUtils.removeTab(opener);
 });

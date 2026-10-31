@@ -39,6 +39,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
 });
 
 const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
@@ -253,7 +254,11 @@ export const WhimsySpaces = {
       tabs = tabs.filter(tab => !tab.hasAttribute("zen-essential"));
       count = tabs.length;
       gZenWorkspaces.moveTabsToWorkspace(tabs, spaceId);
-      gZenWorkspaces.lastSelectedWorkspaceTabs[spaceId] = win.gZenGlanceManager?.getTabOrGlanceParent(item) ?? item;
+      // wave8/isolation: a tab of another profile is held back (and may be
+      // reopened); only a tab that really moved is the space's pick.
+      if (item.getAttribute("zen-workspace-id") == spaceId) {
+        gZenWorkspaces.lastSelectedWorkspaceTabs[spaceId] = win.gZenGlanceManager?.getTabOrGlanceParent(item) ?? item;
+      }
     } else {
       gZenFolders.changeFolderToSpace(item.group, spaceId, { hasDndSwitch: gZenWorkspaces.activeWorkspace == spaceId });
     }
@@ -265,8 +270,11 @@ export const WhimsySpaces = {
     for (let i = 0; i < 40 && gZenWorkspaces._animatingChange; i++) {
       await new Promise(resolve => win.setTimeout(resolve, 50));
     }
-    if (gBrowser.isTab(item) && gBrowser.selectedTab != item) {
-      gBrowser.selectedTab = item;
+    // The tab, or the one that replaced it in the new profile.
+    const landed = gBrowser.isTab(item) ? lazy.WhimsyProfileMoves.replacementOf(item) : null;
+    if (landed && !landed.closing && landed.isConnected && gBrowser.selectedTab != landed &&
+        landed.getAttribute("zen-workspace-id") == spaceId) {
+      gBrowser.selectedTab = landed;
     }
     gZenWorkspaces.updateTabsContainers?.();
     this.land(win, spaceId);

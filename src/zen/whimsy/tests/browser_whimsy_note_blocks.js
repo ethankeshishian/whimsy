@@ -13,7 +13,9 @@ async function containerSpace(userContextId) {
       !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
       BrowserTestUtils.removeTab(tab);
     }
-    await gZenWorkspaces.removeWorkspace(space.uuid);
+    if (gZenWorkspaces.getWorkspaces().some(w => w.uuid == space.uuid)) {
+      await gZenWorkspaces.removeWorkspace(space.uuid);
+    }
   });
   return space;
 }
@@ -84,13 +86,17 @@ add_task(async function test_parse_and_validate() {
 });
 
 add_task(async function test_block_from_container_and_private_tabs() {
-  await containerSpace(2);
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await containerSpace(2);
+  await gZenWorkspaces.changeWorkspace(space);
   const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: 2 });
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-  registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
   const { block } = blockFromTab(tab);
   is(block.url, PAGE, "The block takes the tab's page");
   is(block.userContextId, 2, "The block keeps the tab's container");
+  BrowserTestUtils.removeTab(tab);
+  await gZenWorkspaces.changeWorkspace(home);
+  await gZenWorkspaces.removeWorkspace(space.uuid);
 
   const privateWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
   const privateTab = BrowserTestUtils.addTab(privateWin.gBrowser, PAGE);
@@ -145,12 +151,21 @@ add_task(async function test_live_block_loads_sandboxed_in_container() {
   ok(!el.picking, "Escape leaves picking");
   is(el.block.crop.w, changed.crop.w, "Escape keeps the crop");
 
-  // Open page in a tab in the same container.
-  const opened = BrowserTestUtils.waitForNewTab(gBrowser, PAGE, true);
+  // Open page in a tab in the same container, in a space of that
+  // container (wave8/isolation: a tab never sits in another profile's space).
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await containerSpace(2);
+  const before = new Set(gZenWorkspaces.allStoredTabs);
   el.querySelector('[data-action="open"]').click();
-  const newTab = await opened;
+  const newTab = await TestUtils.waitForCondition(() => gZenWorkspaces.allStoredTabs.find(t =>
+    !before.has(t) && !t.closing && t.getAttribute("zen-workspace-id") == space.uuid), "The page opens in the container's space");
+  await TestUtils.waitForCondition(() => newTab.linkedBrowser.currentURI?.spec == PAGE, "…with the block's page");
   is(newTab.userContextId, 2, "Open page keeps the container");
   BrowserTestUtils.removeTab(newTab);
+  if (gZenWorkspaces.activeWorkspace != home.uuid) {
+    await gZenWorkspaces.changeWorkspace(home);
+  }
+  await gZenWorkspaces.removeWorkspace(space.uuid);
 
   // Remove.
   let removed = null;

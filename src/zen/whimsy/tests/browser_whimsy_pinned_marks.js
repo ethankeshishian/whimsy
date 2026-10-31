@@ -35,14 +35,22 @@ add_task(async function test_space_container_gets_no_line() {
     "A pinned tab in its space's container is marked as the space's default");
   is(getComputedStyle(contextLine(own)).display, "none", "...so no container line is drawn");
 
-  const other = BrowserTestUtils.addTab(gBrowser, "https://example.org/?other", { userContextId: 2 });
-  await BrowserTestUtils.browserLoaded(other.linkedBrowser);
-  gBrowser.pinTab(other);
-  await TestUtils.waitForTick();
+  // wave8/isolation: a tab of another container doesn't stay in this space
+  // (it goes to its own profile's space, or reopens here in this space's
+  // container). The pill is still drawn while one shows here, e.g. a synced
+  // tab in the moment before the guard sorts it out; the guard is held off
+  // for that moment.
+  const { WhimsyIsolation } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyIsolation.sys.mjs");
+  const other = WhimsyIsolation.quietly(window, () => {
+    const tab = BrowserTestUtils.addTab(gBrowser, "https://example.org/?other", { userContextId: 2 });
+    gBrowser.pinTab(tab);
+    return tab;
+  });
   ok(!other.hasAttribute("zenDefaultUserContextId"), "Another container keeps its indicator");
   const style = getComputedStyle(contextLine(other));
   is(style.height, "14px", "...drawn as a short pill");
   is(style.width, "3px", "...3px wide");
+  ok(WhimsyIsolation.violates(window, other), "That tab crosses, so the guard sorts it out");
 
   space.containerTabId = oldContainer;
   BrowserTestUtils.removeTab(own);

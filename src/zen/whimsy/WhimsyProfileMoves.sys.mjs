@@ -133,6 +133,16 @@ export const WhimsyProfileMoves = {
   // Zen remembers each space's last selected tab and selects it again on a
   // switch; pointing at the closed tab would hand the tab switcher a
   // destroyed tab.
+  // The tab that took `tab`'s place when it was reopened in another
+  // profile (following a chain of reopens), else `tab` itself.
+  replacementOf(tab) {
+    let current = tab;
+    for (let i = 0; i < 8 && current?._whimsyReopenedAs; i++) {
+      current = current._whimsyReopenedAs;
+    }
+    return current;
+  },
+
   replaceLastSelected(win, oldTab, newTab) {
     const last = win.gZenWorkspaces.lastSelectedWorkspaceTabs;
     for (const [id, tab] of Object.entries(last ?? {})) {
@@ -165,6 +175,7 @@ export const WhimsyProfileMoves = {
     // sits in the space's container (tabIndex put it there), so without this
     // the new tab never got its zen-workspace-id.
     this.copyZenState(tab, newTab, state, spaceId);
+    tab._whimsyReopenedAs = newTab;
     if (tab.pinned) {
       gBrowser.pinTab(newTab);
     }
@@ -228,7 +239,15 @@ export const WhimsyProfileMoves = {
         gBrowser.tabContainer.removeEventListener("TabSelect", onSelect);
       } else if (gBrowser.selectedTab != tab) {
         gBrowser.tabContainer.removeEventListener("TabSelect", onSelect);
-        gBrowser.removeTab(tab, { animate: false, skipPermitUnload: true });
+        // Not inside the switch: the tab switcher still holds this tab's
+        // browser as the one it's leaving.
+        win.setTimeout(() => {
+          if (!tab.closing && tab.isConnected && gBrowser.selectedTab != tab) {
+            gBrowser.removeTab(tab, { animate: false, skipPermitUnload: true });
+          } else if (!tab.closing && tab.isConnected) {
+            this.closeWhenDeselected(win, tab);
+          }
+        }, 0);
       }
     };
     gBrowser.tabContainer.addEventListener("TabSelect", onSelect);
@@ -354,7 +373,7 @@ export const WhimsyProfileMoves = {
         // each tab reopens inside it, in the new container.
         for (const folder of new Set(moved.map(({ tab }) => tab.group).filter(group =>
           group?.isZenFolder && group.getAttribute("zen-workspace-id") != spaceId))) {
-          lazy.WhimsyIsolation.quietly(win, () => win.gZenFolders?.changeFolderToSpace(folder, spaceId));
+          lazy.WhimsyIsolation.quietly(win, () => lazy.WhimsyIsolation.moveFolder(win, folder, spaceId));
         }
         for (const { tab } of moved) {
           if (!tab.closing && tab.isConnected) {

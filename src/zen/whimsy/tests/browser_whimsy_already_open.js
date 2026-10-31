@@ -13,7 +13,9 @@ async function containerSpace(userContextId) {
       !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
       BrowserTestUtils.removeTab(tab);
     }
-    await gZenWorkspaces.removeWorkspace(space.uuid);
+    if (gZenWorkspaces.getWorkspaces().some(w => w.uuid == space.uuid)) {
+      await gZenWorkspaces.removeWorkspace(space.uuid);
+    }
   });
   return space;
 }
@@ -124,9 +126,11 @@ add_task(async function test_editing_current_page_navigates() {
 });
 
 add_task(async function test_containers_and_private_never_match() {
-  await containerSpace(1);
+  const home = gZenWorkspaces.getActiveWorkspace();
+  await gZenWorkspaces.changeWorkspace(await containerSpace(1));
   const contained = BrowserTestUtils.addTab(gBrowser, URL, { userContextId: 1 });
   await BrowserTestUtils.browserLoaded(contained.linkedBrowser, false, URL);
+  await gZenWorkspaces.changeWorkspace(home);
   const blank = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   const loaded = BrowserTestUtils.browserLoaded(blank.linkedBrowser, false, URL);
   await typeAndEnter(window, URL);
