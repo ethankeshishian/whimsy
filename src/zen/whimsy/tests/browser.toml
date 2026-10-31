@@ -483,3 +483,6 @@ support-files = ["whimsy_page_actions.html"]
 
 # fix/kit: the Whimsy balloon replaces Kit; Settings logo glyphs are Whimsy's (overrides, promo, About icon).
 ["browser_whimsy_kit_balloon.js"]
+
+# wave7/menus: space menu order (Delete last), no Volume… row, Glance chip vs unread badge on an Essential.
+["browser_whimsy_menu_order.js"]

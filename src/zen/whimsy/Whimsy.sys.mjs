@@ -172,6 +172,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
 });
 
+// wave7/menus: the space menu's order (Delete last).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySpaceMenu: "resource:///modules/whimsy/WhimsySpaceMenu.sys.mjs",
+});
+
 // wave6/search: Instant result and the Search Deck.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
@@ -680,6 +685,9 @@ export const Whimsy = {
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
     // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
     run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
+    // wave7/menus: the space menu's order. Its listener runs after every
+    // module's own (they listen on the popup, it on the window).
+    run("space-menu-order", () => lazy.WhimsySpaceMenu.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

@@ -370,25 +370,37 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
      ring in the sidebar's colour, which isn't the tile's) sat over the
      favicon's own corner (Gmail draws its count there too) and the tile's
      edge, so it read as a smudge. The icon stack stops being the anchor;
-     the tile's content box (position: relative in Firefox) is. */
+     the tile's content box (position: relative in Firefox) is.
+     wave7/menus: only the tile's own icon (child combinators): Zen nests
+     a Glance opened from the tile inside its .tab-content, and a
+     descendant selector also restyled that Glance chip's icon. */
   .tabbrowser-tab[zen-essential] {
-    & .tab-icon-stack {
+    & > .tab-stack > .tab-content > .tab-icon-stack {
       position: static;
     }
 
-    & .tab-icon-stack::after {
+    & > .tab-stack > .tab-content > .tab-icon-stack::after {
       box-shadow: 0 0 0 1px light-dark(rgb(255 255 255 / 0.9), rgb(0 0 0 / 0.35)), 0 1px 2px rgb(0 0 0 / 0.25);
     }
 
-    & .tab-icon-stack[whimsy-unread]::after {
+    & > .tab-stack > .tab-content > .tab-icon-stack[whimsy-unread]::after {
       content: attr(whimsy-unread);
       top: calc(var(--tab-margin-block, 0px) + 4px);
       inset-inline-end: 4px;
     }
 
-    &[titlechanged]:not([selected], [whimsy-unread]) .tab-icon-stack::after {
+    &[titlechanged]:not([selected], [whimsy-unread]) > .tab-stack > .tab-content > .tab-icon-stack::after {
       top: calc(var(--tab-margin-block, 0px) + 6px);
       inset-inline-end: 6px;
+    }
+
+    /* wave7/menus: while a Glance is open from the tile, Zen floats its
+       chip on this same top-end corner (vertical-tabs.css, "Essentials
+       Glance Tab Specifics"). The chip says "something is open here";
+       the count comes back when the Glance closes (the tab's
+       aria-description keeps it for screen readers meanwhile). */
+    &[glance-id]:not([zen-glance-tab]) > .tab-stack > .tab-content > .tab-icon-stack::after {
+      display: none;
     }
   }
 
