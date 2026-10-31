@@ -499,3 +499,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: Teach once hints for Link hints and Instant result.
 ["browser_whimsy_teach_hints.js"]
+
+# wave7/small: changelog dev build IDs only on the Dev channel.
+["browser_whimsy_changelog_channel.js"]

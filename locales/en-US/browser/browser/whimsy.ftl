@@ -2321,3 +2321,8 @@ whimsy-menu-move-to-new-space =
 
 whimsy-teach-link-hints = <kbd>{ $key }</kbd> puts a letter on every link. Type it to click, no mouse needed.
 whimsy-teach-instant = <kbd>{ $key }</kbd> on a search skips the results page and opens the top result.
+
+## wave7/small: the changelog names dev builds by ID only on the Dev channel;
+## on Release an untitled dev build is headed by this.
+
+whimsy-changelog-dev-build = Update
