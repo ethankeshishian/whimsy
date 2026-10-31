@@ -302,3 +302,35 @@ add_task(async function hidden_reader_blocks_custom_protocols() {
   const flags = await WhimsyAIReader.withHiddenPage(PAGE, {}, async browser => browser.browsingContext.sandboxFlags);
   ok(flags & 0x40000, "No navigation to custom protocols");
 });
+
+// wave9/secfix (security-full-2 L2): with a cloud provider, a bare Return
+// in a private tab's find bar doesn't send the page to the cloud; the Ask
+// button still asks.
+add_task(async function test_private_return_doesnt_ask_the_cloud() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  Services.prefs.setStringPref("whimsy.ai.provider", "claude");
+  ok(WhimsyAIProviders.isCloud, "A cloud provider");
+  const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE);
+  gBrowser.selectedTab = tab;
+  const realAsk = WhimsyAIPage.askOnPage;
+  let asked = 0;
+  WhimsyAIPage.askOnPage = async () => {
+    asked++;
+    return null;
+  };
+  try {
+    const findbar = await openFind("where is the offsite");
+    await TestUtils.waitForCondition(() => !askButton(findbar).hidden, "Nothing found: Ask is offered");
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    await new Promise(r => setTimeout(r, 300));
+    is(asked, 0, "Return in a private tab doesn't ask the cloud");
+    askButton(findbar).doCommand();
+    is(asked, 1, "The Ask button still does");
+    findbar.close();
+  } finally {
+    WhimsyAIPage.askOnPage = realAsk;
+    Services.prefs.clearUserPref("whimsy.ai.provider");
+    BrowserTestUtils.removeTab(tab);
+  }
+});
