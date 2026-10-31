@@ -433,7 +433,8 @@ add_task(async function test_fire_leaves_nothing_restorable() {
     let text = await sessionText();
     ok(!text.includes("fire-h2-burned") && !text.includes("fire-h2-closed-earlier"),
       "The session file has neither URL");
-    const restored = SessionStore.undoCloseTab(window, 0);
+    // Gecko 159 throws on an empty closed-tab list instead of returning null.
+    const restored = SessionStore.getClosedTabCountForWindow(window) ? SessionStore.undoCloseTab(window, 0) : null;
     if (restored) {
       ok(!/fire-h2/.test(SessionStore.getTabState(restored)), "Cmd+Shift+T brings back nothing burned");
       BrowserTestUtils.removeTab(restored);
@@ -465,7 +466,11 @@ add_task(async function test_fire_leaves_nothing_restorable() {
 // the note says so. Real form history (a test entry); the rest is stubbed.
 add_task(async function test_fire_everywhere_clears_form_history_not_passwords() {
   const { FormHistory } = ChromeUtils.importESModule("resource://gre/modules/FormHistory.sys.mjs");
+  // Zen ships form fill off, and FormHistory then refuses adds; turn it on
+  // just to seed an entry (Fire's removal works either way).
+  await SpecialPowers.pushPrefEnv({ set: [["browser.formfill.enable", true]] });
   await FormHistory.update({ op: "add", fieldname: "whimsy-fire-test", value: "burn me" });
+  await SpecialPowers.popPrefEnv();
   is(await FormHistory.count({ fieldname: "whimsy-fire-test" }), 1, "A form entry exists");
   const login = await Services.logins.addLoginAsync(new Components.Constructor(
     "@mozilla.org/login-manager/loginInfo;1", Ci.nsILoginInfo, "init")(
