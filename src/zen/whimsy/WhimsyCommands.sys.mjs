@@ -324,6 +324,7 @@ export const WhimsyCommands = {
         icon: spec.icon,
         extraPayload: {},
         whimsyCommand: entry.id,
+        whimsyKeywords: spec.whimsyKeywords ?? variant.whimsyKeywords,
         isAvailable: win => {
           try {
             return !!isAvailable(win);

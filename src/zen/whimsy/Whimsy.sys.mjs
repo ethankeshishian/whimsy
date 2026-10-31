@@ -751,7 +751,7 @@ export const Whimsy = {
 
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.
-    later("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
+    run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
 
     // wave5/quick: Copy page as Markdown (page menu and command bar); checks
     // its switch on use.

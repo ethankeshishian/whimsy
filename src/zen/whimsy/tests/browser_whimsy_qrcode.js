@@ -54,6 +54,8 @@ async function closeMenu(menu) {
 add_task(async function test_command_bar_opens_dialog() {
   const action = qrAction();
   ok(action, "the command bar action is registered");
+  ok(action.whimsyKeywords?.includes("QR Code"), "action has QR Code keyword");
+  ok(action.whimsyKeywords?.includes("Create QR Code"), "action has Create QR Code keyword");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   ok(action.isAvailable(window), "available on a web page");
   is(WhimsyQRCode.urlFor(window), PAGE, "encodes the page's URL");
