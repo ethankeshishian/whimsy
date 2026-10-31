@@ -24,6 +24,43 @@ Services.obs.addObserver(function observer() {
   Services.obs.removeObserver(observer, "sessionstore-windows-restored");
 }, "sessionstore-windows-restored");
 
+// wave9/secfix (security-full-1 M6): private browsing (private windows,
+// private tabs, Scratch) never reaches these prefs, and Clear History or
+// Forget About This Site takes the longest tab's title and URL with it.
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+});
+
+export function isPrivateTab(tab) {
+  try {
+    return (
+      tab.hasAttribute("whimsy-private") ||
+      lazy.PrivateBrowsingUtils.isWindowPrivate(tab.ownerDocument?.defaultView) ||
+      (!!tab.linkedBrowser && lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser))
+    );
+  } catch (e) {
+    return true; // Can't tell: don't record it.
+  }
+}
+
+function longestTouches(domain) {
+  try {
+    const url = readJSONPref(LONGEST_PREF)?.url;
+    const host = url ? Services.io.newURI(url).host : "";
+    return !!host && Services.eTLD.hasRootDomain(host, domain);
+  } catch (e) {
+    return false;
+  }
+}
+
+Services.obs.addObserver(() => Services.prefs.clearUserPref(LONGEST_PREF), "browser:purge-session-history");
+Services.obs.addObserver((subject, topic, domain) => {
+  if (domain && longestTouches(domain)) {
+    Services.prefs.clearUserPref(LONGEST_PREF);
+  }
+}, "browser:purge-session-history-for-domain");
+
 function readJSONPref(name) {
   try {
     const raw = Services.prefs.getStringPref(name, "");
@@ -50,7 +87,7 @@ export const WhimsyStats = {
     const onOpen = event => {
       const tab = event.target;
       tab.setAttribute(OPENED_ATTR, String(Date.now()));
-      if (!this.enabled || !restoredWindows) {
+      if (!this.enabled || !restoredWindows || isPrivateTab(tab)) {
         return;
       }
       const data = readCounter();
@@ -62,7 +99,7 @@ export const WhimsyStats = {
     const onClose = event => {
       const tab = event.target;
       const openedAt = parseInt(tab.getAttribute(OPENED_ATTR), 10);
-      if (!this.enabled || !openedAt) {
+      if (!this.enabled || !openedAt || isPrivateTab(tab)) {
         return;
       }
       this._recordIfLongest(tab, Date.now() - openedAt);
@@ -123,7 +160,7 @@ export const WhimsyStats = {
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
       for (const tab of win.gBrowser?.tabs ?? []) {
         const openedAt = parseInt(tab.getAttribute(OPENED_ATTR), 10);
-        if (!openedAt) {
+        if (!openedAt || isPrivateTab(tab)) {
           continue;
         }
         const ms = Date.now() - openedAt;
