@@ -192,6 +192,37 @@ add_task(async function test_search_for_this_font_button_and_command() {
   BrowserTestUtils.removeTab(tab);
 });
 
+add_task(async function test_font_inspector_after_fluent_translation() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  await selectTargetText(browser);
+
+  await WhimsyInspector.inspectFont(window);
+  const panel = document.getElementById("whimsy-font-inspector-panel");
+  ok(panel, "Font inspector panel opened");
+
+  // Await Fluent translation of the fragment to verify child elements are NOT wiped out
+  await document.l10n.translateFragment(panel);
+
+  const card = panel.querySelector(".whimsy-font-face-card");
+  ok(card, "Card element exists after translation");
+  is(card.title, "Click to copy font name", "Card retains copy hint title after translation");
+  const familyName = card.querySelector(".whimsy-font-family-name");
+  ok(familyName?.textContent, `Card child font name preserved: ${familyName?.textContent}`);
+
+  const rows = Array.from(panel.querySelectorAll(".whimsy-font-prop-row"));
+  ok(rows.length >= 5, "All property rows exist after translation");
+
+  const sizeRow = rows.find(r => r.querySelector(".whimsy-font-prop-label")?.textContent === "Size");
+  ok(sizeRow, "Size row exists after translation");
+  ok(sizeRow.textContent.includes("24px"), "Size row retains value text after translation");
+  is(sizeRow.title, "Click to copy 24px", "Size row retains title attribute after translation");
+
+  panel.hidePopup();
+  await BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function test_feature_switch_disabled() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.font-inspector", false]] });
   ok(!WhimsyInspector.fontInspectorEnabled, "Font inspector switch is off");

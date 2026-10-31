@@ -252,7 +252,11 @@ export const WhimsyInspector = {
     // Hero Font Face Card
     const card = doc.createElementNS(HTML_NS, "div");
     card.className = "whimsy-font-face-card";
-    card.title = lazy.l10n.formatValueSync("whimsy-font-card-copy-hint");
+    const [cardHintMsg] = lazy.l10n.formatMessagesSync([{ id: "whimsy-font-card-copy-hint" }]);
+    const cardTitle = cardHintMsg?.attributes?.find(a => a.name === "title")?.value || "";
+    if (cardTitle) {
+      card.title = cardTitle;
+    }
     doc.l10n.setAttributes(card, "whimsy-font-card-copy-hint");
     card.addEventListener("click", () => copyValue(data.renderedFont));
 
@@ -290,7 +294,11 @@ export const WhimsyInspector = {
     const addPropRow = (l10nId, value, copyVal = value, isColor = false) => {
       const row = doc.createElementNS(HTML_NS, "div");
       row.className = "whimsy-font-prop-row";
-      row.title = lazy.l10n.formatValueSync("whimsy-font-prop-copy-hint", { value });
+      const [propHintMsg] = lazy.l10n.formatMessagesSync([{ id: "whimsy-font-prop-copy-hint", args: { value } }]);
+      const propTitle = propHintMsg?.attributes?.find(a => a.name === "title")?.value || "";
+      if (propTitle) {
+        row.title = propTitle;
+      }
       doc.l10n.setAttributes(row, "whimsy-font-prop-copy-hint", { value });
 
       const lbl = doc.createElementNS(HTML_NS, "span");
