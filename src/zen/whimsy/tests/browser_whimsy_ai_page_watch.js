@@ -156,9 +156,11 @@ add_task(async function test_watch_flow() {
 add_task(async function test_container_session() {
   reads.length = 0;
   pageText = "The espresso machine costs $129 and is out of stock.";
-  await containerSpace(2);
+  const home = gZenWorkspaces.getActiveWorkspace();
+  await gZenWorkspaces.changeWorkspace(await containerSpace(2));
   const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: 2 });
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  is(tab.getAttribute("zen-workspace-id"), gZenWorkspaces.activeWorkspace, "The container tab stays in its space");
   const watch = await WhimsyPageWatch.add({
     url: PAGE,
     title: tab.label,
@@ -169,6 +171,7 @@ add_task(async function test_container_session() {
   is(reads[0].options.userContextId, 2, "with the tab's container (its sign-ins)");
   await WhimsyPageWatch.remove(watch.id);
   BrowserTestUtils.removeTab(tab);
+  await gZenWorkspaces.changeWorkspace(home);
 });
 
 add_task(async function test_kill_switch_and_private() {
