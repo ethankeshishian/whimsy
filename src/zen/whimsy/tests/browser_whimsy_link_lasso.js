@@ -3,20 +3,24 @@
 
 "use strict";
 
-// Link lasso (whimsy.feature.link-lasso). Covers Option-drag over links with
-// a live count, the folder of unloaded tabs named after the page (duplicates
-// and script links left out), Esc cancelling without following a link, a
-// plain drag still selecting text, Option-click still clicking, fields left
-// alone, private tabs refused, the folder name fallback and the switch.
+// Link lasso (whimsy.feature.link-lasso, W8-29). Covers Option-drag over links with
+// a live count, releasing to show a small pill offering "Open as Tabs" and "Make Folder",
+// making a folder of unloaded tabs named after the page, opening links as plain tabs,
+// the WhimsyCommands registry entries with NO default shortcut, Esc cancelling both
+// during drag and while the pill is shown, clicking outside cancelling, a plain drag
+// still selecting text, Option-click still clicking, fields left alone, private tabs
+// refused, the folder name fallback and the switch.
 
 const PAGE =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_lasso.html";
 const { WhimsyLinkLasso } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkLasso.sys.mjs");
+const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 
 const toasts = [];
 const realToast = gZenUIManager.showToast;
 add_setup(() => {
+  WhimsyLinkLasso.initWindow(window);
   gZenUIManager.showToast = (id, options) => toasts.push({ id, options });
   registerCleanupFunction(() => {
     gZenUIManager.showToast = realToast;
@@ -36,8 +40,11 @@ function lassoState(browser) {
     return lasso
       ? {
           started: lasso.started,
+          pillActive: !!lasso.pillActive,
           count: new Set((lasso.selected ?? []).map(l => l.url)).size,
           label: lasso.countEl?.textContent ?? "",
+          tabsLabel: lasso.tabsBtn?.textContent ?? "",
+          folderLabel: lasso.folderBtn?.textContent ?? "",
         }
       : null;
   });
@@ -49,7 +56,7 @@ async function openPage() {
   return tab;
 }
 
-add_task(async function test_lasso_makes_a_folder() {
+add_task(async function test_lasso_pill_and_make_folder() {
   const tab = await openPage();
   const browser = tab.linkedBrowser;
   const opened = [];
@@ -69,6 +76,18 @@ add_task(async function test_lasso_makes_a_folder() {
   is(state.count, 3, "duplicates count once and script links not at all");
   await mouse(browser, "mouseup", 300, 200, { altKey: true });
 
+  // On release, a small pill offers Open as Tabs and Make Folder
+  state = await lassoState(browser);
+  ok(state?.pillActive, "on release the pill appears");
+  is(state.tabsLabel, "Open as Tabs", "pill offers Open as Tabs");
+  is(state.folderLabel, "Make Folder", "pill offers Make Folder");
+
+  // Click Make Folder on the pill
+  await SpecialPowers.spawn(browser, [], () => {
+    const actor = content.windowGlobalChild.getActor("WhimsyLasso");
+    actor.lasso.folderBtn.click();
+  });
+
   await TestUtils.waitForCondition(() => toasts.some(t => t.id == "whimsy-link-lasso-toast"), "a toast confirms");
   gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
   const linkTabs = opened.filter(t => !t.hasAttribute("zen-empty-tab"));
@@ -87,6 +106,71 @@ add_task(async function test_lasso_makes_a_folder() {
   BrowserTestUtils.removeTab(tab);
 });
 
+add_task(async function test_lasso_open_as_tabs() {
+  const tab = await openPage();
+  const browser = tab.linkedBrowser;
+  const opened = [];
+  const onOpen = event => opened.push(event.target);
+  gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
+  toasts.length = 0;
+
+  await mouse(browser, "mousedown", 5, 5, { altKey: true });
+  await mouse(browser, "mousemove", 300, 200, { altKey: true, buttons: 1 });
+  await mouse(browser, "mouseup", 300, 200, { altKey: true });
+
+  let state = await lassoState(browser);
+  ok(state?.pillActive, "the pill is active");
+
+  // Click Open as Tabs on the pill
+  await SpecialPowers.spawn(browser, [], () => {
+    const actor = content.windowGlobalChild.getActor("WhimsyLasso");
+    actor.lasso.tabsBtn.click();
+  });
+
+  await TestUtils.waitForCondition(() => toasts.some(t => t.id == "whimsy-link-lasso-open-toast"), "a toast confirms open tabs");
+  gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
+  const linkTabs = opened.filter(t => !t.hasAttribute("zen-empty-tab"));
+  is(linkTabs.length, 3, "three tabs opened");
+  ok(linkTabs.every(t => !t.linkedPanel), "the tabs are unloaded");
+  ok(!linkTabs[0].group, "the tabs are plain tabs, not in a folder");
+  ok(!(await lassoState(browser)), "the lasso is gone");
+
+  for (const t of linkTabs) {
+    BrowserTestUtils.removeTab(t);
+  }
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_lasso_commands_registered() {
+  const tabsCmd = WhimsyCommands.get("cmd_whimsyLassoOpenTabs");
+  const folderCmd = WhimsyCommands.get("cmd_whimsyLassoMakeFolder");
+
+  ok(tabsCmd, "cmd_whimsyLassoOpenTabs is registered in WhimsyCommands");
+  ok(folderCmd, "cmd_whimsyLassoMakeFolder is registered in WhimsyCommands");
+  is(WhimsyCommands.title(tabsCmd), "Open as Tabs", "title is Open as Tabs");
+  is(WhimsyCommands.title(folderCmd), "Make Folder", "title is Make Folder");
+  is(tabsCmd.defaultKey, null, "cmd_whimsyLassoOpenTabs has no default shortcut");
+  is(folderCmd.defaultKey, null, "cmd_whimsyLassoMakeFolder has no default shortcut");
+
+  const tab = await openPage();
+  const browser = tab.linkedBrowser;
+  toasts.length = 0;
+
+  await mouse(browser, "mousedown", 5, 5, { altKey: true });
+  await mouse(browser, "mousemove", 300, 200, { altKey: true, buttons: 1 });
+  await mouse(browser, "mouseup", 300, 200, { altKey: true });
+
+  ok(WhimsyLinkLasso.hasSelection(window), "hasSelection is true while pill is active");
+
+  // Run cmd_whimsyLassoOpenTabs command
+  window.document.getElementById("cmd_whimsyLassoOpenTabs").doCommand();
+  await TestUtils.waitForCondition(() => toasts.some(t => t.id == "whimsy-link-lasso-open-toast"), "command opened tabs");
+  ok(!WhimsyLinkLasso.hasSelection(window), "hasSelection cleared after command");
+  ok(!(await lassoState(browser)), "lasso closed by command");
+
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function test_escape_cancels_without_clicking() {
   const tab = await openPage();
   const browser = tab.linkedBrowser;
@@ -96,7 +180,7 @@ add_task(async function test_escape_cancels_without_clicking() {
   await mouse(browser, "mousemove", 120, 80, { altKey: true, buttons: 1 });
   ok((await lassoState(browser))?.started, "lassoing");
   EventUtils.synthesizeKey("KEY_Escape", {}, window);
-  ok(!(await lassoState(browser)), "Esc cancels");
+  ok(!(await lassoState(browser)), "Esc cancels during drag");
   // Releasing over a link afterwards must not follow it.
   await SpecialPowers.spawn(browser, [], () => {
     content.document.getElementById("a1").addEventListener("click", e => {
@@ -110,6 +194,38 @@ add_task(async function test_escape_cancels_without_clicking() {
   ok(!clicked, "no click went through");
   is(gBrowser.tabs.length, before, "no tabs were made");
   ok(!toasts.length, "no toast");
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_escape_cancels_pill() {
+  const tab = await openPage();
+  const browser = tab.linkedBrowser;
+  toasts.length = 0;
+  await mouse(browser, "mousedown", 5, 5, { altKey: true });
+  await mouse(browser, "mousemove", 300, 200, { altKey: true, buttons: 1 });
+  await mouse(browser, "mouseup", 300, 200, { altKey: true });
+
+  let state = await lassoState(browser);
+  ok(state?.pillActive, "pill active");
+  EventUtils.synthesizeKey("KEY_Escape", {}, window);
+  ok(!(await lassoState(browser)), "Esc cancels pill");
+  ok(!WhimsyLinkLasso.hasSelection(window), "hasSelection cleared");
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_click_outside_cancels_pill() {
+  const tab = await openPage();
+  const browser = tab.linkedBrowser;
+  toasts.length = 0;
+  await mouse(browser, "mousedown", 5, 5, { altKey: true });
+  await mouse(browser, "mousemove", 300, 200, { altKey: true, buttons: 1 });
+  await mouse(browser, "mouseup", 300, 200, { altKey: true });
+
+  let state = await lassoState(browser);
+  ok(state?.pillActive, "pill active");
+  await mouse(browser, "mousedown", 5, 5);
+  ok(!(await lassoState(browser)), "click outside cancels pill");
+  ok(!WhimsyLinkLasso.hasSelection(window), "hasSelection cleared");
   BrowserTestUtils.removeTab(tab);
 });
 

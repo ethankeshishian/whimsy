@@ -3,16 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Link lasso, the page side. Option-drag draws a rectangle over the page;
-// links it touches light up with a live count. Releasing sends them to
-// WhimsyLassoParent, which makes a folder of unloaded tabs. Esc, switching
-// away or releasing over no links cancels. Only an Option-drag that the
-// page didn't handle itself starts it (design tools that use Option-drag
-// keep it), never in fields or editable content; a plain drag, a selection
-// and an Option-click work as before. The overlay is anonymous content (the
-// way Find and Screenshots draw), so the page can't see or style it.
+// links it touches light up with a live count. Releasing offers a small
+// pill with "Open as Tabs" and "Make Folder". Esc, switching away or
+// clicking outside cancels. Only an Option-drag that the page didn't handle
+// itself starts it (design tools that use Option-drag keep it), never in
+// fields or editable content; a plain drag, a selection and an Option-click
+// work as before. The overlay is anonymous content (the way Find and
+// Screenshots draw), so the page can't see or style it.
 
 const lazy = {};
-ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"]));
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
 const FEATURE_PREF = "whimsy.feature.link-lasso";
 const DRAG_THRESHOLD = 5;
@@ -23,9 +23,24 @@ const SCROLLBAR_PARTS = new Set(["scrollbar", "scrollbarbutton", "slider", "thum
 export class WhimsyLassoChild extends JSWindowActorChild {
   lasso = null;
 
+  receiveMessage(message) {
+    if (message.name == "WhimsyLasso:Close") {
+      this.end({ cancel: true, released: false });
+    }
+  }
+
   handleEvent(event) {
     switch (event.type) {
       case "mousedown":
+        if (this.lasso?.pillActive) {
+          if (!this.inControl(event.originalTarget)) {
+            this.end({ cancel: true, released: false });
+          } else {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+        }
         this.onMouseDown(event);
         break;
       case "mousemove":
@@ -42,7 +57,11 @@ export class WhimsyLassoChild extends JSWindowActorChild {
         }
         break;
       case "scroll":
-        this.update();
+        if (this.lasso?.pillActive) {
+          this.end({ cancel: true, released: false });
+        } else {
+          this.update();
+        }
         break;
       case "blur":
         // The window losing focus, not an element in the page.
@@ -54,10 +73,46 @@ export class WhimsyLassoChild extends JSWindowActorChild {
         this.end({ cancel: true, released: false });
         break;
       case "click":
-        // The click that ends a lasso never follows a link.
+        if (this.lasso?.pillActive && this.inControl(event.originalTarget)) {
+          event.preventDefault();
+          event.stopPropagation();
+          const target = event.originalTarget;
+          const button = target.closest?.("button") ?? target.parentElement?.closest("button");
+          const action = button?.dataset?.action;
+          if (action == "tabs" || action == "folder") {
+            this.executeAction(action);
+          }
+          return;
+        }
+        // The click that ends a lasso drag never follows a link.
         event.preventDefault();
         event.stopPropagation();
         break;
+    }
+  }
+
+  inControl(node) {
+    try {
+      return !!node && !!this.lasso?.pill && (this.lasso.pill == node || this.lasso.pill.contains(node));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  loadStrings() {
+    const fallback = {
+      openTabs: "Open as Tabs",
+      makeFolder: "Make Folder",
+    };
+    try {
+      const openTabs = lazy.l10n.formatValueSync("whimsy-command-lasso-open-tabs");
+      const makeFolder = lazy.l10n.formatValueSync("whimsy-command-lasso-make-folder");
+      return {
+        openTabs: openTabs || fallback.openTabs,
+        makeFolder: makeFolder || fallback.makeFolder,
+      };
+    } catch (e) {
+      return fallback;
     }
   }
 
@@ -94,8 +149,10 @@ export class WhimsyLassoChild extends JSWindowActorChild {
       clientY: event.clientY,
       started: false,
       links: [],
+      selectedLinks: [],
       count: -1,
       frame: 0,
+      pillActive: false,
     };
     for (const type of ["mousemove", "mouseup", "keydown", "scroll", "blur", "pagehide"]) {
       win.addEventListener(type, this, { capture: true, mozSystemGroup: true });
@@ -104,7 +161,7 @@ export class WhimsyLassoChild extends JSWindowActorChild {
 
   onMouseMove(event) {
     const lasso = this.lasso;
-    if (!lasso) {
+    if (!lasso || lasso.pillActive) {
       return;
     }
     if (!(event.buttons & 1)) {
@@ -129,14 +186,47 @@ export class WhimsyLassoChild extends JSWindowActorChild {
 
   onMouseUp(event) {
     const lasso = this.lasso;
-    if (!lasso) {
+    if (!lasso || lasso.pillActive) {
       return;
     }
-    if (lasso.started) {
-      event.preventDefault();
-      event.stopPropagation();
+    if (!lasso.started) {
+      this.end({ cancel: true, released: true });
+      return;
     }
-    this.end({ cancel: false, released: true });
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Compute the final selection now (the last frame may not have run).
+    const win = this.contentWindow;
+    const x = lasso.clientX + (win?.scrollX ?? 0);
+    const y = lasso.clientY + (win?.scrollY ?? 0);
+    const box = {
+      left: Math.min(lasso.startX, x),
+      top: Math.min(lasso.startY, y),
+      right: Math.max(lasso.startX, x),
+      bottom: Math.max(lasso.startY, y),
+    };
+    const links = [];
+    const seen = new Set();
+    for (const link of lasso.links) {
+      if (seen.has(link.url)) {
+        continue;
+      }
+      if (link.rects.some(r => r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top)) {
+        seen.add(link.url);
+        links.push({ url: link.url, title: link.title });
+      }
+    }
+    if (!links.length) {
+      this.end({ cancel: true, released: true });
+      return;
+    }
+
+    lasso.selectedLinks = links;
+    if (win) {
+      this.swallowClick(win, true);
+    }
+    this.showPill();
   }
 
   // The drag passed the threshold: draw the overlay and measure the links.
@@ -176,24 +266,58 @@ export class WhimsyLassoChild extends JSWindowActorChild {
     const count = doc.createElement("div");
     count.className = "whimsy-lasso-count";
     count.setAttribute("role", "status");
-    root.append(hits, rect, count);
+
+    const pill = doc.createElement("div");
+    pill.className = "whimsy-lasso-pill";
+    pill.hidden = true;
+
+    const strings = this.loadStrings();
+    const tabsBtn = doc.createElement("button");
+    tabsBtn.type = "button";
+    tabsBtn.className = "whimsy-lasso-btn";
+    tabsBtn.dataset.action = "tabs";
+    tabsBtn.textContent = strings.openTabs;
+
+    const folderBtn = doc.createElement("button");
+    folderBtn.type = "button";
+    folderBtn.className = "whimsy-lasso-btn";
+    folderBtn.dataset.action = "folder";
+    folderBtn.textContent = strings.makeFolder;
+
+    pill.append(tabsBtn, folderBtn);
+    root.append(hits, rect, count, pill);
     content.root.append(sheet, root);
+
     lasso.content = content;
     lasso.rect = rect;
     lasso.hits = hits;
     lasso.countEl = count;
+    lasso.pill = pill;
+    lasso.tabsBtn = tabsBtn;
+    lasso.folderBtn = folderBtn;
+
+    lazy.l10n.formatValue("whimsy-command-lasso-open-tabs").then(text => {
+      if (text && this.lasso?.tabsBtn) {
+        this.lasso.tabsBtn.textContent = text;
+      }
+    }).catch(() => {});
+    lazy.l10n.formatValue("whimsy-command-lasso-make-folder").then(text => {
+      if (text && this.lasso?.folderBtn) {
+        this.lasso.folderBtn.textContent = text;
+      }
+    }).catch(() => {});
   }
 
   // Redraws the rectangle and the matched links, at most once a frame.
   update() {
     const lasso = this.lasso;
-    if (!lasso?.started || lasso.frame) {
+    if (!lasso?.started || lasso.pillActive || lasso.frame) {
       return;
     }
     const win = this.contentWindow;
     lasso.frame = win.requestAnimationFrame(() => {
       lasso.frame = 0;
-      if (this.lasso != lasso) {
+      if (this.lasso != lasso || lasso.pillActive) {
         return;
       }
       const x = lasso.clientX + win.scrollX;
@@ -244,6 +368,63 @@ export class WhimsyLassoChild extends JSWindowActorChild {
     });
   }
 
+  showPill() {
+    const lasso = this.lasso;
+    if (!lasso || !lasso.content) {
+      return;
+    }
+    const win = this.contentWindow;
+    lasso.pillActive = true;
+
+    if (lasso.frame) {
+      win?.cancelAnimationFrame(lasso.frame);
+      lasso.frame = 0;
+    }
+    win?.removeEventListener("mousemove", this, { capture: true, mozSystemGroup: true });
+
+    // Hide count pill
+    lasso.countEl.hidden = true;
+
+    // Show action pill
+    const pill = lasso.pill;
+    pill.hidden = false;
+
+    // Position the pill near the release point, clamped to viewport
+    const pillWidth = 220;
+    const pillHeight = 36;
+    const winW = win?.innerWidth ?? 800;
+    const winH = win?.innerHeight ?? 600;
+    const left = Math.min(Math.max(lasso.clientX - 20, 10), Math.max(10, winW - pillWidth - 10));
+    const top = Math.min(Math.max(lasso.clientY + 12, 10), Math.max(10, winH - pillHeight - 10));
+    pill.style.left = `${left}px`;
+    pill.style.top = `${top}px`;
+
+    // Listen for click events on the window to catch clicks on the pill
+    win?.addEventListener("click", this, { capture: true, mozSystemGroup: true });
+
+    // Notify parent of the selection
+    this.sendAsyncMessage("WhimsyLasso:Selected", {
+      links: lasso.selectedLinks,
+      pageTitle: this.document.title,
+      pageURL: this.document.documentURI,
+    });
+  }
+
+  executeAction(action) {
+    const lasso = this.lasso;
+    if (!lasso) {
+      return;
+    }
+    const links = lasso.selectedLinks ?? [];
+    const msg = action == "tabs" ? "WhimsyLasso:OpenTabs" : "WhimsyLasso:MakeFolder";
+    this.sendAsyncMessage(msg, {
+      links,
+      pageTitle: this.document.title,
+      pageURL: this.document.documentURI,
+    });
+    this.end({ cancel: false, released: true });
+  }
+
   end({ cancel, released }) {
     const lasso = this.lasso;
     if (!lasso) {
@@ -251,7 +432,7 @@ export class WhimsyLassoChild extends JSWindowActorChild {
     }
     this.lasso = null;
     const win = this.contentWindow;
-    for (const type of ["mousemove", "mouseup", "keydown", "scroll", "blur", "pagehide"]) {
+    for (const type of ["mousemove", "mouseup", "keydown", "scroll", "blur", "pagehide", "click"]) {
       win?.removeEventListener(type, this, { capture: true, mozSystemGroup: true });
     }
     if (lasso.frame) {
@@ -269,54 +450,28 @@ export class WhimsyLassoChild extends JSWindowActorChild {
       this.swallowClick(win, released);
     }
     if (cancel) {
-      return;
+      this.sendAsyncMessage("WhimsyLasso:Dismissed");
     }
-    // Compute the final selection now (the last frame may not have run).
-    const x = lasso.clientX + (win?.scrollX ?? 0);
-    const y = lasso.clientY + (win?.scrollY ?? 0);
-    const box = {
-      left: Math.min(lasso.startX, x),
-      top: Math.min(lasso.startY, y),
-      right: Math.max(lasso.startX, x),
-      bottom: Math.max(lasso.startY, y),
-    };
-    const links = [];
-    const seen = new Set();
-    for (const link of lasso.links) {
-      if (seen.has(link.url)) {
-        continue;
-      }
-      if (link.rects.some(r => r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top)) {
-        seen.add(link.url);
-        links.push({ url: link.url, title: link.title });
-      }
-    }
-    if (!links.length) {
-      return;
-    }
-    this.sendAsyncMessage("WhimsyLasso:Create", {
-      links,
-      pageTitle: this.document.title,
-      pageURL: this.document.documentURI,
-    });
   }
 
   // The click that follows the release (now, or after Esc when the button
   // comes up) must not follow a link.
   swallowClick(win, released) {
-    // The default group, so stopping it keeps the page's own listeners
-    // from seeing the click.
-    const options = { capture: true };
-    win.addEventListener("click", this, { ...options, once: true });
-    const drop = () => win.setTimeout(() => win.removeEventListener("click", this, options), 0);
+    const swallow = event => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const options = { capture: true, once: true };
+    win.addEventListener("click", swallow, options);
+    const drop = () => win.setTimeout(() => win.removeEventListener("click", swallow, options), 0);
     if (released) {
       drop();
     } else {
-      win.addEventListener("mouseup", drop, { ...options, once: true });
+      win.addEventListener("mouseup", drop, options);
     }
   }
 
   didDestroy() {
-    this.lasso = null;
+    this.end({ cancel: true, released: false });
   }
 }

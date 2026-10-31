@@ -294,6 +294,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 
+// wave9: W8-29 link lasso commands.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyLinkLasso: "resource:///modules/whimsy/WhimsyLinkLasso.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -892,6 +897,8 @@ export const Whimsy = {
     );
     // wave8/cmds: W8-42 New Note command and menu item.
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
+    // wave9: W8-29 link lasso commands.
+    run("link-lasso", () => lazy.WhimsyLinkLasso.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },
