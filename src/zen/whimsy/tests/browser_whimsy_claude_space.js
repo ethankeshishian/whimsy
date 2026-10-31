@@ -106,7 +106,7 @@ add_task(async function test_server_and_space() {
   ok(/^[0-9a-f]{64}$/.test(token), "With a random token");
   ok(token != legacyToken, "Previously exposed token is retired during migration");
   ok(!JSON.stringify(info).includes(token), "Connection info contains no secret");
-  ok(info.command.startsWith("claude mcp add whimsy -- '"), "A shell-quoted bridge command is ready to copy");
+  ok(info.command.startsWith("claude mcp add -s user whimsy -- '"), "A shell-quoted bridge command with user scope is ready to copy");
   Assert.deepEqual(JSON.parse(info.json).mcpServers.whimsy,
     { command: info.bridgePath, args: [] }, "Config starts the bridge without headers or secrets");
   ok(!Services.prefs.prefHasUserValue("whimsy.claude.token"), "No token remains in prefs");
