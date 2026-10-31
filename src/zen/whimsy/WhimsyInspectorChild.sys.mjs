@@ -218,7 +218,7 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
       letterSpacing: style.letterSpacing,
       colorHex,
       colorRgb: style.color,
-      previewText: point?.text || element.textContent?.trim().slice(0, 60) || lazy.l10n.formatValueSync("whimsy-font-sample-text") || "The quick brown fox jumps over the lazy dog",
+      previewText: point?.text || element.textContent?.trim().slice(0, 60) || lazy.l10n.formatValueSync("whimsy-font-sample-text"),
       tagName: element.tagName.toLowerCase(),
       selector: generateSelector(element),
       x,
@@ -234,9 +234,18 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
     const style = win.getComputedStyle(element);
     const rect = element.getBoundingClientRect();
 
+    // The middle of the box model is the content box, as in DevTools: the
+    // border box less borders and padding.
+    const px = name => parseFloat(style[name]) || 0;
     const boxModel = {
-      width: Math.round(rect.width),
-      height: Math.round(rect.height),
+      width: Math.max(
+        0,
+        Math.round(rect.width - px("borderLeftWidth") - px("borderRightWidth") - px("paddingLeft") - px("paddingRight"))
+      ),
+      height: Math.max(
+        0,
+        Math.round(rect.height - px("borderTopWidth") - px("borderBottomWidth") - px("paddingTop") - px("paddingBottom"))
+      ),
       margin: {
         top: Math.round(parseFloat(style.marginTop) || 0),
         right: Math.round(parseFloat(style.marginRight) || 0),
@@ -345,8 +354,8 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
 
       const hintPill = doc.createElement("div");
       hintPill.className = "whimsy-picker-instruction-pill";
-      const hintText = lazy.l10n.formatValueSync("whimsy-element-gap-hint") || "Hold Option or click another element to measure gap";
-      hintPill.textContent = `${hintText} · Esc to stop`;
+      // W9-16: the whole hint, "Esc to stop" included, comes from whimsy.ftl.
+      hintPill.textContent = lazy.l10n.formatValueSync("whimsy-element-picker-hint");
 
       overlay.append(hoverOutline, selectedOutline, hintPill);
       root.append(link, overlay);

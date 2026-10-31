@@ -76,8 +76,14 @@ export const WhimsyInspector = {
     }
   },
 
+  // The page's inspector actor, or null where it can't run (about: pages,
+  // which the actor's matches leave out).
   actorFor(browser) {
-    return browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyInspector");
+    try {
+      return browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyInspector") ?? null;
+    } catch (e) {
+      return null;
+    }
   },
 
   initWindow(win) {
@@ -649,6 +655,10 @@ export const WhimsyInspector = {
 
   // Shared element picker controls (shares picker between Zap, Font Inspector, Element Inspector)
   startPicker(win, mode = "element") {
+    // Each picker honours its own switch.
+    if (mode == "font" ? !this.fontInspectorEnabled : !this.elementInspectorEnabled) {
+      return false;
+    }
     const browser = win.gBrowser.selectedBrowser;
     const actor = this.actorFor(browser);
     if (!actor) {

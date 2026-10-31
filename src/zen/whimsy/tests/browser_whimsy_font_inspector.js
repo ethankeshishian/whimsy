@@ -12,6 +12,28 @@ const { WhimsyInspector } = ChromeUtils.importESModule("resource:///modules/whim
 const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
 const { WhimsyMenuPrefs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+const { SearchTestUtils } = ChromeUtils.importESModule("resource://testing-common/SearchTestUtils.sys.mjs");
+SearchTestUtils.init(this);
+
+// Search for This Font uses the default engine: a local one here (tests
+// can't reach the network).
+add_setup(async function () {
+  await SearchTestUtils.installSearchExtension(
+    { name: "Whimsy Font Search", search_url: "https://example.com/search", search_url_get_params: "q={searchTerms}" },
+    { setAsDefault: true }
+  );
+});
+
+// Opens the popover and waits until it's shown (its rows only take clicks
+// once it's open).
+async function openFontPopover() {
+  await WhimsyInspector.inspectFont(window);
+  const panel = document.getElementById("whimsy-font-inspector-panel");
+  if (panel && panel.state != "open") {
+    await BrowserTestUtils.waitForPopupEvent(panel, "shown");
+  }
+  return panel;
+}
 
 const PAGE = "https://example.com/document-builder.sjs?html=" + encodeURIComponent(`
   <html>
@@ -74,7 +96,7 @@ add_task(async function test_inspect_font_popover_and_values() {
   await selectTargetText(browser);
 
   // Run font inspection
-  await WhimsyInspector.inspectFont(window);
+  await openFontPopover();
 
   const panel = document.getElementById("whimsy-font-inspector-panel");
   ok(panel, "Font inspector panel was created");
@@ -91,13 +113,13 @@ add_task(async function test_inspect_font_popover_and_values() {
 
   // Check card copy hint and keyboard accessible button markup
   const card = panel.querySelector(".whimsy-font-face-card");
-  is(card?.tagName, "BUTTON", "Card is a keyboard-accessible button element");
+  is(card?.localName, "button", "Card is a keyboard-accessible button element");
   ok(card?.classList.contains("whimsy-sheet-item"), "Card has whimsy-sheet-item class for arrow navigation");
   is(card?.title, "Click to copy font name", "Card has copy hint tooltip");
   is(card?.getAttribute("data-l10n-id"), "whimsy-font-card-copy-hint", "Card has data-l10n-id");
 
   const rows = Array.from(panel.querySelectorAll(".whimsy-font-prop-row"));
-  ok(rows.every(r => r.tagName === "BUTTON" && r.classList.contains("whimsy-sheet-item")),
+  ok(rows.every(r => r.localName === "button" && r.classList.contains("whimsy-sheet-item")),
     "All property rows are keyboard-accessible button elements with whimsy-sheet-item");
   const rowLabels = rows.map(r => r.querySelector(".whimsy-font-prop-label")?.textContent);
   ok(rowLabels.includes("Size"), "Size row exists");
@@ -164,7 +186,7 @@ add_task(async function test_search_for_this_font_button_and_command() {
   await selectTargetText(browser);
 
   // Inspect font so popover opens
-  await WhimsyInspector.inspectFont(window);
+  await openFontPopover();
 
   const panel = document.getElementById("whimsy-font-inspector-panel");
   ok(panel, "Font inspector panel opened");
@@ -180,7 +202,7 @@ add_task(async function test_search_for_this_font_button_and_command() {
 
   const newTab = await tabPromise;
   ok(newTab, "Search tab was opened");
-  is(newTab._tPos, tab._tPos + 1, "New search tab is positioned right next to the current tab");
+  is(gBrowser.tabs.indexOf(newTab), gBrowser.tabs.indexOf(tab) + 1, "New search tab is positioned right next to the current tab");
   ok(newTab.linkedBrowser.currentURI.spec.includes("Arial"), "Search URL includes rendered font name Arial");
 
   BrowserTestUtils.removeTab(newTab);
@@ -190,7 +212,7 @@ add_task(async function test_search_for_this_font_button_and_command() {
   await WhimsyInspector.searchFont(window);
   const cmdTab = await cmdTabPromise;
   ok(cmdTab, "cmd_whimsySearchFont opened a search tab for selected text font");
-  is(cmdTab._tPos, tab._tPos + 1, "Command opened tab next to current tab");
+  is(gBrowser.tabs.indexOf(cmdTab), gBrowser.tabs.indexOf(tab) + 1, "Command opened tab next to current tab");
 
   BrowserTestUtils.removeTab(cmdTab);
   BrowserTestUtils.removeTab(tab);
@@ -201,7 +223,7 @@ add_task(async function test_font_inspector_after_fluent_translation() {
   const browser = tab.linkedBrowser;
   await selectTargetText(browser);
 
-  await WhimsyInspector.inspectFont(window);
+  await openFontPopover();
   const panel = document.getElementById("whimsy-font-inspector-panel");
   ok(panel, "Font inspector panel opened");
 
@@ -244,7 +266,7 @@ add_task(async function test_feature_switch_disabled() {
 add_task(async function test_popover_is_styled() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   await selectTargetText(tab.linkedBrowser);
-  await WhimsyInspector.inspectFont(window);
+  await openFontPopover();
   const panel = document.getElementById("whimsy-font-inspector-panel");
   if (panel.state != "open") {
     await BrowserTestUtils.waitForPopupEvent(panel, "shown");

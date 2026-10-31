@@ -189,3 +189,29 @@ add_task(async function test_inspector_settings_switches() {
     is(elCb?.getAttribute("data-l10n-id"), "whimsy-tabs-element-inspector", "Has whimsy-tabs-element-inspector string");
   }
 });
+
+// W9-16: the picker's overlay in the page (anonymous content) is styled by
+// whimsy-inspector.css, and its hint, "Esc to stop" included, is localized.
+add_task(async function test_picker_overlay_styled_and_localized() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  ok(WhimsyInspector.startPicker(window, "element"), "Picker started");
+  const expected = await new Localization(["browser/whimsy.ftl"], true).formatValue("whimsy-element-picker-hint");
+  ok(expected.includes("Esc"), "the string says how to stop");
+  const overlay = await SpecialPowers.spawn(browser, [], async () => {
+    const actor = content.windowGlobalChild.getActor("WhimsyInspector");
+    await ContentTaskUtils.waitForCondition(() => actor._hintPill, "the hint pill is shown");
+    await ContentTaskUtils.waitForCondition(
+      () => content.getComputedStyle(actor._hintPill).position == "fixed",
+      "the overlay sheet applies to the page's anonymous content"
+    );
+    const style = content.getComputedStyle(actor._hintPill);
+    const outline = content.getComputedStyle(actor._hoverOutline);
+    return { text: actor._hintPill.textContent, position: style.position, outline: outline.position };
+  });
+  is(overlay.text, expected, "the hint comes from whimsy.ftl");
+  is(overlay.position, "fixed", "the hint pill is styled");
+  is(overlay.outline, "fixed", "the hover outline is styled");
+  WhimsyInspector.stopPicker?.(window);
+  BrowserTestUtils.removeTab(tab);
+});
