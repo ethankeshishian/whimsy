@@ -41,6 +41,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+  WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
@@ -174,7 +175,9 @@ export const WhimsyFireButton = {
 
   // Forgets already-closed tabs and windows that `matches(tabState,
   // closedAt)` accepts, in every ordinary window, then writes the session
-  // file so none of them stay on disk.
+  // file so none of them stay on disk. wave9/secfix (security-full-1 H2):
+  // the Archive's and Snooze's own stores too, so nothing burned can be
+  // restored from History → Closed, View Archive or a snooze waking up.
   async purgeClosed(matches) {
     const SS = lazy.SessionStore;
     for (const w of Services.wm.getEnumerator("navigator:browser")) {
@@ -200,6 +203,11 @@ export const WhimsyFireButton = {
           console.error("Whimsy: fire forget closed window", e);
         }
       }
+    }
+    try {
+      await lazy.WhimsyArchive.purge(matches);
+    } catch (e) {
+      console.error("Whimsy: fire purge archive", e);
     }
     await lazy.SessionSaver.run();
   },

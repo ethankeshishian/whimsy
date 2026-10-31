@@ -619,3 +619,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave9/secfix H1: extensions without private permission can't list, watch, capture or drive private tabs in normal windows (needs the whimsy-ext-*-js engine patches).
 ["browser_whimsy_security_ext_private.js"]
+# wave9/secfix H2: Fire, Clear History and Forget About This Site purge the Archive and Snooze stores.
+["browser_whimsy_security_purge_stores.js"]

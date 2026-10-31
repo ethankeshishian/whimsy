@@ -28,6 +28,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
+  WhimsySnooze: "resource:///modules/whimsy/WhimsySnooze.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -82,6 +83,7 @@ export const WhimsyArchive = {
   },
 
   initWindow(win) {
+    this.initPurgeObservers();
     if (this.sweepEnabled) {
       this.initSweep(win);
     }
@@ -608,6 +610,87 @@ export const WhimsyArchive = {
     } catch (e) {
       console.error("Whimsy: archive forget", e);
     }
+  },
+
+  // --- wave9/secfix (security-full-1 H2): forgetting reaches the Archive ---
+  // The Archive and the Snooze list keep closed tabs (with their history)
+  // in their own files, so whatever forgets closed tabs must forget them
+  // here too: Fire (WhimsyFireButton.purgeClosed), Firefox's Clear History
+  // and Forget About This Site (the observers below).
+
+  // Does a closed tab's state (entries, with children) touch `domain` or
+  // one of its subdomains? The same test SessionStore uses for closed tabs.
+  stateTouchesDomain(state, domain) {
+    const touches = entry => {
+      let host = "";
+      try {
+        host = Services.io.newURI(entry.url).host;
+      } catch (e) {
+        // No host (about:, data:...).
+      }
+      if (host && Services.eTLD.hasRootDomain(host, domain)) {
+        return true;
+      }
+      return (entry.children ?? []).some(touches);
+    };
+    return (state?.entries ?? []).some(touches);
+  },
+
+  // Drops every stored entry `matches(state, closedAt)` accepts, and writes
+  // the file now rather than soon. Returns how many went.
+  async purgeStored(matches) {
+    const list = this.storedEntries;
+    const kept = list.filter(e => {
+      try {
+        return !matches(e.state ?? {}, e.closedAt ?? 0);
+      } catch (err) {
+        return false; // Can't tell: forget it rather than keep it.
+      }
+    });
+    const removed = list.length - kept.length;
+    if (removed) {
+      this.store.data.entries = kept;
+      Services.obs.notifyObservers(null, CHANGED_TOPIC);
+    }
+    if (removed || this.store._saver?.isArmed) {
+      this.store._saver?.disarm();
+      await this.store._save();
+    }
+    return removed;
+  },
+
+  // Snoozed tabs first: their records are matched through the entries
+  // they share with the Archive.
+  async purge(matches) {
+    try {
+      await lazy.WhimsySnooze.purge(matches);
+    } catch (e) {
+      console.error("Whimsy: snooze purge", e);
+    }
+    return this.purgeStored(matches);
+  },
+
+  initPurgeObservers() {
+    if (this._purgeObserver) {
+      return;
+    }
+    this._purgeObserver = (subject, topic, data) => {
+      let matches;
+      if (topic == "browser:purge-session-history-for-domain") {
+        if (!data) {
+          return;
+        }
+        matches = state => this.stateTouchesDomain(state, data);
+      } else {
+        // Clear History: everything, or (a time range, in microseconds)
+        // what closed in that range.
+        const since = data ? Number(data) / 1000 : 0;
+        matches = since > 0 ? (state, closedAt) => closedAt >= since : () => true;
+      }
+      this.purge(matches).catch(e => console.error("Whimsy: archive purge", e));
+    };
+    Services.obs.addObserver(this._purgeObserver, "browser:purge-session-history");
+    Services.obs.addObserver(this._purgeObserver, "browser:purge-session-history-for-domain");
   },
 
   // Arc's Archive → Clear Archive: empties the Archive and every window's
