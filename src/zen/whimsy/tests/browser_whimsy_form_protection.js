@@ -109,13 +109,11 @@ add_task(async function test_typing_protects_tab_and_exempts_from_sweep() {
   await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);
 
-    // Type text into the input field
-    await SpecialPowers.spawn(browser, [], async () => {
-      const input = content.document.getElementById("name");
-      input.value = "Whimsy User";
-      input.dispatchEvent(new content.Event("input", { bubbles: true }));
-      input.dispatchEvent(new content.Event("change", { bubbles: true }));
-    });
+    // Type text into the input field (real key events).
+    await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").focus());
+    for (const key of "Whimsy User") {
+      await BrowserTestUtils.synthesizeKey(key, {}, browser);
+    }
 
     await TestUtils.waitForCondition(
       () => tab.hasAttribute("whimsy-form-protected"),
@@ -126,11 +124,11 @@ add_task(async function test_typing_protects_tab_and_exempts_from_sweep() {
 
     // Now test that the sweep does not archive this tab even when past the idle threshold
     const twelveHoursAgo = Date.now() - 13 * 3600 * 1000;
-    tab.lastAccessed = twelveHoursAgo;
+    tab.updateLastAccessed(twelveHoursAgo);
 
     // Open a second, clean tab to be the selected tab and one idle clean tab
     const cleanTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com");
-    cleanTab.lastAccessed = twelveHoursAgo;
+    cleanTab.updateLastAccessed(twelveHoursAgo);
 
     // Run the sweep
     WhimsyArchive.sweepWindow(window);

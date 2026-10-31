@@ -39,7 +39,7 @@ async function waitOpen(id, win = window) {
 
 async function closeSheet(panel) {
   const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-  EventUtils.synthesizeKey("KEY_Escape", {}, panel.ownerGlobal);
+  EventUtils.synthesizeKey("KEY_Escape", {}, panel.documentGlobal);
   await hidden;
 }
 

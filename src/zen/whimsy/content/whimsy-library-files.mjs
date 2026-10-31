@@ -87,7 +87,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
     if (!deleted) {
       return;
     }
-    const win = this.ownerGlobal;
+    const win = this.documentGlobal;
     lazy.WhimsyUndo.showToast(
       win,
       "whimsy-library-files-deleted-toast",
@@ -100,7 +100,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
   async #copy(file) {
     try {
       await copyCapture(file.path);
-      this.ownerGlobal.gZenUIManager?.showToast("whimsy-library-files-copied-toast");
+      this.documentGlobal.gZenUIManager?.showToast("whimsy-library-files-copied-toast");
     } catch (e) {
       console.error("Whimsy: copy capture", e);
     }
@@ -114,7 +114,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
 
   #buildMenu() {
     const doc = this.ownerDocument;
-    const menu = this.ownerGlobal.MozXULElement.parseXULToFragment(`
+    const menu = this.documentGlobal.MozXULElement.parseXULToFragment(`
       <menupopup class="whimsy-library-files-menu">
         <menuitem data-action="open" data-l10n-id="whimsy-library-files-menu-open"/>
         <menuitem data-action="reveal" data-l10n-id="whimsy-library-files-menu-reveal"/>

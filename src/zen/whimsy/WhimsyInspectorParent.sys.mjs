@@ -14,7 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 export class WhimsyInspectorParent extends JSWindowActorParent {
   receiveMessage(message) {
     const browser = this.browsingContext.top.embedderElement;
-    const win = browser?.ownerGlobal;
+    const win = browser?.documentGlobal;
 
     switch (message.name) {
       case "Whimsy:FontInspected":

@@ -119,7 +119,7 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
       return;
     }
     lazy.WhimsyUndo.showToast(
-      this.ownerGlobal,
+      this.documentGlobal,
       "whimsy-library-notes-deleted-toast",
       { type: "library-delete", undo: () => gWhimsyNotesStore.restore(removed) },
       undefined,

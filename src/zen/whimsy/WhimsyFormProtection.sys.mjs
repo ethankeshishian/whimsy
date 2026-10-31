@@ -39,7 +39,7 @@ export class WhimsyFormProtectionParent extends JSWindowActorParent {
       } else {
         browser._whimsyFormContexts.delete(this.browsingContext.id);
       }
-      const win = browser.ownerGlobal;
+      const win = browser.documentGlobal;
       const tab = win?.gBrowser?.getTabForBrowser(browser);
       if (tab) {
         WhimsyFormProtection.updateTabProtection(tab, browser._whimsyFormContexts.size > 0);
@@ -147,7 +147,7 @@ export const WhimsyFormProtection = {
     const protect = !tab._whimsyFormManual;
     tab._whimsyFormManual = protect;
     tab.toggleAttribute(ATTR, protect);
-    const win = tab.ownerGlobal;
+    const win = tab.documentGlobal;
     try {
       lazy.WhimsyToast.show(win, {
         l10nId: protect ? "whimsy-form-protected-toast" : "whimsy-form-unprotected-toast",
