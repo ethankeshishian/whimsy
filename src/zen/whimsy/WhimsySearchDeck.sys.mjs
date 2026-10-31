@@ -167,11 +167,15 @@ export const WhimsySearchDeck = {
       } catch {
         return null;
       }
-      if (!info.keywordProviderName) {
+      // Gecko 159 reports the engine by id (keywordProviderId), not by name.
+      const fixupEngine = info.keywordProviderId
+        ? lazy.SearchService.getEngineById(info.keywordProviderId)
+        : null;
+      if (!fixupEngine) {
         return null;
       }
       query = info.keywordAsSent || value;
-      engineName = info.keywordProviderName;
+      engineName = fixupEngine.name;
     }
     if (mode?.engineName) {
       engineName = mode.engineName;
@@ -421,7 +425,8 @@ export const WhimsySearchDeck = {
     const forgetAfterClose = url =>
       tab.addEventListener("TabClose", () => win.setTimeout(() => this.forgetClosed(win, url), 0), { once: true });
     const onGlanceClose = () => {
-      if (decks.get(win) == state) {
+      // Zen closes its Glance bookkeeping as the last step of a full open.
+      if (decks.get(win) == state && !state.promoting) {
         const url = cardUrl();
         this.end(state);
         forgetAfterClose(url);
@@ -443,11 +448,21 @@ export const WhimsySearchDeck = {
       if (tab.hasAttribute("zen-glance-tab")) {
         return;
       }
-      win.setTimeout(() => {
-        if (decks.get(win) == state && !tab.closing && tab.isConnected && !tab.hasAttribute("zen-glance-tab")) {
-          this.onPromoted(state);
+      // Zen keeps animating the card into a tab after dropping the
+      // attribute; the deck is only done once that full open has finished,
+      // so nothing touches the tab while Zen still owns it.
+      const settle = () => {
+        if (decks.get(win) != state || tab.closing || !tab.isConnected || tab.hasAttribute("zen-glance-tab")) {
+          return;
         }
-      }, 0);
+        if (win.gZenGlanceManager?.animatingFullOpen) {
+          state.promoting = true;
+          win.setTimeout(settle, 16);
+          return;
+        }
+        this.onPromoted(state);
+      };
+      win.setTimeout(settle, 0);
     });
     observer.observe(tab, { attributes: true, attributeFilter: ["zen-glance-tab"] });
     state.cleanup = () => {

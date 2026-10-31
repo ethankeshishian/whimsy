@@ -217,6 +217,11 @@ add_task(async function test_deck_flips_and_promotes() {
 
 add_task(async function test_deck_from_a_results_page_leaves_no_trace() {
   await PlacesUtils.history.clear();
+  // Earlier tasks close real tabs on the same cards; start from an empty
+  // Recently Closed list so only this deck's cards are judged.
+  while (SessionStore.getClosedTabCountForWindow(window)) {
+    SessionStore.forgetClosedTab(window, 0);
+  }
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, SERP + "?q=whimsy+again");
   ok(WhimsySearchDeck.searchPageOf(tab.linkedBrowser), "A results page of a known engine is recognized");
   await WhimsySearchDeck.startFromPage(window);
