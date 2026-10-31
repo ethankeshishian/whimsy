@@ -2286,3 +2286,7 @@ whimsy-pane-looks-crumb =
     .label = Look and Feel
 whimsy-pane-tabs-crumb =
     .label = Tab Management
+
+## wave7/native1: Add to Calendar saves straight into macOS Calendar
+
+whimsy-verb-calendar-added-toast = Added to Calendar

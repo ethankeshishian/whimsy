@@ -486,3 +486,16 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/native1: about:keyboard says "Restore Last Closed Tab" (whimsy-customkeys-ftl.patch).
 ["browser_whimsy_restore_tab_label.js"]
+
+# wave7/native1: Add to Calendar saves through EventKit (mocked), .ics fallback.
+["browser_whimsy_calendar_write.js"]
+
+# wave7/native1: Whimsy's own toasts wait during a macOS Focus (mocked database).
+["browser_whimsy_macos_focus.js"]
+run-if = ["os == 'mac'"]
+
+# wave7/native1: the real calendar/ and focus/ components (no prompts, no
+# real calendar writes); verify.sh's whimsy-native run.
+["browser_whimsy_native_services.js"]
+run-if = ["os == 'mac'"]
+skip-if = ["headless"] # runs in verify.sh's whimsy-native suite

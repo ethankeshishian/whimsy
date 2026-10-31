@@ -22,8 +22,11 @@ UrlbarTestUtils.init(this);
 // clipboard.
 function stubEffects() {
   const calls = [];
-  const names = ["openTab", "openExternal", "copy", "launchFile"];
+  const names = ["openTab", "openExternal", "copy", "launchFile", "calendarService"];
   const originals = Object.fromEntries(names.map(n => [n, WhimsyVerbs[n]]));
+  // No macOS Calendar here, so Add to Calendar takes the .ics path (the
+  // EventKit path: browser_whimsy_calendar_write.js).
+  WhimsyVerbs.calendarService = () => null;
   WhimsyVerbs.openTab = (win, url) => calls.push({ what: "tab", url });
   WhimsyVerbs.openExternal = url => calls.push({ what: "external", url });
   WhimsyVerbs.copy = text => calls.push({ what: "copy", text });
