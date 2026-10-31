@@ -512,3 +512,5 @@ support-files = ["whimsy_page_actions.html"]
 ["browser_whimsy_space_switch_queue.js"]
 # wave7/security: private tabs' follow-ups stay private (verbs, page actions).
 ["browser_whimsy_security_private.js"]
+# wave7/season: seasonal command bar trim, Balloon Dash occasions and weather, changelog header art (mocked dates, switch, reduced motion, no overlap).
+["browser_whimsy_seasonal_decor.js"]

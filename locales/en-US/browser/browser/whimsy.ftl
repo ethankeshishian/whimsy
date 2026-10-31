@@ -666,7 +666,8 @@ whimsy-look-menu-bar-extra =
 ## batch7: Settings → Look and Feel → Look
 
 whimsy-look-seasonal-themes =
-    .label = Seasonal colors and costumes
+    .label = Seasonal touches
+whimsy-look-seasonal-themes-description = The balloon dresses for the season, and the new tab bar, Balloon Dash, the changelog and loading bar get seasonal art (Halloween and the winter holidays too).
 
 ## batch7: Settings → Tab Management
 
@@ -1616,6 +1617,10 @@ whimsy-quick-window-profile = ☺ Default
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave7/season: Balloon Dash at Halloween (bats fly where birds do)
+
+whimsy-game-death-bird-halloween = A bat wanted a closer look.
 
 ## wave5: live blocks in Notes (Arc Easels' Live Captures)
 

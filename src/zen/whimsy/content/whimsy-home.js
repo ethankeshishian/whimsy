@@ -295,20 +295,25 @@ function initBalloon() {
 // The balloon dresses for the season (whimsy-home.css shows the costume).
 // Rechecked whenever the page is shown, so a tab kept open across a season
 // boundary or the seasonal switch catches up without a timer.
+// whimsy-season-decor (an occasion, or the season) picks the changelog's
+// header art and accents.
 function applySeason() {
-  let season = null;
+  let look = null;
   try {
     const { WhimsySeasons } = ChromeUtils.importESModule(
       "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
     );
-    season = WhimsySeasons.current()?.id ?? null;
+    look = WhimsySeasons.look();
   } catch {
     // No calendar: the balloon simply stays undressed.
   }
-  if (season) {
-    document.documentElement.setAttribute("whimsy-season", season);
+  const root = document.documentElement;
+  if (look) {
+    root.setAttribute("whimsy-season", look.season);
+    root.setAttribute("whimsy-season-decor", look.id);
   } else {
-    document.documentElement.removeAttribute("whimsy-season");
+    root.removeAttribute("whimsy-season");
+    root.removeAttribute("whimsy-season-decor");
   }
 }
 

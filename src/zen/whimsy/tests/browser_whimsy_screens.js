@@ -2020,3 +2020,91 @@ add_task(async function paste_guard_sheet() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// wave7/season: the floating command bar's seasonal trim for every look
+// (Halloween, autumn, holidays, winter, spring, summer), light and dark;
+// the changelog's header in each; Balloon Dash at Halloween and over the
+// holidays. Reduced motion, so the lights are caught still.
+add_task(async function wave7_seasonal_trim() {
+  const { WhimsySeasons } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySeasons.sys.mjs");
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  const original = WhimsySeasons._now;
+  const looks = [
+    ["halloween", [2026, 10, 30]], ["autumn", [2026, 11, 10]], ["holidays", [2026, 12, 20]],
+    ["winter", [2027, 2, 10]], ["spring", [2026, 4, 15]], ["summer", [2026, 7, 15]],
+  ];
+  const mock = ([y, m, d]) => {
+    WhimsySeasons._now = () => new Date(y, m - 1, d, 12);
+  };
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.seasonal-themes", true], ["whimsy.seasons.enabled", true],
+    ["whimsy.feature.home", true], ["whimsy.feature.game", true],
+    ["ui.prefersReducedMotion", 1],
+  ] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      for (const [look, date] of looks) {
+        mock(date);
+        WhimsySeasons.apply(window);
+        gURLBar.blur();
+        await SimpleTest.promiseFocus(window);
+        document.getElementById("Browser:OpenLocation").doCommand();
+        await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "whimsy" });
+        await TestUtils.waitForCondition(() => gURLBar.getAttribute("zen-floating-urlbar") == "true", "The bar floats");
+        is(gURLBar.querySelector(".whimsy-season-trim") && getComputedStyle(gURLBar.querySelector(".whimsy-season-trim")).display,
+          "block", `${look}: the trim shows`);
+        await settled();
+        // Let the SVGs decode before the snapshot.
+        await new Promise(resolve => setTimeout(resolve, 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+        await shot(`wave7-command-bar-${look}-${dark ? "dark" : "light"}`);
+        await UrlbarTestUtils.promisePopupClose(window);
+        gURLBar.blur();
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+
+    for (const [look, date] of looks) {
+      mock(date);
+      await BrowserTestUtils.withNewTab("about:whimsy?tab=changelog", async browser => {
+        await browser.contentDocument.l10n.ready;
+        await new Promise(resolve => setTimeout(resolve, 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+        await shot(`wave7-changelog-${look}`, browser.browsingContext.currentWindowGlobal);
+      });
+    }
+
+    await BrowserTestUtils.withNewTab("about:whimsy?game", async browser => {
+      const win = browser.contentWindow;
+      const wg = browser.browsingContext.currentWindowGlobal;
+      const game = await TestUtils.waitForCondition(() => win.__whimsyGame, "The game has loaded");
+      game.freeze();
+      game.setAutoSpawn(false);
+      await browser.contentDocument.l10n.ready;
+      for (const look of ["halloween", "holidays"]) {
+        game.setSeason(look);
+        for (const style of ["gradient", "retro"]) {
+          browser.contentDocument.getElementById(`whimsy-game-style-${style}`).click();
+          game.start();
+          game.clear();
+          game.spawn("bird", { cx: 420, cy: 70, R: 16, a: 1, vx: -40 });
+          game.spawn("seed", { x: 300, y: 80, vx: -30 });
+          game.spawn("sparkle", { x: 170, y: 100 });
+          game.spawn("sparkle", { x: 210, y: 70 });
+          game.state.player.invuln = 0;
+          game.tick(0.05);
+          await new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
+          await shot(`wave7-game-${look}-${style}`, wg);
+        }
+      }
+    });
+  } finally {
+    WhimsySeasons._now = original;
+    WhimsySeasons.apply(window);
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+    for (const pref of ["whimsy.game.style", "whimsy.game.high-score"]) {
+      Services.prefs.clearUserPref(pref);
+    }
+  }
+});

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 18" width="120" height="18" fill="none">
+  <!-- Winter holidays: one 120px repeat of a string of lights hanging from
+       the command bar's bottom edge (whimsy-browser.css repeats it). The
+       wire meets the edge at both ends, so repeats join seamlessly. -->
+  <path d="M0 1.2C20 6.8 40 6.8 60 1.2C80 6.8 100 6.8 120 1.2" stroke="#6b5f77" stroke-opacity=".55" stroke-width="1.1" stroke-linecap="round"/>
+  <g transform="rotate(-9 15 4.6)">
+    <rect x="13.5" y="4" width="3" height="2.6" rx=".7" fill="#4a3d5a"/>
+    <path d="M15 6.4c2.4 0 3.1 2.6 2.9 4.6-.3 2.4-1.5 3.6-2.9 3.6s-2.6-1.2-2.9-3.6c-.2-2 .5-4.6 2.9-4.6Z" fill="#ff8fbf"/>
+    <ellipse cx="14" cy="9.2" rx=".8" ry="1.4" fill="#fff" opacity=".7"/>
+  </g>
+  <g transform="rotate(7 45 4.6)">
+    <rect x="43.5" y="4" width="3" height="2.6" rx=".7" fill="#4a3d5a"/>
+    <path d="M45 6.4c2.4 0 3.1 2.6 2.9 4.6-.3 2.4-1.5 3.6-2.9 3.6s-2.6-1.2-2.9-3.6c-.2-2 .5-4.6 2.9-4.6Z" fill="#ffd86b"/>
+    <ellipse cx="44" cy="9.2" rx=".8" ry="1.4" fill="#fff" opacity=".7"/>
+  </g>
+  <g transform="rotate(-6 75 4.6)">
+    <rect x="73.5" y="4" width="3" height="2.6" rx=".7" fill="#4a3d5a"/>
+    <path d="M75 6.4c2.4 0 3.1 2.6 2.9 4.6-.3 2.4-1.5 3.6-2.9 3.6s-2.6-1.2-2.9-3.6c-.2-2 .5-4.6 2.9-4.6Z" fill="#5fc9b4"/>
+    <ellipse cx="74" cy="9.2" rx=".8" ry="1.4" fill="#fff" opacity=".7"/>
+  </g>
+  <g transform="rotate(10 105 4.6)">
+    <rect x="103.5" y="4" width="3" height="2.6" rx=".7" fill="#4a3d5a"/>
+    <path d="M105 6.4c2.4 0 3.1 2.6 2.9 4.6-.3 2.4-1.5 3.6-2.9 3.6s-2.6-1.2-2.9-3.6c-.2-2 .5-4.6 2.9-4.6Z" fill="#a98bff"/>
+    <ellipse cx="104" cy="9.2" rx=".8" ry="1.4" fill="#fff" opacity=".7"/>
+  </g>
+</svg>

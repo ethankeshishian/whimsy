@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 16" width="90" height="16" fill="none">
+  <!-- Autumn: three fallen leaves resting on the command bar's top edge
+       (the bottom of this box). Same leaf colours as the balloon's. -->
+  <defs>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffb347"/><stop offset="1" stop-color="#d9542b"/>
+    </linearGradient>
+  </defs>
+  <g transform="rotate(-62 18 11)">
+    <path d="M18 3c6 3 6.6 10 0 15-6.6-5-6-12 0-15Z" fill="url(#l)"/>
+    <path d="M18 4.6v15m0-10.4 3-2.6m-3 6.6-3-2.6" stroke="#a8431f" stroke-opacity=".7" stroke-width="1" stroke-linecap="round"/>
+  </g>
+  <g transform="rotate(70 46 10)">
+    <path d="M46 2.4c5 2.6 5.6 8.6 0 13-5.6-4.4-5-10.4 0-13Z" fill="#e6a64e"/>
+    <path d="M46 3.8v13m0-9 2.6-2.2m-2.6 5.6-2.6-2.2" stroke="#a8641f" stroke-opacity=".7" stroke-width=".9" stroke-linecap="round"/>
+  </g>
+  <g transform="rotate(-80 72 11)">
+    <path d="M72 4c5.6 2.8 6.2 9.4 0 14-6.2-4.6-5.6-11.2 0-14Z" fill="#d9542b"/>
+    <path d="M72 5.6v13.6m0-9.6 2.8-2.4m-2.8 6.2-2.8-2.4" stroke="#8f3418" stroke-opacity=".7" stroke-width="1" stroke-linecap="round"/>
+  </g>
+</svg>
