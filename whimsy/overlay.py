@@ -1222,6 +1222,10 @@ FEATURES = [
     # wave9/pagedev: page developer tools (Lens browser's developer menu)
     {"id": "page-dev", "title": "Page developer tools: Fonts on This Page, Page Colors (palette and contrast) and Built With (tech stack), in Tools > Browser Tools",
      "detect": [("src/zen", r"(?i)fonts-?on-?this-?page|built-?with-?(panel|detect)")]},
+    # wave9/mini: W8-23 a site's popup window (a sign-in window) shows
+    # Firefox's read-only address bar and identity in the top strip.
+    {"id": "site-popup-chrome", "title": "Sign-in popups show their address: a site's popup window keeps Firefox's read-only address bar and identity",
+     "detect": [("src/zen", r"(?i)popup-?window[^\n]{0,80}(nav-?bar|urlbar)[^\n]{0,40}visib")]},
 ]
 
 

@@ -28,8 +28,18 @@ export class WhimsyPeopleChild extends JSWindowActorChild {
       // cards beside the link without covering it.
       const win = this.contentWindow;
       const rect = link.getBoundingClientRect();
+      // wave9/mini W8-28: what the link itself shows (the name on its first
+      // line, the photo inside it). The parent uses it only when this page
+      // is on the profile's own site, where X and LinkedIn give a fetch
+      // little else.
+      const img = link.querySelector("img[src]");
+      const context = {
+        name: (link.innerText || img?.alt || link.getAttribute("aria-label") || "").slice(0, 300),
+        image: img?.currentSrc || img?.src || null,
+      };
       this.sendAsyncMessage("Whimsy:PersonHover", {
         url: url.href,
+        context,
         x: event.screenX,
         y: event.screenY,
         rect: win && {

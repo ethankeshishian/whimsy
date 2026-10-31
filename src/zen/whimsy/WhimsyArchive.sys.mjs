@@ -191,7 +191,10 @@ export const WhimsyArchive = {
       tab.hasAttribute(PRIVATE_TAB_ATTR) ||
       tab.hasAttribute("zen-empty-tab") ||
       tab.hasAttribute("zen-glance-tab") ||
-      win._whimsyQuickWindow
+      win._whimsyQuickWindow ||
+      // wave9/mini: a site's popup (a sign-in popup closing itself) is not
+      // a tab you closed; Zen's session manager skips popups too.
+      !win.toolbar.visible
     ) {
       return null;
     }

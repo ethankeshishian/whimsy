@@ -525,6 +525,9 @@
 - name: whimsy.feature.page-dev
   value: true
 
+- name: whimsy.feature.site-popup-chrome
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

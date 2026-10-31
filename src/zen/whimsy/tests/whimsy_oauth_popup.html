@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Choose an account</title>
+</head>
+<body>
+<!-- The provider's popup: once the user picks an account (the test clicks
+     the button), it posts the result to its opener and closes itself when
+     the opener confirms. -->
+<button id="account" style="width: 200px; height: 40px">Use this account</button>
+<script>
+  document.body.dataset.hasOpener = String(!!window.opener);
+  document.getElementById("account").addEventListener("click", () => {
+    window.opener.postMessage({ token: "signed-in" }, "*");
+  });
+  window.addEventListener("message", event => {
+    if (event.data == "done" && event.source == window.opener) {
+      window.close();
+    }
+  });
+</script>
+</body>
+</html>

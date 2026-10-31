@@ -494,6 +494,10 @@ export const WhimsyTeach = {
   },
 
   _kind(win) {
+    // wave9/mini: a site's popup window (a sign-in popup) teaches nothing.
+    if (!win._whimsyQuickWindow && !win.toolbar.visible) {
+      return "popup";
+    }
     return win._whimsyQuickWindow ? "mini" : "main";
   },
 

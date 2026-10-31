@@ -670,3 +670,12 @@ support-files = ["whimsy_email_form.html"]
 # wave9/pagedev: Fonts on This Page, Page Colors, Built With.
 ["browser_whimsy_pagedev.js"]
 support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf"]
+# wave9/mini W8-21/22: Mini's "Open in ⌘O" is one highlight/target; the space dropdown is Arc's popover.
+["browser_whimsy_mini_bar.js"]
+# wave9/mini W8-28: hover cards: grace + hover bridge timing, metadata fallbacks (twitter:, JSON-LD, <title>, oEmbed), link context on the profile's own site.
+["browser_whimsy_hover_bridge.js"]
+# wave9/mini W8-20: Mini's command bar replaces Mini's page (Arc's Little Arc model): no new tabs, Cmd+T opens the bar, Switch to Tab loads here.
+["browser_whimsy_mini_command_bar.js"]
+# wave9/mini W8-23 (normal window): a site's sign-in popup gets Firefox's popup chrome (read-only address + identity), stays attached to its opener, and Whimsy's window extras skip it.
+["browser_whimsy_site_popups.js"]
+support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]

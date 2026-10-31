@@ -40,7 +40,8 @@ export const WhimsySeasonToast = {
 
   // The season to announce in this window, or null.
   pending(win) {
-    if (!this.enabled || win._whimsyQuickWindow) {
+    // wave9/mini: never in Mini or a site's popup window (a sign-in popup).
+    if (!this.enabled || win._whimsyQuickWindow || !win.toolbar.visible) {
       return null;
     }
     const season = lazy.WhimsySeasons.current();

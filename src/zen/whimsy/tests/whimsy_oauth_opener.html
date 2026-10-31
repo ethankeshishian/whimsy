@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Sign in</title>
+</head>
+<body>
+<!-- A site's "Continue with Google": window.open with features, then the
+     result arrives from the popup through window.opener.postMessage. -->
+<button id="continue" style="width: 200px; height: 40px">Continue with Google</button>
+<script>
+  document.getElementById("continue").addEventListener("click", () => {
+    window.authPopup = window.open("whimsy_oauth_popup.html", "whimsy-auth", "width=420,height=480");
+  });
+  window.addEventListener("message", event => {
+    if (event.data?.token) {
+      document.body.dataset.token = event.data.token;
+      // The site tells the popup it's done; the popup closes itself.
+      event.source.postMessage("done", "*");
+    }
+  });
+</script>
+</body>
+</html>

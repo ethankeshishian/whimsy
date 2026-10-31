@@ -134,6 +134,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyShareMenu.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySidebarNav.sys.mjs",
+    "WhimsySitePopups.sys.mjs",
     "WhimsySmartButtons.sys.mjs",
     "WhimsySnooze.sys.mjs",
     "WhimsySnoozePicker.sys.mjs",

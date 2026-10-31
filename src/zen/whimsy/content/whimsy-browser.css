@@ -4117,3 +4117,116 @@ panel.whimsy-sheet.whimsy-snooze {
   pointer-events: none;
 }
 
+
+/* wave9/mini W8-21: "Open in <Space> ⌘O" is one hit target, as in Arc's
+   Little Arc: the hover and press highlight runs behind the ⌘O keycap up
+   to the short divider before the caret, and clicking the keycap opens the
+   page in the space (WhimsyQuickWindow.buildBar). The divider is drawn as
+   a background so the highlight can fill the pill's full height. */
+#whimsy-quick-window-open > kbd {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding-inline: 0 8px;
+  border-inline-end: 0;
+  background: linear-gradient(var(--whimsy-mini-hairline), var(--whimsy-mini-hairline)) right center / 1px 16px no-repeat;
+  -moz-window-dragging: no-drag;
+
+  &:dir(rtl) {
+    background-position: left center;
+  }
+}
+#whimsy-quick-window-open:has(> #whimsy-quick-window-move-to-space:not([disabled])) {
+  &:has(> :is(#whimsy-quick-window-move-to-space, kbd):hover) > :is(#whimsy-quick-window-move-to-space, kbd) {
+    background-color: var(--whimsy-mini-fill-hover);
+  }
+  &:has(> :is(#whimsy-quick-window-move-to-space, kbd):hover:active) > :is(#whimsy-quick-window-move-to-space, kbd) {
+    background-color: var(--whimsy-mini-fill-active);
+  }
+}
+
+/* wave9/mini W8-22: the space dropdown is Arc's popover, not a macOS menu:
+   Mini's own frame colour (so it reads as part of the bar it drops from), a
+   hairline edge, 10px corners with rows concentric inside them (6px at a
+   4px inset), the highlight in the bar's own hover fill rather than the
+   system's blue, and each space's icon on a tile of its colour. Keyboard
+   (arrows, Return, Esc) and accessibility stay the menupopup's own. */
+#whimsy-quick-window-space-picker {
+  appearance: none;
+  background-color: transparent;
+  --panel-background-color: var(--whimsy-mini-frame);
+  --panel-text-color: var(--whimsy-mini-text);
+  --panel-border-color: var(--whimsy-mini-hairline);
+  --panel-border-radius: 10px;
+  --panel-padding: 4px;
+  --menuitem-border-radius: 6px;
+  --menuitem-padding-block: 5px;
+  --menuitem-padding-inline: 8px;
+  --menuitem-icon-fill: currentColor;
+  min-width: 220px;
+  font: menu;
+  font-size: 13px;
+
+  & > :is(menuitem, menucaption) {
+    appearance: none;
+    color: var(--whimsy-mini-text);
+  }
+  & > .whimsy-mini-picker-caption {
+    padding-block: 4px 2px;
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.55;
+  }
+  & > .whimsy-mini-picker-space {
+    gap: 8px;
+    &[default] {
+      font-weight: 500;
+    }
+    & .menu-icon {
+      width: 20px;
+      height: 20px;
+      margin: 0;
+    }
+    & .menu-accel {
+      margin-inline-start: 16px;
+      opacity: 0.55;
+    }
+    &[_moz-menuactive]:not([disabled]) {
+      color: var(--whimsy-mini-text);
+      background-color: var(--whimsy-mini-fill-hover);
+    }
+    &[_moz-menuactive]:not([disabled]):active {
+      background-color: var(--whimsy-mini-fill-active);
+    }
+  }
+  & > menuseparator {
+    appearance: none;
+    margin: 4px 8px;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--whimsy-mini-hairline);
+  }
+}
+
+/* wave9/mini W8-23: a site's popup window (WhimsySitePopups): the top strip
+   holds Firefox's read-only address bar and identity, always shown (never
+   Zen's hover-to-reveal or should-hide), since the address is the popup's
+   security indicator. */
+:root[whimsy-site-popup] #zen-appcontent-navbar-wrapper {
+  visibility: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+
+  & #zen-appcontent-navbar-container {
+    pointer-events: auto !important;
+  }
+  & #nav-bar {
+    visibility: visible !important;
+    flex: 1;
+    min-width: 0;
+  }
+}
