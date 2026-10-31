@@ -438,7 +438,15 @@ add_task(async function test_resize_snaps() {
   app.view.zoom = 1;
   app.applyView();
   app.select(["b"]);
-  const handle = win.document.querySelector('#selection .handle[data-handle="e"]').getBoundingClientRect();
+  // The selection overlay draws on the next frame: wait for the east handle
+  // to sit on B's right edge before grabbing it.
+  const handleEl = () => win.document.querySelector('#selection .handle[data-handle="e"]');
+  await TestUtils.waitForCondition(() => {
+    const r = handleEl()?.getBoundingClientRect();
+    const b = app.toScreen(app.find("b"));
+    return r?.width && Math.abs(r.left + r.width / 2 - (b.x + b.w + win.document.getElementById("viewport").getBoundingClientRect().left)) < 3;
+  }, "The resize handle is in place");
+  const handle = handleEl().getBoundingClientRect();
   const from = { x: handle.left + handle.width / 2, y: handle.top + handle.height / 2 };
   await drag(win, from, { x: from.x + 77, y: from.y });
   is(app.find("b").w, 200, "Dragged to within a few px of A's edge, B's edge lands on it");
