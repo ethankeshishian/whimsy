@@ -152,7 +152,9 @@ add_task(async function test_cmd_shift_o_and_caret_open_the_space_dropdown() {
   doc.getElementById("whimsy-quick-window-choose-space").doCommand();
   await TestUtils.waitForCondition(() => picker().state == "open", "The caret opens the same dropdown");
   const tabCountBefore = gBrowser.tabs.length;
-  popup.activateItem(current);
+  // The dropdown rebuilds its rows each time it opens.
+  const row = picker().querySelector(`[zen-workspace-id="${gZenWorkspaces.activeWorkspace}"]`);
+  picker().activateItem(row);
   await TestUtils.waitForCondition(() => win.closed, "Choosing a space opens the page there");
   is(gBrowser.tabs.length, tabCountBefore + 1, "The tab landed in that space");
   BrowserTestUtils.removeTab(gBrowser.tabs[gBrowser.tabs.length - 1]);
