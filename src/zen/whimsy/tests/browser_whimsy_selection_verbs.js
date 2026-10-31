@@ -347,3 +347,65 @@ add_task(function test_ics_lone_cr() {
   ok(!/\r(?!\n)/.test(ics), "No lone CR survives");
   ok(lines.includes("SUMMARY:Party\\nATTACH:https://evil.example/x\\nBEGIN:VALARMEND"), "The breaks are escaped text");
 });
+
+add_task(async function test_selection_verbs_context_menu() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const { WhimsyMenuPrefs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs");
+
+  // Commands registered
+  const commands = [
+    "cmd_whimsyVerbMap",
+    "cmd_whimsyVerbEmail",
+    "cmd_whimsyVerbNote",
+    "cmd_whimsyVerbCalendar",
+    "cmd_whimsyVerbLinearNew",
+    "cmd_whimsyVerbLinearSearch",
+  ];
+  for (const id of commands) {
+    const entry = WhimsyCommands.get(id);
+    ok(entry, `${id} is registered in WhimsyCommands`);
+    ok(WhimsyCommands.title(entry), `${id} has a title`);
+  }
+
+  // Menu items registered in WhimsyMenuPrefs for selection
+  const selectionMenu = WhimsyMenuPrefs.menu("selection");
+  ok(selectionMenu, "Selection menu exists in WhimsyMenuPrefs");
+  const menuIds = ["map", "email", "note", "calendar", "linear-new", "linear-search"];
+  for (const id of menuIds) {
+    ok(selectionMenu.items.some(item => item.id == id), `Selection menu in Menus settings offers ${id}`);
+  }
+
+  // Context menu items creation and update
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  await select(tab.linkedBrowser, "address");
+
+  const originalGContextMenu = window.gContextMenu;
+  window.gContextMenu = {
+    isContentSelected: true,
+    onTextInput: false,
+    onEditable: false,
+    selectionInfo: { fullText: "1 infinite loop, cupertino ca" },
+  };
+
+  WhimsyVerbs.updateContextMenu(window);
+
+  const mapItem = document.getElementById("context-whimsy-verb-map");
+  const emailItem = document.getElementById("context-whimsy-verb-email");
+  const noteItem = document.getElementById("context-whimsy-verb-note");
+  ok(mapItem && !mapItem.hidden, "Map item is showing for address selection");
+  ok(emailItem && !emailItem.hidden, "Email item is showing for selection");
+  ok(noteItem && !noteItem.hidden, "Note item is showing for selection");
+
+  // Stub effects and test runVerb
+  const calls = stubEffects();
+  try {
+    const executed = await WhimsyVerbs.runVerb(window, "map");
+    ok(executed, "runVerb(map) succeeded");
+    ok(calls.some(c => c.what == "tab" && c.url.includes("maps.apple.com")), "Opened Apple Maps URL");
+  } finally {
+    calls.restore();
+    window.gContextMenu = originalGContextMenu;
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
