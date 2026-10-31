@@ -165,7 +165,9 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
           // wave7/folders: no "Unknown space" choice. A visit whose space
           // couldn't be resolved shows under All spaces, unlabeled.
           { id: "all", l10nId: "whimsy-history-all-spaces" },
-          ...(this._spaceOptions || []).map(([id, label]) => ({ id, label })),
+          ...(this._spaceOptions || []).map(([id, label, l10nId]) =>
+            l10nId ? { id, label, l10nId } : { id, label }
+          ),
         ],
       });
     }
@@ -367,13 +369,27 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
       return;
     }
     const options = new Map();
+    const activeSpaces = (this.documentGlobal.gZenWorkspaces?.getWorkspaces() || [])
+      .filter(s => !s.whimsyScratch);
+    const activeIds = new Set(activeSpaces.map(s => s.uuid));
+    let hasDeleted = false;
     for (const item of items) {
-      const name = this.#spaceName(item.zenWorkspace);
-      if (name) {
-        options.set(item.zenWorkspace, name);
+      if (item.zenWorkspace) {
+        if (activeIds.has(item.zenWorkspace)) {
+          const name = this.#spaceName(item.zenWorkspace);
+          if (name) {
+            options.set(item.zenWorkspace, name);
+          }
+        } else {
+          hasDeleted = true;
+        }
       }
     }
-    this._spaceOptions = this.#orderSpaces(options);
+    const ordered = this.#orderSpaces(options);
+    if (hasDeleted) {
+      ordered.push(["deleted", "Deleted spaces", "whimsy-history-deleted-spaces"]);
+    }
+    this._spaceOptions = ordered;
     this._whimsyItems = items;
     this._whimsyItemsView = view;
     this.requestUpdate();
@@ -398,19 +414,29 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         id => this.isFilterActive("sort", id)) || "date";
       // wave7/folders: no "Unknown space" choice; an unresolved visit's
       // spaceId is left out of the filter, so it shows under All spaces.
-      const spaceId = this._spaceOptions.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
+      const spaceId = this._spaceOptions?.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
       const profile = WhimsyProfiles.enabled && !this.isFilterActive("profile", "all") ?
         WhimsyProfiles.keyFor(WhimsyProfiles.activeProfileId(this.documentGlobal)) : "";
+      const activeSpaces = (this.documentGlobal.gZenWorkspaces?.getWorkspaces() || [])
+        .filter(s => !s.whimsyScratch)
+        .map(s => s.uuid);
       const visits = await WhimsySpaceHistory.query({ spaceId, profile,
+        activeSpaces,
         search: this.searchQuery, days: this.activeWhenDays ?? 120,
         sort, limit: this._spaceLimit });
       const file = await WhimsySpaceHistory.file();
       if (!this.isConnected || generation !== this._generation) {
         return;
       }
+      const activeIds = new Set(activeSpaces);
       const options = new Map();
+      let hasDeleted = false;
       for (const visit of Object.values(file.data.visits)) {
-        options.set(visit.spaceId, visit.spaceName);
+        if (visit.spaceId) {
+          if (!activeIds.has(visit.spaceId)) {
+            hasDeleted = true;
+          }
+        }
       }
       for (const space of this.documentGlobal.gZenWorkspaces?.getWorkspaces() || []) {
         if (!space.whimsyScratch) {
@@ -418,7 +444,11 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
           options.set(space.uuid, space.name);
         }
       }
-      this._spaceOptions = this.#orderSpaces(options);
+      const ordered = this.#orderSpaces(options);
+      if (hasDeleted) {
+        ordered.push(["deleted", "Deleted spaces", "whimsy-history-deleted-spaces"]);
+      }
+      this._spaceOptions = ordered;
       this._flatVisits = visits;
       this._spaceExhausted = visits.length < this._spaceLimit;
       if (this.searchQuery || ["mostvisited", "lastvisited"].includes(sort)) {
@@ -467,7 +497,12 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
     // as the other's.
     let items = this._whimsyItemsView == this.whimsyView ? this._whimsyItems || [] : [];
     if (space) {
-      items = items.filter(item => item.zenWorkspace == space);
+      if (space === "deleted") {
+        const activeIds = new Set((this.win.gZenWorkspaces?.getWorkspaces() || []).map(s => s.uuid));
+        items = items.filter(item => item.zenWorkspace && !activeIds.has(item.zenWorkspace));
+      } else {
+        items = items.filter(item => item.zenWorkspace == space);
+      }
     }
     if (this.whimsyView != "closed") {
       return items;

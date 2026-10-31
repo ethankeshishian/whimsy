@@ -1150,6 +1150,9 @@ FEATURES = [
     # command bar) moves the tab or its whole split into the new space.
     {"id": "move-to-new-space", "title": "Move to > New Space...: make a space and move the tab (or its whole split) into it (Arc)",
      "detect": [("src/zen", r"(?i)move-?to-?new-?(space|workspace)")]},
+    # wave8/folders: Live folders: a Resync option that brings back tabs closed by hand (W8-26).
+    {"id": "live-folders-resync", "title": "Resync live folder: bring back tabs closed by hand",
+     "detect": [("src/zen/live-folders", r"(?i)resync")]},
 ]
 
 

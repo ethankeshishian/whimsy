@@ -608,3 +608,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_private_command_bar.js"]
 # wave8/snooze (W8-37): Snooze presets and typed times from a pinned clock.
 ["browser_whimsy_snooze_time.js"]
+# wave8/folders: Live folders: Resync option (W8-26).
+["browser_whimsy_live_folders_resync.js"]
+

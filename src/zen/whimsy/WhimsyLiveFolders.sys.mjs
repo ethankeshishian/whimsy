@@ -91,6 +91,7 @@ const PUSH_FEATURE_PREF = "whimsy.feature.live-folders-push";
 const RSS_AUTODISCOVER_PREF = "whimsy.feature.live-folders-rss-autodiscover";
 const PUSH_INTERVAL_MS = 60 * 1000;
 const LOCAL_SERVERS_FEATURE_PREF = "whimsy.feature.live-folders-local-servers";
+const RESYNC_FEATURE_PREF = "whimsy.feature.live-folders-resync";
 // wave7/folders: Zen's live-folder store (ZenLiveFoldersManager#saveFilename).
 const STORE_FILENAME = "zen-live-folders.jsonlz4";
 const DEFAULT_FETCH_INTERVAL = 30 * 60 * 1000;
@@ -140,6 +141,10 @@ export const WhimsyLiveFolders = {
 
   get localServersEnabled() {
     return Services.prefs.getBoolPref(LOCAL_SERVERS_FEATURE_PREF, true);
+  },
+
+  get resyncEnabled() {
+    return Services.prefs.getBoolPref(RESYNC_FEATURE_PREF, true);
   },
 
   get rssAutodiscoverEnabled() {
@@ -270,23 +275,30 @@ export const WhimsyLiveFolders = {
     }
     proto.buildContextMenu = function (folder) {
       original.call(this, folder);
+      let hides = false;
       // wave5/lan: providers that schedule themselves hide Zen's interval menu.
       try {
         const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
           "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
         );
-        const hides = folder.isLiveFolder && ZenLiveFoldersManager.getFolder(folder.id)?.constructor.hidesIntervalMenu;
+        hides = folder.isLiveFolder && ZenLiveFoldersManager.getFolder(folder.id)?.constructor.hidesIntervalMenu;
         const intervalMenu = this.document
           .getElementById("context_zenLiveFolderOptions")
           ?.querySelector('menu[option-key="setInterval"]');
         if (hides) {
           intervalMenu?.setAttribute("hidden", "true");
-          return;
         }
       } catch (e) {
         console.error("Whimsy: hiding the live folder interval menu failed", e);
       }
-      if (!WhimsyLiveFolders.pushEnabled || !folder.isLiveFolder) {
+      if (folder.isLiveFolder && WhimsyLiveFolders.resyncEnabled) {
+        try {
+          WhimsyLiveFolders.addResyncMenuItem(this, folder);
+        } catch (e) {
+          console.error("Whimsy: adding the Resync menu item failed", e);
+        }
+      }
+      if (!WhimsyLiveFolders.pushEnabled || !folder.isLiveFolder || hides) {
         return;
       }
       try {
@@ -296,6 +308,19 @@ export const WhimsyLiveFolders = {
       }
     };
     proto.buildContextMenu.whimsyWrapped = true;
+  },
+
+  addResyncMenuItem(ui, folder) {
+    const popup = ui.document.getElementById("context_zenLiveFolderOptions")?.querySelector("menupopup");
+    const refreshItem = popup?.querySelector('menuitem[option-key="refresh"]');
+    if (!popup || !refreshItem || popup.querySelector('menuitem[option-key="whimsyResync"]')) {
+      return;
+    }
+    const item = ui.document.createXULElement("menuitem");
+    ui.document.l10n.setAttributes(item, "whimsy-live-folder-resync");
+    item.setAttribute("option-folder", folder.id);
+    item.setAttribute("option-key", "whimsyResync");
+    refreshItem.after(item);
   },
 
   addPushMenuItem(ui, folder) {
@@ -335,6 +360,10 @@ export const WhimsyLiveFolders = {
     }
     proto.onOptionTrigger = function (option) {
       const key = option.getAttribute("option-key");
+      if (key === "whimsyResync") {
+        WhimsyLiveFolders.resyncFolder(this);
+        return;
+      }
       if (key === "whimsyPush") {
         this.state.whimsyPush = true;
         this.state.interval = PUSH_INTERVAL_MS;
@@ -350,6 +379,27 @@ export const WhimsyLiveFolders = {
       return original.call(this, option);
     };
     proto.onOptionTrigger.whimsyWrapped = true;
+  },
+
+  resyncFolder(liveFolder) {
+    if (!liveFolder) {
+      return null;
+    }
+    const manager = liveFolder.manager;
+    if (manager?.dismissedItems) {
+      const prefix = `${liveFolder.id}:`;
+      for (const id of manager.dismissedItems) {
+        if (id.startsWith(prefix)) {
+          manager.dismissedItems.delete(id);
+        }
+      }
+      manager.saveState();
+    }
+    if (liveFolder.state) {
+      delete liveFolder.state.whimsyEtag;
+    }
+    liveFolder._whimsyLastItems = null;
+    return liveFolder.refresh();
   },
 
   // Wraps a provider's fetchItems so that, in Push mode, a cheap
@@ -612,6 +662,70 @@ export const WhimsyLiveFolders = {
 
   initWindow(win) {
     this.initCreateMenu(win);
+    this.initCommands(win);
+  },
+
+  canResyncLiveFolder(win) {
+    if (!this.resyncEnabled) {
+      return false;
+    }
+    try {
+      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+      );
+      return ZenLiveFoldersManager.liveFolders?.size > 0;
+    } catch {
+      return false;
+    }
+  },
+
+  resyncFromCommand(win) {
+    try {
+      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
+      );
+      const activeTab = win.gBrowser?.selectedTab;
+      const activeGroupId = activeTab?.group?.id;
+      if (activeGroupId && ZenLiveFoldersManager.liveFolders.has(activeGroupId)) {
+        this.resyncFolder(ZenLiveFoldersManager.getFolder(activeGroupId));
+        return;
+      }
+      const activeSpace = win.gZenWorkspaces?.activeWorkspace;
+      let matched = false;
+      for (const group of win.gZenWorkspaces?.allTabGroups || []) {
+        if (group.isLiveFolder && (!activeSpace || group.getAttribute("zen-workspace-id") === activeSpace)) {
+          const liveFolder = ZenLiveFoldersManager.getFolder(group.id);
+          if (liveFolder) {
+            this.resyncFolder(liveFolder);
+            matched = true;
+          }
+        }
+      }
+      if (!matched) {
+        for (const liveFolder of ZenLiveFoldersManager.liveFolders.values()) {
+          this.resyncFolder(liveFolder);
+        }
+      }
+    } catch (e) {
+      console.error("Whimsy: resync from command failed", e);
+    }
+  },
+
+  initCommands(win) {
+    try {
+      const { WhimsyCommands } = ChromeUtils.importESModule(
+        "resource:///modules/whimsy/WhimsyCommands.sys.mjs"
+      );
+      WhimsyCommands.register(win, {
+        id: "cmd_whimsyResyncLiveFolder",
+        l10nId: "whimsy-action-resync-live-folder",
+        icon: "chrome://browser/skin/zen-icons/selectable/refresh.svg",
+        isAvailable: w => this.canResyncLiveFolder(w),
+        run: w => this.resyncFromCommand(w),
+      });
+    } catch (e) {
+      console.error("Whimsy: live folder resync command registration failed", e);
+    }
   },
 
   initCreateMenu(win) {

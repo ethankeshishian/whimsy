@@ -3100,3 +3100,13 @@ whimsy-action-snooze-tonight = Snooze Tab Until Tonight
 whimsy-action-snooze-tomorrow = Snooze Tab Until Tomorrow
 whimsy-action-snooze-weekend = Snooze Tab Until the Weekend
 whimsy-action-snooze-next-week = Snooze Tab Until Next Week
+## wave8/folders: History space filter: Deleted spaces option (W8-38).
+
+whimsy-history-deleted-spaces = Deleted spaces
+
+## wave8/folders: Live folders: Resync option (W8-26).
+
+whimsy-live-folder-resync = Resync
+whimsy-action-resync-live-folder = Resync Live Folder
+
+

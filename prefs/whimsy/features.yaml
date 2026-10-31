@@ -501,6 +501,9 @@
 - name: whimsy.feature.move-to-new-space
   value: true
 
+- name: whimsy.feature.live-folders-resync
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

@@ -110,3 +110,14 @@ add_task(async function test_status_categories() {
   items = await custom.fetchItems();
   ok(!items.some(i => i.id.endsWith(":ABC-3")), "Done is hidden client-side for a custom query too");
 });
+
+add_task(async function test_jira_workflow_sorting() {
+  const folder = makeFolder();
+  folder.state.hiddenCategories = [];
+  const items = await folder.fetchItems();
+  is(items.length, 3, "All categories fetched");
+  is(items[0].subtitle, "In Progress", "In Progress issues come first");
+  is(items[1].subtitle, "To Do", "To Do issues come second");
+  is(items[2].subtitle, "Done", "Done issues come last");
+});
+

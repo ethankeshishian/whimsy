@@ -249,12 +249,14 @@ add_task(async function library_preserves_native_history_and_actions() {
     const group = [...section.querySelectorAll(".zen-library-filter-group")].find(
       item => item.querySelector('[data-l10n-id="whimsy-history-space-filter"]'));
     ok(group, "Space shares the native date and sort filter panel");
-    // A Places notification can start a newer refresh that supersedes the
-    // one awaited above; the space list arrives with whichever finishes last.
+    // Deleted spaces are grouped under one "Deleted spaces" entry (W8-38),
+    // while unresolved visits fold into All spaces with no Unknown chip.
     await TestUtils.waitForCondition(() => [...group.querySelectorAll(".zen-library-filter-chip")]
-      .some(item => item.textContent.trim() === "Design"), "The Design space chip renders");
+      .some(item => item.textContent.trim() === "Deleted spaces"), "The Deleted spaces chip renders");
+    ok(![...group.querySelectorAll(".zen-library-filter-chip")].some(item => item.textContent.trim() === "Design"),
+      "Individual deleted space Design does not get its own chip");
     const filter = [...group.querySelectorAll(".zen-library-filter-chip")].find(
-      item => item.textContent.trim() === "Design");
+      item => item.textContent.trim() === "Deleted spaces");
     ok(filter, "Spaces use the same chips as the other filters");
     filter.click();
     await TestUtils.waitForCondition(() => section._flatVisits?.length === 1 &&
@@ -290,7 +292,7 @@ add_task(async function library_preserves_native_history_and_actions() {
     await search("no-such-visit", 0);
     ok(section.querySelector(".zen-library-empty"), "No matches show the native empty state");
     await search("", 1);
-    section.activeFilters.delete("space:hist-ui");
+    section.activeFilters.delete("space:deleted");
     section.onFiltersChanged();
     await section.refresh();
     await section.updateComplete;
@@ -367,6 +369,19 @@ add_task(async function deletion_prunes_only_deleted_visits() {
   await SpaceHistory.enqueue(() => SpaceHistory.prune());
   ok(!file.data.visits[kept.id], "Forget URL also removes metadata");
 });
+
+add_task(async function test_deleted_spaces_grouped() {
+  const activeSpaces = gZenWorkspaces.getWorkspaces().map(s => s.uuid);
+  await historyVisit("hist-del-a", "Old Alpha", 1000, "del-a");
+  await historyVisit("hist-del-b", "Old Beta", 1100, "del-b");
+  const delVisits = await SpaceHistory.query({ spaceId: "deleted", activeSpaces, search: "del-" });
+  is(delVisits.length, 2, "Deleted spaces query returns visits from any deleted space");
+  const ids = delVisits.map(v => v.spaceId).sort();
+  Assert.deepEqual(ids, ["hist-del-a", "hist-del-b"], "Both deleted spaces are matched");
+  is(delVisits.find(v => v.spaceId === "hist-del-a").spaceName, "Old Alpha", "Visit retains its historical name");
+  is(delVisits.find(v => v.spaceId === "hist-del-b").spaceName, "Old Beta", "Visit retains its historical name");
+});
+
 
 add_task(async function clear_all_history_removes_space_metadata() {
   await historyVisit("hist-clear", "Clear", 800, "clear");

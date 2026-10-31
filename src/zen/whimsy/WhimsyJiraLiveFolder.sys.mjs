@@ -34,6 +34,11 @@ export const DEFAULT_JQL = "assignee = currentUser() AND resolution = Unresolved
 export const JIRA_STATUS_CATEGORIES = ["new", "indeterminate", "done", "undefined"];
 export const JIRA_DEFAULT_HIDDEN = ["done"];
 const JIRA_CATEGORY_IDS = { undefined: 1, new: 2, done: 3, indeterminate: 4 };
+const JIRA_CATEGORY_ORDER = { indeterminate: 0, new: 1, undefined: 2, done: 3 };
+
+function categoryRank(key) {
+  return JIRA_CATEGORY_ORDER[key] ?? 2;
+}
 
 // With the default query the status filter goes into the JQL, so hidden
 // issues don't use up the page and showing Done really brings them back
@@ -99,6 +104,11 @@ export class WhimsyJiraLiveFolderProvider extends nsZenLiveFolderProvider {
       const issues = Array.isArray(data?.issues) ? data.issues : [];
       return issues
         .filter(issue => !hidden.has(issue.fields?.status?.statusCategory?.key))
+        .sort((a, b) => {
+          const rankA = categoryRank(a.fields?.status?.statusCategory?.key);
+          const rankB = categoryRank(b.fields?.status?.statusCategory?.key);
+          return rankA - rankB;
+        })
         .map(issue => ({
           // Scoped by site: two folders for two Jira sites never collide.
           id: `${site}:${issue.key}`,

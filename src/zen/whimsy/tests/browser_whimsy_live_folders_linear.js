@@ -187,8 +187,8 @@ add_task(async function test_multiple_workspaces() {
     let items = await folder.fetchItems();
     Assert.deepEqual(
       items.map(i => i.id),
-      ["linear:issue-1", "linear:issue-2", "linear:issue-3", "linear:side-1"],
-      "Every workspace of the signed-in account is fetched, merged in order"
+      ["linear:issue-1", "linear:side-1", "linear:issue-2", "linear:issue-3"],
+      "Every workspace of the signed-in account is fetched, merged in workflow status order"
     );
 
     const menu = folder.options.find(o => o.key === "workspace");
@@ -394,12 +394,12 @@ add_task(async function test_status_filters() {
   ok(statuses, "The folder's options have a Statuses submenu");
   Assert.deepEqual(
     statuses.options.map(o => o.value),
-    ["triage", "backlog", "unstarted", "started", "completed", "canceled", "duplicate"],
-    "One toggle per Linear workflow state type, in Linear's order"
+    ["started", "unstarted", "backlog", "triage", "completed", "canceled", "duplicate"],
+    "One toggle per Linear workflow state type, in Linear's workflow order"
   );
   Assert.deepEqual(
     statuses.options.filter(o => o.checked).map(o => o.value),
-    ["triage", "unstarted", "started"],
+    ["started", "unstarted", "triage"],
     "Checked means shown"
   );
   for (const o of statuses.options) {
@@ -431,3 +431,23 @@ add_task(async function test_status_filters() {
   items = await saved.fetchItems();
   is(items.length, 8, "With nothing hidden, every status shows");
 });
+
+add_task(async function test_linear_sorting_order() {
+  const { compareLinearItems } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyLinearLiveFolder.sys.mjs"
+  );
+  const sample = [
+    { id: "3", _stateType: "unstarted", _priority: 3, _updatedAt: 100 },
+    { id: "1", _stateType: "started", _priority: 2, _updatedAt: 200 },
+    { id: "2", _stateType: "started", _priority: 1, _updatedAt: 100 },
+    { id: "5", _stateType: "backlog", _priority: 1, _updatedAt: 300 },
+    { id: "4", _stateType: "unstarted", _priority: 1, _updatedAt: 150 },
+  ];
+  sample.sort(compareLinearItems);
+  Assert.deepEqual(
+    sample.map(i => i.id),
+    ["2", "1", "4", "3", "5"],
+    "Linear issues sort by workflow order (started before unstarted before backlog), then priority (1 before 2 before 3)"
+  );
+});
+
