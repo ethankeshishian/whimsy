@@ -44,6 +44,8 @@ add_task(async function test_closeToLastTab() {
     set: [
       ["zen.tabs.select-recently-used-on-close", false],
       ["zen.view.show-newtab-button-top", false],
+      // Whimsy: Zen's tab order (new tabs at the end); see browser_whimsy_new_tabs.js.
+      ["browser.tabs.insertAfterCurrent", false],
     ],
   });
 

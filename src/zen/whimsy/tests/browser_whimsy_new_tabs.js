@@ -83,6 +83,103 @@ add_task(async function test_url_bar_new_tab_below_current() {
   await SpecialPowers.popPrefEnv();
 });
 
+// Zen's own tab tests (browser_tabs_close_recently.js,
+// browser_drag_drop_vertical.js) pin browser.tabs.insertAfterCurrent to false,
+// because they assert Zen's tab order. These two cover the same behaviour
+// under Whimsy's real default, where each new tab lands below the current one.
+
+add_task(async function test_close_selects_next_in_strip_order() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["zen.tabs.select-recently-used-on-close", false],
+      ["zen.view.show-newtab-button-top", false],
+    ],
+  });
+  ok(Services.prefs.getBoolPref("browser.tabs.insertAfterCurrent"), "Runs with Whimsy's default");
+  const anchor = gBrowser.selectedTab;
+  const tab1 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab1");
+  const tab2 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab2");
+  const tab3 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab3");
+  const pos = t => gBrowser.tabs.indexOf(t);
+  const at = pos(anchor);
+  Assert.deepEqual(
+    [tab3, tab2, tab1].map(pos),
+    [at + 1, at + 2, at + 3],
+    "Each new tab opens right below the current tab, so the newest is first"
+  );
+
+  // Closing the selected tab moves to the next tab down the strip.
+  gBrowser.selectedTab = tab2;
+  gBrowser.removeTab(tab2);
+  is(gBrowser.selectedTab, tab1, "Closing a middle tab selects the next one below it");
+
+  // The last of the run has nothing below it among these tabs, so the
+  // selection goes to the next tab in strip order, or back up if it's last.
+  const below = gBrowser.tabs[pos(tab1) + 1];
+  gBrowser.removeTab(tab1);
+  is(gBrowser.selectedTab, below ?? tab3, "Closing the last tab of the run selects the next in strip order");
+
+  BrowserTestUtils.removeTab(tab3);
+  gBrowser.selectedTab = anchor;
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_drag_reorders_tabs_opened_below_current() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.view.show-newtab-button-top", false]] });
+  ok(Services.prefs.getBoolPref("browser.tabs.insertAfterCurrent"), "Runs with Whimsy's default");
+  await SidebarController.waitUntilStable();
+  const anchor = gBrowser.selectedTab;
+  const tab1 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab1");
+  const tab2 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab2");
+  const tab3 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab3");
+  const order = () => gBrowser.tabs.filter(t => [tab1, tab2, tab3].includes(t));
+  Assert.deepEqual(order(), [tab3, tab2, tab1], "New tabs open below the current one, newest first");
+  // Loading changes each tab's label and layout; drag once they've settled.
+  await Promise.all([tab1, tab2, tab3].map(t => BrowserTestUtils.browserLoaded(t.linkedBrowser)));
+  info(`tabs: ${gBrowser.tabs.map(t => t.label + "@" + Math.round(window.windowUtils.getBoundsWithoutFlushing(t).top)).join(", ")}`);
+
+  const threshold = Math.min(
+    1.0,
+    Math.max(0.5, Services.prefs.getIntPref("browser.tabs.dragDrop.moveOverThresholdPercent") / 100) + 0.01
+  );
+  const bounds = el => window.windowUtils.getBoundsWithoutFlushing(el);
+  async function drop(source, target, clientY) {
+    await TestUtils.waitForCondition(() => {
+      const r = bounds(source);
+      return r.width && r.height &&
+        document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest?.(".tabbrowser-tab") == source;
+    }, "The tab to drag is hit-testable");
+    const r = bounds(target);
+    const moved = BrowserTestUtils.waitForEvent(source, "TabMove");
+    EventUtils.synthesizeDrop(source, target, null, "move", window, window, {
+      clientX: r.left + r.width / 2,
+      clientY,
+    });
+    await moved;
+  }
+  const dropAfter = (source, target) => {
+    const r = bounds(target);
+    return drop(source, target, Math.ceil(r.top + (threshold + 0.5) * r.height) - bounds(source).height / 2);
+  };
+  const dropBefore = (source, target) => {
+    const r = bounds(target);
+    return drop(source, target, Math.floor(r.top + (0.5 - threshold) * r.height) + bounds(source).height / 2);
+  };
+
+  await dropAfter(tab3, tab2);
+  Assert.deepEqual(order(), [tab2, tab3, tab1], "Dragging down moves the tab after its target");
+  await dropAfter(tab3, tab1);
+  Assert.deepEqual(order(), [tab2, tab1, tab3], "And past the last one");
+  await dropBefore(tab3, tab2);
+  Assert.deepEqual(order(), [tab3, tab2, tab1], "Dragging up moves it back before its target");
+
+  for (const t of [tab1, tab2, tab3]) {
+    BrowserTestUtils.removeTab(t);
+  }
+  gBrowser.selectedTab = anchor;
+  await SpecialPowers.popPrefEnv();
+});
+
 add_task(async function test_tabs_stay_in_folder() {
   const selected = gBrowser.selectedTab;
   const tab = BrowserTestUtils.addTab(gBrowser, "about:blank");

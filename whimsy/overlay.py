@@ -614,6 +614,35 @@ HOTFIXES = [
         "old": 'zen-workspaces-panel-context-delete =\n    .label = Delete Space\n    .accesskey = D\n',
         "new": '# Whimsy: no access key, like the rest of the space menu.\nzen-workspaces-panel-context-delete =\n    .label = Delete Space\n',
     },
+    # Zen's tab tests assert Zen's tab order, where new tabs go to the end.
+    # Whimsy's default puts them below the current tab
+    # (browser.tabs.insertAfterCurrent, new-tab-position), so these tests pin
+    # Zen's placement. browser_whimsy_new_tabs.js covers the same close and
+    # drag behaviour under Whimsy's default.
+    {
+        "id": "zen-test-drag-drop-zen-tab-order",
+        "file": "src/zen/tests/tabs/browser_drag_drop_vertical.js",
+        "why": "Asserts Zen's new-tab order; Whimsy opens new tabs below the current one.",
+        "old": '    set: [["zen.view.show-newtab-button-top", false]],\n  });\n\n  // Wait for sidebar',
+        "new": '    set: [\n'
+               '      ["zen.view.show-newtab-button-top", false],\n'
+               '      // Whimsy: Zen\'s tab order (new tabs at the end); see browser_whimsy_new_tabs.js.\n'
+               '      ["browser.tabs.insertAfterCurrent", false],\n'
+               '    ],\n  });\n\n  // Wait for sidebar',
+    },
+    {
+        "id": "zen-test-close-to-last-zen-tab-order",
+        "file": "src/zen/tests/tabs/browser_tabs_close_recently.js",
+        "why": "Asserts Zen's new-tab order; Whimsy opens new tabs below the current one.",
+        "old": '      ["zen.tabs.select-recently-used-on-close", false],\n'
+               '      ["zen.view.show-newtab-button-top", false],\n'
+               '    ],\n  });\n\n  const [tab1, tab2, tab3]',
+        "new": '      ["zen.tabs.select-recently-used-on-close", false],\n'
+               '      ["zen.view.show-newtab-button-top", false],\n'
+               '      // Whimsy: Zen\'s tab order (new tabs at the end); see browser_whimsy_new_tabs.js.\n'
+               '      ["browser.tabs.insertAfterCurrent", false],\n'
+               '    ],\n  });\n\n  const [tab1, tab2, tab3]',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.

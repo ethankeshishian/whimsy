@@ -122,7 +122,11 @@ async function ensureNotOverflowing() {
 
 add_setup(async () => {
   await SpecialPowers.pushPrefEnv({
-    set: [["zen.view.show-newtab-button-top", false]],
+    set: [
+      ["zen.view.show-newtab-button-top", false],
+      // Whimsy: Zen's tab order (new tabs at the end); see browser_whimsy_new_tabs.js.
+      ["browser.tabs.insertAfterCurrent", false],
+    ],
   });
 
   // Wait for sidebar animations to complete so that the position of the tab
