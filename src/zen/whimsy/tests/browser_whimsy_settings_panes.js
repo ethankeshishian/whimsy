@@ -11,7 +11,6 @@
 // [setting id, pane, setting whose visibility it also needs]
 const LOOKS = [
   ["web-appearance-chooser", "paneZenLooks"],
-  ["web-appearance-manage-themes-link", "paneZenLooks"],
   ["uiDensity", "paneZenLooks"],
   ["uiDensityAutoTouchMode", "paneZenLooks", "uiDensity"],
   ["browser-icon-box-group", "paneZenLooks"],
@@ -123,8 +122,8 @@ add_task(async function test_panes_are_merged() {
 
     checkControls(win, LOOKS);
     ok(
-      !doc.querySelector('[data-l10n-id="preferences-web-appearance-footer"]'),
-      "Zen's Manage themes line is gone: Firefox's Browser theme link is the one control"
+      !doc.querySelector('setting-group[groupid="browserTheme"]'),
+      "W8-39: Browser theme group is removed (lightweight themes do not affect Zen chrome)"
     );
 
     // The theme chooser still drives Firefox's pref.

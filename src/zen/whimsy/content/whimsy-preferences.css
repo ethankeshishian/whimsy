@@ -214,14 +214,6 @@
   }
 }
 
-/* fix/panes: Firefox's Browser theme group (with its Manage themes link) is
-   the one home for themes in Look and Feel. Zen's stylesheet hides every
-   browserTheme group; bring back just this one, and only while its pane
-   shows it. */
-setting-group[groupid="browserTheme"][data-category="paneZenLooks"]:not([hidden]) {
-  display: inline !important;
-}
-
 /* wave5/profiles: Settings → Profiles. Rows share one rhythm: 12px inside a
    row, 4px between rows, the group's own margins outside. */
 .whimsy-profiles-list {
