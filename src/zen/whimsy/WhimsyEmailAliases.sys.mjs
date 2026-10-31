@@ -19,6 +19,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   FirefoxRelay: "resource://gre/modules/FirefoxRelay.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.email-aliases";
@@ -176,6 +178,61 @@ export const WhimsyEmailAliases = {
     } catch (e) {
       throw new AliasError("relay", e.message);
     }
+  },
+
+  // wave7/small: "Create Email Alias" in the command bar. It opens the
+  // alias menu at the email field that has focus in the current tab (any
+  // frame), the same menu the field's mask button opens; with no email
+  // field focused, a toast says to click into one first.
+  initWindow(win) {
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyCreateEmailAlias",
+      l10nId: "whimsy-action-create-email-alias",
+      run: w => this.createForFocusedField(w),
+      icon: "chrome://browser/skin/zen-icons/mail.svg",
+      isAvailable: w => {
+        const uri = w.gBrowser?.selectedBrowser?.currentURI;
+        return (
+          this.enabled &&
+          !lazy.PrivateBrowsingUtils.isWindowPrivate(w) &&
+          !!uri &&
+          (uri.schemeIs("https") || uri.schemeIs("http"))
+        );
+      },
+    });
+  },
+
+  // Resolves to "menu" (opened at the field), "no-field", "private" or "off".
+  async createForFocusedField(win) {
+    if (!this.enabled) {
+      return "off";
+    }
+    const browser = win.gBrowser.selectedBrowser;
+    if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
+      return "private";
+    }
+    const contexts = browser.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
+    for (const context of contexts) {
+      let actor = null;
+      try {
+        actor = context.currentWindowGlobal?.getActor("WhimsyEmailAliases");
+      } catch (e) {
+        // Not a web page (the actor only matches http and https).
+        continue;
+      }
+      let field = null;
+      try {
+        field = await actor?.sendQuery("WhimsyEmailAliases:FocusedField");
+      } catch (e) {
+        continue;
+      }
+      if (field) {
+        actor.openMenu(field).catch(e => console.error("Whimsy: email aliases", e));
+        return "menu";
+      }
+    }
+    win.gZenUIManager?.showToast?.("whimsy-email-aliases-toast-no-field");
+    return "no-field";
   },
 
   openICloudSignIn(win) {

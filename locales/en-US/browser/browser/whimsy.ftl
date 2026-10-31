@@ -2303,3 +2303,8 @@ whimsy-cast-no-video-toast = There’s no video on this page to cast
 whimsy-cast-unavailable-toast = AirPlay isn’t available in this build
 whimsy-cast-mirror-toast = This video can’t be sent on its own. Mirror your screen instead.
 whimsy-cast-mirror-button = Screen Mirroring
+
+## wave7/small: Create Email Alias (command bar).
+
+whimsy-action-create-email-alias = Create Email Alias
+whimsy-email-aliases-toast-no-field = Click into an email field first, then create an alias for it

@@ -490,3 +490,6 @@ support-files = ["whimsy_page_actions.html"]
 # wave7/small: Cast to AirPlay (native player stubbed).
 ["browser_whimsy_cast.js"]
 support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
+
+# wave7/small: Create Email Alias in the command bar.
+["browser_whimsy_email_alias_command.js"]

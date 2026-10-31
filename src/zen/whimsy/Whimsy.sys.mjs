@@ -203,6 +203,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCast: "resource:///modules/whimsy/WhimsyCast.sys.mjs",
 });
 
+// wave7/small: Create Email Alias in the command bar.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -688,6 +693,9 @@ export const Whimsy = {
     // wave7/small: Cast to AirPlay (View > Cast..., command bar). Each part
     // checks its switch and the native player on use.
     run("cast", () => lazy.WhimsyCast.initWindow(win));
+    // wave7/small: Create Email Alias (command bar), at the focused email
+    // field. Checks its switch on use.
+    run("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

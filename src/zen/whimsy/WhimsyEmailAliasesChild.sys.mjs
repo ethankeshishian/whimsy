@@ -84,6 +84,10 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
     if (message.name == "WhimsyEmailAliases:Fill") {
       return this.#fill(message.data.address);
     }
+    // wave7/small: the command bar's Create Email Alias.
+    if (message.name == "WhimsyEmailAliases:FocusedField") {
+      return this.#focusedField();
+    }
     return undefined;
   }
 
@@ -310,6 +314,31 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       screenX: win.mozInnerScreenX + rect.left,
       screenY: win.mozInnerScreenY + rect.bottom,
     });
+  }
+
+  // wave7/small: the email field focused in this frame (through open shadow
+  // roots), remembered as the one to fill; where the menu opens, or null.
+  #focusedField() {
+    if (!Services.prefs.getBoolPref(FEATURE_PREF, true) || this.browsingContext.usePrivateBrowsing) {
+      return null;
+    }
+    let active = this.document?.activeElement ?? null;
+    while (active?.shadowRoot?.activeElement) {
+      active = active.shadowRoot.activeElement;
+    }
+    if (!active || !isEmailField(active)) {
+      return null;
+    }
+    if (this.#input?.deref() != active) {
+      this.#remove();
+      this.#input = new WeakRef(active);
+    }
+    const rect = active.getBoundingClientRect();
+    const win = active.ownerDocument.defaultView;
+    return {
+      screenX: win.mozInnerScreenX + rect.left,
+      screenY: win.mozInnerScreenY + rect.bottom,
+    };
   }
 
   // Fills the field the menu was opened for, like typing would.
