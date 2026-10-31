@@ -58,20 +58,22 @@ function errorBody(code, message) {
 // state named "Duplicate". Like Linear, the server applies the
 // state.type.nin filter the request carries.
 const ISSUES = [
-  ["issue-1", "ENG-1", "Fix the login bug", "In Progress", "started"],
-  ["issue-2", "ENG-2", "Write the changelog", "Todo", "unstarted"],
-  ["issue-3", "ENG-3", "Sort incoming reports", "Triage", "triage"],
-  ["issue-4", "ENG-4", "Someday: dark mode", "Backlog", "backlog"],
-  ["issue-5", "ENG-5", "Ship the release", "Done", "completed"],
-  ["issue-6", "ENG-6", "Old idea", "Canceled", "canceled"],
-  ["issue-7", "ENG-7", "Same as ENG-1", "Duplicate", "duplicate"],
-  ["issue-8", "ENG-8", "Also same as ENG-1", "Duplicate", "canceled"],
-].map(([id, identifier, title, name, type]) => ({
+  ["issue-1", "ENG-1", "Fix the login bug", "In Progress", "started", 1, "2026-10-30T10:00:00Z"],
+  ["issue-2", "ENG-2", "Write the changelog", "Todo", "unstarted", 2, "2026-10-30T09:00:00Z"],
+  ["issue-3", "ENG-3", "Sort incoming reports", "Triage", "triage", 3, "2026-10-30T08:00:00Z"],
+  ["issue-4", "ENG-4", "Someday: dark mode", "Backlog", "backlog", 4, "2026-10-30T07:00:00Z"],
+  ["issue-5", "ENG-5", "Ship the release", "Done", "completed", 1, "2026-10-30T06:00:00Z"],
+  ["issue-6", "ENG-6", "Old idea", "Canceled", "canceled", 0, "2026-10-30T05:00:00Z"],
+  ["issue-7", "ENG-7", "Same as ENG-1", "Duplicate", "duplicate", 0, "2026-10-30T04:00:00Z"],
+  ["issue-8", "ENG-8", "Also same as ENG-1", "Duplicate", "canceled", 0, "2026-10-30T03:00:00Z"],
+].map(([id, identifier, title, name, type, priority, updatedAt]) => ({
   id,
   identifier,
   title,
   url: `https://linear.app/whimsy/issue/${identifier}`,
   state: { name, type },
+  priority: priority ?? 0,
+  updatedAt: updatedAt ?? "2026-10-30T00:00:00Z",
 }));
 
 const SIDE_ISSUES = [
@@ -81,6 +83,8 @@ const SIDE_ISSUES = [
     title: "Plan the side project",
     url: "https://linear.app/side/issue/SIDE-1",
     state: { name: "In Progress", type: "started" },
+    priority: 2,
+    updatedAt: "2026-10-30T09:30:00Z",
   },
 ];
 

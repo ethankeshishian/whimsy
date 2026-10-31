@@ -90,15 +90,13 @@ const AVAILABLE_USERS_QUERY = `
   }
 `;
 
-// Linear's WorkflowState `type` values, in Linear's own board order (see
-// WorkflowState.type in Linear's public schema,
-// github.com/linear/linear packages/sdk/src/schema.graphql: "triage",
-// "backlog", "unstarted", "started", "completed", "canceled",
-// "duplicate"). Each one is a show/hide toggle in the folder's Statuses
-// menu. Backlog, Done (completed), Canceled and Duplicate are hidden by
-// default, so the folder is what's actually on your plate; anything else,
-// including a type Linear adds later, is shown.
-export const LINEAR_STATE_TYPES = ["triage", "backlog", "unstarted", "started", "completed", "canceled", "duplicate"];
+// Linear's WorkflowState `type` values, in Linear's own workflow order
+// (In Progress, Todo, Backlog, Triage, Completed, Canceled, Duplicate,
+// matching Linear's My Issues view). Each one is a show/hide toggle in the
+// folder's Statuses menu. Backlog, Done (completed), Canceled and Duplicate
+// are hidden by default, so the folder is what's actually on your plate;
+// anything else, including a type Linear adds later, is shown.
+export const LINEAR_STATE_TYPES = ["started", "unstarted", "backlog", "triage", "completed", "canceled", "duplicate"];
 export const LINEAR_DEFAULT_HIDDEN = ["backlog", "completed", "canceled", "duplicate"];
 
 // Older workspaces marked duplicates with a canceled state named
@@ -111,6 +109,36 @@ export function linearStateType(state) {
   return type;
 }
 
+export function stateRank(type) {
+  const index = LINEAR_STATE_TYPES.indexOf(type);
+  return index === -1 ? LINEAR_STATE_TYPES.length : index;
+}
+
+export function priorityRank(priority) {
+  // In Linear: 1 = Urgent, 2 = High, 3 = Medium, 4 = Low, 0/null = No priority.
+  const p = Number(priority);
+  return p > 0 && p <= 4 ? p : 5;
+}
+
+export function compareLinearItems(a, b) {
+  const rankA = stateRank(a._stateType);
+  const rankB = stateRank(b._stateType);
+  if (rankA !== rankB) {
+    return rankA - rankB;
+  }
+  const prioA = a._priority ?? 5;
+  const prioB = b._priority ?? 5;
+  if (prioA !== prioB) {
+    return prioA - prioB;
+  }
+  const timeA = a._updatedAt ?? 0;
+  const timeB = b._updatedAt ?? 0;
+  if (timeA !== timeB) {
+    return timeB - timeA;
+  }
+  return (a.id || "").localeCompare(b.id || "");
+}
+
 const MY_ISSUES_QUERY = `
   query WhimsyMyIssues($filter: IssueFilter) {
     viewer {
@@ -121,6 +149,8 @@ const MY_ISSUES_QUERY = `
           identifier
           title
           url
+          priority
+          updatedAt
           state { name type }
         }
       }
@@ -328,6 +358,7 @@ export class WhimsyLinearLiveFolderProvider extends nsZenLiveFolderProvider {
       }
     }
     if (ok || !targets.length) {
+      items.sort(compareLinearItems);
       return items;
     }
     this.#forgetWorkspaces();
@@ -454,15 +485,21 @@ export class WhimsyLinearLiveFolderProvider extends nsZenLiveFolderProvider {
       return [];
     }
     const hidden = new Set(this.state.hiddenStates);
-    return nodes.filter(issue => !hidden.has(linearStateType(issue.state))).map(issue => ({
-      // Scoped to the provider type: a Linear issue id never collides
-      // with a Jira or GitHub item id in the same folder manager.
-      id: `linear:${issue.id}`,
-      title: issue.title,
-      subtitle: `${issue.identifier} · ${issue.state?.name || ""}`,
-      icon: "chrome://browser/skin/zen-icons/selectable/ticket.svg",
-      url: issue.url,
-    }));
+    return nodes
+      .filter(issue => !hidden.has(linearStateType(issue.state)))
+      .map(issue => ({
+        // Scoped to the provider type: a Linear issue id never collides
+        // with a Jira or GitHub item id in the same folder manager.
+        id: `linear:${issue.id}`,
+        title: issue.title,
+        subtitle: `${issue.identifier} · ${issue.state?.name || ""}`,
+        icon: "chrome://browser/skin/zen-icons/selectable/ticket.svg",
+        url: issue.url,
+        _stateType: linearStateType(issue.state),
+        _priority: priorityRank(issue.priority),
+        _updatedAt: issue.updatedAt ? new Date(issue.updatedAt).getTime() : 0,
+      }))
+      .sort(compareLinearItems);
   }
 
   get options() {
