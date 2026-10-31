@@ -2244,13 +2244,6 @@ whimsy-link-hints-open = { $count ->
     [one] 1 link hint. Type its letters to click it, add Shift to open a new tab, or press Escape to cancel.
    *[other] { $count } link hints. Type a hint’s letters to click it, add Shift to open a new tab, or press Escape to cancel.
 }
-# $title (String) - the easel's name
-whimsy-library-easels-deleted = Deleted { $title }
-whimsy-library-easels-undo-button = Undo
-## wave5: Redact, a toggle in the screenshot panel beside Visible and Full Page
-
-whimsy-redact-button = Redact
-    .title = Blur emails, phone numbers, keys and card numbers in the screenshot. Click any text to blur or unblur it.
 whimsy-link-hints-closed = Link hints closed
 whimsy-link-hints-none = No links to hint on this page
 
