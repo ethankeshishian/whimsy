@@ -511,3 +511,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: Settings cleanup (dead strings gone, every string resolves).
 ["browser_whimsy_settings_strings.js"]
+
+# wave7/small: lazy init of command-bar-only parts.
+["browser_whimsy_lazy_init.js"]

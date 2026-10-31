@@ -466,3 +466,8 @@
 # (linear.app/<workspace>/...), for its search page. Set by Whimsy.
 - name: whimsy.verbs.linear-workspace
   value: ""
+
+# wave7/small: start command-bar-only parts of each window (and network
+# refreshers, seasonal toasts) once the window is idle instead of at once.
+- name: whimsy.startup.lazy-init
+  value: true
