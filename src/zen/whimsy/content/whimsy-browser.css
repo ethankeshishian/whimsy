@@ -3375,6 +3375,40 @@ panel.whimsy-teach {
 .whimsy-teach-close {
   margin-block-start: -2px;
 }
+/* wave9/designfix (H2): "Turn Off Tips", a quiet link under the sentence. */
+.whimsy-teach-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.whimsy-teach-off {
+  appearance: none;
+  margin: 0;
+  margin-inline-start: -4px;
+  padding: 2px 4px;
+  min-height: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+  font: inherit;
+  font-size: 0.92em;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+  &:focus-visible {
+    opacity: 1;
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 1px;
+  }
+}
 
 /* wave7/season: seasonal trim on the floating command bar (Cmd+T / Cmd+L).
    WhimsySeasons adds an aria-hidden overlay to the URL bar and sets

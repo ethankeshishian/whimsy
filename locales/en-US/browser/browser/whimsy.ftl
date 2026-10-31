@@ -2154,6 +2154,7 @@ whimsy-search-instant =
     .label = Shift+Enter on a search opens the top result
 whimsy-search-deck =
     .label = Show it in a deck you can flip through
+    .searchkeywords = Search Deck
 whimsy-search-deck-help = ⌥⌘→ and ⌥⌘← or a two-finger swipe over the card move between results. ⌘Enter keeps the card as a tab; Esc goes back to the results page. Results you flip past aren’t saved to history.
 
 ## wave6: Already open (Arc). Shown after Return on a typed address took you
@@ -2174,6 +2175,7 @@ whimsy-trail-origin =
 whimsy-trail-branch-tooltip = A page you left by going back. Click to open it again.
 whimsy-trails-setting =
     .label = Keep pages you went back from in the Back and Forward menus
+    .searchkeywords = Trails
 
 ## wave6: Page actions. A pill in the address bar when the page describes one
 ## event, place, recipe, product or parcel (schema.org data).
@@ -2539,7 +2541,7 @@ whimsy-teach-reset-toast = Tips will show again
 whimsy-teach-header = Tips
 whimsy-teach-enabled =
     .label = Show tips the first time a shortcut could help
-whimsy-teach-enabled-help = Each tip shows once. To see them again, run Reset Tips from the command bar.
+whimsy-teach-enabled-help = Each tip shows once. To see them all again, run Reset Tips from the command bar.
 # wave7/scratch: saving Scratch uses Zen's New Space form with these words;
 # the "Save as a Space?" dialog comes after its button.
 whimsy-scratch-save-header = Save Scratch as a Space
@@ -3162,3 +3164,6 @@ whimsy-action-expand-all-folders = Expand All Folders
 whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
+## wave9/designfix: Tips can be turned off from the tip (H2).
+whimsy-teach-turn-off = Turn Off Tips
+whimsy-teach-off-toast = Tips are off. Turn them on again in Settings → Look and Feel.

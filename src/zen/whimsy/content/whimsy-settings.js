@@ -1864,9 +1864,13 @@ Object.assign(gWhimsySettings, {
 // (inserted by the listener above, which runs first). The deck only applies
 // while Shift+Enter is on.
 document.addEventListener("paneshown", event => {
-  if (event.detail.category != "paneSearch") {
-    return;
+  if (event.detail.category == "paneSearch") {
+    gWhimsySettings.insertSearchDeckGroup();
   }
+});
+
+// wave9/designfix (M8): a named step, so insertAllForSearch can add it too.
+gWhimsySettings.insertSearchDeckGroup = function () {
   const template = document.getElementById("template-whimsySearchDeck");
   if (!template) {
     return;
@@ -1895,14 +1899,17 @@ document.addEventListener("paneshown", event => {
   });
   sync();
   Preferences.queueUpdateOfAllElements();
-});
+};
 
 // wave6: navigation switches (Already open, Trails, Page actions), at the
 // end of Tab Management -> Tabs. Each checkbox is the feature's own switch.
 document.addEventListener("paneshown", event => {
-  if (event.detail.category != "paneZenTabManagement") {
-    return;
+  if (event.detail.category == "paneZenTabManagement") {
+    gWhimsySettings.insertNavigationRows();
   }
+});
+
+gWhimsySettings.insertNavigationRows = function () {
   const template = document.getElementById("template-whimsyNavigation");
   const group = document.getElementById("whimsyTabsGroup");
   if (!template || !group) {
@@ -1913,7 +1920,7 @@ document.addEventListener("paneshown", event => {
   Preferences.addAll(rows.map(row => ({ id: row.getAttribute("preference"), type: "bool" })));
   group.append(...rows);
   Preferences.queueUpdateOfAllElements();
-});
+};
 
 // fix7 settings: search. Firefox's Settings search only looks at what is in
 // #mainPrefPane once every pane's template is inserted (gSearchResultsPane.
@@ -1934,6 +1941,7 @@ Object.assign(gWhimsySettings, {
       () => this.insertGroups(),
       () => this.insertNextMeetingGroup(),
       () => this.adoptZenGlance(),
+      () => this.insertTeachGroup(), // wave9/designfix (H2)
       // Privacy & Security
       () => this.insertPrivacyGroups(),
       () => this.insertClaudeGroup(),
@@ -1943,8 +1951,11 @@ Object.assign(gWhimsySettings, {
       () => this.insertSpacesGroup(),
       () => this.insertExtensionsGroup(),
       () => this.insertHoverGroup(),
+      () => this.insertNavigationRows(), // wave9/designfix (M8): Trails, Page actions, ...
+      () => this.insertProfilesGroup(), // wave9/designfix (M8)
       // Search
       () => this.insertBangsGroup(),
+      () => this.insertSearchDeckGroup(), // wave9/designfix (M8)
       // General (or Tab Management with the settings redesign)
       () =>
         this.insertPerformanceGroup(
@@ -2176,30 +2187,37 @@ Object.assign(gWhimsySettings, {
 
 document.addEventListener("DOMContentLoaded", () => gWhimsySettings.mergeFirefoxPanes(), { once: true });
 
-// wave7/teach: General → Tips ("Show tips", Teach once), after Firefox's
-// Browsing group, where its own "Recommend features as you browse" lives.
+// wave7/teach: Tips ("Show tips", Teach once). wave9/designfix (H2): in
+// Look and Feel, after Whimsy's Look group. It was in General, after
+// Firefox's Browsing group, but the settings redesign hides General, which
+// left tips with no reachable switch. insertAllForSearch adds it too.
 document.addEventListener("paneshown", event => {
-  if (event.detail.category != "paneGeneral") {
-    return;
+  if (event.detail.category == "paneZenLooks") {
+    gWhimsySettings.insertTeachGroup();
   }
-  const template = document.getElementById("template-whimsyTeach");
-  if (!template) {
-    return;
-  }
-  const group = template.content.firstElementChild;
-  template.remove();
-  if (!Services.prefs.getBoolPref("whimsy.feature.teach-once", true)) {
-    return;
-  }
-  Preferences.addAll([{ id: "whimsy.teach.enabled", type: "bool" }]);
-  const anchor = document.querySelector('[groupid="browsing"]');
-  if (anchor) {
-    anchor.after(group);
-  } else {
-    document.getElementById("mainPrefPane").append(group);
-  }
-  group.hidden = false;
-  Preferences.queueUpdateOfAllElements();
+});
+
+Object.assign(gWhimsySettings, {
+  insertTeachGroup() {
+    const template = document.getElementById("template-whimsyTeach");
+    if (!template) {
+      return;
+    }
+    const group = template.content.firstElementChild;
+    template.remove();
+    if (!Services.prefs.getBoolPref("whimsy.feature.teach-once", true)) {
+      return;
+    }
+    Preferences.addAll([{ id: "whimsy.teach.enabled", type: "bool" }]);
+    const anchor = document.getElementById("whimsyLookGroup");
+    if (anchor) {
+      anchor.after(group);
+    } else {
+      document.getElementById("mainPrefPane").append(group);
+    }
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+  },
 });
 
 // wave7/menuprefs: Settings → Menus. Every right-click menu, each item a

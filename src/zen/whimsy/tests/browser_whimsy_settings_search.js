@@ -42,6 +42,9 @@ add_task(async function test_every_whimsy_group_is_searchable() {
     ok(!doc.getElementById("template-whimsyPrivacy"), "Search setup inserted Privacy's Whimsy groups");
     ok(!doc.getElementById("template-whimsyLooks"), "and Look and Feel's");
     ok(!doc.getElementById("template-whimsyClaude"), "and Claude's");
+    for (const id of ["Teach", "Navigation", "SearchDeck", "Profiles"]) {
+      ok(!doc.getElementById(`template-whimsy${id}`), `and ${id}'s (wave9/designfix)`);
+    }
     ok(!shown(doc.getElementById("whimsyClaudeGroup")), "They stay hidden on another pane");
 
     const groups = [...doc.querySelectorAll("#mainPrefPane [id^='whimsy'][data-category]")].filter(
@@ -61,7 +64,15 @@ add_task(async function test_every_whimsy_group_is_searchable() {
       ["vpn", "whimsyVpnGroup"],
       ["glance size", "whimsyGlanceSizeRow"],
       ["transparency", "whimsyLookGroup"],
+      // wave9/designfix (H2, M8): groups that waited for their pane.
+      ["tips", "whimsyTeachEnabled"],
+      ["trails", "whimsyTrails"],
+      ["page actions", "whimsyPageActions"],
+      ["search deck", "whimsySearchDeck"],
     ];
+    if (Services.prefs.getBoolPref("whimsy.feature.space-profiles", true)) {
+      cases.push(["profiles", "whimsyProfilesGroup"]);
+    }
     if (doc.getElementById("whimsyLiquidGlass")) {
       // A partial word, as typed.
       cases.push(["liquid glas", "whimsyLiquidGlass"]);
@@ -75,4 +86,27 @@ add_task(async function test_every_whimsy_group_is_searchable() {
 
     await search(doc, "");
   });
+});
+
+// wave9/designfix (H2): with Firefox's settings redesign, General is hidden,
+// so Tips lives in Look and Feel, where it can be reached and switched.
+add_task(async function test_tips_switch_is_reachable() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.teach.enabled", true]] });
+  await BrowserTestUtils.withNewTab("about:preferences#zenLooks", async browser => {
+    const doc = browser.contentDocument;
+    const win = browser.contentWindow;
+    await TestUtils.waitForCondition(() => win.gLastCategory?.category == "paneZenLooks", "Look and Feel shows");
+    const box = await TestUtils.waitForCondition(() => doc.getElementById("whimsyTeachEnabled"), "Tips is there");
+    const group = doc.getElementById("whimsyTeachGroup");
+    is(group.dataset.category, "paneZenLooks", "Tips belongs to Look and Feel");
+    await TestUtils.waitForCondition(() => shown(group) && group.checkVisibility(), "and is visible there");
+    is(group.previousElementSibling?.id, "whimsyLookGroup", "after Whimsy's Look group");
+    ok(box.checked, "on while tips are on");
+    box.scrollIntoView();
+    box.click();
+    await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref("whimsy.teach.enabled"), "unchecking turns tips off");
+    box.click();
+    await TestUtils.waitForCondition(() => Services.prefs.getBoolPref("whimsy.teach.enabled"), "and checking turns them on");
+  });
+  await SpecialPowers.popPrefEnv();
 });
