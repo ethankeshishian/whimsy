@@ -77,6 +77,8 @@ const WHIMSY_TITLES = new Map([
   // wave6: Cmd+Shift+N is Scratch, not a private window; Cmd+N a new space.
   ["key_whimsyNewScratch", "whimsy-cheatsheet-new-scratch"],
   ["key_whimsyNewSpace", "whimsy-cheatsheet-new-space"],
+  // wave5: Easel (Arc's File > New Easel, Ctrl+Shift+E).
+  ["key_whimsyNewEasel", "whimsy-action-new-easel"],
 ]);
 
 function formatSync(id) {
