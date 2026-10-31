@@ -112,8 +112,23 @@ add_task(async function test_text_drawing_shapes_move_resize_undo() {
   EventUtils.synthesizeKey("KEY_Escape", {}, win);
   let text = app.items.find(i => i.type == "text");
   is(text?.text, "Hello easel", "The text is kept");
+  // wave7: this page is privileged, so its pointerdown preventDefault()
+  // doesn't stop the compat mousedown; the page cancels that itself, or its
+  // default action focused the canvas and deleted the new, empty text box.
+  ok(!win.getSelection().toString(), "The press started no page selection");
   ok(text.w > 20 && text.h > 10, "Text measures its own box");
   ok(doc.getElementById("empty").hidden, "The empty state goes away");
+
+  // The text tool on existing text edits it, and the click keeps focus there.
+  app.setTool("text");
+  const box = doc.querySelector(`.item[data-id="${text.id}"] .text`).getBoundingClientRect();
+  EventUtils.synthesizeMouseAtPoint(box.left + box.width / 2, box.top + box.height / 2, {}, win);
+  await TestUtils.waitForCondition(() => app.editingId == text.id, "Clicking text with the text tool edits it");
+  await new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
+  is(app.editingId, text.id, "and stays in it after the click");
+  is(doc.activeElement, doc.querySelector(`.item[data-id="${text.id}"] .text`), "with the caret in the text");
+  EventUtils.synthesizeKey("KEY_Escape", {}, win);
+  is(app.items.filter(i => i.type == "text").length, 1, "Still one text item");
 
   // Pen: a freehand stroke.
   app.setTool("pen");
@@ -249,6 +264,12 @@ add_task(async function test_captures_static_live_and_private() {
   ok(el.classList.contains("active"), "Playing enters the live page");
   const stage = el.querySelector(".capture-stage");
   ok(stage.style.transform.includes("scale("), "Cropped by scaling the stage");
+  await TestUtils.waitForCondition(() => stage.classList.contains("ready"), "The live page shows once it has loaded");
+
+  // wave7: a <browser> bound again gets a new frame loader on about:blank;
+  // the capture loads its page into it again.
+  stage.append(browser);
+  await TestUtils.waitForCondition(() => browser.currentURI?.spec == PAGE, "The page comes back after the frame is re-made");
 
   // Pause goes back to the still capture.
   play.click();

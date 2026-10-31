@@ -9,7 +9,7 @@
 // See WhimsyEasel.sys.mjs and docs/whimsy/easel.md.
 
 import * as M from "chrome://browser/content/whimsy/whimsy-easel-model.mjs";
-import { createLiveBrowser } from "chrome://browser/content/whimsy/whimsy-note-blocks.mjs";
+import { BLOCK_SANDBOX_FLAGS, createLiveBrowser } from "chrome://browser/content/whimsy/whimsy-note-blocks.mjs";
 
 const { gWhimsyEaselStore, gWhimsyEaselClipboard, CHANGED_TOPIC, FEATURE_PREF, easelIdFromURL, easelURL } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyEasel.sys.mjs"
@@ -39,6 +39,9 @@ const $ = id => document.getElementById(id);
 // Loads a live capture's page into its <browser> again (see startLive).
 function reloadLiveBrowser(browser, url, userContextId) {
   try {
+    if (browser.browsingContext) {
+      browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;
+    }
     browser.loadURI(Services.io.newURI(url), {
       triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
       loadFlags: Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_HISTORY,
@@ -701,10 +704,11 @@ class EaselApp {
       Promise.resolve().then(() => {
         if (browser.isConnected && (browser.currentURI?.spec ?? "about:blank") == "about:blank") {
           reloadLiveBrowser(browser, url, userContextId);
+          listen();
         }
       });
     });
-    setTimeout(ready, 5000);
+    setTimeout(ready, 3000);
     return browser;
   }
 
@@ -1001,6 +1005,9 @@ class EaselApp {
       return; // caret placement inside the text being edited
     }
     if (this.editingId) this.stopEditing();
+    // Every press the canvas handles itself: no compat mousedown default
+    // (it would move focus and start a text selection; see the text tool).
+    this.#suppressMouseDown = event.button == 0 || event.button == 1;
     if (event.button == 1 || (event.button == 0 && this.#space)) {
       this.startPan(event);
       return;
@@ -1023,7 +1030,6 @@ class EaselApp {
         // action, focuses the viewport and blurs a text box focused here,
         // which then disappears because it's empty. So: no mousedown default
         // for this press, and the caret goes in once the press is over.
-        this.#suppressMouseDown = true;
         event.preventDefault();
         if (itemEl?.dataset.type == "text") {
           this.#drag = { kind: "text-pending", id: itemEl.dataset.id, before: null };
