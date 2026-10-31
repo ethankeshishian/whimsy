@@ -170,3 +170,9 @@
   - W8-39 (a6e1a62e): Removed inert Browser theme section from Look and Feel (lightweight themes have no effect in Zen chrome).
   - W8-41 (0234fde5): Set Up VPN enables master pref, initiates connection if ready, opens native IP Protection panel, or presents sign-in guidance.
   - W8-49 (06f4704d): Partitioned Notes and per-site user agent strictly per profile and preserved private browsing isolation.
+- Wave 9 Lens features (wave9/lens):
+  - W9-05 (Zap undo granularity): fcc46c9. Added granular element undo/restore and restore-all on a site. Site panel actions menu now displays a "Zapped Elements (N)" submenu listing every selector with individual one-click restoration, plus a "Restore All Zapped Elements" item and registered command `cmd_whimsyZapRestoreAll`. Restores push to WhimsyUndo for full undo/redo. Extended browser_whimsy_zap.js.
+  - W9-03 (Form protection): 637a2b5. Added form protection overlay module (WhimsyFormProtection, WhimsyFormProtectionChild) and Settings toggle. Tabs with half-filled forms or SessionStore cached form data are exempt from Whimsy's idle auto-archive sweep and display a subtle amber warning dot indicator. Registered `cmd_whimsyProtectForm` command. Added browser_whimsy_form_protection.js mochitest.
+  - W9-08 (Checks: link tracking stripping & mini player skip controls): Confirmed link tracking stripping on navigation and Copy Link is fully enabled (privacy.query_stripping.enabled, privacy.query_stripping.enabled.pbmode, privacy.query_stripping.strip_on_share.enabled, strict list via RemoteSettings and StripOnShare.json). Mini player skip controls: Firefox PiP has seek buttons but delta is hardcoded to ±5s (SEEK_TIME_SECS=5 in engine PictureInPictureChild.sys.mjs) and sidebar mini player is deferred (tier M); ticketed missing ±10s seek pref/engine patch.
+  - W9-04/06/07 skipped per user instruction (require design input).
+

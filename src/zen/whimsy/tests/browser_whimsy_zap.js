@@ -182,6 +182,40 @@ add_task(async function site_panel_menu_item() {
     const attrs = document.l10n.getAttributes(item);
     is(attrs.id, "whimsy-site-zap-count", "The item says how many things are zapped");
     is(attrs.args.count, 2, "two of them");
+
+    const subMenu = document.getElementById("whimsy-site-zapped-menu");
+    ok(subMenu && !subMenu.hidden, "Submenu shows when elements are zapped");
+    const subAttrs = document.l10n.getAttributes(subMenu);
+    is(subAttrs.args.count, 2, "Submenu says 2 zapped elements");
+    const elItems = subMenu.querySelectorAll(".whimsy-site-zapped-item");
+    is(elItems.length, 2, "Submenu lists both zapped elements");
+
+    // Review design-full-5 M10: Restore All appears once, at the end of the
+    // submenu, not also in the site panel menu itself.
+    const restoreAlls = [...popup.querySelectorAll("menuitem")].filter(
+      el => el.getAttribute("command") == WhimsyZap.COMMAND_RESTORE_ALL
+    );
+    is(restoreAlls.length, 1, "Restore All Zapped Elements appears once");
+    is(restoreAlls[0].parentNode.parentNode, subMenu, "inside the Zapped Elements submenu");
+    is(restoreAlls[0].parentNode.lastElementChild, restoreAlls[0], "as its last row");
+    is(restoreAlls[0].previousElementSibling?.localName, "menuseparator", "after a separator");
+    const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+    const restoreAction = globalActions.find(a => a.l10nId == "whimsy-action-zap-restore-all");
+    ok(!restoreAction?.icon?.includes("trash"), "Restore All has no trash icon");
+
+    // Review design-full-4 L9: rows say what was zapped, not the selector.
+    await TestUtils.waitForCondition(
+      () => document.l10n.getAttributes(elItems[0]).id == "whimsy-site-zap-restore-item",
+      "The page describes the zapped elements"
+    );
+    is(document.l10n.getAttributes(elItems[0]).args.name, "Article title", "The heading is named by its text");
+    const pName = document.l10n.getAttributes(elItems[1]).args.name;
+    ok(pName.startsWith("Lorem ipsum") && pName.length <= 40, "Long text is cut short");
+    for (const el of elItems) {
+      await document.l10n.translateElements([el]);
+      ok(el.label?.startsWith("Restore “"), `"${el.label}" names the element, not its selector`);
+    }
+
     const hiddenAgain = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
     popup.hidePopup();
     await hiddenAgain;
@@ -195,6 +229,42 @@ add_task(async function site_panel_menu_item() {
     const hidden = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
     popup.hidePopup();
     await hidden;
+  });
+});
+
+add_task(async function test_zap_undo_granularity() {
+  deleteBoosts();
+  await BrowserTestUtils.withNewTab(PAGE, async () => {
+    WhimsyZap.ensureBoost(DOMAIN);
+    gZenBoostsManager.addZapSelectorToActive("h1", DOMAIN);
+    gZenBoostsManager.addZapSelectorToActive("p", DOMAIN);
+    is(zapSelectors().length, 2, "Initially 2 zapped elements");
+
+    // Test restoring one element via unzapSelector
+    WhimsyZap.unzapSelector(window, "h1", DOMAIN);
+    ok(!zapSelectors().includes("h1"), "h1 removed by individual unzap");
+    ok(zapSelectors().includes("p"), "p is still zapped");
+
+    // Test undoing that single restore
+    WhimsyUndo.undo(window);
+    ok(zapSelectors().includes("h1"), "Undo brings h1 back to zapped state");
+
+    // Test restoring all elements on the site via command
+    const cmd = document.getElementById(WhimsyZap.COMMAND_RESTORE_ALL);
+    ok(cmd, "Restore all command registered");
+    cmd.doCommand();
+    is(zapSelectors().length, 0, "All selectors removed by restore-all");
+
+    // Test undoing restore-all
+    WhimsyUndo.undo(window);
+    is(zapSelectors().length, 2, "Undo brings back all zapped selectors");
+
+    // Names come from the page; missing or invalid selectors fall back.
+    const names = await WhimsyZap.describeSelectors(gBrowser.selectedBrowser, ["h1", ".not-on-page", "div >>> bad"]);
+    is(names[0]?.name, "Article title", "A zapped heading is described by its text");
+    is(names[0]?.kind, "other", "and is a plain element");
+    is(names[1], null, "An element not on the page has no name");
+    is(names[2], null, "An invalid selector doesn't throw");
   });
 });
 

@@ -300,6 +300,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBatterySaver: "resource:///modules/whimsy/WhimsyBatterySaver.sys.mjs",
 });
 
+// wave9: form protection (W9-03)
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFormProtection: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -909,6 +914,9 @@ export const Whimsy = {
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
     // wave9: Battery saver (threshold, auto-off, throttles).
     run("battery-saver", () => lazy.WhimsyBatterySaver.initWindow(win));
+
+    // wave9: form protection (W9-03)
+    run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

@@ -510,6 +510,9 @@
 - name: whimsy.feature.battery-saver
   value: true
 
+- name: whimsy.feature.form-protection
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

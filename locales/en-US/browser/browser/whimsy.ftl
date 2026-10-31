@@ -3399,4 +3399,43 @@ whimsy-battery-saver-header = Battery Saver
 whimsy-battery-saver-enable =
     .label = Turn on Battery Saver automatically when the battery is below 20%
 whimsy-battery-saver-help = Animations run at up to 30 frames per second and background tabs’ timers slow down. It turns off again when you plug in or the battery is back above 20%.
+## wave9: Zap undo granularity (W9-05)
+
+whimsy-action-zap-restore-all = Restore All Zapped Elements
+whimsy-site-zap-zapped-menu =
+    .label = { $count ->
+        [one] Zapped Elements (1)
+       *[other] Zapped Elements ({ $count })
+    }
+# $name (String) - what the zapped element says: its label, alt text or opening words
+whimsy-site-zap-restore-item =
+    .label = Restore “{ $name }”
+# $kind (String) - image, video, frame or other; $index (Number) - its place in the list
+whimsy-site-zap-restore-item-unnamed =
+    .label = { $kind ->
+        [image] Restore Image { $index }
+        [video] Restore Video { $index }
+        [frame] Restore Embedded Frame { $index }
+       *[other] Restore Element { $index }
+    }
+whimsy-site-zap-restore-all =
+    .label = Restore All Zapped Elements
+whimsy-site-zap-restored-toast = Restored “{ $name }”
+whimsy-site-zap-restored-element-toast = Restored zapped element
+whimsy-site-zap-restored-all-toast = Restored all zapped elements
+
+## wave9: form protection (W9-03)
+
+whimsy-tabs-form-protection =
+    .label = Protect tabs with unsaved forms from auto-archive
+whimsy-action-protect-form = Protect Tab from Auto-Archive
+whimsy-action-protect-form-on = Protect This Tab from Auto-Archive
+whimsy-action-protect-form-off = Stop Protecting This Tab from Auto-Archive
+# $reason (String) - "form" when the page has typed text, "manual" when protected by hand
+whimsy-tab-form-protected-tooltip = { $reason ->
+        [manual] Protected from auto-archive
+       *[form] Protected from auto-archive: this tab has unsent form text
+    }
+whimsy-form-protected-toast = This tab won’t be auto-archived
+whimsy-form-unprotected-toast = This tab can be auto-archived again
 

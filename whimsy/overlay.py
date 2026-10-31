@@ -1207,6 +1207,9 @@ FEATURES = [
     # wave9: Battery saver (Arc parity: threshold <20%, banner, auto-off when charged, frame rate and background throttles)
     {"id": "battery-saver", "title": "Battery Saver: throttle frame rate (30fps) and background activity below 20% battery, with heads-up banner and auto-off when charged (Arc parity)",
      "detect": [("src/zen", r"(?i)battery-?saver")]},
+    # batch wave9: form protection (W9-03)
+    {"id": "form-protection", "title": "Form protection: tabs with half-filled forms are exempt from auto-archive and show a subtle indicator",
+     "detect": [("src/zen", r"(?i)form-?protection|whimsy-?form-?protected")]},
 ]
 
 

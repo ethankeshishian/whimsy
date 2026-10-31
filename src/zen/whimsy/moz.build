@@ -54,6 +54,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFocus.sys.mjs",
     "WhimsyFolderColors.sys.mjs",
     "WhimsyFollowerTabs.sys.mjs",
+    "WhimsyFormProtection.sys.mjs",
+    "WhimsyFormProtectionChild.sys.mjs",
     "WhimsyGithubReviews.sys.mjs",
     "WhimsyGlance.sys.mjs",
     "WhimsyHandoff.sys.mjs",

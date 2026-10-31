@@ -28,6 +28,47 @@ export class WhimsyPageChild extends JSWindowActorChild {
   // hasn't been asked for yet.
   volumeLevel = null;
 
+  // wave9/lens (review design-full-4 L9): Zap's restore rows show what was
+  // zapped, not a CSS selector. For each selector: null when the element
+  // isn't on the page, else { kind, name } where name is its accessible
+  // label, alt, title or opening text, cut to 40 characters.
+  describeSelectors(selectors) {
+    const doc = this.document;
+    if (!Array.isArray(selectors) || !doc) {
+      return [];
+    }
+    return selectors.slice(0, 200).map(selector => {
+      let el = null;
+      try {
+        el = typeof selector == "string" ? doc.querySelector(selector) : null;
+      } catch (e) {
+        return null;
+      }
+      if (!el) {
+        return null;
+      }
+      const tag = el.localName;
+      let kind = "other";
+      if (tag == "img" || tag == "picture" || tag == "svg" || tag == "canvas") {
+        kind = "image";
+      } else if (tag == "video" || tag == "audio") {
+        kind = "video";
+      } else if (tag == "iframe" || tag == "embed" || tag == "object") {
+        kind = "frame";
+      }
+      const raw =
+        el.getAttribute("aria-label") ||
+        el.getAttribute("alt") ||
+        el.getAttribute("title") ||
+        (kind == "other" ? (el.textContent ?? "").slice(0, 400) : "");
+      let name = raw.replace(/\s+/g, " ").trim();
+      if (name.length > 40) {
+        name = name.slice(0, 39).trimEnd() + "…";
+      }
+      return { kind, name };
+    });
+  }
+
   async handleEvent(event) {
     switch (event.type) {
       case "play":
@@ -157,6 +198,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return null;
       case "Whimsy:GetVolume":
         return this.mediaVolumes();
+      // wave9/lens: readable names for Zap's restore rows.
+      case "Whimsy:DescribeSelectors":
+        return this.describeSelectors(message.data?.selectors);
       case "Whimsy:MediaInfo": {
         const el = this.mainMedia();
         return el ? { playing: !el.paused, area: this.area(el), rate: el.playbackRate } : null;

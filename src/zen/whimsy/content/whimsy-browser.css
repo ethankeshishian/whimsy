@@ -4099,3 +4099,21 @@ panel.whimsy-sheet.whimsy-snooze {
     color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
   }
 }
+/* wave9: Form protection subtle indicator (W9-03). On ::before, at the
+   icon's bottom-start corner: ::after and the top-end corner belong to the
+   unread count and title-changed dot (review design-full-4 M10). The tab's
+   tooltip and accessible description say what it means. */
+.tabbrowser-tab[whimsy-form-protected] .tab-icon-stack::before {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  inset-inline-start: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--icon-color-warning);
+  box-shadow: 0 0 0 1px light-dark(rgb(255 255 255 / 0.9), rgb(0 0 0 / 0.35));
+  z-index: 2;
+  pointer-events: none;
+}
+

@@ -655,3 +655,7 @@ support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
 ["browser_whimsy_menus_review.js"]
 # wave9: Battery saver (W8-01: threshold, banner, auto-off, throttles).
 ["browser_whimsy_battery_saver.js"]
+# batch wave9: form protection (W9-03)
+["browser_whimsy_form_protection.js"]
+support-files = ["whimsy_email_form.html"]
+
