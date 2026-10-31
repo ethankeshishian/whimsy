@@ -173,3 +173,19 @@ add_task(async function test_element_inspector_disabled() {
   await SpecialPowers.popPrefEnv();
   ok(WhimsyInspector.elementInspectorEnabled, "Element inspector switch is on again");
 });
+
+add_task(async function test_inspector_settings_switches() {
+  const tabsTemplate = document.getElementById("template-whimsyTabs");
+  if (tabsTemplate) {
+    const content = tabsTemplate.content;
+    const fontCb = content.querySelector("#whimsyFontInspector");
+    ok(fontCb, "whimsyFontInspector checkbox exists in Settings Tab Management template");
+    is(fontCb?.getAttribute("preference"), "whimsy.feature.font-inspector", "Controls whimsy.feature.font-inspector");
+    is(fontCb?.getAttribute("data-l10n-id"), "whimsy-tabs-font-inspector", "Has whimsy-tabs-font-inspector string");
+
+    const elCb = content.querySelector("#whimsyElementInspector");
+    ok(elCb, "whimsyElementInspector checkbox exists in Settings Tab Management template");
+    is(elCb?.getAttribute("preference"), "whimsy.feature.element-inspector", "Controls whimsy.feature.element-inspector");
+    is(elCb?.getAttribute("data-l10n-id"), "whimsy-tabs-element-inspector", "Has whimsy-tabs-element-inspector string");
+  }
+});

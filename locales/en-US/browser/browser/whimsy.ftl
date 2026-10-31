@@ -3034,4 +3034,8 @@ whimsy-element-gap-toast = Gap: { $gapX }px horizontal, { $gapY }px vertical
 whimsy-element-pick-button = Pick Element
 whimsy-element-pick-another = Pick Another
 whimsy-element-selected-chip = Selected: { $tag }
+whimsy-tabs-font-inspector =
+    .label = Font Inspector: What Font Is This? (context menu and command bar)
+whimsy-tabs-element-inspector =
+    .label = Element Info: box model, colors, contrast and gap measurement
 
