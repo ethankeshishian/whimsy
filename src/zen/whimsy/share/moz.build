@@ -1,0 +1,31 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# wave9/menus: the macOS share services (AirDrop, Messages, Mail, Notes...)
+# for the tab menu's Share submenu. Only built on macOS (see ../moz.build);
+# WhimsyShareMenu.sys.mjs is the front end.
+
+XPIDL_SOURCES += [
+    "nsIWhimsyShare.idl",
+]
+
+XPIDL_MODULE = "whimsy_share"
+
+EXPORTS.mozilla += [
+    "nsWhimsyShare.h",
+]
+
+SOURCES += [
+    "nsWhimsyShare.mm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+OS_LIBS += [
+    "-framework AppKit",
+]
+
+FINAL_LIBRARY = "xul"

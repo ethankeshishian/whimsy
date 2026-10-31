@@ -97,6 +97,18 @@ export const WhimsyPageWatch = {
     return [...(await this.load())];
   },
 
+  // wave9/menus (design-full-4 L4): the same answer from what's loaded
+  // (init() loads it with the first window), for menus and the command bar,
+  // which can't wait. null before it's loaded.
+  watchForSync(url, userContextId = 0) {
+    return this._watches?.find(w => w.url == url && (w.userContextId || 0) == userContextId) ?? null;
+  },
+
+  isWatched(tab) {
+    const browser = tab?.linkedBrowser;
+    return !!browser && !!this.watchForSync(browser.currentURI.spec, browser.getAttribute("usercontextid") | 0);
+  },
+
   async watchFor(url, userContextId = 0) {
     return (await this.load()).find(w => w.url == url && (w.userContextId || 0) == userContextId) ?? null;
   },
@@ -452,16 +464,23 @@ export const WhimsyPageWatch = {
       const tab = win.TabContextMenu?.contextTab;
       item.hidden = !this.canWatch(win, tab);
       if (!item.hidden) {
-        const watched = await this.watchFor(tab.linkedBrowser.currentURI.spec, tab.linkedBrowser.getAttribute("usercontextid") | 0);
-        doc.l10n.setAttributes(item, watched ? "whimsy-watch-menu-stop" : "whimsy-watch-menu");
+        // wave9/menus (L4): set before the menu shows (a native menu reads
+        // its labels now, not after an await).
+        doc.l10n.setAttributes(item, this.isWatched(tab) ? "whimsy-watch-menu-stop" : "whimsy-watch-menu");
       }
     });
+    // wave9/menus (L4): named for what it does now, like the menu row, with
+    // the menu's bell icon.
+    const canWatch = w => !!w && this.canWatch(w, w.gBrowser.selectedTab);
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyWatchPage",
-      l10nId: "whimsy-action-watch-page",
+      l10nId: "whimsy-action-watch-page-toggle",
       run: w => this.toggleForTab(w, w.gBrowser.selectedTab),
-      icon: "chrome://browser/skin/zen-icons/sparkles.svg",
-      isAvailable: w => !!w && this.canWatch(w, w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/selectable/bell.svg",
+      variants: [
+        { l10nId: "whimsy-action-watch-page", isAvailable: w => canWatch(w) && !this.isWatched(w.gBrowser.selectedTab) },
+        { l10nId: "whimsy-action-stop-watching-page", isAvailable: w => canWatch(w) && this.isWatched(w.gBrowser.selectedTab) },
+      ],
     });
   },
 

@@ -52,6 +52,7 @@ const EMOJI_FEATURE_PREF = "whimsy.feature.emoji-search";
 const EMOJI_EMPTY_ID = "whimsy-emoji-search-empty";
 const LINK_FEATURE_PREF = "whimsy.feature.open-link-in-space";
 const LINK_MENU_ID = "context-whimsyOpenLinkInSpace";
+const MOVE_TO_SPACE_COUNT = 9;
 
 function featureOn(pref) {
   return Services.prefs.getBoolPref(pref, true);
@@ -74,30 +75,78 @@ export const WhimsySpaces = {
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyMoveTabToNextSpace",
       l10nId: "whimsy-action-move-tab-next-space",
-      whimsyKeywords: ["Move Tab to Next Space", "Move to Next Space", "Send Tab to Next Space"],
+      whimsyKeywords: lazy.WhimsyCommands.keywords("whimsy-keywords-move-tab-next-space"),
       run: w => this.moveTabRelative(w, 1),
       icon: "chrome://browser/skin/zen-icons/forward.svg",
       isAvailable: w =>
-        (w.gZenWorkspaces?._workspaceCache?.length ?? 0) > 1 &&
+        this.movableSpaces(w).length > 1 &&
         !w.gBrowser.selectedTab?.hasAttribute("zen-essential"),
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyMoveTabToPrevSpace",
       l10nId: "whimsy-action-move-tab-prev-space",
-      whimsyKeywords: ["Move Tab to Previous Space", "Move to Previous Space", "Send Tab to Previous Space"],
+      whimsyKeywords: lazy.WhimsyCommands.keywords("whimsy-keywords-move-tab-prev-space"),
       run: w => this.moveTabRelative(w, -1),
       icon: "chrome://browser/skin/zen-icons/back.svg",
       isAvailable: w =>
-        (w.gZenWorkspaces?._workspaceCache?.length ?? 0) > 1 &&
+        this.movableSpaces(w).length > 1 &&
         !w.gBrowser.selectedTab?.hasAttribute("zen-essential"),
     });
 
+    // wave9/menus (design-full-4 M12): "Move Tab to Space 1…9", like Zen's
+    // Switch to Space N keys: assignable in about:keyboard (no default).
+    // The command bar keeps its named "Move to <space>" rows.
+    for (let n = 1; n <= MOVE_TO_SPACE_COUNT; n++) {
+      lazy.WhimsyCommands.register(win, {
+        id: `cmd_whimsyMoveTabToSpace${n}`,
+        l10nId: `whimsy-action-move-tab-to-space-${n}`,
+        run: w => {
+          const space = this.movableSpaces(w)[n - 1];
+          const tab = w.gBrowser.selectedTab;
+          if (space && tab && !tab.hasAttribute("zen-essential") && space.uuid != w.gZenWorkspaces.activeWorkspace) {
+            this.moveToSpace(w, tab, space.uuid);
+          }
+        },
+        commandBar: false,
+      });
+    }
+
     this.syncSpaceActions(win);
     win.gURLBar?.addEventListener("focus", () => this.syncSpaceActions(win));
+    this.initMoveTabMenu(win);
+  },
+
+  // wave9/menus (design-full-4 M4): Scratch is private; a normal tab never
+  // moves there. Every space list and move target leaves it out, the way
+  // WhimsyIsolation.homeFor does.
+  movableSpaces(win) {
+    return (win.gZenWorkspaces?.getWorkspaces() ?? []).filter(space => !space.whimsyScratch);
+  },
+
+  // Zen's Move Tab ▸ list of spaces: no Scratch.
+  initMoveTabMenu(win) {
+    const popup = win.document.getElementById("moveTabOptionsMenu");
+    popup?.addEventListener("popupshowing", event => {
+      if (event.target != popup) {
+        return;
+      }
+      const scratch = win.gZenWorkspaces?.getWorkspaces().find(space => space.whimsyScratch);
+      for (const item of popup.querySelectorAll(":scope > .zen-workspace-context-menu-item[zen-workspace-id]")) {
+        item.hidden = !!scratch && item.getAttribute("zen-workspace-id") == scratch.uuid;
+      }
+      // Scratch was the only other space: Zen's separator closes an empty list.
+      const separator = popup.querySelector(":scope > menuseparator.zen-workspace-context-menu-item");
+      if (separator) {
+        separator.hidden = ![...popup.querySelectorAll(":scope > menuitem.zen-workspace-context-menu-item")].some(
+          item => !item.hidden
+        );
+      }
+    });
   },
 
   moveTabRelative(win, direction = 1) {
-    const spaces = win.gZenWorkspaces?.getWorkspaces();
+    // wave9/menus (M4): never wraps into Scratch.
+    const spaces = this.movableSpaces(win);
     if (!spaces || spaces.length <= 1) {
       return;
     }
@@ -144,13 +193,7 @@ export const WhimsySpaces = {
               ?.style.getPropertyValue("--zen-primary-color");
           },
         },
-        whimsyKeywords: [
-          "Move",
-          "Move to",
-          "Move tab",
-          "Move tab to",
-          "Move to Space",
-        ],
+        whimsyKeywords: lazy.WhimsyCommands.keywords("whimsy-keywords-move-to-space"),
         commandId,
         icon: "chrome://browser/skin/zen-icons/arrow-right.svg",
         isAvailable: w => {
@@ -162,7 +205,8 @@ export const WhimsySpaces = {
           if (!tab || tab.hasAttribute("zen-essential")) {
             return false;
           }
-          const exists = ws.getWorkspaces().some(s => s.uuid == workspace.uuid);
+          // Never into Scratch (M4).
+          const exists = this.movableSpaces(w).some(s => s.uuid == workspace.uuid);
           return exists && ws.activeWorkspace != workspace.uuid;
         },
         command: w => {
@@ -469,7 +513,9 @@ export const WhimsySpaces = {
     const { document, gZenWorkspaces } = win;
     let item = document.getElementById(LINK_MENU_ID);
     const openInTab = document.getElementById("context-openlinkintab");
-    const others = gZenWorkspaces.getWorkspaces().filter(w => w.uuid != gZenWorkspaces.activeWorkspace);
+    // wave9/menus (M4): never Scratch (a normal page there would keep its
+    // history and cookies).
+    const others = this.movableSpaces(win).filter(w => w.uuid != gZenWorkspaces.activeWorkspace);
     const show =
       featureOn(LINK_FEATURE_PREF) &&
       !gZenWorkspaces.privateWindowOrDisabled &&

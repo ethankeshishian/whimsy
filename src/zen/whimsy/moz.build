@@ -80,6 +80,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyMedia.sys.mjs",
     "WhimsyMenuBarExtra.sys.mjs",
     "WhimsyMenuIcons.sys.mjs",
+    "WhimsyMenuParity.sys.mjs",
     "WhimsyMenuPrefs.sys.mjs",
     "WhimsyNetErrorChild.sys.mjs",
     "WhimsyNetErrorParent.sys.mjs",
@@ -121,6 +122,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySeasons.sys.mjs",
     "WhimsySeasonToast.sys.mjs",
     "WhimsySelectionMarkdown.sys.mjs",
+    "WhimsyShareMenu.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySidebarNav.sys.mjs",
     "WhimsySnooze.sys.mjs",
@@ -185,7 +187,8 @@ BROWSER_CHROME_MANIFESTS += [
 # calendar/ (Next meeting's EventKit reader, and Add to Calendar's writer;
 # dropped from here by a moz.build re-sort, 1545592, so it wasn't built),
 # bonjour/ (Local servers' LAN services, dns_sd), focus/ (macOS Focus for
-# Whimsy's own toasts) and speech/ (live captions, on-device Speech).
+# Whimsy's own toasts), share/ (the Share submenu's macOS services,
+# wave9/menus) and speech/ (live captions, on-device Speech).
 DIRS += ["audiotap"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
@@ -194,5 +197,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
         "bonjour",
         "calendar",
         "focus",
+        "share",
         "speech",
     ]

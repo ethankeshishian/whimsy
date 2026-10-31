@@ -48,7 +48,8 @@ function labelOf(el) {
 }
 
 function describe(popup) {
-  return [...popup.children].filter(el => !el.hidden).map(el => (el.classList.contains("whimsy-split-row-pane") ? "pane" : labelOf(el)));
+  // collapsed: a row Settings → Menus turns off (wave9/menus: some start off).
+  return [...popup.children].filter(el => !el.hidden && el.getAttribute("collapsed") != "true").map(el => (el.classList.contains("whimsy-split-row-pane") ? "pane" : labelOf(el)));
 }
 
 async function makeSplit(count, prefix = "row") {

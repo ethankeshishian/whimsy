@@ -1201,6 +1201,9 @@ FEATURES = [
     # wave8/folders: Live folders: a Resync option that brings back tabs closed by hand (W8-26).
     {"id": "live-folders-resync", "title": "Resync live folder: bring back tabs closed by hand",
      "detect": [("src/zen/live-folders", r"(?i)resync")]},
+    # wave9/menus: W9-09 right-click <-> command parity.
+    {"id": "menu-parity", "title": "Right-click and command parity: every menu action is a command (no default shortcut), more commands as menu items (most off until turned on in Settings > Menus), Share submenu lists the share services",
+     "detect": [("src/zen", r"(?i)sharingServicesForItems|menu-?command-?parity")]},
 ]
 
 

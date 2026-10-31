@@ -7,7 +7,7 @@
 // in it. Zen's New Space only opened the creation form, so the split stayed
 // behind. Here the tabs move once the form is confirmed (a cancelled form
 // leaves them where they were):
-// - the tab menu's Move To ▸ New Space… (after Zen's list of spaces);
+// - the tab menu's Move To ▸ New Space… (first, above Zen's list of spaces);
 // - the command bar's "Move to New Space…" for the current tab;
 // - the split row menu's Move to ▸ New Space… (wave7/split2), whose item
 //   is picked up here by its id so neither module has to know the other.
@@ -98,18 +98,21 @@ export const WhimsyNewSpaceMove = {
           this.moveToNewSpace(win, tabs);
         });
       }
-      // Right after Zen's list of spaces (its separator closes the list),
-      // or first when there's no other space to list.
-      const zenItems = popup.querySelectorAll(":scope > .zen-workspace-context-menu-item");
-      const after = zenItems[zenItems.length - 1];
-      if (after) {
-        after.after(item);
-      } else {
-        popup.prepend(item);
+      // wave9/menus (W9-09, the user's answer): first in the submenu, above
+      // Zen's list of spaces. With no other space listed, a separator of its
+      // own keeps it apart from Firefox's Move to Start/End rows.
+      let separator = document.getElementById(`${MENU_ID}-separator`);
+      if (!separator) {
+        separator = document.createXULElement("menuseparator");
+        separator.id = `${MENU_ID}-separator`;
       }
+      popup.prepend(item);
+      item.after(separator);
+      const zenListed = !!popup.querySelector(":scope > .zen-workspace-context-menu-item");
       const context = win.TabContextMenu?.contextTab;
       item.hidden = !this.enabled || !this.spacesUsable(win);
       item.disabled = !context || context.hasAttribute("zen-essential");
+      separator.hidden = item.hidden || zenListed;
     });
   },
 

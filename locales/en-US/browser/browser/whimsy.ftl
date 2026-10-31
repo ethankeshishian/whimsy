@@ -552,7 +552,7 @@ whimsy-menu-new-scratch =
 whimsy-menu-new-private-tab =
     .label = New Private Tab
 whimsy-scratch-save =
-    .label = Save as Space…
+    .label = Save Scratch as a Space…
 whimsy-scratch-close =
     .label = Close Scratch
 whimsy-action-new-private-tab = New Private Tab
@@ -1538,7 +1538,10 @@ whimsy-watch-menu =
     .label = Watch This Page…
 whimsy-watch-menu-stop =
     .label = Stop Watching This Page
-whimsy-action-watch-page = Watch This Page
+# wave9/menus (design-full-4 L4): named like the tab menu's row.
+whimsy-action-watch-page = Watch This Page…
+whimsy-action-stop-watching-page = Stop Watching This Page
+whimsy-action-watch-page-toggle = Watch or Stop Watching This Page
 whimsy-watch-heading = Watch this page
 whimsy-watch-page = { $page }
 whimsy-watch-condition-label = Tell me when…
@@ -1826,6 +1829,7 @@ whimsy-redact-button = Redact
 -whimsy-edit-look = Edit Look…
 whimsy-space-look-menu =
     .label = { -whimsy-edit-look }
+    .label = Edit Space Look…
 whimsy-space-look-form-button =
     .label = { -whimsy-edit-look }
 # The command bar's name for opening the current space's look editor.
@@ -1886,8 +1890,8 @@ whimsy-action-capture = Capture…
 whimsy-action-tab-next = Next Tab
 whimsy-action-tab-prev = Previous Tab
 whimsy-action-focus-sidebar = Focus Sidebar
-whimsy-action-devmode-on = Turn On Developer Mode for This Site
-whimsy-action-devmode-off = Turn Off Developer Mode for This Site
+whimsy-action-devmode-on = Turn Developer Mode On for This Site
+whimsy-action-devmode-off = Turn Developer Mode Off for This Site
 whimsy-action-vpn-toggle = Turn VPN On or Off
 whimsy-action-allow-copy-toggle = Allow or Stop Allowing Copy and Paste
 whimsy-action-join-next-meeting = Join Next Meeting
@@ -1952,7 +1956,7 @@ whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 whimsy-tab-unread-description = { $count } unread
 
 # wave5/uxfix: keeping Scratch asks in the window's sheet (it can't be undone).
-whimsy-scratch-save-confirm-title = Save as a Space?
+whimsy-scratch-save-confirm-title = Save Scratch as a Space?
 whimsy-scratch-save-confirm-accept = Save Space
 
 
@@ -2216,7 +2220,7 @@ whimsy-menu-view-archive =
 whimsy-menu-clear-archive =
     .label = Clear Archive
 whimsy-archive-clear-title = Clear the Archive?
-whimsy-archive-clear-message = Every archived tab is removed for good, along with Reopen Closed Tab’s list. Your history stays.
+whimsy-archive-clear-message = Every archived tab is removed for good, along with Restore Last Closed Tab’s list. Your history stays.
 whimsy-archive-clear-button = Clear Archive
 whimsy-archive-cleared-toast = Archive cleared
 
@@ -2225,7 +2229,6 @@ whimsy-archive-cleared-toast = Archive cleared
 whimsy-action-add-split-view = Add Split View
 whimsy-action-close-split-pane = Close this Split Pane
 whimsy-action-separate-page = Separate Page from Split View
-whimsy-action-expand-split = Expand Current Split
 whimsy-action-focus-pane-1 = Focus First Split Pane
 whimsy-action-focus-pane-2 = Focus Second Split Pane
 whimsy-action-focus-pane-3 = Focus Third Split Pane
@@ -2458,9 +2461,9 @@ whimsy-action-space-switcher-hide = Hide Space Switcher
 whimsy-action-ui-zoom-in = Zoom Interface In
 whimsy-action-ui-zoom-out = Zoom Interface Out
 whimsy-action-ui-zoom-reset = Reset Interface Zoom
-whimsy-action-background-mute-toggle = Mute or Stop Muting Background Tabs
+whimsy-action-background-mute-toggle = Mute or Unmute Background Tabs
 whimsy-action-background-mute-on = Mute Background Tabs
-whimsy-action-background-mute-off = Stop Muting Background Tabs
+whimsy-action-background-mute-off = Unmute Background Tabs
 whimsy-action-bionic-toggle = Turn Bionic Reading On or Off
 whimsy-action-bionic-on = Turn Bionic Reading On
 whimsy-action-bionic-off = Turn Bionic Reading Off
@@ -2478,8 +2481,8 @@ whimsy-action-whats-new = What’s New
 ## it off or quit; macOS Focus already silences them on its own)
 
 whimsy-action-dnd-toggle = Turn Do Not Disturb On or Off
-whimsy-action-dnd-on = Turn On Do Not Disturb
-whimsy-action-dnd-off = Turn Off Do Not Disturb
+whimsy-action-dnd-on = Turn Do Not Disturb On
+whimsy-action-dnd-off = Turn Do Not Disturb Off
 whimsy-dnd-on-toast = Do Not Disturb on
 whimsy-dnd-on-toast-description = Site notifications are paused until you turn it off or quit
 whimsy-dnd-off-toast = Do Not Disturb off
@@ -2488,8 +2491,8 @@ whimsy-dnd-off-toast = Do Not Disturb off
 ## like a secret into a web page)
 
 whimsy-action-paste-guard-toggle = Turn Paste Guard On or Off
-whimsy-action-paste-guard-on = Turn On Paste Guard
-whimsy-action-paste-guard-off = Turn Off Paste Guard
+whimsy-action-paste-guard-on = Turn Paste Guard On
+whimsy-action-paste-guard-off = Turn Paste Guard Off
 whimsy-paste-guard-on-toast = Paste guard on
 whimsy-paste-guard-on-toast-description = Whimsy asks before you paste a key or card number into a page
 whimsy-paste-guard-off-toast = Paste guard off
@@ -2852,6 +2855,7 @@ whimsy-menus-space-edit-theme =
     .label = Edit Theme…
 whimsy-menus-space-look =
     .label = { -whimsy-edit-look }
+    .label = Edit Space Look…
 whimsy-menus-space-profile =
     .label = Set Profile
 whimsy-menus-space-new =
@@ -3194,3 +3198,192 @@ whimsy-year-off = Your Year in Tabs is turned off.
 whimsy-game-off = Balloon Dash is turned off.
 whimsy-email-aliases-field-button = Email alias
 whimsy-bionic-reader-button = Bionic reading
+## wave9/menus: W9-09 right-click ↔ command parity. Each tab, space, split,
+## page and selection menu action is also a command (command bar and
+## about:keyboard, no default shortcut).
+whimsy-action-rename-tab = Rename Tab
+whimsy-action-unload-tab = Unload Tab
+whimsy-action-archive-tabs-below = Archive Tabs Below
+whimsy-action-close-duplicate-tabs = Close Duplicate Tabs
+whimsy-action-close-other-tabs = Close Other Tabs
+whimsy-action-close-tabs-below = Close Tabs Below
+whimsy-action-select-all-tabs = Select All Tabs
+whimsy-action-mute-tab-toggle = Mute or Unmute Tab
+whimsy-action-mute-tab = Mute Tab
+whimsy-action-unmute-tab = Unmute Tab
+whimsy-action-add-site-to-routing = Add Site to Air Traffic Control
+whimsy-action-replace-pinned-url = Replace Pinned URL with Current
+whimsy-action-share-tab = Share Tab…
+whimsy-action-rename-space = Rename Space
+whimsy-action-change-space-icon = Change Space Icon…
+whimsy-action-unload-space = Unload Space
+whimsy-action-share-space = Share Space…
+whimsy-action-delete-space = Delete Space…
+whimsy-action-share-split = Share Split View…
+whimsy-action-change-split-icon = Change Split Icon…
+whimsy-action-rename-split = Rename Split
+whimsy-action-duplicate-split = Duplicate Split
+whimsy-action-mute-pane-toggle = Mute or Unmute Focused Pane
+whimsy-action-mute-pane = Mute Focused Pane
+whimsy-action-unmute-pane = Unmute Focused Pane
+# Firefox's own names for these page commands.
+whimsy-action-back = Back
+whimsy-action-forward = Forward
+whimsy-action-view-page-source = View Page Source
+whimsy-action-save-page = Save Page As…
+whimsy-action-bookmark-page = Bookmark Page…
+whimsy-action-inspect-accessibility = Inspect Accessibility Properties
+whimsy-action-copy-link-to-highlight = Copy Link to Highlight
+whimsy-action-print-selection = Print Selection…
+whimsy-highlight-copied-toast = Copied a link to the highlight
+whimsy-highlight-none-toast = Select some text on the page first
+whimsy-print-selection-none-toast = Select some text on the page first
+
+## wave9/menus: W9-09 commands as right-click menu items. Most are off until
+## turned on in Settings → Menus.
+whimsy-context-allow-copy =
+    .label = Allow Copy and Paste on This Site
+whimsy-context-disallow-copy =
+    .label = Stop Allowing Copy and Paste on This Site
+whimsy-context-wayback =
+    .label = Open in Wayback Machine
+whimsy-context-capture-portrait =
+    .label = Capture in Portrait Mode
+whimsy-context-capture-full-page =
+    .label = Capture Full Page
+whimsy-context-devmode-on =
+    .label = Turn Developer Mode On for This Site
+whimsy-context-devmode-off =
+    .label = Turn Developer Mode Off for This Site
+whimsy-context-tab-volume =
+    .label = Tab Volume…
+whimsy-context-playlist-save-tab =
+    .label = Save Video to Playlist
+whimsy-context-copy-link-markdown =
+    .label = Copy Link as Markdown
+whimsy-context-show-hidden-spaces =
+    .label = Show Hidden Spaces…
+whimsy-context-reset-space-tabs =
+    .label = Reset All Tabs in This Space
+whimsy-context-add-finder-folder =
+    .label = Add Finder Folder…
+whimsy-context-collapse-all-folders =
+    .label = Collapse All Folders
+whimsy-context-expand-all-folders =
+    .label = Expand All Folders
+whimsy-context-swap-panes =
+    .label = Swap Panes
+whimsy-context-favorite-split =
+    .label = Favorite This Split
+whimsy-context-copy-url-quote =
+    .label = Copy URL as Quote
+
+## wave9/menus: Settings → Menus rows for them.
+whimsy-menus-page-allow-copy =
+    .label = Allow Copy and Paste on This Site
+    .description = Only on pages that block copying
+whimsy-menus-page-wayback =
+    .label = Open in Wayback Machine
+whimsy-menus-page-capture-portrait =
+    .label = Capture in Portrait Mode
+whimsy-menus-page-capture-full-page =
+    .label = Capture Full Page
+whimsy-menus-page-dev-mode =
+    .label = Turn Developer Mode On or Off for This Site
+whimsy-menus-tab-tab-volume =
+    .label = Tab Volume…
+whimsy-menus-tab-playlist =
+    .label = Save Video to Playlist
+    .description = When the tab plays a video file
+whimsy-menus-tab-copy-markdown =
+    .label = Copy Link as Markdown
+whimsy-menus-tab-move-to-new-space =
+    .label = Move Tab ▸ New Space…
+whimsy-menus-space-show-hidden =
+    .label = Show Hidden Spaces…
+whimsy-menus-space-reset-tabs =
+    .label = Reset All Tabs in This Space
+whimsy-menus-sidebar-add-finder-folder =
+    .label = Add Finder Folder…
+whimsy-menus-sidebar-collapse-all-folders =
+    .label = Collapse All Folders
+whimsy-menus-sidebar-expand-all-folders =
+    .label = Expand All Folders
+whimsy-menus-folder-collapse-all =
+    .label = Collapse All Folders
+whimsy-menus-folder-expand-all =
+    .label = Expand All Folders
+whimsy-menus-split-swap-panes =
+    .label = Swap Panes
+whimsy-menus-split-row-favorite =
+    .label = Favorite This Split
+whimsy-menus-selection-copy-url-quote =
+    .label = Copy URL as Quote
+whimsy-menus-space-new-profile =
+    .label = Profile ▸ Create a New Profile…
+whimsy-menus-folder-live-resync =
+    .label = Live Options ▸ Resync
+    .description = On live folders
+whimsy-menus-media = Video and Audio
+whimsy-menus-media-description = Right-click a video or audio player on a page.
+whimsy-menus-media-play =
+    .label = Play / Pause
+whimsy-menus-media-mute =
+    .label = Mute / Unmute
+whimsy-menus-media-speed =
+    .label = Speed
+whimsy-menus-media-loop =
+    .label = Loop
+whimsy-menus-media-fullscreen =
+    .label = Full Screen
+whimsy-menus-media-controls =
+    .label = Show Controls / Hide Controls
+whimsy-menus-media-view =
+    .label = Open Video in New Tab
+whimsy-menus-media-pip =
+    .label = Watch in Picture-in-Picture
+whimsy-menus-media-playlist =
+    .label = Save to Playlist
+    .description = When the video or audio is a file Whimsy can save
+whimsy-menus-media-save-frame =
+    .label = Take Snapshot…
+whimsy-menus-media-save =
+    .label = Save Video As… / Save Audio As…
+whimsy-menus-media-copy-link =
+    .label = Copy Video Link / Copy Audio Link
+whimsy-menus-media-email =
+    .label = Email Video… / Email Audio…
+
+## wave9/menus (design-full-4 M12): Glance size as one assignable command.
+whimsy-action-glance-size-cycle = Change Glance Size
+
+## wave9/menus (design-full-4 M11): extra command-bar search words, comma-separated.
+whimsy-keywords-qrcode = QR Code, Create QR Code, Share QR Code, QR
+whimsy-keywords-create-note = New Note, Create Note, Note, Take Note
+whimsy-keywords-move-tab-next-space = Move Tab to Next Space, Move to Next Space, Send Tab to Next Space
+whimsy-keywords-move-tab-prev-space = Move Tab to Previous Space, Move to Previous Space, Send Tab to Previous Space
+whimsy-keywords-move-to-space = Move, Move to, Move tab, Move tab to, Move to Space
+
+## wave9/menus (design-full-4 M12): moving the tab to a space by its place,
+## like Switch to Space 1–9 (assignable, no default shortcut).
+whimsy-action-move-tab-to-space-1 = Move Tab to Space 1
+whimsy-action-move-tab-to-space-2 = Move Tab to Space 2
+whimsy-action-move-tab-to-space-3 = Move Tab to Space 3
+whimsy-action-move-tab-to-space-4 = Move Tab to Space 4
+whimsy-action-move-tab-to-space-5 = Move Tab to Space 5
+whimsy-action-move-tab-to-space-6 = Move Tab to Space 6
+whimsy-action-move-tab-to-space-7 = Move Tab to Space 7
+whimsy-action-move-tab-to-space-8 = Move Tab to Space 8
+whimsy-action-move-tab-to-space-9 = Move Tab to Space 9
+
+## wave9/menus (design-full-4 M6): the tab menu's close row on an Essential.
+whimsy-tab-context-delete-essential =
+    .label =
+        { $tabCount ->
+            [1] Delete Essential
+           *[other] Delete { $tabCount } Essentials
+        }
+
+## wave9/menus (design-full-4 L8): File menu.
+whimsy-menu-quick-window =
+    .label = New Mini Whimsy

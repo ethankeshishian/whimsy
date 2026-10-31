@@ -12,6 +12,15 @@ function action(l10nId) {
   return globalActions.find(a => a.l10nId == l10nId);
 }
 
+// A row runs its own function or the registered <command>.
+function run(row) {
+  if (typeof row.command == "function") {
+    row.command(window);
+  } else {
+    document.getElementById(row.command).doCommand();
+  }
+}
+
 add_task(async function test_registered_with_labels() {
   for (const id of [
     "whimsy-action-view-history",
@@ -36,12 +45,33 @@ add_task(async function test_glance_size() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.glance.size", "standard"]] });
   ok(!action("whimsy-action-glance-size-standard").isAvailable(window), "The current size isn't offered");
   ok(action("whimsy-action-glance-size-wide").isAvailable(window), "Other sizes are");
-  action("whimsy-action-glance-size-wide").command(window);
+  run(action("whimsy-action-glance-size-wide"));
   is(Services.prefs.getStringPref("whimsy.glance.size"), "wide", "The command sets the size");
 
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.glance-size", false]] });
   ok(!action("whimsy-action-glance-size-compact").isAvailable(window), "Switch off: no size commands");
   await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
+});
+
+// wave9/menus (design-full-4 M12): View History and Glance size can be given
+// a shortcut (about:keyboard lists them), and Change Glance Size cycles.
+add_task(async function test_assignable() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  for (const id of ["cmd_whimsyViewHistory", "cmd_whimsyGlanceSize"]) {
+    const entry = WhimsyCommands.get(id);
+    const keyEl = entry?.keyId && document.getElementById(entry.keyId);
+    ok(keyEl, `${id} has a <key> about:keyboard lists`);
+    ok(!keyEl?.hasAttribute("key") && !keyEl?.hasAttribute("keycode"), `${id} has no default shortcut`);
+  }
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.glance.size", "compact"]] });
+  const cmd = document.getElementById("cmd_whimsyGlanceSize");
+  cmd.doCommand();
+  is(Services.prefs.getStringPref("whimsy.glance.size"), "standard", "Compact → Standard");
+  cmd.doCommand();
+  is(Services.prefs.getStringPref("whimsy.glance.size"), "wide", "Standard → Wide");
+  cmd.doCommand();
+  is(Services.prefs.getStringPref("whimsy.glance.size"), "compact", "Wide → Compact");
   await SpecialPowers.popPrefEnv();
 });
 
@@ -73,10 +103,10 @@ add_task(async function test_view_history() {
     ok(action("whimsy-action-view-history").isAvailable(window), "Available without Zen's Library too");
     return;
   }
-  action("whimsy-action-view-history").command(window);
+  run(action("whimsy-action-view-history"));
   await TestUtils.waitForCondition(() => Library.isLibraryOpen, "The Library opens");
   is(Library.getInstance().activeTab, "history", "on History");
-  action("whimsy-action-view-history").command(window);
+  run(action("whimsy-action-view-history"));
   ok(Library.isLibraryOpen, "Running it again leaves History open");
   Library.toggle();
   await TestUtils.waitForCondition(() => !Library.isLibraryOpen, "Closed again");

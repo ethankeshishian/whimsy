@@ -261,6 +261,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 // wave7/menuprefs: Settings → Menus (which right-click menu rows show).
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMenuParity: "resource:///modules/whimsy/WhimsyMenuParity.sys.mjs",
   WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
 });
 
@@ -322,6 +323,9 @@ export const Whimsy = {
           // Shift+click a link -> Peek (W8-16), or a split with
           // whimsy.splitlink.shift-click on (batch6).
           click: { capture: true },
+          // wave9/menus: whether the right-clicked page blocks copying, for
+          // the page menu's Allow Copy and Paste row (W9-09).
+          contextmenu: { capture: true },
         },
       },
       allFrames: true,
@@ -840,6 +844,10 @@ export const Whimsy = {
     // last, so it sees every row the other listeners showed or added.
     run("archive-tab-menu", () => lazy.WhimsyArchiveMenu.initWindow(win));
     run("menu-icons", () => lazy.WhimsyMenuIcons.initWindow(win));
+    // wave9/menus: W9-09 right-click ↔ command parity: a command for each
+    // menu action, menu rows for commands, Share ▸ lists the share services.
+    // Its rows listen on their popups, so Settings → Menus still sees them.
+    run("menu-parity", () => lazy.WhimsyMenuParity.initWindow(win));
     // wave7/menuprefs: rows turned off in Settings → Menus. Keep this the
     // last menu listener: it hides rows after every other module has shown
     // or moved them. Always installed; checks its switch on every show.

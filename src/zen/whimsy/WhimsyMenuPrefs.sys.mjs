@@ -18,17 +18,48 @@
 // hidden item ids, comma-separated ("" = everything shows).
 //
 // At run time one window listener (bubbling, registered after every other
-// menu module's, so it sees each menu exactly as it is about to show) marks
-// hidden rows with an attribute whimsy-browser.css hides, then hides the
-// separators that would lead, trail or double up. When nothing is hidden it
-// changes nothing at all. A menu whose every row is off doesn't open.
+// menu module's, so it sees each menu exactly as it is about to show)
+// collapses hidden rows, then the separators that would lead, trail or
+// double up. When nothing is hidden it changes nothing at all. A menu whose
+// every row is off doesn't open.
+//
+// wave9/menus (design-full-4 H1): on macOS the right-click menus are native
+// NSMenus (widget.macos.native-context-menus), which read only a row's
+// `hidden` and `collapsed` attributes and ignore CSS. So a hidden row gets
+// collapsed="true" (Firefox's own menu code toggles `hidden`, never
+// `collapsed`, so the two never fight), plus a marker naming what Whimsy
+// did, so the next popupshowing clears only Whimsy's own collapses.
 
 const FEATURE_PREF = "whimsy.feature.menu-prefs";
 export const PREF_PREFIX = "whimsy.menus.hidden.";
 export const HIDDEN_ATTR = "whimsy-menu-pref-hidden";
+// Set beside HIDDEN_ATTR when Whimsy (not someone else) collapsed the row.
+export const COLLAPSED_ATTR = "whimsy-menu-pref-collapsed";
 
 const SEPARATOR = "-";
 const installed = new WeakSet();
+
+// wave9/menus: rows that start off (the user's W9-09/W9-10 answers: "most
+// of what I suggested should not be on by default"; containers are picked
+// through spaces). prefs/whimsy/whimsy.yaml holds the same lists as the
+// defaults of whimsy.menus.hidden.*; someone who had already changed a menu
+// gets them added once (DEFAULTS_VERSION), so a new row never just appears.
+const DEFAULTS_VERSION_PREF = "whimsy.menus.defaults-version";
+const DEFAULTS_VERSION = 1;
+export const ADDED_HIDDEN = {
+  1: {
+    tab: ["tab-volume", "playlist", "copy-markdown", "reopen-in-container"],
+    essential: ["tab-volume", "playlist", "copy-markdown", "reopen-in-container"],
+    link: ["open-in-container"],
+    page: ["capture-full-page", "capture-portrait", "wayback", "dev-mode"],
+    selection: ["copy-url-quote"],
+    space: ["reset-tabs", "show-hidden"],
+    sidebar: ["add-finder-folder", "collapse-all-folders", "expand-all-folders"],
+    folder: ["collapse-all", "expand-all"],
+    "split-row": ["swap-panes", "favorite"],
+    "split-pane": ["swap-panes"],
+  },
+};
 
 // One row of a menu: `id` is the stable key stored in the pref; `ids` the
 // DOM ids it stands for (a row with a selected-tabs twin, or one whose
@@ -57,8 +88,12 @@ function contentContext(win) {
   if (c.onLink) {
     return "link";
   }
-  if (c.onTextInput || c.onVideo || c.onAudio) {
+  if (c.onTextInput) {
     return null;
+  }
+  // wave9/menus (design-full-4 L10): a video or audio element's own menu.
+  if (c.onVideo || c.onAudio) {
+    return "media";
   }
   if (c.isContentSelected) {
     return "selection";
@@ -83,6 +118,9 @@ const TAB_ITEMS = [
   item("play", "whimsy-menus-tab-play", ["context_playTab", "context_playSelectedTabs"]),
   item("mute", "whimsy-menus-tab-mute", ["context_toggleMuteTab", "context_toggleMuteSelectedTabs"]),
   item("mute-site", "whimsy-menus-tab-mute-site", ["context_whimsyMuteSite"]),
+  // wave9/menus (W9-09): off by default.
+  item("tab-volume", "whimsy-menus-tab-tab-volume", ["context_whimsyTabVolume"]),
+  item("playlist", "whimsy-menus-tab-playlist", ["context_whimsyPlaylistSave"]),
   item("snooze", "whimsy-menus-tab-snooze", ["context_whimsySnooze"]),
   SEPARATOR,
   item("essentials", "whimsy-menus-tab-essentials", ["context_zen-add-essential", "context_zen-remove-essential"]),
@@ -98,15 +136,21 @@ const TAB_ITEMS = [
   item("unload", "whimsy-menus-tab-unload", ["context_unloadTab"]),
   item("duplicate", "whimsy-menus-tab-duplicate", ["context_duplicateTab", "context_duplicateTabs"]),
   item("copy-links", "whimsy-menus-tab-copy-links", ["context_whimsyCopyLinks"]),
+  // wave9/menus (W9-09): off by default.
+  item("copy-markdown", "whimsy-menus-tab-copy-markdown", ["context_whimsyCopyLinkMarkdown"]),
   SEPARATOR,
   item("ask-chat", "whimsy-menus-tab-ask-chat", ["context_askChat", "context_askChatSummarize", "context_createAITab"]),
   item("bookmark", "whimsy-menus-tab-bookmark", ["context_bookmarkTab", "context_bookmarkSelectedTabs"]),
   item("watch", "whimsy-menus-tab-watch", ["context_whimsyWatchPage"]),
   item("move-tab", "whimsy-menus-tab-move-tab", ["context_moveTabOptions"]),
+  // wave9/menus: in the Move Tab submenu, first (design-full-4 L10, W9-09).
+  item("move-to-new-space", "whimsy-menus-tab-move-to-new-space", ["context_whimsyMoveToNewSpace"]),
   item("reopen-in-container", "whimsy-menus-tab-reopen-in-container", ["context_reopenInContainer"]),
   item("select-all", "whimsy-menus-tab-select-all", ["context_selectAllTabs"]),
   SEPARATOR,
-  item("share", "whimsy-menus-tab-share", ["context_shareSelectedTabs"]),
+  // wave9/menus: Firefox's Share ▸ submenu (with the macOS services,
+  // WhimsyShareMenu) and its content-sharing row for several tabs.
+  bySelector("share", "whimsy-menus-tab-share", ["#context_shareSelectedTabs", ".share-tab-url-item"]),
   item("send-to-device", "whimsy-menus-tab-send-to-device", ["context_sendTabToDevice"]),
   SEPARATOR,
   item("close", "whimsy-menus-tab-close", ["context_closeTab"]),
@@ -129,14 +173,14 @@ const MENUS = [
   {
     id: "tab",
     l10n: "whimsy-menus-tab",
-    popup: "#tabContextMenu",
+    popup: "#tabContextMenu, #moveTabOptionsMenu",
     when: win => !contextTabIsEssential(win),
     items: TAB_ITEMS,
   },
   {
     id: "essential",
     l10n: "whimsy-menus-essential",
-    popup: "#tabContextMenu",
+    popup: "#tabContextMenu, #moveTabOptionsMenu",
     when: contextTabIsEssential,
     items: TAB_ITEMS,
   },
@@ -163,6 +207,8 @@ const MENUS = [
       item("copy-email", "whimsy-menus-link-copy-email", ["context-copyemail", "context-copyphone"]),
       item("copy", "whimsy-menus-link-copy", ["context-copylink"]),
       item("copy-clean", "whimsy-menus-link-copy-clean", ["context-stripOnShareLink"]),
+      // wave9/menus (design-full-4 L10): on a link to a video or audio file.
+      item("playlist", "whimsy-menus-media-playlist", ["context-whimsy-save-playlist"]),
       SEPARATOR,
       item("send-to-device", "whimsy-menus-link-send-to-device", ["context-sendlinktodevice"]),
       SEPARATOR,
@@ -185,12 +231,19 @@ const MENUS = [
       item("copy-markdown", "whimsy-menus-page-copy-markdown", ["context-whimsy-copy-markdown"]),
       item("new-note", "whimsy-menus-page-new-note", ["context-whimsy-new-note"]),
       item("select-all", "whimsy-menus-select-all", ["context-selectall"]),
+      // wave9/menus (W9-09): shows only on pages that block copying.
+      item("allow-copy", "whimsy-menus-page-allow-copy", ["context-whimsy-allow-copy"]),
       SEPARATOR,
       item("screenshot", "whimsy-menus-page-screenshot", ["context-take-screenshot"]),
+      // wave9/menus (W9-09): off by default.
+      item("capture-full-page", "whimsy-menus-page-capture-full-page", ["context-whimsy-capture-full-page"]),
+      item("capture-portrait", "whimsy-menus-page-capture-portrait", ["context-whimsy-capture-portrait"]),
       item("edit-text", "whimsy-menus-page-edit-text", ["context-whimsy-edit-page"]),
       SEPARATOR,
       item("send-to-device", "whimsy-menus-page-send-to-device", ["context-sendpagetodevice"]),
+      item("wayback", "whimsy-menus-page-wayback", ["context-whimsy-wayback"]),
       item("view-source", "whimsy-menus-page-view-source", ["context-viewsource"]),
+      item("dev-mode", "whimsy-menus-page-dev-mode", ["context-whimsy-dev-mode"]),
       item("inspect-a11y", "whimsy-menus-inspect-a11y", ["context-inspect-a11y"]),
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
     ],
@@ -207,6 +260,8 @@ const MENUS = [
       SEPARATOR,
       item("copy", "whimsy-menus-selection-copy", ["context-copy"]),
       item("copy-markdown", "whimsy-menus-selection-copy-markdown", ["context-whimsy-copy-markdown"]),
+      // wave9/menus (W9-09): off by default.
+      item("copy-url-quote", "whimsy-menus-selection-copy-url-quote", ["context-whimsy-copy-url-quote"]),
       item("map", "whimsy-menus-selection-map", ["context-whimsy-verb-map"]),
       item("email", "whimsy-menus-selection-email", ["context-whimsy-verb-email"]),
       item("note", "whimsy-menus-selection-note", ["context-whimsy-verb-note"]),
@@ -248,9 +303,36 @@ const MENUS = [
     ],
   },
   {
+    // wave9/menus (design-full-4 L10): a video's or audio's own menu.
+    id: "media",
+    l10n: "whimsy-menus-media",
+    popup: "#contentAreaContextMenu",
+    when: win => contentContext(win) == "media",
+    items: [
+      item("play", "whimsy-menus-media-play", ["context-media-play", "context-media-pause"]),
+      item("mute", "whimsy-menus-media-mute", ["context-media-mute", "context-media-unmute"]),
+      item("speed", "whimsy-menus-media-speed", ["context-media-playbackrate"]),
+      item("loop", "whimsy-menus-media-loop", ["context-media-loop"]),
+      item("fullscreen", "whimsy-menus-media-fullscreen", ["context-video-fullscreen"]),
+      item("controls", "whimsy-menus-media-controls", ["context-media-hidecontrols", "context-media-showcontrols"]),
+      SEPARATOR,
+      item("view", "whimsy-menus-media-view", ["context-viewvideo"]),
+      item("pip", "whimsy-menus-media-pip", ["context-video-pictureinpicture"]),
+      item("playlist", "whimsy-menus-media-playlist", ["context-whimsy-save-playlist"]),
+      SEPARATOR,
+      item("save-frame", "whimsy-menus-media-save-frame", ["context-video-saveimage"]),
+      item("save", "whimsy-menus-media-save", ["context-savevideo", "context-saveaudio"]),
+      item("copy-link", "whimsy-menus-media-copy-link", ["context-copyvideourl", "context-copyaudiourl"]),
+      item("email", "whimsy-menus-media-email", ["context-sendvideo", "context-sendaudio"]),
+      SEPARATOR,
+      item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+    ],
+  },
+  {
     id: "space",
     l10n: "whimsy-menus-space",
-    popup: "#zenWorkspaceMoreActions",
+    // wave9/menus: and its Profile ▸ submenu.
+    popup: "#zenWorkspaceMoreActions, #context_zenWorkspacesOpenInContainerTab > menupopup",
     // In WhimsySpaceMenu's order.
     items: [
       item("rename", "whimsy-menus-space-rename", ["context_zenEditWorkspace"]),
@@ -258,6 +340,8 @@ const MENUS = [
       item("edit-theme", "whimsy-menus-space-edit-theme", ["context_zenChangeWorkspaceTheme"]),
       item("look", "whimsy-menus-space-look", ["whimsy-space-look-menuitem"]),
       item("profile", "whimsy-menus-space-profile", ["context_zenWorkspacesOpenInContainerTab"]),
+      // wave9/menus (design-full-4 L10): Profile ▸ Create a New Profile….
+      bySelector("new-profile", "whimsy-menus-space-new-profile", ["[data-whimsy-create-profile]"]),
       SEPARATOR,
       bySelector("new-space", "whimsy-menus-space-new", [
         '#zenWorkspaceMoreActions > menuitem[command="cmd_zenOpenWorkspaceCreation"]',
@@ -267,10 +351,13 @@ const MENUS = [
       SEPARATOR,
       item("unload", "whimsy-menus-space-unload", ["context_zenUnloadWorkspace"]),
       item("unload-others", "whimsy-menus-space-unload-others", ["context_zenUnloadAllOtherWorkspace"]),
+      // wave9/menus (W9-09): off by default.
+      item("reset-tabs", "whimsy-menus-space-reset-tabs", ["whimsy-reset-space-tabs-menuitem"]),
       item("share", "whimsy-menus-space-share", ["context_zenShareWorkspace"]),
       SEPARATOR,
       item("lock", "whimsy-menus-space-lock", ["whimsy-lock-space-menuitem"]),
       item("hide", "whimsy-menus-space-hide", ["whimsy-hide-space-menuitem"]),
+      item("show-hidden", "whimsy-menus-space-show-hidden", ["whimsy-show-hidden-spaces-menuitem"]),
       SEPARATOR,
       item("delete", "whimsy-menus-space-delete", ["context_zenDeleteWorkspace"]),
       SEPARATOR,
@@ -302,12 +389,17 @@ const MENUS = [
       bySelector("live-local-servers", "whimsy-menus-sidebar-live-local-servers", [
         ".whimsy-live-folder-local-servers-create",
       ]),
+      SEPARATOR,
+      // wave9/menus (W9-09): off by default.
+      item("add-finder-folder", "whimsy-menus-sidebar-add-finder-folder", ["whimsy-sidebar-add-finder-folder"]),
+      item("collapse-all-folders", "whimsy-menus-sidebar-collapse-all-folders", ["whimsy-sidebar-collapse-all-folders"]),
+      item("expand-all-folders", "whimsy-menus-sidebar-expand-all-folders", ["whimsy-sidebar-expand-all-folders"]),
     ],
   },
   {
     id: "folder",
     l10n: "whimsy-menus-folder",
-    popup: "#zenFolderActions",
+    popup: "#zenFolderActions, #context_zenLiveFolderOptions > menupopup",
     items: [
       item("live-options", "whimsy-menus-folder-live-options", ["context_zenLiveFolderOptions"]),
       SEPARATOR,
@@ -317,6 +409,11 @@ const MENUS = [
       SEPARATOR,
       item("unload", "whimsy-menus-folder-unload", ["context_zenFolderUnloadAll"]),
       item("new-subfolder", "whimsy-menus-folder-new-subfolder", ["context_zenFolderNewSubfolder"]),
+      // wave9/menus (W9-09): off by default.
+      item("collapse-all", "whimsy-menus-folder-collapse-all", ["whimsy-folder-collapse-all-folders"]),
+      item("expand-all", "whimsy-menus-folder-expand-all", ["whimsy-folder-expand-all-folders"]),
+      // wave9/menus (design-full-4 L10): a live folder's Live Options ▸ Resync.
+      bySelector("live-resync", "whimsy-menus-folder-live-resync", ['menuitem[option-key="whimsyResync"]']),
       SEPARATOR,
       item("move-to-space", "whimsy-menus-folder-move-to-space", ["context_zenChangeFolderSpace"]),
       item("convert-to-space", "whimsy-menus-folder-convert-to-space", ["context_zenFolderToSpace"]),
@@ -338,6 +435,8 @@ const MENUS = [
       item("separate-all", "whimsy-menus-split-row-separate-all", ["whimsySplitRow-separateAll"]),
       item("add-tab", "whimsy-menus-split-row-add-tab", ["whimsySplitRow-addTab"]),
       item("convert", "whimsy-menus-split-row-convert", ["whimsySplitRow-convert"]),
+      // wave9/menus (W9-09): off by default.
+      item("swap-panes", "whimsy-menus-split-swap-panes", ["whimsySplitRow-swapPanes"]),
       SEPARATOR,
       bySelector("tab-options", "whimsy-menus-split-row-tab-options", [
         "#whimsySplitRow-tabOptions",
@@ -348,6 +447,7 @@ const MENUS = [
       item("rename", "whimsy-menus-split-row-rename", ["whimsySplitRow-rename"]),
       SEPARATOR,
       item("duplicate", "whimsy-menus-split-row-duplicate", ["whimsySplitRow-duplicate"]),
+      item("favorite", "whimsy-menus-split-row-favorite", ["whimsySplitRow-favorite"]),
       item("move-to", "whimsy-menus-split-row-move-to", ["whimsySplitRow-moveTo"]),
       SEPARATOR,
       item("archive", "whimsy-menus-split-archive", ["whimsySplitRow-archive"]),
@@ -363,6 +463,8 @@ const MENUS = [
     pref: "whimsy.feature.split-pane-menu",
     items: [
       bySelector("separate", "whimsy-menus-split-pane-separate", ['[data-whimsy-pane-action="separate"]']),
+      // wave9/menus (W9-09): off by default.
+      item("swap-panes", "whimsy-menus-split-swap-panes", ["whimsySplitPane-swapPanes"]),
       SEPARATOR,
       bySelector("share", "whimsy-menus-split-pane-share", ['[data-whimsy-pane-action="share"]']),
       bySelector("mute", "whimsy-menus-split-pane-mute", ['[data-whimsy-pane-action="mute"]']),
@@ -464,6 +566,43 @@ export const WhimsyMenuPrefs = {
     } else {
       ids.delete(itemId);
     }
+    this.writeHidden(menuId, ids);
+  },
+
+  // The ids hidden by default (the pref's default value).
+  defaultHiddenIds(menuId) {
+    const value = Services.prefs.getDefaultBranch("").getStringPref(this.prefName(menuId), "");
+    return new Set(
+      value
+        .split(",")
+        .map(id => id.trim())
+        .filter(Boolean)
+    );
+  },
+
+  // wave9/menus: once, a menu someone already changed also hides the rows
+  // added since, off by default. Untouched menus follow the defaults anyway.
+  migrateDefaults() {
+    const from = Services.prefs.getIntPref(DEFAULTS_VERSION_PREF, 0);
+    if (from >= DEFAULTS_VERSION) {
+      return;
+    }
+    for (let version = from + 1; version <= DEFAULTS_VERSION; version++) {
+      for (const [menuId, added] of Object.entries(ADDED_HIDDEN[version] ?? {})) {
+        if (!Services.prefs.prefHasUserValue(this.prefName(menuId))) {
+          continue;
+        }
+        const ids = this.hiddenIds(menuId);
+        for (const id of added) {
+          ids.add(id);
+        }
+        this.writeHidden(menuId, ids);
+      }
+    }
+    Services.prefs.setIntPref(DEFAULTS_VERSION_PREF, DEFAULTS_VERSION);
+  },
+
+  writeHidden(menuId, ids) {
     const order = this.items(menuId).map(entry => entry.id);
     const sorted = [...ids].sort((a, b) => {
       const ia = order.indexOf(a);
@@ -472,16 +611,16 @@ export const WhimsyMenuPrefs = {
     });
     const name = this.prefName(menuId);
     const value = sorted.join(",");
-    if (value == Services.prefs.getDefaultBranch("").getStringPref(name, "")) {
+    const defaults = this.defaultHiddenIds(menuId);
+    if (defaults.size == ids.size && [...ids].every(id => defaults.has(id))) {
       Services.prefs.clearUserPref(name);
     } else {
       Services.prefs.setStringPref(name, value);
     }
   },
 
-  // Restore Defaults: back to the pref's default. Today that is every
-  // item shown (the user picks the defaults later, in
-  // prefs/whimsy/whimsy.yaml).
+  // Restore Defaults: back to the pref's default (prefs/whimsy/whimsy.yaml):
+  // every item shown except the ones that start off (ADDED_HIDDEN).
   restoreDefaults(menuId) {
     Services.prefs.clearUserPref(this.prefName(menuId));
   },
@@ -507,6 +646,11 @@ export const WhimsyMenuPrefs = {
       return;
     }
     installed.add(win);
+    try {
+      this.migrateDefaults();
+    } catch (e) {
+      console.error("Whimsy: menu defaults", e);
+    }
     const onShowing = event => {
       try {
         this.onPopupShowing(win, event);
@@ -529,9 +673,7 @@ export const WhimsyMenuPrefs = {
     }
     // Last time's marks go first: this menu may now be a different one
     // (an Essential's after a tab's, a link's after the page's).
-    for (const node of popup.querySelectorAll(`:scope > [${HIDDEN_ATTR}]`)) {
-      node.removeAttribute(HIDDEN_ATTR);
-    }
+    this.clearMarks(popup);
     if (!this.enabled) {
       return;
     }
@@ -566,7 +708,7 @@ export const WhimsyMenuPrefs = {
       if (this.visible(win, node)) {
         changed = true;
       }
-      node.setAttribute(HIDDEN_ATTR, "true");
+      this.hideRow(node);
     }
     if (changed) {
       this.collapseSeparators(win, popup);
@@ -591,7 +733,7 @@ export const WhimsyMenuPrefs = {
       }
       if (isSeparator(node)) {
         if (afterSeparator) {
-          node.setAttribute(HIDDEN_ATTR, "true");
+          this.hideRow(node);
         } else {
           afterSeparator = true;
           trailing = node;
@@ -601,7 +743,30 @@ export const WhimsyMenuPrefs = {
         trailing = null;
       }
     }
-    trailing?.setAttribute(HIDDEN_ATTR, "true");
+    if (trailing) {
+      this.hideRow(trailing);
+    }
+  },
+
+  // Hides a row the way a native menu sees: collapsed="true". A row that
+  // was already collapsed by someone else stays theirs to clear.
+  hideRow(node) {
+    if (!node.hasAttribute(HIDDEN_ATTR) && node.getAttribute("collapsed") != "true") {
+      node.setAttribute(COLLAPSED_ATTR, "true");
+      node.setAttribute("collapsed", "true");
+    }
+    node.setAttribute(HIDDEN_ATTR, "true");
+  },
+
+  // Undoes last time's hideRow on every row of `popup`.
+  clearMarks(popup) {
+    for (const node of popup.querySelectorAll(`:scope > [${HIDDEN_ATTR}], :scope > [${COLLAPSED_ATTR}]`)) {
+      if (node.hasAttribute(COLLAPSED_ATTR)) {
+        node.removeAttribute(COLLAPSED_ATTR);
+        node.removeAttribute("collapsed");
+      }
+      node.removeAttribute(HIDDEN_ATTR);
+    }
   },
 
   hasVisibleItem(win, popup) {

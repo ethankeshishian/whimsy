@@ -108,8 +108,8 @@ export const WhimsyArcMenus = {
 
   // Arc's Tabs → Reset all tabs in this Space: Zen's per-tab "Reset Pinned
   // Tab", for every pinned tab (not Essentials) of the current space.
-  resetSpaceTabs(win) {
-    const space = win.gZenWorkspaces?.activeWorkspace;
+  // wave9/menus: `space` is the space menu's space when it isn't the current one.
+  resetSpaceTabs(win, space = win.gZenWorkspaces?.activeWorkspace) {
     const tabs = win.gBrowser.tabs.filter(
       tab =>
         tab.pinned &&
@@ -199,6 +199,14 @@ export const WhimsyArcMenus = {
   },
 
   initFile(document) {
+    // wave9/menus (design-full-4 L8): Arc's File ▸ New Little Arc Window
+    // (⌥⌘N) is Mini Whimsy, right after New Window.
+    const newWindow = document.getElementById("menu_newNavigator");
+    if (newWindow && !document.getElementById("menu_whimsyQuickWindow") && Services.prefs.getBoolPref("whimsy.feature.quick-window", true)) {
+      newWindow.after(
+        menuitem(document, "menu_whimsyQuickWindow", "whimsy-menu-quick-window", "cmd_whimsyQuickWindow", "key_whimsyQuickWindow")
+      );
+    }
     const blank = document.getElementById("menu_new_zen_unsynced_window");
     if (blank && blank.getAttribute("data-l10n-id") != "whimsy-menu-blank-window") {
       blank.setAttribute("data-l10n-id", "whimsy-menu-blank-window");

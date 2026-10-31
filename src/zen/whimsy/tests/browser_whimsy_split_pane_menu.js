@@ -64,8 +64,9 @@ async function closePaneMenu() {
 }
 
 function describe(popup) {
+  // collapsed: a row Settings → Menus turns off (wave9/menus: some start off).
   return [...popup.children]
-    .filter(el => !el.hidden)
+    .filter(el => !el.hidden && el.getAttribute("collapsed") != "true")
     .map(el => (el.localName == "menuseparator" ? "-" : document.l10n.getAttributes(el).id));
 }
 

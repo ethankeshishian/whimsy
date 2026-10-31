@@ -366,12 +366,17 @@ export const WhimsyAccessCommands = {
       }
     };
 
+    // wave9/menus (design-full-4 L7): tree tabs stay off (strict Arc), so
+    // the command is listed (command bar, about:keyboard) only in a window
+    // that starts with them on. Otherwise it's internal: the <command> works,
+    // nothing lists it.
+    const treeListed = lazy.WhimsyTreeTabs.enabled;
     register({
       id: "cmd_whimsyTreeToggleBranch",
-      l10nId: "whimsy-action-tree-toggle",
+      l10nId: treeListed ? "whimsy-action-tree-toggle" : undefined,
       run: w => this.toggleBranch(w),
       icon: ICONS.tree,
-      variants: [
+      variants: !treeListed ? [] : [
         {
           l10nId: "whimsy-action-tree-collapse",
           isAvailable: w => !!this.branchTab(w) && !this.branchTab(w).hasAttribute("whimsy-tree-collapsed"),

@@ -75,6 +75,14 @@ export class WhimsyPageParent extends JSWindowActorParent {
         }
         return null;
       }
+      // wave9/menus: read by the page menu's Allow Copy and Paste row.
+      case "Whimsy:CopyBlocked": {
+        const browser = this.browsingContext.top.embedderElement;
+        if (browser) {
+          browser._whimsyCopyBlocked = !!message.data?.blocked;
+        }
+        return null;
+      }
       case "Whimsy:ZapExit": {
         const browser = this.browsingContext.top.embedderElement;
         const win = browser?.ownerDocument?.defaultView;

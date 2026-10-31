@@ -25,8 +25,9 @@ registerCleanupFunction(() => {
 
 const NEW_SPACE = ':scope > menuitem[command="cmd_zenOpenWorkspaceCreation"]';
 
+// collapsed: a row Settings → Menus turns off (wave9/menus: some start off).
 function visible(node) {
-  return !node.hidden && node.getAttribute("hidden") != "true";
+  return !node.hidden && node.getAttribute("hidden") != "true" && node.getAttribute("collapsed") != "true";
 }
 
 // The menu as it shows: visible rows, each separator as "|".
@@ -169,7 +170,9 @@ add_task(async function test_no_volume_row() {
   const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
   EventUtils.synthesizeMouseAtCenter(tab, { type: "contextmenu", button: 2 });
   await shown;
-  ok(!document.getElementById("context_whimsyTabVolume"), "The tab menu has no Volume… row");
+  // wave9/menus (W9-09): a row exists for Settings → Menus, off by default.
+  const row = document.getElementById("context_whimsyTabVolume");
+  ok(!row || row.hidden || row.getAttribute("collapsed") == "true", "The tab menu shows no Volume… row by default");
   await closeMenu(menu);
   const entry = WhimsyCommands.get("cmd_whimsyTabVolume");
   ok(entry?.l10nId, "Tab Volume… stays a command (command bar, about:keyboard)");

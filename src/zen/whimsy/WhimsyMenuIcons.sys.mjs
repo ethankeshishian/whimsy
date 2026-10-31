@@ -185,7 +185,8 @@ const ICONS = {
 
   // --- Selection and editing ---
   "context-undo": ZEN("arrow-rotate-anticlockwise"),
-  "context-redo": ZEN("reload"),
+  // wave9/menus (design-full-4 N1): Undo's arrow, mirrored (not Reload's).
+  "context-redo": "chrome://browser/content/whimsy/whimsy-redo.svg",
   "context-cut": ZEN("edit-cut"),
   "context-copy": ZEN("edit-copy"),
   "context-paste": ZEN("edit-paste"),
@@ -232,6 +233,9 @@ export function hasIcon(node) {
   }
   return node.hasAttribute(ICON_ATTR) || node.hasAttribute("image");
 }
+
+// For tests (wave9/menus).
+export { ICONS as MENU_ICONS };
 
 export const WhimsyMenuIcons = {
   get enabled() {

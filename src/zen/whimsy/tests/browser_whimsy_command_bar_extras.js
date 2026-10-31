@@ -13,12 +13,12 @@ function action(l10nId) {
   return globalActions.find(a => a.l10nId == l10nId);
 }
 
-async function typeInUrlbar(text) {
+async function typeInUrlbar(text, inputType = "insertText") {
   gURLBar.blur();
   await EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, {});
   await TestUtils.waitForCondition(() => gURLBar.hasAttribute("breakout-extend"), "URL bar expanded");
   gURLBar.value = text;
-  gURLBar.inputField.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+  gURLBar.inputField.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, inputType, data: text }));
 }
 
 registerCleanupFunction(() => {
@@ -36,14 +36,17 @@ add_task(async function test_slash_enters_commands_mode_empty() {
   is(gURLBar.value, "", "The slash itself is cleared");
 });
 
-add_task(async function test_slash_with_query_keeps_it() {
+// wave9/menus (design-full-4 M7): only "/" typed into an empty bar. A pasted
+// path (Firefox opens /Users/... as a file) or a typed one stays an address.
+add_task(async function test_pasted_path_stays_an_address() {
   gURLBar.searchMode = null;
-  await typeInUrlbar("/foo");
-  await TestUtils.waitForCondition(
-    () => gURLBar.searchMode?.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS,
-    "Still commands mode"
-  );
-  is(gURLBar.value, "foo", "The rest of the typed text is kept as the query");
+  await typeInUrlbar("/Users/me/report.pdf", "insertFromPaste");
+  is(gURLBar.searchMode, null, "A pasted path doesn't enter commands mode");
+  is(gURLBar.value, "/Users/me/report.pdf", "…and is left alone");
+  gURLBar.searchMode = null;
+  await typeInUrlbar("/r/firefox", "insertText");
+  is(gURLBar.searchMode, null, "Nor does a longer typed value starting with /");
+  is(gURLBar.value, "/r/firefox", "…left alone");
 });
 
 add_task(async function test_switch_off_restores_literal_slash() {

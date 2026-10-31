@@ -82,6 +82,7 @@
 # wave5: redact toggle in the Screenshots panel
         content/browser/whimsy/whimsy-redact.css                                 (../../zen/whimsy/content/whimsy-redact.css)
         content/browser/whimsy/whimsy-redact.svg                                 (../../zen/whimsy/content/whimsy-redact.svg)
+        content/browser/whimsy/whimsy-redo.svg                                   (../../zen/whimsy/content/whimsy-redo.svg)
         content/browser/whimsy/whimsy-profiles-process.js                       (../../zen/whimsy/content/whimsy-profiles-process.js)
 # wave6/zap: Link hints badges (drawn in page anonymous content)
         content/browser/whimsy/whimsy-link-hints.css                             (../../zen/whimsy/content/whimsy-link-hints.css)
