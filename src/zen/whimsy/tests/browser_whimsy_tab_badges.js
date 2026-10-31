@@ -166,10 +166,11 @@ add_task(async function test_badge_contrast_single_disc_and_description() {
 
 // batch8: W8-06: Tab badges dot exclusion and Gmail count persistence
 add_task(async function test_tab_badges_gmail_persistence() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://mail.google.com/mail/u/0/#inbox");
+  const { WhimsyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?gmail#inbox"); // Gmail by its titles (tests stay offline)
   gBrowser.pinTab(tab);
 
-  await setTitle(tab, "Inbox (5) - test@gmail.com");
+  await setTitle(tab, "Inbox (5) - test@gmail.com - Gmail");
   await TestUtils.waitForCondition(() => stack(tab).getAttribute("whimsy-unread") == "5", "Inbox badge shows 5");
 
   // Opening an email thread: title has subject and Gmail but no count
@@ -178,7 +179,7 @@ add_task(async function test_tab_badges_gmail_persistence() {
   is(stack(tab).getAttribute("whimsy-unread"), "5", "Count persists when opening an email");
 
   // Returning to Inbox with 0 unread
-  await setTitle(tab, "Inbox - test@gmail.com");
+  await setTitle(tab, "Inbox - test@gmail.com - Gmail");
   WhimsyTabs.updateBadge(tab);
   is(stack(tab).getAttribute("whimsy-unread"), null, "Count cleared when in Inbox with 0 unread");
 

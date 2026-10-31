@@ -377,7 +377,7 @@ add_task(async function test_selection_verbs_context_menu() {
 
   // Context menu items creation and update
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
-  await select(tab.linkedBrowser, "address");
+  await select(tab.linkedBrowser, "place");
 
   const originalGContextMenu = window.gContextMenu;
   window.gContextMenu = {
