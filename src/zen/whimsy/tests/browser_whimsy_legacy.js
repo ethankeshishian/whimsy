@@ -198,10 +198,11 @@ add_task(async function test_privacy_tab() {
 
 // wave8: README rebranded to Whimsy with credits preserved.
 add_task(async function test_readme_rebranded_to_whimsy() {
-  let dir = Services.dirsvc.get("CurWorkD", Ci.nsIFile).path;
+  // The repository root (beside surfer.json): up from the app in the objdir
+  // (engine/obj-*/dist/Whimsy.app/Contents/MacOS/...).
+  let dir = Services.dirsvc.get("XREExeF", Ci.nsIFile).parent.path;
   let readmePath = null;
-  for (let i = 0; i < 5; i++) {
-    // The repository root (beside surfer.json), not the engine's own README.
+  for (let i = 0; i < 10 && dir; i++) {
     const candidate = PathUtils.join(dir, "README.md");
     if (await IOUtils.exists(candidate) && await IOUtils.exists(PathUtils.join(dir, "surfer.json"))) {
       readmePath = candidate;

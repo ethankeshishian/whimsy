@@ -424,3 +424,16 @@ export function presetMatches(key, text) {
   }
   return words.every(word => PRESET_WORDS[key].some(k => k.startsWith(word)));
 }
+
+// The module as one object, for lazy getters (defineESModuleGetters
+// resolves a name the module exports): lazy.WhimsySnoozeTime.whenArgs(...).
+export const WhimsySnoozeTime = {
+  PRESET_KEYS,
+  PRESET_WORDS,
+  resolvePreset,
+  resolvePresets,
+  parse,
+  whenArgs,
+  relative,
+  presetMatches,
+};

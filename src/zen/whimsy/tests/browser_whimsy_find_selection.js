@@ -33,6 +33,12 @@ add_task(async function test_prefill() {
   // No selection: it opens, and the field doesn't get page text.
   await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.getSelection().removeAllRanges());
   findBar._findField.value = "";
+  // The search above went to macOS's find pasteboard (as any search does),
+  // which a new find bar shows; clear it so only page text could fill it.
+  if (Services.clipboard.isClipboardTypeSupported(Ci.nsIClipboard.kFindClipboard)) {
+    Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper)
+      .copyStringToClipboard("", Ci.nsIClipboard.kFindClipboard);
+  }
   tab.linkedBrowser.focus();
   EventUtils.synthesizeKey("f", { accelKey: true });
   await TestUtils.waitForCondition(() => !findBar.hidden, "opens without a selection");

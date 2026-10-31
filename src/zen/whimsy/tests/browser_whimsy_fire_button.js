@@ -226,8 +226,11 @@ add_task(async function test_burn_profile_is_per_profile() {
   const elsewhere = await gZenWorkspaces.createAndSaveWorkspace("Fire Elsewhere", undefined, true, other);
   const siblingTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
   siblingTab.setAttribute("zen-workspace-id", sibling.uuid);
-  const elsewhereTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
-  elsewhereTab.setAttribute("zen-workspace-id", elsewhere.uuid);
+  // wave8/isolation: a tab in another profile's space is in that profile's
+  // container (the guard puts any other back).
+  const elsewhereTab = BrowserTestUtils.addTab(gBrowser, "about:blank", { userContextId: other });
+  await TestUtils.waitForCondition(() => elsewhereTab.getAttribute("zen-workspace-id") == elsewhere.uuid,
+    "The other profile's tab is in its space");
 
   const MINE_URL = "https://example.com/?fire-mine";
   const NET_URL = "https://example.net/?fire-other-profile";
