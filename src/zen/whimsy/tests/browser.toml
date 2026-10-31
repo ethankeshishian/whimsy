@@ -483,3 +483,6 @@ support-files = ["whimsy_page_actions.html"]
 
 # fix/kit: the Whimsy balloon replaces Kit; Settings logo glyphs are Whimsy's (overrides, promo, About icon).
 ["browser_whimsy_kit_balloon.js"]
+
+# wave7/small: Capture in Portrait Mode lays the page out at phone width.
+["browser_whimsy_capture_portrait.js"]

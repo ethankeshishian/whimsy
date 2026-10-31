@@ -94,6 +94,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.setRate(message.data);
       case "Whimsy:PageBounds":
         return this.pageBounds();
+      // wave7/small: Capture in Portrait Mode (WhimsyPage).
+      case "Whimsy:PortraitBounds":
+        return this.portraitBounds(message.data.width);
       case "Whimsy:SetEditable":
         return this.setEditable(message.data.on);
       case "Whimsy:AllowCopy":
@@ -336,6 +339,40 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const width = win.innerWidth + win.scrollMaxX - left;
     const height = win.innerHeight + win.scrollMaxY - top;
     return { left, top, right: left + width, bottom: top + height, width, height, devicePixelRatio: win.devicePixelRatio };
+  }
+
+  // wave7/small: waits for the page to reflow at the narrowed width (or a
+  // second), then returns the visible area, the layout width included.
+  async portraitBounds(width) {
+    const win = this.contentWindow;
+    if (win.innerWidth > width + 1) {
+      await new Promise(resolve => {
+        const done = () => {
+          win.removeEventListener("resize", onResize);
+          win.clearTimeout(timer);
+          resolve();
+        };
+        const onResize = () => win.innerWidth <= width + 1 && done();
+        const timer = win.setTimeout(done, 1000);
+        win.addEventListener("resize", onResize);
+      });
+    }
+    await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+    const root = this.document.documentElement;
+    const clientWidth = root?.clientWidth || win.innerWidth;
+    const clientHeight = root?.clientHeight && root.clientHeight <= win.innerHeight ? root.clientHeight : win.innerHeight;
+    const left = win.scrollX;
+    const top = win.scrollY;
+    return {
+      left,
+      top,
+      right: left + clientWidth,
+      bottom: top + clientHeight,
+      width: clientWidth,
+      height: clientHeight,
+      layoutWidth: win.innerWidth,
+      devicePixelRatio: win.devicePixelRatio,
+    };
   }
 
   // Edit text on page: designMode, with Esc to finish.
