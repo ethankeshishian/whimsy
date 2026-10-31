@@ -107,3 +107,70 @@ add_task(async function test_bundle_icon() {
   ok(!(await IOUtils.exists(savedIcon)), "...and nothing is left to re-apply");
   is((await WhimsyUpdates.readControl()).app_icon, null, "...after updates");
 });
+
+// The native call (sips/iconutil/codesign, run via Subprocess) is mocked
+// here so this test is only about the re-apply *decision*: writeBundleIcon
+// skips the native call once the bundle already matches the pref, and
+// makes it again when something outside Whimsy -- an update replacing the
+// bundle -- leaves a stale marker without touching the pref. That's the
+// same cheap check init() runs, unconditionally, at every startup.
+add_task(async function test_startup_reapply_after_simulated_update() {
+  const { WhimsyUpdates } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUpdates.sys.mjs");
+
+  const dir = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-icon-reapply-test");
+  const app = PathUtils.join(dir, "Fake.app");
+  const res = PathUtils.join(app, "Contents", "Resources");
+  const marker = PathUtils.join(res, "whimsy-app-icon");
+  await IOUtils.makeDirectory(res, { createAncestors: true });
+  await IOUtils.writeUTF8(PathUtils.join(res, "firefox.icns"), "original");
+
+  const saved = {
+    bundlePath: WhimsyAppIcon.bundlePath,
+    run: WhimsyAppIcon.run,
+    dataDir: WhimsyUpdates.dataDir,
+    isInstalled: WhimsyUpdates.isInstalled,
+  };
+  registerCleanupFunction(async () => {
+    WhimsyAppIcon.bundlePath = saved.bundlePath;
+    WhimsyAppIcon.run = saved.run;
+    Object.assign(WhimsyUpdates, { dataDir: saved.dataDir, isInstalled: saved.isInstalled });
+    Services.prefs.clearUserPref(WhimsyAppIcon.PREF);
+    await IOUtils.remove(dir, { recursive: true });
+  });
+  WhimsyAppIcon.bundlePath = () => app;
+  WhimsyUpdates.dataDir = PathUtils.join(dir, "updater");
+  WhimsyUpdates.isInstalled = () => true;
+
+  const calls = [];
+  WhimsyAppIcon.run = async args => {
+    calls.push(args);
+    // Stand-in for what the real script does to the marker, without
+    // shelling out to sips/iconutil/codesign.
+    await IOUtils.writeUTF8(marker, args[2]);
+  };
+
+  // A real choice: the pref change fires the same observer startup relies
+  // on, which calls writeBundleIcon() itself.
+  Services.prefs.setStringPref(WhimsyAppIcon.PREF, "lagoon");
+  await TestUtils.waitForCondition(() => calls.length == 1, "Picking Lagoon makes one native call");
+  await WhimsyAppIcon._bundleJob;
+  is(calls[0][2], "lagoon", "...to apply Lagoon");
+
+  // Nothing changed: re-running the startup check must not repeat the call.
+  await WhimsyAppIcon.writeBundleIcon();
+  await WhimsyAppIcon._bundleJob;
+  is(calls.length, 1, "Already-applied icon: the cheap check skips the native call");
+
+  // An update replaced the bundle and reset it to the stock icon, without
+  // touching the pref -- exactly what init() finds at the next startup.
+  await IOUtils.writeUTF8(marker, "daydream");
+  await WhimsyAppIcon.writeBundleIcon();
+  await WhimsyAppIcon._bundleJob;
+  is(calls.length, 2, "A marker left behind by an update triggers a re-apply");
+  is(calls[1][2], "lagoon", "...restoring the pref's choice, not the stale marker");
+
+  // Clearing the pref is itself a change the observer re-applies too.
+  Services.prefs.clearUserPref(WhimsyAppIcon.PREF);
+  await TestUtils.waitForCondition(() => calls.length == 3, "Clearing the pref re-applies the default");
+  is(calls[2][2], "daydream", "...back to the stock icon");
+});
