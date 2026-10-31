@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="generator" content="WordPress 6.4.2">
+<title>Page developer tools test</title>
+<!-- A local 404: only its URL matters (WordPress's /wp-content/ path). -->
+<link rel="stylesheet" href="wp-content/themes/whimsy/style.css">
+<style>
+  @font-face {
+    font-family: "WhimsyTestFont";
+    src: url("whimsy_pagedev_font.ttf");
+  }
+  :root { --tw-ring-offset-width: 0px; }
+  html { background: #ffffff; }
+  body { margin: 0; padding: 16px; color: #222222; font: 16px/1.4 Arial, sans-serif; }
+  h1 { font-family: "WhimsyTestFont", serif; font-size: 40px; font-weight: 400; margin: 0 0 12px; }
+  .banner { background: #102030; color: #ffffff; padding: 20px; }
+  .box { border: 6px solid #ff8800; padding: 8px; margin: 12px 0; }
+  .faint { color: #aaaaaa; }
+  a { color: #0055cc; }
+  .spacer { height: 3000px; }
+  #below { font-family: "WhimsyTestFont", serif; }
+</style>
+<script>
+  // Built With signals. React is an accessor: detection must never call it.
+  window.jQuery = function () {};
+  window.jQuery.fn = { jquery: "3.7.1" };
+  Object.defineProperty(window, "React", {
+    configurable: true,
+    get() {
+      window.__pageGetterRan = true;
+      return { version: "18.2.0" };
+    },
+  });
+</script>
+</head>
+<body>
+  <h1 id="title">Whimsy Ostrich Heading</h1>
+  <div class="banner">Banner text on a dark background</div>
+  <div class="box" ng-version="17.0.1">Boxed text with an orange border and a <a href="#x">link</a>.</div>
+  <p class="faint">Faint grey text that fails contrast.</p>
+  <p>Plenty of ordinary body text set in Arial, so that it is the most used family on this page by far.
+     More body text follows, and more again, so the share is clearly the largest of all the families here.
+     Even more words to be sure the body family wins by a wide margin over the heading family.</p>
+  <span class="md:flex hover:underline bg-sky-500 text-gray-700 w-[42px] space-y-4 rounded-xl tracking-tight mb-3">Utility classes</span>
+  <div class="spacer"></div>
+  <p id="below">Far below</p>
+</body>
+</html>

@@ -1,0 +1,187 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave9/pagedev: Fonts on This Page, Page Colors and Built With.
+ * The sheets reuse WhimsyPanels' look (Zen's panel variables), so light
+ * and dark follow the theme; the few colours of their own are tokens
+ * with light-dark() pairs. (The usage highlight in the page is styled
+ * inline by WhimsyPageDevChild: pages can't load chrome:// sheets.) */
+
+.whimsy-pagedev-panel {
+  --whimsy-pagedev-pass: light-dark(rgb(26, 127, 55), rgb(87, 211, 120));
+  --whimsy-pagedev-fail: light-dark(rgb(197, 0, 66), rgb(255, 132, 139));
+  --whimsy-pagedev-hairline: color-mix(in srgb, currentColor 14%, transparent);
+  --whimsy-pagedev-fill: color-mix(in srgb, currentColor 6%, transparent);
+  --whimsy-pagedev-fill-hover: color-mix(in srgb, currentColor 11%, transparent);
+}
+
+/* Property rows: label left, value right; the value may shrink and crop
+   (full value in the tooltip). */
+.whimsy-pagedev-panel .whimsy-pagedev-prop {
+  min-height: 28px;
+}
+.whimsy-pagedev-panel .whimsy-pagedev-prop > .whimsy-sheet-item-text {
+  flex: none;
+  min-width: 7em;
+}
+.whimsy-pagedev-panel :is(.whimsy-pagedev-prop, .whimsy-pagedev-pair) > .whimsy-sheet-item-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: end;
+  color: inherit;
+  font-family: var(--font-family-monospace, monospace);
+  font-size: 0.92em;
+}
+
+/* One block per font family. */
+.whimsy-pagedev-font {
+  margin: 4px 8px 10px;
+  padding: 8px 0 6px;
+  border-radius: 10px;
+  background-color: var(--whimsy-pagedev-fill);
+}
+.whimsy-pagedev-font-head {
+  gap: 8px;
+  padding: 0 var(--arrowpanel-menuitem-padding-inline, 8px);
+}
+.whimsy-pagedev-font-name {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.08em;
+}
+.whimsy-pagedev-font-share {
+  margin: 0;
+  color: var(--whimsy-sheet-muted);
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-pagedev-font .whimsy-sheet-item {
+  margin-inline: 0;
+}
+
+/* The sample is an image of the page's own text in the font, used as a
+   mask so it takes the panel's text colour in light and dark. */
+.whimsy-pagedev-sample {
+  max-width: calc(100% - 2 * var(--arrowpanel-menuitem-padding-inline, 8px));
+  margin: 4px var(--arrowpanel-menuitem-padding-inline, 8px) 6px;
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  mask-position: left center;
+  mask-size: contain;
+}
+.whimsy-pagedev-sample-text {
+  background: none;
+  font-size: 1.6em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-pagedev-actions {
+  gap: 6px;
+  padding: 4px var(--arrowpanel-menuitem-padding-inline, 8px) 0;
+}
+.whimsy-pagedev-button,
+.whimsy-pagedev-format {
+  appearance: none;
+  margin: 0;
+  padding: 4px 10px;
+  min-height: 24px;
+  border: 1px solid var(--whimsy-pagedev-hairline);
+  border-radius: 6px;
+  background-color: var(--whimsy-pagedev-fill);
+  color: inherit;
+  font: inherit;
+  font-size: 0.92em;
+  cursor: default;
+
+  &:hover {
+    background-color: var(--whimsy-pagedev-fill-hover);
+  }
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 1px;
+  }
+  @media not (prefers-reduced-motion: reduce) {
+    transition: background-color 120ms ease-out, border-color 120ms ease-out;
+  }
+}
+.whimsy-pagedev-button[aria-pressed="true"],
+.whimsy-pagedev-format[aria-checked="true"] {
+  border-color: transparent;
+  background-color: var(--zen-primary-color, AccentColor);
+  color: var(--button-primary-color, AccentColorText);
+}
+.whimsy-pagedev-panel .whimsy-pagedev-button.whimsy-sheet-item {
+  min-height: 24px;
+}
+
+/* HEX / RGB / HSL */
+.whimsy-pagedev-formats {
+  gap: 4px;
+  margin: 2px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + var(--arrowpanel-menuitem-padding-inline, 8px)) 4px;
+}
+.whimsy-pagedev-format {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.whimsy-pagedev-swatch {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--whimsy-pagedev-hairline);
+}
+.whimsy-pagedev-color .whimsy-sheet-item-title {
+  font-family: var(--font-family-monospace, monospace);
+}
+
+.whimsy-pagedev-pair-sample {
+  flex-shrink: 0;
+  min-width: 28px;
+  padding: 2px 4px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--whimsy-pagedev-hairline);
+  font-weight: 600;
+  text-align: center;
+}
+.whimsy-pagedev-pair .whimsy-sheet-item-title {
+  font-family: var(--font-family-monospace, monospace);
+}
+.whimsy-pagedev-badges {
+  gap: 6px;
+  margin-top: 2px;
+}
+.whimsy-pagedev-badge {
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+
+  &.pass {
+    color: var(--whimsy-pagedev-pass);
+    background-color: color-mix(in srgb, var(--whimsy-pagedev-pass) 14%, transparent);
+  }
+  &.fail {
+    color: var(--whimsy-pagedev-fail);
+    background-color: color-mix(in srgb, var(--whimsy-pagedev-fail) 14%, transparent);
+  }
+}
+.whimsy-pagedev-badge-note {
+  font-size: 11px;
+  color: var(--whimsy-sheet-muted);
+}
+
+.whimsy-pagedev-note {
+  margin: 8px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + var(--arrowpanel-menuitem-padding-inline, 8px)) 4px;
+  font-size: 11px;
+  color: var(--whimsy-sheet-muted);
+}
+
+.whimsy-pagedev-tech .whimsy-sheet-item-subtitle {
+  font-family: var(--font-family-monospace, monospace);
+}

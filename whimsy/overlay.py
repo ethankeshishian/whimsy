@@ -1156,6 +1156,9 @@ FEATURES = [
     # wave9: Element inspector lite
     {"id": "element-inspector", "title": "Element Inspector lite: box model, colours, contrast ratio, gap measurement, and Open in DevTools",
      "detect": [("src/zen", r"(?i)element-?inspector-?lite|measure-?gap")]},
+    # wave9/pagedev: page developer tools (Lens browser's developer menu)
+    {"id": "page-dev", "title": "Page developer tools: Fonts on This Page, Page Colors (palette and contrast) and Built With (tech stack), in Tools > Browser Tools",
+     "detect": [("src/zen", r"(?i)fonts-?on-?this-?page|built-?with-?(panel|detect)")]},
 ]
 
 

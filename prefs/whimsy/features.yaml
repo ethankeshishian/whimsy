@@ -507,6 +507,9 @@
 - name: whimsy.feature.element-inspector
   value: true
 
+- name: whimsy.feature.page-dev
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

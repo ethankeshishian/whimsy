@@ -3039,3 +3039,135 @@ whimsy-tabs-font-inspector =
 whimsy-tabs-element-inspector =
     .label = Element Info: box model, colors, contrast and gap measurement
 
+
+## wave9/pagedev: Fonts on This Page, Page Colors and Built With (W9-11).
+## They live in Tools > Browser Tools with the Font Inspector and Element Info.
+
+whimsy-action-page-fonts = Fonts on This Page
+whimsy-action-page-colors = Page Colors
+whimsy-action-built-with = Built With
+whimsy-pagedev-menu-fonts =
+    .label = Fonts on This Page
+whimsy-pagedev-menu-colors =
+    .label = Page Colors
+whimsy-pagedev-menu-built-with =
+    .label = Built With
+whimsy-pagedev-menu-font-inspector =
+    .label = What Font Is This?
+whimsy-pagedev-menu-element-info =
+    .label = Element Info
+whimsy-tabs-page-dev =
+    .label = Developer tools for the page: Fonts on This Page, Page Colors and Built With (Tools ▸ Browser Tools and command bar)
+
+whimsy-pagedev-fonts-title = Fonts on This Page
+whimsy-pagedev-colors-title = Page Colors
+whimsy-pagedev-built-with-title = Built With
+whimsy-pagedev-unavailable = Whimsy can’t look inside this page. Try a regular web page.
+# $value (string) - what was copied, shortened
+whimsy-pagedev-copied-toast = Copied { $value }
+# $value (string) - the text a row copies
+whimsy-pagedev-copy-value = Copy { $value }
+whimsy-pagedev-share-tiny = under 1%
+
+# $count (number) - font families on the page
+whimsy-pagedev-fonts-summary =
+    { $count ->
+        [one] 1 font family, by share of the page’s text
+       *[other] { $count } font families, by share of the page’s text
+    }
+whimsy-pagedev-fonts-empty = No text is drawn on this page.
+whimsy-pagedev-font-family = Family
+whimsy-pagedev-font-faces = Faces
+whimsy-pagedev-font-weights = Weights
+whimsy-pagedev-font-styles = Styles
+whimsy-pagedev-font-source = Source
+whimsy-pagedev-font-usage = Usage
+# $percent (string) - share of the text, e.g. "62%"; $chars (number) - characters set in the font
+whimsy-pagedev-font-usage-value = { $percent } of text, { $chars } characters
+whimsy-pagedev-font-usage-capped = { $percent } of text, at least { $chars } characters
+# $url (string) - the font file's address
+whimsy-pagedev-font-source-web = Web font: { $url }
+whimsy-pagedev-font-source-embedded = Web font embedded in the page
+# $name (string) - the name in the page's local() rule
+whimsy-pagedev-font-source-local = Installed font: { $name }
+whimsy-pagedev-font-source-system = System font
+whimsy-pagedev-font-source-fallback = System fallback (no listed font had these characters)
+whimsy-pagedev-font-highlight = Highlight on Page
+whimsy-pagedev-font-highlight-none = None of this text is visible to highlight
+
+whimsy-pagedev-format-label = Color format
+whimsy-pagedev-format-hex = HEX
+whimsy-pagedev-format-rgb = RGB
+whimsy-pagedev-format-hsl = HSL
+# $count (number) - colors listed
+whimsy-pagedev-palette-heading =
+    { $count ->
+        [one] 1 color, by area
+       *[other] { $count } colors, by area
+    }
+# $count (number) - colors not listed
+whimsy-pagedev-colors-more =
+    { $count ->
+        [one] And 1 rarely used color.
+       *[other] And { $count } rarely used colors.
+    }
+whimsy-pagedev-colors-empty = No colors found on this page.
+whimsy-pagedev-role-text = Text
+whimsy-pagedev-role-background = Background
+whimsy-pagedev-role-border = Border
+whimsy-pagedev-role-link = Link
+whimsy-pagedev-role-accent = Accent
+# $failing (number) - pairs below WCAG AA
+whimsy-pagedev-contrast-heading =
+    { $failing ->
+        [0] Text contrast, all pass AA
+        [one] Text contrast, 1 fails AA
+       *[other] Text contrast, { $failing } fail AA
+    }
+# $fg (string) - text color; $bg (string) - background color
+whimsy-pagedev-contrast-pair = { $fg } on { $bg }
+# $level (string) - "AA" or "AAA"
+whimsy-pagedev-wcag-pass = { $level } PASS
+whimsy-pagedev-wcag-fail = { $level } FAIL
+whimsy-pagedev-result-pass = PASS
+whimsy-pagedev-result-fail = FAIL
+whimsy-pagedev-contrast-large = Large text
+whimsy-pagedev-contrast-image = Over an image, approximate
+# $fg, $bg (string) - colors; $ratio (string) - e.g. "4.53:1"; $aa, $aaa (string) - PASS or FAIL
+whimsy-pagedev-contrast-copy = { $fg } on { $bg }: { $ratio } (AA { $aa }, AAA { $aaa })
+whimsy-pagedev-copy-css-vars =
+    .label = Copy All as CSS Variables
+whimsy-pagedev-css-vars-label = CSS variables
+
+whimsy-pagedev-built-with-empty = No known technologies found on this page.
+whimsy-pagedev-built-with-local = Found on this device from the page and its headers. Nothing is sent anywhere.
+whimsy-pagedev-copy-all =
+    .label = Copy All
+whimsy-pagedev-built-with-label = the Built With list
+whimsy-pagedev-category-js-framework = JavaScript Frameworks
+whimsy-pagedev-category-js-library = JavaScript Libraries
+whimsy-pagedev-category-cms = Content Management
+whimsy-pagedev-category-ecommerce = Online Stores
+whimsy-pagedev-category-site-builder = Site Builders
+whimsy-pagedev-category-static-site = Static Site Generators
+whimsy-pagedev-category-css-framework = CSS Frameworks
+whimsy-pagedev-category-analytics = Analytics
+whimsy-pagedev-category-tag-manager = Tag Managers
+whimsy-pagedev-category-font-service = Font Services
+whimsy-pagedev-category-cdn = CDNs
+whimsy-pagedev-category-hosting = Hosting
+whimsy-pagedev-category-web-server = Web Servers
+whimsy-pagedev-category-backend = Back End
+# $kind (string) - which sign was found; $detail (string) - the sign itself; $count (number) - matching class names
+whimsy-pagedev-evidence =
+    { $kind ->
+        [generator] Generator tag: { $detail }
+        [global] Script global { $detail }
+        [selector] Page element { $detail }
+        [expando] Element property { $detail }
+        [resource] Loads { $detail }
+        [header] Response header { $detail }
+        [css-var] CSS variable { $detail }
+        [classes] { $count } utility classes, like { $detail }
+       *[other] { $detail }
+    }
