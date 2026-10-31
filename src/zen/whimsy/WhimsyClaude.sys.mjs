@@ -417,14 +417,25 @@ export const WhimsyClaude = {
   async start() {
     // While starting, the server exists before the Claude space does: wait
     // for the whole start, not just the server.
-    if (state.starting) {
+    // A start from before the last shutdown was cancelled (it resolves to
+    // null): don't hand that out when Claude is turned back on right away;
+    // start again once it has finished.
+    if (state.starting && state.startingGeneration == state.generation) {
       return state.starting;
     }
-    if (state.server) {
+    if (state.server && !state.starting) {
       return this.connectInfo();
     }
-    state.starting = this._start().finally(() => (state.starting = null));
-    return state.starting;
+    const previous = state.starting?.catch(() => null) ?? Promise.resolve();
+    const starting = previous.then(() => (state.server ? this.connectInfo() : this._start()));
+    state.starting = starting;
+    state.startingGeneration = state.generation;
+    starting.finally(() => {
+      if (state.starting == starting) {
+        state.starting = null;
+      }
+    }).catch(() => {});
+    return starting;
   },
 
   async _start() {
