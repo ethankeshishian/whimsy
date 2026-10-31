@@ -148,7 +148,12 @@ add_task(async function test_tab_menu_hides_rows_and_separators() {
   await closeMenu(menu);
 
   // An Essential's list is its own.
-  is(WhimsyMenuPrefs.hiddenIds("essential").size, 0, "The Essential menu still shows everything");
+  // (Its only hidden rows are its own defaults: W9-09/W9-10 rows off.)
+  Assert.deepEqual(
+    [...WhimsyMenuPrefs.hiddenIds("essential")].sort(),
+    [...WhimsyMenuPrefs.defaultHiddenIds("essential")].sort(),
+    "Hiding Tab menu rows leaves the Essential menu as it was"
+  );
 
   // The feature switch brings every row back.
   Services.prefs.setBoolPref(FEATURE, false);

@@ -19,8 +19,10 @@ registerCleanupFunction(() => {
   Services.prefs.clearUserPref(OPTION);
 });
 
+// Settings → Menus hides rows with collapsed="true" (native macOS menus
+// ignore CSS; design-full-4 H1), so a collapsed row isn't shown either.
 function visible(node) {
-  return !node.hidden && node.getAttribute("hidden") != "true";
+  return !node.hidden && node.getAttribute("hidden") != "true" && node.getAttribute("collapsed") != "true";
 }
 
 function iconOf(node) {

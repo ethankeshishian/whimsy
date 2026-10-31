@@ -116,7 +116,8 @@ add_task(async function test_resting_on_another_link_switches_cards() {
   host.enter({ source: "people", browser: gBrowser.selectedBrowser, url: "https://github.com/monalisa", how: "hover", ...at(40) });
   ok(host.pending, "The other link waits its turn");
   await TestUtils.waitForCondition(
-    () => panel()?.state == "open" && panel().querySelector(".whimsy-person-handle")?.textContent.includes("monalisa"),
+    // No display name here, so @monalisa is the card's name line.
+    () => panel()?.state == "open" && panel().querySelector(".whimsy-person-names")?.textContent.includes("monalisa"),
     "Resting on the other link for the delay shows its card"
   );
   ok(!host.pending, "...and nothing is left waiting");

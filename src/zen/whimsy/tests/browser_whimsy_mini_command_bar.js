@@ -131,6 +131,8 @@ add_task(async function test_main_window_command_bar_unchanged() {
   const win = await openMini();
   await BrowserTestUtils.closeWindow(win);
   ok(!gURLBar.controller._whimsyMini, "The main window's command bar keeps Firefox's behaviour");
+  // From a page (Firefox reuses an empty tab instead of opening another).
+  const page = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   const before = gBrowser.tabs.length;
   const opened = BrowserTestUtils.waitForNewTab(gBrowser, "https://example.org/");
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "https://example.org/" });
@@ -138,4 +140,5 @@ add_task(async function test_main_window_command_bar_unchanged() {
   const tab = await opened;
   is(gBrowser.tabs.length, before + 1, "Alt+Return opens a tab there");
   BrowserTestUtils.removeTab(tab);
+  BrowserTestUtils.removeTab(page);
 });
