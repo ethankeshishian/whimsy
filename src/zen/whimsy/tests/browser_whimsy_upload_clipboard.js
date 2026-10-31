@@ -131,6 +131,7 @@ add_task(async function test_cmd_v_on_custom_upload_widgets() {
         ["fake-button", "widget-input", "A styled div button sets its hidden input"],
         ["dropzone-root", "dropzone-input", "A react-dropzone root sets the input it wraps"],
         ["aria-button", "aria-input", "A button with aria-controls sets that input"],
+        ["dropzone-dev-btn", "dropzone-dev-input", "Dropzone.js on dropzone.dev sets its hidden input"],
       ]) {
         await pasteOn(browser, focus);
         await TestUtils.waitForCondition(async () => (await fileName(browser, input)) == "whimsy-widget-paste.txt", what);

@@ -74,6 +74,24 @@ export function uploadTargetFor(element) {
       return { input };
     }
   }
+
+  // A drop zone (Dropzone.js, react-dropzone, file-dropzone): check for its associated
+  // input first (Dropzone's hiddenFileInput, child file inputs, or .dz-hidden-input).
+  const zone = element.closest?.(".dropzone, [class*=dropzone i], [class*=drop-zone i], [data-testid*=dropzone i]");
+  if (zone) {
+    const dz = zone.wrappedJSObject?.dropzone;
+    const dzInput =
+      fileInputFor(dz?.hiddenFileInput) ??
+      onlyFileInput(zone) ??
+      zone.querySelector?.("input[type=file]") ??
+      zone.parentElement?.querySelector?.("input.dz-hidden-input") ??
+      (doc.querySelectorAll("input.dz-hidden-input").length == 1 ? doc.querySelector("input.dz-hidden-input") : null);
+    if (dzInput && !dzInput.disabled) {
+      return { input: dzInput };
+    }
+    return { dropZone: zone };
+  }
+
   // The nearest enclosing widget with exactly one file input. Stops before
   // <body>/<form> level so an unrelated input elsewhere on the page or form
   // isn't picked.
@@ -90,9 +108,7 @@ export function uploadTargetFor(element) {
       return null; // Several inputs: ambiguous.
     }
   }
-  // A drop zone without a file input: it says so in its class.
-  const zone = element.closest?.("[class*=dropzone i], [class*=drop-zone i], [data-testid*=dropzone i]");
-  return zone ? { dropZone: zone } : null;
+  return null;
 }
 
 export class WhimsyUploadChild extends JSWindowActorChild {
@@ -138,11 +154,14 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     }
     let element = event.target;
     // Nothing focused (a clicked drop zone usually can't take focus): the
-    // element you last clicked.
+    // element you last clicked, or a drop zone under the cursor.
     if (!element || element == this.document?.body || element == this.document?.documentElement) {
       const last = this.lastClick;
       const clicked = last && Date.now() - last.time < CLICK_MEMORY_MS ? last.ref.get() : null;
       element = clicked?.isConnected ? clicked : null;
+      if (!element) {
+        element = this.document?.querySelector?.(".dropzone:hover, [class*=dropzone i]:hover, [class*=drop-zone i]:hover") ?? null;
+      }
     }
     const target = uploadTargetFor(element);
     if (!target) {
@@ -168,12 +187,20 @@ export class WhimsyUploadChild extends JSWindowActorChild {
   // Hands the file to a drop zone the way dragging it in does.
   dropFile(zone, file) {
     try {
+      const dz = zone.wrappedJSObject?.dropzone;
+      if (dz && typeof dz.addFile == "function") {
+        dz.addFile(file);
+        return;
+      }
       const win = this.contentWindow;
       const data = new win.DataTransfer();
       data.items.add(file);
       for (const type of ["dragenter", "dragover", "drop"]) {
         zone.dispatchEvent(new win.DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
       }
+      const pasteData = new win.DataTransfer();
+      pasteData.items.add(file);
+      zone.dispatchEvent(new win.ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: pasteData }));
     } catch (e) {
       console.error("Whimsy: upload from clipboard (drop) failed", e);
     }
