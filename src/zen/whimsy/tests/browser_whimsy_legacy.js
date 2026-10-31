@@ -195,3 +195,27 @@ add_task(async function test_privacy_tab() {
     ok(items.some(li => li.textContent.includes("captive.apple.com")), "Mentions Apple's captive check");
   });
 });
+
+// wave8: README rebranded to Whimsy with credits preserved.
+add_task(async function test_readme_rebranded_to_whimsy() {
+  let dir = Services.dirsvc.get("CurWorkD", Ci.nsIFile).path;
+  let readmePath = null;
+  for (let i = 0; i < 5; i++) {
+    const candidate = PathUtils.join(dir, "README.md");
+    if (await IOUtils.exists(candidate)) {
+      readmePath = candidate;
+      break;
+    }
+    dir = PathUtils.parent(dir);
+  }
+  ok(readmePath, "README.md found in the repository");
+  const content = await IOUtils.readUTF8(readmePath);
+  ok(content.includes("### `Whimsy`"), "README heading is Whimsy");
+  ok(content.includes("whimsy-berry-desktop.svg"), "README references Whimsy icon");
+  ok(content.includes("https://github.com/ethankeshishian/whimsy"), "README links to Whimsy repository");
+  ok(content.includes("Mozilla Public License 2.0"), "README preserves MPL 2.0 license notice");
+  ok(content.includes("Zen Browser"), "README credits Zen Browser");
+  ok(content.includes("Mozilla Firefox"), "README credits Mozilla Firefox");
+  ok(!content.includes("### `Zen Browser`"), "README no longer titled Zen Browser");
+});
+

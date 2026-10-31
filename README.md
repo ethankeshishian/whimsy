@@ -3,50 +3,47 @@
    - License, v. 2.0. If a copy of the MPL was not distributed with this
    - file, You can obtain one at http://mozilla.org/MPL/2.0/.
    -->
-<!-- TODO: Get a job -->
-<img src="./docs/assets/zen-dark.svg" width="100px" align="left">
+<img src="./docs/whimsy/icon/whimsy-berry-desktop.svg" width="100px" align="left" alt="Whimsy icon">
 
-### `Zen Browser`
+### `Whimsy`
 
-[![Downloads](https://img.shields.io/github/downloads/zen-browser/desktop/total.svg)](https://github.com/zen-browser/desktop/releases)
-[![Crowdin](https://badges.crowdin.net/zen-browser/localized.svg)](https://crowdin.com/project/zen-browser)
-[![Zen Release builds](https://github.com/zen-browser/desktop/actions/workflows/build.yml/badge.svg?branch=stable)](https://github.com/zen-browser/desktop/actions/workflows/build.yml)
+[![Releases](https://img.shields.io/github/v/release/ethankeshishian/whimsy?include_prereleases&label=release)](https://github.com/ethankeshishian/whimsy/releases)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](http://mozilla.org/MPL/2.0/)
 
-Zen is a firefox-based browser with the aim of pushing your productivity to a new level!
+Whimsy is a delightful, Arc-inspired browser built as an overlay fork of Zen Browser and Mozilla Firefox. It brings the power and ergonomics of Arc — spaces, container-backed profiles, split views, Mini Whimsy quick windows, link hints, instant results, and assignable keyboard shortcuts — to a fast, private, Gecko-powered engine.
 
 <div flex="true">
-  <a href="https://zen-browser.app/download">
-    Download
+  <a href="https://github.com/ethankeshishian/whimsy/releases">
+    Releases
   </a>
   •
-  <a href="https://zen-browser.app">
-    Website
+  <a href="https://github.com/ethankeshishian/whimsy">
+    Source
   </a>
   •
-  <a href="https://docs.zen-browser.app">
-    Documentation
-  </a>
-  •
-  <a href="https://zen-browser.app/release-notes/latest">
-    Release Notes
+  <a href="https://github.com/ethankeshishian/whimsy/issues">
+    Issues & Feedback
   </a>
 </div>
 
-### Firefox Versions
+### Versions & Foundations
 
-- [`Release`](https://zen-browser.app/download) - Is currently built using Firefox version `158.0`!
-- [`Twilight`](https://zen-browser.app/download?twilight) - Is currently built using Firefox version `RC 158.0`!
+- Built on **Zen Browser** `1.24b`
+- Powered by **Mozilla Firefox** (Gecko) `159.0`
 
-### Contributing
+### Credits & Licensing
 
-If you'd like to report a bug, please do so on our [GitHub Issues page](https://github.com/zen-browser/desktop/issues/) and for feature requests, you can use [GitHub Discussions](https://github.com/zen-browser/desktop/discussions).
+Whimsy is an open-source project licensed under the [Mozilla Public License 2.0](http://mozilla.org/MPL/2.0/).
 
-Zen is an open-source project, and we welcome contributions from the community! Please take a look at the [contribution guidelines](./docs/contribute.md) before getting started!
+Whimsy is built on the incredible work of the [Zen Browser](https://zen-browser.app/) community and [Mozilla Firefox](https://www.mozilla.org/firefox/) contributors. We gratefully acknowledge and credit:
 
-#### Partners
+- The **Zen Browser Team** and contributors ([github.com/zen-browser/desktop](https://github.com/zen-browser/desktop)), licensed under MPL-2.0.
+- The **Mozilla Foundation** and Firefox contributors ([mozilla.org](https://www.mozilla.org/)), licensed under MPL-2.0.
+- Thanks to the sponsors and partners of Zen Browser for supporting open-source browser development:
+  <a href="https://blacksmith.sh">
+    <img src="./docs/assets/blacksmith-yellow.png" width="350px" alt="Blacksmith"/>
+  </a>
 
-Thanks to all the [sponsors](https://zen-browser.app/#sponsors) of Zen for their support and contributions, including:
+### Feedback & Contributing
 
-<a href="https://blacksmith.sh">
-  <img src="./docs/assets/blacksmith-yellow.png" width="350px"/>
-</a>
+To report bugs or suggest enhancements, please open an issue on the [Whimsy GitHub Issues page](https://github.com/ethankeshishian/whimsy/issues).
