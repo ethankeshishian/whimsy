@@ -41,7 +41,36 @@ add_setup(async function () {
   });
 });
 
+// wave8/isolation: a profile's tab lives in a space of that profile, so
+// "in front" means that space shows.
+const frontSpaces = new Map();
+registerCleanupFunction(async () => {
+  if (frontSpaces.home && gZenWorkspaces.activeWorkspace != frontSpaces.home.uuid) {
+    await gZenWorkspaces.changeWorkspace(frontSpaces.home);
+  }
+  for (const space of frontSpaces.values()) {
+    if (!space) {
+      continue;
+    }
+    if (gZenWorkspaces.getWorkspaces().some(w => w.uuid == space.uuid)) {
+      await gZenWorkspaces.removeWorkspace(space.uuid);
+    }
+  }
+});
+
 async function inFront(userContextId) {
+  if (!frontSpaces.has(0)) {
+    frontSpaces.set(0, null);
+    frontSpaces.home = gZenWorkspaces.getActiveWorkspace();
+  }
+  if (userContextId && !frontSpaces.get(userContextId)) {
+    frontSpaces.set(userContextId,
+      await gZenWorkspaces.createAndSaveWorkspace(`Front ${userContextId}`, undefined, true, userContextId));
+  }
+  const space = userContextId ? frontSpaces.get(userContextId) : frontSpaces.home;
+  if (gZenWorkspaces.activeWorkspace != space.uuid) {
+    await gZenWorkspaces.changeWorkspace(space);
+  }
   // openNewForegroundTab has no userContextId option; open it through addTab.
   const tab = await BrowserTestUtils.openNewForegroundTab({
     gBrowser,
@@ -58,6 +87,7 @@ add_task(async function search_engine_follows_the_front_profile() {
   const homeTab = await inFront(0);
   is(SearchService.defaultEngine.id, ownEngine.id, "The person's own engine is back for Default");
 
+  await gZenWorkspaces.changeWorkspace(frontSpaces.get(work));
   gBrowser.selectedTab = workTab;
   await WhimsyProfileSettings.applyFront();
   is(SearchService.defaultEngine.id, otherEngine.id, "Work's again");

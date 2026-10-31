@@ -526,10 +526,16 @@ add_task(async function fix7_pinned_marks_and_essential_badge() {
   space.containerTabId = 1;
   const tabs = [];
   try {
+    // wave8/isolation sorts out a tab of another container (it goes to its
+    // own profile's space or reopens here); held off for the shot, as in a
+    // synced tab's moment before the guard runs.
+    const { WhimsyIsolation } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyIsolation.sys.mjs");
     for (const [url, userContextId] of [["https://example.com/?own", 1], ["https://example.org/?other", 2]]) {
-      const tab = BrowserTestUtils.addTab(gBrowser, url, { userContextId });
-      await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-      gBrowser.pinTab(tab);
+      const tab = WhimsyIsolation.quietly(window, () => {
+        const added = BrowserTestUtils.addTab(gBrowser, url, { userContextId });
+        gBrowser.pinTab(added);
+        return added;
+      });
       tabs.push(tab);
     }
     const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?mail");

@@ -130,11 +130,14 @@ add_task(async function test_isolation_includes_default() {
 });
 
 add_task(async function test_content_scripts_stay_in_their_profiles() {
+  // Each page in a space of its profile (wave8/isolation keeps every tab in
+  // a space of its own container).
   const ran = async userContextId => {
+    await gZenWorkspaces.changeWorkspaceWithID(userContextId ? containerSpace.uuid : firstSpace.uuid);
     const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId });
     try {
       await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-      return await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
+          return await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
         await new Promise(resolve => content.setTimeout(resolve, 500));
         return content.document.documentElement.dataset.whimsyExtension ?? "";
       });
