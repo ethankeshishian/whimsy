@@ -617,9 +617,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 # wave8 lane: every Whimsy menu row has a .label (native menus).
 ["browser_whimsy_menu_labels.js"]
 
-# wave9/mini W8-23: OAuth popups stay real popups attached to their opener; Mini steps aside for them.
-["browser_whimsy_mini_popups.js"]
-support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 # wave9/mini W8-21/22: Mini's "Open in ⌘O" is one highlight/target; the space dropdown is Arc's popover.
 ["browser_whimsy_mini_bar.js"]
 # wave9/mini W8-28: hover cards: grace + hover bridge timing, metadata fallbacks (twitter:, JSON-LD, <title>, oEmbed), link context on the profile's own site.

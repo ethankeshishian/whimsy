@@ -101,10 +101,6 @@ const GLANCE_EXPAND_KEY_ID = "zen-glance-expand";
 const READY_TOPIC = "whimsy-quick-window-ready";
 const pointerPositions = new WeakMap();
 const readyLayouts = new WeakMap();
-// wave9/mini W8-23: Mini windows stepped aside for windows their page
-// opened (OAuth popups), each mapped to the set of those windows.
-const STEPPED_ASIDE_ATTR = "whimsy-mini-stepped-aside";
-const steppedAside = new Map();
 
 export const WhimsyQuickWindow = {
   get enabled() {
@@ -147,7 +143,6 @@ export const WhimsyQuickWindow = {
     if (!this.enabled) {
       return null;
     }
-    this.watchPopups();
     // A link stacks over the newest Mini showing a page (never a panel).
     const below = url ? this.windows().filter(w => !w._whimsyMiniBarOnly).at(-1) : null;
     const barOnly = !url;
@@ -1272,113 +1267,5 @@ export const WhimsyQuickWindow = {
     const fill = this.spaceColor(space) ?? "rgb(128 128 128)";
     return "data:image/svg+xml," + encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.5" fill="${fill}"/></svg>`);
-  },
-
-  // -- wave9/mini W8-23: popups opened from Mini -----------------------
-  //
-  // "Continue with Google" (and every other OAuth sign-in) calls
-  // window.open(url, name, "width=...,height=..."): Firefox makes that a
-  // real popup window, attached to the page through window.opener, and the
-  // sign-in finishes when the popup posts its result to the opener and
-  // closes itself. That must stay exactly so: Whimsy never turns such a
-  // window into a Mini or a tab (WhimsyExternalLinks only takes links from
-  // other apps, OPEN_EXTERNAL; this module only opens what it's asked to).
-  // What broke it from Mini is that Mini floats (NSFloatingWindowLevel, see
-  // the banner) and a popup is an ordinary window, so the sign-in popup
-  // opened *behind* Mini, out of reach, and the page looked stuck. Arc's
-  // Little Arc is an ordinary-level window, so the popup simply lands on
-  // top. There's no way to lower a window's level after creation from here
-  // (no engine change), so Mini steps aside instead: while a window its
-  // page opened is open, Mini is hidden (not closed: its page, and so
-  // window.opener, stays alive and receives the result), and it comes back
-  // in front, focused, as soon as the last such window closes.
-
-  watchPopups() {
-    if (this._popupObserver) {
-      return;
-    }
-    this._popupObserver = subject => {
-      try {
-        this.onWindowOpened(subject);
-      } catch (e) {
-        console.error("Whimsy: Mini popup", e);
-      }
-    };
-    Services.obs.addObserver(this._popupObserver, "domwindowopened");
-  },
-
-  // The Mini window whose page opened `win` (window.open), or null. Only a
-  // window web content opened has an opening BrowsingContext; Minis and
-  // every other window chrome opens have none.
-  miniOpenerOf(win) {
-    let info = null;
-    try {
-      info = win.docShell.treeOwner.QueryInterface(Ci.nsIInterfaceRequestor)
-        .getInterface(Ci.nsIAppWindow).initialOpenWindowInfo;
-    } catch {
-      return null;
-    }
-    const host = info?.parent?.top?.embedderElement?.ownerGlobal;
-    return host && host != win && !host.closed && host._whimsyQuickWindow ? host : null;
-  },
-
-  onWindowOpened(win) {
-    if (!this.enabled) {
-      return;
-    }
-    const mini = this.miniOpenerOf(win);
-    if (!mini) {
-      return;
-    }
-    let popups = steppedAside.get(mini);
-    if (!popups) {
-      popups = new Set();
-      steppedAside.set(mini, popups);
-      mini.addEventListener("unload", () => steppedAside.delete(mini), { once: true });
-    }
-    popups.add(win);
-    const onClosed = subject => {
-      if (subject != win) {
-        return;
-      }
-      Services.obs.removeObserver(onClosed, "domwindowclosed");
-      popups.delete(win);
-      if (!popups.size && steppedAside.get(mini) == popups) {
-        steppedAside.delete(mini);
-        this.stepBack(mini);
-      }
-    };
-    Services.obs.addObserver(onClosed, "domwindowclosed");
-    // Not inside window creation itself: hide once the popup exists.
-    Services.tm.dispatchToMainThread(() => {
-      if (!win.closed && popups.has(win)) {
-        this.stepAside(mini);
-      }
-    });
-  },
-
-  isSteppedAside(win) {
-    return !!win.document?.documentElement?.hasAttribute(STEPPED_ASIDE_ATTR);
-  },
-
-  baseWindow(win) {
-    return win.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow);
-  },
-
-  stepAside(mini) {
-    if (mini.closed || this.isSteppedAside(mini)) {
-      return;
-    }
-    mini.document.documentElement.setAttribute(STEPPED_ASIDE_ATTR, "");
-    this.baseWindow(mini).visibility = false;
-  },
-
-  stepBack(mini) {
-    if (mini.closed || !this.isSteppedAside(mini)) {
-      return;
-    }
-    mini.document.documentElement.removeAttribute(STEPPED_ASIDE_ATTR);
-    this.baseWindow(mini).visibility = true;
-    mini.focus();
   },
 };
