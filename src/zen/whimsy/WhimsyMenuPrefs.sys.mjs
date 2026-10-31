@@ -183,6 +183,7 @@ const MENUS = [
       item("save", "whimsy-menus-page-save", ["context-savepage"]),
       item("qr-code", "whimsy-menus-page-qr-code", ["context-whimsy-qrcode"]),
       item("copy-markdown", "whimsy-menus-page-copy-markdown", ["context-whimsy-copy-markdown"]),
+      item("new-note", "whimsy-menus-page-new-note", ["context-whimsy-new-note"]),
       item("select-all", "whimsy-menus-select-all", ["context-selectall"]),
       SEPARATOR,
       item("screenshot", "whimsy-menus-page-screenshot", ["context-take-screenshot"]),

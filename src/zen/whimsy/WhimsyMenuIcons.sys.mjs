@@ -111,6 +111,7 @@ const ICONS = {
   "context-savepage": ZEN("save"),
   "context-whimsy-qrcode": "chrome://browser/content/sharing/qr-code.svg",
   "context-whimsy-copy-markdown": ZEN("edit-copy"),
+  "context-whimsy-new-note": ZEN("reader-mode"),
   "context-take-screenshot": ZEN("screenshot"),
   "context-use-mini-window": ZEN("window"),
   "context-whimsy-edit-page": ZEN("signature"),

@@ -2758,6 +2758,8 @@ whimsy-menus-page-qr-code =
     .label = QR Code for Page
 whimsy-menus-page-copy-markdown =
     .label = Copy Page as Markdown
+whimsy-menus-page-new-note =
+    .label = New Note
 whimsy-menus-page-screenshot =
     .label = Take Screenshot
 whimsy-menus-page-edit-text =
@@ -2991,4 +2993,9 @@ whimsy-action-view-claude-replays = View Claude in Whimsy Replays
 whimsy-action-move-to = Move to
 whimsy-action-move-tab-next-space = Move Tab to Next Space
 whimsy-action-move-tab-prev-space = Move Tab to Previous Space
+
+## wave8/cmds: W8-42 New Note command and menu item
+whimsy-action-create-note = New Note
+whimsy-context-new-note = New Note
+whimsy-note-created-toast = Created a new note
 

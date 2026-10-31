@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(
   {
     JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
     TabNotes: "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs",
+    WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   },
   { global: "current" }
 );
@@ -60,14 +61,14 @@ class NotesStore {
     return [...file.data.notes].sort((a, b) => b.updated - a.updated);
   }
 
-  async create() {
+  async create(data = {}) {
     const file = await this.#ensureLoaded();
     const note = {
       id: Services.uuid.generateUUID().toString(),
-      title: "",
-      text: "",
-      pageAttached: false,
-      url: null,
+      title: data.title || "",
+      text: data.text || "",
+      pageAttached: !!data.pageAttached,
+      url: data.url || null,
       created: Date.now(),
       updated: Date.now(),
     };
@@ -98,3 +99,72 @@ class NotesStore {
 }
 
 export const gWhimsyNotesStore = new NotesStore();
+
+export const WhimsyNotes = {
+  get enabled() {
+    return Services.prefs.getBoolPref("whimsy.feature.notes", true);
+  },
+
+  initWindow(win) {
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyCreateNote",
+      l10nId: "whimsy-action-create-note",
+      whimsyKeywords: ["New Note", "Create Note", "Note", "Scratchpad", "Take Note"],
+      run: async w => this.createNote(w),
+      icon: "chrome://browser/skin/zen-icons/reader-mode.svg",
+      isAvailable: () => this.enabled,
+    });
+    this.initContextMenu(win);
+  },
+
+  async createNote(win, { url = null, title = "" } = {}) {
+    const note = await gWhimsyNotesStore.create({ url, title });
+    win.ZenLibrary?.toggle("whimsy-notes");
+    win.gZenUIManager?.showToast?.("whimsy-note-created-toast");
+    return note;
+  },
+
+  initContextMenu(win) {
+    const menu = win.document.getElementById("contentAreaContextMenu");
+    if (!menu) {
+      return;
+    }
+    menu.addEventListener("popupshowing", event => {
+      if (event.target == menu) {
+        this.updateContextMenu(win);
+      }
+    });
+  },
+
+  updateContextMenu(win) {
+    const { document } = win;
+    const context = win.gContextMenu;
+    const item = document.getElementById("context-whimsy-new-note");
+    const show = this.enabled && !!context && !context.onTextInput && !context.onEditable && !context.isContentSelected;
+    if (!show) {
+      if (item) {
+        item.hidden = true;
+      }
+      return;
+    }
+    let el = item;
+    if (!el) {
+      el = document.createXULElement("menuitem");
+      el.id = "context-whimsy-new-note";
+      el.setAttribute("data-l10n-id", "whimsy-context-new-note");
+      el.addEventListener("command", () => {
+        const url = win.gBrowser?.currentURI?.spec;
+        const title = win.gBrowser?.selectedTab?.label || "";
+        this.createNote(win, { url, title }).catch(console.error);
+      });
+    }
+    el.hidden = false;
+    const anchor = document.getElementById("context-whimsy-copy-markdown") || document.getElementById("context-savepage");
+    if (anchor && anchor.nextElementSibling != el) {
+      anchor.after(el);
+    } else if (!el.parentNode) {
+      document.getElementById("contentAreaContextMenu").appendChild(el);
+    }
+  },
+};
+
