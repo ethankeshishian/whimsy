@@ -1153,6 +1153,9 @@ FEATURES = [
     # wave8/folders: Live folders: a Resync option that brings back tabs closed by hand (W8-26).
     {"id": "live-folders-resync", "title": "Resync live folder: bring back tabs closed by hand",
      "detect": [("src/zen/live-folders", r"(?i)resync")]},
+    # wave9: Battery saver (Arc parity: threshold <20%, banner, auto-off when charged, frame rate and background throttles)
+    {"id": "battery-saver", "title": "Battery Saver: throttle frame rate (30fps) and background activity below 20% battery, with heads-up banner and auto-off when charged (Arc parity)",
+     "detect": [("src/zen", r"(?i)battery-?saver")]},
 ]
 
 

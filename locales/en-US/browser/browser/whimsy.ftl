@@ -3145,3 +3145,14 @@ whimsy-action-expand-all-folders = Expand All Folders
 whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
+## wave9: Battery saver (Arc parity: threshold, banner, auto-off, throttles)
+whimsy-action-toggle-battery-saver = Toggle Battery Saver
+whimsy-action-turn-on-battery-saver = Turn On Battery Saver
+whimsy-action-turn-off-battery-saver = Turn Off Battery Saver
+whimsy-battery-saver-active-toast = Battery Saver Mode is activated
+whimsy-battery-saver-active-toast-description = Throttling frame rate and background activity to conserve battery.
+whimsy-battery-saver-off-toast = Battery Saver Mode is turned off
+whimsy-battery-saver-header = Battery Saver
+whimsy-battery-saver-enable = Enable Battery Saver Mode
+whimsy-battery-saver-help = Automatically throttle frame rates and background activity when battery drops below 20%.
+

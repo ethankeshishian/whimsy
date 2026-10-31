@@ -613,3 +613,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave8: Finder Open With document types (.md, .csv, etc.)
 ["browser_whimsy_document_types.js"]
+
+# wave9: Battery saver (W8-01: threshold, banner, auto-off, throttles).
+["browser_whimsy_battery_saver.js"]

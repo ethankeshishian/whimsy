@@ -2402,3 +2402,31 @@ Object.assign(gWhimsySettings, {
 });
 
 document.addEventListener("DOMContentLoaded", () => gWhimsySettings.registerMenusPane(), { once: true });
+
+// wave9: Battery saver setting in Settings → General.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category != "paneGeneral") {
+    return;
+  }
+  const template = document.getElementById("template-whimsyBatterySaver");
+  if (!template) {
+    return;
+  }
+  const group = template.content.firstElementChild;
+  template.remove();
+  if (!Services.prefs.getBoolPref("whimsy.feature.battery-saver", true)) {
+    return;
+  }
+  Preferences.addAll([{ id: "whimsy.battery-saver.enabled", type: "bool" }]);
+  const anchor =
+    document.getElementById("whimsyTeachGroup") ||
+    document.querySelector('[groupid="browsing"]') ||
+    document.querySelector('[groupid="performance"]');
+  if (anchor) {
+    anchor.after(group);
+  } else {
+    document.getElementById("mainPrefPane").append(group);
+  }
+  group.hidden = false;
+  Preferences.queueUpdateOfAllElements();
+});

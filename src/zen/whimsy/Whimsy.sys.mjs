@@ -294,6 +294,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 
+// wave9: Battery saver (threshold, auto-off, throttles).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyBatterySaver: "resource:///modules/whimsy/WhimsyBatterySaver.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
@@ -892,6 +897,8 @@ export const Whimsy = {
     );
     // wave8/cmds: W8-42 New Note command and menu item.
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
+    // wave9: Battery saver (threshold, auto-off, throttles).
+    run("battery-saver", () => lazy.WhimsyBatterySaver.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

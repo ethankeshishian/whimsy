@@ -20,6 +20,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyArcMenus.sys.mjs",
     "WhimsyBangs.sys.mjs",
     "WhimsyBangsData.sys.mjs",
+    "WhimsyBatterySaver.sys.mjs",
     "WhimsyBionicReading.sys.mjs",
     "WhimsyBionicReadingChild.sys.mjs",
     "WhimsyCallPip.sys.mjs",

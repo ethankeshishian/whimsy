@@ -599,3 +599,7 @@
 # refreshers, seasonal toasts) once the window is idle instead of at once.
 - name: whimsy.startup.lazy-init
   value: true
+
+# wave9: Battery saver (threshold, auto-off, throttles).
+- name: whimsy.battery-saver.enabled
+  value: true

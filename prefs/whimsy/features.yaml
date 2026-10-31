@@ -504,6 +504,9 @@
 - name: whimsy.feature.live-folders-resync
   value: true
 
+- name: whimsy.feature.battery-saver
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true
