@@ -9,10 +9,9 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
-  WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
+  WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
 });
 
 export class WhimsyStartup {
@@ -44,6 +43,16 @@ export class WhimsyStartup {
       lazy.WhimsyLiveFolders.installManagerHooks();
     } catch (e) {
       console.error("Whimsy: live folders startup hook", e);
+    }
+    // wave7/profiles: before any page loads, so an extension limited to
+    // some profiles never runs its content scripts in another's restored
+    // tabs (see whimsy-profiles-process.js).
+    try {
+      if (Services.prefs.getBoolPref("whimsy.feature.space-extensions", true)) {
+        Services.ppmm.loadProcessScript("chrome://browser/content/whimsy/whimsy-profiles-process.js", true);
+      }
+    } catch (e) {
+      console.error("Whimsy: profile content-script guard", e);
     }
   }
 }

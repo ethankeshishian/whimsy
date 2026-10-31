@@ -453,6 +453,9 @@
 - name: whimsy.profiles.download-dirs
   value: ""
 
+- name: services.sync.prefs.sync.whimsy.profiles.download-dirs
+  value: true
+
 # Login guid → profile key, and history page guid → profile keys (synced
 # maps, WhimsyProfileSync), so other devices scope passwords and history
 # the same way.

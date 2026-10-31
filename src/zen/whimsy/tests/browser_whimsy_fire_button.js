@@ -10,6 +10,7 @@
 // profile isn't wiped.
 
 const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFireButton.sys.mjs");
+const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
 const { ContextualIdentityService } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
 );
@@ -80,7 +81,7 @@ add_task(async function test_fire_sheet() {
   ok(panel.querySelector('[whimsy-fire-scope="everything"]').hasAttribute("destructive"), "Fire Everywhere is red");
   const summary = panel.querySelector("#whimsy-fire-summary");
   Assert.deepEqual(document.l10n.getAttributes(summary),
-    { id: "whimsy-fire-profile-summary", args: { profile: WhimsyFireButton.nameOf(id) } },
+    { id: "whimsy-fire-profile-summary", args: { profile: WhimsyProfiles.nameOf(id) } },
     "The note names the profile");
   await TestUtils.waitForCondition(() => summary.textContent.includes("last hour"), "...in words");
   if (id == 0) {
@@ -216,7 +217,7 @@ add_task(async function test_burn_profile_is_per_profile() {
   const { WhimsySpaceHistory } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs");
   const { SiteDataTestUtils } = ChromeUtils.importESModule("resource://testing-common/SiteDataTestUtils.sys.mjs");
   const mine = WhimsyFireButton.profileId(window);
-  const other = ContextualIdentityService.create("Fire Other", "fingerprint", "blue").userContextId;
+  const other = WhimsyProfiles.create("Fire Other");
   const sibling = await gZenWorkspaces.createAndSaveWorkspace("Fire Sibling", undefined, true, mine);
   const elsewhere = await gZenWorkspaces.createAndSaveWorkspace("Fire Elsewhere", undefined, true, other);
   const siblingTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
@@ -241,10 +242,11 @@ add_task(async function test_burn_profile_is_per_profile() {
     const time = Math.floor(row.getResultByName("visit_date") / 1000);
     const here = row.getResultByName("url") == MINE_URL && time == now - 60000;
     file.data.visits[id] = { id, time, guid: row.getResultByName("guid"),
-      spaceId: here ? gZenWorkspaces.activeWorkspace : elsewhere.uuid, spaceName: here ? "Here" : "Fire Elsewhere" };
+      spaceId: here ? gZenWorkspaces.activeWorkspace : elsewhere.uuid, spaceName: here ? "Here" : "Fire Elsewhere",
+      profile: WhimsyProfiles.keyFor(here ? mine : other) };
     ids.push(id);
   }
-  is(ids.length, 3, "Three visits recorded, attributed to this profile's space or the other one's");
+  is(ids.length, 3, "Three visits recorded with their profiles");
   SiteDataTestUtils.addToCookies({ origin: "https://example.com", originAttributes: { userContextId: mine } });
   SiteDataTestUtils.addToCookies({ origin: "https://example.com", originAttributes: { userContextId: other } });
   SiteDataTestUtils.addToCookies({ origin: "https://example.net", originAttributes: { userContextId: mine } });
@@ -260,7 +262,7 @@ add_task(async function test_burn_profile_is_per_profile() {
     ok(closing.includes(siblingTab), "Another space in this profile has its tabs closed too");
     ok(!closing.includes(elsewhereTab), "...but not a space in another profile");
     Assert.greaterOrEqual(result.visits, 1, "This profile's visit went");
-    is(result.profile, WhimsyFireButton.nameOf(mine), "The toast names the profile");
+    is(result.profile, WhimsyProfiles.nameOf(mine), "The toast names the profile");
 
     ok(!SiteDataTestUtils.hasCookies("https://example.com", null, { userContextId: mine }),
       "The site this profile visited lost its cookies in this profile");

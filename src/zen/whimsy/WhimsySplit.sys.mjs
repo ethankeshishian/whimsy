@@ -230,9 +230,9 @@ export const WhimsySplit = {
   },
 
   // The tab an Option+click should split in, or null to leave the click be.
-  altClickTarget(win, event) {
+  altClickTarget(win, event, { ignoreSwitch = false } = {}) {
     if (
-      !enabled(ALT_CLICK_FEATURE_PREF) ||
+      (!ignoreSwitch && !enabled(ALT_CLICK_FEATURE_PREF)) ||
       event.button != 0 ||
       !event.altKey ||
       event.shiftKey ||
@@ -280,6 +280,18 @@ export const WhimsySplit = {
     // on mousedown, so the click splits instead of switching.
     let swallowClick = false;
     const onMouseDown = event => {
+      if (!enabled(ALT_CLICK_FEATURE_PREF)) {
+        // The switch owns Option+click on a tab. Zen's tab patch never
+        // selects on Option+mousedown and splits on the click instead; with
+        // the switch off, an Option+click is just a click: select the tab and
+        // keep the click from Zen's split.
+        const plain = this.altClickTarget(win, event, { ignoreSwitch: true });
+        swallowClick = !!plain;
+        if (plain) {
+          win.gBrowser.selectedTab = plain;
+        }
+        return;
+      }
       const tab = this.altClickTarget(win, event);
       swallowClick = !!tab;
       if (!tab) {

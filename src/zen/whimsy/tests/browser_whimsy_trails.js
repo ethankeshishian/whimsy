@@ -116,7 +116,7 @@ add_task(async function test_branch_recorded_and_shown() {
 add_task(async function test_origin_row() {
   const opener = await BrowserTestUtils.openNewForegroundTab(gBrowser, A);
   const child = BrowserTestUtils.addTab(gBrowser, B, {
-    openerTab: opener,
+    openerBrowser: opener.linkedBrowser, // Gecko 159: addTab takes the opener browser
     triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
   });
   await BrowserTestUtils.browserLoaded(child.linkedBrowser, false, B);

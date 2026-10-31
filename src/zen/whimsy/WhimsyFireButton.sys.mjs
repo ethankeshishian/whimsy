@@ -35,7 +35,6 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  ContextualIdentityService: "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   ForgetAboutSite: "moz-src:///toolkit/components/forgetaboutsite/ForgetAboutSite.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
@@ -43,10 +42,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
-ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"]));
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
 const PANEL_ID = "whimsyFirePanel";
@@ -186,24 +185,18 @@ export const WhimsyFireButton = {
     await lazy.SessionSaver.run();
   },
 
-  // wave7/fire: "profile" here is just the user-facing word for a space's
-  // Zen container (userContextId); there's no profiles feature to ask
-  // (WhimsyProfiles was reverted on dev). The current space's own
-  // containerTabId; 0 is Default.
+  // The profile (container id) the current space uses; 0 is Default.
   profileId(win) {
-    return win.gZenWorkspaces?.getActiveWorkspace?.()?.containerTabId || 0;
+    return lazy.WhimsyProfiles.activeProfileId(win);
   },
 
-  // The spaces using a container, in Zen's order. Several spaces can share
-  // one container deliberately (Zen's own Set Profile), so this still
-  // looks at every space, not just the active one.
+  // The spaces using a profile, in Zen's order.
   profileSpaces(win, id = this.profileId(win)) {
-    const spaces = win.gZenWorkspaces?.getWorkspaces?.() || [];
-    return spaces.filter(space => !space.whimsyScratch && (space.containerTabId || 0) == id);
+    return lazy.WhimsyProfiles.spacesFor(id, win).filter(space => !space.whimsyScratch);
   },
 
-  // Every tab, in every ordinary window, that lives in one of the
-  // container's spaces: [[window, tabs], ...].
+  // Every tab, in every ordinary window, that lives in one of the profile's
+  // spaces: [[window, tabs], ...].
   profileTabs(win, id = this.profileId(win)) {
     const uuids = new Set(this.profileSpaces(win, id).map(space => space.uuid));
     const result = [];
@@ -219,24 +212,12 @@ export const WhimsyFireButton = {
     return result;
   },
 
-  // The container's name: the container's own label (Zen's Set Profile),
-  // or "Default profile" for userContextId 0 (or one that no longer
-  // exists). WhimsySpaceHistory only tracks visits by space, so this
-  // merges every space sharing the container.
-  nameOf(id) {
-    if (id && lazy.ContextualIdentityService.getPublicIdentityFromId(id)) {
-      return lazy.ContextualIdentityService.getUserContextLabel(id);
-    }
-    return lazy.l10n.formatValueSync("whimsy-fire-profile-default-name");
-  },
-
-  // History visits of a container's spaces since `since` (ms).
-  async profileVisits(win, id, since) {
-    const days = (Date.now() - since) / 86400000;
-    const rows = [];
-    for (const space of this.profileSpaces(win, id)) {
-      rows.push(...await lazy.WhimsySpaceHistory.query({ spaceId: space.uuid, days, limit: 100000 }));
-    }
+  // History visits of a profile since `since` (ms), as the History
+  // profile filter sees them.
+  async profileVisits(id, since) {
+    const rows = await lazy.WhimsySpaceHistory.query({
+      profile: lazy.WhimsyProfiles.keyFor(id), days: (Date.now() - since) / 86400000, limit: 100000,
+    });
     return rows.filter(row => row.date.getTime() >= since);
   },
 
@@ -265,7 +246,7 @@ export const WhimsyFireButton = {
     const id = this.profileId(win);
     const since = Date.now() - LAST_HOUR_MS;
     const groups = this.profileTabs(win, id);
-    const visits = await this.profileVisits(win, id, since);
+    const visits = await this.profileVisits(id, since);
     const sites = new Set();
     for (const visit of visits) {
       const site = siteOfURL(visit.url);
@@ -289,7 +270,7 @@ export const WhimsyFireButton = {
     await this.purgeClosed((tab, closedAt) => (tab.userContextId || 0) == id && closedAt >= since);
     await Promise.all([...sites].map(site => this.clearSiteData(site, id)));
     await Promise.all(visits.map(visit => this.removeVisit(visit)));
-    return { count, visits: visits.length, sites: sites.size, profile: this.nameOf(id) };
+    return { count, visits: visits.length, sites: sites.size, profile: lazy.WhimsyProfiles.nameOf(id) };
   },
 
   // Form & search history (and search bar/find bar text), all time, with
@@ -375,7 +356,7 @@ export const WhimsyFireButton = {
     const lang = Services.locale.appLocalesAsBCP47;
     const spaceNames = new Intl.ListFormat(lang, { style: "long", type: "conjunction" })
       .format(this.profileSpaces(win, profileId).map(space => space.name).filter(Boolean));
-    panel._whimsyFireProfile = this.nameOf(profileId);
+    panel._whimsyFireProfile = lazy.WhimsyProfiles.nameOf(profileId);
     const scopes = [
       {
         id: "profile",
