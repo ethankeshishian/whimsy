@@ -178,6 +178,16 @@ export const WhimsyShortcuts = {
       this.setBinding(downloads, DOWNLOADS_BINDING);
       keysets.add(downloads.parentElement);
     }
+    const inspectorMac = document.getElementById("key_inspectorMac");
+    if (inspectorMac && !this.isCustomized("key_inspectorMac")) {
+      this.setBinding(inspectorMac, {});
+      keysets.add(inspectorMac.parentElement);
+    }
+    const libraryKey = document.getElementById("zen-library-toggle");
+    if (libraryKey && !this.isCustomized("zen-library-toggle")) {
+      this.setBinding(libraryKey, SHORTCUTS["zen-library-toggle"]);
+      keysets.add(libraryKey.parentElement);
+    }
     this.rebindKeysets(keysets);
     return result;
   },
