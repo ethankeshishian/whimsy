@@ -156,6 +156,13 @@ add_task(async function test_drag_reorders_tabs_opened_below_current() {
       clientY,
     });
     await moved;
+    // A real drag session ends with dragend on the dragged tab, which is where
+    // Zen removes its drag image (a clone of the tab). The synthesized session
+    // has no native source, so it never sends one; send it like the real one.
+    const dt = new DataTransfer();
+    dt.mozSetDataAt("application/x-moz-tabbrowser-tab", source, 0);
+    source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer: dt }));
+    ok(!gBrowser.tabContainer.tabDragAndDrop._tempDragImageParent, "The drag image goes away when the drag ends");
   }
   const dropAfter = (source, target) => {
     const r = bounds(target);
@@ -172,6 +179,8 @@ add_task(async function test_drag_reorders_tabs_opened_below_current() {
   Assert.deepEqual(order(), [tab2, tab1, tab3], "And past the last one");
   await dropBefore(tab3, tab2);
   Assert.deepEqual(order(), [tab3, tab2, tab1], "Dragging up moves it back before its target");
+
+  is(document.querySelectorAll("[drag-image]").length, 0, "No drag image is left behind");
 
   for (const t of [tab1, tab2, tab3]) {
     BrowserTestUtils.removeTab(t);
