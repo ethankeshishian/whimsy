@@ -43,6 +43,8 @@ const MANAGED_ISOLATION_PREF = "whimsy.extensions.space-isolation-managed";
 const MENU_ID = "whimsy-space-extensions-menu";
 const MENUPOPUP_ID = "whimsy-space-extensions-menupopup";
 export const PROCESS_SCRIPT = "chrome://browser/content/whimsy/whimsy-profiles-process.js";
+// sharedData key: { extensionId: [userContextIds it must not run in] }.
+export const SHARED_KEY = "whimsy:profile-restricted";
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -229,12 +231,22 @@ export const WhimsySpaceExtensions = {
   applyContainerIsolation() {
     const previouslyManaged = new Set(readJSON(MANAGED_ISOLATION_PREF, "[]"));
     const nowManaged = new Set();
+    const shared = {};
     if (featureOn()) {
       for (const extensionId of Object.keys(this.getProfileMap())) {
-        Services.prefs.setStringPref(restrictedPref(extensionId),
-          JSON.stringify(this.restrictedIdsFor(extensionId)));
+        const ids = this.restrictedIdsFor(extensionId);
+        Services.prefs.setStringPref(restrictedPref(extensionId), JSON.stringify(ids));
+        shared[extensionId] = ids;
         nowManaged.add(extensionId);
       }
+    }
+    // The content-script guard (whimsy-profiles-process.js) reads this:
+    // web content processes don't see these extension prefs.
+    try {
+      Services.ppmm.sharedData.set(SHARED_KEY, shared);
+      Services.ppmm.sharedData.flush();
+    } catch (e) {
+      console.error("Whimsy: profile restrictions for content", e);
     }
     for (const extensionId of previouslyManaged) {
       if (!nowManaged.has(extensionId)) {

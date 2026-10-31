@@ -29,24 +29,23 @@
   ExtensionProcessScript._whimsyProfiles = true;
   const original = ExtensionProcessScript.loadContentScript;
 
+  // The parent publishes { extensionId: [restricted userContextIds] } in
+  // sharedData (WhimsySpaceExtensions.applyContainerIsolation; empty with
+  // the feature off): web content processes don't see the extension prefs.
   function restricted(contentScript, window) {
-    if (!Services.prefs.getBoolPref("whimsy.feature.space-extensions", true)) {
-      return false;
-    }
     const id = contentScript?.extension?.id;
     if (!id) {
       return false;
     }
-    const list = Services.prefs.getStringPref(`extensions.userContextIsolation.${id}.restricted`, "");
-    if (!list || list == "[]") {
+    let ids = null;
+    try {
+      ids = Services.cpmm.sharedData.get("whimsy:profile-restricted")?.[id];
+    } catch {}
+    if (!Array.isArray(ids) || !ids.length) {
       return false;
     }
     const userContextId = window?.document?.nodePrincipal?.originAttributes?.userContextId ?? 0;
-    try {
-      return JSON.parse(list).includes(userContextId);
-    } catch {
-      return false;
-    }
+    return ids.includes(userContextId);
   }
 
   ExtensionProcessScript.loadContentScript = function (contentScript, window) {

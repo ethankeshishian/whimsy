@@ -2240,7 +2240,9 @@ Object.assign(gWhimsySettings, {
     // The pane's title, and one line on what it does.
     const header = document.createXULElement("hbox");
     header.id = "whimsyMenusCategory";
-    header.className = "subcategory whimsy-menus-header";
+    // Not .subcategory: Settings search always hides those, and searching
+    // "Menus" should find this pane by its title.
+    header.className = "whimsy-menus-header";
     header.setAttribute("data-category", WHIMSY_MENUS_PANE);
     header.hidden = true;
     const title = html("h1");

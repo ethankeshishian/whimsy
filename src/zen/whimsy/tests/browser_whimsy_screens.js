@@ -1455,11 +1455,12 @@ add_task(async function addons_space_choices() {
       const card = await TestUtils.waitForCondition(() =>
         [...doc.querySelectorAll("addon-card")].find(c => c.addon?.id === extension.id), "Screenshot extension card appears");
       const item = await TestUtils.waitForCondition(() =>
-        card.querySelector("[data-whimsy-space-picker]"), "Whimsy space picker is attached");
+        // wave7/profiles: "Run in Profiles…" replaced "Show in Spaces…".
+        card.querySelector("[data-whimsy-profile-picker]"), "Whimsy profile picker is attached");
       card.querySelector(".more-options-button").click();
       item.click();
-      const choices = card.querySelector("[data-whimsy-space-choices]");
-      ok(choices, "Extension space choices are visible in Add-ons");
+      const choices = await TestUtils.waitForCondition(() => card.querySelector("[data-whimsy-profile-choices]"),
+        "Extension profile choices are visible in Add-ons");
       choices.scrollIntoView({ block: "center" });
       await doc.l10n.translateFragment(choices);
       await shot("wave4-addons-spaces", browser.browsingContext.currentWindowGlobal);

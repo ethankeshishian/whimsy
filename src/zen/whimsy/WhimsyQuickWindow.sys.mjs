@@ -221,7 +221,8 @@ export const WhimsyQuickWindow = {
     return win;
   },
 
-  // Where a new Mini opens, in screen pixels (left/top undefined: centred).
+  // Where a new Mini opens, in screen pixels (left/top undefined, with no
+  // screen to measure: the system centres it).
   // The bar-only panel sits at the screen's top-right; a link Mini centres
   // on the pointer, or stacks STACK_OFFSET below the Mini it opens over.
   initialRect({ opener, below, barOnly }) {
@@ -251,7 +252,14 @@ export const WhimsyQuickWindow = {
     }
     const pointer = opener && pointerPositions.get(opener);
     if (!pointer) {
-      return { width, height };
+      // Centred on the screen, placed here rather than left to the system
+      // (which may cascade it partly off the bottom), so a Mini stacked
+      // over this one can sit below it.
+      return {
+        left: clamp(availLeft + (availWidth - width) / 2, availLeft, availWidth, width),
+        top: clamp(availTop + (availHeight - height) / 2, availTop, availHeight, height),
+        width, height,
+      };
     }
     return {
       left: clamp(pointer.x - width / 2, availLeft, availWidth, width),

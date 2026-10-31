@@ -10,6 +10,12 @@ whimsy-updated-heading = { -brand-short-name } updated
 whimsy-rolled-back-heading = Rolled back to the previous version
 whimsy-updated-notes-label = What's new
 whimsy-updated-rollback-label = Something broke? Roll back
+# Built from the link ids by Zen's sidebar notification (<id>-label, <id>-tooltip).
+whimsy-updated-notes-tooltip =
+    .title = See what changed
+whimsy-updated-settings-label = Update settings
+whimsy-updated-settings-tooltip =
+    .title = Open update settings
 
 ## Settings → Look and Feel → Updates
 

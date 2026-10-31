@@ -121,7 +121,12 @@ add_task(async function test_isolation_includes_default() {
   }
 
   WhimsySpaceExtensions.setAllowedProfiles(extensionId, ["default"]);
-  Assert.deepEqual(restricted(), [container.userContextId], "Only Default: the other profile is off-limits");
+  // Every profile but Default, whatever this profile already has (the test
+  // profile keeps Firefox's stock containers, which are profiles too).
+  const others = WhimsyProfiles.list().filter(p => p.key != "default").map(p => p.id);
+  ok(others.includes(container.userContextId), "The other profile is among them");
+  Assert.deepEqual([...restricted()].sort((a, b) => a - b), others.sort((a, b) => a - b),
+    "Only Default: every other profile is off-limits");
 });
 
 add_task(async function test_content_scripts_stay_in_their_profiles() {
