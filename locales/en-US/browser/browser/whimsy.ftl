@@ -2970,3 +2970,8 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## batch8: W8-04 Collapse All Folders
+whimsy-action-collapse-all-folders = Collapse All Folders
+whimsy-action-expand-all-folders = Expand All Folders
+
