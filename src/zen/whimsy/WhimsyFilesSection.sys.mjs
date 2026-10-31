@@ -40,7 +40,7 @@ function filenameFor(date) {
 export function isPrivateCapture(browser) {
   try {
     return !browser || lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) ||
-      lazy.PrivateBrowsingUtils.isWindowPrivate(browser.ownerGlobal);
+      lazy.PrivateBrowsingUtils.isWindowPrivate(browser.ownerDocument?.defaultView);
   } catch {
     return true; // Can't tell: keep it off disk.
   }
