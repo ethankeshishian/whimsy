@@ -624,3 +624,5 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 ["browser_whimsy_mini_bar.js"]
 # wave9/mini W8-28: hover cards: grace + hover bridge timing, metadata fallbacks (twitter:, JSON-LD, <title>, oEmbed), link context on the profile's own site.
 ["browser_whimsy_hover_bridge.js"]
+# wave9/mini W8-20: Mini's command bar replaces Mini's page (Arc's Little Arc model): no new tabs, Cmd+T opens the bar, Switch to Tab loads here.
+["browser_whimsy_mini_command_bar.js"]

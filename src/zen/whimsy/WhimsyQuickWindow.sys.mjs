@@ -756,9 +756,61 @@ export const WhimsyQuickWindow = {
       configurable: true,
       get: () => "float",
     });
+    this.keepResultsInMini(win);
+    // Arc: Cmd+T in Little Arc opens its command bar; what you pick
+    // replaces the page, it never opens a tab.
+    const commands = win.BrowserCommands;
+    if (commands?.openTab && !commands._whimsyMini) {
+      commands._whimsyMini = true;
+      commands.openTab = ({ url } = {}) => {
+        if (url) {
+          win.openTrustedLinkIn(url, "current");
+        } else {
+          this.openCommandBar(win);
+        }
+      };
+    }
+  },
+
+  // wave9/mini W8-20 (Arc's Little Arc model, approved by the user): Mini
+  // holds one page at a time and has no tab strip, so everything its
+  // command bar opens replaces that page. Firefox and Zen would otherwise
+  // send some picks to a tab: Alt/Cmd+Return, Zen's "new tab" command bar
+  // (Cmd+T), an empty Zen tab, the open-in-tab pref. A popup window has no
+  // tabs of its own, so those landed as tabs in the main window, behind the
+  // floating Mini, and Mini looked like it did nothing. "Switch to Tab"
+  // results switched a main window's tab the same way; in Mini they open
+  // that page here instead. Downloads ("save") stay downloads. Moving the
+  // page into a space is still Cmd+O / the Open in button.
+  keepResultsInMini(win) {
+    const controller = win.gURLBar?.controller;
+    if (!controller?.whereToOpen) {
+      // Not set up yet: try again when the command bar is first used.
+      win.gURLBar?.addEventListener("focus", () => this.keepResultsInMini(win), { once: true });
+      return false;
+    }
+    if (controller._whimsyMini) {
+      return true;
+    }
+    controller._whimsyMini = true;
+    const whereToOpen = controller.whereToOpen.bind(controller);
+    controller.whereToOpen = event => {
+      const where = whereToOpen(event);
+      return where == "save" ? where : "current";
+    };
+    const parent = controller.parentController;
+    if (parent?.switchToTab) {
+      parent.switchToTab = ({ url } = {}) => {
+        if (url && !win.closed) {
+          win.openTrustedLinkIn(url, "current");
+        }
+      };
+    }
+    return true;
   },
 
   openCommandBar(win) {
+    this.keepResultsInMini(win);
     if (win.gURLBar) {
       win.gURLBar.readOnly = false;
       // Reveal the input before focusing it: its normal toolbar is collapsed
