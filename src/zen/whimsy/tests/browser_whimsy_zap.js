@@ -182,6 +182,17 @@ add_task(async function site_panel_menu_item() {
     const attrs = document.l10n.getAttributes(item);
     is(attrs.id, "whimsy-site-zap-count", "The item says how many things are zapped");
     is(attrs.args.count, 2, "two of them");
+
+    const subMenu = document.getElementById("whimsy-site-zapped-menu");
+    ok(subMenu && !subMenu.hidden, "Submenu shows when elements are zapped");
+    const subAttrs = document.l10n.getAttributes(subMenu);
+    is(subAttrs.args.count, 2, "Submenu says 2 zapped elements");
+    const elItems = subMenu.querySelectorAll(".whimsy-site-zapped-item");
+    is(elItems.length, 2, "Submenu lists both zapped elements");
+
+    const restoreAllItem = document.getElementById("whimsy-site-zap-restore-all");
+    ok(restoreAllItem && !restoreAllItem.hidden, "Restore all item shows in site panel menu");
+
     const hiddenAgain = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
     popup.hidePopup();
     await hiddenAgain;
@@ -195,6 +206,35 @@ add_task(async function site_panel_menu_item() {
     const hidden = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
     popup.hidePopup();
     await hidden;
+  });
+});
+
+add_task(async function test_zap_undo_granularity() {
+  deleteBoosts();
+  await BrowserTestUtils.withNewTab(PAGE, async () => {
+    WhimsyZap.ensureBoost(DOMAIN);
+    gZenBoostsManager.addZapSelectorToActive("h1", DOMAIN);
+    gZenBoostsManager.addZapSelectorToActive("p", DOMAIN);
+    is(zapSelectors().length, 2, "Initially 2 zapped elements");
+
+    // Test restoring one element via unzapSelector
+    WhimsyZap.unzapSelector(window, "h1", DOMAIN);
+    ok(!zapSelectors().includes("h1"), "h1 removed by individual unzap");
+    ok(zapSelectors().includes("p"), "p is still zapped");
+
+    // Test undoing that single restore
+    WhimsyUndo.undo(window);
+    ok(zapSelectors().includes("h1"), "Undo brings h1 back to zapped state");
+
+    // Test restoring all elements on the site via command
+    const cmd = document.getElementById(WhimsyZap.COMMAND_RESTORE_ALL);
+    ok(cmd, "Restore all command registered");
+    cmd.doCommand();
+    is(zapSelectors().length, 0, "All selectors removed by restore-all");
+
+    // Test undoing restore-all
+    WhimsyUndo.undo(window);
+    is(zapSelectors().length, 2, "Undo brings back all zapped selectors");
   });
 });
 

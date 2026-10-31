@@ -2976,3 +2976,18 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## wave9: Zap undo granularity (W9-05)
+
+whimsy-action-zap-restore-all = Restore All Zapped Elements
+whimsy-site-zap-zapped-menu =
+    .label = { $count ->
+        [one] Zapped Elements (1)
+       *[other] Zapped Elements ({ $count })
+    }
+whimsy-site-zap-restore-item =
+    .label = Restore { $selector }
+whimsy-site-zap-restore-all =
+    .label = Restore All Zapped Elements
+whimsy-site-zap-restored-toast = Restored { $selector }
+whimsy-site-zap-restored-all-toast = Restored all zapped elements

@@ -36,16 +36,19 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyStats: "resource:///modules/whimsy/WhimsyStats.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.zap";
 const BOOSTS_PREF = "zen.boosts.enabled";
 export const TINT_KEY = "whimsy:zap-tint";
 const COMMAND_ID = "whimsy-zap";
+const COMMAND_RESTORE_ALL = "cmd_whimsyZapRestoreAll";
 const MENUITEM_ID = "whimsy-site-zap";
 
 export const WhimsyZap = {
   COMMAND_ID,
+  COMMAND_RESTORE_ALL,
   TINT_KEY,
 
   // Replaying an undo or redo: not a new zap (no count, no undo entry).
@@ -113,6 +116,86 @@ export const WhimsyZap = {
     } catch (e) {
       return 0;
     }
+  },
+
+  getZapSelectors(domain) {
+    if (!domain) {
+      return [];
+    }
+    try {
+      const manager = lazy.gZenBoostsManager;
+      if (!manager.getActiveBoostId(domain)) {
+        return [];
+      }
+      return manager.loadActiveBoostFromStore(domain)?.boostEntry.boostData.zapSelectors ?? [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  unzapSelector(win, selector, domain) {
+    if (!domain) {
+      domain = this.domainFor(win?.gBrowser?.selectedBrowser);
+    }
+    if (!domain || !selector) {
+      return false;
+    }
+    this.wrapManager();
+    this._remove(selector, domain);
+    const entry = {
+      type: "zap",
+      selector,
+      domain,
+      undo: () => this.replay(() => this._add(selector, domain)),
+      redo: () => this.replay(() => this._remove(selector, domain)),
+    };
+    if (win && lazy.WhimsyUndo.enabled) {
+      lazy.WhimsyUndo.push(win, entry);
+    } else {
+      this._ownStack.push(entry);
+    }
+    win?.gZenUIManager?.showToast?.("whimsy-site-zap-restored-toast", {
+      l10nArgs: { selector },
+    });
+    return true;
+  },
+
+  restoreAllForSite(win, domain) {
+    if (!domain) {
+      domain = this.domainFor(win?.gBrowser?.selectedBrowser);
+    }
+    if (!domain) {
+      return false;
+    }
+    const selectors = [...this.getZapSelectors(domain)];
+    if (!selectors.length) {
+      return false;
+    }
+    this.wrapManager();
+    const manager = lazy.gZenBoostsManager;
+    manager.clearZapSelectorsForActive(domain, "zap");
+    const entry = {
+      type: "zap-all",
+      selectors,
+      domain,
+      undo: () =>
+        this.replay(() => {
+          for (const sel of selectors) {
+            this._add(sel, domain);
+          }
+        }),
+      redo: () =>
+        this.replay(() => {
+          manager.clearZapSelectorsForActive(domain, "zap");
+        }),
+    };
+    if (win && lazy.WhimsyUndo.enabled) {
+      lazy.WhimsyUndo.push(win, entry);
+    } else {
+      this._ownStack.push(entry);
+    }
+    win?.gZenUIManager?.showToast?.("whimsy-site-zap-restored-all-toast");
+    return true;
   },
 
   // Turns zap mode on (or off) in the current tab.
@@ -260,6 +343,13 @@ export const WhimsyZap = {
         isAvailable: w => this.canZap(w),
       },
     ]);
+    lazy.WhimsyCommands.register(win, {
+      id: COMMAND_RESTORE_ALL,
+      l10nId: "whimsy-action-zap-restore-all",
+      run: w => this.restoreAllForSite(w),
+      icon: "chrome://browser/skin/zen-icons/trash.svg",
+      isAvailable: w => this.canZap(w) && this.zapCount(this.domainFor(w.gBrowser.selectedBrowser)) > 0,
+    });
 
     // The site panel's "..." menu: Zap Elements, with the site's count.
     const popup = document.getElementById("zenSiteDataActions");
@@ -268,21 +358,65 @@ export const WhimsyZap = {
         return;
       }
       let item = document.getElementById(MENUITEM_ID);
+      let subMenu = document.getElementById("whimsy-site-zapped-menu");
+      let restoreAllItem = document.getElementById("whimsy-site-zap-restore-all");
       if (!item) {
         item = document.createXULElement("menuitem");
         item.id = MENUITEM_ID;
         item.setAttribute("command", COMMAND_ID);
         item.setAttribute("key", "key_whimsyZap");
+
+        subMenu = document.createXULElement("menu");
+        subMenu.id = "whimsy-site-zapped-menu";
+        const subPopup = document.createXULElement("menupopup");
+        subPopup.id = "whimsy-site-zapped-popup";
+        subMenu.appendChild(subPopup);
+
+        restoreAllItem = document.createXULElement("menuitem");
+        restoreAllItem.id = "whimsy-site-zap-restore-all";
+        restoreAllItem.setAttribute("command", COMMAND_RESTORE_ALL);
+
         const separator = document.createXULElement("menuseparator");
         separator.id = `${MENUITEM_ID}-separator`;
-        popup.prepend(item, separator);
+        popup.prepend(item, subMenu, restoreAllItem, separator);
       }
       const show = this.canZap(win);
       item.hidden = !show;
+      const domain = this.domainFor(win.gBrowser.selectedBrowser);
+      const count = show ? this.zapCount(domain) : 0;
+      if (subMenu) {
+        subMenu.hidden = !show || count === 0;
+      }
+      if (restoreAllItem) {
+        restoreAllItem.hidden = !show || count === 0;
+      }
       document.getElementById(`${MENUITEM_ID}-separator`).hidden = !show;
       if (show) {
-        const count = this.zapCount(this.domainFor(win.gBrowser.selectedBrowser));
         document.l10n.setAttributes(item, count ? "whimsy-site-zap-count" : "whimsy-site-zap", { count });
+        if (count > 0 && subMenu) {
+          document.l10n.setAttributes(subMenu, "whimsy-site-zap-zapped-menu", { count });
+          document.l10n.setAttributes(restoreAllItem, "whimsy-site-zap-restore-all");
+          const subPopup = subMenu.querySelector("menupopup");
+          if (subPopup) {
+            subPopup.textContent = "";
+            const selectors = this.getZapSelectors(domain);
+            for (const sel of selectors) {
+              const elItem = document.createXULElement("menuitem");
+              elItem.className = "whimsy-site-zapped-item";
+              document.l10n.setAttributes(elItem, "whimsy-site-zap-restore-item", { selector: sel });
+              elItem.addEventListener("command", () => {
+                this.unzapSelector(win, sel, domain);
+              });
+              subPopup.appendChild(elItem);
+            }
+            const sep = document.createXULElement("menuseparator");
+            subPopup.appendChild(sep);
+            const subRestoreAll = document.createXULElement("menuitem");
+            document.l10n.setAttributes(subRestoreAll, "whimsy-site-zap-restore-all");
+            subRestoreAll.setAttribute("command", COMMAND_RESTORE_ALL);
+            subPopup.appendChild(subRestoreAll);
+          }
+        }
       }
     };
     popup?.addEventListener("popupshowing", onShowing);
