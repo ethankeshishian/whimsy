@@ -642,3 +642,5 @@ support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
 ["browser_whimsy_security_private_zap.js"]
 # wave9/secfix (security-full-2 L3): Whimsy's copy commands mark private-browsing data private on the clipboard.
 ["browser_whimsy_security_private_clipboard.js"]
+# wave9/secfix (security-full-2 L4): Developer Mode in private browsing is session-only; the Calendar verb is not offered there.
+["browser_whimsy_security_private_commands.js"]

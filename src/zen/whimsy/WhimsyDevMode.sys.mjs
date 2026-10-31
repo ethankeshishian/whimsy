@@ -14,6 +14,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.dev-mode";
@@ -39,10 +40,27 @@ function looksLikeDevHost(uri) {
   }
 }
 
-function hasManualOverride(uri) {
+// wave9/secfix (security-full-2 L4): private browsing's choice is kept on
+// the private principal, for the session only (Firefox keeps private
+// permissions in memory), so the site never reaches permissions.sqlite.
+// Private browsing also sees the normal choice.
+function principalsFor(uri, isPrivate) {
+  const make = attrs => Services.scriptSecurityManager.createContentPrincipal(uri, attrs);
+  return isPrivate ? [make({ privateBrowsingId: 1 }), make({})] : [make({})];
+}
+
+function hasManualOverride(uri, isPrivate = false) {
   try {
-    const principal = Services.scriptSecurityManager.createContentPrincipal(uri, {});
-    return Services.perms.testPermissionFromPrincipal(principal, PERM_TYPE) == Services.perms.ALLOW_ACTION;
+    return principalsFor(uri, isPrivate).some(principal =>
+      Services.perms.testPermissionFromPrincipal(principal, PERM_TYPE) == Services.perms.ALLOW_ACTION);
+  } catch (e) {
+    return false;
+  }
+}
+
+function browserIsPrivate(browser) {
+  try {
+    return !!browser && lazy.PrivateBrowsingUtils.isBrowserPrivate(browser);
   } catch (e) {
     return false;
   }
@@ -53,17 +71,24 @@ export const WhimsyDevMode = {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },
 
-  isDevMode(uri) {
-    return !!uri && (looksLikeDevHost(uri) || hasManualOverride(uri));
+  isDevMode(uri, isPrivate = false) {
+    return !!uri && (looksLikeDevHost(uri) || hasManualOverride(uri, isPrivate));
   },
 
-  toggleSite(uri) {
+  isPrivate: browserIsPrivate,
+
+  toggleSite(uri, isPrivate = false) {
     try {
-      const principal = Services.scriptSecurityManager.createContentPrincipal(uri, {});
-      if (hasManualOverride(uri)) {
-        Services.perms.removeFromPrincipal(principal, PERM_TYPE);
+      const principals = principalsFor(uri, isPrivate);
+      if (hasManualOverride(uri, isPrivate)) {
+        for (const principal of principals) {
+          Services.perms.removeFromPrincipal(principal, PERM_TYPE);
+        }
+      } else if (isPrivate) {
+        Services.perms.addFromPrincipal(principals[0], PERM_TYPE, Services.perms.ALLOW_ACTION,
+          Services.perms.EXPIRE_SESSION);
       } else {
-        Services.perms.addFromPrincipal(principal, PERM_TYPE, Services.perms.ALLOW_ACTION);
+        Services.perms.addFromPrincipal(principals[0], PERM_TYPE, Services.perms.ALLOW_ACTION);
       }
     } catch (e) {}
   },
@@ -73,7 +98,7 @@ export const WhimsyDevMode = {
     const update = tab => {
       if (!this.enabled) {
         tab.removeAttribute("whimsy-devmode");
-      } else if (this.isDevMode(tab.linkedBrowser?.currentURI)) {
+      } else if (this.isDevMode(tab.linkedBrowser?.currentURI, browserIsPrivate(tab.linkedBrowser))) {
         tab.setAttribute("whimsy-devmode", "");
       } else {
         tab.removeAttribute("whimsy-devmode");

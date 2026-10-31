@@ -643,7 +643,7 @@ export const Whimsy = {
       // bar ("Turn On/Off Developer Mode"), neutral in about:keyboard.
       const siteIsDev = w => {
         const uri = w.gBrowser.selectedBrowser?.currentURI;
-        return !!uri && lazy.WhimsyDevMode.isDevMode(uri);
+        return !!uri && lazy.WhimsyDevMode.isDevMode(uri, lazy.WhimsyDevMode.isPrivate(w.gBrowser.selectedBrowser));
       };
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-devmode-toggle-site",
@@ -651,7 +651,7 @@ export const Whimsy = {
         run: w => {
           const uri = w.gBrowser.selectedBrowser?.currentURI;
           if (lazy.WhimsyDevMode.enabled && uri) {
-            lazy.WhimsyDevMode.toggleSite(uri);
+            lazy.WhimsyDevMode.toggleSite(uri, lazy.WhimsyDevMode.isPrivate(w.gBrowser.selectedBrowser));
           }
         },
         icon: "chrome://browser/skin/zen-icons/selectable/code.svg",

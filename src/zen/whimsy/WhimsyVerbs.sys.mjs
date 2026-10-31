@@ -430,7 +430,10 @@ const BUILT_IN = [
     l10nId: "whimsy-verb-calendar",
     icon: `${ICONS}history.svg`,
     scope: "selection",
-    isAvailable: (win, s) => !!s.event,
+    // Not from private browsing (wave9/secfix, security-full-2 L4): the
+    // event carries the selection and the page's URL into Calendar, which
+    // syncs.
+    isAvailable: (win, s) => !!s.event && !isPrivate(win),
     async run(win, s) {
       const event = { ...s.event, title: s.event.title || firstLine(s.title), description: `${s.text}\n\n${s.url}`, url: s.url };
       // wave7/native1: straight into macOS Calendar through EventKit
