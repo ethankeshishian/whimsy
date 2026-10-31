@@ -70,9 +70,9 @@
   value: 0
 
 # Icons beside context menu and tab menu items, like macOS 26's own menus
-# (Settings → Look and Feel).
+# (Settings → Look and Feel). Off by default, like Arc's text-only menus.
 - name: whimsy.look.menu-icons
-  value: true
+  value: false
 
 # The browser interface's font family (Settings → Look and Feel). Empty is
 # the system font. Web pages keep their own fonts.

@@ -985,6 +985,9 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r"(?i)dedup")]},
     {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
      "detect": [("src/zen/common", r"(?i)reveal-?tab|tabs-menubar|portrait")]},
+    # wave7/menus2: archive-tab-menu
+    {"id": "archive-tab-menu", "title": "Tab menu in Arc's words: Archive Tab, Archive Tabs Below, Restore Last Closed Tab (closed tabs go to the Archive)",
+     "detect": [("src/zen/tabs", r"(?i)archive-?tabs?-?below")]},
 ]
 
 

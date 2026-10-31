@@ -203,6 +203,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
 });
 
+// wave7/menus2: Arc's archive words in the tab menu; menu icons option.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyArchiveMenu: "resource:///modules/whimsy/WhimsyArchiveMenu.sys.mjs",
+  WhimsyMenuIcons: "resource:///modules/whimsy/WhimsyMenuIcons.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -688,6 +694,11 @@ export const Whimsy = {
     // wave7/menus: the space menu's order. Its listener runs after every
     // module's own (they listen on the popup, it on the window).
     run("space-menu-order", () => lazy.WhimsySpaceMenu.initWindow(win));
+    // wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed
+    // Tab (checks its switch on every show), then the menu icons option,
+    // last, so it sees every row the other listeners showed or added.
+    run("archive-tab-menu", () => lazy.WhimsyArchiveMenu.initWindow(win));
+    run("menu-icons", () => lazy.WhimsyMenuIcons.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
