@@ -414,6 +414,9 @@
 - name: whimsy.feature.selection-verbs
   value: true
 
+- name: whimsy.feature.redact
+  value: true
+
 - name: whimsy.feature.space-look
   value: true
 

@@ -96,6 +96,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyQRCode.sys.mjs",
     "WhimsyQuickWindow.sys.mjs",
     "WhimsyRecentTabs.sys.mjs",
+    "WhimsyRedactChild.sys.mjs",
+    "WhimsyRedactParent.sys.mjs",
     "WhimsySearchDeck.sys.mjs",
     "WhimsySearchDeckChild.sys.mjs",
     "WhimsySeasons.sys.mjs",

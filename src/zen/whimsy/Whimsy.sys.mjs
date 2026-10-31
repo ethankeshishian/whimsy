@@ -157,6 +157,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
 });
 
+// wave5: redact in screenshots.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
+});
+
 // wave5/look: a look per space (font, density, title lines, a Zen Mod).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
@@ -653,6 +658,10 @@ export const Whimsy = {
     // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
     // checks its switch on each use (off: Cmd+K is Firefox's again).
     run("selection-verbs", () => lazy.WhimsyVerbs.initWindow(win));
+
+    // wave5: redact. Adds the toggle to the Screenshots panel; it checks
+    // whimsy.feature.redact each time the panel shows.
+    run("redact", () => lazy.WhimsyRedact.initWindow(win));
     // wave5/look: a look per space. After Zen's spaces are ready (Mini
     // has none of its own and follows its destination's); it checks its
     // switch on every change, so turning it off applies at once.
