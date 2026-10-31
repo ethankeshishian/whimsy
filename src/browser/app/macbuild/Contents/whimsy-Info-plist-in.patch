@@ -1,10 +1,116 @@
 diff --git a/browser/app/macbuild/Contents/Info.plist.in b/browser/app/macbuild/Contents/Info.plist.in
+index 32f717f..94e7bcd 100644
 --- a/browser/app/macbuild/Contents/Info.plist.in
 +++ b/browser/app/macbuild/Contents/Info.plist.in
-@@ -207,6 +207,16 @@
+@@ -6,6 +6,103 @@
+ 	<string>English</string>
+ 	<key>CFBundleDocumentTypes</key>
+ 	<array>
++		<dict>
++			<key>CFBundleTypeExtensions</key>
++			<array>
++				<string>md</string>
++				<string>markdown</string>
++				<string>mdown</string>
++				<string>mkdn</string>
++			</array>
++			<key>CFBundleTypeIconFile</key>
++			<string>document.icns</string>
++			<key>CFBundleTypeMIMETypes</key>
++			<array>
++				<string>text/markdown</string>
++				<string>text/x-markdown</string>
++			</array>
++			<key>CFBundleTypeName</key>
++			<string>Markdown Document</string>
++			<key>CFBundleTypeOSTypes</key>
++			<array>
++				<string>TEXT</string>
++			</array>
++			<key>CFBundleTypeRole</key>
++			<string>Viewer</string>
++			<key>LSHandlerRank</key>
++			<string>Alternate</string>
++		</dict>
++		<dict>
++			<key>CFBundleTypeExtensions</key>
++			<array>
++				<string>csv</string>
++				<string>tsv</string>
++			</array>
++			<key>CFBundleTypeIconFile</key>
++			<string>document.icns</string>
++			<key>CFBundleTypeMIMETypes</key>
++			<array>
++				<string>text/csv</string>
++				<string>text/tab-separated-values</string>
++			</array>
++			<key>CFBundleTypeName</key>
++			<string>Comma-Separated Values</string>
++			<key>CFBundleTypeOSTypes</key>
++			<array>
++				<string>TEXT</string>
++			</array>
++			<key>CFBundleTypeRole</key>
++			<string>Viewer</string>
++			<key>LSHandlerRank</key>
++			<string>Alternate</string>
++		</dict>
++		<dict>
++			<key>CFBundleTypeExtensions</key>
++			<array>
++				<string>webp</string>
++				<string>avif</string>
++			</array>
++			<key>CFBundleTypeIconFile</key>
++			<string>document.icns</string>
++			<key>CFBundleTypeMIMETypes</key>
++			<array>
++				<string>image/webp</string>
++				<string>image/avif</string>
++			</array>
++			<key>CFBundleTypeName</key>
++			<string>Web Image</string>
++			<key>CFBundleTypeRole</key>
++			<string>Viewer</string>
++			<key>LSHandlerRank</key>
++			<string>Alternate</string>
++		</dict>
++		<dict>
++			<key>CFBundleTypeExtensions</key>
++			<array>
++				<string>xml</string>
++				<string>yaml</string>
++				<string>yml</string>
++			</array>
++			<key>CFBundleTypeIconFile</key>
++			<string>document.icns</string>
++			<key>CFBundleTypeMIMETypes</key>
++			<array>
++				<string>text/xml</string>
++				<string>application/xml</string>
++				<string>text/yaml</string>
++				<string>application/x-yaml</string>
++			</array>
++			<key>CFBundleTypeName</key>
++			<string>Data Document</string>
++			<key>CFBundleTypeOSTypes</key>
++			<array>
++				<string>TEXT</string>
++			</array>
++			<key>CFBundleTypeRole</key>
++			<string>Viewer</string>
++			<key>LSHandlerRank</key>
++			<string>Alternate</string>
++		</dict>
+ 		<dict>
+ 			<key>CFBundleTypeExtensions</key>
+ 			<array>
+@@ -206,6 +303,16 @@
+ 	<string>MOZB</string>
  	<key>CFBundleURLTypes</key>
  	<array>
- 		<dict>
++		<dict>
 +			<key>CFBundleURLName</key>
 +			<string>Whimsy link</string>
 +			<key>CFBundleTypeRole</key>
@@ -14,18 +120,16 @@ diff --git a/browser/app/macbuild/Contents/Info.plist.in b/browser/app/macbuild/
 +				<string>whimsy</string>
 +			</array>
 +		</dict>
-+		<dict>
+ 		<dict>
  			<key>CFBundleURLIconFile</key>
  			<string>document.icns</string>
- 			<key>CFBundleURLName</key>
-@@ -272,7 +282,19 @@
-   <string>@MOZ_DEVELOPER_REPO_PATH@</string>
+@@ -273,6 +380,18 @@
    <key>MozillaDeveloperObjPath</key>
    <string>@MOZ_DEVELOPER_OBJ_PATH@</string>
-+
+ 
 +  <key>NSCalendarsFullAccessUsageDescription</key>
 +  <string>@MAC_APP_NAME@ shows your next meeting and its join link in the sidebar, and adds events you choose to Calendar.</string>
- 
++
 +  <key>NSCalendarsUsageDescription</key>
 +  <string>@MAC_APP_NAME@ shows your next meeting and its join link in the sidebar, and adds events you choose to Calendar.</string>
 +
@@ -38,7 +142,7 @@ diff --git a/browser/app/macbuild/Contents/Info.plist.in b/browser/app/macbuild/
    <key>NSCameraUsageDescription</key>
    <string>Only sites you allow within @MAC_APP_NAME@ will be able to use the camera.</string>
  
-@@ -312,6 +328,16 @@
+@@ -312,6 +431,16 @@
    <key>NSLocalNetworkUsageDescription</key>
    <string>@MAC_APP_NAME@ needs this access to open websites and services on your network.</string>
  
