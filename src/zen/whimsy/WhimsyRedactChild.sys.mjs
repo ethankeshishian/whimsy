@@ -9,6 +9,24 @@
 // Screenshots overlay itself), so the page's DOM is never touched, and
 // drawSnapshot paints them into the capture. The parent turns this off
 // once the image is made, so the page goes back to normal.
+//
+// wave7: every frame has its own actor (allFrames), so text inside
+// iframes, same-origin or not, is found and blurred in that frame's own
+// document; a click over a frame is handed to the frame's actor, in that
+// frame's coordinates (directly in this process, or through the parent
+// for an out-of-process frame).
+//
+// Pointer events come from the actor's own capturing listeners (declared
+// with the actor, so they sit on the window root before Screenshots adds
+// its listeners there; Screenshots stops immediate propagation of every
+// pointer event it handles, so a listener added after it never runs).
+//
+// Text inside position: fixed elements gets its boxes in a fixed layer, in
+// viewport coordinates, so they stay on the text while the page scrolls;
+// everything else is in page coordinates. Neither layer has a size of its
+// own: an absolutely positioned layer as big as the window (scrollbar
+// included) made the page overflow, which brought in scrollbars and moved
+// fixed elements after their boxes were measured.
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
 // "(555) 123-4567", "+1 415 555 0132", "+44 20 7946 0958", "555.123.4567".
@@ -102,6 +120,7 @@ export class WhimsyRedactChild extends JSWindowActorChild {
   #active = false;
   #content = null;
   #layer = null;
+  #fixedLayer = null;
   // Text node -> spans the detectors found in it.
   #auto = new Map();
   // Text nodes the user clicked: blurred whole, or unblurred.
@@ -124,7 +143,8 @@ export class WhimsyRedactChild extends JSWindowActorChild {
       case "Redact:State":
         return this.#state();
       case "Redact:ToggleAt":
-        // Tests (and anything else) can click without the overlay.
+        // Tests (and anything else) can click without the overlay; also a
+        // click over this frame, forwarded from its parent frame.
         return this.toggleAt(message.data.x, message.data.y);
     }
     return null;
@@ -134,13 +154,17 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     this.deactivate();
   }
 
+  // Box rects in page coordinates (fixed boxes at the current scroll).
   #state() {
-    const rects = [...(this.#layer?.children ?? [])].map(box => ({
-      left: parseFloat(box.style.left),
-      top: parseFloat(box.style.top),
-      width: parseFloat(box.style.width),
-      height: parseFloat(box.style.height),
-    }));
+    const win = this.contentWindow;
+    const read = (layer, dx, dy) =>
+      [...(layer?.children ?? [])].map(box => ({
+        left: parseFloat(box.style.left) + dx,
+        top: parseFloat(box.style.top) + dy,
+        width: parseFloat(box.style.width),
+        height: parseFloat(box.style.height),
+      }));
+    const rects = [...read(this.#layer, 0, 0), ...read(this.#fixedLayer, win?.scrollX ?? 0, win?.scrollY ?? 0)];
     return { active: this.#active, rects, added: this.#added.size, removed: this.#removed.size };
   }
 
@@ -163,20 +187,26 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     this.#content = doc.insertAnonymousContent();
     // CSSOM style properties, not a style sheet or attribute: a page's CSP
     // can block those, and the anonymous content inherits the page's.
-    const layer = doc.createElement("div");
-    layer.id = "whimsy-redact-layer";
-    layer.style.setProperty("position", "absolute");
-    layer.style.setProperty("inset", "0");
-    layer.style.setProperty("pointer-events", "none");
-    this.#content.root.appendChild(layer);
-    this.#layer = layer;
+    // Zero-size layers: boxes overflow them visibly, but the layers never
+    // make the page itself bigger.
+    const makeLayer = (id, position) => {
+      const layer = doc.createElement("div");
+      layer.id = id;
+      for (const [k, v] of [["position", position], ["left", "0"], ["top", "0"], ["width", "0"], ["height", "0"], ["overflow", "visible"], ["pointer-events", "none"]]) {
+        layer.style.setProperty(k, v);
+      }
+      this.#content.root.appendChild(layer);
+      return layer;
+    };
+    this.#layer = makeLayer("whimsy-redact-layer", "absolute");
+    this.#fixedLayer = makeLayer("whimsy-redact-fixed-layer", "fixed");
 
     const win = this.contentWindow;
     win.addEventListener("scroll", this, { capture: true, passive: true });
     win.addEventListener("resize", this);
-    const target = this.docShell.chromeEventHandler;
-    target.addEventListener("pointerdown", this, true);
-    target.addEventListener("pointerup", this, true);
+    // A frame added or navigated while redacting: ask the parent to start
+    // redaction in it too.
+    win.addEventListener("load", this, { capture: true });
     this.#observer = new win.MutationObserver(() => this.#scheduleDetect());
     this.#observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
     this.#detect();
@@ -192,9 +222,7 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     try {
       win?.removeEventListener("scroll", this, { capture: true });
       win?.removeEventListener("resize", this);
-      const target = this.docShell?.chromeEventHandler;
-      target?.removeEventListener("pointerdown", this, true);
-      target?.removeEventListener("pointerup", this, true);
+      win?.removeEventListener("load", this, { capture: true });
       if (this.#frame) {
         win?.cancelAnimationFrame(this.#frame);
       }
@@ -209,7 +237,7 @@ export class WhimsyRedactChild extends JSWindowActorChild {
         this.document.removeAnonymousContent(this.#content);
       }
     } catch {}
-    this.#content = this.#layer = null;
+    this.#content = this.#layer = this.#fixedLayer = null;
     this.#frame = this.#redetect = 0;
     this.#auto.clear();
     this.#added.clear();
@@ -223,8 +251,18 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     }
     switch (event.type) {
       case "scroll":
+        // Sticky elements move with the scroll: redraw right away, and again
+        // after layout settles.
+        this.#draw();
+        this.#scheduleDraw();
+        break;
       case "resize":
         this.#scheduleDraw();
+        break;
+      case "load":
+        if (event.target?.localName == "iframe" || event.target?.localName == "frame") {
+          this.sendAsyncMessage("Redact:FramesChanged");
+        }
         break;
       case "pointerdown":
         this.#onPointerDown(event);
@@ -278,11 +316,20 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     const overlay = this.#overlay;
     overlay?.setPointerEventsNone();
     let node = null;
+    let frame = null;
     try {
-      const pos = this.document.caretPositionFromPoint(x, y);
-      node = pos?.offsetNode;
+      const hit = this.document.elementFromPoint(x, y);
+      if (hit && (hit.localName == "iframe" || hit.localName == "frame")) {
+        frame = hit;
+      } else {
+        const pos = this.document.caretPositionFromPoint(x, y);
+        node = pos?.offsetNode;
+      }
     } finally {
       overlay?.resetPointerEvents();
+    }
+    if (frame) {
+      return this.#toggleInFrame(frame, x, y);
     }
     if (!node || node.nodeType != node.TEXT_NODE || !node.data.trim()) {
       return null;
@@ -306,6 +353,38 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     }
     this.#draw();
     return !blurred;
+  }
+
+  // A click over an iframe: the point in the frame's own viewport (inside
+  // its border and padding), then that frame's actor.
+  #toggleInFrame(frame, x, y) {
+    const win = this.contentWindow;
+    const rect = frame.getBoundingClientRect();
+    const style = win.getComputedStyle(frame);
+    const localX = x - rect.left - frame.clientLeft - parseFloat(style.paddingLeft || 0);
+    const localY = y - rect.top - frame.clientTop - parseFloat(style.paddingTop || 0);
+    if (localX < 0 || localY < 0 || localX > frame.clientWidth || localY > frame.clientHeight) {
+      return null;
+    }
+    const bc = frame.browsingContext;
+    if (!bc) {
+      return null;
+    }
+    // Same process: straight to its actor.
+    let inner = null;
+    try {
+      inner = bc.docShell ? bc.window?.windowGlobalChild : null;
+    } catch {}
+    if (inner) {
+      try {
+        return inner.getActor("WhimsyRedact").toggleAt(localX, localY);
+      } catch {
+        return null;
+      }
+    }
+    // Another process: the parent checks the frame is ours and passes it on.
+    this.sendAsyncMessage("Redact:ToggleInFrame", { browsingContextId: bc.id, x: localX, y: localY });
+    return null;
   }
 
   #scheduleDraw() {
@@ -371,11 +450,30 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     const win = this.contentWindow;
     const { scrollX, scrollY } = win;
     const rects = [];
+    const fixedRects = [];
     const range = doc.createRange();
-    const collect = () => {
+    // Whether a node is inside a position: fixed element (cached per draw).
+    const fixedCache = new Map();
+    const isFixed = el => {
+      if (!el || el == doc.documentElement) {
+        return false;
+      }
+      if (fixedCache.has(el)) {
+        return fixedCache.get(el);
+      }
+      const fixed = win.getComputedStyle(el).position == "fixed" || isFixed(el.parentElement);
+      fixedCache.set(el, fixed);
+      return fixed;
+    };
+    const collect = node => {
+      const fixed = isFixed(node.parentElement);
       for (const r of range.getClientRects()) {
         if (r.width > 0 && r.height > 0) {
-          rects.push([r.left + scrollX - PAD, r.top + scrollY - PAD, r.width + PAD * 2, r.height + PAD * 2]);
+          if (fixed) {
+            fixedRects.push([r.left - PAD, r.top - PAD, r.width + PAD * 2, r.height + PAD * 2]);
+          } else {
+            rects.push([r.left + scrollX - PAD, r.top + scrollY - PAD, r.width + PAD * 2, r.height + PAD * 2]);
+          }
         }
       }
     };
@@ -389,20 +487,24 @@ export class WhimsyRedactChild extends JSWindowActorChild {
         }
         range.setStart(node, start);
         range.setEnd(node, end);
-        collect();
+        collect(node);
       }
     }
     for (const node of this.#added) {
       if (node.isConnected) {
         range.selectNodeContents(node);
-        collect();
+        collect(node);
       }
     }
-    const layer = this.#layer;
-    const scrollW = Math.max(doc.documentElement.scrollWidth, win.innerWidth);
-    const scrollH = Math.max(doc.documentElement.scrollHeight, win.innerHeight);
-    layer.style.setProperty("width", `${scrollW}px`);
-    layer.style.setProperty("height", `${scrollH}px`);
+    this.#fill(this.#layer, rects);
+    this.#fill(this.#fixedLayer, fixedRects);
+  }
+
+  #fill(layer, rects) {
+    if (!layer) {
+      return;
+    }
+    const doc = this.document;
     while (layer.children.length > rects.length) {
       layer.lastElementChild.remove();
     }

@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Redact frames fixture</title>
+<style>
+  body { margin: 0; padding: 20px; font: 20px/1.5 sans-serif; background: #fff; }
+  iframe { display: block; width: 600px; height: 320px; margin: 10px 0; border: 4px solid #ccc; padding: 6px; }
+</style>
+<!-- The test points the frames at whimsy_redact.html on example.com (same
+     origin) and example.org (another origin, its own process). -->
+</head>
+<body>
+<p>Top <span id="topmail">top.secret@example.com</span></p>
+<iframe id="same"></iframe>
+<iframe id="cross"></iframe>
+</body>
+</html>

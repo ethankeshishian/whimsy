@@ -26,7 +26,31 @@ const ACTOR = "WhimsyRedact";
 const SHEET = "chrome://browser/content/whimsy/whimsy-redact.css";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
-export class WhimsyRedactParent extends JSWindowActorParent {}
+export class WhimsyRedactParent extends JSWindowActorParent {
+  receiveMessage(message) {
+    const browser = this.browsingContext.top.embedderElement;
+    switch (message.name) {
+      case "Redact:FramesChanged":
+        // A frame loaded while redacting: start it in every frame again
+        // (frames already on ignore it).
+        if (browser && WhimsyRedact._active.has(browser)) {
+          WhimsyRedact.set(browser, true);
+        }
+        break;
+      case "Redact:ToggleInFrame": {
+        // A click over an out-of-process frame. Only a direct child frame
+        // of the sender, and only with numbers for the point.
+        const { browsingContextId, x, y } = message.data ?? {};
+        const target = BrowsingContext.get(browsingContextId);
+        if (!target || target.parent != this.browsingContext || !Number.isFinite(x) || !Number.isFinite(y)) {
+          return null;
+        }
+        return WhimsyRedact.queryFrame(target, "Redact:ToggleAt", { x, y });
+      }
+    }
+    return null;
+  }
+}
 
 export const WhimsyRedact = {
   // Browsers with redaction showing.
@@ -47,8 +71,18 @@ export const WhimsyRedact = {
     this._initialized = true;
     ChromeUtils.registerWindowActor(ACTOR, {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs" },
-      // Started by the parent's messages only, in the top page.
-      child: { esModuleURI: "resource:///modules/whimsy/WhimsyRedactChild.sys.mjs" },
+      // Started by the parent's messages only, in the page and each of its
+      // frames. The pointer listeners are the actor's own (on the window
+      // root from the start, so they run before Screenshots' listeners,
+      // which stop the event), and only reach an actor that exists.
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyRedactChild.sys.mjs",
+        events: {
+          pointerdown: { capture: true, createActor: false },
+          pointerup: { capture: true, createActor: false },
+        },
+      },
+      allFrames: true,
       safeForUntrustedWebProcess: true,
     });
     this.wrapScreenshots();
@@ -98,10 +132,22 @@ export const WhimsyRedact = {
   },
 
   actorFor(browser) {
+    return this.actorForContext(browser?.browsingContext);
+  },
+
+  actorForContext(bc) {
     try {
-      return browser?.browsingContext?.currentWindowGlobal?.getActor(ACTOR) ?? null;
+      return bc?.currentWindowGlobal?.getActor(ACTOR) ?? null;
     } catch {
       // Pages Whimsy can't run in (about: pages in the parent and the like).
+      return null;
+    }
+  },
+
+  async queryFrame(bc, name, data) {
+    try {
+      return (await this.actorForContext(bc)?.sendQuery(name, data)) ?? null;
+    } catch {
       return null;
     }
   },
@@ -121,6 +167,9 @@ export const WhimsyRedact = {
     } else {
       this._active.delete(browser);
     }
+    // Every frame (same-origin or not) redacts its own document.
+    const frames = browser.browsingContext?.getAllBrowsingContextsInSubtree?.() ?? [];
+    await Promise.all(frames.filter(bc => bc != browser.browsingContext).map(bc => this.queryFrame(bc, "Redact:Set", { on })));
     try {
       return (await actor?.sendQuery("Redact:Set", { on })) ?? null;
     } catch {
@@ -128,12 +177,9 @@ export const WhimsyRedact = {
     }
   },
 
-  async state(browser) {
-    try {
-      return (await this.actorFor(browser)?.sendQuery("Redact:State")) ?? null;
-    } catch {
-      return null;
-    }
+  // The top page's state, or a frame's (pass its BrowsingContext).
+  async state(browser, frame = null) {
+    return this.queryFrame(frame ?? browser?.browsingContext, "Redact:State");
   },
 
   // --- The toggle in the Screenshots panel ---

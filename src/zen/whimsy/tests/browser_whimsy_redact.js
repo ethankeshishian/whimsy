@@ -10,6 +10,8 @@
 const { WhimsyRedact } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyRedactParent.sys.mjs");
 const { ScreenshotsUtils } = ChromeUtils.importESModule("moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs");
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_redact.html";
+const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "");
+const FRAMES = `https://example.com${ROOT}whimsy_redact_frames.html`;
 const SECRET = ["email", "phone", "key", "card", "bottom", "fixedmail"];
 const CLEAN = ["notcard", "date", "plain"];
 
@@ -209,6 +211,99 @@ add_task(async function test_feature_switch_off() {
   ok(!buttons(browser).getElementById("whimsy-redact"), "No Redact button with the switch off");
   ok(!(await WhimsyRedact.state(browser))?.active, "and nothing is blurred");
   ScreenshotsUtils.cancel(browser, "Escape");
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+// wave7: the pointer listeners are the actor's own, registered on the window
+// root before Screenshots adds (and stops) its listeners there.
+add_task(async function test_pointer_listeners_run_before_screenshots() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.capture.redact", true]] });
+  await openScreenshots(browser);
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.active, "Redaction is on");
+  // Screenshots stops immediate propagation of every pointer event; a click
+  // still blurs text, so Redact's listener ran first.
+  await BrowserTestUtils.synthesizeMouseAtCenter("#date", {}, browser);
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.added == 1, "The click reached Redact");
+  await closeScreenshots(browser);
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+// wave7: boxes over fixed text live in a fixed layer and need no redraw to
+// follow a scroll; neither layer makes the page overflow.
+add_task(async function test_fixed_layer_and_no_overflow() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.capture.redact", true]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  const before = await SpecialPowers.spawn(browser, [], () => ({
+    w: content.document.documentElement.scrollWidth,
+    h: content.document.documentElement.scrollHeight,
+    fixedTop: content.document.getElementById("fixedmail").getBoundingClientRect().top,
+  }));
+  await openScreenshots(browser);
+  await TestUtils.waitForCondition(async () => (await boxes(browser)).length >= SECRET.length, "Redaction is on");
+  const after = await SpecialPowers.spawn(browser, [], () => ({
+    w: content.document.documentElement.scrollWidth,
+    h: content.document.documentElement.scrollHeight,
+    fixedTop: content.document.getElementById("fixedmail").getBoundingClientRect().top,
+  }));
+  is(after.w, before.w, "The page is no wider");
+  is(after.fixedTop, before.fixedTop, "Fixed text stays where it was");
+  for (const y of [400, 900, 0]) {
+    await SpecialPowers.spawn(browser, [y], top => content.scrollTo(0, top));
+    ok(covered(await boxes(browser), (await spanRects(browser)).fixedmail), `The fixed box covers its text at scroll ${y}`);
+  }
+  await closeScreenshots(browser);
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+// wave7: text inside iframes, same-origin and cross-origin, is redacted by
+// each frame's own actor; a click over a frame reaches that frame.
+add_task(async function test_redact_inside_frames() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.capture.redact", true]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FRAMES);
+  const browser = tab.linkedBrowser;
+  await SpecialPowers.spawn(browser, [`https://example.com${ROOT}whimsy_redact.html`, `https://example.org${ROOT}whimsy_redact.html`], async (same, cross) => {
+    const load = frame => new Promise(resolve => frame.addEventListener("load", resolve, { once: true }));
+    const doc = content.document;
+    const loaded = [load(doc.getElementById("same")), load(doc.getElementById("cross"))];
+    doc.getElementById("same").src = same;
+    doc.getElementById("cross").src = cross;
+    await Promise.all(loaded);
+  });
+  const [same, cross] = browser.browsingContext.children;
+  ok(same && cross, "Two frames");
+  await openScreenshots(browser);
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.rects.length >= 1, "The top page is redacted");
+  for (const [frame, name] of [[same, "same-origin"], [cross, "cross-origin"]]) {
+    await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser, frame))?.rects.length >= SECRET.length - 1, `The ${name} frame is redacted`);
+    ok((await WhimsyRedact.state(browser, frame)).active, `${name}: active`);
+  }
+
+  // Click #plain inside each frame, through the top page's point.
+  for (const [frame, id] of [[same, "same"], [cross, "cross"]]) {
+    const inner = await SpecialPowers.spawn(frame, [], () => {
+      const r = content.document.getElementById("plain").getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    const outer = await SpecialPowers.spawn(browser, [id], frameId => {
+      const el = content.document.getElementById(frameId);
+      const r = el.getBoundingClientRect();
+      const s = content.getComputedStyle(el);
+      return { x: r.left + el.clientLeft + parseFloat(s.paddingLeft), y: r.top + el.clientTop + parseFloat(s.paddingTop) };
+    });
+    await WhimsyRedact.actorFor(browser).sendQuery("Redact:ToggleAt", { x: outer.x + inner.x, y: outer.y + inner.y });
+    await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser, frame))?.added == 1, `A click blurs text in the ${id} frame`);
+  }
+
+  await closeScreenshots(browser);
+  for (const frame of [same, cross]) {
+    ok(!(await WhimsyRedact.state(browser, frame))?.active, "Cancelling clears the frames too");
+  }
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
 });
