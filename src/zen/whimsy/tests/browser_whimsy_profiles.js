@@ -220,11 +220,15 @@ add_task(async function essentials_follow_the_space_profile() {
   const home = gZenWorkspaces.getActiveWorkspace();
   const work = makeProfile("Whimsy Essentials Work");
   const space = await gZenWorkspaces.createAndSaveWorkspace("Essentials Work", undefined, true, work);
+  // Zen only adds an Essential from a space of the tab's own container
+  // (canEssentialBeAdded), so this happens in the Work space, as a user would.
+  await gZenWorkspaces.changeWorkspace(space);
   const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true, userContextId: work });
   try {
+    is(tab.userContextId, work, "A Work tab");
     gZenPinnedTabManager.addToEssentials(tab);
+    ok(tab.hasAttribute("zen-essential"), "It became an Essential");
     is(tab.parentNode.getAttribute("container"), String(work), "The essential lives in Work's strip");
-    await gZenWorkspaces.changeWorkspace(space);
     ok(!gZenWorkspaces.getEssentialsSection(work).hasAttribute("hidden"), "Work's strip shows in a Work space");
     await gZenWorkspaces.changeWorkspace(home);
     ok(gZenWorkspaces.getEssentialsSection(work).hasAttribute("hidden"), "…and not in a Default space");

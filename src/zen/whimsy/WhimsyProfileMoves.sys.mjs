@@ -75,15 +75,69 @@ export const WhimsyProfileMoves = {
     return principal;
   },
 
-  urlOf(tab) {
+  // The tab's saved state (works for lazy tabs too); {} if SessionStore
+  // doesn't track it.
+  tabState(tab) {
+    try {
+      return JSON.parse(lazy.SessionStore.getTabState(tab)) ?? {};
+    } catch {
+      return {};
+    }
+  },
+
+  urlOf(tab, state = null) {
     if (tab.linkedPanel) {
       return tab.linkedBrowser.currentURI?.spec || "about:blank";
     }
-    try {
-      const state = JSON.parse(lazy.SessionStore.getTabState(tab));
-      return state.entries?.[(state.index || 1) - 1]?.url || "about:blank";
-    } catch {
-      return "about:blank";
+    state ??= this.tabState(tab);
+    return state.entries?.[(state.index || 1) - 1]?.url || "about:blank";
+  },
+
+  // Zen keeps a tab's space, renamed title, custom icon, pinned reset page
+  // and live-folder link as tab attributes/properties, saved in its
+  // SessionStore state (TabState.collect: zenWorkspace, zenStaticLabel...).
+  // A plain addTab starts without them, so the reopened tab copies them from
+  // the old tab's state. The sync id isn't copied: the old tab still has it
+  // until it closes, and Zen's window sync gives the new tab its own.
+  copyZenState(oldTab, newTab, state, spaceId) {
+    newTab.setAttribute("zen-workspace-id", spaceId);
+    const label = typeof state.zenStaticLabel == "string" ? state.zenStaticLabel : oldTab.zenStaticLabel;
+    if (label) {
+      newTab.zenStaticLabel = label;
+    }
+    const icon = state.zenHasStaticIcon && state.image ? state.image : oldTab.zenStaticIcon;
+    if (icon) {
+      newTab.zenStaticIcon = icon;
+    }
+    const pinnedIcon = state.zenPinnedIcon || oldTab.getAttribute("zen-pinned-icon");
+    if (pinnedIcon) {
+      newTab.setAttribute("zen-pinned-icon", pinnedIcon);
+    }
+    const liveItem = state.zenLiveFolderItemId || oldTab.getAttribute("zen-live-folder-item-id");
+    if (liveItem) {
+      newTab.setAttribute("zen-live-folder-item-id", liveItem);
+    }
+    // A pin's reset page: only its URL and title (Zen's window sync trims it
+    // the same way), so no principal of the old profile comes along. Set
+    // before pinTab, which otherwise records the new tab's current page.
+    const initial = state._zenPinnedInitialState ?? oldTab._zenPinnedInitialState;
+    if (initial?.entry?.url) {
+      newTab._zenPinnedInitialState = {
+        ...initial,
+        entry: { url: initial.entry.url, title: initial.entry.title },
+      };
+    }
+  },
+
+  // Zen remembers each space's last selected tab and selects it again on a
+  // switch; pointing at the closed tab would hand the tab switcher a
+  // destroyed tab.
+  replaceLastSelected(win, oldTab, newTab) {
+    const last = win.gZenWorkspaces.lastSelectedWorkspaceTabs;
+    for (const [id, tab] of Object.entries(last ?? {})) {
+      if (tab == oldTab) {
+        last[id] = newTab;
+      }
     }
   },
 
@@ -95,19 +149,28 @@ export const WhimsyProfileMoves = {
     }
     const selected = gBrowser.selectedTab == tab;
     const isPrivate = this.isPrivate(tab);
-    const newTab = gBrowser.addTab(this.urlOf(tab), {
+    const state = this.tabState(tab);
+    const newTab = gBrowser.addTab(this.urlOf(tab, state), {
       userContextId,
       whimsyPrivate: isPrivate,
       tabIndex: tab._tPos + 1,
       triggeringPrincipal: this.principalFor(tab, userContextId),
       skipAnimation: true,
+      // The tab that will be selected needs a live browser for the switcher.
       createLazyBrowser: !selected,
       lazyTabTitle: tab.label,
     });
+    // Before any move: Zen's moveTabsToWorkspace skips a tab that already
+    // sits in the space's container (tabIndex put it there), so without this
+    // the new tab never got its zen-workspace-id.
+    this.copyZenState(tab, newTab, state, spaceId);
     if (tab.pinned) {
       gBrowser.pinTab(newTab);
     }
     gZenWorkspaces.moveTabToWorkspace(newTab, spaceId);
+    if (newTab.getAttribute("zen-workspace-id") != spaceId) {
+      newTab.setAttribute("zen-workspace-id", spaceId);
+    }
     try {
       if (tab.group && tab.group != newTab.group) {
         tab.group.addTabs?.([newTab]);
@@ -118,11 +181,52 @@ export const WhimsyProfileMoves = {
     if (tab.muted && !newTab.muted) {
       newTab.toggleMuteAudio(tab.muteReason);
     }
-    if (selected) {
-      gBrowser.selectedTab = newTab;
+    this.replaceLastSelected(win, tab, newTab);
+    // Select a live tab before the old one closes, so the tab switcher never
+    // targets a tab that's gone: the new tab when its space is showing, else
+    // the most recent tab of the showing space (Zen's empty tab if none), so
+    // a move doesn't switch spaces by itself.
+    if (gBrowser.selectedTab == tab) {
+      gBrowser.selectedTab = spaceId == gZenWorkspaces.activeWorkspace ? newTab :
+        this.liveTabInView(win, [tab, newTab]) ?? newTab;
     }
-    gBrowser.removeTab(tab, { animate: false });
+    if (gBrowser.selectedTab == tab) {
+      // Zen refused the switch (mid space change): don't close the selected
+      // tab under the switcher; it closes once something else is selected.
+      this.closeWhenDeselected(win, tab);
+      return newTab;
+    }
+    gBrowser.removeTab(tab, { animate: false, skipPermitUnload: true });
     return newTab;
+  },
+
+  liveTabInView(win, exclude) {
+    const { gBrowser, gZenWorkspaces } = win;
+    let best = null;
+    for (const t of gBrowser.visibleTabs) {
+      if (exclude.includes(t) || t.closing || t.hasAttribute("zen-glance-tab") ||
+          gZenWorkspaces._shouldChangeToTab?.(t) === false) {
+        continue;
+      }
+      if (!best || (t.lastAccessed ?? 0) > (best.lastAccessed ?? 0)) {
+        best = t;
+      }
+    }
+    const empty = gZenWorkspaces._emptyTab;
+    return best ?? (empty && !empty.closing && !exclude.includes(empty) ? empty : null);
+  },
+
+  closeWhenDeselected(win, tab) {
+    const { gBrowser } = win;
+    const onSelect = () => {
+      if (tab.closing || !tab.isConnected) {
+        gBrowser.tabContainer.removeEventListener("TabSelect", onSelect);
+      } else if (gBrowser.selectedTab != tab) {
+        gBrowser.tabContainer.removeEventListener("TabSelect", onSelect);
+        gBrowser.removeTab(tab, { animate: false, skipPermitUnload: true });
+      }
+    };
+    gBrowser.tabContainer.addEventListener("TabSelect", onSelect);
   },
 
   // -- spaces ---------------------------------------------------------------

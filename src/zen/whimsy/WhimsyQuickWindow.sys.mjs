@@ -898,6 +898,9 @@ export const WhimsyQuickWindow = {
       whimsyPrivate: isPrivate,
       triggeringPrincipal: principal,
     });
+    // Zen's move skips a tab already in the space's container, so the space
+    // id is set first (else the tab has none).
+    added.setAttribute("zen-workspace-id", space.uuid);
     target.gZenWorkspaces.moveTabToWorkspace(added, space.uuid);
     if (target.gZenWorkspaces.activeWorkspace != space.uuid) {
       await target.gZenWorkspaces.changeWorkspaceWithID(space.uuid);

@@ -69,7 +69,45 @@ add_task(async function moving_a_tab_asks_then_reopens_it() {
   const moved = await TestUtils.waitForCondition(() =>
     tabsOf(workSpace).find(t => t.userContextId == work), "Yes: reopened in Work");
   ok(tab.closing || !tab.isConnected, "The Default copy is closed");
+  is(moved.getAttribute("zen-workspace-id"), workSpace.uuid, "The new tab has its space id");
   is(moved.linkedBrowser.currentURI?.spec ?? WhimsyProfileMoves.urlOf(moved), PAGE, "Same page");
+  assertSwitcherIsLive();
+  BrowserTestUtils.removeTab(moved);
+});
+
+// The tab switcher and Zen's per-space memory never point at a closed tab
+// (that left AsyncTabSwitcher waiting on a destroyed tab: later tests and
+// shutdown hung).
+function assertSwitcherIsLive() {
+  const selected = gBrowser.selectedTab;
+  ok(selected && !selected.closing && selected.isConnected, "A live tab is selected");
+  const requested = gBrowser._switcher?.requestedTab;
+  ok(!requested || (!requested.closing && requested.isConnected), "The tab switcher targets a live tab");
+  for (const [id, last] of Object.entries(gZenWorkspaces.lastSelectedWorkspaceTabs)) {
+    ok(!last || (!last.closing && last.isConnected), `Space ${id} remembers a live tab`);
+  }
+}
+
+add_task(async function a_reopened_pin_keeps_its_zen_state() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?pinned");
+  gBrowser.pinTab(tab);
+  tab.zenStaticLabel = "Renamed pin";
+  // Zen's window sync records the pin's reset page; without it (sync off)
+  // the test records the same page itself.
+  const initialUrl = PAGE + "?pinned";
+  await TestUtils.waitForTick();
+  tab._zenPinnedInitialState ??= { entry: { url: initialUrl, title: "Pinned" } };
+  gBrowser.selectedTab = gBrowser.visibleTabs.find(t => t != tab && !t.pinned) ?? gBrowser.selectedTab;
+  answers = [true];
+  asked = [];
+  gZenWorkspaces.moveTabToWorkspace(tab, workSpace.uuid);
+  const moved = await TestUtils.waitForCondition(() =>
+    tabsOf(workSpace).find(t => t.userContextId == work && t != tab), "Reopened in Work");
+  is(moved.getAttribute("zen-workspace-id"), workSpace.uuid, "In the Work space");
+  ok(moved.pinned, "Still pinned");
+  is(moved.zenStaticLabel, "Renamed pin", "Keeps its custom title");
+  is(moved._zenPinnedInitialState?.entry?.url, initialUrl, "Keeps the page a reset goes back to");
+  assertSwitcherIsLive();
   BrowserTestUtils.removeTab(moved);
 });
 
@@ -132,7 +170,17 @@ add_task(async function moving_a_space_reopens_its_tabs() {
     const tabs = tabsOf(space);
     ok(tabs.length >= 2 && tabs.every(t => t.userContextId == work), "Every tab reopened in Work");
     is(gBrowser.selectedTab.userContextId, work, "The selected tab stayed selected, now in Work");
+    is(gBrowser.selectedTab.getAttribute("zen-workspace-id"), space.uuid, "…with its space id");
     ok(first.closing || !first.isConnected, "Old tabs closed");
+    assertSwitcherIsLive();
+
+    // Leaving and coming back selects the reopened tab, not the closed one.
+    const reopened = gBrowser.selectedTab;
+    await gZenWorkspaces.changeWorkspace(home);
+    assertSwitcherIsLive();
+    await gZenWorkspaces.changeWorkspace(space);
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab == reopened, "Back on the reopened tab");
+    assertSwitcherIsLive();
   } finally {
     for (const tab of tabsOf(space)) {
       BrowserTestUtils.removeTab(tab);

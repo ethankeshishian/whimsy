@@ -119,10 +119,19 @@ add_task(async function address_bar_filters_by_the_tab_profile() {
     await UrlbarTestUtils.promisePopupClose(window);
     return out;
   };
-  // openNewForegroundTab has no userContextId option: add the tab in Work.
-  const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { userContextId: work });
+  // Type in a Work tab the way a user would: in a space of the Work profile,
+  // where the new tab gets Work's container. The load listener goes on
+  // before the page can load.
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await gZenWorkspaces.createAndSaveWorkspace("History Work", undefined, true, work);
+  await gZenWorkspaces.changeWorkspace(space);
+  const url = "https://example.com/";
+  const tab = BrowserTestUtils.addTab(gBrowser, url, { userContextId: work });
+  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url);
   gBrowser.selectedTab = tab;
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, { wantLoad: "about:blank" }).catch(() => {});
+  await loaded;
+  is(tab.userContextId, work, "The tab is in Work's container");
+  is(tab.getAttribute("zen-workspace-id"), space.uuid, "…in the Work space");
   is(gBrowser.selectedBrowser.getAttribute("usercontextid"), String(work), "Typing in a Work tab");
   try {
     await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus,
@@ -133,6 +142,8 @@ add_task(async function address_bar_filters_by_the_tab_profile() {
     ok(!inWork.includes(`https://${HOST}/old`), "Nor history from before profiles");
   } finally {
     BrowserTestUtils.removeTab(tab);
+    await gZenWorkspaces.changeWorkspace(home);
+    await gZenWorkspaces.removeWorkspace(space.uuid);
   }
 
   const plain = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
