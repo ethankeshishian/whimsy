@@ -2975,3 +2975,9 @@ whimsy-archive-swept-toast =
 
 whimsy-history-deleted-spaces = Deleted spaces
 
+## wave8/folders: Live folders: Resync option (W8-26).
+
+whimsy-live-folder-resync = Resync
+whimsy-action-resync-live-folder = Resync Live Folder
+
+
