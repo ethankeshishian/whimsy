@@ -133,7 +133,20 @@ export const WhimsyZap = {
     }
   },
 
-  unzapSelector(win, selector, domain) {
+  // Asks the page for a short readable name for each zapped selector:
+  // { kind: "image" | "video" | "frame" | "other", name } or null when the
+  // element isn't on the page. Never throws.
+  async describeSelectors(browser, selectors) {
+    try {
+      const actor = browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+      const result = await actor?.sendQuery("Whimsy:DescribeSelectors", { selectors });
+      return Array.isArray(result) ? result : selectors.map(() => null);
+    } catch (e) {
+      return selectors.map(() => null);
+    }
+  },
+
+  unzapSelector(win, selector, domain, name = null) {
     if (!domain) {
       domain = this.domainFor(win?.gBrowser?.selectedBrowser);
     }
@@ -154,9 +167,11 @@ export const WhimsyZap = {
     } else {
       this._ownStack.push(entry);
     }
-    win?.gZenUIManager?.showToast?.("whimsy-site-zap-restored-toast", {
-      l10nArgs: { selector },
-    });
+    if (name) {
+      win?.gZenUIManager?.showToast?.("whimsy-site-zap-restored-toast", { l10nArgs: { name } });
+    } else {
+      win?.gZenUIManager?.showToast?.("whimsy-site-zap-restored-element-toast");
+    }
     return true;
   },
 
@@ -347,7 +362,7 @@ export const WhimsyZap = {
       id: COMMAND_RESTORE_ALL,
       l10nId: "whimsy-action-zap-restore-all",
       run: w => this.restoreAllForSite(w),
-      icon: "chrome://browser/skin/zen-icons/trash.svg",
+      icon: "chrome://browser/skin/zen-icons/arrow-rotate-anticlockwise.svg",
       isAvailable: w => this.canZap(w) && this.zapCount(this.domainFor(w.gBrowser.selectedBrowser)) > 0,
     });
 
@@ -359,7 +374,6 @@ export const WhimsyZap = {
       }
       let item = document.getElementById(MENUITEM_ID);
       let subMenu = document.getElementById("whimsy-site-zapped-menu");
-      let restoreAllItem = document.getElementById("whimsy-site-zap-restore-all");
       if (!item) {
         item = document.createXULElement("menuitem");
         item.id = MENUITEM_ID;
@@ -372,13 +386,11 @@ export const WhimsyZap = {
         subPopup.id = "whimsy-site-zapped-popup";
         subMenu.appendChild(subPopup);
 
-        restoreAllItem = document.createXULElement("menuitem");
-        restoreAllItem.id = "whimsy-site-zap-restore-all";
-        restoreAllItem.setAttribute("command", COMMAND_RESTORE_ALL);
-
         const separator = document.createXULElement("menuseparator");
         separator.id = `${MENUITEM_ID}-separator`;
-        popup.prepend(item, subMenu, restoreAllItem, separator);
+        // Restore All lives once, at the end of the submenu (review
+        // design-full-5 M10: it used to be here as well).
+        popup.prepend(item, subMenu, separator);
       }
       const show = this.canZap(win);
       item.hidden = !show;
@@ -387,34 +399,54 @@ export const WhimsyZap = {
       if (subMenu) {
         subMenu.hidden = !show || count === 0;
       }
-      if (restoreAllItem) {
-        restoreAllItem.hidden = !show || count === 0;
-      }
       document.getElementById(`${MENUITEM_ID}-separator`).hidden = !show;
       if (show) {
         document.l10n.setAttributes(item, count ? "whimsy-site-zap-count" : "whimsy-site-zap", { count });
         if (count > 0 && subMenu) {
           document.l10n.setAttributes(subMenu, "whimsy-site-zap-zapped-menu", { count });
-          document.l10n.setAttributes(restoreAllItem, "whimsy-site-zap-restore-all");
           const subPopup = subMenu.querySelector("menupopup");
           if (subPopup) {
             subPopup.textContent = "";
             const selectors = this.getZapSelectors(domain);
-            for (const sel of selectors) {
+            const items = selectors.map((sel, index) => {
               const elItem = document.createXULElement("menuitem");
               elItem.className = "whimsy-site-zapped-item";
-              document.l10n.setAttributes(elItem, "whimsy-site-zap-restore-item", { selector: sel });
+              // A readable name, never the raw CSS selector (review
+              // design-full-4 L9). "Element 2" until the page describes it.
+              document.l10n.setAttributes(elItem, "whimsy-site-zap-restore-item-unnamed", {
+                kind: "other",
+                index: index + 1,
+              });
               elItem.addEventListener("command", () => {
-                this.unzapSelector(win, sel, domain);
+                this.unzapSelector(win, sel, domain, elItem._whimsyName);
               });
               subPopup.appendChild(elItem);
-            }
+              return elItem;
+            });
             const sep = document.createXULElement("menuseparator");
             subPopup.appendChild(sep);
             const subRestoreAll = document.createXULElement("menuitem");
+            subRestoreAll.id = "whimsy-site-zap-restore-all";
             document.l10n.setAttributes(subRestoreAll, "whimsy-site-zap-restore-all");
             subRestoreAll.setAttribute("command", COMMAND_RESTORE_ALL);
             subPopup.appendChild(subRestoreAll);
+            this.describeSelectors(win.gBrowser.selectedBrowser, selectors).then(names => {
+              names.forEach((desc, index) => {
+                const elItem = items[index];
+                if (!desc || !elItem.isConnected) {
+                  return;
+                }
+                if (desc.name) {
+                  elItem._whimsyName = desc.name;
+                  document.l10n.setAttributes(elItem, "whimsy-site-zap-restore-item", { name: desc.name });
+                } else {
+                  document.l10n.setAttributes(elItem, "whimsy-site-zap-restore-item-unnamed", {
+                    kind: desc.kind,
+                    index: index + 1,
+                  });
+                }
+              });
+            });
           }
         }
       }

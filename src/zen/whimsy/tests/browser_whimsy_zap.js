@@ -190,8 +190,31 @@ add_task(async function site_panel_menu_item() {
     const elItems = subMenu.querySelectorAll(".whimsy-site-zapped-item");
     is(elItems.length, 2, "Submenu lists both zapped elements");
 
-    const restoreAllItem = document.getElementById("whimsy-site-zap-restore-all");
-    ok(restoreAllItem && !restoreAllItem.hidden, "Restore all item shows in site panel menu");
+    // Review design-full-5 M10: Restore All appears once, at the end of the
+    // submenu, not also in the site panel menu itself.
+    const restoreAlls = [...popup.querySelectorAll("menuitem")].filter(
+      el => el.getAttribute("command") == WhimsyZap.COMMAND_RESTORE_ALL
+    );
+    is(restoreAlls.length, 1, "Restore All Zapped Elements appears once");
+    is(restoreAlls[0].parentNode.parentNode, subMenu, "inside the Zapped Elements submenu");
+    is(restoreAlls[0].parentNode.lastElementChild, restoreAlls[0], "as its last row");
+    is(restoreAlls[0].previousElementSibling?.localName, "menuseparator", "after a separator");
+    const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+    const restoreAction = globalActions.find(a => a.l10nId == "whimsy-action-zap-restore-all");
+    ok(!restoreAction?.icon?.includes("trash"), "Restore All has no trash icon");
+
+    // Review design-full-4 L9: rows say what was zapped, not the selector.
+    await TestUtils.waitForCondition(
+      () => document.l10n.getAttributes(elItems[0]).id == "whimsy-site-zap-restore-item",
+      "The page describes the zapped elements"
+    );
+    is(document.l10n.getAttributes(elItems[0]).args.name, "Article title", "The heading is named by its text");
+    const pName = document.l10n.getAttributes(elItems[1]).args.name;
+    ok(pName.startsWith("Lorem ipsum") && pName.length <= 40, "Long text is cut short");
+    for (const el of elItems) {
+      await document.l10n.translateElements([el]);
+      ok(el.label?.startsWith("Restore “"), `"${el.label}" names the element, not its selector`);
+    }
 
     const hiddenAgain = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
     popup.hidePopup();
@@ -235,6 +258,13 @@ add_task(async function test_zap_undo_granularity() {
     // Test undoing restore-all
     WhimsyUndo.undo(window);
     is(zapSelectors().length, 2, "Undo brings back all zapped selectors");
+
+    // Names come from the page; missing or invalid selectors fall back.
+    const names = await WhimsyZap.describeSelectors(gBrowser.selectedBrowser, ["h1", ".not-on-page", "div >>> bad"]);
+    is(names[0]?.name, "Article title", "A zapped heading is described by its text");
+    is(names[0]?.kind, "other", "and is a plain element");
+    is(names[1], null, "An element not on the page has no name");
+    is(names[2], null, "An invalid selector doesn't throw");
   });
 });
 

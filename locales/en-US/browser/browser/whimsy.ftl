@@ -2985,11 +2985,21 @@ whimsy-site-zap-zapped-menu =
         [one] Zapped Elements (1)
        *[other] Zapped Elements ({ $count })
     }
+# $name (String) - what the zapped element says: its label, alt text or opening words
 whimsy-site-zap-restore-item =
-    .label = Restore { $selector }
+    .label = Restore “{ $name }”
+# $kind (String) - image, video, frame or other; $index (Number) - its place in the list
+whimsy-site-zap-restore-item-unnamed =
+    .label = { $kind ->
+        [image] Restore Image { $index }
+        [video] Restore Video { $index }
+        [frame] Restore Embedded Frame { $index }
+       *[other] Restore Element { $index }
+    }
 whimsy-site-zap-restore-all =
     .label = Restore All Zapped Elements
-whimsy-site-zap-restored-toast = Restored { $selector }
+whimsy-site-zap-restored-toast = Restored “{ $name }”
+whimsy-site-zap-restored-element-toast = Restored zapped element
 whimsy-site-zap-restored-all-toast = Restored all zapped elements
 
 ## wave9: form protection (W9-03)
