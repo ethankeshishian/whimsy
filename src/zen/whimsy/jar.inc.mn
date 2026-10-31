@@ -78,8 +78,6 @@
 # wave5/audioicon: Arc tab speaker glyphs
         content/browser/whimsy/whimsy-tab-audio-playing.svg                       (../../zen/whimsy/content/whimsy-tab-audio-playing.svg)
         content/browser/whimsy/whimsy-tab-audio-muted.svg                         (../../zen/whimsy/content/whimsy-tab-audio-muted.svg)
-# wave5/profiles: keeps extensions' content scripts out of other profiles' pages.
-        content/browser/whimsy/whimsy-profiles-process.js                       (../../zen/whimsy/content/whimsy-profiles-process.js)
 # wave6/zap: Link hints badges (drawn in page anonymous content)
         content/browser/whimsy/whimsy-link-hints.css                             (../../zen/whimsy/content/whimsy-link-hints.css)
 # wave6/search: Search Deck dots

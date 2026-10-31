@@ -423,9 +423,6 @@
 - name: whimsy.feature.arc-audio-icon
   value: true
 
-- name: whimsy.feature.space-profiles
-  value: true
-
 - name: whimsy.feature.zap
   value: true
 

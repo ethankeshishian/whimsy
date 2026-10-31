@@ -25,9 +25,6 @@ import { whenFilterGroup, MS_PER_DAY } from "moz-src:///zen/library/sections/Zen
 const { WhimsySpaceHistory } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs"
 );
-const { WhimsyProfiles } = ChromeUtils.importESModule(
-  "resource:///modules/whimsy/WhimsyProfiles.sys.mjs"
-);
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
@@ -168,18 +165,6 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         ],
       });
     }
-    // wave5/profiles: the current profile's history by default (Arc).
-    if (this.spaceMode && WhimsyProfiles.enabled) {
-      groups.push({
-        id: "profile",
-        titleL10nId: "whimsy-history-profile-filter",
-        exclusive: true,
-        options: [
-          { id: "current", l10nId: "whimsy-history-this-profile" },
-          { id: "all", l10nId: "whimsy-history-all-profiles" },
-        ],
-      });
-    }
     return groups;
   }
 
@@ -209,7 +194,6 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
 
   connectedCallback() {
     this.activeFilters.add("space:all");
-    this.activeFilters.add("profile:current");
     this._spaceLimit = 100;
     this._generation = 0;
     this._spaceOptions = [];
@@ -398,9 +382,7 @@ export class WhimsySpaceHistorySection extends ZenLibraryHistorySection {
         id => this.isFilterActive("sort", id)) || "date";
       const spaceId = this.isFilterActive("space", "unknown") ? "unknown" :
         this._spaceOptions.find(([id]) => this.isFilterActive("space", id))?.[0] || "";
-      const profile = WhimsyProfiles.enabled && !this.isFilterActive("profile", "all") ?
-        WhimsyProfiles.keyFor(WhimsyProfiles.activeProfileId(this.documentGlobal)) : "";
-      const visits = await WhimsySpaceHistory.query({ spaceId, profile,
+      const visits = await WhimsySpaceHistory.query({ spaceId,
         search: this.searchQuery, days: this.activeWhenDays ?? 120,
         sort, limit: this._spaceLimit });
       const file = await WhimsySpaceHistory.file();
