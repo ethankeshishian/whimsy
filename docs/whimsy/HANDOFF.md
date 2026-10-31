@@ -33,7 +33,7 @@ Zen's activity, measured over 91 days to 2026-10-27:
 
 The updater follows **release tags**, which sit on `dev`, and only moves forward from `whimsy/upstream.json`.
 
-- **Nightly (3:30 am, low priority):** waits rather than fails when on battery, below 15 GB free, while the repository isn't on a clean `main`, or while another build runs. Otherwise it syncs, updates the Firefox source if needed, builds, runs `whimsy/verify.sh gate`, fast-forwards `main`, and stages the app. Any failure resets the repository and logs why. A release that fails twice is skipped until a newer one ships.
+- **Nightly (3:30 am, low priority):** waits rather than fails while `hold` is set, on battery, below 15 GB free, while the repository isn't on a clean `dev` or `main`, or while another build runs. It builds Release only when the `release` tag moved (`npm run promote`) or Zen published a newer release: the tagged commit plus that Zen release (fetched by exact commit; Zen's build-file changes are logged), the full `whimsy/verify.sh gate`, publish to Release if green, then `main` merged back into `dev`. Any failure resets the repository and logs why. A Zen release that fails twice is skipped until a newer one; a promoted commit that fails twice until the tag moves.
 - **Every minute:** installs a staged build only while Whimsy is closed (never while it's open, even idle) and keeps the old app for rollback.
 - **Settings → About Whimsy:** shows status, pause/resume, check now, the log, and **Roll back**. Rolling back reopens the previous app and skips the version you left.
 - **After an install,** a one-time sidebar notice appears with Zen's release notes and a roll-back shortcut. Zen's own sweep animation plays too.
@@ -51,5 +51,5 @@ The updater follows **release tags**, which sit on `dev`, and only moves forward
 
 ## Branches and channels
 
-Work on `dev` and ship each change with `npm run ship` (Zen release check, build, quick tests, push, install here, Dev-channel publish in the background). The nightly job promotes `dev` + the newest Zen release to `main` after the full gate and publishes it to the Release channel. Users pick Release or Dev in Settings → Updates. Details in CLAUDE.md.
+Work on `dev` and ship each change with `npm run ship` (build, quick tests, push, install here, Dev-channel publish in the background; no Zen merge, never Release). To release: run the full `sh whimsy/verify.sh` after a ship, then `npm run promote` (moves and pushes the `release` tag); the nightly builds it with any newer Zen release, runs the full gate and publishes to Release. Users pick Release or Dev in Settings → Updates. Details in CLAUDE.md and the docstring of `whimsy/updater/updater.py`.
 
