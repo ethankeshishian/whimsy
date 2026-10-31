@@ -128,7 +128,7 @@ export const WhimsyProfileSettings = {
       if (!PathUtils.isAbsolute(dir) || (await IOUtils.stat(dir)).type != "directory") {
         return false;
       }
-      const library = PathUtils.join(PathUtils.homeDir, "Library");
+      const library = PathUtils.join(Services.dirsvc.get("Home", Ci.nsIFile).path, "Library");
       const path = PathUtils.normalize(dir);
       return path != library && !path.startsWith(library + "/");
     } catch {

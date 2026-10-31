@@ -121,7 +121,7 @@ add_task(async function download_folder_follows_the_front_profile() {
 add_task(async function download_folder_stays_local_and_safe() {
   ok(!Services.prefs.getDefaultBranch("").getBoolPref("services.sync.prefs.sync.whimsy.profiles.download-dirs", false),
     "Download folders don't sync");
-  const agents = PathUtils.join(PathUtils.homeDir, "Library", "LaunchAgents");
+  const agents = PathUtils.join(Services.dirsvc.get("Home", Ci.nsIFile).path, "Library", "LaunchAgents");
   await IOUtils.makeDirectory(agents, { ignoreExisting: true });
   await WhimsyProfileSettings.setDownloadDir(workKey, agents);
   const workTab = await inFront(work);

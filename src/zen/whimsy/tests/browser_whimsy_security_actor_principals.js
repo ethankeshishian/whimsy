@@ -38,7 +38,8 @@ add_task(async function split_link_ignores_a_content_supplied_principal() {
   const split = await opened;
   ok(!anyTabAt(PRIVILEGED), "The file: URL never opened with a system principal");
   ok(split.linkedBrowser.contentPrincipal.isContentPrincipal, "The allowed link opened as a web page");
-  gZenViewSplitter.removeTabFromSplit?.(split);
+  // Closing the pane ends the split (Zen's removeTabFromSplit wants the
+  // pane's DOM container, not a tab).
   BrowserTestUtils.removeTab(split);
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
