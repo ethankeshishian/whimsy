@@ -795,6 +795,10 @@ FEATURES = [
     # wave5: Easel (Arc's Easels: canvas of text, drawings, shapes, images, links, captures).
     {"id": "easel", "title": "Easel: a canvas of text, drawings, shapes, images, links and live captures, pinned like a tab (Arc Easels)",
      "detect": [("src/zen", r"(?i)\beasels?\b")]},
+    # wave5: redact: a toggle in the Screenshots panel that blurs emails,
+    # phones, keys/tokens and card numbers (click text to blur/unblur).
+    {"id": "redact", "title": "Redact in screenshots: blur emails, phone numbers, keys and card numbers before capturing; click text to blur it",
+     "detect": [("src/zen", r"(?i)redact")]},
 ]
 
 

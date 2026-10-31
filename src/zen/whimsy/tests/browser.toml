@@ -353,3 +353,6 @@ support-files = ["whimsy_ai_page.html"]
 
 # wave5: Easel (create, draw, move/resize, undo, persist, captures, export, switch).
 ["browser_whimsy_easel.js"]
+# wave5: Redact in the Screenshots panel (detectors, click-to-blur, image pixels, cleanup).
+["browser_whimsy_redact.js"]
+support-files = ["whimsy_redact.html"]

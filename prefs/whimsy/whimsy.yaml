@@ -407,3 +407,8 @@
 # Picked in Settings from the models the Ollama server has.
 - name: whimsy.ai.ollama.model
   value: ""
+
+# wave5: redact. The Redact toggle in the screenshot panel, remembered
+# between captures (blurs emails, phones, keys and card numbers).
+- name: whimsy.capture.redact
+  value: false

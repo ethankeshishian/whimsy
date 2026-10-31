@@ -74,3 +74,6 @@
         content/browser/whimsy/whimsy-easel.mjs (../../zen/whimsy/content/whimsy-easel.mjs)
         content/browser/whimsy/whimsy-easel-model.mjs (../../zen/whimsy/content/whimsy-easel-model.mjs)
         content/browser/whimsy/whimsy-library-easels.mjs (../../zen/whimsy/content/whimsy-library-easels.mjs)
+# wave5: redact toggle in the Screenshots panel
+        content/browser/whimsy/whimsy-redact.css                                 (../../zen/whimsy/content/whimsy-redact.css)
+        content/browser/whimsy/whimsy-redact.svg                                 (../../zen/whimsy/content/whimsy-redact.svg)

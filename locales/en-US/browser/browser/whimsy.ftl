@@ -1858,3 +1858,7 @@ whimsy-library-easels-items = { $count ->
 # $title (String) - the easel's name
 whimsy-library-easels-deleted = Deleted { $title }
 whimsy-library-easels-undo-button = Undo
+## wave5: Redact, a toggle in the screenshot panel beside Visible and Full Page
+
+whimsy-redact-button = Redact
+    .title = Blur emails, phone numbers, keys and card numbers in the screenshot. Click any text to blur or unblur it.

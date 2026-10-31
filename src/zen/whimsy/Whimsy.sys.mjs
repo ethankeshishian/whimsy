@@ -141,6 +141,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
 });
 
+// wave5: redact in screenshots.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -565,6 +570,9 @@ export const Whimsy = {
     // wave5: Easel (Arc's Easels). Always installed: the command, the
     // capture button and the page each check whimsy.feature.easel on use.
     run("easel", () => lazy.WhimsyEasel.initWindow(win));
+    // wave5: redact. Adds the toggle to the Screenshots panel; it checks
+    // whimsy.feature.redact each time the panel shows.
+    run("redact", () => lazy.WhimsyRedact.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
