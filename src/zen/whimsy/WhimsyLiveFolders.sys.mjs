@@ -610,34 +610,6 @@ export const WhimsyLiveFolders = {
     proto.init.whimsyWrapped = true;
   },
 
-  registerProviders(manager) {
-    const providers = [
-      [this.jiraEnabled, WhimsyJiraLiveFolderProvider],
-      [this.linearEnabled, WhimsyLinearLiveFolderProvider],
-      [this.localServersEnabled, WhimsyLocalServersLiveFolderProvider],
-    ];
-    for (const [enabled, Provider] of providers) {
-      if (enabled) {
-        manager.registry.set(Provider.type, Provider);
-      }
-    }
-  },
-
-  // Called at profile-after-change by WhimsyStartup, before any window: Zen
-  // runs ZenLiveFoldersManager.init() from browser-window-delayed-startup,
-  // which is earlier than Whimsy.initWindow, so wrapping it from init()
-  // below would come too late for the first window's restore.
-  installManagerHook() {
-    try {
-      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-      );
-      this.wrapManagerInit(ZenLiveFoldersManager);
-    } catch (e) {
-      console.error("Whimsy: live folders registry hook failed", e);
-    }
-  },
-
   initWindow(win) {
     this.initCreateMenu(win);
   },
