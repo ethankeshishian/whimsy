@@ -150,9 +150,12 @@ add_task(async function test_typing_changes_theme_without_enter() {
   await TestUtils.waitForCondition(() => customs().includes("#11223380"), "#RRGGBBAA keeps its alpha exactly");
 
   // Paste pulls the hex out of surrounding text.
-  const data = new DataTransfer();
-  data.setData("text/plain", "color: #123456;");
-  field().dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  // (A real paste: a synthetic ClipboardEvent carries no clipboardData.)
+  const pasted = "color: #123456;";
+  await SimpleTest.promiseClipboardChange(pasted, () => SpecialPowers.clipboardCopyString(pasted));
+  field().focus();
+  field().select();
+  goDoCommand("cmd_paste");
   is(field().value, "#123456", "Paste keeps just the hex");
   await TestUtils.waitForCondition(() => customs().includes("#123456"), "and applies it");
 
