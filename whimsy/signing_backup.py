@@ -20,7 +20,9 @@ publishing fails, is logged, and the nightly tries again the next night.
 
 The key used to live in ~/Library/Application Support/Whimsy Updater/signing.
 whimsy/signing_migrate.py moves an existing copy into 1Password (by hand,
-once).
+once). Until that's done (no vault configured yet), signing keeps using that
+on-disk key, with a warning on every publish, so shipping never waits on the
+migration. Once a vault is configured, only the vault is used: no fallback.
 """
 import hashlib
 import json
@@ -164,10 +166,44 @@ def write_private(path, data):
         f.write(data)
 
 
+def vault_or_none():
+    """The configured vault, or None while none is configured."""
+    try:
+        return configured_vault()
+    except RuntimeError:
+        return None
+
+
+def key_source():
+    """Where signing will read the key: ("vault", name) once a vault is
+    configured; until then ("legacy", path) for the pre-1Password key on this
+    Mac. Raises when neither is there, so publish.py fails before packaging."""
+    vault = vault_or_none()
+    if vault:
+        return ("vault", vault)
+    if os.path.isfile(LEGACY_KEY):
+        return ("legacy", LEGACY_KEY)
+    # Neither: the vault message says what to set up.
+    configured_vault()
+
+
+def warn_legacy():
+    # Never prints the key or anything derived from it; only where it is.
+    print(f"WARNING: signing with the on-disk key in {SIGNING}: no 1Password vault is configured "
+          "(\"signing_vault\" in whimsy/publish.json). Move it with python3 whimsy/signing_migrate.py "
+          "when you can.", file=sys.stderr, flush=True)
+
+
 def signing_key():
-    """The private key, from the configured vault, as bytes (kept in memory;
-    the caller hands it to openssl on stdin)."""
-    vault = configured_vault()
+    """The private key as bytes (kept in memory; the caller hands it to
+    openssl on stdin): from the configured vault, or, while no vault is
+    configured, from the old on-disk location with a warning."""
+    kind, where = key_source()
+    if kind == "legacy":
+        warn_legacy()
+        with open(where, "rb") as f:
+            return f.read()
+    vault = where
     data = stored_key(vault)
     if data is None:
         raise RuntimeError(f"no '{TITLE}' document in the 1Password vault {vault!r}. If the key is still on this "

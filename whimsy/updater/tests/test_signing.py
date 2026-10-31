@@ -157,6 +157,81 @@ class Vault(Base):
         self.assertTrue(all("--vault" in call for call in self.op.calls if call[:2] == ("document", "get")))
 
 
+class LegacyKeyFallback(Base):
+    """Until the user migrates the key into 1Password (no signing_vault yet),
+    publishing signs with the old on-disk key and warns, so `npm run ship`
+    keeps publishing to Dev. Once a vault is configured it's the only source."""
+
+    def setUp(self):
+        super().setUp()
+        self.op = FakeOp()
+        self.patch(sb, "op", self.op)
+        self.patch(sb, "PUBLISH_JSON", os.path.join(self.tmp, "publish.json"))
+        self.patch(sb, "SIGNING", os.path.join(self.tmp, "signing"))
+        self.patch(sb, "LEGACY_KEY", os.path.join(self.tmp, "signing", "private_key.pem"))
+        # A fake PEM, built by concatenation so it never looks like a real key.
+        self.pem = b"-----BEGIN " + b"PRIVATE KEY-----\nZmFrZQ==\n-----END " + b"PRIVATE KEY-----\n"
+
+    def write_config(self, vault):
+        with open(sb.PUBLISH_JSON, "w") as f:
+            json.dump({"signing_vault": vault}, f)
+
+    def write_legacy(self):
+        os.makedirs(sb.SIGNING)
+        with open(sb.LEGACY_KEY, "wb") as f:
+            f.write(self.pem)
+
+    def test_no_vault_uses_the_on_disk_key_with_a_warning(self):
+        self.write_config("")
+        self.write_legacy()
+        self.assertEqual(sb.key_source(), ("legacy", sb.LEGACY_KEY))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(sb.signing_key(), self.pem)
+        self.assertIn("WARNING", err.getvalue())
+        self.assertIn("signing_migrate.py", err.getvalue())
+        self.assertNotIn("ZmFrZQ", err.getvalue())  # never the key itself
+        self.assertNotIn("PRIVATE KEY", err.getvalue())
+        self.assertEqual(self.op.calls, [])  # 1Password isn't needed yet
+
+    def test_a_configured_vault_never_falls_back_to_disk(self):
+        self.write_config("Private")
+        self.write_legacy()
+        self.assertEqual(sb.key_source(), ("vault", "Private"))
+        with self.assertRaises(RuntimeError):
+            sb.signing_key()  # not in the vault: refuse, don't read the disk copy
+        self.op.docs[("Private", sb.TITLE)] = b"vault key"
+        self.assertEqual(sb.signing_key(), b"vault key")
+
+    def test_neither_refuses_with_the_vault_hint(self):
+        self.write_config("")
+        with self.assertRaises(RuntimeError) as e:
+            sb.key_source()
+        self.assertIn("signing_vault", str(e.exception))
+
+    def test_dev_publish_gets_past_the_signing_check_without_a_vault(self):
+        self.write_config("")
+        self.write_legacy()
+        reached = []
+
+        def objdir():
+            reached.append(True)
+            raise RuntimeError("stop here: packaging isn't part of this test")
+        self.patch(publish, "objdir", objdir)
+        self.patch(sys, "argv", ["publish.py", "--channel", "dev"])
+        with self.assertRaises(RuntimeError):
+            publish.main()
+        self.assertEqual(reached, [True])
+
+    def test_dev_publish_without_vault_or_key_fails_before_packaging(self):
+        self.write_config("")
+        self.patch(publish, "objdir", lambda: self.fail("must fail before packaging"))
+        self.patch(sys, "argv", ["publish.py", "--channel", "dev"])
+        with self.assertRaises(SystemExit) as e:
+            publish.main()
+        self.assertIn("signing_vault", str(e.exception))
+
+
 class TempFolders(Base):
     def setUp(self):
         super().setUp()

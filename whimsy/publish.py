@@ -23,8 +23,9 @@ downgrade, whatever update.xml claims (security-full-3 M3).
 3. Whimsy-<version>.dmg with an Applications shortcut, for first installs.
 4. A full .mar update signed with Whimsy's key. Installed Whimsys only accept
    .mar files signed by it (whimsy/engine_overrides.py puts the public
-   certificate in the updater). The private key lives only in 1Password
-   (whimsy/signing_backup.py): it's fetched while signing, into a private
+   certificate in the updater). The private key lives in 1Password
+   (whimsy/signing_backup.py; until it's migrated there, the old on-disk key
+   is used with a warning): it's fetched while signing, into a private
    temporary folder that is wiped afterwards. Commands never carry a password,
    and none is printed.
 Each release is Zen's version plus a Whimsy revision, like 1.24b-w3
@@ -306,8 +307,9 @@ def main():
     for sig in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, exit_on_signal)
     try:
-        # Fail before packaging when signing can't work.
-        signing_backup.configured_vault()
+        # Fail before packaging when signing can't work. Without a vault yet,
+        # the on-disk key is used (with a warning) until signing_migrate.py.
+        signing_backup.key_source()
     except RuntimeError as e:
         raise SystemExit(f"publish: {e}")
     obj = objdir()
