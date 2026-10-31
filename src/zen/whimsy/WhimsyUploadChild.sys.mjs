@@ -80,12 +80,15 @@ export function uploadTargetFor(element) {
   const zone = element.closest?.(".dropzone, [class*=dropzone i], [class*=drop-zone i], [data-testid*=dropzone i]");
   if (zone) {
     const dz = zone.wrappedJSObject?.dropzone;
+    // Dropzone.js (class "dropzone"/"dz-clickable") keeps its input out of
+    // the zone, as body's one .dz-hidden-input; other drop zones never
+    // borrow an input from elsewhere on the page.
+    const isDropzoneJS = zone.classList?.contains("dropzone") || zone.classList?.contains("dz-clickable");
+    const hidden = isDropzoneJS ? zone.ownerDocument.querySelectorAll("input.dz-hidden-input") : [];
     const dzInput =
       fileInputFor(dz?.hiddenFileInput) ??
       onlyFileInput(zone) ??
-      zone.querySelector?.("input[type=file]") ??
-      zone.parentElement?.querySelector?.("input.dz-hidden-input") ??
-      (doc.querySelectorAll("input.dz-hidden-input").length == 1 ? doc.querySelector("input.dz-hidden-input") : null);
+      (hidden.length == 1 ? hidden[0] : null);
     if (dzInput && !dzInput.disabled) {
       return { input: dzInput };
     }
@@ -198,9 +201,6 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       for (const type of ["dragenter", "dragover", "drop"]) {
         zone.dispatchEvent(new win.DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
       }
-      const pasteData = new win.DataTransfer();
-      pasteData.items.add(file);
-      zone.dispatchEvent(new win.ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: pasteData }));
     } catch (e) {
       console.error("Whimsy: upload from clipboard (drop) failed", e);
     }
