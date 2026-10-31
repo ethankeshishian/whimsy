@@ -2658,7 +2658,15 @@ class nsZenWorkspaces {
     }
 
     // Always make sure we always unselect the tab from the old workspace
-    if (currentSelectedTab && currentSelectedTab !== tabToSelect) {
+    // Whimsy hotfix: only when another tab really takes the selection;
+    // onInit never selects tabToSelect, and a selected tab without the
+    // attribute is closed without moving the selection off it.
+    if (
+      currentSelectedTab &&
+      tabToSelect &&
+      !onInit &&
+      currentSelectedTab !== tabToSelect
+    ) {
       currentSelectedTab._selected = false;
     }
     return tabToSelect;

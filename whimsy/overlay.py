@@ -667,6 +667,30 @@ HOTFIXES = [
                '      ["browser.tabs.insertAfterCurrent", false],\n'
                '    ],\n  });\n\n  const [tab1, tab2, tab3]',
     },
+    # wave9/restore: Zen pinned restore, second half.
+    {
+        "id": "space-init-keeps-selected-tab",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "On a window's first space change (onInit) Zen picks a tab to "
+               "select but never selects it, yet still strips 'selected' from "
+               "the tab that stays selected. Firefox moves the selection off a "
+               "closing tab only when that attribute is set, so closing it (or "
+               "restoring a session over the window, which keeps only the "
+               "'selected' tab) leaves gBrowser.selectedTab on a removed tab. "
+               "Unselect the old tab only when another one takes its place.",
+        "old": "    if (currentSelectedTab && currentSelectedTab !== tabToSelect) {\n"
+               "      currentSelectedTab._selected = false;\n",
+        "new": "    // Whimsy hotfix: only when another tab really takes the selection;\n"
+               "    // onInit never selects tabToSelect, and a selected tab without the\n"
+               "    // attribute is closed without moving the selection off it.\n"
+               "    if (\n"
+               "      currentSelectedTab &&\n"
+               "      tabToSelect &&\n"
+               "      !onInit &&\n"
+               "      currentSelectedTab !== tabToSelect\n"
+               "    ) {\n"
+               "      currentSelectedTab._selected = false;\n",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.

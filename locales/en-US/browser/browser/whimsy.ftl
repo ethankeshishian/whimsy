@@ -3172,3 +3172,5 @@ whimsy-isolation-scratch-moved-toast =
 
 # wave9/secfix: Favorite This Split refuses a split with a private pane.
 whimsy-split-favorite-private-toast = Splits with private tabs can’t be saved as favorites
+## wave9/restore (W9-07): Zen's Change Icon for the current tab, as a command
+whimsy-action-change-tab-icon = Change Tab Icon…

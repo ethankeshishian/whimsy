@@ -32,6 +32,7 @@ const COMMANDS = {
   cmd_whimsyOpenClaudeSpace: "whimsy-action-open-claude-space",
   cmd_whimsyWhatsNew: "whimsy-action-whats-new",
   cmd_whimsyViewClaudeReplays: "whimsy-action-view-claude-replays",
+  cmd_whimsyChangeTabIcon: "whimsy-action-change-tab-icon",
 };
 
 // Unused on macOS (the registry test uses Cmd+Shift+Y).
@@ -251,5 +252,51 @@ add_task(async function test_collapse_and_expand_all_folders() {
         BrowserTestUtils.removeTab(tab);
       }
     }
+  }
+});
+
+// W9-07: an Essential gets a custom icon from Zen's Change Icon (its
+// right-click menu) or from Change Tab Icon…, a command that can take a
+// shortcut. Both open the same picker and save the same icon.
+add_task(async function test_change_tab_icon_on_an_essential() {
+  const picker = document.getElementById("PanelUI-zen-emojis-picker");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/html,<title>essential</title>icon");
+  gZenPinnedTabManager.addToEssentials(tab);
+  await TestUtils.waitForCondition(() => tab.hasAttribute("zen-essential"), "An Essential");
+  gBrowser.selectedTab = tab;
+  try {
+    // The right-click entry.
+    const menu = document.getElementById("tabContextMenu");
+    let shown = BrowserTestUtils.waitForEvent(menu, "popupshown");
+    EventUtils.synthesizeMouseAtCenter(tab, { type: "contextmenu", button: 2 });
+    await shown;
+    const item = document.getElementById("context_zen-edit-tab-icon");
+    ok(item && !item.hidden, "The Essential's menu has Change Icon");
+    let hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
+    menu.hidePopup();
+    await hidden;
+
+    // The command, with a shortcut the person can assign.
+    ok(available("whimsy-action-change-tab-icon"), "The command bar offers Change Tab Icon… for the Essential");
+    const entry = WhimsyCommands.get("cmd_whimsyChangeTabIcon");
+    ok(WhimsyCommands.rebind(entry.id, FREE).ok, "A shortcut can be assigned");
+    shown = BrowserTestUtils.waitForEvent(picker, "popupshown");
+    EventUtils.synthesizeKey("y", { accelKey: true, altKey: true, shiftKey: true });
+    await shown;
+    ok(true, "The shortcut opens Zen's icon picker");
+    const glyph = await TestUtils.waitForCondition(
+      () => [...gZenEmojiPicker.svgList.children].find(b => b.hasAttribute("icon")),
+      "The picker lists its glyphs"
+    );
+    glyph.doCommand();
+    await TestUtils.waitForCondition(() => tab.zenStaticIcon, "The Essential keeps the picked icon");
+    is(gBrowser.getIcon(tab), tab.zenStaticIcon, "The Essential shows it");
+    hidden = BrowserTestUtils.waitForEvent(picker, "popuphidden");
+    picker.hidePopup();
+    await hidden;
+    WhimsyCommands.reset(entry.id);
+  } finally {
+    gZenPinnedTabManager.removeEssentials(tab);
+    BrowserTestUtils.removeTab(tab);
   }
 });
