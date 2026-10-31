@@ -167,6 +167,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFocus: "resource:///modules/whimsy/WhimsyFocus.sys.mjs",
 });
 
+// wave5: redact in screenshots.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
+});
+
 // wave5/look: a look per space (font, density, title lines, a Zen Mod).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
@@ -277,6 +282,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave7/small: Teach once hints for Link hints and Instant result.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTeachHints: "resource:///modules/whimsy/WhimsyTeachHints.sys.mjs",
+});
+
+// wave5: Easel.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -763,6 +773,10 @@ export const Whimsy = {
     // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
     // checks its switch on each use (off: Cmd+K is Firefox's again).
     run("selection-verbs", () => lazy.WhimsyVerbs.initWindow(win));
+
+    // wave5: redact. Adds the toggle to the Screenshots panel; it checks
+    // whimsy.feature.redact each time the panel shows.
+    run("redact", () => lazy.WhimsyRedact.initWindow(win));
     // wave5/look: a look per space. After Zen's spaces are ready (Mini
     // has none of its own and follows its destination's); it checks its
     // switch on every change, so turning it off applies at once.
@@ -862,6 +876,10 @@ export const Whimsy = {
     // wave7/small: Link hints and Instant result Teach once hints; they
     // register only in a build that has WhimsyTeach (once per session).
     later("teach-hints", () => lazy.WhimsyTeachHints.init());
+
+    // wave5: Easel (Arc's Easels). Always installed: the command, the
+    // capture button and the page each check whimsy.feature.easel on use.
+    run("easel", () => lazy.WhimsyEasel.initWindow(win));
 
     this.runDeferred(win, deferred, run);
   },

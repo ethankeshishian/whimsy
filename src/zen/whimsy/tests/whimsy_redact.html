@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Redact fixture</title>
+<style>
+  body { margin: 0; padding: 20px; font: 24px/1.6 sans-serif; color: #111; background: #fff; }
+  span { display: inline-block; padding: 2px; }
+  #tall { height: 2400px; }
+  #fixed { position: fixed; bottom: 10px; right: 10px; margin: 0; }
+</style>
+</head>
+<body>
+<p>Email <span id="email">ada.lovelace@example.com</span></p>
+<p>Phone <span id="phone">+1 (415) 555-0132</span></p>
+<p>Key <span id="key">sk_live_51HxQ2eLkdIwHu7ixAbCdEf</span></p>
+<p>Card <span id="card">4242 4242 4242 4242</span></p>
+<p>Not a card <span id="notcard">4242 4242 4242 4241</span></p>
+<p>Date <span id="date">2026-10-30</span></p>
+<p>Plain <span id="plain">Nothing secret here</span></p>
+<p id="fixed">Ops <span id="fixedmail">ops@example.org</span></p>
+<div id="tall"></div>
+<p>Token <span id="bottom">ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8</span></p>
+</body>
+</html>
