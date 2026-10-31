@@ -199,6 +199,14 @@ export const WhimsyArcMenus = {
   },
 
   initFile(document) {
+    // wave9/menus (design-full-4 L8): Arc's File ▸ New Little Arc Window
+    // (⌥⌘N) is Mini Whimsy, right after New Window.
+    const newWindow = document.getElementById("menu_newNavigator");
+    if (newWindow && !document.getElementById("menu_whimsyQuickWindow") && Services.prefs.getBoolPref("whimsy.feature.quick-window", true)) {
+      newWindow.after(
+        menuitem(document, "menu_whimsyQuickWindow", "whimsy-menu-quick-window", "cmd_whimsyQuickWindow", "key_whimsyQuickWindow")
+      );
+    }
     const blank = document.getElementById("menu_new_zen_unsynced_window");
     if (blank && blank.getAttribute("data-l10n-id") != "whimsy-menu-blank-window") {
       blank.setAttribute("data-l10n-id", "whimsy-menu-blank-window");

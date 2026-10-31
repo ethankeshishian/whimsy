@@ -168,6 +168,15 @@ export const WhimsyCommands = {
     return null;
   },
 
+  // wave9/menus (design-full-4 M11): a command's extra search words, from a
+  // comma-separated whimsy.ftl message, so they're localized like its name.
+  keywords(l10nId) {
+    return formatSync(l10nId)
+      .split(",")
+      .map(word => word.trim())
+      .filter(Boolean);
+  },
+
   // The command's name, as the command bar and about:keyboard show it.
   title(entry) {
     return entry?.l10nId ? formatSync(entry.l10nId) : "";

@@ -15,7 +15,6 @@ const { CustomKeys } = ChromeUtils.importESModule("moz-src:///browser/components
 const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
 
 const COMMANDS = {
-  cmd_whimsyTreeToggleBranch: "whimsy-action-tree-toggle",
   cmd_whimsyShowHiddenSpaces: "whimsy-action-show-hidden-spaces",
   cmd_whimsyToggleSpaceSwitcher: "whimsy-action-space-switcher-toggle",
   cmd_whimsyZoomInterfaceIn: "whimsy-action-ui-zoom-in",
@@ -118,7 +117,7 @@ add_task(async function test_settings_toggles() {
   ok(Services.prefs.getBoolPref("whimsy.spaces.hide-switcher"), "The switcher hides");
   ok(available("whimsy-action-space-switcher-show"), "then Show Space Switcher");
 
-  ok(available("whimsy-action-background-mute-off"), "Stop Muting Background Tabs while muting");
+  ok(available("whimsy-action-background-mute-off"), "Unmute Background Tabs while muting");
   document.getElementById("cmd_whimsyToggleBackgroundMute").doCommand();
   is(Services.prefs.getStringPref("whimsy.media.background-mute"), "off", "Background tabs play");
   ok(available("whimsy-action-background-mute-on"), "then Mute Background Tabs");
@@ -146,18 +145,26 @@ add_task(async function test_bionic_only_in_reader() {
   await SpecialPowers.popPrefEnv();
 });
 
+// wave9/menus (design-full-4 L7): tree tabs are off, so their command isn't
+// listed anywhere (no about:keyboard row, no command-bar row).
+add_task(function test_tree_command_unlisted_while_tree_tabs_off() {
+  ok(!Services.prefs.getBoolPref("whimsy.feature.tree-tabs"), "Tree tabs are off by default");
+  ok(document.getElementById("cmd_whimsyTreeToggleBranch"), "The <command> still works");
+  const entry = WhimsyCommands.get("cmd_whimsyTreeToggleBranch");
+  ok(!entry?.l10nId, "It has no listed name");
+  ok(!entry?.keyId || !document.getElementById(entry.keyId), "…so no <key> for about:keyboard");
+  ok(!action("whimsy-action-tree-collapse") && !action("whimsy-action-tree-expand"), "…and no command-bar rows");
+});
+
 add_task(async function test_tree_branch() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.tree-tabs", true], ["whimsy.tabs.tree-style", "tree"]] });
   const parent = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?tree-parent");
   ok(!WhimsyAccessCommands.branchTab(window), "A tab without children has no branch");
-  ok(!available("whimsy-action-tree-collapse"), "so Collapse isn't offered");
   const child = BrowserTestUtils.addTab(gBrowser, "https://example.com/?tree-child", { openerBrowser: parent.linkedBrowser });
   await BrowserTestUtils.browserLoaded(child.linkedBrowser);
   is(WhimsyAccessCommands.branchTab(window), parent, "The current tab's branch");
-  ok(available("whimsy-action-tree-collapse"), "Collapse Tab Children");
   document.getElementById("cmd_whimsyTreeToggleBranch").doCommand();
   ok(parent.hasAttribute("whimsy-tree-collapsed"), "The branch collapses");
-  ok(available("whimsy-action-tree-expand"), "then Expand Tab Children");
   document.getElementById("cmd_whimsyTreeToggleBranch").doCommand();
   ok(!parent.hasAttribute("whimsy-tree-collapsed"), "and expands");
   gBrowser.selectedTab = child;

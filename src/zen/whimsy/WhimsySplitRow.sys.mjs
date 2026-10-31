@@ -243,7 +243,8 @@ export const WhimsySplitRow = {
     const popup = document.getElementById("whimsySplitRow-moveToPopup");
     const workspaces = win.gZenWorkspaces;
     popup.replaceChildren();
-    const spaces = workspaces?.workspaceEnabled ? workspaces.getWorkspaces() : [];
+    // wave9/menus (design-full-4 M4): never into Scratch (private).
+    const spaces = workspaces?.workspaceEnabled ? workspaces.getWorkspaces().filter(space => !space.whimsyScratch) : [];
     moveTo.disabled = !spaces.length || tab.hasAttribute("zen-essential");
     const current = tab.getAttribute("zen-workspace-id");
     for (const space of spaces) {

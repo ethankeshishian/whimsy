@@ -9,7 +9,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
 
 // #13: typing "/" (Linear, VS Code's ">") in the URL bar enters Zen's
@@ -205,7 +204,13 @@ export const WhimsyCommandBar = {
       ],
     });
     // State-dependent settings toggles (function commands, no shortcut).
-    lazy.WhimsyShortcuts.addActions(this.settingsActions());
+    // wave9/menus (design-full-4 M12): real commands, so each can be given
+    // a shortcut in about:keyboard. Glance size is one command that cycles
+    // (Compact → Standard → Wide), offered in the command bar as one row per
+    // size.
+    for (const spec of this.settingsCommands()) {
+      lazy.WhimsyCommands.register(win, spec);
+    }
   },
 
   // History: Zen's Library on its History section (left open if it's
@@ -221,21 +226,33 @@ export const WhimsyCommandBar = {
     win.PlacesCommandHook.showPlacesOrganizer("History");
   },
 
-  settingsActions() {
+  settingsCommands() {
+    const glanceOn = () => featureOn("glance-size");
+    const currentSize = () => Services.prefs.getStringPref("whimsy.glance.size", "standard");
     return [
       {
+        id: "cmd_whimsyViewHistory",
         l10nId: "whimsy-action-view-history",
-        command: w => this.viewHistory(w),
+        run: w => this.viewHistory(w),
         icon: "chrome://browser/skin/zen-icons/history.svg",
         isAvailable: () => true,
       },
-      ...GLANCE_SIZES.map(size => ({
-        l10nId: `whimsy-action-glance-size-${size}`,
-        command: () => Services.prefs.setStringPref("whimsy.glance.size", size),
+      {
+        id: "cmd_whimsyGlanceSize",
+        l10nId: "whimsy-action-glance-size-cycle",
+        run: () => {
+          if (glanceOn()) {
+            const next = GLANCE_SIZES[(GLANCE_SIZES.indexOf(currentSize()) + 1) % GLANCE_SIZES.length];
+            Services.prefs.setStringPref("whimsy.glance.size", next);
+          }
+        },
         icon: "chrome://browser/skin/zen-icons/window.svg",
-        isAvailable: () =>
-          featureOn("glance-size") && Services.prefs.getStringPref("whimsy.glance.size", "standard") != size,
-      })),
+        variants: GLANCE_SIZES.map(size => ({
+          l10nId: `whimsy-action-glance-size-${size}`,
+          run: () => Services.prefs.setStringPref("whimsy.glance.size", size),
+          isAvailable: () => glanceOn() && currentSize() != size,
+        })),
+      },
     ];
   },
 
@@ -267,8 +284,11 @@ export const WhimsyCommandBar = {
       if (!Services.prefs.getBoolPref(SLASH_FEATURE_PREF, true)) {
         return;
       }
+      // wave9/menus (design-full-4 M7): only "/" typed as the first key into
+      // an empty bar. A pasted or typed path (/Users/me/report.pdf, /r/…)
+      // stays an address, as in Firefox.
       const value = urlbar.value;
-      if (!value.startsWith("/")) {
+      if (value != "/" || event.inputType != "insertText") {
         return;
       }
       const { UrlbarShared } = ChromeUtils.importESModule(

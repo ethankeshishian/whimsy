@@ -165,12 +165,12 @@ export const WhimsySplitKeys = {
         isAvailable: inSplit,
       },
       {
+        // wave9/menus (design-full-4 M5): an internal alias, no name, so
+        // about:keyboard lists Expand Current Split once:
+        // cmd_whimsyCloseOtherPanes (Cmd+Opt+Shift+W) is that command, and
+        // the View menu runs it.
         id: "cmd_whimsyExpandSplit",
-        l10nId: "whimsy-action-expand-split",
         run: w => this.expandSplit(w),
-        isAvailable: inSplit,
-        // wave7/split: cmd_whimsyCloseOtherPanes (same action, with a key) is
-        // listed under this name, so it isn't listed twice.
         commandBar: false,
       },
       ...[1, 2, 3, 4].map(n => ({
@@ -218,7 +218,8 @@ export const WhimsySplitKeys = {
       ["menu_whimsyAddSplitView", "whimsy-menu-add-split-view", "cmd_whimsyAddSplitView", "key_whimsyAddSplitView"],
       ["menu_whimsyCloseSplitPane", "whimsy-menu-close-split-pane", "cmd_whimsyCloseSplitPane", "key_whimsyCloseSplitPane"],
       ["menu_whimsySeparatePage", "whimsy-menu-separate-page", "cmd_whimsySeparatePage", null],
-      ["menu_whimsyExpandSplit", "whimsy-menu-expand-split", "cmd_whimsyExpandSplit", null],
+      // wave9/menus (M5): Expand Current Split's one command, with its key.
+      ["menu_whimsyExpandSplit", "whimsy-menu-expand-split", "cmd_whimsyCloseOtherPanes", "key_whimsyCloseOtherPanes"],
     ].map(([id, l10nId, command, key]) => {
       const item = document.createXULElement("menuitem");
       item.id = id;

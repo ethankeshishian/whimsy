@@ -166,10 +166,17 @@ export const WhimsyArchiveMenu = {
     // Firefox already set { tabCount } on both rows; only the ids change.
     if (close) {
       // batch8: W8-05: close/delete an Essential directly from its context menu
-      if (contextTabs.some(t => t.hasAttribute("zen-essential"))) {
+      const essential = contextTabs.some(t => t.hasAttribute("zen-essential"));
+      if (essential) {
         close.hidden = false;
       }
-      if (archives) {
+      if (essential && on) {
+        // wave9/menus (design-full-4 M6): on an Essential the row deletes it
+        // (beside Remove from Essentials, which keeps the tab), so it says so.
+        // Cmd+W on an Essential resets it instead (Zen), so the File menu
+        // keeps its own name.
+        this.setL10nId(close, "whimsy-tab-context-delete-essential");
+      } else if (archives) {
         this.setL10nId(close, "whimsy-tab-context-archive-tabs");
       } else if (close.getAttribute("data-l10n-id")?.startsWith("whimsy-")) {
         // Back to Firefox's wording (its alt layout has its own id).

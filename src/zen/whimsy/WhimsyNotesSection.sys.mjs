@@ -132,7 +132,9 @@ export const WhimsyNotes = {
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyCreateNote",
       l10nId: "whimsy-action-create-note",
-      whimsyKeywords: ["New Note", "Create Note", "Note", "Scratchpad", "Take Note"],
+      // wave9/menus: localized (M11); no "Scratchpad", which ranked New Note
+      // right under New Scratch Space for "scratch" (N4).
+      whimsyKeywords: lazy.WhimsyCommands.keywords("whimsy-keywords-create-note"),
       run: async w => this.createNote(w),
       icon: "chrome://browser/skin/zen-icons/reader-mode.svg",
       isAvailable: () => this.enabled,
@@ -175,7 +177,10 @@ export const WhimsyNotes = {
     const { document } = win;
     const context = win.gContextMenu;
     const item = document.getElementById("context-whimsy-new-note");
+    // wave9/menus (design-full-4 L1): the page menu only. On a link, image,
+    // canvas or media player it would save the page, not what was clicked.
     const show = this.enabled && !!context && !context.onTextInput && !context.onEditable && !context.isContentSelected &&
+      !context.onLink && !context.onImage && !context.onCanvas && !context.onVideo && !context.onAudio &&
       !this.isPrivate(win);
     if (!show) {
       if (item) {
