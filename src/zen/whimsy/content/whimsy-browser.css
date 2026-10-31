@@ -2676,37 +2676,239 @@ zen-workspace:is([whimsy-look-lines="2"], [whimsy-look-lines="3"]) .tabbrowser-t
   }
 }
 
-/* The editor: Zen's sheet with a few segmented choices and menus. */
-panel.whimsy-space-look .whimsy-sheet-body {
-  padding-block: 2px 4px;
+/* W8-36: the look editor, an overlay like Zen's theme picker
+   (zen-gradient-generator.css): the same 380px arrowless panel beside the
+   sidebar, its 10px padding and its dotted pad (here a type specimen),
+   then the four controls and Reset / Cancel / Done. Colours come from
+   Zen's panel variables and light-dark(), so it follows the theme.
+   Motion: the segment thumb slides (200ms, standard curve), presses
+   shrink to 0.96 (100ms); reduced motion keeps only colour changes. */
+panel.whimsy-look-picker {
+  --panel-width: 380px;
+  --panel-padding: 10px;
+  --whimsy-look-muted: color-mix(in srgb, currentColor 68%, transparent);
+  --whimsy-look-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
+  --whimsy-look-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
+  --whimsy-look-selected: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  --whimsy-look-ease: cubic-bezier(0.2, 0, 0, 1);
+  width: var(--panel-width);
 }
-.whimsy-space-look-section {
-  gap: 6px;
-  margin: 6px 16px 10px;
+.whimsy-look-picker-view {
+  /* The panel's own padding (--panel-padding, as Zen's picker sets it). */
+  gap: 10px;
+  max-height: min(680px, calc(100vh - 40px));
 }
-.whimsy-space-look-caption {
-  gap: 8px;
-  font-size: 0.8em;
+.whimsy-look-picker-header {
+  padding: 2px 4px 0;
+}
+.whimsy-look-picker-title {
+  margin: 0;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--whimsy-sheet-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 
-  & > label {
-    margin: 0;
+/* Zen's dotted colour field, holding a specimen of the font. */
+.whimsy-look-pad {
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 132px;
+  padding: 12px 16px;
+  border-radius: calc(var(--panel-border-radius, 12px) - 4px);
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.03));
+  background-image: radial-gradient(light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.05)) 1px, transparent 0);
+  background-position: -23px -23px;
+  background-size: 6px 6px;
+  text-align: center;
+}
+.whimsy-look-specimen {
+  margin: 0;
+  font-size: 44px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.whimsy-look-specimen-sample {
+  margin: 0;
+  font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-look-specimen-name {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--whimsy-look-muted);
+}
+
+/* The controls scroll when the window is short; the pad and the footer
+   stay. */
+.whimsy-look-sections {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  gap: 14px;
+  padding: 2px 2px 4px;
+}
+.whimsy-look-section {
+  gap: 6px;
+
+  &[hidden] {
+    display: none;
   }
 }
-.whimsy-space-look-caption-detail {
-  margin-inline-start: auto !important;
-  font-weight: 500;
+.whimsy-look-caption {
+  gap: 8px;
+  min-height: 22px;
+  padding-inline: 2px;
+  font-size: 12px;
 }
-.whimsy-space-look-chips {
+.whimsy-look-caption-label {
+  margin: 0;
+  font-weight: 600;
+}
+/* One place on the right: the tag while it follows Settings, the button
+   while it doesn't. */
+.whimsy-look-default-tag,
+.whimsy-look-use-default {
+  margin: 0 0 0 auto !important;
+  font-size: 11px;
+}
+.whimsy-look-default-tag {
+  color: var(--whimsy-look-muted);
+}
+.whimsy-look-use-default {
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  min-height: 22px;
+  padding: 2px 8px;
+  background: var(--whimsy-look-track);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  transition: background-color 100ms ease-out, transform 100ms ease-out;
+
+  &[hidden] {
+    display: none;
+  }
+  &:hover {
+    background-color: var(--whimsy-look-hover);
+  }
+  &:active {
+    transform: scale(0.96);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+
+.whimsy-look-search {
+  margin: 0;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--whimsy-look-track);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -1px;
+  }
+}
+
+.whimsy-look-list {
   display: flex;
-  gap: 2px;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 148px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 2px;
   border-radius: 8px;
-  background-color: color-mix(in srgb, currentColor 7%, transparent);
+  background: var(--whimsy-look-track);
+
+  &[data-list="mod"] {
+    max-height: 92px;
+  }
 }
-.whimsy-space-look-chip {
-  flex: 1 1 0;
+.whimsy-look-option {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  /* Hundreds of families: only the ones in view are laid out. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 28px;
+  transition: background-color 100ms ease-out;
+
+  &[hidden] {
+    display: none;
+  }
+  &:hover {
+    background-color: var(--whimsy-look-hover);
+  }
+  &[aria-selected="true"] {
+    background-color: var(--whimsy-look-selected);
+    font-weight: 600;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+}
+.whimsy-look-empty,
+.whimsy-look-hint {
+  margin: 0;
+  padding-inline: 2px;
+  font-size: 11px;
+  color: var(--whimsy-look-muted);
+}
+
+/* Segmented: a sliding thumb under three equal choices. */
+.whimsy-look-segmented {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--whimsy-look-track);
+}
+.whimsy-look-segment-thumb {
+  position: absolute;
+  inset-block: 2px;
+  inset-inline-start: 2px;
+  width: calc((100% - 4px) / var(--count, 3));
+  border-radius: 6px;
+  background-color: light-dark(white, rgba(255, 255, 255, 0.14));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 0 0 0.5px color-mix(in srgb, currentColor 18%, transparent);
+  transform: translateX(calc(var(--index, 0) * 100%));
+  transition: transform 200ms var(--whimsy-look-ease);
+  pointer-events: none;
+
+  &:-moz-locale-dir(rtl) {
+    transform: translateX(calc(var(--index, 0) * -100%));
+  }
+}
+.whimsy-look-segment {
+  position: relative;
   min-width: 0;
   min-height: 28px;
   margin: 0;
@@ -2717,41 +2919,55 @@ panel.whimsy-space-look .whimsy-sheet-body {
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 0.92em;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 100ms ease-out, background-color 100ms ease-out;
 
-  &:hover {
-    background-color: var(--whimsy-sheet-hover);
+  &:hover:not([aria-checked="true"]) {
+    background-color: var(--whimsy-look-hover);
+  }
+  &:active {
+    transform: scale(0.96);
   }
   &[aria-checked="true"] {
-    background-color: var(--arrowpanel-background, Field);
     font-weight: 600;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 0 0 0.5px color-mix(in srgb, currentColor 20%, transparent);
   }
   &:focus-visible {
     outline: 2px solid var(--focus-outline-color, AccentColor);
-    outline-offset: 1px;
+    outline-offset: -1px;
   }
 }
-.whimsy-space-look-menulist {
+
+.whimsy-look-footer {
+  flex-shrink: 0;
+  gap: 8px;
   margin: 0;
-  width: 100%;
+  padding: 2px 0 0;
+
+  & > .footer-button {
+    margin: 0;
+    min-width: 72px;
+  }
 }
-.whimsy-space-look-hint,
-.whimsy-space-look-note {
-  margin: 0;
-  font-size: 0.85em;
-  color: var(--whimsy-sheet-muted);
-}
-.whimsy-space-look-note {
-  margin: 0 16px 6px;
-}
+
 @media (prefers-reduced-motion: reduce) {
-  .whimsy-space-look-chip {
+  .whimsy-look-segment-thumb,
+  .whimsy-look-segment,
+  .whimsy-look-use-default,
+  .whimsy-look-option {
     transition: none;
+  }
+  .whimsy-look-segment:active,
+  .whimsy-look-use-default:active {
+    transform: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .whimsy-look-segment-thumb,
+  .whimsy-look-option[aria-selected="true"] {
+    outline: 1px solid currentColor;
   }
 }
 

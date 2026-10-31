@@ -6,7 +6,8 @@
 // wave5/look: a look per space. A space keeps only what it changes (font,
 // density, title lines, a Zen Mod); the rest follows Settings. Each tab
 // list carries its own space's look; the window takes the active space's
-// as you switch, and gives it back when you leave.
+// as you switch, and gives it back when you leave. W8-36: the editor is an
+// overlay like Zen's theme picker, with a live preview, Done and Cancel.
 
 const { WhimsySpaceLook, normalizeLook } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs"
@@ -187,33 +188,157 @@ add_task(async function test_switch_off() {
   await switchTo(home);
 });
 
-add_task(async function test_editor() {
-  const panel = WhimsySpaceLook.openEditor(window, other.uuid);
+// W8-36: the editor is an overlay like Zen's theme picker. Changes
+// preview on the real sidebar without saving; Done keeps, Cancel and Esc
+// put the space back.
+async function openEditor(space = other) {
+  const panel = WhimsySpaceLook.openEditor(window, space.uuid);
   ok(panel, "The editor opens");
   await BrowserTestUtils.waitForPopupEvent(panel, "shown");
   await document.l10n.translateFragment(panel);
-  const reset = panel.querySelector(".whimsy-space-look-reset");
-  ok(reset.disabled, "Nothing to reset yet");
-  const chip = value => panel.querySelector(`[data-group="density"] [data-value="${value}"]`);
-  is(chip("*default").getAttribute("aria-checked"), "true", "Density starts on Default");
-  ok(!panel.querySelector('[data-section="density"] .whimsy-space-look-caption-detail').hidden, "showing Settings' value");
+  return panel;
+}
 
-  chip("roomy").click();
-  is(stored(other)?.density, "roomy", "Picking Roomy saves it at once");
-  is(chip("roomy").getAttribute("aria-checked"), "true", "and selects it");
-  ok(!reset.disabled, "Now there's something to reset");
-  is(list(other).getAttribute("whimsy-look-density"), "roomy", "Reading's list is roomy");
-
-  panel.querySelector('[data-group="lines"] [data-value="3"]').click();
-  is(stored(other)?.lines, 3, "Three title lines");
-
-  reset.doCommand();
-  is(stored(other), undefined, "Reset to Default");
-  is(chip("*default").getAttribute("aria-checked"), "true", "and the editor shows it");
-
+async function closeWith(panel, selector) {
   const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-  panel.querySelector(".whimsy-sheet-footer .footer-button.primary").doCommand();
+  panel.querySelector(selector).doCommand();
   await hidden;
+}
+
+const segment = (panel, group, value) => panel.querySelector(`[data-group="${group}"] [data-value="${value}"]`);
+const section = (panel, name) => panel.querySelector(`[data-section="${name}"]`);
+
+add_task(async function test_editor_opens_on_the_space_like_the_theme_picker() {
+  is(gZenWorkspaces.activeWorkspace, home.uuid, "Home is showing");
+  const panel = await openEditor(other);
+  is(gZenWorkspaces.activeWorkspace, other.uuid, "Editing another space shows it, so the preview is on the real sidebar");
+  ok(panel.classList.contains("whimsy-look-picker"), "Built like Zen's theme picker");
+  is(panel.getAttribute("hidepopovertail"), "true", "with no arrow, as Zen's picker");
+  ok(panel.querySelector(".whimsy-look-pad .whimsy-look-specimen"), "Its pad shows a type specimen");
+  is(document.activeElement, panel.querySelector(".whimsy-look-search"), "The font search has the keyboard");
+  for (const name of ["font", "density", "lines"]) {
+    ok(!section(panel, name).querySelector(".whimsy-look-default-tag").hidden, `${name}: Browser default`);
+    ok(section(panel, name).querySelector(".whimsy-look-use-default").hidden, `${name}: nothing to put back`);
+  }
+  is(segment(panel, "density", "normal").getAttribute("aria-checked"), "true", "Density shows Settings' Normal");
+  is(segment(panel, "lines", "1").getAttribute("aria-checked"), "true", "Titles show Settings' one line");
+  ok(panel.querySelector(".whimsy-look-reset").disabled, "Nothing to reset");
+  ok(!document.querySelector(".whimsy-space-look-chip, panel.whimsy-sheet.whimsy-space-look"), "The old editor is gone");
+  await closeWith(panel, ".whimsy-look-cancel");
+  await switchTo(home);
+});
+
+add_task(async function test_preview_then_cancel_reverts() {
+  await switchTo(other);
+  const panel = await openEditor(other);
+  segment(panel, "density", "roomy").click();
+  is(stored(other), undefined, "A change isn't saved while you look");
+  is(list(other).getAttribute("whimsy-look-density"), "roomy", "but the sidebar shows it at once");
+  is(root().getAttribute("uidensity"), "touch", "and so does the window");
+  ok(!list(home).hasAttribute("whimsy-look-density") || list(home).getAttribute("whimsy-look-density") == "normal",
+    "Home's list keeps its own look");
+  is(segment(panel, "density", "roomy").getAttribute("aria-checked"), "true", "Roomy is ticked");
+  ok(section(panel, "density").querySelector(".whimsy-look-default-tag").hidden, "no longer the browser default");
+  ok(!section(panel, "density").querySelector(".whimsy-look-use-default").hidden, "and it can go back to it");
+  ok(!panel.querySelector(".whimsy-look-reset").disabled, "Reset is offered");
+
+  await closeWith(panel, ".whimsy-look-cancel");
+  is(stored(other), undefined, "Cancel saves nothing");
+  ok(!list(other).hasAttribute("whimsy-look-density"), "and the sidebar is back as it was");
+  ok(!root().hasAttribute("uidensity"), "so is the window");
+  ok(!document.getElementById("whimsy-space-look-panel"), "The editor is gone");
+});
+
+add_task(async function test_escape_cancels() {
+  const panel = await openEditor(other);
+  segment(panel, "lines", "3").click();
+  is(list(other).getAttribute("whimsy-look-lines"), "3", "Three lines, previewed");
+  const search = panel.querySelector(".whimsy-look-search");
+  search.focus();
+  search.value = "zzzz-no-such-font";
+  search.dispatchEvent(new Event("input"));
+  ok(!panel.querySelector(".whimsy-look-empty").hidden, "No match says so");
+  EventUtils.synthesizeKey("KEY_Escape");
+  is(search.value, "", "The first Esc clears the search");
+  is(panel.state, "open", "and leaves the editor open");
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  EventUtils.synthesizeKey("KEY_Escape");
+  await hidden;
+  is(stored(other), undefined, "Esc cancels");
+  ok(!list(other).hasAttribute("whimsy-look-lines"), "and the preview goes");
+});
+
+add_task(async function test_done_keeps_and_keyboard() {
+  const panel = await openEditor(other);
+  // Density: one tab stop, arrows move and pick.
+  segment(panel, "density", "normal").focus();
+  EventUtils.synthesizeKey("KEY_ArrowLeft");
+  is(segment(panel, "density", "compact").getAttribute("aria-checked"), "true", "Left picks Compact");
+  is(document.activeElement, segment(panel, "density", "compact"), "and takes the focus");
+  is(panel.querySelectorAll('[data-group="density"] [tabindex="0"]').length, 1, "One tab stop in the group");
+  is(list(other).getAttribute("whimsy-look-density"), "compact", "previewed");
+
+  // Font: the search narrows the list; Return picks the first match.
+  const fonts = panel.querySelector('[data-list="font"]');
+  const search = panel.querySelector(".whimsy-look-search");
+  search.focus();
+  search.value = "system";
+  search.dispatchEvent(new Event("input"));
+  ok([...fonts.children].filter(r => !r.hidden).length >= 1, "System font matches");
+  EventUtils.synthesizeKey("KEY_Enter");
+  is(panel.state, "open", "Return in the search picks, it doesn't close");
+  is(list(other).style.getPropertyValue("--whimsy-space-font"), "system-ui", "The system font, previewed");
+  ok(!section(panel, "font").querySelector(".whimsy-look-use-default").hidden, "The font is the space's own now");
+
+  await closeWith(panel, ".whimsy-look-done");
+  Assert.deepEqual(stored(other), { font: "", density: "compact" }, "Done keeps the look");
+  is(root().getAttribute("uidensity"), "compact", "and the window keeps showing it");
+});
+
+add_task(async function test_use_default_and_reset() {
+  let panel = await openEditor(other);
+  ok(!panel.querySelector(".whimsy-look-reset").disabled, "Something to reset");
+  section(panel, "density").querySelector(".whimsy-look-use-default").click();
+  ok(!section(panel, "density").querySelector(".whimsy-look-default-tag").hidden, "Density follows the browser again");
+  is(segment(panel, "density", "normal").getAttribute("aria-checked"), "true", "showing Settings' value");
+  ok(section(panel, "font").querySelector(".whimsy-look-default-tag").hidden, "The font is still the space's");
+  await closeWith(panel, ".whimsy-look-done");
+  Assert.deepEqual(stored(other), { font: "" }, "Only the font is left");
+
+  panel = await openEditor(other);
+  panel.querySelector(".whimsy-look-reset").doCommand();
+  ok(panel.querySelector(".whimsy-look-reset").disabled, "Reset: everything follows the browser");
+  is(stored(other)?.font, "", "Reset previews; nothing is saved yet");
+  ok(!list(other).hasAttribute("whimsy-look-font"), "The sidebar shows it");
+  await closeWith(panel, ".whimsy-look-done");
+  is(stored(other), undefined, "Done after Reset forgets the look");
+});
+
+add_task(async function test_click_outside_keeps() {
+  const panel = await openEditor(other);
+  segment(panel, "lines", "2").click();
+  // A click outside closes without Done or Cancel; like Zen's theme
+  // picker, what you see is kept.
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  panel.hidePopup();
+  await hidden;
+  Assert.deepEqual(stored(other), { lines: 2 }, "Kept");
+  WhimsySpaceLook.reset(window, other.uuid);
+  await switchTo(home);
+});
+
+add_task(async function test_command() {
+  const command = document.getElementById("cmd_whimsyEditSpaceLook");
+  ok(command, "Edit Space Look is a command");
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", false, e => e.target.id == "whimsy-space-look-panel");
+  command.doCommand();
+  const { target: panel } = await shown;
+  is(panel.dataset.uuid, home.uuid, "for the space that's showing");
+  await closeWith(panel, ".whimsy-look-cancel");
+
+  await SpecialPowers.pushPrefEnv({ set: [[FEATURE, false]] });
+  is(WhimsySpaceLook.openEditor(window, home.uuid), null, "Nothing opens with the switch off");
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function test_context_menu() {
@@ -222,7 +347,7 @@ add_task(async function test_context_menu() {
   menu.openPopup(gZenWorkspaces.activeWorkspaceElement, "after_start");
   await shown;
   const item = document.getElementById("whimsy-space-look-menuitem");
-  ok(item && !item.hidden, "Look and Feel… sits in the space menu");
+  ok(item && !item.hidden, "Edit Look… sits in the space menu");
   const theme = document.getElementById("context_zenChangeWorkspaceTheme");
   ok(
     theme.compareDocumentPosition(item) & Node.DOCUMENT_POSITION_FOLLOWING,

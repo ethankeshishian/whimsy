@@ -121,11 +121,11 @@ add_task(async function test_space_menu_order() {
   if (at("context_zenShareWorkspace") >= 0) {
     ok(unloadGroup.includes("context_zenShareWorkspace"), "Share sits with Unload");
   }
-  // Look and Feel… stays: it's the only way to an existing space's look
-  // (the form's button is on the New Space form only).
+  // Edit Look… stays beside Edit Theme… (the command bar and the New
+  // Space form open the same overlay).
   const look = at("whimsy-space-look-menuitem");
   if (look >= 0) {
-    is(groups.indexOf(groups.find(g => g.includes("whimsy-space-look-menuitem"))), 0, "Look and Feel… is in the first group");
+    is(groups.indexOf(groups.find(g => g.includes("whimsy-space-look-menuitem"))), 0, "Edit Look… is in the first group");
   }
 
   // Scratch's block stays after Delete in the DOM.

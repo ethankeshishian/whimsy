@@ -298,8 +298,9 @@ add_task(async function video_captions() {
   }
 });
 
-// wave5/look: the per-space Look and Feel editor, and its button in Zen's
-// space creation form, in light and dark.
+// wave5/look: the per-space look editor (W8-36: an overlay like Zen's
+// theme picker), and its button in Zen's space creation form, in light and
+// dark.
 add_task(async function wave5_space_look() {
   const { WhimsySpaceLook } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceLook.sys.mjs");
   const home = gZenWorkspaces.getActiveWorkspace();
@@ -310,20 +311,24 @@ add_task(async function wave5_space_look() {
       await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark]] });
       const scheme = dark ? "dark" : "light";
       try {
+        // W8-36: the overlay beside the sidebar, like Zen's theme picker,
+        // with three title lines previewing live on the sidebar beside it.
         const panel = WhimsySpaceLook.openEditor(window, space.uuid);
         await BrowserTestUtils.waitForPopupEvent(panel, "shown");
         await document.l10n.translateFragment(panel);
+        panel.querySelector('[data-group="lines"] [data-value="3"]').click();
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        ok(panel.querySelector(".whimsy-space-look-chip[aria-checked='true']"), "A density is selected");
-        await shot(`wave5-space-look-editor-${scheme}`);
+        ok(panel.querySelector(".whimsy-look-segment[aria-checked='true']"), "A density is selected");
+        ok(!panel.querySelector('[data-section="density"] .whimsy-look-use-default').hidden, "Roomy is the space's own");
+        await shot(`w8-space-look-editor-${scheme}`);
         const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-        panel.hidePopup();
+        panel.querySelector(".whimsy-look-cancel").doCommand();
         await hidden;
 
         await gZenWorkspaces.openWorkspaceCreation();
         const button = await TestUtils.waitForCondition(
           () => document.querySelector("zen-workspace-creation .whimsy-space-look-button"),
-          "The creation form offers Look and Feel"
+          "The creation form offers Edit Look"
         );
         const form = button.closest("zen-workspace-creation");
         await document.l10n.translateFragment(form);

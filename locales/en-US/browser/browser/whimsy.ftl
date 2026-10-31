@@ -1807,20 +1807,31 @@ whimsy-redact-button = Redact
 ## wave5/look: a look per space (font, density, tab titles, a Zen Mod)
 
 whimsy-space-look-menu =
-    .label = Look and Feel…
+    .label = Edit Look…
 whimsy-space-look-form-button =
-    .label = Look and Feel…
-whimsy-space-look-title = Look and Feel
+    .label = Edit Look…
+# The command bar's name for opening the current space's look editor.
+whimsy-action-space-look = Edit Space Look…
+# W8-36: the look editor, an overlay like Zen's theme picker.
 # $space (string) - the space's name
-whimsy-space-look-subtitle = Just for “{ $space }”
-whimsy-space-look-font = Interface font
+whimsy-space-look-title = Look for “{ $space }”
+whimsy-space-look-title-unnamed = Look
+# A type specimen drawn in the chosen font.
+whimsy-space-look-specimen = Aa
+whimsy-space-look-specimen-sample = The quick brown fox jumps over the lazy dog
+whimsy-space-look-font = Font
+whimsy-space-look-font-search =
+    .placeholder = Search fonts
+    .aria-label = Search fonts
+whimsy-space-look-font-system = System font
+whimsy-space-look-font-empty = No fonts match
 whimsy-space-look-density = Density
 whimsy-space-look-lines = Tab titles
 whimsy-space-look-mod = Zen Mod
-# $value (string) - what Settings uses, like "Normal" or "2 lines"
-whimsy-space-look-follows = Settings: { $value }
-whimsy-space-look-default = Default
-    .title = Follow Settings → Look and Feel
+# Beside a control that follows Settings → Look and Feel.
+whimsy-space-look-default-tag = Browser default
+whimsy-space-look-use-default = Use browser default
+    .title = Follow Settings → Look and Feel again
 whimsy-space-look-density-compact = Compact
 whimsy-space-look-density-normal = Normal
 whimsy-space-look-density-roomy = Roomy
@@ -1830,19 +1841,13 @@ whimsy-space-look-lines-count =
         [one] 1 line
        *[other] { $lines } lines
     }
-# $font (string) - the font chosen in Settings
-whimsy-space-look-font-default =
-    .label = Default ({ $font })
-whimsy-space-look-font-default-system =
-    .label = Default (System font)
-whimsy-space-look-font-system =
-    .label = System font
-whimsy-space-look-mod-none =
-    .label = None
+whimsy-space-look-mod-none = None
 whimsy-space-look-mod-hint = Mods you turn off in Zen Mods can be turned on here, just for this space.
-whimsy-space-look-note = Default follows Settings → Look and Feel, so changing it there changes this space too.
 whimsy-space-look-reset =
-    .label = Reset to Default
+    .label = Reset
+    .tooltiptext = Use the browser default for everything
+whimsy-space-look-cancel =
+    .label = Cancel
 whimsy-space-look-done =
     .label = Done
 whimsy-look-density = Density
@@ -2811,7 +2816,7 @@ whimsy-menus-space-change-icon =
 whimsy-menus-space-edit-theme =
     .label = Edit Theme…
 whimsy-menus-space-look =
-    .label = Look and Feel…
+    .label = Edit Look…
 whimsy-menus-space-profile =
     .label = Profile
 whimsy-menus-space-new =
