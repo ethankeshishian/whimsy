@@ -12,9 +12,10 @@
 //   alt-tabbing to a whole other window.
 // - Scratch (Cmd+Shift+N): a temporary private space, added to the right of
 //   every space. Everything opened in it is private. Closing its last tab
-//   (or Close Scratch) removes it; it is never saved or restored. "Keep as
-//   Space" turns it into a normal space (its pages reopen outside private
-//   browsing), and a tab moved to another space stays private there.
+//   (or Close Scratch) removes it; it is never saved or restored. "Save as
+//   Space…" walks through Zen's New Space form (name, icon, profile, theme),
+//   then asks, then turns it into a normal space (its pages reopen outside
+//   private browsing). A tab moved to another space stays private there.
 //
 // This is Firefox's real private browsing, per tab: the tab's
 // BrowsingContext has originAttributes.privateBrowsingId = 1, with its own
@@ -63,6 +64,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   ZenSessionStore: "resource:///modules/zen/ZenSessionManager.sys.mjs",
 });
 
@@ -512,8 +514,8 @@ export const WhimsyPrivate = {
     });
     WhimsyCommands.register(win, {
       id: "cmd_whimsyKeepScratch",
-      l10nId: "whimsy-action-keep-scratch",
-      run: w => this.confirmKeepScratch(w),
+      l10nId: "whimsy-action-save-scratch",
+      run: w => this.saveScratch(w).catch(e => console.error("Whimsy: Scratch", e)),
       icon,
       isAvailable: w => this.featureOn && !!this.getScratch(w),
     });
@@ -524,6 +526,22 @@ export const WhimsyPrivate = {
       icon,
       isAvailable: w => this.featureOn && !!this.getScratch(w),
     });
+    lazy.WhimsyShortcuts.addActions([
+      { l10nId: "whimsy-action-new-private-tab", command: "cmd_whimsyNewPrivateTab", icon, isAvailable: () => this.inWindow },
+      { l10nId: "whimsy-action-new-scratch", command: "cmd_whimsyNewScratch", icon, isAvailable: () => this.inWindow },
+      {
+        l10nId: "whimsy-action-save-scratch",
+        command: "cmd_whimsyKeepScratch",
+        icon,
+        isAvailable: w => this.featureOn && !!this.getScratch(w),
+      },
+      {
+        l10nId: "whimsy-action-close-scratch",
+        command: "cmd_whimsyCloseScratch",
+        icon,
+        isAvailable: w => this.featureOn && !!this.getScratch(w),
+      },
+    ]);
   },
 
   initMenus(win) {
@@ -562,7 +580,7 @@ export const WhimsyPrivate = {
       const separator = document.createXULElement("menuseparator");
       separator.id = "context_whimsyScratchSeparator";
       const items = [
-        ["context_whimsyKeepScratch", "whimsy-scratch-keep", "cmd_whimsyKeepScratch"],
+        ["context_whimsyKeepScratch", "whimsy-scratch-save", "cmd_whimsyKeepScratch"],
         ["context_whimsyCloseScratch", "whimsy-scratch-close", "cmd_whimsyCloseScratch"],
       ].map(([id, l10nId, command]) => {
         const item = document.createXULElement("menuitem");
@@ -726,29 +744,253 @@ export const WhimsyPrivate = {
     }
   },
 
+  // wave7/scratch: saving Scratch walks through the same steps as New
+  // Space, and the "no longer private" question comes last. Save as Space… opens
+  // Zen's own create-space form (<zen-workspace-creation>: name, icon,
+  // profile, Change Theme) inside Scratch, over its tabs, with an empty name
+  // (Zen's "Space Name" placeholder) and Scratch's theme. Its button reads
+  // "Save Space"; pressing it asks askKeepScratch's modal, Cancel there
+  // returns to the form with everything still filled in, and Save Space
+  // converts Scratch with those settings and its tabs. Cancel or Esc on the
+  // form, switching spaces or closing Scratch leave it private and as it
+  // was. The form is Zen's, not a copy: only its three handlers are
+  // replaced on this one element, and they finish through Zen's own code.
+  async saveScratch(win) {
+    const scratch = this.getScratch(win);
+    if (!scratch) {
+      return;
+    }
+    const { document } = win;
+    const open = win._whimsyScratchSave;
+    if (open) {
+      open.form.inputName?.focus();
+      return;
+    }
+    // Zen's New Space form is already up; one form at a time.
+    if (document.documentElement.hasAttribute("zen-creating-workspace")) {
+      return;
+    }
+    const spaces = win.gZenWorkspaces;
+    if (spaces.activeWorkspace != scratch.uuid) {
+      await spaces.changeWorkspaceWithID(scratch.uuid);
+    }
+    const spaceElement = spaces.workspaceElement(scratch.uuid);
+    if (!this.isScratchId(win, scratch.uuid) || spaces.activeWorkspace != scratch.uuid || !spaceElement ||
+        win._whimsyScratchSave || document.documentElement.hasAttribute("zen-creating-workspace")) {
+      return;
+    }
+    const form = document.createXULElement("zen-workspace-creation");
+    const flow = { form, scratchId: scratch.uuid, snapshot: { ...this.getScratch(win) }, asking: false, done: false };
+    form.setAttribute("workspace-id", scratch.uuid);
+    form.setAttribute("previous-workspace-id", scratch.uuid);
+    form.setAttribute("whimsy-scratch-save", "true");
+    // Own properties win over the class's methods, and Zen binds these
+    // three when the element connects, so set them before appending it.
+    form.onCreateButtonCommand = () => this.onScratchSaveCommand(win, flow);
+    form.onCancelButtonCommand = () => this.endScratchSave(win, flow);
+    form.handleZenWorkspacesChange = () => this.endScratchSave(win, flow);
+    win._whimsyScratchSave = flow;
+    document.documentElement.setAttribute("zen-creating-workspace", "true");
+    spaceElement.appendChild(form);
+    await form.promiseInitialized;
+    // Same form, Scratch's words: set before the first paint.
+    const l10n = [
+      [".zen-workspace-creation-title", "whimsy-scratch-save-header"],
+      [".zen-workspace-creation-label", "whimsy-scratch-save-label"],
+      [".zen-workspace-creation-create-button", "whimsy-scratch-save-button"],
+    ];
+    for (const [selector, id] of l10n) {
+      const el = form.querySelector(selector);
+      if (el) {
+        document.l10n.setAttributes(el, id);
+      }
+    }
+    form.inputName.value = "";
+    form.createButton.disabled = true;
+    if (!spaces.shouldShowContainers) {
+      // No profile row: Create would otherwise reset it to Default.
+      form._profileId = scratch.containerTabId ?? 0;
+    }
+    this.revealScratchSave(win, form);
+    form.finishSetup();
+  },
+
+  // Zen's form slides in with a new space; Scratch is already there, so the
+  // form rises into place instead: Zen's own exit (y 20, blur 2px, 30ms
+  // stagger, 0.3s spring without bounce) played forwards. A plain cut with
+  // reduced motion.
+  revealScratchSave(win, form) {
+    const motion = win.gZenUIManager?.motion;
+    const elements = form.elementsToAnimate.filter(Boolean);
+    const reduced = win.gReduceMotion || win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!motion || reduced || !elements.length) {
+      return;
+    }
+    for (const el of elements) {
+      el.style.opacity = "0";
+    }
+    motion
+      .animate(
+        elements,
+        { y: [20, 0], opacity: [0, 1], filter: ["blur(2px)", "blur(0)"] },
+        { duration: 0.3, type: "spring", bounce: 0, delay: motion.stagger(0.03) }
+      )
+      .then(() => {
+        for (const el of elements) {
+          el.style.removeProperty("opacity");
+          el.style.removeProperty("transform");
+          el.style.removeProperty("filter");
+        }
+      })
+      .catch(() => {});
+  },
+
+  // "Save Space": the privacy question is the last step.
+  async onScratchSaveCommand(win, flow) {
+    const { form } = flow;
+    if (flow.asking || flow.done) {
+      return;
+    }
+    // Zen's rule for New Space: no name, no space (the button stays off).
+    if (!form.inputName.value.trim()) {
+      form.inputName.focus();
+      return;
+    }
+    flow.asking = true;
+    let keep = false;
+    try {
+      keep = await this.askKeepScratch(win);
+    } finally {
+      flow.asking = false;
+    }
+    if (flow.done) {
+      // Scratch closed or another space was chosen meanwhile.
+      return;
+    }
+    if (!keep) {
+      // Back to the form, everything still filled in.
+      form.inputName.focus();
+      return;
+    }
+    const spaces = win.gZenWorkspaces;
+    if (!this.isScratchId(win, flow.scratchId) || spaces.activeWorkspace != flow.scratchId) {
+      await this.endScratchSave(win, flow);
+      return;
+    }
+    flow.done = true;
+    delete win._whimsyScratchSave;
+    await this.closeThemePicker(win);
+    // Zen's own Create: writes the name, icon and profile into the active
+    // space (Scratch) and tidies the form away. Then Scratch stops being
+    // Scratch, keeping those and its theme.
+    const proto = win.customElements.get("zen-workspace-creation").prototype;
+    try {
+      await proto.onCreateButtonCommand.call(form);
+    } catch (e) {
+      console.error("Whimsy: Scratch", e);
+      form.remove();
+    }
+    await this.keepScratch(win).catch(e => console.error("Whimsy: Scratch", e));
+  },
+
+  // Cancel, Esc, another space or Scratch closing: Scratch stays private and
+  // exactly as it was (name, icon, profile, theme).
+  async endScratchSave(win, flow) {
+    if (flow.done) {
+      return;
+    }
+    flow.done = true;
+    if (win._whimsyScratchSave == flow) {
+      delete win._whimsyScratchSave;
+    }
+    const { form, snapshot } = flow;
+    const spaces = win.gZenWorkspaces;
+    const proto = win.customElements.get("zen-workspace-creation").prototype;
+    await this.closeThemePicker(win);
+    const restore = () => {
+      const scratch = spaces.getWorkspaceFromId(flow.scratchId);
+      if (scratch?.whimsyScratch) {
+        const restored = { ...snapshot };
+        spaces.saveWorkspace(restored);
+        if (spaces.activeWorkspace == restored.uuid) {
+          win.gZenThemePicker?.onWorkspaceChange(restored);
+        }
+      }
+    };
+    try {
+      if (!form.isConnected) {
+        // Gone with its space; nothing to tidy.
+      } else if (spaces.activeWorkspace == flow.scratchId && this.isScratchId(win, flow.scratchId)) {
+        // Zen's form only tidies itself away (with its fade) through Create,
+        // so Create puts Scratch's own values back: the form shows them, then
+        // they're saved unchanged, theme included.
+        const scratch = spaces.getWorkspaceFromId(flow.scratchId);
+        scratch.theme = snapshot.theme;
+        form.inputName.value = snapshot.name ?? "";
+        if (snapshot.icon?.endsWith(".svg")) {
+          form.inputIcon.label = "";
+          form.inputIcon.image = snapshot.icon;
+        } else {
+          form.inputIcon.image = "";
+          form.inputIcon.label = snapshot.icon || "";
+        }
+        form._profileId = snapshot.containerTabId ?? 0;
+        await proto.onCreateButtonCommand.call(form);
+      } else {
+        // Another space is showing: Zen's tidy-up for that case, minus the
+        // part that deletes the space being created (that's Scratch here).
+        const own = Object.getOwnPropertyDescriptor(spaces, "removeWorkspace");
+        spaces.removeWorkspace = () => Promise.resolve();
+        try {
+          await proto.handleZenWorkspacesChange.call(form);
+        } finally {
+          if (own) {
+            Object.defineProperty(spaces, "removeWorkspace", own);
+          } else {
+            delete spaces.removeWorkspace;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Whimsy: Scratch", e);
+      form.remove();
+    }
+    restore();
+    this.refreshScratchMarks(win);
+  },
+
+  // The theme picker saves the space it edits when it closes, so close it
+  // first and let that land before Scratch is saved or restored.
+  async closeThemePicker(win) {
+    const panel = win.gZenThemePicker?.panel;
+    if (!panel || panel.state == "closed") {
+      return;
+    }
+    await new Promise(resolve => {
+      const timer = win.setTimeout(resolve, 1000);
+      panel.addEventListener("popuphidden", () => {
+        win.clearTimeout(timer);
+        resolve();
+      }, { once: true });
+      panel.hidePopup();
+    });
+  },
+
   // fixC: keeping Scratch ends its private browsing, which the old "Keep as
   // Space" didn't say, so it asks first. wave5/uxfix + fix7/private: it
   // can't be undone, so it asks in a modal dialog, the same window-modal
   // prompt as Firefox's close-window warning and Whimsy's Delete Space
   // (never a toast or notification): a title, one sentence, Cancel and
-  // "Keep Space". Cancel is the default (Return and Esc both cancel), and
-  // Cancel changes nothing.
-  async confirmKeepScratch(win) {
-    if (!this.getScratch(win)) {
-      return;
-    }
+  // "Save Space" (wave7: one verb, Save, through the flow). Cancel is the default (Return and Esc both cancel).
+  // wave7/scratch: it is the last step of saveScratch. Resolves true for
+  // Save Space.
+  async askKeepScratch(win) {
     const [title, body, accept] = await win.document.l10n.formatValues([
-      "whimsy-scratch-keep-confirm-title",
-      "whimsy-scratch-keep-confirm",
-      "whimsy-scratch-keep-confirm-accept",
+      "whimsy-scratch-save-confirm-title",
+      "whimsy-scratch-save-confirm",
+      "whimsy-scratch-save-confirm-accept",
     ]);
-    if (!(await lazy.WhimsyPanels.confirm(win, { title, body, accept, cancelDefault: true }))) {
-      return;
-    }
-    if (!this.getScratch(win)) {
-      return;
-    }
-    await this.keepScratch(win).catch(e => console.error("Whimsy: Scratch", e));
+    return lazy.WhimsyPanels.confirm(win, { title, body, accept, cancelDefault: true });
   },
 
   // Turns Scratch into a normal space. Private pages can't stop being
@@ -766,7 +1008,9 @@ export const WhimsyPrivate = {
     // fix7/private: the kept space keeps the name it had ("Scratch", or
     // what the person renamed it to). It used to take a fixed string,
     // whimsy-scratch-kept-name, whose value was "Space". Rename inline later.
-    const kept = { ...scratch, name: scratch.name || "Scratch", icon: undefined };
+    // wave7/scratch: saved through the form, it has the name and icon chosen
+    // there; only the private icon goes.
+    const kept = { ...scratch, name: scratch.name || "Scratch", icon: scratch.icon == SCRATCH_ICON ? undefined : scratch.icon };
     delete kept.whimsyScratch;
     spaces.saveWorkspace(kept);
     // fixC: the private look goes the moment it's a normal space. Zen only
@@ -784,6 +1028,8 @@ export const WhimsyPrivate = {
         continue;
       }
       const copy = gBrowser.addTrustedTab(url, {
+        // The profile chosen in the form (Default otherwise).
+        userContextId: kept.containerTabId || 0,
         tabIndex: tab.index,
         inBackground: true,
         relatedToCurrent: false,
@@ -801,6 +1047,7 @@ export const WhimsyPrivate = {
     // to be destroyed. Private new-tab pages have no public page to reopen.
     if (privateTabs.some(tab => tab.selected) && !selectedCopy) {
       selectedCopy = gBrowser.addTrustedTab(win.BROWSER_NEW_TAB_URL, {
+        userContextId: kept.containerTabId || 0,
         inBackground: true, zenWorkspaceId: scratch.uuid, skipRoute: true,
       });
     }

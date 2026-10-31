@@ -1029,8 +1029,20 @@ add_task(async function scratch_keep() {
       () => gBrowser.selectedBrowser.browsingContext?.currentWindowGlobal?.documentURI.spec == "about:privatebrowsing"
     );
     await shot("fixC-scratch-before-keep");
-    const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+    // wave7/scratch: Zen's New Space form first ("Save Space"), the
+    // dialog after it.
     document.getElementById("cmd_whimsyKeepScratch").doCommand();
+    const form = await TestUtils.waitForCondition(
+      () => document.querySelector("zen-workspace-creation[whimsy-scratch-save]")
+    );
+    await TestUtils.waitForCondition(() => form.inputName?.matches(":focus"));
+    await new Promise(resolve => setTimeout(resolve, 400));
+    await shot("wave7-scratch-save-form");
+    EventUtils.sendString("Reading");
+    await settled();
+    await shot("wave7-scratch-save-form-filled");
+    const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+    form.createButton.doCommand();
     const confirmWin = await dialog;
     await settled();
     await shot("fixC-scratch-keep-confirm");
@@ -1038,7 +1050,7 @@ add_task(async function scratch_keep() {
     await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window));
     keptId = scratch.uuid;
     await new Promise(resolve => setTimeout(resolve, 300));
-    // fix7/private: the header still says "Scratch", not "Space".
+    // wave7/scratch: the header shows the name given in the form.
     await shot("fixC-scratch-kept");
   } finally {
     if (keptId) {

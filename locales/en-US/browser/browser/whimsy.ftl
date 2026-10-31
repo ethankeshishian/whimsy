@@ -554,16 +554,16 @@ whimsy-menu-new-scratch =
     .label = New Scratch Space
 whimsy-menu-new-private-tab =
     .label = New Private Tab
-whimsy-scratch-keep =
-    .label = Keep as Normal Space…
+whimsy-scratch-save =
+    .label = Save as Space…
 whimsy-scratch-close =
     .label = Close Scratch
 whimsy-action-new-private-tab = New Private Tab
 whimsy-action-new-scratch = New Scratch Space
-whimsy-action-keep-scratch = Keep Scratch as a Normal Space…
+whimsy-action-save-scratch = Save Scratch as a Space…
 whimsy-action-close-scratch = Close Scratch
 # fix7/private: the one sentence of the modal dialog shown before Scratch becomes a normal space.
-whimsy-scratch-keep-confirm = Its pages reopen as normal tabs, outside private browsing, and it can’t be made private again.
+whimsy-scratch-save-confirm = Its pages reopen as normal tabs, outside private browsing, and it can’t be made private again.
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->
@@ -1940,8 +1940,8 @@ whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 whimsy-tab-unread-description = { $count } unread
 
 # wave5/uxfix: keeping Scratch asks in the window's sheet (it can't be undone).
-whimsy-scratch-keep-confirm-title = Keep as a Normal Space?
-whimsy-scratch-keep-confirm-accept = Keep Space
+whimsy-scratch-save-confirm-title = Save as a Space?
+whimsy-scratch-save-confirm-accept = Save Space
 
 # wave5/uxfix: the Undo button on a result toast (Snooze, Hide Space).
 whimsy-undo-toast-button =
@@ -2415,3 +2415,9 @@ whimsy-teach-header = Tips
 whimsy-teach-enabled =
     .label = Show tips the first time a shortcut could help
 whimsy-teach-enabled-help = Each tip shows once. To see them again, run Reset Tips from the command bar.
+# wave7/scratch: saving Scratch uses Zen's New Space form with these words;
+# the "Save as a Space?" dialog comes after its button.
+whimsy-scratch-save-header = Save Scratch as a Space
+whimsy-scratch-save-label = Name it and pick its look. Its tabs come with it.
+whimsy-scratch-save-button =
+    .label = Save Space
