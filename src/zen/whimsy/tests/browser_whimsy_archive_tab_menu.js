@@ -130,3 +130,18 @@ add_task(async function test_pinned() {
   gBrowser.unpinTab(tab);
   BrowserTestUtils.removeTab(tab);
 });
+
+// batch8: W8-05 Close/delete Essential directly from context menu
+add_task(async function test_essential_close_tab() {
+  const [tab] = await openTabs(["essential"]);
+  tab.setAttribute("zen-essential", "true");
+  gBrowser.pinTab(tab);
+  const menu = await openTabMenu(tab);
+  const close = document.getElementById("context_closeTab");
+  ok(!close.hidden, "Close tab is visible on an Essential");
+  await closeMenu(menu);
+  tab.removeAttribute("zen-essential");
+  gBrowser.unpinTab(tab);
+  BrowserTestUtils.removeTab(tab);
+});
+
