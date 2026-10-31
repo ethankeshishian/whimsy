@@ -229,13 +229,13 @@ add_task(async function test_paste_gesture_is_per_tab() {
 
   gURLBar.focus();
   EventUtils.synthesizeKey("v", { accelKey: true });
-  ok(!WhimsyUploadParent.pastedJustNow(window, browser), "Cmd+V in the address bar doesn't count for the page");
+  ok(!WhimsyUploadParent.pastedJustNow(window, browser.browsingContext), "Cmd+V in the address bar doesn't count for the page");
 
   gBrowser.selectedTab = other;
   other.linkedBrowser.focus();
   EventUtils.synthesizeKey("v", { accelKey: true });
-  ok(WhimsyUploadParent.pastedJustNow(window, other.linkedBrowser), "Cmd+V in a page counts for that page");
-  ok(!WhimsyUploadParent.pastedJustNow(window, browser), "…not for another tab");
+  ok(WhimsyUploadParent.pastedJustNow(window, other.linkedBrowser.browsingContext), "Cmd+V in a page counts for that page");
+  ok(!WhimsyUploadParent.pastedJustNow(window, browser.browsingContext), "…not for another tab");
 
   BrowserTestUtils.removeTab(tab);
   BrowserTestUtils.removeTab(other);

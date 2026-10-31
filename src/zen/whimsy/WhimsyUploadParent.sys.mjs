@@ -125,6 +125,7 @@ async function withFile(result) {
 // each window, as the parent saw it. The child's paste request is honoured
 // only right after one, so a page (or a compromised content process) can't
 // pull the clipboard's file whenever it likes.
+const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 const pasteKeys = new WeakMap();
 const PASTE_GESTURE_MS = 2000;
 
@@ -145,21 +146,32 @@ export class WhimsyUploadParent extends JSWindowActorParent {
         // wave9/secfix (security-full-1 L7): and in which page: only a
         // Cmd+V into a tab's page counts, for that tab alone (not the
         // address bar, nor another tab or pane).
+        // The page the key went to, by its top browsing context's id: a
+        // remote page's keys arrive at its <browser>; an in-process page's
+        // at an element of its own document. None for the address bar or
+        // other chrome.
         const target = event.composedTarget ?? event.target;
-        pasteKeys.set(win, { time: Date.now(), browser: target?.localName == "browser" ? target : null });
+        let top = null;
+        if (target?.localName == "browser" && target.namespaceURI == XUL_NS) {
+          top = target.browsingContext?.top ?? null;
+        } else {
+          const bc = target?.ownerDocument?.defaultView?.browsingContext;
+          top = bc?.isContent ? bc.top : null;
+        }
+        pasteKeys.set(win, { time: Date.now(), topId: top?.id ?? null });
       }
     }, { capture: true, mozSystemGroup: true });
   }
 
-  static pastedJustNow(win, browser) {
+  static pastedJustNow(win, top) {
     const last = win ? pasteKeys.get(win) : null;
-    return !!last?.browser && last.browser == browser && Date.now() - last.time < PASTE_GESTURE_MS;
+    return last?.topId != null && last.topId == top?.id && Date.now() - last.time < PASTE_GESTURE_MS;
   }
 
   async receiveMessage(message) {
     // Cmd+V on a focused upload button: the clipboard's file or image, no popup.
     if (message.name == "WhimsyUpload:Paste") {
-      if (!WhimsyUploadParent.pastedJustNow(this.browsingContext.topChromeWindow, this.browsingContext.top?.embedderElement)) {
+      if (!WhimsyUploadParent.pastedJustNow(this.browsingContext.topChromeWindow, this.browsingContext.top)) {
         return null;
       }
       const clip = await WhimsyUploadParent.clipboardUpload();
