@@ -35,6 +35,18 @@ const CLIP_TYPE = "application/x-whimsy-easel";
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const $ = id => document.getElementById(id);
+
+// Loads a live capture's page into its <browser> again (see startLive).
+function reloadLiveBrowser(browser, url, userContextId) {
+  try {
+    browser.loadURI(Services.io.newURI(url), {
+      triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
+      loadFlags: Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_HISTORY,
+    });
+  } catch (e) {
+    console.error("Whimsy: easel live capture", e);
+  }
+}
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const isDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
 const isMac = Services.appinfo.OS == "Darwin";
@@ -83,6 +95,8 @@ class EaselApp {
   #nudge = null;
   #space = false;
   #pointer = null;
+  #suppressMouseDown = false;
+  #started = false;
   #liveObserver = null;
   #untitled = "Untitled Easel";
   #textPlaceholder = "";
@@ -155,6 +169,7 @@ class EaselApp {
     this.setTool("select");
     this.updateChrome();
     $("viewport").focus({ preventScroll: true });
+    this.#started = true;
     document.documentElement.setAttribute("ready", "true");
   }
 
@@ -435,7 +450,12 @@ class EaselApp {
       text.className = "text";
       text.dataset.placeholder = this.#textPlaceholder;
       text.addEventListener("input", () => this.onTextInput(item.id));
-      text.addEventListener("blur", () => this.stopEditing());
+      text.addEventListener("blur", () => {
+        // The window losing focus blurs the text too, but it stays the
+        // document's focused element: keep editing then.
+        if (document.activeElement == text) return;
+        this.stopEditing();
+      });
       el.append(text);
     }
     el.classList.toggle("auto", !!item.auto);
@@ -613,7 +633,20 @@ class EaselApp {
       return;
     }
     // Load only once it's on screen (and again every time the easel opens).
+    // On screen already (Play, a capture in view): load now rather than
+    // wait for the observer's first callback.
+    if (this.#started && this.isOnScreen(el)) {
+      this.#liveObserver?.unobserve(el);
+      this.startLive(item, el);
+      return;
+    }
     this.#liveObserver?.observe(el);
+  }
+
+  isOnScreen(el) {
+    const view = $("viewport").getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    return box.width > 0 && box.right > view.left && box.left < view.right && box.bottom > view.top && box.top < view.bottom;
   }
 
   onLiveVisible(entries) {
@@ -633,9 +666,11 @@ class EaselApp {
     stage.className = "capture-stage";
     el.querySelector(".capture-shield").before(stage);
     this.layoutStage(item, stage);
+    const url = item.url;
+    const userContextId = item.userContextId || 0;
     const browser = createLiveBrowser(stage, {
-      url: item.url,
-      userContextId: item.userContextId,
+      url,
+      userContextId,
       className: "capture-browser",
       group: "whimsy-easel",
     });
@@ -650,9 +685,25 @@ class EaselApp {
       },
     };
     stage._listener = listener;
-    try {
-      browser.addProgressListener(listener, Ci.nsIWebProgress.NOTIFY_STATE_WINDOW);
-    } catch {}
+    const listen = () => {
+      try {
+        browser.addProgressListener(listener, Ci.nsIWebProgress.NOTIFY_STATE_WINDOW);
+      } catch {}
+    };
+    listen();
+    // Loading the page usually moves it to its site's process, which gives
+    // the <browser> a new browsing context and web progress: listen again
+    // there, or the stage never hears that the page drew.
+    browser.addEventListener("DidChangeBrowserRemoteness", listen);
+    // A frame loader made again (the element re-bound) starts on
+    // about:blank and forgets the page; load the capture's page again.
+    browser.addEventListener("XULFrameLoaderCreated", () => {
+      Promise.resolve().then(() => {
+        if (browser.isConnected && (browser.currentURI?.spec ?? "about:blank") == "about:blank") {
+          reloadLiveBrowser(browser, url, userContextId);
+        }
+      });
+    });
     setTimeout(ready, 5000);
     return browser;
   }
@@ -943,6 +994,7 @@ class EaselApp {
 
   onPointerDown(event) {
     const viewport = $("viewport");
+    this.#suppressMouseDown = false;
     if (event.target.closest("#toolbar, #contextbar, #topbar, #share-menu")) return;
     this.#pointer = { x: event.clientX, y: event.clientY };
     if (this.editingId && event.target.closest(".item")?.dataset.id == this.editingId) {
@@ -965,17 +1017,25 @@ class EaselApp {
     if (this.activeId && itemEl?.dataset.id != this.activeId) this.activate(null);
     switch (this.tool) {
       case "text": {
+        // Typing starts on release. This page is privileged, and Gecko only
+        // lets a *content* preventDefault() on pointerdown suppress the
+        // mousedown that follows; so that mousedown still runs its default
+        // action, focuses the viewport and blurs a text box focused here,
+        // which then disappears because it's empty. So: no mousedown default
+        // for this press, and the caret goes in once the press is over.
+        this.#suppressMouseDown = true;
+        event.preventDefault();
         if (itemEl?.dataset.type == "text") {
-          this.startEditing(itemEl.dataset.id);
+          this.#drag = { kind: "text-pending", id: itemEl.dataset.id, before: null };
           return;
         }
         const size = M.TEXT_SIZES[this.size];
         const item = this.textItem(world.x, world.y - (size * M.TEXT_LINE_HEIGHT) / 2);
-        this.#drag = { kind: "text-session", before: M.clone(this.items) };
+        const before = M.clone(this.items);
         this.items.push(item);
         this.renderAll();
-        this.startEditing(item.id);
-        event.preventDefault();
+        this.select([item.id]);
+        this.#drag = { kind: "text-pending", id: item.id, before };
         return;
       }
       case "pen":
@@ -1090,7 +1150,7 @@ class EaselApp {
 
   onPointerMove(event) {
     const drag = this.#drag;
-    if (!drag || drag.kind == "text-session") return;
+    if (!drag || drag.kind == "text-session" || drag.kind == "text-pending") return;
     switch (drag.kind) {
       case "pan":
         this.view = { ...drag.view, x: drag.view.x + event.clientX - drag.sx, y: drag.view.y + event.clientY - drag.sy };
@@ -1238,6 +1298,11 @@ class EaselApp {
 
   onPointerUp(event) {
     const drag = this.#drag;
+    if (drag?.kind == "text-pending") {
+      this.#drag = drag.before ? { kind: "text-session", before: drag.before } : null;
+      this.startEditing(drag.id);
+      return;
+    }
     if (!drag || drag.kind == "text-session") return;
     this.#drag = null;
     try {
@@ -1993,6 +2058,14 @@ class EaselApp {
   bindEvents() {
     const viewport = $("viewport");
     viewport.addEventListener("pointerdown", e => this.onPointerDown(e));
+    // See the text tool in onPointerDown: a privileged page has to cancel
+    // the compat mousedown itself to keep its focus where it put it.
+    viewport.addEventListener("mousedown", e => {
+      if (this.#suppressMouseDown) {
+        this.#suppressMouseDown = false;
+        e.preventDefault();
+      }
+    });
     viewport.addEventListener("pointermove", e => this.onPointerMove(e));
     viewport.addEventListener("pointerup", e => this.onPointerUp(e));
     viewport.addEventListener("pointercancel", e => this.onPointerUp(e));
