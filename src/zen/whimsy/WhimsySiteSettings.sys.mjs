@@ -148,10 +148,19 @@ export const WhimsySiteSettings = {
   // ---------------------------------------------------------------------
   // Reader View and Full Screen (Whimsy's own, as permissions).
 
+  // The permission type for a setting in a profile. Firefox's permission
+  // manager ignores containers (permissions.isolateBy.userContext is off),
+  // so a profile's own settings carry its container in the type; Default's
+  // keep the plain type. Private browsing stays apart by its principal.
+  permType(kind, oa) {
+    const userContextId = oa?.userContextId || 0;
+    return userContextId ? `${PERM_TYPES[kind]}.uc${userContextId}` : PERM_TYPES[kind];
+  },
+
   getFlag(kind, host, oa) {
     try {
       const principal = this.sitePrincipal(host, oa);
-      return Services.perms.testExactPermissionFromPrincipal(principal, PERM_TYPES[kind]) == Services.perms.ALLOW_ACTION;
+      return Services.perms.testExactPermissionFromPrincipal(principal, this.permType(kind, oa)) == Services.perms.ALLOW_ACTION;
     } catch (e) {
       return false;
     }
@@ -162,9 +171,9 @@ export const WhimsySiteSettings = {
     if (on) {
       // A private principal's permission is kept for the session only (the
       // permission manager forces it), so private tabs never persist.
-      Services.perms.addFromPrincipal(principal, PERM_TYPES[kind], Services.perms.ALLOW_ACTION);
+      Services.perms.addFromPrincipal(principal, this.permType(kind, oa), Services.perms.ALLOW_ACTION);
     } else {
-      Services.perms.removeFromPrincipal(principal, PERM_TYPES[kind]);
+      Services.perms.removeFromPrincipal(principal, this.permType(kind, oa));
     }
   },
 
