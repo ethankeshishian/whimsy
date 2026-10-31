@@ -25,6 +25,11 @@
 <div id="pure-drop" class="file-dropzone" tabindex="0">Drop here</div>
 <!-- A text field next to an upload input: Cmd+V stays a normal paste. -->
 <div><textarea id="notes"></textarea><input id="notes-file" type="file" hidden></div>
+<!-- dropzone.dev structure: form.dropzone with dz-button and dz-hidden-input in body -->
+<form id="dropzone-dev-form" class="dropzone" action="/upload">
+  <div class="dz-message"><button id="dropzone-dev-btn" type="button">Drop files here</button></div>
+</form>
+<input id="dropzone-dev-input" class="dz-hidden-input" type="file" style="visibility:hidden;position:absolute;">
 <script>
   window.whimsyDropped = null;
   const zone = document.getElementById("pure-drop");

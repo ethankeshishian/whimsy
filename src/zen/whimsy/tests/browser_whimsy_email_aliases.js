@@ -249,3 +249,71 @@ add_task(async function test_filled_and_clear_of_password_managers() {
     ok(placed.insideField, "...and still inside the field");
   });
 });
+
+add_task(async function test_sits_beside_multiple_inline_buttons() {
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await focusField(browser, "email");
+    await TestUtils.waitForCondition(() => hasButton(browser), "The alias button appeared");
+
+    // Add both an eye icon and a 1Password button to simulate a field with both
+    const placed = await SpecialPowers.spawn(browser, [HOST_ID], async hostId => {
+      const doc = content.document;
+      const field = doc.getElementById("email").getBoundingClientRect();
+
+      // Rightmost: 1Password button
+      const op = doc.createElement("div");
+      op.className = "com-1password-button";
+      Object.assign(op.style, {
+        position: "absolute",
+        display: "block",
+        width: "24px",
+        height: "24px",
+        left: `${field.right + content.scrollX - 30}px`,
+        top: `${field.top + content.scrollY + (field.height - 24) / 2}px`,
+      });
+      doc.body.append(op);
+
+      // To the left of 1Password: site's eye button
+      const eye = doc.createElement("button");
+      eye.type = "button";
+      eye.className = "password-eye";
+      eye.setAttribute("aria-label", "Show password");
+      Object.assign(eye.style, {
+        position: "absolute",
+        display: "block",
+        width: "24px",
+        height: "24px",
+        left: `${field.right + content.scrollX - 60}px`,
+        top: `${field.top + content.scrollY + (field.height - 24) / 2}px`,
+      });
+      doc.body.append(eye);
+
+      const host = doc.getElementById(hostId);
+      await ContentTaskUtils.waitForCondition(
+        () => host.getBoundingClientRect().right <= eye.getBoundingClientRect().left,
+        "The alias button moved left of the eye button"
+      );
+
+      const hostRect = host.getBoundingClientRect();
+      const eyeRect = eye.getBoundingClientRect();
+      const opRect = op.getBoundingClientRect();
+
+      const result = {
+        gapToEye: eyeRect.left - hostRect.right,
+        noOverlapEye: hostRect.right <= eyeRect.left,
+        noOverlapOp: hostRect.right <= opRect.left,
+        insideField: hostRect.left >= field.left,
+      };
+
+      op.remove();
+      eye.remove();
+      return result;
+    });
+
+    ok(placed.noOverlapEye, "Alias button does not overlap the eye button");
+    ok(placed.noOverlapOp, "Alias button does not overlap 1Password");
+    Assert.greaterOrEqual(placed.gapToEye, 0, "No overlap with eye icon");
+    Assert.lessOrEqual(placed.gapToEye, 10, "Sits beside eye icon");
+    ok(placed.insideField, "Still inside field");
+  });
+});

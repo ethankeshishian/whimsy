@@ -21,17 +21,48 @@ const EDGE_GAP = 6; // from the field's end, and between neighbours
 // else small sitting there is found by hit-testing (#overlayAt).
 const OVERLAY_SELECTOR = [
   "com-1password-button",
+  "com-onepassword-button",
+  "[data-1p-ignore]",
+  "[data-onepassword-root]",
+  "[data-com-onepassword-filled]",
+  "div[id^='onepassword']",
+  "[class*='onepassword' i]",
+  "[class*='1password' i]",
   "[data-lastpass-icon-root]",
   "[data-lastpass-root]",
   "div[id^='__lpform_']",
   "[data-bitwarden-autofill-button]",
-  "[class*='bitwarden' i][class*='button' i]",
+  "bitwarden-inline-menu",
+  "[class*='bitwarden' i]",
+  "[id*='bitwarden' i]",
   "[data-dashlanecreated]",
+  "dashlane-inline",
+  "[data-dashlane-frame]",
+  "[class*='dashlane' i]",
+  "[id*='dashlane' i]",
   "keeper-lock",
   "protonpass-root",
   "[data-protonpass-role='icon']",
   "nordpass-icon",
   "[data-np-icon]",
+  "button[class*='eye' i]",
+  "button[class*='reveal' i]",
+  "button[class*='password' i]",
+  "button[class*='toggle' i]",
+  "button[aria-label*='password' i]",
+  "button[aria-label*='show' i]",
+  "button[aria-label*='hide' i]",
+  "button[aria-label*='reveal' i]",
+  "button[aria-label*='eye' i]",
+  "[role='button'][class*='eye' i]",
+  "[role='button'][aria-label*='password' i]",
+  "[role='button'][aria-label*='show' i]",
+  "[role='button'][aria-label*='hide' i]",
+  "[data-toggle='password']",
+  "[class*='password-toggle' i]",
+  "[class*='show-password' i]",
+  "[class*='toggle-password' i]",
+  "[class*='password-eye' i]",
 ].join(",");
 // How long after focus to keep watching for a manager's button arriving.
 const WATCH_MS = 3000;
@@ -276,27 +307,51 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
   #overlayAt(input, rect, left, right) {
     const doc = input.ownerDocument;
     const overlaps = box =>
-      box.width > 0 && box.height > 0 && box.width <= 64 &&
+      box.width > 0 && box.height > 0 && box.width <= 80 &&
       box.left < right && box.right > left &&
       box.top < rect.bottom && box.bottom > rect.top;
     for (const el of doc.querySelectorAll(OVERLAY_SELECTOR)) {
-      if (el == this.#host || el == input) {
+      if (el == this.#host || el == input || el.contains(input)) {
         continue;
       }
-      const box = el.getBoundingClientRect();
+      const candidate = el.closest("button, [role='button'], a") || el;
+      const box = candidate.getBoundingClientRect();
       if (overlaps(box)) {
         return box;
       }
     }
-    const y = rect.top + rect.height / 2;
-    for (const x of [right - 2, (left + right) / 2, left + 2]) {
-      for (const el of doc.elementsFromPoint(x, y)) {
-        if (el == input || el == this.#host || el.contains(input)) {
-          break;
+
+    const container =
+      input.closest("form, .field, [class*='field' i], [class*='input' i], [class*='group' i]") ||
+      input.parentElement;
+    if (container) {
+      const controls = container.querySelectorAll(
+        "button, [role='button'], svg, img, input[type='button'], input[type='image'], [class*='eye' i], [class*='toggle' i], [class*='reveal' i], [class*='icon' i]"
+      );
+      for (const el of controls) {
+        if (el == this.#host || el == input || el.contains(input)) {
+          continue;
         }
-        const box = el.getBoundingClientRect();
-        if (overlaps(box) && box.height <= rect.height + 16) {
+        const candidate = el.closest("button, [role='button'], a") || el;
+        const box = candidate.getBoundingClientRect();
+        if (overlaps(box) && box.left >= rect.left + rect.width / 3) {
           return box;
+        }
+      }
+    }
+
+    for (const frac of [0.5, 0.3, 0.7]) {
+      const y = rect.top + rect.height * frac;
+      for (const x of [right - 2, (left + right) / 2, left + 2]) {
+        for (const el of doc.elementsFromPoint(x, y)) {
+          if (el == input || el == this.#host || el.contains(input)) {
+            continue;
+          }
+          const candidate = el.closest("button, [role='button'], a, [class*='button' i]") || el;
+          const box = candidate.getBoundingClientRect();
+          if (overlaps(box) && box.height <= rect.height + 16) {
+            return box;
+          }
         }
       }
     }

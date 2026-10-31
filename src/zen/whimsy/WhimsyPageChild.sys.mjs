@@ -105,6 +105,19 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.portraitBounds(message.data.width);
       case "Whimsy:SetEditable":
         return this.setEditable(message.data.on);
+      case "Whimsy:ZapActive": {
+        const { WhimsyZapChild } = ChromeUtils.importESModule(
+          "resource:///modules/whimsy/WhimsyZapChild.sys.mjs"
+        );
+        if (message.data?.active) {
+          WhimsyZapChild.onStart(this.contentWindow, () => {
+            this.sendAsyncMessage("Whimsy:ZapExit");
+          });
+        } else {
+          WhimsyZapChild.onStop(this.contentWindow);
+        }
+        return null;
+      }
       case "Whimsy:AllowCopy":
         return this.allowCopy(message.data.on);
       case "Whimsy:Selection":

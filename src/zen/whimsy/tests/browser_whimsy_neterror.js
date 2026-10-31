@@ -345,3 +345,36 @@ add_task(async function accel_w_closes_the_game_tab() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave8: Balloon Dash back online notice (W8-43)
+add_task(async function online_notice_in_embedded_game_and_not_for_fun() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    await withWhimsyError("netOffline", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      await gameState(browser, true);
+
+      await SpecialPowers.spawn(browser, [], async () => {
+        const doc = content.document;
+        const notice = doc.getElementById("whimsy-game-online-notice");
+        ok(notice, "The online notice exists in the embedded error game");
+        ok(notice.hidden, "The notice is hidden initially while offline");
+
+        const reloadBtn = doc.getElementById("whimsy-game-reload-btn");
+        ok(reloadBtn, "The reload button exists in the notice");
+
+        content.dispatchEvent(new content.Event("online"));
+        ok(!notice.hidden, "Dispatching online shows the notice");
+
+        content.dispatchEvent(new content.Event("offline"));
+        ok(notice.hidden, "Dispatching offline hides the notice again");
+
+        content.dispatchEvent(new content.Event("online"));
+        ok(!notice.hidden, "Dispatching online brings the notice back");
+      });
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});

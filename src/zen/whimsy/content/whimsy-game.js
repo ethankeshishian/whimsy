@@ -50,12 +50,13 @@
     },
   };
   // The same markup as whimsy-game.html, for the embedded case.
-  const MARKUP = '<div id="whimsy-game-root" data-style="gradient" data-state="ready"><header id="whimsy-game-hud"><h1 id="whimsy-game-name" data-l10n-id="whimsy-game-title"></h1><div id="whimsy-game-scores"><span class="whimsy-game-stat"><span id="whimsy-game-best-label" data-l10n-id="whimsy-game-best"></span><span id="whimsy-game-best">0</span></span><span class="whimsy-game-stat"><span id="whimsy-game-score-label" data-l10n-id="whimsy-game-score"></span><span id="whimsy-game-score">0</span></span></div><div id="whimsy-game-controls"><button id="whimsy-game-sound" type="button" aria-pressed="false" data-l10n-id="whimsy-game-sound"></button><span id="whimsy-game-style-switch" role="group" data-l10n-id="whimsy-game-style-group"><button id="whimsy-game-style-gradient" type="button" data-l10n-id="whimsy-game-style-gradient"></button><button id="whimsy-game-style-retro" type="button" data-l10n-id="whimsy-game-style-retro"></button></span></div></header><main id="whimsy-game-stage"><canvas id="whimsy-game-canvas"></canvas><div id="whimsy-game-overlay" aria-live="polite"><div id="whimsy-game-overlay-ready" class="whimsy-game-card"><p class="whimsy-game-card-title" data-l10n-id="whimsy-game-start-title"></p><p class="whimsy-game-card-body" data-l10n-id="whimsy-game-start-hint"></p></div><div id="whimsy-game-overlay-paused" class="whimsy-game-card" hidden><p class="whimsy-game-card-title" data-l10n-id="whimsy-game-paused"></p></div><div id="whimsy-game-overlay-gameover" class="whimsy-game-card" hidden><p class="whimsy-game-card-title" data-l10n-id="whimsy-game-over-title"></p><p id="whimsy-game-death" class="whimsy-game-card-body"></p><p id="whimsy-game-new-best" class="whimsy-game-badge" data-l10n-id="whimsy-game-new-best" hidden></p><button id="whimsy-game-play-again" type="button" data-l10n-id="whimsy-game-play-again"></button></div></div></main><p id="whimsy-game-hint" data-l10n-id="whimsy-game-hint"></p></div>';
+  const MARKUP = '<div id="whimsy-game-root" data-style="gradient" data-state="ready"><header id="whimsy-game-hud"><h1 id="whimsy-game-name" data-l10n-id="whimsy-game-title"></h1><div id="whimsy-game-scores"><span class="whimsy-game-stat"><span id="whimsy-game-best-label" data-l10n-id="whimsy-game-best"></span><span id="whimsy-game-best">0</span></span><span class="whimsy-game-stat"><span id="whimsy-game-score-label" data-l10n-id="whimsy-game-score"></span><span id="whimsy-game-score">0</span></span></div><div id="whimsy-game-controls"><button id="whimsy-game-sound" type="button" aria-pressed="false" data-l10n-id="whimsy-game-sound"></button><span id="whimsy-game-style-switch" role="group" data-l10n-id="whimsy-game-style-group"><button id="whimsy-game-style-gradient" type="button" data-l10n-id="whimsy-game-style-gradient"></button><button id="whimsy-game-style-retro" type="button" data-l10n-id="whimsy-game-style-retro"></button></span></div></header><main id="whimsy-game-stage"><canvas id="whimsy-game-canvas"></canvas><div id="whimsy-game-online-notice" class="whimsy-game-online-notice" hidden><span class="whimsy-game-online-dot"></span><span data-l10n-id="whimsy-game-back-online"></span><button id="whimsy-game-reload-btn" type="button" data-l10n-id="whimsy-game-reload-page"></button></div><div id="whimsy-game-overlay" aria-live="polite"><div id="whimsy-game-overlay-ready" class="whimsy-game-card"><p class="whimsy-game-card-title" data-l10n-id="whimsy-game-start-title"></p><p class="whimsy-game-card-body" data-l10n-id="whimsy-game-start-hint"></p></div><div id="whimsy-game-overlay-paused" class="whimsy-game-card" hidden><p class="whimsy-game-card-title" data-l10n-id="whimsy-game-paused"></p></div><div id="whimsy-game-overlay-gameover" class="whimsy-game-card" hidden><p class="whimsy-game-card-title" data-l10n-id="whimsy-game-over-title"></p><p id="whimsy-game-death" class="whimsy-game-card-body"></p><p id="whimsy-game-new-best" class="whimsy-game-badge" data-l10n-id="whimsy-game-new-best" hidden></p><button id="whimsy-game-play-again" type="button" data-l10n-id="whimsy-game-play-again"></button></div></div></main><p id="whimsy-game-hint" data-l10n-id="whimsy-game-hint"></p></div>';
   if (host && !document.getElementById("whimsy-game-root")) {
     const mount = document.createElement("div");
     mount.id = "whimsy-game-embed";
     mount.innerHTML = MARKUP;
     document.body.prepend(mount);
+    document.l10n?.translateFragment?.(mount)?.catch?.(() => {});
   }
   const root = document.getElementById("whimsy-game-root");
 
@@ -86,6 +87,8 @@
   const soundBtn = $("whimsy-game-sound");
   const retroBtn = $("whimsy-game-style-retro");
   const gradientBtn = $("whimsy-game-style-gradient");
+  const onlineNotice = $("whimsy-game-online-notice");
+  const reloadBtn = $("whimsy-game-reload-btn");
   const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   // ---------------------------------------------------------------------
@@ -2687,6 +2690,27 @@
   if (embedded) {
     document.addEventListener("WhimsyGame:Show", () => showEmbedded(true));
     document.l10n.setAttributes($("whimsy-game-hint"), "whimsy-game-hint-embedded");
+    if (onlineNotice) {
+      onlineNotice.addEventListener("pointerdown", event => {
+        event.stopPropagation();
+      });
+      window.addEventListener("online", () => {
+        onlineNotice.hidden = false;
+      });
+      window.addEventListener("offline", () => {
+        onlineNotice.hidden = true;
+      });
+      reloadBtn?.addEventListener("click", event => {
+        event.stopPropagation();
+        window.location.reload();
+      });
+      onlineNotice.addEventListener("click", () => {
+        window.location.reload();
+      });
+    }
+  } else {
+    // When opened for fun (whimsy://game), never show the back-online notice.
+    onlineNotice?.remove();
   }
   function toWorld(event) {
     const rect = canvas.getBoundingClientRect();
@@ -2777,6 +2801,9 @@
   window.__whimsyGame = {
     get state() {
       return game;
+    },
+    get onlineNotice() {
+      return onlineNotice;
     },
     press,
     release,

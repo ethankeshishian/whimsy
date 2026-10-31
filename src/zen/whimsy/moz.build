@@ -167,6 +167,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
     "WhimsyZap.sys.mjs",
+    "WhimsyZapChild.sys.mjs",
     "WhimsyZapTint.sys.mjs",
 ]
 

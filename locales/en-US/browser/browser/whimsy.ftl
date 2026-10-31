@@ -3141,4 +3141,7 @@ whimsy-note-created-toast = Created a new note
 ## batch8: W8-04 Collapse All Folders
 whimsy-action-collapse-all-folders = Collapse All Folders
 whimsy-action-expand-all-folders = Expand All Folders
+## wave8: Balloon Dash back online notice (W8-43)
+whimsy-game-back-online = You’re back online
+whimsy-game-reload-page = Reload
 
