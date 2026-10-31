@@ -3,6 +3,21 @@
 
 "use strict";
 
+// wave8/isolation: a tab lives in a space of its own profile (container),
+// so a container tab is opened the way a user gets one: in a space of
+// that container. The tab is moved there by the isolation guard.
+async function containerSpace(userContextId) {
+  const space = await gZenWorkspaces.createAndSaveWorkspace(`Container ${userContextId}`, undefined, true, userContextId);
+  registerCleanupFunction(async () => {
+    for (const tab of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == space.uuid &&
+      !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+  });
+  return space;
+}
+
 // wave6: Already open (Arc). Return on a typed address that's open in another
 // tab goes there (switching space) instead of opening a copy. Modifiers, the
 // switch, other containers, private tabs and editing the current page's
@@ -109,6 +124,7 @@ add_task(async function test_editing_current_page_navigates() {
 });
 
 add_task(async function test_containers_and_private_never_match() {
+  await containerSpace(1);
   const contained = BrowserTestUtils.addTab(gBrowser, URL, { userContextId: 1 });
   await BrowserTestUtils.browserLoaded(contained.linkedBrowser, false, URL);
   const blank = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");

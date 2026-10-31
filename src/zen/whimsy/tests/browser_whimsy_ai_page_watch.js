@@ -3,6 +3,21 @@
 
 "use strict";
 
+// wave8/isolation: a tab lives in a space of its own profile (container),
+// so a container tab is opened the way a user gets one: in a space of
+// that container. The tab is moved there by the isolation guard.
+async function containerSpace(userContextId) {
+  const space = await gZenWorkspaces.createAndSaveWorkspace(`Container ${userContextId}`, undefined, true, userContextId);
+  registerCleanupFunction(async () => {
+    for (const tab of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == space.uuid &&
+      !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+  });
+  return space;
+}
+
 // Watch a page (like Safari's Notify Me): right-click a tab → Watch This
 // Page…, say what to look for and how often. Whimsy reads the page with the
 // tab's session while it runs, asks the AI only when the text changed, and
@@ -141,6 +156,7 @@ add_task(async function test_watch_flow() {
 add_task(async function test_container_session() {
   reads.length = 0;
   pageText = "The espresso machine costs $129 and is out of stock.";
+  await containerSpace(2);
   const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: 2 });
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
   const watch = await WhimsyPageWatch.add({
@@ -180,6 +196,8 @@ add_task(async function watch_controls_separate_accounts() {
   try {
     is((await WhimsyPageWatch.watchFor(PAGE, 1)).id, a.id, "Account one's watch");
     is((await WhimsyPageWatch.watchFor(PAGE, 2)).id, b.id, "Account two's independent watch");
+    const home = gZenWorkspaces.getActiveWorkspace();
+    await gZenWorkspaces.changeWorkspace(await containerSpace(2));
     const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, () => {
       gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: 2 });
     });
@@ -188,7 +206,10 @@ add_task(async function watch_controls_separate_accounts() {
       await WhimsyPageWatch.toggleForTab(window, tab);
       is(await WhimsyPageWatch.watchFor(PAGE, 2), null, "Stop targets the tab's account");
       is((await WhimsyPageWatch.watchFor(PAGE, 1)).id, a.id, "Other account remains watched");
-    } finally { BrowserTestUtils.removeTab(tab); }
+    } finally {
+      BrowserTestUtils.removeTab(tab);
+      await gZenWorkspaces.changeWorkspace(home);
+    }
   } finally {
     await WhimsyPageWatch.remove(a.id);
     await WhimsyPageWatch.remove(b.id);

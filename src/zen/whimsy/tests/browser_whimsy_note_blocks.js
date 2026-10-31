@@ -3,6 +3,21 @@
 
 "use strict";
 
+// wave8/isolation: a tab lives in a space of its own profile (container),
+// so a container tab is opened the way a user gets one: in a space of
+// that container. The tab is moved there by the isolation guard.
+async function containerSpace(userContextId) {
+  const space = await gZenWorkspaces.createAndSaveWorkspace(`Container ${userContextId}`, undefined, true, userContextId);
+  registerCleanupFunction(async () => {
+    for (const tab of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == space.uuid &&
+      !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+  });
+  return space;
+}
+
 // Live blocks in Notes (whimsy.feature.note-blocks), after Arc Easels' Live
 // Captures: "/embed" or a dropped tab adds a sandboxed, cropped, live view of
 // the page in the tab's container; private tabs can't be embedded.
@@ -69,6 +84,7 @@ add_task(async function test_parse_and_validate() {
 });
 
 add_task(async function test_block_from_container_and_private_tabs() {
+  await containerSpace(2);
   const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: 2 });
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
   registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
