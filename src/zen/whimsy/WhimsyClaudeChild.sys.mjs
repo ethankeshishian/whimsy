@@ -117,7 +117,13 @@ function isPassword(el) {
 // A one-time code or card field: Claude may fill it, but agent replay
 // doesn't keep what went in (security L5).
 function isSecret(el) {
-  return el?.localName == "input" && /\b(one-time-code|cc-number|cc-csc)\b/i.test(el.autocomplete || "");
+  if (el?.localName != "input") {
+    return false;
+  }
+  // The attribute's own tokens: the autocomplete getter returns "" for a
+  // token Gecko doesn't map to an autofill field.
+  const tokens = `${el.getAttribute("autocomplete") || ""} ${el.autocomplete || ""}`.toLowerCase().split(/\s+/);
+  return tokens.some(t => t == "one-time-code" || t == "cc-number" || t == "cc-csc");
 }
 
 export class WhimsyClaudeChild extends JSWindowActorChild {

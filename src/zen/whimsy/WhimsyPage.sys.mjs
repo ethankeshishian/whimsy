@@ -267,9 +267,12 @@ export const WhimsyPage = {
     }
     const { ScreenshotsUtils, BrowserUtils } = lazy;
     const { style } = browser;
-    const saved = { maxWidth: style.maxWidth, marginInline: style.marginInline };
+    const saved = { width: style.width, maxWidth: style.maxWidth, marginInline: style.marginInline };
     let rect, canvas;
     try {
+      // An explicit width too: with only a max-width and auto margins, the
+      // browser (a flex item in Zen's layout) shrinks to nothing.
+      style.width = `${this.PORTRAIT_WIDTH}px`;
       style.maxWidth = `${this.PORTRAIT_WIDTH}px`;
       style.marginInline = "auto";
       const actor = browser.browsingContext.currentWindowGlobal.getActor("WhimsyPage");
@@ -280,6 +283,7 @@ export const WhimsyPage = {
       win.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
       return null;
     } finally {
+      style.width = saved.width;
       style.maxWidth = saved.maxWidth;
       style.marginInline = saved.marginInline;
     }
