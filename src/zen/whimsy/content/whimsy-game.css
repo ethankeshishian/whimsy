@@ -263,6 +263,71 @@ body:has(> #whimsy-game-root) {
   text-align: center;
 }
 
+#whimsy-game-online-notice {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 12px;
+  background: rgba(20, 15, 38, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  font: 600 13px var(--game-font);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#whimsy-game-online-notice[hidden] {
+  display: none !important;
+}
+
+.whimsy-game-online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  flex-shrink: 0;
+}
+
+#whimsy-game-reload-btn {
+  margin: 0;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 999px;
+  background: #34d399;
+  color: #064e3b;
+  font: 700 12px var(--game-font);
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+#whimsy-game-reload-btn:hover {
+  opacity: 0.85;
+}
+
+#whimsy-game-root[data-style="retro"] #whimsy-game-online-notice {
+  font-family: var(--game-font-retro);
+  background: #000;
+  border: 2px solid #34d399;
+  border-radius: 0;
+}
+
+#whimsy-game-root[data-style="retro"] .whimsy-game-online-dot {
+  border-radius: 0;
+}
+
+#whimsy-game-root[data-style="retro"] #whimsy-game-reload-btn {
+  font-family: var(--game-font-retro);
+  border-radius: 0;
+}
+
 #whimsy-game-root[data-state="running"] #whimsy-game-hint {
   visibility: hidden;
 }

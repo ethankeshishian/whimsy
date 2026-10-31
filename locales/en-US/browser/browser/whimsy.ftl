@@ -2970,3 +2970,8 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## wave8: Balloon Dash back online notice (W8-43)
+whimsy-game-back-online = You’re back online
+whimsy-game-reload-page = Reload
+

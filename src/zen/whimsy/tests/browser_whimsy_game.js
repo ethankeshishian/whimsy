@@ -414,3 +414,12 @@ add_task(async function test_browser_shortcuts_pass_through() {
     win.removeEventListener("keydown", seen);
   });
 });
+
+// wave8: Balloon Dash back online notice is absent when opened for fun (W8-43)
+add_task(async function test_no_online_notice_in_standalone_game() {
+  await withGame(async ({ doc, win }) => {
+    ok(!doc.getElementById("whimsy-game-online-notice"), "Notice element is removed in standalone game");
+    win.dispatchEvent(new win.Event("online"));
+    ok(!doc.getElementById("whimsy-game-online-notice"), "Notice does not show when online event fires in standalone game");
+  });
+});
