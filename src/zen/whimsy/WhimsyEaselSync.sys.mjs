@@ -10,7 +10,8 @@
 //
 //   { "v": 1, "easels": { "<id>": [<easel or null>, <ms timestamp>] } }
 //
-// An easel is { title, items, updated }; null is a deletion (tombstone).
+// An easel is { title, profileKey, items, updated }; null is a deletion
+// (tombstone). A copy without profileKey (an older Whimsy) is Default's.
 // The prefs engine replaces the whole pref on a download, so each side
 // merges entry by entry: the newer timestamp wins.
 //
@@ -58,7 +59,9 @@ export function syncableEasel(easel, maxBytes = MAX_EASEL_BYTES) {
       }
       return item;
     });
-  const pack = () => ({ title: easel.title ?? "", items, updated: easel.updated ?? 0 });
+  // wave9: the easel's profile (a synced key, WhimsyProfiles.keyFor).
+  const profileKey = typeof easel.profileKey == "string" && easel.profileKey ? easel.profileKey : "default";
+  const pack = () => ({ title: easel.title ?? "", profileKey, items, updated: easel.updated ?? 0 });
   let packed = pack();
   if (bytes(packed) > maxBytes) {
     // Drawings carry the most data; drop the longest first.

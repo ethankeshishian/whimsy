@@ -11,9 +11,11 @@
 // container; private tabs are refused; the easel exports to PNG; and the
 // switch turns it all off.
 
-const { WhimsyEasel, gWhimsyEaselStore, easelIdFromURL, easelURL } = ChromeUtils.importESModule(
+const { WhimsyEasel, gWhimsyEaselStore, easelIdFromURL, easelURL, migrateEasels, profileKeyOf } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyEasel.sys.mjs"
 );
+const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
+const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 const { ScreenshotsUtils } = ChromeUtils.importESModule(
   "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs"
 );
@@ -255,8 +257,6 @@ add_task(async function test_captures_static_live_and_private() {
   is(capture.item.userContextId, 2, "and the container");
   Assert.deepEqual(capture.item.crop, { x: 0, y: 0, w: 400, h: 200 }, "and the region");
   is(capture.item.live, false, "Captures start still, like Arc");
-  // The easel itself opens in the normal space.
-  await gZenWorkspaces.changeWorkspace(home);
 
   // Nonsense regions are refused.
   is((await WhimsyEasel.captureRegion(pageTab.linkedBrowser, { region: { left: 0, top: 0, right: 1, bottom: 1 } })).error, "whimsy-capture-failed-toast", "Tiny regions are refused");
@@ -268,8 +268,11 @@ add_task(async function test_captures_static_live_and_private() {
   is((await WhimsyEasel.captureRegion(privateTab.linkedBrowser, { region })).error, "whimsy-easel-capture-private", "Private captures are refused");
   await BrowserTestUtils.closeWindow(privateWin);
 
-  // Into an open easel: the page picks it up and selects it.
-  const { easel, win, app } = await openNewEasel();
+  // Into an open easel of the same profile (made in the container's space):
+  // the page picks it up and selects it.
+  const { easel, tab: easelTab, win, app } = await openNewEasel();
+  is(easel.profileKey, WhimsyProfiles.keyFor(2), "The easel belongs to the space's profile");
+  is(easelTab.userContextId, 2, "Its tab opens in that profile's container");
   await WhimsyEasel.addCaptureTo(window, easel.id, capture);
   await TestUtils.waitForCondition(() => app.items.some(i => i.type == "capture"), "The open easel shows the capture");
   const item = app.items.find(i => i.type == "capture");
@@ -304,6 +307,7 @@ add_task(async function test_captures_static_live_and_private() {
   play.click();
   ok(!app.find(item.id).live, "Paused");
   ok(!el.querySelector(".capture-browser"), "The live page is gone");
+  await gZenWorkspaces.changeWorkspace(home);
 });
 
 add_task(async function test_capture_button_and_picker() {
@@ -638,4 +642,123 @@ add_task(async function test_live_capture_crash_falls_back_to_still() {
   const again = await TestUtils.waitForCondition(() => el.querySelector(".capture-browser"), "Refresh makes a new live <browser>");
   await TestUtils.waitForCondition(() => again.isRemoteBrowser && again.frameLoader.childID > 0, "with a live process");
   ok(!el.querySelector(".capture-note"), "The note is gone");
+});
+
+// wave9: easels are per profile, like Notes (W8-49). Each profile sees only
+// its own easels (Library list, Add to Easel picker, the page itself); a
+// capture only lands on its profile's easels; easels from before profiles
+// are Default's; private windows, private tabs and Scratch (whose tabs are
+// private) make no persistent easel; a deleted profile's easels go with it.
+add_task(async function test_easels_are_per_profile() {
+  const workKey = WhimsyProfiles.keyFor(2);
+  isnot(workKey, "default", "Container 2 is a profile of its own");
+
+  // Migration: an easel saved before profiles is Default's.
+  const old = [{ id: "a", items: [] }, { id: "b", profileKey: workKey, items: [] }];
+  ok(migrateEasels(old), "Old easels are migrated");
+  is(old[0].profileKey, "default", "to the Default profile");
+  is(old[1].profileKey, workKey, "and a profile's easel keeps its profile");
+  ok(!migrateEasels(old), "Only once");
+  is(profileKeyOf({}), "default", "No key reads as Default");
+
+  // The store keeps them apart.
+  const mine = await gWhimsyEaselStore.create({ title: "Default board" });
+  const work = await gWhimsyEaselStore.create({ title: "Work board", profileKey: workKey });
+  registerCleanupFunction(async () => {
+    await gWhimsyEaselStore.remove(mine.id);
+    await gWhimsyEaselStore.remove(work.id);
+  });
+  is(mine.profileKey, "default", "A new easel is Default's unless told otherwise");
+  const defaults = await gWhimsyEaselStore.list("default");
+  ok(defaults.some(e => e.id == mine.id) && !defaults.some(e => e.id == work.id), "Default sees only its easels");
+  const works = await gWhimsyEaselStore.list(workKey);
+  ok(works.some(e => e.id == work.id) && !works.some(e => e.id == mine.id), "Work sees only its easels");
+
+  // A synced copy without a profile (an older Whimsy) is Default's.
+  const remoteId = "0a1b2c3d-9999-2222-3333-444455556666";
+  await gWhimsyEaselStore.applyRemote({ id: remoteId, title: "Old device", items: [], updated: Date.now() });
+  registerCleanupFunction(() => gWhimsyEaselStore.remove(remoteId));
+  is((await gWhimsyEaselStore.get(remoteId)).profileKey, "default", "Synced easels without a profile are Default's");
+
+  // In a space of the Work profile: New Easel makes a Work easel in a Work tab.
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await containerSpace(2);
+  await gZenWorkspaces.changeWorkspace(space);
+  is(WhimsyEasel.profileKeyForWindow(window), workKey, "The window's profile follows its space");
+  const { easel: fresh, tab: freshTab, app } = await openNewEasel();
+  is(fresh.profileKey, workKey, "New Easel in a Work space makes a Work easel");
+  is(freshTab.userContextId, 2, "opened in Work's container");
+  is(app.profileKey, workKey, "The page knows its profile");
+
+  // The Add to Easel picker lists only the capture's profile's easels.
+  const menu = await WhimsyEasel.showPicker(window, gBrowser.selectedBrowser, { x: 0, y: 0 }, () => {}, workKey);
+  const labels = [...menu.querySelectorAll("menuitem")].map(i => i.getAttribute("label")).filter(Boolean);
+  ok(labels.includes("Work board"), "The picker lists Work's easels");
+  ok(!labels.includes("Default board"), "and not Default's");
+  menu.hidePopup();
+
+  // A capture never lands on another profile's easel.
+  const blob = new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
+  const crossed = await WhimsyEasel.addCaptureTo(window, mine.id, { blob, item: { type: "capture", url: PAGE, profileKey: workKey, w: 10, h: 10, crop: { x: 0, y: 0, w: 10, h: 10 } } });
+  is(crossed, null, "A Work capture is refused by a Default easel");
+  is((await gWhimsyEaselStore.get(mine.id)).items.length, 0, "and nothing was added");
+  const added = await WhimsyEasel.addCaptureTo(window, work.id, { blob, item: { type: "capture", url: PAGE, userContextId: 0, profileKey: workKey, w: 10, h: 10, crop: { x: 0, y: 0, w: 10, h: 10 } } });
+  is(added, work.id, "It goes on a Work easel");
+  const [capture] = (await gWhimsyEaselStore.get(work.id)).items;
+  is(capture.userContextId, 2, "and its live view will load in Work's container");
+  ok(!("profileKey" in capture), "The item doesn't carry a profile of its own");
+
+  // A Default easel's address opened in a Work tab stays closed.
+  const crossTab = gBrowser.addTrustedTab(easelURL(mine.id), { userContextId: 2 });
+  registerCleanupFunction(() => crossTab.isConnected && BrowserTestUtils.removeTab(crossTab));
+  await TestUtils.waitForCondition(
+    () => crossTab.linkedBrowser.contentDocument?.documentElement?.getAttribute("ready") == "true",
+    "The cross-profile page settles"
+  );
+  const crossDoc = crossTab.linkedBrowser.contentDocument;
+  ok(!crossDoc.getElementById("off").hidden, "It shows the closed state");
+  is(crossDoc.querySelector("#off h1").getAttribute("data-l10n-id"), "whimsy-easel-other-profile-title", "saying the easel is another profile's");
+  ok(crossDoc.getElementById("easel").hidden, "and none of its items");
+  BrowserTestUtils.removeTab(crossTab);
+  await gZenWorkspaces.changeWorkspace(home);
+
+  // Deleting a profile takes its easels (and only its).
+  const removed = await gWhimsyEaselStore.removeForProfile(workKey);
+  ok(removed.includes(work.id) && removed.includes(fresh.id), "The profile's easels are deleted with it");
+  ok(await gWhimsyEaselStore.get(mine.id), "Default's stay");
+  Assert.deepEqual(await gWhimsyEaselStore.removeForProfile("default"), [], "Default's easels are never removed this way");
+});
+
+// wave9: private tabs, private windows and Scratch keep no easel.
+add_task(async function test_private_never_makes_an_easel() {
+  const before = (await gWhimsyEaselStore.list()).length;
+
+  const privateWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  ok(!WhimsyEasel.canPersistIn(privateWin), "A private window can't keep easels");
+  is(await WhimsyEasel.newEasel(privateWin), null, "New Easel does nothing there");
+  await BrowserTestUtils.closeWindow(privateWin);
+
+  // A private tab in a normal window (what Scratch opens).
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.private.in-window", true]] });
+  const privateTab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+  ok(privateTab && WhimsyPrivate.isPrivateTab(privateTab), "A private tab is open");
+  registerCleanupFunction(() => privateTab.isConnected && BrowserTestUtils.removeTab(privateTab));
+  gBrowser.selectedTab = privateTab;
+  ok(!WhimsyEasel.canPersistIn(window), "With a private tab in front, no easel is kept");
+  is(await WhimsyEasel.newEasel(window), null, "New Easel does nothing");
+  BrowserTestUtils.removeTab(privateTab);
+  await SpecialPowers.popPrefEnv();
+
+  // whimsy://easel in a private window: the page makes nothing.
+  const privateWin2 = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  const pageTab = privateWin2.gBrowser.addTrustedTab("about:whimsy?easel");
+  privateWin2.gBrowser.selectedTab = pageTab;
+  await TestUtils.waitForCondition(
+    () => pageTab.linkedBrowser.contentDocument?.documentElement?.getAttribute("ready") == "true",
+    "The private easel page settles"
+  );
+  is(pageTab.linkedBrowser.contentDocument.querySelector("#off h1").getAttribute("data-l10n-id"), "whimsy-easel-private-title", "It says easels aren't kept in private browsing");
+  await BrowserTestUtils.closeWindow(privateWin2);
+
+  is((await gWhimsyEaselStore.list()).length, before, "No easel was made");
 });

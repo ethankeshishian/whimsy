@@ -29,7 +29,29 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyEaselSync: "resource:///modules/whimsy/WhimsyEaselSync.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
+
+// wave9: easels are per profile, like Notes (W8-49). Each easel has the
+// synced key of its profile (WhimsyProfiles.keyFor); one without a key is
+// from before profiles and belongs to Default.
+export const DEFAULT_PROFILE_KEY = "default";
+export function profileKeyOf(easel) {
+  return (typeof easel?.profileKey == "string" && easel.profileKey) || DEFAULT_PROFILE_KEY;
+}
+
+// Easels saved before profiles move to Default. Returns whether any did.
+export function migrateEasels(easels) {
+  let migrated = false;
+  for (const easel of easels) {
+    if (typeof easel.profileKey != "string" || !easel.profileKey) {
+      easel.profileKey = DEFAULT_PROFILE_KEY;
+      migrated = true;
+    }
+  }
+  return migrated;
+}
 
 export const FEATURE_PREF = "whimsy.feature.easel";
 export const CHANGED_TOPIC = "whimsy-easels-changed";
@@ -96,6 +118,10 @@ class EaselStore {
         },
       });
       await file.load();
+      // wave9: easels from before profiles move to Default, once.
+      if (migrateEasels(file.data.easels)) {
+        file.saveSoon();
+      }
       this.#file = file;
     })();
     await this.#loading;
@@ -129,6 +155,8 @@ class EaselStore {
       easel = { id: remote.id, title: "", items: [], view: null, created: remote.updated };
       file.data.easels.push(easel);
     }
+    // A copy from a device without profiles belongs to Default.
+    easel.profileKey = profileKeyOf(remote);
     // Images don't sync: keep this device's own files for items it has.
     const local = new Map(easel.items.map(i => [i.id, i]));
     easel.title = remote.title ?? "";
@@ -160,10 +188,14 @@ class EaselStore {
     return true;
   }
 
-  // Newest first.
-  async list() {
+  // Newest first. With a profile key, only that profile's easels.
+  async list(profileKey = null) {
     const file = await this.#ensureLoaded();
-    return [...file.data.easels].sort((a, b) => b.updated - a.updated);
+    let easels = file.data.easels;
+    if (profileKey) {
+      easels = easels.filter(e => profileKeyOf(e) === profileKey);
+    }
+    return [...easels].sort((a, b) => b.updated - a.updated);
   }
 
   async get(id) {
@@ -171,10 +203,10 @@ class EaselStore {
     return file.data.easels.find(e => e.id == id) ?? null;
   }
 
-  async create({ title = "" } = {}) {
+  async create({ title = "", profileKey = DEFAULT_PROFILE_KEY } = {}) {
     const file = await this.#ensureLoaded();
     const now = Date.now();
-    const easel = { id: newId(), title, items: [], view: null, created: now, updated: now };
+    const easel = { id: newId(), title, profileKey: profileKey || DEFAULT_PROFILE_KEY, items: [], view: null, created: now, updated: now };
     file.data.easels.push(easel);
     file.saveSoon();
     this.#notify(easel.id);
@@ -228,6 +260,26 @@ class EaselStore {
       this.#trash.set(id, { easel, timer });
     }
     this.#notify(id);
+  }
+
+  // A deleted profile takes its easels and their images with it (no undo:
+  // the profile itself is gone). Default's easels always stay.
+  async removeForProfile(profileKey) {
+    if (!profileKey || profileKey === DEFAULT_PROFILE_KEY) {
+      return [];
+    }
+    const file = await this.#ensureLoaded();
+    const gone = file.data.easels.filter(e => profileKeyOf(e) === profileKey);
+    if (!gone.length) {
+      return [];
+    }
+    file.data.easels = file.data.easels.filter(e => profileKeyOf(e) !== profileKey);
+    file.saveSoon();
+    for (const easel of gone) {
+      await this.#purge(easel.id);
+      this.#notify(easel.id);
+    }
+    return gone.map(e => e.id);
   }
 
   async restore(id) {
@@ -304,6 +356,13 @@ class EaselStore {
 }
 
 export const gWhimsyEaselStore = new EaselStore();
+
+// wave9: a deleted profile's easels go with it (as its notes do).
+try {
+  lazy.WhimsyProfiles.onDelete?.((id, key) => gWhimsyEaselStore.removeForProfile(key));
+} catch (e) {
+  console.error("Whimsy: easel profile hook", e);
+}
 
 // Items copied in one easel, pasted in another (the system clipboard holds
 // their text; `text` tells a later paste whether it is still ours).
@@ -386,16 +445,55 @@ export const WhimsyEasel = {
     browser.browsingContext.currentWindowGlobal?.getActor("WhimsyEasel").sendAsyncMessage("WhimsyEasel:OfferButton");
   },
 
-  // Opens the easel (selecting its tab if one is open). New easels open
-  // pinned, like Arc.
-  openEasel(win, id, { pin = false } = {}) {
+  // -- profiles (wave9) ---------------------------------------------------
+
+  /** The profile key of the space in front of `win`. */
+  profileKeyForWindow(win) {
+    return lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.activeProfileId(win));
+  },
+
+  /** The profile key of a page's tab (its container). */
+  profileKeyForBrowser(browser) {
+    const tab = browser?.documentGlobal?.gBrowser?.getTabForBrowser(browser);
+    return lazy.WhimsyProfiles.keyFor(tab?.userContextId ?? browser?.browsingContext?.originAttributes?.userContextId ?? 0);
+  },
+
+  /**
+   * Whether `win` may make a persistent easel now: never from a private
+   * window, a private tab or Scratch (they keep nothing).
+   */
+  canPersistIn(win) {
+    if (!win || lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
+      return false;
+    }
+    try {
+      if (lazy.WhimsyPrivate.isPrivateTab(win.gBrowser?.selectedTab) || lazy.WhimsyPrivate.activeSpaceIsScratch(win)) {
+        return false;
+      }
+    } catch (e) {
+      console.error("Whimsy: easel private check", e);
+      return false;
+    }
+    return true;
+  },
+
+  // Opens the easel (selecting its tab if one is open) in its profile's
+  // container, so the tab belongs in a space of that profile (wave8
+  // isolation) and the page knows whose easel it shows. New easels open
+  // pinned, like Arc. `profileKey` defaults to the window's profile.
+  openEasel(win, id, { pin = false, profileKey = null } = {}) {
     const url = easelURL(id);
     const existing = win.gBrowser.tabs.find(tab => easelIdFromURL(tab.linkedBrowser?.currentURI?.spec) == id);
     if (existing) {
       win.gBrowser.selectedTab = existing;
       return existing;
     }
-    const tab = win.gBrowser.addTrustedTab(url, { inBackground: false });
+    const userContextId = lazy.WhimsyProfiles.idForKey(profileKey ?? this.profileKeyForWindow(win));
+    if (userContextId == null) {
+      // A profile this device doesn't have.
+      return null;
+    }
+    const tab = win.gBrowser.addTrustedTab(url, { inBackground: false, userContextId });
     win.gBrowser.selectedTab = tab;
     if (pin) {
       win.gBrowser.pinTab(tab);
@@ -407,11 +505,16 @@ export const WhimsyEasel = {
     if (!this.enabled) {
       return null;
     }
-    const easel = await gWhimsyEaselStore.create({ title });
+    if (!this.canPersistIn(win)) {
+      win?.gZenUIManager?.showToast?.("whimsy-easel-new-private");
+      return null;
+    }
+    const profileKey = this.profileKeyForWindow(win);
+    const easel = await gWhimsyEaselStore.create({ title, profileKey });
     if (items.length) {
       await gWhimsyEaselStore.update(easel.id, { items });
     }
-    this.openEasel(win, easel.id, { pin: true });
+    this.openEasel(win, easel.id, { pin: true, profileKey });
     return easel;
   },
 
@@ -523,7 +626,7 @@ export const WhimsyEasel = {
       win.gZenUIManager?.showToast?.(capture.error);
       return null;
     }
-    return this.showPicker(win, browser, { x: 16, y: 16 }, easelId => this.addCaptureTo(win, easelId, capture));
+    return this.showPicker(win, browser, { x: 16, y: 16 }, easelId => this.addCaptureTo(win, easelId, capture), capture.item.profileKey);
   },
 
   // Validates a capture request from a page (the child is untrusted).
@@ -581,6 +684,9 @@ export const WhimsyEasel = {
         url: web ? uri.spec : null,
         title: tab?.label || browser.contentTitle || uri?.host || "",
         userContextId: tab?.userContextId || 0,
+        // wave9: the profile the capture came from; it only goes on that
+        // profile's easels.
+        profileKey: this.profileKeyForBrowser(browser),
         crop,
         pageWidth: Math.round(viewportWidth),
         pageHeight: Math.round(viewportHeight),
@@ -591,14 +697,23 @@ export const WhimsyEasel = {
 
   // Saves a capture into an easel ("new" makes one). Returns the easel id.
   async addCaptureTo(win, easelId, { item, blob }) {
-    let easel = easelId == "new" ? await gWhimsyEaselStore.create() : await gWhimsyEaselStore.get(easelId);
-    if (!easel) {
+    const { profileKey: captureKey, ...rest } = item;
+    const profileKey = captureKey || DEFAULT_PROFILE_KEY;
+    if (easelId == "new" && !this.canPersistIn(win)) {
+      win?.gZenUIManager?.showToast?.("whimsy-easel-new-private");
       return null;
     }
+    let easel = easelId == "new" ? await gWhimsyEaselStore.create({ profileKey }) : await gWhimsyEaselStore.get(easelId);
+    // A capture never crosses into another profile's easel.
+    if (!easel || profileKeyOf(easel) !== profileKey) {
+      return null;
+    }
+    // Live, it loads in the easel's profile container.
+    const userContextId = lazy.WhimsyProfiles.idForKey(profileKey) ?? 0;
     const image = await gWhimsyEaselStore.saveImage(easel.id, new Uint8Array(await blob.arrayBuffer()));
-    await gWhimsyEaselStore.addItem(easel.id, { ...item, image });
+    await gWhimsyEaselStore.addItem(easel.id, { ...rest, userContextId, image });
     if (easelId == "new") {
-      this.openEasel(win, easel.id, { pin: true });
+      this.openEasel(win, easel.id, { pin: true, profileKey });
     } else {
       win.gZenUIManager?.showToast?.("whimsy-easel-capture-added", {
         l10nArgs: { title: easel.title || (await this.untitled(win)) },
@@ -625,11 +740,12 @@ export const WhimsyEasel = {
       win.gZenUIManager?.showToast?.(capture.error);
       return;
     }
-    await this.showPicker(win, browser, anchor, easelId => this.addCaptureTo(win, easelId, capture));
+    await this.showPicker(win, browser, anchor, easelId => this.addCaptureTo(win, easelId, capture), capture.item.profileKey);
   },
 
-  // The "Add to Easel" menu: New Easel, then recent easels.
-  async showPicker(win, browser, anchor, onPick) {
+  // The "Add to Easel" menu: New Easel, then the capture's profile's recent
+  // easels.
+  async showPicker(win, browser, anchor, onPick, profileKey = DEFAULT_PROFILE_KEY) {
     const doc = win.document;
     let menu = doc.getElementById(MENU_ID);
     if (!menu) {
@@ -653,7 +769,7 @@ export const WhimsyEasel = {
     const fresh = add("new", { class: "menuitem-iconic" });
     doc.l10n.setAttributes(fresh, "whimsy-easel-picker-new");
     fresh.setAttribute("image", "chrome://browser/skin/zen-icons/plus.svg");
-    const easels = (await gWhimsyEaselStore.list()).slice(0, 8);
+    const easels = (await gWhimsyEaselStore.list(profileKey)).slice(0, 8);
     if (easels.length) {
       menu.append(doc.createXULElement("menuseparator"));
     }

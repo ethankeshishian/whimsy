@@ -3,11 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // wave5: Easels in the Library (Arc kept them under Library > Easels):
-// every easel, newest first. A click opens it (or its open tab).
+// the easels of the profile in front, newest first (wave9: per profile, like
+// Notes). A click opens it (or its open tab). Private windows, private tabs
+// and Scratch list none and can't make one.
 
 import { html, repeat } from "chrome://global/content/vendor/lit.all.mjs";
 import { ZenLibrarySearchSection } from "moz-src:///zen/library/sections/ZenLibrarySearchSection.mjs";
-const { gWhimsyEaselStore, WhimsyEasel, CHANGED_TOPIC, easelIdFromURL } = ChromeUtils.importESModule(
+const { gWhimsyEaselStore, WhimsyEasel, CHANGED_TOPIC, easelIdFromURL, profileKeyOf } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyEasel.sys.mjs"
 );
 
@@ -25,28 +27,37 @@ export class WhimsyEaselsSection extends ZenLibrarySearchSection {
     `;
   }
 
-  static properties = { easels: { state: true } };
+  static properties = { easels: { state: true }, canPersist: { state: true } };
 
   #observer = { observe: () => this.#refresh() };
+  // Switching to a space of another profile (or into Scratch, or to a
+  // private tab) changes which easels show.
+  #onContextChange = () => this.#refresh();
 
   constructor() {
     super();
     this.easels = [];
+    this.canPersist = true;
   }
 
   connectedCallback() {
     super.connectedCallback();
     Services.obs.addObserver(this.#observer, CHANGED_TOPIC);
+    window.addEventListener("ZenWorkspacesUIUpdate", this.#onContextChange);
+    window.addEventListener("TabSelect", this.#onContextChange);
     this.#refresh();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     Services.obs.removeObserver(this.#observer, CHANGED_TOPIC);
+    window.removeEventListener("ZenWorkspacesUIUpdate", this.#onContextChange);
+    window.removeEventListener("TabSelect", this.#onContextChange);
   }
 
   async #refresh() {
-    this.easels = await gWhimsyEaselStore.list();
+    this.canPersist = WhimsyEasel.canPersistIn(window);
+    this.easels = this.canPersist ? await gWhimsyEaselStore.list(WhimsyEasel.profileKeyForWindow(window)) : [];
   }
 
   get searchPlaceholderL10nId() {
@@ -58,7 +69,7 @@ export class WhimsyEaselsSection extends ZenLibrarySearchSection {
   }
 
   #open(easel) {
-    WhimsyEasel.openEasel(window, easel.id);
+    WhimsyEasel.openEasel(window, easel.id, { profileKey: profileKeyOf(easel) });
   }
 
   // Deleting can be undone from the toast for a few seconds.
@@ -132,6 +143,13 @@ export class WhimsyEaselsSection extends ZenLibrarySearchSection {
   }
 
   renderItems() {
+    if (!this.canPersist) {
+      return html`
+        <div class="zen-library-empty">
+          <span data-l10n-id="whimsy-library-easels-private"></span>
+        </div>
+      `;
+    }
     if (!this.easels.length) {
       return html`
         <div class="zen-library-empty">

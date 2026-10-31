@@ -1897,6 +1897,7 @@ whimsy-easel-picker-new =
 # $title (String) - the easel's name
 whimsy-easel-capture-added = Added to { $title }
 whimsy-easel-capture-private = Captures from private tabs can't be added to an easel
+whimsy-easel-new-private = Easels can't be made in private browsing
 whimsy-easel-untitled = Untitled Easel
 whimsy-easel-heading = Easel
 whimsy-easel-text-placeholder = Type something
@@ -2058,6 +2059,11 @@ whimsy-easel-off-title = Easels are turned off
 whimsy-easel-off-body = Turn them on in Settings, under Whimsy.
 whimsy-easel-missing-title = This easel was deleted
 whimsy-easel-missing-body = Find your other easels in the Library.
+whimsy-easel-private-title = Easels aren't kept in private browsing
+whimsy-easel-private-body = Open your easels from a normal space.
+whimsy-easel-other-profile-title = This easel belongs to another profile
+whimsy-easel-other-profile-body = Switch to a space of that profile to open it.
+whimsy-easel-status-other-profile = Those items are from another profile's easel
 
 # $count (Number) - how many items
 whimsy-easel-status-selected = { $count ->
@@ -2093,6 +2099,7 @@ whimsy-easel-status-image-failed = Couldn't add that image. Try a PNG, JPEG, GIF
 
 whimsy-library-easels-title = Easels
 whimsy-library-easels-empty = No easels yet
+whimsy-library-easels-private = Easels aren't kept in private browsing
 whimsy-library-easels-new = New Easel
 whimsy-library-easels-search-placeholder =
     .placeholder = Search easels…

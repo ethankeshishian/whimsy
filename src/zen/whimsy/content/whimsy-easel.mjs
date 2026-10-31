@@ -11,13 +11,15 @@
 import * as M from "chrome://browser/content/whimsy/whimsy-easel-model.mjs";
 import { BLOCK_SANDBOX_FLAGS, createLiveBrowser } from "chrome://browser/content/whimsy/whimsy-note-blocks.mjs";
 
-const { gWhimsyEaselStore, gWhimsyEaselClipboard, CHANGED_TOPIC, FEATURE_PREF, easelIdFromURL, easelURL } = ChromeUtils.importESModule(
+const { gWhimsyEaselStore, gWhimsyEaselClipboard, CHANGED_TOPIC, FEATURE_PREF, easelIdFromURL, easelURL, profileKeyOf } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyEasel.sys.mjs"
 );
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
 const PREF_COLOR = "whimsy.easel.color";
@@ -130,6 +132,17 @@ class EaselApp {
     return lazy.PrivateBrowsingUtils.isContentWindowPrivate(window);
   }
 
+  // wave9: easels are per profile. The page's tab opens in its easel's
+  // profile container (WhimsyEasel.openEasel), so the container this page
+  // runs in says whose easels it may show, and live captures load there.
+  get userContextId() {
+    return window.browsingContext?.originAttributes?.userContextId || 0;
+  }
+
+  get profileKey() {
+    return lazy.WhimsyProfiles.keyFor(this.userContextId);
+  }
+
   // ---------- Startup ----------
 
   async init() {
@@ -142,16 +155,28 @@ class EaselApp {
       this.showOff("whimsy-easel-off-title", "whimsy-easel-off-body");
       return;
     }
+    // Private tabs, private windows and Scratch keep nothing: no easel is
+    // made, shown or edited there.
+    if (this.isPrivate) {
+      this.showOff("whimsy-easel-private-title", "whimsy-easel-private-body");
+      return;
+    }
     this.id = easelIdFromURL(document.documentURI);
     if (!this.id) {
-      // whimsy://easel: a new easel, then its own address.
-      const easel = await gWhimsyEaselStore.create();
+      // whimsy://easel: a new easel of this tab's profile, then its address.
+      const easel = await gWhimsyEaselStore.create({ profileKey: this.profileKey });
       location.replace(easelURL(easel.id));
       return;
     }
     const easel = await gWhimsyEaselStore.get(this.id);
     if (!easel) {
       this.showOff("whimsy-easel-missing-title", "whimsy-easel-missing-body");
+      return;
+    }
+    // Another profile's easel stays closed here, address or not.
+    if (profileKeyOf(easel) !== this.profileKey) {
+      this.id = null;
+      this.showOff("whimsy-easel-other-profile-title", "whimsy-easel-other-profile-body");
       return;
     }
     this.title = easel.title ?? "";
@@ -684,7 +709,9 @@ class EaselApp {
     el.querySelector(".capture-shield").before(stage);
     this.layoutStage(item, stage);
     const url = item.url;
-    const userContextId = item.userContextId || 0;
+    // The easel's profile container, whatever the item says (an item synced
+    // or pasted from elsewhere can't move a live page into another profile).
+    const userContextId = this.userContextId;
     // The page's process crashed, or the <browser> never got one (Gecko
     // refuses a remote <browser> in a document that may not host one and
     // reports that as a crash with childID 0; see the nsFrameLoader patch).
@@ -1845,7 +1872,7 @@ class EaselApp {
         this.setLive(item, !item?.live);
         break;
       case "open":
-        if (item?.url) this.openURL(item.url, item.userContextId);
+        if (item?.url) this.openURL(item.url, this.userContextId);
         break;
       case "front":
       case "back":
@@ -1947,6 +1974,14 @@ class EaselApp {
     }
     const items = (payload.items ?? []).filter(i => i && typeof i.type == "string" && Number.isFinite(i.x));
     if (!items.length) return;
+    // Items (and their image files) only move between easels of one profile.
+    if (payload.easel != this.id) {
+      const source = await gWhimsyEaselStore.get(payload.easel);
+      if (!source || profileKeyOf(source) !== this.profileKey) {
+        this.announce("whimsy-easel-status-other-profile");
+        return;
+      }
+    }
     const bounds = M.boundsOf(items);
     const copies = [];
     for (const item of items) {
@@ -2004,6 +2039,10 @@ class EaselApp {
     const at = this.toWorld(event.clientX, event.clientY);
     const tab = dt.mozGetDataAt?.(TAB_DROP_TYPE, 0);
     if (tab?.linkedBrowser) {
+      // A private tab's address never goes on an easel.
+      if (lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) || lazy.WhimsyPrivate.isPrivateTab(tab)) {
+        return;
+      }
       const url = tab.linkedBrowser.currentURI?.spec;
       if (url && isWebURL(url)) {
         this.addItems([this.linkItem(url, tab.label, { x: at.x - M.LINK_SIZE.w / 2, y: at.y - M.LINK_SIZE.h / 2 })]);
