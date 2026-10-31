@@ -2975,3 +2975,8 @@ whimsy-archive-swept-toast =
 ## wave8/cmds: View Claude in Whimsy Replays command
 whimsy-action-view-claude-replays = View Claude in Whimsy Replays
 
+## wave8/cmds: W8-10 Move tab to another space (Arc parity)
+whimsy-action-move-to = Move to
+whimsy-action-move-tab-next-space = Move Tab to Next Space
+whimsy-action-move-tab-prev-space = Move Tab to Previous Space
+

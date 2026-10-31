@@ -36,6 +36,11 @@
 // space's container, and you land on it. Zen already moves existing tabs
 // (tab menu > Move To).
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+});
+
 const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
 const DROP_FEATURE_PREF = "whimsy.feature.space-icon-drop";
 const LAST_TAB_FEATURE_PREF = "whimsy.feature.space-last-tab";
@@ -55,11 +60,116 @@ export const WhimsySpaces = {
     if (!win.gZenWorkspaces?.workspaceEnabled) {
       return;
     }
+    this.initCommands(win);
     this.initIconDrop(win);
     this.initLastTab(win);
     this.initEmojiSearch(win);
     this.initTabDragging(win);
     this.initOpenLinkInSpace(win);
+  },
+
+  initCommands(win) {
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyMoveTabToNextSpace",
+      l10nId: "whimsy-action-move-tab-next-space",
+      whimsyKeywords: ["Move Tab to Next Space", "Move to Next Space", "Send Tab to Next Space"],
+      run: w => this.moveTabRelative(w, 1),
+      icon: "chrome://browser/skin/zen-icons/forward.svg",
+      isAvailable: w =>
+        (w.gZenWorkspaces?._workspaceCache?.length ?? 0) > 1 &&
+        !w.gBrowser.selectedTab?.hasAttribute("zen-essential"),
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyMoveTabToPrevSpace",
+      l10nId: "whimsy-action-move-tab-prev-space",
+      whimsyKeywords: ["Move Tab to Previous Space", "Move to Previous Space", "Send Tab to Previous Space"],
+      run: w => this.moveTabRelative(w, -1),
+      icon: "chrome://browser/skin/zen-icons/back.svg",
+      isAvailable: w =>
+        (w.gZenWorkspaces?._workspaceCache?.length ?? 0) > 1 &&
+        !w.gBrowser.selectedTab?.hasAttribute("zen-essential"),
+    });
+
+    this.syncSpaceActions(win);
+    win.gURLBar?.addEventListener("focus", () => this.syncSpaceActions(win));
+  },
+
+  moveTabRelative(win, direction = 1) {
+    const spaces = win.gZenWorkspaces?.getWorkspaces();
+    if (!spaces || spaces.length <= 1) {
+      return;
+    }
+    const currentId = win.gZenWorkspaces.activeWorkspace;
+    const currentIndex = spaces.findIndex(s => s.uuid == currentId);
+    if (currentIndex == -1) {
+      return;
+    }
+    const targetIndex = (currentIndex + direction + spaces.length) % spaces.length;
+    const targetSpace = spaces[targetIndex];
+    if (targetSpace && targetSpace.uuid != currentId) {
+      const tab = win.gBrowser.selectedTab;
+      if (tab && !tab.hasAttribute("zen-essential")) {
+        this.moveToSpace(win, tab, targetSpace.uuid);
+      }
+    }
+  },
+
+  syncSpaceActions(win) {
+    const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+    const spaces = win.gZenWorkspaces?.getWorkspaces() || [];
+    for (const workspace of spaces) {
+      const commandId = `whimsy:move-to-space-${workspace.uuid}`;
+      if (globalActions.some(a => a.commandId == commandId)) {
+        continue;
+      }
+      globalActions.push({
+        l10nId: `whimsy-move-to-space-${workspace.uuid}`,
+        get label() {
+          return "Move to";
+        },
+        extraPayload: {
+          workspaceId: workspace.uuid,
+          get prettyName() {
+            return win.gZenWorkspaces?.getWorkspaces().find(w => w.uuid == workspace.uuid)?.name || workspace.name;
+          },
+          get prettyIcon() {
+            return win.gZenWorkspaces?.getWorkspaces().find(w => w.uuid == workspace.uuid)?.icon || workspace.icon;
+          },
+          get accentColor() {
+            return win.gZenWorkspaces
+              ?.workspaceElement(workspace.uuid)
+              ?.style.getPropertyValue("--zen-primary-color");
+          },
+        },
+        whimsyKeywords: [
+          "Move",
+          "Move to",
+          "Move tab",
+          "Move tab to",
+          "Move to Space",
+        ],
+        commandId,
+        icon: "chrome://browser/skin/zen-icons/arrow-right.svg",
+        isAvailable: w => {
+          const ws = w.gZenWorkspaces;
+          if (!ws?.workspaceEnabled || ws.privateWindowOrDisabled) {
+            return false;
+          }
+          const tab = w.gBrowser?.selectedTab;
+          if (!tab || tab.hasAttribute("zen-essential")) {
+            return false;
+          }
+          const exists = ws.getWorkspaces().some(s => s.uuid == workspace.uuid);
+          return exists && ws.activeWorkspace != workspace.uuid;
+        },
+        command: w => {
+          const tab = w.gBrowser?.selectedTab;
+          if (tab && !tab.hasAttribute("zen-essential")) {
+            this.moveToSpace(w, tab, workspace.uuid);
+          }
+        },
+      });
+    }
   },
 
   // --- Drop tabs on space icons ---
