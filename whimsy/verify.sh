@@ -82,4 +82,8 @@ fi
 
 echo "Screenshots: $WHIMSY_SHOTS"
 ls "$WHIMSY_SHOTS"
+# Record the result for `npm run promote`: only a green full run (all or
+# gate) of a clean checkout, testing a full build of that same commit, lets
+# it move the release tag (.surfer/verify/verified.json).
+python3 whimsy/updater/updater.py record-verify "$MODE" "$status" || true
 exit $status

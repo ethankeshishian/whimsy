@@ -13,6 +13,11 @@ if [ -z "$SRC" ]; then
   echo "install_app: no built Whimsy.app found" >&2
   exit 1
 fi
+# After a full `npm run build` (not build:ui or install:app): record the commit
+# the engine was built from, so a full verify of it counts for npm run promote.
+if [ "${npm_lifecycle_event:-}" = "postbuild" ]; then
+  python3 whimsy/updater/updater.py record-build || true
+fi
 # Prints whether it installed, or when it will (and how, without the local
 # updater's applier job).
 python3 whimsy/updater/updater.py stage "$SRC"
