@@ -3162,3 +3162,10 @@ whimsy-action-expand-all-folders = Expand All Folders
 whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
+
+# wave9/secfix: a normal tab that arrived in Scratch from another window or Mini.
+whimsy-isolation-scratch-moved-toast =
+    { $count ->
+        [one] Only private tabs go in Scratch. The tab moved to another space.
+       *[other] Only private tabs go in Scratch. The tabs moved to another space.
+    }

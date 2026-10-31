@@ -623,3 +623,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_security_purge_stores.js"]
 # wave9/secfix M1: a sandboxed (null-principal) private page, or a Glance owned by a private tab, opens private tabs.
 ["browser_whimsy_security_sandboxed_private.js"]
+# wave9/secfix M2: a normal tab adopted into Scratch from another window leaves it; Mini never offers Scratch.
+["browser_whimsy_security_scratch_adopt.js"]
