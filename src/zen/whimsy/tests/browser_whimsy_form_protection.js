@@ -49,6 +49,62 @@ add_task(async function test_defaults_and_command() {
   });
 });
 
+// Review design-full-4 L5: the command bar says Protect or Stop Protecting.
+add_task(async function test_command_variants() {
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const action = id => globalActions.find(a => a.l10nId == id);
+  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    ok(action("whimsy-action-protect-form-on")?.isAvailable(window), "Offers Protect on an unprotected tab");
+    ok(!action("whimsy-action-protect-form-off")?.isAvailable(window), "No Stop Protecting yet");
+    ok(await document.l10n.formatValue("whimsy-action-protect-form-off"), "Stop Protecting is localized");
+
+    document.getElementById(WhimsyFormProtection.COMMAND_ID).doCommand();
+    ok(tab.hasAttribute("whimsy-form-protected"), "Protected");
+    ok(!action("whimsy-action-protect-form-on")?.isAvailable(window), "Protect is no longer offered");
+    ok(action("whimsy-action-protect-form-off")?.isAvailable(window), "Stop Protecting is offered");
+
+    // Protection by hand survives a navigation in the tab.
+    BrowserTestUtils.startLoadingURIString(browser, FORM_PAGE + "?again");
+    await BrowserTestUtils.browserLoaded(browser);
+    ok(tab.hasAttribute("whimsy-form-protected"), "Still protected after navigating");
+
+    document.getElementById(WhimsyFormProtection.COMMAND_ID).doCommand();
+    ok(!tab.hasAttribute("whimsy-form-protected"), "Stop Protecting clears it");
+    ok(action("whimsy-action-protect-form-on")?.isAvailable(window), "Protect is offered again");
+  });
+});
+
+// Review design-full-4 M10: the dot has its own pseudo-element and its
+// meaning is in the tooltip, not a title the tab tooltip overrides.
+add_task(async function test_indicator_and_tooltip() {
+  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    const stack = tab.querySelector(".tab-icon-stack");
+    const afterBefore = getComputedStyle(stack, "::after").cssText || getComputedStyle(stack, "::after").content;
+    const plain = gBrowser.getTabTooltip(tab, true);
+
+    WhimsyFormProtection.updateTabProtection(tab, true);
+    ok(tab.hasAttribute("whimsy-form-protected"), "Typed text protects the tab");
+    isnot(getComputedStyle(stack, "::before").content, "none", "The dot is drawn on ::before");
+    is(
+      getComputedStyle(stack, "::after").cssText || getComputedStyle(stack, "::after").content,
+      afterBefore,
+      "::after (unread count, title-changed dot) is untouched"
+    );
+    ok(!tab.hasAttribute("title"), "No title attribute on the tab");
+    const tip = gBrowser.getTabTooltip(tab, true);
+    ok(tip.startsWith(plain), "The tab's tooltip keeps its own text");
+    ok(tip.includes("Protected from auto-archive"), "and says why the tab is protected");
+    ok(gBrowser.getTabTooltip(tab, false).includes("Protected from auto-archive"), "as does its accessible description");
+
+    WhimsyFormProtection.updateTabProtection(tab, false);
+    ok(!tab.hasAttribute("whimsy-form-protected"), "Clearing the form unprotects it");
+    is(getComputedStyle(stack, "::before").content, "none", "No dot");
+    is(gBrowser.getTabTooltip(tab, true), plain, "Tooltip back to normal");
+  });
+});
+
 add_task(async function test_typing_protects_tab_and_exempts_from_sweep() {
   await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);

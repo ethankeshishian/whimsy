@@ -3007,7 +3007,13 @@ whimsy-site-zap-restored-all-toast = Restored all zapped elements
 whimsy-tabs-form-protection =
     .label = Protect tabs with unsaved forms from auto-archive
 whimsy-action-protect-form = Protect Tab from Auto-Archive
-whimsy-tab-form-protected-description = Form protected: contains unsaved form text
-whimsy-tab-form-protected-tooltip = This tab has unsaved form text and is exempt from auto-archive
-whimsy-form-protected-toast = Protected tab with unsaved form text from auto-archive
+whimsy-action-protect-form-on = Protect This Tab from Auto-Archive
+whimsy-action-protect-form-off = Stop Protecting This Tab from Auto-Archive
+# $reason (String) - "form" when the page has typed text, "manual" when protected by hand
+whimsy-tab-form-protected-tooltip = { $reason ->
+        [manual] Protected from auto-archive
+       *[form] Protected from auto-archive: this tab has unsent form text
+    }
+whimsy-form-protected-toast = This tab won’t be auto-archived
+whimsy-form-unprotected-toast = This tab can be auto-archived again
 

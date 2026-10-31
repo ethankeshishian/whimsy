@@ -16,6 +16,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -109,6 +110,10 @@ export const WhimsyFormProtection = {
     return false;
   },
 
+  canProtect(win) {
+    return this.enabled && !!win.gBrowser?.selectedBrowser?.currentURI?.spec?.startsWith("http");
+  },
+
   isFormProtected(tab) {
     if (!this.enabled || !tab) {
       return false;
@@ -119,44 +124,61 @@ export const WhimsyFormProtection = {
     return this.hasSessionRestoreFormData(tab);
   },
 
+  // The dot is drawn with CSS on .tab-icon-stack::before; its meaning goes
+  // in the tab's tooltip and accessible description (see wrapTooltip), not
+  // in a `title` the tab tooltip overrides (review design-full-4 M10).
   updateTabProtection(tab, hasForm) {
     if (!this.enabled) {
       tab.removeAttribute(ATTR);
       return;
     }
-    const shouldProtect = hasForm || this.hasSessionRestoreFormData(tab);
-    if (shouldProtect) {
-      tab.setAttribute(ATTR, "true");
-      try {
-        const tooltip = lazy.l10n.formatValueSync("whimsy-tab-form-protected-tooltip");
-        if (tooltip) {
-          tab.setAttribute("title", tooltip);
-        }
-      } catch (e) {}
-    } else {
-      tab.removeAttribute(ATTR);
-      tab.removeAttribute("title");
-    }
+    const shouldProtect = hasForm || tab._whimsyFormManual || this.hasSessionRestoreFormData(tab);
+    tab.toggleAttribute(ATTR, !!shouldProtect);
+  },
+
+  isManuallyProtected(tab) {
+    return !!tab?._whimsyFormManual;
   },
 
   toggleTabProtection(tab) {
     if (!tab) {
       return false;
     }
-    const current = tab.hasAttribute(ATTR);
-    if (current) {
-      tab.removeAttribute(ATTR);
-      tab.removeAttribute("title");
-    } else {
-      tab.setAttribute(ATTR, "true");
-      try {
-        const tooltip = lazy.l10n.formatValueSync("whimsy-tab-form-protected-tooltip");
-        if (tooltip) {
-          tab.setAttribute("title", tooltip);
-        }
-      } catch (e) {}
+    const protect = !tab._whimsyFormManual;
+    tab._whimsyFormManual = protect;
+    tab.toggleAttribute(ATTR, protect);
+    const win = tab.ownerGlobal;
+    try {
+      lazy.WhimsyToast.show(win, {
+        l10nId: protect ? "whimsy-form-protected-toast" : "whimsy-form-unprotected-toast",
+      });
+    } catch (e) {}
+    return protect;
+  },
+
+  // Firefox's tab tooltip and the focused tab's accessible description both
+  // come from gBrowser.getTabTooltip; add a line while the tab is protected.
+  wrapTooltip(win) {
+    const gBrowser = win.gBrowser;
+    if (!gBrowser?.getTabTooltip || gBrowser._whimsyFormTooltip) {
+      return;
     }
-    return !current;
+    gBrowser._whimsyFormTooltip = true;
+    const original = gBrowser.getTabTooltip;
+    const self = this;
+    gBrowser.getTabTooltip = function (tab, ...args) {
+      const text = original.call(this, tab, ...args);
+      if (!self.enabled || !tab?.hasAttribute(ATTR)) {
+        return text;
+      }
+      let note = "";
+      try {
+        note = lazy.l10n.formatValueSync("whimsy-tab-form-protected-tooltip", {
+          reason: tab._whimsyFormManual ? "manual" : "form",
+        });
+      } catch (e) {}
+      return [text, note].filter(Boolean).join("\n");
+    };
   },
 
   initWindow(win) {
@@ -171,13 +193,30 @@ export const WhimsyFormProtection = {
         }
       },
       icon: "chrome://browser/skin/zen-icons/shield.svg",
-      isAvailable: w => this.enabled && !!w.gBrowser?.selectedBrowser?.currentURI?.spec?.startsWith("http"),
+      isAvailable: w => this.canProtect(w),
+      // Review design-full-4 L5: say what running it will do.
+      variants: [
+        {
+          l10nId: "whimsy-action-protect-form-on",
+          isAvailable: w => this.canProtect(w) && !this.isManuallyProtected(w.gBrowser.selectedTab),
+        },
+        {
+          l10nId: "whimsy-action-protect-form-off",
+          isAvailable: w => this.canProtect(w) && this.isManuallyProtected(w.gBrowser.selectedTab),
+        },
+      ],
     });
+    this.wrapTooltip(win);
 
     // Clean up attribute on tab reload or location change if form is cleared
     const onLocationChange = (browser, webProgress, request, location) => {
       const tab = win.gBrowser?.getTabForBrowser(browser);
-      if (tab && !this.hasSessionRestoreFormData(tab) && !browser._whimsyFormContexts?.size) {
+      if (
+        tab &&
+        !tab._whimsyFormManual &&
+        !this.hasSessionRestoreFormData(tab) &&
+        !browser._whimsyFormContexts?.size
+      ) {
         tab.removeAttribute(ATTR);
       }
     };
