@@ -27,12 +27,44 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const FEATURE_PREF = "whimsy.feature.already-open";
+const TAB_SWITCH_RESULT = 1; // UrlbarShared.RESULT_TYPE.TAB_SWITCH
 const URL_RESULT = 3; // UrlbarShared.RESULT_TYPE.URL
+const TABS_SOURCE = 4; // UrlbarShared.RESULT_SOURCE.TABS
 const EMPTY_PAGES = new Set(["about:blank", "about:newtab", "about:home", "about:privatebrowsing"]);
 
 export const WhimsyAlreadyOpen = {
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
+  },
+
+  isTabSwitch(result) {
+    if (!result) {
+      return false;
+    }
+    return (
+      result.type === TAB_SWITCH_RESULT ||
+      result.source === TABS_SOURCE ||
+      result.payload?.action?.type === "switchtab" ||
+      result.payload?.action?.type === "tabswitch"
+    );
+  },
+
+  promoteOpenTabs(queryContext) {
+    if (!this.enabled || !queryContext?.results?.length) {
+      return;
+    }
+    const results = queryContext.results;
+    let targetIndex = results[0]?.heuristic ? 1 : 0;
+    while (targetIndex < results.length && this.isTabSwitch(results[targetIndex])) {
+      targetIndex++;
+    }
+    for (let i = targetIndex + 1; i < results.length; i++) {
+      if (this.isTabSwitch(results[i])) {
+        const [result] = results.splice(i, 1);
+        results.splice(targetIndex, 0, result);
+        targetIndex++;
+      }
+    }
   },
 
   // The key two addresses share when they are the same page: no fragment,
@@ -230,5 +262,18 @@ export const WhimsyAlreadyOpen = {
       }
       return original.call(this, params);
     };
+
+    if (urlbar.view && !urlbar.view._whimsyRankHooked) {
+      urlbar.view._whimsyRankHooked = true;
+      const origOnQueryResults = urlbar.view.onQueryResults;
+      urlbar.view.onQueryResults = function (queryContext) {
+        try {
+          WhimsyAlreadyOpen.promoteOpenTabs(queryContext);
+        } catch (e) {
+          console.error("Whimsy: promoteOpenTabs error", e);
+        }
+        return origOnQueryResults.apply(this, arguments);
+      };
+    }
   },
 };
