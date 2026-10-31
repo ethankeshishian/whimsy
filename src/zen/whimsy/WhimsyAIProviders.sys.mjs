@@ -106,6 +106,7 @@ export const AI_ERROR_CODES = [
   "apple-needs-tools",
   // fix7: what exactly is missing when the helper can't be built.
   "apple-tools-outdated",
+  "apple-tools-path-invalid",
   "apple-needs-license",
   "apple-build-failed",
   "apple-intelligence-off",
@@ -514,7 +515,16 @@ export const WhimsyAIProviders = {
 
   // What a failed swiftc build means, from its output.
   _buildFailure(output) {
-    return /license/i.test(output) ? "apple-needs-license" : "apple-build-failed";
+    if (/license/i.test(output)) {
+      return "apple-needs-license";
+    }
+    if (/no such module ['"]FoundationModels['"]|cannot find ['"]SystemLanguageModel['"]|cannot find ['"]LanguageModelSession['"]/i.test(output)) {
+      return "apple-tools-outdated";
+    }
+    if (/active developer path.*does not exist|unable to find utility ['"]swiftc['"]/i.test(output)) {
+      return "apple-tools-path-invalid";
+    }
+    return "apple-build-failed";
   },
 
   // Builds the helper once (swiftc from the command line tools or Xcode),
