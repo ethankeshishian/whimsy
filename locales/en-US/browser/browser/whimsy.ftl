@@ -3146,13 +3146,15 @@ whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
 ## wave9: Battery saver (Arc parity: threshold, banner, auto-off, throttles)
-whimsy-action-toggle-battery-saver = Toggle Battery Saver
-whimsy-action-turn-on-battery-saver = Turn On Battery Saver
-whimsy-action-turn-off-battery-saver = Turn Off Battery Saver
-whimsy-battery-saver-active-toast = Battery Saver Mode is activated
-whimsy-battery-saver-active-toast-description = Throttling frame rate and background activity to conserve battery.
-whimsy-battery-saver-off-toast = Battery Saver Mode is turned off
+whimsy-action-toggle-battery-saver = Turn Battery Saver On or Off
+whimsy-action-turn-on-battery-saver = Turn Battery Saver On
+whimsy-action-turn-off-battery-saver = Turn Battery Saver Off
+whimsy-battery-saver-active-toast = Battery Saver is on: battery below 20%
+whimsy-battery-saver-on-toast = Battery Saver is on
+whimsy-battery-saver-off-toast = Battery Saver is off
+whimsy-battery-saver-turn-off-button = Turn Off
 whimsy-battery-saver-header = Battery Saver
-whimsy-battery-saver-enable = Enable Battery Saver Mode
-whimsy-battery-saver-help = Automatically throttle frame rates and background activity when battery drops below 20%.
+whimsy-battery-saver-enable =
+    .label = Turn on Battery Saver automatically when the battery is below 20%
+whimsy-battery-saver-help = Animations run at up to 30 frames per second and background tabs’ timers slow down. It turns off again when you plug in or the battery is back above 20%.
 

@@ -16,18 +16,26 @@
 //
 // Whimsy brings full parity:
 // 1. Monitors battery level and charging state via navigator.getBattery().
-// 2. Automatically triggers when battery < 20% (and discharging).
-// 3. Displays a heads-up toast banner when activated.
-// 4. Automatically turns off once plugged in (charging) or charged >= 20%.
-// 5. Throttles frame rate (layout.frame_rate = 30) and background timer delay
-//    (dom.timeout.throttling_delay = 0), cleanly restoring original prefs.
-// 6. Registered in WhimsyCommands as an assignable command ("Toggle Battery Saver",
-//    with "Turn On Battery Saver" / "Turn Off Battery Saver" variants).
-// 7. Settings toggle in Preferences → General → Battery Saver.
+// 2. Automatically triggers when battery < 20% and discharging, if the
+//    Settings switch ("Turn on Battery Saver automatically...") is on.
+// 3. Shows a heads-up toast (WhimsyToast, 6s, with a "Turn Off" action).
+// 4. Turns itself off once plugged in (charging) or back at >= 20%, unless
+//    the user turned it on by hand: a manual "on" sticks until they turn
+//    it off (wave9 review M4).
+// 5. Throttles frame rate (layout.frame_rate = 30) and starts background
+//    timer throttling right after load (dom.timeout.throttling_delay = 1;
+//    0 would DISABLE throttling, see TimeoutManager::MaybeStartThrottleTimeout),
+//    restoring the original prefs afterwards. No tab unloading (Arc doesn't).
+// 6. Command "Turn Battery Saver On or Off" (variants Turn ... On / Off),
+//    no default key, assignable in about:keyboard. It works whenever the
+//    feature switch is on, also with the automatic mode off.
+// 7. Settings switch in Tab Management → Performance (with the settings
+//    redesign; General without it), also found by Settings search.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.battery-saver";
@@ -36,16 +44,21 @@ const ACTIVE_PREF = "whimsy.battery-saver.active";
 const RESTORE_FRAME_RATE_PREF = "whimsy.battery-saver.restore-frame-rate";
 const RESTORE_THROTTLING_DELAY_PREF = "whimsy.battery-saver.restore-throttling-delay";
 
-const BATTERY_THRESHOLD = 0.20;
+const BATTERY_THRESHOLD = 0.2;
 const THROTTLED_FRAME_RATE = 30;
-const THROTTLED_TIMEOUT_DELAY = 0;
+// Delay (ms) from page load until background timeouts are throttled. Must be
+// > 0: Gecko treats <= 0 as "never throttle".
+const THROTTLED_TIMEOUT_DELAY = 1;
 const TOPIC = "whimsy-battery-saver-changed";
 const ICON = "chrome://browser/skin/zen-icons/bolt.svg";
 
 let active = false;
+// true: the user turned it on by hand (sticks until they turn it off).
+// false: the user turned it off by hand while low (until charged or >= 20%).
+// null: automatic.
 let manualOverride = null;
 let mockBattery = null;
-let currentBatteryManager = null;
+let lastBattery = null;
 let initialized = false;
 const listeners = new WeakSet();
 
@@ -58,11 +71,14 @@ export const WhimsyBatterySaver = {
   THROTTLED_TIMEOUT_DELAY,
   TOPIC,
 
+  // The feature switch: the command works whenever this is on.
   get enabled() {
-    return (
-      Services.prefs.getBoolPref(FEATURE_PREF, true) &&
-      Services.prefs.getBoolPref(ENABLED_PREF, true)
-    );
+    return Services.prefs.getBoolPref(FEATURE_PREF, true);
+  },
+
+  // The Settings switch: turn on automatically below 20%.
+  get autoEnabled() {
+    return this.enabled && Services.prefs.getBoolPref(ENABLED_PREF, true);
   },
 
   get active() {
@@ -85,14 +101,25 @@ export const WhimsyBatterySaver = {
 
     // Restore any throttles left behind if a previous session crashed.
     this.restoreThrottles();
+    Services.prefs.clearUserPref(ACTIVE_PREF);
 
-    const onPrefChange = () => {
-      if (!this.enabled && active) {
+    Services.prefs.addObserver(FEATURE_PREF, () => {
+      if (!this.enabled) {
+        manualOverride = null;
         this.deactivate({ reason: "disabled" });
+      } else {
+        this.checkBattery(mockBattery || lastBattery);
       }
-    };
-    Services.prefs.addObserver(FEATURE_PREF, onPrefChange);
-    Services.prefs.addObserver(ENABLED_PREF, onPrefChange);
+    });
+    Services.prefs.addObserver(ENABLED_PREF, () => {
+      // Turning the automatic mode off ends an automatic session, never a
+      // manual one.
+      if (!this.autoEnabled && active && manualOverride !== true) {
+        this.deactivate({ reason: "disabled" });
+      } else {
+        this.checkBattery(mockBattery || lastBattery);
+      }
+    });
   },
 
   applyThrottles() {
@@ -152,11 +179,17 @@ export const WhimsyBatterySaver = {
     Services.prefs.setBoolPref(ACTIVE_PREF, true);
     Services.obs.notifyObservers(null, TOPIC, "on");
 
-    const targetWin = win || Services.wm.getMostRecentWindow("navigator:browser");
-    if (reason === "auto" || reason === "manual") {
-      targetWin?.gZenUIManager?.showToast?.("whimsy-battery-saver-active-toast", {
-        descriptionId: "whimsy-battery-saver-active-toast-description",
+    if (reason === "auto") {
+      // Arc's heads-up: say why, and offer a way out.
+      this.showToast(win, {
+        l10nId: "whimsy-battery-saver-active-toast",
+        action: {
+          l10nId: "whimsy-battery-saver-turn-off-button",
+          onCommand: () => this.turnOff(win),
+        },
       });
+    } else if (reason === "manual") {
+      this.showToast(win, { l10nId: "whimsy-battery-saver-on-toast" });
     }
     return active;
   },
@@ -171,46 +204,61 @@ export const WhimsyBatterySaver = {
     Services.obs.notifyObservers(null, TOPIC, "off");
 
     if (reason === "manual") {
-      const targetWin = win || Services.wm.getMostRecentWindow("navigator:browser");
-      targetWin?.gZenUIManager?.showToast?.("whimsy-battery-saver-off-toast");
+      this.showToast(win, { l10nId: "whimsy-battery-saver-off-toast" });
     }
     return active;
   },
 
+  showToast(win, options) {
+    const target = win && !win.closed ? win : Services.wm.getMostRecentWindow("navigator:browser");
+    if (!target) {
+      return;
+    }
+    try {
+      lazy.WhimsyToast.show(target, options);
+    } catch (e) {
+      console.error("Whimsy: Battery Saver toast", e);
+    }
+  },
+
   checkBattery(battery, win = null) {
-    if (!this.enabled || !battery) {
+    if (!battery) {
+      return;
+    }
+    if (battery !== mockBattery) {
+      lastBattery = battery;
+    }
+    if (!this.enabled) {
+      return;
+    }
+    // Turned on by hand: stays on, plugged in or not, until turned off.
+    if (manualOverride === true) {
       return;
     }
     const { level, charging } = battery;
-
-    // When charging, clear any manual override and turn off battery saver
-    if (charging) {
+    if (charging || level >= BATTERY_THRESHOLD) {
+      // Charged or plugged in: automatic off, and a manual "off" is spent.
       manualOverride = null;
       if (active) {
         this.deactivate({ reason: "auto", win });
       }
       return;
     }
-
-    // When discharged / on battery
-    if (level < BATTERY_THRESHOLD) {
-      if (manualOverride === false) {
-        // User manually turned it off while below threshold
-        return;
-      }
-      if (!active) {
-        this.activate({ reason: "auto", win });
-      }
-    } else {
-      // level >= BATTERY_THRESHOLD
-      if (manualOverride === true) {
-        // User manually turned it on
-        return;
-      }
-      if (active) {
-        this.deactivate({ reason: "auto", win });
-      }
+    // Below 20% and discharging.
+    if (manualOverride === false || !this.autoEnabled) {
+      return;
     }
+    if (!active) {
+      this.activate({ reason: "auto", win });
+    }
+  },
+
+  turnOff(win) {
+    if (!active) {
+      return active;
+    }
+    manualOverride = false;
+    return this.deactivate({ reason: "manual", win });
   },
 
   toggle(win) {
@@ -227,9 +275,10 @@ export const WhimsyBatterySaver = {
     return active;
   },
 
+  // Feeds a fake battery reading; keeps any manual choice, as a real
+  // levelchange/chargingchange would.
   setBatteryForTesting(mock, win = null) {
     mockBattery = mock;
-    manualOverride = null;
     this.checkBattery(mockBattery, win);
   },
 
@@ -248,6 +297,7 @@ export const WhimsyBatterySaver = {
       l10nId: "whimsy-action-toggle-battery-saver",
       run: w => this.toggle(w),
       icon: ICON,
+      isAvailable: () => this.enabled,
       variants: [
         {
           l10nId: "whimsy-action-turn-on-battery-saver",
@@ -270,7 +320,6 @@ export const WhimsyBatterySaver = {
             return;
           }
           listeners.add(battery);
-          currentBatteryManager = battery;
           const onUpdate = () => this.checkBattery(mockBattery || battery, win);
           battery.addEventListener("levelchange", onUpdate);
           battery.addEventListener("chargingchange", onUpdate);
