@@ -405,10 +405,12 @@ export const WhimsyInspector = {
     // Header selector chip
     const headerBox = doc.createElementNS(HTML_NS, "div");
     headerBox.className = "whimsy-element-header-box";
+    headerBox.title = data.selector;
 
     const tag = doc.createElementNS(HTML_NS, "span");
     tag.className = "whimsy-element-tag";
-    tag.textContent = `<${data.selector}>`;
+    tag.textContent = `<${data.tagName || data.selector}>`;
+    tag.title = data.selector;
 
     const dims = doc.createElementNS(HTML_NS, "span");
     dims.className = "whimsy-element-dims";
@@ -417,7 +419,13 @@ export const WhimsyInspector = {
     headerBox.append(tag, dims);
     body.append(headerBox);
 
-    // Box Model Diagram
+    // Box Model Heading & Diagram
+    const boxModelHeading = doc.createElementNS(HTML_NS, "div");
+    boxModelHeading.className = "whimsy-inspector-section-heading";
+    boxModelHeading.textContent = lazy.l10n.formatValueSync("whimsy-element-box-model");
+    doc.l10n.setAttributes(boxModelHeading, "whimsy-element-box-model");
+    body.append(boxModelHeading);
+
     const boxModelWrap = doc.createElementNS(HTML_NS, "div");
     boxModelWrap.className = "whimsy-box-model-container";
 
@@ -495,6 +503,12 @@ export const WhimsyInspector = {
     const contrastCard = doc.createElementNS(HTML_NS, "div");
     contrastCard.className = "whimsy-contrast-card";
 
+    const colorsHeading = doc.createElementNS(HTML_NS, "div");
+    colorsHeading.className = "whimsy-inspector-section-heading";
+    colorsHeading.textContent = lazy.l10n.formatValueSync("whimsy-element-colors-heading");
+    doc.l10n.setAttributes(colorsHeading, "whimsy-element-colors-heading");
+    contrastCard.append(colorsHeading);
+
     const cRow = doc.createElementNS(HTML_NS, "div");
     cRow.className = "whimsy-contrast-row";
 
@@ -502,23 +516,45 @@ export const WhimsyInspector = {
     swatches.className = "whimsy-contrast-swatches";
 
     const textColorItem = doc.createElementNS(HTML_NS, "div");
-    textColorItem.className = "whimsy-color-chip";
+    textColorItem.className = "whimsy-color-chip-row";
+    const textLabel = doc.createElementNS(HTML_NS, "span");
+    textLabel.className = "whimsy-color-chip-label";
+    textLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-text-color");
+    doc.l10n.setAttributes(textLabel, "whimsy-element-text-color");
+    const textChip = doc.createElementNS(HTML_NS, "span");
+    textChip.className = "whimsy-color-chip";
     const textSwatch = doc.createElementNS(HTML_NS, "span");
     textSwatch.className = "whimsy-color-swatch";
     textSwatch.style.backgroundColor = data.colors.textColorHex;
-    textColorItem.append(textSwatch, doc.createTextNode(data.colors.textColorHex));
+    textChip.append(textSwatch, doc.createTextNode(data.colors.textColorHex));
+    textColorItem.append(textLabel, textChip);
 
     const bgColorItem = doc.createElementNS(HTML_NS, "div");
-    bgColorItem.className = "whimsy-color-chip";
+    bgColorItem.className = "whimsy-color-chip-row";
+    const bgLabel = doc.createElementNS(HTML_NS, "span");
+    bgLabel.className = "whimsy-color-chip-label";
+    bgLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-bg-color");
+    doc.l10n.setAttributes(bgLabel, "whimsy-element-bg-color");
+    const bgChip = doc.createElementNS(HTML_NS, "span");
+    bgChip.className = "whimsy-color-chip";
     const bgSwatch = doc.createElementNS(HTML_NS, "span");
     bgSwatch.className = "whimsy-color-swatch";
     bgSwatch.style.backgroundColor = data.colors.bgColorHex;
-    bgColorItem.append(bgSwatch, doc.createTextNode(data.colors.bgColorHex));
+    bgChip.append(bgSwatch, doc.createTextNode(data.colors.bgColorHex));
+    bgColorItem.append(bgLabel, bgChip);
 
     swatches.append(textColorItem, bgColorItem);
 
     const ratioBox = doc.createElementNS(HTML_NS, "div");
     ratioBox.className = "whimsy-contrast-ratio-box";
+
+    const ratioLabel = doc.createElementNS(HTML_NS, "span");
+    ratioLabel.className = "whimsy-contrast-label";
+    ratioLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-contrast-ratio");
+    doc.l10n.setAttributes(ratioLabel, "whimsy-element-contrast-ratio");
+
+    const ratioValues = doc.createElementNS(HTML_NS, "div");
+    ratioValues.className = "whimsy-contrast-values";
 
     const ratio = doc.createElementNS(HTML_NS, "span");
     ratio.className = "whimsy-contrast-ratio";
@@ -529,7 +565,8 @@ export const WhimsyInspector = {
     badge.textContent = lazy.l10n.formatValueSync("whimsy-element-wcag-badge", { rating: data.colors.rating });
     doc.l10n.setAttributes(badge, "whimsy-element-wcag-badge", { rating: data.colors.rating });
 
-    ratioBox.append(ratio, badge);
+    ratioValues.append(ratio, badge);
+    ratioBox.append(ratioLabel, ratioValues);
     cRow.append(swatches, ratioBox);
     contrastCard.append(cRow);
     body.append(contrastCard);

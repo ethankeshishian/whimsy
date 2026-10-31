@@ -284,7 +284,7 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
       colors: {
         textColorHex,
         bgColorHex,
-        contrastRatio: (Math.round(ratio * 10) / 10).toFixed(1) + ":1",
+        contrastRatio: (Math.floor(ratio * 100) / 100).toFixed(2) + ":1",
         passAA,
         passAAA,
         rating: passAAA ? "AAA" : (passAA ? "AA" : "Fail"),
@@ -343,10 +343,16 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
       selectedChip.className = "whimsy-picker-chip";
       selectedOutline.append(selectedChip);
 
-      overlay.append(hoverOutline, selectedOutline);
+      const hintPill = doc.createElement("div");
+      hintPill.className = "whimsy-picker-instruction-pill";
+      const hintText = lazy.l10n.formatValueSync("whimsy-element-gap-hint") || "Hold Option or click another element to measure gap";
+      hintPill.textContent = `${hintText} · Esc to stop`;
+
+      overlay.append(hoverOutline, selectedOutline, hintPill);
       root.append(link, overlay);
 
       this._overlay = overlay;
+      this._hintPill = hintPill;
       this._hoverOutline = hoverOutline;
       this._hoverChip = hoverChip;
       this._selectedOutline = selectedOutline;
@@ -392,6 +398,7 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
     this._hoverChip = null;
     this._selectedOutline = null;
     this._selectedChip = null;
+    this._hintPill = null;
     this._clearGapGuides();
   }
 

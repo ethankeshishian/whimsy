@@ -53,11 +53,16 @@ add_task(async function test_element_inspector_picker_and_box_model() {
   ok(panel, "Element inspector panel was opened");
   is(panel.getAttribute("size"), "medium", "Panel uses medium sheet width");
 
-  // Check selector header
+  // Check selector header and tag tooltip
   const tag = panel.querySelector(".whimsy-element-tag");
-  ok(tag?.textContent.includes("box-card"), `Tag contains selector: ${tag?.textContent}`);
+  is(tag?.textContent, "<div>", "Tag shows clean element tag name");
+  is(tag?.title, "#box-card", "Tag tooltip shows full CSS selector");
 
-  // Check Box Model concentric values
+  // Check Box Model section heading and concentric values
+  const boxModelHeading = panel.querySelector(".whimsy-inspector-section-heading");
+  ok(boxModelHeading, "Box model section heading exists");
+  is(boxModelHeading?.getAttribute("data-l10n-id"), "whimsy-element-box-model", "Box model heading has data-l10n-id");
+
   const boxModel = panel.querySelector(".whimsy-box-model-container");
   ok(boxModel, "Box model container exists");
 
@@ -73,12 +78,23 @@ add_task(async function test_element_inspector_picker_and_box_model() {
   const contentBox = panel.querySelector(".whimsy-box-content");
   ok(contentBox?.textContent.includes("220 × 120"), `Content dimensions are 220 × 120: ${contentBox?.textContent}`);
 
-  // Check Colours and Contrast ratio
+  // Check Colors and Contrast card labels and ratio
   const contrastCard = panel.querySelector(".whimsy-contrast-card");
   ok(contrastCard, "Contrast card exists");
 
+  const colorsHeading = contrastCard.querySelector(".whimsy-inspector-section-heading");
+  ok(colorsHeading, "Colors section heading exists");
+  is(colorsHeading?.getAttribute("data-l10n-id"), "whimsy-element-colors-heading", "Colors heading has data-l10n-id");
+
+  const chipLabels = Array.from(contrastCard.querySelectorAll(".whimsy-color-chip-label"));
+  ok(chipLabels.some(l => l.getAttribute("data-l10n-id") === "whimsy-element-text-color"), "Text color label exists");
+  ok(chipLabels.some(l => l.getAttribute("data-l10n-id") === "whimsy-element-bg-color"), "Background color label exists");
+
+  const ratioLabel = contrastCard.querySelector(".whimsy-contrast-label");
+  is(ratioLabel?.getAttribute("data-l10n-id"), "whimsy-element-contrast-ratio", "Contrast ratio label has data-l10n-id");
+
   const ratio = panel.querySelector(".whimsy-contrast-ratio");
-  ok(ratio?.textContent.includes(":1"), `Contrast ratio is displayed: ${ratio?.textContent}`);
+  is(ratio?.textContent, "21.00:1", "Contrast ratio is truncated to two decimal places: 21.00:1");
 
   const badge = panel.querySelector(".whimsy-wcag-badge");
   ok(badge?.classList.contains("pass"), "WCAG badge shows pass for black on white");

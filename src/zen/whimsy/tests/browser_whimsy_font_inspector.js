@@ -104,7 +104,7 @@ add_task(async function test_inspect_font_popover_and_values() {
   ok(rowLabels.includes("Weight"), "Weight row exists");
   ok(rowLabels.includes("Line Height"), "Line Height row exists");
   ok(rowLabels.includes("Letter Spacing"), "Letter Spacing row exists");
-  ok(rowLabels.includes("Colour"), "Colour row exists");
+  ok(rowLabels.includes("Color"), "Color row exists");
 
   // Check copy hint on rows
   const copyHints = Array.from(panel.querySelectorAll(".whimsy-copy-hint"));
@@ -118,7 +118,7 @@ add_task(async function test_inspect_font_popover_and_values() {
   const weightRow = rows.find(r => r.querySelector(".whimsy-font-prop-label")?.textContent === "Weight");
   ok(weightRow?.textContent.includes("700"), "Weight shows 700");
 
-  const colorRow = rows.find(r => r.querySelector(".whimsy-font-prop-label")?.textContent === "Colour");
+  const colorRow = rows.find(r => r.querySelector(".whimsy-font-prop-label")?.textContent === "Color");
   ok(colorRow?.textContent.includes("#FF0000"), "Color shows #FF0000 hex");
   const swatch = colorRow?.querySelector(".whimsy-color-swatch");
   ok(swatch, "Color swatch element exists");
@@ -144,10 +144,10 @@ add_task(async function test_inspect_font_popover_and_values() {
   copyCssBtn.click();
   ok(true, "Clicked Copy CSS button");
 
-  // Test Inspect Element button
-  const inspectElBtn = Array.from(panel.querySelectorAll("button")).find(b => b.textContent === "Inspect Element");
-  ok(inspectElBtn, "Inspect Element button exists");
-  is(inspectElBtn?.getAttribute("data-l10n-id"), "whimsy-font-inspect-element", "Inspect Element button has data-l10n-id");
+  // Test Element Info button (renamed from Inspect Element to prevent DevTools clash)
+  const inspectElBtn = Array.from(panel.querySelectorAll("button")).find(b => b.getAttribute("data-l10n-id") === "whimsy-font-inspect-element");
+  ok(inspectElBtn, "Element Info button exists");
+  is(inspectElBtn?.textContent, "Element Info", "Button text is Element Info");
 
   // Close popover
   panel.hidePopup();
