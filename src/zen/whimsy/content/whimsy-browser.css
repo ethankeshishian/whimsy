@@ -474,27 +474,32 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 }
 
-/* Hex colors: Zen's custom color row (a stretched native color well, a
-   0-1 number spinner and a bare + button) becomes one field, like Arc's and
-   Figma's: a round swatch (the well, still clickable), the hex text and an
-   add button inside one bordered pill. The hex carries opacity (#RRGGBBAA),
-   so Zen's spinner hides; it stays in the DOM because Zen's addCustomColor
-   reads it, and the hex field writes the alpha into it. */
+/* Hex colors (WhimsyHexPicker): Zen's custom color row (a stretched native
+   color well, a 0-1 number spinner and a bare + button) becomes one field,
+   like Arc's and Figma's: a round swatch (the well, still clickable), the
+   hex text, copy and "new color" inside one bordered pill. The hex carries
+   opacity (#RRGGBBAA), so Zen's spinner hides; it stays in the DOM because
+   Zen's addCustomColor reads it. Edits are live, so the color being edited
+   is marked in the list below. */
 #zen-theme-picker-color > hbox:has(> #whimsy-hex-input:not([hidden])) {
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-height: 32px;
   padding-inline: 6px 3px;
   border: 1px solid var(--zen-input-border-color);
   border-radius: var(--border-radius-medium);
   background: var(--zen-colors-input-bg);
-  transition: border-color 120ms ease-out;
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition: border-color 120ms ease-out;
+  }
 
   &:focus-within {
     outline: var(--focus-outline);
     outline-offset: var(--focus-outline-inset);
   }
 
+  /* Quiet: the border only; the theme keeps the last good color. */
   &:has(> #whimsy-hex-input[invalid]) {
     border-color: light-dark(#d70022, #ff848b);
   }
@@ -514,13 +519,18 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
       border: 1px solid light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.2));
       border-radius: 50%;
     }
+
+    &:focus-visible {
+      outline: var(--focus-outline);
+      outline-offset: 1px;
+    }
   }
 
   & > #PanelUI-zen-gradient-generator-custom-opacity {
     display: none;
   }
 
-  & > #PanelUI-zen-gradient-generator-color-custom-add {
+  & > :is(#PanelUI-zen-gradient-generator-color-custom-add, #whimsy-hex-copy) {
     flex: none;
     margin: 0;
     padding: 4px !important;
@@ -544,6 +554,75 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 
   &::placeholder {
     text-transform: none;
+  }
+}
+
+#whimsy-hex-copy {
+  list-style-image: url("chrome://browser/skin/zen-icons/edit-copy.svg");
+
+  &[copied] {
+    list-style-image: url("chrome://global/skin/icons/check.svg");
+  }
+
+  & > .toolbarbutton-icon {
+    width: 14px;
+    height: 14px;
+    -moz-context-properties: fill, fill-opacity;
+    fill: currentColor;
+    fill-opacity: 0.7;
+  }
+
+  &:hover > .toolbarbutton-icon {
+    fill-opacity: 1;
+  }
+
+  & > .toolbarbutton-text {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    &[copied] > .toolbarbutton-icon {
+      animation: whimsy-hex-copied 180ms ease-out;
+    }
+  }
+}
+
+@keyframes whimsy-hex-copied {
+  from {
+    opacity: 0;
+    scale: 0.8;
+  }
+}
+
+/* Read by VoiceOver only. */
+#whimsy-hex-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The custom color being edited, and keyboard focus on a list color. */
+#PanelUI-zen-gradient-generator-custom-list .zen-theme-picker-custom-list-item {
+  border-radius: var(--border-radius-small);
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition: background-color 120ms ease-out;
+  }
+
+  &[whimsy-editing] {
+    background-color: var(--toolbarbutton-hover-background);
+  }
+
+  & > .zen-theme-picker-dot[role="button"] {
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: var(--focus-outline);
+      outline-offset: 2px;
+    }
   }
 }
 
