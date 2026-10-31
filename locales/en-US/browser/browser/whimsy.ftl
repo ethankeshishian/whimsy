@@ -2314,3 +2314,10 @@ whimsy-email-aliases-toast-no-field = Click into an email field first, then crea
 whimsy-action-move-to-new-space = Move to New Space…
 whimsy-menu-move-to-new-space =
     .label = New Space…
+
+## wave7/small: Teach once hints for Link hints and Instant result
+## (WhimsyTeachHints; shown only in builds with WhimsyTeach).
+## $key (string) - the hint's current shortcut
+
+whimsy-teach-link-hints = <kbd>{ $key }</kbd> puts a letter on every link. Type it to click, no mouse needed.
+whimsy-teach-instant = <kbd>{ $key }</kbd> on a search skips the results page and opens the top result.

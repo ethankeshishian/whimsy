@@ -496,3 +496,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: Move to > New Space... moves the tab or its split.
 ["browser_whimsy_move_to_new_space.js"]
+
+# wave7/small: Teach once hints for Link hints and Instant result.
+["browser_whimsy_teach_hints.js"]

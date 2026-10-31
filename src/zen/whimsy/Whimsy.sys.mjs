@@ -213,6 +213,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNewSpaceMove: "resource:///modules/whimsy/WhimsyNewSpaceMove.sys.mjs",
 });
 
+// wave7/small: Teach once hints for Link hints and Instant result.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTeachHints: "resource:///modules/whimsy/WhimsyTeachHints.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -708,6 +713,9 @@ export const Whimsy = {
         ?.then(() => lazy.WhimsyNewSpaceMove.initWindow(win))
         .catch(e => console.error("Whimsy: move-to-new-space", e))
     );
+    // wave7/small: Link hints and Instant result Teach once hints; they
+    // register only in a build that has WhimsyTeach (once per session).
+    run("teach-hints", () => lazy.WhimsyTeachHints.init());
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
