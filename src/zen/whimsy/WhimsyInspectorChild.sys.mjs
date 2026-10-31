@@ -459,7 +459,36 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
     if (!this._overlay) {
       return;
     }
-    const doc = this.document;
+
+    // Nested case: one element inside the other
+    const r2InR1 = r2.left >= r1.left && r2.right <= r1.right && r2.top >= r1.top && r2.bottom <= r1.bottom;
+    const r1InR2 = r1.left >= r2.left && r1.right <= r2.right && r1.top >= r2.top && r1.bottom <= r2.bottom;
+    const outer = r2InR1 ? r1 : (r1InR2 ? r2 : null);
+    const inner = r2InR1 ? r2 : (r1InR2 ? r1 : null);
+
+    if (outer && inner) {
+      const topGap = Math.round(inner.top - outer.top);
+      if (topGap > 2) {
+        const midX = Math.round(inner.left + inner.width / 2);
+        this._createGapGuide(midX, outer.top, 0, topGap, `${topGap}px`);
+      }
+      const bottomGap = Math.round(outer.bottom - inner.bottom);
+      if (bottomGap > 2) {
+        const midX = Math.round(inner.left + inner.width / 2);
+        this._createGapGuide(midX, inner.bottom, 0, bottomGap, `${bottomGap}px`);
+      }
+      const leftGap = Math.round(inner.left - outer.left);
+      if (leftGap > 2) {
+        const midY = Math.round(inner.top + inner.height / 2);
+        this._createGapGuide(outer.left, midY, leftGap, 0, `${leftGap}px`);
+      }
+      const rightGap = Math.round(outer.right - inner.right);
+      if (rightGap > 2) {
+        const midY = Math.round(inner.top + inner.height / 2);
+        this._createGapGuide(inner.right, midY, rightGap, 0, `${rightGap}px`);
+      }
+      return;
+    }
 
     // Horizontal gap:
     if (r2.left >= r1.right) {

@@ -604,3 +604,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave9: Font Inspector ("What Font Is This?").
 ["browser_whimsy_font_inspector.js"]
+
+# wave9: Element inspector lite.
+["browser_whimsy_element_inspector.js"]
