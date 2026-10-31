@@ -621,3 +621,5 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 ["browser_whimsy_security_ext_private.js"]
 # wave9/secfix H2: Fire, Clear History and Forget About This Site purge the Archive and Snooze stores.
 ["browser_whimsy_security_purge_stores.js"]
+# wave9/secfix M1: a sandboxed (null-principal) private page, or a Glance owned by a private tab, opens private tabs.
+["browser_whimsy_security_sandboxed_private.js"]
