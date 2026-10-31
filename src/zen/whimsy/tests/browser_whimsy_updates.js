@@ -356,3 +356,89 @@ add_task(async function test_updated_notice_has_no_rollback_row() {
     notification.remove();
   }
 });
+
+// security-full-3 M3 follow-up: an install only takes updates from its own
+// channel. The compiled updater accepts both channels' MAR IDs (switching
+// channel in Settings must keep working), so Firefox's download check asks
+// WhimsyUpdates.acceptsMar, which reads the MAR's signed product information.
+function fakeMar(channel, version = "20261101.120000", { signatures = 1 } = {}) {
+  const info = new TextEncoder().encode(`${channel}\0${version}\0`);
+  const parts = [];
+  const u32 = n => {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, n);
+    return b;
+  };
+  parts.push(new TextEncoder().encode("MAR1"), u32(0), new Uint8Array(8), u32(signatures));
+  for (let i = 0; i < signatures; i++) {
+    parts.push(u32(2), u32(512), new Uint8Array(512).fill(7)); // RSA-PKCS1-SHA384, 4096-bit
+  }
+  if (channel !== null) {
+    parts.push(u32(1), u32(8 + info.length), u32(1), info);
+  } else {
+    parts.push(u32(0));
+  }
+  parts.push(new Uint8Array(64)); // the index and content would follow
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.length;
+  }
+  return out;
+}
+
+add_task(async function test_update_only_from_own_channel() {
+  const tmp = PathUtils.join(PathUtils.tempDir, `whimsy-mar-${Date.now()}`);
+  await IOUtils.makeDirectory(tmp);
+  registerCleanupFunction(() => IOUtils.remove(tmp, { recursive: true }));
+  const write = async (name, bytes) => {
+    const path = PathUtils.join(tmp, name);
+    await IOUtils.write(path, bytes);
+    return path;
+  };
+  const dev = await write("dev.mar", fakeMar("whimsy-dev"));
+  const rel = await write("release.mar", fakeMar("whimsy-release", "20261101.120000", { signatures: 2 }));
+  const legacy = await write("legacy.mar", fakeMar("release"));
+  const none = await write("none.mar", fakeMar(null));
+  const junk = await write("junk.mar", new TextEncoder().encode("<html>not a MAR</html>"));
+  const truncated = await write("truncated.mar", fakeMar("whimsy-dev").subarray(0, 40));
+
+  Assert.deepEqual(
+    WhimsyUpdates.readMarProductInfo(rel),
+    { channel: "whimsy-release", version: "20261101.120000" },
+    "Reads the signed channel ID and version past the signatures"
+  );
+
+  ok(WhimsyUpdates.acceptsMar(dev, "dev"), "Dev takes a Dev MAR");
+  ok(!WhimsyUpdates.acceptsMar(rel, "dev"), "Dev refuses a Release MAR");
+  ok(WhimsyUpdates.acceptsMar(rel, "release"), "Release takes a Release MAR");
+  ok(!WhimsyUpdates.acceptsMar(dev, "release"), "Release refuses a Dev MAR");
+  ok(!WhimsyUpdates.acceptsMar(none, "release"), "A MAR without product information is refused");
+  ok(!WhimsyUpdates.acceptsMar(junk, "release"), "Something that isn't a MAR is refused");
+  ok(!WhimsyUpdates.acceptsMar(truncated, "dev"), "A truncated MAR is refused");
+  ok(!WhimsyUpdates.acceptsMar(PathUtils.join(tmp, "missing.mar"), "dev"), "A missing file is refused");
+
+  // The bridge: builds signed with the old shared ID, on either channel.
+  ok(WhimsyUpdates.acceptsMar(legacy, "dev"), "While bridging, Dev takes the old shared ID");
+  ok(WhimsyUpdates.acceptsMar(legacy, "release"), "While bridging, Release takes the old shared ID");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.update.accept-legacy-mar-channel", false]] });
+  ok(!WhimsyUpdates.acceptsMar(legacy, "release"), "After the bridge, the old shared ID is refused");
+  ok(WhimsyUpdates.acceptsMar(rel, "release"), "…and the channel's own ID still works");
+  await SpecialPowers.popPrefEnv();
+
+  // The default is the channel chosen in Settings.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.update-channel", "dev"]] });
+  ok(WhimsyUpdates.acceptsMar(dev), "The Settings channel (Dev) is the default");
+  ok(!WhimsyUpdates.acceptsMar(rel), "…so a Release MAR is refused on a Dev install");
+  await SpecialPowers.popPrefEnv();
+
+  // Firefox's downloader consults it before keeping a download
+  // (whimsy-UpdateService-sys-mjs.patch, Downloader._verifyDownload).
+  const source = await (await fetch("resource://gre/modules/UpdateService.sys.mjs")).text();
+  const verify = source.slice(source.indexOf("_verifyDownload() {"));
+  ok(
+    /WhimsyUpdates\.acceptsMar\(destination\.path\)/.test(verify.slice(0, 2500)),
+    "Downloader._verifyDownload refuses a MAR WhimsyUpdates doesn't accept"
+  );
+});

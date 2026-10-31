@@ -23,6 +23,11 @@ const CHANNEL_PREF = "whimsy.update-channel";
 const AUTO_PREF = "app.update.auto";
 const UPDATE_JOB = "app.whimsy.updater";
 const APPLY_JOB = "app.whimsy.applier";
+// security-full-3 M3: the MAR channel check (acceptsMar).
+const LEGACY_MAR_PREF = "whimsy.update.accept-legacy-mar-channel";
+const LEGACY_MAR_CHANNEL = "release";
+// Enough for the header, up to 8 signatures and the product information.
+const MAR_HEADER_READ = 64 * 1024;
 
 export const WhimsyUpdates = {
   // Overridable for tests.
@@ -157,6 +162,105 @@ export const WhimsyUpdates = {
       stale.push(downloading);
     }
     return stale;
+  },
+
+  // An install only takes updates from its own channel (security-full-3 M3).
+  // The compiled updater can't tell: both channels' IDs are compiled in, so
+  // switching channel in Settings keeps working, and it only refuses older
+  // builds. So Firefox's download check (whimsy-UpdateService-sys-mjs.patch,
+  // Downloader._verifyDownload) asks here before a downloaded MAR is kept:
+  // its signed channel ID must be whimsy-<the channel chosen in Settings>.
+  // The pre-wave-9 shared ID "release" stays accepted while
+  // whimsy.update.accept-legacy-mar-channel is on: publish.py signs every
+  // MAR with it while mar_channel_bridge is on (older installs accept only
+  // it), and those bridge builds are newer than any MAR signed before.
+  // The updater binary checks the same signed header against the signature,
+  // so this reads only what it will verify. Synchronous: _verifyDownload is.
+  acceptsMar(path, channel = this.channel) {
+    let info;
+    try {
+      info = this.readMarProductInfo(path);
+    } catch (e) {
+      console.warn("Whimsy: unreadable update MAR, refused", e);
+      return false;
+    }
+    const accepted = [`whimsy-${channel}`];
+    if (Services.prefs.getBoolPref(LEGACY_MAR_PREF, true)) {
+      accepted.push(LEGACY_MAR_CHANNEL);
+    }
+    if (!info || !accepted.includes(info.channel)) {
+      console.warn(`Whimsy: refused an update for MAR channel ${info?.channel} on the ${channel} channel`);
+      return false;
+    }
+    return true;
+  },
+
+  // The product information block of a MAR (modules/libmar mar_read.c): the
+  // signed channel ID and product version, or null if it has none.
+  readMarProductInfo(path) {
+    const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    file.initWithPath(path);
+    const size = Math.min(file.fileSize, MAR_HEADER_READ);
+    const stream = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(Ci.nsIFileInputStream);
+    stream.init(file, -1, -1, 0);
+    let bytes;
+    try {
+      const binary = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
+      binary.setInputStream(stream);
+      bytes = new Uint8Array(binary.readByteArray(size));
+    } finally {
+      stream.close();
+    }
+    return this.parseMarProductInfo(bytes);
+  },
+
+  parseMarProductInfo(bytes) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const need = (at, n) => {
+      if (at + n > bytes.byteLength) {
+        throw new Error("truncated MAR header");
+      }
+    };
+    need(0, 4);
+    if (String.fromCharCode(...bytes.subarray(0, 4)) != "MAR1") {
+      throw new Error("not a MAR");
+    }
+    // MAR1, offset to index (u32), file size (u64), then the signatures.
+    let at = 16;
+    need(at, 4);
+    const signatures = view.getUint32(at);
+    at += 4;
+    if (signatures > 8) {
+      throw new Error("too many signatures");
+    }
+    for (let i = 0; i < signatures; i++) {
+      need(at, 8);
+      at += 8 + view.getUint32(at + 4); // algorithm id, length, signature
+    }
+    need(at, 4);
+    const blocks = view.getUint32(at);
+    at += 4;
+    for (let i = 0; i < blocks && i < 16; i++) {
+      need(at, 8);
+      const blockSize = view.getUint32(at);
+      const id = view.getUint32(at + 4);
+      if (blockSize < 8 || blockSize - 8 > 96) {
+        throw new Error("bad additional block");
+      }
+      if (id == 1) {
+        need(at + 8, blockSize - 8);
+        const data = bytes.subarray(at + 8, at + blockSize);
+        const end = data.indexOf(0);
+        const end2 = end < 0 ? -1 : data.indexOf(0, end + 1);
+        if (end < 0 || end2 < 0) {
+          throw new Error("bad product information block");
+        }
+        const text = b => String.fromCharCode(...b);
+        return { channel: text(data.subarray(0, end)), version: text(data.subarray(end + 1, end2)) };
+      }
+      at += blockSize;
+    }
+    return null;
   },
 
   async setAutoInstall(auto_install) {

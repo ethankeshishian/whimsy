@@ -18,6 +18,11 @@
 - name: whimsy.update-channel
   value: "release"
 
+# Accept updates signed with the pre-wave-9 shared MAR channel ID "release"
+# (WhimsyUpdates.acceptsMar). Turn off once mar_channel_bridge is off.
+- name: whimsy.update.accept-legacy-mar-channel
+  value: true
+
 # The install the post-update notice was last shown for.
 - name: whimsy.updates.seen-install
   value: ""
