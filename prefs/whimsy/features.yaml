@@ -486,6 +486,9 @@
 - name: whimsy.feature.menu-prefs
   value: true
 
+- name: whimsy.feature.macos-focus
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

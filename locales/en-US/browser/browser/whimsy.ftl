@@ -2945,3 +2945,6 @@ whimsy-menus-split-pane-mute =
     .label = Mute
 whimsy-menus-split-pane-copy-markdown =
     .label = Copy link as Markdown
+## wave7/native1: Add to Calendar saves straight into macOS Calendar
+
+whimsy-verb-calendar-added-toast = Added to Calendar

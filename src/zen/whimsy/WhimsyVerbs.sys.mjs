@@ -404,8 +404,14 @@ const BUILT_IN = [
     isAvailable: (win, s) => !!s.event,
     async run(win, s) {
       const event = { ...s.event, title: s.event.title || firstLine(s.title), description: `${s.text}\n\n${s.url}`, url: s.url };
-      // An .ics opened with the system: Calendar on macOS shows its "add
-      // event" sheet. (Whimsy's EventKit component only reads events.)
+      // wave7/native1: straight into macOS Calendar through EventKit
+      // (asks for write-only access the first time). Without it (denied,
+      // another platform, an error) an .ics opened with the system:
+      // Calendar on macOS shows its "add event" sheet.
+      if (await WhimsyVerbs.addToSystemCalendar(event)) {
+        win.gZenUIManager?.showToast?.("whimsy-verb-calendar-added-toast");
+        return;
+      }
       const path = PathUtils.join(PathUtils.tempDir, `whimsy-event-${Date.now()}.ics`);
       await IOUtils.writeUTF8(path, buildICS(event));
       WhimsyVerbs.launchFile(path);
@@ -558,6 +564,63 @@ export const WhimsyVerbs = {
     const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     file.initWithPath(path);
     file.launch();
+  },
+  // wave7/native1: macOS Calendar's EventKit component (calendar/), or
+  // null where it isn't built. Tests replace this with a mock.
+  calendarService() {
+    try {
+      return Cc["@whimsy/calendar;1"]?.getService(Ci.nsIWhimsyCalendar) ?? null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  /**
+   * Adds the event to macOS Calendar. Resolves true once it's saved; false
+   * when the person said no (now or before), there's no calendar component,
+   * or saving failed, so the caller falls back to an .ics file.
+   *
+   * @param {{start: Date, end: Date, allDay: boolean, title: string, description?: string, url?: string}} event
+   */
+  async addToSystemCalendar(event) {
+    const service = this.calendarService();
+    if (!service) {
+      return false;
+    }
+    const call = (method, ...args) =>
+      new Promise(resolve => service[method](...args, (ok, result) => resolve({ ok, result })));
+    try {
+      let status = service.authorizationStatus;
+      if (status == "notDetermined") {
+        // The person picked "Add to Calendar": this is when to ask.
+        const answer = await call("requestWriteAccess");
+        if (!answer.ok) {
+          return false;
+        }
+        status = answer.result;
+      }
+      if (status != "fullAccess" && status != "writeOnly") {
+        return false;
+      }
+      const saved = await call(
+        "addEvent",
+        JSON.stringify({
+          title: event.title || "",
+          start: event.start.getTime(),
+          end: event.end.getTime(),
+          allDay: !!event.allDay,
+          notes: event.description || "",
+          url: /^https?:/.test(event.url ?? "") ? event.url : "",
+        })
+      );
+      if (!saved.ok) {
+        console.warn("Whimsy: Add to Calendar fell back to a file:", saved.result);
+      }
+      return saved.ok;
+    } catch (e) {
+      console.error("Whimsy: Add to Calendar", e);
+      return false;
+    }
   },
   linearConfigured() {
     try {

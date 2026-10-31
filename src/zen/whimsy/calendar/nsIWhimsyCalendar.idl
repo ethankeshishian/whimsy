@@ -17,16 +17,21 @@ interface nsIWhimsyCalendarCallback : nsISupports {
    *        calendar usage strings (macOS would end the app otherwise).
    *        upcomingEvents: a JSON array of events on success, otherwise a
    *        short reason such as "not-authorized".
+   *        requestWriteAccess: as requestAccess.
+   *        addEvent: the new event's identifier on success, otherwise a
+   *        short reason: "invalid-event", "not-authorized",
+   *        "no-calendar" or "save-failed".
    */
   void onComplete(in boolean success, in AUTF8String result);
 };
 
 /**
  * @brief The events in macOS Calendar (EventKit), every account it holds.
- * Only Whimsy's "Next meeting" uses it, and only once the person turns on
- * Apple Calendar there: nothing here asks for access on its own.
+ * "Next meeting" reads them once the person turns on Apple Calendar there;
+ * Cmd+K's "Add to Calendar" writes one when the person picks it. Nothing
+ * here asks for access on its own.
  */
-[scriptable, uuid(e77b034a-6433-4fda-80c3-154621ec6385)]
+[scriptable, uuid(5d0f3c2e-8b61-4f7a-a2d4-6c1e9b0f7a35)]
 interface nsIWhimsyCalendar : nsISupports {
   /**
    * @brief Whether the app may read events, without asking: one of
@@ -50,4 +55,24 @@ interface nsIWhimsyCalendar : nsISupports {
    */
   void upcomingEvents(in unsigned long hours,
                       in nsIWhimsyCalendarCallback callback);
+
+  /**
+   * @brief Ask macOS for permission to add events. On macOS 14 and later
+   * that's write-only access (the person isn't asked to share what's in
+   * their calendar); before 14 it's the one calendar permission. When the
+   * app already has full access, it answers straight away.
+   */
+  void requestWriteAccess(in nsIWhimsyCalendarCallback callback);
+
+  /**
+   * @brief Save one event to the calendar macOS uses for new events.
+   * Needs write-only or full access; never asks for it.
+   *
+   * @param eventJSON An object: title (string), start and end (ms since the
+   *        epoch), allDay (boolean), and optional notes, location and url
+   *        (strings). All-day events end on the day after their last day,
+   *        as in iCalendar; EventKit's inclusive end is worked out here.
+   */
+  void addEvent(in AUTF8String eventJSON,
+                in nsIWhimsyCalendarCallback callback);
 };

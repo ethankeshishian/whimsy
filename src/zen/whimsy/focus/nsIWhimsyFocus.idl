@@ -1,0 +1,66 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * @brief What macOS Focus (Do Not Disturb) is doing, for Whimsy's own
+ * toasts (WhimsyFocus.sys.mjs). Two sources:
+ *
+ * - Apple's API, INFocusStatusCenter (macOS 12+). It only answers apps
+ *   signed with the Communication Notifications entitlement
+ *   (com.apple.developer.usernotifications.communication), which needs a
+ *   provisioning profile from a paid Apple developer team. Whimsy is
+ *   ad-hoc signed, so today it reports "unavailable"; it starts answering
+ *   if Whimsy is ever signed with that entitlement.
+ * - Focus's own database directory (~/Library/DoNotDisturb/DB), which the
+ *   front end reads (Assertions.json: the Focus that's on, manual or
+ *   scheduled). Undocumented, so the front end treats anything it can't
+ *   read as "not focused". This component watches the directory and tells
+ *   chrome when it changes.
+ */
+[scriptable, uuid(92066105-829d-4df1-90c6-e40b6e870575)]
+interface nsIWhimsyFocus : nsISupports {
+  /**
+   * @brief Apple's answer, without asking: "focused", "notFocused", or
+   * "unavailable" (no entitlement, not authorized, or macOS before 12).
+   */
+  readonly attribute ACString systemFocusStatus;
+
+  /**
+   * @brief Whether the running app is signed with the Communication
+   * Notifications entitlement that INFocusStatusCenter needs.
+   */
+  readonly attribute boolean hasFocusEntitlement;
+
+  /**
+   * @brief INFocusStatusCenter's authorization: "notDetermined",
+   * "restricted", "denied", "authorized", or "unavailable" (no
+   * entitlement, or macOS before 12: Apple's API isn't touched then).
+   */
+  readonly attribute ACString authorizationStatus;
+
+  /**
+   * @brief Ask macOS to share Focus status (Info.plist's
+   * NSFocusStatusUsageDescription). Without the entitlement it asks
+   * nothing, so it never shows a prompt that can't be granted. Either way
+   * it notifies "whimsy-focus-changed" with data "system" once there's an
+   * answer (straight away, on a later turn, when nothing was asked).
+   */
+  void requestAuthorization();
+
+  /**
+   * @brief Watch a directory (Focus's database) for changes, off the main
+   * thread (FSEvents). Each change, coalesced over about half a second,
+   * notifies observers of "whimsy-focus-changed" on the main thread with
+   * data "database". Watching a new directory stops watching the old one.
+   */
+  void startWatching(in AString directory);
+
+  /** @brief Stop watching. Safe to call when not watching. */
+  void stopWatching();
+
+  /** @brief Whether a directory is being watched. */
+  readonly attribute boolean watching;
+};
