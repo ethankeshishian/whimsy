@@ -40,6 +40,21 @@ ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whim
 
 const FEATURE_PREF = "whimsy.feature.page-dev";
 const ACTOR = "WhimsyPageDev";
+
+// The page's replies are untrusted: a compromised page process could send
+// anything. Only a PNG data URL may become a chrome mask image (never a URL
+// the chrome would fetch), and only a hex colour a chrome colour.
+function safeImage(image) {
+  if (typeof image?.url != "string" || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image.url)) {
+    return null;
+  }
+  const size = n => Math.min(2000, Math.max(0, Math.round(Number(n) || 0)));
+  return { url: image.url, width: size(image.width), height: size(image.height) };
+}
+
+function safeColor(value) {
+  return typeof value == "string" && /^#[0-9a-f]{3,8}$/i.test(value) ? value : "transparent";
+}
 const SHEET = "chrome://browser/content/whimsy/whimsy-pagedev.css";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const ICON = name => `chrome://browser/skin/zen-icons/${name}.svg`;
@@ -160,6 +175,10 @@ export const WhimsyPageDev = {
         parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageDevParent.sys.mjs" },
         child: { esModuleURI: "resource:///modules/whimsy/WhimsyPageDevChild.sys.mjs" },
         matches: ["https://*/*", "http://*/*", "file:///*"],
+        // Web pages run in (untrusted) site-isolated processes; the parent
+        // only asks, and treats every reply as page data (safeImage,
+        // safeColor) before it reaches the chrome.
+        safeForUntrustedWebProcess: true,
       });
     } catch (e) {
       // Already registered in this session.
@@ -483,10 +502,11 @@ export const WhimsyPageDev = {
     sample.className = "whimsy-pagedev-sample";
     sample.setAttribute("role", "img");
     sample.setAttribute("aria-label", family.sample || family.family);
-    if (family.image?.url) {
-      sample.style.maskImage = `url("${family.image.url}")`;
-      sample.style.width = `${Math.round(family.image.width)}px`;
-      sample.style.height = `${Math.round(family.image.height)}px`;
+    const image = safeImage(family.image);
+    if (image) {
+      sample.style.maskImage = `url("${image.url}")`;
+      sample.style.width = `${image.width}px`;
+      sample.style.height = `${image.height}px`;
     } else {
       sample.classList.add("whimsy-pagedev-sample-text");
       sample.textContent = family.sample || family.family;
@@ -697,8 +717,8 @@ export const WhimsyPageDev = {
     const sample = doc.createElementNS(HTML_NS, "span");
     sample.className = "whimsy-pagedev-pair-sample";
     sample.setAttribute("aria-hidden", "true");
-    sample.style.color = pair.fg;
-    sample.style.backgroundColor = pair.bg;
+    sample.style.color = safeColor(pair.fg);
+    sample.style.backgroundColor = safeColor(pair.bg);
     sample.textContent = "Aa";
     row.querySelector(".whimsy-sheet-item-icon")?.replaceWith(sample);
 

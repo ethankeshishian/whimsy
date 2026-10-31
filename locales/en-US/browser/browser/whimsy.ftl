@@ -3680,8 +3680,14 @@ whimsy-action-translate-page = Translate Page
 
 
 ## wave9: W8-29 link lasso (Open as Tabs, Make Folder)
-whimsy-command-lasso-open-tabs = Open as Tabs
-whimsy-command-lasso-make-folder = Make Folder
+# Commands (command bar, about:keyboard): say what they act on.
+whimsy-action-lasso-open-tabs = Open Lassoed Links as Tabs
+whimsy-action-lasso-make-folder = Make Folder from Lassoed Links
+# The pill shown over the lassoed links.
+whimsy-link-lasso-pill-open-tabs = Open as Tabs
+whimsy-link-lasso-pill-make-folder = Make Folder
+# The folder's name when the page has no title or address to name it after.
+whimsy-link-lasso-untitled-folder = Links
 whimsy-link-lasso-open-toast =
     { $count ->
         [one] Opened 1 tab
@@ -3740,7 +3746,8 @@ whimsy-element-wcag-pass-aaa = WCAG AAA Pass
 whimsy-element-wcag-pass-aa = WCAG AA Pass
 whimsy-element-wcag-fail = WCAG Fail
 whimsy-element-gap-heading = Gap Measurement
-whimsy-element-gap-hint = Hold Option or click another element to measure gap
+# The pill shown while picking an element on the page.
+whimsy-element-picker-hint = Hold Option or click another element to measure gap · Esc to stop
 whimsy-element-gap-toast = Gap: { $gapX }px horizontal, { $gapY }px vertical
 whimsy-element-pick-button = Pick Element
 whimsy-element-pick-another = Pick Another

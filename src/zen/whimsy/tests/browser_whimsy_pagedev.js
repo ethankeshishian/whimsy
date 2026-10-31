@@ -286,11 +286,16 @@ add_task(async function test_built_with() {
 
 add_task(async function test_private_window() {
   const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  // Popups only finish opening in a window that has painted and has focus.
+  await SimpleTest.promiseFocus(win);
   const tab = await openPage(win);
   WhimsyPageDev.showColors(win);
   const panel = await waitOpen("whimsy-pagedev-colors-panel", win);
   ok(panel.querySelectorAll(".whimsy-pagedev-color").length, "Works in a private window");
-  await closeSheet(panel);
+  // (Esc closing a sheet is covered above, in the main window.)
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  panel.hidePopup();
+  await hidden;
   is(Services.prefs.getChildList("whimsy.pagedev").length, 0, "Nothing is stored");
   BrowserTestUtils.removeTab(tab);
   await BrowserTestUtils.closeWindow(win);
