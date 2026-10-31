@@ -2330,3 +2330,12 @@ whimsy-changelog-dev-build = Update
 ## wave7/small: Search Linear before Whimsy knows the Linear workspace.
 
 whimsy-verb-linear-copied-toast = Copied your search. Press / in Linear to paste it.
+
+## wave7/small: the idle archive sweep's toast (with Undo).
+## $count (number) - how many tabs were archived
+
+whimsy-archive-swept-toast =
+    { $count ->
+        [one] Archived a tab you hadn’t used in a while
+       *[other] Archived { $count } tabs you hadn’t used in a while
+    }

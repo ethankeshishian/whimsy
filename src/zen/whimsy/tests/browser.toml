@@ -505,3 +505,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: Search Linear's URL (linear.app/<workspace>/search?q=).
 ["browser_whimsy_linear_search_url.js"]
+
+# wave7/small: the archive sweep's Undo toast.
+["browser_whimsy_archive_sweep_undo.js"]
