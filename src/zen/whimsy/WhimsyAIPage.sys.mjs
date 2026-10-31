@@ -25,14 +25,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
+  WhimsyLinkHover: "resource:///modules/whimsy/WhimsyLinkHover.sys.mjs",
 });
 
 const ASK_PREF = "whimsy.feature.ask-on-page";
 const PREVIEW_PREF = "whimsy.feature.link-previews";
 const HTML = "http://www.w3.org/1999/xhtml";
 const ASK_PANEL_ID = "whimsy-ask-panel";
-const PREVIEW_PANEL_ID = "whimsy-preview-card";
-const LEAVE_GRACE_MS = 220;
 const PREVIEW_CACHE_MAX = 40;
 const PREVIEW_CACHE_MS = 30 * 60 * 1000;
 
@@ -274,60 +273,85 @@ export const WhimsyAIPage = {
 
   // ---- 5-second previews ----
 
+  // wave7/ux: the AI summary is the second card of the link hover host
+  // (WhimsyLinkHover): it opens and closes with the people or link card,
+  // stacked beneath it, never as a popup of its own.
+
   /**
-   * Shows the preview card for a link (from WhimsyAIPreviewParent).
+   * A link to preview (from WhimsyAIPreviewParent): handed to the host.
    *
    * @param {ChromeWindow} win
    * @param {MozBrowser} browser The tab's browser.
-   * @param {{ url: string, how: "shift" | "hover", x: number, y: number, width: number, height: number }} data
+   * @param {{ url: string, how: "shift" | "hover", title?: string, x: number, y: number, width: number, height: number }} data
    */
   async showPreview(win, browser, data) {
-    const state = windows.get(win);
-    if (!state || !this.previewsEnabled || !lazy.WhimsyAIReader.isReadableUrl(data?.url)) {
-      return;
+    lazy.WhimsyLinkHover.forWindow(win).enter({ ...data, source: "link", browser });
+  },
+
+  /**
+   * Whether the hover host adds the AI card for this link, and how:
+   * "ready" (summarize), "not-ready" or "blocked" (say what's missing, only
+   * for a deliberate Shift), or null for no AI card.
+   */
+  async previewMode(browser, url, how) {
+    if (!this.previewsEnabled || !lazy.WhimsyAIReader.isReadableUrl(url)) {
+      return null;
     }
     // Private pages are never fetched behind the scenes.
     if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
+      return null;
+    }
+    // wave7/security M5: resting on a link (nobody asked) reads public
+    // pages only, without the person's cookies; Shift reads with the tab's
+    // session. A non-public page gets no automatic card at all.
+    if (how != "shift" && !lazy.WhimsyAIReader.isPublicUrl(url)) {
+      return null;
+    }
+    // Resting on a link only works once a provider is set up; a deliberate
+    // Shift-hover says what's missing.
+    if (await lazy.WhimsyAIProviders.isReady()) {
+      return "ready";
+    }
+    if (how != "shift") {
+      return null;
+    }
+    return lazy.WhimsyAIProviders.enabled ? "not-ready" : "blocked";
+  },
+
+  /**
+   * Fills the AI card: loading lines, then the summary (or why not).
+   *
+   * @param {ChromeWindow} win
+   * @param {Element} container The AI card's body.
+   * @param {{ url: string, browser: MozBrowser, mode: string, how: string, signal: AbortSignal }} o
+   */
+  async fillPreview(win, container, { url, browser, mode, how, signal }) {
+    if (mode != "ready") {
+      this.renderPreview(win, container, { url, error: mode });
       return;
     }
-    // Resting on a search result only works once a provider is set up; a
-    // deliberate Shift-hover says what's missing.
-    const ready = await lazy.WhimsyAIProviders.isReady();
-    if (!ready && data.how != "shift") {
-      return;
-    }
-    if (state.preview?.url == data.url && state.preview.browser == browser) {
-      win.clearTimeout(state.preview.leaveTimer);
-      return;
-    }
-    this.hidePreview(win);
-    const controller = new AbortController();
-    const preview = { url: data.url, controller, browser };
-    state.preview = preview;
-    const panel = this._previewPanel(win);
-    this.renderPreview(win, panel, { url: data.url, loading: true });
-    panel.openPopupAtScreen(Math.round(data.x), Math.round(data.y + data.height + 4), false);
-    if (!ready) {
-      this.renderPreview(win, panel, { url: data.url, error: lazy.WhimsyAIProviders.enabled ? "not-ready" : "blocked" });
-      return;
-    }
+    this.renderPreview(win, container, { url, loading: true });
+    // wave7/security M5: cookieless (anonymous) unless this card was asked
+    // for with Shift, matching previewMode's own gate above.
+    const anonymous = how != "shift";
     try {
-      const summary = await this.summarize(data.url, {
+      const summary = await this.summarize(url, {
         userContextId: browser.getAttribute("usercontextid") | 0,
-        signal: controller.signal,
+        anonymous,
+        signal,
       });
-      if (state.preview == preview && !controller.signal.aborted) {
-        this.renderPreview(win, panel, { url: data.url, ...summary });
+      if (!signal.aborted) {
+        this.renderPreview(win, container, { url, ...summary });
       }
     } catch (error) {
-      if (state.preview == preview && !controller.signal.aborted) {
-        this.renderPreview(win, panel, { url: data.url, error: error?.code || "unreadable" });
+      if (!signal.aborted) {
+        this.renderPreview(win, container, { url, error: error?.code || "unreadable" });
       }
     }
   },
 
-  async summarize(url, { userContextId = 0, signal } = {}) {
-    const cacheKey = JSON.stringify([userContextId, url]);
+  async summarize(url, { userContextId = 0, anonymous = false, signal } = {}) {
+    const cacheKey = JSON.stringify([anonymous ? "anonymous" : userContextId, url]);
     const cached = previewCache.get(cacheKey);
     if (cached && Date.now() - cached.at < PREVIEW_CACHE_MS) {
       return cached.data;
@@ -336,6 +360,7 @@ export const WhimsyAIPage = {
     try {
       page = await lazy.WhimsyAIReader.readUrl(url, {
         userContextId,
+        anonymous,
         signal,
         removeBoilerplate: true,
         sufficientLength: 15000,
@@ -376,71 +401,11 @@ export const WhimsyAIPage = {
   },
 
   leavePreview(win, url) {
-    const state = windows.get(win);
-    const preview = state?.preview;
-    if (!preview || (url && preview.url != url)) {
-      return;
-    }
-    win.clearTimeout(preview.leaveTimer);
-    preview.leaveTimer = win.setTimeout(() => {
-      const panel = win.document.getElementById(PREVIEW_PANEL_ID);
-      if (state.preview == preview && !panel?.matches(":hover")) {
-        this.hidePreview(win);
-      }
-    }, LEAVE_GRACE_MS);
+    lazy.WhimsyLinkHover.forWindow(win).leave(null, url);
   },
 
   hidePreview(win) {
-    const state = windows.get(win);
-    const preview = state?.preview;
-    if (preview) {
-      state.preview = null;
-      win.clearTimeout(preview.leaveTimer);
-      preview.controller.abort();
-    }
-    const panel = win.document.getElementById(PREVIEW_PANEL_ID);
-    if (panel && panel.state != "closed") {
-      panel.hidePopup();
-    }
-  },
-
-  _previewPanel(win) {
-    const doc = win.document;
-    let panel = doc.getElementById(PREVIEW_PANEL_ID);
-    if (panel) {
-      return panel;
-    }
-    panel = doc.createXULElement("panel");
-    panel.id = PREVIEW_PANEL_ID;
-    panel.className = "whimsy-ai-panel";
-    panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("consumeoutsideclicks", "false");
-    panel.setAttribute("role", "tooltip");
-    panel.addEventListener("mouseenter", () => win.clearTimeout(windows.get(win)?.preview?.leaveTimer));
-    panel.addEventListener("mouseleave", () => this.leavePreview(win));
-    panel.addEventListener("popuphidden", () => {
-      const state = windows.get(win);
-      if (state?.preview) {
-        state.preview.controller.abort();
-        state.preview = null;
-      }
-    });
-    // Clicking the card opens the link, like clicking the link would.
-    panel.addEventListener("click", event => {
-      const preview = windows.get(win)?.preview;
-      if (preview && event.button == 0) {
-        const url = preview.url;
-        this.hidePreview(win);
-        win.openTrustedLinkIn(url, "current");
-      }
-    });
-    win.addEventListener("keydown", event => {
-      if (event.key == "Escape") {
-        this.hidePreview(win);
-      }
-    }, true);
-    doc.getElementById("mainPopupSet").append(panel);
-    return panel;
+    lazy.WhimsyLinkHover.forWindow(win).hide();
   },
 
   // Remote text goes in as text only, never markup.

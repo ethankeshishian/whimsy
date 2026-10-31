@@ -221,7 +221,7 @@ export class WhimsyDocConverter {
     this.text = "";
     try {
       const strings = await pageStrings(kind, text);
-      const html = renderPage({ text, kind, name: fileName(uri), strings });
+      const html = renderPage({ text, kind, name: fileName(uri), strings, local: uri.scheme == "file" });
       const buffer = new TextEncoder().encode(html).buffer;
       const stream = new BufferStream(buffer, 0, buffer.byteLength);
       listener.onDataAvailable(request, stream, 0, buffer.byteLength);

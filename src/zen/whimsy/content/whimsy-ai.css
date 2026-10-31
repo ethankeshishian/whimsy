@@ -308,3 +308,180 @@ findbar .whimsy-ask-button {
   gap: 8px;
   margin-top: 6px;
 }
+
+/* ---- wave7/ux: link hover host (WhimsyLinkHover). One popup, no surface of
+   its own, holding one or two cards of one width with one gap between them.
+   Both cards share one transition, started by [whimsy-open] on the popup,
+   so they appear and leave together. Reduced motion: no transition. ---- */
+#whimsy-link-hover {
+  appearance: none;
+  background: transparent;
+  border: none;
+  --panel-background: transparent;
+  --panel-border-color: transparent;
+  --panel-shadow: none;
+  --panel-padding: 0;
+  --panel-shadow-margin: 0;
+  --whimsy-link-hover-width: 320px;
+
+  &::part(content) {
+    appearance: none;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+}
+
+.whimsy-link-hover-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Room for the cards' shadow inside the popup's own window. */
+  padding: 2px 10px 12px;
+}
+
+.whimsy-link-hover-card {
+  box-sizing: border-box;
+  width: var(--whimsy-link-hover-width);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: var(--zen-border-radius, 10px);
+  border: 1px solid var(--arrowpanel-border-color, color-mix(in srgb, currentColor 14%, transparent));
+  background: var(--arrowpanel-background, Field);
+  color: var(--arrowpanel-color, FieldText);
+  box-shadow: 0 6px 18px color-mix(in srgb, black 16%, transparent);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  /* Closed: both cards fade out together, a little quicker than they came. */
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+  transform-origin: top center;
+  transition:
+    opacity var(--whimsy-dur-exit, 180ms) ease-in,
+    transform var(--whimsy-dur-exit, 180ms) ease-in;
+}
+
+#whimsy-link-hover[side="top"] .whimsy-link-hover-card {
+  transform: translateY(4px) scale(0.98);
+  transform-origin: bottom center;
+}
+
+#whimsy-link-hover[whimsy-open] .whimsy-link-hover-card {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--whimsy-dur-fast, 150ms) var(--whimsy-ease, ease-out),
+    transform var(--whimsy-dur-fast, 150ms) var(--whimsy-ease, ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-link-hover-card,
+  #whimsy-link-hover[side="top"] .whimsy-link-hover-card,
+  #whimsy-link-hover[whimsy-open] .whimsy-link-hover-card {
+    transform: none;
+    transition: none;
+  }
+}
+
+.whimsy-link-hover-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.whimsy-link-hover-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.whimsy-link-hover-titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.whimsy-link-hover-title {
+  font-weight: 600;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.whimsy-link-hover-url {
+  color: var(--text-color-deemphasized, GrayText);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-link-hover-path {
+  opacity: 0.75;
+}
+
+.whimsy-link-hover-card .whimsy-hover-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex: none;
+  object-fit: cover;
+}
+
+.whimsy-link-hover-card .whimsy-hover-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+/* The AI card: a quiet label, then the summary. Card 1 already names the
+   page, so the summary drops its own icon and host. */
+.whimsy-link-hover-eyebrow {
+  color: var(--text-color-deemphasized, GrayText);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.whimsy-link-hover-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  & .whimsy-preview-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  & .whimsy-preview-icon,
+  & .whimsy-preview-host {
+    display: none;
+  }
+}
+
+#whimsy-link-hover:not([whimsy-two-cards]) .whimsy-link-hover-ai {
+  & .whimsy-preview-icon,
+  & .whimsy-preview-host {
+    display: revert;
+  }
+}
+
+/* The People card (fix7/tabs' design) as card 1: it fills the shared width
+   and keeps its own roomier padding. */
+.whimsy-link-hover-card[data-card="people"] {
+  padding: 14px;
+  cursor: default;
+
+  & .whimsy-person {
+    width: auto;
+  }
+}

@@ -33,7 +33,10 @@ function fileInputFor(element) {
 // file input inside the nearest enclosing widget; with nothing focused,
 // the element you last clicked (within CLICK_MEMORY_MS). A widget with no
 // file input at all gets the file as a drop, the way dragging it in would.
-const CLICK_MEMORY_MS = 60000;
+// wave7/security L1: the click is remembered for a few seconds (click, then
+// Cmd+V), not a minute, and a drop zone is never picked by its aria-label
+// alone (a page can label everything "upload").
+const CLICK_MEMORY_MS = 5000;
 const WIDGET_DEPTH = 5;
 
 function isEditable(element) {
@@ -87,8 +90,8 @@ export function uploadTargetFor(element) {
       return null; // Several inputs: ambiguous.
     }
   }
-  // A drop zone without a file input: it says so in its class or label.
-  const zone = element.closest?.("[class*=dropzone i], [class*=drop-zone i], [data-testid*=dropzone i], [aria-label*=upload i], [aria-label*=drop i]");
+  // A drop zone without a file input: it says so in its class.
+  const zone = element.closest?.("[class*=dropzone i], [class*=drop-zone i], [data-testid*=dropzone i]");
   return zone ? { dropZone: zone } : null;
 }
 

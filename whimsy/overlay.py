@@ -534,6 +534,77 @@ HOTFIXES = [
         # (the second line closes zen-browser.app/welcome and /privacy-policy
         # tabs that profiles made by pre-46fe4b3 builds still carry)
     },
+    # wave7/keys: Arc's names for Zen's commands that Whimsy now gives a
+    # bindable key (WhimsyAccessCommands), so the command bar and
+    # about:keyboard agree.
+    {
+        "id": 'zen-string-arc-new-folder',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-new-folder = New Folder\n',
+        "new": 'zen-action-new-folder = New Folder…\n',
+    },
+    {
+        "id": 'zen-string-arc-atc',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name for this command.",
+        "old": 'zen-action-open-space-routing = Open Space Routing\n',
+        "new": 'zen-action-open-space-routing = Air Traffic Control…\n',
+    },
+    # wave7/split: Arc's split view names. Zen's tab menu item said "Split
+    # Out Tab" for the opposite of splitting, "Join N Tabs" for splitting,
+    # and the unsplit command was "Expand current view" / "Close Split View".
+    # Create = Add Split View / Open in Split View; undo = Separate Page from
+    # Split View (one pane) and Separate All Tabs (the whole split).
+    {
+        "id": 'zen-string-arc-split-tabs',
+        "file": 'locales/en-US/browser/browser/zen-split-view.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": '            [-1] Split Out Tab\n            [1] Add Split View...\n           *[other] Join { $tabCount } Tabs\n',
+        "new": '            [-1] Separate Page from Split View\n            [1] Add Split View\n           *[other] Open { $tabCount } Tabs in Split View\n',
+    },
+    {
+        "id": 'zen-string-arc-split-link',
+        "file": 'locales/en-US/browser/browser/zen-split-view.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-split-link =\n    .label = Split Link to New Tab\n',
+        "new": 'zen-split-link =\n    .label = Open Link in Split View\n',
+    },
+    {
+        "id": 'zen-string-arc-new-split',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-action-new-split-view = New Split View\n',
+        "new": 'zen-action-new-split-view = Add Split View\n',
+    },
+    {
+        "id": 'zen-string-arc-unsplit',
+        "file": 'locales/en-US/browser/browser/zen-command-palette.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-action-unsplit-view = Expand current view\n',
+        "new": 'zen-action-unsplit-view = Separate All Tabs\n',
+    },
+    {
+        "id": 'zen-string-arc-key-unsplit',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-split-view-shortcut-unsplit = Close Split View\n',
+        "new": 'zen-split-view-shortcut-unsplit = Separate All Tabs\n',
+    },
+    {
+        "id": 'zen-string-arc-key-new-split',
+        "file": 'locales/en-US/browser/browser/preferences/zen-preferences.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-new-empty-split-view-shortcut = New Empty Split View\n',
+        "new": 'zen-new-empty-split-view-shortcut = Add Split View\n',
+    },
+    {
+        "id": 'zen-string-arc-panel-new-split',
+        "file": 'locales/en-US/browser/browser/zen-workspaces.ftl',
+        "why": "Arc's name; no two different split actions share \"Split\" wording (wave7/split).",
+        "old": 'zen-panel-ui-new-empty-split =\n    .label = New Split\n',
+        "new": 'zen-panel-ui-new-empty-split =\n    .label = Add Split View\n',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -741,7 +812,7 @@ FEATURES = [
      "detect": [("src/zen/live-folders", r"(?i)rel=.alternate.*(?:rss|atom)|autodiscover")]},
 
     # batch7: input, files, nav, dev, URL schemes, delight
-    {"id": "seasonal-themes", "title": "Seasonal themes: seasonal gradients on loading indicators and balloon costumes",
+    {"id": "seasonal-themes", "title": "Seasonal touches: loading colors, balloon costumes, command bar trim, Balloon Dash and changelog art",
      # Firefox's old Colorways never shipped in this engine; this never matches.
      "detect": [("prefs", r"name:\s*browser\.theme\.colorways\.enabled")]},
     {"id": "window-close", "title": "Cmd+W on a lone empty tab closes the window (Arc); Zen already keeps the window open otherwise",
@@ -775,7 +846,7 @@ FEATURES = [
     {"id": "dev-mode", "title": "Developer mode tabs (Arc parity): localhost/port tabs get a striped outline and a top bar with Console/Network/Elements",
      "detect": [("src/zen", r"(?i)dev-?mode[\w-]*tab|whimsy-devmode")]},
     # linear: Linear live folder ("My Issues": assigned to you, open states).
-    {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, with an API-key fallback when there's no signed-in session",
+    {"id": "live-folders-linear", "title": "Linear live folder: \"My Issues\" assigned to you, open states, over your linear.app sign-in (API key optional)",
      "detect": [("src/zen/live-folders", r"(?i)linear")]},
 
     # batch7b: offline game + year in tabs (about:whimsy)
@@ -797,7 +868,7 @@ FEATURES = [
     # ext: per-space extensions (toolbar/panel visibility per space, plus
     # container-scoped tabs/webNavigation/webRequest/proxy isolation where a
     # space has its own container). Zen has nothing for this.
-    {"id": "space-extensions", "title": "Per-space extensions: \"Show in Spaces…\" on each extension's gear menu, plus per-container API isolation where a space has its own container",
+    {"id": "space-extensions", "title": "Extensions per profile: \"Run in Profiles\" on each extension's menu; outside them its tabs/webRequest/proxy APIs and content scripts are kept out (shared storage stays shared)",
      "detect": [("src/zen", r"(?i)per-?space[\w-]*extension|extension[\w-]*per-?space|space[\w-]*scoped[\w-]*extension")]},
     # batch hist: per-visit space metadata and Library filter.
     {"id": "space-history", "title": "Space-aware History: where was the tab, and filter by space",
@@ -939,9 +1010,16 @@ FEATURES = [
     # Note, Add to Calendar, Linear, and your own skills.
     {"id": "selection-verbs", "title": "Cmd+K: actions for the selected text or page (Translate, Map, Calendar, Linear, Markdown, Notes, your skills)",
      "detect": [("src/zen", r"(?i)selection-?verbs|do-?with-?selection|universal-?actions")]},
+    # wave5: redact: a toggle in the Screenshots panel that blurs emails,
+    # phones, keys/tokens and card numbers (click text to blur/unblur).
+    {"id": "redact", "title": "Redact in screenshots: blur emails, phone numbers, keys and card numbers before capturing; click text to blur it",
+     "detect": [("src/zen", r"(?i)redact")]},
     # wave5/look: a look per space (font, density, tab title lines, a Zen Mod).
     {"id": "space-look", "title": "A look per space: its own interface font, density, tab title lines and Zen Mod, switching with the space",
      "detect": [("src/zen/spaces", r"(?i)workspace\.(font|density|look)\b|space-?(font|density)")]},
+    # wave5: Easel (Arc's Easels: canvas of text, drawings, shapes, images, links, captures).
+    {"id": "easel", "title": "Easel: a canvas of text, drawings, shapes, images, links and live captures, pinned like a tab (Arc Easels)",
+     "detect": [("src/zen", r"(?i)\beasels?\b")]},
     # wave5: command registry
     {"id": "command-registry", "title": "Every Whimsy action is a named command: in the command bar and under \"Whimsy\" in Settings → Keyboard Shortcuts, so any of them can take a shortcut",
      "detect": [("src/zen", r"(?i)WHIMSY_KEY_CATEGORIES|registerKeyCategor(y|ies)|extraKeyCategories")]},
@@ -949,6 +1027,9 @@ FEATURES = [
     # and title on every tab with sound (muted included), one click mutes.
     {"id": "arc-audio-icon", "title": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
      "detect": [("src/zen", r"(?i)tab-audio-(playing|muted)\.svg|arc-?audio-?icon")]},
+    # wave5/profiles: Arc's profiles on containers (one Firefox profile/account).
+    {"id": "space-profiles", "title": "Profiles: each space belongs to a profile (a container) with its own cookies, passwords, history, Essentials, search engine, downloads and extensions, like Arc",
+     "detect": [("src/zen", r"(?i)zen[\w-]*space-?profiles|ZenProfiles\.sys|profile-?switcher")]},
     # wave6/zap: Zap as a command (Zen ships zap mode only inside the Boost
     # editor): Cmd+Shift+X, command bar, site panel, undo, space-colored dust.
     {"id": "zap", "title": "Zap: erase page elements with Cmd+Shift+X, the command bar or the site panel; undo, space-colored dust",
@@ -985,6 +1066,55 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r"(?i)dedup")]},
     {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
      "detect": [("src/zen/common", r"(?i)reveal-?tab|tabs-menubar|portrait")]},
+    # wave7/menus2: archive-tab-menu
+    {"id": "archive-tab-menu", "title": "Tab menu in Arc's words: Archive Tab, Archive Tabs Below, Restore Last Closed Tab (closed tabs go to the Archive)",
+     "detect": [("src/zen/tabs", r"(?i)archive-?tabs?-?below")]},
+    # wave7/ux: link cards. One hover host for page links: the People card
+    # or a link card, and the AI summary stacked beneath when that's on.
+    {"id": "link-cards", "title": "Link cards: Shift over a link (or rest on a result link) shows where it goes, with the AI summary beneath",
+     "detect": [("src/zen", r"(?i)zen-?link-?(hover-?)?card|zenLinkPreview")]},
+    # wave7/focus: Do Not Disturb: one command pauses site notifications
+    # (Firefox's "pause until restart"; macOS Focus already silences them
+    # through Notification Center) and holds Whimsy's unprompted toasts.
+    {"id": "do-not-disturb", "title": "Do Not Disturb: one command pauses site notifications until you turn it off or quit, and holds Whimsy's unprompted toasts",
+     "detect": [("src/zen", r"(?i)manualDoNotDisturb|suppressForScreenSharing|do-?not-?disturb")]},
+    # wave7/focus: paste guard: asks before a secret-looking paste
+    # (API key, private key, card number, JWT) reaches a web page.
+    {"id": "paste-guard", "title": "Paste guard: asks before you paste something that looks like an API key, private key, card number or sign-in token into a web page",
+     "detect": [("src/zen", r"(?i)paste-?guard|looks like an? (api key|secret)")]},
+    # wave7/teach: Teach once: one small anchored hint the first time a
+    # feature could help (its shortcut, or what just happened), then never
+    # again; "Show tips" in Settings, "Reset Tips" in the command bar.
+    {"id": "teach-once", "title": "Teach once: one small hint the first time a shortcut or feature could help, then never again",
+     "detect": [("src/zen", r"(?i)teach-?once|first-?use-?hints?|zen\.tips\.")]},
+    # wave7/spaceanim: space-switch slides play one at a time (Arc).
+    {"id": "space-switch-queue", "title": "Space switches play one at a time (Arc): a switch asked for mid-slide waits for the slide to finish; swipes step, keys coalesce",
+     "detect": [("src/zen/spaces", r"(?i)switchQueue|pendingSwitch|queueWorkspaceChange|whimsyStep")]},
+    # wave7/split: a split pane's actions on the pane (hover header ⋯ menu).
+    {"id": "split-pane-menu", "title": "Split pane menu: a ⋯ button on each pane's header holds Arc's per-pane actions (Separate from Split View, Share, Mute, Copy Link, Copy link as Markdown, Archive Item); optionally always-visible headers like Arc's",
+     "detect": [("src/zen/split-view", r"(?i)pane-?menu|splitter-header[^\n]*menupopup|header-menu")]},
+    # batch wave7/split2: Arc's right-click menu on a split's sidebar row.
+    {"id": "split-row-menu", "title": "Split row menu: right-clicking a split in the sidebar opens Arc's split menu (Share Split View, Separate All Tabs, Add Tab, Convert to Vertical/Horizontal, a submenu per pane, Change Icon, Rename, Duplicate, Move to, Archive)",
+     "detect": [("src/zen/split-view", r"(?i)convert-?to-?(vertical|horizontal)|split-?row-?menu")]},
+    # wave7/menuprefs: menu-prefs
+    {"id": "menu-prefs", "title": "Settings → Menus: turn any right-click menu item on or off (tab, link, page, selection, image, space, sidebar, folder and split menus)",
+     "detect": [("src/zen", r"(?i)context-?menu-?(items?-?)?(visibility|customi[sz])|hidden-?menu-?items")]},
+    # wave7/native1: Whimsy's own unprompted toasts wait during a macOS
+    # Focus (native component src/zen/whimsy/focus).
+    {"id": "macos-focus", "title": "Whimsy's own pop-up messages (new season, Year in tabs, celebrations) wait while a macOS Focus is on",
+     "detect": [("src/zen", r"(?i)INFocusStatusCenter|DoNotDisturb/DB")]},
+    # w7native: live captions from a video's speech when it has none (Apple's
+    # on-device speech recognizer, then the translated-captions path).
+    {"id": "video-speech-captions", "title": "Live captions for videos without any: CC turns the video's speech into captions on your Mac, then translates them",
+     "detect": [("src/zen/media", r"(?i)speech-?to-?text|SFSpeechRecognizer|live-?transcri")]},
+    # wave7/small: Cast to AirPlay (Arc's View > Cast...), a native AVPlayer
+    # and AVKit route picker for the page's video; Screen Mirroring otherwise.
+    {"id": "cast", "title": "Cast to AirPlay: send the page's video to an Apple TV or AirPlay screen (View > Cast...)",
+     "detect": [("src/zen", r"(?i)airplay|AVRoutePicker|cast-?to-?tv")]},
+    # wave7/small: Arc's Move to > New Space... (tab menu, split row menu,
+    # command bar) moves the tab or its whole split into the new space.
+    {"id": "move-to-new-space", "title": "Move to > New Space...: make a space and move the tab (or its whole split) into it (Arc)",
+     "detect": [("src/zen", r"(?i)move-?to-?new-?(space|workspace)")]},
 ]
 
 

@@ -37,7 +37,7 @@ add_setup(async () => {
   registerCleanupFunction(() => {
     WhimsyAIProviders.setTestProvider(null);
     WhimsyAIReader.setTestReader(null);
-    for (const pref of ["whimsy.ai.blocked", "whimsy.ai.provider", "whimsy.feature.ask-on-page", "whimsy.feature.link-previews"]) {
+    for (const pref of ["whimsy.ai.blocked", "whimsy.ai.provider", "whimsy.feature.ask-on-page", "whimsy.feature.link-previews", "whimsy.feature.link-cards"]) {
       Services.prefs.clearUserPref(pref);
     }
   });
@@ -139,14 +139,17 @@ add_task(async function test_preview() {
     // Plain hover on an ordinary site: nothing.
     await hoverLink(browser, false);
     await new Promise(r => setTimeout(r, 800));
-    ok(document.getElementById("whimsy-preview-card")?.state != "open", "No card without Shift here");
+    ok(document.getElementById("whimsy-link-hover")?.state != "open", "No card without Shift here");
     is(read.length, 0, "and nothing is fetched");
 
     await hoverLink(browser, true);
+    // wave7/ux: the summary is the AI card of the link hover host, under
+    // the link card.
     const card = await TestUtils.waitForCondition(() => {
-      const c = document.getElementById("whimsy-preview-card");
-      return c?.state == "open" && c.querySelector(".whimsy-preview-points") && c;
+      const c = document.getElementById("whimsy-link-hover");
+      return c?.state == "open" && c.querySelector('[data-card="ai"] .whimsy-preview-points') && c;
     }, "Shift on a link shows the summary card");
+    ok(card.querySelector('[data-card="link"]'), "...beneath the link card");
     Assert.deepEqual(
       [...card.querySelectorAll(".whimsy-preview-points li")].map(li => li.textContent),
       ["Offsite in Lisbon", "Espresso machine $129", "Budget: Priya"],
@@ -166,18 +169,25 @@ add_task(async function test_preview() {
     is(read.length, 1, "from the cache");
     WhimsyAIPage.hidePreview(window);
 
-    // Off: nothing.
+    // Off: no summary (the link card alone, or nothing once it's off too).
     Services.prefs.setBoolPref("whimsy.feature.link-previews", false);
     await hoverLink(browser, true);
+    await TestUtils.waitForCondition(() => card.state == "open", "The link card still shows");
+    ok(!card.querySelector('[data-card="ai"]'), "No summary with the switch off");
+    WhimsyAIPage.hidePreview(window);
+    await TestUtils.waitForCondition(() => card.state == "closed", "Hidden");
+    Services.prefs.setBoolPref("whimsy.feature.link-cards", false);
+    await hoverLink(browser, true);
     await new Promise(r => setTimeout(r, 600));
-    ok(card.state == "closed", "No card with the switch off");
+    ok(card.state == "closed", "No card with both switches off");
+    Services.prefs.clearUserPref("whimsy.feature.link-cards");
     Services.prefs.clearUserPref("whimsy.feature.link-previews");
 
     // A provider that isn't set up: the card says so instead of guessing.
     WhimsyAIProviders.setTestProvider(null);
     Services.prefs.setStringPref("whimsy.ai.provider", "claude");
     await hoverLink(browser, true);
-    await TestUtils.waitForCondition(() => card.state == "open" && card.querySelector(".whimsy-preview-error"), "Not set up: a message");
+    await TestUtils.waitForCondition(() => card.state == "open" && card.querySelector('[data-card="ai"] .whimsy-preview-error'), "Not set up: a message");
     WhimsyAIPage.hidePreview(window);
     Services.prefs.clearUserPref("whimsy.ai.provider");
     WhimsyAIProviders.setTestProvider(fakeProvider);
@@ -194,7 +204,7 @@ add_task(async function test_no_preview_in_private_windows() {
   const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, LINKS);
   await hoverLink(tab.linkedBrowser, true);
   await new Promise(r => setTimeout(r, 800));
-  ok(win.document.getElementById("whimsy-preview-card")?.state != "open", "No preview card in a private window");
+  ok(win.document.getElementById("whimsy-link-hover")?.state != "open", "No preview card in a private window");
   is(read.length, 0, "and nothing is fetched behind the scenes");
   await BrowserTestUtils.closeWindow(win);
 });
@@ -233,4 +243,62 @@ add_task(async function hidden_reader_blocks_active_capabilities() {
   ok(result.text.includes("POPUP_BLOCKED"), "Hidden page cannot open a popup");
   ok(result.text.includes("SCRIPT_RAN"), "Rendering scripts still run");
   Assert.deepEqual((await list.getAll()).filter(item => !before.has(item)), [], "Hidden page cannot download");
+});
+
+// wave7/security M5: resting on a link (nobody asked) reads public pages
+// only, and without the person's cookies; Shift keeps the tab's session.
+add_task(async function hover_previews_are_anonymous_and_public_only() {
+  ok(WhimsyAIReader.isPublicUrl("https://example.com/a"), "A public page");
+  for (const url of [
+    "http://localhost:3000/admin/reset",
+    "http://127.0.0.1/",
+    "http://2130706433/",
+    "http://192.168.1.1/apply.cgi",
+    "http://10.0.0.8/",
+    "http://172.20.1.1/",
+    "http://169.254.169.254/latest/meta-data/",
+    "http://[::1]/",
+    "http://[fd00::1]/",
+    "http://printer.local/",
+    "http://router/",
+  ]) {
+    ok(!WhimsyAIReader.isPublicUrl(url), `Not public: ${url}`);
+  }
+
+  const reads = [];
+  WhimsyAIReader.setTestReader((url, options) => {
+    reads.push({ url, ...options });
+    return "The offsite is on March 14 in Lisbon.";
+  });
+  const at = { x: 10, y: 10, width: 10, height: 10 };
+  try {
+    await BrowserTestUtils.withNewTab(LINKS, async browser => {
+      await WhimsyAIPage.showPreview(window, browser, { url: "http://192.168.1.1/apply.cgi?reset=1", how: "hover", ...at });
+      is(reads.length, 0, "Resting on a local-network link reads nothing");
+      WhimsyAIPage.hidePreview(window);
+
+      const url = PAGE + "?hover-anonymous";
+      await WhimsyAIPage.showPreview(window, browser, { url, how: "hover", ...at });
+      await TestUtils.waitForCondition(() => reads.length == 1, "A public link is read");
+      ok(reads[0].anonymous, "anonymously");
+      isnot(reads[0].userContextId, browser.getAttribute("usercontextid") | 0, "outside the tab's cookie jar");
+      is(reads[0].userContextId, WhimsyAIReader.anonymousContextId(), "in Firefox's internal background container");
+      WhimsyAIPage.hidePreview(window);
+
+      await WhimsyAIPage.showPreview(window, browser, { url: url + "&shift", how: "shift", ...at });
+      await TestUtils.waitForCondition(() => reads.length == 2, "Shift reads too");
+      ok(!reads[1].anonymous, "Shift keeps the tab's session");
+      WhimsyAIPage.hidePreview(window);
+    });
+  } finally {
+    WhimsyAIReader.setTestReader(null);
+  }
+});
+
+// wave7/security L7: the hidden reader can't launch external apps
+// (SANDBOXED_TOPLEVEL_NAVIGATION_CUSTOM_PROTOCOLS).
+add_task(async function hidden_reader_blocks_custom_protocols() {
+  WhimsyAIReader.setTestReader(null);
+  const flags = await WhimsyAIReader.withHiddenPage(PAGE, {}, async browser => browser.browsingContext.sandboxFlags);
+  ok(flags & 0x40000, "No navigation to custom protocols");
 });

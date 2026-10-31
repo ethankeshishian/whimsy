@@ -6,7 +6,8 @@
 // Per-tab volume: a level per tab scales every media element in it (the
 // page's own volume times the level), follows volumes the page sets
 // later, survives a reload, and is set from a slider panel that opens
-// from the tab menu's "Volume…" or by right-clicking the tab's speaker.
+// by right-clicking the tab's speaker or from the command bar's "Tab
+// Volume…" (wave7/menus: no tab menu row, so no duplicate control).
 
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_media.html";
 const { WhimsyMedia } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMedia.sys.mjs");
@@ -63,24 +64,22 @@ add_task(async function test_panel_and_menu() {
   await play(tab.linkedBrowser);
   await TestUtils.waitForCondition(() => tab.soundPlaying, "playing");
 
+  // wave7/menus: no "Volume…" row in the tab menu (no duplicate controls).
   const menu = document.getElementById("tabContextMenu");
-  const open = async t => {
+  for (const t of [quiet, tab]) {
     const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
     EventUtils.synthesizeMouseAtCenter(t, { type: "contextmenu", button: 2 });
     await shown;
-    return document.getElementById("context_whimsyTabVolume");
-  };
-  let item = await open(quiet);
-  ok(!item || item.hidden, "A quiet tab has no Volume item");
-  let hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
-  menu.hidePopup();
-  await hidden;
+    ok(!document.getElementById("context_whimsyTabVolume"), "The tab menu has no Volume row");
+    const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
+    menu.hidePopup();
+    await hidden;
+  }
 
-  item = await open(tab);
-  ok(item && !item.hidden, "A playing tab offers Volume…");
-  hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
-  menu.activateItem(item);
-  await hidden;
+  // From the keyboard: the command bar's "Tab Volume…" (a command).
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  ok(WhimsyCommands.get("cmd_whimsyTabVolume")?.l10nId, "Tab Volume… is a listed command");
+  document.getElementById("cmd_whimsyTabVolume").doCommand();
   const panel = document.getElementById("whimsy-volume-panel");
   await TestUtils.waitForCondition(() => panel.state == "open", "The volume panel opens");
   const slider = panel.querySelector(".whimsy-volume-slider");

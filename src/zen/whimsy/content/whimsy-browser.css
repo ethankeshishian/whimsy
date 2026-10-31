@@ -370,25 +370,37 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
      ring in the sidebar's colour, which isn't the tile's) sat over the
      favicon's own corner (Gmail draws its count there too) and the tile's
      edge, so it read as a smudge. The icon stack stops being the anchor;
-     the tile's content box (position: relative in Firefox) is. */
+     the tile's content box (position: relative in Firefox) is.
+     wave7/menus: only the tile's own icon (child combinators): Zen nests
+     a Glance opened from the tile inside its .tab-content, and a
+     descendant selector also restyled that Glance chip's icon. */
   .tabbrowser-tab[zen-essential] {
-    & .tab-icon-stack {
+    & > .tab-stack > .tab-content > .tab-icon-stack {
       position: static;
     }
 
-    & .tab-icon-stack::after {
+    & > .tab-stack > .tab-content > .tab-icon-stack::after {
       box-shadow: 0 0 0 1px light-dark(rgb(255 255 255 / 0.9), rgb(0 0 0 / 0.35)), 0 1px 2px rgb(0 0 0 / 0.25);
     }
 
-    & .tab-icon-stack[whimsy-unread]::after {
+    & > .tab-stack > .tab-content > .tab-icon-stack[whimsy-unread]::after {
       content: attr(whimsy-unread);
       top: calc(var(--tab-margin-block, 0px) + 4px);
       inset-inline-end: 4px;
     }
 
-    &[titlechanged]:not([selected], [whimsy-unread]) .tab-icon-stack::after {
+    &[titlechanged]:not([selected], [whimsy-unread]) > .tab-stack > .tab-content > .tab-icon-stack::after {
       top: calc(var(--tab-margin-block, 0px) + 6px);
       inset-inline-end: 6px;
+    }
+
+    /* wave7/menus: while a Glance is open from the tile, Zen floats its
+       chip on this same top-end corner (vertical-tabs.css, "Essentials
+       Glance Tab Specifics"). The chip says "something is open here";
+       the count comes back when the Glance closes (the tab's
+       aria-description keeps it for screen readers meanwhile). */
+    &[glance-id]:not([zen-glance-tab]) > .tab-stack > .tab-content > .tab-icon-stack::after {
+      display: none;
     }
   }
 
@@ -558,66 +570,35 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   opacity: 1;
 }
 
-/* Menu icons (whimsy.look.menu-icons, Settings → Look and Feel): macOS 26
-   draws a small symbol beside each item in Apple's own menus (Safari's
-   context menu included). Whimsy's context menus and tab menu get the same,
-   from Zen's icon set: monochrome, so macOS tints them with the menu text
-   (native menus read the icon from .menu-icon's content). Checkbox and
-   radio items stay plain, as on macOS. Back, Forward, Reload and Bookmark
-   keep Firefox's own icons. */
+/* Menu icons (whimsy.look.menu-icons, Settings → Look and Feel; off by
+   default): macOS 26 draws a small symbol beside each item in Apple's own
+   menus (Safari's context menu included). WhimsyMenuIcons gives each row
+   of the tab menu and the page/link/selection/media menus its icon from
+   Zen's set (the row's [whimsy-menu-icon] and --whimsy-menu-icon) and
+   moves the rows with one to the top of their section. Monochrome, so
+   macOS tints them with the menu text (native menus read the icon from
+   .menu-icon's content). Checkbox and radio items stay plain, as on
+   macOS. */
 @media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
-  #context-savepage { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/save.svg"); }
-  #context-print-selection { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/print.svg"); }
-  #context-take-screenshot { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/screenshot.svg"); }
-  #context-viewsource { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/brackets-curly.svg"); }
-  #context-inspect { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/developer.svg"); }
-  #context-sendpagetodevice { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/send-to-device.svg"); }
-  #context-translate-selection { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/translations.svg"); }
-  #context-viewpartialsource-selection { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/brackets-curly.svg"); }
-  #context-openlinkintab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/plus.svg"); }
-  #context-openlinkinsplitview { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/split.svg"); }
-  #context-openlink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/window.svg"); }
-  #context-openlinkprivate { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/private-window.svg"); }
-  #context-bookmarklink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/bookmark-hollow.svg"); }
-  #context-savelink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/downloads.svg"); }
-  #context-copylink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
-  #context-stripOnShareLink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
-  #context-sendlinktodevice { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/send-to-device.svg"); }
-  #context-undo { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/arrow-rotate-anticlockwise.svg"); }
-  #context-cut { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-cut.svg"); }
-  #context-copy { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
-  #context-paste { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-paste.svg"); }
-  #context-delete { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/trash.svg"); }
-  #context-searchselect { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/search-glass.svg"); }
-  #context-viewimage { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/open.svg"); }
-  #context-copyimage-contents { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
-  #context-saveimage { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/save.svg"); }
-  #context-sendimage { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/mail.svg"); }
-  #context-media-play { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-play.svg"); }
-  #context-media-pause { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-pause.svg"); }
-  #context-media-mute { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-mute.svg"); }
-  #context-media-unmute { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-unmute.svg"); }
-  #context-video-pictureinpicture { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/popup.svg"); }
-  #context-savevideo { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/save.svg"); }
-  #context_openANewTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/plus.svg"); }
-  #context_reloadTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/reload.svg"); }
-  #context_toggleMuteTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-mute.svg"); }
-  #context_pinTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/pin.svg"); }
-  #context_unpinTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/unpin.svg"); }
-  #context_duplicateTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/duplicate-tab.svg"); }
-  #context_bookmarkTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/bookmark-hollow.svg"); }
-  #context_closeTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/close.svg"); }
-  #context_undoCloseTab { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/history.svg"); }
-  #context_moveTabOptions { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/move-cursor.svg"); }
-  #context_sendTabToDevice { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/send-to-device.svg"); }
-
-  :is(#context-savepage, #context-print-selection, #context-take-screenshot, #context-viewsource, #context-inspect, #context-sendpagetodevice, #context-translate-selection, #context-viewpartialsource-selection, #context-openlinkintab, #context-openlinkinsplitview, #context-openlink, #context-openlinkprivate, #context-bookmarklink, #context-savelink, #context-copylink, #context-stripOnShareLink, #context-sendlinktodevice, #context-undo, #context-cut, #context-copy, #context-paste, #context-delete, #context-searchselect, #context-viewimage, #context-copyimage-contents, #context-saveimage, #context-sendimage, #context-media-play, #context-media-pause, #context-media-mute, #context-media-unmute, #context-video-pictureinpicture, #context-savevideo, #context_openANewTab, #context_reloadTab, #context_toggleMuteTab, #context_pinTab, #context_unpinTab, #context_duplicateTab, #context_bookmarkTab, #context_closeTab, #context_undoCloseTab, #context_moveTabOptions, #context_sendTabToDevice):not([type="checkbox"], [type="radio"]) > .menu-icon {
+  :is(#tabContextMenu, #contentAreaContextMenu) > :is(menuitem, menu)[whimsy-menu-icon]:not([type="checkbox"], [type="radio"]) > .menu-icon {
     content: var(--whimsy-menu-icon);
     display: revert;
     visibility: inherit;
     -moz-context-properties: fill, fill-opacity;
     fill: currentColor;
     fill-opacity: 0.85;
+  }
+}
+
+/* wave7/menus2: with the option off, no row of those menus shows an icon,
+   Firefox's own included (its iconic rows, e.g. the DRM "Learn more").
+   Extension rows bring theirs as an image attribute, which macOS reads
+   before this, so they keep it, as in Arc. Submenus keep the icons that
+   identify their rows (space emoji, container and tab group colors). */
+@media (not -moz-pref("whimsy.feature.menu-icons")) or (not -moz-pref("whimsy.look.menu-icons")) {
+  :is(#tabContextMenu, #contentAreaContextMenu) > :is(menuitem, menu):not([image]) > .menu-icon {
+    content: none !important;
+    display: none !important;
   }
 }
 
@@ -776,6 +757,15 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   :root[whimsy-fire-burning]::after {
     display: none;
   }
+}
+/* wave7/fire: the note under the two rows that says exactly what the
+   chosen one clears and keeps. It wraps (the rows crop to one line) and
+   starts where the rows' icons do. */
+#whimsy-fire-summary {
+  margin: 4px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + var(--arrowpanel-menuitem-padding-inline, 8px)) 8px;
+  font-size: 0.9em;
+  line-height: 1.4;
+  color: var(--whimsy-sheet-muted);
 }
 
 /* batch9: spaces — a small lock glyph on a locked space's switcher icon. */
@@ -2273,6 +2263,10 @@ panel.whimsy-sheet .whimsy-sheet-footer {
   background-image: url("chrome://browser/content/whimsy/library/library-meeting-sprite.svg");
 }
 
+[data-section="whimsy-archive"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  background-image: url("chrome://browser/content/whimsy/library/library-archive-sprite.svg");
+}
+
 [data-section="whimsy-playlist"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
   background-image: url("chrome://browser/content/whimsy/library/library-playlist-sprite.svg");
 }
@@ -2286,10 +2280,29 @@ whimsy-space-history-section {
   }
 }
 
-#whimsy-quick-window-address .whimsy-mini-profile {
-  background: var(--whimsy-mini-fill-hover);
-  border-radius: 6px;
-  padding: 3px 8px;
+/* wave5/profiles: the page's profile, a pill just before the address. */
+#whimsy-quick-window-profile {
+  appearance: none;
+  flex: none;
+  max-width: 12em;
+  height: var(--whimsy-mini-control);
+  margin: 0 0 0 2px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--whimsy-mini-fill);
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  &:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+  &:active { scale: 0.96; }
+  &:focus-visible { outline: var(--focus-outline, 2px solid AccentColor); outline-offset: 1px; }
+  &[hidden] { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #whimsy-quick-window-profile { transition: background-color 120ms ease-out, scale 100ms ease-out; }
 }
 #whimsy-quick-window-open kbd {
   font: menu;
@@ -2302,7 +2315,9 @@ whimsy-space-history-section {
    size in ~85-100 ms, ease-out, no overshoot, no dim; closing fades in
    place in ~100 ms with no scale. MERGE NOTE: wave5/uxfix set this
    animation to var(--whimsy-dur-fast) (150 ms) with a 96% settle; keep
-   these Arc values and tokens. */
+   these Arc values and tokens. wave7: no shared --whimsy-ease/-dur tokens
+   exist on this base, so Mini keeps its own; the bar-only panel's
+   materialise grow (WhimsyQuickWindow.materialise) reads these too. */
 :root[whimsy-quick-window] {
   --whimsy-mini-open-duration: 90ms;
   --whimsy-mini-close-duration: 100ms;
@@ -2472,16 +2487,6 @@ whimsy-space-history-section {
   }
 }
 
-/* wave5/quick: QR code for any page (menu icon, as the other page items). */
-@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
-  #context-whimsy-qrcode { --whimsy-menu-icon: url("chrome://browser/content/sharing/qr-code.svg"); }
-}
-
-/* wave5/quick: Copy page as Markdown (menu icon). */
-@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
-  #context-whimsy-copy-markdown { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/edit-copy.svg"); }
-}
-
 /* wave5/quick: new season toast. Zen's toast with the costumed balloon
    before its two lines; the balloon bobs once on arrival (not with reduced
    motion). */
@@ -2637,6 +2642,46 @@ panel.whimsy-space-look .whimsy-sheet-body {
   }
 }
 
+/* wave5: Easels in the Library (same treatment as the batch4 rail icons). */
+:is(.zen-library-tab, .zen-library-section)[data-section="whimsy-easels"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
+  width: var(--zen-library-sprite-size);
+  background-image: url("chrome://browser/skin/zen-icons/paintbrush.svg");
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  fill: var(--stroke);
+  animation: none !important;
+  transform: none !important;
+}
+
+whimsy-library-easels-section .zen-library-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.whimsy-library-easels-new {
+  appearance: none;
+  border: 1px solid light-dark(rgb(0 0 0 / 0.12), rgb(255 255 255 / 0.14));
+  border-radius: 8px;
+  padding: 6px 12px;
+  min-height: 28px;
+  background: light-dark(rgb(0 0 0 / 0.04), rgb(255 255 255 / 0.06));
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+}
+
+.whimsy-library-easels-new:hover {
+  background: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.1));
+}
+
+.whimsy-library-easels-new:focus-visible {
+  outline: 2px solid AccentColor;
+  outline-offset: 2px;
+}
+
 /* wave5/audioicon: Arc's tab speaker. Every tab with sound (playing, or
    muted by you, by background muting or by a muted site) shows an outline
    speaker (SF speaker.wave.2 / speaker.slash) between its favicon and title,
@@ -2678,6 +2723,37 @@ panel.whimsy-space-look .whimsy-sheet-body {
       list-style-image: url("chrome://browser/content/whimsy/whimsy-tab-audio-muted.svg") !important;
     }
   }
+}
+
+/* wave5/profiles: the Profile Name sheet (create / rename). */
+.whimsy-profile-name-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 12px 8px;
+}
+.whimsy-profile-name-label {
+  font-weight: 600;
+}
+.whimsy-profile-name-input {
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, currentColor 5%, transparent);
+  color: inherit;
+  font: inherit;
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 1px;
+  }
+  &[aria-invalid] {
+    border-color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
+  }
+}
+.whimsy-profile-name-error {
+  margin: 0;
+  color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
 }
 
 /* wave6/parity: Tabs → Reveal Tab in Sidebar marks the tab for a moment. */
@@ -2820,4 +2896,466 @@ panel.whimsy-space-look .whimsy-sheet-body {
 }
 #whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
   background: var(--whimsy-mini-fill-active);
+}
+
+/* wave7/mini: Cmd+Opt+N's bar-only panel (Arc's Little Arc before Return,
+   little-095501: just the command bar, ~510x335pt at the screen's
+   top-right). No Mini bar (so no traffic lights: Cocoa hides them while
+   their box isn't painted) and no page; the floating command bar fills the
+   panel instead of centring over a page. The page stays laid out, only
+   hidden, so its browser keeps loading. */
+:root[whimsy-quick-window][whimsy-mini-bar-only] {
+  & #whimsy-quick-window-bar {
+    display: none;
+  }
+  /* The panel sits at the screen's top-right, so it grows from there. */
+  & #browser {
+    transform-origin: top right !important;
+  }
+  & #tabbrowser-tabbox {
+    visibility: hidden;
+  }
+  & #urlbar[zen-floating-urlbar="true"] {
+    top: 0 !important;
+    left: 0 !important;
+    translate: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  /* The panel is the window: its own rounded edge and shadow already
+     frame the bar. */
+  & #urlbar .urlbar-background {
+    box-shadow: none !important;
+    outline: none !important;
+    border-radius: 16px !important;
+  }
+  /* Five rows fit, as in Arc's panel; any more scroll. */
+  & #urlbar .urlbarView {
+    max-height: calc(100vh - var(--urlbar-container-height, 62px));
+    overflow-y: auto;
+  }
+}
+
+/* wave7/mini: after Return the panel materialises at Mini's full size,
+   showing the destination space's gradient where the page will be until
+   the page has loaded (Arc: little-095501, 1.7-4.1 s); the page then
+   fades in over the gradient. */
+:root[whimsy-quick-window][whimsy-mini-placeholder] {
+  & #tabbrowser-tabpanels .browserStack {
+    background: var(--whimsy-mini-space-gradient, var(--whimsy-mini-fill)) !important;
+  }
+  & #tabbrowser-tabpanels .browserStack > browser {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[whimsy-quick-window] #tabbrowser-tabpanels .browserStack > browser {
+    transition: opacity var(--whimsy-mini-close-duration) ease-out;
+  }
+/* wave7/focus: paste guard. One line under the question, in the sheet's
+   muted ink; the footer and buttons are the shared sheet's. */
+panel.whimsy-paste-guard .whimsy-paste-guard-note {
+  margin: 8px 16px 4px;
+  color: var(--whimsy-sheet-muted);
+  line-height: 1.4;
+/* wave7/teach: Teach once (WhimsyTeach.sys.mjs). One sentence on Zen's
+   panel surface, pointing at what the person just touched: a lightbulb,
+   the sentence with the shortcut as a key cap, and a close button. The
+   arrow panel's own open/close animation already honours reduced motion;
+   colours come from the panel, so light and dark both follow the theme. */
+panel.whimsy-teach {
+  --panel-padding: 8px 6px 8px 10px;
+  /* The sheets' close button (WhimsyPanels.iconButton) reads these. */
+  --whimsy-sheet-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
+  --whimsy-sheet-active: var(--panel-item-active-bgcolor, color-mix(in srgb, currentColor 14%, transparent));
+}
+.whimsy-teach-body {
+  gap: 8px;
+  max-width: 280px;
+}
+.whimsy-teach-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-block-start: 2px;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+  fill-opacity: 0.7;
+}
+.whimsy-teach-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  /* Wraps to two lines: give it room to breathe. */
+  line-height: 1.4;
+  text-wrap: pretty;
+
+  & kbd {
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 0 4px;
+    border-radius: 4px;
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+  }
+}
+.whimsy-teach-close {
+  margin-block-start: -2px;
+}
+/* wave7/season: seasonal trim on the floating command bar (Cmd+T / Cmd+L).
+   WhimsySeasons adds an aria-hidden overlay to the URL bar and sets
+   whimsy-season-decor (an occasion or a season) while the seasonal switch
+   is on. The art sits outside the bar's box: on top of its top edge, or
+   hanging from its bottom edge. It never takes pointer events, never
+   covers the input or the results, and never changes the bar's size.
+   Clusters stay near the corners so the middle (where you type) stays
+   quiet; the one motion is the holiday lights' slow twinkle, which stops
+   under reduced motion. */
+.whimsy-season-trim {
+  display: none;
+}
+
+:root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
+  display: block;
+  position: absolute;
+  /* Matches .urlbar-background, which overhangs the bar while it's open. */
+  inset: calc(-1 * var(--urlbar-background-overhang-open, 0px));
+  pointer-events: none;
+
+  :root:not([whimsy-season-decor="holidays"]) & {
+    @media (prefers-color-scheme: dark) {
+      opacity: 0.85;
+    }
+  }
+
+  & > .whimsy-season-trim-top,
+  & > .whimsy-season-trim-bottom {
+    position: absolute;
+    inset-inline: 22px;
+    pointer-events: none;
+  }
+
+  /* Sits on the top edge: the strip's bottom is the bar's top. */
+  & > .whimsy-season-trim-top {
+    bottom: 100%;
+    height: 24px;
+
+    &::before,
+    &::after {
+      position: absolute;
+      bottom: 0;
+      width: var(--whimsy-trim-width);
+      height: var(--whimsy-trim-height);
+      background: var(--whimsy-trim-art) no-repeat center bottom / contain;
+      pointer-events: none;
+    }
+
+    /* A mirrored copy at the start corner, so the two ends don't match
+       stamp for stamp. */
+    &::before {
+      inset-inline-start: 0;
+      transform: scaleX(-1);
+    }
+
+    &::after {
+      inset-inline-end: 0;
+    }
+  }
+
+  /* Hangs from the bottom edge: the strip's top is the bar's bottom. */
+  & > .whimsy-season-trim-bottom {
+    top: 100%;
+    height: 18px;
+    inset-inline: 14px;
+
+    &::before,
+    &::after {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+/* wave7/split: a split pane's header (whimsy.feature.split-pane-menu). Zen
+   fades the header in on hover (opacity, 0.1s after a 0.1s delay); it now
+   also shows, with no delay, while one of its buttons has keyboard focus or
+   its ⋯ menu is open. Buttons get a 24px target, a hover fill, a press
+   scale and a visible focus ring (Zen's had outline: none). Zen's unlabelled
+   "take this page out" button goes: the menu's first item does the same. */
+@media -moz-pref("whimsy.feature.split-pane-menu") {
+  .zen-view-splitter-header-container:is(:focus-within, [whimsy-menu-open]) {
+    pointer-events: all;
+    opacity: 1;
+    transition-delay: 0s;
+  }
+
+  .zen-view-splitter-header-container .zen-view-splitter-header {
+    gap: 2px;
+    padding: 2px 4px;
+  }
+
+  .zen-view-splitter-header-container toolbarbutton {
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background-color 0.15s cubic-bezier(0.2, 0, 0, 1), opacity 0.15s cubic-bezier(0.2, 0, 0, 1), scale 0.1s cubic-bezier(0.2, 0, 0, 1);
+
+    &:hover,
+    &[open],
+    &:focus-visible {
+      opacity: 1;
+      background-color: color-mix(in srgb, currentColor 14%, transparent);
+    }
+
+    &:hover:active {
+      scale: 0.96;
+    }
+
+    &:focus-visible {
+      outline: var(--focus-outline, 2px solid AccentColor);
+      outline-offset: -2px;
+    }
+  }
+
+  .zen-view-splitter-header-container .zen-tab-unsplit-button {
+    display: none;
+  }
+
+  .whimsy-split-pane-menu-button {
+    list-style-image: url("chrome://browser/skin/zen-icons/menu.svg");
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .zen-view-splitter-header-container,
+    .zen-view-splitter-header-container toolbarbutton {
+      transition: none;
+    }
+
+    .zen-view-splitter-header-container toolbarbutton:hover:active {
+      scale: none;
+    }
+  }
+}
+
+:root[whimsy-season-decor="halloween"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-halloween.svg");
+  --whimsy-trim-width: 84px;
+  --whimsy-trim-height: 24px;
+  /* Three pumpkins at the end corner are enough. */
+  &::after {
+    content: "";
+  }
+}
+
+:root[whimsy-season-decor="autumn"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-autumn.svg");
+  --whimsy-trim-width: 90px;
+  --whimsy-trim-height: 16px;
+}
+
+:root[whimsy-season-decor="winter"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-winter.svg");
+  --whimsy-trim-width: 96px;
+  --whimsy-trim-height: 16px;
+}
+
+:root[whimsy-season-decor="spring"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-spring.svg");
+  --whimsy-trim-width: 96px;
+  --whimsy-trim-height: 18px;
+}
+
+:root[whimsy-season-decor="summer"] .whimsy-season-trim-top {
+  --whimsy-trim-art: url("chrome://browser/content/whimsy/season/trim-summer.svg");
+  --whimsy-trim-width: 80px;
+  --whimsy-trim-height: 18px;
+}
+
+:root:is([whimsy-season-decor="autumn"], [whimsy-season-decor="winter"],
+         [whimsy-season-decor="spring"], [whimsy-season-decor="summer"]) .whimsy-season-trim-top {
+  &::before,
+  &::after {
+    content: "";
+  }
+}
+
+/* Winter holidays: a string of lights along the whole bottom edge. Two
+   glow layers (every other bulb) fade in turn; static at half glow under
+   reduced motion. */
+:root[whimsy-season-decor="holidays"] .whimsy-season-trim-bottom {
+  background: url("chrome://browser/content/whimsy/season/trim-lights.svg") left top / auto 18px;
+  background-repeat: round no-repeat;
+
+  &::before,
+  &::after {
+    content: "";
+    background: url("chrome://browser/content/whimsy/season/trim-lights-a.svg") left top / auto 18px;
+    background-repeat: round no-repeat;
+    opacity: 0.5;
+  }
+
+  &::after {
+    background-image: url("chrome://browser/content/whimsy/season/trim-lights-b.svg");
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
+    & > .whimsy-season-trim-top,
+    & > .whimsy-season-trim-bottom {
+      animation: whimsy-season-trim-in 240ms cubic-bezier(0.2, 0, 0, 1) 80ms both;
+    }
+  }
+
+  :root[whimsy-season-decor="holidays"] #urlbar[open][zen-floating-urlbar="true"] .whimsy-season-trim-bottom {
+    &::before,
+    &::after {
+      animation: whimsy-season-twinkle 3.2s ease-in-out infinite alternate;
+    }
+
+    &::after {
+      animation-delay: -3.2s;
+    }
+  }
+}
+
+@keyframes whimsy-season-trim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes whimsy-season-twinkle {
+  from {
+    opacity: 0.15;
+  }
+  to {
+    opacity: 0.9;
+/* wave7/split: the pane menu's icons, every item or none (menu-icons rule). */
+/* wave7/split: the pane menu's icons, every item or none (menu-icons rule).
+   wave7/split2: Arc's per-pane items. */
+@media -moz-pref("whimsy.feature.menu-icons") and -moz-pref("whimsy.look.menu-icons") {
+  #whimsySplitPane-separate { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/fullscreen.svg"); }
+  #whimsySplitPane-mute { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/media-mute.svg"); }
+  #whimsySplitPane-copyLink { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
+  #whimsySplitPane-copyMarkdown { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/link.svg"); }
+  #whimsySplitPane-archive { --whimsy-menu-icon: url("chrome://browser/skin/zen-icons/close.svg"); }
+
+  #whimsySplitPaneMenu > menuitem > .menu-icon {
+    content: var(--whimsy-menu-icon);
+    display: revert;
+    visibility: inherit;
+    -moz-context-properties: fill, fill-opacity;
+    fill: currentColor;
+    fill-opacity: 0.85;
+  }
+}
+
+/* wave7/split2: Arc's always-visible pane header
+   (whimsy.split.always-show-headers, Settings → Links → Split view, off by
+   default). Every header carries back, forward, reload and the page's
+   host (WhimsySplitPane); they show only in this mode. On, Zen's floating
+   hover tab becomes Arc's strip across the top of the pane: nav buttons on
+   the left, "🔗 host" centred, the drag handle and ⋯ on the right, in the
+   page's own colour with a hairline under it. The pane makes room for it
+   (padding), so it never covers the page. */
+.zen-view-splitter-header :is(.whimsy-split-pane-nav, .whimsy-split-pane-host) {
+  display: none;
+}
+
+@media -moz-pref("whimsy.feature.split-pane-menu") and -moz-pref("whimsy.split.always-show-headers") {
+  :root:not([inDOMFullscreen="true"]) #tabbrowser-tabpanels[zen-split-view="true"] .browserSidebarContainer[zen-split="true"]:not(.zen-glance-overlay) {
+    --whimsy-split-header-height: 34px;
+    padding-top: var(--whimsy-split-header-height);
+
+    & > .zen-view-splitter-header-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--whimsy-split-header-height);
+      transform: none;
+      opacity: 1;
+      pointer-events: auto;
+      transition: none;
+      z-index: 1;
+    }
+
+    & .zen-view-splitter-header {
+      position: absolute;
+      inset: 0;
+      transform: none;
+      box-sizing: border-box;
+      padding: 0 6px;
+      gap: 2px;
+      border-radius: 0;
+      box-shadow: none;
+      background-color: light-dark(rgb(255, 255, 255), rgb(32, 32, 32));
+      border-bottom: 1px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+      color: light-dark(rgb(60, 60, 67), rgb(235, 235, 245));
+    }
+
+    & .zen-view-splitter-header-container toolbarbutton {
+      color: inherit;
+      opacity: 0.7;
+
+      &:hover,
+      &[open],
+      &:focus-visible {
+        opacity: 1;
+      }
+    }
+
+    & .whimsy-split-pane-nav {
+      display: flex;
+      order: 0;
+
+      &[disabled] {
+        opacity: 0.3;
+        background-color: transparent;
+      }
+    }
+
+    & .whimsy-split-pane-back { list-style-image: url("chrome://browser/skin/zen-icons/back.svg"); }
+    & .whimsy-split-pane-forward { list-style-image: url("chrome://browser/skin/zen-icons/forward.svg"); }
+    & .whimsy-split-pane-reload { list-style-image: url("chrome://browser/skin/zen-icons/reload.svg"); }
+
+    & .whimsy-split-pane-host {
+      display: flex;
+      order: 1;
+      flex: 1;
+      min-width: 0;
+      gap: 6px;
+      font-size: 12px;
+      opacity: 0.8;
+      /* Arc centres the address on the pane, not between the buttons. */
+      padding-inline-end: 24px;
+    }
+
+    & .whimsy-split-pane-host-icon {
+      width: 12px;
+      height: 12px;
+      list-style-image: url("chrome://browser/skin/zen-icons/link.svg");
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor;
+    }
+
+    & .whimsy-split-pane-host-label {
+      margin: 0;
+      min-width: 0;
+    }
+
+    & .zen-tab-rearrange-button {
+      order: 2;
+    }
+
+    & .whimsy-split-pane-menu-button {
+      order: 3;
+    }
+  }
+/* wave7/menuprefs: a right-click menu row turned off in Settings → Menus
+   (WhimsyMenuPrefs marks it, and the separators it would leave behind,
+   on popupshowing). */
+menupopup > [whimsy-menu-pref-hidden] {
+  display: none !important;
 }

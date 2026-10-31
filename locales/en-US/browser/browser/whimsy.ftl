@@ -9,18 +9,10 @@
 whimsy-updated-heading = { -brand-short-name } updated
 whimsy-rolled-back-heading = Rolled back to the previous version
 whimsy-updated-notes-label = What's new
-whimsy-updated-notes-tooltip =
-    .title = See what changed
 whimsy-updated-rollback-label = Something broke? Roll back
-whimsy-updated-rollback-tooltip =
-    .title = Open update settings
-whimsy-updated-settings-label = Update settings
-whimsy-updated-settings-tooltip =
-    .title = Open update settings
 
 ## Settings → Look and Feel → Updates
 
-whimsy-updates-header = Updates
 whimsy-updates-channel = Channel
 whimsy-updates-channel-release =
     .label = Release
@@ -100,7 +92,9 @@ whimsy-live-folder-linear-option-team =
 whimsy-live-folder-linear-prompt-team = Enter a team key to filter to (for example ENG), or leave blank for all your assigned issues
 whimsy-live-folder-linear-no-auth =
     .label = Not signed in to Linear
-    .tooltiptext = Add a personal API key, or sign in to linear.app in this container.
+    .tooltiptext = Add a personal API key, or sign in to linear.app in this space’s profile.
+    .label = Linear API key not accepted
+    .tooltiptext = Paste a new personal API key, or remove the key from this folder’s menu and sign in to linear.app instead.
 whimsy-live-folder-linear-apikey-title = Linear API Key
 whimsy-live-folder-linear-apikey-text = Paste a personal API key from linear.app → Settings → Security & access → Personal API keys.
 
@@ -251,11 +245,8 @@ whimsy-mute-site-toast = { $site } will always open muted
 # $site (string) - the site, e.g. example.com
 whimsy-unmute-site-toast = { $site } can play sound again
 
-## Per-tab volume (tab context menu, and right-click on a tab's speaker)
+## Per-tab volume (right-click on a tab's speaker, or the command bar)
 
-tab-context-whimsy-volume =
-    .label = Volume…
-    .accesskey = V
 whimsy-volume-panel =
     .aria-label = Tab volume
 whimsy-volume-slider =
@@ -319,7 +310,7 @@ whimsy-translate-none-toast = Select some text to translate
 
 ## Split view (command bar; batch6)
 
-whimsy-action-close-other-panes = Close Other Panes
+whimsy-action-close-other-panes = Expand Current Split
 whimsy-action-swap-panes = Swap Panes
 whimsy-action-split-vertically = Split Vertically
 whimsy-action-split-horizontally = Split Horizontally
@@ -348,10 +339,12 @@ whimsy-action-new-miro = New Miro Board
 whimsy-action-new-loom = New Loom Video
 whimsy-action-new-canva = New Canva Design
 whimsy-action-new-playlist = New Spotify Playlist
-whimsy-action-new-note = New Note
-whimsy-new-note-target = New Note opens
+# wave7/ux: "New Note" read like the Library's Notes pad, but it opens a
+# document in another app, so it's named for what it makes.
+whimsy-action-new-note = New Document
+whimsy-new-note-target = New Document app
 whimsy-new-note-target-none =
-    .label = Nothing (hide New Note)
+    .label = Off
 whimsy-new-note-target-notion =
     .label = Notion
 whimsy-new-note-target-google-docs =
@@ -412,7 +405,7 @@ whimsy-look-transparency-value =
        *[other] { $value }%
     }
 whimsy-look-menu-icons =
-    .label = Show icons in menus
+    .label = Show icons in right-click menus, like macOS 26
 whimsy-look-reading-time =
     .label = Show how long an article takes to read, next to the Reader View button
 whimsy-look-dark-pdf =
@@ -458,20 +451,13 @@ whimsy-tabs-tree-style-islands =
 ## batch8: tab lifecycle — command bar
 
 whimsy-action-show-archive = View Archive…
-whimsy-action-fire-button = Forget Site Data…
+whimsy-action-fire-button = Fire Button…
+# wave7/fire: per-site forgetting, moved out of the Fire Button sheet.
+whimsy-action-forget-site = Forget About This Site…
 whimsy-action-heavy-tabs = Find Heavy Tabs
 
 ## batch8: tab lifecycle — Archive view panel
 
-whimsy-archive-panel =
-    .aria-label = Archive
-whimsy-archive-search =
-    .placeholder = Search the archive
-    .aria-label = Search the archive
-whimsy-archive-empty =
-    .value = Nothing archived yet
-whimsy-archive-restore =
-    .tooltiptext = Restore, back where it was
 
 ## batch8: tab lifecycle — Snooze a tab
 
@@ -492,21 +478,13 @@ whimsy-snooze-wake-toast = “{ $title }” is back
 
 whimsy-fire-panel =
     .aria-label = Fire button
-# $site (string) - the current tab's site, like "example.com". The scope is
-# the whole site: every subdomain, all of its history and data, and its tabs.
-whimsy-fire-site = Everything from { $site }
-    .tooltiptext = Deletes { $site }’s history, cookies, site data and cache, including its subdomains, and closes its tabs (pinned tabs stay)
-# Shown disabled when the current tab isn't a website (a new tab, about: pages).
-whimsy-fire-site-none = This Site
-    .tooltiptext = The current tab isn’t a website
-whimsy-fire-last-15-min = Last 15 Minutes
-whimsy-fire-space = This Space
-whimsy-fire-everything = Everything
+# wave7/fire: two rows, in the user's words; the line under each says
+# exactly what's removed.
+whimsy-fire-profile = Fire in This Profile
+whimsy-fire-everything = Fire Everywhere
 
 ## batch8: tab lifecycle — Find heavy tabs
 
-whimsy-heavy-tabs-panel =
-    .aria-label = Heavy tabs
 whimsy-heavy-tabs-close-tab =
     .tooltiptext = Close this tab
 ## Settings → Tab Management → Spaces — batch9: spaces
@@ -555,16 +533,16 @@ whimsy-menu-new-scratch =
     .label = New Scratch Space
 whimsy-menu-new-private-tab =
     .label = New Private Tab
-whimsy-scratch-keep =
-    .label = Keep as Normal Space…
+whimsy-scratch-save =
+    .label = Save as Space…
 whimsy-scratch-close =
     .label = Close Scratch
 whimsy-action-new-private-tab = New Private Tab
 whimsy-action-new-scratch = New Scratch Space
-whimsy-action-keep-scratch = Keep Scratch as a Normal Space…
+whimsy-action-save-scratch = Save Scratch as a Space…
 whimsy-action-close-scratch = Close Scratch
 # fix7/private: the one sentence of the modal dialog shown before Scratch becomes a normal space.
-whimsy-scratch-keep-confirm = Its pages reopen as normal tabs, outside private browsing, and it can’t be made private again.
+whimsy-scratch-save-confirm = Its pages reopen as normal tabs, outside private browsing, and it can’t be made private again.
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->
@@ -644,7 +622,7 @@ whimsy-split-favorite-name-title = Favorite This Split
 whimsy-split-favorite-name-prompt = Name this split, so it's easy to find later:
 whimsy-split-favorite-saved-toast = Split saved to your favorites
 whimsy-split-favorites-empty =
-    .value = No favorite splits yet. Favorite one from the command bar.
+    .value = No favorite splits yet. Favorite one from a pane’s ⋯ menu.
 whimsy-split-favorite-remove =
     .label = Remove
     .tooltiptext = Remove this favorite
@@ -667,7 +645,8 @@ whimsy-look-menu-bar-extra =
 ## batch7: Settings → Look and Feel → Look
 
 whimsy-look-seasonal-themes =
-    .label = Seasonal colors and costumes
+    .label = Seasonal touches
+whimsy-look-seasonal-themes-description = The balloon dresses for the season, and the new tab bar, Balloon Dash, the changelog and loading bar get seasonal art (Halloween and the winter holidays too).
 
 ## batch7: Settings → Tab Management
 
@@ -705,7 +684,6 @@ whimsy-action-cheatsheet = Keyboard Shortcuts
 whimsy-cheatsheet-search =
     .placeholder = Search shortcuts
     .aria-label = Search shortcuts
-whimsy-cheatsheet-edit = Edit all shortcuts…
 whimsy-cheatsheet-duplicate-tab = Duplicate Tab
 whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
 whimsy-cheatsheet-tab-next = Next Tab
@@ -720,14 +698,6 @@ whimsy-inbox-zero-toast = Inbox zero
 ## batch7: per-site user agent ("Pretend to be...")
 
 whimsy-action-useragent = Change User Agent…
-whimsy-useragent-default =
-    .label = Default (Whimsy)
-whimsy-useragent-chrome =
-    .label = Chrome (macOS)
-whimsy-useragent-safari-mac =
-    .label = Safari (macOS)
-whimsy-useragent-safari-iphone =
-    .label = Safari (iPhone)
 
 ## batch7: cookie editor
 
@@ -920,32 +890,23 @@ whimsy-meeting-card =
 whimsy-meeting-card-dismiss =
     .title = Hide until the next meeting
     .aria-label = Hide until the next meeting
-whimsy-meeting-calendars = Calendars
 whimsy-meeting-apple-title = Apple Calendar
 whimsy-meeting-apple-connect = Connect
 whimsy-meeting-apple-allow = Allow access
 whimsy-meeting-apple-open-settings = Open System Settings
 whimsy-meeting-apple-denied = { -brand-short-name } can’t read your calendars. Turn it on in System Settings → Privacy & Security → Calendars.
 whimsy-meeting-apple-unsupported = Apple Calendar is unavailable. Update { -brand-short-name } to try again.
-whimsy-meeting-source-remove =
-    .tooltiptext = Remove calendar
-    .aria-label = Remove calendar
 whimsy-meeting-google-title = Google Calendar
 whimsy-meeting-google-error = Couldn’t load this calendar. Check its address.
-whimsy-meeting-google-add = Add Google Calendar
 whimsy-meeting-google-placeholder =
     .placeholder = Paste a secret iCal address
 whimsy-meeting-google-help = Where do I find it?
 whimsy-meeting-google-add-confirm = Add
 whimsy-meeting-google-invalid = Paste the secret address. It starts with https://
 
-whimsy-meeting-header =
-    .label = Meetings
 whimsy-meeting-description = Join upcoming calls from the sidebar or command bar.
 whimsy-meeting-enable =
     .label = Enable meetings
-whimsy-meeting-apple-enable =
-    .label = Connect Apple Calendar
 whimsy-meeting-card-enable =
     .label = Show upcoming meetings in the sidebar
 # wave2: Mini Whimsy without an available destination.
@@ -953,14 +914,14 @@ whimsy-quick-window-no-space =
     .label = Open in…
 ## ext: per-space extensions
 
-whimsy-space-extensions-header = Per-space extensions
+whimsy-space-extensions-header = Extensions per profile
 whimsy-space-extensions-toggle =
-    .label = Show extensions per space
-whimsy-space-extensions-help = Each space can have its own extensions.
+    .label = Run extensions only in the profiles you choose
+whimsy-space-extensions-help = Choose with Run in Profiles on an extension’s menu. Outside those profiles it can’t see your tabs or run on pages. It’s still installed once, so its settings and saved data are shared by every profile.
 whimsy-space-extensions-menu =
-    .label = Show in Spaces…
+    .label = Run in Profiles
 whimsy-space-extensions-all =
-    .label = All Spaces
+    .label = All Profiles
 # batch hist: visit-time space in the Library History tab.
 whimsy-history-space-filter = Where was the tab?
 whimsy-history-all-spaces = All Spaces
@@ -1044,7 +1005,7 @@ whimsy-vpn-scope-title = Protect
 whimsy-vpn-scope-browser = All spaces
 whimsy-vpn-scope-space = This space
 whimsy-vpn-scope-help = Protects this space’s tabs, and any other space set up to share it — not tabs elsewhere. Tabs already open switch over once you reload them, and your site exceptions still apply.
-whimsy-vpn-scope-no-container = This space isn’t linked to a container yet. Add one in Edit Space to protect just this space — tabs already open will need reopening to pick it up.
+whimsy-vpn-scope-no-container = This space uses the Default profile, so it can’t be protected on its own. Give it another profile with Set Profile on the space’s menu to protect just this space.
 whimsy-vpn-scope-covered = Spaces with VPN enabled: { $spaces }
 whimsy-vpn-scope-all = VPN enabled for all spaces.
 whimsy-vpn-scope-button-off = VPN off
@@ -1177,21 +1138,36 @@ whimsy-sheet-close =
 whimsy-delete-space-accept = Delete Space
 whimsy-snooze-title = Snooze Tab
 whimsy-fire-title = Fire Button
-whimsy-fire-subtitle = Clears data, then closes the tabs. Pinned tabs stay.
-# $site (string) - the current site's domain, e.g. example.com
-whimsy-fire-site-detail = Cookies, cache and history for { $site }, plus its tabs
-whimsy-fire-site-none-detail = This page isn't a website
-whimsy-fire-last-15-min-detail = Everything from the last 15 minutes
-# $space (string) - the current space's name
-whimsy-fire-space-detail = Site data and tabs in { $space }
-whimsy-fire-space-detail-unnamed = Site data and tabs in this space
-whimsy-fire-everything-detail = All browsing data and every unpinned tab
+whimsy-fire-subtitle = Start fresh: close tabs and erase what they left behind
+# $count (number) - unpinned tabs that will close; $spaces (string) - the
+# names of the spaces that use this profile, as a list ("Work and Side
+# Projects").
+whimsy-fire-profile-detail = { $count ->
+    [0] Clears the last hour in { $spaces }
+    [one] Closes 1 tab in { $spaces } and clears their last hour
+   *[other] Closes { $count } tabs in { $spaces } and clears their last hour
+}
+whimsy-fire-profile-detail-unnamed = { $count ->
+    [0] Clears this profile’s last hour
+    [one] Closes 1 tab and clears this profile’s last hour
+   *[other] Closes { $count } tabs and clears this profile’s last hour
+}
+# $count (number) - unpinned tabs in every window that will close
+whimsy-fire-everything-detail = { $count ->
+    [0] Clears all history and site data, in every profile
+    [one] Closes 1 tab and clears all history and site data
+   *[other] Closes { $count } tabs and clears all history and site data
+}
+# The note under the rows: exactly what the chosen row clears and keeps.
+# $profile (string) - the profile's name; "Default" when the space has none.
+whimsy-fire-profile-summary = In the { $profile } profile: removes its history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Other profiles keep theirs. Pinned tabs and Essentials stay open.
+whimsy-fire-everything-summary = Clears all history, cookies, site data, cache, form and search history, the download list and closed tabs, in every profile. Saved passwords, bookmarks, downloaded files, pinned tabs and Essentials stay. You can’t undo it.
 whimsy-heavy-tabs-title = Heavy Tabs
 whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
 whimsy-heavy-tabs-empty = No tabs to measure right now.
 whimsy-split-favorites-title = Favorite Splits
-whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split” in the command bar.
+whimsy-split-favorites-empty-state = No favorite splits yet. Open a split, then choose “Favorite This Split…” from a pane’s ⋯ menu.
 whimsy-cookie-editor-title = Cookies
 whimsy-cookie-editor-search =
     .placeholder = Search cookies
@@ -1232,14 +1208,8 @@ whimsy-useragent-custom-field =
 whimsy-useragent-custom-apply =
     .label = Apply
 whimsy-cheatsheet-title = Keyboard Shortcuts
-whimsy-cheatsheet-no-match = No shortcut matches.
 whimsy-cheatsheet-edit-button =
     .label = Edit Shortcuts…
-whimsy-cheatsheet-group-tabs = Tabs
-whimsy-cheatsheet-group-sidebar = Sidebar and Spaces
-whimsy-cheatsheet-group-split = Split View
-whimsy-cheatsheet-group-page = Page
-whimsy-cheatsheet-group-windows = Windows
 whimsy-cheatsheet-new-tab = New Tab
 whimsy-cheatsheet-close-tab = Close Tab
 whimsy-cheatsheet-reopen-tab = Restore Last Closed Tab
@@ -1254,9 +1224,9 @@ whimsy-cheatsheet-library = Open Library…
 whimsy-cheatsheet-split-vertical = Split Side by Side
 whimsy-cheatsheet-split-horizontal = Split Top and Bottom
 whimsy-cheatsheet-split-grid = Split in a Grid
-whimsy-cheatsheet-unsplit = Unsplit
+whimsy-cheatsheet-unsplit = Separate All Tabs
 whimsy-cheatsheet-swap-panes = Swap Panes
-whimsy-cheatsheet-close-other-panes = Close Other Panes
+whimsy-cheatsheet-close-other-panes = Expand Current Split
 whimsy-cheatsheet-find = Find in Page
 whimsy-cheatsheet-reader = Reader View
 whimsy-cheatsheet-copy-full-page = Capture Full Page
@@ -1266,7 +1236,6 @@ whimsy-cheatsheet-speed-up = Play Faster
 whimsy-cheatsheet-slow-down = Play Slower
 whimsy-cheatsheet-new-window = New Window
 whimsy-cheatsheet-quick-window = Mini Whimsy
-whimsy-cheatsheet-private-window = New Private Window
 
 ## fixB: the Archive, now History's Closed filter in the Library
 
@@ -1589,8 +1558,9 @@ whimsy-meeting-apple-detail = Connect all accounts in Apple Calendar.
 whimsy-meeting-untitled = Meeting
 
 # wave4: extension space picker in about:addons
-whimsy-space-extensions-picker = Show in Spaces
-whimsy-space-extensions-all-text = All Spaces
+whimsy-space-extensions-picker = Run in Profiles
+whimsy-space-extensions-all-text = All Profiles
+whimsy-space-extensions-shared-note = Installed once: its settings and saved data are shared by every profile.
 
 # wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
 # title, $url its address.
@@ -1605,12 +1575,14 @@ whimsy-quick-window-address =
 whimsy-quick-window-address-page =
     .title = { $title } — { $url }
     .aria-label = Edit address: { $url }
-whimsy-quick-window-address-placeholder = Search or Enter URL…
 whimsy-quick-window-copy-link =
     .tooltiptext = Copy URL (Cmd+Shift+C)
     .aria-label = Copy URL
 
 whimsy-quick-window-profile = ☺ Default
+whimsy-quick-window-profile-button = { $profile }
+    .aria-label = Profile: { $profile }
+    .title = Profile: { $profile }. Choose another profile for this page.
 whimsy-history-unknown-space = Unknown space
 
 ## wave5: seasonal Balloon Dash (the seed hazard wears the season's costume)
@@ -1618,6 +1590,10 @@ whimsy-history-unknown-space = Unknown space
 whimsy-game-death-seed-autumn = Caught by a falling leaf.
 whimsy-game-death-seed-winter = Caught by a snowflake.
 whimsy-game-death-seed-spring = Buzzed by a bumblebee.
+
+## wave7/season: Balloon Dash at Halloween (bats fly where birds do)
+
+whimsy-game-death-bird-halloween = A bat wanted a closer look.
 
 ## wave5: live blocks in Notes (Arc Easels' Live Captures)
 
@@ -1817,6 +1793,11 @@ whimsy-verb-linear-search = Search Linear
 whimsy-verb-copied-toast = Copied as Markdown
 whimsy-verb-note-toast = Added to Notes
 
+## wave5: Redact, a toggle in the screenshot panel beside Visible and Full Page
+
+whimsy-redact-button = Redact
+    .title = Blur emails, phone numbers, keys and card numbers in the screenshot. Click any text to blur or unblur it.
+
 ## wave5/look: a look per space (font, density, tab titles, a Zen Mod)
 
 whimsy-space-look-menu =
@@ -1867,6 +1848,230 @@ whimsy-look-density-roomy =
     .label = Roomy
 whimsy-welcome-font-per-space = Want a different look for work and play? Any space can have its own font and density later: right-click it and choose Look and Feel.
 
+## wave5: Easel (Arc's Easels)
+
+whimsy-easel-enable =
+    .label = Easels: a canvas for notes, drawings, images and live captures
+whimsy-action-new-easel = New Easel
+whimsy-easel-capture-button = Add to Easel
+    .title = Add this capture to an easel
+whimsy-easel-picker-title =
+    .label = Add to Easel
+whimsy-easel-picker-new =
+    .label = New Easel
+# $title (String) - the easel's name
+whimsy-easel-capture-added = Added to { $title }
+whimsy-easel-capture-private = Captures from private tabs can't be added to an easel
+whimsy-easel-untitled = Untitled Easel
+whimsy-easel-heading = Easel
+whimsy-easel-text-placeholder = Type something
+whimsy-easel-keyboard-help = Tools: V select, T text, P pen, H highlighter, R rectangle, O ellipse, L line, A arrow, I image. Enter adds text or a shape at the center, or opens the selected item. Tab moves between items, arrow keys move them, Option with arrows resizes them, Shift with arrows goes further. Delete removes. Command Z undoes, Command Shift Z redoes. Command R refreshes live captures.
+
+whimsy-easel-title-input =
+    .placeholder = Untitled Easel
+    .aria-label = Easel name
+whimsy-easel-history-group =
+    .aria-label = History
+whimsy-easel-undo =
+    .title = Undo (⌘Z)
+    .aria-label = Undo
+whimsy-easel-redo =
+    .title = Redo (⇧⌘Z)
+    .aria-label = Redo
+whimsy-easel-zoom-group =
+    .aria-label = Zoom
+whimsy-easel-zoom-out =
+    .title = Zoom out (⌘−)
+    .aria-label = Zoom out
+whimsy-easel-zoom-in =
+    .title = Zoom in (⌘=)
+    .aria-label = Zoom in
+# $percent (Number) - the current zoom
+whimsy-easel-zoom-reset =
+    .title = Reset zoom to 100% (⌘0)
+    .aria-label = { $percent }%, reset zoom
+whimsy-easel-share = Export
+    .title = Export or copy this easel
+whimsy-easel-share-menu =
+    .aria-label = Export
+whimsy-easel-export-copy = Copy as Image
+whimsy-easel-export-png-light = Save as PNG (Light)
+whimsy-easel-export-png-dark = Save as PNG (Dark)
+whimsy-easel-export-pdf = Save as PDF…
+whimsy-easel-export-note = Copy Link opens this easel on your devices that sync with Whimsy (images stay on this Mac). To share with anyone else, send the image or PDF.
+whimsy-easel-export-picker-title = Save Easel as PNG
+
+whimsy-easel-toolbar =
+    .aria-label = Easel tools
+whimsy-easel-tools-group =
+    .aria-label = Tools
+whimsy-easel-tool-select =
+    .title = Select (V)
+    .aria-label = Select
+whimsy-easel-tool-text =
+    .title = Text (T)
+    .aria-label = Text
+whimsy-easel-tool-pen =
+    .title = Pen (P)
+    .aria-label = Pen
+whimsy-easel-tool-highlighter =
+    .title = Highlighter (H)
+    .aria-label = Highlighter
+whimsy-easel-tool-rect =
+    .title = Rectangle (R)
+    .aria-label = Rectangle
+whimsy-easel-tool-ellipse =
+    .title = Ellipse (O)
+    .aria-label = Ellipse
+whimsy-easel-tool-line =
+    .title = Line (L)
+    .aria-label = Line
+whimsy-easel-tool-arrow =
+    .title = Arrow (A)
+    .aria-label = Arrow
+whimsy-easel-tool-image =
+    .title = Add an image (I)
+    .aria-label = Add an image
+whimsy-easel-color-group =
+    .aria-label = Color
+whimsy-easel-color-ink =
+    .title = Ink
+    .aria-label = Ink
+whimsy-easel-color-gray =
+    .title = Gray
+    .aria-label = Gray
+whimsy-easel-color-red =
+    .title = Red
+    .aria-label = Red
+whimsy-easel-color-orange =
+    .title = Orange
+    .aria-label = Orange
+whimsy-easel-color-yellow =
+    .title = Yellow
+    .aria-label = Yellow
+whimsy-easel-color-green =
+    .title = Green
+    .aria-label = Green
+whimsy-easel-color-blue =
+    .title = Blue
+    .aria-label = Blue
+whimsy-easel-color-purple =
+    .title = Purple
+    .aria-label = Purple
+whimsy-easel-color-pink =
+    .title = Pink
+    .aria-label = Pink
+whimsy-easel-size-group =
+    .aria-label = Size
+whimsy-easel-size-small =
+    .title = Small
+    .aria-label = Small
+whimsy-easel-size-medium =
+    .title = Medium
+    .aria-label = Medium
+whimsy-easel-size-large =
+    .title = Large
+    .aria-label = Large
+
+whimsy-easel-contextbar =
+    .aria-label = Selection
+whimsy-easel-font-group =
+    .aria-label = Font
+whimsy-easel-font-sans = Sans
+    .title = Sans
+whimsy-easel-font-serif = Serif
+    .title = Serif
+whimsy-easel-font-mono = Mono
+    .title = Monospace
+whimsy-easel-font-rounded = Round
+    .title = Rounded
+whimsy-easel-fill =
+    .title = Fill
+    .aria-label = Fill
+whimsy-easel-live-play =
+    .title = Play: show the live page
+    .aria-label = Play live capture
+whimsy-easel-live-pause =
+    .title = Pause: go back to the capture
+    .aria-label = Pause live capture
+whimsy-easel-open-source =
+    .title = Open the page
+    .aria-label = Open the page
+whimsy-easel-bring-front =
+    .title = Bring to front (⇧⌘])
+    .aria-label = Bring to front
+whimsy-easel-send-back =
+    .title = Send to back (⇧⌘[)
+    .aria-label = Send to back
+whimsy-easel-duplicate =
+    .title = Duplicate (⌘D)
+    .aria-label = Duplicate
+whimsy-easel-delete =
+    .title = Delete (⌫)
+    .aria-label = Delete
+
+whimsy-easel-empty-title = A blank easel
+whimsy-easel-empty-body = Collect what you find on the web, then write and draw around it.
+whimsy-easel-empty-text = Write text
+whimsy-easel-empty-draw = Draw
+whimsy-easel-empty-paste = Paste an image or link
+whimsy-easel-empty-capture = Capture part of any page
+
+whimsy-easel-live-private = Live captures are paused in private windows
+whimsy-easel-off-title = Easels are turned off
+whimsy-easel-off-body = Turn them on in Settings, under Whimsy.
+whimsy-easel-missing-title = This easel was deleted
+whimsy-easel-missing-body = Find your other easels in the Library.
+
+# $count (Number) - how many items
+whimsy-easel-status-selected = { $count ->
+    [one] 1 item selected
+   *[other] { $count } items selected
+}
+whimsy-easel-status-added = { $count ->
+    [one] Added 1 item
+   *[other] Added { $count } items
+}
+whimsy-easel-status-deleted = { $count ->
+    [one] Deleted 1 item. Press Command Z to undo.
+   *[other] Deleted { $count } items. Press Command Z to undo.
+}
+whimsy-easel-status-copied = { $count ->
+    [one] Copied 1 item
+   *[other] Copied { $count } items
+}
+whimsy-easel-status-refreshed = { $count ->
+    [0] No live captures to refresh
+    [one] Refreshed 1 live capture
+   *[other] Refreshed { $count } live captures
+}
+whimsy-easel-status-undo = Undone
+whimsy-easel-status-redo = Redone
+whimsy-easel-status-live-on = Live capture on
+whimsy-easel-status-live-off = Live capture paused
+whimsy-easel-status-copied-image = Copied the easel as an image
+whimsy-easel-status-saved-png = Saved the easel as a PNG
+whimsy-easel-status-export-failed = Couldn't export the easel. Try again, or export a smaller part.
+whimsy-easel-status-image-failed = Couldn't add that image. Try a PNG, JPEG, GIF or WebP file.
+
+whimsy-library-easels-title = Easels
+whimsy-library-easels-empty = No easels yet
+whimsy-library-easels-new = New Easel
+whimsy-library-easels-search-placeholder =
+    .placeholder = Search easels…
+whimsy-library-easels-delete =
+    .label = Delete
+    .tooltiptext = Delete easel
+# $count (Number) - items on the easel
+whimsy-library-easels-items = { $count ->
+    [0] Empty
+    [one] 1 item
+   *[other] { $count } items
+}
+# $title (String) - the easel's name
+whimsy-library-easels-deleted = Deleted { $title }
+whimsy-library-easels-undo-button = Undo
+
 ## wave5: command registry. Every Whimsy command has one name, used in the
 ## command bar, in Settings → Keyboard Shortcuts (under "Whimsy") and in
 ## the shortcut cheat sheet. State-aware commands have a neutral name for
@@ -1903,37 +2108,37 @@ whimsy-meeting-group-header = Meetings
 # features you start from the command bar or the tab menu.
 whimsy-settings-features-summary = On-demand features
 
-# wave5/uxfix: Fire Button. Rows pick what to forget; this button does it.
-whimsy-fire-scopes = What to forget
-# $site (string) - the current site's domain, e.g. example.com
-whimsy-fire-forget-site =
-    .label = Forget { $site }
-whimsy-fire-forget-recent =
-    .label = Forget Last 15 Minutes
-whimsy-fire-forget-space =
-    .label = Forget This Space
+# wave5/uxfix: Fire Button. Rows pick what to clear; this button does it.
+whimsy-fire-scopes = What to clear
+whimsy-fire-forget-profile =
+    .label = Fire in This Profile
 whimsy-fire-forget-everything =
-    .label = Forget Everything
-# Result toasts. $count (number) - tabs closed; $site (string) - the domain.
+    .label = Fire Everywhere…
+# Result toasts: what closed and what was cleared.
+# $count (number) - tabs closed; $site (string) - the domain.
+# $count (number) - tabs closed; $visits (number) - the profile's history
+# visits removed; $sites (number) - sites whose cookies, data and cache went;
+# $profile (string) - the profile's name
+whimsy-fire-done-profile = { $count ->
+    [0] No tabs closed
+    [one] Closed 1 tab
+   *[other] Closed { $count } tabs
+} · removed { $visits ->
+    [one] 1 visit
+   *[other] { $visits } visits
+} and { $sites ->
+    [one] 1 site’s data
+   *[other] { $sites } sites’ data
+} from { $profile }’s last hour
+whimsy-fire-done-everything = { $count ->
+    [0] Cleared all history, cookies, site data, cache and form history
+    [one] Closed 1 tab · cleared all history, cookies, site data, cache and form history
+   *[other] Closed { $count } tabs · cleared all history, cookies, site data, cache and form history
+}
 whimsy-fire-done-site = { $count ->
     [0] Forgot { $site }
     [one] Forgot { $site } · closed 1 tab
    *[other] Forgot { $site } · closed { $count } tabs
-}
-whimsy-fire-done-recent = { $count ->
-    [0] Forgot the last 15 minutes
-    [one] Forgot the last 15 minutes · closed 1 tab
-   *[other] Forgot the last 15 minutes · closed { $count } tabs
-}
-whimsy-fire-done-space = { $count ->
-    [0] Forgot this space’s site data
-    [one] Forgot this space’s site data · closed 1 tab
-   *[other] Forgot this space’s site data · closed { $count } tabs
-}
-whimsy-fire-done-everything = { $count ->
-    [0] Forgot all browsing data
-    [one] Forgot all browsing data · closed 1 tab
-   *[other] Forgot all browsing data · closed { $count } tabs
 }
 whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 
@@ -1942,8 +2147,8 @@ whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 whimsy-tab-unread-description = { $count } unread
 
 # wave5/uxfix: keeping Scratch asks in the window's sheet (it can't be undone).
-whimsy-scratch-keep-confirm-title = Keep as a Normal Space?
-whimsy-scratch-keep-confirm-accept = Keep Space
+whimsy-scratch-save-confirm-title = Save as a Space?
+whimsy-scratch-save-confirm-accept = Save Space
 
 # wave5/uxfix: the Undo button on a result toast (Snooze, Hide Space).
 whimsy-undo-toast-button =
@@ -1990,8 +2195,105 @@ whimsy-links-glance-header = Glance
 whimsy-links-split-header = Split view
 whimsy-links-follower =
     .label = Follower splits: links in one pane open in the other
-whimsy-links-follower-help = To start one, right-click a tab in a split and choose Make This a Follower Split.
+whimsy-links-follower-help = To start one, open the command bar in a split and choose Make This a Follower Split.
 whimsy-links-spaces-header = Spaces
+
+## wave5/profiles: profiles (Arc's profiles, on containers)
+
+whimsy-profile-default-name = Default
+whimsy-profile-name-label = Profile Name
+whimsy-profile-name-empty = Enter a name for the profile.
+whimsy-profile-name-taken = A Profile with that name already exists. Choose another name.
+whimsy-profile-name-failed = Unable to save the profile. Try again.
+whimsy-profile-default-fixed = The Default profile can’t be renamed.
+whimsy-profile-create-title = New Profile
+whimsy-profile-rename-title = Rename Profile
+whimsy-profile-cancel =
+    .label = Cancel
+whimsy-profile-create-button =
+    .label = Create Profile
+whimsy-profile-rename-button =
+    .label = Rename Profile
+whimsy-profile-cancel-text = Cancel
+whimsy-profile-create-button-text = Create Profile
+whimsy-profile-rename-button-text = Rename Profile
+whimsy-profile-create-menuitem =
+    .label = Create a New Profile…
+whimsy-profiles-header = Profiles
+whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data, saved passwords, history, Essentials, extensions, search engine and download folder, and a new one starts empty. Spaces in the same profile share them.
+whimsy-profiles-delete-rule = Only Profiles not assigned to any Spaces can be deleted.
+whimsy-profiles-spaces =
+    { $count ->
+        [0] Not used by any space
+        [one] Used by 1 space
+       *[other] Used by { $count } spaces
+    }
+whimsy-profiles-spaces-default =
+    { $count ->
+        [0] Not used by any space · Keeps everything from before profiles
+        [one] Used by 1 space · Keeps everything from before profiles
+       *[other] Used by { $count } spaces · Keeps everything from before profiles
+    }
+whimsy-profiles-rename =
+    .label = Rename…
+    .aria-label = Rename “{ $name }”…
+whimsy-profiles-delete =
+    .label = Delete Profile…
+    .aria-label = Delete Profile “{ $name }”…
+whimsy-profiles-create =
+    .label = Create a New Profile…
+whimsy-profiles-delete-unused =
+    .label = Delete Unused Profiles…
+whimsy-profiles-delete-confirm-title = Delete the “{ $name }” profile?
+whimsy-profiles-delete-confirm-body = Its cookies, site data and saved passwords are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-confirm-accept = Delete Profile
+whimsy-profiles-delete-unused-confirm-title =
+    { $count ->
+        [one] Delete 1 unused profile?
+       *[other] Delete { $count } unused profiles?
+    }
+whimsy-profiles-delete-unused-confirm-body = Not used by any space: { $names }. Their cookies, site data and saved passwords are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-unused-confirm-accept =
+    { $count ->
+        [one] Delete Profile
+       *[other] Delete Profiles
+    }
+whimsy-history-profile-filter = Profile
+whimsy-history-this-profile = This Profile
+whimsy-history-all-profiles = All Profiles
+whimsy-profiles-default-settings = Uses your Search and Downloads settings.
+whimsy-profiles-search-engine =
+    .value = Search Engine
+whimsy-profiles-same-as-default =
+    .label = Same as Default
+whimsy-profiles-same-as-default-text = Same as Default
+whimsy-profiles-download-dir =
+    .value = Default Download Location
+whimsy-profiles-download-choose =
+    .label = Choose…
+whimsy-profiles-download-reset =
+    .label = Use Default
+whimsy-profiles-download-picker-title = Choose a Download Location for This Profile
+whimsy-profile-move-space-title = Move “{ $space }” to the “{ $profile }” profile?
+whimsy-profile-move-space-body = Each Profile has different browser data, so you might get logged out of some websites, see different Favorites up top, or need to re-install extensions.
+whimsy-profile-move-space-accept = Move Space
+whimsy-profile-moved-space-toast = “{ $space }” now uses the “{ $profile }” profile
+whimsy-profile-move-tab-title =
+    { $count ->
+        [one] Move this tab to “{ $space }”?
+       *[other] Move { $count } tabs to “{ $space }”?
+    }
+whimsy-profile-move-tab-body =
+    { $count ->
+        [one] It reopens in the “{ $profile }” profile, so this webpage might look a little different.
+       *[other] They reopen in the “{ $profile }” profile, so these webpages might look a little different.
+    }
+whimsy-profile-move-tab-accept =
+    { $count ->
+        [one] Move Tab
+       *[other] Move Tabs
+    }
+whimsy-profile-reverted-toast = Whimsy has reverted to using your Default profile for { $spaces }
 
 ## wave6/zap: Zap (erase page elements; Zen's zap mode as a command)
 
@@ -2088,8 +2390,9 @@ whimsy-page-action-product = Watch price
 whimsy-page-action-product-tooltip =
     .tooltiptext = Get an alert when the price of { $name } drops
 whimsy-page-action-parcel = Track
+## $host - the tracking page's site, e.g. www.ups.com
 whimsy-page-action-parcel-tooltip =
-    .tooltiptext = Open the carrier’s tracking page
+    .tooltiptext = Open the tracking page on { $host }
 whimsy-page-action-calendar-toast = Opening the event in Calendar
 ## $price - the price shown on the page, formatted
 whimsy-page-action-price-condition = The price drops below { $price }
@@ -2272,6 +2575,26 @@ whimsy-live-folder-jira-category-undefined =
 whimsy-tab-audio-mute = Mute tab
 whimsy-tab-audio-unmute = Unmute tab
 
+## wave7/ux: Fire Button. "Everything" asks once more; Cancel is the default.
+
+whimsy-fire-everything-confirm-title = Fire everywhere?
+whimsy-fire-everything-confirm-body = This clears all history, cookies, site data, cache, form and search history, the download list and closed tabs for every site in every profile, and closes every unpinned tab. Saved passwords, bookmarks and downloaded files stay. You can’t undo it.
+whimsy-fire-everything-confirm-accept = Fire Everywhere
+
+## wave7/fire: Forget About This Site… (command bar). Cancel is the default.
+
+# $site (string) - the current tab's base domain, e.g. example.com
+whimsy-fire-site-confirm-title = Forget { $site }?
+whimsy-fire-site-confirm-body = This deletes { $site }’s history, cookies, site data and cache, including its subdomains, and closes its tabs. Pinned tabs stay. You can’t undo it.
+whimsy-fire-site-confirm-accept = Forget Site
+
+## wave7/ux: link hover cards (WhimsyLinkHover)
+
+whimsy-hover-links =
+    .label = Show where a link goes when you Shift-hover it
+# Above the AI summary card, under the link or People card.
+whimsy-link-hover-ai-label = Summary
+
 # fix7 settings: command bar actions for History, Liquid Glass and Glance size.
 whimsy-action-view-history = View History
 whimsy-action-liquid-glass-on = Turn Liquid Glass On
@@ -2286,3 +2609,596 @@ whimsy-pane-looks-crumb =
     .label = Look and Feel
 whimsy-pane-tabs-crumb =
     .label = Tab Management
+
+# wave7/menus2: Arc's words for closing tabs, which go to the Archive.
+# $tabCount (number) - how many tabs the row archives
+whimsy-tab-context-archive-tabs =
+    .label =
+        { $tabCount ->
+            [1] Archive Tab
+           *[other] Archive Tabs
+        }
+whimsy-tab-context-archive-tabs-below =
+    .label = Archive Tabs Below
+# Shown instead when closed tabs aren't archived (a private tab, or the Archive is off).
+whimsy-tab-context-close-tabs-below =
+    .label = Close Tabs Below
+# $tabCount (number) - how many tabs the last close took (Shift+Cmd+T brings them back)
+whimsy-tab-context-restore-closed-tabs =
+    .label =
+        { $tabCount ->
+            [1] Restore Last Closed Tab
+           *[other] Restore Last Closed Tabs
+        }
+# File menu, Cmd+W. $tabCount (number) - selected tabs
+whimsy-menu-archive-tab =
+    .label =
+        { $tabCount ->
+            [1] Archive Tab
+           *[other] Archive Tabs
+        }
+## wave7/keys: commands for features that only had Settings, a sidebar
+## control or a context menu (command bar and about:keyboard names).
+
+whimsy-action-tree-toggle = Collapse or Expand Tab Children
+whimsy-action-tree-collapse = Collapse Tab Children
+whimsy-action-tree-expand = Expand Tab Children
+whimsy-action-show-hidden-spaces = Show Hidden Spaces…
+whimsy-action-space-switcher-toggle = Show or Hide Space Switcher
+whimsy-action-space-switcher-show = Show Space Switcher
+whimsy-action-space-switcher-hide = Hide Space Switcher
+whimsy-action-ui-zoom-in = Zoom Interface In
+whimsy-action-ui-zoom-out = Zoom Interface Out
+whimsy-action-ui-zoom-reset = Reset Interface Zoom
+whimsy-action-background-mute-toggle = Mute or Stop Muting Background Tabs
+whimsy-action-background-mute-on = Mute Background Tabs
+whimsy-action-background-mute-off = Stop Muting Background Tabs
+whimsy-action-bionic-toggle = Turn Bionic Reading On or Off
+whimsy-action-bionic-on = Turn Bionic Reading On
+whimsy-action-bionic-off = Turn Bionic Reading Off
+whimsy-action-dark-pdf-toggle = Turn Dark PDFs On or Off
+whimsy-action-dark-pdf-on = Turn Dark PDFs On
+whimsy-action-dark-pdf-off = Turn Dark PDFs Off
+whimsy-action-new-live-folder = New Live Folder…
+whimsy-action-new-folder = New Folder…
+whimsy-action-manage-spaces = Manage Spaces…
+whimsy-action-air-traffic-control = Air Traffic Control…
+whimsy-action-add-finder-folder = Add Finder Folder…
+whimsy-action-open-claude-space = Open Claude Space
+whimsy-action-whats-new = What’s New
+## wave7/focus: Do Not Disturb (pauses site notifications until you turn
+## it off or quit; macOS Focus already silences them on its own)
+
+whimsy-action-dnd-toggle = Turn Do Not Disturb On or Off
+whimsy-action-dnd-on = Turn On Do Not Disturb
+whimsy-action-dnd-off = Turn Off Do Not Disturb
+whimsy-dnd-on-toast = Do Not Disturb on
+whimsy-dnd-on-toast-description = Site notifications are paused until you turn it off or quit
+whimsy-dnd-off-toast = Do Not Disturb off
+
+## wave7/focus: paste guard (asks before pasting something that looks
+## like a secret into a web page)
+
+whimsy-action-paste-guard-toggle = Turn Paste Guard On or Off
+whimsy-action-paste-guard-on = Turn On Paste Guard
+whimsy-action-paste-guard-off = Turn Off Paste Guard
+whimsy-paste-guard-on-toast = Paste guard on
+whimsy-paste-guard-on-toast-description = Whimsy asks before you paste a key or card number into a page
+whimsy-paste-guard-off-toast = Paste guard off
+# $kind (string) - what the clipboard looks like: openai, anthropic, github,
+# aws, slack, stripe, google, private-key, jwt, card.
+whimsy-paste-guard-title =
+    { $kind ->
+        [openai] This looks like an OpenAI API key
+        [anthropic] This looks like an Anthropic API key
+        [github] This looks like a GitHub token
+        [aws] This looks like an AWS access key
+        [slack] This looks like a Slack token
+        [stripe] This looks like a Stripe secret key
+        [google] This looks like a Google API key
+        [private-key] This looks like a private key
+        [jwt] This looks like a sign-in token
+        [card] This looks like a card number
+       *[other] This looks like a secret
+    }
+# $host (string) - the site the paste would go to, like "example.com".
+whimsy-paste-guard-subtitle = Paste into { $host }?
+whimsy-paste-guard-subtitle-page = Paste into this page?
+whimsy-paste-guard-note = Anyone who can see this page may be able to read it. Whimsy checked it on this device and kept nothing.
+whimsy-paste-guard-paste =
+    .label = Paste
+whimsy-paste-guard-cancel =
+    .label = Cancel
+## wave7/teach: Teach once (WhimsyTeach.sys.mjs). One small hint beside what
+## the person just did, shown once. { $key } is the shortcut as it's bound
+## right now (e.g. ⇧⌘C), shown as a key cap.
+
+whimsy-teach-mini = Keep this page with <kbd>{ $key }</kbd>: it moves into your space. <kbd>Esc</kbd> lets it go.
+# $key is the Glance modifier (⌥ by default).
+whimsy-teach-glance = Just looking? <kbd>{ $key }</kbd>-click a link to Glance at it without opening a tab.
+whimsy-teach-verbs = Next time, select text and press <kbd>{ $key }</kbd> to translate, map, search or save it.
+whimsy-teach-split = <kbd>{ $key }</kbd> puts the selected tabs side by side.
+whimsy-teach-archive = Tabs you hadn’t used in a while moved to the Archive. <kbd>{ $key }</kbd> opens the Library, where they wait.
+whimsy-teach-pin = <kbd>{ $key }</kbd> pins or unpins the tab you’re on.
+whimsy-teach-copy-url = <kbd>{ $key }</kbd> copies this page’s link from anywhere.
+whimsy-teach-next-space = <kbd>{ $key }</kbd> goes to the next space. A two-finger swipe does too.
+whimsy-action-teach-reset = Reset Tips
+whimsy-teach-reset-toast = Tips will show again
+whimsy-teach-header = Tips
+whimsy-teach-enabled =
+    .label = Show tips the first time a shortcut could help
+whimsy-teach-enabled-help = Each tip shows once. To see them again, run Reset Tips from the command bar.
+# wave7/scratch: saving Scratch uses Zen's New Space form with these words;
+# the "Save as a Space?" dialog comes after its button.
+whimsy-scratch-save-header = Save Scratch as a Space
+whimsy-scratch-save-label = Name it and pick its look. Its tabs come with it.
+whimsy-scratch-save-button =
+    .label = Save Space
+## wave7/linear: the Linear live folder uses your linear.app sign-in; no API key needed.
+
+whimsy-live-folder-linear-signed-out =
+    .label = Sign in to Linear
+    .tooltiptext = Opens linear.app in this space’s profile. The folder fills in once you’re signed in.
+whimsy-live-folder-linear-rate-limited =
+    .label = Linear asked to slow down
+    .tooltiptext = Linear is rate limiting requests. The folder keeps its tabs and refreshes again on its own.
+whimsy-live-folder-linear-option-workspace =
+    .label = Workspace
+whimsy-live-folder-linear-workspace-all =
+    .label = All Workspaces
+whimsy-live-folder-linear-workspace =
+    .label = { $name }
+whimsy-live-folder-linear-option-use-api-key =
+    .label = Use an API Key Instead…
+whimsy-live-folder-linear-option-remove-api-key =
+    .label = Remove API Key
+## wave7/split: a split pane's ⋯ menu (on the pane's hover header).
+## Arc's names: Separate Page from Split View, Close this Split Pane,
+## Expand Current Split (keep this pane, close the others; View menu and
+## command bar), Separate All Tabs (every pane its own tab; tab menu).
+
+whimsy-split-pane-menu-button =
+    .tooltiptext = Pane Actions
+    .aria-label = Pane Actions
+whimsy-split-pane-drag =
+    .tooltiptext = Drag to Rearrange Panes
+whimsy-action-split-pane-menu = Split Pane Actions…
+
+## wave7/split2: Arc's split menus, copied exactly (arc-ref menus-context.txt).
+## The sidebar row's right-click menu, then each pane's submenu (the same
+## items as the pane header's ⋯ menu).
+
+whimsy-split-row-share =
+    .label = Share Split View…
+whimsy-split-row-separate-all =
+    .label = Separate All Tabs
+whimsy-split-row-add-tab =
+    .label = Add Tab…
+# Arc's names: side-by-side panes are a horizontal split, stacked panes a
+# vertical one.
+whimsy-split-row-convert-vertical =
+    .label = Convert to Vertical Split View
+whimsy-split-row-convert-horizontal =
+    .label = Convert to Horizontal Split View
+whimsy-split-row-tab-options =
+    .label = Tab Options
+whimsy-split-row-change-icon =
+    .label = Change Icon…
+whimsy-split-row-rename =
+    .label = Rename…
+whimsy-split-row-duplicate =
+    .label = Duplicate
+whimsy-split-row-move-to =
+    .label = Move to
+whimsy-split-row-new-space =
+    .label = New Space…
+whimsy-split-row-archive =
+    .label = Archive Item
+whimsy-split-row-archive-below =
+    .label = Archive Tabs Below
+whimsy-split-pane-separate =
+    .label = Separate from Split View
+whimsy-split-pane-mute =
+    .label = Mute
+whimsy-split-pane-unmute =
+    .label = Unmute
+whimsy-split-pane-copy-link =
+    .label = Copy Link
+whimsy-split-pane-copy-markdown =
+    .label = Copy link as Markdown
+whimsy-split-pane-archive =
+    .label = Archive Item
+whimsy-split-pane-back =
+    .tooltiptext = Back
+    .aria-label = Back
+whimsy-split-pane-forward =
+    .tooltiptext = Forward
+    .aria-label = Forward
+whimsy-split-pane-reload =
+    .tooltiptext = Reload
+    .aria-label = Reload
+whimsy-split-always-show-headers =
+    .label = Always show split pane headers
+whimsy-split-always-show-headers-help = Each pane keeps a bar at its top with back, forward, reload, the site’s address and the pane’s menu, like Arc. Off, the bar shows only while you point at a pane.
+
+## wave7/menuprefs: Settings → Menus. Which items each right-click menu
+## shows. Item names match the menus' own wording.
+
+whimsy-pane-menus-title = Menus
+whimsy-menus-title = Menus
+whimsy-menus-intro = Choose what shows when you right-click. Turn off the items you never use; the change applies the next time you open that menu.
+whimsy-menus-restore =
+    .label = Restore Defaults
+whimsy-menus-all-off = Every item is off, so right-clicking here won’t open a menu.
+
+whimsy-menus-tab = Tab
+whimsy-menus-tab-description = Right-click a tab in the sidebar.
+whimsy-menus-essential = Essential
+whimsy-menus-essential-description = Right-click an Essential. It has its own copy of the tab menu’s items.
+whimsy-menus-link = Link
+whimsy-menus-link-description = Right-click a link on a page.
+whimsy-menus-page = Page
+whimsy-menus-page-description = Right-click an empty part of a page.
+whimsy-menus-selection = Selected Text
+whimsy-menus-selection-description = Right-click text you’ve selected on a page.
+whimsy-menus-image = Image
+whimsy-menus-image-description = Right-click an image on a page. Link items show when the image is a link.
+whimsy-menus-space = Space
+whimsy-menus-space-description = Right-click a space’s icon, or click the space’s ⋯ button.
+whimsy-menus-sidebar = Sidebar
+whimsy-menus-sidebar-description = Right-click an empty part of the sidebar.
+whimsy-menus-folder = Folder
+whimsy-menus-folder-description = Right-click a folder in the sidebar.
+whimsy-menus-split-row = Split View Row
+whimsy-menus-split-row-description = Right-click a split view in the sidebar.
+whimsy-menus-split-pane = Split View Pane
+whimsy-menus-split-pane-description = Click ⋯ on a split view pane, or open a pane under Tab Options.
+
+# Shared by several menus.
+whimsy-menus-inspect =
+    .label = Inspect
+whimsy-menus-inspect-a11y =
+    .label = Inspect Accessibility Properties
+whimsy-menus-select-all =
+    .label = Select All
+
+whimsy-menus-tab-new-tab =
+    .label = New Tab
+whimsy-menus-tab-move-to-folder =
+    .label = Move to Folder
+whimsy-menus-tab-group-by-site =
+    .label = Group Tabs from Site
+whimsy-menus-tab-split =
+    .label = Add Split View / Split Out Tab
+whimsy-menus-tab-share-split =
+    .label = Share Split View
+    .description = On a tab in a split view
+whimsy-menus-tab-reload =
+    .label = Reload Tab
+whimsy-menus-tab-play =
+    .label = Play Tab
+    .description = When a tab is waiting to play
+whimsy-menus-tab-mute =
+    .label = Mute Tab
+whimsy-menus-tab-mute-site =
+    .label = Mute Site
+whimsy-menus-tab-snooze =
+    .label = Snooze…
+whimsy-menus-tab-essentials =
+    .label = Add to Essentials / Remove from Essentials
+whimsy-menus-tab-rename =
+    .label = Rename…
+whimsy-menus-tab-change-icon =
+    .label = Change Icon…
+whimsy-menus-tab-pin =
+    .label = Pin Tab / Unpin Tab
+whimsy-menus-tab-unload =
+    .label = Unload Tab
+whimsy-menus-tab-duplicate =
+    .label = Duplicate Tab
+whimsy-menus-tab-copy-links =
+    .label = Copy Link
+whimsy-menus-tab-ask-chat =
+    .label = Ask an AI Chatbot
+    .description = When the AI chatbot is on
+whimsy-menus-tab-bookmark =
+    .label = Bookmark Tab
+whimsy-menus-tab-watch =
+    .label = Watch This Page…
+whimsy-menus-tab-move-tab =
+    .label = Move Tab
+whimsy-menus-tab-reopen-in-container =
+    .label = Open in New Container Tab
+whimsy-menus-tab-select-all =
+    .label = Select All Tabs
+whimsy-menus-tab-share =
+    .label = Share
+whimsy-menus-tab-send-to-device =
+    .label = Send Tab to Device
+whimsy-menus-tab-close =
+    .label = Archive Tab
+whimsy-menus-tab-archive-below =
+    .label = Archive Tabs Below
+whimsy-menus-tab-close-duplicates =
+    .label = Close Duplicate Tabs
+whimsy-menus-tab-close-multiple =
+    .label = Close Multiple Tabs
+whimsy-menus-tab-reopen =
+    .label = Restore Last Closed Tab
+whimsy-menus-tab-space-routing =
+    .label = Add Site to Space Routing
+whimsy-menus-tab-edit-pinned =
+    .label = Edit Pinned Page
+    .description = On pinned tabs and Essentials
+whimsy-menus-tab-reset-pinned =
+    .label = Reset Pinned Tab
+    .description = On pinned tabs and Essentials
+whimsy-menus-tab-follower =
+    .label = Make This a Follower Split
+    .description = On a tab in a split view
+
+whimsy-menus-link-open-in-tab =
+    .label = Open Link in New Tab
+whimsy-menus-link-open-in-container =
+    .label = Open Link in New Container Tab
+whimsy-menus-link-open-in-space =
+    .label = Open Link in Space
+whimsy-menus-link-open-in-window =
+    .label = Open Link in New Window
+whimsy-menus-link-open-in-private =
+    .label = Open Link in New Private Window
+whimsy-menus-link-preview =
+    .label = Preview Link
+whimsy-menus-link-split =
+    .label = Split Link to New Tab
+whimsy-menus-link-glance =
+    .label = Open Link in Glance
+whimsy-menus-link-bookmark =
+    .label = Bookmark Link
+whimsy-menus-link-save =
+    .label = Save Link As…
+whimsy-menus-link-copy-email =
+    .label = Copy Email Address / Phone Number
+whimsy-menus-link-copy =
+    .label = Copy Link
+whimsy-menus-link-copy-clean =
+    .label = Copy Clean Link
+    .description = When the link has tracking parameters
+whimsy-menus-link-send-to-device =
+    .label = Send Link to Device
+
+whimsy-menus-page-back =
+    .label = Back
+whimsy-menus-page-forward =
+    .label = Forward
+whimsy-menus-page-reload =
+    .label = Reload
+whimsy-menus-page-bookmark =
+    .label = Bookmark Page
+whimsy-menus-page-save =
+    .label = Save Page As…
+whimsy-menus-page-qr-code =
+    .label = QR Code for Page
+whimsy-menus-page-copy-markdown =
+    .label = Copy Page as Markdown
+whimsy-menus-page-screenshot =
+    .label = Take Screenshot
+whimsy-menus-page-edit-text =
+    .label = Edit Text on Page
+whimsy-menus-page-send-to-device =
+    .label = Send Page to Device
+whimsy-menus-page-view-source =
+    .label = View Page Source
+
+whimsy-menus-selection-search =
+    .label = Search for the Selection
+whimsy-menus-selection-search-private =
+    .label = Search for the Selection in a Private Window
+whimsy-menus-selection-translate =
+    .label = Translate Selection
+whimsy-menus-selection-copy =
+    .label = Copy
+whimsy-menus-selection-copy-markdown =
+    .label = Copy Selection as Markdown
+whimsy-menus-selection-print =
+    .label = Print Selection…
+whimsy-menus-selection-copy-highlight =
+    .label = Copy Link to Highlight
+whimsy-menus-selection-view-source =
+    .label = View Selection Source
+
+whimsy-menus-image-view =
+    .label = Open Image in New Tab
+whimsy-menus-image-save =
+    .label = Save Image As…
+whimsy-menus-image-copy =
+    .label = Copy Image
+whimsy-menus-image-copy-link =
+    .label = Copy Image Link
+whimsy-menus-image-email =
+    .label = Email Image…
+whimsy-menus-image-copy-text =
+    .label = Copy Text from Image
+whimsy-menus-image-desktop-background =
+    .label = Set Image as Desktop Background…
+
+whimsy-menus-space-rename =
+    .label = Rename Space…
+whimsy-menus-space-change-icon =
+    .label = Change Icon…
+whimsy-menus-space-edit-theme =
+    .label = Edit Theme…
+whimsy-menus-space-look =
+    .label = Look and Feel…
+whimsy-menus-space-profile =
+    .label = Profile
+whimsy-menus-space-new =
+    .label = New Space…
+whimsy-menus-space-manage =
+    .label = Manage Spaces…
+whimsy-menus-space-routing =
+    .label = Space Routing Settings
+whimsy-menus-space-unload =
+    .label = Unload Space
+whimsy-menus-space-unload-others =
+    .label = Unload Other Spaces
+whimsy-menus-space-share =
+    .label = Share Space…
+whimsy-menus-space-lock =
+    .label = Lock This Space
+whimsy-menus-space-hide =
+    .label = Hide This Space
+whimsy-menus-space-delete =
+    .label = Delete Space
+whimsy-menus-space-scratch-keep =
+    .label = Keep…
+    .description = In the Scratch space
+whimsy-menus-space-scratch-close =
+    .label = Close
+    .description = In the Scratch space
+
+whimsy-menus-sidebar-new-folder =
+    .label = New Folder
+whimsy-menus-sidebar-new-live-folder =
+    .label = New Live Folder
+whimsy-menus-sidebar-live-github-prs =
+    .label = New Live Folder: GitHub Pull Requests
+whimsy-menus-sidebar-live-github-issues =
+    .label = New Live Folder: GitHub Issues
+whimsy-menus-sidebar-live-rss =
+    .label = New Live Folder: RSS
+whimsy-menus-sidebar-live-jira =
+    .label = New Live Folder: Jira Issues
+whimsy-menus-sidebar-live-linear =
+    .label = New Live Folder: Linear Issues
+whimsy-menus-sidebar-live-local-servers =
+    .label = New Live Folder: Local Servers
+
+whimsy-menus-folder-live-options =
+    .label = Live Options
+    .description = On live folders
+whimsy-menus-folder-rename =
+    .label = Rename…
+whimsy-menus-folder-change-icon =
+    .label = Change Icon…
+whimsy-menus-folder-color =
+    .label = Color
+whimsy-menus-folder-unload =
+    .label = Unload All
+whimsy-menus-folder-new-subfolder =
+    .label = New Subfolder
+whimsy-menus-folder-move-to-space =
+    .label = Move to Space
+whimsy-menus-folder-convert-to-space =
+    .label = Convert to Space
+whimsy-menus-folder-share =
+    .label = Share
+whimsy-menus-folder-unpack =
+    .label = Unpack
+whimsy-menus-folder-delete =
+    .label = Delete
+
+# Split view (row menu and pane menu share a few).
+whimsy-menus-split-share =
+    .label = Share Split View…
+whimsy-menus-split-archive =
+    .label = Archive Item
+whimsy-menus-split-row-separate-all =
+    .label = Separate All Tabs
+whimsy-menus-split-row-add-tab =
+    .label = Add Tab…
+whimsy-menus-split-row-convert =
+    .label = Convert to Vertical / Horizontal Split View
+whimsy-menus-split-row-tab-options =
+    .label = Tab Options
+whimsy-menus-split-row-change-icon =
+    .label = Change Icon…
+whimsy-menus-split-row-rename =
+    .label = Rename…
+whimsy-menus-split-row-duplicate =
+    .label = Duplicate
+whimsy-menus-split-row-move-to =
+    .label = Move to
+whimsy-menus-split-pane-separate =
+    .label = Separate from Split View
+whimsy-menus-split-pane-share =
+    .label = Share
+whimsy-menus-split-pane-copy-link =
+    .label = Copy Link
+whimsy-menus-split-pane-mute =
+    .label = Mute
+whimsy-menus-split-pane-copy-markdown =
+    .label = Copy link as Markdown
+## wave7/native1: Add to Calendar saves straight into macOS Calendar
+
+whimsy-verb-calendar-added-toast = Added to Calendar
+## w7native: live captions from a video's speech (CC on a video without
+## captions), recognized on this Mac by macOS, then translated.
+
+whimsy-media-video-speech-captions =
+    .label = When a video has no captions, CC makes them from its speech, on your Mac
+whimsy-video-captions-listening = Listening to the video for live captions…
+whimsy-video-captions-speech-denied = Allow Speech Recognition in System Settings → Privacy & Security to get live captions
+whimsy-video-captions-speech-unavailable = Live captions need an on-device Dictation language in System Settings → Keyboard
+whimsy-video-captions-speech-protected = This video is protected, so it can’t be captioned
+whimsy-video-captions-speech-no-audio = This video has no sound to caption
+## wave7/small: Cast to AirPlay (Arc's View > Cast...).
+
+whimsy-action-cast = Cast to AirPlay…
+whimsy-action-cast-stop = Stop Casting
+whimsy-menu-cast =
+    .label = Cast…
+whimsy-menu-cast-stop =
+    .label = Stop Casting
+whimsy-cast-connected-toast = Playing on your AirPlay device
+whimsy-cast-stop-button = Stop
+whimsy-cast-stopped-toast = Casting stopped
+whimsy-cast-failed-toast = The AirPlay device couldn’t play this video
+whimsy-cast-no-video-toast = There’s no video on this page to cast
+whimsy-cast-unavailable-toast = AirPlay isn’t available in this build
+whimsy-cast-mirror-toast = This video can’t be sent on its own. Mirror your screen instead.
+whimsy-cast-mirror-button = Screen Mirroring
+
+## wave7/small: Create Email Alias (command bar).
+
+whimsy-action-create-email-alias = Create Email Alias
+whimsy-email-aliases-toast-no-field = Click into an email field first, then create an alias for it
+
+## wave7/small: Move to > New Space... (Arc).
+
+whimsy-action-move-to-new-space = Move to New Space…
+whimsy-menu-move-to-new-space =
+    .label = New Space…
+
+## wave7/small: Teach once hints for Link hints and Instant result
+## (WhimsyTeachHints; shown only in builds with WhimsyTeach).
+## $key (string) - the hint's current shortcut
+
+whimsy-teach-link-hints = <kbd>{ $key }</kbd> puts a letter on every link. Type it to click, no mouse needed.
+whimsy-teach-instant = <kbd>{ $key }</kbd> on a search skips the results page and opens the top result.
+
+## wave7/small: the changelog names dev builds by ID only on the Dev channel;
+## on Release an untitled dev build is headed by this.
+
+whimsy-changelog-dev-build = Update
+
+## wave7/small: Search Linear before Whimsy knows the Linear workspace.
+
+whimsy-verb-linear-copied-toast = Copied your search. Press / in Linear to paste it.
+
+## wave7/small: the idle archive sweep's toast (with Undo).
+## $count (number) - how many tabs were archived
+
+whimsy-archive-swept-toast =
+    { $count ->
+        [one] Archived a tab you hadn’t used in a while
+       *[other] Archived { $count } tabs you hadn’t used in a while
+    }
+## wave7/easel: View Easels…, Add Page to Easel, Copy Link
+
+whimsy-action-view-easels = View Easels…
+whimsy-menu-view-easels =
+    .label = View Easels…
+whimsy-action-add-page-to-easel = Add Page to Easel
+whimsy-easel-export-link = Copy Link
+whimsy-easel-status-copied-link = Copied the link to this easel

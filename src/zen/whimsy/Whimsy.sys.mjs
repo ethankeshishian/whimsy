@@ -83,6 +83,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVPN: "resource:///modules/whimsy/WhimsyVPN.sys.mjs",
 });
 
+// wave7/spaceanim: space switches play one at a time (Arc).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySpaceSwitchQueue: "resource:///modules/whimsy/WhimsySpaceSwitchQueue.sys.mjs",
+});
+
 // wave3/private: RSS reading (unread counts, Reader View items).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLiveFolderReading: "resource:///modules/whimsy/WhimsyLiveFolderReading.sys.mjs",
@@ -157,9 +162,24 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
 });
 
+// wave7/native1: Whimsy's own toasts follow macOS Focus.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFocus: "resource:///modules/whimsy/WhimsyFocus.sys.mjs",
+});
+
+// wave5: redact in screenshots.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
+});
+
 // wave5/look: a look per space (font, density, title lines, a Zen Mod).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
+});
+
+// wave5/profiles: Arc's profiles on containers.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
 // wave6/zap: Zap (erase page elements).
@@ -170,6 +190,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave6/zap: Link hints (keyboard-only clicking).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
+});
+
+// wave7/menus: the space menu's order (Delete last).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySpaceMenu: "resource:///modules/whimsy/WhimsySpaceMenu.sys.mjs",
 });
 
 // wave6/search: Instant result and the Search Deck.
@@ -198,8 +223,77 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
 });
 
+// wave7/menus2: Arc's archive words in the tab menu; menu icons option.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyArchiveMenu: "resource:///modules/whimsy/WhimsyArchiveMenu.sys.mjs",
+  WhimsyMenuIcons: "resource:///modules/whimsy/WhimsyMenuIcons.sys.mjs",
+});
+
+// wave7/keys: commands for features reachable only from Settings or menus.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAccessCommands: "resource:///modules/whimsy/WhimsyAccessCommands.sys.mjs",
+});
+
+// wave7/focus: Do Not Disturb and paste guard.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
+  WhimsyPasteGuard: "resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs",
+});
+
+// wave7/teach: Teach once.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTeach: "resource:///modules/whimsy/WhimsyTeach.sys.mjs",
+});
+
+// wave7/security: upload from the clipboard checks Cmd+V in the parent.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyUploadParent: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs",
+});
+
+// wave7/split: a split pane's ⋯ menu on its hover header.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySplitPane: "resource:///modules/whimsy/WhimsySplitPane.sys.mjs",
+});
+// wave7/split2: Arc's right-click menu on a split's sidebar row.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySplitRow: "resource:///modules/whimsy/WhimsySplitRow.sys.mjs",
+});
+
+// wave7/menuprefs: Settings → Menus (which right-click menu rows show).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
+});
+
+// wave7/small: Cast to AirPlay.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyCast: "resource:///modules/whimsy/WhimsyCast.sys.mjs",
+});
+
+// wave7/small: Create Email Alias in the command bar.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
+});
+
+// wave7/small: Move to ▸ New Space… (tab menu, split row menu, command bar).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyNewSpaceMove: "resource:///modules/whimsy/WhimsyNewSpaceMove.sys.mjs",
+});
+
+// wave7/small: Teach once hints for Link hints and Instant result.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTeachHints: "resource:///modules/whimsy/WhimsyTeachHints.sys.mjs",
+});
+
+// wave5: Easel.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
+// wave7/small: lazy init (see initWindow).
+const LAZY_INIT_PREF = "whimsy.startup.lazy-init";
+const DEFER_TIMEOUT_MS = 2000;
 
 export const Whimsy = {
   featureEnabled(id) {
@@ -334,6 +428,24 @@ export const Whimsy = {
       matches: ["about:privatebrowsing*"],
       remoteTypes: ["privilegedabout"],
     });
+
+    // wave7/focus: paste guard. The child looks at a trusted paste before
+    // the page or the editor sees it, and asks the parent (a sheet) only
+    // when the text looks like a secret; only its kind crosses over, never
+    // the text. Default group, capturing, on the chrome event target (the
+    // outermost item of the event path): the system group runs only after
+    // every page listener, capture and bubble, so it would come too late.
+    ChromeUtils.registerWindowActor("WhimsyPasteGuard", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPasteGuardChild.sys.mjs",
+        events: { paste: { capture: true } },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {
@@ -344,6 +456,15 @@ export const Whimsy = {
         console.error(`Whimsy: ${name} failed`, e);
       }
     };
+    // wave7/small: lazy init. Parts nobody can see or reach in the first
+    // moments of a window (command-bar-only actions, network refreshers,
+    // once-a-season toasts) start once the window is idle, so the window
+    // is interactive sooner. Everything visible from first paint (sheets,
+    // zoom, look, spaces, tabs), every shortcut, page actor and session
+    // piece (undo, archive, private tabs, live folders, split restore)
+    // stays above. Deferred parts run in their original order.
+    const deferred = [];
+    const later = (name, fn) => deferred.push([name, fn]);
     run("stylesheet", () =>
       win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET)
     );
@@ -417,7 +538,7 @@ export const Whimsy = {
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());
     run("ai-kill-switch", () => lazy.WhimsyAI.init());
     if (this.featureEnabled("github-reviews")) {
-      run("github-reviews", () => lazy.WhimsyGithubReviews.init());
+      later("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
     // batch11: live folders (Jira + Push refresh + RSS autodiscovery).
     // Always installed: each part checks its own switch on use.
@@ -457,9 +578,9 @@ export const Whimsy = {
     run("private", () => lazy.WhimsyPrivate.initWindow(win));
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
-    run("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
+    later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
     run("bionic-reading", () => lazy.WhimsyBionicReading.init());
-    run("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
+    later("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
     run("split-favorites", () => lazy.WhimsySplitFavorites.initWindow(win));
     // batch7: seasonal themes. Watches its own prefs, so it applies without
     // a restart.
@@ -492,7 +613,7 @@ export const Whimsy = {
       });
     });
     // batch7: cookie editor.
-    run("cookie-editor", () => {
+    later("cookie-editor", () => {
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-cookie-editor",
         l10nId: "whimsy-action-cookie-editor",
@@ -506,7 +627,7 @@ export const Whimsy = {
     run("url-schemes", () => lazy.WhimsyProtocol.initWindow(win));
     // batch hover: History hover cards in Zen's Library (tab cards are
     // Firefox's own browser.tabs.hoverPreview).
-    run("history-preview", () => lazy.WhimsyHoverCard.initWindow(win));
+    later("history-preview", () => lazy.WhimsyHoverCard.initWindow(win));
     // batch7: developer mode tabs (Arc parity).
     run("dev-mode", () => {
       lazy.WhimsyDevMode.initWindow(win);
@@ -541,7 +662,7 @@ export const Whimsy = {
     );
     // batch7b: offline game (whimsy://game). Always installed: the command
     // bar action and the net-error button both check the switch on use.
-    run("game-action", () => {
+    later("game-action", () => {
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-game-open",
         l10nId: "whimsy-action-game",
@@ -570,7 +691,7 @@ export const Whimsy = {
     // meeting: Next meeting in the sidebar. Always installed: the service
     // checks its switch on each refresh, and never asks for calendar
     // access here (only when the person turns Apple Calendar on).
-    run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
+    later("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
     // tierC-vpn: VPN (Firefox's built-in IP Protection). The toolbar button
     // and panel are Firefox's own (placed automatically once
     // browser.ipProtection.enabled is true); this only adds the command bar
@@ -631,23 +752,31 @@ export const Whimsy = {
     run("ask-on-page", () => lazy.WhimsyAIPage.initWindow(win));
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
-    run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    later("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
 
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.
-    run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
+    later("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
 
     // wave5/quick: Copy page as Markdown (page menu and command bar); checks
     // its switch on use.
-    run("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
+    later("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
+
+    // wave7/native1: macOS Focus (once per session; reads Focus's state
+    // now and when it changes, so the toasts below can wait for it).
+    run("macos-focus", () => lazy.WhimsyFocus.init());
 
     // wave5/quick: the first window in a new season says so once (after
     // the window settles; never under test automation).
-    run("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
+    later("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
 
     // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
     // checks its switch on each use (off: Cmd+K is Firefox's again).
     run("selection-verbs", () => lazy.WhimsyVerbs.initWindow(win));
+
+    // wave5: redact. Adds the toggle to the Screenshots panel; it checks
+    // whimsy.feature.redact each time the panel shows.
+    run("redact", () => lazy.WhimsyRedact.initWindow(win));
     // wave5/look: a look per space. After Zen's spaces are ready (Mini
     // has none of its own and follows its destination's); it checks its
     // switch on every change, so turning it off applies at once.
@@ -655,6 +784,14 @@ export const Whimsy = {
       (win._whimsyQuickWindow ? Promise.resolve() : (win.gZenWorkspaces?.promiseInitialized ?? Promise.resolve()))
         .then(() => lazy.WhimsySpaceLook.initWindow(win))
         .catch(e => console.error("Whimsy: space-look", e))
+    );
+
+    // wave5/profiles: profiles. After Zen's spaces are ready; each part
+    // checks the switch on use, so Settings applies without a restart.
+    run("space-profiles", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyProfiles.initWindow(win))
+        .catch(e => console.error("Whimsy: space-profiles", e))
     );
     // wave6/zap: Zap (Cmd+Shift+X, command bar, site panel menu). Always
     // installed; the command checks its switch and Zen's boosts on each use.
@@ -678,17 +815,109 @@ export const Whimsy = {
     // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
     // its switch on each use.
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
+    // wave7/security: the clipboard's file goes to a page only right after
+    // Cmd+V (Ctrl+V) that the parent itself saw.
+    run("upload-clipboard", () => lazy.WhimsyUploadParent.initWindow(win));
+    // wave7/split: the pane header's ⋯ menu. Checks its switch on use.
+    run("split-pane-menu", () => lazy.WhimsySplitPane.initWindow(win));
+    // wave7/split2: Arc's split row menu. Checks its switch on use.
+    run("split-row-menu", () => lazy.WhimsySplitRow.initWindow(win));
     // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
     run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
+    // wave7/menus: the space menu's order. Its listener runs after every
+    // module's own (they listen on the popup, it on the window).
+    run("space-menu-order", () => lazy.WhimsySpaceMenu.initWindow(win));
+    // wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed
+    // Tab (checks its switch on every show), then the menu icons option,
+    // last, so it sees every row the other listeners showed or added.
+    run("archive-tab-menu", () => lazy.WhimsyArchiveMenu.initWindow(win));
+    run("menu-icons", () => lazy.WhimsyMenuIcons.initWindow(win));
+    // wave7/menuprefs: rows turned off in Settings → Menus. Keep this the
+    // last menu listener: it hides rows after every other module has shown
+    // or moved them. Always installed; checks its switch on every show.
+    run("menu-prefs", () => lazy.WhimsyMenuPrefs.initWindow(win));
+    // wave7/keys: a command (command bar, about:keyboard) for each feature
+    // that only had Settings, a sidebar control or a context menu. Each
+    // checks its feature's switch on use.
+    run("access-commands", () => lazy.WhimsyAccessCommands.initWindow(win));
+
+    // wave7/focus: Do Not Disturb (pause site notifications) and paste
+    // guard. Each command checks its switch on use.
+    run("do-not-disturb", () => lazy.WhimsyDoNotDisturb.initWindow(win));
+    run("paste-guard", () => lazy.WhimsyPasteGuard.initWindow(win));
+
+    // wave7/teach: Teach once.
+    if (this.featureEnabled("teach-once")) {
+      run("teach-once", () => lazy.WhimsyTeach.initWindow(win));
+    }
+
+    // wave7/spaceanim: a space switch asked for mid-slide waits for the
+    // slide to finish (Arc). After Zen's spaces are ready; checks its switch
+    // on each use.
+    run("space-switch-queue", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsySpaceSwitchQueue.initWindow(win))
+        .catch(e => console.error("Whimsy: space-switch-queue", e))
+    );
+
+    // wave7/small: Cast to AirPlay (View > Cast..., command bar). Each part
+    // checks its switch and the native player on use.
+    later("cast", () => lazy.WhimsyCast.initWindow(win));
+    // wave7/small: Create Email Alias (command bar), at the focused email
+    // field. Checks its switch on use.
+    later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
+    // into the space it makes. After Zen's spaces are ready.
+    run("move-to-new-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyNewSpaceMove.initWindow(win))
+        .catch(e => console.error("Whimsy: move-to-new-space", e))
+    );
+    // wave7/small: Link hints and Instant result Teach once hints; they
+    // register only in a build that has WhimsyTeach (once per session).
+    later("teach-hints", () => lazy.WhimsyTeachHints.init());
+
+    // wave5: Easel (Arc's Easels). Always installed: the command, the
+    // capture button and the page each check whimsy.feature.easel on use.
+    run("easel", () => lazy.WhimsyEasel.initWindow(win));
+
+    this.runDeferred(win, deferred, run);
+  },
+
+  // wave7/small: runs a window's deferred init when it's first idle (at
+  // most DEFER_TIMEOUT_MS later). win.whimsyDeferredInit resolves after.
+  runDeferred(win, deferred, run) {
+    let resolve;
+    win.whimsyDeferredInit = new Promise(r => (resolve = r));
+    const flush = () => {
+      if (!win.closed) {
+        for (const [name, fn] of deferred) {
+          run(name, fn);
+        }
+      }
+      resolve();
+    };
+    if (!Services.prefs.getBoolPref(LAZY_INIT_PREF, true) || typeof win.requestIdleCallback != "function") {
+      flush();
+      return;
+    }
+    // A window closed before it was idle never runs its callback.
+    win.addEventListener("unload", () => resolve(), { once: true });
+    win.requestIdleCallback(flush, { timeout: DEFER_TIMEOUT_MS });
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
   maybeShowYearToast(win) {
-    if (!lazy.WhimsyStats.enabled) {
+    // wave7/focus: not while Do Not Disturb is on (it asks again next window).
+    if (!lazy.WhimsyStats.enabled || lazy.WhimsyDoNotDisturb.quiet) {
       return;
     }
     const now = new Date();
     if (now.getMonth() != 11) {
+      return;
+    }
+    // wave7/native1: not during a macOS Focus; shown when it ends.
+    if (lazy.WhimsyFocus.holdToast(win, "year-in-tabs", w => this.maybeShowYearToast(w))) {
       return;
     }
     const year = now.getFullYear();

@@ -135,6 +135,7 @@
     player: null,
     particles: [],
     floaters: [],
+    ambient: [], // seasonal snow, petals or leaves behind the hills
     clouds: [],
     stars: [],
     spawnIn: 0,
@@ -270,30 +271,63 @@
       bird: { k: "#3e4660", K: "#8a93ab", o: "#ff9b54" },
     },
   };
+  // wave7/season: occasions (WhimsySeasons' calendar) dress up their season
+  // a little further: still art only. The balloon keeps its season's
+  // costume; the sky, the bird and the sparkle change.
+  COSTUMES.autumn.ambient = "leaves";
+  COSTUMES.winter.ambient = "snow";
+  COSTUMES.spring.ambient = "petals";
+  // Halloween: a dusky pumpkin sky, bats for birds, sweets for sparkles.
+  COSTUMES.halloween = {
+    ...COSTUMES.autumn,
+    base: "autumn",
+    day: { top: "#9a86e0", bottom: "#ffcf9e", far: "#8f6fb0", near: "#c9803e" },
+    dusk: { top: "#4b2f9a", bottom: "#ff9a5a", far: "#6a3f7f", near: "#8f5a2f" },
+    bat: true,
+    bird: { k: "#4a2f5a", K: "#24152e", o: "#ffcf4a" },
+    sparkle: { y: "#ff9a3c", W: "#fff1d6" },
+    candy: true,
+  };
+  // Winter holidays: snow, and presents for sparkles.
+  COSTUMES.holidays = {
+    ...COSTUMES.winter,
+    base: "winter",
+    sparkle: { y: "#e5485f", W: "#ffd86b" },
+    present: true,
+  };
   function readSeason() {
-    // Embedded in the error page, the actor passes the season along.
+    // Embedded in the error page, the actor passes the look along.
     if (host) {
-      return host.season in COSTUMES ? host.season : null;
+      const id = host.look ?? host.season;
+      return id in COSTUMES ? id : null;
     }
     try {
       const { WhimsySeasons } = ChromeUtils.importESModule(
         "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
       );
-      return WhimsySeasons.current()?.id ?? null;
+      return WhimsySeasons.look()?.id ?? null;
     } catch (e) {
       return null;
     }
   }
+  // season: the balloon's costume (autumn, winter, spring, summer); look:
+  // the season or an occasion within it (halloween, holidays).
   let season = null;
+  let look = null;
   let costume = {};
   let SKY = [];
   function setSeason(id) {
-    season = id in COSTUMES ? id : null;
-    costume = season ? COSTUMES[season] : {};
+    look = id in COSTUMES ? id : null;
+    costume = look ? COSTUMES[look] : {};
+    season = look ? costume.base ?? look : null;
+    game.ambient = [];
+    game.ambientSeeded = false;
     if (season) {
       root.dataset.season = season;
+      root.dataset.look = look;
     } else {
       delete root.dataset.season;
+      delete root.dataset.look;
     }
     const day = { ...DAY, ...costume.day };
     const dusk = { ...DUSK, ...costume.dusk };
@@ -624,6 +658,9 @@
 
   // The seed hazard wears the season's costume, so its line does too.
   function deathId(kind) {
+    if (kind == "bird" && costume.bat) {
+      return "whimsy-game-death-bird-halloween";
+    }
     return kind == "seed" && costume.seed && costume.seed != "seed"
       ? `whimsy-game-death-seed-${season}`
       : `whimsy-game-death-${kind}`;
@@ -956,6 +993,7 @@
     // balloon's own blink and fall don't.
     const dt = realDt * (game.state == "running" ? game.timeScale : 1);
     const scroll = game.state == "running" ? game.speed : game.state == "ready" ? 30 : 0;
+    updateSeasonAmbient(dt, scroll);
     for (const c of reduced() ? [] : game.clouds) {
       c.x -= (scroll * 0.18 + 6) * dt * c.s;
       if (c.x < -60) {
@@ -1271,6 +1309,16 @@
     ".ykyky.",
   ];
   const BEE_PAL = { w: "#f3edff", y: "#ffcf4a", k: "#3a2462" };
+  // wave7/season: Halloween bats (the bird's frames and hitbox) and the
+  // occasions' sparkles: a wrapped sweet, a present.
+  const BAT_ROWS = [
+    ["k.....k", "kkK.Kkk", ".kKKKk.", "..oKo..", "...K..."],
+    [".......", "..K.K..", "kkKKKkk", "k.oKo.k", "...K..."],
+  ];
+  const CANDY_ROWS = ["e.....e", "eecccee", ".cscsc.", "eecccee", "e.....e"];
+  const CANDY_PAL = { e: "#b5a0ff", c: "#ff9a3c", s: "#fff1d6" };
+  const PRESENT_ROWS = [".Y.Y.", "rrYrr", "YYYYY", "rrYrr", "rrYrr"];
+  const PRESENT_PAL = { r: "#e5485f", Y: "#ffd86b" };
 
   const snap = v => Math.round(v / PX) * PX;
   function drawSprite(img, x, y, sx = 1, sy = 1) {
@@ -1934,10 +1982,14 @@
   function drawBird(h) {
     const flap = Math.floor(game.worldClock * 8) % 2;
     if (retro()) {
-      drawSprite(sprite(`bird${flap}-${season ?? ""}`, BIRD_ROWS[flap], costume.bird ?? BIRD_PAL), h.x - 7, h.y - 5);
+      drawSprite(sprite(`bird${flap}-${look ?? ""}`, (costume.bat ? BAT_ROWS : BIRD_ROWS)[flap], costume.bird ?? BIRD_PAL), h.x - 7, h.y - 5);
       return;
     }
     const pal = costume.bird ?? BIRD_PAL;
+    if (costume.bat) {
+      drawBat(h, flap, pal);
+      return;
+    }
     const w = flap ? -4 : 3;
     ctx.strokeStyle = pal.k;
     ctx.lineWidth = 2;
@@ -1957,6 +2009,154 @@
     ctx.lineTo(h.x + (h.vx < 0 ? -6 : 6), h.y + 1);
     ctx.lineTo(h.x + (h.vx < 0 ? -3 : 3), h.y + 2);
     ctx.fill();
+  }
+
+  // Halloween's bird: a small round bat with scalloped wings, the same
+  // size, path and hitbox.
+  function drawBat(h, flap, pal) {
+    const lift = flap ? -3 : 2;
+    ctx.fillStyle = pal.k;
+    for (const dir of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(h.x + dir * 2, h.y - 1);
+      ctx.quadraticCurveTo(h.x + dir * 6, h.y - 4 + lift, h.x + dir * 9, h.y - 2 + lift);
+      ctx.quadraticCurveTo(h.x + dir * 7.5, h.y + 1 + lift * 0.5, h.x + dir * 6, h.y + 1);
+      ctx.quadraticCurveTo(h.x + dir * 4.5, h.y + 2, h.x + dir * 3, h.y + 1);
+      ctx.quadraticCurveTo(h.x + dir * 2.5, h.y + 2.5, h.x + dir * 1.5, h.y + 2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = pal.K;
+    ctx.beginPath();
+    ctx.ellipse(h.x, h.y + 0.5, 3, 3.2, 0, 0, 6.29);
+    ctx.moveTo(h.x - 2.6, h.y - 1.6);
+    ctx.lineTo(h.x - 1.8, h.y - 4.4);
+    ctx.lineTo(h.x - 0.6, h.y - 2.4);
+    ctx.moveTo(h.x + 2.6, h.y - 1.6);
+    ctx.lineTo(h.x + 1.8, h.y - 4.4);
+    ctx.lineTo(h.x + 0.6, h.y - 2.4);
+    ctx.fill();
+    ctx.fillStyle = pal.o;
+    ctx.fillRect(h.x - 1.6, h.y - 0.4, 1.1, 1.1);
+    ctx.fillRect(h.x + 0.5, h.y - 0.4, 1.1, 1.1);
+  }
+
+  // The occasions' sparkle: a wrapped sweet at Halloween, a present over
+  // the winter holidays. Same spot, glow and pickup radius as the sparkle.
+  function drawTreat(it, bob) {
+    if (retro()) {
+      const [rows, pal, w] = costume.candy ? [CANDY_ROWS, CANDY_PAL, 7] : [PRESENT_ROWS, PRESENT_PAL, 5];
+      drawSprite(sprite(costume.candy ? "candy" : "present", rows, pal), it.x - w, it.y - 5 + snap(bob));
+      return;
+    }
+    ctx.save();
+    ctx.translate(it.x, it.y + bob);
+    ctx.rotate(Math.sin(it.spin * 0.6) * 0.2);
+    ctx.shadowColor = costume.sparkle.y;
+    ctx.shadowBlur = 10;
+    if (costume.candy) {
+      ctx.fillStyle = CANDY_PAL.e;
+      for (const dir of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(dir * 4, 0);
+        ctx.lineTo(dir * 8.5, -3.6);
+        ctx.quadraticCurveTo(dir * 7.4, 0, dir * 8.5, 3.6);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.fillStyle = CANDY_PAL.c;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 5, 3.8, 0, 0, 6.29);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = CANDY_PAL.s;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-2.4, -3.2);
+      ctx.quadraticCurveTo(-0.6, 0, -2.4, 3.2);
+      ctx.moveTo(1.4, -3.4);
+      ctx.quadraticCurveTo(3.2, 0, 1.4, 3.4);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = PRESENT_PAL.r;
+      ctx.beginPath();
+      ctx.roundRect(-5, -3.5, 10, 9, 1.6);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = PRESENT_PAL.Y;
+      ctx.fillRect(-1, -3.5, 2, 9);
+      ctx.fillRect(-5, 0, 10, 1.8);
+      ctx.strokeStyle = PRESENT_PAL.Y;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.ellipse(-2.4, -5, 2.4, 1.5, -0.4, 0, 6.29);
+      ctx.moveTo(4.8, -5);
+      ctx.ellipse(2.4, -5, 2.4, 1.5, 0.4, 0, 6.29);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Seasonal weather behind the hills: tiny, pale and slow, so it never
+  // reads as a hazard (the winter snowflake hazard is many times larger).
+  // None under reduced motion.
+  const AMBIENT_COLORS = {
+    snow: ["#ffffff"],
+    petals: ["#ffc2dc", "#fff2c4", "#ffffff"],
+    leaves: ["#f0a052", "#e0703c", "#e6b85e"],
+  };
+  // Its own seeded generator, so the weather never shifts the random
+  // sequence the hazards and sparkles are drawn from.
+  const ambientRandom = seeded(2026);
+  const arand = (lo, hi) => lo + ambientRandom() * (hi - lo);
+  function updateSeasonAmbient(dt, scroll) {
+    if (reduced() || !costume.ambient) {
+      game.ambient = [];
+      return;
+    }
+    const kind = costume.ambient;
+    const want = kind == "snow" ? 26 : 12;
+    while (game.ambient.length < want) {
+      const colors = AMBIENT_COLORS[kind];
+      game.ambient.push({
+        x: arand(0, W + 40),
+        y: game.ambient.length < want / 2 && !game.ambientSeeded ? arand(0, GROUND - 30) : arand(-20, -4),
+        r: kind == "snow" ? arand(0.8, 1.7) : arand(1.2, 2),
+        vy: kind == "snow" ? arand(9, 18) : arand(7, 13),
+        sway: arand(0, 6.28),
+        color: colors[Math.floor(arand(0, colors.length))],
+      });
+    }
+    game.ambientSeeded = true;
+    for (const a of game.ambient) {
+      a.sway += dt * 1.3;
+      a.y += a.vy * dt;
+      a.x += (Math.sin(a.sway) * 6 - scroll * 0.08 - 4) * dt;
+    }
+    game.ambient = game.ambient.filter(a => a.y < GROUND - 10 && a.x > -10);
+  }
+
+  function drawSeasonAmbient(night) {
+    if (!game.ambient.length) {
+      return;
+    }
+    ctx.save();
+    ctx.globalAlpha = 0.7 - night * 0.3;
+    for (const a of game.ambient) {
+      ctx.fillStyle = a.color;
+      if (retro()) {
+        ctx.fillRect(snap(a.x), snap(a.y), PX, PX);
+      } else if (costume.ambient == "snow") {
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.r, 0, 6.29);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.ellipse(a.x, a.y, a.r * 1.4, a.r * 0.8, a.sway, 0, 6.29);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
   // A grumpy cloud gathers for a second (the telegraph), then strikes.
@@ -2050,12 +2250,16 @@
       return;
     }
     const bob = Math.sin(game.clock * 4 + it.x * 0.05) * 2;
+    if (it.kind == "sparkle" && (costume.candy || costume.present)) {
+      drawTreat(it, bob);
+      return;
+    }
     if (it.kind == "sparkle") {
       if (retro()) {
         const frame = Math.floor(game.clock * 4) % 2;
         const pal = costume.sparkle ?? SPARKLE_PAL;
         const rows = costume.blossom ? BLOSSOM_ROWS : SPARKLE_ROWS[frame];
-        const key = costume.blossom ? `blossom-${season}` : `sparkle${frame}-${season ?? ""}`;
+        const key = costume.blossom ? `blossom-${look}` : `sparkle${frame}-${look ?? ""}`;
         drawSprite(sprite(key, rows, { ...pal, f: pal.y, Y: pal.W }), it.x - 5, it.y - 5 + snap(bob));
         return;
       }
@@ -2299,6 +2503,7 @@
     }
     ctx.clearRect(-20, -20, W + 40, H + 40);
     drawSky(sky, night);
+    drawSeasonAmbient(night);
     drawClouds(night);
     drawFloaters(night);
     drawHills(sky);
@@ -2553,13 +2758,15 @@
       "whimsy-game-death-seed-autumn",
       "whimsy-game-death-seed-winter",
       "whimsy-game-death-seed-spring",
+      "whimsy-game-death-bird-halloween",
     ])
-    .then(([title, start, paused, over, seed, plane, zap, bird, best, again, autumn, winter, spring]) => {
+    .then(([title, start, paused, over, seed, plane, zap, bird, best, again, autumn, winter, spring, bat]) => {
       Object.assign(pixelStrings, { title, start, paused, over, seed, plane, zap, bird, best, again });
       Object.assign(pixelStrings, {
         "whimsy-game-death-seed-autumn": autumn,
         "whimsy-game-death-seed-winter": winter,
         "whimsy-game-death-seed-spring": spring,
+        "whimsy-game-death-bird-halloween": bat,
       });
     })
     .catch(() => {});
@@ -2619,6 +2826,10 @@
     render,
     get season() {
       return season;
+    },
+    // The season or an occasion within it (halloween, holidays).
+    get look() {
+      return look;
     },
     // Dress the game for a season (null: no costume) without a date mock.
     setSeason(id) {

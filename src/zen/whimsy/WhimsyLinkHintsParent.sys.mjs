@@ -26,8 +26,25 @@ export class WhimsyLinkHintsParent extends JSWindowActorParent {
     }
     switch (message.name) {
       case "Whimsy:Hints:OpenTab": {
-        const { href, triggeringPrincipal } = message.data ?? {};
-        if (typeof href != "string" || !triggeringPrincipal) {
+        // Only the href comes from the content process. The principal is
+        // the one the parent holds for the page, and the parent itself
+        // checks the page may load the link (security M4): a compromised
+        // renderer can't open privileged URLs as the system.
+        const href = message.data?.href;
+        const triggeringPrincipal = this.manager?.documentPrincipal;
+        if (typeof href != "string" || !triggeringPrincipal?.isContentPrincipal) {
+          return null;
+        }
+        try {
+          if (["javascript", "data"].includes(Services.io.extractScheme(href))) {
+            return null;
+          }
+          Services.scriptSecurityManager.checkLoadURIStrWithPrincipal(
+            triggeringPrincipal,
+            href,
+            Ci.nsIScriptSecurityManager.DISALLOW_INHERIT_PRINCIPAL
+          );
+        } catch (e) {
           return null;
         }
         win.openLinkIn(href, "tab", {

@@ -25,6 +25,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyArchiveMenu: "resource:///modules/whimsy/WhimsyArchiveMenu.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
@@ -293,6 +294,23 @@ export const WhimsyArcMenus = {
     }
     const { document } = win;
     switch (popup.id) {
+      // wave7/menus2: Cmd+W is "Archive Tab", as in the tab menu, when
+      // the selected tabs really go to the Archive. A pinned tab's Cmd+W
+      // resets or unloads it (Zen's close-shortcut-behavior), so it keeps
+      // Firefox's name.
+      case "menu_FilePopup": {
+        const close = document.getElementById("menu_close");
+        const tabs = win.gBrowser?.selectedTabs ?? [];
+        if (
+          close?.getAttribute("data-l10n-id") == "menu-file-close-tab" &&
+          lazy.WhimsyArchiveMenu.enabled &&
+          tabs.every(tab => !tab.pinned && !tab.hasAttribute("zen-essential")) &&
+          lazy.WhimsyArchiveMenu.archives(win, tabs)
+        ) {
+          close.setAttribute("data-l10n-id", "whimsy-menu-archive-tab");
+        }
+        break;
+      }
       case "menu_EditPopup": {
         const undo = document.getElementById("menu_undo");
         const action = undoAction(lazy.WhimsyUndo.pendingUndo?.(win));

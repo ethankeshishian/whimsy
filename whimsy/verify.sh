@@ -69,7 +69,7 @@ run_with_retry() { # run_with_retry <name> <path>
 
 run whimsy zen/whimsy/tests || status=1
 # Native-event tests need a visible window; run just those headed.
-(WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js) || status=1
+(WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js zen/whimsy/tests/browser_whimsy_native_services.js) || status=1
 if [ "$MODE" = "all" ] || [ "$MODE" = "gate" ]; then
   if [ "$MODE" = "gate" ]; then
     run_with_retry zen-tabs zen/tests/tabs || status=1

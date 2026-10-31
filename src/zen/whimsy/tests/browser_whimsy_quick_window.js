@@ -6,10 +6,11 @@
 // Mini Whimsy (Arc's "Little Arc"; Cmd+Opt+N, and also where
 // WhimsyExternalLinks lands a link when the target is "quick-window"): a
 // small window with no sidebar, just the nav bar and the page, floating
-// above every other window. Covers the main flow (open, reuse, float,
-// move to space by button/Cmd+O/Cmd+Shift+O, Esc to close), the switch off,
-// and closing it leaving no trace (including no geometry left behind for
-// ordinary windows to inherit).
+// above every other window. Covers the main flow (open, a second link
+// stacking a second window, float, move to space by button/Cmd+O/
+// Cmd+Shift+O, Esc not closing it, Cmd+Opt+N's bar-only panel), the switch
+// off, and closing it leaving no trace (including no geometry left behind
+// for ordinary windows to inherit).
 
 add_setup(async function isolate_mini_size() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.quick-window.size", ""]] });
@@ -18,8 +19,7 @@ add_setup(async function isolate_mini_size() {
 const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs");
 
 registerCleanupFunction(async () => {
-  const win = WhimsyQuickWindow.current();
-  if (win) {
+  for (const win of WhimsyQuickWindow.windows()) {
     await WhimsyQuickWindow.whenReady(win);
     await BrowserTestUtils.closeWindow(win);
   }
@@ -77,16 +77,36 @@ add_task(async function test_does_not_persist_its_geometry() {
   await BrowserTestUtils.closeWindow(win);
 });
 
-add_task(async function test_a_second_link_reuses_the_same_window() {
-  const first = WhimsyQuickWindow.open("https://example.com/");
-  const second = WhimsyQuickWindow.open("https://example.org/");
+// wave7: Arc opens a second Little Arc for a second link, stacked over the
+// first and offset down (little-095501, 8.3-8.45 s), instead of replacing
+// the page you were reading.
+add_task(async function test_a_second_link_stacks_a_second_window() {
+  const first = WhimsyQuickWindow.open("https://example.com/", { opener: window });
   await WhimsyQuickWindow.whenReady(first);
-  is(first, second, "The same quick window is reused, not a second one");
-  await TestUtils.waitForCondition(
-    () => first.gBrowser.selectedBrowser.currentURI.spec == "https://example.org/",
-    "The reused window navigated to the new link"
-  );
-  await BrowserTestUtils.closeWindow(first);
+  const second = WhimsyQuickWindow.open("https://example.org/", { opener: window });
+  try {
+    await WhimsyQuickWindow.whenReady(second);
+    isnot(first, second, "A second Mini window opens");
+    ok(second._whimsyQuickWindow, "...and it is a Mini window");
+    is(WhimsyQuickWindow.current(), second, "The newest Mini is the current one");
+    Assert.deepEqual(WhimsyQuickWindow.windows(), [first, second], "Both stay open");
+    await TestUtils.waitForCondition(
+      () => second.gBrowser.selectedBrowser.currentURI.spec == "https://example.org/",
+      "The second window shows the second link"
+    );
+    is(first.gBrowser.selectedBrowser.currentURI.spec, "https://example.com/", "The first keeps its page");
+    const screen = first.screen;
+    const roomBelow = first.screenY + 28 + second.outerHeight <= screen.availTop + screen.availHeight;
+    if (roomBelow) {
+      is(second.screenY - first.screenY, 28, "Stacked 28px below the first");
+      is(second.screenX, first.screenX, "...at the same left edge");
+    } else {
+      ok(second.screenY >= first.screenY, "Stacked no higher than the first (clamped to the screen)");
+    }
+  } finally {
+    await BrowserTestUtils.closeWindow(second);
+    await BrowserTestUtils.closeWindow(first);
+  }
 });
 
 add_task(async function test_move_to_space_adopts_the_tab_and_closes_the_window() {
@@ -160,11 +180,19 @@ add_task(async function test_cmd_shift_o_and_caret_open_the_space_dropdown() {
   BrowserTestUtils.removeTab(gBrowser.tabs[gBrowser.tabs.length - 1]);
 });
 
-add_task(async function test_escape_closes_the_window_without_a_trace() {
-  const win = WhimsyQuickWindow.open("https://example.com/");
-  await WhimsyQuickWindow.whenReady(win);
-  EventUtils.synthesizeKey("KEY_Escape", {}, win);
-  await TestUtils.waitForCondition(() => win.closed, "Esc vanishes the window, as in Arc");
+// wave7: Arc's Little Arc ignores Esc (little-095501); Mini does too.
+add_task(async function test_escape_does_not_close_the_window() {
+  const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+  try {
+    await readyMini(win);
+    await SimpleTest.promiseFocus(win);
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    await new Promise(resolve => win.requestAnimationFrame(() => win.setTimeout(resolve, 200)));
+    ok(!win.closed, "Esc leaves Mini open");
+    ok(!win.document.documentElement.hasAttribute("whimsy-mini-closing"), "...and doesn't start closing it");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
 });
 
 add_task(async function test_feature_off_does_nothing() {
@@ -349,7 +377,7 @@ add_task(async function test_address_shows_the_host_and_back_follows_history() {
     const host = address.querySelector(".whimsy-mini-host");
     await TestUtils.waitForCondition(() => host.textContent == "example.com", "The address shows the bare host");
     ok(!address.querySelector(".whimsy-mini-favicon"), "Measured address has no site favicon");
-    ok(address.querySelector(".whimsy-mini-profile"), "Address contains the profile pill");
+    is(address.previousElementSibling?.id, "whimsy-quick-window-profile", "The profile pill sits just before the address");
     const back = doc.getElementById("whimsy-quick-window-back");
     ok(back.disabled, "Back is dimmed with no history (it never moves)");
     ok(!doc.getElementById("whimsy-quick-window-copy-link").disabled, "Copy URL is available for a page");
@@ -573,5 +601,75 @@ add_task(async function test_mini_traffic_lights_never_hide() {
   } finally {
     await BrowserTestUtils.closeWindow(win);
     await SpecialPowers.popPrefEnv();
+  }
+});
+
+// wave7: Cmd+Opt+N first shows only a floating command-bar panel at the
+// screen's top-right (Arc: ~510x335pt). Return materialises the full window,
+// right-anchored, with the space's gradient standing in until the page loads.
+add_task(async function test_shortcut_opens_a_bar_only_panel_that_materialises() {
+  const win = WhimsyQuickWindow.open(null, { opener: window });
+  try {
+    await readyMini(win);
+    await SimpleTest.promiseFocus(win);
+    const root = win.document.documentElement;
+    ok(root.hasAttribute("whimsy-mini-bar-only"), "The shortcut opens the bar-only panel");
+    ok(win.innerWidth <= 520 && win.innerHeight <= 345, `A panel-sized window (${win.innerWidth}x${win.innerHeight})`);
+    const screen = win.screen;
+    ok(win.screenX + win.outerWidth >= screen.availLeft + screen.availWidth - 24, "...at the screen's right edge");
+    ok(win.screenY <= screen.availTop + 24, "...and its top");
+    is(win.getComputedStyle(win.document.getElementById("whimsy-quick-window-bar")).display, "none",
+      "No Mini bar in the panel");
+    is(win.getComputedStyle(win.document.getElementById("tabbrowser-tabbox")).visibility, "hidden",
+      "No page in the panel");
+    await TestUtils.waitForCondition(() => win.gURLBar.focused, "Its command bar takes focus");
+    const right = win.screenX + win.outerWidth;
+
+    const placeholder = TestUtils.waitForCondition(
+      () => root.hasAttribute("whimsy-mini-placeholder"), "The space gradient stands in for the page");
+    EventUtils.sendString("https://example.com/", win);
+    EventUtils.synthesizeKey("KEY_Enter", {}, win);
+    await placeholder;
+    ok(!root.hasAttribute("whimsy-mini-bar-only"), "Return materialises the window");
+    ok(!win._whimsyMiniBarOnly, "...for good");
+    is(win.getComputedStyle(win.document.getElementById("whimsy-quick-window-bar")).display, "flex",
+      "The Mini bar is back");
+    await TestUtils.waitForCondition(() => win.innerWidth > 520 && win.innerHeight > 345,
+      "The window grows to Mini's full size");
+    ok(Math.abs(win.screenX + win.outerWidth - right) <= 24 ||
+      win.screenX == screen.availLeft, "...still anchored at the panel's right edge");
+    await TestUtils.waitForCondition(
+      () => win.gBrowser.selectedBrowser.currentURI.spec == "https://example.com/", "The page loads");
+    await TestUtils.waitForCondition(() => !root.hasAttribute("whimsy-mini-placeholder"),
+      "The placeholder gives way to the loaded page");
+    ok(WhimsyQuickWindow.savedSize().width > 520, "The panel's size was never saved as Mini's");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
+
+add_task(async function test_escape_dismisses_the_bar_only_panel() {
+  const win = WhimsyQuickWindow.open(null, { opener: window });
+  await readyMini(win);
+  await SimpleTest.promiseFocus(win);
+  await TestUtils.waitForCondition(() => win.gURLBar.focused, "The panel's command bar has focus");
+  const closed = BrowserTestUtils.domWindowClosed(win);
+  EventUtils.synthesizeKey("KEY_Escape", {}, win);
+  await closed;
+  ok(win.closed, "Esc dismisses the panel: the command bar is all it has");
+});
+
+add_task(async function test_open_in_space_waits_for_a_page() {
+  const win = WhimsyQuickWindow.open(null, { opener: window });
+  try {
+    await readyMini(win);
+    await SimpleTest.promiseFocus(win);
+    const tabCountBefore = gBrowser.tabs.length;
+    EventUtils.synthesizeKey("o", { accelKey: true }, win);
+    await new Promise(resolve => win.setTimeout(resolve, 100));
+    ok(!win.closed, "Cmd+O in the bar-only panel has nothing to open");
+    is(gBrowser.tabs.length, tabCountBefore, "...so no blank tab lands in a space");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
   }
 });

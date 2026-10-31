@@ -127,6 +127,18 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     }
   }
 
+  // w7native: live captions from speech, recognized in the parent.
+  receiveMessage(message) {
+    switch (message.name) {
+      case "WhimsyCaptions:SpeechText":
+        this._captions?.onSpeechText(message.data);
+        break;
+      case "WhimsyCaptions:SpeechError":
+        this._captions?.onSpeechError(message.data);
+        break;
+    }
+  }
+
   didDestroy() {
     this.clearTimers();
     this._captions?.stop();

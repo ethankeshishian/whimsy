@@ -125,6 +125,12 @@ export const WhimsyClaudeShield = {
     return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
   },
 
+  // A short page-controlled field (a tab's title) between the same
+  // markers, without the explanation (the server's instructions give it).
+  mark(body, nonce = this.nonce()) {
+    return `<<<UNTRUSTED PAGE CONTENT ${nonce}>>>${body}<<<END UNTRUSTED PAGE CONTENT ${nonce}>>>`;
+  },
+
   // Page content between delimiters Claude is told about. The nonce is new
   // every time, so a page can't close the block early with its own text.
   wrap(body, nonce = this.nonce()) {

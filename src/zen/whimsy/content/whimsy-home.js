@@ -17,6 +17,19 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 const TABS = ["home", "changelog", "privacy"];
 const KINDS = ["new", "improved", "fixed"];
 const BUILD_ANCHOR = /^(v[\w-]+|unreleased)$/;
+// wave7/small: dev build IDs (1.24b-w3-dev.7) mean something only to people
+// on the Dev channel (Settings > About Whimsy > Channel); on Release a dev
+// build's notes show by date and title, without the ID.
+const DEV_VERSION = /-dev\.\d+$/;
+const CHANNEL_PREF = "whimsy.update-channel";
+
+function showsDevBuildIds() {
+  try {
+    return Services.prefs.getStringPref(CHANNEL_PREF, "release") == "dev";
+  } catch {
+    return false;
+  }
+}
 
 function anchorFromLocation() {
   try {
@@ -146,9 +159,10 @@ function el(tag, className, text) {
   return node;
 }
 
-function renderBuild(group, sections, isLatest) {
+function renderBuild(group, sections, isLatest, showDevIds = showsDevBuildIds()) {
   const unreleased = group.version == "Unreleased";
   const anchor = buildAnchor(group.version);
+  const hideId = !showDevIds && DEV_VERSION.test(group.version);
 
   const article = el("article", "whimsy-changelog-group");
   article.id = anchor;
@@ -170,7 +184,7 @@ function renderBuild(group, sections, isLatest) {
   }
   meta.appendChild(when);
   const chips = el("p", "wh-build-chips");
-  if (!unreleased) {
+  if (!unreleased && !hideId) {
     chips.appendChild(el("span", "whimsy-changelog-version", group.version));
   }
   if (isLatest) {
@@ -189,13 +203,16 @@ function renderBuild(group, sections, isLatest) {
     titleText.textContent = title;
   } else if (unreleased) {
     document.l10n.setAttributes(titleText, "whimsy-changelog-unreleased");
+  } else if (hideId) {
+    document.l10n.setAttributes(titleText, "whimsy-changelog-dev-build");
   } else {
     titleText.textContent = group.version;
   }
   heading.appendChild(titleText);
   const link = el("a", "wh-anchor");
   link.href = "#" + anchor;
-  document.l10n.setAttributes(link, "whimsy-changelog-anchor", { version: group.version });
+  const linkName = hideId ? title || formatDate(group.date) || "" : group.version;
+  document.l10n.setAttributes(link, "whimsy-changelog-anchor", { version: linkName });
   heading.appendChild(link);
   card.appendChild(heading);
 
@@ -227,8 +244,9 @@ function renderChangelog(groups) {
     .map(g => [g, buildSections(g)])
     .filter(([, sections]) => Object.keys(sections).length);
   empty.hidden = !!builds.length;
+  const showDevIds = showsDevBuildIds();
   builds.forEach(([group, sections], i) => {
-    list.appendChild(renderBuild(group, sections, i == 0));
+    list.appendChild(renderBuild(group, sections, i == 0, showDevIds));
   });
 }
 
@@ -295,20 +313,25 @@ function initBalloon() {
 // The balloon dresses for the season (whimsy-home.css shows the costume).
 // Rechecked whenever the page is shown, so a tab kept open across a season
 // boundary or the seasonal switch catches up without a timer.
+// whimsy-season-decor (an occasion, or the season) picks the changelog's
+// header art and accents.
 function applySeason() {
-  let season = null;
+  let look = null;
   try {
     const { WhimsySeasons } = ChromeUtils.importESModule(
       "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
     );
-    season = WhimsySeasons.current()?.id ?? null;
+    look = WhimsySeasons.look();
   } catch {
     // No calendar: the balloon simply stays undressed.
   }
-  if (season) {
-    document.documentElement.setAttribute("whimsy-season", season);
+  const root = document.documentElement;
+  if (look) {
+    root.setAttribute("whimsy-season", look.season);
+    root.setAttribute("whimsy-season-decor", look.id);
   } else {
-    document.documentElement.removeAttribute("whimsy-season");
+    root.removeAttribute("whimsy-season");
+    root.removeAttribute("whimsy-season-decor");
   }
 }
 

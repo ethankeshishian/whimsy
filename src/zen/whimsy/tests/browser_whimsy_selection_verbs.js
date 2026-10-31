@@ -22,8 +22,11 @@ UrlbarTestUtils.init(this);
 // clipboard.
 function stubEffects() {
   const calls = [];
-  const names = ["openTab", "openExternal", "copy", "launchFile"];
+  const names = ["openTab", "openExternal", "copy", "launchFile", "calendarService"];
   const originals = Object.fromEntries(names.map(n => [n, WhimsyVerbs[n]]));
+  // No macOS Calendar here, so Add to Calendar takes the .ics path (the
+  // EventKit path: browser_whimsy_calendar_write.js).
+  WhimsyVerbs.calendarService = () => null;
   WhimsyVerbs.openTab = (win, url) => calls.push({ what: "tab", url });
   WhimsyVerbs.openExternal = url => calls.push({ what: "external", url });
   WhimsyVerbs.copy = text => calls.push({ what: "copy", text });
@@ -213,8 +216,12 @@ add_task(async function test_verb_actions() {
         Assert.deepEqual(ids.slice(-2), ["linear-new", "linear-search"], "Linear verbs come last");
         await WhimsyVerbs.runVerb(window, "linear-new", subject);
         ok(calls.at(-1).url.startsWith("https://linear.new?title=Team%20sync"), "New Linear Issue prefilled");
+        // wave7/small: no workspace known: Linear's home, terms copied.
+        await SpecialPowers.pushPrefEnv({ clear: [["whimsy.verbs.linear-workspace"]] });
         await WhimsyVerbs.runVerb(window, "linear-search", subject);
-        ok(calls.at(-1).url.includes("linear.app/") && calls.at(-1).url.includes("q=Team"), "Search Linear");
+        is(calls.at(-1).url, "https://linear.app/", "Search Linear without a workspace opens Linear");
+        ok(calls.at(-2).text.startsWith("Team"), "...with the terms on the clipboard");
+        await SpecialPowers.popPrefEnv();
       } finally {
         WhimsyVerbs.linearConfigured = originalLinear;
       }
@@ -328,4 +335,15 @@ add_task(function test_parse_event() {
   is(parseEvent("Version 3.2 released", now), null, "No date, no event");
   const ics = buildICS({ start: new Date(2026, 10, 3, 15), end: new Date(2026, 10, 3, 16), allDay: false, title: "A, B; C" });
   ok(ics.includes("SUMMARY:A\\, B\\; C\r\n"), "iCalendar text is escaped, CRLF lines");
+});
+
+// wave7/security L4: a lone CR (or another control character) in page text
+// can't start an iCalendar property of its own.
+add_task(function test_ics_lone_cr() {
+  const evil = "Party\rATTACH:https://evil.example/x\rBEGIN:VALARM\x0bEND";
+  const ics = buildICS({ start: new Date(2026, 10, 3, 15), end: new Date(2026, 10, 3, 16), allDay: false, title: evil, description: evil });
+  const lines = ics.split("\r\n");
+  ok(!lines.some(l => /^(ATTACH|BEGIN:VALARM)/.test(l)), "No injected properties");
+  ok(!/\r(?!\n)/.test(ics), "No lone CR survives");
+  ok(lines.includes("SUMMARY:Party\\nATTACH:https://evil.example/x\\nBEGIN:VALARMEND"), "The breaks are escaped text");
 });

@@ -40,6 +40,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   gWhimsyNotesStore: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
@@ -236,7 +237,15 @@ const icsDate = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate(
 // Floating local time: Calendar shows it at the time that was written.
 const icsLocal = d => `${icsDate(d)}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
 const icsUTC = d => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-const icsText = s => String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+// Any line break (a lone CR too) becomes "\n", and other control
+// characters go, so page text can't start a property of its own.
+const icsText = s =>
+  String(s ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n")
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
 
 /** An iCalendar file for one event (RFC 5545), with CRLF line ends. */
 export function buildICS({ start, end, allDay, title, description = "", url = "" }, now = new Date()) {
@@ -272,10 +281,16 @@ const firstLine = (text, max = 80) => {
 const escapeMarkdown = text => text.replace(/([\\[\]])/g, "\\$1");
 const pageLink = s => `[${escapeMarkdown(s.title)}](${s.url})`;
 
-// The default search engine's name (the private one in private windows).
+// A private window, or a private tab in a normal one.
+function isPrivate(win) {
+  return lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
+    lazy.WhimsyPrivate.isPrivateTab(win?.gBrowser?.selectedTab);
+}
+
+// The default search engine's name (the private one in private browsing).
 function defaultEngineName(win) {
   try {
-    const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+    const engine = isPrivate(win)
       ? lazy.SearchService.defaultPrivateEngine
       : lazy.SearchService.defaultEngine;
     return engine?.name ?? "";
@@ -291,16 +306,37 @@ function isWebPage(win) {
   return !!tab?.linkedPanel && !tab.hasAttribute("zen-empty-tab") && /^(https?|file):|^about:reader/.test(spec);
 }
 
-// The workspace slug of the person's Linear (from any open linear.app tab,
-// which the Linear live folder's issues are), for its search page.
-function linearWorkspace(win) {
+// The workspace slug of the person's Linear, for its search page: from any
+// tab on a workspace page (the Linear live folder's issues are such tabs),
+// else the last one seen. wave7/small: Linear doesn't document a search
+// URL; its app routes everything under linear.app/<workspace>/, and its
+// search page is linear.app/<workspace>/search?q=<terms> (what the app
+// itself shows after a search). Without a workspace, linear.app/search
+// would be read as a workspace named "search", so there's no fallback URL.
+const LINEAR_WORKSPACE_PREF = "whimsy.verbs.linear-workspace";
+const LINEAR_PAGE =
+  /^https:\/\/linear\.app\/([\w-]+)\/(?:issue|issues|project|projects|team|view|views|my-issues|inbox|search|initiative|initiatives|document|cycle|settings)(?:[/?#]|$)/;
+
+// linear.app's own site pages, never a workspace (linear.app/docs/search
+// is the docs' Search page).
+const LINEAR_SITE_ROOTS = new Set([
+  "docs", "changelog", "pricing", "features", "about", "blog", "careers", "customers",
+  "method", "contact", "login", "signup", "join", "integrations", "developers", "now", "homepage",
+]);
+
+export function linearWorkspace(win) {
   for (const tab of win.gBrowser.tabs) {
-    const m = tab.linkedBrowser?.currentURI?.spec.match(/^https:\/\/linear\.app\/([\w-]+)\/(?:issue|project|team|view)\//);
-    if (m) {
+    const m = tab.linkedBrowser?.currentURI?.spec.match(LINEAR_PAGE);
+    if (m && !LINEAR_SITE_ROOTS.has(m[1].toLowerCase())) {
+      Services.prefs.setStringPref(LINEAR_WORKSPACE_PREF, m[1]);
       return m[1];
     }
   }
-  return null;
+  return Services.prefs.getStringPref(LINEAR_WORKSPACE_PREF, "") || null;
+}
+
+export function linearSearchUrl(workspace, terms) {
+  return workspace ? `https://linear.app/${enc(workspace)}/search?q=${enc(terms)}` : null;
 }
 
 const BUILT_IN = [
@@ -315,7 +351,7 @@ const BUILT_IN = [
     icon: `${ICONS}search-glass.svg`,
     scope: "selection",
     async run(win, s) {
-      const engine = lazy.PrivateBrowsingUtils.isWindowPrivate(win)
+      const engine = isPrivate(win)
         ? await lazy.SearchService.getDefaultPrivate()
         : await lazy.SearchService.getDefault();
       WhimsyVerbs.openTab(win, engine.getSubmission(s.text).uri.spec);
@@ -389,8 +425,14 @@ const BUILT_IN = [
     isAvailable: (win, s) => !!s.event,
     async run(win, s) {
       const event = { ...s.event, title: s.event.title || firstLine(s.title), description: `${s.text}\n\n${s.url}`, url: s.url };
-      // An .ics opened with the system: Calendar on macOS shows its "add
-      // event" sheet. (Whimsy's EventKit component only reads events.)
+      // wave7/native1: straight into macOS Calendar through EventKit
+      // (asks for write-only access the first time). Without it (denied,
+      // another platform, an error) an .ics opened with the system:
+      // Calendar on macOS shows its "add event" sheet.
+      if (await WhimsyVerbs.addToSystemCalendar(event)) {
+        win.gZenUIManager?.showToast?.("whimsy-verb-calendar-added-toast");
+        return;
+      }
       const path = PathUtils.join(PathUtils.tempDir, `whimsy-event-${Date.now()}.ics`);
       await IOUtils.writeUTF8(path, buildICS(event));
       WhimsyVerbs.launchFile(path);
@@ -415,9 +457,17 @@ const BUILT_IN = [
     scope: "selection",
     isAvailable: () => WhimsyVerbs.linearConfigured(),
     run(win, s) {
-      const workspace = linearWorkspace(win);
-      const base = workspace ? `https://linear.app/${workspace}/search` : "https://linear.app/search";
-      WhimsyVerbs.openTab(win, `${base}?q=${enc(firstLine(s.text, 200))}`);
+      const terms = firstLine(s.text, 200);
+      const url = linearSearchUrl(linearWorkspace(win), terms);
+      if (url) {
+        WhimsyVerbs.openTab(win, url);
+        return;
+      }
+      // No workspace known yet: Linear opens the person's own workspace;
+      // the terms are on the clipboard for its search (/).
+      WhimsyVerbs.copy(terms);
+      WhimsyVerbs.openTab(win, "https://linear.app/");
+      win.gZenUIManager?.showToast?.("whimsy-verb-linear-copied-toast");
     },
   },
 ];
@@ -528,7 +578,8 @@ export const WhimsyVerbs = {
 
   // ---- Side effects, one place each so tests can stub them.
   openTab(win, url) {
-    win.openTrustedLinkIn(url, "tab");
+    // From a private tab, the result opens private too.
+    lazy.WhimsyPrivate.openTabFor(win, url);
   },
   openExternal(spec) {
     Cc["@mozilla.org/uriloader/external-protocol-service;1"]
@@ -542,6 +593,63 @@ export const WhimsyVerbs = {
     const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     file.initWithPath(path);
     file.launch();
+  },
+  // wave7/native1: macOS Calendar's EventKit component (calendar/), or
+  // null where it isn't built. Tests replace this with a mock.
+  calendarService() {
+    try {
+      return Cc["@whimsy/calendar;1"]?.getService(Ci.nsIWhimsyCalendar) ?? null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  /**
+   * Adds the event to macOS Calendar. Resolves true once it's saved; false
+   * when the person said no (now or before), there's no calendar component,
+   * or saving failed, so the caller falls back to an .ics file.
+   *
+   * @param {{start: Date, end: Date, allDay: boolean, title: string, description?: string, url?: string}} event
+   */
+  async addToSystemCalendar(event) {
+    const service = this.calendarService();
+    if (!service) {
+      return false;
+    }
+    const call = (method, ...args) =>
+      new Promise(resolve => service[method](...args, (ok, result) => resolve({ ok, result })));
+    try {
+      let status = service.authorizationStatus;
+      if (status == "notDetermined") {
+        // The person picked "Add to Calendar": this is when to ask.
+        const answer = await call("requestWriteAccess");
+        if (!answer.ok) {
+          return false;
+        }
+        status = answer.result;
+      }
+      if (status != "fullAccess" && status != "writeOnly") {
+        return false;
+      }
+      const saved = await call(
+        "addEvent",
+        JSON.stringify({
+          title: event.title || "",
+          start: event.start.getTime(),
+          end: event.end.getTime(),
+          allDay: !!event.allDay,
+          notes: event.description || "",
+          url: /^https?:/.test(event.url ?? "") ? event.url : "",
+        })
+      );
+      if (!saved.ok) {
+        console.warn("Whimsy: Add to Calendar fell back to a file:", saved.result);
+      }
+      return saved.ok;
+    } catch (e) {
+      console.error("Whimsy: Add to Calendar", e);
+      return false;
+    }
   },
   linearConfigured() {
     try {

@@ -153,6 +153,17 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      leave Google as a morning item if no client ID exists.
    - Fire button: popover with scopes This site / Last 15 min / This space /
      Everything, burn animation; pinned tabs and Essentials survive.
+     Revised 2026-10-30 (user: four options confused; "be true to the point"):
+     DuckDuckGo's point is ending the session. Two rows: close this space's
+     tabs + clear the last hour (default), and Everything (confirm). Per-site
+     moved to the "Forget About This Site…" command.
+     Per space (user, 2026-10-30): the default removes only this space's
+     visits from the last hour and clears the sites it touched only in its
+     container; other spaces/containers keep theirs.
+     Then (user, 2026-10-30): "Fire in This Profile" / "Fire Everywhere";
+     scope is the space's profile (all its spaces). Security H2: burns close
+     tabs first without closed-tab entries, forget closed tabs in scope,
+     write the session, then clear.
    - Linear/Jira live folders: use the signed-in website session (like GitHub
      live folders), no API keys.
    - AI: provider picker in Settings (Claude API key, Apple on-device, local

@@ -114,6 +114,10 @@ add_task(async function test_local_file_live_reload() {
   const browser = tab.linkedBrowser;
   const heading = () => SpecialPowers.spawn(browser, [], () => content.document.querySelector("article h1")?.textContent);
   is(await heading(), "One", "a local file renders");
+  // wave7/security L8: a file from disk loads no remote images (no beacon).
+  const csp = await SpecialPowers.spawn(browser, [], () =>
+    content.document.querySelector("meta[http-equiv='Content-Security-Policy']")?.content);
+  ok(/img-src data: blob: file:;/.test(csp) && !/img-src[^;]*\*/.test(csp), "Local files allow only local images");
   await SpecialPowers.spawn(browser, [], () => {
     content.document.getElementById("whimsy-doc-raw").checked = true;
   });

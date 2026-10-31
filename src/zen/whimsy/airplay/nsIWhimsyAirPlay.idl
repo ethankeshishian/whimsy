@@ -1,0 +1,59 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * @brief Told what an AirPlay session does, on the main thread.
+ */
+[scriptable, function, uuid(056815b4-494a-48c5-a25b-8f2a19920043)]
+interface nsIWhimsyAirPlayListener : nsISupports {
+  /**
+   * @param state One of:
+   *        "connected"    a receiver was picked and plays the video;
+   *        "playing" / "paused"  the receiver's playback changed;
+   *        "ended"        the video played to its end;
+   *        "cancelled"    the picker closed without a receiver;
+   *        "disconnected" the receiver went away (or stop() was called);
+   *        "failed"       the receiver or AVFoundation couldn't play it.
+   * @param currentTime Where the video is, in seconds.
+   */
+  void onStateChange(in ACString state, in double currentTime);
+};
+
+/**
+ * @brief Cast to AirPlay (Arc's View > Cast). Gecko's own media pipeline
+ * can't send video to AirPlay, so this plays the page video's address in a
+ * native AVPlayer whose external playback goes to the receiver the person
+ * picks in AVKit's route picker (the Apple TV then loads the address
+ * itself). Only direct files and HLS work; Media Source (blob:) videos
+ * can't be sent this way. One session at a time; macOS only.
+ */
+[scriptable, uuid(4a1c10b7-ebd8-4d57-8ea6-36f6b30c9c43)]
+interface nsIWhimsyAirPlay : nsISupports {
+  /**
+   * @brief Loads `url` (paused, at `startTime` seconds) and opens the
+   * AirPlay route picker under the screen point (screenX, screenY), in
+   * desktop pixels from the top left of the main screen. Playback starts
+   * once a receiver is connected. Replaces any session already running.
+   */
+  void cast(in AUTF8String url, in double startTime, in double screenX,
+            in double screenY, in nsIWhimsyAirPlayListener listener);
+
+  /** @brief Whether a receiver is connected. */
+  readonly attribute boolean active;
+
+  /** @brief Where the cast video is, in seconds (0 with no session). */
+  readonly attribute double currentTime;
+
+  void pause();
+  void resume();
+  void seek(in double seconds);
+
+  /**
+   * @brief Ends the session: playback stops on the receiver and the
+   * listener hears "disconnected" with the last position.
+   */
+  void stop();
+};

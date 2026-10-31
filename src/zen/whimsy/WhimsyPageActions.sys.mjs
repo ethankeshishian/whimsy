@@ -23,6 +23,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.page-actions";
@@ -345,6 +346,14 @@ export const WhimsyPageActions = {
       const open = this.openNow(action.hours);
       args.state = open == null ? "unknown" : open ? "open" : "closed";
     }
+    if (action.kind == "parcel") {
+      // Where Track goes, in its tooltip.
+      try {
+        args.host = new URL(action.trackingUrl).host;
+      } catch {
+        args.host = "";
+      }
+    }
     return [`whimsy-page-action-${action.kind}`, args];
   },
 
@@ -379,7 +388,14 @@ export const WhimsyPageActions = {
       place: () => this.openInMaps(win, action),
       recipe: () => this.openCookMode(win, action),
       product: () => this.watchPrice(win, action),
-      parcel: () => win.openTrustedLinkIn(action.trackingUrl, "tab", { userContextId: win.gBrowser.selectedTab.userContextId }),
+      // The tracking URL is the page's claim: it opens as the page's own
+      // link would (its principal, so no Strict cookies), not as the
+      // browser's (security L3).
+      parcel: () =>
+        lazy.WhimsyPrivate.openTabFor(win, action.trackingUrl, {
+          userContextId: win.gBrowser.selectedTab.userContextId,
+          triggeringPrincipal: browser.contentPrincipal,
+        }),
     }[action.kind];
     Promise.resolve()
       .then(run)
@@ -412,7 +428,14 @@ export const WhimsyPageActions = {
   },
 
   icsEscape(text) {
-    return (text || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+    // Any line break (a lone CR too) becomes "\n", and other control
+    // characters go, so page text can't start a property of its own.
+    return (text || "")
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r\n|\r|\n/g, "\\n")
+      .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
   },
 
   // One VEVENT. An event without an end lasts an hour (a day when it has no
@@ -499,7 +522,7 @@ export const WhimsyPageActions = {
       service.loadURI(Services.io.newURI(`maps://?${query}`), Services.scriptSecurityManager.getSystemPrincipal());
       return;
     }
-    win.openTrustedLinkIn(`https://maps.apple.com/?${query}`, "tab", {
+    lazy.WhimsyPrivate.openTabFor(win, `https://maps.apple.com/?${query}`, {
       userContextId: win.gBrowser.selectedTab.userContextId,
     });
   },

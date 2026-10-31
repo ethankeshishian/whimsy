@@ -166,7 +166,7 @@ add_task(async function seasonal_settings_label_and_toggle() {
       () => doc.getElementById("whimsySeasonalThemes"), "Seasonal checkbox exists"
     );
     await doc.l10n.translateElements([checkbox]);
-    is(checkbox.getAttribute("label"), "Seasonal colors and costumes", "Short, plain label");
+    is(checkbox.getAttribute("label"), "Seasonal touches", "Short, plain label");
     await TestUtils.waitForCondition(() => checkbox.checked, "Setting is enabled");
     checkbox.click();
     await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref(SEASON_ENABLED), "Setting turns colors off");

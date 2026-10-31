@@ -99,12 +99,21 @@ export const WhimsyDelight = {
   },
 
   celebrate(win, tab) {
+    // wave7/focus: no celebration while Do Not Disturb is on.
+    if (ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs").WhimsyDoNotDisturb.quiet) {
+      return;
+    }
     const now = Date.now();
     const last = lastCelebrated.get(tab) || 0;
     if (now - last < THROTTLE_MS) {
       return;
     }
     lastCelebrated.set(tab, now);
+    // wave7/native1: no celebration during a macOS Focus (it's of the
+    // moment, so it isn't saved for later).
+    if (ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFocus.sys.mjs").WhimsyFocus.quiet) {
+      return;
+    }
     const reduced = win.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced || !win.gZenUIManager?.showToast) {
       win.gZenUIManager?.showToast?.("whimsy-inbox-zero-toast", {});

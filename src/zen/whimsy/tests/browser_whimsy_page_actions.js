@@ -110,6 +110,31 @@ add_task(async function test_parcel_track() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// wave7/security L3: the tracking URL comes from the page, so it opens with
+// the page's principal (not the system's), and the tooltip names its host.
+add_task(async function test_parcel_opens_as_the_page() {
+  const tab = await openPage("parcel");
+  const el = await waitForPill("parcel");
+  is(document.l10n.getAttributes(el).args.host, "example.com", "The tooltip names where Track goes");
+  const principals = [];
+  const addTab = gBrowser.addTab;
+  gBrowser.addTab = function (url, options = {}) {
+    principals.push(options.triggeringPrincipal);
+    return addTab.call(this, url, options);
+  };
+  try {
+    const opened = BrowserTestUtils.waitForNewTab(gBrowser, "https://example.com/track?id=1");
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const tracking = await opened;
+    ok(principals.length && !principals[0].isSystemPrincipal, "Not opened as the browser");
+    ok(principals[0].equals(tab.linkedBrowser.contentPrincipal), "but as the page's own link");
+    BrowserTestUtils.removeTab(tracking);
+  } finally {
+    gBrowser.addTab = addTab;
+  }
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function test_no_pill_cases() {
   for (const kind of ["events", "bad", "none", "product"]) {
     const tab = await openPage(kind);
@@ -147,4 +172,16 @@ add_task(async function test_opening_hours() {
     "Past midnight counts for the day before"
   );
   is(WhimsyPageActions.openNow({ specs: [], strings: [] }, wed10), null, "No hours, no claim");
+});
+
+// wave7/security L4: a lone CR in the page's event data can't start an
+// iCalendar property of its own.
+add_task(function test_ics_lone_cr() {
+  const ics = WhimsyPageActions.buildIcs(
+    { kind: "event", name: "Party\rATTACH:https://evil.example/x", startDate: "2026-11-05", location: "Hall\rBEGIN:VALARM", description: "a\u0000b" },
+    "https://example.com/"
+  );
+  const lines = ics.split("\r\n");
+  ok(!lines.some(l => /^(ATTACH|BEGIN:VALARM)/.test(l)), "No injected properties");
+  ok(!/\r(?!\n)/.test(ics) && !ics.includes("\u0000"), "No lone CR or NUL survives");
 });

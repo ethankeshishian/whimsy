@@ -43,6 +43,9 @@
     <!-- wave5: live blocks in Notes. -->
     <checkbox id="whimsyNoteBlocksEnabled"
               data-l10n-id="whimsy-note-blocks-enable" preference="whimsy.feature.note-blocks"/>
+    <!-- wave5: Easel. -->
+    <checkbox id="whimsyEaselEnabled"
+              data-l10n-id="whimsy-easel-enable" preference="whimsy.feature.easel"/>
     <checkbox id="whimsyFinderFoldersEnabled"
               data-l10n-id="whimsy-library-finder-folders-enable" preference="whimsy.feature.finder-folders"/>
     <checkbox id="whimsyScreenshotSidebarEnabled"
@@ -94,8 +97,13 @@
     <checkbox id="whimsyMenuBarExtra" data-whimsy-feature="menu-bar-extra"
               data-l10n-id="whimsy-look-menu-bar-extra" preference="whimsy.menu-bar-extra.show"/>
     <!-- batch7: seasonal themes -->
-    <checkbox id="whimsySeasonalThemes" data-whimsy-feature="seasonal-themes"
-              data-l10n-id="whimsy-look-seasonal-themes" preference="whimsy.seasons.enabled"/>
+    <!-- wave7/season: one switch for every seasonal touch, now described -->
+    <vbox id="whimsySeasonalThemesRow" data-whimsy-feature="seasonal-themes">
+      <checkbox id="whimsySeasonalThemes" data-l10n-id="whimsy-look-seasonal-themes"
+                preference="whimsy.seasons.enabled" aria-describedby="whimsySeasonalThemesDescription"/>
+      <description id="whimsySeasonalThemesDescription" class="description-deemphasized indent"
+                   data-l10n-id="whimsy-look-seasonal-themes-description"/>
+    </vbox>
     <!-- batch7: full URL on click -->
     <checkbox id="whimsyAlwaysFullUrl" data-whimsy-feature="full-url-click"
               data-l10n-id="whimsy-look-always-full-url" preference="whimsy.urlbar.always-full-url"/>
@@ -302,6 +310,9 @@
     <!-- wave5/captions: translated captions (CC in the speed control) -->
     <checkbox id="whimsyVideoCaptions" data-whimsy-feature="video-captions" class="indent"
               data-l10n-id="whimsy-media-video-captions" preference="whimsy.feature.video-captions"/>
+    <!-- w7native: live captions from speech when a video has none -->
+    <checkbox id="whimsyVideoSpeechCaptions" data-whimsy-feature="video-speech-captions" class="indent"
+              data-l10n-id="whimsy-media-video-speech-captions" preference="whimsy.feature.video-speech-captions"/>
 
     <!-- wave3: playlist -->
     <checkbox id="whimsyPlaylistOffline" data-whimsy-feature="playlist"
@@ -535,6 +546,9 @@
               data-l10n-id="whimsy-hover-people" preference="whimsy.feature.people-cards"/>
     <description id="whimsyHoverPeopleHelp" data-whimsy-feature="people-cards"
                  class="description-deemphasized" data-l10n-id="whimsy-hover-people-help"/>
+    <!-- wave7/ux: link cards -->
+    <checkbox id="whimsyHoverLinks" data-whimsy-feature="link-cards"
+              data-l10n-id="whimsy-hover-links" preference="whimsy.feature.link-cards"/>
   </groupbox>
 </html:template>
 
@@ -581,6 +595,12 @@
               aria-describedby="whimsyFollowerTabsHelp"/>
     <description id="whimsyFollowerTabsHelp" data-whimsy-feature="follower-tabs"
                  class="description-deemphasized indent" data-l10n-id="whimsy-links-follower-help"/>
+    <!-- wave7/split2: Arc's always-visible pane headers (off by default). -->
+    <checkbox id="whimsySplitAlwaysShowHeaders" data-whimsy-feature="split-pane-menu"
+              data-l10n-id="whimsy-split-always-show-headers" preference="whimsy.split.always-show-headers"
+              aria-describedby="whimsySplitAlwaysShowHeadersHelp"/>
+    <description id="whimsySplitAlwaysShowHeadersHelp" data-whimsy-feature="split-pane-menu"
+                 class="description-deemphasized indent" data-l10n-id="whimsy-split-always-show-headers-help"/>
   </groupbox>
   <groupbox id="whimsyLinksSpacesGroup" data-category="paneWhimsyLinks" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-links-spaces-header"/></label>
@@ -591,6 +611,21 @@
       </vbox>
       <button id="whimsyAtcButton" data-l10n-id="whimsy-atc-button"
               aria-describedby="whimsyAtcLabel whimsyAtcDescription"/>
+    </hbox>
+  </groupbox>
+</html:template>
+
+# wave5/profiles: Settings → Tab Management → Profiles (Arc's Settings → Profiles).
+<html:template id="template-whimsyProfiles" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyProfilesGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
+    <label><html:h2 id="whimsyProfilesHeader" data-l10n-id="whimsy-profiles-header"/></label>
+    <description class="description-deemphasized" data-l10n-id="whimsy-profiles-description"/>
+    <description id="whimsyProfilesDeleteRule" class="description-deemphasized" data-l10n-id="whimsy-profiles-delete-rule"/>
+    <html:ul id="whimsyProfilesList" class="whimsy-profiles-list" aria-labelledby="whimsyProfilesHeader"></html:ul>
+    <html:div id="whimsyProfilesCreateSlot"></html:div>
+    <hbox class="whimsy-profiles-actions" align="center">
+      <button id="whimsyProfilesCreate" data-l10n-id="whimsy-profiles-create"/>
+      <button id="whimsyProfilesDeleteUnused" data-l10n-id="whimsy-profiles-delete-unused"/>
     </hbox>
   </groupbox>
 </html:template>
@@ -641,4 +676,15 @@
   <html:setting-group groupid="media" data-category="paneZenTabManagement" hidden="true"/>
   <html:setting-group groupid="performance" data-category="paneZenTabManagement" hidden="true"/>
   <html:setting-group groupid="recommendations" data-category="paneZenTabManagement" hidden="true"/>
+</html:template>
+# wave7/teach: Settings → General → Tips, after Firefox's Browsing group:
+# "Show tips" for Teach once (WhimsyTeach.sys.mjs). Reset Tips is a command
+# (command bar), not a second control here.
+<html:template id="template-whimsyTeach" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyTeachGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-teach-header"/></label>
+    <checkbox id="whimsyTeachEnabled" data-l10n-id="whimsy-teach-enabled" preference="whimsy.teach.enabled"
+              aria-describedby="whimsyTeachHelp"/>
+    <description id="whimsyTeachHelp" class="description-deemphasized indent" data-l10n-id="whimsy-teach-enabled-help"/>
+  </groupbox>
 </html:template>

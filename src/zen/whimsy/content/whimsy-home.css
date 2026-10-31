@@ -1180,3 +1180,159 @@ main {
     outline: 1px solid ButtonText;
   }
 }
+
+/* wave7/season: the changelog in season. A hairline under the heading
+   carries the same art as the command bar's trim, drawn larger (it sits on
+   the line, or hangs from it for the holiday lights), and the timeline and
+   the newest build's wash take the season's tint. Static except the
+   lights' slow twinkle; nothing shows when the seasonal switch is off. */
+.wh-season-shelf {
+  display: none;
+}
+
+:root[whimsy-season-decor] .wh-season-shelf {
+  display: block;
+  position: relative;
+  height: 1px;
+  margin-top: 60px;
+  background: color-mix(in srgb, var(--wh-season-ink) 40%, transparent);
+  pointer-events: none;
+
+  & > .wh-season-shelf-top {
+    position: absolute;
+    bottom: 100%;
+    inset-inline-end: 8px;
+    width: var(--wh-season-art-width);
+    height: var(--wh-season-art-height);
+    background: var(--wh-season-art) no-repeat center bottom / contain;
+  }
+
+  & > .wh-season-shelf-bottom {
+    position: absolute;
+    top: 0;
+    inset-inline: 0;
+    height: 36px;
+  }
+}
+
+:root:is([whimsy-season-decor="halloween"], [whimsy-season-decor="autumn"]) {
+  --wh-season-ink: var(--wh-tint-peach-ink);
+  --wh-season-wash: var(--wh-sky-peach);
+}
+
+:root:is([whimsy-season-decor="holidays"], [whimsy-season-decor="winter"]) {
+  --wh-season-ink: var(--wh-tint-blue-ink);
+  --wh-season-wash: var(--wh-sky-blue);
+}
+
+:root[whimsy-season-decor="spring"] {
+  --wh-season-ink: var(--wh-tint-pink-ink);
+  --wh-season-wash: var(--wh-sky-pink);
+}
+
+:root[whimsy-season-decor="summer"] {
+  --wh-season-ink: var(--wh-tint-green-ink);
+  --wh-season-wash: var(--wh-sky-peach);
+}
+
+:root[whimsy-season-decor="halloween"] {
+  --wh-season-art: url("chrome://browser/content/whimsy/season/trim-halloween.svg");
+  --wh-season-art-width: 168px;
+  --wh-season-art-height: 48px;
+}
+
+:root[whimsy-season-decor="autumn"] {
+  --wh-season-art: url("chrome://browser/content/whimsy/season/trim-autumn.svg");
+  --wh-season-art-width: 180px;
+  --wh-season-art-height: 32px;
+}
+
+:root[whimsy-season-decor="winter"] {
+  --wh-season-art: url("chrome://browser/content/whimsy/season/trim-winter.svg");
+  --wh-season-art-width: 192px;
+  --wh-season-art-height: 32px;
+}
+
+:root[whimsy-season-decor="spring"] {
+  --wh-season-art: url("chrome://browser/content/whimsy/season/trim-spring.svg");
+  --wh-season-art-width: 192px;
+  --wh-season-art-height: 36px;
+}
+
+:root[whimsy-season-decor="summer"] {
+  --wh-season-art: url("chrome://browser/content/whimsy/season/trim-summer.svg");
+  --wh-season-art-width: 160px;
+  --wh-season-art-height: 36px;
+}
+
+/* The holidays hang a string of lights from the line instead. */
+:root[whimsy-season-decor="holidays"] .wh-season-shelf {
+  margin-top: 32px;
+  margin-bottom: 28px;
+
+  & > .wh-season-shelf-top {
+    display: none;
+  }
+
+  & > .wh-season-shelf-bottom {
+    background: url("chrome://browser/content/whimsy/season/trim-lights.svg") left top / auto 36px;
+    background-repeat: round no-repeat;
+
+    &::before,
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("chrome://browser/content/whimsy/season/trim-lights-a.svg") left top / auto 36px;
+      background-repeat: round no-repeat;
+      opacity: 0.5;
+    }
+
+    &::after {
+      background-image: url("chrome://browser/content/whimsy/season/trim-lights-b.svg");
+    }
+  }
+}
+
+:root[whimsy-season-decor] {
+  .whimsy-changelog-group::before {
+    background: color-mix(in srgb, var(--wh-season-ink) 30%, transparent);
+  }
+
+  .is-latest .wh-build-card::before {
+    background: radial-gradient(80% 60% at 100% 0%, var(--wh-season-wash), transparent 70%);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[whimsy-season-decor="holidays"] .wh-season-shelf-bottom {
+    &::before,
+    &::after {
+      animation: wh-season-twinkle 3.2s ease-in-out infinite alternate;
+    }
+
+    &::after {
+      animation-delay: -3.2s;
+    }
+  }
+}
+
+@keyframes wh-season-twinkle {
+  from {
+    opacity: 0.15;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+
+@media (max-width: 560px) {
+  :root[whimsy-season-decor]:not([whimsy-season-decor="holidays"]) .wh-season-shelf {
+    margin-top: 44px;
+
+    & > .wh-season-shelf-top {
+      width: calc(var(--wh-season-art-width) * 0.75);
+      height: calc(var(--wh-season-art-height) * 0.75);
+    }
+  }
+}

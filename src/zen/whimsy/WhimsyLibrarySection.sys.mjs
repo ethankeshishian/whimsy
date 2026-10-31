@@ -21,6 +21,8 @@ const SECTIONS = [
   { sectionId: "whimsy-files", feature: "screenshot-sidebar", name: "WhimsyFilesSection" },
   // media: Playlist v1 (Brave Playlist-like offline saving and Library section)
   { sectionId: "whimsy-playlist", feature: "playlist", name: "WhimsyPlaylistSection" },
+  // wave5: Easels (Arc's Library > Easels).
+  { sectionId: "whimsy-easels", feature: "easel", name: "WhimsyEaselsSection" },
 ];
 
 // Zen's History has a "Closed tabs" source that relabels its tab "Archive";

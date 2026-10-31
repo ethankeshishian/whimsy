@@ -1,18 +1,24 @@
 /* Any copyright is dedicated to the Public Domain.
    https://creativecommons.org/publicdomain/zero/1.0/ */
 
-// A tiny stand-in for Linear's GraphQL endpoint (https://api.linear.app/graphql).
-// Every request is a POST with a JSON body; this fixture reads it to find
-// the `team` filter the test sent and uses it as a scenario marker, the
-// same trick whimsy_jira.sjs plays with its JQL string:
-//   - no Authorization header, team != "SESSIONFAIL": a signed-in session
-//     (the common case this fixture plays by default).
-//   - no Authorization header, team == "SESSIONFAIL": a signed-out
-//     session -- a GraphQL-shaped auth error, HTTP 200.
-//   - an Authorization header matching VALID_KEY: the API-key fallback,
-//     always succeeds regardless of the team marker.
-//   - any other Authorization header: a rejected key, same auth error.
+// A stand-in for both of Linear's GraphQL endpoints:
+//
+// - The session endpoint linear.app's web app uses
+//   (client-api.linear.app/graphql): no Authorization header; the
+//   signed-in state is the `whimsy_linear_session` cookie, and, like a
+//   CSRF check, the Origin must be the page the test says the request is
+//   made as (EXPECTED_ORIGIN, standing in for https://linear.app). The
+//   `user` header picks the workspace, as on Linear. Cookie values:
+//     (none)        signed out: AUTHENTICATION_ERROR, HTTP 400.
+//     "solo"        one workspace.
+//     "multi"       two workspaces, each with its own issues.
+//     "locked"      two workspaces, the second answers FORBIDDEN.
+//     "ratelimited" HTTP 400 RATELIMITED with X-RateLimit-Requests-Reset.
+// - The public API (api.linear.app/graphql) with a personal API key in
+//   the Authorization header: VALID_KEY works, anything else is rejected.
 const VALID_KEY = "lin_api_test_key";
+const EXPECTED_ORIGIN = "https://test1.example.com";
+const COOKIE_NAME = "whimsy_linear_session";
 
 function readBody(request) {
   const BinaryInputStream = Components.Constructor(
@@ -29,10 +35,23 @@ function readBody(request) {
   return chunks.join("");
 }
 
-function authErrorBody() {
-  return JSON.stringify({
-    errors: [{ message: "Authentication required.", extensions: { code: "UNAUTHENTICATED" } }],
-  });
+function header(request, name) {
+  return request.hasHeader(name) ? request.getHeader(name) : null;
+}
+
+function sessionCookie(request) {
+  const raw = header(request, "Cookie") || "";
+  for (const part of raw.split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+    if (name === COOKIE_NAME) {
+      return rest.join("=");
+    }
+  }
+  return null;
+}
+
+function errorBody(code, message) {
+  return JSON.stringify({ errors: [{ message, extensions: { code } }] });
 }
 
 // One issue per workflow state type, plus an older workspace's canceled
@@ -55,13 +74,43 @@ const ISSUES = [
   state: { name, type },
 }));
 
-function issuesBody(filter) {
+const SIDE_ISSUES = [
+  {
+    id: "side-1",
+    identifier: "SIDE-1",
+    title: "Plan the side project",
+    url: "https://linear.app/side/issue/SIDE-1",
+    state: { name: "In Progress", type: "started" },
+  },
+];
+
+const WORKSPACES = [
+  { userId: "user-a", org: { id: "org-a", name: "Whimsy", urlKey: "whimsy" }, issues: ISSUES },
+  { userId: "user-b", org: { id: "org-b", name: "Side Project", urlKey: "side" }, issues: SIDE_ISSUES },
+];
+
+function issuesBody(issues, filter) {
   const nin = filter?.state?.type?.nin || [];
   return JSON.stringify({
     data: {
       viewer: {
         id: "viewer-1",
-        assignedIssues: { nodes: ISSUES.filter(issue => !nin.includes(issue.state.type)) },
+        assignedIssues: { nodes: issues.filter(issue => !nin.includes(issue.state.type)) },
+      },
+    },
+  });
+}
+
+function availableUsersBody(count) {
+  return JSON.stringify({
+    data: {
+      availableUsers: {
+        id: "account-1",
+        users: WORKSPACES.slice(0, count).map(w => ({
+          id: w.userId,
+          active: true,
+          organization: { ...w.org, deletionRequestedAt: null },
+        })),
       },
     },
   });
@@ -76,14 +125,49 @@ function handleRequest(request, response) {
   } catch {
     body = {};
   }
-  const team = body?.variables?.filter?.team?.key?.eq || "";
+  const filter = body?.variables?.filter;
+  const isAvailableUsers = /availableUsers/.test(body?.query || "");
 
-  const authHeader = request.hasHeader("Authorization") ? request.getHeader("Authorization") : null;
-
-  if (authHeader === null) {
-    response.write(team === "SESSIONFAIL" ? authErrorBody() : issuesBody(body?.variables?.filter));
+  // The public API with a personal key.
+  const authHeader = header(request, "Authorization");
+  if (authHeader !== null) {
+    response.write(
+      authHeader === VALID_KEY
+        ? issuesBody(ISSUES, filter)
+        : errorBody("AUTHENTICATION_ERROR", "Authentication required, not authenticated")
+    );
     return;
   }
 
-  response.write(authHeader === VALID_KEY ? issuesBody(body?.variables?.filter) : authErrorBody());
+  // The session endpoint.
+  const session = sessionCookie(request);
+  if (!session || header(request, "Origin") !== EXPECTED_ORIGIN || !header(request, "Linear-Client-ID")) {
+    response.setStatusLine(request.httpVersion, 400, "Bad Request");
+    response.write(errorBody("AUTHENTICATION_ERROR", "Authentication required, not authenticated"));
+    return;
+  }
+  if (session === "ratelimited") {
+    response.setStatusLine(request.httpVersion, 400, "Bad Request");
+    response.setHeader("X-RateLimit-Requests-Reset", String(Date.now() + 10 * 60 * 1000), false);
+    response.write(errorBody("RATELIMITED", "Rate limit exceeded"));
+    return;
+  }
+  const count = session === "solo" ? 1 : 2;
+  if (isAvailableUsers) {
+    response.write(availableUsersBody(count));
+    return;
+  }
+  const userId = header(request, "user");
+  const workspace = WORKSPACES.slice(0, count).find(w => w.userId === userId);
+  if (!workspace || header(request, "userAccount") !== "account-1") {
+    response.setStatusLine(request.httpVersion, 400, "Bad Request");
+    response.write(errorBody("INVALID_INPUT", "Unknown user"));
+    return;
+  }
+  if (session === "locked" && workspace.userId === "user-b") {
+    response.setStatusLine(request.httpVersion, 403, "Forbidden");
+    response.write(errorBody("FORBIDDEN", "This workspace requires SAML sign-in"));
+    return;
+  }
+  response.write(issuesBody(workspace.issues, filter));
 }

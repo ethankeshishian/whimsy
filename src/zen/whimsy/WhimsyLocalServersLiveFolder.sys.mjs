@@ -17,12 +17,17 @@
 // looked at. The base class's DeferredTask schedule is not used at all:
 // start()/stop()/refresh() are replaced here.
 //
-// Deferred: Bonjour/mDNS-advertised HTTP services on the LAN. Gecko's
-// nsIDNSServiceDiscovery (netwerk/dns/mdns) was removed with FlyWeb and the
-// Presentation API and isn't in this tree, so there's no browser API to
-// browse _http._tcp. Doing it would mean a hand-rolled mDNS client over
-// nsIUDPSocket (multicast 224.0.0.251:5353, contending with mDNSResponder,
-// plus macOS's Local Network privacy prompt) -- too risky to land untested.
+// LAN: HTTP services advertised over Bonjour on the local network (a NAS's
+// or printer's admin page, a dev server on another machine that advertises
+// itself) are listed after the local ports. Gecko's own mDNS service
+// (nsIDNSServiceDiscovery) went away with FlyWeb, so the browse is native:
+// nsIWhimsyBonjour (bonjour/, dns_sd on macOS). It runs only while the
+// folder is polled -- it starts and stops with the port poller -- and LAN
+// devices are never probed: the name and address come from Bonjour, the
+// favicon is fetched once per server. A service this Mac advertises on a
+// port the poller already found is listed once, as the localhost tab. The
+// browsed types are the app's Info.plist NSBonjourServices; macOS asks for
+// Local Network access the first time. Off: BONJOUR_PREF.
 
 import { nsZenLiveFolderProvider } from "resource:///modules/zen/ZenLiveFolder.sys.mjs";
 
@@ -36,6 +41,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 export const PORTS_PREF = "whimsy.live-folders.local-servers.ports";
 export const POLL_PREF = "whimsy.live-folders.local-servers.poll-ms";
+export const BONJOUR_PREF = "whimsy.live-folders.local-servers.bonjour";
+
+// Bonjour types browsed on the LAN. Each must be in Info.plist's
+// NSBonjourServices (src/browser/app/macbuild/Contents/whimsy-Info-plist-in.patch).
+export const BONJOUR_TYPES = ["_http._tcp", "_https._tcp", "_http-alt._tcp"];
 
 // Common dev-server ports, used when the pref is empty or unreadable.
 export const DEFAULT_PORTS = [
@@ -49,6 +59,73 @@ const MAX_HTML_BYTES = 256 * 1024;
 const MAX_ICON_BYTES = 64 * 1024;
 const FALLBACK_ICON = "chrome://browser/skin/zen-icons/selectable/code.svg";
 export const FOLDER_ICON = "chrome://browser/skin/zen-icons/selectable/terminal.svg";
+export const LAN_ICON = "chrome://browser/skin/zen-icons/selectable/globe.svg";
+
+// For tests: a function returning a stand-in for nsIWhimsyBonjour.
+export const BonjourTesting = { factory: null };
+
+function createBonjour() {
+  if (BonjourTesting.factory) {
+    return BonjourTesting.factory();
+  }
+  try {
+    const cls = Cc["@whimsy/bonjour;1"];
+    return cls ? cls.createInstance(Ci.nsIWhimsyBonjour) : null;
+  } catch {
+    return null;
+  }
+}
+
+const HOST_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
+
+// Bonjour's services as folder items: { id, title, subtitle, url, origin,
+// lan: true }. `localPorts` are the ports the localhost probe found: this
+// Mac's own services on them are left to the localhost tabs. Entries
+// without a usable host or port are dropped; the same name advertised as
+// both http and https is listed once, as https.
+export function bonjourItems(services, localPorts = []) {
+  const taken = new Set(localPorts);
+  const byName = new Map();
+  for (const service of Array.isArray(services) ? services : []) {
+    const host = String(service?.host || "").replace(/\.$/, "");
+    const port = Number(service?.port);
+    const name = String(service?.name || "").trim();
+    if (!HOST_RE.test(host) || !Number.isInteger(port) || port <= 0 || port > 65535) {
+      continue;
+    }
+    if (service.local && taken.has(port)) {
+      continue;
+    }
+    const secure = service.type == "_https._tcp";
+    const scheme = secure ? "https" : "http";
+    const defaultPort = secure ? 443 : 80;
+    const authority = port == defaultPort ? host : `${host}:${port}`;
+    const path = typeof service.path == "string" && service.path.startsWith("/") ? service.path : "/";
+    let url;
+    try {
+      url = new URL(path, `${scheme}://${authority}/`).href;
+    } catch {
+      continue;
+    }
+    const key = (name || authority).toLowerCase();
+    const previous = byName.get(key);
+    if (previous && (previous.secure || !secure)) {
+      continue;
+    }
+    byName.set(key, {
+      id: `lan:${key}`,
+      title: name || authority,
+      subtitle: authority,
+      url,
+      origin: `${scheme}://${authority}`,
+      secure,
+      lan: true,
+    });
+  }
+  return [...byName.values()]
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map(({ secure, ...item }) => item);
+}
 
 // Things that listen on dev ports but aren't dev servers. macOS's AirPlay
 // Receiver answers on 5000 and 7000 with `Server: AirTunes/...`.
@@ -102,7 +179,7 @@ export function parseIconHref(html, baseUrl) {
   return new URL("/favicon.ico", baseUrl).href;
 }
 
-async function timedFetch(url, timeoutMs) {
+async function timedFetch(url, timeoutMs, { redirect = "follow" } = {}) {
   const controller = new AbortController();
   const timer = lazy.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -110,7 +187,7 @@ async function timedFetch(url, timeoutMs) {
       signal: controller.signal,
       credentials: "omit",
       cache: "no-store",
-      redirect: "follow",
+      redirect,
     });
   } catch {
     return null;
@@ -172,6 +249,9 @@ export class WhimsyLocalServersLiveFolderProvider extends nsZenLiveFolderProvide
   // origin -> icon URL (data: or chrome:), so an icon is fetched once per
   // server run, not once per poll.
   #icons = new Map();
+  // The Bonjour browse while polling, and what it has found.
+  #bonjour = null;
+  #lan = [];
 
   get ports() {
     return parsePorts(Services.prefs.getStringPref(PORTS_PREF, ""));
@@ -184,6 +264,18 @@ export class WhimsyLocalServersLiveFolderProvider extends nsZenLiveFolderProvide
   get isPolling() {
     return !!this.#timer;
   }
+
+  get isBrowsing() {
+    return !!this.#bonjour;
+  }
+
+  get bonjourEnabled() {
+    return Services.prefs.getBoolPref(BONJOUR_PREF, true);
+  }
+
+  // Why the LAN browse isn't listing anything, if it failed ("denied" when
+  // Local Network access is off), else null.
+  lanError = null;
 
   // Visible = folder (and every folder it's nested in) expanded, in the
   // window's active space, and the window itself not hidden/minimized.
@@ -264,6 +356,7 @@ export class WhimsyLocalServersLiveFolderProvider extends nsZenLiveFolderProvide
       return;
     }
     this.#timer = lazy.setInterval(() => this.#tick(), this.pollMs);
+    this.#startBonjour();
     // Probe straight away: a folder that just became visible shows what's
     // running now, not what was running when it was last looked at.
     this.#tick();
@@ -274,6 +367,58 @@ export class WhimsyLocalServersLiveFolderProvider extends nsZenLiveFolderProvide
       lazy.clearInterval(this.#timer);
       this.#timer = null;
     }
+    this.#stopBonjour();
+  }
+
+  // The LAN browse runs exactly while the poller does.
+  #startBonjour() {
+    if (this.#bonjour || !this.bonjourEnabled) {
+      return;
+    }
+    const bonjour = createBonjour();
+    if (!bonjour) {
+      return;
+    }
+    this.#bonjour = bonjour;
+    this.lanError = null;
+    const listener = {
+      QueryInterface: ChromeUtils.generateQI(["nsIWhimsyBonjourListener"]),
+      onServicesChanged: json => {
+        if (this.#bonjour !== bonjour) {
+          return;
+        }
+        let services = [];
+        try {
+          services = JSON.parse(json);
+        } catch {}
+        this.#lan = Array.isArray(services) ? services : [];
+        this.#tick();
+      },
+      onError: reason => {
+        if (this.#bonjour === bonjour) {
+          this.lanError = String(reason);
+        }
+      },
+    };
+    try {
+      bonjour.start(BONJOUR_TYPES, listener);
+    } catch (e) {
+      console.error("Whimsy: Bonjour browse failed", e);
+      this.#bonjour = null;
+    }
+  }
+
+  #stopBonjour() {
+    const bonjour = this.#bonjour;
+    if (!bonjour) {
+      return;
+    }
+    this.#bonjour = null;
+    try {
+      bonjour.stop();
+    } catch {}
+    // A stale list isn't shown on the next expand: the browse refills it.
+    this.#lan = [];
   }
 
   // One probe round at a time; overlapping callers share it.
@@ -327,7 +472,14 @@ export class WhimsyLocalServersLiveFolderProvider extends nsZenLiveFolderProvide
 
   async fetchItems() {
     const results = await Promise.all(this.ports.map(port => this.probe(port)));
-    return results.filter(Boolean).sort((a, b) => a.port - b.port);
+    const local = results.filter(Boolean).sort((a, b) => a.port - b.port);
+    const lan = await Promise.all(
+      bonjourItems(this.#lan, local.map(item => item.port)).map(async ({ origin, ...item }) => ({
+        ...item,
+        icon: await this.#iconFor(origin, "", `${origin}/`, LAN_ICON),
+      }))
+    );
+    return [...local, ...lan];
   }
 
   // Resolves to an item for a server answering on `port`, or null.
@@ -366,17 +518,19 @@ export class WhimsyLocalServersLiveFolderProvider extends nsZenLiveFolderProvide
 
   // Tabs only take local (data:/chrome:) icon URLs from chrome code, so the
   // favicon is fetched here and inlined.
-  async #iconFor(origin, html, pageUrl) {
+  async #iconFor(origin, html, pageUrl, fallback = FALLBACK_ICON) {
     if (this.#icons.has(origin)) {
       return this.#icons.get(origin);
     }
-    let icon = FALLBACK_ICON;
+    let icon = fallback;
     try {
       const href = parseIconHref(html, pageUrl);
       if (href.startsWith("data:image/")) {
         icon = href;
-      } else if (/^https?:/.test(href)) {
-        const response = await timedFetch(href, PROBE_TIMEOUT_MS);
+      } else if (/^https?:/.test(href) && new URL(href).origin == origin) {
+        // Only the server's own icon: a page can't make the browser call
+        // other hosts (the LAN) from here (wave7/security L9).
+        const response = await timedFetch(href, PROBE_TIMEOUT_MS, { redirect: "error" });
         const type = (response?.headers.get("content-type") || "").split(";")[0].trim();
         if (response?.ok && type.startsWith("image/")) {
           const bytes = await readCapped(response, MAX_ICON_BYTES + 1);

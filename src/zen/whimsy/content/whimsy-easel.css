@@ -1,0 +1,1002 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* wave5: Easel. A calm paper canvas with floating, translucent chrome: the
+   title and export at the top, tools at the bottom (where Arc kept them),
+   and a small bar above whatever is selected. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Colour roles */
+  --ez-canvas: #fbfaf8;
+  --ez-dot: rgb(40 30 60 / 0.13);
+  --ez-text: #1f1c24;
+  --ez-muted: #6c6676;
+  --ez-chrome: rgb(255 255 255 / 0.78);
+  --ez-chrome-solid: #ffffff;
+  --ez-chrome-border: rgb(30 20 50 / 0.1);
+  --ez-hover: rgb(30 20 50 / 0.06);
+  --ez-pressed: rgb(30 20 50 / 0.11);
+  --ez-selected: rgb(30 20 50 / 0.1);
+  --ez-accent: #7a3ec4;
+  --ez-accent-text: #ffffff;
+  --ez-selection: #7a3ec4;
+  --ez-guide: #e0347c;
+  --ez-danger: #c62f37;
+  --ez-card: #ffffff;
+  --ez-card-border: rgb(30 20 50 / 0.1);
+  --ez-focus: #6b2fb8;
+
+  /* Elevation */
+  --ez-shadow-chrome: 0 1px 2px rgb(30 20 50 / 0.06), 0 8px 24px -8px rgb(30 20 50 / 0.18);
+  --ez-shadow-item: 0 1px 2px rgb(30 20 50 / 0.08), 0 6px 18px -8px rgb(30 20 50 / 0.22);
+
+  /* Radius, spacing, type */
+  --ez-radius-sm: 8px;
+  --ez-radius: 12px;
+  --ez-radius-lg: 16px;
+  --ez-pad: 6px;
+  --ez-control: 36px;
+  --ez-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Motion (Whimsy's native-feel scale) */
+  --ez-instant: 100ms;
+  --ez-fast: 150ms;
+  --ez-base: 200ms;
+  --ez-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ez-exit: cubic-bezier(0.32, 0, 0.67, 0);
+
+  /* Layers */
+  --ez-z-overlay: 10;
+  --ez-z-chrome: 20;
+  --ez-z-menu: 30;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ez-canvas: #18161c;
+    --ez-dot: rgb(255 255 255 / 0.1);
+    --ez-text: #f3f0f7;
+    --ez-muted: #a49eae;
+    --ez-chrome: rgb(38 35 44 / 0.78);
+    --ez-chrome-solid: #26232c;
+    --ez-chrome-border: rgb(255 255 255 / 0.1);
+    --ez-hover: rgb(255 255 255 / 0.07);
+    --ez-pressed: rgb(255 255 255 / 0.12);
+    --ez-selected: rgb(255 255 255 / 0.12);
+    --ez-accent: #b38af0;
+    --ez-accent-text: #1a1320;
+    --ez-selection: #b38af0;
+    --ez-guide: #ff6fae;
+    --ez-danger: #ff7a80;
+    --ez-card: #24212a;
+    --ez-card-border: rgb(255 255 255 / 0.1);
+    --ez-focus: #c9a6ff;
+    --ez-shadow-chrome: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -8px rgb(0 0 0 / 0.55);
+    --ez-shadow-item: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 20px -8px rgb(0 0 0 / 0.6);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ez-canvas);
+  color: var(--ez-text);
+  font: 14px/1.4 var(--ez-font);
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ez-focus);
+  outline-offset: 2px;
+}
+
+svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Canvas ---------- */
+
+#easel {
+  position: fixed;
+  inset: 0;
+}
+
+#viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  cursor: default;
+  background-color: var(--ez-canvas);
+  background-image: radial-gradient(circle, var(--ez-dot) 1px, transparent 1.3px);
+  background-size: var(--dot-size, 24px) var(--dot-size, 24px);
+  background-position: var(--dot-x, 0) var(--dot-y, 0);
+}
+
+/* The canvas is a focus stop: show it from the keyboard, inside the edge. */
+#viewport:focus {
+  outline: none;
+}
+
+#viewport:focus-visible {
+  outline: 2px solid var(--ez-focus);
+  outline-offset: -3px;
+}
+
+#viewport[data-tool="text"] {
+  cursor: text;
+}
+
+#viewport:is([data-tool="pen"], [data-tool="highlighter"], [data-tool="rect"], [data-tool="ellipse"], [data-tool="line"], [data-tool="arrow"]) {
+  cursor: crosshair;
+}
+
+#viewport[data-panning] {
+  cursor: grab;
+}
+
+#viewport[data-panning="active"] {
+  cursor: grabbing;
+}
+
+#world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+#world.animating {
+  transition: transform 320ms var(--ez-standard);
+}
+
+.item {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.item > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Strokes and unfilled shapes are picked by their line, not their box. */
+.item:is([data-type="pen"], .shape-line, .shape-hollow) {
+  pointer-events: none;
+}
+
+.item .hit {
+  stroke: transparent;
+  pointer-events: stroke;
+  fill: none;
+}
+
+.item.shape-filled > svg {
+  pointer-events: visiblePainted;
+}
+
+.item[data-type="pen"] path.ink {
+  vector-effect: non-scaling-stroke;
+}
+
+.item[data-type="pen"].highlighter path.ink {
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+}
+
+@media (prefers-color-scheme: dark) {
+  .item[data-type="pen"].highlighter path.ink {
+    mix-blend-mode: screen;
+  }
+}
+
+.item[data-type="text"] .text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+  min-width: 4px;
+  outline: none;
+  cursor: default;
+}
+
+.item[data-type="text"].auto .text {
+  width: max-content;
+  max-width: 640px;
+}
+
+.item[data-type="text"] .text:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ez-muted);
+}
+
+.item[data-type="text"].editing .text {
+  cursor: text;
+  caret-color: var(--ez-selection);
+}
+
+.item[data-type="image"] img,
+.item[data-type="capture"] img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  user-select: none;
+  -moz-user-select: none;
+  pointer-events: none;
+}
+
+.item[data-type="image"] {
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: var(--ez-shadow-item);
+}
+
+/* Captures: a framed slice of a page; live ones run the page inside. */
+.item[data-type="capture"] {
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ez-card);
+  box-shadow: var(--ez-shadow-item), 0 0 0 1px var(--ez-card-border);
+}
+
+.capture-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  opacity: 0;
+  transition: opacity var(--ez-base) var(--ez-standard);
+}
+
+.capture-stage.ready {
+  opacity: 1;
+}
+
+.capture-stage > browser {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+}
+
+/* Until a live capture is entered (double-click), a shield takes the
+   pointer so it can be selected and moved like anything else. */
+.capture-shield {
+  position: absolute;
+  inset: 0;
+}
+
+.item.active .capture-shield {
+  display: none;
+}
+
+.capture-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 16px);
+  padding: 3px 8px 3px 6px;
+  border-radius: 999px;
+  background: rgb(20 16 26 / 0.72);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--ez-fast) var(--ez-standard);
+}
+
+.capture-badge .live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff5a5f;
+  flex: none;
+}
+
+.capture-badge span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item[data-type="capture"]:is(:hover, .selected, .live) .capture-badge {
+  opacity: 1;
+}
+
+.item[data-type="capture"]:not(.live) .live-dot {
+  display: none;
+}
+
+.capture-note {
+  position: absolute;
+  inset: auto 8px 36px 8px;
+  padding: 6px 8px;
+  border-radius: var(--ez-radius-sm);
+  background: rgb(20 16 26 / 0.72);
+  color: #fff;
+  font-size: 12px;
+}
+
+/* Links: a small card with the page's icon. */
+.item[data-type="link"] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: var(--ez-radius);
+  background: var(--ez-card);
+  box-shadow: var(--ez-shadow-item), 0 0 0 1px var(--ez-card-border);
+}
+
+.item[data-type="link"] img {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 6px;
+}
+
+.link-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.link-title {
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-host {
+  color: var(--ez-muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Selection overlay (screen space) ---------- */
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--ez-z-overlay);
+}
+
+#selection {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 1.5px solid var(--ez-selection);
+  border-radius: 3px;
+}
+
+#selection.line .handle:not([data-handle="nw"], [data-handle="se"]) {
+  display: none;
+}
+
+#selection.no-resize .handle,
+#selection.text-only .handle:not([data-handle="e"], [data-handle="w"]) {
+  display: none;
+}
+
+.handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 3px;
+  background: var(--ez-chrome-solid);
+  border: 1.5px solid var(--ez-selection);
+  pointer-events: auto;
+}
+
+/* A 24px hit area around each 10px handle. */
+.handle::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+}
+
+.handle[data-handle="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.handle[data-handle="n"] { left: 50%; top: 0; cursor: ns-resize; }
+.handle[data-handle="ne"] { left: 100%; top: 0; cursor: nesw-resize; }
+.handle[data-handle="e"] { left: 100%; top: 50%; cursor: ew-resize; }
+.handle[data-handle="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.handle[data-handle="s"] { left: 50%; top: 100%; cursor: ns-resize; }
+.handle[data-handle="sw"] { left: 0; top: 100%; cursor: nesw-resize; }
+.handle[data-handle="w"] { left: 0; top: 50%; cursor: ew-resize; }
+
+
+#marquee {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 1px solid var(--ez-selection);
+  background: color-mix(in srgb, var(--ez-selection) 10%, transparent);
+  border-radius: 2px;
+}
+
+.guide {
+  position: absolute;
+  background: var(--ez-guide);
+}
+
+.guide.x {
+  width: 1px;
+}
+
+.guide.y {
+  height: 1px;
+}
+
+/* ---------- Floating chrome ---------- */
+
+.chrome,
+#topbar .segmented,
+#topbar .pill-button,
+#easel-title,
+#toolbar,
+#contextbar,
+#share-menu {
+  background: var(--ez-chrome);
+  backdrop-filter: blur(20px) saturate(170%);
+  border: 1px solid var(--ez-chrome-border);
+  box-shadow: var(--ez-shadow-chrome);
+}
+
+#topbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  pointer-events: none;
+  z-index: var(--ez-z-chrome);
+}
+
+#topbar > * {
+  pointer-events: auto;
+}
+
+#easel-title {
+  min-width: 0;
+  width: min(360px, 50vw);
+  height: var(--ez-control);
+  padding: 0 12px;
+  border-radius: var(--ez-radius);
+  font: 600 15px/1 var(--ez-font);
+  letter-spacing: -0.01em;
+  color: var(--ez-text);
+  text-overflow: ellipsis;
+}
+
+#easel-title::placeholder {
+  color: var(--ez-muted);
+}
+
+#easel-title:hover {
+  background: var(--ez-chrome-solid);
+}
+
+.bar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.segmented {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--ez-radius);
+}
+
+.icon-button,
+.text-button,
+.pill-button,
+.tool,
+.size,
+.swatch,
+.font-button,
+#share-menu > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: default;
+  transition:
+    background-color var(--ez-fast) var(--ez-standard),
+    transform var(--ez-instant) var(--ez-standard);
+}
+
+.icon-button,
+.tool {
+  width: var(--ez-control);
+  height: var(--ez-control);
+  padding: 0;
+  border-radius: var(--ez-radius-sm);
+}
+
+.segmented .icon-button,
+.segmented .text-button {
+  height: 30px;
+}
+
+.segmented .icon-button {
+  width: 30px;
+}
+
+.icon-button svg,
+.tool svg {
+  width: 20px;
+  height: 20px;
+}
+
+.text-button {
+  min-width: 52px;
+  height: var(--ez-control);
+  padding: 0 6px;
+  border-radius: var(--ez-radius-sm);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pill-button {
+  height: var(--ez-control);
+  padding: 0 16px;
+  border-radius: var(--ez-radius);
+  font-weight: 600;
+}
+
+@media (hover: hover) {
+  :is(.icon-button, .text-button, .pill-button, .tool, .size, .font-button, #share-menu > button):not(:disabled):hover {
+    background-color: var(--ez-hover);
+  }
+}
+
+:is(.icon-button, .text-button, .pill-button, .tool, .size, .font-button, #share-menu > button):not(:disabled):active {
+  background-color: var(--ez-pressed);
+  transform: scale(0.96);
+}
+
+.icon-button:disabled {
+  color: var(--ez-muted);
+  opacity: 0.45;
+}
+
+.icon-button.danger {
+  color: var(--ez-danger);
+}
+
+/* Tools at the bottom, like Arc's Easel. */
+#toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  padding: var(--ez-pad);
+  border-radius: var(--ez-radius-lg);
+  z-index: var(--ez-z-chrome);
+}
+
+.tool-group,
+.swatches,
+.sizes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.divider {
+  width: 1px;
+  height: 22px;
+  margin: 0 6px;
+  background: var(--ez-chrome-border);
+  flex: none;
+}
+
+.tool[aria-pressed="true"] {
+  background: var(--ez-accent);
+  color: var(--ez-accent-text);
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.swatch::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+  transition: transform var(--ez-fast) var(--ez-standard);
+}
+
+/* The chosen colour shows a ring, not just a different fill. */
+.swatch[aria-checked="true"] {
+  box-shadow: inset 0 0 0 2px var(--ez-text);
+}
+
+.swatch[aria-checked="true"]::before {
+  transform: scale(0.82);
+}
+
+.size {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--ez-radius-sm);
+}
+
+.size .dot {
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.size[data-size="0"] .dot { width: 4px; height: 4px; }
+.size[data-size="1"] .dot { width: 8px; height: 8px; }
+.size[data-size="2"] .dot { width: 13px; height: 13px; }
+
+.size[aria-checked="true"] {
+  background: var(--ez-selected);
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+/* The bar above the selection. */
+#contextbar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--ez-radius);
+  z-index: var(--ez-z-chrome);
+  transform-origin: 50% 100%;
+  animation: ez-pop-in var(--ez-base) var(--ez-standard);
+}
+
+#contextbar .icon-button {
+  width: 32px;
+  height: 32px;
+}
+
+.ctx-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ctx-group + .ctx-group {
+  margin-left: 4px;
+  padding-left: 6px;
+  border-left: 1px solid var(--ez-chrome-border);
+}
+
+.ctx-group[hidden] {
+  display: none;
+}
+
+.font-button {
+  height: 32px;
+  min-width: 40px;
+  padding: 0 8px;
+  border-radius: var(--ez-radius-sm);
+  font-size: 13px;
+}
+
+.font-button[data-font="serif"] { font-family: ui-serif, "New York", Georgia, serif; }
+.font-button[data-font="mono"] { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.font-button[data-font="rounded"] { font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; }
+
+.font-button[aria-checked="true"] {
+  background: var(--ez-selected);
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+[data-action="fill"] .fill-mark {
+  opacity: 0;
+}
+
+[data-action="fill"][aria-pressed="true"] .fill-mark {
+  opacity: 1;
+}
+
+[data-action="live"] .pause,
+[data-action="live"][aria-pressed="true"] .play {
+  display: none;
+}
+
+[data-action="live"][aria-pressed="true"] .pause {
+  display: block;
+}
+
+[data-action="live"] .play path {
+  fill: currentColor;
+}
+
+/* Export menu */
+#share-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 6px;
+  min-width: 232px;
+  border-radius: var(--ez-radius);
+  color: var(--ez-text);
+  z-index: var(--ez-z-menu);
+}
+
+#share-menu:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: ez-pop-in var(--ez-base) var(--ez-standard);
+}
+
+#share-menu > button {
+  justify-content: flex-start;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--ez-radius-sm);
+  text-align: start;
+}
+
+.menu-note {
+  margin: 4px 10px 4px;
+  max-width: 220px;
+  color: var(--ez-muted);
+  font-size: 12px;
+}
+
+/* Empty state, centred under the chrome. */
+#empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity var(--ez-fast) var(--ez-exit);
+}
+
+#empty[hidden] {
+  display: grid;
+  opacity: 0;
+}
+
+.empty-card {
+  max-width: 380px;
+  padding: 24px;
+  text-align: center;
+}
+
+.empty-card h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.empty-card p {
+  margin: 0 0 16px;
+  color: var(--ez-muted);
+  text-wrap: pretty;
+}
+
+.empty-hints {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  justify-items: start;
+  width: fit-content;
+  margin-inline: auto;
+  color: var(--ez-muted);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--ez-chrome-border);
+  background: var(--ez-chrome-solid);
+  color: var(--ez-text);
+  font: 600 12px/1.5 var(--ez-font);
+  text-align: center;
+}
+
+#off {
+  display: grid;
+  place-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 24px;
+}
+
+#off[hidden] {
+  display: none;
+}
+
+#off h1 {
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+
+#off p {
+  color: var(--ez-muted);
+  margin: 0;
+}
+
+#print-image {
+  display: none;
+}
+
+@keyframes ez-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #world.animating,
+  .capture-stage,
+  #empty {
+    transition: none;
+  }
+
+  #contextbar,
+  #share-menu:popover-open {
+    animation: ez-fade-in var(--ez-fast) linear;
+  }
+
+  :is(.icon-button, .text-button, .pill-button, .tool, .size, .font-button, #share-menu > button):active {
+    transform: none;
+  }
+}
+
+@keyframes ez-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  #topbar .segmented,
+  #topbar .pill-button,
+  #easel-title,
+  #toolbar,
+  #contextbar,
+  #share-menu {
+    background: var(--ez-chrome-solid);
+    backdrop-filter: none;
+  }
+}
+
+@media (forced-colors: active) {
+  #selection,
+  .handle,
+  #marquee {
+    border-color: Highlight;
+  }
+
+  .tool[aria-pressed="true"],
+  .size[aria-checked="true"],
+  .font-button[aria-checked="true"] {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* Export as PDF prints only the rendered easel. */
+@media print {
+  #easel,
+  #off {
+    display: none !important;
+  }
+
+  html,
+  body {
+    height: auto;
+    overflow: visible;
+    background: none;
+  }
+
+  #print-image {
+    display: block;
+    max-width: 100%;
+    max-height: 100vh;
+    margin: auto;
+  }
+}
+
+/* wave7: the easel takes its space's colour (Arc's easels did): the accent,
+   the selection, and a faint wash on the canvas. Zen's default theme keeps
+   the purple above. */
+:root[space-color] {
+  --ez-accent: var(--ez-space);
+  --ez-accent-text: var(--ez-space-text);
+  --ez-selection: var(--ez-space);
+  --ez-focus: var(--ez-space);
+  --ez-canvas: color-mix(in oklab, var(--ez-space) 5%, #fbfaf8);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[space-color] {
+    --ez-accent: var(--ez-space-dark);
+    --ez-accent-text: var(--ez-space-text-dark);
+    --ez-selection: var(--ez-space-dark);
+    --ez-focus: var(--ez-space-dark);
+    --ez-canvas: color-mix(in oklab, var(--ez-space) 7%, #18161c);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #viewport {
+    transition: background-color var(--ez-base) var(--ez-standard);
+  }
+}

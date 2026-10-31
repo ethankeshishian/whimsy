@@ -75,9 +75,20 @@
         content/browser/whimsy/whimsy-lasso.css                                 (../../zen/whimsy/content/whimsy-lasso.css)
 # wave5/quick: new season toast (the costumed balloon, once per season)
         content/browser/whimsy/whimsy-season-balloon.svg                         (../../zen/whimsy/content/whimsy-season-balloon.svg)
+# wave5: redact toggle in the Screenshots panel
+        content/browser/whimsy/whimsy-redact.css                                 (../../zen/whimsy/content/whimsy-redact.css)
+        content/browser/whimsy/whimsy-redact.svg                                 (../../zen/whimsy/content/whimsy-redact.svg)
+# wave5: Easel
+        content/browser/whimsy/whimsy-easel.html (../../zen/whimsy/content/whimsy-easel.html)
+        content/browser/whimsy/whimsy-easel.css (../../zen/whimsy/content/whimsy-easel.css)
+        content/browser/whimsy/whimsy-easel.mjs (../../zen/whimsy/content/whimsy-easel.mjs)
+        content/browser/whimsy/whimsy-easel-model.mjs (../../zen/whimsy/content/whimsy-easel-model.mjs)
+        content/browser/whimsy/whimsy-library-easels.mjs (../../zen/whimsy/content/whimsy-library-easels.mjs)
 # wave5/audioicon: Arc tab speaker glyphs
         content/browser/whimsy/whimsy-tab-audio-playing.svg                       (../../zen/whimsy/content/whimsy-tab-audio-playing.svg)
         content/browser/whimsy/whimsy-tab-audio-muted.svg                         (../../zen/whimsy/content/whimsy-tab-audio-muted.svg)
+# wave5/profiles: keeps extensions' content scripts out of other profiles' pages.
+        content/browser/whimsy/whimsy-profiles-process.js                       (../../zen/whimsy/content/whimsy-profiles-process.js)
 # wave6/zap: Link hints badges (drawn in page anonymous content)
         content/browser/whimsy/whimsy-link-hints.css                             (../../zen/whimsy/content/whimsy-link-hints.css)
 # wave6/search: Search Deck dots
@@ -116,3 +127,12 @@
 % override chrome://browser/skin/sidebar/firefox.svg chrome://browser/content/whimsy/logos/whimsy-mono.svg
 % override chrome://browser/content/logos/share-firefox.svg chrome://browser/content/whimsy/logos/share-whimsy.svg
 % override chrome://browser/skin/window-firefox.svg chrome://browser/content/whimsy/logos/window-whimsy.svg
+# wave7/season: seasonal trim on the floating command bar
+        content/browser/whimsy/season/trim-autumn.svg                            (../../zen/whimsy/content/season/trim-autumn.svg)
+        content/browser/whimsy/season/trim-halloween.svg                         (../../zen/whimsy/content/season/trim-halloween.svg)
+        content/browser/whimsy/season/trim-lights.svg                            (../../zen/whimsy/content/season/trim-lights.svg)
+        content/browser/whimsy/season/trim-lights-a.svg                          (../../zen/whimsy/content/season/trim-lights-a.svg)
+        content/browser/whimsy/season/trim-lights-b.svg                          (../../zen/whimsy/content/season/trim-lights-b.svg)
+        content/browser/whimsy/season/trim-spring.svg                            (../../zen/whimsy/content/season/trim-spring.svg)
+        content/browser/whimsy/season/trim-summer.svg                            (../../zen/whimsy/content/season/trim-summer.svg)
+        content/browser/whimsy/season/trim-winter.svg                            (../../zen/whimsy/content/season/trim-winter.svg)

@@ -249,7 +249,7 @@ add_task(async function native_panel_scope_controls() {
       space.click();
       is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), String(container), "Space control selects current container");
     } else {
-      is(group.querySelector("p").getAttribute("data-l10n-id"), "whimsy-vpn-scope-no-container", "Explains how to assign a container");
+      is(group.querySelector("p").getAttribute("data-l10n-id"), "whimsy-vpn-scope-no-container", "Explains how to give the space its own profile");
     }
     group.querySelector('[value="browser"]').click();
     is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), "", "All spaces control clears restriction");

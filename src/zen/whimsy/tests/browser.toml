@@ -352,6 +352,12 @@ support-files = ["whimsy_ai_page.html"]
 # batch4: Library rail glyphs, including optional sections when present.
 ["browser_whimsy_library_icons.js"]
 
+# wave5: Easel (create, draw, move/resize, undo, persist, captures, export, switch).
+["browser_whimsy_easel.js"]
+# wave5: Redact in the Screenshots panel (detectors, click-to-blur, image pixels, cleanup).
+["browser_whimsy_redact.js"]
+support-files = ["whimsy_redact.html", "whimsy_redact_frames.html"]
+
 # wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
 ["browser_whimsy_live_folders_local_servers.js"]
 
@@ -422,6 +428,37 @@ support-files = ["whimsy_verbs.html"]
 ["browser_whimsy_tab_audio_icon.js"]
 support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
+# wave7/ux: private page copy
+["browser_whimsy_private_page_copy.js"]
+
+# wave7/ux: one hover host for links (People or link card, AI summary beneath)
+["browser_whimsy_link_hover.js"]
+
+# wave7/ux: the pinned/normal separator sits below expanded folder children
+["browser_whimsy_folder_separator.js"]
+
+# wave5/profiles: profile model, Set Profile → Create a New Profile…, Settings → Profiles.
+["browser_whimsy_profiles.js"]
+
+# wave5/profiles: passwords per profile (autofill, save tagging, Sync round-trip, delete).
+["browser_whimsy_profile_passwords.js"]
+support-files = ["whimsy_login_form.html"]
+
+# wave5/profiles: history per profile (sidecar attribution, Library query, address bar).
+["browser_whimsy_profile_history.js"]
+
+# wave5/profiles: per-profile search engine and download folder.
+["browser_whimsy_profile_settings.js"]
+
+# wave5/profiles: Arc's warnings, and tabs really reopen in the new profile.
+["browser_whimsy_profile_moves.js"]
+
+# wave5/profiles: Mini Whimsy's profile pill and cross-profile Open in.
+["browser_whimsy_profile_mini.js"]
+
+# wave5/profiles: per-profile data through Sync's prefs engine (two-device round trip, merge rules).
+["browser_whimsy_profile_sync.js"]
+
 # wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
 ["browser_whimsy_zap.js"]
 support-files = ["whimsy_article.html"]
@@ -484,3 +521,82 @@ support-files = ["whimsy_page_actions.html"]
 
 # fix/kit: the Whimsy balloon replaces Kit; Settings logo glyphs are Whimsy's (overrides, promo, About icon).
 ["browser_whimsy_kit_balloon.js"]
+
+# wave7/menus: space menu order (Delete last), no Volume… row, Glance chip vs unread badge on an Essential.
+["browser_whimsy_menu_order.js"]
+
+# wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
+["browser_whimsy_archive_tab_menu.js"]
+# wave7/folders: Jira/Linear/Local Servers live folders survive a restart, even when a provider registers late.
+["browser_whimsy_live_folders_restore.js"]
+# wave7/keys: commands with assignable shortcuts for Settings/menu-only features (tree, hidden spaces, switcher, UI zoom, background mute, bionic, dark PDF, live/Finder folders, Manage Spaces, ATC, Claude space, What's New).
+["browser_whimsy_access_commands.js"]
+# wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
+["browser_whimsy_do_not_disturb.js"]
+
+# wave7/focus: paste guard (detector, sheet Cancel/Esc/Paste, ordinary text, card field, command, switches).
+["browser_whimsy_paste_guard.js"]
+# wave7/teach: Teach once (shows once, Esc/close/tab switch dismiss, never reappears, switches, shortcut retires it, Reset Tips, registry).
+["browser_whimsy_teach.js"]
+# wave7/spaceanim: space switches play one at a time (Arc): keys coalesce, swipes step, mid-slide swipes deferred.
+["browser_whimsy_space_switch_queue.js"]
+# wave7/security: private tabs' follow-ups stay private (verbs, page actions).
+["browser_whimsy_security_private.js"]
+# wave7/season: seasonal command bar trim, Balloon Dash occasions and weather, changelog header art (mocked dates, switch, reduced motion, no overlap).
+["browser_whimsy_seasonal_decor.js"]
+# wave7/split: pane header ⋯ menu, tab menu without duplicates, Arc split labels.
+["browser_whimsy_split_pane_menu.js"]
+
+# wave7/split2: Arc's split row right-click menu (items, order, labels, per-pane submenus).
+["browser_whimsy_split_row_menu.js"]
+
+# wave7/menuprefs: Settings → Menus (turn any right-click menu item off; separators collapse; Restore Defaults; search).
+["browser_whimsy_menu_prefs.js"]
+# wave7/native1: about:keyboard says "Restore Last Closed Tab" (whimsy-customkeys-ftl.patch).
+["browser_whimsy_restore_tab_label.js"]
+
+# wave7/native1: Add to Calendar saves through EventKit (mocked), .ics fallback.
+["browser_whimsy_calendar_write.js"]
+
+# wave7/native1: Whimsy's own toasts wait during a macOS Focus (mocked database).
+["browser_whimsy_macos_focus.js"]
+run-if = ["os == 'mac'"]
+
+# wave7/native1: the real calendar/ and focus/ components (no prompts, no
+# real calendar writes); verify.sh's whimsy-native run.
+["browser_whimsy_native_services.js"]
+run-if = ["os == 'mac'"]
+skip-if = ["headless"] # runs in verify.sh's whimsy-native suite
+# w7native: live captions from speech (stand-ins for the recognizer, capture and tap; the real tap on a Web Audio track).
+["browser_whimsy_video_speech_captions.js"]
+support-files = ["whimsy_video_captions.html", "whimsy_captions_es.vtt", "whimsy_video.mp4"]
+# wave7/small: Capture in Portrait Mode lays the page out at phone width.
+["browser_whimsy_capture_portrait.js"]
+
+# wave7/small: Cast to AirPlay (native player stubbed).
+["browser_whimsy_cast.js"]
+support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
+
+# wave7/small: Create Email Alias in the command bar.
+["browser_whimsy_email_alias_command.js"]
+
+# wave7/small: Move to > New Space... moves the tab or its split.
+["browser_whimsy_move_to_new_space.js"]
+
+# wave7/small: Teach once hints for Link hints and Instant result.
+["browser_whimsy_teach_hints.js"]
+
+# wave7/small: changelog dev build IDs only on the Dev channel.
+["browser_whimsy_changelog_channel.js"]
+
+# wave7/small: Search Linear's URL (linear.app/<workspace>/search?q=).
+["browser_whimsy_linear_search_url.js"]
+
+# wave7/small: the archive sweep's Undo toast.
+["browser_whimsy_archive_sweep_undo.js"]
+
+# wave7/small: Settings cleanup (dead strings gone, every string resolves).
+["browser_whimsy_settings_strings.js"]
+
+# wave7/small: lazy init of command-bar-only parts.
+["browser_whimsy_lazy_init.js"]

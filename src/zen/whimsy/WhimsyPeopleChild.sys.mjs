@@ -24,10 +24,20 @@ export class WhimsyPeopleChild extends JSWindowActorChild {
       return;
     }
     if (event.type == "mouseover") {
+      // wave7/ux: the link's own box too, so the hover host can place its
+      // cards beside the link without covering it.
+      const win = this.contentWindow;
+      const rect = link.getBoundingClientRect();
       this.sendAsyncMessage("Whimsy:PersonHover", {
         url: url.href,
         x: event.screenX,
         y: event.screenY,
+        rect: win && {
+          x: win.mozInnerScreenX + rect.left,
+          y: win.mozInnerScreenY + rect.top,
+          width: rect.width,
+          height: rect.height,
+        },
       });
     } else {
       this.sendAsyncMessage("Whimsy:PersonLeave");

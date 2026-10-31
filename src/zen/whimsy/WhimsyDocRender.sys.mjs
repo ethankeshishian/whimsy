@@ -23,6 +23,11 @@ ChromeUtils.defineLazyGetter(lazy, "parserUtils", () =>
 export const CSP =
   "default-src 'none'; style-src 'unsafe-inline'; img-src * data: blob: file:; media-src * file:; " +
   "base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+// A file opened from disk loads nothing from the web: a downloaded README
+// can't tell anyone it was opened through a remote image (security L8).
+export const LOCAL_CSP =
+  "default-src 'none'; style-src 'unsafe-inline'; img-src data: blob: file:; media-src file:; " +
+  "base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 export const MAX_PREVIEW_CHARS = 5_000_000;
 export const MAX_ROWS = 20_000;
 export const MARKDOWN_EXTENSIONS = new Set(["md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "mdtxt"]);
@@ -312,11 +317,11 @@ export function renderBody({ text, kind, name, strings }) {
 }
 
 // The whole page.
-export function renderPage({ text, kind, name, strings }) {
+export function renderPage({ text, kind, name, strings, local = false }) {
   const { body, title } = renderBody({ text, kind, name, strings });
   return (
     `<!DOCTYPE html><html dir="auto"><head><meta charset="utf-8">` +
-    `<meta http-equiv="Content-Security-Policy" content="${escapeHTML(CSP)}">` +
+    `<meta http-equiv="Content-Security-Policy" content="${escapeHTML(local ? LOCAL_CSP : CSP)}">` +
     `<meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width">` +
     `<title>${escapeHTML(title)}</title><style>${STYLE}</style></head>` +
     `<body class="whimsy-doc ${kind == "markdown" ? "prose" : "sheet"}">${body}</body></html>`

@@ -460,8 +460,9 @@ export const WhimsyPanels = {
    * @param {string} o.title
    * @param {string} o.body
    * @param {string} [o.accept] - the accept button's label
-   * @param {boolean} [o.cancelDefault] - Cancel is the default button
-   *   (Return cancels), for what can't be undone
+   * @param {boolean} [o.cancelDefault] - Return picks Cancel, for what
+   *   can't be undone (Forget Everything), so a reflexive Return after
+   *   the sheet never wipes anything.
    */
   async confirm(win, { title, body, accept = null, cancelDefault = false }) {
     const ps = Services.prompt;
