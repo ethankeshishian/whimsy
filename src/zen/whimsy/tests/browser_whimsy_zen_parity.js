@@ -143,6 +143,24 @@ add_task(async function test_pinned_tabs_lazy_on_startup() {
     ],
   };
 
+  // Zen copies every other window's pinned tabs into a new window, and
+  // restoring over such a window leaves its selection on a removed tab, so
+  // the switch below never loads (a 90s timeout). Only a pinned tab left
+  // behind by an earlier test causes that, so name it instead of hanging.
+  const leftover = [];
+  for (const w of Services.wm.getEnumerator("navigator:browser")) {
+    for (const t of w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs) {
+      if (t.pinned) {
+        leftover.push(t.linkedBrowser?.currentURI?.spec ?? t.label);
+      }
+    }
+  }
+  Assert.deepEqual(leftover, [], "No pinned tab is left open by an earlier test");
+  if (leftover.length) {
+    await SpecialPowers.popPrefEnv();
+    return;
+  }
+
   const win = await BrowserTestUtils.openNewBrowserWindow();
   const restored = BrowserTestUtils.waitForEvent(win, "SSWindowRestored");
   SessionStore.setWindowState(win, JSON.stringify(state), true);
