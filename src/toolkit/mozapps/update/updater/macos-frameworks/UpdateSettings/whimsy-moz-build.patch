@@ -1,0 +1,21 @@
+diff --git a/toolkit/mozapps/update/updater/macos-frameworks/UpdateSettings/moz.build b/toolkit/mozapps/update/updater/macos-frameworks/UpdateSettings/moz.build
+index 2f4d616..df1c03c 100644
+--- a/toolkit/mozapps/update/updater/macos-frameworks/UpdateSettings/moz.build
++++ b/toolkit/mozapps/update/updater/macos-frameworks/UpdateSettings/moz.build
+@@ -4,10 +4,12 @@
+ 
+ Framework("UpdateSettings")
+ 
+-if CONFIG["ACCEPTED_MAR_CHANNEL_IDS"]:
+-    DEFINES["ACCEPTED_MAR_CHANNEL_IDS"] = '"%s"' % CONFIG["ACCEPTED_MAR_CHANNEL_IDS"]
+-else:
+-    DEFINES["ACCEPTED_MAR_CHANNEL_IDS"] = '""'
++# Whimsy: the MAR channels Whimsy's updates are signed with (whimsy/publish.json
++# mar_channels), whatever surfer's brand sets. "release" is the ID builds from
++# before wave 9 were signed with; keep it while publish.json's
++# mar_channel_bridge is true, then drop it. Older signed builds are refused
++# anyway (whimsy-updater-cpp.patch compares build IDs).
++DEFINES["ACCEPTED_MAR_CHANNEL_IDS"] = '"whimsy-release,whimsy-dev,release"'
+ 
+ EXPORTS += [
+     "UpdateSettings.h",
