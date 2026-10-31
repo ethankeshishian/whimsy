@@ -2970,3 +2970,9 @@ whimsy-archive-swept-toast =
         [one] Archived a tab you hadn’t used in a while
        *[other] Archived { $count } tabs you hadn’t used in a while
     }
+
+## W8-17/18: the private command bar (Cmd+Option+T)
+
+# A small badge at the end of the command bar while it's for a private tab.
+# It is also read out as the address field's description.
+whimsy-urlbar-private-badge = Private

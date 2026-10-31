@@ -9,7 +9,10 @@
 //   privately, like Waterfox's private tabs. People open one to check
 //   something without it landing in their history or logging them out of
 //   anything, and keep it next to their normal tabs instead of
-//   alt-tabbing to a whole other window.
+//   alt-tabbing to a whole other window. W8-17: the shortcut opens the
+//   command bar in private mode (violet ring, "Private" badge), the way
+//   Cmd+T opens it for a normal tab; the private tab only exists once
+//   something is picked, and Esc leaves nothing behind.
 // - Scratch (Cmd+Shift+N): a temporary private space, added to the right of
 //   every space. Everything opened in it is private. Closing its last tab
 //   (or Close Scratch) removes it; it is never saved or restored. "Save as
@@ -62,6 +65,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+  WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
@@ -83,6 +87,15 @@ const PRIVATE_NEW_TAB_URL = "about:privatebrowsing";
 const NEW_TAB_URLS = new Set(["about:newtab", "about:home"]);
 const SCRATCH_ICON = "chrome://browser/skin/zen-icons/private-window-small.svg";
 const PRIVATE_REMOTE_TYPE = /[\^&]privateBrowsingId=[1-9]/;
+// W8-17/18: set on #urlbar while it serves private browsing (a private
+// tab's Cmd+L, the private command bar, Cmd+T in Scratch).
+const URLBAR_ATTR = "whimsy-private";
+const URLBAR_BADGE_ID = "whimsy-urlbar-private-badge";
+// How long an Enter in the private command bar keeps its loads private
+// while the bar resolves what was typed (an async heuristic lookup).
+const PENDING_PRIVATE_MS = 5000;
+// Per-window command bar state: { compose, pendingUntil, forcePrivate, ... }.
+const urlbarStates = new WeakMap();
 
 export const WhimsyPrivate = {
   get featureOn() {
@@ -211,7 +224,7 @@ export const WhimsyPrivate = {
         return;
       }
       utils[name] = function (...args) {
-        if (WhimsyPrivate.selectedTabIsPrivate()) {
+        if (WhimsyPrivate.urlbarPrivateNow()) {
           return Promise.resolve();
         }
         return original.apply(this, args);
@@ -219,10 +232,31 @@ export const WhimsyPrivate = {
     };
     skipWhenPrivate("addToInputHistory");
     skipWhenPrivate("addToInputHistoryWhenReady");
+    // Marking a page as typed only matters for its next (normal) visit, so
+    // a private bar's address must not be marked (Firefox skips it in
+    // private windows).
+    const addToUrlbarHistory = utils.addToUrlbarHistory;
+    if (typeof addToUrlbarHistory == "function") {
+      utils.addToUrlbarHistory = function (url, window, ...rest) {
+        try {
+          if (window?.gBrowser && WhimsyPrivate.urlbarIsPrivate(window)) {
+            return undefined;
+          }
+        } catch (e) {
+          console.error("Whimsy: private command bar", e);
+          return undefined;
+        }
+        return addToUrlbarHistory.call(this, url, window, ...rest);
+      };
+    }
     const addToFormHistory = utils.addToFormHistory;
     if (typeof addToFormHistory == "function") {
       utils.addToFormHistory = function (isPrivate, ...rest) {
-        return addToFormHistory.call(this, isPrivate || WhimsyPrivate.selectedTabIsPrivate(), ...rest);
+        return addToFormHistory.call(
+          this,
+          isPrivate || WhimsyPrivate.selectedTabIsPrivate() || WhimsyPrivate.urlbarPrivateNow(),
+          ...rest
+        );
       };
     }
     // Zen saves the last normal window to close straight from its data,
@@ -254,6 +288,19 @@ export const WhimsyPrivate = {
   selectedTabIsPrivate() {
     const win = Services.wm.getMostRecentWindow("navigator:browser");
     return !!win && this.isPrivateTab(win.gBrowser?.selectedTab);
+  },
+
+  // Whether the front window's address bar serves private browsing right
+  // now. Before its hooks are in, the selected tab decides (as before).
+  urlbarPrivateNow() {
+    const win = Services.wm.getMostRecentWindow("navigator:browser");
+    if (!win) {
+      return false;
+    }
+    if (!this.urlbarState(win).inputHooked) {
+      return this.isPrivateTab(win.gBrowser?.selectedTab);
+    }
+    return this.urlbarIsPrivate(win);
   },
 
   // --- Creating private tabs ---
@@ -379,8 +426,11 @@ export const WhimsyPrivate = {
         return true;
       }
     }
-    // openPrivateTab already checked the switch and setting.
-    if (options.whimsyPrivate) {
+    // openPrivateTab already checked the switch and setting. A load from
+    // the address bar while it serves private browsing (W8-17) is private
+    // whatever the switch says, or a private tab's typing would land in a
+    // normal tab.
+    if (options.whimsyPrivate || this.urlbarState(win).forcePrivate > 0) {
       return true;
     }
     if (!this.inWindow) {
@@ -449,7 +499,8 @@ export const WhimsyPrivate = {
     }
     if (!inBackground) {
       // fix7/private: the private page opens calm, with no command bar
-      // popping up over it; Cmd+L or Cmd+T opens the address bar.
+      // popping up over it; Cmd+L opens the address bar. (Cmd+Option+T
+      // itself opens the private command bar, openPrivateCommandBar.)
       gBrowser.selectedTab = tab;
     }
     return tab;
@@ -458,11 +509,12 @@ export const WhimsyPrivate = {
   // Opens `url` in a new foreground tab on behalf of the page the person
   // is on (verbs, page actions). From a private tab it opens private, so a
   // selection or a tracking number never reaches normal history and
-  // cookies. `params` are openTrustedLinkIn's (userContextId,
+  // cookies. Run from the private command bar (W8-17), it opens private
+  // too. `params` are openTrustedLinkIn's (userContextId,
   // triggeringPrincipal).
   openTabFor(win, url, params = {}) {
     const { gBrowser } = win;
-    if (!this.isPrivateTab(gBrowser.selectedTab)) {
+    if (!this.isPrivateTab(gBrowser.selectedTab) && !this.urlbarIsPrivateSafe(win)) {
       win.openTrustedLinkIn(url, "tab", params);
       return;
     }
@@ -513,7 +565,7 @@ export const WhimsyPrivate = {
     WhimsyCommands.register(win, {
       id: "cmd_whimsyNewPrivateTab",
       l10nId: "whimsy-action-new-private-tab",
-      run: w => this.openPrivateTab(w) ?? this.openPrivateWindow(w),
+      run: w => this.runNewPrivateTab(w),
       keyId: "key_whimsyNewPrivateTab",
       key: this.featureOn ? { key: "T", modifiers: "accel,alt" } : null,
       icon,
@@ -1119,6 +1171,426 @@ export const WhimsyPrivate = {
     }, 0);
   },
 
+  // --- Private command bar (W8-17, W8-18) ---
+  //
+  // Cmd+Option+T opens Zen's floating command bar in private mode: the
+  // bar wears the private tab's violet ring and a "Private" badge, its
+  // query runs as private browsing (no input or search history, Firefox's
+  // private suggestion prefs, private open tabs only), and whatever is
+  // picked opens in a new private tab. Esc creates nothing. Cmd+T is always
+  // the normal bar, even over a private tab (it opens a normal tab), except
+  // in Scratch, where every new tab is private. Cmd+L on a private tab is
+  // violet: it edits that private tab.
+  //
+  // The address bar learns its side from urlbarIsPrivate, read live by the
+  // input's and its controller's isPrivate. Loads are checked again where
+  // they happen (the controller's loadURL and switchToTab), so a private
+  // bar never loads into a normal tab or opens one.
+
+  urlbarState(win) {
+    let state = urlbarStates.get(win);
+    if (!state) {
+      state = { compose: false, pendingUntil: 0, forcePrivate: 0 };
+      urlbarStates.set(win, state);
+    }
+    return state;
+  },
+
+  // Whether the window's address bar serves private browsing right now.
+  urlbarIsPrivate(win) {
+    if (this.isWindowPrivate(win)) {
+      return true;
+    }
+    const state = this.urlbarState(win);
+    if (state.compose || state.pendingUntil > Date.now()) {
+      return true;
+    }
+    const urlbar = win.gURLBar;
+    if (urlbar?.hasAttribute("zen-newtab")) {
+      // Cmd+T's bar is for a new tab: normal, unless that tab will be
+      // private because it opens in Scratch (shouldOpenPrivate).
+      return this.inWindow && this.activeSpaceIsScratch(win);
+    }
+    return this.isPrivateTab(win.gBrowser?.selectedTab);
+  },
+
+  // For the isPrivate getters: if the answer can't be worked out (a
+  // window closing), private is the safe one.
+  urlbarIsPrivateSafe(win) {
+    try {
+      return this.urlbarIsPrivate(win);
+    } catch (e) {
+      console.error("Whimsy: private command bar", e);
+      return true;
+    }
+  },
+
+  // A load or switch is starting from the address bar: private or not.
+  // An Enter's pending flag is used once.
+  takeUrlbarPrivate(win) {
+    const state = this.urlbarState(win);
+    const pending = state.pendingUntil > Date.now();
+    state.pendingUntil = 0;
+    return pending || this.urlbarIsPrivate(win);
+  },
+
+  // Installs, once per window and as each part exists, the hooks that make
+  // the address bar follow urlbarIsPrivate. Returns the window's state;
+  // `controllerHooked` says whether loads can be steered (needed before the
+  // private command bar may open).
+  installUrlbarHooks(win) {
+    const state = this.urlbarState(win);
+    const urlbar = win.gURLBar;
+    if (!urlbar || this.isWindowPrivate(win)) {
+      return state;
+    }
+    const self = this;
+    if (!state.inputHooked) {
+      state.inputHooked = true;
+      // The input's isPrivate is read for every query (UrlbarQueryContext),
+      // pick and load; it used to be set on each TabSelect.
+      Object.defineProperty(urlbar, "isPrivate", {
+        configurable: true,
+        enumerable: true,
+        get: () => self.urlbarIsPrivateSafe(win),
+        set: () => {},
+      });
+      // Enter can resolve what was typed asynchronously; keep that load
+      // private even if the bar has closed by then.
+      const handleNavigation = urlbar.handleNavigation;
+      urlbar.handleNavigation = function (...args) {
+        if (state.compose) {
+          state.pendingUntil = Date.now() + PENDING_PRIVATE_MS;
+        }
+        return handleNavigation.apply(this, args);
+      };
+      // A fresh Cmd+L session starts clean.
+      urlbar.addEventListener("focus", () => {
+        if (!state.compose) {
+          state.pendingUntil = 0;
+        }
+      }, true);
+      // Zen's new-tab session ends (pick, Esc, blur, tab switch) by
+      // removing zen-newtab: the private bar ends with it.
+      new win.MutationObserver(() => {
+        if (state.compose && !urlbar.hasAttribute("zen-newtab")) {
+          state.compose = false;
+        }
+        self.refreshUrlbar(win);
+      }).observe(urlbar, { attributes: true, attributeFilter: ["zen-newtab"] });
+      // Cmd+T while the private bar is open turns it back into the normal
+      // bar (each shortcut means its own bar); any other new-tab session
+      // ends private mode first.
+      const ui = win.gZenUIManager;
+      if (ui && typeof ui.handleNewTab == "function") {
+        const handleNewTab = ui.handleNewTab;
+        ui.handleNewTab = function (werePassedURL, searchClipboard, where, override, ...rest) {
+          if (!state.openingCompose) {
+            try {
+              state.pendingUntil = 0;
+              if (
+                state.compose &&
+                !override &&
+                !werePassedURL &&
+                !searchClipboard &&
+                where === "tab" &&
+                !ui.testingEnabled &&
+                urlbar.hasAttribute("zen-newtab") &&
+                win.gZenVerticalTabsManager?._canReplaceNewTab
+              ) {
+                self.setCompose(win, false);
+                return true;
+              }
+              if (state.compose) {
+                self.setCompose(win, false, { requery: false });
+              }
+            } catch (e) {
+              console.error("Whimsy: private command bar", e);
+            }
+          }
+          return handleNewTab.call(this, werePassedURL, searchClipboard, where, override, ...rest);
+        };
+      }
+    }
+    if (!state.controllerHooked) {
+      let controller = null;
+      try {
+        controller = urlbar.parentController;
+      } catch (e) {
+        // Not initialised yet; the next TabSelect or Cmd+Option+T retries.
+      }
+      // Only the in-process controller; with browser.urlbar.ipc.
+      // chromeMessagePassing loads can't be steered, so the private command
+      // bar stays off (Cmd+Option+T opens a private tab as before).
+      if (controller?.constructor?.name == "UrlbarParentController") {
+        state.controllerHooked = true;
+        this.hookUrlbarController(win, controller);
+      }
+    }
+    return state;
+  },
+
+  hookUrlbarController(win, controller) {
+    const self = this;
+    const state = this.urlbarState(win);
+    // Form history, input history, URI fixup and the fallback heuristic
+    // ask the controller (the engine patch made it ask the selected tab).
+    Object.defineProperty(controller, "isPrivate", {
+      configurable: true,
+      enumerable: true,
+      get: () => self.urlbarIsPrivateSafe(win),
+      set: () => {},
+    });
+    const loadURL = controller.loadURL;
+    controller.loadURL = function (args = {}) {
+      let isPrivate = false;
+      try {
+        isPrivate = self.takeUrlbarPrivate(win);
+      } catch (e) {
+        // Unsure: private is the safe side.
+        console.error("Whimsy: private command bar", e);
+        isPrivate = true;
+      }
+      if (!isPrivate) {
+        return loadURL.call(this, args);
+      }
+      let { where, params = {} } = args;
+      if (where == "current") {
+        // Never into a normal tab: the private bar opened over one, or a
+        // result asked to replace it.
+        const target = this.resolveTargetBrowser?.(args.browserId) || win.gBrowser.selectedBrowser;
+        if (!self.isPrivateBrowser(target)) {
+          where = "tab";
+        }
+      }
+      // A new window is a private window, and principals carry the
+      // private origin attributes (URILoadingHelper's updatePrincipals).
+      params = { ...params, private: true };
+      state.forcePrivate++;
+      try {
+        return loadURL.call(this, { ...args, where, params });
+      } finally {
+        state.forcePrivate--;
+      }
+    };
+    // Searches the bar runs itself (a one-off's search page, an engine's
+    // home page) skip loadURL: steer them the same way. They can't be told
+    // to open a private window, so a new window becomes a private tab.
+    for (const [name, whereAt, browserAt] of [["openSERP", 2, 4], ["openSearchForm", 1, 3]]) {
+      const original = controller[name];
+      if (typeof original != "function") {
+        continue;
+      }
+      controller[name] = function (...args) {
+        let isPrivate = true;
+        try {
+          isPrivate = self.takeUrlbarPrivate(win);
+        } catch (e) {
+          console.error("Whimsy: private command bar", e);
+        }
+        if (!isPrivate) {
+          return original.apply(this, args);
+        }
+        let where = args[whereAt];
+        if (where == "window") {
+          where = "tab";
+        } else if (where == "current") {
+          const target = this.resolveTargetBrowser?.(args[browserAt]) || win.gBrowser.selectedBrowser;
+          if (!self.isPrivateBrowser(target)) {
+            where = "tab";
+          }
+        }
+        args[whereAt] = where;
+        state.forcePrivate++;
+        try {
+          return original.apply(this, args);
+        } finally {
+          state.forcePrivate--;
+        }
+      };
+    }
+    // Switch to Tab compares candidates with the selected tab's side
+    // (whimsy-URILoadingHelper-sys-mjs.patch); the bar's side is what
+    // counts when the two differ (the private bar over a normal tab, Cmd+T
+    // over a private one).
+    const switchToTab = controller.switchToTab;
+    controller.switchToTab = function (args = {}) {
+      let isPrivate;
+      try {
+        isPrivate = self.takeUrlbarPrivate(win);
+        if (isPrivate == self.isPrivateBrowser(win.gBrowser.selectedBrowser)) {
+          return switchToTab.call(this, args);
+        }
+        const { WhimsyAlreadyOpen } = lazy;
+        const found = WhimsyAlreadyOpen.findTab(win, args.url, {
+          userContextId: Number(args.userContextId) || 0,
+          isPrivate,
+        });
+        if (found) {
+          WhimsyAlreadyOpen.switchTo(win, found);
+          return undefined;
+        }
+      } catch (e) {
+        console.error("Whimsy: private command bar", e);
+        if (isPrivate === undefined) {
+          return switchToTab.call(this, args);
+        }
+      }
+      // The tab has gone: open its page on the bar's side instead.
+      if (isPrivate) {
+        self.openPrivateTab(win, { url: args.url, force: true });
+      } else {
+        win.openTrustedLinkIn(args.url, "tab");
+      }
+      return undefined;
+    };
+  },
+
+  // Cmd+Option+T (and New Private Tab in menus and the command bar).
+  runNewPrivateTab(win) {
+    if (!this.inWindow || this.isWindowPrivate(win)) {
+      this.openPrivateWindow(win);
+      return;
+    }
+    const open = () => {
+      if (!this.openPrivateCommandBar(win)) {
+        this.openPrivateTab(win);
+      }
+    };
+    // Run from inside the bar (a command bar action, or the key while it's
+    // focused): let Zen finish closing the current session first, so it
+    // doesn't close the private one. Both are zero-delay timeouts, in order.
+    if (win.gURLBar?.focused) {
+      win.setTimeout(() => {
+        try {
+          open();
+        } catch (e) {
+          console.error("Whimsy: private command bar", e);
+        }
+      }, 0);
+      return;
+    }
+    open();
+  },
+
+  // Opens the command bar in private mode. False when it can't (the caller
+  // opens a private tab instead).
+  openPrivateCommandBar(win) {
+    const { gURLBar: urlbar, gZenUIManager: ui } = win;
+    if (!urlbar || typeof ui?.handleNewTab != "function") {
+      return false;
+    }
+    const state = this.installUrlbarHooks(win);
+    if (!state.controllerHooked || !state.inputHooked) {
+      return false;
+    }
+    if (state.compose) {
+      // Pressed again: close it, as Cmd+T closes its bar.
+      if (urlbar._zenHandleUrlbarClose) {
+        urlbar._zenHandleUrlbarClose();
+      } else {
+        this.setCompose(win, false, { requery: false });
+      }
+      return true;
+    }
+    if (urlbar.hasAttribute("zen-newtab") && urlbar.focused) {
+      // Cmd+T's bar is open: turn it private, keeping what was typed.
+      this.setCompose(win, true);
+      return true;
+    }
+    // Private before Zen opens the bar, so its first query is private.
+    state.compose = true;
+    state.pendingUntil = 0;
+    let opened = false;
+    state.openingCompose = true;
+    try {
+      opened = ui.handleNewTab(false, false, "tab", true);
+    } catch (e) {
+      console.error("Whimsy: private command bar", e);
+    } finally {
+      state.openingCompose = false;
+    }
+    if (!opened || !urlbar.hasAttribute("zen-newtab")) {
+      state.compose = false;
+      this.refreshUrlbar(win);
+      return false;
+    }
+    this.guardComposeClose(win);
+    this.refreshUrlbar(win);
+    return true;
+  },
+
+  // Zen keeps the last new-tab text for its next Cmd+T bar (zen.urlbar.
+  // wait-to-clear). Text typed privately never carries over: the private
+  // session closes as a tab switch does, which forgets it.
+  guardComposeClose(win) {
+    const urlbar = win.gURLBar;
+    const close = urlbar._zenHandleUrlbarClose;
+    if (typeof close != "function" || close._whimsyPrivate) {
+      return;
+    }
+    const state = this.urlbarState(win);
+    const guarded = (onSwitch, onElementPicked) =>
+      close(onSwitch || state.compose, onElementPicked);
+    guarded._whimsyPrivate = true;
+    urlbar._zenHandleUrlbarClose = guarded;
+  },
+
+  // Switches the open bar between private and normal, and re-runs its query
+  // so the results match the new side.
+  setCompose(win, on, { requery = true } = {}) {
+    const state = this.urlbarState(win);
+    state.compose = !!on;
+    if (!on) {
+      state.pendingUntil = 0;
+    } else {
+      this.guardComposeClose(win);
+    }
+    this.refreshUrlbar(win);
+    const urlbar = win.gURLBar;
+    if (requery && urlbar?.focused) {
+      try {
+        urlbar.startQuery?.({ allowAutofill: false });
+      } catch (e) {
+        console.error("Whimsy: private command bar", e);
+      }
+    }
+  },
+
+  // The violet ring and the "Private" badge (whimsy-browser.css), and the
+  // badge as the input's description, so it's announced too.
+  refreshUrlbar(win) {
+    const urlbar = win.gURLBar;
+    if (!urlbar || this.isWindowPrivate(win)) {
+      return;
+    }
+    const isPrivate = this.urlbarIsPrivate(win);
+    urlbar.toggleAttribute(URLBAR_ATTR, isPrivate);
+    const doc = win.document;
+    let badge = doc.getElementById(URLBAR_BADGE_ID);
+    if (!badge && isPrivate) {
+      const box = urlbar.querySelector(".urlbar-input-box");
+      if (box) {
+        badge = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+        badge.id = URLBAR_BADGE_ID;
+        badge.setAttribute("data-l10n-id", "whimsy-urlbar-private-badge");
+        box.after(badge);
+      }
+    }
+    const input = urlbar.inputField;
+    if (input) {
+      const ids = (input.getAttribute("aria-describedby") || "").split(/\s+/).filter(id => id && id != URLBAR_BADGE_ID);
+      if (isPrivate && badge) {
+        ids.push(URLBAR_BADGE_ID);
+      }
+      if (ids.length) {
+        input.setAttribute("aria-describedby", ids.join(" "));
+      } else {
+        input.removeAttribute("aria-describedby");
+      }
+    }
+  },
+
   // --- Indicators ---
 
   updateSelected(win) {
@@ -1126,9 +1598,12 @@ export const WhimsyPrivate = {
     const isPrivate = this.isPrivateTab(selected);
     win.document.documentElement.toggleAttribute(SELECTED_ATTR, isPrivate);
     if (win.gURLBar && !this.isWindowPrivate(win)) {
-      // The address bar's own private checks (input history, the private
-      // search engine's placeholder).
-      win.gURLBar.isPrivate = isPrivate;
+      // The address bar's own private checks (input history, suggestions,
+      // open tabs) follow what it is editing, not just the selected tab.
+      if (!this.installUrlbarHooks(win).inputHooked) {
+        win.gURLBar.isPrivate = isPrivate;
+      }
+      this.refreshUrlbar(win);
     }
     this.updateDownloads(win, isPrivate);
   },

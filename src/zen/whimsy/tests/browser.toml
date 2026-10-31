@@ -598,3 +598,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: lazy init of command-bar-only parts.
 ["browser_whimsy_lazy_init.js"]
+
+# W8-17/18: the private command bar (Cmd+Option+T opens a private tab only on Enter, Esc creates nothing, Cmd+T over a private tab is normal, Cmd+L on one is violet, no history). Needs the batch9p engine patches.
+["browser_whimsy_private_command_bar.js"]
