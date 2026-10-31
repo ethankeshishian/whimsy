@@ -56,6 +56,21 @@ function reset(keep) {
 
 add_setup(async function () {
   await gZenThemePicker.promiseInitialized;
+  // The field is in the theme picker: typing, focus and paste happen with
+  // the picker open, as for a person.
+  const panel = gZenThemePicker.panel;
+  if (panel.state != "open") {
+    const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
+    gZenThemePicker.openThemePicker(new MouseEvent("click"));
+    await shown;
+  }
+  registerCleanupFunction(async () => {
+    if (panel.state == "open") {
+      const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+      panel.hidePopup();
+      await hidden;
+    }
+  });
 });
 
 add_task(async function test_parse() {

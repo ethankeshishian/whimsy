@@ -661,7 +661,8 @@ whimsy-bionic-reading-toggle =
 
 ## Menu bar extra (macOS status bar icon)
 
-whimsy-menu-bar-extra-quick-window = New Mini Whimsy
+whimsy-menu-bar-extra-quick-window =
+    .label = New Mini Whimsy
 whimsy-menu-bar-extra-no-recent-tabs =
     .label = No Recently Closed Tabs
 
@@ -3123,7 +3124,8 @@ whimsy-history-deleted-spaces = Deleted spaces
 
 ## wave8/folders: Live folders: Resync option (W8-26).
 
-whimsy-live-folder-resync = Resync
+whimsy-live-folder-resync =
+    .label = Resync
 whimsy-action-resync-live-folder = Resync Live Folder
 
 ## wave8/cmds: View Claude in Whimsy Replays command
@@ -3136,7 +3138,22 @@ whimsy-action-move-tab-prev-space = Move Tab to Previous Space
 
 ## wave8/cmds: W8-42 New Note command and menu item
 whimsy-action-create-note = New Note
-whimsy-context-new-note = New Note
+whimsy-context-new-note =
+    .label = New Note
+
+## wave8/cmds: W8-13 the selection verbs as right-click menu items.
+whimsy-context-verb-map =
+    .label = Show in Maps
+whimsy-context-verb-email =
+    .label = Email
+whimsy-context-verb-note =
+    .label = Add to Note
+whimsy-context-verb-calendar =
+    .label = Add to Calendar
+whimsy-context-verb-linear-new =
+    .label = New Linear Issue
+whimsy-context-verb-linear-search =
+    .label = Search Linear
 whimsy-note-created-toast = Created a new note
 ## batch8: W8-04 Collapse All Folders
 whimsy-action-collapse-all-folders = Collapse All Folders

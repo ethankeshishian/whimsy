@@ -613,3 +613,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave8: Finder Open With document types (.md, .csv, etc.)
 ["browser_whimsy_document_types.js"]
+
+# wave8 lane: every Whimsy menu row has a .label (native menus).
+["browser_whimsy_menu_labels.js"]

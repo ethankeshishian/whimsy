@@ -910,12 +910,12 @@ export const WhimsyVerbs = {
     const selectedText = (context?.selectionInfo?.fullText || context?.selectedText || "").trim();
 
     const verbsToOffer = [
-      { verb: "map", domId: "context-whimsy-verb-map", l10nId: "whimsy-verb-map", available: selectedText.length > 0 && selectedText.length <= 200 },
-      { verb: "email", domId: "context-whimsy-verb-email", l10nId: "whimsy-verb-email", available: selectedText.length > 0 },
-      { verb: "note", domId: "context-whimsy-verb-note", l10nId: "whimsy-verb-note", available: selectedText.length > 0 && Services.prefs.getBoolPref(NOTES_PREF, true) && !isPrivate(win) },
-      { verb: "calendar", domId: "context-whimsy-verb-calendar", l10nId: "whimsy-verb-calendar", available: selectedText.length > 0 && !!parseEvent(selectedText) },
-      { verb: "linear-new", domId: "context-whimsy-verb-linear-new", l10nId: "whimsy-verb-linear-new", available: selectedText.length > 0 && this.linearConfigured() },
-      { verb: "linear-search", domId: "context-whimsy-verb-linear-search", l10nId: "whimsy-verb-linear-search", available: selectedText.length > 0 && this.linearConfigured() },
+      { verb: "map", domId: "context-whimsy-verb-map", l10nId: "whimsy-context-verb-map", available: selectedText.length > 0 && selectedText.length <= 200 },
+      { verb: "email", domId: "context-whimsy-verb-email", l10nId: "whimsy-context-verb-email", available: selectedText.length > 0 },
+      { verb: "note", domId: "context-whimsy-verb-note", l10nId: "whimsy-context-verb-note", available: selectedText.length > 0 && Services.prefs.getBoolPref(NOTES_PREF, true) && !isPrivate(win) },
+      { verb: "calendar", domId: "context-whimsy-verb-calendar", l10nId: "whimsy-context-verb-calendar", available: selectedText.length > 0 && !!parseEvent(selectedText) },
+      { verb: "linear-new", domId: "context-whimsy-verb-linear-new", l10nId: "whimsy-context-verb-linear-new", available: selectedText.length > 0 && this.linearConfigured() },
+      { verb: "linear-search", domId: "context-whimsy-verb-linear-search", l10nId: "whimsy-context-verb-linear-search", available: selectedText.length > 0 && this.linearConfigured() },
     ];
 
     let anchor = document.getElementById("context-whimsy-copy-markdown") || document.getElementById("context-copy");
