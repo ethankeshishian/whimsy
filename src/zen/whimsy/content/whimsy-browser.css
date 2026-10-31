@@ -3736,7 +3736,8 @@ panel.whimsy-teach {
 
 /* wave7/menuprefs: a right-click menu row turned off in Settings → Menus
    (WhimsyMenuPrefs marks it, and the separators it would leave behind,
-   on popupshowing). */
+   on popupshowing). It also sets collapsed="true", which is all a native
+   macOS menu reads (wave9/menus); this rule covers non-native popups. */
 menupopup > [whimsy-menu-pref-hidden] {
   display: none !important;
 }

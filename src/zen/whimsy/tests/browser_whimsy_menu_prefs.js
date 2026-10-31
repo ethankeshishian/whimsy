@@ -9,7 +9,7 @@
 // Restore Defaults brings everything back, a menu with every item off
 // doesn't open, and Settings search finds the pane.
 
-const { WhimsyMenuPrefs, HIDDEN_ATTR } = ChromeUtils.importESModule(
+const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs"
 );
 
@@ -146,6 +146,49 @@ add_task(async function test_tab_menu_hides_rows_and_separators() {
   ok(shows(document.getElementById("context_duplicateTab")), "Duplicate Tab is back");
   ok(!menu.querySelector(`[${HIDDEN_ATTR}]`), "Nothing is marked after Restore Defaults");
   await closeMenu(menu);
+  BrowserTestUtils.removeTab(tab);
+});
+
+// wave9/menus (design-full-4 H1): macOS shows right-click menus as native
+// NSMenus, which skip only rows whose `hidden` or `collapsed` attribute is
+// true and ignore CSS. A row turned off must carry collapsed="true" (and a
+// separator it would leave behind too), whatever the stylesheet does; turning
+// it back on clears only what Whimsy collapsed.
+add_task(async function test_hidden_rows_are_collapsed_for_native_menus() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?menuprefs-native");
+  const reload = document.getElementById("context_reloadTab");
+  const duplicate = document.getElementById("context_duplicateTab");
+  // A row someone else collapsed stays theirs.
+  const unload = document.getElementById("context_unloadTab");
+  for (const id of ["new-tab", "reload", "play", "mute", "mute-site", "snooze"]) {
+    WhimsyMenuPrefs.setHidden("tab", id, true);
+  }
+  let menu = await openTabMenu(tab);
+  is(reload.getAttribute("collapsed"), "true", "Reload Tab is collapsed (what NSMenu reads)");
+  is(document.getElementById("context_openANewTab").getAttribute("collapsed"), "true", "New Tab is collapsed");
+  ok(reload.hasAttribute(COLLAPSED_ATTR), "…and marked as Whimsy's collapse");
+  ok(!duplicate.hasAttribute("collapsed"), "Duplicate Tab is not collapsed");
+  // Native menus ignore CSS: with the stylesheet rule out of the picture
+  // (no display:none), what's left must still hide the row.
+  const nativeHidden = node => node.hidden || node.getAttribute("collapsed") == "true";
+  const rows = [...menu.children].filter(node => !nativeHidden(node));
+  isnot(rows[0]?.localName, "menuseparator", "Native view: no separator first");
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].localName == "menuseparator") {
+      isnot(rows[i - 1].localName, "menuseparator", `Native view: no two separators together (${rows[i].id || i})`);
+    }
+  }
+  isnot(rows.at(-1)?.localName, "menuseparator", "Native view: no separator last");
+  await closeMenu(menu);
+
+  WhimsyMenuPrefs.restoreDefaults("tab");
+  unload.setAttribute("collapsed", "true");
+  menu = await openTabMenu(tab);
+  ok(!reload.hasAttribute("collapsed"), "Back on: Reload Tab is no longer collapsed");
+  ok(!menu.querySelector(`[${COLLAPSED_ATTR}]`), "Back on: no Whimsy collapse is left");
+  is(unload.getAttribute("collapsed"), "true", "A row collapsed by someone else is left alone");
+  await closeMenu(menu);
+  unload.removeAttribute("collapsed");
   BrowserTestUtils.removeTab(tab);
 });
 

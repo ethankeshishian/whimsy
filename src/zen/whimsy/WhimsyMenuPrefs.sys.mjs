@@ -18,14 +18,23 @@
 // hidden item ids, comma-separated ("" = everything shows).
 //
 // At run time one window listener (bubbling, registered after every other
-// menu module's, so it sees each menu exactly as it is about to show) marks
-// hidden rows with an attribute whimsy-browser.css hides, then hides the
-// separators that would lead, trail or double up. When nothing is hidden it
-// changes nothing at all. A menu whose every row is off doesn't open.
+// menu module's, so it sees each menu exactly as it is about to show)
+// collapses hidden rows, then the separators that would lead, trail or
+// double up. When nothing is hidden it changes nothing at all. A menu whose
+// every row is off doesn't open.
+//
+// wave9/menus (design-full-4 H1): on macOS the right-click menus are native
+// NSMenus (widget.macos.native-context-menus), which read only a row's
+// `hidden` and `collapsed` attributes and ignore CSS. So a hidden row gets
+// collapsed="true" (Firefox's own menu code toggles `hidden`, never
+// `collapsed`, so the two never fight), plus a marker naming what Whimsy
+// did, so the next popupshowing clears only Whimsy's own collapses.
 
 const FEATURE_PREF = "whimsy.feature.menu-prefs";
 export const PREF_PREFIX = "whimsy.menus.hidden.";
 export const HIDDEN_ATTR = "whimsy-menu-pref-hidden";
+// Set beside HIDDEN_ATTR when Whimsy (not someone else) collapsed the row.
+export const COLLAPSED_ATTR = "whimsy-menu-pref-collapsed";
 
 const SEPARATOR = "-";
 const installed = new WeakSet();
@@ -529,9 +538,7 @@ export const WhimsyMenuPrefs = {
     }
     // Last time's marks go first: this menu may now be a different one
     // (an Essential's after a tab's, a link's after the page's).
-    for (const node of popup.querySelectorAll(`:scope > [${HIDDEN_ATTR}]`)) {
-      node.removeAttribute(HIDDEN_ATTR);
-    }
+    this.clearMarks(popup);
     if (!this.enabled) {
       return;
     }
@@ -566,7 +573,7 @@ export const WhimsyMenuPrefs = {
       if (this.visible(win, node)) {
         changed = true;
       }
-      node.setAttribute(HIDDEN_ATTR, "true");
+      this.hideRow(node);
     }
     if (changed) {
       this.collapseSeparators(win, popup);
@@ -591,7 +598,7 @@ export const WhimsyMenuPrefs = {
       }
       if (isSeparator(node)) {
         if (afterSeparator) {
-          node.setAttribute(HIDDEN_ATTR, "true");
+          this.hideRow(node);
         } else {
           afterSeparator = true;
           trailing = node;
@@ -601,7 +608,30 @@ export const WhimsyMenuPrefs = {
         trailing = null;
       }
     }
-    trailing?.setAttribute(HIDDEN_ATTR, "true");
+    if (trailing) {
+      this.hideRow(trailing);
+    }
+  },
+
+  // Hides a row the way a native menu sees: collapsed="true". A row that
+  // was already collapsed by someone else stays theirs to clear.
+  hideRow(node) {
+    if (!node.hasAttribute(HIDDEN_ATTR) && node.getAttribute("collapsed") != "true") {
+      node.setAttribute(COLLAPSED_ATTR, "true");
+      node.setAttribute("collapsed", "true");
+    }
+    node.setAttribute(HIDDEN_ATTR, "true");
+  },
+
+  // Undoes last time's hideRow on every row of `popup`.
+  clearMarks(popup) {
+    for (const node of popup.querySelectorAll(`:scope > [${HIDDEN_ATTR}], :scope > [${COLLAPSED_ATTR}]`)) {
+      if (node.hasAttribute(COLLAPSED_ATTR)) {
+        node.removeAttribute(COLLAPSED_ATTR);
+        node.removeAttribute("collapsed");
+      }
+      node.removeAttribute(HIDDEN_ATTR);
+    }
   },
 
   hasVisibleItem(win, popup) {
