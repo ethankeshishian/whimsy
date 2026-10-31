@@ -10,8 +10,19 @@
 const EARLY = ["key_whimsyCopyFullPage", "cmd_whimsyCapturePortrait"];
 const DEFERRED = ["cmd_whimsyCast", "cmd_whimsyCreateEmailAlias", "whimsy-cookie-editor"];
 
+// Zen's window sync mirrors each new window's first tab into this one; the
+// mirrors outlive the test windows, so remove them like other tests do.
+const tabsBefore = new Set(gBrowser.tabs);
+registerCleanupFunction(() => {
+  for (const tab of gBrowser.tabs.filter(t => !tabsBefore.has(t))) {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
 async function initialized(win) {
-  await TestUtils.waitForCondition(() => win.whimsyDeferredInit, "Whimsy started in the new window");
+  // A boolean: waitForCondition awaits a returned promise, and this one
+  // resolves to undefined.
+  await TestUtils.waitForCondition(() => !!win.whimsyDeferredInit, "Whimsy started in the new window");
 }
 
 add_task(async function test_deferred_parts_arrive_when_idle() {

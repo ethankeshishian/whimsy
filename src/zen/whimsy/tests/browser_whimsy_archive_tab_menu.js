@@ -101,7 +101,7 @@ add_task(async function test_archive_tabs_below() {
   menu = await openTabMenu(b);
   const item = document.getElementById(BELOW_ID);
   ok(!item.disabled, "Enabled with tabs below");
-  const closed = BrowserTestUtils.waitForCondition(() => !c.isConnected && !d.isConnected, "The tabs below close");
+  const closed = TestUtils.waitForCondition(() => !c.isConnected && !d.isConnected, "The tabs below close");
   menu.activateItem(item);
   await closed;
   ok(a.isConnected && b.isConnected, "The tab and the ones above it stay");

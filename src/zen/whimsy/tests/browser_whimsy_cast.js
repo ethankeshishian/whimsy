@@ -54,7 +54,8 @@ add_task(async function test_native_interface() {
     native.stop();
     Assert.throws(
       () => native.cast("blob:https://example.com/x", 0, 0, 0, () => {}),
-      /NS_ERROR_INVALID_ARG/,
+      // Same code as NS_ERROR_ILLEGAL_VALUE (the name XPConnect prints).
+      e => e.result == Cr.NS_ERROR_INVALID_ARG,
       "Only http(s) addresses can be cast"
     );
   } else {

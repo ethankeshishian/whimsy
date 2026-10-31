@@ -75,7 +75,9 @@ add_task(async function test_focus_watch() {
   };
   Services.obs.addObserver(observer, "whimsy-focus-changed");
   try {
-    Assert.throws(() => focus.startWatching(""), /NS_ERROR_INVALID_ARG/, "An empty path is refused");
+    // NS_ERROR_INVALID_ARG shares 0x80070057 with NS_ERROR_ILLEGAL_VALUE, whose
+    // name XPConnect prints, so compare the result code, not the message.
+    Assert.throws(() => focus.startWatching(""), e => e.result == Cr.NS_ERROR_INVALID_ARG, "An empty path is refused");
     focus.startWatching(dir);
     ok(focus.watching, "Watching the directory");
     // FSEvents takes a moment to start; write until it reports.
