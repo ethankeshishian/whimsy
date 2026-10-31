@@ -19,9 +19,9 @@ zen-panel-ui-live-folder-create =
 zen-panel-ui-new-empty-split =
     .label = Add Split View
 
+# Whimsy: no access key, like the rest of the space menu.
 zen-workspaces-panel-context-delete =
     .label = Delete Space
-    .accesskey = D
 
 zen-workspaces-panel-change-name =
     .label = Change Name…

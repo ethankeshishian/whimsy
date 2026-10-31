@@ -35,7 +35,8 @@ function rows(menu) {
     if (node.localName == "menuseparator") {
       return "|";
     }
-    if (node.matches(NEW_SPACE)) {
+    // matches() scopes :scope to the node itself, so drop the ":scope > ".
+    if (node.matches(NEW_SPACE.replace(":scope > ", ""))) {
       return "new-space";
     }
     return node.id || node.getAttribute("data-l10n-id") || node.localName;

@@ -41,6 +41,8 @@ const COLORS = ["blue", "turquoise", "green", "yellow", "orange", "red", "pink",
 const NAME_MAX = 40;
 const NAME_PANEL_ID = "whimsy-profile-name-panel";
 const CREATE_ITEM_ATTR = "data-whimsy-create-profile";
+// The space each window's space menu last opened on (no window globals).
+const menuSpace = new WeakMap();
 
 export const WhimsyProfiles = {
   FEATURE_PREF,
@@ -380,7 +382,7 @@ export const WhimsyProfiles = {
         try {
           target = event.explicitOriginalTarget?.closest?.("toolbarbutton");
         } catch {}
-        win._whimsyProfileMenuSpace = target?.getAttribute("zen-workspace-id") || null;
+        menuSpace.set(win, target?.getAttribute("zen-workspace-id") || null);
         return;
       }
       if (!this.enabled) {
@@ -417,10 +419,15 @@ export const WhimsyProfiles = {
     });
   },
 
+  /** Sets (or with null clears) the space the space menu acts on. */
+  setContextMenuSpace(win, uuid) {
+    menuSpace.set(win, uuid || null);
+  },
+
   /** The space Zen's space menu is acting on. */
   contextMenuSpace(win) {
     const workspaces = win.gZenWorkspaces;
-    const uuid = win._whimsyProfileMenuSpace;
+    const uuid = menuSpace.get(win);
     return (uuid && workspaces.getWorkspaceFromId?.(uuid)) || workspaces.getActiveWorkspace();
   },
 

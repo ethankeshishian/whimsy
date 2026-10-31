@@ -605,6 +605,15 @@ HOTFIXES = [
         "old": 'zen-panel-ui-new-empty-split =\n    .label = New Split\n',
         "new": 'zen-panel-ui-new-empty-split =\n    .label = Add Split View\n',
     },
+    # wave7 lane: the space menu's rows have no access keys except Zen's
+    # Delete Space; Gecko's access-key check rejects a menu mixing the two.
+    {
+        "id": 'zen-string-space-delete-accesskey',
+        "file": 'locales/en-US/browser/browser/zen-workspaces.ftl',
+        "why": "Only access key in the space menu; a mixed menu trips Gecko's AccessKeyConflictError.",
+        "old": 'zen-workspaces-panel-context-delete =\n    .label = Delete Space\n    .accesskey = D\n',
+        "new": '# Whimsy: no access key, like the rest of the space menu.\nzen-workspaces-panel-context-delete =\n    .label = Delete Space\n',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.

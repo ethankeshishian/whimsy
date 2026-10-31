@@ -192,7 +192,7 @@ add_task(async function moving_a_space_reopens_its_tabs() {
 
 add_task(async function set_profile_menu_goes_through_the_warning() {
   const popup = document.querySelector("#context_zenWorkspacesOpenInContainerTab > menupopup");
-  window._whimsyProfileMenuSpace = home.uuid;
+  WhimsyProfiles.setContextMenuSpace(window, home.uuid);
   popup.dispatchEvent(new Event("popupshowing", { bubbles: true }));
   const item = popup.querySelector(`[data-usercontextid="${work}"]`);
   ok(item, "Zen lists the Work profile");
@@ -202,7 +202,7 @@ add_task(async function set_profile_menu_goes_through_the_warning() {
   await TestUtils.waitForCondition(() => asked.length == 1, "Set Profile asks first");
   is(WhimsyProfiles.profileIdOfSpace(gZenWorkspaces.getActiveWorkspace()), 0,
     "Declined: the space keeps its profile (Zen's own handler didn't run)");
-  window._whimsyProfileMenuSpace = null;
+  WhimsyProfiles.setContextMenuSpace(window, null);
 });
 
 add_task(async function feature_off_is_zen_behaviour() {

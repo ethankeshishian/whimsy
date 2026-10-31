@@ -104,7 +104,7 @@ add_task(async function set_profile_menu_creates_profile() {
   const moveSpace = WhimsyProfileMoves.moveSpace;
   WhimsyProfileMoves.moveSpace = (win, target, id) => WhimsyProfiles.assignSpace(win, target, id);
   try {
-    window._whimsyProfileMenuSpace = space.uuid;
+    WhimsyProfiles.setContextMenuSpace(window, space.uuid);
     popup.dispatchEvent(new Event("popupshowing", { bubbles: true }));
     const item = popup.querySelector("[data-whimsy-create-profile]");
     ok(item, "Set Profile ends with Create a New Profile…");
@@ -118,7 +118,7 @@ add_task(async function set_profile_menu_creates_profile() {
   } finally {
     WhimsyProfiles.promptName = prompt;
     WhimsyProfileMoves.moveSpace = moveSpace;
-    window._whimsyProfileMenuSpace = null;
+    WhimsyProfiles.setContextMenuSpace(window, null);
     space.containerTabId = original;
     await gZenWorkspaces.saveWorkspace(space);
   }
