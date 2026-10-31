@@ -985,6 +985,10 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r"(?i)dedup")]},
     {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
      "detect": [("src/zen/common", r"(?i)reveal-?tab|tabs-menubar|portrait")]},
+    # wave7/small: Cast to AirPlay (Arc's View > Cast...), a native AVPlayer
+    # and AVKit route picker for the page's video; Screen Mirroring otherwise.
+    {"id": "cast", "title": "Cast to AirPlay: send the page's video to an Apple TV or AirPlay screen (View > Cast...)",
+     "detect": [("src/zen", r"(?i)airplay|AVRoutePicker|cast-?to-?tv")]},
 ]
 
 

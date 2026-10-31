@@ -1,0 +1,33 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# wave7/small: Cast to AirPlay. A native AVPlayer that plays a page's video
+# on an AirPlay receiver, picked with AVKit's route picker. Only built on
+# macOS (see ../moz.build); WhimsyCast.sys.mjs is the front end.
+
+XPIDL_SOURCES += [
+    "nsIWhimsyAirPlay.idl",
+]
+
+XPIDL_MODULE = "whimsy_airplay"
+
+EXPORTS.mozilla += [
+    "nsWhimsyAirPlay.h",
+]
+
+SOURCES += [
+    "nsWhimsyAirPlay.mm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+OS_LIBS += [
+    "-framework AVFoundation",
+    "-framework AVKit",
+    "-framework CoreMedia",
+]
+
+FINAL_LIBRARY = "xul"

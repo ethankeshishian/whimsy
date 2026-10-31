@@ -486,3 +486,7 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/small: Capture in Portrait Mode lays the page out at phone width.
 ["browser_whimsy_capture_portrait.js"]
+
+# wave7/small: Cast to AirPlay (native player stubbed).
+["browser_whimsy_cast.js"]
+support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]

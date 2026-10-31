@@ -2286,3 +2286,20 @@ whimsy-pane-looks-crumb =
     .label = Look and Feel
 whimsy-pane-tabs-crumb =
     .label = Tab Management
+
+## wave7/small: Cast to AirPlay (Arc's View > Cast...).
+
+whimsy-action-cast = Cast to AirPlay…
+whimsy-action-cast-stop = Stop Casting
+whimsy-menu-cast =
+    .label = Cast…
+whimsy-menu-cast-stop =
+    .label = Stop Casting
+whimsy-cast-connected-toast = Playing on your AirPlay device
+whimsy-cast-stop-button = Stop
+whimsy-cast-stopped-toast = Casting stopped
+whimsy-cast-failed-toast = The AirPlay device couldn’t play this video
+whimsy-cast-no-video-toast = There’s no video on this page to cast
+whimsy-cast-unavailable-toast = AirPlay isn’t available in this build
+whimsy-cast-mirror-toast = This video can’t be sent on its own. Mirror your screen instead.
+whimsy-cast-mirror-button = Screen Mirroring

@@ -94,6 +94,11 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.setRate(message.data);
       case "Whimsy:PageBounds":
         return this.pageBounds();
+      // wave7/small: Cast to AirPlay (WhimsyCast).
+      case "Whimsy:CastSource":
+        return this.castSource();
+      case "Whimsy:CastControl":
+        return this.castControl(message.data);
       // wave7/small: Capture in Portrait Mode (WhimsyPage).
       case "Whimsy:PortraitBounds":
         return this.portraitBounds(message.data.width);
@@ -311,6 +316,40 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const media = [...(this.document?.querySelectorAll("video, audio") ?? [])].filter(el => el.readyState > 0 || el.src || el.currentSrc);
     media.sort((a, b) => Number(a.paused) - Number(b.paused) || this.area(b) - this.area(a));
     return media[0] ?? null;
+  }
+
+  // wave7/small: Cast to AirPlay. The main video's address, where it is,
+  // and whether a receiver could load it on its own (an http(s) file or
+  // HLS, not Media Source or a stream).
+  castVideo() {
+    const videos = [...(this.document?.querySelectorAll("video") ?? [])].filter(
+      el => el.readyState > 0 || el.src || el.currentSrc || el.srcObject
+    );
+    videos.sort((a, b) => Number(a.paused) - Number(b.paused) || this.area(b) - this.area(a));
+    return videos[0] ?? null;
+  }
+
+  castSource() {
+    const el = this.castVideo();
+    if (!el) {
+      return null;
+    }
+    const src = el.currentSrc || el.src || "";
+    const direct = !el.srcObject && /^https?:/i.test(src);
+    return { src: direct ? src : "", direct, time: el.currentTime || 0, paused: el.paused };
+  }
+
+  castControl({ action, time }) {
+    const el = this.castVideo();
+    if (!el) {
+      return false;
+    }
+    if (action == "pause") {
+      el.pause();
+    } else if (action == "seek" && Number.isFinite(time)) {
+      el.currentTime = Math.max(0, Number.isFinite(el.duration) ? Math.min(time, el.duration) : time);
+    }
+    return true;
   }
 
   area(el) {

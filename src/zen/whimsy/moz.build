@@ -23,6 +23,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCallPip.sys.mjs",
     "WhimsyCaptions.sys.mjs",
     "WhimsyCaptionsChild.sys.mjs",
+    "WhimsyCast.sys.mjs",
     "WhimsyCheatSheet.sys.mjs",
     "WhimsyClaude.sys.mjs",
     "WhimsyClaudeChild.sys.mjs",
@@ -145,3 +146,7 @@ XPCOM_MANIFESTS += [
 BROWSER_CHROME_MANIFESTS += [
     "tests/browser.toml",
 ]
+
+# wave7/small: Cast to AirPlay's native player and route picker (macOS).
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
+    DIRS += ["airplay"]

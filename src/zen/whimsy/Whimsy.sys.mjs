@@ -198,6 +198,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
 });
 
+// wave7/small: Cast to AirPlay.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyCast: "resource:///modules/whimsy/WhimsyCast.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -680,6 +685,9 @@ export const Whimsy = {
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
     // wave6/parity: Arc's menu bar. Last, so every command it lists exists.
     run("arc-menus", () => lazy.WhimsyArcMenus.initWindow(win));
+    // wave7/small: Cast to AirPlay (View > Cast..., command bar). Each part
+    // checks its switch and the native player on use.
+    run("cast", () => lazy.WhimsyCast.initWindow(win));
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.
