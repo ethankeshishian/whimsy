@@ -1810,3 +1810,29 @@ Object.assign(gWhimsySettings, {
 });
 
 document.addEventListener("DOMContentLoaded", () => gWhimsySettings.mergeFirefoxPanes(), { once: true });
+
+// wave7/teach: General → Tips ("Show tips", Teach once), after Firefox's
+// Browsing group, where its own "Recommend features as you browse" lives.
+document.addEventListener("paneshown", event => {
+  if (event.detail.category != "paneGeneral") {
+    return;
+  }
+  const template = document.getElementById("template-whimsyTeach");
+  if (!template) {
+    return;
+  }
+  const group = template.content.firstElementChild;
+  template.remove();
+  if (!Services.prefs.getBoolPref("whimsy.feature.teach-once", true)) {
+    return;
+  }
+  Preferences.addAll([{ id: "whimsy.teach.enabled", type: "bool" }]);
+  const anchor = document.querySelector('[groupid="browsing"]');
+  if (anchor) {
+    anchor.after(group);
+  } else {
+    document.getElementById("mainPrefPane").append(group);
+  }
+  group.hidden = false;
+  Preferences.queueUpdateOfAllElements();
+});

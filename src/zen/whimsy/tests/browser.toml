@@ -506,3 +506,5 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/focus: paste guard (detector, sheet Cancel/Esc/Paste, ordinary text, card field, command, switches).
 ["browser_whimsy_paste_guard.js"]
+# wave7/teach: Teach once (shows once, Esc/close/tab switch dismiss, never reappears, switches, shortcut retires it, Reset Tips, registry).
+["browser_whimsy_teach.js"]

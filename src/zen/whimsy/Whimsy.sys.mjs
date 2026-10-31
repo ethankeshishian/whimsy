@@ -220,6 +220,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPasteGuard: "resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs",
 });
 
+// wave7/teach: Teach once.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTeach: "resource:///modules/whimsy/WhimsyTeach.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -737,6 +742,11 @@ export const Whimsy = {
     // guard. Each command checks its switch on use.
     run("do-not-disturb", () => lazy.WhimsyDoNotDisturb.initWindow(win));
     run("paste-guard", () => lazy.WhimsyPasteGuard.initWindow(win));
+
+    // wave7/teach: Teach once.
+    if (this.featureEnabled("teach-once")) {
+      run("teach-once", () => lazy.WhimsyTeach.initWindow(win));
+    }
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

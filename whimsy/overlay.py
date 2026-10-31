@@ -1018,6 +1018,11 @@ FEATURES = [
     # (API key, private key, card number, JWT) reaches a web page.
     {"id": "paste-guard", "title": "Paste guard: asks before you paste something that looks like an API key, private key, card number or sign-in token into a web page",
      "detect": [("src/zen", r"(?i)paste-?guard|looks like an? (api key|secret)")]},
+    # wave7/teach: Teach once: one small anchored hint the first time a
+    # feature could help (its shortcut, or what just happened), then never
+    # again; "Show tips" in Settings, "Reset Tips" in the command bar.
+    {"id": "teach-once", "title": "Teach once: one small hint the first time a shortcut or feature could help, then never again",
+     "detect": [("src/zen", r"(?i)teach-?once|first-?use-?hints?|zen\.tips\.")]},
 ]
 
 

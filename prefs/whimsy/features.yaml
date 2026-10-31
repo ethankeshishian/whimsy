@@ -468,6 +468,9 @@
 - name: whimsy.feature.paste-guard
   value: true
 
+- name: whimsy.feature.teach-once
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

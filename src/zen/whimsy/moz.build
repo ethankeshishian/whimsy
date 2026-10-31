@@ -126,6 +126,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyStartup.sys.mjs",
     "WhimsyStats.sys.mjs",
     "WhimsyTabs.sys.mjs",
+    "WhimsyTeach.sys.mjs",
     "WhimsyTidyTitles.sys.mjs",
     "WhimsyTidyTitlesData.sys.mjs",
     "WhimsyTrails.sys.mjs",

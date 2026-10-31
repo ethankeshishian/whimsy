@@ -464,4 +464,18 @@
 # wave7/focus: paste guard. The person's own on/off ("Turn Paste Guard On/Off"
 # in the command bar); whimsy.feature.paste-guard is the master switch.
 - name: whimsy.paste-guard.enabled
+# wave7/teach: Teach once (WhimsyTeach.sys.mjs). "Show tips" in Settings →
+# General → Tips; the hints already shown (or already known: their shortcut
+# was used), comma-separated. Both sync, so a tip seen on one Mac isn't
+# repeated on another. "Reset Tips" clears the list.
+- name: whimsy.teach.enabled
+  value: true
+
+- name: whimsy.teach.seen
+  value: ""
+
+- name: services.sync.prefs.sync.whimsy.teach.enabled
+  value: true
+
+- name: services.sync.prefs.sync.whimsy.teach.seen
   value: true
