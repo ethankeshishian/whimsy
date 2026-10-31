@@ -989,6 +989,10 @@ FEATURES = [
     # and AVKit route picker for the page's video; Screen Mirroring otherwise.
     {"id": "cast", "title": "Cast to AirPlay: send the page's video to an Apple TV or AirPlay screen (View > Cast...)",
      "detect": [("src/zen", r"(?i)airplay|AVRoutePicker|cast-?to-?tv")]},
+    # wave7/small: Arc's Move to > New Space... (tab menu, split row menu,
+    # command bar) moves the tab or its whole split into the new space.
+    {"id": "move-to-new-space", "title": "Move to > New Space...: make a space and move the tab (or its whole split) into it (Arc)",
+     "detect": [("src/zen", r"(?i)move-?to-?new-?(space|workspace)")]},
 ]
 
 

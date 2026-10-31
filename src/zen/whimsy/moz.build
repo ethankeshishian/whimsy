@@ -73,6 +73,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyMenuBarExtra.sys.mjs",
     "WhimsyNetErrorChild.sys.mjs",
     "WhimsyNetErrorParent.sys.mjs",
+    "WhimsyNewSpaceMove.sys.mjs",
     "WhimsyNextMeeting.sys.mjs",
     "WhimsyNotesSection.sys.mjs",
     "WhimsyPage.sys.mjs",

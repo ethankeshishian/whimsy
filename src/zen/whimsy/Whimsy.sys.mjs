@@ -208,6 +208,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
 });
 
+// wave7/small: Move to ▸ New Space… (tab menu, split row menu, command bar).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyNewSpaceMove: "resource:///modules/whimsy/WhimsyNewSpaceMove.sys.mjs",
+});
+
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 
@@ -696,6 +701,13 @@ export const Whimsy = {
     // wave7/small: Create Email Alias (command bar), at the focused email
     // field. Checks its switch on use.
     run("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
+    // into the space it makes. After Zen's spaces are ready.
+    run("move-to-new-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyNewSpaceMove.initWindow(win))
+        .catch(e => console.error("Whimsy: move-to-new-space", e))
+    );
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

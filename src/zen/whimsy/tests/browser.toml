@@ -493,3 +493,6 @@ support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
 
 # wave7/small: Create Email Alias in the command bar.
 ["browser_whimsy_email_alias_command.js"]
+
+# wave7/small: Move to > New Space... moves the tab or its split.
+["browser_whimsy_move_to_new_space.js"]

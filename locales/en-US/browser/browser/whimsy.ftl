@@ -2308,3 +2308,9 @@ whimsy-cast-mirror-button = Screen Mirroring
 
 whimsy-action-create-email-alias = Create Email Alias
 whimsy-email-aliases-toast-no-field = Click into an email field first, then create an alias for it
+
+## wave7/small: Move to > New Space... (Arc).
+
+whimsy-action-move-to-new-space = Move to New Space…
+whimsy-menu-move-to-new-space =
+    .label = New Space…
