@@ -521,6 +521,7 @@
 # wave7/focus: paste guard. The person's own on/off ("Turn Paste Guard On/Off"
 # in the command bar); whimsy.feature.paste-guard is the master switch.
 - name: whimsy.paste-guard.enabled
+  value: true
 # wave7/teach: Teach once (WhimsyTeach.sys.mjs). "Show tips" in Settings →
 # General → Tips; the hints already shown (or already known: their shortcut
 # was used), comma-separated. Both sync, so a tip seen on one Mac isn't
@@ -583,6 +584,7 @@
 # over Bonjour on the local network (native nsIWhimsyBonjour), browsed only
 # while the folder is visible.
 - name: whimsy.live-folders.local-servers.bonjour
+  value: true
 
 # wave7/small: the Linear workspace Search Linear last saw in a tab
 # (linear.app/<workspace>/...), for its search page. Set by Whimsy.
