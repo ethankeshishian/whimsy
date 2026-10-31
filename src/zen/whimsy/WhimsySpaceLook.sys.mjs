@@ -37,9 +37,19 @@
 // - The look is stored with the space, so it lands in Zen's session file
 //   and reaches every window through Zen's window sync (and Zen's space
 //   sync, whatever carries the space carries its look).
+//
+// Editing (W8-36): "Edit Look…" in the space's menu, the creation form and
+// the command bar open an overlay built like Zen's theme picker: the same
+// 380px arrowless panel beside the sidebar, the same dotted pad (here a
+// type specimen), then font, density, tab title lines and Zen Mod. Every
+// change previews live on the real sidebar and window without saving
+// (state.preview); Done (or a click outside, as in Zen's picker) keeps it,
+// Cancel or Esc puts back what the space had. Each control has "Use
+// browser default"; Reset sets all four back.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
@@ -60,6 +70,7 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 const MENU_ID = "whimsy-space-look-menuitem";
 const PANEL_ID = "whimsy-space-look-panel";
 const FORM_BUTTON_CLASS = "whimsy-space-look-button";
+const COMMAND_ID = "cmd_whimsyEditSpaceLook";
 
 // Firefox's density modes (gUIDensity.MODE_*): roomy is its "touch".
 export const DENSITIES = { compact: 1, normal: 0, roomy: 2 };
@@ -124,6 +135,30 @@ export const WhimsySpaceLook = {
     return featureOn() ? normalizeLook(workspace?.whimsyLook) : {};
   },
 
+  // What a space wears in this window: the editor's unsaved draft while
+  // it's open on that space, else what's stored.
+  shownLook(win, workspace) {
+    const preview = this.state(win).preview;
+    if (preview && workspace && preview.uuid == workspace.uuid && featureOn()) {
+      return normalizeLook(preview.look);
+    }
+    return this.lookOf(workspace);
+  },
+
+  /** Shows `look` on a space in this window without saving it. */
+  preview(win, uuid, look) {
+    this.state(win).preview = { uuid, look: normalizeLook(look) };
+    this.refresh(win);
+  },
+
+  endPreview(win) {
+    const state = this.state(win);
+    if (state.preview) {
+      state.preview = null;
+      this.refresh(win);
+    }
+  },
+
   globalFont() {
     return lazy.WhimsyLook.uiFont();
   },
@@ -169,6 +204,22 @@ export const WhimsySpaceLook = {
     return look;
   },
 
+  /** Stores `look` as the space's whole look (the editor's Done). */
+  replaceLook(win, uuid, look, { morph = true } = {}) {
+    const workspace = this.space(win, uuid);
+    if (!workspace) {
+      return null;
+    }
+    const clean = normalizeLook(look);
+    if (Object.keys(clean).length) {
+      workspace.whimsyLook = clean;
+    } else {
+      delete workspace.whimsyLook;
+    }
+    this.save(win, workspace, { morph });
+    return clean;
+  },
+
   // Everything back to Settings.
   reset(win, uuid) {
     const workspace = this.space(win, uuid);
@@ -179,7 +230,9 @@ export const WhimsySpaceLook = {
     this.save(win, workspace);
   },
 
-  save(win, workspace) {
+  // `morph` dips the window while it changes; the editor saves what it
+  // already shows, so it saves without one.
+  save(win, workspace, { morph = true } = {}) {
     const state = this.state(win);
     // Zen announces the save (ZenWorkspaceDataChanged); this window
     // applies it below, with its tab list in the dip too.
@@ -189,7 +242,7 @@ export const WhimsySpaceLook = {
     } finally {
       state.saving = false;
     }
-    this.refresh(win, { morph: true, includeTabs: true });
+    this.refresh(win, { morph, includeTabs: morph });
     // Other windows (Zen's sync already gave them the data) and Mini.
     Services.obs.notifyObservers(win, CHANGED_TOPIC, workspace.uuid);
   },
@@ -199,7 +252,7 @@ export const WhimsySpaceLook = {
   state(win) {
     let state = states.get(win);
     if (!state) {
-      state = { rootKey: null, density: null, mod: null, modGen: 0, morphGen: 0 };
+      state = { rootKey: null, density: null, mod: null, modGen: 0, morphGen: 0, preview: null };
       states.set(win, state);
     }
     return state;
@@ -306,6 +359,14 @@ export const WhimsySpaceLook = {
     cleanups.push(() => Services.obs.removeObserver(observer, CHANGED_TOPIC));
 
     this.initContextMenu(win);
+    // The command bar (and a shortcut, if the person gives it one).
+    lazy.WhimsyCommands.register(win, {
+      id: COMMAND_ID,
+      l10nId: "whimsy-action-space-look",
+      run: w => this.openEditor(w, w.gZenWorkspaces?.activeWorkspace),
+      icon: "chrome://browser/skin/zen-icons/sliders.svg",
+      isAvailable: w => featureOn() && !w.gZenWorkspaces?.privateWindowOrDisabled,
+    });
     win.addEventListener(
       "unload",
       () => {
@@ -333,7 +394,7 @@ export const WhimsySpaceLook = {
     }
     const on = featureOn() && gZenWorkspaces.workspaceEnabled && !gZenWorkspaces.privateWindowOrDisabled;
     const spaces = on ? gZenWorkspaces.getWorkspaces() : [];
-    const looks = new Map(spaces.map(space => [space.uuid, this.lookOf(space)]));
+    const looks = new Map(spaces.map(space => [space.uuid, this.shownLook(win, space)]));
     const active = looks.get(gZenWorkspaces.activeWorkspace) ?? {};
     if (morph && includeTabs && this.state(win).rootKey !== null && !reduceMotion(win)) {
       this.morph(
@@ -433,7 +494,6 @@ export const WhimsySpaceLook = {
       document.getElementById("nav-bar"),
       document.getElementById("PersonalToolbar"),
       includeTabs ? win.gZenWorkspaces.activeWorkspaceElement : null,
-      document.getElementById(PANEL_ID),
     ].filter(el => el?.isConnected && el.checkVisibility?.());
     const targets = candidates.filter(el => !candidates.some(other => other != el && other.contains(el)));
     const duration = Math.min(360, Math.max(180, Services.prefs.getIntPref(SWITCH_DURATION_PREF, 300)));
@@ -748,205 +808,555 @@ export const WhimsySpaceLook = {
   },
 
   /**
-   * Opens the editor for a space. Every change applies (and is saved) at
-   * once, like Zen's theme picker; Done or Esc closes it.
+   * Opens the look editor for a space: an overlay beside the sidebar,
+   * built like Zen's theme picker. Changes preview live and save on Done
+   * (or a click outside, as Zen's picker does); Cancel and Esc put the
+   * space back as it was. A space that isn't showing is switched to
+   * first, so the preview is on the real sidebar. Returns the panel.
    */
   openEditor(win, uuid, { node = null, fromForm = false, triggerEvent = null } = {}) {
-    const space = this.space(win, uuid);
-    if (!space || !featureOn()) {
+    const space = uuid && this.space(win, uuid);
+    if (!space || !featureOn() || win.gZenWorkspaces.privateWindowOrDisabled) {
       return null;
     }
     const { document: doc } = win;
     const state = this.state(win);
+    // One editor at a time: a second open cancels the first.
+    const previous = doc.getElementById(PANEL_ID);
+    if (previous) {
+      previous._whimsyFinish?.("cancel");
+      // It leaves as it would on Cancel; its id goes now so the new one
+      // has it.
+      previous.removeAttribute("id");
+      previous.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+      if (previous.state == "open" || previous.state == "showing") {
+        previous.hidePopup();
+      } else {
+        previous.remove();
+      }
+    }
     state.editorFromForm = fromForm;
-    const { panel, body, footer } = lazy.WhimsyPanels.create(win, {
-      id: PANEL_ID,
-      titleL10nId: "whimsy-space-look-title",
-      subtitleL10nId: "whimsy-space-look-subtitle",
-      subtitleArgs: { space: space.name || "" },
-      size: "medium",
-      footer: true,
-      onHidden: () => {
-        state.editorFromForm = false;
-        if (fromForm && node?.isConnected) {
-          node.focus();
-        }
-      },
-    });
-    panel.classList.add("whimsy-space-look");
+
+    const original = this.lookOf(space);
+    let draft = { ...original };
+    // How the editor ended: "done", "cancel", or null (a click outside,
+    // which keeps the change, like Zen's theme picker).
+    let ending = null;
+
+    const panel = doc.createXULElement("panel");
+    panel.id = PANEL_ID;
+    panel.className = "whimsy-look-picker";
+    panel.setAttribute("type", "arrow");
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("noautofocus", "true");
+    panel.setAttribute("hidepopovertail", "true");
+    panel.setAttribute("aria-labelledby", `${PANEL_ID}-title`);
     panel.dataset.uuid = uuid;
 
-    const current = () => this.lookOf(this.space(win, uuid));
-    const set = changes => {
-      this.setLook(win, uuid, changes);
-      sync();
-    };
+    const view = doc.createXULElement("vbox");
+    view.className = "whimsy-look-picker-view";
+    panel.append(view);
+
+    // The space it's for, in Zen's picker's quiet heading weight.
+    const header = doc.createXULElement("hbox");
+    header.className = "whimsy-look-picker-header";
+    header.setAttribute("align", "center");
+    const title = doc.createElementNS(HTML_NS, "h1");
+    title.id = `${PANEL_ID}-title`;
+    title.className = "whimsy-look-picker-title";
+    if (space.name) {
+      doc.l10n.setAttributes(title, "whimsy-space-look-title", { space: space.name });
+    } else {
+      doc.l10n.setAttributes(title, "whimsy-space-look-title-unnamed");
+    }
+    header.append(title);
+    view.append(header);
+
+    // The pad: where Zen's picker has its dotted colour field, a type
+    // specimen in the font the space will use.
+    const pad = doc.createXULElement("vbox");
+    pad.className = "whimsy-look-pad";
+    pad.setAttribute("aria-hidden", "true");
+    const specimen = doc.createXULElement("label");
+    specimen.className = "whimsy-look-specimen";
+    doc.l10n.setAttributes(specimen, "whimsy-space-look-specimen");
+    const sample = doc.createXULElement("description");
+    sample.className = "whimsy-look-specimen-sample";
+    doc.l10n.setAttributes(sample, "whimsy-space-look-specimen-sample");
+    const fontName = doc.createXULElement("label");
+    fontName.className = "whimsy-look-specimen-name";
+    const fontNameSystem = doc.createXULElement("label");
+    fontNameSystem.className = "whimsy-look-specimen-name";
+    doc.l10n.setAttributes(fontNameSystem, "whimsy-space-look-font-system");
+    pad.append(specimen, sample, fontName, fontNameSystem);
+    view.append(pad);
+
+    const sections = doc.createXULElement("vbox");
+    sections.className = "whimsy-look-sections";
+    view.append(sections);
+
     const syncers = [];
     const sync = () => {
-      const look = current();
       for (const fn of syncers) {
-        fn(look);
+        fn(draft);
       }
-      reset.disabled = !Object.keys(look).length;
+      reset.disabled = !Object.keys(draft).length;
+    };
+    const update = changes => {
+      const next = { ...draft, ...changes };
+      for (const [key, value] of Object.entries(changes)) {
+        if (value === undefined) {
+          delete next[key];
+        }
+      }
+      draft = normalizeLook(next);
+      this.preview(win, uuid, draft);
+      sync();
     };
 
-    // Interface font.
-    const fontList = doc.createXULElement("menulist");
-    fontList.className = "whimsy-space-look-menulist";
-    fontList.setAttribute("sizetopopup", "none");
-    fontList.setAttribute("crop", "end");
-    const fontPopup = doc.createXULElement("menupopup");
-    fontList.append(fontPopup);
-    const fontDefault = doc.createXULElement("menuitem");
-    fontDefault.setAttribute("value", "*default");
-    const globalFont = this.globalFont();
-    doc.l10n.setAttributes(
-      fontDefault,
-      globalFont ? "whimsy-space-look-font-default" : "whimsy-space-look-font-default-system",
-      globalFont ? { font: globalFont } : undefined
-    );
-    const fontSystem = doc.createXULElement("menuitem");
-    fontSystem.setAttribute("value", "");
-    fontSystem.classList.add("whimsy-font-preview");
-    fontSystem.style.fontFamily = "system-ui";
-    doc.l10n.setAttributes(fontSystem, "whimsy-space-look-font-system");
-    fontPopup.append(fontDefault, fontSystem, doc.createXULElement("menuseparator"));
-    const addFamily = (family, before = null) => {
-      const item = doc.createXULElement("menuitem");
-      item.setAttribute("value", family);
-      item.setAttribute("label", family);
-      item.classList.add("whimsy-font-preview");
-      item.style.fontFamily = `"${family}", system-ui`;
-      fontPopup.insertBefore(item, before);
-      return item;
+    // Interface font: a search field over a list, each family drawn in
+    // itself. The space's font, else Settings', is the one ticked.
+    const font = this.section(doc, "font", "whimsy-space-look-font", () => update({ font: undefined }));
+    const search = doc.createElementNS(HTML_NS, "input");
+    search.type = "search";
+    search.className = "whimsy-look-search";
+    doc.l10n.setAttributes(search, "whimsy-space-look-font-search");
+    const fontList = this.listbox(doc, "font", value => update({ font: value }));
+    fontList.list.setAttribute("aria-labelledby", font.labelId);
+    const systemRow = fontList.add("", { l10nId: "whimsy-space-look-font-system", family: "system-ui" });
+    systemRow.classList.add("whimsy-look-option-system");
+    const noMatch = doc.createXULElement("description");
+    noMatch.className = "whimsy-look-empty";
+    noMatch.hidden = true;
+    doc.l10n.setAttributes(noMatch, "whimsy-space-look-font-empty");
+    font.section.append(search, fontList.list, noMatch);
+    sections.append(font.section);
+    const shownFont = look => ("font" in look ? look.font : this.globalFont());
+    const ensureFont = family => {
+      if (family && !fontList.has(family)) {
+        fontList.add(family, { family: `"${family}", system-ui` });
+      }
     };
-    const lookFont = current().font;
-    if (lookFont) {
-      addFamily(lookFont);
-    }
+    ensureFont(shownFont(draft));
     this.fontFamilies().then(families => {
-      if (!fontList.isConnected) {
+      if (!panel.isConnected) {
         return;
       }
       for (const family of families) {
-        if (family != lookFont) {
-          addFamily(family);
-        }
+        ensureFont(family);
       }
+      filter();
       sync();
     });
-    fontList.addEventListener("command", () => {
-      const value = fontList.value;
-      set({ font: value == "*default" ? undefined : value });
+    const filter = () => {
+      const query = search.value.trim().toLowerCase();
+      const shown = fontList.filter(row => !query || row.textContent.toLowerCase().includes(query));
+      noMatch.hidden = shown > 0;
+    };
+    search.addEventListener("input", filter);
+    search.addEventListener("keydown", event => {
+      if (event.key == "ArrowDown") {
+        event.preventDefault();
+        fontList.focusCurrent();
+      } else if (event.key == "Enter") {
+        event.preventDefault();
+        fontList.pickFirstVisible();
+      }
     });
-    body.append(this.section(doc, "font", "whimsy-space-look-font", fontList));
     syncers.push(look => {
-      fontList.value = "font" in look ? look.font : "*default";
+      const family = shownFont(look);
+      ensureFont(family);
+      fontList.select(family);
+      font.setDefault(!("font" in look));
+      const cssFamily = family ? `"${family}", system-ui` : "system-ui";
+      specimen.style.fontFamily = cssFamily;
+      sample.style.fontFamily = cssFamily;
+      fontName.hidden = !family;
+      fontNameSystem.hidden = !!family;
+      if (family) {
+        fontName.setAttribute("value", family);
+      }
     });
 
-    // Density.
-    const density = this.chips(doc, "density", [
-      { value: "*default", l10nId: "whimsy-space-look-default" },
-      ...Object.keys(DENSITIES).map(name => ({ value: name, l10nId: `whimsy-space-look-density-${name}` })),
-    ], value => set({ density: value == "*default" ? undefined : value }));
-    const densitySection = this.section(doc, "density", "whimsy-space-look-density", density.group);
-    body.append(densitySection);
+    // Density and tab title lines: segmented, one choice of three.
+    const density = this.section(doc, "density", "whimsy-space-look-density", () => update({ density: undefined }));
+    const densityChips = this.segmented(
+      doc,
+      "density",
+      Object.keys(DENSITIES).map(name => ({ value: name, l10nId: `whimsy-space-look-density-${name}` })),
+      value => update({ density: value })
+    );
+    densityChips.group.setAttribute("aria-labelledby", density.labelId);
+    density.section.append(densityChips.group);
+    sections.append(density.section);
     syncers.push(look => {
-      density.select(look.density ?? "*default");
-      this.setDetail(doc, densitySection, look.density ? null : `whimsy-space-look-density-${this.globalDensity()}`);
+      densityChips.select(look.density ?? this.globalDensity());
+      density.setDefault(!look.density);
     });
 
-    // Tab title lines.
-    const lines = this.chips(doc, "lines", [
-      { value: "*default", l10nId: "whimsy-space-look-default" },
-      ...LINES.map(n => ({ value: String(n), l10nId: "whimsy-space-look-lines-count", l10nArgs: { lines: n } })),
-    ], value => set({ lines: value == "*default" ? undefined : Number(value) }));
-    const linesSection = this.section(doc, "lines", "whimsy-space-look-lines", lines.group);
-    body.append(linesSection);
+    const lines = this.section(doc, "lines", "whimsy-space-look-lines", () => update({ lines: undefined }));
+    const lineChips = this.segmented(
+      doc,
+      "lines",
+      LINES.map(n => ({ value: String(n), l10nId: "whimsy-space-look-lines-count", l10nArgs: { lines: n } })),
+      value => update({ lines: Number(value) })
+    );
+    lineChips.group.setAttribute("aria-labelledby", lines.labelId);
+    lines.section.append(lineChips.group);
+    sections.append(lines.section);
     syncers.push(look => {
-      lines.select(look.lines ? String(look.lines) : "*default");
-      this.setDetail(doc, linesSection, look.lines ? null : "whimsy-space-look-lines-count", {
-        lines: this.globalLines(),
-      });
+      lineChips.select(String(look.lines ?? this.globalLines()));
+      lines.setDefault(!look.lines);
     });
 
-    // Zen Mod: only offered when there are mods; turned-off ones can be
-    // turned on here for this space alone.
-    const modList = doc.createXULElement("menulist");
-    modList.className = "whimsy-space-look-menulist";
-    modList.setAttribute("sizetopopup", "none");
-    modList.setAttribute("crop", "end");
-    const modPopup = doc.createXULElement("menupopup");
-    modList.append(modPopup);
-    const modNone = doc.createXULElement("menuitem");
-    modNone.setAttribute("value", "");
-    doc.l10n.setAttributes(modNone, "whimsy-space-look-mod-none");
-    modPopup.append(modNone);
+    // Zen Mod: only when mods are installed. One that's off in Zen Mods
+    // can be on for this space alone.
+    const mod = this.section(doc, "mod", "whimsy-space-look-mod", () => update({ mod: undefined }));
+    mod.section.hidden = true;
+    const modList = this.listbox(doc, "mod", value => update({ mod: value || undefined }));
+    modList.list.setAttribute("aria-labelledby", mod.labelId);
+    modList.add("", { l10nId: "whimsy-space-look-mod-none" });
     const modHint = doc.createXULElement("description");
-    modHint.className = "whimsy-space-look-hint";
+    modHint.className = "whimsy-look-hint";
     doc.l10n.setAttributes(modHint, "whimsy-space-look-mod-hint");
-    const modSection = this.section(doc, "mod", "whimsy-space-look-mod", modList, modHint);
-    modSection.hidden = true;
-    body.append(modSection);
-    modList.addEventListener("command", () => set({ mod: modList.value || undefined }));
+    mod.section.append(modList.list, modHint);
+    sections.append(mod.section);
     Promise.all([this.availableMods(win), this.installedModCount(win)]).then(([mods, installed]) => {
-      if (!modList.isConnected) {
+      if (!panel.isConnected) {
         return;
       }
-      for (const mod of mods) {
-        const item = doc.createXULElement("menuitem");
-        item.setAttribute("value", mod.id);
-        item.setAttribute("label", mod.name);
-        modPopup.append(item);
+      for (const item of mods) {
+        modList.add(item.id, { text: item.name });
       }
-      modList.hidden = !mods.length;
-      modSection.hidden = !installed && !current().mod;
+      if (draft.mod && !modList.has(draft.mod)) {
+        modList.add(draft.mod, { text: draft.mod });
+      }
+      mod.section.hidden = !installed && !draft.mod;
       sync();
     });
     syncers.push(look => {
-      modList.value = look.mod ?? "";
+      modList.select(look.mod ?? "");
+      mod.setDefault(!look.mod);
     });
 
-    const note = doc.createXULElement("description");
-    note.className = "whimsy-space-look-note";
-    doc.l10n.setAttributes(note, "whimsy-space-look-note");
-    body.append(note);
+    // Reset on the left, away from Done; Cancel beside Done.
+    const footer = doc.createXULElement("hbox");
+    footer.className = "panel-footer whimsy-look-footer";
+    footer.setAttribute("align", "center");
+    const button = (l10nId, onCommand, primary = false) => {
+      const el = doc.createXULElement("button");
+      el.className = "footer-button";
+      if (primary) {
+        el.classList.add("primary");
+        el.setAttribute("default", "true");
+      }
+      doc.l10n.setAttributes(el, l10nId);
+      el.addEventListener("command", onCommand);
+      return el;
+    };
+    const reset = button("whimsy-space-look-reset", () => update({ font: undefined, density: undefined, lines: undefined, mod: undefined }));
+    reset.classList.add("whimsy-look-reset");
+    const spacer = doc.createXULElement("spacer");
+    spacer.setAttribute("flex", "1");
+    const cancel = button("whimsy-space-look-cancel", () => finish("cancel"));
+    cancel.classList.add("whimsy-look-cancel");
+    const done = button("whimsy-space-look-done", () => finish("done"), true);
+    done.classList.add("whimsy-look-done");
+    footer.append(reset, spacer, cancel, done);
+    view.append(footer);
 
-    const reset = lazy.WhimsyPanels.footerButton(doc, {
-      l10nId: "whimsy-space-look-reset",
-      onCommand: () => {
-        this.reset(win, uuid);
-        sync();
-      },
+    const finish = how => {
+      ending ??= how;
+      lazy.WhimsyPanels.close(panel);
+    };
+    panel._whimsyFinish = how => {
+      ending ??= how;
+      settle();
+    };
+    let settled = false;
+    const settle = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (ending == "cancel") {
+        this.endPreview(win);
+        return;
+      }
+      if (JSON.stringify(normalizeLook(draft)) == JSON.stringify(original)) {
+        this.endPreview(win);
+        return;
+      }
+      // Stored first, so the refresh after the preview ends changes nothing.
+      this.state(win).preview = null;
+      this.replaceLook(win, uuid, draft, { morph: false });
+    };
+
+    // Esc cancels from anywhere while it's open; a search with text in it
+    // clears first. Return in the search picks; elsewhere it's Done.
+    const onKey = event => {
+      if (event.defaultPrevented || panel.state != "open") {
+        return;
+      }
+      if (event.key == "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.target == search && search.value) {
+          search.value = "";
+          filter();
+          return;
+        }
+        finish("cancel");
+      } else if (event.key == "Enter" && panel.contains(event.target) && event.target.localName != "button" && event.target != search) {
+        event.preventDefault();
+        finish("done");
+      }
+    };
+    panel.addEventListener("popupshown", event => {
+      if (event.target != panel) {
+        return;
+      }
+      win.addEventListener("keydown", onKey, true);
+      search.focus();
     });
-    reset.classList.add("whimsy-space-look-reset");
-    const done = lazy.WhimsyPanels.footerButton(doc, {
-      l10nId: "whimsy-space-look-done",
-      primary: true,
-      onCommand: () => lazy.WhimsyPanels.close(panel),
+    panel.addEventListener("popuphidden", event => {
+      if (event.target != panel) {
+        return;
+      }
+      win.removeEventListener("keydown", onKey, true);
+      settle();
+      if (doc.getElementById(PANEL_ID) == panel) {
+        state.editorFromForm = false;
+      }
+      if (fromForm && node?.isConnected) {
+        node.focus();
+      }
+      panel.remove();
     });
-    footer.append(reset, done);
+
+    (doc.getElementById("mainPopupSet") ?? doc.documentElement).append(panel);
     sync();
 
-    // Beside the sidebar, where Zen's theme picker opens; on a Library
-    // card, under its button; with no sidebar showing, over the page.
-    const rightSide = !!win.gZenVerticalTabsManager?._prefsRightSide;
-    const library = node?.closest?.(".zen-library-space") ? node : null;
-    const sidebar = lazy.WhimsyPanels.visibleAnchor(win, [fromForm ? node : null, "navigator-toolbox"].filter(Boolean));
-    if (library) {
-      panel.openPopup(library, { position: "after_end", triggerEvent });
-    } else if (sidebar) {
-      panel.openPopup(sidebar, {
-        position: fromForm
-          ? rightSide ? "start_before" : "end_before"
-          : rightSide ? "topleft topright" : "topright topleft",
-        x: fromForm ? 0 : rightSide ? 10 : -10,
-        triggerEvent,
-      });
+    const open = () => {
+      if (!panel.isConnected || settled) {
+        return;
+      }
+      // Where Zen's theme picker opens: beside the sidebar, its top level
+      // with the sidebar's, so the sidebar it previews on stays in view.
+      const rightSide = !!win.gZenVerticalTabsManager?._prefsRightSide;
+      const sidebar = lazy.WhimsyPanels.visibleAnchor(win, ["TabsToolbar", "navigator-toolbox"]);
+      if (sidebar) {
+        panel.openPopup(sidebar, {
+          position: rightSide ? "topleft topright" : "topright topleft",
+          x: rightSide ? 10 : -10,
+          y: fromForm ? -160 : 0,
+          triggerEvent,
+        });
+      } else {
+        lazy.WhimsyPanels.open(win, panel, { triggerEvent });
+      }
+    };
+    if (win.gZenWorkspaces.activeWorkspace == uuid) {
+      open();
     } else {
-      lazy.WhimsyPanels.open(win, panel, { triggerEvent });
+      Promise.resolve(win.gZenWorkspaces.changeWorkspaceWithID(uuid))
+        .catch(e => console.error("Whimsy: space look switch", e))
+        .then(open);
     }
     return panel;
+  },
+
+  // A section: its name on the left; on the right, in one fixed place,
+  // either "Browser default" (it follows Settings) or the button that
+  // makes it follow Settings again.
+  section(doc, name, captionL10nId, onUseDefault) {
+    const section = doc.createXULElement("vbox");
+    section.className = "whimsy-look-section";
+    section.dataset.section = name;
+    const caption = doc.createXULElement("hbox");
+    caption.className = "whimsy-look-caption";
+    caption.setAttribute("align", "center");
+    const label = doc.createXULElement("label");
+    label.id = `${PANEL_ID}-${name}-label`;
+    label.className = "whimsy-look-caption-label";
+    doc.l10n.setAttributes(label, captionL10nId);
+    const tag = doc.createXULElement("label");
+    tag.className = "whimsy-look-default-tag";
+    doc.l10n.setAttributes(tag, "whimsy-space-look-default-tag");
+    const useDefault = doc.createElementNS(HTML_NS, "button");
+    useDefault.type = "button";
+    useDefault.className = "whimsy-look-use-default";
+    doc.l10n.setAttributes(useDefault, "whimsy-space-look-use-default");
+    useDefault.addEventListener("click", () => {
+      onUseDefault();
+      // The button goes; keep the keyboard in the section.
+      section.querySelector("[tabindex='0']:not(.whimsy-look-use-default)")?.focus();
+    });
+    caption.append(label, tag, useDefault);
+    section.append(caption);
+    const setDefault = following => {
+      section.toggleAttribute("following-default", following);
+      tag.hidden = !following;
+      useDefault.hidden = following;
+    };
+    return { section, labelId: label.id, setDefault };
+  },
+
+  // A segmented control (one tab stop, arrow keys move and pick) whose
+  // thumb slides to the choice.
+  segmented(doc, name, options, onPick) {
+    const group = doc.createElementNS(HTML_NS, "div");
+    group.className = "whimsy-look-segmented";
+    group.setAttribute("role", "radiogroup");
+    group.dataset.group = name;
+    group.style.setProperty("--count", String(options.length));
+    const thumb = doc.createElementNS(HTML_NS, "div");
+    thumb.className = "whimsy-look-segment-thumb";
+    group.append(thumb);
+    const buttons = options.map(option => {
+      const button = doc.createElementNS(HTML_NS, "button");
+      button.type = "button";
+      button.className = "whimsy-look-segment";
+      button.setAttribute("role", "radio");
+      button.dataset.value = option.value;
+      doc.l10n.setAttributes(button, option.l10nId, option.l10nArgs);
+      button.addEventListener("click", () => onPick(option.value));
+      group.append(button);
+      return button;
+    });
+    group.addEventListener("keydown", event => {
+      const keys = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 };
+      if (!(event.key in keys)) {
+        return;
+      }
+      event.preventDefault();
+      // Left and right follow the reading direction.
+      const flip = doc.dir == "rtl" && (event.key == "ArrowLeft" || event.key == "ArrowRight");
+      const step = flip ? -keys[event.key] : keys[event.key];
+      const at = Math.max(0, buttons.indexOf(event.target));
+      const next = buttons[Math.min(buttons.length - 1, Math.max(0, at + step))];
+      next.focus();
+      onPick(next.dataset.value);
+    });
+    const select = value => {
+      let index = 0;
+      buttons.forEach((button, i) => {
+        const on = button.dataset.value == value;
+        button.setAttribute("aria-checked", on ? "true" : "false");
+        button.tabIndex = on ? 0 : -1;
+        if (on) {
+          index = i;
+        }
+      });
+      if (!buttons.some(b => b.tabIndex == 0)) {
+        buttons[0].tabIndex = 0;
+      }
+      group.style.setProperty("--index", String(index));
+    };
+    return { group, select };
+  },
+
+  // A short list of choices (fonts, mods): one tab stop, arrow keys move
+  // and pick, so every step previews.
+  listbox(doc, name, onPick) {
+    const list = doc.createElementNS(HTML_NS, "div");
+    list.className = "whimsy-look-list";
+    list.setAttribute("role", "listbox");
+    list.dataset.list = name;
+    const rows = new Map();
+    let current = null;
+    const visibleRows = () => [...rows.values()].filter(row => !row.hidden);
+    const add = (value, { l10nId = null, text = null, family = null } = {}) => {
+      const row = doc.createElementNS(HTML_NS, "div");
+      row.className = "whimsy-look-option";
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", "false");
+      row.tabIndex = -1;
+      row.dataset.value = value;
+      if (l10nId) {
+        doc.l10n.setAttributes(row, l10nId);
+      } else {
+        row.textContent = text ?? value;
+      }
+      if (family) {
+        row.style.fontFamily = family;
+      }
+      row.addEventListener("click", () => onPick(value));
+      list.append(row);
+      rows.set(value, row);
+      return row;
+    };
+    const roving = () => {
+      const shown = visibleRows();
+      const target = current && !current.hidden ? current : shown[0];
+      for (const row of rows.values()) {
+        row.tabIndex = row == target ? 0 : -1;
+      }
+    };
+    const select = value => {
+      for (const row of rows.values()) {
+        row.setAttribute("aria-selected", row.dataset.value == value ? "true" : "false");
+      }
+      current = rows.get(value) ?? null;
+      roving();
+      if (current && !current.hidden) {
+        // Keep the choice in view, inside the list only.
+        const top = current.offsetTop - list.offsetTop;
+        if (top < list.scrollTop || top + current.offsetHeight > list.scrollTop + list.clientHeight) {
+          list.scrollTop = top - (list.clientHeight - current.offsetHeight) / 2;
+        }
+      }
+    };
+    list.addEventListener("keydown", event => {
+      const shown = visibleRows();
+      const at = shown.indexOf(event.target);
+      let next = null;
+      if (event.key == "ArrowDown") {
+        next = shown[Math.min(shown.length - 1, at + 1)];
+      } else if (event.key == "ArrowUp") {
+        next = shown[Math.max(0, at - 1)];
+      } else if (event.key == "Home") {
+        next = shown[0];
+      } else if (event.key == "End") {
+        next = shown.at(-1);
+      } else if (event.key == "PageDown" || event.key == "PageUp") {
+        const step = Math.max(1, Math.floor(list.clientHeight / (event.target.offsetHeight || 28)) - 1);
+        next = shown[Math.min(shown.length - 1, Math.max(0, at + (event.key == "PageDown" ? step : -step)))];
+      } else if (event.key == " ") {
+        next = event.target;
+      }
+      if (!next || at < 0) {
+        return;
+      }
+      event.preventDefault();
+      next.focus();
+      onPick(next.dataset.value);
+    });
+    return {
+      list,
+      add,
+      select,
+      has: value => rows.has(value),
+      filter(test) {
+        let shown = 0;
+        for (const row of rows.values()) {
+          row.hidden = !test(row);
+          shown += row.hidden ? 0 : 1;
+        }
+        roving();
+        return shown;
+      },
+      focusCurrent() {
+        (current && !current.hidden ? current : visibleRows()[0])?.focus();
+      },
+      pickFirstVisible() {
+        const first = visibleRows()[0];
+        if (first) {
+          first.focus();
+          onPick(first.dataset.value);
+        }
+      },
+    };
   },
 
   // Every installed family, suggestions first.
@@ -960,84 +1370,5 @@ export const WhimsySpaceLook = {
     }
     const suggested = SUGGESTED_FONTS.filter(f => families.includes(f));
     return [...suggested, ...families.filter(f => !suggested.includes(f))];
-  },
-
-  section(doc, name, captionL10nId, ...controls) {
-    const section = doc.createXULElement("vbox");
-    section.className = "whimsy-space-look-section";
-    section.dataset.section = name;
-    const caption = doc.createXULElement("hbox");
-    caption.className = "whimsy-space-look-caption";
-    caption.setAttribute("align", "center");
-    const label = doc.createXULElement("label");
-    label.id = `${PANEL_ID}-${name}-label`;
-    doc.l10n.setAttributes(label, captionL10nId);
-    const detail = doc.createXULElement("label");
-    detail.className = "whimsy-space-look-caption-detail";
-    detail.hidden = true;
-    caption.append(label, detail);
-    for (const control of controls) {
-      control.setAttribute?.("aria-labelledby", label.id);
-    }
-    section.append(caption, ...controls);
-    return section;
-  },
-
-  // "Settings: Normal" beside a caption while the space follows Settings.
-  setDetail(doc, section, valueL10nId, args = undefined) {
-    const detail = section.querySelector(".whimsy-space-look-caption-detail");
-    if (!valueL10nId) {
-      detail.hidden = true;
-      return;
-    }
-    detail.hidden = false;
-    doc.l10n.formatValue(valueL10nId, args).then(value => {
-      if (detail.isConnected) {
-        doc.l10n.setAttributes(detail, "whimsy-space-look-follows", { value: value ?? "" });
-      }
-    });
-  },
-
-  // A segmented control: one choice of a few, arrow keys move along it.
-  chips(doc, name, options, onPick) {
-    const group = doc.createElementNS(HTML_NS, "div");
-    group.className = "whimsy-space-look-chips";
-    group.setAttribute("role", "radiogroup");
-    group.dataset.group = name;
-    const buttons = options.map(option => {
-      const button = doc.createElementNS(HTML_NS, "button");
-      button.type = "button";
-      button.className = "whimsy-space-look-chip";
-      button.setAttribute("role", "radio");
-      button.dataset.value = option.value;
-      doc.l10n.setAttributes(button, option.l10nId, option.l10nArgs);
-      button.addEventListener("click", () => {
-        if (button.getAttribute("aria-checked") != "true") {
-          onPick(option.value);
-        }
-      });
-      group.append(button);
-      return button;
-    });
-    group.addEventListener("keydown", event => {
-      if (event.key != "ArrowLeft" && event.key != "ArrowRight") {
-        return;
-      }
-      event.preventDefault();
-      const rtl = doc.dir == "rtl";
-      const step = (event.key == "ArrowRight") != rtl ? 1 : -1;
-      const at = buttons.indexOf(event.target);
-      const next = buttons[(at + step + buttons.length) % buttons.length];
-      next.focus();
-      next.click();
-    });
-    const select = value => {
-      for (const button of buttons) {
-        const on = button.dataset.value == value;
-        button.setAttribute("aria-checked", on ? "true" : "false");
-        button.tabIndex = on ? 0 : -1;
-      }
-    };
-    return { group, select };
   },
 };
