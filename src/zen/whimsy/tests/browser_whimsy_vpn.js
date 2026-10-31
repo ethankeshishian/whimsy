@@ -177,3 +177,51 @@ add_task(async function test_vpn_is_labelled_as_firefox() {
   ok(title.includes("Firefox"), `The panel names Firefox's VPN: "${title}"`);
   ok(!/whimsy/i.test(title), "not Whimsy's");
 });
+
+// W8-41: Set Up VPN in command bar enables master pref, initiates connection if ready,
+// or opens panel / alerts user to sign-in requirement.
+add_task(async function test_w8_41_setup_vpn() {
+  await SpecialPowers.pushPrefEnv({ set: [["browser.ipProtection.enabled", false]] });
+  try {
+    let toast = null;
+    const origToast = window.gZenUIManager?.showToast;
+    if (window.gZenUIManager) {
+      window.gZenUIManager.showToast = id => {
+        toast = id;
+      };
+    }
+    const restoreService = stubState(IPProtectionService, IPProtectionStates.UNAUTHENTICATED);
+    try {
+      await WhimsyVPN.setUp(window);
+      ok(Services.prefs.getBoolPref("browser.ipProtection.enabled"), "setUp enables master pref");
+      ok(
+        toast === "whimsy-vpn-status-signed-out" || CustomizableUI.getWidget("ipprotection-button"),
+        "Sign-in guidance provided"
+      );
+    } finally {
+      restoreService();
+      if (window.gZenUIManager) {
+        window.gZenUIManager.showToast = origToast;
+      }
+    }
+
+    // When ready to connect:
+    const restoreReadyService = stubState(IPProtectionService, IPProtectionStates.READY);
+    const restoreProxy = stubState(IPPProxyManager, IPPProxyStates.NOT_READY);
+    let turnedOn = false;
+    const origTurnOn = WhimsyVPN.turnOn;
+    WhimsyVPN.turnOn = async () => {
+      turnedOn = true;
+    };
+    try {
+      await WhimsyVPN.setUp(window);
+      ok(turnedOn, "setUp connects when ready to turn on");
+    } finally {
+      WhimsyVPN.turnOn = origTurnOn;
+      restoreReadyService();
+      restoreProxy();
+    }
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});

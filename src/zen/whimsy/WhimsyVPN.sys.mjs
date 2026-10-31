@@ -29,6 +29,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVPNScope: "resource:///modules/whimsy/WhimsyVPNScope.sys.mjs",
   CustomizableUI: "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  IPProtection:
+    "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
   IPProtectionService:
     "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
   IPProtectionStates:
@@ -134,11 +136,36 @@ export const WhimsyVPN = {
   },
 
   // Signed out (or the VPN is switched off in Settings): open Firefox's VPN
-  // panel to sign in, or Settings' VPN card when there's no panel yet.
-  setUp(win) {
-    const button = this.masterEnabled ? this.showButton(win) : null;
-    if (button?.checkVisibility?.()) {
+  // panel to sign in, connect if already authenticated, or show a notice
+  // when sign-in is needed.
+  async setUp(win) {
+    if (!this.masterEnabled) {
+      Services.prefs.setBoolPref(MASTER_PREF, true);
+    }
+    const button = this.showButton(win);
+    if (this.canTurnOn()) {
+      return this.turnOn(win);
+    }
+    try {
+      const panel = lazy.IPProtection?.getPanel?.(win);
+      if (panel) {
+        await panel.open(win);
+        return;
+      }
+    } catch (e) {
+      console.warn("Whimsy: failed to open IPProtection panel", e);
+    }
+    if (button) {
       button.click();
+      return;
+    }
+    const state = lazy.IPProtectionService.state;
+    if (state == lazy.IPProtectionStates.UNAUTHENTICATED) {
+      win.gZenUIManager?.showToast?.("whimsy-vpn-status-signed-out");
+      return;
+    }
+    if (state == lazy.IPProtectionStates.UNAVAILABLE) {
+      win.gZenUIManager?.showToast?.("whimsy-vpn-status-unavailable");
       return;
     }
     win.openPreferences("privacy");

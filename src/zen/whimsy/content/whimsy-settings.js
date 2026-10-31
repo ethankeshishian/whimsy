@@ -46,6 +46,7 @@ var gWhimsySettings = {
     // tierC-vpn: VPN (Firefox's built-in IP Protection) status card.
     ChromeUtils.defineESModuleGetters(lazy, {
       CustomizableUI: "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
+      IPProtection: "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
       IPProtectionService: "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
       IPProtectionStates: "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
       IPPProxyManager: "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
@@ -491,9 +492,19 @@ var gWhimsySettings = {
       { once: true }
     );
     update();
-    manage?.addEventListener("command", () => {
+    manage?.addEventListener("command", async () => {
       const win = window.browsingContext.topChromeWindow;
-      this.lazy.CustomizableUI.getWidget("ipprotection-button")?.forWindow(win)?.node?.click();
+      const widget = this.lazy.CustomizableUI.getWidget("ipprotection-button");
+      const node = widget?.forWindow(win)?.node;
+      if (node) {
+        node.click();
+        return;
+      }
+      try {
+        await this.lazy.IPProtection?.getPanel?.(win)?.open?.(win);
+      } catch (e) {
+        // ignore
+      }
     });
   },
 
