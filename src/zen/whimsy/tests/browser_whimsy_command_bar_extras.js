@@ -144,3 +144,19 @@ add_task(async function test_appearance_actions_match_each_other() {
   await SpecialPowers.popPrefEnv();
   gURLBar.searchMode = null;
 });
+
+// wave7/ux: the configurable "New ..." opens Notion, Google Docs or Word,
+// so it mustn't share a name with the Library's Notes pad.
+add_task(async function test_new_document_is_not_named_like_notes() {
+  const [command, setting, off, notes] = await document.l10n.formatMessages([
+    { id: "whimsy-action-new-note" },
+    { id: "whimsy-new-note-target" },
+    { id: "whimsy-new-note-target-none" },
+    { id: "whimsy-library-notes-title" },
+  ]);
+  is(command.value, "New Document", "The command is named for what it makes");
+  ok(!/note/i.test(command.value), "...not like the Notes pad");
+  ok(!/note/i.test(setting.value), "The setting's label matches the command");
+  is(off.attributes.find(a => a.name == "label").value, "Off", "Its first choice is a short Off");
+  is(notes.value, "Notes", "The Library's Notes keeps its own name");
+});

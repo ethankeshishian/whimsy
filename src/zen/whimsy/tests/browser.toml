@@ -489,3 +489,11 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
 ["browser_whimsy_archive_tab_menu.js"]
+# wave7/ux: private page copy
+["browser_whimsy_private_page_copy.js"]
+
+# wave7/ux: one hover host for links (People or link card, AI summary beneath)
+["browser_whimsy_link_hover.js"]
+
+# wave7/ux: the pinned/normal separator sits below expanded folder children
+["browser_whimsy_folder_separator.js"]

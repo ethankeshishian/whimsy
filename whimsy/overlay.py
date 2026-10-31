@@ -988,6 +988,10 @@ FEATURES = [
     # wave7/menus2: archive-tab-menu
     {"id": "archive-tab-menu", "title": "Tab menu in Arc's words: Archive Tab, Archive Tabs Below, Restore Last Closed Tab (closed tabs go to the Archive)",
      "detect": [("src/zen/tabs", r"(?i)archive-?tabs?-?below")]},
+    # wave7/ux: link cards. One hover host for page links: the People card
+    # or a link card, and the AI summary stacked beneath when that's on.
+    {"id": "link-cards", "title": "Link cards: Shift over a link (or rest on a result link) shows where it goes, with the AI summary beneath",
+     "detect": [("src/zen", r"(?i)zen-?link-?(hover-?)?card|zenLinkPreview")]},
 ]
 
 

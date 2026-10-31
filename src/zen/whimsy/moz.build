@@ -62,6 +62,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyLinkHints.sys.mjs",
     "WhimsyLinkHintsChild.sys.mjs",
     "WhimsyLinkHintsParent.sys.mjs",
+    "WhimsyLinkHover.sys.mjs",
     "WhimsyLinkLasso.sys.mjs",
     "WhimsyLiveFolderFetch.sys.mjs",
     "WhimsyLiveFolderReading.sys.mjs",

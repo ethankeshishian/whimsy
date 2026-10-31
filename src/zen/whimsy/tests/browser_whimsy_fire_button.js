@@ -168,3 +168,84 @@ add_task(async function test_fire_needs_the_explicit_forget_button() {
   await TestUtils.waitForCondition(() => !tab.isConnected, "Forget closes the site's tabs");
   await toastShown;
 });
+
+// wave7/ux: "Everything" can't be undone, so the Forget button asks once
+// more in the window's own dialog (as Delete Space does), with Cancel as
+// the default. Return there forgets nothing; only "Forget Everything" runs
+// it, and then the toast says what went. burnEverything is stubbed so the
+// shared test profile isn't wiped.
+add_task(async function test_fire_everything_confirms_with_cancel_default() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fire-everything");
+  const original = WhimsyFireButton.burnEverything;
+  let burned = 0;
+  WhimsyFireButton.burnEverything = async () => {
+    burned++;
+    return 0;
+  };
+  try {
+    async function openEverything() {
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
+      WhimsyFireButton.openPanel(window);
+      await shown;
+      const panel = document.getElementById("whimsyFirePanel");
+      panel.querySelector('[whimsy-fire-scope="everything"]').doCommand();
+      is(panel.dataset.scope, "everything", "Everything is chosen");
+      return panel;
+    }
+
+    // Return in the dialog picks Cancel.
+    let panel = await openEverything();
+    let dialogOpen = BrowserTestUtils.promiseAlertDialogOpen();
+    let forgetting = WhimsyFireButton.forget(window, panel);
+    let dialogWin = await dialogOpen;
+    is(dialogWin.Dialog.args.defaultButtonNum, 1, "Cancel is the default button");
+    const dialogEl = dialogWin.document.querySelector("dialog");
+    is(dialogEl.defaultButton, "cancel", "...so Return cancels");
+    is(dialogEl.getButton("accept").label, "Forget Everything", "The accept button names the action");
+    EventUtils.synthesizeKey("KEY_Enter", {}, dialogWin);
+    await forgetting;
+    is(burned, 0, "Return in the confirm forgets nothing");
+    ok(tab.isConnected, "...and closes no tabs");
+
+    // The explicit button runs it, and the toast reports it.
+    panel = await openEverything();
+    dialogOpen = BrowserTestUtils.promiseAlertDialogOpen();
+    const toastShown = TestUtils.waitForCondition(() =>
+      [...document.querySelectorAll("#zen-toast-container label")].some(l =>
+        document.l10n.getAttributes(l).id == "whimsy-fire-done-everything"),
+    "A toast says everything was forgotten");
+    forgetting = WhimsyFireButton.forget(window, panel);
+    dialogWin = await dialogOpen;
+    dialogWin.document.querySelector("dialog").getButton("accept").click();
+    await forgetting;
+    is(burned, 1, "Forget Everything runs once accepted");
+    await toastShown;
+  } finally {
+    WhimsyFireButton.burnEverything = original;
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// wave7/ux: narrower scopes don't ask; the sheet's explicit button is enough.
+add_task(async function test_fire_narrow_scopes_do_not_confirm() {
+  const original = WhimsyFireButton.confirmEverything;
+  let asked = 0;
+  WhimsyFireButton.confirmEverything = async () => {
+    asked++;
+    return false;
+  };
+  const originalSpace = WhimsyFireButton.burnSpace;
+  WhimsyFireButton.burnSpace = async () => 0;
+  try {
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
+    WhimsyFireButton.openPanel(window);
+    await shown;
+    const panel = document.getElementById("whimsyFirePanel");
+    panel.querySelector('[whimsy-fire-scope="space"]').doCommand();
+    await WhimsyFireButton.forget(window, panel);
+    is(asked, 0, "This Space doesn't ask a second time");
+  } finally {
+    WhimsyFireButton.confirmEverything = original;
+    WhimsyFireButton.burnSpace = originalSpace;
+  }
+});

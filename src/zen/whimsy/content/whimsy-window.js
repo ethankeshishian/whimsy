@@ -39,9 +39,12 @@ var WhimsyWindow = {
         icon: "chrome://browser/skin/zen-icons/sparkles.svg",
       });
     }
+    // wave7/ux: the second row is a quiet "Update settings", not "Something
+    // broke? Roll back" beside "What's new" at the same weight. It opens the
+    // same place, Settings → About, where Roll back lives.
     links.push({
       action: () => window.openPreferences("paneAbout"),
-      l10nId: notice.rolled_back ? "whimsy-updated-settings" : "whimsy-updated-rollback",
+      l10nId: "whimsy-updated-settings",
       icon: "chrome://browser/skin/zen-icons/security-broken.svg",
     });
     return createSidebarNotification({

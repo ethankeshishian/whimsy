@@ -345,10 +345,12 @@ whimsy-action-new-miro = New Miro Board
 whimsy-action-new-loom = New Loom Video
 whimsy-action-new-canva = New Canva Design
 whimsy-action-new-playlist = New Spotify Playlist
-whimsy-action-new-note = New Note
-whimsy-new-note-target = New Note opens
+# wave7/ux: "New Note" read like the Library's Notes pad, but it opens a
+# document in another app, so it's named for what it makes.
+whimsy-action-new-note = New Document
+whimsy-new-note-target = New Document app
 whimsy-new-note-target-none =
-    .label = Nothing (hide New Note)
+    .label = Off
 whimsy-new-note-target-notion =
     .label = Notion
 whimsy-new-note-target-google-docs =
@@ -2311,3 +2313,15 @@ whimsy-menu-archive-tab =
             [1] Archive Tab
            *[other] Archive Tabs
         }
+## wave7/ux: Fire Button. "Everything" asks once more; Cancel is the default.
+
+whimsy-fire-everything-confirm-title = Forget all browsing data?
+whimsy-fire-everything-confirm-body = This clears history, cookies, cache and site data for every site, and closes every unpinned tab. You can’t undo it.
+whimsy-fire-everything-confirm-accept = Forget Everything
+
+## wave7/ux: link hover cards (WhimsyLinkHover)
+
+whimsy-hover-links =
+    .label = Show where a link goes when you Shift-hover it
+# Above the AI summary card, under the link or People card.
+whimsy-link-hover-ai-label = Summary
