@@ -1922,7 +1922,7 @@ whimsy-easel-export-copy = Copy as Image
 whimsy-easel-export-png-light = Save as PNG (Light)
 whimsy-easel-export-png-dark = Save as PNG (Dark)
 whimsy-easel-export-pdf = Save as PDF…
-whimsy-easel-export-note = Easels stay on this Mac. Share the image or PDF instead of a link.
+whimsy-easel-export-note = Copy Link opens this easel on your devices that sync with Whimsy (images stay on this Mac). To share with anyone else, send the image or PDF.
 whimsy-easel-export-picker-title = Save Easel as PNG
 
 whimsy-easel-toolbar =
@@ -2515,3 +2515,12 @@ whimsy-pane-looks-crumb =
     .label = Look and Feel
 whimsy-pane-tabs-crumb =
     .label = Tab Management
+
+## wave7/easel: View Easels…, Add Page to Easel, Copy Link
+
+whimsy-action-view-easels = View Easels…
+whimsy-menu-view-easels =
+    .label = View Easels…
+whimsy-action-add-page-to-easel = Add Page to Easel
+whimsy-easel-export-link = Copy Link
+whimsy-easel-status-copied-link = Copied the link to this easel

@@ -973,3 +973,30 @@ kbd {
     margin: auto;
   }
 }
+
+/* wave7: the easel takes its space's colour (Arc's easels did): the accent,
+   the selection, and a faint wash on the canvas. Zen's default theme keeps
+   the purple above. */
+:root[space-color] {
+  --ez-accent: var(--ez-space);
+  --ez-accent-text: var(--ez-space-text);
+  --ez-selection: var(--ez-space);
+  --ez-focus: var(--ez-space);
+  --ez-canvas: color-mix(in oklab, var(--ez-space) 5%, #fbfaf8);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[space-color] {
+    --ez-accent: var(--ez-space-dark);
+    --ez-accent-text: var(--ez-space-text-dark);
+    --ez-selection: var(--ez-space-dark);
+    --ez-focus: var(--ez-space-dark);
+    --ez-canvas: color-mix(in oklab, var(--ez-space) 7%, #18161c);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #viewport {
+    transition: background-color var(--ez-base) var(--ez-standard);
+  }
+}

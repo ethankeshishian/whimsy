@@ -25,6 +25,8 @@ add_setup(async function () {
     set: [
       ["whimsy.feature.easel", true],
       ["ui.prefersReducedMotion", 1],
+      // Sync only where a test turns it on (test_sync).
+      ["whimsy.easel.sync", false],
     ],
   });
 });
@@ -362,4 +364,135 @@ add_task(function test_url_helpers() {
   is(easelIdFromURL(easelURL("0a1b2c3d-1111-2222-3333-444455556666")), "0a1b2c3d-1111-2222-3333-444455556666", "Round trip");
   is(easelIdFromURL("about:whimsy?game"), null, "Other pages aren't easels");
   is(easelIdFromURL("https://example.com/?easel&id=0a1b2c3d"), null, "Web pages aren't easels");
+});
+
+// wave7: View Easels… is a registered command (command bar, about:keyboard)
+// and a Window menu item, and opens the Library on Easels.
+add_task(async function test_view_easels_command() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  ok(document.getElementById("cmd_whimsyViewEasels"), "View Easels… is a window command");
+  is(WhimsyCommands.get("cmd_whimsyViewEasels")?.l10nId, "whimsy-action-view-easels", "in the command registry");
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  ok(globalActions.find(a => a.l10nId == "whimsy-action-view-easels")?.isAvailable(window), "and the command bar");
+
+  WhimsyEasel.addWindowMenuItem(document);
+  const item = document.getElementById("menu_whimsyViewEasels");
+  is(item?.getAttribute("command"), "cmd_whimsyViewEasels", "The Window menu lists it");
+
+  const library = document.querySelector("zen-library");
+  await TestUtils.waitForCondition(() => library?.zenLibrarySections?.["whimsy-easels"], "The Library has Easels");
+  const ZenLibrary = customElements.get("zen-library");
+  ok(WhimsyEasel.viewEasels(window), "View Easels… runs");
+  await TestUtils.waitForCondition(() => ZenLibrary.isLibraryOpen && library.activeTab == "whimsy-easels", "The Library opens on Easels");
+  ZenLibrary.close();
+  await TestUtils.waitForCondition(() => !ZenLibrary.isLibraryOpen, "Closed again");
+});
+
+// wave7: resizing snaps the moving edge to other items' edges and centres.
+add_task(async function test_resize_snaps() {
+  const M = ChromeUtils.importESModule("chrome://browser/content/whimsy/whimsy-easel-model.mjs");
+  const other = { x: 0, y: 0, w: 200, h: 100 };
+  const snapped = M.snapResize({ x: 300, y: 0, w: 96, h: 50 }, "e", [other], 6);
+  is(snapped.dx, 0, "Nothing near: no snap");
+  const near = M.snapResize({ x: 50, y: 150, w: 147, h: 50 }, "se", [other], 6);
+  is(near.dx, 3, "The right edge snaps to the other item's right edge");
+  is(near.guides[0]?.axis, "x", "with a guide");
+
+  const { win, app } = await openNewEasel();
+  app.addItems([
+    { id: "a", type: "shape", shape: "rect", x: 0, y: 0, w: 200, h: 100, color: "ink", width: 2, fill: "tint" },
+    { id: "b", type: "shape", shape: "rect", x: 0, y: 160, w: 120, h: 80, color: "ink", width: 2, fill: "tint" },
+  ]);
+  app.view.zoom = 1;
+  app.applyView();
+  app.select(["b"]);
+  const handle = win.document.querySelector('#selection .handle[data-handle="e"]').getBoundingClientRect();
+  const from = { x: handle.left + handle.width / 2, y: handle.top + handle.height / 2 };
+  await drag(win, from, { x: from.x + 77, y: from.y });
+  is(app.find("b").w, 200, "Dragged to within a few px of A's edge, B's edge lands on it");
+  await drag(win, { x: from.x + 80, y: from.y }, { x: from.x + 157, y: from.y }, { modifiers: { altKey: true } });
+  is(Math.round(app.find("b").w), 277, "Option resizes freely");
+});
+
+// wave7: Copy Link puts the easel's address on the clipboard.
+add_task(async function test_copy_link() {
+  const { easel, app } = await openNewEasel();
+  ok(await app.exportAs("link"), "Copy Link");
+  is(SpecialPowers.getClipboardData("text/plain"), easelURL(easel.id), "The easel's own address");
+});
+
+// wave7: the easel takes its space's colour, and its own when there's none.
+add_task(async function test_space_color() {
+  const { win, app } = await openNewEasel();
+  const root = win.document.documentElement;
+  const accent = () => win.getComputedStyle(root).getPropertyValue("--ez-accent").trim();
+  const plain = accent();
+  app.spaceRGB = () => [20, 60, 160];
+  app.applySpaceColor();
+  ok(root.hasAttribute("space-color"), "A space colour applies");
+  isnot(accent(), plain, "The accent follows the space");
+  is(win.getComputedStyle(root).getPropertyValue("--ez-space-text").trim(), "#ffffff", "White ink on a deep blue");
+  app.spaceRGB = () => null;
+  app.applySpaceColor();
+  ok(!root.hasAttribute("space-color"), "Zen's default theme keeps the easel's own colour");
+  is(accent(), plain, "back to it");
+});
+
+// wave7: Add Page to Easel captures the whole page, live-croppable.
+add_task(async function test_add_page_to_easel() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
+  ok(document.getElementById("cmd_whimsyAddPageToEasel"), "Add Page to Easel is a command");
+  const height = await SpecialPowers.spawn(tab.linkedBrowser, [], () =>
+    Math.max(content.document.documentElement.scrollHeight, content.document.documentElement.clientHeight)
+  );
+  const capture = await WhimsyEasel.capturePage(tab.linkedBrowser);
+  ok(capture.blob?.size > 0, "The page is captured");
+  is(capture.item.crop.y, 0, "From the top");
+  is(capture.item.crop.h, Math.min(height, 12000), "To the bottom");
+  is(capture.item.url, PAGE, "Keeping its page");
+  const about = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:robots");
+  is((await WhimsyEasel.capturePage(about.linkedBrowser)).error, "whimsy-capture-failed-toast", "Only web pages");
+  BrowserTestUtils.removeTab(about);
+});
+
+// wave7: easels sync over the prefs engine: images stay local, each easel
+// and the whole pref have size caps, deletions travel as tombstones.
+add_task(async function test_sync() {
+  const Sync = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyEaselSync.sys.mjs");
+  const { WhimsyEaselSync, SYNC_PREF, packEasels, syncableEasel, MAX_EASEL_BYTES, MAX_BYTES } = Sync;
+  ok(Services.prefs.getBoolPref(`services.sync.prefs.sync.${SYNC_PREF}`), "The prefs engine carries it");
+
+  const packed = syncableEasel({
+    title: "T",
+    updated: 5,
+    items: [
+      { id: "i", type: "image", src: "x.png", x: 0, y: 0, w: 1, h: 1 },
+      { id: "c", type: "capture", image: "y.png", url: PAGE, x: 0, y: 0, w: 1, h: 1 },
+      { id: "p", type: "pen", d: "M0 0" + "L1 1".repeat(5000), x: 0, y: 0, w: 1, h: 1 },
+    ],
+  });
+  Assert.deepEqual(packed.items.map(i => i.id), ["c"], "Images and the oversized drawing stay local");
+  ok(!("image" in packed.items[0]), "A capture syncs its page, not its picture");
+  const big = Array.from({ length: 12 }, (_, n) => ({ id: `e${n}`, title: "x".repeat(MAX_EASEL_BYTES - 200), items: [], updated: n }));
+  const all = packEasels(big);
+  Assert.lessOrEqual(new TextEncoder().encode(JSON.stringify(all)).length, MAX_BYTES, "The pref stays under its cap");
+  ok("e11" in all.easels && !("e0" in all.easels), "Newest easels first");
+
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.easel.sync", true]] });
+  WhimsyEaselSync.init();
+  // Another device's easel arrives.
+  const id = "0a1b2c3d-1111-2222-3333-444455556666";
+  const now = Date.now();
+  Services.prefs.setStringPref(SYNC_PREF, JSON.stringify({ v: 1, easels: { [id]: [{ title: "From the laptop", items: [{ id: "t", type: "text", x: 0, y: 0, w: 50, h: 20, text: "hi", font: "sans", size: 18, color: "ink", auto: true }], updated: now }, now] } }));
+  await TestUtils.waitForCondition(async () => (await gWhimsyEaselStore.get(id))?.title == "From the laptop", "The synced easel appears");
+  await WhimsyEaselSync.sync();
+  ok(JSON.parse(Services.prefs.getStringPref(SYNC_PREF)).easels[id][0], "and stays in the synced copy");
+  // Deleting it here sends a tombstone.
+  await gWhimsyEaselStore.remove(id);
+  await WhimsyEaselSync.sync();
+  is(JSON.parse(Services.prefs.getStringPref(SYNC_PREF)).easels[id]?.[0], null, "A deletion syncs as a tombstone");
+  Services.prefs.clearUserPref(SYNC_PREF);
+  Services.prefs.clearUserPref("whimsy.easel.sync-known");
+  await SpecialPowers.popPrefEnv();
 });

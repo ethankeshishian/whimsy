@@ -42,6 +42,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyEasel.sys.mjs",
     "WhimsyEaselChild.sys.mjs",
     "WhimsyEaselParent.sys.mjs",
+    "WhimsyEaselSync.sys.mjs",
     "WhimsyEmailAliases.sys.mjs",
     "WhimsyEmailAliasesChild.sys.mjs",
     "WhimsyEmailAliasesParent.sys.mjs",

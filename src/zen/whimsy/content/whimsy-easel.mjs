@@ -172,6 +172,10 @@ class EaselApp {
     this.setTool("select");
     this.updateChrome();
     $("viewport").focus({ preventScroll: true });
+    // wave7: the easel takes its space's colour, like Arc's easels.
+    this.applySpaceColor();
+    document.addEventListener("visibilitychange", () => this.applySpaceColor());
+    window.addEventListener("focus", () => this.applySpaceColor());
     this.#started = true;
     document.documentElement.setAttribute("ready", "true");
   }
@@ -1109,6 +1113,7 @@ class EaselApp {
       before: M.clone(this.items),
       start: new Map(items.map(i => [i.id, M.clone(i)])),
       bounds: M.boundsOf(items),
+      others: this.items.filter(i => !this.selection.has(i.id)),
     });
   }
 
@@ -1252,9 +1257,22 @@ class EaselApp {
   }
 
   resizeTo(drag, event) {
-    const dx = (event.clientX - drag.sx) / this.view.zoom;
-    const dy = (event.clientY - drag.sy) / this.view.zoom;
+    let dx = (event.clientX - drag.sx) / this.view.zoom;
+    let dy = (event.clientY - drag.sy) / this.view.zoom;
     const items = this.selectedItems;
+    // wave7: the moving edges snap to other items' edges and centres, like
+    // moving does (Option turns it off). Line ends don't snap.
+    let guides = [];
+    const single = items.length == 1 ? items[0] : null;
+    const line = single?.type == "shape" && (single.shape == "line" || single.shape == "arrow");
+    if (!event.altKey && !line && drag.others?.length) {
+      const base = single ? drag.start.get(single.id) : drag.bounds;
+      const rect = M.resizeRect(base, drag.handle, dx, single?.type == "text" ? 0 : dy);
+      const snapped = M.snapResize(rect, drag.handle, drag.others, SNAP_PX / this.view.zoom);
+      dx += snapped.dx;
+      dy += single?.type == "text" ? 0 : snapped.dy;
+      guides = snapped.guides.filter(g => single?.type != "text" || g.axis == "x");
+    }
     if (items.length == 1) {
       const item = items[0];
       const start = drag.start.get(item.id);
@@ -1300,6 +1318,7 @@ class EaselApp {
       }
     }
     this.updateOverlay();
+    this.showGuides(guides);
   }
 
   onPointerUp(event) {
@@ -1997,6 +2016,14 @@ class EaselApp {
   async exportAs(kind, { path = null } = {}) {
     $("share-menu").hidePopover?.();
     try {
+      if (kind == "link") {
+        // wave7: the easel's own address. It opens this easel in Whimsy on
+        // any device it syncs to (whimsy.easel.sync); Arc's public links
+        // needed Arc's servers, which Whimsy doesn't have.
+        Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(easelURL(this.id));
+        this.announce("whimsy-easel-status-copied-link");
+        return true;
+      }
       if (kind == "copy") {
         const blob = await this.renderPNG();
         lazy.BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
@@ -2034,6 +2061,43 @@ class EaselApp {
     fp.appendFilter("PNG", "*.png");
     const result = await new Promise(resolve => fp.open(resolve));
     return result == Ci.nsIFilePicker.returnCancel ? null : fp.file?.path ?? null;
+  }
+
+  // ---------- Space colour ----------
+
+  // The first colour of the space this easel's tab is in, as [r, g, b], or
+  // null (Zen's default theme, or no tab yet).
+  spaceRGB() {
+    try {
+      const win = window.browsingContext.topChromeWindow;
+      const tab = win?.gBrowser?.getTabForBrowser(window.browsingContext.embedderElement);
+      const id = tab?.getAttribute("zen-workspace-id");
+      const rgb = id && win.gZenWorkspaces?.getWorkspaceFromId?.(id)?.theme?.gradientColors?.[0]?.c;
+      return Array.isArray(rgb) && rgb.length >= 3 && rgb.slice(0, 3).every(Number.isFinite) ? rgb.slice(0, 3) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  applySpaceColor() {
+    const root = document.documentElement;
+    const rgb = this.spaceRGB();
+    if (!rgb) {
+      root.removeAttribute("space-color");
+      for (const name of ["--ez-space", "--ez-space-text", "--ez-space-dark", "--ez-space-text-dark"]) root.style.removeProperty(name);
+      return;
+    }
+    // Ink on the accent: whichever of near-black and white reads better.
+    const lin = v => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const luminance = c => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const ink = c => ((luminance(c) + 0.05) / 0.05 > 1.05 / (luminance(c) + 0.05) ? "#1a1320" : "#ffffff");
+    // Dark mode lifts the accent a third of the way to white.
+    const dark = rgb.map(v => Math.round(v + (255 - v) * 0.35));
+    root.style.setProperty("--ez-space", `rgb(${rgb.join(" ")})`);
+    root.style.setProperty("--ez-space-text", ink(rgb));
+    root.style.setProperty("--ez-space-dark", `rgb(${dark.join(" ")})`);
+    root.style.setProperty("--ez-space-text-dark", ink(dark));
+    root.setAttribute("space-color", "true");
   }
 
   // ---------- Chrome ----------

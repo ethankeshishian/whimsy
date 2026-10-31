@@ -152,6 +152,41 @@ export function snapMove(box, others, threshold) {
   return { dx, dy, guides };
 }
 
+// wave7: snaps the edges a resize handle moves (and the box's centre on
+// that axis) to the edges and centres of other boxes. `box` is the resized
+// rect; returns the shift to apply to the handle's dx/dy, and guides.
+export function snapResize(box, handle, others, threshold) {
+  const moving = {
+    x: [handle.includes("w") ? box.x : null, handle.includes("e") ? box.x + box.w : null].filter(v => v != null),
+    y: [handle.includes("n") ? box.y : null, handle.includes("s") ? box.y + box.h : null].filter(v => v != null),
+  };
+  const xs = b => [b.x, b.x + b.w / 2, b.x + b.w];
+  const ys = b => [b.y, b.y + b.h / 2, b.y + b.h];
+  const best = { x: null, y: null };
+  for (const other of others) {
+    for (const [axis, theirs] of [["x", xs(other)], ["y", ys(other)]]) {
+      for (const m of moving[axis]) {
+        for (const t of theirs) {
+          const d = t - m;
+          if (Math.abs(d) <= threshold && (best[axis] == null || Math.abs(d) < Math.abs(best[axis].d))) {
+            best[axis] = { d, at: t, other };
+          }
+        }
+      }
+    }
+  }
+  const guides = [];
+  if (best.x) {
+    const o = best.x.other;
+    guides.push({ axis: "x", at: best.x.at, from: Math.min(box.y, o.y), to: Math.max(box.y + box.h, o.y + o.h) });
+  }
+  if (best.y) {
+    const o = best.y.other;
+    guides.push({ axis: "y", at: best.y.at, from: Math.min(box.x, o.x), to: Math.max(box.x + box.w, o.x + o.w) });
+  }
+  return { dx: best.x?.d ?? 0, dy: best.y?.d ?? 0, guides };
+}
+
 // A smooth SVG path through freehand points (quadratic curves through the
 // midpoints), rounded to tenths to keep the store small.
 export function smoothPath(points) {

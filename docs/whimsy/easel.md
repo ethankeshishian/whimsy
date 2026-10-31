@@ -26,10 +26,10 @@ reviews (allthings.how, popsci). Arc.app itself was not inspected.
 | Private tabs | n/a | Captures from private tabs are refused; in a private window live captures stay paused |
 | Arrange | Drag, resize, Delete, Cmd+Z | Drag, resize from eight handles (lines: their two ends), snapping to other items' edges and centres with guides (hold Option to place freely), marquee and Shift-click selection, arrow-key nudging (Shift: 10px) and Option+arrow resizing, Cmd+D duplicate, Cmd+] / Cmd+[ forward/backward, Shift+Cmd+] / [ front/back, Cmd+C / X / V across easels |
 | Undo | Cmd+Z | Cmd+Z / Shift+Cmd+Z, and buttons in the top bar; every change is one step |
-| Sharing | Private, view-only or editable public links on arc.net; links get preview images | **No public links**: Whimsy has no server. Export menu: Copy as Image, Save as PNG (Light / Dark), Save as PDF (the print dialog). Shift+Cmd+S saves a PNG, like Arc's Save As |
+| Sharing | Private, view-only or editable public links on arc.net; links get preview images | **No public links**: Whimsy has no server. Export menu: Copy Link (the easel's own address; opens it on your devices that sync), Copy as Image, Save as PNG (Light / Dark), Save as PDF (the print dialog). Shift+Cmd+S saves a PNG, like Arc's Save As |
 | Export | Save As (Shift+Cmd+S) as PNG, light or dark | Same, plus PDF. Live captures export as their still image |
-| Storage | Arc's servers, synced | The profile: `whimsy-easels.json` and `whimsy-easels/<id>/` image files. Sync is out of scope for now |
-| Theme | Follows the Space's colours (Sep 2022) | Follows light and dark; colours are stored as names (ink, red…) so drawings stay legible in both |
+| Storage | Arc's servers, synced | The profile: `whimsy-easels.json` and `whimsy-easels/<id>/` image files. Firefox Sync's prefs engine carries a copy (`WhimsyEaselSync`, `whimsy.easel.sync`): text, shapes, drawings, links and captures' pages, never images; at most 16 KB per easel (longest drawings dropped first) and 64 KB in all, newest first; deletions sync as tombstones |
+| Theme | Follows the Space's colours (Sep 2022) | Follows the space's first theme colour (accent, selection, a faint canvas wash), and light and dark; item colours are stored as names (ink, red…) so drawings stay legible in both |
 | Delete | From the Library | Library → Easels → Delete, with Undo in the toast for 8 seconds (images are kept 30 seconds) |
 
 ## Keyboard
@@ -44,18 +44,18 @@ the selection, then returns to the pointer.
 ## Gaps (known)
 
 - Public share links, collaborators and link preview images (needs a server).
-- Space theme colours on the canvas (it follows light/dark only).
 - Arc's per-tool shortcuts aren't documented anywhere we found; the single-letter
   tool keys are Whimsy's.
-- Full-page and visible-area captures (Screenshots' preview dialog) don't offer
-  Add to Easel yet; region captures do.
-- Snapping applies while moving, not while resizing.
-- Sync between Macs.
+- Screenshots' Full Page and Visible buttons don't offer Add to Easel; "Add Page
+  to Easel" (command bar) captures the whole page (up to 12,000 px tall) instead.
+- Line and arrow ends don't snap.
+- Images don't sync (Sync's record size); an image item stays on its Mac.
 - Arc showed easels read-only on iOS; there's no Whimsy mobile app.
 
 ## Code
 
-- `src/zen/whimsy/WhimsyEasel.sys.mjs`: store, New Easel, opening, capture flow, picker.
+- `src/zen/whimsy/WhimsyEasel.sys.mjs`: store, New Easel, View Easels…, Add Page to Easel, opening, capture flow, picker.
+- `WhimsyEaselSync.sys.mjs`: Sync over the prefs engine, with the size caps.
 - `WhimsyEaselChild.sys.mjs` / `WhimsyEaselParent.sys.mjs`: the Add to Easel button in Screenshots' toolbar.
 - `content/whimsy-easel.{html,css,mjs}` and `whimsy-easel-model.mjs`: the page.
 - `content/whimsy-library-easels.mjs`: Library → Easels.

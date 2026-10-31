@@ -13,8 +13,9 @@
 // page (the Notes live-block browser); private tabs can't add captures.
 //
 // Storage is the profile: whimsy-easels.json (the easels and their items)
-// and whimsy-easels/<easel id>/ (image files). No sync and no public links
-// (Arc shared to arc.net; Whimsy has no server): the page exports PNG/PDF
+// and whimsy-easels/<easel id>/ (image files); WhimsyEaselSync carries a
+// small copy through Firefox Sync. No public links (Arc shared to arc.net;
+// Whimsy has no server): the page copies its own address, exports PNG/PDF
 // and copies itself as an image instead. docs/whimsy/easel.md has the
 // parity notes.
 
@@ -26,6 +27,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyEaselSync: "resource:///modules/whimsy/WhimsyEaselSync.sys.mjs",
 });
 
 export const FEATURE_PREF = "whimsy.feature.easel";
@@ -40,6 +43,9 @@ const CAPTURE_MAX_WIDTH = 520;
 const MAX_REGION = 30000;
 // A deleted easel's images stay this long, for Undo.
 const TRASH_MS = 30000;
+// wave7: "Add Page to Easel" captures at most this much of a page's height
+// (CSS px), at most 2x, so a very long page stays a reasonable image.
+const FULL_PAGE_MAX_HEIGHT = 12000;
 
 export function easelURL(id) {
   return `${PAGE_URL}&id=${encodeURIComponent(id)}`;
@@ -98,6 +104,60 @@ class EaselStore {
 
   #notify(id, source = "") {
     Services.obs.notifyObservers(null, CHANGED_TOPIC, JSON.stringify({ id, source }));
+    // wave7: Sync carries a small copy of each easel (WhimsyEaselSync).
+    if (source != "sync") {
+      try {
+        lazy.WhimsyEaselSync.scheduleUpload();
+      } catch (e) {
+        console.error("Whimsy: easel sync", e);
+      }
+    }
+  }
+
+  // wave7: an easel from another device (WhimsyEaselSync). Creates it or
+  // replaces its title and items when the incoming copy is newer.
+  async applyRemote(remote) {
+    const file = await this.#ensureLoaded();
+    if (!remote?.id || this.#trash.has(remote.id)) {
+      return false;
+    }
+    let easel = file.data.easels.find(e => e.id == remote.id);
+    if (easel && (easel.updated ?? 0) >= remote.updated) {
+      return false;
+    }
+    if (!easel) {
+      easel = { id: remote.id, title: "", items: [], view: null, created: remote.updated };
+      file.data.easels.push(easel);
+    }
+    // Images don't sync: keep this device's own files for items it has.
+    const local = new Map(easel.items.map(i => [i.id, i]));
+    easel.title = remote.title ?? "";
+    easel.items = remote.items.map(item => {
+      const mine = local.get(item.id);
+      if (mine?.image && item.type == "capture") {
+        return { ...item, image: mine.image };
+      }
+      if (mine?.src && item.type == "image") {
+        return { ...item, src: mine.src };
+      }
+      return item;
+    });
+    easel.updated = remote.updated;
+    file.saveSoon();
+    this.#notify(easel.id, "sync");
+    return true;
+  }
+
+  // wave7: an easel deleted on another device.
+  async removeRemote(id) {
+    const file = await this.#ensureLoaded();
+    if (!file.data.easels.some(e => e.id == id)) {
+      return false;
+    }
+    file.data.easels = file.data.easels.filter(e => e.id != id);
+    file.saveSoon();
+    this.#notify(id, "sync");
+    return true;
   }
 
   // Newest first.
@@ -178,6 +238,9 @@ class EaselStore {
     lazy.clearTimeout(entry.timer);
     this.#trash.delete(id);
     const file = await this.#ensureLoaded();
+    // Newer than the deletion Sync may already carry, so it comes back
+    // everywhere too.
+    entry.easel.updated = Date.now();
     file.data.easels.push(entry.easel);
     file.saveSoon();
     this.#notify(id);
@@ -257,6 +320,7 @@ export const WhimsyEasel = {
   initWindow(win) {
     this.registerActor();
     this.hookScreenshots();
+    this.initExtras(win);
     const { WhimsyShortcuts } = lazy;
     const mac = Services.appinfo.OS == "Darwin";
     WhimsyShortcuts.addCommand(win, {
@@ -349,6 +413,117 @@ export const WhimsyEasel = {
     }
     this.openEasel(win, easel.id, { pin: true });
     return easel;
+  },
+
+  // wave7: View Easels… (Arc's Window menu) and Add Page to Easel, as
+  // registered commands (command bar, about:keyboard), plus the Window menu
+  // item; and Sync of easels.
+  initExtras(win) {
+    const { WhimsyCommands } = lazy;
+    try {
+      lazy.WhimsyEaselSync.init();
+    } catch (e) {
+      console.error("Whimsy: easel sync", e);
+    }
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyViewEasels",
+      l10nId: "whimsy-action-view-easels",
+      run: w => this.viewEasels(w),
+      icon: "chrome://browser/skin/zen-icons/paintbrush.svg",
+      isAvailable: () => this.enabled,
+    });
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyAddPageToEasel",
+      l10nId: "whimsy-action-add-page-to-easel",
+      run: w => this.addPageToEasel(w.gBrowser.selectedBrowser),
+      icon: "chrome://browser/skin/zen-icons/paintbrush.svg",
+      isAvailable: w => this.enabled && this.canCapture(w.gBrowser?.selectedBrowser),
+    });
+    // Arc lists View Easels… in its Window menu, with the Library's other
+    // sections. The menu bar is built after this runs, so add it on show.
+    const popup = win.document.getElementById("windowPopup");
+    popup?.addEventListener("popupshowing", () => this.addWindowMenuItem(win.document));
+  },
+
+  addWindowMenuItem(doc) {
+    const existing = doc.getElementById("menu_whimsyViewEasels");
+    if (existing) {
+      existing.hidden = !this.enabled;
+      return;
+    }
+    if (!this.enabled) {
+      return;
+    }
+    const item = doc.createXULElement("menuitem");
+    item.id = "menu_whimsyViewEasels";
+    item.setAttribute("data-l10n-id", "whimsy-menu-view-easels");
+    item.setAttribute("command", "cmd_whimsyViewEasels");
+    const after = doc.getElementById("menu_whimsyViewBoosts") ?? doc.getElementById("menu_whimsyViewMedia");
+    if (after) {
+      after.after(item);
+    } else {
+      doc.getElementById("sep-window-list")?.before(item);
+    }
+  },
+
+  // Opens the Library on Easels.
+  viewEasels(win) {
+    if (!this.enabled) {
+      return false;
+    }
+    const ZenLibrary = win.customElements.get("zen-library");
+    const lib = win.document.querySelector("zen-library");
+    if (!ZenLibrary?.toggle || (lib?.zenLibrarySections && !("whimsy-easels" in lib.zenLibrarySections))) {
+      return false;
+    }
+    if (lib?.activeTab != "whimsy-easels" || !ZenLibrary.isLibraryOpen) {
+      ZenLibrary.toggle("whimsy-easels");
+    }
+    return true;
+  },
+
+  canCapture(browser) {
+    const uri = browser?.currentURI;
+    return !!uri && (uri.schemeIs("https") || uri.schemeIs("http")) && !lazy.PrivateBrowsingUtils.isBrowserPrivate(browser);
+  },
+
+  // The whole page as one capture (Arc's Capture Full Page, into an easel):
+  // up to FULL_PAGE_MAX_HEIGHT tall, cropped live to the same area.
+  async capturePage(browser) {
+    if (!this.canCapture(browser)) {
+      return { error: lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) ? "whimsy-easel-capture-private" : "whimsy-capture-failed-toast" };
+    }
+    let bounds = null;
+    try {
+      bounds = await browser.browsingContext.currentWindowGlobal.getActor("WhimsyEasel").sendQuery("WhimsyEasel:PageBounds");
+    } catch {}
+    const nums = ["width", "height", "viewportWidth", "viewportHeight", "devicePixelRatio"].map(k => bounds?.[k]);
+    if (!nums.every(Number.isFinite)) {
+      return { error: "whimsy-capture-failed-toast" };
+    }
+    const [width, height, viewportWidth, , dpr] = nums;
+    const capped = Math.min(height, FULL_PAGE_MAX_HEIGHT);
+    return this.captureRegion(browser, {
+      region: { left: 0, top: 0, right: Math.min(width, MAX_REGION), bottom: capped },
+      devicePixelRatio: Math.min(2, dpr),
+      // The live view lays the page out at its own width and full height.
+      viewportWidth,
+      viewportHeight: capped,
+    });
+  },
+
+  // "Add Page to Easel": the picker, then the chosen easel.
+  async addPageToEasel(browser) {
+    const win = browser?.documentGlobal;
+    if (!win?.gBrowser || !this.enabled) {
+      return null;
+    }
+    const capture = await this.capturePage(browser);
+    if (capture.error) {
+      win.gZenUIManager?.showToast?.(capture.error);
+      return null;
+    }
+    return this.showPicker(win, browser, { x: 16, y: 16 }, easelId => this.addCaptureTo(win, easelId, capture));
   },
 
   // Validates a capture request from a page (the child is untrusted).

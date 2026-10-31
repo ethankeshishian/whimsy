@@ -30,6 +30,21 @@ export class WhimsyEaselChild extends JSWindowActorChild {
     if (message.name == "WhimsyEasel:OfferButton") {
       this.#waitForOverlay(0);
     }
+    if (message.name == "WhimsyEasel:PageBounds") {
+      // wave7: "Add Page to Easel". Sizes only; the parent draws the page.
+      const win = this.contentWindow;
+      const doc = this.document;
+      if (!win || !doc?.documentElement) {
+        return null;
+      }
+      return {
+        width: Math.max(doc.documentElement.scrollWidth, doc.documentElement.clientWidth),
+        height: Math.max(doc.documentElement.scrollHeight, doc.documentElement.clientHeight),
+        viewportWidth: doc.documentElement.clientWidth,
+        viewportHeight: doc.documentElement.clientHeight,
+        devicePixelRatio: win.devicePixelRatio,
+      };
+    }
     return null;
   }
 

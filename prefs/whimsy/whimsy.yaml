@@ -466,3 +466,19 @@
 
 - name: ui.textSelectAttentionForeground
   value: "#1d1a26"
+
+# wave7/easel: Sync of easels over Firefox Sync's prefs engine
+# (WhimsyEaselSync: text, shapes, drawings, links and capture pages; no
+# images; capped in size). Off: easels stay on this device.
+- name: whimsy.easel.sync
+  value: true
+
+- name: whimsy.easel.synced
+  value: ""
+
+- name: services.sync.prefs.sync.whimsy.easel.synced
+  value: true
+
+# Local only: the easel ids this device has put in whimsy.easel.synced.
+- name: whimsy.easel.sync-known
+  value: ""
