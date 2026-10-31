@@ -1,11 +1,121 @@
 {
   "groups": [
     {
-      "version": "Unreleased",
-      "title": "A front door",
+      "version": "Wave 7",
+      "date": "2026-10-31",
+      "title": "Live captions, menus and focus",
       "new": [
-        "A homepage with quick links to Settings, keyboard shortcuts, Arc import and feedback.",
-        "This changelog, with every build's changes in one place."
+        "Live captions: on-device speech-to-text for videos that lack captions.",
+        "Menus settings: turn individual right-click menu items on or off.",
+        "Focus integration: Whimsy toasts pause while a macOS Focus mode is on.",
+        "Paste guard: warns before pasting secrets or sensitive tokens into web pages.",
+        "Cast web video directly to AirPlay receivers from the View menu.",
+        "Local network discovery: Bonjour finds local development servers automatically.",
+        "Split View headers: each pane has a header menu to separate, swap, or close panes.",
+        "Redact tool: black out sensitive text or images before capturing screenshots.",
+        "Teach once: helpful hints the first time a shortcut can help you.",
+        "Turn a Scratch pad into a permanent space with the New Space dialog."
+      ],
+      "improved": [
+        "Fire button offers simpler choices to Fire in This Profile or Fire Everywhere.",
+        "Linear live folders work with your signed-in session without an API key.",
+        "Portrait captures take mobile-sized screenshots of any page.",
+        "Changelog dev build IDs show only on the Dev update channel."
+      ],
+      "fixed": [
+        "Split view restored layouts cleanly reconnect without closing sibling panes.",
+        "Quick window address fields keep controls centered and clear of traffic lights."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.580",
+      "date": "2026-10-30",
+      "title": "Profiles, link hints and audio controls",
+      "new": [
+        "Profiles: separate your personal, work, and school browsing with isolated logins, passwords, history, and extensions.",
+        "Audio indicator on tabs: see which tab is playing sound, with one-click mute.",
+        "Link hints: press Cmd+J to show letter badges on links and click them from the keyboard.",
+        "Zap: press Cmd+Shift+X to erase distracting banners or overlays from any page.",
+        "Instant result: press Shift+Enter in the command bar to open the top search result immediately.",
+        "Search Deck: flip through search results side-by-side in a Glance view.",
+        "Trails: branch back and forward through pages you navigated away from.",
+        "Page actions: address bar pill offering quick actions based on page data.",
+        "Copy as Markdown and view .md and .csv files directly in the browser.",
+        "Link lasso: Cmd+drag over links on a page to select and open them together.",
+        "Generate QR codes for any webpage from the context menu."
+      ],
+      "improved": [
+        "Already-open tabs: entering an open tab's URL in the command bar switches straight to it.",
+        "Unified Settings: cleaner navigation combining Appearance and Tab Management without lost options.",
+        "Linear and Jira live folders let you customize which issue statuses are shown."
+      ],
+      "fixed": [
+        "Mini Whimsy controls sit flush in the address strip and traffic lights no longer flicker.",
+        "Essentials and pinned tabs drop extraneous borders and place unread badges on the tile corner."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.413",
+      "date": "2026-10-30",
+      "title": "AI, seasonal touches and email aliases",
+      "new": [
+        "AI features: ask questions about the current page, preview pages in 5 seconds, and watch pages for changes.",
+        "Seasonal touches: dynamic seasonal gradients on tab loading and festive balloon costumes.",
+        "Email aliases: generate Firefox Relay and iCloud Hide My Email addresses in form fields.",
+        "Handoff: pick up your active web page on your iPhone or other Apple devices.",
+        "Offline Playlist: queue up video files to watch offline.",
+        "Liquid Glass effect for translucent sidebars and toolbars."
+      ],
+      "improved": [
+        "Tidy tabs cleans up verbose page titles when you pin a tab.",
+        "Library rail icons animate smoothly when clicked.",
+        "Reduced motion support across animations, balloons, and page decor.",
+        "Enhanced privacy protections for background readers and AI previews."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.339",
+      "date": "2026-10-30",
+      "title": "Mini Whimsy, calendar and history",
+      "new": [
+        "Mini Whimsy: lightweight floating windows for external links, with easy space switching.",
+        "Space-aware History: see which space you visited each page in, and filter History by space.",
+        "Next Meeting: see your upcoming calendar events in the sidebar and join calls with one click.",
+        "Whimsy homepage (about:whimsy) with quick links, keyboard shortcuts, and Arc import.",
+        "This changelog, showing every build's updates in one place.",
+        "Connect Claude: interact with your tabs using a private, token-free connection.",
+        "Per-space VPN: protect your connection across your whole browser or only in selected spaces.",
+        "Balloon Dash: an arcade mini-game when you're offline or waiting for a page to load.",
+        "Recent tabs in the command bar, plus offline search bangs.",
+        "Adjust Glance sizes to Compact, Standard, or Wide.",
+        "People cards: preview GitHub, LinkedIn, and X profiles by hovering over links."
+      ],
+      "improved": [
+        "Custom space icons featuring the full set of colorful glyphs.",
+        "Video speed controller: click the speed badge on any video to pick or type any playback speed.",
+        "Manage which extensions run in each space.",
+        "Tree tabs let you drag tabs to reparent them or collapse entire tab branches."
+      ]
+    },
+    {
+      "version": "1.24b-w2-dev.184",
+      "date": "2026-10-29",
+      "title": "Splits, tabs and library",
+      "new": [
+        "Open links in a side-by-side Split View, swap panes, or expand a pane to take the whole window.",
+        "Quick windows: open links from other apps in a focused window without cluttering your spaces.",
+        "Archive tabs automatically after 12 or 24 hours, and restore closed tabs with Cmd+Z.",
+        "Snooze tabs until later today, tomorrow, or a custom time.",
+        "Lock spaces with Touch ID or your system password.",
+        "Library sections for Notes, Downloads, Finder folders, Screenshots, and Archive.",
+        "Scratch pad for quick notes and private tabs.",
+        "Fire button to quickly close tabs and wipe recent browsing data.",
+        "System menu bar item to quickly jump to open tabs and spaces."
+      ],
+      "improved": [
+        "Tree style tab grouping with collapsible branches.",
+        "Clean print mode that removes site clutter before printing.",
+        "Heavy tab warnings when a page uses excessive CPU."
       ]
     },
     {

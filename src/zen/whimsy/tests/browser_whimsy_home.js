@@ -320,3 +320,34 @@ add_task(async function test_balloon_costumes_follow_the_switch() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// wave8: changelog includes every build through dev.580 and wave 7.
+add_task(async function test_changelog_includes_builds_through_dev580_and_wave7() {
+  await BrowserTestUtils.withNewTab("about:whimsy?tab=changelog", async browser => {
+    await SpecialPowers.spawn(browser, [], async () => {
+      const doc = content.document;
+      await ContentTaskUtils.waitForCondition(
+        () => doc.getElementById("whimsy-changelog-list").children.length,
+        "The changelog finished loading"
+      );
+
+      const expectedBuilds = [
+        "vwave-7",
+        "v1-24b-w2-dev-580",
+        "v1-24b-w2-dev-413",
+        "v1-24b-w2-dev-339",
+        "v1-24b-w2-dev-184",
+        "v1-24b-w2-dev-74",
+      ];
+      for (const id of expectedBuilds) {
+        const build = doc.getElementById(id);
+        ok(build, `Changelog contains build anchor #${id}`);
+        const title = build?.querySelector(".wh-build-title span");
+        ok(title && title.textContent.trim(), `Build #${id} has a non-empty title: ${title?.textContent}`);
+        const entries = build?.querySelectorAll(".whimsy-changelog-entries li") || [];
+        Assert.greater(entries.length, 0, `Build #${id} has at least one entry`);
+      }
+    });
+  });
+});
+
