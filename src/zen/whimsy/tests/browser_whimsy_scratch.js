@@ -285,8 +285,11 @@ add_task(async function test_keep_scratch_as_space() {
     gZenWorkspaces.getWorkspacesForSessionStore().some(space => space.uuid == kept.uuid),
     "It is saved like any space"
   );
+  // The private tab closes as its page reopens normally; wait for the
+  // reopened one, not the private tab on its way out.
   const reopened = await TestUtils.waitForCondition(() =>
-    gBrowser.tabs.find(t => !t.closing && t.linkedBrowser.currentURI?.spec == url)
+    gBrowser.tabs.find(t => !t.closing && t.linkedBrowser.currentURI?.spec == url &&
+      !WhimsyPrivate.isPrivateTab(t)), "The page reopened"
   );
   ok(!reopened.hasAttribute("whimsy-private"), "Its page reopened as a normal tab");
   ok(!reopened.linkedBrowser.browsingContext.usePrivateBrowsing, "... outside private browsing");
@@ -481,8 +484,11 @@ add_task(async function test_save_scratch_form_then_confirm() {
     gZenWorkspaces.getWorkspacesForSessionStore().some(space => space.uuid == kept.uuid),
     "It is saved like any space"
   );
+  // The private tab closes as its page reopens normally; wait for the
+  // reopened one, not the private tab on its way out.
   const reopened = await TestUtils.waitForCondition(() =>
-    gBrowser.tabs.find(t => !t.closing && t.linkedBrowser.currentURI?.spec == url)
+    gBrowser.tabs.find(t => !t.closing && t.linkedBrowser.currentURI?.spec == url &&
+      !WhimsyPrivate.isPrivateTab(t)), "The page reopened"
   );
   is(reopened.getAttribute("zen-workspace-id"), kept.uuid, "Its page stays in the space");
   ok(!reopened.hidden, "... and shows");
