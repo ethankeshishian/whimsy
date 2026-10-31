@@ -435,7 +435,10 @@ add_task(async function test_save_scratch_form_then_confirm() {
       ok(win.document.getElementById("infoBody").textContent.includes("private browsing"), "One sentence says what changes");
       ok(win.document.getElementById("loginContainer").hidden, "No text field takes the focus");
       ok(
-        ![...(document.getElementById("zen-toast-container")?.children ?? [])].some(t => t._messageId?.startsWith("whimsy-scratch")),
+        // (The previous task's "kept" result toast may still be fading out;
+        // it reports, it doesn't ask.)
+        ![...(document.getElementById("zen-toast-container")?.children ?? [])].some(t =>
+          t._messageId?.startsWith("whimsy-scratch") && t._messageId != "whimsy-scratch-kept-toast"),
         "No toast asks instead"
       );
       EventUtils.synthesizeKey("KEY_Escape", {}, win);

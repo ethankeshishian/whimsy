@@ -275,7 +275,11 @@ add_task(async function test_redact_inside_frames() {
     doc.getElementById("cross").src = cross;
     await Promise.all(loaded);
   });
-  const [same, cross] = browser.browsingContext.children;
+  // By host, not position: switching a frame to another origin can replace
+  // its browsing context, which reorders the children list.
+  const byHost = host => browser.browsingContext.children.find(bc => bc.currentWindowGlobal?.documentURI?.host == host);
+  const same = byHost("example.com");
+  const cross = byHost("example.org");
   ok(same && cross, "Two frames");
   await openScreenshots(browser);
   await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.rects.length >= 1, "The top page is redacted");
@@ -287,7 +291,10 @@ add_task(async function test_redact_inside_frames() {
   // Click #plain inside each frame, through the top page's point.
   for (const [frame, id] of [[same, "same"], [cross, "cross"]]) {
     const inner = await SpecialPowers.spawn(frame, [], () => {
-      const r = content.document.getElementById("plain").getBoundingClientRect();
+      // #plain sits below the 320px frame's fold; bring it into view first.
+      const el = content.document.getElementById("plain");
+      el.scrollIntoView({ block: "center" });
+      const r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     });
     const outer = await SpecialPowers.spawn(browser, [id], frameId => {
