@@ -127,6 +127,7 @@ const MENU_OF = {
   "tools-menu": [
     "cmd_whimsyVPNToggle", "cmd_whimsyFireButton", "cmd_whimsyForgetSite", "cmd_whimsyWatchPage",
     "whimsy-useragent-picker", "whimsy-cookie-editor", "whimsy-devmode-toggle-site", "cmd_whimsyJoinMeeting",
+    "cmd_whimsyToggleBatterySaver",
   ],
   "windowMenu": ["key_whimsyAirTrafficControl"],
   "helpMenu": ["whimsy-cheatsheet", "cmd_whimsyTeachReset"],

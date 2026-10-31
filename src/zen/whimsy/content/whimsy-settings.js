@@ -1970,6 +1970,11 @@ Object.assign(gWhimsySettings, {
         this.insertPerformanceGroup(
           document.querySelector('[groupid="performance"]')?.getAttribute("data-category") || "paneGeneral"
         ),
+      // wave9: Battery Saver, right after Performance
+      () =>
+        this.insertBatterySaverGroup?.(
+          document.querySelector('[groupid="performance"]')?.getAttribute("data-category") || "paneGeneral"
+        ),
       // About (async: it waits for Firefox's Updates group to render)
       () =>
         this.insertAboutGroup(
@@ -2435,3 +2440,41 @@ Object.assign(gWhimsySettings, {
 });
 
 document.addEventListener("DOMContentLoaded", () => gWhimsySettings.registerMenusPane(), { once: true });
+
+// wave9: Battery Saver's switch sits right after Performance (Firefox's group,
+// or Whimsy's Hardware video decoding below it). With the settings redesign
+// that is Tab Management; General is hidden there (review design-full-5 H2).
+Object.assign(gWhimsySettings, {
+  insertBatterySaverGroup(category = "paneGeneral") {
+    const template = document.getElementById("template-whimsyBatterySaver");
+    if (!template) {
+      const group = document.getElementById("whimsyBatterySaverGroup");
+      if (group) {
+        group.dataset.category = category;
+        group.hidden = false;
+      }
+      return;
+    }
+    const group = template.content.firstElementChild;
+    template.remove();
+    if (!Services.prefs.getBoolPref("whimsy.feature.battery-saver", true)) {
+      return;
+    }
+    Preferences.addAll([{ id: "whimsy.battery-saver.enabled", type: "bool" }]);
+    const anchor =
+      document.getElementById("whimsyPerformanceGroup") || document.querySelector('[groupid="performance"]');
+    group.dataset.category = category;
+    if (anchor) {
+      anchor.after(group);
+    } else {
+      document.getElementById("mainPrefPane").append(group);
+    }
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+  },
+});
+document.addEventListener("paneshown", event => {
+  if (["paneGeneral", "paneZenTabManagement"].includes(event.detail.category)) {
+    gWhimsySettings.insertBatterySaverGroup(event.detail.category);
+  }
+});

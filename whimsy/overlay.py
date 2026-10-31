@@ -1204,6 +1204,9 @@ FEATURES = [
     # wave9/menus: W9-09 right-click <-> command parity.
     {"id": "menu-parity", "title": "Right-click and command parity: every menu action is a command (no default shortcut), more commands as menu items (most off until turned on in Settings > Menus), Share submenu lists the share services",
      "detect": [("src/zen", r"(?i)sharingServicesForItems|menu-?command-?parity")]},
+    # wave9: Battery saver (Arc parity: threshold <20%, banner, auto-off when charged, frame rate and background throttles)
+    {"id": "battery-saver", "title": "Battery Saver: throttle frame rate (30fps) and background activity below 20% battery, with heads-up banner and auto-off when charged (Arc parity)",
+     "detect": [("src/zen", r"(?i)battery-?saver")]},
 ]
 
 

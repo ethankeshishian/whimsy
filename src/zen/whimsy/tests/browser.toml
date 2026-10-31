@@ -653,3 +653,5 @@ support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
 
 # wave9/menus: design-full-4 menu/command fixes (Scratch menu, no move into Scratch, one Expand Current Split, Delete Essential, keywords, Move Tab to Space N, New Note page-only, Watch variants, Mini Whimsy in File, Redo icon).
 ["browser_whimsy_menus_review.js"]
+# wave9: Battery saver (W8-01: threshold, banner, auto-off, throttles).
+["browser_whimsy_battery_saver.js"]
