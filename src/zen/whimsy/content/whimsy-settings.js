@@ -205,6 +205,20 @@ var gWhimsySettings = {
     this.refreshUpdates();
   },
 
+  // A row goes with its feature's switch, except a row that IS that switch
+  // (W10-12): turning it off in Settings must not take away the way to
+  // turn it back on. Such a row goes only when overlay.py ships the
+  // feature off because Zen has its own, unless it's off by choice
+  // (data-whimsy-opt-in, e.g. tree-style tabs).
+  keepFeatureRow(row) {
+    const id = row.dataset.whimsyFeature;
+    const pref = `whimsy.feature.${id}`;
+    if (row.getAttribute("preference") == pref || row.querySelector(`[preference="${pref}"]`)) {
+      return row.hasAttribute("data-whimsy-opt-in") || Services.prefs.getDefaultBranch("").getBoolPref(pref, true);
+    }
+    return this.lazy.Whimsy.featureEnabled(id);
+  },
+
   insertTabsGroup() {
     const template = document.getElementById("template-whimsyTabs");
     if (!template) {
@@ -213,7 +227,7 @@ var gWhimsySettings = {
     const fragment = template.content;
     const group = fragment.firstElementChild;
     for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
-      if (!this.lazy.Whimsy.featureEnabled(row.dataset.whimsyFeature)) {
+      if (!this.keepFeatureRow(row)) {
         row.remove();
       }
     }
@@ -761,7 +775,7 @@ Object.assign(gWhimsySettings, {
     const fragment = template.content;
     const group = fragment.firstElementChild;
     for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
-      if (!this.lazy.Whimsy.featureEnabled(row.dataset.whimsyFeature)) {
+      if (!this.keepFeatureRow(row)) {
         row.remove();
       }
     }
@@ -1057,7 +1071,8 @@ Object.assign(gWhimsySettings, {
     }
     const fragment = template.content;
     const group = fragment.firstElementChild;
-    if (!this.lazy.Whimsy.featureEnabled("space-extensions")) {
+    // Its one switch is the feature's own (W10-12: it stays when off).
+    if (!Services.prefs.getDefaultBranch("").getBoolPref("whimsy.feature.space-extensions", true)) {
       template.remove();
       return;
     }
@@ -1264,11 +1279,19 @@ Object.assign(gWhimsySettings, {
       appleButton.disabled = true;
       const status = await WhimsyAIProviders.appleStatus({ build });
       appleButton.disabled = false;
-      // W10-07: the status names the real reason (folders searched, the
-      // compiler's error), so nothing points at tools that are installed.
+      // W10-07: the status names the real reason; the line under it gives
+      // the compiler's own words, or the folders searched when the status
+      // doesn't already name them (it was "reinstall the tools" for any
+      // failure, on Macs where they're installed).
       setStatus("whimsyAIAppleStatus", `whimsy-ai-apple-status-${status}`, {
         detail: WhimsyAIProviders.appleDetail || "",
       });
+      const detail = document.getElementById("whimsyAIAppleDetail");
+      if (detail) {
+        const text = status == "apple-needs-tools" ? "" : WhimsyAIProviders.appleDetail || "";
+        detail.textContent = text;
+        detail.hidden = !text;
+      }
       document.l10n.setAttributes(
         appleButton,
         status == "not-set-up" ? "whimsy-ai-apple-set-up" : "whimsy-ai-apple-check"
@@ -2037,6 +2060,15 @@ Object.assign(gWhimsySettings, {
       this.hideHiddenHomeFromSearch();
       if (document.hasPendingL10nMutations) {
         await new Promise(r => document.addEventListener("L10nMutationsFinished", r, { once: true }));
+      }
+      // wave10 (W10-12): each setting is found by its short name and other
+      // words too ("Tidy Titles" for "Tidy tab titles").
+      try {
+        ChromeUtils.importESModule(
+          "resource:///modules/whimsy/WhimsySettingsCommands.sys.mjs"
+        ).WhimsySettingsCommands.applySearchKeywords(document);
+      } catch (e) {
+        console.error("Whimsy settings: search keywords", e);
       }
     };
     if (search._categoriesInitialized) {

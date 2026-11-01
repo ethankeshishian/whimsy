@@ -1280,6 +1280,11 @@ FEATURES = [
     # links reuse the open Mini, Cmd+O moves them all).
     {"id": "mini-tabs", "title": "Mini Whimsy tabs: pill tabs from the second page, sign-in popups as tabs, links from other apps join the open Mini, Cmd+O moves every page",
      "detect": [("src/zen", r"(?i)zen[\w.-]*(quick|mini)[\w.-]*window[\w.-]*tabs")]},
+    # wave10 (W10-12): every setting is a command (Turn ... On/Off, a choice,
+    # Increase/Decrease) with an assignable shortcut, and Settings search
+    # finds it by its short name and other words.
+    {"id": "settings-commands", "title": "Every setting is a command: turn any Whimsy setting on or off (or pick its choice) from the command bar or a shortcut, and find it in Settings by its name",
+     "detect": [("src/zen", r"(?i)settings?-?toggle-?commands?|pref-?toggle-?actions?")]},
 ]
 
 

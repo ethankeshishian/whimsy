@@ -151,6 +151,8 @@
         </hbox>
         <html:div id="whimsyAIAppleRow" hidden="hidden">
           <html:div id="whimsyAIAppleStatus" class="whimsy-updates-detail" role="status"/>
+          <!-- W10-07: what the Swift compiler said, when the helper didn't build. -->
+          <html:div id="whimsyAIAppleDetail" class="whimsy-updates-detail whimsy-ai-apple-detail" hidden="hidden"/>
           <hbox align="center">
             <button id="whimsyAIAppleCheck" data-l10n-id="whimsy-ai-apple-check"/>
           </hbox>
@@ -376,7 +378,7 @@
                 data-l10n-id="whimsy-view-source-wrap" preference="view_source.wrap_long_lines"
                 data-l10n-attrs="searchkeywords"/>
     </html:details>
-    <checkbox id="whimsyTreeTabs" data-whimsy-feature="tree-tabs"
+    <checkbox id="whimsyTreeTabs" data-whimsy-feature="tree-tabs" data-whimsy-opt-in="true"
               data-l10n-id="whimsy-tabs-tree-tabs" preference="whimsy.feature.tree-tabs"/>
     <vbox class="indent" data-whimsy-feature="tree-tabs">
       <radiogroup id="whimsyTreeStyle" preference="whimsy.tabs.tree-style" data-pref-type="string">
@@ -640,7 +642,7 @@
   <groupbox id="whimsySearchDeckGroup" data-category="paneSearch" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-search-header"/></label>
     <checkbox id="whimsySearchInstant" preference="whimsy.feature.instant-result" data-l10n-id="whimsy-search-instant"/>
-    <checkbox id="whimsySearchDeck" class="indent" preference="whimsy.feature.search-deck" data-l10n-id="whimsy-search-deck" data-l10n-attrs="searchkeywords"
+    <checkbox id="whimsySearchDeck" class="indent" preference="whimsy.feature.search-deck" data-l10n-id="whimsy-search-deck"
               aria-describedby="whimsySearchDeckHelp"/>
     <description id="whimsySearchDeckHelp" class="description-deemphasized indent" data-l10n-id="whimsy-search-deck-help"/>
   </groupbox>
@@ -651,7 +653,7 @@
 <html:template id="template-whimsyNavigation" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
   <checkbox id="whimsyAlreadyOpen"
             data-l10n-id="whimsy-already-open-setting" preference="whimsy.feature.already-open"/>
-  <checkbox id="whimsyTrails" data-l10n-attrs="searchkeywords"
+  <checkbox id="whimsyTrails"
             data-l10n-id="whimsy-trails-setting" preference="whimsy.feature.trails"/>
   <checkbox id="whimsyPageActions"
             data-l10n-id="whimsy-page-actions-setting" preference="whimsy.feature.page-actions"/>

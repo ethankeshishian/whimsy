@@ -61,6 +61,14 @@
     color: var(--text-color-deemphasized);
   }
 
+  /* W10-07: the Swift compiler's message, selectable to copy. */
+  .whimsy-ai-apple-detail {
+    font-family: ui-monospace, monospace;
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+    user-select: text;
+  }
+
   .whimsy-updates-channel {
     gap: 8px;
   }
