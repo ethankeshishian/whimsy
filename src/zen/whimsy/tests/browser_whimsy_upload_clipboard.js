@@ -255,7 +255,10 @@ add_task(async function test_cmd_v_on_dropzone_js() {
   await IOUtils.writeUTF8(path, "pasted");
   const original = WhimsyUploadParent.clipboardUpload;
   WhimsyUploadParent.clipboardUpload = async () => ({ path, isFile: true });
-  const page = getRootDirectory(gTestPath) + "whimsy_upload_dropzone.html";
+  // A web page, as dropzone.dev is (from chrome://, the page's own objects
+  // aren't behind an Xray, so there'd be no wrappedJSObject to read).
+  const page = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") +
+    "whimsy_upload_dropzone.html";
   try {
     await BrowserTestUtils.withNewTab(page, async browser => {
       // Hover the demo (nothing focused, nothing clicked), then Cmd+V.

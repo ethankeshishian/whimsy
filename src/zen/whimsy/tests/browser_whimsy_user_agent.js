@@ -55,7 +55,9 @@ add_task(async function test_pretend_command_opens_this_site() {
     gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
     const panel = document.getElementById("zen-unified-site-data-panel");
     const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
-    WhimsyCommands.get("whimsy-useragent-picker").run(window);
+    ok(WhimsyCommands.get("whimsy-useragent-picker"), "Change User Agent… is a command");
+    // Run as the command bar and its shortcut do: its <command>.
+    document.getElementById("whimsy-useragent-picker").doCommand();
     await shown;
     await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-site-settings-useragent-button",
       "Pretend to Be's dropdown has the keyboard");
@@ -100,10 +102,12 @@ add_task(async function test_pretend_command_without_site_settings() {
   registerCleanupFunction(() => WhimsyUserAgent.clear(HOST));
   try {
     await BrowserTestUtils.withNewTab(`https://${HOST}/`, async browser => {
-      const command = WhimsyCommands.get("whimsy-useragent-picker");
-      ok(command.isAvailable(window), "The command is still offered");
+      ok(WhimsyCommands.get("whimsy-useragent-picker"), "Change User Agent… is a command");
+      const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+      const row = globalActions.find(a => a.l10nId == "whimsy-action-useragent");
+      ok(row?.isAvailable(window), "The command bar still offers it");
       const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-pretend-panel");
-      command.run(window);
+      document.getElementById("whimsy-useragent-picker").doCommand();
       await shown;
       const panel = document.getElementById("whimsy-pretend-panel");
       ok(panel.classList.contains("whimsy-surface"), "A Whimsy surface");

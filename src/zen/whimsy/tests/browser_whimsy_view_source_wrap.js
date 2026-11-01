@@ -14,7 +14,11 @@ const { WhimsyCommands } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyCommands.sys.mjs"
 );
 
+const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+
 const COMMAND_ID = "cmd_whimsyToggleViewSourceWrap";
+// The command bar's "Wrap…" and "Stop Wrapping…" rows (its variants).
+const variant = l10nId => globalActions.find(a => a.l10nId == l10nId);
 const PREF_NAME = "view_source.wrap_long_lines";
 const FEATURE_PREF = "whimsy.feature.view-source-wrap";
 
@@ -42,9 +46,8 @@ add_task(async function test_view_source_wrap_toggle_execution() {
     ],
   });
 
-  const entry = WhimsyCommands.get(COMMAND_ID);
-  const onVariant = entry?.variants?.find(v => v.l10nId == "whimsy-action-view-source-wrap-on");
-  const offVariant = entry?.variants?.find(v => v.l10nId == "whimsy-action-view-source-wrap-off");
+  const onVariant = variant("whimsy-action-view-source-wrap-on");
+  const offVariant = variant("whimsy-action-view-source-wrap-off");
 
   ok(onVariant, "Has 'on' variant");
   ok(offVariant, "Has 'off' variant");
@@ -66,16 +69,18 @@ add_task(async function test_view_source_wrap_toggle_execution() {
 });
 
 add_task(async function test_view_source_wrap_settings_option() {
-  const tabsTemplate = document.getElementById("template-whimsyTabs");
-  ok(tabsTemplate, "template-whimsyTabs exists");
-  if (tabsTemplate) {
-    const content = tabsTemplate.content;
-    const wrapCb = content.querySelector("#whimsyViewSourceWrap");
-    ok(wrapCb, "whimsyViewSourceWrap checkbox exists in Settings Tab Management template");
-    is(wrapCb?.getAttribute("preference"), PREF_NAME, `Controls preference ${PREF_NAME}`);
-    is(wrapCb?.getAttribute("data-whimsy-feature"), "view-source-wrap", "Has data-whimsy-feature='view-source-wrap'");
-    is(wrapCb?.getAttribute("data-l10n-id"), "whimsy-view-source-wrap", "Has whimsy-view-source-wrap string");
-  }
+  // Settings → Tab Management → On-demand features.
+  await BrowserTestUtils.withNewTab("about:preferences", async browser => {
+    const doc = browser.contentDocument;
+    const wrapCb = await TestUtils.waitForCondition(
+      () => doc.getElementById("template-whimsyTabs")?.content.querySelector("#whimsyViewSourceWrap") ??
+        doc.getElementById("whimsyViewSourceWrap"),
+      "Settings has the line wrap switch"
+    );
+    is(wrapCb.getAttribute("preference"), PREF_NAME, `Controls preference ${PREF_NAME}`);
+    is(wrapCb.getAttribute("data-whimsy-feature"), "view-source-wrap", "Has data-whimsy-feature='view-source-wrap'");
+    is(wrapCb.getAttribute("data-l10n-id"), "whimsy-view-source-wrap", "Has whimsy-view-source-wrap string");
+  });
 });
 
 add_task(async function test_view_source_wrap_switch_disabled() {
@@ -86,9 +91,8 @@ add_task(async function test_view_source_wrap_switch_disabled() {
     ],
   });
 
-  const entry = WhimsyCommands.get(COMMAND_ID);
-  const onVariant = entry?.variants?.find(v => v.l10nId == "whimsy-action-view-source-wrap-on");
-  const offVariant = entry?.variants?.find(v => v.l10nId == "whimsy-action-view-source-wrap-off");
+  const onVariant = variant("whimsy-action-view-source-wrap-on");
+  const offVariant = variant("whimsy-action-view-source-wrap-off");
 
   ok(!onVariant.isAvailable(window), "When feature switch is off, variants are unavailable");
   ok(!offVariant.isAvailable(window), "When feature switch is off, variants are unavailable");
@@ -112,7 +116,8 @@ add_task(async function test_view_source_wrap_applies_live() {
   const url = "view-source:data:text/html," + encodeURIComponent(`<p>${long}</p>`);
   await BrowserTestUtils.withNewTab(url, async browser => {
     const whiteSpace = () =>
-      SpecialPowers.spawn(browser, [], () => content.getComputedStyle(content.document.querySelector("pre")).whiteSpace);
+      // The source is laid out in body#viewsource (one span per line).
+      SpecialPowers.spawn(browser, [], () => content.getComputedStyle(content.document.body).whiteSpace);
     is(await whiteSpace(), "pre", "long lines don't wrap to start with");
     document.getElementById(COMMAND_ID).doCommand();
     await TestUtils.waitForCondition(async () => (await whiteSpace()) == "pre-wrap", "the open source view wraps");

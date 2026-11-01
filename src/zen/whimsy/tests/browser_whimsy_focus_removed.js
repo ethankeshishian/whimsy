@@ -9,12 +9,31 @@
 
 const PREF = "whimsy.feature.macos-focus";
 
+// Whether the app ships a resource:// file. Not by loading it: in
+// automation, loading a missing chrome or resource URL crashes the browser
+// on purpose (it would be a packaging bug).
+async function shipped(url) {
+  const resolved = Services.io
+    .getProtocolHandler("resource")
+    .QueryInterface(Ci.nsIResProtocolHandler)
+    .resolveURI(Services.io.newURI(url));
+  if (resolved.startsWith("file:")) {
+    return IOUtils.exists(Services.io.newURI(resolved).QueryInterface(Ci.nsIFileURL).file.path);
+  }
+  // jar:file:///…/omni.ja!/modules/…
+  const [, jar, entry] = resolved.match(/^jar:(file:[^!]+)!\/(.+)$/);
+  const reader = Cc["@mozilla.org/libjar/zip-reader;1"].createInstance(Ci.nsIZipReader);
+  reader.open(Services.io.newURI(jar).QueryInterface(Ci.nsIFileURL).file);
+  try {
+    return reader.hasEntry(entry);
+  } finally {
+    reader.close();
+  }
+}
+
 add_task(async function test_focus_feature_gone() {
-  Assert.throws(
-    () => ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFocus.sys.mjs"),
-    /./,
-    "WhimsyFocus.sys.mjs isn't shipped"
-  );
+  ok(await shipped("resource:///modules/whimsy/WhimsyStartup.sys.mjs"), "(Whimsy's modules are found this way)");
+  ok(!(await shipped("resource:///modules/whimsy/WhimsyFocus.sys.mjs")), "WhimsyFocus.sys.mjs isn't shipped");
   ok(!("@whimsy/focus;1" in Cc), "The native Focus component isn't built");
   is(Services.prefs.getDefaultBranch("").getPrefType(PREF), Services.prefs.PREF_INVALID, "No default for the old switch");
 });

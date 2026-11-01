@@ -279,7 +279,7 @@ add_task(async function test_redact_inside_frames() {
   });
   // By host, not position: switching a frame to another origin can replace
   // its browsing context, which reorders the children list.
-  const byHost = host => browser.browsingContext.children.find(bc => bc.currentWindowGlobal?.documentURI?.host == host);
+  const byHost = host => browser.browsingContext.children.find(bc => bc.currentWindowGlobal?.documentURI?.spec.startsWith(`https://${host}/`));
   const same = byHost("example.com");
   const cross = byHost("example.org");
   ok(same && cross, "Two frames");
@@ -467,7 +467,7 @@ add_task(async function test_guard_cross_origin_frame() {
     frame.src = url;
     await loaded;
   });
-  const cross = browser.browsingContext.children.find(bc => bc.currentWindowGlobal?.documentURI?.host == "example.org");
+  const cross = browser.browsingContext.children.find(bc => bc.currentWindowGlobal?.documentURI?.spec.startsWith("https://example.org/"));
   ok(cross, "A cross-origin frame");
 
   await openScreenshots(browser);
