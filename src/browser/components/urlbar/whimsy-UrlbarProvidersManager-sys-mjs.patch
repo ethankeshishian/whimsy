@@ -1,22 +1,30 @@
 diff --git a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs b/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
-index e6be27e..91350f0 100644
+index e6be27e..d01862a 100644
 --- a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
 +++ b/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
-@@ -1024,10 +1024,16 @@ export class Query {
-       });
-     } else if (
-       !this.context.pendingHeuristicProviders.size &&
--      provider.type == lazy.UrlbarShared.PROVIDER_TYPE.HEURISTIC
-+      provider.type == lazy.UrlbarShared.PROVIDER_TYPE.HEURISTIC &&
-+      !this._whimsyHeuristicFired?.has(provider)
+@@ -1028,7 +1028,24 @@ export class Query {
      ) {
        // All the active heuristic providers have returned results, we can skip
        // the heuristic chunk timer and start showing results immediately.
-+      // Whimsy: once per provider and query. Zen's actions provider is a
-+      // heuristic provider that adds every command ("/" lists hundreds), and
-+      // firing on each of them rebuilt the whole view once per command,
-+      // stalling the bar for seconds. Its later results are chunked.
-+      (this._whimsyHeuristicFired ??= new Set()).add(provider);
-       this._chunkTimer.fire().catch(ex => lazy.logger.error(ex));
+-      this._chunkTimer.fire().catch(ex => lazy.logger.error(ex));
++      // Whimsy: a provider's first result shows at once as before; the rest
++      // of a burst it adds in one go shows together at the end of that burst
++      // (a microtask, still before anything else runs). Zen's actions
++      // provider is a heuristic provider that adds every command ("/" lists
++      // hundreds), and showing each at once rebuilt the whole view hundreds
++      // of times, stalling the bar for seconds.
++      if (!this._whimsyHeuristicShown?.has(provider)) {
++        (this._whimsyHeuristicShown ??= new Set()).add(provider);
++        this._chunkTimer.fire().catch(ex => lazy.logger.error(ex));
++      } else if (!this._whimsyShowQueued) {
++        this._whimsyShowQueued = true;
++        Promise.resolve().then(() => {
++          this._whimsyShowQueued = false;
++          if (this._chunkTimer && !this._chunkTimer.done) {
++            this._chunkTimer.fire().catch(ex => lazy.logger.error(ex));
++          }
++        });
++      }
      }
  
+     // Otherwise some timer is still ongoing and we'll wait for it.
