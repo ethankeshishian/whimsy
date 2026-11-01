@@ -512,14 +512,57 @@ export class WhimsyPageChild extends JSWindowActorChild {
     return videos[0] ?? null;
   }
 
+  // W10-44: what Cast to AirPlay can send. A plain file goes as it is. A
+  // Media Source video (blob:, what most streaming players use) can't, but
+  // when the player is streaming HLS (hls.js, video.js, JW Player, Twitch,
+  // most video sites outside YouTube) the stream's own .m3u8 playlist plays
+  // natively in AVPlayer, which hands it to the Apple TV. The playlist is
+  // the video's HLS <source>, else the first one this page fetched (the
+  // main playlist comes before its variants). DASH (YouTube) has no such
+  // address; that stays Screen Mirroring.
   castSource() {
     const el = this.castVideo();
     if (!el) {
       return null;
     }
     const src = el.currentSrc || el.src || "";
-    const direct = !el.srcObject && /^https?:/i.test(src);
-    return { src: direct ? src : "", direct, time: el.currentTime || 0, paused: el.paused };
+    const time = el.currentTime || 0;
+    const base = { paused: el.paused, area: this.area(el) };
+    if (!el.srcObject && /^https?:/i.test(src)) {
+      return { ...base, src, direct: true, kind: "file", time };
+    }
+    const hls = el.srcObject ? null : this.hlsPlaylist(el);
+    if (hls) {
+      // A live stream's position means nothing to AVPlayer: start live.
+      const live = !Number.isFinite(el.duration);
+      return { ...base, src: hls, direct: true, kind: "hls", live, time: live ? 0 : time };
+    }
+    return { ...base, src: "", direct: false, kind: "stream", time };
+  }
+
+  hlsPlaylist(el) {
+    const isPlaylist = url => {
+      try {
+        const u = new URL(url);
+        return (u.protocol == "https:" || u.protocol == "http:") && /\.m3u8$/i.test(u.pathname);
+      } catch (e) {
+        return false;
+      }
+    };
+    for (const source of el.querySelectorAll("source")) {
+      if (source.src && (/mpegurl/i.test(source.type) || isPlaylist(source.src)) && /^https?:/i.test(source.src)) {
+        return source.src;
+      }
+    }
+    let entries = [];
+    try {
+      entries = this.contentWindow.performance.getEntriesByType("resource");
+    } catch (e) {
+      return null;
+    }
+    const playlists = entries.filter(entry => isPlaylist(entry.name));
+    playlists.sort((a, b) => a.startTime - b.startTime);
+    return playlists[0]?.name ?? null;
   }
 
   castControl({ action, time }) {

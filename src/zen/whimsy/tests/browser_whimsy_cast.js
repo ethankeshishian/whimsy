@@ -202,3 +202,68 @@ add_task(async function test_mirror_toast_button() {
   WhimsyCast.openMirroring = original;
   BrowserTestUtils.removeTab(tab);
 });
+
+// W10-44: a Media Source player that streams HLS is cast by its playlist,
+// which AVPlayer and the Apple TV play natively.
+add_task(async function test_hls_player_casts_its_playlist() {
+  const native = fakeNative();
+  WhimsyCast.nativeOverride = native;
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ROOT + "whimsy_cast_hls.html");
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.fetched);
+  is(await WhimsyCast.cast(window), "picking", "A blob: video streaming HLS can be cast");
+  is(native.calls.length, 1, "The native player was asked");
+  ok(native.calls[0].url.startsWith("https://example.com/"), "with an https address");
+  ok(native.calls[0].url.endsWith("whimsy_cast_stream.m3u8"), "the stream's main playlist");
+  WhimsyCast.stop();
+  BrowserTestUtils.removeTab(tab);
+});
+
+// W10-44: players embedded in an iframe (another site's) are found too, and
+// the pause/seek goes to that frame.
+add_task(async function test_embedded_player() {
+  const native = fakeNative();
+  WhimsyCast.nativeOverride = native;
+  const frameSrc = ROOT.replace("https://example.com", "https://example.org") + "whimsy_cast.html";
+  const page =
+    "https://example.com/document-builder.sjs?html=" +
+    encodeURIComponent(`<p>An article</p><iframe id=player width=400 height=240 src="${frameSrc}"></iframe>`);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  const frame = tab.linkedBrowser.browsingContext.children[0];
+  ok(frame, "The player's frame");
+  await TestUtils.waitForCondition(
+    () => SpecialPowers.spawn(frame, [], () => content.document.readyState == "complete" && !!content.document.getElementById("direct")),
+    "The embedded player loaded"
+  );
+  await SpecialPowers.spawn(frame, [], () => content.document.getElementById("direct").play());
+  is(await WhimsyCast.cast(window), "picking", "The embedded video is cast");
+  ok(native.calls[0].url.startsWith("https://example.org/") && native.calls[0].url.endsWith("whimsy_audio.ogg"), "from its frame");
+  native.listener("connected", 0);
+  await TestUtils.waitForCondition(
+    () => SpecialPowers.spawn(frame, [], () => content.document.getElementById("direct").paused),
+    "The embedded video pauses while the TV plays"
+  );
+  WhimsyCast.stop();
+  BrowserTestUtils.removeTab(tab);
+});
+
+// W10-44: a stream the receiver can't play offers Screen Mirroring.
+add_task(async function test_failed_offers_mirroring() {
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  const native = fakeNative();
+  WhimsyCast.nativeOverride = native;
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  is(await WhimsyCast.cast(window), "picking", "Casting");
+  native.listener("failed", 0);
+  ok(!WhimsyCast.casting, "The session ends");
+  const toast = await TestUtils.waitForCondition(
+    () => WhimsyToast.current(window)?._messageId == "whimsy-cast-failed-toast" && WhimsyToast.current(window),
+    "It says the device couldn't play it"
+  );
+  let opened = 0;
+  const original = WhimsyCast.openMirroring;
+  WhimsyCast.openMirroring = () => opened++;
+  toast.querySelector(".whimsy-toast-action").click();
+  WhimsyCast.openMirroring = original;
+  is(opened, 1, "and its button opens Screen Mirroring");
+  BrowserTestUtils.removeTab(tab);
+});

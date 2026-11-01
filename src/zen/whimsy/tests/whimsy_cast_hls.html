@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Whimsy cast HLS test</title>
+<!-- W10-44: a Media Source player (blob: address) that streams HLS, as
+     hls.js does: it fetches the .m3u8 playlist, then feeds Media Source. -->
+<video id="v" width="320" height="180"></video>
+<script>
+  document.getElementById("v").src = URL.createObjectURL(new Blob(["x"], { type: "video/mp4" }));
+  window.fetched = fetch("whimsy_cast_stream.m3u8").then(r => r.text());
+</script>
