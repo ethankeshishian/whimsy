@@ -147,6 +147,27 @@ export const WhimsyUndo = {
     return this.undo(win);
   },
 
+  // Removes an entry without running its undo action (e.g. cancelled session).
+  removeEntry(win, entry) {
+    if (!entry) {
+      return;
+    }
+    const stack = undoStacks.get(win);
+    if (stack) {
+      const idx = stack.indexOf(entry);
+      if (idx !== -1) {
+        stack.splice(idx, 1);
+      }
+    }
+    const redos = redoStacks.get(win);
+    if (redos) {
+      const redoIdx = redos.indexOf(entry);
+      if (redoIdx !== -1) {
+        redos.splice(redoIdx, 1);
+      }
+    }
+  },
+
   canUndo(win) {
     return !!undoStacks.get(win)?.length;
   },

@@ -139,6 +139,14 @@ export const WhimsyStats = {
     Services.prefs.setIntPref(ZAPPED_PREF, Services.prefs.getIntPref(ZAPPED_PREF, 0) + 1);
   },
 
+  unrecordZap(count = 1) {
+    if (!this.enabled || count <= 0) {
+      return;
+    }
+    const current = Services.prefs.getIntPref(ZAPPED_PREF, 0);
+    Services.prefs.setIntPref(ZAPPED_PREF, Math.max(0, current - count));
+  },
+
   getZapCount() {
     return Services.prefs.getIntPref(ZAPPED_PREF, 0);
   },

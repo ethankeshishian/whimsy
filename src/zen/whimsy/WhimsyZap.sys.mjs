@@ -57,6 +57,76 @@ export const WhimsyZap = {
   _wrapped: false,
   // Zaps that can be undone while WhimsyUndo is switched off.
   _ownStack: [],
+  // Zaps made in the current zap mode session: browser -> Array<entry>
+  _sessionEntries: new WeakMap(),
+  _fallbackSessionEntries: [],
+
+  getSessionEntries(browser) {
+    if (browser) {
+      let list = this._sessionEntries.get(browser);
+      if (!list) {
+        list = [];
+        this._sessionEntries.set(browser, list);
+      }
+      return list;
+    }
+    return this._fallbackSessionEntries;
+  },
+
+  startSession(win, browser) {
+    browser = browser || win?.gBrowser?.selectedBrowser;
+    if (browser) {
+      this._sessionEntries.set(browser, []);
+    } else {
+      this._fallbackSessionEntries = [];
+    }
+  },
+
+  endSession(win, browser) {
+    browser = browser || win?.gBrowser?.selectedBrowser;
+    if (browser) {
+      this._sessionEntries.delete(browser);
+    }
+    this._fallbackSessionEntries = [];
+  },
+
+  async cancelSession(win, browser) {
+    browser = browser || win?.gBrowser?.selectedBrowser;
+    const entries = browser ? [...this.getSessionEntries(browser)] : [...this._fallbackSessionEntries];
+    if (browser) {
+      this._sessionEntries.delete(browser);
+    }
+    this._fallbackSessionEntries = [];
+
+    let cancelledCount = 0;
+    for (const entry of entries) {
+      const { selector, domain } = entry;
+      if (domain && selector && this.getZapSelectors(domain).includes(selector)) {
+        this.replay(() => this._remove(selector, domain));
+        cancelledCount++;
+      }
+      if (win && lazy.WhimsyUndo.enabled) {
+        lazy.WhimsyUndo.removeEntry?.(win, entry);
+      }
+      const idx = this._ownStack.indexOf(entry);
+      if (idx !== -1) {
+        this._ownStack.splice(idx, 1);
+      }
+    }
+    if (cancelledCount > 0) {
+      lazy.WhimsyStats.unrecordZap?.(cancelledCount);
+    }
+    return this.exit(win, browser);
+  },
+
+  async acceptSession(win, browser) {
+    browser = browser || win?.gBrowser?.selectedBrowser;
+    if (browser) {
+      this._sessionEntries.delete(browser);
+    }
+    this._fallbackSessionEntries = [];
+    return this.exit(win, browser);
+  },
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true) && Services.prefs.getBoolPref(BOOSTS_PREF, true);
@@ -226,8 +296,11 @@ export const WhimsyZap = {
     const browser = win.gBrowser.selectedBrowser;
     const domain = this.domainFor(browser);
     this.wrapManager();
-    if (!this.isZapping(win) && !this.ensureBoost(domain)) {
-      return false;
+    if (!this.isZapping(win)) {
+      if (!this.ensureBoost(domain)) {
+        return false;
+      }
+      this.startSession(win, browser);
     }
     await this.updateTint(win);
     try {
@@ -315,6 +388,7 @@ export const WhimsyZap = {
   onZapped(selector, domain) {
     lazy.WhimsyStats.recordZap();
     const win = Services.wm.getMostRecentWindow("navigator:browser");
+    const browser = win?.gBrowser?.selectedBrowser;
     const entry = {
       type: "zap",
       selector,
@@ -322,6 +396,7 @@ export const WhimsyZap = {
       undo: () => this.replay(() => this._remove(selector, domain)),
       redo: () => this.replay(() => this._add(selector, domain)),
     };
+    this.getSessionEntries(browser).push(entry);
     if (win && lazy.WhimsyUndo.enabled) {
       lazy.WhimsyUndo.push(win, entry);
     } else {
@@ -480,7 +555,13 @@ export const WhimsyZap = {
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
-        this.exit(win);
+        this.cancelSession(win);
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.acceptSession(win);
         return;
       }
       if (event.key?.toLowerCase() != "z" || event.altKey) {
@@ -503,6 +584,11 @@ export const WhimsyZap = {
           const container = m.target;
           const browser = container.querySelector("browser");
           const isZapping = container.hasAttribute("zen-zapping");
+          if (isZapping) {
+            this.startSession(win, browser);
+          } else {
+            this.endSession(win, browser);
+          }
           const actor = browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
           actor?.sendAsyncMessage("Whimsy:ZapActive", { active: isZapping });
         }
