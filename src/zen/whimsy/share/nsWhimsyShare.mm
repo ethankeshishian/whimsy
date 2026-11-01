@@ -27,11 +27,12 @@
 
 namespace {
 
-// Services that duplicate one Whimsy already has, or that don't work for a
-// browser's links.
+// Services that duplicate one Whimsy already has. W10-40 (user, 2026-10-31):
+// everything else macOS's own share menu shows stays, Add to Safari Reading
+// List included; only macOS's Copy Link goes, since Firefox's Copy Link row
+// is already in the submenu.
 NSArray<NSString*>* IgnoredServices() {
   return @[
-    @"com.apple.share.System.add-to-safari-reading-list",
     @"com.apple.share.CopyLink",
   ];
 }

@@ -14,6 +14,7 @@
 // - Share ▸ lists the share services itself.
 // - Firefox's container rows start off; Open Link in Space stays.
 
+const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
 const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
 const { WhimsyMenuPrefs, ADDED_HIDDEN } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs"
@@ -327,10 +328,64 @@ add_task(async function test_share_is_a_real_submenu() {
     ["AirDrop", "Mail"],
     "The submenu lists the share services"
   );
+  // W10-40: every service stays, and no row at the bottom reopens the same
+  // list in macOS's picker ("AirDrop, Messages, and More…").
+  const visible = [...sub.children].filter(shows);
+  is(visible.at(-1), rows.at(-1), "The last row is the last share service");
+  ok(!visible.some(n => n.classList.contains("share-mac-picker-item")), "No picker row repeats the services");
+  ok(sub.querySelector(".share-copy-link") && shows(sub.querySelector(".share-copy-link")), "Copy Link stays");
   sub.activateItem(rows[1]);
   await TestUtils.waitForCondition(() => shared.length, "Picking one shares");
   is(shared[0].name, "test.mail", "…with that service");
   ok(shared[0].urls[0].startsWith("https://example.com/"), "…the tab's address");
+  await closeMenu(menu);
+  WhimsyShareMenu._service = undefined;
+  BrowserTestUtils.removeTab(tab);
+});
+
+// W10-40 (user, 2026-10-31): the real share component lists everything
+// macOS's share menu does, Add to Safari Reading List included; only macOS's
+// Copy Link is left out (Firefox's Copy Link row is already there).
+add_task(function test_native_share_lists_everything_but_copy_link() {
+  WhimsyShareMenu._service = undefined;
+  if (!WhimsyShareMenu.service) {
+    ok(true, "No native share component on this platform");
+    return;
+  }
+  const names = WhimsyShareMenu.servicesFor(["https://example.com/"]).map(s => s.name);
+  ok(names.length, "macOS offers share services for a link");
+  ok(!names.includes("com.apple.share.CopyLink"), "macOS's duplicate Copy Link is left out");
+  ok(
+    names.includes("com.apple.share.System.add-to-safari-reading-list"),
+    "Add to Safari Reading List is listed, as in macOS's share menu"
+  );
+  WhimsyShareMenu._service = undefined;
+});
+
+// W10-40: with no services to list (the share component missing or failing),
+// Firefox's picker row is the way to share, so it stays.
+add_task(async function test_share_picker_is_the_fallback() {
+  if (AppConstants.platform != "macosx") {
+    ok(true, "The picker row is macOS only");
+    return;
+  }
+  WhimsyShareMenu._service = {
+    getServices(urls, names, titles, icons) {
+      names.value = [];
+      titles.value = [];
+      icons.value = [];
+    },
+    share: () => false,
+  };
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const menu = await openTabMenu(tab);
+  const share = menu.querySelector(".share-tab-url-item");
+  const sub = share.menupopup;
+  const shown = BrowserTestUtils.waitForEvent(sub, "popupshown");
+  share.openMenu(true);
+  await shown;
+  ok(!sub.querySelector(".whimsy-share-service"), "No services listed");
+  ok(shows(sub.querySelector(".share-mac-picker-item")), "Firefox's picker row is there instead");
   await closeMenu(menu);
   WhimsyShareMenu._service = undefined;
   BrowserTestUtils.removeTab(tab);

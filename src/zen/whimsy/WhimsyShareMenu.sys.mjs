@@ -12,8 +12,13 @@
 // lists the services themselves (AirDrop, Messages, Mail, Notes…, with
 // their icons), from the native share/ component; picking one runs it for
 // the same links Firefox would share (the tab, or every selected tab).
-// Firefox's "Share…" stays last, for the services macOS only offers in its
-// picker. Without the component (not macOS) nothing changes.
+// Without the component (not macOS) nothing changes.
+//
+// wave10 (W10-40): every service macOS offers stays listed, but Firefox's
+// last row ("AirDrop, Messages, and More…", the picker) goes while the
+// services are listed: it only opened a second menu with the same services
+// (user: "the extra show-more row just opens the share menu again"). It
+// comes back as the fallback whenever no services could be listed.
 
 const FEATURE_PREF = "whimsy.feature.menu-parity";
 const SERVICE_CLASS = "whimsy-share-service";
@@ -99,6 +104,17 @@ export const WhimsyShareMenu = {
     for (const old of popup.querySelectorAll(`.${SERVICE_CLASS}, .whimsy-share-separator`)) {
       old.remove();
     }
+    // Firefox's "Share…" row (the macOS picker) and the separator above it.
+    const picker = popup.querySelector(".share-mac-picker-item, .share-windows-item");
+    const anchor = picker?.previousElementSibling?.localName == "menuseparator" ? picker.previousElementSibling : picker;
+    const showPicker = shown => {
+      for (const node of new Set([anchor, picker])) {
+        if (node) {
+          node.hidden = !shown;
+        }
+      }
+    };
+    showPicker(true);
     if (!this.enabled) {
       return;
     }
@@ -109,9 +125,6 @@ export const WhimsyShareMenu = {
       return;
     }
     const { document } = win;
-    // Before Firefox's "Share…" (and its separator), else last.
-    const picker = popup.querySelector(".share-mac-picker-item, .share-windows-item");
-    const anchor = picker?.previousElementSibling?.localName == "menuseparator" ? picker.previousElementSibling : picker;
     const rows = [];
     const separator = document.createXULElement("menuseparator");
     separator.className = "whimsy-share-separator";
@@ -131,10 +144,15 @@ export const WhimsyShareMenu = {
       });
       rows.push(item);
     }
+    // Where Firefox's "Share…" was, else last.
     if (anchor) {
       anchor.before(...rows);
     } else {
       popup.append(...rows);
+    }
+    // W10-40: the macOS picker would only list these same services again.
+    if (picker?.classList.contains("share-mac-picker-item")) {
+      showPicker(false);
     }
   },
 

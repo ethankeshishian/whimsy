@@ -388,6 +388,8 @@ export const WhimsyArchive = {
       );
       return;
     }
+    // W10-06 (user, 2026-10-31): archiving a tab yourself shows no toast.
+    // Cmd+Z and Edit → Undo Archive Tab still bring it back.
     lazy.WhimsyUndo.push(win, {
       type: `archive:${reason}`,
       undo: () => this.undoLastArchive(win, count),
