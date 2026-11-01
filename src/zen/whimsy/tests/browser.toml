@@ -728,3 +728,6 @@ support-files = ["whimsy_article.html"]
 
 # wave10/desA W10-15/25/30: toast icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" actions, no timeout.
 ["browser_whimsy_toast_states.js"]
+
+# wave10/desA W10-24: no Whimsy sheet or surface draws a stray vertical divider; surfaces stack vertically with no arrow tail.
+["browser_whimsy_popup_dividers.js"]

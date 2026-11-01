@@ -119,11 +119,12 @@ add_task(async function test_delete_undo_and_menu() {
   registerCleanupFunction(() => lib.constructor.animateProgress(wasOpen ? 1 : 0));
   const section = await TestUtils.waitForCondition(() => lib.querySelector("whimsy-library-files-section"));
   const findRow = () =>
-    [...section.querySelectorAll(".zen-library-row")].find(r => r.textContent.includes("whimsy-capture-undo-test"));
+    [...section.querySelectorAll(".whimsy-library-shot-cell")].find(r => r.textContent.includes("whimsy-capture-undo-test"));
   let row = await TestUtils.waitForCondition(findRow, "The screenshot has a row");
 
   // Right-click: a menu, nothing revealed.
-  row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, screenX: 100, screenY: 100 }));
+  row.querySelector(".whimsy-library-shot").dispatchEvent(
+    new MouseEvent("contextmenu", { bubbles: true, cancelable: true, screenX: 100, screenY: 100 }));
   const menu = await TestUtils.waitForCondition(() => document.querySelector(".whimsy-library-files-menu"), "A menu");
   if (menu.state != "open") {
     await BrowserTestUtils.waitForPopupEvent(menu, "shown");
@@ -133,7 +134,7 @@ add_task(async function test_delete_undo_and_menu() {
   for (const item of menu.querySelectorAll("menuitem")) {
     ok(item.getAttribute("label"), `${item.dataset.action} has a label`);
   }
-  ok(row.hasAttribute("menu-open"), "The row shows it has the menu");
+  ok(row.querySelector(".whimsy-library-shot").hasAttribute("menu-open"), "The thumbnail shows it has the menu");
 
   // Copy puts the image on the clipboard.
   const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
@@ -156,4 +157,52 @@ add_task(async function test_delete_undo_and_menu() {
   await TestUtils.waitForCondition(findRow, "and its row");
   Assert.deepEqual(await IOUtils.read(path), bytes, "unchanged");
   ok(!listCaptures().some(f => f.isDirectory()), "The held copy never shows as a screenshot");
+});
+
+// W10-24: real thumbnails in a grid; Finder's size slider sets 96, 150 or
+// 240px columns and is remembered.
+add_task(async function test_thumbnail_grid_and_size() {
+  const lib = getLibrary();
+  if (!lib) {
+    ok(true, "No <zen-library> in this window; nothing to check");
+    return;
+  }
+  const dir = capturesDir();
+  await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+  const canvas = new OffscreenCanvas(320, 200);
+  canvas.getContext("2d").fillRect(0, 0, 320, 200);
+  const path = PathUtils.join(dir, "whimsy-capture-grid-test.png");
+  await IOUtils.write(path, new Uint8Array(await (await canvas.convertToBlob()).arrayBuffer()));
+  registerCleanupFunction(() => IOUtils.remove(path, { ignoreAbsent: true }));
+  registerCleanupFunction(() => Services.prefs.clearUserPref("whimsy.library.screenshot-size"));
+  Services.obs.notifyObservers(null, "whimsy-capture-saved", path);
+
+  const wasOpen = lib.constructor.isLibraryOpen;
+  await TestUtils.waitForCondition(() => lib.zenLibrarySections["whimsy-files"]);
+  lib.activeTab = "whimsy-files";
+  await lib.constructor.animateProgress(1);
+  registerCleanupFunction(() => lib.constructor.animateProgress(wasOpen ? 1 : 0));
+  const section = await TestUtils.waitForCondition(() => lib.querySelector("whimsy-library-files-section"));
+  const cell = await TestUtils.waitForCondition(() =>
+    [...section.querySelectorAll(".whimsy-library-shot-cell")].find(c => c.textContent.includes("whimsy-capture-grid-test")),
+  "The screenshot has a tile");
+  const image = cell.querySelector("img.whimsy-library-shot-image");
+  ok(image.src.endsWith("whimsy-capture-grid-test.png"), "The tile shows the screenshot itself");
+  is(getComputedStyle(section.querySelector(".whimsy-library-shots")).display, "grid", "in a grid");
+
+  const slider = section.querySelector("input.whimsy-library-shot-size");
+  ok(slider, "A size slider");
+  const setSize = async value => {
+    slider.value = String(value);
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+    await TestUtils.waitForCondition(() =>
+      section.querySelector(".whimsy-library-shots").style.getPropertyValue("--whimsy-shot-size") ==
+        `${[96, 150, 240][value]}px`, `Size ${value}`);
+  };
+  await setSize(0);
+  Assert.greaterOrEqual(image.getBoundingClientRect().width, 95, "Small thumbnails are still at least 96px");
+  await setSize(2);
+  is(Services.prefs.getIntPref("whimsy.library.screenshot-size"), 2, "The size is remembered");
+  ok(getComputedStyle(section.querySelector(".whimsy-library-shots")).gridTemplateColumns.split(" ")
+    .every(w => parseFloat(w) >= 239), "Large: columns at least 240px");
 });

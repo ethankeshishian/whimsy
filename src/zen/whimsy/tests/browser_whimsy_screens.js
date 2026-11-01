@@ -1897,3 +1897,80 @@ add_task(async function w10_cheat_sheet() {
     return true;
   });
 });
+
+// W10-24: Add to Easel with a capture and two easels, the first-easel
+// state, and Library ▸ Screenshots as a grid.
+add_task(async function w10_easel_picker_and_library() {
+  const { WhimsyEasel, gWhimsyEaselStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyEasel.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-easel");
+  const canvas = new OffscreenCanvas(640, 400);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#e9e4f5";
+  ctx.fillRect(0, 0, 640, 400);
+  ctx.fillStyle = "#7a6ad8";
+  ctx.fillRect(40, 40, 300, 40);
+  const blob = await canvas.convertToBlob();
+  const capture = { blob, item: { type: "capture", live: false, crop: { x: 0, y: 0, w: 1280, h: 720 }, profileKey: "default" } };
+  const created = [];
+  try {
+    await w10SurfaceShot("easel-picker-first", "whimsy-easel-picker",
+      () => WhimsyEasel.showPicker(window, tab.linkedBrowser, null, () => {}, "w10-shot-empty-profile", { capture }));
+    for (const title of ["Mood board", "Launch plan for the autumn campaign and its many moving parts"]) {
+      const easel = await gWhimsyEaselStore.create({ title });
+      created.push(easel);
+      const image = await gWhimsyEaselStore.saveImage(easel.id, new Uint8Array(await blob.arrayBuffer()));
+      await gWhimsyEaselStore.addItem(easel.id, { type: "capture", image, w: 320, h: 200 });
+    }
+    await w10SurfaceShot("easel-picker", "whimsy-easel-picker",
+      () => WhimsyEasel.showPicker(window, tab.linkedBrowser, null, () => {}, "default", { capture }),
+      panel => panel.querySelectorAll(".whimsy-easel-tile-thumb img").length >= 2);
+  } finally {
+    for (const easel of created) {
+      await gWhimsyEaselStore.remove(easel.id);
+    }
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-24: Library ▸ Screenshots as a grid of thumbnails with the size slider.
+add_task(async function w10_library_screenshots() {
+  const library = document.querySelector("zen-library");
+  if (!library) {
+    return;
+  }
+  const sub = Services.prefs.getStringPref("whimsy.captures.folder", "") || "whimsy-captures";
+  const dir = PathUtils.isAbsolute(sub) ? sub : PathUtils.join(PathUtils.profileDir, sub);
+  await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+  const paths = [];
+  for (const [i, color] of ["#7a6ad8", "#e9590c", "#1d8a4a", "#0b5cad"].entries()) {
+    const canvas = new OffscreenCanvas(640, 400);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#f4f4f4";
+    ctx.fillRect(0, 0, 640, 400);
+    ctx.fillStyle = color;
+    ctx.fillRect(40, 40, 360, 60);
+    ctx.fillRect(40, 140, 560, 200);
+    const path = PathUtils.join(dir, `Screenshot ${i + 1} w10 shot.png`);
+    await IOUtils.write(path, new Uint8Array(await (await canvas.convertToBlob()).arrayBuffer()));
+    paths.push(path);
+  }
+  Services.obs.notifyObservers(null, "whimsy-capture-saved", paths[0]);
+  const wasOpen = library.constructor.isLibraryOpen;
+  try {
+    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-files"]);
+    library.activeTab = "whimsy-files";
+    await library.constructor.animateProgress(1);
+    await TestUtils.waitForCondition(() => library.querySelectorAll(".whimsy-library-shot-image").length >= 4, "Tiles");
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await settled();
+      await shot(`w10-library-screenshots-${dark ? "dark" : "light"}`);
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    await library.constructor.animateProgress(wasOpen ? 1 : 0);
+    for (const path of paths) {
+      await IOUtils.remove(path, { ignoreAbsent: true });
+    }
+  }
+});

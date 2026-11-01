@@ -333,17 +333,42 @@ add_task(async function test_capture_button_and_picker() {
   // The picker: New Easel, then recent easels.
   const existing = await gWhimsyEaselStore.create({ title: "Mood board" });
   registerCleanupFunction(() => gWhimsyEaselStore.remove(existing.id));
-  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", false, e => e.target.id == "whimsy-easel-capture-menu");
+  // W10-24: the picker is a surface with the capture's thumbnail and a
+  // grid of easel tiles, not a native menu.
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-easel-picker");
   const region = { left: 0, top: 0, right: 300, bottom: 150 };
   WhimsyEasel.onCaptureRequest(browser, { region, devicePixelRatio: 1, viewportWidth: 1000, viewportHeight: 700 }, { x: 10, y: 10 });
-  const menu = (await shown).target;
-  const labels = [...menu.querySelectorAll("menuitem")].map(m => m.label);
-  is(labels[0], "New Easel", "New Easel comes first");
-  ok(labels.includes("Mood board"), "Existing easels are listed");
-  const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
-  menu.activateItem([...menu.querySelectorAll("menuitem")].find(m => m.label == "Mood board"));
+  const picker = (await shown).target;
+  ok(picker.classList.contains("whimsy-surface"), "A Whimsy surface");
+  ok(!document.getElementById("whimsy-easel-capture-menu") && !picker.querySelector("menuitem"), "No native menu");
+  const preview = picker.querySelector("img.whimsy-easel-picker-preview");
+  ok(preview?.src.startsWith("blob:"), "The capture's own thumbnail");
+  await document.l10n.translateFragment(picker);
+  is(picker.querySelector(".whimsy-easel-picker-size").textContent.replace(/[\u2068\u2069]/g, ""), "300 × 150", "with its size");
+  const tiles = [...picker.querySelectorAll(".whimsy-easel-tile")];
+  is(tiles[0].dataset.easel, "new", "New Easel comes first");
+  const mood = tiles.find(t => t.textContent.includes("Mood board"));
+  ok(mood, "Existing easels are listed");
+  ok(mood.querySelector(".whimsy-easel-tile-thumb"), "with a thumbnail");
+  ok(mood.querySelector(".whimsy-easel-tile-when").textContent.startsWith("Edited"), "and when it was edited");
+  await TestUtils.waitForCondition(() => document.activeElement == tiles[0], "New Easel has the keyboard");
+  // Arrows move in the grid; Return adds to the focused easel.
+  EventUtils.synthesizeKey("KEY_End", {}, window);
+  ok(document.activeElement.classList.contains("whimsy-easel-tile"), "Arrow keys move through the tiles");
+  mood.focus();
+  const hidden = BrowserTestUtils.waitForEvent(picker, "popuphidden");
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  EventUtils.synthesizeKey("KEY_Enter", {}, window);
   await hidden;
   await TestUtils.waitForCondition(async () => (await gWhimsyEaselStore.get(existing.id)).items.length == 1, "The capture lands in the chosen easel");
+  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast says where it went");
+  is(toast._messageId, "whimsy-easel-capture-added", "Added to Mood board");
+  ok(toast.querySelector(".whimsy-toast-action"), "with Open");
+  WhimsyToast._dismissNow(toast);
+
+  // The next picker shows Mood board's first capture as its thumbnail.
+  const thumb = await gWhimsyEaselStore.thumbnail(existing.id);
+  ok(thumb?.bytes?.length, "The easel has a thumbnail now");
 });
 
 add_task(async function test_export_png() {
@@ -714,7 +739,7 @@ add_task(async function test_easels_are_per_profile() {
 
   // The Add to Easel picker lists only the capture's profile's easels.
   const menu = await WhimsyEasel.showPicker(window, gBrowser.selectedBrowser, { x: 0, y: 0 }, () => {}, workKey);
-  const labels = [...menu.querySelectorAll("menuitem")].map(i => i.getAttribute("label")).filter(Boolean);
+  const labels = [...menu.querySelectorAll(".whimsy-easel-tile-name")].map(n => n.textContent);
   ok(labels.includes("Work board"), "The picker lists Work's easels");
   ok(!labels.includes("Default board"), "and not Default's");
   menu.hidePopup();

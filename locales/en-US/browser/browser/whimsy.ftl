@@ -640,6 +640,11 @@ whimsy-library-files-search-placeholder =
     .placeholder = Search screenshots…
 whimsy-library-files-delete =
     .label = Delete
+    .tooltiptext = Delete
+# W10-24: the empty state's hint. $key (string) - Capture's shortcut, like ⇧⌘2
+whimsy-library-files-empty-hint = Press { $key } to capture part of a page.
+whimsy-library-shot-size =
+    .aria-label = Thumbnail size
 ## batch12: links & media windows (Mini Whimsy, Arc's "Little Arc")
 
 whimsy-action-quick-window = New Mini Whimsy
@@ -1912,10 +1917,18 @@ whimsy-easel-enable =
 whimsy-action-new-easel = New Easel
 whimsy-easel-capture-button = Add to Easel
     .title = Add this capture to an easel
-whimsy-easel-picker-title =
-    .label = Add to Easel
-whimsy-easel-picker-new =
-    .label = New Easel
+# W10-24: the Add to Easel picker (a surface with thumbnails).
+whimsy-easel-picker-heading = Add to Easel
+whimsy-easel-picker-live = Live capture
+whimsy-easel-picker-still = Screenshot
+# $width, $height (number) - the capture's size in pixels
+whimsy-easel-picker-size-live = { $width } × { $height } · updates when you refresh the easel
+whimsy-easel-picker-size-still = { $width } × { $height }
+whimsy-easel-picker-new-tile = New Easel
+whimsy-easel-picker-first = Easels are boards for captures, notes and drawings. Your first one will start with this capture.
+# $when (string) - "2 hours ago", "yesterday", "Oct 12"
+whimsy-easel-edited = Edited { $when }
+whimsy-easel-open = Open
 # $title (String) - the easel's name
 whimsy-easel-capture-added = Added to { $title }
 whimsy-easel-capture-private = Captures from private tabs can't be added to an easel
