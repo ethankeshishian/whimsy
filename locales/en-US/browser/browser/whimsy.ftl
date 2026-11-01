@@ -294,6 +294,9 @@ whimsy-action-disallow-copy = Stop Allowing Copy and Paste on This Site
 whimsy-allow-copy-toast = Copy, paste and right-click now work on { $site }
 # $site (string) - the site, e.g. example.com
 whimsy-disallow-copy-toast = { $site } can block copy and paste again
+# W10-41: shown when a page that blocks copying also cancels the right-click menu.
+whimsy-allow-copy-offer-toast = This site blocks right-click and copying
+whimsy-allow-copy-offer-action = Allow Copy and Paste
 
 ## Internet Archive (notification bar and command bar)
 

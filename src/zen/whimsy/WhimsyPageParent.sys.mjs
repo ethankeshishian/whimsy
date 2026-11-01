@@ -83,6 +83,16 @@ export class WhimsyPageParent extends JSWindowActorParent {
         }
         return null;
       }
+      // W10-41: the page cancelled the right-click on a page that blocks
+      // copying; offer Allow Copy and Paste in a toast.
+      case "Whimsy:ContextMenuBlocked": {
+        const browser = this.browsingContext.top.embedderElement;
+        const win = browser?.ownerDocument?.defaultView;
+        if (win) {
+          lazy.WhimsyPage.offerAllowCopy(win, browser);
+        }
+        return null;
+      }
       case "Whimsy:ZapExit": {
         const browser = this.browsingContext.top.embedderElement;
         const win = browser?.ownerDocument?.defaultView;

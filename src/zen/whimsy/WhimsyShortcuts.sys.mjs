@@ -65,6 +65,13 @@ export const DOWNLOADS_BINDING = { modifiers: "accel,shift", key: "J" };
 
 const ATTRS = ["data-l10n-id", "key", "keycode", "modifiers"];
 
+// W10-41: keys a page can't swallow. Copy URL (Cmd+Shift+C) and Copy URL as
+// Markdown failed on copy-protected pages, whose keydown handler cancels
+// every Cmd+C; Arc's Copy URL always works. reserved="true" makes Gecko run
+// the key before the page sees it (GlobalKeyListener::IsReservedKey), as
+// for Cmd+T and Cmd+W. The key stays customizable.
+export const RESERVED_KEYS = ["zen-copy-url", "zen-copy-url-markdown"];
+
 export const WhimsyShortcuts = {
   SHORTCUTS,
 
@@ -73,14 +80,16 @@ export const WhimsyShortcuts = {
   },
 
   initWindow(win) {
+    const reserved = this.reserveKeys(win);
     if (!this.enabled) {
+      this.rebindKeysets(reserved);
       return;
     }
     const all = { ...SHORTCUTS };
     if (Services.prefs.getBoolPref(CAPTURE_FEATURE_PREF, true)) {
       Object.assign(all, CAPTURE_SHORTCUTS);
     }
-    const keysets = new Set();
+    const keysets = new Set(reserved);
     for (const [id, binding] of Object.entries(all)) {
       const keyEl = win.document.getElementById(id);
       if (!keyEl || this.isCustomized(id)) {
@@ -119,6 +128,19 @@ export const WhimsyShortcuts = {
         }
       }, { once: true });
     }
+  },
+
+  // Marks RESERVED_KEYS reserved; returns the keysets that need rebinding.
+  reserveKeys(win) {
+    const keysets = new Set();
+    for (const id of RESERVED_KEYS) {
+      const keyEl = win.document.getElementById(id);
+      if (keyEl && keyEl.getAttribute("reserved") != "true") {
+        keyEl.setAttribute("reserved", "true");
+        keysets.add(keyEl.parentElement);
+      }
+    }
+    return keysets;
   },
 
   setBinding(keyEl, binding) {

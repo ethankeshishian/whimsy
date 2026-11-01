@@ -5,10 +5,13 @@
 // The content side of Whimsy's page tools (one actor per frame, created on
 // first use). WhimsyPageParent sends the requests.
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PictureInPictureChild: "moz-src:///toolkit/actors/PictureInPictureChild.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 // Per-tab volume: each media element keeps the volume the page set
@@ -19,6 +22,21 @@ const MEDIA = new WeakMap();
 // Allow copy and paste: the page events Whimsy keeps from the page, and the
 // sheet that undoes user-select: none.
 const COPY_EVENTS = ["copy", "cut", "paste", "contextmenu", "selectstart", "dragstart"];
+// W10-41: copy-protection plugins (WP Content Copy Protection on
+// ratzillacosme.com) also cancel the copy keys themselves: a keydown
+// handler on the document returns false for Cmd+C/X/V/A, which kept
+// Cmd+C from copying even with Allow Copy on, and Cmd+Shift+C (Copy URL)
+// too. Only these keys are kept from the page; its other shortcuts work.
+const COPY_KEY_EVENTS = ["keydown", "keypress", "keyup"];
+const COPY_KEY_CODES = new Set(["KeyA", "KeyC", "KeyV", "KeyX"]);
+export function isCopyKey(event) {
+  const accel = AppConstants.platform == "macosx" ? event.metaKey : event.ctrlKey;
+  if (accel && COPY_KEY_CODES.has(event.code)) {
+    return true;
+  }
+  // Ctrl+Insert / Shift+Insert (copy / paste outside macOS).
+  return event.code == "Insert" && (event.ctrlKey || event.shiftKey);
+}
 const COPY_SHEET =
   "data:text/css," +
   encodeURIComponent("*, *::before, *::after { user-select: text !important; -webkit-user-select: text !important; }");
@@ -98,6 +116,28 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // A page torn down mid-event.
     }
     this.sendAsyncMessage("Whimsy:CopyBlocked", { blocked });
+    // W10-41: the same pages usually cancel this right-click too (the
+    // "Right click on text is disabled" kind), so Firefox's menu, and its
+    // Allow Copy and Paste row, never opens. Once the event is done, if
+    // the page cancelled it, the parent offers Allow Copy and Paste in a
+    // toast instead (once per page).
+    if (blocked && event.isTrusted && !this.menuBlockOffered) {
+      lazy.setTimeout(() => {
+        try {
+          if (
+            event.defaultPrevented &&
+            !this.copyGuard &&
+            !this.menuBlockOffered &&
+            Services.prefs.getBoolPref("dom.event.contextmenu.enabled", true)
+          ) {
+            this.menuBlockOffered = true;
+            this.sendAsyncMessage("Whimsy:ContextMenuBlocked");
+          }
+        } catch (e) {
+          // The page went away.
+        }
+      }, 0);
+    }
   }
 
   pageBlocksCopy(target) {
@@ -591,15 +631,27 @@ export class WhimsyPageChild extends JSWindowActorChild {
     }
     if (on && !this.copyGuard) {
       this.copyGuard = event => event.stopImmediatePropagation();
+      this.copyKeyGuard = event => {
+        if (isCopyKey(event)) {
+          event.stopImmediatePropagation();
+        }
+      };
       for (const type of COPY_EVENTS) {
         win.addEventListener(type, this.copyGuard, true);
+      }
+      for (const type of COPY_KEY_EVENTS) {
+        win.addEventListener(type, this.copyKeyGuard, true);
       }
       win.windowUtils.loadSheetUsingURIString(COPY_SHEET, win.windowUtils.USER_SHEET);
     } else if (!on && this.copyGuard) {
       for (const type of COPY_EVENTS) {
         win.removeEventListener(type, this.copyGuard, true);
       }
+      for (const type of COPY_KEY_EVENTS) {
+        win.removeEventListener(type, this.copyKeyGuard, true);
+      }
       this.copyGuard = null;
+      this.copyKeyGuard = null;
       win.windowUtils.removeSheetUsingURIString(COPY_SHEET, win.windowUtils.USER_SHEET);
     }
     return !!this.copyGuard;
