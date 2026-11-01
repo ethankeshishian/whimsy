@@ -389,7 +389,7 @@ add_task(async function test_save_scratch_form_then_confirm() {
   is(form.localName, "zen-workspace-creation", "It is Zen's New Space form, not a copy");
   ok(gZenWorkspaces.workspaceElement(scratch.uuid).contains(form), "It opens inside Scratch");
   await TestUtils.waitForCondition(
-    () => form.querySelector(".zen-workspace-creation-title").textContent == "Save Scratch as a Space",
+    () => form.querySelector(".zen-workspace-creation-title").textContent == "Save Private Space as a Normal Space",
     "Its title says what it does"
   );
   is(form.createButton.label, "Save Space", "Its button reads Save Space");
@@ -443,7 +443,7 @@ add_task(async function test_save_scratch_form_then_confirm() {
       is(dialogEl.getButton("accept").label, "Save Space", "The button says what it does");
       ok(!dialogEl.getButton("cancel").hidden, "There's a Cancel button");
       is(dialogEl.defaultButton, "cancel", "Cancel, the safe button, is the default");
-      is(win.document.getElementById("infoTitle").textContent, "Save Scratch as a Space?", "It has a title");
+      is(win.document.getElementById("infoTitle").textContent, "Save Private Space as a Normal Space?", "It has a title");
       ok(win.document.getElementById("infoBody").textContent.includes("private browsing"), "One sentence says what changes");
       ok(win.document.getElementById("loginContainer").hidden, "No text field takes the focus");
       ok(

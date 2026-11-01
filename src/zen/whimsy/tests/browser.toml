@@ -693,3 +693,5 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_profile_move_follow.js"]
 # wave10/fixes W10-05: Cmd+Y (real key) opens the Library on History from a page, the address bar, and an open Library.
 ["browser_whimsy_history_key.js"]
+# wave10/fixes W10-10: Scratch is "Private Space" in every visible string; ids and prefs stay.
+["browser_whimsy_private_space_name.js"]

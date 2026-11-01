@@ -196,6 +196,10 @@ email aliases · Sidebery panels (user wants to hear more) · Liquid Glass
      SPACE (not a window) added to the right of all spaces. Tabs can be sent
      out of it, or the whole space converted into a real space; otherwise it
      is gone (all data) when closed. Replaces the private window.
+     RENAMED (user, 2026-10-31, W10-10): it's the "Private Space" in every
+     string, menu, command and setting; code names, ids and the
+     whimsy.feature.scratch pref keep "scratch". W10-09: it opens empty (no
+     new tab page) and closes when you leave it with no tabs.
    - Private tabs inside existing spaces, Waterfox-style. Shortcut: pick an
      ergonomic free one (proposed Cmd+Opt+T: next to Cmd+T, verify free).
      Little Arc keeps Cmd+Opt+N.

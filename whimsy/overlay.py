@@ -866,7 +866,7 @@ FEATURES = [
     {"id": "space-lock", "title": "Lock a space behind Touch ID/password (OSKeyStore) before switching to it",
      "detect": [("src/zen/spaces", r"(?i)OSKeyStore|lockWorkspace|workspace\.locked\b")]},
     # batch9p: Scratch and private tabs
-    {"id": "scratch", "title": "Scratch (temporary private space, Cmd+Shift+N) and private tabs (Cmd+Option+T)",
+    {"id": "scratch", "title": "Private Space (temporary private space, Cmd+Shift+N) and private tabs (Cmd+Option+T)",
      "detect": [("src/zen", r"(?i)zen[\w.-]*private[\w.-]*tab|mozprivatebrowsing|zen[\w.-]*scratch")]},
     # batch10: Library sidebar panels.
     {"id": "notes", "title": "Notes: a markdown scratchpad in the Library sidebar, optionally attached to a page",
@@ -1027,7 +1027,7 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)hide.?my.?email|email.?alias")]},
 
     # wave3: handoff. Firefox's Handoff, minus private tabs and Scratch, URL only.
-    {"id": "handoff", "title": "Handoff: continue pages on your other Apple devices, never private tabs or Scratch",
+    {"id": "handoff", "title": "Handoff: continue pages on your other Apple devices, never private tabs or the Private Space",
      "detect": [("src/zen", r"(?i)zen\.handoff\.|handoff-(?:private|scratch)")]},
 
     # wave3: playlist. Brave Playlist v1: direct media files, saved for offline in Library.
@@ -1073,7 +1073,7 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)agent-?replay|claude-?replay")]},
     # wave5/quick: QR code for any page. Firefox's QR dialog (SharingUtils),
     # exposed in the page menu and command bar; never for private tabs/Scratch.
-    {"id": "qr-code", "title": "QR code for any page: the page menu and command bar open Firefox's QR dialog (not for private tabs or Scratch)",
+    {"id": "qr-code", "title": "QR code for any page: the page menu and command bar open Firefox's QR dialog (not for private tabs or the Private Space)",
      "detect": [("src/zen", r"(?i)showQRCodePanel|qr-?code-?for-?page")]},
     # wave5/quick: Copy page as Markdown (MarkDownload/Obsidian clipper style;
     # Zen discussion #12557). Zen only copies [title](url).

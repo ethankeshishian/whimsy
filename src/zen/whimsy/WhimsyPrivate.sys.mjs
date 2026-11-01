@@ -584,6 +584,8 @@ export const WhimsyPrivate = {
     WhimsyCommands.register(win, {
       id: "cmd_whimsyNewScratch",
       l10nId: "whimsy-action-new-scratch",
+      // W10-10: "Scratch" (its old name) still finds it.
+      whimsyKeywords: WhimsyCommands.keywords("whimsy-keywords-new-private-space"),
       run: w => {
         if (!this.inWindow || !w.gZenWorkspaces?.workspaceEnabled) {
           this.openPrivateWindow(w);
@@ -763,7 +765,7 @@ export const WhimsyPrivate = {
     } else {
       const [name] = await win.document.l10n.formatValues([{ id: "whimsy-scratch-name" }]);
       const last = spaces.getWorkspaces().at(-1);
-      scratch = await spaces.createAndSaveWorkspace(name || "Scratch", SCRATCH_ICON, false, 0, {
+      scratch = await spaces.createAndSaveWorkspace(name || "Private Space", SCRATCH_ICON, false, 0, {
         insertAfterId: last?.uuid ?? null,
         beforeChangeCallback: space => {
           space.whimsyScratch = true;
@@ -1094,7 +1096,7 @@ export const WhimsyPrivate = {
     // whimsy-scratch-kept-name, whose value was "Space". Rename inline later.
     // wave7/scratch: saved through the form, it has the name and icon chosen
     // there; only the private icon goes.
-    const kept = { ...scratch, name: scratch.name || "Scratch", icon: scratch.icon == SCRATCH_ICON ? undefined : scratch.icon };
+    const kept = { ...scratch, name: scratch.name || "Private Space", icon: scratch.icon == SCRATCH_ICON ? undefined : scratch.icon };
     delete kept.whimsyScratch;
     spaces.saveWorkspace(kept);
     // fixC: the private look goes the moment it's a normal space. Zen only
