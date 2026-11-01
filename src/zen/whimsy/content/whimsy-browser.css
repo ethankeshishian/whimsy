@@ -1656,34 +1656,55 @@ tab[whimsy-live-unread] {
    currentColor mixes and Zen's accent, so light, dark and every Zen theme
    follow; nothing moves but the panel itself (Firefox's panel animation,
    which honours reduced motion) and a 100ms focus fill. */
-panel.whimsy-sheet.whimsy-cheatsheet {
-  max-width: calc(100vw - 24px);
+/* W10-19: the shortcut cheat sheet, a WhimsySurface over the page: a
+   search pill, the menus flowing in up to three 190px columns (two below
+   680px, one below 460px), key caps, an accent dot for changed shortcuts
+   with a footer legend, matches marked. */
+panel.whimsy-surface.whimsy-cheatsheet {
+  max-width: calc(100vw - 40px);
   --whimsy-cheatsheet-accent: var(--zen-primary-color, AccentColor);
 }
-panel.whimsy-sheet.whimsy-cheatsheet .whimsy-sheet-body {
-  max-height: min(540px, calc(100vh - 220px));
-  padding: 4px 8px 8px;
-  overscroll-behavior: contain;
+.whimsy-cheatsheet-search-input::-moz-search-clear-button {
+  display: none;
+}
+.whimsy-cheatsheet-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+  font-variant-numeric: tabular-nums;
+
+  &[hidden] {
+    display: none;
+  }
 }
 .whimsy-cheatsheet-columns {
-  /* Two columns when the sheet is wide enough, one when it isn't. */
-  columns: 2 280px;
-  column-gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  columns: 3 190px;
+  column-gap: 18px;
+  padding: 2px 2px 4px;
+
+  &[hidden] {
+    display: none;
+  }
 }
 .whimsy-cheatsheet-group {
   break-inside: avoid;
-  padding-block: 4px 10px;
+  margin-bottom: 12px;
 
   &[hidden] {
     display: none;
   }
 }
 .whimsy-cheatsheet-heading {
-  margin: 0 8px 2px;
-  font-size: 0.85em;
+  display: flex;
+  margin: 0 0 2px;
+  padding-inline: 6px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.6;
-  color: var(--whimsy-sheet-muted);
+  line-height: 20px;
 }
 .whimsy-cheatsheet-rows {
   margin: 0;
@@ -1693,10 +1714,11 @@ panel.whimsy-sheet.whimsy-cheatsheet .whimsy-sheet-body {
 .whimsy-cheatsheet-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 28px;
-  padding: 3px 8px;
+  gap: 6px;
+  min-height: 26px;
+  padding: 2px 6px;
   border-radius: 6px;
+  font-size: 12.5px;
   line-height: 1.3;
   cursor: default;
   outline: none;
@@ -1704,97 +1726,75 @@ panel.whimsy-sheet.whimsy-cheatsheet .whimsy-sheet-body {
   &[hidden] {
     display: none;
   }
+  &:hover {
+    background-color: var(--whimsy-surface-hover);
+  }
   &:focus-visible {
-    background-color: var(--whimsy-sheet-hover);
-    outline: var(--focus-outline, 2px solid AccentColor);
+    background-color: var(--whimsy-surface-hover);
+    outline: var(--whimsy-surface-focus);
     outline-offset: -2px;
   }
   @media not (prefers-reduced-motion: reduce) {
     transition: background-color 100ms ease-out;
   }
 }
-/* Long Firefox names wrap beside the caps instead of being cut off. */
 .whimsy-cheatsheet-title {
   flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-/* "Custom": a word, not only a colour, with Zen's accent as a dot. */
-.whimsy-cheatsheet-custom {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.whimsy-cheatsheet-match {
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 28%, transparent);
+  color: inherit;
+  border-radius: 2px;
+}
+.whimsy-cheatsheet-custom-dot {
   flex-shrink: 0;
-  font-size: 0.85em;
-  font-weight: 500;
-  color: var(--whimsy-sheet-muted);
-
-  &::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: var(--whimsy-cheatsheet-accent);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--whimsy-cheatsheet-accent);
+  @media (prefers-contrast: more) {
+    outline: 1px solid currentColor;
   }
 }
 .whimsy-cheatsheet-keys {
-  display: flex;
-  gap: 3px;
-  flex-shrink: 0;
-}
-/* One cap per key, the same height and at least as wide as tall, so
-   ⌘ D and ⇧ ⌘ D line up down the column. */
-.whimsy-cheatsheet-keys > kbd {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
-  border-radius: 5px;
-  font: inherit;
-  font-size: 0.85em;
-  font-weight: 500;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: inherit;
-  background-color: color-mix(in srgb, currentColor 7%, transparent);
-  box-shadow:
-    inset 0 0 0 0.5px color-mix(in srgb, currentColor 20%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, currentColor 12%, transparent);
+  flex-shrink: 0;
+  gap: 2px;
 
-  &[wide] {
-    padding: 0 6px;
-  }
-  .whimsy-cheatsheet-row[customized] & {
-    background-color: color-mix(in srgb, var(--whimsy-cheatsheet-accent) 14%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-cheatsheet-accent) 55%, transparent);
-  }
-  @media (prefers-contrast: more) {
-    box-shadow: inset 0 0 0 1px currentColor;
+  & > kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0;
+    color: var(--whimsy-surface-muted);
   }
 }
-.whimsy-cheatsheet-empty[hidden],
-.whimsy-cheatsheet-columns[hidden] {
+.whimsy-cheatsheet-empty[hidden] {
   display: none;
 }
-/* Read by screen readers only. */
-.whimsy-cheatsheet-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+.whimsy-cheatsheet-footer {
+  gap: 8px;
+  padding: 8px 4px 0;
+  border-top: 1px solid var(--whimsy-surface-hairline);
 }
-/* One quiet action, at the trailing edge, not a full-width button. */
-panel.whimsy-sheet.whimsy-cheatsheet .whimsy-sheet-footer {
-  justify-content: flex-end;
-  margin-top: 0;
+.whimsy-cheatsheet-legend {
+  gap: 6px;
+  font-size: 12px;
+  color: var(--whimsy-surface-muted);
 
-  & > .footer-button.whimsy-cheatsheet-edit {
-    flex: 0 0 auto;
+  &[hidden] {
+    display: none;
   }
 }
 

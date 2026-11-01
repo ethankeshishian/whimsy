@@ -741,7 +741,7 @@ whimsy-quicklook-missing-toast = Item removed
 
 whimsy-action-cheatsheet = Keyboard Shortcuts
 whimsy-cheatsheet-search =
-    .placeholder = Search shortcuts
+    .placeholder = Search shortcuts or keys, like “⇧⌘D”
     .aria-label = Search shortcuts
 whimsy-cheatsheet-duplicate-tab = Duplicate Tab
 whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
@@ -1184,7 +1184,9 @@ whimsy-tree-expand =
 # wave3/tree: shortcut cheat sheet lists every keyset shortcut, grouped
 whimsy-cheatsheet-group-whimsy = Whimsy
 whimsy-cheatsheet-group-other = Other
-whimsy-cheatsheet-empty = No matching shortcuts
+# $query (string) - what was typed
+whimsy-cheatsheet-empty = No shortcuts match “{ $query }”.
+whimsy-cheatsheet-empty-hint = Search by name, menu, or keys like “cmd shift d”.
 
 # batch hover: hover cards (tabs, History, People).
 whimsy-hover-header = Hover cards
@@ -3269,7 +3271,10 @@ whimsy-snooze-private-toast = Private tabs can’t be snoozed: a snoozed tab is 
 ## $default (string) - the shortcut it had before it was changed
 ## $count (number) - how many shortcuts a search leaves
 
-whimsy-cheatsheet-custom = Custom
+# W10-19: a changed shortcut has an accent dot; the footer explains it.
+whimsy-cheatsheet-legend = Changed by you
+# Words a search for changed shortcuts can use.
+whimsy-cheatsheet-custom-word = custom changed
 whimsy-cheatsheet-custom-tooltip = Changed from { $shortcut }
 whimsy-cheatsheet-custom-tooltip-none = Added by you
 whimsy-cheatsheet-row = { $title }, { $shortcut }

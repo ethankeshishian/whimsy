@@ -1882,3 +1882,18 @@ add_task(async function w10_page_tools() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-19: the cheat sheet, and the cheat sheet filtered.
+add_task(async function w10_cheat_sheet() {
+  const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+  await w10SurfaceShot("cheat-sheet", "whimsy-cheatsheet-panel", () => WhimsyCheatSheet.open(window),
+    panel => panel.querySelector(".whimsy-cheatsheet-row"));
+  await w10SurfaceShot("cheat-sheet-search", "whimsy-cheatsheet-panel", () => WhimsyCheatSheet.open(window), panel => {
+    const search = panel.querySelector("#whimsy-cheatsheet-search");
+    if (search.value != "split") {
+      search.value = "split";
+      search.dispatchEvent(new Event("input"));
+    }
+    return true;
+  });
+});
