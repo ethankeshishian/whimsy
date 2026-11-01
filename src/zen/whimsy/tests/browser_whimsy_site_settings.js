@@ -354,11 +354,12 @@ add_task(async function test_pretend_to_be_in_place() {
     section().querySelector("#whimsy-site-settings-custom-apply").doCommand();
     await reloaded2;
     Assert.deepEqual(WhimsyUserAgent.entry(HOST), { preset: "custom", custom: "WhimsyTestAgent/1.0" }, "Apply sets it");
+    await TestUtils.waitForCondition(() =>
+      document.l10n.getAttributes(rowOf("useragent").querySelector(".whimsy-surface-row-detail")).id ==
+        "whimsy-site-settings-useragent-reloads", "The row settles once the page has loaded again");
 
     const reloaded3 = BrowserTestUtils.browserLoaded(browser);
-    info(`DEBUGU before pick panel=${panel()?.state} list=${document.getElementById("whimsy-site-settings-useragent-button-list")?.state}`);
     await pick("default");
-    info(`DEBUGU picked entry=${JSON.stringify(WhimsyUserAgent.entry(HOST))} panel=${panel()?.state}`);
     await reloaded3;
     is(WhimsyUserAgent.entry(HOST), null, "Whimsy forgets it");
     await closePanel();

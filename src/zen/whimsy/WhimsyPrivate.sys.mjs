@@ -1689,6 +1689,11 @@ export const WhimsyPrivate = {
     if (!state.controllerHooked || !state.inputHooked) {
       return false;
     }
+    if (state.compose && !urlbar.hasAttribute("zen-newtab")) {
+      // W10-27: the last private bar is still animating out (its session
+      // already ended); this press opens a new one.
+      this.setCompose(win, false, { requery: false });
+    }
     if (state.compose) {
       // Pressed again: close it, as Cmd+T closes its bar.
       if (urlbar._zenHandleUrlbarClose) {

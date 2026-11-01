@@ -114,7 +114,6 @@ add_task(async function tidy_titles_is_found() {
   await withSettings(async (doc, win) => {
     await search(win, "tidy titles");
     const row = doc.getElementById("whimsyAITidyTitles");
-    info(`DEBUGS hits=${[...doc.querySelectorAll(".whimsy-search-hit")].map(h => h.localName + "#" + h.id + "." + h.className).join(" ; ")} row=${row?.localName} parent=${row?.parentElement?.localName}#${row?.parentElement?.id} visible=${row?.checkVisibility()} cat=${row?.closest("[data-category]")?.dataset.category} sk=${row?.getAttribute("searchkeywords")}`);
     ok(row?.classList.contains("whimsy-search-hit"), "Tidy Titles is the hit (W10-12)");
     is(row.closest("[data-category]").dataset.category, "paneWhimsyAI", "…in Settings → AI (W10-28)");
     await search(win, "claude in whimsy");

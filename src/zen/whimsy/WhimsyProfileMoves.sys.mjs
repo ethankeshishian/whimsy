@@ -164,7 +164,11 @@ export const WhimsyProfileMoves = {
     const newTab = gBrowser.addTab(this.urlOf(tab, state), {
       userContextId,
       whimsyPrivate: isPrivate,
-      tabIndex: tab._tPos + 1,
+      // Beside the old tab, unless it's in a folder: a folder being moved
+      // is already in the other space's container, where an index puts the
+      // new tab outside the tab list and a lazy tab can't be created
+      // ("a tab that has no position"). It joins the folder below.
+      tabIndex: tab.group && !tab.group.hasAttribute("split-view-group") ? undefined : tab._tPos + 1,
       triggeringPrincipal: this.principalFor(tab, userContextId),
       skipAnimation: true,
       // The tab that will be selected needs a live browser for the switcher.

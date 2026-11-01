@@ -317,6 +317,25 @@ export class CommandBarMotion {
     this.observer = new win.MutationObserver(() => this.#onAttributes());
     this.observer.observe(urlbar, { attributes: true, attributeFilter: ["open", "zen-floating-urlbar"] });
     win.addEventListener("unload", () => this.observer.disconnect(), { once: true });
+    // A new session started while the last one animates out (Cmd+T,
+    // Cmd+Option+T, a click that focuses the field) first finishes that
+    // hide, so it opens from a closed bar as Zen expects. Without this the
+    // hide ran a moment later and took the new session's focus with it.
+    const motion = this;
+    const flushFirst = original =>
+      function (...args) {
+        if (motion.#closing) {
+          motion.flushClose(win.gURLBar);
+        }
+        return original.apply(this, args);
+      };
+    if (typeof urlbar.focus == "function") {
+      urlbar.focus = flushFirst(urlbar.focus);
+    }
+    const ui = win.gZenUIManager;
+    if (typeof ui?.handleNewTab == "function") {
+      ui.handleNewTab = flushFirst(ui.handleNewTab);
+    }
   }
 
   get enabled() {

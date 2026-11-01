@@ -30,6 +30,19 @@ function tabsIn(space) {
   );
 }
 
+// An empty bar in a headless test window never becomes Zen's floating
+// popover, so blurring it doesn't run Zen's close (as in
+// browser_whimsy_private_command_bar.js); in the app the empty bar floats
+// and closes on blur. Do what that blur does.
+async function barClosed() {
+  gBrowser.selectedBrowser.focus();
+  await TestUtils.waitForTick();
+  if (!gURLBar.focused && gURLBar.hasAttribute("zen-newtab") && !gURLBar.matches(":popover-open")) {
+    gURLBar._zenHandleUrlbarClose?.();
+  }
+  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "The bar closed");
+}
+
 let startSpace;
 
 add_setup(async function () {
@@ -43,12 +56,14 @@ add_setup(async function () {
 });
 
 add_task(async function cmd_shift_n_opens_it_empty_with_no_tab() {
-  const before = gBrowser.tabs.length;
+  // Every space's tabs (gBrowser.tabs lists only the space showing).
+  const allTabs = () => gZenWorkspaces.allStoredTabs.filter(t => !t.closing && !t.hasAttribute("zen-empty-tab"));
+  const before = allTabs().length;
   EventUtils.synthesizeKey("n", { accelKey: true, shiftKey: true });
   await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(window), "The Private Space shows");
   const space = WhimsyPrivate.getScratch(window);
   is(tabsIn(space).length, 0, "No tab was created in it");
-  is(gBrowser.tabs.length, before, "No tab anywhere");
+  is(allTabs().length, before, "No tab anywhere");
   ok(gBrowser.selectedTab.hasAttribute("zen-empty-tab"), "Zen's empty tab is selected");
   ok(!gBrowser.tabs.some(t => t.linkedBrowser?.currentURI?.spec == "about:privatebrowsing"), "No private new tab page");
 
@@ -82,7 +97,7 @@ add_task(async function new_private_tab_opens_the_private_bar_and_esc_leaves_not
   if (gURLBar.focused) {
     EventUtils.synthesizeKey("KEY_Escape");
   }
-  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "The bar closed");
+  await barClosed();
   is(tabsIn(space).length, 0, "Esc created nothing");
   ok(shown(), "The empty state is still there");
 });
@@ -150,7 +165,7 @@ add_task(async function cmd_shift_n_again_is_new_private_tab() {
   if (gURLBar.focused) {
     EventUtils.synthesizeKey("KEY_Escape");
   }
-  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "The bar closed");
+  await barClosed();
   await gZenWorkspaces.changeWorkspaceWithID(startSpace);
   await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Closed on leaving");
 });

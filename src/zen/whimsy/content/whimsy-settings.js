@@ -3378,6 +3378,12 @@ Object.assign(gWhimsySettings, {
           walk(child);
           continue;
         }
+        // A card that lists several switches (Settings → AI's features):
+        // each switch is a row of its own, so the hit is the setting.
+        if (child.classList.contains("whimsy-ai-features")) {
+          walk(child);
+          continue;
+        }
         const isRow = child.matches(WHIMSY_SEARCH_CONTROLS) || !!child.querySelector(WHIMSY_SEARCH_CONTROLS);
         if (isRow) {
           rows.push({ nodes: [child], main: child });
