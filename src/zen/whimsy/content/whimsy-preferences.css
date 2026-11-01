@@ -222,33 +222,47 @@
   }
 }
 
-/* wave5/profiles: Settings → Profiles. Rows share one rhythm: 12px inside a
-   row, 4px between rows, the group's own margins outside. */
+/* wave5/profiles, W10-23: Settings → Profiles. One card of rows: colour,
+   name and a one-line summary, with Edit. The editor under a row is one
+   label/control grid: labels end-aligned in a 150px column, every control
+   fixed-width and starting at the same edge (nothing flexes between a
+   label and its control, so nothing floats to the middle of the pane). */
 .whimsy-profiles-list {
   list-style: none;
   margin: 8px 0 12px;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  border: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  border-radius: 10px;
+  background: var(--background-color-box, transparent);
+  overflow: clip;
 }
 .whimsy-profile-row {
-  padding: 10px 12px;
-  border-radius: 10px;
-  background-color: color-mix(in srgb, currentColor 4%, transparent);
+  padding: 11px 14px;
+
+  & + & {
+    border-top: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  }
 }
 .whimsy-profile-head {
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: center;
   min-height: 32px;
+
+  & > .whimsy-profile-edit {
+    margin: 0;
+  }
 }
 .whimsy-profile-name {
   margin: 0;
-  font-size: 1em;
+  font-size: 13.5px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 .whimsy-profile-meta {
   margin: 2px 0 0;
+  font-size: 12px;
 }
 /* The container's own colour, as Firefox draws it on tabs; Default has
    none, so it shows an outline instead. Decorative: the name says it all. */
@@ -269,43 +283,89 @@
   &[data-color="purple"] { --whimsy-profile-color: #af51f5; }
   &[data-color="toolbar"] { --whimsy-profile-color: currentColor; }
 }
-.whimsy-profile-name-form {
+
+.whimsy-profile-editor {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px;
-  margin-block: 10px 4px;
-  max-width: 420px;
-  & label { font-weight: 600; }
-  & input { margin: 0; }
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  /* Under the name, past the colour dot. */
+  margin-inline-start: 24px;
+  padding-block: 10px 2px;
+
+  &[hidden] {
+    display: none;
+  }
+
+  & button,
+  & menulist,
+  & input {
+    margin: 0;
+  }
+}
+.whimsy-profile-field-label {
+  justify-self: end;
+  margin: 0;
+  text-align: end;
+  font-size: 13px;
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 68%, transparent));
+}
+.whimsy-profile-field {
+  justify-self: start;
+  width: 220px;
+  box-sizing: border-box;
+}
+.whimsy-profile-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  justify-self: start;
+}
+.whimsy-profile-path {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+/* Error and rule lines sit under the controls, in the control column. */
+.whimsy-profile-editor-note {
+  grid-column: 2;
+  margin: -2px 0 0;
+  font-size: 12px;
 }
 .whimsy-profile-name-error {
-  margin: 0;
   color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
 }
-.whimsy-profile-name-buttons {
+.whimsy-profile-editor-acts {
+  grid-column: 1 / -1;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 8px;
-  & button { margin: 0; }
+  margin-block-start: 4px;
+  padding-block-start: 10px;
+  border-top: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+}
+.whimsy-profile-editor-spacer {
+  flex: 1;
+}
+.whimsy-profile-editor button.ghost-button {
+  background: transparent !important;
+  border-color: transparent;
+}
+.whimsy-profile-delete:not([disabled]) {
+  color: var(--text-color-error, light-dark(#d0342c, #ff848b));
 }
 .whimsy-profiles-actions {
   gap: 8px;
   & button { margin-inline: 0; }
 }
-.whimsy-profile-settings {
-  gap: 4px;
-  margin-block-start: 8px;
-  padding-inline-start: 22px; /* under the name, past the colour dot */
-  & label { min-width: 13em; margin-inline: 0; }
-  & menulist, & button { margin-block: 0; }
-}
-.whimsy-profile-dir {
-  margin: 0 8px 0 0;
-  min-width: 0;
-}
-.whimsy-profile-default-note {
-  margin: 6px 0 0;
-  padding-inline-start: 22px;
+
+@media (prefers-contrast: more) {
+  .whimsy-profiles-list {
+    border-color: currentColor;
+  }
 }
 
 /* W10-21: Settings → Menus is one card: the menus on the left (where you

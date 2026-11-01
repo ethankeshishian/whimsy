@@ -1607,12 +1607,9 @@ Object.assign(gWhimsySettings, {
   initProfilesGroup() {
     const chromeWin = window.browsingContext.topChromeWindow;
     const refresh = () => this.renderProfiles();
-    document.getElementById("whimsyProfilesCreate").addEventListener("command", () => {
-      this.showProfileNameForm(document.getElementById("whimsyProfilesCreateSlot"), {
-        submitL10nId: "whimsy-profile-create-button",
-        onSubmit: name => this.profiles.create(name),
-      });
-    });
+    // W10-23: a new profile starts as a row in editor mode at the end of
+    // the list, its name field focused.
+    document.getElementById("whimsyProfilesCreate").addEventListener("command", () => this.startNewProfile());
     document.getElementById("whimsyProfilesDeleteUnused").addEventListener("command", () =>
       this.deleteUnusedProfiles());
     const topics = ["contextual-identity-created", "contextual-identity-updated",
@@ -1627,15 +1624,27 @@ Object.assign(gWhimsySettings, {
       }
       chromeWin?.removeEventListener("ZenWorkspaceDataChanged", refresh);
     }, { once: true });
+    // Engine names for the rows' summaries.
+    this.visibleEngines().then(engines => {
+      this._profileEngines = engines;
+      this.renderProfiles();
+    }).catch(console.error);
     this.renderProfiles();
   },
 
   renderProfiles() {
     const list = document.getElementById("whimsyProfilesList");
-    if (!list || list.querySelector(".whimsy-profile-name-form")) {
-      // Never pull a half-typed name out from under the person.
+    if (!list) {
       return;
     }
+    // Never pull a half-typed name out from under the person.
+    const typing = document.activeElement?.closest?.(".whimsy-profile-row") &&
+      document.activeElement.dataset.profileField == "name" &&
+      document.activeElement.value != (document.activeElement.dataset.saved ?? "");
+    if (typing || list.querySelector(".whimsy-profile-new")) {
+      return;
+    }
+    const focusField = document.activeElement?.dataset?.profileField ?? null;
     const { profiles } = this;
     const chromeWin = window.browsingContext.topChromeWindow;
     list.replaceChildren();
@@ -1647,94 +1656,408 @@ Object.assign(gWhimsySettings, {
     }
     document.getElementById("whimsyProfilesDeleteUnused").disabled =
       !profiles.unusedIds(chromeWin).length;
+    // The open editor stays open, with the keyboard where it was.
+    const open = this._openProfileEditor;
+    if (open != null && list.querySelector(`.whimsy-profile-row[data-profile-id="${open}"]`)) {
+      this.openProfileEditor(open, { focus: focusField });
+    } else {
+      this._openProfileEditor = null;
+    }
   },
 
+  profileEngineName(key) {
+    const id = this.profileSettings.engineFor(key);
+    return (id && this._profileEngines?.find(engine => engine.id == id)?.name) || null;
+  },
+
+  // ~/Downloads/Work rather than /Users/name/Downloads/Work.
+  shortPath(path) {
+    try {
+      const home = Services.dirsvc.get("Home", Ci.nsIFile).path;
+      if (path == home || path.startsWith(home + "/")) {
+        return "~" + path.slice(home.length);
+      }
+    } catch {}
+    return path;
+  },
+
+  // W10-23: a row is the profile's colour, name and a one-line summary
+  // (spaces · search engine · downloads), with one Edit button. Edit opens
+  // the editor under it: Name, Search engine and Downloads in one
+  // label/control grid (controls fixed-width, all starting at the same
+  // edge), then Delete Profile… and Done. Default has no editor: it uses
+  // Firefox's own Search and Downloads settings.
   profileRow(profile, spaceCount) {
     const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
     const row = html("li");
     row.className = "whimsy-profile-row";
     row.dataset.profileId = profile.id;
-    const head = document.createXULElement("hbox");
-    head.setAttribute("align", "center");
+    const head = html("div");
     head.className = "whimsy-profile-head";
     const dot = html("span");
     dot.className = "whimsy-profile-dot";
     dot.dataset.color = profile.isDefault ? "default" : profile.color ?? "";
     dot.setAttribute("aria-hidden", "true");
-    const titles = document.createXULElement("vbox");
-    titles.setAttribute("flex", "1");
+    const titles = html("div");
+    titles.className = "whimsy-profile-titles";
     const name = html("h3");
     name.className = "whimsy-profile-name";
+    name.id = `whimsyProfileName${profile.id}-title`;
     name.textContent = profile.name;
     const meta = document.createXULElement("description");
     meta.className = "description-deemphasized whimsy-profile-meta";
-    document.l10n.setAttributes(meta, profile.isDefault ? "whimsy-profiles-spaces-default" :
-      "whimsy-profiles-spaces", { count: spaceCount });
     titles.append(name, meta);
     head.append(dot, titles);
-    if (!profile.isDefault) {
-      const rename = document.createXULElement("button");
-      document.l10n.setAttributes(rename, "whimsy-profiles-rename", { name: profile.name });
-      rename.addEventListener("command", () => {
-        this.showProfileNameForm(row, {
-          initial: profile.name,
-          submitL10nId: "whimsy-profile-rename-button",
-          onSubmit: value => this.profiles.rename(profile.id, value),
-        });
-      });
-      const remove = document.createXULElement("button");
-      remove.className = "whimsy-profile-delete";
-      document.l10n.setAttributes(remove, "whimsy-profiles-delete", { name: profile.name });
-      remove.disabled = spaceCount > 0;
-      if (remove.disabled) {
-        remove.setAttribute("aria-describedby", "whimsyProfilesDeleteRule");
-      }
-      remove.addEventListener("command", () => this.deleteProfile(profile));
-      head.append(rename, remove);
-    }
     row.append(head);
+    if (profile.isDefault) {
+      document.l10n.setAttributes(meta, "whimsy-profiles-default-meta", { count: spaceCount });
+      return row;
+    }
+    const key = this.profiles.keyFor(profile.id);
+    const path = this.profileSettings.downloadDirFor(key);
+    const engine = this.profileEngineName(key);
+    if (engine && path) {
+      document.l10n.setAttributes(meta, "whimsy-profiles-meta", {
+        count: spaceCount, engine, downloads: this.shortPath(path),
+      });
+    } else if (engine) {
+      document.l10n.setAttributes(meta, "whimsy-profiles-meta-engine", { count: spaceCount, engine });
+    } else if (path) {
+      document.l10n.setAttributes(meta, "whimsy-profiles-meta-downloads", {
+        count: spaceCount, downloads: this.shortPath(path),
+      });
+    } else {
+      document.l10n.setAttributes(meta, "whimsy-profiles-meta-same", { count: spaceCount });
+    }
+
+    const editorId = `whimsyProfileEditor${profile.id}`;
+    const edit = document.createXULElement("button");
+    edit.className = "whimsy-profile-edit";
+    document.l10n.setAttributes(edit, "whimsy-profiles-edit", { name: profile.name });
+    edit.setAttribute("aria-controls", editorId);
+    edit.setAttribute("aria-expanded", "false");
+    edit.addEventListener("command", () => {
+      if (row.getAttribute("aria-expanded") == "true") {
+        this.closeProfileEditor({ focusEdit: true });
+      } else {
+        this.openProfileEditor(profile.id, { focus: "name" });
+      }
+    });
+    head.append(edit);
+    row.setAttribute("aria-expanded", "false");
+    row.append(this.profileEditor(profile, spaceCount, editorId));
     return row;
   },
 
-  // An inline "Profile Name" field with its submit/cancel buttons, in
-  // `slot`. onSubmit throws an Error whose message is the l10n id of the
-  // reason; it's shown under the field, which keeps focus.
-  showProfileNameForm(slot, { initial = "", submitL10nId, onSubmit }) {
+  profileEditor(profile, spaceCount, editorId) {
     const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
-    slot.querySelector(".whimsy-profile-name-form")?.remove();
-    const form = html("form");
-    form.className = "whimsy-profile-name-form";
-    const id = `whimsyProfileName${Date.now()}`;
-    const label = html("label");
-    label.htmlFor = id;
-    document.l10n.setAttributes(label, "whimsy-profile-name-label");
-    const input = html("input");
-    input.id = id;
-    input.type = "text";
-    input.maxLength = 40;
-    input.value = initial;
-    input.setAttribute("autocomplete", "off");
-    input.setAttribute("aria-describedby", `${id}-error`);
+    const { profiles, profileSettings } = this;
+    const key = profiles.keyFor(profile.id);
+    const editor = html("div");
+    editor.id = editorId;
+    editor.className = "whimsy-profile-editor";
+    editor.setAttribute("role", "group");
+    editor.setAttribute("aria-labelledby", `whimsyProfileName${profile.id}-title`);
+    editor.hidden = true;
+
+    // Name: saved when you leave the field or press Return.
+    const nameId = `whimsyProfileName${profile.id}`;
+    const nameLabel = html("label");
+    nameLabel.className = "whimsy-profile-field-label";
+    nameLabel.htmlFor = nameId;
+    document.l10n.setAttributes(nameLabel, "whimsy-profiles-field-name");
+    const nameInput = html("input");
+    nameInput.id = nameId;
+    nameInput.type = "text";
+    nameInput.className = "whimsy-profile-field";
+    nameInput.maxLength = 40;
+    nameInput.value = profile.name;
+    nameInput.dataset.saved = profile.name;
+    nameInput.dataset.profileField = "name";
+    nameInput.setAttribute("autocomplete", "off");
     const error = html("p");
-    error.id = `${id}-error`;
-    error.className = "whimsy-profile-name-error";
+    error.id = `${nameId}-error`;
+    error.className = "whimsy-profile-name-error whimsy-profile-editor-note";
     error.hidden = true;
-    const buttons = html("div");
-    buttons.className = "whimsy-profile-name-buttons";
-    const cancel = html("button");
-    cancel.type = "button";
-    document.l10n.setAttributes(cancel, "whimsy-profile-cancel-text");
-    const submit = html("button");
-    submit.type = "submit";
-    submit.className = "primary";
-    document.l10n.setAttributes(submit, `${submitL10nId}-text`);
-    buttons.append(cancel, submit);
-    form.append(label, input, error, buttons);
-    const close = () => {
-      form.remove();
-      this.renderProfiles();
+    nameInput.setAttribute("aria-describedby", error.id);
+    const saveName = () => {
+      const value = nameInput.value;
+      if (value.trim() == profile.name) {
+        return true;
+      }
+      // Saved first: renaming re-renders the list, which waits while a
+      // name is being typed.
+      const before = nameInput.dataset.saved;
+      nameInput.dataset.saved = value;
+      try {
+        profiles.rename(profile.id, value);
+        return true;
+      } catch (e) {
+        nameInput.dataset.saved = before;
+        error.hidden = false;
+        nameInput.setAttribute("aria-invalid", "true");
+        document.l10n.setAttributes(error, e.message?.startsWith("whimsy-") ? e.message : "whimsy-profile-name-failed");
+        return false;
+      }
     };
-    cancel.addEventListener("click", close);
+    nameInput.addEventListener("input", () => {
+      error.hidden = true;
+      nameInput.removeAttribute("aria-invalid");
+    });
+    nameInput.addEventListener("change", saveName);
+    nameInput.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        if (!saveName()) {
+          nameInput.focus();
+        }
+      }
+    });
+
+    // Search engine.
+    const engineId = `whimsyProfileEngine${profile.id}`;
+    const engineLabel = document.createXULElement("label");
+    engineLabel.className = "whimsy-profile-field-label";
+    engineLabel.setAttribute("control", engineId);
+    document.l10n.setAttributes(engineLabel, "whimsy-profiles-field-engine");
+    const menulist = document.createXULElement("menulist");
+    menulist.id = engineId;
+    menulist.className = "whimsy-profile-field";
+    menulist.dataset.profileField = "engine";
+    menulist.setAttribute("sizetopopup", "none");
+    const popup = document.createXULElement("menupopup");
+    const same = document.createXULElement("menuitem");
+    same.setAttribute("value", "");
+    document.l10n.setAttributes(same, "whimsy-profiles-same-as-default");
+    popup.append(same);
+    menulist.append(popup);
+    menulist.value = "";
+    this.visibleEngines().then(engines => {
+      for (const engine of engines) {
+        const item = document.createXULElement("menuitem");
+        item.setAttribute("value", engine.id);
+        item.setAttribute("label", engine.name);
+        popup.append(item);
+      }
+      menulist.value = profileSettings.engineFor(key) ?? "";
+    }).catch(console.error);
+    menulist.addEventListener("command", () => {
+      profileSettings.setEngine(key, menulist.value);
+      this.renderProfiles();
+    });
+
+    // Downloads: the folder (shortened, the whole path on hover), Choose…,
+    // and Use Default once one is set.
+    const dirId = `whimsyProfileDir${profile.id}`;
+    const dirLabel = html("span");
+    dirLabel.id = `${dirId}-label`;
+    dirLabel.className = "whimsy-profile-field-label";
+    document.l10n.setAttributes(dirLabel, "whimsy-profiles-field-downloads");
+    const dirControls = html("div");
+    dirControls.className = "whimsy-profile-field-row";
+    const dirValue = html("span");
+    dirValue.id = dirId;
+    dirValue.className = "whimsy-profile-path";
+    const path = profileSettings.downloadDirFor(key);
+    if (path) {
+      dirValue.textContent = this.shortPath(path);
+      dirValue.title = path;
+    } else {
+      document.l10n.setAttributes(dirValue, "whimsy-profiles-same-as-default-text");
+    }
+    const choose = document.createXULElement("button");
+    choose.dataset.profileField = "choose";
+    document.l10n.setAttributes(choose, "whimsy-profiles-download-choose");
+    choose.setAttribute("aria-describedby", `${dirId}-label ${dirId}`);
+    choose.addEventListener("command", () => this.chooseProfileDownloadDir(key));
+    dirControls.append(dirValue, choose);
+    if (path) {
+      const reset = document.createXULElement("button");
+      reset.dataset.profileField = "reset";
+      document.l10n.setAttributes(reset, "whimsy-profiles-download-reset");
+      reset.addEventListener("command", async () => {
+        await profileSettings.setDownloadDir(key, null);
+        this.renderProfiles();
+      });
+      dirControls.append(reset);
+    }
+
+    // Delete Profile… (only for a profile no space uses) and Done.
+    const acts = html("div");
+    acts.className = "whimsy-profile-editor-acts";
+    const remove = document.createXULElement("button");
+    remove.className = "whimsy-profile-delete ghost-button";
+    document.l10n.setAttributes(remove, "whimsy-profiles-delete", { name: profile.name });
+    remove.disabled = spaceCount > 0;
+    remove.addEventListener("command", () => this.deleteProfile(profile));
+    const spacer = html("span");
+    spacer.className = "whimsy-profile-editor-spacer";
+    const done = document.createXULElement("button");
+    done.className = "primary whimsy-profile-done";
+    done.dataset.profileField = "done";
+    document.l10n.setAttributes(done, "whimsy-profiles-done");
+    done.addEventListener("command", () => this.closeProfileEditor({ focusEdit: true }));
+    acts.append(remove, spacer, done);
+
+    editor.append(nameLabel, nameInput, error, engineLabel, menulist, dirLabel, dirControls, acts);
+    if (remove.disabled) {
+      const rule = document.createXULElement("description");
+      rule.id = `whimsyProfileDeleteRule${profile.id}`;
+      rule.className = "description-deemphasized whimsy-profile-editor-note";
+      document.l10n.setAttributes(rule, "whimsy-profiles-delete-rule");
+      remove.setAttribute("aria-describedby", rule.id);
+      editor.append(rule);
+    }
+    // Esc closes the editor, back to its Edit button (a menulist's own
+    // popup takes Esc first).
+    editor.addEventListener("keydown", event => {
+      if (event.key == "Escape" && !event.defaultPrevented && !event.target.open) {
+        event.preventDefault();
+        if (event.target == nameInput) {
+          saveName();
+        }
+        this.closeProfileEditor({ focusEdit: true });
+      }
+    });
+    return editor;
+  },
+
+  // One editor open at a time.
+  openProfileEditor(id, { focus = null } = {}) {
+    const list = document.getElementById("whimsyProfilesList");
+    for (const row of list?.querySelectorAll(".whimsy-profile-row") ?? []) {
+      const open = row.dataset.profileId == String(id);
+      if (row.getAttribute("aria-expanded") == null && !open) {
+        continue;
+      }
+      row.setAttribute("aria-expanded", open);
+      row.querySelector(".whimsy-profile-edit")?.setAttribute("aria-expanded", open);
+      const editor = row.querySelector(".whimsy-profile-editor");
+      if (editor) {
+        editor.hidden = !open;
+      }
+      if (open && focus) {
+        row.querySelector(`[data-profile-field="${focus}"]`)?.focus();
+      }
+    }
+    this._openProfileEditor = id;
+  },
+
+  closeProfileEditor({ focusEdit = false } = {}) {
+    const id = this._openProfileEditor;
+    this._openProfileEditor = null;
+    const row = document.querySelector(`.whimsy-profile-row[data-profile-id="${id}"]`);
+    if (!row) {
+      return;
+    }
+    row.setAttribute("aria-expanded", "false");
+    row.querySelector(".whimsy-profile-edit")?.setAttribute("aria-expanded", "false");
+    const editor = row.querySelector(".whimsy-profile-editor");
+    if (editor) {
+      editor.hidden = true;
+    }
+    if (focusEdit) {
+      row.querySelector(".whimsy-profile-edit")?.focus();
+    }
+  },
+
+  // W10-23: Create a New Profile… adds a row in editor mode: Name, then
+  // Cancel and Create Profile. The new profile's editor opens after, for
+  // its search engine and downloads.
+  startNewProfile() {
+    const list = document.getElementById("whimsyProfilesList");
+    if (!list) {
+      return;
+    }
+    const existing = list.querySelector(".whimsy-profile-new");
+    if (existing) {
+      existing.querySelector("input")?.focus();
+      return;
+    }
+    this.closeProfileEditor();
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const row = html("li");
+    row.className = "whimsy-profile-row whimsy-profile-new";
+    row.setAttribute("aria-expanded", "true");
+    const head = html("div");
+    head.className = "whimsy-profile-head";
+    const dot = html("span");
+    dot.className = "whimsy-profile-dot";
+    dot.dataset.color = "default";
+    dot.setAttribute("aria-hidden", "true");
+    const titles = html("div");
+    titles.className = "whimsy-profile-titles";
+    const title = html("h3");
+    title.className = "whimsy-profile-name";
+    title.id = "whimsyProfileNew-title";
+    document.l10n.setAttributes(title, "whimsy-profile-create-title");
+    titles.append(title);
+    head.append(dot, titles);
+
+    const form = html("form");
+    form.className = "whimsy-profile-editor whimsy-profile-name-form";
+    form.setAttribute("aria-labelledby", title.id);
+    const label = html("label");
+    label.className = "whimsy-profile-field-label";
+    label.htmlFor = "whimsyProfileNewName";
+    document.l10n.setAttributes(label, "whimsy-profiles-field-name");
+    const input = html("input");
+    input.id = "whimsyProfileNewName";
+    input.type = "text";
+    input.className = "whimsy-profile-field";
+    input.maxLength = 40;
+    input.dataset.profileField = "name";
+    input.setAttribute("autocomplete", "off");
+    const error = html("p");
+    error.id = "whimsyProfileNewName-error";
+    error.className = "whimsy-profile-name-error whimsy-profile-editor-note";
+    error.hidden = true;
+    input.setAttribute("aria-describedby", error.id);
+    const acts = html("div");
+    acts.className = "whimsy-profile-editor-acts";
+    const cancel = document.createXULElement("button");
+    cancel.className = "ghost-button";
+    document.l10n.setAttributes(cancel, "whimsy-profile-cancel");
+    const spacer = html("span");
+    spacer.className = "whimsy-profile-editor-spacer";
+    const create = document.createXULElement("button");
+    create.className = "primary";
+    document.l10n.setAttributes(create, "whimsy-profile-create-button");
+    acts.append(cancel, spacer, create);
+    form.append(label, input, error, acts);
+    row.append(head, form);
+    list.append(row);
+
+    const close = () => {
+      row.remove();
+      this.renderProfiles();
+      document.getElementById("whimsyProfilesCreate")?.focus();
+    };
+    const submit = () => {
+      let profile;
+      try {
+        profile = this.profiles.create(input.value);
+      } catch (e) {
+        error.hidden = false;
+        input.setAttribute("aria-invalid", "true");
+        document.l10n.setAttributes(error, e.message?.startsWith("whimsy-") ? e.message : "whimsy-profile-name-failed");
+        input.focus();
+        return;
+      }
+      row.remove();
+      const id = typeof profile == "object" ? profile?.id ?? profile?.userContextId : profile;
+      this._openProfileEditor = id ?? null;
+      this.renderProfiles();
+      if (id != null) {
+        this.openProfileEditor(id, { focus: "engine" });
+      }
+    };
+    cancel.addEventListener("command", close);
+    create.addEventListener("command", submit);
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      submit();
+    });
     form.addEventListener("keydown", event => {
       if (event.key == "Escape") {
         event.preventDefault();
@@ -1745,23 +2068,7 @@ Object.assign(gWhimsySettings, {
       error.hidden = true;
       input.removeAttribute("aria-invalid");
     });
-    form.addEventListener("submit", event => {
-      event.preventDefault();
-      try {
-        onSubmit(input.value);
-      } catch (e) {
-        error.hidden = false;
-        input.setAttribute("aria-invalid", "true");
-        document.l10n.setAttributes(error,
-          e.message?.startsWith("whimsy-") ? e.message : "whimsy-profile-name-failed");
-        input.focus();
-        return;
-      }
-      close();
-    });
-    slot.append(form);
     input.focus();
-    input.select();
     return form;
   },
 
@@ -1801,12 +2108,9 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// wave5/profiles, phase 4: Search Engine and Default Download Location on
-// each profile's row. Default uses Firefox's own Search and Downloads
-// settings, so its row says so instead of repeating them.
-gWhimsySettings._profileRowHooks = gWhimsySettings._profileRowHooks ?? [];
-gWhimsySettings._profileRowHooks.push(list => gWhimsySettings.addProfileSettings(list));
-
+// wave5/profiles, phase 4: Search Engine and Default Download Location per
+// profile. W10-23: they live in each profile's editor (profileEditor);
+// Default uses Firefox's own Search and Downloads settings.
 Object.assign(gWhimsySettings, {
   get profileSettings() {
     return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSettings.sys.mjs")
@@ -1818,86 +2122,6 @@ Object.assign(gWhimsySettings, {
       "moz-src:///toolkit/components/search/SearchService.sys.mjs");
     await SearchService.init();
     return SearchService.getVisibleEngines();
-  },
-
-  addProfileSettings(list) {
-    const { profiles, profileSettings } = this;
-    for (const row of list.querySelectorAll(".whimsy-profile-row")) {
-      const id = Number(row.dataset.profileId);
-      if (id === 0) {
-        const note = document.createXULElement("description");
-        note.className = "description-deemphasized whimsy-profile-default-note";
-        document.l10n.setAttributes(note, "whimsy-profiles-default-settings");
-        row.append(note);
-        continue;
-      }
-      const key = profiles.keyFor(id);
-      const box = document.createXULElement("vbox");
-      box.className = "whimsy-profile-settings";
-
-      const engineRow = document.createXULElement("hbox");
-      engineRow.setAttribute("align", "center");
-      const engineLabel = document.createXULElement("label");
-      const engineListId = `whimsyProfileEngine${id}`;
-      engineLabel.setAttribute("control", engineListId);
-      document.l10n.setAttributes(engineLabel, "whimsy-profiles-search-engine");
-      const menulist = document.createXULElement("menulist");
-      menulist.id = engineListId;
-      menulist.setAttribute("sizetopopup", "none");
-      const popup = document.createXULElement("menupopup");
-      const same = document.createXULElement("menuitem");
-      same.setAttribute("value", "");
-      document.l10n.setAttributes(same, "whimsy-profiles-same-as-default");
-      popup.append(same);
-      menulist.append(popup);
-      menulist.value = "";
-      this.visibleEngines().then(engines => {
-        for (const engine of engines) {
-          const item = document.createXULElement("menuitem");
-          item.setAttribute("value", engine.id);
-          item.setAttribute("label", engine.name);
-          popup.append(item);
-        }
-        menulist.value = profileSettings.engineFor(key) ?? "";
-      }).catch(console.error);
-      menulist.addEventListener("command", () => profileSettings.setEngine(key, menulist.value));
-      engineRow.append(engineLabel, menulist);
-
-      const dirRow = document.createXULElement("hbox");
-      dirRow.setAttribute("align", "center");
-      const dirLabel = document.createXULElement("label");
-      const dirValueId = `whimsyProfileDir${id}`;
-      dirLabel.id = `${dirValueId}-label`;
-      document.l10n.setAttributes(dirLabel, "whimsy-profiles-download-dir");
-      const dirValue = document.createXULElement("description");
-      dirValue.id = dirValueId;
-      dirValue.className = "whimsy-profile-dir";
-      dirValue.setAttribute("flex", "1");
-      dirValue.setAttribute("crop", "center");
-      const path = profileSettings.downloadDirFor(key);
-      if (path) {
-        dirValue.textContent = path;
-        dirValue.setAttribute("tooltiptext", path);
-      } else {
-        document.l10n.setAttributes(dirValue, "whimsy-profiles-same-as-default-text");
-      }
-      const choose = document.createXULElement("button");
-      document.l10n.setAttributes(choose, "whimsy-profiles-download-choose");
-      choose.setAttribute("aria-describedby", `${dirValueId}-label ${dirValueId}`);
-      choose.addEventListener("command", () => this.chooseProfileDownloadDir(key));
-      dirRow.append(dirLabel, dirValue, choose);
-      if (path) {
-        const reset = document.createXULElement("button");
-        document.l10n.setAttributes(reset, "whimsy-profiles-download-reset");
-        reset.addEventListener("command", async () => {
-          await profileSettings.setDownloadDir(key, null);
-          this.renderProfiles();
-        });
-        dirRow.append(reset);
-      }
-      box.append(engineRow, dirRow);
-      row.append(box);
-    }
   },
 
   async chooseProfileDownloadDir(key) {
