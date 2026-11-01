@@ -117,3 +117,49 @@ add_task(async function test_space_container_has_no_stray_border() {
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
 });
+
+// W10-42: in a space with its own container, Firefox swaps "Open Link in
+// New Tab" for "Open Link in New <Container> Tab". Open Link in Space used
+// to wait for the first row, so it never showed there; the swapped row now
+// reads "Open Link in New Tab" (it is a new tab in this space), and
+// Firefox's container submenus are off for good (not a setting any more).
+add_task(async function test_space_with_container_shows_open_link_in_space() {
+  const { WhimsyMenuPrefs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["privacy.userContext.enabled", true]] });
+  gZenWorkspaces.saveWorkspace({ ...firstSpace, containerTabId: 1 });
+  const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: 1 });
+  gBrowser.selectedTab = tab;
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  is(tab.userContextId, 1, "The tab is in the space's container");
+
+  const menu = await openMenuOn(tab.linkedBrowser, "#l");
+  ok(document.getElementById("context-openlinkintab").hidden, "Firefox hid Open Link in New Tab (the tab is in a container)");
+  const containerRow = document.getElementById("context-openlinkincontainertab");
+  ok(!containerRow.hidden && containerRow.getAttribute("collapsed") != "true", "Its container twin shows");
+  is(document.l10n.getAttributes(containerRow).id, "main-context-menu-open-link-new-tab", "…labelled Open Link in New Tab");
+  const item = document.getElementById("context-whimsyOpenLinkInSpace");
+  ok(item && !item.hidden && item.getAttribute("collapsed") != "true", "Open Link in Space shows in a container space");
+  is(
+    document.getElementById("context-openlinkinusercontext-menu").getAttribute("collapsed"),
+    "true",
+    "Firefox's Open Link in New Container Tab ▸ stays off"
+  );
+  await closeMenu(menu);
+
+  const tabMenu = document.getElementById("tabContextMenu");
+  const tabShown = BrowserTestUtils.waitForEvent(tabMenu, "popupshown");
+  EventUtils.synthesizeMouseAtCenter(tab, { type: "contextmenu", button: 2 });
+  await tabShown;
+  const reopen = document.getElementById("context_reopenInContainer");
+  ok(!reopen || reopen.getAttribute("collapsed") == "true", "The tab menu's Open in New Container Tab stays off");
+  await closeMenu(tabMenu);
+
+  for (const menuId of ["tab", "essential", "link"]) {
+    const ids = WhimsyMenuPrefs.items(menuId).map(entry => entry.id);
+    ok(!ids.includes("reopen-in-container") && !ids.includes("open-in-container"), `${menuId}: no container row in Settings → Menus`);
+  }
+
+  BrowserTestUtils.removeTab(tab);
+  gZenWorkspaces.saveWorkspace({ ...firstSpace, containerTabId: 0 });
+  await SpecialPowers.popPrefEnv();
+});

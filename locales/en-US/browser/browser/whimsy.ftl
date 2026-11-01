@@ -2954,8 +2954,6 @@ whimsy-menus-tab-watch =
     .label = Watch This Page…
 whimsy-menus-tab-move-tab =
     .label = Move Tab
-whimsy-menus-tab-reopen-in-container =
-    .label = Open in New Container Tab
 whimsy-menus-tab-select-all =
     .label = Select All Tabs
 whimsy-menus-tab-share =
@@ -2986,8 +2984,6 @@ whimsy-menus-tab-follower =
 
 whimsy-menus-link-open-in-tab =
     .label = Open Link in New Tab
-whimsy-menus-link-open-in-container =
-    .label = Open Link in New Container Tab
 whimsy-menus-link-open-in-space =
     .label = Open Link in Space
 whimsy-menus-link-open-in-window =

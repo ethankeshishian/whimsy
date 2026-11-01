@@ -512,7 +512,14 @@ export const WhimsySpaces = {
   updateLinkMenu(win) {
     const { document, gZenWorkspaces } = win;
     let item = document.getElementById(LINK_MENU_ID);
+    // W10-42: in a space with its own container (most of them), Firefox
+    // hides "Open Link in New Tab" and shows "Open Link in New <Container>
+    // Tab" in its place, so waiting for the first one hid this menu there.
+    // Either row means the link can open in a tab.
     const openInTab = document.getElementById("context-openlinkintab");
+    const openInContainerTab = document.getElementById("context-openlinkincontainertab");
+    const canOpenInTab = [openInTab, openInContainerTab].some(row => row && !row.hidden);
+    this.labelContainerRow(win, openInContainerTab);
     // wave9/menus (M4): never Scratch (a normal page there would keep its
     // history and cookies).
     const others = this.movableSpaces(win).filter(w => w.uuid != gZenWorkspaces.activeWorkspace);
@@ -520,8 +527,7 @@ export const WhimsySpaces = {
       featureOn(LINK_FEATURE_PREF) &&
       !gZenWorkspaces.privateWindowOrDisabled &&
       !!win.gContextMenu?.onLink &&
-      !!openInTab &&
-      !openInTab.hidden &&
+      canOpenInTab &&
       others.length > 0;
     if (!show) {
       if (item) {
@@ -543,7 +549,7 @@ export const WhimsySpaces = {
       });
       item.appendChild(popup);
       const anchor =
-        document.getElementById("context-openlinkinusercontext-menu") ?? openInTab;
+        document.getElementById("context-openlinkinusercontext-menu") ?? openInContainerTab ?? openInTab;
       anchor.after(item);
     }
     item.hidden = false;
@@ -553,6 +559,20 @@ export const WhimsySpaces = {
       return option;
     });
     item.menupopup.replaceChildren(...items);
+  },
+
+  // W10-42: "Open Link in New Work Tab" in a space whose container is Work
+  // is just a new tab in this space: say "Open Link in New Tab", as Arc
+  // does. A tab in some other container keeps Firefox's label.
+  labelContainerRow(win, row) {
+    if (!row || row.hidden) {
+      return;
+    }
+    const userContextId = Number(row.getAttribute("data-usercontextid")) || 0;
+    const space = win.gZenWorkspaces?.getActiveWorkspaceFromCache?.();
+    if (userContextId && space?.containerTabId == userContextId) {
+      win.document.l10n.setAttributes(row, "main-context-menu-open-link-new-tab");
+    }
   },
 
   // Opens the context menu's link in a space: in that space's container,
