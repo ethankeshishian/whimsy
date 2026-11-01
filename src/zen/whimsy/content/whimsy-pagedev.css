@@ -2,186 +2,236 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* wave9/pagedev: Fonts on This Page, Page Colors and Built With.
- * The sheets reuse WhimsyPanels' look (Zen's panel variables), so light
- * and dark follow the theme; the few colours of their own are tokens
- * with light-dark() pairs. (The usage highlight in the page is styled
- * inline by WhimsyPageDevChild: pages can't load chrome:// sheets.) */
+/* wave9/pagedev + W10-18: Fonts, Colors and Built With on one
+ * WhimsySurface (the shared parts are in whimsy-browser.css). Only what's
+ * particular to these three tabs is here; colours come from the surface
+ * tokens and light-dark(), so light, dark and space themes all follow.
+ * (The usage highlight in the page is styled inline by
+ * WhimsyPageDevChild: pages can't load chrome:// sheets.) */
 
-.whimsy-pagedev-panel {
-  --whimsy-pagedev-pass: light-dark(rgb(26, 127, 55), rgb(87, 211, 120));
-  --whimsy-pagedev-fail: light-dark(rgb(197, 0, 66), rgb(255, 132, 139));
-  --whimsy-pagedev-hairline: color-mix(in srgb, currentColor 14%, transparent);
-  --whimsy-pagedev-fill: color-mix(in srgb, currentColor 6%, transparent);
-  --whimsy-pagedev-fill-hover: color-mix(in srgb, currentColor 11%, transparent);
-}
-
-/* Property rows: label left, value right; the value may shrink and crop
-   (full value in the tooltip). */
-.whimsy-pagedev-panel .whimsy-pagedev-prop {
-  min-height: 28px;
-}
-.whimsy-pagedev-panel .whimsy-pagedev-prop > .whimsy-sheet-item-text {
-  flex: none;
-  min-width: 7em;
-}
-.whimsy-pagedev-panel :is(.whimsy-pagedev-prop, .whimsy-pagedev-pair) > .whimsy-sheet-item-detail {
-  flex: 1 1 auto;
-  min-width: 0;
-  text-align: end;
-  color: inherit;
-  font-family: var(--font-family-monospace, monospace);
-  font-size: 0.92em;
-}
-
-/* One block per font family. */
-.whimsy-pagedev-font {
-  margin: 4px 8px 10px;
-  padding: 8px 0 6px;
-  border-radius: 10px;
-  background-color: var(--whimsy-pagedev-fill);
-}
-.whimsy-pagedev-font-head {
+.whimsy-pagedev-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   gap: 8px;
-  padding: 0 var(--arrowpanel-menuitem-padding-inline, 8px);
+  padding: 0 2px 2px;
+
+  &:focus-visible {
+    outline: none;
+  }
 }
-.whimsy-pagedev-font-name {
-  margin: 0;
+
+.whimsy-pagedev-reading > .whimsy-surface-spinner {
+  margin-inline-end: 2px;
+}
+.whimsy-pagedev-skeleton-row {
+  min-height: 44px;
+  gap: 10px;
+  padding: 0 8px;
+}
+
+/* A row that opens (a font, a technology). */
+.whimsy-pagedev-row {
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+
+  &[expanded] {
+    background-color: color-mix(in srgb, currentColor 4%, transparent);
+  }
+}
+.whimsy-pagedev-row-head {
+  display: flex;
+  align-items: center;
+  cursor: default;
+
+  &[aria-expanded="true"] .whimsy-pagedev-chevron {
+    rotate: 90deg;
+  }
+}
+.whimsy-pagedev-row-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+.whimsy-pagedev-row-title {
   font-weight: 600;
-  font-size: 1.08em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.whimsy-pagedev-font-share {
-  margin: 0;
-  color: var(--whimsy-sheet-muted);
+.whimsy-pagedev-row-line {
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+}
+.whimsy-pagedev-row-trailing,
+.whimsy-pagedev-version {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
   font-variant-numeric: tabular-nums;
 }
-.whimsy-pagedev-font .whimsy-sheet-item {
-  margin-inline: 0;
+.whimsy-pagedev-row-more {
+  gap: 6px;
+  padding: 2px 8px 8px 58px;
+
+  &[hidden] {
+    display: none;
+  }
 }
 
-/* The sample is an image of the page's own text in the font, used as a
-   mask so it takes the panel's text colour in light and dark. */
-.whimsy-pagedev-sample {
-  max-width: calc(100% - 2 * var(--arrowpanel-menuitem-padding-inline, 8px));
-  margin: 4px var(--arrowpanel-menuitem-padding-inline, 8px) 6px;
+/* Fonts: "Aa" in the font (drawn by the page), name + share, weights. */
+.whimsy-pagedev-font > .whimsy-pagedev-row-head {
+  min-height: 48px;
+}
+.whimsy-pagedev-specimen {
+  flex-shrink: 0;
+  width: 40px;
+  text-align: center;
+  font-size: 24px;
+  line-height: 1;
+}
+.whimsy-pagedev-specimen-image {
+  height: 24px;
   background-color: currentColor;
   mask-repeat: no-repeat;
-  mask-position: left center;
+  mask-position: center;
   mask-size: contain;
 }
-.whimsy-pagedev-sample-text {
-  background: none;
-  font-size: 1.6em;
+.whimsy-pagedev-source {
+  display: block;
+  max-width: 100%;
+  padding: 2px 6px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--whimsy-surface-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .whimsy-pagedev-actions {
   gap: 6px;
-  padding: 4px var(--arrowpanel-menuitem-padding-inline, 8px) 0;
-}
-.whimsy-pagedev-button,
-.whimsy-pagedev-format {
-  appearance: none;
-  margin: 0;
-  padding: 4px 10px;
-  min-height: 24px;
-  border: 1px solid var(--whimsy-pagedev-hairline);
-  border-radius: 6px;
-  background-color: var(--whimsy-pagedev-fill);
-  color: inherit;
-  font: inherit;
-  font-size: 0.92em;
-  cursor: default;
 
-  &:hover {
-    background-color: var(--whimsy-pagedev-fill-hover);
+  & > .whimsy-pagedev-highlight-button[aria-pressed="true"] {
+    background-color: var(--whimsy-surface-selected);
+    font-weight: 600;
   }
-  &:focus-visible {
-    outline: var(--focus-outline, 2px solid AccentColor);
-    outline-offset: 1px;
-  }
-  @media not (prefers-reduced-motion: reduce) {
-    transition: background-color 120ms ease-out, border-color 120ms ease-out;
-  }
-}
-.whimsy-pagedev-button[aria-pressed="true"],
-.whimsy-pagedev-format[aria-checked="true"] {
-  border-color: transparent;
-  background-color: var(--zen-primary-color, AccentColor);
-  color: var(--button-primary-color, AccentColorText);
-}
-.whimsy-pagedev-panel .whimsy-pagedev-button.whimsy-sheet-item {
-  min-height: 24px;
 }
 
-/* HEX / RGB / HSL */
+/* Colors: a small HEX / RGB / HSL switch in the caption, a 4-column
+   swatch grid, then contrast rows with a pill. */
 .whimsy-pagedev-formats {
-  gap: 4px;
-  margin: 2px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + var(--arrowpanel-menuitem-padding-inline, 8px)) 4px;
+  margin-inline-start: 6px;
 }
-.whimsy-pagedev-format {
-  flex: 1;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
+.whimsy-pagedev-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
 }
-
+.whimsy-pagedev-color {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  min-width: 0;
+  padding: 3px;
+}
 .whimsy-pagedev-swatch {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  border-radius: 5px;
-  box-shadow: inset 0 0 0 1px var(--whimsy-pagedev-hairline);
+  height: 40px;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.16));
 }
-.whimsy-pagedev-color .whimsy-sheet-item-title {
-  font-family: var(--font-family-monospace, monospace);
+.whimsy-pagedev-swatch-value {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
+.whimsy-pagedev-swatch-role {
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.whimsy-pagedev-color > .whimsy-surface-copy-live {
+  font-size: 11.5px;
+}
+.whimsy-pagedev-pair {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
 .whimsy-pagedev-pair-sample {
   flex-shrink: 0;
-  min-width: 28px;
-  padding: 2px 4px;
-  border-radius: 5px;
-  box-shadow: inset 0 0 0 1px var(--whimsy-pagedev-hairline);
+  padding: 1px 6px;
+  border-radius: 4px;
   font-weight: 600;
-  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.3);
 }
-.whimsy-pagedev-pair .whimsy-sheet-item-title {
-  font-family: var(--font-family-monospace, monospace);
-}
-.whimsy-pagedev-badges {
-  gap: 6px;
-  margin-top: 2px;
-}
-.whimsy-pagedev-badge {
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 16px;
+.whimsy-pagedev-pair-colors {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px;
   white-space: nowrap;
-
-  &.pass {
-    color: var(--whimsy-pagedev-pass);
-    background-color: color-mix(in srgb, var(--whimsy-pagedev-pass) 14%, transparent);
-  }
-  &.fail {
-    color: var(--whimsy-pagedev-fail);
-    background-color: color-mix(in srgb, var(--whimsy-pagedev-fail) 14%, transparent);
-  }
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.whimsy-pagedev-badge-note {
+.whimsy-pagedev-ratio {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-pagedev-pill {
+  min-width: 36px;
+  justify-content: center;
+}
+
+/* Built With: a monogram tile, name + version, a chevron; evidence opens
+   under it. */
+.whimsy-pagedev-monogram {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   font-size: 11px;
-  color: var(--whimsy-sheet-muted);
+}
+.whimsy-pagedev-tech-name {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4px;
+}
+.whimsy-pagedev-chevron {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+  opacity: 0.6;
+  transition: rotate 150ms var(--whimsy-surface-ease);
+}
+.whimsy-pagedev-evidence {
+  padding-inline-start: 42px;
+  gap: 2px;
+
+  & > span {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11.5px;
+    color: var(--whimsy-surface-muted);
+    overflow-wrap: anywhere;
+  }
 }
 
 .whimsy-pagedev-note {
-  margin: 8px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + var(--arrowpanel-menuitem-padding-inline, 8px)) 4px;
+  margin: 0 4px;
   font-size: 11px;
-  color: var(--whimsy-sheet-muted);
+  color: var(--whimsy-surface-muted);
+  text-wrap: pretty;
 }
 
-.whimsy-pagedev-tech .whimsy-sheet-item-subtitle {
-  font-family: var(--font-family-monospace, monospace);
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-pagedev-chevron {
+    transition: none;
+  }
 }

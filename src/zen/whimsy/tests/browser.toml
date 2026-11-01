@@ -103,8 +103,8 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_reorder_spaces.js"]
 
 ["browser_whimsy_screens.js"]
-# wave3/speed: the video speed control shot.
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+# wave3/speed: the video speed control shot; wave10/desA W10-18: the page tools shots.
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf"]
 
 ["browser_whimsy_screens_2.js"]
 # wave3/speed: the video speed control shot.

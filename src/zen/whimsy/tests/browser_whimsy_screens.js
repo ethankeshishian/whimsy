@@ -1866,3 +1866,19 @@ add_task(async function w10_this_site() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-18: the page tools, one per tab, light and dark.
+add_task(async function w10_page_tools() {
+  const { WhimsyPageDev } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageDev.sys.mjs");
+  const root = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, root + "whimsy_pagedev.html");
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.fonts.ready);
+  try {
+    for (const t of ["fonts", "colors", "built-with"]) {
+      await w10SurfaceShot(`page-tools-${t}`, "whimsy-pagedev", () => WhimsyPageDev.open(window, t),
+        panel => panel.dataset.tab == t && !panel.querySelector(".whimsy-pagedev-reading"));
+    }
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

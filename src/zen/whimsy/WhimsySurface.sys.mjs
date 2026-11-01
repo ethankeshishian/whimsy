@@ -730,16 +730,18 @@ export const WhimsySurface = {
    * `content` is the element(s) shown normally; the swap targets
    * `.whimsy-surface-copy-value` inside it (or the whole button).
    */
-  copyButton(doc, { value, content = [], className = "", label = null, onCopied = null }) {
+  copyButton(doc, { value, content = [], className = "", label = null, onCopied = null, liveIn = null, liveBefore = null }) {
     const button = html(doc, "button", `whimsy-surface-copy ${className}`.trim());
     button.type = "button";
     button.append(...content);
     if (label) {
       button.setAttribute("aria-label", label);
     }
+    // "✓ Copied" takes the value's place: by default after the content, or
+    // where the caller says (inside `liveIn`, before `liveBefore`).
     const live = html(doc, "span", "whimsy-surface-copy-live");
     live.setAttribute("aria-live", "polite");
-    button.append(live);
+    (liveIn ?? liveBefore?.parentNode ?? button).insertBefore(live, liveBefore);
     let timer = null;
     button.addEventListener("click", event => {
       event.stopPropagation();

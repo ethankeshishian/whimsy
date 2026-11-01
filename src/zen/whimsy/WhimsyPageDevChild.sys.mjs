@@ -269,6 +269,10 @@ export class WhimsyPageDevChild extends JSWindowActorChild {
         share: totalChars ? entry.chars / totalChars : 0,
         sample: sample.slice(0, 48),
         image: this._sampleImage(entry.family, weightList[0] ?? "400", styleList[0] ?? "normal", sample.slice(0, 48)),
+        // W10-18: the row's "Aa" specimen, drawn the same way.
+        specimen: this._sampleImage(entry.family, weightList[0] ?? "400", styleList[0] ?? "normal", "Aa"),
+        // macOS's own face, behind a hidden "." name (W10-17's rule).
+        system: /^\./.test(entry.family) || /^(system-ui|-apple-system|BlinkMacSystemFont)$/i.test(entry.family),
       });
     }
     families.sort((a, b) => b.chars - a.chars);

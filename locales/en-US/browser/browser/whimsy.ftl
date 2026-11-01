@@ -3762,39 +3762,18 @@ whimsy-pagedev-menu-element-info =
 whimsy-tabs-page-dev =
     .label = Developer tools for the page: Fonts on This Page, Page Colors and Built With (Tools ▸ Browser Tools and command bar)
 
-whimsy-pagedev-fonts-title = Fonts on This Page
-whimsy-pagedev-colors-title = Page Colors
-whimsy-pagedev-built-with-title = Built With
 whimsy-pagedev-unavailable = Whimsy can’t look inside this page. Try a regular web page.
-# $value (string) - what was copied, shortened
-whimsy-pagedev-copied-toast = Copied { $value }
 # $value (string) - the text a row copies
 whimsy-pagedev-copy-value = Copy { $value }
 whimsy-pagedev-share-tiny = under 1%
 
 # $count (number) - font families on the page
-whimsy-pagedev-fonts-summary =
-    { $count ->
-        [one] 1 font family, by share of the page’s text
-       *[other] { $count } font families, by share of the page’s text
-    }
+whimsy-pagedev-fonts-summary = { $count ->
+    [one] 1 font family
+   *[other] { $count } font families
+}
 whimsy-pagedev-fonts-empty = No text is drawn on this page.
-whimsy-pagedev-font-family = Family
-whimsy-pagedev-font-faces = Faces
-whimsy-pagedev-font-weights = Weights
-whimsy-pagedev-font-styles = Styles
-whimsy-pagedev-font-source = Source
-whimsy-pagedev-font-usage = Usage
-# $percent (string) - share of the text, e.g. "62%"; $chars (number) - characters set in the font
-whimsy-pagedev-font-usage-value = { $percent } of text, { $chars } characters
-whimsy-pagedev-font-usage-capped = { $percent } of text, at least { $chars } characters
-# $url (string) - the font file's address
-whimsy-pagedev-font-source-web = Web font: { $url }
 whimsy-pagedev-font-source-embedded = Web font embedded in the page
-# $name (string) - the name in the page's local() rule
-whimsy-pagedev-font-source-local = Installed font: { $name }
-whimsy-pagedev-font-source-system = System font
-whimsy-pagedev-font-source-fallback = System fallback (no listed font had these characters)
 whimsy-pagedev-font-highlight = Highlight on Page
 whimsy-pagedev-font-highlight-none = None of this text is visible to highlight
 
@@ -3802,12 +3781,11 @@ whimsy-pagedev-format-label = Color format
 whimsy-pagedev-format-hex = HEX
 whimsy-pagedev-format-rgb = RGB
 whimsy-pagedev-format-hsl = HSL
-# $count (number) - colors listed
-whimsy-pagedev-palette-heading =
-    { $count ->
-        [one] 1 color, by area
-       *[other] { $count } colors, by area
-    }
+# $count (number) - colors on the page
+whimsy-pagedev-palette-heading = { $count ->
+    [one] 1 color
+   *[other] { $count } colors
+}
 # $count (number) - colors not listed
 whimsy-pagedev-colors-more =
     { $count ->
@@ -3829,9 +3807,6 @@ whimsy-pagedev-contrast-heading =
     }
 # $fg (string) - text color; $bg (string) - background color
 whimsy-pagedev-contrast-pair = { $fg } on { $bg }
-# $level (string) - "AA" or "AAA"
-whimsy-pagedev-wcag-pass = { $level } PASS
-whimsy-pagedev-wcag-fail = { $level } FAIL
 whimsy-pagedev-result-pass = PASS
 whimsy-pagedev-result-fail = FAIL
 whimsy-pagedev-contrast-large = Large text
@@ -3839,14 +3814,12 @@ whimsy-pagedev-contrast-image = Over an image, approximate
 # $fg, $bg (string) - colors; $ratio (string) - e.g. "4.53:1"; $aa, $aaa (string) - PASS or FAIL
 whimsy-pagedev-contrast-copy = { $fg } on { $bg }: { $ratio } (AA { $aa }, AAA { $aaa })
 whimsy-pagedev-copy-css-vars =
-    .label = Copy All as CSS Variables
-whimsy-pagedev-css-vars-label = CSS variables
+    .label = Copy as CSS Variables
 
 whimsy-pagedev-built-with-empty = No known technologies found on this page.
-whimsy-pagedev-built-with-local = Found on this device from the page and its headers. Nothing is sent anywhere.
+whimsy-pagedev-built-with-local = Found on this Mac from the page and its headers. Nothing was sent anywhere.
 whimsy-pagedev-copy-all =
     .label = Copy All
-whimsy-pagedev-built-with-label = the Built With list
 whimsy-pagedev-category-js-framework = JavaScript Frameworks
 whimsy-pagedev-category-js-library = JavaScript Libraries
 whimsy-pagedev-category-cms = Content Management
@@ -4086,4 +4059,22 @@ whimsy-font-search-button-label =
 whimsy-font-copy-css-button =
     .label = Copy CSS
 whimsy-font-copied-css-button =
+    .label = Copied
+
+## wave10/desA W10-18: Fonts, Colors and Built With on one surface.
+
+whimsy-pagedev-tabs-label = Page tools
+whimsy-pagedev-tab-fonts = Fonts
+whimsy-pagedev-tab-colors = Colors
+whimsy-pagedev-tab-built-with = Built With
+whimsy-pagedev-by-share = by share of text
+whimsy-pagedev-by-area = by area
+# $percent (string), $source (string: Web font / Installed font / Mac system font)
+whimsy-pagedev-font-line = { $percent } of text · { $source }
+whimsy-pagedev-copy-name = Copy Name
+whimsy-pagedev-pill-aaa = AAA
+whimsy-pagedev-pill-aa = AA
+whimsy-pagedev-pill-fail = Fails
+whimsy-pagedev-reading = Reading the page…
+whimsy-pagedev-copied-button =
     .label = Copied
