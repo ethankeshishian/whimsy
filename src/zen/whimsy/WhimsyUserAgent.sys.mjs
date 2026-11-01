@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Per-site user agent (Safari's Develop > User Agent; the "User-Agent
-// Switcher" extensions): "Pretend to be..." in the command bar sets the
-// current site to Chrome, Safari (macOS or iPhone) or a custom string,
-// reloading once. People use this for sites that block Firefox outright
+// Switcher" extensions): "Pretend to Be" in This Site (the site panel; the
+// command bar's action opens it there, W10-16) sets the current site to
+// Chrome, Safari (macOS or iPhone) or a custom string, reloading once. People use this for sites that block Firefox outright
 // ("best viewed in Chrome") or to get a site's mobile layout.
 // Built on BrowsingContext.customUserAgent (the same pref-free mechanism
 // Responsive Design Mode uses); no engine patch. Per-site overrides are
@@ -15,8 +15,6 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
@@ -209,104 +207,6 @@ export const WhimsyUserAgent = {
   // committed, so onLocationChange picks up the new UA before the request.
   reload(win, tab) {
     tab.linkedBrowser.reload();
-  },
-
-  // "Pretend to be..." (command bar). fixB: a WhimsyPanels sheet hanging
-  // off the address bar's site button (centred when the bar is hidden): a
-  // radio list of browsers for this site, plus a custom string. Choosing
-  // one reloads the tab once.
-  // W9-04: `siteHost` names the site when the tab shows it in Reader View
-  // (about:reader has no host of its own).
-  openPicker(win, siteHost = null) {
-    const { document, gBrowser } = win;
-    const tab = gBrowser.selectedTab;
-    const host = siteHost || tab.linkedBrowser?.currentURI?.asciiHost;
-    if (!host) {
-      return;
-    }
-    const isPrivate = lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser);
-    const userContextId = tab.userContextId || 0;
-    const profileKey = lazy.WhimsyProfiles.keyFor(userContextId);
-    const options = { isPrivate, profileKey };
-
-    const { panel, body } = lazy.WhimsyPanels.create(win, {
-      id: "whimsy-useragent-panel",
-      titleL10nId: "whimsy-useragent-title",
-      subtitleL10nId: "whimsy-useragent-subtitle",
-      subtitleArgs: { site: host },
-      size: "medium",
-    });
-    panel.classList.add("whimsy-useragent-panel");
-
-    const choose = (preset, custom) => {
-      if (preset) {
-        this.set(host, preset, custom, options);
-      } else {
-        this.clear(host, options);
-      }
-      this.reload(win, tab);
-      lazy.WhimsyPanels.close(panel);
-    };
-    const entry = entryFor(host, options);
-    const activePreset = entry?.preset ?? null;
-    const OPTIONS = [
-      [null, "whimsy-useragent-option-default", "whimsy-useragent-option-default-detail"],
-      ["chrome-mac", "whimsy-useragent-option-chrome", "whimsy-useragent-option-chrome-detail"],
-      ["safari-mac", "whimsy-useragent-option-safari-mac", "whimsy-useragent-option-safari-mac-detail"],
-      ["safari-iphone", "whimsy-useragent-option-safari-iphone", "whimsy-useragent-option-safari-iphone-detail"],
-      ["custom", "whimsy-useragent-option-custom", "whimsy-useragent-option-custom-detail"],
-    ];
-
-    // The custom string: a field and Apply, shown under the Custom row.
-    const customBox = document.createXULElement("vbox");
-    customBox.className = "whimsy-useragent-custom-box";
-    customBox.hidden = activePreset != "custom";
-    const field = document.createElementNS("http://www.w3.org/1999/xhtml", "input");
-    field.className = "whimsy-useragent-custom";
-    field.setAttribute("spellcheck", "false");
-    field.value = entry?.custom ?? "";
-    document.l10n.setAttributes(field, "whimsy-useragent-custom-field");
-    const apply = lazy.WhimsyPanels.footerButton(document, {
-      l10nId: "whimsy-useragent-custom-apply",
-      primary: true,
-      onCommand: () => {
-        const value = field.value.trim();
-        if (value) {
-          choose("custom", value);
-        } else {
-          field.focus();
-        }
-      },
-    });
-    apply.classList.add("small-button");
-    field.addEventListener("keydown", event => {
-      if (event.key == "Enter") {
-        event.preventDefault();
-        apply.doCommand();
-      }
-    });
-    customBox.append(field, apply);
-
-    for (const [preset, l10nId, detailId] of OPTIONS) {
-      const item = lazy.WhimsyPanels.item(document, {
-        l10nId,
-        subtitleL10nId: detailId,
-        checked: preset == activePreset,
-        onCommand: () => {
-          if (preset == "custom") {
-            customBox.hidden = false;
-            field.focus();
-            return;
-          }
-          choose(preset);
-        },
-      });
-      item.setAttribute("whimsy-useragent-preset", preset ?? "default");
-      body.append(item);
-    }
-    body.append(customBox);
-    const anchor = lazy.WhimsyPanels.visibleAnchor(win, ["zen-site-data-icon-button", "identity-icon-box", "urlbar"]);
-    lazy.WhimsyPanels.open(win, panel, { anchor, position: "after_start" });
   },
 };
 

@@ -790,7 +790,12 @@ export const WhimsySurface = {
     const setValue = v => {
       current = v;
       const option = options.find(o => o.value == v) ?? options[0];
-      setL10n(doc, text, option.shortL10nId ?? option.l10nId, option.l10nArgs);
+      if (option.shortL10nId ?? option.l10nId) {
+        setL10n(doc, text, option.shortL10nId ?? option.l10nId, option.l10nArgs);
+      } else {
+        text.removeAttribute("data-l10n-id");
+        text.textContent = option.text ?? "";
+      }
     };
     setValue(value);
     button.addEventListener("click", event => {
@@ -815,7 +820,9 @@ export const WhimsySurface = {
         button.click();
       }
     });
-    return { button, setValue };
+    return { button, setValue, get value() {
+      return current;
+    } };
   },
 
   /** A small listbox surface anchored to `anchor` (after_end). */
@@ -844,7 +851,11 @@ export const WhimsySurface = {
       check.className = "whimsy-surface-option-check";
       check.setAttribute("src", "chrome://global/skin/icons/check.svg");
       const label = html(doc, "span", "whimsy-surface-option-label");
-      setL10n(doc, label, option.l10nId, option.l10nArgs);
+      if (option.l10nId) {
+        setL10n(doc, label, option.l10nId, option.l10nArgs);
+      } else {
+        label.textContent = option.text ?? "";
+      }
       row.append(check, label);
       if (option.detailL10nId) {
         const d = html(doc, "span", "whimsy-surface-option-detail");

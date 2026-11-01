@@ -1232,19 +1232,6 @@ whimsy-cookie-editor-no-match = No cookies match your search
 whimsy-cookie-editor-flag-secure = Secure
 whimsy-cookie-editor-flag-httponly = HttpOnly
 whimsy-cookie-editor-flag-session = Session
-whimsy-useragent-title = Pretend to Be
-# $site (string) - the current site's host
-whimsy-useragent-subtitle = On { $site }; the page reloads
-whimsy-useragent-option-default = Whimsy
-whimsy-useragent-option-default-detail = No disguise (Firefox’s own)
-whimsy-useragent-option-chrome = Chrome
-whimsy-useragent-option-chrome-detail = For sites that only work in Chrome
-whimsy-useragent-option-safari-mac = Safari
-whimsy-useragent-option-safari-mac-detail = Safari on a Mac
-whimsy-useragent-option-safari-iphone = iPhone
-whimsy-useragent-option-safari-iphone-detail = Safari on iPhone, for a site’s mobile layout
-whimsy-useragent-option-custom = Custom…
-whimsy-useragent-option-custom-detail = Any user agent string
 whimsy-useragent-custom-field =
     .placeholder = Mozilla/5.0 …
     .aria-label = Custom user agent
@@ -3891,25 +3878,32 @@ whimsy-pagedev-evidence =
 whimsy-action-site-settings = Site Settings…
 whimsy-site-settings-title = This Site
 whimsy-site-settings-forget-all = Forget All
-whimsy-site-settings-forget =
-    .tooltiptext = Forget
-    .aria-label = Forget
 whimsy-site-settings-zoom = Zoom
-# $percent (number) - the page's zoom level, e.g. 110
-whimsy-site-settings-zoom-value = { $percent }%
+# W10-16: the zoom stepper (− / the % / +); the % resets.
+whimsy-site-settings-zoom-out =
+    .title = Zoom Out
+    .aria-label = Zoom Out
+whimsy-site-settings-zoom-in =
+    .title = Zoom In
+    .aria-label = Zoom In
 whimsy-site-settings-zoom-reset =
-    .tooltiptext = Reset Zoom
-    .aria-label = Reset Zoom
+    .title = Reset to 100%
+    .aria-label = Reset zoom to 100%
+whimsy-site-settings-autoplay-default = Use Default
 whimsy-site-settings-reader = Always Open in Reader View
 whimsy-site-settings-fullscreen = Open in Full Screen
-whimsy-site-settings-on = On
-whimsy-site-settings-off = Off
 whimsy-site-settings-useragent = Pretend to Be
-whimsy-site-settings-useragent-default = Whimsy (default)
+whimsy-site-settings-useragent-reloads = Reloads the page
+# $browser (string) - Chrome, Safari, iPhone, Whimsy or Custom
+whimsy-site-settings-useragent-reloading = Reloading as { $browser }…
+whimsy-site-settings-useragent-default = Whimsy
+whimsy-site-settings-useragent-default-detail = no disguise
 whimsy-site-settings-useragent-chrome-mac = Chrome
 whimsy-site-settings-useragent-safari-mac = Safari
-whimsy-site-settings-useragent-safari-iphone = iPhone (mobile site)
-whimsy-site-settings-useragent-custom = Custom
+whimsy-site-settings-useragent-safari-iphone = iPhone
+whimsy-site-settings-useragent-iphone-detail = mobile site
+whimsy-site-settings-useragent-custom = Custom…
+whimsy-site-settings-private-note = Private window: these settings are forgotten when you close your private tabs.
 # $site (string) - the site's host, e.g. example.com
 whimsy-site-settings-forgot-toast = Forgot settings for { $site }
 ## wave7/easel: View Easels…, Add Page to Easel, Copy Link

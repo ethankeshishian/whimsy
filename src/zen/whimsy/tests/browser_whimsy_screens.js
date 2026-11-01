@@ -856,7 +856,6 @@ add_task(async function fixB_sheets() {
   const { WhimsyHeavyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs");
   const { WhimsySplitFavorites } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitFavorites.sys.mjs");
   const { WhimsyCookieEditor } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs");
-  const { WhimsyUserAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUserAgent.sys.mjs");
   const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
   const favorites = await WhimsySplitFavorites._load();
   const savedFavorites = favorites.splice(0);
@@ -869,7 +868,6 @@ add_task(async function fixB_sheets() {
     }, panel => panel.querySelector(".whimsy-heavy-tabs-group"));
     await sheetShot("split-favorites", "whimsySplitFavoritesPanel", () => WhimsySplitFavorites.openFavoritesPanel(window));
     await sheetShot("cookies", "whimsy-cookie-editor-panel", () => WhimsyCookieEditor.open(window));
-    await sheetShot("pretend-to-be", "whimsy-useragent-panel", () => WhimsyUserAgent.openPicker(window));
     await sheetShot("cheat-sheet", "whimsy-cheatsheet-panel", () => WhimsyCheatSheet.open(window));
   } finally {
     favorites.splice(0, favorites.length, ...savedFavorites);
@@ -1823,6 +1821,48 @@ add_task(async function w10_font_card() {
     await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
     await w10SurfaceShot("font-card-unavailable", "whimsy-font-inspector-panel", () => WhimsyInspector.inspectFont(window));
   } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-16: This Site in Zen's site panel (pick B: Pretend to Be as a
+// dropdown row), with a few things remembered, and its Pretend to Be list.
+add_task(async function w10_this_site() {
+  const { WhimsySiteSettings } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySiteSettings.sys.mjs");
+  const { WhimsyUserAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUserAgent.sys.mjs");
+  const host = "example.com";
+  const oa = { userContextId: 0, privateBrowsingId: 0 };
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `https://${host}/`);
+  WhimsySiteSettings.setFlag("reader", host, oa, true);
+  WhimsyUserAgent.set(host, "chrome-mac");
+  await FullZoom.enlarge(tab.linkedBrowser);
+  gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
+  try {
+    await w10SurfaceShot("this-site", "zen-unified-site-data-panel", () => WhimsySiteSettings.open(window),
+      panel => panel.querySelector("#whimsy-site-settings-section:not([hidden])"));
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await WhimsySiteSettings.open(window);
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
+        e => e.target.id == "whimsy-site-settings-useragent-button-list");
+      document.getElementById("whimsy-site-settings-useragent-button").click();
+      await shown;
+      const list = document.getElementById("whimsy-site-settings-useragent-button-list");
+      await document.l10n.translateFragment(list);
+      await settled();
+      await shot(`w10-this-site-pretend-${dark ? "dark" : "light"}`);
+      list.hidePopup();
+      const site = document.getElementById("zen-unified-site-data-panel");
+      const hidden = BrowserTestUtils.waitForPopupEvent(site, "hidden");
+      site.hidePopup(true);
+      await hidden;
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    gNavToolbox.removeAttribute("zen-has-implicit-hover");
+    WhimsySiteSettings.setFlag("reader", host, oa, false);
+    WhimsyUserAgent.clear(host);
+    await FullZoom.reset(tab.linkedBrowser);
     BrowserTestUtils.removeTab(tab);
   }
 });

@@ -3086,9 +3086,10 @@ panel.whimsy-look-picker {
    the form-unload prompt) reads as one family. Colours come from Zen's
    panel variables and light-dark(); reduced motion keeps only colour
    changes; high contrast outlines the selected and checked states. */
-panel.whimsy-surface {
-  --panel-width: var(--whimsy-surface-width, 380px);
-  --panel-padding: 10px;
+/* The tokens also apply to a section built from these parts inside
+   someone else's panel (This Site in Zen's site panel). */
+panel.whimsy-surface,
+.whimsy-surface-tokens {
   --whimsy-surface-muted: color-mix(in srgb, currentColor 62%, transparent);
   --whimsy-surface-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
   --whimsy-surface-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
@@ -3097,6 +3098,10 @@ panel.whimsy-surface {
   --whimsy-surface-hairline: color-mix(in srgb, currentColor 13%, transparent);
   --whimsy-surface-ease: cubic-bezier(0.2, 0, 0, 1);
   --whimsy-surface-focus: 2px solid var(--focus-outline-color, AccentColor);
+}
+panel.whimsy-surface {
+  --panel-width: var(--whimsy-surface-width, 380px);
+  --panel-padding: 10px;
   width: var(--panel-width);
   font: menu;
   font-size: 13px;
@@ -5097,68 +5102,120 @@ panel.whimsy-sheet.whimsy-snooze {
   }
 }
 
-/* wave9: W9-04 site settings ("This Site" in Zen's site panel). The rows
-   reuse Zen's permission-row classes; these give each its icon, the
-   trailing Forget button and a focus ring for keyboard use. */
-.permission-popup-permission-item.whimsy-site-settings-zoom {
-  list-style-image: url("chrome://browser/skin/zen-icons/search-glass.svg") !important;
+/* wave9: W9-04 site settings ("This Site" in Zen's site panel).
+   W10-16: built from WhimsySurface parts (caption, one track of rows, a
+   zoom stepper, switches and dropdowns), so it reads like the Look picker
+   inside Zen's panel. */
+.whimsy-site-settings-section {
+  gap: 8px;
+  font-size: 13px;
 }
-.permission-popup-permission-item.whimsy-site-settings-reader {
-  list-style-image: url("chrome://browser/skin/zen-icons/reader-mode.svg") !important;
-}
-.permission-popup-permission-item.whimsy-site-settings-fullscreen {
-  list-style-image: url("chrome://browser/skin/zen-icons/fullscreen.svg") !important;
-}
-.permission-popup-permission-item.whimsy-site-settings-useragent {
-  list-style-image: url("chrome://browser/skin/zen-icons/selectable/globe.svg") !important;
-}
-
-.whimsy-site-settings-item {
-  border-radius: 8px;
-
-  &:not([actionable]) .permission-popup-permission-icon::before {
-    transform: none !important;
-  }
-
-  &:focus-visible {
-    outline: var(--focus-outline);
-    outline-offset: -2px;
+.whimsy-site-settings-caption {
+  min-height: 24px;
+  & > .whimsy-surface-caption-label {
+    flex: 1;
+    font-size: 13px;
   }
 }
+.whimsy-site-settings-item[state="allow"] > .whimsy-surface-row-text > .whimsy-surface-row-label {
+  font-weight: 500;
+}
+.whimsy-site-settings-item .whimsy-surface-row-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 
-.whimsy-site-settings-forget {
-  appearance: none;
-  margin: 0;
-  padding: 6px;
-  min-width: 0;
-  border-radius: 6px;
-  -moz-context-properties: fill;
-  fill: currentColor;
-  opacity: 0.6;
-
-  & .toolbarbutton-icon {
-    width: 12px;
-    height: 12px;
+  & > .whimsy-surface-spinner {
+    width: 10px;
+    height: 10px;
+    border-width: 1.5px;
   }
+}
+/* − 110% +: one pill on the track. */
+.whimsy-site-settings-stepper {
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 1px;
+  border-radius: 7px;
+  background: var(--whimsy-surface-track);
 
-  & .toolbarbutton-text {
+  & > button {
+    appearance: none;
+    min-width: 24px;
+    height: 22px;
+    margin: 0;
+    padding: 0 4px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    transition: background-color 100ms ease-out;
+
+    &:hover:not(:disabled) {
+      background-color: var(--whimsy-surface-hover);
+    }
+    &:disabled {
+      opacity: 0.4;
+    }
+    &:focus-visible {
+      outline: var(--whimsy-surface-focus);
+      outline-offset: -2px;
+    }
+  }
+}
+.whimsy-site-settings-zoom-value {
+  min-width: 46px !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+
+  &[at-default] {
+    font-weight: 400;
+    color: var(--whimsy-surface-muted);
+  }
+}
+.whimsy-site-settings-custom {
+  gap: 6px;
+
+  &[hidden] {
     display: none;
   }
-
-  &:hover {
-    opacity: 1;
-    background-color: color-mix(in srgb, currentColor 10%, transparent);
-  }
-
-  &:focus-visible {
-    opacity: 1;
-    outline: var(--focus-outline);
+  & > .footer-button {
+    margin: 0;
+    min-width: 0;
   }
 }
+.whimsy-site-settings-custom-field {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  margin: 0;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 7px;
+  background: var(--whimsy-surface-track);
+  color: inherit;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px;
 
-#whimsy-site-settings-forget-all:focus-visible {
-  opacity: 1;
-  outline: var(--focus-outline);
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: -1px;
+  }
+}
+.whimsy-site-settings-private-note {
+  margin: 0 2px;
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+  &[hidden] {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-site-settings-stepper > button {
+    transition: none;
+  }
 }
 
 /* wave10/fixes W10-09: the Private Space's empty state

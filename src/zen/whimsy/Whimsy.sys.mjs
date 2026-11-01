@@ -659,9 +659,11 @@ export const Whimsy = {
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-useragent-picker",
         l10nId: "whimsy-action-useragent",
-        run: w => lazy.WhimsyUserAgent.enabled && lazy.WhimsyUserAgent.openPicker(w),
+        // W10-16: Pretend to Be is picked in This Site (the site panel),
+        // not a separate sheet.
+        run: w => lazy.WhimsyUserAgent.enabled && lazy.WhimsySiteSettings.open(w, { focus: "useragent" }),
         icon: "chrome://browser/skin/zen-icons/selectable/globe.svg",
-        isAvailable: () => lazy.WhimsyUserAgent.enabled,
+        isAvailable: () => lazy.WhimsyUserAgent.enabled && lazy.WhimsySiteSettings.enabled,
       });
     });
     // batch7: cookie editor.
