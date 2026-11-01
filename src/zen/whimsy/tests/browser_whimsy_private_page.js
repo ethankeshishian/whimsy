@@ -41,6 +41,14 @@ function searchShown(browser) {
   });
 }
 
+// A new private window's address bar runs a query as it opens; closing the
+// window before it's done makes Firefox's urlbar reject on a destroyed
+// actor (an uncaught rejection that lands on the next test).
+async function closePrivateWindow(win) {
+  await win.gURLBar?.lastQueryContextPromise?.catch(() => {});
+  await BrowserTestUtils.closeWindow(win);
+}
+
 async function closeTab(tab) {
   BrowserTestUtils.removeTab(tab, { animate: false });
   await TestUtils.waitForCondition(() => !tab.isConnected, "The tab was removed");
@@ -122,7 +130,7 @@ add_task(async function test_private_window_page_is_calm() {
     EventUtils.synthesizeKey("l", { accelKey: true }, win);
     await TestUtils.waitForCondition(() => win.gURLBar.focused, "Cmd+L opens the address bar there");
   } finally {
-    await BrowserTestUtils.closeWindow(win);
+    await closePrivateWindow(win);
   }
 });
 
@@ -135,15 +143,7 @@ add_task(async function test_switch_off_keeps_firefox_page() {
     ok(!shown.calm, "With the switch off, Whimsy leaves the page alone");
     ok(shown.box, "... and Firefox's search box is back");
   } finally {
-    // Firefox's search box hands off to the address bar; a query still
-    // running when the window closes rejects in Firefox's urlbar code.
-    for (const controller of [win.gURLBar?.controller, win.gURLBar?.parentController]) {
-      try {
-        controller?.cancelQuery?.();
-      } catch (e) {}
-    }
-    await TestUtils.waitForTick();
-    await BrowserTestUtils.closeWindow(win);
+    await closePrivateWindow(win);
     await SpecialPowers.popPrefEnv();
   }
 });
