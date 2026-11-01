@@ -94,7 +94,6 @@ export const WhimsySurface = {
     panel.setAttribute("orient", "vertical");
     panel.setAttribute("role", "dialog");
     panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("consumeoutsideclicks", "false");
     if (o.closeOnOutsideClick === false) {
       panel.setAttribute("noautohide", "true");
     }
@@ -196,7 +195,9 @@ export const WhimsySurface = {
   },
 
   focusables(root) {
-    return [...root.querySelectorAll(FOCUSABLE)].filter(el => visible(el) && el.tabIndex >= 0);
+    // Roving items set tabindex="-1" on all but one; XUL controls report
+    // no tabIndex of their own, so go by the attribute.
+    return [...root.querySelectorAll(FOCUSABLE)].filter(el => visible(el) && el.getAttribute("tabindex") != "-1");
   },
 
   _onKeyDown(panel, event, o) {
