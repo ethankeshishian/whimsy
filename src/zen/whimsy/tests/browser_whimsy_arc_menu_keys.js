@@ -87,53 +87,29 @@ add_task(function test_cmd_n_new_space() {
   noOtherKey("key_newNavigator");
 });
 
-// wave10 (W10-47): the Library key is reserved, so a page can't take it.
-// The real Cmd+Shift+L (native key events) is in
+// wave10 (W10-61, replacing W10-47's reservation): Arc's browser keys use
+// the "press again" model, so Whimsy reserves none of them: a page that
+// uses one gets the first press (browser_whimsy_press_again.js), the
+// browser acts on the second. The real keys (native key events) are in
 // browser_whimsy_arc_menu_keys_native.js, run headed by verify.sh.
-add_task(function test_library_key_reserved() {
-  is(document.getElementById("zen-library-toggle").getAttribute("reserved"), "true", "Pages can't take the Library key");
-});
-
-// wave10 (W10-47): Arc's other browser-level menu keys are reserved too;
-// the keys pages use for their content never are, and a rebinding moves the
-// reservation with the key (and drops it on a content key).
-add_task(async function test_browser_keys_reserved_content_keys_not() {
-  const { RESERVED_KEYS, CONTENT_BINDINGS, bindingOf } = ChromeUtils.importESModule(
-    "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs"
-  );
+add_task(async function test_browser_keys_press_again_not_reserved() {
+  const { RESERVED_KEYS, bindingOf } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyShortcuts.sys.mjs");
   const { CustomKeys } = ChromeUtils.importESModule("moz-src:///browser/components/customkeys/CustomKeys.sys.mjs");
   await TestUtils.waitForCondition(() => gBrowserInit.delayedStartupFinished, "Delayed startup");
-  const reserved = id => document.getElementById(id)?.getAttribute("reserved") == "true";
-
-  for (const id of ["zen-library-toggle", "zen-copy-url", "zen-toggle-pin-tab", "focusURLBar", "key_openDownloads", "zen-workspace-forward"]) {
+  for (const id of ["zen-library-toggle", "zen-copy-url", "zen-toggle-pin-tab", "focusURLBar", "key_openDownloads", "zen-workspace-forward", "zen-compact-mode-toggle"]) {
     ok(RESERVED_KEYS.includes(id), `${id} is one of Arc's browser keys`);
-    ok(reserved(id), `${id} is reserved`);
-  }
-  for (const id of ["key_copy", "key_selectAll", "key_undo", "key_find", "zen-compact-mode-toggle"]) {
     const key = document.getElementById(id);
     if (key) {
-      ok(!RESERVED_KEYS.includes(id) && !key.hasAttribute("whimsy-reserved"), `${id} stays the page's`);
+      ok(!key.hasAttribute("whimsy-reserved"), `${id} isn't reserved by Whimsy`);
     }
   }
-  for (const id of RESERVED_KEYS) {
-    const key = document.getElementById(id);
-    if (key) {
-      ok(!CONTENT_BINDINGS.includes(bindingOf(key)), `${id} (${bindingOf(key)}) isn't on a content key`);
-    }
-  }
-
-  // Rebinding Pin Tab onto Bold gives Bold back to pages; another key keeps
-  // the reservation; resetting brings Arc's ⌘D back, reserved.
-  CustomKeys.changeKey("zen-toggle-pin-tab", { modifiers: "accel", key: "B" });
-  await TestUtils.waitForCondition(() => !reserved("zen-toggle-pin-tab"), "Rebound onto ⌘B: not reserved");
+  isnot(document.getElementById("zen-library-toggle").getAttribute("reserved"), "true", "Pages get the first ⇧⌘L");
+  // A rebinding moves the press-again model with the key (it's matched by
+  // its binding when it's used) and still reserves nothing.
   CustomKeys.changeKey("zen-toggle-pin-tab", { modifiers: "accel,alt", key: "P" });
-  await TestUtils.waitForCondition(() => reserved("zen-toggle-pin-tab"), "Rebound onto ⌥⌘P: reserved");
+  await TestUtils.waitForCondition(() => bindingOf(document.getElementById("zen-toggle-pin-tab")) == "accel,alt|P", "Rebound onto ⌥⌘P");
+  ok(!document.getElementById("zen-toggle-pin-tab").hasAttribute("reserved"), "still not reserved");
   CustomKeys.resetKey("zen-toggle-pin-tab");
-  await TestUtils.waitForCondition(
-    () => bindingOf(document.getElementById("zen-toggle-pin-tab")) == "accel|D" && reserved("zen-toggle-pin-tab"),
-    "Reset: ⌘D, reserved"
-  );
-
-  // The real ⌘D on a page that takes every ⌘ key: browser_whimsy_arc_menu_keys_native.js.
+  await TestUtils.waitForCondition(() => bindingOf(document.getElementById("zen-toggle-pin-tab")) == "accel|D", "Reset: ⌘D");
 });
 

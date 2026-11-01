@@ -119,33 +119,66 @@ whimsy-ui-zoom-label = Zoom
 ## Copy & share (WhimsyCopy.sys.mjs): Cmd+Shift+C, Cmd+Opt+Shift+C, tab menu
 
 # $stripped is "yes" only when Copy Clean Link's list actually removed
-# tracking parameters from at least one copied link.
+# tracking parameters from at least one copied link. W10-33: Arc's wording
+# ("Copied Current URL"); Arc doesn't strip trackers, so "without Trackers"
+# is Whimsy's, said only when something was removed.
+# $count (number) - how many links were copied
 whimsy-copy-toast =
     { $stripped ->
         [yes]
             { $count ->
-                [one] Copied link without trackers
-               *[other] Copied { $count } links without trackers
+                [one] Copied Current URL without Trackers
+               *[other] Copied Current URLs without Trackers
             }
        *[no]
             { $count ->
-                [one] Copied link
-               *[other] Copied { $count } links
+                [one] Copied Current URL
+               *[other] Copied Current URLs
             }
     }
 whimsy-copy-markdown-toast =
     { $stripped ->
         [yes]
             { $count ->
-                [one] Copied link as Markdown without trackers
-               *[other] Copied { $count } links as Markdown without trackers
+                [one] Copied Current URL as Markdown without Trackers
+               *[other] Copied Current URLs as Markdown without Trackers
             }
        *[no]
             { $count ->
-                [one] Copied link as Markdown
-               *[other] Copied { $count } links as Markdown
+                [one] Copied Current URL as Markdown
+               *[other] Copied Current URLs as Markdown
             }
     }
+# The same, when the tab menu copied a tab that isn't the current one.
+whimsy-copy-other-toast =
+    { $stripped ->
+        [yes]
+            { $count ->
+                [one] Copied URL without Trackers
+               *[other] Copied URLs without Trackers
+            }
+       *[no]
+            { $count ->
+                [one] Copied URL
+               *[other] Copied URLs
+            }
+    }
+whimsy-copy-markdown-other-toast =
+    { $stripped ->
+        [yes]
+            { $count ->
+                [one] Copied URL as Markdown without Trackers
+               *[other] Copied URLs as Markdown without Trackers
+            }
+       *[no]
+            { $count ->
+                [one] Copied URL as Markdown
+               *[other] Copied URLs as Markdown
+            }
+    }
+# W10-63 (Arc): the Copy URL toast's offer when text is selected on the
+# page; it copies a Link to Highlight (a link to the selected text).
+whimsy-copy-highlight-offer = Share a link directly to this text instead?
 tab-context-whimsy-copy-links =
     .label =
         { $count ->
@@ -2221,6 +2254,14 @@ whimsy-fire-working-everything = Clearing everything…
 # $site (string) - the site being forgotten, e.g. example.com
 whimsy-fire-working-site = Forgetting { $site }…
 
+# W10-62 (Arc): an Essential's context menu (a checkbox) and its command.
+tab-context-whimsy-unread-badge =
+    .label = Show Unread Badge
+    .accesskey = U
+whimsy-action-toggle-unread-badge = Show or Hide Unread Badge
+whimsy-action-show-unread-badge = Show Unread Badge
+whimsy-action-hide-unread-badge = Hide Unread Badge
+
 # wave5/uxfix: read out with a pinned tab's unread badge.
 # $count (number) - unread items the site reports
 whimsy-tab-unread-description = { $count } unread
@@ -2552,6 +2593,13 @@ whimsy-menu-paste-match-style =
 ## wave6: Cmd+N makes a new space (BUILD-PLAN); New Window moves to Cmd+Opt+Shift+N.
 
 whimsy-action-new-space = New Space…
+
+## W10-61: press again (Arc). The page used a browser shortcut itself, so it
+## got this press; pressing it again runs the browser's command.
+## $shortcut (string) - the shortcut, e.g. "⌘S"
+## $action (string) - the command's name, e.g. "Hide Sidebar"
+
+whimsy-press-again-toast = Press { $shortcut } again for { $action }
 
 ## wave6/parity: Arc's menu bar names (WhimsyArcMenus) and missing items.
 
@@ -3007,6 +3055,9 @@ whimsy-menus-tab-snooze =
     .label = Snooze…
 whimsy-menus-tab-essentials =
     .label = Add to Essentials / Remove from Essentials
+whimsy-menus-tab-unread-badge =
+    .label = Show Unread Badge
+    .description = On Essentials
 whimsy-menus-tab-rename =
     .label = Rename…
 whimsy-menus-tab-change-icon =

@@ -7,7 +7,9 @@
 // ratzillacosme.com) the page cancels the right-click, so the page menu's
 // Allow Copy and Paste row never shows: a toast offers it instead. With it
 // on, Cmd+C copies even though the page cancels Cmd/Ctrl keys. Copy URL
-// (Cmd+Shift+C) works there whether or not copying is allowed.
+// (Cmd+Shift+C) works there whether or not copying is allowed: the page
+// gets the first press and the second one copies (W10-61, Arc's press
+// again).
 
 const PAGE =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_no_copy_keys.html";
@@ -33,10 +35,10 @@ async function selectWords(browser) {
   browser.focus();
 }
 
-add_task(async function test_copy_url_keys_are_reserved() {
+add_task(async function test_copy_url_keys_press_again() {
   for (const id of ["zen-copy-url", "zen-copy-url-markdown"]) {
-    ok(RESERVED_KEYS.includes(id), `${id} is one of the reserved keys`);
-    is(document.getElementById(id)?.getAttribute("reserved"), "true", `${id} can't be swallowed by a page`);
+    ok(RESERVED_KEYS.includes(id), `${id} is one of the browser's keys (press again)`);
+    isnot(document.getElementById(id)?.getAttribute("reserved"), "true", `${id} isn't reserved: the page gets the first press`);
   }
 });
 
@@ -45,11 +47,20 @@ add_task(async function test_blocked_menu_offers_allow_copy() {
   const browser = tab.linkedBrowser;
   ok(!WhimsyPage.copyAllowed(browser), "Not allowed yet");
 
-  // Copy URL works although the page cancels every Cmd key.
+  // Copy URL works although the page cancels every Cmd key: the page gets
+  // the first press, the second copies (W10-61).
   SpecialPowers.clipboardCopyString("");
   browser.focus();
+  const firstBlocked = await blockedKeys(browser);
   EventUtils.synthesizeKey("C", { accelKey: true, shiftKey: true });
-  await TestUtils.waitForCondition(() => clipboardText().includes("whimsy_no_copy_keys.html"), "Cmd+Shift+C copies the URL");
+  await TestUtils.waitForCondition(async () => (await blockedKeys(browser)) > firstBlocked, "The page cancelled the first Cmd+Shift+C");
+  await TestUtils.waitForCondition(
+    () => WhimsyToast.current(window)?._messageId == "whimsy-press-again-toast",
+    "A toast says to press it again"
+  );
+  ok(!clipboardText().includes("whimsy_no_copy_keys.html"), "The first press didn't copy");
+  EventUtils.synthesizeKey("C", { accelKey: true, shiftKey: true });
+  await TestUtils.waitForCondition(() => clipboardText().includes("whimsy_no_copy_keys.html"), "The second Cmd+Shift+C copies the URL");
   ok(clipboardText().includes("whimsy_no_copy_keys.html"), "Copy URL wasn't swallowed by the page");
 
   // The page cancels Cmd+C.

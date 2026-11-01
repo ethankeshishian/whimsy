@@ -371,6 +371,9 @@ export const Whimsy = {
           // wave9/menus: whether the right-clicked page blocks copying, for
           // the page menu's Allow Copy and Paste row (W9-09).
           contextmenu: { capture: true },
+          // W10-61: whether the page cancelled a browser key (press again).
+          // System group, bubbling: after every listener the page has.
+          keydown: { mozSystemGroup: true },
         },
       },
       allFrames: true,

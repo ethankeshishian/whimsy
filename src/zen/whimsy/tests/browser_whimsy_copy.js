@@ -111,7 +111,7 @@ add_task(async function test_multiple_selected_tabs() {
   const label = toast.querySelector("label");
   Assert.deepEqual(document.l10n.getAttributes(label).args, { count: 2, stripped: "no" }, "The toast counts the links");
   ok(!toast.querySelector(".whimsy-copy-url"), "No single URL under a count");
-  await TestUtils.waitForCondition(() => label.textContent.includes("2"), "Copied 2 links");
+  await TestUtils.waitForCondition(() => label.textContent == "Copied Current URLs", "Copied Current URLs (Arc)");
 
   // Markdown variant: a list.
   await clearClipboard();
@@ -190,8 +190,9 @@ add_task(async function test_switch_off_falls_back_to_zen() {
   await SpecialPowers.popPrefEnv();
 });
 
-// W10-33: the toast says "without trackers" only when Copy Clean Link's list
-// actually removed tracking parameters.
+// W10-33: Arc's wording, "Copied Current URL" / "Copied Current URLs"; the
+// toast adds "without Trackers" only when Copy Clean Link's list actually
+// removed tracking parameters.
 const TRACKER = "utm" + "_source";
 const TRACKED = `https://example.com/browser/?${TRACKER}=newsletter&keep=1`;
 const CLEANED = "https://example.com/browser/?keep=1";
@@ -254,13 +255,13 @@ add_task(async function test_toast_with_trackers() {
     await clearClipboard();
     command("cmd_zenCopyCurrentURL");
     await waitForClipboard(CLEANED, "The copy drops the tracker");
-    const toast = await toastText("whimsy-copy-toast", "Copied link without trackers", "Says the trackers went");
+    const toast = await toastText("whimsy-copy-toast", "Copied Current URL without Trackers", "Says the trackers went");
     is(toast.querySelector(".whimsy-copy-url")?.getAttribute("value"), CLEANED, "Shows the clean URL");
 
     await clearClipboard();
     command("cmd_zenCopyCurrentURLMarkdown");
     await waitForClipboard(`[${gBrowser.selectedTab.label}](${CLEANED})`, "Markdown drops it too");
-    await toastText("whimsy-copy-markdown-toast", "Copied link as Markdown without trackers", "Markdown toast says so");
+    await toastText("whimsy-copy-markdown-toast", "Copied Current URL as Markdown without Trackers", "Markdown toast says so");
     closeTabs(tabs);
   });
 });
@@ -271,12 +272,12 @@ add_task(async function test_toast_without_trackers() {
     await clearClipboard();
     command("cmd_zenCopyCurrentURL");
     await waitForClipboard(CLEANED, "A clean link is copied as is");
-    await toastText("whimsy-copy-toast", "Copied link", "No tracker claim for a clean link");
+    await toastText("whimsy-copy-toast", "Copied Current URL", "No tracker claim for a clean link");
 
     await clearClipboard();
     command("cmd_zenCopyCurrentURLMarkdown");
     await waitForClipboard(`[${gBrowser.selectedTab.label}](${CLEANED})`, "Markdown");
-    await toastText("whimsy-copy-markdown-toast", "Copied link as Markdown", "No tracker claim in Markdown");
+    await toastText("whimsy-copy-markdown-toast", "Copied Current URL as Markdown", "No tracker claim in Markdown");
     closeTabs(tabs);
   });
 });
@@ -287,7 +288,7 @@ add_task(async function test_toast_strip_on_share_off() {
     await clearClipboard();
     command("cmd_zenCopyCurrentURL");
     await waitForClipboard(TRACKED, "Strip-on-share off keeps the tracker");
-    await toastText("whimsy-copy-toast", "Copied link", "so the toast doesn't claim it was removed");
+    await toastText("whimsy-copy-toast", "Copied Current URL", "so the toast doesn't claim it was removed");
     closeTabs(tabs);
   });
 });
@@ -300,7 +301,7 @@ add_task(async function test_toast_several_tabs() {
     command("cmd_zenCopyCurrentURL");
     await TestUtils.waitForCondition(() => clipboard("text/plain").includes(CLEANED), "Both copied");
     ok(!clipboard("text/plain").includes(TRACKER), "Without the tracker");
-    await toastText("whimsy-copy-toast", "Copied 2 links without trackers", "One link had trackers removed");
+    await toastText("whimsy-copy-toast", "Copied Current URLs without Trackers", "One link had trackers removed");
     closeTabs(tabs);
 
     tabs = await openURLs([CLEANED, PAGE_2]);
@@ -308,7 +309,40 @@ add_task(async function test_toast_several_tabs() {
     await clearClipboard();
     command("cmd_zenCopyCurrentURL");
     await TestUtils.waitForCondition(() => clipboard("text/plain").includes(CLEANED), "Both copied");
-    await toastText("whimsy-copy-toast", "Copied 2 links", "No link had trackers");
+    await toastText("whimsy-copy-toast", "Copied Current URLs", "No link had trackers");
+    closeTabs(tabs);
+  });
+});
+
+// W10-33 follow-up: the tab menu copying a tab that isn't the current one
+// says "Copied URL" (no "Current"); the current tab keeps "Copied Current URL".
+add_task(async function test_context_menu_toast_for_other_tab() {
+  await withStripOnShare(true, async () => {
+    const tabs = await openURLs([CLEANED, TRACKED]);
+    is(gBrowser.selectedTab, tabs[1], "The tracked page is current");
+    const item = () => document.getElementById("context_whimsyCopyLinks");
+
+    // Another tab, clean.
+    let menu = await openTabMenu(tabs[0]);
+    await clearClipboard();
+    menu.activateItem(item());
+    await waitForClipboard(CLEANED, "Copies the other tab's URL");
+    await toastText("whimsy-copy-other-toast", "Copied URL", "Not the current tab: no \"Current\"");
+
+    // The current tab, with a tracker.
+    menu = await openTabMenu(tabs[1]);
+    await clearClipboard();
+    menu.activateItem(item());
+    await waitForClipboard(CLEANED, "Copies the current tab without its tracker");
+    await toastText("whimsy-copy-toast", "Copied Current URL without Trackers", "The current tab says Current");
+
+    // Another tab with a tracker.
+    gBrowser.selectedTab = tabs[0];
+    menu = await openTabMenu(tabs[1]);
+    await clearClipboard();
+    menu.activateItem(item());
+    await waitForClipboard(CLEANED, "Copies it without the tracker");
+    await toastText("whimsy-copy-other-toast", "Copied URL without Trackers", "Other tab, trackers removed");
     closeTabs(tabs);
   });
 });

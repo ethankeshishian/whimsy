@@ -12,6 +12,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PictureInPictureChild: "moz-src:///toolkit/actors/PictureInPictureChild.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  // W10-61: press again.
+  eventSignatures: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  PRESS_AGAIN_SHARED_KEY: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
 
 // Per-tab volume: each media element keeps the volume the page set
@@ -100,6 +103,35 @@ export class WhimsyPageChild extends JSWindowActorChild {
       case "contextmenu":
         this.onContextMenu(event);
         break;
+      case "keydown":
+        this.onKeyDown(event);
+        break;
+    }
+  }
+
+  // W10-61 (Arc's "press again"): the page cancelled a key that is one of
+  // the browser's (WhimsyShortcuts.RESERVED_KEYS, as bound now): tell the
+  // parent, which offers the second press. Runs in the system group after
+  // all of the page's listeners, so defaultPrevented is the page's answer.
+  onKeyDown(event) {
+    if (!event.defaultPrevented || !event.isTrusted || event.repeat) {
+      return;
+    }
+    if (!(event.metaKey || event.ctrlKey || event.altKey)) {
+      return;
+    }
+    let wanted = null;
+    try {
+      wanted = Services.cpmm.sharedData.get(lazy.PRESS_AGAIN_SHARED_KEY);
+    } catch (e) {
+      return;
+    }
+    if (!wanted?.length) {
+      return;
+    }
+    const signatures = lazy.eventSignatures(event).filter(s => wanted.includes(s));
+    if (signatures.length) {
+      this.sendAsyncMessage("Whimsy:PageTookKey", { signatures });
     }
   }
 
@@ -724,6 +756,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
       }
       rect = field.getBoundingClientRect();
     }
+    // W10-63: whether it's the page's own text (a text fragment can link
+    // to it) rather than a field's.
+    const inField = !!text;
     if (!text) {
       const selection = win.getSelection();
       text = selection?.toString() ?? "";
@@ -733,7 +768,7 @@ export class WhimsyPageChild extends JSWindowActorChild {
     if (!text || !rect) {
       return null;
     }
-    return { text, x: win.mozInnerScreenX + rect.left, y: win.mozInnerScreenY + rect.bottom };
+    return { text, x: win.mozInnerScreenX + rect.left, y: win.mozInnerScreenY + rect.bottom, inField };
   }
 
   // Reading time: how much text the article has (its <article> or <main>

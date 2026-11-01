@@ -1328,6 +1328,14 @@ FEATURES = [
     # finds it by its short name and other words.
     {"id": "settings-commands", "title": "Every setting is a command: turn any Whimsy setting on or off (or pick its choice) from the command bar or a shortcut, and find it in Settings by its name",
      "detect": [("src/zen", r"(?i)settings?-?toggle-?commands?|pref-?toggle-?actions?")]},
+    # wave10 (W10-61): Arc's "press again": a page that uses a browser key
+    # gets the first press, the browser acts on the second one in a row.
+    {"id": "press-again", "title": "Press again: when a page uses a browser shortcut (⌘S, ⇧⌘C, ...) the page gets the first press and a second press in a row runs the browser's command (Arc)",
+     "detect": [("src/zen/kbs", r"(?i)press-?again|double-?press")]},
+    # wave10 (W10-03): Next Space past the last space makes a new space;
+    # Previous Space stops at the first (Arc).
+    {"id": "space-edges", "title": "Space edges (Arc): Next Space past the last space opens New Space; Previous Space stops at the first",
+     "detect": [("src/zen/spaces", r"(?i)past-?(the-?)?last-?space|create-?space-?at-?end")]},
 ]
 
 

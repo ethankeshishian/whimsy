@@ -445,7 +445,13 @@ function rowSpecs() {
       popup: "tabContextMenu",
       after: "context_whimsyCopyLinks",
       fallbackAfter: "context_duplicateTab",
-      run: w => lazy.WhimsyCopy.copy(w, lazy.WhimsyCopy.linksFor(lazy.WhimsyCopy.contextTabs(w)), { markdown: true }),
+      run: w => {
+        const tabs = lazy.WhimsyCopy.contextTabs(w);
+        return lazy.WhimsyCopy.copy(w, lazy.WhimsyCopy.linksFor(tabs), {
+          markdown: true,
+          current: lazy.WhimsyCopy.areCurrent(tabs),
+        });
+      },
       key: "zen-copy-url-markdown",
       update: w => !!contextTab(w),
     },

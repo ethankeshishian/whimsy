@@ -27,6 +27,11 @@
 // Durations and curves are Zen's own; nothing here animates.
 
 const FEATURE_PREF = "whimsy.feature.space-switch-queue";
+// W10-03 (Arc): Next Space past the last space makes a new space; Previous
+// Space stops at the first. Zen's wrap-around setting went round to the
+// other end instead.
+const EDGES_PREF = "whimsy.feature.space-edges";
+const EDGE_COMMANDS = { cmd_zenWorkspaceForward: 1, cmd_zenWorkspaceBackward: -1 };
 const START_EVENT = "WhimsySpaceSwitchStart";
 const END_EVENT = "WhimsySpaceSwitchEnd";
 // The same thresholds ZenSpacesSwipe gives the swipe tracker for a space swipe.
@@ -97,6 +102,7 @@ export const WhimsySpaceSwitchQueue = {
     states.set(win, state);
     this.wrapChangeWorkspace(win, state);
     this.wrapShortcut(win, state);
+    this.initEdges(win, state);
     const onGesture = event => this.handleGesture(win, state, event);
     for (const type of GESTURE_EVENTS) {
       win.addEventListener(type, onGesture, true);
@@ -190,6 +196,61 @@ export const WhimsySpaceSwitchQueue = {
     };
     wrapped._whimsySwitchQueue = true;
     spaces.changeWorkspaceShortcut = wrapped;
+  },
+
+  get edgesEnabled() {
+    return Services.prefs.getBoolPref(EDGES_PREF, true);
+  },
+
+  // W10-03: Next Space and Previous Space (their shortcuts, the Spaces menu
+  // and the command bar all run these two commands) at the ends of the
+  // list. Capture phase, so this runs before Zen's commandset listener.
+  // Swipes, the sidebar's scroll wheel and the mouse's back/forward buttons
+  // keep Zen's own behaviour (a swipe past the last space already offers a
+  // new one, ZenSpaceAddSwipe).
+  initEdges(win, state) {
+    win.document.addEventListener(
+      "command",
+      event => {
+        const offset = EDGE_COMMANDS[event.target.id];
+        if (!offset || !this.edgesEnabled) {
+          return;
+        }
+        event.stopPropagation();
+        this.stepFromEdge(win, state, offset)?.catch?.(console.error);
+      },
+      true
+    );
+  },
+
+  // One step through the spaces, from where the window is (or will be once
+  // a playing slide ends). Past the last space: New Space (only from a
+  // settled last space, never in the middle of a burst of presses). Before
+  // the first: nothing.
+  stepFromEdge(win, state, offset) {
+    const spaces = win.gZenWorkspaces;
+    const workspaces = spaces?.getWorkspaces?.() ?? [];
+    if (!workspaces.length) {
+      return null;
+    }
+    const fromId = this.projectedTarget(win);
+    let from = workspaces.findIndex(space => space.uuid == fromId);
+    if (from < 0) {
+      from = Math.max(0, workspaces.findIndex(space => space.uuid == spaces.activeWorkspace));
+    }
+    const to = from + offset;
+    if (to < 0) {
+      return null;
+    }
+    if (to >= workspaces.length) {
+      const creating = win.document.documentElement.hasAttribute("zen-creating-workspace");
+      if (state.running || creating || spaces.privateWindowOrDisabled) {
+        return null;
+      }
+      return spaces.openWorkspaceCreation();
+    }
+    // Never wraps: the edges are handled above.
+    return spaces.changeWorkspaceShortcut(offset, false, true);
   },
 
   async run(win, state, original, context, workspace, args) {

@@ -10,6 +10,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
+  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   // batch6
   WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
   WhimsyZap: "resource:///modules/whimsy/WhimsyZap.sys.mjs",
@@ -51,6 +52,14 @@ export class WhimsyPageParent extends JSWindowActorParent {
     switch (message.name) {
       case "Whimsy:VolumeLevel":
         return lazy.WhimsyMedia.volumeFor(this.tab);
+      // W10-61: the page cancelled a browser key; a second press runs it.
+      case "Whimsy:PageTookKey": {
+        const browser = this.browsingContext.top.embedderElement;
+        if (browser) {
+          lazy.WhimsyShortcuts.onPageTookKey(browser, message.data?.signatures);
+        }
+        return null;
+      }
       case "Whimsy:EditingEnded": {
         const browser = this.browsingContext.top.embedderElement;
         if (browser) {

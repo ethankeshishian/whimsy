@@ -59,6 +59,13 @@ const PROGRESS_VAR = "--whimsy-load-progress";
 const BADGES_FEATURE_PREF = "whimsy.feature.tab-badges";
 const BADGES_PREF = "whimsy.tabs.badges";
 const UNREAD_ATTR = "whimsy-unread";
+// W10-62 (Arc parity): each Essential's "Show Unread Badge" (its context
+// menu, and a command for the current Essential). Off hides that
+// Essential's count and its update dot. Saved with the tab
+// (SessionStore), on every window's copy of it.
+const HIDE_BADGE_ATTR = "whimsy-hide-badge";
+const HIDE_BADGE_KEY = "whimsy-hide-unread-badge";
+const BADGE_MENU_ID = "context_whimsyUnreadBadge";
 const UNREAD_PATTERNS = [
   // "(3) Slack", "[12] Discord", "(99+) Feed"
   /^\s*[(\[](\d{1,5})\+?[)\]]/,
@@ -346,11 +353,129 @@ export const WhimsyTabs = {
       }
     });
     win.gZenWorkspaces?.promiseInitialized?.then(updateAll);
+    this.initBadgeToggle(win);
     const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
     Promise.all([win.gZenWorkspaces?.promiseInitialized, SessionStore.promiseAllWindowsRestored])
       .then(() => new Promise(resolve => ChromeUtils.idleDispatch(resolve, { timeout: 5000 })))
       .then(() => !win.closed && this.keepEssentialsLive(win))
       .catch(console.error);
+  },
+
+  // --- W10-62: per-Essential "Show Unread Badge" ---
+
+  // Only an Essential's own setting counts (a tab taken out of Essentials
+  // and pinned shows its badge again).
+  badgeShown(tab) {
+    return !(tab?.hasAttribute(HIDE_BADGE_ATTR) && tab.hasAttribute("zen-essential"));
+  },
+
+  // Whether this Essential's badge can be turned on or off here.
+  canToggleBadge(tab) {
+    return this.badges && !!tab?.hasAttribute?.("zen-essential");
+  },
+
+  initBadgeToggle(win) {
+    const { document } = win;
+    const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+    // Restored tabs (Essentials sit outside the tab strip: heard on the
+    // window), and tabs already restored before this window's modules ran.
+    const restore = tab => {
+      let hidden = false;
+      try {
+        hidden = SessionStore.getCustomTabValue(tab, HIDE_BADGE_KEY) == "true";
+      } catch (e) {}
+      if (hidden != tab.hasAttribute(HIDE_BADGE_ATTR)) {
+        tab.toggleAttribute(HIDE_BADGE_ATTR, hidden);
+        this.updateBadge(tab);
+      }
+    };
+    win.addEventListener("SSTabRestoring", event => restore(event.target));
+    win.gZenWorkspaces?.promiseInitialized?.then(() => {
+      for (const tab of win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs) {
+        restore(tab);
+      }
+    });
+    const commands = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands;
+    commands.register(win, {
+      id: "cmd_whimsyToggleUnreadBadge",
+      l10nId: "whimsy-action-toggle-unread-badge",
+      run: w => this.canToggleBadge(w.gBrowser.selectedTab) && this.toggleBadge(w.gBrowser.selectedTab),
+      icon: "chrome://browser/skin/zen-icons/essential-add.svg",
+      variants: [
+        {
+          l10nId: "whimsy-action-show-unread-badge",
+          isAvailable: w => this.canToggleBadge(w.gBrowser.selectedTab) && !this.badgeShown(w.gBrowser.selectedTab),
+        },
+        {
+          l10nId: "whimsy-action-hide-unread-badge",
+          isAvailable: w => this.canToggleBadge(w.gBrowser.selectedTab) && this.badgeShown(w.gBrowser.selectedTab),
+        },
+      ],
+    });
+    const menu = document.getElementById("tabContextMenu");
+    menu?.addEventListener("popupshowing", event => {
+      if (event.target == menu) {
+        this.updateBadgeMenu(win);
+      }
+    });
+  },
+
+  updateBadgeMenu(win) {
+    const { document } = win;
+    const tab = win.TabContextMenu?.contextTab;
+    let item = document.getElementById(BADGE_MENU_ID);
+    const show = this.canToggleBadge(tab) && !tab.multiselected;
+    if (!show) {
+      if (item) {
+        item.hidden = true;
+      }
+      return;
+    }
+    if (!item) {
+      item = document.createXULElement("menuitem");
+      item.id = BADGE_MENU_ID;
+      item.setAttribute("type", "checkbox");
+      document.l10n.setAttributes(item, "tab-context-whimsy-unread-badge");
+      item.addEventListener("command", () => {
+        const contextTab = win.TabContextMenu?.contextTab;
+        if (this.canToggleBadge(contextTab)) {
+          this.toggleBadge(contextTab);
+        }
+      });
+      const anchor = document.getElementById("context_zen-remove-essential");
+      if (anchor) {
+        anchor.after(item);
+      } else {
+        document.getElementById("tabContextMenu").appendChild(item);
+      }
+    }
+    item.hidden = false;
+    // A native menu reads its state now, not after an await.
+    if (this.badgeShown(tab)) {
+      item.setAttribute("checked", "true");
+    } else {
+      item.removeAttribute("checked");
+    }
+  },
+
+  // Shows or hides one Essential's badge (every window's copy). Returns
+  // whether it's shown now.
+  toggleBadge(tab, show = !this.badgeShown(tab)) {
+    const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+    for (const copy of [tab, ...this.copiesOf(tab)]) {
+      copy.toggleAttribute(HIDE_BADGE_ATTR, !show);
+      try {
+        if (show) {
+          SessionStore.deleteCustomTabValue(copy, HIDE_BADGE_KEY);
+        } else {
+          SessionStore.setCustomTabValue(copy, HIDE_BADGE_KEY, "true");
+        }
+      } catch (e) {
+        // A tab the session store doesn't know yet.
+      }
+      this.updateBadge(copy);
+    }
+    return show;
   },
 
   // The copy of a tab that holds its page. With Zen's window sync every
@@ -458,7 +583,7 @@ export const WhimsyTabs = {
       return;
     }
     let count = 0;
-    if (this.badges && tab.pinned) {
+    if (this.badges && tab.pinned && this.badgeShown(tab)) {
       const browser = this.contentOwner(tab).linkedBrowser;
       const title = browser?.contentTitle || tab.label || "";
       count = parseUnreadCount(title);
