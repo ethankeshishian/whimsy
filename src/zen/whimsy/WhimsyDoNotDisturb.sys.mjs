@@ -7,10 +7,9 @@
 // macOS Focus already silences sites: Firefox hands web notifications to
 // macOS Notification Center (alerts.useSystemBackend, on by default), and
 // Focus holds back banners from apps it doesn't allow, then shows them in
-// Notification Center when Focus ends. Whimsy changes nothing there. What
-// chrome code can't do is *read* Focus (Apple exposes it only through
-// INFocusStatusCenter, which needs a native patch and an entitlement), so
-// Whimsy's own in-window toasts can't follow Focus by themselves: deferred.
+// Notification Center when Focus ends. Whimsy changes nothing there.
+// Whimsy's own in-window toasts don't follow Focus (tried in wave 7,
+// removed in W10-60 at the user's request); this command quiets them.
 //
 // What Whimsy adds is Firefox's "Pause notifications until Firefox
 // restarts" as one command ("Turn On/Off Do Not Disturb", assignable in

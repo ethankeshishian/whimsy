@@ -492,9 +492,6 @@
 - name: whimsy.feature.menu-prefs
   value: true
 
-- name: whimsy.feature.macos-focus
-  value: true
-
 - name: whimsy.feature.video-speech-captions
   value: true
 

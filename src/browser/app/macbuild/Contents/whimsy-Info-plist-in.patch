@@ -123,7 +123,7 @@ index 32f717f..94e7bcd 100644
  		<dict>
  			<key>CFBundleURLIconFile</key>
  			<string>document.icns</string>
-@@ -273,6 +380,18 @@
+@@ -273,6 +380,15 @@
    <key>MozillaDeveloperObjPath</key>
    <string>@MOZ_DEVELOPER_OBJ_PATH@</string>
  
@@ -136,13 +136,10 @@ index 32f717f..94e7bcd 100644
 +  <key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 +  <string>@MAC_APP_NAME@ adds the events you choose with Add to Calendar.</string>
 +
-+  <key>NSFocusStatusUsageDescription</key>
-+  <string>@MAC_APP_NAME@ holds its own pop-up messages while a Focus is on.</string>
-+
    <key>NSCameraUsageDescription</key>
    <string>Only sites you allow within @MAC_APP_NAME@ will be able to use the camera.</string>
  
-@@ -312,6 +431,16 @@
+@@ -312,6 +428,16 @@
    <key>NSLocalNetworkUsageDescription</key>
    <string>@MAC_APP_NAME@ needs this access to open websites and services on your network.</string>
  

@@ -3,12 +3,11 @@
 
 "use strict";
 
-// wave7/native1 (whimsy-native): the real macOS components, built from
-// src/zen/whimsy/calendar and src/zen/whimsy/focus. Nothing here may show
-// a permission prompt or touch the person's calendar: access is only read,
-// events are only offered when macOS would refuse them, and the Focus
-// watch runs on a temporary directory. The front ends are tested with
-// mocks in browser_whimsy_calendar_write.js and browser_whimsy_macos_focus.js.
+// wave7/native1 (whimsy-native): the real macOS calendar component, built
+// from src/zen/whimsy/calendar. Nothing here may show a permission prompt or
+// touch the person's calendar: access is only read, and events are only
+// offered when macOS would refuse them. The front end is tested with mocks
+// in browser_whimsy_calendar_write.js.
 
 const STATUSES = ["notDetermined", "restricted", "denied", "fullAccess", "writeOnly"];
 
@@ -43,59 +42,4 @@ add_task(async function test_calendar_component() {
   const { ok: saved, result } = await answer(cb => calendar.addEvent(event, cb));
   ok(!saved, "Without access a valid event isn't saved");
   is(result, "not-authorized", "...because it isn't authorized");
-});
-
-add_task(async function test_focus_component() {
-  ok(Cc["@whimsy/focus;1"], "The Focus component is built (focus/ in moz.build's DIRS)");
-  const focus = Cc["@whimsy/focus;1"].getService(Ci.nsIWhimsyFocus);
-  const entitled = focus.hasFocusEntitlement;
-  is(typeof entitled, "boolean", "Knows whether it has the Communication Notifications entitlement");
-  ok(["focused", "notFocused", "unavailable"].includes(focus.systemFocusStatus), "INFocusStatusCenter answer");
-  if (!entitled) {
-    // Whimsy's ad-hoc signature can't carry the entitlement: Apple's API is
-    // left alone.
-    is(focus.systemFocusStatus, "unavailable", "No entitlement: no system answer");
-    is(focus.authorizationStatus, "unavailable", "...and no authorization to ask for");
-    const answered = TestUtils.topicObserved("whimsy-focus-changed", (subject, data) => data == "system");
-    focus.requestAuthorization();
-    await answered;
-    ok(true, "requestAuthorization answers without a prompt");
-  }
-});
-
-add_task(async function test_focus_watch() {
-  const focus = Cc["@whimsy/focus;1"].getService(Ci.nsIWhimsyFocus);
-  const dir = PathUtils.join(PathUtils.tempDir, `whimsy-focus-watch-${Date.now()}`);
-  await IOUtils.makeDirectory(dir);
-  let changes = 0;
-  const observer = (subject, topic, data) => {
-    if (data == "database") {
-      changes++;
-    }
-  };
-  Services.obs.addObserver(observer, "whimsy-focus-changed");
-  try {
-    // NS_ERROR_INVALID_ARG shares 0x80070057 with NS_ERROR_ILLEGAL_VALUE, whose
-    // name XPConnect prints, so compare the result code, not the message.
-    Assert.throws(() => focus.startWatching(""), e => e.result == Cr.NS_ERROR_INVALID_ARG, "An empty path is refused");
-    focus.startWatching(dir);
-    ok(focus.watching, "Watching the directory");
-    // FSEvents takes a moment to start; write until it reports.
-    let n = 0;
-    await TestUtils.waitForCondition(async () => {
-      if (!changes) {
-        await IOUtils.writeJSON(PathUtils.join(dir, "Assertions.json"), { data: [{ storeAssertionRecords: [], n: n++ }] });
-      }
-      return changes > 0;
-    }, "A change in the directory notifies whimsy-focus-changed (database)");
-
-    focus.stopWatching();
-    ok(!focus.watching, "Stopped");
-    focus.stopWatching();
-    ok(true, "Stopping twice is fine");
-  } finally {
-    focus.stopWatching();
-    Services.obs.removeObserver(observer, "whimsy-focus-changed");
-    await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
-  }
 });

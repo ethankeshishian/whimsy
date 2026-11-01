@@ -1185,10 +1185,6 @@ FEATURES = [
     # wave7/menuprefs: menu-prefs
     {"id": "menu-prefs", "title": "Settings → Menus: turn any right-click menu item on or off (tab, link, page, selection, image, space, sidebar, folder and split menus)",
      "detect": [("src/zen", r"(?i)context-?menu-?(items?-?)?(visibility|customi[sz])|hidden-?menu-?items")]},
-    # wave7/native1: Whimsy's own unprompted toasts wait during a macOS
-    # Focus (native component src/zen/whimsy/focus).
-    {"id": "macos-focus", "title": "Whimsy's own pop-up messages (new season, Year in tabs, celebrations) wait while a macOS Focus is on",
-     "detect": [("src/zen", r"(?i)INFocusStatusCenter|DoNotDisturb/DB")]},
     # w7native: live captions from a video's speech when it has none (Apple's
     # on-device speech recognizer, then the translated-captions path).
     {"id": "video-speech-captions", "title": "Live captions for videos without any: CC turns the video's speech into captions on your Mac, then translates them",
