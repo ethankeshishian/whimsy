@@ -73,6 +73,7 @@ add_task(async function every_whimsy_popup() {
   const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
   const { WhimsyPageDev } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageDev.sys.mjs");
   const { WhimsyEasel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyEasel.sys.mjs");
+  const { WhimsyTrails } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTrails.sys.mjs");
   try {
     await openAndCheck("snooze", "whimsySnoozePanel", () => WhimsySnooze.openPanel(window, tab));
     await openAndCheck("heavy tabs", "whimsyHeavyTabsPanel", async () => WhimsyHeavyTabs.openPanel(window));
@@ -83,6 +84,7 @@ add_task(async function every_whimsy_popup() {
     await openAndCheck("page tools", "whimsy-pagedev", () => WhimsyPageDev.open(window, "fonts"));
     await openAndCheck("easel picker", "whimsy-easel-picker", () =>
       WhimsyEasel.showPicker(window, gBrowser.selectedBrowser, null, () => {}));
+    await openAndCheck("trail", "whimsy-trail", () => WhimsyTrails.openTrail(window, document.getElementById("back-button")));
   } finally {
     BrowserTestUtils.removeTab(tab);
   }

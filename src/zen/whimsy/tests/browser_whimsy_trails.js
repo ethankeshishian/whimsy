@@ -4,9 +4,12 @@
 "use strict";
 
 // wave6: Trails. Going back and clicking somewhere new keeps the pages you
-// left as branch rows in the Back/Forward menu, right above the page they
-// branched from; picking one opens it again. The menu ends with where the tab
-// came from. Switch off, Clear History, and non-web pages leave no rows.
+// left as branch rows, right below the page they branched from; picking one
+// opens it again. The trail ends with where the tab came from. Switch off,
+// Clear History, and non-web pages leave no rows.
+// W10-54: the long-press / right-click on Back opens a drawn trail (a
+// WhimsySurface, #whimsy-trail) instead of the native menu; with the
+// feature off the native menu is back.
 
 ChromeUtils.defineESModuleGetters(this, {
   WhimsyTrails: "resource:///modules/whimsy/WhimsyTrails.sys.mjs",
@@ -41,8 +44,19 @@ async function back(browser, url) {
   await changed;
 }
 
+// Asks for the Back/Forward menu: with Trails on, the drawn trail opens
+// instead (the native popup is cancelled); with it off, the native menu.
 async function openHistoryMenu() {
   const popup = document.getElementById("backForwardMenu");
+  if (Services.prefs.getBoolPref(FEATURE, true)) {
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-trail");
+    popup.openPopup(document.getElementById("back-button"), "after_start");
+    await shown;
+    is(popup.state, "closed", "The native menu doesn't open");
+    const panel = document.getElementById("whimsy-trail");
+    await document.l10n.translateFragment(panel);
+    return panel;
+  }
   const shown = BrowserTestUtils.waitForEvent(popup, "popupshown");
   popup.openPopup(gURLBar, "after_start");
   await shown;
@@ -76,40 +90,44 @@ add_task(async function test_branch_recorded_and_shown() {
   is(browser.browsingContext.sessionHistory.count, 2, "Gecko kept A and D only");
   const branches = WhimsyTrails.branchesFor(browser);
   is(branches.length, 1, "One branch recorded");
-  Assert.deepEqual(
-    branches[0].entries.map(e => e.url),
-    [B, C],
-    "with the pages Forward lost, in order"
-  );
+  Assert.deepEqual(branches[0].entries.map(e => e.url), [B, C], "with the pages Forward lost, in order");
   is(branches[0].anchorUrl, A, "branching from A");
 
-  const popup = await openHistoryMenu();
-  const rows = [...popup.querySelectorAll(".whimsy-trail-branch")];
-  Assert.deepEqual(
-    rows.map(r => r.dataset.whimsyTrailUrl),
-    [C, B],
-    "Branch rows newest first, like Firefox's own rows"
-  );
-  const anchorRow = rows.at(-1).nextElementSibling;
-  is(anchorRow?.getAttribute("index"), "0", "They sit right above A, where they left the trail");
-  is(rows[0].previousElementSibling?.getAttribute("index"), "1", "and below the current page");
-  ok(rows.every(r => r.getAttribute("label")), "Each row is labeled");
+  const panel = await openHistoryMenu();
+  ok(panel.classList.contains("whimsy-surface"), "A Whimsy surface");
+  ok(!panel.querySelector("menuitem, menuseparator"), "not a native menu");
+  const rows = [...panel.querySelectorAll(".whimsy-trail-list:not(.whimsy-trail-origin-list) [role=option]")];
+  Assert.deepEqual(rows.map(r => [r.classList.contains("here") ? "here" : r.classList.contains("branch") ? "branch" : "trail", r.dataset.whimsyTrailUrl]),
+    [["here", D], ["trail", A], ["branch", B], ["branch", C]],
+    "D (here), A, then the branch that left A: B, C");
+  const caption = panel.querySelector(".whimsy-trail-branch-caption");
+  ok(caption, "A caption introduces the branch");
+  is(caption.textContent, "You went back from", "You went back from");
+  ok(rows[1].compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING, "right after A");
+  is(rows[1].querySelector(".whimsy-trail-steps").textContent, "1 back", "A is 1 back");
+  is(rows[0].querySelector(".whimsy-trail-title").textContent, "You’re here", "D says You're here");
+  await TestUtils.waitForCondition(() => document.activeElement == rows[1], "Focus starts on the row below here");
 
   const loaded = BrowserTestUtils.browserLoaded(browser, false, C);
-  popup.activateItem(rows[0]);
+  rows[3].click();
   await loaded;
-  is(browser.currentURI.spec, C, "Picking a branch row opens it in the tab");
+  is(browser.currentURI.spec, C, "Clicking a branch row opens it in the tab");
+  ok(!panel.isConnected, "and closes the trail");
   Assert.deepEqual(
     WhimsyTrails.branchesFor(browser).flatMap(b => b.entries.map(e => e.url)),
     [B],
     "The reopened page is on the trail again, not a branch"
   );
-  await closeMenu(popup);
 
+  // Return on the focused row navigates: it's the row below "here".
   const again = await openHistoryMenu();
-  ok(!again.querySelector(`.whimsy-trail-branch[data-whimsy-trail-url="${C}"]`), "Old rows were cleared");
-  is(again.querySelectorAll(".whimsy-trail-branch").length, 1, "No duplicates across openings");
-  await closeMenu(again);
+  await TestUtils.waitForCondition(() => again.contains(document.activeElement) &&
+    document.activeElement.getAttribute("role") == "option", "A row has focus");
+  const target = document.activeElement.dataset.whimsyTrailUrl;
+  const changed = BrowserTestUtils.waitForLocationChange(gBrowser, target);
+  EventUtils.synthesizeKey("KEY_Enter", {}, window);
+  await changed;
+  is(browser.currentURI.spec, target, "Return goes to the focused page");
   BrowserTestUtils.removeTab(tab);
 });
 
@@ -123,15 +141,14 @@ add_task(async function test_origin_row() {
   await BrowserTestUtils.switchTab(gBrowser, child);
   await load(child.linkedBrowser, C);
 
-  const popup = await openHistoryMenu();
-  const origin = popup.querySelector(".whimsy-trail-origin");
-  ok(origin, "The menu ends with where the tab came from");
+  const panel = await openHistoryMenu();
+  const origin = panel.querySelector(".whimsy-trail-row.origin");
+  ok(origin, "The trail ends with where the tab came from");
   is(origin.dataset.whimsyTrailUrl, A, "the opener's page");
-  is(origin.getAttribute("data-l10n-id"), "whimsy-trail-origin", "labeled Opened from …");
-  await TestUtils.waitForCondition(() => origin.getAttribute("label"), "Label filled");
-  popup.activateItem(origin);
+  ok(panel.querySelector(".whimsy-surface-rule"), "after a hairline");
+  ok(origin.querySelector(".whimsy-trail-title").textContent.startsWith("Opened from"), "Opened from …");
+  origin.click();
   await TestUtils.waitForCondition(() => gBrowser.selectedTab == opener, "Goes to the opener tab");
-  await closeMenu(popup);
   BrowserTestUtils.removeTab(child);
   BrowserTestUtils.removeTab(opener);
 });

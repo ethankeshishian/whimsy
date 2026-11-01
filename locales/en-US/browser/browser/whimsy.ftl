@@ -2413,6 +2413,15 @@ whimsy-already-open-setting =
 whimsy-trail-origin =
     .label = Opened from { $title }
 whimsy-trail-branch-tooltip = A page you left by going back. Click to open it again.
+# W10-54: the drawn trail (long-press or right-click Back or Forward).
+whimsy-trail-heading = This tab’s trail
+whimsy-trail-here = You’re here
+whimsy-trail-branch-caption = You went back from
+# $count (number) - steps from the current page
+whimsy-trail-steps-back = { $count } back
+whimsy-trail-steps-ahead = { $count } ahead
+# $title (string) - the page that opened this tab
+whimsy-trail-origin-text = Opened from { $title }
 whimsy-trails-setting =
     .label = Keep pages you went back from in the Back and Forward menus
     .searchkeywords = Trails

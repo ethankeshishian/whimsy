@@ -23,6 +23,162 @@
   }
 }
 
+/* W10-54: the drawn trail (WhimsyTrails.openTrail), a WhimsySurface. Each
+   row: a rail cell (a 2px line with a dot: hollow for history, filled with
+   a halo for "You're here", faint for branches), the favicon, the title and
+   host, and how many steps away. A branch hangs off the page it left with
+   an L-shaped connector and "You went back from". */
+panel.whimsy-surface.whimsy-trail {
+  --panel-padding: 6px;
+}
+.whimsy-trail .whimsy-surface-view {
+  gap: 4px;
+}
+.whimsy-trail-heading {
+  padding: 4px 6px 0;
+}
+.whimsy-trail-list {
+  display: flex;
+  flex-direction: column;
+  /* Twelve rows, then it scrolls. */
+  max-height: calc(12 * 34px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.whimsy-trail-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 16px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 2px 8px 2px 4px;
+  border-radius: 6px;
+  cursor: default;
+  transition: background-color 100ms ease-out;
+
+  &:hover {
+    background-color: var(--whimsy-surface-hover);
+  }
+  &:focus-visible {
+    background-color: var(--whimsy-surface-hover);
+    outline: var(--whimsy-surface-focus);
+    outline-offset: -2px;
+  }
+  &.branch {
+    padding-inline-start: 26px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+.whimsy-trail-rail {
+  position: relative;
+  align-self: stretch;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--whimsy-surface-hairline);
+  }
+  .first > &::before {
+    top: 50%;
+  }
+  .last > &::before {
+    bottom: 50%;
+  }
+  .first.last > &::before,
+  .origin > &::before {
+    display: none;
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 6px;
+    top: calc(50% - 5px);
+    width: 10px;
+    height: 10px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--arrowpanel-background, Canvas);
+    box-shadow: inset 0 0 0 2px var(--whimsy-surface-muted);
+  }
+  .here > &::after {
+    background: var(--zen-primary-color, AccentColor);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--zen-primary-color, AccentColor) 25%, transparent);
+  }
+  .branch > &::after {
+    box-shadow: inset 0 0 0 2px var(--whimsy-surface-hairline);
+  }
+  .origin > &::after {
+    display: none;
+  }
+}
+.whimsy-trail-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+.whimsy-trail-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.whimsy-trail-title {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  .branch & {
+    color: var(--whimsy-surface-muted);
+  }
+  .here & {
+    font-weight: 600;
+  }
+}
+.whimsy-trail-sub,
+.whimsy-trail-steps {
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-trail-steps {
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-trail-branch-caption {
+  position: relative;
+  min-height: 18px;
+  padding: 4px 8px 0 60px;
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 14px;
+    top: -6px;
+    width: 28px;
+    height: 18px;
+    border-inline-start: 2px solid var(--whimsy-surface-hairline);
+    border-bottom: 2px solid var(--whimsy-surface-hairline);
+    border-end-start-radius: 10px;
+  }
+}
+@media (prefers-contrast: more) {
+  .whimsy-trail-rail::before,
+  .whimsy-trail-branch-caption::before {
+    background-color: currentColor;
+    border-color: currentColor;
+  }
+}
+
 /* Page actions: one quiet pill in the address bar ("Add to Calendar",
    "Maps · Open now", "Cook mode"...), tinted with the space's color like
    Whimsy's other address bar pills. */

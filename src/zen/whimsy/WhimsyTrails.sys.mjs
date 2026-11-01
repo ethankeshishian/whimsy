@@ -11,6 +11,13 @@
 // ends with where the tab came from (the tab whose link opened it), so a tab
 // can always be traced back.
 //
+// W10-54 (the user: "three links nested"): the long-press / right-click on
+// Back or Forward opens a drawn trail instead of the native menu: a
+// WhimsySurface with the tab's pages on a rail (ahead, "You're here", back),
+// each branch hanging off the page it left with a curved connector and
+// "You went back from", and "Opened from" at the end. Switch the feature off
+// and the native menu comes back.
+//
 // Gecko drops forward entries on a new navigation, so this records them first
 // from the parent's session history (nsISHistoryListener.OnHistoryTruncate
 // runs before the entries go). Everything stays in memory with the tab, like
@@ -21,6 +28,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.trails";
@@ -31,6 +39,9 @@ const MAX_ENTRIES = 10;
 // Rows the menu shows at most, so it stays a small tree.
 const MENU_ROWS = 12;
 const ITEM_CLASS = "whimsy-trail-item";
+const PANEL_ID = "whimsy-trail";
+const PANEL_WIDTH = 320;
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 function isWebUrl(spec) {
   return /^https?:/i.test(spec || "");
@@ -156,7 +167,7 @@ export const WhimsyTrails = {
         entries.push({ url, title: entry.title || "" });
       }
     }
-    this.addBranch(browser, { anchorId: anchor.ID, anchorUrl: anchor.URI?.spec, entries });
+    this.addBranch(browser, { anchorId: anchor.ID, anchorUrl: anchor.URI?.spec, entries, time: Date.now() });
   },
 
   addBranch(browser, branch) {
@@ -234,6 +245,16 @@ export const WhimsyTrails = {
     if (!this.enabled || event.defaultPrevented) {
       return;
     }
+    // W10-54: the drawn trail instead of the native menu.
+    if (popup.id == "backForwardMenu" || popup.parentNode?.id == "back-button" || popup.parentNode?.id == "forward-button") {
+      const button = popup.triggerNode?.closest?.("#back-button, #forward-button") ??
+        (["back-button", "forward-button"].includes(popup.parentNode?.id) ? popup.parentNode : null) ??
+        win.document.getElementById("back-button");
+      if (this.openTrail(win, button)) {
+        event.preventDefault();
+        return;
+      }
+    }
     const doc = win.document;
     const tab = win.gBrowser.selectedTab;
     const browser = tab.linkedBrowser;
@@ -294,6 +315,250 @@ export const WhimsyTrails = {
     }
   },
 
+  // --- The drawn trail (W10-54) ---
+
+  /**
+   * The rows of the selected tab's trail, top to bottom: forward pages
+   * (newest first), the current page, back pages, each followed by the
+   * branches that left from it; then where the tab came from.
+   */
+  trailOf(win) {
+    const tab = win.gBrowser.selectedTab;
+    const browser = tab.linkedBrowser;
+    const sh = browser.browsingContext?.sessionHistory;
+    const rows = [];
+    if (!sh || sh.count < 1) {
+      return { rows, origin: this.originFor(tab) };
+    }
+    const branches = this.branchesFor(browser);
+    const index = sh.index;
+    let budget = MENU_ROWS;
+    for (let i = sh.count - 1; i >= 0 && budget > 0; i--) {
+      const entry = sh.getEntryAtIndex(i);
+      if (!entry) {
+        continue;
+      }
+      const url = entry.URI?.spec ?? "";
+      rows.push({
+        kind: i == index ? "here" : i > index ? "ahead" : "back",
+        index: i,
+        steps: Math.abs(i - index),
+        url,
+        title: entry.title || url,
+      });
+      budget--;
+      // Branches hang below the page they left from.
+      for (const branch of [...branches].reverse()) {
+        if (branch.anchorId != entry.ID || budget <= 0) {
+          continue;
+        }
+        rows.push({ kind: "caption" });
+        for (const page of branch.entries.slice(0, budget)) {
+          rows.push({ kind: "branch", url: page.url, title: page.title || page.url, time: branch.time });
+          budget--;
+        }
+      }
+    }
+    // Branches whose page isn't in the list any more come at the end.
+    const shown = new Set(rows.filter(r => r.kind == "branch").map(r => r.url));
+    for (const branch of [...branches].reverse()) {
+      const pages = branch.entries.filter(p => !shown.has(p.url));
+      if (!pages.length || budget <= 0 ||
+        [...Array(sh.count).keys()].some(i => sh.getEntryAtIndex(i)?.ID == branch.anchorId)) {
+        continue;
+      }
+      rows.push({ kind: "caption" });
+      for (const page of pages.slice(0, budget)) {
+        rows.push({ kind: "branch", url: page.url, title: page.title || page.url, time: branch.time });
+        budget--;
+      }
+    }
+    return { rows, origin: this.originFor(tab) };
+  },
+
+  hostOf(url) {
+    try {
+      return Services.io.newURI(url).displayHost;
+    } catch {
+      return "";
+    }
+  },
+
+  ago(time) {
+    if (!time) {
+      return "";
+    }
+    const rtf = new Intl.RelativeTimeFormat(Services.locale.appLocaleAsBCP47, { numeric: "auto", style: "short" });
+    const minutes = Math.round((time - Date.now()) / 60000);
+    if (Math.abs(minutes) < 60) {
+      return rtf.format(Math.min(0, minutes), "minute");
+    }
+    const hours = Math.round(minutes / 60);
+    return Math.abs(hours) < 24 ? rtf.format(hours, "hour") : rtf.format(Math.round(hours / 24), "day");
+  },
+
+  /** Opens the drawn trail under `button`. Returns the panel, or null. */
+  openTrail(win, button = null) {
+    if (!this.enabled) {
+      return null;
+    }
+    const doc = win.document;
+    const tab = win.gBrowser.selectedTab;
+    const { rows, origin } = this.trailOf(win);
+    if (!rows.length && !origin) {
+      return null;
+    }
+    const parts = lazy.WhimsySurface.create(win, {
+      id: PANEL_ID,
+      width: PANEL_WIDTH,
+      className: "whimsy-trail",
+      initialFocus: () => {
+        const here = list.querySelector(".whimsy-trail-row.here");
+        let next = here?.nextElementSibling;
+        while (next && !next.matches("[role=option]")) {
+          next = next.nextElementSibling;
+        }
+        return next ?? list.querySelector("[role=option]");
+      },
+    });
+    const { panel, view } = parts;
+    const { caption } = lazy.WhimsySurface.caption(doc, { l10nId: "whimsy-trail-heading", id: `${PANEL_ID}-title` });
+    caption.classList.add("whimsy-trail-heading");
+    panel.setAttribute("aria-labelledby", `${PANEL_ID}-title`);
+
+    const list = doc.createElementNS(HTML_NS, "div");
+    list.className = "whimsy-trail-list";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-labelledby", `${PANEL_ID}-title`);
+    const trailRows = rows.filter(r => r.kind != "branch" && r.kind != "caption");
+    const firstTrail = trailRows[0];
+    const lastTrail = trailRows.at(-1);
+
+    const act = (row, event) => {
+      const where = event && (event.button == 1 || event.metaKey || event.ctrlKey) ? "tab" : "current";
+      lazy.WhimsySurface.close(panel);
+      if (row.kind == "branch") {
+        this.open(win, tab, row.url, where);
+      } else if (row.kind == "origin") {
+        this.goToOrigin(win, tab, row.url);
+      } else if (where == "tab") {
+        this.open(win, tab, row.url, "tab");
+      } else if (row.kind != "here") {
+        win.gBrowser.gotoIndex(row.index);
+      }
+    };
+    const option = row => {
+      const el = doc.createElementNS(HTML_NS, "div");
+      el.className = `whimsy-trail-row ${row.kind}`;
+      if (row == firstTrail) {
+        el.classList.add("first");
+      }
+      if (row == lastTrail) {
+        el.classList.add("last");
+      }
+      el.setAttribute("role", "option");
+      el.setAttribute("aria-selected", row.kind == "here" ? "true" : "false");
+      el.tabIndex = -1;
+      el.dataset.whimsyTrailUrl = row.url;
+      if (row.index != null) {
+        el.dataset.index = String(row.index);
+      }
+      const rail = doc.createElementNS(HTML_NS, "span");
+      rail.className = "whimsy-trail-rail";
+      rail.setAttribute("aria-hidden", "true");
+      const icon = doc.createElementNS(HTML_NS, "img");
+      icon.className = "whimsy-trail-favicon";
+      icon.alt = "";
+      if (isWebUrl(row.url)) {
+        icon.src = `page-icon:${row.url}`;
+      }
+      const text = doc.createElementNS(HTML_NS, "span");
+      text.className = "whimsy-trail-text";
+      const title = doc.createElementNS(HTML_NS, "span");
+      title.className = "whimsy-trail-title";
+      const sub = doc.createElementNS(HTML_NS, "span");
+      sub.className = "whimsy-trail-sub";
+      if (row.kind == "here") {
+        doc.l10n.setAttributes(title, "whimsy-trail-here");
+        sub.textContent = row.title;
+      } else if (row.kind == "origin") {
+        doc.l10n.setAttributes(title, "whimsy-trail-origin-text", { title: row.title });
+        sub.textContent = this.hostOf(row.url);
+      } else {
+        title.textContent = row.title;
+        sub.textContent = [this.hostOf(row.url), row.kind == "branch" ? this.ago(row.time) : ""].filter(Boolean).join(" · ");
+      }
+      title.title = row.title;
+      text.append(title, sub);
+      const trailing = doc.createElementNS(HTML_NS, "span");
+      trailing.className = "whimsy-trail-steps";
+      if (row.kind == "back" || row.kind == "ahead") {
+        doc.l10n.setAttributes(trailing, `whimsy-trail-steps-${row.kind}`, { count: row.steps });
+      }
+      el.append(rail, icon, text, trailing);
+      el.addEventListener("click", event => act(row, event));
+      el.addEventListener("auxclick", event => {
+        if (event.button == 1) {
+          act(row, event);
+        }
+      });
+      el.addEventListener("keydown", event => {
+        if (event.key == "Enter" || event.key == " ") {
+          event.preventDefault();
+          act(row, event);
+        }
+      });
+      return el;
+    };
+    for (const row of rows) {
+      if (row.kind == "caption") {
+        const cap = doc.createElementNS(HTML_NS, "div");
+        cap.className = "whimsy-trail-branch-caption";
+        cap.setAttribute("role", "presentation");
+        doc.l10n.setAttributes(cap, "whimsy-trail-branch-caption");
+        list.append(cap);
+        continue;
+      }
+      list.append(option(row));
+    }
+    view.append(caption, list);
+    if (origin) {
+      view.append(lazy.WhimsySurface.rule(doc));
+      const originList = doc.createElementNS(HTML_NS, "div");
+      originList.className = "whimsy-trail-list whimsy-trail-origin-list";
+      originList.setAttribute("role", "listbox");
+      originList.append(option({ kind: "origin", url: origin.url, title: origin.title }));
+      view.append(originList);
+    }
+    lazy.WhimsySurface.finish(parts);
+    // One tab stop per list: the row that takes focus, and the origin.
+    parts.panel.querySelector(".whimsy-trail-origin-list [role=option]")?.setAttribute("tabindex", "0");
+    const here = list.querySelector(".whimsy-trail-row.here");
+    let start = here?.nextElementSibling;
+    while (start && !start.matches("[role=option]")) {
+      start = start.nextElementSibling;
+    }
+    (start ?? list.querySelector("[role=option]"))?.setAttribute("tabindex", "0");
+    const anchor = button?.isConnected ? button : doc.getElementById("back-button");
+    if (anchor && lazy.WhimsySurface.visibleAnchor(win, [anchor])) {
+      lazy.WhimsySurface.open(win, panel, { anchor, position: "after_start", y: 4 });
+    } else {
+      lazy.WhimsySurface.open(win, panel, { at: "page-top-center" });
+    }
+    return panel;
+  },
+
+  goToOrigin(win, tab, url) {
+    const opener = this.originFor(tab)?.opener.deref();
+    if (opener?.isConnected && !opener.closing && opener.linkedBrowser?.currentURI?.spec == url) {
+      win.gZenWorkspaces?.switchTabIfNeeded
+        ? win.gZenWorkspaces.switchTabIfNeeded(opener)
+        : (win.gBrowser.selectedTab = opener);
+      return;
+    }
+    this.open(win, tab, url, "tab");
+  },
+
   onCommand(win, event) {
     const item = event.target;
     if (!item?.classList?.contains(ITEM_CLASS) || !item.dataset.whimsyTrailUrl) {
@@ -303,14 +568,7 @@ export const WhimsyTrails = {
     const url = item.dataset.whimsyTrailUrl;
     const tab = win.gBrowser.selectedTab;
     if (item.classList.contains("whimsy-trail-origin")) {
-      const opener = this.originFor(tab)?.opener.deref();
-      if (opener?.isConnected && !opener.closing && opener.linkedBrowser?.currentURI?.spec == url) {
-        win.gZenWorkspaces?.switchTabIfNeeded
-          ? win.gZenWorkspaces.switchTabIfNeeded(opener)
-          : (win.gBrowser.selectedTab = opener);
-        return;
-      }
-      this.open(win, tab, url, "tab");
+      this.goToOrigin(win, tab, url);
       return;
     }
     this.open(win, tab, url, lazy.BrowserUtils.whereToOpenLink(lazy.BrowserUtils.getRootEvent(event)));

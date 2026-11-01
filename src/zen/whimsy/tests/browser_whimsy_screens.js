@@ -1974,3 +1974,34 @@ add_task(async function w10_library_screenshots() {
     }
   }
 });
+
+// W10-54: the drawn trail (A → B → C, back twice, then D).
+add_task(async function w10_trail() {
+  const { WhimsyTrails } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTrails.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["browser.navigation.requireUserInteraction", false]] });
+  const base = "https://example.com/browser/whimsy-trails-shot";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${base}?a`);
+  const browser = tab.linkedBrowser;
+  const load = async url => {
+    const loaded = BrowserTestUtils.browserLoaded(browser, false, url);
+    BrowserTestUtils.startLoadingURIString(browser, url);
+    await loaded;
+  };
+  const back = async url => {
+    const changed = BrowserTestUtils.waitForLocationChange(gBrowser, url);
+    browser.goBack();
+    await changed;
+  };
+  try {
+    await load(`${base}?b`);
+    await load(`${base}?c`);
+    await back(`${base}?b`);
+    await back(`${base}?a`);
+    await load(`${base}?d`);
+    await load(`${base}?e`);
+    await w10SurfaceShot("trail", "whimsy-trail", () => WhimsyTrails.openTrail(window, document.getElementById("back-button")));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});
