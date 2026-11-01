@@ -1799,3 +1799,30 @@ add_task(async function w10_paste_guard() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-17: What Font Is This? on a web page's selection, and on a page it
+// can't read.
+add_task(async function w10_font_card() {
+  const { WhimsyInspector } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyInspector.sys.mjs");
+  const page = "https://example.com/document-builder.sjs?html=" + encodeURIComponent(`
+    <h1 style="font: 600 15px/24px -apple-system, system-ui; letter-spacing: -0.01em; color: #1f2937; margin: 80px 30px">
+      <span id="t">Build momentum</span> with a calm, steady workflow</h1>`);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  try {
+    const select = () => SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      const range = content.document.createRange();
+      range.selectNodeContents(content.document.getElementById("t"));
+      content.getSelection().removeAllRanges();
+      content.getSelection().addRange(range);
+    });
+    await w10SurfaceShot("font-card", "whimsy-font-inspector-panel", async () => {
+      await select();
+      await WhimsyInspector.inspectFont(window);
+    }, panel => panel.querySelector(".whimsy-font-fact"));
+    BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "about:robots");
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+    await w10SurfaceShot("font-card-unavailable", "whimsy-font-inspector-panel", () => WhimsyInspector.inspectFont(window));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

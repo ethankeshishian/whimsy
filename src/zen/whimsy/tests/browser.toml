@@ -684,6 +684,7 @@ support-files = ["whimsy_email_form.html"]
 ["browser_whimsy_smart_buttons.js"]
 # wave9: Font Inspector ("What Font Is This?").
 ["browser_whimsy_font_inspector.js"]
+support-files = ["whimsy_pagedev_font.ttf"]
 
 # wave9: Element inspector lite.
 ["browser_whimsy_element_inspector.js"]

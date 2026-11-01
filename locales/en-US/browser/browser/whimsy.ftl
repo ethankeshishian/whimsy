@@ -3708,26 +3708,15 @@ whimsy-context-inspect-font =
     .label = What Font Is This?
     .accesskey = F
 whimsy-menus-selection-inspect-font = What Font Is This?
-whimsy-font-rendered-label = Rendered Font
-whimsy-font-rendered-badge = Rendered
-whimsy-font-card-copy-hint =
-    .title = Click to copy font name
-whimsy-font-prop-copy-hint =
-    .title = Click to copy { $value }
-whimsy-font-copy-hint = Copy
-whimsy-font-css-stack = CSS Family Stack
 whimsy-font-size-label = Size
 whimsy-font-weight-label = Weight
-whimsy-font-line-height-label = Line Height
-whimsy-font-letter-spacing-label = Letter Spacing
+whimsy-font-line-height-label = Line height
+whimsy-font-letter-spacing-label = Letter spacing
 whimsy-font-color-label = Color
 whimsy-font-copy-css = Copy CSS
 whimsy-font-search-button = Search for This Font
-whimsy-font-css-label = CSS
-whimsy-font-copied-toast = Copied { $value } to clipboard
 whimsy-font-pick-another = Pick Another Element
 whimsy-font-sample-text = The quick brown fox jumps over the lazy dog
-whimsy-font-inspect-element = Element Info
 
 whimsy-element-inspector-title = Element Info
 whimsy-action-inspect-element = Element Info
@@ -4067,3 +4056,40 @@ whimsy-fire-done-site-detail = { $count ->
 whimsy-fire-failed-title = Couldn’t erase everything
 whimsy-fire-failed-detail = Some site data was in use. Nothing else changed.
 whimsy-fire-retry = Try Again
+
+## wave10/desA W10-17: What Font Is This?, a card that names the font
+## (system fonts plainly) and copies each value where it sits.
+
+whimsy-font-system-name = San Francisco
+whimsy-font-source-web = Web font
+whimsy-font-source-local = Installed font
+whimsy-font-source-system = Mac system font
+whimsy-font-source-fallback = System fallback
+whimsy-font-style-label = Style
+whimsy-font-style-normal = Normal
+whimsy-font-style-italic = Italic
+# $font (string), $count (number) - characters drawn in it
+whimsy-font-also = { $count ->
+    [one] Also uses { $font } for 1 character.
+   *[other] Also uses { $font } for { $count } characters.
+}
+# $weight (number) - the CSS weight, shown with its name: "600 Semibold"
+whimsy-font-weight-value = { $weight ->
+    [100] { $weight } Thin
+    [200] { $weight } Extra Light
+    [300] { $weight } Light
+    [500] { $weight } Medium
+    [600] { $weight } Semibold
+    [700] { $weight } Bold
+    [800] { $weight } Extra Bold
+    [900] { $weight } Black
+   *[400] { $weight } Regular
+}
+whimsy-font-close =
+    .label = Close
+whimsy-font-search-button-label =
+    .label = Search for This Font
+whimsy-font-copy-css-button =
+    .label = Copy CSS
+whimsy-font-copied-css-button =
+    .label = Copied
