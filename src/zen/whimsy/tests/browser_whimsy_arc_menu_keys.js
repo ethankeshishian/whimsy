@@ -86,3 +86,34 @@ add_task(function test_cmd_n_new_space() {
   is(document.getElementById("key_newNavigator").getAttribute("command"), "cmd_newNavigator", "and still opens a window");
   noOtherKey("key_newNavigator");
 });
+
+// wave10 (W10-47): a real Cmd+Shift+L (a native key event, through the
+// app's menu bar and the window's keys, as a keyboard sends it) opens the
+// Library and a second one closes it, with the page or the address bar
+// focused. The hand test failed because 1Password's own global "Lock
+// 1Password" shortcut is Cmd+Shift+L by default and takes the key before
+// any app sees it.
+Services.scriptloader.loadSubScript("chrome://mochikit/content/tests/SimpleTest/NativeKeyCodes.js", this);
+
+add_task(async function test_native_library_key() {
+  const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
+  if (AppConstants.platform != "macosx") {
+    ok(true, "Native key synthesis below is macOS only");
+    return;
+  }
+  await TestUtils.waitForCondition(() => gBrowserInit.delayedStartupFinished, "Delayed startup");
+  const ZenLibrary = customElements.get("zen-library");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?library-key");
+  const press = () =>
+    new Promise(resolve =>
+      EventUtils.synthesizeNativeKey(EventUtils.KEYBOARD_LAYOUT_EN_US, MAC_VK_ANSI_L, { metaKey: true, shiftKey: true }, "l", "L", resolve)
+    );
+  for (const focus of [() => tab.linkedBrowser.focus(), () => gURLBar.focus()]) {
+    focus();
+    await press();
+    await TestUtils.waitForCondition(() => ZenLibrary.isLibraryOpen, "Cmd+Shift+L opens the Library");
+    await press();
+    await TestUtils.waitForCondition(() => !ZenLibrary.isLibraryOpen, "and closes it again");
+  }
+  BrowserTestUtils.removeTab(tab);
+});

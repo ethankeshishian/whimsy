@@ -297,7 +297,7 @@ export const HINTS = [
     ),
   },
   // Auto-archive (WhimsyArchive): what just happened, the first time idle
-  // tabs leave a space on their own. The Library (⌥⇧L) is where they are.
+  // tabs leave a space on their own. The Library (⇧⌘L) is where they are.
   {
     id: "auto-archive",
     l10nId: "whimsy-teach-archive",
