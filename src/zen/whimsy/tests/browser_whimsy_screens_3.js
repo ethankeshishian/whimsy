@@ -422,7 +422,22 @@ add_task(async function fix7_pinned_marks_and_essential_badge() {
       });
       tabs.push(tab);
     }
-    const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?mail");
+    // Opened and waited for by its state: now and then (about 1 run in 6,
+    // with or without Whimsy's urlbar patches) BrowserTestUtils' load event
+    // for this tab never arrives although the page has loaded and is shown,
+    // and openNewForegroundTab waits until the test times out.
+    const MAIL = "https://example.com/?mail";
+    let essential;
+    await BrowserTestUtils.switchTab(gBrowser, () => {
+      gBrowser.selectedTab = essential = BrowserTestUtils.addTab(gBrowser, MAIL);
+    });
+    await TestUtils.waitForCondition(
+      () => essential.linkedBrowser.currentURI.spec == MAIL && !essential.hasAttribute("busy"),
+      "The mail page loaded"
+    );
+    await SpecialPowers.spawn(essential.linkedBrowser, [], () =>
+      ContentTaskUtils.waitForCondition(() => content.document.readyState == "complete", "Its document is complete")
+    );
     gZenPinnedTabManager.addToEssentials(essential);
     tabs.push(essential);
     await SpecialPowers.spawn(essential.linkedBrowser, [], () => {
