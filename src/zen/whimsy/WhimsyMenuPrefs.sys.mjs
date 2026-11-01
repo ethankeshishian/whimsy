@@ -155,6 +155,8 @@ const TAB_ITEMS = [
   item("snooze", "whimsy-menus-tab-snooze", ["context_whimsySnooze"]),
   SEPARATOR,
   item("essentials", "whimsy-menus-tab-essentials", ["context_zen-add-essential", "context_zen-remove-essential"]),
+  // W10-62: an Essential's Show Unread Badge (only Essentials have it).
+  item("unread-badge", "whimsy-menus-tab-unread-badge", ["context_whimsyUnreadBadge"]),
   item("rename", "whimsy-menus-tab-rename", ["context_zen-edit-tab-title"]),
   item("change-icon", "whimsy-menus-tab-change-icon", ["context_zen-edit-tab-icon"]),
   SEPARATOR,

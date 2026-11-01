@@ -2227,6 +2227,14 @@ whimsy-fire-working-everything = Clearing everything…
 # $site (string) - the site being forgotten, e.g. example.com
 whimsy-fire-working-site = Forgetting { $site }…
 
+# W10-62 (Arc): an Essential's context menu (a checkbox) and its command.
+tab-context-whimsy-unread-badge =
+    .label = Show Unread Badge
+    .accesskey = U
+whimsy-action-toggle-unread-badge = Show or Hide Unread Badge
+whimsy-action-show-unread-badge = Show Unread Badge
+whimsy-action-hide-unread-badge = Hide Unread Badge
+
 # wave5/uxfix: read out with a pinned tab's unread badge.
 # $count (number) - unread items the site reports
 whimsy-tab-unread-description = { $count } unread
@@ -3020,6 +3028,9 @@ whimsy-menus-tab-snooze =
     .label = Snooze…
 whimsy-menus-tab-essentials =
     .label = Add to Essentials / Remove from Essentials
+whimsy-menus-tab-unread-badge =
+    .label = Show Unread Badge
+    .description = On Essentials
 whimsy-menus-tab-rename =
     .label = Rename…
 whimsy-menus-tab-change-icon =
