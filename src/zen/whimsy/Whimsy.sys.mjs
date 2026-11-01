@@ -300,6 +300,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
 });
 
+// wave10 (W10-12): a command per setting.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySettingsCommands: "resource:///modules/whimsy/WhimsySettingsCommands.sys.mjs",
+});
+
 // wave9: Battery saver (threshold, auto-off, throttles).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBatterySaver: "resource:///modules/whimsy/WhimsyBatterySaver.sys.mjs",
@@ -901,6 +906,10 @@ export const Whimsy = {
     // that only had Settings, a sidebar control or a context menu. Each
     // checks its feature's switch on use.
     run("access-commands", () => lazy.WhimsyAccessCommands.initWindow(win));
+    // wave10 (W10-12): a command for every setting in Settings ("Turn
+    // Tidy Tab Titles On", "Glance Size: Wide"), each assignable a
+    // shortcut. Each checks its switch and its row's features on use.
+    run("settings-commands", () => lazy.WhimsySettingsCommands.initWindow(win));
 
     // wave7/focus: Do Not Disturb (pause site notifications) and paste
     // guard. Each command checks its switch on use.

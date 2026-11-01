@@ -135,6 +135,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySeasons.sys.mjs",
     "WhimsySeasonToast.sys.mjs",
     "WhimsySelectionMarkdown.sys.mjs",
+    "WhimsySettingsCommands.sys.mjs",
     "WhimsyShareMenu.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySidebarNav.sys.mjs",

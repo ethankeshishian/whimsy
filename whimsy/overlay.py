@@ -1234,6 +1234,11 @@ FEATURES = [
     # full screen and the user agent, each forgettable, plus Forget All.
     {"id": "site-settings", "title": "Site settings: the site panel remembers a site's zoom, autoplay, Reader View, full screen and user agent, and forgets them one by one or all at once",
      "detect": [("src/zen", r"(?i)always-?open-?in-?reader|per-?site-?settings|site-?settings-?section")]},
+    # wave10 (W10-12): every setting is a command (Turn ... On/Off, a choice,
+    # Increase/Decrease) with an assignable shortcut, and Settings search
+    # finds it by its short name and other words.
+    {"id": "settings-commands", "title": "Every setting is a command: turn any Whimsy setting on or off (or pick its choice) from the command bar or a shortcut, and find it in Settings by its name",
+     "detect": [("src/zen", r"(?i)settings?-?toggle-?commands?|pref-?toggle-?actions?")]},
 ]
 
 
