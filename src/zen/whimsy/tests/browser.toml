@@ -779,3 +779,6 @@ support-files = ["whimsy_press_again.html"]
 # W10-63: with text selected, Copy URL's toast offers Copy Link to Highlight.
 ["browser_whimsy_copy_highlight.js"]
 support-files = ["whimsy_highlight.html"]
+
+# W10-03: Next Space past the last space opens New Space; Previous Space stops at the first (Arc).
+["browser_whimsy_space_edges.js"]
