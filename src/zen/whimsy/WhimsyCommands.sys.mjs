@@ -49,6 +49,8 @@ const SCOPE_GROUPS = { mini: "whimsy-keys-group-mini" };
 // Every window registers the same commands as it starts, so the entries
 // describe all of them.
 const entries = new Map();
+// Documents inside batchKeys().
+const batching = new WeakSet();
 
 function normalizeModifiers(modifiers) {
   return (modifiers ?? "")
@@ -86,9 +88,15 @@ function bindingOf(spec) {
   return binding;
 }
 
-function formatSync(l10nId) {
+// wave10 (W10-12): `args` is an object, or a function returning one, for
+// commands that share a message ("Turn { $name } On", one per setting).
+function resolveArgs(args) {
+  return typeof args == "function" ? args() : (args ?? undefined);
+}
+
+function formatSync(l10nId, args) {
   try {
-    return lazy.l10n.formatValueSync(l10nId) ?? "";
+    return lazy.l10n.formatValueSync(l10nId, resolveArgs(args)) ?? "";
   } catch (e) {
     console.error(`Whimsy: command name ${l10nId}`, e);
     return "";
@@ -185,7 +193,7 @@ export const WhimsyCommands = {
 
   // The command's name, as the command bar and about:keyboard show it.
   title(entry) {
-    return entry?.l10nId ? formatSync(entry.l10nId) : "";
+    return entry?.l10nId ? formatSync(entry.l10nId, entry.l10nArgs) : "";
   },
 
   /**
@@ -213,6 +221,10 @@ export const WhimsyCommands = {
    *   command bar (the module offers it there some other way).
    * @param {string} [spec.menu] The menu-bar menu id it belongs to, for
    *   the cheat sheet's grouping (else MENU_OF, else where it sits).
+   * @param {object|Function} [spec.l10nArgs] Arguments for l10nId (and
+   *   for each variant without its own), or a function returning them,
+   *   called only when the name is shown. Lets one message name many
+   *   commands (W10-12: "Turn { $name } On" for every setting).
    * @returns {Element|null} The <command>.
    */
   register(win, spec) {
@@ -252,6 +264,7 @@ export const WhimsyCommands = {
     entry.defaultKey ??= bindingOf(spec.key);
     entry.menu ??= spec.menu ?? null;
     entry.scope ??= spec.scope ?? null;
+    entry.l10nArgs ??= spec.l10nArgs ?? null;
     for (const variant of spec.variants ?? []) {
       if (!entry.variants.includes(variant.l10nId)) {
         entry.variants.push(variant.l10nId);
@@ -324,11 +337,38 @@ export const WhimsyCommands = {
       keyset.id = KEYSET_ID;
     }
     keyset.append(keyEl);
+    // Inside batchKeys() the keyset is bound once, at the end.
+    if (keyset.isConnected && batching.has(document)) {
+      return keyEl;
+    }
     // Gecko reads <key>s only when their keyset is (re)bound. CustomKeys
     // watches the body for keysets and applies saved customizations.
     keyset.remove();
     (document.getElementById("mainKeyset")?.parentElement ?? document.documentElement).append(keyset);
     return keyEl;
+  },
+
+  /**
+   * wave10 (W10-12): runs fn(), registering many commands, with Whimsy's
+   * keyset bound once at the end instead of once per <key>.
+   */
+  batchKeys(win, fn) {
+    const { document } = win;
+    if (batching.has(document)) {
+      return fn();
+    }
+    batching.add(document);
+    try {
+      return fn();
+    } finally {
+      batching.delete(document);
+      const keyset = document.getElementById(KEYSET_ID);
+      if (keyset) {
+        const parent = keyset.parentNode;
+        keyset.remove();
+        parent.append(keyset);
+      }
+    }
   },
 
   /**
@@ -394,10 +434,16 @@ export const WhimsyCommands = {
     const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
     const actions = spec.variants?.length ? spec.variants : [{ l10nId: spec.l10nId, isAvailable: spec.isAvailable }];
     for (const variant of actions) {
-      if (globalActions.some(a => a.l10nId == variant.l10nId)) {
+      // A message shared by several commands (one with arguments) is told
+      // apart by its command.
+      const args = variant.l10nArgs ?? spec.l10nArgs ?? null;
+      const argsKey = args ? entry.id : null;
+      if (globalActions.some(a => a.l10nId == variant.l10nId && (a.whimsyArgsKey ?? null) == argsKey)) {
         continue;
       }
       let label = null;
+      let keywords = null;
+      const keywordSource = spec.whimsyKeywords ?? variant.whimsyKeywords;
       const isAvailable = variant.isAvailable ?? spec.isAvailable ?? (() => true);
       // A variant with its own run ("Turn Liquid Glass On") runs it; any
       // other row runs the registered <command>, so its shortcut shows.
@@ -409,7 +455,12 @@ export const WhimsyCommands = {
         icon: spec.icon,
         extraPayload: {},
         whimsyCommand: entry.id,
-        whimsyKeywords: spec.whimsyKeywords ?? variant.whimsyKeywords,
+        // An array, or a function giving one the first time it's needed.
+        get whimsyKeywords() {
+          keywords ??= typeof keywordSource == "function" ? keywordSource() : keywordSource;
+          return keywords;
+        },
+        whimsyArgsKey: argsKey,
         isAvailable: win => {
           try {
             return !!isAvailable(win);
@@ -418,7 +469,7 @@ export const WhimsyCommands = {
           }
         },
         get label() {
-          label ??= formatSync(variant.l10nId);
+          label ??= formatSync(variant.l10nId, args);
           return label;
         },
       });
@@ -445,8 +496,12 @@ export const WhimsyCommands = {
         .filter(entry => entry.l10nId && keyIdOf(entry))
         .map(entry => ({ ...entry, keyId: keyIdOf(entry) }));
       const scopes = Object.keys(SCOPE_GROUPS);
-      const ids = [GROUP_L10N_ID, ...scopes.map(scope => SCOPE_GROUPS[scope]), ...listed.map(entry => entry.l10nId)];
-      const values = await lazy.l10n.formatValues(ids.map(id => ({ id })));
+      const ids = [
+        { id: GROUP_L10N_ID },
+        ...scopes.map(scope => ({ id: SCOPE_GROUPS[scope] })),
+        ...listed.map(entry => ({ id: entry.l10nId, args: resolveArgs(entry.l10nArgs) })),
+      ];
+      const values = await lazy.l10n.formatValues(ids);
       const [heading, ...rest] = values;
       const scopeHeadings = rest.splice(0, scopes.length);
       const titles = rest;
