@@ -9,7 +9,9 @@
      links go to example.org (another site); one is wrapped in this page's
      own redirect (?url=), one repeats, and the page's own links (home,
      related searches) have no heading. With ?late=1 the results only
-     appear after the page has loaded, like client-rendered engines. -->
+     appear after the page has loaded, like client-rendered engines. With
+     ?challenge=1 (W10-52) the first load has no results and replaces itself
+     once it has loaded, like Google's script check on a first visit. -->
 <header><a href="./whimsy_search_results.html">Fake Search</a></header>
 <main id="results"></main>
 <footer><a href="https://example.net/about">About this search</a></footer>
@@ -45,7 +47,11 @@
     related.textContent = "Related search";
     main.append(related);
   }
-  if (params.get("late")) {
+  if (params.get("challenge") && !params.get("passed")) {
+    window.addEventListener("load", () =>
+      setTimeout(() => location.replace(location.href + "&passed=1"), 200)
+    );
+  } else if (params.get("late")) {
     window.addEventListener("load", () => setTimeout(render, 400));
   } else {
     render();

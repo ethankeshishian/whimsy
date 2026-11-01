@@ -44,6 +44,8 @@ const DECK_PREF = "whimsy.feature.search-deck";
 export const SEARCH_DECK_GROUP = "whimsy-search-deck";
 const SHEET = "chrome://browser/content/whimsy/whimsy-search-deck.css";
 const READ_TIMEOUT_MS = 10000;
+// Between attempts to read a results page that replaced itself.
+const RETRY_MS = 150;
 const MAX_RESULTS = 10;
 const NEXT_COMMAND = "cmd_zenWorkspaceForward";
 const PREV_COMMAND = "cmd_zenWorkspaceBackward";
@@ -307,14 +309,42 @@ export const WhimsySearchDeck = {
       const results = await lazy.WhimsyAIReader.withHiddenPage(
         serpUrl,
         { userContextId, signal: controller.signal, messageManagerGroup: SEARCH_DECK_GROUP },
-        browser =>
-          browser.browsingContext.currentWindowGlobal
-            .getActor("WhimsySearchDeck")
-            .sendQuery("WhimsySearchDeck:Read", { limit: MAX_RESULTS })
+        browser => this.readLoadedPage(browser, controller.signal)
       );
       return (Array.isArray(results) ? results : []).filter(r => /^https?:\/\//.test(r?.url ?? ""));
     } finally {
       clearTimeout(timer);
+    }
+  },
+
+  // W10-52: a results page can replace itself right after it loads. Google
+  // answers a first visit with a script check that sets a cookie and loads
+  // the search again; asking the first page's actor then fails ("destroyed
+  // before query received a reply"), which read as no results. So ask again
+  // in whatever page the browser shows now, until there's an answer from a
+  // page that stayed put, or READ_TIMEOUT_MS runs out.
+  async readLoadedPage(browser, signal) {
+    for (;;) {
+      if (signal.aborted) {
+        throw new Error("aborted");
+      }
+      const page = browser.browsingContext?.currentWindowGlobal;
+      let results = null;
+      try {
+        results = await page
+          ?.getActor("WhimsySearchDeck")
+          .sendQuery("WhimsySearchDeck:Read", { limit: MAX_RESULTS });
+      } catch {
+        // That page went away mid-read (or the next one isn't ready yet).
+      }
+      if (results?.length) {
+        return results;
+      }
+      if (results && page && browser.browsingContext?.currentWindowGlobal == page) {
+        // Read to the end and still there: the page really has none.
+        return results;
+      }
+      await new Promise(resolve => setTimeout(resolve, RETRY_MS));
     }
   },
 
