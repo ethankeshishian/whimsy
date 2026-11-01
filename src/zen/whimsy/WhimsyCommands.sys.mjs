@@ -113,6 +113,7 @@ const MENU_OF = {
     "whimsy-cmd-favorite-split", "whimsy-cmd-open-split-favorites", "cmd_whimsyDoNotDisturb", "key_whimsyLinkHints",
     "key_whimsyAddSplitView", "key_whimsyCloseSplitPane", "key_whimsyNextPane", "key_whimsyPrevPane",
     "key_whimsySplitGlance", "key_whimsySpeedUp", "key_whimsySlowDown", "whimsy-game-open", "whimsy-year-open",
+    "cmd_whimsyToggleViewSourceWrap",
   ],
   "zen-spaces-menubar": [
     "cmd_zenOpenWorkspaceCreation", "cmd_whimsyNewScratch", "cmd_whimsyKeepScratch", "cmd_whimsyCloseScratch",
