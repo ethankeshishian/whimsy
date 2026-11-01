@@ -340,6 +340,25 @@ add_task(async function test_share_is_a_real_submenu() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// W10-40 (user, 2026-10-31): the real share component lists everything
+// macOS's share menu does, Add to Safari Reading List included; only macOS's
+// Copy Link is left out (Firefox's Copy Link row is already there).
+add_task(function test_native_share_lists_everything_but_copy_link() {
+  WhimsyShareMenu._service = undefined;
+  if (!WhimsyShareMenu.service) {
+    ok(true, "No native share component on this platform");
+    return;
+  }
+  const names = WhimsyShareMenu.servicesFor(["https://example.com/"]).map(s => s.name);
+  ok(names.length, "macOS offers share services for a link");
+  ok(!names.includes("com.apple.share.CopyLink"), "macOS's duplicate Copy Link is left out");
+  ok(
+    names.includes("com.apple.share.System.add-to-safari-reading-list"),
+    "Add to Safari Reading List is listed, as in macOS's share menu"
+  );
+  WhimsyShareMenu._service = undefined;
+});
+
 // W10-40: with no services to list (the share component missing or failing),
 // Firefox's picker row is the way to share, so it stays.
 add_task(async function test_share_picker_is_the_fallback() {
