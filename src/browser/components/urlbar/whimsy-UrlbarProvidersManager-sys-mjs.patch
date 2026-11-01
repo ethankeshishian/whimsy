@@ -1,0 +1,22 @@
+diff --git a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs b/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
+index e6be27e..91350f0 100644
+--- a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
++++ b/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
+@@ -1024,10 +1024,16 @@ export class Query {
+       });
+     } else if (
+       !this.context.pendingHeuristicProviders.size &&
+-      provider.type == lazy.UrlbarShared.PROVIDER_TYPE.HEURISTIC
++      provider.type == lazy.UrlbarShared.PROVIDER_TYPE.HEURISTIC &&
++      !this._whimsyHeuristicFired?.has(provider)
+     ) {
+       // All the active heuristic providers have returned results, we can skip
+       // the heuristic chunk timer and start showing results immediately.
++      // Whimsy: once per provider and query. Zen's actions provider is a
++      // heuristic provider that adds every command ("/" lists hundreds), and
++      // firing on each of them rebuilt the whole view once per command,
++      // stalling the bar for seconds. Its later results are chunked.
++      (this._whimsyHeuristicFired ??= new Set()).add(provider);
+       this._chunkTimer.fire().catch(ex => lazy.logger.error(ex));
+     }
+ 
