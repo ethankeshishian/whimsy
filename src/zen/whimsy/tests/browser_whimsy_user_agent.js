@@ -90,3 +90,40 @@ add_task(async function test_w8_49_user_agent_per_profile() {
   WhimsyUserAgent.removeProfile("work");
   is(WhimsyUserAgent.uaFor(host, "work"), null, "Removed profile overrides cleared");
 });
+
+// W10-16: "Change User Agent…" stays a command with Site Settings switched
+// off: it opens a small surface with just Pretend to Be, where a pick sets
+// the user agent and reloads while the surface stays.
+add_task(async function test_pretend_command_without_site_settings() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.site-settings", false]] });
+  registerCleanupFunction(() => WhimsyUserAgent.clear(HOST));
+  try {
+    await BrowserTestUtils.withNewTab(`https://${HOST}/`, async browser => {
+      const command = WhimsyCommands.get("whimsy-useragent-picker");
+      ok(command.isAvailable(window), "The command is still offered");
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-pretend-panel");
+      command.run(window);
+      await shown;
+      const panel = document.getElementById("whimsy-pretend-panel");
+      ok(panel.classList.contains("whimsy-surface"), "A Whimsy surface");
+      is(document.getElementById("zen-unified-site-data-panel").state, "closed", "not the site panel");
+      await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-site-settings-useragent-button",
+        "Its dropdown has the keyboard");
+      const listShown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
+        e => e.target.id == "whimsy-site-settings-useragent-button-list");
+      document.activeElement.click();
+      await listShown;
+      const reloaded = BrowserTestUtils.browserLoaded(browser);
+      document.querySelector('#whimsy-site-settings-useragent-button-list [data-value="chrome-mac"]').click();
+      await reloaded;
+      is(WhimsyUserAgent.uaFor(HOST), PRESETS["chrome-mac"], "Picking Chrome sets it");
+      is(panel.state, "open", "and the surface stays open");
+      const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+      EventUtils.synthesizeKey("KEY_Escape", {}, window);
+      await hidden;
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});

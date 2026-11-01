@@ -2039,3 +2039,14 @@ add_task(async function w10_form_protection() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-16: Change User Agent… with Site Settings off (just Pretend to Be).
+add_task(async function w10_pretend_only() {
+  const { WhimsySiteSettings } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySiteSettings.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-pretend");
+  try {
+    await w10SurfaceShot("pretend-only", "whimsy-pretend-panel", () => WhimsySiteSettings.openPretend(window));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

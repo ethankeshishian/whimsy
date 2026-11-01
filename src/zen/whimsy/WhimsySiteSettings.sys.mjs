@@ -76,6 +76,7 @@ const FEATURE_PREF = "whimsy.feature.site-settings";
 export const COMMAND_ID = "cmd_whimsySiteSettings";
 const SECTION_ID = "whimsy-site-settings-section";
 const PANEL_ID = "zen-unified-site-data-panel";
+const PRETEND_PANEL_ID = "whimsy-pretend-panel";
 const AUTOPLAY = "autoplay-media";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 // Pretend to Be's choices, in the dropdown's order; "default" is Whimsy.
@@ -670,13 +671,68 @@ export const WhimsySiteSettings = {
             if (this.isPanelOpen(win)) {
               this.render(win);
             }
+            this.renderPretend(win);
           }
         },
       };
       win.gBrowser.addTabsProgressListener(listener);
       this.render(win);
+      this.renderPretend(win);
       lazy.WhimsyUserAgent.reload(win, tab);
     });
+  },
+
+  // "Change User Agent…" with Site Settings switched off (the user keeps
+  // that command): a small WhimsySurface holding only Pretend to Be, the
+  // same row, dropdown and custom field as in This Site.
+  openPretend(win) {
+    const browser = win.gBrowser.selectedBrowser;
+    const site = this.siteOf(browser);
+    if (!site || !lazy.WhimsyUserAgent.enabled) {
+      return null;
+    }
+    const parts = lazy.WhimsySurface.create(win, {
+      id: PRETEND_PANEL_ID,
+      width: 320,
+      title: site.host,
+      close: true,
+      className: "whimsy-pretend-panel",
+      initialFocus: () => parts.view.querySelector(".whimsy-surface-dropdown"),
+    });
+    parts.panel._site = site;
+    this.renderPretend(win);
+    const anchor = lazy.WhimsySurface.visibleAnchor(win, ["zen-site-data-icon-button", "identity-icon-box", "urlbar"]);
+    if (anchor) {
+      lazy.WhimsySurface.open(win, parts.panel, { anchor, position: "after_start", y: 4 });
+    } else {
+      lazy.WhimsySurface.open(win, parts.panel, { at: "page-top-center" });
+    }
+    return parts.panel;
+  },
+
+  renderPretend(win) {
+    const panel = win.document.getElementById(PRETEND_PANEL_ID);
+    const site = panel?._site;
+    if (!site) {
+      return;
+    }
+    const doc = win.document;
+    const view = panel.querySelector(".whimsy-surface-view");
+    const hadFocus = panel.contains(doc.activeElement);
+    for (const el of [...view.children].filter(el => !el.classList.contains("whimsy-surface-header"))) {
+      el.remove();
+    }
+    const options = this.uaOptions(site);
+    const group = lazy.WhimsySurface.group(doc);
+    const custom = doc.createXULElement("hbox");
+    custom.className = "whimsy-site-settings-custom";
+    custom.setAttribute("align", "center");
+    custom.hidden = true;
+    group.append(this.userAgentRow(win, site, options, lazy.WhimsyUserAgent.entry(site.host, options), custom));
+    view.append(group, custom);
+    if (hadFocus && !custom.contains(doc.activeElement)) {
+      view.querySelector(".whimsy-surface-dropdown")?.focus();
+    }
   },
 
   isPanelOpen(win) {
