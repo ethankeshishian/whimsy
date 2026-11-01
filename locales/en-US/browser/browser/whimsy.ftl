@@ -3922,3 +3922,18 @@ whimsy-menu-view-easels =
 whimsy-action-add-page-to-easel = Add Page to Easel
 whimsy-easel-export-link = Copy Link
 whimsy-easel-status-copied-link = Copied the link to this easel
+
+## wave10/mini W10-13: Mini Whimsy's pages (pill tabs) and extensions
+
+whimsy-action-mini-new-tab = New Tab in Mini Whimsy
+whimsy-action-mini-extensions = Show Extensions in Mini Whimsy
+# The group of Mini's own shortcuts in Settings → Keyboard Shortcuts (they
+# work only inside Mini Whimsy).
+whimsy-keys-group-mini = Mini Whimsy
+whimsy-action-mini-open-in-space = Open in Current Space
+whimsy-action-mini-choose-space = Open in Another Space…
+whimsy-quick-window-tabs =
+    .aria-label = Pages
+whimsy-quick-window-tab-close =
+    .title = Close Tab
+    .aria-label = Close Tab
