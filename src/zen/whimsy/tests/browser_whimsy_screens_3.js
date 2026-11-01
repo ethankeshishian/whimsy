@@ -647,3 +647,44 @@ add_task(async function wave7_seasonal_trim() {
     }
   }
 });
+
+// wave10/redact (W10-57, W10-59): the screenshot bar with Redact on over a
+// page with an email, a phone number, a key and a card, in light and dark.
+// Black Out is the default style; the click hint shows under the bar.
+add_task(async function w10_screenshot_bar_redact() {
+  const { ScreenshotsUtils } = ChromeUtils.importESModule("moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs");
+  const { WhimsyRedact } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyRedactParent.sys.mjs");
+  const page = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_redact.html";
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["screenshots.browser.component.enabled", true],
+    ["whimsy.feature.redact", true],
+    ["whimsy.capture.redact", true],
+    ["whimsy.capture.redact-style", "black"],
+  ] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  const browser = tab.linkedBrowser;
+  const buttons = () => ScreenshotsUtils.panelForBrowser(browser)?.querySelector("screenshots-buttons")?.shadowRoot;
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await ScreenshotsUtils.start(browser, "Shortcut");
+      await TestUtils.waitForCondition(() => {
+        const panel = ScreenshotsUtils.panelForBrowser(browser);
+        return panel && !panel.hidden && buttons()?.getElementById("whimsy-redact");
+      }, "The screenshot bar shows with Redact");
+      const redact = buttons().getElementById("whimsy-redact");
+      is(redact.getAttribute("aria-pressed"), "true", "Redact is on");
+      await TestUtils.waitForCondition(async () => ((await WhimsyRedact.state(browser))?.rects ?? []).length >= 5,
+        "The sensitive text is covered");
+      await document.l10n.translateFragment(ScreenshotsUtils.panelForBrowser(browser));
+      await settled();
+      await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      await shot(`w10-screenshot-redact-${dark ? "dark" : "light"}`);
+      ScreenshotsUtils.cancel(browser, "Escape");
+      await TestUtils.waitForCondition(async () => !(await WhimsyRedact.state(browser))?.active, "Redaction is cleared");
+    }
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});

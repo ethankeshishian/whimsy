@@ -112,6 +112,8 @@ support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
 
 # wave7: the shots wave 7 added (split so each file stays under the time limit).
 ["browser_whimsy_screens_3.js"]
+# wave10/redact: the screenshot bar with Redact on.
+support-files = ["whimsy_redact.html"]
 
 ["browser_whimsy_space_icon_drop.js"]
 
