@@ -373,7 +373,7 @@ export const WhimsyNotes = {
       return creating;
     };
     const save = async () => {
-      clearTimeout(timer);
+      win.clearTimeout(timer);
       timer = null;
       if (!note) {
         if (!name.value && !body.value && !attached) {
@@ -394,7 +394,7 @@ export const WhimsyNotes = {
     };
     panel._whimsyFlush = save;
     const onInput = () => {
-      clearTimeout(timer);
+      win.clearTimeout(timer);
       timer = win.setTimeout(() => save().catch(console.error), QUICK_NOTE_SAVE_MS);
     };
     name.addEventListener("input", onInput);
@@ -409,7 +409,7 @@ export const WhimsyNotes = {
         return;
       }
       await ensureNote();
-      clearTimeout(timer);
+      win.clearTimeout(timer);
       let updated;
       if (on) {
         try {

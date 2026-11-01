@@ -50,7 +50,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
-ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true));
 
 const FEATURE_PREF = "whimsy.feature.settings-commands";
 const ICON = "chrome://browser/skin/zen-icons/settings.svg";

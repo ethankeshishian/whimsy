@@ -106,9 +106,8 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_reorder_spaces.js"]
 
 ["browser_whimsy_screens.js"]
-# wave3/speed: the video speed control shot; wave10/desA W10-18: the page
-# tools shots; wave10/desB W10-20: the selected-text menu shot.
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf", "whimsy_verbs.html"]
+# wave3/speed: the video speed control shot.
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
 
 ["browser_whimsy_screens_2.js"]
 # wave3/speed: the video speed control shot.
@@ -118,6 +117,10 @@ support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_verbs.ht
 ["browser_whimsy_screens_3.js"]
 # wave10/redact: the screenshot bar with Redact on.
 support-files = ["whimsy_redact.html"]
+
+# wave10: the design passes' surfaces, light and dark (w10-* shots).
+["browser_whimsy_screens_4.js"]
+support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf", "whimsy_verbs.html"]
 
 ["browser_whimsy_space_icon_drop.js"]
 
