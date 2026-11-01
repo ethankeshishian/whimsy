@@ -149,6 +149,33 @@ whimsy-copy-markdown-toast =
                *[other] Copied Current URLs as Markdown
             }
     }
+# The same, when the tab menu copied a tab that isn't the current one.
+whimsy-copy-other-toast =
+    { $stripped ->
+        [yes]
+            { $count ->
+                [one] Copied URL without Trackers
+               *[other] Copied URLs without Trackers
+            }
+       *[no]
+            { $count ->
+                [one] Copied URL
+               *[other] Copied URLs
+            }
+    }
+whimsy-copy-markdown-other-toast =
+    { $stripped ->
+        [yes]
+            { $count ->
+                [one] Copied URL as Markdown without Trackers
+               *[other] Copied URLs as Markdown without Trackers
+            }
+       *[no]
+            { $count ->
+                [one] Copied URL as Markdown
+               *[other] Copied URLs as Markdown
+            }
+    }
 # W10-63 (Arc): the Copy URL toast's offer when text is selected on the
 # page; it copies a Link to Highlight (a link to the selected text).
 whimsy-copy-highlight-offer = Share a link directly to this text instead?

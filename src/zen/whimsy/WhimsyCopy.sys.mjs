@@ -183,7 +183,15 @@ export const WhimsyCopy = {
   },
 
   copyFromContextMenu(win) {
-    this.copy(win, this.linksFor(this.contextTabs(win)), { markdown: false });
+    const tabs = this.contextTabs(win);
+    this.copy(win, this.linksFor(tabs), { markdown: false, current: this.areCurrent(tabs) });
+  },
+
+  // Whether the tab menu's tabs are the ones Copy URL would copy (the
+  // current tab, or the multi-selection it's part of). Otherwise the
+  // toast says "Copied URL", not "Copied Current URL" (W10-33).
+  areCurrent(tabs) {
+    return tabs.length > 0 && tabs.every(tab => tab.selected || tab.multiselected);
   },
 
   linksFor(tabs) {
@@ -322,7 +330,7 @@ export const WhimsyCopy = {
       .setData(transferable, null, Ci.nsIClipboard.kGlobalClipboard);
   },
 
-  copy(win, links, { markdown, offerHighlight = false }) {
+  copy(win, links, { markdown, offerHighlight = false, current = true }) {
     if (!links.length) {
       return null;
     }
@@ -332,19 +340,20 @@ export const WhimsyCopy = {
     if (offerHighlight) {
       return this.offerHighlight(win, links).catch(e => {
         console.error("Whimsy: copy toast", e);
-        this.showToast(win, links, { markdown });
+        this.showToast(win, links, { markdown, current });
       });
     }
-    this.showToast(win, links, { markdown });
+    this.showToast(win, links, { markdown, current });
     return null;
   },
 
-  showToast(win, links, { markdown }) {
+  showToast(win, links, { markdown, current = true }) {
     const { gZenUIManager, document } = win;
     if (!gZenUIManager?.showToast) {
       return;
     }
-    const messageId = markdown ? "whimsy-copy-markdown-toast" : "whimsy-copy-toast";
+    const messageId =
+      (markdown ? "whimsy-copy-markdown" : "whimsy-copy") + (current ? "-toast" : "-other-toast");
     const count = links.length;
     // Fluent selector: "without trackers" only when stripping removed some.
     const stripped = links.some(link => link.stripped) ? "yes" : "no";

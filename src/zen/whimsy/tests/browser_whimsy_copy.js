@@ -313,3 +313,36 @@ add_task(async function test_toast_several_tabs() {
     closeTabs(tabs);
   });
 });
+
+// W10-33 follow-up: the tab menu copying a tab that isn't the current one
+// says "Copied URL" (no "Current"); the current tab keeps "Copied Current URL".
+add_task(async function test_context_menu_toast_for_other_tab() {
+  await withStripOnShare(true, async () => {
+    const tabs = await openURLs([CLEANED, TRACKED]);
+    is(gBrowser.selectedTab, tabs[1], "The tracked page is current");
+    const item = () => document.getElementById("context_whimsyCopyLinks");
+
+    // Another tab, clean.
+    let menu = await openTabMenu(tabs[0]);
+    await clearClipboard();
+    menu.activateItem(item());
+    await waitForClipboard(CLEANED, "Copies the other tab's URL");
+    await toastText("whimsy-copy-other-toast", "Copied URL", "Not the current tab: no \"Current\"");
+
+    // The current tab, with a tracker.
+    menu = await openTabMenu(tabs[1]);
+    await clearClipboard();
+    menu.activateItem(item());
+    await waitForClipboard(CLEANED, "Copies the current tab without its tracker");
+    await toastText("whimsy-copy-toast", "Copied Current URL without Trackers", "The current tab says Current");
+
+    // Another tab with a tracker.
+    gBrowser.selectedTab = tabs[0];
+    menu = await openTabMenu(tabs[1]);
+    await clearClipboard();
+    menu.activateItem(item());
+    await waitForClipboard(CLEANED, "Copies it without the tracker");
+    await toastText("whimsy-copy-other-toast", "Copied URL without Trackers", "Other tab, trackers removed");
+    closeTabs(tabs);
+  });
+});
