@@ -523,6 +523,11 @@ support-files = [
 # wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
 ["browser_whimsy_split_arc_keys.js"]
 
+# wave10 (W10-47): the menu keys with real key events (headed, verify.sh's whimsy-native).
+["browser_whimsy_arc_menu_keys_native.js"]
+run-if = ["os == 'mac'"]
+skip-if = ["headless"] # native key events need a real window; verify.sh runs it headed
+
 # wave6/parity: Arc's menu keys (Library, Downloads/Console, Save Page, Blank Window, Copy URL as Quote, Paste and Match Style).
 ["browser_whimsy_arc_menu_keys.js"]
 

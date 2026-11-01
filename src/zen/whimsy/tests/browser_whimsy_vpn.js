@@ -418,3 +418,21 @@ add_task(async function test_w10_50_settings_buttons() {
     }
   });
 });
+
+// W10-50 follow-up: now that Firefox's VPN starts, its toolbar button is
+// the one VPN control in the window; nothing else (a Whimsy, Zen or
+// Firefox control) offers the VPN a second time.
+add_task(async function test_vpn_button_is_the_only_vpn_control() {
+  const button = WhimsyVPN.showButton(window);
+  if (!button) {
+    ok(true, "Firefox's VPN isn't offered here; nothing to compare");
+    return;
+  }
+  const controls = [...document.querySelectorAll("toolbarbutton, button, menuitem, .subviewbutton")].filter(el => {
+    const id = (el.id || "") + " " + (el.getAttribute("data-l10n-id") || "") + " " + (el.getAttribute("command") || "");
+    return /vpn|ipprotection/i.test(id) && !el.closest("panelview, panel, menupopup, #PanelUI-ipprotection");
+  });
+  info(`VPN controls: ${controls.map(el => `${el.localName}#${el.id} in ${el.parentElement?.id || el.parentElement?.localName}`).join(", ")}`);
+  Assert.deepEqual(controls.map(el => el.id), ["ipprotection-button"], "Only Firefox's VPN button");
+  is(document.querySelectorAll("#ipprotection-button").length, 1, "and it's placed once");
+});

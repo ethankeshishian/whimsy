@@ -57,7 +57,7 @@ add_task(async function open_and_close_motion() {
   const frames = open.effect.getKeyframes();
   is(frames[0].opacity, "0", "Open starts transparent");
   is(frames[0].scale, "0.97", "Open starts slightly smaller");
-  ok(frames[0].translate.includes("-6px"), `Open starts 6px higher (${frames[0].translate})`);
+  ok(/-\s?6px\)?$/.test(frames[0].translate), `Open starts 6px higher (${frames[0].translate})`);
   ok(!("transform" in frames[0]), "Open never animates transform (Zen centres with translate)");
   await open.finished;
 
@@ -96,17 +96,31 @@ add_task(async function reopen_during_close() {
   await Promise.all(gURLBar.getAnimations().map(a => a.finished));
   await closeBar();
   await TestUtils.waitForCondition(() => window.WhimsyCommandBarMotion.closing, "Closing");
+  // Hold the close halfway, so half the bar is on screen.
+  const [close] = barAnimations("whimsy-command-bar-close");
+  close.pause();
+  close.currentTime = COMMAND_BAR_MOTION.close.duration / 2;
   // Reopen within the close: the hide finishes at once and the open
-  // continues from what is visible.
-  document.getElementById("Browser:OpenLocation").doCommand();
-  await TestUtils.waitForCondition(() => !window.WhimsyCommandBarMotion.closing, "The pending hide ended on reopen");
-  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "exam" });
-  await TestUtils.waitForCondition(
-    () => gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("open"),
-    "Open again"
-  );
-  const [open] = barAnimations("whimsy-command-bar-open");
+  // continues from what is visible. The open starts in the same mutation
+  // batch that floats the bar, so look at it there (it is short).
+  let open = null;
+  const observer = new MutationObserver(() => {
+    open ??= barAnimations("whimsy-command-bar-open")[0] ?? null;
+  });
+  observer.observe(gURLBar, { attributes: true });
+  try {
+    document.getElementById("Browser:OpenLocation").doCommand();
+    await TestUtils.waitForCondition(() => !window.WhimsyCommandBarMotion.closing, "The pending hide ended on reopen");
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "exam" });
+    await TestUtils.waitForCondition(
+      () => gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("open"),
+      "Open again"
+    );
+  } finally {
+    observer.disconnect();
+  }
   ok(open, "The reopen animates");
+  ok(open.currentTime >= COMMAND_BAR_MOTION.open.duration * 0.4, `from about halfway (${open.currentTime}ms)`);
   await open.finished;
   ok(gURLBar.focused, "The bar has the keyboard");
   EventUtils.sendString("ple");
