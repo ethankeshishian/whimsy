@@ -16,6 +16,23 @@ const DECOR_ATTR = "whimsy-season-decor";
 const TRIM_CLASS = "whimsy-season-trim";
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
 
+// The trim's art for each look (whimsy-browser.css draws the same files).
+// Loaded and decoded when a window takes the look, so the first time the
+// command bar opens its art is already there (W10-08/W10-32).
+const ART_BASE = "chrome://browser/content/whimsy/season/";
+export const TRIM_ART = {
+  halloween: ["trim-halloween.svg"],
+  autumn: ["trim-autumn.svg"],
+  winter: ["trim-winter.svg"],
+  spring: ["trim-spring.svg"],
+  summer: ["trim-summer.svg"],
+  holidays: ["trim-lights.svg", "trim-lights-a.svg", "trim-lights-b.svg"],
+};
+
+// Window → { look, images, ready }: keeps the decoded images alive (and so
+// in the image cache) for as long as the window shows that look.
+const preloaded = new WeakMap();
+
 // The one table. Northern hemisphere, local calendar, MMDD inclusive; a
 // range may wrap across the year boundary. Occasions are short windows
 // inside a season and win over it where a surface has art for them;
@@ -107,12 +124,40 @@ export const WhimsySeasons = {
     if (look) {
       root.setAttribute(ATTR, look.season);
       root.setAttribute(DECOR_ATTR, look.id);
+      this.preloadArt(win, look.id);
       this.ensureTrim(win);
     } else {
       root.removeAttribute(ATTR);
       root.removeAttribute(DECOR_ATTR);
+      preloaded.delete(win);
       this.trim(win)?.remove();
     }
+  },
+
+  // Loads and decodes the trim's art for a look in this window. Idempotent
+  // per look; apply() runs on every focus.
+  preloadArt(win, lookId) {
+    const current = preloaded.get(win);
+    if (current?.look == lookId) {
+      return current.ready;
+    }
+    const images = (TRIM_ART[lookId] ?? []).map(file => {
+      const image = new win.Image();
+      image.src = ART_BASE + file;
+      return image;
+    });
+    const ready = Promise.all(
+      images.map(image =>
+        image.decode().catch(e => console.error(`Whimsy: season art ${image.src}`, e))
+      )
+    ).then(() => images.every(image => image.complete));
+    preloaded.set(win, { look: lookId, images, ready });
+    return ready;
+  },
+
+  // Resolves (true) once this window's trim art is decoded; for tests.
+  artReady(win) {
+    return preloaded.get(win)?.ready ?? Promise.resolve(false);
   },
 
   trim(win) {

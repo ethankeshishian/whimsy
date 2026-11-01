@@ -3452,17 +3452,28 @@ panel.whimsy-teach {
    covers the input or the results, and never changes the bar's size.
    Clusters stay near the corners so the middle (where you type) stays
    quiet; the one motion is the holiday lights' slow twinkle, which stops
-   under reduced motion. */
+   under reduced motion.
+
+   W10-08/W10-32: the art appears in the same frame as the bar, with no
+   fade or delay of its own. The trim is laid out (hidden and clipped)
+   from the moment a look is set, not only while the bar is open, so its
+   art is loaded and decoded long before the first open; opening the bar
+   only flips it visible, in the same style change that floats the bar.
+   (A display: none trim only asked for its art when the bar opened, and
+   it arrived a few frames later.) */
 .whimsy-season-trim {
   display: none;
 }
 
-:root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
+:root[whimsy-season-decor] #urlbar > .whimsy-season-trim {
   display: block;
   position: absolute;
-  /* Matches .urlbar-background, which overhangs the bar while it's open. */
-  inset: calc(-1 * var(--urlbar-background-overhang-open, 0px));
+  inset: 0;
   pointer-events: none;
+  /* Docked: present for the art to load, but never painted, hit or
+     adding overflow to the toolbar. */
+  visibility: hidden;
+  overflow: clip;
 
   :root:not([whimsy-season-decor="holidays"]) & {
     @media (prefers-color-scheme: dark) {
@@ -3517,6 +3528,15 @@ panel.whimsy-teach {
       pointer-events: none;
     }
   }
+}
+
+/* Open: the same selector Zen floats the bar with, so both change in one
+   style flush and paint in one frame. */
+:root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
+  /* Matches .urlbar-background, which overhangs the bar while it's open. */
+  inset: calc(-1 * var(--urlbar-background-overhang-open, 0px));
+  visibility: visible;
+  overflow: visible;
 }
 
 :root[whimsy-season-decor="halloween"] .whimsy-season-trim-top {
@@ -3582,13 +3602,6 @@ panel.whimsy-teach {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
-    & > .whimsy-season-trim-top,
-    & > .whimsy-season-trim-bottom {
-      animation: whimsy-season-trim-in 240ms cubic-bezier(0.2, 0, 0, 1) 80ms both;
-    }
-  }
-
   :root[whimsy-season-decor="holidays"] #urlbar[open][zen-floating-urlbar="true"] .whimsy-season-trim-bottom {
     &::before,
     &::after {
@@ -3598,12 +3611,6 @@ panel.whimsy-teach {
     &::after {
       animation-delay: -3.2s;
     }
-  }
-}
-
-@keyframes whimsy-season-trim-in {
-  from {
-    opacity: 0;
   }
 }
 
