@@ -657,6 +657,7 @@ support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
 ["browser_whimsy_designfix_copy.js"]
 # wave9/menus: W9-09 right-click <-> command parity (commands, rows off by default, Allow Copy on blocking pages, Share submenu), W9-10 container rows off.
 ["browser_whimsy_menu_parity.js"]
+support-files = ["whimsy_highlight.html"]
 
 # wave9/menus: design-full-4 menu/command fixes (Scratch menu, no move into Scratch, one Expand Current Split, Delete Essential, keywords, Move Tab to Space N, New Note page-only, Watch variants, Mini Whimsy in File, Redo icon).
 ["browser_whimsy_menus_review.js"]

@@ -179,14 +179,23 @@ add_task(async function test_tab_commands_act_on_the_current_tab() {
 });
 
 add_task(async function test_copy_link_to_highlight() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/browser/whimsy-highlight");
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+  // A static page (not a 404 rewritten in place) so the text is laid out
+  // before the directive is built; then wait until the selection is the text.
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_highlight.html"
+  );
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
     const doc = content.document;
-    doc.body.innerHTML = "<p id='p'>The quick brown fox jumps over the lazy dog</p>";
     const range = doc.createRange();
     range.selectNodeContents(doc.getElementById("p"));
     content.getSelection().removeAllRanges();
     content.getSelection().addRange(range);
+    await ContentTaskUtils.waitForCondition(
+      () => content.getSelection().toString() == "The quick brown fox jumps over the lazy dog",
+      "The paragraph is selected"
+    );
+    await new Promise(r => content.requestAnimationFrame(() => content.requestAnimationFrame(r)));
   });
   const url = await WhimsyMenuParity.copyLinkToHighlight(window);
   ok(url?.includes("#:~:text="), `A link to the highlight: ${url}`);

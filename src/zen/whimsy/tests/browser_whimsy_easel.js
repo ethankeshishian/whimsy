@@ -448,6 +448,19 @@ add_task(async function test_resize_snaps() {
   }, "The resize handle is in place");
   const handle = handleEl().getBoundingClientRect();
   const from = { x: handle.left + handle.width / 2, y: handle.top + handle.height / 2 };
+  // The easel page lives in the parent process, so synthesized mouse events
+  // are hit-tested against the whole browser window: a toast or panel left
+  // over from an earlier test that covers the handle takes the drag. Wait
+  // until the page itself is what's under the handle and the next point.
+  const pageBrowser = gBrowser.selectedBrowser;
+  const covered = pt => {
+    const r = pageBrowser.getBoundingClientRect();
+    return document.elementFromPoint(r.left + pt.x, r.top + pt.y) != pageBrowser;
+  };
+  await TestUtils.waitForCondition(
+    () => !covered(from) && !covered({ x: from.x + 157, y: from.y }),
+    "Nothing in the window covers the handle"
+  );
   await drag(win, from, { x: from.x + 77, y: from.y });
   is(app.find("b").w, 200, "Dragged to within a few px of A's edge, B's edge lands on it");
   await drag(win, { x: from.x + 80, y: from.y }, { x: from.x + 157, y: from.y }, { modifiers: { altKey: true } });
