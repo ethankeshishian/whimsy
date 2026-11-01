@@ -740,3 +740,227 @@ mark.whimsy-search-mark {
     outline-offset: -2px;
   }
 }
+
+/* W10-28: Settings → AI. Cards in the Settings card style; the provider is
+   three equal cards (a radio group); only the chosen provider's fields
+   show, in a label/control grid whose controls all start at the control
+   column's left edge (the API key field is left-aligned, never centred). */
+.whimsy-ai-section {
+  margin-block-end: 16px;
+
+  & > label > h2 {
+    margin-block: 0 8px;
+  }
+
+  &[data-ai-off] {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+}
+
+.whimsy-ai-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  border-radius: 10px;
+  background: var(--background-color-box, transparent);
+  overflow: clip;
+
+  & > moz-toggle,
+  & > .whimsy-ai-firefox-row {
+    padding: 11px 14px;
+  }
+
+  & > moz-toggle + moz-toggle,
+  & > moz-toggle + .whimsy-ai-watch-list,
+  & > .whimsy-ai-firefox-row + moz-toggle {
+    border-top: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  }
+}
+
+.whimsy-ai-separator {
+  height: 2px;
+  background: var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+}
+
+.whimsy-ai-firefox-row {
+  gap: 12px;
+
+  & > label {
+    margin: 0;
+  }
+
+  & > menulist {
+    margin: 0;
+    min-width: 180px;
+  }
+}
+
+.whimsy-ai-off-note {
+  margin-block-start: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 10%, transparent);
+  font-size: 12.5px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-ai-providers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.whimsy-ai-provider {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 6px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  border-radius: 8px;
+  cursor: default;
+  transition: background-color 100ms cubic-bezier(0.2, 0, 0, 1), border-color 100ms cubic-bezier(0.2, 0, 0, 1);
+
+  & > input {
+    margin: 0;
+    accent-color: var(--zen-primary-color, AccentColor);
+  }
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 4%, transparent);
+  }
+
+  &[data-selected] {
+    border-color: var(--zen-primary-color, AccentColor);
+    box-shadow: inset 0 0 0 1px var(--zen-primary-color, AccentColor);
+    background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 6%, transparent);
+  }
+
+  &:has(input:focus-visible) {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+
+.whimsy-ai-provider-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.whimsy-ai-provider-sub {
+  grid-column: 2;
+  font-size: 11.5px;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+}
+
+.whimsy-ai-provider-description {
+  margin: -4px 14px 10px;
+  font-size: 12px;
+}
+
+.whimsy-ai-fields {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  padding: 0 14px 12px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-ai-field-label {
+  justify-self: end;
+  margin: 0;
+  text-align: end;
+  font-size: 13px;
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 68%, transparent));
+}
+
+/* The control column: everything starts at its left edge. */
+.whimsy-ai-field-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  min-width: 0;
+
+  & button,
+  & menulist,
+  & input {
+    margin: 0;
+  }
+}
+
+.whimsy-ai-field {
+  width: 220px;
+  box-sizing: border-box;
+}
+
+.whimsy-ai-field-wide {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.whimsy-ai-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+
+  &:empty {
+    display: none;
+  }
+
+  &[data-state]::before {
+    content: "";
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  &[data-state="ready"]::before {
+    background: light-dark(#1f9d55, #4ccf86);
+  }
+
+  &[data-state="action"]::before {
+    background: light-dark(#c77700, #f0a43a);
+  }
+}
+
+#whimsyClaudeConnect > summary {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-ai-provider {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .whimsy-ai-card,
+  .whimsy-ai-provider {
+    border-color: currentColor;
+  }
+}
+
+@media (max-width: 760px) {
+  .whimsy-ai-providers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.whimsy-ai-card > .whimsy-ai-watch-list {
+  margin: 0;
+  padding: 0 14px 6px;
+}

@@ -58,7 +58,8 @@ const ASK_PREF = "whimsy.claude.ask-per-site";
 const PORT_PREF = "whimsy.claude.port";
 const TOKEN_PREF = "whimsy.claude.token";
 const SPACE_PREF = "whimsy.claude.space-id";
-const AI_BLOCKED_PREF = "whimsy.ai.blocked";
+// W10-28: Settings → AI's Enable AI (WhimsyAI.PREF).
+const AI_ENABLED_PREF = "whimsy.ai.enabled";
 
 const ACTOR = "WhimsyClaude";
 const PERMISSION = "whimsy-claude";
@@ -361,7 +362,7 @@ export const WhimsyClaude = {
     return (
       this.featureOn &&
       Services.prefs.getBoolPref(ENABLED_PREF, false) &&
-      !Services.prefs.getBoolPref(AI_BLOCKED_PREF, false)
+      Services.prefs.getBoolPref(AI_ENABLED_PREF, true)
     );
   },
 
@@ -385,7 +386,7 @@ export const WhimsyClaude = {
       return;
     }
     state.observing = true;
-    for (const pref of [FEATURE_PREF, ENABLED_PREF, AI_BLOCKED_PREF]) {
+    for (const pref of [FEATURE_PREF, ENABLED_PREF, AI_ENABLED_PREF]) {
       Services.prefs.addObserver(pref, this);
     }
     Services.obs.addObserver(this, "quit-application");

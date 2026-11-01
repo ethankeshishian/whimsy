@@ -1331,9 +1331,9 @@ add_task(async function liquid_glass() {
 
 // wave3/ai: the AI provider card, and Tidy Tabs' sections in Today.
 add_task(async function ai_provider_and_tidy_tabs() {
-  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
-    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProvidersGroup"));
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProviderGroup"));
     await TestUtils.waitForCondition(() => group.checkVisibility(), "AI provider card visible");
     group.scrollIntoView({ block: "center" });
     await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
@@ -1797,6 +1797,36 @@ add_task(async function w10_settings_search() {
           browser.browsingContext.currentWindowGlobal);
       }
     });
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W10-28: Settings → AI, light and dark: Enable AI, the provider cards with
+// Claude's key field (left-aligned in its grid), the features; then AI off.
+add_task(async function w10_settings_ai() {
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.provider", "claude"]] });
+    await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
+      const doc = browser.contentDocument;
+      const header = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAICategory"));
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIEnable")?.checkVisibility(), "The AI pane shows");
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIClaudeStatus").textContent, "Claude's status");
+      await doc.l10n.translateFragment(doc.getElementById("mainPrefPane"));
+      header.scrollIntoView({ block: "start" });
+      await settled(doc);
+      await shot(`w10-settings-ai-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      doc.getElementById("whimsyAIFeaturesGroup").scrollIntoView({ block: "start" });
+      await settled(doc);
+      await shot(`w10-settings-ai-features-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+      await TestUtils.waitForCondition(() => !doc.getElementById("whimsyAIOffNote").hidden, "AI off");
+      header.scrollIntoView({ block: "start" });
+      await settled(doc);
+      await shot(`w10-settings-ai-off-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      Services.prefs.clearUserPref("whimsy.ai.enabled");
+    });
+    await SpecialPowers.popPrefEnv();
     await SpecialPowers.popPrefEnv();
   }
 });

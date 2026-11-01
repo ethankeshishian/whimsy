@@ -37,7 +37,7 @@ add_setup(async () => {
   registerCleanupFunction(() => {
     WhimsyAIProviders.setTestProvider(null);
     WhimsyAIReader.setTestReader(null);
-    for (const pref of ["whimsy.ai.blocked", "whimsy.ai.provider", "whimsy.feature.ask-on-page", "whimsy.feature.link-previews", "whimsy.feature.link-cards"]) {
+    for (const pref of ["whimsy.ai.enabled", "whimsy.ai.provider", "whimsy.feature.ask-on-page", "whimsy.feature.link-previews", "whimsy.feature.link-cards"]) {
       Services.prefs.clearUserPref(pref);
     }
   });
@@ -97,7 +97,7 @@ add_task(async function test_ask_on_page() {
     panel.hidePopup();
 
     // The kill switch hides Ask.
-    Services.prefs.setBoolPref("whimsy.ai.blocked", true);
+    Services.prefs.setBoolPref("whimsy.ai.enabled", false);
     findbar = await openFind("still not here");
     await new Promise(r => setTimeout(r, 300));
     ok(askButton(findbar).hidden, "No Ask with AI turned off");
@@ -105,7 +105,7 @@ add_task(async function test_ask_on_page() {
     EventUtils.synthesizeKey("KEY_Enter");
     await new Promise(r => setTimeout(r, 300));
     is(requests.length, 0, "Enter just finds again");
-    Services.prefs.clearUserPref("whimsy.ai.blocked");
+    Services.prefs.clearUserPref("whimsy.ai.enabled");
     findbar.close();
   });
 });

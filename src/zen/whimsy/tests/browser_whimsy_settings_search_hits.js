@@ -115,6 +115,9 @@ add_task(async function tidy_titles_is_found() {
     await search(win, "tidy titles");
     const row = doc.getElementById("whimsyAITidyTitles");
     ok(row?.classList.contains("whimsy-search-hit"), "Tidy Titles is the hit (W10-12)");
+    is(row.closest("[data-category]").dataset.category, "paneWhimsyAI", "…in Settings → AI (W10-28)");
+    await search(win, "claude in whimsy");
+    ok(doc.getElementById("whimsyClaudeGroup").checkVisibility(), "Claude in Whimsy is found, in Settings → AI");
   });
 });
 

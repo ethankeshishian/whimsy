@@ -103,7 +103,7 @@ const MAY_BE_ABSENT = {
 
 // The values Settings offers for a choice.
 function domChoices(el) {
-  return [...el.querySelectorAll("menuitem[value], radio[value], [data-icon]")].map(
+  return [...el.querySelectorAll("menuitem[value], radio[value], input[type='radio'][value], [data-icon]")].map(
     item => item.getAttribute("value") ?? item.dataset.icon
   );
 }
@@ -257,7 +257,7 @@ add_task(async function test_switch_commands() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["whimsy.feature.tidy-titles", true],
-      ["whimsy.ai.blocked", false],
+      ["whimsy.ai.enabled", true],
     ],
   });
   const id = "cmd_whimsySetting-tidy-titles";
@@ -274,17 +274,19 @@ add_task(async function test_switch_commands() {
   ok(Services.prefs.getBoolPref("whimsy.feature.tidy-titles"), "and on again");
 
   // With AI turned off, AI settings have nothing to change.
-  Services.prefs.setBoolPref("whimsy.ai.blocked", true);
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
   ok(!on.isAvailable(window) && !off.isAvailable(window), "No Tidy Tab Titles commands with AI off");
   document.getElementById(id).doCommand();
   ok(Services.prefs.getBoolPref("whimsy.feature.tidy-titles"), "and its shortcut does nothing");
 
-  // A switch that's on when its pref is false: AI Features.
+  // W10-28: Enable AI's own command: Turn AI On / Turn AI Off.
   const aiOn = rowFor("cmd_whimsySetting-ai", "whimsy-setting-on");
-  is(aiOn?.label, "Turn AI Features On", "AI Features is named by what it does");
-  ok(aiOn.isAvailable(window), "and offered while AI is blocked");
+  is(aiOn?.label, "Turn AI On", "Enable AI's command is named by what it does");
+  ok(aiOn.isAvailable(window), "and offered while AI is off");
   document.getElementById("cmd_whimsySetting-ai").doCommand();
-  ok(!Services.prefs.getBoolPref("whimsy.ai.blocked"), "Turning AI Features on unblocks AI");
+  ok(Services.prefs.getBoolPref("whimsy.ai.enabled"), "Turning AI on enables it");
+  const aiOff = rowFor("cmd_whimsySetting-ai", "whimsy-setting-off");
+  is(aiOff?.label, "Turn AI Off", "and Turn AI Off once it's on");
   await SpecialPowers.popPrefEnv();
 });
 
@@ -323,7 +325,7 @@ add_task(async function test_a_shortcut_can_be_assigned() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["whimsy.feature.tidy-titles", true],
-      ["whimsy.ai.blocked", false],
+      ["whimsy.ai.enabled", true],
     ],
   });
   const command = WhimsyCommands.get("cmd_whimsySetting-tidy-titles");

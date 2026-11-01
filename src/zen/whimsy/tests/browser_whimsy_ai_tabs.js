@@ -40,7 +40,7 @@ add_setup(async () => {
   WhimsyAIProviders.setTestProvider(fakeProvider);
   registerCleanupFunction(async () => {
     WhimsyAIProviders.setTestProvider(null);
-    Services.prefs.clearUserPref("whimsy.ai.blocked");
+    Services.prefs.clearUserPref("whimsy.ai.enabled");
     Services.prefs.clearUserPref("whimsy.feature.tidy-tabs");
     Services.prefs.clearUserPref("whimsy.feature.tidy-titles");
     for (const folder of gBrowser.tabGroups.filter(g => g.isZenFolder && g.label == "Org Reading")) {
@@ -204,12 +204,12 @@ add_task(async function test_switches_hide_the_broom() {
     await openTodayTabs(7 - WhimsyAITabs.todayTabs(window).length);
   }
   await TestUtils.waitForCondition(() => broom() && !broom().hidden, "The broom shows");
-  Services.prefs.setBoolPref("whimsy.ai.blocked", true);
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
   await TestUtils.waitForCondition(() => broom().hidden, "The AI kill switch hides it");
   requests = [];
   is(await WhimsyAITabs.tidy(window), null, "and tidying does nothing");
   is(requests.length, 0, "without asking the AI");
-  Services.prefs.clearUserPref("whimsy.ai.blocked");
+  Services.prefs.clearUserPref("whimsy.ai.enabled");
   await TestUtils.waitForCondition(() => !broom().hidden, "Back on");
   Services.prefs.setBoolPref("whimsy.feature.tidy-tabs", false);
   await TestUtils.waitForCondition(() => broom().hidden, "The feature switch hides it too");
@@ -275,7 +275,7 @@ add_task(async function tidy_excludes_private_tabs() {
 });
 
 add_task(async function tidy_disabled_stops_mutating_tabs() {
-  for (const [pref, value] of [["whimsy.feature.tidy-tabs", false], ["whimsy.ai.blocked", true]]) {
+  for (const [pref, value] of [["whimsy.feature.tidy-tabs", false], ["whimsy.ai.enabled", false]]) {
     await WhimsyAITabs.tidy(window);
     await SpecialPowers.pushPrefEnv({ set: [[pref, value]] });
     try {

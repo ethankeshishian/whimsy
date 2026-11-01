@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// AI kill switch: one Settings toggle (whimsy.ai.blocked) that turns off every
+// AI kill switch: one Settings toggle (Enable AI, whimsy.ai.enabled) that turns off every
 // AI feature, like Firefox's "Block AI enhancements" (whose AI Controls pane
 // Zen hides). Turning it on blocks each of Firefox's AI features the way
 // that pane does (browser.ai.control.* = "blocked", then the feature's own
@@ -13,7 +13,13 @@
 // generative, and Whimsy's translate features build on them.
 // Whimsy's own AI features must check WhimsyAI.blocked before doing anything.
 
-const PREF = "whimsy.ai.blocked";
+// W10-28: Settings → AI's "Enable AI" (on by default) replaced "Turn off
+// all AI features": checked now means enabled. whimsy.ai.blocked was the
+// old switch; a profile that had it on starts with AI off, and for one
+// release it is kept as !enabled, so a rolled-back build (which still
+// reads it) doesn't see "not blocked" and turn AI back on unasked.
+const PREF = "whimsy.ai.enabled";
+const LEGACY_PREF = "whimsy.ai.blocked";
 const FEATURE_PREF = "whimsy.feature.ai-kill-switch";
 const RESTORE_PREF = "whimsy.ai.restore";
 
@@ -123,11 +129,49 @@ function setPref(pref, value) {
 
 export const WhimsyAI = {
   PREF,
+  LEGACY_PREF,
   FEATURES,
+
+  // Whether Enable AI is on (Settings → AI).
+  get enabled() {
+    return Services.prefs.getBoolPref(PREF, true);
+  },
 
   // True when the user turned AI off. Every Whimsy AI feature checks this.
   get blocked() {
-    return Services.prefs.getBoolPref(FEATURE_PREF, true) && Services.prefs.getBoolPref(PREF, false);
+    return Services.prefs.getBoolPref(FEATURE_PREF, true) && !this.enabled;
+  },
+
+  // Firefox's own switch is locked by policy to "blocked": AI stays off and
+  // Settings shows Enable AI off and disabled.
+  get lockedOff() {
+    return (
+      Services.prefs.prefIsLocked("browser.ai.control.default") &&
+      Services.prefs.getStringPref("browser.ai.control.default", "") == "blocked"
+    );
+  },
+
+  // Once: a profile that had "Turn off all AI features" on keeps AI off.
+  // The controls aren't touched: apply() finds them already blocked, and
+  // whimsy.ai.restore stays valid.
+  migrate() {
+    if (
+      Services.prefs.prefHasUserValue(LEGACY_PREF) &&
+      Services.prefs.getBoolPref(LEGACY_PREF, false) &&
+      !Services.prefs.prefHasUserValue(PREF)
+    ) {
+      Services.prefs.setBoolPref(PREF, false);
+    }
+    this.mirror();
+  },
+
+  // One release of rollback safety: the old pref says the same thing.
+  mirror() {
+    if (this.enabled) {
+      Services.prefs.clearUserPref(LEGACY_PREF);
+    } else {
+      Services.prefs.setBoolPref(LEGACY_PREF, true);
+    }
   },
 
   init() {
@@ -135,7 +179,13 @@ export const WhimsyAI = {
       return;
     }
     this._initialized = true;
+    try {
+      this.migrate();
+    } catch (e) {
+      console.error("Whimsy: AI switch migration", e);
+    }
     const update = () => {
+      this.mirror();
       this.pending = this.apply().catch(e => console.error("Whimsy: AI kill switch", e));
     };
     Services.prefs.addObserver(PREF, update);

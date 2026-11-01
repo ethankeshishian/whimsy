@@ -12,7 +12,7 @@
 //   - "claude": the Claude Messages API with the person's own API key.
 //   - "ollama": a local Ollama server.
 // Rules (user, Oct 29): only the chosen provider is ever contacted; there's
-// no automatic fallback to the cloud. The AI kill switch (whimsy.ai.blocked,
+// no automatic fallback to the cloud. The AI kill switch (Enable AI, whimsy.ai.enabled,
 // WhimsyAI.sys.mjs) refuses every request and aborts the ones in flight.
 // The API key never goes into prefs: it's encrypted with OSKeyStore (the
 // macOS Keychain) and the ciphertext lives in the profile.
@@ -31,7 +31,8 @@ const PROVIDER_PREF = "whimsy.ai.provider";
 const CLAUDE_MODEL_PREF = "whimsy.ai.claude.model";
 const OLLAMA_ENDPOINT_PREF = "whimsy.ai.ollama.endpoint";
 const OLLAMA_MODEL_PREF = "whimsy.ai.ollama.model";
-const BLOCKED_PREF = "whimsy.ai.blocked";
+// W10-28: Settings → AI's Enable AI (WhimsyAI.PREF).
+const AI_ENABLED_PREF = "whimsy.ai.enabled";
 
 export const PROVIDERS = ["apple", "claude", "ollama"];
 const DEFAULT_PROVIDER = "apple";
@@ -184,7 +185,7 @@ export const WhimsyAIProviders = {
         }
       }
     };
-    Services.prefs.addObserver(BLOCKED_PREF, abortAll);
+    Services.prefs.addObserver(AI_ENABLED_PREF, abortAll);
     Services.prefs.addObserver(FEATURE_PREF, abortAll);
   },
 

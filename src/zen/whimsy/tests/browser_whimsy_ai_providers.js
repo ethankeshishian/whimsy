@@ -18,7 +18,7 @@ const { OSKeyStoreTestUtils } = ChromeUtils.importESModule(
 registerCleanupFunction(async () => {
   WhimsyAIProviders.setTestProvider(null);
   await WhimsyAIProviders.setClaudeKey("");
-  for (const pref of ["whimsy.ai.blocked", "whimsy.ai.provider", "whimsy.ai.ollama.model", "whimsy.feature.ai-providers"]) {
+  for (const pref of ["whimsy.ai.enabled", "whimsy.ai.provider", "whimsy.ai.ollama.model", "whimsy.feature.ai-providers"]) {
     Services.prefs.clearUserPref(pref);
   }
 });
@@ -66,12 +66,12 @@ add_task(async function test_kill_switch() {
     calls++;
     return "answer";
   });
-  Services.prefs.setBoolPref("whimsy.ai.blocked", true);
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
   ok(!WhimsyAIProviders.enabled, "The kill switch turns the provider off");
   ok(!(await WhimsyAIProviders.isReady()), "Nothing is ready");
   await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "blocked", "Requests are refused");
   is(calls, 0, "without reaching the provider");
-  Services.prefs.clearUserPref("whimsy.ai.blocked");
+  Services.prefs.clearUserPref("whimsy.ai.enabled");
 
   Services.prefs.setBoolPref("whimsy.feature.ai-providers", false);
   await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "blocked", "The feature switch off refuses too");
@@ -89,9 +89,9 @@ add_task(async function test_kill_switch_aborts_inflight() {
   });
   const pending = WhimsyAIProviders.complete({ prompt: "slow" });
   await begun;
-  Services.prefs.setBoolPref("whimsy.ai.blocked", true);
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
   await rejectsWith(pending, "blocked", "Turning AI off ends a request in flight");
-  Services.prefs.clearUserPref("whimsy.ai.blocked");
+  Services.prefs.clearUserPref("whimsy.ai.enabled");
 
   const controller = new AbortController();
   const cancelled = WhimsyAIProviders.complete({ prompt: "slow", signal: controller.signal });
@@ -149,25 +149,47 @@ add_task(async function test_error_toasts() {
   is(toasts().length, before, "A cancelled request shows nothing");
 });
 
+// W10-28: Settings → AI: the provider is three cards (a radio group), and
+// only the chosen provider's fields show, in a grid where every control
+// starts at the same left edge (the API key field isn't centred).
 add_task(async function test_settings_card() {
-  await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#privacy");
+  await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
   const doc = gBrowser.selectedBrowser.contentDocument;
-  const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProvidersGroup"), "The card is there");
-  ok(!group.hidden, "and showing");
-  const picker = doc.getElementById("whimsyAIProvider");
-  is(picker.value, "apple", "The picker shows the provider");
+  const win = gBrowser.selectedBrowser.contentWindow;
+  const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProviderGroup"), "The card is there");
+  await TestUtils.waitForCondition(() => group.checkVisibility(), "and showing");
+  const radios = [...doc.querySelectorAll('#whimsyAIProvider input[type="radio"]')];
+  Assert.deepEqual(radios.map(r => r.value), ["apple", "claude", "ollama"], "Three providers");
+  ok(radios.find(r => r.value == "apple").checked, "The cards show the provider");
   ok(!doc.getElementById("whimsyAIAppleRow").hidden, "Apple's status row shows");
   ok(doc.getElementById("whimsyAIClaudeRow").hidden, "Claude's key row doesn't");
 
-  Services.prefs.setStringPref("whimsy.ai.provider", "claude");
+  // Arrow keys move between the cards and keep the keyboard there.
+  radios[0].focus();
+  EventUtils.synthesizeKey("KEY_ArrowRight", {}, win);
+  await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.ai.provider") == "claude", "Right picks Claude");
+  is(doc.activeElement, radios[1], "Focus stays on the cards");
   await TestUtils.waitForCondition(() => !doc.getElementById("whimsyAIClaudeRow").hidden, "Picking Claude shows the key row");
   ok(doc.getElementById("whimsyAIAppleRow").hidden, "and hides Apple's");
   is(doc.getElementById("whimsyAIClaudeKey").value, "", "The key field never shows a saved key");
 
-  Services.prefs.setBoolPref("whimsy.ai.blocked", true);
-  await TestUtils.waitForCondition(() => group.hidden, "Turning off all AI hides the card");
-  Services.prefs.clearUserPref("whimsy.ai.blocked");
-  await TestUtils.waitForCondition(() => !group.hidden, "and back");
+  // The key field is left-aligned in the control column.
+  const key = doc.getElementById("whimsyAIClaudeKey").getBoundingClientRect();
+  const label = doc.querySelector("#whimsyAIClaudeRow .whimsy-ai-field-label").getBoundingClientRect();
+  const status = doc.getElementById("whimsyAIClaudeStatus");
+  await TestUtils.waitForCondition(() => status.textContent, "The key status shows");
+  ok(Math.abs(key.left - (label.right + 12)) <= 1.5, `The key field starts right after its label (${key.left} vs ${label.right})`);
+  ok(Math.abs(status.getBoundingClientRect().left - key.left) <= 1.5, "The status starts at the same edge");
+  ok(status.dataset.state, "The status has a ready / needs-action dot");
+
+  // A click moves the keyboard to the chosen provider's first control.
+  EventUtils.synthesizeMouseAtCenter(radios[2].closest("label"), {}, win);
+  await TestUtils.waitForCondition(() => doc.activeElement?.id == "whimsyAIOllamaEndpoint", "Ollama's server field gets focus");
+
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+  await TestUtils.waitForCondition(() => group.inert && group.hasAttribute("data-ai-off"), "Turning AI off dims the card");
+  Services.prefs.clearUserPref("whimsy.ai.enabled");
+  await TestUtils.waitForCondition(() => !group.inert, "and back");
   Services.prefs.clearUserPref("whimsy.ai.provider");
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });
@@ -333,7 +355,7 @@ add_task(async function test_apple_build_falls_back_and_says_why() {
     is(WhimsyAIProviders.appleDetail, "error: something odd happened", "shown without the file path");
 
     // Settings shows it under the status, and no longer says to reinstall.
-    await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+    await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
       const doc = browser.contentDocument;
       const button = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIAppleCheck"), "Apple's row");
       // The first look (no build) says "Set Up" before the click builds.

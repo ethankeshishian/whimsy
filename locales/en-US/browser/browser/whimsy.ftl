@@ -162,13 +162,37 @@ whimsy-cookie-banners-toggle =
     .label = Reject cookie banners
     .description = Answers cookie pop-ups for you by choosing “Reject” or the most private option, and hides the banner while it does.
 
-## Settings → Privacy & Security → AI
+## W10-28: Settings → AI (its own pane, like Arc's Max tab). Enable AI
+## replaced "Turn off all AI features" (its meaning flipped, so the old
+## string id is retired).
 
-whimsy-ai-header =
-    .label = AI features
-whimsy-ai-toggle =
-    .label = Turn off all AI features
-    .description = Blocks the AI chatbot, link preview summaries, smart tab groups, PDF alt text, speech recognition and any AI that Whimsy adds, and removes their downloaded models. Translations keep working.
+whimsy-pane-ai-title = AI
+whimsy-ai-enable =
+    .label = Enable AI
+    .description = Whimsy’s AI features and Firefox’s. Turn off to block them all and remove downloaded models. Translations keep working.
+whimsy-ai-off-note = AI is off. Turn on Enable AI to use anything below.
+whimsy-ai-locked-note = Your organization manages this setting.
+whimsy-ai-provider-heading = Provider
+whimsy-ai-features-heading = Features
+whimsy-ai-claude-heading = Claude in Whimsy
+whimsy-ai-provider-apple-title = Apple Intelligence
+whimsy-ai-provider-claude-title = Claude
+whimsy-ai-provider-ollama-title = Ollama
+whimsy-ai-provider-local = On this Mac
+whimsy-ai-provider-key = Your API key
+whimsy-ai-field-status = Status
+whimsy-ai-apple-open-settings =
+    .label = Open System Settings
+whimsy-ai-firefox-chatbot =
+    .value = Firefox chatbot
+whimsy-ai-firefox-chatbot-off =
+    .label = Off
+whimsy-ai-firefox-link-previews =
+    .label = Firefox link previews
+whimsy-ai-firefox-tab-groups =
+    .label = Suggest tab groups
+whimsy-claude-fieldset =
+    .aria-label = Claude in Whimsy
 
 ## Settings → Privacy & Security → Tracking in links
 
@@ -909,13 +933,13 @@ whimsy-claude-header =
     .label = Claude
 whimsy-claude-enable =
     .label = Let Claude use { -brand-short-name }
-    .description = Claude Code can open, read and use tabs in the Claude space, like Claude in Chrome. Tabs Claude is using glow and show a Stop button. Only apps on this Mac with the token below can connect.
+    .description = Claude Code can open, read and use tabs in the Claude space. Tabs it uses glow and show a Stop button. Only apps on this Mac with the token below can connect.
 whimsy-claude-whole-browser =
     .label = Let Claude use any tab, not just the Claude space
     .description = Private tabs and the Private Space are always off-limits, and so are passwords.
 whimsy-claude-ask =
     .label = Ask before Claude clicks, types or fills in forms on a new site
-whimsy-claude-ai-blocked = Claude is unavailable while all AI features are turned off.
+whimsy-claude-ai-blocked = Claude is unavailable while AI is off.
 whimsy-claude-connect-heading = Connect Claude Code
 whimsy-claude-connect-intro = Run this in Terminal once:
 whimsy-claude-connect-json-intro = Or add this to an MCP config file (.mcp.json):
@@ -1558,7 +1582,7 @@ whimsy-ask-reading = Reading this page…
 whimsy-ask-no-text = This page has no text to answer from.
 whimsy-ask-find-on-page = Find on Page
 whimsy-preview-unreadable = Couldn’t read this page.
-whimsy-preview-not-ready = Set up an AI provider in Settings → Privacy & Security to see previews.
+whimsy-preview-not-ready = Set up an AI provider in Settings → AI to see previews.
 
 ## wave3/ai: Watch a page (like Safari's Notify Me)
 
@@ -4112,8 +4136,15 @@ whimsy-setting-teach = Shortcut Tips
     .keywords = tips, hints, teach, learn shortcuts, onboarding
 whimsy-setting-cookie-banners = Reject Cookie Banners
     .keywords = cookies, cookie pop-ups, consent, gdpr, autoconsent
-whimsy-setting-ai = AI Features
-    .keywords = artificial intelligence, kill switch, block ai, disable ai, chatbot, llm
+whimsy-setting-ai = AI
+    .keywords = enable ai, artificial intelligence, ai features, kill switch, block ai, disable ai, chatbot, llm
+# W10-28: Firefox's own AI rows in Settings → AI.
+whimsy-setting-firefox-chatbot = Firefox Chatbot
+    .keywords = chatbot, ai chatbot, sidebar chatbot, chatgpt, claude, gemini, copilot
+whimsy-setting-firefox-link-previews = Firefox Link Previews
+    .keywords = link preview, key points, preview summary
+whimsy-setting-firefox-tab-groups = Suggest Tab Groups
+    .keywords = smart tab groups, tab group suggestions, ai tab groups
 whimsy-setting-ai-provider = AI Provider
     .keywords = apple intelligence, claude, ollama, model, api key, local model
 whimsy-setting-ai-claude-key = Claude API Key

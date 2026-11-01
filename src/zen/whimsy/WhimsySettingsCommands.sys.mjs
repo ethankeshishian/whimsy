@@ -25,8 +25,8 @@
 //   name     whimsy-setting-<name> (and the command id); required.
 //   setting  The control's id in Settings.
 //   pref     The pref it changes (bool unless `choices` or `range`).
-//   invert   The switch is on when the pref is false ("AI Features" is
-//            whimsy.ai.blocked == false).
+//   invert   The switch is on when the pref is false (an "off" pref, as
+//            whimsy.ai.blocked was before Enable AI).
 //   get/set  For a switch that isn't one bool pref (Clean Links).
 //   choices  [{ value, l10nId }]: one command per choice; l10nId names the
 //            choice (its value or .label), usually the menuitem's own id.
@@ -57,7 +57,7 @@ const ICON = "chrome://browser/skin/zen-icons/settings.svg";
 
 const featureOn = id => Services.prefs.getBoolPref(`whimsy.feature.${id}`, true);
 const mac = () => AppConstants.platform == "macosx";
-const aiAllowed = () => !Services.prefs.getBoolPref("whimsy.ai.blocked", false) && featureOn("ai-providers");
+const aiAllowed = () => Services.prefs.getBoolPref("whimsy.ai.enabled", true) && featureOn("ai-providers");
 const claudeOn = () => aiAllowed() && Services.prefs.getBoolPref("whimsy.claude.enabled", false);
 
 const STRIP_PREFS = [
@@ -112,7 +112,7 @@ export const SETTINGS = [
   // Privacy & Security
   { name: "cookie-banners", setting: "whimsyRejectCookieBanners", pref: "whimsy.reject-cookie-banners",
     feature: ["cookie-banners"] },
-  { name: "ai", setting: "whimsyBlockAI", pref: "whimsy.ai.blocked", invert: true, feature: ["ai-kill-switch"] },
+  { name: "ai", setting: "whimsyAIEnable", pref: "whimsy.ai.enabled", feature: ["ai-kill-switch"] },
   { name: "ai-provider", setting: "whimsyAIProvider", pref: "whimsy.ai.provider", feature: ["ai-providers"],
     when: aiAllowed,
     choices: [
@@ -135,6 +135,13 @@ export const SETTINGS = [
     feature: ["ai-providers"], when: aiAllowed },
   { name: "page-watch", setting: "whimsyAIPageWatch", pref: "whimsy.feature.page-watch", feature: ["ai-providers"],
     when: aiAllowed },
+  // W10-28: Firefox's own AI rows in Settings → AI (Enable AI governs them).
+  { name: "firefox-chatbot", setting: "whimsyAIFirefoxChatbot", feature: ["ai-providers"],
+    exempt: "the chatbot sites Firefox offers, listed only in Settings" },
+  { name: "firefox-link-previews", setting: "whimsyAIFirefoxLinkPreviews", pref: "browser.ml.linkPreview.enabled",
+    feature: ["ai-providers"], when: aiAllowed },
+  { name: "firefox-tab-groups", setting: "whimsyAIFirefoxTabGroups", pref: "browser.tabs.groups.smart.userEnabled",
+    feature: ["ai-providers"], when: aiAllowed },
   { name: "strip-tracking", setting: "whimsyStripTracking", feature: ["strip-tracking"],
     get: () => Services.prefs.getBoolPref(STRIP_PREFS[0], false),
     // Same as the Settings switch: on restores the defaults (so Tracking

@@ -8,7 +8,8 @@
 // parent (WhimsyAIPage) checks the switches again, fetches and draws.
 
 const PREF = "whimsy.feature.link-previews";
-const BLOCKED_PREF = "whimsy.ai.blocked";
+// W10-28: Settings → AI's Enable AI (WhimsyAI.PREF).
+const AI_ENABLED_PREF = "whimsy.ai.enabled";
 // wave7/ux: the link card (where a link goes) shows on the same triggers,
 // with or without AI. The parent's hover host waits its one delay, so this
 // side reports a hover right away.
@@ -23,7 +24,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
   get enabled() {
     return (
       Services.prefs.getBoolPref(LINK_CARDS_PREF, true) ||
-      (Services.prefs.getBoolPref(PREF, true) && !Services.prefs.getBoolPref(BLOCKED_PREF, false))
+      (Services.prefs.getBoolPref(PREF, true) && Services.prefs.getBoolPref(AI_ENABLED_PREF, true))
     );
   }
 

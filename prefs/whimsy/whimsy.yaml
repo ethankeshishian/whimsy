@@ -32,8 +32,13 @@
 - name: whimsy.reject-cookie-banners
   value: true
 
-# AI kill switch (Settings → Privacy & Security): turns off every AI feature,
-# Firefox's and Whimsy's (WhimsyAI.sys.mjs). Off: AI features stay available.
+# W10-28: Enable AI (Settings → AI). Off turns off every AI feature,
+# Firefox's and Whimsy's (WhimsyAI.sys.mjs). Replaces whimsy.ai.blocked.
+- name: whimsy.ai.enabled
+  value: true
+
+# The old switch ("Turn off all AI features"). Kept for one release as
+# !whimsy.ai.enabled, so a rolled-back build reads the same answer.
 - name: whimsy.ai.blocked
   value: false
 

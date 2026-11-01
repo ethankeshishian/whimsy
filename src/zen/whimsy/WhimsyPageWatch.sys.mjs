@@ -189,7 +189,7 @@ export const WhimsyPageWatch = {
     this._initialized = true;
     const reschedule = () => this.schedule();
     Services.prefs.addObserver(PREF, reschedule);
-    Services.prefs.addObserver("whimsy.ai.blocked", reschedule);
+    Services.prefs.addObserver("whimsy.ai.enabled", reschedule);
     Services.prefs.addObserver("whimsy.feature.ai-providers", reschedule);
     Services.obs.addObserver(() => this.stop(), "quit-application-granted");
     await this.load();

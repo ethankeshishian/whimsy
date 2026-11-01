@@ -287,7 +287,6 @@ var gWhimsySettings = {
     template.remove();
     const inits = {
       "cookie-banners": () => this.initCookieBanners(),
-      "ai-kill-switch": () => this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked"),
       "strip-tracking": () => this.initStripTracking(),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
@@ -302,8 +301,7 @@ var gWhimsySettings = {
           ? this.initPrefCheckbox("whimsyHandoffSend", "whimsy.handoff.send")
           : document.getElementById("whimsyHandoffGroup")?.remove(),
 
-      // wave3/ai: the AI provider picker.
-      "ai-providers": () => this.initAIProviders(),
+      // W10-28: the AI switch and provider moved to Settings → AI.
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;
@@ -830,13 +828,8 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// tierC-claude: Settings → Privacy & Security → Claude. Its own paneshown
-// listener and Object.assign, like the spaces group above.
-document.addEventListener("paneshown", event => {
-  if (event.detail.category == "panePrivacy") {
-    gWhimsySettings.insertClaudeGroup();
-  }
-});
+// tierC-claude: Settings → AI → Claude in Whimsy (W10-28; it was a card in
+// Privacy & Security). buildAIPane puts it after the AI features.
 
 Object.assign(gWhimsySettings, {
   insertClaudeGroup() {
@@ -850,22 +843,14 @@ Object.assign(gWhimsySettings, {
     if (!featureOn) {
       return;
     }
-    const anchor =
-      document.getElementById("whimsyPrivateGroup") ||
-      document.getElementById("whimsyStripTrackingGroup");
+    const anchor = document.getElementById("whimsyAIFeaturesGroup") ?? document.getElementById("whimsyAIProviderGroup");
     if (anchor) {
       anchor.after(group);
     } else {
-      const before =
-        document.getElementById("nonTechnicalPrivacyGroup") ||
-        document.querySelector('[groupid="nonTechnicalPrivacy2"]');
-      if (before) {
-        before.before(group);
-      } else {
-        document.getElementById("mainPrefPane").append(group);
-      }
+      document.getElementById("mainPrefPane").append(group);
     }
-    group.hidden = false;
+    // Shown by Firefox's pane switching, with the rest of Settings → AI.
+    group.hidden = globalThis.gLastCategory?.category != group.dataset.category;
     this.initClaudeGroup();
   },
 
@@ -892,7 +877,7 @@ Object.assign(gWhimsySettings, {
     // moment after the switch is turned on.
     const refresh = () => {
       const enabled = Services.prefs.getBoolPref("whimsy.claude.enabled", false);
-      const blocked = Services.prefs.getBoolPref("whimsy.ai.blocked", false);
+      const blocked = !Services.prefs.getBoolPref("whimsy.ai.enabled", true);
       $("whimsyClaudeAIBlocked").hidden = !blocked;
       $("whimsyClaudeEnable").disabled = blocked;
       $("whimsyClaudeWholeBrowser").disabled = !enabled || blocked;
@@ -918,7 +903,7 @@ Object.assign(gWhimsySettings, {
       }
     });
     $("whimsyClaudeForgetSites").addEventListener("command", () => WhimsyClaude.forgetSitePermissions());
-    const prefs = ["whimsy.claude.enabled", "whimsy.ai.blocked"];
+    const prefs = ["whimsy.claude.enabled", "whimsy.ai.enabled"];
     for (const pref of prefs) {
       Services.prefs.addObserver(pref, refresh);
     }
@@ -1243,43 +1228,201 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// wave3/ai: Settings → Privacy & Security → AI provider. Apple on-device,
-// Claude (API key) or Ollama; the card hides while the AI kill switch is on.
-// The Claude key goes straight to OSKeyStore (WhimsyAIProviders) and is
-// never shown again or written to a pref.
+// W10-28: Settings → AI, its own pane (Arc's Max tab). Enable AI (on by
+// default) heads it; while it's off everything below is dimmed and can't be
+// used, with a note saying why. Then the provider (Apple on-device, Claude
+// with your API key, or Ollama) as three cards, with only the chosen one's
+// fields in a label/control grid; the features, Whimsy's then Firefox's;
+// and Claude in Whimsy. The Claude key goes straight to OSKeyStore
+// (WhimsyAIProviders) and is never shown again or written to a pref.
+// Registered like Menus (register_module before init_all), so
+// about:preferences#whimsyAI opens it; the old Privacy & Security links
+// (#privacy-whimsyAI, …) land here.
+const WHIMSY_AI_PANE = "paneWhimsyAI";
+const WHIMSY_AI_OLD_ANCHORS = ["whimsyAI", "whimsyAIGroup", "whimsyAIProviders", "whimsyAIProvidersGroup", "whimsyClaude", "whimsyClaudeGroup"];
+
 Object.assign(gWhimsySettings, {
+  registerAIPane() {
+    if (typeof register_module != "function" || document.getElementById("category-whimsy-ai")) {
+      return;
+    }
+    const after =
+      document.getElementById("category-whimsy-menus") ||
+      document.getElementById("category-whimsy-links") ||
+      document.getElementById("category-zen-tabs-management");
+    if (!after || !this.lazy.Whimsy.featureEnabled("ai-kill-switch")) {
+      return;
+    }
+    const button = document.createElementNS("http://www.w3.org/1999/xhtml", "moz-page-nav-button");
+    button.id = "category-whimsy-ai";
+    button.setAttribute("view", WHIMSY_AI_PANE);
+    button.setAttribute("iconsrc", "chrome://global/skin/icons/highlights.svg");
+    button.setAttribute("data-l10n-id", "whimsy-pane-ai-title");
+    after.after(button);
+    register_module(WHIMSY_AI_PANE, { init: () => this.buildAIPane() });
+    // Links to where AI used to be (Privacy & Security) open this pane.
+    document.addEventListener("paneshown", event => {
+      const { category, subcategory } = event.detail ?? {};
+      if (category == "panePrivacy" && WHIMSY_AI_OLD_ANCHORS.includes(subcategory)) {
+        gotoPref(WHIMSY_AI_PANE);
+      }
+    });
+  },
+
+  buildAIPane() {
+    const template = document.getElementById("template-whimsyAI");
+    const pane = document.getElementById("mainPrefPane");
+    if (!template || !pane) {
+      return;
+    }
+    if (!this.lazy.Whimsy.featureEnabled("ai-kill-switch")) {
+      template.remove();
+      return;
+    }
+    const fragment = template.content;
+    const nodes = [...fragment.children];
+    template.remove();
+    pane.append(fragment);
+    for (const node of nodes) {
+      if (node.dataset.whimsyFeature && !this.lazy.Whimsy.featureEnabled(node.dataset.whimsyFeature)) {
+        node.remove();
+      }
+    }
+    this.insertClaudeGroup();
+    this.initAIEnable();
+    this.initAIProviders();
+    this.initAIFeatures();
+    this.applyAIEnabled();
+    Preferences.queueUpdateOfAllElements();
+  },
+
+  // A moz-toggle for a bool pref.
+  initPrefToggle(id, pref, fallback = true) {
+    const toggle = document.getElementById(id);
+    if (!toggle) {
+      return;
+    }
+    const update = () => {
+      toggle.pressed = Services.prefs.getBoolPref(pref, fallback);
+      toggle.disabled = Services.prefs.prefIsLocked(pref) || toggle.hasAttribute("data-whimsy-ai-disabled");
+    };
+    toggle.addEventListener("toggle", () => Services.prefs.setBoolPref(pref, toggle.pressed));
+    Services.prefs.addObserver(pref, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(pref, update), { once: true });
+    update();
+  },
+
+  get aiModule() {
+    return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs").WhimsyAI;
+  },
+
+  initAIEnable() {
+    const toggle = document.getElementById("whimsyAIEnable");
+    if (!toggle) {
+      return;
+    }
+    const { aiModule } = this;
+    const update = () => {
+      const locked = aiModule.lockedOff;
+      toggle.pressed = aiModule.enabled && !locked;
+      toggle.disabled = locked || Services.prefs.prefIsLocked(aiModule.PREF);
+      document.getElementById("whimsyAILockedNote").hidden = !locked;
+      this.applyAIEnabled();
+    };
+    toggle.addEventListener("toggle", () => Services.prefs.setBoolPref(aiModule.PREF, toggle.pressed));
+    const prefs = [aiModule.PREF, "browser.ai.control.default"];
+    for (const pref of prefs) {
+      Services.prefs.addObserver(pref, update);
+    }
+    window.addEventListener(
+      "unload",
+      () => {
+        for (const pref of prefs) {
+          Services.prefs.removeObserver(pref, update);
+        }
+      },
+      { once: true }
+    );
+    update();
+  },
+
+  // While AI is off: everything under Enable AI is dimmed, out of the tab
+  // order and disabled, and a note says why. Controls that were disabled
+  // for their own reasons stay so when AI comes back.
+  applyAIEnabled() {
+    const { aiModule } = this;
+    const on = aiModule.enabled && !aiModule.lockedOff;
+    const note = document.getElementById("whimsyAIOffNote");
+    if (note) {
+      note.hidden = on;
+    }
+    // Claude in Whimsy disables its own rows while AI is off.
+    const claude = document.getElementById("whimsyClaudeGroup");
+    if (claude) {
+      claude.toggleAttribute("data-ai-off", !on);
+      claude.inert = !on;
+    }
+    for (const section of document.querySelectorAll(`[data-category="${WHIMSY_AI_PANE}"].whimsy-ai-rest`)) {
+      section.toggleAttribute("data-ai-off", !on);
+      section.inert = !on;
+      for (const control of section.querySelectorAll(
+        "input, button, menulist, moz-toggle, moz-checkbox, select, textarea"
+      )) {
+        if (!on && !control.disabled) {
+          control.disabled = true;
+          control.setAttribute("data-whimsy-ai-disabled", "");
+        } else if (on && control.hasAttribute("data-whimsy-ai-disabled")) {
+          control.removeAttribute("data-whimsy-ai-disabled");
+          control.disabled = false;
+        }
+      }
+    }
+  },
+
   initAIProviders() {
-    const group = document.getElementById("whimsyAIProvidersGroup");
-    const picker = document.getElementById("whimsyAIProvider");
-    if (!group || !picker || this._aiProvidersWired) {
+    const group = document.getElementById("whimsyAIProviderGroup");
+    const radios = [...document.querySelectorAll('#whimsyAIProvider input[type="radio"]')];
+    if (!group || !radios.length || this._aiProvidersWired) {
       return;
     }
     this._aiProvidersWired = true;
     const { WhimsyAIProviders } = ChromeUtils.importESModule(
       "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs"
     );
-    Preferences.addAll([{ id: "whimsy.ai.provider", type: "string" }]);
     const rows = {
       apple: document.getElementById("whimsyAIAppleRow"),
       claude: document.getElementById("whimsyAIClaudeRow"),
       ollama: document.getElementById("whimsyAIOllamaRow"),
     };
-    const setStatus = (id, l10nId, args) => {
+    // Each provider's first control, where the keyboard goes when it's
+    // picked with the pointer.
+    const firstControl = {
+      apple: () => document.getElementById("whimsyAIAppleCheck"),
+      claude: () => document.getElementById("whimsyAIClaudeKey"),
+      ollama: () => document.getElementById("whimsyAIOllamaEndpoint"),
+    };
+    const setStatus = (id, l10nId, args, ready = null) => {
       const el = document.getElementById(id);
       if (el) {
         document.l10n.setAttributes(el, l10nId, args);
+        if (ready === null) {
+          el.removeAttribute("data-state");
+        } else {
+          el.dataset.state = ready ? "ready" : "action";
+        }
       }
     };
 
     // Apple: connecting builds a small helper once (a minute or so), so it
     // only happens when the person clicks Set Up.
     const appleButton = document.getElementById("whimsyAIAppleCheck");
+    const openSettings = document.getElementById("whimsyAIAppleOpenSettings");
     const checkApple = async ({ build }) => {
       setStatus("whimsyAIAppleStatus", "whimsy-ai-apple-status-checking");
       appleButton.disabled = true;
       const status = await WhimsyAIProviders.appleStatus({ build });
       appleButton.disabled = false;
-      setStatus("whimsyAIAppleStatus", `whimsy-ai-apple-status-${status}`);
+      setStatus("whimsyAIAppleStatus", `whimsy-ai-apple-status-${status}`, undefined, status == "available");
       // W10-07: the compiler's own words when the helper didn't build, so
       // the reason is the real one (it was "reinstall the tools" for any
       // failure, on Macs where they're installed).
@@ -1292,15 +1435,34 @@ Object.assign(gWhimsySettings, {
         appleButton,
         status == "not-set-up" ? "whimsy-ai-apple-set-up" : "whimsy-ai-apple-check"
       );
+      // Apple Intelligence itself is off: one click to where it's turned on.
+      if (openSettings) {
+        openSettings.hidden = status != "apple-intelligence-off";
+      }
     };
     appleButton?.addEventListener("command", () => checkApple({ build: true }));
+    openSettings?.addEventListener("command", () => {
+      try {
+        Cc["@mozilla.org/uriloader/external-protocol-service;1"]
+          .getService(Ci.nsIExternalProtocolService)
+          .loadURI(
+            Services.io.newURI("x-apple.systempreferences:com.apple.Siri-Settings.extension"),
+            Services.scriptSecurityManager.getSystemPrincipal()
+          );
+      } catch (e) {
+        console.error("Whimsy: opening System Settings", e);
+      }
+    });
 
     // Claude: the key field stays empty; the status says whether one is saved.
     const keyInput = document.getElementById("whimsyAIClaudeKey");
     const showKeyStatus = async () => {
       const saved = await WhimsyAIProviders.hasClaudeKey();
-      setStatus("whimsyAIClaudeStatus", saved ? "whimsy-ai-claude-key-saved" : "whimsy-ai-claude-key-missing");
-      document.getElementById("whimsyAIClaudeRemove").disabled = !saved;
+      setStatus("whimsyAIClaudeStatus", saved ? "whimsy-ai-claude-key-saved" : "whimsy-ai-claude-key-missing", undefined, saved);
+      const remove = document.getElementById("whimsyAIClaudeRemove");
+      if (!remove.hasAttribute("data-whimsy-ai-disabled")) {
+        remove.disabled = !saved;
+      }
     };
     document.getElementById("whimsyAIClaudeSave")?.addEventListener("command", async () => {
       if (!keyInput.value.trim()) {
@@ -1311,7 +1473,7 @@ Object.assign(gWhimsySettings, {
         keyInput.value = "";
       } catch (error) {
         console.error("Whimsy: saving the Claude API key failed", error);
-        setStatus("whimsyAIClaudeStatus", "whimsy-ai-claude-key-error");
+        setStatus("whimsyAIClaudeStatus", "whimsy-ai-claude-key-error", undefined, false);
         return;
       }
       showKeyStatus();
@@ -1344,12 +1506,14 @@ Object.assign(gWhimsySettings, {
       try {
         models = await WhimsyAIProviders.ollamaModels();
       } catch {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline");
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline", undefined, false);
       }
       for (const name of new Set([...models, ...(current ? [current] : [])])) {
         modelList.appendItem(name, name);
       }
-      modelList.disabled = !modelList.itemCount;
+      if (!modelList.hasAttribute("data-whimsy-ai-disabled")) {
+        modelList.disabled = !modelList.itemCount;
+      }
       if (current) {
         modelList.value = current;
       } else if (models.length) {
@@ -1357,15 +1521,37 @@ Object.assign(gWhimsySettings, {
         Services.prefs.setStringPref("whimsy.ai.ollama.model", models[0]);
       }
       if (models.length) {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-ready", { count: models.length });
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-ready", { count: models.length }, true);
       } else if (!modelList.disabled || !current) {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline");
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline", undefined, false);
       }
     };
     document.getElementById("whimsyAIOllamaRefresh")?.addEventListener("command", () => loadOllamaModels());
 
+    // The three cards are one radio group: the arrow keys move between them
+    // (and keep the keyboard there); a click also takes it to the chosen
+    // provider's first control.
+    let pointer = false;
+    group.addEventListener("pointerdown", () => (pointer = true));
+    for (const radio of radios) {
+      radio.addEventListener("change", () => {
+        if (!radio.checked) {
+          return;
+        }
+        Services.prefs.setStringPref("whimsy.ai.provider", radio.value);
+        if (pointer) {
+          // After the provider's rows show.
+          window.requestAnimationFrame(() => firstControl[radio.value]?.()?.focus());
+        }
+        pointer = false;
+      });
+    }
     const showRows = () => {
       const provider = WhimsyAIProviders.provider;
+      for (const radio of radios) {
+        radio.checked = radio.value == provider;
+        radio.closest(".whimsy-ai-provider")?.toggleAttribute("data-selected", radio.checked);
+      }
       for (const [id, row] of Object.entries(rows)) {
         row.hidden = id != provider;
       }
@@ -1377,33 +1563,73 @@ Object.assign(gWhimsySettings, {
         loadOllamaModels();
       }
     };
-    // The whole card goes away while every AI feature is turned off.
-    const showGroup = () => {
-      group.hidden = Services.prefs.getBoolPref("whimsy.ai.blocked", false);
-    };
-    const prefs = { "whimsy.ai.provider": showRows, "whimsy.ai.blocked": showGroup };
-    for (const [pref, fn] of Object.entries(prefs)) {
-      Services.prefs.addObserver(pref, fn);
+    Services.prefs.addObserver("whimsy.ai.provider", showRows);
+    window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.ai.provider", showRows), {
+      once: true,
+    });
+    showRows();
+  },
+
+  // The features: each Whimsy AI feature's own switch, the page watches,
+  // then Firefox's chatbot, link previews and tab group suggestions (which
+  // Enable AI also governs; Zen's Firefox AI pane is hidden).
+  initAIFeatures() {
+    const group = document.getElementById("whimsyAIFeaturesGroup");
+    if (!group || this._aiFeaturesWired) {
+      return;
     }
-    window.addEventListener(
-      "unload",
-      () => {
-        for (const [pref, fn] of Object.entries(prefs)) {
-          Services.prefs.removeObserver(pref, fn);
-        }
-      },
-      { once: true }
-    );
-    // The AI features' own switches (a row each, added with each feature).
-    for (const box of group.querySelectorAll("[data-feature-pref]")) {
-      this.initPrefCheckbox(box.id, box.dataset.featurePref);
+    this._aiFeaturesWired = true;
+    for (const toggle of group.querySelectorAll("moz-toggle[data-feature-pref]")) {
+      const pref = toggle.dataset.featurePref;
+      this.initPrefToggle(toggle.id, pref, Services.prefs.getDefaultBranch("").getBoolPref(pref, false));
     }
     this.initAIWatchList?.();
-    showGroup();
-    showRows();
-    Preferences.queueUpdateOfAllElements();
+
+    // Firefox's chatbot: Off, or one of Firefox's providers.
+    const chatbot = document.getElementById("whimsyAIFirefoxChatbot");
+    if (chatbot) {
+      try {
+        const { GenAI } = ChromeUtils.importESModule("moz-src:///browser/components/genai/GenAI.sys.mjs");
+        for (const [url, provider] of GenAI.chatProviders) {
+          if (provider.hidden) {
+            continue;
+          }
+          chatbot.appendItem(provider.name, url);
+        }
+      } catch (e) {
+        console.error("Whimsy: Firefox chatbot providers", e);
+      }
+      const update = () => {
+        const on = Services.prefs.getBoolPref("browser.ml.chat.enabled", false);
+        chatbot.value = on ? Services.prefs.getStringPref("browser.ml.chat.provider", "") : "";
+      };
+      chatbot.addEventListener("command", () => {
+        if (chatbot.value) {
+          Services.prefs.setStringPref("browser.ml.chat.provider", chatbot.value);
+          Services.prefs.setBoolPref("browser.ml.chat.enabled", true);
+        } else {
+          Services.prefs.setBoolPref("browser.ml.chat.enabled", false);
+        }
+      });
+      const prefs = ["browser.ml.chat.enabled", "browser.ml.chat.provider"];
+      for (const pref of prefs) {
+        Services.prefs.addObserver(pref, update);
+      }
+      window.addEventListener(
+        "unload",
+        () => {
+          for (const pref of prefs) {
+            Services.prefs.removeObserver(pref, update);
+          }
+        },
+        { once: true }
+      );
+      update();
+    }
   },
 });
+
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.registerAIPane(), { once: true });
 
 // wave3/ai: Watch a page — the list of watches under its switch, each with
 // its condition, last result and a Stop button.
@@ -2226,7 +2452,7 @@ Object.assign(gWhimsySettings, {
       () => this.insertTeachGroup(), // wave9/designfix (H2)
       // Privacy & Security
       () => this.insertPrivacyGroups(),
-      () => this.insertClaudeGroup(),
+      () => this.buildAIPane(), // W10-28: Settings → AI, with Claude in Whimsy
       // Tab Management
       () => this.insertTabsGroup(),
       () => this.insertSplitNewTabRow(),
