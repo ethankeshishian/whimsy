@@ -77,16 +77,34 @@ export function uploadTargetFor(element) {
 
   // A drop zone (Dropzone.js, react-dropzone, file-dropzone): check for its associated
   // input first (Dropzone's hiddenFileInput, child file inputs, or .dz-hidden-input).
-  const zone = element.closest?.(".dropzone, [class*=dropzone i], [class*=drop-zone i], [data-testid*=dropzone i]");
+  let zone = element.closest?.(".dropzone, [class*=dropzone i], [class*=drop-zone i], [data-testid*=dropzone i]");
+  // W10-48: a wrapper (dropzone.dev's .dropzone-container) matched before
+  // the Dropzone.js element inside it, so the file went to an element
+  // nobody listens on. Prefer the element holding a Dropzone instance.
+  if (zone && !zone.wrappedJSObject?.dropzone) {
+    const inner = [...zone.querySelectorAll(".dropzone, .dz-clickable")].find(el => el.wrappedJSObject?.dropzone);
+    if (inner) {
+      zone = inner;
+    }
+  }
   if (zone) {
     const dz = zone.wrappedJSObject?.dropzone;
+    // W10-48: the page's own input comes back through the waiver as the
+    // page sees it, without the chrome-only mozSetFileArray (setFile threw
+    // and nothing uploaded): use the privileged (Xray) view of it.
+    let dzHidden = null;
+    try {
+      dzHidden = dz?.hiddenFileInput ? Cu.unwaiveXrays(dz.hiddenFileInput) : null;
+    } catch (e) {
+      // Not a DOM node.
+    }
     // Dropzone.js (class "dropzone"/"dz-clickable") keeps its input out of
     // the zone, as body's one .dz-hidden-input; other drop zones never
     // borrow an input from elsewhere on the page.
     const isDropzoneJS = zone.classList?.contains("dropzone") || zone.classList?.contains("dz-clickable");
     const hidden = isDropzoneJS ? zone.ownerDocument.querySelectorAll("input.dz-hidden-input") : [];
     const dzInput =
-      fileInputFor(dz?.hiddenFileInput) ??
+      fileInputFor(dzHidden) ??
       onlyFileInput(zone) ??
       (hidden.length == 1 ? hidden[0] : null);
     if (dzInput && !dzInput.disabled) {
@@ -163,7 +181,10 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       const clicked = last && Date.now() - last.time < CLICK_MEMORY_MS ? last.ref.get() : null;
       element = clicked?.isConnected ? clicked : null;
       if (!element) {
-        element = this.document?.querySelector?.(".dropzone:hover, [class*=dropzone i]:hover, [class*=drop-zone i]:hover") ?? null;
+        // W10-48: the deepest hovered one (the hovered elements are one
+        // ancestor chain, so the last in document order), not a wrapper.
+        const hovered = this.document?.querySelectorAll?.(".dropzone:hover, [class*=dropzone i]:hover, [class*=drop-zone i]:hover");
+        element = hovered?.length ? hovered[hovered.length - 1] : null;
       }
     }
     const target = uploadTargetFor(element);
@@ -189,13 +210,20 @@ export class WhimsyUploadChild extends JSWindowActorChild {
 
   // Hands the file to a drop zone the way dragging it in does.
   dropFile(zone, file) {
+    const win = this.contentWindow;
     try {
       const dz = zone.wrappedJSObject?.dropzone;
       if (dz && typeof dz.addFile == "function") {
-        dz.addFile(file);
+        // W10-48: a File from here is a chrome object the page can't read
+        // (Dropzone.js threw on file.name, so dropzone.dev got nothing):
+        // hand it the page's own copy.
+        dz.addFile(Cu.cloneInto(file, win));
         return;
       }
-      const win = this.contentWindow;
+    } catch (e) {
+      console.error("Whimsy: upload from clipboard (Dropzone) failed; dropping instead", e);
+    }
+    try {
       const data = new win.DataTransfer();
       data.items.add(file);
       for (const type of ["dragenter", "dragover", "drop"]) {

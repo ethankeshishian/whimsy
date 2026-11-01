@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<html>
+<head><meta charset="utf-8"><title>whimsy upload Dropzone.js</title></head>
+<body>
+<!-- W10-48: dropzone.dev's demo. A Svelte wrapper (.dropzone-container)
+     around the Dropzone.js element, which isn't clickable, so it has no
+     hidden input: files only arrive through dropzone.addFile(). -->
+<div class="dropzone-container" style="padding: 20px">
+  <div id="demo" class="dropzone" style="width: 300px; height: 150px">
+    <div class="dz-message"><h1 id="demo-text">Try it out!</h1></div>
+  </div>
+</div>
+<!-- A clickable Dropzone.js: its hidden input is its own (not .dz-hidden-input). -->
+<div id="clickable" class="dropzone" style="width: 300px; height: 80px">
+  <span id="clickable-text">Click or drop</span>
+</div>
+<p id="elsewhere">Somewhere else</p>
+<script>
+  window.dzAdded = null;
+  document.getElementById("demo").dropzone = {
+    addFile(file) {
+      // Dropzone.js reads the file at once (and threw on a chrome File).
+      window.dzAdded = file.name + ":" + file.size;
+    },
+  };
+  const hidden = document.createElement("input");
+  hidden.type = "file";
+  hidden.id = "clickable-input";
+  hidden.style.visibility = "hidden";
+  document.body.append(hidden);
+  document.getElementById("clickable").dropzone = { hiddenFileInput: hidden, addFile() {} };
+</script>
+</body>
+</html>

@@ -240,3 +240,52 @@ add_task(async function test_paste_gesture_is_per_tab() {
   BrowserTestUtils.removeTab(tab);
   BrowserTestUtils.removeTab(other);
 });
+
+// W10-48: dropzone.dev. Its Dropzone.js element sits in a wrapper whose
+// class also says "dropzone", isn't clickable (no hidden input), and only
+// takes files through dropzone.addFile(). Cmd+V over it went to the
+// wrapper, and a File handed to the page's addFile was a chrome object it
+// couldn't read. A clickable one's own hidden input lost mozSetFileArray
+// through the waiver.
+add_task(async function test_cmd_v_on_dropzone_js() {
+  const { WhimsyUploadParent } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs"
+  );
+  const path = PathUtils.join(PathUtils.tempDir, "whimsy-dropzone-paste.txt");
+  await IOUtils.writeUTF8(path, "pasted");
+  const original = WhimsyUploadParent.clipboardUpload;
+  WhimsyUploadParent.clipboardUpload = async () => ({ path, isFile: true });
+  const page = getRootDirectory(gTestPath) + "whimsy_upload_dropzone.html";
+  try {
+    await BrowserTestUtils.withNewTab(page, async browser => {
+      // Hover the demo (nothing focused, nothing clicked), then Cmd+V.
+      await BrowserTestUtils.synthesizeMouseAtCenter("#demo-text", { type: "mousemove" }, browser);
+      await SpecialPowers.spawn(browser, [], () => {
+        Assert.ok(content.document.getElementById("demo").matches(":hover"), "The pointer is over the drop zone");
+        Assert.equal(content.document.activeElement, content.document.body, "Nothing is focused");
+      });
+      EventUtils.synthesizeKey("v", { accelKey: true });
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.dzAdded),
+        "Dropzone.js got the file through addFile"
+      );
+      is(
+        await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.dzAdded),
+        "whimsy-dropzone-paste.txt:6",
+        "…a file the page can read, once"
+      );
+
+      // A clickable Dropzone.js: its own hidden input gets the file.
+      await BrowserTestUtils.synthesizeMouseAtCenter("#clickable-text", {}, browser);
+      EventUtils.synthesizeKey("v", { accelKey: true });
+      await TestUtils.waitForCondition(
+        () =>
+          SpecialPowers.spawn(browser, [], () => content.document.getElementById("clickable-input").files[0]?.name),
+        "The clickable drop zone's hidden input gets the file"
+      );
+    });
+  } finally {
+    WhimsyUploadParent.clipboardUpload = original;
+    await IOUtils.remove(path, { ignoreAbsent: true });
+  }
+});
