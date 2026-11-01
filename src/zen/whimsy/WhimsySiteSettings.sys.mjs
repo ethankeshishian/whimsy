@@ -911,7 +911,8 @@ export const WhimsySiteSettings = {
     if (section && !section.hidden) {
       section.scrollIntoView({ block: "nearest" });
       const target = focus ? section.querySelector(`[whimsy-site-setting="${focus}"]`) : null;
-      (target ?? section).querySelector("button, input")?.focus();
+      const controls = [...(target ?? section.querySelector("#whimsy-site-settings-list")).querySelectorAll("button, input")];
+      controls.find(el => !el.hidden && !el.disabled && el.checkVisibility())?.focus();
     }
     return true;
   },
