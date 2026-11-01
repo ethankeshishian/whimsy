@@ -109,7 +109,7 @@ add_task(async function test_multiple_selected_tabs() {
   is((html.match(/<li><a href=/g) || []).length, 2, "Both as an HTML list of titled links");
   const toast = await TestUtils.waitForCondition(() => toastLabel("whimsy-copy-toast"));
   const label = toast.querySelector("label");
-  Assert.deepEqual(document.l10n.getAttributes(label).args, { count: 2 }, "The toast counts the links");
+  Assert.deepEqual(document.l10n.getAttributes(label).args, { count: 2, stripped: "no" }, "The toast counts the links");
   ok(!toast.querySelector(".whimsy-copy-url"), "No single URL under a count");
   await TestUtils.waitForCondition(() => label.textContent.includes("2"), "Copied 2 links");
 
@@ -188,4 +188,127 @@ add_task(async function test_switch_off_falls_back_to_zen() {
   await closeMenu(menu);
   closeTabs(tabs);
   await SpecialPowers.popPrefEnv();
+});
+
+// W10-33: the toast says "without trackers" only when Copy Clean Link's list
+// actually removed tracking parameters.
+const TRACKER = "utm" + "_source";
+const TRACKED = `https://example.com/browser/?${TRACKER}=newsletter&keep=1`;
+const CLEANED = "https://example.com/browser/?keep=1";
+
+async function withStripOnShare(enabled, fn) {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["privacy.query_stripping.strip_on_share.enabled", enabled],
+      // Keep the tracker in the page's URL: only the copy may strip it.
+      ["privacy.query_stripping.enabled", false],
+      ["privacy.query_stripping.enabled.pbmode", false],
+    ],
+  });
+  await Cc["@mozilla.org/query-stripping-list-service;1"]
+    .getService(Ci.nsIURLQueryStrippingListService)
+    .testWaitForInit();
+  try {
+    await fn();
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+}
+
+async function toastText(messageId, expected, message) {
+  const toast = await TestUtils.waitForCondition(() => toastLabel(messageId), `${messageId} shows`);
+  const label = toast.querySelector("label:not(.whimsy-copy-url)");
+  await TestUtils.waitForCondition(() => label.textContent == expected, message).catch(() => {});
+  is(label.textContent, expected, message);
+  return toast;
+}
+
+async function openURLs(urls) {
+  const tabs = [];
+  for (const url of urls) {
+    tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, url));
+  }
+  return tabs;
+}
+
+add_task(async function test_strip_result() {
+  await withStripOnShare(true, async () => {
+    let result = WhimsyCopy.strip(Services.io.newURI(TRACKED));
+    ok(result.stripped, "A tracking parameter is stripped");
+    is(result.uri.spec, CLEANED, "Only the tracker goes");
+    result = WhimsyCopy.strip(Services.io.newURI(CLEANED));
+    ok(!result.stripped, "A clean link has nothing stripped");
+    is(result.uri.spec, CLEANED, "and is unchanged");
+  });
+  await withStripOnShare(false, async () => {
+    const result = WhimsyCopy.strip(Services.io.newURI(TRACKED));
+    ok(!result.stripped, "Strip-on-share off: nothing stripped");
+    is(result.uri.spec, TRACKED, "and the link is unchanged");
+  });
+});
+
+add_task(async function test_toast_with_trackers() {
+  await withStripOnShare(true, async () => {
+    const tabs = await openURLs([TRACKED]);
+    is(gBrowser.currentURI.spec, TRACKED, "The page keeps its tracker");
+    await clearClipboard();
+    command("cmd_zenCopyCurrentURL");
+    await waitForClipboard(CLEANED, "The copy drops the tracker");
+    const toast = await toastText("whimsy-copy-toast", "Copied link without trackers", "Says the trackers went");
+    is(toast.querySelector(".whimsy-copy-url")?.getAttribute("value"), CLEANED, "Shows the clean URL");
+
+    await clearClipboard();
+    command("cmd_zenCopyCurrentURLMarkdown");
+    await waitForClipboard(`[${gBrowser.selectedTab.label}](${CLEANED})`, "Markdown drops it too");
+    await toastText("whimsy-copy-markdown-toast", "Copied link as Markdown without trackers", "Markdown toast says so");
+    closeTabs(tabs);
+  });
+});
+
+add_task(async function test_toast_without_trackers() {
+  await withStripOnShare(true, async () => {
+    const tabs = await openURLs([CLEANED]);
+    await clearClipboard();
+    command("cmd_zenCopyCurrentURL");
+    await waitForClipboard(CLEANED, "A clean link is copied as is");
+    await toastText("whimsy-copy-toast", "Copied link", "No tracker claim for a clean link");
+
+    await clearClipboard();
+    command("cmd_zenCopyCurrentURLMarkdown");
+    await waitForClipboard(`[${gBrowser.selectedTab.label}](${CLEANED})`, "Markdown");
+    await toastText("whimsy-copy-markdown-toast", "Copied link as Markdown", "No tracker claim in Markdown");
+    closeTabs(tabs);
+  });
+});
+
+add_task(async function test_toast_strip_on_share_off() {
+  await withStripOnShare(false, async () => {
+    const tabs = await openURLs([TRACKED]);
+    await clearClipboard();
+    command("cmd_zenCopyCurrentURL");
+    await waitForClipboard(TRACKED, "Strip-on-share off keeps the tracker");
+    await toastText("whimsy-copy-toast", "Copied link", "so the toast doesn't claim it was removed");
+    closeTabs(tabs);
+  });
+});
+
+add_task(async function test_toast_several_tabs() {
+  await withStripOnShare(true, async () => {
+    let tabs = await openURLs([TRACKED, PAGE_2]);
+    selectBoth(tabs);
+    await clearClipboard();
+    command("cmd_zenCopyCurrentURL");
+    await TestUtils.waitForCondition(() => clipboard("text/plain").includes(CLEANED), "Both copied");
+    ok(!clipboard("text/plain").includes(TRACKER), "Without the tracker");
+    await toastText("whimsy-copy-toast", "Copied 2 links without trackers", "One link had trackers removed");
+    closeTabs(tabs);
+
+    tabs = await openURLs([CLEANED, PAGE_2]);
+    selectBoth(tabs);
+    await clearClipboard();
+    command("cmd_zenCopyCurrentURL");
+    await TestUtils.waitForCondition(() => clipboard("text/plain").includes(CLEANED), "Both copied");
+    await toastText("whimsy-copy-toast", "Copied 2 links", "No link had trackers");
+    closeTabs(tabs);
+  });
 });

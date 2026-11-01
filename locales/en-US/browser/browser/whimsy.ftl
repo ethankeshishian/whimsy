@@ -118,15 +118,33 @@ whimsy-ui-zoom-label = Zoom
 
 ## Copy & share (WhimsyCopy.sys.mjs): Cmd+Shift+C, Cmd+Opt+Shift+C, tab menu
 
+# $stripped is "yes" only when Copy Clean Link's list actually removed
+# tracking parameters from at least one copied link.
 whimsy-copy-toast =
-    { $count ->
-        [one] Copied link
-       *[other] Copied { $count } links
+    { $stripped ->
+        [yes]
+            { $count ->
+                [one] Copied link without trackers
+               *[other] Copied { $count } links without trackers
+            }
+       *[no]
+            { $count ->
+                [one] Copied link
+               *[other] Copied { $count } links
+            }
     }
 whimsy-copy-markdown-toast =
-    { $count ->
-        [one] Copied link as Markdown
-       *[other] Copied { $count } links as Markdown
+    { $stripped ->
+        [yes]
+            { $count ->
+                [one] Copied link as Markdown without trackers
+               *[other] Copied { $count } links as Markdown without trackers
+            }
+       *[no]
+            { $count ->
+                [one] Copied link as Markdown
+               *[other] Copied { $count } links as Markdown
+            }
     }
 tab-context-whimsy-copy-links =
     .label =

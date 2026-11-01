@@ -14,7 +14,9 @@
 // - show a toast with the URL or the number of links copied.
 // It also adds "Copy Link"/"Copy Links" to the tab context menu. Tracking
 // parameters are stripped the way Zen's copy does (Firefox's Copy Clean Link
-// list, privacy.query_stripping.strip_on_share.enabled).
+// list, privacy.query_stripping.strip_on_share.enabled). The toast says
+// "without trackers" only when that stripping actually removed something
+// (W10-33).
 // With whimsy.feature.copy off, Zen's own handlers run untouched.
 
 const lazy = {};
@@ -125,7 +127,7 @@ export const WhimsyCopy = {
       // The current tab: exactly what Zen copies (it honours a URL typed into
       // the address bar and Copy Clean Link).
       const [uri] = win.gURLBar.zenStrippedURI;
-      links = [{ url: this.displaySpec(uri), title: tabs[0].label }];
+      links = [{ url: this.displaySpec(uri), title: tabs[0].label, stripped: this.hasTrackers(this.addressURI(win)) }];
     } else {
       links = this.linksFor(tabs);
     }
@@ -141,8 +143,10 @@ export const WhimsyCopy = {
     for (const tab of tabs) {
       const uri = this.tabURI(tab);
       if (uri && !this.isBlank(uri)) {
+        const { uri: cleaned, stripped } = this.strip(uri);
         links.push({
-          url: this.displaySpec(this.clean(uri)),
+          url: this.displaySpec(cleaned),
+          stripped,
           title: tab.label,
           isPrivate: !!tab.linkedBrowser && lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser),
         });
@@ -180,13 +184,37 @@ export const WhimsyCopy = {
   },
 
   // Copy Clean Link's stripping, like Zen's copy (gURLBar.zenStrippedURI).
-  clean(uri) {
+  // stripForCopyOrShare returns null when nothing was removed, and throws
+  // when strip-on-share is off: either way the link has no trackers removed.
+  strip(uri) {
     try {
-      return lazy.QueryStringStripper.stripForCopyOrShare(uri) || uri;
-    } catch (e) {
-      // Thrown when strip-on-share is off.
-      return uri;
+      const stripped = lazy.QueryStringStripper.stripForCopyOrShare(uri);
+      if (stripped) {
+        return { uri: stripped, stripped: true };
+      }
+    } catch (e) {}
+    return { uri, stripped: false };
+  },
+
+  clean(uri) {
+    return this.strip(uri).uri;
+  },
+
+  hasTrackers(uri) {
+    return !!uri && this.strip(uri).stripped;
+  },
+
+  // The URI Zen's copy starts from (gURLBar.zenStrippedURI): what's typed in
+  // the address bar, else the page's URI.
+  addressURI(win) {
+    const browser = win.gBrowser.selectedBrowser;
+    const typed = browser?.userTypedValue;
+    if (typed) {
+      try {
+        return Services.io.newURI(typed);
+      } catch (e) {}
     }
+    return browser?.currentURI ?? null;
   },
 
   displaySpec(uri) {
@@ -263,6 +291,9 @@ export const WhimsyCopy = {
     }
     const messageId = markdown ? "whimsy-copy-markdown-toast" : "whimsy-copy-toast";
     const count = links.length;
+    // Fluent selector: "without trackers" only when stripping removed some.
+    const stripped = links.some(link => link.stripped) ? "yes" : "no";
+    const l10nArgs = { count, stripped };
     let button;
     const url = count == 1 ? links[0].url : null;
     /* eslint-disable mozilla/valid-services */
@@ -283,9 +314,10 @@ export const WhimsyCopy = {
         },
       };
     }
-    gZenUIManager.showToast(messageId, { l10nArgs: { count }, button, timeout: TOAST_TIMEOUT_MS });
+    gZenUIManager.showToast(messageId, { l10nArgs, button, timeout: TOAST_TIMEOUT_MS });
     // Zen reuses a toast that's still showing, keeping its old text: refresh
-    // the count, and show which URL was copied under the message.
+    // the count and tracker wording, and show which URL was copied under the
+    // message.
     const toast = [...(document.getElementById("zen-toast-container")?.children ?? [])].find(
       t => t._messageId == messageId
     );
@@ -295,7 +327,7 @@ export const WhimsyCopy = {
     const box = toast.firstElementChild;
     const label = box?.querySelector("label:not(.whimsy-copy-url)");
     if (label) {
-      document.l10n.setAttributes(label, messageId, { count });
+      document.l10n.setAttributes(label, messageId, l10nArgs);
     }
     let detail = box?.querySelector(".whimsy-copy-url");
     if (url && box) {
