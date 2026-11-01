@@ -691,3 +691,5 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 support-files = ["whimsy_article.html"]
 # wave10/fixes W10-02: a move across profiles switches only after Yes, then selects the moved tab; moving back restores the sign-in.
 ["browser_whimsy_profile_move_follow.js"]
+# wave10/fixes W10-05: Cmd+Y (real key) opens the Library on History from a page, the address bar, and an open Library.
+["browser_whimsy_history_key.js"]
