@@ -7,6 +7,9 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
 });
@@ -32,6 +35,188 @@ export const DEDUP_HOSTS = new Set([
   "app.mode.com",
   "console.cloud.google.com",
 ]);
+
+// W10-37: Arc's command bar displays the search engine/site favicon on
+// search results (e.g. YouTube, Google, DuckDuckGo) rather than a generic
+// search glass.
+export const SEARCH_FAVICONS_FEATURE_PREF = "whimsy.feature.command-bar-search-favicons";
+
+export const KNOWN_ENGINE_FAVICONS = new Map([
+  ["youtube", "chrome://activity-stream/content/data/content/tippytop/favicons/youtube-com.png"],
+  ["google", "chrome://activity-stream/content/data/content/tippytop/favicons/google-com.ico"],
+  ["duckduckgo", "chrome://activity-stream/content/data/content/tippytop/favicons/duckduckgo-com.ico"],
+  ["ddg", "chrome://activity-stream/content/data/content/tippytop/favicons/duckduckgo-com.ico"],
+  ["wikipedia", "chrome://activity-stream/content/data/content/tippytop/favicons/wikipedia-org.ico"],
+  ["wikipedia (en)", "chrome://activity-stream/content/data/content/tippytop/favicons/wikipedia-org.ico"],
+  ["bing", "chrome://activity-stream/content/data/content/tippytop/favicons/bing-com.ico"],
+  ["reddit", "chrome://activity-stream/content/data/content/tippytop/favicons/reddit-com.png"],
+  ["amazon", "chrome://activity-stream/content/data/content/tippytop/favicons/amazon.ico"],
+  ["amazon.com", "chrome://activity-stream/content/data/content/tippytop/favicons/amazon.ico"],
+  ["ebay", "chrome://activity-stream/content/data/content/tippytop/favicons/ebay.ico"],
+  ["twitter", "chrome://activity-stream/content/data/content/tippytop/favicons/twitter-com.ico"],
+  ["x", "chrome://activity-stream/content/data/content/tippytop/favicons/twitter-com.ico"],
+  ["facebook", "chrome://activity-stream/content/data/content/tippytop/favicons/facebook-com.png"],
+  ["baidu", "chrome://activity-stream/content/data/content/tippytop/favicons/baidu-com.png"],
+  ["yandex", "chrome://activity-stream/content/data/content/tippytop/favicons/yandex-com.png"],
+  ["yandex (ru)", "chrome://activity-stream/content/data/content/tippytop/favicons/yandex-ru.png"],
+]);
+
+export const KNOWN_DOMAIN_FAVICONS = new Map([
+  ["youtube.com", "chrome://activity-stream/content/data/content/tippytop/favicons/youtube-com.png"],
+  ["google.com", "chrome://activity-stream/content/data/content/tippytop/favicons/google-com.ico"],
+  ["duckduckgo.com", "chrome://activity-stream/content/data/content/tippytop/favicons/duckduckgo-com.ico"],
+  ["wikipedia.org", "chrome://activity-stream/content/data/content/tippytop/favicons/wikipedia-org.ico"],
+  ["bing.com", "chrome://activity-stream/content/data/content/tippytop/favicons/bing-com.ico"],
+  ["reddit.com", "chrome://activity-stream/content/data/content/tippytop/favicons/reddit-com.png"],
+  ["amazon.com", "chrome://activity-stream/content/data/content/tippytop/favicons/amazon.ico"],
+  ["ebay.com", "chrome://activity-stream/content/data/content/tippytop/favicons/ebay.ico"],
+  ["twitter.com", "chrome://activity-stream/content/data/content/tippytop/favicons/twitter-com.ico"],
+  ["x.com", "chrome://activity-stream/content/data/content/tippytop/favicons/twitter-com.ico"],
+  ["facebook.com", "chrome://activity-stream/content/data/content/tippytop/favicons/facebook-com.png"],
+  ["baidu.com", "chrome://activity-stream/content/data/content/tippytop/favicons/baidu-com.png"],
+  ["yandex.ru", "chrome://activity-stream/content/data/content/tippytop/favicons/yandex-ru.png"],
+  ["yandex.com", "chrome://activity-stream/content/data/content/tippytop/favicons/yandex-com.png"],
+]);
+
+function hostOf(url) {
+  if (!url) {
+    return "";
+  }
+  try {
+    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch (e) {
+    return "";
+  }
+}
+
+export function getSearchFavicon(engineName, domain) {
+  if (engineName) {
+    const key = engineName.trim().toLowerCase();
+    if (KNOWN_ENGINE_FAVICONS.has(key)) {
+      return KNOWN_ENGINE_FAVICONS.get(key);
+    }
+    for (const [name, icon] of KNOWN_ENGINE_FAVICONS) {
+      if (key === name || key.startsWith(`${name} `) || key.startsWith(`${name}-`) || key.includes(name)) {
+        return icon;
+      }
+    }
+  }
+  if (domain) {
+    const clean = domain.replace(/^www\./, "").toLowerCase();
+    if (KNOWN_DOMAIN_FAVICONS.has(clean)) {
+      return KNOWN_DOMAIN_FAVICONS.get(clean);
+    }
+    for (const [dom, icon] of KNOWN_DOMAIN_FAVICONS) {
+      if (clean === dom || clean.endsWith(`.${dom}`)) {
+        return icon;
+      }
+    }
+    for (const [name, icon] of KNOWN_ENGINE_FAVICONS) {
+      if (clean === `${name}.com` || clean.startsWith(`${name}.`)) {
+        return icon;
+      }
+    }
+  }
+  return null;
+}
+
+const gDynamicFaviconCache = new Map();
+
+export function getEngineFavicon(engineName, domain) {
+  const staticIcon = getSearchFavicon(engineName, domain);
+  if (staticIcon) {
+    return staticIcon;
+  }
+  const key = (engineName || domain || "").trim().toLowerCase();
+  if (!key) {
+    return null;
+  }
+  if (gDynamicFaviconCache.has(key)) {
+    return gDynamicFaviconCache.get(key);
+  }
+
+  try {
+    let engine = null;
+    if (engineName && lazy.SearchService) {
+      engine = lazy.SearchService.getEngineByName(engineName);
+    }
+    if (!engine && domain && lazy.SearchService?.getEngineByAlias) {
+      engine = lazy.SearchService.getEngineByAlias(domain);
+    }
+    if (engine) {
+      const iconMap = engine._iconMapObj;
+      if (iconMap) {
+        const icon = iconMap[16] || iconMap[32] || Object.values(iconMap)[0];
+        if (icon) {
+          gDynamicFaviconCache.set(key, icon);
+          return icon;
+        }
+      }
+      if (typeof engine.getIconURL == "function") {
+        engine.getIconURL(16).then(url => {
+          if (url) {
+            gDynamicFaviconCache.set(key, url);
+          }
+        }).catch(() => {});
+      }
+      if (engine.searchUrlDomain) {
+        const icon = `page-icon:https://${engine.searchUrlDomain}/`;
+        gDynamicFaviconCache.set(key, icon);
+        return icon;
+      }
+    }
+  } catch (e) {}
+
+  if (domain) {
+    const icon = `page-icon:https://${domain}/`;
+    gDynamicFaviconCache.set(key, icon);
+    return icon;
+  }
+  return null;
+}
+
+export function attachSearchFavicons(results, win = null) {
+  if (!results?.length) {
+    return results;
+  }
+  const searchGlass = lazy.UrlbarShared?.ICON?.SEARCH_GLASS || "chrome://global/skin/icons/search-glass.svg";
+  const searchType = lazy.UrlbarShared?.RESULT_TYPE?.SEARCH ?? 1;
+  const keywordType = lazy.UrlbarShared?.RESULT_TYPE?.KEYWORD ?? 6;
+  const urlType = lazy.UrlbarShared?.RESULT_TYPE?.URL ?? 2;
+
+  for (const result of results) {
+    if (!result?.payload) {
+      continue;
+    }
+    const isSearch = result.type === searchType || result.type === keywordType;
+    const currentIcon = result.payload.icon;
+    const isGenericIcon = !currentIcon || currentIcon === searchGlass;
+
+    if (isSearch && isGenericIcon) {
+      const engineName =
+        result.payload.engine ||
+        (win && lazy.PrivateBrowsingUtils?.isWindowPrivate(win)
+          ? lazy.SearchService?.defaultPrivateEngine?.name
+          : lazy.SearchService?.defaultEngine?.name);
+
+      const domain =
+        result.payload.searchUrlDomainWithoutSuffix ||
+        (result.payload.url ? hostOf(result.payload.url) : null);
+
+      const icon = getEngineFavicon(engineName, domain);
+      if (icon) {
+        result.payload.icon = icon;
+      }
+    } else if (result.type === urlType && !currentIcon && result.payload.url) {
+      const host = hostOf(result.payload.url);
+      const icon = getSearchFavicon(null, host);
+      if (icon) {
+        result.payload.icon = icon;
+      }
+    }
+  }
+  return results;
+}
 
 // Drops later results with the same title and host as an earlier one, on
 // Arc's hosts only. The heuristic (first) result always stays.
@@ -241,23 +426,38 @@ export const WhimsyCommandBar = {
     ];
   },
 
-  initDedup(win) {
+  attachSearchFavicons(results, win) {
+    return attachSearchFavicons(results, win);
+  },
+
+  initResultsHook(win) {
     const controller = win.gURLBar?.controller;
-    if (!controller || controller._whimsyDedup) {
+    if (!controller || controller._whimsyResultsHooked) {
       return;
     }
+    controller._whimsyResultsHooked = true;
     controller._whimsyDedup = true;
     const receiveResults = controller.receiveResults;
+    const self = this;
     controller.receiveResults = function (queryContext) {
       try {
-        if (Services.prefs.getBoolPref(DEDUP_FEATURE_PREF, true) && queryContext?.results?.length > 1) {
-          queryContext.results = dedupResults(queryContext.results);
+        if (queryContext?.results?.length) {
+          if (Services.prefs.getBoolPref(DEDUP_FEATURE_PREF, true) && queryContext.results.length > 1) {
+            queryContext.results = dedupResults(queryContext.results);
+          }
+          if (Services.prefs.getBoolPref(SEARCH_FAVICONS_FEATURE_PREF, true)) {
+            self.attachSearchFavicons(queryContext.results, win);
+          }
         }
       } catch (e) {
-        console.error("Whimsy: command bar dedup", e);
+        console.error("Whimsy: command bar results hook", e);
       }
       return receiveResults.call(this, queryContext);
     };
+  },
+
+  initDedup(win) {
+    this.initResultsHook(win);
   },
 
   initSlashFilter(win) {

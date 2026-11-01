@@ -5,7 +5,7 @@
 
 // Link lasso (whimsy.feature.link-lasso, W8-29). Covers Option-drag over links with
 // a live count, releasing to show a small pill offering "Open as Tabs" and "Make Folder",
-// making a folder of unloaded tabs named after the page, opening links as plain tabs,
+// making a folder of loaded tabs named after the page, opening links as plain tabs,
 // the WhimsyCommands registry entries with NO default shortcut, Esc cancelling both
 // during drag and while the pill is shown, clicking outside cancelling, a plain drag
 // still selecting text, Option-click still clicking, fields left alone, private tabs
@@ -103,7 +103,7 @@ add_task(async function test_lasso_pill_and_make_folder() {
   gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
   const linkTabs = opened.filter(t => !t.hasAttribute("zen-empty-tab"));
   Assert.deepEqual(linkTabs.map(t => t.label), ["One", "Two", "Three"], "one tab per link, in page order");
-  ok(linkTabs.every(t => !t.linkedPanel), "the tabs are unloaded");
+  ok(linkTabs.every(t => t.linkedPanel), "the tabs are loaded");
   const folder = linkTabs[0].group;
   ok(folder?.isZenFolder, "they're in a Zen folder");
   is(folder.label, "Lasso Reading List", "named after the page");
@@ -142,7 +142,7 @@ add_task(async function test_lasso_open_as_tabs() {
   gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
   const linkTabs = opened.filter(t => !t.hasAttribute("zen-empty-tab"));
   is(linkTabs.length, 3, "three tabs opened");
-  ok(linkTabs.every(t => !t.linkedPanel), "the tabs are unloaded");
+  ok(linkTabs.every(t => t.linkedPanel), "the tabs are loaded");
   ok(!linkTabs[0].group, "the tabs are plain tabs, not in a folder");
   ok(!(await lassoState(browser)), "the lasso is gone");
 

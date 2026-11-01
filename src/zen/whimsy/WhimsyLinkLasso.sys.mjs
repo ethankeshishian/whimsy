@@ -91,7 +91,7 @@ export const WhimsyLinkLasso = {
     return { browser, data };
   },
 
-  // Opens the lassoed links as unloaded tabs in the background.
+  // Opens the lassoed links as loaded tabs in the background.
   openTabs(win, targetBrowser, targetData) {
     const { browser, data } = this._resolveArgs(win, targetBrowser, targetData);
     const links = data?.links;
@@ -107,15 +107,15 @@ export const WhimsyLinkLasso = {
     const tabs = [];
     for (const link of links.slice(0, MAX_LINKS)) {
       const tab = gBrowser.addTab(link.url, {
-        createLazyBrowser: true,
-        lazyTabTitle: link.title || link.url,
-        noInitialLabel: true,
         inBackground: true,
         skipAnimation: true,
         userContextId: Number(userContextId),
         triggeringPrincipal: browser.contentPrincipal,
       });
       if (tab) {
+        if (link.title) {
+          gBrowser.setInitialTabTitle(tab, link.title);
+        }
         tabs.push(tab);
       }
     }
@@ -155,15 +155,15 @@ export const WhimsyLinkLasso = {
     const tabs = [];
     for (const link of links.slice(0, MAX_LINKS)) {
       const tab = gBrowser.addTab(link.url, {
-        createLazyBrowser: true,
-        lazyTabTitle: link.title || link.url,
-        noInitialLabel: true,
         inBackground: true,
         skipAnimation: true,
         userContextId: Number(userContextId),
         triggeringPrincipal: browser.contentPrincipal,
       });
       if (tab) {
+        if (link.title) {
+          gBrowser.setInitialTabTitle(tab, link.title);
+        }
         tabs.push(tab);
       }
     }
