@@ -28,6 +28,7 @@ async function containerSpace(userContextId) {
 ChromeUtils.defineESModuleGetters(this, {
   UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.sys.mjs",
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
+  PlacesTestUtils: "resource://testing-common/PlacesTestUtils.sys.mjs",
 });
 
 const FEATURE = "whimsy.feature.already-open";
@@ -209,4 +210,96 @@ add_task(async function test_promote_open_tabs() {
   if (window.gURLBar.view) {
     ok(window.gURLBar.view._whimsyRankHooked, "UrlbarView onQueryResults is hooked");
   }
+});
+
+// W10-36: a pinned tab had no "Switch to Tab" row in the Cmd+T command bar
+// when you were on it, but did from another space. Zen's Cmd+T bar opens
+// over the selected tab, so Firefox took that tab as the current page and
+// left it out. The new-tab bar now offers every open tab, the tab you're on
+// included; editing the current page's address (Cmd+L) still leaves it out.
+const PINNED_URL = "https://example.com/browser/whimsy-switch-pinned";
+
+async function closeCommandBar() {
+  EventUtils.synthesizeKey("KEY_Escape");
+  if (gURLBar.focused) {
+    EventUtils.synthesizeKey("KEY_Escape");
+  }
+  gBrowser.selectedBrowser.focus();
+  await TestUtils.waitForTick();
+  if (gURLBar.hasAttribute("zen-newtab") && !gURLBar.matches(":popover-open")) {
+    gURLBar._zenHandleUrlbarClose?.();
+  }
+  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab") && !gURLBar.view.isOpen, "The command bar closed");
+}
+
+async function switchRowFor(url) {
+  const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
+  const count = UrlbarTestUtils.getResultCount(window);
+  for (let i = 0; i < count; i++) {
+    const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+    if (result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH && result.payload.url == url) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Cmd+T, type part of the address, and return the Switch to Tab row's index.
+async function newTabBarSwitchRow(search) {
+  document.getElementById("cmd_newNavigatorTab").doCommand();
+  await TestUtils.waitForCondition(() => gURLBar.hasAttribute("zen-newtab"), "Cmd+T opened Zen's command bar");
+  gURLBar.search(search);
+  await UrlbarTestUtils.promiseSearchComplete(window);
+  return switchRowFor(PINNED_URL);
+}
+
+add_task(async function test_new_tab_bar_offers_pinned_tab_in_every_space() {
+  await PlacesTestUtils.addVisits({ uri: PINNED_URL, title: "Whimsy pinned switch" });
+  await gZenWorkspaces.changeWorkspace(firstSpace);
+  const pinned = await BrowserTestUtils.openNewForegroundTab(gBrowser, PINNED_URL);
+  gBrowser.pinTab(pinned);
+  ok(pinned.pinned, "The tab is pinned in the first space");
+  const search = "whimsy-switch-pinned";
+
+  // On the pinned tab, in its own space: the bug.
+  gBrowser.selectedTab = pinned;
+  let opens = 0;
+  const onOpen = () => opens++;
+  gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
+  let index = await newTabBarSwitchRow(search);
+  Assert.greater(index, -1, "Same space, on the pinned tab: the Cmd+T bar shows Switch to Tab");
+  EventUtils.synthesizeKey("KEY_ArrowDown", { repeat: index });
+  is(UrlbarTestUtils.getSelectedRowIndex(window), index, "The Switch to Tab row is selected");
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "Picking it closes the bar");
+  is(gBrowser.selectedTab, pinned, "and you stay on the pinned tab");
+  gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
+  is(opens, 0, "No tab was opened");
+
+  // Same space, from another tab: unchanged.
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  index = await newTabBarSwitchRow(search);
+  Assert.greater(index, -1, "Same space, from another tab: Switch to Tab");
+  await closeCommandBar();
+
+  // Another space: unchanged.
+  await gZenWorkspaces.changeWorkspace(secondSpace);
+  index = await newTabBarSwitchRow(search);
+  Assert.greater(index, -1, "Another space: Switch to Tab");
+  await closeCommandBar();
+  await gZenWorkspaces.changeWorkspace(firstSpace);
+
+  // Editing the pinned tab's own address (Cmd+L) keeps Firefox's rule: the
+  // page you're editing isn't offered as a tab to switch to.
+  gBrowser.selectedTab = pinned;
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: search });
+  ok(!gURLBar.hasAttribute("zen-newtab"), "Cmd+L edits the current page");
+  is(await switchRowFor(PINNED_URL), -1, "Editing the current page doesn't offer switching to it");
+  await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
+
+  BrowserTestUtils.removeTab(other);
+  gBrowser.unpinTab(pinned);
+  BrowserTestUtils.removeTab(pinned);
+  const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+  await PlacesUtils.history.remove(PINNED_URL);
 });
