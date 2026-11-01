@@ -55,7 +55,6 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFilesSection.sys.mjs",
     "WhimsyFinderFoldersSection.sys.mjs",
     "WhimsyFireButton.sys.mjs",
-    "WhimsyFocus.sys.mjs",
     "WhimsyFolderColors.sys.mjs",
     "WhimsyFollowerTabs.sys.mjs",
     "WhimsyFormProtection.sys.mjs",
@@ -203,9 +202,9 @@ BROWSER_CHROME_MANIFESTS += [
 # macOS: airplay/ (Cast to AirPlay's native player and route picker),
 # calendar/ (Next meeting's EventKit reader, and Add to Calendar's writer;
 # dropped from here by a moz.build re-sort, 1545592, so it wasn't built),
-# bonjour/ (Local servers' LAN services, dns_sd), focus/ (macOS Focus for
-# Whimsy's own toasts), share/ (the Share submenu's macOS services,
-# wave9/menus) and speech/ (live captions, on-device Speech).
+# bonjour/ (Local servers' LAN services, dns_sd), share/ (the Share
+# submenu's macOS services, wave9/menus) and speech/ (live captions,
+# on-device Speech).
 DIRS += ["audiotap"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
@@ -213,7 +212,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
         "airplay",
         "bonjour",
         "calendar",
-        "focus",
         "share",
         "speech",
     ]

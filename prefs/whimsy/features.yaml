@@ -442,7 +442,7 @@
   value: true
 
 - name: whimsy.feature.search-deck
-  value: true
+  value: false
 
 - name: whimsy.feature.already-open
   value: true
@@ -490,9 +490,6 @@
   value: true
 
 - name: whimsy.feature.menu-prefs
-  value: true
-
-- name: whimsy.feature.macos-focus
   value: true
 
 - name: whimsy.feature.video-speech-captions

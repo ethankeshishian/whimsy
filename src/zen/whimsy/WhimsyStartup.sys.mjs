@@ -14,6 +14,23 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
 });
 
+// Switches for features that were removed. A value someone set by hand in
+// about:config would otherwise stay in prefs.js forever.
+export const RETIRED_PREFS = [
+  // W10-60: Whimsy's toasts waiting during a macOS Focus (removed).
+  "whimsy.feature.macos-focus",
+];
+
+export function clearRetiredPrefs() {
+  for (const name of RETIRED_PREFS) {
+    try {
+      Services.prefs.clearUserPref(name);
+    } catch (e) {
+      console.error("Whimsy: retired pref", name, e);
+    }
+  }
+}
+
 export class WhimsyStartup {
   QueryInterface = ChromeUtils.generateQI(["nsIObserver"]);
 
@@ -29,6 +46,7 @@ export class WhimsyStartup {
     // System pass: the old Archive Library section's saved state moves to
     // History's Closed filter before any window builds its Library.
     lazy.WhimsyLibrarySection.migratePrefs();
+    clearRetiredPrefs();
     // wave7/folders: Jira, Linear and Local Servers live folders register
     // before the first window's delayed startup runs Zen's live-folder
     // restore, so they come back after a restart.

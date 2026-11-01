@@ -10,8 +10,9 @@
 // everything Arc doesn't override: URLs, history/bookmark/tab rows, Zen's
 // commands, and private tabs.
 //
-// Search Deck (Cake's swipe-through results): with the deck on, Shift+Enter
-// opens the results page as Enter would, with result 1 in a Glance on top.
+// Search Deck (Cake's swipe-through results; off by default): with the deck
+// on, Shift+Enter opens the results page as Enter would, with result 1 in a
+// Glance on top.
 // The next/previous space keys (Cmd+Opt+→/←, Zen's defaults) and a
 // two-finger swipe over the card flip to the next/previous result; deck dots
 // show where you are. Cmd+Enter (or Zen's own Cmd+O) promotes the card to a
@@ -44,6 +45,8 @@ const DECK_PREF = "whimsy.feature.search-deck";
 export const SEARCH_DECK_GROUP = "whimsy-search-deck";
 const SHEET = "chrome://browser/content/whimsy/whimsy-search-deck.css";
 const READ_TIMEOUT_MS = 10000;
+// Between attempts to read a results page that replaced itself.
+const RETRY_MS = 150;
 const MAX_RESULTS = 10;
 const NEXT_COMMAND = "cmd_zenWorkspaceForward";
 const PREV_COMMAND = "cmd_zenWorkspaceBackward";
@@ -65,8 +68,8 @@ const decks = new WeakMap();
 const installed = new WeakSet();
 const sheets = new WeakSet();
 
-function enabled(pref) {
-  return Services.prefs.getBoolPref(pref, true);
+function enabled(pref, fallback = true) {
+  return Services.prefs.getBoolPref(pref, fallback);
 }
 
 function reducedMotion(win) {
@@ -87,7 +90,8 @@ export const WhimsySearchDeck = {
   },
 
   get deckEnabled() {
-    return enabled(DECK_PREF);
+    // W10-52: opt-in (Arc parity: Shift+Enter opens the top result).
+    return enabled(DECK_PREF, false);
   },
 
   deckFor(win) {
@@ -307,14 +311,42 @@ export const WhimsySearchDeck = {
       const results = await lazy.WhimsyAIReader.withHiddenPage(
         serpUrl,
         { userContextId, signal: controller.signal, messageManagerGroup: SEARCH_DECK_GROUP },
-        browser =>
-          browser.browsingContext.currentWindowGlobal
-            .getActor("WhimsySearchDeck")
-            .sendQuery("WhimsySearchDeck:Read", { limit: MAX_RESULTS })
+        browser => this.readLoadedPage(browser, controller.signal)
       );
       return (Array.isArray(results) ? results : []).filter(r => /^https?:\/\//.test(r?.url ?? ""));
     } finally {
       clearTimeout(timer);
+    }
+  },
+
+  // W10-52: a results page can replace itself right after it loads. Google
+  // answers a first visit with a script check that sets a cookie and loads
+  // the search again; asking the first page's actor then fails ("destroyed
+  // before query received a reply"), which read as no results. So ask again
+  // in whatever page the browser shows now, until there's an answer from a
+  // page that stayed put, or READ_TIMEOUT_MS runs out.
+  async readLoadedPage(browser, signal) {
+    for (;;) {
+      if (signal.aborted) {
+        throw new Error("aborted");
+      }
+      const page = browser.browsingContext?.currentWindowGlobal;
+      let results = null;
+      try {
+        results = await page
+          ?.getActor("WhimsySearchDeck")
+          .sendQuery("WhimsySearchDeck:Read", { limit: MAX_RESULTS });
+      } catch {
+        // That page went away mid-read (or the next one isn't ready yet).
+      }
+      if (results?.length) {
+        return results;
+      }
+      if (results && page && browser.browsingContext?.currentWindowGlobal == page) {
+        // Read to the end and still there: the page really has none.
+        return results;
+      }
+      await new Promise(resolve => setTimeout(resolve, RETRY_MS));
     }
   },
 

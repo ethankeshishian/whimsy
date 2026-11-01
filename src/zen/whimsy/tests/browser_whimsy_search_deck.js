@@ -72,6 +72,14 @@ async function waitForCard(n, message) {
   await TestUtils.waitForCondition(() => deckUrl() == card(n), message);
 }
 
+add_task(function test_deck_is_opt_in() {
+  // W10-52 (Arc parity): Shift+Enter goes straight to the top result unless
+  // "Show it in a deck" is turned on.
+  const defaults = Services.prefs.getDefaultBranch("");
+  is(defaults.getBoolPref(DECK_PREF, true), false, "The Search Deck ships off");
+  is(defaults.getBoolPref(INSTANT_PREF, false), true, "Instant result ships on");
+});
+
 add_task(async function test_reads_results_from_the_page() {
   const results = await WhimsySearchDeck.readResults(SERP + "?q=cats");
   Assert.deepEqual(
@@ -83,6 +91,15 @@ add_task(async function test_reads_results_from_the_page() {
 
   const late = await WhimsySearchDeck.readResults(SERP + "?q=cats&late=1");
   is(late.length, 3, "Results drawn after load are waited for");
+
+  // W10-52: a page that replaces itself once loaded (Google's script check
+  // on a first visit) is read again, not taken as having no results.
+  const checked = await WhimsySearchDeck.readResults(SERP + "?q=rust+lang&challenge=1");
+  Assert.deepEqual(
+    checked.map(r => r.url),
+    [card(1), card(2), card(3)],
+    "Results come from the page the check loaded"
+  );
 
   is(
     unwrapResultUrl("https://www.google.com/url?q=https%3A%2F%2Fexample.org%2Fa", "https://www.google.com/search?q=a"),
@@ -149,6 +166,38 @@ add_task(async function test_instant_opens_the_top_result() {
   );
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
+});
+
+// W10-52: Shift+Enter on "rust lang" showed "No results to flip through"
+// because Google's results page replaces itself on a first visit. Both
+// ways of opening the top result now get past that.
+add_task(async function test_instant_survives_a_page_that_replaces_itself() {
+  const serp = SERP + "?q=rust+lang&challenge=1";
+  const toasts = [];
+  const showToast = gZenUIManager.showToast;
+  gZenUIManager.showToast = function (id, ...rest) {
+    toasts.push(id);
+    return showToast.call(this, id, ...rest);
+  };
+  try {
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+    await WhimsySearchDeck.instant(window, { url: serp });
+    await waitForCard(1, "Deck on: result 1 opens in a Glance");
+    ok(!toasts.includes("whimsy-search-deck-none"), "No \"No results to flip through\"");
+    await closeDeck();
+    BrowserTestUtils.removeTab(tab);
+
+    await SpecialPowers.pushPrefEnv({ set: [[DECK_PREF, false]] });
+    const plain = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+    const loaded = BrowserTestUtils.browserLoaded(plain.linkedBrowser, false, card(1));
+    await WhimsySearchDeck.instant(window, { url: serp });
+    await loaded;
+    ok(!toasts.includes("whimsy-instant-none"), "Deck off: the top result, not the search");
+    BrowserTestUtils.removeTab(plain);
+    await SpecialPowers.popPrefEnv();
+  } finally {
+    gZenUIManager.showToast = showToast;
+  }
 });
 
 add_task(async function test_deck_flips_and_promotes() {
