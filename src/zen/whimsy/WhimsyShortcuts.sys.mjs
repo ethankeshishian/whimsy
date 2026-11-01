@@ -50,6 +50,13 @@ export const SHORTCUTS = {
   key_newNavigator: { modifiers: "accel,alt,shift", key: "N" },
 };
 
+// wave10 (W10-47): keys that pages can't take. Arc's Open Library… ⇧⌘L is a
+// macOS menu key equivalent, which the app handles before the web page.
+// A Firefox <key> goes to the page first unless it is reserved, so a site
+// that handles ⇧⌘L itself (preventDefault on keydown) swallowed it here.
+// Reserved keeps the key the browser's, whatever binding the person gives it.
+export const RESERVED_KEYS = ["zen-library-toggle"];
+
 export const NEW_SPACE_KEY = { key: "N", modifiers: "accel" };
 
 // Applied only while Whimsy's Capture (Cmd+Shift+2) is on.
@@ -89,6 +96,7 @@ export const WhimsyShortcuts = {
       this.setBinding(keyEl, binding);
       keysets.add(keyEl.parentElement);
     }
+    this.reserveKeys(win.document, keysets);
     this.rebindKeysets(keysets);
     // Cmd+N: Zen's "create space" command, now that New Window has moved.
     // Zen's command bar already lists "New Space", so not added there again.
@@ -188,8 +196,19 @@ export const WhimsyShortcuts = {
       this.setBinding(libraryKey, SHORTCUTS["zen-library-toggle"]);
       keysets.add(libraryKey.parentElement);
     }
+    this.reserveKeys(document, keysets);
     this.rebindKeysets(keysets);
     return result;
+  },
+
+  reserveKeys(document, keysets) {
+    for (const id of RESERVED_KEYS) {
+      const keyEl = document.getElementById(id);
+      if (keyEl && keyEl.getAttribute("reserved") != "true") {
+        keyEl.setAttribute("reserved", "true");
+        keysets.add(keyEl.parentElement);
+      }
+    }
   },
 
   isCustomized(id) {
