@@ -1677,11 +1677,17 @@ panel.whimsy-surface.whimsy-cheatsheet {
     display: none;
   }
 }
-.whimsy-cheatsheet-columns {
+.whimsy-cheatsheet-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-cheatsheet-columns {
   columns: 3 190px;
   column-gap: 18px;
   padding: 2px 2px 4px;

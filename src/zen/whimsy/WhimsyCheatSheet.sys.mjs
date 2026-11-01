@@ -526,6 +526,7 @@ export const WhimsyCheatSheet = {
         document.l10n.setAttributes(empty.querySelector(".whimsy-surface-empty-text"), "whimsy-cheatsheet-empty", { query: q });
       }
       list.hidden = !shown;
+      list.parentNode.hidden = list.hidden;
       status.textContent = q ? formatSync("whimsy-cheatsheet-results", { count: shown }) : "";
       status.hidden = !q;
       // The roving row is the first one showing.
@@ -551,7 +552,7 @@ export const WhimsyCheatSheet = {
           search.value = "";
           filter("");
           search.focus();
-          list.scrollTop = 0;
+          scroller.scrollTop = 0;
           return true;
         }
         return false;
@@ -650,9 +651,15 @@ export const WhimsyCheatSheet = {
     });
     empty.classList.add("whimsy-cheatsheet-empty");
     empty.hidden = true;
-    view.append(searchBox, list, empty);
+    // W10-19: the columns scroll inside a wrapper. A multicol box with a
+    // fixed height spills extra columns sideways instead of scrolling.
+    const scroller = document.createElementNS(HTML_NS, "div");
+    scroller.className = "whimsy-cheatsheet-scroll";
+    scroller.append(list);
+    view.append(searchBox, scroller, empty);
     if (!rows.length) {
       list.hidden = true;
+      scroller.hidden = true;
       empty.hidden = false;
     }
 
@@ -718,7 +725,7 @@ export const WhimsyCheatSheet = {
           const next = index + step;
           if (next < 0) {
             search.focus();
-            list.scrollTop = 0;
+            scroller.scrollTop = 0;
           } else {
             focusRow(items[Math.min(next, items.length - 1)]);
           }
