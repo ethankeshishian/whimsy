@@ -65,9 +65,17 @@ export const WhimsyToast = {
    * @param {string} o.l10nId - the message
    * @param {object} [o.l10nArgs]
    * @param {string} [o.detail] - plain text second line (cropped)
-   * @param {object} [o.action] - { id, l10nId, keys, ariaKeys, onCommand }
-   * @param {number} [o.timeout]
-   * @returns {Element|null}
+   * @param {string} [o.detailL10nId] - a Fluent second line instead
+   * @param {object} [o.detailArgs]
+   * @param {string} [o.icon] - a chrome:// icon before the text (16px)
+   * @param {Element} [o.browser] - the tab the toast is about: it goes
+   *   (at once) when you switch away from that tab or it navigates
+   * @param {object} [o.action] - { id, l10nId, keys, ariaKeys, onCommand };
+   *   onCommand may return "keep" to keep the toast (it then usually
+   *   update()s itself into a busy state)
+   * @param {number} [o.timeout] - ms; 0 = until dismissed (busy states)
+   * @returns {Element|null} the toast; toast.update(changes) changes it
+   *   in place (see update())
    */
   show(win, o) {
     const doc = win.document;
@@ -87,54 +95,30 @@ export const WhimsyToast = {
     toast.setAttribute("aria-atomic", "true");
     toast._messageId = o.l10nId;
 
+    if (o.icon) {
+      const icon = doc.createElementNS(HTML_NS, "img");
+      icon.className = "whimsy-toast-icon";
+      icon.setAttribute("alt", "");
+      icon.src = o.icon;
+      toast.append(icon);
+    }
+
     const text = doc.createElementNS(HTML_NS, "div");
     text.className = "whimsy-toast-text";
     const message = doc.createElementNS(HTML_NS, "span");
     message.className = "whimsy-toast-message";
     doc.l10n.setAttributes(message, o.l10nId, o.l10nArgs ?? undefined);
     text.append(message);
-    if (o.detail) {
-      const detail = doc.createElementNS(HTML_NS, "span");
-      detail.className = "whimsy-toast-detail";
-      detail.textContent = o.detail;
-      detail.title = o.detail; // cropped to one line; the whole title on hover
-      text.append(detail);
-    }
     toast.append(text);
-
-    if (o.action) {
-      const button = doc.createElementNS(HTML_NS, "button");
-      button.type = "button";
-      button.className = "whimsy-toast-action";
-      if (o.action.id) {
-        doc.getElementById(o.action.id)?.removeAttribute("id");
-        button.id = o.action.id;
-      }
-      const label = doc.createElementNS(HTML_NS, "span");
-      label.className = "whimsy-toast-action-label";
-      doc.l10n.setAttributes(label, o.action.l10nId);
-      button.append(label);
-      if (o.action.keys) {
-        const keys = doc.createElementNS(HTML_NS, "kbd");
-        keys.className = "whimsy-toast-keys";
-        keys.setAttribute("aria-hidden", "true");
-        keys.textContent = o.action.keys;
-        button.append(keys);
-      }
-      if (o.action.ariaKeys) {
-        button.setAttribute("aria-keyshortcuts", o.action.ariaKeys);
-      }
-      button.addEventListener("click", event => {
-        event.stopPropagation();
-        this.dismiss(toast);
-        o.action.onCommand?.(event);
-      });
-      toast.append(button);
-    }
+    this._setDetail(toast, o);
 
     const timeout = o.timeout ?? (o.action ? ACTION_TIMEOUT_MS : PLAIN_TIMEOUT_MS);
-    const s = { win, timeout, timer: null, deadline: 0, remaining: timeout, hovered: false, focused: false };
+    const s = { win, timeout, timer: null, deadline: 0, remaining: timeout, hovered: false, focused: false, busy: false };
     state.set(toast, s);
+    if (o.action) {
+      this._setAction(toast, o.action);
+    }
+    toast.update = changes => this.update(toast, changes);
 
     toast.addEventListener("mouseenter", () => {
       s.hovered = true;
@@ -166,9 +150,36 @@ export const WhimsyToast = {
     const onActivate = () => this._resume(toast);
     win.addEventListener("deactivate", onDeactivate);
     win.addEventListener("activate", onActivate);
+    // A toast about one tab (a dead page's offer) belongs to that tab: it
+    // goes at once when you switch away or the tab navigates.
+    let removeOwner = () => {};
+    if (o.browser && win.gBrowser) {
+      const browser = o.browser;
+      toast._browser = browser;
+      const onTabSelect = () => {
+        if (win.gBrowser.selectedBrowser != browser) {
+          this._dismissNow(toast);
+        }
+      };
+      const listener = {
+        onLocationChange: (b, progress, request, location, flags) => {
+          if (b == browser && progress?.isTopLevel &&
+            !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)) {
+            this._dismissNow(toast);
+          }
+        },
+      };
+      win.gBrowser.tabContainer.addEventListener("TabSelect", onTabSelect);
+      win.gBrowser.addTabsProgressListener(listener);
+      removeOwner = () => {
+        win.gBrowser.tabContainer.removeEventListener("TabSelect", onTabSelect);
+        win.gBrowser.removeTabsProgressListener(listener);
+      };
+    }
     s.cleanup = () => {
       win.removeEventListener("deactivate", onDeactivate);
       win.removeEventListener("activate", onActivate);
+      removeOwner();
     };
 
     container.removeAttribute("hidden");
@@ -179,6 +190,136 @@ export const WhimsyToast = {
       this._schedule(toast, timeout);
     }
     return toast;
+  },
+
+  _setDetail(toast, o) {
+    const doc = toast.ownerDocument;
+    const text = toast.querySelector(".whimsy-toast-text");
+    let detail = text.querySelector(".whimsy-toast-detail");
+    if (!o.detail && !o.detailL10nId) {
+      detail?.remove();
+      return;
+    }
+    if (!detail) {
+      detail = doc.createElementNS(HTML_NS, "span");
+      detail.className = "whimsy-toast-detail";
+      text.append(detail);
+    }
+    if (o.detailL10nId) {
+      doc.l10n.setAttributes(detail, o.detailL10nId, o.detailArgs ?? undefined);
+      detail.removeAttribute("title");
+      // Our own sentence: wraps to a second line rather than being cut.
+      detail.setAttribute("wrap", "true");
+    } else {
+      detail.removeAttribute("data-l10n-id");
+      detail.removeAttribute("data-l10n-args");
+      detail.removeAttribute("wrap");
+      detail.textContent = o.detail;
+      detail.title = o.detail; // cropped to one line; the whole title on hover
+    }
+  },
+
+  _setAction(toast, action) {
+    const doc = toast.ownerDocument;
+    let button = toast.querySelector(".whimsy-toast-action");
+    if (!action) {
+      button?.remove();
+      return;
+    }
+    if (!button) {
+      button = doc.createElementNS(HTML_NS, "button");
+      button.type = "button";
+      button.className = "whimsy-toast-action";
+      button.addEventListener("click", event => {
+        event.stopPropagation();
+        const s = state.get(toast);
+        if (!s || s.busy) {
+          return;
+        }
+        const result = button._action?.onCommand?.(event);
+        if (result !== "keep") {
+          this.dismiss(toast);
+        }
+      });
+      toast.append(button);
+    }
+    button._action = action;
+    button.replaceChildren();
+    button.removeAttribute("aria-keyshortcuts");
+    if (action.id) {
+      const other = doc.getElementById(action.id);
+      if (other && other != button) {
+        other.removeAttribute("id");
+      }
+      button.id = action.id;
+    }
+    const spinner = doc.createElementNS(HTML_NS, "span");
+    spinner.className = "whimsy-toast-spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    const label = doc.createElementNS(HTML_NS, "span");
+    label.className = "whimsy-toast-action-label";
+    doc.l10n.setAttributes(label, action.l10nId, action.l10nArgs ?? undefined);
+    button.append(spinner, label);
+    if (action.keys) {
+      const keys = doc.createElementNS(HTML_NS, "kbd");
+      keys.className = "whimsy-toast-keys";
+      keys.setAttribute("aria-hidden", "true");
+      keys.textContent = action.keys;
+      button.append(keys);
+    }
+    if (action.ariaKeys) {
+      button.setAttribute("aria-keyshortcuts", action.ariaKeys);
+    }
+  },
+
+  /**
+   * Changes a toast in place, without animating it again.
+   *
+   * @param {Element} toast
+   * @param {object} c - any of: l10nId, l10nArgs, detail, detailL10nId,
+   *   detailArgs, action (null removes it), busy, timeout
+   *   busy: true disables the action and puts a small spinner in it, and
+   *   holds the toast until the next update.
+   */
+  update(toast, c = {}) {
+    const s = state.get(toast);
+    if (!s || !toast.isConnected) {
+      return;
+    }
+    const doc = toast.ownerDocument;
+    if (c.l10nId) {
+      toast._messageId = c.l10nId;
+      doc.l10n.setAttributes(toast.querySelector(".whimsy-toast-message"), c.l10nId, c.l10nArgs ?? undefined);
+    }
+    if ("detail" in c || "detailL10nId" in c) {
+      this._setDetail(toast, c);
+    }
+    if ("action" in c) {
+      this._setAction(toast, c.action);
+    }
+    if ("busy" in c) {
+      s.busy = !!c.busy;
+      toast.toggleAttribute("busy", s.busy);
+      toast.setAttribute("aria-busy", s.busy ? "true" : "false");
+      const button = toast.querySelector(".whimsy-toast-action");
+      if (button) {
+        button.disabled = s.busy;
+      }
+    }
+    if (s.busy) {
+      s.win.clearTimeout(s.timer);
+      s.timeout = 0;
+      return;
+    }
+    if ("timeout" in c || "busy" in c) {
+      const ms = c.timeout ?? (toast.querySelector(".whimsy-toast-action") ? ACTION_TIMEOUT_MS : PLAIN_TIMEOUT_MS);
+      s.timeout = ms;
+      if (!s.paused) {
+        this._schedule(toast, ms);
+      } else {
+        s.remaining = ms;
+      }
+    }
   },
 
   /** Hides a toast with its exit motion, then removes it. */
@@ -238,7 +379,8 @@ export const WhimsyToast = {
     s.remaining = ms;
     s.deadline = Date.now() + ms;
     s.paused = false;
-    if (Services.prefs.getBoolPref("ui.popup.disable_autohide", false)) {
+    // 0: until dismissed (or updated); busy: until the work answers.
+    if (!ms || s.busy || Services.prefs.getBoolPref("ui.popup.disable_autohide", false)) {
       return;
     }
     s.timer = s.win.setTimeout(() => this.dismiss(toast), ms);
@@ -264,7 +406,7 @@ export const WhimsyToast = {
       return;
     }
     toast.removeAttribute("paused");
-    this._schedule(toast, Math.max(s.remaining, RESUME_MIN_MS));
+    this._schedule(toast, s.timeout ? Math.max(s.remaining, RESUME_MIN_MS) : 0);
   },
 
   /** Whether `toast` is waiting (hovered, focused, window in background). */

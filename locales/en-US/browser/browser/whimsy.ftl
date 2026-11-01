@@ -4018,3 +4018,10 @@ whimsy-quick-window-tabs =
 whimsy-quick-window-tab-close =
     .title = Close Tab
     .aria-label = Close Tab
+
+## wave10: shared surface (WhimsySurface)
+
+whimsy-surface-close =
+    .tooltiptext = Close
+    .aria-label = Close
+whimsy-surface-copied = Copied
