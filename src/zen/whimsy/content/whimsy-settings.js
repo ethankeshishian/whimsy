@@ -2810,3 +2810,403 @@ document.addEventListener("paneshown", event => {
     gWhimsySettings.insertBatterySaverGroup(event.detail.category);
   }
 });
+
+// W10-22: Settings search shows where the hit is. Firefox reveals whole
+// groups (Whimsy's Tabs group has 30-odd rows), and its highlight can't
+// reach a XUL checkbox's label or a `searchkeywords` match, so the matching
+// row was impossible to spot ("trails"). After each search, in every group
+// it revealed: the matching rows get a tinted box; when a row matched only
+// a keyword, a "Matches “Trails”" tag says why; a group with three or more
+// rows folds the others into one "Show 26 more in Whimsy tabs" button; a
+// breadcrumb ("Tab Management › Whimsy tabs") with "Show in …" leads to the
+// row in its pane. A count line says how many settings match where, the
+// first hit scrolls into view, and Return in the search field moves
+// between hits (Shift+Return back).
+const WHIMSY_SEARCH_CONTROLS =
+  "checkbox, moz-checkbox, moz-toggle, moz-select, moz-radio-group, menulist, radiogroup, input, textarea, button, select, [data-whimsy-row]";
+
+Object.assign(gWhimsySettings, {
+  searchState: null,
+
+  initSearchAssist() {
+    if (this._searchAssist || typeof gSearchResultsPane != "object") {
+      return;
+    }
+    this._searchAssist = true;
+    window.addEventListener("PreferencesSearchCompleted", event => {
+      try {
+        this.decorateSearch(event.detail ?? "");
+      } catch (e) {
+        console.error("Whimsy settings: search results", e);
+      }
+    });
+    // Leaving the results (a pane in the sidebar, Show in …) clears them.
+    document.addEventListener("paneshown", event => {
+      if (event.detail?.category != "paneSearchResults") {
+        this.clearSearchDecorations();
+      }
+    });
+    const input = document.getElementById("searchInput");
+    input?.addEventListener("keydown", event => {
+      if (event.key == "Enter" && !event.altKey && !event.metaKey && !event.ctrlKey && this.searchState?.hits.length) {
+        event.preventDefault();
+        this.focusNextHit(event.shiftKey ? -1 : 1);
+      }
+    });
+  },
+
+  get reduceMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  },
+
+  // The groups Firefox's search left showing.
+  revealedGroups() {
+    const pane = document.getElementById("mainPrefPane");
+    return [...(pane?.children ?? [])].filter(
+      el =>
+        el.dataset.category &&
+        el.dataset.category != "paneSearchResults" &&
+        !el.hidden &&
+        !el.classList.contains("visually-hidden") &&
+        (el.localName == "groupbox" || el.classList.contains("whimsy-setting-card"))
+    );
+  },
+
+  // A group's rows: each child (of the group, its fieldset, or an
+  // On-demand features <details>) that holds a setting. A note right
+  // under a row goes with that row.
+  searchRows(group) {
+    if (group.id == "whimsyMenusGroup") {
+      // The menu a hit is in is shown (W10-21); its rows are the rows.
+      this.selectMenuForQuery(this.searchState?.query);
+      return [...group.querySelectorAll(".whimsy-menus-detail:not([data-inactive]) .whimsy-menus-row")].map(row => ({
+        nodes: [row],
+        main: row,
+      }));
+    }
+    const container = group.querySelector("moz-fieldset") ?? group;
+    const rows = [];
+    const walk = parent => {
+      for (const child of parent.children) {
+        if (child.localName == "summary" || child.classList.contains("whimsy-search-added")) {
+          continue;
+        }
+        if (child.localName == "label" && child.querySelector("h2, h3")) {
+          continue;
+        }
+        if (child.localName == "details") {
+          walk(child);
+          continue;
+        }
+        const isRow = child.matches(WHIMSY_SEARCH_CONTROLS) || !!child.querySelector(WHIMSY_SEARCH_CONTROLS);
+        if (isRow) {
+          rows.push({ nodes: [child], main: child });
+        } else if (rows.length && rows.at(-1).main.parentElement == parent) {
+          rows.at(-1).nodes.push(child);
+        }
+      }
+    };
+    walk(container);
+    return rows.filter(row => row.main.checkVisibility());
+  },
+
+  // Everything a row is found by: what it shows, its labels, and its
+  // search keywords.
+  searchTextOf(row) {
+    const parts = [];
+    for (const node of row.nodes) {
+      parts.push(node.textContent);
+      for (const el of [node, ...node.querySelectorAll("*")]) {
+        for (const attr of ["label", "description", "searchkeywords", "aria-label"]) {
+          const value = el.getAttribute?.(attr);
+          if (value) {
+            parts.push(value);
+          }
+        }
+      }
+    }
+    return parts.join(" \n ").toLowerCase();
+  },
+
+  visibleTextOf(row) {
+    const el = row.main;
+    const label =
+      el.getAttribute("label") ??
+      el.querySelector("[label]")?.getAttribute("label") ??
+      "";
+    return `${label} ${el.textContent}`.toLowerCase();
+  },
+
+  // The keyword that matched, in its own casing ("Trails").
+  keywordFor(row, query) {
+    for (const node of row.nodes) {
+      for (const el of [node, ...node.querySelectorAll("[searchkeywords]")]) {
+        const keywords = el.getAttribute?.("searchkeywords");
+        const at = keywords?.toLowerCase().indexOf(query) ?? -1;
+        if (at != -1) {
+          // The whole word around the match.
+          let start = at;
+          let end = at + query.length;
+          while (start > 0 && /[\p{L}\p{N}-]/u.test(keywords[start - 1])) {
+            start--;
+          }
+          while (end < keywords.length && /[\p{L}\p{N}-]/u.test(keywords[end])) {
+            end++;
+          }
+          return keywords.slice(start, end);
+        }
+      }
+    }
+    return null;
+  },
+
+  groupName(group) {
+    const heading = group.querySelector("h2, h3, .whimsy-menus-detail-title");
+    return (
+      heading?.textContent.trim() ||
+      group.querySelector("moz-fieldset")?.getAttribute("label") ||
+      ""
+    );
+  },
+
+  paneName(category) {
+    const button = document.querySelector(`moz-page-nav-button[view="${CSS.escape(category)}"]`);
+    return button?.textContent.trim() || button?.getAttribute("label") || "";
+  },
+
+  clearSearchDecorations() {
+    const state = this.searchState;
+    this.searchState = null;
+    for (const el of document.querySelectorAll(".whimsy-search-added")) {
+      el.remove();
+    }
+    for (const el of document.querySelectorAll(".whimsy-search-hit, .whimsy-search-collapsed")) {
+      el.classList.remove("whimsy-search-hit", "whimsy-search-collapsed");
+    }
+    for (const mark of document.querySelectorAll("mark.whimsy-search-mark")) {
+      const parent = mark.parentNode;
+      mark.replaceWith(...mark.childNodes);
+      parent.normalize();
+    }
+    for (const details of state?.opened ?? []) {
+      details.open = false;
+    }
+    const none = document.getElementById("no-results-message");
+    none?.classList.remove("whimsy-search-none");
+  },
+
+  decorateSearch(query) {
+    this.clearSearchDecorations();
+    query = query.trim().toLowerCase();
+    if (!query) {
+      return;
+    }
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const state = { query, hits: [], opened: [], index: -1 };
+    this.searchState = state;
+    let count = 0;
+    let places = 0;
+
+    for (const group of this.revealedGroups()) {
+      const rows = this.searchRows(group);
+      const groupName = this.groupName(group);
+      const headingHit = groupName.toLowerCase().includes(query);
+      const hits = rows.filter(row => this.searchTextOf(row).includes(query));
+      if (!hits.length) {
+        // Firefox found it somewhere we don't read (a heading, a link): one
+        // setting, in one place.
+        count += 1;
+        places += 1;
+        continue;
+      }
+      count += hits.length;
+      places += 1;
+
+      for (const row of hits) {
+        row.main.classList.add("whimsy-search-hit");
+        state.hits.push(row.main);
+        // In On-demand features: open it.
+        const details = row.main.closest("details");
+        if (details && !details.open) {
+          details.open = true;
+          state.opened.push(details);
+        }
+        const keyword = !this.visibleTextOf(row).includes(query) && this.keywordFor(row, query);
+        if (keyword) {
+          const tag = html("span");
+          tag.className = "whimsy-search-added whimsy-search-keyword";
+          document.l10n.setAttributes(tag, "whimsy-search-keyword", { term: keyword });
+          // Inside a XUL checkbox or an hbox row the tag sits after the
+          // label; other controls draw their own content, so after them.
+          if (row.main.localName == "checkbox" || row.main.localName == "hbox" || row.main.classList.contains("whimsy-menus-row")) {
+            row.main.append(tag);
+          } else {
+            row.main.after(tag);
+          }
+          // Firefox's own floating bubble says the same thing; one is enough.
+          for (const anchor of gSearchResultsPane.listSearchTooltips ?? []) {
+            if (row.nodes.some(node => node == anchor || node.contains(anchor))) {
+              anchor.tooltipNode?.remove();
+              anchor.tooltipNode = null;
+            }
+          }
+        }
+        // The matched words, marked, where the name is plain text of ours
+        // (Settings → Menus rows); XUL labels can't hold marks.
+        const label = row.main.querySelector(".whimsy-menus-row-label");
+        if (label) {
+          this.markText(label, query);
+        }
+      }
+
+      // Fold the rest of a long group.
+      const rest = rows.filter(row => !hits.includes(row));
+      if (rows.length >= 3 && rest.length && !headingHit && group.id != "whimsyMenusGroup") {
+        for (const row of rest) {
+          for (const node of row.nodes) {
+            node.classList.add("whimsy-search-collapsed");
+          }
+        }
+        // Folded rows' bubbles would float over the wrong rows.
+        for (const anchor of gSearchResultsPane.listSearchTooltips ?? []) {
+          if (anchor.tooltipNode && anchor.closest(".whimsy-search-collapsed")) {
+            anchor.tooltipNode.hidden = true;
+          }
+        }
+        // An On-demand features list with nothing left showing folds too.
+        for (const details of group.querySelectorAll("details")) {
+          const shown = [...details.children].some(
+            child => child.localName != "summary" && !child.classList.contains("whimsy-search-collapsed")
+          );
+          details.classList.toggle("whimsy-search-collapsed", !shown);
+        }
+        const more = document.createXULElement("button");
+        more.className = "whimsy-search-added whimsy-search-more";
+        document.l10n.setAttributes(more, "whimsy-search-more", { count: rest.length, group: groupName || this.paneName(group.dataset.category) });
+        more.addEventListener("command", () => {
+          for (const el of group.querySelectorAll(".whimsy-search-collapsed")) {
+            el.classList.remove("whimsy-search-collapsed");
+          }
+          for (const anchor of gSearchResultsPane.listSearchTooltips ?? []) {
+            if (anchor.tooltipNode && group.contains(anchor)) {
+              anchor.tooltipNode.hidden = false;
+            }
+          }
+          more.remove();
+          gSearchResultsPane._recomputeTooltipPositions?.();
+        });
+        const container = group.querySelector("moz-fieldset") ?? group;
+        container.append(more);
+      }
+
+      // Where it is, and a way there.
+      const crumb = document.createXULElement("hbox");
+      crumb.className = "whimsy-search-added whimsy-search-crumb";
+      crumb.setAttribute("align", "center");
+      const where = html("span");
+      where.className = "whimsy-search-crumb-path";
+      const pane = html("b");
+      pane.textContent = this.paneName(group.dataset.category);
+      where.append(pane);
+      if (groupName) {
+        where.append(` › ${groupName}`);
+      }
+      const go = document.createXULElement("button");
+      go.className = "whimsy-search-show-in text-link";
+      document.l10n.setAttributes(go, "whimsy-search-show-in", { pane: pane.textContent || groupName });
+      const first = hits[0].main;
+      go.addEventListener("command", () => this.showInPane(group.dataset.category, first));
+      crumb.append(where, go);
+      group.before(crumb);
+    }
+
+    // How many, where.
+    const header = document.getElementById("header-searchResults");
+    if (header && count) {
+      const line = html("div");
+      line.className = "whimsy-search-added whimsy-search-count";
+      line.setAttribute("role", "status");
+      line.setAttribute("aria-live", "polite");
+      document.l10n.setAttributes(line, "whimsy-search-count", { count, query, places });
+      header.after(line);
+    }
+    // Nothing: Whimsy's words instead of Firefox's.
+    const none = document.getElementById("no-results-message");
+    if (none && !none.hidden) {
+      none.classList.add("whimsy-search-none");
+      const box = html("div");
+      box.className = "whimsy-search-added whimsy-search-none-box";
+      const title = html("div");
+      title.className = "whimsy-search-none-title";
+      document.l10n.setAttributes(title, "whimsy-search-none-title", { query });
+      const hint = html("div");
+      hint.className = "whimsy-search-none-hint";
+      document.l10n.setAttributes(hint, "whimsy-search-none-hint");
+      box.append(title, hint);
+      none.append(box);
+    }
+
+    gSearchResultsPane._recomputeTooltipPositions?.();
+    // The first hit, in view.
+    state.hits[0]?.scrollIntoView({ block: "center", behavior: this.reduceMotion ? "instant" : "smooth" });
+  },
+
+  markText(el, query) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) {
+      nodes.push(walker.currentNode);
+    }
+    for (const node of nodes) {
+      const at = node.data.toLowerCase().indexOf(query);
+      if (at == -1) {
+        continue;
+      }
+      const match = node.splitText(at);
+      match.splitText(query.length);
+      const mark = document.createElementNS("http://www.w3.org/1999/xhtml", "mark");
+      mark.className = "whimsy-search-mark";
+      match.replaceWith(mark);
+      mark.append(match);
+    }
+  },
+
+  // Return / Shift+Return in the search field: the next (previous) hit's
+  // control gets the keyboard.
+  focusNextHit(step) {
+    const state = this.searchState;
+    if (!state?.hits.length) {
+      return;
+    }
+    state.index = (state.index + step + state.hits.length) % state.hits.length;
+    const hit = state.hits[state.index];
+    const control = hit.matches(WHIMSY_SEARCH_CONTROLS) ? hit : hit.querySelector(WHIMSY_SEARCH_CONTROLS);
+    hit.scrollIntoView({ block: "center", behavior: this.reduceMotion ? "instant" : "smooth" });
+    (control ?? hit).focus();
+  },
+
+  // Show in …: leaves the results for the row's pane, scrolls the row to
+  // the middle and marks it for two seconds.
+  async showInPane(category, row) {
+    const shown = new Promise(resolve => document.addEventListener("paneshown", resolve, { once: true }));
+    gotoPref(category);
+    await shown;
+    // Pane changes can re-render the row's group; wait a frame.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    if (!row.isConnected) {
+      return;
+    }
+    const details = row.closest("details");
+    if (details) {
+      details.open = true;
+    }
+    if (row.classList.contains("whimsy-menus-row")) {
+      this.selectMenu(row.closest(".whimsy-menus-detail")?.dataset.menu, { remember: false });
+    }
+    row.scrollIntoView({ block: "center", behavior: this.reduceMotion ? "instant" : "smooth" });
+    row.classList.add("whimsy-search-flash");
+    setTimeout(() => row.classList.remove("whimsy-search-flash"), 2000);
+  },
+});
+
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.initSearchAssist(), { once: true });

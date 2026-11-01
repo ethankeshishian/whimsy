@@ -4259,3 +4259,20 @@ whimsy-setting-profiles = Profile Settings
     .keywords = profiles, search engine per profile, download folder per profile
 whimsy-setting-profile-name = Profile Name
     .keywords = new profile, rename profile
+
+## W10-22: Settings search shows where the hit is.
+whimsy-search-count =
+    { $count ->
+        [one] 1 setting matches “{ $query }”
+       *[other] { $count } settings match “{ $query }”{ $places ->
+            [1] {""}
+           *[other] {" "}in { $places } places
+        }
+    }
+whimsy-search-more =
+    .label = Show { $count } more in { $group }
+whimsy-search-keyword = Matches “{ $term }”
+whimsy-search-show-in =
+    .label = Show in { $pane } →
+whimsy-search-none-title = No settings match “{ $query }”
+whimsy-search-none-hint = Check the spelling, or try a shorter word.

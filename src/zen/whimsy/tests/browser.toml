@@ -533,6 +533,9 @@ support-files = [
 ["browser_whimsy_pinned_marks.js"]
 
 # fix7 settings: Settings search finds every Whimsy group, in any pane.
+# W10-22: search results box the matching row, fold the rest, count and lead there.
+["browser_whimsy_settings_search_hits.js"]
+
 ["browser_whimsy_settings_search.js"]
 
 # wave10 (W10-12): every setting is found by Settings search and is a command.

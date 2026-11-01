@@ -1774,3 +1774,29 @@ add_task(async function w10_settings_menus() {
   }
   Services.prefs.clearUserPref("whimsy.menus.settings-last");
 });
+
+// W10-22: Settings search for "trails": the one row boxed and tagged, the
+// rest of its group folded, the breadcrumb and count; light and dark.
+add_task(async function w10_settings_search() {
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    await BrowserTestUtils.withNewTab("about:preferences#home", async browser => {
+      const doc = browser.contentDocument;
+      const win = browser.contentWindow;
+      await win.gSearchResultsPane.initializeCategories();
+      for (const query of ["trails", "trailzzqx"]) {
+        const done = BrowserTestUtils.waitForEvent(win, "PreferencesSearchCompleted", false, e => e.detail == query);
+        const input = doc.getElementById("searchInput");
+        input.value = query;
+        input.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
+        await done;
+        await doc.l10n.ready;
+        await settled(doc);
+        await new Promise(r => setTimeout(r, 400)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+        await shot(`w10-settings-search-${query == "trails" ? "trails" : "none"}-${dark ? "dark" : "light"}`,
+          browser.browsingContext.currentWindowGlobal);
+      }
+    });
+    await SpecialPowers.popPrefEnv();
+  }
+});
