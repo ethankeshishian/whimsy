@@ -693,3 +693,6 @@ support-files = ["whimsy_mini_links.html", "whimsy_oauth_opener.html", "whimsy_o
 # wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
 ["browser_whimsy_site_settings.js"]
 support-files = ["whimsy_article.html"]
+
+# wave10/mini W10-38: extensions in Mini: toolbar-pinned ones listed under the puzzle button, popups anchor there, action.openPopup() opens in a focused Mini.
+["browser_whimsy_mini_extensions.js"]

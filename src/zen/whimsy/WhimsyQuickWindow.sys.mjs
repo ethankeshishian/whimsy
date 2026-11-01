@@ -32,6 +32,9 @@
 //   a new one (WhimsyExternalLinks passes `reuse`).
 // - Cmd+O moves every page into the space, and its label counts them.
 // - Cmd+W closes the current page; the last one closes Mini.
+// W10-38: extensions pinned to the (hidden) toolbar are listed under the
+// puzzle button, and their popups, including a password manager's
+// in-page Unlock (action.openPopup), open from it.
 //
 // It's an ordinary browser.xhtml window (BrowserWindowTracker.openWindow,
 // same primitive Firefox uses for every new window): no new window type,
@@ -70,6 +73,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  CustomizableUI: "resource:///modules/CustomizableUI.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
@@ -166,9 +170,9 @@ export const WhimsyQuickWindow = {
     }
   },
 
-  // wave10/mini W10-13: Mini's new commands (registered in each Mini by
-  // initChrome): a new page (Cmd+Opt+T, New Private Tab elsewhere; Mini
-  // registers it first, so its own key wins there).
+  // wave10/mini W10-13/W10-38: Mini's new commands (registered in each Mini
+  // by initChrome): a new page (Cmd+Opt+T, New Private Tab elsewhere; Mini
+  // registers it first, so its own key wins there) and the extensions list.
   miniCommands() {
     const inMini = w => !!w?._whimsyQuickWindow && !w._whimsyMiniBarOnly;
     return [{
@@ -180,6 +184,15 @@ export const WhimsyQuickWindow = {
       icon: "chrome://browser/skin/zen-icons/plus.svg",
       isAvailable: w => inMini(w) && this.tabsEnabled,
       menu: "file-menu",
+    }, {
+      id: "cmd_whimsyMiniExtensions",
+      l10nId: "whimsy-action-mini-extensions",
+      run: w => this.showExtensions(w),
+      keyId: "key_whimsyMiniExtensions",
+      key: null,
+      icon: "chrome://browser/skin/zen-icons/extension.svg",
+      isAvailable: inMini,
+      menu: "tools-menu",
     }];
   },
 
@@ -672,8 +685,8 @@ export const WhimsyQuickWindow = {
       // Bookmarks gives it up in Mini only, see disableGlanceExpandKey.
       key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
     });
-    // wave10/mini: Mini's new commands (miniCommands), offered by the
-    // command bar in Mini only.
+    // wave10/mini: Mini's new page and extensions commands (miniCommands),
+    // offered by the command bar in Mini only.
     for (const spec of this.miniCommands()) {
       lazy.WhimsyCommands.register(win, spec);
     }
@@ -697,6 +710,7 @@ export const WhimsyQuickWindow = {
     this.watchDestination(win);
     this.watchPage(win);
     this.watchTabs(win);
+    this.watchToolbarExtensions(win);
     const rememberSize = () => {
       // The bar-only panel's size is Arc's fixed one, not Mini's.
       if (!win._whimsyMiniBarOnly && !win.fullScreen && win.windowState == win.STATE_NORMAL &&
@@ -1508,6 +1522,106 @@ export const WhimsyQuickWindow = {
     if (current.id != id || JSON.stringify(current.args ?? null) != JSON.stringify(args)) {
       win.document.l10n.setAttributes(button, id, args);
     }
+  },
+
+  // -- W10-38: extensions in Mini ---------------------------------------------
+
+  // The puzzle button's list (also a command, for a shortcut).
+  showExtensions(win) {
+    this.overflowToolbarExtensions(win);
+    win.gUnifiedExtensions?.togglePanel(null);
+  },
+
+  // Mini hides the toolbars, so an extension pinned to one (1Password pins
+  // itself) was out of reach: not in the puzzle list, which shows only
+  // unpinned ones, and its popup anchored to an invisible button, so it
+  // never opened. Firefox's own answer for a collapsed toolbar is to list
+  // its extensions under the puzzle button and anchor their popups there
+  // (gUnifiedExtensions.onToolbarVisibilityChange); Mini's toolbars count
+  // as collapsed.
+  overflowToolbarExtensions(win) {
+    const extensions = win.gUnifiedExtensions;
+    const CUI = lazy.CustomizableUI;
+    if (!extensions?.onToolbarVisibilityChange || win.closed) {
+      return;
+    }
+    for (const area of CUI.areas) {
+      if (CUI.getAreaType(area) != CUI.TYPE_TOOLBAR) {
+        continue;
+      }
+      let ids = [];
+      try {
+        ids = CUI.getWidgetIdsInArea(area).filter(id => CUI.isWebExtensionWidget(id));
+      } catch {
+        continue;
+      }
+      const shown = ids.some(id => {
+        const node = CUI.getWidget(id)?.forWindow(win)?.node;
+        return node && !node.hasAttribute("artificallyOverflowed");
+      });
+      if (shown) {
+        try {
+          extensions.onToolbarVisibilityChange(area, false);
+        } catch (e) {
+          console.error("Whimsy: Mini extensions", e);
+        }
+      }
+    }
+  },
+
+  // Whether an element is on screen (laid out, not hidden or collapsed).
+  isShown(element) {
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 &&
+      element.checkVisibility({ visibilityProperty: true });
+  },
+
+  watchToolbarExtensions(win) {
+    let queued = false;
+    const later = () => {
+      if (queued || win.closed) {
+        return;
+      }
+      queued = true;
+      win.setTimeout(() => {
+        queued = false;
+        this.overflowToolbarExtensions(win);
+      }, 0);
+    };
+    const listener = {
+      onWidgetAfterDOMChange: node => {
+        if (node?.documentGlobal == win) {
+          later();
+        }
+      },
+      onWidgetAdded: later,
+      onWidgetMoved: later,
+      onWidgetAfterCreation: later,
+    };
+    lazy.CustomizableUI.addListener(listener);
+    win.addEventListener("unload", () => lazy.CustomizableUI.removeListener(listener), { once: true });
+    // Zen anchors the popups of unpinned extensions to its site-controls
+    // icon (the add-ons area's anchor), which is in Mini's hidden nav bar,
+    // and a popup anchored to an unrendered node never shows. An
+    // extension's popup whose anchor isn't on screen opens from the
+    // puzzle button instead.
+    const panelUI = win.PanelUI;
+    if (panelUI?.showSubView && !panelUI._whimsyMini) {
+      panelUI._whimsyMini = true;
+      const showSubView = panelUI.showSubView;
+      panelUI.showSubView = function (viewId, anchor, ...rest) {
+        if (/^PanelUI-webext-.*-BAV$/.test(viewId ?? "") && anchor && !WhimsyQuickWindow.isShown(anchor)) {
+          const puzzle = win.document.getElementById("unified-extensions-button");
+          if (puzzle && WhimsyQuickWindow.isShown(puzzle)) {
+            anchor = puzzle;
+          }
+        }
+        return showSubView.call(this, viewId, anchor, ...rest);
+      };
+    }
+    // Extensions build their buttons as the window starts.
+    win.setTimeout(() => this.overflowToolbarExtensions(win), 0);
+    this.whenChromeReady(win).then(() => this.overflowToolbarExtensions(win));
   },
 
   // -- wave5/profiles: the profile pill ---------------------------------

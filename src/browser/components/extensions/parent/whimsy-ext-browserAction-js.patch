@@ -1,0 +1,31 @@
+diff --git a/browser/components/extensions/parent/ext-browserAction.js b/browser/components/extensions/parent/ext-browserAction.js
+index 45ce82b..0328643 100644
+--- a/browser/components/extensions/parent/ext-browserAction.js
++++ b/browser/components/extensions/parent/ext-browserAction.js
+@@ -1102,10 +1102,25 @@ this.browserAction = class extends ExtensionAPIPersistent {
+             throw new ExtensionError("openPopup requires a user gesture");
+           }
+ 
+-          const window =
++          let window =
+             typeof options?.windowId === "number"
+               ? windowTracker.getWindow(options.windowId, context)
+               : windowTracker.getTopNormalWindow(context);
++          // Whimsy (W10-38): Mini Whimsy is a popup window, so the "top
++          // normal" window is the main one behind it, which isn't focused,
++          // and a password manager's in-page Unlock failed. When Mini is
++          // the focused window, its popup opens there.
++          const whimsyActive = Services.focus.activeWindow;
++          if (
++            typeof options?.windowId !== "number" &&
++            !whimsyActive?.closed &&
++            whimsyActive?.document?.documentElement?.hasAttribute(
++              "whimsy-quick-window"
++            ) &&
++            extension.canAccessWindow(whimsyActive)
++          ) {
++            window = whimsyActive;
++          }
+ 
+           if (
+             // Ideally this should match the windows.Window.focused definition,
