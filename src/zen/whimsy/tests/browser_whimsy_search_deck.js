@@ -72,6 +72,14 @@ async function waitForCard(n, message) {
   await TestUtils.waitForCondition(() => deckUrl() == card(n), message);
 }
 
+add_task(function test_deck_is_opt_in() {
+  // W10-52 (Arc parity): Shift+Enter goes straight to the top result unless
+  // "Show it in a deck" is turned on.
+  const defaults = Services.prefs.getDefaultBranch("");
+  is(defaults.getBoolPref(DECK_PREF, true), false, "The Search Deck ships off");
+  is(defaults.getBoolPref(INSTANT_PREF, false), true, "Instant result ships on");
+});
+
 add_task(async function test_reads_results_from_the_page() {
   const results = await WhimsySearchDeck.readResults(SERP + "?q=cats");
   Assert.deepEqual(

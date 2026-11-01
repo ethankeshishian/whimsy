@@ -442,7 +442,7 @@
   value: true
 
 - name: whimsy.feature.search-deck
-  value: true
+  value: false
 
 - name: whimsy.feature.already-open
   value: true

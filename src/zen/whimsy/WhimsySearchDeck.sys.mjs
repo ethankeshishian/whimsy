@@ -10,8 +10,9 @@
 // everything Arc doesn't override: URLs, history/bookmark/tab rows, Zen's
 // commands, and private tabs.
 //
-// Search Deck (Cake's swipe-through results): with the deck on, Shift+Enter
-// opens the results page as Enter would, with result 1 in a Glance on top.
+// Search Deck (Cake's swipe-through results; off by default): with the deck
+// on, Shift+Enter opens the results page as Enter would, with result 1 in a
+// Glance on top.
 // The next/previous space keys (Cmd+Opt+→/←, Zen's defaults) and a
 // two-finger swipe over the card flip to the next/previous result; deck dots
 // show where you are. Cmd+Enter (or Zen's own Cmd+O) promotes the card to a
@@ -67,8 +68,8 @@ const decks = new WeakMap();
 const installed = new WeakSet();
 const sheets = new WeakSet();
 
-function enabled(pref) {
-  return Services.prefs.getBoolPref(pref, true);
+function enabled(pref, fallback = true) {
+  return Services.prefs.getBoolPref(pref, fallback);
 }
 
 function reducedMotion(win) {
@@ -89,7 +90,8 @@ export const WhimsySearchDeck = {
   },
 
   get deckEnabled() {
-    return enabled(DECK_PREF);
+    // W10-52: opt-in (Arc parity: Shift+Enter opens the top result).
+    return enabled(DECK_PREF, false);
   },
 
   deckFor(win) {

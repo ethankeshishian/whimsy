@@ -1129,7 +1129,8 @@ FEATURES = [
     {"id": "instant-result", "title": "Instant result: Shift+Enter on a search in the command bar opens the top result (Arc Max Instant Links)",
      "detect": [("src/zen", r"(?i)instant-?(result|link)s?")]},
     {"id": "search-deck", "title": "Search Deck: flip through search results one by one in a Glance; Cmd+Enter keeps one as a tab",
-     "detect": [("src/zen", r"(?i)search-?deck|result-?deck")]},
+     "detect": [("src/zen", r"(?i)search-?deck|result-?deck")],
+     "default": False},  # W10-52: opt-in; Shift+Enter goes straight to the top result (Arc).
     # wave6: Already open (Arc): Return on an address that's open in any
     # space goes to that tab instead of a duplicate. Zen already lists open
     # tabs as Switch to Tab results; this is only the typed-address case.
