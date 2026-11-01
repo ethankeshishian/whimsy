@@ -212,12 +212,16 @@ add_task(async function test_every_setting_is_found_by_search() {
       }
     }
 
-    // Settings → Menus: each row is found by its own words.
-    const toggle = doc.querySelector('[data-category="paneWhimsyMenus"] moz-toggle');
-    if (toggle) {
-      await TestUtils.waitForCondition(() => toggle.getAttribute("label"), "Menu rows are named");
-      await search(win, toggle.getAttribute("label"));
-      ok(shown(toggle), `Searching "${toggle.getAttribute("label")}" shows its menu row`);
+    // Settings → Menus: each row is found by its own words, and the search
+    // shows the menu it's in (W10-21).
+    const row =
+      doc.querySelector('[data-category="paneWhimsyMenus"] .whimsy-menus-detail[data-inactive] .whimsy-menus-row-label') ??
+      doc.querySelector('[data-category="paneWhimsyMenus"] .whimsy-menus-row-label');
+    if (row) {
+      await TestUtils.waitForCondition(() => row.textContent.trim(), "Menu rows are named");
+      const words = row.textContent.trim();
+      await search(win, words);
+      await TestUtils.waitForCondition(() => shown(row) && row.checkVisibility(), `Searching "${words}" shows its menu row`);
     }
   });
 });

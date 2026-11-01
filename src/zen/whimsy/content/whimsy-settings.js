@@ -2306,6 +2306,13 @@ Object.assign(gWhimsySettings, {
 // Links (register_module before init_all), so about:preferences#whimsyMenus
 // opens it and Settings search finds it.
 const WHIMSY_MENUS_PANE = "paneWhimsyMenus";
+// W10-21: the menu shown last in Settings → Menus (not synced).
+const WHIMSY_MENUS_LAST_PREF = "whimsy.menus.settings-last";
+// W10-21: the menu list's two groups, by where you right-click.
+const WHIMSY_MENUS_NAV = [
+  ["whimsy-menus-nav-sidebar", ["tab", "essential", "space", "folder", "sidebar", "split-row", "split-pane"]],
+  ["whimsy-menus-nav-page", ["page", "link", "selection", "image", "media"]],
+];
 
 Object.assign(gWhimsySettings, {
   get menuPrefs() {
@@ -2334,6 +2341,12 @@ Object.assign(gWhimsySettings, {
     register_module(WHIMSY_MENUS_PANE, { init: () => this.buildMenusPane() });
   },
 
+  // W10-21: one card. On the left, the menus (grouped by where you
+  // right-click), each with how many of its rows show; on the right, the
+  // chosen menu's rows in the menu's real order, a checkbox each, with the
+  // menu's separators drawn in the same box so every edge lines up. A
+  // submenu's rows sit indented under it. Narrow Settings: the list turns
+  // into a menu picker above the rows. The chosen menu is remembered.
   buildMenusPane() {
     if (document.getElementById("whimsyMenusCategory")) {
       return;
@@ -2361,15 +2374,127 @@ Object.assign(gWhimsySettings, {
     document.l10n.setAttributes(intro, "whimsy-menus-intro");
     header.append(title, intro);
 
-    const groups = prefs.menus.filter(menu => prefs.available(menu)).map(menu => this.buildMenuGroup(menu));
-    pane.append(header, ...groups);
+    const menus = prefs.menus.filter(menu => prefs.available(menu));
+    const group = document.createXULElement("groupbox");
+    group.id = "whimsyMenusGroup";
+    group.className = "highlighting-group whimsy-menus-group";
+    group.setAttribute("data-category", WHIMSY_MENUS_PANE);
+    // The old per-menu anchors (#whimsyMenus-tab, …) still land here.
+    group.setAttribute("data-subcategory", menus.map(menu => menu.id).join(" "));
+    group.hidden = true;
+
+    const card = html("div");
+    card.className = "whimsy-menus-card";
+
+    const nav = html("div");
+    nav.className = "whimsy-menus-nav";
+    nav.setAttribute("role", "listbox");
+    document.l10n.setAttributes(nav, "whimsy-menus-nav");
+    const picker = document.createXULElement("menulist");
+    picker.id = "whimsyMenusPicker";
+    picker.className = "whimsy-menus-picker";
+    picker.setAttribute("sizetopopup", "none");
+    document.l10n.setAttributes(picker, "whimsy-menus-nav");
+    const pickerPopup = document.createXULElement("menupopup");
+    picker.append(pickerPopup);
+
+    const details = html("div");
+    details.className = "whimsy-menus-details";
+    details.append(picker);
+
+    const addMenu = menu => {
+      const option = html("div");
+      option.id = `whimsyMenusNav-${menu.id}`;
+      option.className = "whimsy-menus-nav-item";
+      option.dataset.menu = menu.id;
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
+      option.setAttribute("aria-controls", `whimsyMenus-${menu.id}`);
+      option.tabIndex = -1;
+      const name = html("span");
+      name.className = "whimsy-menus-nav-name";
+      document.l10n.setAttributes(name, menu.l10n);
+      const count = html("span");
+      count.className = "whimsy-menus-nav-count";
+      option.append(name, count);
+      option.addEventListener("click", () => this.selectMenu(menu.id, { focus: true }));
+      nav.append(option);
+
+      const item = document.createXULElement("menuitem");
+      item.setAttribute("value", menu.id);
+      item.dataset.l10nName = menu.l10n;
+      pickerPopup.append(item);
+
+      details.append(this.buildMenuGroup(menu));
+    };
+    const placed = new Set();
+    for (const [heading, ids] of WHIMSY_MENUS_NAV) {
+      const inGroup = ids.map(id => menus.find(menu => menu.id == id)).filter(Boolean);
+      if (!inGroup.length) {
+        continue;
+      }
+      const label = html("div");
+      label.className = "whimsy-menus-nav-heading";
+      label.setAttribute("role", "presentation");
+      document.l10n.setAttributes(label, heading);
+      nav.append(label);
+      for (const menu of inGroup) {
+        addMenu(menu);
+        placed.add(menu.id);
+      }
+    }
+    // A menu added to the registry but not to the list's groups goes last,
+    // so nothing is ever unreachable.
+    for (const menu of menus.filter(m => !placed.has(m.id))) {
+      addMenu(menu);
+    }
+
+    // A listbox: Up/Down (and Home/End) move and show that menu.
+    nav.addEventListener("keydown", event => {
+      const options = [...nav.querySelectorAll(".whimsy-menus-nav-item")];
+      const index = options.indexOf(event.target.closest?.(".whimsy-menus-nav-item"));
+      if (index == -1 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      const next = {
+        ArrowDown: Math.min(index + 1, options.length - 1),
+        ArrowUp: Math.max(index - 1, 0),
+        Home: 0,
+        End: options.length - 1,
+      }[event.key];
+      if (next === undefined) {
+        return;
+      }
+      event.preventDefault();
+      this.selectMenu(options[next].dataset.menu, { focus: true });
+    });
+    picker.addEventListener("command", () => this.selectMenu(picker.value));
+
+    const layout = html("div");
+    layout.className = "whimsy-menus-layout";
+    layout.append(nav, details);
+    card.append(layout);
+    group.append(card);
+    pane.append(header, group);
+
+    // The picker's rows read the menus' names (menuitems take a label, not
+    // text, so they're formatted here).
+    document.l10n
+      .formatValues([...pickerPopup.children].map(item => ({ id: item.dataset.l10nName })))
+      .then(names => {
+        [...pickerPopup.children].forEach((item, i) => item.setAttribute("label", names[i]));
+      })
+      .catch(console.error);
+
+    const last = Services.prefs.getStringPref(WHIMSY_MENUS_LAST_PREF, "");
+    this.selectMenu(menus.some(menu => menu.id == last) ? last : menus[0]?.id, { remember: false });
 
     const observer = {
       observe: (subject, topic, pref) => {
         const id = pref.slice(prefs.prefName("").length);
-        const group = document.getElementById(`whimsyMenus-${id}`);
-        if (group) {
-          this.refreshMenuGroup(group);
+        const detail = document.getElementById(`whimsyMenus-${id}`);
+        if (detail) {
+          this.refreshMenuGroup(detail);
         }
       },
     };
@@ -2377,6 +2502,75 @@ Object.assign(gWhimsySettings, {
     window.addEventListener("unload", () => Services.prefs.removeObserver(prefs.prefName(""), observer), {
       once: true,
     });
+    // about:preferences#whimsyMenus-<menu> opens on that menu.
+    document.addEventListener("paneshown", event => {
+      const { category, subcategory } = event.detail ?? {};
+      if (category == WHIMSY_MENUS_PANE && subcategory && document.getElementById(`whimsyMenus-${subcategory}`)) {
+        this.selectMenu(subcategory);
+      }
+    });
+    // A search that finds a row shows the menu it's in.
+    window.addEventListener("PreferencesSearchCompleted", event => {
+      if (event.detail && !group.classList.contains("visually-hidden")) {
+        this.selectMenuForQuery(event.detail);
+      }
+    });
+    const hash = document.location.hash.match(/^#whimsyMenus-(.+)$/);
+    if (hash && document.getElementById(`whimsyMenus-${hash[1]}`)) {
+      this.selectMenu(hash[1], { remember: false });
+    }
+  },
+
+  // Shows one menu's rows. `focus` moves the keyboard to its list entry
+  // (selection follows focus, as in a listbox).
+  selectMenu(menuId, { focus = false, remember = true } = {}) {
+    const detail = document.getElementById(`whimsyMenus-${menuId}`);
+    if (!detail) {
+      return;
+    }
+    for (const option of document.querySelectorAll(".whimsy-menus-nav-item")) {
+      const selected = option.dataset.menu == menuId;
+      option.setAttribute("aria-selected", selected);
+      option.tabIndex = selected ? 0 : -1;
+      if (selected && focus) {
+        option.focus();
+      }
+    }
+    // Not `hidden`: Firefox's search skips hidden nodes, and every menu's
+    // rows must stay searchable.
+    for (const panel of document.querySelectorAll(".whimsy-menus-detail")) {
+      panel.toggleAttribute("data-inactive", panel != detail);
+    }
+    const picker = document.getElementById("whimsyMenusPicker");
+    if (picker && picker.value != menuId) {
+      picker.value = menuId;
+    }
+    document.querySelector(".whimsy-menus-nav")?.setAttribute("aria-activedescendant", `whimsyMenusNav-${menuId}`);
+    if (remember) {
+      Services.prefs.setStringPref(WHIMSY_MENUS_LAST_PREF, menuId);
+    }
+  },
+
+  // W10-21/W10-22: a search that matches a row's name shows the menu that
+  // row is in. Returns that menu's id (or null).
+  selectMenuForQuery(query) {
+    const needle = query?.trim().toLowerCase();
+    if (!needle) {
+      return null;
+    }
+    const current = document.querySelector(".whimsy-menus-detail:not([data-inactive])");
+    const panels = [current, ...document.querySelectorAll(".whimsy-menus-detail")].filter(Boolean);
+    for (const panel of panels) {
+      const hit = [...panel.querySelectorAll(".whimsy-menus-row")].find(row =>
+        [row.querySelector(".whimsy-menus-row-label")?.textContent, row.querySelector(".whimsy-menus-row-hint")?.textContent]
+          .some(text => text?.toLowerCase().includes(needle))
+      );
+      if (hit) {
+        this.selectMenu(panel.dataset.menu, { remember: false });
+        return panel.dataset.menu;
+      }
+    }
+    return null;
   },
 
   buildMenuGroup(menu) {
@@ -2384,84 +2578,124 @@ Object.assign(gWhimsySettings, {
     const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
     const base = `whimsyMenus-${menu.id}`;
 
-    const group = document.createXULElement("groupbox");
-    group.id = base;
-    group.className = "highlighting-group whimsy-menus-group";
-    group.setAttribute("data-category", WHIMSY_MENUS_PANE);
-    group.dataset.menu = menu.id;
-    group.hidden = true;
+    const detail = html("div");
+    detail.id = base;
+    detail.className = "whimsy-menus-detail";
+    detail.dataset.menu = menu.id;
+    detail.setAttribute("role", "tabpanel");
+    detail.setAttribute("aria-labelledby", `whimsyMenusNav-${menu.id}`);
+    detail.setAttribute("data-inactive", "");
 
-    const label = document.createXULElement("label");
-    const heading = html("h2");
+    const heading = html("h3");
     heading.id = `${base}-header`;
+    heading.className = "whimsy-menus-detail-title";
     document.l10n.setAttributes(heading, menu.l10n);
-    label.append(heading);
-
     const description = document.createXULElement("description");
     description.id = `${base}-description`;
     description.className = "description-deemphasized";
     document.l10n.setAttributes(description, `${menu.l10n}-description`);
 
-    // Filled only while every item is off; a live region, so turning the
+    // Filled only while every row is off; a live region, so turning the
     // last one off is announced.
     const note = html("div");
     note.id = `${base}-note`;
     note.className = "whimsy-menus-note";
     note.setAttribute("role", "status");
 
-    const list = html("div");
-    list.className = "whimsy-menus-list";
-    list.setAttribute("role", "group");
-    list.setAttribute("aria-labelledby", heading.id);
-    let previous = null;
+    // Rows, separators and submenu rows share one grid, so checkboxes,
+    // names, hints and separator lines all meet the same edges.
+    const rows = html("div");
+    rows.className = "whimsy-menus-rows";
+    rows.setAttribute("role", "group");
+    rows.setAttribute("aria-labelledby", heading.id);
+    const labels = [];
+    const addRow = (entry, parent = null) => {
+      const row = html("label");
+      row.className = "whimsy-menus-row";
+      row.dataset.item = entry.id;
+      if (parent) {
+        row.classList.add("whimsy-menus-row-child");
+        row.dataset.parent = parent.id;
+      }
+      const box = html("input");
+      box.type = "checkbox";
+      box.className = "whimsy-menus-check";
+      box.dataset.item = entry.id;
+      box.addEventListener("change", () => prefs.setHidden(menu.id, entry.id, !box.checked));
+      const name = html("span");
+      name.className = "whimsy-menus-row-label";
+      name.id = `${base}-row-${entry.id}`;
+      labels.push({ node: name, entry });
+      row.append(box, name);
+      if (entry.hintL10n) {
+        const hint = html("span");
+        hint.className = "whimsy-menus-row-hint";
+        document.l10n.setAttributes(hint, entry.hintL10n);
+        row.append(hint);
+        box.setAttribute("aria-describedby", hint.id = `${base}-hint-${entry.id}`);
+      }
+      rows.append(row);
+    };
+    const addSeparator = () => {
+      const last = rows.lastElementChild;
+      if (last && !last.classList.contains("whimsy-menus-sep")) {
+        const sep = html("div");
+        sep.className = "whimsy-menus-sep";
+        sep.setAttribute("aria-hidden", "true");
+        rows.append(sep);
+      }
+    };
     for (const entry of prefs.groupedItems(menu.id)) {
       if (prefs.isSeparator(entry)) {
-        // Only between two rows.
-        if (previous && !prefs.isSeparator(previous)) {
-          const divider = html("div");
-          divider.className = "whimsy-menus-divider";
-          divider.setAttribute("aria-hidden", "true");
-          list.append(divider);
-        }
-        previous = entry;
+        addSeparator();
         continue;
       }
-      // W10-20: a submenu's rows follow it.
-      for (const row of [entry, ...(entry.children ?? []).filter(child => !prefs.isSeparator(child))]) {
-        const toggle = html("moz-toggle");
-        toggle.dataset.item = row.id;
-        document.l10n.setAttributes(toggle, row.l10n, this.menuRowArgs(row));
-        toggle.addEventListener("toggle", () => prefs.setHidden(menu.id, row.id, !toggle.pressed));
-        list.append(toggle);
+      addRow(entry);
+      for (const child of entry.children ?? []) {
+        if (!prefs.isSeparator(child)) {
+          addRow(child, entry);
+        }
       }
-      previous = entry;
     }
-    if (list.lastElementChild?.classList.contains("whimsy-menus-divider")) {
-      list.lastElementChild.remove();
+    if (rows.lastElementChild?.classList.contains("whimsy-menus-sep")) {
+      rows.lastElementChild.remove();
     }
-    // Up/Down (and Home/End) move between the switches, as in a list; Tab
+    // A row's name is its menu row's own wording (".label" messages).
+    document.l10n
+      .formatMessages(labels.map(({ entry }) => ({ id: entry.l10n, args: this.menuRowArgs(entry) })))
+      .then(messages => {
+        labels.forEach(({ node }, i) => {
+          const message = messages[i];
+          node.textContent = message?.value ?? message?.attributes?.find(a => a.name == "label")?.value ?? "";
+        });
+      })
+      .catch(console.error);
+
+    // Up/Down (and Home/End) move between the checkboxes, as in a list; Tab
     // still visits each one.
-    list.addEventListener("keydown", event => {
-      const toggles = [...list.querySelectorAll("moz-toggle")];
-      const index = toggles.indexOf(event.target.closest?.("moz-toggle") ?? event.target);
+    rows.addEventListener("keydown", event => {
+      const boxes = [...rows.querySelectorAll(".whimsy-menus-check")];
+      const index = boxes.indexOf(event.target);
       if (index == -1 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
       const next = {
-        ArrowDown: Math.min(index + 1, toggles.length - 1),
+        ArrowDown: Math.min(index + 1, boxes.length - 1),
         ArrowUp: Math.max(index - 1, 0),
         Home: 0,
-        End: toggles.length - 1,
+        End: boxes.length - 1,
       }[event.key];
       if (next === undefined) {
         return;
       }
       event.preventDefault();
-      toggles[next].focus();
+      boxes[next].focus();
     });
 
-    const actions = document.createXULElement("hbox");
-    actions.className = "whimsy-menus-actions";
+    const foot = html("div");
+    foot.className = "whimsy-menus-foot";
+    const count = html("span");
+    count.className = "whimsy-menus-count";
     const restore = document.createXULElement("button");
     restore.id = `${base}-restore`;
     restore.className = "whimsy-menus-restore";
@@ -2470,14 +2704,14 @@ Object.assign(gWhimsySettings, {
     restore.setAttribute("aria-describedby", heading.id);
     restore.addEventListener("command", () => {
       prefs.restoreDefaults(menu.id);
-      // Focus stays in the group (the button is now disabled).
-      list.querySelector("moz-toggle")?.focus();
+      // Focus stays in the menu (the button is now disabled).
+      rows.querySelector(".whimsy-menus-check")?.focus();
     });
-    actions.append(restore);
+    foot.append(count, restore);
 
-    group.append(label, description, note, list, actions);
-    this.refreshMenuGroup(group);
-    return group;
+    detail.append(heading, description, note, rows, foot);
+    this.refreshMenuGroup(detail);
+    return detail;
   },
 
   // W10-20: rows whose name has a part only known here ("Email with Mail").
@@ -2489,16 +2723,44 @@ Object.assign(gWhimsySettings, {
     return undefined;
   },
 
-  refreshMenuGroup(group) {
+  // How many of the menu's rows show (a submenu's rows only while it does).
+  menuCounts(menuId) {
     const prefs = this.menuPrefs;
-    const menuId = group.dataset.menu;
     const hidden = prefs.hiddenIds(menuId);
-    for (const toggle of group.querySelectorAll("moz-toggle")) {
-      toggle.pressed = !hidden.has(toggle.dataset.item);
+    const items = prefs.items(menuId);
+    const shown = items.filter(entry => {
+      const parent = prefs.parentOf(menuId, entry.id);
+      return !hidden.has(entry.id) && !(parent && hidden.has(parent.id));
+    }).length;
+    return { shown, total: items.length };
+  },
+
+  refreshMenuGroup(detail) {
+    const prefs = this.menuPrefs;
+    const menuId = detail.dataset.menu;
+    const hidden = prefs.hiddenIds(menuId);
+    for (const row of detail.querySelectorAll(".whimsy-menus-row")) {
+      const box = row.querySelector(".whimsy-menus-check");
+      box.checked = !hidden.has(row.dataset.item);
+      // A submenu's rows can't show while it's off: disabled, not unchecked.
+      box.disabled = !!row.dataset.parent && hidden.has(row.dataset.parent);
+      row.toggleAttribute("data-off", !box.checked || box.disabled);
     }
-    group.querySelector(".whimsy-menus-restore").disabled = prefs.isDefault(menuId);
-    const note = group.querySelector(".whimsy-menus-note");
-    if (prefs.allHidden(menuId)) {
+    detail.querySelector(".whimsy-menus-restore").disabled = prefs.isDefault(menuId);
+    const { shown, total } = this.menuCounts(menuId);
+    document.l10n.setAttributes(detail.querySelector(".whimsy-menus-count"), "whimsy-menus-count", { shown, total });
+    const allOff = prefs.allHidden(menuId);
+    const navCount = document.querySelector(`#whimsyMenusNav-${CSS.escape(menuId)} .whimsy-menus-nav-count`);
+    if (navCount) {
+      if (allOff) {
+        document.l10n.setAttributes(navCount, "whimsy-menus-nav-off");
+      } else {
+        document.l10n.setAttributes(navCount, "whimsy-menus-nav-count", { shown, total });
+      }
+      navCount.closest(".whimsy-menus-nav-item").toggleAttribute("data-all-off", allOff);
+    }
+    const note = detail.querySelector(".whimsy-menus-note");
+    if (allOff) {
       if (note.getAttribute("data-l10n-id") != "whimsy-menus-all-off") {
         document.l10n.setAttributes(note, "whimsy-menus-all-off");
       }

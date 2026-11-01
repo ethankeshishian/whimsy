@@ -608,6 +608,10 @@
 - name: whimsy.menus.hidden.media
   value: "element-info"
 
+# W10-21: the menu Settings → Menus showed last (not synced).
+- name: whimsy.menus.settings-last
+  value: ""
+
 # wave9/menus: which ADDED_HIDDEN lists a changed menu has already taken.
 - name: whimsy.menus.defaults-version
   value: 0

@@ -1744,3 +1744,33 @@ add_task(async function w10_selection_menu() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-21: Settings → Menus as one card (menus on the left, Selected Text's
+// rows on the right), light and dark; and a menu with every row off.
+add_task(async function w10_settings_menus() {
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    await BrowserTestUtils.withNewTab("about:preferences#whimsyMenus-selection", async browser => {
+      const doc = browser.contentDocument;
+      const card = await TestUtils.waitForCondition(() => doc.querySelector(".whimsy-menus-card"), "The card is built");
+      const detail = doc.getElementById("whimsyMenus-selection");
+      await TestUtils.waitForCondition(() => detail.checkVisibility(), "Selected Text shows");
+      await TestUtils.waitForCondition(
+        () => [...detail.querySelectorAll(".whimsy-menus-row-label")].every(l => l.textContent.trim()), "Rows are named");
+      await doc.l10n.translateFragment(card);
+      card.scrollIntoView({ block: "start" });
+      await settled(doc);
+      await shot(`w10-settings-menus-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      const { WhimsyMenuPrefs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs");
+      for (const item of WhimsyMenuPrefs.items("folder")) {
+        WhimsyMenuPrefs.setHidden("folder", item.id, true);
+      }
+      doc.getElementById("whimsyMenusNav-folder").click();
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyMenus-folder-note").textContent.trim(), "All-off note");
+      await shot(`w10-settings-menus-all-off-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      WhimsyMenuPrefs.restoreDefaults("folder");
+    });
+    await SpecialPowers.popPrefEnv();
+  }
+  Services.prefs.clearUserPref("whimsy.menus.settings-last");
+});

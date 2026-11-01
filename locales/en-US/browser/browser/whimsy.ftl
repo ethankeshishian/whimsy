@@ -2932,33 +2932,42 @@ whimsy-split-always-show-headers-help = Each pane keeps a bar at its top with ba
 
 whimsy-pane-menus-title = Menus
 whimsy-menus-title = Menus
-whimsy-menus-intro = Choose what shows when you right-click. Turn off the items you never use; the change applies the next time you open that menu.
+whimsy-menus-intro = Choose what shows when you right-click. Changes apply the next time you open that menu.
 whimsy-menus-restore =
     .label = Restore Defaults
-whimsy-menus-all-off = Every item is off, so right-clicking here won’t open a menu.
+whimsy-menus-all-off = Every row is off, so right-clicking here opens no menu.
+# W10-21: the pane's menu list (grouped by where you right-click), each
+# menu's count of rows that show, and the narrow-window picker.
+whimsy-menus-nav =
+    .aria-label = Menus
+whimsy-menus-nav-sidebar = In the sidebar
+whimsy-menus-nav-page = On a page
+whimsy-menus-nav-count = { $shown }/{ $total }
+whimsy-menus-nav-off = Off
+whimsy-menus-count = { $shown } of { $total } rows show
 
 whimsy-menus-tab = Tab
-whimsy-menus-tab-description = Right-click a tab in the sidebar.
+whimsy-menus-tab-description = When you right-click a tab in the sidebar.
 whimsy-menus-essential = Essential
-whimsy-menus-essential-description = Right-click an Essential. It has its own copy of the tab menu’s items.
+whimsy-menus-essential-description = When you right-click an Essential. It has its own copy of the tab menu’s rows.
 whimsy-menus-link = Link
-whimsy-menus-link-description = Right-click a link on a page.
+whimsy-menus-link-description = When you right-click a link on a page.
 whimsy-menus-page = Page
-whimsy-menus-page-description = Right-click an empty part of a page.
+whimsy-menus-page-description = When you right-click an empty part of a page.
 whimsy-menus-selection = Selected Text
-whimsy-menus-selection-description = Right-click text you’ve selected on a page.
+whimsy-menus-selection-description = When you right-click text you’ve selected on a page.
 whimsy-menus-image = Image
-whimsy-menus-image-description = Right-click an image on a page. Link items show when the image is a link.
+whimsy-menus-image-description = When you right-click an image on a page. Link rows show when the image is a link.
 whimsy-menus-space = Space
-whimsy-menus-space-description = Right-click a space’s icon, or click the space’s ⋯ button.
+whimsy-menus-space-description = When you right-click a space’s icon, or click its ⋯ button.
 whimsy-menus-sidebar = Sidebar
-whimsy-menus-sidebar-description = Right-click an empty part of the sidebar.
+whimsy-menus-sidebar-description = When you right-click an empty part of the sidebar.
 whimsy-menus-folder = Folder
-whimsy-menus-folder-description = Right-click a folder in the sidebar.
-whimsy-menus-split-row = Split View Row
-whimsy-menus-split-row-description = Right-click a split view in the sidebar.
+whimsy-menus-folder-description = When you right-click a folder in the sidebar.
+whimsy-menus-split-row = Split View
+whimsy-menus-split-row-description = When you right-click a split view in the sidebar.
 whimsy-menus-split-pane = Split View Pane
-whimsy-menus-split-pane-description = Click ⋯ on a split view pane, or open a pane under Tab Options.
+whimsy-menus-split-pane-description = When you click ⋯ on a split view pane, or open a pane under Tab Options.
 
 # Shared by several menus.
 whimsy-menus-inspect =
@@ -3629,7 +3638,7 @@ whimsy-menus-folder-live-resync =
     .label = Live Options ▸ Resync
     .description = On live folders
 whimsy-menus-media = Video and Audio
-whimsy-menus-media-description = Right-click a video or audio player on a page.
+whimsy-menus-media-description = When you right-click a video or audio player on a page.
 whimsy-menus-media-play =
     .label = Play / Pause
 whimsy-menus-media-mute =
