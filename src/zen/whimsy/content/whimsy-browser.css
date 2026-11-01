@@ -4669,3 +4669,128 @@ panel.whimsy-sheet.whimsy-snooze {
 #urlbar[whimsy-closing] {
   pointer-events: none;
 }
+
+/* W10-26: the Quick Note card (New Note). The Edit Space Look family
+   (panel.whimsy-look-picker: 380px, 10px padding, its track, hover and
+   selected tokens), with a note body and a "This page" chip. */
+panel.whimsy-quick-note {
+  .whimsy-look-picker-header {
+    gap: 8px;
+
+    & > .whimsy-look-picker-title {
+      flex: 1;
+    }
+  }
+
+  .whimsy-quick-note-name {
+    font-size: 13px;
+  }
+
+  .whimsy-quick-note-body {
+    min-height: 132px;
+    max-height: calc(12lh + 16px);
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--whimsy-look-track);
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+    resize: none;
+    overflow-y: auto;
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-outline-color, AccentColor);
+      outline-offset: -1px;
+    }
+  }
+
+  .whimsy-quick-note-attach {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 0 9px 0 6px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: var(--whimsy-look-track);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    transition: background-color 100ms ease-out, scale 100ms ease-out;
+
+    &:not(:disabled):hover {
+      background-color: var(--whimsy-look-hover);
+    }
+    &:not(:disabled):active {
+      scale: 0.96;
+    }
+    &:disabled {
+      color: var(--whimsy-look-muted);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--focus-outline-color, AccentColor);
+      outline-offset: 1px;
+    }
+    &[aria-checked="true"] {
+      background: var(--whimsy-look-selected);
+      font-weight: 600;
+    }
+  }
+
+  .whimsy-quick-note-check {
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    border: 1.5px solid currentColor;
+    border-radius: 4px;
+    opacity: 0.7;
+
+    .whimsy-quick-note-attach:disabled > & {
+      display: none;
+    }
+    .whimsy-quick-note-attach[aria-checked="true"] > & {
+      border-color: var(--zen-primary-color, AccentColor);
+      background: var(--zen-primary-color, AccentColor) url("chrome://global/skin/icons/check.svg") center / 10px no-repeat;
+      -moz-context-properties: fill;
+      fill: white;
+      opacity: 1;
+    }
+  }
+
+  .whimsy-quick-note-favicon {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .whimsy-quick-note-hint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  panel.whimsy-quick-note .whimsy-quick-note-attach {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  panel.whimsy-quick-note .whimsy-quick-note-body,
+  panel.whimsy-quick-note .whimsy-quick-note-attach {
+    border-color: currentColor;
+  }
+}

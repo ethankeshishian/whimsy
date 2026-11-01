@@ -165,6 +165,9 @@ support-files = ["whimsy_archive.sjs"]
 ["browser_whimsy_scratch.js"]
 support-files = ["whimsy_article.html"]
 # batch10: Library sidebar panels.
+# W10-26: New Note's Quick Note card, attaching to the page, the Library's autosave.
+["browser_whimsy_quick_note.js"]
+
 ["browser_whimsy_library_notes.js"]
 
 ["browser_whimsy_library_finder_folders.js"]

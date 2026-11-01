@@ -3506,7 +3506,32 @@ whimsy-context-verb-linear-search =
 # (macOS's own name for this).
 whimsy-context-quick-actions =
     .label = Quick Actions
-whimsy-note-created-toast = Created a new note
+## W10-26: the Quick Note card (New Note) and its "Note saved" toast.
+whimsy-quick-note-title = New Note
+whimsy-quick-note-name =
+    .placeholder = Title
+    .aria-label = Title
+whimsy-quick-note-body =
+    .placeholder = Write a note. Markdown works.
+    .aria-label = Note
+whimsy-quick-note-attach = This page · { $host }
+whimsy-quick-note-attach-button =
+    .aria-label = Keep with this page, { $host }
+whimsy-quick-note-private = Not kept with private pages
+whimsy-quick-note-no-page = No page to keep it with
+whimsy-quick-note-saved = Saved
+whimsy-quick-note-hint-attached = Shows again when you open this page
+whimsy-quick-note-hint = Notes for { $profile } · saved as you type
+whimsy-quick-note-hint-plain = Saved as you type
+whimsy-quick-note-open =
+    .label = Open in Notes
+whimsy-quick-note-done =
+    .label = Done
+whimsy-note-saved-toast = Note saved
+whimsy-note-saved-open = Open
+whimsy-action-open-notes = Open Notes
+whimsy-library-notes-this-page = This page
+whimsy-library-notes-other = Other notes
 ## batch8: W8-04 Collapse All Folders
 whimsy-action-collapse-all-folders = Collapse All Folders
 whimsy-action-expand-all-folders = Expand All Folders

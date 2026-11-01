@@ -44,6 +44,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   gWhimsyNotesStore: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
+  WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
   WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
@@ -421,8 +422,9 @@ const BUILT_IN = [
       const userContextId = win.gBrowser?.selectedTab?.userContextId ?? 0;
       const profileKey = lazy.WhimsyProfiles.keyFor(userContextId);
       const note = await lazy.gWhimsyNotesStore.create({ profileKey });
-      await lazy.gWhimsyNotesStore.update(note.id, { title: s.title, text, url: s.url });
-      win.gZenUIManager?.showToast?.("whimsy-verb-note-toast");
+      const saved = await lazy.gWhimsyNotesStore.update(note.id, { title: s.title, text, url: s.url });
+      // W10-26: "Note saved", with Open, like the Quick Note card.
+      lazy.WhimsyNotes.showSavedToast(win, saved ?? note);
     },
   },
   // Optional ones from here on, so the fixed verbs above never move.

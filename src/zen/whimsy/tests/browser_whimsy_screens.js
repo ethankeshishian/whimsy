@@ -1830,3 +1830,41 @@ add_task(async function w10_settings_ai() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// W10-26: the Quick Note card beside the sidebar, kept with the page, with
+// a title and a few lines; light and dark.
+add_task(async function w10_quick_note() {
+  const { WhimsyNotes, gWhimsyNotesStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-quick-note");
+      const opening = WhimsyNotes.openQuickNote(window, { attach: true });
+      await shown;
+      const panel = await opening;
+      panel.querySelector(".whimsy-quick-note-name").value = "Halloween potluck";
+      const body = panel.querySelector(".whimsy-quick-note-body");
+      body.value = "Bring a dish and a costume.\nKids' parade at 7.\n- pumpkin pie\n- cider";
+      body.dispatchEvent(new InputEvent("input", { bubbles: true }));
+      await TestUtils.waitForCondition(
+        () => panel.querySelector(".whimsy-quick-note-attach").getAttribute("aria-checked") == "true", "Kept with the page");
+      await document.l10n.translateFragment(panel);
+      await settled();
+      await shot(`w10-quick-note-${dark ? "dark" : "light"}`);
+      const gone = TestUtils.waitForCondition(() => !panel.isConnected);
+      panel.querySelector(".whimsy-quick-note-done").doCommand();
+      await gone;
+      await settled();
+      await shot(`w10-quick-note-saved-toast-${dark ? "dark" : "light"}`);
+      for (const note of await gWhimsyNotesStore.list()) {
+        if (note.title == "Halloween potluck") {
+          await gWhimsyNotesStore.remove(note.id);
+        }
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

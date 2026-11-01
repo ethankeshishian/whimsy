@@ -11,7 +11,7 @@ import {
   blocksEnabled,
   parseEmbedCommand,
 } from "./whimsy-note-blocks.mjs";
-const { gWhimsyNotesStore, NOTES_CHANGED_TOPIC } = ChromeUtils.importESModule(
+const { gWhimsyNotesStore, NOTES_CHANGED_TOPIC, WhimsyNotes, QUICK_NOTE_SAVE_MS } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs"
 );
 const lazy = {};
@@ -68,6 +68,12 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
   // or switching to a space of another profile.
   #observer = () => this.#refresh();
 
+  // W10-26: what you've typed but isn't saved yet, by note id: shown over
+  // the stored note, so a save that lands while you type never rewinds
+  // the field.
+  #drafts = new Map();
+  #saveTimers = new Map();
+
   connectedCallback() {
     super.connectedCallback();
     Services.obs.addObserver(this.#observer, NOTES_CHANGED_TOPIC);
@@ -90,7 +96,56 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
   }
 
   async #refresh() {
-    this.notes = await gWhimsyNotesStore.list(this.profileKey);
+    const notes = await gWhimsyNotesStore.list(this.profileKey);
+    this.notes = notes.map(note => (this.#drafts.has(note.id) ? { ...note, ...this.#drafts.get(note.id) } : note));
+    this.focusPendingNote();
+  }
+
+  // W10-26: the Library opened on a note (Open in Notes, the toast's
+  // Open): that note, open for editing.
+  focusPendingNote() {
+    const win = this.ownerDocument?.defaultView;
+    const id = win && WhimsyNotes.takeFocusNote(win);
+    if (!id) {
+      return;
+    }
+    this.editingId = id;
+    this.updateComplete.then(() => {
+      this.querySelector(`[data-note-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
+      this.querySelector(".whimsy-note-editor textarea")?.focus();
+    });
+  }
+
+  // W10-26: saved as you type (300ms after the last key), and at once
+  // when the field loses focus, so a click elsewhere never loses it.
+  #draft(note, field, value) {
+    const draft = { ...(this.#drafts.get(note.id) ?? {}), [field]: value };
+    this.#drafts.set(note.id, draft);
+    clearTimeout(this.#saveTimers.get(note.id));
+    this.#saveTimers.set(
+      note.id,
+      setTimeout(() => this.#flush(note), QUICK_NOTE_SAVE_MS)
+    );
+  }
+
+  async #flush(note) {
+    clearTimeout(this.#saveTimers.get(note.id));
+    this.#saveTimers.delete(note.id);
+    const draft = this.#drafts.get(note.id);
+    if (!draft) {
+      return;
+    }
+    if ("text" in draft) {
+      await this.#setText(note, draft.text, { refresh: false });
+    }
+    if ("title" in draft) {
+      await gWhimsyNotesStore.update(note.id, { title: draft.title });
+    }
+    // Typed more while saving: keep that draft for the next save.
+    if (this.#drafts.get(note.id) === draft) {
+      this.#drafts.delete(note.id);
+    }
+    await this.#refresh();
   }
 
   get searchPlaceholderL10nId() {
@@ -127,7 +182,7 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     );
   }
 
-  async #setText(note, text) {
+  async #setText(note, text, { refresh = true } = {}) {
     if (note.pageAttached) {
       try {
         await lazy.TabNotes.set(this.ownerDocument.defaultView.gBrowser.selectedTab, text || " ");
@@ -136,18 +191,27 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
       }
     }
     await gWhimsyNotesStore.update(note.id, { text });
-    await this.#refresh();
+    if (refresh) {
+      await this.#refresh();
+    }
   }
 
-  async #setTitle(note, title) {
-    await gWhimsyNotesStore.update(note.id, { title });
-    await this.#refresh();
+  // The page a note can be kept with: its canonical address, else what the
+  // address bar shows (W10-26: a page without a canonical URL attached
+  // nothing, silently).
+  #pageURL() {
+    const win = this.ownerDocument.defaultView;
+    return win.gBrowser.selectedTab?.canonicalUrl ?? win.gBrowser.currentURI?.spec ?? null;
   }
 
   async #toggleAttach(note) {
+    await this.#flush(note);
+    // Read it again: the checkbox may be older than the note.
+    note = (await gWhimsyNotesStore.list()).find(n => n.id == note.id) ?? note;
     if (!note.pageAttached) {
       const tab = this.ownerDocument.defaultView.gBrowser.selectedTab;
-      if (!tab?.canonicalUrl) {
+      const url = this.#pageURL();
+      if (!tab || !url) {
         return;
       }
       // wave8/isolation: attaching saves the page's address (Firefox's
@@ -161,10 +225,9 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
       try {
         await lazy.TabNotes.set(tab, note.text || " ");
       } catch (e) {
-        console.error("Whimsy: attach note to page", e);
-        return;
+        // An address TabNotes can't keep: the note keeps it.
       }
-      await gWhimsyNotesStore.update(note.id, { pageAttached: true, url: tab.canonicalUrl });
+      await gWhimsyNotesStore.update(note.id, { pageAttached: true, url });
     } else {
       await gWhimsyNotesStore.update(note.id, { pageAttached: false, url: null });
     }
@@ -302,7 +365,7 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     }
     const editing = this.editingId == note.id;
     return html`
-      <div class="zen-library-group">
+      <div class="zen-library-group" data-note-id=${note.id}>
         <div
           class="zen-library-row"
           @click=${() => {
@@ -342,12 +405,15 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
                     type="text"
                     data-l10n-id="whimsy-library-notes-title-placeholder"
                     .value=${note.title}
-                    @change=${event => this.#setTitle(note, event.target.value)}
+                    @input=${event => this.#draft(note, "title", event.target.value)}
+                    @change=${() => this.#flush(note)}
                   />
                   <textarea
                     rows="6"
                     .value=${note.text}
-                    @change=${event => this.#setText(note, event.target.value)}
+                    @input=${event => this.#draft(note, "text", event.target.value)}
+                    @change=${() => this.#flush(note)}
+                    @blur=${() => this.#flush(note)}
                     @keydown=${event => this.#onEditorKeydown(note, event)}
                   ></textarea>
                   ${this.#renderBlocks(note)}
@@ -371,7 +437,19 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     if (!this.notes.length) {
       return html`<div class="zen-library-empty" data-l10n-id="whimsy-library-notes-empty"></div>`;
     }
-    return repeat(this.notes, n => n.id, n => this.#renderNote(n));
+    // W10-26: notes kept with the page you're on, first.
+    const url = this.#pageURL();
+    const here = url ? this.notes.filter(n => n.pageAttached && n.url == url) : [];
+    if (!here.length) {
+      return repeat(this.notes, n => n.id, n => this.#renderNote(n));
+    }
+    const rest = this.notes.filter(n => !here.includes(n));
+    return html`
+      <div class="zen-library-group whimsy-notes-this-page"><h3 data-l10n-id="whimsy-library-notes-this-page"></h3></div>
+      ${repeat(here, n => n.id, n => this.#renderNote(n))}
+      ${rest.length ? html`<div class="zen-library-group whimsy-notes-others"><h3 data-l10n-id="whimsy-library-notes-other"></h3></div>` : ""}
+      ${repeat(rest, n => n.id, n => this.#renderNote(n))}
+    `;
   }
 
   renderFooter() {
