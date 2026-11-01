@@ -371,7 +371,7 @@ support-files = ["whimsy_ai_page.html"]
 support-files = ["whimsy_easel_live.html"]
 # wave5: Redact in the Screenshots panel (detectors, click-to-blur, image pixels, cleanup).
 ["browser_whimsy_redact.js"]
-support-files = ["whimsy_redact.html", "whimsy_redact_frames.html"]
+support-files = ["whimsy_redact.html", "whimsy_redact_frames.html", "whimsy_redact_link.html"]
 
 # wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
 ["browser_whimsy_live_folders_local_servers.js"]

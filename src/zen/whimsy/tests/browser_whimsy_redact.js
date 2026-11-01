@@ -12,6 +12,7 @@ const { ScreenshotsUtils } = ChromeUtils.importESModule("moz-src:///browser/comp
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_redact.html";
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "");
 const FRAMES = `https://example.com${ROOT}whimsy_redact_frames.html`;
+const LINK = `https://example.com${ROOT}whimsy_redact_link.html`;
 const SECRET = ["email", "phone", "key", "card", "bottom", "fixedmail"];
 const CLEAN = ["notcard", "date", "plain"];
 
@@ -66,6 +67,7 @@ add_setup(async function () {
       ["screenshots.browser.component.enabled", true],
       ["whimsy.feature.redact", true],
       ["whimsy.capture.redact", false],
+      ["whimsy.capture.redact-style", "black"],
     ],
   });
 });
@@ -311,6 +313,207 @@ add_task(async function test_redact_inside_frames() {
   for (const frame of [same, cross]) {
     ok(!(await WhimsyRedact.state(browser, frame))?.active, "Cancelling clears the frames too");
   }
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+// --- W10-57 ---
+
+// The average brightness (0-255) inside a page rect of a capture, in from
+// its edges (the fixture's spans are taller than their text, whose boxes
+// are what Redact covers).
+function meanLuma(canvas, rect, region) {
+  const dpr = region.devicePixelRatio;
+  const [dx, dy] = [4, 9];
+  const x = Math.round((rect.left - region.left + dx) * dpr);
+  const y = Math.round((rect.top - region.top + dy) * dpr);
+  const w = Math.max(1, Math.round((rect.width - dx * 2) * dpr));
+  const h = Math.max(1, Math.round((rect.height - dy * 2) * dpr));
+  const d = canvas.getContext("2d").getImageData(x, y, w, h).data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    sum += (d[i] + d[i + 1] + d[i + 2]) / 3;
+  }
+  return sum / (d.length / 4);
+}
+
+// Clicks and presses that reached the link page, and where it went.
+function linkPage(bc) {
+  return SpecialPowers.spawn(bc, [], () => ({
+    hash: content.location.hash,
+    click: Number(content.document.body.dataset.click || 0),
+    mousedown: Number(content.document.body.dataset.mousedown || 0),
+  }));
+}
+
+// Black Out is the default look: solid black boxes, in the image too, with
+// a row under the bar that says how to hide more and offers Blur.
+add_task(async function test_black_out_by_default_and_in_the_image() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.capture.redact", false]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  await openScreenshots(browser);
+  const root = buttons(browser);
+  const options = root.getElementById("whimsy-redact-options");
+  ok(options, "Redact has an options row");
+  ok(options.hidden, "hidden while Redact is off");
+
+  root.getElementById("whimsy-redact").click();
+  ok(!options.hidden, "Turning Redact on shows the options");
+  is(root.getElementById("whimsy-redact-hint").getAttribute("data-l10n-id"), "whimsy-redact-hint", "with the click hint");
+  is(root.getElementById("whimsy-redact-style-black").getAttribute("aria-pressed"), "true", "Black Out is chosen");
+  is(root.getElementById("whimsy-redact-style-blur").getAttribute("aria-pressed"), "false", "Blur is the other choice");
+  const tiles = root.querySelector("moz-button-group").getBoundingClientRect();
+  Assert.lessOrEqual(Math.round(options.getBoundingClientRect().width), Math.round(root.host.getBoundingClientRect().width), "The row fits the bar");
+  Assert.greater(options.getBoundingClientRect().top, tiles.top, "and sits under the tiles");
+  await TestUtils.waitForCondition(async () => (await boxes(browser)).length >= SECRET.length, "Sensitive text is hidden");
+  is((await WhimsyRedact.state(browser)).style, "black", "in black");
+
+  // Black out a plain line by clicking it.
+  await BrowserTestUtils.synthesizeMouseAtCenter("#plain", {}, browser);
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.added == 1, "Clicking text blacks it out");
+
+  const rects = await spanRects(browser);
+  ScreenshotsUtils.closeOverlay(browser);
+  const region = await ScreenshotsUtils.fetchFullPageBounds(browser);
+  const image = await ScreenshotsUtils.createCanvas({ ...region }, browser);
+  for (const id of ["email", "card", "plain", "bottom"]) {
+    Assert.less(meanLuma(image, rects[id], region), 40, `#${id} is a black box in the image`);
+  }
+  Assert.greater(meanLuma(image, rects.date, region), 120, "Text left alone stays on white");
+
+  await closeScreenshots(browser);
+  ScreenshotsUtils.exit(browser);
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_switch_to_blur_and_back() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.capture.redact", true]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  await openScreenshots(browser);
+  await TestUtils.waitForCondition(async () => (await boxes(browser)).length >= SECRET.length, "Redaction is on");
+  const root = buttons(browser);
+  const count = (await boxes(browser)).length;
+
+  root.getElementById("whimsy-redact-style-blur").click();
+  is(Services.prefs.getStringPref("whimsy.capture.redact-style"), "blur", "Blur is remembered");
+  is(root.getElementById("whimsy-redact-style-blur").getAttribute("aria-pressed"), "true", "and shows chosen");
+  is(root.getElementById("whimsy-redact-style-black").getAttribute("aria-pressed"), "false", "Black Out doesn't");
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.style == "blur", "The boxes blur");
+  is((await boxes(browser)).length, count, "over the same text");
+
+  root.getElementById("whimsy-redact-style-black").click();
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.style == "black", "and go back to black");
+  is(Services.prefs.getStringPref("whimsy.capture.redact-style"), "black", "Black Out is remembered");
+
+  // Turning Redact off hides the row again.
+  root.getElementById("whimsy-redact").click();
+  ok(root.getElementById("whimsy-redact-options").hidden, "Redact off hides its options");
+  await closeScreenshots(browser);
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+// The user's case: with Redact on, a click on a link's text hides the text
+// and doesn't follow the link.
+add_task(async function test_click_on_link_text_redacts_without_following() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.capture.redact", true]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINK);
+  const browser = tab.linkedBrowser;
+  await openScreenshots(browser);
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.guard, "The page is guarded");
+  await BrowserTestUtils.synthesizeMouseAtCenter("#go", {}, browser);
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.added == 1, "The link's text is hidden");
+  const page = await linkPage(browser);
+  is(page.hash, "", "The link wasn't followed");
+  is(page.click, 0, "and the page never saw the click");
+  is(page.mousedown, 0, "or the press");
+  await closeScreenshots(browser);
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+// The guard itself, in the top page: nothing reaches the page while it's
+// on (as before the Screenshots overlay is up), and everything does again
+// once it's off.
+add_task(async function test_guard_top_page() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINK);
+  const browser = tab.linkedBrowser;
+  await WhimsyRedact.guard(browser, true);
+  await BrowserTestUtils.synthesizeMouseAtCenter("#go", {}, browser);
+  let page = await linkPage(browser);
+  is(page.hash, "", "Guarded: the link isn't followed");
+  is(page.click + page.mousedown, 0, "and the page sees no click or press");
+
+  await WhimsyRedact.guard(browser, false);
+  await BrowserTestUtils.synthesizeMouseAtCenter("#go", {}, browser);
+  await TestUtils.waitForCondition(async () => (await linkPage(browser)).hash == "#went", "Unguarded: the link works again");
+  page = await linkPage(browser);
+  is(page.click, 1, "and the page gets its click");
+  BrowserTestUtils.removeTab(tab);
+});
+
+// Screenshots stops events only in the top page's process: a click that
+// lands in a cross-origin frame (its own process) used to follow the
+// frame's link. The guard covers every frame for the whole session.
+add_task(async function test_guard_cross_origin_frame() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FRAMES);
+  const browser = tab.linkedBrowser;
+  await SpecialPowers.spawn(browser, [`https://example.org${ROOT}whimsy_redact_link.html`], async url => {
+    const frame = content.document.getElementById("cross");
+    const loaded = new Promise(resolve => frame.addEventListener("load", resolve, { once: true }));
+    frame.src = url;
+    await loaded;
+  });
+  const cross = browser.browsingContext.children.find(bc => bc.currentWindowGlobal?.documentURI?.host == "example.org");
+  ok(cross, "A cross-origin frame");
+
+  await openScreenshots(browser);
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser, cross))?.guard, "The frame is guarded");
+  await BrowserTestUtils.synthesizeMouseAtCenter("#go", {}, cross);
+  let page = await linkPage(cross);
+  is(page.hash, "", "A click in the frame doesn't follow its link");
+  is(page.click + page.mousedown, 0, "and the frame sees no click or press");
+  // Option+click (Glance) and Shift+click (Peek) find no link either: the
+  // click lands on the frame's shield.
+  const tabs = gBrowser.tabs.length;
+  for (const mods of [{ altKey: true }, { shiftKey: true }]) {
+    await BrowserTestUtils.synthesizeMouseAtCenter("#go", mods, cross);
+  }
+  await new Promise(resolve => setTimeout(resolve, 300));
+  is(gBrowser.tabs.length, tabs, "No Glance or Peek opens");
+  is((await linkPage(cross)).hash, "", "and the link still isn't followed");
+
+  ScreenshotsUtils.cancel(browser, "Escape");
+  await TestUtils.waitForCondition(async () => !(await WhimsyRedact.state(browser, cross))?.guard, "Closing Screenshots ends the guard");
+  await BrowserTestUtils.synthesizeMouseAtCenter("#go", {}, cross);
+  await TestUtils.waitForCondition(async () => (await linkPage(cross)).hash == "#went", "and the frame's link works again");
+  BrowserTestUtils.removeTab(tab);
+});
+
+// Every action is a command: Capture and Redact… opens Capture with Redact
+// on, and flips Redact while Capture is open.
+add_task(async function test_capture_and_redact_command() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.capture.redact", false]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  const command = document.getElementById("cmd_whimsyCaptureRedact");
+  ok(command, "The command exists");
+  command.doCommand();
+  await TestUtils.waitForCondition(() => {
+    const panel = ScreenshotsUtils.panelForBrowser(browser);
+    return panel && !panel.hidden;
+  }, "It opens Capture");
+  ok(Services.prefs.getBoolPref("whimsy.capture.redact"), "with Redact on");
+  await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.active, "and the page redacted");
+
+  command.doCommand();
+  ok(!Services.prefs.getBoolPref("whimsy.capture.redact"), "Again: Redact turns off");
+  ok(!ScreenshotsUtils.panelForBrowser(browser).hidden, "and Capture stays open");
+  await TestUtils.waitForCondition(async () => !(await WhimsyRedact.state(browser))?.active, "The page is back to normal");
+  ScreenshotsUtils.cancel(browser, "Escape");
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
 });

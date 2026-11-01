@@ -24,6 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
   saveCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
+  WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
 });
 
 const CAPTURE_FEATURE_PREF = "whimsy.feature.capture";
@@ -316,14 +317,15 @@ export const WhimsyPage = {
   // browser goes back. A page that doesn't reflow is cropped to 9:16 instead.
   PORTRAIT_WIDTH: 390,
 
-  async copyPortraitScreenshot(win, browser = win.gBrowser.selectedBrowser) {
-    if (!this.captureEnabled || !isWebPage(win)) {
-      return null;
-    }
-    const { ScreenshotsUtils, BrowserUtils } = lazy;
+  isWebPage(win) {
+    return isWebPage(win);
+  },
+
+  // The portrait shot of a browser's page: { canvas, rect }. Throws when
+  // the page can't be drawn.
+  async portraitCanvas(browser) {
     const { style } = browser;
     const saved = { width: style.width, maxWidth: style.maxWidth, marginInline: style.marginInline };
-    let rect, canvas;
     try {
       // An explicit width too: with only a max-width and auto margins, the
       // browser (a flex item in Zen's layout) shrinks to nothing.
@@ -331,16 +333,30 @@ export const WhimsyPage = {
       style.maxWidth = `${this.PORTRAIT_WIDTH}px`;
       style.marginInline = "auto";
       const actor = browser.browsingContext.currentWindowGlobal.getActor("WhimsyPage");
-      rect = this.portraitRect(await actor.sendQuery("Whimsy:PortraitBounds", { width: this.PORTRAIT_WIDTH }));
-      canvas = await ScreenshotsUtils.createCanvas(rect, browser);
-    } catch (e) {
-      console.error("Whimsy: portrait capture", e);
-      win.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
-      return null;
+      const rect = this.portraitRect(await actor.sendQuery("Whimsy:PortraitBounds", { width: this.PORTRAIT_WIDTH }));
+      // W10-59: Redact's boxes follow the text to its phone-width place.
+      await lazy.WhimsyRedact.redraw(browser);
+      const canvas = await lazy.ScreenshotsUtils.createCanvas(rect, browser);
+      return { canvas, rect };
     } finally {
       style.width = saved.width;
       style.maxWidth = saved.maxWidth;
       style.marginInline = saved.marginInline;
+    }
+  },
+
+  async copyPortraitScreenshot(win, browser = win.gBrowser.selectedBrowser) {
+    if (!this.captureEnabled || !isWebPage(win)) {
+      return null;
+    }
+    const { BrowserUtils } = lazy;
+    let rect, canvas;
+    try {
+      ({ rect, canvas } = await this.portraitCanvas(browser));
+    } catch (e) {
+      console.error("Whimsy: portrait capture", e);
+      win.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
+      return null;
     }
     const blob = await canvas.convertToBlob();
     BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
@@ -349,6 +365,40 @@ export const WhimsyPage = {
     await lazy.saveCapture(blob, browser);
     const ratio = rect.devicePixelRatio || 1;
     return { width: canvas.width / ratio, height: canvas.height / ratio, layoutWidth: rect.layoutWidth };
+  },
+
+  // W10-59: the Portrait tile in the Screenshots bar (beside Visible and
+  // Full Page). Like those two: the bar and overlay close, the shot is
+  // drawn (with Redact's boxes, if it's on), and Firefox's preview opens
+  // with Copy, Download and Retry, so Copy also reaches the Library.
+  async takePortraitScreenshot(browser) {
+    const win = browser.documentGlobal;
+    const utils = lazy.ScreenshotsUtils;
+    utils.closePanel(browser);
+    utils.closeOverlay(browser, { doNotResetMethods: true, highlightRegions: true });
+    Services.focus.setFocus(browser, 0);
+    let rect, canvas;
+    try {
+      ({ rect, canvas } = await this.portraitCanvas(browser));
+    } catch (e) {
+      console.error("Whimsy: portrait capture", e);
+      win.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
+      utils.exit(browser);
+      return null;
+    }
+    const blob = await canvas.convertToBlob();
+    const dialog = await utils.openPreviewDialog(browser);
+    await dialog._dialogReady;
+    const preview = dialog._frame.contentDocument.querySelector("screenshots-preview");
+    const blobURL = URL.createObjectURL(blob);
+    utils.setBlobURL(browser, blobURL);
+    preview.previewImg.src = blobURL;
+    preview.focusButton(Services.prefs.getStringPref("screenshots.browser.component.last-saved-method", "download"));
+    if (Cu.isInAutomation) {
+      Services.obs.notifyObservers(null, "screenshots-preview-ready");
+    }
+    const ratio = rect.devicePixelRatio || 1;
+    return { width: canvas.width / ratio, height: canvas.height / ratio };
   },
 
   // --- Edit text on page ---

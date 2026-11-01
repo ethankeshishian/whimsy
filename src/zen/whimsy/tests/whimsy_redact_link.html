@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Redact link fixture</title>
+<style>
+  body { margin: 0; padding: 20px; font: 32px/1.6 sans-serif; color: #111; background: #fff; }
+  a { display: inline-block; padding: 8px; }
+</style>
+</head>
+<body>
+<!-- W10-57: a link a click must not follow while Screenshots is open. The
+     page counts every click and press that reaches it. -->
+<p><a id="go" href="#went">Read the whole story</a></p>
+<script>
+  for (const type of ["click", "mousedown", "mouseup", "pointerdown"]) {
+    addEventListener(type, () => {
+      document.body.dataset[type] = String(Number(document.body.dataset[type] || 0) + 1);
+    }, true);
+  }
+</script>
+</body>
+</html>

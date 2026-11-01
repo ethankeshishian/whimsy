@@ -823,7 +823,9 @@ export const Whimsy = {
     run("selection-verbs", () => lazy.WhimsyVerbs.initWindow(win));
 
     // wave5: redact. Adds the toggle to the Screenshots panel; it checks
-    // whimsy.feature.redact each time the panel shows.
+    // whimsy.feature.redact each time the panel shows. W10-57/59: also the
+    // Portrait tile, and the guard that keeps clicks from the page while
+    // Screenshots is open.
     run("redact", () => lazy.WhimsyRedact.initWindow(win));
     // wave5/look: a look per space. After Zen's spaces are ready (Mini
     // has none of its own and follows its destination's); it checks its
