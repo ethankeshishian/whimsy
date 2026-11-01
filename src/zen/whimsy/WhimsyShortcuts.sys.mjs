@@ -29,10 +29,14 @@
 //   DevTools adds its keys after the window starts, so this runs at
 //   delayed startup.
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   CustomKeys: "moz-src:///browser/components/customkeys/CustomKeys.sys.mjs",
+  ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -50,16 +54,22 @@ export const SHORTCUTS = {
   key_newNavigator: { modifiers: "accel,alt,shift", key: "N" },
 };
 
-// wave10 (W10-47): keys that pages can't take. In Arc every menu-bar
-// shortcut is a macOS menu key equivalent, which the app handles before the
-// web page sees the key. A Firefox <key> goes to the page first unless it is
-// reserved, so a site that handled ⇧⌘L itself (preventDefault on keydown)
-// swallowed Open Library…. These are Arc's browser-level menu keys (tabs,
-// spaces, windows, the Library, the sidebar, Little Arc, copy URL), as
-// Whimsy binds them. Firefox already reserves New Tab, Close Tab/Window and
-// Quit. Ids that don't exist (a feature switched off) are skipped. The
-// reservation follows the key, whatever the person rebinds it to, unless
-// the new binding is one of CONTENT_BINDINGS below.
+// wave10 (W10-61): Arc's browser keys, "press again" model. These are
+// Arc's browser-level menu keys (tabs, spaces, windows, the Library, the
+// sidebar, Little Arc, copy URL), as Whimsy binds them. A page that doesn't
+// use one never sees a difference: the browser acts on the first press. A
+// page that does use it (its keydown handler cancels the key, e.g. ⌘S in
+// Google Docs, ⇧⌘C in a code editor) gets the first press, a toast says
+// "Press ⌘S again for Hide Sidebar", and a second press in a row runs the
+// browser's command without reaching the page.
+//
+// W10-47 had reserved these keys (the page never saw them); the user chose
+// Arc's model instead (TICKETS W10-61), so nothing here is reserved any
+// more. Firefox's own reserved keys (New Tab, Close Tab/Window, Quit, New
+// Window) stay Firefox's. Ids that don't exist (a feature switched off)
+// are skipped, and the model follows each key whatever the person rebinds
+// it to. The name RESERVED_KEYS is kept for the tests and tickets that
+// cite it.
 export const RESERVED_KEYS = [
   // Window: Open Library…, View Downloads…
   "zen-library-toggle",
@@ -79,12 +89,14 @@ export const RESERVED_KEYS = [
   "key_whimsyTabNext",
   "key_whimsyTabPrev",
   "zen-close-all-unpinned-tabs",
-  // Edit: Copy URL, as Markdown, as Quote. W10-41: these failed on
-  // copy-protected pages, whose keydown handler cancels every Cmd+C.
+  // Edit: Copy URL, as Markdown, as Quote (W10-41: copy-protected pages
+  // cancel every Cmd key, so these take the second press there).
   "zen-copy-url",
   "zen-copy-url-markdown",
   "key_whimsyCopyURLQuote",
-  // View: Show Toolbar, Add Split View, Close this Split Pane
+  // View: Hide Sidebar (⌘S, the Save key in every editor: those pages keep
+  // the first press), Show Toolbar, Add Split View, Close this Split Pane
+  "zen-compact-mode-toggle",
   "key_cmd_whimsyToggleToolbar",
   "key_whimsyAddSplitView",
   "key_whimsyCloseSplitPane",
@@ -94,46 +106,80 @@ export const RESERVED_KEYS = [
   ...Array.from({ length: 10 }, (_, i) => `zen-workspace-switch-${i + 1}`),
 ];
 
-// Never reserved: what pages legitimately use for their own content
-// (Copy, Cut, Paste, Paste and Match Style, Select All, Undo, Redo, Find,
-// Find Again/Previous, Save, Print, Bold, Italic, Underline). Arc's ⌘S Hide
-// Sidebar is left to pages too: it is the Save key in every editor (Google
-// Docs, Notion, Figma), so zen-compact-mode-toggle isn't in RESERVED_KEYS.
-// A reserved key that someone rebinds onto one of these stops being
-// reserved. As "modifiers|KEY".
-export const CONTENT_BINDINGS = [
-  "accel|C",
-  "accel|X",
-  "accel|V",
-  "accel,shift|V",
-  "accel,alt,shift|V",
-  "accel|A",
-  "accel|Z",
-  "accel,shift|Z",
-  "accel|Y",
-  "accel|F",
-  "accel|G",
-  "accel,shift|G",
-  "accel|S",
-  "accel|P",
-  "accel|B",
-  "accel|I",
-  "accel|U",
-];
+const IS_MAC = AppConstants.platform == "macosx";
+const PRESS_AGAIN_PREF = "whimsy.feature.press-again";
+// How long the second press may come after the first (the hint's life).
+export const PRESS_AGAIN_MS = 3000;
+// The bindings the content side reports, shared with every process.
+export const PRESS_AGAIN_SHARED_KEY = "Whimsy:PressAgainKeys";
+// <key keycode="..."> names for the keys browser shortcuts use.
+const VK_NAMES = {
+  8: "VK_BACK", 9: "VK_TAB", 13: "VK_RETURN", 27: "VK_ESCAPE", 32: "VK_SPACE",
+  33: "VK_PAGE_UP", 34: "VK_PAGE_DOWN", 35: "VK_END", 36: "VK_HOME",
+  37: "VK_LEFT", 38: "VK_UP", 39: "VK_RIGHT", 40: "VK_DOWN", 46: "VK_DELETE",
+};
+for (let i = 1; i <= 24; i++) {
+  VK_NAMES[111 + i] = `VK_F${i}`;
+}
+const MODIFIER_KEYS = new Set(["Meta", "Control", "Alt", "Shift", "CapsLock", "Fn", "OS", "AltGraph"]);
 
-// "modifiers|KEY" for a <key>, with the modifiers sorted and Cmd as accel.
-export function bindingOf(keyEl) {
-  const key = (keyEl.getAttribute("key") || keyEl.getAttribute("keycode") || "").toUpperCase();
-  const mods = (keyEl.getAttribute("modifiers") || "")
-    .split(/[,\s]+/)
-    .filter(Boolean)
-    .map(m => (m == "meta" && Services.appinfo.OS == "Darwin" ? "accel" : m))
-    .sort();
-  return `${[...new Set(mods)].join(",")}|${key}`;
+function normalizeModifiers(list) {
+  const out = list.map(m => {
+    m = m.trim().toLowerCase();
+    if (m == "meta") {
+      return IS_MAC ? "accel" : "meta";
+    }
+    if (m == "ctrl" || m == "control") {
+      return IS_MAC ? "control" : "accel";
+    }
+    return m;
+  });
+  return [...new Set(out.filter(Boolean))].sort().join(",");
 }
 
-const RESERVED_BY_US = "whimsy-reserved";
+// "modifiers|KEY" for a <key>, with the modifiers sorted and Cmd as accel
+// (Ctrl too, outside macOS); "modifiers|VK_..." for a keycode.
+export function bindingOf(keyEl) {
+  const key = (keyEl.getAttribute("key") || keyEl.getAttribute("keycode") || "").toUpperCase();
+  return `${normalizeModifiers((keyEl.getAttribute("modifiers") || "").split(/[,\s]+/))}|${key}`;
+}
+
+// The bindings a keydown could be, in bindingOf()'s form: by the character
+// it types, by the key it is (⌥ changes the character on a Mac), and by its
+// keycode. Works in any process (the content side uses it too).
+export function eventSignatures(event) {
+  const mods = [];
+  if (event.metaKey) {
+    mods.push("meta");
+  }
+  if (event.ctrlKey) {
+    mods.push("control");
+  }
+  if (event.altKey) {
+    mods.push("alt");
+  }
+  if (event.shiftKey) {
+    mods.push("shift");
+  }
+  const prefix = `${normalizeModifiers(mods)}|`;
+  const out = new Set();
+  if (typeof event.key == "string" && event.key.length == 1) {
+    out.add(prefix + event.key.toUpperCase());
+  }
+  const code = /^(?:Key|Digit)([A-Z0-9])$/.exec(event.code || "");
+  if (code) {
+    out.add(prefix + code[1]);
+  }
+  if (VK_NAMES[event.keyCode]) {
+    out.add(prefix + VK_NAMES[event.keyCode]);
+  }
+  return [...out];
+}
+
+// Only the press-again watcher's own per-key observers.
 const watched = new WeakSet();
+// window -> { keyId, signature, browser, until, toast }
+const pendingPress = new WeakMap();
 
 export const NEW_SPACE_KEY = { key: "N", modifiers: "accel" };
 
@@ -158,17 +204,15 @@ export const WhimsyShortcuts = {
   },
 
   initWindow(win) {
-    const reserved = new Set();
-    this.reserveKeys(win.document, reserved);
+    this.initPressAgain(win);
     if (!this.enabled) {
-      this.rebindKeysets(reserved);
       return;
     }
     const all = { ...SHORTCUTS };
     if (Services.prefs.getBoolPref(CAPTURE_FEATURE_PREF, true)) {
       Object.assign(all, CAPTURE_SHORTCUTS);
     }
-    const keysets = new Set(reserved);
+    const keysets = new Set();
     for (const [id, binding] of Object.entries(all)) {
       const keyEl = win.document.getElementById(id);
       if (!keyEl || this.isCustomized(id)) {
@@ -177,7 +221,6 @@ export const WhimsyShortcuts = {
       this.setBinding(keyEl, binding);
       keysets.add(keyEl.parentElement);
     }
-    this.reserveKeys(win.document, keysets);
     this.rebindKeysets(keysets);
     // Cmd+N: Zen's "create space" command, now that New Window has moved.
     // Zen's command bar already lists "New Space", so not added there again.
@@ -277,51 +320,191 @@ export const WhimsyShortcuts = {
       this.setBinding(libraryKey, SHORTCUTS["zen-library-toggle"]);
       keysets.add(libraryKey.parentElement);
     }
-    this.reserveKeys(document, keysets);
     this.rebindKeysets(keysets);
+    this.publishPressAgainKeys(document);
     return result;
   },
 
-  reserveKeys(document, keysets) {
+  // --- W10-61: press again (Arc) ---
+  //
+  // Gecko sends a key that isn't reserved to the page first; when the page
+  // cancels its keydown, the browser's <key> never runs. The page's side
+  // (WhimsyPageChild, a system-group keydown listener that runs after every
+  // page listener) tells us when that happened to one of these keys; we
+  // remember it and show the hint. The next press of the same key, in the
+  // same tab, within PRESS_AGAIN_MS and with no other key between, is taken
+  // here in the window's capture phase, before the page sees it: its
+  // preventDefault() also keeps it from being sent to the page's process.
+
+  get pressAgainEnabled() {
+    return Services.prefs.getBoolPref(PRESS_AGAIN_PREF, true);
+  },
+
+  initPressAgain(win) {
+    const { document } = win;
+    this.publishPressAgainKeys(document);
+    win.addEventListener("keydown", event => this.onChromeKeyDown(win, event), true);
+    // A rebinding in about:keyboard (CustomKeys) changes a key in place.
     for (const id of RESERVED_KEYS) {
       const keyEl = document.getElementById(id);
-      if (keyEl?.localName != "key") {
+      if (keyEl?.localName != "key" || watched.has(keyEl)) {
         continue;
       }
-      if (this.updateReserved(keyEl)) {
-        keysets.add(keyEl.parentElement);
-      }
-      // A rebinding in about:keyboard (CustomKeys) changes the attributes in
-      // place; reserve or release again, then let Gecko re-read the keyset.
-      if (!watched.has(keyEl)) {
-        watched.add(keyEl);
-        const win = document.defaultView;
-        new win.MutationObserver(() => {
-          if (this.updateReserved(keyEl)) {
-            this.rebindKeysets(new Set([keyEl.parentElement]));
-          }
-        }).observe(keyEl, { attributes: true, attributeFilter: ["key", "keycode", "modifiers"] });
-      }
+      watched.add(keyEl);
+      new win.MutationObserver(() => this.publishPressAgainKeys(document)).observe(keyEl, {
+        attributes: true,
+        attributeFilter: ["key", "keycode", "modifiers"],
+      });
     }
   },
 
-  // Reserves the key unless its binding is a content key (or it has none);
-  // only ever releases a reservation Whimsy made. True when it changed.
-  updateReserved(keyEl) {
-    const binding = bindingOf(keyEl);
-    const want = !binding.endsWith("|") && !CONTENT_BINDINGS.includes(binding);
-    const has = keyEl.getAttribute("reserved") == "true";
-    if (want && !has) {
-      keyEl.setAttribute("reserved", "true");
-      keyEl.setAttribute(RESERVED_BY_US, "true");
-      return true;
+  // The bindings the page's side should report, for every process. Keys
+  // that other modules add later are picked up at delayed startup
+  // (moveConsoleAndDownloads) and on every rebinding.
+  publishPressAgainKeys(document) {
+    const bindings = new Set();
+    for (const id of RESERVED_KEYS) {
+      const keyEl = document.getElementById(id);
+      if (keyEl?.localName == "key") {
+        const binding = bindingOf(keyEl);
+        if (!binding.endsWith("|")) {
+          bindings.add(binding);
+        }
+      }
     }
-    if (!want && has && keyEl.hasAttribute(RESERVED_BY_US)) {
-      keyEl.removeAttribute("reserved");
-      keyEl.removeAttribute(RESERVED_BY_US);
-      return true;
+    try {
+      const old = Services.ppmm.sharedData.get(PRESS_AGAIN_SHARED_KEY) ?? [];
+      const all = [...new Set([...old, ...bindings])].sort();
+      if (all.join("\n") != old.join("\n")) {
+        Services.ppmm.sharedData.set(PRESS_AGAIN_SHARED_KEY, all);
+        Services.ppmm.sharedData.flush();
+      }
+    } catch (e) {
+      console.error("Whimsy: press again keys", e);
     }
-    return false;
+  },
+
+  // The browser key a binding belongs to in this window, if it can run.
+  pressAgainKeyFor(document, signatures) {
+    for (const id of RESERVED_KEYS) {
+      const keyEl = document.getElementById(id);
+      if (keyEl?.localName != "key" || keyEl.getAttribute("disabled") == "true") {
+        continue;
+      }
+      const binding = bindingOf(keyEl);
+      if (binding.endsWith("|") || !signatures.includes(binding)) {
+        continue;
+      }
+      const commandId = keyEl.getAttribute("command");
+      const command = commandId ? document.getElementById(commandId) : null;
+      if (command?.getAttribute("disabled") == "true") {
+        continue;
+      }
+      return keyEl;
+    }
+    return null;
+  },
+
+  // From WhimsyPageParent: the page in `browser` cancelled a keydown that
+  // could be one of these keys (`signatures`, from eventSignatures()).
+  // Returns the key it was, or null.
+  onPageTookKey(browser, signatures) {
+    const win = browser?.ownerDocument?.defaultView;
+    if (!this.pressAgainEnabled || !win?.gBrowser || win.closed || !Array.isArray(signatures)) {
+      return null;
+    }
+    signatures = signatures.filter(s => typeof s == "string" && s.length < 64).slice(0, 8);
+    const keyEl = this.pressAgainKeyFor(win.document, signatures);
+    if (!keyEl || win.gBrowser.selectedBrowser != browser) {
+      return null;
+    }
+    const old = pendingPress.get(win);
+    const pending = {
+      keyId: keyEl.id,
+      signature: bindingOf(keyEl),
+      browser,
+      until: Date.now() + PRESS_AGAIN_MS,
+      toast: null,
+    };
+    pendingPress.set(win, pending);
+    pending.toast = this.showPressAgainHint(win, keyEl, browser, old?.toast);
+    return keyEl;
+  },
+
+  // "Press ⌘S again for Hide Sidebar". Arc's own hint text can't be read
+  // from Arc (it's in the binary), so this is Whimsy's wording.
+  showPressAgainHint(win, keyEl, browser, oldToast) {
+    let shortcut = "";
+    try {
+      shortcut = lazy.ShortcutUtils.prettifyShortcut(keyEl);
+    } catch (e) {}
+    const action = lazy.WhimsyCommands.keyTitle(win, keyEl).replace(/\s*(…|\.\.\.)$/, "");
+    if (oldToast?.isConnected && oldToast._messageId == "whimsy-press-again-toast") {
+      lazy.WhimsyToast._dismissNow(oldToast);
+    }
+    return lazy.WhimsyToast.show(win, {
+      l10nId: "whimsy-press-again-toast",
+      l10nArgs: { shortcut, action },
+      browser,
+      timeout: PRESS_AGAIN_MS,
+    });
+  },
+
+  // Whether a press-again is waiting in this window (tests).
+  pendingPressAgain(win) {
+    const pending = pendingPress.get(win);
+    return pending && Date.now() <= pending.until ? { keyId: pending.keyId, signature: pending.signature } : null;
+  },
+
+  // Every keydown in the window, before the page gets it.
+  onChromeKeyDown(win, event) {
+    const pending = pendingPress.get(win);
+    if (!pending || !event.isTrusted || event.repeat || MODIFIER_KEYS.has(event.key)) {
+      return;
+    }
+    pendingPress.delete(win);
+    const dismiss = () => {
+      if (pending.toast?.isConnected) {
+        lazy.WhimsyToast.dismiss(pending.toast);
+      }
+    };
+    if (
+      !this.pressAgainEnabled ||
+      Date.now() > pending.until ||
+      win.gBrowser?.selectedBrowser != pending.browser ||
+      !eventSignatures(event).includes(pending.signature)
+    ) {
+      // Another key in between, another tab, or too late: start over.
+      dismiss();
+      return;
+    }
+    const keyEl = win.document.getElementById(pending.keyId);
+    if (!keyEl || this.pressAgainKeyFor(win.document, [pending.signature]) != keyEl) {
+      dismiss();
+      return;
+    }
+    // The browser's turn. preventDefault() from chrome also stops the key
+    // from being sent to the page's process, and a cancelled keydown has no
+    // keypress, so the <key> doesn't run a second time.
+    event.preventDefault();
+    event.stopPropagation();
+    dismiss();
+    this.runKey(win, keyEl);
+  },
+
+  // Runs a <key> as pressing it does: its <command>, else its oncommand.
+  runKey(win, keyEl) {
+    try {
+      const commandId = keyEl.getAttribute("command");
+      const command = commandId ? win.document.getElementById(commandId) : null;
+      if (command) {
+        command.doCommand();
+      } else {
+        keyEl.doCommand();
+      }
+    } catch (e) {
+      console.error(`Whimsy: press again ${keyEl.id}`, e);
+    }
   },
 
   isCustomized(id) {

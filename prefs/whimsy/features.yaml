@@ -543,6 +543,12 @@
 - name: whimsy.feature.settings-commands
   value: true
 
+- name: whimsy.feature.press-again
+  value: true
+
+- name: whimsy.feature.space-edges
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

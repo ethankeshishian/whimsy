@@ -10,7 +10,7 @@ support-files = ["whimsy_slow_load.sjs"]
 ["browser_whimsy_allow_copy.js"]
 support-files = ["whimsy_no_copy.html"]
 
-# W10-41: copy-protected pages: the blocked right-click offers Allow, copy keys, Copy URL reserved.
+# W10-41: copy-protected pages: the blocked right-click offers Allow, copy keys, Copy URL on the second press (W10-61).
 ["browser_whimsy_allow_copy_keys.js"]
 support-files = ["whimsy_no_copy_keys.html"]
 
@@ -526,7 +526,7 @@ support-files = [
 # wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
 ["browser_whimsy_split_arc_keys.js"]
 
-# wave10 (W10-47): the menu keys with real key events (headed, verify.sh's whimsy-native).
+# wave10 (W10-47, W10-61): the menu keys with real key events (headed, verify.sh's whimsy-native).
 ["browser_whimsy_arc_menu_keys_native.js"]
 run-if = ["os == 'mac'"]
 skip-if = ["headless"] # native key events need a real window; verify.sh runs it headed
@@ -771,3 +771,7 @@ support-files = ["whimsy_article.html"]
 
 # wave10/desA W10-24: no Whimsy sheet or surface draws a stray vertical divider; surfaces stack vertically with no arrow tail.
 ["browser_whimsy_popup_dividers.js"]
+
+# W10-61: Arc's press again: a page that uses a browser key gets the first press, the browser the second.
+["browser_whimsy_press_again.js"]
+support-files = ["whimsy_press_again.html"]

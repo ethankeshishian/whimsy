@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Press again</title>
+<!-- W10-61: a page that uses ⌘S (save, as every editor does) and ⌘D for
+     itself: its keydown handler cancels them. Other keys pass. -->
+<p id="p">Some words to select on this page.</p>
+<script>
+  window.took = [];
+  addEventListener("keydown", e => {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.code == "KeyS" || e.code == "KeyD")) {
+      e.preventDefault();
+      window.took.push(e.code);
+    }
+  });
+</script>

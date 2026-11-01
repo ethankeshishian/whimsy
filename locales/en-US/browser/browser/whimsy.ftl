@@ -2553,6 +2553,13 @@ whimsy-menu-paste-match-style =
 
 whimsy-action-new-space = New Space…
 
+## W10-61: press again (Arc). The page used a browser shortcut itself, so it
+## got this press; pressing it again runs the browser's command.
+## $shortcut (string) - the shortcut, e.g. "⌘S"
+## $action (string) - the command's name, e.g. "Hide Sidebar"
+
+whimsy-press-again-toast = Press { $shortcut } again for { $action }
+
 ## wave6/parity: Arc's menu bar names (WhimsyArcMenus) and missing items.
 
 whimsy-action-capture-portrait = Capture in Portrait Mode
