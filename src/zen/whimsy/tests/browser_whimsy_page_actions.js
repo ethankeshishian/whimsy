@@ -185,3 +185,109 @@ add_task(function test_ics_lone_cr() {
   ok(!lines.some(l => /^(ATTACH|BEGIN:VALARM)/.test(l)), "No injected properties");
   ok(!/\r(?!\n)/.test(ics) && !ics.includes("\u0000"), "No lone CR or NUL survives");
 });
+
+// W10-55: Allrecipes showed no pill. Its JSON-LD is an array whose Recipe has
+// "@type": ["Recipe"] and steps full of &#34;. The pill comes at
+// DOMContentLoaded (the ad frame keeps "load" back), and it shows without
+// hovering the sidebar (Zen's single toolbar fades .urlbar-page-action out).
+const DIR = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+
+add_task(async function test_allrecipes_recipe() {
+  const hovered = gNavToolbox.getAttribute("zen-has-implicit-hover");
+  gNavToolbox.removeAttribute("zen-has-implicit-hover");
+  const tab = await BrowserTestUtils.openNewForegroundTab({
+    gBrowser,
+    url: DIR + "whimsy_page_actions_allrecipes.html",
+    waitForLoad: false,
+  });
+  const el = await waitForPill("recipe");
+  const state = await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.readyState);
+  isnot(state, "complete", "The pill doesn't wait for the slow ad frame");
+
+  ok(!el.classList.contains("urlbar-page-action"), "Not one of the hover-only page actions");
+  await TestUtils.waitForCondition(() => getComputedStyle(el).opacity == "1", "Fully shown");
+  is(getComputedStyle(el).visibility, "visible", "Visible without hovering the sidebar");
+  Assert.greater(el.getBoundingClientRect().width, 0, "and takes up room in the address bar");
+
+  const action = WhimsyPageActions.actionFor(tab.linkedBrowser);
+  is(action.name, "Severed-Finger Cheese Sticks", "The recipe from the array");
+  is(action.ingredients.length, 3, "Its ingredients");
+  is(action.steps.length, 4, "Its steps, the one with an image too");
+  ok(action.steps[0].endsWith('torn-off "fingers".'), "Character references are decoded");
+  ok(!action.steps.some(s => s.includes("&#")), "None left over");
+  is(action.yield, "6", "The first yield");
+
+  el.click();
+  await TestUtils.waitForCondition(() => document.getElementById("whimsy-cook-panel")?.state == "open", "Cook mode opens");
+  const panel = document.getElementById("whimsy-cook-panel");
+  is(panel.querySelectorAll(".whimsy-cook-steps > li").length, 4, "Four numbered steps");
+  ok(panel.querySelector(".whimsy-cook-steps").textContent.includes('"nail bed"'), "Quotes read as quotes");
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  panel.hidePopup();
+  await hidden;
+  BrowserTestUtils.removeTab(tab);
+  if (hovered) {
+    gNavToolbox.setAttribute("zen-has-implicit-hover", hovered);
+  }
+});
+
+// W10-55: a Best Buy product page: the Product's script type carries a
+// charset, its price is inside an AggregateOffer, and a "customers also
+// viewed" ItemList names other Products. (The pill itself waits for Watch a
+// page, which needs AI set up; the action is understood either way.)
+add_task(async function test_bestbuy_product() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, DIR + "whimsy_page_actions_bestbuy.html");
+  await TestUtils.waitForCondition(() => WhimsyPageActions.actionFor(tab.linkedBrowser), "Product found");
+  const action = WhimsyPageActions.actionFor(tab.linkedBrowser);
+  is(action.kind, "product", "A product");
+  is(action.name, "Apple - AirPods Pro 2, Wireless Active Noise Cancelling Earbuds - White", "The page's product, not the related ones");
+  is(action.price, "189.99", "Price from the AggregateOffer");
+  is(action.currency, "USD", "and its currency");
+  BrowserTestUtils.removeTab(tab);
+});
+
+// W10-55: JSON-LD shapes seen in the wild, parsed straight from markup.
+add_task(function test_jsonld_shapes() {
+  const { findAction } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageActionsChild.sys.mjs");
+  const find = (...scripts) =>
+    findAction(
+      new DOMParser().parseFromString(
+        "<!DOCTYPE html>" + scripts.map(s => `<script type="application/ld+json">${s}</script>`).join(""),
+        "text/html"
+      )
+    );
+  const soup = (name, extra = "") =>
+    `{"@type": "Recipe", "name": "${name}", "recipeIngredient": ["1 egg"]${extra}}`;
+
+  // Wrapped in an HTML comment, a raw line break in a string, trailing commas.
+  let action = find(`<!--\n{"@context": "https://schema.org", "@type": "Recipe", "name": "Pea\nSoup", "recipeIngredient": ["peas", "water",],}\n-->`);
+  is(action?.name, "Pea Soup", "Loose JSON still reads");
+  is(action?.ingredients.length, 2, "with its trailing comma dropped");
+
+  action = find(`//<![CDATA[\n${soup("Cdata Soup")}\n//]]>`);
+  is(action?.name, "Cdata Soup", "CDATA-wrapped");
+
+  is(find(`{"@type": "recipe", "name": "Lower", "recipeIngredient": ["x"]}`)?.kind, "recipe", "Lower-case type");
+  is(find(`{"@type": "schema:Recipe", "name": "Prefixed", "recipeIngredient": ["x"]}`)?.kind, "recipe", "schema: prefix");
+  is(find(`{"@type": ["Recipe", "NewsArticle"], "name": "Both", "recipeIngredient": ["x"]}`)?.kind, "recipe", "Type array");
+
+  // The recipe plus a carousel of related recipes.
+  action = find(
+    soup("Main Soup"),
+    `{"@type": "ItemList", "itemListElement": [{"@type": "ListItem", "item": ${soup("Other Soup")}}, {"@type": "ListItem", "item": ${soup("Third Soup")}}]}`
+  );
+  is(action?.name, "Main Soup", "Related recipes in a list don't hide the page's own");
+
+  // A ProductGroup and its variants (the price is on the variants).
+  action = find(
+    `{"@type": "ProductGroup", "name": "Tee", "hasVariant": [{"@type": "Product", "name": "Tee - S", "offers": {"@type": "Offer", "price": "20", "priceCurrency": "EUR"}}, {"@type": "Product", "name": "Tee - M"}]}`,
+    `{"@type": "Product", "name": "Tee - S", "offers": {"price": "20", "priceCurrency": "EUR"}}`
+  );
+  is(action?.name, "Tee", "The product family");
+  is(action?.offer?.price, "20", "priced from a variant");
+
+  // Still nothing for a listing or several unrelated items.
+  is(find(`[{"@type": "Event", "name": "One", "startDate": "2026-11-05"}, {"@type": "Event", "name": "Two", "startDate": "2026-11-06"}]`), null, "An events listing");
+  is(find(`{"@type": "ItemList", "itemListElement": [{"@type": "ListItem", "item": ${soup("A")}}, {"@type": "ListItem", "item": ${soup("B")}}]}`), null, "A recipe listing");
+  is(find("{not json at all"), null, "Broken JSON is ignored");
+});

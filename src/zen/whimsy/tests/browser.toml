@@ -494,7 +494,12 @@ support-files = ["whimsy_search_results.html", "whimsy_search_card.html"]
 
 # wave6: Page actions: schema.org data -> Calendar, Maps, Cook mode, Track pill.
 ["browser_whimsy_page_actions.js"]
-support-files = ["whimsy_page_actions.html"]
+support-files = [
+  "whimsy_page_actions.html",
+  "whimsy_page_actions_allrecipes.html",
+  "whimsy_page_actions_bestbuy.html",
+  "whimsy_slow_load.sjs",
+]
 
 # wave6/parity: the Archive's own store (no 25-tab loss), Clear Archive.
 ["browser_whimsy_archive_store.js"]

@@ -27,6 +27,7 @@
    "Maps · Open now", "Cook mode"...), tinted with the space's color like
    Whimsy's other address bar pills. */
 #whimsy-page-action {
+  flex-shrink: 0;
   gap: 4px;
   margin-inline: 4px;
   padding: 2px 8px;
