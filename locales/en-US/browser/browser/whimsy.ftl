@@ -4105,3 +4105,29 @@ whimsy-pagedev-pill-fail = Fails
 whimsy-pagedev-reading = Reading the page…
 whimsy-pagedev-copied-button =
     .label = Copied
+
+## wave10/desA W10-25: form protection. A tab with a form you typed into
+## shows an in-progress form glyph, asks before you unload it, and offers
+## to fill your answers back in after a reload.
+
+# $count (number) - tabs with forms that would unload
+whimsy-form-unload-title = { $count ->
+    [one] Unload this tab?
+   *[other] Unload { $count } tabs with forms?
+}
+# $host (string) - the site, like "example.com"
+whimsy-form-unload-body = You started a form on <b>{ $host }</b>. Whimsy keeps what you typed and fills it back in when you come back.
+whimsy-form-unload-body-private = You started a form on <b>{ $host }</b>. Whimsy keeps what you typed until you close your private tabs.
+# $count (number) - tabs with forms
+whimsy-form-unload-body-many = You started forms in these { $count } tabs. Whimsy keeps what you typed and fills it back in when you come back.
+whimsy-form-unload-keep =
+    .label = Keep Loaded
+whimsy-form-unload-accept =
+    .label = Unload
+# $count (number) - fields that can be filled
+whimsy-form-refill-ask = { $count ->
+    [one] Fill in 1 answer you typed before?
+   *[other] Fill in { $count } answers you typed before?
+}
+whimsy-form-refill-ask-detail = Saved when this tab reloaded
+whimsy-form-refill-fill = Fill In

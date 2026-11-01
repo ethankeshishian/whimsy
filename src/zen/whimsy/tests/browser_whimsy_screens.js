@@ -2005,3 +2005,37 @@ add_task(async function w10_trail() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// W10-25: a tab with a typed form (its glyph in the sidebar), the unload
+// question, and the refill offer.
+add_task(async function w10_form_protection() {
+  const { WhimsyFormProtection } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-form");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  try {
+    WhimsyFormProtection.updateTabProtection(tab, true);
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await settled();
+      await shot(`w10-form-marker-${dark ? "dark" : "light"}`);
+      await SpecialPowers.popPrefEnv();
+    }
+    let unloading = null;
+    await w10SurfaceShot("form-unload", "whimsy-form-unload", () => {
+      unloading = WhimsyFormProtection.confirmUnload(window, [tab]);
+    });
+    await unloading;
+    await BrowserTestUtils.switchTab(gBrowser, tab);
+    await w10ToastShot("form-refill", () => WhimsyToast.show(window, {
+      l10nId: "whimsy-form-refill-ask", l10nArgs: { count: 3 },
+      detailL10nId: "whimsy-form-refill-ask-detail",
+      icon: "chrome://browser/content/whimsy/whimsy-form-badge.svg", timeout: 0,
+      action: { l10nId: "whimsy-form-refill-fill", onCommand: () => {} },
+    }));
+  } finally {
+    WhimsyFormProtection.updateTabProtection(tab, false);
+    BrowserTestUtils.removeTab(other);
+    BrowserTestUtils.removeTab(tab);
+  }
+});

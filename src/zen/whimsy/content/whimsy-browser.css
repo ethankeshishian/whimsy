@@ -4067,6 +4067,19 @@ whimsy-library-files-section {
   opacity: 0.7;
 }
 
+/* W10-25: "Unload this tab?" (WhimsyFormProtection.confirmUnload). */
+.whimsy-form-unload-body {
+  margin: 0 4px;
+  font-size: 12px;
+  color: var(--whimsy-surface-muted);
+  text-wrap: pretty;
+
+  & > b {
+    color: var(--arrowpanel-color, CanvasText);
+    font-weight: 600;
+  }
+}
+
 /* wave5: Easels in the Library: a 36-frame sprite like the other rail
    icons (whimsy/library_sprites.py), so it plays and fills in the same way. */
 [data-section="whimsy-easels"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
@@ -5194,18 +5207,55 @@ panel.whimsy-sheet.whimsy-snooze {
    icon's bottom-start corner: ::after and the top-end corner belong to the
    unread count and title-changed dot (review design-full-4 M10). The tab's
    tooltip and accessible description say what it means. */
-.tabbrowser-tab[whimsy-form-protected] .tab-icon-stack::before {
+/* W10-25: the in-progress form glyph (a form outline, partly filled, with
+   a pencil) after the title, only once the person has typed into a form
+   here. Pinned tabs and Essentials have no title: there it sits on the
+   icon, in a small badge. Its meaning is in the tab's tooltip and
+   accessible description (WhimsyFormProtection.wrapTooltip). */
+.whimsy-tab-form-marker {
+  display: none;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin-inline: 4px 2px;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+  fill-opacity: 0.6;
+  pointer-events: none;
+
+  .tabbrowser-tab[whimsy-form-typed]:not([pinned], [zen-essential]) & {
+    display: flex;
+    @media not (prefers-reduced-motion: reduce) {
+      animation: whimsy-form-marker-in 200ms ease-out;
+    }
+  }
+  @media (prefers-contrast: more) {
+    fill-opacity: 1;
+  }
+}
+@keyframes whimsy-form-marker-in {
+  from {
+    opacity: 0;
+  }
+}
+.tabbrowser-tab[whimsy-form-typed]:is([pinned], [zen-essential]) .tab-icon-stack::before {
   content: "";
   position: absolute;
-  bottom: -2px;
-  inset-inline-start: -2px;
-  width: 6px;
-  height: 6px;
+  bottom: -4px;
+  inset-inline-start: -4px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
-  background: var(--icon-color-warning);
-  box-shadow: 0 0 0 1px light-dark(rgb(255 255 255 / 0.9), rgb(0 0 0 / 0.35));
+  background: url("chrome://browser/content/whimsy/whimsy-form-badge.svg") center / 9px no-repeat,
+    var(--zen-colors-tertiary, light-dark(white, rgb(40, 40, 40)));
+  -moz-context-properties: fill, fill-opacity;
+  fill: var(--zen-primary-color, AccentColor);
+  box-shadow: 0 0 0 1.5px var(--zen-colors-tertiary, light-dark(white, rgb(40, 40, 40)));
   z-index: 2;
   pointer-events: none;
+  @media (prefers-contrast: more) {
+    outline: 1px solid currentColor;
+  }
 }
 
 
