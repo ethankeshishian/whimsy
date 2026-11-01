@@ -149,6 +149,9 @@ whimsy-copy-markdown-toast =
                *[other] Copied Current URLs as Markdown
             }
     }
+# W10-63 (Arc): the Copy URL toast's offer when text is selected on the
+# page; it copies a Link to Highlight (a link to the selected text).
+whimsy-copy-highlight-offer = Share a link directly to this text instead?
 tab-context-whimsy-copy-links =
     .label =
         { $count ->

@@ -756,6 +756,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
       }
       rect = field.getBoundingClientRect();
     }
+    // W10-63: whether it's the page's own text (a text fragment can link
+    // to it) rather than a field's.
+    const inField = !!text;
     if (!text) {
       const selection = win.getSelection();
       text = selection?.toString() ?? "";
@@ -765,7 +768,7 @@ export class WhimsyPageChild extends JSWindowActorChild {
     if (!text || !rect) {
       return null;
     }
-    return { text, x: win.mozInnerScreenX + rect.left, y: win.mozInnerScreenY + rect.bottom };
+    return { text, x: win.mozInnerScreenX + rect.left, y: win.mozInnerScreenY + rect.bottom, inField };
   }
 
   // Reading time: how much text the article has (its <article> or <main>

@@ -24,6 +24,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyMenuParity: "resource:///modules/whimsy/WhimsyMenuParity.sys.mjs",
+  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 
 // wave9/secfix (security-full-2 L3): what Whimsy copies from private
@@ -131,7 +133,53 @@ export const WhimsyCopy = {
     } else {
       links = this.linksFor(tabs);
     }
-    this.copy(win, links, { markdown });
+    // W10-63: with text selected, Copy URL's toast offers a link to it.
+    const offerHighlight = !markdown && tabs.length == 1 && this.canLinkToHighlight(win.gBrowser.selectedBrowser);
+    return this.copy(win, links, { markdown, offerHighlight });
+  },
+
+  // Copy Link to Highlight's own conditions (WhimsyMenuParity): text
+  // fragments on, a web page.
+  canLinkToHighlight(browser) {
+    return (
+      Services.prefs.getBoolPref("dom.text_fragments.enabled", true) &&
+      ["http", "https"].includes(browser?.currentURI?.scheme)
+    );
+  },
+
+  // W10-63 (Arc): Copy URL with text selected on the page. The URL is
+  // already on the clipboard; the toast says so and offers "Share a link
+  // directly to this text instead?", which copies Link to Highlight (the
+  // existing command) over it. With nothing selected, the usual toast.
+  async offerHighlight(win, links) {
+    const browser = win.gBrowser.selectedBrowser;
+    let selected = null;
+    try {
+      selected = await browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage").sendQuery("Whimsy:Selection");
+    } catch (e) {
+      // No page actor (a privileged page): no selection to link to.
+    }
+    if (win.closed || win.gBrowser.selectedBrowser != browser) {
+      return false;
+    }
+    if (!selected?.text || selected.inField) {
+      this.showToast(win, links, { markdown: false });
+      return false;
+    }
+    lazy.WhimsyToast.show(win, {
+      l10nId: "whimsy-copy-toast",
+      l10nArgs: { count: 1, stripped: links[0].stripped ? "yes" : "no" },
+      detail: links[0].url,
+      browser,
+      action: {
+        id: "whimsy-copy-highlight-action",
+        l10nId: "whimsy-copy-highlight-offer",
+        onCommand: () => {
+          lazy.WhimsyMenuParity.copyLinkToHighlight(win).catch(console.error);
+        },
+      },
+    });
+    return true;
   },
 
   copyFromContextMenu(win) {
@@ -274,14 +322,21 @@ export const WhimsyCopy = {
       .setData(transferable, null, Ci.nsIClipboard.kGlobalClipboard);
   },
 
-  copy(win, links, { markdown }) {
+  copy(win, links, { markdown, offerHighlight = false }) {
     if (!links.length) {
-      return;
+      return null;
     }
     this.writeClipboard(win, this.format(links, { markdown }), {
       isPrivate: browserIsPrivate(win) || links.some(link => link.isPrivate),
     });
+    if (offerHighlight) {
+      return this.offerHighlight(win, links).catch(e => {
+        console.error("Whimsy: copy toast", e);
+        this.showToast(win, links, { markdown });
+      });
+    }
     this.showToast(win, links, { markdown });
+    return null;
   },
 
   showToast(win, links, { markdown }) {

@@ -775,3 +775,7 @@ support-files = ["whimsy_article.html"]
 # W10-61: Arc's press again: a page that uses a browser key gets the first press, the browser the second.
 ["browser_whimsy_press_again.js"]
 support-files = ["whimsy_press_again.html"]
+
+# W10-63: with text selected, Copy URL's toast offers Copy Link to Highlight.
+["browser_whimsy_copy_highlight.js"]
+support-files = ["whimsy_highlight.html"]
