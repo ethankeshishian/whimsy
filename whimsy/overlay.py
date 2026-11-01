@@ -1234,6 +1234,10 @@ FEATURES = [
     # full screen and the user agent, each forgettable, plus Forget All.
     {"id": "site-settings", "title": "Site settings: the site panel remembers a site's zoom, autoplay, Reader View, full screen and user agent, and forgets them one by one or all at once",
      "detect": [("src/zen", r"(?i)always-?open-?in-?reader|per-?site-?settings|site-?settings-?section")]},
+    # wave10/mini: W10-13 Mini Whimsy's pages as pill tabs (popups as tabs,
+    # links reuse the open Mini, Cmd+O moves them all).
+    {"id": "mini-tabs", "title": "Mini Whimsy tabs: pill tabs from the second page, sign-in popups as tabs, links from other apps join the open Mini, Cmd+O moves every page",
+     "detect": [("src/zen", r"(?i)zen[\w.-]*(quick|mini)[\w.-]*window[\w.-]*tabs")]},
 ]
 
 

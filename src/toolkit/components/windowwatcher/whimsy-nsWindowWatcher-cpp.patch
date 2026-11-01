@@ -1,0 +1,42 @@
+diff --git a/toolkit/components/windowwatcher/nsWindowWatcher.cpp b/toolkit/components/windowwatcher/nsWindowWatcher.cpp
+index a104433..efc5533 100644
+--- a/toolkit/components/windowwatcher/nsWindowWatcher.cpp
++++ b/toolkit/components/windowwatcher/nsWindowWatcher.cpp
+@@ -2546,6 +2546,17 @@ bool nsWindowWatcher::IsWindowOpenLocationModified(
+   return false;
+ }
+ 
++// Whimsy (Mini Whimsy, W10-13): a browser window whose root element carries
++// whimsy-popups-as-tabs keeps everything its pages open as its own tabs,
++// sign-in popups (window.open with features) included, so they keep their
++// opener and postMessage. The attribute is Mini's (WhimsyQuickWindow).
++static bool WhimsyOpensPopupsAsTabs(nsPIDOMWindowOuter* aParent) {
++  nsPIDOMWindowOuter* root = aParent ? aParent->GetPrivateRoot() : nullptr;
++  Document* doc = root ? root->GetExtantDoc() : nullptr;
++  Element* element = doc ? doc->GetRootElement() : nullptr;
++  return element && element->HasAttribute(u"whimsy-popups-as-tabs"_ns);
++}
++
+ /* static */
+ int32_t nsWindowWatcher::GetWindowOpenLocation(
+     nsPIDOMWindowOuter* aParent, uint32_t aChromeFlags,
+@@ -2557,6 +2568,19 @@ int32_t nsWindowWatcher::GetWindowOpenLocation(
+     return nsIBrowserDOMWindow::OPEN_PRINT_BROWSER;
+   }
+ 
++  // Whimsy: see WhimsyOpensPopupsAsTabs. A background-tab modifier still
++  // opens a background tab; a new-window one becomes a tab too. Document
++  // Picture-in-Picture keeps its own window.
++  if (!(aChromeFlags & nsIWebBrowserChrome::CHROME_DOCUMENT_PIP) &&
++      WhimsyOpensPopupsAsTabs(aParent)) {
++    int32_t location = 0;
++    if (IsWindowOpenLocationModified(aModifiers, &location) &&
++        location != nsIBrowserDOMWindow::OPEN_NEWWINDOW) {
++      return location;
++    }
++    return nsIBrowserDOMWindow::OPEN_NEWTAB;
++  }
++
+   int32_t modifiedLocation = 0;
+   if (IsWindowOpenLocationModified(aModifiers, &modifiedLocation)) {
+     return modifiedLocation;

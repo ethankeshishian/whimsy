@@ -687,6 +687,9 @@ support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_
 # wave9/mini W8-23 (normal window): a site's sign-in popup gets Firefox's popup chrome (read-only address + identity), stays attached to its opener, and Whimsy's window extras skip it.
 ["browser_whimsy_site_popups.js"]
 support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
+# wave10/mini W10-13: Mini's pages as pill tabs (row only from two pages), popups/target=_blank/Cmd-click as Mini tabs keeping their opener, Cmd+Opt+T, links from other apps reuse Mini, Cmd+O moves every page, Cmd+W, commands, switch off.
+["browser_whimsy_mini_tabs.js"]
+support-files = ["whimsy_mini_links.html", "whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 # wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
 ["browser_whimsy_site_settings.js"]
 support-files = ["whimsy_article.html"]

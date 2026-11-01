@@ -21,6 +21,17 @@
 //   the bar-only panel, where dismissing the bar is all there is to close.
 // - A second link opens a second Mini stacked over the first, offset down,
 //   rather than replacing the page you were reading.
+// wave10/mini W10-13 (the user's picks for Mini's model, 2026-10-31):
+// - One page looks exactly like Little Arc. A second page (a sign-in
+//   popup, a target=_blank link, Cmd+Opt+T) brings in a row of pill tabs
+//   under the bar; it leaves again at one page. No limit on pages.
+// - Sign-in popups (window.open with features) open as Mini tabs that keep
+//   their opener and postMessage (whimsy-nsWindowWatcher-cpp.patch reads
+//   POPUPS_ATTR); when one closes itself, its opener's tab comes back.
+// - Links from other apps add a tab to the open Mini instead of stacking
+//   a new one (WhimsyExternalLinks passes `reuse`).
+// - Cmd+O moves every page into the space, and its label counts them.
+// - Cmd+W closes the current page; the last one closes Mini.
 //
 // It's an ordinary browser.xhtml window (BrowserWindowTracker.openWindow,
 // same primitive Firefox uses for every new window): no new window type,
@@ -66,6 +77,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const FEATURE_PREF = "whimsy.feature.quick-window";
+// wave10/mini W10-13: pages as pill tabs, popups as tabs, links reuse Mini.
+const TABS_FEATURE_PREF = "whimsy.feature.mini-tabs";
 const WIDTH = 1260;
 const HEIGHT = 780;
 const SIZE_PREF = "whimsy.quick-window.size";
@@ -97,6 +110,15 @@ const PROFILE_PICKER_ID = "whimsy-quick-window-profile-picker";
 // never has a Glance, so Mini Whimsy reuses the accelerator for Arc's
 // "Open in Current Space" instead (see initChrome).
 const GLANCE_EXPAND_KEY_ID = "zen-glance-expand";
+// wave10/mini W10-13: the pill tab row, shown (TABS_ATTR on <html>) only
+// while Mini holds more than one page.
+const TABS_ID = "whimsy-quick-window-tabs";
+const TABS_ATTR = "whimsy-mini-tabs";
+// Read by whimsy-nsWindowWatcher-cpp.patch: window.open() in this window
+// opens a tab here, popups with features included.
+const POPUPS_ATTR = "whimsy-popups-as-tabs";
+const CLOSING_ATTR = "whimsy-mini-closing";
+const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
 
 const READY_TOPIC = "whimsy-quick-window-ready";
 const pointerPositions = new WeakMap();
@@ -107,9 +129,15 @@ export const WhimsyQuickWindow = {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },
 
+  // wave10/mini W10-13: Mini holds several pages (see the banner).
+  get tabsEnabled() {
+    return this.enabled && Services.prefs.getBoolPref(TABS_FEATURE_PREF, true);
+  },
+
   // Called for every window Whimsy starts in, quick windows included (it
   // no-ops there: a quick window doesn't open another quick window).
   initWindow(win) {
+    this.installPageTabs();
     if (win._whimsyQuickWindow) {
       try {
         this.initChrome(win);
@@ -131,6 +159,28 @@ export const WhimsyQuickWindow = {
       icon: "chrome://browser/skin/zen-icons/link.svg",
       isAvailable: () => this.enabled,
     });
+    // wave10/mini: Mini's own commands exist only in Mini windows, but are
+    // listed from the start, so their shortcuts can be set before one opens.
+    for (const spec of this.miniCommands()) {
+      lazy.WhimsyCommands.describe(spec);
+    }
+  },
+
+  // wave10/mini W10-13: Mini's new commands (registered in each Mini by
+  // initChrome): a new page (Cmd+Opt+T, New Private Tab elsewhere; Mini
+  // registers it first, so its own key wins there).
+  miniCommands() {
+    const inMini = w => !!w?._whimsyQuickWindow && !w._whimsyMiniBarOnly;
+    return [{
+      id: "cmd_whimsyMiniNewTab",
+      l10nId: "whimsy-action-mini-new-tab",
+      run: w => this.newTab(w),
+      keyId: "key_whimsyMiniNewTab",
+      key: this.tabsEnabled ? { key: "T", modifiers: "accel,alt" } : null,
+      icon: "chrome://browser/skin/zen-icons/plus.svg",
+      isAvailable: w => inMini(w) && this.tabsEnabled,
+      menu: "file-menu",
+    }];
   },
 
   // Opens `url` in a new Mini Whimsy window, stacked over the newest one
@@ -139,9 +189,21 @@ export const WhimsyQuickWindow = {
   // panel instead. Returns the window, or null when the feature is off.
   // (`triggeringPrincipal` is accepted for callers; the URL goes in as the
   // new window's argument, like any other new browser window.)
-  open(url, { opener, triggeringPrincipal } = {}) {
+  // wave10/mini W10-13: with `reuse` (a link from another app), the link
+  // becomes the front tab of the newest open Mini instead.
+  open(url, { opener, triggeringPrincipal, reuse = false } = {}) {
     if (!this.enabled) {
       return null;
+    }
+    const reused = url && reuse ? this.reusableWindow() : null;
+    if (reused) {
+      this.whenChromeReady(reused).then(() => {
+        if (!reused.closed) {
+          this.openLinkTab(reused, url, triggeringPrincipal);
+          reused.focus();
+        }
+      });
+      return reused;
     }
     // A link stacks over the newest Mini showing a page (never a panel).
     const below = url ? this.windows().filter(w => !w._whimsyMiniBarOnly).at(-1) : null;
@@ -186,6 +248,7 @@ export const WhimsyQuickWindow = {
       const root = win.document.documentElement;
       root.setAttribute("whimsy-quick-window", "");
       root.toggleAttribute(BAR_ONLY_ATTR, !!win._whimsyMiniBarOnly);
+      root.toggleAttribute(POPUPS_ATTR, this.tabsEnabled);
       this.useCustomTitlebar(win);
     };
     Services.obs.addObserver(beforeShow, "browser-window-before-show");
@@ -374,25 +437,44 @@ export const WhimsyQuickWindow = {
     if (!target?.gZenWorkspaces || !win._whimsyQuickWindow || !win.gBrowser || !spaceId) {
       return null;
     }
-    const tab = win.gBrowser.selectedTab;
+    const selected = win.gBrowser.selectedTab;
+    // wave10/mini W10-13: every page Mini holds moves, in order, and the
+    // one you were looking at stays selected there.
+    const tabs = this.tabsEnabled ? this.pages(win) : [selected];
     // wave5/profiles: another profile's space: Arc's warning, then the page
     // reopens there in that profile (async; nothing is adopted yet).
     const space = target.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
-    if (!space || space.whimsyScratch) {
+    if (!space || space.whimsyScratch || !tabs.length) {
       return null;
     }
     const profileId = lazy.WhimsyProfiles.profileIdOfSpace(space);
     // Always (wave8/isolation): with the Profiles switch off the space's
     // container still decides the tab's cookies.
-    if ((tab.userContextId ?? 0) != profileId) {
-      this.moveAcrossProfiles(win, target, tab, space, profileId).catch(console.error);
+    if (tabs.some(tab => (tab.userContextId ?? 0) != profileId)) {
+      this.moveAcrossProfiles(win, target, tabs, space, profileId, selected).catch(console.error);
       return null;
     }
-    const adopted = target.gBrowser.adoptTab(tab, { selectTab: true, spaceId });
+    let adopted = null;
+    let moved = false;
+    for (const tab of tabs) {
+      // The last page's move closes Mini itself.
+      if (win.closed || tab.closing) {
+        continue;
+      }
+      const landed = target.gBrowser.adoptTab(tab, { selectTab: tab == selected, spaceId });
+      moved ||= !!landed;
+      if (tab == selected) {
+        adopted = landed;
+      }
+    }
     if (adopted) {
       target.gZenWorkspaces.lastSelectedWorkspaceTabs[spaceId] = adopted;
+    }
+    if (moved) {
       target.focus();
-      win.close();
+      if (!win.closed) {
+        win.close();
+      }
     }
     return adopted ?? null;
   },
@@ -405,14 +487,14 @@ export const WhimsyQuickWindow = {
     const close = win.close.bind(win);
     win.close = () => {
       const root = win.document.documentElement;
-      if (root.hasAttribute("whimsy-mini-closing")) {
+      if (root.hasAttribute(CLOSING_ATTR)) {
         return;
       }
       if (win.matchMedia("(prefers-reduced-motion: reduce)").matches || win.closed) {
         close();
         return;
       }
-      root.setAttribute("whimsy-mini-closing", "");
+      root.setAttribute(CLOSING_ATTR, "");
       const ms = parseFloat(win.getComputedStyle(root).getPropertyValue("--whimsy-mini-close-duration")) || 100;
       win.setTimeout(close, ms);
     };
@@ -590,6 +672,11 @@ export const WhimsyQuickWindow = {
       // Bookmarks gives it up in Mini only, see disableGlanceExpandKey.
       key: { id: "key_whimsyQuickWindowChooseSpace", key: "O", modifiers: "accel,shift" },
     });
+    // wave10/mini: Mini's new commands (miniCommands), offered by the
+    // command bar in Mini only.
+    for (const spec of this.miniCommands()) {
+      lazy.WhimsyCommands.register(win, spec);
+    }
     // wave7: Esc never closes a materialised Mini (Arc's Little Arc keeps
     // its window; Esc only closes the command bar). In the bar-only panel
     // the command bar is all there is, so Esc dismisses the panel.
@@ -602,10 +689,14 @@ export const WhimsyQuickWindow = {
     }, { capture: true });
     this.fadeOnClose(win);
     this.watchBarOnly(win);
-    navbar.before(this.buildBar(win));
+    document.documentElement.toggleAttribute(POPUPS_ATTR, this.tabsEnabled);
+    const bar = this.buildBar(win);
+    navbar.before(bar);
+    bar.after(this.buildTabRow(win));
     this.adoptWindowButtons(win);
     this.watchDestination(win);
     this.watchPage(win);
+    this.watchTabs(win);
     const rememberSize = () => {
       // The bar-only panel's size is Arc's fixed one, not Mini's.
       if (!win._whimsyMiniBarOnly && !win.fullScreen && win.windowState == win.STATE_NORMAL &&
@@ -796,12 +887,25 @@ export const WhimsyQuickWindow = {
     const whereToOpen = controller.whereToOpen.bind(controller);
     controller.whereToOpen = event => {
       const where = whereToOpen(event);
+      // wave10/mini: a Cmd+Opt+T page with a pick on its way stays.
+      const tab = win.gBrowser?.selectedTab;
+      if (tab && where != "save") {
+        tab._whimsyMiniPicked = true;
+      }
       return where == "save" ? where : "current";
     };
     const parent = controller.parentController;
     if (parent?.switchToTab) {
       parent.switchToTab = ({ url } = {}) => {
-        if (url && !win.closed) {
+        if (!url || win.closed) {
+          return;
+        }
+        // wave10/mini W10-13: a page Mini already holds is switched to.
+        const open = this.tabsEnabled && this.pages(win).find(tab =>
+          tab.linkedBrowser?.currentURI?.spec == url);
+        if (open) {
+          win.gBrowser.selectedTab = open;
+        } else {
           win.openTrustedLinkIn(url, "current");
         }
       };
@@ -963,8 +1067,8 @@ export const WhimsyQuickWindow = {
       const space = source?.gZenWorkspaces?.getActiveWorkspace();
       const button = doc.getElementById(MOVE_BUTTON_ID);
       button.disabled = !space;
-      doc.l10n.setAttributes(button, space ? "whimsy-quick-window-move-to-space" :
-        "whimsy-quick-window-no-space", space ? { space: space.name } : null);
+      win._whimsyMiniSpace = space ?? null;
+      this.labelOpenIn(win);
       const icon = this.spaceIcon(space);
       if (icon) {
         button.setAttribute("image", icon);
@@ -1032,6 +1136,378 @@ export const WhimsyQuickWindow = {
       win.removeEventListener("focus", update);
     }, { once: true });
     update();
+  },
+
+  // -- wave10/mini W10-13: pages as tabs -----------------------------------
+
+  // The pages Mini holds, in tab order: no closing tabs and none of Zen's
+  // internal ones (empty-tab sentinels, Glance previews).
+  pages(win) {
+    return [...(win?.gBrowser?.tabs ?? [])].filter(tab =>
+      !tab.closing && !tab.hidden &&
+      !tab.hasAttribute("zen-empty-tab") && !tab.hasAttribute("zen-glance-tab"));
+  },
+
+  // Whether a tab shows nothing yet (a fresh Cmd+Opt+T page, a blank Mini).
+  isBlank(tab) {
+    const browser = tab?.linkedBrowser;
+    const spec = browser?.currentURI?.spec ?? "";
+    return (!spec || spec == "about:blank" || !!tab.documentGlobal?.isBlankPageURL?.(spec)) &&
+      !tab.hasAttribute("busy") && !browser?.userTypedValue &&
+      !browser?.webProgress?.isLoadingDocument;
+  },
+
+  // Whether new pages from this window's own pages stay in it as tabs.
+  keepsTabs(win) {
+    return !!win?._whimsyQuickWindow && !win.closed && this.tabsEnabled &&
+      !win.document.documentElement.hasAttribute(CLOSING_ATTR);
+  },
+
+  // A target=_blank link or a window.open() from a page in Mini reaches
+  // Firefox's BrowserDOMWindow as "open a new tab". For a popup window
+  // (Mini is one) Firefox sends that tab to the main window, behind the
+  // floating Mini. Mini keeps it as its own tab instead, exactly as
+  // Firefox would build it (same opener, principal and window name), so
+  // window.opener, postMessage and window.close() keep working. The C++
+  // patch routes popups with features down this same path.
+  installPageTabs() {
+    if (this._pageTabsInstalled) {
+      return;
+    }
+    this._pageTabsInstalled = true;
+    const { BrowserDOMWindow } = ChromeUtils.importESModule("resource:///modules/BrowserDOMWindow.sys.mjs");
+    const proto = BrowserDOMWindow.prototype;
+    const { OPEN_NEWTAB, OPEN_NEWTAB_BACKGROUND, OPEN_NEWTAB_FOREGROUND, OPEN_EXTERNAL } = Ci.nsIBrowserDOMWindow;
+    const isNewTab = where => where == OPEN_NEWTAB || where == OPEN_NEWTAB_BACKGROUND || where == OPEN_NEWTAB_FOREGROUND;
+    const self = this;
+    for (const [name, skipLoad] of [["createContentWindowInFrame", true], ["openURIInFrame", false]]) {
+      const original = proto[name];
+      proto[name] = function whimsyMiniTab(aURI, aParams, aWhere, aFlags, aName) {
+        if (isNewTab(aWhere) && !(aFlags & OPEN_EXTERNAL) && self.keepsTabs(this.win)) {
+          try {
+            const browser = self.openPageTab(this.win, {
+              // createContentWindowInFrame only makes the browser; the page
+              // loads itself through openWindowInfo.
+              uri: skipLoad ? null : aURI,
+              params: aParams,
+              where: aWhere,
+              name: aName,
+              skipLoad,
+              forceAllowDataURI: !!(aFlags & Ci.nsIBrowserDOMWindow.OPEN_FORCE_ALLOW_DATA_URI),
+            });
+            if (browser) {
+              return browser;
+            }
+          } catch (e) {
+            console.error("Whimsy: Mini tab", e);
+          }
+        }
+        return original.apply(this, arguments);
+      };
+    }
+    // A page's own "new tab" opens (Cmd-click, middle-click, the context
+    // menu's Open Link in New Tab) go through openLinkIn, which skips
+    // popup windows for tabs; in Mini they stay in Mini too. Opens by
+    // the browser itself (system principal: Settings, menus) keep
+    // Firefox's choice of window.
+    const { URILoadingHelper } = ChromeUtils.importESModule("resource:///modules/URILoadingHelper.sys.mjs");
+    const resolve = URILoadingHelper._resolveInitialTargetWindow;
+    if (typeof resolve == "function") {
+      URILoadingHelper._resolveInitialTargetWindow = function whimsyMiniTarget(where, params, win, forceNonPrivate) {
+        const top = win?.top;
+        const principal = params?.triggeringPrincipal;
+        if ((where == "tab" || where == "tabshifted") && !forceNonPrivate && principal &&
+            !principal.isSystemPrincipal && self.keepsTabs(top)) {
+          return top;
+        }
+        return resolve.apply(this, arguments);
+      };
+    }
+  },
+
+  // Adds the page's new tab to Mini, after the page that opened it, and
+  // makes that page the one Mini returns to when the new one closes.
+  openPageTab(win, { uri, params, where, name, skipLoad, forceAllowDataURI }) {
+    const { gBrowser } = win;
+    const openerTab = params.openerBrowser ? gBrowser.getTabForBrowser(params.openerBrowser) : null;
+    const inBackground = where == Ci.nsIBrowserDOMWindow.OPEN_NEWTAB_BACKGROUND;
+    const userContextId = params.openerOriginAttributes?.userContextId ?? openerTab?.userContextId ?? 0;
+    const tab = gBrowser.addTab(uri ? uri.spec : "about:blank", {
+      triggeringPrincipal: params.triggeringPrincipal ??
+        Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
+      referrerInfo: params.referrerInfo,
+      userContextId,
+      inBackground,
+      openWindowInfo: params.openWindowInfo,
+      openerBrowser: params.openerBrowser,
+      ownerTab: inBackground ? null : openerTab ?? gBrowser.selectedTab,
+      relatedToCurrent: true,
+      name,
+      policyContainer: params.policyContainer,
+      skipLoad,
+      forceAllowDataURI,
+      // Never routed to a space: Mini is where it was opened.
+      skipRoute: true,
+    });
+    if (!tab) {
+      return null;
+    }
+    if (openerTab && !inBackground) {
+      gBrowser.setSuccessor(tab, openerTab);
+    }
+    return tab.linkedBrowser;
+  },
+
+  // The Mini a link from another app joins: the newest one showing pages
+  // (not the bar-only panel, nor one fading out).
+  reusableWindow() {
+    if (!this.tabsEnabled) {
+      return null;
+    }
+    return this.windows().filter(w => !w._whimsyMiniBarOnly &&
+      !w.document?.documentElement?.hasAttribute(CLOSING_ATTR)).at(-1) ?? null;
+  },
+
+  // A link from another app, as Mini's front tab, in the profile of the
+  // space Cmd+O points at. A Mini still blank just shows it.
+  openLinkTab(win, url, triggeringPrincipal = null) {
+    const { gBrowser } = win;
+    const profileId = this.destinationProfileId(win.opener);
+    const pages = this.pages(win);
+    if (pages.length == 1 && this.isBlank(pages[0])) {
+      if (profileId || pages[0].userContextId) {
+        return this.loadInProfile(win, url, profileId, triggeringPrincipal);
+      }
+      gBrowser.selectedTab = pages[0];
+      win.openTrustedLinkIn(url, "current", {
+        triggeringPrincipal: triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(),
+      });
+      return pages[0];
+    }
+    const tab = gBrowser.addTab(url, {
+      userContextId: profileId,
+      triggeringPrincipal: this.principalFor(
+        triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(), profileId, false),
+      inBackground: false,
+      skipRoute: true,
+    });
+    if (tab) {
+      gBrowser.selectedTab = tab;
+    }
+    return tab;
+  },
+
+  // Cmd+Opt+T: a new page in Mini. Its command bar opens on the new tab and
+  // what you pick loads there; dismissing the bar without a pick takes the
+  // empty page away again.
+  newTab(win) {
+    if (!this.tabsEnabled || win._whimsyMiniBarOnly) {
+      this.openCommandBar(win);
+      return null;
+    }
+    const { gBrowser } = win;
+    const previous = gBrowser.selectedTab;
+    const tab = gBrowser.addTab("about:blank", {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+      userContextId: previous?.userContextId ?? 0,
+      inBackground: false,
+      ownerTab: previous,
+      relatedToCurrent: true,
+      skipRoute: true,
+    });
+    if (!tab) {
+      return null;
+    }
+    gBrowser.selectedTab = tab;
+    if (previous) {
+      gBrowser.setSuccessor(tab, previous);
+    }
+    this.openCommandBar(win);
+    const input = win.gURLBar?.inputField;
+    const discard = () => {
+      win.setTimeout(() => {
+        if (!win.closed && !tab.closing && tab.isConnected && !tab._whimsyMiniPicked &&
+            this.isBlank(tab) && !win.gURLBar?.focused && this.pages(win).length > 1) {
+          gBrowser.removeTab(tab, { animate: false });
+        }
+      }, 0);
+    };
+    input?.addEventListener("blur", discard, { once: true });
+    return tab;
+  },
+
+  // The pill row: one pill per page (favicon, title, close), the current
+  // one lit like the address strip. Hidden until there are two pages.
+  buildTabRow(win) {
+    const { document, gBrowser } = win;
+    const row = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    row.id = TABS_ID;
+    row.setAttribute("role", "tablist");
+    document.l10n.setAttributes(row, "whimsy-quick-window-tabs");
+    const pillOf = target => target?.closest?.(".whimsy-mini-tab");
+    row.addEventListener("click", event => {
+      const pill = pillOf(event.target);
+      if (!pill?._tab || event.button != 0) {
+        return;
+      }
+      if (event.target.closest(".whimsy-mini-tab-close")) {
+        gBrowser.removeTab(pill._tab, { animate: true });
+      } else {
+        gBrowser.selectedTab = pill._tab;
+      }
+    });
+    // Middle-click closes, as on any tab.
+    row.addEventListener("auxclick", event => {
+      const pill = pillOf(event.target);
+      if (pill?._tab && event.button == 1) {
+        event.preventDefault();
+        gBrowser.removeTab(pill._tab, { animate: true });
+      }
+    });
+    // Arrow keys move between pills (and select), Home/End jump.
+    row.addEventListener("keydown", event => {
+      const pill = pillOf(event.target);
+      if (!pill || event.target != pill) {
+        return;
+      }
+      const pills = [...row.children];
+      const index = pills.indexOf(pill);
+      const rtl = win.getComputedStyle(row).direction == "rtl";
+      const step = { ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 }[event.key];
+      let next = null;
+      if (step) {
+        next = pills[(index + step + pills.length) % pills.length];
+      } else if (event.key == "Home") {
+        next = pills[0];
+      } else if (event.key == "End") {
+        next = pills.at(-1);
+      } else if (event.key == "Enter" || event.key == " ") {
+        next = pill;
+      }
+      if (next?._tab) {
+        event.preventDefault();
+        gBrowser.selectedTab = next._tab;
+        next.focus();
+      }
+    });
+    return row;
+  },
+
+  makePill(win, tab) {
+    const { document } = win;
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const pill = html("div");
+    pill.className = "whimsy-mini-tab";
+    pill.setAttribute("role", "tab");
+    pill._tab = tab;
+    const icon = document.createXULElement("image");
+    icon.className = "whimsy-mini-tab-icon";
+    const label = html("span");
+    label.className = "whimsy-mini-tab-label";
+    const close = html("button");
+    close.type = "button";
+    close.className = "whimsy-mini-tab-close";
+    close.tabIndex = -1;
+    document.l10n.setAttributes(close, "whimsy-quick-window-tab-close");
+    pill.append(icon, label, close);
+    return pill;
+  },
+
+  updatePill(win, pill, tab) {
+    const selected = tab == win.gBrowser.selectedTab;
+    const label = tab.label || "";
+    pill.toggleAttribute("selected", selected);
+    pill.setAttribute("aria-selected", String(selected));
+    pill.tabIndex = selected ? 0 : -1;
+    pill.toggleAttribute("busy", tab.hasAttribute("busy"));
+    pill.title = label;
+    const text = pill.querySelector(".whimsy-mini-tab-label");
+    if (text.textContent != label) {
+      text.textContent = label;
+    }
+    const src = win.gBrowser.getIcon(tab) || DEFAULT_FAVICON;
+    const icon = pill.querySelector(".whimsy-mini-tab-icon");
+    if (icon.getAttribute("src") != src) {
+      icon.setAttribute("src", src);
+    }
+  },
+
+  // Keeps the pill row (and the "Open N Tabs in" count) on Mini's pages.
+  syncTabs(win) {
+    const { document } = win;
+    const row = document.getElementById(TABS_ID);
+    if (!row || win.closed) {
+      return;
+    }
+    const pages = this.tabsEnabled ? this.pages(win) : [];
+    const show = pages.length > 1;
+    document.documentElement.toggleAttribute(TABS_ATTR, show);
+    this.labelOpenIn(win);
+    if (!show) {
+      row.replaceChildren();
+      return;
+    }
+    const existing = new Map([...row.children].map(pill => [pill._tab, pill]));
+    const pills = pages.map(tab => {
+      const pill = existing.get(tab) ?? this.makePill(win, tab);
+      this.updatePill(win, pill, tab);
+      return pill;
+    });
+    // Move only what changed, so pills already showing keep their place
+    // (re-inserting one would replay its entrance).
+    for (const pill of [...row.children]) {
+      if (!pills.includes(pill)) {
+        pill.remove();
+      }
+    }
+    pills.forEach((pill, i) => {
+      if (row.children[i] != pill) {
+        row.insertBefore(pill, row.children[i] ?? null);
+      }
+    });
+  },
+
+  watchTabs(win) {
+    const { gBrowser } = win;
+    const sync = () => this.syncTabs(win);
+    const events = ["TabOpen", "TabClose", "TabSelect", "TabMove", "TabAttrModified", "TabShow", "TabHide"];
+    for (const type of events) {
+      gBrowser.tabContainer.addEventListener(type, sync);
+    }
+    // A closed tab is gone from gBrowser.tabs only after TabClose.
+    const closed = event => {
+      if (event.type == "TabClose") {
+        win.setTimeout(sync, 0);
+      }
+    };
+    gBrowser.tabContainer.addEventListener("TabClose", closed);
+    win.addEventListener("unload", () => {
+      for (const type of events) {
+        gBrowser.tabContainer.removeEventListener(type, sync);
+      }
+      gBrowser.tabContainer.removeEventListener("TabClose", closed);
+    }, { once: true });
+    sync();
+  },
+
+  // How many pages Cmd+O moves.
+  movingCount(win) {
+    return this.tabsEnabled ? Math.max(1, this.pages(win).length) : 1;
+  },
+
+  // "Open in <Space>", or "Open 3 Tabs in <Space>" with several pages.
+  labelOpenIn(win) {
+    const button = win.document.getElementById(MOVE_BUTTON_ID);
+    if (!button) {
+      return;
+    }
+    const space = win._whimsyMiniSpace;
+    const args = space ? { space: space.name, count: this.movingCount(win) } : null;
+    const id = space ? "whimsy-quick-window-move-to-space" : "whimsy-quick-window-no-space";
+    const current = win.document.l10n.getAttributes(button);
+    if (current.id != id || JSON.stringify(current.args ?? null) != JSON.stringify(args)) {
+      win.document.l10n.setAttributes(button, id, args);
+    }
   },
 
   // -- wave5/profiles: the profile pill ---------------------------------
@@ -1115,38 +1591,63 @@ export const WhimsyQuickWindow = {
     popup.openPopup(anchor, { position: "after_start" });
   },
 
-  async moveAcrossProfiles(win, target, tab, space, profileId) {
+  // wave10/mini W10-13: every page moves; one already in the space's
+  // profile is adopted as it is, the others reopen there in that profile.
+  async moveAcrossProfiles(win, target, tabs, space, profileId, selected) {
+    const count = tabs.length;
     const ok = await lazy.WhimsyProfileMoves.confirm(target, {
       titleId: "whimsy-profile-move-tab-title",
-      titleArgs: { count: 1, space: space?.name ?? "" },
+      titleArgs: { count, space: space?.name ?? "" },
       bodyId: "whimsy-profile-move-tab-body",
-      bodyArgs: { count: 1, profile: lazy.WhimsyProfiles.nameOf(profileId) },
+      bodyArgs: { count, profile: lazy.WhimsyProfiles.nameOf(profileId) },
       acceptId: "whimsy-profile-move-tab-accept",
-      acceptArgs: { count: 1 },
+      acceptArgs: { count },
     });
-    if (!ok || win.closed || target.closed || tab.closing) {
+    if (!ok || win.closed || target.closed) {
       return null;
     }
-    const url = tab.linkedBrowser.currentURI?.spec || "about:blank";
-    const isPrivate = lazy.WhimsyProfileMoves.isPrivate(tab);
-    const principal = this.principalFor(tab.linkedBrowser.contentPrincipal, profileId, isPrivate);
-    const added = target.gBrowser.addTab(url, {
-      userContextId: profileId,
-      whimsyPrivate: isPrivate,
-      triggeringPrincipal: principal,
-    });
-    // Zen's move skips a tab already in the space's container, so the space
-    // id is set first (else the tab has none).
-    added.setAttribute("zen-workspace-id", space.uuid);
-    target.gZenWorkspaces.moveTabToWorkspace(added, space.uuid);
+    let landed = null;
+    // Reopened copies first: adopting the last page would close Mini, and
+    // the pages still to reopen with it.
+    const reopen = tabs.filter(tab => (tab.userContextId ?? 0) != profileId);
+    const adopt = tabs.filter(tab => !reopen.includes(tab));
+    const placed = new Map();
+    for (const tab of reopen) {
+      if (tab.closing) {
+        continue;
+      }
+      const url = tab.linkedBrowser.currentURI?.spec || "about:blank";
+      const isPrivate = lazy.WhimsyProfileMoves.isPrivate(tab);
+      const principal = this.principalFor(tab.linkedBrowser.contentPrincipal, profileId, isPrivate);
+      const added = target.gBrowser.addTab(url, {
+        userContextId: profileId,
+        whimsyPrivate: isPrivate,
+        triggeringPrincipal: principal,
+      });
+      // Zen's move skips a tab already in the space's container, so the
+      // space id is set first (else the tab has none).
+      added.setAttribute("zen-workspace-id", space.uuid);
+      target.gZenWorkspaces.moveTabToWorkspace(added, space.uuid);
+      placed.set(tab, added);
+    }
+    for (const tab of adopt) {
+      if (!win.closed && !tab.closing) {
+        placed.set(tab, target.gBrowser.adoptTab(tab, { selectTab: false, spaceId: space.uuid }));
+      }
+    }
+    landed = placed.get(selected) ?? [...placed.values()].find(Boolean) ?? null;
     if (target.gZenWorkspaces.activeWorkspace != space.uuid) {
       await target.gZenWorkspaces.changeWorkspaceWithID(space.uuid);
     }
-    target.gBrowser.selectedTab = added;
-    target.gZenWorkspaces.lastSelectedWorkspaceTabs[space.uuid] = added;
+    if (landed) {
+      target.gBrowser.selectedTab = landed;
+      target.gZenWorkspaces.lastSelectedWorkspaceTabs[space.uuid] = landed;
+    }
     target.focus();
-    win.close();
-    return added;
+    if (!win.closed) {
+      win.close();
+    }
+    return landed;
   },
 
   // The space's icon as an image URL: Zen's SVG icons as they are, an
@@ -1224,7 +1725,7 @@ export const WhimsyQuickWindow = {
     }
     const caption = document.createXULElement("menucaption");
     caption.className = "whimsy-mini-picker-caption";
-    document.l10n.setAttributes(caption, "whimsy-quick-window-picker-caption");
+    document.l10n.setAttributes(caption, "whimsy-quick-window-picker-caption", { count: this.movingCount(win) });
     const defaultId = this.defaultSpaceId(win);
     const toItem = space => {
       const item = document.createXULElement("menuitem");
