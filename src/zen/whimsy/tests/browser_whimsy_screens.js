@@ -856,7 +856,6 @@ add_task(async function fixB_sheets() {
   const { WhimsyHeavyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs");
   const { WhimsySplitFavorites } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitFavorites.sys.mjs");
   const { WhimsyCookieEditor } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs");
-  const { WhimsyUserAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUserAgent.sys.mjs");
   const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
   const favorites = await WhimsySplitFavorites._load();
   const savedFavorites = favorites.splice(0);
@@ -869,7 +868,6 @@ add_task(async function fixB_sheets() {
     }, panel => panel.querySelector(".whimsy-heavy-tabs-group"));
     await sheetShot("split-favorites", "whimsySplitFavoritesPanel", () => WhimsySplitFavorites.openFavoritesPanel(window));
     await sheetShot("cookies", "whimsy-cookie-editor-panel", () => WhimsyCookieEditor.open(window));
-    await sheetShot("pretend-to-be", "whimsy-useragent-panel", () => WhimsyUserAgent.openPicker(window));
     await sheetShot("cheat-sheet", "whimsy-cheatsheet-panel", () => WhimsyCheatSheet.open(window));
   } finally {
     favorites.splice(0, favorites.length, ...savedFavorites);
@@ -1669,5 +1667,393 @@ add_task(async function private_space_empty_state() {
     if (gZenWorkspaces.activeWorkspace != startSpace) {
       await gZenWorkspaces.changeWorkspaceWithID(startSpace);
     }
+  }
+});
+
+// wave10 design pass A: every new surface, light and dark (shots named
+// w10-<surface>-<state>-<light|dark>), for side-by-side checks against the
+// mockups (artifact 525AvMQg54ssXqojjzLqT6).
+async function w10ToastShot(name, show) {
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    let toast = null;
+    try {
+      toast = await show();
+      ok(toast, `${name}: the toast shows`);
+      await document.l10n.translateFragment(toast);
+      await settled();
+      await shot(`w10-${name}-${dark ? "dark" : "light"}`);
+    } finally {
+      if (toast?.isConnected) {
+        WhimsyToast._dismissNow(toast);
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+async function w10SurfaceShot(name, panelId, open, ready = null) {
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == panelId);
+    await open();
+    await shown;
+    const panel = document.getElementById(panelId);
+    try {
+      if (ready) {
+        await TestUtils.waitForCondition(() => ready(panel), `${name} is ready`);
+      }
+      await document.l10n.translateFragment(panel);
+      await settled();
+      await shot(`w10-${name}-${dark ? "dark" : "light"}`);
+    } finally {
+      if (panel.state == "open" || panel.state == "showing") {
+        const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+        panel.hidePopup();
+        await hidden;
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+// W10-15: the dead-page offer, looking, and the error state.
+add_task(async function w10_dead_page_toast() {
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  const icon = "chrome://browser/skin/zen-icons/selectable/time.svg";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/nope-123");
+  try {
+    await w10ToastShot("dead-page-offer", () => WhimsyToast.show(window, {
+      l10nId: "whimsy-archive-toast", detailL10nId: "whimsy-archive-toast-detail", icon, timeout: 0,
+      action: { l10nId: "whimsy-archive-look", onCommand: () => "keep" },
+    }));
+    await w10ToastShot("dead-page-looking", () => {
+      const toast = WhimsyToast.show(window, {
+        l10nId: "whimsy-archive-toast", detailL10nId: "whimsy-archive-toast-detail", icon, timeout: 0,
+        action: { l10nId: "whimsy-archive-look", onCommand: () => "keep" },
+      });
+      toast.update({ detailL10nId: "whimsy-archive-looking", busy: true, action: { l10nId: "whimsy-archive-looking-button" } });
+      return toast;
+    });
+    await w10ToastShot("dead-page-error", () => WhimsyToast.show(window, {
+      l10nId: "whimsy-archive-error", detailL10nId: "whimsy-archive-error-detail", icon, timeout: 0,
+      action: { l10nId: "whimsy-archive-retry", onCommand: () => "keep" },
+    }));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-30: Fire, its three choices and the Fire Everywhere step, and the
+// result toast.
+add_task(async function w10_fire() {
+  const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFireButton.sys.mjs");
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://www.example.com/?w10-fire");
+  try {
+    await w10SurfaceShot("fire-choices", "whimsyFirePanel", () => WhimsyFireButton.openPanel(window));
+    await w10SurfaceShot("fire-site", "whimsyFirePanel", () => WhimsyFireButton.openPanel(window, { choice: "site" }));
+    await w10SurfaceShot("fire-everywhere-confirm", "whimsyFirePanel",
+      () => WhimsyFireButton.openPanel(window, { choice: "everything", confirm: true }));
+    await w10ToastShot("fire-result", () => {
+      const toast = WhimsyToast.show(window, {
+        l10nId: "whimsy-fire-done-profile-title", l10nArgs: { profile: "Work" },
+        detailL10nId: "whimsy-fire-done-profile-detail", detailArgs: { count: 12, visits: 340, sites: 21 },
+        icon: "chrome://browser/skin/zen-icons/history.svg", timeout: 0,
+      });
+      return toast;
+    });
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-14: the paste guard, over the page (no field) and under a field.
+add_task(async function w10_paste_guard() {
+  const key = "AKIA" + "IOSFODNN7EXAMPLE";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-paste-guard");
+  const browser = tab.linkedBrowser;
+  await SpecialPowers.spawn(browser, [], () => {
+    content.document.body.innerHTML = `<h1>New chat</h1><p>Paste your key below.</p>
+      <input id="field" style="width: 320px; margin-top: 40px" placeholder="Message…">`;
+  });
+  await SimpleTest.promiseClipboardChange(key, () => SpecialPowers.clipboardCopyString(key));
+  try {
+    await w10SurfaceShot("paste-guard-page", "whimsy-paste-guard", async () => {
+      await SpecialPowers.spawn(browser, [], () => {
+        content.document.activeElement?.blur?.();
+        content.focus();
+        content.docShell.doCommand("cmd_paste");
+      });
+    });
+    await w10SurfaceShot("paste-guard-field", "whimsy-paste-guard", async () => {
+      await SpecialPowers.spawn(browser, [], () => {
+        content.document.getElementById("field").focus();
+        content.docShell.doCommand("cmd_paste");
+      });
+    });
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-17: What Font Is This? on a web page's selection, and on a page it
+// can't read.
+add_task(async function w10_font_card() {
+  const { WhimsyInspector } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyInspector.sys.mjs");
+  const page = "https://example.com/document-builder.sjs?html=" + encodeURIComponent(`
+    <h1 style="font: 600 15px/24px -apple-system, system-ui; letter-spacing: -0.01em; color: #1f2937; margin: 80px 30px">
+      <span id="t">Build momentum</span> with a calm, steady workflow</h1>`);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  try {
+    const select = () => SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      const range = content.document.createRange();
+      range.selectNodeContents(content.document.getElementById("t"));
+      content.getSelection().removeAllRanges();
+      content.getSelection().addRange(range);
+    });
+    await w10SurfaceShot("font-card", "whimsy-font-inspector-panel", async () => {
+      await select();
+      await WhimsyInspector.inspectFont(window);
+    }, panel => panel.querySelector(".whimsy-font-fact"));
+    BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "about:robots");
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+    await w10SurfaceShot("font-card-unavailable", "whimsy-font-inspector-panel", () => WhimsyInspector.inspectFont(window));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-16: This Site in Zen's site panel (pick B: Pretend to Be as a
+// dropdown row), with a few things remembered, and its Pretend to Be list.
+add_task(async function w10_this_site() {
+  const { WhimsySiteSettings } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySiteSettings.sys.mjs");
+  const { WhimsyUserAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUserAgent.sys.mjs");
+  const host = "example.com";
+  const oa = { userContextId: 0, privateBrowsingId: 0 };
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `https://${host}/`);
+  WhimsySiteSettings.setFlag("reader", host, oa, true);
+  WhimsyUserAgent.set(host, "chrome-mac");
+  await FullZoom.enlarge(tab.linkedBrowser);
+  gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
+  try {
+    await w10SurfaceShot("this-site", "zen-unified-site-data-panel", () => WhimsySiteSettings.open(window),
+      panel => panel.querySelector("#whimsy-site-settings-section:not([hidden])"));
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await WhimsySiteSettings.open(window);
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
+        e => e.target.id == "whimsy-site-settings-useragent-button-list");
+      document.getElementById("whimsy-site-settings-useragent-button").click();
+      await shown;
+      const list = document.getElementById("whimsy-site-settings-useragent-button-list");
+      await document.l10n.translateFragment(list);
+      await settled();
+      await shot(`w10-this-site-pretend-${dark ? "dark" : "light"}`);
+      list.hidePopup();
+      const site = document.getElementById("zen-unified-site-data-panel");
+      const hidden = BrowserTestUtils.waitForPopupEvent(site, "hidden");
+      site.hidePopup(true);
+      await hidden;
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    gNavToolbox.removeAttribute("zen-has-implicit-hover");
+    WhimsySiteSettings.setFlag("reader", host, oa, false);
+    WhimsyUserAgent.clear(host);
+    await FullZoom.reset(tab.linkedBrowser);
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-18: the page tools, one per tab, light and dark.
+add_task(async function w10_page_tools() {
+  const { WhimsyPageDev } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageDev.sys.mjs");
+  const root = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, root + "whimsy_pagedev.html");
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.fonts.ready);
+  try {
+    for (const t of ["fonts", "colors", "built-with"]) {
+      await w10SurfaceShot(`page-tools-${t}`, "whimsy-pagedev", () => WhimsyPageDev.open(window, t),
+        panel => panel.dataset.tab == t && !panel.querySelector(".whimsy-pagedev-reading"));
+    }
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-19: the cheat sheet, and the cheat sheet filtered.
+add_task(async function w10_cheat_sheet() {
+  const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+  await w10SurfaceShot("cheat-sheet", "whimsy-cheatsheet-panel", () => WhimsyCheatSheet.open(window),
+    panel => panel.querySelector(".whimsy-cheatsheet-row"));
+  await w10SurfaceShot("cheat-sheet-search", "whimsy-cheatsheet-panel", () => WhimsyCheatSheet.open(window), panel => {
+    const search = panel.querySelector("#whimsy-cheatsheet-search");
+    if (search.value != "split") {
+      search.value = "split";
+      search.dispatchEvent(new Event("input"));
+    }
+    return true;
+  });
+});
+
+// W10-24: Add to Easel with a capture and two easels, the first-easel
+// state, and Library ▸ Screenshots as a grid.
+add_task(async function w10_easel_picker_and_library() {
+  const { WhimsyEasel, gWhimsyEaselStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyEasel.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-easel");
+  const canvas = new OffscreenCanvas(640, 400);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#e9e4f5";
+  ctx.fillRect(0, 0, 640, 400);
+  ctx.fillStyle = "#7a6ad8";
+  ctx.fillRect(40, 40, 300, 40);
+  const blob = await canvas.convertToBlob();
+  const capture = { blob, item: { type: "capture", live: false, crop: { x: 0, y: 0, w: 1280, h: 720 }, profileKey: "default" } };
+  const created = [];
+  try {
+    await w10SurfaceShot("easel-picker-first", "whimsy-easel-picker",
+      () => WhimsyEasel.showPicker(window, tab.linkedBrowser, null, () => {}, "w10-shot-empty-profile", { capture }));
+    for (const title of ["Mood board", "Launch plan for the autumn campaign and its many moving parts"]) {
+      const easel = await gWhimsyEaselStore.create({ title });
+      created.push(easel);
+      const image = await gWhimsyEaselStore.saveImage(easel.id, new Uint8Array(await blob.arrayBuffer()));
+      await gWhimsyEaselStore.addItem(easel.id, { type: "capture", image, w: 320, h: 200 });
+    }
+    await w10SurfaceShot("easel-picker", "whimsy-easel-picker",
+      () => WhimsyEasel.showPicker(window, tab.linkedBrowser, null, () => {}, "default", { capture }),
+      panel => panel.querySelectorAll(".whimsy-easel-tile-thumb img").length >= 2);
+  } finally {
+    for (const easel of created) {
+      await gWhimsyEaselStore.remove(easel.id);
+    }
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-24: Library ▸ Screenshots as a grid of thumbnails with the size slider.
+add_task(async function w10_library_screenshots() {
+  const library = document.querySelector("zen-library");
+  if (!library) {
+    return;
+  }
+  const sub = Services.prefs.getStringPref("whimsy.captures.folder", "") || "whimsy-captures";
+  const dir = PathUtils.isAbsolute(sub) ? sub : PathUtils.join(PathUtils.profileDir, sub);
+  await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+  const paths = [];
+  for (const [i, color] of ["#7a6ad8", "#e9590c", "#1d8a4a", "#0b5cad"].entries()) {
+    const canvas = new OffscreenCanvas(640, 400);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#f4f4f4";
+    ctx.fillRect(0, 0, 640, 400);
+    ctx.fillStyle = color;
+    ctx.fillRect(40, 40, 360, 60);
+    ctx.fillRect(40, 140, 560, 200);
+    const path = PathUtils.join(dir, `Screenshot ${i + 1} w10 shot.png`);
+    await IOUtils.write(path, new Uint8Array(await (await canvas.convertToBlob()).arrayBuffer()));
+    paths.push(path);
+  }
+  Services.obs.notifyObservers(null, "whimsy-capture-saved", paths[0]);
+  const wasOpen = library.constructor.isLibraryOpen;
+  try {
+    await TestUtils.waitForCondition(() => library.zenLibrarySections["whimsy-files"]);
+    library.activeTab = "whimsy-files";
+    await library.constructor.animateProgress(1);
+    await TestUtils.waitForCondition(() => library.querySelectorAll(".whimsy-library-shot-image").length >= 4, "Tiles");
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await settled();
+      await shot(`w10-library-screenshots-${dark ? "dark" : "light"}`);
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    await library.constructor.animateProgress(wasOpen ? 1 : 0);
+    for (const path of paths) {
+      await IOUtils.remove(path, { ignoreAbsent: true });
+    }
+  }
+});
+
+// W10-54: the drawn trail (A → B → C, back twice, then D).
+add_task(async function w10_trail() {
+  const { WhimsyTrails } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTrails.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["browser.navigation.requireUserInteraction", false]] });
+  const base = "https://example.com/browser/whimsy-trails-shot";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${base}?a`);
+  const browser = tab.linkedBrowser;
+  const load = async url => {
+    const loaded = BrowserTestUtils.browserLoaded(browser, false, url);
+    BrowserTestUtils.startLoadingURIString(browser, url);
+    await loaded;
+  };
+  const back = async url => {
+    const changed = BrowserTestUtils.waitForLocationChange(gBrowser, url);
+    browser.goBack();
+    await changed;
+  };
+  try {
+    await load(`${base}?b`);
+    await load(`${base}?c`);
+    await back(`${base}?b`);
+    await back(`${base}?a`);
+    await load(`${base}?d`);
+    await load(`${base}?e`);
+    await w10SurfaceShot("trail", "whimsy-trail", () => WhimsyTrails.openTrail(window, document.getElementById("back-button")));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W10-25: a tab with a typed form (its glyph in the sidebar) beside a tab
+// protected by hand (its lock), the unload question, and the refill offer.
+add_task(async function w10_form_protection() {
+  const { WhimsyFormProtection } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-form");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  try {
+    WhimsyFormProtection.updateTabProtection(tab, true);
+    // Protected by hand with nothing typed: the lock.
+    WhimsyFormProtection.toggleTabProtection(other);
+    const toast = WhimsyToast.current(window);
+    if (toast) {
+      WhimsyToast._dismissNow(toast);
+    }
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await settled();
+      await shot(`w10-form-marker-${dark ? "dark" : "light"}`);
+      await SpecialPowers.popPrefEnv();
+    }
+    WhimsyFormProtection.toggleTabProtection(other);
+    let unloading = null;
+    await w10SurfaceShot("form-unload", "whimsy-form-unload", () => {
+      unloading = WhimsyFormProtection.confirmUnload(window, [tab]);
+    });
+    await unloading;
+    await BrowserTestUtils.switchTab(gBrowser, tab);
+    await w10ToastShot("form-refill", () => WhimsyToast.show(window, {
+      l10nId: "whimsy-form-refill-ask", l10nArgs: { count: 3 },
+      detailL10nId: "whimsy-form-refill-ask-detail",
+      icon: "chrome://browser/content/whimsy/whimsy-form-badge.svg", timeout: 0,
+      action: { l10nId: "whimsy-form-refill-fill", onCommand: () => {} },
+    }));
+  } finally {
+    WhimsyFormProtection.updateTabProtection(tab, false);
+    BrowserTestUtils.removeTab(other);
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-16: Change User Agent… with Site Settings off (just Pretend to Be).
+add_task(async function w10_pretend_only() {
+  const { WhimsySiteSettings } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySiteSettings.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-pretend");
+  try {
+    await w10SurfaceShot("pretend-only", "whimsy-pretend-panel", () => WhimsySiteSettings.openPretend(window));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
   }
 });

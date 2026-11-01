@@ -49,63 +49,83 @@ add_task(async function test_burn_tabs_closes_only_closable_ones() {
   ok(!plain.isConnected, "The plain tab didn't");
 });
 
-// wave7/fire: the sheet serves the Fire Button's point (end the session,
-// start fresh), in the user's words: "Fire in This Profile" first, then
-// "Fire Everywhere" (red). The line under the first counts the tabs and
-// names the profile's spaces; the note under them names the profile and
-// says exactly what's cleared and kept. Closing the sheet burns nothing.
-add_task(async function test_fire_sheet() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fire-sheet");
+// W10-30: Fire is a WhimsySurface that explains each choice in full: "The
+// last hour in <profile>" (counts the tabs and names the profile's spaces),
+// "Everything from <site>" (only on a web page) and "Everything,
+// everywhere" (red tile), what's always kept, and one red button that
+// names the choice. No arrow tail, no native rows. Closing it burns nothing.
+async function openFire(options) {
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
+  WhimsyFireButton.openPanel(window, options);
+  await shown;
+  const panel = document.getElementById("whimsyFirePanel");
+  await document.l10n.translateFragment(panel);
+  return panel;
+}
+async function closeFire(panel) {
+  if (panel.state == "open") {
+    const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    panel.hidePopup();
+    await hidden;
+  }
+}
+
+add_task(async function test_fire_surface() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://www.example.com/?fire-sheet");
   const id = WhimsyFireButton.profileId(window);
   const expected = WhimsyFireButton.profileTabs(window, id)
     .reduce((sum, [w, tabs]) => sum + WhimsyFireButton.closableTabs(w, tabs).length, 0);
-  ok(WhimsyFireButton.profileTabs(window, id).some(([, tabs]) => tabs.includes(tab)),
-    "The new tab is in this profile's tabs");
-  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
-  WhimsyFireButton.openPanel(window);
-  await shown;
-  const panel = document.getElementById("whimsyFirePanel");
-  ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
+  const panel = await openFire();
+  ok(panel.classList.contains("whimsy-surface"), "It is a Whimsy surface");
+  is(panel.getAttribute("hidepopovertail"), "true", "with no arrow tail");
+  ok(!panel.querySelector("menupopup, menuitem, toolbarseparator"), "and no native rows");
+  is(panel.querySelector(".whimsy-surface-title").textContent, "What should Fire erase?", "The heading asks the question");
   const scopes = [...panel.querySelectorAll(".whimsy-fire-scope")].map(i => i.getAttribute("whimsy-fire-scope"));
-  Assert.deepEqual(scopes, ["profile", "everything"], "Two choices: this profile, then everywhere");
+  Assert.deepEqual(scopes, ["profile", "site", "everything"], "Three choices: this profile, this site, everywhere");
+  const group = panel.querySelector(".whimsy-fire-choices");
+  is(group.getAttribute("role"), "radiogroup", "The choices are a radio group");
   const row = panel.querySelector('[whimsy-fire-scope="profile"]');
-  const title = row.querySelector(".whimsy-sheet-item-title");
-  is(document.l10n.getAttributes(title).id, "whimsy-fire-profile", "The first row is Fire in This Profile");
-  await TestUtils.waitForCondition(() => (title.value || title.textContent) == "Fire in This Profile", "...in the user's words");
-  const detail = document.l10n.getAttributes(row.querySelector(".whimsy-sheet-item-subtitle"));
-  is(detail.args.count, expected, "Its line counts the tabs it will close");
+  is(row.getAttribute("aria-checked"), "true", "The profile starts chosen");
+  const name = row.querySelector(".whimsy-surface-choice-name");
+  Assert.deepEqual(document.l10n.getAttributes(name),
+    { id: "whimsy-fire-choice-profile", args: { profile: WhimsyProfiles.nameOf(id) } }, "It names the profile");
+  const detail = row.querySelector(".whimsy-surface-choice-detail");
+  is(document.l10n.getAttributes(detail).args.count, expected, "Its detail counts the tabs it will close");
   const spaceName = gZenWorkspaces.getActiveWorkspace().name;
   if (spaceName) {
-    ok(detail.args.spaces.includes(spaceName), "...and names this profile's spaces");
+    ok(document.l10n.getAttributes(detail).args.spaces.includes(spaceName), "...and names this profile's spaces");
   }
-  ok(panel.querySelector('[whimsy-fire-scope="everything"]').hasAttribute("destructive"), "Fire Everywhere is red");
-  const summary = panel.querySelector("#whimsy-fire-summary");
-  Assert.deepEqual(document.l10n.getAttributes(summary),
-    { id: "whimsy-fire-profile-summary", args: { profile: WhimsyProfiles.nameOf(id) } },
-    "The note names the profile");
-  await TestUtils.waitForCondition(() => summary.textContent.includes("last hour"), "...in words");
-  if (id == 0) {
-    ok(summary.textContent.includes("Default profile"), "No profile reads as the Default profile");
+  ok(detail.textContent.includes("signed out") && detail.textContent.includes("Other profiles"), "...and says what it means");
+  for (const card of panel.querySelectorAll(".whimsy-surface-choice-detail")) {
+    Assert.lessOrEqual(card.scrollWidth, card.clientWidth + 1, "A detail is never cropped sideways");
+    isnot(getComputedStyle(card).textOverflow, "ellipsis", "...nor ellipsed");
   }
-  ok(/cookies, site data and cache/.test(summary.textContent), "...naming what goes");
-  ok(summary.textContent.includes("Other profiles keep theirs"), "...what other profiles keep");
-  ok(summary.textContent.includes("Pinned tabs"), "...and what stays open");
-  for (const old of ["site", "last-15-min", "space", "session"]) {
-    ok(!panel.querySelector(`[whimsy-fire-scope="${old}"]`), `No "${old}" row`);
-  }
+  const site = panel.querySelector('[whimsy-fire-scope="site"] .whimsy-surface-choice-name');
+  is(document.l10n.getAttributes(site).args.site, "example.com", "The site choice names the base domain");
+  const everything = panel.querySelector('[whimsy-fire-scope="everything"]');
+  is(everything.querySelector(".whimsy-surface-tile").getAttribute("tone"), "destructive", "Everywhere has the red tile");
+  ok(everything.querySelector(".whimsy-surface-choice-detail").textContent.includes("the Archive"), "Everywhere says the Archive goes");
+  const kept = panel.querySelector("#whimsy-fire-kept");
+  ok(kept.textContent.includes("saved passwords") && kept.textContent.includes("Essentials"), "What's always kept is spelled out");
 
-  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
-  panel.querySelector(".whimsy-sheet-close").doCommand();
-  await hidden;
-  ok(tab.isConnected, "Closing the sheet burns nothing");
+  panel.querySelector(".whimsy-surface-close").doCommand();
+  await TestUtils.waitForCondition(() => !panel.isConnected, "The ✕ closes it");
+  ok(tab.isConnected, "Closing it burns nothing");
   BrowserTestUtils.removeTab(tab);
 });
 
-// wave7/fire: per-site forgetting left the sheet but stays reachable as the
-// "Forget About This Site…" command (only on a website), which names the
-// site and asks first with Cancel as the default. Return there forgets
-// nothing.
-add_task(async function test_forget_site_is_a_command_that_confirms() {
+add_task(async function test_fire_site_choice_only_on_web_pages() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:robots");
+  const panel = await openFire();
+  ok(!panel.querySelector('[whimsy-fire-scope="site"]'), "No site choice on an about: page");
+  await closeFire(panel);
+  BrowserTestUtils.removeTab(tab);
+});
+
+// W10-30: "Forget About This Site…" (command bar) opens the surface with
+// the site chosen, in place of its system dialog. Nothing runs until the
+// red button.
+add_task(async function test_forget_site_opens_the_surface() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
   ok(WhimsyCommands.get("cmd_whimsyForgetSite"), "Forget About This Site… is a registered command");
   ok(WhimsyCommands.get("cmd_whimsyFireProfile"), "Fire in This Profile is a registered command");
@@ -119,18 +139,30 @@ add_task(async function test_forget_site_is_a_command_that_confirms() {
     burned++;
     return 0;
   };
+  let dialogs = 0;
+  const onDialog = () => dialogs++;
+  Services.obs.addObserver(onDialog, "common-dialog-loaded");
   try {
-    const dialogOpen = BrowserTestUtils.promiseAlertDialogOpen();
-    const forgetting = WhimsyFireButton.forgetSite(window);
-    const dialogWin = await dialogOpen;
-    is(dialogWin.Dialog.args.defaultButtonNum, 1, "Cancel is the default button");
-    ok(dialogWin.Dialog.args.title.includes("example.com"), "The question names the base domain");
-    ok(dialogWin.Dialog.args.text.includes("subdomains"), "...and says subdomains and tabs go too");
-    EventUtils.synthesizeKey("KEY_Enter", {}, dialogWin);
-    await forgetting;
-    is(burned, 0, "Return forgets nothing");
-    ok(tab.isConnected, "...and closes nothing");
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
+    WhimsyFireButton.forgetSite(window);
+    await shown;
+    const panel = document.getElementById("whimsyFirePanel");
+    is(panel.dataset.scope, "site", "The site is chosen");
+    const forget = panel.querySelector("#whimsy-fire-forget");
+    Assert.deepEqual(document.l10n.getAttributes(forget), { id: "whimsy-fire-run-site", args: { site: "example.com" } },
+      "The red button says Forget example.com");
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    is(burned, 0, "Return on the card forgets nothing");
+    is(panel.state, "open", "...and keeps it open");
+    const toastShown = TestUtils.waitForCondition(() =>
+      document.l10n.getAttributes(document.querySelector("#zen-toast-container .whimsy-toast-message") ?? document.documentElement).id ==
+        "whimsy-fire-done-site-title", "The result toast says it forgot the site");
+    forget.doCommand();
+    await toastShown;
+    is(burned, 1, "The red button forgets it");
+    is(dialogs, 0, "No system dialog");
   } finally {
+    Services.obs.removeObserver(onDialog, "common-dialog-loaded");
     WhimsyFireButton.burnSite = original;
     BrowserTestUtils.removeTab(tab);
   }
@@ -153,11 +185,11 @@ add_task(async function test_fire_flash_layering_and_reduced_motion() {
   }
 });
 
-// wave5/uxfix: rows only choose a scope. Focus starts on the list, Return on
-// a row clears nothing, and only the red footer button runs it, followed
-// by a toast saying what closed and what was cleared. burnProfile is
-// stubbed (it would clear the test profile's last hour) but closes the tab
-// for real.
+// wave5/uxfix + W10-30: cards only choose. Focus starts on the chosen card,
+// arrows move the choice, Return on a card clears nothing, the red button
+// follows the choice, and only it runs, followed by a toast with a title
+// and a second line. burnProfile is stubbed (it would clear the test
+// profile's last hour) but closes the tab for real.
 add_task(async function test_fire_needs_the_explicit_button() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fire-explicit");
   const original = WhimsyFireButton.burnProfile;
@@ -167,41 +199,39 @@ add_task(async function test_fire_needs_the_explicit_button() {
     return { count: WhimsyFireButton.burnTabs(win, [tab], "profile"), visits: 0, sites: 0, profile: "Default" };
   };
   try {
-    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
-    WhimsyFireButton.openPanel(window);
-    await shown;
-    const panel = document.getElementById("whimsyFirePanel");
+    const panel = await openFire();
     const session = panel.querySelector('[whimsy-fire-scope="profile"]');
-    await TestUtils.waitForCondition(() => document.activeElement == session, "Focus starts on the first row");
-    is(session.getAttribute("role"), "radio", "Rows are radios");
-    is(session.getAttribute("aria-checked"), "true", "Fire in This Profile starts chosen");
+    await TestUtils.waitForCondition(() => document.activeElement == session, "Focus starts on the chosen card");
+    is(session.getAttribute("role"), "radio", "Cards are radios");
+    is(session.getAttribute("aria-checked"), "true", "The profile starts chosen");
     const forget = panel.querySelector("#whimsy-fire-forget");
     ok(forget.hasAttribute("destructive"), "The action is the red footer button");
-    is(document.l10n.getAttributes(forget).id, "whimsy-fire-forget-profile", "It names the choice");
+    is(document.l10n.getAttributes(forget).id, "whimsy-fire-run-profile", "It names the choice");
 
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
-    is(panel.state, "open", "Return on a row keeps the sheet open");
+    is(panel.state, "open", "Return on a card keeps it open");
     is(burned, 0, "...and clears nothing");
 
+    EventUtils.synthesizeKey("KEY_End", {}, window);
     const everything = panel.querySelector('[whimsy-fire-scope="everything"]');
-    everything.doCommand();
-    is(everything.getAttribute("aria-checked"), "true", "Choosing the other row moves the choice");
+    is(everything.getAttribute("aria-checked"), "true", "Arrow keys move the choice");
     is(session.getAttribute("aria-checked"), "false", "...off the first");
-    is(document.l10n.getAttributes(forget).id, "whimsy-fire-forget-everything", "The button follows the choice");
-    is(document.l10n.getAttributes(panel.querySelector("#whimsy-fire-summary")).id, "whimsy-fire-everything-summary",
-      "...and so does the note");
+    is(document.activeElement, everything, "...and focus");
+    is(document.l10n.getAttributes(forget).id, "whimsy-fire-run-everything", "The button follows the choice");
 
-    session.doCommand();
+    session.click();
     const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
     const toastShown = TestUtils.waitForCondition(() =>
       [...document.querySelectorAll("#zen-toast-container .whimsy-toast-message")].some(l =>
-        document.l10n.getAttributes(l).id == "whimsy-fire-done-profile"),
+        document.l10n.getAttributes(l).id == "whimsy-fire-done-profile-title"),
     "A toast says what closed and what was cleared");
     forget.doCommand();
     await hidden;
     await TestUtils.waitForCondition(() => !tab.isConnected, "The space's tabs close");
     is(burned, 1, "It ran once");
     await toastShown;
+    const detail = document.querySelector("#zen-toast-container .whimsy-toast-detail");
+    is(document.l10n.getAttributes(detail).id, "whimsy-fire-done-profile-detail", "with a second line");
   } finally {
     WhimsyFireButton.burnProfile = original;
     if (tab.isConnected) {
@@ -315,12 +345,11 @@ add_task(function test_everything_flags() {
     "Fire in This Profile clears a site's cookies, site data and cache");
 });
 
-// wave7/ux: "Everything" can't be undone, so the Forget button asks once
-// more in the window's own dialog (as Delete Space does), with Cancel as
-// the default. Return there forgets nothing; only "Forget Everything" runs
-// it, and then the toast says what went. burnEverything is stubbed so the
-// shared test profile isn't wiped.
-add_task(async function test_fire_everything_confirms_with_cancel_default() {
+// W10-30: "Everything" can't be undone, so it asks once more inside the
+// same surface (no system dialog): Back is the default and has focus; Esc
+// is Back; only the red Fire Everywhere runs it, and the toast says what
+// went. burnEverything is stubbed so the shared test profile isn't wiped.
+add_task(async function test_fire_everything_second_step() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fire-everything");
   const original = WhimsyFireButton.burnEverything;
   let burned = 0;
@@ -329,69 +358,60 @@ add_task(async function test_fire_everything_confirms_with_cancel_default() {
     return 0;
   };
   try {
-    async function openEverything() {
-      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
-      WhimsyFireButton.openPanel(window);
-      await shown;
-      const panel = document.getElementById("whimsyFirePanel");
-      panel.querySelector('[whimsy-fire-scope="everything"]').doCommand();
-      is(panel.dataset.scope, "everything", "Everything is chosen");
-      return panel;
-    }
+    const panel = await openFire({ choice: "everything" });
+    is(panel.dataset.scope, "everything", "Everything is chosen");
+    panel.querySelector("#whimsy-fire-forget").doCommand();
+    is(panel.dataset.step, "confirm", "The red button goes to the second step");
+    is(panel.state, "open", "...in the same surface");
+    const back = panel.querySelector("#whimsy-fire-back");
+    await TestUtils.waitForCondition(() => document.activeElement == back, "Back has focus");
+    is(back.getAttribute("default"), "true", "Back is the default");
+    ok(panel.querySelector("#whimsy-fire-confirm-title").textContent.includes("everything"), "It asks again");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    is(panel.dataset.step, "choose", "Esc goes back");
+    is(panel.state, "open", "...without closing");
+    is(panel.dataset.scope, "everything", "...with Everywhere still chosen");
+    is(burned, 0, "Nothing ran");
 
-    // Return in the dialog picks Cancel.
-    let panel = await openEverything();
-    let dialogOpen = BrowserTestUtils.promiseAlertDialogOpen();
-    let forgetting = WhimsyFireButton.forget(window, panel);
-    let dialogWin = await dialogOpen;
-    is(dialogWin.Dialog.args.defaultButtonNum, 1, "Cancel is the default button");
-    const dialogEl = dialogWin.document.querySelector("dialog");
-    is(dialogEl.defaultButton, "cancel", "...so Return cancels");
-    is(dialogEl.getButton("accept").label, "Fire Everywhere", "The accept button names the action");
-    EventUtils.synthesizeKey("KEY_Enter", {}, dialogWin);
-    await forgetting;
-    is(burned, 0, "Return in the confirm forgets nothing");
-    ok(tab.isConnected, "...and closes no tabs");
-
-    // The explicit button runs it, and the toast reports it.
-    panel = await openEverything();
-    dialogOpen = BrowserTestUtils.promiseAlertDialogOpen();
+    panel.querySelector("#whimsy-fire-forget").doCommand();
+    back.doCommand();
+    is(panel.dataset.step, "choose", "Back goes back");
+    panel.querySelector("#whimsy-fire-forget").doCommand();
     const toastShown = TestUtils.waitForCondition(() =>
       [...document.querySelectorAll("#zen-toast-container .whimsy-toast-message")].some(l =>
-        document.l10n.getAttributes(l).id == "whimsy-fire-done-everything"),
-    "A toast says everything was forgotten");
-    forgetting = WhimsyFireButton.forget(window, panel);
-    dialogWin = await dialogOpen;
-    dialogWin.document.querySelector("dialog").getButton("accept").click();
-    await forgetting;
-    is(burned, 1, "Forget Everything runs once accepted");
+        document.l10n.getAttributes(l).id == "whimsy-fire-done-everything-title"),
+    "A toast says everything was erased");
+    panel.querySelector("#whimsy-fire-everything-accept").doCommand();
     await toastShown;
+    is(burned, 1, "Fire Everywhere runs once confirmed");
   } finally {
     WhimsyFireButton.burnEverything = original;
     BrowserTestUtils.removeTab(tab);
   }
 });
 
-// wave7/ux: Fire in This Profile doesn't ask again; the sheet's explicit
+// The Fire Everywhere command opens straight on the second step.
+add_task(async function test_fire_everywhere_command_confirms_in_the_surface() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
+  WhimsyCommands.get("cmd_whimsyFireEverywhere").run(window);
+  await shown;
+  const panel = document.getElementById("whimsyFirePanel");
+  is(panel.dataset.step, "confirm", "It asks first");
+  await closeFire(panel);
+});
+
+// wave7/ux: Fire in This Profile doesn't ask again; the surface's explicit
 // button (which names it) is enough.
 add_task(async function test_fire_profile_does_not_confirm() {
-  const original = WhimsyFireButton.confirmEverything;
-  let asked = 0;
-  WhimsyFireButton.confirmEverything = async () => {
-    asked++;
-    return false;
-  };
   const originalProfile = WhimsyFireButton.burnProfile;
-  WhimsyFireButton.burnProfile = async () => 0;
+  let burned = 0;
+  WhimsyFireButton.burnProfile = async () => (burned++, 0);
   try {
-    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
-    WhimsyFireButton.openPanel(window);
-    await shown;
-    const panel = document.getElementById("whimsyFirePanel");
+    const panel = await openFire();
     await WhimsyFireButton.forget(window, panel);
-    is(asked, 0, "Fire in This Profile doesn't ask a second time");
+    is(burned, 1, "Fire in This Profile runs without a second step");
   } finally {
-    WhimsyFireButton.confirmEverything = original;
     WhimsyFireButton.burnProfile = originalProfile;
   }
 });
@@ -497,9 +517,10 @@ add_task(async function test_fire_everywhere_clears_form_history_not_passwords()
     Assert.deepEqual(order, ["purge", "clear"], "Closed tabs are forgotten before data clears");
     ok((await Services.logins.searchLoginsAsync({ origin: "https://example.com" }))
       .some(l => l.username == "fire-user"), "Saved passwords stay");
-    const [note] = await document.l10n.formatValues(["whimsy-fire-everything-summary"]);
-    ok(note.includes("form and search history") && note.includes("Saved passwords, bookmarks"),
-      "The note says form history goes and passwords and bookmarks stay");
+    const [note, kept] = await document.l10n.formatValues([
+      { id: "whimsy-fire-choice-everything-detail", args: { count: 0 } }, "whimsy-fire-kept"]);
+    ok(note.includes("form and search history") && kept.includes("saved passwords, bookmarks"),
+      "The card says form history goes and passwords and bookmarks stay");
   } finally {
     Object.assign(WhimsyFireButton, originals);
     await Services.logins.removeLoginAsync(login);
@@ -526,9 +547,10 @@ add_task(async function test_fire_everywhere_clears_download_list_keeps_files() 
       WhimsyFireButton.forgetFlags & Ci.nsIClearDataService.CLEAR_DOWNLOADS, { onDataDeleted: resolve }));
     await TestUtils.waitForCondition(async () => !(await list.getAll()).includes(download), "The list forgets it");
     ok(await IOUtils.exists(target), "The downloaded file stays on disk");
-    const [note] = await document.l10n.formatValues(["whimsy-fire-everything-summary"]);
-    ok(note.includes("download list") && note.includes("downloaded files"),
-      "The note says the list goes and the files stay");
+    const [note, kept] = await document.l10n.formatValues([
+      { id: "whimsy-fire-choice-everything-detail", args: { count: 0 } }, "whimsy-fire-kept"]);
+    ok(note.includes("download list") && kept.includes("downloaded files"),
+      "The card says the list goes and the files stay");
   } finally {
     if ((await list.getAll()).includes(download)) {
       await list.remove(download);
@@ -540,12 +562,13 @@ add_task(async function test_fire_everywhere_clears_download_list_keeps_files() 
 // W10-58: "Press Fire: no confirmation toast". Clearing a busy profile
 // takes seconds (10s for 60 tabs / 21 sites in a real build), and the only
 // toast came after it, for Zen's 2 seconds. Now "Clearing…" shows at once
-// and the result replaces it and stays.
+// and (W10-30) the same toast turns into the result, with a title and a
+// second line, and stays. A failure offers Try Again.
 add_task(async function test_w10_58_fire_confirms_at_once() {
   const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   let finish;
   const slowBurn = () => new Promise(resolve => (finish = resolve));
-  const running = WhimsyFireButton.run(window, slowBurn, "whimsy-fire-done-profile");
+  const running = WhimsyFireButton.run(window, slowBurn, "profile");
   const working = WhimsyToast.current(window);
   ok(working, "A toast shows as soon as Fire runs, before clearing is done");
   is(
@@ -556,34 +579,43 @@ add_task(async function test_w10_58_fire_confirms_at_once() {
   finish({ count: 2, visits: 3, sites: 1, profile: "Default" });
   await running;
   const done = WhimsyToast.current(window);
-  isnot(done, working, "The result replaces it");
+  is(done, working, "The result takes its place, without a second entrance");
   const message = done.querySelector(".whimsy-toast-message");
-  is(document.l10n.getAttributes(message).id, "whimsy-fire-done-profile", "and says what went");
+  is(document.l10n.getAttributes(message).id, "whimsy-fire-done-profile-title", "and says what went");
+  const detail = done.querySelector(".whimsy-toast-detail");
   Assert.deepEqual(
-    document.l10n.getAttributes(message).args,
-    { count: 2, visits: 3, sites: 1, profile: "Default" },
-    "with the counts"
+    document.l10n.getAttributes(detail),
+    { id: "whimsy-fire-done-profile-detail", args: { count: 2, visits: 3, sites: 1, profile: "Default" } },
+    "with the counts on the second line"
   );
-  await TestUtils.waitForCondition(() => message.textContent.includes("2"), "The text renders");
+  await TestUtils.waitForCondition(() => detail.textContent.includes("2 tabs") && detail.textContent.includes("3 visits"),
+    "The text renders");
   await new Promise(resolve => setTimeout(resolve, 2500));
   ok(done.isConnected && !done.hasAttribute("leaving"), "and is still there after Zen's 2 seconds");
   WhimsyToast.dismiss(done);
 
-  // A failure says so too, replacing "Clearing…".
+  // A failure says so too, replacing "Clearing…", with Try Again.
+  let attempts = 0;
   const failing = WhimsyFireButton.run(window, async () => {
+    attempts++;
     throw new Error("test");
-  }, "whimsy-fire-done-site", { site: "example.com" });
+  }, "site", { site: "example.com" });
   is(
     document.l10n.getAttributes(WhimsyToast.current(window).querySelector(".whimsy-toast-message")).id,
     "whimsy-fire-working-site",
     "Forgetting a site says so at once"
   );
   await failing;
-  is(
-    document.l10n.getAttributes(WhimsyToast.current(window).querySelector(".whimsy-toast-message")).id,
-    "whimsy-fire-failed-toast",
-    "and a failure replaces it"
-  );
+  const failed = WhimsyToast.current(window);
+  is(document.l10n.getAttributes(failed.querySelector(".whimsy-toast-message")).id, "whimsy-fire-failed-title",
+    "and a failure replaces it");
+  const retry = failed.querySelector(".whimsy-toast-action");
+  is(document.l10n.getAttributes(retry.querySelector(".whimsy-toast-action-label")).id, "whimsy-fire-retry", "with Try Again");
+  retry.click();
+  await TestUtils.waitForCondition(() => attempts == 2, "Try Again runs it again");
+  await TestUtils.waitForCondition(() =>
+    document.l10n.getAttributes(WhimsyToast.current(window)?.querySelector(".whimsy-toast-message") ?? document.documentElement).id ==
+      "whimsy-fire-failed-title");
   WhimsyToast.dismiss(WhimsyToast.current(window));
 });
 

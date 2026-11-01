@@ -18,24 +18,30 @@
 //     the "..." menu (Clear cookies and site data, Zap, Page Info's
 //     permissions as "Site settings").
 // This module adds one section after "Settings", rebuilt each time the
-// panel opens, with these rows (fixed order; the optional one last):
-//   Zoom             Firefox's site-specific zoom (FullZoom, content prefs);
-//                    the % and a reset button when it isn't the default.
+// panel opens. W10-16 (the user: the panel is good, "Pretend" is horrible,
+// turning full screen off didn't end it, the zoom button did nothing): the
+// rows are WhimsySurface parts on one track, each with a real control and
+// no per-row ✕; turning a control back to its default forgets it.
+//   Zoom             Firefox's site-specific zoom (FullZoom, content prefs):
+//                    a − / % / + stepper; the % resets to 100%.
 //   Autoplay         Firefox's autoplay-media permission (SitePermissions):
-//                    click cycles Allow / Block audio / Block audio and
-//                    video; a button forgets it. Zen's own Autoplay row is
-//                    hidden while this section shows, so it isn't listed
+//                    a dropdown with Allow / Block audio / Block audio and
+//                    video / Use Default (forgets it). Zen's own Autoplay row
+//                    is hidden while this section shows, so it isn't listed
 //                    twice.
-//   Reader View      "Always open in Reader": an article on this site opens
-//                    in Reader View by itself (once per page, so leaving
-//                    Reader sticks).
-//   Full Screen      "Open in full screen": the window goes full screen
-//                    when a tab shows this site (once per tab and site).
-//   Pretend to Be    Whimsy's per-site user agent (WhimsyUserAgent; iPhone
-//                    = the mobile site); click opens its sheet, a button
-//                    forgets it. Only while that feature is on.
-// "Forget All" in the header forgets every row plus the tracking protection
-// exception, with Undo.
+//   Reader View      "Always open in Reader" switch: an article on this site
+//                    opens in Reader View by itself (once per page, so
+//                    leaving Reader sticks).
+//   Full Screen      "Open in full screen" switch: the window goes full
+//                    screen when a tab shows this site (once per tab and
+//                    site); off also leaves the full screen it entered.
+//   Pretend to Be    Whimsy's per-site user agent (WhimsyUserAgent), the
+//                    user's pick B: one row with a dropdown (Chrome / Whimsy
+//                    / Safari / iPhone / Custom…), picked in the panel, which
+//                    stays open while the page reloads. Only while that
+//                    feature is on.
+// "Forget All" in the caption forgets every row plus the tracking
+// protection exception, with Undo.
 //
 // Storage follows the underlying stores, so private tabs and Scratch never
 // persist and profiles (containers) stay apart where the store allows:
@@ -59,6 +65,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
   SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
@@ -69,7 +76,11 @@ const FEATURE_PREF = "whimsy.feature.site-settings";
 export const COMMAND_ID = "cmd_whimsySiteSettings";
 const SECTION_ID = "whimsy-site-settings-section";
 const PANEL_ID = "zen-unified-site-data-panel";
+const PRETEND_PANEL_ID = "whimsy-pretend-panel";
 const AUTOPLAY = "autoplay-media";
+const HTML_NS = "http://www.w3.org/1999/xhtml";
+// Pretend to Be's choices, in the dropdown's order; "default" is Whimsy.
+const UA_CHOICES = ["chrome-mac", "default", "safari-mac", "safari-iphone", "custom"];
 
 // Permission types for the two settings Firefox has no store for.
 export const PERM_TYPES = {
@@ -313,6 +324,22 @@ export const WhimsySiteSettings = {
     win.fullScreen = true;
   },
 
+  exitFullscreen(win) {
+    win.fullScreen = false;
+  },
+
+  // W10-16: turning Open in Full Screen off ends the full screen Whimsy
+  // entered for this site, never one the person entered themselves.
+  leaveFullscreen(win, browser, host) {
+    const entered = autoFullscreenDone.get(browser) == host;
+    autoFullscreenDone.delete(browser);
+    if (entered && win.fullScreen) {
+      this.exitFullscreen(win);
+      return true;
+    }
+    return false;
+  },
+
   // ---------------------------------------------------------------------
   // The section in Zen's site panel.
 
@@ -329,39 +356,38 @@ export const WhimsySiteSettings = {
     }
     section = doc.createXULElement("vbox");
     section.id = SECTION_ID;
-    section.className = "zen-site-data-section whimsy-site-settings-section";
-    const header = doc.createXULElement("hbox");
-    header.className = "zen-site-data-section-header";
-    const title = doc.createXULElement("label");
-    title.setAttribute("flex", "1");
-    title.setAttribute("data-l10n-id", "whimsy-site-settings-title");
-    // The second label is styled by Zen like the other sections' "More".
-    const forgetAll = doc.createXULElement("label");
-    forgetAll.id = "whimsy-site-settings-forget-all";
-    forgetAll.setAttribute("data-l10n-id", "whimsy-site-settings-forget-all");
-    forgetAll.setAttribute("role", "button");
-    forgetAll.setAttribute("tabindex", "0");
-    const activate = event => {
-      event.stopPropagation();
-      this.forgetAll(win);
-    };
-    forgetAll.addEventListener("click", activate);
-    forgetAll.addEventListener("keydown", event => {
-      if (event.key == "Enter" || event.key == " ") {
-        event.preventDefault();
-        activate(event);
-      }
+    section.className = "zen-site-data-section whimsy-site-settings-section whimsy-surface-tokens";
+    const { caption } = lazy.WhimsySurface.caption(doc, {
+      l10nId: "whimsy-site-settings-title",
+      id: "whimsy-site-settings-heading",
     });
-    header.append(title, forgetAll);
-    const list = doc.createXULElement("vbox");
+    caption.classList.add("whimsy-site-settings-caption");
+    const forgetAll = lazy.WhimsySurface.textButton(doc, {
+      l10nId: "whimsy-site-settings-forget-all",
+      id: "whimsy-site-settings-forget-all",
+      onCommand: () => this.forgetAll(win),
+    });
+    caption.append(forgetAll);
+    const list = lazy.WhimsySurface.group(doc);
     list.id = "whimsy-site-settings-list";
-    section.append(header, list);
+    list.setAttribute("role", "group");
+    list.setAttribute("aria-labelledby", "whimsy-site-settings-heading");
+    // Custom user agent: a field under the list, only while it's chosen.
+    const custom = doc.createXULElement("hbox");
+    custom.className = "whimsy-site-settings-custom";
+    custom.setAttribute("align", "center");
+    custom.hidden = true;
+    const note = doc.createElementNS(HTML_NS, "p");
+    note.className = "whimsy-site-settings-private-note";
+    doc.l10n.setAttributes(note, "whimsy-site-settings-private-note");
+    note.hidden = true;
+    section.append(caption, list, custom, note);
     zenSection.after(section);
     return section;
   },
 
   // Rebuilds the section for the selected tab. Runs on the panel's
-  // popupshowing, after Zen fills its own lists.
+  // popupshowing, after Zen fills its own lists, and after each change.
   render(win) {
     const doc = win.document;
     const browser = win.gBrowser.selectedBrowser;
@@ -372,7 +398,12 @@ export const WhimsySiteSettings = {
       return;
     }
     const list = section.querySelector("#whimsy-site-settings-list");
+    const customBox = section.querySelector(".whimsy-site-settings-custom");
+    const hadFocus = section.contains(doc.activeElement) ?
+      doc.activeElement.closest("[whimsy-site-setting]")?.getAttribute("whimsy-site-setting") : null;
     list.replaceChildren();
+    customBox.replaceChildren();
+    customBox.hidden = true;
     section.hidden = !site;
     if (!site) {
       return;
@@ -380,81 +411,73 @@ export const WhimsySiteSettings = {
     section._site = site;
     let remembered = 0;
 
-    // Zoom.
-    const zoom = win.ZoomManager?.getZoomForBrowser?.(browser) ?? 1;
-    const zoomRow = this.row(doc, {
-      kind: "zoom",
-      l10nId: "whimsy-site-settings-zoom",
-      stateL10nId: "whimsy-site-settings-zoom-value",
-      stateArgs: { percent: Math.round(zoom * 100) },
-      forget: {
-        l10nId: "whimsy-site-settings-zoom-reset",
-        onCommand: () => this.resetZoom(win, browser).then(() => this.render(win)),
-      },
-    });
-    zoomRow.setAttribute("state", "block");
-    zoomRow.querySelector(".whimsy-site-settings-forget").hidden = true;
-    list.append(zoomRow);
-    lazy.ZoomUI.getGlobalValue()
-      .then(globalZoom => {
-        const changed = Math.abs(zoom - globalZoom) > 0.001;
-        if (zoomRow.isConnected) {
-          zoomRow.setAttribute("state", changed ? "allow" : "block");
-          zoomRow.querySelector(".whimsy-site-settings-forget").hidden = !changed;
-          if (changed) {
-            this.updateForgetAll(section, true);
-          }
-        }
-      })
-      .catch(() => {});
+    list.append(this.zoomRow(win, browser, section));
 
     // Autoplay (Firefox's permission).
     const principal = this.originPrincipal(site);
     const stored = this.storedAutoplay(principal);
-    const autoplayStored = stored != null;
-    const autoplayState = autoplayStored ? stored : lazy.SitePermissions.getDefault(AUTOPLAY);
-    remembered += autoplayStored ? 1 : 0;
-    const autoplayRow = this.row(doc, {
-      kind: "autoplay",
-      label: lazy.SitePermissions.getPermissionLabel(AUTOPLAY),
-      stateText: lazy.SitePermissions.getMultichoiceStateLabel(AUTOPLAY, autoplayState),
-      on: autoplayStored,
-      onCommand: () => {
-        this.cycleAutoplay(site, browser, autoplayState);
+    remembered += stored != null ? 1 : 0;
+    const { SitePermissions } = lazy;
+    const state = value => ({ value, text: SitePermissions.getMultichoiceStateLabel(AUTOPLAY, value) });
+    const autoplay = lazy.WhimsySurface.dropdown(doc, {
+      id: "whimsy-site-settings-autoplay-button",
+      label: "whimsy-site-settings-autoplay-label",
+      width: 240,
+      value: stored ?? "default",
+      options: [
+        state(SitePermissions.ALLOW),
+        state(SitePermissions.BLOCK),
+        state(SitePermissions.AUTOPLAY_BLOCKED_ALL),
+        {
+          value: "default",
+          rule: true,
+          l10nId: "whimsy-site-settings-autoplay-default",
+        },
+      ],
+      onPick: value => {
+        if (value == "default") {
+          SitePermissions.removeFromPrincipal(principal, AUTOPLAY, browser);
+        } else {
+          SitePermissions.setForPrincipal(principal, AUTOPLAY, value, SitePermissions.SCOPE_PERSISTENT, browser);
+        }
         this.render(win);
       },
-      forget: autoplayStored
-        ? {
-            l10nId: "whimsy-site-settings-forget",
-            onCommand: () => {
-              lazy.SitePermissions.removeFromPrincipal(principal, AUTOPLAY, browser);
-              this.render(win);
-            },
-          }
-        : null,
     });
-    autoplayRow.classList.add(`permission-popup-permission-item-${AUTOPLAY}`);
+    if (stored == null) {
+      // Not remembered: the button says what the default does.
+      const text = autoplay.button.querySelector(".whimsy-surface-dropdown-value");
+      text.removeAttribute("data-l10n-id");
+      text.textContent = SitePermissions.getMultichoiceStateLabel(AUTOPLAY, SitePermissions.getDefault(AUTOPLAY));
+    }
+    const autoplayRow = this.row(doc, {
+      kind: "autoplay",
+      text: SitePermissions.getPermissionLabel(AUTOPLAY),
+      labelId: "whimsy-site-settings-autoplay-label",
+      on: stored != null,
+      trailing: [autoplay.button],
+    });
     list.append(autoplayRow);
 
-    // Reader View and Full Screen.
+    // Reader View and Full Screen: switches.
     for (const kind of ["reader", "fullscreen"]) {
       const on = this.getFlag(kind, site.host, site.oa);
       remembered += on ? 1 : 0;
-      list.append(
-        this.row(doc, {
-          kind,
-          l10nId: `whimsy-site-settings-${kind}`,
-          stateL10nId: on ? "whimsy-site-settings-on" : "whimsy-site-settings-off",
-          on,
-          onCommand: () => {
-            this.setFlag(kind, site.host, site.oa, !on);
-            if (!on) {
-              this.applyNow(win, kind);
-            }
-            this.render(win);
-          },
-        })
-      );
+      const labelId = `whimsy-site-settings-${kind}-label`;
+      const toggle = lazy.WhimsySurface.switch(doc, {
+        checked: on,
+        labelledBy: labelId,
+        id: `whimsy-site-settings-${kind}-switch`,
+        onChange: checked => {
+          this.setFlag(kind, site.host, site.oa, checked);
+          if (checked) {
+            this.applyNow(win, kind);
+          } else if (kind == "fullscreen") {
+            this.leaveFullscreen(win, browser, site.host);
+          }
+          this.render(win);
+        },
+      });
+      list.append(this.row(doc, { kind, l10nId: `whimsy-site-settings-${kind}`, labelId, on, trailing: [toggle] }));
     }
 
     // Pretend to Be (Whimsy's per-site user agent), last: it's optional.
@@ -463,30 +486,258 @@ export const WhimsySiteSettings = {
       const entry = lazy.WhimsyUserAgent.entry(site.host, options);
       const preset = entry?.preset ?? null;
       remembered += preset ? 1 : 0;
-      list.append(
-        this.row(doc, {
-          kind: "useragent",
-          l10nId: "whimsy-site-settings-useragent",
-          stateL10nId: `whimsy-site-settings-useragent-${preset ?? "default"}`,
-          on: !!preset,
-          onCommand: () => {
-            this.hidePanel(win).then(() => lazy.WhimsyUserAgent.openPicker(win, site.host));
-          },
-          forget: preset
-            ? {
-                l10nId: "whimsy-site-settings-forget",
-                onCommand: () => {
-                  lazy.WhimsyUserAgent.clear(site.host, options);
-                  lazy.WhimsyUserAgent.reload(win, win.gBrowser.selectedTab);
-                  this.render(win);
-                },
-              }
-            : null,
-        })
-      );
+      list.append(this.userAgentRow(win, site, options, entry, customBox));
     }
 
+    const note = section.querySelector(".whimsy-site-settings-private-note");
+    note.hidden = !(site.oa.privateBrowsingId > 0);
     this.updateForgetAll(section, remembered > 0);
+    lazy.ZoomUI.getGlobalValue()
+      .then(globalZoom => {
+        const zoom = win.ZoomManager?.getZoomForBrowser?.(browser) ?? 1;
+        if (section.isConnected && Math.abs(zoom - globalZoom) > 0.001) {
+          this.updateForgetAll(section, true);
+        }
+      })
+      .catch(() => {});
+    if (hadFocus) {
+      const row = list.querySelector(`[whimsy-site-setting="${hadFocus}"]`);
+      row?.querySelector("input, button")?.focus();
+    }
+  },
+
+  // Zoom: − / the % (resets) / +, on Firefox's zoom steps.
+  zoomRow(win, browser, section) {
+    const doc = win.document;
+    const zoom = win.ZoomManager?.getZoomForBrowser?.(browser) ?? 1;
+    const stepper = doc.createXULElement("hbox");
+    stepper.className = "whimsy-site-settings-stepper";
+    stepper.setAttribute("align", "center");
+    const button = (l10nId, className, onClick) => {
+      const el = doc.createElementNS(HTML_NS, "button");
+      el.type = "button";
+      el.className = className;
+      doc.l10n.setAttributes(el, l10nId);
+      el.addEventListener("click", async event => {
+        event.stopPropagation();
+        await onClick();
+        this.updateZoom(win, browser, stepper);
+        this.updateForgetAll(section, true);
+      });
+      return el;
+    };
+    const out = button("whimsy-site-settings-zoom-out", "whimsy-site-settings-zoom-out", () =>
+      win.FullZoom?.reduce?.());
+    out.textContent = "−";
+    const value = button("whimsy-site-settings-zoom-reset", "whimsy-site-settings-zoom-value", () =>
+      this.resetZoom(win, browser));
+    const into = button("whimsy-site-settings-zoom-in", "whimsy-site-settings-zoom-in", () =>
+      win.FullZoom?.enlarge?.());
+    into.textContent = "+";
+    stepper.append(out, value, into);
+    // − and = work while the stepper has the keyboard.
+    stepper.addEventListener("keydown", event => {
+      if (event.key == "-" || event.key == "_") {
+        event.preventDefault();
+        out.click();
+      } else if (event.key == "=" || event.key == "+") {
+        event.preventDefault();
+        into.click();
+      } else if (event.key == "0") {
+        event.preventDefault();
+        value.click();
+      }
+    });
+    this.updateZoom(win, browser, stepper, zoom);
+    return this.row(doc, {
+      kind: "zoom",
+      l10nId: "whimsy-site-settings-zoom",
+      labelId: "whimsy-site-settings-zoom-label",
+      on: Math.abs(zoom - 1) > 0.001,
+      trailing: [stepper],
+    });
+  },
+
+  updateZoom(win, browser, stepper, zoom = win.ZoomManager?.getZoomForBrowser?.(browser) ?? 1) {
+    const [out, value, into] = stepper.children;
+    value.textContent = `${Math.round(zoom * 100)}%`;
+    value.toggleAttribute("at-default", Math.abs(zoom - 1) < 0.001);
+    const min = win.ZoomManager?.MIN ?? 0.3;
+    const max = win.ZoomManager?.MAX ?? 5;
+    out.disabled = zoom <= min + 0.001;
+    into.disabled = zoom >= max - 0.001;
+    stepper.closest("[whimsy-site-setting]")?.setAttribute("state", Math.abs(zoom - 1) > 0.001 ? "allow" : "block");
+  },
+
+  // Pretend to Be (variant B): one row with a dropdown. Picking reloads the
+  // page as that browser while the panel stays; the row says so until the
+  // page has loaded. Custom… reveals a field under the list.
+  userAgentRow(win, site, options, entry, customBox) {
+    const doc = win.document;
+    const tab = win.gBrowser.selectedTab;
+    const preset = entry?.preset ?? "default";
+    const reloadingAs = tab._whimsyUserAgentReloading;
+    const dropdown = lazy.WhimsySurface.dropdown(doc, {
+      id: "whimsy-site-settings-useragent-button",
+      label: "whimsy-site-settings-useragent-label",
+      width: 260,
+      value: preset,
+      options: UA_CHOICES.map(value => ({
+        value,
+        l10nId: `whimsy-site-settings-useragent-${value}`,
+        detailL10nId: { default: "whimsy-site-settings-useragent-default-detail",
+          "safari-iphone": "whimsy-site-settings-useragent-iphone-detail" }[value],
+        rule: value == "custom",
+      })),
+      onPick: value => {
+        if (value == "custom") {
+          this.showCustom(win, site, options, customBox, entry);
+          return;
+        }
+        this.pickUserAgent(win, site, options, value);
+      },
+    });
+    const row = this.row(doc, {
+      kind: "useragent",
+      l10nId: "whimsy-site-settings-useragent",
+      labelId: "whimsy-site-settings-useragent-label",
+      detailL10nId: reloadingAs ? "whimsy-site-settings-useragent-reloading" : "whimsy-site-settings-useragent-reloads",
+      detailArgs: reloadingAs ? { browser: reloadingAs } : null,
+      on: preset != "default",
+      trailing: [dropdown.button],
+    });
+    if (reloadingAs) {
+      row.querySelector(".whimsy-surface-row-detail")?.prepend(lazy.WhimsySurface.spinner(doc));
+    }
+    if (preset == "custom") {
+      this.showCustom(win, site, options, customBox, entry, { focus: false });
+    }
+    return row;
+  },
+
+  showCustom(win, site, options, customBox, entry, { focus = true } = {}) {
+    const doc = win.document;
+    customBox.replaceChildren();
+    const field = doc.createElementNS(HTML_NS, "input");
+    field.className = "whimsy-site-settings-custom-field";
+    field.setAttribute("spellcheck", "false");
+    field.value = entry?.custom ?? "";
+    doc.l10n.setAttributes(field, "whimsy-useragent-custom-field");
+    const apply = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-useragent-custom-apply",
+      primary: true,
+      onCommand: () => {
+        const value = field.value.trim();
+        if (value) {
+          this.pickUserAgent(win, site, options, "custom", value);
+        } else {
+          field.focus();
+        }
+      },
+    });
+    apply.id = "whimsy-site-settings-custom-apply";
+    field.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        apply.doCommand();
+      }
+    });
+    customBox.append(field, apply);
+    customBox.hidden = false;
+    if (focus) {
+      field.focus();
+    }
+  },
+
+  // Sets (or clears, for Whimsy) the user agent and reloads; the panel
+  // stays open and the row says it's reloading until the page loads.
+  pickUserAgent(win, site, options, preset, custom = null) {
+    const tab = win.gBrowser.selectedTab;
+    if (preset == "default") {
+      lazy.WhimsyUserAgent.clear(site.host, options);
+    } else {
+      lazy.WhimsyUserAgent.set(site.host, preset, custom, options);
+    }
+    const id = `whimsy-site-settings-useragent-${preset}`;
+    win.document.l10n.formatValue(id).then(name => {
+      tab._whimsyUserAgentReloading = name.replace(/…$/, "");
+      const browser = tab.linkedBrowser;
+      const listener = {
+        onStateChange: (b, progress, request, flags) => {
+          const done = Ci.nsIWebProgressListener.STATE_STOP | Ci.nsIWebProgressListener.STATE_IS_WINDOW;
+          if (b == browser && progress.isTopLevel && (flags & done) == done) {
+            win.gBrowser.removeTabsProgressListener(listener);
+            delete tab._whimsyUserAgentReloading;
+            if (this.isPanelOpen(win)) {
+              this.render(win);
+            }
+            this.renderPretend(win);
+          }
+        },
+      };
+      win.gBrowser.addTabsProgressListener(listener);
+      this.render(win);
+      this.renderPretend(win);
+      lazy.WhimsyUserAgent.reload(win, tab);
+    });
+  },
+
+  // "Change User Agent…" with Site Settings switched off (the user keeps
+  // that command): a small WhimsySurface holding only Pretend to Be, the
+  // same row, dropdown and custom field as in This Site.
+  openPretend(win) {
+    const browser = win.gBrowser.selectedBrowser;
+    const site = this.siteOf(browser);
+    if (!site || !lazy.WhimsyUserAgent.enabled) {
+      return null;
+    }
+    const parts = lazy.WhimsySurface.create(win, {
+      id: PRETEND_PANEL_ID,
+      width: 320,
+      title: site.host,
+      close: true,
+      className: "whimsy-pretend-panel",
+      initialFocus: () => parts.view.querySelector(".whimsy-surface-dropdown"),
+    });
+    parts.panel._site = site;
+    this.renderPretend(win);
+    const anchor = lazy.WhimsySurface.visibleAnchor(win, ["zen-site-data-icon-button", "identity-icon-box", "urlbar"]);
+    if (anchor) {
+      lazy.WhimsySurface.open(win, parts.panel, { anchor, position: "after_start", y: 4 });
+    } else {
+      lazy.WhimsySurface.open(win, parts.panel, { at: "page-top-center" });
+    }
+    return parts.panel;
+  },
+
+  renderPretend(win) {
+    const panel = win.document.getElementById(PRETEND_PANEL_ID);
+    const site = panel?._site;
+    if (!site) {
+      return;
+    }
+    const doc = win.document;
+    const view = panel.querySelector(".whimsy-surface-view");
+    const hadFocus = panel.contains(doc.activeElement);
+    for (const el of [...view.children].filter(el => !el.classList.contains("whimsy-surface-header"))) {
+      el.remove();
+    }
+    const options = this.uaOptions(site);
+    const group = lazy.WhimsySurface.group(doc);
+    const custom = doc.createXULElement("hbox");
+    custom.className = "whimsy-site-settings-custom";
+    custom.setAttribute("align", "center");
+    custom.hidden = true;
+    group.append(this.userAgentRow(win, site, options, lazy.WhimsyUserAgent.entry(site.host, options), custom));
+    view.append(group, custom);
+    if (hadFocus && !custom.contains(doc.activeElement)) {
+      view.querySelector(".whimsy-surface-dropdown")?.focus();
+    }
+  },
+
+  isPanelOpen(win) {
+    const panel = win.document.getElementById(PANEL_ID);
+    return !!panel && panel.state == "open";
   },
 
   updateForgetAll(section, show) {
@@ -518,73 +769,22 @@ export const WhimsySiteSettings = {
   },
 
   /**
-   * One row, built like Zen's permission rows (so Zen's styles apply): a
-   * round icon, the name, the state under it; `state="allow"` lights the
-   * icon when the site has a remembered value. `forget` adds a trailing
-   * button; `onCommand` makes the row itself act (click, Enter, Space).
+   * One row on the track (WhimsySurface): the name (and a line under it),
+   * then its control. `state="allow"` marks a remembered value.
    */
   row(doc, o) {
-    const row = doc.createXULElement("hbox");
-    row.className = `permission-popup-permission-item whimsy-site-settings-item whimsy-site-settings-${o.kind}`;
-    row.setAttribute("align", "center");
+    const { row, label } = lazy.WhimsySurface.row(doc, {
+      l10nId: o.l10nId,
+      text: o.text,
+      detailL10nId: o.detailL10nId,
+      detailArgs: o.detailArgs,
+      trailing: o.trailing ?? [],
+    });
+    row.classList.add("whimsy-site-settings-item", `whimsy-site-settings-${o.kind}`);
     row.setAttribute("whimsy-site-setting", o.kind);
     row.setAttribute("state", o.on ? "allow" : "block");
-
-    const icon = doc.createXULElement("toolbarbutton");
-    icon.className = "permission-popup-permission-icon zen-site-data-permission-icon";
-    icon.setAttribute("closemenu", "none");
-    icon.setAttribute("tabindex", "-1");
-    icon.setAttribute("aria-hidden", "true");
-
-    const text = doc.createXULElement("vbox");
-    text.setAttribute("flex", "1");
-    text.setAttribute("align", "start");
-    text.className = "permission-popup-permission-label-container";
-    const name = doc.createXULElement("label");
-    name.className = "permission-popup-permission-label";
-    if (o.l10nId) {
-      doc.l10n.setAttributes(name, o.l10nId);
-    } else {
-      name.textContent = o.label ?? "";
-    }
-    const state = doc.createXULElement("label");
-    state.className = "zen-permission-popup-permission-state-label whimsy-site-settings-state";
-    if (o.stateL10nId) {
-      doc.l10n.setAttributes(state, o.stateL10nId, o.stateArgs);
-    } else {
-      state.textContent = o.stateText ?? "";
-    }
-    text.append(name, state);
-    row.append(icon, text);
-
-    if (o.onCommand) {
-      row.setAttribute("role", "button");
-      row.setAttribute("tabindex", "0");
-      row.setAttribute("actionable", "true");
-      row.addEventListener("click", event => {
-        if (event.button == 0 && !event.target.closest(".whimsy-site-settings-forget")) {
-          o.onCommand(event);
-        }
-      });
-      row.addEventListener("keydown", event => {
-        if ((event.key == "Enter" || event.key == " ") && event.target == row) {
-          event.preventDefault();
-          o.onCommand(event);
-        }
-      });
-    }
-    if (o.forget) {
-      const forget = doc.createXULElement("toolbarbutton");
-      forget.className = "whimsy-site-settings-forget";
-      forget.setAttribute("tabindex", "0");
-      forget.setAttribute("closemenu", "none");
-      forget.setAttribute("image", "chrome://browser/skin/zen-icons/close.svg");
-      doc.l10n.setAttributes(forget, o.forget.l10nId);
-      forget.addEventListener("command", event => {
-        event.stopPropagation();
-        o.forget.onCommand(event);
-      });
-      row.append(forget);
+    if (o.labelId) {
+      label.id = o.labelId;
     }
     return row;
   },
@@ -736,7 +936,7 @@ export const WhimsySiteSettings = {
   // ---------------------------------------------------------------------
   // "Site Settings…": opens Zen's site panel and puts focus on this section.
 
-  async open(win) {
+  async open(win, { focus = null } = {}) {
     if (!this.enabled) {
       return false;
     }
@@ -766,7 +966,9 @@ export const WhimsySiteSettings = {
     const section = doc.getElementById(SECTION_ID);
     if (section && !section.hidden) {
       section.scrollIntoView({ block: "nearest" });
-      section.querySelector(".whimsy-site-settings-item[tabindex='0']")?.focus();
+      const target = focus ? section.querySelector(`[whimsy-site-setting="${focus}"]`) : null;
+      const controls = [...(target ?? section.querySelector("#whimsy-site-settings-list")).querySelectorAll("button, input")];
+      controls.find(el => !el.hidden && !el.disabled && el.checkVisibility())?.focus();
     }
     return true;
   },

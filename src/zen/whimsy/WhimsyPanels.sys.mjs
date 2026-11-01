@@ -11,7 +11,7 @@
 //   <panel type="arrow" class="whimsy-sheet">      Zen's panel surface
 //     .panel-header > title (+ subtitle) + close   like the app menu's subviews
 //     .whimsy-sheet-search                         Zen's folder-search field
-//     <toolbarseparator/>
+//     div.whimsy-sheet-rule                        only under a search field
 //     .panel-subview-body                          scrolls
 //       .subviewbutton rows (icon, title, subtitle, trailing detail)
 //     .panel-footer > .footer-button               Firefox's panel footer
@@ -74,6 +74,10 @@ export const WhimsyPanels = {
     panel.id = opts.id;
     panel.className = "whimsy-sheet";
     panel.setAttribute("type", "arrow");
+    // W10-24: a panel lays its children out per its box orient, which is
+    // horizontal by default; a separator in it drew as a full-height line
+    // at the left edge.
+    panel.setAttribute("orient", "vertical");
     panel.setAttribute("role", "dialog");
     panel.setAttribute("noautofocus", "true");
     panel.setAttribute("size", opts.size ?? "small");
@@ -127,10 +131,11 @@ export const WhimsyPanels = {
       setL10n(doc, search, opts.search.l10nId);
       search.addEventListener("input", () => opts.search.onInput?.(search.value));
       box.append(glass, search);
-      panel.append(box);
+      const rule = doc.createElementNS(HTML_NS, "div");
+      rule.className = "whimsy-sheet-rule";
+      rule.setAttribute("role", "presentation");
+      panel.append(box, rule);
     }
-
-    panel.append(doc.createXULElement("toolbarseparator"));
 
     const body = doc.createXULElement("vbox");
     body.className = "panel-subview-body whimsy-sheet-body";

@@ -319,12 +319,22 @@ whimsy-allow-copy-offer-action = Allow Copy and Paste
 ## Internet Archive (notification bar and command bar)
 
 whimsy-action-open-archive = Open in Wayback Machine
-# wave9/secfix: the bar asks first; nothing goes to archive.org until "Look for a Copy".
-whimsy-archive-bar-ask = This page didn’t load. The Internet Archive may have a copy.
-whimsy-archive-look =
-    .label = Look for a Copy
-    .accesskey = L
-whimsy-archive-none-toast = The Internet Archive has no copy of this page
+# wave9/secfix: the offer comes first; nothing goes to archive.org until "Find Copy".
+# W10-15: a toast in the top corner, owned by the tab. Its second line is
+# short enough to read in full. The Wayback Machine is the Internet
+# Archive's name for its saved web pages.
+whimsy-archive-toast = Page didn’t load
+whimsy-archive-toast-detail = Try a saved copy from the Wayback Machine
+whimsy-archive-look = Find Copy
+whimsy-archive-looking = Asking the Wayback Machine…
+whimsy-archive-looking-button = Finding
+whimsy-archive-found = Showing a saved copy
+# $date (string) - e.g. "March 12, 2024"
+whimsy-archive-found-date = From the Wayback Machine, { $date }
+whimsy-archive-none-toast = The Wayback Machine has no copy of this page
+whimsy-archive-error = Couldn’t reach the Wayback Machine
+whimsy-archive-error-detail = Check your connection and try again.
+whimsy-archive-retry = Try Again
 
 ## Translate selection (shortcut and command bar)
 
@@ -630,6 +640,11 @@ whimsy-library-files-search-placeholder =
     .placeholder = Search screenshots…
 whimsy-library-files-delete =
     .label = Delete
+    .tooltiptext = Delete
+# W10-24: the empty state's hint. $key (string) - Capture's shortcut, like ⇧⌘2
+whimsy-library-files-empty-hint = Press { $key } to capture part of a page.
+whimsy-library-shot-size =
+    .aria-label = Thumbnail size
 ## batch12: links & media windows (Mini Whimsy, Arc's "Little Arc")
 
 whimsy-action-quick-window = New Mini Whimsy
@@ -731,7 +746,7 @@ whimsy-quicklook-missing-toast = Item removed
 
 whimsy-action-cheatsheet = Keyboard Shortcuts
 whimsy-cheatsheet-search =
-    .placeholder = Search shortcuts
+    .placeholder = Search shortcuts or keys, like “⇧⌘D”
     .aria-label = Search shortcuts
 whimsy-cheatsheet-duplicate-tab = Duplicate Tab
 whimsy-cheatsheet-pin-tab = Pin/Unpin Tab
@@ -1174,7 +1189,9 @@ whimsy-tree-expand =
 # wave3/tree: shortcut cheat sheet lists every keyset shortcut, grouped
 whimsy-cheatsheet-group-whimsy = Whimsy
 whimsy-cheatsheet-group-other = Other
-whimsy-cheatsheet-empty = No matching shortcuts
+# $query (string) - what was typed
+whimsy-cheatsheet-empty = No shortcuts match “{ $query }”.
+whimsy-cheatsheet-empty-hint = Search by name, menu, or keys like “cmd shift d”.
 
 # batch hover: hover cards (tabs, History, People).
 whimsy-hover-header = Hover cards
@@ -1195,31 +1212,6 @@ whimsy-sheet-close =
 # The accept button of Zen's "Delete Space?" confirmation.
 whimsy-delete-space-accept = Delete Space
 whimsy-snooze-title = Snooze Tab
-whimsy-fire-title = Fire Button
-whimsy-fire-subtitle = Start fresh: close tabs and erase what they left behind
-# $count (number) - unpinned tabs that will close; $spaces (string) - the
-# names of the spaces that use this profile, as a list ("Work and Side
-# Projects").
-whimsy-fire-profile-detail = { $count ->
-    [0] Clears the last hour in { $spaces }
-    [one] Closes 1 tab in { $spaces } and clears their last hour
-   *[other] Closes { $count } tabs in { $spaces } and clears their last hour
-}
-whimsy-fire-profile-detail-unnamed = { $count ->
-    [0] Clears this profile’s last hour
-    [one] Closes 1 tab and clears this profile’s last hour
-   *[other] Closes { $count } tabs and clears this profile’s last hour
-}
-# $count (number) - unpinned tabs in every window that will close
-whimsy-fire-everything-detail = { $count ->
-    [0] Clears all history and site data, in every profile
-    [one] Closes 1 tab and clears all history and site data
-   *[other] Closes { $count } tabs and clears all history and site data
-}
-# The note under the rows: exactly what the chosen row clears and keeps.
-# $profile (string) - the profile's name; "Default" when the space has none.
-whimsy-fire-profile-summary = In the { $profile } profile: removes its history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Other profiles keep theirs. Pinned tabs and Essentials stay open.
-whimsy-fire-everything-summary = Clears all history, cookies, site data, cache, form and search history, the download list and closed tabs, in every profile. Saved passwords, bookmarks, downloaded files, pinned tabs and Essentials stay. You can’t undo it.
 whimsy-heavy-tabs-title = Heavy Tabs
 whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
@@ -1247,19 +1239,6 @@ whimsy-cookie-editor-no-match = No cookies match your search
 whimsy-cookie-editor-flag-secure = Secure
 whimsy-cookie-editor-flag-httponly = HttpOnly
 whimsy-cookie-editor-flag-session = Session
-whimsy-useragent-title = Pretend to Be
-# $site (string) - the current site's host
-whimsy-useragent-subtitle = On { $site }; the page reloads
-whimsy-useragent-option-default = Whimsy
-whimsy-useragent-option-default-detail = No disguise (Firefox’s own)
-whimsy-useragent-option-chrome = Chrome
-whimsy-useragent-option-chrome-detail = For sites that only work in Chrome
-whimsy-useragent-option-safari-mac = Safari
-whimsy-useragent-option-safari-mac-detail = Safari on a Mac
-whimsy-useragent-option-safari-iphone = iPhone
-whimsy-useragent-option-safari-iphone-detail = Safari on iPhone, for a site’s mobile layout
-whimsy-useragent-option-custom = Custom…
-whimsy-useragent-option-custom-detail = Any user agent string
 whimsy-useragent-custom-field =
     .placeholder = Mozilla/5.0 …
     .aria-label = Custom user agent
@@ -1942,10 +1921,18 @@ whimsy-easel-enable =
 whimsy-action-new-easel = New Easel
 whimsy-easel-capture-button = Add to Easel
     .title = Add this capture to an easel
-whimsy-easel-picker-title =
-    .label = Add to Easel
-whimsy-easel-picker-new =
-    .label = New Easel
+# W10-24: the Add to Easel picker (a surface with thumbnails).
+whimsy-easel-picker-heading = Add to Easel
+whimsy-easel-picker-live = Live capture
+whimsy-easel-picker-still = Screenshot
+# $width, $height (number) - the capture's size in pixels
+whimsy-easel-picker-size-live = { $width } × { $height } · updates when you refresh the easel
+whimsy-easel-picker-size-still = { $width } × { $height }
+whimsy-easel-picker-new-tile = New Easel
+whimsy-easel-picker-first = Easels are boards for captures, notes and drawings. Your first one will start with this capture.
+# $when (string) - "2 hours ago", "yesterday", "Oct 12"
+whimsy-easel-edited = Edited { $when }
+whimsy-easel-open = Open
 # $title (String) - the easel's name
 whimsy-easel-capture-added = Added to { $title }
 whimsy-easel-capture-private = Captures from private tabs can't be added to an easel
@@ -2204,39 +2191,6 @@ whimsy-meeting-group-header = Meetings
 # features you start from the command bar or the tab menu.
 whimsy-settings-features-summary = On-demand features
 
-# wave5/uxfix: Fire Button. Rows pick what to clear; this button does it.
-whimsy-fire-scopes = What to clear
-whimsy-fire-forget-profile =
-    .label = Fire in This Profile
-whimsy-fire-forget-everything =
-    .label = Fire Everywhere…
-# Result toasts: what closed and what was cleared.
-# $count (number) - tabs closed; $site (string) - the domain.
-# $count (number) - tabs closed; $visits (number) - the profile's history
-# visits removed; $sites (number) - sites whose cookies, data and cache went;
-# $profile (string) - the profile's name
-whimsy-fire-done-profile = { $count ->
-    [0] No tabs closed
-    [one] Closed 1 tab
-   *[other] Closed { $count } tabs
-} · removed { $visits ->
-    [one] 1 visit
-   *[other] { $visits } visits
-} and { $sites ->
-    [one] 1 site’s data
-   *[other] { $sites } sites’ data
-} from { $profile }’s last hour
-whimsy-fire-done-everything = { $count ->
-    [0] Cleared all history, cookies, site data, cache and form history
-    [one] Closed 1 tab · cleared all history, cookies, site data, cache and form history
-   *[other] Closed { $count } tabs · cleared all history, cookies, site data, cache and form history
-}
-whimsy-fire-done-site = { $count ->
-    [0] Forgot { $site }
-    [one] Forgot { $site } · closed 1 tab
-   *[other] Forgot { $site } · closed { $count } tabs
-}
-whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 # W10-58: shown at once while Fire clears; the result replaces it.
 whimsy-fire-working-profile = Clearing this profile’s last hour…
 whimsy-fire-working-everything = Clearing everything…
@@ -2462,6 +2416,15 @@ whimsy-already-open-setting =
 whimsy-trail-origin =
     .label = Opened from { $title }
 whimsy-trail-branch-tooltip = A page you left by going back. Click to open it again.
+# W10-54: the drawn trail (long-press or right-click Back or Forward).
+whimsy-trail-heading = This tab’s trail
+whimsy-trail-here = You’re here
+whimsy-trail-branch-caption = You went back from
+# $count (number) - steps from the current page
+whimsy-trail-steps-back = { $count } back
+whimsy-trail-steps-ahead = { $count } ahead
+# $title (string) - the page that opened this tab
+whimsy-trail-origin-text = Opened from { $title }
 whimsy-trails-setting =
     .label = Keep pages you went back from in the Back and Forward menus
 
@@ -2679,19 +2642,6 @@ whimsy-live-folder-jira-category-undefined =
 whimsy-tab-audio-mute = Mute tab
 whimsy-tab-audio-unmute = Unmute tab
 
-## wave7/ux: Fire Button. "Everything" asks once more; Cancel is the default.
-
-whimsy-fire-everything-confirm-title = Fire everywhere?
-whimsy-fire-everything-confirm-body = This clears all history, cookies, site data, cache, form and search history, the download list and closed tabs for every site in every profile, and closes every unpinned tab. Saved passwords, bookmarks and downloaded files stay. You can’t undo it.
-whimsy-fire-everything-confirm-accept = Fire Everywhere
-
-## wave7/fire: Forget About This Site… (command bar). Cancel is the default.
-
-# $site (string) - the current tab's base domain, e.g. example.com
-whimsy-fire-site-confirm-title = Forget { $site }?
-whimsy-fire-site-confirm-body = This deletes { $site }’s history, cookies, site data and cache, including its subdomains, and closes its tabs. Pinned tabs stay. You can’t undo it.
-whimsy-fire-site-confirm-accept = Forget Site
-
 ## wave7/ux: link hover cards (WhimsyLinkHover)
 
 whimsy-hover-links =
@@ -2806,14 +2756,17 @@ whimsy-paste-guard-title =
         [card] This looks like a card number
        *[other] This looks like a secret
     }
-# $host (string) - the site the paste would go to, like "example.com".
-whimsy-paste-guard-subtitle = Paste into { $host }?
-whimsy-paste-guard-subtitle-page = Paste into this page?
-whimsy-paste-guard-note = Anyone who can see this page may be able to read it. Whimsy checked it on this device and kept nothing.
+# W10-14: the line under the title. $host (string) - the site the paste
+# would go to, like "example.com" (long ones are cropped in the middle).
+whimsy-paste-guard-where = Paste it into <b>{ $host }</b>?
+whimsy-paste-guard-where-page = Paste it into this page?
+whimsy-paste-guard-note = Pages can read anything you paste. Only paste a key into a site you trust with it.
+whimsy-paste-guard-privacy =
+    .tooltiptext = Whimsy checked this on your Mac and kept nothing.
 whimsy-paste-guard-paste =
-    .label = Paste
+    .label = Paste Anyway
 whimsy-paste-guard-cancel =
-    .label = Cancel
+    .label = Don’t Paste
 ## wave7/teach: Teach once (WhimsyTeach.sys.mjs). One small hint beside what
 ## the person just did, shown once. { $key } is the shortcut as it's bound
 ## right now (e.g. ⇧⌘C), shown as a key cap.
@@ -3342,7 +3295,10 @@ whimsy-snooze-private-toast = Private tabs can’t be snoozed: a snoozed tab is 
 ## $default (string) - the shortcut it had before it was changed
 ## $count (number) - how many shortcuts a search leaves
 
-whimsy-cheatsheet-custom = Custom
+# W10-19: a changed shortcut has an accent dot; the footer explains it.
+whimsy-cheatsheet-legend = Changed by you
+# Words a search for changed shortcuts can use.
+whimsy-cheatsheet-custom-word = custom changed
 whimsy-cheatsheet-custom-tooltip = Changed from { $shortcut }
 whimsy-cheatsheet-custom-tooltip-none = Added by you
 whimsy-cheatsheet-row = { $title }, { $shortcut }
@@ -3772,26 +3728,15 @@ whimsy-context-inspect-font =
     .label = What Font Is This?
     .accesskey = F
 whimsy-menus-selection-inspect-font = What Font Is This?
-whimsy-font-rendered-label = Rendered Font
-whimsy-font-rendered-badge = Rendered
-whimsy-font-card-copy-hint =
-    .title = Click to copy font name
-whimsy-font-prop-copy-hint =
-    .title = Click to copy { $value }
-whimsy-font-copy-hint = Copy
-whimsy-font-css-stack = CSS Family Stack
 whimsy-font-size-label = Size
 whimsy-font-weight-label = Weight
-whimsy-font-line-height-label = Line Height
-whimsy-font-letter-spacing-label = Letter Spacing
+whimsy-font-line-height-label = Line height
+whimsy-font-letter-spacing-label = Letter spacing
 whimsy-font-color-label = Color
 whimsy-font-copy-css = Copy CSS
 whimsy-font-search-button = Search for This Font
-whimsy-font-css-label = CSS
-whimsy-font-copied-toast = Copied { $value } to clipboard
 whimsy-font-pick-another = Pick Another Element
 whimsy-font-sample-text = The quick brown fox jumps over the lazy dog
-whimsy-font-inspect-element = Element Info
 
 whimsy-element-inspector-title = Element Info
 whimsy-action-inspect-element = Element Info
@@ -3850,39 +3795,18 @@ whimsy-pagedev-menu-element-info =
 whimsy-tabs-page-dev =
     .label = Developer tools for the page: Fonts on This Page, Page Colors and Built With (Tools ▸ Browser Tools and command bar)
 
-whimsy-pagedev-fonts-title = Fonts on This Page
-whimsy-pagedev-colors-title = Page Colors
-whimsy-pagedev-built-with-title = Built With
 whimsy-pagedev-unavailable = Whimsy can’t look inside this page. Try a regular web page.
-# $value (string) - what was copied, shortened
-whimsy-pagedev-copied-toast = Copied { $value }
 # $value (string) - the text a row copies
 whimsy-pagedev-copy-value = Copy { $value }
 whimsy-pagedev-share-tiny = under 1%
 
 # $count (number) - font families on the page
-whimsy-pagedev-fonts-summary =
-    { $count ->
-        [one] 1 font family, by share of the page’s text
-       *[other] { $count } font families, by share of the page’s text
-    }
+whimsy-pagedev-fonts-summary = { $count ->
+    [one] 1 font family
+   *[other] { $count } font families
+}
 whimsy-pagedev-fonts-empty = No text is drawn on this page.
-whimsy-pagedev-font-family = Family
-whimsy-pagedev-font-faces = Faces
-whimsy-pagedev-font-weights = Weights
-whimsy-pagedev-font-styles = Styles
-whimsy-pagedev-font-source = Source
-whimsy-pagedev-font-usage = Usage
-# $percent (string) - share of the text, e.g. "62%"; $chars (number) - characters set in the font
-whimsy-pagedev-font-usage-value = { $percent } of text, { $chars } characters
-whimsy-pagedev-font-usage-capped = { $percent } of text, at least { $chars } characters
-# $url (string) - the font file's address
-whimsy-pagedev-font-source-web = Web font: { $url }
 whimsy-pagedev-font-source-embedded = Web font embedded in the page
-# $name (string) - the name in the page's local() rule
-whimsy-pagedev-font-source-local = Installed font: { $name }
-whimsy-pagedev-font-source-system = System font
-whimsy-pagedev-font-source-fallback = System fallback (no listed font had these characters)
 whimsy-pagedev-font-highlight = Highlight on Page
 whimsy-pagedev-font-highlight-none = None of this text is visible to highlight
 
@@ -3890,12 +3814,11 @@ whimsy-pagedev-format-label = Color format
 whimsy-pagedev-format-hex = HEX
 whimsy-pagedev-format-rgb = RGB
 whimsy-pagedev-format-hsl = HSL
-# $count (number) - colors listed
-whimsy-pagedev-palette-heading =
-    { $count ->
-        [one] 1 color, by area
-       *[other] { $count } colors, by area
-    }
+# $count (number) - colors on the page
+whimsy-pagedev-palette-heading = { $count ->
+    [one] 1 color
+   *[other] { $count } colors
+}
 # $count (number) - colors not listed
 whimsy-pagedev-colors-more =
     { $count ->
@@ -3917,9 +3840,6 @@ whimsy-pagedev-contrast-heading =
     }
 # $fg (string) - text color; $bg (string) - background color
 whimsy-pagedev-contrast-pair = { $fg } on { $bg }
-# $level (string) - "AA" or "AAA"
-whimsy-pagedev-wcag-pass = { $level } PASS
-whimsy-pagedev-wcag-fail = { $level } FAIL
 whimsy-pagedev-result-pass = PASS
 whimsy-pagedev-result-fail = FAIL
 whimsy-pagedev-contrast-large = Large text
@@ -3927,14 +3847,12 @@ whimsy-pagedev-contrast-image = Over an image, approximate
 # $fg, $bg (string) - colors; $ratio (string) - e.g. "4.53:1"; $aa, $aaa (string) - PASS or FAIL
 whimsy-pagedev-contrast-copy = { $fg } on { $bg }: { $ratio } (AA { $aa }, AAA { $aaa })
 whimsy-pagedev-copy-css-vars =
-    .label = Copy All as CSS Variables
-whimsy-pagedev-css-vars-label = CSS variables
+    .label = Copy as CSS Variables
 
 whimsy-pagedev-built-with-empty = No known technologies found on this page.
-whimsy-pagedev-built-with-local = Found on this device from the page and its headers. Nothing is sent anywhere.
+whimsy-pagedev-built-with-local = Found on this Mac from the page and its headers. Nothing was sent anywhere.
 whimsy-pagedev-copy-all =
     .label = Copy All
-whimsy-pagedev-built-with-label = the Built With list
 whimsy-pagedev-category-js-framework = JavaScript Frameworks
 whimsy-pagedev-category-js-library = JavaScript Libraries
 whimsy-pagedev-category-cms = Content Management
@@ -3966,25 +3884,32 @@ whimsy-pagedev-evidence =
 whimsy-action-site-settings = Site Settings…
 whimsy-site-settings-title = This Site
 whimsy-site-settings-forget-all = Forget All
-whimsy-site-settings-forget =
-    .tooltiptext = Forget
-    .aria-label = Forget
 whimsy-site-settings-zoom = Zoom
-# $percent (number) - the page's zoom level, e.g. 110
-whimsy-site-settings-zoom-value = { $percent }%
+# W10-16: the zoom stepper (− / the % / +); the % resets.
+whimsy-site-settings-zoom-out =
+    .title = Zoom Out
+    .aria-label = Zoom Out
+whimsy-site-settings-zoom-in =
+    .title = Zoom In
+    .aria-label = Zoom In
 whimsy-site-settings-zoom-reset =
-    .tooltiptext = Reset Zoom
-    .aria-label = Reset Zoom
+    .title = Reset to 100%
+    .aria-label = Reset zoom to 100%
+whimsy-site-settings-autoplay-default = Use Default
 whimsy-site-settings-reader = Always Open in Reader View
 whimsy-site-settings-fullscreen = Open in Full Screen
-whimsy-site-settings-on = On
-whimsy-site-settings-off = Off
 whimsy-site-settings-useragent = Pretend to Be
-whimsy-site-settings-useragent-default = Whimsy (default)
+whimsy-site-settings-useragent-reloads = Reloads the page
+# $browser (string) - Chrome, Safari, iPhone, Whimsy or Custom
+whimsy-site-settings-useragent-reloading = Reloading as { $browser }…
+whimsy-site-settings-useragent-default = Whimsy
+whimsy-site-settings-useragent-default-detail = no disguise
 whimsy-site-settings-useragent-chrome-mac = Chrome
 whimsy-site-settings-useragent-safari-mac = Safari
-whimsy-site-settings-useragent-safari-iphone = iPhone (mobile site)
-whimsy-site-settings-useragent-custom = Custom
+whimsy-site-settings-useragent-safari-iphone = iPhone
+whimsy-site-settings-useragent-iphone-detail = mobile site
+whimsy-site-settings-useragent-custom = Custom…
+whimsy-site-settings-private-note = Private window: these settings are forgotten when you close your private tabs.
 # $site (string) - the site's host, e.g. example.com
 whimsy-site-settings-forgot-toast = Forgot settings for { $site }
 ## wave7/easel: View Easels…, Add Page to Easel, Copy Link
@@ -4245,3 +4170,195 @@ whimsy-setting-profiles = Profile Settings
     .keywords = profiles, search engine per profile, download folder per profile
 whimsy-setting-profile-name = Profile Name
     .keywords = new profile, rename profile
+
+## wave10: shared surface (WhimsySurface)
+
+whimsy-surface-close =
+    .tooltiptext = Close
+    .aria-label = Close
+whimsy-surface-copied = Copied
+
+## wave10/desA W10-30: Fire, on one surface that explains each choice.
+## "Forget About This Site…" opens it with the site chosen.
+
+whimsy-fire-heading = What should Fire erase?
+# $profile (string) - profile name, "Default" when none
+whimsy-fire-choice-profile = The last hour in { $profile }
+# $count (number) - tabs that close; $spaces (string) - "Work and Side Projects"
+whimsy-fire-choice-profile-detail = { $count ->
+    [0] Erases the last hour of history in your { $spaces } spaces. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+    [one] Closes 1 tab in your { $spaces } spaces and erases their last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+   *[other] Closes { $count } tabs in your { $spaces } spaces and erases their last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+}
+# The same, for a profile whose spaces have no names.
+whimsy-fire-choice-profile-detail-unnamed = { $count ->
+    [0] Erases this profile’s last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+    [one] Closes 1 tab and erases this profile’s last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+   *[other] Closes { $count } tabs and erases this profile’s last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+}
+# $site (string) - base domain
+whimsy-fire-choice-site = Everything from { $site }
+# $site (string); $count (number) - its tabs that close
+whimsy-fire-choice-site-detail = { $count ->
+    [0] Erases all of { $site }’s history, sign-ins and saved data, from all time, in every profile.
+    [one] Erases all of { $site }’s history, sign-ins and saved data, from all time, in every profile, and closes its tab.
+   *[other] Erases all of { $site }’s history, sign-ins and saved data, from all time, in every profile, and closes its { $count } tabs.
+}
+whimsy-fire-choice-everything = Everything, everywhere
+# $count (number) - unpinned tabs in every window that close
+whimsy-fire-choice-everything-detail = { $count ->
+    [0] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time.
+    [one] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time, and closes 1 tab.
+   *[other] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time, and closes { $count } tabs.
+}
+whimsy-fire-kept = Always kept: saved passwords, bookmarks, downloaded files, pinned tabs and Essentials.
+whimsy-fire-cancel =
+    .label = Cancel
+whimsy-fire-run-profile =
+    .label = Fire in This Profile
+# $site (string)
+whimsy-fire-run-site =
+    .label = Forget { $site }
+whimsy-fire-run-everything =
+    .label = Fire Everywhere…
+whimsy-fire-everything-confirm-title = Erase everything, everywhere?
+# $count (number) - tabs that close
+whimsy-fire-everything-confirm-body = Every profile signs out of every site and loses all its history. { $count ->
+    [0] This can’t be undone.
+    [one] 1 tab closes. This can’t be undone.
+   *[other] { $count } tabs close. This can’t be undone.
+}
+whimsy-fire-back =
+    .label = Back
+whimsy-fire-everything-confirm-accept =
+    .label = Fire Everywhere
+
+# Result toasts: a title and a second line.
+# $profile (string); $count (number) - tabs closed; $visits (number) -
+# history visits erased; $sites (number) - sites whose data was erased
+whimsy-fire-done-profile-title = Fired in { $profile }
+whimsy-fire-done-profile-detail = { $count ->
+    [0] Erased { $visits ->
+        [one] 1 visit
+       *[other] { $visits } visits
+    } and { $sites ->
+        [one] 1 site’s data
+       *[other] { $sites } sites’ data
+    } from the last hour
+    [one] Closed 1 tab · erased { $visits ->
+        [one] 1 visit
+       *[other] { $visits } visits
+    } and { $sites ->
+        [one] 1 site’s data
+       *[other] { $sites } sites’ data
+    } from the last hour
+   *[other] Closed { $count } tabs · erased { $visits ->
+        [one] 1 visit
+       *[other] { $visits } visits
+    } and { $sites ->
+        [one] 1 site’s data
+       *[other] { $sites } sites’ data
+    } from the last hour
+}
+whimsy-fire-done-everything-title = Fired everywhere
+# $count (number) - tabs closed
+whimsy-fire-done-everything-detail = { $count ->
+    [0] Erased all history and site data
+    [one] Closed 1 tab · erased all history and site data
+   *[other] Closed { $count } tabs · erased all history and site data
+}
+# $site (string); $count (number) - tabs closed
+whimsy-fire-done-site-title = Forgot { $site }
+whimsy-fire-done-site-detail = { $count ->
+    [0] Erased its history and site data
+    [one] Closed 1 tab · erased its history and site data
+   *[other] Closed { $count } tabs · erased its history and site data
+}
+whimsy-fire-failed-title = Couldn’t erase everything
+whimsy-fire-failed-detail = Some site data was in use. Nothing else changed.
+whimsy-fire-retry = Try Again
+
+## wave10/desA W10-17: What Font Is This?, a card that names the font
+## (system fonts plainly) and copies each value where it sits.
+
+whimsy-font-system-name = San Francisco
+whimsy-font-source-web = Web font
+whimsy-font-source-local = Installed font
+whimsy-font-source-system = Mac system font
+whimsy-font-source-fallback = System fallback
+whimsy-font-style-label = Style
+whimsy-font-style-normal = Normal
+whimsy-font-style-italic = Italic
+# $font (string), $count (number) - characters drawn in it
+whimsy-font-also = { $count ->
+    [one] Also uses { $font } for 1 character.
+   *[other] Also uses { $font } for { $count } characters.
+}
+# $weight (number) - the CSS weight, shown with its name: "600 Semibold"
+whimsy-font-weight-value = { $weight ->
+    [100] { $weight } Thin
+    [200] { $weight } Extra Light
+    [300] { $weight } Light
+    [500] { $weight } Medium
+    [600] { $weight } Semibold
+    [700] { $weight } Bold
+    [800] { $weight } Extra Bold
+    [900] { $weight } Black
+   *[400] { $weight } Regular
+}
+whimsy-font-close =
+    .label = Close
+whimsy-font-search-button-label =
+    .label = Search for This Font
+whimsy-font-copy-css-button =
+    .label = Copy CSS
+whimsy-font-copied-css-button =
+    .label = Copied
+
+## wave10/desA W10-18: Fonts, Colors and Built With on one surface.
+
+whimsy-pagedev-tabs-label = Page tools
+whimsy-pagedev-tab-fonts = Fonts
+whimsy-pagedev-tab-colors = Colors
+whimsy-pagedev-tab-built-with = Built With
+whimsy-pagedev-by-share = by share of text
+whimsy-pagedev-by-area = by area
+# $percent (string), $source (string: Web font / Installed font / Mac system font)
+whimsy-pagedev-font-line = { $percent } of text · { $source }
+whimsy-pagedev-copy-name = Copy Name
+whimsy-pagedev-pill-aaa = AAA
+whimsy-pagedev-pill-aa = AA
+whimsy-pagedev-pill-fail = Fails
+whimsy-pagedev-reading = Reading the page…
+whimsy-pagedev-copied-button =
+    .label = Copied
+
+## wave10/desA W10-25: form protection. A tab with a form you typed into
+## shows an in-progress form glyph, asks before you unload it, and offers
+## to fill your answers back in after a reload.
+
+# $count (number) - tabs with forms that would unload
+whimsy-form-unload-title = { $count ->
+    [one] Unload this tab?
+   *[other] Unload { $count } tabs with forms?
+}
+# $host (string) - the site, like "example.com"
+whimsy-form-unload-body = You started a form on <b>{ $host }</b>. Whimsy keeps what you typed and fills it back in when you come back.
+whimsy-form-unload-body-private = You started a form on <b>{ $host }</b>. Whimsy keeps what you typed until you close your private tabs.
+# $count (number) - tabs with forms
+whimsy-form-unload-body-many = You started forms in these { $count } tabs. Whimsy keeps what you typed and fills it back in when you come back.
+whimsy-form-unload-keep =
+    .label = Keep Loaded
+whimsy-form-unload-accept =
+    .label = Unload
+# $count (number) - fields that can be filled
+whimsy-form-refill-ask = { $count ->
+    [one] Fill in 1 answer you typed before?
+   *[other] Fill in { $count } answers you typed before?
+}
+whimsy-form-refill-ask-detail = Saved when this tab reloaded
+whimsy-form-refill-fill = Fill In
+# A tab protected by hand (Protect This Tab) with nothing typed: its lock.
+whimsy-tab-protected-marker =
+    .tooltiptext = Protected tab
+    .aria-label = Protected tab

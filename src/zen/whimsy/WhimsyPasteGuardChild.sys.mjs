@@ -119,7 +119,7 @@ export class WhimsyPasteGuardChild extends JSWindowActorChild {
     }
     event.preventDefault();
     event.stopImmediatePropagation();
-    this.ask(target, kind, host);
+    this.ask(target, kind, host, !!field);
   }
 
   // The field's place on screen, in CSS pixels: its box, or for a tall
@@ -143,13 +143,16 @@ export class WhimsyPasteGuardChild extends JSWindowActorChild {
     }
   }
 
-  async ask(target, kind, host) {
+  async ask(target, kind, host, inField = true) {
     let answer = null;
     try {
       answer = await this.sendQuery("WhimsyPasteGuard:Ask", {
         kind,
         host,
-        rect: this.anchorRect(target),
+        // W10-14: only a field anchors the prompt. A paste anywhere on the
+        // page hung it off the page body's corner; the parent now puts it
+        // over the page, where the command bar sits.
+        rect: inField ? this.anchorRect(target) : null,
       });
     } catch (e) {
       // The tab went away; nothing to paste into.

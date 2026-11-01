@@ -10,6 +10,9 @@
 // state; arrows move through the rows and back to the search; rows run
 // nothing; Esc clears a search, then closes; Cmd+/ again closes;
 // "Edit Shortcuts…" opens about:keyboard; a customized shortcut says so.
+// W10-19: a WhimsySurface over the page; the menus flow in columns (three
+// in a wide window, one in a narrow one); matches are marked; a changed
+// shortcut has an accent dot explained in the footer.
 
 const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
 
@@ -31,7 +34,7 @@ async function closeSheet(panel) {
 }
 
 function type(panel, text) {
-  const search = panel.querySelector(".whimsy-sheet-search-input");
+  const search = panel.querySelector("#whimsy-cheatsheet-search");
   search.value = text;
   search.dispatchEvent(new Event("input"));
 }
@@ -42,8 +45,10 @@ const visibleRows = panel => [...panel.querySelectorAll(".whimsy-cheatsheet-row"
 add_task(async function test_opens_grouped_with_key_caps() {
   const panel = await openSheet(() => EventUtils.synthesizeKey("/", { accelKey: true }, window));
   try {
-    ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
-    is(document.activeElement, panel.querySelector(".whimsy-sheet-search-input"), "The search field has focus");
+    ok(panel.classList.contains("whimsy-surface"), "It is a Whimsy surface");
+    is(panel.getAttribute("hidepopovertail"), "true", "with no arrow tail");
+    is(document.activeElement, panel.querySelector("#whimsy-cheatsheet-search"), "The search field has focus");
+    is(panel.querySelector(".whimsy-surface-title").textContent, "Keyboard Shortcuts", "Titled, start-aligned");
 
     const groups = panel.querySelectorAll(".whimsy-cheatsheet-group");
     Assert.greaterOrEqual(groups.length, 4, "Shortcuts are grouped");
@@ -61,7 +66,7 @@ add_task(async function test_opens_grouped_with_key_caps() {
       "Rows have an accessible name with the command");
 
     // Exactly one action: Edit Shortcuts….
-    const footerButtons = panel.querySelectorAll(".whimsy-sheet-footer .footer-button");
+    const footerButtons = panel.querySelectorAll(".whimsy-surface-footer .footer-button");
     is(footerButtons.length, 1, "One footer action");
     ok(footerButtons[0].classList.contains("whimsy-cheatsheet-edit"), "...Edit Shortcuts…");
     ok(!panel.querySelector(".whimsy-cheatsheet-row toolbarbutton, .whimsy-cheatsheet-row button"),
@@ -108,7 +113,7 @@ add_task(async function test_search_filters_instantly() {
 add_task(async function test_keyboard() {
   const panel = await openSheet();
   try {
-    const search = panel.querySelector(".whimsy-sheet-search-input");
+    const search = panel.querySelector("#whimsy-cheatsheet-search");
     const rows = visibleRows(panel);
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
     is(document.activeElement, rows[0], "Down moves into the list");
@@ -175,13 +180,18 @@ add_task(async function test_customized_rows() {
   try {
     const row = panel.querySelector('.whimsy-cheatsheet-row[data-key-id="key_whimsyTabNext"]');
     is(row?.getAttribute("customized"), "true", "The row is marked customized");
-    ok(row.querySelector(".whimsy-cheatsheet-custom")?.textContent, "...with a word, not only a colour");
-    ok(row.title, "...and the default in its tooltip");
+    ok(row.querySelector(".whimsy-cheatsheet-custom-dot"), "...with an accent dot");
+    ok(row.getAttribute("aria-label").includes("custom shortcut"), "...said in words to assistive tech");
+    ok(row.title.startsWith("Changed from"), "...and the default in its tooltip");
+    const legend = panel.querySelector(".whimsy-cheatsheet-legend");
+    ok(!legend.hidden, "The footer explains the dot");
+    await document.l10n.translateFragment(legend);
+    is(legend.textContent, "Changed by you", "...as Changed by you");
     is(row.querySelector("kbd:last-child").textContent, "U", "...showing the custom key");
     ok(!panel.querySelector('.whimsy-cheatsheet-row[data-key-id="key_whimsyCheatsheet"]').hasAttribute("customized"),
       "Default shortcuts aren't marked");
 
-    type(panel, await new Localization(["browser/whimsy.ftl"]).formatValue("whimsy-cheatsheet-custom"));
+    type(panel, "custom");
     ok(visibleRows(panel).includes(row), "Searching \"custom\" finds it");
   } finally {
     await closeSheet(panel);
@@ -195,4 +205,60 @@ add_task(async function test_disabled_feature_does_nothing() {
   await new Promise(resolve => setTimeout(resolve, 100));
   ok(!document.getElementById(PANEL_ID), "With the feature off, nothing opens");
   await SpecialPowers.popPrefEnv();
+});
+
+// W10-19: columns follow the width: three at 1280px, one when narrow;
+// matches are marked; the empty state names the query.
+add_task(async function test_columns_marks_and_empty() {
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  try {
+    win.resizeTo(1280, 900);
+    await TestUtils.waitForCondition(() => win.outerWidth >= 1200, "The window is wide");
+    const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+    let shown = BrowserTestUtils.waitForEvent(win.document, "popupshown", true, e => e.target.id == PANEL_ID);
+    WhimsyCheatSheet.open(win);
+    await shown;
+    let panel = win.document.getElementById(PANEL_ID);
+    const columns = panel.querySelector(".whimsy-cheatsheet-columns");
+    const lefts = new Set([...columns.querySelectorAll(".whimsy-cheatsheet-group")].map(g =>
+      Math.round(g.getBoundingClientRect().left)));
+    is(lefts.size, 3, "Three columns at 1280px");
+
+    const search = panel.querySelector("#whimsy-cheatsheet-search");
+    search.value = "split";
+    search.dispatchEvent(new Event("input"));
+    const shownRows = [...panel.querySelectorAll(".whimsy-cheatsheet-row")].filter(r => !r.hidden && !r.closest("[hidden]"));
+    ok(shownRows.length, "Split rows are shown");
+    ok(shownRows.some(r => r.querySelector("mark.whimsy-cheatsheet-match")?.textContent.toLowerCase() == "split"),
+      "The match is marked");
+    search.value = "zzqx no such";
+    search.dispatchEvent(new Event("input"));
+    const empty = panel.querySelector(".whimsy-cheatsheet-empty");
+    ok(!empty.hidden, "Empty state");
+    await win.document.l10n.translateFragment(empty);
+    ok(empty.textContent.includes("zzqx no such"), "naming the query");
+    ok(empty.textContent.includes("cmd shift d"), "with a hint");
+    let hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    panel.hidePopup();
+    await hidden;
+
+    win.resizeTo(420, 800);
+    await TestUtils.waitForCondition(() => win.outerWidth <= 600, "The window is narrow");
+    shown = BrowserTestUtils.waitForEvent(win.document, "popupshown", true, e => e.target.id == PANEL_ID);
+    WhimsyCheatSheet.open(win);
+    await shown;
+    panel = win.document.getElementById(PANEL_ID);
+    const narrow = new Set([...panel.querySelectorAll(".whimsy-cheatsheet-group")].map(g =>
+      Math.round(g.getBoundingClientRect().left)));
+    // CSS columns: as many 190px columns (18px apart) as fit, at most 3.
+    const inner = panel.querySelector(".whimsy-cheatsheet-columns").clientWidth;
+    const expected = Math.max(1, Math.min(3, Math.floor((inner + 18) / (190 + 18))));
+    is(narrow.size, expected, `Columns follow the width (${inner}px: ${expected})`);
+    Assert.less(narrow.size, 3, "Fewer columns when narrow");
+    hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    panel.hidePopup();
+    await hidden;
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
 });

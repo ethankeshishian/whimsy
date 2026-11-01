@@ -10,9 +10,13 @@ const { listCaptures, deleteCapture, copyCapture } = ChromeUtils.importESModule(
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
+  ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 const SAVED_TOPIC = "whimsy-capture-saved";
+// W10-24: thumbnails in a grid with Finder's icon-size slider.
+const SIZE_PREF = "whimsy.library.screenshot-size";
+const SIZES = [96, 150, 240];
 
 export class WhimsyFilesSection extends ZenLibrarySearchSection {
   static id = "whimsy-files";
@@ -28,24 +32,35 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
     `;
   }
 
-  static properties = { files: { state: true } };
+  static properties = { files: { state: true }, size: { state: true } };
 
   #observer = { observe: () => this.#refresh() };
+  #sizeObserver = () => {
+    this.size = this.#readSize();
+  };
 
   constructor() {
     super();
     this.files = [];
+    this.size = this.#readSize();
+  }
+
+  #readSize() {
+    const value = Services.prefs.getIntPref(SIZE_PREF, 1);
+    return Math.min(SIZES.length - 1, Math.max(0, value));
   }
 
   connectedCallback() {
     super.connectedCallback();
     Services.obs.addObserver(this.#observer, SAVED_TOPIC);
+    Services.prefs.addObserver(SIZE_PREF, this.#sizeObserver);
     this.#refresh();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     Services.obs.removeObserver(this.#observer, SAVED_TOPIC);
+    Services.prefs.removeObserver(SIZE_PREF, this.#sizeObserver);
     this.#menu?.hidePopup();
     this.#menu?.remove();
     this.#menu = null;
@@ -145,7 +160,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
     });
     menu.addEventListener("popuphidden", event => {
       if (event.target == menu) {
-        this.querySelector(".zen-library-row[menu-open]")?.removeAttribute("menu-open");
+        this.querySelector(".whimsy-library-shot[menu-open]")?.removeAttribute("menu-open");
         this.#menuFile = null;
       }
     });
@@ -155,7 +170,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
 
   #openMenu(file, row, event) {
     this.#menu ??= this.#buildMenu();
-    this.querySelector(".zen-library-row[menu-open]")?.removeAttribute("menu-open");
+    this.querySelector(".whimsy-library-shot[menu-open]")?.removeAttribute("menu-open");
     this.#menuFile = file;
     row.setAttribute("menu-open", "true");
     this.#menu.openPopupAtScreen(event.screenX, event.screenY, true, event);
@@ -168,45 +183,85 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
     }
     const url = Services.io.newFileURI(file).spec;
     return html`
-      <div
-        class="zen-library-row"
-        draggable="true"
-        @click=${() => this.#open(file)}
-        @dragstart=${event => {
-          event.dataTransfer.setData("text/uri-list", url);
-          event.dataTransfer.setData("text/plain", file.path);
-          event.dataTransfer.effectAllowed = "copyLink";
-        }}
-        @contextmenu=${event => {
-          event.preventDefault();
-          this.#openMenu(file, event.currentTarget, event);
-        }}
-      >
-        <img class="zen-library-row-icon" src=${url} alt="" />
-        <div class="zen-library-row-text">
-          <span class="zen-library-row-title">${file.leafName}</span>
-        </div>
-        <div class="zen-library-row-actions">
-          <toolbarbutton
-            class="toolbarbutton-1"
-            data-l10n-id="whimsy-library-files-delete"
-            @click=${event => {
-              event.stopPropagation();
-              this.#remove(file);
-            }}
-          >
-            <img class="toolbarbutton-icon" src="chrome://browser/skin/zen-icons/trash.svg" alt="" />
-          </toolbarbutton>
-        </div>
+      <div class="whimsy-library-shot-cell">
+        <button
+          class="whimsy-library-shot"
+          draggable="true"
+          title=${file.leafName}
+          @click=${() => this.#open(file)}
+          @dragstart=${event => {
+            event.dataTransfer.setData("text/uri-list", url);
+            event.dataTransfer.setData("text/plain", file.path);
+            event.dataTransfer.effectAllowed = "copyLink";
+          }}
+          @contextmenu=${event => {
+            event.preventDefault();
+            this.#openMenu(file, event.currentTarget, event);
+          }}
+        >
+          <img class="whimsy-library-shot-image" src=${url} alt="" loading="lazy" />
+          <span class="whimsy-library-shot-name">${file.leafName}</span>
+        </button>
+        <toolbarbutton
+          class="toolbarbutton-1 whimsy-library-shot-delete"
+          data-l10n-id="whimsy-library-files-delete"
+          @click=${event => {
+            event.stopPropagation();
+            this.#remove(file);
+          }}
+        >
+          <img class="toolbarbutton-icon" src="chrome://browser/skin/zen-icons/trash.svg" alt="" />
+        </toolbarbutton>
       </div>
     `;
   }
 
+  // Capture's shortcut as it's bound now (⇧⌘2 by default).
+  #captureKey() {
+    const keyEl = this.ownerDocument.getElementById("key_whimsyScreenshotArc");
+    try {
+      if (keyEl && !keyEl.hasAttribute("disabled")) {
+        return lazy.ShortcutUtils.prettifyShortcut(keyEl);
+      }
+    } catch (e) {}
+    return Services.appinfo.OS == "Darwin" ? "⇧⌘2" : "Ctrl+Shift+2";
+  }
+
+  #setSize(value) {
+    const size = Math.min(SIZES.length - 1, Math.max(0, Number(value) || 0));
+    this.size = size;
+    Services.prefs.setIntPref(SIZE_PREF, size);
+  }
+
   renderItems() {
     if (!this.files.length) {
-      return html`<div class="zen-library-empty" data-l10n-id="whimsy-library-files-empty"></div>`;
+      const key = this.#captureKey();
+      return html`<div class="zen-library-empty whimsy-library-shots-empty">
+        <span data-l10n-id="whimsy-library-files-empty"></span>
+        <span class="whimsy-library-shots-hint" data-l10n-id="whimsy-library-files-empty-hint"
+          data-l10n-args=${JSON.stringify({ key })}></span>
+      </div>`;
     }
-    return repeat(this.files, f => f.path, f => this.#renderFile(f));
+    return html`
+      <div class="whimsy-library-shots-bar">
+        <img class="whimsy-library-shots-glyph" src="chrome://browser/skin/zen-icons/selectable/image.svg" alt="" />
+        <input
+          type="range"
+          class="whimsy-library-shot-size"
+          min="0"
+          max="2"
+          step="1"
+          .value=${String(this.size)}
+          data-l10n-id="whimsy-library-shot-size"
+          @input=${event => this.#setSize(event.target.value)}
+        />
+        <img class="whimsy-library-shots-glyph whimsy-library-shots-glyph-large"
+          src="chrome://browser/skin/zen-icons/selectable/image.svg" alt="" />
+      </div>
+      <div class="whimsy-library-shots" style=${`--whimsy-shot-size: ${SIZES[this.size]}px`}>
+        ${repeat(this.files, f => f.path, f => this.#renderFile(f))}
+      </div>
+    `;
   }
 }
 

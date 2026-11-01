@@ -103,8 +103,8 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_reorder_spaces.js"]
 
 ["browser_whimsy_screens.js"]
-# wave3/speed: the video speed control shot.
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+# wave3/speed: the video speed control shot; wave10/desA W10-18: the page tools shots.
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf"]
 
 ["browser_whimsy_screens_2.js"]
 # wave3/speed: the video speed control shot.
@@ -699,6 +699,7 @@ support-files = ["whimsy_email_form.html"]
 ["browser_whimsy_smart_buttons.js"]
 # wave9: Font Inspector ("What Font Is This?").
 ["browser_whimsy_font_inspector.js"]
+support-files = ["whimsy_pagedev_font.ttf"]
 
 # wave9: Element inspector lite.
 ["browser_whimsy_element_inspector.js"]
@@ -739,3 +740,9 @@ support-files = ["whimsy_article.html"]
 
 # wave10/mini W10-13: Mini's shortcuts in their own "Mini Whimsy" group of Settings → Keyboard Shortcuts (listed from every window, no cross-scope conflict); they act only inside Mini, where they win.
 ["browser_whimsy_mini_keys.js"]
+
+# wave10/desA W10-15/25/30: toast icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" actions, no timeout.
+["browser_whimsy_toast_states.js"]
+
+# wave10/desA W10-24: no Whimsy sheet or surface draws a stray vertical divider; surfaces stack vertically with no arrow tail.
+["browser_whimsy_popup_dividers.js"]

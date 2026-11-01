@@ -46,35 +46,23 @@ add_task(async function test_reload_applies_the_user_agent() {
   });
 });
 
-// fixB: the "Pretend to be" sheet (WhimsyPanels): a radio list for this
-// site with the current choice checked; Custom reveals a field; choosing
-// a browser stores it, reloads and closes the sheet.
-add_task(async function test_pretend_sheet() {
-  registerCleanupFunction(() => WhimsyUserAgent.clear(HOST));
-  await BrowserTestUtils.withNewTab(`https://${HOST}/`, async browser => {
-    WhimsyUserAgent.set(HOST, "safari-mac");
-    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-useragent-panel");
-    WhimsyUserAgent.openPicker(window);
+// W10-16: the command bar's Pretend to Be opens This Site in the site
+// panel with its dropdown focused (the separate sheet is gone).
+add_task(async function test_pretend_command_opens_this_site() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  ok(!("openPicker" in WhimsyUserAgent), "No separate Pretend to Be sheet");
+  await BrowserTestUtils.withNewTab(`https://${HOST}/`, async () => {
+    gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
+    const panel = document.getElementById("zen-unified-site-data-panel");
+    const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
+    WhimsyCommands.get("whimsy-useragent-picker").run(window);
     await shown;
-    const panel = document.getElementById("whimsy-useragent-panel");
-    ok(panel.classList.contains("whimsy-sheet"), "It is a Whimsy sheet");
-    const rows = [...panel.querySelectorAll(".whimsy-sheet-item")];
-    Assert.deepEqual(rows.map(r => r.getAttribute("whimsy-useragent-preset")),
-      ["default", "chrome-mac", "safari-mac", "safari-iphone", "custom"], "Five choices");
-    is(panel.querySelector('[aria-checked="true"]').getAttribute("whimsy-useragent-preset"), "safari-mac",
-      "The current choice is checked");
-
-    const custom = panel.querySelector(".whimsy-useragent-custom-box");
-    ok(custom.hidden, "The custom field starts hidden");
-    panel.querySelector('[whimsy-useragent-preset="custom"]').doCommand();
-    ok(!custom.hidden, "Custom reveals the field");
-
-    const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
-    const reloaded = BrowserTestUtils.browserLoaded(browser);
-    panel.querySelector('[whimsy-useragent-preset="chrome-mac"]').doCommand();
+    await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-site-settings-useragent-button",
+      "Pretend to Be's dropdown has the keyboard");
+    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    panel.hidePopup(true);
     await hidden;
-    await reloaded;
-    is(WhimsyUserAgent.uaFor(HOST), PRESETS["chrome-mac"], "Choosing Chrome stores it");
+    gNavToolbox.removeAttribute("zen-has-implicit-hover");
   });
 });
 
@@ -101,4 +89,41 @@ add_task(async function test_w8_49_user_agent_per_profile() {
   // Removing profile removes its overrides
   WhimsyUserAgent.removeProfile("work");
   is(WhimsyUserAgent.uaFor(host, "work"), null, "Removed profile overrides cleared");
+});
+
+// W10-16: "Change User Agent…" stays a command with Site Settings switched
+// off: it opens a small surface with just Pretend to Be, where a pick sets
+// the user agent and reloads while the surface stays.
+add_task(async function test_pretend_command_without_site_settings() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.site-settings", false]] });
+  registerCleanupFunction(() => WhimsyUserAgent.clear(HOST));
+  try {
+    await BrowserTestUtils.withNewTab(`https://${HOST}/`, async browser => {
+      const command = WhimsyCommands.get("whimsy-useragent-picker");
+      ok(command.isAvailable(window), "The command is still offered");
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-pretend-panel");
+      command.run(window);
+      await shown;
+      const panel = document.getElementById("whimsy-pretend-panel");
+      ok(panel.classList.contains("whimsy-surface"), "A Whimsy surface");
+      is(document.getElementById("zen-unified-site-data-panel").state, "closed", "not the site panel");
+      await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-site-settings-useragent-button",
+        "Its dropdown has the keyboard");
+      const listShown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
+        e => e.target.id == "whimsy-site-settings-useragent-button-list");
+      document.activeElement.click();
+      await listShown;
+      const reloaded = BrowserTestUtils.browserLoaded(browser);
+      document.querySelector('#whimsy-site-settings-useragent-button-list [data-value="chrome-mac"]').click();
+      await reloaded;
+      is(WhimsyUserAgent.uaFor(HOST), PRESETS["chrome-mac"], "Picking Chrome sets it");
+      is(panel.state, "open", "and the surface stays open");
+      const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+      EventUtils.synthesizeKey("KEY_Escape", {}, window);
+      await hidden;
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
 });

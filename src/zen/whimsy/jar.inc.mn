@@ -90,6 +90,7 @@
         content/browser/whimsy/whimsy-redact.svg                                 (../../zen/whimsy/content/whimsy-redact.svg)
 # W10-59: the Portrait tile in the Screenshots bar
         content/browser/whimsy/whimsy-portrait.svg                               (../../zen/whimsy/content/whimsy-portrait.svg)
+        content/browser/whimsy/whimsy-form-badge.svg                               (../../zen/whimsy/content/whimsy-form-badge.svg)
         content/browser/whimsy/whimsy-redo.svg                                   (../../zen/whimsy/content/whimsy-redo.svg)
         content/browser/whimsy/whimsy-profiles-process.js                       (../../zen/whimsy/content/whimsy-profiles-process.js)
 # wave6/zap: Link hints badges (drawn in page anonymous content)

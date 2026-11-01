@@ -31,6 +31,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEaselSync: "resource:///modules/whimsy/WhimsyEaselSync.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
+  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 
 // wave9: easels are per profile, like Notes (W8-49). Each easel has the
@@ -58,7 +60,10 @@ export const CHANGED_TOPIC = "whimsy-easels-changed";
 const STORE_FILENAME = "whimsy-easels.json";
 const IMAGES_DIR = "whimsy-easels";
 const PAGE_URL = "about:whimsy?easel";
-const MENU_ID = "whimsy-easel-capture-menu";
+const PICKER_ID = "whimsy-easel-picker";
+const PICKER_WIDTH = 340;
+const PICKER_EASELS = 8;
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 // Captures land on the canvas at most this wide (canvas px).
 const CAPTURE_MAX_WIDTH = 520;
 // Anything bigger is not a real selection.
@@ -326,6 +331,23 @@ class EaselStore {
     await IOUtils.makeDirectory(dir, { ignoreExisting: true });
     await IOUtils.write(PathUtils.join(dir, name), bytes);
     return name;
+  }
+
+  // W10-24: a picture for the easel in the Add to Easel picker: its first
+  // image (a capture or a dropped image). { bytes, type } or null.
+  async thumbnail(id) {
+    const easel = await this.get(id);
+    const item = easel?.items?.find(i => (i.type == "capture" || i.type == "image") && i.image);
+    if (!item) {
+      return null;
+    }
+    const bytes = await this.readImage(id, item.image);
+    if (!bytes) {
+      return null;
+    }
+    const ext = item.image.split(".").pop().toLowerCase();
+    const type = { jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml" }[ext] ?? "image/png";
+    return { bytes, type };
   }
 
   async readImage(id, name) {
@@ -636,7 +658,9 @@ export const WhimsyEasel = {
       win.gZenUIManager?.showToast?.(capture.error);
       return null;
     }
-    return this.showPicker(win, browser, { x: 16, y: 16 }, easelId => this.addCaptureTo(win, easelId, capture), capture.item.profileKey);
+    // From the command: over the page, where the command bar sits.
+    return this.showPicker(win, browser, null, easelId => this.addCaptureTo(win, easelId, capture),
+      capture.item.profileKey, { capture });
   },
 
   // Validates a capture request from a page (the child is untrusted).
@@ -725,8 +749,12 @@ export const WhimsyEasel = {
     if (easelId == "new") {
       this.openEasel(win, easel.id, { pin: true, profileKey });
     } else {
-      win.gZenUIManager?.showToast?.("whimsy-easel-capture-added", {
+      // W10-24: says where it went, with Open.
+      const id = easel.id;
+      lazy.WhimsyToast.show(win, {
+        l10nId: "whimsy-easel-capture-added",
         l10nArgs: { title: easel.title || (await this.untitled(win)) },
+        action: { l10nId: "whimsy-easel-open", onCommand: () => this.openEasel(win, id, { profileKey }) },
       });
     }
     return easel.id;
@@ -750,46 +778,166 @@ export const WhimsyEasel = {
       win.gZenUIManager?.showToast?.(capture.error);
       return;
     }
-    await this.showPicker(win, browser, anchor, easelId => this.addCaptureTo(win, easelId, capture), capture.item.profileKey);
+    await this.showPicker(win, browser, anchor, easelId => this.addCaptureTo(win, easelId, capture),
+      capture.item.profileKey, { capture });
   },
 
-  // The "Add to Easel" menu: New Easel, then the capture's profile's recent
-  // easels.
-  async showPicker(win, browser, anchor, onPick, profileKey = DEFAULT_PROFILE_KEY) {
+  // W10-24: "Add to Easel" is a WhimsySurface (it was a native menu): the
+  // capture's own thumbnail and size on top, then a 2-column grid of
+  // tiles, New Easel first, then the capture's profile's recent easels with
+  // their thumbnails, names and when they were edited. Click or Return
+  // adds; Esc leaves the capture unsaved. From the capture toolbar it
+  // hangs under the Add to Easel button; from the command, over the page.
+  async showPicker(win, browser, anchor, onPick, profileKey = DEFAULT_PROFILE_KEY, { capture = null } = {}) {
     const doc = win.document;
-    let menu = doc.getElementById(MENU_ID);
-    if (!menu) {
-      menu = doc.createXULElement("menupopup");
-      menu.id = MENU_ID;
-      (doc.getElementById("mainPopupSet") ?? doc.documentElement).append(menu);
-    }
-    menu.replaceChildren();
-    const add = (id, attrs) => {
-      const item = doc.createXULElement("menuitem");
-      for (const [k, v] of Object.entries(attrs)) {
-        item.setAttribute(k, v);
-      }
-      item.addEventListener("command", () => onPick(id));
-      menu.append(item);
-      return item;
+    const urls = [];
+    const objectURL = blob => {
+      const url = win.URL.createObjectURL(blob);
+      urls.push(url);
+      return url;
     };
-    const header = doc.createXULElement("menucaption");
-    doc.l10n.setAttributes(header, "whimsy-easel-picker-title");
-    menu.append(header);
-    const fresh = add("new", { class: "menuitem-iconic" });
-    doc.l10n.setAttributes(fresh, "whimsy-easel-picker-new");
-    fresh.setAttribute("image", "chrome://browser/skin/zen-icons/plus.svg");
-    const easels = (await gWhimsyEaselStore.list(profileKey)).slice(0, 8);
-    if (easels.length) {
-      menu.append(doc.createXULElement("menuseparator"));
+    let picked = false;
+    const parts = lazy.WhimsySurface.create(win, {
+      id: PICKER_ID,
+      width: PICKER_WIDTH,
+      titleL10nId: "whimsy-easel-picker-heading",
+      close: true,
+      className: "whimsy-easel-picker",
+      initialFocus: () => grid.querySelector(".whimsy-easel-tile[tabindex='0']"),
+      onHidden: () => {
+        // The thumbnails are blob: URLs made here.
+        win.setTimeout(() => urls.forEach(url => win.URL.revokeObjectURL(url)), 0);
+      },
+    });
+    const { panel, view } = parts;
+
+    if (capture) {
+      const head = doc.createXULElement("hbox");
+      head.className = "whimsy-easel-picker-capture";
+      head.setAttribute("align", "center");
+      const preview = doc.createElementNS(HTML_NS, "img");
+      preview.className = "whimsy-easel-picker-preview";
+      preview.alt = "";
+      if (capture.blob) {
+        preview.src = objectURL(capture.blob);
+      }
+      const text = doc.createXULElement("vbox");
+      text.setAttribute("flex", "1");
+      const kind = doc.createElementNS(HTML_NS, "b");
+      kind.className = "whimsy-easel-picker-kind";
+      doc.l10n.setAttributes(kind, capture.item?.live ? "whimsy-easel-picker-live" : "whimsy-easel-picker-still");
+      const size = doc.createElementNS(HTML_NS, "span");
+      size.className = "whimsy-easel-picker-size";
+      const crop = capture.item?.crop ?? {};
+      doc.l10n.setAttributes(size, capture.item?.live ? "whimsy-easel-picker-size-live" : "whimsy-easel-picker-size-still",
+        { width: Math.round(crop.w ?? 0), height: Math.round(crop.h ?? 0) });
+      text.append(kind, size);
+      head.append(preview, text);
+      view.append(head);
     }
+
+    const grid = doc.createElementNS(HTML_NS, "div");
+    grid.className = "whimsy-easel-grid";
+    grid.setAttribute("role", "grid");
+    grid.dataset.columns = "2";
+    grid.setAttribute("aria-labelledby", `${PICKER_ID}-title`);
+    const choose = id => {
+      picked = true;
+      lazy.WhimsySurface.close(panel);
+      onPick(id);
+    };
+    const tile = (id, className) => {
+      const button = doc.createElementNS(HTML_NS, "button");
+      button.type = "button";
+      button.className = `whimsy-easel-tile ${className}`;
+      button.setAttribute("role", "gridcell");
+      button.tabIndex = -1;
+      button.dataset.easel = id;
+      button.addEventListener("click", () => choose(id));
+      button.addEventListener("keydown", event => {
+        if (event.key == "Enter" || event.key == " ") {
+          event.preventDefault();
+          choose(id);
+        }
+      });
+      return button;
+    };
+    const fresh = tile("new", "whimsy-easel-tile-new");
+    const plus = doc.createElementNS(HTML_NS, "span");
+    plus.className = "whimsy-easel-tile-plus";
+    plus.setAttribute("aria-hidden", "true");
+    plus.textContent = "+";
+    const freshName = doc.createElementNS(HTML_NS, "span");
+    freshName.className = "whimsy-easel-tile-name";
+    doc.l10n.setAttributes(freshName, "whimsy-easel-picker-new-tile");
+    fresh.append(plus, freshName);
+    fresh.tabIndex = 0;
+    grid.append(fresh);
+
+    const easels = (await gWhimsyEaselStore.list(profileKey)).slice(0, PICKER_EASELS);
     const untitled = await this.untitled(win);
     for (const easel of easels) {
-      add(easel.id, { label: easel.title || untitled, class: "menuitem-iconic", image: "chrome://browser/skin/zen-icons/paintbrush.svg" });
+      const button = tile(easel.id, "whimsy-easel-tile-easel");
+      const thumb = doc.createElementNS(HTML_NS, "span");
+      thumb.className = "whimsy-easel-tile-thumb";
+      thumb.setAttribute("loading", "true");
+      const name = doc.createElementNS(HTML_NS, "span");
+      name.className = "whimsy-easel-tile-name";
+      name.textContent = easel.title || untitled;
+      button.title = easel.title || untitled;
+      const when = doc.createElementNS(HTML_NS, "span");
+      when.className = "whimsy-easel-tile-when";
+      doc.l10n.setAttributes(when, "whimsy-easel-edited", { when: this.editedWhen(easel.updated) });
+      button.append(thumb, name, when);
+      grid.append(button);
+      gWhimsyEaselStore.thumbnail(easel.id).then(picture => {
+        thumb.removeAttribute("loading");
+        if (picture && panel.isConnected) {
+          const img = doc.createElementNS(HTML_NS, "img");
+          img.alt = "";
+          img.src = objectURL(new win.Blob([picture.bytes], { type: picture.type }));
+          thumb.append(img);
+        }
+      }, () => thumb.removeAttribute("loading"));
     }
-    const x = Number.isFinite(anchor?.x) ? anchor.x : 0;
-    const y = Number.isFinite(anchor?.y) ? anchor.y : 0;
-    menu.openPopup(browser, { position: "overlap", x, y });
-    return menu;
+    view.append(grid);
+    if (!easels.length) {
+      // No easels yet: New Easel as a wide row, and what an easel is.
+      grid.setAttribute("first", "true");
+      grid.dataset.columns = "1";
+      const hint = doc.createElementNS(HTML_NS, "p");
+      hint.className = "whimsy-easel-picker-first";
+      doc.l10n.setAttributes(hint, "whimsy-easel-picker-first");
+      view.append(hint);
+    }
+    lazy.WhimsySurface.finish(parts);
+
+    if (anchor && browser && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
+      lazy.WhimsySurface.open(win, panel, { anchor: browser, position: "overlap", x: anchor.x, y: anchor.y + 2 });
+    } else {
+      lazy.WhimsySurface.open(win, panel, { at: "page-top-center" });
+    }
+    panel._whimsyPicked = () => picked;
+    return panel;
+  },
+
+  // "2 hours ago", "yesterday", or "Oct 12" for anything older than a week.
+  editedWhen(ms) {
+    const locale = Services.locale.appLocaleAsBCP47;
+    const diff = (Number(ms) || Date.now()) - Date.now();
+    const minutes = Math.round(diff / 60000);
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    if (Math.abs(minutes) < 60) {
+      return rtf.format(Math.min(0, minutes), "minute");
+    }
+    const hours = Math.round(minutes / 60);
+    if (Math.abs(hours) < 24) {
+      return rtf.format(hours, "hour");
+    }
+    const days = Math.round(hours / 24);
+    if (Math.abs(days) < 7) {
+      return rtf.format(days, "day");
+    }
+    return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(new Date(Number(ms)));
   },
 };

@@ -464,6 +464,11 @@
 - name: whimsy.library.history.view
   value: all
 
+# W10-24: Library ▸ Screenshots thumbnail size (Finder's icon-size slider):
+# 0 small (96px), 1 medium (150px), 2 large (240px).
+- name: whimsy.library.screenshot-size
+  value: 1
+
 # wave5/profiles: per-profile search engine and download folder (synced maps,
 # WhimsyProfileSync: {profile key: [value, time]}; empty means none).
 # wave7/security L6: the download folder stays on this Mac (like Firefox's

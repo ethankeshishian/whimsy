@@ -1,0 +1,11 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!-- W10-25: an in-progress form: a page outline with one answer filled,
+     one half filled, and a pencil still on it. Filled with context-fill. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="context-fill" fill-opacity="context-fill-opacity">
+  <path d="M2.75 1h4.5C8.216 1 9 1.784 9 2.75V5H7.75V2.75a.5.5 0 0 0-.5-.5h-4.5a.5.5 0 0 0-.5.5v6.5a.5.5 0 0 0 .5.5H5V11H2.75C1.784 11 1 10.216 1 9.25v-6.5C1 1.784 1.784 1 2.75 1z"/>
+  <rect x="3.25" y="3.4" width="3.5" height="1.3" rx=".65"/>
+  <rect x="3.25" y="5.9" width="2" height="1.3" rx=".65" opacity=".55"/>
+  <path d="M10.1 5.95a.95.95 0 0 1 1.35 1.35L8.15 10.6 6.4 11.1l.5-1.75z"/>
+</svg>

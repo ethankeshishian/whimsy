@@ -4,12 +4,13 @@
 "use strict";
 
 // W9-04: site settings ("This Site" in Zen's site panel). Covers the
-// section and its fixed rows, Zen's Autoplay row stepping aside, zoom with
-// reset, autoplay cycling and forgetting, Always Open in Reader View
-// opening an article by itself (and not again after leaving Reader), Open
-// in Full Screen (once per tab and site), Pretend to Be, Forget All with
-// Undo, private tabs and profiles never sharing or persisting, the
-// "Site Settings…" command and the feature switch.
+// section and its fixed rows, Zen's Autoplay row stepping aside, the zoom
+// stepper, the autoplay dropdown, Always Open in Reader View opening an
+// article by itself (and not again after leaving Reader), Open in Full
+// Screen (once per tab and site; off leaves the full screen it entered),
+// Pretend to Be picked in place, Forget All with Undo, private tabs and
+// profiles never sharing or persisting, the "Site Settings…" command and
+// the feature switch. W10-16: WhimsySurface parts, no per-row ✕.
 
 const { WhimsySiteSettings, PERM_TYPES, COMMAND_ID } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs"
@@ -95,6 +96,12 @@ add_task(async function test_section_rows_and_command() {
     ok(section().contains(document.activeElement), "The command puts focus in the section");
     ok(document.getElementById("whimsy-site-settings-forget-all").hidden, "Nothing remembered: no Forget All");
     is(rowOf("reader").getAttribute("state"), "block", "Reader is off");
+    ok(section().querySelector("#whimsy-site-settings-list").classList.contains("whimsy-surface-group"),
+      "The rows sit on one surface track");
+    ok(!section().querySelector(".whimsy-site-settings-forget, toolbarseparator"), "No per-row ✕ and no separators");
+    is(rowOf("reader").querySelector("input").getAttribute("role"), "switch", "Reader is a switch");
+    is(rowOf("fullscreen").querySelector("input").getAttribute("role"), "switch", "Full Screen is a switch");
+    ok(section().querySelector(".whimsy-site-settings-private-note").hidden, "No private note in a normal tab");
     ok(
       zenSettings.querySelector(".permission-popup-permission-item-site-protection"),
       "Content blocking stays Zen's own Tracking protection row"
@@ -113,27 +120,35 @@ add_task(async function test_section_rows_and_command() {
   });
 });
 
-add_task(async function test_zoom_row_and_reset() {
+// W10-16: "the zoom button doesn't work": − / + step Firefox's zoom and
+// the % resets to 100%.
+add_task(async function test_zoom_stepper() {
   clearAll();
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
-    await FullZoom.enlarge(browser);
-    const zoomed = ZoomManager.getZoomForBrowser(browser);
-    Assert.greater(zoomed, 1, "The page is zoomed in");
     await openPanel();
     const row = rowOf("zoom");
-    await TestUtils.waitForCondition(() => row.getAttribute("state") == "allow", "The zoom row lights up");
-    is(document.l10n.getAttributes(row.querySelector(".whimsy-site-settings-state")).args.percent,
-      Math.round(zoomed * 100), "and shows the zoom level");
-    const reset = row.querySelector(".whimsy-site-settings-forget");
-    ok(!reset.hidden, "with a reset button");
+    const [out, value, into] = row.querySelector(".whimsy-site-settings-stepper").children;
+    is(value.textContent, "100%", "The % shows the zoom");
+    ok(value.hasAttribute("at-default"), "muted at the default");
+    into.click();
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "+ zooms in");
+    await TestUtils.waitForCondition(() => value.textContent == `${Math.round(ZoomManager.getZoomForBrowser(browser) * 100)}%`,
+      "and the % follows");
+    ok(!value.hasAttribute("at-default"), "no longer muted");
     ok(!document.getElementById("whimsy-site-settings-forget-all").hidden, "Forget All shows");
-    reset.doCommand();
-    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) == 1, "Reset puts zoom back");
+    out.click();
+    out.click();
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) < 1, "− zooms out");
+    value.click();
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) == 1, "The % resets to 100%");
+    await TestUtils.waitForCondition(() => value.textContent == "100%", "and says so");
+    await FullZoom.enlarge(browser);
     await closePanel();
   });
-  // Site-specific: a new tab on the site opens at the default zoom.
+  // Site-specific: a new tab on the site opens at that zoom; reset it.
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
-    is(ZoomManager.getZoomForBrowser(browser), 1, "The site's zoom was forgotten");
+    Assert.greater(ZoomManager.getZoomForBrowser(browser), 1, "The site remembers its zoom");
+    await FullZoom.reset(browser);
   });
 });
 
@@ -151,27 +166,26 @@ add_task(async function test_autoplay_reuses_firefox_permission() {
     );
     ok(zenRow, "Zen lists the stored autoplay decision");
     ok(zenRow.hidden, "but steps aside while This Site shows it");
-    let row = rowOf("autoplay");
-    is(row.getAttribute("state"), "allow", "Autoplay is remembered here");
-    ok(row.querySelector(".whimsy-site-settings-forget"), "with a Forget button");
+    is(rowOf("autoplay").getAttribute("state"), "allow", "Autoplay is remembered here");
 
-    // A click cycles Allow → Block audio → Block all. Block audio is the
-    // default, so Firefox keeps no decision for it.
-    row.click();
-    ok(!Services.perms.getPermissionObject(principal, "autoplay-media", true),
-      "A click cycles Allow to Block audio, the default (nothing stored)");
-    row = rowOf("autoplay");
-    is(row.getAttribute("state"), "block", "The row shows Block audio");
-    ok(!row.querySelector(".whimsy-site-settings-forget"), "with nothing to forget");
-    row.click();
+    // The dropdown opens a surface listbox, not a native menu.
+    const pick = async value => {
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
+        e => e.target.id == "whimsy-site-settings-autoplay-button-list");
+      rowOf("autoplay").querySelector(".whimsy-surface-dropdown").click();
+      await shown;
+      const list = document.getElementById("whimsy-site-settings-autoplay-button-list");
+      ok(list.classList.contains("whimsy-surface"), "The choices are a Whimsy surface");
+      list.querySelector(`[role=option][data-value="${value}"]`).click();
+      await TestUtils.waitForCondition(() => !list.isConnected, "It closes on a pick");
+    };
+    await pick(String(SitePermissions.AUTOPLAY_BLOCKED_ALL));
     is(Services.perms.getPermissionObject(principal, "autoplay-media", true)?.capability,
-      SitePermissions.AUTOPLAY_BLOCKED_ALL, "Another click blocks audio and video");
-    row = rowOf("autoplay");
-    row.querySelector(".whimsy-site-settings-forget").doCommand();
-    ok(!Services.perms.getPermissionObject(principal, "autoplay-media", true), "Forget removes Firefox's permission");
-    row = rowOf("autoplay");
-    is(row.getAttribute("state"), "block", "and the row shows the default again");
-    ok(!row.querySelector(".whimsy-site-settings-forget"), "without a Forget button");
+      SitePermissions.AUTOPLAY_BLOCKED_ALL, "Picking Block audio and video stores it");
+    is(panel().state, "open", "The site panel stays open");
+    await pick("default");
+    ok(!Services.perms.getPermissionObject(principal, "autoplay-media", true), "Use Default forgets Firefox's permission");
+    is(rowOf("autoplay").getAttribute("state"), "block", "and the row shows the default again");
     await closePanel();
   });
 
@@ -198,9 +212,13 @@ add_task(async function test_always_open_in_reader() {
   clearAll();
   await BrowserTestUtils.withNewTab(PAGE, async () => {
     await openPanel();
-    rowOf("reader").click();
-    ok(WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "Clicking the row remembers Reader for the site");
-    is(rowOf("reader").getAttribute("state"), "allow", "and the row shows On");
+    rowOf("reader").querySelector("input").click();
+    ok(WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "The switch remembers Reader for the site");
+    is(rowOf("reader").getAttribute("state"), "allow", "and the row shows it");
+    ok(rowOf("reader").querySelector("input").checked, "switched on");
+    rowOf("reader").querySelector("input").click();
+    ok(!WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "Switching it off forgets it");
+    rowOf("reader").querySelector("input").click();
     await closePanel();
   });
 
@@ -255,6 +273,119 @@ add_task(async function test_open_in_full_screen() {
   WhimsySiteSettings.enterFullscreen = original;
 });
 
+// W10-16: "Turn off fullscreen doesn't end full screen". The switch's off
+// leaves the full screen Whimsy entered for the site, never one the person
+// entered themselves.
+add_task(async function test_full_screen_off_leaves_it() {
+  clearAll();
+  const exits = [];
+  const originals = { enter: WhimsySiteSettings.enterFullscreen, exit: WhimsySiteSettings.exitFullscreen };
+  const fakeWin = { fullScreen: true };
+  WhimsySiteSettings.enterFullscreen = () => {};
+  WhimsySiteSettings.exitFullscreen = win => exits.push(win);
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async browser => {
+      WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, true);
+      ok(WhimsySiteSettings.maybeFullscreen({ fullScreen: false }, browser), "Whimsy entered full screen for the site");
+      ok(WhimsySiteSettings.leaveFullscreen(fakeWin, browser, HOST), "Off leaves it");
+      is(exits.length, 1, "once");
+      ok(!WhimsySiteSettings.leaveFullscreen(fakeWin, browser, HOST), "but not a full screen it didn't enter");
+      is(exits.length, 1, "nothing more");
+
+      // Through the panel's switch.
+      WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, true);
+      WhimsySiteSettings.maybeFullscreen({ fullScreen: false }, browser);
+      const realFull = window.fullScreen;
+      await openPanel();
+      ok(rowOf("fullscreen").querySelector("input").checked, "The switch is on");
+      const originalLeave = WhimsySiteSettings.leaveFullscreen;
+      let left = 0;
+      WhimsySiteSettings.leaveFullscreen = (...args) => (left++, originalLeave.apply(WhimsySiteSettings, args));
+      rowOf("fullscreen").querySelector("input").click();
+      WhimsySiteSettings.leaveFullscreen = originalLeave;
+      is(left, 1, "Switching it off leaves full screen");
+      ok(!WhimsySiteSettings.getFlag("fullscreen", HOST, NORMAL), "and forgets it");
+      is(window.fullScreen, realFull, "The test window's own state is untouched");
+      await closePanel();
+    });
+  } finally {
+    WhimsySiteSettings.enterFullscreen = originals.enter;
+    WhimsySiteSettings.exitFullscreen = originals.exit;
+    clearAll();
+  }
+});
+
+// W10-16 (pick B): Pretend to Be is one row with a dropdown, picked in the
+// panel, which stays open while the page reloads; Whimsy forgets it;
+// Custom… reveals a field and Apply sets it.
+add_task(async function test_pretend_to_be_in_place() {
+  clearAll();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await openPanel();
+    const row = rowOf("useragent");
+    is(document.l10n.getAttributes(row.querySelector(".whimsy-surface-row-detail")).id,
+      "whimsy-site-settings-useragent-reloads", "It says it reloads the page");
+    const pick = async value => {
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
+        e => e.target.id == "whimsy-site-settings-useragent-button-list");
+      rowOf("useragent").querySelector(".whimsy-surface-dropdown").click();
+      await shown;
+      const list = document.getElementById("whimsy-site-settings-useragent-button-list");
+      Assert.deepEqual([...list.querySelectorAll("[role=option]")].map(o => o.dataset.value),
+        ["chrome-mac", "default", "safari-mac", "safari-iphone", "custom"], "Chrome, Whimsy, Safari, iPhone, Custom…");
+      ok(!list.querySelector("menuitem, menuseparator"), "not a native menu");
+      list.querySelector(`[data-value="${value}"]`).click();
+    };
+    const reloaded = BrowserTestUtils.browserLoaded(browser);
+    await pick("safari-iphone");
+    await reloaded;
+    is(WhimsyUserAgent.entry(HOST)?.preset, "safari-iphone", "Picking iPhone sets it");
+    is(panel().state, "open", "and the panel stays open");
+    await TestUtils.waitForCondition(() =>
+      document.l10n.getAttributes(rowOf("useragent").querySelector(".whimsy-surface-row-detail")).id ==
+        "whimsy-site-settings-useragent-reloads", "Back to Reloads the page once loaded");
+
+    await pick("custom");
+    const field = section().querySelector(".whimsy-site-settings-custom-field");
+    ok(field && !section().querySelector(".whimsy-site-settings-custom").hidden, "Custom… reveals the field");
+    is(document.activeElement, field, "with the keyboard");
+    field.value = "WhimsyTestAgent/1.0";
+    const reloaded2 = BrowserTestUtils.browserLoaded(browser);
+    section().querySelector("#whimsy-site-settings-custom-apply").doCommand();
+    await reloaded2;
+    Assert.deepEqual(WhimsyUserAgent.entry(HOST), { preset: "custom", custom: "WhimsyTestAgent/1.0" }, "Apply sets it");
+
+    const reloaded3 = BrowserTestUtils.browserLoaded(browser);
+    await pick("default");
+    await reloaded3;
+    is(WhimsyUserAgent.entry(HOST), null, "Whimsy forgets it");
+    await closePanel();
+  });
+  clearAll();
+});
+
+// W10-16: in a private tab the section says its settings go with the
+// private tabs, and nothing persists.
+add_task(async function test_private_note() {
+  clearAll();
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  await BrowserTestUtils.switchTab(gBrowser, tab);
+  try {
+    await openPanel();
+    ok(!section().querySelector(".whimsy-site-settings-private-note").hidden, "The private note shows");
+    rowOf("reader").querySelector("input").click();
+    const privateOA = { userContextId: 0, privateBrowsingId: 1 };
+    ok(WhimsySiteSettings.getFlag("reader", HOST, privateOA), "remembered for the private session");
+    ok(!WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "never for normal tabs");
+    await closePanel();
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    clearAll();
+  }
+});
+
 add_task(async function test_private_and_profiles_stay_apart() {
   clearAll();
   const privateOA = { userContextId: 0, privateBrowsingId: 1 };
@@ -291,8 +422,8 @@ add_task(async function test_forget_all_and_undo() {
 
     await openPanel();
     is(rowOf("useragent").getAttribute("state"), "allow", "Pretend to Be shows the stored choice");
-    is(document.l10n.getAttributes(rowOf("useragent").querySelector(".whimsy-site-settings-state")).id,
-      "whimsy-site-settings-useragent-safari-iphone", "iPhone (mobile site)");
+    is(document.l10n.getAttributes(rowOf("useragent").querySelector(".whimsy-surface-dropdown-value")).id,
+      "whimsy-site-settings-useragent-safari-iphone", "iPhone");
     const forgetAll = document.getElementById("whimsy-site-settings-forget-all");
     ok(!forgetAll.hidden, "Forget All shows");
     const hidden = BrowserTestUtils.waitForPopupEvent(panel(), "hidden");

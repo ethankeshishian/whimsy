@@ -2,130 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* wave9: Font Inspector and Element Inspector Lite styling.
+/* wave9: Element Inspector Lite styling (W10-17: the font card is a
+ * WhimsySurface now; its rules are in whimsy-browser.css).
  * Matches Whimsy's panel and sheet styling using Zen CSS variables.
  */
-
-/* --- Font Inspector Sheet --- */
-.whimsy-font-inspector-panel {
-  --whimsy-sheet-width: 320px;
-}
-
-.whimsy-font-face-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.2));
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  box-sizing: border-box;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.whimsy-font-face-card:hover {
-  background: var(--zen-colors-input-bg-hover, rgba(255, 255, 255, 0.1));
-  border-color: var(--zen-primary-color, #0969da);
-}
-
-.whimsy-font-face-card:focus-visible {
-  outline: var(--focus-outline, 2px solid AccentColor);
-  outline-offset: -1px;
-}
-
-.whimsy-font-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.whimsy-font-family-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-color, currentColor);
-  user-select: text;
-}
-
-.whimsy-font-rendered-badge {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 6px;
-  border-radius: 10px;
-  background: rgba(var(--zen-primary-color-rgb, 9, 105, 218), 0.15);
-  color: var(--zen-primary-color, #0969da);
-}
-
-.whimsy-font-preview {
-  font-size: 13px;
-  line-height: 1.4;
-  margin-top: 4px;
-  color: var(--text-color, currentColor);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  user-select: text;
-}
-
-.whimsy-font-css-stack {
-  font-size: 11px;
-  color: var(--panel-description-color, #888);
-  font-family: var(--font-family-monospace, monospace);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.whimsy-font-props-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.whimsy-font-prop-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 6px 8px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  box-sizing: border-box;
-  transition: background 0.12s ease;
-  user-select: none;
-}
-
-.whimsy-font-prop-row:hover {
-  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.08));
-}
-
-.whimsy-font-prop-row:focus-visible {
-  outline: var(--focus-outline, 2px solid AccentColor);
-  outline-offset: -1px;
-}
-
-.whimsy-font-prop-label {
-  font-size: 12px;
-  color: var(--panel-description-color, #888);
-}
-
-.whimsy-font-prop-value {
-  font-size: 12px;
-  font-weight: 500;
-  font-family: var(--font-family-monospace, monospace);
-  color: var(--text-color, currentColor);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
 
 .whimsy-color-chip {
   display: inline-flex;
@@ -141,21 +21,6 @@
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
   display: inline-block;
   flex-shrink: 0;
-}
-
-.whimsy-copy-hint {
-  font-size: 11px;
-  color: var(--panel-description-color, #888);
-  margin-left: 4px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.whimsy-font-prop-row:hover .whimsy-copy-hint,
-.whimsy-font-prop-row:focus-visible .whimsy-copy-hint,
-.whimsy-font-face-card:hover .whimsy-copy-hint,
-.whimsy-font-face-card:focus-visible .whimsy-copy-hint {
-  opacity: 1;
 }
 
 /* --- Element Inspector Sheet --- */

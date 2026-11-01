@@ -132,6 +132,12 @@ function generateSelector(el) {
   return path.join(" > ") || el.tagName.toLowerCase();
 }
 
+// macOS's own UI face, under any of the names a page or Gecko uses for it.
+function isSystemFamily(name) {
+  const n = String(name).replace(/['"]/g, "").trim();
+  return n.startsWith(".") || /^(system-ui|-apple-system|BlinkMacSystemFont|ui-sans-serif|San Francisco|SF Pro( Text| Display)?)$/i.test(n);
+}
+
 export class WhimsyInspectorChild extends JSWindowActorChild {
   _pickerActive = false;
   _pickerMode = "element"; // "element" | "font" | "zap" | "measure"
@@ -175,11 +181,67 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
       const node = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
       return this._extractFontInfo(node, range, {
         x: win.mozInnerScreenX + rect.left,
-        y: win.mozInnerScreenY + rect.bottom,
+        y: win.mozInnerScreenY + rect.top,
+        width: rect.width,
+        height: rect.height,
         text: sel.toString().trim(),
       });
     }
     return null;
+  }
+
+  // W10-17: which faces actually drew the text, by how much of it each
+  // drew. fonts[0].name was the face's full name, and macOS's system face
+  // is hidden behind a name that starts with "." (".AppleSystemUIFont",
+  // ".SFNS-Regular"), so the card showed a lone period.
+  _usedFaces(range) {
+    const utils = typeof InspectorUtils !== "undefined" ? InspectorUtils : this.contentWindow?.InspectorUtils;
+    if (!utils?.getUsedFontFaces) {
+      return [];
+    }
+    const faces = [];
+    for (const face of utils.getUsedFontFaces(range, 64)) {
+      let count = 0;
+      for (const r of face.ranges ?? []) {
+        count += r.toString().replace(/\s+/g, "").length;
+      }
+      const raw = face.CSSFamilyName || face.name || "";
+      const system = isSystemFamily(raw) || isSystemFamily(face.name || "");
+      let source = "local";
+      if (face.URI) {
+        source = "web";
+      } else if (system) {
+        source = "system";
+      } else if (face.fromSystemFallback && !face.fromFontGroup) {
+        source = "fallback";
+      }
+      let host = "";
+      if (face.URI) {
+        try {
+          host = Services.io.newURI(face.URI).host;
+        } catch (e) {}
+      }
+      faces.push({
+        family: system ? null : raw,
+        system,
+        source,
+        host,
+        url: face.URI && !face.URI.startsWith("data:") ? face.URI.slice(0, 500) : "",
+        count,
+      });
+    }
+    faces.sort((a, b) => b.count - a.count);
+    // The same family drawn by several faces (regular + bold) counts once.
+    const merged = [];
+    for (const face of faces) {
+      const same = merged.find(m => m.system == face.system && m.family == face.family);
+      if (same) {
+        same.count += face.count;
+      } else {
+        merged.push(face);
+      }
+    }
+    return merged.sort((a, b) => b.count - a.count);
   }
 
   _extractFontInfo(element, range = null, point = null) {
@@ -189,37 +251,43 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
       return null;
     }
     const style = win.getComputedStyle(element);
+    const cssStack = style.fontFamily || "sans-serif";
 
-    let renderedFont = null;
+    let faces = [];
     try {
       const rng = range || doc.createRange();
       if (!range) {
         rng.selectNodeContents(element);
       }
-      const inspectorUtils = win.InspectorUtils || (typeof InspectorUtils !== "undefined" ? InspectorUtils : null);
-      if (inspectorUtils?.getUsedFontFaces) {
-        const fonts = inspectorUtils.getUsedFontFaces(rng);
-        if (fonts?.length && fonts[0].name) {
-          renderedFont = fonts[0].name;
-        }
-      }
+      faces = this._usedFaces(rng);
     } catch (e) {}
 
-    const cssStack = style.fontFamily || "sans-serif";
-    if (!renderedFont) {
-      renderedFont = cssStack.split(",")[0].replace(/['"]/g, "").trim();
+    let primary = faces[0];
+    if (!primary) {
+      // Nothing measured (no text drawn): the first family the page asked for.
+      const first = cssStack.split(",")[0].replace(/['"]/g, "").trim();
+      const system = isSystemFamily(first);
+      primary = { family: system ? null : first, system, source: system ? "system" : "local", host: "", url: "", count: 0 };
     }
 
     const rect = element.getBoundingClientRect();
     const x = point?.x ?? Math.round(win.mozInnerScreenX + rect.left);
-    const y = point?.y ?? Math.round(win.mozInnerScreenY + rect.bottom);
+    const y = point?.y ?? Math.round(win.mozInnerScreenY + rect.top);
     const colorHex = colorToHex(style.color, win);
 
     return {
-      renderedFont,
+      family: primary.family,
+      system: primary.system,
+      source: primary.source,
+      sourceHost: primary.host,
+      sourceURL: primary.url,
+      others: faces.slice(1, 3).filter(f => f.count > 0).map(f => ({ family: f.family, system: f.system, count: f.count })),
+      // Kept for the element card and Search for This Font.
+      renderedFont: primary.family ?? "San Francisco",
       cssStack,
       size: style.fontSize,
       weight: style.fontWeight,
+      style: style.fontStyle,
       lineHeight: style.lineHeight,
       letterSpacing: style.letterSpacing,
       colorHex,
@@ -229,6 +297,8 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
       selector: generateSelector(element),
       x,
       y,
+      width: point?.width ?? rect.width,
+      height: point?.height ?? rect.height,
     };
   }
 

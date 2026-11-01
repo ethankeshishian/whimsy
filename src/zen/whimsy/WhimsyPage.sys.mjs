@@ -59,7 +59,12 @@ const ARCHIVE_API = "https://archive.org/wayback/available?url=";
 const ARCHIVE_WEB = "https://web.archive.org/web/";
 const ARCHIVE_STATUSES = new Set([404, 410, 451, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
 const ARCHIVE_ERRORS = new Set(["dnsNotFound", "connectionFailure", "netTimeout", "netReset", "unknownHost"]);
-const ARCHIVE_BAR = "whimsy-archive";
+const ARCHIVE_ICON = "chrome://browser/skin/zen-icons/selectable/time.svg";
+const ARCHIVE_OFFER_MS = 10000;
+// W10-15: the dead-page offer already shown per tab (browser -> url), and
+// one waiting for its background tab to be selected.
+const archiveOffered = new WeakMap();
+const archivePending = new WeakMap();
 
 // Translate selection (Safari and Edge: select, translate, an inline
 // popover): Firefox's on-device "Translate Selection" panel, which was only
@@ -692,7 +697,12 @@ export const WhimsyPage = {
           return;
         }
         if (!(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)) {
-          win.gBrowser.getNotificationBox(browser)?.getNotificationWithValue(ARCHIVE_BAR)?.close();
+          // The offer toast goes by itself (it belongs to the tab); a new
+          // address may be offered again.
+          archivePending.delete(browser);
+          if (archiveOffered.get(browser) != location?.spec) {
+            archiveOffered.delete(browser);
+          }
         }
         if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
           const error = /[?&]e=([^&]+)/.exec(browser.documentURI?.spec ?? "")?.[1];
@@ -701,6 +711,15 @@ export const WhimsyPage = {
           }
         }
       },
+    });
+    // A tab that died in the background offers when you go to it.
+    win.gBrowser.tabContainer.addEventListener("TabSelect", () => {
+      const browser = win.gBrowser.selectedBrowser;
+      const uri = archivePending.get(browser);
+      if (uri) {
+        archivePending.delete(browser);
+        this.offerArchive(win, browser, uri);
+      }
     });
   },
 
@@ -711,10 +730,15 @@ export const WhimsyPage = {
   },
 
   // wave9/secfix (security-full-2 M3): nothing reaches archive.org until
-  // the person asks. A dead page shows the bar first; "Look for a Copy"
-  // then asks for the page's address without its query or fragment
-  // (tokens, one-time links). Never in private browsing (private windows,
-  // private tabs, Scratch).
+  // the person asks. A dead page offers first; "Find Copy" then asks for
+  // the page's address without its query or fragment (tokens, one-time
+  // links). Never in private browsing (private windows, private tabs,
+  // Scratch).
+  //
+  // W10-15: the offer is a Whimsy toast in the top corner (the user: "should
+  // be like the top-right toasts"), owned by the tab: it goes when you
+  // switch tabs or leave the page. It names the Wayback Machine and its
+  // second line is short enough to read in full.
   offerArchive(win, browser, uri) {
     const url = this.archivableURL(uri);
     if (!url || !this.archiveEnabled || !Services.prefs.getBoolPref(ARCHIVE_PROMPT_PREF, true)) {
@@ -723,26 +747,45 @@ export const WhimsyPage = {
     if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) || lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
       return null;
     }
-    const box = win.gBrowser.getNotificationBox(browser);
-    if (box.getNotificationWithValue(ARCHIVE_BAR)) {
+    if (archiveOffered.get(browser) == url) {
       return null;
     }
-    return box.appendNotification(
-      ARCHIVE_BAR,
-      {
-        label: { "l10n-id": "whimsy-archive-bar-ask" },
-        priority: box.PRIORITY_INFO_MEDIUM,
-      },
-      [
-        {
-          "l10n-id": "whimsy-archive-look",
-          callback: notification => {
-            this.lookUpArchived(win, browser, url, notification).catch(e => console.error("Whimsy: archive lookup", e));
-            return true; // Stays open while it looks.
+    // Tests load plenty of missing pages; a toast from each would land on
+    // top of the toasts other tests check. Only the archive tests (which
+    // point whimsy.archive.api at their own server) see the offer.
+    if (Cu.isInAutomation && !Services.prefs.getStringPref(ARCHIVE_API_PREF, "")) {
+      return null;
+    }
+    if (win.gBrowser.selectedBrowser != browser) {
+      archivePending.set(browser, uri);
+      return null;
+    }
+    archiveOffered.set(browser, url);
+    // Not from inside the progress listener that saw the page die: the
+    // toast's own listener would hear this same change and close it.
+    let toast = null;
+    const show = () => {
+      if (browser.currentURI?.spec != url || win.gBrowser.selectedBrowser != browser || win.closed) {
+        return;
+      }
+      toast = lazy.WhimsyToast.show(win, {
+        l10nId: "whimsy-archive-toast",
+        detailL10nId: "whimsy-archive-toast-detail",
+        icon: ARCHIVE_ICON,
+        browser,
+        timeout: ARCHIVE_OFFER_MS,
+        action: {
+          id: "whimsyArchiveFind",
+          l10nId: "whimsy-archive-look",
+          onCommand: () => {
+            this.lookUpArchived(win, browser, url, toast).catch(e => console.error("Whimsy: archive lookup", e));
+            return "keep";
           },
         },
-      ]
-    );
+      });
+    };
+    Services.tm.dispatchToMainThread(show);
+    return true;
   },
 
   // The address sent to archive.org: scheme, host and path only.
@@ -755,24 +798,67 @@ export const WhimsyPage = {
     }
   },
 
-  async lookUpArchived(win, browser, url, notification) {
+  // Looking → Found (loads the copy) | No copy | Couldn't reach it (Try
+  // Again runs this again).
+  async lookUpArchived(win, browser, url, toast = null) {
     const lookup = this.archiveLookupURL(url);
-    const snapshot = lookup ? await this.findSnapshot(lookup) : null;
-    notification?.close?.();
+    toast?.update({
+      detailL10nId: "whimsy-archive-looking",
+      busy: true,
+      timeout: 0,
+      action: { id: "whimsyArchiveFind", l10nId: "whimsy-archive-looking-button" },
+    });
+    let snapshot = null;
+    let failed = !lookup;
+    if (lookup) {
+      try {
+        snapshot = await this.findSnapshot(lookup, { throwOnError: true });
+      } catch (e) {
+        failed = true;
+      }
+    }
     // Still on that page?
     if (browser.currentURI?.spec != url) {
       return null;
     }
+    if (failed) {
+      // Owned by the tab, like the offer.
+      const retry = lazy.WhimsyToast.show(win, {
+        l10nId: "whimsy-archive-error",
+        detailL10nId: "whimsy-archive-error-detail",
+        icon: ARCHIVE_ICON,
+        browser,
+        action: {
+          id: "whimsyArchiveFind",
+          l10nId: "whimsy-archive-retry",
+          onCommand: () => {
+            this.lookUpArchived(win, browser, url, retry).catch(e => console.error("Whimsy: archive lookup", e));
+            return "keep";
+          },
+        },
+      });
+      return null;
+    }
     if (!snapshot) {
-      win.gZenUIManager?.showToast?.("whimsy-archive-none-toast");
+      lazy.WhimsyToast.show(win, { l10nId: "whimsy-archive-none-toast", icon: ARCHIVE_ICON });
       return null;
     }
     this.loadArchived(browser, snapshot.url);
+    const date = snapshot.date ?
+      new Intl.DateTimeFormat(Services.locale.appLocalesAsBCP47, { dateStyle: "long", timeZone: "UTC" }).format(snapshot.date) :
+      null;
+    lazy.WhimsyToast.show(win, {
+      l10nId: "whimsy-archive-found",
+      ...(date ? { detailL10nId: "whimsy-archive-found-date", detailArgs: { date } } : {}),
+      icon: ARCHIVE_ICON,
+    });
     return snapshot;
   },
 
   // The Wayback Machine's nearest copy of a page: { url, date }, or null.
-  async findSnapshot(url) {
+  // With throwOnError, a failed request (network, non-OK, bad answer)
+  // throws instead, so "no copy" and "couldn't ask" read differently.
+  async findSnapshot(url, { throwOnError = false } = {}) {
     const configured = Services.prefs.getStringPref(ARCHIVE_API_PREF, "");
     // Tests load plenty of missing pages; they never reach archive.org.
     if (!configured && Cu.isInAutomation) {
@@ -782,7 +868,7 @@ export const WhimsyPage = {
     try {
       const response = await fetch(api + encodeURIComponent(url), { credentials: "omit", cache: "no-store" });
       if (!response.ok) {
-        return null;
+        throw new Error(`Wayback Machine answered ${response.status}`);
       }
       const closest = (await response.json())?.archived_snapshots?.closest;
       if (!closest?.available || !closest.url) {
@@ -794,6 +880,9 @@ export const WhimsyPage = {
         date: ts ? new Date(Date.UTC(+ts[1], +ts[2] - 1, +ts[3])) : null,
       };
     } catch (e) {
+      if (throwOnError) {
+        throw e;
+      }
       return null;
     }
   },

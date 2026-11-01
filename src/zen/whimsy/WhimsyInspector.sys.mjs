@@ -23,6 +23,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   DevToolsShim: "chrome://devtools-startup/content/DevToolsShim.sys.mjs",
@@ -39,6 +40,60 @@ const ELEMENT_FEATURE_PREF = "whimsy.feature.element-inspector";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 const PANEL_SHEET = "chrome://browser/content/whimsy/whimsy-inspector.css";
+const FONT_PANEL_ID = "whimsy-font-inspector-panel";
+const FONT_PANEL_WIDTH = 320;
+// The card shows a skeleton only when the page takes this long to answer.
+const READING_DELAY_MS = 150;
+const SOURCES = new Set(["web", "local", "system", "fallback"]);
+const SIZE_RX = /^-?\d+(\.\d+)?px$|^normal$/;
+const HEX_RX = /^#[0-9A-F]{6}([0-9A-F]{2})?$/i;
+const WEIGHT_NAMES = new Set([100, 200, 300, 400, 500, 600, 700, 800, 900]);
+
+// Strings from the page are untrusted: one line, no control characters,
+// a sane length.
+function cleanText(value, max = 200) {
+  return typeof value == "string" ? value.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").trim().slice(0, max) : "";
+}
+
+/**
+ * W10-17: the font card's data, checked in the parent. Everything that
+ * came from the page is validated; anything odd falls back to nothing.
+ */
+export function validateFontData(data) {
+  if (!data || typeof data != "object") {
+    return null;
+  }
+  const size = v => (typeof v == "string" && SIZE_RX.test(v.trim()) ? v.trim() : null);
+  const family = cleanText(data.family);
+  const system = !!data.system || family.startsWith(".");
+  const weight = Math.round(Number(data.weight));
+  const finite = v => (Number.isFinite(Number(v)) ? Number(v) : null);
+  return {
+    family: system ? null : family || null,
+    system,
+    source: system ? "system" : (SOURCES.has(data.source) ? data.source : "fallback"),
+    sourceHost: cleanText(data.sourceHost, 253),
+    sourceURL: /^https?:\/\//.test(data.sourceURL ?? "") ? cleanText(data.sourceURL, 500) : "",
+    others: (Array.isArray(data.others) ? data.others : []).slice(0, 2).map(o => ({
+      family: o?.system ? null : cleanText(o?.family) || null,
+      system: !!o?.system || cleanText(o?.family).startsWith("."),
+      count: Math.max(0, Math.round(Number(o?.count) || 0)),
+    })).filter(o => o.count > 0 && (o.family || o.system)),
+    cssStack: cleanText(data.cssStack, 400).replace(/[;{}<>]/g, "") || "sans-serif",
+    size: size(data.size) ?? "normal",
+    weight: WEIGHT_NAMES.has(weight) ? weight : (Number.isFinite(weight) && weight > 0 && weight <= 1000 ? weight : 400),
+    style: /^(italic|oblique)/.test(data.style ?? "") ? "italic" : "normal",
+    lineHeight: size(data.lineHeight) ?? "normal",
+    letterSpacing: size(data.letterSpacing) ?? "normal",
+    colorHex: HEX_RX.test(data.colorHex ?? "") ? data.colorHex.toUpperCase() : null,
+    previewText: cleanText(data.previewText, 60),
+    selector: cleanText(data.selector, 500),
+    x: finite(data.x),
+    y: finite(data.y),
+    width: finite(data.width),
+    height: finite(data.height),
+  };
+}
 
 export const WhimsyInspector = {
   _sessionInitialized: false,
@@ -209,7 +264,9 @@ export const WhimsyInspector = {
     }
   },
 
-  // Inspect font: inspects selected text immediately, or starts element picker if no selection.
+  // Inspect font: inspects selected text immediately, or starts element
+  // picker if no selection. W10-17: a page that takes a moment shows the
+  // card reading; a page Whimsy can't read says so.
   async inspectFont(win) {
     if (!this.fontInspectorEnabled) {
       return;
@@ -217,17 +274,37 @@ export const WhimsyInspector = {
     const browser = win.gBrowser?.selectedBrowser;
     const actor = this.actorFor(browser);
     if (!actor) {
+      this.showFontPopover(win, null, { state: "unavailable" });
       return;
     }
 
-    try {
-      const result = await actor.sendQuery("Whimsy:InspectFontSelection");
-      if (result && result.renderedFont) {
-        this.showFontPopover(win, result);
-        return;
+    let answered = false;
+    let reading = null;
+    const timer = win.setTimeout(() => {
+      if (!answered) {
+        reading = this.showFontPopover(win, null, { state: "reading" });
       }
-    } catch (e) {}
-
+    }, READING_DELAY_MS);
+    let result = null;
+    let failed = false;
+    try {
+      result = await actor.sendQuery("Whimsy:InspectFontSelection");
+    } catch (e) {
+      failed = true;
+    }
+    answered = true;
+    win.clearTimeout(timer);
+    if (failed) {
+      this.showFontPopover(win, null, { state: "unavailable", reuse: reading });
+      return;
+    }
+    if (result) {
+      this.showFontPopover(win, result, { reuse: reading });
+      return;
+    }
+    if (reading) {
+      lazy.WhimsySurface.close(reading);
+    }
     // No text highlighted: start picker in font inspection mode
     this.startPicker(win, "font");
   },
@@ -237,9 +314,9 @@ export const WhimsyInspector = {
     if (!this.fontInspectorEnabled) {
       return;
     }
-    const openPanel = win.document?.getElementById("whimsy-font-inspector-panel");
+    const openPanel = win.document?.getElementById(FONT_PANEL_ID);
     if (openPanel) {
-      lazy.WhimsyPanels.close(openPanel);
+      lazy.WhimsySurface.close(openPanel);
     }
 
     let font = fontName || this._lastInspectedFont?.renderedFont;
@@ -302,169 +379,204 @@ export const WhimsyInspector = {
     }
   },
 
-  // Display the Font Inspector popover matching Whimsy's panel styling.
-  showFontPopover(win, data, anchor = null) {
-    if (!data) {
-      return;
+  /**
+   * W10-17: "What Font Is This?" as a WhimsySurface card (the user: the
+   * name showed as "." and the UI was horrible). The pad shows the text in
+   * its own font; then the name (system fonts named plainly: "San
+   * Francisco"), where it comes from, six facts that copy in place, what
+   * else drew part of the text, and Search for This Font / Copy CSS. It
+   * hangs 8px under the selection (above it when there's no room).
+   *
+   * @param {Window} win
+   * @param {object|null} raw - the child's data (validated here)
+   * @param {object} [o]
+   * @param {"reading"|"unavailable"} [o.state]
+   * @param {Element} [o.reuse] - a reading card to fill in place
+   * @returns {Element|null} the panel
+   */
+  showFontPopover(win, raw, { state = null, reuse = null } = {}) {
+    const data = state ? null : validateFontData(raw);
+    if (!data && !state) {
+      return null;
     }
-    this._loadSheet(win);
-    this._lastInspectedFont = data;
-    const { document: doc } = win;
+    const doc = win.document;
+    if (data) {
+      this._lastInspectedFont = { ...data, renderedFont: data.family ?? lazy.l10n.formatValueSync("whimsy-font-system-name") };
+    }
+    const keep = reuse?.isConnected && (reuse.state == "open" || reuse.state == "showing") ? reuse : null;
+    let parts;
+    if (keep) {
+      parts = keep._whimsyParts;
+      parts.view.replaceChildren();
+      parts.footer.replaceChildren();
+    } else {
+      parts = lazy.WhimsySurface.create(win, {
+        id: FONT_PANEL_ID,
+        width: FONT_PANEL_WIDTH,
+        footer: true,
+        className: "whimsy-font-card",
+        initialFocus: () => parts.panel.querySelector(".whimsy-font-copy-css") ?? parts.footer.querySelector("button"),
+      });
+      parts.panel._whimsyParts = parts;
+    }
+    const { panel, view, footer } = parts;
+    panel.setAttribute("aria-labelledby", "whimsy-font-name");
+    panel.toggleAttribute("reading", state == "reading");
 
-    const { panel, body } = lazy.WhimsyPanels.create(win, {
-      id: "whimsy-font-inspector-panel",
-      titleL10nId: "whimsy-font-inspector-title",
-      size: "small",
-    });
-    panel.classList.add("whimsy-font-inspector-panel");
+    const pad = doc.createXULElement("vbox");
+    pad.className = "whimsy-surface-pad whimsy-font-pad";
+    view.append(pad);
 
-    const copyValue = (value, label = "") => {
-      if (!value) {
-        return;
+    if (state == "reading") {
+      pad.append(lazy.WhimsySurface.skeleton(doc, { width: "80%", height: 22 }),
+        lazy.WhimsySurface.skeleton(doc, { width: "45%", height: 10 }));
+      pad.setAttribute("aria-busy", "true");
+    } else if (state == "unavailable") {
+      const text = doc.createElementNS(HTML_NS, "p");
+      text.className = "whimsy-font-unavailable";
+      doc.l10n.setAttributes(text, "whimsy-pagedev-unavailable");
+      pad.append(text);
+      footer.append(lazy.WhimsySurface.footerButton(doc, {
+        l10nId: "whimsy-font-close",
+        primary: true,
+        onCommand: () => lazy.WhimsySurface.close(panel),
+      }));
+    } else {
+      this._fillFontCard(win, parts, pad, data);
+    }
+    lazy.WhimsySurface.finish(parts);
+
+    if (keep) {
+      if (data) {
+        footer.querySelector(".whimsy-font-copy-css")?.focus();
       }
-      lazy.ClipboardHelper.copyString(value);
-      try {
-        this.showToast(win, "whimsy-font-copied-toast", { value: label || value });
-      } catch (e) {}
-    };
-
-    // Hero Font Face Card (accessible button for keyboard navigation and copying)
-    const card = doc.createElementNS(HTML_NS, "button");
-    card.type = "button";
-    card.className = "whimsy-font-face-card whimsy-sheet-item";
-    const [cardHintMsg] = lazy.l10n.formatMessagesSync([{ id: "whimsy-font-card-copy-hint" }]);
-    const cardTitle = cardHintMsg?.attributes?.find(a => a.name === "title")?.value || "";
-    if (cardTitle) {
-      card.title = cardTitle;
+      return panel;
     }
-    doc.l10n.setAttributes(card, "whimsy-font-card-copy-hint");
-    card.addEventListener("click", () => copyValue(data.renderedFont));
+    const rect = data && [data.x, data.y, data.width, data.height].every(Number.isFinite) ?
+      { left: data.x, top: data.y, width: Math.max(1, data.width), height: Math.max(1, data.height) } : null;
+    if (rect) {
+      lazy.WhimsySurface.open(win, panel, { screenRect: rect, position: "after_start", gap: 8 });
+    } else {
+      lazy.WhimsySurface.open(win, panel, { at: "page-top-center" });
+    }
+    return panel;
+  },
 
-    const headRow = doc.createElementNS(HTML_NS, "div");
-    headRow.className = "whimsy-font-header-row";
+  _fillFontCard(win, parts, pad, data) {
+    const doc = win.document;
+    const { panel, view, footer } = parts;
+    const systemName = lazy.l10n.formatValueSync("whimsy-font-system-name");
+    const familyName = data.family ?? systemName;
 
+    // The text in its own font.
+    const specimen = doc.createElementNS(HTML_NS, "div");
+    specimen.className = "whimsy-font-specimen";
+    specimen.textContent = data.previewText || lazy.l10n.formatValueSync("whimsy-font-sample-text");
+    const family = data.system ? "-apple-system, system-ui" :
+      `"${familyName.replace(/["\\]/g, "")}", ${data.cssStack}`;
+    specimen.style.fontFamily = family;
+    specimen.style.fontWeight = String(data.weight);
+    specimen.style.fontStyle = data.style;
+    pad.append(specimen);
+
+    // The name, and where it comes from.
+    const nameRow = doc.createElementNS(HTML_NS, "div");
+    nameRow.className = "whimsy-font-name-row";
     const name = doc.createElementNS(HTML_NS, "span");
-    name.className = "whimsy-font-family-name";
-    name.textContent = data.renderedFont;
+    name.id = "whimsy-font-name";
+    name.className = "whimsy-font-name";
+    name.textContent = familyName;
+    name.title = familyName;
+    const pill = lazy.WhimsySurface.pill(doc, { l10nId: `whimsy-font-source-${data.source}` });
+    pill.classList.add("whimsy-font-source");
+    if (data.sourceURL || data.sourceHost) {
+      pill.title = data.sourceURL || data.sourceHost;
+    }
+    nameRow.append(name, pill);
+    view.append(nameRow);
 
-    const badge = doc.createElementNS(HTML_NS, "span");
-    badge.className = "whimsy-font-rendered-badge";
-    badge.textContent = lazy.l10n.formatValueSync("whimsy-font-rendered-badge");
-    doc.l10n.setAttributes(badge, "whimsy-font-rendered-badge");
-
-    headRow.append(name, badge);
-
-    const preview = doc.createElementNS(HTML_NS, "div");
-    preview.className = "whimsy-font-preview";
-    preview.style.fontFamily = `"${data.renderedFont}", ${data.cssStack}`;
-    preview.style.fontWeight = data.weight;
-    preview.textContent = data.previewText || lazy.l10n.formatValueSync("whimsy-font-sample-text");
-
-    const stack = doc.createElementNS(HTML_NS, "div");
-    stack.className = "whimsy-font-css-stack";
-    stack.textContent = data.cssStack;
-
-    card.append(headRow, preview, stack);
-    body.append(card);
-
-    // Metric rows list (Each value copies on click)
-    const list = doc.createElementNS(HTML_NS, "div");
-    list.className = "whimsy-font-props-list";
-
-    const addPropRow = (l10nId, value, copyVal = value, isColor = false) => {
-      const row = doc.createElementNS(HTML_NS, "button");
-      row.type = "button";
-      row.className = "whimsy-font-prop-row whimsy-sheet-item";
-      const [propHintMsg] = lazy.l10n.formatMessagesSync([{ id: "whimsy-font-prop-copy-hint", args: { value } }]);
-      const propTitle = propHintMsg?.attributes?.find(a => a.name === "title")?.value || "";
-      if (propTitle) {
-        row.title = propTitle;
-      }
-      doc.l10n.setAttributes(row, "whimsy-font-prop-copy-hint", { value });
-
-      const lbl = doc.createElementNS(HTML_NS, "span");
-      lbl.className = "whimsy-font-prop-label";
-      lbl.textContent = lazy.l10n.formatValueSync(l10nId);
-      doc.l10n.setAttributes(lbl, l10nId);
-
-      const val = doc.createElementNS(HTML_NS, "span");
-      val.className = "whimsy-font-prop-value";
-
-      if (isColor) {
+    // Six facts; each copies its value in place.
+    const facts = doc.createElementNS(HTML_NS, "div");
+    facts.className = "whimsy-font-facts";
+    const fact = (key, l10nId, value, copy = value, swatch = null) => {
+      const k = doc.createElementNS(HTML_NS, "span");
+      k.className = "k";
+      doc.l10n.setAttributes(k, l10nId);
+      const v = doc.createElementNS(HTML_NS, "span");
+      v.className = "v whimsy-surface-copy-value";
+      if (swatch) {
         const chip = doc.createElementNS(HTML_NS, "span");
-        chip.className = "whimsy-color-chip";
-        const swatch = doc.createElementNS(HTML_NS, "span");
-        swatch.className = "whimsy-color-swatch";
-        swatch.style.backgroundColor = copyVal;
-        chip.append(swatch, doc.createTextNode(value));
-        val.append(chip);
-      } else {
-        val.textContent = value;
+        chip.className = "whimsy-font-swatch";
+        chip.style.backgroundColor = swatch;
+        v.append(chip);
       }
-
-      const hint = doc.createElementNS(HTML_NS, "span");
-      hint.className = "whimsy-copy-hint";
-      hint.textContent = lazy.l10n.formatValueSync("whimsy-font-copy-hint");
-      doc.l10n.setAttributes(hint, "whimsy-font-copy-hint");
-      val.append(hint);
-
-      row.append(lbl, val);
-      row.addEventListener("click", () => copyValue(copyVal, value));
-      list.append(row);
+      const text = doc.createElementNS(HTML_NS, "span");
+      if (typeof value == "string") {
+        text.textContent = value;
+      } else {
+        doc.l10n.setAttributes(text, value.l10nId, value.args);
+      }
+      v.append(text);
+      const button = lazy.WhimsySurface.copyButton(doc, {
+        value: copy,
+        content: [k, v],
+        className: "whimsy-font-fact",
+      });
+      button.dataset.fact = key;
+      facts.append(button);
     };
+    fact("size", "whimsy-font-size-label", data.size);
+    fact("weight", "whimsy-font-weight-label",
+      { l10nId: "whimsy-font-weight-value", args: { weight: data.weight } }, String(data.weight));
+    fact("line-height", "whimsy-font-line-height-label", data.lineHeight);
+    fact("letter-spacing", "whimsy-font-letter-spacing-label", data.letterSpacing);
+    if (data.colorHex) {
+      fact("color", "whimsy-font-color-label", data.colorHex, data.colorHex, data.colorHex);
+    }
+    fact("style", "whimsy-font-style-label", { l10nId: `whimsy-font-style-${data.style}` }, data.style);
+    view.append(facts);
 
-    addPropRow("whimsy-font-size-label", data.size);
-    addPropRow("whimsy-font-weight-label", data.weight);
-    addPropRow("whimsy-font-line-height-label", data.lineHeight || "normal");
-    addPropRow("whimsy-font-letter-spacing-label", data.letterSpacing || "normal");
-    addPropRow("whimsy-font-color-label", data.colorHex, data.colorHex, true);
+    if (data.others.length) {
+      const other = data.others[0];
+      const also = doc.createElementNS(HTML_NS, "p");
+      also.className = "whimsy-font-also";
+      doc.l10n.setAttributes(also, "whimsy-font-also", { font: other.family ?? systemName, count: other.count });
+      view.append(also);
+    }
 
-    body.append(list);
-
-    // Actions footer
-    const actions = doc.createElementNS(HTML_NS, "div");
-    actions.className = "whimsy-inspector-actions";
-
-    const copyCssBtn = doc.createElementNS(HTML_NS, "button");
-    copyCssBtn.className = "whimsy-inspector-button primary";
-    copyCssBtn.textContent = lazy.l10n.formatValueSync("whimsy-font-copy-css");
-    doc.l10n.setAttributes(copyCssBtn, "whimsy-font-copy-css");
-    copyCssBtn.addEventListener("click", () => {
-      const css =
-        `font-family: "${data.renderedFont}", ${data.cssStack};\n` +
-        `font-size: ${data.size};\n` +
-        `font-weight: ${data.weight};\n` +
-        `line-height: ${data.lineHeight || "normal"};\n` +
-        `letter-spacing: ${data.letterSpacing || "normal"};\n` +
-        `color: ${data.colorHex};`;
-      copyValue(css, lazy.l10n.formatValueSync("whimsy-font-css-label"));
+    // Search (not for the system font) and Copy CSS, the default.
+    if (!data.system) {
+      footer.append(lazy.WhimsySurface.footerButton(doc, {
+        l10nId: "whimsy-font-search-button-label",
+        onCommand: () => this.searchFont(win, familyName),
+      }));
+    }
+    const copyCss = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-font-copy-css-button",
+      primary: true,
+      onCommand: () => {
+        lazy.WhimsySurface.copyText(this.fontCss(data));
+        doc.l10n.setAttributes(copyCss, "whimsy-font-copied-css-button");
+        win.setTimeout(() => copyCss.isConnected && doc.l10n.setAttributes(copyCss, "whimsy-font-copy-css-button"),
+          lazy.WhimsySurface.COPIED_MS);
+      },
     });
+    copyCss.classList.add("whimsy-font-copy-css");
+    footer.append(copyCss);
+    return panel;
+  },
 
-    const searchFontBtn = doc.createElementNS(HTML_NS, "button");
-    searchFontBtn.className = "whimsy-inspector-button";
-    searchFontBtn.textContent = lazy.l10n.formatValueSync("whimsy-font-search-button");
-    doc.l10n.setAttributes(searchFontBtn, "whimsy-font-search-button");
-    searchFontBtn.addEventListener("click", () => {
-      this.searchFont(win, data.renderedFont);
-    });
-
-    const inspectElementBtn = doc.createElementNS(HTML_NS, "button");
-    inspectElementBtn.className = "whimsy-inspector-button";
-    inspectElementBtn.textContent = lazy.l10n.formatValueSync("whimsy-font-inspect-element");
-    doc.l10n.setAttributes(inspectElementBtn, "whimsy-font-inspect-element");
-    inspectElementBtn.addEventListener("click", () => {
-      lazy.WhimsyPanels.close(panel);
-      if (data.selector) {
-        this.inspectElementBySelector(win, data.selector);
-      } else {
-        this.startPicker(win, "element");
-      }
-    });
-
-    actions.append(copyCssBtn, searchFontBtn, inspectElementBtn);
-    body.append(actions);
-
-    lazy.WhimsyPanels.open(win, panel, { anchor });
+  // The CSS Copy CSS copies (its shape is unchanged from wave 9).
+  fontCss(data) {
+    const family = data.system ? "-apple-system, system-ui" : `"${data.family}", ${data.cssStack}`;
+    return [
+      `font-family: ${family};`,
+      `font-size: ${data.size};`,
+      `font-weight: ${data.weight};`,
+      `line-height: ${data.lineHeight || "normal"};`,
+      `letter-spacing: ${data.letterSpacing || "normal"};`,
+      ...(data.colorHex ? [`color: ${data.colorHex};`] : []),
+    ].join("\n");
   },
 
   // Display the Element Inspector popover matching Whimsy's panel styling.

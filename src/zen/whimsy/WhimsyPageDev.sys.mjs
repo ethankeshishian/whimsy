@@ -21,7 +21,13 @@
 // developer tools, as one group with the Font Inspector and Element Info.
 // Each is also a command (command bar, a shortcut you can assign in
 // Settings ▸ Keyboard Shortcuts; none by default). No other control
-// duplicates them. The results open in the same sheet as the inspectors.
+// duplicates them.
+//
+// W10-18 (the user: "UI horrible"): the three results are one WhimsySurface
+// docked at the top end of the page, with a segmented Fonts | Colors |
+// Built With switch; each command opens it on its own tab (or switches
+// tab). It stays while you use the page (no autohide), reads the page
+// again when the tab navigates, and closes when you switch tabs.
 //
 // Analysis is local: the actor reads the rendered page and the headers
 // the tab already has; nothing is sent anywhere and nothing is stored
@@ -31,7 +37,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyInspector: "resource:///modules/whimsy/WhimsyInspector.sys.mjs",
-  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "ClipboardHelper", () =>
   Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper)
@@ -56,6 +62,11 @@ function safeColor(value) {
   return typeof value == "string" && /^#[0-9a-f]{3,8}$/i.test(value) ? value : "transparent";
 }
 const SHEET = "chrome://browser/content/whimsy/whimsy-pagedev.css";
+const PANEL_ID = "whimsy-pagedev";
+const PANEL_WIDTH = 380;
+const TABS = ["fonts", "colors", "built-with"];
+const QUERIES = { fonts: "WhimsyPageDev:Fonts", colors: "WhimsyPageDev:Colors", "built-with": "WhimsyPageDev:BuiltWith" };
+const MAX_SWATCHES = 16;
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const ICON = name => `chrome://browser/skin/zen-icons/${name}.svg`;
 
@@ -191,21 +202,21 @@ export const WhimsyPageDev = {
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyPageFonts",
       l10nId: "whimsy-action-page-fonts",
-      run: w => this.showFonts(w),
+      run: w => this.open(w, "fonts"),
       icon: ICON("text-size"),
       isAvailable: available,
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyPageColors",
       l10nId: "whimsy-action-page-colors",
-      run: w => this.showColors(w),
+      run: w => this.open(w, "colors"),
       icon: ICON("palette"),
       isAvailable: available,
     });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyBuiltWith",
       l10nId: "whimsy-action-built-with",
-      run: w => this.showBuiltWith(w),
+      run: w => this.open(w, "built-with"),
       icon: ICON("layers"),
       isAvailable: available,
     });
@@ -304,41 +315,6 @@ export const WhimsyPageDev = {
     }
   },
 
-  /**
-   * A sheet that hands focus back to where it was when it closes (unless
-   * the person has since moved it), and runs `cleanup` once hidden.
-   */
-  _sheet(win, { id, titleL10nId, size = "large", footer = false }) {
-    this._loadSheet(win);
-    const doc = win.document;
-    const browser = win.gBrowser?.selectedBrowser;
-    const previous = doc.commandDispatcher?.focusedElement ?? doc.activeElement;
-    const cleanups = [];
-    let host = "";
-    try {
-      host = browser?.currentURI?.displayHost || "";
-    } catch (e) {}
-    const parts = lazy.WhimsyPanels.create(win, {
-      id,
-      titleL10nId,
-      size,
-      footer,
-      subtitle: host || undefined,
-      onHidden: () => {
-        for (const fn of cleanups) {
-          try {
-            fn();
-          } catch (e) {}
-        }
-        this._returnFocus(win, parts.panel, previous, browser);
-      },
-    });
-    parts.panel.classList.add("whimsy-pagedev-panel");
-    parts.onCleanup = fn => cleanups.push(fn);
-    parts.browser = browser;
-    return parts;
-  },
-
   _returnFocus(win, panel, previous, browser) {
     const focused = win.document.commandDispatcher?.focusedElement ?? null;
     if (focused && !panel.contains(focused)) {
@@ -370,8 +346,8 @@ export const WhimsyPageDev = {
     }
   },
 
-  /** Copies `value`; the toast names `label` and shows only after the copy worked. */
-  copy(win, value, label = value) {
+  /** Copies `value` (no toast: the control says Copied in place). */
+  copy(win, value) {
     if (!value) {
       return false;
     }
@@ -382,7 +358,6 @@ export const WhimsyPageDev = {
       console.error("Whimsy: copy", e);
       return false;
     }
-    this.toast(win, "whimsy-pagedev-copied-toast", { value: shorten(label) });
     return true;
   },
 
@@ -396,342 +371,522 @@ export const WhimsyPageDev = {
     }).format(share);
   },
 
-  /** A copyable property row: label on the left, value on the right. */
-  _prop(win, { l10nId, value, copy = value, crop = "end" }) {
-    const row = lazy.WhimsyPanels.item(win.document, { l10nId, detail: value });
-    row.classList.add("whimsy-pagedev-prop");
-    row.querySelector(".whimsy-sheet-item-detail")?.setAttribute("crop", crop);
-    row.setAttribute("tooltiptext", value);
-    row.addEventListener("command", () => this.copy(win, copy));
-    return row;
+  // ---- The surface ----
+
+  /** The open page tools surface in `win`, if any. */
+  panelOf(win) {
+    const panel = win.document.getElementById(PANEL_ID);
+    return panel && (panel.state == "open" || panel.state == "showing") ? panel : null;
   },
 
-  _button(doc, { l10nId, args, onClick, pressed = null }) {
-    const button = doc.createElementNS(HTML_NS, "button");
-    button.type = "button";
-    button.className = "whimsy-pagedev-button whimsy-sheet-item";
-    button.textContent = fmt(l10nId, args);
-    if (pressed != null) {
-      button.setAttribute("aria-pressed", String(pressed));
-    }
-    button.addEventListener("click", onClick);
-    return button;
+  // Kept for callers and tests: each opens the surface on its tab.
+  showFonts(win) {
+    return this.open(win, "fonts");
+  },
+  showColors(win) {
+    return this.open(win, "colors");
   },
 
-  _unavailable(doc, body) {
-    body.append(
-      lazy.WhimsyPanels.empty(doc, { l10nId: "whimsy-pagedev-unavailable", icon: ICON("info") })
-    );
-  },
-
-  // ---- Fonts on This Page ----
-
-  async showFonts(win) {
+  /**
+   * Opens the page tools on `tab` ("fonts", "colors", "built-with"), or
+   * switches the open one to it. Resolves the panel once that tab has
+   * its results (or says it can't read the page).
+   */
+  async open(win, tab = "fonts") {
     if (!this.enabled) {
       return null;
     }
-    const browser = win.gBrowser?.selectedBrowser;
-    const result = await this.query(browser, "WhimsyPageDev:Fonts");
-    const doc = win.document;
-    const sheet = this._sheet(win, { titleL10nId: "whimsy-pagedev-fonts-title", id: "whimsy-pagedev-fonts-panel" });
-    const { panel, body } = sheet;
-
-    if (!result) {
-      this._unavailable(doc, body);
-    } else if (!result.families?.length) {
-      body.append(lazy.WhimsyPanels.empty(doc, { l10nId: "whimsy-pagedev-fonts-empty", icon: ICON("text-size") }));
-    } else {
-      body.append(
-        lazy.WhimsyPanels.caption(doc, {
-          l10nId: "whimsy-pagedev-fonts-summary",
-          l10nArgs: { count: result.families.length },
-        })
-      );
-      const highlightButtons = [];
-      for (const family of result.families) {
-        body.append(this._fontGroup(win, sheet, family, highlightButtons));
-      }
-      sheet.onCleanup(() => {
-        if (browser?.isConnected) {
-          this.query(browser, "WhimsyPageDev:ClearHighlight");
-        }
-      });
+    tab = TABS.includes(tab) ? tab : "fonts";
+    const existing = this.panelOf(win);
+    if (existing?._pagedev) {
+      await existing._pagedev.select(tab, { focus: true });
+      return existing;
     }
-    lazy.WhimsyPanels.open(win, panel);
+    this._loadSheet(win);
+    const doc = win.document;
+    const browser = win.gBrowser?.selectedBrowser;
+    const previous = doc.commandDispatcher?.focusedElement ?? doc.activeElement;
+    const cleanups = [];
+    const parts = lazy.WhimsySurface.create(win, {
+      id: PANEL_ID,
+      width: PANEL_WIDTH,
+      title: this.hostOf(browser),
+      close: true,
+      footer: true,
+      closeOnOutsideClick: false,
+      className: "whimsy-pagedev-panel",
+      initialFocus: () => seg.group.querySelector("[aria-selected='true']"),
+      onHidden: () => {
+        for (const fn of cleanups) {
+          try {
+            fn();
+          } catch (e) {}
+        }
+        this._returnFocus(win, parts.panel, previous, browser);
+      },
+    });
+    const { panel, view, footer, title } = parts;
+    const state = { tab, results: {}, browser, highlight: null };
+
+    const seg = lazy.WhimsySurface.seg(doc, {
+      name: "pagedev",
+      tabs: true,
+      label: fmt("whimsy-pagedev-tabs-label"),
+      options: TABS.map(t => ({
+        value: t,
+        id: `whimsy-pagedev-tab-${t}`,
+        controls: "whimsy-pagedev-body",
+        l10nId: `whimsy-pagedev-tab-${t}`,
+      })),
+      onPick: t => select(t),
+    });
+    const body = doc.createXULElement("vbox");
+    body.id = "whimsy-pagedev-body";
+    body.className = "whimsy-pagedev-body";
+    body.setAttribute("role", "tabpanel");
+    body.setAttribute("tabindex", "-1");
+    view.append(seg.group, body);
+    lazy.WhimsySurface.finish(parts);
+
+    const render = () => {
+      body.replaceChildren();
+      footer.replaceChildren();
+      body.setAttribute("aria-labelledby", `whimsy-pagedev-tab-${state.tab}`);
+      panel.dataset.tab = state.tab;
+      const result = state.results[state.tab];
+      footer.hidden = true;
+      if (result === undefined) {
+        this._reading(doc, body);
+        return;
+      }
+      if (result === null) {
+        this._unavailableState(doc, body);
+        seg.setDisabled(true);
+        return;
+      }
+      seg.setDisabled(false);
+      if (state.tab == "fonts") {
+        this._renderFonts(win, state, body);
+      } else if (state.tab == "colors") {
+        this._renderColors(win, state, body, footer);
+      } else {
+        this._renderBuiltWith(win, state, body, footer);
+      }
+      footer.hidden = !footer.children.length;
+    };
+    const load = async t => {
+      if (t in state.results) {
+        return;
+      }
+      const result = await this.query(state.browser, QUERIES[t]);
+      if (!panel.isConnected) {
+        return;
+      }
+      state.results[t] = result ?? null;
+      if (state.tab == t) {
+        render();
+      }
+    };
+    const select = async (t, { focus = false } = {}) => {
+      state.tab = t;
+      seg.select(t);
+      render();
+      if (focus) {
+        seg.group.querySelector("[aria-selected='true']")?.focus();
+      }
+      await load(t);
+    };
+    // Re-read the page when the tab navigates.
+    const listener = {
+      onLocationChange: (b, progress, request, location, flags) => {
+        if (b != state.browser || !progress?.isTopLevel ||
+          flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) {
+          return;
+        }
+        state.highlight = null;
+        title.textContent = this.hostOf(b);
+      },
+      onStateChange: (b, progress, request, flags) => {
+        const done = Ci.nsIWebProgressListener.STATE_STOP | Ci.nsIWebProgressListener.STATE_IS_WINDOW;
+        if (b == state.browser && progress?.isTopLevel && (flags & done) == done) {
+          state.results = {};
+          render();
+          load(state.tab);
+        }
+      },
+    };
+    win.gBrowser.addTabsProgressListener(listener);
+    const onTabSelect = () => lazy.WhimsySurface.close(panel);
+    win.gBrowser.tabContainer.addEventListener("TabSelect", onTabSelect);
+    cleanups.push(() => {
+      win.gBrowser.removeTabsProgressListener(listener);
+      win.gBrowser.tabContainer.removeEventListener("TabSelect", onTabSelect);
+      if (state.browser?.isConnected && state.highlight) {
+        this.query(state.browser, "WhimsyPageDev:ClearHighlight");
+      }
+    });
+    // Ctrl+Tab / Ctrl+Shift+Tab switch the surface's tabs while focus is in it.
+    panel.addEventListener("keydown", event => {
+      if (event.key == "Tab" && event.ctrlKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const i = TABS.indexOf(state.tab);
+        select(TABS[(i + (event.shiftKey ? -1 : 1) + TABS.length) % TABS.length], { focus: true });
+      }
+    }, true);
+
+    panel._pagedev = { select, state };
+    seg.select(tab);
+    render();
+    // The view never runs past the page.
+    const area = lazy.WhimsySurface.pageArea(win).getBoundingClientRect();
+    view.style.maxHeight = `${Math.max(240, Math.round(area.height - 20))}px`;
+    lazy.WhimsySurface.open(win, panel, { at: "page-top-end" });
+    await load(tab);
     return panel;
   },
 
-  _fontSource(source) {
+  hostOf(browser) {
+    try {
+      return browser?.currentURI?.displayHost || browser?.currentURI?.displaySpec || "";
+    } catch (e) {
+      return "";
+    }
+  },
+
+  _reading(doc, body) {
+    const { caption, detail } = lazy.WhimsySurface.caption(doc, { l10nId: "whimsy-pagedev-reading" });
+    caption.classList.add("whimsy-pagedev-reading");
+    caption.prepend(lazy.WhimsySurface.spinner(doc));
+    detail?.remove();
+    const group = lazy.WhimsySurface.group(doc);
+    group.setAttribute("aria-busy", "true");
+    for (let i = 0; i < 3; i++) {
+      const row = doc.createXULElement("hbox");
+      row.className = "whimsy-pagedev-skeleton-row";
+      row.setAttribute("align", "center");
+      row.append(lazy.WhimsySurface.skeleton(doc, { width: 28, height: 28 }),
+        lazy.WhimsySurface.skeleton(doc, { width: `${60 - i * 12}%`, height: 10 }));
+      group.append(row);
+    }
+    body.append(caption, group);
+  },
+
+  _unavailableState(doc, body) {
+    body.append(lazy.WhimsySurface.empty(doc, { l10nId: "whimsy-pagedev-unavailable" }));
+  },
+
+  _empty(doc, body, l10nId) {
+    body.append(lazy.WhimsySurface.empty(doc, { l10nId }));
+  },
+
+  // A row that opens to show more (a font's source, a technology's
+  // evidence): Return, Space or a click toggle it.
+  _disclosure(doc, { head, more, label }) {
+    const row = doc.createElementNS(HTML_NS, "div");
+    row.className = "whimsy-pagedev-row";
+    const button = doc.createElementNS(HTML_NS, "div");
+    button.className = "whimsy-pagedev-row-head whimsy-surface-row";
+    button.setAttribute("role", "button");
+    button.setAttribute("aria-expanded", "false");
+    button.tabIndex = 0;
+    if (label) {
+      button.setAttribute("aria-label", label);
+    }
+    button.append(...head);
+    more.className = `${more.className} whimsy-pagedev-row-more`.trim();
+    more.hidden = true;
+    const toggle = () => {
+      const open = button.getAttribute("aria-expanded") != "true";
+      button.setAttribute("aria-expanded", String(open));
+      row.toggleAttribute("expanded", open);
+      more.hidden = !open;
+    };
+    button.addEventListener("click", toggle);
+    button.addEventListener("keydown", event => {
+      if (event.key == "Enter" || event.key == " ") {
+        event.preventDefault();
+        toggle();
+      }
+    });
+    row.append(button, more);
+    return row;
+  },
+
+  // ---- Fonts ----
+
+  _sourceText(source) {
     switch (source.kind) {
       case "web":
-        return { value: fmt("whimsy-pagedev-font-source-web", { url: source.detail }), copy: source.detail, crop: "center" };
+        return source.detail;
       case "embedded":
-        return { value: fmt("whimsy-pagedev-font-source-embedded"), copy: fmt("whimsy-pagedev-font-source-embedded") };
+        return fmt("whimsy-pagedev-font-source-embedded");
       case "local":
-        return { value: fmt("whimsy-pagedev-font-source-local", { name: source.detail }), copy: source.detail };
-      case "fallback":
-        return { value: fmt("whimsy-pagedev-font-source-fallback"), copy: fmt("whimsy-pagedev-font-source-fallback") };
+        return source.detail;
       default:
-        return { value: fmt("whimsy-pagedev-font-source-system"), copy: fmt("whimsy-pagedev-font-source-system") };
+        return "";
     }
   },
 
-  _fontGroup(win, sheet, family, highlightButtons) {
-    const doc = win.document;
-    const group = doc.createXULElement("vbox");
-    group.className = "whimsy-pagedev-font";
-    group.setAttribute("role", "group");
-    group.setAttribute("aria-label", family.family);
-
-    const head = doc.createXULElement("hbox");
-    head.className = "whimsy-pagedev-font-head";
-    head.setAttribute("align", "baseline");
-    const name = doc.createXULElement("label");
-    name.className = "whimsy-pagedev-font-name";
-    name.setAttribute("crop", "end");
-    name.setAttribute("flex", "1");
-    name.setAttribute("value", family.family);
-    const share = doc.createXULElement("label");
-    share.className = "whimsy-pagedev-font-share";
-    share.setAttribute("value", this.percent(family.share));
-    head.append(name, share);
-    group.append(head);
-
-    // The sample, drawn by the page in the font itself (see the child).
-    const sample = doc.createElementNS(HTML_NS, "div");
-    sample.className = "whimsy-pagedev-sample";
-    sample.setAttribute("role", "img");
-    sample.setAttribute("aria-label", family.sample || family.family);
-    const image = safeImage(family.image);
-    if (image) {
-      sample.style.maskImage = `url("${image.url}")`;
-      sample.style.width = `${image.width}px`;
-      sample.style.height = `${image.height}px`;
-    } else {
-      sample.classList.add("whimsy-pagedev-sample-text");
-      sample.textContent = family.sample || family.family;
+  _sourceKind(family) {
+    if (family.system) {
+      return "system";
     }
-    group.append(sample);
+    const kinds = family.sources.map(s => s.kind);
+    if (kinds.includes("web") || kinds.includes("embedded")) {
+      return "web";
+    }
+    if (kinds.includes("local")) {
+      return "local";
+    }
+    return kinds.includes("fallback") && kinds.every(k => k == "fallback") ? "fallback" : "local";
+  },
 
-    const usage = fmt(family.capped ? "whimsy-pagedev-font-usage-capped" : "whimsy-pagedev-font-usage-value", {
-      percent: this.percent(family.share),
-      chars: family.chars,
+  _renderFonts(win, state, body) {
+    const doc = win.document;
+    const result = state.results.fonts;
+    if (!result.families?.length) {
+      this._empty(doc, body, "whimsy-pagedev-fonts-empty");
+      return;
+    }
+    const { caption } = lazy.WhimsySurface.caption(doc, {
+      l10nId: "whimsy-pagedev-fonts-summary",
+      l10nArgs: { count: result.families.length },
+      detailL10nId: "whimsy-pagedev-by-share",
     });
-    const rows = [
-      this._prop(win, { l10nId: "whimsy-pagedev-font-family", value: family.family }),
-      family.faces.length && this._prop(win, { l10nId: "whimsy-pagedev-font-faces", value: family.faces.join(", ") }),
-      family.weights.length && this._prop(win, { l10nId: "whimsy-pagedev-font-weights", value: family.weights.join(", ") }),
-      family.styles.length && this._prop(win, { l10nId: "whimsy-pagedev-font-styles", value: family.styles.join(", ") }),
-      ...family.sources.map(source =>
-        this._prop(win, { l10nId: "whimsy-pagedev-font-source", ...this._fontSource(source) })
-      ),
-      this._prop(win, { l10nId: "whimsy-pagedev-font-usage", value: usage }),
-    ].filter(Boolean);
-    group.append(...rows);
+    const group = lazy.WhimsySurface.group(doc);
+    group.classList.add("whimsy-pagedev-fonts");
+    const highlights = [];
+    for (const family of result.families) {
+      group.append(this._fontRow(win, state, family, highlights));
+    }
+    body.append(caption, group);
+  },
 
+  _fontRow(win, state, family, highlights) {
+    const doc = win.document;
+    const name = family.system ? fmt("whimsy-font-system-name") : String(family.family ?? "").slice(0, 200);
+    const kind = this._sourceKind(family);
+
+    // "Aa" in the font, drawn by the page (chrome can't use its web fonts).
+    const specimen = doc.createElementNS(HTML_NS, "span");
+    specimen.className = "whimsy-pagedev-specimen";
+    specimen.setAttribute("aria-hidden", "true");
+    const image = safeImage(family.specimen);
+    if (image) {
+      specimen.classList.add("whimsy-pagedev-specimen-image");
+      specimen.style.maskImage = `url("${image.url}")`;
+      specimen.style.setProperty("--whimsy-specimen-ratio", String(image.width / Math.max(1, image.height)));
+    } else {
+      specimen.textContent = "Aa";
+    }
+    const text = doc.createElementNS(HTML_NS, "span");
+    text.className = "whimsy-pagedev-row-text";
+    const title = doc.createElementNS(HTML_NS, "span");
+    title.className = "whimsy-pagedev-row-title";
+    title.textContent = name;
+    title.title = name;
+    const line = doc.createElementNS(HTML_NS, "span");
+    line.className = "whimsy-pagedev-row-line";
+    line.textContent = fmt("whimsy-pagedev-font-line", {
+      percent: this.percent(family.share),
+      source: fmt(`whimsy-font-source-${kind}`),
+    });
+    text.append(title, line);
+    const weights = doc.createElementNS(HTML_NS, "span");
+    weights.className = "whimsy-pagedev-row-trailing";
+    weights.textContent = family.weights.join(" · ");
+
+    const more = doc.createXULElement("vbox");
+    more.className = "whimsy-pagedev-font-more";
+    for (const source of family.sources) {
+      const value = this._sourceText(source);
+      if (!value) {
+        continue;
+      }
+      const span = doc.createElementNS(HTML_NS, "span");
+      span.className = "whimsy-surface-copy-value";
+      span.textContent = value;
+      more.append(lazy.WhimsySurface.copyButton(doc, {
+        value: source.kind == "web" ? source.detail : value,
+        content: [span],
+        className: "whimsy-pagedev-source",
+        label: fmt("whimsy-pagedev-copy-value", { value }),
+      }));
+    }
     const actions = doc.createXULElement("hbox");
     actions.className = "whimsy-pagedev-actions";
-    const highlight = this._button(doc, {
+    const highlight = lazy.WhimsySurface.textButton(doc, {
       l10nId: "whimsy-pagedev-font-highlight",
-      pressed: false,
-      onClick: () => this._toggleHighlight(win, sheet, family.family, highlight, highlightButtons),
+      onCommand: () => this._toggleHighlight(win, state, family.family, highlight, highlights),
     });
     highlight.classList.add("whimsy-pagedev-highlight-button");
-    highlightButtons.push(highlight);
-    const search = this._button(doc, {
-      l10nId: "whimsy-font-search-button",
-      onClick: () => {
-        lazy.WhimsyPanels.close(sheet.panel);
-        lazy.WhimsyInspector.performFontSearch(win, family.family);
+    highlight.setAttribute("aria-pressed", "false");
+    highlights.push(highlight);
+    const copyName = lazy.WhimsySurface.textButton(doc, {
+      l10nId: "whimsy-pagedev-copy-name",
+      ghost: true,
+      onCommand: () => {
+        this.copy(win, family.system ? "-apple-system, system-ui" : family.family);
+        doc.l10n.setAttributes(copyName, "whimsy-surface-copied");
+        win.setTimeout(() => copyName.isConnected && doc.l10n.setAttributes(copyName, "whimsy-pagedev-copy-name"),
+          lazy.WhimsySurface.COPIED_MS);
       },
     });
-    actions.append(highlight, search);
-    group.append(actions);
-    return group;
+    copyName.classList.add("whimsy-pagedev-copy-name");
+    actions.append(highlight, copyName);
+    more.append(actions);
+
+    const row = this._disclosure(doc, { head: [specimen, text, weights], more, label: name });
+    row.classList.add("whimsy-pagedev-font");
+    row.dataset.family = family.family;
+    return row;
   },
 
-  async _toggleHighlight(win, sheet, family, button, buttons) {
+  async _toggleHighlight(win, state, family, button, buttons) {
     const wasOn = button.getAttribute("aria-pressed") == "true";
     for (const b of buttons) {
       b.setAttribute("aria-pressed", "false");
     }
+    state.highlight = null;
     if (wasOn) {
-      await this.query(sheet.browser, "WhimsyPageDev:ClearHighlight");
+      await this.query(state.browser, "WhimsyPageDev:ClearHighlight");
       return 0;
     }
-    const result = await this.query(sheet.browser, "WhimsyPageDev:Highlight", { family });
+    const result = await this.query(state.browser, "WhimsyPageDev:Highlight", { family });
     if (!result?.count) {
       this.toast(win, "whimsy-pagedev-font-highlight-none");
       return 0;
     }
+    state.highlight = family;
     button.setAttribute("aria-pressed", "true");
     return result.count;
   },
 
-  // ---- Page Colors ----
+  // ---- Colors ----
 
-  async showColors(win) {
-    if (!this.enabled) {
-      return null;
-    }
-    const browser = win.gBrowser?.selectedBrowser;
-    const result = await this.query(browser, "WhimsyPageDev:Colors");
+  _renderColors(win, state, body, footer) {
     const doc = win.document;
-    const sheet = this._sheet(win, {
-      id: "whimsy-pagedev-colors-panel",
-      titleL10nId: "whimsy-pagedev-colors-title",
-      footer: !!result?.palette?.length,
-    });
-    const { panel, body, footer } = sheet;
-
-    if (!result) {
-      this._unavailable(doc, body);
-    } else if (!result.palette?.length) {
-      body.append(lazy.WhimsyPanels.empty(doc, { l10nId: "whimsy-pagedev-colors-empty", icon: ICON("palette") }));
-    } else {
-      const refreshers = [];
-      const refresh = () => refreshers.forEach(fn => fn(this._format));
-      body.append(this._formatSwitch(doc, refresh));
-
-      body.append(
-        lazy.WhimsyPanels.caption(doc, {
-          l10nId: "whimsy-pagedev-palette-heading",
-          l10nArgs: { count: result.palette.length },
-        })
-      );
-      for (const color of result.palette) {
-        body.append(this._colorRow(win, color, refreshers));
-      }
-      if (result.more) {
-        const more = doc.createXULElement("description");
-        more.className = "whimsy-pagedev-note";
-        doc.l10n.setAttributes(more, "whimsy-pagedev-colors-more", { count: result.more });
-        body.append(more);
-      }
-
-      if (result.pairs?.length) {
-        const failing = result.pairs.filter(p => !p.aa).length;
-        body.append(
-          lazy.WhimsyPanels.caption(doc, {
-            l10nId: "whimsy-pagedev-contrast-heading",
-            l10nArgs: { failing },
-          })
-        );
-        for (const pair of result.pairs) {
-          body.append(this._pairRow(win, pair, refreshers));
-        }
-      }
-
-      footer.append(
-        lazy.WhimsyPanels.footerButton(doc, {
-          l10nId: "whimsy-pagedev-copy-css-vars",
-          primary: true,
-          onCommand: () =>
-            this.copy(win, cssVariables(result.palette, this._format), fmt("whimsy-pagedev-css-vars-label")),
-        })
-      );
-      refresh();
+    const result = state.results.colors;
+    if (!result.palette?.length) {
+      this._empty(doc, body, "whimsy-pagedev-colors-empty");
+      return;
     }
-    lazy.WhimsyPanels.open(win, panel);
-    return panel;
+    const refreshers = [];
+    const refresh = () => refreshers.forEach(fn => fn(this._format));
+
+    const { caption } = lazy.WhimsySurface.caption(doc, {
+      l10nId: "whimsy-pagedev-palette-heading",
+      l10nArgs: { count: result.palette.length + (result.more ?? 0) },
+      detailL10nId: "whimsy-pagedev-by-area",
+    });
+    const formats = lazy.WhimsySurface.seg(doc, {
+      name: "format",
+      small: true,
+      label: fmt("whimsy-pagedev-format-label"),
+      options: FORMATS.map(f => ({ value: f, l10nId: `whimsy-pagedev-format-${f}` })),
+      onPick: f => {
+        this._format = f;
+        formats.select(f);
+        refresh();
+      },
+    });
+    formats.group.classList.add("whimsy-pagedev-formats");
+    formats.select(FORMATS.includes(this._format) ? this._format : "hex");
+    caption.append(formats.group);
+
+    const grid = doc.createElementNS(HTML_NS, "div");
+    grid.className = "whimsy-pagedev-swatches";
+    for (const color of result.palette.slice(0, MAX_SWATCHES)) {
+      grid.append(this._swatch(win, color, refreshers));
+    }
+    body.append(caption, grid);
+    const more = (result.more ?? 0) + Math.max(0, result.palette.length - MAX_SWATCHES);
+    if (more) {
+      const note = doc.createElementNS(HTML_NS, "p");
+      note.className = "whimsy-pagedev-note";
+      doc.l10n.setAttributes(note, "whimsy-pagedev-colors-more", { count: more });
+      body.append(note);
+    }
+
+    if (result.pairs?.length) {
+      const failing = result.pairs.filter(p => !p.aa).length;
+      const { caption: contrast } = lazy.WhimsySurface.caption(doc, {
+        l10nId: "whimsy-pagedev-contrast-heading",
+        l10nArgs: { failing },
+      });
+      const group = lazy.WhimsySurface.group(doc);
+      group.classList.add("whimsy-pagedev-pairs");
+      for (const pair of result.pairs) {
+        group.append(this._pairRow(win, pair, refreshers));
+      }
+      body.append(contrast, group);
+    }
+
+    const copyVars = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-pagedev-copy-css-vars",
+      primary: true,
+      onCommand: () => {
+        this.copy(win, cssVariables(result.palette, this._format));
+        this._copiedLabel(win, copyVars, "whimsy-pagedev-copy-css-vars");
+      },
+    });
+    copyVars.classList.add("whimsy-pagedev-copy-css-vars");
+    footer.append(copyVars);
+    refresh();
   },
 
-  _formatSwitch(doc, refresh) {
-    const box = doc.createXULElement("hbox");
-    box.className = "whimsy-pagedev-formats";
-    box.setAttribute("role", "radiogroup");
-    box.setAttribute("aria-label", fmt("whimsy-pagedev-format-label"));
-    const buttons = FORMATS.map(format => {
-      const button = doc.createElementNS(HTML_NS, "button");
-      button.type = "button";
-      button.className = "whimsy-pagedev-format";
-      button.dataset.format = format;
-      button.setAttribute("role", "radio");
-      button.textContent = fmt(`whimsy-pagedev-format-${format}`);
-      return button;
-    });
-    const select = (format, focus = false) => {
-      this._format = format;
-      for (const b of buttons) {
-        const on = b.dataset.format == format;
-        b.setAttribute("aria-checked", String(on));
-        // One tab stop for the group; arrows move within it.
-        b.tabIndex = on ? 0 : -1;
-        if (on && focus) {
-          b.focus();
-        }
-      }
-      refresh();
-    };
-    for (const button of buttons) {
-      button.addEventListener("click", () => select(button.dataset.format));
-      button.addEventListener("keydown", event => {
-        const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
-        if (!step) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        const i = FORMATS.indexOf(this._format);
-        select(FORMATS[(i + step + FORMATS.length) % FORMATS.length], true);
-      });
-    }
-    box.append(...buttons);
-    select(FORMATS.includes(this._format) ? this._format : "hex");
-    return box;
+  _copiedLabel(win, button, l10nId) {
+    win.document.l10n.setAttributes(button, "whimsy-pagedev-copied-button");
+    win.setTimeout(() => button.isConnected && win.document.l10n.setAttributes(button, l10nId),
+      lazy.WhimsySurface.COPIED_MS);
   },
 
   _roleNames(roles) {
     return roles.map(role => fmt(`whimsy-pagedev-role-${role}`)).join(" · ");
   },
 
-  _colorRow(win, color, refreshers) {
+  _swatch(win, color, refreshers) {
     const doc = win.document;
-    const row = lazy.WhimsyPanels.item(doc, {
-      label: color.hex,
-      subtitle: this._roleNames(color.roles),
-      detail: this.percent(color.share),
+    const block = doc.createElementNS(HTML_NS, "span");
+    block.className = "whimsy-pagedev-swatch";
+    block.style.backgroundColor = formatColor(color.rgba, "rgb");
+    const value = doc.createElementNS(HTML_NS, "span");
+    value.className = "whimsy-pagedev-swatch-value whimsy-surface-copy-value";
+    const role = doc.createElementNS(HTML_NS, "span");
+    role.className = "whimsy-pagedev-swatch-role";
+    role.textContent = this._roleNames(color.roles);
+    let text = color.hex;
+    const button = lazy.WhimsySurface.copyButton(doc, {
+      value: () => text,
+      content: [block, value, role],
+      className: "whimsy-pagedev-color",
+      liveBefore: role,
     });
-    row.classList.add("whimsy-pagedev-color");
-    const swatch = doc.createElementNS(HTML_NS, "span");
-    swatch.className = "whimsy-pagedev-swatch";
-    swatch.style.backgroundColor = formatColor(color.rgba, "rgb");
-    row.querySelector(".whimsy-sheet-item-icon")?.replaceWith(swatch);
-    const title = row.querySelector(".whimsy-sheet-item-title");
-    let value = color.hex;
+    button.dataset.hex = color.hex;
     refreshers.push(format => {
-      value = formatColor(color.rgba, format);
-      title.setAttribute("value", value);
-      row.setAttribute("aria-label", `${value}, ${this._roleNames(color.roles)}, ${this.percent(color.share)}`);
-      row.setAttribute("tooltiptext", fmt("whimsy-pagedev-copy-value", { value }));
+      text = formatColor(color.rgba, format);
+      value.textContent = text;
+      button.title = `${text} · ${this.percent(color.share)}`;
+      button.setAttribute("aria-label", `${text}, ${this._roleNames(color.roles)}, ${this.percent(color.share)}`);
     });
-    row.addEventListener("command", () => this.copy(win, value));
-    return row;
+    return button;
   },
 
   _pairRow(win, pair, refreshers) {
     const doc = win.document;
     const ratio = `${pair.ratio.toFixed(2)}:1`;
-    const row = lazy.WhimsyPanels.item(doc, { label: "", detail: ratio });
-    row.classList.add("whimsy-pagedev-pair");
-    const sample = doc.createElementNS(HTML_NS, "span");
-    sample.className = "whimsy-pagedev-pair-sample";
-    sample.setAttribute("aria-hidden", "true");
-    sample.style.color = safeColor(pair.fg);
-    sample.style.backgroundColor = safeColor(pair.bg);
-    sample.textContent = "Aa";
-    row.querySelector(".whimsy-sheet-item-icon")?.replaceWith(sample);
-
-    const badges = doc.createXULElement("hbox");
-    badges.className = "whimsy-pagedev-badges";
-    badges.setAttribute("align", "center");
-    const badge = (level, pass) => {
-      const b = doc.createElementNS(HTML_NS, "span");
-      b.className = `whimsy-pagedev-badge ${pass ? "pass" : "fail"}`;
-      b.textContent = fmt(pass ? "whimsy-pagedev-wcag-pass" : "whimsy-pagedev-wcag-fail", { level });
-      return b;
-    };
-    badges.append(badge("AA", pair.aa), badge("AAA", pair.aaa));
+    const chip = doc.createElementNS(HTML_NS, "span");
+    chip.className = "whimsy-pagedev-pair-sample";
+    chip.setAttribute("aria-hidden", "true");
+    chip.style.color = safeColor(pair.fg);
+    chip.style.backgroundColor = safeColor(pair.bg);
+    chip.textContent = "Aa";
+    const text = doc.createElementNS(HTML_NS, "span");
+    text.className = "whimsy-pagedev-row-text";
+    const colors = doc.createElementNS(HTML_NS, "span");
+    colors.className = "whimsy-pagedev-pair-colors whimsy-surface-copy-value";
+    text.append(colors);
     const notes = [];
     if (pair.large) {
       notes.push(fmt("whimsy-pagedev-contrast-large"));
@@ -741,28 +896,41 @@ export const WhimsyPageDev = {
     }
     if (notes.length) {
       const note = doc.createElementNS(HTML_NS, "span");
-      note.className = "whimsy-pagedev-badge-note";
+      note.className = "whimsy-pagedev-row-line";
       note.textContent = notes.join(" · ");
-      badges.append(note);
+      text.append(note);
     }
-    row.querySelector(".whimsy-sheet-item-text")?.append(badges);
-
-    const title = row.querySelector(".whimsy-sheet-item-title");
+    const number = doc.createElementNS(HTML_NS, "span");
+    number.className = "whimsy-pagedev-ratio";
+    number.textContent = pair.ratio.toFixed(1);
+    const level = pair.aaa ? "aaa" : pair.aa ? "aa" : "fail";
+    const pill = lazy.WhimsySurface.pill(doc, {
+      l10nId: `whimsy-pagedev-pill-${level}`,
+      tone: level == "fail" ? "fail" : "pass",
+    });
+    pill.classList.add("whimsy-pagedev-pill");
+    pill.dataset.level = level;
     const rgb = hex => {
       const n = parseInt(hex.slice(1, 7), 16);
       return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: 1 };
     };
-    let text = "";
+    let copyText = "";
+    const row = lazy.WhimsySurface.copyButton(doc, {
+      value: () => copyText,
+      content: [chip, text, number, pill],
+      className: "whimsy-pagedev-pair whimsy-surface-row",
+      liveIn: text,
+      liveBefore: colors.nextSibling,
+    });
     refreshers.push(format => {
       const fg = formatColor(rgb(pair.fg), format);
       const bg = formatColor(rgb(pair.bg), format);
-      title.setAttribute("value", fmt("whimsy-pagedev-contrast-pair", { fg, bg }));
-      const result = level => fmt(level ? "whimsy-pagedev-result-pass" : "whimsy-pagedev-result-fail");
-      text = fmt("whimsy-pagedev-contrast-copy", { fg, bg, ratio, aa: result(pair.aa), aaa: result(pair.aaa) });
-      row.setAttribute("aria-label", text);
-      row.setAttribute("tooltiptext", fmt("whimsy-pagedev-copy-value", { value: text }));
+      colors.textContent = fmt("whimsy-pagedev-contrast-pair", { fg, bg });
+      const result = ok => fmt(ok ? "whimsy-pagedev-result-pass" : "whimsy-pagedev-result-fail");
+      copyText = fmt("whimsy-pagedev-contrast-copy", { fg, bg, ratio, aa: result(pair.aa), aaa: result(pair.aaa) });
+      row.setAttribute("aria-label", copyText);
+      row.title = fmt("whimsy-pagedev-copy-value", { value: copyText });
     });
-    row.addEventListener("command", () => this.copy(win, text, ratio));
     return row;
   },
 
@@ -783,64 +951,78 @@ export const WhimsyPageDev = {
     return `${name} (${category}): ${evidence}`;
   },
 
-  async showBuiltWith(win) {
-    if (!this.enabled) {
-      return null;
-    }
-    const browser = win.gBrowser?.selectedBrowser;
-    const result = await this.query(browser, "WhimsyPageDev:BuiltWith");
-    const doc = win.document;
-    const technologies = result?.technologies ?? [];
-    const sheet = this._sheet(win, {
-      id: "whimsy-pagedev-built-with-panel",
-      titleL10nId: "whimsy-pagedev-built-with-title",
-      footer: technologies.length > 0,
-    });
-    const { panel, body, footer } = sheet;
+  showBuiltWith(win) {
+    return this.open(win, "built-with");
+  },
 
-    if (!result) {
-      this._unavailable(doc, body);
-    } else if (!technologies.length) {
-      body.append(lazy.WhimsyPanels.empty(doc, { l10nId: "whimsy-pagedev-built-with-empty", icon: ICON("layers") }));
+  _renderBuiltWith(win, state, body, footer) {
+    const doc = win.document;
+    const technologies = state.results["built-with"]?.technologies ?? [];
+    if (!technologies.length) {
+      this._empty(doc, body, "whimsy-pagedev-built-with-empty");
     } else {
       let category = null;
+      let group = null;
       for (const tech of technologies) {
         if (tech.category != category) {
           category = tech.category;
-          body.append(lazy.WhimsyPanels.caption(doc, { l10nId: `whimsy-pagedev-category-${category}` }));
+          const { caption } = lazy.WhimsySurface.caption(doc, { l10nId: `whimsy-pagedev-category-${category}` });
+          group = lazy.WhimsySurface.group(doc);
+          body.append(caption, group);
         }
-        const evidence = tech.evidence.map(e => this.evidenceText(e));
-        const row = lazy.WhimsyPanels.item(doc, {
-          label: tech.version ? `${tech.name} ${tech.version}` : tech.name,
-          subtitle: evidence.join(" · "),
-        });
-        row.classList.add("whimsy-pagedev-tech");
-        row.setAttribute("data-key", tech.key);
-        row.setAttribute("tooltiptext", evidence.join("\n"));
-        row.setAttribute("aria-label", `${row.getAttribute("aria-label")}, ${evidence.join(", ")}`);
-        row.addEventListener("command", () => this.copy(win, this.techLine(tech), tech.name));
-        body.append(row);
+        group.append(this._techRow(win, tech));
       }
-      footer.append(
-        lazy.WhimsyPanels.footerButton(doc, {
-          l10nId: "whimsy-pagedev-copy-all",
-          primary: true,
-          onCommand: () =>
-            this.copy(
-              win,
-              technologies.map(t => this.techLine(t)).join("\n"),
-              fmt("whimsy-pagedev-built-with-label")
-            ),
-        })
-      );
+      const copyAll = lazy.WhimsySurface.footerButton(doc, {
+        l10nId: "whimsy-pagedev-copy-all",
+        primary: true,
+        onCommand: () => {
+          this.copy(win, technologies.map(t => this.techLine(t)).join("\n"));
+          this._copiedLabel(win, copyAll, "whimsy-pagedev-copy-all");
+        },
+      });
+      copyAll.classList.add("whimsy-pagedev-copy-all");
+      footer.append(copyAll);
     }
-    if (result) {
-      const note = doc.createXULElement("description");
-      note.className = "whimsy-pagedev-note";
-      doc.l10n.setAttributes(note, "whimsy-pagedev-built-with-local");
-      body.append(note);
+    const note = doc.createElementNS(HTML_NS, "p");
+    note.className = "whimsy-pagedev-note";
+    doc.l10n.setAttributes(note, "whimsy-pagedev-built-with-local");
+    body.append(note);
+  },
+
+  _techRow(win, tech) {
+    const doc = win.document;
+    const name = String(tech.name ?? "");
+    const tile = lazy.WhimsySurface.tile(doc, { text: name.slice(0, 1).toUpperCase() });
+    tile.classList.add("whimsy-pagedev-monogram");
+    const text = doc.createElementNS(HTML_NS, "span");
+    text.className = "whimsy-pagedev-row-text whimsy-pagedev-tech-name";
+    const title = doc.createElementNS(HTML_NS, "span");
+    title.className = "whimsy-pagedev-row-title";
+    title.textContent = name;
+    text.append(title);
+    if (tech.version) {
+      const version = doc.createElementNS(HTML_NS, "span");
+      version.className = "whimsy-pagedev-version";
+      version.textContent = tech.version;
+      text.append(" ", version);
     }
-    lazy.WhimsyPanels.open(win, panel);
-    return panel;
+    const chevron = doc.createXULElement("image");
+    chevron.className = "whimsy-pagedev-chevron";
+    chevron.setAttribute("src", "chrome://global/skin/icons/arrow-right.svg");
+    const more = doc.createXULElement("vbox");
+    more.className = "whimsy-pagedev-evidence";
+    for (const evidence of tech.evidence) {
+      const line = doc.createElementNS(HTML_NS, "span");
+      line.textContent = this.evidenceText(evidence);
+      more.append(line);
+    }
+    const row = this._disclosure(doc, {
+      head: [tile, text, chevron],
+      more,
+      label: tech.version ? `${name} ${tech.version}` : name,
+    });
+    row.classList.add("whimsy-pagedev-tech");
+    row.setAttribute("data-key", tech.key);
+    return row;
   },
 };
