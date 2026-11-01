@@ -20,6 +20,15 @@ const { IPPProxyManager, IPPProxyStates } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs"
 );
 
+// What IPProtectionService itself sends on a state change: its listeners
+// (Firefox's proxy manager among them) read event.detail.
+function announceState() {
+  const state = IPProtectionService.state;
+  IPProtectionService.dispatchEvent(
+    new CustomEvent("IPProtectionService:StateChanged", { detail: { state, prevState: state } })
+  );
+}
+
 function action(l10nId) {
   return globalActions.find(a => a.l10nId == l10nId);
 }
@@ -351,7 +360,7 @@ add_task(async function test_w10_50_settings_buttons() {
     const restorePanel = stubPanel({ open: async w => opened.push(w) });
     const restoreService = stubState(IPProtectionService, IPProtectionStates.UNAUTHENTICATED);
     try {
-      IPProtectionService.dispatchEvent(new CustomEvent("IPProtectionService:StateChanged"));
+      announceState();
       await TestUtils.waitForCondition(() => !manage.disabled, "Signed out: Open VPN panel is enabled");
       manage.doCommand();
       await TestUtils.waitForCondition(() => opened.length == 1, "Open VPN panel opens Firefox's panel");
@@ -363,7 +372,7 @@ add_task(async function test_w10_50_settings_buttons() {
 
     const restoreUnavailable = stubState(IPProtectionService, IPProtectionStates.UNAVAILABLE);
     try {
-      IPProtectionService.dispatchEvent(new CustomEvent("IPProtectionService:StateChanged"));
+      announceState();
       await TestUtils.waitForCondition(() => manage.disabled, "No panel possible: the button is disabled, not dead");
       is(
         doc.getElementById("whimsyVpnStatus").getAttribute("data-l10n-id"),
@@ -372,7 +381,7 @@ add_task(async function test_w10_50_settings_buttons() {
       );
     } finally {
       restoreUnavailable();
-      IPProtectionService.dispatchEvent(new CustomEvent("IPProtectionService:StateChanged"));
+      announceState();
     }
 
     // Firefox's own "Get started" reaches enroll() on the real panel.

@@ -106,6 +106,9 @@ const PENDING_PRIVATE_MS = 5000;
 // Per-window command bar state: { compose, pendingUntil, forcePrivate, ... }.
 const urlbarStates = new WeakMap();
 
+// Windows with a Private Space leave check queued (no window expando).
+const leaveChecks = new WeakSet();
+
 export const WhimsyPrivate = {
   get featureOn() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -1223,14 +1226,14 @@ export const WhimsyPrivate = {
   // state, and close the Private Space once it's been left empty.
   onSpaceStateChanged(win) {
     this.updateEmptyState(win);
-    if (win._whimsyLeaveCheck) {
+    if (leaveChecks.has(win)) {
       return;
     }
-    win._whimsyLeaveCheck = true;
+    leaveChecks.add(win);
     // After the switch has settled (Zen moves the active space first, then
     // selects; a tab moved out arrives in its new space a tick later).
     win.setTimeout(() => {
-      win._whimsyLeaveCheck = false;
+      leaveChecks.delete(win);
       this.closeIfLeftEmpty(win);
     }, 0);
   },
