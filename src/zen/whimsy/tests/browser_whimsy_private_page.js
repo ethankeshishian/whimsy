@@ -135,6 +135,14 @@ add_task(async function test_switch_off_keeps_firefox_page() {
     ok(!shown.calm, "With the switch off, Whimsy leaves the page alone");
     ok(shown.box, "... and Firefox's search box is back");
   } finally {
+    // Firefox's search box hands off to the address bar; a query still
+    // running when the window closes rejects in Firefox's urlbar code.
+    for (const controller of [win.gURLBar?.controller, win.gURLBar?.parentController]) {
+      try {
+        controller?.cancelQuery?.();
+      } catch (e) {}
+    }
+    await TestUtils.waitForTick();
     await BrowserTestUtils.closeWindow(win);
     await SpecialPowers.popPrefEnv();
   }

@@ -15,15 +15,27 @@ registerCleanupFunction(() => {
   gReduceMotionOverride = undefined;
 });
 
+// Opens the bar; resolves to its open animation, caught as it starts (a
+// short one can be over before the bar has its results).
 async function openBar(value = "example") {
   gURLBar.blur();
   await SimpleTest.promiseFocus(window);
-  document.getElementById("Browser:OpenLocation").doCommand();
-  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value });
-  await TestUtils.waitForCondition(
-    () => gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("open"),
-    "The command bar floats open"
-  );
+  let open = null;
+  const observer = new MutationObserver(() => {
+    open ??= gURLBar.getAnimations().find(a => a.id == "whimsy-command-bar-open") ?? null;
+  });
+  observer.observe(gURLBar, { attributes: true });
+  try {
+    document.getElementById("Browser:OpenLocation").doCommand();
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value });
+    await TestUtils.waitForCondition(
+      () => gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("open"),
+      "The command bar floats open"
+    );
+  } finally {
+    observer.disconnect();
+  }
+  return open;
 }
 
 function barAnimations(id) {
@@ -48,8 +60,7 @@ async function waitClosed() {
 add_task(async function open_and_close_motion() {
   gReduceMotionOverride = false;
   ok(window.WhimsyCommandBarMotion, "The window has the command bar motion");
-  await openBar();
-  const [open] = barAnimations("whimsy-command-bar-open");
+  const open = await openBar();
   ok(open, "Opening the bar runs one open animation");
   const timing = open.effect.getTiming();
   is(timing.duration, COMMAND_BAR_MOTION.open.duration, "Open lasts 160ms");
@@ -74,8 +85,7 @@ add_task(async function open_and_close_motion() {
 
 add_task(async function reduced_motion_is_a_fade() {
   gReduceMotionOverride = true;
-  await openBar();
-  const [open] = barAnimations("whimsy-command-bar-open");
+  const open = await openBar();
   ok(open, "Reduced motion still fades in");
   is(open.effect.getTiming().duration, COMMAND_BAR_MOTION.openReduced.duration, "Fade in lasts 100ms");
   for (const frame of open.effect.getKeyframes()) {

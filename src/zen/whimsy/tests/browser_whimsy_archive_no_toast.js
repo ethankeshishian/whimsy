@@ -18,6 +18,11 @@ const BASE = "https://example.com/?no-toast-";
 
 const startTabs = new Set(gBrowser.tabs);
 add_setup(async function () {
+  // Toasts an earlier test left up (W10-15/25/30 toasts can stay) aren't
+  // this test's: it checks that archiving shows none.
+  for (const toast of document.querySelectorAll("#zen-toast-container > *")) {
+    WhimsyToast._dismissNow?.(toast);
+  }
   await SpecialPowers.pushPrefEnv({
     set: [
       ["whimsy.feature.undo-tab-actions", true],

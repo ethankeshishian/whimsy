@@ -503,11 +503,22 @@ add_task(async function w10_command_bar_motion() {
       await setScheme(dark);
       gURLBar.blur();
       await SimpleTest.promiseFocus(window);
-      document.getElementById("Browser:OpenLocation").doCommand();
-      await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "whimsy" });
-      const open = await TestUtils.waitForCondition(
-        () => gURLBar.getAnimations().find(a => a.id == "whimsy-command-bar-open"), "The bar animates open");
-      open.pause();
+      // Caught (and held) as it starts: it's over in 160ms.
+      let open = null;
+      const observer = new MutationObserver(() => {
+        if (!open) {
+          open = gURLBar.getAnimations().find(a => a.id == "whimsy-command-bar-open") ?? null;
+          open?.pause();
+        }
+      });
+      observer.observe(gURLBar, { attributes: true });
+      try {
+        document.getElementById("Browser:OpenLocation").doCommand();
+        await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "whimsy" });
+        await TestUtils.waitForCondition(() => open, "The bar animates open");
+      } finally {
+        observer.disconnect();
+      }
       open.currentTime = 60;
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       await shot(`w10-command-bar-opening-${dark ? "dark" : "light"}`);

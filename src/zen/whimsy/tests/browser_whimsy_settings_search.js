@@ -29,7 +29,10 @@ function groupLabel(group) {
     return heading.textContent.trim();
   }
   const fieldset = group.localName == "moz-fieldset" ? group : group.querySelector("moz-fieldset");
-  return fieldset?.getAttribute("label")?.trim() || "";
+  // W10-28: a group that is one switch (Enable AI) goes by its name, as
+  // Settings search's breadcrumb does.
+  const controls = group.querySelectorAll("moz-toggle, moz-checkbox, checkbox");
+  return fieldset?.getAttribute("label")?.trim() || (controls.length == 1 ? controls[0].getAttribute("label")?.trim() : "") || "";
 }
 
 add_task(async function test_every_whimsy_group_is_searchable() {

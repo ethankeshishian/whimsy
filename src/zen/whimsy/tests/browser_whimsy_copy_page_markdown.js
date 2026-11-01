@@ -92,7 +92,12 @@ add_task(async function test_selection_copies_only_selection() {
   const item = document.getElementById("context-whimsy-copy-markdown");
   ok(!item.hidden, "shown for a selection");
   is(item.getAttribute("data-l10n-id"), "whimsy-context-copy-selection-markdown", "labelled for the selection");
-  is(item.previousElementSibling?.id, "context-copy", "beside Copy");
+  // W10-20: in the copy group, after Copy and Copy Link to Highlight.
+  let before = item.previousElementSibling;
+  while (before && /^context-copy(-clean)?-link-to-highlight$/.test(before.id)) {
+    before = before.previousElementSibling;
+  }
+  is(before?.id, "context-copy", "beside Copy");
   toasts.length = 0;
   menu.activateItem(item);
   await TestUtils.waitForCondition(() => toasts.length);

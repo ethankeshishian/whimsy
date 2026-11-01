@@ -1075,6 +1075,11 @@ export const WhimsyQuickWindow = {
 
   openCommandBar(win) {
     this.keepResultsInMini(win);
+    // W10-27: a bar still animating out finishes hiding first, or its hide
+    // would undo the reveal below.
+    if (win.WhimsyCommandBarMotion?.closing && win.gURLBar) {
+      win.WhimsyCommandBarMotion.flushClose(win.gURLBar);
+    }
     if (win.gURLBar) {
       win.gURLBar.readOnly = false;
       // Reveal the input before focusing it: its normal toolbar is collapsed

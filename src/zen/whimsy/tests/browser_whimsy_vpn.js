@@ -430,9 +430,11 @@ add_task(async function test_vpn_button_is_the_only_vpn_control() {
   }
   const controls = [...document.querySelectorAll("toolbarbutton, button, menuitem, .subviewbutton")].filter(el => {
     const id = (el.id || "") + " " + (el.getAttribute("data-l10n-id") || "") + " " + (el.getAttribute("command") || "");
-    return /vpn|ipprotection/i.test(id) && !el.closest("panelview, panel, menupopup, #PanelUI-ipprotection");
+    // Anywhere in the window (the toolbar, its overflow, a menu), except
+    // inside Firefox's own VPN panel.
+    return /vpn|ipprotection/i.test(id) && !el.closest("[id^='PanelUI-ipprotection']");
   });
-  info(`VPN controls: ${controls.map(el => `${el.localName}#${el.id} in ${el.parentElement?.id || el.parentElement?.localName}`).join(", ")}`);
+  info(`VPN controls: ${controls.map(el => `${el.localName}#${el.id} in ${el.parentElement?.id || el.parentElement?.localName}`).join(", ")}; the button is in ${button.parentElement?.id}`);
   Assert.deepEqual(controls.map(el => el.id), ["ipprotection-button"], "Only Firefox's VPN button");
   is(document.querySelectorAll("#ipprotection-button").length, 1, "and it's placed once");
 });

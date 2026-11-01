@@ -3448,9 +3448,13 @@ Object.assign(gWhimsySettings, {
 
   groupName(group) {
     const heading = group.querySelector("h2, h3, .whimsy-menus-detail-title");
+    // A group that is one switch with no heading (Settings → AI's Enable
+    // AI) goes by the switch's name.
+    const controls = group.querySelectorAll("moz-toggle, moz-checkbox, checkbox");
     return (
       heading?.textContent.trim() ||
       group.querySelector("moz-fieldset")?.getAttribute("label") ||
+      (controls.length == 1 ? controls[0].getAttribute("label")?.trim() : "") ||
       ""
     );
   },
