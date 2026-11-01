@@ -394,7 +394,9 @@ add_task(async function test_fire_everything_second_step() {
 add_task(async function test_fire_everywhere_command_confirms_in_the_surface() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
   const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
-  WhimsyCommands.get("cmd_whimsyFireEverywhere").run(window);
+  ok(WhimsyCommands.get("cmd_whimsyFireEverywhere"), "Fire Everywhere is a command");
+  // Run it the way the command bar and its shortcut do: its <command>.
+  document.getElementById("cmd_whimsyFireEverywhere").doCommand();
   await shown;
   const panel = document.getElementById("whimsyFirePanel");
   is(panel.dataset.step, "confirm", "It asks first");

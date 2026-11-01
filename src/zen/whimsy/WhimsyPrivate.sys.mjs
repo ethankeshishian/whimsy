@@ -108,6 +108,8 @@ const urlbarStates = new WeakMap();
 
 // Windows with a Private Space leave check queued (no window expando).
 const leaveChecks = new WeakSet();
+// Windows opening their Private Space right now: window → count.
+const openingScratch = new WeakMap();
 
 export const WhimsyPrivate = {
   get featureOn() {
@@ -785,11 +787,11 @@ export const WhimsyPrivate = {
     if (!this.inWindow || this.isWindowPrivate(win) || !spaces?.workspaceEnabled) {
       return null;
     }
-    win._whimsyOpeningScratch = (win._whimsyOpeningScratch ?? 0) + 1;
+    openingScratch.set(win, (openingScratch.get(win) ?? 0) + 1);
     try {
       return await this._openScratch(win, { withTab });
     } finally {
-      win._whimsyOpeningScratch--;
+      openingScratch.set(win, openingScratch.get(win) - 1);
       this.updateEmptyState(win);
     }
   },
@@ -1244,7 +1246,7 @@ export const WhimsyPrivate = {
       !scratch ||
       win.closed ||
       win._whimsyClosingScratch ||
-      win._whimsyOpeningScratch ||
+      openingScratch.get(win) ||
       win._whimsyScratchSave ||
       win.gZenWorkspaces?.activeWorkspace == scratch.uuid ||
       this.scratchTabs(win, scratch).length
