@@ -89,6 +89,8 @@ add_task(async function page_menu_keeps_it_with_the_page() {
   await TestUtils.waitForCondition(() => chip.getAttribute("aria-checked") == "true", "The chip is on");
   const note = (await notesNow()).find(n => n.pageAttached && n.url?.includes("quick-note-page"));
   ok(note, "Kept with the page before any typing");
+  // Something written (an empty card leaves nothing, attached or not).
+  type(panel.querySelector(".whimsy-quick-note-body"), "for later");
   await closeCard(panel, () => panel.querySelector(".whimsy-quick-note-done").doCommand());
   // The user's bug: leaving and coming back lost it.
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");

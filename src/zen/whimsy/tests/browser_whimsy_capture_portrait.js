@@ -70,6 +70,12 @@ add_task(async function test_portrait_tile_in_the_bar() {
   const root = () => ScreenshotsUtils.panelForBrowser(browser)?.querySelector("screenshots-buttons")?.shadowRoot;
   await ScreenshotsUtils.start(browser, "Shortcut");
   await TestUtils.waitForCondition(() => root()?.getElementById("whimsy-portrait"), "The bar has a Portrait tile");
+  // The overlay finishes starting before the click (as it has for anyone
+  // clicking by hand); it shows the bar again when it does.
+  await TestUtils.waitForCondition(
+    () => SpecialPowers.spawn(browser, [], () => !!content.windowGlobalChild.getExistingActor("ScreenshotsComponent")?.overlay?.initialized),
+    "The Screenshots overlay is up"
+  );
 
   const tile = root().getElementById("whimsy-portrait");
   const visible = root().getElementById("visible-page");

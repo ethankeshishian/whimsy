@@ -332,6 +332,10 @@ add_task(async function test_burn_profile_is_per_profile() {
     await gZenWorkspaces.removeWorkspace(sibling.uuid);
     await gZenWorkspaces.removeWorkspace(elsewhere.uuid);
     ContextualIdentityService.remove(other);
+    // Removing spaces switches away from them; a surface opened during that
+    // switch doesn't show, so the next task starts once it's over.
+    await TestUtils.waitForCondition(() => !gZenWorkspaces.isChangingWorkspace && !gZenWorkspaces._animatingChange,
+      "The space switch is over");
   }
 });
 

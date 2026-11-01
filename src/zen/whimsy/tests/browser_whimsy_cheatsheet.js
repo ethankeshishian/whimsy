@@ -154,6 +154,9 @@ add_task(async function test_toggle_and_edit_link() {
   await hidden;
   ok(!document.getElementById(PANEL_ID), "The shortcut again closes it");
 
+  // On a page of its own, so about:keyboard never takes over Zen's blank
+  // placeholder tab (which would then count as a tab left behind).
+  const host = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?cheatsheet-edit");
   panel = await openSheet();
   // about:keyboard loads in the parent process, often before a load
   // listener on the new tab is in place: wait for its address instead.
@@ -165,12 +168,10 @@ add_task(async function test_toggle_and_edit_link() {
   info(`about:keyboard ${before.has(tab) ? "reused the blank tab" : "opened in a new tab"}`);
   ok(!document.getElementById(PANEL_ID), "Edit Shortcuts… closes the sheet");
   is(gBrowser.selectedBrowser.currentURI.spec, "about:keyboard", "...and opens about:keyboard");
-  if (before.has(tab)) {
-    BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "about:blank");
-    await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, "about:blank");
-  } else {
+  if (tab != host) {
     BrowserTestUtils.removeTab(tab);
   }
+  BrowserTestUtils.removeTab(host);
 });
 
 add_task(async function test_customized_rows() {

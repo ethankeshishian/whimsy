@@ -310,6 +310,10 @@ add_task(async function test_choice_and_range_commands() {
     const down = rowFor("cmd_whimsySetting-transparency-down", "whimsy-setting-decrease");
     is(up?.label, "Increase Transparency", "A slider gets Increase");
     ok(!down.isAvailable(window), "and no Decrease at its lowest");
+    const DBGc = document.querySelectorAll("#cmd_whimsySetting-transparency-up");
+    info(`DEBUGT count=${DBGc.length} disabled=${DBGc[0]?.getAttribute("disabled")} upAvail=${up.isAvailable(window)} val=${Services.prefs.getIntPref("whimsy.look.transparency")} oncommand=${DBGc[0]?.getAttribute("oncommand")}`);
+    const DBGobs = { observe: () => info(`DEBUGT changed to ${Services.prefs.getIntPref("whimsy.look.transparency")} ${new Error().stack.split("\n").slice(0, 8).join(" | ")}`) };
+    Services.prefs.addObserver("whimsy.look.transparency", DBGobs);
     document.getElementById("cmd_whimsySetting-transparency-up").doCommand();
     is(Services.prefs.getIntPref("whimsy.look.transparency"), 10, "Increase moves one step");
     Services.prefs.setIntPref("whimsy.look.transparency", 15);

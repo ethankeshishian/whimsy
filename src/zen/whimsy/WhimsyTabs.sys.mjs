@@ -374,7 +374,7 @@ export const WhimsyTabs = {
       return copies;
     }
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
-      if (win == tab.ownerGlobal || win.closed) {
+      if (win == tab.ownerDocument.defaultView || win.closed) {
         continue;
       }
       const other = win.document.getElementById(tab.id);
@@ -406,7 +406,7 @@ export const WhimsyTabs = {
     if (!this.badges || !tab?.hasAttribute("zen-essential") || !tab.hasAttribute("pending") || tab._whimsyUnloaded || tab.closing || tab.selected) {
       return false;
     }
-    const win = tab.ownerGlobal;
+    const win = tab.ownerDocument.defaultView;
     if (win.gZenWorkspaces?.privateWindowOrDisabled || win.document.documentElement.hasAttribute("privatebrowsingmode")) {
       return false;
     }

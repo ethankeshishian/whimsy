@@ -296,13 +296,25 @@ add_task(async function test_turn_off_from_the_tip() {
 // it; and it shows only once.
 async function openAndCloseCommandBar(target) {
   if (target) {
+    // A click: a mousedown held on the New Tab button would open its
+    // long-press menu (new-tab-popup) instead.
     target.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true, composed: true }));
+    target.dispatchEvent(new MouseEvent("mouseup", { button: 0, bubbles: true, composed: true }));
   }
   gURLBar.focus();
-  await TestUtils.waitForCondition(() => gURLBar.focused, "the command bar has focus");
+  // Right after the last hint, Zen can float the bar and let it go again
+  // (W10-27's close then runs); focus it again once that's over.
+  await TestUtils.waitForCondition(() => {
+    if (!gURLBar.focused && !gURLBar.hasAttribute("whimsy-closing")) {
+      gURLBar.focus();
+    }
+    return gURLBar.focused;
+  }, "the command bar has focus");
   gURLBar.view.close();
   gBrowser.selectedBrowser.focus();
   await TestUtils.waitForCondition(() => !gURLBar.focused, "the command bar closed");
+  // W10-27: and has finished animating out.
+  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("whimsy-closing"), "the command bar is hidden");
 }
 
 async function expectHint(id) {

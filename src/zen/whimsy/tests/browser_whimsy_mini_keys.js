@@ -66,8 +66,10 @@ add_task(async function test_settings_lists_a_mini_whimsy_group_without_false_co
       await ContentTaskUtils.waitForCondition(() => doc.querySelector('.key[data-id="key_whimsyMiniNewTab"]'),
         "The table lists Mini's keys");
       const rowOf = id => doc.querySelector(`.key[data-id="${id}"]`);
-      const groupOf = id => rowOf(id)?.closest("moz-card")?.heading ?? null;
-      const shortcutOf = id => rowOf(id)?.querySelector(".currentShortcut")?.value ?? null;
+      // The cards and inputs are custom elements: read their properties
+      // through the page's own view of them (not an Xray).
+      const groupOf = id => rowOf(id)?.closest("moz-card")?.wrappedJSObject.heading ?? null;
+      const shortcutOf = id => rowOf(id)?.querySelector(".currentShortcut")?.wrappedJSObject.value ?? null;
       const miniShortcut = shortcutOf("key_whimsyMiniNewTab");
       // Assigning Mini's key its own shortcut again meets New Private Tab's
       // row first: it must not ask to clear it (no prompt within 2 s).

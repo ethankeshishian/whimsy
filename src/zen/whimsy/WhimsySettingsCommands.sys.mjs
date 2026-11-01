@@ -44,6 +44,8 @@
 //   covers   A selector: controls inside it belong to this entry too.
 //   exempt   Why there is no command (free text such as an API key).
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
@@ -227,6 +229,9 @@ export const SETTINGS = [
   { name: "element-inspector", setting: "whimsyElementInspector", pref: "whimsy.feature.element-inspector",
     feature: ["element-inspector"] },
   { name: "page-dev", setting: "whimsyPageDev", pref: "whimsy.feature.page-dev", feature: ["page-dev"] },
+  // W10-34: its command already exists (Wrap Long Lines in Page Source).
+  { name: "view-source-wrap", setting: "whimsyViewSourceWrap", pref: "view_source.wrap_long_lines",
+    feature: ["view-source-wrap"], command: ["cmd_whimsyToggleViewSourceWrap"] },
   { name: "tree-tabs", setting: "whimsyTreeTabs", pref: "whimsy.feature.tree-tabs", feature: ["tree-tabs"] },
   { name: "tree-style", setting: "whimsyTreeStyle", pref: "whimsy.tabs.tree-style", feature: ["tree-tabs"],
     choices: [

@@ -21,8 +21,8 @@
 const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs");
 const { CustomizableUI } = ChromeUtils.importESModule("moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs");
 
-const EXTENSION_ID = "mini-unlock@tests.whimsy";
-const WIDGET_ID = "mini-unlock_tests_whimsy-browser-action";
+let EXTENSION_ID = "mini-unlock@tests.whimsy";
+let WIDGET_ID = "mini-unlock_tests_whimsy-browser-action";
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
@@ -159,6 +159,10 @@ add_task(async function test_in_page_unlock_opens_the_popup_in_mini() {
 });
 
 add_task(async function test_unpinned_extension_popup_opens_from_the_puzzle() {
+  // Another id: Firefox remembers where an uninstalled extension's button
+  // was, so the pinned one above would come back pinned.
+  EXTENSION_ID = "mini-unlock-unpinned@tests.whimsy";
+  WIDGET_ID = "mini-unlock-unpinned_tests_whimsy-browser-action";
   const extension = await loadPinnedExtension("menupanel");
   const win = await openMini();
   try {

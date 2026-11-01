@@ -83,14 +83,16 @@ add_task(async function test_cmd_z_undoes_a_library_delete() {
   await lib.constructor.animateProgress(1);
   registerCleanupFunction(() => lib.constructor.animateProgress(wasOpen ? 1 : 0));
   const section = await TestUtils.waitForCondition(() => lib.querySelector("whimsy-library-files-section"));
+  // W10-24: screenshots are tiles in a grid (each a cell with its delete).
   const findRow = () =>
-    [...section.querySelectorAll(".zen-library-row")].find(r => r.textContent.includes("whimsy-capture-cmdz-test"));
+    [...section.querySelectorAll(".zen-library-row, .whimsy-library-shot-cell")].find(r =>
+      r.textContent.includes("whimsy-capture-cmdz-test"));
   const search = await TestUtils.waitForCondition(() => section.querySelector(".zen-library-search-box input"));
 
   // As when the Library opens: the keyboard is in the search field.
   section.focusSearch();
   is(document.activeElement, search, "The search field has the keyboard");
-  await TestUtils.waitForCondition(findRow, "The screenshot has a row");
+  await TestUtils.waitForCondition(findRow, "The screenshot has a tile");
   findRow().querySelector('toolbarbutton[data-l10n-id="whimsy-library-files-delete"]').click();
   await TestUtils.waitForCondition(async () => !(await IOUtils.exists(path)), "Deleted");
   await TestUtils.waitForCondition(() => WhimsyToast.current(window)?._messageId == "whimsy-library-files-deleted-toast");

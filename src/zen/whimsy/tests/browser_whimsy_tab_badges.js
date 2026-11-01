@@ -203,7 +203,8 @@ function loadedAt(tab, query) {
 
 // What an Essential looks like right after launch: no page yet, never shown.
 async function asAtLaunch(tab) {
-  ok(gBrowser.discardBrowser(tab, true), "Unloaded");
+  // Already unloaded (pending) stays so; discarding it again would fail.
+  ok(tab.hasAttribute("pending") || gBrowser.discardBrowser(tab, true), "Unloaded");
   await TestUtils.waitForCondition(() => tab.hasAttribute("pending"), "Pending");
   delete tab._whimsyUnloaded;
   delete tab._zenContentsVisible;

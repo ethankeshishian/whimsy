@@ -158,6 +158,12 @@ add_task(async function a_folder_move_waits_for_the_answer() {
   const tab = await openHomeTab();
   gBrowser.pinTab(tab);
   const folder = gZenFolders.createFolder([tab], { label: "Follow", renameFolder: false, workspaceId: home.uuid });
+  const DBGcw = gZenWorkspaces.changeWorkspace;
+  gZenWorkspaces.changeWorkspace = function (ws, ...r) {
+    info(`DEBUGW change to ${ws?.uuid ?? ws} home=${home.uuid} work=${workSpace.uuid} ${new Error().stack.split("\n").slice(1, 6).join(" | ")}`);
+    return DBGcw.call(this, ws, ...r);
+  };
+  registerCleanupFunction(() => (gZenWorkspaces.changeWorkspace = DBGcw));
   const done = gZenFolders.changeFolderToSpace(folder, workSpace.uuid);
   await answer(true);
   await done;

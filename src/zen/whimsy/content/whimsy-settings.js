@@ -2933,6 +2933,11 @@ Object.assign(gWhimsySettings, {
     card.append(layout);
     group.append(card);
     pane.append(header, group);
+    // The list's counts: its rows only exist now (each menu's detail was
+    // filled in before the list was in the page).
+    for (const detail of details.querySelectorAll(":scope > [data-menu]")) {
+      this.refreshMenuGroup(detail);
+    }
 
     // The picker's rows read the menus' names (menuitems take a label, not
     // text, so they're formatted here).
@@ -3310,6 +3315,24 @@ Object.assign(gWhimsySettings, {
         this.focusNextHit(event.shiftKey ? -1 : 1);
       }
     });
+    // W10-22: from a hit's control, Return goes on to the next hit (and
+    // Shift+Return back), as it does from the search field. Text fields
+    // keep their own Return.
+    document.addEventListener("keydown", event => {
+      const state = this.searchState;
+      if (event.key != "Enter" || event.altKey || event.metaKey || event.ctrlKey || !state?.hits.length) {
+        return;
+      }
+      const target = event.target;
+      if (target == input || target.closest?.("input:not([type=checkbox]):not([type=radio]), textarea, menulist[open]")) {
+        return;
+      }
+      if (!state.hits[state.index]?.contains(target)) {
+        return;
+      }
+      event.preventDefault();
+      this.focusNextHit(event.shiftKey ? -1 : 1);
+    }, true);
   },
 
   get reduceMotion() {

@@ -1173,6 +1173,14 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   }
 }
 
+/* W10-38: Mini is a popup window, and Firefox hides every
+   .chromeclass-toolbar-additional item there, extension buttons included.
+   The pinned ones Mini moves under its puzzle button must show in that
+   list. */
+:root[whimsy-quick-window] #overflowed-extensions-list > .chromeclass-toolbar-additional {
+  display: flex;
+}
+
 :root[whimsy-quick-window] #unified-extensions-button {
   display: flex !important;
 
