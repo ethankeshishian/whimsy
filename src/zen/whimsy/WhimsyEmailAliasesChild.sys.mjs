@@ -66,8 +66,10 @@ const OVERLAY_SELECTOR = [
   "[class*='toggle-password' i]",
   "[class*='password-eye' i]",
 ].join(",");
-// How long after focus to keep watching for a manager's button arriving.
-const WATCH_MS = 3000;
+// W10-49: the page is watched for as long as the button shows (managers
+// and sites add, move and swap their icons whenever they like: on hover,
+// after typing, when the eye toggles), at most once per this many ms.
+const REPOSITION_MS = 200;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const EXCLUDED_TYPES = new Set([
@@ -210,17 +212,34 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
     this.#position();
 
     const reposition = () => this.#position();
-    // Password managers add their button after focus, often a beat later:
-    // look again when something lands in the page soon after, and give up
-    // watching after a few seconds.
+    // Password managers add their button after focus, often a beat later,
+    // and sites move theirs: look again whenever the page changes (nodes
+    // added or removed, a style or class changed), a beat later at most.
+    // W10-49: this used to stop after 3 seconds and only noticed nodes
+    // being added, so an icon that showed up later or moved was covered.
+    let pending = null;
+    const soon = () => {
+      if (pending == null) {
+        pending = win.setTimeout(() => {
+          pending = null;
+          reposition();
+        }, REPOSITION_MS);
+      }
+    };
     const observer = new win.MutationObserver(records => {
-      if (records.some(r => [...r.addedNodes].some(n => n != host && n.nodeType == 1))) {
-        reposition();
+      if (records.some(r => r.target != host && !host.contains(r.target))) {
+        soon();
       }
     });
-    observer.observe(doc.documentElement, { childList: true, subtree: true });
-    const stopWatching = win.setTimeout(() => observer.disconnect(), WATCH_MS);
-    const settle = [150, 600].map(ms => win.setTimeout(reposition, ms));
+    observer.observe(doc.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class", "hidden"],
+    });
+    const resize = new win.ResizeObserver(soon);
+    resize.observe(input);
+    const settle = [150, 600, 1500].map(ms => win.setTimeout(reposition, ms));
     const onFocusOut = e => {
       // Focus moving to something else in the page hides the button. Focus
       // leaving the page (relatedTarget null) keeps it: that's the chrome
@@ -237,7 +256,8 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       win.removeEventListener("resize", reposition);
       doc.removeEventListener("focusout", onFocusOut, true);
       observer.disconnect();
-      win.clearTimeout(stopWatching);
+      resize.disconnect();
+      win.clearTimeout(pending);
       settle.forEach(id => win.clearTimeout(id));
     });
   }
@@ -303,6 +323,45 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
     return Math.max(rect.left + EDGE_GAP, right - BUTTON_SIZE);
   }
 
+  // W10-49: what an element actually draws. 1Password's and other
+  // managers' inline buttons are custom elements with no box of their own
+  // (display: contents, or a zero-size host) whose icon lives in a closed
+  // shadow root, so their own box was empty and they were never stepped
+  // around. This actor may open closed roots (openOrClosedShadowRoot).
+  #visualBox(el) {
+    const box = el.getBoundingClientRect();
+    if (box.width > 0 && box.height > 0) {
+      return box;
+    }
+    const root = el.openOrClosedShadowRoot;
+    if (!root) {
+      return box;
+    }
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    for (const child of root.querySelectorAll("*")) {
+      const r = child.getBoundingClientRect();
+      if (!r.width || !r.height || r.width > 80) {
+        continue;
+      }
+      left = Math.min(left, r.left);
+      top = Math.min(top, r.top);
+      right = Math.max(right, r.right);
+      bottom = Math.max(bottom, r.bottom);
+    }
+    if (left == Infinity) {
+      return box;
+    }
+    return { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+
+  // Ours: the host, or anything in its shadow root.
+  #isOwn(node) {
+    return node == this.#host || node.getRootNode?.()?.host == this.#host;
+  }
+
   // The box of another inline button overlapping [left, right] on the
   // field's row, if any: a known password manager's, or any small element
   // stacked over the field there.
@@ -317,7 +376,7 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
         continue;
       }
       const candidate = el.closest("button, [role='button'], a") || el;
-      const box = candidate.getBoundingClientRect();
+      const box = this.#visualBox(candidate);
       if (overlaps(box)) {
         return box;
       }
@@ -342,15 +401,26 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       }
     }
 
+    // Whatever is drawn there. W10-49: elementsFromPoint stops at a shadow
+    // host, so an icon inside a shadow root was seen as its (often
+    // box-less) host; nodesFromRect sees the drawn nodes themselves.
+    const utils = doc.defaultView?.windowUtils;
     for (const frac of [0.5, 0.3, 0.7]) {
       const y = rect.top + rect.height * frac;
       for (const x of [right - 2, (left + right) / 2, left + 2]) {
-        for (const el of doc.elementsFromPoint(x, y)) {
-          if (el == input || el == this.#host || el.contains(input)) {
+        let nodes = [];
+        try {
+          nodes = [...(utils?.nodesFromRect(x, y, 0, 0, 0, 0, true, false, false) ?? [])];
+        } catch (e) {
+          // Fall back to the page's view below.
+        }
+        for (const node of [...nodes, ...doc.elementsFromPoint(x, y)]) {
+          const el = node.nodeType == 1 ? node : node.parentElement;
+          if (!el || el.isNativeAnonymous || input.contains(el) || el == input || this.#isOwn(el) || el.contains(input) || el.getRootNode()?.host?.contains?.(input)) {
             continue;
           }
           const candidate = el.closest("button, [role='button'], a, [class*='button' i]") || el;
-          const box = candidate.getBoundingClientRect();
+          const box = this.#visualBox(candidate);
           if (overlaps(box) && box.height <= rect.height + 16) {
             return box;
           }

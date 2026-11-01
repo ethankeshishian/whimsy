@@ -317,3 +317,59 @@ add_task(async function test_sits_beside_multiple_inline_buttons() {
     ok(placed.insideField, "Still inside field");
   });
 });
+
+// W10-49: 1Password's real inline button is a custom element with no box of
+// its own whose icon sits in a closed shadow root, and it (or a site's eye)
+// can turn up or move well after focus. The alias button steps left of what
+// is actually drawn, whenever it appears.
+add_task(async function test_dynamic_placement_around_shadow_icons() {
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await focusField(browser, "email");
+    await TestUtils.waitForCondition(() => hasButton(browser), "The alias button appeared");
+    const placed = await SpecialPowers.spawn(browser, [HOST_ID], async hostId => {
+      const doc = content.document;
+      const host = doc.getElementById(hostId);
+      // Later than the old 3-second watch.
+      await new Promise(r => content.setTimeout(r, 3500));
+      const field = doc.getElementById("email").getBoundingClientRect();
+      const op = doc.createElement("com-1password-button");
+      op.style.display = "contents";
+      const root = op.attachShadow({ mode: "closed" });
+      const icon = doc.createElement("div");
+      Object.assign(icon.style, {
+        position: "absolute",
+        width: "24px",
+        height: "24px",
+        left: `${field.right + content.scrollX - 30}px`,
+        top: `${field.top + content.scrollY + (field.height - 24) / 2}px`,
+        background: "rgb(0, 0, 0)",
+      });
+      root.append(icon);
+      doc.body.append(op);
+      Assert.equal(op.getBoundingClientRect().width, 0, "The manager's own element has no box");
+      await ContentTaskUtils.waitForCondition(
+        () => host.getBoundingClientRect().right <= icon.getBoundingClientRect().left,
+        "The alias button moved left of the icon in the shadow root"
+      );
+      const first = icon.getBoundingClientRect().left - host.getBoundingClientRect().right;
+
+      // The icon moves (a site re-renders its row): the button follows.
+      icon.style.left = `${field.right + content.scrollX - 60}px`;
+      await ContentTaskUtils.waitForCondition(
+        () => host.getBoundingClientRect().right <= icon.getBoundingClientRect().left,
+        "…and again after it moved"
+      );
+      const result = {
+        first,
+        gap: icon.getBoundingClientRect().left - host.getBoundingClientRect().right,
+        insideField: host.getBoundingClientRect().left >= field.left,
+      };
+      op.remove();
+      return result;
+    });
+    Assert.greaterOrEqual(placed.first, 0, "No overlap with the late icon");
+    Assert.greaterOrEqual(placed.gap, 0, "No overlap after it moved");
+    Assert.lessOrEqual(placed.gap, 10, "…and right beside it");
+    ok(placed.insideField, "Still inside the field");
+  });
+});
