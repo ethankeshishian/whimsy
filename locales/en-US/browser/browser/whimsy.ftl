@@ -1205,31 +1205,6 @@ whimsy-sheet-close =
 # The accept button of Zen's "Delete Space?" confirmation.
 whimsy-delete-space-accept = Delete Space
 whimsy-snooze-title = Snooze Tab
-whimsy-fire-title = Fire Button
-whimsy-fire-subtitle = Start fresh: close tabs and erase what they left behind
-# $count (number) - unpinned tabs that will close; $spaces (string) - the
-# names of the spaces that use this profile, as a list ("Work and Side
-# Projects").
-whimsy-fire-profile-detail = { $count ->
-    [0] Clears the last hour in { $spaces }
-    [one] Closes 1 tab in { $spaces } and clears their last hour
-   *[other] Closes { $count } tabs in { $spaces } and clears their last hour
-}
-whimsy-fire-profile-detail-unnamed = { $count ->
-    [0] Clears this profile’s last hour
-    [one] Closes 1 tab and clears this profile’s last hour
-   *[other] Closes { $count } tabs and clears this profile’s last hour
-}
-# $count (number) - unpinned tabs in every window that will close
-whimsy-fire-everything-detail = { $count ->
-    [0] Clears all history and site data, in every profile
-    [one] Closes 1 tab and clears all history and site data
-   *[other] Closes { $count } tabs and clears all history and site data
-}
-# The note under the rows: exactly what the chosen row clears and keeps.
-# $profile (string) - the profile's name; "Default" when the space has none.
-whimsy-fire-profile-summary = In the { $profile } profile: removes its history from the last hour and signs you out of the sites it visited then (their cookies, site data and cache). Other profiles keep theirs. Pinned tabs and Essentials stay open.
-whimsy-fire-everything-summary = Clears all history, cookies, site data, cache, form and search history, the download list and closed tabs, in every profile. Saved passwords, bookmarks, downloaded files, pinned tabs and Essentials stay. You can’t undo it.
 whimsy-heavy-tabs-title = Heavy Tabs
 whimsy-heavy-tabs-subtitle = Memory use, updated every few seconds
 whimsy-heavy-tabs-measuring = Measuring…
@@ -2210,39 +2185,6 @@ whimsy-meeting-group-header = Meetings
 # features you start from the command bar or the tab menu.
 whimsy-settings-features-summary = On-demand features
 
-# wave5/uxfix: Fire Button. Rows pick what to clear; this button does it.
-whimsy-fire-scopes = What to clear
-whimsy-fire-forget-profile =
-    .label = Fire in This Profile
-whimsy-fire-forget-everything =
-    .label = Fire Everywhere…
-# Result toasts: what closed and what was cleared.
-# $count (number) - tabs closed; $site (string) - the domain.
-# $count (number) - tabs closed; $visits (number) - the profile's history
-# visits removed; $sites (number) - sites whose cookies, data and cache went;
-# $profile (string) - the profile's name
-whimsy-fire-done-profile = { $count ->
-    [0] No tabs closed
-    [one] Closed 1 tab
-   *[other] Closed { $count } tabs
-} · removed { $visits ->
-    [one] 1 visit
-   *[other] { $visits } visits
-} and { $sites ->
-    [one] 1 site’s data
-   *[other] { $sites } sites’ data
-} from { $profile }’s last hour
-whimsy-fire-done-everything = { $count ->
-    [0] Cleared all history, cookies, site data, cache and form history
-    [one] Closed 1 tab · cleared all history, cookies, site data, cache and form history
-   *[other] Closed { $count } tabs · cleared all history, cookies, site data, cache and form history
-}
-whimsy-fire-done-site = { $count ->
-    [0] Forgot { $site }
-    [one] Forgot { $site } · closed 1 tab
-   *[other] Forgot { $site } · closed { $count } tabs
-}
-whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 # W10-58: shown at once while Fire clears; the result replaces it.
 whimsy-fire-working-profile = Clearing this profile’s last hour…
 whimsy-fire-working-everything = Clearing everything…
@@ -2686,19 +2628,6 @@ whimsy-live-folder-jira-category-undefined =
 
 whimsy-tab-audio-mute = Mute tab
 whimsy-tab-audio-unmute = Unmute tab
-
-## wave7/ux: Fire Button. "Everything" asks once more; Cancel is the default.
-
-whimsy-fire-everything-confirm-title = Fire everywhere?
-whimsy-fire-everything-confirm-body = This clears all history, cookies, site data, cache, form and search history, the download list and closed tabs for every site in every profile, and closes every unpinned tab. Saved passwords, bookmarks and downloaded files stay. You can’t undo it.
-whimsy-fire-everything-confirm-accept = Fire Everywhere
-
-## wave7/fire: Forget About This Site… (command bar). Cancel is the default.
-
-# $site (string) - the current tab's base domain, e.g. example.com
-whimsy-fire-site-confirm-title = Forget { $site }?
-whimsy-fire-site-confirm-body = This deletes { $site }’s history, cookies, site data and cache, including its subdomains, and closes its tabs. Pinned tabs stay. You can’t undo it.
-whimsy-fire-site-confirm-accept = Forget Site
 
 ## wave7/ux: link hover cards (WhimsyLinkHover)
 
@@ -4035,3 +3964,103 @@ whimsy-surface-close =
     .tooltiptext = Close
     .aria-label = Close
 whimsy-surface-copied = Copied
+
+## wave10/desA W10-30: Fire, on one surface that explains each choice.
+## "Forget About This Site…" opens it with the site chosen.
+
+whimsy-fire-heading = What should Fire erase?
+# $profile (string) - profile name, "Default" when none
+whimsy-fire-choice-profile = The last hour in { $profile }
+# $count (number) - tabs that close; $spaces (string) - "Work and Side Projects"
+whimsy-fire-choice-profile-detail = { $count ->
+    [0] Erases the last hour of history in your { $spaces } spaces. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+    [one] Closes 1 tab in your { $spaces } spaces and erases their last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+   *[other] Closes { $count } tabs in your { $spaces } spaces and erases their last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+}
+# The same, for a profile whose spaces have no names.
+whimsy-fire-choice-profile-detail-unnamed = { $count ->
+    [0] Erases this profile’s last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+    [one] Closes 1 tab and erases this profile’s last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+   *[other] Closes { $count } tabs and erases this profile’s last hour of history. You’ll be signed out of sites you used in that hour. Other profiles aren’t touched.
+}
+# $site (string) - base domain
+whimsy-fire-choice-site = Everything from { $site }
+# $site (string); $count (number) - its tabs that close
+whimsy-fire-choice-site-detail = { $count ->
+    [0] Erases all of { $site }’s history, sign-ins and saved data, from all time, in every profile.
+    [one] Erases all of { $site }’s history, sign-ins and saved data, from all time, in every profile, and closes its tab.
+   *[other] Erases all of { $site }’s history, sign-ins and saved data, from all time, in every profile, and closes its { $count } tabs.
+}
+whimsy-fire-choice-everything = Everything, everywhere
+# $count (number) - unpinned tabs in every window that close
+whimsy-fire-choice-everything-detail = { $count ->
+    [0] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time.
+    [one] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time, and closes 1 tab.
+   *[other] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time, and closes { $count } tabs.
+}
+whimsy-fire-kept = Always kept: saved passwords, bookmarks, downloaded files, pinned tabs and Essentials.
+whimsy-fire-cancel =
+    .label = Cancel
+whimsy-fire-run-profile =
+    .label = Fire in This Profile
+# $site (string)
+whimsy-fire-run-site =
+    .label = Forget { $site }
+whimsy-fire-run-everything =
+    .label = Fire Everywhere…
+whimsy-fire-everything-confirm-title = Erase everything, everywhere?
+# $count (number) - tabs that close
+whimsy-fire-everything-confirm-body = Every profile signs out of every site and loses all its history. { $count ->
+    [0] This can’t be undone.
+    [one] 1 tab closes. This can’t be undone.
+   *[other] { $count } tabs close. This can’t be undone.
+}
+whimsy-fire-back =
+    .label = Back
+whimsy-fire-everything-confirm-accept =
+    .label = Fire Everywhere
+
+# Result toasts: a title and a second line.
+# $profile (string); $count (number) - tabs closed; $visits (number) -
+# history visits erased; $sites (number) - sites whose data was erased
+whimsy-fire-done-profile-title = Fired in { $profile }
+whimsy-fire-done-profile-detail = { $count ->
+    [0] Erased { $visits ->
+        [one] 1 visit
+       *[other] { $visits } visits
+    } and { $sites ->
+        [one] 1 site’s data
+       *[other] { $sites } sites’ data
+    } from the last hour
+    [one] Closed 1 tab · erased { $visits ->
+        [one] 1 visit
+       *[other] { $visits } visits
+    } and { $sites ->
+        [one] 1 site’s data
+       *[other] { $sites } sites’ data
+    } from the last hour
+   *[other] Closed { $count } tabs · erased { $visits ->
+        [one] 1 visit
+       *[other] { $visits } visits
+    } and { $sites ->
+        [one] 1 site’s data
+       *[other] { $sites } sites’ data
+    } from the last hour
+}
+whimsy-fire-done-everything-title = Fired everywhere
+# $count (number) - tabs closed
+whimsy-fire-done-everything-detail = { $count ->
+    [0] Erased all history and site data
+    [one] Closed 1 tab · erased all history and site data
+   *[other] Closed { $count } tabs · erased all history and site data
+}
+# $site (string); $count (number) - tabs closed
+whimsy-fire-done-site-title = Forgot { $site }
+whimsy-fire-done-site-detail = { $count ->
+    [0] Erased its history and site data
+    [one] Closed 1 tab · erased its history and site data
+   *[other] Closed { $count } tabs · erased its history and site data
+}
+whimsy-fire-failed-title = Couldn’t erase everything
+whimsy-fire-failed-detail = Some site data was in use. Nothing else changed.
+whimsy-fire-retry = Try Again

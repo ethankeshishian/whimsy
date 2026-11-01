@@ -42,15 +42,21 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
-  WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
 const PANEL_ID = "whimsyFirePanel";
+const PANEL_WIDTH = 400;
+const ICONS = {
+  profile: "chrome://browser/skin/zen-icons/history.svg",
+  site: "chrome://browser/skin/zen-icons/forget.svg",
+  everything: "chrome://browser/skin/zen-icons/selectable/flame.svg",
+};
 const LAST_HOUR_MS = 60 * 60 * 1000;
 // W10-58: the "Clearing…" toast waits for the result (which replaces it);
 // the result stays long enough to read.
@@ -145,18 +151,16 @@ export const WhimsyFireButton = {
     WhimsyCommands.register(win, {
       id: "cmd_whimsyFireProfile",
       l10nId: "whimsy-fire-profile",
-      run: w => this.run(w, () => this.burnProfile(w), "whimsy-fire-done-profile"),
+      run: w => this.run(w, () => this.burnProfile(w), "profile"),
       icon: "chrome://browser/skin/forget.svg",
       isAvailable: () => this.enabled,
     });
     WhimsyCommands.register(win, {
       id: "cmd_whimsyFireEverywhere",
       l10nId: "whimsy-fire-everything",
-      run: async w => {
-        if (await this.confirmEverything(w)) {
-          await this.run(w, () => this.burnEverything(w), "whimsy-fire-done-everything");
-        }
-      },
+      // W10-30: straight to the surface's second step; nothing runs
+      // until its red button.
+      run: w => this.openPanel(w, { choice: "everything", confirm: true }),
       icon: "chrome://browser/skin/forget.svg",
       isAvailable: () => this.enabled,
     });
@@ -358,177 +362,313 @@ export const WhimsyFireButton = {
     return count;
   },
 
-  async forgetSite(win) {
-    const site = siteOf(win.gBrowser.selectedTab);
-    if (!site) {
-      return;
+  // "Forget About This Site…": the Fire surface with the site chosen
+  // (W10-30: it replaced the system dialog). Nothing runs until its button.
+  forgetSite(win) {
+    if (!siteOf(win.gBrowser.selectedTab)) {
+      return null;
     }
-    const [title, body, accept] = await win.document.l10n.formatValues([
-      { id: "whimsy-fire-site-confirm-title", args: { site } },
-      { id: "whimsy-fire-site-confirm-body", args: { site } },
-      { id: "whimsy-fire-site-confirm-accept" },
-    ]);
-    if (!(await lazy.WhimsyPanels.confirm(win, { title, body, accept, cancelDefault: true }))) {
-      return;
-    }
-    await this.run(win, () => this.burnSite(win), "whimsy-fire-done-site", { site });
+    return this.openPanel(win, { choice: "site" });
   },
 
-  // A WhimsyPanels sheet, centred like the command bar it opens from. Two
-  // radio rows say what each closes (with the count); a note under them
-  // says exactly what's cleared and what stays; only the red footer button
-  // acts, so Return on a row never clears anything.
-  panel(win) {
-    const { document } = win;
-    const { panel, body, footer } = lazy.WhimsyPanels.create(win, {
-      id: PANEL_ID,
-      titleL10nId: "whimsy-fire-title",
-      subtitleL10nId: "whimsy-fire-subtitle",
-      size: "medium",
-      footer: true,
-    });
+  // What each choice would close, for the cards' wording.
+  counts(win) {
     const profileId = this.profileId(win);
-    const profileCount = this.profileTabs(win, profileId)
-      .reduce((sum, [w, tabs]) => sum + this.closableTabs(w, tabs).length, 0);
-    const allCount = this.allTabs(win).reduce((sum, [w, tabs]) => sum + this.closableTabs(w, tabs).length, 0);
+    const sum = groups => groups.reduce((n, [w, tabs]) => n + this.closableTabs(w, tabs).length, 0);
+    const tab = win.gBrowser.selectedTab;
+    const site = lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
+      lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) ? null : siteOf(tab);
+    return {
+      profileId,
+      profile: sum(this.profileTabs(win, profileId)),
+      site,
+      siteTabs: site ? sum(this.allTabs(win).map(([w, tabs]) => [w, tabs.filter(t => siteOf(t) == site)])) : 0,
+      everything: sum(this.allTabs(win)),
+    };
+  },
+
+  // W10-30: a WhimsySurface (the Edit Look family). "What should Fire
+  // erase?" over three choice cards that say in full what each erases (the
+  // user didn't know what Fire Everywhere or Forget About This Site do),
+  // what's always kept, and one red button that names the choice. Fire
+  // Everywhere asks once more inside the same surface (Back is the
+  // default). Return on a card only chooses it.
+  panel(win, { choice = "profile" } = {}) {
+    const doc = win.document;
+    const c = this.counts(win);
+    if (choice == "site" && !c.site) {
+      choice = "profile";
+    }
     const lang = Services.locale.appLocalesAsBCP47;
-    const spaceNames = new Intl.ListFormat(lang, { style: "long", type: "conjunction" })
-      .format(this.profileSpaces(win, profileId).map(space => space.name).filter(Boolean));
-    panel._whimsyFireProfile = lazy.WhimsyProfiles.nameOf(profileId);
-    const scopes = [
+    const spaces = new Intl.ListFormat(lang, { style: "long", type: "conjunction" })
+      .format(this.profileSpaces(win, c.profileId).map(space => space.name).filter(Boolean));
+    const profile = lazy.WhimsyProfiles.nameOf(c.profileId);
+
+    let step = "choose";
+    const parts = lazy.WhimsySurface.create(win, {
+      id: PANEL_ID,
+      width: PANEL_WIDTH,
+      titleL10nId: "whimsy-fire-heading",
+      close: true,
+      footer: true,
+      className: "whimsy-fire",
+      // Esc on the second step goes Back.
+      onEscape: () => {
+        if (step == "confirm") {
+          showChoose();
+          return true;
+        }
+        return false;
+      },
+      initialFocus: () => step == "confirm" ? back : group.querySelector("[aria-checked='true']"),
+    });
+    const { panel, view, footer, title } = parts;
+    panel._whimsyFire = { profile, counts: c };
+
+    // Step 1: the choices.
+    const choose = doc.createXULElement("vbox");
+    choose.className = "whimsy-fire-step whimsy-fire-choose";
+    const group = lazy.WhimsySurface.group(doc, { role: "radiogroup", label: title.id });
+    group.classList.add("whimsy-fire-choices");
+    const cards = [
       {
-        id: "profile",
-        run: () => this.burnProfile(win),
-        icon: "chrome://browser/skin/zen-icons/history.svg",
-        subtitleL10nId: spaceNames ? "whimsy-fire-profile-detail" : "whimsy-fire-profile-detail-unnamed",
-        subtitleArgs: { count: profileCount, ...(spaceNames ? { spaces: spaceNames } : {}) },
+        value: "profile",
+        nameL10nId: "whimsy-fire-choice-profile",
+        nameArgs: { profile },
+        detailL10nId: spaces ? "whimsy-fire-choice-profile-detail" : "whimsy-fire-choice-profile-detail-unnamed",
+        detailArgs: { count: c.profile, ...(spaces ? { spaces } : {}) },
+      },
+      c.site && {
+        value: "site",
+        nameL10nId: "whimsy-fire-choice-site",
+        nameArgs: { site: c.site },
+        detailL10nId: "whimsy-fire-choice-site-detail",
+        detailArgs: { site: c.site, count: c.siteTabs },
       },
       {
-        id: "everything",
-        run: () => this.burnEverything(win),
-        icon: "chrome://browser/skin/zen-icons/forget.svg",
-        subtitleL10nId: "whimsy-fire-everything-detail",
-        subtitleArgs: { count: allCount },
-        destructive: true,
+        value: "everything",
+        tone: "destructive",
+        nameL10nId: "whimsy-fire-choice-everything",
+        detailL10nId: "whimsy-fire-choice-everything-detail",
+        detailArgs: { count: c.everything },
       },
-    ];
-    const forget = lazy.WhimsyPanels.footerButton(document, {
-      l10nId: "whimsy-fire-forget-profile",
+    ].filter(Boolean);
+    for (const card of cards) {
+      const el = lazy.WhimsySurface.choice(doc, {
+        ...card,
+        icon: ICONS[card.value],
+        onPick: value => this.selectScope(win, panel, value),
+      });
+      el.classList.add("whimsy-fire-scope");
+      el.setAttribute("whimsy-fire-scope", card.value);
+      group.append(el);
+    }
+    // Return or Space on a card chooses it; it never runs anything.
+    group.addEventListener("keydown", event => {
+      const card = event.target.closest?.(".whimsy-fire-scope");
+      if (card && (event.key == "Enter" || event.key == " ")) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectScope(win, panel, card.dataset.value);
+      }
+    });
+    const kept = doc.createXULElement("hbox");
+    kept.className = "whimsy-fire-kept";
+    kept.setAttribute("align", "start");
+    const check = doc.createXULElement("image");
+    check.className = "whimsy-fire-kept-icon";
+    check.setAttribute("src", "chrome://global/skin/icons/check.svg");
+    const keptText = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
+    keptText.id = "whimsy-fire-kept";
+    doc.l10n.setAttributes(keptText, "whimsy-fire-kept");
+    kept.append(check, keptText);
+    choose.append(group, kept);
+
+    // Step 2 (Fire Everywhere): one more question, in the same surface.
+    const confirm = doc.createXULElement("hbox");
+    confirm.className = "whimsy-fire-step whimsy-fire-confirm";
+    confirm.setAttribute("align", "start");
+    confirm.hidden = true;
+    const confirmText = doc.createXULElement("vbox");
+    confirmText.setAttribute("flex", "1");
+    const confirmTitle = doc.createElementNS("http://www.w3.org/1999/xhtml", "h2");
+    confirmTitle.id = "whimsy-fire-confirm-title";
+    confirmTitle.className = "whimsy-fire-confirm-title";
+    doc.l10n.setAttributes(confirmTitle, "whimsy-fire-everything-confirm-title");
+    const confirmBody = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
+    confirmBody.className = "whimsy-fire-confirm-body";
+    doc.l10n.setAttributes(confirmBody, "whimsy-fire-everything-confirm-body", { count: c.everything });
+    confirmText.append(confirmTitle, confirmBody);
+    confirm.append(lazy.WhimsySurface.tile(doc, { icon: ICONS.everything, tone: "destructive" }), confirmText);
+    view.append(choose, confirm);
+
+    const cancel = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-fire-cancel",
+      id: "whimsy-fire-cancel",
+      onCommand: () => lazy.WhimsySurface.close(panel),
+    });
+    const forget = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-fire-run-profile",
+      id: "whimsy-fire-forget",
+      destructive: true,
       onCommand: () => this.forget(win, panel),
     });
-    forget.id = "whimsy-fire-forget";
-    forget.setAttribute("destructive", "true");
-    footer.append(forget);
-    panel._whimsyFireScopes = new Map();
-    for (const scope of scopes) {
-      const item = lazy.WhimsyPanels.item(document, {
-        l10nId: `whimsy-fire-${scope.id}`,
-        icon: scope.icon,
-        subtitleL10nId: scope.subtitleL10nId,
-        subtitleArgs: scope.subtitleArgs,
-        destructive: scope.destructive,
-        checked: false,
-        onCommand: () => this.selectScope(win, panel, scope.id),
-      });
-      item.classList.add("whimsy-fire-scope");
-      item.setAttribute("role", "radio");
-      item.setAttribute("whimsy-fire-scope", scope.id);
-      item.dataset.scope = scope.id;
-      panel._whimsyFireScopes.set(scope.id, scope);
-      body.append(item);
-    }
-    body.setAttribute("role", "radiogroup");
-    document.l10n.formatValue("whimsy-fire-scopes").then(label => body.setAttribute("aria-label", label));
-    // What the chosen row clears and keeps, in full (rows crop to a line).
-    const summary = document.createXULElement("description");
-    summary.id = "whimsy-fire-summary";
-    summary.setAttribute("aria-live", "polite");
-    body.after(summary);
+    const back = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-fire-back",
+      id: "whimsy-fire-back",
+      primary: true,
+      onCommand: () => showChoose(),
+    });
+    const accept = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-fire-everything-confirm-accept",
+      id: "whimsy-fire-everything-accept",
+      destructive: true,
+      onCommand: () => {
+        lazy.WhimsySurface.close(panel);
+        this.run(win, () => this.burnEverything(win), "everything");
+      },
+    });
+    back.hidden = true;
+    accept.hidden = true;
+    footer.append(cancel, forget, back, accept);
+    lazy.WhimsySurface.finish(parts);
+
+    const showChoose = () => {
+      step = "choose";
+      panel.dataset.step = step;
+      title.hidden = false;
+      choose.hidden = false;
+      confirm.hidden = true;
+      cancel.hidden = forget.hidden = false;
+      back.hidden = accept.hidden = true;
+      panel.setAttribute("aria-labelledby", title.id);
+      group.querySelector("[aria-checked='true']")?.focus();
+    };
+    const showConfirm = () => {
+      step = "confirm";
+      panel.dataset.step = step;
+      title.hidden = true;
+      choose.hidden = true;
+      confirm.hidden = false;
+      cancel.hidden = forget.hidden = true;
+      back.hidden = accept.hidden = false;
+      panel.setAttribute("aria-labelledby", confirmTitle.id);
+      if (panel.state == "open") {
+        back.focus();
+      }
+    };
+    panel._whimsyFireConfirm = showConfirm;
+    panel._whimsyFireChoose = showChoose;
+    this.selectScope(win, panel, choice);
     return panel;
   },
 
-  // Marks one scope chosen, names it on the footer button, and spells out
-  // what it clears in the note.
+  // Marks one choice, and names it on the red button.
   selectScope(win, panel, id) {
-    const { document } = win;
-    for (const item of panel.querySelectorAll(".whimsy-fire-scope")) {
-      const on = item.dataset.scope == id;
-      item.setAttribute("aria-checked", on ? "true" : "false");
-      if (on) {
-        item.setAttribute("checked", "true");
-      } else {
-        item.removeAttribute("checked");
-      }
-    }
+    const doc = win.document;
+    const group = panel.querySelector(".whimsy-fire-choices");
+    lazy.WhimsySurface.check(group, id);
     panel.dataset.scope = id;
-    document.l10n.setAttributes(panel.querySelector("#whimsy-fire-forget"), `whimsy-fire-forget-${id}`);
-    const summary = panel.querySelector("#whimsy-fire-summary");
-    if (summary) {
-      document.l10n.setAttributes(summary, `whimsy-fire-${id}-summary`,
-        id == "profile" ? { profile: panel._whimsyFireProfile } : null);
+    const forget = panel.querySelector("#whimsy-fire-forget");
+    const site = panel._whimsyFire?.counts.site;
+    doc.l10n.setAttributes(forget, `whimsy-fire-run-${id}`, id == "site" ? { site } : undefined);
+    if (panel.state == "open") {
+      group.querySelector(`[data-value="${id}"]`)?.focus();
     }
   },
 
-  // Flash, run, then say what went (or that it failed). W10-58: clearing
-  // a busy profile takes seconds (history lookup, one clear per site), so
-  // the only confirmation used to arrive long after the tabs vanished and
-  // left after Zen's two seconds; people saw none. A toast now says it's
-  // clearing right away, and the result replaces it and stays to be read
-  // (WhimsyToast: 6s, held while hovered or while the window is behind).
-  async run(win, burn, doneL10nId, args = {}) {
+  // Says it's clearing at once, runs, then the same toast says what went
+  // (or that it failed, with Try Again). W10-58: clearing a busy profile
+  // takes seconds, and the only confirmation used to come long after the
+  // tabs vanished and leave after Zen's two seconds. W10-30: the result
+  // has a title and a second line (WhimsyToast, 6s, held while hovered or
+  // while the window is behind), in the window that ran it.
+  async run(win, burn, kind, args = {}) {
+    kind = kind.replace(/^whimsy-fire-done-/, "");
     const root = win.document.documentElement;
     // A brief flame/burst overlay (whimsy-browser.css); reduced motion
     // skips it, and the toast confirms.
     root.setAttribute("whimsy-fire-burning", "");
     win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
-    const toast = (l10nId, l10nArgs, timeout) =>
-      lazy.WhimsyToast.show(win, { l10nId, l10nArgs, timeout });
-    toast(doneL10nId.replace("-done-", "-working-"), args, WORKING_TIMEOUT_MS);
+    const icon = ICONS[kind] ?? ICONS.everything;
+    const working = lazy.WhimsyToast.show(win, {
+      l10nId: `whimsy-fire-working-${kind}`,
+      l10nArgs: args,
+      icon,
+      timeout: WORKING_TIMEOUT_MS,
+    });
+    // The result goes on the "Clearing…" toast if it's still up; else (a
+    // window that lost every tab gets a fresh one first) a new one, a tick
+    // later.
+    const report = async o => {
+      if (working?.isConnected && !working.hasAttribute("leaving")) {
+        working.update({ ...o, detail: undefined, timeout: DONE_TIMEOUT_MS });
+        return working;
+      }
+      await new Promise(resolve => win.setTimeout(resolve, 0));
+      return win.closed ? null : lazy.WhimsyToast.show(win, { ...o, icon, timeout: DONE_TIMEOUT_MS });
+    };
     let result;
     try {
       result = (await burn()) || 0;
     } catch (e) {
       console.error("Whimsy: fire button", e);
-      toast("whimsy-fire-failed-toast", undefined, DONE_TIMEOUT_MS);
+      await report({
+        l10nId: "whimsy-fire-failed-title",
+        detailL10nId: "whimsy-fire-failed-detail",
+        action: {
+          l10nId: "whimsy-fire-retry",
+          onCommand: () => {
+            this.run(win, burn, kind, args);
+          },
+        },
+      });
       return;
     }
     // A burn returns the tabs it closed, or { count, ...what else went }.
     const what = typeof result == "number" ? { count: result } : result;
-    toast(doneL10nId, { ...args, ...what }, DONE_TIMEOUT_MS);
+    const l10nArgs = { ...args, ...what };
+    await report({
+      l10nId: `whimsy-fire-done-${kind}-title`,
+      l10nArgs,
+      detailL10nId: `whimsy-fire-done-${kind}-detail`,
+      detailArgs: l10nArgs,
+      action: null,
+    });
   },
 
-  // The footer button: close the sheet, confirm Everything, then run.
+  // The red footer button: Fire Everywhere goes to the second step; the
+  // others close the surface and run.
   async forget(win, panel) {
-    const scope = panel._whimsyFireScopes?.get(panel.dataset.scope);
-    if (!scope) {
+    const id = panel.dataset.scope;
+    if (id == "everything") {
+      panel._whimsyFireConfirm?.();
       return;
     }
-    lazy.WhimsyPanels.close(panel);
-    // wave7/ux: "Everything" can't be undone, so it asks once more in the
-    // window's own dialog (the one Delete Space uses), with Cancel as the
-    // default: Return there keeps everything.
-    if (scope.id == "everything" && !(await this.confirmEverything(win))) {
+    lazy.WhimsySurface.close(panel);
+    if (id == "site") {
+      const site = panel._whimsyFire?.counts.site;
+      if (site) {
+        await this.run(win, () => this.burnSite(win), "site", { site });
+      }
       return;
     }
-    await this.run(win, scope.run, `whimsy-fire-done-${scope.id}`);
+    await this.run(win, () => this.burnProfile(win), "profile");
   },
 
-  // wave7/ux: the second step for "Everything". Resolves true only when
-  // the red "Clear Everything" button is chosen.
-  async confirmEverything(win) {
-    const [title, body, accept] = await win.document.l10n.formatValues([
-      "whimsy-fire-everything-confirm-title",
-      "whimsy-fire-everything-confirm-body",
-      "whimsy-fire-everything-confirm-accept",
-    ]);
-    return lazy.WhimsyPanels.confirm(win, { title, body, accept, cancelDefault: true });
-  },
-
-  openPanel(win) {
-    const panel = this.panel(win);
-    // Start on this profile; nothing runs until the footer button is
-    // pressed.
-    this.selectScope(win, panel, "profile");
-    lazy.WhimsyPanels.open(win, panel);
+  // Opens the surface: under `anchor` when given, else over the page where
+  // the command bar sits. `choice` picks the starting card; `confirm`
+  // opens Fire Everywhere's second step.
+  openPanel(win, { choice = "profile", confirm = false, anchor = null, triggerEvent = null } = {}) {
+    const panel = this.panel(win, { choice });
+    if (confirm) {
+      panel._whimsyFireConfirm();
+    }
+    if (anchor) {
+      lazy.WhimsySurface.open(win, panel, { anchor, position: "after_start", y: 6, triggerEvent });
+    } else {
+      lazy.WhimsySurface.open(win, panel, { at: "page-top-center", triggerEvent });
+    }
+    return panel;
   },
 };

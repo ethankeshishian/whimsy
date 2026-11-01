@@ -1746,3 +1746,27 @@ add_task(async function w10_dead_page_toast() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-30: Fire, its three choices and the Fire Everywhere step, and the
+// result toast.
+add_task(async function w10_fire() {
+  const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFireButton.sys.mjs");
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://www.example.com/?w10-fire");
+  try {
+    await w10SurfaceShot("fire-choices", "whimsyFirePanel", () => WhimsyFireButton.openPanel(window));
+    await w10SurfaceShot("fire-site", "whimsyFirePanel", () => WhimsyFireButton.openPanel(window, { choice: "site" }));
+    await w10SurfaceShot("fire-everywhere-confirm", "whimsyFirePanel",
+      () => WhimsyFireButton.openPanel(window, { choice: "everything", confirm: true }));
+    await w10ToastShot("fire-result", () => {
+      const toast = WhimsyToast.show(window, {
+        l10nId: "whimsy-fire-done-profile-title", l10nArgs: { profile: "Work" },
+        detailL10nId: "whimsy-fire-done-profile-detail", detailArgs: { count: 12, visits: 340, sites: 21 },
+        icon: "chrome://browser/skin/zen-icons/history.svg", timeout: 0,
+      });
+      return toast;
+    });
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

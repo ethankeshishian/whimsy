@@ -837,14 +837,54 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     display: none;
   }
 }
-/* wave7/fire: the note under the two rows that says exactly what the
-   chosen one clears and keeps. It wraps (the rows crop to one line) and
-   starts where the rows' icons do. */
-#whimsy-fire-summary {
-  margin: 4px calc(var(--arrowpanel-menuitem-margin-inline, 8px) + var(--arrowpanel-menuitem-padding-inline, 8px)) 8px;
-  font-size: 0.9em;
-  line-height: 1.4;
-  color: var(--whimsy-sheet-muted);
+/* W10-30: Fire, on WhimsySurface. Three choice cards (full detail, never
+   cropped), what's always kept, and a second step for Fire Everywhere in
+   the same surface, cross-faded (instant with reduced motion). */
+.whimsy-fire-step {
+  gap: 10px;
+  @media not (prefers-reduced-motion: reduce) {
+    transition: opacity 150ms ease-out;
+    @starting-style {
+      opacity: 0;
+    }
+  }
+}
+.whimsy-fire-choices {
+  gap: 2px;
+}
+.whimsy-fire-kept {
+  gap: 6px;
+  padding-inline: 4px;
+  color: var(--whimsy-surface-muted);
+  font-size: 12px;
+
+  & > p {
+    margin: 0;
+    text-wrap: pretty;
+  }
+}
+.whimsy-fire-kept-icon {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  -moz-context-properties: fill;
+  fill: var(--icon-color-success, light-dark(rgb(29, 138, 74), rgb(92, 207, 138)));
+}
+.whimsy-fire-confirm {
+  gap: 10px;
+  padding: 4px 4px 0;
+}
+.whimsy-fire-confirm-title {
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.whimsy-fire-confirm-body {
+  margin: 0;
+  font-size: 12px;
+  color: var(--whimsy-surface-muted);
+  text-wrap: pretty;
 }
 
 /* batch9: spaces — a small lock glyph on a locked space's switcher icon. */
