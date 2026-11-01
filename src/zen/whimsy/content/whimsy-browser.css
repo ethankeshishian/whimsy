@@ -4507,6 +4507,8 @@ panel.whimsy-sheet.whimsy-snooze {
   .whimsy-private-empty-mark {
     outline: 1px solid currentColor;
   }
+}
+
 /* wave10/mini W10-13: Mini's pill tabs. One page is Little Arc exactly (no
    row at all); a second page (a sign-in popup, a target=_blank link,
    Cmd+Opt+T) slides a row of pills in under the bar, in the bar's own

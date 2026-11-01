@@ -532,6 +532,8 @@
   value: true
 
 - name: whimsy.feature.view-source-wrap
+  value: true
+
 - name: whimsy.feature.mini-tabs
   value: true
 
