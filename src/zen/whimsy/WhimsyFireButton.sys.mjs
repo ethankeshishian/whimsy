@@ -45,12 +45,17 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
+  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
 const PANEL_ID = "whimsyFirePanel";
 const LAST_HOUR_MS = 60 * 60 * 1000;
+// W10-58: the "Clearing…" toast waits for the result (which replaces it);
+// the result stays long enough to read.
+const WORKING_TIMEOUT_MS = 120 * 1000;
+const DONE_TIMEOUT_MS = 6000;
 // What Everything clears, and exactly what the sheet names: history,
 // cookies, site data, cache and the download list. Bookmarks, passwords,
 // downloaded files and site permissions stay. Fire in This Profile clears SITE_FLAGS per site, and
@@ -276,14 +281,7 @@ export const WhimsyFireButton = {
     const id = this.profileId(win);
     const since = Date.now() - LAST_HOUR_MS;
     const groups = this.profileTabs(win, id);
-    const visits = await this.profileVisits(id, since);
     const sites = new Set();
-    for (const visit of visits) {
-      const site = siteOfURL(visit.url);
-      if (site) {
-        sites.add(site);
-      }
-    }
     for (const [, tabs] of groups) {
       for (const tab of tabs) {
         const site = (tab.lastAccessed || 0) >= since ? siteOf(tab) : null;
@@ -292,10 +290,19 @@ export const WhimsyFireButton = {
         }
       }
     }
-    // H2: close and forget first, then clear.
+    // H2: close and forget first, then clear. W10-58: the tabs go before
+    // the history lookup (seconds on a busy profile), so the window answers
+    // the button at once; run() says it's still clearing.
     let count = 0;
     for (const [w, tabs] of groups) {
       count += this.burnTabs(w, tabs, "profile");
+    }
+    const visits = await this.profileVisits(id, since);
+    for (const visit of visits) {
+      const site = siteOfURL(visit.url);
+      if (site) {
+        sites.add(site);
+      }
     }
     await this.purgeClosed((tab, closedAt) => (tab.userContextId || 0) == id && closedAt >= since);
     await Promise.all([...sites].map(site => this.clearSiteData(site, id)));
@@ -462,24 +469,32 @@ export const WhimsyFireButton = {
     }
   },
 
-  // Flash, run, then say what went (or that it failed).
+  // Flash, run, then say what went (or that it failed). W10-58: clearing
+  // a busy profile takes seconds (history lookup, one clear per site), so
+  // the only confirmation used to arrive long after the tabs vanished and
+  // left after Zen's two seconds; people saw none. A toast now says it's
+  // clearing right away, and the result replaces it and stays to be read
+  // (WhimsyToast: 6s, held while hovered or while the window is behind).
   async run(win, burn, doneL10nId, args = {}) {
     const root = win.document.documentElement;
     // A brief flame/burst overlay (whimsy-browser.css); reduced motion
     // skips it, and the toast confirms.
     root.setAttribute("whimsy-fire-burning", "");
     win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
+    const toast = (l10nId, l10nArgs, timeout) =>
+      lazy.WhimsyToast.show(win, { l10nId, l10nArgs, timeout });
+    toast(doneL10nId.replace("-done-", "-working-"), args, WORKING_TIMEOUT_MS);
     let result;
     try {
       result = (await burn()) || 0;
     } catch (e) {
       console.error("Whimsy: fire button", e);
-      win.gZenUIManager?.showToast?.("whimsy-fire-failed-toast");
+      toast("whimsy-fire-failed-toast", undefined, DONE_TIMEOUT_MS);
       return;
     }
     // A burn returns the tabs it closed, or { count, ...what else went }.
     const what = typeof result == "number" ? { count: result } : result;
-    win.gZenUIManager?.showToast?.(doneL10nId, { l10nArgs: { ...args, ...what } });
+    toast(doneL10nId, { ...args, ...what }, DONE_TIMEOUT_MS);
   },
 
   // The footer button: close the sheet, confirm Everything, then run.

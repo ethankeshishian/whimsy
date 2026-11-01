@@ -289,3 +289,76 @@ add_task(async function test_turn_off_from_the_tip() {
   ok(Services.prefs.getBoolPref(ENABLED_PREF), "Undo turns tips back on");
   Services.prefs.setBoolPref(ENABLED_PREF, true);
 });
+
+// W10-58: opening the command bar with the mouse (the New Tab button, or a
+// click in the address bar) is the slow way to do what ⌘T / ⌘L do. Once it
+// closes again, one hint names the shortcut; the keyboard never triggers
+// it; and it shows only once.
+async function openAndCloseCommandBar(target) {
+  if (target) {
+    target.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true, composed: true }));
+  }
+  gURLBar.focus();
+  await TestUtils.waitForCondition(() => gURLBar.focused, "the command bar has focus");
+  gURLBar.view.close();
+  gBrowser.selectedBrowser.focus();
+  await TestUtils.waitForCondition(() => !gURLBar.focused, "the command bar closed");
+}
+
+async function expectHint(id) {
+  const event = await BrowserTestUtils.waitForEvent(document, "popupshown", false, e => e.target.id == "whimsy-teach");
+  is(event.target.dataset.hint, id, `${id}: the hint shows`);
+  return event.target;
+}
+
+add_task(async function test_w10_58_command_bar_by_mouse() {
+  for (const id of ["command-bar-new-tab", "command-bar-address"]) {
+    ok(WhimsyTeach.get(id), `${id} is registered`);
+  }
+  Services.prefs.setStringPref(SEEN_PREF, "");
+  WhimsyTeach._resetSession();
+
+  // The keyboard (⌘L, ⌘T) opens it: nothing to teach.
+  await openAndCloseCommandBar(null);
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  ok(!document.getElementById("whimsy-teach"), "Opening it from the keyboard shows no hint");
+
+  // The New Tab button.
+  const button = [...document.querySelectorAll("#tabs-newtab-button, #new-tab-button")].find(b => b.checkVisibility()) ??
+    document.querySelector("#tabs-newtab-button, #new-tab-button");
+  ok(button, "there is a New Tab button");
+  let opened = expectHint("command-bar-new-tab");
+  await openAndCloseCommandBar(button);
+  let panel = await shown(await opened);
+  const text = panel.textContent;
+  const keyLabel = WhimsyTeach.keyLabel(window, WhimsyTeach.get("command-bar-new-tab"));
+  ok(keyLabel && text.includes(keyLabel), `It names the shortcut (${keyLabel})`);
+  WhimsyTeach.dismiss();
+  await hidden(panel);
+  ok(WhimsyTeach.hasSeen("command-bar-new-tab"), "and is used up");
+
+  // A click in the address bar teaches ⌘L.
+  WhimsyTeach._resetSession();
+  opened = expectHint("command-bar-address");
+  await openAndCloseCommandBar(gURLBar.inputField);
+  panel = await shown(await opened);
+  WhimsyTeach.dismiss();
+  await hidden(panel);
+
+  // Only once.
+  WhimsyTeach._resetSession();
+  await openAndCloseCommandBar(button);
+  await openAndCloseCommandBar(gURLBar.inputField);
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  ok(!document.getElementById("whimsy-teach"), "Neither hint shows a second time");
+});
+
+add_task(async function test_w10_58_pressing_the_shortcut_retires_it() {
+  Services.prefs.setStringPref(SEEN_PREF, "");
+  WhimsyTeach._resetSession();
+  WhimsyTeach.noteKey("key_newNavigatorTab");
+  WhimsyTeach.noteKey("focusURLBar");
+  ok(WhimsyTeach.hasSeen("command-bar-new-tab"), "⌘T retires the New Tab hint");
+  ok(WhimsyTeach.hasSeen("command-bar-address"), "⌘L retires the address bar hint");
+  Services.prefs.setStringPref(SEEN_PREF, "");
+});

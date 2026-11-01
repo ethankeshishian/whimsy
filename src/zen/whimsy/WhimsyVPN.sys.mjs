@@ -135,40 +135,107 @@ export const WhimsyVPN = {
     return widget.forWindow(win)?.node ?? null;
   },
 
-  // Signed out (or the VPN is switched off in Settings): open Firefox's VPN
-  // panel to sign in, connect if already authenticated, or show a notice
-  // when sign-in is needed.
+  // W10-50: Firefox's VPN panel for this window, or null while Firefox's
+  // service hasn't made it (switched off, starting, or not offered to this
+  // profile). Nothing here may be a dead control, so callers explain a null.
+  getPanel(win) {
+    try {
+      return lazy.IPProtection.getPanel(win) ?? null;
+    } catch (e) {
+      console.warn("Whimsy: failed to get the IPProtection panel", e);
+      return null;
+    }
+  },
+
+  // W10-50: opens Firefox's own VPN panel (sign-in, connect, location,
+  // usage), putting its toolbar button back first so the panel has an
+  // anchor. Returns false when there is no panel; see explain().
+  async openPanel(win) {
+    this.showButton(win);
+    const panel = this.getPanel(win);
+    if (!panel) {
+      return false;
+    }
+    await panel.open(win);
+    return true;
+  },
+
+  // W10-50: why the panel can't open yet, as a Fluent id.
+  unavailableReason() {
+    if (!this.masterEnabled) {
+      return "whimsy-vpn-off-hint";
+    }
+    return lazy.IPProtectionService.state == lazy.IPProtectionStates.UNAVAILABLE
+      ? "whimsy-vpn-unavailable-toast"
+      : "whimsy-vpn-starting-toast";
+  },
+
+  explain(win) {
+    win.gZenUIManager?.showToast?.(this.unavailableReason(), { timeout: 6000 });
+  },
+
+  // W10-50: the last failed enrollment (a Guardian AUTH_ERRORS value), so
+  // Settings can say why "Get started" didn't stick. Cleared once signed in.
+  lastEnrollError: "",
+
+  enrollErrorL10nId(error) {
+    switch (error) {
+      case "region_unavailable":
+        return "whimsy-vpn-enroll-region";
+      case "not_entitled":
+      case "unauthorized":
+        return "whimsy-vpn-enroll-account";
+      case "network_error":
+      case "server_error":
+        return "whimsy-vpn-enroll-network";
+      default:
+        return "whimsy-vpn-enroll-failed";
+    }
+  },
+
+  // Fired by whimsy-IPProtectionPanel-sys-mjs.patch: Firefox only records a
+  // failed enrollment, and its panel falls back to "Get started" silently.
+  observe(subject, topic, data) {
+    if (topic != "whimsy-ipprotection-enroll-failed") {
+      return;
+    }
+    this.lastEnrollError = data || "enrollment_failed";
+    const win = subject?.gZenUIManager ? subject : Services.wm.getMostRecentWindow("navigator:browser");
+    win?.gZenUIManager?.showToast?.(this.enrollErrorL10nId(this.lastEnrollError), { timeout: 8000 });
+    Services.obs.notifyObservers(null, "whimsy-vpn-enroll-error-changed");
+  },
+
+  _observing: false,
+  _observeEnrollment() {
+    if (this._observing) {
+      return;
+    }
+    this._observing = true;
+    Services.obs.addObserver(this, "whimsy-ipprotection-enroll-failed");
+    lazy.IPProtectionService.addEventListener("IPProtectionService:StateChanged", () => {
+      if (lazy.IPProtectionService.state == lazy.IPProtectionStates.READY && this.lastEnrollError) {
+        this.lastEnrollError = "";
+        Services.obs.notifyObservers(null, "whimsy-vpn-enroll-error-changed");
+      }
+    });
+  },
+
+  // Set Up VPN: switch Firefox's VPN on, then connect when signed in, or
+  // open Firefox's panel to sign in. W10-50: it used to fall back to
+  // opening Settings, because Firefox's service never started (see
+  // prefs/whimsy/whimsy.yaml, app.update.checkInstallTime.days); now it
+  // says why instead of sending people to a page that couldn't help either.
   async setUp(win) {
     if (!this.masterEnabled) {
       Services.prefs.setBoolPref(MASTER_PREF, true);
     }
-    const button = this.showButton(win);
     if (this.canTurnOn()) {
       return this.turnOn(win);
     }
-    try {
-      const panel = lazy.IPProtection?.getPanel?.(win);
-      if (panel) {
-        await panel.open(win);
-        return;
-      }
-    } catch (e) {
-      console.warn("Whimsy: failed to open IPProtection panel", e);
+    if (await this.openPanel(win)) {
+      return undefined;
     }
-    if (button) {
-      button.click();
-      return;
-    }
-    const state = lazy.IPProtectionService.state;
-    if (state == lazy.IPProtectionStates.UNAUTHENTICATED) {
-      win.gZenUIManager?.showToast?.("whimsy-vpn-status-signed-out");
-      return;
-    }
-    if (state == lazy.IPProtectionStates.UNAVAILABLE) {
-      win.gZenUIManager?.showToast?.("whimsy-vpn-status-unavailable");
-      return;
-    }
-    win.openPreferences("privacy");
+    return this.explain(win);
   },
 
   canSetUp() {
@@ -181,6 +248,7 @@ export const WhimsyVPN = {
     if (!this.wrapperEnabled) {
       return;
     }
+    this._observeEnrollment();
     // wave5: one command for a shortcut; the command bar names the state
     // it moves to.
     lazy.WhimsyCommands.register(win, {

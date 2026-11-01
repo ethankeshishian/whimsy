@@ -188,6 +188,58 @@ function onFirstPage(delay) {
   };
 }
 
+// W10-58: the command bar opened with the mouse (the New Tab button, or a
+// click in the address bar), then closed again: the moment ⌘T or ⌘L would
+// have saved the trip. `isOpener(win, event)` says whether a mousedown is
+// that click and returns the context ({ anchor }). The hint waits for the
+// command bar to close, since a tip never sits over an open command bar.
+const OPEN_WITHIN_MS = 1500;
+export function commandBarByMouse(isOpener) {
+  return (win, show) => {
+    const input = win.gURLBar?.inputField;
+    if (!input) {
+      return null;
+    }
+    let pending = null;
+    const onMouseDown = event => {
+      if (event.button != 0 || win.gURLBar.focused) {
+        return;
+      }
+      let context = null;
+      try {
+        context = isOpener(win, event);
+      } catch (e) {
+        console.error("Whimsy: teach command bar", e);
+      }
+      pending = context ? { context, at: Date.now(), opened: false } : null;
+    };
+    const onFocus = () => {
+      if (pending && !pending.opened && Date.now() - pending.at <= OPEN_WITHIN_MS) {
+        pending.opened = true;
+      } else {
+        pending = null;
+      }
+    };
+    const onBlur = () => {
+      if (pending?.opened) {
+        const { context } = pending;
+        pending = null;
+        show(context);
+      }
+    };
+    win.addEventListener("mousedown", onMouseDown, true);
+    input.addEventListener("focus", onFocus);
+    input.addEventListener("blur", onBlur);
+    return () => {
+      win.removeEventListener("mousedown", onMouseDown, true);
+      input.removeEventListener("focus", onFocus);
+      input.removeEventListener("blur", onBlur);
+    };
+  };
+}
+
+const NEW_TAB_BUTTONS = "#tabs-newtab-button, #new-tab-button";
+
 function glanceModifierLabel() {
   const method = Services.prefs.getStringPref("zen.glance.activation-method", "alt");
   const labels = AppConstants.platform == "macosx" ? MODIFIER_LABELS.macosx : MODIFIER_LABELS.other;
@@ -354,6 +406,38 @@ export const HINTS = [
       "click",
       (win, event) => event.button == 0 && !!event.target.closest?.("toolbarbutton")
     ),
+  },
+  // W10-58: someone opened the command bar with the mouse, the New Tab
+  // button (⌘T) ...
+  {
+    id: "command-bar-new-tab",
+    l10nId: "whimsy-teach-new-tab",
+    key: "key_newNavigatorTab",
+    delay: 600,
+    anchor: (win, { anchor }) => {
+      if (win.gURLBar?.view?.isOpen) {
+        return null;
+      }
+      return anchor?.isConnected && anchor.checkVisibility?.() ? anchor : urlbarAnchor(win);
+    },
+    trigger: commandBarByMouse((win, event) => {
+      const button = event.target.closest?.(NEW_TAB_BUTTONS);
+      return button ? { anchor: button } : null;
+    }),
+  },
+  // ... or a click in the address bar (⌘L).
+  {
+    id: "command-bar-address",
+    l10nId: "whimsy-teach-address",
+    key: "focusURLBar",
+    usedKeys: ["focusURLBar2"],
+    delay: 600,
+    anchor: win => (win.gURLBar?.view?.isOpen ? null : urlbarAnchor(win)),
+    trigger: commandBarByMouse((win, event) => {
+      const target = event.originalTarget ?? event.target;
+      const input = win.gURLBar.inputField;
+      return target == input || input.contains(target) || target.closest?.(".urlbar-input-box") ? {} : null;
+    }),
   },
 ];
 
