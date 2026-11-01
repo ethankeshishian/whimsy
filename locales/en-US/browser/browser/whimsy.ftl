@@ -2904,6 +2904,8 @@ whimsy-menus-split-pane-description = Click ⋯ on a split view pane, or open a 
 # Shared by several menus.
 whimsy-menus-inspect =
     .label = Inspect
+whimsy-menus-element-info =
+    .label = Element Info
 whimsy-menus-inspect-a11y =
     .label = Inspect Accessibility Properties
 whimsy-menus-select-all =
@@ -3726,6 +3728,11 @@ whimsy-font-inspect-element = Element Info
 
 whimsy-element-inspector-title = Element Info
 whimsy-action-inspect-element = Element Info
+# W10-45: other words people search the command bar with for Element Info.
+whimsy-keywords-inspect-element = Inspect Element, Box Model, Margin, Padding, Contrast, Measure, Element Inspector
+whimsy-context-element-info =
+    .label = Element Info
+    .accesskey = E
 whimsy-action-measure-gap = Measure Gap
 whimsy-element-open-devtools = Open in DevTools
 whimsy-element-box-model = Box Model

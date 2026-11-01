@@ -215,3 +215,51 @@ add_task(async function test_picker_overlay_styled_and_localized() {
   WhimsyInspector.stopPicker?.(window);
   BrowserTestUtils.removeTab(tab);
 });
+
+// W10-45: Element Info is in the right-click menu, beside Inspect, and opens
+// on the element that was right-clicked; the command bar finds it by other
+// words too.
+add_task(async function test_element_info_from_the_context_menu() {
+  const { WhimsyMenuPrefs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs");
+  for (const menuId of ["page", "selection", "image", "link", "media"]) {
+    ok(
+      WhimsyMenuPrefs.items(menuId).some(entry => entry.id == "element-info"),
+      `Settings → Menus lists Element Info in the ${menuId} menu`
+    );
+    ok(!WhimsyMenuPrefs.isHidden(menuId, "element-info"), `…on by default (${menuId})`);
+  }
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const action = globalActions.find(a => a.l10nId == "whimsy-action-inspect-element");
+  const keywords = action?.whimsyKeywords ?? [];
+  ok(String(keywords).toLowerCase().includes("box model"), "The command bar also finds it as Box Model");
+
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const menu = document.getElementById("contentAreaContextMenu");
+  const shown = BrowserTestUtils.waitForEvent(menu, "popupshown");
+  await BrowserTestUtils.synthesizeMouseAtCenter("#box-neighbor", { type: "contextmenu", button: 2 }, tab.linkedBrowser);
+  await shown;
+  const item = document.getElementById("context-whimsy-element-info");
+  ok(item && !item.hidden && item.getAttribute("collapsed") != "true", "Element Info is in the menu");
+  const inspect = document.getElementById("context-inspect");
+  if (inspect && !inspect.hidden) {
+    let node = inspect.nextElementSibling;
+    while (node && node != item && node.id == "context-inspect-a11y") {
+      node = node.nextElementSibling;
+    }
+    is(node, item, "right after Inspect");
+  }
+  const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
+  menu.activateItem(item);
+  await hidden;
+  const panel = await TestUtils.waitForCondition(
+    () => document.getElementById("whimsy-element-inspector-panel"),
+    "Element Info opens"
+  );
+  await TestUtils.waitForCondition(
+    () => panel.querySelector(".whimsy-element-tag")?.title == "#box-neighbor",
+    "on the element that was right-clicked"
+  );
+  const { WhimsyPanels } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs");
+  WhimsyPanels.close(panel);
+  BrowserTestUtils.removeTab(tab);
+});

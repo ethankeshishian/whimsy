@@ -222,6 +222,8 @@ const MENUS = [
       item("send-to-device", "whimsy-menus-link-send-to-device", ["context-sendlinktodevice"]),
       SEPARATOR,
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
     ],
   },
   {
@@ -255,6 +257,8 @@ const MENUS = [
       item("dev-mode", "whimsy-menus-page-dev-mode", ["context-whimsy-dev-mode"]),
       item("inspect-a11y", "whimsy-menus-inspect-a11y", ["context-inspect-a11y"]),
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
     ],
   },
   {
@@ -287,6 +291,8 @@ const MENUS = [
       SEPARATOR,
       item("view-source", "whimsy-menus-selection-view-source", ["context-viewpartialsource-selection"]),
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
       item("inspect-font", "whimsy-menus-selection-inspect-font", ["context-whimsy-inspect-font"]),
     ],
   },
@@ -314,6 +320,8 @@ const MENUS = [
       item("desktop-background", "whimsy-menus-image-desktop-background", ["context-setDesktopBackground"]),
       SEPARATOR,
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
     ],
   },
   {
@@ -340,6 +348,8 @@ const MENUS = [
       item("email", "whimsy-menus-media-email", ["context-sendvideo", "context-sendaudio"]),
       SEPARATOR,
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
     ],
   },
   {
