@@ -216,7 +216,8 @@ add_task(async function test_new_rows_are_registered_and_off_by_default() {
       entry.selectors.some(selector => selector == `#${spec.id}`)
     );
     ok(item, `${spec.id} is listed in Settings → Menus (${spec.menu})`);
-    const shown = spec.id == "context-whimsy-allow-copy";
+    // W10-56: Swap Panes is on in the pane menu (it swaps that pane).
+    const shown = spec.id == "context-whimsy-allow-copy" || spec.id == "whimsySplitPane-swapPanes";
     is(WhimsyMenuPrefs.isHidden(spec.menu, item?.id), !shown, `${spec.id} is ${shown ? "on" : "off"} by default`);
   }
   ok(!WhimsyMenuPrefs.isHidden("tab", "move-to-new-space"), "Move Tab ▸ New Space… is on by default");

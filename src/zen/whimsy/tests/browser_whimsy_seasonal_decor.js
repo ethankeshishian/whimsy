@@ -114,6 +114,11 @@ async function openFloatingBar() {
 async function closeBar() {
   await UrlbarTestUtils.promisePopupClose(window);
   gURLBar.blur();
+  // W10-27: the bar (and its trim) animate out before Zen hides them.
+  await TestUtils.waitForCondition(
+    () => gURLBar.getAttribute("zen-floating-urlbar") != "true" && !gURLBar.hasAttribute("whimsy-closing"),
+    "The command bar is hidden"
+  );
 }
 
 function trimParts() {

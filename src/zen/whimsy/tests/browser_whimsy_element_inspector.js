@@ -251,7 +251,7 @@ add_task(async function test_element_info_from_the_context_menu() {
     while (node && node != item && node.id == "context-inspect-a11y") {
       node = node.nextElementSibling;
     }
-    is(node, item, "right after Inspect");
+    is(node?.id, item.id, "right after Inspect");
   }
   const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
   menu.activateItem(item);

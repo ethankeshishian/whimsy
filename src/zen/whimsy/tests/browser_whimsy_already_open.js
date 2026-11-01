@@ -246,7 +246,15 @@ async function switchRowFor(url) {
 
 // Cmd+T, type part of the address, and return the Switch to Tab row's index.
 async function newTabBarSwitchRow(search) {
-  document.getElementById("cmd_newNavigatorTab").doCommand();
+  // Zen opens real tabs for Cmd+T in automation (zen.testing.enabled); the
+  // app opens its command bar, which is what this checks.
+  const testing = gZenUIManager.testingEnabled;
+  gZenUIManager.testingEnabled = false;
+  try {
+    document.getElementById("cmd_newNavigatorTab").doCommand();
+  } finally {
+    gZenUIManager.testingEnabled = testing;
+  }
   await TestUtils.waitForCondition(() => gURLBar.hasAttribute("zen-newtab"), "Cmd+T opened Zen's command bar");
   gURLBar.search(search);
   await UrlbarTestUtils.promiseSearchComplete(window);

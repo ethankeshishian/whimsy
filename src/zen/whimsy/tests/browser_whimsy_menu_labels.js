@@ -22,8 +22,16 @@ function whimsyRows(root) {
 
 async function checkLabels(rows, where) {
   ok(rows.length, `${where}: Whimsy rows to check`);
-  const ids = [...new Set(rows.map(el => el.getAttribute("data-l10n-id")))];
-  const messages = await document.l10n.formatMessages(ids.map(id => ({ id, args: { count: 1, tabCount: 1, name: "x" } })));
+  // Each row's own arguments (W10-20: "Email with { $app }"), over stand-ins.
+  const byId = new Map();
+  for (const el of rows) {
+    const id = el.getAttribute("data-l10n-id");
+    if (!byId.has(id)) {
+      byId.set(id, { count: 1, tabCount: 1, name: "x", ...(document.l10n.getAttributes(el).args ?? {}) });
+    }
+  }
+  const ids = [...byId.keys()];
+  const messages = await document.l10n.formatMessages(ids.map(id => ({ id, args: byId.get(id) })));
   ids.forEach((id, i) => {
     const label = messages[i]?.attributes?.find(a => a.name == "label")?.value;
     ok(label?.trim(), `${where}: ${id} has a .label ("${label ?? ""}")`);

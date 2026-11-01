@@ -70,6 +70,9 @@ const OVERLAY_SELECTOR = [
 // and sites add, move and swap their icons whenever they like: on hover,
 // after typing, when the eye toggles), at most once per this many ms.
 const REPOSITION_MS = 200;
+// What the page watch reacts to: nodes added or removed, a style or class
+// changed, something shown or hidden.
+const WATCH_OPTIONS = { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class", "hidden"] };
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const EXCLUDED_TYPES = new Set([
@@ -103,6 +106,10 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
   #input = null; // WeakRef to the field the button belongs to
   #host = null;
   #cleanup = [];
+  // W10-49: watches the page, and the shadow roots of icons the button
+  // steps around, while the button shows.
+  #observer = null;
+  #watchedRoots = new WeakSet();
 
   handleEvent(event) {
     switch (event.type) {
@@ -231,12 +238,8 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
         soon();
       }
     });
-    observer.observe(doc.documentElement, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["style", "class", "hidden"],
-    });
+    observer.observe(doc.documentElement, WATCH_OPTIONS);
+    this.#observer = observer;
     const resize = new win.ResizeObserver(soon);
     resize.observe(input);
     const settle = [150, 600, 1500].map(ms => win.setTimeout(reposition, ms));
@@ -256,6 +259,8 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
       win.removeEventListener("resize", reposition);
       doc.removeEventListener("focusout", onFocusOut, true);
       observer.disconnect();
+      this.#observer = null;
+      this.#watchedRoots = new WeakSet();
       resize.disconnect();
       win.clearTimeout(pending);
       settle.forEach(id => win.clearTimeout(id));
@@ -336,6 +341,12 @@ export class WhimsyEmailAliasesChild extends JSWindowActorChild {
     const root = el.openOrClosedShadowRoot;
     if (!root) {
       return box;
+    }
+    // An icon drawn in a shadow root moves without the page changing (the
+    // document's observer can't see into the root): watch the root too.
+    if (this.#observer && !this.#watchedRoots.has(root)) {
+      this.#watchedRoots.add(root);
+      this.#observer.observe(root, WATCH_OPTIONS);
     }
     let left = Infinity;
     let top = Infinity;

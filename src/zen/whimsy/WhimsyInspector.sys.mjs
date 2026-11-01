@@ -230,9 +230,11 @@ export const WhimsyInspector = {
         if (info.hidden) {
           return;
         }
+        // Firefox lists Inspect Accessibility Properties, then Inspect;
+        // Element Info goes right after Inspect.
         const anchor =
-          document.getElementById("context-inspect-a11y") ||
           document.getElementById("context-inspect") ||
+          document.getElementById("context-inspect-a11y") ||
           document.getElementById("context-whimsy-inspect-font");
         if (anchor && anchor.nextElementSibling != info) {
           anchor.after(info);

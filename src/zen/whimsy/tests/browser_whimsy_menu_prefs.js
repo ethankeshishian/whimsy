@@ -358,7 +358,9 @@ add_task(async function test_settings_pane() {
 
     // The nav's count.
     const count = doc.querySelector("#whimsyMenusNav-tab .whimsy-menus-nav-count");
-    await TestUtils.waitForCondition(() => /\d+\/\d+/.test(count.textContent), "The list shows how many rows show");
+    // Fluent wraps each number in bidi isolation marks.
+    const plain = el => el.textContent.replace(/[\u2068\u2069]/g, "");
+    await TestUtils.waitForCondition(() => /\d+\/\d+/.test(plain(count)), "The list shows how many rows show");
 
     // A checkbox drives the pref.
     const reload = detail.querySelector('.whimsy-menus-check[data-item="reload"]');

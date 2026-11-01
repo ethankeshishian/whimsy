@@ -149,7 +149,16 @@ add_task(async function test_one_surface() {
   ok(true, "Arrow keys switch tabs");
 
   // Navigation re-reads the page.
-  const reread = TestUtils.waitForCondition(() => panel.querySelector(".whimsy-pagedev-reading"), "Re-reading");
+  // The "Reading the page…" state can be brief: catch it as it's added.
+  const reread = new Promise(resolve => {
+    const observer = new MutationObserver(() => {
+      if (panel.querySelector(".whimsy-pagedev-reading")) {
+        observer.disconnect();
+        resolve();
+      }
+    });
+    observer.observe(panel, { childList: true, subtree: true });
+  });
   BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, PAGE + "?again");
   await reread;
   await waitOpen("colors");

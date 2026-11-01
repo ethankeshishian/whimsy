@@ -210,6 +210,22 @@ export const WhimsySurface = {
           this.close(panel);
         }
         return;
+      case "Enter": {
+        // A focused footer button takes Return, as in a macOS sheet (XUL
+        // buttons on macOS only answer Space), so the default button (the
+        // safe choice, focused first) is what Return runs.
+        if (
+          target.localName == "button" &&
+          target.namespaceURI == "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" &&
+          !target.disabled &&
+          !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          target.doCommand();
+        }
+        return;
+      }
       case "Tab": {
         if (event.ctrlKey || event.altKey || event.metaKey) {
           return;
