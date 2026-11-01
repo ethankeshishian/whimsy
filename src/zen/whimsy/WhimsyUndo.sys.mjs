@@ -30,9 +30,29 @@ const FEATURE_PREF = "whimsy.feature.undo-tab-actions";
 const undoStacks = new WeakMap();
 const redoStacks = new WeakMap();
 
+// W10-43: the Library puts the keyboard in its search field as it opens,
+// so Cmd+Z after deleting a screenshot went to that (empty) field and did
+// nothing; only the toast's Undo worked. In the Library, a field with no
+// typing of its own to undo lets Cmd+Z undo the Library action instead.
+function isIdleLibraryField(el) {
+  if (!el.closest?.("zen-library")) {
+    return false;
+  }
+  let editor = null;
+  try {
+    editor = el.editor ?? null;
+  } catch (e) {
+    // Not a text control.
+  }
+  return !editor?.canUndo;
+}
+
 function isEditableTarget(win) {
   const el = win.document.activeElement;
   if (!el) {
+    return false;
+  }
+  if ((el.localName == "input" || el.localName == "textarea") && isIdleLibraryField(el)) {
     return false;
   }
   // Focus inside a page (including a compose box, an online editor) is the

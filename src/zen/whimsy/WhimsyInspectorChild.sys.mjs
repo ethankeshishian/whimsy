@@ -7,6 +7,9 @@
 // In private browsing tabs, state is transient in-memory and never written to storage.
 
 const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  ContentDOMReference: "resource://gre/modules/ContentDOMReference.sys.mjs",
+});
 ChromeUtils.defineLazyGetter(lazy, "l10n", () =>
   new Localization(["browser/whimsy.ftl"], true)
 );
@@ -153,6 +156,9 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
         return this.stopPicker();
       case "Whimsy:InspectElementBySelector":
         return this.inspectBySelector(message.data?.selector);
+      // W10-45: Element Info from the right-click menu.
+      case "Whimsy:InspectContextTarget":
+        return this.inspectContextTarget(message.data?.target);
     }
     return null;
   }
@@ -302,6 +308,23 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
       x: Math.round(win.mozInnerScreenX + rect.left),
       y: Math.round(win.mozInnerScreenY + rect.bottom),
     };
+  }
+
+  inspectContextTarget(identifier) {
+    let el = null;
+    try {
+      el = identifier ? lazy.ContentDOMReference.resolve(identifier) : null;
+    } catch (e) {
+      return null;
+    }
+    if (el && el.nodeType != 1) {
+      el = el.parentElement;
+    }
+    // Only an element of this frame's own page.
+    if (!el || el.ownerDocument != this.document) {
+      return null;
+    }
+    return this._extractElementInfo(el);
   }
 
   inspectBySelector(selector) {

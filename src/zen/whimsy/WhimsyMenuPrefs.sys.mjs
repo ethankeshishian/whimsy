@@ -37,6 +37,17 @@ export const HIDDEN_ATTR = "whimsy-menu-pref-hidden";
 export const COLLAPSED_ATTR = "whimsy-menu-pref-collapsed";
 
 const SEPARATOR = "-";
+
+// W10-42: Firefox's container rows, off for good and not in Settings (the
+// user, W9-10 then W10-42: a space picks the container, so "Open in New
+// Container Tab" was only a setting nobody needs). Keyed by popup. In a
+// space with a container, Firefox's "Open Link in New <Container> Tab"
+// (#context-openlinkincontainertab) is the plain new-tab row (it replaces
+// "Open Link in New Tab"), so it stays, under Open Link in New Tab.
+export const ALWAYS_HIDDEN = {
+  "#tabContextMenu": ["#context_reopenInContainer"],
+  "#contentAreaContextMenu": ["#context-openlinkinusercontext-menu"],
+};
 const installed = new WeakSet();
 
 // wave9/menus: rows that start off (the user's W9-09/W9-10 answers: "most
@@ -48,9 +59,8 @@ const DEFAULTS_VERSION_PREF = "whimsy.menus.defaults-version";
 const DEFAULTS_VERSION = 1;
 export const ADDED_HIDDEN = {
   1: {
-    tab: ["tab-volume", "playlist", "copy-markdown", "reopen-in-container"],
-    essential: ["tab-volume", "playlist", "copy-markdown", "reopen-in-container"],
-    link: ["open-in-container"],
+    tab: ["tab-volume", "playlist", "copy-markdown"],
+    essential: ["tab-volume", "playlist", "copy-markdown"],
     page: ["capture-full-page", "capture-portrait", "wayback", "dev-mode"],
     selection: ["copy-url-quote"],
     space: ["reset-tabs", "show-hidden"],
@@ -145,7 +155,6 @@ const TAB_ITEMS = [
   item("move-tab", "whimsy-menus-tab-move-tab", ["context_moveTabOptions"]),
   // wave9/menus: in the Move Tab submenu, first (design-full-4 L10, W9-09).
   item("move-to-new-space", "whimsy-menus-tab-move-to-new-space", ["context_whimsyMoveToNewSpace"]),
-  item("reopen-in-container", "whimsy-menus-tab-reopen-in-container", ["context_reopenInContainer"]),
   item("select-all", "whimsy-menus-tab-select-all", ["context_selectAllTabs"]),
   SEPARATOR,
   // wave9/menus: Firefox's Share ▸ submenu (with the macOS services,
@@ -190,10 +199,10 @@ const MENUS = [
     popup: "#contentAreaContextMenu",
     when: win => contentContext(win) == "link",
     items: [
-      item("open-in-tab", "whimsy-menus-link-open-in-tab", ["context-openlinkintab", "context-openlinkincurrent"]),
-      item("open-in-container", "whimsy-menus-link-open-in-container", [
+      item("open-in-tab", "whimsy-menus-link-open-in-tab", [
+        "context-openlinkintab",
         "context-openlinkincontainertab",
-        "context-openlinkinusercontext-menu",
+        "context-openlinkincurrent",
       ]),
       item("open-in-space", "whimsy-menus-link-open-in-space", ["context-whimsyOpenLinkInSpace"]),
       item("open-in-window", "whimsy-menus-link-open-in-window", ["context-openlink"]),
@@ -213,6 +222,8 @@ const MENUS = [
       item("send-to-device", "whimsy-menus-link-send-to-device", ["context-sendlinktodevice"]),
       SEPARATOR,
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
     ],
   },
   {
@@ -246,6 +257,8 @@ const MENUS = [
       item("dev-mode", "whimsy-menus-page-dev-mode", ["context-whimsy-dev-mode"]),
       item("inspect-a11y", "whimsy-menus-inspect-a11y", ["context-inspect-a11y"]),
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
     ],
   },
   {
@@ -278,6 +291,8 @@ const MENUS = [
       SEPARATOR,
       item("view-source", "whimsy-menus-selection-view-source", ["context-viewpartialsource-selection"]),
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
       item("inspect-font", "whimsy-menus-selection-inspect-font", ["context-whimsy-inspect-font"]),
     ],
   },
@@ -287,7 +302,11 @@ const MENUS = [
     popup: "#contentAreaContextMenu",
     when: win => contentContext(win) == "image",
     items: [
-      item("open-link-in-tab", "whimsy-menus-link-open-in-tab", ["context-openlinkintab", "context-openlinkincurrent"]),
+      item("open-link-in-tab", "whimsy-menus-link-open-in-tab", [
+        "context-openlinkintab",
+        "context-openlinkincontainertab",
+        "context-openlinkincurrent",
+      ]),
       item("open-link-in-window", "whimsy-menus-link-open-in-window", ["context-openlink"]),
       item("open-link-in-private", "whimsy-menus-link-open-in-private", ["context-openlinkprivate"]),
       SEPARATOR,
@@ -301,6 +320,8 @@ const MENUS = [
       item("desktop-background", "whimsy-menus-image-desktop-background", ["context-setDesktopBackground"]),
       SEPARATOR,
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
     ],
   },
   {
@@ -327,6 +348,8 @@ const MENUS = [
       item("email", "whimsy-menus-media-email", ["context-sendvideo", "context-sendaudio"]),
       SEPARATOR,
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-45: Element Info, beside Inspect.
+      item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
     ],
   },
   {
@@ -678,6 +701,9 @@ export const WhimsyMenuPrefs = {
     if (!this.enabled) {
       return;
     }
+    if (this.hideAlways(win, popup)) {
+      this.collapseSeparators(win, popup);
+    }
     const menu = menus.find(candidate => !candidate.when || candidate.when(win));
     if (!menu) {
       return;
@@ -699,6 +725,25 @@ export const WhimsyMenuPrefs = {
     if (menu) {
       this.apply(win, popup, menu.id);
     }
+  },
+
+  // W10-42: ALWAYS_HIDDEN's rows. Returns whether one that would have
+  // shown was hidden.
+  hideAlways(win, popup) {
+    const selectors = Object.entries(ALWAYS_HIDDEN)
+      .filter(([popupSelector]) => popup.matches(popupSelector))
+      .flatMap(([, rows]) => rows);
+    let changed = false;
+    for (const node of popup.children) {
+      if (!selectors.some(selector => node.matches(selector))) {
+        continue;
+      }
+      if (this.visible(win, node)) {
+        changed = true;
+      }
+      this.hideRow(node);
+    }
+    return changed;
   },
 
   // Marks the hidden rows of `popup` and tidies its separators. Returns

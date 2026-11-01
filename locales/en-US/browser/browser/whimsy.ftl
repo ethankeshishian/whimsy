@@ -294,6 +294,9 @@ whimsy-action-disallow-copy = Stop Allowing Copy and Paste on This Site
 whimsy-allow-copy-toast = Copy, paste and right-click now work on { $site }
 # $site (string) - the site, e.g. example.com
 whimsy-disallow-copy-toast = { $site } can block copy and paste again
+# W10-41: shown when a page that blocks copying also cancels the right-click menu.
+whimsy-allow-copy-offer-toast = This site blocks right-click and copying
+whimsy-allow-copy-offer-action = Allow Copy and Paste
 
 ## Internet Archive (notification bar and command bar)
 
@@ -2901,6 +2904,8 @@ whimsy-menus-split-pane-description = Click ⋯ on a split view pane, or open a 
 # Shared by several menus.
 whimsy-menus-inspect =
     .label = Inspect
+whimsy-menus-element-info =
+    .label = Element Info
 whimsy-menus-inspect-a11y =
     .label = Inspect Accessibility Properties
 whimsy-menus-select-all =
@@ -2951,8 +2956,6 @@ whimsy-menus-tab-watch =
     .label = Watch This Page…
 whimsy-menus-tab-move-tab =
     .label = Move Tab
-whimsy-menus-tab-reopen-in-container =
-    .label = Open in New Container Tab
 whimsy-menus-tab-select-all =
     .label = Select All Tabs
 whimsy-menus-tab-share =
@@ -2983,8 +2986,6 @@ whimsy-menus-tab-follower =
 
 whimsy-menus-link-open-in-tab =
     .label = Open Link in New Tab
-whimsy-menus-link-open-in-container =
-    .label = Open Link in New Container Tab
 whimsy-menus-link-open-in-space =
     .label = Open Link in Space
 whimsy-menus-link-open-in-window =
@@ -3727,6 +3728,11 @@ whimsy-font-inspect-element = Element Info
 
 whimsy-element-inspector-title = Element Info
 whimsy-action-inspect-element = Element Info
+# W10-45: other words people search the command bar with for Element Info.
+whimsy-keywords-inspect-element = Inspect Element, Box Model, Margin, Padding, Contrast, Measure, Element Inspector
+whimsy-context-element-info =
+    .label = Element Info
+    .accesskey = E
 whimsy-action-measure-gap = Measure Gap
 whimsy-element-open-devtools = Open in DevTools
 whimsy-element-box-model = Box Model

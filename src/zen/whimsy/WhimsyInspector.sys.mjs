@@ -110,6 +110,7 @@ export const WhimsyInspector = {
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyInspectElement",
       l10nId: "whimsy-action-inspect-element",
+      whimsyKeywords: lazy.WhimsyCommands.keywords("whimsy-keywords-inspect-element"),
       run: w => this.togglePicker(w, "element"),
       icon: "chrome://browser/skin/zen-icons/developer.svg",
       isAvailable: w => this.elementInspectorEnabled,
@@ -151,6 +152,60 @@ export const WhimsyInspector = {
         }
       });
       menu.append(item);
+
+      // W10-45: the user couldn't find Element Info (only in Tools ▸ Browser
+      // Tools and the command bar). Right-click any element → Element Info,
+      // beside Firefox's Inspect, opens it on that element. Settings → Menus
+      // can turn it off.
+      const info = document.createXULElement("menuitem");
+      info.id = "context-whimsy-element-info";
+      info.hidden = true;
+      document.l10n.setAttributes(info, "whimsy-context-element-info");
+      info.addEventListener("command", () => this.inspectContextElement(win));
+      menu.addEventListener("popupshowing", event => {
+        if (event.target != menu) {
+          return;
+        }
+        const context = win.gContextMenu;
+        info.hidden =
+          !this.elementInspectorEnabled ||
+          !context ||
+          !!context.onTextInput ||
+          !this.actorFor(context.browser);
+        if (info.hidden) {
+          return;
+        }
+        const anchor =
+          document.getElementById("context-inspect-a11y") ||
+          document.getElementById("context-inspect") ||
+          document.getElementById("context-whimsy-inspect-font");
+        if (anchor && anchor.nextElementSibling != info) {
+          anchor.after(info);
+        }
+      });
+      menu.append(info);
+    }
+  },
+
+  // W10-45: Element Info on the element that was right-clicked (in its own
+  // frame); the picker when it can't be found.
+  async inspectContextElement(win) {
+    if (!this.elementInspectorEnabled) {
+      return;
+    }
+    const context = win.gContextMenu;
+    const frame = context?.frameBrowsingContext ?? context?.browser?.browsingContext;
+    let data = null;
+    try {
+      const actor = frame?.currentWindowGlobal?.getActor("WhimsyInspector");
+      data = await actor?.sendQuery("Whimsy:InspectContextTarget", { target: context.targetIdentifier });
+    } catch (e) {
+      // A page the inspector can't run in, or one going away.
+    }
+    if (data) {
+      this.showElementPopover(win, data);
+    } else {
+      this.startPicker(win, "element");
     }
   },
 

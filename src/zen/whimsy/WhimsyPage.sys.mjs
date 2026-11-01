@@ -22,6 +22,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
+  saveCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
 });
 
 const CAPTURE_FEATURE_PREF = "whimsy.feature.capture";
@@ -286,6 +288,8 @@ export const WhimsyPage = {
     const blob = await canvas.convertToBlob();
     BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
     win.gZenUIManager?.showToast?.("whimsy-capture-copied-toast");
+    // W10-43: also into Library → Screenshots, like every other capture.
+    await lazy.saveCapture(blob, browser);
     const ratio = rect.devicePixelRatio || 1;
     return { width: canvas.width / ratio, height: canvas.height / ratio };
   },
@@ -341,6 +345,8 @@ export const WhimsyPage = {
     const blob = await canvas.convertToBlob();
     BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
     win.gZenUIManager?.showToast?.("whimsy-capture-copied-toast");
+    // W10-43: also into Library → Screenshots.
+    await lazy.saveCapture(blob, browser);
     const ratio = rect.devicePixelRatio || 1;
     return { width: canvas.width / ratio, height: canvas.height / ratio, layoutWidth: rect.layoutWidth };
   },
@@ -494,6 +500,34 @@ export const WhimsyPage = {
         ) {
           lazy.WhimsyMedia.sendToFrames(browser, "Whimsy:AllowCopy", { on: true });
         }
+      },
+    });
+  },
+
+  // W10-41: a page that blocks copying also cancelled the right-click, so
+  // the page menu's Allow Copy and Paste row can't be reached. A toast in
+  // the top-right corner offers it instead (once per page; only for the
+  // tab in front, and never when it's already allowed).
+  offerAllowCopy(win, browser) {
+    if (
+      !this.allowCopyEnabled ||
+      !browser ||
+      win.gBrowser?.selectedBrowser != browser ||
+      !lazy.WhimsyMedia.siteFor(browser) ||
+      this.copyAllowed(browser)
+    ) {
+      return null;
+    }
+    return lazy.WhimsyToast.show(win, {
+      l10nId: "whimsy-allow-copy-offer-toast",
+      action: {
+        id: "whimsy-allow-copy-offer-action",
+        l10nId: "whimsy-allow-copy-offer-action",
+        onCommand: () => {
+          if (!this.copyAllowed(browser)) {
+            this.toggleAllowCopy(win, browser);
+          }
+        },
       },
     });
   },

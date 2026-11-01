@@ -220,9 +220,12 @@ add_task(async function test_new_rows_are_registered_and_off_by_default() {
   }
   ok(!WhimsyMenuPrefs.isHidden("tab", "move-to-new-space"), "Move Tab ▸ New Space… is on by default");
   ok(!WhimsyMenuPrefs.isHidden("tab", "share"), "Share ▸ is on by default");
-  // W9-10: containers are picked through spaces.
-  ok(WhimsyMenuPrefs.isHidden("link", "open-in-container"), "Open Link in New Container Tab is off by default");
-  ok(WhimsyMenuPrefs.isHidden("tab", "reopen-in-container"), "Reopen in Container is off by default");
+  // W9-10, W10-42: containers are picked through spaces; their rows are off
+  // for good and not listed in Settings.
+  const { ALWAYS_HIDDEN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs");
+  ok(ALWAYS_HIDDEN["#contentAreaContextMenu"].includes("#context-openlinkinusercontext-menu"), "Open Link in New Container Tab ▸ is always off");
+  ok(ALWAYS_HIDDEN["#tabContextMenu"].includes("#context_reopenInContainer"), "Open in New Container Tab is always off");
+  ok(!WhimsyMenuPrefs.items("link").some(entry => entry.id == "open-in-container"), "…and not a setting");
   ok(!WhimsyMenuPrefs.isHidden("link", "open-in-space"), "Open Link in Space stays on");
   ok(WhimsyMenuPrefs.isDefault("page"), "That is the default, not a user setting");
 });
@@ -341,8 +344,8 @@ add_task(async function test_container_rows_start_off() {
   const first = gZenWorkspaces.getWorkspaces().find(w => w.uuid == gZenWorkspaces.activeWorkspace);
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PLAIN_PAGE);
   const menu = await openContentMenu(tab.linkedBrowser, "#l");
-  const container = document.getElementById("context-openlinkincontainertab");
-  ok(!shows(container), "Open Link in New Container Tab is off");
+  const container = document.getElementById("context-openlinkinusercontext-menu");
+  ok(!shows(container), "Open Link in New Container Tab ▸ is off");
   const inSpace = document.getElementById("context-whimsyOpenLinkInSpace");
   ok(shows(inSpace), "Open Link in Space shows");
   const subShown = BrowserTestUtils.waitForEvent(inSpace.menupopup, "popupshown");

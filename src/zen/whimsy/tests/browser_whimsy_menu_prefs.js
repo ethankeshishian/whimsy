@@ -9,7 +9,7 @@
 // Restore Defaults brings everything back, a menu with every item off
 // doesn't open, and Settings search finds the pane.
 
-const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR, ADDED_HIDDEN } = ChromeUtils.importESModule(
+const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR, ADDED_HIDDEN, ALWAYS_HIDDEN } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs"
 );
 
@@ -58,6 +58,12 @@ function onlyDefaultsMarked(menu, menuId, what) {
   const defaults = WhimsyMenuPrefs.items(menuId)
     .filter(item => WhimsyMenuPrefs.defaultHiddenIds(menuId).has(item.id))
     .flatMap(item => item.selectors);
+  // W10-42: Firefox's container rows are always off.
+  for (const [popup, rows] of Object.entries(ALWAYS_HIDDEN)) {
+    if (menu.matches(popup)) {
+      defaults.push(...rows);
+    }
+  }
   const others = [...menu.querySelectorAll(`:scope > [${HIDDEN_ATTR}]`)].filter(
     node => node.localName != "menuseparator" && !defaults.some(selector => node.matches(selector))
   );

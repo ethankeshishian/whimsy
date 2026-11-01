@@ -7,9 +7,16 @@
 // address plays on the receiver through the native nsIWhimsyAirPlay
 // (src/zen/whimsy/airplay: an AVPlayer plus AVKit's route picker, the same
 // AirPlay menu as Safari's). The page's video pauses while the TV plays and
-// picks up where the TV left off when casting stops. Media Source videos
-// (blob: addresses: YouTube, Netflix...) can't be sent on their own; for
-// those the toast points to Screen Mirroring in Displays settings.
+// picks up where the TV left off when casting stops.
+//
+// W10-44: "can't be sent on its own" came up on most video sites. Their
+// players use Media Source (blob: addresses), and often sit in an iframe
+// (embedded players), which Cast never looked in. Now every frame of the
+// tab is asked, and a Media Source player that streams HLS is cast by its
+// .m3u8 playlist, which AVPlayer and the Apple TV play natively
+// (WhimsyPageChild.castSource). DASH players (YouTube) and DRM have no
+// address an Apple TV can load: the toast still points to Screen Mirroring,
+// as does a stream the receiver then fails to play.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -121,11 +128,45 @@ export const WhimsyCast = {
     }
   },
 
-  // Pauses or seeks the page's video; a page that's gone is left alone.
-  control(browser, data) {
-    this.actor(browser)
-      ?.sendQuery("Whimsy:CastControl", data)
-      .catch(() => {});
+  // Pauses or seeks the cast video, in the frame it came from; a page
+  // that's gone is left alone.
+  control(session, data) {
+    let actor = null;
+    try {
+      actor = session.context?.currentWindowGlobal?.getActor("WhimsyPage") ?? this.actor(session.browser);
+    } catch (e) {
+      // The frame is going away.
+    }
+    actor?.sendQuery("Whimsy:CastControl", data).catch(() => {});
+  },
+
+  // The video to cast: asks every frame of the tab (players are often
+  // embedded) and takes a playing one first, then one that can be sent,
+  // then the largest. Resolves to its source plus the frame
+  // (BrowsingContext) it is in, or null.
+  async findSource(browser) {
+    let contexts = [];
+    try {
+      contexts = browser.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
+    } catch (e) {
+      return null;
+    }
+    const found = await Promise.all(
+      contexts.map(async context => {
+        try {
+          const source = await context.currentWindowGlobal?.getActor("WhimsyPage").sendQuery("Whimsy:CastSource");
+          return source ? { ...source, context } : null;
+        } catch (e) {
+          // A frame without the actor, or one going away.
+          return null;
+        }
+      })
+    );
+    const sources = found.filter(Boolean);
+    sources.sort(
+      (a, b) => Number(a.paused) - Number(b.paused) || Number(b.direct) - Number(a.direct) || (b.area || 0) - (a.area || 0)
+    );
+    return sources[0] ?? null;
   },
 
   // Where the AirPlay menu opens: the top right of the page, in screen
@@ -152,7 +193,7 @@ export const WhimsyCast = {
     const browser = win.gBrowser.selectedBrowser;
     let source = null;
     try {
-      source = await this.actor(browser)?.sendQuery("Whimsy:CastSource");
+      source = await this.findSource(browser);
     } catch (e) {
       console.error("Whimsy: cast", e);
     }
@@ -169,7 +210,7 @@ export const WhimsyCast = {
     }
     this.stop();
     const tab = win.gBrowser.getTabForBrowser(browser);
-    const session = { win, browser, tab, connected: false, onClose: null };
+    const session = { win, browser, tab, context: source.context, live: !!source.live, connected: false, onClose: null };
     session.onClose = () => this.session == session && this.stop();
     tab?.addEventListener("TabClose", session.onClose, { once: true });
     this.session = session;
@@ -193,7 +234,7 @@ export const WhimsyCast = {
     switch (state) {
       case "connected":
         session.connected = true;
-        this.control(browser, { action: "pause" });
+        this.control(session, { action: "pause" });
         this.toast(win, "whimsy-cast-connected-toast", {
           l10nId: "whimsy-cast-stop-button",
           run: () => this.stop(),
@@ -205,11 +246,16 @@ export const WhimsyCast = {
       case "cancelled": {
         const wasConnected = session.connected;
         this.end(session);
-        if (wasConnected && Number.isFinite(time) && browser.isConnected) {
-          this.control(browser, { action: "seek", time });
+        if (wasConnected && Number.isFinite(time) && browser.isConnected && !session.live) {
+          this.control(session, { action: "seek", time });
         }
         if (state == "failed") {
-          this.toast(win, "whimsy-cast-failed-toast");
+          // W10-44: a stream the receiver can't load (a playlist behind a
+          // sign-in, say) can still be mirrored.
+          this.toast(win, "whimsy-cast-failed-toast", {
+            l10nId: "whimsy-cast-mirror-button",
+            run: () => this.openMirroring(),
+          });
         } else if (wasConnected) {
           this.toast(win, "whimsy-cast-stopped-toast");
         }

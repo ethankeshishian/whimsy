@@ -118,6 +118,7 @@ const ICONS = {
   "context-viewsource": ZEN("brackets-curly"),
   "context-viewpartialsource-selection": ZEN("brackets-curly"),
   "context-inspect": ZEN("developer"),
+  "context-whimsy-element-info": ZEN("developer"),
   "context-inspect-a11y": ZEN("developer"),
   "context-whimsy-inspect-font": ZEN("signature"),
   "context-sendpagetodevice": ZEN("send-to-device"),
@@ -126,7 +127,8 @@ const ICONS = {
 
   // --- Link ---
   "context-openlinkincurrent": ZEN("open"),
-  "context-openlinkincontainertab": ZEN("container-tab"),
+  // W10-42: in a space's container this row is "Open Link in New Tab".
+  "context-openlinkincontainertab": ZEN("plus"),
   "context-openlinkintab": ZEN("plus"),
   "context-zenOpenLinkInGlance": SELECTABLE("eye"),
   "context-zenSplitLink": ZEN("split"),

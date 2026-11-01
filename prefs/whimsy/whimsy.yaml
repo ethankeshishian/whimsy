@@ -550,16 +550,17 @@
 # hides, as item ids (WhimsyMenuPrefs.sys.mjs), comma-separated, in the
 # menu's order. Empty: every row shows. wave9/menus: the rows W9-09 added
 # start off (the user: "most of what I suggested should not be on by
-# default"), and so do Firefox's container rows (W9-10: a space picks the
-# container); WhimsyMenuPrefs.ADDED_HIDDEN lists the same ids.
+# default"); WhimsyMenuPrefs.ADDED_HIDDEN lists the same ids. Firefox's
+# container rows are off for good and not listed (W10-42,
+# WhimsyMenuPrefs.ALWAYS_HIDDEN).
 - name: whimsy.menus.hidden.tab
-  value: "tab-volume,playlist,copy-markdown,reopen-in-container"
+  value: "tab-volume,playlist,copy-markdown"
 
 - name: whimsy.menus.hidden.essential
-  value: "tab-volume,playlist,copy-markdown,reopen-in-container"
+  value: "tab-volume,playlist,copy-markdown"
 
 - name: whimsy.menus.hidden.link
-  value: "open-in-container"
+  value: ""
 
 - name: whimsy.menus.hidden.page
   value: "capture-full-page,capture-portrait,wayback,dev-mode"

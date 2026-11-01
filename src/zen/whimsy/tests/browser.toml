@@ -10,6 +10,10 @@ support-files = ["whimsy_slow_load.sjs"]
 ["browser_whimsy_allow_copy.js"]
 support-files = ["whimsy_no_copy.html"]
 
+# W10-41: copy-protected pages: the blocked right-click offers Allow, copy keys, Copy URL reserved.
+["browser_whimsy_allow_copy_keys.js"]
+support-files = ["whimsy_no_copy_keys.html"]
+
 ["browser_whimsy_app_icon.js"]
 
 ["browser_whimsy_cookie_banners.js"]
@@ -163,6 +167,9 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_library_finder_folders.js"]
 
 ["browser_whimsy_library_files.js"]
+
+# W10-43: Cmd+Shift+1 and portrait captures reach the Library; Cmd+Z undoes a Library delete.
+["browser_whimsy_library_capture_undo.js"]
 # batch12: links & media windows
 ["browser_whimsy_quick_window.js"]
 
@@ -211,7 +218,7 @@ support-files = ["whimsy_slow_download.sjs"]
 ["browser_whimsy_url_schemes.js"]
 
 ["browser_whimsy_upload_clipboard.js"]
-support-files = ["whimsy_upload.html", "whimsy_upload_widgets.html"]
+support-files = ["whimsy_upload.html", "whimsy_upload_widgets.html", "whimsy_upload_dropzone.html"]
 
 # Paste-to-upload regression on a plain <input type=file> form (real clipboard).
 ["browser_whimsy_upload_paste_form.js"]
@@ -583,7 +590,7 @@ support-files = ["whimsy_video_captions.html", "whimsy_captions_es.vtt", "whimsy
 
 # wave7/small: Cast to AirPlay (native player stubbed).
 ["browser_whimsy_cast.js"]
-support-files = ["whimsy_cast.html", "whimsy_audio.ogg"]
+support-files = ["whimsy_cast.html", "whimsy_audio.ogg", "whimsy_cast_hls.html", "whimsy_cast_stream.m3u8"]
 
 # wave7/small: Create Email Alias in the command bar.
 ["browser_whimsy_email_alias_command.js"]

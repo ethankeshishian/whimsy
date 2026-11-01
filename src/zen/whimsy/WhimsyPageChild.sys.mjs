@@ -5,10 +5,13 @@
 // The content side of Whimsy's page tools (one actor per frame, created on
 // first use). WhimsyPageParent sends the requests.
 
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PictureInPictureChild: "moz-src:///toolkit/actors/PictureInPictureChild.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 // Per-tab volume: each media element keeps the volume the page set
@@ -19,6 +22,21 @@ const MEDIA = new WeakMap();
 // Allow copy and paste: the page events Whimsy keeps from the page, and the
 // sheet that undoes user-select: none.
 const COPY_EVENTS = ["copy", "cut", "paste", "contextmenu", "selectstart", "dragstart"];
+// W10-41: copy-protection plugins (WP Content Copy Protection on
+// ratzillacosme.com) also cancel the copy keys themselves: a keydown
+// handler on the document returns false for Cmd+C/X/V/A, which kept
+// Cmd+C from copying even with Allow Copy on, and Cmd+Shift+C (Copy URL)
+// too. Only these keys are kept from the page; its other shortcuts work.
+const COPY_KEY_EVENTS = ["keydown", "keypress", "keyup"];
+const COPY_KEY_CODES = new Set(["KeyA", "KeyC", "KeyV", "KeyX"]);
+export function isCopyKey(event) {
+  const accel = AppConstants.platform == "macosx" ? event.metaKey : event.ctrlKey;
+  if (accel && COPY_KEY_CODES.has(event.code)) {
+    return true;
+  }
+  // Ctrl+Insert / Shift+Insert (copy / paste outside macOS).
+  return event.code == "Insert" && (event.ctrlKey || event.shiftKey);
+}
 const COPY_SHEET =
   "data:text/css," +
   encodeURIComponent("*, *::before, *::after { user-select: text !important; -webkit-user-select: text !important; }");
@@ -98,6 +116,28 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // A page torn down mid-event.
     }
     this.sendAsyncMessage("Whimsy:CopyBlocked", { blocked });
+    // W10-41: the same pages usually cancel this right-click too (the
+    // "Right click on text is disabled" kind), so Firefox's menu, and its
+    // Allow Copy and Paste row, never opens. Once the event is done, if
+    // the page cancelled it, the parent offers Allow Copy and Paste in a
+    // toast instead (once per page).
+    if (blocked && event.isTrusted && !this.menuBlockOffered) {
+      lazy.setTimeout(() => {
+        try {
+          if (
+            event.defaultPrevented &&
+            !this.copyGuard &&
+            !this.menuBlockOffered &&
+            Services.prefs.getBoolPref("dom.event.contextmenu.enabled", true)
+          ) {
+            this.menuBlockOffered = true;
+            this.sendAsyncMessage("Whimsy:ContextMenuBlocked");
+          }
+        } catch (e) {
+          // The page went away.
+        }
+      }, 0);
+    }
   }
 
   pageBlocksCopy(target) {
@@ -478,14 +518,57 @@ export class WhimsyPageChild extends JSWindowActorChild {
     return videos[0] ?? null;
   }
 
+  // W10-44: what Cast to AirPlay can send. A plain file goes as it is. A
+  // Media Source video (blob:, what most streaming players use) can't, but
+  // when the player is streaming HLS (hls.js, video.js, JW Player, Twitch,
+  // most video sites outside YouTube) the stream's own .m3u8 playlist plays
+  // natively in AVPlayer, which hands it to the Apple TV. The playlist is
+  // the video's HLS <source>, else the first one this page fetched (the
+  // main playlist comes before its variants). DASH (YouTube) has no such
+  // address; that stays Screen Mirroring.
   castSource() {
     const el = this.castVideo();
     if (!el) {
       return null;
     }
     const src = el.currentSrc || el.src || "";
-    const direct = !el.srcObject && /^https?:/i.test(src);
-    return { src: direct ? src : "", direct, time: el.currentTime || 0, paused: el.paused };
+    const time = el.currentTime || 0;
+    const base = { paused: el.paused, area: this.area(el) };
+    if (!el.srcObject && /^https?:/i.test(src)) {
+      return { ...base, src, direct: true, kind: "file", time };
+    }
+    const hls = el.srcObject ? null : this.hlsPlaylist(el);
+    if (hls) {
+      // A live stream's position means nothing to AVPlayer: start live.
+      const live = !Number.isFinite(el.duration);
+      return { ...base, src: hls, direct: true, kind: "hls", live, time: live ? 0 : time };
+    }
+    return { ...base, src: "", direct: false, kind: "stream", time };
+  }
+
+  hlsPlaylist(el) {
+    const isPlaylist = url => {
+      try {
+        const u = new URL(url);
+        return (u.protocol == "https:" || u.protocol == "http:") && /\.m3u8$/i.test(u.pathname);
+      } catch (e) {
+        return false;
+      }
+    };
+    for (const source of el.querySelectorAll("source")) {
+      if (source.src && (/mpegurl/i.test(source.type) || isPlaylist(source.src)) && /^https?:/i.test(source.src)) {
+        return source.src;
+      }
+    }
+    let entries = [];
+    try {
+      entries = this.contentWindow.performance.getEntriesByType("resource");
+    } catch (e) {
+      return null;
+    }
+    const playlists = entries.filter(entry => isPlaylist(entry.name));
+    playlists.sort((a, b) => a.startTime - b.startTime);
+    return playlists[0]?.name ?? null;
   }
 
   castControl({ action, time }) {
@@ -597,15 +680,27 @@ export class WhimsyPageChild extends JSWindowActorChild {
     }
     if (on && !this.copyGuard) {
       this.copyGuard = event => event.stopImmediatePropagation();
+      this.copyKeyGuard = event => {
+        if (isCopyKey(event)) {
+          event.stopImmediatePropagation();
+        }
+      };
       for (const type of COPY_EVENTS) {
         win.addEventListener(type, this.copyGuard, true);
+      }
+      for (const type of COPY_KEY_EVENTS) {
+        win.addEventListener(type, this.copyKeyGuard, true);
       }
       win.windowUtils.loadSheetUsingURIString(COPY_SHEET, win.windowUtils.USER_SHEET);
     } else if (!on && this.copyGuard) {
       for (const type of COPY_EVENTS) {
         win.removeEventListener(type, this.copyGuard, true);
       }
+      for (const type of COPY_KEY_EVENTS) {
+        win.removeEventListener(type, this.copyKeyGuard, true);
+      }
       this.copyGuard = null;
+      this.copyKeyGuard = null;
       win.windowUtils.removeSheetUsingURIString(COPY_SHEET, win.windowUtils.USER_SHEET);
     }
     return !!this.copyGuard;

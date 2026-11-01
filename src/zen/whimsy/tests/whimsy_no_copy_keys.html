@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>No copy keys</title>
+<!-- W10-41: modelled on WP Content Copy Protection (ratzillacosme.com):
+     selectstart handler property, the right-click cancelled on text, and
+     a document keydown/keyup handler that cancels every Cmd/Ctrl key. -->
+<style>body { user-select: none; -webkit-user-select: none; }</style>
+<p id="p" style="padding: 30px">Protected words to copy</p>
+<script>
+  window.blockedKeys = 0;
+  document.onselectstart = () => false;
+  document.addEventListener("contextmenu", e => e.preventDefault());
+  function noHotKeys(e) {
+    if (e.ctrlKey || e.metaKey) {
+      window.blockedKeys++;
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+  document.addEventListener("keydown", noHotKeys);
+  document.addEventListener("keyup", noHotKeys);
+</script>
