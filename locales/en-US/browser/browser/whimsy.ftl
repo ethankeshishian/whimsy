@@ -2672,12 +2672,22 @@ whimsy-menu-view-boosts =
 whimsy-game-hint-embedded = Arrows, WASD or pointer to steer · Space or click to dash · Esc goes back to the error page
 
 ## fix7: Mini Whimsy space dropdown (caret, Cmd+Shift+O)
-whimsy-quick-window-picker-caption =
-    .label =
-        { $count ->
-            [one] Open in
-           *[other] Open { $count } Tabs in
-        }
+# W10-29: ⌘⇧O turns Mini's address strip into a search field over its
+# spaces (a flat list; each row names its profile when there are several).
+whimsy-mini-picker-search =
+    .placeholder = Search spaces and profiles
+    .aria-label = Search spaces and profiles
+whimsy-mini-picker-search-spaces =
+    .placeholder = Search spaces
+    .aria-label = Search spaces
+whimsy-mini-picker-list =
+    .aria-label = Spaces
+whimsy-mini-picker-empty = No space or profile matches “{ $query }”.
+whimsy-mini-picker-status =
+    { $count ->
+        [one] 1 space
+       *[other] { $count } spaces
+    }
 
 # fix7/tabs: People card actions.
 whimsy-person-open = Open Profile

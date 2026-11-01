@@ -1868,3 +1868,46 @@ add_task(async function w10_quick_note() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-29: Mini's ⌘⇧O: the address strip as the search field, the flat
+// list under it (profile labels trailing), and a typed filter; light and dark.
+add_task(async function w10_mini_space_search() {
+  const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs");
+  const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
+  const { ContextualIdentityService } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
+  );
+  const work = WhimsyProfiles.create("Screens Search Work");
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Quarterly Plans", undefined, true, work);
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+      try {
+        await WhimsyQuickWindow.whenReady(win);
+        await SimpleTest.promiseFocus(win);
+        const doc = win.document;
+        doc.getElementById("whimsy-quick-window-choose-space").doCommand();
+        const panel = await TestUtils.waitForCondition(() => {
+          const p = doc.getElementById("whimsy-quick-window-space-picker");
+          return p?.state == "open" && p;
+        }, "The list drops down");
+        await doc.l10n.translateFragment(doc.documentElement);
+        await settled(doc);
+        await shot(`w10-mini-space-search-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
+        const input = doc.getElementById("whimsy-mini-picker-search");
+        input.value = "quar";
+        input.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
+        await settled(doc);
+        await shot(`w10-mini-space-search-typed-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
+        panel.hidePopup();
+      } finally {
+        await BrowserTestUtils.closeWindow(win);
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+    ContextualIdentityService.remove(work);
+  }
+});

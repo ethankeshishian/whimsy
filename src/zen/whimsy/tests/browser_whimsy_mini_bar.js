@@ -87,36 +87,44 @@ add_task(async function test_open_in_highlight_covers_the_keycap() {
   }
 });
 
+// W10-29: the space list drops from the address strip, which turns into
+// its search field; drawn in Mini's frame colour, never a system menu.
 add_task(async function test_space_dropdown_is_arcs_popover() {
   const win = await openMini();
   try {
     const doc = win.document;
     const picker = () => doc.getElementById("whimsy-quick-window-space-picker");
     doc.getElementById("whimsy-quick-window-choose-space").doCommand();
-    await TestUtils.waitForCondition(() => picker()?.state == "open", "The dropdown opens");
+    await TestUtils.waitForCondition(() => picker()?.state == "open", "The list opens");
     const popup = picker();
-    is(win.getComputedStyle(popup).appearance, "none", "Not drawn as the system menu (W8-22)");
-    const content = popup.shadowRoot?.querySelector("[part~='content']");
-    ok(content, "The popover surface exists");
-    const style = win.getComputedStyle(content);
-    is(style.backgroundColor, tokenColor(win, "--whimsy-mini-frame"), "On Mini's own frame colour");
-    is(style.borderTopLeftRadius, "10px", "Rounded like Arc's popover");
+    is(popup.localName, "panel", "A Whimsy panel, not a system menu (W8-22)");
+    const field = doc.getElementById("whimsy-quick-window-address-field");
+    ok(field.hasAttribute("searching"), "The address strip is the search field now");
+    const input = doc.getElementById("whimsy-mini-picker-search");
+    is(doc.activeElement, input, "with the keyboard in it");
+    ok(!doc.getElementById("whimsy-quick-window-address").checkVisibility(), "The address gives way to it");
 
-    // Keyboard still drives it: Down highlights a row in the bar's hover fill.
+    // Keyboard drives it: Down highlights the next row in the bar's hover fill.
+    const rows = [...popup.querySelectorAll(".whimsy-mini-picker-space")];
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);
-    await TestUtils.waitForCondition(() => popup.querySelector(".whimsy-mini-picker-space[_moz-menuactive]"),
-      "Arrow keys move through the spaces");
-    const active = popup.querySelector(".whimsy-mini-picker-space[_moz-menuactive]");
+    const active = popup.querySelector('.whimsy-mini-picker-space[aria-selected="true"]');
+    ok(active, "Arrow keys move through the spaces");
+    if (rows.length > 1) {
+      is(active, rows[1], "Down moves to the next space");
+    }
     const fill = tokenColor(win, "--whimsy-mini-fill-hover");
     await TestUtils.waitForCondition(() => win.getComputedStyle(active).backgroundColor == fill,
       "The highlighted row uses Mini's hover fill, not the system highlight");
-    is(win.getComputedStyle(active).borderTopLeftRadius, "6px", "Rows are rounded inside the popover");
+    is(win.getComputedStyle(active).borderTopLeftRadius, "6px", "Rows are rounded inside the list");
 
     const hidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
     EventUtils.synthesizeKey("KEY_Escape", {}, win);
     await hidden;
-    ok(!win.closed, "Esc closes the dropdown, not Mini");
+    ok(!win.closed, "Esc closes the list, not Mini");
+    ok(!field.hasAttribute("searching"), "and puts the address back");
+    ok(doc.getElementById("whimsy-quick-window-address").checkVisibility(), "The address shows again");
   } finally {
     await BrowserTestUtils.closeWindow(win);
   }
 });
+

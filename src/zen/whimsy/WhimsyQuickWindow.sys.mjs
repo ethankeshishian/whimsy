@@ -72,6 +72,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   CustomizableUI: "resource:///modules/CustomizableUI.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
@@ -104,6 +105,9 @@ const ADDRESS_ID = "whimsy-quick-window-address";
 const COPY_BUTTON_ID = "whimsy-quick-window-copy-link";
 const ADDRESS_FIELD_ID = "whimsy-quick-window-address-field";
 const SPACE_PICKER_ID = "whimsy-quick-window-space-picker";
+// W10-29: the address strip's search field and the list under it.
+const SPACE_SEARCH_ID = "whimsy-mini-picker-search";
+const SPACE_LIST_ID = "whimsy-mini-picker-list";
 const OPEN_GROUP_ID = "whimsy-quick-window-open";
 const MOVE_BUTTON_ID = "whimsy-quick-window-move-to-space";
 const CHOOSE_BUTTON_ID = "whimsy-quick-window-choose-space";
@@ -1949,71 +1953,242 @@ export const WhimsyQuickWindow = {
     }
   },
 
-  // fix7: Little Arc's space dropdown, from the caret or Cmd+Shift+O: a
-  // Zen-style menu headed "Open in", one row per space with its icon on a
-  // tile of the space's own colour (a colour dot when it has no icon). The
-  // space Cmd+O uses shows that shortcut. Choosing a row calls moveToSpace.
-  // Anchored under the split button, end-aligned, as Arc's drops from its
-  // right edge; Zen's menu motion and reduced-motion handling apply.
+  // W10-29 (Arc parity, the user's pick): ⌘⇧O, or the caret, turns Mini's
+  // address strip itself into a search field, and the spaces drop down under
+  // it: one flat list in sidebar order (not grouped by profile), each with
+  // its icon on a tile of its colour, its name, and its profile as a small
+  // trailing label; ⌘O marks the space Open uses. Typing filters by space
+  // or profile name (accents and case don't matter) and bolds the match;
+  // ↑/↓/Home/End move the highlight, Return opens the page in the
+  // highlighted space (moveToSpace, with its profile confirm), Esc puts the
+  // address back. The list is drawn in Mini's own frame colour, never a
+  // system menu.
   openSpacePicker(win, anchor) {
     const { document } = win;
     const spaces = this.spaces(win);
-    if (!spaces.length) {
+    const field = document.getElementById(ADDRESS_FIELD_ID);
+    if (!spaces.length || !field) {
       return;
     }
-    let popup = document.getElementById(SPACE_PICKER_ID);
-    if (!popup) {
-      popup = document.createXULElement("menupopup");
-      popup.id = SPACE_PICKER_ID;
-      // wave9/mini W8-22: drawn as Arc's popover, never the system menu.
-      popup.setAttribute("nonnative", "true");
-      popup.addEventListener("command", event => {
-        const spaceId = event.target.getAttribute("zen-workspace-id");
-        if (spaceId) {
-          this.moveToSpace(win, spaceId);
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    let panel = document.getElementById(SPACE_PICKER_ID);
+    if (panel?.state == "open" || panel?.state == "showing") {
+      document.getElementById(SPACE_SEARCH_ID)?.focus();
+      return;
+    }
+    const restoreFocus = document.activeElement;
+    // The address strip becomes the search field.
+    let input = document.getElementById(SPACE_SEARCH_ID);
+    if (!input) {
+      input = html("input");
+      input.id = SPACE_SEARCH_ID;
+      input.type = "search";
+      input.className = "whimsy-mini-picker-search";
+      input.setAttribute("role", "combobox");
+      input.setAttribute("aria-autocomplete", "list");
+      input.setAttribute("aria-controls", SPACE_LIST_ID);
+      input.setAttribute("autocomplete", "off");
+      input.spellcheck = false;
+      field.prepend(input);
+    }
+    const multiProfile = lazy.WhimsyProfiles.enabled && lazy.WhimsyProfiles.list().length > 1;
+    document.l10n.setAttributes(input, multiProfile ? "whimsy-mini-picker-search" : "whimsy-mini-picker-search-spaces");
+    input.value = "";
+
+    if (!panel) {
+      panel = document.createXULElement("panel");
+      panel.id = SPACE_PICKER_ID;
+      panel.className = "whimsy-mini-picker";
+      panel.setAttribute("type", "arrow");
+      panel.setAttribute("hidepopovertail", "true");
+      panel.setAttribute("noautofocus", "true");
+      panel.setAttribute("orient", "vertical");
+      const list = html("div");
+      list.id = SPACE_LIST_ID;
+      list.className = "whimsy-mini-picker-list";
+      list.setAttribute("role", "listbox");
+      document.l10n.setAttributes(list, "whimsy-mini-picker-list");
+      const empty = html("div");
+      empty.className = "whimsy-mini-picker-empty";
+      empty.hidden = true;
+      const status = html("div");
+      status.className = "whimsy-mini-picker-status";
+      status.setAttribute("role", "status");
+      panel.append(list, empty, status);
+      // The caret reads as pressed while the list is open.
+      const choose = () => document.getElementById(CHOOSE_BUTTON_ID);
+      panel.addEventListener("popupshowing", event => {
+        if (event.target == panel) {
+          choose()?.setAttribute("open", "true");
+          field.setAttribute("searching", "true");
+          input.setAttribute("aria-expanded", "true");
         }
       });
-      // The caret reads as pressed while its menu is open.
-      const choose = () => document.getElementById(CHOOSE_BUTTON_ID);
-      popup.addEventListener("popupshowing", () => choose()?.setAttribute("open", "true"));
-      popup.addEventListener("popuphidden", () => choose()?.removeAttribute("open"));
-      document.getElementById("mainPopupSet")?.appendChild(popup) ?? document.documentElement.appendChild(popup);
+      panel.addEventListener("popuphidden", event => {
+        if (event.target != panel) {
+          return;
+        }
+        choose()?.removeAttribute("open");
+        field.removeAttribute("searching");
+        input.setAttribute("aria-expanded", "false");
+        input.removeAttribute("aria-activedescendant");
+        input.value = "";
+        // Back to where the keyboard was (the caret, for ⌘⇧O and the caret).
+        const back = panel._whimsyRestoreFocus;
+        panel._whimsyRestoreFocus = null;
+        if (!panel._whimsyChose && back?.isConnected && back.focus) {
+          back.focus();
+        }
+        panel._whimsyChose = false;
+      });
+      document.getElementById("mainPopupSet")?.appendChild(panel) ?? document.documentElement.appendChild(panel);
     }
-    const caption = document.createXULElement("menucaption");
-    caption.className = "whimsy-mini-picker-caption";
-    document.l10n.setAttributes(caption, "whimsy-quick-window-picker-caption", { count: this.movingCount(win) });
+    panel._whimsyRestoreFocus = restoreFocus?.id == SPACE_SEARCH_ID ? null :
+      (anchor?.id == OPEN_GROUP_ID ? document.getElementById(CHOOSE_BUTTON_ID) : restoreFocus);
+    panel._whimsyChose = false;
+    const list = panel.querySelector(".whimsy-mini-picker-list");
+    const empty = panel.querySelector(".whimsy-mini-picker-empty");
+    const status = panel.querySelector(".whimsy-mini-picker-status");
+
+    // Rows, in sidebar order.
     const defaultId = this.defaultSpaceId(win);
-    const toItem = space => {
-      const item = document.createXULElement("menuitem");
-      item.className = "menuitem-iconic whimsy-mini-picker-space";
-      item.setAttribute("zen-workspace-id", space.uuid);
-      item.setAttribute("label", space.name);
-      item.setAttribute("image", this.spaceIcon(space) ?? this.spaceDot(space));
+    const fold = text => String(text ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+    const rows = spaces.map((space, i) => {
+      const row = html("div");
+      row.id = `whimsy-mini-picker-space-${i}`;
+      row.className = "whimsy-mini-picker-space";
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", "false");
+      row.setAttribute("zen-workspace-id", space.uuid);
       const color = this.spaceColor(space);
       if (color) {
-        item.style.setProperty("--whimsy-space-color", color);
+        row.style.setProperty("--whimsy-space-color", color);
+      }
+      const icon = html("img");
+      icon.className = "whimsy-mini-picker-icon";
+      icon.alt = "";
+      icon.src = this.spaceIcon(space) ?? this.spaceDot(space);
+      const name = html("span");
+      name.className = "whimsy-mini-picker-name";
+      name.textContent = space.name;
+      row.append(icon, name);
+      let profileName = "";
+      if (multiProfile) {
+        profileName = lazy.WhimsyProfiles.nameOf(lazy.WhimsyProfiles.profileIdOfSpace(space)) ?? "";
+        const profile = html("span");
+        profile.className = "whimsy-mini-picker-profile";
+        profile.textContent = profileName;
+        row.append(profile);
       }
       if (space.uuid == defaultId) {
-        item.setAttribute("key", "key_whimsyQuickWindowOpenInSpace");
-        item.setAttribute("default", "true");
+        row.setAttribute("default", "true");
+        const keys = html("kbd");
+        keys.className = "whimsy-mini-picker-keys";
+        keys.textContent = lazy.AppConstants.platform == "macosx" ? "⌘O" : "Ctrl+O";
+        keys.setAttribute("aria-hidden", "true");
+        row.append(keys);
       }
-      return item;
+      row.addEventListener("mousemove", () => highlight(row));
+      row.addEventListener("click", () => choose(row));
+      return { row, space, name: space.name, profileName, folded: fold(space.name), foldedProfile: fold(profileName) };
+    });
+    list.replaceChildren(...rows.map(r => r.row));
+
+    // The matched run, bold, in the name or the profile label.
+    const mark = (el, text, query) => {
+      const at = query ? fold(text).indexOf(query) : -1;
+      if (at == -1) {
+        el.textContent = text;
+        return;
+      }
+      const bold = html("b");
+      bold.textContent = text.slice(at, at + query.length);
+      el.replaceChildren(text.slice(0, at), bold, text.slice(at + query.length));
     };
-    // wave5/profiles: spaces of the page's own profile first; the rest,
-    // where it would reopen in another profile, after a separator.
-    const current = win.gBrowser.selectedTab?.userContextId ?? 0;
-    const mine = spaces.filter(space => !lazy.WhimsyProfiles.enabled ||
-      lazy.WhimsyProfiles.profileIdOfSpace(space) == current);
-    const others = spaces.filter(space => !mine.includes(space));
-    const items = mine.map(toItem);
-    if (others.length) {
-      if (items.length) {
-        items.push(document.createXULElement("menuseparator"));
+    let current = null;
+    const visible = () => rows.filter(r => !r.row.hidden).map(r => r.row);
+    const highlight = row => {
+      current?.setAttribute("aria-selected", "false");
+      current = row ?? null;
+      if (current) {
+        current.setAttribute("aria-selected", "true");
+        input.setAttribute("aria-activedescendant", current.id);
+        current.scrollIntoView({ block: "nearest" });
+      } else {
+        input.removeAttribute("aria-activedescendant");
       }
-      items.push(...others.map(toItem));
-    }
-    popup.replaceChildren(caption, ...items);
-    popup.openPopup(anchor, { position: "after_end" });
+    };
+    const choose = row => {
+      const spaceId = row?.getAttribute("zen-workspace-id");
+      if (!spaceId) {
+        return;
+      }
+      panel._whimsyChose = true;
+      panel.hidePopup();
+      this.moveToSpace(win, spaceId);
+    };
+    const filter = () => {
+      const query = fold(input.value.trim());
+      for (const r of rows) {
+        const byName = r.folded.includes(query);
+        const byProfile = !!query && r.foldedProfile.includes(query);
+        r.row.hidden = !!query && !byName && !byProfile;
+        mark(r.row.querySelector(".whimsy-mini-picker-name"), r.name, byName ? query : "");
+        const label = r.row.querySelector(".whimsy-mini-picker-profile");
+        if (label) {
+          mark(label, r.profileName, byProfile ? query : "");
+        }
+      }
+      const shown = visible();
+      empty.hidden = !!shown.length;
+      if (!shown.length) {
+        document.l10n.setAttributes(empty, "whimsy-mini-picker-empty", { query: input.value.trim() });
+      }
+      document.l10n.setAttributes(status, "whimsy-mini-picker-status", { count: shown.length });
+      highlight(shown[0]);
+    };
+    input.oninput = filter;
+    input.onkeydown = event => {
+      const shown = visible();
+      const index = shown.indexOf(current);
+      let next = null;
+      switch (event.key) {
+        case "ArrowDown":
+          next = shown[(index + 1) % shown.length];
+          break;
+        case "ArrowUp":
+          next = shown[(index - 1 + shown.length) % shown.length];
+          break;
+        case "Home":
+          next = shown[0];
+          break;
+        case "End":
+          next = shown.at(-1);
+          break;
+        case "Enter":
+          event.preventDefault();
+          choose(current);
+          return;
+        case "Escape":
+          // Esc puts the address back.
+          event.preventDefault();
+          event.stopPropagation();
+          panel.hidePopup();
+          return;
+        default:
+          return;
+      }
+      event.preventDefault();
+      if (next) {
+        highlight(next);
+      }
+    };
+    filter();
+
+    // Under the address strip, as wide as it (at least 270px).
+    panel.style.width = `${Math.max(270, Math.round(field.getBoundingClientRect().width))}px`;
+    panel.openPopup(field, { position: "after_start", y: 4 });
+    input.focus();
   },
 
   // A space's first theme colour as CSS, or null for Zen's default theme.
