@@ -26,6 +26,9 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_command_bar_extras.js"]
 
+# W10-27: the floating command bar's open/close motion.
+["browser_whimsy_cmdbar_motion.js"]
+
 ["browser_whimsy_collapse_pinned.js"]
 
 ["browser_whimsy_copy.js"]

@@ -107,9 +107,8 @@ async function openFloatingBar() {
     () => gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("open"),
     "The command bar floats open"
   );
-  // Let the trim's one-shot fade finish.
-  await TestUtils.waitForCondition(() => document.getAnimations().every(a =>
-    a.animationName != "whimsy-season-trim-in" || a.playState != "running"), "Trim has faded in");
+  // W10-27: the trim rides the bar's own open motion; let it finish.
+  await Promise.all(gURLBar.getAnimations().map(a => a.finished.catch(() => {})));
 }
 
 async function closeBar() {

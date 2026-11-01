@@ -3585,14 +3585,10 @@ panel.whimsy-teach {
   }
 }
 
+/* W10-27/W10-32: the trim is part of the bar, so it rides the bar's own
+   open/close motion (WhimsyCommandBarMotion) instead of a separate, later
+   fade that left the pumpkins out of step with the bar. */
 @media (prefers-reduced-motion: no-preference) {
-  :root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
-    & > .whimsy-season-trim-top,
-    & > .whimsy-season-trim-bottom {
-      animation: whimsy-season-trim-in 240ms cubic-bezier(0.2, 0, 0, 1) 80ms both;
-    }
-  }
-
   :root[whimsy-season-decor="holidays"] #urlbar[open][zen-floating-urlbar="true"] .whimsy-season-trim-bottom {
     &::before,
     &::after {
@@ -3602,12 +3598,6 @@ panel.whimsy-teach {
     &::after {
       animation-delay: -3.2s;
     }
-  }
-}
-
-@keyframes whimsy-season-trim-in {
-  from {
-    opacity: 0;
   }
 }
 
@@ -4667,4 +4657,15 @@ panel.whimsy-sheet.whimsy-snooze {
 }
 @keyframes whimsy-mini-tab-busy {
   from { opacity: 0.35; }
+}
+
+/* W10-27: the floating command bar's motion (WhimsyCommandBarMotion in
+   WhimsyCommandBar.sys.mjs) scales from its top edge, and ignores the
+   pointer while it closes so a click lands on the page under it. */
+#urlbar[zen-floating-urlbar="true"] {
+  transform-origin: 50% 0;
+}
+
+#urlbar[whimsy-closing] {
+  pointer-events: none;
 }

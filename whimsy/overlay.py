@@ -691,6 +691,46 @@ HOTFIXES = [
                "    ) {\n"
                "      currentSelectedTab._selected = false;\n",
     },
+    # W10-27: the command bar's close animation. Zen hides the floating bar
+    # synchronously at the end of #closePopover; the hiding part now runs
+    # through WhimsyCommandBarMotion.deferClose, which runs it after a 110ms
+    # close (or at once when there's nothing to animate). Zen's state
+    # changes (focus, new-tab session, page URL) still happen first. Same
+    # line count, so the patch's hunk headers stay valid.
+    {
+        "id": "command-bar-motion-close",
+        "file": "src/browser/components/urlbar/content/UrlbarInputBase-mjs.patch",
+        "why": "Lets the floating command bar animate out before Zen hides it (W10-27).",
+        "old": '+    this.window.gZenUIManager.onUrlbarClose();\n'
+               '+    this.removeAttribute("zen-floating-urlbar");\n'
+               '+    this.toggleAttribute("breakout-extend", false);\n'
+               '+    this.#updateTextboxPosition();\n'
+               '+\n'
+               '+    if (this.matches(":popover-open")) {\n'
+               '+      this.hidePopover();\n'
+               '+    }\n'
+               '+    if (this.#isAddressbar) {\n'
+               '+      this.removeAttribute("popover");\n'
+               '+    }\n',
+        "new": '+    this.window.gZenUIManager.onUrlbarClose();\n'
+               '+    const whimsyHide = () => { this.removeAttribute("zen-floating-urlbar"); // Whimsy hotfix (W10-27)\n'
+               '+    this.toggleAttribute("breakout-extend", false);\n'
+               '+    this.#updateTextboxPosition();\n'
+               '+\n'
+               '+    if (this.matches(":popover-open")) {\n'
+               '+      this.hidePopover();\n'
+               '+    }\n'
+               '+    if (this.#isAddressbar) {\n'
+               '+      this.removeAttribute("popover");\n'
+               '+    } }; if (!this.window.WhimsyCommandBarMotion?.deferClose(this, whimsyHide)) { whimsyHide(); }\n',
+    },
+    {
+        "id": "command-bar-motion-reopen",
+        "file": "src/browser/components/urlbar/content/UrlbarInputBase-mjs.patch",
+        "why": "A reopen during the close animation first finishes the hide, so Zen opens from a closed bar (W10-27).",
+        "old": '+    if (!this.#canOpenPopover || this.matches(":popover-open")) {\n',
+        "new": '+    this.window.WhimsyCommandBarMotion?.flushClose(this); if (!this.#canOpenPopover || this.matches(":popover-open")) { // Whimsy hotfix (W10-27)\n',
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
@@ -1155,6 +1195,9 @@ FEATURES = [
      "detect": [("src/zen/split-view", r"(?i)alt-?click|altKey")]},
     {"id": "split-arc-keys", "title": "Arc's Split View commands: Add Split View (Ctrl+Shift+=), Close this Split Pane (Ctrl+Shift+-), Separate Page, Expand Current Split, Ctrl+Shift+1-4 and [ ] to move between panes",
      "detect": [("src/zen/split-view", r"(?i)separate-?page|focus-?pane|cmd_zenSplitView(Focus|Next|Prev)")]},
+    # W10-27: the floating command bar's open/close motion.
+    {"id": "command-bar-motion", "title": "Command bar: a quick, subtle open and close (160ms in, 110ms out; a plain fade with Reduce Motion)",
+     "detect": [("src/zen/urlbar", r"(?i)(urlbar|command-?bar)-?(open|close)-?(animation|motion)")]},
     {"id": "command-bar-dedup", "title": "Command bar: one row per page title on Figma, Notion, GitHub and Arc's other 7 hosts (Arc's dedupByTitleAndHost)",
      "detect": [("src/zen/urlbar", r"(?i)dedup")]},
     {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",

@@ -1671,3 +1671,36 @@ add_task(async function private_space_empty_state() {
     }
   }
 });
+
+// W10-27: the command bar caught mid-open (60 of 160ms), light and dark, to
+// check the scale-and-fade reads as one subtle step from the top edge.
+add_task(async function w10_command_bar_motion() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  gReduceMotionOverride = false;
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      gURLBar.blur();
+      await SimpleTest.promiseFocus(window);
+      document.getElementById("Browser:OpenLocation").doCommand();
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "whimsy" });
+      const open = await TestUtils.waitForCondition(
+        () => gURLBar.getAnimations().find(a => a.id == "whimsy-command-bar-open"), "The bar animates open");
+      open.pause();
+      open.currentTime = 60;
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await shot(`w10-command-bar-opening-${dark ? "dark" : "light"}`);
+      open.finish();
+      await settled();
+      await shot(`w10-command-bar-open-${dark ? "dark" : "light"}`);
+      await UrlbarTestUtils.promisePopupClose(window);
+      gURLBar.blur();
+      await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("whimsy-closing"), "The bar has closed");
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    gReduceMotionOverride = undefined;
+    BrowserTestUtils.removeTab(tab);
+  }
+});
