@@ -696,3 +696,6 @@ support-files = ["whimsy_article.html"]
 
 # wave10/mini W10-38: extensions in Mini: toolbar-pinned ones listed under the puzzle button, popups anchor there, action.openPopup() opens in a focused Mini.
 ["browser_whimsy_mini_extensions.js"]
+
+# wave10/mini W10-13: Mini's shortcuts in their own "Mini Whimsy" group of Settings → Keyboard Shortcuts (listed from every window, no cross-scope conflict); they act only inside Mini, where they win.
+["browser_whimsy_mini_keys.js"]

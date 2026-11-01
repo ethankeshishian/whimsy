@@ -122,6 +122,10 @@ const TABS_ATTR = "whimsy-mini-tabs";
 // opens a tab here, popups with features included.
 const POPUPS_ATTR = "whimsy-popups-as-tabs";
 const CLOSING_ATTR = "whimsy-mini-closing";
+// wave10/mini: Mini's keys in a main window (disabled stand-ins), and the
+// mark on a key Mini's own shortcut shadows inside Mini.
+const MINI_KEYSET_ID = "whimsyMiniKeyset";
+const SHADOWED_ATTR = "whimsy-mini-shadowed";
 const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
 
 const READY_TOPIC = "whimsy-quick-window-ready";
@@ -163,11 +167,145 @@ export const WhimsyQuickWindow = {
       icon: "chrome://browser/skin/zen-icons/link.svg",
       isAvailable: () => this.enabled,
     });
-    // wave10/mini: Mini's own commands exist only in Mini windows, but are
-    // listed from the start, so their shortcuts can be set before one opens.
-    for (const spec of this.miniCommands()) {
-      lazy.WhimsyCommands.describe(spec);
+    // wave10/mini: Mini's keys are listed from every window, in their own
+    // "Mini Whimsy" group of Settings → Keyboard Shortcuts. Here they're
+    // disabled stand-ins, so the page can show and change them; they act
+    // only inside Mini (enforceMiniKeys).
+    this.describeMiniKeys();
+    this.addDormantMiniKeys(win);
+  },
+
+  // Mini's keys as about:keyboard lists them: the commands below plus
+  // Cmd+O / Cmd+Shift+O (WhimsyShortcuts keys, added by initChrome).
+  miniKeys() {
+    return [
+      ...this.miniCommands().map(spec => ({
+        id: spec.keyId, command: spec.id, key: spec.key, l10nId: spec.l10nId, menu: spec.menu,
+      })),
+      {
+        id: "key_whimsyQuickWindowOpenInSpace", command: "cmd_whimsyQuickWindowOpenInSpace",
+        key: { key: "O", modifiers: "accel" }, l10nId: "whimsy-action-mini-open-in-space",
+      },
+      {
+        id: "key_whimsyQuickWindowChooseSpace", command: "cmd_whimsyQuickWindowChooseSpace",
+        key: { key: "O", modifiers: "accel,shift" }, l10nId: "whimsy-action-mini-choose-space",
+      },
+    ];
+  },
+
+  // Records Mini's keys (and offers them in the command bar, in Mini only),
+  // whether or not a Mini has opened yet.
+  describeMiniKeys() {
+    const inMini = w => !!w?._whimsyQuickWindow && !w._whimsyMiniBarOnly;
+    const icons = Object.fromEntries(this.miniCommands().map(spec => [spec.id, spec]));
+    for (const spec of this.miniKeys()) {
+      const entry = lazy.WhimsyCommands.describe({
+        id: spec.command, keyId: spec.id, key: spec.key, l10nId: spec.l10nId, menu: spec.menu, scope: "mini",
+      });
+      const command = icons[spec.command];
+      lazy.WhimsyCommands.addToCommandBar(entry, {
+        l10nId: spec.l10nId,
+        icon: command?.icon ?? "chrome://browser/skin/zen-icons/link.svg",
+        isAvailable: command?.isAvailable ?? inMini,
+      });
     }
+  },
+
+  // A main window's stand-ins for Mini's keys: in their own keyset and
+  // disabled, so they never fire there and never count as a conflict
+  // (WhimsyCommands.findConflict skips disabled keys), while CustomKeys
+  // still applies a changed shortcut to them as to Mini's own.
+  addDormantMiniKeys(win) {
+    const { document } = win;
+    if (document.getElementById(MINI_KEYSET_ID)) {
+      return;
+    }
+    const keyset = document.createXULElement("keyset");
+    keyset.id = MINI_KEYSET_ID;
+    for (const spec of this.miniKeys()) {
+      if (document.getElementById(spec.id)) {
+        continue;
+      }
+      const key = document.createXULElement("key");
+      key.id = spec.id;
+      key.setAttribute("command", spec.command);
+      key.setAttribute("disabled", "true");
+      if (spec.key) {
+        key.setAttribute("modifiers", spec.key.modifiers);
+        key.setAttribute("key", spec.key.key);
+      }
+      keyset.append(key);
+    }
+    (document.getElementById("mainKeyset")?.parentElement ?? document.documentElement).append(keyset);
+  },
+
+  // Inside Mini its keys win: any other key with the same shortcut is
+  // disabled there (and only there) while Mini's uses it, and comes back
+  // when Mini's key moves elsewhere (a change in Settings).
+  enforceMiniKeys(win) {
+    const { document } = win;
+    const ids = new Set(this.miniKeys().map(spec => spec.id));
+    const signature = el => lazy.WhimsyCommands.keySignature(el);
+    const taken = new Set();
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      const sig = el && el.getAttribute("disabled") != "true" ? signature(el) : null;
+      if (sig) {
+        taken.add(sig);
+      }
+    }
+    const keysets = new Set();
+    for (const el of document.querySelectorAll("key")) {
+      if (ids.has(el.id)) {
+        continue;
+      }
+      const sig = signature(el);
+      const shadowed = el.hasAttribute(SHADOWED_ATTR);
+      if (!shadowed && sig && taken.has(sig) && el.getAttribute("disabled") != "true") {
+        el.setAttribute("disabled", "true");
+        el.setAttribute(SHADOWED_ATTR, "");
+        keysets.add(el.parentElement);
+      } else if (shadowed && !(sig && taken.has(sig))) {
+        el.removeAttribute("disabled");
+        el.removeAttribute(SHADOWED_ATTR);
+        keysets.add(el.parentElement);
+      }
+    }
+    // Gecko reads keys when their keyset is bound: rebind what changed.
+    for (const keyset of keysets) {
+      const parent = keyset?.parentElement;
+      if (parent) {
+        keyset.remove();
+        parent.append(keyset);
+      }
+    }
+  },
+
+  watchMiniKeys(win) {
+    const { document } = win;
+    let queued = false;
+    const enforce = () => {
+      if (queued || win.closed) {
+        return;
+      }
+      queued = true;
+      win.setTimeout(() => {
+        queued = false;
+        this.enforceMiniKeys(win);
+      }, 0);
+    };
+    // CustomKeys and WhimsyCommands re-append a keyset after changing a key.
+    const observer = new win.MutationObserver(enforce);
+    const parents = new Set([document.documentElement, document.getElementById("mainKeyset")?.parentElement]);
+    for (const parent of parents) {
+      if (parent) {
+        observer.observe(parent, { childList: true });
+      }
+    }
+    win.addEventListener("unload", () => observer.disconnect(), { once: true });
+    this.enforceMiniKeys(win);
+    // Modules that start after Mini's chrome add their keys later.
+    this.whenChromeReady(win).then(enforce);
   },
 
   // wave10/mini W10-13/W10-38: Mini's new commands (registered in each Mini
@@ -184,6 +322,7 @@ export const WhimsyQuickWindow = {
       icon: "chrome://browser/skin/zen-icons/plus.svg",
       isAvailable: w => inMini(w) && this.tabsEnabled,
       menu: "file-menu",
+      scope: "mini",
     }, {
       id: "cmd_whimsyMiniExtensions",
       l10nId: "whimsy-action-mini-extensions",
@@ -193,6 +332,7 @@ export const WhimsyQuickWindow = {
       icon: "chrome://browser/skin/zen-icons/extension.svg",
       isAvailable: inMini,
       menu: "tools-menu",
+      scope: "mini",
     }];
   },
 
@@ -690,6 +830,7 @@ export const WhimsyQuickWindow = {
     for (const spec of this.miniCommands()) {
       lazy.WhimsyCommands.register(win, spec);
     }
+    this.describeMiniKeys();
     // wave7: Esc never closes a materialised Mini (Arc's Little Arc keeps
     // its window; Esc only closes the command bar). In the bar-only panel
     // the command bar is all there is, so Esc dismisses the panel.
@@ -710,6 +851,7 @@ export const WhimsyQuickWindow = {
     this.watchDestination(win);
     this.watchPage(win);
     this.watchTabs(win);
+    this.watchMiniKeys(win);
     this.watchToolbarExtensions(win);
     const rememberSize = () => {
       // The bar-only panel's size is Arc's fixed one, not Mini's.

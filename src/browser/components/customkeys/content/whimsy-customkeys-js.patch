@@ -1,0 +1,34 @@
+diff --git a/browser/components/customkeys/content/customkeys.js b/browser/components/customkeys/content/customkeys.js
+index 0dff9a7..ddbfd4f 100644
+--- a/browser/components/customkeys/content/customkeys.js
++++ b/browser/components/customkeys/content/customkeys.js
+@@ -35,6 +35,10 @@ async function buildTable() {
+       row.className = "key";
+       const key = categoryKeys[keyId];
+       row.dataset.id = keyId;
++      // Whimsy: a key that works only in some windows (Mini Whimsy's).
++      if (key.scope) {
++        row.dataset.scope = key.scope;
++      }
+ 
+       let keyLabelText = key.title;
+       if (key.title.startsWith("customkeys-")) {
+@@ -151,10 +155,18 @@ function updateKey(row, data) {
+ 
+ // Returns false if the assignment should be cancelled.
+ async function maybeHandleConflict(data) {
++  // Whimsy: keys of different scopes (Mini Whimsy's, the main windows')
++  // never fire in the same window, so they never conflict.
++  const scope =
++    table.querySelector(`.key[data-id="${CSS.escape(data.id)}"]`)?.dataset
++      .scope ?? "";
+   for (const row of table.querySelectorAll(".key")) {
+     if (data.shortcut != row.querySelector(".currentShortcut").value) {
+       continue; // Not a conflict.
+     }
++    if ((row.dataset.scope ?? "") != scope) {
++      continue; // Never active in the same window.
++    }
+     const conflictId = row.dataset.id;
+     if (conflictId == data.id) {
+       // We're trying to assign this key to the shortcut it is already
