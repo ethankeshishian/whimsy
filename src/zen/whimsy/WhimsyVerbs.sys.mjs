@@ -44,6 +44,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   gWhimsyNotesStore: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
+  WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -907,45 +908,132 @@ export const WhimsyVerbs = {
     });
   },
 
+  // W10-20: the name of the app a mailto: link opens (Mail, unless another
+  // app or a web mail site is the default), for "Email with Mail".
+  mailAppName() {
+    try {
+      const info = Cc["@mozilla.org/uriloader/external-protocol-service;1"]
+        .getService(Ci.nsIExternalProtocolService)
+        .getProtocolHandlerInfo("mailto");
+      const chosen =
+        info.preferredAction == Ci.nsIHandlerInfo.useHelperApp ? info.preferredApplicationHandler?.name : "";
+      return chosen || info.defaultDescription || "Mail";
+    } catch (e) {
+      return "Mail";
+    }
+  },
+
+  // W10-20: the selection menu's actions. Add to Note stays a row of its
+  // own; the actions that hand the text to another app sit in one Quick
+  // Actions ▸ submenu, each naming its app. With only one available it
+  // shows as that row, never a one-row submenu; with none the submenu
+  // hides. WhimsyMenuPrefs puts the rows in the menu's order.
   updateContextMenu(win) {
     const { document } = win;
     const context = win.gContextMenu;
     const isSelection = this.enabled && !!context?.isContentSelected && !context.onTextInput && !context.onEditable;
     const selectedText = (context?.selectionInfo?.fullText || context?.selectedText || "").trim();
+    const has = selectedText.length > 0;
+    const prefs = lazy.WhimsyMenuPrefs;
+    const off = id => prefs.enabled && prefs.isHidden("selection", id);
+    const linear = has && this.linearConfigured();
+    const mailArgs = { app: this.mailAppName() };
 
-    const verbsToOffer = [
-      { verb: "map", domId: "context-whimsy-verb-map", l10nId: "whimsy-context-verb-map", available: selectedText.length > 0 && selectedText.length <= 200 },
-      { verb: "email", domId: "context-whimsy-verb-email", l10nId: "whimsy-context-verb-email", available: selectedText.length > 0 },
-      { verb: "note", domId: "context-whimsy-verb-note", l10nId: "whimsy-context-verb-note", available: selectedText.length > 0 && Services.prefs.getBoolPref(NOTES_PREF, true) && !isPrivate(win) },
-      { verb: "calendar", domId: "context-whimsy-verb-calendar", l10nId: "whimsy-context-verb-calendar", available: selectedText.length > 0 && !!parseEvent(selectedText) },
-      { verb: "linear-new", domId: "context-whimsy-verb-linear-new", l10nId: "whimsy-context-verb-linear-new", available: selectedText.length > 0 && this.linearConfigured() },
-      { verb: "linear-search", domId: "context-whimsy-verb-linear-search", l10nId: "whimsy-context-verb-linear-search", available: selectedText.length > 0 && this.linearConfigured() },
-    ];
-
-    let anchor = document.getElementById("context-whimsy-copy-markdown") || document.getElementById("context-copy");
-
-    for (const v of verbsToOffer) {
-      let item = document.getElementById(v.domId);
-      if (!isSelection || !v.available) {
-        if (item) {
-          item.hidden = true;
-        }
-        continue;
-      }
-      if (!item) {
-        item = document.createXULElement("menuitem");
-        item.id = v.domId;
-        item.setAttribute("data-l10n-id", v.l10nId);
-        item.addEventListener("command", () => {
-          this.runVerb(win, v.verb).catch(console.error);
-        });
-      }
-      item.hidden = false;
-      if (anchor && anchor.nextElementSibling != item) {
-        anchor.after(item);
-      }
-      anchor = item;
+    const anchor = document.getElementById("context-whimsy-copy-markdown") || document.getElementById("context-copy");
+    // Add to Note, after Copy as Markdown.
+    let note = document.getElementById("context-whimsy-verb-note");
+    if (!note) {
+      note = this._menuRow(win, "context-whimsy-verb-note", "whimsy-context-verb-note", "note");
     }
+    note.hidden = !isSelection || !has || !Services.prefs.getBoolPref(NOTES_PREF, true) || isPrivate(win);
+    if (anchor && anchor.nextElementSibling != note) {
+      anchor.after(note);
+    }
+
+    const { menu, popup, solo, divider } = this._quickActionsMenu(win);
+    if (note.nextElementSibling != menu) {
+      note.after(menu);
+    }
+    if (menu.nextElementSibling != solo) {
+      menu.after(solo);
+    }
+    const actions = [
+      { verb: "calendar", domId: "context-whimsy-verb-calendar", l10nId: "whimsy-context-verb-calendar", available: has && !!parseEvent(selectedText) && !isPrivate(win) },
+      { verb: "map", domId: "context-whimsy-verb-map", l10nId: "whimsy-context-verb-map", available: has && selectedText.length <= 200 },
+      { verb: "email", domId: "context-whimsy-verb-email", l10nId: "whimsy-context-verb-email", args: mailArgs, available: has },
+      { verb: "linear-new", domId: "context-whimsy-verb-linear-new", l10nId: "whimsy-context-verb-linear-new", available: linear, after: divider },
+      { verb: "linear-search", domId: "context-whimsy-verb-linear-search", l10nId: "whimsy-context-verb-linear-search", available: linear, after: divider },
+    ];
+    const shown = [];
+    for (const action of actions) {
+      let row = document.getElementById(action.domId);
+      if (!row) {
+        row = this._menuRow(win, action.domId, action.l10nId, action.verb);
+      }
+      if (action.args) {
+        document.l10n.setAttributes(row, action.l10nId, action.args);
+      }
+      const before = action.after ? null : divider;
+      if (row.parentNode != popup) {
+        popup.insertBefore(row, before);
+      }
+      row.hidden = !isSelection || !action.available || off(action.verb);
+      if (!row.hidden) {
+        shown.push(action);
+      }
+    }
+    // The divider only between the system apps and Linear.
+    divider.hidden = !(shown.some(a => !a.after) && shown.some(a => a.after));
+    menu.hidden = shown.length < 2;
+    solo.hidden = shown.length != 1;
+    if (shown.length == 1) {
+      const [only] = shown;
+      document.l10n.setAttributes(solo, only.l10nId, only.args);
+      solo.dataset.verb = only.verb;
+    }
+  },
+
+  _menuRow(win, id, l10nId, verb) {
+    const row = win.document.createXULElement("menuitem");
+    row.id = id;
+    row.setAttribute("data-l10n-id", l10nId);
+    row.addEventListener("command", () => {
+      this.runVerb(win, verb).catch(console.error);
+    });
+    return row;
+  },
+
+  _quickActionsMenu(win) {
+    const { document } = win;
+    let menu = document.getElementById("context-whimsy-quick-actions");
+    if (!menu) {
+      menu = document.createXULElement("menu");
+      menu.id = "context-whimsy-quick-actions";
+      document.l10n.setAttributes(menu, "whimsy-context-quick-actions");
+      const popup = document.createXULElement("menupopup");
+      popup.id = "context-whimsy-quick-actions-popup";
+      const divider = document.createXULElement("menuseparator");
+      divider.id = "context-whimsy-quick-actions-divider";
+      popup.append(divider);
+      menu.append(popup);
+    }
+    let solo = document.getElementById("context-whimsy-quick-action-solo");
+    if (!solo) {
+      solo = document.createXULElement("menuitem");
+      solo.id = "context-whimsy-quick-action-solo";
+      solo.hidden = true;
+      solo.addEventListener("command", () => {
+        if (solo.dataset.verb) {
+          this.runVerb(win, solo.dataset.verb).catch(console.error);
+        }
+      });
+    }
+    return {
+      menu,
+      popup: menu.menupopup ?? menu.querySelector("menupopup"),
+      solo,
+      divider: document.getElementById("context-whimsy-quick-actions-divider") ?? menu.querySelector("menuseparator"),
+    };
   },
 };
 

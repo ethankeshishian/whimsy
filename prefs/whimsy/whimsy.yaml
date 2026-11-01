@@ -579,8 +579,11 @@
 - name: whimsy.menus.hidden.page
   value: "capture-full-page,capture-portrait,wayback,dev-mode"
 
+# W10-20: the selection menu's regroup also starts Search in a Private
+# Window, Select All, Inspect Accessibility Properties and View Selection
+# Source off (ADDED_HIDDEN[2]).
 - name: whimsy.menus.hidden.selection
-  value: "copy-url-quote"
+  value: "search-private,copy-url-quote,select-all,inspect-a11y,view-source"
 
 - name: whimsy.menus.hidden.image
   value: ""

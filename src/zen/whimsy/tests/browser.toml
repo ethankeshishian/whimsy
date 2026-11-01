@@ -107,11 +107,11 @@ support-files = ["whimsy_article.html"]
 
 ["browser_whimsy_screens.js"]
 # wave3/speed: the video speed control shot.
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_verbs.html"]
 
 ["browser_whimsy_screens_2.js"]
 # wave3/speed: the video speed control shot.
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_verbs.html"]
 
 # wave7: the shots wave 7 added (split so each file stays under the time limit).
 ["browser_whimsy_screens_3.js"]
@@ -330,7 +330,7 @@ support-files = ["whimsy_pip_cursor.html", "whimsy_video_sound.mp4"]
 ["browser_whimsy_space_icons.js"]
 # wave3/speed: speed control on videos (hover, presets, typed speed, per-site memory).
 ["browser_whimsy_video_speed.js"]
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_verbs.html"]
 
 # wave3/glass: Liquid Glass (macOS 26+) pref wiring and Settings checkbox.
 ["browser_whimsy_liquid_glass.js"]
@@ -416,6 +416,10 @@ support-files = ["whimsy_lasso.html"]
 
 # wave5/verbs: Cmd+K do-with-selection verbs.
 ["browser_whimsy_selection_verbs.js"]
+support-files = ["whimsy_verbs.html"]
+
+# W10-20: the selected-text menu's order and Quick Actions ▸ submenu.
+["browser_whimsy_menu_selection_order.js"]
 support-files = ["whimsy_verbs.html"]
 
 # wave5/look: a look per space (switch applies/restores, inheritance, reset, mods, switch off, editor).

@@ -2426,11 +2426,14 @@ Object.assign(gWhimsySettings, {
         previous = entry;
         continue;
       }
-      const toggle = html("moz-toggle");
-      toggle.dataset.item = entry.id;
-      document.l10n.setAttributes(toggle, entry.l10n);
-      toggle.addEventListener("toggle", () => prefs.setHidden(menu.id, entry.id, !toggle.pressed));
-      list.append(toggle);
+      // W10-20: a submenu's rows follow it.
+      for (const row of [entry, ...(entry.children ?? []).filter(child => !prefs.isSeparator(child))]) {
+        const toggle = html("moz-toggle");
+        toggle.dataset.item = row.id;
+        document.l10n.setAttributes(toggle, row.l10n, this.menuRowArgs(row));
+        toggle.addEventListener("toggle", () => prefs.setHidden(menu.id, row.id, !toggle.pressed));
+        list.append(toggle);
+      }
       previous = entry;
     }
     if (list.lastElementChild?.classList.contains("whimsy-menus-divider")) {
@@ -2475,6 +2478,15 @@ Object.assign(gWhimsySettings, {
     group.append(label, description, note, list, actions);
     this.refreshMenuGroup(group);
     return group;
+  },
+
+  // W10-20: rows whose name has a part only known here ("Email with Mail").
+  menuRowArgs(row) {
+    if (row.l10nArgs == "mail-app") {
+      const { WhimsyVerbs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVerbs.sys.mjs");
+      return { app: WhimsyVerbs.mailAppName() };
+    }
+    return undefined;
   },
 
   refreshMenuGroup(group) {

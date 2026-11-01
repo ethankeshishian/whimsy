@@ -9,7 +9,7 @@
 // Restore Defaults brings everything back, a menu with every item off
 // doesn't open, and Settings search finds the pane.
 
-const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR, ADDED_HIDDEN, ALWAYS_HIDDEN } = ChromeUtils.importESModule(
+const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR, ADDED_HIDDEN, ALWAYS_HIDDEN, defaultHiddenIdsFor } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs"
 );
 
@@ -113,13 +113,13 @@ add_task(async function test_registry() {
       items.every(item => item.l10n && item.selectors.length),
       `${menu.id}: every item has a label and a row to match`
     );
-    // wave9/menus: only the rows W9-09/W9-10 added start off.
-    is(
-      Services.prefs.getStringPref(WhimsyMenuPrefs.prefName(menu.id), "x"),
-      (ADDED_HIDDEN[1][menu.id] ?? []).join(","),
-      `${menu.id}: only the new rows are hidden by default`
+    // wave9/menus: only the rows W9-09/W9-10 (and W10-20) list start off.
+    Assert.deepEqual(
+      [...WhimsyMenuPrefs.defaultHiddenIds(menu.id)].sort(),
+      defaultHiddenIdsFor(menu.id).sort(),
+      `${menu.id}: only the listed rows are hidden by default`
     );
-    for (const id of ADDED_HIDDEN[1][menu.id] ?? []) {
+    for (const id of defaultHiddenIdsFor(menu.id)) {
       ok(items.some(item => item.id == id), `${menu.id}: ${id} (off by default) is a row of the menu`);
     }
   }

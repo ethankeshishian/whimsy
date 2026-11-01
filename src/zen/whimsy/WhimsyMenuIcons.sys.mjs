@@ -203,6 +203,11 @@ const ICONS = {
   "context-whimsy-verb-calendar": ZEN("history"),
   "context-whimsy-verb-linear-new": ZEN("plus"),
   "context-whimsy-verb-linear-search": ZEN("search-page"),
+  // W10-20: Quick Actions ▸, and its one row when it shows alone.
+  "context-whimsy-quick-actions": ZEN("bolt"),
+  "context-whimsy-quick-action-solo": win =>
+    ICONS[`context-whimsy-verb-${win.document.getElementById("context-whimsy-quick-action-solo")?.dataset.verb}`] ??
+    ZEN("bolt"),
   "context-copy-link-to-highlight": ZEN("link"),
   "context-copy-clean-link-to-highlight": ZEN("link"),
   "context-remove-highlight": ZEN("close"),

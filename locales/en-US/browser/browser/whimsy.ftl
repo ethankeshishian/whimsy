@@ -1777,7 +1777,7 @@ whimsy-context-copy-page-markdown =
     .label = Copy Page as Markdown
     .accesskey = M
 whimsy-context-copy-selection-markdown =
-    .label = Copy Selection as Markdown
+    .label = Copy as Markdown
     .accesskey = M
 whimsy-action-copy-page-markdown = Copy Page as Markdown
 whimsy-copy-page-markdown-toast = Copied page as Markdown
@@ -3099,17 +3099,17 @@ whimsy-menus-page-view-source =
 whimsy-menus-selection-search =
     .label = Search for the Selection
 whimsy-menus-selection-search-private =
-    .label = Search for the Selection in a Private Window
+    .label = Search in a Private Window
 whimsy-menus-selection-translate =
     .label = Translate Selection
 whimsy-menus-selection-copy =
     .label = Copy
 whimsy-menus-selection-copy-markdown =
-    .label = Copy Selection as Markdown
+    .label = Copy as Markdown
 whimsy-menus-selection-map =
     .label = Show in Maps
 whimsy-menus-selection-email =
-    .label = Email
+    .label = Email with { $app }
 whimsy-menus-selection-note =
     .label = Add to Note
 whimsy-menus-selection-calendar =
@@ -3118,6 +3118,12 @@ whimsy-menus-selection-linear-new =
     .label = New Linear Issue
 whimsy-menus-selection-linear-search =
     .label = Search Linear
+# W10-20: the Quick Actions ▸ submenu and when its rows show.
+whimsy-menus-selection-quick-actions =
+    .label = Quick Actions ▸
+whimsy-menus-hint-translate = When it’s another language
+whimsy-menus-hint-date = When it has a date
+whimsy-menus-hint-linear = Once Linear is connected
 whimsy-menus-selection-print =
     .label = Print Selection…
 whimsy-menus-selection-copy-highlight =
@@ -3437,8 +3443,9 @@ whimsy-context-new-note =
 ## wave8/cmds: W8-13 the selection verbs as right-click menu items.
 whimsy-context-verb-map =
     .label = Show in Maps
+# W10-20: names the app a mailto: link opens ("Mail" unless you chose another).
 whimsy-context-verb-email =
-    .label = Email
+    .label = Email with { $app }
 whimsy-context-verb-note =
     .label = Add to Note
 whimsy-context-verb-calendar =
@@ -3447,6 +3454,10 @@ whimsy-context-verb-linear-new =
     .label = New Linear Issue
 whimsy-context-verb-linear-search =
     .label = Search Linear
+# W10-20: the submenu of actions that hand the selected text to another app
+# (macOS's own name for this).
+whimsy-context-quick-actions =
+    .label = Quick Actions
 whimsy-note-created-toast = Created a new note
 ## batch8: W8-04 Collapse All Folders
 whimsy-action-collapse-all-folders = Collapse All Folders

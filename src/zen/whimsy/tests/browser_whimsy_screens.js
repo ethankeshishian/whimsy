@@ -1704,3 +1704,43 @@ add_task(async function w10_command_bar_motion() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-20: the selected-text menu, regrouped, and its Quick Actions ▸
+// submenu open, light and dark. (A native NSMenu in the app; the shot shows
+// it where the build draws XUL menus.)
+add_task(async function w10_selection_menu() {
+  const page = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_verbs.html";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+        const range = content.document.createRange();
+        range.selectNodeContents(content.document.getElementById("event"));
+        content.getSelection().removeAllRanges();
+        content.getSelection().addRange(range);
+      });
+      const menu = document.getElementById("contentAreaContextMenu");
+      const shown = BrowserTestUtils.waitForEvent(menu, "popupshown");
+      await BrowserTestUtils.synthesizeMouseAtCenter("#event", { type: "contextmenu", button: 2 }, tab.linkedBrowser);
+      await shown;
+      await document.l10n.translateFragment(menu);
+      await settled();
+      await shot(`w10-selection-menu-${dark ? "dark" : "light"}`);
+      const quick = document.getElementById("context-whimsy-quick-actions");
+      if (quick && !quick.hidden && quick.getAttribute("collapsed") != "true") {
+        const sub = BrowserTestUtils.waitForEvent(quick.menupopup, "popupshown");
+        quick.openMenu(true);
+        await sub;
+        await settled();
+        await shot(`w10-selection-menu-quick-actions-${dark ? "dark" : "light"}`);
+      }
+      const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
+      menu.hidePopup();
+      await hidden;
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
