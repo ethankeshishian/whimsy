@@ -167,6 +167,9 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_library_finder_folders.js"]
 
 ["browser_whimsy_library_files.js"]
+
+# W10-43: Cmd+Shift+1 and portrait captures reach the Library; Cmd+Z undoes a Library delete.
+["browser_whimsy_library_capture_undo.js"]
 # batch12: links & media windows
 ["browser_whimsy_quick_window.js"]
 

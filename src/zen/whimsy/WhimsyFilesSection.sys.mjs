@@ -47,6 +47,37 @@ export function isPrivateCapture(browser) {
   }
 }
 
+/**
+ * Saves a capture into the Library's Screenshots. W10-43: Whimsy's own
+ * captures (Cmd+Shift+1 full page, Capture in Portrait Mode) draw with
+ * ScreenshotsUtils.createCanvas and copy themselves, so they never went
+ * through copyScreenshot below and never reached the Library; they call
+ * this too.
+ *
+ * @param {Blob} blob - the PNG
+ * @param {Element} browser - the captured page's <browser>
+ * @returns {Promise<string|null>} the saved file's path
+ */
+export async function saveCapture(blob, browser) {
+  // wave9/secfix (security-full-1 M3): a private page's capture stays on
+  // the clipboard only, as in Firefox (private windows, private tabs and
+  // Scratch).
+  if (isPrivateCapture(browser)) {
+    return null;
+  }
+  try {
+    const dir = capturesDir();
+    await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+    const path = PathUtils.join(dir, filenameFor(new Date()));
+    await IOUtils.write(path, new Uint8Array(await blob.arrayBuffer()));
+    Services.obs.notifyObservers(null, SAVED_TOPIC, path);
+    return path;
+  } catch (e) {
+    console.error("Whimsy: save capture to sidebar", e);
+    return null;
+  }
+}
+
 let installed = false;
 function installCaptureHook() {
   if (installed) {
@@ -56,21 +87,7 @@ function installCaptureHook() {
   const original = lazy.ScreenshotsUtils.copyScreenshot;
   lazy.ScreenshotsUtils.copyScreenshot = async function (blob, browser, eventName) {
     await original.call(this, blob, browser, eventName);
-    // wave9/secfix (security-full-1 M3): a private page's capture stays on
-    // the clipboard only, as in Firefox (private windows, private tabs and
-    // Scratch).
-    if (isPrivateCapture(browser)) {
-      return;
-    }
-    try {
-      const dir = capturesDir();
-      await IOUtils.makeDirectory(dir, { ignoreExisting: true });
-      const path = PathUtils.join(dir, filenameFor(new Date()));
-      await IOUtils.write(path, new Uint8Array(await blob.arrayBuffer()));
-      Services.obs.notifyObservers(null, SAVED_TOPIC, path);
-    } catch (e) {
-      console.error("Whimsy: save capture to sidebar", e);
-    }
+    await saveCapture(blob, browser);
   };
 }
 
