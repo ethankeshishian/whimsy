@@ -71,6 +71,21 @@ async function openNewEasel() {
   return { easel, tab, browser, win: browser.contentWindow, app: browser.contentWindow.gWhimsyEasel };
 }
 
+// Waits for the Library's spring (a JS animation: "transitioning" until it
+// ends) and every finite CSS/Web animation in the browser window to finish.
+async function settleWindow() {
+  const library = document.querySelector("zen-library");
+  await TestUtils.waitForCondition(() => !library?.hasAttribute("transitioning"), "The Library is still");
+  for (let i = 0; i < 5; i++) {
+    const running = document.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().endTime != Infinity);
+    if (!running.length) {
+      break;
+    }
+    await Promise.all(running.map(a => a.finished.catch(() => {})));
+  }
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+
 // Synthesizes a pointer drag inside the easel page, in client px.
 async function drag(win, from, to, { steps = 6, modifiers = {} } = {}) {
   const viewport = win.document.getElementById("viewport");
@@ -443,6 +458,9 @@ add_task(async function test_view_easels_command() {
   await TestUtils.waitForCondition(() => ZenLibrary.isLibraryOpen && library.activeTab == "whimsy-easels", "The Library opens on Easels");
   ZenLibrary.close();
   await TestUtils.waitForCondition(() => !ZenLibrary.isLibraryOpen, "Closed again");
+  // isLibraryOpen turns false as the Library's spring starts; the next test
+  // drags in the page, which moves until the spring ends.
+  await settleWindow();
 });
 
 // wave7: resizing snaps the moving edge to other items' edges and centres.
@@ -463,6 +481,9 @@ add_task(async function test_resize_snaps() {
   app.view.zoom = 1;
   app.applyView();
   app.select(["b"]);
+  // Nothing in the window still moving (a panel or the Library sliding
+  // away from an earlier test moves the page under the pointer).
+  await settleWindow();
   // The selection overlay draws on the next frame: wait for the east handle
   // to sit on B's right edge before grabbing it.
   const handleEl = () => win.document.querySelector('#selection .handle[data-handle="e"]');

@@ -202,9 +202,18 @@ function loadedAt(tab, query) {
 }
 
 // What an Essential looks like right after launch: no page yet, never shown.
+// The session store records a tab's page a moment after it loads; a tab
+// unloaded before then has nothing to restore when it's woken (Firefox's own
+// tests flush before discarding, too).
+async function discard(tab) {
+  const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
+  await TabStateFlusher.flush(tab.linkedBrowser);
+  return gBrowser.discardBrowser(tab, true);
+}
+
 async function asAtLaunch(tab) {
   // Already unloaded (pending) stays so; discarding it again would fail.
-  ok(tab.hasAttribute("pending") || gBrowser.discardBrowser(tab, true), "Unloaded");
+  ok(tab.hasAttribute("pending") || await discard(tab), "Unloaded");
   await TestUtils.waitForCondition(() => tab.hasAttribute("pending"), "Pending");
   delete tab._whimsyUnloaded;
   delete tab._zenContentsVisible;
@@ -221,7 +230,7 @@ add_task(async function test_unloaded_essential_loads_in_background_and_stays_li
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?live-other");
 
   // Unloaded on purpose: it stays unloaded.
-  ok(gBrowser.discardBrowser(essential, true), "Unloaded by hand");
+  ok(await discard(essential), "Unloaded by hand");
   await TestUtils.waitForCondition(() => essential.hasAttribute("pending"), "Pending");
   ok(essential._whimsyUnloaded, "An unload on purpose is remembered");
   let woken = await WhimsyTabs.keepEssentialsLive(window);
@@ -277,7 +286,7 @@ add_task(async function test_pending_tab_made_essential_loads() {
   const pending = BrowserTestUtils.addTab(gBrowser, "https://example.com/?made-essential");
   await BrowserTestUtils.browserLoaded(pending.linkedBrowser);
   ok(!pending.selected, "A background tab");
-  ok(gBrowser.discardBrowser(pending, true), "Unloaded");
+  ok(await discard(pending), "Unloaded");
   await TestUtils.waitForCondition(() => pending.hasAttribute("pending"), "Pending");
   gZenPinnedTabManager.addToEssentials(pending);
   await TestUtils.waitForCondition(() => pending.hasAttribute("zen-essential"), "Made an Essential");
