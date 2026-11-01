@@ -690,3 +690,5 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 # wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
 ["browser_whimsy_site_settings.js"]
 support-files = ["whimsy_article.html"]
+# wave10 W10-31: the theme keeps its colors when the window is inactive (zen.view.grey-out-inactive-windows off).
+["browser_whimsy_inactive_window_theme.js"]

@@ -705,6 +705,12 @@ PREF_OVERRIDES = {
     # batch hover: Arc's tab hover card (title, address, page preview) is
     # Firefox's tab hover preview, which Zen ships off.
     "browser.tabs.hoverPreview.enabled": True,
+    # W10-31: the theme keeps its colors when the window loses focus, like
+    # Arc. Zen greys an inactive window out: #zen-main-app-wrapper turns
+    # InactiveCaption (zen-browser-ui.css) and the macOS window material
+    # follows the active state (nsCocoaWindow-mm.patch). Both read this pref,
+    # so Zen's own switch turns it off everywhere and stays user-settable.
+    "zen.view.grey-out-inactive-windows": False,
 }
 
 # Strings Zen's markup uses that its .ftl files no longer define.
@@ -1435,7 +1441,9 @@ def apply_pref_overrides(report, dry, superseded_ids):
             if not rel.endswith(".yaml"):
                 continue
             text = read(rel)
-            rx = re.compile(r"(- name: " + re.escape(name) + r"\n\s*value: )([^\n#]*)(.*)")
+            # value may follow other keys (cpptype: for a static pref).
+            rx = re.compile(r"(- name: " + re.escape(name) +
+                            r"\n(?:[ \t]+(?!value:)[^\n]*\n)*[ \t]*value: )([^\n#]*)(.*)")
             m = rx.search(text)
             if not m:
                 continue
