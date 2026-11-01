@@ -54,7 +54,6 @@ export const KNOWN_ENGINE_FAVICONS = new Map([
   ["amazon.com", "chrome://activity-stream/content/data/content/tippytop/favicons/amazon.ico"],
   ["ebay", "chrome://activity-stream/content/data/content/tippytop/favicons/ebay.ico"],
   ["twitter", "chrome://activity-stream/content/data/content/tippytop/favicons/twitter-com.ico"],
-  ["x", "chrome://activity-stream/content/data/content/tippytop/favicons/twitter-com.ico"],
   ["facebook", "chrome://activity-stream/content/data/content/tippytop/favicons/facebook-com.png"],
   ["baidu", "chrome://activity-stream/content/data/content/tippytop/favicons/baidu-com.png"],
   ["yandex", "chrome://activity-stream/content/data/content/tippytop/favicons/yandex-com.png"],
@@ -96,7 +95,7 @@ export function getSearchFavicon(engineName, domain) {
       return KNOWN_ENGINE_FAVICONS.get(key);
     }
     for (const [name, icon] of KNOWN_ENGINE_FAVICONS) {
-      if (key === name || key.startsWith(`${name} `) || key.startsWith(`${name}-`) || key.includes(name)) {
+      if (key === name || key.startsWith(`${name} `) || key.startsWith(`${name}-`)) {
         return icon;
       }
     }
@@ -122,56 +121,33 @@ export function getSearchFavicon(engineName, domain) {
 
 const gDynamicFaviconCache = new Map();
 
+// A known site icon, else the engine's own icon once it has loaded. Never a
+// page-icon: guess: an engine without an icon keeps Firefox's search glass
+// rather than a blank globe.
 export function getEngineFavicon(engineName, domain) {
   const staticIcon = getSearchFavicon(engineName, domain);
   if (staticIcon) {
     return staticIcon;
   }
-  const key = (engineName || domain || "").trim().toLowerCase();
+  const key = (engineName || "").trim().toLowerCase();
   if (!key) {
     return null;
   }
   if (gDynamicFaviconCache.has(key)) {
     return gDynamicFaviconCache.get(key);
   }
-
+  gDynamicFaviconCache.set(key, null);
   try {
-    let engine = null;
-    if (engineName && lazy.SearchService) {
-      engine = lazy.SearchService.getEngineByName(engineName);
-    }
-    if (!engine && domain && lazy.SearchService?.getEngineByAlias) {
-      engine = lazy.SearchService.getEngineByAlias(domain);
-    }
-    if (engine) {
-      const iconMap = engine._iconMapObj;
-      if (iconMap) {
-        const icon = iconMap[16] || iconMap[32] || Object.values(iconMap)[0];
-        if (icon) {
-          gDynamicFaviconCache.set(key, icon);
-          return icon;
+    const engine = lazy.SearchService?.getEngineByName(engineName);
+    engine
+      ?.getIconURL?.(16)
+      .then(url => {
+        if (url) {
+          gDynamicFaviconCache.set(key, url);
         }
-      }
-      if (typeof engine.getIconURL == "function") {
-        engine.getIconURL(16).then(url => {
-          if (url) {
-            gDynamicFaviconCache.set(key, url);
-          }
-        }).catch(() => {});
-      }
-      if (engine.searchUrlDomain) {
-        const icon = `page-icon:https://${engine.searchUrlDomain}/`;
-        gDynamicFaviconCache.set(key, icon);
-        return icon;
-      }
-    }
+      })
+      .catch(() => {});
   } catch (e) {}
-
-  if (domain) {
-    const icon = `page-icon:https://${domain}/`;
-    gDynamicFaviconCache.set(key, icon);
-    return icon;
-  }
   return null;
 }
 

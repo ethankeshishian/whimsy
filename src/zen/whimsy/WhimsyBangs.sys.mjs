@@ -17,6 +17,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
+  getSearchFavicon: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
 });
 
 const FEATURE = "whimsy.feature.offline-bangs";
@@ -172,7 +173,9 @@ export class WhimsyBangsProvider extends UrlbarProvider {
           url: bang.url,
           keyword: `!${bang.key}`,
           input: context.searchString,
-          icon: `page-icon:${new URL(bang.url).origin}/`,
+          // W10-37: a site's home page is often not in history with an
+          // icon, so page-icon: alone fell back to the blank globe (e.g. !yt).
+          icon: lazy.getSearchFavicon(null, host) ?? `page-icon:${new URL(bang.url).origin}/`,
         },
       })
     );

@@ -113,20 +113,44 @@ add_task(function test_search_favicons_known_engines() {
 });
 
 add_task(async function test_search_favicons_pref_switch() {
-  await SpecialPowers.pushPrefEnv({ set: [[SEARCH_FAVICONS_FEATURE_PREF, false]] });
-  const ytResult = {
-    type: UrlbarShared.RESULT_TYPE.SEARCH,
-    payload: {
-      engine: "YouTube",
-      icon: UrlbarShared.ICON.SEARCH_GLASS,
+  // A stand-in controller, so the real address bar isn't fed a fake query.
+  const controller = {
+    receiveResults(context) {
+      this.received = context;
     },
   };
-  const controller = window.gURLBar?.controller;
-  if (controller) {
-    WhimsyCommandBar.initResultsHook(window);
-    const fakeContext = { results: [ytResult] };
-    controller.receiveResults(fakeContext);
-    is(ytResult.payload.icon, UrlbarShared.ICON.SEARCH_GLASS, "Pref disabled: icon remains search glass");
-  }
+  WhimsyCommandBar.initResultsHook({ gURLBar: { controller } });
+  const ytRow = () => ({
+    type: UrlbarShared.RESULT_TYPE.SEARCH,
+    payload: { engine: "YouTube", icon: UrlbarShared.ICON.SEARCH_GLASS },
+  });
+
+  await SpecialPowers.pushPrefEnv({ set: [[SEARCH_FAVICONS_FEATURE_PREF, false]] });
+  controller.receiveResults({ results: [ytRow()] });
+  is(controller.received.results[0].payload.icon, UrlbarShared.ICON.SEARCH_GLASS, "switch off: the search glass stays");
+  await SpecialPowers.popPrefEnv();
+
+  await SpecialPowers.pushPrefEnv({ set: [[SEARCH_FAVICONS_FEATURE_PREF, true]] });
+  controller.receiveResults({ results: [ytRow()] });
+  is(controller.received.results[0].payload.icon, KNOWN_ENGINE_FAVICONS.get("youtube"), "switch on: YouTube's icon");
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(function test_engine_names_match_whole_words() {
+  is(getSearchFavicon("SearXNG"), null, "an engine merely containing a known name gets no borrowed icon");
+  is(getEngineFavicon("No Such Engine"), null, "an unknown engine keeps the search glass (no page-icon guess)");
+});
+
+// W10-37 (lane): "!yt cats" in the real command bar shows YouTube's icon.
+// It was page-icon:https://www.youtube.com/, which is the blank globe unless
+// YouTube's home page is in history with an icon.
+add_task(async function test_bang_row_shows_site_icon() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.offline-bangs", true]] });
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "!yt cats" });
+  const details = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
+  is(details.result.payload.keyword, "!yt", "the bang row is first");
+  is(details.image, KNOWN_ENGINE_FAVICONS.get("youtube"), "it shows YouTube's icon");
+  await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
   await SpecialPowers.popPrefEnv();
 });
