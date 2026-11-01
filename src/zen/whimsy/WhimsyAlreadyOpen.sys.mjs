@@ -263,6 +263,29 @@ export const WhimsyAlreadyOpen = {
       return original.call(this, params);
     };
 
+    // W10-36: Zen's Cmd+T command bar opens over the tab you're on (no new
+    // tab exists until you pick something), so Firefox took that tab as the
+    // "current page" and hid it from Switch to Tab. A pinned tab you were on
+    // then had no Switch to Tab row, while the same tab had one from any
+    // other space. In the new-tab bar nothing is current yet, so every open
+    // tab is offered. Editing the current page's address (Cmd+L) keeps
+    // Firefox's rule.
+    const controller = urlbar.controller;
+    if (controller && !controller._whimsyNewTabCurrentPage) {
+      controller._whimsyNewTabCurrentPage = true;
+      const startQuery = controller.startQuery;
+      controller.startQuery = function (queryContext) {
+        try {
+          if (urlbar.hasAttribute("zen-newtab") && queryContext && "currentPage" in queryContext) {
+            delete queryContext.currentPage;
+          }
+        } catch (e) {
+          console.error("Whimsy: new-tab bar current page", e);
+        }
+        return startQuery.apply(this, arguments);
+      };
+    }
+
     if (urlbar.view && !urlbar.view._whimsyRankHooked) {
       urlbar.view._whimsyRankHooked = true;
       const origOnQueryResults = urlbar.view.onQueryResults;

@@ -1264,7 +1264,11 @@ Object.assign(gWhimsySettings, {
       appleButton.disabled = true;
       const status = await WhimsyAIProviders.appleStatus({ build });
       appleButton.disabled = false;
-      setStatus("whimsyAIAppleStatus", `whimsy-ai-apple-status-${status}`);
+      // W10-07: the status names the real reason (folders searched, the
+      // compiler's error), so nothing points at tools that are installed.
+      setStatus("whimsyAIAppleStatus", `whimsy-ai-apple-status-${status}`, {
+        detail: WhimsyAIProviders.appleDetail || "",
+      });
       document.l10n.setAttributes(
         appleButton,
         status == "not-set-up" ? "whimsy-ai-apple-set-up" : "whimsy-ai-apple-check"

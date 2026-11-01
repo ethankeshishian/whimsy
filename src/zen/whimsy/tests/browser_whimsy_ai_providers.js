@@ -193,6 +193,7 @@ add_task(async function test_apple_toolchain_detection() {
   WhimsyAIProviders._developerDirCandidates = [clt];
   try {
     is(await WhimsyAIProviders._findToolchain(), "apple-needs-tools", "No swiftc anywhere: the tools are missing");
+    ok(WhimsyAIProviders.appleDetail.includes(clt), "Settings names the folders that were searched");
 
     await IOUtils.makeDirectory(PathUtils.parent(swiftc));
     await IOUtils.writeUTF8(swiftc, "");
@@ -230,16 +231,76 @@ add_task(async function test_apple_toolchain_detection() {
       "Missing FoundationModels module diagnosed as outdated tools"
     );
     is(WhimsyAIProviders._buildFailure("error: cannot find 'X' in scope"), "apple-build-failed", "Other build errors aren't 'missing tools'");
+    is(
+      WhimsyAIProviders._buildErrorLine("warning: unused\n/tmp/WhimsyFM.swift:3:5: error: cannot find 'X' in scope\n"),
+      "/tmp/WhimsyFM.swift:3:5: error: cannot find 'X' in scope",
+      "The compiler's first error is what Settings shows"
+    );
 
     const l10n = new Localization(["browser/whimsy.ftl"], true);
-    for (const code of ["apple-needs-tools", "apple-tools-outdated", "apple-tools-path-invalid", "apple-needs-license", "apple-build-failed"]) {
+    for (const code of [
+      "apple-needs-tools",
+      "apple-tools-outdated",
+      "apple-tools-path-invalid",
+      "apple-needs-license",
+      "apple-build-failed",
+      "apple-helper-blocked",
+    ]) {
       ok(AI_ERROR_CODES.includes(code), `${code} is a known error`);
       ok(l10n.formatValueSync(`whimsy-ai-error-${code}`), `${code} has a toast`);
-      ok(l10n.formatValueSync(`whimsy-ai-apple-status-${code}`), `${code} has a Settings message`);
+      const status = l10n.formatValueSync(`whimsy-ai-apple-status-${code}`, { detail: "DETAIL" });
+      ok(status, `${code} has a Settings message`);
+      // W10-07: only "no swiftc anywhere" may send people to install tools.
+      if (code != "apple-needs-tools") {
+        ok(!status.includes("xcode-select --install"), `${code} doesn't tell people to install tools they have`);
+      }
     }
+    ok(
+      l10n.formatValueSync("whimsy-ai-apple-status-apple-build-failed", { detail: "DETAIL" }).includes("DETAIL"),
+      "A failed build shows the compiler's error"
+    );
   } finally {
     WhimsyAIProviders._run = realRun;
     WhimsyAIProviders._developerDirCandidates = realDirs;
+    await IOUtils.remove(root, { recursive: true });
+  }
+});
+
+// W10-07: Set Up still failed on a Mac with the tools installed. Whimsy (like
+// Firefox) has LSFileQuarantineEnabled, so the helper swiftc linked was
+// flagged com.apple.quarantine and macOS held it at launch: the --check
+// never returned. The flag is now cleared before the helper runs, and a
+// helper that still doesn't start says so instead of hanging.
+add_task(async function test_apple_helper_quarantine() {
+  if (Services.appinfo.OS != "Darwin") {
+    ok(true, "macOS only");
+    return;
+  }
+  const root = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-fm");
+  const helper = PathUtils.join(root, "whimsy-fm-test");
+  const descriptor = Object.getOwnPropertyDescriptor(WhimsyAIProviders, "_helperPath");
+  const realTimeout = WhimsyAIProviders._helperCheckTimeoutMs;
+  Object.defineProperty(WhimsyAIProviders, "_helperPath", { get: () => helper, configurable: true });
+  const quarantine = "com.apple.quarantine";
+  try {
+    await IOUtils.writeUTF8(helper, "#!/bin/sh\necho available\n");
+    await IOUtils.setPermissions(helper, 0o755);
+    await IOUtils.setMacXAttr(helper, quarantine, new TextEncoder().encode("0081;6ae6c5e6;Whimsy;"));
+    ok(await IOUtils.hasMacXAttr(helper, quarantine), "The helper starts out quarantined, as Whimsy's files are");
+    WhimsyAIProviders._helperPromise = null;
+    is(await WhimsyAIProviders.appleStatus({ build: true }), "available", "The helper runs");
+    ok(!(await IOUtils.hasMacXAttr(helper, quarantine)), "Its quarantine flag was cleared before it ran");
+
+    // A helper macOS holds at launch reports that, not "Checking…" forever.
+    await IOUtils.writeUTF8(helper, "#!/bin/sh\nexec sleep 30\n");
+    await IOUtils.setPermissions(helper, 0o755);
+    WhimsyAIProviders._helperPromise = null;
+    WhimsyAIProviders._helperCheckTimeoutMs = 500;
+    is(await WhimsyAIProviders.appleStatus({ build: true }), "apple-helper-blocked", "A helper that never starts is reported as blocked");
+  } finally {
+    Object.defineProperty(WhimsyAIProviders, "_helperPath", descriptor);
+    WhimsyAIProviders._helperCheckTimeoutMs = realTimeout;
+    WhimsyAIProviders._helperPromise = null;
     await IOUtils.remove(root, { recursive: true });
   }
 });
