@@ -211,6 +211,14 @@ add_task(async function test_disabled_feature_does_nothing() {
 // W10-19: columns follow the width: three at 1280px, one when narrow;
 // matches are marked; the empty state names the query.
 add_task(async function test_columns_marks_and_empty() {
+  // Zen's window sync copies the new window's blank tab into this one;
+  // take it along when the window closes.
+  const startTabs = new Set(gBrowser.tabs);
+  registerCleanupFunction(() => {
+    for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  });
   const win = await BrowserTestUtils.openNewBrowserWindow();
   try {
     win.resizeTo(1280, 900);
