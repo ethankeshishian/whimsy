@@ -107,6 +107,8 @@ async function openFloatingBar() {
     () => gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("open"),
     "The command bar floats open"
   );
+  // W10-27: the trim rides the bar's own open motion; let it finish.
+  await Promise.all(gURLBar.getAnimations().map(a => a.finished.catch(() => {})));
 }
 
 async function closeBar() {

@@ -126,8 +126,28 @@ add_task(async function trim_shows_in_the_same_frame_as_the_bar() {
     "No trim animation runs at all"
   );
 
-  await closeBar();
-  is(getComputedStyle(trim).visibility, "hidden", "Closing the bar hides the trim in the same change");
+  // W10-27: closing, the trim rides the bar's close motion, then hides in
+  // the same change that hides the bar.
+  let duringClose = null;
+  const closing = new MutationObserver(() => {
+    if (!duringClose && gURLBar.hasAttribute("whimsy-closing")) {
+      duringClose = getComputedStyle(trim).visibility;
+    }
+  });
+  closing.observe(gURLBar, { attributes: true, attributeFilter: ["whimsy-closing"] });
+  try {
+    await closeBar();
+    await TestUtils.waitForCondition(
+      () => gURLBar.getAttribute("zen-floating-urlbar") != "true" && !gURLBar.hasAttribute("whimsy-closing"),
+      "The bar is hidden"
+    );
+  } finally {
+    closing.disconnect();
+  }
+  if (window.WhimsyCommandBarMotion?.enabled) {
+    is(duringClose, "visible", "The trim stays on the bar while the bar animates out");
+  }
+  is(getComputedStyle(trim).visibility, "hidden", "Hiding the bar hides the trim in the same change");
 });
 
 add_task(async function every_look_preloads_its_own_art() {

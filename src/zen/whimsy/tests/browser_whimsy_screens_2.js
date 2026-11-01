@@ -481,8 +481,15 @@ add_task(async function profiles_ui() {
         await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
         await shot(`wave5-profiles-settings-${scheme}`, browser.browsingContext.currentWindowGlobal);
 
+        // W10-23: the editor open (label/control grid), then a new
+        // profile's row with a duplicate name.
+        doc.querySelector(`.whimsy-profile-row[data-profile-id="${work}"] .whimsy-profile-edit`).doCommand();
+        await doc.l10n.translateFragment(group);
+        await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
+        await shot(`w10-profiles-editor-${scheme}`, browser.browsingContext.currentWindowGlobal);
+
         doc.getElementById("whimsyProfilesCreate").doCommand();
-        const form = doc.querySelector("#whimsyProfilesCreateSlot .whimsy-profile-name-form");
+        const form = doc.querySelector(".whimsy-profile-new .whimsy-profile-editor");
         form.querySelector("input").value = "screens work";
         form.requestSubmit();
         await TestUtils.waitForCondition(() => !form.querySelector(".whimsy-profile-name-error").hidden);

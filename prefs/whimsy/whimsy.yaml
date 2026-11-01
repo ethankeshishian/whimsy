@@ -32,8 +32,13 @@
 - name: whimsy.reject-cookie-banners
   value: true
 
-# AI kill switch (Settings → Privacy & Security): turns off every AI feature,
-# Firefox's and Whimsy's (WhimsyAI.sys.mjs). Off: AI features stay available.
+# W10-28: Enable AI (Settings → AI). Off turns off every AI feature,
+# Firefox's and Whimsy's (WhimsyAI.sys.mjs). Replaces whimsy.ai.blocked.
+- name: whimsy.ai.enabled
+  value: true
+
+# The old switch ("Turn off all AI features"). Kept for one release as
+# !whimsy.ai.enabled, so a rolled-back build reads the same answer.
 - name: whimsy.ai.blocked
   value: false
 
@@ -579,16 +584,20 @@
   value: "tab-volume,playlist,copy-markdown"
 
 - name: whimsy.menus.hidden.link
-  value: ""
+  value: "element-info"
 
 - name: whimsy.menus.hidden.page
-  value: "capture-full-page,capture-portrait,wayback,dev-mode"
+  value: "capture-full-page,capture-portrait,wayback,dev-mode,element-info"
 
+# W10-45: Element Info's row starts off in every page menu.
+# W10-20: the selection menu's regroup also starts Search in a Private
+# Window, Select All, Inspect Accessibility Properties and View Selection
+# Source off (ADDED_HIDDEN[2]).
 - name: whimsy.menus.hidden.selection
-  value: "copy-url-quote"
+  value: "search-private,copy-url-quote,select-all,inspect-a11y,view-source,element-info"
 
 - name: whimsy.menus.hidden.image
-  value: ""
+  value: "element-info"
 
 - name: whimsy.menus.hidden.space
   value: "reset-tabs,show-hidden"
@@ -607,6 +616,10 @@
 
 # wave9/menus (design-full-4 L10): a video's or audio's own menu.
 - name: whimsy.menus.hidden.media
+  value: "element-info"
+
+# W10-21: the menu Settings → Menus showed last (not synced).
+- name: whimsy.menus.settings-last
   value: ""
 
 # wave9/menus: which ADDED_HIDDEN lists a changed menu has already taken.

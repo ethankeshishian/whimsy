@@ -169,16 +169,38 @@ add_task(async function settings_profiles_group() {
       const doc = browser.contentDocument;
       const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyProfilesGroup"));
       await TestUtils.waitForCondition(() => group.checkVisibility(), "Profiles group shows");
+      const win = browser.contentWindow;
       const row = id => doc.querySelector(`.whimsy-profile-row[data-profile-id="${id}"]`);
       ok(row(0), "Default row");
-      ok(!row(0).querySelector(".whimsy-profile-delete"), "Default has no delete");
+      ok(!row(0).querySelector(".whimsy-profile-edit, .whimsy-profile-delete"), "Default has no Edit and no delete");
+      // W10-23: Rename and Delete live only in the editor, behind Edit.
+      const edit = row(used).querySelector(".whimsy-profile-edit");
+      ok(edit, "A profile has one Edit button");
+      const editor = row(used).querySelector(".whimsy-profile-editor");
+      ok(editor.hidden, "Its editor starts closed");
+      edit.doCommand();
+      is(row(used).getAttribute("aria-expanded"), "true", "Edit opens it");
+      is(edit.getAttribute("aria-expanded"), "true", "…and says so");
       const usedDelete = row(used).querySelector(".whimsy-profile-delete");
       ok(usedDelete.disabled, "A used profile's delete is disabled");
-      is(usedDelete.getAttribute("aria-describedby"), "whimsyProfilesDeleteRule",
+      is(usedDelete.getAttribute("aria-describedby"), `whimsyProfileDeleteRule${used}`,
         "…and points at the rule in text");
+      ok(doc.getElementById(`whimsyProfileDeleteRule${used}`).checkVisibility(), "The rule shows under it");
 
+      // The three controls start at one edge.
+      const lefts = [`whimsyProfileName${used}`, `whimsyProfileEngine${used}`, `whimsyProfileDir${used}`]
+        .map(id => doc.getElementById(id).getBoundingClientRect().left);
+      ok(lefts.every(left => Math.abs(left - lefts[0]) <= 1), `Name, engine and downloads line up (${lefts})`);
+
+      // Esc closes it and returns to Edit.
+      doc.getElementById(`whimsyProfileName${used}`).focus();
+      EventUtils.synthesizeKey("KEY_Escape", {}, win);
+      ok(editor.hidden, "Esc closes the editor");
+      is(doc.activeElement, edit, "…back on Edit");
+
+      // Create: a new row in editor mode, name focused.
       doc.getElementById("whimsyProfilesCreate").doCommand();
-      const form = doc.querySelector("#whimsyProfilesCreateSlot .whimsy-profile-name-form");
+      const form = doc.querySelector(".whimsy-profile-new .whimsy-profile-editor");
       const input = form.querySelector("input");
       is(doc.activeElement, input, "Create puts focus in the name field");
       input.value = "Whimsy Settings Used";
@@ -193,8 +215,32 @@ add_task(async function settings_profiles_group() {
       const fresh = WhimsyProfiles.list().find(p => p.name == "Whimsy Settings New");
       created.add(fresh.id);
       await TestUtils.waitForCondition(() => row(fresh.id), "Row appears");
+      is(row(fresh.id).getAttribute("aria-expanded"), "true", "Its editor opens, for engine and downloads");
+      ok(editor.hidden || !editor.isConnected, "Only one editor is open");
       ok(!row(fresh.id).querySelector(".whimsy-profile-delete").disabled, "Unused can be deleted");
       ok(!doc.getElementById("whimsyProfilesDeleteUnused").disabled, "Delete Unused available");
+
+      // Rename in the editor: Return saves, a duplicate shows under the field.
+      const nameField = row(fresh.id).querySelector(`#whimsyProfileName${fresh.id}`);
+      nameField.focus();
+      nameField.value = "Whimsy Settings Used";
+      nameField.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
+      EventUtils.synthesizeKey("KEY_Enter", {}, win);
+      const nameError = row(fresh.id).querySelector(".whimsy-profile-name-error");
+      await TestUtils.waitForCondition(() => !nameError.hidden && nameError.textContent, "Duplicate name refused");
+      nameField.value = "Whimsy Settings Renamed";
+      nameField.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
+      EventUtils.synthesizeKey("KEY_Enter", {}, win);
+      await TestUtils.waitForCondition(() => WhimsyProfiles.nameOf(fresh.id) == "Whimsy Settings Renamed", "Renamed");
+      await TestUtils.waitForCondition(
+        () => row(fresh.id)?.querySelector(".whimsy-profile-name").textContent == "Whimsy Settings Renamed",
+        "The row shows the new name"
+      );
+      is(row(fresh.id).getAttribute("aria-expanded"), "true", "The editor stays open");
+
+      // Opening another closes this one.
+      row(used).querySelector(".whimsy-profile-edit").doCommand();
+      is(row(fresh.id).getAttribute("aria-expanded"), "false", "One editor at a time");
     });
   } finally {
     await gZenWorkspaces.removeWorkspace(space.uuid);

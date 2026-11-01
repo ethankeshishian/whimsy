@@ -283,6 +283,209 @@ function liquidGlassSupported() {
   );
 }
 
+// W10-27: the floating command bar (⌘T, ⌘L, the private bar, Mini's ⌘T)
+// opens with a short, subtle scale-and-fade and closes a little faster, the
+// way Arc's command bar does. Zen draws the bar centred with
+// `translate: -50% 0`, so the motion animates the `translate` and `scale`
+// properties around that base and never `transform`. Opening is noticed
+// from the bar's own attributes; closing goes through a one-line hotfix in
+// the urlbar's #closePopover (overlay.py "command-bar-motion-close"), which
+// lets the bar finish its close animation before Zen hides it. Zen's state
+// (focus, the new-tab session, the page's URL) changes at once as before:
+// only the hiding waits, and a reopen during it finishes the hide first.
+export const MOTION_FEATURE_PREF = "whimsy.feature.command-bar-motion";
+export const COMMAND_BAR_MOTION = {
+  open: { duration: 160, easing: "cubic-bezier(0.2, 0, 0, 1)", scale: 0.97, rise: 6 },
+  close: { duration: 110, easing: "cubic-bezier(0.4, 0, 1, 1)", scale: 0.98, rise: 4 },
+  openReduced: { duration: 100, easing: "linear" },
+  closeReduced: { duration: 80, easing: "linear" },
+};
+
+export class CommandBarMotion {
+  #win;
+  #shown = false;
+  #animation = null;
+  #closing = null;
+  // The visible amount (0-1) a hide was interrupted at, so the next open
+  // starts from there instead of from nothing.
+  #resumeFrom = 0;
+
+  constructor(win) {
+    this.#win = win;
+    const urlbar = win.gURLBar;
+    this.#shown = this.#isFloatingOpen(urlbar);
+    this.observer = new win.MutationObserver(() => this.#onAttributes());
+    this.observer.observe(urlbar, { attributes: true, attributeFilter: ["open", "zen-floating-urlbar"] });
+    win.addEventListener("unload", () => this.observer.disconnect(), { once: true });
+  }
+
+  get enabled() {
+    return Services.prefs.getBoolPref(MOTION_FEATURE_PREF, true);
+  }
+
+  get reduced() {
+    const win = this.#win;
+    if (typeof win.gReduceMotion == "boolean") {
+      return win.gReduceMotion;
+    }
+    return win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  get animation() {
+    return this.#animation;
+  }
+
+  get closing() {
+    return !!this.#closing;
+  }
+
+  #isFloatingOpen(urlbar) {
+    return urlbar.getAttribute("zen-floating-urlbar") == "true" && urlbar.hasAttribute("open");
+  }
+
+  // Keyframes around the bar's own translate (Zen's -50% 0, or none in
+  // Mini's bar-only panel), so the bar never jumps sideways.
+  #frames(kind) {
+    const urlbar = this.#win.gURLBar;
+    const reduced = this.reduced;
+    const spec = COMMAND_BAR_MOTION[kind];
+    if (reduced) {
+      return kind == "open"
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : [{ opacity: 1 }, { opacity: 0 }];
+    }
+    const base = this.#win.getComputedStyle(urlbar).translate;
+    const [x = "0px", y = "0px"] = !base || base == "none" ? [] : base.split(/\s+/);
+    const rest = { opacity: 1, scale: "1", translate: `${x} ${y}` };
+    const away = { opacity: 0, scale: String(spec.scale), translate: `${x} calc(${y} - ${spec.rise}px)` };
+    return kind == "open" ? [away, rest] : [rest, away];
+  }
+
+  #timing(kind) {
+    const spec = COMMAND_BAR_MOTION[this.reduced ? `${kind}Reduced` : kind];
+    return { duration: spec.duration, easing: spec.easing };
+  }
+
+  #onAttributes() {
+    const urlbar = this.#win.gURLBar;
+    if (urlbar.getAttribute("zen-floating-urlbar") != "true") {
+      this.#shown = false;
+      return;
+    }
+    if (this.#shown || !urlbar.hasAttribute("open")) {
+      return;
+    }
+    this.#shown = true;
+    this.playOpen();
+  }
+
+  playOpen() {
+    const urlbar = this.#win.gURLBar;
+    const resume = this.#resumeFrom;
+    this.#resumeFrom = 0;
+    if (!this.enabled || this.#win.document.hidden) {
+      return null;
+    }
+    this.#animation?.cancel();
+    const timing = this.#timing("open");
+    const animation = urlbar.animate(this.#frames("open"), { ...timing, id: "whimsy-command-bar-open" });
+    if (resume > 0) {
+      // A reopen during the hide: carry on from what is on screen.
+      animation.currentTime = timing.duration * Math.min(resume, 1);
+    }
+    this.#animation = animation;
+    animation.finished.then(
+      () => {
+        if (this.#animation == animation) {
+          this.#animation = null;
+        }
+      },
+      () => {}
+    );
+    return animation;
+  }
+
+  // Called by the urlbar's #closePopover with the part of Zen's close that
+  // hides the bar. Returns true when it will run `finish` itself, after the
+  // close animation; false means the caller runs it now.
+  deferClose(urlbar, finish) {
+    if (this.#closing) {
+      return true;
+    }
+    if (
+      !this.enabled ||
+      urlbar != this.#win.gURLBar ||
+      urlbar.getAttribute("zen-floating-urlbar") != "true" ||
+      !urlbar.matches(":popover-open") ||
+      this.#win.document.hidden ||
+      this.#win.windowState == this.#win.STATE_MINIMIZED
+    ) {
+      return false;
+    }
+    // What is visible now: an open still running starts the hide from there.
+    let shownAmount = 1;
+    const running = this.#animation;
+    if (running?.id == "whimsy-command-bar-open" && running.playState == "running") {
+      shownAmount = Math.min(1, (running.currentTime ?? 0) / running.effect.getTiming().duration);
+    }
+    running?.cancel();
+    const timing = this.#timing("close");
+    const animation = urlbar.animate(this.#frames("close"), {
+      ...timing,
+      id: "whimsy-command-bar-close",
+      fill: "forwards",
+    });
+    if (shownAmount < 1) {
+      animation.currentTime = timing.duration * (1 - shownAmount);
+    }
+    urlbar.setAttribute("whimsy-closing", "true");
+    this.#animation = animation;
+    this.#closing = { finish, animation };
+    animation.finished.then(
+      () => this.#finishClose(animation),
+      () => {}
+    );
+    return true;
+  }
+
+  #finishClose(animation) {
+    const closing = this.#closing;
+    if (!closing || closing.animation != animation) {
+      return;
+    }
+    this.#closing = null;
+    // The hide below and a reopen right after it reach the observer as one
+    // batch; the next open must still animate.
+    this.#shown = false;
+    this.#win.gURLBar.removeAttribute("whimsy-closing");
+    try {
+      closing.finish();
+    } catch (e) {
+      console.error("Whimsy: command bar close", e);
+    } finally {
+      animation.cancel();
+      if (this.#animation == animation) {
+        this.#animation = null;
+      }
+    }
+  }
+
+  // Called by the urlbar's #openPopover before it opens: a hide still
+  // running ends now, so Zen opens from a closed bar as it expects, and the
+  // open animation picks up from what was on screen.
+  flushClose(urlbar) {
+    const closing = this.#closing;
+    if (!closing || urlbar != this.#win.gURLBar) {
+      return;
+    }
+    const { animation } = closing;
+    const duration = animation.effect.getTiming().duration;
+    const progress = Math.min(1, (animation.currentTime ?? 0) / duration);
+    this.#resumeFrom = 1 - progress;
+    this.#finishClose(animation);
+  }
+}
+
 export const WhimsyCommandBar = {
   NEW_THINGS,
   GLANCE_SIZES,
@@ -314,6 +517,10 @@ export const WhimsyCommandBar = {
   },
 
   initWindow(win) {
+    // W10-27: a quick, subtle open/close for the floating command bar.
+    if (win.gURLBar && !win.WhimsyCommandBarMotion) {
+      win.WhimsyCommandBarMotion = new CommandBarMotion(win);
+    }
     this.initSlashFilter(win);
     this.initDedup(win);
     this.linkAppearanceActions();

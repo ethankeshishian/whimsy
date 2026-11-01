@@ -56,7 +56,7 @@ const installed = new WeakSet();
 // defaults of whimsy.menus.hidden.*; someone who had already changed a menu
 // gets them added once (DEFAULTS_VERSION), so a new row never just appears.
 const DEFAULTS_VERSION_PREF = "whimsy.menus.defaults-version";
-const DEFAULTS_VERSION = 1;
+const DEFAULTS_VERSION = 2;
 export const ADDED_HIDDEN = {
   1: {
     tab: ["tab-volume", "playlist", "copy-markdown"],
@@ -70,7 +70,27 @@ export const ADDED_HIDDEN = {
     // wave10 (W10-56): the pane's ⋯ menu shows Swap Panes after all (the
     // user missed it there), so nothing in it starts off.
   },
+  // W10-20: the selection menu's regroup: rows few people use start off
+  // (still in Settings → Menus).
+  // W10-45: Element Info's row starts off in every menu (the user, applying
+  // the W9-09 rule); the command bar and Tools ▸ Browser Tools still have it.
+  2: {
+    selection: ["search-private", "select-all", "inspect-a11y", "view-source", "element-info"],
+    link: ["element-info"],
+    page: ["element-info"],
+    image: ["element-info"],
+    media: ["element-info"],
+  },
 };
+
+// Every row a menu starts with off, across all ADDED_HIDDEN versions.
+export function defaultHiddenIdsFor(menuId) {
+  return [...new Set(Object.values(ADDED_HIDDEN).flatMap(added => added[menuId] ?? []))];
+}
+
+// The class of the separators the registry order (W10-20) puts between its
+// groups, reused from one opening to the next.
+export const ORDER_SEP_CLASS = "whimsy-menu-order-sep";
 
 // One row of a menu: `id` is the stable key stored in the pref; `ids` the
 // DOM ids it stands for (a row with a selected-tabs twin, or one whose
@@ -267,34 +287,68 @@ const MENUS = [
     l10n: "whimsy-menus-selection",
     popup: "#contentAreaContextMenu",
     when: win => contentContext(win) == "selection",
+    // W10-20: the selection menu shows its rows in this order (Arc's: search
+    // first, then copy, then actions, print, developer rows). Firefox's own
+    // DOM order is restored when the menu closes, so the page, link and
+    // image menus keep theirs. Rows not listed here (extensions, Firefox
+    // additions) keep their relative order after Print.
+    order: "registry",
+    extrasAfter: "print",
     items: [
       item("search", "whimsy-menus-selection-search", ["context-searchselect"]),
+      item("translate", "whimsy-menus-selection-translate", ["context-translate-selection"], {
+        hintL10n: "whimsy-menus-hint-translate",
+      }),
+      // W10-20: off by default.
       item("search-private", "whimsy-menus-selection-search-private", ["context-searchselect-private"]),
-      item("translate", "whimsy-menus-selection-translate", ["context-translate-selection"]),
       SEPARATOR,
       item("copy", "whimsy-menus-selection-copy", ["context-copy"]),
-      item("copy-markdown", "whimsy-menus-selection-copy-markdown", ["context-whimsy-copy-markdown"]),
-      // wave9/menus (W9-09): off by default.
-      item("copy-url-quote", "whimsy-menus-selection-copy-url-quote", ["context-whimsy-copy-url-quote"]),
-      item("map", "whimsy-menus-selection-map", ["context-whimsy-verb-map"]),
-      item("email", "whimsy-menus-selection-email", ["context-whimsy-verb-email"]),
-      item("note", "whimsy-menus-selection-note", ["context-whimsy-verb-note"]),
-      item("calendar", "whimsy-menus-selection-calendar", ["context-whimsy-verb-calendar"]),
-      item("linear-new", "whimsy-menus-selection-linear-new", ["context-whimsy-verb-linear-new"]),
-      item("linear-search", "whimsy-menus-selection-linear-search", ["context-whimsy-verb-linear-search"]),
-      item("select-all", "whimsy-menus-select-all", ["context-selectall"]),
-      item("print", "whimsy-menus-selection-print", ["context-print-selection"]),
-      SEPARATOR,
       item("copy-highlight", "whimsy-menus-selection-copy-highlight", [
         "context-copy-link-to-highlight",
         "context-copy-clean-link-to-highlight",
       ]),
+      item("copy-markdown", "whimsy-menus-selection-copy-markdown", ["context-whimsy-copy-markdown"]),
+      // wave9/menus (W9-09): off by default.
+      item("copy-url-quote", "whimsy-menus-selection-copy-url-quote", ["context-whimsy-copy-url-quote"]),
+      // W10-20: off by default.
+      item("select-all", "whimsy-menus-select-all", ["context-selectall"]),
       SEPARATOR,
-      item("view-source", "whimsy-menus-selection-view-source", ["context-viewpartialsource-selection"]),
+      item("note", "whimsy-menus-selection-note", ["context-whimsy-verb-note"]),
+      // W10-20: Quick Actions ▸ (macOS's own name for "do this in another
+      // app"), with each row naming the app. WhimsyVerbs builds it; a
+      // child's switch is its own id in this menu's pref, so prefs written
+      // before the submenu keep working. With one row available it shows
+      // as that row (context-whimsy-quick-action-solo), never a one-row
+      // submenu; with none it hides.
+      item("quick-actions", "whimsy-menus-selection-quick-actions", [
+        "context-whimsy-quick-actions",
+        "context-whimsy-quick-action-solo",
+      ], {
+        children: [
+          item("calendar", "whimsy-menus-selection-calendar", ["context-whimsy-verb-calendar"], {
+            hintL10n: "whimsy-menus-hint-date",
+          }),
+          item("map", "whimsy-menus-selection-map", ["context-whimsy-verb-map"]),
+          item("email", "whimsy-menus-selection-email", ["context-whimsy-verb-email"], { l10nArgs: "mail-app" }),
+          SEPARATOR,
+          item("linear-new", "whimsy-menus-selection-linear-new", ["context-whimsy-verb-linear-new"], {
+            hintL10n: "whimsy-menus-hint-linear",
+          }),
+          item("linear-search", "whimsy-menus-selection-linear-search", ["context-whimsy-verb-linear-search"], {
+            hintL10n: "whimsy-menus-hint-linear",
+          }),
+        ],
+      }),
+      SEPARATOR,
+      item("print", "whimsy-menus-selection-print", ["context-print-selection"]),
+      SEPARATOR,
+      item("inspect-font", "whimsy-menus-selection-inspect-font", ["context-whimsy-inspect-font"]),
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
+      // W10-20: off by default.
+      item("inspect-a11y", "whimsy-menus-inspect-a11y", ["context-inspect-a11y"]),
+      item("view-source", "whimsy-menus-selection-view-source", ["context-viewpartialsource-selection"]),
       // W10-45: Element Info, beside Inspect.
       item("element-info", "whimsy-menus-element-info", ["context-whimsy-element-info"]),
-      item("inspect-font", "whimsy-menus-selection-inspect-font", ["context-whimsy-inspect-font"]),
     ],
   },
   {
@@ -526,9 +580,22 @@ export const WhimsyMenuPrefs = {
     return !menu.pref || Services.prefs.getPrefType(menu.pref) != Services.prefs.PREF_INVALID;
   },
 
-  // The menu's items in order, without the grouping separators.
+  // The menu's items in order, without the grouping separators. A
+  // submenu's rows (W10-20, `children`) follow their parent.
   items(menuId) {
+    return (this.menu(menuId)?.items ?? [])
+      .filter(entry => entry != SEPARATOR)
+      .flatMap(entry => [entry, ...(entry.children ?? []).filter(child => child != SEPARATOR)]);
+  },
+
+  // Only the rows the menu itself shows (not a submenu's).
+  topItems(menuId) {
     return (this.menu(menuId)?.items ?? []).filter(entry => entry != SEPARATOR);
+  },
+
+  // The submenu row `itemId` belongs to, if any.
+  parentOf(menuId, itemId) {
+    return this.topItems(menuId).find(entry => entry.children?.some(child => child != SEPARATOR && child.id == itemId)) ?? null;
   },
 
   // The menu's items with SEPARATOR ("-") between groups, for Settings.
@@ -654,10 +721,11 @@ export const WhimsyMenuPrefs = {
     return !Services.prefs.prefHasUserValue(this.prefName(menuId));
   },
 
-  // Every item of the menu is off.
+  // Every row of the menu is off (a submenu's rows don't count: with its
+  // parent off, they can't show anyway).
   allHidden(menuId) {
     const hidden = this.hiddenIds(menuId);
-    const items = this.items(menuId);
+    const items = this.topItems(menuId);
     return items.length > 0 && items.every(entry => hidden.has(entry.id));
   },
 
@@ -712,6 +780,111 @@ export const WhimsyMenuPrefs = {
     if (this.apply(win, popup, menu.id) && !this.hasVisibleItem(win, popup)) {
       // Every row is off: no empty menu.
       event.preventDefault();
+      return;
+    }
+    if (menu.order == "registry") {
+      this.reorder(win, popup, menu);
+    }
+  },
+
+  // W10-20: shows the visible rows of `popup` in the registry's order, with
+  // one separator between groups. The moves are logged and undone when the
+  // menu closes (restoreOrder), so other menus sharing the popup (the page,
+  // link and image menus share #contentAreaContextMenu) keep Firefox's
+  // order. Native NSMenus are built after popupshowing, so they show the
+  // moved order.
+  reorder(win, popup, menu) {
+    this.restoreOrder(popup);
+    const log = [];
+    const move = node => {
+      log.push({ node, prev: node.previousElementSibling, next: node.nextElementSibling });
+      popup.append(node);
+    };
+    const rows = [...popup.children].filter(
+      node => !isSeparator(node) && this.visible(win, node)
+    );
+    const used = new Set();
+    const groups = [[]];
+    let extrasGroup = -1;
+    for (const entry of menu.items) {
+      if (entry == SEPARATOR) {
+        groups.push([]);
+        continue;
+      }
+      for (const node of rows) {
+        if (!used.has(node) && entry.selectors.some(selector => node.matches(selector))) {
+          groups.at(-1).push(node);
+          used.add(node);
+        }
+      }
+      if (entry.id == menu.extrasAfter) {
+        extrasGroup = groups.length - 1;
+      }
+    }
+    const extras = rows.filter(node => !used.has(node));
+    if (extras.length) {
+      groups.splice(extrasGroup == -1 ? groups.length : extrasGroup + 1, 0, extras);
+    }
+    // Firefox's separators sit between its own groups; ours replace them.
+    for (const node of popup.children) {
+      if (isSeparator(node) && !node.classList.contains(ORDER_SEP_CLASS) && this.visible(win, node)) {
+        this.hideRow(node);
+      }
+    }
+    const spare = [...popup.querySelectorAll(`:scope > menuseparator.${ORDER_SEP_CLASS}`)];
+    let first = true;
+    for (const group of groups.filter(g => g.length)) {
+      if (!first) {
+        let separator = spare.shift();
+        if (!separator) {
+          separator = win.document.createXULElement("menuseparator");
+          separator.classList.add(ORDER_SEP_CLASS);
+        }
+        separator.hidden = false;
+        popup.append(separator);
+      }
+      first = false;
+      for (const node of group) {
+        move(node);
+      }
+    }
+    for (const separator of spare) {
+      separator.hidden = true;
+    }
+    popup._whimsyOrderLog = log;
+    if (!popup._whimsyOrderRestore) {
+      popup._whimsyOrderRestore = event => {
+        if (event.target == popup) {
+          this.restoreOrder(popup);
+        }
+      };
+      popup.addEventListener("popuphidden", popup._whimsyOrderRestore);
+    }
+  },
+
+  // Puts every row reorder() moved back where Firefox had it, newest move
+  // first. A row's old neighbour may be gone (an extension's rows are
+  // removed when the menu closes); then its other neighbour, or the end.
+  restoreOrder(popup) {
+    const log = popup._whimsyOrderLog;
+    if (!log) {
+      return;
+    }
+    popup._whimsyOrderLog = null;
+    for (const { node, prev, next } of log.reverse()) {
+      if (node.parentNode != popup) {
+        continue;
+      }
+      if (next && next != node && next.parentNode == popup) {
+        popup.insertBefore(node, next);
+      } else if (prev && prev != node && prev.parentNode == popup) {
+        prev.after(node);
+      } else {
+        popup.append(node);
+      }
+    }
+    for (const separator of popup.querySelectorAll(`:scope > menuseparator.${ORDER_SEP_CLASS}`)) {
+      separator.hidden = true;
     }
   },
 

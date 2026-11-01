@@ -372,7 +372,7 @@ add_task(async function test_selection_verbs_context_menu() {
   ok(selectionMenu, "Selection menu exists in WhimsyMenuPrefs");
   const menuIds = ["map", "email", "note", "calendar", "linear-new", "linear-search"];
   for (const id of menuIds) {
-    ok(selectionMenu.items.some(item => item.id == id), `Selection menu in Menus settings offers ${id}`);
+    ok(WhimsyMenuPrefs.items("selection").some(item => item.id == id), `Selection menu in Menus settings offers ${id}`);
   }
 
   // Context menu items creation and update

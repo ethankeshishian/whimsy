@@ -26,6 +26,9 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_command_bar_extras.js"]
 
+# W10-27: the floating command bar's open/close motion.
+["browser_whimsy_cmdbar_motion.js"]
+
 ["browser_whimsy_collapse_pinned.js"]
 
 ["browser_whimsy_copy.js"]
@@ -103,12 +106,13 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_reorder_spaces.js"]
 
 ["browser_whimsy_screens.js"]
-# wave3/speed: the video speed control shot; wave10/desA W10-18: the page tools shots.
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf"]
+# wave3/speed: the video speed control shot; wave10/desA W10-18: the page
+# tools shots; wave10/desB W10-20: the selected-text menu shot.
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf", "whimsy_verbs.html"]
 
 ["browser_whimsy_screens_2.js"]
 # wave3/speed: the video speed control shot.
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_verbs.html"]
 
 # wave7: the shots wave 7 added (split so each file stays under the time limit).
 ["browser_whimsy_screens_3.js"]
@@ -164,6 +168,9 @@ support-files = ["whimsy_archive.sjs"]
 ["browser_whimsy_scratch.js"]
 support-files = ["whimsy_article.html"]
 # batch10: Library sidebar panels.
+# W10-26: New Note's Quick Note card, attaching to the page, the Library's autosave.
+["browser_whimsy_quick_note.js"]
+
 ["browser_whimsy_library_notes.js"]
 
 ["browser_whimsy_library_finder_folders.js"]
@@ -329,7 +336,7 @@ support-files = ["whimsy_pip_cursor.html", "whimsy_video_sound.mp4"]
 ["browser_whimsy_space_icons.js"]
 # wave3/speed: speed control on videos (hover, presets, typed speed, per-site memory).
 ["browser_whimsy_video_speed.js"]
-support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
+support-files = ["whimsy_video_speed.html", "whimsy_video.mp4", "whimsy_verbs.html"]
 
 # wave3/glass: Liquid Glass (macOS 26+) pref wiring and Settings checkbox.
 ["browser_whimsy_liquid_glass.js"]
@@ -415,6 +422,10 @@ support-files = ["whimsy_lasso.html"]
 
 # wave5/verbs: Cmd+K do-with-selection verbs.
 ["browser_whimsy_selection_verbs.js"]
+support-files = ["whimsy_verbs.html"]
+
+# W10-20: the selected-text menu's order and Quick Actions ▸ submenu.
+["browser_whimsy_menu_selection_order.js"]
 support-files = ["whimsy_verbs.html"]
 
 # wave5/look: a look per space (switch applies/restores, inheritance, reset, mods, switch off, editor).
@@ -528,6 +539,9 @@ support-files = [
 ["browser_whimsy_pinned_marks.js"]
 
 # fix7 settings: Settings search finds every Whimsy group, in any pane.
+# W10-22: search results box the matching row, fold the rest, count and lead there.
+["browser_whimsy_settings_search_hits.js"]
+
 ["browser_whimsy_settings_search.js"]
 
 # wave10 (W10-12): every setting is found by Settings search and is a command.
@@ -717,6 +731,9 @@ support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_
 ["browser_whimsy_site_popups.js"]
 support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 # wave10/mini W10-13: Mini's pages as pill tabs (row only from two pages), popups/target=_blank/Cmd-click as Mini tabs keeping their opener, Cmd+Opt+T, links from other apps reuse Mini, Cmd+O moves every page, Cmd+W, commands, switch off.
+# W10-29: Mini's address strip becomes the space search (⌘⇧O), a flat list.
+["browser_whimsy_mini_space_search.js"]
+
 ["browser_whimsy_mini_tabs.js"]
 support-files = ["whimsy_mini_links.html", "whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 # wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.

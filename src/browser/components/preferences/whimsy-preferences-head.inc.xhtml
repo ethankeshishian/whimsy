@@ -124,72 +124,6 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
-  <html:div id="whimsyAIGroup" data-category="panePrivacy" data-whimsy-feature="ai-kill-switch" hidden="hidden" class="whimsy-setting-card">
-    <html:moz-card role="presentation">
-      <html:moz-fieldset data-l10n-id="whimsy-ai-header" headinglevel="3"
-                         iconsrc="chrome://global/skin/icons/highlights.svg">
-        <html:moz-checkbox id="whimsyBlockAI" data-l10n-id="whimsy-ai-toggle"/>
-      </html:moz-fieldset>
-    </html:moz-card>
-  </html:div>
-  <!-- wave3/ai: the AI provider every Whimsy AI feature uses. Hidden while
-       the kill switch above is on. Only the chosen provider is contacted. -->
-  <html:div id="whimsyAIProvidersGroup" data-category="panePrivacy" data-whimsy-feature="ai-providers" hidden="hidden" class="whimsy-setting-card">
-    <html:moz-card role="presentation">
-      <html:moz-fieldset data-l10n-id="whimsy-ai-provider-header" headinglevel="3"
-                         iconsrc="chrome://global/skin/icons/highlights.svg">
-        <description class="description-deemphasized" data-l10n-id="whimsy-ai-provider-description"/>
-        <hbox align="center">
-          <label control="whimsyAIProvider" data-l10n-id="whimsy-ai-provider-label"/>
-          <menulist id="whimsyAIProvider" preference="whimsy.ai.provider" data-pref-type="string">
-            <menupopup>
-              <menuitem value="apple" data-l10n-id="whimsy-ai-provider-apple"/>
-              <menuitem value="claude" data-l10n-id="whimsy-ai-provider-claude"/>
-              <menuitem value="ollama" data-l10n-id="whimsy-ai-provider-ollama"/>
-            </menupopup>
-          </menulist>
-        </hbox>
-        <html:div id="whimsyAIAppleRow" hidden="hidden">
-          <html:div id="whimsyAIAppleStatus" class="whimsy-updates-detail" role="status"/>
-          <!-- W10-07: what the Swift compiler said, when the helper didn't build. -->
-          <html:div id="whimsyAIAppleDetail" class="whimsy-updates-detail whimsy-ai-apple-detail" hidden="hidden"/>
-          <hbox align="center">
-            <button id="whimsyAIAppleCheck" data-l10n-id="whimsy-ai-apple-check"/>
-          </hbox>
-        </html:div>
-        <html:div id="whimsyAIClaudeRow" hidden="hidden">
-          <hbox align="center">
-            <label control="whimsyAIClaudeKey" data-l10n-id="whimsy-ai-claude-key-label"/>
-            <html:input type="password" id="whimsyAIClaudeKey" autocomplete="off" spellcheck="false"/>
-            <button id="whimsyAIClaudeSave" data-l10n-id="whimsy-ai-claude-key-save"/>
-            <button id="whimsyAIClaudeRemove" data-l10n-id="whimsy-ai-claude-key-remove"/>
-          </hbox>
-          <html:div id="whimsyAIClaudeStatus" class="whimsy-updates-detail" role="status"/>
-        </html:div>
-        <html:div id="whimsyAIOllamaRow" hidden="hidden">
-          <hbox align="center">
-            <label control="whimsyAIOllamaEndpoint" data-l10n-id="whimsy-ai-ollama-endpoint-label"/>
-            <html:input type="url" id="whimsyAIOllamaEndpoint" spellcheck="false"/>
-          </hbox>
-          <hbox align="center">
-            <label control="whimsyAIOllamaModel" data-l10n-id="whimsy-ai-ollama-model-label"/>
-            <menulist id="whimsyAIOllamaModel" sizetopopup="none">
-              <menupopup/>
-            </menulist>
-            <button id="whimsyAIOllamaRefresh" data-l10n-id="whimsy-ai-ollama-refresh"/>
-          </hbox>
-          <html:div id="whimsyAIOllamaStatus" class="whimsy-updates-detail" role="status"/>
-        </html:div>
-        <!-- One row per AI feature; each is its whimsy.feature.<id> switch. -->
-        <html:moz-checkbox id="whimsyAITidyTabs" data-feature-pref="whimsy.feature.tidy-tabs" data-l10n-id="whimsy-ai-feature-tidy-tabs"/>
-        <html:moz-checkbox id="whimsyAITidyTitles" data-feature-pref="whimsy.feature.tidy-titles" data-l10n-id="whimsy-ai-feature-tidy-titles"/>
-        <html:moz-checkbox id="whimsyAIAskOnPage" data-feature-pref="whimsy.feature.ask-on-page" data-l10n-id="whimsy-ai-feature-ask-on-page"/>
-        <html:moz-checkbox id="whimsyAILinkPreviews" data-feature-pref="whimsy.feature.link-previews" data-l10n-id="whimsy-ai-feature-link-previews"/>
-        <html:moz-checkbox id="whimsyAIPageWatch" data-feature-pref="whimsy.feature.page-watch" data-l10n-id="whimsy-ai-feature-page-watch"/>
-        <html:ul id="whimsyAIWatchList" class="whimsy-ai-watch-list"/>
-      </html:moz-fieldset>
-    </html:moz-card>
-  </html:div>
   <html:div id="whimsyStripTrackingGroup" data-category="panePrivacy" data-whimsy-feature="strip-tracking" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">
       <html:moz-fieldset data-l10n-id="whimsy-strip-tracking-header" headinglevel="3"
@@ -440,14 +374,114 @@
   </groupbox>
 </html:template>
 
-# tierC-claude: Settings → Privacy & Security → Claude: turn the Claude space
-# on, its scope and per-site asking, and the Connect Claude Code helper
-# (shows the command and JSON to copy; never runs anything).
+# W10-28: Settings → AI, its own pane (Arc's Max tab): Enable AI, then the
+# provider, the features (Whimsy's and Firefox's) and Claude in Whimsy
+# (template-whimsyClaude). Whimsy-settings.js builds it with the pane.
+<html:template id="template-whimsyAI" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <hbox id="whimsyAICategory" class="whimsy-menus-header" data-category="paneWhimsyAI" hidden="true">
+    <html:h1 data-l10n-id="whimsy-pane-ai-title"/>
+  </hbox>
+  <html:div id="whimsyAIEnableGroup" data-category="paneWhimsyAI" data-whimsy-feature="ai-kill-switch" hidden="hidden" class="whimsy-setting-card whimsy-ai-section">
+    <html:div class="whimsy-ai-card">
+      <html:moz-toggle id="whimsyAIEnable" data-l10n-id="whimsy-ai-enable" data-l10n-attrs="label, description"/>
+    </html:div>
+    <html:div id="whimsyAIOffNote" class="whimsy-ai-off-note" role="status" hidden="hidden" data-l10n-id="whimsy-ai-off-note"/>
+    <html:div id="whimsyAILockedNote" class="whimsy-ai-off-note" hidden="hidden" data-l10n-id="whimsy-ai-locked-note"/>
+  </html:div>
+  <html:div id="whimsyAIProviderGroup" data-category="paneWhimsyAI" data-whimsy-feature="ai-providers" hidden="hidden" class="whimsy-setting-card whimsy-ai-section whimsy-ai-rest">
+    <label><html:h2 id="whimsyAIProviderHeading" data-l10n-id="whimsy-ai-provider-heading"/></label>
+    <html:div class="whimsy-ai-card">
+      <html:div id="whimsyAIProvider" class="whimsy-ai-providers" role="radiogroup" aria-labelledby="whimsyAIProviderHeading">
+        <html:label class="whimsy-ai-provider">
+          <html:input type="radio" name="whimsyAIProvider" value="apple"/>
+          <html:span class="whimsy-ai-provider-title" data-l10n-id="whimsy-ai-provider-apple-title"/>
+          <html:span class="whimsy-ai-provider-sub" data-l10n-id="whimsy-ai-provider-local"/>
+        </html:label>
+        <html:label class="whimsy-ai-provider">
+          <html:input type="radio" name="whimsyAIProvider" value="claude"/>
+          <html:span class="whimsy-ai-provider-title" data-l10n-id="whimsy-ai-provider-claude-title"/>
+          <html:span class="whimsy-ai-provider-sub" data-l10n-id="whimsy-ai-provider-key"/>
+        </html:label>
+        <html:label class="whimsy-ai-provider">
+          <html:input type="radio" name="whimsyAIProvider" value="ollama"/>
+          <html:span class="whimsy-ai-provider-title" data-l10n-id="whimsy-ai-provider-ollama-title"/>
+          <html:span class="whimsy-ai-provider-sub" data-l10n-id="whimsy-ai-provider-local"/>
+        </html:label>
+      </html:div>
+      <html:p class="whimsy-ai-provider-description description-deemphasized" data-l10n-id="whimsy-ai-provider-description"/>
+      <!-- Only the chosen provider's rows; one label/control grid, labels
+           end-aligned, every control starting at the same edge. -->
+      <html:div id="whimsyAIAppleRow" class="whimsy-ai-fields" hidden="hidden">
+        <html:span class="whimsy-ai-field-label" data-l10n-id="whimsy-ai-field-status"/>
+        <html:div id="whimsyAIAppleStatus" class="whimsy-ai-status" role="status"/>
+        <!-- W10-07: what the Swift compiler said, when the helper didn't build. -->
+        <html:div id="whimsyAIAppleDetail" class="whimsy-updates-detail whimsy-ai-apple-detail whimsy-ai-field-wide" hidden="hidden"/>
+        <html:div class="whimsy-ai-field-controls whimsy-ai-field-wide">
+          <button id="whimsyAIAppleCheck" data-l10n-id="whimsy-ai-apple-check"/>
+          <button id="whimsyAIAppleOpenSettings" data-l10n-id="whimsy-ai-apple-open-settings" hidden="true"/>
+        </html:div>
+      </html:div>
+      <html:div id="whimsyAIClaudeRow" class="whimsy-ai-fields" hidden="hidden">
+        <label class="whimsy-ai-field-label" control="whimsyAIClaudeKey" data-l10n-id="whimsy-ai-claude-key-label"/>
+        <html:div class="whimsy-ai-field-controls">
+          <html:input type="password" id="whimsyAIClaudeKey" class="whimsy-ai-field" autocomplete="off" spellcheck="false"/>
+          <button id="whimsyAIClaudeSave" data-l10n-id="whimsy-ai-claude-key-save"/>
+          <button id="whimsyAIClaudeRemove" data-l10n-id="whimsy-ai-claude-key-remove"/>
+        </html:div>
+        <html:div id="whimsyAIClaudeStatus" class="whimsy-ai-status whimsy-ai-field-wide" role="status"/>
+      </html:div>
+      <html:div id="whimsyAIOllamaRow" class="whimsy-ai-fields" hidden="hidden">
+        <label class="whimsy-ai-field-label" control="whimsyAIOllamaEndpoint" data-l10n-id="whimsy-ai-ollama-endpoint-label"/>
+        <html:div class="whimsy-ai-field-controls">
+          <html:input type="url" id="whimsyAIOllamaEndpoint" class="whimsy-ai-field" spellcheck="false"/>
+        </html:div>
+        <label class="whimsy-ai-field-label" control="whimsyAIOllamaModel" data-l10n-id="whimsy-ai-ollama-model-label"/>
+        <html:div class="whimsy-ai-field-controls">
+          <menulist id="whimsyAIOllamaModel" class="whimsy-ai-field" sizetopopup="none">
+            <menupopup/>
+          </menulist>
+          <button id="whimsyAIOllamaRefresh" data-l10n-id="whimsy-ai-ollama-refresh"/>
+        </html:div>
+        <html:div id="whimsyAIOllamaStatus" class="whimsy-ai-status whimsy-ai-field-wide" role="status"/>
+      </html:div>
+    </html:div>
+  </html:div>
+  <html:div id="whimsyAIFeaturesGroup" data-category="paneWhimsyAI" data-whimsy-feature="ai-providers" hidden="hidden" class="whimsy-setting-card whimsy-ai-section whimsy-ai-rest">
+    <label><html:h2 data-l10n-id="whimsy-ai-features-heading"/></label>
+    <html:div class="whimsy-ai-card whimsy-ai-features">
+      <!-- One row per AI feature; each is its whimsy.feature.<id> switch. -->
+      <html:moz-toggle id="whimsyAITidyTabs" data-feature-pref="whimsy.feature.tidy-tabs" data-l10n-id="whimsy-ai-feature-tidy-tabs" data-l10n-attrs="label, description"/>
+      <html:moz-toggle id="whimsyAITidyTitles" data-feature-pref="whimsy.feature.tidy-titles" data-l10n-id="whimsy-ai-feature-tidy-titles" data-l10n-attrs="label, description"/>
+      <html:moz-toggle id="whimsyAIAskOnPage" data-feature-pref="whimsy.feature.ask-on-page" data-l10n-id="whimsy-ai-feature-ask-on-page" data-l10n-attrs="label, description"/>
+      <html:moz-toggle id="whimsyAILinkPreviews" data-feature-pref="whimsy.feature.link-previews" data-l10n-id="whimsy-ai-feature-link-previews" data-l10n-attrs="label, description"/>
+      <html:moz-toggle id="whimsyAIPageWatch" data-feature-pref="whimsy.feature.page-watch" data-l10n-id="whimsy-ai-feature-page-watch" data-l10n-attrs="label, description"/>
+      <html:ul id="whimsyAIWatchList" class="whimsy-ai-watch-list"/>
+      <!-- Firefox's own AI features, which Enable AI also governs. -->
+      <html:div class="whimsy-ai-separator" aria-hidden="true"/>
+      <hbox align="center" class="whimsy-ai-firefox-row">
+        <label id="whimsyAIFirefoxChatbotLabel" control="whimsyAIFirefoxChatbot" flex="1" data-l10n-id="whimsy-ai-firefox-chatbot"/>
+        <menulist id="whimsyAIFirefoxChatbot" sizetopopup="none">
+          <menupopup>
+            <menuitem value="" data-l10n-id="whimsy-ai-firefox-chatbot-off"/>
+          </menupopup>
+        </menulist>
+      </hbox>
+      <html:moz-toggle id="whimsyAIFirefoxLinkPreviews" data-feature-pref="browser.ml.linkPreview.enabled" data-l10n-id="whimsy-ai-firefox-link-previews" data-l10n-attrs="label"/>
+      <html:moz-toggle id="whimsyAIFirefoxTabGroups" data-feature-pref="browser.tabs.groups.smart.userEnabled" data-l10n-id="whimsy-ai-firefox-tab-groups" data-l10n-attrs="label"/>
+    </html:div>
+  </html:div>
+</html:template>
+
+# tierC-claude: Settings → AI (W10-28; was Privacy & Security) → Claude in
+# Whimsy: turn the Claude space on, its scope and per-site asking, and the
+# Connect Claude Code helper (shows the command and JSON to copy; never
+# runs anything).
 <html:template id="template-whimsyClaude" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <html:div id="whimsyClaudeGroup" data-category="panePrivacy" data-whimsy-feature="claude-space" hidden="hidden" class="whimsy-setting-card">
+  <html:div id="whimsyClaudeGroup" data-category="paneWhimsyAI" data-whimsy-feature="claude-space" hidden="hidden" class="whimsy-setting-card whimsy-ai-section">
+    <label><html:h2 data-l10n-id="whimsy-ai-claude-heading"/></label>
     <html:moz-card role="presentation">
-      <html:moz-fieldset data-l10n-id="whimsy-claude-header" headinglevel="3"
-                         iconsrc="chrome://browser/skin/zen-icons/sparkles.svg">
+      <!-- W10-28: the section's h2 names it; no second heading here. -->
+      <html:moz-fieldset data-l10n-id="whimsy-claude-fieldset">
         <html:moz-checkbox id="whimsyClaudeEnable" data-l10n-id="whimsy-claude-enable"/>
         <html:moz-checkbox id="whimsyClaudeWholeBrowser" data-l10n-id="whimsy-claude-whole-browser"/>
         <html:moz-checkbox id="whimsyClaudeAsk" data-l10n-id="whimsy-claude-ask"/>
@@ -456,8 +490,9 @@
           <button id="whimsyClaudeShowRuns" data-l10n-id="whimsy-claude-show-runs"/>
         </hbox>
         <html:p id="whimsyClaudeAIBlocked" class="whimsy-updates-detail" data-l10n-id="whimsy-claude-ai-blocked" hidden="hidden"/>
-        <html:div id="whimsyClaudeConnect" class="whimsy-claude-connect" hidden="hidden">
-          <html:h4 class="whimsy-claude-connect-heading" data-l10n-id="whimsy-claude-connect-heading"/>
+        <!-- W10-28: collapsed until you open it -->
+        <html:details id="whimsyClaudeConnect" class="whimsy-claude-connect" hidden="hidden">
+          <html:summary class="whimsy-claude-connect-heading" data-l10n-id="whimsy-claude-connect-heading"/>
           <html:p data-l10n-id="whimsy-claude-connect-intro"/>
           <html:pre id="whimsyClaudeCommand" class="whimsy-claude-code" tabindex="0"></html:pre>
           <html:p data-l10n-id="whimsy-claude-connect-json-intro"/>
@@ -469,7 +504,7 @@
             <button id="whimsyClaudeForgetSites" data-l10n-id="whimsy-claude-forget-sites"/>
             <html:span id="whimsyClaudeStatus" class="whimsy-updates-detail" role="status"></html:span>
           </hbox>
-        </html:div>
+        </html:details>
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
@@ -626,9 +661,7 @@
   <groupbox id="whimsyProfilesGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
     <label><html:h2 id="whimsyProfilesHeader" data-l10n-id="whimsy-profiles-header"/></label>
     <description class="description-deemphasized" data-l10n-id="whimsy-profiles-description"/>
-    <description id="whimsyProfilesDeleteRule" class="description-deemphasized" data-l10n-id="whimsy-profiles-delete-rule"/>
     <html:ul id="whimsyProfilesList" class="whimsy-profiles-list" aria-labelledby="whimsyProfilesHeader"></html:ul>
-    <html:div id="whimsyProfilesCreateSlot"></html:div>
     <hbox class="whimsy-profiles-actions" align="center">
       <button id="whimsyProfilesCreate" data-l10n-id="whimsy-profiles-create"/>
       <button id="whimsyProfilesDeleteUnused" data-l10n-id="whimsy-profiles-delete-unused"/>

@@ -50,7 +50,7 @@ add_task(async function test_key_and_panel() {
 add_task(async function test_empty_ai_and_switch() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   is(await WhimsyPage.translateSelection(window), null, "Nothing selected: nothing to translate");
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.blocked", true]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", false]] });
   ok(WhimsyPage.translateSelectionEnabled, "The AI kill switch leaves translation on");
   await SpecialPowers.popPrefEnv();
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.translate-selection", false]] });

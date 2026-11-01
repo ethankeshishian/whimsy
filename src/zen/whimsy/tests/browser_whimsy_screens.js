@@ -1329,9 +1329,9 @@ add_task(async function liquid_glass() {
 
 // wave3/ai: the AI provider card, and Tidy Tabs' sections in Today.
 add_task(async function ai_provider_and_tidy_tabs() {
-  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
-    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProvidersGroup"));
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProviderGroup"));
     await TestUtils.waitForCondition(() => group.checkVisibility(), "AI provider card visible");
     group.scrollIntoView({ block: "center" });
     await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
@@ -2055,5 +2055,245 @@ add_task(async function w10_pretend_only() {
     await w10SurfaceShot("pretend-only", "whimsy-pretend-panel", () => WhimsySiteSettings.openPretend(window));
   } finally {
     BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-27: the command bar caught mid-open (60 of 160ms), light and dark, to
+// check the scale-and-fade reads as one subtle step from the top edge.
+add_task(async function w10_command_bar_motion() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  gReduceMotionOverride = false;
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      gURLBar.blur();
+      await SimpleTest.promiseFocus(window);
+      document.getElementById("Browser:OpenLocation").doCommand();
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "whimsy" });
+      const open = await TestUtils.waitForCondition(
+        () => gURLBar.getAnimations().find(a => a.id == "whimsy-command-bar-open"), "The bar animates open");
+      open.pause();
+      open.currentTime = 60;
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await shot(`w10-command-bar-opening-${dark ? "dark" : "light"}`);
+      open.finish();
+      await settled();
+      await shot(`w10-command-bar-open-${dark ? "dark" : "light"}`);
+      await UrlbarTestUtils.promisePopupClose(window);
+      gURLBar.blur();
+      await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("whimsy-closing"), "The bar has closed");
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    gReduceMotionOverride = undefined;
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-20: the selected-text menu, regrouped, and its Quick Actions ▸
+// submenu open, light and dark. (A native NSMenu in the app; the shot shows
+// it where the build draws XUL menus.)
+add_task(async function w10_selection_menu() {
+  const page = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_verbs.html";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+        const range = content.document.createRange();
+        range.selectNodeContents(content.document.getElementById("event"));
+        content.getSelection().removeAllRanges();
+        content.getSelection().addRange(range);
+      });
+      const menu = document.getElementById("contentAreaContextMenu");
+      const shown = BrowserTestUtils.waitForEvent(menu, "popupshown");
+      await BrowserTestUtils.synthesizeMouseAtCenter("#event", { type: "contextmenu", button: 2 }, tab.linkedBrowser);
+      await shown;
+      await document.l10n.translateFragment(menu);
+      await settled();
+      await shot(`w10-selection-menu-${dark ? "dark" : "light"}`);
+      const quick = document.getElementById("context-whimsy-quick-actions");
+      if (quick && !quick.hidden && quick.getAttribute("collapsed") != "true") {
+        const sub = BrowserTestUtils.waitForEvent(quick.menupopup, "popupshown");
+        quick.openMenu(true);
+        await sub;
+        await settled();
+        await shot(`w10-selection-menu-quick-actions-${dark ? "dark" : "light"}`);
+      }
+      const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
+      menu.hidePopup();
+      await hidden;
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-21: Settings → Menus as one card (menus on the left, Selected Text's
+// rows on the right), light and dark; and a menu with every row off.
+add_task(async function w10_settings_menus() {
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    await BrowserTestUtils.withNewTab("about:preferences#whimsyMenus-selection", async browser => {
+      const doc = browser.contentDocument;
+      const card = await TestUtils.waitForCondition(() => doc.querySelector(".whimsy-menus-card"), "The card is built");
+      const detail = doc.getElementById("whimsyMenus-selection");
+      await TestUtils.waitForCondition(() => detail.checkVisibility(), "Selected Text shows");
+      await TestUtils.waitForCondition(
+        () => [...detail.querySelectorAll(".whimsy-menus-row-label")].every(l => l.textContent.trim()), "Rows are named");
+      await doc.l10n.translateFragment(card);
+      card.scrollIntoView({ block: "start" });
+      await settled(doc);
+      await shot(`w10-settings-menus-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      const { WhimsyMenuPrefs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs");
+      for (const item of WhimsyMenuPrefs.items("folder")) {
+        WhimsyMenuPrefs.setHidden("folder", item.id, true);
+      }
+      doc.getElementById("whimsyMenusNav-folder").click();
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyMenus-folder-note").textContent.trim(), "All-off note");
+      await shot(`w10-settings-menus-all-off-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      WhimsyMenuPrefs.restoreDefaults("folder");
+    });
+    await SpecialPowers.popPrefEnv();
+  }
+  Services.prefs.clearUserPref("whimsy.menus.settings-last");
+});
+
+// W10-22: Settings search for "trails": the one row boxed and tagged, the
+// rest of its group folded, the breadcrumb and count; light and dark.
+add_task(async function w10_settings_search() {
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    await BrowserTestUtils.withNewTab("about:preferences#home", async browser => {
+      const doc = browser.contentDocument;
+      const win = browser.contentWindow;
+      await win.gSearchResultsPane.initializeCategories();
+      for (const query of ["trails", "trailzzqx"]) {
+        const done = BrowserTestUtils.waitForEvent(win, "PreferencesSearchCompleted", false, e => e.detail == query);
+        const input = doc.getElementById("searchInput");
+        input.value = query;
+        input.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
+        await done;
+        await doc.l10n.ready;
+        await settled(doc);
+        await new Promise(r => setTimeout(r, 400)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+        await shot(`w10-settings-search-${query == "trails" ? "trails" : "none"}-${dark ? "dark" : "light"}`,
+          browser.browsingContext.currentWindowGlobal);
+      }
+    });
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W10-28: Settings → AI, light and dark: Enable AI, the provider cards with
+// Claude's key field (left-aligned in its grid), the features; then AI off.
+add_task(async function w10_settings_ai() {
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.provider", "claude"]] });
+    await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
+      const doc = browser.contentDocument;
+      const header = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAICategory"));
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIEnable")?.checkVisibility(), "The AI pane shows");
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIClaudeStatus").textContent, "Claude's status");
+      await doc.l10n.translateFragment(doc.getElementById("mainPrefPane"));
+      header.scrollIntoView({ block: "start" });
+      await settled(doc);
+      await shot(`w10-settings-ai-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      doc.getElementById("whimsyAIFeaturesGroup").scrollIntoView({ block: "start" });
+      await settled(doc);
+      await shot(`w10-settings-ai-features-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+      await TestUtils.waitForCondition(() => !doc.getElementById("whimsyAIOffNote").hidden, "AI off");
+      header.scrollIntoView({ block: "start" });
+      await settled(doc);
+      await shot(`w10-settings-ai-off-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+      Services.prefs.clearUserPref("whimsy.ai.enabled");
+    });
+    await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W10-26: the Quick Note card beside the sidebar, kept with the page, with
+// a title and a few lines; light and dark.
+add_task(async function w10_quick_note() {
+  const { WhimsyNotes, gWhimsyNotesStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-quick-note");
+      const opening = WhimsyNotes.openQuickNote(window, { attach: true });
+      await shown;
+      const panel = await opening;
+      panel.querySelector(".whimsy-quick-note-name").value = "Halloween potluck";
+      const body = panel.querySelector(".whimsy-quick-note-body");
+      body.value = "Bring a dish and a costume.\nKids' parade at 7.\n- pumpkin pie\n- cider";
+      body.dispatchEvent(new InputEvent("input", { bubbles: true }));
+      await TestUtils.waitForCondition(
+        () => panel.querySelector(".whimsy-quick-note-attach").getAttribute("aria-checked") == "true", "Kept with the page");
+      await document.l10n.translateFragment(panel);
+      await settled();
+      await shot(`w10-quick-note-${dark ? "dark" : "light"}`);
+      const gone = TestUtils.waitForCondition(() => !panel.isConnected);
+      panel.querySelector(".whimsy-quick-note-done").doCommand();
+      await gone;
+      await settled();
+      await shot(`w10-quick-note-saved-toast-${dark ? "dark" : "light"}`);
+      for (const note of await gWhimsyNotesStore.list()) {
+        if (note.title == "Halloween potluck") {
+          await gWhimsyNotesStore.remove(note.id);
+        }
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W10-29: Mini's ⌘⇧O: the address strip as the search field, the flat
+// list under it (profile labels trailing), and a typed filter; light and dark.
+add_task(async function w10_mini_space_search() {
+  const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs");
+  const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
+  const { ContextualIdentityService } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
+  );
+  const work = WhimsyProfiles.create("Screens Search Work");
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Quarterly Plans", undefined, true, work);
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+      try {
+        await WhimsyQuickWindow.whenReady(win);
+        await SimpleTest.promiseFocus(win);
+        const doc = win.document;
+        doc.getElementById("whimsy-quick-window-choose-space").doCommand();
+        const panel = await TestUtils.waitForCondition(() => {
+          const p = doc.getElementById("whimsy-quick-window-space-picker");
+          return p?.state == "open" && p;
+        }, "The list drops down");
+        await doc.l10n.translateFragment(doc.documentElement);
+        await settled(doc);
+        await shot(`w10-mini-space-search-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
+        const input = doc.getElementById("whimsy-mini-picker-search");
+        input.value = "quar";
+        input.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
+        await settled(doc);
+        await shot(`w10-mini-space-search-typed-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
+        panel.hidePopup();
+      } finally {
+        await BrowserTestUtils.closeWindow(win);
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+    ContextualIdentityService.remove(work);
   }
 });

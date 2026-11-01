@@ -156,26 +156,28 @@ add_task(async function test_cmd_shift_o_and_caret_open_the_space_dropdown() {
   ok(!doc.getElementById("manBookmarkKb")?.getAttribute("key"), "Show All Bookmarks doesn't compete in Mini");
   const picker = () => doc.getElementById("whimsy-quick-window-space-picker");
   EventUtils.synthesizeKey("o", { accelKey: true, shiftKey: true }, win);
-  await TestUtils.waitForCondition(() => picker()?.state == "open", "Cmd+Shift+O opens the dropdown");
+  await TestUtils.waitForCondition(() => picker()?.state == "open", "Cmd+Shift+O opens the list");
   const popup = picker();
-  ok(popup.firstElementChild.localName == "menucaption", "Headed by a caption");
+  is(doc.activeElement?.id, "whimsy-mini-picker-search", "The address strip is the search field, focused");
   const rows = [...popup.querySelectorAll(".whimsy-mini-picker-space")];
-  is(rows.length, gZenWorkspaces.getWorkspaces().length, "One row per space");
-  ok(rows.every(row => row.getAttribute("image")), "Every row has an icon or colour dot");
+  const spaces = gZenWorkspaces.getWorkspaces().filter(space => !space.whimsyScratch);
+  Assert.deepEqual(rows.map(row => row.getAttribute("zen-workspace-id")), spaces.map(space => space.uuid),
+    "One row per space, in sidebar order, not grouped");
+  ok(rows.every(row => row.querySelector(".whimsy-mini-picker-icon")?.getAttribute("src")), "Every row has an icon or colour dot");
   const current = rows.find(row => row.getAttribute("zen-workspace-id") == gZenWorkspaces.activeWorkspace);
-  ok(current && !current.disabled, "The current space can be chosen");
-  is(current.getAttribute("key"), "key_whimsyQuickWindowOpenInSpace", "...and shows Cmd+O");
+  ok(current?.hasAttribute("default"), "The current space is the one ⌘O uses");
+  ok(current.querySelector(".whimsy-mini-picker-keys"), "...and shows ⌘O");
   is(doc.getElementById("whimsy-quick-window-choose-space").getAttribute("open"), "true", "The caret reads as pressed");
   let hidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
   popup.hidePopup();
   await hidden;
   ok(!doc.getElementById("whimsy-quick-window-choose-space").hasAttribute("open"), "...until it closes");
   doc.getElementById("whimsy-quick-window-choose-space").doCommand();
-  await TestUtils.waitForCondition(() => picker().state == "open", "The caret opens the same dropdown");
+  await TestUtils.waitForCondition(() => picker().state == "open", "The caret opens the same list");
   const tabCountBefore = gBrowser.tabs.length;
-  // The dropdown rebuilds its rows each time it opens.
+  // The list rebuilds its rows each time it opens.
   const row = picker().querySelector(`[zen-workspace-id="${gZenWorkspaces.activeWorkspace}"]`);
-  picker().activateItem(row);
+  row.click();
   await TestUtils.waitForCondition(() => win.closed, "Choosing a space opens the page there");
   is(gBrowser.tabs.length, tabCountBefore + 1, "The tab landed in that space");
   BrowserTestUtils.removeTab(gBrowser.tabs[gBrowser.tabs.length - 1]);

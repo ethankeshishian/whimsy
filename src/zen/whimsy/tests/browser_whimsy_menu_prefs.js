@@ -9,7 +9,7 @@
 // Restore Defaults brings everything back, a menu with every item off
 // doesn't open, and Settings search finds the pane.
 
-const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR, ADDED_HIDDEN, ALWAYS_HIDDEN } = ChromeUtils.importESModule(
+const { WhimsyMenuPrefs, HIDDEN_ATTR, COLLAPSED_ATTR, ADDED_HIDDEN, ALWAYS_HIDDEN, defaultHiddenIdsFor } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs"
 );
 
@@ -113,13 +113,13 @@ add_task(async function test_registry() {
       items.every(item => item.l10n && item.selectors.length),
       `${menu.id}: every item has a label and a row to match`
     );
-    // wave9/menus: only the rows W9-09/W9-10 added start off.
-    is(
-      Services.prefs.getStringPref(WhimsyMenuPrefs.prefName(menu.id), "x"),
-      (ADDED_HIDDEN[1][menu.id] ?? []).join(","),
-      `${menu.id}: only the new rows are hidden by default`
+    // wave9/menus: only the rows W9-09/W9-10 (and W10-20) list start off.
+    Assert.deepEqual(
+      [...WhimsyMenuPrefs.defaultHiddenIds(menu.id)].sort(),
+      defaultHiddenIdsFor(menu.id).sort(),
+      `${menu.id}: only the listed rows are hidden by default`
     );
-    for (const id of ADDED_HIDDEN[1][menu.id] ?? []) {
+    for (const id of defaultHiddenIdsFor(menu.id)) {
       ok(items.some(item => item.id == id), `${menu.id}: ${id} (off by default) is a row of the menu`);
     }
   }
@@ -302,69 +302,147 @@ add_task(async function test_content_menus_are_separate() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// W10-21: one card. The menus on the left (a listbox), the chosen menu's
+// rows on the right with checkboxes, separators in the same box.
 add_task(async function test_settings_pane() {
   await BrowserTestUtils.withNewTab("about:preferences#whimsyMenus", async browser => {
     const doc = browser.contentDocument;
     const win = browser.contentWindow;
     const nav = await TestUtils.waitForCondition(() => doc.getElementById("category-whimsy-menus"), "Menus is in the sidebar");
     is(nav.getAttribute("view"), "paneWhimsyMenus", "It opens the Menus pane");
-    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyMenus-tab"), "The pane is built");
-    await TestUtils.waitForCondition(() => group.checkVisibility(), "The Tab group shows");
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyMenusGroup"), "The pane is built");
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "The card shows");
+    is(doc.querySelectorAll(".whimsy-menus-group").length, 1, "One group, not one per menu");
+    const options = [...doc.querySelectorAll('.whimsy-menus-nav [role="option"]')];
+    const available = WhimsyMenuPrefs.menus.filter(menu => WhimsyMenuPrefs.available(menu));
+    is(options.length, available.length, "One list entry per menu");
     for (const id of ["tab", "essential", "link", "page", "selection", "image", "space", "sidebar", "folder"]) {
-      ok(doc.getElementById(`whimsyMenus-${id}`), `A group for the ${id} menu`);
-    }
-    if (!Services.prefs.getPrefType("whimsy.feature.split-row-menu")) {
-      ok(!doc.getElementById("whimsyMenus-split-row"), "No split row group without the split row menu");
+      ok(doc.getElementById(`whimsyMenus-${id}`), `A panel for the ${id} menu`);
     }
 
-    // One switch per item, in the menu's order, each named.
-    const toggles = [...group.querySelectorAll("moz-toggle")];
-    Assert.deepEqual(
-      toggles.map(t => t.dataset.item),
-      WhimsyMenuPrefs.items("tab").map(item => item.id),
-      "Every tab menu item, in order"
+    // Choose Tab, by click.
+    doc.getElementById("whimsyMenusNav-tab").click();
+    const detail = doc.getElementById("whimsyMenus-tab");
+    ok(!detail.hasAttribute("data-inactive") && detail.checkVisibility(), "The Tab menu's rows show");
+    is(doc.getElementById("whimsyMenusNav-tab").getAttribute("aria-selected"), "true", "…and it is selected");
+    is(Services.prefs.getStringPref("whimsy.menus.settings-last"), "tab", "The choice is remembered");
+
+    // One checkbox per row, in the menu's order.
+    const boxes = [...detail.querySelectorAll(".whimsy-menus-check")];
+    Assert.deepEqual(boxes.map(b => b.dataset.item), WhimsyMenuPrefs.items("tab").map(item => item.id), "Every tab menu row, in order");
+    await TestUtils.waitForCondition(
+      () => [...detail.querySelectorAll(".whimsy-menus-row-label")].every(l => l.textContent.trim()),
+      "Every row has a name"
     );
-    await TestUtils.waitForCondition(() => toggles.every(t => t.label), "Every switch has a label");
     const startOff = WhimsyMenuPrefs.defaultHiddenIds("tab");
-    ok(
-      toggles.every(t => t.pressed == !startOff.has(t.dataset.item)),
-      "Every switch is on, except the rows that start off"
-    );
+    ok(boxes.every(b => b.checked == !startOff.has(b.dataset.item)), "Every row is on, except the ones that start off");
     const restore = doc.getElementById("whimsyMenus-tab-restore");
     ok(restore.disabled, "Restore Defaults waits until something changes");
     is(restore.getAttribute("aria-describedby"), "whimsyMenus-tab-header", "Restore Defaults names its menu");
 
-    // A switch drives the pref.
-    const reload = group.querySelector('moz-toggle[data-item="reload"]');
+    // The bug the user saw: every checkbox on one edge, every separator
+    // ending 8px in from the rows' box.
+    const rows = detail.querySelector(".whimsy-menus-rows");
+    const box = rows.getBoundingClientRect();
+    const tops = [...rows.querySelectorAll(":scope > .whimsy-menus-row:not(.whimsy-menus-row-child) .whimsy-menus-check")]
+      .map(b => Math.round(b.getBoundingClientRect().left));
+    is(new Set(tops).size, 1, "Every checkbox shares one left edge");
+    const seps = [...rows.querySelectorAll(".whimsy-menus-sep")];
+    ok(seps.length, "The menu's separators are drawn");
+    const inner = { left: box.left + 1 + 4 + 8, right: box.right - 1 - 4 - 8 };
+    for (const sep of seps) {
+      const r = sep.getBoundingClientRect();
+      ok(Math.abs(r.left - inner.left) <= 1 && Math.abs(r.right - inner.right) <= 1,
+        `A separator meets the rows' edges (${r.left}-${r.right} vs ${inner.left}-${inner.right})`);
+    }
+
+    // The nav's count.
+    const count = doc.querySelector("#whimsyMenusNav-tab .whimsy-menus-nav-count");
+    await TestUtils.waitForCondition(() => /\d+\/\d+/.test(count.textContent), "The list shows how many rows show");
+
+    // A checkbox drives the pref.
+    const reload = detail.querySelector('.whimsy-menus-check[data-item="reload"]');
     reload.click();
     await TestUtils.waitForCondition(() => WhimsyMenuPrefs.isHidden("tab", "reload"), "Off: Reload Tab is hidden");
     await TestUtils.waitForCondition(() => !restore.disabled, "Restore Defaults is available");
 
-    // Arrow keys move between switches.
-    toggles[0].focus();
+    // Arrow keys move between rows.
+    boxes[0].focus();
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);
-    is(doc.activeElement, toggles[1], "Down goes to the next switch");
+    is(doc.activeElement, boxes[1], "Down goes to the next row");
     EventUtils.synthesizeKey("KEY_End", {}, win);
-    is(doc.activeElement, toggles.at(-1), "End goes to the last");
+    is(doc.activeElement, boxes.at(-1), "End goes to the last");
 
     restore.dispatchEvent(new win.Event("command", { bubbles: true }));
     await TestUtils.waitForCondition(() => WhimsyMenuPrefs.isDefault("tab"), "Restore Defaults clears the menu's pref");
-    await TestUtils.waitForCondition(() => reload.pressed, "…and the switch is on again");
+    await TestUtils.waitForCondition(() => reload.checked, "…and the row is on again");
     ok(restore.disabled, "Restore Defaults is spent");
 
-    // Every item of a menu off: the note says so.
+    // The list is a listbox: arrows change the menu shown.
+    doc.getElementById("whimsyMenusNav-tab").focus();
+    EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);
+    const second = doc.querySelector('.whimsy-menus-nav-item[aria-selected="true"]');
+    isnot(second.dataset.menu, "tab", "Down shows the next menu");
+    is(doc.activeElement, second, "…and focus follows");
+    ok(doc.getElementById(`whimsyMenus-${second.dataset.menu}`).checkVisibility() && !detail.checkVisibility(), "Its rows replace the Tab menu's");
+
+    // Selected Text: Quick Actions' rows sit under it; turning it off
+    // disables (not unchecks) them.
+    doc.getElementById("whimsyMenusNav-selection").click();
+    const selection = doc.getElementById("whimsyMenus-selection");
+    const calendar = selection.querySelector('.whimsy-menus-row-child[data-item="calendar"] .whimsy-menus-check');
+    ok(calendar, "Add to Calendar is listed under Quick Actions");
+    WhimsyMenuPrefs.setHidden("selection", "quick-actions", true);
+    await TestUtils.waitForCondition(() => calendar.disabled, "Its rows are disabled while Quick Actions is off");
+    ok(calendar.checked, "…but stay checked");
+    WhimsyMenuPrefs.restoreDefaults("selection");
+
+    // Every row of a menu off: the note says so, and the list says Off.
     const folder = doc.getElementById("whimsyMenus-folder");
     const note = folder.querySelector(".whimsy-menus-note");
-    is(note.textContent, "", "No note while items are on");
+    is(note.textContent, "", "No note while rows are on");
     for (const item of WhimsyMenuPrefs.items("folder")) {
       WhimsyMenuPrefs.setHidden("folder", item.id, true);
     }
     await TestUtils.waitForCondition(() => note.textContent.trim(), "The all-off note shows");
     is(note.getAttribute("role"), "status", "…as a status message");
-    ok([...folder.querySelectorAll("moz-toggle")].every(t => !t.pressed), "Every folder switch is off");
+    ok(doc.getElementById("whimsyMenusNav-folder").hasAttribute("data-all-off"), "The list marks the menu Off");
+    ok([...folder.querySelectorAll(".whimsy-menus-check")].every(b => !b.checked), "Every folder row is off");
     WhimsyMenuPrefs.restoreDefaults("folder");
     await TestUtils.waitForCondition(() => !note.textContent, "The note goes");
   });
+  Services.prefs.clearUserPref("whimsy.menus.settings-last");
+});
+
+// W10-21: about:preferences#whimsyMenus-<menu> opens on that menu.
+add_task(async function test_settings_deep_link() {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyMenus-link", async browser => {
+    const doc = browser.contentDocument;
+    const detail = await TestUtils.waitForCondition(() => doc.getElementById("whimsyMenus-link"), "Built");
+    await TestUtils.waitForCondition(() => detail.checkVisibility(), "The Link menu shows");
+  });
+  Services.prefs.clearUserPref("whimsy.menus.settings-last");
+});
+
+// W10-21: in a narrow window the list becomes a menu picker above the rows.
+add_task(async function test_settings_narrow() {
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  win.resizeTo(600, 700);
+  await TestUtils.waitForCondition(() => win.outerWidth <= 620, "The window is narrow");
+  const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:preferences#whimsyMenus");
+  const doc = tab.linkedBrowser.contentDocument;
+  const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyMenusGroup"), "Built");
+  await TestUtils.waitForCondition(() => group.checkVisibility(), "The card shows");
+  const picker = doc.getElementById("whimsyMenusPicker");
+  await TestUtils.waitForCondition(
+    () => picker.checkVisibility() && !doc.querySelector(".whimsy-menus-nav").checkVisibility(),
+    "The picker replaces the list"
+  );
+  picker.value = "page";
+  picker.dispatchEvent(new tab.linkedBrowser.contentWindow.Event("command", { bubbles: true }));
+  ok(doc.getElementById("whimsyMenus-page").checkVisibility(), "Picking a menu shows its rows");
+  await BrowserTestUtils.closeWindow(win);
+  Services.prefs.clearUserPref("whimsy.menus.settings-last");
 });
 
 add_task(async function test_settings_search_finds_menus() {
@@ -385,19 +463,24 @@ add_task(async function test_settings_search_finds_menus() {
       input.value = query;
       input.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
     };
-    const group = doc.getElementById("whimsyMenus-tab");
+    const group = doc.getElementById("whimsyMenusGroup");
     ok(group, "Search setup built the Menus pane");
     ok(!shown(group), "It stays hidden on another pane");
     for (const [query, id] of [
       ["Menus", "whimsyMenusCategory"],
-      ["right-click", "whimsyMenus-tab"],
+      ["right-click", "whimsyMenusGroup"],
       ["Archive Tabs Below", "whimsyMenus-tab"],
       ["Copy Page as Markdown", "whimsyMenus-page"],
       ["Live Folder", "whimsyMenus-sidebar"],
     ]) {
       search(query);
-      await TestUtils.waitForCondition(() => shown(doc.getElementById(id)), `Searching "${query}" shows #${id}`);
+      await TestUtils.waitForCondition(
+        () => shown(doc.getElementById(id)) && doc.getElementById(id).checkVisibility(),
+        `Searching "${query}" shows #${id}`
+      );
     }
     search("");
   });
+  Services.prefs.clearUserPref("whimsy.menus.settings-last");
 });
+

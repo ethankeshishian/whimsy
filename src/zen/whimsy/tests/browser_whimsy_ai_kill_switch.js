@@ -3,9 +3,11 @@
 
 "use strict";
 
-// AI kill switch: whimsy.ai.blocked turns off every Firefox AI feature (like
-// Firefox's "Block AI enhancements") and Whimsy's, and turning it back off
-// restores every pref exactly, Zen's defaults included.
+// AI kill switch: Enable AI (whimsy.ai.enabled, Settings → AI; W10-28, it
+// was "Turn off all AI features", whimsy.ai.blocked) off turns off every
+// Firefox AI feature (like Firefox's "Block AI enhancements") and Whimsy's,
+// and turning it back on restores every pref exactly, Zen's defaults
+// included.
 
 const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
 
@@ -14,13 +16,15 @@ function controls() {
 }
 
 async function setBlocked(value) {
-  Services.prefs.setBoolPref(WhimsyAI.PREF, value);
+  Services.prefs.setBoolPref(WhimsyAI.PREF, !value);
   await WhimsyAI.pending;
 }
 
 add_task(async function test_defaults() {
   ok(Services.prefs.getBoolPref("whimsy.feature.ai-kill-switch"), "The feature switch is on");
-  ok(!Services.prefs.getBoolPref(WhimsyAI.PREF), "AI isn't blocked by default");
+  is(WhimsyAI.PREF, "whimsy.ai.enabled", "Enable AI is the switch");
+  ok(Services.prefs.getBoolPref(WhimsyAI.PREF), "AI is enabled by default");
+  ok(!Services.prefs.prefHasUserValue(WhimsyAI.PREF), "…with no user value");
   ok(!WhimsyAI.blocked, "WhimsyAI.blocked is false");
   is(Services.prefs.getStringPref("browser.ai.control.default"), "available", "Firefox's AI controls say available");
 });
@@ -77,18 +81,72 @@ add_task(async function test_feature_switch_off() {
   Services.prefs.clearUserPref(WhimsyAI.PREF);
 });
 
-add_task(async function test_settings_toggle() {
-  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+// The old switch: a profile that had AI turned off keeps it off, the
+// controls aren't touched, and for one release the old pref mirrors the new
+// one (a rolled-back build reads it).
+add_task(async function test_migration_and_mirror() {
+  Services.prefs.clearUserPref(WhimsyAI.PREF);
+  Services.prefs.setBoolPref(WhimsyAI.LEGACY_PREF, true);
+  Services.prefs.setStringPref("browser.ai.control.default", "blocked");
+  WhimsyAI.migrate();
+  ok(!Services.prefs.getBoolPref(WhimsyAI.PREF), "Blocked before: Enable AI is off");
+  ok(WhimsyAI.blocked, "AI stays blocked");
+  is(Services.prefs.getStringPref("browser.ai.control.default"), "blocked", "The controls are left as they were");
+  WhimsyAI.migrate();
+  ok(!Services.prefs.getBoolPref(WhimsyAI.PREF), "Running it again changes nothing");
+  Services.prefs.setBoolPref(WhimsyAI.PREF, true);
+  await WhimsyAI.pending;
+  ok(!Services.prefs.prefHasUserValue(WhimsyAI.LEGACY_PREF), "Enabled: the old pref says not blocked");
+  Services.prefs.setBoolPref(WhimsyAI.PREF, false);
+  await WhimsyAI.pending;
+  ok(Services.prefs.getBoolPref(WhimsyAI.LEGACY_PREF), "Disabled: the old pref says blocked");
+  await setBlocked(false);
+  Services.prefs.clearUserPref(WhimsyAI.PREF);
+  Services.prefs.clearUserPref("browser.ai.control.default");
+  await WhimsyAI.pending;
+});
+
+// W10-28: Settings → AI: Enable AI heads its own pane; off dims and
+// disables everything below it, with a note.
+add_task(async function test_settings_pane() {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
-    const checkbox = await TestUtils.waitForCondition(() => doc.getElementById("whimsyBlockAI"));
-    ok(!checkbox.checked, "The toggle is off");
-    checkbox.click();
-    await TestUtils.waitForCondition(() => WhimsyAI.blocked, "Checking it blocks AI");
+    const nav = await TestUtils.waitForCondition(() => doc.getElementById("category-whimsy-ai"), "AI is in the sidebar");
+    is(nav.getAttribute("view"), "paneWhimsyAI", "It opens the AI pane");
+    const toggle = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIEnable"));
+    await TestUtils.waitForCondition(() => toggle.checkVisibility(), "Enable AI shows");
+    ok(toggle.pressed, "Enable AI is on");
+    ok(!doc.getElementById("whimsyBlockAI"), "The old Privacy switch is gone");
+    ok(!doc.querySelector('#mainPrefPane [data-category="panePrivacy"] #whimsyAIProvider'), "No AI controls left in Privacy");
+    const rest = [...doc.querySelectorAll('[data-category="paneWhimsyAI"].whimsy-ai-rest')];
+    ok(rest.length >= 2, "Provider and Features sit under it");
+    const note = doc.getElementById("whimsyAIOffNote");
+    ok(note.hidden, "No note while AI is on");
+
+    toggle.click();
+    await TestUtils.waitForCondition(() => WhimsyAI.blocked, "Turning it off blocks AI");
     await WhimsyAI.pending;
     is(Services.prefs.getStringPref("browser.ai.control.default"), "blocked", "Firefox's AI is blocked");
-    checkbox.click();
-    await TestUtils.waitForCondition(() => !WhimsyAI.blocked, "Unchecking restores it");
+    await TestUtils.waitForCondition(() => !note.hidden, "The note says AI is off");
+    for (const section of rest) {
+      ok(section.inert && section.hasAttribute("data-ai-off"), `#${section.id} is dimmed and out of reach`);
+      const controls = [...section.querySelectorAll("input, button, menulist, moz-toggle")];
+      ok(controls.every(c => c.disabled), `#${section.id}: every control is disabled`);
+    }
+    toggle.click();
+    await TestUtils.waitForCondition(() => !WhimsyAI.blocked, "Turning it on restores it");
     await WhimsyAI.pending;
+    await TestUtils.waitForCondition(() => note.hidden, "The note goes");
+    ok(rest.every(section => !section.inert), "Everything is usable again");
+    ok(!doc.getElementById("whimsyAITidyTabs").disabled, "A feature switch works again");
   });
   Services.prefs.clearUserPref(WhimsyAI.PREF);
+});
+
+// The old links to AI in Privacy & Security land on the AI pane.
+add_task(async function test_old_links() {
+  await BrowserTestUtils.withNewTab("about:preferences#privacy-whimsyAI", async browser => {
+    const win = browser.contentWindow;
+    await TestUtils.waitForCondition(() => win.gLastCategory?.category == "paneWhimsyAI", "Lands on Settings → AI");
+  });
 });

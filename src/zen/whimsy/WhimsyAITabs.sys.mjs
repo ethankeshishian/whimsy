@@ -97,7 +97,7 @@ export const WhimsyAITabs = {
     container.addEventListener("SSTabRestoring", event => this.restoreSection(win, event.target));
     win.addEventListener("ZenWorkspacesUIUpdate", render);
     win.addEventListener("TabSelect", render);
-    const prefs = [TIDY_PREF, "whimsy.ai.blocked", "whimsy.feature.ai-providers"];
+    const prefs = [TIDY_PREF, "whimsy.ai.enabled", "whimsy.feature.ai-providers"];
     for (const pref of prefs) {
       Services.prefs.addObserver(pref, render);
     }

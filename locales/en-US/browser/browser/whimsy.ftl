@@ -162,13 +162,37 @@ whimsy-cookie-banners-toggle =
     .label = Reject cookie banners
     .description = Answers cookie pop-ups for you by choosing “Reject” or the most private option, and hides the banner while it does.
 
-## Settings → Privacy & Security → AI
+## W10-28: Settings → AI (its own pane, like Arc's Max tab). Enable AI
+## replaced "Turn off all AI features" (its meaning flipped, so the old
+## string id is retired).
 
-whimsy-ai-header =
-    .label = AI features
-whimsy-ai-toggle =
-    .label = Turn off all AI features
-    .description = Blocks the AI chatbot, link preview summaries, smart tab groups, PDF alt text, speech recognition and any AI that Whimsy adds, and removes their downloaded models. Translations keep working.
+whimsy-pane-ai-title = AI
+whimsy-ai-enable =
+    .label = Enable AI
+    .description = Whimsy’s AI features and Firefox’s. Turn off to block them all and remove downloaded models. Translations keep working.
+whimsy-ai-off-note = AI is off. Turn on Enable AI to use anything below.
+whimsy-ai-locked-note = Your organization manages this setting.
+whimsy-ai-provider-heading = Provider
+whimsy-ai-features-heading = Features
+whimsy-ai-claude-heading = Claude in Whimsy
+whimsy-ai-provider-apple-title = Apple Intelligence
+whimsy-ai-provider-claude-title = Claude
+whimsy-ai-provider-ollama-title = Ollama
+whimsy-ai-provider-local = On this Mac
+whimsy-ai-provider-key = Your API key
+whimsy-ai-field-status = Status
+whimsy-ai-apple-open-settings =
+    .label = Open System Settings
+whimsy-ai-firefox-chatbot =
+    .value = Firefox chatbot
+whimsy-ai-firefox-chatbot-off =
+    .label = Off
+whimsy-ai-firefox-link-previews =
+    .label = Firefox link previews
+whimsy-ai-firefox-tab-groups =
+    .label = Suggest tab groups
+whimsy-claude-fieldset =
+    .aria-label = Claude in Whimsy
 
 ## Settings → Privacy & Security → Tracking in links
 
@@ -924,13 +948,13 @@ whimsy-claude-header =
     .label = Claude
 whimsy-claude-enable =
     .label = Let Claude use { -brand-short-name }
-    .description = Claude Code can open, read and use tabs in the Claude space, like Claude in Chrome. Tabs Claude is using glow and show a Stop button. Only apps on this Mac with the token below can connect.
+    .description = Claude Code can open, read and use tabs in the Claude space. Tabs it uses glow and show a Stop button. Only apps on this Mac with the token below can connect.
 whimsy-claude-whole-browser =
     .label = Let Claude use any tab, not just the Claude space
     .description = Private tabs and the Private Space are always off-limits, and so are passwords.
 whimsy-claude-ask =
     .label = Ask before Claude clicks, types or fills in forms on a new site
-whimsy-claude-ai-blocked = Claude is unavailable while all AI features are turned off.
+whimsy-claude-ai-blocked = Claude is unavailable while AI is off.
 whimsy-claude-connect-heading = Connect Claude Code
 whimsy-claude-connect-intro = Run this in Terminal once:
 whimsy-claude-connect-json-intro = Or add this to an MCP config file (.mcp.json):
@@ -1539,7 +1563,7 @@ whimsy-ask-reading = Reading this page…
 whimsy-ask-no-text = This page has no text to answer from.
 whimsy-ask-find-on-page = Find on Page
 whimsy-preview-unreadable = Couldn’t read this page.
-whimsy-preview-not-ready = Set up an AI provider in Settings → Privacy & Security to see previews.
+whimsy-preview-not-ready = Set up an AI provider in Settings → AI to see previews.
 
 ## wave3/ai: Watch a page (like Safari's Notify Me)
 
@@ -1758,7 +1782,7 @@ whimsy-context-copy-page-markdown =
     .label = Copy Page as Markdown
     .accesskey = M
 whimsy-context-copy-selection-markdown =
-    .label = Copy Selection as Markdown
+    .label = Copy as Markdown
     .accesskey = M
 whimsy-action-copy-page-markdown = Copy Page as Markdown
 whimsy-copy-page-markdown-toast = Copied page as Markdown
@@ -2272,7 +2296,7 @@ whimsy-profile-rename-button-text = Rename Profile
 whimsy-profile-create-menuitem =
     .label = Create a New Profile…
 whimsy-profiles-header = Profiles
-whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile has its own cookies, site data, saved passwords, history, Essentials, extensions, search engine and download folder, and a new one starts empty. Spaces in the same profile share them.
+whimsy-profiles-description = Each space belongs to a profile, like in Arc. A profile keeps its own sign-ins, history, passwords, Essentials and extensions.
 whimsy-profiles-delete-rule = Only profiles that no space uses can be deleted.
 whimsy-profiles-spaces =
     { $count ->
@@ -2326,6 +2350,21 @@ whimsy-profiles-download-choose =
 whimsy-profiles-download-reset =
     .label = Use Default
 whimsy-profiles-download-picker-title = Choose a Download Location for This Profile
+# W10-23: each profile's row (a summary and Edit) and its editor.
+whimsy-profiles-edit =
+    .label = Edit
+    .aria-label = Edit “{ $name }”
+whimsy-profiles-done =
+    .label = Done
+whimsy-profiles-meta = { whimsy-profiles-spaces } · { $engine } · { $downloads }
+whimsy-profiles-meta-engine = { whimsy-profiles-spaces } · { $engine }
+whimsy-profiles-meta-downloads = { whimsy-profiles-spaces } · { $downloads }
+whimsy-profiles-meta-same = { whimsy-profiles-spaces } · Default’s search engine and downloads
+whimsy-profiles-default-meta = { whimsy-profiles-spaces } · Uses your Search and Downloads settings
+whimsy-profiles-field-name = Name
+whimsy-profiles-field-engine =
+    .value = Search engine
+whimsy-profiles-field-downloads = Downloads
 whimsy-profile-move-space-title = Move “{ $space }” to the “{ $profile }” profile?
 whimsy-profile-move-space-body = Each Profile has different browser data, so you might get logged out of some websites, see different Favorites up top, or need to re-install extensions.
 whimsy-profile-move-space-accept = Move Space
@@ -2598,12 +2637,22 @@ whimsy-menu-view-boosts =
 whimsy-game-hint-embedded = Arrows, WASD or pointer to steer · Space or click to dash · Esc goes back to the error page
 
 ## fix7: Mini Whimsy space dropdown (caret, Cmd+Shift+O)
-whimsy-quick-window-picker-caption =
-    .label =
-        { $count ->
-            [one] Open in
-           *[other] Open { $count } Tabs in
-        }
+# W10-29: ⌘⇧O turns Mini's address strip into a search field over its
+# spaces (a flat list; each row names its profile when there are several).
+whimsy-mini-picker-search =
+    .placeholder = Search spaces and profiles
+    .aria-label = Search spaces and profiles
+whimsy-mini-picker-search-spaces =
+    .placeholder = Search spaces
+    .aria-label = Search spaces
+whimsy-mini-picker-list =
+    .aria-label = Spaces
+whimsy-mini-picker-empty = No space or profile matches “{ $query }”.
+whimsy-mini-picker-status =
+    { $count ->
+        [one] 1 space
+       *[other] { $count } spaces
+    }
 
 # fix7/tabs: People card actions.
 whimsy-person-open = Open Profile
@@ -2887,33 +2936,42 @@ whimsy-split-always-show-headers-help = Each pane keeps a bar at its top with ba
 
 whimsy-pane-menus-title = Menus
 whimsy-menus-title = Menus
-whimsy-menus-intro = Choose what shows when you right-click. Turn off the items you never use; the change applies the next time you open that menu.
+whimsy-menus-intro = Choose what shows when you right-click. Changes apply the next time you open that menu.
 whimsy-menus-restore =
     .label = Restore Defaults
-whimsy-menus-all-off = Every item is off, so right-clicking here won’t open a menu.
+whimsy-menus-all-off = Every row is off, so right-clicking here opens no menu.
+# W10-21: the pane's menu list (grouped by where you right-click), each
+# menu's count of rows that show, and the narrow-window picker.
+whimsy-menus-nav =
+    .aria-label = Menus
+whimsy-menus-nav-sidebar = In the sidebar
+whimsy-menus-nav-page = On a page
+whimsy-menus-nav-count = { $shown }/{ $total }
+whimsy-menus-nav-off = Off
+whimsy-menus-count = { $shown } of { $total } rows show
 
 whimsy-menus-tab = Tab
-whimsy-menus-tab-description = Right-click a tab in the sidebar.
+whimsy-menus-tab-description = When you right-click a tab in the sidebar.
 whimsy-menus-essential = Essential
-whimsy-menus-essential-description = Right-click an Essential. It has its own copy of the tab menu’s items.
+whimsy-menus-essential-description = When you right-click an Essential. It has its own copy of the tab menu’s rows.
 whimsy-menus-link = Link
-whimsy-menus-link-description = Right-click a link on a page.
+whimsy-menus-link-description = When you right-click a link on a page.
 whimsy-menus-page = Page
-whimsy-menus-page-description = Right-click an empty part of a page.
+whimsy-menus-page-description = When you right-click an empty part of a page.
 whimsy-menus-selection = Selected Text
-whimsy-menus-selection-description = Right-click text you’ve selected on a page.
+whimsy-menus-selection-description = When you right-click text you’ve selected on a page.
 whimsy-menus-image = Image
-whimsy-menus-image-description = Right-click an image on a page. Link items show when the image is a link.
+whimsy-menus-image-description = When you right-click an image on a page. Link rows show when the image is a link.
 whimsy-menus-space = Space
-whimsy-menus-space-description = Right-click a space’s icon, or click the space’s ⋯ button.
+whimsy-menus-space-description = When you right-click a space’s icon, or click its ⋯ button.
 whimsy-menus-sidebar = Sidebar
-whimsy-menus-sidebar-description = Right-click an empty part of the sidebar.
+whimsy-menus-sidebar-description = When you right-click an empty part of the sidebar.
 whimsy-menus-folder = Folder
-whimsy-menus-folder-description = Right-click a folder in the sidebar.
-whimsy-menus-split-row = Split View Row
-whimsy-menus-split-row-description = Right-click a split view in the sidebar.
+whimsy-menus-folder-description = When you right-click a folder in the sidebar.
+whimsy-menus-split-row = Split View
+whimsy-menus-split-row-description = When you right-click a split view in the sidebar.
 whimsy-menus-split-pane = Split View Pane
-whimsy-menus-split-pane-description = Click ⋯ on a split view pane, or open a pane under Tab Options.
+whimsy-menus-split-pane-description = When you click ⋯ on a split view pane, or open a pane under Tab Options.
 
 # Shared by several menus.
 whimsy-menus-inspect =
@@ -3054,17 +3112,17 @@ whimsy-menus-page-view-source =
 whimsy-menus-selection-search =
     .label = Search for the Selection
 whimsy-menus-selection-search-private =
-    .label = Search for the Selection in a Private Window
+    .label = Search in a Private Window
 whimsy-menus-selection-translate =
     .label = Translate Selection
 whimsy-menus-selection-copy =
     .label = Copy
 whimsy-menus-selection-copy-markdown =
-    .label = Copy Selection as Markdown
+    .label = Copy as Markdown
 whimsy-menus-selection-map =
     .label = Show in Maps
 whimsy-menus-selection-email =
-    .label = Email
+    .label = Email with { $app }
 whimsy-menus-selection-note =
     .label = Add to Note
 whimsy-menus-selection-calendar =
@@ -3073,6 +3131,12 @@ whimsy-menus-selection-linear-new =
     .label = New Linear Issue
 whimsy-menus-selection-linear-search =
     .label = Search Linear
+# W10-20: the Quick Actions ▸ submenu and when its rows show.
+whimsy-menus-selection-quick-actions =
+    .label = Quick Actions ▸
+whimsy-menus-hint-translate = When it’s another language
+whimsy-menus-hint-date = When it has a date
+whimsy-menus-hint-linear = Once Linear is connected
 whimsy-menus-selection-print =
     .label = Print Selection…
 whimsy-menus-selection-copy-highlight =
@@ -3395,8 +3459,9 @@ whimsy-context-new-note =
 ## wave8/cmds: W8-13 the selection verbs as right-click menu items.
 whimsy-context-verb-map =
     .label = Show in Maps
+# W10-20: names the app a mailto: link opens ("Mail" unless you chose another).
 whimsy-context-verb-email =
-    .label = Email
+    .label = Email with { $app }
 whimsy-context-verb-note =
     .label = Add to Note
 whimsy-context-verb-calendar =
@@ -3405,7 +3470,36 @@ whimsy-context-verb-linear-new =
     .label = New Linear Issue
 whimsy-context-verb-linear-search =
     .label = Search Linear
-whimsy-note-created-toast = Created a new note
+# W10-20: the submenu of actions that hand the selected text to another app
+# (macOS's own name for this).
+whimsy-context-quick-actions =
+    .label = Quick Actions
+## W10-26: the Quick Note card (New Note) and its "Note saved" toast.
+whimsy-quick-note-title = New Note
+whimsy-quick-note-name =
+    .placeholder = Title
+    .aria-label = Title
+whimsy-quick-note-body =
+    .placeholder = Write a note. Markdown works.
+    .aria-label = Note
+whimsy-quick-note-attach = This page · { $host }
+whimsy-quick-note-attach-button =
+    .aria-label = Keep with this page, { $host }
+whimsy-quick-note-private = Not kept with private pages
+whimsy-quick-note-no-page = No page to keep it with
+whimsy-quick-note-saved = Saved
+whimsy-quick-note-hint-attached = Shows again when you open this page
+whimsy-quick-note-hint = Notes for { $profile } · saved as you type
+whimsy-quick-note-hint-plain = Saved as you type
+whimsy-quick-note-open =
+    .label = Open in Notes
+whimsy-quick-note-done =
+    .label = Done
+whimsy-note-saved-toast = Note saved
+whimsy-note-saved-open = Open
+whimsy-action-open-notes = Open Notes
+whimsy-library-notes-this-page = This page
+whimsy-library-notes-other = Other notes
 ## batch8: W8-04 Collapse All Folders
 whimsy-action-collapse-all-folders = Collapse All Folders
 whimsy-action-expand-all-folders = Expand All Folders
@@ -3580,7 +3674,7 @@ whimsy-menus-folder-live-resync =
     .label = Live Options ▸ Resync
     .description = On live folders
 whimsy-menus-media = Video and Audio
-whimsy-menus-media-description = Right-click a video or audio player on a page.
+whimsy-menus-media-description = When you right-click a video or audio player on a page.
 whimsy-menus-media-play =
     .label = Play / Pause
 whimsy-menus-media-mute =
@@ -4008,8 +4102,15 @@ whimsy-setting-teach = Shortcut Tips
     .keywords = tips, hints, teach, learn shortcuts, onboarding
 whimsy-setting-cookie-banners = Reject Cookie Banners
     .keywords = cookies, cookie pop-ups, consent, gdpr, autoconsent
-whimsy-setting-ai = AI Features
-    .keywords = artificial intelligence, kill switch, block ai, disable ai, chatbot, llm
+whimsy-setting-ai = AI
+    .keywords = enable ai, artificial intelligence, ai features, kill switch, block ai, disable ai, chatbot, llm
+# W10-28: Firefox's own AI rows in Settings → AI.
+whimsy-setting-firefox-chatbot = Firefox Chatbot
+    .keywords = chatbot, ai chatbot, sidebar chatbot, chatgpt, claude, gemini, copilot
+whimsy-setting-firefox-link-previews = Firefox Link Previews
+    .keywords = link preview, key points, preview summary
+whimsy-setting-firefox-tab-groups = Suggest Tab Groups
+    .keywords = smart tab groups, tab group suggestions, ai tab groups
 whimsy-setting-ai-provider = AI Provider
     .keywords = apple intelligence, claude, ollama, model, api key, local model
 whimsy-setting-ai-claude-key = Claude API Key
@@ -4362,3 +4463,20 @@ whimsy-form-refill-fill = Fill In
 whimsy-tab-protected-marker =
     .tooltiptext = Protected tab
     .aria-label = Protected tab
+
+## W10-22: Settings search shows where the hit is.
+whimsy-search-count =
+    { $count ->
+        [one] 1 setting matches “{ $query }”
+       *[other] { $count } settings match “{ $query }”{ $places ->
+            [1] {""}
+           *[other] {" "}in { $places } places
+        }
+    }
+whimsy-search-more =
+    .label = Show { $count } more in { $group }
+whimsy-search-keyword = Matches “{ $term }”
+whimsy-search-show-in =
+    .label = Show in { $pane } →
+whimsy-search-none-title = No settings match “{ $query }”
+whimsy-search-none-hint = Check the spelling, or try a shorter word.

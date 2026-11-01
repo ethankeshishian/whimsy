@@ -17,7 +17,8 @@ const ENABLED = "whimsy.claude.enabled";
 const WHOLE = "whimsy.claude.whole-browser";
 const ASK = "whimsy.claude.ask-per-site";
 const SPACE = "whimsy.claude.space-id";
-const AI_BLOCKED = "whimsy.ai.blocked";
+// W10-28: Enable AI (Settings → AI).
+const AI_ENABLED = "whimsy.ai.enabled";
 const PAGE =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_claude.html";
 
@@ -77,7 +78,7 @@ add_setup(async function () {
     WhimsyClaude.confirmSite = realConfirm;
     WhimsyClaude.forgetSitePermissions();
     const spaceId = Services.prefs.getStringPref(SPACE, "");
-    for (const pref of [ENABLED, WHOLE, ASK, FEATURE, AI_BLOCKED, SPACE]) {
+    for (const pref of [ENABLED, WHOLE, ASK, FEATURE, AI_ENABLED, SPACE]) {
       Services.prefs.clearUserPref(pref);
     }
     WhimsyClaude.shutdown();
@@ -232,7 +233,8 @@ add_task(async function test_private_bridge_and_live_rotation() {
 });
 
 add_task(async function test_settings_connection_and_rotation() {
-  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+  // W10-28: Claude in Whimsy is in Settings → AI.
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
     await TestUtils.waitForCondition(() => doc.getElementById("whimsyClaudeCommand")?.textContent,
       "Settings shows the ready command");
@@ -487,9 +489,9 @@ add_task(async function test_switches_turn_it_off() {
   await WhimsyClaude.start();
   ok(WhimsyClaude.running, "Switching it back on restarts it (still turned on)");
 
-  Services.prefs.setBoolPref(AI_BLOCKED, true);
+  Services.prefs.setBoolPref(AI_ENABLED, false);
   ok(!WhimsyClaude.running, "The AI kill switch stops it too");
-  Services.prefs.clearUserPref(AI_BLOCKED);
+  Services.prefs.clearUserPref(AI_ENABLED);
   Services.prefs.clearUserPref(ENABLED);
   ok(!WhimsyClaude.running, "Turning it off in Settings stops it");
 });

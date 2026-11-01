@@ -287,7 +287,6 @@ var gWhimsySettings = {
     template.remove();
     const inits = {
       "cookie-banners": () => this.initCookieBanners(),
-      "ai-kill-switch": () => this.initPrefCheckbox("whimsyBlockAI", "whimsy.ai.blocked"),
       "strip-tracking": () => this.initStripTracking(),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
@@ -302,8 +301,7 @@ var gWhimsySettings = {
           ? this.initPrefCheckbox("whimsyHandoffSend", "whimsy.handoff.send")
           : document.getElementById("whimsyHandoffGroup")?.remove(),
 
-      // wave3/ai: the AI provider picker.
-      "ai-providers": () => this.initAIProviders(),
+      // W10-28: the AI switch and provider moved to Settings → AI.
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;
@@ -830,13 +828,8 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// tierC-claude: Settings → Privacy & Security → Claude. Its own paneshown
-// listener and Object.assign, like the spaces group above.
-document.addEventListener("paneshown", event => {
-  if (event.detail.category == "panePrivacy") {
-    gWhimsySettings.insertClaudeGroup();
-  }
-});
+// tierC-claude: Settings → AI → Claude in Whimsy (W10-28; it was a card in
+// Privacy & Security). buildAIPane puts it after the AI features.
 
 Object.assign(gWhimsySettings, {
   insertClaudeGroup() {
@@ -850,22 +843,14 @@ Object.assign(gWhimsySettings, {
     if (!featureOn) {
       return;
     }
-    const anchor =
-      document.getElementById("whimsyPrivateGroup") ||
-      document.getElementById("whimsyStripTrackingGroup");
+    const anchor = document.getElementById("whimsyAIFeaturesGroup") ?? document.getElementById("whimsyAIProviderGroup");
     if (anchor) {
       anchor.after(group);
     } else {
-      const before =
-        document.getElementById("nonTechnicalPrivacyGroup") ||
-        document.querySelector('[groupid="nonTechnicalPrivacy2"]');
-      if (before) {
-        before.before(group);
-      } else {
-        document.getElementById("mainPrefPane").append(group);
-      }
+      document.getElementById("mainPrefPane").append(group);
     }
-    group.hidden = false;
+    // Shown by Firefox's pane switching, with the rest of Settings → AI.
+    group.hidden = globalThis.gLastCategory?.category != group.dataset.category;
     this.initClaudeGroup();
   },
 
@@ -892,7 +877,7 @@ Object.assign(gWhimsySettings, {
     // moment after the switch is turned on.
     const refresh = () => {
       const enabled = Services.prefs.getBoolPref("whimsy.claude.enabled", false);
-      const blocked = Services.prefs.getBoolPref("whimsy.ai.blocked", false);
+      const blocked = !Services.prefs.getBoolPref("whimsy.ai.enabled", true);
       $("whimsyClaudeAIBlocked").hidden = !blocked;
       $("whimsyClaudeEnable").disabled = blocked;
       $("whimsyClaudeWholeBrowser").disabled = !enabled || blocked;
@@ -918,7 +903,7 @@ Object.assign(gWhimsySettings, {
       }
     });
     $("whimsyClaudeForgetSites").addEventListener("command", () => WhimsyClaude.forgetSitePermissions());
-    const prefs = ["whimsy.claude.enabled", "whimsy.ai.blocked"];
+    const prefs = ["whimsy.claude.enabled", "whimsy.ai.enabled"];
     for (const pref of prefs) {
       Services.prefs.addObserver(pref, refresh);
     }
@@ -1243,37 +1228,195 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// wave3/ai: Settings → Privacy & Security → AI provider. Apple on-device,
-// Claude (API key) or Ollama; the card hides while the AI kill switch is on.
-// The Claude key goes straight to OSKeyStore (WhimsyAIProviders) and is
-// never shown again or written to a pref.
+// W10-28: Settings → AI, its own pane (Arc's Max tab). Enable AI (on by
+// default) heads it; while it's off everything below is dimmed and can't be
+// used, with a note saying why. Then the provider (Apple on-device, Claude
+// with your API key, or Ollama) as three cards, with only the chosen one's
+// fields in a label/control grid; the features, Whimsy's then Firefox's;
+// and Claude in Whimsy. The Claude key goes straight to OSKeyStore
+// (WhimsyAIProviders) and is never shown again or written to a pref.
+// Registered like Menus (register_module before init_all), so
+// about:preferences#whimsyAI opens it; the old Privacy & Security links
+// (#privacy-whimsyAI, …) land here.
+const WHIMSY_AI_PANE = "paneWhimsyAI";
+const WHIMSY_AI_OLD_ANCHORS = ["whimsyAI", "whimsyAIGroup", "whimsyAIProviders", "whimsyAIProvidersGroup", "whimsyClaude", "whimsyClaudeGroup"];
+
 Object.assign(gWhimsySettings, {
+  registerAIPane() {
+    if (typeof register_module != "function" || document.getElementById("category-whimsy-ai")) {
+      return;
+    }
+    const after =
+      document.getElementById("category-whimsy-menus") ||
+      document.getElementById("category-whimsy-links") ||
+      document.getElementById("category-zen-tabs-management");
+    if (!after || !this.lazy.Whimsy.featureEnabled("ai-kill-switch")) {
+      return;
+    }
+    const button = document.createElementNS("http://www.w3.org/1999/xhtml", "moz-page-nav-button");
+    button.id = "category-whimsy-ai";
+    button.setAttribute("view", WHIMSY_AI_PANE);
+    button.setAttribute("iconsrc", "chrome://global/skin/icons/highlights.svg");
+    button.setAttribute("data-l10n-id", "whimsy-pane-ai-title");
+    after.after(button);
+    register_module(WHIMSY_AI_PANE, { init: () => this.buildAIPane() });
+    // Links to where AI used to be (Privacy & Security) open this pane.
+    document.addEventListener("paneshown", event => {
+      const { category, subcategory } = event.detail ?? {};
+      if (category == "panePrivacy" && WHIMSY_AI_OLD_ANCHORS.includes(subcategory)) {
+        gotoPref(WHIMSY_AI_PANE);
+      }
+    });
+  },
+
+  buildAIPane() {
+    const template = document.getElementById("template-whimsyAI");
+    const pane = document.getElementById("mainPrefPane");
+    if (!template || !pane) {
+      return;
+    }
+    if (!this.lazy.Whimsy.featureEnabled("ai-kill-switch")) {
+      template.remove();
+      return;
+    }
+    const fragment = template.content;
+    const nodes = [...fragment.children];
+    template.remove();
+    pane.append(fragment);
+    for (const node of nodes) {
+      if (node.dataset.whimsyFeature && !this.lazy.Whimsy.featureEnabled(node.dataset.whimsyFeature)) {
+        node.remove();
+      }
+    }
+    this.insertClaudeGroup();
+    this.initAIEnable();
+    this.initAIProviders();
+    this.initAIFeatures();
+    this.applyAIEnabled();
+    Preferences.queueUpdateOfAllElements();
+  },
+
+  // A moz-toggle for a bool pref.
+  initPrefToggle(id, pref, fallback = true) {
+    const toggle = document.getElementById(id);
+    if (!toggle) {
+      return;
+    }
+    const update = () => {
+      toggle.pressed = Services.prefs.getBoolPref(pref, fallback);
+      toggle.disabled = Services.prefs.prefIsLocked(pref) || toggle.hasAttribute("data-whimsy-ai-disabled");
+    };
+    toggle.addEventListener("toggle", () => Services.prefs.setBoolPref(pref, toggle.pressed));
+    Services.prefs.addObserver(pref, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(pref, update), { once: true });
+    update();
+  },
+
+  get aiModule() {
+    return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs").WhimsyAI;
+  },
+
+  initAIEnable() {
+    const toggle = document.getElementById("whimsyAIEnable");
+    if (!toggle) {
+      return;
+    }
+    const { aiModule } = this;
+    const update = () => {
+      const locked = aiModule.lockedOff;
+      toggle.pressed = aiModule.enabled && !locked;
+      toggle.disabled = locked || Services.prefs.prefIsLocked(aiModule.PREF);
+      document.getElementById("whimsyAILockedNote").hidden = !locked;
+      this.applyAIEnabled();
+    };
+    toggle.addEventListener("toggle", () => Services.prefs.setBoolPref(aiModule.PREF, toggle.pressed));
+    const prefs = [aiModule.PREF, "browser.ai.control.default"];
+    for (const pref of prefs) {
+      Services.prefs.addObserver(pref, update);
+    }
+    window.addEventListener(
+      "unload",
+      () => {
+        for (const pref of prefs) {
+          Services.prefs.removeObserver(pref, update);
+        }
+      },
+      { once: true }
+    );
+    update();
+  },
+
+  // While AI is off: everything under Enable AI is dimmed, out of the tab
+  // order and disabled, and a note says why. Controls that were disabled
+  // for their own reasons stay so when AI comes back.
+  applyAIEnabled() {
+    const { aiModule } = this;
+    const on = aiModule.enabled && !aiModule.lockedOff;
+    const note = document.getElementById("whimsyAIOffNote");
+    if (note) {
+      note.hidden = on;
+    }
+    // Claude in Whimsy disables its own rows while AI is off.
+    const claude = document.getElementById("whimsyClaudeGroup");
+    if (claude) {
+      claude.toggleAttribute("data-ai-off", !on);
+      claude.inert = !on;
+    }
+    for (const section of document.querySelectorAll(`[data-category="${WHIMSY_AI_PANE}"].whimsy-ai-rest`)) {
+      section.toggleAttribute("data-ai-off", !on);
+      section.inert = !on;
+      for (const control of section.querySelectorAll(
+        "input, button, menulist, moz-toggle, moz-checkbox, select, textarea"
+      )) {
+        if (!on && !control.disabled) {
+          control.disabled = true;
+          control.setAttribute("data-whimsy-ai-disabled", "");
+        } else if (on && control.hasAttribute("data-whimsy-ai-disabled")) {
+          control.removeAttribute("data-whimsy-ai-disabled");
+          control.disabled = false;
+        }
+      }
+    }
+  },
+
   initAIProviders() {
-    const group = document.getElementById("whimsyAIProvidersGroup");
-    const picker = document.getElementById("whimsyAIProvider");
-    if (!group || !picker || this._aiProvidersWired) {
+    const group = document.getElementById("whimsyAIProviderGroup");
+    const radios = [...document.querySelectorAll('#whimsyAIProvider input[type="radio"]')];
+    if (!group || !radios.length || this._aiProvidersWired) {
       return;
     }
     this._aiProvidersWired = true;
     const { WhimsyAIProviders } = ChromeUtils.importESModule(
       "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs"
     );
-    Preferences.addAll([{ id: "whimsy.ai.provider", type: "string" }]);
     const rows = {
       apple: document.getElementById("whimsyAIAppleRow"),
       claude: document.getElementById("whimsyAIClaudeRow"),
       ollama: document.getElementById("whimsyAIOllamaRow"),
     };
-    const setStatus = (id, l10nId, args) => {
+    // Each provider's first control, where the keyboard goes when it's
+    // picked with the pointer.
+    const firstControl = {
+      apple: () => document.getElementById("whimsyAIAppleCheck"),
+      claude: () => document.getElementById("whimsyAIClaudeKey"),
+      ollama: () => document.getElementById("whimsyAIOllamaEndpoint"),
+    };
+    const setStatus = (id, l10nId, args, ready = null) => {
       const el = document.getElementById(id);
       if (el) {
         document.l10n.setAttributes(el, l10nId, args);
+        if (ready === null) {
+          el.removeAttribute("data-state");
+        } else {
+          el.dataset.state = ready ? "ready" : "action";
+        }
       }
     };
 
     // Apple: connecting builds a small helper once (a minute or so), so it
     // only happens when the person clicks Set Up.
     const appleButton = document.getElementById("whimsyAIAppleCheck");
+    const openSettings = document.getElementById("whimsyAIAppleOpenSettings");
     const checkApple = async ({ build }) => {
       setStatus("whimsyAIAppleStatus", "whimsy-ai-apple-status-checking");
       appleButton.disabled = true;
@@ -1283,9 +1426,12 @@ Object.assign(gWhimsySettings, {
       // the compiler's own words, or the folders searched when the status
       // doesn't already name them (it was "reinstall the tools" for any
       // failure, on Macs where they're installed).
-      setStatus("whimsyAIAppleStatus", `whimsy-ai-apple-status-${status}`, {
-        detail: WhimsyAIProviders.appleDetail || "",
-      });
+      setStatus(
+        "whimsyAIAppleStatus",
+        `whimsy-ai-apple-status-${status}`,
+        { detail: WhimsyAIProviders.appleDetail || "" },
+        status == "available"
+      );
       const detail = document.getElementById("whimsyAIAppleDetail");
       if (detail) {
         const text = status == "apple-needs-tools" ? "" : WhimsyAIProviders.appleDetail || "";
@@ -1296,15 +1442,34 @@ Object.assign(gWhimsySettings, {
         appleButton,
         status == "not-set-up" ? "whimsy-ai-apple-set-up" : "whimsy-ai-apple-check"
       );
+      // Apple Intelligence itself is off: one click to where it's turned on.
+      if (openSettings) {
+        openSettings.hidden = status != "apple-intelligence-off";
+      }
     };
     appleButton?.addEventListener("command", () => checkApple({ build: true }));
+    openSettings?.addEventListener("command", () => {
+      try {
+        Cc["@mozilla.org/uriloader/external-protocol-service;1"]
+          .getService(Ci.nsIExternalProtocolService)
+          .loadURI(
+            Services.io.newURI("x-apple.systempreferences:com.apple.Siri-Settings.extension"),
+            Services.scriptSecurityManager.getSystemPrincipal()
+          );
+      } catch (e) {
+        console.error("Whimsy: opening System Settings", e);
+      }
+    });
 
     // Claude: the key field stays empty; the status says whether one is saved.
     const keyInput = document.getElementById("whimsyAIClaudeKey");
     const showKeyStatus = async () => {
       const saved = await WhimsyAIProviders.hasClaudeKey();
-      setStatus("whimsyAIClaudeStatus", saved ? "whimsy-ai-claude-key-saved" : "whimsy-ai-claude-key-missing");
-      document.getElementById("whimsyAIClaudeRemove").disabled = !saved;
+      setStatus("whimsyAIClaudeStatus", saved ? "whimsy-ai-claude-key-saved" : "whimsy-ai-claude-key-missing", undefined, saved);
+      const remove = document.getElementById("whimsyAIClaudeRemove");
+      if (!remove.hasAttribute("data-whimsy-ai-disabled")) {
+        remove.disabled = !saved;
+      }
     };
     document.getElementById("whimsyAIClaudeSave")?.addEventListener("command", async () => {
       if (!keyInput.value.trim()) {
@@ -1315,7 +1480,7 @@ Object.assign(gWhimsySettings, {
         keyInput.value = "";
       } catch (error) {
         console.error("Whimsy: saving the Claude API key failed", error);
-        setStatus("whimsyAIClaudeStatus", "whimsy-ai-claude-key-error");
+        setStatus("whimsyAIClaudeStatus", "whimsy-ai-claude-key-error", undefined, false);
         return;
       }
       showKeyStatus();
@@ -1348,12 +1513,14 @@ Object.assign(gWhimsySettings, {
       try {
         models = await WhimsyAIProviders.ollamaModels();
       } catch {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline");
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline", undefined, false);
       }
       for (const name of new Set([...models, ...(current ? [current] : [])])) {
         modelList.appendItem(name, name);
       }
-      modelList.disabled = !modelList.itemCount;
+      if (!modelList.hasAttribute("data-whimsy-ai-disabled")) {
+        modelList.disabled = !modelList.itemCount;
+      }
       if (current) {
         modelList.value = current;
       } else if (models.length) {
@@ -1361,15 +1528,37 @@ Object.assign(gWhimsySettings, {
         Services.prefs.setStringPref("whimsy.ai.ollama.model", models[0]);
       }
       if (models.length) {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-ready", { count: models.length });
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-ready", { count: models.length }, true);
       } else if (!modelList.disabled || !current) {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline");
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline", undefined, false);
       }
     };
     document.getElementById("whimsyAIOllamaRefresh")?.addEventListener("command", () => loadOllamaModels());
 
+    // The three cards are one radio group: the arrow keys move between them
+    // (and keep the keyboard there); a click also takes it to the chosen
+    // provider's first control.
+    let pointer = false;
+    group.addEventListener("pointerdown", () => (pointer = true));
+    for (const radio of radios) {
+      radio.addEventListener("change", () => {
+        if (!radio.checked) {
+          return;
+        }
+        Services.prefs.setStringPref("whimsy.ai.provider", radio.value);
+        if (pointer) {
+          // After the provider's rows show.
+          window.requestAnimationFrame(() => firstControl[radio.value]?.()?.focus());
+        }
+        pointer = false;
+      });
+    }
     const showRows = () => {
       const provider = WhimsyAIProviders.provider;
+      for (const radio of radios) {
+        radio.checked = radio.value == provider;
+        radio.closest(".whimsy-ai-provider")?.toggleAttribute("data-selected", radio.checked);
+      }
       for (const [id, row] of Object.entries(rows)) {
         row.hidden = id != provider;
       }
@@ -1381,33 +1570,73 @@ Object.assign(gWhimsySettings, {
         loadOllamaModels();
       }
     };
-    // The whole card goes away while every AI feature is turned off.
-    const showGroup = () => {
-      group.hidden = Services.prefs.getBoolPref("whimsy.ai.blocked", false);
-    };
-    const prefs = { "whimsy.ai.provider": showRows, "whimsy.ai.blocked": showGroup };
-    for (const [pref, fn] of Object.entries(prefs)) {
-      Services.prefs.addObserver(pref, fn);
+    Services.prefs.addObserver("whimsy.ai.provider", showRows);
+    window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.ai.provider", showRows), {
+      once: true,
+    });
+    showRows();
+  },
+
+  // The features: each Whimsy AI feature's own switch, the page watches,
+  // then Firefox's chatbot, link previews and tab group suggestions (which
+  // Enable AI also governs; Zen's Firefox AI pane is hidden).
+  initAIFeatures() {
+    const group = document.getElementById("whimsyAIFeaturesGroup");
+    if (!group || this._aiFeaturesWired) {
+      return;
     }
-    window.addEventListener(
-      "unload",
-      () => {
-        for (const [pref, fn] of Object.entries(prefs)) {
-          Services.prefs.removeObserver(pref, fn);
-        }
-      },
-      { once: true }
-    );
-    // The AI features' own switches (a row each, added with each feature).
-    for (const box of group.querySelectorAll("[data-feature-pref]")) {
-      this.initPrefCheckbox(box.id, box.dataset.featurePref);
+    this._aiFeaturesWired = true;
+    for (const toggle of group.querySelectorAll("moz-toggle[data-feature-pref]")) {
+      const pref = toggle.dataset.featurePref;
+      this.initPrefToggle(toggle.id, pref, Services.prefs.getDefaultBranch("").getBoolPref(pref, false));
     }
     this.initAIWatchList?.();
-    showGroup();
-    showRows();
-    Preferences.queueUpdateOfAllElements();
+
+    // Firefox's chatbot: Off, or one of Firefox's providers.
+    const chatbot = document.getElementById("whimsyAIFirefoxChatbot");
+    if (chatbot) {
+      try {
+        const { GenAI } = ChromeUtils.importESModule("moz-src:///browser/components/genai/GenAI.sys.mjs");
+        for (const [url, provider] of GenAI.chatProviders) {
+          if (provider.hidden) {
+            continue;
+          }
+          chatbot.appendItem(provider.name, url);
+        }
+      } catch (e) {
+        console.error("Whimsy: Firefox chatbot providers", e);
+      }
+      const update = () => {
+        const on = Services.prefs.getBoolPref("browser.ml.chat.enabled", false);
+        chatbot.value = on ? Services.prefs.getStringPref("browser.ml.chat.provider", "") : "";
+      };
+      chatbot.addEventListener("command", () => {
+        if (chatbot.value) {
+          Services.prefs.setStringPref("browser.ml.chat.provider", chatbot.value);
+          Services.prefs.setBoolPref("browser.ml.chat.enabled", true);
+        } else {
+          Services.prefs.setBoolPref("browser.ml.chat.enabled", false);
+        }
+      });
+      const prefs = ["browser.ml.chat.enabled", "browser.ml.chat.provider"];
+      for (const pref of prefs) {
+        Services.prefs.addObserver(pref, update);
+      }
+      window.addEventListener(
+        "unload",
+        () => {
+          for (const pref of prefs) {
+            Services.prefs.removeObserver(pref, update);
+          }
+        },
+        { once: true }
+      );
+      update();
+    }
   },
 });
+
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.registerAIPane(), { once: true });
 
 // wave3/ai: Watch a page — the list of watches under its switch, each with
 // its condition, last result and a Stop button.
@@ -1611,12 +1840,9 @@ Object.assign(gWhimsySettings, {
   initProfilesGroup() {
     const chromeWin = window.browsingContext.topChromeWindow;
     const refresh = () => this.renderProfiles();
-    document.getElementById("whimsyProfilesCreate").addEventListener("command", () => {
-      this.showProfileNameForm(document.getElementById("whimsyProfilesCreateSlot"), {
-        submitL10nId: "whimsy-profile-create-button",
-        onSubmit: name => this.profiles.create(name),
-      });
-    });
+    // W10-23: a new profile starts as a row in editor mode at the end of
+    // the list, its name field focused.
+    document.getElementById("whimsyProfilesCreate").addEventListener("command", () => this.startNewProfile());
     document.getElementById("whimsyProfilesDeleteUnused").addEventListener("command", () =>
       this.deleteUnusedProfiles());
     const topics = ["contextual-identity-created", "contextual-identity-updated",
@@ -1631,15 +1857,27 @@ Object.assign(gWhimsySettings, {
       }
       chromeWin?.removeEventListener("ZenWorkspaceDataChanged", refresh);
     }, { once: true });
+    // Engine names for the rows' summaries.
+    this.visibleEngines().then(engines => {
+      this._profileEngines = engines;
+      this.renderProfiles();
+    }).catch(console.error);
     this.renderProfiles();
   },
 
   renderProfiles() {
     const list = document.getElementById("whimsyProfilesList");
-    if (!list || list.querySelector(".whimsy-profile-name-form")) {
-      // Never pull a half-typed name out from under the person.
+    if (!list) {
       return;
     }
+    // Never pull a half-typed name out from under the person.
+    const typing = document.activeElement?.closest?.(".whimsy-profile-row") &&
+      document.activeElement.dataset.profileField == "name" &&
+      document.activeElement.value != (document.activeElement.dataset.saved ?? "");
+    if (typing || list.querySelector(".whimsy-profile-new")) {
+      return;
+    }
+    const focusField = document.activeElement?.dataset?.profileField ?? null;
     const { profiles } = this;
     const chromeWin = window.browsingContext.topChromeWindow;
     list.replaceChildren();
@@ -1651,94 +1889,408 @@ Object.assign(gWhimsySettings, {
     }
     document.getElementById("whimsyProfilesDeleteUnused").disabled =
       !profiles.unusedIds(chromeWin).length;
+    // The open editor stays open, with the keyboard where it was.
+    const open = this._openProfileEditor;
+    if (open != null && list.querySelector(`.whimsy-profile-row[data-profile-id="${open}"]`)) {
+      this.openProfileEditor(open, { focus: focusField });
+    } else {
+      this._openProfileEditor = null;
+    }
   },
 
+  profileEngineName(key) {
+    const id = this.profileSettings.engineFor(key);
+    return (id && this._profileEngines?.find(engine => engine.id == id)?.name) || null;
+  },
+
+  // ~/Downloads/Work rather than /Users/name/Downloads/Work.
+  shortPath(path) {
+    try {
+      const home = Services.dirsvc.get("Home", Ci.nsIFile).path;
+      if (path == home || path.startsWith(home + "/")) {
+        return "~" + path.slice(home.length);
+      }
+    } catch {}
+    return path;
+  },
+
+  // W10-23: a row is the profile's colour, name and a one-line summary
+  // (spaces · search engine · downloads), with one Edit button. Edit opens
+  // the editor under it: Name, Search engine and Downloads in one
+  // label/control grid (controls fixed-width, all starting at the same
+  // edge), then Delete Profile… and Done. Default has no editor: it uses
+  // Firefox's own Search and Downloads settings.
   profileRow(profile, spaceCount) {
     const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
     const row = html("li");
     row.className = "whimsy-profile-row";
     row.dataset.profileId = profile.id;
-    const head = document.createXULElement("hbox");
-    head.setAttribute("align", "center");
+    const head = html("div");
     head.className = "whimsy-profile-head";
     const dot = html("span");
     dot.className = "whimsy-profile-dot";
     dot.dataset.color = profile.isDefault ? "default" : profile.color ?? "";
     dot.setAttribute("aria-hidden", "true");
-    const titles = document.createXULElement("vbox");
-    titles.setAttribute("flex", "1");
+    const titles = html("div");
+    titles.className = "whimsy-profile-titles";
     const name = html("h3");
     name.className = "whimsy-profile-name";
+    name.id = `whimsyProfileName${profile.id}-title`;
     name.textContent = profile.name;
     const meta = document.createXULElement("description");
     meta.className = "description-deemphasized whimsy-profile-meta";
-    document.l10n.setAttributes(meta, profile.isDefault ? "whimsy-profiles-spaces-default" :
-      "whimsy-profiles-spaces", { count: spaceCount });
     titles.append(name, meta);
     head.append(dot, titles);
-    if (!profile.isDefault) {
-      const rename = document.createXULElement("button");
-      document.l10n.setAttributes(rename, "whimsy-profiles-rename", { name: profile.name });
-      rename.addEventListener("command", () => {
-        this.showProfileNameForm(row, {
-          initial: profile.name,
-          submitL10nId: "whimsy-profile-rename-button",
-          onSubmit: value => this.profiles.rename(profile.id, value),
-        });
-      });
-      const remove = document.createXULElement("button");
-      remove.className = "whimsy-profile-delete";
-      document.l10n.setAttributes(remove, "whimsy-profiles-delete", { name: profile.name });
-      remove.disabled = spaceCount > 0;
-      if (remove.disabled) {
-        remove.setAttribute("aria-describedby", "whimsyProfilesDeleteRule");
-      }
-      remove.addEventListener("command", () => this.deleteProfile(profile));
-      head.append(rename, remove);
-    }
     row.append(head);
+    if (profile.isDefault) {
+      document.l10n.setAttributes(meta, "whimsy-profiles-default-meta", { count: spaceCount });
+      return row;
+    }
+    const key = this.profiles.keyFor(profile.id);
+    const path = this.profileSettings.downloadDirFor(key);
+    const engine = this.profileEngineName(key);
+    if (engine && path) {
+      document.l10n.setAttributes(meta, "whimsy-profiles-meta", {
+        count: spaceCount, engine, downloads: this.shortPath(path),
+      });
+    } else if (engine) {
+      document.l10n.setAttributes(meta, "whimsy-profiles-meta-engine", { count: spaceCount, engine });
+    } else if (path) {
+      document.l10n.setAttributes(meta, "whimsy-profiles-meta-downloads", {
+        count: spaceCount, downloads: this.shortPath(path),
+      });
+    } else {
+      document.l10n.setAttributes(meta, "whimsy-profiles-meta-same", { count: spaceCount });
+    }
+
+    const editorId = `whimsyProfileEditor${profile.id}`;
+    const edit = document.createXULElement("button");
+    edit.className = "whimsy-profile-edit";
+    document.l10n.setAttributes(edit, "whimsy-profiles-edit", { name: profile.name });
+    edit.setAttribute("aria-controls", editorId);
+    edit.setAttribute("aria-expanded", "false");
+    edit.addEventListener("command", () => {
+      if (row.getAttribute("aria-expanded") == "true") {
+        this.closeProfileEditor({ focusEdit: true });
+      } else {
+        this.openProfileEditor(profile.id, { focus: "name" });
+      }
+    });
+    head.append(edit);
+    row.setAttribute("aria-expanded", "false");
+    row.append(this.profileEditor(profile, spaceCount, editorId));
     return row;
   },
 
-  // An inline "Profile Name" field with its submit/cancel buttons, in
-  // `slot`. onSubmit throws an Error whose message is the l10n id of the
-  // reason; it's shown under the field, which keeps focus.
-  showProfileNameForm(slot, { initial = "", submitL10nId, onSubmit }) {
+  profileEditor(profile, spaceCount, editorId) {
     const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
-    slot.querySelector(".whimsy-profile-name-form")?.remove();
-    const form = html("form");
-    form.className = "whimsy-profile-name-form";
-    const id = `whimsyProfileName${Date.now()}`;
-    const label = html("label");
-    label.htmlFor = id;
-    document.l10n.setAttributes(label, "whimsy-profile-name-label");
-    const input = html("input");
-    input.id = id;
-    input.type = "text";
-    input.maxLength = 40;
-    input.value = initial;
-    input.setAttribute("autocomplete", "off");
-    input.setAttribute("aria-describedby", `${id}-error`);
+    const { profiles, profileSettings } = this;
+    const key = profiles.keyFor(profile.id);
+    const editor = html("div");
+    editor.id = editorId;
+    editor.className = "whimsy-profile-editor";
+    editor.setAttribute("role", "group");
+    editor.setAttribute("aria-labelledby", `whimsyProfileName${profile.id}-title`);
+    editor.hidden = true;
+
+    // Name: saved when you leave the field or press Return.
+    const nameId = `whimsyProfileName${profile.id}`;
+    const nameLabel = html("label");
+    nameLabel.className = "whimsy-profile-field-label";
+    nameLabel.htmlFor = nameId;
+    document.l10n.setAttributes(nameLabel, "whimsy-profiles-field-name");
+    const nameInput = html("input");
+    nameInput.id = nameId;
+    nameInput.type = "text";
+    nameInput.className = "whimsy-profile-field";
+    nameInput.maxLength = 40;
+    nameInput.value = profile.name;
+    nameInput.dataset.saved = profile.name;
+    nameInput.dataset.profileField = "name";
+    nameInput.setAttribute("autocomplete", "off");
     const error = html("p");
-    error.id = `${id}-error`;
-    error.className = "whimsy-profile-name-error";
+    error.id = `${nameId}-error`;
+    error.className = "whimsy-profile-name-error whimsy-profile-editor-note";
     error.hidden = true;
-    const buttons = html("div");
-    buttons.className = "whimsy-profile-name-buttons";
-    const cancel = html("button");
-    cancel.type = "button";
-    document.l10n.setAttributes(cancel, "whimsy-profile-cancel-text");
-    const submit = html("button");
-    submit.type = "submit";
-    submit.className = "primary";
-    document.l10n.setAttributes(submit, `${submitL10nId}-text`);
-    buttons.append(cancel, submit);
-    form.append(label, input, error, buttons);
-    const close = () => {
-      form.remove();
-      this.renderProfiles();
+    nameInput.setAttribute("aria-describedby", error.id);
+    const saveName = () => {
+      const value = nameInput.value;
+      if (value.trim() == profile.name) {
+        return true;
+      }
+      // Saved first: renaming re-renders the list, which waits while a
+      // name is being typed.
+      const before = nameInput.dataset.saved;
+      nameInput.dataset.saved = value;
+      try {
+        profiles.rename(profile.id, value);
+        return true;
+      } catch (e) {
+        nameInput.dataset.saved = before;
+        error.hidden = false;
+        nameInput.setAttribute("aria-invalid", "true");
+        document.l10n.setAttributes(error, e.message?.startsWith("whimsy-") ? e.message : "whimsy-profile-name-failed");
+        return false;
+      }
     };
-    cancel.addEventListener("click", close);
+    nameInput.addEventListener("input", () => {
+      error.hidden = true;
+      nameInput.removeAttribute("aria-invalid");
+    });
+    nameInput.addEventListener("change", saveName);
+    nameInput.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        if (!saveName()) {
+          nameInput.focus();
+        }
+      }
+    });
+
+    // Search engine.
+    const engineId = `whimsyProfileEngine${profile.id}`;
+    const engineLabel = document.createXULElement("label");
+    engineLabel.className = "whimsy-profile-field-label";
+    engineLabel.setAttribute("control", engineId);
+    document.l10n.setAttributes(engineLabel, "whimsy-profiles-field-engine");
+    const menulist = document.createXULElement("menulist");
+    menulist.id = engineId;
+    menulist.className = "whimsy-profile-field";
+    menulist.dataset.profileField = "engine";
+    menulist.setAttribute("sizetopopup", "none");
+    const popup = document.createXULElement("menupopup");
+    const same = document.createXULElement("menuitem");
+    same.setAttribute("value", "");
+    document.l10n.setAttributes(same, "whimsy-profiles-same-as-default");
+    popup.append(same);
+    menulist.append(popup);
+    menulist.value = "";
+    this.visibleEngines().then(engines => {
+      for (const engine of engines) {
+        const item = document.createXULElement("menuitem");
+        item.setAttribute("value", engine.id);
+        item.setAttribute("label", engine.name);
+        popup.append(item);
+      }
+      menulist.value = profileSettings.engineFor(key) ?? "";
+    }).catch(console.error);
+    menulist.addEventListener("command", () => {
+      profileSettings.setEngine(key, menulist.value);
+      this.renderProfiles();
+    });
+
+    // Downloads: the folder (shortened, the whole path on hover), Choose…,
+    // and Use Default once one is set.
+    const dirId = `whimsyProfileDir${profile.id}`;
+    const dirLabel = html("span");
+    dirLabel.id = `${dirId}-label`;
+    dirLabel.className = "whimsy-profile-field-label";
+    document.l10n.setAttributes(dirLabel, "whimsy-profiles-field-downloads");
+    const dirControls = html("div");
+    dirControls.className = "whimsy-profile-field-row";
+    const dirValue = html("span");
+    dirValue.id = dirId;
+    dirValue.className = "whimsy-profile-path";
+    const path = profileSettings.downloadDirFor(key);
+    if (path) {
+      dirValue.textContent = this.shortPath(path);
+      dirValue.title = path;
+    } else {
+      document.l10n.setAttributes(dirValue, "whimsy-profiles-same-as-default-text");
+    }
+    const choose = document.createXULElement("button");
+    choose.dataset.profileField = "choose";
+    document.l10n.setAttributes(choose, "whimsy-profiles-download-choose");
+    choose.setAttribute("aria-describedby", `${dirId}-label ${dirId}`);
+    choose.addEventListener("command", () => this.chooseProfileDownloadDir(key));
+    dirControls.append(dirValue, choose);
+    if (path) {
+      const reset = document.createXULElement("button");
+      reset.dataset.profileField = "reset";
+      document.l10n.setAttributes(reset, "whimsy-profiles-download-reset");
+      reset.addEventListener("command", async () => {
+        await profileSettings.setDownloadDir(key, null);
+        this.renderProfiles();
+      });
+      dirControls.append(reset);
+    }
+
+    // Delete Profile… (only for a profile no space uses) and Done.
+    const acts = html("div");
+    acts.className = "whimsy-profile-editor-acts";
+    const remove = document.createXULElement("button");
+    remove.className = "whimsy-profile-delete ghost-button";
+    document.l10n.setAttributes(remove, "whimsy-profiles-delete", { name: profile.name });
+    remove.disabled = spaceCount > 0;
+    remove.addEventListener("command", () => this.deleteProfile(profile));
+    const spacer = html("span");
+    spacer.className = "whimsy-profile-editor-spacer";
+    const done = document.createXULElement("button");
+    done.className = "primary whimsy-profile-done";
+    done.dataset.profileField = "done";
+    document.l10n.setAttributes(done, "whimsy-profiles-done");
+    done.addEventListener("command", () => this.closeProfileEditor({ focusEdit: true }));
+    acts.append(remove, spacer, done);
+
+    editor.append(nameLabel, nameInput, error, engineLabel, menulist, dirLabel, dirControls, acts);
+    if (remove.disabled) {
+      const rule = document.createXULElement("description");
+      rule.id = `whimsyProfileDeleteRule${profile.id}`;
+      rule.className = "description-deemphasized whimsy-profile-editor-note";
+      document.l10n.setAttributes(rule, "whimsy-profiles-delete-rule");
+      remove.setAttribute("aria-describedby", rule.id);
+      editor.append(rule);
+    }
+    // Esc closes the editor, back to its Edit button (a menulist's own
+    // popup takes Esc first).
+    editor.addEventListener("keydown", event => {
+      if (event.key == "Escape" && !event.defaultPrevented && !event.target.open) {
+        event.preventDefault();
+        if (event.target == nameInput) {
+          saveName();
+        }
+        this.closeProfileEditor({ focusEdit: true });
+      }
+    });
+    return editor;
+  },
+
+  // One editor open at a time.
+  openProfileEditor(id, { focus = null } = {}) {
+    const list = document.getElementById("whimsyProfilesList");
+    for (const row of list?.querySelectorAll(".whimsy-profile-row") ?? []) {
+      const open = row.dataset.profileId == String(id);
+      if (row.getAttribute("aria-expanded") == null && !open) {
+        continue;
+      }
+      row.setAttribute("aria-expanded", open);
+      row.querySelector(".whimsy-profile-edit")?.setAttribute("aria-expanded", open);
+      const editor = row.querySelector(".whimsy-profile-editor");
+      if (editor) {
+        editor.hidden = !open;
+      }
+      if (open && focus) {
+        row.querySelector(`[data-profile-field="${focus}"]`)?.focus();
+      }
+    }
+    this._openProfileEditor = id;
+  },
+
+  closeProfileEditor({ focusEdit = false } = {}) {
+    const id = this._openProfileEditor;
+    this._openProfileEditor = null;
+    const row = document.querySelector(`.whimsy-profile-row[data-profile-id="${id}"]`);
+    if (!row) {
+      return;
+    }
+    row.setAttribute("aria-expanded", "false");
+    row.querySelector(".whimsy-profile-edit")?.setAttribute("aria-expanded", "false");
+    const editor = row.querySelector(".whimsy-profile-editor");
+    if (editor) {
+      editor.hidden = true;
+    }
+    if (focusEdit) {
+      row.querySelector(".whimsy-profile-edit")?.focus();
+    }
+  },
+
+  // W10-23: Create a New Profile… adds a row in editor mode: Name, then
+  // Cancel and Create Profile. The new profile's editor opens after, for
+  // its search engine and downloads.
+  startNewProfile() {
+    const list = document.getElementById("whimsyProfilesList");
+    if (!list) {
+      return;
+    }
+    const existing = list.querySelector(".whimsy-profile-new");
+    if (existing) {
+      existing.querySelector("input")?.focus();
+      return;
+    }
+    this.closeProfileEditor();
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const row = html("li");
+    row.className = "whimsy-profile-row whimsy-profile-new";
+    row.setAttribute("aria-expanded", "true");
+    const head = html("div");
+    head.className = "whimsy-profile-head";
+    const dot = html("span");
+    dot.className = "whimsy-profile-dot";
+    dot.dataset.color = "default";
+    dot.setAttribute("aria-hidden", "true");
+    const titles = html("div");
+    titles.className = "whimsy-profile-titles";
+    const title = html("h3");
+    title.className = "whimsy-profile-name";
+    title.id = "whimsyProfileNew-title";
+    document.l10n.setAttributes(title, "whimsy-profile-create-title");
+    titles.append(title);
+    head.append(dot, titles);
+
+    const form = html("form");
+    form.className = "whimsy-profile-editor whimsy-profile-name-form";
+    form.setAttribute("aria-labelledby", title.id);
+    const label = html("label");
+    label.className = "whimsy-profile-field-label";
+    label.htmlFor = "whimsyProfileNewName";
+    document.l10n.setAttributes(label, "whimsy-profiles-field-name");
+    const input = html("input");
+    input.id = "whimsyProfileNewName";
+    input.type = "text";
+    input.className = "whimsy-profile-field";
+    input.maxLength = 40;
+    input.dataset.profileField = "name";
+    input.setAttribute("autocomplete", "off");
+    const error = html("p");
+    error.id = "whimsyProfileNewName-error";
+    error.className = "whimsy-profile-name-error whimsy-profile-editor-note";
+    error.hidden = true;
+    input.setAttribute("aria-describedby", error.id);
+    const acts = html("div");
+    acts.className = "whimsy-profile-editor-acts";
+    const cancel = document.createXULElement("button");
+    cancel.className = "ghost-button";
+    document.l10n.setAttributes(cancel, "whimsy-profile-cancel");
+    const spacer = html("span");
+    spacer.className = "whimsy-profile-editor-spacer";
+    const create = document.createXULElement("button");
+    create.className = "primary";
+    document.l10n.setAttributes(create, "whimsy-profile-create-button");
+    acts.append(cancel, spacer, create);
+    form.append(label, input, error, acts);
+    row.append(head, form);
+    list.append(row);
+
+    const close = () => {
+      row.remove();
+      this.renderProfiles();
+      document.getElementById("whimsyProfilesCreate")?.focus();
+    };
+    const submit = () => {
+      let profile;
+      try {
+        profile = this.profiles.create(input.value);
+      } catch (e) {
+        error.hidden = false;
+        input.setAttribute("aria-invalid", "true");
+        document.l10n.setAttributes(error, e.message?.startsWith("whimsy-") ? e.message : "whimsy-profile-name-failed");
+        input.focus();
+        return;
+      }
+      row.remove();
+      const id = typeof profile == "object" ? profile?.id ?? profile?.userContextId : profile;
+      this._openProfileEditor = id ?? null;
+      this.renderProfiles();
+      if (id != null) {
+        this.openProfileEditor(id, { focus: "engine" });
+      }
+    };
+    cancel.addEventListener("command", close);
+    create.addEventListener("command", submit);
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      submit();
+    });
     form.addEventListener("keydown", event => {
       if (event.key == "Escape") {
         event.preventDefault();
@@ -1749,23 +2301,7 @@ Object.assign(gWhimsySettings, {
       error.hidden = true;
       input.removeAttribute("aria-invalid");
     });
-    form.addEventListener("submit", event => {
-      event.preventDefault();
-      try {
-        onSubmit(input.value);
-      } catch (e) {
-        error.hidden = false;
-        input.setAttribute("aria-invalid", "true");
-        document.l10n.setAttributes(error,
-          e.message?.startsWith("whimsy-") ? e.message : "whimsy-profile-name-failed");
-        input.focus();
-        return;
-      }
-      close();
-    });
-    slot.append(form);
     input.focus();
-    input.select();
     return form;
   },
 
@@ -1805,12 +2341,9 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// wave5/profiles, phase 4: Search Engine and Default Download Location on
-// each profile's row. Default uses Firefox's own Search and Downloads
-// settings, so its row says so instead of repeating them.
-gWhimsySettings._profileRowHooks = gWhimsySettings._profileRowHooks ?? [];
-gWhimsySettings._profileRowHooks.push(list => gWhimsySettings.addProfileSettings(list));
-
+// wave5/profiles, phase 4: Search Engine and Default Download Location per
+// profile. W10-23: they live in each profile's editor (profileEditor);
+// Default uses Firefox's own Search and Downloads settings.
 Object.assign(gWhimsySettings, {
   get profileSettings() {
     return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSettings.sys.mjs")
@@ -1822,86 +2355,6 @@ Object.assign(gWhimsySettings, {
       "moz-src:///toolkit/components/search/SearchService.sys.mjs");
     await SearchService.init();
     return SearchService.getVisibleEngines();
-  },
-
-  addProfileSettings(list) {
-    const { profiles, profileSettings } = this;
-    for (const row of list.querySelectorAll(".whimsy-profile-row")) {
-      const id = Number(row.dataset.profileId);
-      if (id === 0) {
-        const note = document.createXULElement("description");
-        note.className = "description-deemphasized whimsy-profile-default-note";
-        document.l10n.setAttributes(note, "whimsy-profiles-default-settings");
-        row.append(note);
-        continue;
-      }
-      const key = profiles.keyFor(id);
-      const box = document.createXULElement("vbox");
-      box.className = "whimsy-profile-settings";
-
-      const engineRow = document.createXULElement("hbox");
-      engineRow.setAttribute("align", "center");
-      const engineLabel = document.createXULElement("label");
-      const engineListId = `whimsyProfileEngine${id}`;
-      engineLabel.setAttribute("control", engineListId);
-      document.l10n.setAttributes(engineLabel, "whimsy-profiles-search-engine");
-      const menulist = document.createXULElement("menulist");
-      menulist.id = engineListId;
-      menulist.setAttribute("sizetopopup", "none");
-      const popup = document.createXULElement("menupopup");
-      const same = document.createXULElement("menuitem");
-      same.setAttribute("value", "");
-      document.l10n.setAttributes(same, "whimsy-profiles-same-as-default");
-      popup.append(same);
-      menulist.append(popup);
-      menulist.value = "";
-      this.visibleEngines().then(engines => {
-        for (const engine of engines) {
-          const item = document.createXULElement("menuitem");
-          item.setAttribute("value", engine.id);
-          item.setAttribute("label", engine.name);
-          popup.append(item);
-        }
-        menulist.value = profileSettings.engineFor(key) ?? "";
-      }).catch(console.error);
-      menulist.addEventListener("command", () => profileSettings.setEngine(key, menulist.value));
-      engineRow.append(engineLabel, menulist);
-
-      const dirRow = document.createXULElement("hbox");
-      dirRow.setAttribute("align", "center");
-      const dirLabel = document.createXULElement("label");
-      const dirValueId = `whimsyProfileDir${id}`;
-      dirLabel.id = `${dirValueId}-label`;
-      document.l10n.setAttributes(dirLabel, "whimsy-profiles-download-dir");
-      const dirValue = document.createXULElement("description");
-      dirValue.id = dirValueId;
-      dirValue.className = "whimsy-profile-dir";
-      dirValue.setAttribute("flex", "1");
-      dirValue.setAttribute("crop", "center");
-      const path = profileSettings.downloadDirFor(key);
-      if (path) {
-        dirValue.textContent = path;
-        dirValue.setAttribute("tooltiptext", path);
-      } else {
-        document.l10n.setAttributes(dirValue, "whimsy-profiles-same-as-default-text");
-      }
-      const choose = document.createXULElement("button");
-      document.l10n.setAttributes(choose, "whimsy-profiles-download-choose");
-      choose.setAttribute("aria-describedby", `${dirValueId}-label ${dirValueId}`);
-      choose.addEventListener("command", () => this.chooseProfileDownloadDir(key));
-      dirRow.append(dirLabel, dirValue, choose);
-      if (path) {
-        const reset = document.createXULElement("button");
-        document.l10n.setAttributes(reset, "whimsy-profiles-download-reset");
-        reset.addEventListener("command", async () => {
-          await profileSettings.setDownloadDir(key, null);
-          this.renderProfiles();
-        });
-        dirRow.append(reset);
-      }
-      box.append(engineRow, dirRow);
-      row.append(box);
-    }
   },
 
   async chooseProfileDownloadDir(key) {
@@ -2006,7 +2459,7 @@ Object.assign(gWhimsySettings, {
       () => this.insertTeachGroup(), // wave9/designfix (H2)
       // Privacy & Security
       () => this.insertPrivacyGroups(),
-      () => this.insertClaudeGroup(),
+      () => this.buildAIPane(), // W10-28: Settings → AI, with Claude in Whimsy
       // Tab Management
       () => this.insertTabsGroup(),
       () => this.insertSplitNewTabRow(),
@@ -2310,6 +2763,13 @@ Object.assign(gWhimsySettings, {
 // Links (register_module before init_all), so about:preferences#whimsyMenus
 // opens it and Settings search finds it.
 const WHIMSY_MENUS_PANE = "paneWhimsyMenus";
+// W10-21: the menu shown last in Settings → Menus (not synced).
+const WHIMSY_MENUS_LAST_PREF = "whimsy.menus.settings-last";
+// W10-21: the menu list's two groups, by where you right-click.
+const WHIMSY_MENUS_NAV = [
+  ["whimsy-menus-nav-sidebar", ["tab", "essential", "space", "folder", "sidebar", "split-row", "split-pane"]],
+  ["whimsy-menus-nav-page", ["page", "link", "selection", "image", "media"]],
+];
 
 Object.assign(gWhimsySettings, {
   get menuPrefs() {
@@ -2338,6 +2798,12 @@ Object.assign(gWhimsySettings, {
     register_module(WHIMSY_MENUS_PANE, { init: () => this.buildMenusPane() });
   },
 
+  // W10-21: one card. On the left, the menus (grouped by where you
+  // right-click), each with how many of its rows show; on the right, the
+  // chosen menu's rows in the menu's real order, a checkbox each, with the
+  // menu's separators drawn in the same box so every edge lines up. A
+  // submenu's rows sit indented under it. Narrow Settings: the list turns
+  // into a menu picker above the rows. The chosen menu is remembered.
   buildMenusPane() {
     if (document.getElementById("whimsyMenusCategory")) {
       return;
@@ -2365,15 +2831,127 @@ Object.assign(gWhimsySettings, {
     document.l10n.setAttributes(intro, "whimsy-menus-intro");
     header.append(title, intro);
 
-    const groups = prefs.menus.filter(menu => prefs.available(menu)).map(menu => this.buildMenuGroup(menu));
-    pane.append(header, ...groups);
+    const menus = prefs.menus.filter(menu => prefs.available(menu));
+    const group = document.createXULElement("groupbox");
+    group.id = "whimsyMenusGroup";
+    group.className = "highlighting-group whimsy-menus-group";
+    group.setAttribute("data-category", WHIMSY_MENUS_PANE);
+    // The old per-menu anchors (#whimsyMenus-tab, …) still land here.
+    group.setAttribute("data-subcategory", menus.map(menu => menu.id).join(" "));
+    group.hidden = true;
+
+    const card = html("div");
+    card.className = "whimsy-menus-card";
+
+    const nav = html("div");
+    nav.className = "whimsy-menus-nav";
+    nav.setAttribute("role", "listbox");
+    document.l10n.setAttributes(nav, "whimsy-menus-nav");
+    const picker = document.createXULElement("menulist");
+    picker.id = "whimsyMenusPicker";
+    picker.className = "whimsy-menus-picker";
+    picker.setAttribute("sizetopopup", "none");
+    document.l10n.setAttributes(picker, "whimsy-menus-nav");
+    const pickerPopup = document.createXULElement("menupopup");
+    picker.append(pickerPopup);
+
+    const details = html("div");
+    details.className = "whimsy-menus-details";
+    details.append(picker);
+
+    const addMenu = menu => {
+      const option = html("div");
+      option.id = `whimsyMenusNav-${menu.id}`;
+      option.className = "whimsy-menus-nav-item";
+      option.dataset.menu = menu.id;
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
+      option.setAttribute("aria-controls", `whimsyMenus-${menu.id}`);
+      option.tabIndex = -1;
+      const name = html("span");
+      name.className = "whimsy-menus-nav-name";
+      document.l10n.setAttributes(name, menu.l10n);
+      const count = html("span");
+      count.className = "whimsy-menus-nav-count";
+      option.append(name, count);
+      option.addEventListener("click", () => this.selectMenu(menu.id, { focus: true }));
+      nav.append(option);
+
+      const item = document.createXULElement("menuitem");
+      item.setAttribute("value", menu.id);
+      item.dataset.l10nName = menu.l10n;
+      pickerPopup.append(item);
+
+      details.append(this.buildMenuGroup(menu));
+    };
+    const placed = new Set();
+    for (const [heading, ids] of WHIMSY_MENUS_NAV) {
+      const inGroup = ids.map(id => menus.find(menu => menu.id == id)).filter(Boolean);
+      if (!inGroup.length) {
+        continue;
+      }
+      const label = html("div");
+      label.className = "whimsy-menus-nav-heading";
+      label.setAttribute("role", "presentation");
+      document.l10n.setAttributes(label, heading);
+      nav.append(label);
+      for (const menu of inGroup) {
+        addMenu(menu);
+        placed.add(menu.id);
+      }
+    }
+    // A menu added to the registry but not to the list's groups goes last,
+    // so nothing is ever unreachable.
+    for (const menu of menus.filter(m => !placed.has(m.id))) {
+      addMenu(menu);
+    }
+
+    // A listbox: Up/Down (and Home/End) move and show that menu.
+    nav.addEventListener("keydown", event => {
+      const options = [...nav.querySelectorAll(".whimsy-menus-nav-item")];
+      const index = options.indexOf(event.target.closest?.(".whimsy-menus-nav-item"));
+      if (index == -1 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      const next = {
+        ArrowDown: Math.min(index + 1, options.length - 1),
+        ArrowUp: Math.max(index - 1, 0),
+        Home: 0,
+        End: options.length - 1,
+      }[event.key];
+      if (next === undefined) {
+        return;
+      }
+      event.preventDefault();
+      this.selectMenu(options[next].dataset.menu, { focus: true });
+    });
+    picker.addEventListener("command", () => this.selectMenu(picker.value));
+
+    const layout = html("div");
+    layout.className = "whimsy-menus-layout";
+    layout.append(nav, details);
+    card.append(layout);
+    group.append(card);
+    pane.append(header, group);
+
+    // The picker's rows read the menus' names (menuitems take a label, not
+    // text, so they're formatted here).
+    document.l10n
+      .formatValues([...pickerPopup.children].map(item => ({ id: item.dataset.l10nName })))
+      .then(names => {
+        [...pickerPopup.children].forEach((item, i) => item.setAttribute("label", names[i]));
+      })
+      .catch(console.error);
+
+    const last = Services.prefs.getStringPref(WHIMSY_MENUS_LAST_PREF, "");
+    this.selectMenu(menus.some(menu => menu.id == last) ? last : menus[0]?.id, { remember: false });
 
     const observer = {
       observe: (subject, topic, pref) => {
         const id = pref.slice(prefs.prefName("").length);
-        const group = document.getElementById(`whimsyMenus-${id}`);
-        if (group) {
-          this.refreshMenuGroup(group);
+        const detail = document.getElementById(`whimsyMenus-${id}`);
+        if (detail) {
+          this.refreshMenuGroup(detail);
         }
       },
     };
@@ -2381,6 +2959,75 @@ Object.assign(gWhimsySettings, {
     window.addEventListener("unload", () => Services.prefs.removeObserver(prefs.prefName(""), observer), {
       once: true,
     });
+    // about:preferences#whimsyMenus-<menu> opens on that menu.
+    document.addEventListener("paneshown", event => {
+      const { category, subcategory } = event.detail ?? {};
+      if (category == WHIMSY_MENUS_PANE && subcategory && document.getElementById(`whimsyMenus-${subcategory}`)) {
+        this.selectMenu(subcategory);
+      }
+    });
+    // A search that finds a row shows the menu it's in.
+    window.addEventListener("PreferencesSearchCompleted", event => {
+      if (event.detail && !group.classList.contains("visually-hidden")) {
+        this.selectMenuForQuery(event.detail);
+      }
+    });
+    const hash = document.location.hash.match(/^#whimsyMenus-(.+)$/);
+    if (hash && document.getElementById(`whimsyMenus-${hash[1]}`)) {
+      this.selectMenu(hash[1], { remember: false });
+    }
+  },
+
+  // Shows one menu's rows. `focus` moves the keyboard to its list entry
+  // (selection follows focus, as in a listbox).
+  selectMenu(menuId, { focus = false, remember = true } = {}) {
+    const detail = document.getElementById(`whimsyMenus-${menuId}`);
+    if (!detail) {
+      return;
+    }
+    for (const option of document.querySelectorAll(".whimsy-menus-nav-item")) {
+      const selected = option.dataset.menu == menuId;
+      option.setAttribute("aria-selected", selected);
+      option.tabIndex = selected ? 0 : -1;
+      if (selected && focus) {
+        option.focus();
+      }
+    }
+    // Not `hidden`: Firefox's search skips hidden nodes, and every menu's
+    // rows must stay searchable.
+    for (const panel of document.querySelectorAll(".whimsy-menus-detail")) {
+      panel.toggleAttribute("data-inactive", panel != detail);
+    }
+    const picker = document.getElementById("whimsyMenusPicker");
+    if (picker && picker.value != menuId) {
+      picker.value = menuId;
+    }
+    document.querySelector(".whimsy-menus-nav")?.setAttribute("aria-activedescendant", `whimsyMenusNav-${menuId}`);
+    if (remember) {
+      Services.prefs.setStringPref(WHIMSY_MENUS_LAST_PREF, menuId);
+    }
+  },
+
+  // W10-21/W10-22: a search that matches a row's name shows the menu that
+  // row is in. Returns that menu's id (or null).
+  selectMenuForQuery(query) {
+    const needle = query?.trim().toLowerCase();
+    if (!needle) {
+      return null;
+    }
+    const current = document.querySelector(".whimsy-menus-detail:not([data-inactive])");
+    const panels = [current, ...document.querySelectorAll(".whimsy-menus-detail")].filter(Boolean);
+    for (const panel of panels) {
+      const hit = [...panel.querySelectorAll(".whimsy-menus-row")].find(row =>
+        [row.querySelector(".whimsy-menus-row-label")?.textContent, row.querySelector(".whimsy-menus-row-hint")?.textContent]
+          .some(text => text?.toLowerCase().includes(needle))
+      );
+      if (hit) {
+        this.selectMenu(panel.dataset.menu, { remember: false });
+        return panel.dataset.menu;
+      }
+    }
+    return null;
   },
 
   buildMenuGroup(menu) {
@@ -2388,81 +3035,124 @@ Object.assign(gWhimsySettings, {
     const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
     const base = `whimsyMenus-${menu.id}`;
 
-    const group = document.createXULElement("groupbox");
-    group.id = base;
-    group.className = "highlighting-group whimsy-menus-group";
-    group.setAttribute("data-category", WHIMSY_MENUS_PANE);
-    group.dataset.menu = menu.id;
-    group.hidden = true;
+    const detail = html("div");
+    detail.id = base;
+    detail.className = "whimsy-menus-detail";
+    detail.dataset.menu = menu.id;
+    detail.setAttribute("role", "tabpanel");
+    detail.setAttribute("aria-labelledby", `whimsyMenusNav-${menu.id}`);
+    detail.setAttribute("data-inactive", "");
 
-    const label = document.createXULElement("label");
-    const heading = html("h2");
+    const heading = html("h3");
     heading.id = `${base}-header`;
+    heading.className = "whimsy-menus-detail-title";
     document.l10n.setAttributes(heading, menu.l10n);
-    label.append(heading);
-
     const description = document.createXULElement("description");
     description.id = `${base}-description`;
     description.className = "description-deemphasized";
     document.l10n.setAttributes(description, `${menu.l10n}-description`);
 
-    // Filled only while every item is off; a live region, so turning the
+    // Filled only while every row is off; a live region, so turning the
     // last one off is announced.
     const note = html("div");
     note.id = `${base}-note`;
     note.className = "whimsy-menus-note";
     note.setAttribute("role", "status");
 
-    const list = html("div");
-    list.className = "whimsy-menus-list";
-    list.setAttribute("role", "group");
-    list.setAttribute("aria-labelledby", heading.id);
-    let previous = null;
+    // Rows, separators and submenu rows share one grid, so checkboxes,
+    // names, hints and separator lines all meet the same edges.
+    const rows = html("div");
+    rows.className = "whimsy-menus-rows";
+    rows.setAttribute("role", "group");
+    rows.setAttribute("aria-labelledby", heading.id);
+    const labels = [];
+    const addRow = (entry, parent = null) => {
+      const row = html("label");
+      row.className = "whimsy-menus-row";
+      row.dataset.item = entry.id;
+      if (parent) {
+        row.classList.add("whimsy-menus-row-child");
+        row.dataset.parent = parent.id;
+      }
+      const box = html("input");
+      box.type = "checkbox";
+      box.className = "whimsy-menus-check";
+      box.dataset.item = entry.id;
+      box.addEventListener("change", () => prefs.setHidden(menu.id, entry.id, !box.checked));
+      const name = html("span");
+      name.className = "whimsy-menus-row-label";
+      name.id = `${base}-row-${entry.id}`;
+      labels.push({ node: name, entry });
+      row.append(box, name);
+      if (entry.hintL10n) {
+        const hint = html("span");
+        hint.className = "whimsy-menus-row-hint";
+        document.l10n.setAttributes(hint, entry.hintL10n);
+        row.append(hint);
+        box.setAttribute("aria-describedby", hint.id = `${base}-hint-${entry.id}`);
+      }
+      rows.append(row);
+    };
+    const addSeparator = () => {
+      const last = rows.lastElementChild;
+      if (last && !last.classList.contains("whimsy-menus-sep")) {
+        const sep = html("div");
+        sep.className = "whimsy-menus-sep";
+        sep.setAttribute("aria-hidden", "true");
+        rows.append(sep);
+      }
+    };
     for (const entry of prefs.groupedItems(menu.id)) {
       if (prefs.isSeparator(entry)) {
-        // Only between two rows.
-        if (previous && !prefs.isSeparator(previous)) {
-          const divider = html("div");
-          divider.className = "whimsy-menus-divider";
-          divider.setAttribute("aria-hidden", "true");
-          list.append(divider);
-        }
-        previous = entry;
+        addSeparator();
         continue;
       }
-      const toggle = html("moz-toggle");
-      toggle.dataset.item = entry.id;
-      document.l10n.setAttributes(toggle, entry.l10n);
-      toggle.addEventListener("toggle", () => prefs.setHidden(menu.id, entry.id, !toggle.pressed));
-      list.append(toggle);
-      previous = entry;
+      addRow(entry);
+      for (const child of entry.children ?? []) {
+        if (!prefs.isSeparator(child)) {
+          addRow(child, entry);
+        }
+      }
     }
-    if (list.lastElementChild?.classList.contains("whimsy-menus-divider")) {
-      list.lastElementChild.remove();
+    if (rows.lastElementChild?.classList.contains("whimsy-menus-sep")) {
+      rows.lastElementChild.remove();
     }
-    // Up/Down (and Home/End) move between the switches, as in a list; Tab
+    // A row's name is its menu row's own wording (".label" messages).
+    document.l10n
+      .formatMessages(labels.map(({ entry }) => ({ id: entry.l10n, args: this.menuRowArgs(entry) })))
+      .then(messages => {
+        labels.forEach(({ node }, i) => {
+          const message = messages[i];
+          node.textContent = message?.value ?? message?.attributes?.find(a => a.name == "label")?.value ?? "";
+        });
+      })
+      .catch(console.error);
+
+    // Up/Down (and Home/End) move between the checkboxes, as in a list; Tab
     // still visits each one.
-    list.addEventListener("keydown", event => {
-      const toggles = [...list.querySelectorAll("moz-toggle")];
-      const index = toggles.indexOf(event.target.closest?.("moz-toggle") ?? event.target);
+    rows.addEventListener("keydown", event => {
+      const boxes = [...rows.querySelectorAll(".whimsy-menus-check")];
+      const index = boxes.indexOf(event.target);
       if (index == -1 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
       const next = {
-        ArrowDown: Math.min(index + 1, toggles.length - 1),
+        ArrowDown: Math.min(index + 1, boxes.length - 1),
         ArrowUp: Math.max(index - 1, 0),
         Home: 0,
-        End: toggles.length - 1,
+        End: boxes.length - 1,
       }[event.key];
       if (next === undefined) {
         return;
       }
       event.preventDefault();
-      toggles[next].focus();
+      boxes[next].focus();
     });
 
-    const actions = document.createXULElement("hbox");
-    actions.className = "whimsy-menus-actions";
+    const foot = html("div");
+    foot.className = "whimsy-menus-foot";
+    const count = html("span");
+    count.className = "whimsy-menus-count";
     const restore = document.createXULElement("button");
     restore.id = `${base}-restore`;
     restore.className = "whimsy-menus-restore";
@@ -2471,26 +3161,63 @@ Object.assign(gWhimsySettings, {
     restore.setAttribute("aria-describedby", heading.id);
     restore.addEventListener("command", () => {
       prefs.restoreDefaults(menu.id);
-      // Focus stays in the group (the button is now disabled).
-      list.querySelector("moz-toggle")?.focus();
+      // Focus stays in the menu (the button is now disabled).
+      rows.querySelector(".whimsy-menus-check")?.focus();
     });
-    actions.append(restore);
+    foot.append(count, restore);
 
-    group.append(label, description, note, list, actions);
-    this.refreshMenuGroup(group);
-    return group;
+    detail.append(heading, description, note, rows, foot);
+    this.refreshMenuGroup(detail);
+    return detail;
   },
 
-  refreshMenuGroup(group) {
-    const prefs = this.menuPrefs;
-    const menuId = group.dataset.menu;
-    const hidden = prefs.hiddenIds(menuId);
-    for (const toggle of group.querySelectorAll("moz-toggle")) {
-      toggle.pressed = !hidden.has(toggle.dataset.item);
+  // W10-20: rows whose name has a part only known here ("Email with Mail").
+  menuRowArgs(row) {
+    if (row.l10nArgs == "mail-app") {
+      const { WhimsyVerbs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVerbs.sys.mjs");
+      return { app: WhimsyVerbs.mailAppName() };
     }
-    group.querySelector(".whimsy-menus-restore").disabled = prefs.isDefault(menuId);
-    const note = group.querySelector(".whimsy-menus-note");
-    if (prefs.allHidden(menuId)) {
+    return undefined;
+  },
+
+  // How many of the menu's rows show (a submenu's rows only while it does).
+  menuCounts(menuId) {
+    const prefs = this.menuPrefs;
+    const hidden = prefs.hiddenIds(menuId);
+    const items = prefs.items(menuId);
+    const shown = items.filter(entry => {
+      const parent = prefs.parentOf(menuId, entry.id);
+      return !hidden.has(entry.id) && !(parent && hidden.has(parent.id));
+    }).length;
+    return { shown, total: items.length };
+  },
+
+  refreshMenuGroup(detail) {
+    const prefs = this.menuPrefs;
+    const menuId = detail.dataset.menu;
+    const hidden = prefs.hiddenIds(menuId);
+    for (const row of detail.querySelectorAll(".whimsy-menus-row")) {
+      const box = row.querySelector(".whimsy-menus-check");
+      box.checked = !hidden.has(row.dataset.item);
+      // A submenu's rows can't show while it's off: disabled, not unchecked.
+      box.disabled = !!row.dataset.parent && hidden.has(row.dataset.parent);
+      row.toggleAttribute("data-off", !box.checked || box.disabled);
+    }
+    detail.querySelector(".whimsy-menus-restore").disabled = prefs.isDefault(menuId);
+    const { shown, total } = this.menuCounts(menuId);
+    document.l10n.setAttributes(detail.querySelector(".whimsy-menus-count"), "whimsy-menus-count", { shown, total });
+    const allOff = prefs.allHidden(menuId);
+    const navCount = document.querySelector(`#whimsyMenusNav-${CSS.escape(menuId)} .whimsy-menus-nav-count`);
+    if (navCount) {
+      if (allOff) {
+        document.l10n.setAttributes(navCount, "whimsy-menus-nav-off");
+      } else {
+        document.l10n.setAttributes(navCount, "whimsy-menus-nav-count", { shown, total });
+      }
+      navCount.closest(".whimsy-menus-nav-item").toggleAttribute("data-all-off", allOff);
+    }
+    const note = detail.querySelector(".whimsy-menus-note");
+    if (allOff) {
       if (note.getAttribute("data-l10n-id") != "whimsy-menus-all-off") {
         document.l10n.setAttributes(note, "whimsy-menus-all-off");
       }
@@ -2540,3 +3267,403 @@ document.addEventListener("paneshown", event => {
     gWhimsySettings.insertBatterySaverGroup(event.detail.category);
   }
 });
+
+// W10-22: Settings search shows where the hit is. Firefox reveals whole
+// groups (Whimsy's Tabs group has 30-odd rows), and its highlight can't
+// reach a XUL checkbox's label or a `searchkeywords` match, so the matching
+// row was impossible to spot ("trails"). After each search, in every group
+// it revealed: the matching rows get a tinted box; when a row matched only
+// a keyword, a "Matches “Trails”" tag says why; a group with three or more
+// rows folds the others into one "Show 26 more in Whimsy tabs" button; a
+// breadcrumb ("Tab Management › Whimsy tabs") with "Show in …" leads to the
+// row in its pane. A count line says how many settings match where, the
+// first hit scrolls into view, and Return in the search field moves
+// between hits (Shift+Return back).
+const WHIMSY_SEARCH_CONTROLS =
+  "checkbox, moz-checkbox, moz-toggle, moz-select, moz-radio-group, menulist, radiogroup, input, textarea, button, select, [data-whimsy-row]";
+
+Object.assign(gWhimsySettings, {
+  searchState: null,
+
+  initSearchAssist() {
+    if (this._searchAssist || typeof gSearchResultsPane != "object") {
+      return;
+    }
+    this._searchAssist = true;
+    window.addEventListener("PreferencesSearchCompleted", event => {
+      try {
+        this.decorateSearch(event.detail ?? "");
+      } catch (e) {
+        console.error("Whimsy settings: search results", e);
+      }
+    });
+    // Leaving the results (a pane in the sidebar, Show in …) clears them.
+    document.addEventListener("paneshown", event => {
+      if (event.detail?.category != "paneSearchResults") {
+        this.clearSearchDecorations();
+      }
+    });
+    const input = document.getElementById("searchInput");
+    input?.addEventListener("keydown", event => {
+      if (event.key == "Enter" && !event.altKey && !event.metaKey && !event.ctrlKey && this.searchState?.hits.length) {
+        event.preventDefault();
+        this.focusNextHit(event.shiftKey ? -1 : 1);
+      }
+    });
+  },
+
+  get reduceMotion() {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  },
+
+  // The groups Firefox's search left showing.
+  revealedGroups() {
+    const pane = document.getElementById("mainPrefPane");
+    return [...(pane?.children ?? [])].filter(
+      el =>
+        el.dataset.category &&
+        el.dataset.category != "paneSearchResults" &&
+        !el.hidden &&
+        !el.classList.contains("visually-hidden") &&
+        (el.localName == "groupbox" || el.classList.contains("whimsy-setting-card"))
+    );
+  },
+
+  // A group's rows: each child (of the group, its fieldset, or an
+  // On-demand features <details>) that holds a setting. A note right
+  // under a row goes with that row.
+  searchRows(group) {
+    if (group.id == "whimsyMenusGroup") {
+      // The menu a hit is in is shown (W10-21); its rows are the rows.
+      this.selectMenuForQuery(this.searchState?.query);
+      return [...group.querySelectorAll(".whimsy-menus-detail:not([data-inactive]) .whimsy-menus-row")].map(row => ({
+        nodes: [row],
+        main: row,
+      }));
+    }
+    const container = group.querySelector("moz-fieldset") ?? group;
+    const rows = [];
+    const walk = parent => {
+      for (const child of parent.children) {
+        if (child.localName == "summary" || child.classList.contains("whimsy-search-added")) {
+          continue;
+        }
+        if (child.localName == "label" && child.querySelector("h2, h3")) {
+          continue;
+        }
+        if (child.localName == "details") {
+          walk(child);
+          continue;
+        }
+        const isRow = child.matches(WHIMSY_SEARCH_CONTROLS) || !!child.querySelector(WHIMSY_SEARCH_CONTROLS);
+        if (isRow) {
+          rows.push({ nodes: [child], main: child });
+        } else if (rows.length && rows.at(-1).main.parentElement == parent) {
+          rows.at(-1).nodes.push(child);
+        }
+      }
+    };
+    walk(container);
+    return rows.filter(row => row.main.checkVisibility());
+  },
+
+  // Everything a row is found by: what it shows, its labels, and its
+  // search keywords.
+  searchTextOf(row) {
+    const parts = [];
+    for (const node of row.nodes) {
+      parts.push(node.textContent);
+      for (const el of [node, ...node.querySelectorAll("*")]) {
+        for (const attr of ["label", "description", "searchkeywords", "aria-label"]) {
+          const value = el.getAttribute?.(attr);
+          if (value) {
+            parts.push(value);
+          }
+        }
+      }
+    }
+    return parts.join(" \n ").toLowerCase();
+  },
+
+  visibleTextOf(row) {
+    const el = row.main;
+    const label =
+      el.getAttribute("label") ??
+      el.querySelector("[label]")?.getAttribute("label") ??
+      "";
+    return `${label} ${el.textContent}`.toLowerCase();
+  },
+
+  // The keyword that matched, in its own casing ("Trails").
+  keywordFor(row, query) {
+    for (const node of row.nodes) {
+      for (const el of [node, ...node.querySelectorAll("[searchkeywords]")]) {
+        const keywords = el.getAttribute?.("searchkeywords");
+        const at = keywords?.toLowerCase().indexOf(query) ?? -1;
+        if (at != -1) {
+          // The whole word around the match.
+          let start = at;
+          let end = at + query.length;
+          while (start > 0 && /[\p{L}\p{N}-]/u.test(keywords[start - 1])) {
+            start--;
+          }
+          while (end < keywords.length && /[\p{L}\p{N}-]/u.test(keywords[end])) {
+            end++;
+          }
+          return keywords.slice(start, end);
+        }
+      }
+    }
+    return null;
+  },
+
+  groupName(group) {
+    const heading = group.querySelector("h2, h3, .whimsy-menus-detail-title");
+    return (
+      heading?.textContent.trim() ||
+      group.querySelector("moz-fieldset")?.getAttribute("label") ||
+      ""
+    );
+  },
+
+  paneName(category) {
+    const button = document.querySelector(`moz-page-nav-button[view="${CSS.escape(category)}"]`);
+    return button?.textContent.trim() || button?.getAttribute("label") || "";
+  },
+
+  clearSearchDecorations() {
+    const state = this.searchState;
+    this.searchState = null;
+    for (const el of document.querySelectorAll(".whimsy-search-added")) {
+      el.remove();
+    }
+    for (const el of document.querySelectorAll(".whimsy-search-hit, .whimsy-search-collapsed")) {
+      el.classList.remove("whimsy-search-hit", "whimsy-search-collapsed");
+    }
+    for (const mark of document.querySelectorAll("mark.whimsy-search-mark")) {
+      const parent = mark.parentNode;
+      mark.replaceWith(...mark.childNodes);
+      parent.normalize();
+    }
+    for (const details of state?.opened ?? []) {
+      details.open = false;
+    }
+    const none = document.getElementById("no-results-message");
+    none?.classList.remove("whimsy-search-none");
+  },
+
+  decorateSearch(query) {
+    this.clearSearchDecorations();
+    query = query.trim().toLowerCase();
+    if (!query) {
+      return;
+    }
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const state = { query, hits: [], opened: [], index: -1 };
+    this.searchState = state;
+    let count = 0;
+    let places = 0;
+
+    for (const group of this.revealedGroups()) {
+      const rows = this.searchRows(group);
+      const groupName = this.groupName(group);
+      const headingHit = groupName.toLowerCase().includes(query);
+      const hits = rows.filter(row => this.searchTextOf(row).includes(query));
+      if (!hits.length) {
+        // Firefox found it somewhere we don't read (a heading, a link): one
+        // setting, in one place.
+        count += 1;
+        places += 1;
+        continue;
+      }
+      count += hits.length;
+      places += 1;
+
+      for (const row of hits) {
+        row.main.classList.add("whimsy-search-hit");
+        state.hits.push(row.main);
+        // In On-demand features: open it.
+        const details = row.main.closest("details");
+        if (details && !details.open) {
+          details.open = true;
+          state.opened.push(details);
+        }
+        const keyword = !this.visibleTextOf(row).includes(query) && this.keywordFor(row, query);
+        if (keyword) {
+          const tag = html("span");
+          tag.className = "whimsy-search-added whimsy-search-keyword";
+          document.l10n.setAttributes(tag, "whimsy-search-keyword", { term: keyword });
+          // Inside a XUL checkbox or an hbox row the tag sits after the
+          // label; other controls draw their own content, so after them.
+          if (row.main.localName == "checkbox" || row.main.localName == "hbox" || row.main.classList.contains("whimsy-menus-row")) {
+            row.main.append(tag);
+          } else {
+            row.main.after(tag);
+          }
+          // Firefox's own floating bubble says the same thing; one is enough.
+          for (const anchor of gSearchResultsPane.listSearchTooltips ?? []) {
+            if (row.nodes.some(node => node == anchor || node.contains(anchor))) {
+              anchor.tooltipNode?.remove();
+              anchor.tooltipNode = null;
+            }
+          }
+        }
+        // The matched words, marked, where the name is plain text of ours
+        // (Settings → Menus rows); XUL labels can't hold marks.
+        const label = row.main.querySelector(".whimsy-menus-row-label");
+        if (label) {
+          this.markText(label, query);
+        }
+      }
+
+      // Fold the rest of a long group.
+      const rest = rows.filter(row => !hits.includes(row));
+      if (rows.length >= 3 && rest.length && !headingHit && group.id != "whimsyMenusGroup") {
+        for (const row of rest) {
+          for (const node of row.nodes) {
+            node.classList.add("whimsy-search-collapsed");
+          }
+        }
+        // Folded rows' bubbles would float over the wrong rows.
+        for (const anchor of gSearchResultsPane.listSearchTooltips ?? []) {
+          if (anchor.tooltipNode && anchor.closest(".whimsy-search-collapsed")) {
+            anchor.tooltipNode.hidden = true;
+          }
+        }
+        // An On-demand features list with nothing left showing folds too.
+        for (const details of group.querySelectorAll("details")) {
+          const shown = [...details.children].some(
+            child => child.localName != "summary" && !child.classList.contains("whimsy-search-collapsed")
+          );
+          details.classList.toggle("whimsy-search-collapsed", !shown);
+        }
+        const more = document.createXULElement("button");
+        more.className = "whimsy-search-added whimsy-search-more";
+        document.l10n.setAttributes(more, "whimsy-search-more", { count: rest.length, group: groupName || this.paneName(group.dataset.category) });
+        more.addEventListener("command", () => {
+          for (const el of group.querySelectorAll(".whimsy-search-collapsed")) {
+            el.classList.remove("whimsy-search-collapsed");
+          }
+          for (const anchor of gSearchResultsPane.listSearchTooltips ?? []) {
+            if (anchor.tooltipNode && group.contains(anchor)) {
+              anchor.tooltipNode.hidden = false;
+            }
+          }
+          more.remove();
+          gSearchResultsPane._recomputeTooltipPositions?.();
+        });
+        const container = group.querySelector("moz-fieldset") ?? group;
+        container.append(more);
+      }
+
+      // Where it is, and a way there.
+      const crumb = document.createXULElement("hbox");
+      crumb.className = "whimsy-search-added whimsy-search-crumb";
+      crumb.setAttribute("align", "center");
+      const where = html("span");
+      where.className = "whimsy-search-crumb-path";
+      const pane = html("b");
+      pane.textContent = this.paneName(group.dataset.category);
+      where.append(pane);
+      if (groupName) {
+        where.append(` › ${groupName}`);
+      }
+      const go = document.createXULElement("button");
+      go.className = "whimsy-search-show-in text-link";
+      document.l10n.setAttributes(go, "whimsy-search-show-in", { pane: pane.textContent || groupName });
+      const first = hits[0].main;
+      go.addEventListener("command", () => this.showInPane(group.dataset.category, first));
+      crumb.append(where, go);
+      group.before(crumb);
+    }
+
+    // How many, where.
+    const header = document.getElementById("header-searchResults");
+    if (header && count) {
+      const line = html("div");
+      line.className = "whimsy-search-added whimsy-search-count";
+      line.setAttribute("role", "status");
+      line.setAttribute("aria-live", "polite");
+      document.l10n.setAttributes(line, "whimsy-search-count", { count, query, places });
+      header.after(line);
+    }
+    // Nothing: Whimsy's words instead of Firefox's.
+    const none = document.getElementById("no-results-message");
+    if (none && !none.hidden) {
+      none.classList.add("whimsy-search-none");
+      const box = html("div");
+      box.className = "whimsy-search-added whimsy-search-none-box";
+      const title = html("div");
+      title.className = "whimsy-search-none-title";
+      document.l10n.setAttributes(title, "whimsy-search-none-title", { query });
+      const hint = html("div");
+      hint.className = "whimsy-search-none-hint";
+      document.l10n.setAttributes(hint, "whimsy-search-none-hint");
+      box.append(title, hint);
+      none.append(box);
+    }
+
+    gSearchResultsPane._recomputeTooltipPositions?.();
+    // The first hit, in view.
+    state.hits[0]?.scrollIntoView({ block: "center", behavior: this.reduceMotion ? "instant" : "smooth" });
+  },
+
+  markText(el, query) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) {
+      nodes.push(walker.currentNode);
+    }
+    for (const node of nodes) {
+      const at = node.data.toLowerCase().indexOf(query);
+      if (at == -1) {
+        continue;
+      }
+      const match = node.splitText(at);
+      match.splitText(query.length);
+      const mark = document.createElementNS("http://www.w3.org/1999/xhtml", "mark");
+      mark.className = "whimsy-search-mark";
+      match.replaceWith(mark);
+      mark.append(match);
+    }
+  },
+
+  // Return / Shift+Return in the search field: the next (previous) hit's
+  // control gets the keyboard.
+  focusNextHit(step) {
+    const state = this.searchState;
+    if (!state?.hits.length) {
+      return;
+    }
+    state.index = (state.index + step + state.hits.length) % state.hits.length;
+    const hit = state.hits[state.index];
+    const control = hit.matches(WHIMSY_SEARCH_CONTROLS) ? hit : hit.querySelector(WHIMSY_SEARCH_CONTROLS);
+    hit.scrollIntoView({ block: "center", behavior: this.reduceMotion ? "instant" : "smooth" });
+    (control ?? hit).focus();
+  },
+
+  // Show in …: leaves the results for the row's pane, scrolls the row to
+  // the middle and marks it for two seconds.
+  async showInPane(category, row) {
+    const shown = new Promise(resolve => document.addEventListener("paneshown", resolve, { once: true }));
+    gotoPref(category);
+    await shown;
+    // Pane changes can re-render the row's group; wait a frame.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    if (!row.isConnected) {
+      return;
+    }
+    const details = row.closest("details");
+    if (details) {
+      details.open = true;
+    }
+    if (row.classList.contains("whimsy-menus-row")) {
+      this.selectMenu(row.closest(".whimsy-menus-detail")?.dataset.menu, { remember: false });
+    }
+    row.scrollIntoView({ block: "center", behavior: this.reduceMotion ? "instant" : "smooth" });
+    row.classList.add("whimsy-search-flash");
+    setTimeout(() => row.classList.remove("whimsy-search-flash"), 2000);
+  },
+});
+
+document.addEventListener("DOMContentLoaded", () => gWhimsySettings.initSearchAssist(), { once: true });

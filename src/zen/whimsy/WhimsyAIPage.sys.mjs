@@ -85,8 +85,8 @@ export const WhimsyAIPage = {
         hide();
       }
     };
-    Services.prefs.addObserver("whimsy.ai.blocked", block);
-    win.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.ai.blocked", block), { once: true });
+    Services.prefs.addObserver("whimsy.ai.enabled", block);
+    win.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.ai.enabled", block), { once: true });
   },
 
   // ---- Ask on Page ----

@@ -4299,33 +4299,6 @@ whimsy-library-easels-section .zen-library-empty {
   }
 }
 
-/* fix7/mini: the space dropdown (caret, Cmd+Shift+O). Zen's menu surface
-   and motion; each space's icon sits on a small tile tinted with the
-   space's own colour, so spaces read apart at a glance. */
-#whimsy-quick-window-space-picker {
-  min-width: 200px;
-
-  & > .whimsy-mini-picker-caption {
-    font-size: 11px;
-    opacity: 0.6;
-  }
-
-  & > .whimsy-mini-picker-space {
-    & .menu-icon {
-      box-sizing: border-box;
-      width: 20px;
-      height: 20px;
-      padding: 2px;
-      border-radius: 5px;
-      background: color-mix(in srgb, var(--whimsy-space-color, currentColor) 22%, transparent);
-      -moz-context-properties: fill, fill-opacity;
-      fill: currentColor;
-    }
-    &[default] {
-      font-weight: 600;
-    }
-  }
-}
 #whimsy-quick-window-bar #whimsy-quick-window-choose-space[open] {
   background: var(--whimsy-mini-fill-active);
 }
@@ -4561,8 +4534,11 @@ panel.whimsy-teach {
 }
 
 /* Open: the same selector Zen floats the bar with, so both change in one
-   style flush and paint in one frame. */
-:root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
+   style flush and paint in one frame. W10-27: while the bar plays its
+   close (whimsy-closing, before Zen hides it) the trim stays, so it fades
+   and scales out with the bar instead of vanishing first. */
+:root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim,
+:root[whimsy-season-decor] #urlbar[whimsy-closing][zen-floating-urlbar="true"] > .whimsy-season-trim {
   /* Matches .urlbar-background, which overhangs the bar while it's open. */
   inset: calc(-1 * var(--urlbar-background-overhang-open, 0px));
   visibility: visible;
@@ -4631,6 +4607,9 @@ panel.whimsy-teach {
   }
 }
 
+/* W10-27/W10-32: the trim is part of the bar, so it rides the bar's own
+   open/close motion (WhimsyCommandBarMotion) instead of a separate, later
+   fade that left the pumpkins out of step with the bar. */
 @media (prefers-reduced-motion: no-preference) {
   :root[whimsy-season-decor="holidays"] #urlbar[open][zen-floating-urlbar="true"] .whimsy-season-trim-bottom {
     &::before,
@@ -5302,80 +5281,168 @@ panel.whimsy-sheet.whimsy-snooze {
   }
 }
 
-/* wave9/mini W8-22: the space dropdown is Arc's popover, not a macOS menu:
-   Mini's own frame colour (so it reads as part of the bar it drops from), a
-   hairline edge, 10px corners with rows concentric inside them (6px at a
-   4px inset), the highlight in the bar's own hover fill rather than the
-   system's blue, and each space's icon on a tile of its colour. Keyboard
-   (arrows, Return, Esc) and accessibility stay the menupopup's own. */
-/* Zen's zen-panel-ui.css forces every macOS menupopup native, with
-   !important, in a rule whose nesting carries an ID's specificity
-   (:not(#feature-callout)); a doubled ID outranks it for just these. */
-#whimsy-quick-window-space-picker#whimsy-quick-window-space-picker {
-  appearance: none !important;
-  background-color: transparent !important;
-  --panel-background-color: var(--whimsy-mini-frame) !important;
-  --panel-border-color: var(--whimsy-mini-hairline) !important;
+/* W10-29: ⌘⇧O (and the caret) turn the address strip into a search field
+   and drop Mini's spaces down under it, in Mini's own frame colour with a
+   hairline edge, 10px corners and rows concentric inside them (6px at a
+   4px inset); the highlight is the bar's hover fill, each space's icon sits
+   on a tile of its colour, its profile is a small trailing label. */
+#whimsy-quick-window-address-field {
+  & > .whimsy-mini-picker-search {
+    display: none;
+  }
 
-  &::part(content) {
-    background-color: var(--whimsy-mini-frame) !important;
+  &[searching] {
+    padding-inline-end: 0;
+    background: color-mix(in srgb, var(--whimsy-mini-text) 6%, var(--whimsy-mini-frame));
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, transparent);
+
+    & > :not(.whimsy-mini-picker-search) {
+      display: none !important;
+    }
+
+    & > .whimsy-mini-picker-search {
+      display: block;
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      margin: 0;
+      padding: 0 9px;
+      border: 0;
+      background: transparent;
+      color: var(--whimsy-mini-text);
+      font: inherit;
+      font-size: 13px;
+      outline: none;
+
+      &::placeholder {
+        color: color-mix(in srgb, var(--whimsy-mini-text) 55%, transparent);
+      }
+    }
   }
 }
 
 #whimsy-quick-window-space-picker {
-  appearance: none;
-  background-color: transparent;
+  --panel-background: var(--whimsy-mini-frame);
   --panel-background-color: var(--whimsy-mini-frame);
+  --panel-color: var(--whimsy-mini-text);
   --panel-text-color: var(--whimsy-mini-text);
   --panel-border-color: var(--whimsy-mini-hairline);
   --panel-border-radius: 10px;
   --panel-padding: 4px;
-  --menuitem-border-radius: 6px;
-  --menuitem-padding-block: 5px;
-  --menuitem-padding-inline: 8px;
-  --menuitem-icon-fill: currentColor;
-  min-width: 220px;
+  --arrowpanel-background: var(--whimsy-mini-frame);
+  --arrowpanel-color: var(--whimsy-mini-text);
+  --arrowpanel-border-color: var(--whimsy-mini-hairline);
+  --arrowpanel-border-radius: 10px;
+  --arrowpanel-padding: 4px;
+  color: var(--whimsy-mini-text);
   font: menu;
   font-size: 13px;
+}
 
-  & > :is(menuitem, menucaption) {
-    appearance: none;
-    color: var(--whimsy-mini-text);
+.whimsy-mini-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.whimsy-mini-picker-space {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: default;
+  transition: background-color 80ms ease-out;
+
+  &[hidden] {
+    display: none;
   }
-  & > .whimsy-mini-picker-caption {
-    padding-block: 4px 2px;
-    font-size: 11px;
+
+  &[aria-selected="true"] {
+    background-color: var(--whimsy-mini-fill-hover);
+  }
+
+  &:active {
+    background-color: var(--whimsy-mini-fill-active);
+  }
+
+  &[default] > .whimsy-mini-picker-name {
     font-weight: 500;
-    opacity: 0.55;
   }
-  & > .whimsy-mini-picker-space {
-    gap: 8px;
-    &[default] {
-      font-weight: 500;
-    }
-    & .menu-icon {
-      width: 20px;
-      height: 20px;
-      margin: 0;
-    }
-    & .menu-accel {
-      margin-inline-start: 16px;
-      opacity: 0.55;
-    }
-    &[_moz-menuactive]:not([disabled]) {
-      color: var(--whimsy-mini-text);
-      background-color: var(--whimsy-mini-fill-hover);
-    }
-    &[_moz-menuactive]:not([disabled]):active {
-      background-color: var(--whimsy-mini-fill-active);
-    }
+
+  & b {
+    font-weight: 700;
   }
-  & > menuseparator {
-    appearance: none;
-    margin: 4px 8px;
-    padding: 0;
-    border: 0;
-    border-top: 1px solid var(--whimsy-mini-hairline);
+}
+
+.whimsy-mini-picker-icon {
+  flex: none;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  padding: 2px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--whimsy-space-color, currentColor) 22%, transparent);
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+}
+
+.whimsy-mini-picker-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.whimsy-mini-picker-profile {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.whimsy-mini-picker-keys {
+  flex: none;
+  font: inherit;
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.whimsy-mini-picker-empty {
+  padding: 10px 8px 12px;
+  font-size: 12.5px;
+  opacity: 0.65;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-mini-picker-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-mini-picker-space {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .whimsy-mini-picker-space[aria-selected="true"] {
+    outline: 1px solid currentColor;
   }
 }
 
@@ -5837,4 +5904,462 @@ panel.whimsy-sheet.whimsy-snooze {
 }
 @keyframes whimsy-mini-tab-busy {
   from { opacity: 0.35; }
+}
+
+/* wave10/fixes W10-09: the Private Space's empty state
+   (WhimsyPrivate.buildEmptyState). It sits in the empty tab's browser stack
+   (one grid cell with the browser), over the blank page: Whimsy's balloon
+   with the private badge, the title, one sentence, New Private Tab with its
+   shortcut, and a quiet note. Private violet on light-dark() surfaces, so it
+   follows the theme; it fades up once (200ms, standard curve), and with
+   reduced motion it simply appears. */
+.whimsy-private-empty {
+  --whimsy-pe-accent: var(--whimsy-private-tab-accent, rgb(152, 110, 255));
+  --whimsy-pe-surface: light-dark(rgb(250, 249, 255), rgb(23, 21, 31));
+  --whimsy-pe-text: light-dark(rgb(30, 27, 40), rgb(237, 234, 247));
+  --whimsy-pe-muted: color-mix(in srgb, var(--whimsy-pe-text) 66%, var(--whimsy-pe-surface));
+  /* White on these passes 4.5:1 at 13px. */
+  --whimsy-pe-button: light-dark(rgb(108, 64, 222), rgb(124, 84, 236));
+  --whimsy-pe-button-hover: light-dark(rgb(94, 52, 204), rgb(138, 100, 244));
+  --whimsy-pe-ease: cubic-bezier(0.2, 0, 0, 1);
+  position: relative;
+  z-index: 1;
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 32px 24px;
+  overflow: auto;
+  color: var(--whimsy-pe-text);
+  background:
+    radial-gradient(56% 46% at 50% 40%, color-mix(in srgb, var(--whimsy-pe-accent) 15%, transparent), transparent 72%),
+    var(--whimsy-pe-surface);
+  border-radius: inherit;
+  font: message-box;
+  font-size: 13px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-private-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 340px;
+  text-align: center;
+  animation: whimsy-private-empty-in 200ms var(--whimsy-pe-ease) both;
+}
+.whimsy-private-empty-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 20px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--whimsy-pe-accent) 14%, var(--whimsy-pe-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-pe-accent) 30%, transparent);
+
+  /* Whimsy's balloon. */
+  &::before {
+    content: "";
+    width: 40px;
+    height: 40px;
+    background: url("chrome://browser/content/whimsy/logos/whimsy-mono.svg") center / contain no-repeat;
+    -moz-context-properties: fill, fill-opacity;
+    fill: var(--whimsy-pe-accent);
+  }
+  /* The private badge, as on the space's switcher icon. */
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: -6px;
+    bottom: -6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--whimsy-pe-button) url("chrome://browser/skin/zen-icons/private-window-small.svg") center / 16px no-repeat;
+    -moz-context-properties: fill, fill-opacity;
+    fill: white;
+    box-shadow: 0 0 0 3px var(--whimsy-pe-surface);
+  }
+}
+.whimsy-private-empty-title {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.whimsy-private-empty-body {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--whimsy-pe-muted);
+  text-wrap: balance;
+}
+.whimsy-private-empty-new {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  margin: 0;
+  padding: 6px 8px 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--whimsy-pe-button);
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  transition: background-color 100ms ease-out, transform 100ms ease-out;
+
+  &:hover {
+    background-color: var(--whimsy-pe-button-hover);
+  }
+  &:active {
+    transform: scale(0.97);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 2px;
+  }
+}
+.whimsy-private-empty-key {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.2);
+  font: inherit;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-private-empty-note {
+  margin: 16px 0 0;
+  font-size: 11px;
+  color: var(--whimsy-pe-muted);
+}
+@keyframes whimsy-private-empty-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-private-empty-card {
+    animation: none;
+  }
+  .whimsy-private-empty-new {
+    transition: none;
+  }
+  .whimsy-private-empty-new:active {
+    transform: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .whimsy-private-empty-new,
+  .whimsy-private-empty-mark {
+    outline: 1px solid currentColor;
+  }
+}
+
+/* wave10/mini W10-13: Mini's pill tabs. One page is Little Arc exactly (no
+   row at all); a second page (a sign-in popup, a target=_blank link,
+   Cmd+Opt+T) slides a row of pills in under the bar, in the bar's own
+   family: the current page lit with the address strip's fill and 8px
+   corners, the others quiet until hovered, each with a close button
+   concentric inside it. The row is part of the title bar: its empty space
+   drags the window. */
+#whimsy-quick-window-tabs {
+  --whimsy-mini-tabs-height: 34px;
+  --whimsy-mini-fill-soft: color-mix(in srgb, var(--whimsy-mini-text) 5%, var(--whimsy-mini-frame));
+  display: none;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 4px;
+  height: var(--whimsy-mini-tabs-height);
+  min-height: var(--whimsy-mini-tabs-height);
+  /* Tucked 4px under the bar: 6px between its controls and the pills. */
+  margin-top: -4px;
+  padding: 0 var(--zen-element-separation) 8px;
+  color: var(--whimsy-mini-text);
+  background: var(--whimsy-mini-frame);
+  font: menu;
+  font-size: 12px;
+  overflow-x: auto;
+  overflow-y: clip;
+  scrollbar-width: none;
+  -moz-window-dragging: drag;
+
+  :root[whimsy-quick-window][whimsy-mini-tabs]:not([whimsy-mini-bar-only]) & {
+    display: flex;
+  }
+  :root:is([inDOMFullscreen="true"], [inFullscreen]) & {
+    display: none !important;
+  }
+}
+
+#whimsy-quick-window-tabs > .whimsy-mini-tab {
+  flex: 1 1 0;
+  min-width: 96px;
+  max-width: 240px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding-inline: 8px 3px;
+  border-radius: 8px;
+  background: transparent;
+  cursor: default;
+  -moz-window-dragging: no-drag;
+  transition: background-color 120ms ease;
+
+  & > .whimsy-mini-tab-icon {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    opacity: 0.7;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+  & > .whimsy-mini-tab-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    opacity: 0.7;
+  }
+  /* 20px at a 3px inset: 5px corners inside the pill's 8px. */
+  & > .whimsy-mini-tab-close {
+    appearance: none;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    opacity: 0;
+    transition: opacity 120ms ease, background-color 120ms ease;
+
+    &::before {
+      content: "";
+      display: block;
+      width: 10px;
+      height: 10px;
+      margin: auto;
+      background-color: currentColor;
+      mask: url("chrome://browser/skin/zen-icons/close.svg") center / 10px no-repeat;
+    }
+    &:hover {
+      background: var(--whimsy-mini-fill-hover);
+    }
+    &:hover:active {
+      background: var(--whimsy-mini-fill-active);
+    }
+  }
+
+  &:hover {
+    background: var(--whimsy-mini-fill-soft);
+    & > :is(.whimsy-mini-tab-icon, .whimsy-mini-tab-label) {
+      opacity: 1;
+    }
+  }
+  &[selected] {
+    background: var(--whimsy-mini-fill);
+    & > :is(.whimsy-mini-tab-icon, .whimsy-mini-tab-label) {
+      opacity: 1;
+    }
+    & > .whimsy-mini-tab-label {
+      font-weight: 500;
+    }
+  }
+  &[selected]:hover {
+    background: var(--whimsy-mini-fill-hover);
+  }
+  &:is(:hover, [selected]) > .whimsy-mini-tab-close {
+    opacity: 0.75;
+  }
+  & > .whimsy-mini-tab-close:hover {
+    opacity: 1;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[whimsy-quick-window][whimsy-mini-tabs] #whimsy-quick-window-tabs {
+    animation: whimsy-mini-tabs-in 140ms var(--whimsy-mini-ease-out, ease-out);
+  }
+  #whimsy-quick-window-tabs > .whimsy-mini-tab {
+    animation: whimsy-mini-tab-in 120ms var(--whimsy-mini-ease-out, ease-out);
+  }
+  #whimsy-quick-window-tabs > .whimsy-mini-tab[busy] > .whimsy-mini-tab-icon {
+    animation: whimsy-mini-tab-busy 800ms ease-in-out infinite alternate;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-quick-window-tabs > .whimsy-mini-tab,
+  #whimsy-quick-window-tabs > .whimsy-mini-tab > .whimsy-mini-tab-close {
+    transition: none;
+  }
+}
+@keyframes whimsy-mini-tabs-in {
+  from { height: 0; min-height: 0; padding-bottom: 0; margin-top: 0; opacity: 0; }
+}
+@keyframes whimsy-mini-tab-in {
+  from { opacity: 0; scale: 0.96; }
+}
+@keyframes whimsy-mini-tab-busy {
+  from { opacity: 0.35; }
+}
+
+/* W10-27: the floating command bar's motion (WhimsyCommandBarMotion in
+   WhimsyCommandBar.sys.mjs) scales from its top edge, and ignores the
+   pointer while it closes so a click lands on the page under it. */
+#urlbar[zen-floating-urlbar="true"] {
+  transform-origin: 50% 0;
+}
+
+#urlbar[whimsy-closing] {
+  pointer-events: none;
+}
+
+/* W10-26: the Quick Note card (New Note). The Edit Space Look family
+   (panel.whimsy-look-picker: 380px, 10px padding, its track, hover and
+   selected tokens), with a note body and a "This page" chip. */
+panel.whimsy-quick-note {
+  .whimsy-look-picker-header {
+    gap: 8px;
+
+    & > .whimsy-look-picker-title {
+      flex: 1;
+    }
+  }
+
+  .whimsy-quick-note-name {
+    font-size: 13px;
+  }
+
+  .whimsy-quick-note-body {
+    min-height: 132px;
+    max-height: calc(12lh + 16px);
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--whimsy-look-track);
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+    resize: none;
+    overflow-y: auto;
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-outline-color, AccentColor);
+      outline-offset: -1px;
+    }
+  }
+
+  .whimsy-quick-note-attach {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 0 9px 0 6px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: var(--whimsy-look-track);
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    transition: background-color 100ms ease-out, scale 100ms ease-out;
+
+    &:not(:disabled):hover {
+      background-color: var(--whimsy-look-hover);
+    }
+    &:not(:disabled):active {
+      scale: 0.96;
+    }
+    &:disabled {
+      color: var(--whimsy-look-muted);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--focus-outline-color, AccentColor);
+      outline-offset: 1px;
+    }
+    &[aria-checked="true"] {
+      background: var(--whimsy-look-selected);
+      font-weight: 600;
+    }
+  }
+
+  .whimsy-quick-note-check {
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    border: 1.5px solid currentColor;
+    border-radius: 4px;
+    opacity: 0.7;
+
+    .whimsy-quick-note-attach:disabled > & {
+      display: none;
+    }
+    .whimsy-quick-note-attach[aria-checked="true"] > & {
+      border-color: var(--zen-primary-color, AccentColor);
+      background: var(--zen-primary-color, AccentColor) url("chrome://global/skin/icons/check.svg") center / 10px no-repeat;
+      -moz-context-properties: fill;
+      fill: white;
+      opacity: 1;
+    }
+  }
+
+  .whimsy-quick-note-favicon {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .whimsy-quick-note-hint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  panel.whimsy-quick-note .whimsy-quick-note-attach {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  panel.whimsy-quick-note .whimsy-quick-note-body,
+  panel.whimsy-quick-note .whimsy-quick-note-attach {
+    border-color: currentColor;
+  }
 }

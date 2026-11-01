@@ -22,7 +22,9 @@ ChromeUtils.defineESModuleGetters(
     JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
     TabNotes: "moz-src:///browser/components/tabnotes/TabNotes.sys.mjs",
     WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+    WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
     WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+    WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
     WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   },
   { global: "current" }
@@ -137,6 +139,11 @@ try {
   lazy.WhimsyProfiles.onDelete?.((id, key) => gWhimsyNotesStore.removeForProfile(key));
 } catch (e) {}
 
+const HTML_NS = "http://www.w3.org/1999/xhtml";
+const QUICK_NOTE_ID = "whimsy-quick-note";
+// Typing is saved this long after the last key.
+export const QUICK_NOTE_SAVE_MS = 300;
+
 export const WhimsyNotes = {
   get enabled() {
     return Services.prefs.getBoolPref("whimsy.feature.notes", true);
@@ -149,11 +156,358 @@ export const WhimsyNotes = {
       // wave9/menus: localized (M11); no "Scratchpad", which ranked New Note
       // right under New Scratch Space for "scratch" (N4).
       whimsyKeywords: lazy.WhimsyCommands.keywords("whimsy-keywords-create-note"),
-      run: async w => this.createNote(w),
+      // W10-26: the Quick Note card, where you write it right away.
+      run: w => this.openQuickNote(w, { attach: false }),
+      icon: "chrome://browser/skin/zen-icons/reader-mode.svg",
+      isAvailable: () => this.enabled,
+    });
+    // W10-26: Notes in the Library, on its own command.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyOpenNotes",
+      l10nId: "whimsy-action-open-notes",
+      run: w => this.openInLibrary(w),
       icon: "chrome://browser/skin/zen-icons/reader-mode.svg",
       isAvailable: () => this.enabled,
     });
     this.initContextMenu(win);
+  },
+
+  // Opens the Library on Notes (never closes it, unlike a toggle), with
+  // `noteId` open for editing.
+  openInLibrary(win, noteId = null) {
+    const ZenLibrary = win.customElements.get("zen-library");
+    if (!ZenLibrary?.toggle) {
+      return false;
+    }
+    const lib = win.document.querySelector("zen-library");
+    if (lib?.zenLibrarySections && !("whimsy-notes" in lib.zenLibrarySections)) {
+      return false;
+    }
+    this._focusNote.set(win, noteId);
+    if (lib?.activeTab != "whimsy-notes" || !ZenLibrary.isLibraryOpen) {
+      ZenLibrary.toggle("whimsy-notes");
+    }
+    win.document.querySelector("whimsy-library-notes-section")?.focusPendingNote?.();
+    return true;
+  },
+
+  _focusNote: new WeakMap(),
+
+  // The note the Library should open on, once (see openInLibrary).
+  takeFocusNote(win) {
+    const id = this._focusNote.get(win) ?? null;
+    this._focusNote.delete(win);
+    return id;
+  },
+
+  // "Note saved" · its title (or first line) and the page's host · Open.
+  showSavedToast(win, note) {
+    let host = "";
+    try {
+      host = note.url ? new URL(note.url).host : "";
+    } catch {}
+    const name = note.title || (note.text ?? "").split("\n").find(line => line.trim())?.trim() || "";
+    const detail = [name.slice(0, 80), host].filter(Boolean).join(" · ");
+    lazy.WhimsyToast.show(win, {
+      l10nId: "whimsy-note-saved-toast",
+      detail: detail || undefined,
+      action: {
+        l10nId: "whimsy-note-saved-open",
+        onCommand: () => this.openInLibrary(win, note.id),
+      },
+    });
+  },
+
+  // W10-26: New Note opens a small card (the Edit Space Look family: 380px,
+  // beside the sidebar) with Title and a note body, the keyboard already in
+  // the body. Nothing is stored until you type; then it saves as you type.
+  // "This page" keeps it with the page (Firefox's TabNotes, by the page's
+  // address), so it shows again when you open it; never for a private
+  // page. Closing (Esc, Done, ⌘Return, a click outside, another tab) keeps
+  // what you wrote and says so with an Open button; an empty card leaves
+  // nothing behind.
+  async openQuickNote(win, { attach = false } = {}) {
+    const doc = win.document;
+    const existing = doc.getElementById(QUICK_NOTE_ID);
+    if (existing?.state == "open" || existing?.state == "showing") {
+      existing.querySelector(".whimsy-quick-note-body")?.focus();
+      if (attach) {
+        await existing._whimsySetAttached?.(true);
+      }
+      return existing;
+    }
+    existing?.remove();
+
+    const tab = win.gBrowser?.selectedTab ?? null;
+    const isPrivate = this.isPrivate(win);
+    const profileKey = lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.activeProfileId(win));
+    const pageURL = !isPrivate ? (tab?.canonicalUrl ?? win.gBrowser?.currentURI?.spec ?? null) : null;
+    let host = "";
+    try {
+      host = pageURL ? new URL(pageURL).host : "";
+    } catch {}
+    // Any page with an address, canonical or not (a data: page has none).
+    const canAttach = !isPrivate && !!pageURL && !/^about:(blank|newtab|home)$/.test(pageURL);
+
+    const panel = doc.createXULElement("panel");
+    panel.id = QUICK_NOTE_ID;
+    panel.className = "whimsy-look-picker whimsy-quick-note";
+    panel.setAttribute("type", "arrow");
+    panel.setAttribute("orient", "vertical");
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("noautofocus", "true");
+    panel.setAttribute("hidepopovertail", "true");
+    panel.setAttribute("aria-labelledby", `${QUICK_NOTE_ID}-title`);
+
+    const view = doc.createXULElement("vbox");
+    view.className = "whimsy-look-picker-view";
+    panel.append(view);
+
+    const header = doc.createXULElement("hbox");
+    header.className = "whimsy-look-picker-header";
+    header.setAttribute("align", "center");
+    const title = doc.createElementNS(HTML_NS, "h2");
+    title.id = `${QUICK_NOTE_ID}-title`;
+    title.className = "whimsy-look-picker-title";
+    doc.l10n.setAttributes(title, "whimsy-quick-note-title");
+    const status = doc.createElementNS(HTML_NS, "span");
+    status.className = "whimsy-look-hint whimsy-quick-note-status";
+    status.setAttribute("role", "status");
+    header.append(title, status);
+
+    const name = doc.createElementNS(HTML_NS, "input");
+    name.id = `${QUICK_NOTE_ID}-name`;
+    name.type = "text";
+    name.className = "whimsy-look-search whimsy-quick-note-name";
+    name.maxLength = 200;
+    doc.l10n.setAttributes(name, "whimsy-quick-note-name");
+
+    const body = doc.createElementNS(HTML_NS, "textarea");
+    body.id = `${QUICK_NOTE_ID}-body`;
+    body.className = "whimsy-quick-note-body";
+    body.rows = 6;
+    doc.l10n.setAttributes(body, "whimsy-quick-note-body");
+
+    // "This page · host": a checkbox chip.
+    const chipRow = doc.createXULElement("hbox");
+    chipRow.className = "whimsy-quick-note-chips";
+    const chip = doc.createElementNS(HTML_NS, "button");
+    chip.type = "button";
+    chip.className = "whimsy-quick-note-attach";
+    chip.setAttribute("role", "checkbox");
+    chip.setAttribute("aria-checked", "false");
+    const check = doc.createElementNS(HTML_NS, "span");
+    check.className = "whimsy-quick-note-check";
+    check.setAttribute("aria-hidden", "true");
+    const favicon = doc.createElementNS(HTML_NS, "img");
+    favicon.className = "whimsy-quick-note-favicon";
+    favicon.alt = "";
+    const icon = tab?.getAttribute("image");
+    if (icon && canAttach) {
+      favicon.src = icon;
+    } else {
+      favicon.hidden = true;
+    }
+    const chipLabel = doc.createElementNS(HTML_NS, "span");
+    chip.append(check, favicon, chipLabel);
+    if (canAttach) {
+      doc.l10n.setAttributes(chipLabel, "whimsy-quick-note-attach", { host });
+      doc.l10n.setAttributes(chip, "whimsy-quick-note-attach-button", { host });
+    } else {
+      chip.disabled = true;
+      doc.l10n.setAttributes(chipLabel, isPrivate ? "whimsy-quick-note-private" : "whimsy-quick-note-no-page");
+    }
+    chipRow.append(chip);
+
+    const footer = doc.createXULElement("hbox");
+    footer.className = "panel-footer whimsy-look-footer whimsy-quick-note-footer";
+    footer.setAttribute("align", "center");
+    const hint = doc.createElementNS(HTML_NS, "span");
+    hint.className = "whimsy-look-hint whimsy-quick-note-hint";
+    let profileName = "";
+    try {
+      profileName = lazy.WhimsyProfiles.nameOf(lazy.WhimsyProfiles.activeProfileId(win)) || "";
+    } catch {}
+    const button = (l10nId, onCommand, primary = false) => {
+      const el = doc.createXULElement("button");
+      el.className = "footer-button";
+      if (primary) {
+        el.classList.add("primary");
+        el.setAttribute("default", "true");
+      }
+      doc.l10n.setAttributes(el, l10nId);
+      el.addEventListener("command", onCommand);
+      return el;
+    };
+    let openAfter = false;
+    const openInNotes = button("whimsy-quick-note-open", () => {
+      openAfter = true;
+      lazy.WhimsyPanels.close(panel);
+    });
+    openInNotes.classList.add("whimsy-quick-note-open");
+    const done = button("whimsy-quick-note-done", () => lazy.WhimsyPanels.close(panel), true);
+    done.classList.add("whimsy-quick-note-done");
+    footer.append(hint, openInNotes, done);
+
+    view.append(header, name, body, chipRow, footer);
+
+    // --- State: one note, made on the first keystroke, saved as you type.
+    let note = null;
+    let creating = null;
+    let timer = null;
+    let attached = false;
+    const showHint = () => {
+      if (attached) {
+        doc.l10n.setAttributes(hint, "whimsy-quick-note-hint-attached");
+      } else if (profileName) {
+        doc.l10n.setAttributes(hint, "whimsy-quick-note-hint", { profile: profileName });
+      } else {
+        doc.l10n.setAttributes(hint, "whimsy-quick-note-hint-plain");
+      }
+    };
+    showHint();
+    const ensureNote = () => {
+      creating ??= gWhimsyNotesStore
+        .create({ profileKey, title: name.value, text: body.value })
+        .then(created => (note = created));
+      return creating;
+    };
+    const save = async () => {
+      clearTimeout(timer);
+      timer = null;
+      if (!note) {
+        if (!name.value && !body.value && !attached) {
+          return;
+        }
+        await ensureNote();
+      }
+      const text = body.value;
+      await gWhimsyNotesStore.update(note.id, { title: name.value, text });
+      if (attached && tab && !tab.closing) {
+        try {
+          await lazy.TabNotes.set(tab, text || " ");
+        } catch (e) {
+          // An address TabNotes can't keep (about:, data:); the note keeps it.
+        }
+      }
+      doc.l10n.setAttributes(status, "whimsy-quick-note-saved");
+    };
+    panel._whimsyFlush = save;
+    const onInput = () => {
+      clearTimeout(timer);
+      timer = win.setTimeout(() => save().catch(console.error), QUICK_NOTE_SAVE_MS);
+    };
+    name.addEventListener("input", onInput);
+    body.addEventListener("input", onInput);
+    // The body grows with what you write, up to 12 lines, then scrolls.
+    body.addEventListener("input", () => {
+      body.rows = Math.min(12, Math.max(6, body.value.split("\n").length));
+    });
+
+    const setAttached = async on => {
+      if (!canAttach) {
+        return;
+      }
+      await ensureNote();
+      clearTimeout(timer);
+      let updated;
+      if (on) {
+        try {
+          await lazy.TabNotes.set(tab, body.value || " ");
+        } catch (e) {
+          // Kept by the note's own address even where TabNotes can't.
+        }
+        updated = await gWhimsyNotesStore.update(note.id, {
+          title: name.value,
+          text: body.value,
+          pageAttached: true,
+          url: pageURL,
+        });
+      } else {
+        updated = await gWhimsyNotesStore.update(note.id, { pageAttached: false, url: null });
+        try {
+          if (await lazy.TabNotes.has(tab)) {
+            await lazy.TabNotes.delete(tab);
+          }
+        } catch (e) {}
+      }
+      // What the store says, never what we hoped.
+      attached = !!updated?.pageAttached;
+      chip.setAttribute("aria-checked", attached);
+      showHint();
+      doc.l10n.setAttributes(status, "whimsy-quick-note-saved");
+    };
+    panel._whimsySetAttached = setAttached;
+    chip.addEventListener("click", () => setAttached(chip.getAttribute("aria-checked") != "true").catch(console.error));
+
+    // ⌘Return (Ctrl+Return) is Done.
+    panel.addEventListener("keydown", event => {
+      if (event.key == "Enter" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        lazy.WhimsyPanels.close(panel);
+      }
+    });
+    // Another tab: the card was about this one.
+    const onTabSelect = () => lazy.WhimsyPanels.close(panel);
+    win.gBrowser?.tabContainer?.addEventListener("TabSelect", onTabSelect);
+
+    let closed = false;
+    panel.addEventListener("popupshown", event => {
+      if (event.target == panel) {
+        body.focus();
+      }
+    });
+    panel.addEventListener("popuphidden", async event => {
+      if (event.target != panel || closed) {
+        return;
+      }
+      closed = true;
+      win.gBrowser?.tabContainer?.removeEventListener("TabSelect", onTabSelect);
+      try {
+        await save();
+        await creating;
+        if (note && !name.value.trim() && !body.value.trim()) {
+          // Empty: nothing was written, so nothing stays.
+          await gWhimsyNotesStore.remove(note.id);
+          if (attached) {
+            try {
+              await lazy.TabNotes.delete(tab);
+            } catch (e) {}
+          }
+        } else if (note) {
+          const saved = { ...note, title: name.value, text: body.value };
+          if (openAfter) {
+            this.openInLibrary(win, note.id);
+          } else {
+            this.showSavedToast(win, saved);
+          }
+        } else if (openAfter) {
+          this.openInLibrary(win);
+        }
+      } catch (e) {
+        console.error("Whimsy: quick note", e);
+      } finally {
+        panel.remove();
+      }
+    });
+
+    (doc.getElementById("mainPopupSet") ?? doc.documentElement).append(panel);
+    // Where Edit Space Look opens: beside the sidebar, level with its top.
+    const rightSide = !!win.gZenVerticalTabsManager?._prefsRightSide;
+    const sidebar = lazy.WhimsyPanels.visibleAnchor(win, ["TabsToolbar", "navigator-toolbox"]);
+    if (sidebar) {
+      panel.openPopup(sidebar, {
+        position: rightSide ? "topleft topright" : "topright topleft",
+        x: rightSide ? 10 : -10,
+        y: 0,
+      });
+    } else {
+      lazy.WhimsyPanels.open(win, panel);
+    }
+    if (attach && canAttach) {
+      await setAttached(true);
+    }
+    return panel;
   },
 
   // wave8/isolation + W8-49: a note belongs to the showing space's profile,
@@ -170,8 +524,7 @@ export const WhimsyNotes = {
     }
     const profileKey = lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.activeProfileId(win));
     const note = await gWhimsyNotesStore.create({ url, title, profileKey });
-    win.ZenLibrary?.toggle("whimsy-notes");
-    win.gZenUIManager?.showToast?.("whimsy-note-created-toast");
+    this.openInLibrary(win, note.id);
     return note;
   },
 
@@ -207,10 +560,9 @@ export const WhimsyNotes = {
       el = document.createXULElement("menuitem");
       el.id = "context-whimsy-new-note";
       el.setAttribute("data-l10n-id", "whimsy-context-new-note");
+      // W10-26: the Quick Note card, already kept with this page.
       el.addEventListener("command", () => {
-        const url = win.gBrowser?.currentURI?.spec;
-        const title = win.gBrowser?.selectedTab?.label || "";
-        this.createNote(win, { url, title }).catch(console.error);
+        this.openQuickNote(win, { attach: true }).catch(console.error);
       });
     }
     el.hidden = false;

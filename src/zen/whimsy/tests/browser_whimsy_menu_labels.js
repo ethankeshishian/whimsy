@@ -79,7 +79,7 @@ add_task(async function test_rows_built_on_demand() {
 
   await checkLabels([...pageRows, resync, ...whimsyRows(extra)], "Built rows");
   for (const id of ["context-whimsy-new-note", ...["map", "email", "note", "calendar", "linear-new", "linear-search"]
-    .map(v => `context-whimsy-verb-${v}`)]) {
+    .map(v => `context-whimsy-verb-${v}`), "context-whimsy-quick-actions", "context-whimsy-quick-action-solo"]) {
     document.getElementById(id)?.remove();
   }
 });

@@ -459,6 +459,9 @@
 - name: whimsy.feature.split-arc-keys
   value: true
 
+- name: whimsy.feature.command-bar-motion
+  value: true
+
 - name: whimsy.feature.command-bar-dedup
   value: true
 
