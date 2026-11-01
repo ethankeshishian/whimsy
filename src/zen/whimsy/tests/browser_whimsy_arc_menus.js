@@ -122,3 +122,54 @@ add_task(async function test_reset_space_tabs() {
   gBrowser.unpinTab(tab);
   BrowserTestUtils.removeTab(tab);
 });
+
+// wave10 (W10-53): the rows sit where Arc's menu bar has them
+// (arc-ref/menus.txt): Tabs ▸ "Reset all tabs in this Space" last, and
+// Window ▸ Open Library…, View Downloads…, View Easels…, View Media…,
+// View Boosts… together. The Spaces menu doesn't repeat Reset.
+add_task(async function test_rows_where_arc_has_them() {
+  WhimsyArcMenus.ensureMenus(window);
+  const reset = document.getElementById("menu_whimsyTabsResetSpace");
+  is(reset.parentElement.id, "whimsy-tabs-menubar-popup", "Reset All Tabs in This Space is in the Tabs menu");
+  is(reset.parentElement.lastElementChild, reset, "last, as in Arc");
+  is(reset.getAttribute("command"), "cmd_whimsyResetSpaceTabs", "and runs the reset command");
+  const spaces = document.querySelector("#zen-spaces-menubar > menupopup");
+  if (spaces) {
+    ok(!spaces.querySelector('[command="cmd_whimsyResetSpaceTabs"]'), "The Spaces menu doesn't list it twice");
+  }
+
+  const { WhimsyEasel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyEasel.sys.mjs");
+  firePopup("windowPopup");
+  WhimsyEasel.addWindowMenuItem(document);
+  const expected = [
+    "menu_whimsyOpenLibrary",
+    "menu_whimsyViewDownloads",
+    ...(WhimsyEasel.enabled ? ["menu_whimsyViewEasels"] : []),
+    "menu_whimsyViewMedia",
+    "menu_whimsyViewBoosts",
+  ];
+  const library = document.getElementById("menu_whimsyOpenLibrary");
+  is(library.parentElement.id, "windowPopup", "The Library rows are in the Window menu");
+  const rows = [];
+  for (let el = library; el && rows.length < expected.length; el = el.nextElementSibling) {
+    rows.push(el.id);
+  }
+  Assert.deepEqual(rows, expected, "in Arc's order");
+  if (WhimsyEasel.enabled) {
+    WhimsyEasel.addWindowMenuItem(document);
+    is(document.getElementById("menu_whimsyViewEasels").nextElementSibling.id, "menu_whimsyViewMedia",
+      "Opening the menu again keeps the order");
+  }
+
+  // View Media… and View Boosts… open the Library on their sections.
+  const ZenLibrary = customElements.get("zen-library");
+  for (const section of ["media", "boosts"]) {
+    document.getElementById(`cmd_whimsyView-${section}`).doCommand();
+    await TestUtils.waitForCondition(
+      () => ZenLibrary.isLibraryOpen && document.querySelector("zen-library").activeTab == section,
+      `The Library opens on ${section}`
+    );
+    ZenLibrary.close();
+    await TestUtils.waitForCondition(() => !ZenLibrary.isLibraryOpen, "Closed again");
+  }
+});
