@@ -1671,3 +1671,78 @@ add_task(async function private_space_empty_state() {
     }
   }
 });
+
+// wave10 design pass A: every new surface, light and dark (shots named
+// w10-<surface>-<state>-<light|dark>), for side-by-side checks against the
+// mockups (artifact 525AvMQg54ssXqojjzLqT6).
+async function w10ToastShot(name, show) {
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    let toast = null;
+    try {
+      toast = await show();
+      ok(toast, `${name}: the toast shows`);
+      await document.l10n.translateFragment(toast);
+      await settled();
+      await shot(`w10-${name}-${dark ? "dark" : "light"}`);
+    } finally {
+      if (toast?.isConnected) {
+        WhimsyToast._dismissNow(toast);
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+async function w10SurfaceShot(name, panelId, open, ready = null) {
+  for (const dark of [0, 1]) {
+    await setScheme(dark);
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == panelId);
+    await open();
+    await shown;
+    const panel = document.getElementById(panelId);
+    try {
+      if (ready) {
+        await TestUtils.waitForCondition(() => ready(panel), `${name} is ready`);
+      }
+      await document.l10n.translateFragment(panel);
+      await settled();
+      await shot(`w10-${name}-${dark ? "dark" : "light"}`);
+    } finally {
+      if (panel.state == "open" || panel.state == "showing") {
+        const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+        panel.hidePopup();
+        await hidden;
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+// W10-15: the dead-page offer, looking, and the error state.
+add_task(async function w10_dead_page_toast() {
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  const icon = "chrome://browser/skin/zen-icons/selectable/time.svg";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/nope-123");
+  try {
+    await w10ToastShot("dead-page-offer", () => WhimsyToast.show(window, {
+      l10nId: "whimsy-archive-toast", detailL10nId: "whimsy-archive-toast-detail", icon, timeout: 0,
+      action: { l10nId: "whimsy-archive-look", onCommand: () => "keep" },
+    }));
+    await w10ToastShot("dead-page-looking", () => {
+      const toast = WhimsyToast.show(window, {
+        l10nId: "whimsy-archive-toast", detailL10nId: "whimsy-archive-toast-detail", icon, timeout: 0,
+        action: { l10nId: "whimsy-archive-look", onCommand: () => "keep" },
+      });
+      toast.update({ detailL10nId: "whimsy-archive-looking", busy: true, action: { l10nId: "whimsy-archive-looking-button" } });
+      return toast;
+    });
+    await w10ToastShot("dead-page-error", () => WhimsyToast.show(window, {
+      l10nId: "whimsy-archive-error", detailL10nId: "whimsy-archive-error-detail", icon, timeout: 0,
+      action: { l10nId: "whimsy-archive-retry", onCommand: () => "keep" },
+    }));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

@@ -319,12 +319,22 @@ whimsy-allow-copy-offer-action = Allow Copy and Paste
 ## Internet Archive (notification bar and command bar)
 
 whimsy-action-open-archive = Open in Wayback Machine
-# wave9/secfix: the bar asks first; nothing goes to archive.org until "Look for a Copy".
-whimsy-archive-bar-ask = This page didn’t load. The Internet Archive may have a copy.
-whimsy-archive-look =
-    .label = Look for a Copy
-    .accesskey = L
-whimsy-archive-none-toast = The Internet Archive has no copy of this page
+# wave9/secfix: the offer comes first; nothing goes to archive.org until "Find Copy".
+# W10-15: a toast in the top corner, owned by the tab. Its second line is
+# short enough to read in full. The Wayback Machine is the Internet
+# Archive's name for its saved web pages.
+whimsy-archive-toast = Page didn’t load
+whimsy-archive-toast-detail = Try a saved copy from the Wayback Machine
+whimsy-archive-look = Find Copy
+whimsy-archive-looking = Asking the Wayback Machine…
+whimsy-archive-looking-button = Finding
+whimsy-archive-found = Showing a saved copy
+# $date (string) - e.g. "March 12, 2024"
+whimsy-archive-found-date = From the Wayback Machine, { $date }
+whimsy-archive-none-toast = The Wayback Machine has no copy of this page
+whimsy-archive-error = Couldn’t reach the Wayback Machine
+whimsy-archive-error-detail = Check your connection and try again.
+whimsy-archive-retry = Try Again
 
 ## Translate selection (shortcut and command bar)
 
