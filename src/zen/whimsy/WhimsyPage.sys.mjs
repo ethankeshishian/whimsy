@@ -22,6 +22,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  saveCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
 });
 
 const CAPTURE_FEATURE_PREF = "whimsy.feature.capture";
@@ -286,6 +287,8 @@ export const WhimsyPage = {
     const blob = await canvas.convertToBlob();
     BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
     win.gZenUIManager?.showToast?.("whimsy-capture-copied-toast");
+    // W10-43: also into Library → Screenshots, like every other capture.
+    await lazy.saveCapture(blob, browser);
     const ratio = rect.devicePixelRatio || 1;
     return { width: canvas.width / ratio, height: canvas.height / ratio };
   },
@@ -341,6 +344,8 @@ export const WhimsyPage = {
     const blob = await canvas.convertToBlob();
     BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
     win.gZenUIManager?.showToast?.("whimsy-capture-copied-toast");
+    // W10-43: also into Library → Screenshots.
+    await lazy.saveCapture(blob, browser);
     const ratio = rect.devicePixelRatio || 1;
     return { width: canvas.width / ratio, height: canvas.height / ratio, layoutWidth: rect.layoutWidth };
   },
