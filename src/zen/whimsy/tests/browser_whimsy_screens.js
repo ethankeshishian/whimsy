@@ -1056,7 +1056,7 @@ add_task(async function private_tab_in_split() {
 add_task(async function scratch_keep() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const startSpace = gZenWorkspaces.activeWorkspace;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   if (!scratch) {
     ok(true, "Scratch isn't available here");
     return;
@@ -1607,4 +1607,30 @@ add_task(async function wave4_fun_year() {
     }
   });
   await PlacesUtils.history.clear();
+});
+
+// wave10/fixes W10-09: the Private Space opens empty, on its empty state.
+add_task(async function private_space_empty_state() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const startSpace = gZenWorkspaces.activeWorkspace;
+  const space = await WhimsyPrivate.openScratch(window);
+  if (!space) {
+    ok(true, "The Private Space isn't available here");
+    return;
+  }
+  try {
+    const el = await TestUtils.waitForCondition(() => {
+      const node = document.getElementById("whimsy-private-empty");
+      return node && !node.hidden && node;
+    }, "The empty state shows");
+    await document.l10n.translateFragment(el);
+    await settled();
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await shot("w10-private-space-empty");
+  } finally {
+    await WhimsyPrivate.closeScratch(window);
+    if (gZenWorkspaces.activeWorkspace != startSpace) {
+      await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+    }
+  }
 });

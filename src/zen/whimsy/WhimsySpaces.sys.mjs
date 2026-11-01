@@ -287,7 +287,7 @@ export const WhimsySpaces = {
   // Moves a dragged tab (with the other selected tabs) or folder into a
   // space, switches there and selects it.
   async moveToSpace(win, item, spaceId) {
-    const { gBrowser, gZenWorkspaces, gZenFolders } = win;
+    const { gBrowser, gZenWorkspaces } = win;
     const space = gZenWorkspaces.getWorkspaces().find(w => w.uuid == spaceId);
     if (!space) {
       return;
@@ -299,14 +299,19 @@ export const WhimsySpaces = {
         item._dragData?.movingTabs ?? (selected.length > 1 && selected.includes(item) ? selected : [item]);
       tabs = tabs.filter(tab => !tab.hasAttribute("zen-essential"));
       count = tabs.length;
-      gZenWorkspaces.moveTabsToWorkspace(tabs, spaceId);
-      // wave8/isolation: a tab of another profile is held back (and may be
-      // reopened); only a tab that really moved is the space's pick.
-      if (item.getAttribute("zen-workspace-id") == spaceId) {
-        gZenWorkspaces.lastSelectedWorkspaceTabs[spaceId] = win.gZenGlanceManager?.getTabOrGlanceParent(item) ?? item;
+      // W10-02: a tab of another profile waits for Arc's warning; No (with
+      // nothing else moving) stays here, Yes follows it (reopened) there.
+      if (!(await lazy.WhimsyProfileMoves.moveTabs(win, tabs, spaceId))) {
+        return;
       }
-    } else {
-      gZenFolders.changeFolderToSpace(item.group, spaceId, { hasDndSwitch: gZenWorkspaces.activeWorkspace == spaceId });
+      const landed = lazy.WhimsyProfileMoves.replacementOf(item);
+      if (landed.getAttribute("zen-workspace-id") == spaceId) {
+        gZenWorkspaces.lastSelectedWorkspaceTabs[spaceId] = win.gZenGlanceManager?.getTabOrGlanceParent(landed) ?? landed;
+      }
+    } else if (!(await lazy.WhimsyProfileMoves.moveFolder(win, item.group, spaceId, {
+      hasDndSwitch: gZenWorkspaces.activeWorkspace == spaceId,
+    }))) {
+      return;
     }
     if (gZenWorkspaces.activeWorkspace != spaceId) {
       await gZenWorkspaces.changeWorkspace(space);

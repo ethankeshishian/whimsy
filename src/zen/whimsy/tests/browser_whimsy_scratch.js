@@ -189,7 +189,7 @@ add_task(async function test_window_open_stays_private() {
 add_task(async function test_scratch_space() {
   const startSpace = gZenWorkspaces.activeWorkspace;
   const before = gZenWorkspaces.getWorkspaces().length;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   ok(scratch?.whimsyScratch, "Scratch was created");
   const spaces = gZenWorkspaces.getWorkspaces();
   is(spaces.length, before + 1, "One more space");
@@ -216,7 +216,7 @@ add_task(async function test_scratch_space() {
   assertPrivate(other, "A tab opened in Scratch");
 
   // Cmd+Shift+N again goes back to the same Scratch.
-  const again = await WhimsyPrivate.openScratch(window);
+  const again = await WhimsyPrivate.openScratch(window, { withTab: true });
   is(again.uuid, scratch.uuid, "There is only one Scratch");
   is(gZenWorkspaces.getWorkspaces().length, before + 1, "No second space");
   await waitForPage(gBrowser.selectedTab);
@@ -242,21 +242,24 @@ add_task(async function test_scratch_space() {
   }
 });
 
-add_task(async function test_closing_last_scratch_tab_removes_it() {
+// W10-09: the Private Space opens empty, so closing its last tab no longer
+// removes it (its empty state comes back); leaving it empty does.
+add_task(async function test_closing_last_scratch_tab_keeps_it_until_left() {
   const startSpace = gZenWorkspaces.activeWorkspace;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   ok(scratch, "Scratch opened");
   await waitForPage(gBrowser.selectedTab);
   await closeTab(gBrowser.selectedTab);
-  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Closing its last tab removes Scratch");
-  if (gZenWorkspaces.activeWorkspace != startSpace) {
-    await gZenWorkspaces.changeWorkspaceWithID(startSpace);
-  }
+  await new Promise(resolve => setTimeout(resolve, 300));
+  is(WhimsyPrivate.getScratch(window)?.uuid, scratch.uuid, "Closing its last tab keeps it");
+  ok(gBrowser.selectedTab.hasAttribute("zen-empty-tab"), "…on its empty state");
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Leaving it empty removes it");
 });
 
 add_task(async function test_keep_scratch_as_space() {
   const startSpace = gZenWorkspaces.activeWorkspace;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   await waitForPage(gBrowser.selectedTab);
   const url = uniqueURL("keep");
   BrowserTestUtils.startLoadingURIString(gBrowser.selectedBrowser, url);
@@ -305,7 +308,7 @@ add_task(async function test_keep_scratch_as_space() {
 
 add_task(async function test_keep_empty_scratch_as_space() {
   const startSpace = gZenWorkspaces.activeWorkspace;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   const privateTab = gBrowser.selectedTab;
   await waitForPage(privateTab);
   const kept = await WhimsyPrivate.keepScratch(window);
@@ -330,7 +333,7 @@ add_task(async function test_switch_and_setting_off() {
   ]) {
     await SpecialPowers.pushPrefEnv({ set: [[pref, false]] });
     is(WhimsyPrivate.openPrivateTab(window), null, `${what}, no private tab opens in the window`);
-    is(await WhimsyPrivate.openScratch(window), null, `${what}, no Scratch`);
+    is(await WhimsyPrivate.openScratch(window, { withTab: true }), null, `${what}, no Scratch`);
     is(gBrowser.tabs.length, tabs, `${what}, no tab was added`);
     is(gZenWorkspaces.getWorkspaces().length, spaces, `${what}, no space was added`);
     await SpecialPowers.popPrefEnv();
@@ -375,7 +378,7 @@ function assertStillScratch(scratch, before, tab, what) {
 
 add_task(async function test_save_scratch_form_then_confirm() {
   const startSpace = gZenWorkspaces.activeWorkspace;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   await waitForPage(gBrowser.selectedTab);
   const url = uniqueURL("save");
   const privateTab = gBrowser.selectedTab;
@@ -389,7 +392,7 @@ add_task(async function test_save_scratch_form_then_confirm() {
   is(form.localName, "zen-workspace-creation", "It is Zen's New Space form, not a copy");
   ok(gZenWorkspaces.workspaceElement(scratch.uuid).contains(form), "It opens inside Scratch");
   await TestUtils.waitForCondition(
-    () => form.querySelector(".zen-workspace-creation-title").textContent == "Save Scratch as a Space",
+    () => form.querySelector(".zen-workspace-creation-title").textContent == "Save Private Space as a Normal Space",
     "Its title says what it does"
   );
   is(form.createButton.label, "Save Space", "Its button reads Save Space");
@@ -443,7 +446,7 @@ add_task(async function test_save_scratch_form_then_confirm() {
       is(dialogEl.getButton("accept").label, "Save Space", "The button says what it does");
       ok(!dialogEl.getButton("cancel").hidden, "There's a Cancel button");
       is(dialogEl.defaultButton, "cancel", "Cancel, the safe button, is the default");
-      is(win.document.getElementById("infoTitle").textContent, "Save Scratch as a Space?", "It has a title");
+      is(win.document.getElementById("infoTitle").textContent, "Save Private Space as a Normal Space?", "It has a title");
       ok(win.document.getElementById("infoBody").textContent.includes("private browsing"), "One sentence says what changes");
       ok(win.document.getElementById("loginContainer").hidden, "No text field takes the focus");
       ok(
@@ -504,7 +507,7 @@ add_task(async function test_save_scratch_form_then_confirm() {
 // Leaving Scratch or closing it mid-flow cancels: nothing is kept.
 add_task(async function test_save_scratch_interrupted() {
   const startSpace = gZenWorkspaces.activeWorkspace;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   const privateTab = gBrowser.selectedTab;
   await waitForPage(privateTab);
   const before = { ...WhimsyPrivate.getScratch(window) };

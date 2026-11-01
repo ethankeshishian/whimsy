@@ -432,8 +432,140 @@ export const WhimsyProfileMoves = {
     workspaces.moveTabsToWorkspace = wrapped;
   },
 
+  // -- moves that show their destination (W10-02) ---------------------------
+  // Zen's Move to ▸ space, a drop on a space icon and a folder's Move to
+  // switch to the destination as part of the move. Across profiles that
+  // switch came first, with Arc's warning still up, and once you said Yes
+  // the reopened tab sat unfocused in a space you'd already been taken to.
+  // Arc asks first; only Yes follows the tab there, and selects it.
+
+  /**
+   * Moves `tabs` (tabs, folders or splits) to `spaceId`, asking first for
+   * any that cross into another profile. Resolves to whether anything
+   * landed there (No to the warning with nothing else moving: false).
+   */
+  async moveTabs(win, tabs, spaceId) {
+    const moved = this.crossing(win, tabs, spaceId);
+    if (!moved.length) {
+      win.gZenWorkspaces.moveTabsToWorkspace(tabs, spaceId);
+      return true;
+    }
+    const held = new Set(moved.map(entry => entry.item));
+    const rest = tabs.filter(item => !held.has(item));
+    if (rest.length) {
+      // None of these cross: the wrapped move passes them straight through.
+      win.gZenWorkspaces.moveTabsToWorkspace(rest, spaceId);
+    }
+    const ok = await this.confirmTabMove(win, moved, spaceId);
+    return ok || rest.length > 0;
+  },
+
+  /** Shows `spaceId` and selects the last of `tabs` (or its reopened copy) there. */
+  async follow(win, tabs, spaceId) {
+    const { gBrowser, gZenWorkspaces } = win;
+    if (win.closed) {
+      return null;
+    }
+    const landed = tabs.map(tab => this.replacementOf(tab)).filter(tab =>
+      tab && !tab.closing && tab.isConnected && tab.getAttribute("zen-workspace-id") == spaceId).at(-1) ?? null;
+    if (landed) {
+      gZenWorkspaces.lastSelectedWorkspaceTabs[spaceId] = win.gZenGlanceManager?.getTabOrGlanceParent(landed) ?? landed;
+    }
+    if (gZenWorkspaces.activeWorkspace != spaceId) {
+      const space = gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
+      if (space) {
+        await gZenWorkspaces.changeWorkspace(space);
+      }
+    }
+    // Zen may still be finishing the switch; select once it's done, or its
+    // own pick would win.
+    for (let i = 0; i < 40 && gZenWorkspaces._animatingChange; i++) {
+      await new Promise(resolve => win.setTimeout(resolve, 50));
+    }
+    if (landed && !landed.closing && landed.isConnected && gBrowser.selectedTab != landed &&
+        gZenWorkspaces.activeWorkspace == spaceId) {
+      gBrowser.selectedTab = landed;
+    }
+    return landed;
+  },
+
+  /**
+   * A folder moved to `spaceId` the way Zen's Move to does (it shows the
+   * space and puts the folder first), asking first when its tabs cross
+   * into another profile. Resolves to whether it moved.
+   */
+  // `hasDndSwitch`: Zen's option, the caller shows the space itself.
+  async moveFolder(win, folder, spaceId, { hasDndSwitch = false } = {}) {
+    const moved = this.crossing(win, folder.tabs ?? [], spaceId);
+    const zenMove = win.gZenFolders.changeFolderToSpace._whimsyOriginal ?? win.gZenFolders.changeFolderToSpace;
+    if (!moved.length) {
+      zenMove.call(win.gZenFolders, folder, spaceId, { hasDndSwitch });
+      return true;
+    }
+    // confirmTabMove moves the folder (without Zen's switch) and reopens
+    // its crossing tabs, only on Yes.
+    if (!(await this.confirmTabMove(win, moved, spaceId))) {
+      return false;
+    }
+    if (!hasDndSwitch && !win.closed) {
+      await this.follow(win, [], spaceId);
+      if (folder.isConnected && folder.getAttribute("zen-workspace-id") == spaceId) {
+        win.gBrowser.moveTabTo(folder, { elementIndex: 0, forceUngrouped: true });
+      }
+    }
+    return true;
+  },
+
+  // Zen's Move to ▸ space (the tab menu's command).
+  wrapChangeTabWorkspace(win) {
+    const workspaces = win.gZenWorkspaces;
+    const original = workspaces.changeTabWorkspace;
+    if (typeof original != "function" || original._whimsyProfiles) {
+      return;
+    }
+    const self = this;
+    const wrapped = async function (workspaceID) {
+      const context = win.TabContextMenu?.contextTab;
+      const tabs = !context ? [] : context.multiselected ? win.gBrowser.selectedTabs : [context];
+      if (!self.crossing(win, tabs, workspaceID).length) {
+        return original.call(this, workspaceID);
+      }
+      win.document.getElementById("tabContextMenu")?.hidePopup();
+      if (await self.moveTabs(win, tabs, workspaceID)) {
+        await self.follow(win, tabs, workspaceID);
+      }
+      return undefined;
+    };
+    wrapped._whimsyProfiles = true;
+    wrapped._whimsyOriginal = original;
+    workspaces.changeTabWorkspace = wrapped;
+  },
+
+  // A folder's Move to ▸ space.
+  wrapChangeFolderToSpace(win) {
+    const folders = win.gZenFolders;
+    const original = folders?.changeFolderToSpace;
+    if (typeof original != "function" || original._whimsyProfiles) {
+      return;
+    }
+    const self = this;
+    const wrapped = function (folder, workspaceId, options = {}) {
+      if (options?.hasDndSwitch || self._moving || !folder ||
+          !self.crossing(win, folder.tabs ?? [], workspaceId).length) {
+        return original.call(this, folder, workspaceId, options);
+      }
+      return self.moveFolder(win, folder, workspaceId)
+        .catch(e => console.error("Whimsy: move folder across profiles", e));
+    };
+    wrapped._whimsyProfiles = true;
+    wrapped._whimsyOriginal = original;
+    folders.changeFolderToSpace = wrapped;
+  },
+
   initWindow(win) {
     this.initSetProfile(win);
     this.wrapMoveTabs(win);
+    this.wrapChangeTabWorkspace(win);
+    this.wrapChangeFolderToSpace(win);
   },
 };

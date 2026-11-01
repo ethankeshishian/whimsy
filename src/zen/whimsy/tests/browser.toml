@@ -709,3 +709,11 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_view_source_wrap.js"]
 # wave10 W10-31: the theme keeps its colors when the window is inactive (zen.view.grey-out-inactive-windows off).
 ["browser_whimsy_inactive_window_theme.js"]
+# wave10/fixes W10-02: a move across profiles switches only after Yes, then selects the moved tab; moving back restores the sign-in.
+["browser_whimsy_profile_move_follow.js"]
+# wave10/fixes W10-05: Cmd+Y (real key) opens the Library on History from a page, the address bar, and an open Library.
+["browser_whimsy_history_key.js"]
+# wave10/fixes W10-10: Scratch is "Private Space" in every visible string; ids and prefs stay.
+["browser_whimsy_private_space_name.js"]
+# wave10/fixes W10-09: the Private Space opens empty on its empty state (no tab); closing its last tab keeps it; leaving it empty closes it.
+["browser_whimsy_private_space_empty.js"]

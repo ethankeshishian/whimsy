@@ -14,7 +14,7 @@
         "Split View headers: each pane has a header menu to separate, swap, or close panes.",
         "Redact tool: black out sensitive text or images before capturing screenshots.",
         "Teach once: helpful hints the first time a shortcut can help you.",
-        "Turn a Scratch pad into a permanent space with the New Space dialog."
+        "Turn the Private Space into a permanent space with the New Space dialog."
       ],
       "improved": [
         "Fire button offers simpler choices to Fire in This Profile or Fire Everywhere.",
@@ -108,7 +108,7 @@
         "Snooze tabs until later today, tomorrow, or a custom time.",
         "Lock spaces with Touch ID or your system password.",
         "Library sections for Notes, Downloads, Finder folders, Screenshots, and Archive.",
-        "Scratch pad for quick notes and private tabs.",
+        "A Private Space for quick private browsing, and private tabs.",
         "Fire button to quickly close tabs and wipe recent browsing data.",
         "System menu bar item to quickly jump to open tabs and spaces."
       ],

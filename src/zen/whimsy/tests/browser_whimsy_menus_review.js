@@ -38,7 +38,7 @@ async function openSpaceMenu() {
 
 add_task(async function test_scratch_space_menu() {
   const first = gZenWorkspaces.getWorkspaces().find(w => w.uuid == gZenWorkspaces.activeWorkspace);
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   ok(scratch, "Scratch opened");
   await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == scratch.uuid, "In Scratch");
   let menu = await openSpaceMenu();

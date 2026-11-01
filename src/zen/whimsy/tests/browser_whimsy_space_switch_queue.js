@@ -214,3 +214,55 @@ add_task(async function test_switch_off_leaves_zen_alone() {
   Assert.deepEqual(starts, [], "Nothing queued with the switch off");
   Services.prefs.clearUserPref(FEATURE);
 });
+
+// W10-03 (hand test I4): switching quickly to the left wrapped round to the
+// rightmost space. A burst counts from where the queue lands, so presses
+// past the first space carried on round the end; within a burst the edge
+// is a wall (one deliberate press still follows Zen's wrap setting).
+add_task(async function test_fast_presses_stop_at_the_first_space() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.workspaces.wrap-around-navigation", true]] });
+  const all = gZenWorkspaces.getWorkspaces();
+  ok(all.length >= 3, "Enough spaces to wrap");
+  await resetTo(all[1]);
+  const calls = [
+    gZenWorkspaces.changeWorkspaceShortcut(-1),
+    gZenWorkspaces.changeWorkspaceShortcut(-1),
+    gZenWorkspaces.changeWorkspaceShortcut(-1),
+  ];
+  ok(WhimsySpaceSwitchQueue.isSwitching(window), "The first switch is playing");
+  Assert.deepEqual(WhimsySpaceSwitchQueue.debugState(window).pending, [], "Nothing queued past the first space");
+  await Promise.all(calls);
+  await settle();
+  is(gZenWorkspaces.activeWorkspace, all[0].uuid, "Ends on the first space, not the rightmost");
+  Assert.deepEqual(starts, [all[0].uuid], "One slide, to the first space");
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_fast_presses_stop_at_the_last_space() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.workspaces.wrap-around-navigation", true]] });
+  const all = gZenWorkspaces.getWorkspaces();
+  await resetTo(all.at(-2));
+  await Promise.all([
+    gZenWorkspaces.changeWorkspaceShortcut(1),
+    gZenWorkspaces.changeWorkspaceShortcut(1),
+    gZenWorkspaces.changeWorkspaceShortcut(1),
+  ]);
+  await settle();
+  is(gZenWorkspaces.activeWorkspace, all.at(-1).uuid, "Ends on the last space, not the first");
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_fast_swipes_never_wrap() {
+  window.gReduceMotionOverride = false;
+  const all = gZenWorkspaces.getWorkspaces();
+  await resetTo(all[1]);
+  // Swipe steps (whileScrolling), offset already in space order.
+  await Promise.all([
+    gZenWorkspaces.changeWorkspaceShortcut(-1, true),
+    gZenWorkspaces.changeWorkspaceShortcut(-1, true),
+    gZenWorkspaces.changeWorkspaceShortcut(-1, true),
+  ]);
+  await settle();
+  is(gZenWorkspaces.activeWorkspace, all[0].uuid, "Swipes stop at the edge too");
+  window.gReduceMotionOverride = undefined;
+});

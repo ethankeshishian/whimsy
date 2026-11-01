@@ -367,3 +367,31 @@ add_task(async function test_context_menu() {
   await hidden;
   await SpecialPowers.popPrefEnv();
 });
+
+// W10-04 (hand test I5): the fields took only their content's width, not
+// the overlay's. Every field spans the panel's content box.
+add_task(async function test_fields_take_the_full_width() {
+  const panel = await openEditor(other);
+  const content = panel.shadowRoot.querySelector("[part=content]");
+  const style = getComputedStyle(content);
+  const inner = content.getBoundingClientRect().width -
+    parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) -
+    parseFloat(style.borderLeftWidth) - parseFloat(style.borderRightWidth);
+  ok(inner > 300, `The panel is the picker's width (${inner}px inside)`);
+  const fields = [
+    ".whimsy-look-pad",
+    ".whimsy-look-search",
+    '.whimsy-look-list[data-list="font"]',
+    '.whimsy-look-segmented[data-group="density"]',
+    '.whimsy-look-segmented[data-group="lines"]',
+    ".whimsy-look-footer",
+  ];
+  for (const selector of fields) {
+    const field = panel.querySelector(selector);
+    const width = field.getBoundingClientRect().width;
+    // The scrolling sections keep a 2px inset each side.
+    Assert.greaterOrEqual(width, inner - 6, `${selector} spans the panel (${width}px of ${inner}px)`);
+  }
+  await closeWith(panel, ".whimsy-look-cancel");
+  await switchTo(home);
+});

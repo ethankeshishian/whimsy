@@ -13,9 +13,12 @@
 //   command bar in private mode (violet ring, "Private" badge), the way
 //   Cmd+T opens it for a normal tab; the private tab only exists once
 //   something is picked, and Esc leaves nothing behind.
-// - Scratch (Cmd+Shift+N): a temporary private space, added to the right of
-//   every space. Everything opened in it is private. Closing its last tab
-//   (or Close Scratch) removes it; it is never saved or restored. "Save as
+// - Scratch, called the Private Space in the UI (Cmd+Shift+N): a temporary
+//   private space, added to the right of every space. Everything opened in
+//   it is private. W10-09: it opens empty, on its own empty state (no new
+//   tab page); closing its last tab shows that again, and leaving it with
+//   no tabs (or Close Private Space) removes it. It is never saved or
+//   restored. "Save as
 //   Space…" walks through Zen's New Space form (name, icon, profile, theme),
 //   then asks, then turns it into a normal space (its pages reopen outside
 //   private browsing). A tab moved to another space stays private there.
@@ -63,6 +66,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivacyFilter: "resource://gre/modules/sessionstore/PrivacyFilter.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
@@ -83,6 +87,11 @@ const TAB_ATTR = "whimsy-private";
 const SCRATCH_ATTR = "whimsy-scratch";
 // Set on the window while a private tab is selected.
 const SELECTED_ATTR = "whimsy-private-tab";
+// W10-09: the Private Space's empty state, and the root attribute set
+// while it shows.
+const EMPTY_ID = "whimsy-private-empty";
+const EMPTY_ROOT_ATTR = "whimsy-private-space-empty";
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 const PRIVATE_NEW_TAB_URL = "about:privatebrowsing";
 const NEW_TAB_URLS = new Set(["about:newtab", "about:home"]);
 const SCRATCH_ICON = "chrome://browser/skin/zen-icons/private-window-small.svg";
@@ -147,7 +156,10 @@ export const WhimsyPrivate = {
     this.initCommands(win);
     this.initMenus(win);
     const { gBrowser } = win;
-    gBrowser.tabContainer.addEventListener("TabSelect", () => this.updateSelected(win));
+    gBrowser.tabContainer.addEventListener("TabSelect", () => {
+      this.updateSelected(win);
+      this.onSpaceStateChanged(win);
+    });
     gBrowser.tabContainer.addEventListener("TabClose", event => this.onTabClose(win, event.target));
     this.updateSelected(win);
     win.gZenWorkspaces?.promiseInitialized
@@ -584,9 +596,18 @@ export const WhimsyPrivate = {
     WhimsyCommands.register(win, {
       id: "cmd_whimsyNewScratch",
       l10nId: "whimsy-action-new-scratch",
+      // W10-10: "Scratch" (its old name) still finds it.
+      whimsyKeywords: WhimsyCommands.keywords("whimsy-keywords-new-private-space"),
       run: w => {
         if (!this.inWindow || !w.gZenWorkspaces?.workspaceEnabled) {
           this.openPrivateWindow(w);
+          return;
+        }
+        // W10-09: it opens empty; pressed again while it's showing, it's
+        // New Private Tab (as a second Cmd+Shift+N in Arc gives a new
+        // private page).
+        if (this.activeSpaceIsScratch(w)) {
+          this.runNewPrivateTab(w);
           return;
         }
         this.openScratch(w).catch(e => console.error("Whimsy: Scratch", e));
@@ -709,6 +730,7 @@ export const WhimsyPrivate = {
     const refresh = () => {
       this.refreshScratchMarks(win);
       win.requestAnimationFrame(() => this.refreshScratchMarks(win));
+      this.onSpaceStateChanged(win);
     };
     win.addEventListener("ZenWorkspacesUIUpdate", refresh);
     win.addEventListener("ZenWorkspaceDataChanged", refresh);
@@ -746,15 +768,31 @@ export const WhimsyPrivate = {
       }
     }
     this.updateSelected(win);
+    this.updateEmptyState(win);
   },
 
-  // Opens Scratch (creating it to the right of every space if needed) and a
-  // new private tab in it. Returns the Scratch space, or null.
-  async openScratch(win) {
+  // Opens the Private Space (creating it to the right of every space if
+  // needed). Returns the space, or null.
+  // W10-09: it opens empty, on its empty state (the logo, what the space
+  // does, New Private Tab), instead of on a private new tab page: nothing
+  // is created until you open something. `withTab` opens a private tab in
+  // it as well.
+  async openScratch(win, { withTab = false } = {}) {
     const spaces = win.gZenWorkspaces;
     if (!this.inWindow || this.isWindowPrivate(win) || !spaces?.workspaceEnabled) {
       return null;
     }
+    win._whimsyOpeningScratch = (win._whimsyOpeningScratch ?? 0) + 1;
+    try {
+      return await this._openScratch(win, { withTab });
+    } finally {
+      win._whimsyOpeningScratch--;
+      this.updateEmptyState(win);
+    }
+  },
+
+  async _openScratch(win, { withTab }) {
+    const spaces = win.gZenWorkspaces;
     let scratch = this.getScratch(win);
     if (scratch) {
       if (spaces.activeWorkspace != scratch.uuid) {
@@ -763,7 +801,7 @@ export const WhimsyPrivate = {
     } else {
       const [name] = await win.document.l10n.formatValues([{ id: "whimsy-scratch-name" }]);
       const last = spaces.getWorkspaces().at(-1);
-      scratch = await spaces.createAndSaveWorkspace(name || "Scratch", SCRATCH_ICON, false, 0, {
+      scratch = await spaces.createAndSaveWorkspace(name || "Private Space", SCRATCH_ICON, false, 0, {
         insertAfterId: last?.uuid ?? null,
         beforeChangeCallback: space => {
           space.whimsyScratch = true;
@@ -782,7 +820,9 @@ export const WhimsyPrivate = {
       }
       this.refreshScratchMarks(win);
     }
-    this.openPrivateTab(win);
+    if (withTab) {
+      this.openPrivateTab(win);
+    }
     return scratch;
   },
 
@@ -1094,7 +1134,7 @@ export const WhimsyPrivate = {
     // whimsy-scratch-kept-name, whose value was "Space". Rename inline later.
     // wave7/scratch: saved through the form, it has the name and icon chosen
     // there; only the private icon goes.
-    const kept = { ...scratch, name: scratch.name || "Scratch", icon: scratch.icon == SCRATCH_ICON ? undefined : scratch.icon };
+    const kept = { ...scratch, name: scratch.name || "Private Space", icon: scratch.icon == SCRATCH_ICON ? undefined : scratch.icon };
     delete kept.whimsyScratch;
     spaces.saveWorkspace(kept);
     // fixC: the private look goes the moment it's a normal space. Zen only
@@ -1154,31 +1194,175 @@ export const WhimsyPrivate = {
     return kept;
   },
 
-  // Closing Scratch's last tab closes Scratch.
+  // W10-09: the Private Space opens empty, so an empty Private Space is
+  // never closed from under you: closing its last tab brings back its empty
+  // state. It goes once you leave it with no tabs (another space, or a tab
+  // in another space). One left empty in the background (its last tab
+  // closed or moved from elsewhere) goes at once.
   onTabClose(win, tab) {
-    if (win._whimsyClosingScratch) {
-      return;
-    }
     const scratch = this.getScratch(win);
-    if (!scratch || tab.getAttribute("zen-workspace-id") != scratch.uuid) {
+    if (!win._whimsyClosingScratch && scratch && tab.getAttribute("zen-workspace-id") == scratch.uuid) {
+      win.setTimeout(() => this.onSpaceStateChanged(win), 0);
+    }
+  },
+
+  scratchTabs(win, scratch = this.getScratch(win)) {
+    if (!scratch) {
+      return [];
+    }
+    return (win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs).filter(
+      t =>
+        !t.closing &&
+        t.getAttribute("zen-workspace-id") == scratch.uuid &&
+        !t.hasAttribute("zen-empty-tab") &&
+        !t.hasAttribute("zen-essential")
+    );
+  },
+
+  // The selected tab or the showing space changed: refresh the empty
+  // state, and close the Private Space once it's been left empty.
+  onSpaceStateChanged(win) {
+    this.updateEmptyState(win);
+    if (win._whimsyLeaveCheck) {
       return;
     }
+    win._whimsyLeaveCheck = true;
+    // After the switch has settled (Zen moves the active space first, then
+    // selects; a tab moved out arrives in its new space a tick later).
     win.setTimeout(() => {
-      const current = this.getScratch(win);
-      if (win._whimsyClosingScratch || !current || current.uuid != scratch.uuid) {
-        return;
-      }
-      const left = win.gBrowser.tabs.some(
-        t =>
-          !t.closing &&
-          t.getAttribute("zen-workspace-id") == scratch.uuid &&
-          !t.hasAttribute("zen-empty-tab") &&
-          !t.hasAttribute("zen-essential")
-      );
-      if (!left) {
-        this.closeScratch(win).catch(e => console.error("Whimsy: Scratch", e));
-      }
+      win._whimsyLeaveCheck = false;
+      this.closeIfLeftEmpty(win);
     }, 0);
+  },
+
+  closeIfLeftEmpty(win) {
+    const scratch = this.getScratch(win);
+    if (
+      !scratch ||
+      win.closed ||
+      win._whimsyClosingScratch ||
+      win._whimsyOpeningScratch ||
+      win._whimsyScratchSave ||
+      win.gZenWorkspaces?.activeWorkspace == scratch.uuid ||
+      this.scratchTabs(win, scratch).length
+    ) {
+      return false;
+    }
+    // Not under the slide that's leaving it: try again once it's played.
+    const spaces = win.gZenWorkspaces;
+    if (spaces?._animatingChange || spaces?.isChangingWorkspace) {
+      win.setTimeout(() => this.closeIfLeftEmpty(win), 100);
+      return false;
+    }
+    this.closeScratch(win).catch(e => console.error("Whimsy: Private Space", e));
+    return true;
+  },
+
+  // --- The Private Space's empty state (W10-09) ---
+  //
+  // Arc's empty space is calm: nothing but the space itself, no page.
+  // Whimsy's Private Space shows, in the content area where a page would
+  // be: Whimsy's balloon with the private badge, "Private Space", one
+  // sentence on what it keeps (nothing), a New Private Tab button with its
+  // shortcut, and a quiet line saying it closes when you leave it empty.
+  // It sits in the empty tab's own browser stack (so it has the page's
+  // rounded corners and goes with any tab switch), uses the private violet
+  // and light-dark() tokens, and fades up once (none with reduced motion).
+
+  shouldShowEmptyState(win) {
+    const selected = win.gBrowser?.selectedTab;
+    return (
+      this.featureOn &&
+      !win._whimsyClosingScratch &&
+      !!selected?.hasAttribute("zen-empty-tab") &&
+      this.activeSpaceIsScratch(win)
+    );
+  },
+
+  updateEmptyState(win) {
+    const { document } = win;
+    if (!document || !win.gBrowser) {
+      return;
+    }
+    const show = this.shouldShowEmptyState(win);
+    let el = document.getElementById(EMPTY_ID);
+    const stack = show ? win.gBrowser.selectedBrowser?.closest(".browserStack") : null;
+    if (show && stack) {
+      el ??= this.buildEmptyState(win);
+      if (el.parentNode != stack) {
+        stack.append(el);
+      }
+      this.refreshEmptyShortcut(win, el);
+      el.hidden = false;
+    } else if (el) {
+      el.hidden = true;
+    }
+    document.documentElement.toggleAttribute(EMPTY_ROOT_ATTR, show && !!stack);
+  },
+
+  buildEmptyState(win) {
+    const { document: doc } = win;
+    const make = (tag, className, l10nId = null) => {
+      const node = doc.createElementNS(HTML_NS, tag);
+      if (className) {
+        node.className = className;
+      }
+      if (l10nId) {
+        doc.l10n.setAttributes(node, l10nId);
+      }
+      return node;
+    };
+    const el = make("div", "whimsy-private-empty");
+    el.id = EMPTY_ID;
+    el.setAttribute("role", "region");
+    el.setAttribute("aria-labelledby", `${EMPTY_ID}-title`);
+    el.hidden = true;
+    const card = make("div", "whimsy-private-empty-card");
+    const mark = make("div", "whimsy-private-empty-mark");
+    mark.setAttribute("aria-hidden", "true");
+    const title = make("h1", "whimsy-private-empty-title", "whimsy-private-empty-title");
+    title.id = `${EMPTY_ID}-title`;
+    const body = make("p", "whimsy-private-empty-body", "whimsy-private-empty-body");
+    const button = make("button", "whimsy-private-empty-new");
+    button.type = "button";
+    const label = make("span", "whimsy-private-empty-new-label", "whimsy-private-empty-new");
+    const kbd = make("kbd", "whimsy-private-empty-key");
+    kbd.setAttribute("aria-hidden", "true");
+    button.append(label, kbd);
+    button.addEventListener("click", () => this.runNewPrivateTab(win));
+    const note = make("p", "whimsy-private-empty-note", "whimsy-private-empty-note");
+    card.append(mark, title, body, button, note);
+    el.append(card);
+    return el;
+  },
+
+  // The shortcut beside New Private Tab: Cmd+T's, since every new tab in
+  // the Private Space is private (whatever it's been reassigned to).
+  refreshEmptyShortcut(win, el) {
+    const kbd = el.querySelector(".whimsy-private-empty-key");
+    const button = el.querySelector(".whimsy-private-empty-new");
+    let text = "";
+    for (const id of ["key_newNavigatorTab", "key_whimsyNewPrivateTab"]) {
+      const keyEl = win.document.getElementById(id);
+      if (keyEl && keyEl.getAttribute("disabled") != "true" &&
+          (keyEl.getAttribute("key") || keyEl.getAttribute("keycode"))) {
+        try {
+          text = lazy.ShortcutUtils.prettifyShortcut(keyEl);
+        } catch (e) {
+          text = "";
+        }
+        if (text) {
+          break;
+        }
+      }
+    }
+    kbd.textContent = text;
+    kbd.hidden = !text;
+    if (text) {
+      button.setAttribute("aria-keyshortcuts", text);
+    } else {
+      button.removeAttribute("aria-keyshortcuts");
+    }
   },
 
   // --- Private command bar (W8-17, W8-18) ---
@@ -1221,7 +1405,13 @@ export const WhimsyPrivate = {
       // private because it opens in Scratch (shouldOpenPrivate).
       return this.inWindow && this.activeSpaceIsScratch(win);
     }
-    return this.isPrivateTab(win.gBrowser?.selectedTab);
+    const selected = win.gBrowser?.selectedTab;
+    // W10-09: the Private Space's empty state: whatever is typed here opens
+    // a private tab, so the bar is private too (no input or search history).
+    if (selected?.hasAttribute("zen-empty-tab") && this.inWindow && this.activeSpaceIsScratch(win)) {
+      return true;
+    }
+    return this.isPrivateTab(selected);
   },
 
   // For the isPrivate getters: if the answer can't be worked out (a

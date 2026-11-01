@@ -565,34 +565,34 @@ whimsy-unlock-space =
 whimsy-lock-space-toast = Locked “{ $space }” — switching there will ask for Touch ID or your password
 # $space (string) - the space's name
 whimsy-unlock-space-toast = Unlocked “{ $space }”
-## batch9p: Scratch (a temporary private space) and private tabs
+## batch9p: the Private Space (a temporary private space; "Scratch" in code) and private tabs
 
-whimsy-scratch-name = Scratch
+whimsy-scratch-name = Private Space
 whimsy-menu-new-scratch =
-    .label = New Scratch Space
+    .label = New Private Space
 whimsy-menu-new-private-tab =
     .label = New Private Tab
 whimsy-scratch-save =
-    .label = Save Scratch as a Space…
+    .label = Save as a Normal Space…
 whimsy-scratch-close =
-    .label = Close Scratch
+    .label = Close Private Space
 whimsy-action-new-private-tab = New Private Tab
-whimsy-action-new-scratch = New Scratch Space
-whimsy-action-save-scratch = Save Scratch as a Space…
-whimsy-action-close-scratch = Close Scratch
-# fix7/private: the one sentence of the modal dialog shown before Scratch becomes a normal space.
+whimsy-action-new-scratch = New Private Space
+whimsy-action-save-scratch = Save Private Space as a Normal Space…
+whimsy-action-close-scratch = Close Private Space
+# fix7/private: the one sentence of the modal dialog shown before the Private Space becomes a normal space.
 whimsy-scratch-save-confirm = Its pages reopen as normal tabs, outside private browsing, and it can’t be made private again.
 whimsy-private-tab-no-pin = Private tabs can’t be pinned
 whimsy-scratch-kept-toast =
     { $count ->
-        [0] Scratch is now a space
-       *[other] Scratch is now a space. Its pages reopened outside private browsing.
+        [0] Private Space is now a normal space
+       *[other] Private Space is now a normal space. Its pages reopened outside private browsing.
     }
 whimsy-private-header =
     .label = Private browsing
 whimsy-private-in-window =
     .label = Browse privately inside this window
-    .description = { -brand-short-name } opens Scratch, a temporary private space, with ⌘⇧N, and a private tab in the current space with ⌥⌘T. Private tabs keep no history and forget their cookies when the last one closes. Turn this off to use private windows instead.
+    .description = { -brand-short-name } opens a Private Space, a temporary space that’s never saved, with ⌘⇧N, and a private tab in the current space with ⌥⌘T. Private tabs keep no history and forget their cookies when the last one closes. Turn this off to use private windows instead.
 ## batch10: Library sidebar panels
 
 whimsy-library-notes-enable =
@@ -903,7 +903,7 @@ whimsy-claude-enable =
     .description = Claude Code can open, read and use tabs in the Claude space, like Claude in Chrome. Tabs Claude is using glow and show a Stop button. Only apps on this Mac with the token below can connect.
 whimsy-claude-whole-browser =
     .label = Let Claude use any tab, not just the Claude space
-    .description = Private tabs and Scratch are always off-limits, and so are passwords.
+    .description = Private tabs and the Private Space are always off-limits, and so are passwords.
 whimsy-claude-ask =
     .label = Ask before Claude clicks, types or fills in forms on a new site
 whimsy-claude-ai-blocked = Claude is unavailable while all AI features are turned off.
@@ -1388,7 +1388,7 @@ whimsy-handoff-header =
     .label = Handoff
 whimsy-handoff-send =
     .label = Continue pages on your iPhone, iPad and other Macs
-    .description = Hand off the page you’re on through macOS Handoff. Only its address is shared; private tabs and Scratch are never offered.
+    .description = Hand off the page you’re on through macOS Handoff. Only its address is shared; private tabs and the Private Space are never offered.
 
 ## wave3: playlist (WhimsyPlaylist.sys.mjs, Library -> Playlist)
 
@@ -1692,7 +1692,7 @@ whimsy-claude-shield-toast = Claude is paused: { $host } tried to give it instru
 
 whimsy-claude-replay =
     .label = Keep a replay of what Claude does
-    .description = Each run’s steps and small page snapshots stay on this device. Private tabs and Scratch are never recorded; clearing history clears it.
+    .description = Each run’s steps and small page snapshots stay on this device. Private tabs and the Private Space are never recorded; clearing history clears it.
 whimsy-claude-show-runs =
     .label = Show Claude’s Runs
 whimsy-replay-title = Claude runs
@@ -2209,8 +2209,8 @@ whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
 # $count (number) - unread items the site reports
 whimsy-tab-unread-description = { $count } unread
 
-# wave5/uxfix: keeping Scratch asks in the window's sheet (it can't be undone).
-whimsy-scratch-save-confirm-title = Save Scratch as a Space?
+# wave5/uxfix: keeping the Private Space asks in the window's sheet (it can't be undone).
+whimsy-scratch-save-confirm-title = Save Private Space as a Normal Space?
 whimsy-scratch-save-confirm-accept = Save Space
 
 
@@ -2582,7 +2582,7 @@ whimsy-menu-view-downloads =
     .label = View Downloads…
 whimsy-menu-essential-shortcuts =
     .label = Essential Keyboard Shortcuts
-whimsy-cheatsheet-new-scratch = New Scratch Space
+whimsy-cheatsheet-new-scratch = New Private Space
 whimsy-cheatsheet-new-space = New Space…
 whimsy-action-reset-space-tabs = Reset All Tabs in This Space
 whimsy-action-view-media = View Media…
@@ -2793,9 +2793,9 @@ whimsy-teach-header = Tips
 whimsy-teach-enabled =
     .label = Show tips the first time a shortcut could help
 whimsy-teach-enabled-help = Each tip shows once. To see them all again, run Reset Tips from the command bar.
-# wave7/scratch: saving Scratch uses Zen's New Space form with these words;
+# wave7/scratch: saving the Private Space uses Zen's New Space form with these words;
 # the "Save as a Space?" dialog comes after its button.
-whimsy-scratch-save-header = Save Scratch as a Space
+whimsy-scratch-save-header = Save Private Space as a Normal Space
 whimsy-scratch-save-label = Name it and pick its look. Its tabs come with it.
 whimsy-scratch-save-button =
     .label = Save Space
@@ -3130,10 +3130,10 @@ whimsy-menus-space-delete =
     .label = Delete Space
 whimsy-menus-space-scratch-keep =
     .label = Keep…
-    .description = In the Scratch space
+    .description = In the Private Space
 whimsy-menus-space-scratch-close =
     .label = Close
-    .description = In the Scratch space
+    .description = In the Private Space
 
 whimsy-menus-sidebar-new-folder =
     .label = New Folder
@@ -3283,8 +3283,8 @@ whimsy-isolation-sorted-toast =
     }
 whimsy-isolation-scratch-toast =
     { $count ->
-        [one] Only private tabs go in Scratch. The tab stayed where it was.
-       *[other] Only private tabs go in Scratch. The tabs stayed where they were.
+        [one] Only private tabs go in the Private Space. The tab stayed where it was.
+       *[other] Only private tabs go in the Private Space. The tabs stayed where they were.
     }
 whimsy-isolation-reopened-toast =
     { $count ->
@@ -3415,11 +3415,11 @@ whimsy-game-back-online = You’re back online
 whimsy-game-reload-page = Reload
 
 
-# wave9/secfix: a normal tab that arrived in Scratch from another window or Mini.
+# wave9/secfix: a normal tab that arrived in the Private Space from another window or Mini.
 whimsy-isolation-scratch-moved-toast =
     { $count ->
-        [one] Only private tabs go in Scratch. The tab moved to another space.
-       *[other] Only private tabs go in Scratch. The tabs moved to another space.
+        [one] Only private tabs go in the Private Space. The tab moved to another space.
+       *[other] Only private tabs go in the Private Space. The tabs moved to another space.
     }
 
 # wave9/secfix: Favorite This Split refuses a split with a private pane.
@@ -3610,6 +3610,8 @@ whimsy-menus-media-email =
 whimsy-action-glance-size-cycle = Change Glance Size
 
 ## wave9/menus (design-full-4 M11): extra command-bar search words, comma-separated.
+# wave10/fixes W10-10: the Private Space was called Scratch; its old name (and the usual private words) still find it.
+whimsy-keywords-new-private-space = Scratch, Scratch Space, Incognito, Private Window, Private Browsing
 whimsy-keywords-qrcode = QR Code, Create QR Code, Share QR Code, QR
 whimsy-keywords-create-note = New Note, Create Note, Note, Take Note
 whimsy-keywords-move-tab-next-space = Move Tab to Next Space, Move to Next Space, Send Tab to Next Space
@@ -3955,3 +3957,9 @@ whimsy-action-view-source-wrap-toggle = Wrap Long Lines in Page Source
 whimsy-action-view-source-wrap-on = Wrap Long Lines in Page Source
 whimsy-action-view-source-wrap-off = Stop Wrapping Long Lines in Page Source
 
+## wave10/fixes W10-09: the Private Space's empty state (it opens with no tab)
+
+whimsy-private-empty-title = Private Space
+whimsy-private-empty-body = Nothing you do here is saved. Pages leave no history, and their cookies and site data are forgotten when you close them.
+whimsy-private-empty-new = New Private Tab
+whimsy-private-empty-note = This space closes when you leave it with no tabs.
