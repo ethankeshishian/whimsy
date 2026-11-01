@@ -51,6 +51,7 @@ var gWhimsySettings = {
       IPProtectionStates: "moz-src:///toolkit/components/ipprotection/IPProtectionService.sys.mjs",
       IPPProxyManager: "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
       IPPProxyStates: "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
+      WhimsyVPN: "resource:///modules/whimsy/WhimsyVPN.sys.mjs",
     });
     Object.defineProperty(this, "lazy", { value: lazy });
     return lazy;
@@ -463,17 +464,32 @@ var gWhimsySettings = {
       return;
     }
     this._vpnWired = true;
-    const { IPProtectionService, IPProtectionStates, IPPProxyManager, IPPProxyStates } = this.lazy;
+    const { IPProtectionService, IPProtectionStates, IPPProxyManager, IPPProxyStates, WhimsyVPN } = this.lazy;
+    const win = window.browsingContext.topChromeWindow;
+    // W10-50: "Open VPN panel" only works once Firefox's service has made
+    // the panel; until then it's disabled and the status line says why.
     const update = () => {
-      if (!Services.prefs.getBoolPref("browser.ipProtection.enabled", false)) {
+      const enabled = Services.prefs.getBoolPref("browser.ipProtection.enabled", false);
+      const state = IPProtectionService.state;
+      if (manage) {
+        manage.disabled = !enabled || (state != IPProtectionStates.UNAUTHENTICATED && state != IPProtectionStates.READY);
+      }
+      if (!enabled) {
         document.l10n.setAttributes(status, "whimsy-vpn-status-off");
         return;
       }
-      const state = IPProtectionService.state;
-      if (state == IPProtectionStates.UNAVAILABLE || state == IPProtectionStates.UNINITIALIZED) {
+      if (state == IPProtectionStates.UNAVAILABLE) {
         document.l10n.setAttributes(status, "whimsy-vpn-status-unavailable");
+      } else if (state == IPProtectionStates.UNINITIALIZED) {
+        document.l10n.setAttributes(status, "whimsy-vpn-status-starting");
       } else if (state == IPProtectionStates.UNAUTHENTICATED) {
-        document.l10n.setAttributes(status, "whimsy-vpn-status-signed-out");
+        // W10-50: a failed "Get started" (region, account, network) says
+        // so here instead of silently showing the same button again.
+        const error = WhimsyVPN.lastEnrollError;
+        document.l10n.setAttributes(
+          status,
+          error ? WhimsyVPN.enrollErrorL10nId(error) : "whimsy-vpn-status-signed-out"
+        );
       } else {
         const proxyState = IPPProxyManager.state;
         if (proxyState == IPPProxyStates.ACTIVE) {
@@ -491,30 +507,40 @@ var gWhimsySettings = {
     IPPProxyManager.addEventListener("IPPProxyManager:StateChanged", update);
     const prefObserver = () => update();
     Services.prefs.addObserver("browser.ipProtection.enabled", prefObserver);
+    Services.obs.addObserver(prefObserver, "whimsy-vpn-enroll-error-changed");
     window.addEventListener(
       "unload",
       () => {
         IPProtectionService.removeEventListener("IPProtectionService:StateChanged", update);
         IPPProxyManager.removeEventListener("IPPProxyManager:StateChanged", update);
         Services.prefs.removeObserver("browser.ipProtection.enabled", prefObserver);
+        Services.obs.removeObserver(prefObserver, "whimsy-vpn-enroll-error-changed");
       },
       { once: true }
     );
     update();
     manage?.addEventListener("command", async () => {
-      const win = window.browsingContext.topChromeWindow;
-      const widget = this.lazy.CustomizableUI.getWidget("ipprotection-button");
-      const node = widget?.forWindow(win)?.node;
-      if (node) {
-        node.click();
-        return;
-      }
-      try {
-        await this.lazy.IPProtection?.getPanel?.(win)?.open?.(win);
-      } catch (e) {
-        // ignore
+      if (!(await WhimsyVPN.openPanel(win))) {
+        update();
+        WhimsyVPN.explain(win);
       }
     });
+    // W10-50: Firefox's "Try Firefox's built-in VPN → Get started" calls
+    // IPProtection.getPanel(win)?.enroll(), which is a silent no-op while
+    // the service hasn't made the panel. Never a dead button: say why.
+    document.addEventListener(
+      "click",
+      event => {
+        if (!event.target.closest?.("#getStartedButton") || WhimsyVPN.getPanel(win)) {
+          return;
+        }
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        update();
+        WhimsyVPN.explain(win);
+      },
+      true
+    );
   },
 
   initAppIcons() {

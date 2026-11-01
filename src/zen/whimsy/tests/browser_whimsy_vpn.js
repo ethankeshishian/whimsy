@@ -162,10 +162,9 @@ add_task(async function test_settings_card() {
 add_task(function test_command_bar_shows_the_button() {
   const id = "ipprotection-button";
   const widget = CustomizableUI.getWidget(id);
-  if (widget?.provider != CustomizableUI.PROVIDER_API) {
-    ok(!WhimsyVPN.showButton(window), "No VPN widget: nothing to show");
-    return;
-  }
+  // W10-50: this used to accept "no widget", which hid that Firefox's VPN
+  // never started in Whimsy.
+  is(widget?.provider, CustomizableUI.PROVIDER_API, "Firefox made its VPN widget");
   const placement = CustomizableUI.getPlacementOfWidget(id);
   CustomizableUI.removeWidgetFromArea(id);
   try {
@@ -203,14 +202,16 @@ add_task(async function test_w8_41_setup_vpn() {
       };
     }
     const restoreService = stubState(IPProtectionService, IPProtectionStates.UNAUTHENTICATED);
+    // W10-50: the real panel exists now; record the open instead of
+    // leaving Firefox's popup open for the next tasks.
+    const opened = [];
+    const restorePanel = stubPanel({ open: async w => opened.push(w) });
     try {
       await WhimsyVPN.setUp(window);
       ok(Services.prefs.getBoolPref("browser.ipProtection.enabled"), "setUp enables master pref");
-      ok(
-        toast === "whimsy-vpn-status-signed-out" || CustomizableUI.getWidget("ipprotection-button"),
-        "Sign-in guidance provided"
-      );
+      ok(opened.length == 1 && !toast, "Sign-in guidance provided: Firefox's VPN panel opens");
     } finally {
+      restorePanel();
       restoreService();
       if (window.gZenUIManager) {
         window.gZenUIManager.showToast = origToast;
@@ -236,4 +237,175 @@ add_task(async function test_w8_41_setup_vpn() {
   } finally {
     await SpecialPowers.popPrefEnv();
   }
+});
+
+// W10-50: Firefox's VPN never started in Whimsy. Zen defines
+// app.update.checkInstallTime.days only for official builds, so
+// BrowserGlue._checkForOldBuildUpdates() threw and _onFirstWindowLoaded
+// stopped before the browser-first-window-ready category, which is what
+// starts IPProtectionActivator (and ContentBlockingPrefs, DoHController...).
+// The service stayed "uninitialized": no button, no panel, dead buttons.
+add_task(function test_w10_50_firefox_vpn_starts() {
+  ok(
+    Services.prefs.getDefaultBranch("").getIntPref("app.update.checkInstallTime.days", 0) > 0,
+    "The update-check age pref Firefox reads at first window is defined"
+  );
+  ok(
+    Cu.isESModuleLoaded("moz-src:///browser/components/ipprotection/IPProtectionHelpers.sys.mjs"),
+    "browser-first-window-ready ran: Firefox's VPN activator is loaded"
+  );
+  ok(
+    Cu.isESModuleLoaded("moz-src:///browser/components/protections/ContentBlockingPrefs.sys.mjs"),
+    "and so are the other first-window modules (ContentBlockingPrefs)"
+  );
+  const { IPProtection } = ChromeUtils.importESModule(
+    "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs"
+  );
+  isnot(IPProtectionService.state, IPProtectionStates.UNINITIALIZED, "The VPN service started");
+  ok(IPProtection.created, "Firefox made its VPN button");
+  ok(IPProtection.getPanel(window), "and the panel the buttons open");
+});
+
+function stubToast() {
+  const toasts = [];
+  const original = window.gZenUIManager.showToast;
+  window.gZenUIManager.showToast = id => {
+    toasts.push(id);
+  };
+  return { toasts, restore: () => (window.gZenUIManager.showToast = original) };
+}
+
+function stubPanel(panel) {
+  const original = Object.getOwnPropertyDescriptor(WhimsyVPN, "getPanel");
+  WhimsyVPN.getPanel = () => panel;
+  return () => Object.defineProperty(WhimsyVPN, "getPanel", original);
+}
+
+// W10-50: Set Up VPN opens Firefox's panel (sign in) and never falls back to
+// just opening Settings; without a panel it says why.
+add_task(async function test_w10_50_setup_opens_panel_not_settings() {
+  const restoreService = stubState(IPProtectionService, IPProtectionStates.UNAUTHENTICATED);
+  const opened = [];
+  const restorePanel = stubPanel({ open: async w => opened.push(w) });
+  const tabs = gBrowser.tabs.length;
+  try {
+    await WhimsyVPN.setUp(window);
+    Assert.deepEqual(opened, [window], "Set Up VPN opens Firefox's VPN panel in this window");
+    is(gBrowser.tabs.length, tabs, "and doesn't open Settings");
+  } finally {
+    restorePanel();
+    restoreService();
+  }
+
+  const toast = stubToast();
+  const restoreNone = stubPanel(null);
+  const restoreUnavailable = stubState(IPProtectionService, IPProtectionStates.UNAVAILABLE);
+  try {
+    await WhimsyVPN.setUp(window);
+    Assert.deepEqual(toast.toasts, ["whimsy-vpn-unavailable-toast"], "No panel: a toast says the VPN isn't available");
+    is(gBrowser.tabs.length, tabs, "still no Settings tab");
+  } finally {
+    restoreUnavailable();
+    restoreNone();
+    toast.restore();
+  }
+});
+
+// W10-50: a failed "Get started" (here: Guardian answers 451) says why
+// instead of silently showing "Get started" again.
+add_task(async function test_w10_50_enroll_failure_is_explained() {
+  const toast = stubToast();
+  try {
+    Services.obs.notifyObservers(window, "whimsy-ipprotection-enroll-failed", "region_unavailable");
+    Assert.deepEqual(toast.toasts, ["whimsy-vpn-enroll-region"], "Region not served: a clear toast");
+    is(WhimsyVPN.lastEnrollError, "region_unavailable", "remembered for Settings");
+    is(WhimsyVPN.enrollErrorL10nId("network_error"), "whimsy-vpn-enroll-network", "Network errors read as such");
+    is(WhimsyVPN.enrollErrorL10nId("not_entitled"), "whimsy-vpn-enroll-account", "Account errors read as such");
+  } finally {
+    toast.restore();
+  }
+
+  const restoreService = stubState(IPProtectionService, IPProtectionStates.UNAUTHENTICATED);
+  try {
+    await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+      const doc = browser.contentDocument;
+      const status = await TestUtils.waitForCondition(() => doc.getElementById("whimsyVpnStatus"));
+      await TestUtils.waitForCondition(
+        () => status.getAttribute("data-l10n-id") == "whimsy-vpn-enroll-region",
+        "The Settings status line explains the failed sign-up"
+      );
+    });
+  } finally {
+    restoreService();
+    WhimsyVPN.lastEnrollError = "";
+  }
+});
+
+// W10-50: "Open VPN panel" and Firefox's "Get started" both work, and
+// neither is ever a dead button.
+add_task(async function test_w10_50_settings_buttons() {
+  await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+    const doc = browser.contentDocument;
+    const manage = await TestUtils.waitForCondition(() => doc.getElementById("whimsyVpnManage"));
+    const opened = [];
+    const restorePanel = stubPanel({ open: async w => opened.push(w) });
+    const restoreService = stubState(IPProtectionService, IPProtectionStates.UNAUTHENTICATED);
+    try {
+      IPProtectionService.dispatchEvent(new CustomEvent("IPProtectionService:StateChanged"));
+      await TestUtils.waitForCondition(() => !manage.disabled, "Signed out: Open VPN panel is enabled");
+      manage.doCommand();
+      await TestUtils.waitForCondition(() => opened.length == 1, "Open VPN panel opens Firefox's panel");
+      is(opened[0], window, "in the browser window");
+    } finally {
+      restoreService();
+      restorePanel();
+    }
+
+    const restoreUnavailable = stubState(IPProtectionService, IPProtectionStates.UNAVAILABLE);
+    try {
+      IPProtectionService.dispatchEvent(new CustomEvent("IPProtectionService:StateChanged"));
+      await TestUtils.waitForCondition(() => manage.disabled, "No panel possible: the button is disabled, not dead");
+      is(
+        doc.getElementById("whimsyVpnStatus").getAttribute("data-l10n-id"),
+        "whimsy-vpn-status-unavailable",
+        "and the status line says why"
+      );
+    } finally {
+      restoreUnavailable();
+      IPProtectionService.dispatchEvent(new CustomEvent("IPProtectionService:StateChanged"));
+    }
+
+    // Firefox's own "Get started" reaches enroll() on the real panel.
+    const getStarted = await TestUtils.waitForCondition(() => {
+      const button = doc.getElementById("getStartedButton");
+      return button && BrowserTestUtils.isVisible(button) && button;
+    }, "Firefox's Get started is shown before signing up");
+    {
+      const { IPProtection } = ChromeUtils.importESModule(
+        "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs"
+      );
+      const panel = IPProtection.getPanel(window);
+      ok(panel, "Get started has a panel to enroll through");
+      const calls = [];
+      const originalEnroll = panel.enroll;
+      panel.enroll = async options => calls.push(options);
+      try {
+        getStarted.click();
+        await TestUtils.waitForCondition(() => calls.length == 1, "Get started starts Firefox's sign-in");
+      } finally {
+        panel.enroll = originalEnroll;
+      }
+
+      // Without a panel, Get started explains instead of doing nothing.
+      const toast = stubToast();
+      const restoreNone = stubPanel(null);
+      try {
+        getStarted.click();
+        await TestUtils.waitForCondition(() => toast.toasts.length == 1, "Get started without a panel shows why");
+      } finally {
+        restoreNone();
+        toast.restore();
+      }
+    }
+  });
 });

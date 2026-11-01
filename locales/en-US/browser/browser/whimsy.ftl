@@ -1007,7 +1007,8 @@ whimsy-vpn-description = Firefox’s free built-in VPN hides your location from 
 whimsy-vpn-manage-button =
     .label = Open VPN panel…
 whimsy-vpn-status-off = Off
-whimsy-vpn-status-unavailable = Not available yet
+whimsy-vpn-status-unavailable = Not available — Firefox isn’t offering its built-in VPN to this browser right now
+whimsy-vpn-status-starting = Starting…
 whimsy-vpn-status-signed-out = On — open the VPN panel to sign in with a Mozilla account
 whimsy-vpn-status-ready = Signed in, not connected — open the VPN panel to connect
 whimsy-vpn-status-connecting = Connecting…
@@ -1018,6 +1019,14 @@ whimsy-action-vpn-off = Turn VPN Off
 whimsy-action-vpn-setup = Set Up VPN
 whimsy-vpn-on-toast = VPN on
 whimsy-vpn-off-toast = VPN off
+# W10-50: the VPN panel can't open yet, or "Get started" didn't finish.
+whimsy-vpn-off-hint = Turn on VPN in Settings first
+whimsy-vpn-unavailable-toast = Firefox’s built-in VPN isn’t available to this browser right now
+whimsy-vpn-starting-toast = The VPN is still starting. Try again in a moment.
+whimsy-vpn-enroll-region = Firefox’s built-in VPN isn’t offered in your country or region yet
+whimsy-vpn-enroll-account = Your Mozilla account can’t use Firefox’s built-in VPN yet
+whimsy-vpn-enroll-network = Couldn’t reach Mozilla’s VPN service. Check your connection and try again.
+whimsy-vpn-enroll-failed = Couldn’t finish setting up Firefox’s built-in VPN. Try again from the VPN panel.
 
 # vpnspace: extend the native Firefox VPN panel and toolbar button.
 whimsy-vpn-scope-title = Protect

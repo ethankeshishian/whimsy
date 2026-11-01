@@ -1,0 +1,19 @@
+--- a/browser/components/ipprotection/IPProtectionPanel.sys.mjs
++++ b/browser/components/ipprotection/IPProtectionPanel.sys.mjs
+@@ -796,6 +796,16 @@
+       await this.open();
+     }
+     const result = await enrolling;
++    // Whimsy (W10-50): Firefox only records a failed enrollment, so the
++    // panel silently fell back to "Get started". Tell Whimsy, which says
++    // why (for example, the VPN isn't offered in this region).
++    if (!result?.isEnrolledAndEntitled) {
++      Services.obs.notifyObservers(
++        this.#window.get(),
++        "whimsy-ipprotection-enroll-failed",
++        result?.error ?? ""
++      );
++    }
+     Glean.ipprotection.enrollment.record({
+       enrolled: result?.isEnrolledAndEntitled,
+       reason: result?.isEnrolledAndEntitled ? "" : (result?.error ?? ""),

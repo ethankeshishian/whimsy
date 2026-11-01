@@ -309,6 +309,16 @@
 - name: browser.ipProtection.features.siteInclusions
   value: true
 
+# W10-50: Zen defines this only for MOZILLA_OFFICIAL builds
+# (prefs/firefox/browser.yaml); Whimsy isn't one, so the pref was missing and
+# BrowserGlue._checkForOldBuildUpdates() threw on getIntPref. That aborted
+# _onFirstWindowLoaded before the browser-first-window-ready category, so
+# Firefox's VPN (IPProtectionActivator), ContentBlockingPrefs, DoHController,
+# TabCrashHandler, ProcessHangMonitor and the rest never started. Same value
+# as Zen's official builds.
+- name: app.update.checkInstallTime.days
+  value: 6
+
 # vpnspace: empty protects all containers; otherwise comma-separated context IDs.
 - name: browser.ipProtection.whimsy.userContextIds
   value: ""
