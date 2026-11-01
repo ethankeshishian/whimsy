@@ -115,11 +115,30 @@ add_task(async function test_indicator_and_tooltip() {
     ok(!marker.checkVisibility(), "No glyph");
     is(gBrowser.getTabTooltip(tab, true), plain, "Tooltip back to normal");
 
-    // Manual protection: protected, but nothing was typed, so no glyph.
+    // Protected by hand, nothing typed: a lock in the same place, labelled
+    // "Protected tab".
     WhimsyFormProtection.toggleTabProtection(tab);
     ok(tab.hasAttribute("whimsy-form-protected") && !tab.hasAttribute("whimsy-form-typed"), "Manual: protected, not typed");
-    ok(!marker.checkVisibility(), "and no glyph");
+    ok(tab.hasAttribute("whimsy-form-manual"), "marked as protected by hand");
+    ok(marker.checkVisibility(), "The marker shows");
+    is(marker.getAttribute("kind"), "lock", "as a lock");
+    is(marker.getAttribute("src"), "chrome://browser/skin/zen-icons/selectable/lock-closed.svg", "Zen's lock icon");
+    is(marker.previousElementSibling, tab.querySelector(".tab-label-container"), "in the form glyph's place");
+    await document.l10n.translateFragment(marker);
+    is(marker.getAttribute("tooltiptext"), "Protected tab", "with a tooltip");
+    is(marker.getAttribute("aria-label"), "Protected tab", "and an accessible label");
+    ok(!marker.hasAttribute("aria-hidden"), "read out");
+
+    // Typing then takes precedence.
+    WhimsyFormProtection.updateTabProtection(tab, true);
+    is(marker.getAttribute("kind"), "form", "Typing shows the form glyph instead");
+    ok(!tab.hasAttribute("whimsy-form-manual"), "not the lock");
+    ok(!marker.hasAttribute("data-l10n-id") && marker.getAttribute("aria-hidden") == "true", "The glyph is decorative");
+    WhimsyFormProtection.updateTabProtection(tab, false);
+    is(marker.getAttribute("kind"), "lock", "Cleared again: back to the lock");
+
     WhimsyFormProtection.toggleTabProtection(tab);
+    ok(!marker.checkVisibility(), "Unprotected: no marker");
   });
 });
 

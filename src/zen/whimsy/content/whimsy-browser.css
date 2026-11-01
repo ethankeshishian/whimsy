@@ -5223,7 +5223,7 @@ panel.whimsy-sheet.whimsy-snooze {
   fill-opacity: 0.6;
   pointer-events: none;
 
-  .tabbrowser-tab[whimsy-form-typed]:not([pinned], [zen-essential]) & {
+  .tabbrowser-tab:is([whimsy-form-typed], [whimsy-form-manual]):not([pinned], [zen-essential]) & {
     display: flex;
     @media not (prefers-reduced-motion: reduce) {
       animation: whimsy-form-marker-in 200ms ease-out;
@@ -5238,7 +5238,15 @@ panel.whimsy-sheet.whimsy-snooze {
     opacity: 0;
   }
 }
-.tabbrowser-tab[whimsy-form-typed]:is([pinned], [zen-essential]) .tab-icon-stack::before {
+/* Protected by hand, nothing typed: a lock in the same place, with its
+   own tooltip ("Protected tab"). */
+.whimsy-tab-form-marker[kind="lock"] {
+  pointer-events: auto;
+}
+.tabbrowser-tab.tabbrowser-tab[whimsy-form-manual]:is([pinned], [zen-essential]) .tab-icon-stack::before {
+  background-image: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg");
+}
+.tabbrowser-tab:is([whimsy-form-typed], [whimsy-form-manual]):is([pinned], [zen-essential]) .tab-icon-stack::before {
   content: "";
   position: absolute;
   bottom: -4px;

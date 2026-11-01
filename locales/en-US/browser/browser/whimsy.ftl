@@ -4131,3 +4131,7 @@ whimsy-form-refill-ask = { $count ->
 }
 whimsy-form-refill-ask-detail = Saved when this tab reloaded
 whimsy-form-refill-fill = Fill In
+# A tab protected by hand (Protect This Tab) with nothing typed: its lock.
+whimsy-tab-protected-marker =
+    .tooltiptext = Protected tab
+    .aria-label = Protected tab

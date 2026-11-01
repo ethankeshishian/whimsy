@@ -15,7 +15,9 @@
 // W10-25 (the user's picks):
 // - Marker: an "in-progress form" glyph (a form outline, partly filled,
 //   with a pencil) after the tab's title, shown only once the person has
-//   typed into a form (whimsy-form-typed), never for an untouched form.
+//   typed into a form (whimsy-form-typed), never for an untouched form. A
+//   tab protected by hand with nothing typed shows a lock there instead
+//   ("Protected tab"); typing takes precedence.
 // - Unload asks first: every unload the person asks for goes through
 //   gBrowser.explicitUnloadTabs (the tab menu's Unload, Unload Tab, Unload
 //   Space); a tab with a form gets "Unload this tab?" beside the sidebar
@@ -45,6 +47,10 @@ const ATTR = "whimsy-form-protected";
 const TYPED_ATTR = "whimsy-form-typed";
 const MARKER_CLASS = "whimsy-tab-form-marker";
 const MARKER_ICON = "chrome://browser/content/whimsy/whimsy-form-badge.svg";
+// Protected by hand (Protect This Tab) with nothing typed: a lock in the
+// same place (the user, 2026-11-01). Typing takes precedence.
+const MANUAL_ATTR = "whimsy-form-manual";
+const LOCK_ICON = "chrome://browser/skin/zen-icons/selectable/lock-closed.svg";
 const SNAPSHOT_KEY = "whimsy-formdata";
 const SNAPSHOT_MAX_BYTES = 64 * 1024;
 const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -224,6 +230,7 @@ export const WhimsyFormProtection = {
     if (!this.enabled) {
       tab.removeAttribute(ATTR);
       tab.removeAttribute(TYPED_ATTR);
+      this.refreshMarker(tab);
       return;
     }
     const typed = !!hasForm || this.hasSessionRestoreFormData(tab);
@@ -237,18 +244,42 @@ export const WhimsyFormProtection = {
   // typing.
   setTyped(tab, typed) {
     tab.toggleAttribute(TYPED_ATTR, !!typed);
-    if (typed && !tab.querySelector(`.${MARKER_CLASS}`)) {
+    this.refreshMarker(tab);
+  },
+
+  // The one marker: the form glyph once something was typed, else a lock
+  // while the tab is protected by hand, else nothing.
+  refreshMarker(tab) {
+    const typed = tab.hasAttribute(TYPED_ATTR);
+    const manual = !typed && !!tab._whimsyFormManual && tab.hasAttribute(ATTR) && this.enabled;
+    tab.toggleAttribute(MANUAL_ATTR, manual);
+    let marker = tab.querySelector(`.${MARKER_CLASS}`);
+    if (!typed && !manual) {
+      return;
+    }
+    if (!marker) {
       const doc = tab.ownerDocument;
-      const marker = doc.createXULElement("image");
+      marker = doc.createXULElement("image");
       marker.className = MARKER_CLASS;
-      marker.setAttribute("src", MARKER_ICON);
-      marker.setAttribute("aria-hidden", "true");
       const label = tab.querySelector(".tab-label-container");
       if (label) {
         label.after(marker);
       } else {
         tab.querySelector(".tab-content")?.append(marker);
       }
+    }
+    marker.setAttribute("src", typed ? MARKER_ICON : LOCK_ICON);
+    marker.setAttribute("kind", typed ? "form" : "lock");
+    if (manual) {
+      marker.removeAttribute("aria-hidden");
+      marker.setAttribute("role", "img");
+      tab.ownerDocument.l10n.setAttributes(marker, "whimsy-tab-protected-marker");
+    } else {
+      marker.setAttribute("aria-hidden", "true");
+      marker.removeAttribute("role");
+      marker.removeAttribute("data-l10n-id");
+      marker.removeAttribute("tooltiptext");
+      marker.removeAttribute("aria-label");
     }
   },
 
@@ -449,6 +480,7 @@ export const WhimsyFormProtection = {
     const protect = !tab._whimsyFormManual;
     tab._whimsyFormManual = protect;
     tab.toggleAttribute(ATTR, protect);
+    this.refreshMarker(tab);
     const win = tab.documentGlobal;
     try {
       lazy.WhimsyToast.show(win, {
@@ -522,6 +554,7 @@ export const WhimsyFormProtection = {
       ) {
         tab.removeAttribute(ATTR);
         tab.removeAttribute(TYPED_ATTR);
+        this.refreshMarker(tab);
       }
     };
     win.gBrowser?.addTabsProgressListener({

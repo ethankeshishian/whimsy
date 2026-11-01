@@ -2006,8 +2006,8 @@ add_task(async function w10_trail() {
   }
 });
 
-// W10-25: a tab with a typed form (its glyph in the sidebar), the unload
-// question, and the refill offer.
+// W10-25: a tab with a typed form (its glyph in the sidebar) beside a tab
+// protected by hand (its lock), the unload question, and the refill offer.
 add_task(async function w10_form_protection() {
   const { WhimsyFormProtection } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
   const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
@@ -2015,12 +2015,19 @@ add_task(async function w10_form_protection() {
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
   try {
     WhimsyFormProtection.updateTabProtection(tab, true);
+    // Protected by hand with nothing typed: the lock.
+    WhimsyFormProtection.toggleTabProtection(other);
+    const toast = WhimsyToast.current(window);
+    if (toast) {
+      WhimsyToast._dismissNow(toast);
+    }
     for (const dark of [0, 1]) {
       await setScheme(dark);
       await settled();
       await shot(`w10-form-marker-${dark ? "dark" : "light"}`);
       await SpecialPowers.popPrefEnv();
     }
+    WhimsyFormProtection.toggleTabProtection(other);
     let unloading = null;
     await w10SurfaceShot("form-unload", "whimsy-form-unload", () => {
       unloading = WhimsyFormProtection.confirmUnload(window, [tab]);
