@@ -72,8 +72,14 @@ export const ADDED_HIDDEN = {
   },
   // W10-20: the selection menu's regroup: rows few people use start off
   // (still in Settings → Menus).
+  // W10-45: Element Info's row starts off in every menu (the user, applying
+  // the W9-09 rule); the command bar and Tools ▸ Browser Tools still have it.
   2: {
-    selection: ["search-private", "select-all", "inspect-a11y", "view-source"],
+    selection: ["search-private", "select-all", "inspect-a11y", "view-source", "element-info"],
+    link: ["element-info"],
+    page: ["element-info"],
+    image: ["element-info"],
+    media: ["element-info"],
   },
 };
 

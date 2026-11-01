@@ -574,19 +574,20 @@
   value: "tab-volume,playlist,copy-markdown"
 
 - name: whimsy.menus.hidden.link
-  value: ""
+  value: "element-info"
 
 - name: whimsy.menus.hidden.page
-  value: "capture-full-page,capture-portrait,wayback,dev-mode"
+  value: "capture-full-page,capture-portrait,wayback,dev-mode,element-info"
 
+# W10-45: Element Info's row starts off in every page menu.
 # W10-20: the selection menu's regroup also starts Search in a Private
 # Window, Select All, Inspect Accessibility Properties and View Selection
 # Source off (ADDED_HIDDEN[2]).
 - name: whimsy.menus.hidden.selection
-  value: "search-private,copy-url-quote,select-all,inspect-a11y,view-source"
+  value: "search-private,copy-url-quote,select-all,inspect-a11y,view-source,element-info"
 
 - name: whimsy.menus.hidden.image
-  value: ""
+  value: "element-info"
 
 - name: whimsy.menus.hidden.space
   value: "reset-tabs,show-hidden"
@@ -605,7 +606,7 @@
 
 # wave9/menus (design-full-4 L10): a video's or audio's own menu.
 - name: whimsy.menus.hidden.media
-  value: ""
+  value: "element-info"
 
 # wave9/menus: which ADDED_HIDDEN lists a changed menu has already taken.
 - name: whimsy.menus.defaults-version

@@ -226,8 +226,13 @@ add_task(async function test_element_info_from_the_context_menu() {
       WhimsyMenuPrefs.items(menuId).some(entry => entry.id == "element-info"),
       `Settings → Menus lists Element Info in the ${menuId} menu`
     );
-    ok(!WhimsyMenuPrefs.isHidden(menuId, "element-info"), `…on by default (${menuId})`);
+    // W10-45 (user): the row starts off, like the other rows W9-09 added.
+    ok(WhimsyMenuPrefs.isHidden(menuId, "element-info"), `…off by default (${menuId})`);
+    ok(WhimsyMenuPrefs.defaultHiddenIds(menuId).has("element-info"), `…by the pref's default (${menuId})`);
   }
+  // Turned on in Settings → Menus, it shows beside Inspect.
+  WhimsyMenuPrefs.setHidden("page", "element-info", false);
+  registerCleanupFunction(() => WhimsyMenuPrefs.restoreDefaults("page"));
   const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
   const action = globalActions.find(a => a.l10nId == "whimsy-action-inspect-element");
   const keywords = action?.whimsyKeywords ?? [];
