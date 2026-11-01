@@ -19,7 +19,7 @@
 //   which is in Mini's hidden nav bar; it opens from the puzzle instead.
 
 const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs");
-const { CustomizableUI } = ChromeUtils.importESModule("resource:///modules/CustomizableUI.sys.mjs");
+const { CustomizableUI } = ChromeUtils.importESModule("moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs");
 
 const EXTENSION_ID = "mini-unlock@tests.whimsy";
 const WIDGET_ID = "mini-unlock_tests_whimsy-browser-action";

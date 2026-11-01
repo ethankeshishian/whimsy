@@ -346,7 +346,7 @@ export const WhimsyTabs = {
       }
     });
     win.gZenWorkspaces?.promiseInitialized?.then(updateAll);
-    const { SessionStore } = ChromeUtils.importESModule("resource:///modules/sessionstore/SessionStore.sys.mjs");
+    const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
     Promise.all([win.gZenWorkspaces?.promiseInitialized, SessionStore.promiseAllWindowsRestored])
       .then(() => new Promise(resolve => ChromeUtils.idleDispatch(resolve, { timeout: 5000 })))
       .then(() => !win.closed && this.keepEssentialsLive(win))
