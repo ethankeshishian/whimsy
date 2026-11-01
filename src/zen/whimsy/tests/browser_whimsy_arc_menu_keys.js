@@ -125,3 +125,61 @@ add_task(async function test_native_library_key() {
   isnot(title, "page took it", "The page never got the key");
   BrowserTestUtils.removeTab(tab);
 });
+
+// wave10 (W10-47): Arc's other browser-level menu keys are reserved too;
+// the keys pages use for their content never are, and a rebinding moves the
+// reservation with the key (and drops it on a content key).
+add_task(async function test_browser_keys_reserved_content_keys_not() {
+  const { RESERVED_KEYS, CONTENT_BINDINGS, bindingOf } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs"
+  );
+  const { CustomKeys } = ChromeUtils.importESModule("moz-src:///browser/components/customkeys/CustomKeys.sys.mjs");
+  await TestUtils.waitForCondition(() => gBrowserInit.delayedStartupFinished, "Delayed startup");
+  const reserved = id => document.getElementById(id)?.getAttribute("reserved") == "true";
+
+  for (const id of ["zen-library-toggle", "zen-copy-url", "zen-toggle-pin-tab", "focusURLBar", "key_openDownloads", "zen-workspace-forward"]) {
+    ok(RESERVED_KEYS.includes(id), `${id} is one of Arc's browser keys`);
+    ok(reserved(id), `${id} is reserved`);
+  }
+  for (const id of ["key_copy", "key_selectAll", "key_undo", "key_find", "zen-compact-mode-toggle"]) {
+    const key = document.getElementById(id);
+    if (key) {
+      ok(!RESERVED_KEYS.includes(id) && !key.hasAttribute("whimsy-reserved"), `${id} stays the page's`);
+    }
+  }
+  for (const id of RESERVED_KEYS) {
+    const key = document.getElementById(id);
+    if (key) {
+      ok(!CONTENT_BINDINGS.includes(bindingOf(key)), `${id} (${bindingOf(key)}) isn't on a content key`);
+    }
+  }
+
+  // Rebinding Pin Tab onto Bold gives Bold back to pages; another key keeps
+  // the reservation; resetting brings Arc's ⌘D back, reserved.
+  CustomKeys.changeKey("zen-toggle-pin-tab", { modifiers: "accel", key: "B" });
+  await TestUtils.waitForCondition(() => !reserved("zen-toggle-pin-tab"), "Rebound onto ⌘B: not reserved");
+  CustomKeys.changeKey("zen-toggle-pin-tab", { modifiers: "accel,alt", key: "P" });
+  await TestUtils.waitForCondition(() => reserved("zen-toggle-pin-tab"), "Rebound onto ⌥⌘P: reserved");
+  CustomKeys.resetKey("zen-toggle-pin-tab");
+  await TestUtils.waitForCondition(
+    () => bindingOf(document.getElementById("zen-toggle-pin-tab")) == "accel|D" && reserved("zen-toggle-pin-tab"),
+    "Reset: ⌘D, reserved"
+  );
+
+  // A page that takes every ⌘ key still can't take Pin Tab (⌘D).
+  const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
+  if (AppConstants.platform != "macosx") {
+    return;
+  }
+  const html =
+    "<script>addEventListener('keydown', e => { if (e.metaKey) { e.preventDefault(); document.title = 'page took ' + e.code; } }, true);</script>";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/html," + encodeURIComponent(html));
+  tab.linkedBrowser.focus();
+  await new Promise(resolve =>
+    EventUtils.synthesizeNativeKey(EventUtils.KEYBOARD_LAYOUT_EN_US, MAC_VK_ANSI_D, { metaKey: true }, "d", "d", resolve)
+  );
+  await TestUtils.waitForCondition(() => tab.pinned, "⌘D pins the tab");
+  isnot(await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.title), "page took KeyD", "The page never got ⌘D");
+  gBrowser.unpinTab(tab);
+  BrowserTestUtils.removeTab(tab);
+});

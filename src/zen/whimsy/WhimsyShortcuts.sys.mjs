@@ -50,12 +50,89 @@ export const SHORTCUTS = {
   key_newNavigator: { modifiers: "accel,alt,shift", key: "N" },
 };
 
-// wave10 (W10-47): keys that pages can't take. Arc's Open Library… ⇧⌘L is a
-// macOS menu key equivalent, which the app handles before the web page.
-// A Firefox <key> goes to the page first unless it is reserved, so a site
-// that handles ⇧⌘L itself (preventDefault on keydown) swallowed it here.
-// Reserved keeps the key the browser's, whatever binding the person gives it.
-export const RESERVED_KEYS = ["zen-library-toggle"];
+// wave10 (W10-47): keys that pages can't take. In Arc every menu-bar
+// shortcut is a macOS menu key equivalent, which the app handles before the
+// web page sees the key. A Firefox <key> goes to the page first unless it is
+// reserved, so a site that handled ⇧⌘L itself (preventDefault on keydown)
+// swallowed Open Library…. These are Arc's browser-level menu keys (tabs,
+// spaces, windows, the Library, the sidebar, Little Arc, copy URL), as
+// Whimsy binds them. Firefox already reserves New Tab, Close Tab/Window and
+// Quit. Ids that don't exist (a feature switched off) are skipped. The
+// reservation follows the key, whatever the person rebinds it to, unless
+// the new binding is one of CONTENT_BINDINGS below.
+export const RESERVED_KEYS = [
+  // Window: Open Library…, View Downloads…
+  "zen-library-toggle",
+  "key_openDownloads",
+  // File: New Window, Blank Window, New Incognito Window, New Little Arc
+  // Window, Restore Last Closed Tab, Open Command Bar (⌘L), New Space (⌘N)
+  "key_newNavigator",
+  "zen-new-unsynced-window",
+  "key_privatebrowsing",
+  "key_whimsyQuickWindow",
+  "key_undoCloseTab",
+  "focusURLBar",
+  "key_whimsyNewSpace",
+  // Tabs: Pin, Duplicate, Next/Previous Tab, Clear Today
+  "zen-toggle-pin-tab",
+  "zen-duplicate-tab",
+  "key_whimsyTabNext",
+  "key_whimsyTabPrev",
+  "zen-close-all-unpinned-tabs",
+  // Edit: Copy URL, as Markdown, as Quote
+  "zen-copy-url",
+  "zen-copy-url-markdown",
+  "key_whimsyCopyURLQuote",
+  // View: Show Toolbar, Add Split View, Close this Split Pane
+  "key_cmd_whimsyToggleToolbar",
+  "key_whimsyAddSplitView",
+  "key_whimsyCloseSplitPane",
+  // Spaces: Next/Previous Space and the numbered spaces
+  "zen-workspace-forward",
+  "zen-workspace-backward",
+  ...Array.from({ length: 10 }, (_, i) => `zen-workspace-switch-${i + 1}`),
+];
+
+// Never reserved: what pages legitimately use for their own content
+// (Copy, Cut, Paste, Paste and Match Style, Select All, Undo, Redo, Find,
+// Find Again/Previous, Save, Print, Bold, Italic, Underline). Arc's ⌘S Hide
+// Sidebar is left to pages too: it is the Save key in every editor (Google
+// Docs, Notion, Figma), so zen-compact-mode-toggle isn't in RESERVED_KEYS.
+// A reserved key that someone rebinds onto one of these stops being
+// reserved. As "modifiers|KEY".
+export const CONTENT_BINDINGS = [
+  "accel|C",
+  "accel|X",
+  "accel|V",
+  "accel,shift|V",
+  "accel,alt,shift|V",
+  "accel|A",
+  "accel|Z",
+  "accel,shift|Z",
+  "accel|Y",
+  "accel|F",
+  "accel|G",
+  "accel,shift|G",
+  "accel|S",
+  "accel|P",
+  "accel|B",
+  "accel|I",
+  "accel|U",
+];
+
+// "modifiers|KEY" for a <key>, with the modifiers sorted and Cmd as accel.
+export function bindingOf(keyEl) {
+  const key = (keyEl.getAttribute("key") || keyEl.getAttribute("keycode") || "").toUpperCase();
+  const mods = (keyEl.getAttribute("modifiers") || "")
+    .split(/[,\s]+/)
+    .filter(Boolean)
+    .map(m => (m == "meta" && Services.appinfo.OS == "Darwin" ? "accel" : m))
+    .sort();
+  return `${[...new Set(mods)].join(",")}|${key}`;
+}
+
+const RESERVED_BY_US = "whimsy-reserved";
+const watched = new WeakSet();
 
 export const NEW_SPACE_KEY = { key: "N", modifiers: "accel" };
 
@@ -204,11 +281,43 @@ export const WhimsyShortcuts = {
   reserveKeys(document, keysets) {
     for (const id of RESERVED_KEYS) {
       const keyEl = document.getElementById(id);
-      if (keyEl && keyEl.getAttribute("reserved") != "true") {
-        keyEl.setAttribute("reserved", "true");
+      if (keyEl?.localName != "key") {
+        continue;
+      }
+      if (this.updateReserved(keyEl)) {
         keysets.add(keyEl.parentElement);
       }
+      // A rebinding in about:keyboard (CustomKeys) changes the attributes in
+      // place; reserve or release again, then let Gecko re-read the keyset.
+      if (!watched.has(keyEl)) {
+        watched.add(keyEl);
+        const win = document.defaultView;
+        new win.MutationObserver(() => {
+          if (this.updateReserved(keyEl)) {
+            this.rebindKeysets(new Set([keyEl.parentElement]));
+          }
+        }).observe(keyEl, { attributes: true, attributeFilter: ["key", "keycode", "modifiers"] });
+      }
     }
+  },
+
+  // Reserves the key unless its binding is a content key (or it has none);
+  // only ever releases a reservation Whimsy made. True when it changed.
+  updateReserved(keyEl) {
+    const binding = bindingOf(keyEl);
+    const want = !binding.endsWith("|") && !CONTENT_BINDINGS.includes(binding);
+    const has = keyEl.getAttribute("reserved") == "true";
+    if (want && !has) {
+      keyEl.setAttribute("reserved", "true");
+      keyEl.setAttribute(RESERVED_BY_US, "true");
+      return true;
+    }
+    if (!want && has && keyEl.hasAttribute(RESERVED_BY_US)) {
+      keyEl.removeAttribute("reserved");
+      keyEl.removeAttribute(RESERVED_BY_US);
+      return true;
+    }
+    return false;
   },
 
   isCustomized(id) {
