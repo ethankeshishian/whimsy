@@ -87,7 +87,15 @@ export class WhimsyPageParent extends JSWindowActorParent {
         const browser = this.browsingContext.top.embedderElement;
         const win = browser?.ownerDocument?.defaultView;
         if (win) {
-          lazy.WhimsyZap.exit(win, browser);
+          lazy.WhimsyZap.cancelSession(win, browser);
+        }
+        return null;
+      }
+      case "Whimsy:ZapAccept": {
+        const browser = this.browsingContext.top.embedderElement;
+        const win = browser?.ownerDocument?.defaultView;
+        if (win) {
+          lazy.WhimsyZap.acceptSession(win, browser);
         }
         return null;
       }

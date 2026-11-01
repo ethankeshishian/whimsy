@@ -18,7 +18,7 @@ const ZAP_SHEET =
 export const WhimsyZapChild = {
   _active: new WeakMap(),
 
-  onStart(win, onEscape) {
+  onStart(win, onEscape, onEnter) {
     if (!win || this._active.has(win)) {
       return;
     }
@@ -39,6 +39,10 @@ export const WhimsyZapChild = {
         event.preventDefault();
         event.stopPropagation();
         onEscape?.();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        onEnter?.();
       }
     };
     win.addEventListener("keydown", onKeyDown, true);

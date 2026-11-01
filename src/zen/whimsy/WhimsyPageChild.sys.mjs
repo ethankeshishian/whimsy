@@ -224,9 +224,15 @@ export class WhimsyPageChild extends JSWindowActorChild {
           "resource:///modules/whimsy/WhimsyZapChild.sys.mjs"
         );
         if (message.data?.active) {
-          WhimsyZapChild.onStart(this.contentWindow, () => {
-            this.sendAsyncMessage("Whimsy:ZapExit");
-          });
+          WhimsyZapChild.onStart(
+            this.contentWindow,
+            () => {
+              this.sendAsyncMessage("Whimsy:ZapExit");
+            },
+            () => {
+              this.sendAsyncMessage("Whimsy:ZapAccept");
+            }
+          );
         } else {
           WhimsyZapChild.onStop(this.contentWindow);
         }

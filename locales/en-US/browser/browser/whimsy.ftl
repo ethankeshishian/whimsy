@@ -3922,3 +3922,12 @@ whimsy-menu-view-easels =
 whimsy-action-add-page-to-easel = Add Page to Easel
 whimsy-easel-export-link = Copy Link
 whimsy-easel-status-copied-link = Copied the link to this easel
+
+# batch10: view-source line wrap (W10-34)
+whimsy-view-source-wrap =
+    .label = Wrap long lines in View Page Source
+    .searchkeywords = view source, page source, line wrap, wrap long lines
+whimsy-action-view-source-wrap-toggle = Wrap Long Lines in Page Source
+whimsy-action-view-source-wrap-on = Wrap Long Lines in Page Source
+whimsy-action-view-source-wrap-off = Stop Wrapping Long Lines in Page Source
+

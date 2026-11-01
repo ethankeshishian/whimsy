@@ -1234,6 +1234,9 @@ FEATURES = [
     # full screen and the user agent, each forgettable, plus Forget All.
     {"id": "site-settings", "title": "Site settings: the site panel remembers a site's zoom, autoplay, Reader View, full screen and user agent, and forgets them one by one or all at once",
      "detect": [("src/zen", r"(?i)always-?open-?in-?reader|per-?site-?settings|site-?settings-?section")]},
+    # batch10: view-source line wrap (W10-34)
+    {"id": "view-source-wrap", "title": "View Page Source line wrap option and command",
+     "detect": [("src/zen", r"(?i)view-?source.*(?:line-?wrap|wrap-?long-?lines)|wrap-?long-?lines.*view-?source")]},
 ]
 
 

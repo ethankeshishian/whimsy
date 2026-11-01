@@ -45,6 +45,7 @@ const UI_ZOOM_PREF = "whimsy.ui-zoom";
 const BACKGROUND_MUTE_PREF = "whimsy.media.background-mute";
 const BIONIC_PREF = "whimsy.reader.bionic";
 const DARK_PDF_PREF = "whimsy.pdf.dark";
+const VIEW_SOURCE_WRAP_PREF = "view_source.wrap_long_lines";
 const CHOOSER_ID = "whimsy-command-chooser";
 const FINDER_SECTION = "whimsy-finder-folders";
 const CHANGELOG_URL = "about:whimsy?tab=changelog";
@@ -65,6 +66,7 @@ const ICONS = {
   claude: "chrome://browser/skin/zen-icons/sparkles.svg",
   news: "chrome://browser/skin/zen-icons/history.svg",
   tabIcon: "chrome://browser/skin/zen-icons/face-sun.svg",
+  source: "chrome://browser/skin/zen-icons/selectable/code.svg",
 };
 
 // Zen's live folder kinds (its own menu's ids, which its command handler
@@ -225,6 +227,16 @@ export const WhimsyAccessCommands = {
 
   toggleDarkPdf() {
     Services.prefs.setBoolPref(DARK_PDF_PREF, !this.darkPdf());
+  },
+
+  viewSourceWrap() {
+    return Services.prefs.getBoolPref(VIEW_SOURCE_WRAP_PREF, false);
+  },
+
+  toggleViewSourceWrap() {
+    const next = !this.viewSourceWrap();
+    Services.prefs.setBoolPref(VIEW_SOURCE_WRAP_PREF, next);
+    return next;
   },
 
   liveFoldersAvailable(win) {
@@ -445,6 +457,17 @@ export const WhimsyAccessCommands = {
       variants: [
         { l10nId: "whimsy-action-dark-pdf-on", isAvailable: () => feature("dark-pdf") && !this.darkPdf() },
         { l10nId: "whimsy-action-dark-pdf-off", isAvailable: () => feature("dark-pdf") && this.darkPdf() },
+      ],
+    });
+    register({
+      id: "cmd_whimsyToggleViewSourceWrap",
+      l10nId: "whimsy-action-view-source-wrap-toggle",
+      run: () => feature("view-source-wrap") && this.toggleViewSourceWrap(),
+      icon: ICONS.source,
+      menu: "view-menu",
+      variants: [
+        { l10nId: "whimsy-action-view-source-wrap-on", isAvailable: () => feature("view-source-wrap") && !this.viewSourceWrap() },
+        { l10nId: "whimsy-action-view-source-wrap-off", isAvailable: () => feature("view-source-wrap") && this.viewSourceWrap() },
       ],
     });
     register({

@@ -383,3 +383,81 @@ add_task(async function zap_escape_from_content() {
     ok(!WhimsyZap.isZapping(window), "Zap mode is off after content Escape");
   });
 });
+
+// W10-35: Esc cancels zaps made in this session, Enter accepts.
+add_task(async function zap_session_escape_cancels_session_zaps() {
+  deleteBoosts();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await zapModeOn(browser);
+    ok(WhimsyZap.isZapping(window), "Zap mode active");
+
+    gZenBoostsManager.addZapSelectorToActive("h1", DOMAIN);
+    ok(zapSelectors().includes("h1"), "h1 was zapped in this session");
+
+    // Escape cancels this session's zaps and exits zap mode
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await TestUtils.waitForCondition(() => !zapBar(browser), "Escape exited zap mode");
+    ok(!WhimsyZap.isZapping(window), "Zap mode is off after Escape");
+    ok(!zapSelectors().includes("h1"), "h1 was cancelled on Escape");
+  });
+});
+
+add_task(async function zap_session_enter_accepts_session_zaps() {
+  deleteBoosts();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await zapModeOn(browser);
+    ok(WhimsyZap.isZapping(window), "Zap mode active");
+
+    gZenBoostsManager.addZapSelectorToActive("h1", DOMAIN);
+    ok(zapSelectors().includes("h1"), "h1 was zapped in this session");
+
+    // Enter accepts this session's zaps and exits zap mode
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    await TestUtils.waitForCondition(() => !zapBar(browser), "Enter exited zap mode");
+    ok(!WhimsyZap.isZapping(window), "Zap mode is off after Enter");
+    ok(zapSelectors().includes("h1"), "h1 was accepted on Enter");
+  });
+});
+
+add_task(async function zap_session_escape_preserves_prior_zaps() {
+  deleteBoosts();
+  WhimsyZap.ensureBoost(DOMAIN);
+  gZenBoostsManager.addZapSelectorToActive("p", DOMAIN);
+  ok(zapSelectors().includes("p"), "p was zapped in a prior session");
+
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await zapModeOn(browser);
+    ok(WhimsyZap.isZapping(window), "Zap mode active");
+
+    gZenBoostsManager.addZapSelectorToActive("h1", DOMAIN);
+    ok(zapSelectors().includes("h1"), "h1 was zapped in current session");
+    ok(zapSelectors().includes("p"), "p is still present");
+
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await TestUtils.waitForCondition(() => !zapBar(browser), "Escape exited zap mode");
+    ok(!WhimsyZap.isZapping(window), "Zap mode is off");
+    ok(!zapSelectors().includes("h1"), "Session zap h1 cancelled");
+    ok(zapSelectors().includes("p"), "Prior zap p preserved");
+  });
+});
+
+add_task(async function zap_session_content_enter_accepts() {
+  deleteBoosts();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await zapModeOn(browser);
+    ok(WhimsyZap.isZapping(window), "Zap mode active");
+
+    gZenBoostsManager.addZapSelectorToActive("h1", DOMAIN);
+    ok(zapSelectors().includes("h1"), "h1 was zapped in current session");
+
+    browser.focus();
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.body.focus();
+      const event = new content.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+      content.window.dispatchEvent(event);
+    });
+    await TestUtils.waitForCondition(() => !zapBar(browser), "Content Enter exited zap mode");
+    ok(!WhimsyZap.isZapping(window), "Zap mode is off");
+    ok(zapSelectors().includes("h1"), "h1 accepted on content Enter");
+  });
+});
