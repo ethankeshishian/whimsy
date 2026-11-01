@@ -39,6 +39,23 @@ const PROGRESS_VAR = "--whimsy-load-progress";
 // ([titlechanged], cleared when it's selected); Zen hides Firefox's dot, and
 // whimsy-browser.css shows an Arc-style dot on pinned tabs and Essentials
 // instead, when there's no count to show. whimsy.tabs.badges turns both off.
+//
+// W10-11: the badges stay live for Essentials you haven't opened, like Arc's
+// Favorites, which keep running in the background so their counts update.
+// Three things froze them:
+//  - Essentials are pinned, and session restore leaves pinned tabs unloaded
+//    until selected (browser.sessionstore.restore_pinned_tabs_on_demand), so
+//    an Essential you hadn't opened since launch showed last session's count
+//    forever. They now load in the background, one at a time, once the
+//    session is restored (and when a pending tab becomes an Essential).
+//    Tabs you unload yourself, or Firefox unloads for memory, stay unloaded.
+//  - With Zen's window sync on, a restored tab only takes title updates once
+//    it's been shown (Tabbrowser's #setTabLabel skips tabs without
+//    _zenContentsVisible), and a renamed Essential's label never changes. So
+//    the count is read from the page's own title (pagetitlechanged) instead
+//    of waiting for the label.
+//  - In a second window, a synced copy of the tab has no page of its own; it
+//    reads the count from the copy that holds the page.
 const BADGES_FEATURE_PREF = "whimsy.feature.tab-badges";
 const BADGES_PREF = "whimsy.tabs.badges";
 const UNREAD_ATTR = "whimsy-unread";
@@ -309,7 +326,124 @@ export const WhimsyTabs = {
       },
       { once: true }
     );
+    // The page's own title, whether or not the tab's label follows it.
+    gBrowser.addEventListener("pagetitlechanged", event => {
+      const tab = gBrowser.getTabForBrowser(event.target);
+      if (tab && !tab.hasAttribute("pending")) {
+        this.onContentTitle(tab);
+      }
+    });
+    // Unloaded on purpose (the Unload command, ⌘W on an Essential, or
+    // Firefox freeing memory): it stays unloaded until it's opened. Essentials
+    // sit outside the tab strip, so these two are heard on the window.
+    win.addEventListener("TabBrowserDiscarded", event => {
+      event.target._whimsyUnloaded = true;
+    });
+    win.addEventListener("TabAddedToEssentials", event => {
+      delete event.target._whimsyUnloaded;
+      if (this.wantsWaking(event.target)) {
+        this.wakeEssentials(win, [event.target]);
+      }
+    });
     win.gZenWorkspaces?.promiseInitialized?.then(updateAll);
+    const { SessionStore } = ChromeUtils.importESModule("resource:///modules/sessionstore/SessionStore.sys.mjs");
+    Promise.all([win.gZenWorkspaces?.promiseInitialized, SessionStore.promiseAllWindowsRestored])
+      .then(() => new Promise(resolve => ChromeUtils.idleDispatch(resolve, { timeout: 5000 })))
+      .then(() => !win.closed && this.keepEssentialsLive(win))
+      .catch(console.error);
+  },
+
+  // The copy of a tab that holds its page. With Zen's window sync every
+  // window has a copy of each synced tab, but only one of them (marked
+  // _zenContentsVisible) has the live page; the others show its label.
+  contentOwner(tab) {
+    if (tab._zenContentsVisible || !tab.id) {
+      return tab;
+    }
+    for (const other of this.copiesOf(tab)) {
+      if (other._zenContentsVisible) {
+        return other;
+      }
+    }
+    return tab;
+  },
+
+  copiesOf(tab) {
+    const copies = [];
+    if (!tab.id) {
+      return copies;
+    }
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      if (win == tab.ownerGlobal || win.closed) {
+        continue;
+      }
+      const other = win.document.getElementById(tab.id);
+      if (other && other != tab && other.localName == tab.localName) {
+        copies.push(other);
+      }
+    }
+    return copies;
+  },
+
+  onContentTitle(tab) {
+    const title = tab.linkedBrowser?.contentTitle || "";
+    const changed = tab._whimsyContentTitle !== undefined && tab._whimsyContentTitle != title;
+    tab._whimsyContentTitle = title;
+    for (const copy of [tab, ...this.copiesOf(tab)]) {
+      this.updateBadge(copy);
+      // Firefox's update dot comes with a label change; a renamed or
+      // not-yet-shown pinned tab gets none, so mark it here.
+      if (changed && this.badges && copy.pinned && !tab.selected && !copy.selected && !copy.hasAttribute("busy") && title) {
+        copy.setAttribute("titlechanged", "true");
+      }
+    }
+  },
+
+  // A pending Essential whose page should be running: never opened since
+  // launch (not unloaded on purpose), an http(s) page, in a normal window, and no other window's copy
+  // holds (or has unloaded) its page.
+  wantsWaking(tab) {
+    if (!this.badges || !tab?.hasAttribute("zen-essential") || !tab.hasAttribute("pending") || tab._whimsyUnloaded || tab.closing || tab.selected) {
+      return false;
+    }
+    const win = tab.ownerGlobal;
+    if (win.gZenWorkspaces?.privateWindowOrDisabled || win.document.documentElement.hasAttribute("privatebrowsingmode")) {
+      return false;
+    }
+    if (!/^https?:/.test(tab.linkedBrowser?.currentURI?.spec || "")) {
+      return false;
+    }
+    return !this.copiesOf(tab).some(copy => copy._zenContentsVisible || !copy.hasAttribute("pending"));
+  },
+
+  keepEssentialsLive(win) {
+    const tabs = (win.gZenWorkspaces?.allStoredTabs || win.gBrowser.tabs).filter(tab => this.wantsWaking(tab));
+    return this.wakeEssentials(win, tabs);
+  },
+
+  // One at a time, a moment apart, so launch isn't a burst of page loads.
+  async wakeEssentials(win, tabs, { gap = 300 } = {}) {
+    const woken = [];
+    for (const tab of tabs) {
+      if (win.closed) {
+        break;
+      }
+      if (!this.wantsWaking(tab)) {
+        continue;
+      }
+      // This copy now holds the page, so Zen's window sync moves it (rather
+      // than loading a second one) when another window shows the tab, and
+      // the tab takes its title updates.
+      tab._zenContentsVisible = true;
+      // A pending tab's reload restores its saved page (SessionStore's
+      // onHistoryReload), as Firefox's Reload on an unloaded tab does.
+      tab.linkedBrowser.reload();
+      woken.push(tab);
+      if (gap) {
+        await new Promise(resolve => win.setTimeout(resolve, gap));
+      }
+    }
+    return woken;
   },
 
   // The count goes on the tab (for selectors), and on its icon stack and
@@ -325,10 +459,11 @@ export const WhimsyTabs = {
     }
     let count = 0;
     if (this.badges && tab.pinned) {
-      const title = tab.linkedBrowser?.contentTitle || tab.label || "";
+      const browser = this.contentOwner(tab).linkedBrowser;
+      const title = browser?.contentTitle || tab.label || "";
       count = parseUnreadCount(title);
       // batch8: W8-06: Gmail badge persistence while viewing an email thread
-      const url = tab.linkedBrowser?.currentURI?.spec || "";
+      const url = browser?.currentURI?.spec || "";
       const isGmail = /mail\.google\.com/.test(url) || /@gmail\.com| - Gmail$/.test(title);
       if (isGmail) {
         if (count > 0) {

@@ -191,3 +191,96 @@ add_task(async function test_tab_badges_gmail_persistence() {
   BrowserTestUtils.removeTab(tab);
 });
 
+
+// W10-11: Essentials' badges stay live while you're elsewhere, like Arc's
+// Favorites. An Essential restored at launch was left unloaded (pinned tabs
+// restore on demand) and, with Zen's window sync, took no title updates
+// until shown, so its count froze at last session's.
+function loadedAt(tab, query) {
+  return !tab.hasAttribute("pending") && !tab.hasAttribute("busy") &&
+    tab.linkedBrowser.currentURI.spec.includes(query);
+}
+
+// What an Essential looks like right after launch: no page yet, never shown.
+async function asAtLaunch(tab) {
+  ok(gBrowser.discardBrowser(tab, true), "Unloaded");
+  await TestUtils.waitForCondition(() => tab.hasAttribute("pending"), "Pending");
+  delete tab._whimsyUnloaded;
+  delete tab._zenContentsVisible;
+  tab.removeAttribute("discarded");
+}
+
+add_task(async function test_unloaded_essential_loads_in_background_and_stays_live() {
+  const { WhimsyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
+  const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?live-essential");
+  gZenPinnedTabManager.addToEssentials(essential);
+  await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential");
+  await setTitle(essential, "(2) Chat");
+  await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "2", "Badge 2");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?live-other");
+
+  // Unloaded on purpose: it stays unloaded.
+  ok(gBrowser.discardBrowser(essential, true), "Unloaded by hand");
+  await TestUtils.waitForCondition(() => essential.hasAttribute("pending"), "Pending");
+  ok(essential._whimsyUnloaded, "An unload on purpose is remembered");
+  let woken = await WhimsyTabs.keepEssentialsLive(window);
+  ok(!woken.includes(essential), "and isn't undone");
+  ok(essential.hasAttribute("pending"), "Still unloaded");
+
+  // Badges off: nothing is loaded for them.
+  delete essential._whimsyUnloaded;
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.tabs.badges", false]] });
+  woken = await WhimsyTabs.keepEssentialsLive(window);
+  ok(!woken.includes(essential), "Badges off: the Essential stays unloaded");
+  await SpecialPowers.popPrefEnv();
+
+  // As restored at launch: it loads in the background.
+  await asAtLaunch(essential);
+  woken = await WhimsyTabs.keepEssentialsLive(window);
+  ok(woken.includes(essential), "The launch-time Essential is loaded");
+  ok(other.selected, "in the background (the selected tab doesn't change)");
+  await TestUtils.waitForCondition(() => loadedAt(essential, "live-essential"), "Its saved page loads");
+  ok(essential._zenContentsVisible, "This copy holds the page (window sync moves it, not reloads it)");
+  await setTitle(essential, "(5) Chat");
+  await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "5",
+    "The count updates without opening it");
+  ok(other.selected, "Still in the background");
+
+  // A tab whose label doesn't follow its page (with window sync, one never
+  // shown in this window) still gets its count from the page's title.
+  delete essential._zenContentsVisible;
+  await setTitle(essential, "(7) Chat");
+  await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "7",
+    "Counted from the page's title, not the label");
+  essential._zenContentsVisible = true;
+
+  // A renamed Essential: the label stays its name, the count still moves,
+  // and a title change without a count shows the update dot.
+  essential.zenStaticLabel = "Team";
+  gBrowser._setTabLabel(essential, "Team", { _zenChangeLabelFlag: true });
+  await setTitle(essential, "(4) Chat");
+  await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "4", "Renamed: badge 4");
+  is(essential.label, "Team", "The name stays");
+  essential.removeAttribute("titlechanged");
+  await setTitle(essential, "Chat - new thread");
+  await TestUtils.waitForCondition(() => !stack(essential).hasAttribute("whimsy-unread"), "Count read");
+  await TestUtils.waitForCondition(() => essential.hasAttribute("titlechanged"), "Renamed: the update dot shows");
+  gBrowser.selectedTab = essential;
+  await TestUtils.waitForCondition(() => !essential.hasAttribute("titlechanged"), "Opening it clears the dot");
+  delete essential.zenStaticLabel;
+  gBrowser.selectedTab = other;
+  BrowserTestUtils.removeTab(other);
+});
+
+add_task(async function test_pending_tab_made_essential_loads() {
+  const pending = BrowserTestUtils.addTab(gBrowser, "https://example.com/?made-essential");
+  await BrowserTestUtils.browserLoaded(pending.linkedBrowser);
+  ok(!pending.selected, "A background tab");
+  ok(gBrowser.discardBrowser(pending, true), "Unloaded");
+  await TestUtils.waitForCondition(() => pending.hasAttribute("pending"), "Pending");
+  gZenPinnedTabManager.addToEssentials(pending);
+  await TestUtils.waitForCondition(() => pending.hasAttribute("zen-essential"), "Made an Essential");
+  await TestUtils.waitForCondition(() => loadedAt(pending, "made-essential"),
+    "A new Essential loads, so its badge is live");
+  ok(!pending.selected, "without being opened");
+});
