@@ -172,6 +172,11 @@ export const WhimsySpaceSwitchQueue = {
     }
     const self = this;
     const wrapped = function (offset = 1, whileScrolling = false, disableWrap = false) {
+      const edgeCommand = state.edgeCommand;
+      state.edgeCommand = 0;
+      if (edgeCommand && self.edgesEnabled) {
+        return self.stepFromEdge(win, state, offset);
+      }
       if (!featureOn() || !state.running) {
         return original.call(this, offset, whileScrolling, disableWrap);
       }
@@ -204,23 +209,25 @@ export const WhimsySpaceSwitchQueue = {
 
   // W10-03: Next Space and Previous Space (their shortcuts, the Spaces menu
   // and the command bar all run these two commands) at the ends of the
-  // list. Capture phase, so this runs before Zen's commandset listener.
-  // Swipes, the sidebar's scroll wheel and the mouse's back/forward buttons
-  // keep Zen's own behaviour (a swipe past the last space already offers a
-  // new one, ZenSpaceAddSwipe).
+  // list. The command still reaches Zen's commandset handler, which calls
+  // changeWorkspaceShortcut; this only marks that call (capture phase, so
+  // before Zen's handler; cleared once the event is done) for the wrapper
+  // below to apply the edges. Swipes, the sidebar's scroll wheel and the
+  // mouse's back/forward buttons call it unmarked and keep Zen's own
+  // behaviour (a swipe past the last space already offers a new one,
+  // ZenSpaceAddSwipe).
   initEdges(win, state) {
-    win.document.addEventListener(
+    const { document } = win;
+    document.addEventListener(
       "command",
       event => {
-        const offset = EDGE_COMMANDS[event.target.id];
-        if (!offset || !this.edgesEnabled) {
-          return;
-        }
-        event.stopPropagation();
-        this.stepFromEdge(win, state, offset)?.catch?.(console.error);
+        state.edgeCommand = EDGE_COMMANDS[event.target.id] ?? 0;
       },
       true
     );
+    document.addEventListener("command", () => {
+      state.edgeCommand = 0;
+    });
   },
 
   // One step through the spaces, from where the window is (or will be once
