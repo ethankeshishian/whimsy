@@ -81,10 +81,12 @@ export const WhimsyExternalLinks = {
 
   // batch12: opens the link in Mini Whimsy (Arc's Little Arc) when the
   // target is "quick-window". Same return convention as openInGlance.
+  // wave10/mini W10-13: an open Mini takes the link as its front tab
+  // rather than another Mini opening over it.
   openInQuickWindow(uri, triggeringPrincipal) {
     if (this.target != "quick-window") {
       return false;
     }
-    return !!lazy.WhimsyQuickWindow.open(uri.spec, { triggeringPrincipal });
+    return !!lazy.WhimsyQuickWindow.open(uri.spec, { triggeringPrincipal, reuse: true });
   },
 };

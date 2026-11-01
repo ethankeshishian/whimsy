@@ -1240,6 +1240,10 @@ FEATURES = [
     # batch10: view-source line wrap (W10-34)
     {"id": "view-source-wrap", "title": "View Page Source line wrap option and command",
      "detect": [("src/zen", r"(?i)view-?source.*(?:line-?wrap|wrap-?long-?lines)|wrap-?long-?lines.*view-?source")]},
+    # wave10/mini: W10-13 Mini Whimsy's pages as pill tabs (popups as tabs,
+    # links reuse the open Mini, Cmd+O moves them all).
+    {"id": "mini-tabs", "title": "Mini Whimsy tabs: pill tabs from the second page, sign-in popups as tabs, links from other apps join the open Mini, Cmd+O moves every page",
+     "detect": [("src/zen", r"(?i)zen[\w.-]*(quick|mini)[\w.-]*window[\w.-]*tabs")]},
 ]
 
 

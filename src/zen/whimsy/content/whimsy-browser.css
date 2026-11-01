@@ -4507,4 +4507,162 @@ panel.whimsy-sheet.whimsy-snooze {
   .whimsy-private-empty-mark {
     outline: 1px solid currentColor;
   }
+/* wave10/mini W10-13: Mini's pill tabs. One page is Little Arc exactly (no
+   row at all); a second page (a sign-in popup, a target=_blank link,
+   Cmd+Opt+T) slides a row of pills in under the bar, in the bar's own
+   family: the current page lit with the address strip's fill and 8px
+   corners, the others quiet until hovered, each with a close button
+   concentric inside it. The row is part of the title bar: its empty space
+   drags the window. */
+#whimsy-quick-window-tabs {
+  --whimsy-mini-tabs-height: 34px;
+  --whimsy-mini-fill-soft: color-mix(in srgb, var(--whimsy-mini-text) 5%, var(--whimsy-mini-frame));
+  display: none;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 4px;
+  height: var(--whimsy-mini-tabs-height);
+  min-height: var(--whimsy-mini-tabs-height);
+  /* Tucked 4px under the bar: 6px between its controls and the pills. */
+  margin-top: -4px;
+  padding: 0 var(--zen-element-separation) 8px;
+  color: var(--whimsy-mini-text);
+  background: var(--whimsy-mini-frame);
+  font: menu;
+  font-size: 12px;
+  overflow-x: auto;
+  overflow-y: clip;
+  scrollbar-width: none;
+  -moz-window-dragging: drag;
+
+  :root[whimsy-quick-window][whimsy-mini-tabs]:not([whimsy-mini-bar-only]) & {
+    display: flex;
+  }
+  :root:is([inDOMFullscreen="true"], [inFullscreen]) & {
+    display: none !important;
+  }
+}
+
+#whimsy-quick-window-tabs > .whimsy-mini-tab {
+  flex: 1 1 0;
+  min-width: 96px;
+  max-width: 240px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding-inline: 8px 3px;
+  border-radius: 8px;
+  background: transparent;
+  cursor: default;
+  -moz-window-dragging: no-drag;
+  transition: background-color 120ms ease;
+
+  & > .whimsy-mini-tab-icon {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    opacity: 0.7;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+  & > .whimsy-mini-tab-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    opacity: 0.7;
+  }
+  /* 20px at a 3px inset: 5px corners inside the pill's 8px. */
+  & > .whimsy-mini-tab-close {
+    appearance: none;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    opacity: 0;
+    transition: opacity 120ms ease, background-color 120ms ease;
+
+    &::before {
+      content: "";
+      display: block;
+      width: 10px;
+      height: 10px;
+      margin: auto;
+      background-color: currentColor;
+      mask: url("chrome://browser/skin/zen-icons/close.svg") center / 10px no-repeat;
+    }
+    &:hover {
+      background: var(--whimsy-mini-fill-hover);
+    }
+    &:hover:active {
+      background: var(--whimsy-mini-fill-active);
+    }
+  }
+
+  &:hover {
+    background: var(--whimsy-mini-fill-soft);
+    & > :is(.whimsy-mini-tab-icon, .whimsy-mini-tab-label) {
+      opacity: 1;
+    }
+  }
+  &[selected] {
+    background: var(--whimsy-mini-fill);
+    & > :is(.whimsy-mini-tab-icon, .whimsy-mini-tab-label) {
+      opacity: 1;
+    }
+    & > .whimsy-mini-tab-label {
+      font-weight: 500;
+    }
+  }
+  &[selected]:hover {
+    background: var(--whimsy-mini-fill-hover);
+  }
+  &:is(:hover, [selected]) > .whimsy-mini-tab-close {
+    opacity: 0.75;
+  }
+  & > .whimsy-mini-tab-close:hover {
+    opacity: 1;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[whimsy-quick-window][whimsy-mini-tabs] #whimsy-quick-window-tabs {
+    animation: whimsy-mini-tabs-in 140ms var(--whimsy-mini-ease-out, ease-out);
+  }
+  #whimsy-quick-window-tabs > .whimsy-mini-tab {
+    animation: whimsy-mini-tab-in 120ms var(--whimsy-mini-ease-out, ease-out);
+  }
+  #whimsy-quick-window-tabs > .whimsy-mini-tab[busy] > .whimsy-mini-tab-icon {
+    animation: whimsy-mini-tab-busy 800ms ease-in-out infinite alternate;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-quick-window-tabs > .whimsy-mini-tab,
+  #whimsy-quick-window-tabs > .whimsy-mini-tab > .whimsy-mini-tab-close {
+    transition: none;
+  }
+}
+@keyframes whimsy-mini-tabs-in {
+  from { height: 0; min-height: 0; padding-bottom: 0; margin-top: 0; opacity: 0; }
+}
+@keyframes whimsy-mini-tab-in {
+  from { opacity: 0; scale: 0.96; }
+}
+@keyframes whimsy-mini-tab-busy {
+  from { opacity: 0.35; }
 }

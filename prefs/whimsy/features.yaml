@@ -532,6 +532,7 @@
   value: true
 
 - name: whimsy.feature.view-source-wrap
+- name: whimsy.feature.mini-tabs
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

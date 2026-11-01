@@ -633,9 +633,18 @@ whimsy-library-files-delete =
 ## batch12: links & media windows (Mini Whimsy, Arc's "Little Arc")
 
 whimsy-action-quick-window = New Mini Whimsy
+# wave10/mini W10-13: $count is how many pages Mini holds (all of them move).
 whimsy-quick-window-move-to-space =
-    .label = Open in { $space }
-    .tooltiptext = Open in { $space } (Cmd+O)
+    .label =
+        { $count ->
+            [one] Open in { $space }
+           *[other] Open { $count } Tabs in { $space }
+        }
+    .tooltiptext =
+        { $count ->
+            [one] Open in { $space } (Cmd+O)
+           *[other] Open all { $count } tabs in { $space } (Cmd+O)
+        }
 whimsy-quick-window-choose-space =
     .tooltiptext = Choose a different space (Cmd+Shift+O)
 
@@ -2625,7 +2634,11 @@ whimsy-game-hint-embedded = Arrows, WASD or pointer to steer · Space or click t
 
 ## fix7: Mini Whimsy space dropdown (caret, Cmd+Shift+O)
 whimsy-quick-window-picker-caption =
-    .label = Open in
+    .label =
+        { $count ->
+            [one] Open in
+           *[other] Open { $count } Tabs in
+        }
 
 # fix7/tabs: People card actions.
 whimsy-person-open = Open Profile
@@ -3991,3 +4004,17 @@ whimsy-private-empty-title = Private Space
 whimsy-private-empty-body = Nothing you do here is saved. Pages leave no history, and their cookies and site data are forgotten when you close them.
 whimsy-private-empty-new = New Private Tab
 whimsy-private-empty-note = This space closes when you leave it with no tabs.
+## wave10/mini W10-13: Mini Whimsy's pages (pill tabs) and extensions
+
+whimsy-action-mini-new-tab = New Tab in Mini Whimsy
+whimsy-action-mini-extensions = Show Extensions in Mini Whimsy
+# The group of Mini's own shortcuts in Settings → Keyboard Shortcuts (they
+# work only inside Mini Whimsy).
+whimsy-keys-group-mini = Mini Whimsy
+whimsy-action-mini-open-in-space = Open in Current Space
+whimsy-action-mini-choose-space = Open in Another Space…
+whimsy-quick-window-tabs =
+    .aria-label = Pages
+whimsy-quick-window-tab-close =
+    .title = Close Tab
+    .aria-label = Close Tab

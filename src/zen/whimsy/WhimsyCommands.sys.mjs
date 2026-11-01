@@ -40,6 +40,10 @@ const FEATURE_PREF = "whimsy.feature.command-registry";
 const KEYSET_ID = "whimsyKeyset";
 const AUTO_KEY_ATTR = "whimsy-command-key";
 const GROUP_L10N_ID = "whimsy-cheatsheet-group-whimsy";
+// wave10/mini: commands whose keys work only inside one kind of window
+// (spec.scope) get their own group in about:keyboard, listed from every
+// window; a shortcut there never conflicts with one outside that scope.
+const SCOPE_GROUPS = { mini: "whimsy-keys-group-mini" };
 
 // Session-wide: command id → { id, l10nId, keyId, defaultKey, variants }.
 // Every window registers the same commands as it starts, so the entries
@@ -247,6 +251,7 @@ export const WhimsyCommands = {
     entry.keyId ??= spec.keyId ?? null;
     entry.defaultKey ??= bindingOf(spec.key);
     entry.menu ??= spec.menu ?? null;
+    entry.scope ??= spec.scope ?? null;
     for (const variant of spec.variants ?? []) {
       if (!entry.variants.includes(variant.l10nId)) {
         entry.variants.push(variant.l10nId);
@@ -254,6 +259,11 @@ export const WhimsyCommands = {
     }
     entries.set(spec.id, entry);
     return entry;
+  },
+
+  // A key's or binding's shortcut, normalised ("accel,alt|key:T"), or null.
+  keySignature(keyOrBinding) {
+    return signature(keyOrBinding);
   },
 
   existingKey(win, commandId) {
@@ -434,26 +444,51 @@ export const WhimsyCommands = {
       const listed = this.entries
         .filter(entry => entry.l10nId && keyIdOf(entry))
         .map(entry => ({ ...entry, keyId: keyIdOf(entry) }));
-      const ids = [GROUP_L10N_ID, ...listed.map(entry => entry.l10nId)];
+      const scopes = Object.keys(SCOPE_GROUPS);
+      const ids = [GROUP_L10N_ID, ...scopes.map(scope => SCOPE_GROUPS[scope]), ...listed.map(entry => entry.l10nId)];
       const values = await lazy.l10n.formatValues(ids.map(id => ({ id })));
-      const [heading, ...titles] = values;
+      const [heading, ...rest] = values;
+      const scopeHeadings = rest.splice(0, scopes.length);
+      const titles = rest;
       const group = {};
+      const scoped = Object.fromEntries(scopes.map(scope => [scope, {}]));
       listed.forEach((entry, i) => {
         const data = actor.getKeyData(entry.keyId);
         if (data && titles[i]) {
           data.title = titles[i];
-          group[entry.keyId] = data;
+          if (entry.scope && scoped[entry.scope]) {
+            // about:keyboard reads this to keep its conflicts in scope.
+            data.scope = entry.scope;
+            scoped[entry.scope][entry.keyId] = data;
+          } else {
+            group[entry.keyId] = data;
+          }
         }
       });
       if (!heading || !Object.keys(group).length) {
         return keys;
       }
-      // Whimsy's own keys belong here only, not also under "Other".
+      // Whimsy's own keys belong here only, not also under "Other". The
+      // scoped groups (Mini Whimsy) follow Whimsy's.
       const result = { [heading]: group };
+      scopes.forEach((scope, i) => {
+        if (scopeHeadings[i] && Object.keys(scoped[scope]).length) {
+          result[scopeHeadings[i]] = scoped[scope];
+        }
+      });
       for (const [category, items] of Object.entries(keys)) {
         if (category == heading) {
           Object.assign(group, items);
           continue;
+        }
+        if (scopeHeadings.includes(category)) {
+          continue;
+        }
+        // A scoped key never shows in another group as well.
+        for (const id of Object.keys(items)) {
+          if (scopes.some(scope => scoped[scope][id])) {
+            delete items[id];
+          }
         }
         result[category] = items;
       }

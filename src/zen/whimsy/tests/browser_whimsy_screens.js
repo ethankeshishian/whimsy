@@ -515,6 +515,43 @@ add_task(async function mini_whimsy_destination() {
   }
 });
 
+// wave10/mini W10-13: Mini with three pages: the pill row under the bar
+// (the current page lit like the address strip), and "Open 3 Tabs in".
+add_task(async function mini_whimsy_tabs() {
+  const { WhimsyQuickWindow } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs"
+  );
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", dark], ["whimsy.feature.mini-tabs", true]] });
+    const scheme = dark ? "dark" : "light";
+    const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
+    try {
+      await WhimsyQuickWindow.whenReady(win);
+      await TestUtils.waitForCondition(() => win.gBrowser.selectedBrowser.currentURI.spec == "https://example.com/");
+      for (const url of ["https://example.org/", "https://example.net/"]) {
+        const added = BrowserTestUtils.waitForNewTab(win.gBrowser, url, true);
+        WhimsyQuickWindow.openLinkTab(win, url);
+        await added;
+      }
+      win.gBrowser.selectedTab = WhimsyQuickWindow.pages(win)[1];
+      const row = win.document.getElementById("whimsy-quick-window-tabs");
+      await TestUtils.waitForCondition(() => row.checkVisibility() && row.children.length == 3, `Pill row shows (${scheme})`);
+      const button = win.document.getElementById("whimsy-quick-window-move-to-space");
+      await TestUtils.waitForCondition(() => button.getAttribute("label")?.startsWith("Open 3 Tabs in "),
+        `Open in counts the pages (${scheme})`);
+      // Let the row's entrance finish.
+      await Promise.all(win.document.getAnimations()
+        .filter(a => ["whimsy-mini-tabs-in", "whimsy-mini-tab-in"].includes(a.animationName))
+        .map(a => a.finished.catch(() => {})));
+      await new Promise(resolve => win.requestAnimationFrame(resolve));
+      await shot(`mini-whimsy-tabs-${scheme}`, win.browsingContext.currentWindowGlobal);
+    } finally {
+      await BrowserTestUtils.closeWindow(win);
+    }
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // batch hist: the existing History tab with visit-time space labels.
 add_task(async function library_space_history() {
   await SpecialPowers.pushPrefEnv({ set: [

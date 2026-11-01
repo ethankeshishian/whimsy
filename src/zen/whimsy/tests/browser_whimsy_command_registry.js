@@ -78,11 +78,15 @@ add_task(async function test_every_command_is_in_the_shortcut_editor() {
     id: entry.id,
     keyId: entry.keyId ?? entry.elsewhere,
     whimsy: !!entry.keyId,
+    // wave10/mini: Mini's keys have their own group.
+    scoped: !!entry.scope,
     title: WhimsyCommands.title(entry),
   }));
-  const heading = await new Localization(["browser/whimsy.ftl"]).formatValue("whimsy-cheatsheet-group-whimsy");
+  const [heading, miniHeading] = await new Localization(["browser/whimsy.ftl"]).formatValues([
+    { id: "whimsy-cheatsheet-group-whimsy" }, { id: "whimsy-keys-group-mini" },
+  ]);
   await BrowserTestUtils.withNewTab("about:keyboard", async browser => {
-    await SpecialPowers.spawn(browser, [expected, heading], async (rows, groupTitle) => {
+    await SpecialPowers.spawn(browser, [expected, heading, miniHeading], async (rows, groupTitle, miniTitle) => {
       const doc = content.document;
       if (!doc.getElementById("table").firstElementChild) {
         await ContentTaskUtils.waitForEvent(content, "CustomKeysUpdate", false, null, true);
@@ -95,7 +99,8 @@ add_task(async function test_every_command_is_in_the_shortcut_editor() {
         const el = doc.querySelector(`.key[data-id="${row.keyId}"]`);
         ok(el, `${row.id} is listed (${row.keyId})`);
         if (el && row.whimsy) {
-          is(el.closest("moz-card").wrappedJSObject.heading, groupTitle, `${row.id} is under Whimsy`);
+          is(el.closest("moz-card").wrappedJSObject.heading, row.scoped ? miniTitle : groupTitle,
+            `${row.id} is under ${row.scoped ? "Mini Whimsy" : "Whimsy"}`);
           is(el.dataset.label, row.title, `${row.id} has the same name as in the command bar`);
         }
       }
