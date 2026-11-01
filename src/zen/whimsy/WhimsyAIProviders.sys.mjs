@@ -46,7 +46,13 @@ const REQUEST_TIMEOUT_MS = 90 * 1000;
 const MAX_INPUT_CHARS = { apple: 7000, claude: 60000, ollama: 24000, test: 60000 };
 
 // Bump when the Swift source changes so a stale helper is rebuilt.
-const HELPER_VERSION = 1;
+// 2 (W10-07): helpers built before were quarantined, and macOS remembers
+// that it refused to run them even once the flag is gone, so they're
+// rebuilt under a new name.
+const HELPER_VERSION = 2;
+// How long the helper's availability check may take before Whimsy decides
+// macOS is holding it back (a quarantined helper hangs at launch).
+const HELPER_CHECK_TIMEOUT_MS = 20 * 1000;
 const HELPER_SOURCE = String.raw`import Foundation
 import FoundationModels
 
@@ -109,6 +115,8 @@ export const AI_ERROR_CODES = [
   "apple-tools-path-invalid",
   "apple-needs-license",
   "apple-build-failed",
+  // W10-07: macOS wouldn't start the helper.
+  "apple-helper-blocked",
   "apple-intelligence-off",
   "apple-not-ready",
   "apple-not-set-up",
@@ -124,6 +132,10 @@ export const WhimsyAIProviders = {
   _inflight: new Set(),
   _observing: false,
   _helperPromise: null,
+  // Details for the last Apple status (the folders searched, or the
+  // compiler's error), shown in Settings next to the reason.
+  appleDetail: "",
+  _helperCheckTimeoutMs: HELPER_CHECK_TIMEOUT_MS,
   _appleReady: null,
 
   get enabled() {
@@ -510,7 +522,34 @@ export const WhimsyAIProviders = {
         }
       }
     }
+    this.appleDetail = dirs.join(", ");
     return hasSwiftc ? "apple-tools-outdated" : "apple-needs-tools";
+  },
+
+  // W10-07: Whimsy's Info.plist has LSFileQuarantineEnabled (as Firefox's
+  // does), so every file the browser or a tool it runs writes is flagged
+  // com.apple.quarantine, the helper swiftc links included. macOS won't
+  // launch an ad-hoc-signed quarantined executable: it hangs at dyld start
+  // (or is killed), so Set Up never finished even though the tools were
+  // there. The helper is our own build, so drop the flag before it runs.
+  async _unquarantine(path) {
+    if (Services.appinfo.OS != "Darwin") {
+      return;
+    }
+    try {
+      if (await IOUtils.hasMacXAttr(path, "com.apple.quarantine")) {
+        await IOUtils.delMacXAttr(path, "com.apple.quarantine");
+      }
+    } catch (e) {
+      console.error("Whimsy AI: couldn't clear the helper's quarantine flag", e);
+    }
+  },
+
+  // The first error line of a failed build, for Settings.
+  _buildErrorLine(output) {
+    const lines = output.split("\n").map(line => line.trim()).filter(Boolean);
+    const line = lines.find(l => /error:/i.test(l)) || lines[0] || "";
+    return line.length > 300 ? line.slice(0, 300) + "…" : line;
   },
 
   // What a failed swiftc build means, from its output.
@@ -536,6 +575,7 @@ export const WhimsyAIProviders = {
     this._helperPromise ??= (async () => {
       const path = this._helperPath;
       if (await IOUtils.exists(path)) {
+        await this._unquarantine(path);
         return path;
       }
       const toolchain = await this._findToolchain();
@@ -544,6 +584,12 @@ export const WhimsyAIProviders = {
       }
       const dir = PathUtils.parent(path);
       await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+      // Older helpers (blocked by quarantine) are never used again.
+      for (const child of await IOUtils.getChildren(dir).catch(() => [])) {
+        if (/\/whimsy-fm-\d+$/.test(child) && child != path) {
+          await IOUtils.remove(child).catch(() => {});
+        }
+      }
       const source = PathUtils.join(dir, "WhimsyFM.swift");
       await IOUtils.writeUTF8(source, HELPER_SOURCE);
       let result;
@@ -555,12 +601,15 @@ export const WhimsyAIProviders = {
         );
       } catch (e) {
         console.error("Whimsy AI: couldn't run swiftc", e);
+        this.appleDetail = String(e?.message || e);
         throw new WhimsyAIError("apple-build-failed");
       }
       if (result.exitCode != 0 || !(await IOUtils.exists(path))) {
         console.error("Whimsy AI: building the on-device helper failed", toolchain, result.output);
+        this.appleDetail = this._buildErrorLine(result.output) || `swiftc exit ${result.exitCode}`;
         throw new WhimsyAIError(this._buildFailure(result.output));
       }
+      await this._unquarantine(path);
       return path;
     })();
     // A failed build may succeed later (tools installed), so don't cache it.
@@ -570,10 +619,12 @@ export const WhimsyAIProviders = {
 
   // "available", or why not: "unavailable", "apple-needs-tools",
   // "apple-tools-outdated", "apple-needs-license", "apple-build-failed",
-  // "apple-intelligence-off", "apple-not-ready", or (with build: false,
-  // before the helper exists) "not-set-up".
+  // "apple-helper-blocked", "apple-intelligence-off", "apple-not-ready", or
+  // (with build: false, before the helper exists) "not-set-up".
+  // appleDetail says more (folders searched, compiler error).
   async appleStatus({ build = true } = {}) {
     this._appleReady = null;
+    this.appleDetail = "";
     if (!build && !(await IOUtils.exists(this._helperPath))) {
       return Services.appinfo.OS == "Darwin" ? "not-set-up" : "unavailable";
     }
@@ -585,9 +636,24 @@ export const WhimsyAIProviders = {
     }
     try {
       const proc = await lazy.Subprocess.call({ command: path, arguments: ["--check"], stderr: "stdout" });
-      const output = (await proc.stdout.readString()).trim();
-      await proc.wait();
-      if (output == "available") {
+      let timer;
+      const timedOut = new Promise(resolve => {
+        timer = setTimeout(() => resolve(null), this._helperCheckTimeoutMs);
+      });
+      const output = await Promise.race([proc.stdout.readString(), timedOut]);
+      clearTimeout(timer);
+      if (output === null) {
+        // macOS is holding the helper at launch (quarantine, Gatekeeper).
+        proc.kill();
+        console.error("Whimsy AI: the on-device helper didn't start", path);
+        return "apple-helper-blocked";
+      }
+      const { exitCode } = await proc.wait();
+      if (!output.trim() && exitCode < 0) {
+        // Killed before it printed anything: macOS refused to run it.
+        return "apple-helper-blocked";
+      }
+      if (output.trim() == "available") {
         return "available";
       }
       if (/appleIntelligenceNotEnabled/.test(output)) {
