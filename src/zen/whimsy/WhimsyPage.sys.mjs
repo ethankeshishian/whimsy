@@ -750,6 +750,12 @@ export const WhimsyPage = {
     if (archiveOffered.get(browser) == url) {
       return null;
     }
+    // Tests load plenty of missing pages; a toast from each would land on
+    // top of the toasts other tests check. Only the archive tests (which
+    // point whimsy.archive.api at their own server) see the offer.
+    if (Cu.isInAutomation && !Services.prefs.getStringPref(ARCHIVE_API_PREF, "")) {
+      return null;
+    }
     if (win.gBrowser.selectedBrowser != browser) {
       archivePending.set(browser, uri);
       return null;
