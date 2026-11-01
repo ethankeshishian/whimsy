@@ -3508,6 +3508,10 @@ whimsy-action-add-site-to-routing = Add Site to Air Traffic Control
 whimsy-action-replace-pinned-url = Replace Pinned URL with Current
 whimsy-action-share-tab = Share Tab…
 whimsy-action-rename-space = Rename Space
+# W10-39: Settings → Keyboard Shortcuts group for every other key the page
+# didn't list (Zen's, Firefox's, DevTools'), so its shortcut shows as taken
+# and can be changed.
+whimsy-keys-group-other = Other Shortcuts
 whimsy-action-change-space-icon = Change Space Icon…
 whimsy-action-unload-space = Unload Space
 whimsy-action-share-space = Share Space…

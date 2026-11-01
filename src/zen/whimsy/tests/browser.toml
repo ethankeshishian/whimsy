@@ -568,6 +568,10 @@ support-files = [
 ["browser_whimsy_security_private.js"]
 # wave7/season: seasonal command bar trim, Balloon Dash occasions and weather, changelog header art (mocked dates, switch, reduced motion, no overlap).
 ["browser_whimsy_seasonal_decor.js"]
+
+# W10-08/W10-32: the command bar trim appears in the same frame as the bar.
+["browser_whimsy_season_trim_sync.js"]
+
 # wave7/split: pane header ⋯ menu, tab menu without duplicates, Arc split labels.
 ["browser_whimsy_split_pane_menu.js"]
 
@@ -673,6 +677,12 @@ support-files = ["whimsy_lasso.html", "whimsy_link_hints.html"]
 # wave9/menus: W9-09 right-click <-> command parity (commands, rows off by default, Allow Copy on blocking pages, Share submenu), W9-10 container rows off.
 ["browser_whimsy_menu_parity.js"]
 support-files = ["whimsy_highlight.html"]
+
+# W10-39: Rename Space from the command bar, an assigned shortcut and compact mode; a failed rename blocks nothing.
+["browser_whimsy_rename_space.js"]
+
+# W10-39: about:keyboard lists every other bound key (any window, Mini included), so a taken shortcut shows as a conflict and can be reassigned.
+["browser_whimsy_keyboard_conflicts.js"]
 
 # wave9/menus: design-full-4 menu/command fixes (Scratch menu, no move into Scratch, one Expand Current Split, Delete Essential, keywords, Move Tab to Space N, New Note page-only, Watch variants, Mini Whimsy in File, Redo icon).
 ["browser_whimsy_menus_review.js"]

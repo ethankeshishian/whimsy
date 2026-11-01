@@ -107,9 +107,6 @@ async function openFloatingBar() {
     () => gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("open"),
     "The command bar floats open"
   );
-  // Let the trim's one-shot fade finish.
-  await TestUtils.waitForCondition(() => document.getAnimations().every(a =>
-    a.animationName != "whimsy-season-trim-in" || a.playState != "running"), "Trim has faded in");
 }
 
 async function closeBar() {
@@ -166,6 +163,7 @@ add_task(async function command_bar_trim_per_season() {
       const { trim, top, bottom } = trimParts();
       ok(trim, `${look}: the bar has a trim`);
       is(getComputedStyle(trim).display, "block", `${look}: the trim shows while the bar floats open`);
+      is(getComputedStyle(trim).visibility, "visible", `${look}: ...and is visible`);
       if (topArt) {
         ok(getComputedStyle(top, "::after").backgroundImage.includes(topArt), `${look}: ${topArt} on the top edge`);
         is(getComputedStyle(bottom).backgroundImage, "none", `${look}: nothing hangs below`);
@@ -189,7 +187,9 @@ add_task(async function command_bar_trim_per_season() {
       }
       is(document.documentElement.getAttribute("whimsy-season"), season, `${look}: the season stays ${season}`);
       await closeBar();
-      is(getComputedStyle(trim).display, "none", `${look}: no trim on the docked address bar`);
+      // W10-08: docked, the trim stays laid out (so its art is loaded) but
+      // is never painted.
+      is(getComputedStyle(trim).visibility, "hidden", `${look}: no trim shows on the docked address bar`);
     }
   } finally {
     await SpecialPowers.popPrefEnv();
