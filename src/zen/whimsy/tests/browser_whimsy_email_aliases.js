@@ -353,23 +353,26 @@ add_task(async function test_dynamic_placement_around_shadow_icons() {
       );
       const first = icon.getBoundingClientRect().left - host.getBoundingClientRect().right;
 
-      // The icon moves (a site re-renders its row): the button follows.
-      icon.style.left = `${field.right + content.scrollX - 60}px`;
+      // The icon moves away from the end (a site re-renders its row): the
+      // button goes back to the field's end, clear of it.
+      icon.style.left = `${field.right + content.scrollX - 70}px`;
       await ContentTaskUtils.waitForCondition(
-        () => host.getBoundingClientRect().right <= icon.getBoundingClientRect().left,
-        "…and again after it moved"
+        () => field.right - host.getBoundingClientRect().right <= 8,
+        "…and back to the field's end once the icon moved away"
       );
+      const h = host.getBoundingClientRect();
+      const i = icon.getBoundingClientRect();
       const result = {
         first,
-        gap: icon.getBoundingClientRect().left - host.getBoundingClientRect().right,
-        insideField: host.getBoundingClientRect().left >= field.left,
+        clear: h.left >= i.right || h.right <= i.left,
+        insideField: h.left >= field.left,
       };
       op.remove();
       return result;
     });
     Assert.greaterOrEqual(placed.first, 0, "No overlap with the late icon");
-    Assert.greaterOrEqual(placed.gap, 0, "No overlap after it moved");
-    Assert.lessOrEqual(placed.gap, 10, "…and right beside it");
+    Assert.lessOrEqual(placed.first, 10, "…right beside it");
+    ok(placed.clear, "No overlap after it moved");
     ok(placed.insideField, "Still inside the field");
   });
 });
