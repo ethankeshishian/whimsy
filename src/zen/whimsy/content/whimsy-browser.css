@@ -3718,6 +3718,32 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
   background: var(--panel-separator-color, color-mix(in srgb, currentColor 13%, transparent));
 }
 
+/* W10-14: the paste guard, a decision card (WhimsyPasteGuardParent). */
+.whimsy-paste-guard-head {
+  gap: 10px;
+  padding: 2px 2px 0;
+}
+.whimsy-paste-guard-text {
+  min-width: 0;
+  gap: 2px;
+}
+.whimsy-paste-guard-title {
+  white-space: normal;
+  text-wrap: pretty;
+}
+.whimsy-paste-guard-where {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-paste-guard-note {
+  margin: 0 2px;
+  font-size: 12px;
+  color: var(--whimsy-surface-muted);
+  text-wrap: pretty;
+}
+
 /* wave5: Easels in the Library: a 36-frame sprite like the other rail
    icons (whimsy/library_sprites.py), so it plays and fills in the same way. */
 [data-section="whimsy-easels"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {

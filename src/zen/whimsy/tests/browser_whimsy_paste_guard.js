@@ -131,15 +131,25 @@ add_task(async function test_sheet_cancel_and_paste() {
   is(await valueOf(browser, "plain"), "", "and nothing is pasted yet");
   const panel = sheet();
   await TestUtils.waitForCondition(
-    () => panel.querySelector(".whimsy-sheet-title span")?.textContent == "This looks like an AWS access key",
+    () => panel.querySelector("#whimsy-paste-guard-title")?.textContent == "This looks like an AWS access key",
     "Titled with the kind"
   );
-  is(
-    panel.querySelector(".whimsy-sheet-subtitle").textContent.replace(/[\u2068\u2069]/g, ""),
-    "Paste into example.com?",
-    "Names the site"
-  );
-  const cancel = panel.querySelector(".whimsy-sheet-footer-button.primary");
+  const where = panel.querySelector(".whimsy-paste-guard-where");
+  is(where.textContent.replace(/[\u2068\u2069]/g, ""), "Paste it into example.com?", "Names the site");
+  is(where.querySelector("b")?.textContent.replace(/[\u2068\u2069]/g, ""), "example.com", "in bold");
+  // W10-14: a WhimsySurface card under the field, never a native sheet.
+  ok(panel.classList.contains("whimsy-surface"), "A Whimsy surface");
+  is(panel.getAttribute("orient"), "vertical", "stacked");
+  ok(!panel.querySelector("toolbarseparator"), "with no separator");
+  const fieldBottom = await SpecialPowers.spawn(browser, [], () => {
+    const r = content.document.getElementById("plain").getBoundingClientRect();
+    return content.mozInnerScreenY + r.bottom;
+  });
+  Assert.greaterOrEqual(panel.getOuterScreenRect().top + 1, fieldBottom, "It hangs below the field");
+  await document.l10n.translateFragment(panel);
+  is(panel.querySelector("#whimsy-paste-guard-paste").label, "Paste Anyway", "Paste Anyway");
+  is(panel.querySelector("#whimsy-paste-guard-cancel").label, "Don’t Paste", "Don’t Paste");
+  const cancel = panel.querySelector("#whimsy-paste-guard-cancel");
   await TestUtils.waitForCondition(() => document.activeElement == cancel, "Cancel has the keyboard");
   ok(!panel.textContent.includes(AWS_KEY), "The sheet never shows the text");
 
@@ -151,18 +161,57 @@ add_task(async function test_sheet_cancel_and_paste() {
 
   await paste(browser, "plain", AWS_KEY);
   ok(sheetOpen(), "Asks again");
-  sheet().querySelector(".whimsy-sheet-footer-button:not(.primary)").doCommand();
+  sheet().querySelector("#whimsy-paste-guard-paste").doCommand();
   await TestUtils.waitForCondition(async () => (await valueOf(browser, "plain")) == AWS_KEY, "Paste pastes");
   ok(!sheet(), "and closes the sheet");
 
   // A tall field anchors at the caret; the flow is the same.
   await paste(browser, "area", AWS_KEY);
   ok(sheetOpen(), "A textarea asks too");
-  sheet().querySelector(".whimsy-sheet-footer-button.primary").doCommand();
+  sheet().querySelector("#whimsy-paste-guard-cancel").doCommand();
   await TestUtils.waitForCondition(() => !sheet(), "Cancel closes it");
   is(await valueOf(browser, "area"), "", "Cancelled");
 
   BrowserTestUtils.removeTab(tab);
+});
+
+// W10-14: Return on the default (Don't Paste) keeps the key out; a paste
+// with no field opens the card centred over the page; long hosts are
+// cropped in the middle.
+add_task(async function test_return_and_page_paste() {
+  const tab = await openPage();
+  const browser = tab.linkedBrowser;
+  await paste(browser, "plain", AWS_KEY);
+  ok(sheetOpen(), "Asks");
+  await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-paste-guard-cancel", "Don't Paste has the keyboard");
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(() => !sheet(), "Return closes it");
+  await new Promise(resolve => setTimeout(resolve, 300));
+  is(await valueOf(browser, "plain"), "", "Return: nothing pasted");
+
+  await SimpleTest.promiseClipboardChange(AWS_KEY, () => SpecialPowers.clipboardCopyString(AWS_KEY));
+  await SpecialPowers.spawn(browser, [], () => {
+    content.document.activeElement?.blur?.();
+    content.focus();
+  });
+  await SpecialPowers.spawn(browser, [], () => content.docShell.doCommand("cmd_paste"));
+  await TestUtils.waitForCondition(sheetOpen, "A paste on the page asks too");
+  const panel = sheet();
+  const area = document.getElementById("tabbrowser-tabbox").getBoundingClientRect();
+  const rect = panel.getBoundingClientRect();
+  Assert.lessOrEqual(Math.abs((rect.left + rect.width / 2) - (area.left + area.width / 2)), 2,
+    "centred over the page");
+  Assert.less(rect.top - area.top, 100, "near the top, where the command bar sits");
+  sheet().querySelector("#whimsy-paste-guard-cancel").doCommand();
+  await TestUtils.waitForCondition(() => !sheet(), "Cancelled");
+  BrowserTestUtils.removeTab(tab);
+
+  const { cropHost } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPasteGuardParent.sys.mjs");
+  const long = "accounts.support-portal.customer-service.example.com";
+  const cropped = cropHost(long);
+  ok(cropped.startsWith("accounts.support") && cropped.endsWith("vice.example.com") && cropped.includes("…"),
+    "A long host keeps its start and end");
+  is(cropHost("example.com"), "example.com", "A short one stays whole");
 });
 
 // M2: the guard runs before the page's own capturing listener, so a page
@@ -181,7 +230,7 @@ add_task(async function test_before_the_page() {
   EventUtils.synthesizeKey("v", { accelKey: true });
   await TestUtils.waitForCondition(sheetOpen, "A self-handling editor still asks");
   is(await seen(), 0, "The page hasn't seen the paste");
-  sheet().querySelector(".whimsy-sheet-footer-button.primary").doCommand();
+  sheet().querySelector("#whimsy-paste-guard-cancel").doCommand();
   await TestUtils.waitForCondition(() => !sheet(), "Cancelled");
   await new Promise(resolve => setTimeout(resolve, 300));
   is(await seen(), 0, "and never does after Cancel");
@@ -189,7 +238,7 @@ add_task(async function test_before_the_page() {
 
   EventUtils.synthesizeKey("v", { accelKey: true });
   await TestUtils.waitForCondition(sheetOpen, "Asks again");
-  sheet().querySelector(".whimsy-sheet-footer-button:not(.primary)").doCommand();
+  sheet().querySelector("#whimsy-paste-guard-paste").doCommand();
   await TestUtils.waitForCondition(async () => (await editorText()) == AWS_KEY, "Paste hands it to the page's editor");
   is(await seen(), 1, "The page sees it once, after Paste");
 
@@ -210,7 +259,7 @@ add_task(async function test_quiet_cases() {
 
   await paste(browser, "secret", AWS_KEY);
   ok(sheetOpen(), "A password field on another site still asks");
-  sheet().querySelector(".whimsy-sheet-footer-button.primary").doCommand();
+  sheet().querySelector("#whimsy-paste-guard-cancel").doCommand();
   await TestUtils.waitForCondition(() => !sheet(), "Cancelled");
 
   BrowserTestUtils.removeTab(tab);

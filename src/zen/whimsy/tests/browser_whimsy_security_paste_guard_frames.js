@@ -18,7 +18,7 @@ const sheet = () => document.getElementById(PANEL_ID);
 const sheetOpen = () => sheet()?.state == "open";
 
 async function cancelSheet() {
-  sheet().querySelector(".whimsy-sheet-footer-button.primary").doCommand();
+  sheet().querySelector("#whimsy-paste-guard-cancel").doCommand();
   await TestUtils.waitForCondition(() => !sheet(), "Cancelled");
 }
 

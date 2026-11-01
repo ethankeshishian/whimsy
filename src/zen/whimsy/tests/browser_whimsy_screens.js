@@ -1770,3 +1770,32 @@ add_task(async function w10_fire() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W10-14: the paste guard, over the page (no field) and under a field.
+add_task(async function w10_paste_guard() {
+  const key = "AKIA" + "IOSFODNN7EXAMPLE";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-paste-guard");
+  const browser = tab.linkedBrowser;
+  await SpecialPowers.spawn(browser, [], () => {
+    content.document.body.innerHTML = `<h1>New chat</h1><p>Paste your key below.</p>
+      <input id="field" style="width: 320px; margin-top: 40px" placeholder="Message…">`;
+  });
+  await SimpleTest.promiseClipboardChange(key, () => SpecialPowers.clipboardCopyString(key));
+  try {
+    await w10SurfaceShot("paste-guard-page", "whimsy-paste-guard", async () => {
+      await SpecialPowers.spawn(browser, [], () => {
+        content.document.activeElement?.blur?.();
+        content.focus();
+        content.docShell.doCommand("cmd_paste");
+      });
+    });
+    await w10SurfaceShot("paste-guard-field", "whimsy-paste-guard", async () => {
+      await SpecialPowers.spawn(browser, [], () => {
+        content.document.getElementById("field").focus();
+        content.docShell.doCommand("cmd_paste");
+      });
+    });
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});

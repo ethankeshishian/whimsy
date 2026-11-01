@@ -2743,14 +2743,17 @@ whimsy-paste-guard-title =
         [card] This looks like a card number
        *[other] This looks like a secret
     }
-# $host (string) - the site the paste would go to, like "example.com".
-whimsy-paste-guard-subtitle = Paste into { $host }?
-whimsy-paste-guard-subtitle-page = Paste into this page?
-whimsy-paste-guard-note = Anyone who can see this page may be able to read it. Whimsy checked it on this device and kept nothing.
+# W10-14: the line under the title. $host (string) - the site the paste
+# would go to, like "example.com" (long ones are cropped in the middle).
+whimsy-paste-guard-where = Paste it into <b>{ $host }</b>?
+whimsy-paste-guard-where-page = Paste it into this page?
+whimsy-paste-guard-note = Pages can read anything you paste. Only paste a key into a site you trust with it.
+whimsy-paste-guard-privacy =
+    .tooltiptext = Whimsy checked this on your Mac and kept nothing.
 whimsy-paste-guard-paste =
-    .label = Paste
+    .label = Paste Anyway
 whimsy-paste-guard-cancel =
-    .label = Cancel
+    .label = Don’t Paste
 ## wave7/teach: Teach once (WhimsyTeach.sys.mjs). One small hint beside what
 ## the person just did, shown once. { $key } is the shortcut as it's bound
 ## right now (e.g. ⇧⌘C), shown as a key cap.
