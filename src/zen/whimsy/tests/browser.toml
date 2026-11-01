@@ -700,3 +700,5 @@ support-files = ["whimsy_article.html"]
 
 # batch10: View Page Source line wrap option + command (W10-34)
 ["browser_whimsy_view_source_wrap.js"]
+# wave10 W10-31: the theme keeps its colors when the window is inactive (zen.view.grey-out-inactive-windows off).
+["browser_whimsy_inactive_window_theme.js"]

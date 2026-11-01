@@ -30,7 +30,7 @@
 
 - name: zen.view.grey-out-inactive-windows
   cpptype: bool
-  value: true
+  value: false # Whimsy override
   mirror: always
   type: static
 
