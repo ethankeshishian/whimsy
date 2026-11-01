@@ -315,6 +315,10 @@ export const WhimsyPage = {
   // browser goes back. A page that doesn't reflow is cropped to 9:16 instead.
   PORTRAIT_WIDTH: 390,
 
+  isWebPage(win) {
+    return isWebPage(win);
+  },
+
   async copyPortraitScreenshot(win, browser = win.gBrowser.selectedBrowser) {
     if (!this.captureEnabled || !isWebPage(win)) {
       return null;

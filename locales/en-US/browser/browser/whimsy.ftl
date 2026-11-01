@@ -1820,7 +1820,15 @@ whimsy-verb-note-toast = Added to Notes
 ## wave5: Redact, a toggle in the screenshot panel beside Visible and Full Page
 
 whimsy-redact-button = Redact
-    .title = Blur emails, phone numbers, keys and card numbers in the screenshot. Click any text to blur or unblur it.
+    .title = Hide text in the screenshot. Emails, phone numbers, keys and card numbers are hidden for you; click any text to hide or show it.
+# W10-57: the row under the bar while Redact is on.
+whimsy-redact-hint = Click text to hide or show it
+whimsy-redact-style =
+    .aria-label = How hidden text looks
+whimsy-redact-style-black = Black Out
+whimsy-redact-style-blur = Blur
+# W10-57: the command (command bar, Settings → Keyboard Shortcuts).
+whimsy-action-capture-redact = Capture and Redact…
 
 ## wave5/look: a look per space (font, density, tab titles, a Zen Mod)
 

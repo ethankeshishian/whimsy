@@ -4,10 +4,13 @@
 
 /* wave5: the Redact toggle in Screenshots' panel (<screenshots-buttons>
    shadow root). Same size and icon layout as Visible / Full Page, set off
-   from them by a divider; pressed shows the accent, like a selected chip. */
+   from them by a divider; pressed shows the accent, like a selected chip.
+   W10-57: Redact's options row (hint + Black Out / Blur), under the whole
+   bar while Redact is on. */
 
 :host {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
 }
 
@@ -20,29 +23,93 @@
   border-inline-end: var(--border-width, 1px) solid var(--border-color, color-mix(in srgb, currentColor 15%, transparent));
 }
 
+/* Exactly Firefox's #visible-page / #full-page tiles. */
 #whimsy-redact {
   -moz-context-properties: fill, stroke;
   fill: currentColor;
   stroke: var(--screenshots-icon-background-color);
-  background-image: url("chrome://browser/content/whimsy/whimsy-redact.svg");
   background-position: center top;
   background-repeat: no-repeat;
   background-size: 46px 46px;
   min-width: 90px;
   padding: 46px 5px 5px;
   margin: 2px;
+}
+
+#whimsy-redact {
+  background-image: url("chrome://browser/content/whimsy/whimsy-redact.svg");
+}
+
+#whimsy-redact,
+#whimsy-redact-style > button {
   transition: background-color 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
 
   &[aria-pressed="true"] {
     color: var(--color-accent-primary, AccentColor);
     border-color: var(--color-accent-primary, AccentColor);
     background-color: color-mix(in srgb, var(--color-accent-primary, AccentColor) 14%, transparent);
-    stroke: color-mix(in srgb, var(--color-accent-primary, AccentColor) 30%, var(--screenshots-icon-background-color));
+  }
+}
+
+#whimsy-redact[aria-pressed="true"] {
+  stroke: color-mix(in srgb, var(--color-accent-primary, AccentColor) 30%, var(--screenshots-icon-background-color));
+}
+
+/* Its own line, as wide as the bar above it: no width of its own
+   (inline-size containment), so it never makes the bar wider. */
+#whimsy-redact-options {
+  flex-basis: 100%;
+  contain: inline-size;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-medium, 8px);
+  margin-top: var(--space-small, 4px);
+  padding-top: var(--space-small, 4px);
+  border-top: var(--border-width, 1px) solid var(--border-color, color-mix(in srgb, currentColor 15%, transparent));
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+#whimsy-redact-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-small, 0.9em);
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 70%, transparent));
+}
+
+/* A two-way choice in the bar's own button style, joined like a segmented
+   control. */
+#whimsy-redact-style {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 2px;
+  border: var(--border-width, 1px) solid var(--border-color, color-mix(in srgb, currentColor 15%, transparent));
+  border-radius: var(--border-radius-medium, 8px);
+
+  > button {
+    margin: 0;
+    min-height: auto;
+    padding: 2px var(--space-medium, 8px);
+    font-size: var(--font-size-small, 0.9em);
+    border: var(--border-width, 1px) solid transparent;
+    border-radius: var(--border-radius-small, 4px);
+    background-color: transparent;
+
+    &:hover:not([aria-pressed="true"]) {
+      background-color: var(--button-background-color-hover);
+    }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #whimsy-redact {
+  #whimsy-redact,
+  #whimsy-redact-style > button {
     transition: none;
   }
 }

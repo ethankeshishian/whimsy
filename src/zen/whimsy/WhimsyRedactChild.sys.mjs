@@ -27,6 +27,23 @@
 // own: an absolutely positioned layer as big as the window (scrollbar
 // included) made the page overflow, which brought in scrollbars and moved
 // fixed elements after their boxes were measured.
+//
+// W10-57: two looks, chosen in the bar: Black Out (solid black boxes, the
+// default: what "redact" means on paper and in CleanShot) and Blur.
+//
+// W10-57: the capture guard. While Screenshots is open on a tab, no click
+// may reach the page. Screenshots only stops events in the top frame's
+// process, from its own listeners, and only once its overlay is up: a
+// click that lands in an out-of-process frame (an embed, an ad, a tweet)
+// or comes before the overlay is ready went to the page and opened links.
+// The parent turns the guard on in every frame for the whole session;
+// each frame's actor then swallows clicks and presses (its listeners run
+// on the window root, before the page's), except, in the top frame, the
+// ones aimed at the Screenshots overlay, which Screenshots and Redact
+// handle. A frame also gets a clear shield over its page (anonymous
+// content, like the overlay), so a click there lands on the shield, not a
+// link: other browser listeners that run before ours (Glance's Option+click,
+// Peek's Shift+click) find no link to open.
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
 // "(555) 123-4567", "+1 415 555 0132", "+44 20 7946 0958", "555.123.4567".
@@ -46,6 +63,22 @@ const TOKENS = [
 // Anything else long and random-looking: 32+ characters mixing letters and
 // digits, either hex or mixed case (slugs and words don't qualify).
 const LONG = /(?<![A-Za-z0-9+/_=-])[A-Za-z0-9+/_=-]{32,}(?![A-Za-z0-9+/_=-])/g;
+
+// Events a page could act on (follow a link, press a button, focus, select).
+const GUARDED = new Set(["pointerdown", "pointerup", "mousedown", "mouseup", "click", "auxclick", "dblclick"]);
+export const STYLES = {
+  black: [
+    ["backdrop-filter", "none"],
+    ["background-color", "rgb(0 0 0)"],
+    ["border-radius", "2px"],
+  ],
+  blur: [
+    ["backdrop-filter", "blur(7px)"],
+    // Also a tint, so a redaction never reads as untouched text.
+    ["background-color", "rgb(128 128 128 / 0.35)"],
+    ["border-radius", "4px"],
+  ],
+};
 
 const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "TEMPLATE", "OPTION"]);
 const CLICK_SLOP = 4;
@@ -130,14 +163,31 @@ export class WhimsyRedactChild extends JSWindowActorChild {
   #redetect = 0;
   #observer = null;
   #down = null;
+  #guard = false;
+  #shield = null;
+  #style = "black";
+  #watchingFrames = false;
 
   receiveMessage(message) {
     switch (message.name) {
       case "Redact:Set":
         if (message.data.on) {
+          this.#setStyle(message.data.style);
           this.activate();
         } else {
           this.deactivate();
+        }
+        return this.#state();
+      case "Redact:Guard":
+        this.#guard = !!message.data.on;
+        this.#setShield(this.#guard && !!this.browsingContext.parent);
+        this.#watchFrames();
+        return this.#guard;
+      case "Redact:Redraw":
+        // The page was laid out again (Portrait narrows it) before a capture.
+        if (this.#active) {
+          this.#detect();
+          this.#draw();
         }
         return this.#state();
       case "Redact:State":
@@ -151,7 +201,33 @@ export class WhimsyRedactChild extends JSWindowActorChild {
   }
 
   didDestroy() {
+    this.#guard = false;
+    this.#setShield(false);
     this.deactivate();
+  }
+
+  #setShield(on) {
+    if (on && !this.#shield && this.document?.documentElement) {
+      const doc = this.document;
+      this.#shield = doc.insertAnonymousContent();
+      const div = doc.createElement("div");
+      div.id = "whimsy-capture-shield";
+      // The overlay's crosshair, so a frame doesn't look clickable.
+      for (const [k, v] of [["position", "fixed"], ["inset", "0"], ["pointer-events", "auto"], ["cursor", "crosshair"]]) {
+        div.style.setProperty(k, v);
+      }
+      this.#shield.root.appendChild(div);
+    } else if (!on && this.#shield) {
+      try {
+        this.document?.removeAnonymousContent(this.#shield);
+      } catch {}
+      this.#shield = null;
+    }
+  }
+
+  // The shield steps aside while Redact looks for text under a point.
+  #shieldPointerEvents(value) {
+    this.#shield?.root.firstElementChild?.style.setProperty("pointer-events", value);
   }
 
   // Box rects in page coordinates (fixed boxes at the current scroll).
@@ -165,7 +241,7 @@ export class WhimsyRedactChild extends JSWindowActorChild {
         height: parseFloat(box.style.height),
       }));
     const rects = [...read(this.#layer, 0, 0), ...read(this.#fixedLayer, win?.scrollX ?? 0, win?.scrollY ?? 0)];
-    return { active: this.#active, rects, added: this.#added.size, removed: this.#removed.size };
+    return { active: this.#active, style: this.#style, guard: this.#guard, rects, added: this.#added.size, removed: this.#removed.size };
   }
 
   get #overlay() {
@@ -204,9 +280,7 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     const win = this.contentWindow;
     win.addEventListener("scroll", this, { capture: true, passive: true });
     win.addEventListener("resize", this);
-    // A frame added or navigated while redacting: ask the parent to start
-    // redaction in it too.
-    win.addEventListener("load", this, { capture: true });
+    this.#watchFrames();
     this.#observer = new win.MutationObserver(() => this.#scheduleDetect());
     this.#observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
     this.#detect();
@@ -222,7 +296,6 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     try {
       win?.removeEventListener("scroll", this, { capture: true });
       win?.removeEventListener("resize", this);
-      win?.removeEventListener("load", this, { capture: true });
       if (this.#frame) {
         win?.cancelAnimationFrame(this.#frame);
       }
@@ -243,9 +316,78 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     this.#added.clear();
     this.#removed.clear();
     this.#down = null;
+    this.#watchFrames();
+  }
+
+  // A frame added or navigated while guarding or redacting: ask the parent
+  // to start both in it too.
+  #watchFrames() {
+    const want = this.#guard || this.#active;
+    if (want == this.#watchingFrames) {
+      return;
+    }
+    try {
+      if (want) {
+        this.contentWindow.addEventListener("load", this, { capture: true });
+      } else {
+        this.contentWindow?.removeEventListener("load", this, { capture: true });
+      }
+      this.#watchingFrames = want;
+    } catch {
+      this.#watchingFrames = false;
+    }
+  }
+
+  #setStyle(style) {
+    const next = Object.hasOwn(STYLES, style) ? style : "black";
+    if (next == this.#style) {
+      return;
+    }
+    this.#style = next;
+    for (const layer of [this.#layer, this.#fixedLayer]) {
+      for (const box of layer?.children ?? []) {
+        this.#paint(box);
+      }
+    }
+  }
+
+  #paint(box) {
+    for (const [k, v] of STYLES[this.#style]) {
+      box.style.setProperty(k, v);
+    }
+  }
+
+  // Whether the guard keeps this event from the page: in a frame, every
+  // press and click; in the top page, all but those on the overlay.
+  #guards(event) {
+    if (!this.#guard || !event.isTrusted || !GUARDED.has(event.type)) {
+      return false;
+    }
+    if (!this.browsingContext.parent && this.#overlay) {
+      const target = event.originalTarget;
+      if (target?.closest?.("#screenshots-component")) {
+        return false;
+      }
+    }
+    return true;
   }
 
   handleEvent(event) {
+    if (this.#guards(event)) {
+      // Preventing a pointerdown asserts in debug builds (Screenshots
+      // skips it too); its mousedown is prevented instead.
+      if (event.type != "pointerdown") {
+        event.preventDefault();
+      }
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (event.type == "load") {
+      if (event.target?.localName == "iframe" || event.target?.localName == "frame") {
+        this.sendAsyncMessage("Redact:FramesChanged");
+      }
+      return;
+    }
     if (!this.#active) {
       return;
     }
@@ -258,11 +400,6 @@ export class WhimsyRedactChild extends JSWindowActorChild {
         break;
       case "resize":
         this.#scheduleDraw();
-        break;
-      case "load":
-        if (event.target?.localName == "iframe" || event.target?.localName == "frame") {
-          this.sendAsyncMessage("Redact:FramesChanged");
-        }
         break;
       case "pointerdown":
         this.#onPointerDown(event);
@@ -315,6 +452,7 @@ export class WhimsyRedactChild extends JSWindowActorChild {
     }
     const overlay = this.#overlay;
     overlay?.setPointerEventsNone();
+    this.#shieldPointerEvents("none");
     let node = null;
     let frame = null;
     try {
@@ -327,6 +465,7 @@ export class WhimsyRedactChild extends JSWindowActorChild {
       }
     } finally {
       overlay?.resetPointerEvents();
+      this.#shieldPointerEvents("auto");
     }
     if (frame) {
       return this.#toggleInFrame(frame, x, y);
@@ -513,11 +652,8 @@ export class WhimsyRedactChild extends JSWindowActorChild {
       box.className = "whimsy-redact-box";
       const s = box.style;
       s.setProperty("position", "absolute");
-      s.setProperty("border-radius", "4px");
-      s.setProperty("backdrop-filter", "blur(7px)");
-      // Also a tint, so a redaction never reads as untouched text.
-      s.setProperty("background-color", "rgb(128 128 128 / 0.35)");
       s.setProperty("pointer-events", "none");
+      this.#paint(box);
       layer.appendChild(box);
     }
     rects.forEach(([left, top, width, height], i) => {
