@@ -1254,6 +1254,14 @@ Object.assign(gWhimsySettings, {
       const status = await WhimsyAIProviders.appleStatus({ build });
       appleButton.disabled = false;
       setStatus("whimsyAIAppleStatus", `whimsy-ai-apple-status-${status}`);
+      // W10-07: the compiler's own words when the helper didn't build, so
+      // the reason is the real one (it was "reinstall the tools" for any
+      // failure, on Macs where they're installed).
+      const detail = document.getElementById("whimsyAIAppleDetail");
+      if (detail) {
+        detail.textContent = WhimsyAIProviders.appleDetail || "";
+        detail.hidden = !WhimsyAIProviders.appleDetail;
+      }
       document.l10n.setAttributes(
         appleButton,
         status == "not-set-up" ? "whimsy-ai-apple-set-up" : "whimsy-ai-apple-check"

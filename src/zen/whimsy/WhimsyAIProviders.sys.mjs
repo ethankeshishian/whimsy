@@ -47,6 +47,8 @@ const MAX_INPUT_CHARS = { apple: 7000, claude: 60000, ollama: 24000, test: 60000
 
 // Bump when the Swift source changes so a stale helper is rebuilt.
 const HELPER_VERSION = 1;
+// W10-07: toolchains tried before giving up (each build takes seconds).
+const MAX_BUILD_ATTEMPTS = 4;
 const HELPER_SOURCE = String.raw`import Foundation
 import FoundationModels
 
@@ -106,6 +108,8 @@ export const AI_ERROR_CODES = [
   "apple-needs-tools",
   // fix7: what exactly is missing when the helper can't be built.
   "apple-tools-outdated",
+  // W10-07: the Swift compiler is older than the SDK it was given.
+  "apple-tools-mismatch",
   "apple-tools-path-invalid",
   "apple-needs-license",
   "apple-build-failed",
@@ -125,6 +129,9 @@ export const WhimsyAIProviders = {
   _observing: false,
   _helperPromise: null,
   _appleReady: null,
+  // W10-07: what the Swift compiler said when the helper last failed to
+  // build ("" otherwise), shown under the status in Settings.
+  appleDetail: "",
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true) && !lazy.WhimsyAI.blocked;
@@ -475,11 +482,58 @@ export const WhimsyAIProviders = {
     ];
   },
 
+  // W10-07: every macOS SDK in a developer folder, the default first
+  // (MacOSX.sdk, the one its compiler came with), then the versioned ones
+  // newest first. Software Update can leave several (MacOSX26.5.sdk,
+  // MacOSX27.0.sdk...) and move MacOSX.sdk to one the compiler can't read.
+  async _allSdks(dir) {
+    const sdks = [];
+    for (const defaultSdk of this._sdkPaths(dir)) {
+      const folder = PathUtils.parent(defaultSdk);
+      let names = [];
+      try {
+        names = (await IOUtils.getChildren(folder)).map(child => PathUtils.filename(child));
+      } catch {
+        continue;
+      }
+      const version = name => (name.match(/^MacOSX([\d.]+)\.sdk$/)?.[1] ?? "").split(".").map(Number);
+      const versioned = names
+        .filter(name => /^MacOSX[\d.]+\.sdk$/.test(name))
+        .sort((a, b) => {
+          const [va, vb] = [version(a), version(b)];
+          for (let i = 0; i < Math.max(va.length, vb.length); i++) {
+            if ((va[i] ?? 0) != (vb[i] ?? 0)) {
+              return (vb[i] ?? 0) - (va[i] ?? 0);
+            }
+          }
+          return 0;
+        });
+      for (const name of [...(names.includes("MacOSX.sdk") ? ["MacOSX.sdk"] : []), ...versioned]) {
+        sdks.push(PathUtils.join(folder, name));
+      }
+    }
+    return sdks;
+  },
+
   // Finds the tools to build the helper with: { developerDir, sdk } or a
   // WhimsyAIError code: "apple-needs-tools" (no swiftc anywhere) or
   // "apple-tools-outdated" (swiftc, but no SDK with FoundationModels).
   // Never runs xcrun: without the tools it pops up macOS's install dialog.
   async _findToolchain() {
+    const found = await this._findToolchains();
+    if (typeof found == "string") {
+      return found;
+    }
+    const [{ developerDir, sdk }] = found;
+    return { developerDir, sdk };
+  },
+
+  // W10-07: every way to build the helper, best first: [{ developerDir,
+  // swiftc, sdk }], or the code above. The folder xcode-select picks comes
+  // first, then the command line tools, then Xcode; in each, every SDK
+  // with FoundationModels. One that fails to build (an SDK newer than its
+  // compiler, an Xcode that needs its first launch) falls back to the next.
+  async _findToolchains() {
     const dirs = [];
     try {
       const { exitCode, output } = await this._run("/usr/bin/xcode-select", ["-p"]);
@@ -493,30 +547,46 @@ export const WhimsyAIProviders = {
       }
     }
     let hasSwiftc = false;
-    for (const dir of dirs) {
-      let swiftc = false;
+    const toolchains = [];
+    for (const developerDir of dirs) {
+      let swiftc = null;
       for (const rel of ["usr/bin/swiftc", "Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]) {
-        if (await IOUtils.exists(PathUtils.join(dir, ...rel.split("/")))) {
-          swiftc = true;
+        const candidate = PathUtils.join(developerDir, ...rel.split("/"));
+        if (!swiftc && (await IOUtils.exists(candidate))) {
+          swiftc = candidate;
         }
       }
       if (!swiftc) {
         continue;
       }
       hasSwiftc = true;
-      for (const sdk of this._sdkPaths(dir)) {
+      for (const sdk of await this._allSdks(developerDir)) {
         if (await IOUtils.exists(PathUtils.join(sdk, "System", "Library", "Frameworks", "FoundationModels.framework"))) {
-          return { developerDir: dir, sdk };
+          toolchains.push({ developerDir, swiftc, sdk });
         }
       }
     }
+    if (toolchains.length) {
+      return toolchains;
+    }
     return hasSwiftc ? "apple-tools-outdated" : "apple-needs-tools";
+  },
+
+  // W10-07: the compiler's own words, for Settings: its first error line
+  // (or last line), without the source path.
+  _buildDetail(output) {
+    const lines = (output ?? "").split("\n").map(line => line.trim()).filter(Boolean);
+    const line = lines.find(l => /\berror:/i.test(l)) ?? lines.at(-1) ?? "";
+    return line.replace(/^\S*WhimsyFM\.swift:\d+:\d+:\s*/, "").slice(0, 300);
   },
 
   // What a failed swiftc build means, from its output.
   _buildFailure(output) {
     if (/license/i.test(output)) {
       return "apple-needs-license";
+    }
+    if (/SDK is not supported by the compiler|select a toolchain which matches the SDK|compiled with a newer version of the compiler|module compiled with Swift [\d.]+ cannot be imported/i.test(output)) {
+      return "apple-tools-mismatch";
     }
     if (/no such module ['"]FoundationModels['"]|cannot find ['"]SystemLanguageModel['"]|cannot find ['"]LanguageModelSession['"]/i.test(output)) {
       return "apple-tools-outdated";
@@ -528,7 +598,10 @@ export const WhimsyAIProviders = {
   },
 
   // Builds the helper once (swiftc from the command line tools or Xcode),
-  // then reuses it.
+  // then reuses it. W10-07: tries each toolchain in turn (swiftc itself,
+  // not the xcrun shim, with its own module cache), and when none builds,
+  // keeps what the compiler said (appleDetail) so Settings can show it
+  // instead of advice that doesn't apply.
   _ensureHelper() {
     if (Services.appinfo.OS != "Darwin") {
       return Promise.reject(new WhimsyAIError("unavailable"));
@@ -538,30 +611,47 @@ export const WhimsyAIProviders = {
       if (await IOUtils.exists(path)) {
         return path;
       }
-      const toolchain = await this._findToolchain();
-      if (typeof toolchain == "string") {
-        throw new WhimsyAIError(toolchain);
+      this.appleDetail = "";
+      const toolchains = await this._findToolchains();
+      if (typeof toolchains == "string") {
+        throw new WhimsyAIError(toolchains);
       }
       const dir = PathUtils.parent(path);
       await IOUtils.makeDirectory(dir, { ignoreExisting: true });
       const source = PathUtils.join(dir, "WhimsyFM.swift");
       await IOUtils.writeUTF8(source, HELPER_SOURCE);
-      let result;
-      try {
-        result = await this._run(
-          "/usr/bin/xcrun",
-          ["swiftc", "-O", "-parse-as-library", "-sdk", toolchain.sdk, "-o", path, source],
-          { environment: { DEVELOPER_DIR: toolchain.developerDir }, environmentAppend: true }
-        );
-      } catch (e) {
-        console.error("Whimsy AI: couldn't run swiftc", e);
-        throw new WhimsyAIError("apple-build-failed");
-      }
-      if (result.exitCode != 0 || !(await IOUtils.exists(path))) {
+      const failures = [];
+      for (const toolchain of toolchains.slice(0, MAX_BUILD_ATTEMPTS)) {
+        let result;
+        try {
+          result = await this._run(
+            toolchain.swiftc,
+            [
+              "-O",
+              "-parse-as-library",
+              "-sdk",
+              toolchain.sdk,
+              "-module-cache-path",
+              PathUtils.join(dir, "ModuleCache"),
+              "-o",
+              path,
+              source,
+            ],
+            { environment: { DEVELOPER_DIR: toolchain.developerDir, SDKROOT: toolchain.sdk }, environmentAppend: true }
+          );
+        } catch (e) {
+          result = { exitCode: -1, output: String(e?.message ?? e) };
+        }
+        if (result.exitCode == 0 && (await IOUtils.exists(path))) {
+          return path;
+        }
         console.error("Whimsy AI: building the on-device helper failed", toolchain, result.output);
-        throw new WhimsyAIError(this._buildFailure(result.output));
+        failures.push({ code: this._buildFailure(result.output), detail: this._buildDetail(result.output) });
       }
-      return path;
+      // The most telling failure: a specific cause over "build failed".
+      const failure = failures.find(f => f.code != "apple-build-failed") ?? failures[0];
+      this.appleDetail = failure?.detail ?? "";
+      throw new WhimsyAIError(failure?.code ?? "apple-build-failed", this.appleDetail || undefined);
     })();
     // A failed build may succeed later (tools installed), so don't cache it.
     this._helperPromise.catch(() => (this._helperPromise = null));
@@ -574,6 +664,7 @@ export const WhimsyAIProviders = {
   // before the helper exists) "not-set-up".
   async appleStatus({ build = true } = {}) {
     this._appleReady = null;
+    this.appleDetail = "";
     if (!build && !(await IOUtils.exists(this._helperPath))) {
       return Services.appinfo.OS == "Darwin" ? "not-set-up" : "unavailable";
     }

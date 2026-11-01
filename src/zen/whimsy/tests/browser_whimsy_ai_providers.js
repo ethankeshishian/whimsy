@@ -243,3 +243,130 @@ add_task(async function test_apple_toolchain_detection() {
     await IOUtils.remove(root, { recursive: true });
   }
 });
+
+// W10-07: Settings still said "xcode-select --install" on a Mac whose
+// tools were installed. Any failed build was "reinstall the tools", and
+// only MacOSX.sdk was tried (Software Update can point it at an SDK the
+// compiler can't read, or leave FoundationModels only in a versioned SDK).
+// Now every SDK and toolchain is tried, swiftc runs directly, and Settings
+// shows what the compiler said.
+add_task(async function test_apple_build_falls_back_and_says_why() {
+  const root = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-devtools");
+  const clt = PathUtils.join(root, "CommandLineTools");
+  const swiftc = PathUtils.join(clt, "usr", "bin", "swiftc");
+  const sdks = PathUtils.join(clt, "SDKs");
+  const framework = sdk => PathUtils.join(sdks, sdk, "System", "Library", "Frameworks", "FoundationModels.framework");
+  await IOUtils.makeDirectory(PathUtils.parent(swiftc));
+  await IOUtils.writeUTF8(swiftc, "");
+  // MacOSX.sdk is an old SDK; the new ones are only in versioned folders.
+  await IOUtils.makeDirectory(PathUtils.join(sdks, "MacOSX.sdk"));
+  await IOUtils.makeDirectory(framework("MacOSX26.5.sdk"));
+  await IOUtils.makeDirectory(framework("MacOSX27.0.sdk"));
+  await IOUtils.makeDirectory(PathUtils.join(sdks, "MacOSX12.0.sdk"));
+  const helper = PathUtils.join(root, "profile", "whimsy-ai", "whimsy-fm-test");
+
+  const realRun = WhimsyAIProviders._run;
+  const realDirs = WhimsyAIProviders._developerDirCandidates;
+  const realPath = Object.getOwnPropertyDescriptor(WhimsyAIProviders, "_helperPath");
+  Object.defineProperty(WhimsyAIProviders, "_helperPath", { get: () => helper, configurable: true });
+  WhimsyAIProviders._developerDirCandidates = [clt];
+  const calls = [];
+  let builds = {};
+  WhimsyAIProviders._run = async (command, args, options) => {
+    if (command == "/usr/bin/xcode-select") {
+      return { exitCode: 0, output: clt + "\n" };
+    }
+    calls.push({ command, args, options });
+    const sdk = args[args.indexOf("-sdk") + 1];
+    const result = builds[PathUtils.filename(sdk)] ?? { exitCode: 1, output: "error: unexpected" };
+    if (result.exitCode == 0) {
+      await IOUtils.writeUTF8(helper, "");
+    }
+    return result;
+  };
+  try {
+    const found = await WhimsyAIProviders._findToolchains();
+    Assert.deepEqual(
+      found.map(t => PathUtils.filename(t.sdk)),
+      ["MacOSX27.0.sdk", "MacOSX26.5.sdk"],
+      "Every SDK with FoundationModels is found, newest first (before, an old MacOSX.sdk meant 'tools outdated')"
+    );
+    is(found[0].swiftc, swiftc, "with the swiftc beside it");
+    if (Services.appinfo.OS != "Darwin") {
+      ok(true, "Apple Intelligence only builds on macOS");
+      return;
+    }
+
+    // The newest SDK is newer than the compiler; the next one builds.
+    builds = {
+      "MacOSX27.0.sdk": {
+        exitCode: 1,
+        output:
+          "error: failed to build module 'FoundationModels'; this SDK is not supported by the compiler " +
+          "(the SDK is built with 'Apple Swift version 6.4', while this compiler is 'Apple Swift version 6.2'). " +
+          "Please select a toolchain which matches the SDK.\n",
+      },
+      "MacOSX26.5.sdk": { exitCode: 0, output: "" },
+    };
+    is(await WhimsyAIProviders._ensureHelper(), helper, "A failed SDK falls back to the next one");
+    is(calls.length, 2, "Two builds were tried");
+    is(calls[0].command, swiftc, "swiftc runs directly (xcrun's shim can prompt or need Xcode's first launch)");
+    ok(calls[0].args.includes("-module-cache-path"), "with its own module cache");
+    is(calls[0].options.environment.DEVELOPER_DIR, clt, "in its own developer folder");
+
+    // Nothing builds: the most telling reason, and the compiler's words.
+    await IOUtils.remove(helper);
+    WhimsyAIProviders._helperPromise = null;
+    calls.length = 0;
+    builds = {
+      "MacOSX27.0.sdk": { exitCode: 1, output: "/x/WhimsyFM.swift:9:5: error: something odd happened\n1 error generated.\n" },
+      "MacOSX26.5.sdk": {
+        exitCode: 1,
+        output: "error: failed to build module 'FoundationModels'; this SDK is not supported by the compiler\n",
+      },
+    };
+    is(await WhimsyAIProviders.appleStatus({ build: true }), "apple-tools-mismatch", "A compiler older than its SDK says so");
+    ok(WhimsyAIProviders.appleDetail.includes("this SDK is not supported by the compiler"), "and keeps the compiler's words");
+
+    builds["MacOSX26.5.sdk"] = builds["MacOSX27.0.sdk"];
+    is(await WhimsyAIProviders.appleStatus({ build: true }), "apple-build-failed", "Another failure is a failed build");
+    is(WhimsyAIProviders.appleDetail, "error: something odd happened", "shown without the file path");
+
+    // Settings shows it under the status, and no longer says to reinstall.
+    await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+      const doc = browser.contentDocument;
+      const button = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIAppleCheck"), "Apple's row");
+      // The first look (no build) says "Set Up" before the click builds.
+      await TestUtils.waitForCondition(
+        () => !button.disabled && doc.getElementById("whimsyAIAppleStatus").getAttribute("data-l10n-id") != "whimsy-ai-apple-status-checking" &&
+          doc.getElementById("whimsyAIAppleStatus").hasAttribute("data-l10n-id"),
+        "Apple's status is shown"
+      );
+      button.doCommand();
+      const detail = doc.getElementById("whimsyAIAppleDetail");
+      await TestUtils.waitForCondition(() => !detail.hidden, "The compiler's message shows");
+      is(detail.textContent, "error: something odd happened", "word for word");
+      await TestUtils.waitForCondition(
+        () => doc.getElementById("whimsyAIAppleStatus").textContent.includes("Swift tools"),
+        "with a reason that fits"
+      );
+      ok(!doc.getElementById("whimsyAIAppleStatus").textContent.includes("xcode-select"), "not 'xcode-select --install'");
+    });
+
+    const l10n = new Localization(["browser/whimsy.ftl"], true);
+    for (const id of ["whimsy-ai-error-apple-tools-mismatch", "whimsy-ai-apple-status-apple-tools-mismatch"]) {
+      ok(l10n.formatValueSync(id), `${id} has a string`);
+    }
+  } finally {
+    WhimsyAIProviders._run = realRun;
+    WhimsyAIProviders._developerDirCandidates = realDirs;
+    if (realPath) {
+      Object.defineProperty(WhimsyAIProviders, "_helperPath", realPath);
+    } else {
+      delete WhimsyAIProviders._helperPath;
+    }
+    WhimsyAIProviders._helperPromise = null;
+    WhimsyAIProviders.appleDetail = "";
+    await IOUtils.remove(root, { recursive: true });
+  }
+});
