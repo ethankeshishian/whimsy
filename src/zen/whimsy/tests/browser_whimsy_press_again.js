@@ -122,7 +122,8 @@ add_task(async function test_page_gets_first_press_browser_the_second() {
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   await BrowserTestUtils.switchTab(gBrowser, tab);
   browser.focus();
-  ok(!WhimsyShortcuts.pendingPressAgain(window) || !hint(), "The hint went with the tab switch");
+  ok(!WhimsyShortcuts.pendingPressAgain(window), "The tab switch started over");
+  ok(!hint(), "and the hint went");
   press(id);
   await TestUtils.waitForCondition(async () => (await took(browser)).length == 4, "After a tab switch the page gets the press");
   is(watcher.runs, 1, "and the browser didn't act");

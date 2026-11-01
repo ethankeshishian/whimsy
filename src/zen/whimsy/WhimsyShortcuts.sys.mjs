@@ -344,6 +344,9 @@ export const WhimsyShortcuts = {
     const { document } = win;
     this.publishPressAgainKeys(document);
     win.addEventListener("keydown", event => this.onChromeKeyDown(win, event), true);
+    // Another tab in between starts over, even when the same tab comes back
+    // before the next press (Arc).
+    win.addEventListener("TabSelect", () => this.cancelPressAgain(win), true);
     // A rebinding in about:keyboard (CustomKeys) changes a key in place.
     for (const id of RESERVED_KEYS) {
       const keyEl = document.getElementById(id);
@@ -454,6 +457,14 @@ export const WhimsyShortcuts = {
   pendingPressAgain(win) {
     const pending = pendingPress.get(win);
     return pending && Date.now() <= pending.until ? { keyId: pending.keyId, signature: pending.signature } : null;
+  },
+
+  cancelPressAgain(win) {
+    const pending = pendingPress.get(win);
+    pendingPress.delete(win);
+    if (pending?.toast?.isConnected) {
+      lazy.WhimsyToast.dismiss(pending.toast);
+    }
   },
 
   // Every keydown in the window, before the page gets it.
