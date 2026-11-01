@@ -5,6 +5,7 @@
 /* wave5: the Redact toggle in Screenshots' panel (<screenshots-buttons>
    shadow root). Same size and icon layout as Visible / Full Page, set off
    from them by a divider; pressed shows the accent, like a selected chip.
+   W10-59: the Portrait tile, a sibling of Visible and Full Page.
    W10-57: Redact's options row (hint + Black Out / Blur), under the whole
    bar while Redact is on. */
 
@@ -24,7 +25,8 @@
 }
 
 /* Exactly Firefox's #visible-page / #full-page tiles. */
-#whimsy-redact {
+#whimsy-redact,
+#whimsy-portrait {
   -moz-context-properties: fill, stroke;
   fill: currentColor;
   stroke: var(--screenshots-icon-background-color);
@@ -34,6 +36,10 @@
   min-width: 90px;
   padding: 46px 5px 5px;
   margin: 2px;
+}
+
+#whimsy-portrait {
+  background-image: url("chrome://browser/content/whimsy/whimsy-portrait.svg");
 }
 
 #whimsy-redact {

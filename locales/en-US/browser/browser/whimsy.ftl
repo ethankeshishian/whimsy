@@ -1829,6 +1829,9 @@ whimsy-redact-style-black = Black Out
 whimsy-redact-style-blur = Blur
 # W10-57: the command (command bar, Settings → Keyboard Shortcuts).
 whimsy-action-capture-redact = Capture and Redact…
+# W10-59: a tile beside Visible and Full Page; the page as a phone shows it.
+whimsy-portrait-button = Portrait
+    .title = Capture the page as a phone shows it
 
 ## wave5/look: a look per space (font, density, tab titles, a Zen Mod)
 

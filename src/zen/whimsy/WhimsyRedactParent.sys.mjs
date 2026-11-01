@@ -16,6 +16,10 @@
 // capture guard (see WhimsyRedactChild) keeps every click away from the
 // page, in every frame, for as long as Screenshots is open on the tab.
 //
+// W10-59: a Portrait tile beside Visible and Full Page (Arc's Capture in
+// Portrait Mode, also the cmd_whimsyCapturePortrait command): the page
+// laid out at a phone's width, in the same preview as the other two.
+//
 // Screenshots' own files stay untouched: the button is added to the
 // <screenshots-buttons> shadow root after it renders, and the session is
 // followed by wrapping ScreenshotsUtils.openPanel/createCanvas/exit, the
@@ -286,7 +290,7 @@ export const WhimsyRedact = {
 
   /**
    * Add (or update) Whimsy's parts of a <screenshots-buttons>: the Redact
-   * toggle and its options row.
+   * toggle and its options row, and the Portrait tile.
    */
   decorate(el) {
     const root = el.shadowRoot;
@@ -306,9 +310,27 @@ export const WhimsyRedact = {
       return node;
     };
     const screenshotsMode = !!group && !el.isMiniWindow;
-    if (screenshotsMode && this.enabled && !root.getElementById("whimsy-capture-sheet")) {
+    if (screenshotsMode && (this.enabled || lazy.WhimsyPage.captureEnabled) && !root.getElementById("whimsy-capture-sheet")) {
       // After Firefox's own sheets, before the buttons.
       group.before(make("link", "whimsy-capture-sheet", { rel: "stylesheet", href: SHEET }));
+    }
+
+    // The Portrait tile, between Visible and Full Page.
+    let portrait = root.getElementById("whimsy-portrait");
+    if (!screenshotsMode || !lazy.WhimsyPage.captureEnabled) {
+      portrait?.remove();
+    } else if (!portrait) {
+      portrait = make("button", "whimsy-portrait", { class: "screenshot-button footer-button" });
+      doc.l10n.setAttributes(portrait, "whimsy-portrait-button");
+      portrait.addEventListener("click", () => {
+        lazy.WhimsyPage.takePortraitScreenshot(el.documentGlobal.gBrowser.selectedBrowser).catch(console.error);
+      });
+      const fullPage = root.getElementById("full-page");
+      if (fullPage?.parentNode == group) {
+        fullPage.before(portrait);
+      } else {
+        group.append(portrait);
+      }
     }
 
     // Redact, first, so Visible and Full Page keep their places; its
