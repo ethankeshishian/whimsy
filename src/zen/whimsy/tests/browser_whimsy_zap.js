@@ -461,3 +461,56 @@ add_task(async function zap_session_content_enter_accepts() {
     ok(zapSelectors().includes("h1"), "h1 accepted on content Enter");
   });
 });
+
+// W10-35 (lane): Esc pressed in the page (where focus is while zapping)
+// cancels the session too, takes the zaps off the undo stack and the
+// Year-in-tabs count, and leaves no Cmd+Z that brings them back.
+add_task(async function zap_session_content_escape_cancels_and_cleans_up() {
+  deleteBoosts();
+  Services.prefs.setIntPref("whimsy.stats.zapped", 0);
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await zapModeOn(browser);
+    gZenBoostsManager.addZapSelectorToActive("h1", DOMAIN);
+    ok(zapSelectors().includes("h1"), "h1 zapped in this session");
+    is(WhimsyUndo.peek(window)?.selector, "h1", "the zap is on the undo stack");
+    if (WhimsyStats.enabled) {
+      is(WhimsyStats.getZapCount(), 1, "the zap was counted");
+    }
+
+    browser.focus();
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.body.focus();
+      const event = new content.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      content.window.dispatchEvent(event);
+    });
+    await TestUtils.waitForCondition(() => !zapBar(browser), "content Escape exited zap mode");
+    ok(!zapSelectors().includes("h1"), "the session's zap was cancelled");
+    await TestUtils.waitForCondition(async () => !(await headingHidden(browser)), "the heading shows again");
+    ok(WhimsyUndo.peek(window)?.selector != "h1", "the cancelled zap is no longer undoable");
+    if (WhimsyStats.enabled) {
+      is(WhimsyStats.getZapCount(), 0, "the cancelled zap no longer counts");
+    }
+  });
+});
+
+// W10-35 (lane): Esc and Enter typed in the address bar while zapping
+// belong to the address bar, not to the zap session.
+add_task(async function zap_session_keys_in_address_bar_are_left_alone() {
+  deleteBoosts();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await zapModeOn(browser);
+    gZenBoostsManager.addZapSelectorToActive("h1", DOMAIN);
+    gURLBar.focus();
+    await TestUtils.waitForCondition(() => gURLBar.focused, "the address bar has focus");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await TestUtils.waitForTick();
+    ok(
+      WhimsyZap.isChromeFieldKey({ key: "Enter", target: gURLBar.inputField }),
+      "Enter in the address bar is the address bar's"
+    );
+    ok(!WhimsyZap.isChromeFieldKey({ key: "Enter", target: browser }), "Enter aimed at the page is zap mode's");
+    ok(WhimsyZap.isZapping(window), "zap mode stays on");
+    ok(zapSelectors().includes("h1"), "the session's zap stays");
+    await zapModeOff(browser);
+  });
+});

@@ -98,3 +98,26 @@ add_task(async function test_view_source_wrap_switch_disabled() {
   cmdEl.doCommand();
   is(Services.prefs.getBoolPref(PREF_NAME), false, "Command did nothing when feature switch was off");
 });
+
+// W10-34 (lane): the command wraps an open View Page Source tab at once,
+// the same way Firefox's own "Wrap Long Lines" context item does.
+add_task(async function test_view_source_wrap_applies_live() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [FEATURE_PREF, true],
+      [PREF_NAME, false],
+    ],
+  });
+  const long = "x".repeat(4000);
+  const url = "view-source:data:text/html," + encodeURIComponent(`<p>${long}</p>`);
+  await BrowserTestUtils.withNewTab(url, async browser => {
+    const whiteSpace = () =>
+      SpecialPowers.spawn(browser, [], () => content.getComputedStyle(content.document.querySelector("pre")).whiteSpace);
+    is(await whiteSpace(), "pre", "long lines don't wrap to start with");
+    document.getElementById(COMMAND_ID).doCommand();
+    await TestUtils.waitForCondition(async () => (await whiteSpace()) == "pre-wrap", "the open source view wraps");
+    document.getElementById(COMMAND_ID).doCommand();
+    await TestUtils.waitForCondition(async () => (await whiteSpace()) == "pre", "and stops wrapping again");
+  });
+  await SpecialPowers.popPrefEnv();
+});

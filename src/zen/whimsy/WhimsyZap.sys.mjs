@@ -92,7 +92,8 @@ export const WhimsyZap = {
 
   async cancelSession(win, browser) {
     browser = browser || win?.gBrowser?.selectedBrowser;
-    const entries = browser ? [...this.getSessionEntries(browser)] : [...this._fallbackSessionEntries];
+    // Newest first, so the store goes back the way it came.
+    const entries = (browser ? [...this.getSessionEntries(browser)] : [...this._fallbackSessionEntries]).reverse();
     if (browser) {
       this._sessionEntries.delete(browser);
     }
@@ -117,6 +118,20 @@ export const WhimsyZap = {
       lazy.WhimsyStats.unrecordZap?.(cancelledCount);
     }
     return this.exit(win, browser);
+  },
+
+  // True when a chrome key event is aimed at a text field, an editable
+  // element or an open popup rather than at the page being zapped.
+  isChromeFieldKey(event) {
+    const target = event.composedTarget || event.target;
+    if (!target || target.localName == "browser") {
+      return false;
+    }
+    if (target.closest?.("panel, menupopup, popupset")) {
+      return true;
+    }
+    const name = target.localName;
+    return name == "input" || name == "textarea" || name == "moz-input-box" || !!target.isContentEditable;
   },
 
   async acceptSession(win, browser) {
@@ -550,6 +565,12 @@ export const WhimsyZap = {
 
     const onKeyDown = event => {
       if (!this.isZapping(win)) {
+        return;
+      }
+      // Esc and Enter belong to a chrome field or popup that has focus (the
+      // address bar, the command bar, a menu): typing there while zapping
+      // must not cancel or accept the session.
+      if ((event.key === "Escape" || event.key === "Enter") && this.isChromeFieldKey(event)) {
         return;
       }
       if (event.key === "Escape") {
