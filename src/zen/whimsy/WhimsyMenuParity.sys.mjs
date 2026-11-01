@@ -98,7 +98,7 @@ function commandSpecs() {
       id: "cmd_whimsyRenameTab",
       l10nId: "whimsy-action-rename-tab",
       icon: ICON("text-title-case"),
-      run: w => w.gZenTabRenamer?.start({ target: currentTab(w) }),
+      run: w => WhimsyMenuParity.startRename(w, currentTab(w)),
       isAvailable: w =>
         !!w.gZenTabRenamer &&
         Services.prefs.getBoolPref("zen.tabs.rename-tabs", true) &&
@@ -191,12 +191,14 @@ function commandSpecs() {
     },
 
     // Space: Zen's own commands act on the current space when no space menu
-    // is open.
+    // is open. Rename Space keeps Zen's command (and so its <key> id and any
+    // shortcut saved for it), but Whimsy runs it: see renameSpace().
     {
       id: "cmd_zenChangeWorkspaceName",
       l10nId: "whimsy-action-rename-space",
       icon: ICON("text-title-case"),
-      isAvailable: w => spacesUsable(w),
+      // Like Rename Tab: there's no name to edit in a collapsed sidebar.
+      isAvailable: w => spacesUsable(w) && !!w.gZenTabRenamer && !!w.gZenVerticalTabsManager?._prefsSidebarExpanded,
     },
     {
       id: "cmd_zenChangeWorkspaceIcon",
@@ -580,6 +582,46 @@ function contentMenuOf(win) {
 
 const installed = new WeakSet();
 
+const RENAME_SPACE_COMMAND = "cmd_zenChangeWorkspaceName";
+
+function commandBarOpen(win) {
+  const urlbar = win.gURLBar;
+  return !!urlbar && (urlbar.hasAttribute("breakout-extend") || !!urlbar.view?.isOpen);
+}
+
+// Whether an element is laid out and painted, so it (or an input beside it)
+// can take focus.
+function drawn(element) {
+  if (!element?.isConnected) {
+    return false;
+  }
+  const label = element.querySelector?.(".tab-label-container") ?? element;
+  const rect = label.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0 && label.checkVisibility({ visibilityProperty: true });
+}
+
+// Resolves true as soon as test() passes, checking now and then once per
+// frame; false after `frames` frames.
+function untilFrame(win, test, frames = 30) {
+  return new Promise(resolve => {
+    let left = frames;
+    const step = () => {
+      let passed = false;
+      try {
+        passed = !!test();
+      } catch (e) {
+        passed = false;
+      }
+      if (passed || --left < 0 || win.closed) {
+        resolve(passed);
+        return;
+      }
+      win.requestAnimationFrame(step);
+    };
+    step();
+  });
+}
+
 export const WhimsyMenuParity = {
   get enabled() {
     return enabled();
@@ -605,6 +647,73 @@ export const WhimsyMenuParity = {
     }
     this.initRows(win);
     lazy.WhimsyShareMenu.initWindow(win);
+    // W10-39: Rename Space, from the command bar, a shortcut or a menu.
+    // Capturing, so it runs before Zen's handler on its commandset (the
+    // way Zen itself takes over the Library commands).
+    win.document.addEventListener(
+      "command",
+      event => {
+        if (event.target.id != RENAME_SPACE_COMMAND || !enabled() || event.target.getAttribute("disabled") == "true") {
+          return;
+        }
+        event.stopPropagation();
+        this.renameSpace(win).catch(e => console.error("Whimsy: Rename Space", e));
+      },
+      true
+    );
+  },
+
+  /**
+   * W10-39: Rename Space. Zen's command hands the space's name to the inline
+   * renamer at once, which did nothing when the name couldn't take focus at
+   * that moment: from the command bar (the bar sends focus back to the page
+   * as it closes, and the input's blur ends the rename), or with the sidebar
+   * slid away in compact mode (the name isn't drawn yet). A rename that never
+   * got focus also left Zen's renamer stuck, so every later rename did
+   * nothing (the overlay's tab-renamer-focus hotfix). Resolves true once the
+   * name is being edited.
+   */
+  renameSpace(win) {
+    const name = win.gZenWorkspaces?.activeWorkspaceIndicator?.querySelector(
+      ".zen-current-workspace-indicator-name"
+    );
+    return this.startRename(win, name);
+  },
+
+  /**
+   * Starts Zen's inline rename of `target` (a tab or the space's name) once
+   * it can take focus: after the command bar has closed, and with the
+   * sidebar shown (compact mode). Resolves whether the rename started.
+   */
+  async startRename(win, target) {
+    const renamer = win.gZenTabRenamer;
+    if (!target?.isConnected || !renamer || !win.gZenVerticalTabsManager?._prefsSidebarExpanded) {
+      return false;
+    }
+    const { document } = win;
+    const root = document.documentElement;
+    // The command bar puts focus back on the page as it closes.
+    await untilFrame(win, () => !commandBarOpen(win));
+    if (!drawn(target)) {
+      // Compact mode: Zen keeps the sidebar out while a rename is under way
+      // ([zen-renaming-tab]); set it first and wait for the sidebar to be
+      // drawn, so the input can take focus.
+      root.setAttribute("zen-renaming-tab", "true");
+      await untilFrame(win, () => drawn(target));
+    }
+    if (!target.isConnected) {
+      if (!document.getElementById("tab-label-input")) {
+        root.removeAttribute("zen-renaming-tab");
+      }
+      return false;
+    }
+    renamer.start({ target });
+    const input = document.getElementById("tab-label-input");
+    const started = !!input && document.activeElement == input;
+    if (!started && !input) {
+      root.removeAttribute("zen-renaming-tab");
+    }
+    return started;
   },
 
   // Listens on each popup (so before WhimsyMenuPrefs' window listener,

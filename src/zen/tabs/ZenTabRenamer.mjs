@@ -29,6 +29,11 @@ class nsZenTabRenamer extends nsZenDOMOperatedFeature {
    *   `explicit` allows renaming folder labels, which dblclick does not.
    */
   start(event) {
+    // Whimsy hotfix: an edit whose input is gone can't finish; drop it
+    // so it doesn't block every later rename.
+    if (this.#edited && !this.#input) {
+      this.#cancel();
+    }
     let target = event.target;
     if (event.target.id === "context_zen-edit-tab-title") {
       target = TabContextMenu.contextTab;
@@ -89,6 +94,11 @@ class nsZenTabRenamer extends nsZenDOMOperatedFeature {
       this.#edited.after(input);
     }
     input.focus();
+    // Whimsy hotfix: no focus means no blur will ever end this rename.
+    if (document.activeElement !== input) {
+      this.#cancel();
+      return;
+    }
     input.setSelectionRange(0, input.value.length, "backward");
     input.scrollLeft = 0;
 

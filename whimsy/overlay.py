@@ -691,6 +691,42 @@ HOTFIXES = [
                "    ) {\n"
                "      currentSelectedTab._selected = false;\n",
     },
+    # W10-39: Rename Space did nothing, and then neither did any rename.
+    {
+        "id": "tab-renamer-stale-edit",
+        "file": "src/zen/tabs/ZenTabRenamer.mjs",
+        "why": "A rename whose input went away without a blur (its tab or "
+               "space was removed while editing) leaves #edited set, and "
+               "start() refuses every later rename (tabs, folders, spaces) "
+               "until restart. Drop the stale edit first.",
+        "old": "  start(event) {\n"
+               "    let target = event.target;\n",
+        "new": "  start(event) {\n"
+               "    // Whimsy hotfix: an edit whose input is gone can't finish; drop it\n"
+               "    // so it doesn't block every later rename.\n"
+               "    if (this.#edited && !this.#input) {\n"
+               "      this.#cancel();\n"
+               "    }\n"
+               "    let target = event.target;\n",
+    },
+    {
+        "id": "tab-renamer-focus",
+        "file": "src/zen/tabs/ZenTabRenamer.mjs",
+        "why": "When the label can't take focus (not drawn yet: compact mode's "
+               "hidden sidebar, or focus taken back right away), input.focus() "
+               "silently does nothing, no blur ever ends the rename, and "
+               "#edited stays set: every later rename does nothing until "
+               "restart (zen-browser/desktop#14876). Undo the rename instead.",
+        "old": "    input.focus();\n"
+               "    input.setSelectionRange(0, input.value.length, \"backward\");\n",
+        "new": "    input.focus();\n"
+               "    // Whimsy hotfix: no focus means no blur will ever end this rename.\n"
+               "    if (document.activeElement !== input) {\n"
+               "      this.#cancel();\n"
+               "      return;\n"
+               "    }\n"
+               "    input.setSelectionRange(0, input.value.length, \"backward\");\n",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
