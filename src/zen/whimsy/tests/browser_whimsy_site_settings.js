@@ -373,8 +373,14 @@ add_task(async function test_private_note() {
   clearAll();
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-  await BrowserTestUtils.switchTab(gBrowser, tab);
+  // The load can be over before a load listener would be in place.
+  await TestUtils.waitForCondition(() =>
+    tab.linkedBrowser.currentURI?.spec == PAGE && !tab.hasAttribute("busy") && !tab.hasAttribute("pending"),
+  "The private tab loaded");
+  // It opens selected; switchTab would wait for a switch that never comes.
+  if (!tab.selected) {
+    await BrowserTestUtils.switchTab(gBrowser, tab);
+  }
   try {
     await openPanel();
     ok(!section().querySelector(".whimsy-site-settings-private-note").hidden, "The private note shows");

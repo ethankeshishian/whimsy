@@ -817,13 +817,20 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
    WhimsyPanels sheet, styled with the others at the end of this file). */
 /* Below Zen's toast layer (#zen-toast-container, z-index 1000), so the
    "data forgotten" toast never flashes under the flame. */
-:root[whimsy-fire-burning]::after {
+/* The flash layer always exists (transparent, never hit): adding or
+   removing generated content on the root rebuilds the whole window's
+   frames, which silently closed any panel opening at that moment (Fire
+   reopened right after a Fire). Only its animation is switched. */
+:root[windowtype="navigator:browser"]::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 999;
   pointer-events: none;
+  opacity: 0;
   background: radial-gradient(circle, color-mix(in srgb, orangered 55%, transparent) 0%, transparent 70%);
+}
+:root[whimsy-fire-burning]::after {
   animation: whimsy-fire-flash 700ms ease-out;
 }
 @keyframes whimsy-fire-flash {
@@ -834,7 +841,7 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
    the toast alone confirms the data is gone. */
 @media (prefers-reduced-motion: reduce) {
   :root[whimsy-fire-burning]::after {
-    display: none;
+    animation: none;
   }
 }
 /* W10-30: Fire, on WhimsySurface. Three choice cards (full detail, never

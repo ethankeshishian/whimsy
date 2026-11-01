@@ -177,12 +177,28 @@ add_task(async function test_fire_flash_layering_and_reduced_motion() {
     const flash = getComputedStyle(root, "::after");
     Assert.less(Number(flash.zIndex), 1000, "The flash sits below Zen's toast layer");
     await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
-    await TestUtils.waitForCondition(() => getComputedStyle(root, "::after").display == "none",
-      "Reduced motion hides the flash");
+    await TestUtils.waitForCondition(() => getComputedStyle(root, "::after").animationName == "none",
+      "Reduced motion drops the flash");
+    is(getComputedStyle(root, "::after").opacity, "0", "...so nothing shows");
     await SpecialPowers.popPrefEnv();
   } finally {
     root.removeAttribute("whimsy-fire-burning");
   }
+});
+
+// A flash that starts or ends while a surface is opening doesn't close it
+// (the flash layer used to be created and removed on the window's root,
+// which rebuilt every frame, popups included).
+add_task(async function test_fire_flash_never_closes_a_surface() {
+  const root = document.documentElement;
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyFirePanel");
+  const panel = WhimsyFireButton.openPanel(window);
+  root.setAttribute("whimsy-fire-burning", "");
+  root.getBoundingClientRect();
+  root.removeAttribute("whimsy-fire-burning");
+  await shown;
+  is(panel.state, "open", "The surface opened through the flash");
+  await closeFire(panel);
 });
 
 // wave5/uxfix + W10-30: cards only choose. Focus starts on the chosen card,
@@ -332,10 +348,6 @@ add_task(async function test_burn_profile_is_per_profile() {
     await gZenWorkspaces.removeWorkspace(sibling.uuid);
     await gZenWorkspaces.removeWorkspace(elsewhere.uuid);
     ContextualIdentityService.remove(other);
-    // Removing spaces switches away from them; a surface opened during that
-    // switch doesn't show, so the next task starts once it's over.
-    await TestUtils.waitForCondition(() => !gZenWorkspaces.isChangingWorkspace && !gZenWorkspaces._animatingChange,
-      "The space switch is over");
   }
 });
 
