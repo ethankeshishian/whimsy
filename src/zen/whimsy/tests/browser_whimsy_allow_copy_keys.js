@@ -34,7 +34,8 @@ async function selectWords(browser) {
 }
 
 add_task(async function test_copy_url_keys_are_reserved() {
-  for (const id of RESERVED_KEYS) {
+  for (const id of ["zen-copy-url", "zen-copy-url-markdown"]) {
+    ok(RESERVED_KEYS.includes(id), `${id} is one of the reserved keys`);
     is(document.getElementById(id)?.getAttribute("reserved"), "true", `${id} can't be swallowed by a page`);
   }
 });
