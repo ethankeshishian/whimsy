@@ -102,7 +102,10 @@ add_task(async function test_row_speaker() {
   await TestUtils.waitForCondition(() => ariaName() != name, "The name follows the state");
   ok(ariaName() && ariaName() != name, "and its name now offers to unmute");
   await clickToggles(tab, () => tab.audioButton, "Row");
-  ok(rowGlyph(tab).includes(PLAYING), "Unmuted: the playing glyph is back");
+  // A muted tab isn't audible: once Firefox's removal delay passes it drops
+  // soundplaying, and unmuting brings it back when the page's process
+  // reports sound again (async).
+  await TestUtils.waitForCondition(() => rowGlyph(tab).includes(PLAYING), "Unmuted: the playing glyph is back");
   BrowserTestUtils.removeTab(tab);
 });
 

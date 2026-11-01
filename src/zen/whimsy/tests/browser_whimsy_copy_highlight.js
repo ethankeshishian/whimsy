@@ -42,6 +42,18 @@ function zenCopyToast() {
   );
 }
 
+// copy.js runs just before this file and its last copies can still be
+// showing; Zen reuses a toast with the same id, so wait for them to time out
+// before checking which toasts a press shows.
+add_setup(async function () {
+  await TestUtils.waitForCondition(
+    () => !document.querySelector("#zen-toast-container > *"),
+    "Earlier toasts are gone",
+    100,
+    150
+  );
+});
+
 add_task(async function test_selection_offers_link_to_highlight() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   const browser = tab.linkedBrowser;
