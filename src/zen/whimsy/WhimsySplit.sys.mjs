@@ -116,13 +116,28 @@ export const WhimsySplit = {
     }
   },
 
-  swapPanes(win) {
+  // Whether `tab` is a pane that Swap Panes can move (the switch is on and
+  // it shares its row or column with another pane).
+  canSwap(win, tab) {
+    if (!enabled(SWAP_FEATURE_PREF) || !tab?.isConnected || !tab.splitView) {
+      return false;
+    }
+    try {
+      return (win.gZenViewSplitter.getSplitNodeFromTab(tab)?.parent?.children.length ?? 0) > 1;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  // wave10 (W10-56): `tab` is the pane to swap, the focused one unless a
+  // pane's own ⋯ menu asked for itself.
+  swapPanes(win, tab = win.gBrowser.selectedTab) {
     const splitter = win.gZenViewSplitter;
-    const group = splitter._data.find(group => group.tabs.includes(win.gBrowser.selectedTab));
+    const group = splitter._data.find(group => group.tabs.includes(tab));
     if (!group) {
       return;
     }
-    const node = splitter.getSplitNodeFromTab(win.gBrowser.selectedTab);
+    const node = splitter.getSplitNodeFromTab(tab);
     if (!node?.parent) {
       return;
     }

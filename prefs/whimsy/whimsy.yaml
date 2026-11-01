@@ -584,7 +584,7 @@
   value: "swap-panes,favorite"
 
 - name: whimsy.menus.hidden.split-pane
-  value: "swap-panes"
+  value: ""
 
 # wave9/menus (design-full-4 L10): a video's or audio's own menu.
 - name: whimsy.menus.hidden.media

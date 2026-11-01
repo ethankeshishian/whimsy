@@ -39,6 +39,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPlaylist: "resource:///modules/whimsy/WhimsyPlaylist.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyShareMenu: "resource:///modules/whimsy/WhimsyShareMenu.sys.mjs",
+  WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
   WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
   WhimsySplitPane: "resource:///modules/whimsy/WhimsySplitPane.sys.mjs",
   WhimsySplitRow: "resource:///modules/whimsy/WhimsySplitRow.sys.mjs",
@@ -537,13 +538,23 @@ function rowSpecs() {
       after: "whimsySplitRow-duplicate",
       runOnSplit: "whimsy-cmd-favorite-split",
     },
+    // wave10 (W10-56): shown by default, and it swaps the pane whose ⋯
+    // menu it is (like Separate above it), not whichever pane has focus.
     {
       menu: "split-pane",
       id: "whimsySplitPane-swapPanes",
       l10nId: "whimsy-context-swap-panes",
       popup: "whimsySplitPaneMenu",
       after: "whimsySplitPane-separate",
-      runOnSplit: "cmd_whimsySwapPanes",
+      keyCommand: "cmd_whimsySwapPanes",
+      run: (w, popup) => {
+        const tab = WhimsyMenuParity.splitTabOf(w, popup);
+        if (tab?.isConnected) {
+          lazy.WhimsySplit.swapPanes(w, tab);
+        }
+      },
+      update: (w, item, popup) =>
+        lazy.WhimsySplit.canSwap(w, WhimsyMenuParity.splitTabOf(w, popup)),
     },
 
     // Selection

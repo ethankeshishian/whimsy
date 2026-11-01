@@ -549,22 +549,32 @@ export const WhimsyEasel = {
   },
 
   addWindowMenuItem(doc) {
-    const existing = doc.getElementById("menu_whimsyViewEasels");
-    if (existing) {
-      existing.hidden = !this.enabled;
+    let item = doc.getElementById("menu_whimsyViewEasels");
+    if (item) {
+      item.hidden = !this.enabled;
+    } else if (!this.enabled) {
       return;
-    }
-    if (!this.enabled) {
-      return;
-    }
-    const item = doc.createXULElement("menuitem");
-    item.id = "menu_whimsyViewEasels";
-    item.setAttribute("data-l10n-id", "whimsy-menu-view-easels");
-    item.setAttribute("command", "cmd_whimsyViewEasels");
-    const after = doc.getElementById("menu_whimsyViewBoosts") ?? doc.getElementById("menu_whimsyViewMedia");
-    if (after) {
-      after.after(item);
     } else {
+      item = doc.createXULElement("menuitem");
+      item.id = "menu_whimsyViewEasels";
+      item.setAttribute("data-l10n-id", "whimsy-menu-view-easels");
+      item.setAttribute("command", "cmd_whimsyViewEasels");
+    }
+    // Arc's order (arc-ref/menus.txt): Open Library…, View Downloads…,
+    // View Easels…, View Media…, View Boosts… (wave10, W10-53: it used to
+    // land after Boosts). Placed again on every open, in case the Arc menu
+    // rows arrived after it.
+    const before = doc.getElementById("menu_whimsyViewMedia");
+    const after = doc.getElementById("menu_whimsyViewDownloads");
+    if (before) {
+      if (item.nextElementSibling != before) {
+        before.before(item);
+      }
+    } else if (after) {
+      if (item.previousElementSibling != after) {
+        after.after(item);
+      }
+    } else if (!item.parentNode) {
       doc.getElementById("sep-window-list")?.before(item);
     }
   },

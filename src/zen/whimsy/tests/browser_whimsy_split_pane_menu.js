@@ -8,6 +8,7 @@
 // and "Always show split pane headers" keeps the header up like Arc's.
 
 const { WhimsySplitPane } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplitPane.sys.mjs");
+const { WhimsySplit } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySplit.sys.mjs");
 
 // Arc's per-pane submenu (arc-ref menus-context.txt), as l10n ids.
 const ARC_PANE_ITEMS = [
@@ -20,6 +21,9 @@ const ARC_PANE_ITEMS = [
   "-",
   "whimsy-split-pane-archive",
 ];
+
+// wave10 (W10-56): the ⋯ menu also offers Swap Panes, right after Separate.
+const PANE_MENU = [ARC_PANE_ITEMS[0], "whimsy-context-swap-panes", ...ARC_PANE_ITEMS.slice(1)];
 
 async function makeSplit(count, prefix = "pane") {
   const tabs = [];
@@ -99,11 +103,47 @@ add_task(async function test_menu_is_arcs_pane_submenu() {
   const tabs = await makeSplit(3);
   const menu = await openPaneMenu(tabs[1]);
   ok(headerOf(tabs[1]).hasAttribute("whimsy-menu-open"), "The header stays up while its menu is open");
-  Assert.deepEqual(describe(menu), ARC_PANE_ITEMS, "Arc's per-pane items, in Arc's order");
+  Assert.deepEqual(describe(menu), PANE_MENU, "Arc's per-pane items, in Arc's order, with Swap Panes after Separate");
   ok(document.getElementById("whimsySplitPane-mute").disabled, "Mute is greyed out on a silent pane, like Arc");
   is(document.getElementById("whimsySplitPane-copyLink").getAttribute("key"), "zen-copy-url", "Copy Link shows ⇧⌘C");
   await closePaneMenu();
   ok(!headerOf(tabs[1]).hasAttribute("whimsy-menu-open"), "The header hides again with the menu");
+  cleanup(tabs);
+});
+
+// wave10 (W10-56): Swap Panes is in the ⋯ menu by default and swaps the
+// pane the menu belongs to with its neighbour, not the focused pane.
+add_task(async function test_swap_acts_on_its_pane() {
+  const tabs = await makeSplit(3, "swap");
+  is(gBrowser.selectedTab, tabs[0], "The first pane is focused");
+  const box = tab => tab.linkedBrowser.closest(".browserSidebarContainer");
+  const settled = () => tabs.every(tab => !box(tab).getAnimations().length);
+  await TestUtils.waitForCondition(settled, "The split has settled");
+  const left = tab => Math.round(box(tab).getBoundingClientRect().left);
+  const [first, second, third] = tabs.map(left);
+  ok(first < second && second < third, "Three panes side by side");
+
+  await openPaneMenu(tabs[1]);
+  const swap = document.getElementById("whimsySplitPane-swapPanes");
+  ok(swap && !swap.hidden && swap.getAttribute("collapsed") != "true", "Swap Panes is in the pane's menu");
+  is(swap.previousElementSibling?.id, "whimsySplitPane-separate", "right after Separate");
+  await choose("whimsySplitPane-swapPanes");
+  await TestUtils.waitForCondition(() => left(tabs[1]) == third, "The middle pane moved to the right");
+  await TestUtils.waitForCondition(settled, "The swap has settled");
+  is(left(tabs[2]), second, "and its neighbour took its place");
+  is(left(tabs[0]), first, "The focused pane stayed where it was");
+  is(gBrowser.selectedTab, tabs[0], "and keeps focus");
+
+  // The command bar's Swap Panes still swaps the focused pane.
+  WhimsySplit.swapPanes(window);
+  await TestUtils.waitForCondition(() => left(tabs[0]) != first, "The command swaps the focused pane");
+
+  // The switch off: no Swap Panes in the menu.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.split-swap-panes", false]] });
+  await openPaneMenu(tabs[1]);
+  ok(document.getElementById("whimsySplitPane-swapPanes").hidden, "Switch off: Swap Panes is hidden");
+  await closePaneMenu();
+  await SpecialPowers.popPrefEnv();
   cleanup(tabs);
 });
 

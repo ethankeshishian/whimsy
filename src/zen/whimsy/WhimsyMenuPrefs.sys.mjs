@@ -67,7 +67,8 @@ export const ADDED_HIDDEN = {
     sidebar: ["add-finder-folder", "collapse-all-folders", "expand-all-folders"],
     folder: ["collapse-all", "expand-all"],
     "split-row": ["swap-panes", "favorite"],
-    "split-pane": ["swap-panes"],
+    // wave10 (W10-56): the pane's ⋯ menu shows Swap Panes after all (the
+    // user missed it there), so nothing in it starts off.
   },
 };
 
@@ -487,7 +488,7 @@ const MENUS = [
     pref: "whimsy.feature.split-pane-menu",
     items: [
       bySelector("separate", "whimsy-menus-split-pane-separate", ['[data-whimsy-pane-action="separate"]']),
-      // wave9/menus (W9-09): off by default.
+      // wave9/menus (W9-09) had it off by default; wave10 (W10-56) shows it.
       item("swap-panes", "whimsy-menus-split-swap-panes", ["whimsySplitPane-swapPanes"]),
       SEPARATOR,
       bySelector("share", "whimsy-menus-split-pane-share", ['[data-whimsy-pane-action="share"]']),
