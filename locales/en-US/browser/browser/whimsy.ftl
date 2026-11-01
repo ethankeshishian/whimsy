@@ -119,31 +119,34 @@ whimsy-ui-zoom-label = Zoom
 ## Copy & share (WhimsyCopy.sys.mjs): Cmd+Shift+C, Cmd+Opt+Shift+C, tab menu
 
 # $stripped is "yes" only when Copy Clean Link's list actually removed
-# tracking parameters from at least one copied link.
+# tracking parameters from at least one copied link. W10-33: Arc's wording
+# ("Copied Current URL"); Arc doesn't strip trackers, so "without Trackers"
+# is Whimsy's, said only when something was removed.
+# $count (number) - how many links were copied
 whimsy-copy-toast =
     { $stripped ->
         [yes]
             { $count ->
-                [one] Copied link without trackers
-               *[other] Copied { $count } links without trackers
+                [one] Copied Current URL without Trackers
+               *[other] Copied Current URLs without Trackers
             }
        *[no]
             { $count ->
-                [one] Copied link
-               *[other] Copied { $count } links
+                [one] Copied Current URL
+               *[other] Copied Current URLs
             }
     }
 whimsy-copy-markdown-toast =
     { $stripped ->
         [yes]
             { $count ->
-                [one] Copied link as Markdown without trackers
-               *[other] Copied { $count } links as Markdown without trackers
+                [one] Copied Current URL as Markdown without Trackers
+               *[other] Copied Current URLs as Markdown without Trackers
             }
        *[no]
             { $count ->
-                [one] Copied link as Markdown
-               *[other] Copied { $count } links as Markdown
+                [one] Copied Current URL as Markdown
+               *[other] Copied Current URLs as Markdown
             }
     }
 tab-context-whimsy-copy-links =
