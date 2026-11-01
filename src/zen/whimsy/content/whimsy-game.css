@@ -279,8 +279,9 @@ body:has(> #whimsy-game-root) {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   color: #ffffff;
   font: 600 13px var(--game-font);
-  pointer-events: auto;
-  cursor: pointer;
+  /* W10-51: only the Reload button is a target; the rest of the pill lets
+     clicks and steering reach the game underneath. */
+  pointer-events: none;
 }
 
 #whimsy-game-online-notice[hidden] {
@@ -305,6 +306,7 @@ body:has(> #whimsy-game-root) {
   color: #064e3b;
   font: 700 12px var(--game-font);
   cursor: pointer;
+  pointer-events: auto;
   transition: opacity 120ms ease;
 }
 

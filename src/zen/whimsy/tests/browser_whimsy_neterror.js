@@ -378,3 +378,66 @@ add_task(async function online_notice_in_embedded_game_and_not_for_fun() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// W10-51: coming back online keeps the run going under the notice. A click
+// on the notice (while dashing with the mouse) is a dash, not a reload; only
+// the Reload button reloads.
+add_task(async function back_online_keeps_playing_until_reload_is_chosen() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    await withWhimsyError("netOffline", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      await gameState(browser, true);
+
+      const points = await SpecialPowers.spawn(browser, [], async () => {
+        const win = content.wrappedJSObject;
+        const game = win.__whimsyGame;
+        game.freeze();
+        game.setAutoSpawn(false);
+        game.clear();
+        game.state.player.dashCd = 0;
+        win.whimsyW1051 = "same page";
+        content.dispatchEvent(new content.Event("online"));
+        const notice = content.document.getElementById("whimsy-game-online-notice");
+        ok(!notice.hidden, "The back-online notice shows");
+        is(notice.getAttribute("role"), "status", "The notice is announced as a status");
+        // The notice may only render after a frame.
+        await new Promise(resolve => content.requestAnimationFrame(() => content.requestAnimationFrame(resolve)));
+        const pill = notice.getBoundingClientRect();
+        const dot = notice.querySelector(".whimsy-game-online-dot").getBoundingClientRect();
+        const button = content.document.getElementById("whimsy-game-reload-btn").getBoundingClientRect();
+        ok(pill.width > 0 && pill.height > 0, "The notice is on screen");
+        return {
+          notice: { x: dot.left + dot.width / 2, y: pill.top + pill.height / 2 },
+          button: { x: button.left + button.width / 2, y: button.top + button.height / 2 },
+        };
+      });
+
+      // Let a real "online" moment pass: nothing reloads by itself.
+      await SpecialPowers.spawn(browser, [], async () => {
+        // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+        await new Promise(resolve => content.setTimeout(resolve, 500));
+      });
+      await BrowserTestUtils.synthesizeMouseAtPoint(points.notice.x, points.notice.y, {}, browser);
+      await SpecialPowers.spawn(browser, [], async () => {
+        // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+        await new Promise(resolve => content.setTimeout(resolve, 500));
+        const win = content.wrappedJSObject;
+        is(win.whimsyW1051, "same page", "Clicking the notice does not reload the page");
+        const game = win.__whimsyGame.state;
+        is(game.state, "running", "The run keeps going");
+        ok(game.player.dashCd > 0, "A click on the notice dashes like a click anywhere on the stage");
+        ok(!content.document.getElementById("whimsy-game-online-notice").hidden, "The notice stays up");
+      });
+
+      const reloaded = BrowserTestUtils.waitForErrorPage(browser);
+      await BrowserTestUtils.synthesizeMouseAtPoint(points.button.x, points.button.y, {}, browser);
+      await reloaded;
+      const fresh = await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.whimsyW1051 ?? null);
+      is(fresh, null, "The Reload button reloads the page when the user chooses it");
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
