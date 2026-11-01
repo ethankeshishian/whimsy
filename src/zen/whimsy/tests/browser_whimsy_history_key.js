@@ -20,7 +20,9 @@ function Library() {
 
 async function closeLibrary() {
   if (Library()?.isLibraryOpen) {
-    Library().toggle();
+    // Closed outright: toggle() would reopen a Library already closing
+    // (Esc in it starts that).
+    Library().animateProgress(0);
     await TestUtils.waitForCondition(() => !Library().isLibraryOpen, "Library closed");
   }
 }

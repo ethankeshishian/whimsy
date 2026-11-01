@@ -181,7 +181,9 @@ add_task(async function test_web_font_and_also_uses() {
     <style>@font-face { font-family: "Whimsy Test Face"; src: url("${fontURL}"); }</style>
     <p id="font-target" style="font-family: 'Whimsy Test Face', serif; font-size: 20px">Hello there ✓</p>`);
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.fonts.ready);
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
+    await content.document.fonts.ready;
+  });
   await selectTargetText(tab.linkedBrowser);
   const panel = await openFontPopover();
   await document.l10n.translateFragment(panel);

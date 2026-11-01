@@ -71,6 +71,15 @@ async function waitForTable(browser) {
   });
 }
 
+// Zen's window sync copies a second window's blank tab into this one; take
+// those along at the end.
+const startTabs = new Set(gBrowser.tabs);
+registerCleanupFunction(() => {
+  for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
 add_setup(async function () {
   const removeKey = addTestKey(window, {
     id: UNLISTED_ID,
@@ -103,7 +112,8 @@ add_task(async function test_unlisted_keys_are_listed_and_conflict() {
       is(doc.querySelectorAll(`.key[data-id="${id}"]`).length, 1, "...once");
       // Nothing is listed twice anywhere.
       const ids = [...doc.querySelectorAll(".key")].map(el => el.dataset.id);
-      is(new Set(ids).size, ids.length, "No key is listed in two groups");
+      const twice = [...new Set(ids.filter((id, i) => ids.indexOf(id) != i))];
+      is(new Set(ids).size, ids.length, `No key is listed in two groups${twice.length ? ` (${twice.slice(0, 10).join(", ")})` : ""}`);
 
       content.otherRow = row;
       content.renameRow = doc.querySelector(`.key[data-id="${renameId}"]`);
@@ -157,6 +167,9 @@ add_task(async function test_keys_only_another_window_has() {
     onCommand: () => runs++,
   });
   ok(!document.getElementById(ELSEWHERE_ID), "This window doesn't have it");
+  // about:keyboard is used from this window: bring it forward (focus events
+  // don't reach a page in a window behind another).
+  await SimpleTest.promiseFocus(window);
   const miniHeading = await new Localization(["browser/whimsy.ftl"]).formatValue("whimsy-keys-group-mini");
   try {
     await BrowserTestUtils.withNewTab({ gBrowser, url: "about:keyboard" }, async browser => {

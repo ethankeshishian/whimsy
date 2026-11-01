@@ -301,7 +301,9 @@ add_task(async function test_private_snapshot_stays_in_memory() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
   const tab = WhimsyPrivate.openPrivateTab(window, { url: FORM_PAGE, force: true });
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  // The load can be over before a load listener would be in place.
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI?.spec == FORM_PAGE && !tab.hasAttribute("busy"),
+    "The private tab loaded");
   try {
     ok(WhimsyFormProtection.storeSnapshot(tab.linkedBrowser, FORM_PAGE, { id: { name: "Private Person" } }), "Stored");
     ok(WhimsyFormProtection.snapshotFor(tab.linkedBrowser, FORM_PAGE + "#x"), "Found again for the same page (ignoring the hash)");

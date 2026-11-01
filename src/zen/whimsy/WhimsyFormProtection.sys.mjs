@@ -299,8 +299,9 @@ export const WhimsyFormProtection = {
     }
     // Only the page the tab is on can leave its answers.
     try {
+      // URL.host has the port, nsIURI.host doesn't: compare like with like.
       const host = new URL(url).host;
-      if (browser.currentURI?.host && browser.currentURI.host != host) {
+      if (browser.currentURI?.host && browser.currentURI.hostPort != host) {
         return false;
       }
     } catch (e) {

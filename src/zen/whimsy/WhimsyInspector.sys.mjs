@@ -74,11 +74,15 @@ export function validateFontData(data) {
     source: system ? "system" : (SOURCES.has(data.source) ? data.source : "fallback"),
     sourceHost: cleanText(data.sourceHost, 253),
     sourceURL: /^https?:\/\//.test(data.sourceURL ?? "") ? cleanText(data.sourceURL, 500) : "",
-    others: (Array.isArray(data.others) ? data.others : []).slice(0, 2).map(o => ({
-      family: o?.system ? null : cleanText(o?.family) || null,
-      system: !!o?.system || cleanText(o?.family).startsWith("."),
-      count: Math.max(0, Math.round(Number(o?.count) || 0)),
-    })).filter(o => o.count > 0 && (o.family || o.system)),
+    others: (Array.isArray(data.others) ? data.others : []).slice(0, 2).map(o => {
+      // A hidden face (".SFNS…") is the system font, never shown by name.
+      const otherSystem = !!o?.system || cleanText(o?.family).startsWith(".");
+      return {
+        family: otherSystem ? null : cleanText(o?.family) || null,
+        system: otherSystem,
+        count: Math.max(0, Math.round(Number(o?.count) || 0)),
+      };
+    }).filter(o => o.count > 0 && (o.family || o.system)),
     cssStack: cleanText(data.cssStack, 400).replace(/[;{}<>]/g, "") || "sans-serif",
     size: size(data.size) ?? "normal",
     weight: WEIGHT_NAMES.has(weight) ? weight : (Number.isFinite(weight) && weight > 0 && weight <= 1000 ? weight : 400),

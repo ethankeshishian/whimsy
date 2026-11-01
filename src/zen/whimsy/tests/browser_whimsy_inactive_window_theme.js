@@ -58,6 +58,15 @@ async function activate(win) {
   await settle(win);
 }
 
+// Zen's window sync copies a second window's blank tab into this one; take
+// those along at the end.
+const startTabs = new Set(gBrowser.tabs);
+registerCleanupFunction(() => {
+  for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
 // Opens a second window so `window` turns inactive; returns that window.
 async function deactivateMainWindow() {
   const other = await BrowserTestUtils.openNewBrowserWindow();

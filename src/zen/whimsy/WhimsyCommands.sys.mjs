@@ -495,12 +495,36 @@ export const WhimsyCommands = {
     if (typeof JSWindowActorParent == "undefined" || !(actor instanceof JSWindowActorParent)) {
       return grouped;
     }
+    let all = grouped;
     try {
-      return await this.addUnlistedKeys(actor, grouped);
+      all = await this.addUnlistedKeys(actor, grouped);
     } catch (e) {
       console.error("Whimsy: about:keyboard unlisted keys", e);
-      return grouped;
     }
+    return this.listOnce(all);
+  },
+
+  // W10-39: a key shows in one group only: the first that lists it
+  // (Whimsy's, then Mini's, then Firefox's menus and Zen's groups). Zen
+  // and Firefox both listed some (New Tab under File and Tabs), and a
+  // shortcut shown twice reads as two keys.
+  listOnce(keys) {
+    const seen = new Set();
+    for (const items of Object.values(keys)) {
+      for (const id of Object.keys(items)) {
+        if (seen.has(id)) {
+          delete items[id];
+        } else {
+          seen.add(id);
+        }
+      }
+    }
+    for (const [category, items] of Object.entries(keys)) {
+      if (!Object.keys(items).length) {
+        delete keys[category];
+      }
+    }
+    return keys;
   },
 
   async groupKeys(actor, keys) {
