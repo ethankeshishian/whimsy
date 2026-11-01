@@ -194,7 +194,7 @@ add_task(async function test_fire_needs_the_explicit_button() {
     session.doCommand();
     const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
     const toastShown = TestUtils.waitForCondition(() =>
-      [...document.querySelectorAll("#zen-toast-container label")].some(l =>
+      [...document.querySelectorAll("#zen-toast-container .whimsy-toast-message")].some(l =>
         document.l10n.getAttributes(l).id == "whimsy-fire-done-profile"),
     "A toast says what closed and what was cleared");
     forget.doCommand();
@@ -357,7 +357,7 @@ add_task(async function test_fire_everything_confirms_with_cancel_default() {
     panel = await openEverything();
     dialogOpen = BrowserTestUtils.promiseAlertDialogOpen();
     const toastShown = TestUtils.waitForCondition(() =>
-      [...document.querySelectorAll("#zen-toast-container label")].some(l =>
+      [...document.querySelectorAll("#zen-toast-container .whimsy-toast-message")].some(l =>
         document.l10n.getAttributes(l).id == "whimsy-fire-done-everything"),
     "A toast says everything was forgotten");
     forgetting = WhimsyFireButton.forget(window, panel);
@@ -534,5 +534,77 @@ add_task(async function test_fire_everywhere_clears_download_list_keeps_files() 
       await list.remove(download);
     }
     await IOUtils.remove(target, { ignoreAbsent: true });
+  }
+});
+
+// W10-58: "Press Fire: no confirmation toast". Clearing a busy profile
+// takes seconds (10s for 60 tabs / 21 sites in a real build), and the only
+// toast came after it, for Zen's 2 seconds. Now "Clearing…" shows at once
+// and the result replaces it and stays.
+add_task(async function test_w10_58_fire_confirms_at_once() {
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  let finish;
+  const slowBurn = () => new Promise(resolve => (finish = resolve));
+  const running = WhimsyFireButton.run(window, slowBurn, "whimsy-fire-done-profile");
+  const working = WhimsyToast.current(window);
+  ok(working, "A toast shows as soon as Fire runs, before clearing is done");
+  is(
+    document.l10n.getAttributes(working.querySelector(".whimsy-toast-message")).id,
+    "whimsy-fire-working-profile",
+    "It says it's clearing"
+  );
+  finish({ count: 2, visits: 3, sites: 1, profile: "Default" });
+  await running;
+  const done = WhimsyToast.current(window);
+  isnot(done, working, "The result replaces it");
+  const message = done.querySelector(".whimsy-toast-message");
+  is(document.l10n.getAttributes(message).id, "whimsy-fire-done-profile", "and says what went");
+  Assert.deepEqual(
+    document.l10n.getAttributes(message).args,
+    { count: 2, visits: 3, sites: 1, profile: "Default" },
+    "with the counts"
+  );
+  await TestUtils.waitForCondition(() => message.textContent.includes("2"), "The text renders");
+  await new Promise(resolve => setTimeout(resolve, 2500));
+  ok(done.isConnected && !done.hasAttribute("leaving"), "and is still there after Zen's 2 seconds");
+  WhimsyToast.dismiss(done);
+
+  // A failure says so too, replacing "Clearing…".
+  const failing = WhimsyFireButton.run(window, async () => {
+    throw new Error("test");
+  }, "whimsy-fire-done-site", { site: "example.com" });
+  is(
+    document.l10n.getAttributes(WhimsyToast.current(window).querySelector(".whimsy-toast-message")).id,
+    "whimsy-fire-working-site",
+    "Forgetting a site says so at once"
+  );
+  await failing;
+  is(
+    document.l10n.getAttributes(WhimsyToast.current(window).querySelector(".whimsy-toast-message")).id,
+    "whimsy-fire-failed-toast",
+    "and a failure replaces it"
+  );
+  WhimsyToast.dismiss(WhimsyToast.current(window));
+});
+
+// W10-58: the tabs close before the (slow) history lookup, so the window
+// answers the button right away. Everything is stubbed: a real burn would
+// close every unpinned tab of the test profile.
+add_task(async function test_w10_58_tabs_close_before_history_lookup() {
+  const order = [];
+  const names = ["burnTabs", "profileVisits", "purgeClosed", "clearSiteData"];
+  const originals = Object.fromEntries(names.map(name => [name, WhimsyFireButton[name]]));
+  WhimsyFireButton.burnTabs = () => (order.push("burnTabs"), 1);
+  WhimsyFireButton.profileVisits = async () => (order.push("profileVisits"), []);
+  WhimsyFireButton.purgeClosed = async () => {};
+  WhimsyFireButton.clearSiteData = async () => {};
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  try {
+    await WhimsyFireButton.burnProfile(window);
+    Assert.deepEqual(order.slice(0, 2), ["burnTabs", "profileVisits"],
+      "Tabs close first, then history is looked up");
+  } finally {
+    Object.assign(WhimsyFireButton, originals);
+    BrowserTestUtils.removeTab(tab);
   }
 });

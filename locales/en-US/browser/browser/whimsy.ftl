@@ -2192,6 +2192,11 @@ whimsy-fire-done-site = { $count ->
    *[other] Forgot { $site } · closed { $count } tabs
 }
 whimsy-fire-failed-toast = Couldn’t clear everything. Try again.
+# W10-58: shown at once while Fire clears; the result replaces it.
+whimsy-fire-working-profile = Clearing this profile’s last hour…
+whimsy-fire-working-everything = Clearing everything…
+# $site (string) - the site being forgotten, e.g. example.com
+whimsy-fire-working-site = Forgetting { $site }…
 
 # wave5/uxfix: read out with a pinned tab's unread badge.
 # $count (number) - unread items the site reports
@@ -2775,6 +2780,9 @@ whimsy-teach-archive = Tabs you hadn’t used in a while moved to the Archive. <
 whimsy-teach-pin = <kbd>{ $key }</kbd> pins or unpins the tab you’re on.
 whimsy-teach-copy-url = <kbd>{ $key }</kbd> copies this page’s link from anywhere.
 whimsy-teach-next-space = <kbd>{ $key }</kbd> goes to the next space. A two-finger swipe does too.
+# W10-58: the command bar, opened with the mouse.
+whimsy-teach-new-tab = <kbd>{ $key }</kbd> opens the command bar from anywhere: search, go to a site or run a command.
+whimsy-teach-address = <kbd>{ $key }</kbd> jumps to the address bar from anywhere.
 whimsy-action-teach-reset = Reset Tips
 whimsy-teach-reset-toast = Tips will show again
 whimsy-teach-header = Tips
