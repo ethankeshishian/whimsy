@@ -315,7 +315,7 @@ add_task(async function private_pages_never_reach_normal_history() {
 // keep writing history and normal cookies there).
 add_task(async function a_normal_tab_never_moves_into_scratch() {
   const tab = await openHomeTab(PAGE + "?scratch");
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   ok(scratch, "Scratch is open");
   await gZenWorkspaces.changeWorkspace(home);
   gZenWorkspaces.workspaceElement(scratch.uuid).tabsContainer.appendChild(tab);

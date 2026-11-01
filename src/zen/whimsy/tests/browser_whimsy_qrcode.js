@@ -136,7 +136,7 @@ add_task(async function test_private_tab_and_scratch() {
     ok(true, "private tabs are off in this profile");
   }
 
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   if (scratch) {
     const scratchTab = BrowserTestUtils.addTab(gBrowser, PAGE);
     gBrowser.selectedTab = scratchTab;

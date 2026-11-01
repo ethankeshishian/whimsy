@@ -3924,3 +3924,10 @@ whimsy-menu-view-easels =
 whimsy-action-add-page-to-easel = Add Page to Easel
 whimsy-easel-export-link = Copy Link
 whimsy-easel-status-copied-link = Copied the link to this easel
+
+## wave10/fixes W10-09: the Private Space's empty state (it opens with no tab)
+
+whimsy-private-empty-title = Private Space
+whimsy-private-empty-body = Nothing you do here is saved. Pages leave no history, and their cookies and site data are forgotten when you close them.
+whimsy-private-empty-new = New Private Tab
+whimsy-private-empty-note = This space closes when you leave it with no tabs.

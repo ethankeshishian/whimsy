@@ -78,7 +78,7 @@ add_task(async function test_private_tab_not_offered() {
 
 add_task(async function test_scratch_not_offered() {
   calls.length = 0;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   ok(scratch, "Scratch opened");
   const url = PAGE + "?handoff=scratch";
   BrowserTestUtils.startLoadingURIString(gBrowser.selectedBrowser, url);

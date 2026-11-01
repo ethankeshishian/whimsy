@@ -695,3 +695,5 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_history_key.js"]
 # wave10/fixes W10-10: Scratch is "Private Space" in every visible string; ids and prefs stay.
 ["browser_whimsy_private_space_name.js"]
+# wave10/fixes W10-09: the Private Space opens empty on its empty state (no tab); closing its last tab keeps it; leaving it empty closes it.
+["browser_whimsy_private_space_empty.js"]

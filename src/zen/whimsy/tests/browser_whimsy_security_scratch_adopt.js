@@ -20,7 +20,7 @@ add_task(async function an_adopted_normal_tab_leaves_scratch() {
   WhimsyIsolation.initWindow(window);
   const home = gZenWorkspaces.getActiveWorkspace();
   const before = new Set(gZenWorkspaces.allStoredTabs ?? gBrowser.tabs);
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   ok(scratch, "Scratch is open");
 
   const other = await BrowserTestUtils.openNewBrowserWindow();
@@ -54,7 +54,7 @@ add_task(async function an_adopted_normal_tab_leaves_scratch() {
 });
 
 add_task(async function mini_never_offers_scratch() {
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   const offered = WhimsyQuickWindow.spaces({ opener: window });
   ok(offered.length, "Mini offers spaces");
   ok(!offered.some(space => space.uuid == scratch.uuid), "…but not Scratch");

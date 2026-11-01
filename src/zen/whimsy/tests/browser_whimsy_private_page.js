@@ -97,7 +97,7 @@ add_task(async function test_private_tab_page_is_calm() {
 add_task(async function test_scratch_page_is_calm() {
   resetUrlbar();
   const startSpace = gZenWorkspaces.activeWorkspace;
-  const scratch = await WhimsyPrivate.openScratch(window);
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
   ok(scratch, "Scratch opened");
   await waitForPrivatePage(gBrowser.selectedBrowser);
   const shown = await searchShown(gBrowser.selectedBrowser);

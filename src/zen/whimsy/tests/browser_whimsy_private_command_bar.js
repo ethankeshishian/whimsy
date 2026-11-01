@@ -233,12 +233,12 @@ add_task(async function test_no_history_written() {
 });
 
 add_task(async function test_scratch_still_works() {
-  const opened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen");
+  // W10-09: Cmd+Shift+N opens the Private Space empty, on its empty state.
   EventUtils.synthesizeKey("n", { accelKey: true, shiftKey: true });
-  const { target: tab } = await opened;
-  ok(WhimsyPrivate.isPrivateTab(tab), "Cmd+Shift+N still opens Scratch's private tab");
   await TestUtils.waitForCondition(() => WhimsyPrivate.getScratch(window), "Scratch exists");
   await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(window), "Scratch is the active space");
+  ok(gBrowser.selectedTab.hasAttribute("zen-empty-tab"), "No tab was created: the empty state shows");
+  ok(gURLBar.isPrivate, "The address bar over the empty state is private");
 
   // Every new tab in Scratch is private, so Cmd+T's bar there is the
   // private one.
