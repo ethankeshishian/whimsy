@@ -82,7 +82,7 @@ export const WhimsyPageActions = {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs" },
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyPageActionsChild.sys.mjs",
-        events: { pageshow: { mozSystemGroup: true } },
+        events: { DOMContentLoaded: { mozSystemGroup: true }, pageshow: { mozSystemGroup: true } },
       },
       matches: ["https://*/*", "http://*/*"],
       messageManagerGroups: ["browsers"],
@@ -309,7 +309,9 @@ export const WhimsyPageActions = {
     }
     pill = doc.createXULElement("hbox");
     pill.id = PILL_ID;
-    pill.className = "urlbar-page-action";
+    // Not .urlbar-page-action: Zen's single toolbar fades those out until
+    // the sidebar is hovered, and this pill's whole job is to be noticed.
+    pill.className = "whimsy-page-action";
     pill.setAttribute("align", "center");
     pill.setAttribute("role", "button");
     pill.setAttribute("tabindex", "0");
