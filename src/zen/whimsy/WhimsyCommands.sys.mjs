@@ -33,6 +33,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   CustomKeys: "moz-src:///browser/components/customkeys/CustomKeys.sys.mjs",
+  ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -44,6 +45,13 @@ const GROUP_L10N_ID = "whimsy-cheatsheet-group-whimsy";
 // (spec.scope) get their own group in about:keyboard, listed from every
 // window; a shortcut there never conflicts with one outside that scope.
 const SCOPE_GROUPS = { mini: "whimsy-keys-group-mini" };
+// W10-39: every other bound <key> in any browser window (Zen's, Firefox's,
+// DevTools', Mini's) that about:keyboard didn't list, so a shortcut one of
+// them holds shows as a conflict and can be reassigned.
+const OTHER_GROUP_L10N_ID = "whimsy-keys-group-other";
+// Mini's disabled stand-ins in main windows (WhimsyQuickWindow); Mini's
+// group lists them already.
+const MINI_STANDIN_KEYSET_ID = "whimsyMiniKeyset";
 
 // Session-wide: command id → { id, l10nId, keyId, defaultKey, variants }.
 // Every window registers the same commands as it starts, so the entries
@@ -429,6 +437,21 @@ export const WhimsyCommands = {
    * with every listed command, bound or not. Called from Zen's addKeys.
    */
   async addKeys(actor, keys) {
+    const grouped = await this.groupKeys(actor, keys);
+    // Only for the page itself; the shortcut cheat sheet reads these groups
+    // too (with a stand-in actor) and builds its own list.
+    if (typeof JSWindowActorParent == "undefined" || !(actor instanceof JSWindowActorParent)) {
+      return grouped;
+    }
+    try {
+      return await this.addUnlistedKeys(actor, grouped);
+    } catch (e) {
+      console.error("Whimsy: about:keyboard unlisted keys", e);
+      return grouped;
+    }
+  },
+
+  async groupKeys(actor, keys) {
     try {
       if (!this.listed) {
         return keys;
@@ -496,5 +519,131 @@ export const WhimsyCommands = {
       console.error("Whimsy: about:keyboard commands", e);
       return keys;
     }
+  },
+
+  /**
+   * W10-39: about:keyboard only looked for conflicts among the rows it
+   * lists, so a shortcut held by any other key (a Zen or Firefox key it
+   * doesn't list, DevTools', or one that exists only in Mini Whimsy
+   * windows) was taken without a word, and the new shortcut silently lost
+   * to the older key. Every bound <key> in every browser window that isn't
+   * listed yet is added: the page's own conflict check then finds it, asks,
+   * and can clear it, and the key can be reassigned like any other. Keys
+   * of the window the page belongs to go under "Other Shortcuts"; keys
+   * only Mini windows have go under Mini Whimsy's group, scoped to Mini.
+   */
+  async addUnlistedKeys(actor, keys) {
+    const topWin = actor.browsingContext.topChromeWindow;
+    const listed = new Set(Object.values(keys).flatMap(items => Object.keys(items)));
+    const other = {};
+    const mini = {};
+    const windows = [topWin, ...Services.wm.getEnumerator("navigator:browser")].filter(
+      (w, i, all) => w && !w.closed && all.indexOf(w) == i
+    );
+    for (const win of windows) {
+      const inTop = win == topWin;
+      for (const keyEl of win.document.querySelectorAll("key[id]")) {
+        const id = keyEl.id;
+        if (listed.has(id) || (!keyEl.hasAttribute("key") && !keyEl.hasAttribute("keycode"))) {
+          continue;
+        }
+        if (keyEl.parentElement?.id == MINI_STANDIN_KEYSET_ID) {
+          continue;
+        }
+        // A key every main window has is listed from the page's own window.
+        if (!inTop && topWin.document.getElementById(id)) {
+          continue;
+        }
+        const data = this.keyDataOf(keyEl);
+        if (!data.shortcut) {
+          continue;
+        }
+        data.title = this.keyTitle(win, keyEl);
+        if (inTop) {
+          other[id] = data;
+        } else {
+          data.scope = "mini";
+          mini[id] = data;
+        }
+        listed.add(id);
+      }
+    }
+    if (Object.keys(mini).length) {
+      const heading = await lazy.l10n.formatValue(SCOPE_GROUPS.mini);
+      Object.assign((keys[heading] ??= {}), mini);
+    }
+    if (Object.keys(other).length) {
+      const heading = await lazy.l10n.formatValue(OTHER_GROUP_L10N_ID);
+      const sorted = Object.entries(other).sort(([, a], [, b]) => a.title.localeCompare(b.title));
+      keys[heading] = Object.assign(keys[heading] ?? {}, Object.fromEntries(sorted));
+    }
+    // A key that lives only in another window (Mini's) isn't in the page's
+    // own window, where the actor looks it up after a change.
+    this.wrapKeyData(actor);
+    return keys;
+  },
+
+  // about:keyboard's row data for a <key> element, in any window.
+  keyDataOf(keyEl) {
+    return {
+      shortcut:
+        keyEl.hasAttribute("key") || keyEl.hasAttribute("keycode")
+          ? lazy.ShortcutUtils.prettifyShortcut(keyEl)
+          : "",
+      isCustomized: !!lazy.CustomKeys.getDefaultKey(keyEl.id),
+      internal: keyEl.getAttribute("internal") == "true",
+    };
+  },
+
+  // The name a person knows a key by: a menu item that shows it, else its
+  // command's label or its Whimsy command name, else words from its id.
+  keyTitle(win, keyEl) {
+    const { document } = win;
+    const escaped = win.CSS.escape(keyEl.id);
+    const item = [...document.querySelectorAll(`menuitem[key="${escaped}"], toolbarbutton[key="${escaped}"]`)].find(
+      el => el.label || el.getAttribute("label")
+    );
+    const command = keyEl.getAttribute("command");
+    const commandEl = command ? document.getElementById(command) : null;
+    const name =
+      item?.label ||
+      item?.getAttribute("label") ||
+      commandEl?.getAttribute("label") ||
+      keyEl.getAttribute("label") ||
+      (command && this.title(entries.get(command))) ||
+      this.title(this.forKey(keyEl.id));
+    if (name) {
+      return name;
+    }
+    const words = keyEl.id
+      .replace(/^(key_|key-|zen-|whimsy-|cmd_)/i, "")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .trim()
+      .toLowerCase();
+    return words ? words[0].toUpperCase() + words.slice(1) : keyEl.id;
+  },
+
+  // CustomKeysParent looks a key up in the page's own window after a
+  // change; keys that only Mini windows have are found in those.
+  wrapKeyData(actor) {
+    if (actor._whimsyKeyData) {
+      return;
+    }
+    actor._whimsyKeyData = true;
+    const own = actor.getKeyData.bind(actor);
+    actor.getKeyData = id => {
+      const data = own(id);
+      if (data) {
+        return data;
+      }
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        const keyEl = win.document.getElementById(id);
+        if (keyEl?.localName == "key") {
+          return this.keyDataOf(keyEl);
+        }
+      }
+      return null;
+    };
   },
 };

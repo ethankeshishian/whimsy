@@ -666,6 +666,9 @@ support-files = ["whimsy_highlight.html"]
 # W10-39: Rename Space from the command bar, an assigned shortcut and compact mode; a failed rename blocks nothing.
 ["browser_whimsy_rename_space.js"]
 
+# W10-39: about:keyboard lists every other bound key (any window, Mini included), so a taken shortcut shows as a conflict and can be reassigned.
+["browser_whimsy_keyboard_conflicts.js"]
+
 # wave9/menus: design-full-4 menu/command fixes (Scratch menu, no move into Scratch, one Expand Current Split, Delete Essential, keywords, Move Tab to Space N, New Note page-only, Watch variants, Mini Whimsy in File, Redo icon).
 ["browser_whimsy_menus_review.js"]
 # wave9: Battery saver (W8-01: threshold, banner, auto-off, throttles).
