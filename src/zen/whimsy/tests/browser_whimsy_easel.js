@@ -250,6 +250,111 @@ add_task(async function test_text_drawing_shapes_move_resize_undo() {
   BrowserTestUtils.removeTab(reopened);
 });
 
+// F11 (W13, the user: "a bug, not a design"): the three size buttons must
+// draw three different sizes and look different. Real clicks on each size
+// button, then a pen stroke, a highlighter stroke and text at that size:
+// the model holds 2/4/8 (highlighter ×4) and 18/28/44, the page paints
+// them (stroke-width, font-size), the export canvas draws strokes that
+// thick (counted in pixels), and the buttons' dots are clearly different.
+add_task(async function test_size_buttons_draw_three_sizes() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.easel.size", 1]] });
+  const { win, app } = await openNewEasel();
+  const doc = win.document;
+  const rect = doc.getElementById("viewport").getBoundingClientRect();
+  const at = (x, y) => ({ x: rect.left + x, y: rect.top + y });
+  const sizeButton = size => doc.querySelector(`.size[data-size="${size}"]`);
+  const pickTool = tool => EventUtils.synthesizeMouseAtCenter(doc.querySelector(`.tool[data-tool="${tool}"]`), {}, win);
+  const pickSize = async size => {
+    is(app.selection.size, 0, "Nothing selected, so the size is for what's drawn next");
+    EventUtils.synthesizeMouseAtCenter(sizeButton(size), {}, win);
+    await TestUtils.waitForCondition(() => app.size == size, `Size ${size} picked`);
+    is(sizeButton(size).getAttribute("aria-checked"), "true", "...and shown as picked");
+  };
+
+  // The glyphs: dots at true doubling, the picked one marked by its fill.
+  const dots = [0, 1, 2].map(size => sizeButton(size).querySelector(".dot").getBoundingClientRect().width);
+  info(`Dots: ${dots.join(" / ")}px`);
+  Assert.greaterOrEqual(dots[1] / dots[0], 1.8, "The medium dot is clearly bigger than the small one");
+  Assert.greaterOrEqual(dots[2] / dots[1], 1.8, "The large dot is clearly bigger than the medium one (they looked the same)");
+  Assert.lessOrEqual(dots[2], sizeButton(2).getBoundingClientRect().width - 8, "The large dot fits its button with room around it");
+  await pickSize(2);
+  is(win.getComputedStyle(sizeButton(2)).boxShadow, "none", "The picked size has no ring crowding its dot");
+
+  const pens = [];
+  const marks = [];
+  for (const size of [0, 1, 2]) {
+    await pickSize(size);
+    pickTool("pen");
+    await drag(win, at(120, 120 + size * 70), at(420, 120 + size * 70), { steps: 10 });
+    pens.push(app.items.at(-1));
+    pickTool("highlighter");
+    await drag(win, at(520, 120 + size * 70), at(820, 120 + size * 70), { steps: 10 });
+    marks.push(app.items.at(-1));
+  }
+  Assert.deepEqual(pens.map(p => p.width), [2, 4, 8], "Pen strokes: 2, 4 and 8 wide");
+  Assert.deepEqual(marks.map(p => p.width), [8, 16, 32], "Highlighter: ×4, 8, 16 and 32 wide");
+  ok(marks.every(m => m.highlighter), "...as highlighter strokes");
+  // What the page paints.
+  const inkWidth = item => win.getComputedStyle(doc.querySelector(`.item[data-id="${item.id}"] path.ink`)).strokeWidth;
+  Assert.deepEqual(pens.map(inkWidth), ["2px", "4px", "8px"], "The page paints the pen at 2, 4 and 8px");
+  Assert.deepEqual(marks.map(inkWidth), ["8px", "16px", "32px"], "...and the highlighter at 8, 16 and 32px");
+
+  // Text at each size.
+  const texts = [];
+  for (const size of [0, 1, 2]) {
+    await pickSize(size);
+    pickTool("text");
+    EventUtils.synthesizeMouseAtPoint(at(120, 330 + size * 75).x, at(120, 330 + size * 75).y, {}, win);
+    await TestUtils.waitForCondition(() => app.editingId, "Typing starts where you click");
+    EventUtils.sendString("Aa", win);
+    const id = app.editingId;
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    if (app.selection.size) {
+      EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    }
+    texts.push(app.find(id));
+  }
+  Assert.deepEqual(texts.map(t => t.size), [18, 28, 44], "Text: 18, 28 and 44");
+  const fontSize = item => win.getComputedStyle(doc.querySelector(`.item[data-id="${item.id}"] .text`)).fontSize;
+  Assert.deepEqual(texts.map(fontSize), ["18px", "28px", "44px"], "The page sets them at 18, 28 and 44px");
+  const heights = texts.map(t => doc.querySelector(`.item[data-id="${t.id}"] .text`).getBoundingClientRect().height);
+  ok(heights[0] < heights[1] && heights[1] < heights[2], `...and they're drawn taller each time (${heights.join(" / ")})`);
+
+  // The export canvas: count the stroke's pixels down its middle.
+  const canvas = await app.renderCanvas({ dark: false, scale: 1 });
+  const { box } = (() => {
+    const b = { x: Infinity, y: Infinity };
+    for (const item of app.items) {
+      b.x = Math.min(b.x, item.x);
+      b.y = Math.min(b.y, item.y);
+    }
+    return { box: { x: b.x - 48, y: b.y - 48 } };
+  })();
+  const ctx = canvas.getContext("2d");
+  const thickness = item => {
+    const x = Math.round(item.x + item.w / 2 - box.x);
+    const data = ctx.getImageData(x, Math.floor(item.y - box.y), 1, Math.ceil(item.h)).data;
+    // How far each pixel is from the background (#fbfaf8); the stroke's
+    // thickness is the run of pixels at least half as far as its core
+    // (its width at half strength, so antialiased edges count once).
+    const diffs = [];
+    for (let i = 0; i < data.length; i += 4) {
+      diffs.push(Math.abs(data[i] - 0xfb) + Math.abs(data[i + 1] - 0xfa) + Math.abs(data[i + 2] - 0xf8));
+    }
+    const core = Math.max(...diffs);
+    return core > 20 ? diffs.filter(d => d >= core / 2).length : 0;
+  };
+  const drawn = pens.map(thickness);
+  const highlighted = marks.map(thickness);
+  info(`Drawn pen: ${drawn.join(" / ")}px; highlighter: ${highlighted.join(" / ")}px`);
+  pens.forEach((pen, i) => Assert.less(Math.abs(drawn[i] - pen.width), 1.6, `The pen at size ${i} is drawn ${pen.width}px thick`));
+  marks.forEach((mark, i) =>
+    Assert.less(Math.abs(highlighted[i] - mark.width), 2.6, `The highlighter at size ${i} is drawn ${mark.width}px thick`));
+  ok(drawn[0] < drawn[1] && drawn[1] < drawn[2], "Three different pen thicknesses");
+  ok(highlighted[0] < highlighted[1] && highlighted[1] < highlighted[2], "Three different highlighter thicknesses");
+  await SpecialPowers.popPrefEnv();
+});
+
 add_task(async function test_captures_static_live_and_private() {
   const pageTab = await BrowserTestUtils.openNewForegroundTab({ gBrowser, opening: PAGE, forceNewProcess: true });
   registerCleanupFunction(() => BrowserTestUtils.removeTab(pageTab));

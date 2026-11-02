@@ -562,6 +562,11 @@
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true
 
+# Ctrl+Tab shows up to 12 tabs (three rows of four); with Firefox's 7
+# the 8th tab couldn't be reached (Zen hides List All Tabs).
+- name: browser.ctrlTab.maxPreviews
+  value: 12
+
 # New tabs (Cmd+T) open right below the current tab, not at the end of
 # the list. Settings → Tab Management → Tabs.
 - name: browser.tabs.insertAfterCurrent

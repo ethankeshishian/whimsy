@@ -1689,18 +1689,48 @@ tab[whimsy-live-unread] {
   .whimsy-tree-toggle::before { transition: none; }
 }
 
-/* wave8/cheatsheet: the Cmd+/ reference. Menu-bar groups in two columns,
-   each shortcut as separate key caps, custom shortcuts marked. Colours are
-   currentColor mixes and Zen's accent, so light, dark and every Zen theme
-   follow; nothing moves but the panel itself (Firefox's panel animation,
-   which honours reduced motion) and a 100ms focus fill. */
-/* W10-19: the shortcut cheat sheet, a WhimsySurface over the page: a
-   search pill, the menus flowing in up to three 190px columns (two below
-   680px, one below 460px), key caps, an accent dot for changed shortcuts
-   with a footer legend, matches marked. */
+/* wave8/cheatsheet: the Cmd+/ reference. Each shortcut as separate key
+   caps, custom shortcuts marked. Colours are currentColor mixes and Zen's
+   accent, so light, dark and every Zen theme follow; nothing moves but the
+   panel itself (Firefox's panel animation, which honours reduced motion)
+   and a 100ms focus fill.
+   W13 F03 (option B at 88%, wave13/design/cheatsheet): a WhimsySurface
+   760px wide, 88% of the page area's height (--whimsy-cheatsheet-height,
+   set when it opens; fixed while open), centred. The header (with a grip)
+   is the drag handle. A 150px rail lists the menus with their counts; the
+   picked menu's rows sit on the surface track; key caps on the track with
+   a hairline; a fade at the bottom while more rows are below. Searching
+   shows every menu's matches under their headings and dims the rail.
+   [one-list] (under 360px of page height): no rail, one list. */
 panel.whimsy-surface.whimsy-cheatsheet {
   max-width: calc(100vw - 40px);
   --whimsy-cheatsheet-accent: var(--zen-primary-color, AccentColor);
+
+  &::part(content) {
+    height: var(--whimsy-cheatsheet-height, auto);
+  }
+  & .whimsy-surface-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+}
+.whimsy-surface-drag-handle {
+  cursor: grab;
+
+  panel[dragging] & {
+    cursor: grabbing;
+  }
+}
+.whimsy-surface-grip {
+  flex-shrink: 0;
+  color: var(--whimsy-surface-muted);
+  font-size: 12px;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+.whimsy-cheatsheet .whimsy-surface-header {
+  min-height: 26px;
 }
 .whimsy-cheatsheet-search-input::-moz-search-clear-button {
   display: none;
@@ -1715,42 +1745,146 @@ panel.whimsy-surface.whimsy-cheatsheet {
     display: none;
   }
 }
+.whimsy-cheatsheet-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  /* One row the body's height: the rail and the rows scroll inside it. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 10px;
+
+  panel[one-list] & {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.whimsy-cheatsheet-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+
+  panel[one-list] & {
+    display: none;
+  }
+  /* Typing searches every menu: the rail steps back. */
+  panel[searching] & {
+    opacity: 0.45;
+  }
+  @media not (prefers-reduced-motion: reduce) {
+    transition: opacity 120ms ease-out;
+  }
+}
+.whimsy-cheatsheet-rail-item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 9px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: default;
+
+  &:hover {
+    background-color: var(--whimsy-surface-hover);
+  }
+  &[aria-selected="true"] {
+    background-color: var(--whimsy-surface-selected);
+    font-weight: 600;
+  }
+  panel[searching] &[aria-selected="true"] {
+    background-color: transparent;
+    font-weight: normal;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: -2px;
+  }
+  @media (prefers-contrast: more) {
+    &[aria-selected="true"] {
+      outline: 1px solid currentColor;
+    }
+  }
+}
+.whimsy-cheatsheet-rail-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-cheatsheet-rail-count {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  color: var(--whimsy-surface-muted);
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-cheatsheet-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
 .whimsy-cheatsheet-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--whimsy-surface-track);
 
+  &[fade] {
+    mask-image: linear-gradient(to bottom, black calc(100% - 44px), transparent);
+  }
   &[hidden] {
     display: none;
   }
 }
-.whimsy-cheatsheet-columns {
-  columns: 3 190px;
-  column-gap: 18px;
-  padding: 2px 2px 4px;
+.whimsy-cheatsheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 
   &[hidden] {
     display: none;
   }
 }
 .whimsy-cheatsheet-group {
-  break-inside: avoid;
-  margin-bottom: 12px;
+  margin: 0;
 
   &[hidden] {
     display: none;
   }
 }
+/* Headings name the menu only when the rail doesn't: while searching, and
+   in one list. */
 .whimsy-cheatsheet-heading {
   display: flex;
-  margin: 0 0 2px;
-  padding-inline: 6px;
+  margin: 0;
+  padding: 6px 9px 2px;
   font-size: 12px;
   font-weight: 600;
   line-height: 20px;
+
+  panel.whimsy-cheatsheet:not([searching], [one-list]) & {
+    display: none;
+  }
 }
 .whimsy-cheatsheet-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1758,11 +1892,12 @@ panel.whimsy-surface.whimsy-cheatsheet {
 .whimsy-cheatsheet-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  padding: 2px 6px;
+  gap: 8px;
+  min-height: 28px;
+  padding: 3px 9px;
+  box-sizing: border-box;
   border-radius: 6px;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.3;
   cursor: default;
   outline: none;
@@ -1807,21 +1942,23 @@ panel.whimsy-surface.whimsy-cheatsheet {
 .whimsy-cheatsheet-keys {
   display: inline-flex;
   flex-shrink: 0;
-  gap: 2px;
+  gap: 3px;
 
   & > kbd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 4px;
+    display: inline-grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
     box-sizing: border-box;
-    border-radius: 4px;
+    border-radius: 5px;
+    border: 1px solid var(--whimsy-surface-hairline);
+    background-color: var(--whimsy-surface-track);
     font: inherit;
-    font-size: 11px;
+    font-size: 11.5px;
+    font-weight: 500;
     letter-spacing: 0;
-    color: var(--whimsy-surface-muted);
+    color: inherit;
   }
 }
 .whimsy-cheatsheet-empty[hidden] {
@@ -1829,7 +1966,7 @@ panel.whimsy-surface.whimsy-cheatsheet {
 }
 .whimsy-cheatsheet-footer {
   gap: 8px;
-  padding: 8px 4px 0;
+  padding: 9px 4px 0;
   border-top: 1px solid var(--whimsy-surface-hairline);
 }
 .whimsy-cheatsheet-legend {
@@ -1839,6 +1976,154 @@ panel.whimsy-surface.whimsy-cheatsheet {
 
   &[hidden] {
     display: none;
+  }
+}
+
+/* W13 ctrltab (option B, design/ctrltab): Firefox's Ctrl+Tab panel as one
+   rounded Whimsy card. Firefox's ctrlTab.css stays as it is; this only
+   applies while WhimsyCtrlTab marks the panel (whimsy.feature.ctrl-tab).
+   Concentric radii: card 20 = tile 12 + card padding 8; tile 12 =
+   thumbnail 6 + tile padding 6. WhimsyCtrlTab.cardSize() uses the same
+   numbers (tile padding 6, gap 4, card padding 8, a 17px title row 7px
+   under the thumbnail) to size and centre the panel. */
+#ctrlTab-panel[whimsy-look] {
+  --panel-background-color: var(--arrowpanel-background);
+  --panel-text-color: var(--arrowpanel-color, currentColor);
+  --panel-border-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+  --panel-padding: 8px;
+  --panel-border-radius: 20px;
+  /* The soft shadow is drawn by CSS, so the popup leaves room for it. */
+  --panel-box-shadow-margin: 24px;
+  --panel-box-shadow:
+    0 18px 50px light-dark(rgba(30, 20, 60, 0.22), rgba(0, 0, 0, 0.55)),
+    0 2px 6px light-dark(rgba(30, 20, 60, 0.1), rgba(0, 0, 0, 0.4));
+  font: menu;
+  font-size: 12.5px;
+  font-weight: normal;
+
+  & #ctrlTab-previews {
+    gap: 4px;
+  }
+
+  & .ctrlTab-preview,
+  & #ctrlTab-showAll {
+    text-shadow: none;
+  }
+
+  /* The tile: the thumbnail across the top, then the favicon beside the
+     title (they're already siblings, so no new markup). */
+  & .ctrlTab-preview-inner {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-rows: auto 17px;
+    gap: 7px;
+    margin: 0;
+    padding: 6px;
+    border: none;
+    border-radius: 12px;
+  }
+
+  & .ctrlTab-canvas {
+    grid-column: 1 / -1;
+    position: relative;
+    margin: 0;
+    border-radius: 6px;
+    overflow: clip;
+    box-shadow: none;
+    /* A hairline inside the edge, over the thumbnail, instead of the hard
+       drop shadow. */
+    outline: 1px solid color-mix(in srgb, currentColor 13%, transparent);
+    outline-offset: -1px;
+  }
+
+  & .ctrlTab-favicon-container {
+    position: static;
+    justify-content: center;
+    align-items: center;
+    padding-inline-start: 2px;
+  }
+
+  & .ctrlTab-favicon[src] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 4px;
+  }
+
+  & .ctrlTab-label {
+    margin: 0;
+    padding-inline-end: 2px;
+    min-width: 0;
+    text-align: start;
+    line-height: 17px;
+  }
+
+  /* Selected: the surface family's "selected" fill (the space colour at
+     22%) behind the whole tile, no ring; the title goes semibold so it
+     never relies on the tint alone. Hovering focuses a tile (Firefox), so
+     hover is the same fill. */
+  & .ctrlTab-preview:focus > .ctrlTab-preview-inner,
+  & #ctrlTab-showAll:focus {
+    background-color: var(--whimsy-surface-selected);
+    border-color: transparent;
+    text-shadow: none;
+
+    @media (prefers-contrast: more) {
+      outline: 1px solid currentColor;
+      outline-offset: -1px;
+    }
+  }
+  & .ctrlTab-preview:focus .ctrlTab-label {
+    font-weight: 600;
+  }
+
+  & #ctrlTab-showAll {
+    border: none;
+    border-radius: 12px;
+    background-color: var(--whimsy-surface-track);
+  }
+
+  /* A tab from another space: a pill with the space's colour and name in
+     the thumbnail's top-start corner (WhimsyCtrlTab sets the attribute).
+     The thumbnail keeps a light scheme; the pill follows the window's. */
+  & .ctrlTab-canvas[whimsy-space-name]::before {
+    content: attr(whimsy-space-name);
+    position: absolute;
+    top: 5px;
+    inset-inline-start: 5px;
+    z-index: 1;
+    box-sizing: border-box;
+    max-width: calc(100% - 10px);
+    height: 18px;
+    padding-inline: 18px 7px;
+    border-radius: 9px;
+    color-scheme: light dark;
+    background-color: color-mix(in srgb, var(--arrowpanel-background) 92%, transparent);
+    color: var(--arrowpanel-color, CanvasText);
+    box-shadow:
+      0 0 0 1px light-dark(rgba(0, 0, 0, 0.13), rgba(255, 255, 255, 0.13)),
+      0 1px 3px rgba(0, 0, 0, 0.14);
+    font: menu;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  & .ctrlTab-canvas[whimsy-space-name]::after {
+    content: "";
+    position: absolute;
+    top: 10px;
+    inset-inline-start: 10px;
+    z-index: 2;
+    width: 8px;
+    height: 8px;
+    border-radius: 3px;
+    background-color: var(--whimsy-space-color, var(--zen-primary-color, AccentColor));
   }
 }
 
@@ -2510,6 +2795,298 @@ panel.whimsy-sheet .whimsy-sheet-footer {
   background-image: url("chrome://browser/content/whimsy/library/library-notes-sprite.svg");
 }
 
+/* W13 notes (option C, design/notes-sidebar): notes stay in the Library
+   and look like notes.
+   - The Notes tab: a count badge when the page in front has notes
+     (WhimsyNotes sets whimsy-note-count on Zen's rail tab).
+   - Each note: a two-line card (the title, the next line, the page chip,
+     how long ago), Edit and Delete on hover or keyboard focus.
+   - An open note: the F09 A card (the title, the note, the page chip,
+     Done) on a surface, in place of its card.
+   - No notes: the notes sprite, No notes yet, New Note and a hint. */
+.zen-library-tab[whimsy-note-count]::after {
+  content: attr(whimsy-note-count);
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 12px;
+  box-sizing: border-box;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background-color: var(--zen-primary-color, AccentColor);
+  color: white;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  @media (prefers-contrast: more) {
+    outline: 1px solid currentColor;
+  }
+}
+
+whimsy-library-notes-section {
+  --whimsy-note-muted: color-mix(in srgb, currentColor 60%, transparent);
+  --whimsy-note-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
+  --whimsy-note-hairline: color-mix(in srgb, currentColor 13%, transparent);
+}
+.whimsy-note-item {
+  margin: 0;
+}
+.whimsy-note-card {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  outline: none;
+  cursor: default;
+  -moz-window-dragging: no-drag;
+
+  &:hover,
+  &:focus-within {
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+  @media not (prefers-reduced-motion: reduce) {
+    transition: background-color 100ms ease-out;
+  }
+}
+.whimsy-note-card-title,
+.whimsy-note-card-line {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-note-card-title {
+  font-weight: 600;
+  /* Room for Edit and Delete when they show. */
+  padding-inline-end: 4px;
+}
+.whimsy-note-card-line {
+  font-size: 11.5px;
+  color: var(--whimsy-note-muted);
+}
+.whimsy-note-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 10.5px;
+  color: var(--whimsy-note-muted);
+}
+.whimsy-note-card-age {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-note-card-actions {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+
+  .whimsy-note-card:is(:hover, :focus-within) > & {
+    opacity: 1;
+  }
+  & > toolbarbutton {
+    --toolbarbutton-inner-padding: 4px;
+    margin: 0;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    background-color: var(--arrowpanel-background);
+    box-shadow: 0 0 0 1px var(--whimsy-note-hairline);
+    color: var(--whimsy-note-muted);
+    justify-content: center;
+    align-items: center;
+
+    & > .toolbarbutton-icon {
+      width: 12px;
+      height: 12px;
+      padding: 0;
+      margin: 0;
+      -moz-context-properties: fill, fill-opacity;
+      fill: currentColor;
+    }
+    & > .toolbarbutton-text {
+      display: none;
+    }
+    &:hover {
+      color: inherit;
+    }
+  }
+}
+
+/* The page a note is kept with: its favicon and title (or host). */
+.whimsy-note-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 2px 7px 2px 4px;
+  border: none;
+  border-radius: 7px;
+  background-color: var(--whimsy-note-track);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+
+  .whimsy-note-card-footer & {
+    font-size: 10.5px;
+  }
+}
+.whimsy-note-chip-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+.whimsy-note-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.whimsy-note-chip-remove {
+  appearance: none;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin: 0 -3px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: url("chrome://browser/skin/zen-icons/close.svg") center / 10px no-repeat;
+  -moz-context-properties: fill;
+  fill: var(--whimsy-note-muted);
+
+  &:hover {
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+  }
+}
+.whimsy-note-chip-add {
+  color: var(--whimsy-note-muted);
+  cursor: default;
+
+  &:hover {
+    color: inherit;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+  }
+}
+
+/* The open note: the F09 A card, on a surface. */
+.whimsy-note-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0 6px;
+  padding: 9px;
+  border-radius: 12px;
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+  background-color: var(--arrowpanel-background);
+  box-shadow: 0 14px 36px light-dark(rgba(30, 20, 60, 0.2), rgba(0, 0, 0, 0.55)), 0 2px 6px light-dark(rgba(30, 20, 60, 0.1), rgba(0, 0, 0, 0.4));
+  -moz-window-dragging: no-drag;
+}
+.whimsy-note-open-title,
+.whimsy-note-open-body {
+  margin: 0;
+  padding: 2px 3px;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  color: inherit;
+  font: inherit;
+}
+.whimsy-note-open-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.whimsy-note-open-body {
+  resize: none;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.whimsy-note-open-title::placeholder,
+.whimsy-note-open-body::placeholder {
+  color: var(--whimsy-note-muted);
+  opacity: 1;
+}
+.whimsy-note-open:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--focus-outline-color, AccentColor) 45%, transparent);
+  outline-offset: -1px;
+}
+.whimsy-note-open-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  & > .whimsy-note-chip {
+    flex: 0 1 auto;
+  }
+  & > .whimsy-note-done {
+    margin-inline-start: auto;
+  }
+}
+/* Done and the empty state's New Note: the small primary button. */
+.whimsy-note-done {
+  appearance: none;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 7px;
+  background-color: var(--button-background-color-primary, AccentColor);
+  color: var(--button-text-color-primary, AccentColorText);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+
+  &:hover {
+    background-color: var(--button-background-color-primary-hover, var(--button-background-color-primary, AccentColor));
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 2px;
+  }
+}
+
+/* No notes yet. */
+.whimsy-notes-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 26px 8px;
+  text-align: center;
+}
+.whimsy-notes-empty-icon {
+  --zen-library-sprite-size: 34px;
+  width: var(--zen-library-sprite-size);
+  height: var(--zen-library-sprite-size);
+  overflow: clip;
+}
+.whimsy-notes-empty-hint {
+  max-width: 200px;
+  font-size: 11.5px;
+  color: var(--whimsy-note-muted);
+}
+
 [data-section="whimsy-finder-folders"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {
   background-image: url("chrome://browser/content/whimsy/library/library-folders-sprite.svg");
 }
@@ -3133,7 +3710,8 @@ panel.whimsy-look-picker {
 /* The tokens also apply to a section built from these parts inside
    someone else's panel (This Site in Zen's site panel). */
 panel.whimsy-surface,
-.whimsy-surface-tokens {
+.whimsy-surface-tokens,
+#ctrlTab-panel[whimsy-look] {
   --whimsy-surface-muted: color-mix(in srgb, currentColor 62%, transparent);
   --whimsy-surface-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
   --whimsy-surface-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
@@ -4005,7 +4583,8 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
 }
 
 /* W10-24: Library ▸ Screenshots as a grid of real thumbnails, sized by a
-   Finder-style slider (96 / 150 / 240px). */
+   Finder-style slider. F11 (W13): its stops are 3, 2 or 1 thumbnails per
+   row, so each looks different in the Library's narrow pane. */
 whimsy-library-files-section {
   --whimsy-shot-hairline: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
 }
@@ -4034,7 +4613,7 @@ whimsy-library-files-section {
 }
 .whimsy-library-shots {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--whimsy-shot-size, 150px), 1fr));
+  grid-template-columns: repeat(var(--whimsy-shot-columns, 2), minmax(0, 1fr));
   gap: 10px;
   padding: 0 4px 8px;
 }

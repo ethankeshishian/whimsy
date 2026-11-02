@@ -50,6 +50,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
+  // W13 ctrltab: the rounder Ctrl+Tab card.
+  WhimsyCtrlTab: "resource:///modules/whimsy/WhimsyCtrlTab.sys.mjs",
   WhimsyPrivateMove: "resource:///modules/whimsy/WhimsyPrivateMove.sys.mjs",
   // batch13: page & reading
   WhimsyBionicReading: "resource:///modules/whimsy/WhimsyBionicReading.sys.mjs",
@@ -656,6 +658,10 @@ export const Whimsy = {
     run("private-move", () => lazy.WhimsyPrivateMove.initWindow(win));
     // W11-14: lock private browsing (Touch ID or the Mac password).
     run("private-lock", () => lazy.WhimsyPrivateLock.initWindow(win));
+    // W13 ctrltab (option B): the rounder Ctrl+Tab card, rows of four, the
+    // space badge. Wraps updatePreview after the private lock does; the two
+    // compose either way. Checks whimsy.feature.ctrl-tab on each open.
+    run("ctrl-tab-look", () => lazy.WhimsyCtrlTab.initWindow(win));
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
     later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
