@@ -230,6 +230,20 @@ add_task(async function test_cmd_opt_t_adds_a_page_through_the_command_bar() {
   }
 });
 
+// F20: Cmd+T in Mini makes a new page in Mini (not another window's tab).
+add_task(async function test_cmd_t_adds_a_page_in_mini() {
+  const win = await openMini("https://example.com/");
+  const mainTabs = gBrowser.tabs.length;
+  try {
+    win.document.getElementById("cmd_newNavigatorTab").doCommand();
+    await TestUtils.waitForCondition(() => pages(win).length == 2 && win.gURLBar.focused,
+      "Cmd+T made a new page in Mini, with its command bar open");
+    is(gBrowser.tabs.length, mainTabs, "No tab in the main window");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
+
 add_task(async function test_links_from_other_apps_join_the_open_mini() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.external-links.target", "quick-window"]] });
   const win = await openMini("https://example.com/");

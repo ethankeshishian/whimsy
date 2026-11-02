@@ -91,6 +91,10 @@ add_task(async function test_pinned_extensions_live_under_minis_puzzle_button() 
     isnot(CustomizableUI.getPlacementOfWidget(WIDGET_ID)?.area, CustomizableUI.AREA_ADDONS,
       "The extension is pinned to the toolbar, like 1Password");
     const puzzle = win.document.getElementById("unified-extensions-button");
+    // F20 (10-38): the puzzle button shows in Mini's address strip.
+    await TestUtils.waitForCondition(() => puzzle.checkVisibility() && puzzle.getBoundingClientRect().width > 0,
+      `The extensions button shows in Mini (hidden=${puzzle.hidden})`);
+    is(puzzle.parentElement?.id, "whimsy-quick-window-address-field", "...in the address strip");
     await TestUtils.waitForCondition(() => widgetIn(win)?.node?.hasAttribute("artificallyOverflowed"),
       "In Mini, its button moves under the puzzle button");
     is(widgetIn(win).node.parentElement?.id, "overflowed-extensions-list", "...listed in the extensions panel");
@@ -121,6 +125,24 @@ add_task(async function test_pinned_extensions_live_under_minis_puzzle_button() 
   } finally {
     await BrowserTestUtils.closeWindow(win);
     await extension.unload();
+  }
+});
+
+// F20 (10-38): Mini's puzzle button shows even when the extensions button
+// is set to hide in normal windows (Firefox's "Remove from Toolbar" turns
+// extensions.unifiedExtensions.button.always_visible off and hides it).
+add_task(async function test_puzzle_button_shows_when_hidden_elsewhere() {
+  await SpecialPowers.pushPrefEnv({ set: [["extensions.unifiedExtensions.button.always_visible", false]] });
+  const win = await openMini();
+  try {
+    const puzzle = win.document.getElementById("unified-extensions-button");
+    await TestUtils.waitForCondition(() => puzzle.checkVisibility() && puzzle.getBoundingClientRect().width > 0,
+      `The extensions button shows in Mini (hidden=${puzzle.hidden})`);
+    win.gUnifiedExtensions.updateButtonVisibility();
+    ok(!puzzle.hidden && puzzle.checkVisibility(), "...and stays after Firefox updates it");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+    await SpecialPowers.popPrefEnv();
   }
 });
 

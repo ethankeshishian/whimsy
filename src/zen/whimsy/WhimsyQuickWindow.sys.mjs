@@ -969,6 +969,22 @@ export const WhimsyQuickWindow = {
     // icon is in Mini's parked nav bar; use the visible puzzle button.
     if (win.gUnifiedExtensions) {
       win.gUnifiedExtensions._button = extensions;
+      // F20 (10-38): Firefox hides the button when it's set to show only
+      // when needed (Remove from Toolbar turns always_visible off), and
+      // updates that on every tab and toolbar change. Mini has no other
+      // way to its extensions: it always shows.
+      const unified = win.gUnifiedExtensions;
+      if (!unified._whimsyMiniVisible) {
+        unified._whimsyMiniVisible = true;
+        const update = unified.updateButtonVisibility;
+        unified.updateButtonVisibility = function (...args) {
+          update?.apply(this, args);
+          if (this._button) {
+            this._button.hidden = false;
+          }
+        };
+      }
+      extensions.hidden = false;
     }
   },
 
@@ -1008,8 +1024,9 @@ export const WhimsyQuickWindow = {
       get: () => "float",
     });
     this.keepResultsInMini(win);
-    // Arc: Cmd+T in Little Arc opens its command bar; what you pick
-    // replaces the page, it never opens a tab.
+    // F20 (the user): Cmd+T in Mini makes a new page in Mini, as Cmd+Opt+T
+    // does (newTab). One-page Mini (pages off, or the bar-only Mini) keeps
+    // Little Arc's: its command bar, whose pick replaces the page.
     const commands = win.BrowserCommands;
     if (commands?.openTab && !commands._whimsyMini) {
       commands._whimsyMini = true;
@@ -1017,7 +1034,7 @@ export const WhimsyQuickWindow = {
         if (url) {
           win.openTrustedLinkIn(url, "current");
         } else {
-          this.openCommandBar(win);
+          this.newTab(win);
         }
       };
     }

@@ -79,7 +79,32 @@ add_task(async function test_new_tab_modifiers_stay_in_mini() {
   }
 });
 
-add_task(async function test_cmd_t_opens_the_command_bar_not_a_tab() {
+// F20: Cmd+T makes a new page in Mini (its command bar opens on it, and the
+// pick loads there); never a tab in another window.
+add_task(async function test_cmd_t_opens_a_mini_page_not_a_main_tab() {
+  const win = await openMini();
+  try {
+    const before = counts(win);
+    win.gURLBar.blur();
+    EventUtils.synthesizeKey("t", { accelKey: true }, win);
+    await TestUtils.waitForCondition(() => win.gURLBar.focused, "Cmd+T opens Mini's command bar");
+    is(win.gBrowser.tabs.length, before.mini + 1, "...on a new page in Mini");
+    is(gBrowser.tabs.length, before.main, "...and no tab in the main window");
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, waitForFocus: SimpleTest.waitForFocus, value: "https://example.org/" });
+    const loaded = BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser, false, "https://example.org/");
+    EventUtils.synthesizeKey("KEY_Enter", {}, win);
+    await loaded;
+    is(win.gBrowser.tabs.length, before.mini + 1, "The pick loads in the new page");
+    is(gBrowser.tabs.length, before.main, "Still no main-window tab");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
+
+// One-page Mini (pages off) keeps Little Arc's Cmd+T: its command bar, and
+// the pick replaces the page.
+add_task(async function test_cmd_t_one_page_mini_opens_the_command_bar() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.mini-tabs", false]] });
   const win = await openMini();
   try {
     const before = counts(win);
@@ -87,13 +112,9 @@ add_task(async function test_cmd_t_opens_the_command_bar_not_a_tab() {
     EventUtils.synthesizeKey("t", { accelKey: true }, win);
     await TestUtils.waitForCondition(() => win.gURLBar.focused, "Cmd+T opens Mini's command bar");
     Assert.deepEqual(counts(win), before, "...without opening a tab");
-    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, waitForFocus: SimpleTest.waitForFocus, value: "https://example.org/" });
-    const loaded = BrowserTestUtils.browserLoaded(win.gBrowser.selectedBrowser, false, "https://example.org/");
-    EventUtils.synthesizeKey("KEY_Enter", {}, win);
-    await loaded;
-    Assert.deepEqual(counts(win), before, "Its pick replaces the page");
   } finally {
     await BrowserTestUtils.closeWindow(win);
+    await SpecialPowers.popPrefEnv();
   }
 });
 
