@@ -4,9 +4,11 @@
 "use strict";
 
 // W10-27: the floating command bar opens with a quick, subtle scale-and-fade
-// (160ms) and closes a little faster (110ms); Reduce Motion makes both a
-// plain fade. A reopen during the close picks up from what is on screen, and
-// the bar is usable at once.
+// (160ms); Reduce Motion makes it a plain fade.
+// C1 (wave 13): Zen closes the bar at once, as Zen does; the close motion is
+// only an inert stand-in (110ms) where the bar was. Real ⌘T / type / Esc
+// cycles: the bar is never left floating or half-closed, the input is empty
+// on every reopen, and the stand-in never takes the pointer, focus or a11y.
 
 const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
 const { COMMAND_BAR_MOTION } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommandBar.sys.mjs");
@@ -43,6 +45,7 @@ function barAnimations(id) {
 }
 
 async function closeBar() {
+  await SimpleTest.promiseFocus(window);
   EventUtils.synthesizeKey("KEY_Escape");
   if (gURLBar.view.isOpen) {
     EventUtils.synthesizeKey("KEY_Escape");
@@ -51,13 +54,25 @@ async function closeBar() {
 }
 
 async function waitClosed() {
-  await TestUtils.waitForCondition(
-    () => gURLBar.getAttribute("zen-floating-urlbar") != "true" && !gURLBar.hasAttribute("whimsy-closing"),
-    "The bar is hidden"
-  );
+  await TestUtils.waitForCondition(() => gURLBar.getAttribute("zen-floating-urlbar") != "true", "The bar is hidden");
 }
 
-add_task(async function open_and_close_motion() {
+const ghosts = () => [...document.querySelectorAll(".whimsy-command-bar-ghost")];
+
+// Zen's ⌘T, the way the app runs it (tests otherwise get a real new tab).
+function commandT() {
+  const testing = gZenUIManager.testingEnabled;
+  gZenUIManager.testingEnabled = false;
+  try {
+    document.getElementById("cmd_newNavigatorTab").doCommand();
+  } finally {
+    gZenUIManager.testingEnabled = testing;
+  }
+}
+
+const frame = () => new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+add_task(async function open_motion_and_a_visual_close() {
   gReduceMotionOverride = false;
   ok(window.WhimsyCommandBarMotion, "The window has the command bar motion");
   const open = await openBar();
@@ -71,46 +86,86 @@ add_task(async function open_and_close_motion() {
   ok(/-\s?6px\)?$/.test(frames[0].translate), `Open starts 6px higher (${frames[0].translate})`);
   ok(!("transform" in frames[0]), "Open never animates transform (Zen centres with translate)");
   await open.finished;
+  const floating = gURLBar.querySelector(".urlbar-background").getBoundingClientRect();
 
   await closeBar();
-  await TestUtils.waitForCondition(() => barAnimations("whimsy-command-bar-close").length, "Close animation runs");
-  const [close] = barAnimations("whimsy-command-bar-close");
-  is(close.effect.getTiming().duration, COMMAND_BAR_MOTION.close.duration, "Close lasts 110ms");
-  is(close.effect.getTiming().easing, "cubic-bezier(0.4, 0, 1, 1)", "Close accelerates out");
-  const closeFrames = close.effect.getKeyframes();
-  ok(closeFrames[0].translate.includes("-50%"), `Close starts centered (${closeFrames[0].translate})`);
-  ok(/-\s?4px\)?$/.test(closeFrames[1].translate), `Close rises 4px (${closeFrames[1].translate})`);
-  is(closeFrames[1].opacity, "0", "Close ends transparent");
-  is(gURLBar.getAttribute("whimsy-closing"), "true", "The bar ignores the pointer while it closes");
-  ok(getComputedStyle(gURLBar).translate.includes("-50%"), "Bar stays floating while closing");
-  isnot(document.activeElement, gURLBar.inputField, "Focus left the bar at once, as before");
-  await waitClosed();
-  is(gURLBar.getAnimations().length, 0, "Nothing is left running on the bar");
+  isnot(gURLBar.getAttribute("zen-floating-urlbar"), "true", "Zen closed the bar at once");
+  is(gURLBar.getAnimations().length, 0, "Nothing animates the real bar");
+  const [ghost] = ghosts();
+  ok(ghost, "A stand-in plays the close");
+  const box = ghost.getBoundingClientRect();
+  ok(Math.abs(box.top - floating.top) < 2 && Math.abs(box.width - floating.width) < 2,
+    "...where the floating bar was");
+  ok(ghost.inert && ghost.getAttribute("aria-hidden") == "true", "It's inert and hidden from accessibility");
+  is(getComputedStyle(ghost).pointerEvents, "none", "...and never takes the pointer");
+  const [fade] = ghost.getAnimations();
+  is(fade.effect.getTiming().duration, COMMAND_BAR_MOTION.close.duration, "Close lasts 110ms");
+  await TestUtils.waitForCondition(() => !ghosts().length, "The stand-in goes away");
 });
 
-// A close whose animation never finishes (its timeline stalled: a
-// throttled or occluded window, as in the release quick verify) or gets
-// cancelled still ends the hide; the next close must not wait on it
-// forever (the view never closed and the test hung for 20s).
-add_task(async function a_stalled_or_cancelled_close_still_hides() {
+// The user's path, ten times: ⌘T, type, Esc, ⌘T. The real bar is closed
+// (not floating, not half open) from the frame after Esc, never overlaps
+// the stand-in, and every reopen starts empty.
+add_task(async function command_t_cycles_reopen_empty() {
   gReduceMotionOverride = false;
-  for (const how of ["stall", "cancel"]) {
-    const open = await openBar();
-    await open?.finished;
-    await closeBar();
-    const close = await TestUtils.waitForCondition(() => barAnimations("whimsy-command-bar-close")[0],
-      `${how}: close animation runs`);
-    if (how == "stall") {
-      close.pause();
-    } else {
-      close.cancel();
+  gBrowser.selectedBrowser.focus();
+  for (let i = 0; i < 10; i++) {
+    commandT();
+    await TestUtils.waitForCondition(() => gURLBar.hasAttribute("zen-newtab") && gURLBar.focused, `⌘T ${i}`);
+    is(gURLBar.value, "", `Reopen ${i}: the input is empty`);
+    EventUtils.sendString(i % 2 ? "example" : "whimsy cycle");
+    await TestUtils.waitForCondition(() => gURLBar.view.isOpen, "Results show");
+    ok(UrlbarTestUtils.getResultCount(window) > 0, "...with rows, never an empty bar");
+    EventUtils.synthesizeKey("KEY_Escape");
+    if (gURLBar.view.isOpen || gURLBar.focused) {
+      EventUtils.synthesizeKey("KEY_Escape");
     }
-    await waitClosed();
-    ok(!WhimsyCommandBarMotion.closing, `${how}: the hide finished`);
-    // And the bar opens and closes normally afterwards.
-    await openBar();
-    const closed = UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
-    await closed;
+    for (let f = 0; f < 4; f++) {
+      await frame();
+      ok(gURLBar.getAttribute("zen-floating-urlbar") != "true", `Cycle ${i}, frame ${f}: the real bar is closed`);
+      const bar = gURLBar.getBoundingClientRect();
+      for (const ghost of ghosts()) {
+        const g = ghost.getBoundingClientRect();
+        const overlap = !(bar.right <= g.left || g.right <= bar.left || bar.bottom <= g.top || g.bottom <= bar.top);
+        ok(!overlap || bar.width == 0, `Cycle ${i}, frame ${f}: no small bar behind the stand-in`);
+      }
+    }
+  }
+  await TestUtils.waitForCondition(() => !ghosts().length, "Stand-ins gone");
+});
+
+// ⌘L: Esc gives the page's address back, never old text.
+add_task(async function command_l_reverts_to_the_page() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?c1-revert");
+  for (let i = 0; i < 3; i++) {
+    document.getElementById("Browser:OpenLocation").doCommand();
+    await TestUtils.waitForCondition(() => gURLBar.focused, "⌘L");
+    EventUtils.sendString("typed text");
+    EventUtils.synthesizeKey("KEY_Escape");
+    EventUtils.synthesizeKey("KEY_Escape");
+    gBrowser.selectedBrowser.focus();
+    await TestUtils.waitForCondition(() => gURLBar.untrimmedValue.includes("example.com"), `Reverted ${i}`);
+  }
+  BrowserTestUtils.removeTab(tab);
+});
+
+// "/" enters commands mode and stays (what a fast close and reopen once
+// cleared).
+add_task(async function slash_commands_mode_stays() {
+  gBrowser.selectedBrowser.focus();
+  for (let i = 0; i < 3; i++) {
+    commandT();
+    await TestUtils.waitForCondition(() => gURLBar.focused, "⌘T");
+    EventUtils.sendString("/");
+    await frame();
+    await TestUtils.waitForCondition(() => gURLBar.searchMode, "Commands mode");
+    await frame();
+    await frame();
+    ok(gURLBar.searchMode, `Still in commands mode (${i})`);
+    EventUtils.synthesizeKey("KEY_Escape");
+    EventUtils.synthesizeKey("KEY_Escape");
+    gURLBar.searchMode = null;
+    gBrowser.selectedBrowser.focus();
     await waitClosed();
   }
 });
@@ -120,81 +175,26 @@ add_task(async function reduced_motion_is_a_fade() {
   const open = await openBar();
   ok(open, "Reduced motion still fades in");
   is(open.effect.getTiming().duration, COMMAND_BAR_MOTION.openReduced.duration, "Fade in lasts 100ms");
-  for (const frame of open.effect.getKeyframes()) {
-    ok(!("scale" in frame) && !("translate" in frame), "Only opacity moves");
+  for (const frame_ of open.effect.getKeyframes()) {
+    ok(!("scale" in frame_) && !("translate" in frame_), "Only opacity moves");
   }
   await open.finished;
   await closeBar();
-  await TestUtils.waitForCondition(() => barAnimations("whimsy-command-bar-close").length, "Fade out runs");
-  is(barAnimations("whimsy-command-bar-close")[0].effect.getTiming().duration,
-    COMMAND_BAR_MOTION.closeReduced.duration, "Fade out lasts 80ms");
-  await waitClosed();
+  const [ghost] = ghosts();
+  ok(ghost, "The close is a fade");
+  is(ghost.getAnimations()[0].effect.getTiming().duration, COMMAND_BAR_MOTION.closeReduced.duration, "Fade out lasts 80ms");
+  await TestUtils.waitForCondition(() => !ghosts().length, "Gone");
   gReduceMotionOverride = false;
 });
 
-add_task(async function reopen_during_close() {
+add_task(async function a_stand_in_that_never_animates_still_goes() {
   gReduceMotionOverride = false;
-  await openBar();
-  await Promise.all(gURLBar.getAnimations().map(a => a.finished));
+  const open = await openBar();
+  await open?.finished;
   await closeBar();
-  await TestUtils.waitForCondition(() => window.WhimsyCommandBarMotion.closing, "Closing");
-  // Hold the close halfway, so half the bar is on screen.
-  const [close] = barAnimations("whimsy-command-bar-close");
-  close.pause();
-  close.currentTime = COMMAND_BAR_MOTION.close.duration / 2;
-  // Reopen within the close: the hide finishes at once and the open
-  // continues from what is visible. The open starts in the same mutation
-  // batch that floats the bar, so look at it there (it is short).
-  let open = null;
-  const observer = new MutationObserver(() => {
-    open ??= barAnimations("whimsy-command-bar-open")[0] ?? null;
-  });
-  observer.observe(gURLBar, { attributes: true });
-  try {
-    document.getElementById("Browser:OpenLocation").doCommand();
-    await TestUtils.waitForCondition(() => !window.WhimsyCommandBarMotion.closing, "The pending hide ended on reopen");
-    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "exam" });
-    await TestUtils.waitForCondition(
-      () => gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("open"),
-      "Open again"
-    );
-  } finally {
-    observer.disconnect();
-  }
-  ok(open, "The reopen animates");
-  ok(open.currentTime >= COMMAND_BAR_MOTION.open.duration * 0.4, `from about halfway (${open.currentTime}ms)`);
-  await open.finished;
-  ok(gURLBar.focused, "The bar has the keyboard");
-  EventUtils.sendString("ple");
-  is(gURLBar.value, "example", "Typing goes straight into the bar");
-  await closeBar();
-  await waitClosed();
-});
-
-add_task(async function return_loads_before_close_finishes() {
-  gReduceMotionOverride = false;
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
-  await openBar("https://example.com/");
-  await Promise.all(gURLBar.getAnimations().map(a => a.finished));
-  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, "https://example.com/");
-  let closeFinished = false;
-  let sawStartBeforeFinish = false;
-  const listener = {
-    onLocationChange(browser) {
-      if (browser == tab.linkedBrowser && !closeFinished) {
-        sawStartBeforeFinish = true;
-      }
-    },
-  };
-  gBrowser.addTabsProgressListener(listener);
-  EventUtils.synthesizeKey("KEY_Enter");
-  const close = barAnimations("whimsy-command-bar-close")[0];
-  close?.finished.then(() => (closeFinished = true), () => (closeFinished = true));
-  await loaded;
-  gBrowser.removeTabsProgressListener(listener);
-  ok(sawStartBeforeFinish || !close, "The page started loading before the close animation finished");
-  await waitClosed();
-  BrowserTestUtils.removeTab(tab);
+  const [ghost] = ghosts();
+  ghost.getAnimations()[0].pause();
+  await TestUtils.waitForCondition(() => !ghost.isConnected, "Removed on a timeout too");
 });
 
 add_task(async function switch_off() {
@@ -202,8 +202,7 @@ add_task(async function switch_off() {
   await openBar();
   is(barAnimations("whimsy-command-bar-open").length, 0, "No open animation with the switch off");
   await closeBar();
-  is(gURLBar.getAttribute("zen-floating-urlbar") == "true" && gURLBar.hasAttribute("whimsy-closing"), false,
-    "The bar hides at once with the switch off");
   await waitClosed();
+  is(ghosts().length, 0, "No close stand-in with the switch off");
   await SpecialPowers.popPrefEnv();
 });

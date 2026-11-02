@@ -294,7 +294,11 @@ function liquidGlassSupported() {
 // earlier close motion deferred Zen's hide (a hotfix in the urlbar's
 // #closePopover): the bar's state closed while it stayed on screen, which
 // showed the sidebar bar behind it and let old text leak into the next
-// session.
+// session. Now the close motion is only a picture: when Zen stops floating
+// the bar, an inert stand-in with the bar's last shape and colour (kept up
+// to date while it floats) fades and lifts where the bar was, then goes
+// away. The stand-in has no pointer events, can't take focus, isn't in the
+// accessibility tree and never reads or changes the bar's state.
 export const MOTION_FEATURE_PREF = "whimsy.feature.command-bar-motion";
 export const COMMAND_BAR_MOTION = {
   open: { duration: 160, easing: "cubic-bezier(0.2, 0, 0, 1)", scale: 0.97, rise: 6 },
@@ -303,10 +307,17 @@ export const COMMAND_BAR_MOTION = {
   closeReduced: { duration: 80, easing: "linear" },
 };
 
+// How long past its duration a close stand-in may stay before it's removed
+// anyway (an animation that never finishes: a throttled window).
+const GHOST_GRACE_MS = 250;
+const GHOST_CLASS = "whimsy-command-bar-ghost";
+
 export class CommandBarMotion {
   #win;
   #shown = false;
   #animation = null;
+  // The floating bar's last box and look, for the close stand-in.
+  #last = null;
 
   constructor(win) {
     this.#win = win;
@@ -318,7 +329,89 @@ export class CommandBarMotion {
       attributeOldValue: true,
       attributeFilter: ["open", "zen-floating-urlbar"],
     });
-    win.addEventListener("unload", () => this.observer.disconnect(), { once: true });
+    // While the bar floats, its box changes as results come and go: keep
+    // the last one (read here, where layout is up to date).
+    this.resizer = new win.ResizeObserver(() => this.#remember());
+    this.resizer.observe(urlbar);
+    win.addEventListener(
+      "unload",
+      () => {
+        this.observer.disconnect();
+        this.resizer.disconnect();
+      },
+      { once: true }
+    );
+  }
+
+  #remember() {
+    const urlbar = this.#win.gURLBar;
+    if (!this.#isFloatingOpen(urlbar)) {
+      return;
+    }
+    const background = urlbar.querySelector(".urlbar-background") ?? urlbar;
+    const rect = background.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
+    const style = this.#win.getComputedStyle(background);
+    this.#last = {
+      rect,
+      background: style.backgroundColor,
+      backgroundImage: style.backgroundImage,
+      radius: style.borderRadius,
+      shadow: style.boxShadow,
+      border: style.border,
+      outline: style.outline,
+    };
+  }
+
+  // C1: the close, as a picture only. Zen has already hidden the bar.
+  #playCloseGhost() {
+    const last = this.#last;
+    this.#last = null;
+    const win = this.#win;
+    if (!last || !this.enabled || win.document.hidden) {
+      return null;
+    }
+    const doc = win.document;
+    const ghost = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    ghost.className = GHOST_CLASS;
+    ghost.inert = true;
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.setAttribute("role", "presentation");
+    Object.assign(ghost.style, {
+      position: "fixed",
+      left: `${last.rect.left}px`,
+      top: `${last.rect.top}px`,
+      width: `${last.rect.width}px`,
+      height: `${last.rect.height}px`,
+      backgroundColor: last.background,
+      backgroundImage: last.backgroundImage,
+      borderRadius: last.radius,
+      boxShadow: last.shadow,
+      border: last.border,
+      outline: last.outline,
+      boxSizing: "border-box",
+      pointerEvents: "none",
+      zIndex: "2147483647",
+      transformOrigin: "50% 0",
+    });
+    doc.documentElement.append(ghost);
+    const spec = COMMAND_BAR_MOTION[this.reduced ? "closeReduced" : "close"];
+    const frames = this.reduced
+      ? [{ opacity: 1 }, { opacity: 0 }]
+      : [
+          { opacity: 1, scale: "1", translate: "0 0" },
+          { opacity: 0, scale: String(spec.scale), translate: `0 -${spec.rise}px` },
+        ];
+    const animation = ghost.animate(frames, { duration: spec.duration, easing: spec.easing, fill: "forwards" });
+    const remove = () => {
+      win.clearTimeout(timer);
+      ghost.remove();
+    };
+    const timer = win.setTimeout(remove, spec.duration + GHOST_GRACE_MS);
+    animation.finished.then(remove, remove);
+    return ghost;
   }
 
   get enabled() {
@@ -365,18 +458,23 @@ export class CommandBarMotion {
     return { duration: spec.duration, easing: spec.easing };
   }
 
-  #onAttributes() {
+  #onAttributes(records = []) {
     const urlbar = this.#win.gURLBar;
     if (urlbar.getAttribute("zen-floating-urlbar") != "true") {
+      const wasFloating = records.some(r => r.attributeName == "zen-floating-urlbar" && r.oldValue == "true");
       this.#shown = false;
       this.#animation?.cancel();
       this.#animation = null;
+      if (wasFloating) {
+        this.#playCloseGhost();
+      }
       return;
     }
     if (this.#shown || !urlbar.hasAttribute("open")) {
       return;
     }
     this.#shown = true;
+    this.#remember();
     this.playOpen();
   }
 
@@ -386,6 +484,10 @@ export class CommandBarMotion {
       return null;
     }
     this.#animation?.cancel();
+    // A close stand-in still fading goes at once: the bar is back.
+    for (const ghost of this.#win.document.querySelectorAll(`.${GHOST_CLASS}`)) {
+      ghost.remove();
+    }
     const animation = urlbar.animate(this.#frames("open"), { ...this.#timing("open"), id: "whimsy-command-bar-open" });
     this.#animation = animation;
     animation.finished.then(
@@ -393,6 +495,8 @@ export class CommandBarMotion {
         if (this.#animation == animation) {
           this.#animation = null;
         }
+        // Its resting box (the open motion scales and lifts it).
+        this.#remember();
       },
       () => {}
     );

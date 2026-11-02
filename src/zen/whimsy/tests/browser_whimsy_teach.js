@@ -305,7 +305,7 @@ async function openAndCloseCommandBar(target) {
   // Right after the last hint, Zen can float the bar and let it go again
   // (W10-27's close then runs); focus it again once that's over.
   await TestUtils.waitForCondition(() => {
-    if (!gURLBar.focused && !gURLBar.hasAttribute("whimsy-closing")) {
+    if (!gURLBar.focused) {
       gURLBar.focus();
     }
     return gURLBar.focused;
@@ -314,7 +314,7 @@ async function openAndCloseCommandBar(target) {
   gBrowser.selectedBrowser.focus();
   await TestUtils.waitForCondition(() => !gURLBar.focused, "the command bar closed");
   // W10-27: and has finished animating out.
-  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("whimsy-closing"), "the command bar is hidden");
+  await TestUtils.waitForCondition(() => gURLBar.getAttribute("zen-floating-urlbar") != "true", "the command bar is hidden");
 }
 
 async function expectHint(id) {

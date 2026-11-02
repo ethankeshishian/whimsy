@@ -527,7 +527,7 @@ add_task(async function w10_command_bar_motion() {
       await shot(`w10-command-bar-open-${dark ? "dark" : "light"}`);
       await UrlbarTestUtils.promisePopupClose(window);
       gURLBar.blur();
-      await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("whimsy-closing"), "The bar has closed");
+      await TestUtils.waitForCondition(() => gURLBar.getAttribute("zen-floating-urlbar") != "true", "The bar has closed");
       await SpecialPowers.popPrefEnv();
     }
   } finally {
