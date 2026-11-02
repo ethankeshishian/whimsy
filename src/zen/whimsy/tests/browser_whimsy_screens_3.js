@@ -421,29 +421,30 @@ add_task(async function fix7_pinned_marks_and_essential_badge() {
         return added;
       });
       tabs.push(tab);
+      await TestUtils.waitForCondition(() => !tab.hasAttribute("busy") && tab.linkedBrowser.currentURI.spec != "about:blank", "Pinned page loaded");
+      is(tab.linkedBrowser.documentURI.scheme, "https", `${url} loaded, not an error page`);
     }
-    // Opened and waited for by its state: now and then (about 1 run in 6,
-    // with or without Whimsy's urlbar patches) BrowserTestUtils' load event
-    // for this tab never arrives although the page has loaded and is shown,
-    // and openNewForegroundTab waits until the test times out.
+    // One page at a time: when these two pinned pages (containers 1 and 2)
+    // and the mail page load together, the test server now and then resets
+    // a connection (netReset), the mail page lands on an error page and its
+    // load never comes (about 1 run in 6-10).
+    // In the space's own container (1), so wave8/isolation has nothing to
+    // reopen when it's selected.
     const MAIL = "https://example.com/?mail";
-    let essential;
-    await BrowserTestUtils.switchTab(gBrowser, () => {
-      gBrowser.selectedTab = essential = BrowserTestUtils.addTab(gBrowser, MAIL);
+    const essential = await BrowserTestUtils.openNewForegroundTab({
+      gBrowser,
+      opening: () => (gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, MAIL, { userContextId: 1 })),
     });
-    await TestUtils.waitForCondition(
-      () => essential.linkedBrowser.currentURI.spec == MAIL && !essential.hasAttribute("busy"),
-      "The mail page loaded"
-    );
-    await SpecialPowers.spawn(essential.linkedBrowser, [], () =>
-      ContentTaskUtils.waitForCondition(() => content.document.readyState == "complete", "Its document is complete")
-    );
     gZenPinnedTabManager.addToEssentials(essential);
     tabs.push(essential);
     await SpecialPowers.spawn(essential.linkedBrowser, [], () => {
       content.document.title = "Inbox (12) - Mail";
     });
-    await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/").then(t => tabs.push(t));
+    await BrowserTestUtils.openNewForegroundTab({
+      gBrowser,
+      opening: () => (gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, "https://example.net/", { userContextId: 1 })),
+    }).then(t => tabs.push(t));
+    ok(!essential.closing && essential.linkedBrowser, "The mail tab is the one the test opened (not reopened)");
     await TestUtils.waitForCondition(() => essential.hasAttribute("whimsy-unread"), "Badge");
     await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
     await shot("fix7-pinned-marks-essential-badge");
