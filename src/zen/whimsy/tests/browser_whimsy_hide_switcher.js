@@ -146,3 +146,34 @@ add_task(async function test_settings_checkbox() {
     ok(!Services.prefs.getBoolPref(OPTION), "and off");
   });
 });
+
+// B2: hiding the switcher, then showing it again, gives back the same row of
+// icons. Zen sizes the icons from the switcher's width on a window resize;
+// a resize while it was hidden measured 0 and folded every icon but the
+// current one into a dot.
+add_task(async function test_icons_come_back_the_same() {
+  const third = (await gZenWorkspaces.createAndSaveWorkspace("Third", undefined, true)).uuid;
+  try {
+    await TestUtils.waitForCondition(shown, "Shown");
+    const icons = () => document.getElementById("zen-workspaces-button");
+    const look = () => ({
+      overflow: icons().hasAttribute("icons-overflow"),
+      widths: [...icons().children].filter(i => i.localName == "toolbarbutton").map(i => Math.round(i.getBoundingClientRect().width)),
+    });
+    gZenWorkspaces.onWindowResize();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const before = look();
+    Services.prefs.setBoolPref(OPTION, true);
+    await TestUtils.waitForCondition(() => !shown(), "Hidden");
+    // The window is resized while it's hidden.
+    gZenWorkspaces.onWindowResize();
+    Services.prefs.setBoolPref(OPTION, false);
+    await TestUtils.waitForCondition(shown, "Shown again");
+    await TestUtils.waitForCondition(() => JSON.stringify(look()) == JSON.stringify(before),
+      `The icons look as before (${JSON.stringify(look())} vs ${JSON.stringify(before)})`);
+    ok(!look().overflow, "No dots");
+  } finally {
+    Services.prefs.clearUserPref(OPTION);
+    await gZenWorkspaces.removeWorkspace(third);
+  }
+});

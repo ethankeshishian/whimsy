@@ -58,6 +58,9 @@ function featureOn(pref) {
   return Services.prefs.getBoolPref(pref, true);
 }
 
+const SWITCHER_PREF_NAME = "whimsy.spaces.hide-switcher";
+const SWITCHER_FEATURE_PREF_NAME = "whimsy.feature.hide-switcher";
+
 export const WhimsySpaces = {
   initWindow(win) {
     if (!win.gZenWorkspaces?.workspaceEnabled) {
@@ -522,6 +525,27 @@ export const WhimsySpaces = {
     const done = () => root.removeAttribute("whimsy-tab-dragging");
     win.addEventListener("dragend", done, true);
     win.addEventListener("drop", () => win.setTimeout(done, 0), true);
+
+    // B2: Zen sizes the space icons (and folds them into dots when they
+    // don't fit) from the switcher's width, but only on a window resize. A
+    // resize while the switcher was hidden measured it at 0 and left every
+    // icon but the current one as a dot once it showed again. Each time it
+    // comes back, Zen measures it again.
+    const remeasure = () => win.requestAnimationFrame(() => {
+      try {
+        win.gZenWorkspaces?.onWindowResize?.();
+      } catch (e) {
+        console.error("Whimsy: space switcher", e);
+      }
+    });
+    const observer = () => remeasure();
+    Services.prefs.addObserver(SWITCHER_PREF_NAME, observer);
+    Services.prefs.addObserver(SWITCHER_FEATURE_PREF_NAME, observer);
+    new win.MutationObserver(remeasure).observe(root, { attributes: true, attributeFilter: ["whimsy-tab-dragging"] });
+    win.addEventListener("unload", () => {
+      Services.prefs.removeObserver(SWITCHER_PREF_NAME, observer);
+      Services.prefs.removeObserver(SWITCHER_FEATURE_PREF_NAME, observer);
+    }, { once: true });
   },
 
   // --- Open Link in Space ---
