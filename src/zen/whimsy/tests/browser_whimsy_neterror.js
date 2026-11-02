@@ -349,6 +349,10 @@ add_task(async function accel_w_closes_the_game_tab() {
 // wave8: Balloon Dash back online notice (W8-43)
 add_task(async function online_notice_in_embedded_game_and_not_for_fun() {
   await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  // Really offline (F27: a game that starts online says so at once).
+  const manage = Services.io.manageOfflineStatus;
+  Services.io.manageOfflineStatus = false;
+  Services.io.offline = true;
   try {
     await withWhimsyError("netOffline", async browser => {
       await prepare(browser);
@@ -375,6 +379,8 @@ add_task(async function online_notice_in_embedded_game_and_not_for_fun() {
       });
     });
   } finally {
+    Services.io.offline = false;
+    Services.io.manageOfflineStatus = manage;
     await SpecialPowers.popPrefEnv();
   }
 });
@@ -438,6 +444,57 @@ add_task(async function back_online_keeps_playing_until_reload_is_chosen() {
       is(fresh, null, "The Reload button reloads the page when the user chooses it");
     });
   } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// F27: really going offline and back (not a synthetic event), both ways
+// Firefox can be offline (Work Offline, and the network link going down):
+// the notice shows once the browser is online again.
+add_task(async function online_notice_when_really_back_online() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  const manage = Services.io.manageOfflineStatus;
+  Services.io.manageOfflineStatus = false;
+  const ways = {
+    offline: on => (Services.io.offline = !on),
+    link: on => Services.io.setConnectivityForTesting(on),
+  };
+  try {
+    for (const [way, setOnline] of Object.entries(ways)) {
+      setOnline(false);
+      await withWhimsyError("netOffline", async browser => {
+        await prepare(browser);
+        await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+        is((await gameState(browser, true)).state, "running", `${way}: the error page is the game`);
+        ok(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("whimsy-game-online-notice").hidden),
+          "No notice while offline");
+        ok(await SpecialPowers.spawn(browser, [], () => !content.navigator.onLine), "The page knows it's offline");
+        setOnline(true);
+        await SpecialPowers.spawn(browser, [], () =>
+          ContentTaskUtils.waitForCondition(() => {
+            const notice = content.document.getElementById("whimsy-game-online-notice");
+            return notice && !notice.hidden && notice.checkVisibility();
+          }, "Back online, the notice shows"));
+      });
+      // Back online before the first dash: the notice shows at once.
+      setOnline(false);
+      await withWhimsyError("netOffline", async browser => {
+        await prepare(browser);
+        setOnline(true);
+        await SpecialPowers.spawn(browser, [], () =>
+          ContentTaskUtils.waitForCondition(() => content.navigator.onLine, "The page is online"));
+        await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+        await gameState(browser, true);
+        await SpecialPowers.spawn(browser, [], () =>
+          ContentTaskUtils.waitForCondition(() =>
+            !content.document.getElementById("whimsy-game-online-notice").hidden,
+          "Online before the game started: the notice shows"));
+      });
+    }
+  } finally {
+    Services.io.offline = false;
+    Services.io.setConnectivityForTesting(true);
+    Services.io.manageOfflineStatus = manage;
     await SpecialPowers.popPrefEnv();
   }
 });

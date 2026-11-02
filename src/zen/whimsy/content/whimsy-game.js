@@ -2698,6 +2698,13 @@
       window.addEventListener("online", () => {
         onlineNotice.hidden = false;
       });
+      // F27: the game only takes over an offline error page, so a page that
+      // is online by the time the game starts (the network came back
+      // before the first dash, so no "online" event reaches the game)
+      // says so at once.
+      if (navigator.onLine) {
+        onlineNotice.hidden = false;
+      }
       window.addEventListener("offline", () => {
         onlineNotice.hidden = true;
       });
