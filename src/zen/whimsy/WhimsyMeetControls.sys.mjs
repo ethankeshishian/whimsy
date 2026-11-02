@@ -151,3 +151,7 @@ export function press(win, el) {
   el.click();
   return "element";
 }
+
+// The module's API as one object (the name WhimsyPageChild's lazy getter
+// imports).
+export const WhimsyMeetControls = { KINDS, kindOf, findControls, readState, isRelevant, press };
