@@ -98,9 +98,12 @@ add_task(async function test_dropzone_dev_click_cancel_then_paste() {
     await TestUtils.waitForCondition(() => shownBadges().length == 1, "dropzone.dev's box has its badge");
     await BrowserTestUtils.synthesizeMouseAtCenter("#demo-text", {}, browser);
     await TestUtils.waitForCondition(() => pickerShown, "Clicking the box opened Dropzone's file picker");
-    // The time spent in the picker, then the pointer off the page.
+    // The time spent in the picker, then the pointer away from the box. (A
+    // synthesized move into the browser's own toolbar doesn't make the page
+    // drop :hover the way a real pointer leaving it does, so it moves to
+    // another spot on the page.)
     await settle(5500);
-    EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, { type: "mousemove" });
+    await BrowserTestUtils.synthesizeMouseAtCenter("#elsewhere", { type: "mousemove" }, browser);
     await SpecialPowers.spawn(browser, [], () => {
       Assert.ok(!content.document.getElementById("demo").matches(":hover"), "The pointer isn't over the box");
       Assert.equal(content.document.activeElement, content.document.body, "Nothing is focused");

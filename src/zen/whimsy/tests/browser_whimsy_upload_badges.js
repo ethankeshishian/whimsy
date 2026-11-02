@@ -49,6 +49,16 @@ async function openWithImage(page) {
   return BrowserTestUtils.openNewForegroundTab(gBrowser, ROOT + page);
 }
 
+// Moves the pointer over `selector` in the page through the window (as a
+// real pointer does), so Whimsy's own badges see it come and go too.
+async function pointThroughWindow(browser, selector) {
+  const at = await SpecialPowers.spawn(browser, [selector], sel => {
+    const r = content.document.querySelector(sel).getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  EventUtils.synthesizeMouse(browser, at.x, at.y, { type: "mousemove" }, window);
+}
+
 const accepted = browser => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.accepted.length);
 
 add_setup(async function () {
@@ -168,9 +178,13 @@ add_task(async function test_badges_expire_to_the_pill() {
   const tab = await openWithImage("whimsy_upload_react.html");
   const browser = tab.linkedBrowser;
   await TestUtils.waitForCondition(() => shownBadges().length == 1, "A badge at first");
+  // The pointer may rest where an earlier test left it, over the box or its
+  // badge (which rightly shows the pill): move it away first, through the
+  // window, so the badge (drawn by Whimsy, not the page) sees it leave too.
+  await pointThroughWindow(browser, "#elsewhere");
   WhimsyUploadBadges._testFirstSeen(WhimsyUploadBadges.FRESH_MS + 1000);
   await TestUtils.waitForCondition(() => shownBadges().length == 0, "After 5 minutes, no badge");
-  await BrowserTestUtils.synthesizeMouseAtCenter("#rdz", { type: "mousemove" }, browser);
+  await pointThroughWindow(browser, "#rdz");
   await TestUtils.waitForCondition(
     () => shownBadges().length == 1 && shownBadges()[0].classList.contains("whimsy-paste-hot"),
     "Hovering the box still shows the pill"

@@ -224,7 +224,7 @@ export const WhimsyUploadBadges = {
   // contents; the page side doesn't need its kind either.
   stateFor(browser) {
     const allowed = !!browser && this.enabled && !this.isPrivate(browser);
-    const selected = browser?.ownerGlobal?.gBrowser?.selectedBrowser == browser;
+    const selected = browser?.documentGlobal?.gBrowser?.selectedBrowser == browser;
     return { allowed, mode: selected ? this.modeFor(browser) : "off" };
   },
 
@@ -274,7 +274,7 @@ export const WhimsyUploadBadges = {
         this.focusBadge(browser, data.id);
         return;
       case "WhimsyUpload:Near":
-        if (Date.now() - lastNear >= NEAR_MS && browser.ownerGlobal?.gBrowser?.selectedBrowser == browser) {
+        if (Date.now() - lastNear >= NEAR_MS && browser.documentGlobal?.gBrowser?.selectedBrowser == browser) {
           lastNear = Date.now();
           this.check();
         }
@@ -387,7 +387,7 @@ export const WhimsyUploadBadges = {
       return;
     }
     const mode = this.modeFor(browser);
-    const selected = browser.ownerGlobal?.gBrowser?.selectedBrowser == browser;
+    const selected = browser.documentGlobal?.gBrowser?.selectedBrowser == browser;
     const targets = mode != "off" && selected && state.viewport ? state.targets : [];
     const byId = new Map(targets.map(t => [t.id, t]));
     const hot = [state.badgeFocus, state.badgeHover, state.hot].find(id => id != null && byId.has(id)) ?? null;
