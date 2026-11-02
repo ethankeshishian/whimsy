@@ -11,10 +11,51 @@ class nsZenTabRenamer extends nsZenDOMOperatedFeature {
   /** The element being renamed, or null. */
   #edited = null;
 
+  #selectedOnMouseDown = null;
+
+  #onOutsidePointer = event => {
+    if (
+      this.#input &&
+      (event.target === this.#input || this.#input.contains(event.target))
+    ) {
+      return;
+    }
+    this.#cancel();
+  };
+
   init() {
-    document
-      .getElementById("tabbrowser-tabs")
-      .addEventListener("dblclick", event => this.start(event));
+    const tabs = document.getElementById("tabbrowser-tabs");
+    tabs.addEventListener(
+      "mousedown",
+      event => {
+        if (event.button !== 0) {
+          return;
+        }
+        const tab = event.target.closest(".tabbrowser-tab");
+        this.#selectedOnMouseDown = tab ? tab.selected : null;
+      },
+      true
+    );
+    tabs.addEventListener("click", event => {
+      if (
+        event.button !== 0 ||
+        event.shiftKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      const tab = event.target.closest(".tabbrowser-tab");
+      if (
+        tab &&
+        this.#selectedOnMouseDown &&
+        event.target.closest(".tab-label-container")
+      ) {
+        this.start(event);
+      }
+    });
+    tabs.addEventListener("dblclick", event => this.start(event));
   }
 
   get #input() {
@@ -52,7 +93,7 @@ class nsZenTabRenamer extends nsZenDOMOperatedFeature {
     if (
       isTab &&
       !target.closest(".tab-label-container") &&
-      event.type === "dblclick"
+      (event.type === "dblclick" || event.type === "click")
     ) {
       return;
     }
@@ -103,6 +144,7 @@ class nsZenTabRenamer extends nsZenDOMOperatedFeature {
     input.scrollLeft = 0;
 
     input.addEventListener("blur", event => this.#halt(event));
+    window.addEventListener("mousedown", this.#onOutsidePointer, true);
   }
 
   async #onKeydown(event) {
@@ -123,6 +165,7 @@ class nsZenTabRenamer extends nsZenDOMOperatedFeature {
     const newName = input.value.replace(/\s+/g, " ").trim();
     const hasChanged = input.value !== input._originalValue && newName;
 
+    window.removeEventListener("mousedown", this.#onOutsidePointer, true);
     document.documentElement.removeAttribute("zen-renaming-tab");
     input.remove();
     if (!isTab) {
@@ -163,6 +206,7 @@ class nsZenTabRenamer extends nsZenDOMOperatedFeature {
     if (!this.#edited) {
       return;
     }
+    window.removeEventListener("mousedown", this.#onOutsidePointer, true);
     document.documentElement.removeAttribute("zen-renaming-tab");
     this.#input?.remove();
     this.#edited.querySelector(".tab-editor-container")?.remove();

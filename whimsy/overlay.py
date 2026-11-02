@@ -727,6 +727,114 @@ HOTFIXES = [
                "    }\n"
                "    input.setSelectionRange(0, input.value.length, \"backward\");\n",
     },
+    # F14: Tab rename takes one click on title text like Arc; click outside ends editing.
+    {
+        "id": "tab-renamer-one-click-init",
+        "file": "src/zen/tabs/ZenTabRenamer.mjs",
+        "why": "One click on the title text of the selected tab enters rename mode (F14).",
+        "old": "  init() {\n"
+               "    document\n"
+               "      .getElementById(\"tabbrowser-tabs\")\n"
+               "      .addEventListener(\"dblclick\", event => this.start(event));\n"
+               "  }\n",
+        "new": "  #selectedOnMouseDown = null;\n\n"
+               "  #onOutsidePointer = event => {\n"
+               "    if (\n"
+               "      this.#input &&\n"
+               "      (event.target === this.#input || this.#input.contains(event.target))\n"
+               "    ) {\n"
+               "      return;\n"
+               "    }\n"
+               "    this.#cancel();\n"
+               "  };\n\n"
+               "  init() {\n"
+               "    const tabs = document.getElementById(\"tabbrowser-tabs\");\n"
+               "    tabs.addEventListener(\n"
+               "      \"mousedown\",\n"
+               "      event => {\n"
+               "        if (event.button !== 0) {\n"
+               "          return;\n"
+               "        }\n"
+               "        const tab = event.target.closest(\".tabbrowser-tab\");\n"
+               "        this.#selectedOnMouseDown = tab ? tab.selected : null;\n"
+               "      },\n"
+               "      true\n"
+               "    );\n"
+               "    tabs.addEventListener(\"click\", event => {\n"
+               "      if (\n"
+               "        event.button !== 0 ||\n"
+               "        event.shiftKey ||\n"
+               "        event.ctrlKey ||\n"
+               "        event.metaKey ||\n"
+               "        event.altKey\n"
+               "      ) {\n"
+               "        return;\n"
+               "      }\n"
+               "      const tab = event.target.closest(\".tabbrowser-tab\");\n"
+               "      if (\n"
+               "        tab &&\n"
+               "        this.#selectedOnMouseDown &&\n"
+               "        event.target.closest(\".tab-label-container\")\n"
+               "      ) {\n"
+               "        this.start(event);\n"
+               "      }\n"
+               "    });\n"
+               "    tabs.addEventListener(\"dblclick\", event => this.start(event));\n"
+               "  }\n",
+    },
+    {
+        "id": "tab-renamer-click-target",
+        "file": "src/zen/tabs/ZenTabRenamer.mjs",
+        "why": "Single-click renames must target the title label container (F14).",
+        "old": "    if (\n"
+               "      isTab &&\n"
+               "      !target.closest(\".tab-label-container\") &&\n"
+               "      event.type === \"dblclick\"\n"
+               "    ) {\n"
+               "      return;\n"
+               "    }\n",
+        "new": "    if (\n"
+               "      isTab &&\n"
+               "      !target.closest(\".tab-label-container\") &&\n"
+               "      (event.type === \"dblclick\" || event.type === \"click\")\n"
+               "    ) {\n"
+               "      return;\n"
+               "    }\n",
+    },
+    {
+        "id": "tab-renamer-outside-listener",
+        "file": "src/zen/tabs/ZenTabRenamer.mjs",
+        "why": "Clicking anywhere outside the field, including empty tab space, ends editing (F14).",
+        "old": "    input.addEventListener(\"blur\", event => this.#halt(event));\n",
+        "new": "    input.addEventListener(\"blur\", event => this.#halt(event));\n"
+               "    window.addEventListener(\"mousedown\", this.#onOutsidePointer, true);\n",
+    },
+    {
+        "id": "tab-renamer-outside-cancel",
+        "file": "src/zen/tabs/ZenTabRenamer.mjs",
+        "why": "Remove outside listener on cancel (F14).",
+        "old": "  #cancel() {\n"
+               "    if (!this.#edited) {\n"
+               "      return;\n"
+               "    }\n"
+               "    document.documentElement.removeAttribute(\"zen-renaming-tab\");\n",
+        "new": "  #cancel() {\n"
+               "    if (!this.#edited) {\n"
+               "      return;\n"
+               "    }\n"
+               "    window.removeEventListener(\"mousedown\", this.#onOutsidePointer, true);\n"
+               "    document.documentElement.removeAttribute(\"zen-renaming-tab\");\n",
+    },
+    {
+        "id": "tab-renamer-outside-save",
+        "file": "src/zen/tabs/ZenTabRenamer.mjs",
+        "why": "Remove outside listener on save (F14).",
+        "old": "    const hasChanged = input.value !== input._originalValue && newName;\n\n"
+               "    document.documentElement.removeAttribute(\"zen-renaming-tab\");\n",
+        "new": "    const hasChanged = input.value !== input._originalValue && newName;\n\n"
+               "    window.removeEventListener(\"mousedown\", this.#onOutsidePointer, true);\n"
+               "    document.documentElement.removeAttribute(\"zen-renaming-tab\");\n",
+    },
     # W10-27: the command bar's close animation. Zen hides the floating bar
     # synchronously at the end of #closePopover; the hiding part now runs
     # through WhimsyCommandBarMotion.deferClose, which runs it after a 110ms
