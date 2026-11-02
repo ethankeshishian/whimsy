@@ -4111,11 +4111,35 @@ whimsy-library-files-section {
   opacity: 0.7;
 }
 
-/* W10-25: "Unload this tab?" (WhimsyFormProtection.confirmUnload). */
+/* W10-25 / W13-R1: "Unload this tab?" (WhimsyFormProtection.confirmUnload).
+   Everything wraps inside the panel's width (the title, a long host); the
+   three choices stack one per row, full width. */
+.whimsy-form-unload {
+  & .whimsy-surface-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    text-wrap: balance;
+  }
+
+  & .whimsy-surface-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+
+    & > .footer-button {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+}
 .whimsy-form-unload-body {
   margin: 0 4px;
+  min-width: 0;
   font-size: 12px;
   color: var(--whimsy-surface-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
   text-wrap: pretty;
 
   & > b {
@@ -5225,34 +5249,32 @@ panel.whimsy-sheet.whimsy-snooze {
     color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
   }
 }
-/* wave9: Form protection subtle indicator (W9-03). On ::before, at the
-   icon's bottom-start corner: ::after and the top-end corner belong to the
-   unread count and title-changed dot (review design-full-4 M10). The tab's
-   tooltip and accessible description say what it means. */
-/* W10-25: the in-progress form glyph (a form outline, partly filled, with
-   a pencil) after the title, only once the person has typed into a form
-   here. Pinned tabs and Essentials have no title: there it sits on the
-   icon, in a small badge. Its meaning is in the tab's tooltip and
-   accessible description (WhimsyFormProtection.wrapTooltip). */
+/* W13-R1 / F29: the unsaved-form marker. A status, not a control: a 7px
+   hollow ring (the unread dot's twin: filled = something new, hollow =
+   something unsaved), no fill, no hover state, not clickable. Its meaning
+   is in the tab's tooltip and accessible description
+   (WhimsyFormProtection.wrapTooltip). Protect This Tab with nothing typed
+   shows Zen's lock in the same slot.
+   The element is placed by WhimsyFormProtection.placeMarker; everything
+   about WHERE it sits is the "F29 marker placement" block below, so a
+   different pick (B pencil, C underline) swaps that block only. */
 .whimsy-tab-form-marker {
   display: none;
   flex-shrink: 0;
-  width: 12px;
-  height: 12px;
-  margin-inline: 4px 2px;
-  -moz-context-properties: fill, fill-opacity;
-  fill: currentColor;
-  fill-opacity: 0.6;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 60%, transparent);
   pointer-events: none;
 
-  .tabbrowser-tab:is([whimsy-form-typed], [whimsy-form-manual]):not([pinned], [zen-essential]) & {
+  .tabbrowser-tab:is([whimsy-form-typed], [whimsy-form-manual]) & {
     display: flex;
     @media not (prefers-reduced-motion: reduce) {
       animation: whimsy-form-marker-in 200ms ease-out;
     }
   }
   @media (prefers-contrast: more) {
-    fill-opacity: 1;
+    box-shadow: inset 0 0 0 1.5px currentColor;
   }
 }
 @keyframes whimsy-form-marker-in {
@@ -5260,33 +5282,54 @@ panel.whimsy-sheet.whimsy-snooze {
     opacity: 0;
   }
 }
-/* Protected by hand, nothing typed: a lock in the same place, with its
-   own tooltip ("Protected tab"). */
 .whimsy-tab-form-marker[kind="lock"] {
+  width: 10px;
+  height: 10px;
+  border-radius: 0;
+  box-shadow: none;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+  fill-opacity: 0.6;
   pointer-events: auto;
 }
-.tabbrowser-tab.tabbrowser-tab[whimsy-form-manual]:is([pinned], [zen-essential]) .tab-icon-stack::before {
-  background-image: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg");
-}
-.tabbrowser-tab:is([whimsy-form-typed], [whimsy-form-manual]):is([pinned], [zen-essential]) .tab-icon-stack::before {
-  content: "";
-  position: absolute;
-  bottom: -4px;
-  inset-inline-start: -4px;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: url("chrome://browser/content/whimsy/whimsy-form-badge.svg") center / 9px no-repeat,
-    var(--zen-colors-tertiary, light-dark(white, rgb(40, 40, 40)));
-  -moz-context-properties: fill, fill-opacity;
-  fill: var(--zen-primary-color, AccentColor);
-  box-shadow: 0 0 0 1.5px var(--zen-colors-tertiary, light-dark(white, rgb(40, 40, 40)));
-  z-index: 2;
-  pointer-events: none;
-  @media (prefers-contrast: more) {
-    outline: 1px solid currentColor;
+
+/* ---- F29 marker placement (option A) ---- */
+/* Rows: at the end of the row; the close (or reset) button takes the
+   place while the row is hovered. */
+.whimsy-tab-form-marker {
+  margin-inline: 6px 4px;
+
+  .tabbrowser-tab:hover:not([zen-essential]) & {
+    display: none;
   }
 }
+/* Tiles (Essentials; any tab in the collapsed sidebar): inside the tile,
+   6px from its bottom-start corner, opposite the unread dot (top-end).
+   Essentials anchor on the tab itself, as the unread dot does (W11-11). */
+.tabbrowser-tab[zen-essential] {
+  position: relative;
+
+  & > .tab-stack,
+  & > .tab-stack > .tab-content {
+    position: static;
+  }
+
+  & .whimsy-tab-form-marker {
+    position: absolute;
+    bottom: calc(var(--tab-margin-block, 0px) + 6px);
+    inset-inline-start: 6px;
+    margin: 0;
+    z-index: 2;
+  }
+}
+:root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab:not([zen-essential]) .whimsy-tab-form-marker {
+  position: absolute;
+  bottom: 4px;
+  inset-inline-start: 4px;
+  margin: 0;
+  z-index: 2;
+}
+/* ---- end F29 marker placement ---- */
 
 
 /* wave9/mini W8-21: "Open in <Space> ⌘O" is one hit target, as in Arc's

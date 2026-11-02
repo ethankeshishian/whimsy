@@ -2,21 +2,42 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Content side of Form Protection (W9-03).
-// Monitors form inputs in content pages. When a user has typed or edited text
-// in a form, tells the parent so the tab can be marked as protected from
-// auto-archive and show its in-progress form marker.
+// Content side of Form Protection. W13-R1 rewrite; the design (what counts
+// as unsaved input, what clears it, every path that asks) is
+// whimsy-handoff/wave13/r1-forms-design.md.
 //
-// W10-25: keeps what was typed across a reload. When a page with typed
-// answers goes away (pagehide), it sends a snapshot of its form data to the
-// parent (SessionStoreUtils.collectFormData, which never collects passwords
-// or card numbers). When the same address loads again in the tab, it asks
-// for the snapshot, counts the empty fields it could fill and tells the
-// parent, which asks the person first ("Fill in 3 answers you typed
-// before?"). Only Fill In fills them, and only fields that are still empty.
+// A document has unsaved input when a field the person edited themselves
+// differs from what it held before they started. Only trusted edits made
+// with user activation track a field; script-set values, hidden, search,
+// password and autofilled fields never do. A submit, a network save the
+// parent attributes to this document (Whimsy:FormSaved), returning to the
+// starting value, or the field leaving the page clears it. The parent hears
+// one boolean per document, only when it changes.
+//
+// Refill (W10-25, F08): when a page with unsaved input goes away
+// (pagehide), it sends a snapshot of its form data (collectFormData never
+// collects passwords or card numbers). When the same address loads again,
+// it counts the empty fields the snapshot could fill and the parent asks
+// "Fill in 3 answers you typed before?". Only Fill In fills.
 
 const HIGHLIGHT_MS = 2000;
 const FADE_MS = 400;
+const AUTOSAVE_PREF = "whimsy.form-protection.autosave-sites";
+const EDITABLE_CHECK_MS = 250;
+
+const SKIPPED_INPUT_TYPES = new Set([
+  "hidden",
+  "password",
+  "file",
+  "submit",
+  "reset",
+  "button",
+  "image",
+  "range",
+  "color",
+  "search",
+]);
+const SEARCH_WORDS = /(^|[\s_\-[\]])(search|query|filter)($|[\s_\-[\]])|^q$|^s$/i;
 
 function addressOf(location) {
   try {
@@ -28,45 +49,163 @@ function addressOf(location) {
   }
 }
 
-// Never refilled, whatever a snapshot says.
+// Never tracked or refilled, whatever a snapshot says.
 function isSecret(el) {
   if (el.localName == "input" && el.type == "password") {
     return true;
   }
-  const autocomplete = (el.getAttribute("autocomplete") ?? "").toLowerCase();
+  const autocomplete = (el.getAttribute?.("autocomplete") ?? "").toLowerCase();
   return /\bcc-|one-time-code|current-password|new-password/.test(autocomplete);
 }
 
-// F33: the fields a person can type an answer into.
-function isAnswerField(el) {
-  if (!el || (el.localName != "input" && el.localName != "textarea" && el.localName != "select")) {
-    return false;
+function isSearch(el) {
+  if (el.closest?.("[role=search], search")) {
+    return true;
   }
-  return !(el.localName == "input" && ["hidden", "submit", "reset", "button", "image"].includes(el.type));
+  const form = el.form ?? el.closest?.("form");
+  if (form && /search/i.test(form.getAttribute("action") ?? "")) {
+    return true;
+  }
+  if ((el.getAttribute("role") ?? "") == "searchbox") {
+    return true;
+  }
+  if (el.getAttribute("inputmode") == "search" || el.getAttribute("enterkeyhint") == "search") {
+    return true;
+  }
+  for (const attr of ["name", "id", "aria-label", "placeholder", "title"]) {
+    const value = el.getAttribute(attr);
+    if (value && SEARCH_WORDS.test(value.trim())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// The editing host of a contenteditable region (the body in designMode).
+function editingHost(node) {
+  let el = node?.nodeType == 1 ? node : node?.parentElement;
+  if (!el?.isContentEditable) {
+    return null;
+  }
+  while (el.parentElement?.isContentEditable) {
+    el = el.parentElement;
+  }
+  return el;
+}
+
+/**
+ * What kind of answer field `node` is ("text", "check", "radio", "select",
+ * "editable"), with the element to track; null when it never counts.
+ */
+export function answerField(node) {
+  const el = node?.nodeType == 1 ? node : node?.parentElement;
+  if (!el) {
+    return null;
+  }
+  let kind = null;
+  let field = el;
+  if (el.localName == "textarea") {
+    kind = "text";
+  } else if (el.localName == "select") {
+    kind = "select";
+  } else if (el.localName == "input") {
+    if (SKIPPED_INPUT_TYPES.has(el.type)) {
+      return null;
+    }
+    kind = el.type == "checkbox" ? "check" : el.type == "radio" ? "radio" : "text";
+  } else {
+    field = editingHost(el);
+    kind = field ? "editable" : null;
+  }
+  if (!kind || field.disabled || field.readOnly || isSecret(field) || isSearch(field)) {
+    return null;
+  }
+  return { kind, field };
+}
+
+function currentValue(el, kind) {
+  switch (kind) {
+    case "check":
+    case "radio":
+      return el.checked;
+    case "select":
+      return [...el.options].filter(o => o.selected).map(o => o.index).join(",");
+    case "editable":
+      return el.textContent;
+    default:
+      return el.value;
+  }
+}
+
+function defaultValue(el, kind) {
+  switch (kind) {
+    case "check":
+    case "radio":
+      return el.defaultChecked;
+    case "select": {
+      const picked = [...el.options].filter(o => o.defaultSelected).map(o => o.index);
+      if (!picked.length && !el.multiple && el.options.length) {
+        return "0";
+      }
+      return picked.join(",");
+    }
+    case "editable":
+      return el.textContent;
+    default:
+      return el.defaultValue;
+  }
+}
+
+function hostMatches(host, list) {
+  host = (host ?? "").toLowerCase();
+  return list.some(site => site && (host == site || host.endsWith("." + site)));
 }
 
 export class WhimsyFormProtectionChild extends JSWindowActorChild {
   // The snapshot offered for this document, and what Fill In filled.
   _offer = null;
-  // F33: the fields the person changed themselves. A value the site set
-  // (an editor filling itself, a search box, hidden or script-set fields,
-  // restored or autofilled values) never counts: only real typing or
-  // picking does, which arrives as a trusted input or change event.
-  _edited = new WeakSet();
+  // element -> { kind, baseline }: fields the person edited themselves.
+  _tracked = new Map();
+  // What the parent was last told.
+  _reported = false;
+  _editableTimer = null;
+
+  get _autosaveSite() {
+    try {
+      const list = Services.prefs.getStringPref(AUTOSAVE_PREF, "").split(",").map(s => s.trim().toLowerCase());
+      return hostMatches(this.document?.location?.hostname, list);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // A real edit: trusted, and with user activation (a page's own trusted
+  // edits, such as execCommand while it loads, have none).
+  _userMade(event, kind) {
+    if (!event.isTrusted) {
+      return false;
+    }
+    const doc = this.document;
+    if (kind == "text" || kind == "editable") {
+      return !!doc?.hasValidTransientUserGestureActivation;
+    }
+    return !!doc?.hasBeenUserGestureActivated;
+  }
 
   handleEvent(event) {
     switch (event.type) {
-      case "input":
-      case "change": {
-        const field = event.composedTarget ?? event.target;
-        if (event.isTrusted && isAnswerField(field) && !field.matches?.(":autofill")) {
-          this._edited.add(field);
-        }
-        this.checkFormState();
+      case "beforeinput":
+        this._onBeforeInput(event);
         break;
-      }
+      case "input":
+      case "change":
+        this._onEdit(event);
+        break;
+      case "submit":
+        this._onSubmit(event);
+        break;
       case "pageshow":
-        this.checkFormState();
+        this._report();
         if (!event.persisted) {
           this.offerRefill();
         }
@@ -77,76 +216,156 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     }
   }
 
-  receiveMessage(message) {
-    if (message.name == "Whimsy:FormRefill") {
-      return this.refill();
+  // The value just before the person's first edit is the baseline (a
+  // draft the site restored by script is "saved", not "").
+  _onBeforeInput(event) {
+    const found = answerField(event.composedTarget ?? event.target);
+    if (!found || this._tracked.has(found.field) || !this._userMade(event, found.kind) || this._autosaveSite) {
+      return;
     }
-    if (message.name == "Whimsy:FormTakeSnapshot") {
-      // F08: Save and Unload asks for it before unloading (a page torn
-      // down by unloading can't always send it as it goes).
-      return this.snapshot({ send: false });
+    if (found.field.matches?.(":autofill")) {
+      return;
     }
-    return null;
+    this._tracked.set(found.field, { kind: found.kind, baseline: currentValue(found.field, found.kind) });
   }
 
-  checkFormState() {
+  _onEdit(event) {
+    const found = answerField(event.composedTarget ?? event.target);
+    if (!found || !this._userMade(event, found.kind) || this._autosaveSite) {
+      return;
+    }
+    const { field, kind } = found;
+    if (field.matches?.(":autofill")) {
+      return;
+    }
+    if (!this._tracked.has(field)) {
+      // No beforeinput came (select, checkbox, radio, some pickers).
+      const baseline = kind == "check" ? !field.checked : defaultValue(field, kind);
+      this._tracked.set(field, { kind, baseline });
+    }
+    if (kind == "editable") {
+      // textContent of a big editor on every keystroke is wasteful.
+      if (!this._editableTimer) {
+        this._editableTimer = this.contentWindow.setTimeout(() => {
+          this._editableTimer = null;
+          this._report();
+        }, EDITABLE_CHECK_MS);
+      }
+      return;
+    }
+    this._report();
+  }
+
+  // A submit that went ahead saved every tracked field in that form. One
+  // the page prevented is left to the network rule (it may still fail).
+  _onSubmit(event) {
+    const form = event.target;
+    if (event.defaultPrevented || form?.localName != "form") {
+      return;
+    }
+    this._markSaved(el => el.form == form || form.contains(el));
+  }
+
+  _markSaved(which = () => true) {
+    for (const [el, entry] of this._tracked) {
+      if (which(el)) {
+        entry.baseline = currentValue(el, entry.kind);
+      }
+    }
+    this._report({ saved: true });
+  }
+
+  _isRadioDirty(el) {
+    // A radio group is one answer: dirty if any tracked radio of the group
+    // differs from where it started.
+    const name = el.name;
+    if (!name) {
+      return el.checked != this._tracked.get(el).baseline;
+    }
+    for (const [other, entry] of this._tracked) {
+      if (entry.kind == "radio" && other.name == name && other.form == el.form && other.checked != entry.baseline) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Whether this document has unsaved input now (drops fields that left). */
+  hasUnsavedInput() {
+    if (this._autosaveSite) {
+      this._tracked.clear();
+      return false;
+    }
+    let dirty = false;
+    for (const [el, entry] of this._tracked) {
+      if (!el.isConnected) {
+        this._tracked.delete(el);
+        continue;
+      }
+      if (dirty) {
+        continue;
+      }
+      if (entry.kind == "radio") {
+        dirty = this._isRadioDirty(el);
+      } else if (entry.kind == "text") {
+        const value = currentValue(el, entry.kind);
+        dirty = value != entry.baseline && value.trim() != String(entry.baseline).trim();
+      } else {
+        dirty = currentValue(el, entry.kind) != entry.baseline;
+      }
+    }
+    return dirty;
+  }
+
+  _report({ saved = false } = {}) {
     try {
-      const doc = this.document;
-      if (!doc || doc.nodeType !== doc.DOCUMENT_NODE) {
+      const dirty = this.hasUnsavedInput();
+      if (dirty == this._reported && !saved) {
         return;
       }
-      const hasForm = this.hasFilledForm(doc);
-      this.sendAsyncMessage("Whimsy:FormProtectionState", { hasForm });
+      this._reported = dirty;
+      this.sendAsyncMessage("Whimsy:FormState", { dirty, saved });
     } catch (e) {
       // Content may be in transition or detached.
     }
   }
 
-  hasFilledForm(doc) {
-    if (!doc) {
-      return false;
-    }
-    const inputs = doc.querySelectorAll(
-      "input:not([type=hidden]):not([type=submit]):not([type=reset]):not([type=button]):not([type=image]), textarea"
-    );
-    for (const input of inputs) {
-      if (!this._edited.has(input)) {
-        continue;
-      }
-      if (input.type === "checkbox" || input.type === "radio") {
-        if (input.checked !== input.defaultChecked) {
-          return true;
+  receiveMessage(message) {
+    switch (message.name) {
+      case "Whimsy:FormIsDirty": {
+        const dirty = this.hasUnsavedInput();
+        if (dirty != this._reported) {
+          this._report();
         }
-      } else {
-        if (input.value && input.value !== input.defaultValue && input.value.trim().length > 0) {
-          return true;
+        return dirty;
+      }
+      case "Whimsy:FormSaved":
+        // The parent saw this page send a request after the last edit
+        // (an autosave or a save button's fetch).
+        if (this._tracked.size) {
+          this._markSaved();
         }
-      }
+        return null;
+      case "Whimsy:FormRefill":
+        return this.refill();
+      case "Whimsy:FormTakeSnapshot":
+        // F08: Save and Unload asks for it before unloading (a page torn
+        // down by unloading can't always send it as it goes).
+        return this.snapshot({ send: false });
     }
-    const selects = doc.querySelectorAll("select");
-    for (const select of selects) {
-      if (!this._edited.has(select)) {
-        continue;
-      }
-      for (const option of select.options) {
-        if (option.selected !== option.defaultSelected) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return null;
   }
 
   // The top document's typed answers, as it goes away.
   snapshot({ send = true } = {}) {
     try {
       const win = this.contentWindow;
-      if (!win || win.top != win || !this.hasFilledForm(this.document)) {
-        return;
+      if (!win || win.top != win || !this.hasUnsavedInput()) {
+        return null;
       }
       const data = SessionStoreUtils.collectFormData(win);
       if (!data || (!data.id && !data.xpath)) {
-        return;
+        return null;
       }
       const snapshot = {
         url: addressOf(win.location),
@@ -159,6 +378,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     } catch (e) {
       // A page going away can't always be read.
     }
+    return null;
   }
 
   // The elements a snapshot names, with the values for them.
@@ -223,8 +443,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
         offer(count);
         return;
       }
-      // F08: most sites build their form after the page has loaded (and
-      // the offer used to be decided before that, so it never came). Wait
+      // F08: most sites build their form after the page has loaded. Wait
       // for the fields to appear, a while.
       const doc = this.document;
       let timer = null;
@@ -249,6 +468,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
   }
 
   // Fill In: only the fields that are still empty; each lights up briefly.
+  // What it fills is unsaved again, so it's tracked from the empty value.
   refill() {
     const offer = this._offer;
     this._offer = null;
@@ -259,6 +479,10 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     for (const [el, value] of this._targets(offer.data)) {
       if (!this._fillable(el, value)) {
         continue;
+      }
+      const found = answerField(el);
+      if (found && !this._tracked.has(found.field)) {
+        this._tracked.set(found.field, { kind: found.kind, baseline: currentValue(found.field, found.kind) });
       }
       if (el.localName == "select") {
         const index = typeof value.selectedIndex == "number" ? value.selectedIndex : -1;
@@ -274,7 +498,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
       filled.push(el);
     }
     this.highlight(filled);
-    this.checkFormState();
+    this._report();
     return { filled: filled.length };
   }
 
