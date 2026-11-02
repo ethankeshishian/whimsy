@@ -149,8 +149,7 @@ add_task(async function test_hide_current_from_footer() {
 });
 
 add_task(async function test_locked_space_unlocks_first() {
-  // A space never visited in this test, so Lock Space's grace window
-  // (returning within a minute doesn't ask again) doesn't apply.
+  // A locked space you haven't unlocked is covered (W13-C2).
   const vault = await gZenWorkspaces.createAndSaveWorkspace("Vault", undefined, true);
   vault.whimsyHidden = true;
   vault.whimsyLocked = true;

@@ -118,10 +118,20 @@ export const WhimsyPrivateLock = {
     return [...Services.wm.getEnumerator("navigator:browser")].filter(w => !w.closed && w.gBrowser);
   },
 
+  // W13-C2: every tab in the window, in every space. Zen's gBrowser.tabs
+  // lists only the active space's tabs (tabs.mjs allTabs reads
+  // gZenWorkspaces.tabboxChildren), so after a space switch the Private
+  // Space, or a private tab in the space you left, looked closed: lock()
+  // refused to lock it and evaluate() dropped its lock.
+  allTabs(win) {
+    const spaces = win.gZenWorkspaces;
+    return spaces?.workspaceEnabled ? spaces.allStoredTabs : win.gBrowser.tabs;
+  },
+
   tabsOfKind(kind) {
     const out = [];
     for (const win of this.browserWindows()) {
-      for (const tab of win.gBrowser.tabs) {
+      for (const tab of this.allTabs(win)) {
         if (this.kindOfTab(win, tab) == kind) {
           out.push(tab);
         }
@@ -146,6 +156,13 @@ export const WhimsyPrivateLock = {
   isTabCovered(win, tab) {
     const kind = this.kindOfTab(win, tab);
     return !!kind && locked.has(kind);
+  },
+
+  // Covered by the private lock or by Lock Space: nothing of the page
+  // (thumbnail, favicon, address) may show anywhere.
+  isTabHidden(win, tab) {
+    return this.isTabCovered(win, tab) ||
+      lazy.WhimsySpaceLock.isCovered(tab?.getAttribute?.("zen-workspace-id"));
   },
 
   // --- locking -------------------------------------------------------------
@@ -299,7 +316,7 @@ export const WhimsyPrivateLock = {
     // Tab rows: "Private tab" with a lock; the Private Space collapses to
     // one "N private tabs" row.
     const scratchTabs = [];
-    for (const tab of win.gBrowser.tabs) {
+    for (const tab of this.allTabs(win)) {
       const kind = this.kindOfTab(win, tab);
       const isLocked = !!kind && locked.has(kind);
       const was = tab.hasAttribute(LOCKED_ATTR);
@@ -333,19 +350,20 @@ export const WhimsyPrivateLock = {
     const selected = win.gBrowser.selectedTab;
     const selectedKind = this.kindOfTab(win, selected);
     const coverKind = windowLocked ? "windows" : selectedKind && locked.has(selectedKind) ? selectedKind : null;
-    root.toggleAttribute("whimsy-private-selected-locked", !!coverKind);
-    this.syncUrlbar(win, !!coverKind);
+    // A space behind Lock Space's cover hides its address too.
+    const hidden = !!coverKind || lazy.WhimsySpaceLock.isCovered(win.gZenWorkspaces?.activeWorkspace);
+    root.toggleAttribute("whimsy-private-selected-locked", hidden);
+    this.syncUrlbar(win, hidden);
     if (coverKind) {
       this.showCover(win, coverKind);
     } else {
       for (const kind of KINDS) {
         this.hideCover(win, kind);
       }
-      // A locked space (Lock Space, d14) shares the cover.
-      if (lazy.WhimsySpaceLock.isCovered(win.gZenWorkspaces?.activeWorkspace)) {
-        lazy.WhimsySpaceLock.renderCover(win);
-      }
     }
+    // A locked space (Lock Space, d14) shares the cover; it never replaces
+    // a private one (hasPrivateCover).
+    lazy.WhimsySpaceLock.renderCover(win);
     try {
       win.gBrowser.updateTitlebar();
     } catch (e) {}
@@ -459,6 +477,10 @@ export const WhimsyPrivateLock = {
     const colors = (space?.theme?.gradientColors ?? []).map(c => Array.isArray(c?.c) ? `rgb(${c.c.slice(0, 3).join(" ")})` : null).filter(Boolean);
     cover.style.setProperty("--whimsy-lock-a", colors[0] ?? "var(--zen-primary-color, AccentColor)");
     cover.style.setProperty("--whimsy-lock-b", colors[1] ?? colors[0] ?? "var(--zen-primary-color, AccentColor)");
+  },
+
+  hasPrivateCover(win) {
+    return KINDS.includes(win.document.querySelector(`.${COVER_CLASS}`)?.dataset.kind);
   },
 
   hideCover(win, kind = null) {
@@ -606,10 +628,48 @@ export const WhimsyPrivateLock = {
     win.gBrowser.tabContainer.addEventListener("TabSelect", askFor);
     win.addEventListener("activate", askFor);
     win.setTimeout(askFor, 0);
+    this.guardPreviews(win);
     this.registerCommands(win);
     const popup = win.document.getElementById("windowPopup");
     popup?.addEventListener("popupshowing", () => this.addWindowMenuItem(win.document));
     this.render(win);
+  },
+
+  // W13-C2: side doors that show a page without selecting it. Ctrl+Tab
+  // (MRU, browser.ctrlTab.sortByRecentlyUsed) captures a live thumbnail
+  // and shows the favicon; the tab hover preview shows the address.
+  guardPreviews(win) {
+    const previews = win.tabPreviews;
+    if (previews?.get && !previews.get._whimsyLock) {
+      const get = previews.get;
+      previews.get = function (tab) {
+        if (WhimsyPrivateLock.isTabHidden(win, tab)) {
+          return Promise.resolve(null);
+        }
+        return get.apply(this, arguments);
+      };
+      previews.get._whimsyLock = true;
+    }
+    const ctrlTab = win.ctrlTab;
+    if (ctrlTab?.updatePreview && !ctrlTab.updatePreview._whimsyLock) {
+      const updatePreview = ctrlTab.updatePreview;
+      ctrlTab.updatePreview = function (preview, tab) {
+        const result = updatePreview.apply(this, arguments);
+        if (tab && preview?._label && WhimsyPrivateLock.isTabHidden(win, tab)) {
+          const label = tab.hasAttribute(LOCKED_ATTR) ? tab.label : lazy.l10n.formatValueSync("whimsy-private-lock-urlbar");
+          preview._label.setAttribute("value", label);
+          preview.setAttribute("tooltiptext", label);
+          preview._favicon?.removeAttribute("src");
+        }
+        return result;
+      };
+      ctrlTab.updatePreview._whimsyLock = true;
+    }
+    win.addEventListener("TabHoverStart", event => {
+      if (this.isTabHidden(win, event.target)) {
+        event.stopImmediatePropagation();
+      }
+    }, true);
   },
 
   // Locked tabs read "Private tab"; a locked window's title is generic.
@@ -633,6 +693,9 @@ export const WhimsyPrivateLock = {
         if (win.document.documentElement.hasAttribute("whimsy-private-window-locked") ||
             (tab && self.isTabCovered(win, tab))) {
           return lazy.l10n.formatValueSync(self.isPrivateWindow(win) ? "whimsy-private-lock-window-name" : "whimsy-private-lock-tab-label");
+        }
+        if (tab && self.isTabHidden(win, tab)) {
+          return lazy.l10n.formatValueSync("whimsy-private-lock-urlbar");
         }
         return getTitle.apply(this, arguments);
       };
