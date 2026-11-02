@@ -638,8 +638,12 @@ add_task(async function test_shortcut_opens_a_bar_only_panel_that_materialises()
     await TestUtils.waitForCondition(() => win.gURLBar.focused, "Its command bar takes focus");
     const right = win.screenX + win.outerWidth;
 
-    const placeholder = TestUtils.waitForCondition(
-      () => root.hasAttribute("whimsy-mini-placeholder"), "The space gradient stands in for the page");
+    // Watched, not polled: on a fast load the placeholder can come and go
+    // between two polls.
+    const placeholder = BrowserTestUtils.waitForMutationCondition(root, { attributeFilter: ["whimsy-mini-placeholder"] },
+      () => root.hasAttribute("whimsy-mini-placeholder"));
+    // Typing reaches only the focused window.
+    await SimpleTest.promiseFocus(win);
     EventUtils.sendString("https://example.com/", win);
     EventUtils.synthesizeKey("KEY_Enter", {}, win);
     await placeholder;

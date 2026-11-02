@@ -57,8 +57,19 @@ async function shownVerbs() {
   return verbs;
 }
 
+// Blurring the field closes the bar, but only when this window has the OS
+// focus: with another app in front (someone using the Mac during a run, or
+// another test browser) blur() fires no blur event, the bar stayed open and
+// the test waited until it timed out. So the window is focused first, and
+// the view is closed directly if the blur still didn't.
 async function closeBar() {
-  await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
+  await SimpleTest.promiseFocus(window);
+  await UrlbarTestUtils.promisePopupClose(window, () => {
+    gURLBar.blur();
+    if (gURLBar.view.isOpen && !gURLBar.focused) {
+      gURLBar.view.close();
+    }
+  });
   gURLBar.searchMode = null;
 }
 
@@ -155,6 +166,30 @@ add_task(async function test_nothing_selected_acts_on_page() {
     );
     await closeBar();
   });
+});
+
+// The bar opened while another window has the focus (as when another app or
+// test browser is in front) still closes: the release quick verify hung
+// here for 20s when blur() alone was relied on.
+add_task(async function test_bar_closes_while_another_window_is_in_front() {
+  const before = new Set(gBrowser.tabs);
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await select(browser, null);
+    const other = await BrowserTestUtils.openNewBrowserWindow();
+    try {
+      await SimpleTest.promiseFocus(other);
+      await WhimsyVerbs.open(window);
+      await TestUtils.waitForCondition(() => gURLBar.view.isOpen, "The verbs show in the background window");
+      await closeBar();
+      ok(!gURLBar.view.isOpen, "The bar closed");
+    } finally {
+      await BrowserTestUtils.closeWindow(other);
+    }
+  });
+  for (const tab of gBrowser.tabs.filter(t => !before.has(t))) {
+    info(`Left behind: ${tab.linkedBrowser.currentURI?.spec}`);
+    BrowserTestUtils.removeTab(tab);
+  }
 });
 
 add_task(async function test_verb_actions() {
