@@ -73,12 +73,20 @@ add_task(async function test_a_shortcut_can_be_assigned() {
   const entry = WhimsyCommands.get("cmd_whimsyZoomInterfaceIn");
   ok(WhimsyCommands.rebind(entry.id, FREE).ok, "A free shortcut is accepted");
   const keyEl = document.getElementById(entry.keyId);
-  is(keyEl.getAttribute("key"), "Y", "Zoom Interface In takes it");
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ui-zoom", 100]] });
-  EventUtils.synthesizeKey("y", { accelKey: true, altKey: true, shiftKey: true });
-  await TestUtils.waitForCondition(() => Services.prefs.getIntPref("whimsy.ui-zoom") == 110, "The shortcut zooms the interface");
-  await SpecialPowers.popPrefEnv();
-  WhimsyCommands.reset(entry.id);
+  try {
+    is(keyEl.getAttribute("key"), "Y", "Zoom Interface In takes it");
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.ui-zoom", 100]] });
+    // A key shortcut reaches only the focused window: make sure it's this one
+    // (as a file's first test, another browser starting at the same moment
+    // can hold the OS focus; the key then did nothing).
+    await SimpleTest.promiseFocus(window);
+    EventUtils.synthesizeKey("y", { accelKey: true, altKey: true, shiftKey: true });
+    await TestUtils.waitForCondition(() => Services.prefs.getIntPref("whimsy.ui-zoom") == 110, "The shortcut zooms the interface");
+    await SpecialPowers.popPrefEnv();
+  } finally {
+    // Released even if the check failed, so the next test can take it.
+    WhimsyCommands.reset(entry.id);
+  }
   ok(!keyEl.hasAttribute("key"), "Reset leaves it unbound again");
 });
 
@@ -289,6 +297,7 @@ add_task(async function test_change_tab_icon_on_an_essential() {
     const entry = WhimsyCommands.get("cmd_whimsyChangeTabIcon");
     ok(WhimsyCommands.rebind(entry.id, FREE).ok, "A shortcut can be assigned");
     shown = BrowserTestUtils.waitForEvent(picker, "popupshown");
+    await SimpleTest.promiseFocus(window);
     EventUtils.synthesizeKey("y", { accelKey: true, altKey: true, shiftKey: true });
     await shown;
     ok(true, "The shortcut opens Zen's icon picker");

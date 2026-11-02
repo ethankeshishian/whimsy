@@ -32,10 +32,11 @@ async function checkLabels(rows, where) {
   }
   const ids = [...byId.keys()];
   const messages = await document.l10n.formatMessages(ids.map(id => ({ id, args: byId.get(id) })));
-  ids.forEach((id, i) => {
-    const label = messages[i]?.attributes?.find(a => a.name == "label")?.value;
-    ok(label?.trim(), `${where}: ${id} has a .label ("${label ?? ""}")`);
-  });
+  // One check per place, naming every row without a label: which rows exist
+  // depends on the menus earlier tests (or files) built, so a check per row
+  // made the count vary with the run order (parallel verify compares counts).
+  const missing = ids.filter((id, i) => !messages[i]?.attributes?.find(a => a.name == "label")?.value?.trim());
+  Assert.deepEqual(missing, [], `${where}: all ${ids.length} Whimsy rows have a .label`);
 }
 
 add_task(async function test_rows_built_on_demand() {
