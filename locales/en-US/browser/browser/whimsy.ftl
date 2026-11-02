@@ -1094,9 +1094,8 @@ whimsy-changelog-anchor =
 whimsy-library-footer-feedback-button =
     .label = Feedback
 
-# home: homepage preference and changelog version heading.
-whimsy-home-enabled =
-    .label = Use the Whimsy homepage
+# home: changelog version heading. (W11-07: the homepage switch that sat
+# here is gone; Settings → Home and startup has the one control.)
 whimsy-changelog-unreleased = Unreleased
 ## tierC-vpn: VPN (Firefox's built-in IP Protection). Settings → Privacy &
 ## Security card, and the command bar actions.
@@ -1174,6 +1173,18 @@ whimsy-privacy-search = <strong>Your search engine</strong>: what you search for
 # Whimsy's home (about:whimsy) rather than Firefox Home.
 whimsy-home-mode-choice-default =
     .label = Whimsy Home (Default)
+# W11-07: Firefox's new tab page, still a choice for new windows and new
+# tabs. It's Firefox's, so it keeps Firefox's name.
+whimsy-home-mode-choice-firefox =
+    .label = Firefox Home
+# W11-07: Whimsy Home as a choice for new tabs, where Firefox Home stays the
+# default (Firefox's own "Firefox Home (Default)").
+whimsy-home-mode-choice-whimsy =
+    .label = { -brand-short-name } Home
+# W11-07: the choices as the command bar names them ("New Tab Page: Firefox Home").
+whimsy-home-choice-whimsy = { -brand-short-name } Home
+whimsy-home-choice-firefox = Firefox Home
+whimsy-home-choice-blank = Blank Page
 
 ## wave3/private: reading RSS live folders.
 
@@ -4147,8 +4158,10 @@ whimsy-setting-seasons = Seasonal Touches
     .keywords = seasons, seasonal themes, halloween, holidays, pumpkins, snow
 whimsy-setting-full-url = Full Address
     .keywords = full url, whole url, domain only, address bar, url bar
-whimsy-setting-home = { -brand-short-name } Homepage
-    .keywords = home page, start page, new tab page
+whimsy-setting-new-windows = New Window Page
+    .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
+whimsy-setting-new-tabs = New Tab Page
+    .keywords = new tabs, whimsy home, firefox home, blank new tab
 whimsy-setting-teach = Shortcut Tips
     .keywords = tips, hints, teach, learn shortcuts, onboarding
 whimsy-setting-cookie-banners = Reject Cookie Banners

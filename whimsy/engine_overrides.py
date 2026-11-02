@@ -103,33 +103,10 @@ def override_default_bookmarks():
 
 
 # legacy: (id, file under engine/, Firefox's text, Whimsy's text, why).
-ENGINE_TEXT_FIXES = [
-    ("home-option-is-whimsy", "browser/components/preferences/config/home-startup.mjs",
-     'const DEFAULT_HOMEPAGE_URL = "about:home";',
-     'const DEFAULT_HOMEPAGE_URL = "about:whimsy"; // Whimsy (whimsy/engine_overrides.py)',
-     "Settings > Home's built-in choice sets about:home and is labelled "
-     "Firefox Home (Default), while Whimsy's default is about:whimsy, which "
-     "showed as Custom URLs. The choice now means Whimsy's home."),
-    ("home-option-label", "browser/components/preferences/config/home-startup.mjs",
-     '        id: "homepageNewWindows",\n'
-     '        subcategory: "homeOverride",\n'
-     '        control: "moz-select",\n'
-     '        l10nId: "home-homepage-new-windows",\n'
-     '        options: [\n'
-     '          {\n'
-     '            value: "home",\n'
-     '            l10nId: "home-mode-choice-default-fx",\n',
-     '        id: "homepageNewWindows",\n'
-     '        subcategory: "homeOverride",\n'
-     '        control: "moz-select",\n'
-     '        l10nId: "home-homepage-new-windows",\n'
-     '        options: [\n'
-     '          {\n'
-     '            value: "home",\n'
-     '            l10nId: "whimsy-home-mode-choice-default", // Whimsy\n',
-     "The homepage choice reads Whimsy Home (Default). New tabs keep Firefox "
-     "Home: they still open Firefox's new tab page."),
-]
+# W11-07: Settings → Home's choices (Whimsy Home and Firefox Home) are a
+# patch now, src/browser/components/preferences/config/
+# whimsy-home-startup-mjs.patch, not text fixes here.
+ENGINE_TEXT_FIXES = []
 
 # fix7 settings: Firefox's VPN (IP Protection) is Mozilla's service, but its
 # strings say "{ -brand-product-name }'s built-in VPN", which reads "Whimsy's

@@ -1,0 +1,16 @@
+diff --git a/browser/base/content/utilityOverlay.js b/browser/base/content/utilityOverlay.js
+index 3b8782f..96ac597 100644
+--- a/browser/base/content/utilityOverlay.js
++++ b/browser/base/content/utilityOverlay.js
+@@ -43,7 +43,10 @@ Object.defineProperty(this, "BROWSER_NEW_TAB_URL", {
+     if (PrivateBrowsingUtils.isWindowPrivate(window)) {
+       if (
+         !PrivateBrowsingUtils.permanentPrivateBrowsing &&
+-        !AboutNewTab.newTabURLOverridden
++        // Whimsy (W11-07): Whimsy Home as the new tab page isn't an add-on's
++        // page; private windows keep the private browsing page.
++        (!AboutNewTab.newTabURLOverridden ||
++          AboutNewTab.newTabURL == "about:whimsy")
+       ) {
+         return "about:privatebrowsing";
+       }

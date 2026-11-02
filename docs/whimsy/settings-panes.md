@@ -116,7 +116,7 @@ left out.
 | Look and Feel | App icon | Whimsy app icon (macOS) | No |
 | Look and Feel | Interface zoom | `whimsy.ui-zoom` | No |
 | Look and Feel | Library | `whimsy.feature.notes`, `.finder-folders`, `.screenshot-sidebar` | No |
-| Look and Feel | Look | `whimsy.look.menu-icons`, `whimsy.reader.reading-time`, `whimsy.pdf.dark`, `whimsy.look.ui-font`, `whimsy.look.liquid-glass`, `whimsy.menu-bar-extra.show`, `whimsy.seasons.enabled`, `whimsy.urlbar.always-full-url`, `whimsy.feature.home` | No |
+| Look and Feel | Look | `whimsy.look.menu-icons`, `whimsy.reader.reading-time`, `whimsy.pdf.dark`, `whimsy.look.ui-font`, `whimsy.look.liquid-glass`, `whimsy.menu-bar-extra.show`, `whimsy.seasons.enabled`, `whimsy.urlbar.always-full-url` (W11-07: "Use the Whimsy homepage" left Look; Home and startup's New windows and New tabs offer Whimsy Home and Firefox Home) | No |
 | Look and Feel | Next meeting | Whimsy calendar settings | No |
 | Tab Management | Tabs | `browser.tabs.insertAfterCurrent`, `zen.folders.owned-tabs-in-folder`, `whimsy.tabs.*`, `zen.view.enable-loading-indicator`, `whimsy.spaces.hide-switcher`, `whimsy.media.*`, `whimsy.playlist.offline-download`, `whimsy.archive.prompt`, `whimsy.feature.*` tab features, `whimsy.feature.split-new-tab` | No |
 | Tab Management | Spaces | space manager, hidden spaces, `browser.tabs.closeWindowWithLastTab`, `whimsy.downloads.dock-badge`, `whimsy.feature.quick-look` | No |

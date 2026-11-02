@@ -2511,6 +2511,8 @@ Object.assign(gWhimsySettings, {
     const settle = async () => {
       this.insertAllForSearch();
       this.hideHiddenHomeFromSearch();
+      // W11-07: every pane is set up now, Home included.
+      this.ensureFirefoxHomeGroup?.();
       if (document.hasPendingL10nMutations) {
         await new Promise(r => document.addEventListener("L10nMutationsFinished", r, { once: true }));
       }
@@ -2721,6 +2723,58 @@ Object.assign(gWhimsySettings, {
 });
 
 document.addEventListener("DOMContentLoaded", () => gWhimsySettings.mergeFirefoxPanes(), { once: true });
+
+// W11-07: Firefox's "Firefox Home" group (Search, Widgets, Shortcuts,
+// Stories, Recent activity, wallpaper, logo) in Home and startup. Firefox's
+// new tab add-on registers it when it hears "home-pane-loaded", which the
+// Home pane sends once, when it first initializes; Firefox's search sets up
+// every pane at idle right after Settings loads. The add-on starts listening
+// only once Activity Stream has started, which waits for session restore,
+// the terms-of-use check and Nimbus. A Settings tab that loads before that
+// (a Settings tab restored at startup, which Whimsy's spaces keep) never
+// gets the group, and Firefox has no second chance (bug 2051119 only stopped
+// the pane from throwing). So once Activity Stream is up, if the Home pane
+// is set up and the group is still missing, send the notice again; the
+// pane's setting-group renders as soon as the group registers.
+Object.assign(gWhimsySettings, {
+  ensureFirefoxHomeGroup() {
+    if (this._firefoxHomeWait || typeof SettingGroupManager != "object" || SettingGroupManager.has("home")) {
+      return;
+    }
+    let newTab;
+    try {
+      newTab = ChromeUtils.importESModule("resource:///modules/AboutNewTab.sys.mjs").AboutNewTab;
+    } catch (e) {
+      return;
+    }
+    // Not started yet: the next paneshown tries again.
+    if (!newTab.activityStreamPromise) {
+      return;
+    }
+    this._firefoxHomeWait = newTab.activityStreamPromise
+      .then(() => {
+        // ActivityStream.init() runs right after the promise resolves; this
+        // callback comes after it, with its feeds (and their observers) set up.
+        if (window.closed || SettingGroupManager.has("home")) {
+          return;
+        }
+        const pane = document.querySelector('setting-pane[data-category="paneHome"]');
+        if (pane?.initialized) {
+          Services.obs.notifyObservers(window, "home-pane-loaded");
+        }
+      })
+      .catch(e => console.error("Whimsy settings: Firefox Home group", e))
+      .finally(() => {
+        this._firefoxHomeWait = null;
+      });
+  },
+});
+
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == "paneHome") {
+    gWhimsySettings.ensureFirefoxHomeGroup();
+  }
+});
 
 // wave7/teach: Tips ("Show tips", Teach once). wave9/designfix (H2): in
 // Look and Feel, after Whimsy's Look group. It was in General, after

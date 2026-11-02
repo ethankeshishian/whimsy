@@ -30,6 +30,8 @@
 //   get/set  For a switch that isn't one bool pref (Clean Links).
 //   choices  [{ value, l10nId }]: one command per choice; l10nId names the
 //            choice (its value or .label), usually the menuitem's own id.
+//   getValue/setValue  For a choice that isn't one pref's value (Settings →
+//            Home and startup: a URL, or two prefs, behind each choice).
 //   partial  `choices` names only some of Settings' choices (the rest are
 //            the fonts installed on this Mac).
 //   range    { min, max, step }: Increase and Decrease commands.
@@ -50,6 +52,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyHome: "resource:///modules/whimsy/WhimsyHome.sys.mjs",
   WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true));
@@ -108,8 +111,28 @@ export const SETTINGS = [
   { name: "seasons", setting: "whimsySeasonalThemes", pref: "whimsy.seasons.enabled", feature: ["seasonal-themes"] },
   { name: "full-url", setting: "whimsyAlwaysFullUrl", pref: "whimsy.urlbar.always-full-url",
     feature: ["full-url-click"] },
-  { name: "home", setting: "whimsyHomeEnabled", pref: "whimsy.feature.home" },
   { name: "teach", setting: "whimsyTeachEnabled", pref: "whimsy.teach.enabled", feature: ["teach-once"] },
+
+  // Home and startup (W11-07): Firefox's New windows and New tabs
+  // dropdowns, with Whimsy Home and Firefox Home both offered. They replace
+  // Look's "Use the Whimsy homepage" switch (one control per setting).
+  // Custom URLs are typed in Settings, so they have no command.
+  { name: "new-windows", setting: "homepageNewWindows", pref: "browser.startup.homepage", partial: true,
+    getValue: () => lazy.WhimsyHome.newWindowsChoice(),
+    setValue: value => lazy.WhimsyHome.setNewWindowsChoice(value),
+    choices: [
+      { value: "whimsy", l10nId: "whimsy-home-choice-whimsy" },
+      { value: "home", l10nId: "whimsy-home-choice-firefox" },
+      { value: "blank", l10nId: "whimsy-home-choice-blank" },
+    ] },
+  { name: "new-tabs", setting: "homepageNewTabs", pref: "whimsy.newtab.page", partial: true,
+    getValue: () => lazy.WhimsyHome.newTabsChoice(),
+    setValue: value => lazy.WhimsyHome.setNewTabsChoice(value),
+    choices: [
+      { value: "whimsy", l10nId: "whimsy-home-choice-whimsy" },
+      { value: "home", l10nId: "whimsy-home-choice-firefox" },
+      { value: "blank", l10nId: "whimsy-home-choice-blank" },
+    ] },
 
   // Privacy & Security
   { name: "cookie-banners", setting: "whimsyRejectCookieBanners", pref: "whimsy.reject-cookie-banners",
@@ -391,6 +414,9 @@ export const WhimsySettingsCommands = {
   },
 
   value(entry) {
+    if (entry.getValue) {
+      return entry.getValue();
+    }
     switch (prefType(entry, entry.choices?.[0]?.value ?? 0)) {
       case Services.prefs.PREF_INT:
         return Services.prefs.getIntPref(entry.pref, 0);
@@ -402,6 +428,10 @@ export const WhimsySettingsCommands = {
   },
 
   setValue(entry, value) {
+    if (entry.setValue) {
+      entry.setValue(value);
+      return;
+    }
     switch (prefType(entry, value)) {
       case Services.prefs.PREF_INT:
         Services.prefs.setIntPref(entry.pref, Number(value));

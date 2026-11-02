@@ -1,0 +1,188 @@
+diff --git a/browser/components/preferences/config/home-startup.mjs b/browser/components/preferences/config/home-startup.mjs
+index 4c19e7d..9c4c448 100644
+--- a/browser/components/preferences/config/home-startup.mjs
++++ b/browser/components/preferences/config/home-startup.mjs
+@@ -32,6 +32,20 @@ const PREF_SETTING_TYPE = "prefs";
+ 
+ const BLANK_HOMEPAGE_URL = "chrome://browser/content/blanktab.html";
+ 
++// Whimsy (W11-07): Whimsy Home (about:whimsy) and Firefox Home (about:home,
++// "home") are both choices for new windows and new tabs. New windows default
++// to Whimsy Home, new tabs to Firefox Home (as before), so the Firefox Home
++// group below keeps its meaning. New tabs keep Firefox's
++// browser.newtabpage.enabled for "blank"; whimsy.newtab.page says which home
++// they show, and WhimsyHome.sys.mjs points AboutNewTab.newTabURL at it.
++const WHIMSY_HOME_URL = "about:whimsy";
++const WHIMSY_NEWTAB_PREF = "whimsy.newtab.page";
++const BUILTIN_HOMEPAGE_URLS = [
++  WHIMSY_HOME_URL,
++  DEFAULT_HOMEPAGE_URL,
++  BLANK_HOMEPAGE_URL,
++];
++
+ /*
+  * Preferences:
+  *
+@@ -211,6 +225,8 @@ function setupHomepageGroup(prefWindow) {
+           return ext.id;
+         }
+         switch (prefVal) {
++          case WHIMSY_HOME_URL:
++            return "whimsy";
+           case DEFAULT_HOMEPAGE_URL:
+             return "home";
+           case BLANK_HOMEPAGE_URL:
+@@ -230,7 +246,7 @@ function setupHomepageGroup(prefWindow) {
+ 
+         // Deselection uses the low-level ExtensionSettingsStore API
+         // because the pref is already being set by the return value.
+-        if (["home", "blank", "custom"].includes(inputVal)) {
++        if (["whimsy", "home", "blank", "custom"].includes(inputVal)) {
+           let currentAddon = getActiveExtensionForSetting(
+             PREF_SETTING_TYPE,
+             HOMEPAGE_OVERRIDE_KEY
+@@ -249,6 +265,8 @@ function setupHomepageGroup(prefWindow) {
+         }
+ 
+         switch (inputVal) {
++          case "whimsy":
++            return WHIMSY_HOME_URL;
+           case "home":
+             return DEFAULT_HOMEPAGE_URL;
+           case "blank":
+@@ -270,7 +288,7 @@ function setupHomepageGroup(prefWindow) {
+       getControlConfig(config) {
+         // `config` is retained across renders, so filter back to the
+         // static builtins before reattaching the current extension entries.
+-        let builtinValues = new Set(["home", "blank", "custom"]);
++        let builtinValues = new Set(["whimsy", "home", "blank", "custom"]);
+         let builtinOptions = config.options.filter(o =>
+           builtinValues.has(o.value)
+         );
+@@ -328,7 +346,7 @@ function setupHomepageGroup(prefWindow) {
+       // values we set in `browser.startup.homepage` for "Firefox Home",
+       // "Blank Page", or extension-controlled URLs.
+       let prefVal = homepageDisplayPref.value.trim();
+-      if ([DEFAULT_HOMEPAGE_URL, BLANK_HOMEPAGE_URL].includes(prefVal)) {
++      if (BUILTIN_HOMEPAGE_URLS.includes(prefVal)) {
+         customURLsDescription = null;
+       } else {
+         // Add a comma-separated list of Custom URLs the user set for their homepage
+@@ -385,6 +403,9 @@ function setupHomepageGroup(prefWindow) {
+       // Pick up extension installs that set AboutNewTab.newTabURL directly.
+       let newTabObserver = () => refreshExtensions();
+       Services.obs.addObserver(newTabObserver, "newtab-url-changed");
++      // Whimsy: Whimsy Home or Firefox Home, chosen here or by a command.
++      let whimsyPageObserver = () => onChange();
++      Services.prefs.addObserver(WHIMSY_NEWTAB_PREF, whimsyPageObserver);
+ 
+       let addonListener = makeAddonListenerForRefresh(refreshExtensions);
+       lazy.AddonManager.addAddonListener(addonListener);
+@@ -392,6 +413,7 @@ function setupHomepageGroup(prefWindow) {
+       return () => {
+         lazy.AddonManager.removeAddonListener(addonListener);
+         Services.obs.removeObserver(newTabObserver, "newtab-url-changed");
++        Services.prefs.removeObserver(WHIMSY_NEWTAB_PREF, whimsyPageObserver);
+         lazy.Management.off("extension-setting-changed", onExtensionChange);
+       };
+     },
+@@ -405,10 +427,15 @@ function setupHomepageGroup(prefWindow) {
+       if (activeId) {
+         return activeId;
+       }
+-      return prefVal ? "home" : "blank";
++      if (!prefVal) {
++        return "blank";
++      }
++      return Services.prefs.getStringPref(WHIMSY_NEWTAB_PREF, "home") == "whimsy"
++        ? "whimsy"
++        : "home";
+     },
+     set(inputVal) {
+-      if (inputVal === "home" || inputVal === "blank") {
++      if (["whimsy", "home", "blank"].includes(inputVal)) {
+         let currentAddon = getActiveExtensionForSetting(
+           URL_OVERRIDES_TYPE,
+           NEW_TAB_KEY
+@@ -427,7 +454,10 @@ function setupHomepageGroup(prefWindow) {
+             console.error("Failed to deselect new tab extension", e);
+           }
+         }
+-        return inputVal === "home";
++        if (inputVal !== "blank") {
++          Services.prefs.setStringPref(WHIMSY_NEWTAB_PREF, inputVal);
++        }
++        return inputVal !== "blank";
+       }
+       try {
+         lazy.ExtensionSettingsStore.select(
+@@ -443,7 +473,7 @@ function setupHomepageGroup(prefWindow) {
+     getControlConfig(config) {
+       // `config` is retained across renders, so filter back to the
+       // static builtins before reattaching the current extension entries.
+-      let builtinValues = new Set(["home", "blank"]);
++      let builtinValues = new Set(["whimsy", "home", "blank"]);
+       let builtinOptions = config.options.filter(o =>
+         builtinValues.has(o.value)
+       );
+@@ -461,13 +491,14 @@ function setupHomepageGroup(prefWindow) {
+     deps: ["homepageNewWindows", "homepageNewTabs"],
+     disabled: ({ homepageNewWindows, homepageNewTabs }) => {
+       return (
+-        homepageNewWindows.value === "home" && homepageNewTabs.value === "home"
++        homepageNewWindows.value === "whimsy" &&
++        homepageNewTabs.value === "home"
+       );
+     },
+     onUserClick: (e, { homepageNewWindows, homepageNewTabs }) => {
+       e.preventDefault();
+ 
+-      homepageNewWindows.value = "home";
++      homepageNewWindows.value = "whimsy";
+       homepageNewTabs.value = "home";
+     },
+   });
+@@ -485,10 +516,8 @@ function setupHomepageGroup(prefWindow) {
+         control: "moz-select",
+         l10nId: "home-homepage-new-windows",
+         options: [
+-          {
+-            value: "home",
+-            l10nId: "home-mode-choice-default-fx",
+-          },
++          { value: "whimsy", l10nId: "whimsy-home-mode-choice-default" },
++          { value: "home", l10nId: "whimsy-home-mode-choice-firefox" },
+           { value: "blank", l10nId: "home-mode-choice-blank" },
+           { value: "custom", l10nId: "home-mode-choice-custom" },
+         ],
+@@ -505,10 +534,8 @@ function setupHomepageGroup(prefWindow) {
+         control: "moz-select",
+         l10nId: "home-homepage-new-tabs",
+         options: [
+-          {
+-            value: "home",
+-            l10nId: "home-mode-choice-default-fx",
+-          },
++          { value: "home", l10nId: "home-mode-choice-default-fx" },
++          { value: "whimsy", l10nId: "whimsy-home-mode-choice-whimsy" },
+           { value: "blank", l10nId: "home-mode-choice-blank" },
+         ],
+       },
+@@ -562,7 +589,7 @@ function setupCustomHomepageGroup(prefWindow) {
+ 
+       let currentVal = homepageDisplayPref.value.trim();
+       if (
+-        [DEFAULT_HOMEPAGE_URL, BLANK_HOMEPAGE_URL].includes(currentVal) ||
++        BUILTIN_HOMEPAGE_URLS.includes(currentVal) ||
+         currentVal.startsWith("moz-extension://")
+       ) {
+         // Replace non-custom homepage values with the new Custom URL.
+@@ -703,7 +730,7 @@ function setupCustomHomepageGroup(prefWindow) {
+       // extension-controlled URLs that are also stored in the homepage pref.
+       let currentPrefVal = homepageDisplayPref.value.trim();
+       if (
+-        ![DEFAULT_HOMEPAGE_URL, BLANK_HOMEPAGE_URL].includes(currentPrefVal)
++        !BUILTIN_HOMEPAGE_URLS.includes(currentPrefVal)
+       ) {
+         type = homepageDisplayPref.locked ? "list" : "reorderable-list";
+         listItems = urls.map((url, index) => ({

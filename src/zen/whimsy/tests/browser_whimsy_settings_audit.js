@@ -103,9 +103,14 @@ const MAY_BE_ABSENT = {
 
 // The values Settings offers for a choice.
 function domChoices(el) {
-  return [...el.querySelectorAll("menuitem[value], radio[value], input[type='radio'][value], [data-icon]")].map(
-    item => item.getAttribute("value") ?? item.dataset.icon
-  );
+  return [
+    ...[...el.querySelectorAll("menuitem[value], radio[value], input[type='radio'][value], [data-icon]")].map(
+      item => item.getAttribute("value") ?? item.dataset.icon
+    ),
+    // W11-07: Firefox's moz-select (Home and startup) sets each option's
+    // value as a property.
+    ...[...el.querySelectorAll("moz-option")].map(option => String(option.value)),
+  ];
 }
 
 async function openSettings(callback) {

@@ -120,7 +120,10 @@ add_task(async function test_default_bookmarks() {
 
 add_task(async function test_home_option_is_whimsy() {
   const config = await chromeText("chrome://browser/content/preferences/config/home-startup.mjs");
-  ok(config.includes('const DEFAULT_HOMEPAGE_URL = "about:whimsy";'), "C2: the built-in homepage choice is about:whimsy");
+  // W11-07: Whimsy Home is its own choice (about:whimsy); Firefox Home keeps
+  // about:home. browser_whimsy_home_choices.js tests the Settings page.
+  ok(config.includes('const WHIMSY_HOME_URL = "about:whimsy";'), "C2: the built-in homepage choice is about:whimsy");
+  ok(config.includes('const DEFAULT_HOMEPAGE_URL = "about:home";'), "W11-07: Firefox Home stays about:home");
   ok(config.includes('l10nId: "whimsy-home-mode-choice-default"'), "C2: ...labelled as Whimsy's");
   const l10n = new Localization(["browser/whimsy.ftl"]);
   const [message] = await l10n.formatMessages([{ id: "whimsy-home-mode-choice-default" }]);
