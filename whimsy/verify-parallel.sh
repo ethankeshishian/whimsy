@@ -154,10 +154,6 @@ while read -r paths; do
   start_job "whimsy-c$i" $paths
   i=$((i + 1))
 done < "$OUT/chunks.txt"
-if [ "$MODE" = "all" ]; then
-  start_job zen-tabs zen/tests/tabs
-  start_job zen-ui zen/tests/ui
-fi
 wait
 
 # A test that times out ends its chunk's browser, so the files after it never
@@ -180,6 +176,13 @@ while [ -n "$rest" ]; do
 done
 if [ -n "$rest" ]; then
   echo "never started:"; echo "$rest" | sed 's/^/  /'; status=1
+fi
+# Zen's suites are short: they run together after the Whimsy chunks, so
+# the peak stays at one browser per chunk.
+if [ "$MODE" = "all" ]; then
+  start_job zen-tabs zen/tests/tabs
+  start_job zen-ui zen/tests/ui
+  wait
 fi
 for name in $jobs; do check "$name"; done
 
