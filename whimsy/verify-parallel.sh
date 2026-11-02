@@ -159,6 +159,28 @@ if [ "$MODE" = "all" ]; then
   start_job zen-ui zen/tests/ui
 fi
 wait
+
+# A test that times out ends its chunk's browser, so the files after it never
+# start. Run those, serially, in a fresh browser: a first run, not a retry (a
+# file that ran and failed stays failed). Repeats while files are left over.
+never_started() {
+  for t in $(cat "$OUT/chunks.txt"); do
+    grep -qF "TEST_START: $t" "$OUT"/whimsy-c*.log "$OUT"/whimsy-rest*.log 2>/dev/null || echo "$t"
+  done
+}
+n=1
+rest=$(never_started)
+while [ -n "$rest" ]; do
+  echo "whimsy-rest$n: $(echo $rest | wc -w | tr -d ' ') files never started; running them now"
+  start_job "whimsy-rest$n" $rest
+  wait
+  left=$(never_started)
+  [ "$left" = "$rest" ] && break # nothing more started: don't loop forever
+  rest=$left; n=$((n + 1))
+done
+if [ -n "$rest" ]; then
+  echo "never started:"; echo "$rest" | sed 's/^/  /'; status=1
+fi
 for name in $jobs; do check "$name"; done
 
 # Native-event tests need a visible window and focus; run them alone, headed.
