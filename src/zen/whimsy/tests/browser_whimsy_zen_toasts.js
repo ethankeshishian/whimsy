@@ -60,6 +60,8 @@ add_task(async function icon_element_and_badge() {
     timeout: 0,
   });
   try {
+    // Measured once it has arrived (it springs in from scale 0).
+    await toast.shown;
     const slot = toast.element.querySelector(".whimsy-toast-icon");
     is(slot.firstElementChild, mark, "A caller's element is the mark, as is");
     ok(slot.querySelector(".whimsy-toast-icon-badge"), "with its badge");
@@ -139,6 +141,7 @@ add_task(async function text_buttons() {
   const undo = document.getElementById("test-toast-undo");
   await TestUtils.waitForCondition(() => undo.textContent.includes("Undo"), "The button has its word");
   ok(undo.querySelector(".whimsy-toast-button-label").checkVisibility(), "and the word shows (Zen hides its button text)");
+  await toast.shown;
   Assert.greater(undo.getBoundingClientRect().width, 40, "wide enough for its word");
   Assert.greaterOrEqual(undo.getBoundingClientRect().height, 24, "a real target");
   is(undo.querySelector(".whimsy-toast-keys").textContent, "⌘Z", "The shortcut beside it");
@@ -239,7 +242,7 @@ add_task(async function more_than_three_fold() {
     "whimsy-form-protected-toast",
   ];
   const stack = ids.map(id => toasts().open(id, { timeout: 0 }));
-  const visible = () => stack.filter(t => !t.element.hasAttribute("stacked-away"));
+  const visible = () => stack.filter(t => !t.closed && !t.element.hasAttribute("stacked-away"));
   is(visible().length, 3, "Three persistent toasts show");
   Assert.deepEqual(visible(), stack.slice(2), "the newest three");
   const more = document.querySelector("#zen-toast-container > .whimsy-toast-more");
@@ -326,6 +329,56 @@ add_task(async function keyed_replace_clears_what_it_leaves_out() {
   ok(!toast.persistent, "It times out now");
   is(element.getAttribute("role"), "status", "a status again");
   toast.close({ instant: true });
+});
+
+// With an icon, the second line still goes under the message: the icon
+// slot comes first in the toast, so it's no place to look for the text
+// (Fire's result and the Wayback date landed in the icon, or never went).
+add_task(async function second_line_beside_an_icon() {
+  const toast = toasts().open("whimsy-archive-toast", { key: "test-toast", icon: ICON, timeout: 0 });
+  try {
+    toast.update({ descriptionId: "whimsy-archive-found-date", descriptionArgs: { date: "March 12, 2024" } });
+    const box = toast.element.querySelector(":scope > vbox");
+    is(toast.element.querySelectorAll(".description").length, 1, "One second line");
+    is(toast.element.querySelector(".description").parentNode, box, "under the message");
+    await document.l10n.translateFragment(toast.element);
+    ok(toast.element.querySelector(".description").textContent.includes("2024"), "saying what it was given");
+    toast.update({ messageId: "whimsy-archive-found" });
+    is(document.l10n.getAttributes(box.querySelector("label")).id, "whimsy-archive-found", "The message changes in place");
+    toasts().open("whimsy-archive-none-toast", { key: "test-toast", icon: ICON, timeout: 0 });
+    ok(!toast.element.querySelector(".description"), "A replacement without one takes it away");
+  } finally {
+    toast.close({ instant: true });
+  }
+});
+
+// Zen gives a second line the options themselves as its Fluent args; with
+// a label's l10nArgs among them (an object) the whole translation failed.
+add_task(async function zen_second_line_args_with_label_args() {
+  const toast = toasts().open("whimsy-form-refill-ask", {
+    l10nArgs: { count: 1 },
+    descriptionId: "whimsy-form-refill-ask-detail",
+    timeout: 10000,
+  });
+  try {
+    await document.l10n.translateFragment(toast.element);
+    ok(toast.element.querySelector(".description").textContent.length > 0, "The second line translates");
+  } finally {
+    toast.close({ instant: true });
+  }
+});
+
+// Shown again, a toast is the newest news: it moves to the corner.
+add_task(async function shown_again_comes_to_the_corner() {
+  const older = toasts().open("whimsy-archive-toast", { key: "test-toast", timeout: 10000 });
+  const newer = toasts().open("whimsy-archive-error", { timeout: 10000 });
+  is(toasts().getToasts()[0], newer, "The newer one is at the corner");
+  const again = toasts().open("whimsy-archive-found", { key: "test-toast", timeout: 10000 });
+  is(again, older, "The same key is the same toast");
+  is(toasts().getToasts()[0], older, "and, shown again, it's the newest");
+  is(topOf(older), "0px", "at the corner");
+  is(topOf(newer), `${heightOf(older) + 8}px`, "the other one under it");
+  closeToasts();
 });
 
 add_task(async function owned_by_a_tab() {

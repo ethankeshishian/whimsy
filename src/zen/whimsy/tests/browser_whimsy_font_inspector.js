@@ -125,6 +125,7 @@ add_task(async function test_inspect_font_card() {
 
   // A fact copies its value and says Copied in place.
   const size = panel.querySelector('[data-fact="size"]');
+  closeToasts();
   await SimpleTest.promiseClipboardChange("24px", () => size.click());
   ok(size.hasAttribute("copied"), "It says Copied in place");
   await document.l10n.translateFragment(size);

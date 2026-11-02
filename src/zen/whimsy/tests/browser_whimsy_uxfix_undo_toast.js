@@ -68,6 +68,8 @@ add_task(async function undo_toast_component() {
   ok(button.querySelector(".whimsy-toast-button-label").checkVisibility(), "...and the word shows");
   is(button.querySelector(".whimsy-toast-keys").textContent, WhimsyUndo.undoKeys(), "...with the shortcut");
   ok(button.getAttribute("aria-keyshortcuts"), "The shortcut is announced too");
+  // Measured once it has arrived (it springs in from scale 0).
+  await toast.shown;
   Assert.greaterOrEqual(button.getBoundingClientRect().height, 24, "The button is a real target");
   Assert.greater(button.getBoundingClientRect().width, 40, "...wide enough for its word");
 

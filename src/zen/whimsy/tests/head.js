@@ -10,6 +10,14 @@
 // take longer than that to finish. Wait for that same state, longer, as the
 // file's very last cleanup; a real endless animation still fails the
 // harness's check afterwards.
+// wave13/toast: toasts stack and some stay for seconds, so one a file left
+// up would sit above the next file's toasts. Each file starts clean.
+registerCleanupFunction(function whimsyCloseToasts() {
+  for (const win of Services.wm.getEnumerator("navigator:browser")) {
+    win.gZenUIManager?.toasts?.getToasts({ includeClosing: true }).forEach(toast => toast.close({ instant: true }));
+  }
+});
+
 registerCleanupFunction(function whimsyQueueSettle() {
   // Registered from inside a cleanup, so it runs after the test's own.
   registerCleanupFunction(async function whimsySettleVsync() {
@@ -53,9 +61,10 @@ function toastFor(messageId, win = window) {
   return win.gZenUIManager.toasts.getToasts().find(t => t.messageId == messageId) ?? null;
 }
 
-// Takes every toast down at once, without motion.
+// Takes every toast down at once, without motion, including any still
+// fading out.
 function closeToasts(win = window) {
-  for (const toast of win.gZenUIManager.toasts.getToasts()) {
+  for (const toast of win.gZenUIManager.toasts.getToasts({ includeClosing: true })) {
     toast.close({ instant: true });
   }
 }

@@ -127,6 +127,16 @@ class ZenToast {
     return this.#win.document;
   }
 
+  // The message and its second line. Not firstElementChild: the icon slot
+  // goes before it.
+  get #textBox() {
+    return this.element.querySelector(":scope > vbox");
+  }
+
+  get #label() {
+    return this.#textBox.querySelector(":scope > label:not(.description)");
+  }
+
   // Toasts someone may act on: they wait while focused or while the window
   // is in the background, and Esc dismisses them. Zen's own toasts (an icon
   // button at most) keep Zen's behaviour.
@@ -230,11 +240,7 @@ class ZenToast {
     const keyed = "key" in options;
     this.messageId = messageId;
     this.element._messageId = messageId;
-    this.#document.l10n.setAttributes(
-      this.element.querySelector("label"),
-      messageId,
-      options.l10nArgs
-    );
+    this.#document.l10n.setAttributes(this.#label, messageId, options.l10nArgs);
     this.element.removeAttribute("button");
     if (options.button) {
       this.#setIconButton(options.button);
@@ -293,11 +299,7 @@ class ZenToast {
       this.element._messageId = changes.messageId;
     }
     if (changes.messageId || "l10nArgs" in changes) {
-      this.#document.l10n.setAttributes(
-        this.element.querySelector("label"),
-        this.messageId,
-        changes.l10nArgs
-      );
+      this.#document.l10n.setAttributes(this.#label, this.messageId, changes.l10nArgs);
     }
     this.#apply(changes);
     this.#host.layout();
@@ -350,7 +352,7 @@ class ZenToast {
 
   #setDescription(options, { legacyArgs = false } = {}) {
     const document = this.#document;
-    const box = this.element.firstElementChild;
+    const box = this.#textBox;
     let description = box.querySelector(":scope > .description");
     if (!options.descriptionId && !options.description) {
       description?.remove();
@@ -365,8 +367,13 @@ class ZenToast {
       let args = options.descriptionArgs;
       if (!args && legacyArgs) {
         // Zen passes the options themselves as the description's args.
-        const { browser, buttons, icon, onClose, ...rest } = options;
-        args = rest;
+        // Fluent takes only strings and numbers (an object, such as
+        // l10nArgs, fails the whole translation), so only those go.
+        args = Object.fromEntries(
+          Object.entries(options).filter(
+            ([, value]) => typeof value == "string" || typeof value == "number"
+          )
+        );
       }
       document.l10n.setAttributes(description, options.descriptionId, args);
       description.removeAttribute("tooltiptext");
@@ -717,6 +724,10 @@ export class ZenToastManager {
     const key = options.key ?? messageId;
     const existing = this.#toasts.find(t => t.key == key && !t.closing);
     if (existing) {
+      // Shown again, it's the newest news: it moves to the corner (the
+      // rest slide), as a new toast would.
+      this.#toasts = this.#toasts.filter(t => t != existing);
+      this.#toasts.push(existing);
       existing.shown = existing.reshow(messageId, options);
       return existing;
     }
@@ -730,10 +741,15 @@ export class ZenToastManager {
     return toast;
   }
 
-  /** @returns {ZenToast[]} Toasts on screen, newest first. */
-  getToasts() {
+  /**
+   * @param {object} [options]
+   * @param {boolean} [options.includeClosing] - Also the toasts still
+   *   fading out.
+   * @returns {ZenToast[]} Toasts on screen, newest first.
+   */
+  getToasts({ includeClosing = false } = {}) {
     this.#prune();
-    return this.#toasts.filter(t => !t.closing).reverse();
+    return this.#toasts.filter(t => includeClosing || !t.closing).reverse();
   }
 
   /** @returns {ZenToast|null} The toast on screen with this key. */
