@@ -158,9 +158,15 @@ export const WhimsyAIReader = {
    * @param {number} [options.userContextId]
    * @param {AbortSignal} [options.signal]
    * @param {string} [options.messageManagerGroup] Which actors the page gets.
+   * @param {boolean} [options.sandbox] F28: false loads it without the
+   *   sandbox flags, for pages that send Cross-Origin-Opener-Policy (Google's
+   *   results do): a sandboxed top-level page with COOP is a network error
+   *   (HTML's "popup sandboxing flag set" rule, NS_ERROR_DOM_COOP_FAILED).
+   *   Then only http(s) pages may load in it (no app-protocol launches),
+   *   and a page nobody sees never gets the user activation popups need.
    * @param {(browser: Element) => Promise<any>} fn
    */
-  async withHiddenPage(url, { userContextId = 0, signal, messageManagerGroup = "headless-browsers" } = {}, fn) {
+  async withHiddenPage(url, { userContextId = 0, signal, messageManagerGroup = "headless-browsers", sandbox = true } = {}, fn) {
     if (!this.isReadableUrl(url)) {
       throw new Error("Only http(s) pages can be read");
     }
@@ -191,8 +197,10 @@ export const WhimsyAIReader = {
       // container's authenticated session and scripts needed for rendering.
       // wave7/security L7: and no zoommtg:/slack:/vscode: launches from a
       // page nobody sees (SANDBOXED_TOPLEVEL_NAVIGATION_CUSTOM_PROTOCOLS).
-      browser.browsingContext.sandboxFlags |=
-        0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000 | 0x40000;
+      if (sandbox) {
+        browser.browsingContext.sandboxFlags |=
+          0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000 | 0x40000;
+      }
       browser.browsingContext?.mediaController?.mute();
       browser.addEventListener("DidChangeBrowserRemoteness", () =>
         browser.browsingContext?.mediaController?.mute()
@@ -202,8 +210,21 @@ export const WhimsyAIReader = {
       const loaded = new Promise((resolve, reject) => {
         listener = {
           QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
-          onStateChange(webProgress, _request, flags, status) {
-            const { STATE_STOP, STATE_IS_WINDOW } = Ci.nsIWebProgressListener;
+          onStateChange(webProgress, request, flags, status) {
+            const { STATE_START, STATE_STOP, STATE_IS_WINDOW } = Ci.nsIWebProgressListener;
+            if (!sandbox && flags & STATE_START) {
+              // Unsandboxed: nothing but http(s) loads, in any frame.
+              const scheme = request instanceof Ci.nsIChannel ? request.URI?.scheme : null;
+              if (scheme && scheme != "http" && scheme != "https" && scheme != "about") {
+                try {
+                request.cancel(Cr.NS_BINDING_ABORTED);
+                } catch {
+                  // A remote page's request can't always be cancelled here.
+                  browser.stop();
+                }
+                return;
+              }
+            }
             if (webProgress.isTopLevel && flags & STATE_STOP && flags & STATE_IS_WINDOW) {
               if (Components.isSuccessCode(status)) {
                 resolve();

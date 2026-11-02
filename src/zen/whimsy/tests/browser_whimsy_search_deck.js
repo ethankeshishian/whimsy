@@ -303,3 +303,22 @@ add_task(async function test_deck_switch_off() {
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
 });
+
+// F28: Google's results page sends Cross-Origin-Opener-Policy, and a
+// sandboxed page with COOP is a network error (NS_ERROR_DOM_COOP_FAILED),
+// so Shift+Enter found no top result. It's read again without the sandbox.
+add_task(async function test_reads_a_results_page_with_coop() {
+  const serp = ROOT + "whimsy_search_results_coop.html?q=whimsy+coop";
+  const results = await WhimsySearchDeck.readResults(serp);
+  Assert.greater(results.length, 0, "The results page with COOP was read");
+  is(results[0].url, card(1), "…result 1 first");
+
+  await SpecialPowers.pushPrefEnv({ set: [[DECK_PREF, false]] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, card(1));
+  await WhimsySearchDeck.instant(window, { url: serp });
+  await loaded;
+  ok(true, "Shift+Enter opened the top result");
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});

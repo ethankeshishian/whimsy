@@ -48,6 +48,8 @@ const READ_TIMEOUT_MS = 10000;
 // Between attempts to read a results page that replaced itself.
 const RETRY_MS = 150;
 const MAX_RESULTS = 10;
+// NS_ERROR_DOM_COOP_FAILED (not in Cr).
+const COOP_FAILED = 0x80530411;
 const NEXT_COMMAND = "cmd_zenWorkspaceForward";
 const PREV_COMMAND = "cmd_zenWorkspaceBackward";
 const PROMOTE_COMMAND = "cmd_whimsySearchDeckPromote";
@@ -313,11 +315,23 @@ export const WhimsySearchDeck = {
     signal?.addEventListener("abort", () => controller.abort(), { once: true });
     const timer = setTimeout(() => controller.abort(), READ_TIMEOUT_MS);
     try {
-      const results = await lazy.WhimsyAIReader.withHiddenPage(
+      const read = sandbox => lazy.WhimsyAIReader.withHiddenPage(
         serpUrl,
-        { userContextId, signal: controller.signal, messageManagerGroup: SEARCH_DECK_GROUP },
+        { userContextId, signal: controller.signal, messageManagerGroup: SEARCH_DECK_GROUP, sandbox },
         browser => this.readLoadedPage(browser, controller.signal)
       );
+      let results;
+      try {
+        results = await read(true);
+      } catch (e) {
+        // F28: Google's results page sends Cross-Origin-Opener-Policy, which
+        // a sandboxed page can't load (NS_ERROR_DOM_COOP_FAILED): no top
+        // result. Read it again without the sandbox (WhimsyAIReader).
+        if (!String(e?.message).includes(`(${COOP_FAILED})`)) {
+          throw e;
+        }
+        results = await read(false);
+      }
       return (Array.isArray(results) ? results : []).filter(r => /^https?:\/\//.test(r?.url ?? ""));
     } finally {
       clearTimeout(timer);
