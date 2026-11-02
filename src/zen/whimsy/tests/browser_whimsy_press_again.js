@@ -17,12 +17,11 @@ const PAGE =
 const { WhimsyShortcuts, RESERVED_KEYS, bindingOf, eventSignatures } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs"
 );
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
 const HINT = "whimsy-press-again-toast";
 
 const took = browser => SpecialPowers.spawn(browser, [], () => [...content.wrappedJSObject.took]);
-const hint = () => (WhimsyToast.current(window)?._messageId == HINT ? WhimsyToast.current(window) : null);
+const hint = () => toastFor(HINT);
 
 // Counts runs of a <key>'s command and keeps it from doing anything.
 function watchKey(id) {
@@ -96,7 +95,7 @@ add_task(async function test_page_gets_first_press_browser_the_second() {
   await TestUtils.waitForCondition(hint, "A toast says to press it again");
   is(watcher.runs, 0, "The first press didn't hide the sidebar");
   Assert.deepEqual(WhimsyShortcuts.pendingPressAgain(window), { keyId: id, signature: "accel|S" }, "Waiting for the second press");
-  const args = document.l10n.getAttributes(hint().querySelector(".whimsy-toast-message")).args;
+  const args = document.l10n.getAttributes(hint().element.querySelector("label")).args;
   ok(args.shortcut.includes("S"), `The hint names the key (${args.shortcut})`);
   ok(args.action && !args.action.endsWith("…"), `and the command (${args.action})`);
 

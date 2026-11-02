@@ -101,7 +101,6 @@ add_task(async function test_delete_undo_and_menu() {
     ok(true, "No <zen-library> in this window; nothing to check");
     return;
   }
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   const dir = capturesDir();
   await IOUtils.makeDirectory(dir, { ignoreExisting: true });
   const canvas = new OffscreenCanvas(4, 4);
@@ -150,9 +149,9 @@ add_task(async function test_delete_undo_and_menu() {
   row.querySelector('toolbarbutton[data-l10n-id="whimsy-library-files-delete"]').click();
   await TestUtils.waitForCondition(async () => !(await IOUtils.exists(path)), "Delete takes the file away");
   await TestUtils.waitForCondition(() => !findRow(), "and its row");
-  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast says so");
-  is(toast._messageId, "whimsy-library-files-deleted-toast", "Deleted screenshot");
-  toast.querySelector(".whimsy-toast-action").click();
+  const toast = await TestUtils.waitForCondition(() => currentToast(), "A toast says so");
+  is(toast.messageId, "whimsy-library-files-deleted-toast", "Deleted screenshot");
+  toast.element.querySelector(".whimsy-toast-button").click();
   await TestUtils.waitForCondition(() => IOUtils.exists(path), "Undo puts the file back");
   await TestUtils.waitForCondition(findRow, "and its row");
   Assert.deepEqual(await IOUtils.read(path), bytes, "unchanged");

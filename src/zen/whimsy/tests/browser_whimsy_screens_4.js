@@ -105,20 +105,18 @@ async function sheetShot(name, panelId, open, ready = null) {
 // w10-<surface>-<state>-<light|dark>), for side-by-side checks against the
 // mockups (artifact 525AvMQg54ssXqojjzLqT6).
 async function w10ToastShot(name, show) {
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   for (const dark of [0, 1]) {
     await setScheme(dark);
     let toast = null;
     try {
       toast = await show();
       ok(toast, `${name}: the toast shows`);
-      await document.l10n.translateFragment(toast);
+      await document.l10n.translateFragment(toast.element);
+      await toast.shown;
       await settled();
       await shot(`w10-${name}-${dark ? "dark" : "light"}`);
     } finally {
-      if (toast?.isConnected) {
-        WhimsyToast._dismissNow(toast);
-      }
+      toast?.close({ instant: true });
       await SpecialPowers.popPrefEnv();
     }
   }
@@ -151,25 +149,24 @@ async function w10SurfaceShot(name, panelId, open, ready = null) {
 
 // W10-15: the dead-page offer, looking, and the error state.
 add_task(async function w10_dead_page_toast() {
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   const icon = "chrome://browser/skin/zen-icons/selectable/time.svg";
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/nope-123");
   try {
-    await w10ToastShot("dead-page-offer", () => WhimsyToast.show(window, {
-      l10nId: "whimsy-archive-toast", detailL10nId: "whimsy-archive-toast-detail", icon, timeout: 0,
-      action: { l10nId: "whimsy-archive-look", onCommand: () => "keep" },
+    await w10ToastShot("dead-page-offer", () => gZenUIManager.toasts.open("whimsy-archive-toast", {
+      descriptionId: "whimsy-archive-toast-detail", icon, timeout: 0,
+      buttons: [{ l10nId: "whimsy-archive-look", command: () => "keep" }],
     }));
     await w10ToastShot("dead-page-looking", () => {
-      const toast = WhimsyToast.show(window, {
-        l10nId: "whimsy-archive-toast", detailL10nId: "whimsy-archive-toast-detail", icon, timeout: 0,
-        action: { l10nId: "whimsy-archive-look", onCommand: () => "keep" },
+      const toast = gZenUIManager.toasts.open("whimsy-archive-toast", {
+        descriptionId: "whimsy-archive-toast-detail", icon, timeout: 0,
+        buttons: [{ l10nId: "whimsy-archive-look", command: () => "keep" }],
       });
-      toast.update({ detailL10nId: "whimsy-archive-looking", busy: true, action: { l10nId: "whimsy-archive-looking-button" } });
+      toast.update({ descriptionId: "whimsy-archive-looking", busy: true, buttons: [{ l10nId: "whimsy-archive-looking-button" }] });
       return toast;
     });
-    await w10ToastShot("dead-page-error", () => WhimsyToast.show(window, {
-      l10nId: "whimsy-archive-error", detailL10nId: "whimsy-archive-error-detail", icon, timeout: 0,
-      action: { l10nId: "whimsy-archive-retry", onCommand: () => "keep" },
+    await w10ToastShot("dead-page-error", () => gZenUIManager.toasts.open("whimsy-archive-error", {
+      descriptionId: "whimsy-archive-error-detail", icon, timeout: 0,
+      buttons: [{ l10nId: "whimsy-archive-retry", command: () => "keep" }],
     }));
   } finally {
     BrowserTestUtils.removeTab(tab);
@@ -180,7 +177,6 @@ add_task(async function w10_dead_page_toast() {
 // result toast.
 add_task(async function w10_fire() {
   const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFireButton.sys.mjs");
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://www.example.com/?w10-fire");
   try {
     await w10SurfaceShot("fire-choices", "whimsyFirePanel", () => WhimsyFireButton.openPanel(window));
@@ -188,12 +184,11 @@ add_task(async function w10_fire() {
     await w10SurfaceShot("fire-everywhere-confirm", "whimsyFirePanel",
       () => WhimsyFireButton.openPanel(window, { choice: "everything", confirm: true }));
     await w10ToastShot("fire-result", () => {
-      const toast = WhimsyToast.show(window, {
-        l10nId: "whimsy-fire-done-profile-title", l10nArgs: { profile: "Work" },
-        detailL10nId: "whimsy-fire-done-profile-detail", detailArgs: { count: 12, visits: 340, sites: 21 },
+      return gZenUIManager.toasts.open("whimsy-fire-done-profile-title", {
+        l10nArgs: { profile: "Work" },
+        descriptionId: "whimsy-fire-done-profile-detail", descriptionArgs: { count: 12, visits: 340, sites: 21 },
         icon: "chrome://browser/skin/zen-icons/history.svg", timeout: 0,
       });
-      return toast;
     });
   } finally {
     BrowserTestUtils.removeTab(tab);
@@ -444,7 +439,6 @@ add_task(async function w10_trail() {
 // protected by hand (its lock), the unload question, and the refill offer.
 add_task(async function w10_form_protection() {
   const { WhimsyFormProtection } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   const formPage = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_email_form.html";
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, formPage);
   // W13-R1: typed for real (the marker only follows real typing).
@@ -457,10 +451,7 @@ add_task(async function w10_form_protection() {
   try {
     // Protected by hand with nothing typed: the lock.
     WhimsyFormProtection.toggleTabProtection(other);
-    const toast = WhimsyToast.current(window);
-    if (toast) {
-      WhimsyToast._dismissNow(toast);
-    }
+    closeToasts();
     for (const dark of [0, 1]) {
       await setScheme(dark);
       await settled();
@@ -474,11 +465,11 @@ add_task(async function w10_form_protection() {
     });
     await unloading;
     await BrowserTestUtils.switchTab(gBrowser, tab);
-    await w10ToastShot("form-refill", () => WhimsyToast.show(window, {
-      l10nId: "whimsy-form-refill-ask", l10nArgs: { count: 3 },
-      detailL10nId: "whimsy-form-refill-ask-detail",
+    await w10ToastShot("form-refill", () => gZenUIManager.toasts.open("whimsy-form-refill-ask", {
+      l10nArgs: { count: 3 },
+      descriptionId: "whimsy-form-refill-ask-detail",
       icon: "chrome://browser/content/whimsy/whimsy-form-badge.svg", timeout: 0,
-      action: { l10nId: "whimsy-form-refill-fill", onCommand: () => {} },
+      buttons: [{ l10nId: "whimsy-form-refill-fill", command: () => {} }],
     }));
   } finally {
     BrowserTestUtils.removeTab(other);

@@ -166,7 +166,6 @@ add_task(async function test_delete_note_can_be_undone() {
     ok(true, "No <zen-library> in this window; nothing to check");
     return;
   }
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   const note = await gWhimsyNotesStore.create({ title: "Undo me", text: "keep this" });
   registerCleanupFunction(() => cleanupNote(note.id));
 
@@ -187,9 +186,9 @@ add_task(async function test_delete_note_can_be_undone() {
     async () => !(await gWhimsyNotesStore.list()).some(n => n.id == note.id),
     "Delete removes it"
   );
-  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast says so");
-  is(toast._messageId, "whimsy-library-notes-deleted-toast", "Deleted note");
-  const undo = toast.querySelector(".whimsy-toast-action");
+  const toast = await TestUtils.waitForCondition(() => currentToast(), "A toast says so");
+  is(toast.messageId, "whimsy-library-notes-deleted-toast", "Deleted note");
+  const undo = toast.element.querySelector(".whimsy-toast-button");
   ok(undo, "with Undo");
   undo.click();
   const back = await TestUtils.waitForCondition(

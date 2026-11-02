@@ -32,7 +32,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 
 // wave9: easels are per profile, like Notes (W8-49). Each easel has the
@@ -751,10 +750,10 @@ export const WhimsyEasel = {
     } else {
       // W10-24: says where it went, with Open.
       const id = easel.id;
-      lazy.WhimsyToast.show(win, {
-        l10nId: "whimsy-easel-capture-added",
-        l10nArgs: { title: easel.title || (await this.untitled(win)) },
-        action: { l10nId: "whimsy-easel-open", onCommand: () => this.openEasel(win, id, { profileKey }) },
+      const title = easel.title || (await this.untitled(win));
+      win.gZenUIManager?.toasts?.open("whimsy-easel-capture-added", {
+        l10nArgs: { title },
+        buttons: [{ l10nId: "whimsy-easel-open", command: () => this.openEasel(win, id, { profileKey }) }],
       });
     }
     return easel.id;

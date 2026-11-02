@@ -13,7 +13,6 @@ const { WhimsyFormProtection } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs"
 );
 const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchive.sys.mjs");
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const { TabStateCache } = ChromeUtils.importESModule(
   "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs"
 );
@@ -571,16 +570,14 @@ add_task(async function test_refill_after_reload_asks_first() {
         el.value = "";
       }
     });
-    const toast = await TestUtils.waitForCondition(() => {
-      const t = WhimsyToast.current(window);
-      return t?._messageId == "whimsy-form-refill-ask" && t;
-    }, "A toast asks to fill the answers back in");
-    await document.l10n.translateFragment(toast);
-    ok(/^Fill in \d+ answers? you typed before\?$/.test(toast.querySelector(".whimsy-toast-message").textContent),
-      toast.querySelector(".whimsy-toast-message").textContent);
+    const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"),
+      "A toast asks to fill the answers back in");
+    await document.l10n.translateFragment(toast.element);
+    const message = toast.element.querySelector("label").textContent;
+    ok(/^Fill in \d+ answers? you typed before\?$/.test(message), message);
     is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value), "",
       "Nothing is filled before Fill In");
-    toast.querySelector(".whimsy-toast-action").click();
+    toast.element.querySelector(".whimsy-toast-button").click();
     await TestUtils.waitForCondition(async () =>
       (await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value)) == "Ada Lovelace",
     "Fill In fills the answer back in");
@@ -603,11 +600,9 @@ add_task(async function test_refill_offered_for_late_form() {
     const loaded = BrowserTestUtils.browserLoaded(browser);
     browser.reload();
     await loaded;
-    const toast = await TestUtils.waitForCondition(() => {
-      const t = WhimsyToast.current(window);
-      return t?._messageId == "whimsy-form-refill-ask" && t;
-    }, "Once the form appears, a toast asks to fill the answer back in");
-    toast.querySelector(".whimsy-toast-action").click();
+    const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"),
+      "Once the form appears, a toast asks to fill the answer back in");
+    toast.element.querySelector(".whimsy-toast-button").click();
     await TestUtils.waitForCondition(async () =>
       (await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value)) == "Grace",
     "Fill In fills it back in");

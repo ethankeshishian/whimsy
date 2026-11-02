@@ -40,3 +40,22 @@ async function whimsySnapshot(windowGlobal, rect, scale = 1, background = "white
     }
   }
 }
+
+// wave13/toast: Whimsy's toasts are Zen's (gZenUIManager.toasts,
+// WhimsyZenToasts.sys.mjs). The newest toast showing in `win`, as the
+// handle open() returned (element, messageId, update(), close()), or null.
+function currentToast(win = window) {
+  return win.gZenUIManager.toasts.getToasts()[0] ?? null;
+}
+
+// The toast showing in `win` for this message, or null.
+function toastFor(messageId, win = window) {
+  return win.gZenUIManager.toasts.getToasts().find(t => t.messageId == messageId) ?? null;
+}
+
+// Takes every toast down at once, without motion.
+function closeToasts(win = window) {
+  for (const toast of win.gZenUIManager.toasts.getToasts()) {
+    toast.close({ instant: true });
+  }
+}

@@ -25,7 +25,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyMenuParity: "resource:///modules/whimsy/WhimsyMenuParity.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 
 // wave9/secfix (security-full-2 L3): what Whimsy copies from private
@@ -166,18 +165,26 @@ export const WhimsyCopy = {
       this.showToast(win, links, { markdown: false });
       return false;
     }
-    lazy.WhimsyToast.show(win, {
-      l10nId: "whimsy-copy-toast",
+    const toasts = win.gZenUIManager?.toasts;
+    if (!toasts) {
+      return false;
+    }
+    // One copy toast: the plain one from an earlier copy gives way.
+    toasts.getToast("whimsy-copy-toast")?.close({ instant: true });
+    toasts.open("whimsy-copy-toast", {
+      key: "whimsy-copy-highlight",
       l10nArgs: { count: 1, stripped: links[0].stripped ? "yes" : "no" },
-      detail: links[0].url,
+      description: links[0].url,
       browser,
-      action: {
-        id: "whimsy-copy-highlight-action",
-        l10nId: "whimsy-copy-highlight-offer",
-        onCommand: () => {
-          lazy.WhimsyMenuParity.copyLinkToHighlight(win).catch(console.error);
+      buttons: [
+        {
+          id: "whimsy-copy-highlight-action",
+          l10nId: "whimsy-copy-highlight-offer",
+          command: () => {
+            lazy.WhimsyMenuParity.copyLinkToHighlight(win).catch(console.error);
+          },
         },
-      },
+      ],
     });
     return true;
   },
@@ -378,6 +385,8 @@ export const WhimsyCopy = {
         },
       };
     }
+    // One copy toast: an earlier Link to Highlight offer gives way.
+    gZenUIManager.toasts?.getToast("whimsy-copy-highlight")?.close({ instant: true });
     gZenUIManager.showToast(messageId, { l10nArgs, button, timeout: TOAST_TIMEOUT_MS });
     // Zen reuses a toast that's still showing, keeping its old text: refresh
     // the count and tracker wording, and show which URL was copied under the

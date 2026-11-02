@@ -176,7 +176,6 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyTechRules.sys.mjs",
     "WhimsyTidyTitles.sys.mjs",
     "WhimsyTidyTitlesData.sys.mjs",
-    "WhimsyToast.sys.mjs",
     "WhimsyTrails.sys.mjs",
     "WhimsyTreeTabs.sys.mjs",
     "WhimsyUndo.sys.mjs",
@@ -196,6 +195,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyZap.sys.mjs",
     "WhimsyZapChild.sys.mjs",
     "WhimsyZapTint.sys.mjs",
+    "WhimsyZenToasts.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

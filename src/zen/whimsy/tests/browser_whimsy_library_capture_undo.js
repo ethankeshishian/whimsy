@@ -11,7 +11,6 @@
 
 const { listCaptures } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFilesSection.sys.mjs");
 const { WhimsyPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPage.sys.mjs");
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 
 const PAGE = "https://example.com/browser/";
 
@@ -95,13 +94,12 @@ add_task(async function test_cmd_z_undoes_a_library_delete() {
   await TestUtils.waitForCondition(findRow, "The screenshot has a tile");
   findRow().querySelector('toolbarbutton[data-l10n-id="whimsy-library-files-delete"]').click();
   await TestUtils.waitForCondition(async () => !(await IOUtils.exists(path)), "Deleted");
-  await TestUtils.waitForCondition(() => WhimsyToast.current(window)?._messageId == "whimsy-library-files-deleted-toast");
+  await TestUtils.waitForCondition(() => toastFor("whimsy-library-files-deleted-toast"));
   search.focus();
   EventUtils.synthesizeKey("z", { accelKey: true });
   await TestUtils.waitForCondition(() => IOUtils.exists(path), "Cmd+Z in the Library puts the file back");
   await TestUtils.waitForCondition(findRow, "and its row");
-  ok(!WhimsyToast.current(window) || WhimsyToast.current(window)._messageId != "whimsy-library-files-deleted-toast",
-    "The Undo toast went with it");
+  ok(!toastFor("whimsy-library-files-deleted-toast"), "The Undo toast went with it");
 
   // Typed a search, then deleted: the first Cmd+Z undoes the typing, the
   // second the delete.

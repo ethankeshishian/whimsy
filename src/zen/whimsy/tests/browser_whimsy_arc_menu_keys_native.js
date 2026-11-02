@@ -49,7 +49,7 @@ add_task(async function test_native_library_key() {
   tab.linkedBrowser.focus();
   await press();
   await TestUtils.waitForCondition(async () => (await took()) == 1, "The page got the first press");
-  await TestUtils.waitForCondition(() => document.querySelector(".whimsy-toast")?._messageId == "whimsy-press-again-toast", "Press again hint");
+  await TestUtils.waitForCondition(() => currentToast()?.messageId == "whimsy-press-again-toast", "Press again hint");
   ok(!ZenLibrary.isLibraryOpen, "The first press didn't open the Library");
   await press();
   await TestUtils.waitForCondition(() => ZenLibrary.isLibraryOpen, "The second press opens the Library");

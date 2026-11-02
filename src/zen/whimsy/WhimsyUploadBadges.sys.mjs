@@ -28,7 +28,6 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
   WhimsyUploadParent: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs",
   clipboardKind: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs",
   FILE_FLAVOR: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs",
@@ -36,6 +35,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const FEATURE_PREF = "whimsy.feature.upload-clipboard";
+const TOAST_TIMEOUT_MS = 4000;
 export const BADGES_PREF = "whimsy.uploadClipboard.badges";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const ICON = "chrome://browser/skin/zen-icons/edit-paste.svg";
@@ -556,13 +556,13 @@ export const WhimsyUploadBadges = {
       resolved = null;
     }
     if (!resolved?.id) {
-      lazy.WhimsyToast.show(win, { l10nId: "whimsy-upload-no-target", browser });
+      win.gZenUIManager?.toasts?.open("whimsy-upload-no-target", { browser, timeout: TOAST_TIMEOUT_MS });
       return;
     }
     const ok = await this.pasteInto(browser, resolved.id);
     // No badge to say it (private tab, the setting off): a toast instead.
     if (!ok && this.modeFor(browser) == "off") {
-      lazy.WhimsyToast.show(win, { l10nId: "whimsy-upload-status-failed", browser });
+      win.gZenUIManager?.toasts?.open("whimsy-upload-status-failed", { browser, timeout: TOAST_TIMEOUT_MS });
     }
   },
 

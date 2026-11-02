@@ -130,7 +130,6 @@ add_task(async function fixB_sheets() {
 // which drawSnapshot doesn't draw; browser_whimsy_snooze.js checks it.)
 add_task(async function w8_undo_toast() {
   const { WhimsyUndo } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs");
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   for (const dark of [0, 1]) {
     await setScheme(dark);
     let toast = null;
@@ -143,19 +142,18 @@ add_task(async function w8_undo_toast() {
         { detail: "Quarterly planning notes — Google Docs" }
       );
       ok(toast, "The undo toast shows");
-      await document.l10n.translateFragment(toast);
+      await document.l10n.translateFragment(toast.element);
+      await toast.shown;
       await settled();
-      ok(toast.checkVisibility(), "It is visible");
+      ok(toast.element.checkVisibility(), "It is visible");
       await shot(`w8-undo-toast-${dark ? "dark" : "light"}`);
       if (!dark) {
-        toast.querySelector(".whimsy-toast-action").focus();
+        toast.element.querySelector(".whimsy-toast-button").focus();
         await settled();
         await shot("w8-undo-toast-focus-light");
       }
     } finally {
-      if (toast) {
-        WhimsyToast._dismissNow(toast);
-      }
+      toast?.close({ instant: true });
       WhimsyUndo.undo(window);
       await SpecialPowers.popPrefEnv();
     }

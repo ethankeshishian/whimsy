@@ -10,7 +10,6 @@
 const { WhimsyNotes, gWhimsyNotesStore, QUICK_NOTE_SAVE_MS } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs"
 );
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 
 add_setup(async function () {
@@ -56,10 +55,10 @@ add_task(async function command_writes_a_note() {
   ok(panel.querySelector(".whimsy-quick-note-attach").getAttribute("aria-checked") == "false", "Not kept with the page");
 
   await closeCard(panel);
-  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast says so");
-  is(toast._messageId, "whimsy-note-saved-toast", "Note saved");
+  const toast = await TestUtils.waitForCondition(() => currentToast(), "A toast says so");
+  is(toast.messageId, "whimsy-note-saved-toast", "Note saved");
   const note = (await notesNow()).find(n => n.text == "Buy milk, eggs");
-  toast.querySelector(".whimsy-toast-action").click();
+  toast.element.querySelector(".whimsy-toast-button").click();
   const section = await TestUtils.waitForCondition(() => document.querySelector("whimsy-library-notes-section"), "Notes in the Library");
   await TestUtils.waitForCondition(() => section.editingId == note.id, "Open opens that note for editing");
   await gWhimsyNotesStore.remove(note.id);

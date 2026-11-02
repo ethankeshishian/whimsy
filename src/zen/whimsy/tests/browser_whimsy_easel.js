@@ -374,14 +374,12 @@ add_task(async function test_capture_button_and_picker() {
   ok(document.activeElement.classList.contains("whimsy-easel-tile"), "Arrow keys move through the tiles");
   mood.focus();
   const hidden = BrowserTestUtils.waitForEvent(picker, "popuphidden");
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
   await hidden;
   await TestUtils.waitForCondition(async () => (await gWhimsyEaselStore.get(existing.id)).items.length == 1, "The capture lands in the chosen easel");
-  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast says where it went");
-  is(toast._messageId, "whimsy-easel-capture-added", "Added to Mood board");
-  ok(toast.querySelector(".whimsy-toast-action"), "with Open");
-  WhimsyToast._dismissNow(toast);
+  const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-easel-capture-added"), "A toast says where it went");
+  ok(toast.element.querySelector(".whimsy-toast-button"), "Added to Mood board, with Open");
+  toast.close({ instant: true });
 
   // The next picker shows Mood board's first capture as its thumbnail.
   const thumb = await gWhimsyEaselStore.thumbnail(existing.id);

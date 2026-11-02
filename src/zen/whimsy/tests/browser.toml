@@ -825,8 +825,6 @@ support-files = ["whimsy_article.html"]
 # wave10/mini W10-13: Mini's shortcuts in their own "Mini Whimsy" group of Settings → Keyboard Shortcuts (listed from every window, no cross-scope conflict); they act only inside Mini, where they win.
 ["browser_whimsy_mini_keys.js"]
 
-# wave10/desA W10-15/25/30: toast icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" actions, no timeout.
-["browser_whimsy_toast_states.js"]
 
 # wave10/desA W10-24: no Whimsy sheet or surface draws a stray vertical divider; surfaces stack vertically with no arrow tail.
 ["browser_whimsy_popup_dividers.js"]
@@ -861,3 +859,6 @@ support-files = ["whimsy_email_form.html"]
 # W13-R3: a call's microphone and camera in sync: Meet, the small player, PiP.
 ["browser_whimsy_call_controls.js"]
 support-files = ["whimsy_meet.html"]
+
+# wave13/toast: one toast, Zen's, extended (WhimsyZenToasts.sys.mjs): icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" buttons, persistence and handles, buttons with words, close and Esc, stacking, "+k more", Reduce Motion, keyed replace, 480px.
+["browser_whimsy_zen_toasts.js"]
