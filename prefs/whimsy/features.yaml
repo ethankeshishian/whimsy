@@ -549,6 +549,12 @@
 - name: whimsy.feature.space-edges
   value: true
 
+- name: whimsy.feature.private-move
+  value: true
+
+- name: whimsy.feature.private-lock
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

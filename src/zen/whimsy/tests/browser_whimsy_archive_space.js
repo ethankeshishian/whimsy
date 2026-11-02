@@ -122,22 +122,25 @@ add_task(async function test_context_menu_item() {
   WhimsySpaceArchive.restore(window, secondSpace.uuid);
 });
 
-add_task(async function test_settings_hidden_list() {
+// W11-15 (d16): Settings keeps one row, "Hidden spaces · N", whose button
+// opens the Hidden Spaces panel in the browser window.
+add_task(async function test_settings_hidden_row() {
   await WhimsySpaceArchive.toggleHidden(window, secondSpace.uuid);
   await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
     const doc = browser.contentDocument;
     const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsySpacesGroup"));
     ok(group, "Settings → Tab Management has the Spaces group");
-    const list = doc.getElementById("whimsyHiddenSpacesList");
-    await TestUtils.waitForCondition(() => list.children.length == 1);
-    is(
-      list.querySelector("label").textContent,
-      "Taxes 2026",
-      "The hidden space is listed by name"
-    );
-    list.querySelector("button").doCommand();
-    await TestUtils.waitForCondition(() => list.children.length == 0, "Restoring from Settings empties the list");
+    ok(!doc.getElementById("whimsyHiddenSpacesList"), "No second list of hidden spaces");
+    const label = doc.getElementById("whimsyHiddenSpacesLabel");
+    await TestUtils.waitForCondition(() => label.textContent.includes("1"), "The row counts the hidden space");
+    is(label.textContent, "Hidden spaces · 1", "Hidden spaces · 1");
+    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsyHiddenSpaces");
+    doc.getElementById("whimsyHiddenSpacesButton").doCommand();
+    const panel = (await shown).target;
+    ok(panel.querySelector(`.whimsy-hidden-space[data-uuid="${secondSpace.uuid}"]`), "The button opens the panel with the space");
+    const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    panel.hidePopup();
+    await hidden;
   });
-  const workspace = gZenWorkspaces.getWorkspaces().find(w => w.uuid == secondSpace.uuid);
-  ok(!workspace.whimsyHidden, "Restored");
+  WhimsySpaceArchive.restore(window, secondSpace.uuid);
 });

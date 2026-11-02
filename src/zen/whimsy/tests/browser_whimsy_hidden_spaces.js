@@ -1,0 +1,223 @@
+/* Any copyright is dedicated to the Public Domain.
+   https://creativecommons.org/publicdomain/zero/1.0/ */
+
+"use strict";
+
+// W11-15: "Show Hidden Spaces…" is a styled surface (the Theme picker
+// family), not a native menu. Rows show the space's tile, name and tab
+// count; a row click or Return shows the space again and switches to it
+// (d15), with an Undo toast; arrow keys move; a locked space unlocks first
+// and stays hidden if that's cancelled; the empty state offers to hide the
+// current space; the command is always available.
+
+const { WhimsySpaceArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs");
+const { WhimsyHiddenSpaces } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHiddenSpaces.sys.mjs");
+const { WhimsySpaceLock } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceLock.sys.mjs");
+
+let firstSpace, taxes, garden;
+
+add_setup(async function () {
+  firstSpace = gZenWorkspaces.getWorkspaces().find(w => w.uuid == gZenWorkspaces.activeWorkspace);
+  taxes = await gZenWorkspaces.createAndSaveWorkspace("Taxes 2026", "🧾", true);
+  garden = await gZenWorkspaces.createAndSaveWorkspace("Garden", undefined, true);
+  registerCleanupFunction(async () => {
+    if (gZenWorkspaces.activeWorkspace != firstSpace.uuid) {
+      await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
+    }
+    for (const space of [taxes, garden]) {
+      const workspace = gZenWorkspaces.getWorkspaces().find(w => w.uuid == space.uuid);
+      if (workspace) {
+        delete workspace.whimsyHidden;
+        delete workspace.whimsyLocked;
+        gZenWorkspaces.saveWorkspace(workspace);
+        await gZenWorkspaces.removeWorkspace(space.uuid);
+      }
+    }
+  });
+  if (gZenWorkspaces.activeWorkspace != firstSpace.uuid) {
+    await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
+  }
+});
+
+function space(uuid) {
+  return gZenWorkspaces.getWorkspaces().find(w => w.uuid == uuid);
+}
+
+async function openPanel() {
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == WhimsyHiddenSpaces.PANEL_ID);
+  document.getElementById("cmd_whimsyShowHiddenSpaces").doCommand();
+  return (await shown).target;
+}
+
+async function closePanel(panel) {
+  if (panel.state == "closed" || !panel.isConnected) {
+    return;
+  }
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  panel.hidePopup();
+  await hidden;
+}
+
+async function hide(uuid) {
+  await WhimsySpaceArchive.toggleHidden(window, uuid);
+  WhimsyToastCleanup();
+}
+
+function WhimsyToastCleanup() {
+  for (const toast of document.querySelectorAll(".whimsy-toast, zen-toast")) {
+    toast.remove?.();
+  }
+}
+
+add_task(async function test_empty_state_and_always_available() {
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  ok(globalActions.find(a => a.l10nId == "whimsy-action-show-hidden-spaces")?.isAvailable(window),
+    "The command is available with nothing hidden");
+  const panel = await openPanel();
+  ok(panel.classList.contains("whimsy-surface"), "A Whimsy surface, not a native menu");
+  is(panel.localName, "panel", "...a panel");
+  ok(panel.querySelector(".whimsy-hidden-spaces-empty"), "The empty state shows");
+  const hideButton = panel.querySelector("#whimsy-hidden-spaces-empty-hide");
+  ok(hideButton, "It offers to hide the current space");
+  await TestUtils.waitForCondition(() => hideButton.label.includes(firstSpace.name), "Named after the current space");
+  await closePanel(panel);
+});
+
+add_task(async function test_rows_show_and_switch() {
+  await hide(taxes.uuid);
+  await hide(garden.uuid);
+  const panel = await openPanel();
+  const rows = [...panel.querySelectorAll(".whimsy-hidden-space")];
+  Assert.deepEqual(rows.map(r => r.dataset.uuid), [taxes.uuid, garden.uuid], "One row per hidden space, in switcher order");
+  is(panel.querySelector("[role=listbox]").getAttribute("aria-labelledby"), `${WhimsyHiddenSpaces.PANEL_ID}-title`,
+    "A labelled listbox");
+  is(rows[0].querySelector(".whimsy-hidden-space-name").textContent, "Taxes 2026", "The name");
+  is(rows[0].querySelector(".whimsy-surface-tile-text")?.textContent, "🧾", "Its icon in the tile");
+  await TestUtils.waitForCondition(() => /\d+ tabs?/.test(rows[0].querySelector(".whimsy-hidden-space-detail").textContent),
+    "Its tab count");
+  is(document.activeElement, rows[0], "The first row has focus");
+
+  // Arrow keys move between rows.
+  EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
+  is(document.activeElement, rows[1], "Down moves to the next row");
+  EventUtils.synthesizeKey("KEY_Home", {}, window);
+  is(document.activeElement, rows[0], "Home goes to the first");
+  EventUtils.synthesizeKey("KEY_End", {}, window);
+  is(document.activeElement, rows[1], "End goes to the last");
+
+  // Return shows it again and switches there.
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  EventUtils.synthesizeKey("KEY_Enter", {}, window);
+  await hidden;
+  await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == garden.uuid, "Switched to the space");
+  ok(!space(garden.uuid).whimsyHidden, "...and it's back in the switcher");
+  ok(space(taxes.uuid).whimsyHidden, "The other one stays hidden");
+
+  // Undo hides it again and goes back.
+  ok(WhimsyUndo().undo(window), "Undo is offered");
+  await TestUtils.waitForCondition(() => space(garden.uuid).whimsyHidden, "Undo hides it again");
+  await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == firstSpace.uuid, "...and returns to where you were");
+
+  // A click does the same.
+  const panel2 = await openPanel();
+  const row = panel2.querySelector(`.whimsy-hidden-space[data-uuid="${taxes.uuid}"]`);
+  const hidden2 = BrowserTestUtils.waitForEvent(panel2, "popuphidden");
+  EventUtils.synthesizeMouseAtCenter(row, {}, window);
+  await hidden2;
+  await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == taxes.uuid, "A click switches too");
+  ok(!space(taxes.uuid).whimsyHidden, "...and unhides it");
+  await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
+  WhimsySpaceArchive.restore(window, garden.uuid);
+  WhimsyToastCleanup();
+});
+
+add_task(async function test_hide_current_from_footer() {
+  await hide(taxes.uuid);
+  const panel = await openPanel();
+  const button = panel.querySelector("#whimsy-hidden-spaces-hide-current");
+  ok(button, "The footer hides the current space");
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  button.doCommand();
+  await hidden;
+  await TestUtils.waitForCondition(() => space(firstSpace.uuid).whimsyHidden, "The current space is hidden");
+  isnot(gZenWorkspaces.activeWorkspace, firstSpace.uuid, "...and you moved off it");
+  WhimsySpaceArchive.restore(window, firstSpace.uuid);
+  WhimsySpaceArchive.restore(window, taxes.uuid);
+  await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
+  WhimsyToastCleanup();
+});
+
+add_task(async function test_locked_space_unlocks_first() {
+  await hide(taxes.uuid);
+  space(taxes.uuid).whimsyLocked = true;
+  gZenWorkspaces.saveWorkspace(space(taxes.uuid));
+  const original = WhimsySpaceLock.authenticate;
+  let answer = false;
+  let asked = 0;
+  WhimsySpaceLock.authenticate = async () => {
+    asked++;
+    return answer;
+  };
+  try {
+    let panel = await openPanel();
+    let row = panel.querySelector(`.whimsy-hidden-space[data-uuid="${taxes.uuid}"]`);
+    ok(row.hasAttribute("locked"), "A locked space is marked");
+    ok(row.querySelector(".whimsy-surface-pill"), "...with a Locked pill");
+    let hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    row.click();
+    await hidden;
+    await TestUtils.waitForCondition(() => asked == 1, "Asked to unlock");
+    is(gZenWorkspaces.activeWorkspace, firstSpace.uuid, "Cancelled: no switch");
+    ok(space(taxes.uuid).whimsyHidden, "...and it stays hidden");
+
+    answer = true;
+    panel = await openPanel();
+    row = panel.querySelector(`.whimsy-hidden-space[data-uuid="${taxes.uuid}"]`);
+    hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    row.click();
+    await hidden;
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == taxes.uuid, "Unlocked: switched");
+    ok(!space(taxes.uuid).whimsyHidden, "...and shown again");
+  } finally {
+    WhimsySpaceLock.authenticate = original;
+    delete space(taxes.uuid).whimsyLocked;
+    gZenWorkspaces.saveWorkspace(space(taxes.uuid));
+    await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
+    WhimsyToastCleanup();
+  }
+});
+
+add_task(async function test_filter_from_six() {
+  const extra = [];
+  for (let i = 0; i < 6; i++) {
+    const s = await gZenWorkspaces.createAndSaveWorkspace(`Project ${i}`, undefined, true);
+    extra.push(s);
+    s.whimsyHidden = true;
+    gZenWorkspaces.saveWorkspace(s);
+  }
+  WhimsySpaceArchive.applyHidden(window);
+  try {
+    const panel = await openPanel();
+    const input = panel.querySelector(".whimsy-hidden-spaces-filter");
+    ok(input, "A filter field from six hidden spaces");
+    is(document.activeElement, input, "...focused first");
+    EventUtils.sendString("project 3", window);
+    const visible = [...panel.querySelectorAll(".whimsy-hidden-space")].filter(r => !r.hidden);
+    is(visible.length, 1, "Typing filters the rows");
+    is(visible[0].dataset.uuid, extra[3].uuid, "...to the match");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    is(input.value, "", "Esc clears the filter first");
+    is(panel.state, "open", "...and keeps the panel open");
+    await closePanel(panel);
+  } finally {
+    for (const s of extra) {
+      delete s.whimsyHidden;
+      gZenWorkspaces.saveWorkspace(s);
+      await gZenWorkspaces.removeWorkspace(s.uuid);
+    }
+  }
+});
+
+function WhimsyUndo() {
+  return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs").WhimsyUndo;
+}

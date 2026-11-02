@@ -607,17 +607,19 @@ whimsy-atc-description = Open links that match a rule in the space you choose.
 whimsy-atc-button =
     .label = Manage rules…
 
-whimsy-hidden-spaces-header = Hidden spaces
-whimsy-hidden-spaces-empty = No spaces are hidden. Hide one from its context menu in the space switcher.
-whimsy-restore-space-button =
-    .label = Restore
+# W11-15: Settings → Tab Management, one row that opens the Hidden Spaces panel.
+# $count (number) - how many spaces are hidden
+whimsy-hidden-spaces-count = Hidden spaces · { $count }
+whimsy-hidden-spaces-description = Spaces you hid stay out of the switcher with their tabs kept.
+whimsy-hidden-spaces-button =
+    .label = Show…
 
 ## Archive (hide) a space — batch9: spaces
 
 whimsy-hide-space =
     .label = Hide This Space
 # $space (string) - the space's name
-whimsy-hide-space-toast = Hid “{ $space }” — restore it from Settings → Tab Management
+whimsy-hide-space-toast = “{ $space }” is hidden
 whimsy-hide-space-last-toast = Can’t hide your only space
 # $space (string) - the space's name
 whimsy-restore-space-toast = Restored “{ $space }”
@@ -4550,3 +4552,157 @@ whimsy-search-show-in =
     .label = Show in { $pane } →
 whimsy-search-none-title = No settings match “{ $query }”
 whimsy-search-none-hint = Check the spelling, or try a shorter word.
+
+## W11-15: the Hidden Spaces panel
+
+whimsy-hidden-spaces-title = Hidden spaces
+whimsy-hidden-spaces-filter =
+    .placeholder = Find a hidden space
+    .aria-label = Find a hidden space
+# $count (number) - tabs in the space
+whimsy-hidden-space-detail = { $count ->
+    [one] 1 tab
+   *[other] { $count } tabs
+}
+# $count (number) - tabs in the space; $profile (string) - its profile's name
+whimsy-hidden-space-detail-profile = { $count ->
+    [one] 1 tab
+   *[other] { $count } tabs
+} · { $profile }
+whimsy-hidden-space-locked = Locked
+whimsy-hidden-spaces-none = No hidden spaces
+whimsy-hidden-spaces-none-hint = Hide a space to take it out of the switcher without losing its tabs.
+# $space (string) - the current space's name
+whimsy-hidden-spaces-hide-current =
+    .label = Hide “{ $space }”
+# $space (string) - the space's name
+whimsy-hidden-space-shown-toast = “{ $space }” is back in the switcher
+
+## W11-13: move private pages out to a space
+
+whimsy-action-move-out-of-private = Move Out of Private…
+whimsy-context-move-out-of-private =
+    .label = Move Out of Private…
+whimsy-private-move-title = Move to a space
+whimsy-private-move-filter =
+    .placeholder = Find a space
+    .aria-label = Find a space
+whimsy-private-move-hidden = Hidden
+whimsy-private-move-hint = The page opens again in that space. Private sign-ins, cookies and history stay behind.
+# $count (number) - tabs to move; $space (string) - the space's name
+whimsy-private-move-confirm-title = { $count ->
+    [one] Move this tab to “{ $space }”?
+   *[other] Move { $count } tabs to “{ $space }”?
+}
+# $count (number) - tabs to move; $profile (string) - the space's profile
+whimsy-private-move-confirm-body = { $count ->
+    [one] It opens again in the { $profile } profile, outside private browsing, and goes into your history. You might need to sign in again.
+   *[other] They open again in the { $profile } profile, outside private browsing, and go into your history. You might need to sign in again.
+}
+whimsy-private-move-back =
+    .label = Back
+# $count (number) - tabs to move
+whimsy-private-move-confirm-button =
+    .label = { $count ->
+        [one] Move Tab
+       *[other] Move Tabs
+    }
+# $space (string) - the space's name; $count (number) - tabs moved
+whimsy-private-moved-toast = Moved to { $space }
+
+## W11-17: the system unlock prompt (Touch ID or the Mac password). macOS
+## shows the reason as “Whimsy is trying to …”.
+
+whimsy-auth-caption = { -brand-short-name }
+# $space (string) - the locked space's name
+whimsy-auth-reason-space = open the locked space “{ $space }”
+
+## W11-14: private lock
+
+whimsy-auth-reason-private = show your private tabs
+whimsy-auth-reason-private-off = turn off the private lock
+whimsy-private-lock-tab-label = Private tab
+whimsy-private-lock-window-name = Private Window
+whimsy-private-lock-urlbar = Locked
+# $count (number) - locked tabs in the Private Space
+whimsy-private-lock-space-row = { $count ->
+    [one] 1 private tab
+   *[other] { $count } private tabs
+}
+whimsy-private-lock-tab-title = This private tab is locked
+# $others (number) - other private tabs, at least 1
+whimsy-private-lock-tab-others = { $others ->
+    [one] Unlock to see it and your other private tab.
+   *[other] Unlock to see it and your { $others } other private tabs.
+}
+whimsy-private-lock-tab-alone = Unlock to see it.
+whimsy-private-lock-space-title = Private Space is locked
+# $count (number) - tabs in the Private Space
+whimsy-private-lock-space-detail = { $count ->
+    [one] Unlock to see your private tab.
+   *[other] Unlock to see your { $count } private tabs.
+}
+whimsy-private-lock-window-title = Private window is locked
+# $count (number) - tabs in the window
+whimsy-private-lock-window-detail = { $count ->
+    [one] Unlock to see its tab.
+   *[other] Unlock to see its { $count } tabs.
+}
+whimsy-private-lock-failed = Didn’t unlock. Try again.
+whimsy-private-lock-unlock =
+    .label = Unlock
+whimsy-private-lock-ask-tabs = Lock private tabs?
+whimsy-private-lock-ask-space = Lock the Private Space?
+whimsy-private-lock-ask-windows = Lock private windows?
+whimsy-private-lock-ask-line = When you step away, { -brand-short-name } hides them until you use Touch ID or your Mac password.
+whimsy-private-lock-dont =
+    .label = Don’t Lock
+whimsy-private-lock-yes =
+    .label = Lock
+whimsy-private-lock-on-toast = Private browsing will lock when you step away
+whimsy-action-lock-private-now = Lock Private Browsing Now
+whimsy-action-unlock-private = Unlock Private Browsing
+whimsy-action-private-lock-tabs-toggle = Turn Lock for Private Tabs On or Off
+whimsy-action-private-lock-tabs-on = Turn Lock for Private Tabs On
+whimsy-action-private-lock-tabs-off = Turn Lock for Private Tabs Off
+whimsy-action-private-lock-space-toggle = Turn Lock for the Private Space On or Off
+whimsy-action-private-lock-space-on = Turn Lock for the Private Space On
+whimsy-action-private-lock-space-off = Turn Lock for the Private Space Off
+whimsy-action-private-lock-windows-toggle = Turn Lock for Private Windows On or Off
+whimsy-action-private-lock-windows-on = Turn Lock for Private Windows On
+whimsy-action-private-lock-windows-off = Turn Lock for Private Windows Off
+whimsy-menu-lock-private =
+    .label = Lock Private Browsing
+
+## W11-14: Settings → Privacy → Lock private browsing
+
+whimsy-private-lock-header =
+    .label = Lock private browsing
+whimsy-private-lock-tabs =
+    .label = Lock private tabs
+    .description = Hides private tabs in your spaces when you step away. Touch ID or your Mac password shows them again.
+whimsy-private-lock-space =
+    .label = Lock the Private Space
+    .description = Hides the Private Space’s tabs when you step away.
+whimsy-private-lock-windows =
+    .label = Lock private windows
+    .description = Covers private windows when you step away.
+whimsy-private-lock-not-chosen = Not chosen yet: { -brand-short-name } asks the first time you browse privately.
+whimsy-private-lock-after-label =
+    .value = Lock after
+whimsy-private-lock-after-now =
+    .label = Right away
+whimsy-private-lock-after-1m =
+    .label = 1 minute away
+whimsy-private-lock-after-5m =
+    .label = 5 minutes away
+whimsy-private-lock-after-15m =
+    .label = 15 minutes away
+whimsy-private-lock-after-1h =
+    .label = 1 hour away
+whimsy-private-lock-after-note = Always locks when your Mac sleeps or locks, and when { -brand-short-name } starts sharing your screen.
+whimsy-private-lock-sharing =
+    .label = Stay unlocked while sharing your screen
+# W11-14 (d14): Lock Space's cover. $space (string) - the space's name
+whimsy-space-lock-cover-title = “{ $space }” is locked
+whimsy-space-lock-cover-detail = Unlock to see its tabs.

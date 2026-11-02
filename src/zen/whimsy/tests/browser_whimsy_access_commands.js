@@ -180,7 +180,8 @@ add_task(async function test_tree_branch() {
 });
 
 add_task(async function test_choosers() {
-  ok(!available("whimsy-action-show-hidden-spaces") || WhimsyAccessCommands.hiddenSpaces(window).length, "Show Hidden Spaces… only when a space is hidden");
+  // W11-15 (d15): always available; with nothing hidden it shows an empty panel.
+  ok(available("whimsy-action-show-hidden-spaces"), "Show Hidden Spaces… is always available");
   if (!WhimsyAccessCommands.liveFoldersAvailable(window)) {
     info("No live folders in this build; skipped");
     return;

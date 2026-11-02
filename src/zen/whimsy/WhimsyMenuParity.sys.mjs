@@ -38,6 +38,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyPlaylist: "resource:///modules/whimsy/WhimsyPlaylist.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyPrivateMove: "resource:///modules/whimsy/WhimsyPrivateMove.sys.mjs",
   WhimsyShareMenu: "resource:///modules/whimsy/WhimsyShareMenu.sys.mjs",
   WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
   WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
@@ -454,6 +455,24 @@ function rowSpecs() {
       },
       key: "zen-copy-url-markdown",
       update: w => !!contextTab(w),
+    },
+    // W11-13 (d13): a private tab's page reopens in a space you pick.
+    {
+      menu: "tab",
+      id: "context_whimsyMoveOutOfPrivate",
+      l10nId: "whimsy-context-move-out-of-private",
+      popup: "tabContextMenu",
+      after: "context_moveTabOptions",
+      fallbackAfter: "context_duplicateTab",
+      run: w => {
+        const tab = contextTab(w);
+        if (tab) {
+          lazy.WhimsyPrivateMove.open(w, { tabs: [tab] });
+        }
+      },
+      keyCommand: "cmd_whimsyMoveOutOfPrivate",
+      update: w => lazy.WhimsyPrivateMove.enabled && lazy.WhimsyPrivateMove.isPrivateTab(w, contextTab(w)) &&
+        lazy.WhimsyPrivateMove.movableTabs([contextTab(w)]).length > 0,
     },
 
     // Space

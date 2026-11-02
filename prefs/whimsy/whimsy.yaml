@@ -670,3 +670,20 @@
 # Local only: the easel ids this device has put in whimsy.easel.synced.
 - name: whimsy.easel.sync-known
   value: ""
+
+# W11-14: private lock. Each kind: -1 not chosen (acts as off; Whimsy asks
+# the first time), 0 off, 1 on. Lock after: seconds away (0 = right away).
+- name: whimsy.privateLock.tabs
+  value: -1
+
+- name: whimsy.privateLock.space
+  value: -1
+
+- name: whimsy.privateLock.windows
+  value: -1
+
+- name: whimsy.privateLock.afterSeconds
+  value: 0
+
+- name: whimsy.privateLock.stayUnlockedWhileSharing
+  value: false

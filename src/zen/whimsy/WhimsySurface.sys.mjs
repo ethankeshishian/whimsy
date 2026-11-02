@@ -32,7 +32,7 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 const FOCUSABLE =
   "toolbarbutton:not([disabled]):not([hidden]), button:not([disabled]):not([hidden]), " +
   "input:not([disabled]):not([hidden]), textarea:not([disabled]), select:not([disabled]), " +
-  "a[href], [tabindex='0']:not([hidden])";
+  "a[href], [tabindex='0']:not([hidden]):not([disabled])";
 
 const COPIED_MS = 1200;
 

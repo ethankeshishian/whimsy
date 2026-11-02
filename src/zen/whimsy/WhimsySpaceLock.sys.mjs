@@ -4,12 +4,15 @@
 
 // batch9: spaces
 //
+// W11-14 (d14): a locked space now opens behind the shared lock cover
+// instead of refusing the switch; see wrapChangeWorkspace.
+//
 // Lock a space (whimsy.feature.space-lock): a space with sensitive tabs
 // (banking, a work project) shouldn't be visible to someone who picks up
 // the laptop. Locking it means switching there prompts Touch ID or a
 // password first, same as revealing a saved password in Firefox's logins
-// UI — both go through OSKeyStore.sys.mjs, which already wraps the macOS
-// Keychain for that prompt. No native code needed.
+// UI: both ask Firefox's OSReauthenticator (W11-17: through WhimsyAuth).
+// No native code needed.
 //
 // "Lock This Space" / "Unlock This Space" toggles from the workspace
 // context menu (zenWorkspaceMoreActions, same injection pattern as
@@ -17,7 +20,7 @@
 // ZenSpaceManager#changeWorkspace, the one function every way of switching
 // spaces (click, shortcut, command line, drag) funnels through. Canceling
 // the prompt leaves the previous space active. A space you left less than
-// RELOCK_MS ago doesn't re-prompt on returning to it; longer than that, or
+// relockMs() ago doesn't re-prompt on returning to it; longer than that, or
 // after a restart (lastLeft is in-memory only), it does.
 //
 // Known limitation: the switcher's own icon can still show a locked space's
@@ -28,12 +31,24 @@
 const FEATURE_PREF = "whimsy.feature.space-lock";
 const MENU_ID = "whimsy-lock-space-menuitem";
 const LOCKED_ATTR = "whimsy-locked-space";
-const RELOCK_MS = 5 * 60 * 1000;
+// W11-14: the same timing as the private lock ("Lock after"), at least a
+// minute so returning to a space you just left doesn't ask again.
+const RELOCK_MIN_MS = 60 * 1000;
+function relockMs() {
+  return Math.max(RELOCK_MIN_MS, Services.prefs.getIntPref("whimsy.privateLock.afterSeconds", 0) * 1000);
+}
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
+});
 
 // Module-level (not per-window): spaces are synced across every window via
 // gZenWindowSync, so "left 2 minutes ago" has to mean the same thing
 // everywhere.
 const lastLeft = new Map();
+// Locked spaces entered but not unlocked yet (they show the cover).
+const covered = new Set();
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -69,6 +84,11 @@ export const WhimsySpaceLock = {
     }, { once: true });
   },
 
+  // d14 (W11-14): switching to a locked space is no longer refused. The
+  // space opens behind the shared lock cover (WhimsyPrivateLock's), its tab
+  // list hidden, and Touch ID is asked for at once (as the private lock
+  // does); Unlock on the cover asks again. Returning within the grace
+  // window, or after an unlock, shows it straight away.
   wrapChangeWorkspace(win) {
     const workspaces = win.gZenWorkspaces;
     const original = workspaces.changeWorkspace;
@@ -81,19 +101,17 @@ export const WhimsySpaceLock = {
       if (workspace && previousId != workspace.uuid) {
         lastLeft.set(previousId, Date.now());
       }
-      if (
-        featureOn() &&
-        workspace?.whimsyLocked &&
-        previousId != workspace.uuid &&
-        !self.recentlyLeft(workspace.uuid)
-      ) {
-        if (!(await self.authenticate())) {
-          return this.getActiveWorkspace();
-        }
-        // A fresh unlock, not a return within the grace window.
-        lastLeft.delete(workspace.uuid);
+      const needsUnlock = featureOn() && workspace?.whimsyLocked && previousId != workspace.uuid &&
+        !self.recentlyLeft(workspace.uuid);
+      if (needsUnlock) {
+        covered.add(workspace.uuid);
       }
-      return original.call(this, workspace, ...args);
+      const result = await original.call(this, workspace, ...args);
+      self.renderCover(win);
+      if (needsUnlock && this.activeWorkspace == workspace.uuid) {
+        self.unlockCovered(win, workspace);
+      }
+      return result;
     };
     wrapped._whimsy = true;
     workspaces.changeWorkspace = wrapped;
@@ -101,18 +119,90 @@ export const WhimsySpaceLock = {
 
   recentlyLeft(uuid) {
     const at = lastLeft.get(uuid);
-    return !!at && Date.now() - at < RELOCK_MS;
+    return !!at && Date.now() - at < relockMs();
   },
 
-  async authenticate() {
-    try {
-      const { OSKeyStore } = ChromeUtils.importESModule("resource://gre/modules/OSKeyStore.sys.mjs");
-      const { authenticated } = await OSKeyStore.ensureLoggedIn(true);
-      return authenticated;
-    } catch (e) {
-      console.error("Whimsy: space lock authentication", e);
+  isCovered(uuid) {
+    return covered.has(uuid);
+  },
+
+  // The cover over the active space while it's locked, and its tab list
+  // hidden; gone in every window once it's unlocked.
+  renderCover(win) {
+    if (win.closed || !win.gZenWorkspaces) {
+      return;
+    }
+    const active = win.gZenWorkspaces.getActiveWorkspace?.();
+    for (const el of win.document.querySelectorAll("zen-workspace[whimsy-space-covered]")) {
+      el.removeAttribute("whimsy-space-covered");
+    }
+    const isCovered = featureOn() && !!active?.whimsyLocked && covered.has(active.uuid);
+    win.document.documentElement.toggleAttribute("whimsy-space-covered", isCovered);
+    const lock = lazy.WhimsyPrivateLock;
+    if (!isCovered) {
+      lock.hideCover(win, "space-lock");
+      return;
+    }
+    win.gZenWorkspaces.workspaceElement?.(active.uuid)?.setAttribute("whimsy-space-covered", "");
+    lock.showCoverFor(win, {
+      kind: "space-lock",
+      titleL10nId: "whimsy-space-lock-cover-title",
+      detailL10nId: "whimsy-space-lock-cover-detail",
+      args: { space: active.name || "" },
+      onUnlock: () => this.unlockCovered(win, active),
+    });
+  },
+
+  renderAll() {
+    for (const w of Services.wm.getEnumerator("navigator:browser")) {
+      this.renderCover(w);
+    }
+  },
+
+  async unlockCovered(win, workspace) {
+    if (!covered.has(workspace.uuid)) {
+      return true;
+    }
+    // Paint the cover before the system sheet.
+    await new Promise(resolve => win.requestAnimationFrame(() => resolve()));
+    if (!(await this.authenticate(win, workspace))) {
+      win.document.querySelector(".whimsy-lock-cover")?.toggleAttribute("failed", true);
       return false;
     }
+    covered.delete(workspace.uuid);
+    lastLeft.delete(workspace.uuid);
+    this.renderAll();
+    return true;
+  },
+
+  /**
+   * For flows that bring something into a locked space or show it (Show
+   * Hidden Spaces, Move Out of Private): asks first unless it's open
+   * already. False when cancelled.
+   */
+  async ensureUnlocked(win, workspace) {
+    if (!featureOn() || !workspace?.whimsyLocked || this.recentlyLeft(workspace.uuid) ||
+        win.gZenWorkspaces.activeWorkspace == workspace.uuid && !covered.has(workspace.uuid)) {
+      return true;
+    }
+    if (!(await this.authenticate(win, workspace))) {
+      return false;
+    }
+    covered.delete(workspace.uuid);
+    // Counts as just left, so the switch that follows doesn't ask again.
+    lastLeft.set(workspace.uuid, Date.now());
+    this.renderAll();
+    return true;
+  },
+
+  // W11-17: through WhimsyAuth (OSReauthenticator). It used
+  // OSKeyStore.ensureLoggedIn(true), which throws on `true`, so a locked
+  // space never opened. A platform without OS authentication opens it, as
+  // OSKeyStore did.
+  async authenticate(win = null, space = null) {
+    const { WhimsyAuth } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAuth.sys.mjs");
+    const result = await WhimsyAuth.unlock(win, "whimsy-auth-reason-space", { space: space?.name || "" });
+    return result != "cancel";
   },
 
   applyBadges(win) {
@@ -175,6 +265,8 @@ export const WhimsySpaceLock = {
     workspace.whimsyLocked = !workspace.whimsyLocked;
     if (!workspace.whimsyLocked) {
       lastLeft.delete(workspace.uuid);
+      covered.delete(workspace.uuid);
+      this.renderAll();
     }
     win.gZenWorkspaces.saveWorkspace(workspace);
     this.applyBadges(win);

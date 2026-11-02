@@ -4,6 +4,13 @@
 
 [DEFAULT]
 support-files = ["whimsy_slow_load.sjs"]
+# W11-14: the private lock's first-run question would pop up in every test
+# that opens something private; browser_whimsy_private_lock.js tests it.
+prefs = [
+  "whimsy.privateLock.askDismissals.tabs=2",
+  "whimsy.privateLock.askDismissals.space=2",
+  "whimsy.privateLock.askDismissals.windows=2",
+]
 
 ["browser_whimsy_ai_kill_switch.js"]
 
@@ -93,6 +100,12 @@ support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 ["browser_whimsy_playback_speed.js"]
 support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 
+# W11-14: the private lock: first-run question, lock right away and on sleep, cover, automatic and button unlock, turning off asks, commands, private windows, Settings.
+["browser_whimsy_private_lock.js"]
+
+# W11-13: Move To (private window, all tabs) and Move Out of Private… (one tab): picker, ask first, reopen in the space, switch, close originals; locked target.
+["browser_whimsy_private_move.js"]
+
 ["browser_whimsy_private_indicator.js"]
 
 ["browser_whimsy_reader_fonts.js"]
@@ -165,6 +178,9 @@ support-files = ["whimsy_archive.sjs"]
 ["browser_whimsy_heavy_tabs.js"]
 # batch9: spaces
 ["browser_whimsy_archive_space.js"]
+
+# W11-15: the Hidden Spaces panel (a surface): rows, keys, show + switch with Undo, locked spaces unlock first, empty state, footer hide, filter.
+["browser_whimsy_hidden_spaces.js"]
 
 ["browser_whimsy_space_lock.js"]
 # batch9p: Scratch and private tabs (needs the whimsy-nsFrameLoader-cpp engine patch)
@@ -791,3 +807,4 @@ support-files = ["whimsy_highlight.html"]
 
 # W10-62: an Essential's "Show Unread Badge" (context menu checkbox and command, Arc).
 ["browser_whimsy_essential_badge.js"]
+

@@ -12,8 +12,7 @@
 //
 // - Collapse/Expand Tab Children (tree tabs): the current tab's branch, or
 //   its parent's when the tab has no children.
-// - Show Hidden Spaces…: a short menu of hidden spaces; picking one shows
-//   it again (the same restore as Settings).
+// - Show Hidden Spaces…: the Hidden Spaces panel (WhimsyHiddenSpaces, W11-15).
 // - Show/Hide Space Switcher, Mute Background Tabs / Stop Muting, Turn
 //   Dark PDFs On/Off: the Settings toggles, state-aware like Turn VPN On/
 //   Off.
@@ -33,6 +32,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
   WhimsyClaude: "resource:///modules/whimsy/WhimsyClaude.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyHiddenSpaces: "resource:///modules/whimsy/WhimsyHiddenSpaces.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs",
   WhimsySplitRow: "resource:///modules/whimsy/WhimsySplitRow.sys.mjs",
@@ -136,24 +136,10 @@ export const WhimsyAccessCommands = {
     }
   },
 
+  // W11-15: the Hidden Spaces panel (a surface, not a native menu). It
+  // opens with nothing hidden too, on its empty state.
   showHiddenSpaces(win) {
-    const spaces = this.hiddenSpaces(win);
-    if (!spaces.length) {
-      return null;
-    }
-    return this.showChooser(
-      win,
-      spaces.map(space => {
-        // Zen's space icon is an emoji or an icon URL.
-        const iconURL = /^[a-z-]+:\/\//.test(space.icon ?? "") ? space.icon : null;
-        return {
-          label: [iconURL ? null : space.icon, space.name].filter(Boolean).join(" "),
-          image: iconURL,
-          value: space.uuid,
-          run: () => lazy.WhimsySpaceArchive.restore(win, space.uuid),
-        };
-      })
-    );
+    return lazy.WhimsyHiddenSpaces.open(win);
   },
 
   switcherHidden() {
@@ -404,7 +390,7 @@ export const WhimsyAccessCommands = {
       l10nId: "whimsy-action-show-hidden-spaces",
       run: w => this.showHiddenSpaces(w),
       icon: ICONS.space,
-      isAvailable: w => this.hiddenSpaces(w).length > 0,
+      isAvailable: w => feature("archive-space") && !!w.gZenWorkspaces?.workspaceEnabled,
     });
     register({
       id: "cmd_whimsyToggleSpaceSwitcher",

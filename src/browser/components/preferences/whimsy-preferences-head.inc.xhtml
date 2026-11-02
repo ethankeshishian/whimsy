@@ -140,6 +140,34 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+  <!-- W11-14: lock private browsing. One switch each for private tabs, the
+       Private Space and private windows (d1); "Lock after" and screen
+       sharing apply to all three. -->
+  <html:div id="whimsyPrivateLockGroup" data-category="panePrivacy" data-whimsy-feature="private-lock" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-private-lock-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/selectable/lock-closed.svg">
+        <html:moz-checkbox id="whimsyPrivateLockTabs" data-kind="tabs" data-l10n-id="whimsy-private-lock-tabs"/>
+        <html:moz-checkbox id="whimsyPrivateLockSpace" data-kind="space" data-l10n-id="whimsy-private-lock-space"/>
+        <html:moz-checkbox id="whimsyPrivateLockWindows" data-kind="windows" data-l10n-id="whimsy-private-lock-windows"/>
+        <description id="whimsyPrivateLockNotChosen" class="description-deemphasized" data-l10n-id="whimsy-private-lock-not-chosen"/>
+        <hbox align="center">
+          <label id="whimsyPrivateLockAfterLabel" control="whimsyPrivateLockAfter" data-l10n-id="whimsy-private-lock-after-label"/>
+          <menulist id="whimsyPrivateLockAfter">
+            <menupopup>
+              <menuitem value="0" data-l10n-id="whimsy-private-lock-after-now"/>
+              <menuitem value="60" data-l10n-id="whimsy-private-lock-after-1m"/>
+              <menuitem value="300" data-l10n-id="whimsy-private-lock-after-5m"/>
+              <menuitem value="900" data-l10n-id="whimsy-private-lock-after-15m"/>
+              <menuitem value="3600" data-l10n-id="whimsy-private-lock-after-1h"/>
+            </menupopup>
+          </menulist>
+        </hbox>
+        <description class="description-deemphasized" data-l10n-id="whimsy-private-lock-after-note"/>
+        <html:moz-checkbox id="whimsyPrivateLockSharing" data-l10n-id="whimsy-private-lock-sharing"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <!-- tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox is the
        real master switch (browser.ipProtection.enabled): off removes
        Firefox's own toolbar button too, not just this card. -->
@@ -341,11 +369,14 @@
       </vbox>
       <button id="whimsySpacesManagerButton" data-l10n-id="whimsy-spaces-manager-button"/>
     </hbox>
-    <vbox class="whimsy-spaces-row" data-whimsy-feature="archive-space">
-      <label><html:h3 data-l10n-id="whimsy-hidden-spaces-header"/></label>
-      <description class="description-deemphasized" id="whimsyHiddenSpacesEmpty" data-l10n-id="whimsy-hidden-spaces-empty"/>
-      <html:div id="whimsyHiddenSpacesList"/>
-    </vbox>
+    <!-- W11-15: one row that opens the Hidden Spaces panel (no second list). -->
+    <hbox align="center" class="whimsy-spaces-row" data-whimsy-feature="archive-space">
+      <vbox flex="1">
+        <label id="whimsyHiddenSpacesLabel"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-hidden-spaces-description"/>
+      </vbox>
+      <button id="whimsyHiddenSpacesButton" data-l10n-id="whimsy-hidden-spaces-button"/>
+    </hbox>
     <!-- batch7: keep the window when the last tab closes (Arc); Zen already
          sets the pref false, this exposes it -->
     <checkbox id="whimsyCloseWindowWithLastTab" data-whimsy-feature="window-close"

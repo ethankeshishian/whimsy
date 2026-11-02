@@ -290,6 +290,8 @@ var gWhimsySettings = {
       "strip-tracking": () => this.initStripTracking(),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
+      // W11-14: lock private browsing.
+      "private-lock": () => this.initPrivateLock(),
       // tierC-vpn: VPN (Firefox's built-in IP Protection).
       vpn: () => this.initVpn(),
       // wave3: email-aliases
@@ -410,6 +412,46 @@ var gWhimsySettings = {
   },
 
   // A checkbox bound to a bool pref, kept in sync both ways.
+  // W11-14: the three lock switches go through WhimsyPrivateLock.setChoice,
+  // which asks for Touch ID before turning a lock off while it's locked (d8).
+  // "Not chosen yet" shows while any of them hasn't been answered.
+  initPrivateLock() {
+    const { WhimsyPrivateLock } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs");
+    const chromeWin = () => window.browsingContext.topChromeWindow;
+    const boxes = ["whimsyPrivateLockTabs", "whimsyPrivateLockSpace", "whimsyPrivateLockWindows"]
+      .map(id => document.getElementById(id)).filter(Boolean);
+    const notChosen = document.getElementById("whimsyPrivateLockNotChosen");
+    const after = document.getElementById("whimsyPrivateLockAfter");
+    const sharing = document.getElementById("whimsyPrivateLockSharing");
+    const update = () => {
+      for (const box of boxes) {
+        box.checked = WhimsyPrivateLock.choice(box.dataset.kind) == 1;
+      }
+      if (notChosen) {
+        notChosen.hidden = !boxes.some(box => WhimsyPrivateLock.choice(box.dataset.kind) == -1);
+      }
+      if (after) {
+        after.value = String(Services.prefs.getIntPref("whimsy.privateLock.afterSeconds", 0));
+      }
+      if (sharing) {
+        sharing.checked = Services.prefs.getBoolPref("whimsy.privateLock.stayUnlockedWhileSharing", false);
+      }
+    };
+    for (const box of boxes) {
+      box.addEventListener("change", async () => {
+        await WhimsyPrivateLock.setChoice(chromeWin(), box.dataset.kind, box.checked);
+        update();
+      });
+    }
+    after?.addEventListener("command", () =>
+      Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", parseInt(after.value, 10) || 0));
+    sharing?.addEventListener("change", () =>
+      Services.prefs.setBoolPref("whimsy.privateLock.stayUnlockedWhileSharing", sharing.checked));
+    Services.prefs.addObserver("whimsy.privateLock.", update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.privateLock.", update), { once: true });
+    update();
+  },
+
   initPrefCheckbox(id, pref) {
     const checkbox = document.getElementById(id);
     const defaultValue = Services.prefs.getDefaultBranch("").getBoolPref(pref, false);
@@ -793,38 +835,28 @@ Object.assign(gWhimsySettings, {
     document.getElementById("whimsySpacesManagerButton")?.addEventListener("command", () => {
       chromeWin().document.getElementById("cmd_zenManageWorkspaces")?.doCommand();
     });
+    document.getElementById("whimsyHiddenSpacesButton")?.addEventListener("command", () => {
+      const { WhimsyHiddenSpaces } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHiddenSpaces.sys.mjs");
+      const win = chromeWin();
+      WhimsyHiddenSpaces.open(win, { onHidden: () => this.refreshHiddenSpaces() });
+    });
     this.refreshHiddenSpaces();
   },
 
+  // W11-15: "Hidden spaces · N" and a button that opens the Hidden Spaces
+  // panel in the browser window, where hiding and showing happen.
   refreshHiddenSpaces() {
-    const list = document.getElementById("whimsyHiddenSpacesList");
-    const empty = document.getElementById("whimsyHiddenSpacesEmpty");
-    if (!list) {
+    const label = document.getElementById("whimsyHiddenSpacesLabel");
+    if (!label) {
       return;
     }
     const { WhimsySpaceArchive } = this.lazy;
     const win = window.browsingContext.topChromeWindow;
-    const hidden = WhimsySpaceArchive.listHidden(win);
-    list.replaceChildren();
-    if (empty) {
-      empty.hidden = !!hidden.length;
-    }
-    for (const workspace of hidden) {
-      const row = document.createXULElement("hbox");
-      row.setAttribute("align", "center");
-      row.className = "whimsy-spaces-row";
-      const label = document.createXULElement("label");
-      label.setAttribute("flex", "1");
-      label.textContent = workspace.name || "";
-      const button = document.createXULElement("button");
-      document.l10n.setAttributes(button, "whimsy-restore-space-button");
-      button.addEventListener("command", () => {
-        WhimsySpaceArchive.restore(win, workspace.uuid);
-        this.refreshHiddenSpaces();
-      });
-      row.append(label, button);
-      list.append(row);
-    }
+    let count = 0;
+    try {
+      count = WhimsySpaceArchive.listHidden(win).length;
+    } catch (e) {}
+    document.l10n.setAttributes(label, "whimsy-hidden-spaces-count", { count });
   },
 });
 

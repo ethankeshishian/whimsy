@@ -89,3 +89,25 @@ add_task(async function every_whimsy_popup() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// A row that is a tab stop (tabindex=0) but disabled is not a Tab stop and
+// doesn't take initial focus: the same rule WhimsyPanels' sheets follow
+// (a greyed-out preset in the snooze picker stopped the keys dead).
+add_task(async function surface_skips_disabled_tab_stops() {
+  const parts = WhimsySurface.create(window, { id: "disabledRowSurface", titleL10nId: "whimsy-surface-copied" });
+  const off = WhimsySurface.row(document, { text: "Off", onCommand: () => {} }).row;
+  off.setAttribute("disabled", "true");
+  const on = WhimsySurface.row(document, { text: "On", onCommand: () => {} }).row;
+  parts.view.append(off, on);
+  WhimsySurface.finish(parts);
+  const shown = BrowserTestUtils.waitForEvent(parts.panel, "popupshown");
+  WhimsySurface.open(window, parts.panel, { at: "page-top-center" });
+  await shown;
+  const items = WhimsySurface.focusables(parts.panel);
+  ok(!items.includes(off), "the disabled row is not a tab stop");
+  ok(items.includes(on), "the enabled row is");
+  is(document.activeElement, on, "initial focus skips the disabled row");
+  const hidden = BrowserTestUtils.waitForEvent(parts.panel, "popuphidden");
+  WhimsySurface.close(parts.panel);
+  await hidden;
+});

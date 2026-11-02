@@ -1336,6 +1336,15 @@ FEATURES = [
     # Previous Space stops at the first (Arc).
     {"id": "space-edges", "title": "Space edges (Arc): Next Space past the last space opens New Space; Previous Space stops at the first",
      "detect": [("src/zen/spaces", r"(?i)past-?(the-?)?last-?space|create-?space-?at-?end")]},
+    # wave11 (W11-13): Zen's Move To from a private window, done by reopening
+    # each page in the space (never carrying private data), plus Move Out of
+    # Private… for one tab.
+    {"id": "private-move", "title": "Move out of private: Move To in a private window, and Move Out of Private… on a private tab, reopen the pages in a space you pick, after asking",
+     "detect": [("src/zen", r"(?i)move-?(tabs?-?)?out-?of-?private")]},
+    # wave11 (W11-14): lock private tabs, the Private Space and private
+    # windows behind Touch ID or the Mac password.
+    {"id": "private-lock", "title": "Private lock: private tabs, the Private Space and private windows hide behind Touch ID or your Mac password when you step away",
+     "detect": [("src/zen", r"(?i)lock-?private-?(browsing|tabs|windows)")]},
 ]
 
 

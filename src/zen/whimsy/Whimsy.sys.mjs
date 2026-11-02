@@ -49,6 +49,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // batch9p: Scratch and private tabs
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
+  WhimsyPrivateMove: "resource:///modules/whimsy/WhimsyPrivateMove.sys.mjs",
   // batch13: page & reading
   WhimsyBionicReading: "resource:///modules/whimsy/WhimsyBionicReading.sys.mjs",
   WhimsyMenuBarExtra: "resource:///modules/whimsy/WhimsyMenuBarExtra.sys.mjs",
@@ -641,6 +643,10 @@ export const Whimsy = {
     // a private tab must stay private even with the switch off; the
     // shortcuts check the switch and setting on each use.
     run("private", () => lazy.WhimsyPrivate.initWindow(win));
+    // W11-13: Move To / Move Out of Private… (reopens pages in a space).
+    run("private-move", () => lazy.WhimsyPrivateMove.initWindow(win));
+    // W11-14: lock private browsing (Touch ID or the Mac password).
+    run("private-lock", () => lazy.WhimsyPrivateLock.initWindow(win));
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
     later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());

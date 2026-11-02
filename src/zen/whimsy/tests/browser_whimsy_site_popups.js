@@ -106,6 +106,159 @@ add_task(async function test_switch_off_leaves_zens_popup_chrome() {
   await SpecialPowers.popPrefEnv();
 });
 
+// W11-12: a password manager's passkey flow in a sign-in popup ("Continue
+// with Google", then "Use your passkey"). 1Password hooks
+// navigator.credentials from its content script and talks to its
+// background page about the popup's tab. An extension limited to the
+// opener's profile must run in the popup exactly as in the opener's tab:
+// its content script, its page-world hook, its messages (with the popup's
+// tab as the sender) and the tabs API on that tab. The popup's page must
+// also have focus, or WebAuthn refuses the request.
+add_task(async function test_extension_runs_in_sign_in_popup() {
+  const { WhimsySpaceExtensions } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceExtensions.sys.mjs");
+  const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
+  const extension = ExtensionTestUtils.loadExtension({
+    useAddonManager: "temporary",
+    manifest: {
+      permissions: ["tabs", "cookies"],
+      content_scripts: [{ matches: ["https://example.com/*"], js: ["cs.js"], run_at: "document_start", all_frames: true }],
+    },
+    background() {
+      browser.runtime.onMessage.addListener(async (message, sender) => {
+        let tabsGet = null;
+        try {
+          tabsGet = (await browser.tabs.get(sender.tab.id))?.url ?? null;
+        } catch (e) {
+          tabsGet = "error: " + e.message;
+        }
+        browser.test.sendMessage("content", {
+          message,
+          url: sender.url,
+          tabId: sender.tab?.id ?? null,
+          cookieStoreId: sender.tab?.cookieStoreId ?? null,
+          tabsGet,
+        });
+      });
+    },
+    files: {
+      "cs.js": `
+        const nav = window.wrappedJSObject.navigator;
+        exportFunction(function () {
+          document.documentElement.dataset.passkeyHook = "called";
+          return window.wrappedJSObject.Promise.resolve(null);
+        }, nav.credentials, { defineAs: "get" });
+        document.documentElement.dataset.whimsyExtension = "ran";
+        if (window == window.top) {
+          browser.runtime.sendMessage(location.pathname.split("/").pop());
+        }
+      `,
+    },
+  });
+  await extension.startup();
+  const profileId = WhimsyProfiles.activeProfileId(window) ?? 0;
+  const key = WhimsyProfiles.keyFor(profileId);
+  // Limited to the opener's profile: the per-profile isolation is on.
+  WhimsySpaceExtensions.setAllowedProfiles(extension.id, [key]);
+  try {
+    const tab = await BrowserTestUtils.openNewForegroundTab({
+      gBrowser,
+      opening: () => gBrowser.addTab(OPENER, {
+        userContextId: profileId,
+        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+      }),
+      waitForLoad: false,
+    });
+    const browser = tab.linkedBrowser;
+    await TestUtils.waitForCondition(() => browser.currentURI.spec == OPENER && !browser.webProgress?.isLoadingDocument,
+      "The opener page loaded");
+    const first = await extension.awaitMessage("content");
+    is(first.message, "whimsy_oauth_opener.html", "The extension runs in the opener");
+
+    const opened = BrowserTestUtils.waitForNewWindow({ url: POPUP });
+    await BrowserTestUtils.synthesizeMouseAtCenter("#continue", {}, browser);
+    const popup = await opened;
+    const popupBrowser = popup.gBrowser.selectedBrowser;
+    const seen = await extension.awaitMessage("content");
+    is(seen.message, "whimsy_oauth_popup.html", "Its content script runs in the sign-in popup");
+    is(seen.url, POPUP, "...and messages its background page from there");
+    Assert.notEqual(seen.tabId, null, "The popup's tab is the sender");
+    is(seen.tabsGet, POPUP, "The tabs API can see the popup's tab");
+    is(popupBrowser.contentPrincipal.originAttributes.userContextId, profileId,
+      "The popup is in the opener's profile");
+
+    const state = await SpecialPowers.spawn(popupBrowser, [], async () => {
+      await ContentTaskUtils.waitForCondition(() => content.document.hasFocus(), "The popup's page has focus");
+      await content.wrappedJSObject.navigator.credentials.get({ publicKey: { challenge: new Uint8Array(16) } });
+      return {
+        ran: content.document.documentElement.dataset.whimsyExtension,
+        hook: content.document.documentElement.dataset.passkeyHook,
+      };
+    });
+    is(state.ran, "ran", "The content script ran in the popup's page");
+    is(state.hook, "called", "The page's passkey request reaches the extension's hook");
+    await BrowserTestUtils.closeWindow(popup);
+    BrowserTestUtils.removeTab(tab);
+  } finally {
+    WhimsySpaceExtensions.setAllowedProfiles(extension.id, null);
+    await extension.unload();
+  }
+});
+
+// W11-12, the browser's own passkey path (1Password falls back to it for
+// Google's related-origin requests): navigator.credentials.get in a sign-in
+// popup must work exactly as in a tab. A virtual authenticator holds a
+// passkey for example.com.
+add_task(async function test_passkey_in_sign_in_popup() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["security.webauth.webauthn", true],
+      ["security.webauth.webauthn_enable_softtoken", true],
+      ["security.webauth.webauthn_enable_usbtoken", false],
+      ["security.webauthn.ctap2", true],
+      ["security.webauthn.enable_macos_passkeys", false],
+    ],
+  });
+  const service = Cc["@mozilla.org/webauthn/service;1"].getService(Ci.nsIWebAuthnService);
+  const authenticator = service.addVirtualAuthenticator("ctap2_1", "internal", true, true, true, true);
+  const keyPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]);
+  const b64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const credBytes = crypto.getRandomValues(new Uint8Array(32));
+  const credId = b64url(credBytes);
+  service.addCredential(authenticator, credId, true, "example.com",
+    b64url(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey)), "VGVzdCBVc2Vy", 0);
+  const getAssertion = browser => SpecialPowers.spawn(browser, [[...credBytes]], async bytes => {
+    try {
+      const assertion = await content.navigator.credentials.get({
+        publicKey: {
+          challenge: content.crypto.getRandomValues(new Uint8Array(16)),
+          rpId: "example.com",
+          allowCredentials: [{ type: "public-key", id: new Uint8Array(bytes), transports: ["internal"] }],
+          userVerification: "discouraged",
+        },
+      });
+      return assertion ? "ok" : "none";
+    } catch (e) {
+      return `${e.name}: ${e.message}`;
+    }
+  });
+  try {
+    await BrowserTestUtils.withNewTab(OPENER, async browser => {
+      is(await getAssertion(browser), "ok", "The passkey works in a tab");
+      const opened = BrowserTestUtils.waitForNewWindow({ url: POPUP });
+      await BrowserTestUtils.synthesizeMouseAtCenter("#continue", {}, browser);
+      const popup = await opened;
+      const popupBrowser = popup.gBrowser.selectedBrowser;
+      await SpecialPowers.spawn(popupBrowser, [], () =>
+        ContentTaskUtils.waitForCondition(() => content.document.hasFocus(), "The popup's page has focus"));
+      is(await getAssertion(popupBrowser), "ok", "...and in the sign-in popup");
+      await BrowserTestUtils.closeWindow(popup);
+    });
+  } finally {
+    service.removeVirtualAuthenticator(authenticator);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // Same screenshot convention as browser_whimsy_screens.js (WHIMSY_SHOTS).
 async function shot(name, windowGlobal) {
   const dir = Services.env.get("WHIMSY_SHOTS");

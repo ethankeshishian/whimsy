@@ -6385,3 +6385,213 @@ panel.whimsy-quick-note {
     border-color: currentColor;
   }
 }
+
+/* W11-15: the Hidden Spaces panel's rows: the space's tile, its name over
+   "N tabs · Profile", and a Locked pill at the end. */
+.whimsy-hidden-space {
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  min-height: 40px;
+  padding: 4px 8px;
+
+  &[aria-selected="true"] {
+    background-color: var(--whimsy-surface-hover);
+  }
+}
+.whimsy-hidden-space-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.whimsy-hidden-space-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whimsy-hidden-spaces-search {
+  margin-bottom: 6px;
+}
+.whimsy-hidden-spaces-empty {
+  gap: 4px;
+  padding: 12px 8px 8px;
+
+  & > .whimsy-surface-button {
+    margin-top: 8px;
+  }
+}
+
+/* W11-13: Move to a space (from private). */
+.whimsy-private-move-space {
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  min-height: 36px;
+
+  &[aria-selected="true"] {
+    background-color: var(--whimsy-surface-hover);
+  }
+}
+.whimsy-private-move-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whimsy-private-move-caption {
+  padding: 6px 8px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--whimsy-surface-muted);
+}
+.whimsy-private-move-hint,
+.whimsy-private-move-body {
+  margin: 8px 8px 2px;
+  font-size: 12px;
+  color: var(--whimsy-surface-muted);
+}
+.whimsy-private-move-body {
+  color: inherit;
+  font-size: 13px;
+  margin: 2px 4px 8px;
+}
+
+/* W11-14: the lock cover (private lock and Lock Space). Opaque, drawn from
+   the space's colours (--whimsy-lock-a/b), never the page. */
+#tabbrowser-tabbox:has(> .whimsy-lock-cover) {
+  position: relative;
+}
+.whimsy-lock-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  color: var(--toolbox-textcolor, currentColor);
+  background:
+    radial-gradient(120% 90% at 20% 10%, color-mix(in srgb, var(--whimsy-lock-a) 22%, transparent), transparent 60%),
+    radial-gradient(110% 90% at 90% 100%, color-mix(in srgb, var(--whimsy-lock-b) 22%, transparent), transparent 60%),
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 6%, light-dark(white, rgb(27 26 33)));
+  border-radius: inherit;
+
+  &[whole] {
+    position: fixed;
+    z-index: 2147483000;
+    /* The traffic lights stay usable: closing never needs an unlock. */
+    padding-top: 40px;
+  }
+}
+.whimsy-lock-cover-tile {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent);
+  color: var(--zen-primary-color, AccentColor);
+
+  & > image {
+    width: 20px;
+    height: 20px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+}
+.whimsy-lock-cover-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.whimsy-lock-cover-detail,
+.whimsy-lock-cover-error {
+  margin: 0;
+  max-width: 300px;
+  font-size: 12.5px;
+  text-wrap: pretty;
+  opacity: 0.7;
+}
+.whimsy-lock-cover-error {
+  display: none;
+  opacity: 1;
+  font-weight: 500;
+  color: light-dark(rgb(162 86 10), rgb(240 180 104));
+  .whimsy-lock-cover[failed] > & {
+    display: block;
+  }
+}
+
+/* Locked private tabs: a lock instead of the favicon (the label reads
+   "Private tab"); the Private Space shows one row. */
+.tabbrowser-tab[whimsy-private-locked] {
+  & .tab-icon-image,
+  & .tab-sharing-icon-overlay,
+  & .tab-icon-overlay {
+    visibility: hidden;
+  }
+  & .tab-icon-stack {
+    background: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg") center / 14px no-repeat;
+    -moz-context-properties: fill;
+    fill: var(--zen-primary-color, currentColor);
+  }
+  & .tab-label {
+    opacity: 0.7;
+  }
+}
+.tabbrowser-tab[whimsy-private-collapsed] {
+  display: none !important;
+}
+#zen-workspaces-button toolbarbutton[whimsy-private-space-locked] {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: -2px;
+    inset-block-end: -2px;
+    width: 9px;
+    height: 9px;
+    border-radius: 100%;
+    background: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg") center / 7px no-repeat,
+      color-mix(in srgb, var(--zen-primary-color, currentColor) 70%, transparent);
+    -moz-context-properties: fill;
+    fill: white;
+  }
+}
+/* The address bar reads "Locked" while a locked surface is selected. */
+:root[whimsy-private-selected-locked] #urlbar {
+  & .urlbar-input,
+  & #identity-box,
+  & #page-action-buttons {
+    visibility: hidden;
+  }
+  & .urlbar-input-container::after {
+    content: var(--whimsy-lock-urlbar-text, "");
+    position: absolute;
+    inset-inline-start: 12px;
+    align-self: center;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}
+
+/* W11-14: the first-run question. */
+.whimsy-private-lock-ask-body {
+  gap: 12px;
+  padding: 2px 4px 8px;
+
+  & .whimsy-surface-tile {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+  }
+}
+.whimsy-private-lock-ask-line {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--whimsy-surface-muted);
+  text-wrap: pretty;
+}
+.whimsy-private-lock-ask .whimsy-surface-footer > button {
+  flex: 1;
+}
+
+/* W11-14 (d14): a locked space behind the cover hides its tab list too. */
+zen-workspace[whimsy-space-covered] :is(.zen-workspace-pinned-tabs-section, .zen-workspace-normal-tabs-section) {
+  visibility: hidden;
+}
