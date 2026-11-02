@@ -5249,22 +5249,21 @@ panel.whimsy-sheet.whimsy-snooze {
     color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
   }
 }
-/* W13-R1 / F29: the unsaved-form marker. A status, not a control: a 7px
-   hollow ring (the unread dot's twin: filled = something new, hollow =
-   something unsaved), no fill, no hover state, not clickable. Its meaning
-   is in the tab's tooltip and accessible description
-   (WhimsyFormProtection.wrapTooltip). Protect This Tab with nothing typed
-   shows Zen's lock in the same slot.
+/* W13-R1 / F29: the unsaved-form marker, the user's pick B: an 11px pencil
+   with no backing, in the tab's muted text colour. A status, not a
+   control: no hover state, not clickable. Its meaning is in the tab's
+   tooltip and accessible description (WhimsyFormProtection.wrapTooltip).
+   Protect This Tab with nothing typed shows Zen's lock in the same slot.
    The element is placed by WhimsyFormProtection.placeMarker; everything
-   about WHERE it sits is the "F29 marker placement" block below, so a
-   different pick (B pencil, C underline) swaps that block only. */
+   about WHERE it sits is the "F29 marker placement" block below. */
 .whimsy-tab-form-marker {
   display: none;
   flex-shrink: 0;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 60%, transparent);
+  width: 11px;
+  height: 11px;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+  fill-opacity: 0.6;
   pointer-events: none;
 
   .tabbrowser-tab:is([whimsy-form-typed], [whimsy-form-manual]) & {
@@ -5274,7 +5273,7 @@ panel.whimsy-sheet.whimsy-snooze {
     }
   }
   @media (prefers-contrast: more) {
-    box-shadow: inset 0 0 0 1.5px currentColor;
+    fill-opacity: 1;
   }
 }
 @keyframes whimsy-form-marker-in {
@@ -5285,15 +5284,10 @@ panel.whimsy-sheet.whimsy-snooze {
 .whimsy-tab-form-marker[kind="lock"] {
   width: 10px;
   height: 10px;
-  border-radius: 0;
-  box-shadow: none;
-  -moz-context-properties: fill, fill-opacity;
-  fill: currentColor;
-  fill-opacity: 0.6;
   pointer-events: auto;
 }
 
-/* ---- F29 marker placement (option A) ---- */
+/* ---- F29 marker placement ---- */
 /* Rows: at the end of the row; the close (or reset) button takes the
    place while the row is hovered. */
 .whimsy-tab-form-marker {
@@ -5304,8 +5298,9 @@ panel.whimsy-sheet.whimsy-snooze {
   }
 }
 /* Tiles (Essentials; any tab in the collapsed sidebar): inside the tile,
-   6px from its bottom-start corner, opposite the unread dot (top-end).
-   Essentials anchor on the tab itself, as the unread dot does (W11-11). */
+   in its bottom-start corner (4px up, 5px in, as in the mockup), opposite
+   the unread dot (top-end). Essentials anchor on the tab itself, as the
+   unread dot does (W11-11). */
 .tabbrowser-tab[zen-essential] {
   position: relative;
 
@@ -5316,8 +5311,8 @@ panel.whimsy-sheet.whimsy-snooze {
 
   & .whimsy-tab-form-marker {
     position: absolute;
-    bottom: calc(var(--tab-margin-block, 0px) + 6px);
-    inset-inline-start: 6px;
+    bottom: calc(var(--tab-margin-block, 0px) + 4px);
+    inset-inline-start: 5px;
     margin: 0;
     z-index: 2;
   }
@@ -5325,9 +5320,14 @@ panel.whimsy-sheet.whimsy-snooze {
 :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab:not([zen-essential]) .whimsy-tab-form-marker {
   position: absolute;
   bottom: 4px;
-  inset-inline-start: 4px;
+  inset-inline-start: 5px;
   margin: 0;
   z-index: 2;
+}
+/* Collapsed, an Essential spans the whole sidebar width while its tile is
+   Firefox's collapsed tile width, centred: measure from the tile. */
+:root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab[zen-essential] .whimsy-tab-form-marker {
+  inset-inline-start: calc(50% - var(--tab-collapsed-background-width) / 2 + 5px);
 }
 /* ---- end F29 marker placement ---- */
 

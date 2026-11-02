@@ -423,8 +423,10 @@ add_task(async function test_pinned_reset_asks() {
   }
 });
 
-// F29 (option A): a 7px hollow ring inside the Essential's tile, and at the
-// end of a row. Old code drew a disc outside the tile's corner.
+// F29 (the user's pick B): an 11px pencil with no backing, inside the
+// Essential's tile and at the end of a row, hidden while the row is hovered
+// (the close button takes its place), and inside the tile in the collapsed
+// sidebar. Old code drew a disc outside the tile's corner.
 add_task(async function test_marker_inside_tile_and_row() {
   const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
   gZenPinnedTabManager.addToEssentials(essential);
@@ -446,7 +448,9 @@ add_task(async function test_marker_inside_tile_and_row() {
     const tile = essential.querySelector(".tab-background").getBoundingClientRect();
     ok(m.left >= tile.left && m.right <= tile.right && m.top >= tile.top && m.bottom <= tile.bottom,
       `inside the tile (${JSON.stringify(m)} in ${JSON.stringify(tile)})`);
-    ok(m.width <= 8 && m.height <= 8, "a 7px ring");
+    is(marker.getAttribute("src"), "chrome://browser/content/whimsy/whimsy-form-pencil.svg", "a pencil");
+    ok(Math.round(m.width) == 11 && Math.round(m.height) == 11, `11px (${m.width}x${m.height})`);
+    ok(m.left - tile.left <= 8 && tile.bottom - m.bottom <= 8, "in the tile's bottom-start corner");
     is(getComputedStyle(essential.querySelector(".tab-icon-stack"), "::before").content, "none", "no disc on the icon");
 
     const rowMarker = row.querySelector(".whimsy-tab-form-marker");
@@ -455,6 +459,29 @@ add_task(async function test_marker_inside_tile_and_row() {
     const r = rowMarker.getBoundingClientRect();
     const rowBox = row.getBoundingClientRect();
     ok(r.left >= rowBox.left && r.right <= rowBox.right, "inside the row");
+    ok(rowBox.right - r.right <= 12, "at the end of the row");
+
+    // Hovered, the row's close button takes the marker's place.
+    EventUtils.synthesizeMouseAtCenter(row, { type: "mousemove" });
+    await TestUtils.waitForCondition(() => row.matches(":hover"), "Row hovered");
+    ok(!rowMarker.checkVisibility(), "Hovered: no marker on the row");
+    EventUtils.synthesizeMouseAtCenter(document.getElementById("tabbrowser-tabpanels"), { type: "mousemove" });
+    await TestUtils.waitForCondition(() => rowMarker.checkVisibility(), "Away: the marker is back");
+
+    // The collapsed sidebar: the row is a tile, the pencil inside it.
+    await SpecialPowers.pushPrefEnv({ set: [["zen.view.sidebar-expanded", false]] });
+    try {
+      await TestUtils.waitForCondition(() => document.documentElement.getAttribute("zen-sidebar-expanded") != "true", "Collapsed");
+      const insideTile = (tab, pencil) => {
+        const box = tab.querySelector(".tab-background").getBoundingClientRect();
+        const pen = pencil.getBoundingClientRect();
+        return pencil.checkVisibility() && pen.left >= box.left && pen.right <= box.right && pen.top >= box.top && pen.bottom <= box.bottom;
+      };
+      await TestUtils.waitForCondition(() => insideTile(row, rowMarker), "Collapsed: the row's pencil is inside its tile");
+      ok(insideTile(essential, marker), "and the Essential's inside its (narrower) tile");
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
     BrowserTestUtils.removeTab(awayTab);
   } finally {
     BrowserTestUtils.removeTab(row);

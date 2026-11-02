@@ -1,0 +1,8 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!-- W13-R1 / F29 (pick B): the unsaved-form marker, a small pencil with no
+     backing. Stroked with context-fill so the tab's text colour draws it. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="context-fill" stroke-opacity="context-fill-opacity" stroke-width="1.5" stroke-linejoin="round">
+  <path d="M10.5 2.5l3 3-7.5 7.5H3v-3z"/>
+</svg>

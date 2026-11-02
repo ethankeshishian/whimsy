@@ -46,6 +46,8 @@ const MARKER_ICON = "chrome://browser/content/whimsy/whimsy-form-badge.svg";
 // same place. Typing takes precedence.
 const MANUAL_ATTR = "whimsy-form-manual";
 const LOCK_ICON = "chrome://browser/skin/zen-icons/selectable/lock-closed.svg";
+// F29, the user's pick B: a small pencil with no backing.
+const PENCIL_ICON = "chrome://browser/content/whimsy/whimsy-form-pencil.svg";
 const SNAPSHOT_KEY = "whimsy-formdata";
 const SNAPSHOT_MAX_BYTES = 64 * 1024;
 const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -372,11 +374,9 @@ export const WhimsyFormProtection = {
 
   // ---- F29 marker ----
 
-  // The one place that decides where the marker element lives. Option A
-  // (the mockups' recommendation): inside .tab-content, after the title;
-  // CSS ("F29 marker placement") puts it at the row's end or inside the
-  // tile's bottom-start corner. Swapping options B/C means changing this
-  // and that one CSS block.
+  // The one place that decides where the marker element lives: inside
+  // .tab-content, after the title; CSS ("F29 marker placement") puts it at
+  // the row's end or inside the tile's bottom-start corner.
   placeMarker(tab, marker) {
     const label = tab.querySelector(".tab-label-container");
     if (label) {
@@ -408,7 +408,7 @@ export const WhimsyFormProtection = {
       marker.setAttribute("role", "img");
       tab.ownerDocument.l10n.setAttributes(marker, "whimsy-tab-protected-marker");
     } else {
-      marker.removeAttribute("src");
+      marker.setAttribute("src", PENCIL_ICON);
       marker.setAttribute("aria-hidden", "true");
       marker.removeAttribute("role");
       marker.removeAttribute("data-l10n-id");
