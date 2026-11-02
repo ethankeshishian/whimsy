@@ -159,8 +159,7 @@ add_task(async function test_not_offered_for_normal_tabs() {
 });
 
 add_task(async function test_locked_target_cancelled_moves_nothing() {
-  // A space not visited in this test (Lock Space doesn't ask again within a
-  // minute of leaving a space).
+  // A locked space you haven't unlocked is covered (W13-C2).
   const space = await gZenWorkspaces.createAndSaveWorkspace("Vault", undefined, true);
   space.whimsyLocked = true;
   gZenWorkspaces.saveWorkspace(space);

@@ -19,23 +19,29 @@
 // WhimsySpaceArchive.sys.mjs); the gate itself wraps
 // ZenSpaceManager#changeWorkspace, the one function every way of switching
 // spaces (click, shortcut, command line, drag) funnels through. Canceling
-// the prompt leaves the previous space active. A space you left less than
-// relockMs() ago doesn't re-prompt on returning to it; longer than that, or
-// after a restart (lastLeft is in-memory only), it does.
+// the prompt keeps the cover (d14). See W13-C2 below for when it's covered.
 //
 // Known limitation: the switcher's own icon can still show a locked space's
 // name and custom icon/color while it's inactive (no hover-preview of tab
 // content exists to gate further, as far as this batch found); only the
 // tabs themselves are gated behind the prompt.
+//
+// W13-C2 (wave13/c2-lock-design.md): whether a locked space is covered is
+// computed, not remembered from the last switch into it. It's covered
+// unless you unlocked it (`open`) and either it's still active in some
+// window or you left it less than "Lock after" ago (whimsy.privateLock.
+// afterSeconds, default right away). The old rule only covered on entry
+// and never within a minute of leaving (RELOCK_MIN_MS), so "Lock Space,
+// switch away and back" (11-04) showed it unlocked. Every covered space's
+// tab strip is hidden (swipe previews too), sleep re-covers, a restart
+// starts covered, and removing the lock from a covered space asks first.
 
 const FEATURE_PREF = "whimsy.feature.space-lock";
+const AFTER_PREF = "whimsy.privateLock.afterSeconds";
 const MENU_ID = "whimsy-lock-space-menuitem";
 const LOCKED_ATTR = "whimsy-locked-space";
-// W11-14: the same timing as the private lock ("Lock after"), at least a
-// minute so returning to a space you just left doesn't ask again.
-const RELOCK_MIN_MS = 60 * 1000;
-function relockMs() {
-  return Math.max(RELOCK_MIN_MS, Services.prefs.getIntPref("whimsy.privateLock.afterSeconds", 0) * 1000);
+function afterMs() {
+  return Math.max(0, Services.prefs.getIntPref(AFTER_PREF, 0)) * 1000;
 }
 
 const lazy = {};
@@ -46,9 +52,15 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // Module-level (not per-window): spaces are synced across every window via
 // gZenWindowSync, so "left 2 minutes ago" has to mean the same thing
 // everywhere.
+// Locked spaces unlocked with Touch ID or the password.
+const open = new Set();
+// When an unlocked locked space stopped being active in every window.
 const lastLeft = new Map();
-// Locked spaces entered but not unlocked yet (they show the cover).
-const covered = new Set();
+// Unlocked from outside (Show Hidden Spaces, Move To) for the switch that
+// follows: when.
+const tickets = new Map();
+const TICKET_MS = 10 * 1000;
+let relockTimer = null;
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -75,7 +87,16 @@ export const WhimsySpaceLock = {
       ],
     });
     this.applyBadges(win);
-    const refresh = () => this.applyBadges(win);
+    this.initGlobal();
+    // A restored locked space starts covered. Selecting a tab in a covered
+    // space (the switch itself, a link routed there) draws the cover before
+    // the page paints: WhimsyPrivateLock.render runs on every TabSelect and
+    // ends with renderCover, so the address bar and window title follow.
+    lazy.WhimsyPrivateLock.render(win);
+    const refresh = () => {
+      this.applyBadges(win);
+      lazy.WhimsyPrivateLock.render(win);
+    };
     win.addEventListener("ZenWorkspaceDataChanged", refresh);
     win.addEventListener("ZenWorkspacesUIUpdate", refresh);
     win.addEventListener("unload", () => {
@@ -87,8 +108,9 @@ export const WhimsySpaceLock = {
   // d14 (W11-14): switching to a locked space is no longer refused. The
   // space opens behind the shared lock cover (WhimsyPrivateLock's), its tab
   // list hidden, and Touch ID is asked for at once (as the private lock
-  // does); Unlock on the cover asks again. Returning within the grace
-  // window, or after an unlock, shows it straight away.
+  // does); Unlock on the cover asks again. W13-C2: whether it's covered is
+  // isCovered(); this only settles the target and starts the clock on the
+  // space you left.
   wrapChangeWorkspace(win) {
     const workspaces = win.gZenWorkspaces;
     const original = workspaces.changeWorkspace;
@@ -98,17 +120,22 @@ export const WhimsySpaceLock = {
     const self = this;
     const wrapped = async function (workspace, ...args) {
       const previousId = this.activeWorkspace;
-      if (workspace && previousId != workspace.uuid) {
-        lastLeft.set(previousId, Date.now());
-      }
-      const needsUnlock = featureOn() && workspace?.whimsyLocked && previousId != workspace.uuid &&
-        !self.recentlyLeft(workspace.uuid);
-      if (needsUnlock) {
-        covered.add(workspace.uuid);
+      const switching = !!workspace && previousId != workspace.uuid;
+      if (switching && featureOn() && workspace.whimsyLocked && !self.isOpen(workspace.uuid)) {
+        // Left too long ago: it's closed again before it's shown.
+        open.delete(workspace.uuid);
       }
       const result = await original.call(this, workspace, ...args);
-      self.renderCover(win);
-      if (needsUnlock && this.activeWorkspace == workspace.uuid) {
+      if (switching) {
+        self.noteLeft(previousId);
+        if (this.activeWorkspace == workspace.uuid) {
+          lastLeft.delete(workspace.uuid);
+          tickets.delete(workspace.uuid);
+        }
+      }
+      self.renderAll();
+      if (switching && this.activeWorkspace == workspace.uuid && self.isCovered(workspace.uuid)) {
+        // Landing on it asks at once (d6), as the private lock does.
         self.unlockCovered(win, workspace);
       }
       return result;
@@ -117,33 +144,110 @@ export const WhimsySpaceLock = {
     workspaces.changeWorkspace = wrapped;
   },
 
-  recentlyLeft(uuid) {
-    const at = lastLeft.get(uuid);
-    return !!at && Date.now() - at < relockMs();
+  initGlobal() {
+    if (this._global) {
+      return;
+    }
+    this._global = true;
+    // Mac sleep closes every unlocked space again (d4).
+    Services.obs.addObserver(() => this.lockAll(), "sleep_notification");
+    Services.prefs.addObserver(AFTER_PREF, () => this.renderAll());
+  },
+
+  windows() {
+    return [...Services.wm.getEnumerator("navigator:browser")].filter(w => !w.closed && w.gZenWorkspaces);
+  },
+
+  activeAnywhere(uuid) {
+    return this.windows().some(w => w.gZenWorkspaces.activeWorkspace == uuid);
+  },
+
+  space(uuid) {
+    for (const w of this.windows()) {
+      const found = w.gZenWorkspaces.getWorkspaces?.().find(s => s.uuid == uuid);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  },
+
+  // Unlocked, and in front somewhere, left less than "Lock after" ago, or
+  // unlocked for a switch that's about to happen. Anything else (a path
+  // that left it without going through changeWorkspace) is covered.
+  isOpen(uuid) {
+    if (!open.has(uuid)) {
+      return false;
+    }
+    if (this.activeAnywhere(uuid)) {
+      return true;
+    }
+    const now = Date.now();
+    if (now - (tickets.get(uuid) ?? -Infinity) < TICKET_MS) {
+      return true;
+    }
+    return now - (lastLeft.get(uuid) ?? -Infinity) < afterMs();
   },
 
   isCovered(uuid) {
-    return covered.has(uuid);
+    return !!uuid && featureOn() && !!this.space(uuid)?.whimsyLocked && !this.isOpen(uuid);
+  },
+
+  // An unlocked locked space left the screen: its "Lock after" clock
+  // starts, and it's covered again when that runs out.
+  noteLeft(uuid) {
+    if (!uuid || !open.has(uuid) || this.activeAnywhere(uuid)) {
+      return;
+    }
+    if (!afterMs()) {
+      open.delete(uuid);
+      lastLeft.delete(uuid);
+      return;
+    }
+    lastLeft.set(uuid, Date.now());
+    relockTimer?.cancel();
+    relockTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+    relockTimer.initWithCallback(() => {
+      relockTimer = null;
+      this.renderAll();
+    }, afterMs() + 50, Ci.nsITimer.TYPE_ONE_SHOT);
+  },
+
+  lockAll() {
+    if (!open.size) {
+      return;
+    }
+    open.clear();
+    lastLeft.clear();
+    tickets.clear();
+    this.renderAll();
   },
 
   // The cover over the active space while it's locked, and its tab list
   // hidden; gone in every window once it's unlocked.
   renderCover(win) {
-    if (win.closed || !win.gZenWorkspaces) {
+    if (win.closed || !win.gZenWorkspaces?.workspaceEnabled) {
       return;
     }
-    const active = win.gZenWorkspaces.getActiveWorkspace?.();
-    for (const el of win.document.querySelectorAll("zen-workspace[whimsy-space-covered]")) {
-      el.removeAttribute("whimsy-space-covered");
+    // Every covered space's tab list is hidden, not only the active one's:
+    // a swipe slides the next space's strip in before it switches.
+    for (const space of win.gZenWorkspaces.getWorkspaces?.() ?? []) {
+      win.gZenWorkspaces.workspaceElement?.(space.uuid)
+        ?.toggleAttribute("whimsy-space-covered", this.isCovered(space.uuid));
     }
-    const isCovered = featureOn() && !!active?.whimsyLocked && covered.has(active.uuid);
+    const active = win.gZenWorkspaces.getActiveWorkspace?.();
+    const isCovered = this.isCovered(active?.uuid);
     win.document.documentElement.toggleAttribute("whimsy-space-covered", isCovered);
     const lock = lazy.WhimsyPrivateLock;
     if (!isCovered) {
       lock.hideCover(win, "space-lock");
       return;
     }
-    win.gZenWorkspaces.workspaceElement?.(active.uuid)?.setAttribute("whimsy-space-covered", "");
+    // A locked private tab in front keeps its own cover; this one follows
+    // once that unlocks (WhimsyPrivateLock.render calls back here).
+    if (lock.hasPrivateCover(win)) {
+      return;
+    }
     lock.showCoverFor(win, {
       kind: "space-lock",
       titleL10nId: "whimsy-space-lock-cover-title",
@@ -154,13 +258,13 @@ export const WhimsySpaceLock = {
   },
 
   renderAll() {
-    for (const w of Services.wm.getEnumerator("navigator:browser")) {
-      this.renderCover(w);
+    for (const w of this.windows()) {
+      lazy.WhimsyPrivateLock.render(w);
     }
   },
 
   async unlockCovered(win, workspace) {
-    if (!covered.has(workspace.uuid)) {
+    if (!this.isCovered(workspace.uuid)) {
       return true;
     }
     // Paint the cover before the system sheet.
@@ -169,10 +273,17 @@ export const WhimsySpaceLock = {
       win.document.querySelector(".whimsy-lock-cover")?.toggleAttribute("failed", true);
       return false;
     }
-    covered.delete(workspace.uuid);
-    lastLeft.delete(workspace.uuid);
-    this.renderAll();
+    this.markOpen(workspace.uuid);
     return true;
+  },
+
+  markOpen(uuid, { forSwitch = false } = {}) {
+    open.add(uuid);
+    lastLeft.delete(uuid);
+    if (forSwitch) {
+      tickets.set(uuid, Date.now());
+    }
+    this.renderAll();
   },
 
   /**
@@ -181,17 +292,14 @@ export const WhimsySpaceLock = {
    * already. False when cancelled.
    */
   async ensureUnlocked(win, workspace) {
-    if (!featureOn() || !workspace?.whimsyLocked || this.recentlyLeft(workspace.uuid) ||
-        win.gZenWorkspaces.activeWorkspace == workspace.uuid && !covered.has(workspace.uuid)) {
+    if (!this.isCovered(workspace?.uuid)) {
       return true;
     }
     if (!(await this.authenticate(win, workspace))) {
       return false;
     }
-    covered.delete(workspace.uuid);
-    // Counts as just left, so the switch that follows doesn't ask again.
-    lastLeft.set(workspace.uuid, Date.now());
-    this.renderAll();
+    // Open for the switch that follows, so it doesn't ask again.
+    this.markOpen(workspace.uuid, { forSwitch: true });
     return true;
   },
 
@@ -257,22 +365,33 @@ export const WhimsySpaceLock = {
     }
   },
 
-  toggleLocked(win, uuid) {
+  /**
+   * Lock This Space / Unlock This Space. Removing the lock from a covered
+   * space asks first (otherwise the menu is a way around the lock). Locking
+   * a space you're in leaves it showing until you leave it.
+   */
+  async toggleLocked(win, uuid) {
     const workspace = win.gZenWorkspaces.getWorkspaces().find(w => w.uuid == uuid);
     if (!workspace) {
-      return;
+      return false;
+    }
+    if (workspace.whimsyLocked && this.isCovered(uuid) && !(await this.authenticate(win, workspace))) {
+      return false;
     }
     workspace.whimsyLocked = !workspace.whimsyLocked;
-    if (!workspace.whimsyLocked) {
-      lastLeft.delete(workspace.uuid);
-      covered.delete(workspace.uuid);
-      this.renderAll();
+    open.delete(uuid);
+    lastLeft.delete(uuid);
+    tickets.delete(uuid);
+    if (workspace.whimsyLocked && this.activeAnywhere(uuid)) {
+      open.add(uuid);
     }
     win.gZenWorkspaces.saveWorkspace(workspace);
+    this.renderAll();
     this.applyBadges(win);
     win.gZenUIManager?.showToast?.(
       workspace.whimsyLocked ? "whimsy-lock-space-toast" : "whimsy-unlock-space-toast",
       { l10nArgs: { space: workspace.name || "" } }
     );
+    return true;
   },
 };
