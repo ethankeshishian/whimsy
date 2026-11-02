@@ -21,6 +21,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
@@ -118,6 +119,23 @@ export const WhimsyPageActions = {
       },
     });
     win.gBrowser.tabContainer.addEventListener("TabSelect", () => this.update(win));
+    // W13: the address bar button as a command (command bar, a shortcut of
+    // your own); the command bar names what it does on this page.
+    const offered = (w, kind) => {
+      const action = this.enabled ? this.actionFor(w.gBrowser.selectedBrowser) : null;
+      return !!action && (!kind || action.kind == kind) && this.available(w, action);
+    };
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyPageAction",
+      l10nId: "whimsy-action-page-action",
+      run: w => offered(w) && this.run(w),
+      icon: ICONS.recipe,
+      isAvailable: w => offered(w),
+      variants: Object.keys(ICONS).map(kind => ({
+        l10nId: `whimsy-action-page-action-${kind}`,
+        isAvailable: w => offered(w, kind),
+      })),
+    });
   },
 
   // --- What the page said ---

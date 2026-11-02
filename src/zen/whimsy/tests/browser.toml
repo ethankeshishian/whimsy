@@ -565,6 +565,10 @@ support-files = [
   "whimsy_slow_load.sjs",
 ]
 
+# W13 F05: the page-action button looks like its address bar neighbours (option B), and is a command.
+["browser_whimsy_page_action_look.js"]
+support-files = ["whimsy_page_actions.html"]
+
 # wave6/parity: the Archive's own store (no 25-tab loss), Clear Archive.
 ["browser_whimsy_archive_store.js"]
 

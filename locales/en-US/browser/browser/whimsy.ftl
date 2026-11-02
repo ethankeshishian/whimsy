@@ -2577,6 +2577,14 @@ whimsy-trails-setting =
 ## $name - what the page describes (event, place, recipe...), as the page names it
 ## $state - open, closed or unknown (the place's listed hours, now)
 
+## W13 F05: the address bar button as a command. The command bar names
+## what it does on the page in front.
+whimsy-action-page-action = Address Bar Page Action
+whimsy-action-page-action-event = Add Event to Calendar
+whimsy-action-page-action-place = Open Place in Maps
+whimsy-action-page-action-recipe = Open Cook Mode
+whimsy-action-page-action-product = Watch Price
+whimsy-action-page-action-parcel = Track Package
 whimsy-page-action-event = Add to Calendar
 whimsy-page-action-event-tooltip =
     .tooltiptext = Add “{ $name }” to Calendar
