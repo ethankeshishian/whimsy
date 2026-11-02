@@ -823,3 +823,6 @@ support-files = ["whimsy_highlight.html"]
 # MediaStreams) captioned over its largest tile, and in its PiP window.
 ["browser_whimsy_call_captions.js"]
 support-files = ["whimsy_call_captions.html"]
+
+# B7: one "Tabs Below" row in the real tab menu and the command bar.
+["browser_whimsy_tab_menu_below.js"]

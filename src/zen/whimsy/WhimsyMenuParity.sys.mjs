@@ -120,7 +120,10 @@ function commandSpecs() {
       l10nId: "whimsy-action-archive-tabs-below",
       icon: ICON("arrow-down"),
       run: w => lazy.WhimsyArchiveMenu.archiveTabsBelow(w, currentTab(w)),
-      isAvailable: w => lazy.WhimsyArchiveMenu.tabsBelow(w, currentTab(w)).length > 0,
+      // B7: one "… Tabs Below" row, as in the tab menu (F15): Archive when
+      // closed tabs are archived, else Close.
+      isAvailable: w => lazy.WhimsyArchiveMenu.archives(w, [currentTab(w)]) &&
+        lazy.WhimsyArchiveMenu.tabsBelow(w, currentTab(w)).length > 0,
     },
     {
       id: "cmd_whimsyCloseDuplicateTabs",
@@ -141,7 +144,8 @@ function commandSpecs() {
       l10nId: "whimsy-action-close-tabs-below",
       icon: ICON("arrow-down"),
       run: w => w.gBrowser.removeTabsToTheEndFrom(currentTab(w)),
-      isAvailable: w => w.gBrowser._getTabsToTheEndFrom(currentTab(w)).length > 0,
+      isAvailable: w => !lazy.WhimsyArchiveMenu.archives(w, [currentTab(w)]) &&
+        w.gBrowser._getTabsToTheEndFrom(currentTab(w)).length > 0,
     },
     {
       id: "cmd_whimsySelectAllTabs",

@@ -2789,9 +2789,11 @@ whimsy-tab-context-archive-tabs =
         }
 whimsy-tab-context-archive-tabs-below =
     .label = Archive Tabs Below
+    .accesskey = i
 # Shown instead when closed tabs aren't archived (a private tab, or the Archive is off).
 whimsy-tab-context-close-tabs-below =
     .label = Close Tabs Below
+    .accesskey = i
 # $tabCount (number) - how many tabs the last close took (Shift+Cmd+T brings them back)
 whimsy-tab-context-restore-closed-tabs =
     .label =
