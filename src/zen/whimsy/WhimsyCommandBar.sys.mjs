@@ -284,15 +284,17 @@ function liquidGlassSupported() {
 }
 
 // W10-27: the floating command bar (⌘T, ⌘L, the private bar, Mini's ⌘T)
-// opens with a short, subtle scale-and-fade and closes a little faster, the
-// way Arc's command bar does. Zen draws the bar centred with
-// `translate: -50% 0`, so the motion animates the `translate` and `scale`
-// properties around that base and never `transform`. Opening is noticed
-// from the bar's own attributes; closing goes through a one-line hotfix in
-// the urlbar's #closePopover (overlay.py "command-bar-motion-close"), which
-// lets the bar finish its close animation before Zen hides it. Zen's state
-// (focus, the new-tab session, the page's URL) changes at once as before:
-// only the hiding waits, and a reopen during it finishes the hide first.
+// opens with a short, subtle scale-and-fade, the way Arc's command bar does.
+// Zen draws the bar centred with `translate: -50% 0`, so the motion animates
+// the `translate` and `scale` properties around that base and never
+// `transform`. Opening is noticed from the bar's own attributes; the
+// animation only plays over a bar Zen has already opened.
+//
+// C1 (wave 13): closing is Zen's own, synchronous and unchanged. The
+// earlier close motion deferred Zen's hide (a hotfix in the urlbar's
+// #closePopover): the bar's state closed while it stayed on screen, which
+// showed the sidebar bar behind it and let old text leak into the next
+// session.
 export const MOTION_FEATURE_PREF = "whimsy.feature.command-bar-motion";
 export const COMMAND_BAR_MOTION = {
   open: { duration: 160, easing: "cubic-bezier(0.2, 0, 0, 1)", scale: 0.97, rise: 6 },
@@ -300,45 +302,23 @@ export const COMMAND_BAR_MOTION = {
   openReduced: { duration: 100, easing: "linear" },
   closeReduced: { duration: 80, easing: "linear" },
 };
-// How long past its duration a close animation may run before the hide is
-// finished anyway.
-const CLOSE_GRACE_MS = 250;
 
 export class CommandBarMotion {
   #win;
   #shown = false;
   #animation = null;
-  #closing = null;
-  // The visible amount (0-1) a hide was interrupted at, so the next open
-  // starts from there instead of from nothing.
-  #resumeFrom = 0;
 
   constructor(win) {
     this.#win = win;
     const urlbar = win.gURLBar;
     this.#shown = this.#isFloatingOpen(urlbar);
-    this.observer = new win.MutationObserver(() => this.#onAttributes());
-    this.observer.observe(urlbar, { attributes: true, attributeFilter: ["open", "zen-floating-urlbar"] });
+    this.observer = new win.MutationObserver(records => this.#onAttributes(records));
+    this.observer.observe(urlbar, {
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ["open", "zen-floating-urlbar"],
+    });
     win.addEventListener("unload", () => this.observer.disconnect(), { once: true });
-    // A new session started while the last one animates out (Cmd+T,
-    // Cmd+Option+T, a click that focuses the field) first finishes that
-    // hide, so it opens from a closed bar as Zen expects. Without this the
-    // hide ran a moment later and took the new session's focus with it.
-    const motion = this;
-    const flushFirst = original =>
-      function (...args) {
-        if (motion.#closing) {
-          motion.flushClose(win.gURLBar);
-        }
-        return original.apply(this, args);
-      };
-    if (typeof urlbar.focus == "function") {
-      urlbar.focus = flushFirst(urlbar.focus);
-    }
-    const ui = win.gZenUIManager;
-    if (typeof ui?.handleNewTab == "function") {
-      ui.handleNewTab = flushFirst(ui.handleNewTab);
-    }
   }
 
   get enabled() {
@@ -357,10 +337,6 @@ export class CommandBarMotion {
     return this.#animation;
   }
 
-  get closing() {
-    return !!this.#closing;
-  }
-
   #isFloatingOpen(urlbar) {
     return urlbar.getAttribute("zen-floating-urlbar") == "true" && urlbar.hasAttribute("open");
   }
@@ -369,9 +345,8 @@ export class CommandBarMotion {
   // Mini's bar-only panel), so the bar never jumps sideways.
   #frames(kind) {
     const urlbar = this.#win.gURLBar;
-    const reduced = this.reduced;
     const spec = COMMAND_BAR_MOTION[kind];
-    if (reduced) {
+    if (this.reduced) {
       return kind == "open"
         ? [{ opacity: 0 }, { opacity: 1 }]
         : [{ opacity: 1 }, { opacity: 0 }];
@@ -394,6 +369,8 @@ export class CommandBarMotion {
     const urlbar = this.#win.gURLBar;
     if (urlbar.getAttribute("zen-floating-urlbar") != "true") {
       this.#shown = false;
+      this.#animation?.cancel();
+      this.#animation = null;
       return;
     }
     if (this.#shown || !urlbar.hasAttribute("open")) {
@@ -405,25 +382,11 @@ export class CommandBarMotion {
 
   playOpen() {
     const urlbar = this.#win.gURLBar;
-    const resume = this.#resumeFrom;
-    this.#resumeFrom = 0;
     if (!this.enabled || this.#win.document.hidden) {
       return null;
     }
-    // A reopen supersedes a hide still running (Zen's open is already
-    // under way): drop it without hiding the bar again.
-    if (this.#closing) {
-      this.#win.clearTimeout(this.#closing.timer);
-      this.#closing = null;
-      urlbar.removeAttribute("whimsy-closing");
-    }
     this.#animation?.cancel();
-    const timing = this.#timing("open");
-    const animation = urlbar.animate(this.#frames("open"), { ...timing, id: "whimsy-command-bar-open" });
-    if (resume > 0) {
-      // A reopen during the hide: carry on from what is on screen.
-      animation.currentTime = timing.duration * Math.min(resume, 1);
-    }
+    const animation = urlbar.animate(this.#frames("open"), { ...this.#timing("open"), id: "whimsy-command-bar-open" });
     this.#animation = animation;
     animation.finished.then(
       () => {
@@ -434,93 +397,6 @@ export class CommandBarMotion {
       () => {}
     );
     return animation;
-  }
-
-  // Called by the urlbar's #closePopover with the part of Zen's close that
-  // hides the bar. Returns true when it will run `finish` itself, after the
-  // close animation; false means the caller runs it now.
-  deferClose(urlbar, finish) {
-    if (this.#closing) {
-      return true;
-    }
-    if (
-      !this.enabled ||
-      urlbar != this.#win.gURLBar ||
-      urlbar.getAttribute("zen-floating-urlbar") != "true" ||
-      !urlbar.matches(":popover-open") ||
-      this.#win.document.hidden ||
-      this.#win.windowState == this.#win.STATE_MINIMIZED
-    ) {
-      return false;
-    }
-    // What is visible now: an open still running starts the hide from there.
-    let shownAmount = 1;
-    const running = this.#animation;
-    if (running?.id == "whimsy-command-bar-open" && running.playState == "running") {
-      shownAmount = Math.min(1, (running.currentTime ?? 0) / running.effect.getTiming().duration);
-    }
-    running?.cancel();
-    urlbar.setAttribute("whimsy-closing", "true");
-    const timing = this.#timing("close");
-    const animation = urlbar.animate(this.#frames("close"), {
-      ...timing,
-      id: "whimsy-command-bar-close",
-      fill: "forwards",
-    });
-    if (shownAmount < 1) {
-      animation.currentTime = timing.duration * (1 - shownAmount);
-    }
-    this.#animation = animation;
-    // The hide always ends: when the animation finishes, when it's cancelled
-    // (a reopen, or Gecko dropping it), or, if its timeline never gets there
-    // (a throttled or occluded window), shortly after it should have.
-    // Without that, #closing stayed set, every later close was "deferred"
-    // to it, and the view never closed again (a 20s hang in tests).
-    const timer = this.#win.setTimeout(() => this.#finishClose(animation), timing.duration + CLOSE_GRACE_MS);
-    this.#closing = { finish, animation, timer };
-    animation.finished.then(
-      () => this.#finishClose(animation),
-      () => this.#finishClose(animation)
-    );
-    return true;
-  }
-
-  #finishClose(animation) {
-    const closing = this.#closing;
-    if (!closing || closing.animation != animation) {
-      return;
-    }
-    this.#closing = null;
-    this.#win.clearTimeout(closing.timer);
-    // The hide below and a reopen right after it reach the observer as one
-    // batch; the next open must still animate.
-    this.#shown = false;
-    try {
-      closing.finish();
-    } catch (e) {
-      console.error("Whimsy: command bar close", e);
-    } finally {
-      this.#win.gURLBar.removeAttribute("whimsy-closing");
-      animation.cancel();
-      if (this.#animation == animation) {
-        this.#animation = null;
-      }
-    }
-  }
-
-  // Called by the urlbar's #openPopover before it opens: a hide still
-  // running ends now, so Zen opens from a closed bar as it expects, and the
-  // open animation picks up from what was on screen.
-  flushClose(urlbar) {
-    const closing = this.#closing;
-    if (!closing || urlbar != this.#win.gURLBar) {
-      return;
-    }
-    const { animation } = closing;
-    const duration = animation.effect.getTiming().duration;
-    const progress = Math.min(1, (animation.currentTime ?? 0) / duration);
-    this.#resumeFrom = 1 - progress;
-    this.#finishClose(animation);
   }
 }
 

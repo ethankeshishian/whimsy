@@ -4359,8 +4359,7 @@ whimsy-library-easels-section .zen-library-empty {
   & #tabbrowser-tabbox {
     visibility: hidden;
   }
-  & #urlbar[zen-floating-urlbar="true"],
-  & #urlbar[whimsy-closing][zen-floating-urlbar="true"] {
+  & #urlbar[zen-floating-urlbar="true"] {
     top: 0 !important;
     left: 0 !important;
     translate: none !important;
@@ -4574,11 +4573,8 @@ panel.whimsy-teach {
 }
 
 /* Open: the same selector Zen floats the bar with, so both change in one
-   style flush and paint in one frame. W10-27: while the bar plays its
-   close (whimsy-closing, before Zen hides it) the trim stays, so it fades
-   and scales out with the bar instead of vanishing first. */
-:root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim,
-:root[whimsy-season-decor] #urlbar[whimsy-closing][zen-floating-urlbar="true"] > .whimsy-season-trim {
+   style flush and paint in one frame. */
+:root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
   /* Matches .urlbar-background, which overhangs the bar while it's open. */
   inset: calc(-1 * var(--urlbar-background-overhang-open, 0px));
   visibility: visible;
@@ -6272,54 +6268,10 @@ panel.whimsy-sheet.whimsy-snooze {
   from { opacity: 0.35; }
 }
 
-/* W10-27: the floating command bar's motion (WhimsyCommandBarMotion in
-   WhimsyCommandBar.sys.mjs) scales from its top edge, and ignores the
-   pointer while it closes so a click lands on the page under it. */
+/* W10-27: the floating command bar's open motion (WhimsyCommandBarMotion
+   in WhimsyCommandBar.sys.mjs) scales from its top edge. */
 #urlbar[zen-floating-urlbar="true"] {
   transform-origin: 50% 0;
-}
-
-#urlbar[whimsy-closing] {
-  pointer-events: none;
-}
-
-/* W10-27, F21: while animating out, the floating bar keeps its full floating
-   geometry (Zen's #urlbar[open][zen-floating-urlbar="true"]) even though
-   UrlbarView.close has removed [open], so the exit motion animates in place. */
-#urlbar[whimsy-closing][zen-floating-urlbar="true"] {
-  z-index: 1000 !important;
-  max-width: unset !important;
-  --urlbar-container-height: 62px !important;
-  --urlbar-margin-inline: 12px !important;
-
-  min-width: min(90%, 62rem) !important;
-  width: var(--zen-urlbar-width, min(90%, 62rem)) !important;
-  font-size: 1.15em !important;
-  @media (-moz-platform: macos) {
-    font-size: 1.5em !important;
-  }
-  top: var(--zen-urlbar-top) !important;
-  translate: -50% 0% !important;
-  left: 50% !important;
-
-  /* stylelint-disable-next-line stylelint-plugin-mozilla/no-has-selector */
-  #urlbar-container:has(&) {
-    border-radius: var(--border-radius-medium);
-    background: var(--toolbarbutton-background-color-hover);
-    height: var(--urlbar-height) !important;
-    margin-inline: 0.15rem !important;
-    :root:not([zen-single-toolbar="true"]) & {
-      max-height: var(--size-item-large) !important;
-      min-height: unset !important;
-      margin-block: -1px !important;
-    }
-  }
-}
-
-#urlbar[whimsy-closing][zen-floating-urlbar="true"] #identity-icon-box {
-  --urlbar-box-hover-bgcolor: transparent;
-  margin-inline: 2px 4px;
-  transition: none;
 }
 
 /* W10-26: the Quick Note card (New Note). The Edit Space Look family

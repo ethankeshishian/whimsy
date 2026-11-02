@@ -273,7 +273,7 @@ index 9bf6ad33a0f777638ee5929526978cb801d245ef..4a168047b1b085ee1ffeffe6e2374002
 +
    #openPopover() {
 -    if (this.panel.matches(":popover-open")) {
-+    this.window.WhimsyCommandBarMotion?.flushClose(this); if (!this.#canOpenPopover || this.matches(":popover-open")) { // Whimsy hotfix (W10-27)
++    if (!this.#canOpenPopover || this.matches(":popover-open")) {
 +      // Do not expand if the Urlbar can't be expanded right now or is already
 +      // expanded.
        return;
@@ -335,7 +335,7 @@ index 9bf6ad33a0f777638ee5929526978cb801d245ef..4a168047b1b085ee1ffeffe6e2374002
 +      this.window.document.documentElement.removeAttribute("supress-primary-adjustment");
 +    }, 100);
 +    this.window.gZenUIManager.onUrlbarClose();
-+    const whimsyHide = () => { this.removeAttribute("zen-floating-urlbar"); // Whimsy hotfix (W10-27)
++    this.removeAttribute("zen-floating-urlbar");
 +    this.toggleAttribute("breakout-extend", false);
 +    this.#updateTextboxPosition();
 +
@@ -344,7 +344,7 @@ index 9bf6ad33a0f777638ee5929526978cb801d245ef..4a168047b1b085ee1ffeffe6e2374002
 +    }
 +    if (this.#isAddressbar) {
 +      this.removeAttribute("popover");
-+    } }; if (!this.window.WhimsyCommandBarMotion?.deferClose(this, whimsyHide)) { whimsyHide(); }
++    }
    }
  
    /**
