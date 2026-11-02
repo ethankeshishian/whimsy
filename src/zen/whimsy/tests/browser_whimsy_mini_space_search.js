@@ -90,7 +90,9 @@ add_task(async function flat_list_with_profile_labels() {
     await hidden;
     ok(!doc.getElementById("whimsy-quick-window-open").hasAttribute("searching"), "Esc puts Open in Space back");
     ok(doc.getElementById("whimsy-quick-window-move-to-space").checkVisibility(), "Open in Space button is visible again");
-    is(doc.activeElement?.id, "whimsy-quick-window-choose-space", "and the keyboard on the caret");
+    // F19: ⌘⇧O came from the page, so the keyboard goes back there (the
+    // caret used to be left lit).
+    is(doc.activeElement, win.gBrowser.selectedBrowser, "and the keyboard back on the page");
   } finally {
     await BrowserTestUtils.closeWindow(win);
   }
@@ -145,4 +147,22 @@ add_task(async function arrows_and_return_open_in_the_space() {
     () => gBrowser.tabs.some(t => t.userContextId == work && t.linkedBrowser.currentURI.spec == "https://example.com/"),
     "The page is in Quarterly Plans' profile"
   );
+});
+
+// F19: after ⌘⇧O from the page, Esc gives the keyboard back to the page;
+// the caret isn't left lit with a focus ring.
+add_task(async function esc_after_shortcut_leaves_no_lit_button() {
+  const win = await openMini();
+  try {
+    win.gBrowser.selectedBrowser.focus();
+    const { doc, panel } = await openSearch(win);
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    await TestUtils.waitForCondition(() => panel.state == "closed", "Esc closes the list");
+    const caret = doc.getElementById("whimsy-quick-window-choose-space");
+    ok(!caret.matches(":focus-visible"), "The caret has no focus ring");
+    ok(!caret.hasAttribute("open"), "...and doesn't read as pressed");
+    is(doc.activeElement, win.gBrowser.selectedBrowser, "The page has the keyboard again");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
 });

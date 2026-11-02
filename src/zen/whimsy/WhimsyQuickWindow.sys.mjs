@@ -2060,7 +2060,7 @@ export const WhimsyQuickWindow = {
         input.setAttribute("aria-expanded", "false");
         input.removeAttribute("aria-activedescendant");
         input.value = "";
-        // Back to where the keyboard was (the caret, for ⌘⇧O and the caret).
+        // Back to where the keyboard was (F19: the page after ⌘⇧O).
         const back = panel._whimsyRestoreFocus;
         panel._whimsyRestoreFocus = null;
         if (!panel._whimsyChose && back?.isConnected && back.focus) {
@@ -2070,8 +2070,14 @@ export const WhimsyQuickWindow = {
       });
       document.getElementById("mainPopupSet")?.appendChild(panel) ?? document.documentElement.appendChild(panel);
     }
+    // F19: back to what had the keyboard: the caret only when it was the
+    // caret (Tab, then Space); after ⌘⇧O from the page, the page, so the
+    // caret isn't left lit with a focus ring.
+    const fromBar = restoreFocus && restoreFocus != document.body && restoreFocus != document.documentElement &&
+      restoreFocus.closest?.(`#${OPEN_GROUP_ID}`);
     panel._whimsyRestoreFocus = restoreFocus?.id == SPACE_SEARCH_ID ? null :
-      (anchor?.id == OPEN_GROUP_ID ? document.getElementById(CHOOSE_BUTTON_ID) : restoreFocus);
+      fromBar ? document.getElementById(CHOOSE_BUTTON_ID) :
+      restoreFocus?.localName == "browser" ? restoreFocus : win.gBrowser?.selectedBrowser ?? restoreFocus;
     panel._whimsyChose = false;
     const list = panel.querySelector(".whimsy-mini-picker-list");
     const empty = panel.querySelector(".whimsy-mini-picker-empty");
