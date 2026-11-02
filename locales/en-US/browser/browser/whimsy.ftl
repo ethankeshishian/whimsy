@@ -4528,14 +4528,16 @@ whimsy-form-unload-title = { $count ->
    *[other] Unload { $count } tabs with forms?
 }
 # $host (string) - the site, like "example.com"
-whimsy-form-unload-body = You started a form on <b>{ $host }</b>. Whimsy keeps what you typed and fills it back in when you come back.
+whimsy-form-unload-body = You started a form on <b>{ $host }</b>. Save what you typed, and Whimsy fills it back in when you come back.
 whimsy-form-unload-body-private = You started a form on <b>{ $host }</b>. Whimsy keeps what you typed until you close your private tabs.
 # $count (number) - tabs with forms
-whimsy-form-unload-body-many = You started forms in these { $count } tabs. Whimsy keeps what you typed and fills it back in when you come back.
+whimsy-form-unload-body-many = You started forms in these { $count } tabs. Save what you typed, and Whimsy fills it back in when you come back.
+whimsy-form-unload-discard =
+    .label = Unload Without Saving
 whimsy-form-unload-keep =
-    .label = Keep Loaded
+    .label = Cancel
 whimsy-form-unload-accept =
-    .label = Unload
+    .label = Save and Unload
 # $count (number) - fields that can be filled
 whimsy-form-refill-ask = { $count ->
     [one] Fill in 1 answer you typed before?

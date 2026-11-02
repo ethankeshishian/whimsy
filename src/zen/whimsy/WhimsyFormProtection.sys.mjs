@@ -21,7 +21,7 @@
 // - Unload asks first: every unload the person asks for goes through
 //   gBrowser.explicitUnloadTabs (the tab menu's Unload, Unload Tab, Unload
 //   Space); a tab with a form gets "Unload this tab?" beside the sidebar
-//   with Keep Loaded as the default. Automatic unloading never touches
+//   with Cancel focused first (F08: Unload Without Saving / Save and Unload). Automatic unloading never touches
 //   protected tabs anyway.
 // - Refill asks first: a reload keeps what was typed (a snapshot taken as
 //   the page goes away, in memory, and for a normal tab also in the
@@ -60,6 +60,9 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 // browser -> { url, data, time }: the last snapshot (memory).
 const snapshots = new WeakMap();
+// F08: browsers unloaded "without saving": the answers the page leaves as it
+// unloads are dropped, until it's loaded again.
+const discarding = new WeakSet();
 
 // A page's form snapshot is page data: only plain records of strings,
 // booleans and select values, within the size cap.
@@ -290,6 +293,9 @@ export const WhimsyFormProtection = {
   // ---- W10-25: keep and refill what was typed ----
 
   storeSnapshot(browser, url, data) {
+    if (discarding.has(browser)) {
+      return false;
+    }
     if (!this.enabled || typeof url != "string" || !/^https?:/.test(url)) {
       return false;
     }
@@ -350,6 +356,18 @@ export const WhimsyFormProtection = {
     return sameAddress(snapshot.url, url) ? snapshot : null;
   },
 
+  async saveSnapshotNow(browser) {
+    try {
+      const actor = browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyFormProtection");
+      const snapshot = await actor?.sendQuery("Whimsy:FormTakeSnapshot");
+      if (snapshot) {
+        this.storeSnapshot(browser, snapshot.url, snapshot.data);
+      }
+    } catch (e) {
+      // The page went away first; its own pagehide snapshot is all there is.
+    }
+  },
+
   clearSnapshot(browser) {
     snapshots.delete(browser);
     const tab = browser.documentGlobal?.gBrowser?.getTabForBrowser(browser);
@@ -389,7 +407,7 @@ export const WhimsyFormProtection = {
 
   /**
    * "Unload this tab?" beside the sidebar, level with the tab. Resolves
-   * true for Unload; Keep Loaded (the default), Return and Esc resolve
+   * true for Save and Unload, "discard" for Unload Without Saving; Cancel (focused first), Return and Esc resolve
    * false.
    */
   confirmUnload(win, tabs) {
@@ -424,21 +442,32 @@ export const WhimsyFormProtection = {
       parts.view.append(body);
       parts.panel.setAttribute("aria-describedby", "whimsy-form-unload-body");
       body.id = "whimsy-form-unload-body";
-      const unload = lazy.WhimsySurface.footerButton(doc, {
-        l10nId: "whimsy-form-unload-accept",
-        id: "whimsy-form-unload-accept",
+      // F08: Unload Without Saving, Save and Unload, Cancel. Saving is the
+      // snapshot the page leaves as it unloads (filled back in on return);
+      // without saving, it's dropped. Cancel is where focus starts.
+      const discard = lazy.WhimsySurface.footerButton(doc, {
+        l10nId: "whimsy-form-unload-discard",
+        id: "whimsy-form-unload-discard",
         onCommand: () => {
-          answer = true;
+          answer = "discard";
           lazy.WhimsySurface.close(parts.panel);
         },
       });
       const keep = lazy.WhimsySurface.footerButton(doc, {
         l10nId: "whimsy-form-unload-keep",
         id: "whimsy-form-unload-keep",
-        primary: true,
         onCommand: () => lazy.WhimsySurface.close(parts.panel),
       });
-      parts.footer.append(unload, keep);
+      const unload = lazy.WhimsySurface.footerButton(doc, {
+        l10nId: "whimsy-form-unload-accept",
+        id: "whimsy-form-unload-accept",
+        primary: true,
+        onCommand: () => {
+          answer = true;
+          lazy.WhimsySurface.close(parts.panel);
+        },
+      });
+      parts.footer.append(discard, keep, unload);
       lazy.WhimsySurface.finish(parts);
       // Level with the tab, beside the sidebar (where the Look picker opens).
       const sidebar = lazy.WhimsySurface.visibleAnchor(win, ["TabsToolbar", "navigator-toolbox"]);
@@ -462,9 +491,24 @@ export const WhimsyFormProtection = {
     gBrowser.explicitUnloadTabs = async function (tabs, ...rest) {
       const list = [...(tabs ?? [])];
       const asking = self.enabled ? list.filter(tab => self.isFormProtected(tab) && tab.linkedPanel) : [];
-      if (asking.length && !(await self.confirmUnload(win, asking))) {
+      const answer = asking.length ? await self.confirmUnload(win, asking) : true;
+      if (!answer) {
         const rest_ = list.filter(tab => !asking.includes(tab));
         return rest_.length ? original.call(this, rest_, ...rest) : undefined;
+      }
+      if (answer === true) {
+        // F08: Save and Unload saves what was typed first: a page unloading
+        // can't always send it on its way out (so after Unload nothing was
+        // offered when the tab came back).
+        await Promise.all(asking.map(tab => self.saveSnapshotNow(tab.linkedBrowser)));
+      }
+      if (answer == "discard") {
+        for (const tab of asking) {
+          discarding.add(tab.linkedBrowser);
+          self.clearSnapshot(tab.linkedBrowser);
+          // Loading it again starts over.
+          tab.addEventListener("SSTabRestoring", () => discarding.delete(tab.linkedBrowser), { once: true });
+        }
       }
       return original.call(this, list, ...rest);
     };

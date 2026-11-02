@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Site-filled form</title></head>
+<body>
+<!-- F33: a page that fills its own fields (an editor restoring a draft, a
+     search box, hidden and script-set values), as beehiiv and Gmail do. The
+     person types nothing. -->
+<input id="title" name="title">
+<textarea id="body" name="body"></textarea>
+<select id="kind" name="kind"><option value="a">A</option><option value="b">B</option></select>
+<input id="agree" type="checkbox">
+<input type="hidden" id="token" value="">
+<div id="editor" contenteditable="true"></div>
+<script>
+  addEventListener("load", () => {
+    document.getElementById("title").value = "Draft title";
+    document.getElementById("body").value = "A saved draft";
+    document.getElementById("kind").value = "b";
+    document.getElementById("agree").checked = true;
+    document.getElementById("token").value = "x";
+    document.getElementById("editor").textContent = "Restored editor text";
+    for (const id of ["title", "body", "kind", "agree"]) {
+      document.getElementById(id).dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById(id).dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    document.body.dataset.filled = "true";
+  });
+</script>
+</body>
+</html>

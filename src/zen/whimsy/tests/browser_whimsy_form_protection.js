@@ -225,7 +225,10 @@ add_task(async function test_unload_asks_first() {
       await document.l10n.translateFragment(panel);
       is(panel.querySelector(".whimsy-surface-title").textContent, "Unload this tab?", "Unload this tab?");
       ok(panel.querySelector(".whimsy-form-unload-body b"), "naming the site in bold");
-      await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-form-unload-keep", "Keep Loaded has the keyboard");
+      await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-form-unload-keep", "Cancel has the keyboard");
+      // F08: Unload Without Saving, Cancel, Save and Unload.
+      is([...panel.querySelectorAll(".whimsy-surface-footer button")].map(b => b.label).join("|"),
+        "Unload Without Saving|Cancel|Save and Unload", "The three choices");
       await how(panel);
       await unloading;
     };
@@ -322,4 +325,100 @@ add_task(async function test_private_snapshot_stays_in_memory() {
     WhimsyFormProtection.clearSnapshot(browser);
     is(SessionStore.getCustomTabValue(normal, "whimsy-formdata"), "", "cleared");
   });
+});
+
+// F33 (must never happen): only the person's own typing counts. A page that
+// fills its own fields, an editor that restores its text, hidden and
+// script-set values: none of it marks the tab or asks before unloading,
+// including Cmd+W on a pinned tab (Zen unloads it, through the same ask).
+add_task(async function test_site_filled_fields_never_count() {
+  const PAGE = ROOT + "whimsy_script_form.html";
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    await SpecialPowers.spawn(browser, [], () =>
+      ContentTaskUtils.waitForCondition(() => content.document.body.dataset.filled == "true", "The page filled itself"));
+    // Give the actor's messages time to arrive.
+    await new Promise(resolve => setTimeout(resolve, 300));
+    ok(!tab.hasAttribute("whimsy-form-protected"), "A page that fills itself isn't a form in progress");
+    ok(!WhimsyFormProtection.isFormProtected(tab), "isFormProtected agrees");
+
+    // Pinned, Cmd+W unloads it: no "Unload this tab?".
+    gBrowser.pinTab(tab);
+    const asked = () => document.getElementById("whimsy-form-unload")?.state == "open";
+    await gBrowser.explicitUnloadTabs([tab]);
+    ok(!asked(), "Unloading the untouched pinned tab doesn't ask");
+    gBrowser.unpinTab(tab);
+  });
+  // The same page with real typing does count.
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    await SpecialPowers.spawn(browser, [], () =>
+      ContentTaskUtils.waitForCondition(() => content.document.body.dataset.filled == "true", "The page filled itself"));
+    await SpecialPowers.spawn(browser, [], () => content.document.getElementById("title").focus());
+    await BrowserTestUtils.synthesizeKey("x", {}, browser);
+    await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-form-protected"), "Typing into it does count");
+  });
+});
+
+// F08: most sites build their form after the page loads; the refill offer
+// waits for it instead of deciding at pageshow (when it never came).
+add_task(async function test_refill_offered_for_late_form() {
+  const PAGE = ROOT + "whimsy_late_form.html";
+  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    await SpecialPowers.spawn(browser, [], async () => {
+      await ContentTaskUtils.waitForCondition(() => content.document.getElementById("name"), "The form appeared");
+      content.document.getElementById("name").focus();
+    });
+    for (const key of "Grace") {
+      await BrowserTestUtils.synthesizeKey(key, {}, browser);
+    }
+    await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-form-typed"), "Typed");
+    const loaded = BrowserTestUtils.browserLoaded(browser);
+    browser.reload();
+    await loaded;
+    const toast = await TestUtils.waitForCondition(() => {
+      const t = WhimsyToast.current(window);
+      return t?._messageId == "whimsy-form-refill-ask" && t;
+    }, "Once the form appears, a toast asks to fill the answer back in");
+    toast.querySelector(".whimsy-toast-action").click();
+    await TestUtils.waitForCondition(async () =>
+      (await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value)) == "Grace",
+    "Fill In fills it back in");
+  });
+});
+
+// F08: Unload Without Saving drops what was typed; Save and Unload keeps it.
+add_task(async function test_unload_without_saving() {
+  for (const save of [false, true]) {
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+    const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?other");
+    try {
+      gBrowser.selectedTab = tab;
+      await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("name").focus());
+      for (const key of "Ada") {
+        await BrowserTestUtils.synthesizeKey(key, {}, tab.linkedBrowser);
+      }
+      await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-form-typed"), "Typed");
+      gBrowser.selectedTab = other;
+      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-form-unload");
+      const unloading = gBrowser.explicitUnloadTabs([tab]);
+      const panel = (await shown).target;
+      panel.querySelector(save ? "#whimsy-form-unload-accept" : "#whimsy-form-unload-discard").doCommand();
+      await unloading;
+      await TestUtils.waitForCondition(() => !tab.linkedPanel, "Unloaded");
+      // Let the page's last snapshot arrive, if any.
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const kept = WhimsyFormProtection.snapshotFor(tab.linkedBrowser, FORM_PAGE);
+      if (save) {
+        ok(kept, "Save and Unload keeps what was typed");
+      } else {
+        ok(!kept, "Unload Without Saving drops it");
+      }
+    } finally {
+      BrowserTestUtils.removeTab(other);
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
 });

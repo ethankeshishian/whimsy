@@ -37,16 +37,34 @@ function isSecret(el) {
   return /\bcc-|one-time-code|current-password|new-password/.test(autocomplete);
 }
 
+// F33: the fields a person can type an answer into.
+function isAnswerField(el) {
+  if (!el || (el.localName != "input" && el.localName != "textarea" && el.localName != "select")) {
+    return false;
+  }
+  return !(el.localName == "input" && ["hidden", "submit", "reset", "button", "image"].includes(el.type));
+}
+
 export class WhimsyFormProtectionChild extends JSWindowActorChild {
   // The snapshot offered for this document, and what Fill In filled.
   _offer = null;
+  // F33: the fields the person changed themselves. A value the site set
+  // (an editor filling itself, a search box, hidden or script-set fields,
+  // restored or autofilled values) never counts: only real typing or
+  // picking does, which arrives as a trusted input or change event.
+  _edited = new WeakSet();
 
   handleEvent(event) {
     switch (event.type) {
       case "input":
-      case "change":
+      case "change": {
+        const field = event.composedTarget ?? event.target;
+        if (event.isTrusted && isAnswerField(field) && !field.matches?.(":autofill")) {
+          this._edited.add(field);
+        }
         this.checkFormState();
         break;
+      }
       case "pageshow":
         this.checkFormState();
         if (!event.persisted) {
@@ -62,6 +80,11 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
   receiveMessage(message) {
     if (message.name == "Whimsy:FormRefill") {
       return this.refill();
+    }
+    if (message.name == "Whimsy:FormTakeSnapshot") {
+      // F08: Save and Unload asks for it before unloading (a page torn
+      // down by unloading can't always send it as it goes).
+      return this.snapshot({ send: false });
     }
     return null;
   }
@@ -87,6 +110,9 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
       "input:not([type=hidden]):not([type=submit]):not([type=reset]):not([type=button]):not([type=image]), textarea"
     );
     for (const input of inputs) {
+      if (!this._edited.has(input)) {
+        continue;
+      }
       if (input.type === "checkbox" || input.type === "radio") {
         if (input.checked !== input.defaultChecked) {
           return true;
@@ -99,6 +125,9 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     }
     const selects = doc.querySelectorAll("select");
     for (const select of selects) {
+      if (!this._edited.has(select)) {
+        continue;
+      }
       for (const option of select.options) {
         if (option.selected !== option.defaultSelected) {
           return true;
@@ -109,7 +138,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
   }
 
   // The top document's typed answers, as it goes away.
-  snapshot() {
+  snapshot({ send = true } = {}) {
     try {
       const win = this.contentWindow;
       if (!win || win.top != win || !this.hasFilledForm(this.document)) {
@@ -119,10 +148,14 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
       if (!data || (!data.id && !data.xpath)) {
         return;
       }
-      this.sendAsyncMessage("Whimsy:FormSnapshot", {
+      const snapshot = {
         url: addressOf(win.location),
         data: { id: data.id ?? {}, xpath: data.xpath ?? {} },
-      });
+      };
+      if (!send) {
+        return snapshot;
+      }
+      this.sendAsyncMessage("Whimsy:FormSnapshot", snapshot);
     } catch (e) {
       // A page going away can't always be read.
     }
@@ -180,12 +213,36 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
       if (!snapshot?.data) {
         return;
       }
-      const count = this._targets(snapshot.data).filter(([el, value]) => this._fillable(el, value)).length;
-      if (!count) {
+      const countNow = () => this._targets(snapshot.data).filter(([el, value]) => this._fillable(el, value)).length;
+      const offer = count => {
+        this._offer = { url, data: snapshot.data };
+        this.sendAsyncMessage("Whimsy:FormRefillReady", { url, count });
+      };
+      const count = countNow();
+      if (count) {
+        offer(count);
         return;
       }
-      this._offer = { url, data: snapshot.data };
-      this.sendAsyncMessage("Whimsy:FormRefillReady", { url, count });
+      // F08: most sites build their form after the page has loaded (and
+      // the offer used to be decided before that, so it never came). Wait
+      // for the fields to appear, a while.
+      const doc = this.document;
+      let timer = null;
+      const observer = new win.MutationObserver(() => {
+        if (timer) {
+          return;
+        }
+        timer = win.setTimeout(() => {
+          timer = null;
+          const found = countNow();
+          if (found) {
+            observer.disconnect();
+            offer(found);
+          }
+        }, 200);
+      });
+      observer.observe(doc.documentElement, { childList: true, subtree: true });
+      win.setTimeout(() => observer.disconnect(), 15000);
     } catch (e) {
       // The page went away first.
     }

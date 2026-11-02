@@ -741,7 +741,7 @@ support-files = ["whimsy_highlight.html"]
 ["browser_whimsy_battery_saver.js"]
 # batch wave9: form protection (W9-03)
 ["browser_whimsy_form_protection.js"]
-support-files = ["whimsy_email_form.html"]
+support-files = ["whimsy_email_form.html", "whimsy_script_form.html", "whimsy_late_form.html"]
 
 # batch9: W9-06 smart address bar buttons
 ["browser_whimsy_smart_buttons.js"]
