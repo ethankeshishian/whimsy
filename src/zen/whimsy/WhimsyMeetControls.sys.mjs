@@ -113,43 +113,15 @@ export function isRelevant(records) {
   return false;
 }
 
-// Presses the page's toggle the way the person would: a real (trusted)
-// mouse press at its centre when nothing covers it. If no click reached it
-// (a hidden tab that drops input, a covered button), the element's own
-// click() instead. Exactly one click either way. Returns "trusted" or
-// "element".
+// Presses the page's toggle. Called from this (system) actor, click() is a
+// trusted click (nsGenericHTMLElement::Click marks it trusted for system
+// callers, "positionless"): it needs no layout, so it works the same for a
+// call in a background tab, which a synthesized mouse press at the button's
+// centre didn't (a hidden tab's input arrived late or not at all, and the
+// fallback click then made it toggle twice). Returns "trusted".
 export function press(win, el) {
-  const doc = win.document;
-  const rect = el.getBoundingClientRect();
-  const x = rect.left + rect.width / 2;
-  const y = rect.top + rect.height / 2;
-  let hit = null;
-  if (rect.width > 0 && rect.height > 0 && x >= 0 && y >= 0 && x < win.innerWidth && y < win.innerHeight) {
-    hit = doc.elementFromPoint(x, y);
-  }
-  if (hit && (hit == el || el.contains(hit))) {
-    let clicked = false;
-    const onClick = event => {
-      if (event.isTrusted && (event.target == el || el.contains(event.target))) {
-        clicked = true;
-      }
-    };
-    win.addEventListener("click", onClick, { capture: true, mozSystemGroup: true });
-    try {
-      for (const type of ["mousedown", "mouseup"]) {
-        win.synthesizeMouseEvent(type, x, y, { button: 0, clickCount: 1 });
-      }
-    } catch (e) {
-      // Not dispatched: fall back below.
-    } finally {
-      win.removeEventListener("click", onClick, { capture: true, mozSystemGroup: true });
-    }
-    if (clicked) {
-      return "trusted";
-    }
-  }
   el.click();
-  return "element";
+  return "trusted";
 }
 
 // The module's API as one object (the name WhimsyPageChild's lazy getter

@@ -56,6 +56,26 @@ add_task(async function test_snap_back() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// Snapping back only closes the player: you're already on the tab. It used
+// the player's Back to Tab button, which also switches to the tab, through
+// Zen's space switch, a moment later; leaving the tab again within that
+// moment pulled you back to it (and a call's next player then never closed).
+add_task(async function test_snap_back_leaves_you_where_you_go_next() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  gBrowser.selectedTab = tab;
+  const player = await openPip(tab.linkedBrowser);
+  gBrowser.selectedTab = other;
+  const closed = BrowserTestUtils.domWindowClosed(player);
+  gBrowser.selectedTab = tab;
+  gBrowser.selectedTab = other;
+  await closed;
+  await new Promise(r => setTimeout(r, 500));
+  is(gBrowser.selectedTab, other, "You stay on the tab you went to next");
+  BrowserTestUtils.removeTab(other);
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function test_off() {
   for (const [pref, value] of [
     ["whimsy.media.pip-snap-back", false],

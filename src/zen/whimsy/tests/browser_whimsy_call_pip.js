@@ -115,6 +115,9 @@ add_task(async function test_call_pip_captions() {
   gBrowser.selectedTab = other;
   const pip = await opened;
   WhimsyCallPip.hookPipWindow(pip);
+  // The player's own script finishes setting up after load; Whimsy attaches
+  // to it once it has (retrying every 50ms), and only then is it the call's.
+  await TestUtils.waitForCondition(() => pip._whimsyCallBrowser == call.linkedBrowser, "The PiP window shows the call");
 
   // F31: the player's CC button shows in a call and turns its live
   // captions on and off.

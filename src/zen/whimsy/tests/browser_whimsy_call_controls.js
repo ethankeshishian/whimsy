@@ -153,7 +153,26 @@ async function expectAll(call, pip, expected, what) {
 async function clickCard(call, kind) {
   const button = cardButton(call, kind);
   ok(button && button.getBoundingClientRect().width > 0, `The small player's ${kind} button is on screen`);
-  EventUtils.synthesizeMouseAtCenter(button, {}, window);
+  // As a person does: point at it first. Hovering opens the card's header
+  // (Zen's .show-on-hover, with its close button) over 0.3s, which pushes
+  // the buttons down; a press without that hover moved the card between
+  // mousedown and mouseup, so the release landed on the close button and
+  // nothing was clicked. Click where the button is once the card has
+  // settled, re-reading it each frame (a state change re-renders it too).
+  EventUtils.synthesizeMouseAtCenter(button, { type: "mousemove" }, window);
+  let last = "";
+  await TestUtils.waitForCondition(async () => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const now = cardButton(call, kind);
+    const rect = JSON.stringify(now?.getBoundingClientRect());
+    const still = rect == last;
+    last = rect;
+    if (!still && now) {
+      EventUtils.synthesizeMouseAtCenter(now, { type: "mousemove" }, window);
+    }
+    return still;
+  }, `The small player's ${kind} button has stopped moving`);
+  EventUtils.synthesizeMouseAtCenter(cardButton(call, kind), {}, window);
 }
 
 async function clickPip(pip, kind) {

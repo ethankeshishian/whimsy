@@ -237,6 +237,10 @@ add_task(async function test_pop_out_of_full_screen() {
 
   // Leaving full screen without popping out (Esc) also gives the pointer back.
   await TestUtils.waitForCondition(() => !players().length && !tab.pictureinpicture, "back in the page");
+  // Full screen needs the focused tab, and a closing player (headed) can
+  // leave the window without focus: back to the page first, as a person
+  // clicking into it would.
+  await SimpleTest.promiseFocus(window);
   await SpecialPowers.spawn(browser, [], async () => {
     const video = content.document.getElementById("native");
     SpecialPowers.wrap(content.document).notifyUserGestureActivation();

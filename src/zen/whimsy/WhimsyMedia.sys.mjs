@@ -725,11 +725,13 @@ export const WhimsyMedia = {
     }
     let closed = 0;
     for (const playerWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
-      // The player's own "Back to tab" button (its actor isn't reachable
-      // from outside the player's script).
-      const unpip = playerWin.document?.getElementById("unpip");
-      if (PiP.weakWinToBrowser.get(playerWin) === browser && unpip) {
-        unpip.click();
+      // The player's own close for a tab that came to the front (Firefox's
+      // "Foregrounded", as its automatic PiP does). Not its Back to Tab
+      // button: that also switches to the tab, through Zen's space switch a
+      // moment later, so leaving the tab again in that moment pulled you
+      // back to it. You're already on the tab.
+      if (PiP.weakWinToBrowser.get(playerWin) === browser && typeof playerWin.closeFromForeground == "function") {
+        playerWin.closeFromForeground();
         closed++;
       }
     }
