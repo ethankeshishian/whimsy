@@ -3981,6 +3981,16 @@ whimsy-font-pick-another = Pick Another Element
 whimsy-font-sample-text = The quick brown fox jumps over the lazy dog
 
 whimsy-element-inspector-title = Element Info
+## W13 F10: Element Info (option A).
+whimsy-element-font-label = Font
+whimsy-element-box-model-label =
+    .aria-label = Box model: margin, border, padding and content
+whimsy-element-pick-another-button =
+    .label = Pick Another
+whimsy-element-inspect-font-button =
+    .label = Inspect Font
+whimsy-element-open-devtools-button =
+    .label = Open in DevTools
 whimsy-action-inspect-element = Element Info
 # W10-45: other words people search the command bar with for Element Info.
 whimsy-keywords-inspect-element = Inspect Element, Box Model, Margin, Padding, Contrast, Measure, Element Inspector

@@ -356,8 +356,13 @@ export class WhimsyInspectorChild extends JSWindowActorChild {
 
     const fontInfo = this._extractFontInfo(element);
 
+    // W13 F10: its short name, as DevTools shows it ("div.card", "a#home").
+    const tag = element.tagName.toLowerCase();
+    const firstClass = [...(element.classList ?? [])][0];
+    const name = element.id ? `${tag}#${element.id}` : firstClass ? `${tag}.${firstClass}` : tag;
     return {
-      tagName: element.tagName.toLowerCase(),
+      tagName: tag,
+      name,
       selector: generateSelector(element),
       rect: {
         top: Math.round(rect.top),

@@ -797,6 +797,9 @@ support-files = [
 ["browser_whimsy_font_inspector.js"]
 support-files = ["whimsy_pagedev_font.ttf"]
 
+# W13 F10: Element Info is 360px wide and as tall as its content (option A); only its body scrolls.
+["browser_whimsy_element_info_size.js"]
+
 # wave9: Element inspector lite.
 ["browser_whimsy_element_inspector.js"]
 
