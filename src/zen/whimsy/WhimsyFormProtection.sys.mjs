@@ -31,7 +31,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -52,6 +51,7 @@ const SNAPSHOT_KEY = "whimsy-formdata";
 const SNAPSHOT_MAX_BYTES = 64 * 1024;
 const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const REFILL_OFFER_MS = 10000;
+const TOAST_TIMEOUT_MS = 4000;
 const UNLOAD_PANEL_ID = "whimsy-form-unload";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 // How long the fresh check before a dialog waits for a busy page.
@@ -525,22 +525,25 @@ export const WhimsyFormProtection = {
     if (!count || !win?.gBrowser || win.gBrowser.selectedBrowser != browser) {
       return null;
     }
-    return lazy.WhimsyToast.show(win, {
-      l10nId: "whimsy-form-refill-ask",
-      l10nArgs: { count },
-      detailL10nId: "whimsy-form-refill-ask-detail",
-      icon: MARKER_ICON,
-      browser,
-      timeout: REFILL_OFFER_MS,
-      action: {
-        id: "whimsyFormRefillFill",
-        l10nId: "whimsy-form-refill-fill",
-        onCommand: () => {
-          this.clearSnapshot(browser);
-          actor.sendQuery("Whimsy:FormRefill").catch(() => {});
-        },
-      },
-    });
+    return (
+      win.gZenUIManager?.toasts?.open("whimsy-form-refill-ask", {
+        l10nArgs: { count },
+        descriptionId: "whimsy-form-refill-ask-detail",
+        icon: MARKER_ICON,
+        browser,
+        timeout: REFILL_OFFER_MS,
+        buttons: [
+          {
+            id: "whimsyFormRefillFill",
+            l10nId: "whimsy-form-refill-fill",
+            command: () => {
+              this.clearSnapshot(browser);
+              actor.sendQuery("Whimsy:FormRefill").catch(() => {});
+            },
+          },
+        ],
+      }) ?? null
+    );
   },
 
   // ---- asking before a tab's input is lost ----
@@ -775,8 +778,9 @@ export const WhimsyFormProtection = {
     this.refreshTab(tab);
     const win = tab.documentGlobal;
     try {
-      lazy.WhimsyToast.show(win, {
-        l10nId: protect ? "whimsy-form-protected-toast" : "whimsy-form-unprotected-toast",
+      win.gZenUIManager?.toasts?.open(protect ? "whimsy-form-protected-toast" : "whimsy-form-unprotected-toast", {
+        key: "whimsy-form-protect",
+        timeout: TOAST_TIMEOUT_MS,
       });
     } catch (e) {}
     return protect;

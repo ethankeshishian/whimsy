@@ -176,7 +176,6 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyTechRules.sys.mjs",
     "WhimsyTidyTitles.sys.mjs",
     "WhimsyTidyTitlesData.sys.mjs",
-    "WhimsyToast.sys.mjs",
     "WhimsyTrails.sys.mjs",
     "WhimsyTreeTabs.sys.mjs",
     "WhimsyUndo.sys.mjs",

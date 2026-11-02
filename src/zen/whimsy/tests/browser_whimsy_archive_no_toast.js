@@ -11,7 +11,6 @@
 const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
 const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchive.sys.mjs");
 const { BELOW_ID } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchiveMenu.sys.mjs");
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const { WhimsyUndo } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs");
 
 const BASE = "https://example.com/?no-toast-";
@@ -20,9 +19,7 @@ const startTabs = new Set(gBrowser.tabs);
 add_setup(async function () {
   // Toasts an earlier test left up (W10-15/25/30 toasts can stay) aren't
   // this test's: it checks that archiving shows none.
-  for (const toast of document.querySelectorAll("#zen-toast-container > *")) {
-    WhimsyToast._dismissNow?.(toast);
-  }
+  closeToasts();
   await SpecialPowers.pushPrefEnv({
     set: [
       ["whimsy.feature.undo-tab-actions", true],
@@ -43,7 +40,7 @@ add_setup(async function () {
   });
 });
 
-// Records every toast (Whimsy's and Zen's share #zen-toast-container) that
+// Records every toast (Zen's toast, which Whimsy uses too) that
 // appears while `fn` runs, and for a moment after it.
 async function toastsDuring(fn) {
   const container = document.getElementById("zen-toast-container");
@@ -68,7 +65,7 @@ async function toastsDuring(fn) {
 
 function noToast(seen, what) {
   is(seen.length, 0, `${what}: no toast appears`);
-  ok(!WhimsyToast.current(window), `${what}: no Whimsy toast is up`);
+  ok(!currentToast(), `${what}: no toast is up`);
   ok(!document.getElementById("whimsy-undo-toast-button"), `${what}: no Undo button`);
 }
 

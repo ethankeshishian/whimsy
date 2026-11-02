@@ -264,7 +264,6 @@ add_task(async function test_esc_is_not_taken() {
 
 // wave9/designfix (H2): "Turn Off Tips" on the tip itself; its toast undoes.
 add_task(async function test_turn_off_from_the_tip() {
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   Services.prefs.setStringPref(SEEN_PREF, "");
   WhimsyTeach._resetSession();
   const panel = await shown(await WhimsyTeach.trigger(window, HINT_A));
@@ -274,16 +273,16 @@ add_task(async function test_turn_off_from_the_tip() {
   EventUtils.synthesizeMouseAtCenter(off, {});
   await hidden(panel);
   ok(!Services.prefs.getBoolPref(ENABLED_PREF), "tips are off");
-  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "a toast says so");
+  const toast = await TestUtils.waitForCondition(() => currentToast(), "a toast says so");
   await TestUtils.waitForCondition(
-    () => toast.querySelector(".whimsy-toast-message")?.textContent.includes("Look and Feel"),
+    () => toast.element.querySelector("label")?.textContent.includes("Look and Feel"),
     "and says where to turn them on again"
   );
   Services.prefs.setStringPref(SEEN_PREF, "");
   WhimsyTeach._resetSession();
   is(await WhimsyTeach.trigger(window, HINT_A), null, "no more tips");
 
-  const undo = toast.querySelector(".whimsy-toast-action");
+  const undo = toast.element.querySelector(".whimsy-toast-button");
   ok(undo, "the toast offers Undo");
   undo.click();
   ok(Services.prefs.getBoolPref(ENABLED_PREF), "Undo turns tips back on");

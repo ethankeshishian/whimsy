@@ -45,7 +45,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
@@ -581,8 +580,9 @@ export const WhimsyFireButton = {
   // (or that it failed, with Try Again). W10-58: clearing a busy profile
   // takes seconds, and the only confirmation used to come long after the
   // tabs vanished and leave after Zen's two seconds. W10-30: the result
-  // has a title and a second line (WhimsyToast, 6s, held while hovered or
-  // while the window is behind), in the window that ran it.
+  // has a title and a second line (6s, held while hovered or while the
+  // window is behind), in the window that ran it. wave13/toast: Zen's toast,
+  // extended; the result replaces "Clearing…" in place.
   async run(win, burn, kind, args = {}) {
     kind = kind.replace(/^whimsy-fire-done-/, "");
     const root = win.document.documentElement;
@@ -591,8 +591,8 @@ export const WhimsyFireButton = {
     root.setAttribute("whimsy-fire-burning", "");
     win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
     const icon = ICONS[kind] ?? ICONS.everything;
-    const working = lazy.WhimsyToast.show(win, {
-      l10nId: `whimsy-fire-working-${kind}`,
+    const working = win.gZenUIManager?.toasts?.open(`whimsy-fire-working-${kind}`, {
+      key: "whimsy-fire",
       l10nArgs: args,
       icon,
       timeout: WORKING_TIMEOUT_MS,
@@ -600,13 +600,15 @@ export const WhimsyFireButton = {
     // The result goes on the "Clearing…" toast if it's still up; else (a
     // window that lost every tab gets a fresh one first) a new one, a tick
     // later.
-    const report = async o => {
-      if (working?.isConnected && !working.hasAttribute("leaving")) {
-        working.update({ ...o, detail: undefined, timeout: DONE_TIMEOUT_MS });
+    const report = async ({ messageId, ...o }) => {
+      if (working && !working.closing && !working.closed) {
+        working.update({ messageId, ...o, timeout: DONE_TIMEOUT_MS });
         return working;
       }
       await new Promise(resolve => win.setTimeout(resolve, 0));
-      return win.closed ? null : lazy.WhimsyToast.show(win, { ...o, icon, timeout: DONE_TIMEOUT_MS });
+      return win.closed
+        ? null
+        : (win.gZenUIManager?.toasts?.open(messageId, { key: "whimsy-fire", ...o, icon, timeout: DONE_TIMEOUT_MS }) ?? null);
     };
     let result;
     try {
@@ -614,14 +616,17 @@ export const WhimsyFireButton = {
     } catch (e) {
       console.error("Whimsy: fire button", e);
       await report({
-        l10nId: "whimsy-fire-failed-title",
-        detailL10nId: "whimsy-fire-failed-detail",
-        action: {
-          l10nId: "whimsy-fire-retry",
-          onCommand: () => {
-            this.run(win, burn, kind, args);
+        messageId: "whimsy-fire-failed-title",
+        l10nArgs: undefined,
+        descriptionId: "whimsy-fire-failed-detail",
+        buttons: [
+          {
+            l10nId: "whimsy-fire-retry",
+            command: () => {
+              this.run(win, burn, kind, args);
+            },
           },
-        },
+        ],
       });
       return;
     }
@@ -629,11 +634,11 @@ export const WhimsyFireButton = {
     const what = typeof result == "number" ? { count: result } : result;
     const l10nArgs = { ...args, ...what };
     await report({
-      l10nId: `whimsy-fire-done-${kind}-title`,
+      messageId: `whimsy-fire-done-${kind}-title`,
       l10nArgs,
-      detailL10nId: `whimsy-fire-done-${kind}-detail`,
-      detailArgs: l10nArgs,
-      action: null,
+      descriptionId: `whimsy-fire-done-${kind}-detail`,
+      descriptionArgs: l10nArgs,
+      buttons: null,
     });
   },
 

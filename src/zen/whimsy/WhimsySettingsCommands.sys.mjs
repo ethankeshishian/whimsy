@@ -53,11 +53,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyHome: "resource:///modules/whimsy/WhimsyHome.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true));
 
 const FEATURE_PREF = "whimsy.feature.settings-commands";
+const CONFIRM_TOAST_TIMEOUT_MS = 4000;
 const ICON = "chrome://browser/skin/zen-icons/settings.svg";
 
 const featureOn = id => Services.prefs.getBoolPref(`whimsy.feature.${id}`, true);
@@ -561,7 +561,7 @@ export const WhimsySettingsCommands = {
   confirm(win, l10nId, l10nArgs) {
     try {
       if (win?.document?.documentElement?.getAttribute("windowtype") == "navigator:browser") {
-        lazy.WhimsyToast.show(win, { l10nId, l10nArgs });
+        win.gZenUIManager?.toasts?.open(l10nId, { l10nArgs, timeout: CONFIRM_TOAST_TIMEOUT_MS });
       }
     } catch (e) {
       console.error("Whimsy: setting toast", e);

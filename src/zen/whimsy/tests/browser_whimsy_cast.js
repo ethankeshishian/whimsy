@@ -161,41 +161,39 @@ add_task(async function test_view_menu_item() {
 // wave9/designfix (M5): the toasts' buttons say what they do and stay long
 // enough to reach (Zen's toast hid button text and left after 2s).
 add_task(async function test_toast_buttons_have_words_and_work() {
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   const native = fakeNative();
   WhimsyCast.nativeOverride = native;
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   is(await WhimsyCast.cast(window), "picking", "Casting");
   native.listener("connected", 0);
 
-  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast says it's playing");
-  const stop = toast.querySelector(".whimsy-toast-action");
+  const toast = await TestUtils.waitForCondition(() => currentToast(), "A toast says it's playing");
+  const stop = toast.element.querySelector(".whimsy-toast-button");
   ok(stop, "with a Stop button");
   await TestUtils.waitForCondition(() => stop.textContent.includes("Stop"), "that says Stop");
   ok(stop.getBoundingClientRect().width > 0 && stop.checkVisibility(), "and is visible");
   // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
   await new Promise(resolve => setTimeout(resolve, 2500));
-  ok(toast.isConnected && !toast.hasAttribute("leaving"), "still there after 2.5s");
+  ok(!toast.closing && !toast.closed, "still there after 2.5s");
   stop.click();
   ok(!WhimsyCast.casting, "Stop on the toast stops casting");
   ok(native.calls.at(-1).stop, "and the native player");
   await TestUtils.waitForCondition(
-    () => WhimsyToast.current(window)?._messageId == "whimsy-cast-stopped-toast",
+    () => currentToast()?.messageId == "whimsy-cast-stopped-toast",
     "Casting stopped replaces it"
   );
   BrowserTestUtils.removeTab(tab);
 });
 
 add_task(async function test_mirror_toast_button() {
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   WhimsyCast.nativeOverride = fakeNative();
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, MSE);
   let opened = 0;
   const original = WhimsyCast.openMirroring;
   WhimsyCast.openMirroring = () => opened++;
   is(await WhimsyCast.cast(window), "mirror", "Pointed to mirroring");
-  const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast explains");
-  const button = toast.querySelector(".whimsy-toast-action");
+  const toast = await TestUtils.waitForCondition(() => currentToast(), "A toast explains");
+  const button = toast.element.querySelector(".whimsy-toast-button");
   await TestUtils.waitForCondition(() => button?.textContent.includes("Screen Mirroring"), "Its button says Screen Mirroring");
   button.click();
   is(opened, 1, "and opens Screen Mirroring");
@@ -248,7 +246,6 @@ add_task(async function test_embedded_player() {
 
 // W10-44: a stream the receiver can't play offers Screen Mirroring.
 add_task(async function test_failed_offers_mirroring() {
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   const native = fakeNative();
   WhimsyCast.nativeOverride = native;
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
@@ -256,13 +253,13 @@ add_task(async function test_failed_offers_mirroring() {
   native.listener("failed", 0);
   ok(!WhimsyCast.casting, "The session ends");
   const toast = await TestUtils.waitForCondition(
-    () => WhimsyToast.current(window)?._messageId == "whimsy-cast-failed-toast" && WhimsyToast.current(window),
+    () => toastFor("whimsy-cast-failed-toast"),
     "It says the device couldn't play it"
   );
   let opened = 0;
   const original = WhimsyCast.openMirroring;
   WhimsyCast.openMirroring = () => opened++;
-  toast.querySelector(".whimsy-toast-action").click();
+  toast.element.querySelector(".whimsy-toast-button").click();
   WhimsyCast.openMirroring = original;
   is(opened, 1, "and its button opens Screen Mirroring");
   BrowserTestUtils.removeTab(tab);

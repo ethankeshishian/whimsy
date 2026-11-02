@@ -18,7 +18,7 @@
 // 1. Monitors battery level and charging state via navigator.getBattery().
 // 2. Automatically triggers when battery < 20% and discharging, if the
 //    Settings switch ("Turn on Battery Saver automatically...") is on.
-// 3. Shows a heads-up toast (WhimsyToast, 6s, with a "Turn Off" action).
+// 3. Shows a heads-up toast (Zen's toast, 6s, with a "Turn Off" button).
 // 4. Turns itself off once plugged in (charging) or back at >= 20%, unless
 //    the user turned it on by hand: a manual "on" sticks until they turn
 //    it off (wave9 review M4).
@@ -35,10 +35,10 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.battery-saver";
+const TOAST_TIMEOUT_MS = 4000;
 const ENABLED_PREF = "whimsy.battery-saver.enabled";
 const ACTIVE_PREF = "whimsy.battery-saver.active";
 const RESTORE_FRAME_RATE_PREF = "whimsy.battery-saver.restore-frame-rate";
@@ -181,15 +181,16 @@ export const WhimsyBatterySaver = {
 
     if (reason === "auto") {
       // Arc's heads-up: say why, and offer a way out.
-      this.showToast(win, {
-        l10nId: "whimsy-battery-saver-active-toast",
-        action: {
-          l10nId: "whimsy-battery-saver-turn-off-button",
-          onCommand: () => this.turnOff(win),
-        },
+      this.showToast(win, "whimsy-battery-saver-active-toast", {
+        buttons: [
+          {
+            l10nId: "whimsy-battery-saver-turn-off-button",
+            command: () => this.turnOff(win),
+          },
+        ],
       });
     } else if (reason === "manual") {
-      this.showToast(win, { l10nId: "whimsy-battery-saver-on-toast" });
+      this.showToast(win, "whimsy-battery-saver-on-toast", { timeout: TOAST_TIMEOUT_MS });
     }
     return active;
   },
@@ -204,18 +205,21 @@ export const WhimsyBatterySaver = {
     Services.obs.notifyObservers(null, TOPIC, "off");
 
     if (reason === "manual") {
-      this.showToast(win, { l10nId: "whimsy-battery-saver-off-toast" });
+      this.showToast(win, "whimsy-battery-saver-off-toast", { timeout: TOAST_TIMEOUT_MS });
     }
     return active;
   },
 
-  showToast(win, options) {
+  // In the window it was turned on from; the automatic path has none, so
+  // the window in front.
+  showToast(win, messageId, options) {
     const target = win && !win.closed ? win : Services.wm.getMostRecentWindow("navigator:browser");
-    if (!target) {
+    if (!target?.gZenUIManager?.toasts) {
       return;
     }
     try {
-      lazy.WhimsyToast.show(target, options);
+      // One battery toast at a time: on, off and the heads-up replace each other.
+      target.gZenUIManager.toasts.open(messageId, { key: "whimsy-battery-saver", ...options });
     } catch (e) {
       console.error("Whimsy: Battery Saver toast", e);
     }

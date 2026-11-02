@@ -29,6 +29,10 @@ const FEATURE_PREF = "whimsy.feature.undo-tab-actions";
 
 const undoStacks = new WeakMap();
 const redoStacks = new WeakMap();
+// win -> { toast, entry }: the Undo toast showing, and the entry it undoes.
+const undoToasts = new WeakMap();
+// Plain toasts (undo switched off) stay as long as Whimsy's always did.
+const PLAIN_TOAST_TIMEOUT_MS = 4000;
 
 // W10-43: the Library puts the keyboard in its search field as it opens,
 // so Cmd+Z after deleting a screenshot went to that (empty) field and did
@@ -127,10 +131,11 @@ export const WhimsyUndo = {
    * entry is pushed too, so Cmd+Z still works. Without the feature switch
    * it's a plain toast.
    *
-   * wave8/snooze (W8-37): drawn by WhimsyToast, the one toast every Whimsy
-   * undoable action uses: the message, an "Undo" button that says so in
-   * words, and the shortcut (⌘Z) beside it. Zen's toast hid the button's
-   * text and left after 2s.
+   * wave8/snooze (W8-37): the one toast every Whimsy undoable action uses:
+   * the message, an "Undo" button that says so in words, and the shortcut
+   * (⌘Z) beside it. wave13/toast: it's Zen's toast (gZenUIManager.toasts),
+   * whose buttons now show their words; a newer undo toast replaces it in
+   * place.
    *
    * @param {Window} win
    * @param {string} messageId - the toast's Fluent id
@@ -140,22 +145,36 @@ export const WhimsyUndo = {
    */
   showToast(win, messageId, entry, l10nArgs = undefined, options = {}) {
     this.push(win, entry);
-    const toast = { l10nId: messageId, l10nArgs, detail: options.detail };
-    if (this.enabled) {
-      const keys = lazy().WhimsyToast.undoKeys();
-      toast.action = {
-        id: "whimsy-undo-toast-button",
-        l10nId: "whimsy-undo-toast-action",
-        keys,
-        ariaKeys: AppConstants.platform == "macosx" ? "Meta+Z" : "Control+Z",
-        onCommand: () => this.undoEntry(win, entry),
-      };
+    const toasts = win.gZenUIManager?.toasts;
+    if (!toasts) {
+      return null;
     }
-    const shown = lazy().WhimsyToast.show(win, toast);
-    if (shown) {
-      shown._undoEntry = entry; // Cmd+Z on this entry also hides its toast.
-    }
-    return shown;
+    const toast = toasts.open(messageId, {
+      key: "whimsy-undo",
+      l10nArgs,
+      description: options.detail,
+      ...(this.enabled
+        ? {
+            buttons: [
+              {
+                id: "whimsy-undo-toast-button",
+                l10nId: "whimsy-undo-toast-action",
+                keys: this.undoKeys(),
+                ariaKeys: AppConstants.platform == "macosx" ? "Meta+Z" : "Control+Z",
+                command: () => this.undoEntry(win, entry),
+              },
+            ],
+          }
+        : { timeout: PLAIN_TOAST_TIMEOUT_MS }),
+    });
+    // Cmd+Z on this entry also hides its toast.
+    undoToasts.set(win, { toast, entry });
+    return toast;
+  },
+
+  /** "⌘Z" on macOS, "Ctrl+Z" elsewhere. */
+  undoKeys() {
+    return AppConstants.platform == "macosx" ? "⌘Z" : "Ctrl+Z";
   },
 
   // Undoes one specific entry, wherever it sits in the stack.
@@ -291,9 +310,10 @@ export const WhimsyUndo = {
       return false;
     }
     // wave8/snooze: the toast offering this undo has done its job.
-    const toast = lazy().WhimsyToast.current(win);
-    if (toast && toast._undoEntry == entry) {
-      lazy().WhimsyToast.dismiss(toast);
+    const shown = undoToasts.get(win);
+    if (shown?.entry == entry) {
+      undoToasts.delete(win);
+      shown.toast.close();
     }
     this.runSuppressed(() => {
       try {
@@ -470,13 +490,11 @@ export const WhimsyUndo = {
 };
 
 // A tiny lazy-import helper so the close-undo entry above doesn't need a
-// module-level `lazy` object of its own just for SessionStore (and, since
-// wave8/snooze, WhimsyToast).
+// module-level `lazy` object of its own just for SessionStore.
 function lazy() {
   if (!lazy._mod) {
     lazy._mod = {
       ...ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs"),
-      ...ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs"),
     };
   }
   return lazy._mod;

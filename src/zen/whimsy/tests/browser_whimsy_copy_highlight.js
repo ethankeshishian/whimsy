@@ -11,7 +11,6 @@
 
 const PAGE =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_highlight.html";
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const OFFER_ID = "whimsy-copy-highlight-action";
 
 const clipboardText = () => SpecialPowers.getClipboardData("text/plain");
@@ -36,10 +35,9 @@ async function selectParagraph(browser) {
   });
 }
 
+// The usual Copy URL toast (the offer is the same message under its own key).
 function zenCopyToast() {
-  return [...document.getElementById("zen-toast-container").children].find(
-    t => t._messageId == "whimsy-copy-toast" && !t.classList.contains("whimsy-toast")
-  );
+  return gZenUIManager.toasts.getToast("whimsy-copy-toast");
 }
 
 // copy.js runs just before this file and its last copies can still be
@@ -62,11 +60,12 @@ add_task(async function test_selection_offers_link_to_highlight() {
   document.getElementById("cmd_zenCopyCurrentURL").doCommand();
   await TestUtils.waitForCondition(() => clipboardText() == PAGE, "Copy URL copies the page's URL first");
   const button = await TestUtils.waitForCondition(() => document.getElementById(OFFER_ID), "The toast offers a link to the text");
-  const toast = WhimsyToast.current(window);
-  is(toast?._messageId, "whimsy-copy-toast", "It's the Copy URL toast");
-  is(document.l10n.getAttributes(toast.querySelector(".whimsy-toast-message")).args.count, 1, "for one URL");
+  const toast = currentToast();
+  is(toast?.messageId, "whimsy-copy-toast", "It's the Copy URL toast");
+  is(toast.key, "whimsy-copy-highlight", "with the offer");
+  is(document.l10n.getAttributes(toast.element.querySelector("label")).args.count, 1, "for one URL");
   is(
-    document.l10n.getAttributes(button.querySelector(".whimsy-toast-action-label")).id,
+    document.l10n.getAttributes(button.querySelector(".whimsy-toast-button-label")).id,
     "whimsy-copy-highlight-offer",
     "Share a link directly to this text instead?"
   );
@@ -75,6 +74,7 @@ add_task(async function test_selection_offers_link_to_highlight() {
     "Arc's wording"
   );
   ok(!zenCopyToast(), "Only one copy toast");
+  is(gZenUIManager.toasts.getToasts().filter(t => t.messageId == "whimsy-copy-toast").length, 1, "...showing");
 
   button.click();
   const url = await TestUtils.waitForCondition(

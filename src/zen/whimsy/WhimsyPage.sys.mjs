@@ -22,7 +22,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
   saveCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
   WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
 });
@@ -61,6 +60,10 @@ const ARCHIVE_STATUSES = new Set([404, 410, 451, 500, 502, 503, 504, 520, 521, 5
 const ARCHIVE_ERRORS = new Set(["dnsNotFound", "connectionFailure", "netTimeout", "netReset", "unknownHost"]);
 const ARCHIVE_ICON = "chrome://browser/skin/zen-icons/selectable/time.svg";
 const ARCHIVE_OFFER_MS = 10000;
+const TOAST_TIMEOUT_MS = 4000;
+// The dead-page offer, the lookup and its answer are one toast, each step
+// replacing the last in place.
+const ARCHIVE_TOAST_KEY = "whimsy-archive";
 // W10-15: the dead-page offer already shown per tab (browser -> url), and
 // one waiting for its background tab to be selected.
 const archiveOffered = new WeakMap();
@@ -573,18 +576,21 @@ export const WhimsyPage = {
     ) {
       return null;
     }
-    return lazy.WhimsyToast.show(win, {
-      l10nId: "whimsy-allow-copy-offer-toast",
-      action: {
-        id: "whimsy-allow-copy-offer-action",
-        l10nId: "whimsy-allow-copy-offer-action",
-        onCommand: () => {
-          if (!this.copyAllowed(browser)) {
-            this.toggleAllowCopy(win, browser);
-          }
-        },
-      },
-    });
+    return (
+      win.gZenUIManager?.toasts?.open("whimsy-allow-copy-offer-toast", {
+        buttons: [
+          {
+            id: "whimsy-allow-copy-offer-action",
+            l10nId: "whimsy-allow-copy-offer-action",
+            command: () => {
+              if (!this.copyAllowed(browser)) {
+                this.toggleAllowCopy(win, browser);
+              }
+            },
+          },
+        ],
+      }) ?? null
+    );
   },
 
   // Returns whether copying is now allowed on the current tab's site.
@@ -768,20 +774,22 @@ export const WhimsyPage = {
       if (browser.currentURI?.spec != url || win.gBrowser.selectedBrowser != browser || win.closed) {
         return;
       }
-      toast = lazy.WhimsyToast.show(win, {
-        l10nId: "whimsy-archive-toast",
-        detailL10nId: "whimsy-archive-toast-detail",
+      toast = win.gZenUIManager?.toasts?.open("whimsy-archive-toast", {
+        key: ARCHIVE_TOAST_KEY,
+        descriptionId: "whimsy-archive-toast-detail",
         icon: ARCHIVE_ICON,
         browser,
         timeout: ARCHIVE_OFFER_MS,
-        action: {
-          id: "whimsyArchiveFind",
-          l10nId: "whimsy-archive-look",
-          onCommand: () => {
-            this.lookUpArchived(win, browser, url, toast).catch(e => console.error("Whimsy: archive lookup", e));
-            return "keep";
+        buttons: [
+          {
+            id: "whimsyArchiveFind",
+            l10nId: "whimsy-archive-look",
+            command: () => {
+              this.lookUpArchived(win, browser, url, toast).catch(e => console.error("Whimsy: archive lookup", e));
+              return "keep";
+            },
           },
-        },
+        ],
       });
     };
     Services.tm.dispatchToMainThread(show);
@@ -803,10 +811,10 @@ export const WhimsyPage = {
   async lookUpArchived(win, browser, url, toast = null) {
     const lookup = this.archiveLookupURL(url);
     toast?.update({
-      detailL10nId: "whimsy-archive-looking",
+      descriptionId: "whimsy-archive-looking",
       busy: true,
       timeout: 0,
-      action: { id: "whimsyArchiveFind", l10nId: "whimsy-archive-looking-button" },
+      buttons: [{ id: "whimsyArchiveFind", l10nId: "whimsy-archive-looking-button" }],
     });
     let snapshot = null;
     let failed = !lookup;
@@ -823,34 +831,41 @@ export const WhimsyPage = {
     }
     if (failed) {
       // Owned by the tab, like the offer.
-      const retry = lazy.WhimsyToast.show(win, {
-        l10nId: "whimsy-archive-error",
-        detailL10nId: "whimsy-archive-error-detail",
+      const retry = win.gZenUIManager?.toasts?.open("whimsy-archive-error", {
+        key: ARCHIVE_TOAST_KEY,
+        descriptionId: "whimsy-archive-error-detail",
         icon: ARCHIVE_ICON,
         browser,
-        action: {
-          id: "whimsyArchiveFind",
-          l10nId: "whimsy-archive-retry",
-          onCommand: () => {
-            this.lookUpArchived(win, browser, url, retry).catch(e => console.error("Whimsy: archive lookup", e));
-            return "keep";
+        buttons: [
+          {
+            id: "whimsyArchiveFind",
+            l10nId: "whimsy-archive-retry",
+            command: () => {
+              this.lookUpArchived(win, browser, url, retry).catch(e => console.error("Whimsy: archive lookup", e));
+              return "keep";
+            },
           },
-        },
+        ],
       });
       return null;
     }
     if (!snapshot) {
-      lazy.WhimsyToast.show(win, { l10nId: "whimsy-archive-none-toast", icon: ARCHIVE_ICON });
+      win.gZenUIManager?.toasts?.open("whimsy-archive-none-toast", {
+        key: ARCHIVE_TOAST_KEY,
+        icon: ARCHIVE_ICON,
+        timeout: TOAST_TIMEOUT_MS,
+      });
       return null;
     }
     this.loadArchived(browser, snapshot.url);
     const date = snapshot.date ?
       new Intl.DateTimeFormat(Services.locale.appLocalesAsBCP47, { dateStyle: "long", timeZone: "UTC" }).format(snapshot.date) :
       null;
-    lazy.WhimsyToast.show(win, {
-      l10nId: "whimsy-archive-found",
-      ...(date ? { detailL10nId: "whimsy-archive-found-date", detailArgs: { date } } : {}),
+    win.gZenUIManager?.toasts?.open("whimsy-archive-found", {
+      key: ARCHIVE_TOAST_KEY,
+      ...(date ? { descriptionId: "whimsy-archive-found-date", descriptionArgs: { date } } : {}),
       icon: ARCHIVE_ICON,
+      timeout: TOAST_TIMEOUT_MS,
     });
     return snapshot;
   },

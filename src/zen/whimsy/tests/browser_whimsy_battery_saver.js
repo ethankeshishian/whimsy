@@ -16,22 +16,15 @@ const { globalActions } = ChromeUtils.importESModule(
   "resource:///modules/ZenUBGlobalActions.sys.mjs"
 );
 
-const { WhimsyToast } = ChromeUtils.importESModule(
-  "resource:///modules/whimsy/WhimsyToast.sys.mjs"
-);
-
 const COMMAND = "cmd_whimsyToggleBatterySaver";
 const LOW = { level: 0.15, charging: false };
 
 function toastId() {
-  return WhimsyToast.current(window)?._messageId ?? null;
+  return currentToast()?.messageId ?? null;
 }
 
 function clearToast() {
-  const toast = WhimsyToast.current(window);
-  if (toast) {
-    WhimsyToast.dismiss(toast);
-  }
+  closeToasts();
 }
 
 function reset() {
@@ -79,7 +72,7 @@ add_task(async function test_automatic_trigger_and_banner() {
     is(gBrowser.tabs.filter(t => t.hasAttribute("pending")).length, 0, "No tab was unloaded");
 
     is(toastId(), "whimsy-battery-saver-active-toast", "Heads-up toast shown on activation");
-    const button = WhimsyToast.current(window).querySelector(".whimsy-toast-action");
+    const button = currentToast().element.querySelector(".whimsy-toast-button");
     ok(button, "The heads-up offers Turn Off");
 
     // Turn Off from the toast: stays off while still low...

@@ -154,9 +154,8 @@ add_task(async function test_forget_site_opens_the_surface() {
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
     is(burned, 0, "Return on the card forgets nothing");
     is(panel.state, "open", "...and keeps it open");
-    const toastShown = TestUtils.waitForCondition(() =>
-      document.l10n.getAttributes(document.querySelector("#zen-toast-container .whimsy-toast-message") ?? document.documentElement).id ==
-        "whimsy-fire-done-site-title", "The result toast says it forgot the site");
+    const toastShown = TestUtils.waitForCondition(() => toastFor("whimsy-fire-done-site-title"),
+      "The result toast says it forgot the site");
     forget.doCommand();
     await toastShown;
     is(burned, 1, "The red button forgets it");
@@ -237,16 +236,14 @@ add_task(async function test_fire_needs_the_explicit_button() {
 
     session.click();
     const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
-    const toastShown = TestUtils.waitForCondition(() =>
-      [...document.querySelectorAll("#zen-toast-container .whimsy-toast-message")].some(l =>
-        document.l10n.getAttributes(l).id == "whimsy-fire-done-profile-title"),
-    "A toast says what closed and what was cleared");
+    const toastShown = TestUtils.waitForCondition(() => toastFor("whimsy-fire-done-profile-title"),
+      "A toast says what closed and what was cleared");
     forget.doCommand();
     await hidden;
     await TestUtils.waitForCondition(() => !tab.isConnected, "The space's tabs close");
     is(burned, 1, "It ran once");
     await toastShown;
-    const detail = document.querySelector("#zen-toast-container .whimsy-toast-detail");
+    const detail = toastFor("whimsy-fire-done-profile-title").element.querySelector(".description");
     is(document.l10n.getAttributes(detail).id, "whimsy-fire-done-profile-detail", "with a second line");
   } finally {
     WhimsyFireButton.burnProfile = original;
@@ -393,10 +390,8 @@ add_task(async function test_fire_everything_second_step() {
     back.doCommand();
     is(panel.dataset.step, "choose", "Back goes back");
     panel.querySelector("#whimsy-fire-forget").doCommand();
-    const toastShown = TestUtils.waitForCondition(() =>
-      [...document.querySelectorAll("#zen-toast-container .whimsy-toast-message")].some(l =>
-        document.l10n.getAttributes(l).id == "whimsy-fire-done-everything-title"),
-    "A toast says everything was erased");
+    const toastShown = TestUtils.waitForCondition(() => toastFor("whimsy-fire-done-everything-title"),
+      "A toast says everything was erased");
     panel.querySelector("#whimsy-fire-everything-accept").doCommand();
     await toastShown;
     is(burned, 1, "Fire Everywhere runs once confirmed");
@@ -583,24 +578,19 @@ add_task(async function test_fire_everywhere_clears_download_list_keeps_files() 
 // and (W10-30) the same toast turns into the result, with a title and a
 // second line, and stays. A failure offers Try Again.
 add_task(async function test_w10_58_fire_confirms_at_once() {
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   let finish;
   const slowBurn = () => new Promise(resolve => (finish = resolve));
   const running = WhimsyFireButton.run(window, slowBurn, "profile");
-  const working = WhimsyToast.current(window);
+  const working = currentToast();
   ok(working, "A toast shows as soon as Fire runs, before clearing is done");
-  is(
-    document.l10n.getAttributes(working.querySelector(".whimsy-toast-message")).id,
-    "whimsy-fire-working-profile",
-    "It says it's clearing"
-  );
+  is(working.messageId, "whimsy-fire-working-profile", "It says it's clearing");
   finish({ count: 2, visits: 3, sites: 1, profile: "Default" });
   await running;
-  const done = WhimsyToast.current(window);
+  const done = currentToast();
   is(done, working, "The result takes its place, without a second entrance");
-  const message = done.querySelector(".whimsy-toast-message");
+  const message = done.element.querySelector("label");
   is(document.l10n.getAttributes(message).id, "whimsy-fire-done-profile-title", "and says what went");
-  const detail = done.querySelector(".whimsy-toast-detail");
+  const detail = done.element.querySelector(".description");
   Assert.deepEqual(
     document.l10n.getAttributes(detail),
     { id: "whimsy-fire-done-profile-detail", args: { count: 2, visits: 3, sites: 1, profile: "Default" } },
@@ -609,8 +599,8 @@ add_task(async function test_w10_58_fire_confirms_at_once() {
   await TestUtils.waitForCondition(() => detail.textContent.includes("2 tabs") && detail.textContent.includes("3 visits"),
     "The text renders");
   await new Promise(resolve => setTimeout(resolve, 2500));
-  ok(done.isConnected && !done.hasAttribute("leaving"), "and is still there after Zen's 2 seconds");
-  WhimsyToast.dismiss(done);
+  ok(!done.closing && !done.closed, "and is still there after Zen's 2 seconds");
+  done.close({ instant: true });
 
   // A failure says so too, replacing "Clearing…", with Try Again.
   let attempts = 0;
@@ -618,23 +608,16 @@ add_task(async function test_w10_58_fire_confirms_at_once() {
     attempts++;
     throw new Error("test");
   }, "site", { site: "example.com" });
-  is(
-    document.l10n.getAttributes(WhimsyToast.current(window).querySelector(".whimsy-toast-message")).id,
-    "whimsy-fire-working-site",
-    "Forgetting a site says so at once"
-  );
+  is(currentToast().messageId, "whimsy-fire-working-site", "Forgetting a site says so at once");
   await failing;
-  const failed = WhimsyToast.current(window);
-  is(document.l10n.getAttributes(failed.querySelector(".whimsy-toast-message")).id, "whimsy-fire-failed-title",
-    "and a failure replaces it");
-  const retry = failed.querySelector(".whimsy-toast-action");
-  is(document.l10n.getAttributes(retry.querySelector(".whimsy-toast-action-label")).id, "whimsy-fire-retry", "with Try Again");
+  const failed = currentToast();
+  is(failed.messageId, "whimsy-fire-failed-title", "and a failure replaces it");
+  const retry = failed.element.querySelector(".whimsy-toast-button");
+  is(document.l10n.getAttributes(retry.querySelector(".whimsy-toast-button-label")).id, "whimsy-fire-retry", "with Try Again");
   retry.click();
   await TestUtils.waitForCondition(() => attempts == 2, "Try Again runs it again");
-  await TestUtils.waitForCondition(() =>
-    document.l10n.getAttributes(WhimsyToast.current(window)?.querySelector(".whimsy-toast-message") ?? document.documentElement).id ==
-      "whimsy-fire-failed-title");
-  WhimsyToast.dismiss(WhimsyToast.current(window));
+  await TestUtils.waitForCondition(() => currentToast()?.messageId == "whimsy-fire-failed-title");
+  closeToasts();
 });
 
 // W10-58: the tabs close before the (slow) history lookup, so the window

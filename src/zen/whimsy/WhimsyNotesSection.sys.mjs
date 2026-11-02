@@ -24,7 +24,6 @@ ChromeUtils.defineESModuleGetters(
     WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
     WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
     WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
-    WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
     WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   },
   { global: "current" }
@@ -208,13 +207,14 @@ export const WhimsyNotes = {
     } catch {}
     const name = note.title || (note.text ?? "").split("\n").find(line => line.trim())?.trim() || "";
     const detail = [name.slice(0, 80), host].filter(Boolean).join(" · ");
-    lazy.WhimsyToast.show(win, {
-      l10nId: "whimsy-note-saved-toast",
-      detail: detail || undefined,
-      action: {
-        l10nId: "whimsy-note-saved-open",
-        onCommand: () => this.openInLibrary(win, note.id),
-      },
+    win.gZenUIManager?.toasts?.open("whimsy-note-saved-toast", {
+      description: detail || undefined,
+      buttons: [
+        {
+          l10nId: "whimsy-note-saved-open",
+          command: () => this.openInLibrary(win, note.id),
+        },
+      ],
     });
   },
 

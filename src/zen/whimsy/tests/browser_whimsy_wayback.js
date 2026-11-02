@@ -20,14 +20,12 @@ add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.archive.api", BASE + "?api&url="]] });
 });
 
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const bar = browser => gBrowser.getNotificationBox(browser).getNotificationWithValue("whimsy-archive");
 const server = async query => (await fetch(BASE + "?" + query, { cache: "no-store" })).text();
 const lookups = async () => (await server("lookups")).split("\n").filter(Boolean);
-const toastWith = (win, id) => {
-  const toast = WhimsyToast.current(win);
-  return toast?._messageId == id ? toast : null;
-};
+// The dead-page offer, the lookup and its answer are one toast (one key),
+// so this finds it by the message it shows now.
+const toastWith = (win, id) => toastFor(id, win);
 const offer = (win = window) => toastWith(win, "whimsy-archive-toast");
 
 add_task(async function test_dead_page() {
@@ -36,25 +34,25 @@ add_task(async function test_dead_page() {
   const browser = tab.linkedBrowser;
   const toast = await TestUtils.waitForCondition(() => offer(), "A gone page offers a saved copy");
   ok(!bar(browser), "No notification bar");
-  await document.l10n.translateFragment(toast);
-  is(toast.querySelector(".whimsy-toast-message").textContent, "Page didn’t load", "The title");
-  is(toast.querySelector(".whimsy-toast-detail").textContent, "Try a saved copy from the Wayback Machine",
+  await document.l10n.translateFragment(toast.element);
+  is(toast.element.querySelector("label").textContent, "Page didn’t load", "The title");
+  is(toast.element.querySelector(".description").textContent, "Try a saved copy from the Wayback Machine",
     "The second line names the Wayback Machine");
-  ok(toast.querySelector("img.whimsy-toast-icon"), "With its icon");
+  ok(toast.element.querySelector(".whimsy-toast-icon > img"), "With its icon");
   await new Promise(r => setTimeout(r, 300));
   Assert.deepEqual(await lookups(), [], "Nothing was sent to the archive before the click");
-  const button = toast.querySelector(".whimsy-toast-action");
+  const button = toast.element.querySelector(".whimsy-toast-button");
   is(button.textContent, "Find Copy", "The action is Find Copy");
   const loaded = BrowserTestUtils.browserLoaded(browser, false, "https://example.org/?archived");
   button.click();
-  ok(toast.hasAttribute("busy") || !toast.isConnected, "Looking: the action is busy");
+  ok(toast.busy || toast.closed, "Looking: the action is busy");
   await loaded;
   ok(true, "Find Copy finds and opens the archived copy");
   const found = await TestUtils.waitForCondition(() => toastWith(window, "whimsy-archive-found"), "Showing a saved copy");
-  await document.l10n.translateFragment(found);
-  ok(found.querySelector(".whimsy-toast-detail").textContent.includes("2024"), "With the copy's date");
+  await document.l10n.translateFragment(found.element);
+  ok(found.element.querySelector(".description").textContent.includes("2024"), "With the copy's date");
   Assert.deepEqual(await lookups(), [BASE], "Only the address went, without its query or fragment");
-  WhimsyToast._dismissNow(found);
+  found.close({ instant: true });
   BrowserTestUtils.removeTab(tab);
 });
 
@@ -63,10 +61,10 @@ add_task(async function test_no_copy() {
   await server("nocopy");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, BASE + "?gone");
   const toast = await TestUtils.waitForCondition(() => offer(), "The toast offers");
-  toast.querySelector(".whimsy-toast-action").click();
+  toast.element.querySelector(".whimsy-toast-button").click();
   const none = await TestUtils.waitForCondition(() => toastWith(window, "whimsy-archive-none-toast"), "No copy says so");
   is(tab.linkedBrowser.currentURI.spec, BASE + "?gone", "…and the page stays");
-  WhimsyToast._dismissNow(none);
+  none.close({ instant: true });
   BrowserTestUtils.removeTab(tab);
   await server("reset");
 });
@@ -76,20 +74,18 @@ add_task(async function test_lookup_fails() {
   await server("fail");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, BASE + "?gone&fail");
   const toast = await TestUtils.waitForCondition(() => offer(), "The toast offers");
-  toast.querySelector(".whimsy-toast-action").click();
+  toast.element.querySelector(".whimsy-toast-button").click();
   const error = await TestUtils.waitForCondition(() => toastWith(window, "whimsy-archive-error"), "A failed request says so");
-  await document.l10n.translateFragment(error);
-  is(error.querySelector(".whimsy-toast-action").textContent, "Try Again", "and offers Try Again");
+  await document.l10n.translateFragment(error.element);
+  is(error.element.querySelector(".whimsy-toast-button").textContent, "Try Again", "and offers Try Again");
   await server("reset");
   const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, "https://example.org/?archived");
-  error.querySelector(".whimsy-toast-action").click();
+  error.element.querySelector(".whimsy-toast-button").click();
   await loaded;
   ok(true, "Try Again looks again and opens the copy");
   Assert.equal((await lookups()).length, 1, "One lookup after the reset");
   const found = toastWith(window, "whimsy-archive-found");
-  if (found) {
-    WhimsyToast._dismissNow(found);
-  }
+  found?.close({ instant: true });
   BrowserTestUtils.removeTab(tab);
 });
 
@@ -98,7 +94,7 @@ add_task(async function test_switching_tabs_dismisses() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, BASE + "?gone&switch");
   const toast = await TestUtils.waitForCondition(() => offer(), "The toast offers");
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
-  ok(!toast.isConnected, "Switching tabs dismisses the offer");
+  ok(toast.closed, "Switching tabs dismisses the offer");
   BrowserTestUtils.removeTab(other);
   BrowserTestUtils.removeTab(tab);
   Assert.deepEqual(await lookups(), [], "Nothing was asked");

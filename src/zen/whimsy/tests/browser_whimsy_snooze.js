@@ -53,7 +53,6 @@ add_task(async function test_snooze_undo_cancels_the_wake() {
 // each saying where it lands; the field reads typed times; Pick Date &
 // Time opens date and time fields; Esc steps back before it closes.
 
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const SnoozeTime = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySnoozeTime.sys.mjs");
 
 async function openPicker(tab) {
@@ -189,18 +188,18 @@ add_task(async function test_snooze_picker_reads_typed_times() {
     Assert.lessOrEqual(record.wakeAt, Date.now() + 2 * 3600 * 1000 + 1000, "...not later");
 
     // The toast says until when, names the tab, and offers Undo in words.
-    const toast = await TestUtils.waitForCondition(() => WhimsyToast.current(window), "A toast confirms it");
-    await document.l10n.translateFragment(toast);
-    is(toast.getAttribute("role"), "status", "Read out by screen readers");
-    ok(toast.querySelector(".whimsy-toast-message").textContent.startsWith("Snoozed until"), "Says until when");
-    is(toast.querySelector(".whimsy-toast-detail").textContent, title, "Names the tab");
-    const button = toast.querySelector(".whimsy-toast-action");
-    is(button.querySelector(".whimsy-toast-action-label").textContent, "Undo", "The button says Undo");
-    is(button.querySelector(".whimsy-toast-keys").textContent, WhimsyToast.undoKeys(), "...with its shortcut");
+    const toast = await TestUtils.waitForCondition(() => currentToast(), "A toast confirms it");
+    await document.l10n.translateFragment(toast.element);
+    is(toast.element.getAttribute("role"), "status", "Read out by screen readers");
+    ok(toast.element.querySelector("label").textContent.startsWith("Snoozed until"), "Says until when");
+    is(toast.element.querySelector(".description").textContent, title, "Names the tab");
+    const button = toast.element.querySelector(".whimsy-toast-button");
+    is(button.querySelector(".whimsy-toast-button-label").textContent, "Undo", "The button says Undo");
+    is(button.querySelector(".whimsy-toast-keys").textContent, WhimsyUndo.undoKeys(), "...with its shortcut");
 
     // Cmd+Z undoes it and the toast goes with it.
     ok(WhimsyUndo.undo(window), "Cmd+Z's undo runs");
-    await TestUtils.waitForCondition(() => !toast.isConnected, "The toast leaves once its action is undone");
+    await TestUtils.waitForCondition(() => toast.closed, "The toast leaves once its action is undone");
     const restored = await TestUtils.waitForCondition(
       () => gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == url), "The tab is back");
     ok(!(await WhimsySnooze.list()).some(r => r.url == url), "...and won't wake again");
@@ -257,10 +256,7 @@ add_task(async function test_snooze_picker_custom_date_and_time() {
     }
   } finally {
     await closePicker(panel);
-    const left = WhimsyToast.current(window);
-    if (left) {
-      WhimsyToast._dismissNow(left);
-    }
+    closeToasts();
   }
 });
 

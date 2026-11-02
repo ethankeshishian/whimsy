@@ -129,7 +129,7 @@ add_task(async function test_inspect_font_card() {
   ok(size.hasAttribute("copied"), "It says Copied in place");
   await document.l10n.translateFragment(size);
   is(size.querySelector(".whimsy-surface-copy-live").textContent, "Copied", "in words, read out");
-  ok(!document.querySelector("#zen-toast-container .whimsy-toast"), "No toast");
+  ok(!currentToast(), "No toast");
   // Weight copies the number, Color the hex.
   await SimpleTest.promiseClipboardChange("700", () => panel.querySelector('[data-fact="weight"]').click());
   await SimpleTest.promiseClipboardChange("#FF0000", () => panel.querySelector('[data-fact="color"]').click());

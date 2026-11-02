@@ -14,7 +14,6 @@
 const PAGE =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_no_copy_keys.html";
 const { WhimsyPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPage.sys.mjs");
-const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const { RESERVED_KEYS } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyShortcuts.sys.mjs");
 const site = Services.scriptSecurityManager.createContentPrincipal(Services.io.newURI("https://example.com"), {});
 
@@ -55,7 +54,7 @@ add_task(async function test_blocked_menu_offers_allow_copy() {
   EventUtils.synthesizeKey("C", { accelKey: true, shiftKey: true });
   await TestUtils.waitForCondition(async () => (await blockedKeys(browser)) > firstBlocked, "The page cancelled the first Cmd+Shift+C");
   await TestUtils.waitForCondition(
-    () => WhimsyToast.current(window)?._messageId == "whimsy-press-again-toast",
+    () => currentToast()?.messageId == "whimsy-press-again-toast",
     "A toast says to press it again"
   );
   ok(!clipboardText().includes("whimsy_no_copy_keys.html"), "The first press didn't copy");
@@ -76,7 +75,7 @@ add_task(async function test_blocked_menu_offers_allow_copy() {
   menu.addEventListener("popupshown", onShown);
   await BrowserTestUtils.synthesizeMouseAtCenter("#p", { type: "contextmenu", button: 2 }, browser);
   await TestUtils.waitForCondition(
-    () => WhimsyToast.current(window)?._messageId == "whimsy-allow-copy-offer-toast",
+    () => currentToast()?.messageId == "whimsy-allow-copy-offer-toast",
     "A toast offers Allow Copy and Paste"
   );
   menu.removeEventListener("popupshown", onShown);
@@ -85,13 +84,10 @@ add_task(async function test_blocked_menu_offers_allow_copy() {
   ok(action, "with an Allow Copy and Paste button");
 
   // Only once per page.
-  const offered = WhimsyToast.current(window);
-  if (offered) {
-    WhimsyToast._dismissNow(offered);
-  }
+  currentToast()?.close({ instant: true });
   await BrowserTestUtils.synthesizeMouseAtCenter("#p", { type: "contextmenu", button: 2 }, browser);
   await new Promise(r => setTimeout(r, 300));
-  isnot(WhimsyToast.current(window)?._messageId, "whimsy-allow-copy-offer-toast", "Not offered twice on one page");
+  isnot(currentToast()?.messageId, "whimsy-allow-copy-offer-toast", "Not offered twice on one page");
 
   // Reload, offer again, take it.
   BrowserTestUtils.reloadTab(tab);
@@ -123,7 +119,7 @@ add_task(async function test_blocked_menu_offers_allow_copy() {
   const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
   menu.hidePopup();
   await hidden;
-  isnot(WhimsyToast.current(window)?._messageId, "whimsy-allow-copy-offer-toast", "No offer once allowed");
+  isnot(currentToast()?.messageId, "whimsy-allow-copy-offer-toast", "No offer once allowed");
 
   WhimsyPage.toggleAllowCopy(window, browser);
   BrowserTestUtils.removeTab(tab);

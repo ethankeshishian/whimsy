@@ -36,7 +36,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   CustomKeys: "moz-src:///browser/components/customkeys/CustomKeys.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -421,7 +420,6 @@ export const WhimsyShortcuts = {
     if (!keyEl || win.gBrowser.selectedBrowser != browser) {
       return null;
     }
-    const old = pendingPress.get(win);
     const pending = {
       keyId: keyEl.id,
       signature: bindingOf(keyEl),
@@ -430,27 +428,27 @@ export const WhimsyShortcuts = {
       toast: null,
     };
     pendingPress.set(win, pending);
-    pending.toast = this.showPressAgainHint(win, keyEl, browser, old?.toast);
+    pending.toast = this.showPressAgainHint(win, keyEl, browser);
     return keyEl;
   },
 
   // "Press ⌘S again for Hide Sidebar". Arc's own hint text can't be read
   // from Arc (it's in the binary), so this is Whimsy's wording.
-  showPressAgainHint(win, keyEl, browser, oldToast) {
+  showPressAgainHint(win, keyEl, browser) {
     let shortcut = "";
     try {
       shortcut = lazy.ShortcutUtils.prettifyShortcut(keyEl);
     } catch (e) {}
     const action = lazy.WhimsyCommands.keyTitle(win, keyEl).replace(/\s*(…|\.\.\.)$/, "");
-    if (oldToast?.isConnected && oldToast._messageId == "whimsy-press-again-toast") {
-      lazy.WhimsyToast._dismissNow(oldToast);
-    }
-    return lazy.WhimsyToast.show(win, {
-      l10nId: "whimsy-press-again-toast",
-      l10nArgs: { shortcut, action },
-      browser,
-      timeout: PRESS_AGAIN_MS,
-    });
+    // A newer hint replaces the one showing, in place.
+    return (
+      win.gZenUIManager?.toasts?.open("whimsy-press-again-toast", {
+        key: "whimsy-press-again",
+        l10nArgs: { shortcut, action },
+        browser,
+        timeout: PRESS_AGAIN_MS,
+      }) ?? null
+    );
   },
 
   // Whether a press-again is waiting in this window (tests).
@@ -462,9 +460,7 @@ export const WhimsyShortcuts = {
   cancelPressAgain(win) {
     const pending = pendingPress.get(win);
     pendingPress.delete(win);
-    if (pending?.toast?.isConnected) {
-      lazy.WhimsyToast.dismiss(pending.toast);
-    }
+    pending?.toast?.close();
   },
 
   // Every keydown in the window, before the page gets it.
@@ -474,11 +470,7 @@ export const WhimsyShortcuts = {
       return;
     }
     pendingPress.delete(win);
-    const dismiss = () => {
-      if (pending.toast?.isConnected) {
-        lazy.WhimsyToast.dismiss(pending.toast);
-      }
-    };
+    const dismiss = () => pending.toast?.close();
     if (
       !this.pressAgainEnabled ||
       Date.now() > pending.until ||

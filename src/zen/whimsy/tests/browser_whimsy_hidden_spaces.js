@@ -60,13 +60,11 @@ async function closePanel(panel) {
 
 async function hide(uuid) {
   await WhimsySpaceArchive.toggleHidden(window, uuid);
-  WhimsyToastCleanup();
+  toastCleanup();
 }
 
-function WhimsyToastCleanup() {
-  for (const toast of document.querySelectorAll(".whimsy-toast, zen-toast")) {
-    toast.remove?.();
-  }
+function toastCleanup() {
+  closeToasts();
 }
 
 add_task(async function test_empty_state_and_always_available() {
@@ -129,7 +127,7 @@ add_task(async function test_rows_show_and_switch() {
   await TestUtils.waitForCondition(() => !space(taxes.uuid).whimsyHidden, "...and unhides it");
   await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
   WhimsySpaceArchive.restore(window, garden.uuid);
-  WhimsyToastCleanup();
+  toastCleanup();
 });
 
 add_task(async function test_hide_current_from_footer() {
@@ -145,7 +143,7 @@ add_task(async function test_hide_current_from_footer() {
   WhimsySpaceArchive.restore(window, firstSpace.uuid);
   WhimsySpaceArchive.restore(window, taxes.uuid);
   await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
-  WhimsyToastCleanup();
+  toastCleanup();
 });
 
 add_task(async function test_locked_space_unlocks_first() {
@@ -194,7 +192,7 @@ add_task(async function test_locked_space_unlocks_first() {
       gZenWorkspaces.saveWorkspace(v);
       await gZenWorkspaces.removeWorkspace(vault.uuid);
     }
-    WhimsyToastCleanup();
+    toastCleanup();
   }
 });
 

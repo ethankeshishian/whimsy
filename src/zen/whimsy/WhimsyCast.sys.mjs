@@ -22,7 +22,6 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
-  WhimsyToast: "resource:///modules/whimsy/WhimsyToast.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.cast";
@@ -30,6 +29,7 @@ const CONTRACT = "@whimsy/airplay;1";
 const MIRROR_SETTINGS = "x-apple.systempreferences:com.apple.Displays-Settings.extension";
 const MENU_ID = "menu_whimsyCast";
 const TOAST_BUTTON_ID = "whimsy-cast-toast-button";
+const TOAST_TIMEOUT_MS = 4000;
 
 function isWebPage(win) {
   const uri = win.gBrowser?.selectedBrowser?.currentURI;
@@ -106,17 +106,19 @@ export const WhimsyCast = {
     });
   },
 
-  // wave9/designfix (M5): WhimsyToast, not Zen's toast. Zen's hides a
-  // button's text and leaves after 2s, so Stop and Screen Mirroring were
-  // blank pills gone before anyone reached them (the bug W8-37 fixed for
-  // Undo). This one says the action in words and stays 6s, longer while
-  // hovered or focused; each cast toast replaces the one before.
+  // wave9/designfix (M5): Stop and Screen Mirroring say what they do in
+  // words, and the toast stays 6s, longer while hovered or focused (Zen's
+  // icon-only button left after 2s). wave13/toast: Zen's toast, extended;
+  // each cast toast replaces the one before.
   toast(win, messageId, button = null) {
-    const o = { l10nId: messageId };
-    if (button) {
-      o.action = { id: TOAST_BUTTON_ID, l10nId: button.l10nId, onCommand: () => button.run() };
-    }
-    return lazy.WhimsyToast.show(win, o);
+    return (
+      win.gZenUIManager?.toasts?.open(messageId, {
+        key: "whimsy-cast",
+        ...(button
+          ? { buttons: [{ id: TOAST_BUTTON_ID, l10nId: button.l10nId, command: () => button.run() }] }
+          : { timeout: TOAST_TIMEOUT_MS }),
+      }) ?? null
+    );
   },
 
   actor(browser) {
