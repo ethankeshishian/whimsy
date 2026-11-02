@@ -4753,3 +4753,38 @@ whimsy-private-lock-sharing =
 # W11-14 (d14): Lock Space's cover. $space (string) - the space's name
 whimsy-space-lock-cover-title = “{ $space }” is locked
 whimsy-space-lock-cover-detail = Unlock to see its tabs.
+
+## W13-R3: a call's microphone and camera (the small player under the tab
+## bar, picture-in-picture and commands), following the call page's own
+## toggles.
+
+whimsy-action-call-microphone = Toggle Meeting Microphone
+whimsy-action-call-camera = Toggle Meeting Camera
+whimsy-call-mic-turn-off =
+    .tooltiptext = Turn Off Microphone
+    .aria-label = Turn Off Microphone
+whimsy-call-mic-turn-on =
+    .tooltiptext = Turn On Microphone
+    .aria-label = Turn On Microphone
+whimsy-call-camera-turn-off =
+    .tooltiptext = Turn Off Camera
+    .aria-label = Turn Off Camera
+whimsy-call-camera-turn-on =
+    .tooltiptext = Turn On Camera
+    .aria-label = Turn On Camera
+# $shortcut (string) - the key that does the same, e.g. ⌘D
+whimsy-call-pip-mic-turn-off =
+    .tooltip = Turn Off Microphone ({ $shortcut })
+    .aria-label = Turn Off Microphone
+# $shortcut (string) - the key that does the same, e.g. ⌘D
+whimsy-call-pip-mic-turn-on =
+    .tooltip = Turn On Microphone ({ $shortcut })
+    .aria-label = Turn On Microphone
+# $shortcut (string) - the key that does the same, e.g. ⌘E
+whimsy-call-pip-camera-turn-off =
+    .tooltip = Turn Off Camera ({ $shortcut })
+    .aria-label = Turn Off Camera
+# $shortcut (string) - the key that does the same, e.g. ⌘E
+whimsy-call-pip-camera-turn-on =
+    .tooltip = Turn On Camera ({ $shortcut })
+    .aria-label = Turn On Camera

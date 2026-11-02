@@ -90,6 +90,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyLook.sys.mjs",
     "WhimsyMarkdownCopy.sys.mjs",
     "WhimsyMedia.sys.mjs",
+    "WhimsyMeetControls.sys.mjs",
     "WhimsyMenuBarExtra.sys.mjs",
     "WhimsyMenuIcons.sys.mjs",
     "WhimsyMenuParity.sys.mjs",

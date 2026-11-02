@@ -22,18 +22,83 @@
 // PiP), and closing the window by hand skips the next automatic one, as
 // Firefox does for videos.
 //
-// Not covered: Arc's floating window also has mute/camera/leave buttons;
-// Firefox's player only shows the video. Zoom's web client draws video on a
-// <canvas>, which picture-in-picture can't show.
+// Not covered: Arc's floating window also has a leave button. Zoom's web
+// client draws video on a <canvas>, which picture-in-picture can't show.
+//
+// W13-R3 (whimsy.feature.call-controls): the call's microphone and camera,
+// in sync three ways: the page's own toggles (Meet) are the only state;
+// the small player under the tab bar (Zen's sharing card) and the PiP
+// window read it and toggle through it. Design:
+// whimsy-handoff/wave13/r3-meetpip-design.md.
+
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
+  SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.call-pip";
 const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
+
+// W13-R3: call controls.
+const CONTROLS_PREF = "whimsy.feature.call-controls";
+const KINDS = ["mic", "camera"];
+// Sites whose own toggles are the only truth: Firefox's device mute is never
+// offered there (Meet can't see it), so its buttons hide while unknown.
+const PAGE_SYNCED_HOSTS = new Set(["meet.google.com"]);
+const PERMISSION = { mic: "microphone", camera: "camera" };
+// Zen's sharing card: its buttons and its muted attributes (Zen's icons).
+const CARD_BUTTON = { mic: ".zen-media-mute-mic-button", camera: ".zen-media-mute-camera-button" };
+const CARD_MUTED = { mic: "mic-muted", camera: "camera-muted" };
+const DEVICE_UNMUTE = { mic: "webrtc:UnmuteMicrophone", camera: "webrtc:UnmuteCamera" };
+const L10N = {
+  mic: { on: "whimsy-call-mic-turn-off", off: "whimsy-call-mic-turn-on" },
+  camera: { on: "whimsy-call-camera-turn-off", off: "whimsy-call-camera-turn-on" },
+};
+const PIP_L10N = {
+  mic: { on: "whimsy-call-pip-mic-turn-off", off: "whimsy-call-pip-mic-turn-on" },
+  camera: { on: "whimsy-call-pip-camera-turn-off", off: "whimsy-call-pip-camera-turn-on" },
+};
+// Meet's own shortcuts, also in the PiP window.
+const SHORTCUT_KEY = { mic: "D", camera: "E" };
+const ACCEL = AppConstants.platform == "macosx" ? "⌘" : "Ctrl+";
+
+// The PiP window's call buttons: Firefox's own control buttons with Zen's
+// microphone and camera icons (the small player's), red when off as there.
+// Firefox's speaker button and volume act on the call tile's video, which is
+// always muted, so a call hides them.
+const ICON = "chrome://browser/skin/zen-icons/";
+const PIP_SHEET =
+  "data:text/css," +
+  encodeURIComponent(`
+#whimsy-call-controls { display: flex; align-items: center; gap: 8px; }
+#whimsy-call-mic { background-image: url("${ICON}microphone-fill.svg"); }
+#whimsy-call-mic[data-state="off"] { background-image: url("${ICON}microphone-blocked-fill.svg"); }
+#whimsy-call-camera { background-image: url("${ICON}video-fill.svg"); }
+#whimsy-call-camera[data-state="off"] { background-image: url("${ICON}video-blocked-fill.svg"); }
+:is(#whimsy-call-mic, #whimsy-call-camera)[data-state="off"] { fill: rgb(224, 41, 29); }
+:is(#whimsy-call-mic, #whimsy-call-camera)[aria-busy="true"] { cursor: progress; }
+body[whimsy-call] :is(#audio, #audio-scrubber, #timestamp, #playbackRate) { display: none !important; }
+body[whimsy-call] .end-controls,
+body[whimsy-call] .end-controls:has(#playbackRate:not([hidden])) {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-areas: "closedcaption fullscreen";
+}
+@media (width <= 475px), (height <= 325px) and (width > 630px) {
+  body[whimsy-call] .end-controls,
+  body[whimsy-call] .end-controls:has(#playbackRate:not([hidden])) {
+    grid-template-columns: 1fr;
+    grid-template-areas: "fullscreen";
+  }
+}
+@media (width <= 300px) {
+  body[whimsy-call] .start-controls { display: grid; }
+  body[whimsy-call] .controls-bottom-lower { grid-template-columns: repeat(3, 1fr); }
+}
+`);
 
 export const WhimsyCallPip = {
   get enabled() {
@@ -59,6 +124,39 @@ export const WhimsyCallPip = {
       icon: "chrome://global/skin/media/closed-caption-settings-button.svg",
       isAvailable: w => this.isInCall(w.gBrowser.selectedTab),
     });
+    // W13-R3: Toggle Meeting Microphone / Camera (no key by default).
+    for (const [kind, id, l10nId, icon] of [
+      ["mic", "cmd_whimsyCallMicrophone", "whimsy-action-call-microphone", "microphone-fill.svg"],
+      ["camera", "cmd_whimsyCallCamera", "whimsy-action-call-camera", "video-fill.svg"],
+    ]) {
+      lazy.WhimsyCommands.register(win, {
+        id,
+        l10nId,
+        run: w => {
+          const browser = this.commandTarget(w, kind);
+          if (browser) {
+            this.toggle(browser, kind);
+          }
+        },
+        key: null,
+        icon: ICON + icon,
+        isAvailable: w => !!this.commandTarget(w, kind),
+      });
+    }
+    this.hookMediaBar(win);
+    win.addEventListener("TabAttrModified", event => {
+      if (event.detail?.changed?.includes("sharing")) {
+        this.onSharingChanged(event.target);
+      }
+    });
+    for (const type of ["TabClose", "TabBrowserDiscarded"]) {
+      win.addEventListener(type, event => this.forget(event.target.linkedBrowser));
+    }
+    for (const tab of gBrowser.tabs) {
+      if (this.isInCall(tab)) {
+        this.watch(tab.linkedBrowser);
+      }
+    }
     gBrowser.tabContainer.addEventListener("TabSelect", event => {
       try {
         this.onTabSelect(win, event.detail?.previousTab, event.target);
@@ -74,12 +172,29 @@ export const WhimsyCallPip = {
     }
     this._observerSet = true;
     Services.obs.addObserver(this, "domwindowopened");
+    // W13-R3: a camera or microphone blocked (or allowed) for a site hides
+    // (or shows) its buttons; the switch turns the call controls off or on.
+    Services.obs.addObserver(this, "perm-changed");
+    Services.prefs.addObserver(CONTROLS_PREF, this);
     for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
       this.hookPipWindow(pipWin);
     }
   },
 
   observe(subject, topic) {
+    if (topic == "perm-changed") {
+      const type = subject?.QueryInterface?.(Ci.nsIPermission)?.type;
+      if (type == "camera" || type == "microphone") {
+        for (const browser of this._calls) {
+          this.render(browser);
+        }
+      }
+      return;
+    }
+    if (topic == "nsPref:changed") {
+      this.onControlsSwitched();
+      return;
+    }
     if (topic === "domwindowopened") {
       const win = subject;
       win.addEventListener(
@@ -156,64 +271,91 @@ export const WhimsyCallPip = {
     }
   },
 
-  // F32: in a call the PiP window's audio button (and M) mutes the
-  // microphone, not the call's sound. The player's own Player object is a
-  // top-level `let` in player.js, so it isn't reachable from here; the click
-  // and the key are taken first, in the capture phase, and the button's
-  // muted look is set through player.js's setIsMutedState().
+  // The call's PiP window: its CC button captions the call (F31), and
+  // W13-R3's microphone and camera buttons toggle the call's own controls.
   setupCallControls(pipWin, browser, tab) {
-    const doc = pipWin.document;
-    const audioBtn = doc?.getElementById("audio");
-    if (audioBtn) {
-      audioBtn.hidden = false;
-    }
+    pipWin._whimsyCallBrowser = browser;
     if (!pipWin._whimsyCallControls) {
       pipWin._whimsyCallControls = true;
-      // Firefox keeps the button in step with the video's own muted state
-      // (a call's tiles are muted videos); in a call it shows the
-      // microphone instead, so only Whimsy sets it.
-      const setIsMutedState = pipWin.setIsMutedState;
-      if (typeof setIsMutedState == "function") {
-        pipWin._whimsySetMuted = setIsMutedState;
-        pipWin.setIsMutedState = isMuted => {
-          if (!this.isInCall(tab)) {
-            setIsMutedState(isMuted);
-          }
-        };
-      }
-      pipWin._whimsyCallBrowser = browser;
       pipWin.addEventListener("click", event => {
-        if (event.target?.id == "closed-caption" && this.isInCall(tab)) {
+        if (!this.isInCall(tab)) {
+          return;
+        }
+        const id = event.target?.id;
+        if (id == "closed-caption") {
           event.stopPropagation();
           event.preventDefault();
           this.toggleCaptions(browser);
           return;
         }
-        if (event.target?.id == "audio" && this.isInCall(tab)) {
+        const kind = id == "whimsy-call-mic" ? "mic" : id == "whimsy-call-camera" ? "camera" : null;
+        if (kind) {
           event.stopPropagation();
           event.preventDefault();
-          this.toggleCallMute(pipWin, browser);
+          this.toggle(browser, kind);
         }
       }, true);
       pipWin.addEventListener("keydown", event => {
-        if (event.key?.toLowerCase() == "m" && !event.metaKey && !event.ctrlKey && !event.altKey &&
-            this.isInCall(tab)) {
+        const kind = this.pipKeyKind(event);
+        if (kind && this.isInCall(tab) && this.shownState(browser, kind)) {
           event.stopPropagation();
           event.preventDefault();
-          this.toggleCallMute(pipWin, browser);
+          this.toggle(browser, kind);
         }
       }, true);
     }
     this.showCaptionsButton(pipWin, browser);
-    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
-    actor
-      ?.sendQuery("Whimsy:GetMicrophoneState")
-      .then(res => {
-        if (res && typeof res.active === "boolean") {
-          this.showCallMuted(pipWin, !res.active);
-        }
-      })
-      .catch(() => {});
+    if (this.controlsEnabled) {
+      this.addPipButtons(pipWin);
+      this.watch(browser);
+      this.renderPip(pipWin, browser);
+    }
+  },
+
+  // M (as before) or Meet's ⌘D toggles the microphone, ⌘E the camera.
+  pipKeyKind(event) {
+    const accel = AppConstants.platform == "macosx" ? event.metaKey : event.ctrlKey;
+    const key = event.key?.toUpperCase();
+    if (event.altKey || event.shiftKey) {
+      return null;
+    }
+    if (!accel && !event.ctrlKey && !event.metaKey && key == "M") {
+      return "mic";
+    }
+    if (accel) {
+      return KINDS.find(kind => SHORTCUT_KEY[kind] == key) ?? null;
+    }
+    return null;
+  },
+
+  addPipButtons(pipWin) {
+    const doc = pipWin.document;
+    if (doc.getElementById("whimsy-call-controls")) {
+      return;
+    }
+    const start = doc.querySelector(".start-controls");
+    if (!start) {
+      return;
+    }
+    try {
+      pipWin.windowUtils.loadSheetUsingURIString(PIP_SHEET, pipWin.windowUtils.AUTHOR_SHEET);
+    } catch (e) {
+      console.error("Whimsy: call PiP sheet", e);
+    }
+    doc.l10n?.addResourceIds(["browser/whimsy.ftl"]);
+    const group = doc.createElement("div");
+    group.id = "whimsy-call-controls";
+    for (const kind of KINDS) {
+      const button = doc.createElement("button");
+      button.id = `whimsy-call-${kind}`;
+      button.className = "control-item control-button tooltip-over-controls center-tooltip";
+      // As the player's own buttons: Fluent fills the CSS tooltip too.
+      button.setAttribute("data-l10n-attrs", "tooltip");
+      button.hidden = true;
+      group.append(button);
+    }
+    start.prepend(group);
+    doc.body.setAttribute("whimsy-call", "");
   },
 
   // F31: turns the call's live captions on or off (WhimsyVideoSpeedChild).
@@ -299,42 +441,338 @@ export const WhimsyCallPip = {
     cc.classList.toggle("whimsy-call-captions-on", !!browser._whimsyCallCaptions);
   },
 
-  showCallMuted(pipWin, muted) {
-    (pipWin._whimsySetMuted ?? pipWin.setIsMutedState)?.(muted);
+  // ---- W13-R3: call controls ------------------------------------------
+
+  get controlsEnabled() {
+    return Services.prefs.getBoolPref(CONTROLS_PREF, true);
   },
 
-  isCallMuted(pipWin) {
-    return !!pipWin.document?.getElementById("controls")?.classList.contains("muted");
+  // browser -> { mic, camera: "on" | "off" | null, seen: {}, pending: {} }.
+  // Only what the page last reported; never a guess.
+  _states: new WeakMap(),
+  // The browsers being watched (for the commands' target).
+  _calls: new Set(),
+
+  // The switch: off puts Zen's small player back as Zen ships it and takes
+  // the PiP buttons away; on starts following every call again.
+  onControlsSwitched() {
+    const enabled = this.controlsEnabled;
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      for (const tab of win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser?.tabs ?? []) {
+        const browser = tab.linkedBrowser;
+        if (!this.isInCall(tab) && !this._calls.has(browser)) {
+          continue;
+        }
+        if (enabled) {
+          this.watch(browser);
+        } else {
+          this.forget(browser, true);
+        }
+      }
+    }
+    for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
+      const browser = pipWin._whimsyCallBrowser;
+      if (browser && enabled) {
+        this.addPipButtons(pipWin);
+        this.renderPip(pipWin, browser);
+      } else if (browser) {
+        this.renderPip(pipWin, browser);
+      }
+    }
   },
 
-  async toggleCallMute(pipWin, browser) {
+  stateFor(browser) {
+    let state = this._states.get(browser);
+    if (!state) {
+      state = { mic: null, camera: null, seen: {}, pending: {} };
+      this._states.set(browser, state);
+    }
+    return state;
+  },
+
+  onSharingChanged(tab) {
+    const browser = tab?.linkedBrowser;
+    if (!browser) {
+      return;
+    }
+    if (this.isInCall(tab)) {
+      this.hookMediaBar(tab.ownerDocument?.defaultView);
+      this.watch(browser);
+    } else {
+      this.forget(browser, true);
+    }
+  },
+
+  // Asks the page to report its toggles (idempotent in the page).
+  watch(browser) {
+    if (!this.controlsEnabled || !browser) {
+      return;
+    }
     const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
     if (!actor) {
       return;
     }
-    // Show the change at once; the page's answer settles it.
-    this.showCallMuted(pipWin, !this.isCallMuted(pipWin));
-    try {
-      const res = await actor.sendQuery("Whimsy:ToggleMicrophone");
-      if (res && typeof res.active === "boolean") {
-        this.showCallMuted(pipWin, !res.active);
-      }
-    } catch (e) {
-      console.error("Whimsy: toggle call microphone failed", e);
-    }
+    this._calls.add(browser);
+    actor
+      .sendQuery("Whimsy:CallControlsWatch", { on: true })
+      .then(state => state && this.onPageState(browser, state))
+      .catch(() => {});
   },
 
-  onMicrophoneState(browser, active) {
+  // The call ended or the tab went away: stop watching and drop its state.
+  forget(browser, stopWatching = false) {
     if (!browser) {
       return;
     }
-    browser._whimsyMicrophoneActive = !!active;
-    const pip = lazy.PictureInPicture;
-    for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
-      if (pip.weakWinToBrowser?.get(pipWin) === browser) {
-        this.showCallMuted(pipWin, !active);
+    if (stopWatching) {
+      try {
+        browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage")
+          ?.sendAsyncMessage("Whimsy:CallControlsWatch", { on: false });
+      } catch (e) {}
+    }
+    this._calls.delete(browser);
+    this._states.delete(browser);
+    this.render(browser);
+  },
+
+  // From WhimsyPageParent: the page's toggles changed (content data, so
+  // only "on", "off" or null are taken).
+  onPageState(browser, data) {
+    if (!browser || !this.controlsEnabled) {
+      return;
+    }
+    const state = this.stateFor(browser);
+    for (const kind of KINDS) {
+      const value = data?.[kind];
+      state[kind] = value == "on" || value == "off" ? value : null;
+      if (state[kind]) {
+        state.seen[kind] = true;
       }
     }
+    this.render(browser);
+  },
+
+  isPageSynced(browser) {
+    try {
+      return PAGE_SYNCED_HOSTS.has(browser.currentURI?.host);
+    } catch (e) {
+      return false;
+    }
+  },
+
+  // Whether `kind` follows the page here: always on Meet, elsewhere once
+  // the page has shown a toggle for it. Otherwise Zen's device mute stays.
+  isPageDriven(browser, kind) {
+    return this.controlsEnabled && (this.isPageSynced(browser) || !!this._states.get(browser)?.seen[kind]);
+  },
+
+  isBlocked(browser, kind) {
+    try {
+      const principal = browser.contentPrincipal;
+      if (!principal?.isContentPrincipal) {
+        return false;
+      }
+      const { state } = lazy.SitePermissions.getForPrincipal(principal, PERMISSION[kind], browser);
+      return state == lazy.SitePermissions.BLOCK;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  // The state a surface may show: null hides the button (unknown, or the
+  // site may not use that device at all).
+  shownState(browser, kind) {
+    if (!this.controlsEnabled) {
+      return null;
+    }
+    const value = this._states.get(browser)?.[kind] ?? null;
+    return value && !this.isBlocked(browser, kind) ? value : null;
+  },
+
+  // Toggles the page's own control and shows the page's answer. A press
+  // while one is pending is ignored; nothing changes until the page has.
+  async toggle(browser, kind) {
+    if (!KINDS.includes(kind) || !this.shownState(browser, kind)) {
+      return false;
+    }
+    const state = this.stateFor(browser);
+    if (state.pending[kind]) {
+      return false;
+    }
+    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+    if (!actor) {
+      return false;
+    }
+    state.pending[kind] = true;
+    this.render(browser);
+    let result = null;
+    try {
+      result = await actor.sendQuery("Whimsy:CallControlsToggle", { kind });
+    } catch (e) {
+      console.error("Whimsy: call control toggle", e);
+    }
+    state.pending[kind] = false;
+    if (result?.state) {
+      this.onPageState(browser, result.state);
+    } else {
+      this.render(browser);
+    }
+    return !!result?.ok;
+  },
+
+  // Every surface showing this call, from the same state.
+  render(browser) {
+    for (const pipWin of this.pipWindowsFor(browser)) {
+      this.renderPip(pipWin, browser);
+    }
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      for (const card of win.document.querySelectorAll(".zen-media-card[media-sharing]")) {
+        if (card._whimsyCallBrowser == browser) {
+          this.renderCard(card, browser);
+        }
+      }
+    }
+  },
+
+  renderPip(pipWin, browser) {
+    const doc = pipWin.document;
+    if (!doc?.getElementById("whimsy-call-controls")) {
+      return;
+    }
+    // Firefox's speaker and volume come back when the switch is off.
+    doc.body.toggleAttribute("whimsy-call", this.controlsEnabled);
+    for (const kind of KINDS) {
+      const button = doc?.getElementById(`whimsy-call-${kind}`);
+      if (!button) {
+        continue;
+      }
+      const value = this.controlsEnabled ? this.shownState(browser, kind) : null;
+      button.hidden = !value;
+      if (!value) {
+        continue;
+      }
+      button.dataset.state = value;
+      button.setAttribute("aria-busy", String(!!this._states.get(browser)?.pending[kind]));
+      doc.l10n.setAttributes(button, PIP_L10N[kind][value], { shortcut: ACCEL + SHORTCUT_KEY[kind] });
+    }
+  },
+
+  // Zen's sharing card: the page's state on Zen's own muted attributes
+  // (Zen's icons), hidden when unknown.
+  renderCard(card, browser) {
+    for (const kind of KINDS) {
+      const button = card.querySelector(CARD_BUTTON[kind]);
+      const hideAttr = `whimsy-call-hide-${kind}`;
+      if (!this.isPageDriven(browser, kind)) {
+        if (card._whimsyDriven?.[kind]) {
+          card._whimsyDriven[kind] = false;
+          card.removeAttribute(hideAttr);
+          card.removeAttribute(CARD_MUTED[kind]);
+          if (button) {
+            for (const attr of ["data-l10n-id", "data-l10n-args", "tooltiptext", "aria-label", "aria-busy"]) {
+              button.removeAttribute(attr);
+            }
+          }
+        }
+        continue;
+      }
+      card._whimsyDriven ??= {};
+      if (!card._whimsyDriven[kind]) {
+        card._whimsyDriven[kind] = true;
+        // Zen's device mute was pressed before the page's toggles showed
+        // up: move the mute to the page, then let go of the device.
+        if (card.hasAttribute(CARD_MUTED[kind])) {
+          this.handOver(browser, kind);
+        }
+      }
+      const value = this.shownState(browser, kind);
+      card.toggleAttribute(hideAttr, !value);
+      if (!value) {
+        continue;
+      }
+      card.toggleAttribute(CARD_MUTED[kind], value == "off");
+      if (button) {
+        button.setAttribute("aria-busy", String(!!this._states.get(browser)?.pending[kind]));
+        card.ownerDocument.l10n.setAttributes(button, L10N[kind][value]);
+      }
+    }
+  },
+
+  async handOver(browser, kind) {
+    if (this.shownState(browser, kind) == "on") {
+      await this.toggle(browser, kind);
+    }
+    try {
+      browser.browsingContext?.currentWindowGlobal?.getActor("WebRTC")?.sendAsyncMessage(DEVICE_UNMUTE[kind]);
+    } catch (e) {}
+  },
+
+  // Tags each new sharing card with its tab (Zen keeps the card objects
+  // private) and takes presses of its microphone and camera buttons first
+  // when they follow the page. Zen's code is unchanged; without the method
+  // to wrap, Zen's own card stays as it is.
+  hookMediaBar(win) {
+    const controller = win?.gZenMediaController;
+    const bar = controller?.mediaControlBar;
+    if (!bar || controller._whimsyCallHooked || typeof controller.activateMediaDeviceControls != "function") {
+      return;
+    }
+    controller._whimsyCallHooked = true;
+    const original = controller.activateMediaDeviceControls;
+    const self = this;
+    controller.activateMediaDeviceControls = function (browser) {
+      const before = new Set(bar.querySelectorAll(".zen-media-card"));
+      const result = original.call(this, browser);
+      for (const card of bar.querySelectorAll(".zen-media-card[media-sharing]")) {
+        if (!before.has(card)) {
+          self.attachCard(card, browser);
+        }
+      }
+      return result;
+    };
+    bar.addEventListener("command", event => {
+      const button = event.target?.closest?.(`${CARD_BUTTON.mic}, ${CARD_BUTTON.camera}`);
+      const browser = button?.closest(".zen-media-card")?._whimsyCallBrowser;
+      if (!browser) {
+        return;
+      }
+      const kind = button.matches(CARD_BUTTON.mic) ? "mic" : "camera";
+      if (!this.isPageDriven(browser, kind)) {
+        return;
+      }
+      event.stopPropagation();
+      this.toggle(browser, kind);
+    }, true);
+  },
+
+  attachCard(card, browser) {
+    card._whimsyCallBrowser = browser;
+    this.renderCard(card, browser);
+    this.watch(browser);
+  },
+
+  // Toggle Meeting Microphone / Camera: the selected tab's call, else the
+  // call in an open PiP window, else the only call. Several: none.
+  commandTarget(win, kind) {
+    const usable = browser => !!browser && this._calls.has(browser) && !!this.shownState(browser, kind);
+    const selected = win?.gBrowser?.selectedBrowser;
+    if (usable(selected)) {
+      return selected;
+    }
+    const pip = new Set();
+    for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
+      if (!pipWin.closed && usable(pipWin._whimsyCallBrowser)) {
+        pip.add(pipWin._whimsyCallBrowser);
+      }
+    }
+    if (pip.size == 1) {
+      return [...pip][0];
+    }
+    if (pip.size > 1) {
+      return null;
+    }
+    const calls = [...this._calls].filter(usable);
+    return calls.length == 1 ? calls[0] : null;
   },
 
   // Whether the call stays on screen anyway: the new tab is in the same

@@ -6,29 +6,7 @@
      tests), shown in a muted video the way Meet shows its tiles. -->
 <video id="speaker" muted autoplay playsinline style="width: 480px; height: 360px"></video>
 <video id="self" muted autoplay playsinline style="width: 160px; height: 120px; transform: scaleX(-1)"></video>
-<button id="micBtn" data-is-muted="false" aria-label="Turn off microphone" style="display:none"></button>
 <script>
-  window.microphoneActive = true;
-  window.initMediaSession = function () {
-    if (navigator.mediaSession) {
-      try {
-        navigator.mediaSession.setMicrophoneActive?.(true);
-        navigator.mediaSession.setActionHandler?.("togglemicrophone", () => {
-          window.microphoneActive = !window.microphoneActive;
-          const btn = document.getElementById("micBtn");
-          if (btn) {
-            btn.setAttribute("data-is-muted", String(!window.microphoneActive));
-          }
-          navigator.mediaSession.setMicrophoneActive?.(window.microphoneActive);
-        });
-      } catch (e) {}
-    }
-  };
-  document.getElementById("micBtn").addEventListener("click", () => {
-    window.microphoneActive = !window.microphoneActive;
-    document.getElementById("micBtn").setAttribute("data-is-muted", String(!window.microphoneActive));
-    navigator.mediaSession?.setMicrophoneActive?.(window.microphoneActive);
-  });
   // Camera only: a fake microphone stream never resolved in a headless run
   // after earlier tests had played audio. A camera alone already makes the
   // tab a call (the microphone case is covered with a stub in the test).
