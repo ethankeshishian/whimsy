@@ -543,13 +543,17 @@ export const WhimsySiteSettings = {
       });
       return el;
     };
+    // F16: in Reader View Firefox's zoom (FullZoom) changes Reader's text
+    // size instead, so the page's zoom and the % never moved: "Zoom doesn't
+    // work". There the stepper zooms the page itself (ZoomManager).
+    const inReader = () => browser.currentURI?.spec.startsWith("about:reader");
     const out = button("whimsy-site-settings-zoom-out", "whimsy-site-settings-zoom-out", () =>
-      win.FullZoom?.reduce?.());
+      inReader() ? win.ZoomManager?.reduce?.() : win.FullZoom?.reduce?.());
     out.textContent = "−";
     const value = button("whimsy-site-settings-zoom-reset", "whimsy-site-settings-zoom-value", () =>
       this.resetZoom(win, browser));
     const into = button("whimsy-site-settings-zoom-in", "whimsy-site-settings-zoom-in", () =>
-      win.FullZoom?.enlarge?.());
+      inReader() ? win.ZoomManager?.enlarge?.() : win.FullZoom?.enlarge?.());
     into.textContent = "+";
     stepper.append(out, value, into);
     // − and = work while the stepper has the keyboard.
@@ -810,6 +814,10 @@ export const WhimsySiteSettings = {
   // Actions.
 
   resetZoom(win, browser) {
+    if (browser.currentURI?.spec.startsWith("about:reader")) {
+      win.ZoomManager?.setZoomForBrowser?.(browser, 1);
+      return Promise.resolve();
+    }
     return Promise.resolve(win.FullZoom?.reset?.(browser)).catch(() => {});
   },
 

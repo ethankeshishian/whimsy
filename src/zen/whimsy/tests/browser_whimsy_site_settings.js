@@ -155,6 +155,60 @@ add_task(async function test_zoom_stepper() {
   });
 });
 
+// F16 (second look): the user's likely conditions: a site with a zoom
+// already saved, Reader View on,
+// and − / + clicked again and again. The % follows each click and the
+// zoom is still there after a reload.
+add_task(async function test_zoom_stepper_reader_saved_zoom() {
+  clearAll();
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ARTICLE_URL);
+  const browser = tab.linkedBrowser;
+  try {
+    await FullZoom.enlarge(browser);
+    const saved = ZoomManager.getZoomForBrowser(browser);
+    Assert.greater(saved, 1, "The site has a saved zoom");
+    await TestUtils.waitForCondition(() => browser.isArticle, "readerable");
+    browser.browsingContext.currentWindowGlobal.getActor("AboutReader").sendAsyncMessage("Reader:ToggleReaderMode", {});
+    await TestUtils.waitForCondition(() => browser.currentURI.spec.startsWith("about:reader"), "In Reader View");
+    await openPanel();
+    const [out, value, into] = rowOf("zoom").querySelector(".whimsy-site-settings-stepper").children;
+    const shown = () => `${Math.round(ZoomManager.getZoomForBrowser(browser) * 100)}%`;
+    await TestUtils.waitForCondition(() => value.textContent == shown(), `The % shows the zoom (${value.textContent})`);
+    for (const [button, more] of [[into, true], [into, true], [out, false], [out, false], [out, false]]) {
+      const before = ZoomManager.getZoomForBrowser(browser);
+      EventUtils.synthesizeMouseAtCenter(button, {});
+      await TestUtils.waitForCondition(() => {
+        const now = ZoomManager.getZoomForBrowser(browser);
+        return more ? now > before : now < before;
+      }, `${more ? "+" : "−"} steps the zoom`);
+      await TestUtils.waitForCondition(() => value.textContent == shown(), `...and the % follows (${value.textContent})`);
+      is(panel().state, "open", "The panel stays open");
+    }
+    EventUtils.synthesizeMouseAtCenter(value, {});
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) == 1 && value.textContent == "100%",
+      "The % resets Reader View's zoom");
+    await closePanel();
+    browser.browsingContext.currentWindowGlobal.getActor("AboutReader").sendAsyncMessage("Reader:ToggleReaderMode", {});
+    await TestUtils.waitForCondition(() => browser.currentURI.spec == ARTICLE_URL, "Out of Reader View");
+    await TestUtils.waitForCondition(() => Math.abs(ZoomManager.getZoomForBrowser(browser) - saved) < 0.01,
+      "The page keeps the site's saved zoom");
+    // Outside Reader, a + step is saved for the site and survives a reload.
+    await openPanel();
+    EventUtils.synthesizeMouseAtCenter(rowOf("zoom").querySelector(".whimsy-site-settings-zoom-in"), {});
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > saved, "+ steps the page zoom");
+    const last = ZoomManager.getZoomForBrowser(browser);
+    await closePanel();
+    BrowserTestUtils.reloadTab(tab);
+    await BrowserTestUtils.browserLoaded(browser);
+    await TestUtils.waitForCondition(() => Math.abs(ZoomManager.getZoomForBrowser(browser) - last) < 0.01,
+      "The zoom stays after a reload");
+    await FullZoom.reset(browser);
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    clearAll();
+  }
+});
+
 add_task(async function test_autoplay_reuses_firefox_permission() {
   clearAll();
   // Firefox's real default, Block audio (the harness allows autoplay, which
