@@ -1,0 +1,13 @@
+diff --git a/browser/components/sessionstore/SessionStore.sys.mjs b/browser/components/sessionstore/SessionStore.sys.mjs
+index f9d5771..d0cc502 100644
+--- a/browser/components/sessionstore/SessionStore.sys.mjs
++++ b/browser/components/sessionstore/SessionStore.sys.mjs
+@@ -7862,6 +7862,8 @@ class _SessionStore {
+         aTabState.entries.length == 1 &&
+         (entryUrl == "about:blank" ||
+           (entryUrl == "about:home" && !aTabState.splitViewId) ||
++          // Whimsy (W11-07): Whimsy Home is a new tab page too.
++          (entryUrl == "about:whimsy" && !aTabState.splitViewId) ||
+           (entryUrl == "about:newtab" && !aTabState.splitViewId) ||
+           entryUrl == "about:privatebrowsing") &&
+         !aTabState.userTypedValue

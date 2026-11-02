@@ -283,11 +283,20 @@
 # default here, same reason as whimsy.folders.colors above: the generator
 # writes "{}"/"[]" unquoted, which breaks firefox.js. Code falls back to
 # "{}" and "[]".
-# home: Whimsy's homepage (about:whimsy, a Home tab + Changelog tab),
-# replacing Zen's/Firefox's about:home. whimsy.feature.home turns it off
-# (falls back to about:home; see WhimsyAboutPage.sys.mjs).
+# home: Whimsy's homepage (about:whimsy, a Home tab + Changelog tab), the
+# default for new windows. W11-07: Settings → Home and startup offers Whimsy
+# Home and Firefox Home (about:home) for new windows and new tabs.
+# whimsy.feature.home is the feature's off switch, no longer in Settings
+# (about:whimsy then falls back to about:home; see WhimsyAboutPage.sys.mjs);
+# WhimsyHome.sys.mjs turns an old "off" into the Firefox Home choices.
 - name: browser.startup.homepage
   value: "about:whimsy"
+
+# W11-07: what new tabs show, "whimsy" (Whimsy Home, about:whimsy) or "home"
+# (Firefox Home). Settings → Home and startup → New tabs; Blank stays
+# Firefox's browser.newtabpage.enabled. WhimsyHome.sys.mjs applies it.
+- name: whimsy.newtab.page
+  value: "whimsy"
 
 # home: "What's new" (Help menu, About dialog's release-notes link) opens
 # Whimsy's own Changelog tab. app.releaseNotesURL* and the other branding

@@ -39,6 +39,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
   WhimsyFireButton: "resource:///modules/whimsy/WhimsyFireButton.sys.mjs",
   WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
+  // W11-07: Whimsy Home or Firefox Home for new windows and new tabs.
+  WhimsyHome: "resource:///modules/whimsy/WhimsyHome.sys.mjs",
   WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs", // batch9: spaces
   WhimsySpaceExtensions: "resource:///modules/whimsy/WhimsySpaceExtensions.sys.mjs", // ext: per-space extensions
@@ -566,6 +568,9 @@ export const Whimsy = {
     // Always installed: it checks its switch and the pref on each external
     // open, so turning it off hands the link straight back to Firefox.
     run("external-links", () => lazy.WhimsyExternalLinks.init());
+    // W11-07: once per session; new tabs open Whimsy Home or Firefox Home
+    // as Settings → Home and startup says.
+    run("home", () => lazy.WhimsyHome.init());
     // Watches its prefs and switches, so options apply without a restart.
     run("tabs", () => lazy.WhimsyTabs.initWindow(win));
     run("folder-colors", () => lazy.WhimsyFolderColors.initWindow(win));

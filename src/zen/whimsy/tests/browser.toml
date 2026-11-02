@@ -266,6 +266,12 @@ support-files = ["whimsy_calendar.sjs"]
 # home: homepage + changelog (about:whimsy).
 ["browser_whimsy_home.js"]
 
+# W11-07: Home and startup: Whimsy Home and Firefox Home for new windows and
+# new tabs, the Firefox Home group, one control, commands. Needs the
+# whimsy-home-startup-mjs, whimsy-utilityOverlay-js and
+# whimsy-SessionStore-sys-mjs engine patches.
+["browser_whimsy_home_choices.js"]
+
 # tierC-vpn: VPN (Firefox's built-in IP Protection).
 ["browser_whimsy_vpn.js"]
 
