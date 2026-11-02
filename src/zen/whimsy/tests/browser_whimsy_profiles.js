@@ -198,6 +198,28 @@ add_task(async function settings_profiles_group() {
       ok(editor.hidden, "Esc closes the editor");
       is(doc.activeElement, edit, "…back on Edit");
 
+      // F24: Esc cancels a name you were typing; Return saves it and closes.
+      edit.doCommand();
+      const f24Name = doc.getElementById(`whimsyProfileName${used}`);
+      f24Name.focus();
+      f24Name.select();
+      EventUtils.sendString("Whimsy Cancelled", win);
+      EventUtils.synthesizeKey("KEY_Escape", {}, win);
+      ok(editor.hidden, "Esc closes the editor");
+      await new Promise(resolve => setTimeout(resolve, 100));
+      is(WhimsyProfiles.nameOf(used), "Whimsy Settings Used", "…without saving the name");
+      is(f24Name.value, "Whimsy Settings Used", "…which goes back to what it was");
+      edit.doCommand();
+      f24Name.focus();
+      f24Name.select();
+      EventUtils.sendString("Whimsy Saved", win);
+      EventUtils.synthesizeKey("KEY_Enter", {}, win);
+      await TestUtils.waitForCondition(() => WhimsyProfiles.nameOf(used) == "Whimsy Saved", "Return saves the name");
+      await TestUtils.waitForCondition(() => row(used)?.querySelector(".whimsy-profile-editor")?.hidden, "…and closes the editor");
+      WhimsyProfiles.rename(used, "Whimsy Settings Used");
+      await TestUtils.waitForCondition(() => row(used)?.querySelector(".whimsy-profile-edit") &&
+        row(used).querySelector(".whimsy-profile-name")?.textContent.includes("Whimsy Settings Used"), "Renamed back");
+
       // Create: a new row in editor mode, name focused.
       doc.getElementById("whimsyProfilesCreate").doCommand();
       const form = doc.querySelector(".whimsy-profile-new .whimsy-profile-editor");

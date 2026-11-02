@@ -2070,14 +2070,8 @@ Object.assign(gWhimsySettings, {
       nameInput.removeAttribute("aria-invalid");
     });
     nameInput.addEventListener("change", saveName);
-    nameInput.addEventListener("keydown", event => {
-      if (event.key == "Enter") {
-        event.preventDefault();
-        if (!saveName()) {
-          nameInput.focus();
-        }
-      }
-    });
+    // F24: Return saves and closes the editor (the editor's keydown, below);
+    // an invalid name keeps it open with the error.
 
     // Search engine.
     const engineId = `whimsyProfileEngine${profile.id}`;
@@ -2173,15 +2167,25 @@ Object.assign(gWhimsySettings, {
       remove.setAttribute("aria-describedby", rule.id);
       editor.append(rule);
     }
-    // Esc closes the editor, back to its Edit button (a menulist's own
-    // popup takes Esc first).
+    // F24: Esc cancels (an unsaved name goes back to what it was) and Return
+    // saves, both closing the editor, back to its Edit button. A menulist's
+    // own popup takes Esc and Return first; buttons keep Return.
     editor.addEventListener("keydown", event => {
-      if (event.key == "Escape" && !event.defaultPrevented && !event.target.open) {
+      if (event.target.open || (event.defaultPrevented && event.key == "Escape")) {
+        return;
+      }
+      if (event.key == "Escape") {
         event.preventDefault();
-        if (event.target == nameInput) {
-          saveName();
-        }
+        // Reverted before closing, so the blur's change event saves nothing.
+        nameInput.value = profile.name;
+        error.hidden = true;
+        nameInput.removeAttribute("aria-invalid");
         this.closeProfileEditor({ focusEdit: true });
+      } else if (event.key == "Enter" && (event.target == nameInput || event.target == menulist)) {
+        event.preventDefault();
+        if (saveName()) {
+          this.closeProfileEditor({ focusEdit: true });
+        }
       }
     });
     return editor;
