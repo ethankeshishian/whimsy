@@ -437,6 +437,10 @@ support-files = ["whimsy_easel_live.html"]
 ["browser_whimsy_redact.js"]
 support-files = ["whimsy_redact.html", "whimsy_redact_frames.html", "whimsy_redact_link.html"]
 
+# W13 F04: after a Screenshots copy, the card (Copied · Save · Redact · Edit) and its editor (option A).
+["browser_whimsy_capture_card.js"]
+support-files = ["whimsy_redact.html"]
+
 # wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
 ["browser_whimsy_live_folders_local_servers.js"]
 

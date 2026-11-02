@@ -334,8 +334,11 @@ export const WhimsyRedact = {
     }
 
     // Redact, first, so Visible and Full Page keep their places; its
-    // options open under the whole bar.
-    if (!screenshotsMode || !this.enabled) {
+    // options open under the whole bar. W13 F04: with the capture card,
+    // Redact comes after the capture (the card, and its editor's "Hide
+    // private details" and Black Out / Blur), so the bar has no toggle;
+    // hiding still applies while you frame the shot when that's on.
+    if (!screenshotsMode || !this.enabled || Services.prefs.getBoolPref("whimsy.feature.capture-card", true)) {
       root.getElementById("whimsy-redact-wrap")?.remove();
       root.getElementById("whimsy-redact-options")?.remove();
       return;

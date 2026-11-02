@@ -2003,6 +2003,88 @@ whimsy-redact-style-black = Black Out
 whimsy-redact-style-blur = Blur
 # W10-57: the command (command bar, Settings → Keyboard Shortcuts).
 whimsy-action-capture-redact = Capture and Redact…
+## W13 F04 (wave12 F04, option A): the card after a capture, and its editor.
+whimsy-capture-card =
+    .aria-label = Screenshot copied
+whimsy-capture-thumb =
+    .alt = The screenshot
+whimsy-capture-copied = Copied
+whimsy-capture-save = Save
+whimsy-capture-saved = Saved
+whimsy-capture-redact = Redact
+whimsy-capture-edit = Edit
+## What the card says it hid, and whether the image drags out as a file.
+## $count (Number) - how many things were hidden
+## $kind (String) - "email", "phone", "card", "key", "text" (hidden by hand),
+##   "mixed" (several kinds) or "none"
+## $drag (String) - "yes" or "no" (a private page's capture isn't a file)
+whimsy-capture-detail =
+    { $kind ->
+        [none] { $drag ->
+            [yes] Drag out to make a file
+           *[no] Copied to the clipboard only
+        }
+       *[other] { $kind ->
+            [email] { $count ->
+                [one] 1 email hidden
+               *[other] { $count } emails hidden
+            }
+            [phone] { $count ->
+                [one] 1 phone number hidden
+               *[other] { $count } phone numbers hidden
+            }
+            [card] { $count ->
+                [one] 1 card number hidden
+               *[other] { $count } card numbers hidden
+            }
+            [key] { $count ->
+                [one] 1 key hidden
+               *[other] { $count } keys hidden
+            }
+            [text] { $count ->
+                [one] 1 part hidden
+               *[other] { $count } parts hidden
+            }
+           *[mixed] { $count } private details hidden
+        }{ $drag ->
+            [yes] { " · " }drag out to make a file
+           *[no] {""}
+        }
+    }
+whimsy-capture-editor-title = Edit Screenshot
+whimsy-capture-preview =
+    .aria-label = The screenshot as it will be copied
+whimsy-capture-backdrop-label = Backdrop
+whimsy-capture-backdrop-group =
+    .aria-label = Backdrop
+whimsy-capture-backdrop-gradient =
+    .aria-label = Gradient
+    .title = Gradient
+whimsy-capture-backdrop-white =
+    .aria-label = White
+    .title = White
+whimsy-capture-backdrop-dark =
+    .aria-label = Dark
+    .title = Dark
+whimsy-capture-backdrop-none =
+    .aria-label = None
+    .title = None
+whimsy-capture-shape-label = Shape
+whimsy-capture-shape-group =
+    .aria-label = Shape
+whimsy-capture-shape-auto = Auto
+whimsy-capture-hide = Hide private details
+whimsy-capture-hide-unavailable =
+    .title = The page has changed since this screenshot, so it can’t be taken again without them hidden or shown
+whimsy-capture-hand = Redact by hand
+whimsy-capture-hand-style-group =
+    .aria-label = How hand redaction looks
+whimsy-capture-done =
+    .label = Done
+whimsy-capture-hint = Emails, phone numbers, keys and card numbers are found for you.
+whimsy-capture-hint-hand = Drag over anything to black it out. Click a box to take it away.
+whimsy-action-capture-edit = Edit Last Screenshot
+whimsy-action-capture-redact-last = Redact Last Screenshot
 # W10-59: a tile beside Visible and Full Page; the page as a phone shows it.
 whimsy-portrait-button = Portrait
     .title = Capture the page as a phone shows it

@@ -66,6 +66,10 @@ add_setup(async function () {
     set: [
       ["screenshots.browser.component.enabled", true],
       ["whimsy.feature.redact", true],
+      // The bar's Redact toggle is what these drive; with the capture card
+      // (W13 F04, browser_whimsy_capture_card.js) Redact moves after the
+      // capture and the bar has none.
+      ["whimsy.feature.capture-card", false],
       ["whimsy.capture.redact", false],
       ["whimsy.capture.redact-style", "black"],
     ],

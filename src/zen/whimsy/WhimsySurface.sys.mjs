@@ -89,7 +89,8 @@ export const WhimsySurface = {
    * @param {Function} [o.onEscape] - return true when it handled Esc itself
    * @param {Function} [o.onShown]
    * @param {Function} [o.onHidden]
-   * @param {Element|Function} [o.initialFocus] - focused on popupshown
+   * @param {Element|Function|false} [o.initialFocus] - focused on popupshown
+   *   (false: keep focus where it is)
    */
   create(win, o) {
     const doc = win.document;
@@ -176,9 +177,12 @@ export const WhimsySurface = {
         return;
       }
       win.addEventListener("keydown", onWindowKey, true);
-      const initial = typeof o.initialFocus == "function" ? o.initialFocus() : o.initialFocus;
-      const first = initial ?? footer?.querySelector("[default='true']") ?? this.focusables(view)[0];
-      first?.focus();
+      // initialFocus: false (F04's capture card) leaves focus where it is.
+      if (o.initialFocus !== false) {
+        const initial = typeof o.initialFocus == "function" ? o.initialFocus() : o.initialFocus;
+        const first = initial ?? footer?.querySelector("[default='true']") ?? this.focusables(view)[0];
+        first?.focus();
+      }
       o.onShown?.();
     });
     panel.addEventListener("popuphidden", event => {

@@ -149,6 +149,32 @@ export function findSensitive(text) {
   return merged;
 }
 
+/**
+ * W13 F04: what a hidden span is, so the capture card can say what it hid
+ * ("2 emails hidden"): email, card, phone, or key (tokens and other long
+ * random strings).
+ *
+ * @param {string} text
+ * @returns {"email"|"card"|"phone"|"key"}
+ */
+export function kindOf(text) {
+  const whole = re => {
+    const m = new RegExp(re.source, re.flags.replace("g", "")).exec(text);
+    return !!m && m[0].length >= text.trim().length - 1;
+  };
+  if (whole(EMAIL)) {
+    return "email";
+  }
+  const digits = text.replace(/\D/g, "");
+  if (whole(CARD) && digits.length >= 13 && digits.length <= 19 && luhn(digits)) {
+    return "card";
+  }
+  if (whole(PHONE)) {
+    return "phone";
+  }
+  return "key";
+}
+
 export class WhimsyRedactChild extends JSWindowActorChild {
   #active = false;
   #content = null;
@@ -241,7 +267,19 @@ export class WhimsyRedactChild extends JSWindowActorChild {
         height: parseFloat(box.style.height),
       }));
     const rects = [...read(this.#layer, 0, 0), ...read(this.#fixedLayer, win?.scrollX ?? 0, win?.scrollY ?? 0)];
-    return { active: this.#active, style: this.#style, guard: this.#guard, rects, added: this.#added.size, removed: this.#removed.size };
+    // W13 F04: what's hidden, by kind (text clicked by hand is "text").
+    const kinds = { email: 0, phone: 0, card: 0, key: 0, text: this.#active ? this.#added.size : 0 };
+    if (this.#active) {
+      for (const [node, spans] of this.#auto) {
+        if (this.#removed.has(node) || this.#added.has(node) || !node.isConnected) {
+          continue;
+        }
+        for (const [start, end] of spans) {
+          kinds[kindOf(node.data.slice(start, end))]++;
+        }
+      }
+    }
+    return { active: this.#active, style: this.#style, guard: this.#guard, rects, added: this.#added.size, removed: this.#removed.size, kinds };
   }
 
   get #overlay() {

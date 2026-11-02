@@ -675,6 +675,8 @@ add_task(async function w10_screenshot_bar_redact() {
   await SpecialPowers.pushPrefEnv({ set: [
     ["screenshots.browser.component.enabled", true],
     ["whimsy.feature.redact", true],
+    // The bar's toggle (W13 F04: only without the capture card).
+    ["whimsy.feature.capture-card", false],
     ["whimsy.capture.redact", true],
     ["whimsy.capture.redact-style", "black"],
   ] });

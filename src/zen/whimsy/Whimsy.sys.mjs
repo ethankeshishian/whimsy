@@ -51,6 +51,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   // W13 ctrltab: the rounder Ctrl+Tab card.
+  WhimsyCaptureCard: "resource:///modules/whimsy/WhimsyCaptureCard.sys.mjs",
   WhimsyCtrlTab: "resource:///modules/whimsy/WhimsyCtrlTab.sys.mjs",
   WhimsyPrivateMove: "resource:///modules/whimsy/WhimsyPrivateMove.sys.mjs",
   // batch13: page & reading
@@ -871,6 +872,10 @@ export const Whimsy = {
     // Portrait tile, and the guard that keeps clicks from the page while
     // Screenshots is open.
     run("redact", () => lazy.WhimsyRedact.initWindow(win));
+    // W13 F04: after a Screenshots copy, a card with Copied · Save · Redact
+    // · Edit, and the editor behind Redact and Edit. Checks its switch on
+    // every capture.
+    run("capture-card", () => lazy.WhimsyCaptureCard.initWindow(win));
     // wave5/look: a look per space. After Zen's spaces are ready (Mini
     // has none of its own and follows its destination's); it checks its
     // switch on every change, so turning it off applies at once.

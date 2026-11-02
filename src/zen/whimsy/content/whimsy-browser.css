@@ -1783,6 +1783,218 @@ notification-message[value="whimsy-claude-control"] {
   }
 }
 
+/* W13 F04 (wave12 F04, option A): the card after a capture, at the page's
+   bottom end: 236px, 8px in; the image (92px, 7px radius, a hairline),
+   then Copied · Save · Redact · Edit as four tiles on the surface track
+   (icon over an 11px label; Copied in green), then what was hidden. */
+panel.whimsy-surface.whimsy-capture-card {
+  --panel-padding: 8px;
+
+  & .whimsy-surface-view {
+    gap: 8px;
+  }
+}
+.whimsy-capture-thumb {
+  display: block;
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px var(--whimsy-surface-hairline);
+  background: var(--whimsy-surface-track);
+
+  &[draggable="true"] {
+    cursor: grab;
+  }
+}
+.whimsy-capture-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.whimsy-capture-action {
+  appearance: none;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--whimsy-surface-track);
+  color: inherit;
+  font: menu;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 100ms var(--whimsy-surface-ease);
+
+  & > image {
+    width: 15px;
+    height: 15px;
+    -moz-context-properties: fill, stroke;
+    fill: currentColor;
+    stroke: currentColor;
+  }
+  & > span {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  &:hover {
+    background-color: var(--whimsy-surface-hover);
+  }
+  &:hover:active {
+    background-color: var(--whimsy-surface-active);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 1px;
+  }
+  &[done] {
+    color: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
+  }
+  &.whimsy-capture-flash {
+    background-color: var(--whimsy-surface-selected);
+  }
+}
+.whimsy-capture-detail {
+  margin: 0;
+  padding-inline: 2px;
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The editor (Redact and Edit): the image as it will be copied, then one
+   toolbar row: Backdrop (four swatches, the picked one ringed) | Shape |
+   Hide private details | Redact by hand (and Black Out / Blur while it's
+   picked) | Done. Its header drags it (F07). */
+.whimsy-capture-stage {
+  padding: 8px;
+  border-radius: 8px;
+  background: repeating-conic-gradient(var(--whimsy-surface-track) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+}
+.whimsy-capture-preview {
+  display: block;
+  max-width: 100%;
+  border-radius: 4px;
+  outline: none;
+
+  &[drawing] {
+    cursor: crosshair;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 2px;
+  }
+}
+.whimsy-capture-toolbar {
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+
+  & > .whimsy-surface-button {
+    margin-inline-start: auto;
+  }
+}
+.whimsy-capture-tool-group {
+  gap: 6px;
+}
+.whimsy-capture-tool-label {
+  font-weight: 600;
+
+  .whimsy-capture-tool-group > .whimsy-surface-switch + & {
+    font-weight: 400;
+  }
+}
+.whimsy-capture-tool-rule {
+  width: 1px;
+  align-self: stretch;
+  background: var(--whimsy-surface-hairline);
+}
+.whimsy-capture-backdrops {
+  display: flex;
+  gap: 6px;
+}
+.whimsy-capture-backdrop {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--whimsy-surface-hairline);
+  cursor: pointer;
+
+  &[data-backdrop="gradient"] { background: linear-gradient(135deg, #f2c27b, #8b5ad6); }
+  &[data-backdrop="white"] { background: #ffffff; }
+  &[data-backdrop="dark"] { background: #1c1b22; }
+  &[data-backdrop="none"] {
+    background: repeating-conic-gradient(var(--whimsy-surface-hairline) 0 25%, transparent 0 50%) 0 0 / 8px 8px;
+  }
+  &[aria-checked="true"] {
+    box-shadow: 0 0 0 2px var(--zen-primary-color, AccentColor);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 3px;
+  }
+}
+.whimsy-capture-hand {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  & > image {
+    width: 14px;
+    height: 14px;
+    -moz-context-properties: fill, stroke;
+    fill: currentColor;
+    stroke: currentColor;
+  }
+  &:hover {
+    background-color: var(--whimsy-surface-hover);
+  }
+  &[aria-pressed="true"] {
+    background-color: var(--whimsy-surface-selected);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+  }
+}
+.whimsy-capture-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-capture-action {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .whimsy-capture-backdrop[aria-checked="true"],
+  .whimsy-capture-hand[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+  }
+}
+
 /* wave3/private: RSS live folders. The unread count sits after the folder's
    name; an unopened item's tab gets a dot and a heavier title. */
 .whimsy-live-unread {
