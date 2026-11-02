@@ -136,7 +136,7 @@ add_task(async function test_esc_creates_nothing() {
 
   // Private text isn't carried into the next normal bar.
   ok(gZenUIManager.handleNewTab(false, false, "tab", true), "A normal command bar opens");
-  await TestUtils.waitForCondition(() => gURLBar.focused, "It has focus");
+  await TestUtils.waitForCondition(() => gURLBar.focused, "It has focus", 100, 300);
   isnot(gURLBar.value, "never opened", "The private bar's text didn't carry over");
   ok(!gURLBar.hasAttribute("whimsy-private"), "The normal bar has no violet");
   EventUtils.synthesizeKey("KEY_Escape");
@@ -156,7 +156,7 @@ add_task(async function test_cmd_t_from_private_tab_is_normal() {
   // Cmd+T's bar (tests skip Zen's Cmd+T replacement unless asked, hence
   // the override, as in browser_whimsy_new_tabs.js).
   ok(gZenUIManager.handleNewTab(false, false, "tab", true), "Cmd+T's command bar opens");
-  await TestUtils.waitForCondition(() => gURLBar.focused, "It has focus");
+  await TestUtils.waitForCondition(() => gURLBar.focused, "It has focus", 100, 300);
   ok(!gURLBar.hasAttribute("whimsy-private"), "Cmd+T's bar has no violet ring");
   ok(!gURLBar.isPrivate, "Its queries aren't private");
   const badge = document.getElementById(BADGE_ID);
@@ -244,7 +244,7 @@ add_task(async function test_scratch_still_works() {
   // private one.
   gBrowser.selectedBrowser.focus();
   ok(gZenUIManager.handleNewTab(false, false, "tab", true), "Cmd+T's bar opens in Scratch");
-  await TestUtils.waitForCondition(() => gURLBar.focused, "It has focus");
+  await TestUtils.waitForCondition(() => gURLBar.focused, "It has focus", 100, 300);
   ok(gURLBar.hasAttribute("whimsy-private"), "In Scratch, Cmd+T's bar is violet");
   ok(gURLBar.isPrivate, "... and private");
   EventUtils.synthesizeKey("KEY_Escape");

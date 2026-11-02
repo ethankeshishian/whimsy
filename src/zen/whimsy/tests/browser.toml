@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 [DEFAULT]
+head = "head.js"
 support-files = ["whimsy_slow_load.sjs"]
 # W11-14: the private lock's first-run question would pop up in every test
 # that opens something private; browser_whimsy_private_lock.js tests it.
@@ -119,7 +120,10 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_reorder_spaces.js"]
 
 ["browser_whimsy_screens.js"]
+
+# W11-P1: the second half of the screenshot tasks (screens.js ran 90s of its 90s).
 # wave3/speed: the video speed control shot.
+["browser_whimsy_screens_5.js"]
 support-files = ["whimsy_video_speed.html", "whimsy_video.mp4"]
 
 ["browser_whimsy_screens_2.js"]

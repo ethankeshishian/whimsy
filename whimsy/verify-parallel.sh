@@ -3,7 +3,7 @@
 # into N chunks that run at the same time. The headed native tests still run
 # alone, after everything else. Not the release gate yet: verify.sh stays the
 # definition of green, and this script records nothing for the updater.
-#   sh whimsy/verify-parallel.sh [all|quick] [chunks]    default: all 4
+#   sh whimsy/verify-parallel.sh [all|quick] [chunks]    default: all 3
 # Logs go to .surfer/verify/parallel/. Compare with verify.sh's run:
 #   python3 whimsy/verify-compare.py
 #
@@ -32,7 +32,10 @@ cd "$(dirname "$0")/.."
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH" _ZO_DOCTOR=0
 export WHIMSY_SHOTS="${WHIMSY_SHOTS:-$PWD/.surfer/shots}"
 MODE=all
-CHUNKS=4
+# W11-P1: 4 chunks (with Zen's suites on top, 6 browsers) saturated an
+# 8-core Mac (load ~74, background-tab work 10-35x slower); 3 keep it
+# within ~2x of serial.
+CHUNKS=3
 for arg in "$@"; do
   case "$arg" in
     all|quick) MODE=$arg ;;

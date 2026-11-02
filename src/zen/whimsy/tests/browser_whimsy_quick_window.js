@@ -448,6 +448,12 @@ add_task(async function mini_controls_are_keyboard_reachable() {
   const win = WhimsyQuickWindow.open("https://example.com/", { opener: window });
   try {
     await readyMini(win);
+    // Once the page has loaded: Mini moves focus to the page when it does,
+    // which under load came after the focus below and took it away.
+    const pageBrowser = win.gBrowser.selectedBrowser;
+    await TestUtils.waitForCondition(
+      () => pageBrowser.currentURI.spec == "https://example.com/" && !pageBrowser.webProgress?.isLoadingDocument,
+      "Mini's page has loaded", 100, 300);
     await SimpleTest.promiseFocus(win);
     const doc = win.document;
     const copy = doc.getElementById("whimsy-quick-window-copy-link");

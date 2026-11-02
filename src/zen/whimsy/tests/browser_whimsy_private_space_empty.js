@@ -119,7 +119,7 @@ add_task(async function closing_the_last_tab_brings_the_empty_state_back() {
 add_task(async function leaving_it_empty_closes_it() {
   const space = WhimsyPrivate.getScratch(window);
   await gZenWorkspaces.changeWorkspaceWithID(startSpace);
-  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Leaving it empty closes it");
+  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Leaving it empty closes it", 100, 300);
   ok(!gZenWorkspaces.getWorkspaces().some(s => s.uuid == space.uuid), "The space is gone");
   ok(!shown(), "No empty state elsewhere");
   ok(!document.documentElement.hasAttribute("whimsy-private-space-empty"), "The window attribute went");
@@ -134,7 +134,7 @@ add_task(async function leaving_it_with_tabs_keeps_it() {
   is(WhimsyPrivate.getScratch(window)?.uuid, space.uuid, "A Private Space with tabs stays when you leave");
   // Its last tab closed from elsewhere (it's in the background): it goes.
   BrowserTestUtils.removeTab(tab);
-  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Emptied in the background, it closes");
+  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Emptied in the background, it closes", 100, 300);
 });
 
 add_task(async function reduced_motion_just_appears() {
@@ -145,7 +145,7 @@ add_task(async function reduced_motion_just_appears() {
     "No fade with reduced motion");
   await SpecialPowers.popPrefEnv();
   await gZenWorkspaces.changeWorkspaceWithID(startSpace);
-  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Closed on leaving");
+  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Closed on leaving", 100, 300);
 });
 
 add_task(async function switch_off_shows_nothing() {
@@ -167,5 +167,5 @@ add_task(async function cmd_shift_n_again_is_new_private_tab() {
   }
   await barClosed();
   await gZenWorkspaces.changeWorkspaceWithID(startSpace);
-  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Closed on leaving");
+  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Closed on leaving", 100, 300);
 });
