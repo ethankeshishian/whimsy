@@ -20,6 +20,12 @@ registerCleanupFunction(() => {
   }
 });
 
+// The page's title as the parent process knows it (what the badge reads).
+function titleArrived(tab, title) {
+  return TestUtils.waitForCondition(() => tab.linkedBrowser.contentTitle == title,
+    `The page's title "${title}" reached the browser`, 100, 300);
+}
+
 function setTitle(tab, title) {
   return SpecialPowers.spawn(tab.linkedBrowser, [title], t => {
     content.document.title = t;
@@ -253,6 +259,10 @@ add_task(async function test_unloaded_essential_loads_in_background_and_stays_li
   await TestUtils.waitForCondition(() => loadedAt(essential, "live-essential"), "Its saved page loads");
   ok(essential._zenContentsVisible, "This copy holds the page (window sync moves it, not reloads it)");
   await setTitle(essential, "(5) Chat");
+  // The new title crosses from the background page's process to this one,
+  // which can take seconds on a loaded machine (a background tab's process
+  // runs at low priority); once it's here, the badge must follow at once.
+  await titleArrived(essential, "(5) Chat");
   await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "5",
     "The count updates without opening it");
   ok(other.selected, "Still in the background");
@@ -261,10 +271,9 @@ add_task(async function test_unloaded_essential_loads_in_background_and_stays_li
   // shown in this window) still gets its count from the page's title.
   delete essential._zenContentsVisible;
   await setTitle(essential, "(7) Chat");
-  // The title change crosses to the background page's process and back,
-  // which is slow on a loaded machine.
+  await titleArrived(essential, "(7) Chat");
   await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "7",
-    "Counted from the page's title, not the label", 100, 300);
+    "Counted from the page's title, not the label");
   essential._zenContentsVisible = true;
 
   // A renamed Essential: the label stays its name, the count still moves,
