@@ -324,7 +324,9 @@ add_task(async function test_w11_essential_dot_settle_trigger_and_placement() {
   is(badge(bgTab).content, '""', "The dot is rendered on the Essential");
   is(badge(bgTab).width, "7px", "Dot width is 7px");
   // Check placement inside the tile's top-right corner:
-  is(badge(bgTab).top, "6px", "Anchored 6px from tile's top");
+  // The tile (its background) starts --tab-margin-block below the tab's box.
+  const margin = parseFloat(getComputedStyle(bgTab).getPropertyValue("--tab-margin-block")) || 0;
+  is(parseFloat(badge(bgTab).top), margin + 6, "Anchored 6px below the tile's top");
   is(badge(bgTab).right, "6px", "Anchored 6px from tile's end");
 
   // 3. Selecting clears it
