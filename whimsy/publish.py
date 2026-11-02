@@ -353,7 +353,9 @@ def main():
         return
     if channel == "dev":
         # The dev branch is already pushed (npm run ship); just release it.
-        commit = run(["git", "rev-parse", "HEAD"], capture=True).strip()
+        # Tag the commit this build was described from, not today's HEAD: the
+        # publish runs in the background and dev can move meanwhile.
+        commit = run(["git", "rev-parse", release["commit"].rstrip("+")], capture=True).strip()
         gh("release", "create", tag, dmg, mar, "--repo", repo, "--target", commit, "--prerelease",
            "--title", f"Whimsy {release['version']} (dev)", "--notes", notes(release), capture=False)
         publish_pages_file(f"updates/browser/{CONFIG['build_target']}/dev/update.xml", xml, f"Whimsy {tag}")
