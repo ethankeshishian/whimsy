@@ -840,6 +840,7 @@ HOTFIXES = [
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
 PREF_OVERRIDES = {
     "zen.ctrlTab.show-pending-tabs": True,       # Arc-style Ctrl+Tab
+    "zen.urlbar.wait-to-clear": 0,               # C1: ⌘T always opens an empty bar (Zen keeps the last search 45 s)
     "zen.updates.show-update-notification": False,  # Whimsy shows its own
     "zen.folders.owned-tabs-in-folder": True,    # new tabs stay in the folder
     "zen.theme.gradient.show-custom-colors": True,  # theme picker's custom colors (hex field)
