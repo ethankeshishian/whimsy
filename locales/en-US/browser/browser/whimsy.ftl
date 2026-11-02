@@ -4061,7 +4061,7 @@ whimsy-site-settings-zoom-reset =
     .aria-label = Reset zoom to 100%
 whimsy-site-settings-autoplay-default = Use Default
 whimsy-site-settings-reader = Always Open in Reader View
-whimsy-site-settings-fullscreen = Open in Full Screen
+whimsy-site-settings-fullscreen = Always Open in Full Screen
 whimsy-site-settings-useragent = Pretend to Be
 whimsy-site-settings-useragent-reloads = Reloads the page
 # $browser (string) - Chrome, Safari, iPhone, Whimsy or Custom
