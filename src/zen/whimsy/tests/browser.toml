@@ -199,6 +199,9 @@ support-files = ["whimsy_article.html"]
 
 ["browser_whimsy_library_notes.js"]
 
+# W13 notes (option C): the Notes tab badge, note cards, the F09 A open card, the empty state.
+["browser_whimsy_library_notes_cards.js"]
+
 ["browser_whimsy_library_finder_folders.js"]
 
 ["browser_whimsy_library_files.js"]

@@ -27,6 +27,42 @@ function preview(text) {
   return firstLine.length > 80 ? `${firstLine.slice(0, 80)}…` : firstLine;
 }
 
+// W13 notes (option C, design/notes-sidebar): a note's card shows its
+// title (or its first line), then the next line of the note.
+function lines(text) {
+  return (text ?? "").split("\n").map(l => l.trim()).filter(Boolean);
+}
+function cardText(note) {
+  const [first = "", second = ""] = lines(note.text);
+  const title = (note.title ?? "").trim();
+  const clip = line => (line.length > 80 ? `${line.slice(0, 80)}…` : line);
+  return title ? { title: clip(title), line: clip(first) } : { title: clip(first), line: clip(second) };
+}
+
+function hostOf(url) {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url ?? "";
+  }
+}
+
+// How long ago, as compact as the mockup's "2h", "1d", "1w"; a date after
+// five weeks. null under a minute (the card says "Now").
+export function noteAge(time, now = Date.now(), locale = Services.locale.appLocaleAsBCP47) {
+  const seconds = Math.max(0, (now - time) / 1000);
+  if (seconds < 60) {
+    return null;
+  }
+  for (const [unit, size, below] of [["minute", 60, 60], ["hour", 3600, 24], ["day", 86400, 7], ["week", 604800, 5]]) {
+    const n = Math.floor(seconds / size);
+    if (n < below) {
+      return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "narrow" }).format(n);
+    }
+  }
+  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(time);
+}
+
 
 export class WhimsyNotesSection extends ZenLibrarySearchSection {
   static id = "whimsy-notes";
@@ -156,10 +192,81 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     this.requestUpdate();
   }
 
+  // F09 A: a new note opens with the cursor in its title.
   async #addNote() {
     const note = await gWhimsyNotesStore.create({ profileKey: this.profileKey });
     await this.#refresh();
-    this.editingId = note.id;
+    this.#openNote(note.id, "title");
+  }
+
+  // W13 notes C: open a note's card in place of its row; the cursor goes
+  // to the title when it has none, else to the end of the note.
+  #openNote(id, field = null) {
+    const previous = this.editingId;
+    if (previous && previous != id) {
+      this.#closeNote(previous);
+    }
+    this.editingId = id;
+    this.updateComplete.then(() => {
+      const card = this.querySelector(".whimsy-note-editor");
+      card?.scrollIntoView({ block: "nearest" });
+      const title = card?.querySelector(".whimsy-note-open-title");
+      const body = card?.querySelector("textarea");
+      const target = field == "title" || (field == null && !title?.value) ? title : body;
+      target?.focus();
+      if (target == body && body) {
+        body.setSelectionRange(body.value.length, body.value.length);
+      }
+    });
+  }
+
+  // Done (or Esc, or another note): what was typed is saved; a note left
+  // empty is never kept (F09).
+  async #closeNote(id = this.editingId) {
+    if (!id) {
+      return;
+    }
+    if (this.editingId == id) {
+      this.editingId = null;
+    }
+    const note = this.notes.find(n => n.id == id);
+    if (note) {
+      await this.#flush(note);
+    }
+    const stored = (await gWhimsyNotesStore.list()).find(n => n.id == id);
+    if (stored && !stored.title?.trim() && !stored.text?.trim() && !stored.blocks?.length) {
+      await gWhimsyNotesStore.remove(id);
+      if (stored.pageAttached) {
+        try {
+          const tab = this.ownerDocument.defaultView.gBrowser.selectedTab;
+          if (await lazy.TabNotes.has(tab)) {
+            await lazy.TabNotes.delete(tab);
+          }
+        } catch (e) {}
+      }
+    }
+    await this.#refresh();
+  }
+
+  // The Library's Esc: an open note closes first (ZenLibrary asks the
+  // showing section before it closes itself).
+  onEscape() {
+    if (!this.editingId) {
+      return super.onEscape?.() ?? false;
+    }
+    this.#closeNote();
+    return true;
+  }
+
+  // A page a note can be kept with (not a private page, not a blank one).
+  #canAttach() {
+    const win = this.ownerDocument.defaultView;
+    const tab = win.gBrowser.selectedTab;
+    const url = this.#pageURL();
+    return (
+      !!tab && !!url && !/^about:(blank|newtab|home)$/.test(url) &&
+      !lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) && !tab.hasAttribute("whimsy-private")
+    );
   }
 
   // wave9/designfix (M9): "Deleted note · Undo" (and Cmd+Z), not one
@@ -353,6 +460,166 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     `;
   }
 
+  // The page a note is kept with, as a chip: its favicon and the page's
+  // title when it's the page you're on, else its host.
+  #renderChip(note, { removable = false } = {}) {
+    const win = this.ownerDocument.defaultView;
+    const here = note.url && note.url == this.#pageURL();
+    const label = (here && win.gBrowser.selectedTab?.label) || hostOf(note.url);
+    return html`
+      <span class="whimsy-note-chip" title=${note.url}>
+        <img class="whimsy-note-chip-icon" src=${`page-icon:${note.url}`} alt="" />
+        <span class="whimsy-note-chip-label">${label}</span>
+        ${
+          removable
+            ? html`<button
+                type="button"
+                class="whimsy-note-chip-remove"
+                data-l10n-id="whimsy-library-notes-detach"
+                @click=${() => this.#toggleAttach(note)}
+              ></button>`
+            : ""
+        }
+      </span>
+    `;
+  }
+
+  // W13 notes C: the open note, in the F09 A card's layout: the title,
+  // the note, live blocks, then the page chip and Done.
+  #renderEditor(note) {
+    const host = hostOf(this.#pageURL());
+    return html`
+      <div
+        class="whimsy-note-editor whimsy-note-open"
+        @dragover=${event => this.#onDragOver(event)}
+        @drop=${event => this.#onDrop(note, event)}
+        @keydown=${event => {
+          // ⌘Return is Done (F09).
+          if (event.key == "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            this.#closeNote(note.id);
+          }
+        }}
+      >
+        <input
+          type="text"
+          class="whimsy-note-open-title"
+          data-l10n-id="whimsy-library-notes-title-placeholder"
+          .value=${note.title}
+          @input=${event => this.#draft(note, "title", event.target.value)}
+          @change=${() => this.#flush(note)}
+          @keydown=${event => {
+            // Return in the title moves to the note (F09).
+            if (event.key == "Enter" && !event.metaKey && !event.ctrlKey) {
+              event.preventDefault();
+              const body = event.target.parentNode.querySelector("textarea");
+              body?.focus();
+              body?.setSelectionRange(0, 0);
+            }
+          }}
+        />
+        <textarea
+          class="whimsy-note-open-body"
+          rows="4"
+          data-l10n-id="whimsy-library-notes-body-placeholder"
+          .value=${note.text}
+          @input=${event => {
+            this.#draft(note, "text", event.target.value);
+            // It grows with what you write, up to 12 lines, then scrolls.
+            event.target.rows = Math.min(12, Math.max(4, event.target.value.split("\n").length));
+          }}
+          @change=${() => this.#flush(note)}
+          @blur=${() => this.#flush(note)}
+          @keydown=${event => this.#onEditorKeydown(note, event)}
+        ></textarea>
+        ${this.#renderBlocks(note)}
+        <div class="whimsy-note-open-footer">
+          ${
+            note.pageAttached && note.url
+              ? this.#renderChip(note, { removable: true })
+              : this.#canAttach()
+                ? html`<button
+                    type="button"
+                    class="whimsy-note-chip whimsy-note-chip-add"
+                    data-l10n-id="whimsy-library-notes-attach-chip"
+                    data-l10n-args=${JSON.stringify({ host })}
+                    @click=${() => this.#toggleAttach(note)}
+                  ></button>`
+                : ""
+          }
+          <button
+            type="button"
+            class="whimsy-note-done"
+            data-l10n-id="whimsy-library-notes-done"
+            @click=${() => this.#closeNote(note.id)}
+          ></button>
+        </div>
+      </div>
+    `;
+  }
+
+  // W13 notes C: a two-line card: the title, the next line, the page chip
+  // and how long ago; Edit and Delete on hover (and keyboard focus).
+  #renderCard(note) {
+    const { title, line } = cardText(note);
+    const age = noteAge(note.updated ?? note.created ?? Date.now());
+    let when = "";
+    try {
+      when = new Intl.DateTimeFormat(Services.locale.appLocaleAsBCP47, { dateStyle: "medium", timeStyle: "short" })
+        .format(note.updated ?? note.created);
+    } catch {}
+    return html`
+      <div
+        class="whimsy-note-card"
+        tabindex="0"
+        @click=${() => this.#openNote(note.id)}
+        @keydown=${event => {
+          if ((event.key == "Enter" || event.key == " ") && event.target == event.currentTarget) {
+            event.preventDefault();
+            this.#openNote(note.id);
+          }
+        }}
+      >
+        ${
+          title
+            ? html`<span class="whimsy-note-card-title">${title}</span>`
+            : html`<span class="whimsy-note-card-title" data-l10n-id="whimsy-library-notes-untitled"></span>`
+        }
+        ${line ? html`<span class="whimsy-note-card-line">${line}</span>` : ""}
+        <span class="whimsy-note-card-footer">
+          ${note.pageAttached && note.url ? this.#renderChip(note) : ""}
+          ${
+            age
+              ? html`<span class="whimsy-note-card-age" title=${when}>${age}</span>`
+              : html`<span class="whimsy-note-card-age" title=${when} data-l10n-id="whimsy-library-notes-just-now"></span>`
+          }
+        </span>
+        <span class="whimsy-note-card-actions">
+          <toolbarbutton
+            class="toolbarbutton-1 whimsy-note-card-edit"
+            data-l10n-id="whimsy-library-notes-edit"
+            @click=${event => {
+              event.stopPropagation();
+              this.#openNote(note.id);
+            }}
+          >
+            <img class="toolbarbutton-icon" src="chrome://browser/content/whimsy/whimsy-form-pencil.svg" alt="" />
+          </toolbarbutton>
+          <toolbarbutton
+            class="toolbarbutton-1 whimsy-note-card-delete"
+            data-l10n-id="whimsy-library-notes-delete"
+            @click=${event => {
+              event.stopPropagation();
+              this.#removeNote(note.id);
+            }}
+          >
+            <img class="toolbarbutton-icon" src="chrome://browser/skin/zen-icons/trash.svg" alt="" />
+          </toolbarbutton>
+        </span>
+      </div>
+    `;
+  }
+
   #renderNote(note) {
     const query = this.searchQuery.toLowerCase();
     if (
@@ -363,79 +630,34 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     ) {
       return "";
     }
-    const editing = this.editingId == note.id;
     return html`
-      <div class="zen-library-group" data-note-id=${note.id}>
-        <div
-          class="zen-library-row"
-          @click=${() => {
-            this.editingId = editing ? null : note.id;
-          }}
-        >
-          <img class="zen-library-row-icon" src="chrome://browser/skin/zen-icons/page-portrait.svg" alt="" />
-          <div class="zen-library-row-text">
-            <span class="zen-library-row-title">${note.title || preview(note.text) || "—"}</span>
-            <span class="zen-library-row-subtitle">${
-              note.pageAttached ? note.url : preview(note.text)
-            }</span>
-          </div>
-          <div class="zen-library-row-actions">
-            <toolbarbutton
-              class="toolbarbutton-1"
-              data-l10n-id="whimsy-library-notes-delete"
-              @click=${event => {
-                event.stopPropagation();
-                this.#removeNote(note.id);
-              }}
-            >
-              <img class="toolbarbutton-icon" src="chrome://browser/skin/zen-icons/trash.svg" alt="" />
-            </toolbarbutton>
-          </div>
-        </div>
-        ${
-          editing
-            ? html`
-                <div
-                  class="zen-library-row whimsy-note-editor"
-                  style="flex-direction: column; align-items: stretch; gap: 6px;"
-                  @dragover=${event => this.#onDragOver(event)}
-                  @drop=${event => this.#onDrop(note, event)}
-                >
-                  <input
-                    type="text"
-                    data-l10n-id="whimsy-library-notes-title-placeholder"
-                    .value=${note.title}
-                    @input=${event => this.#draft(note, "title", event.target.value)}
-                    @change=${() => this.#flush(note)}
-                  />
-                  <textarea
-                    rows="6"
-                    .value=${note.text}
-                    @input=${event => this.#draft(note, "text", event.target.value)}
-                    @change=${() => this.#flush(note)}
-                    @blur=${() => this.#flush(note)}
-                    @keydown=${event => this.#onEditorKeydown(note, event)}
-                  ></textarea>
-                  ${this.#renderBlocks(note)}
-                  <label>
-                    <input
-                      type="checkbox"
-                      .checked=${note.pageAttached}
-                      @change=${() => this.#toggleAttach(note)}
-                    />
-                    <span data-l10n-id="whimsy-library-notes-attach"></span>
-                  </label>
-                </div>
-              `
-            : ""
-        }
+      <div class="zen-library-group whimsy-note-item" data-note-id=${note.id}>
+        ${this.editingId == note.id ? this.#renderEditor(note) : this.#renderCard(note)}
+      </div>
+    `;
+  }
+
+  // W13 notes C: the empty state: the notes sprite, "No notes yet", New
+  // Note, and where else notes come from.
+  #renderEmpty() {
+    return html`
+      <div class="whimsy-notes-empty">
+        <div class="whimsy-notes-empty-icon"><div class="empty-state-icon-image"></div></div>
+        <strong class="whimsy-notes-empty-title" data-l10n-id="whimsy-library-notes-empty"></strong>
+        <button
+          type="button"
+          class="whimsy-note-done whimsy-notes-empty-new"
+          data-l10n-id="whimsy-library-notes-new"
+          @click=${() => this.#addNote()}
+        ></button>
+        <span class="whimsy-notes-empty-hint" data-l10n-id="whimsy-library-notes-empty-hint"></span>
       </div>
     `;
   }
 
   renderItems() {
     if (!this.notes.length) {
-      return html`<div class="zen-library-empty" data-l10n-id="whimsy-library-notes-empty"></div>`;
+      return this.#renderEmpty();
     }
     // W10-26: notes kept with the page you're on, first.
     const url = this.#pageURL();
@@ -452,7 +674,11 @@ export class WhimsyNotesSection extends ZenLibrarySearchSection {
     `;
   }
 
+  // The footer's New note; the empty state has its own button instead.
   renderFooter() {
+    if (!this.notes.length) {
+      return "";
+    }
     return html`
       <button class="zen-library-filter-button" @click=${() => this.#addNote()}>
         <img src="chrome://browser/skin/zen-icons/plus.svg" alt="" />

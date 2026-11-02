@@ -159,7 +159,8 @@ add_task(async function test_new_note_command_and_context_menu() {
 
 
 // wave9/designfix (M9): deleting a note in the Library shows "Deleted note
-// · Undo", and Undo brings the same note back; the row's icon is a page.
+// · Undo", and Undo brings the same note back. (W13 notes C: the row is a
+// note card.)
 add_task(async function test_delete_note_can_be_undone() {
   const lib = getLibrary();
   if (!lib) {
@@ -177,10 +178,9 @@ add_task(async function test_delete_note_can_be_undone() {
   registerCleanupFunction(() => lib.constructor.animateProgress(wasOpen ? 1 : 0));
   const section = await TestUtils.waitForCondition(() => lib.querySelector("whimsy-library-notes-section"));
   const row = await TestUtils.waitForCondition(
-    () => [...section.querySelectorAll(".zen-library-row")].find(r => r.textContent.includes("Undo me")),
-    "The note has a row"
+    () => [...section.querySelectorAll(".whimsy-note-card")].find(r => r.textContent.includes("Undo me")),
+    "The note has a card"
   );
-  ok(row.querySelector(".zen-library-row-icon").src.endsWith("page-portrait.svg"), "Its icon is a page, not Copy");
 
   row.querySelector('toolbarbutton[data-l10n-id="whimsy-library-notes-delete"]').click();
   await TestUtils.waitForCondition(
@@ -198,7 +198,7 @@ add_task(async function test_delete_note_can_be_undone() {
   );
   is(back.text, "keep this", "as it was");
   await TestUtils.waitForCondition(
-    () => [...section.querySelectorAll(".zen-library-row")].some(r => r.textContent.includes("Undo me")),
-    "and its row returns"
+    () => [...section.querySelectorAll(".whimsy-note-card")].some(r => r.textContent.includes("Undo me")),
+    "and its card returns"
   );
 });

@@ -681,7 +681,34 @@ whimsy-library-notes-delete =
     .label = Delete note
 whimsy-library-notes-title-placeholder =
     .placeholder = Title
-whimsy-library-notes-attach = Attach to this page
+# W13 notes (option C): the Library's notes as two-line cards, an open note
+# in the New Note card's layout, the empty state and the rail's count.
+whimsy-library-notes-untitled = Untitled note
+whimsy-library-notes-edit =
+    .label = Edit note
+whimsy-library-notes-body-placeholder =
+    .placeholder = Write something…
+    .aria-label = Note
+whimsy-library-notes-done = Done
+whimsy-library-notes-new = New Note
+whimsy-library-notes-empty-hint = or right-click a page › New Note to keep one with it
+# Variables:
+#   $host (string) - the page's site, e.g. theverge.com
+whimsy-library-notes-attach-chip = + This page · { $host }
+    .aria-label = Keep with this page, { $host }
+whimsy-library-notes-detach =
+    .aria-label = Don’t keep with this page
+    .title = Don’t keep with this page
+# Shown instead of "2m", "1h"… for a note changed less than a minute ago.
+whimsy-library-notes-just-now = Now
+# The Notes tab in the Library, when the page in front has notes.
+# Variables:
+#   $count (number) - how many notes are kept with the page
+whimsy-library-notes-badge =
+    { $count ->
+        [one] One note for this page
+       *[other] { $count } notes for this page
+    }
 
 whimsy-library-finder-folders-title = Folders
 whimsy-library-finder-folders-empty = No folders pinned yet

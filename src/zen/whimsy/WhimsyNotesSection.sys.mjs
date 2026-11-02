@@ -30,7 +30,12 @@ ChromeUtils.defineESModuleGetters(
   { global: "current" }
 );
 
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
+
 const STORE_FILENAME = "whimsy-notes.json";
+// W13 notes (option C): the Library's Notes tab shows how many notes are
+// kept with the page you're on.
+export const NOTE_COUNT_ATTR = "whimsy-note-count";
 // Notified after any note is created, changed or removed, so an open Notes
 // section shows notes added elsewhere (verbs, other windows, tab drops).
 export const NOTES_CHANGED_TOPIC = "whimsy-notes-changed";
@@ -170,6 +175,95 @@ export const WhimsyNotes = {
       isAvailable: () => this.enabled,
     });
     this.initContextMenu(win);
+    this.initRailBadge(win);
+  },
+
+  /** How many of this profile's notes are kept with the page in front. */
+  async pageNoteCount(win) {
+    if (!this.enabled || this.isPrivate(win)) {
+      return 0;
+    }
+    const tab = win.gBrowser?.selectedTab;
+    const url = tab?.canonicalUrl ?? win.gBrowser?.currentURI?.spec ?? null;
+    if (!url) {
+      return 0;
+    }
+    const profileKey = lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.activeProfileId(win));
+    const notes = await gWhimsyNotesStore.list(profileKey);
+    return notes.filter(note => note.pageAttached && note.url == url).length;
+  },
+
+  // W13 notes C: a count badge on the Library's Notes tab when the page in
+  // front has notes, so you can tell before opening it. Zen renders the
+  // rail (Lit), so the badge is an attribute drawn by CSS (::after), put
+  // back whenever the rail is drawn again; it follows the page, the notes
+  // and the profile.
+  initRailBadge(win) {
+    if (win._whimsyNoteBadge) {
+      return;
+    }
+    let pending = false;
+    const update = () => {
+      if (pending || win.closed) {
+        return;
+      }
+      pending = true;
+      win.setTimeout(() => {
+        pending = false;
+        this.updateRailBadge(win).catch(e => console.error("Whimsy: notes badge", e));
+      }, 0);
+    };
+    win._whimsyNoteBadge = update;
+    const observer = { observe: update };
+    Services.obs.addObserver(observer, NOTES_CHANGED_TOPIC);
+    Services.prefs.addObserver("whimsy.feature.notes", update);
+    win.gBrowser?.tabContainer?.addEventListener("TabSelect", update);
+    win.addEventListener("ZenWorkspacesUIUpdate", update);
+    const progress = { onLocationChange: update };
+    win.gBrowser?.addProgressListener(progress);
+    // The rail is drawn by Zen's <zen-library> when it first opens and again
+    // after it changes: put the badge back on the new tab.
+    let rail = null;
+    const library = win.document.querySelector("zen-library");
+    if (library) {
+      rail = new win.MutationObserver(records => {
+        // Only the rail matters; the sections' own rows change all the time.
+        const railChanged = records.some(r => !r.target.closest?.("#zen-library-content") &&
+          (r.type == "attributes" ||
+            [...r.addedNodes].some(n => n.classList?.contains("zen-library-tab") || n.querySelector?.(".zen-library-tab"))));
+        if (railChanged) {
+          update();
+        }
+      });
+      rail.observe(library, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-section"] });
+    }
+    win.addEventListener("unload", () => {
+      Services.obs.removeObserver(observer, NOTES_CHANGED_TOPIC);
+      Services.prefs.removeObserver("whimsy.feature.notes", update);
+      win.gBrowser?.removeProgressListener(progress);
+      rail?.disconnect();
+    }, { once: true });
+    update();
+  },
+
+  async updateRailBadge(win) {
+    const tabs = win.document.querySelectorAll("zen-library .zen-library-tab");
+    if (!tabs.length) {
+      return;
+    }
+    const count = await this.pageNoteCount(win);
+    const label = count ? await lazy.l10n.formatValue("whimsy-library-notes-badge", { count }) : null;
+    for (const tab of win.document.querySelectorAll("zen-library .zen-library-tab")) {
+      if (tab.dataset.section == "whimsy-notes" && count) {
+        if (tab.getAttribute(NOTE_COUNT_ATTR) != String(count)) {
+          tab.setAttribute(NOTE_COUNT_ATTR, String(count));
+        }
+        tab.setAttribute("aria-description", label);
+      } else if (tab.hasAttribute(NOTE_COUNT_ATTR)) {
+        tab.removeAttribute(NOTE_COUNT_ATTR);
+        tab.removeAttribute("aria-description");
+      }
+    }
   },
 
   // Opens the Library on Notes (never closes it, unlike a toggle), with
