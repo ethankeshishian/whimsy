@@ -285,6 +285,19 @@ export const WhimsySiteSettings = {
     return this.enterReader(browser);
   },
 
+  leaveReader(browser) {
+    try {
+      const actor = browser.browsingContext?.currentWindowGlobal?.getActor("AboutReader");
+      if (!actor?.isReaderMode()) {
+        return false;
+      }
+      actor.sendAsyncMessage("Reader:ToggleReaderMode", {});
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
+
   enterReader(browser) {
     try {
       const actor = browser.browsingContext?.currentWindowGlobal?.getActor("AboutReader");
@@ -473,6 +486,10 @@ export const WhimsySiteSettings = {
             this.applyNow(win, kind);
           } else if (kind == "fullscreen") {
             this.leaveFullscreen(win, browser, site.host);
+          } else if (kind == "reader") {
+            // F16: turning it off ends Reader View now, as turning Full
+            // Screen off ends full screen.
+            this.leaveReader(browser);
           }
           this.render(win);
         },

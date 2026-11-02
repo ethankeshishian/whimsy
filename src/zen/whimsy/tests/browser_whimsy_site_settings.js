@@ -130,16 +130,19 @@ add_task(async function test_zoom_stepper() {
     const [out, value, into] = row.querySelector(".whimsy-site-settings-stepper").children;
     is(value.textContent, "100%", "The % shows the zoom");
     ok(value.hasAttribute("at-default"), "muted at the default");
-    into.click();
+    // F16: real clicks, as a person makes them (.click() hid the bug).
+    EventUtils.synthesizeMouseAtCenter(into, {});
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "+ zooms in");
     await TestUtils.waitForCondition(() => value.textContent == `${Math.round(ZoomManager.getZoomForBrowser(browser) * 100)}%`,
       "and the % follows");
     ok(!value.hasAttribute("at-default"), "no longer muted");
     ok(!document.getElementById("whimsy-site-settings-forget-all").hidden, "Forget All shows");
-    out.click();
-    out.click();
+    EventUtils.synthesizeMouseAtCenter(out, {});
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) == 1, "− steps back");
+    EventUtils.synthesizeMouseAtCenter(out, {});
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) < 1, "− zooms out");
-    value.click();
+    is(panel().state, "open", "The panel stays open while zooming");
+    EventUtils.synthesizeMouseAtCenter(value, {});
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) == 1, "The % resets to 100%");
     await TestUtils.waitForCondition(() => value.textContent == "100%", "and says so");
     await FullZoom.enlarge(browser);
@@ -246,6 +249,28 @@ add_task(async function test_always_open_in_reader() {
   BrowserTestUtils.removeTab(tab2);
   Services.prefs.clearUserPref(FEATURE_PREF);
   clearAll();
+});
+
+// F16: turning Always Open in Reader View off ends Reader View now, as
+// turning full screen off ends full screen.
+add_task(async function test_reader_switch_off_leaves_reader() {
+  clearAll();
+  WhimsySiteSettings.setFlag("reader", HOST, NORMAL, true);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ARTICLE_URL, false);
+  const browser = tab.linkedBrowser;
+  try {
+    await TestUtils.waitForCondition(() => browser.currentURI.spec.startsWith("about:reader"), "In Reader View");
+    await openPanel();
+    const toggle = rowOf("reader")?.querySelector("input");
+    ok(toggle?.checked, "The switch is on in Reader View");
+    toggle.click();
+    await TestUtils.waitForCondition(() => browser.currentURI.spec == ARTICLE_URL, "Switching it off left Reader View");
+    ok(!WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "and forgot it");
+    await closePanel();
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    clearAll();
+  }
 });
 
 add_task(async function test_open_in_full_screen() {
