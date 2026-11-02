@@ -488,15 +488,37 @@ export const WhimsySpaces = {
 
   initTabDragging(win) {
     const root = win.document.documentElement;
-    win.addEventListener(
-      "dragstart",
-      event => {
-        if (event.dataTransfer?.mozTypesAt(0)[0] == TAB_DROP_TYPE) {
-          root.setAttribute("whimsy-tab-dragging", "");
-        }
-      },
-      true
-    );
+    const isTabDrag = event => {
+      if (event.target?.closest?.(".tabbrowser-tab")) {
+        return true;
+      }
+      const dt = event.dataTransfer;
+      if (!dt) {
+        return false;
+      }
+      if (dt.types?.includes?.(TAB_DROP_TYPE)) {
+        return true;
+      }
+      try {
+        const types = dt.mozTypesAt?.(0);
+        return types?.includes?.(TAB_DROP_TYPE) || types?.[0] == TAB_DROP_TYPE;
+      } catch {
+        return false;
+      }
+    };
+
+    const onDrag = event => {
+      if (isTabDrag(event)) {
+        root.setAttribute("whimsy-tab-dragging", "");
+      }
+    };
+
+    // Only this window's own tab drags: dragenter/dragover would also fire for
+    // links, files and tabs from other windows, which never send this window a
+    // dragend, and the switcher would stay shown.
+    win.addEventListener("dragstart", onDrag, true);
+    win.addEventListener("dragstart", onDrag, false);
+
     const done = () => root.removeAttribute("whimsy-tab-dragging");
     win.addEventListener("dragend", done, true);
     win.addEventListener("drop", () => win.setTimeout(done, 0), true);

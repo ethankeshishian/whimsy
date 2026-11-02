@@ -105,3 +105,55 @@ add_task(async function test_pref_off() {
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_one_click_rename_and_click_outside() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/rename");
+  is(gBrowser.selectedTab, tab, "The tab is active");
+
+  const label = tab.querySelector(".tab-label-container");
+  ok(label, "Found label container");
+
+  // Single click on the title text of the selected tab starts renaming (F14 Arc parity).
+  EventUtils.synthesizeMouseAtCenter(label, {});
+  const input = await TestUtils.waitForCondition(
+    () => document.getElementById("tab-label-input"),
+    "One click on the title text opens the rename input"
+  );
+  is(document.activeElement, input, "The input is focused");
+
+  // Clicking outside (on empty tab space or window background) ends editing (F14).
+  const emptySpace = document.getElementById("tabbrowser-tabs");
+  EventUtils.synthesizeMouseAtCenter(emptySpace, {});
+  await TestUtils.waitForCondition(
+    () => !document.getElementById("tab-label-input"),
+    "Clicking outside ends editing"
+  );
+  ok(!document.documentElement.hasAttribute("zen-renaming-tab"), "Renaming mode ended");
+
+  // Clicking an inactive tab switches to it and does NOT start renaming on first click.
+  const otherTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/other");
+  gBrowser.selectedTab = tab; // Switch back to tab
+  is(gBrowser.selectedTab, tab, "Back on first tab");
+
+  const otherLabel = otherTab.querySelector(".tab-label-container");
+  EventUtils.synthesizeMouseAtCenter(otherLabel, {});
+  is(gBrowser.selectedTab, otherTab, "Single click on inactive tab selects it");
+  ok(!document.getElementById("tab-label-input"), "Inactive tab click does not open rename input");
+
+  // Second click (now that it is active) on its title text opens rename input.
+  EventUtils.synthesizeMouseAtCenter(otherLabel, {});
+  const otherInput = await TestUtils.waitForCondition(
+    () => document.getElementById("tab-label-input"),
+    "Click on title of active tab starts rename"
+  );
+  otherInput.value = "Renamed By One Click";
+  EventUtils.synthesizeKey("KEY_Enter", {}, window);
+  await TestUtils.waitForCondition(
+    () => !document.getElementById("tab-label-input"),
+    "Enter saves rename"
+  );
+  is(otherTab.label, "Renamed By One Click", "Tab was renamed");
+
+  BrowserTestUtils.removeTab(otherTab);
+  BrowserTestUtils.removeTab(tab);
+});

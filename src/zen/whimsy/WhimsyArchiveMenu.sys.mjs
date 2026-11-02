@@ -34,7 +34,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const FEATURE_PREF = "whimsy.feature.archive-tab-menu";
 const POPUP_ID = "tabContextMenu";
-export const BELOW_ID = "context_whimsyArchiveTabsBelow";
+export const BELOW_ID = "context_closeTabsToTheEnd";
 const PRIVATE_TAB_ATTR = "whimsy-private";
 
 // Firefox's ids, restored when the feature is off.
@@ -116,33 +116,33 @@ export const WhimsyArchiveMenu = {
         }
       }
     };
-    win.addEventListener("popupshowing", onShowing);
-    win.addEventListener("unload", () => win.removeEventListener("popupshowing", onShowing), { once: true });
+    const onCommand = event => {
+      if (event.target?.id == BELOW_ID && enabled()) {
+        const tab = win.TabContextMenu?.contextTab;
+        if (tab && this.archives(win, [tab])) {
+          event.stopPropagation();
+          this.archiveTabsBelow(win, tab);
+        }
+      }
+    };
+    popup.addEventListener("popupshowing", onShowing);
+    popup.addEventListener("command", onCommand, true);
+    win.addEventListener(
+      "unload",
+      () => {
+        popup.removeEventListener("popupshowing", onShowing);
+        popup.removeEventListener("command", onCommand, true);
+      },
+      { once: true }
+    );
   },
 
-  // Created on first show, after Firefox has arranged its menu (its
-  // MenuSectionLayout runs once, on the first popupshowing).
+  // F15: The row lives in the Close Multiple Tabs submenu (context_closeTabsToTheEnd),
+  // using the Archive wording; any top-level duplicate is removed.
   ensureItem(win, popup) {
     const { document } = win;
-    let item = document.getElementById(BELOW_ID);
-    if (item) {
-      return item;
-    }
-    const close = document.getElementById("context_closeTab");
-    if (!close || close.parentNode != popup) {
-      return null;
-    }
-    item = document.createXULElement("menuitem");
-    item.id = BELOW_ID;
-    item.addEventListener("command", () => {
-      // The tab the menu opened on, even if Firefox already let go of it.
-      const tab = win.TabContextMenu?.contextTab ?? item._whimsyTab;
-      if (tab?.isConnected) {
-        this.archiveTabsBelow(win, tab);
-      }
-    });
-    close.after(item);
-    return item;
+    document.getElementById("context_whimsyArchiveTabsBelow")?.remove();
+    return document.getElementById(BELOW_ID);
   },
 
   // A row still carrying Firefox's lazy id would get it back on its first
@@ -188,21 +188,36 @@ export const WhimsyArchiveMenu = {
       this.setL10nId(reopen, on ? "whimsy-tab-context-restore-closed-tabs" : FIREFOX_REOPEN_L10N);
     }
 
-    const item = on ? this.ensureItem(win, popup) : document.getElementById(BELOW_ID);
+    // F15: remove top-level duplicate if present
+    document.getElementById("context_whimsyArchiveTabsBelow")?.remove();
+
+    const item = document.getElementById(BELOW_ID);
     if (!item) {
       return;
     }
     const regular = tab && !tab.pinned && !tab.hasAttribute("zen-essential");
-    item.hidden = !on || !regular || !close || close.hidden;
-    if (item.hidden) {
+    if (!on) {
+      const defId = win.gBrowser.tabContainer?.verticalMode
+        ? "close-tabs-to-the-end-vertical"
+        : "close-tabs-to-the-end";
+      this.setL10nId(item, defId);
+      document.l10n.setAttributes(item, defId);
       return;
     }
+
+    if (archives) {
+      this.setL10nId(item, "whimsy-tab-context-archive-tabs-below");
+      document.l10n.setAttributes(item, "whimsy-tab-context-archive-tabs-below");
+    } else {
+      const defId = win.gBrowser.tabContainer?.verticalMode
+        ? "close-tabs-to-the-end-vertical"
+        : "close-tabs-to-the-end";
+      this.setL10nId(item, defId);
+      document.l10n.setAttributes(item, defId);
+    }
+
     item._whimsyTab = tab;
     const multi = contextTabs.length > 1;
-    item.disabled = multi || !this.tabsBelow(win, tab).length;
-    document.l10n.setAttributes(
-      item,
-      this.archives(win, [tab]) ? "whimsy-tab-context-archive-tabs-below" : "whimsy-tab-context-close-tabs-below"
-    );
+    item.disabled = !regular || multi || !this.tabsBelow(win, tab).length;
   },
 };

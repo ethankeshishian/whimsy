@@ -95,6 +95,7 @@ const ICONS = {
       ? SELECTABLE("inbox")
       : ZEN("close"),
   context_whimsyArchiveTabsBelow: ZEN("arrow-down"),
+  context_closeTabsToTheEnd: ZEN("arrow-down"),
   context_closeDuplicateTabs: ZEN("duplicate-tab"),
   context_closeTabOptions: ZEN("close"),
   context_undoCloseTab: ZEN("history"),
