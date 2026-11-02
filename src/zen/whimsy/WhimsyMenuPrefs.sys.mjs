@@ -189,7 +189,7 @@ const TAB_ITEMS = [
   item("send-to-device", "whimsy-menus-tab-send-to-device", ["context_sendTabToDevice"]),
   SEPARATOR,
   item("close", "whimsy-menus-tab-close", ["context_closeTab"]),
-  item("archive-below", "whimsy-menus-tab-archive-below", ["context_whimsyArchiveTabsBelow"]),
+  item("archive-below", "whimsy-menus-tab-archive-below", ["context_closeTabsToTheEnd", "context_whimsyArchiveTabsBelow"]),
   item("close-duplicates", "whimsy-menus-tab-close-duplicates", ["context_closeDuplicateTabs"]),
   item("close-multiple", "whimsy-menus-tab-close-multiple", ["context_closeTabOptions"]),
   item("reopen", "whimsy-menus-tab-reopen", ["context_undoCloseTab"]),

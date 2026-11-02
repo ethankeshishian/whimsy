@@ -66,7 +66,17 @@ add_task(async function test_labels() {
   );
   const below = document.getElementById(BELOW_ID);
   ok(below && !below.hidden, "Archive Tabs Below is there");
-  is(below.previousElementSibling?.id, "context_closeTab", "right after Archive Tab");
+  ok(!document.getElementById("context_whimsyArchiveTabsBelow"), "No top-level duplicate row (F15)");
+  is(
+    below.closest("#context_closeTabOptions"),
+    document.getElementById("context_closeTabOptions"),
+    "Archive Tabs Below is inside Close Multiple Tabs submenu (F15)"
+  );
+  is(
+    below.getAttribute("data-l10n-id"),
+    "whimsy-tab-context-archive-tabs-below",
+    "Submenu row uses Archive wording"
+  );
   is(document.getElementById("context_undoCloseTab").getAttribute("command"), "History:UndoCloseTab", "Same command as Shift+Cmd+T");
   await closeMenu(menu);
 
@@ -82,7 +92,12 @@ add_task(async function test_labels() {
     "tab-context-reopen-closed-tabs",
     "and Reopen Closed Tab"
   );
-  ok(document.getElementById(BELOW_ID).hidden, "and no Archive Tabs Below");
+  is(
+    document.getElementById(BELOW_ID).getAttribute("data-l10n-id"),
+    "close-tabs-to-the-end-vertical",
+    "Switched off: reverts to Firefox's Close Tabs Below"
+  );
+  ok(!document.getElementById("context_whimsyArchiveTabsBelow"), "Still no top-level duplicate row");
   await closeMenu(menu);
   Services.prefs.clearUserPref(FEATURE);
   BrowserTestUtils.removeTab(tab);
@@ -125,7 +140,10 @@ add_task(async function test_pinned() {
   const [tab] = await openTabs(["pinned"]);
   gBrowser.pinTab(tab);
   const menu = await openTabMenu(tab);
-  ok(document.getElementById(BELOW_ID).hidden, "No Archive Tabs Below on a pinned tab");
+  ok(
+    document.getElementById(BELOW_ID).disabled || document.getElementById(BELOW_ID).hidden,
+    "No Archive Tabs Below on a pinned tab"
+  );
   await closeMenu(menu);
   gBrowser.unpinTab(tab);
   BrowserTestUtils.removeTab(tab);
