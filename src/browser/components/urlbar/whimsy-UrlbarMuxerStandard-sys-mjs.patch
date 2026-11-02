@@ -48,16 +48,16 @@ diff --git a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs b/browser/com
      // Global state we'll use to make decisions during this sort.
      let state = {
        context,
-@@ -259,9 +291,95 @@
+@@ -259,6 +291,100 @@
      }
  
      context.results = sortedResults;
 +
 +    // Whimsy (W11-09).
 +    this.#whimsyRankOpenTabs(context);
-   }
- 
-   /**
++  }
++
++  /**
 +   * Whimsy (W11-09): the command bar's open-tab ranking, as in Arc.
 +   * WhimsyAlreadyOpen sets `whimsyOpenTabFirst` on the query context of
 +   * Zen's Cmd+T command bar (or typing into an empty tab), and only there,
@@ -119,6 +119,13 @@ diff --git a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs b/browser/com
 +    // The view (allowEmptySelection) and Return before the results show
 +    // (getHeuristicResult) read the context's heuristic, not results[0].
 +    context.heuristicResult = tab;
++    // Whimsy (F34): a typed address of the page the tab shows would be a
++    // second row for the same page: it's left out, and a modified Return on
++    // the tab (Option-Return, a new tab) still goes to it.
++    if (page) {
++      results.splice(results.indexOf(heuristic), 1);
++      tab.whimsyTypedResult = heuristic;
++    }
 +  }
 +
 +  /**
@@ -136,11 +143,9 @@ diff --git a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs b/browser/com
 +      if (Object.hasOwn(result, "whimsyOwnHeuristic")) {
 +        result.heuristic = result.whimsyOwnHeuristic;
 +        delete result.whimsyOwnHeuristic;
++        delete result.whimsyTypedResult;
 +      }
 +    }
-+  }
-+
-+  /**
-    * Search for group in rootGroup and return it.
-    *
-    * @param {object} rootGroup Root group definition.
+   }
+ 
+   /**

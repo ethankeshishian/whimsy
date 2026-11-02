@@ -172,7 +172,9 @@ export const WhimsyAlreadyOpen = {
     ) {
       return null;
     }
-    const typed = win.gURLBar.view?.visibleResults?.find(r => this.isTypedRow(r));
+    // F34: a typed address of the tab's own page isn't listed (the muxer
+    // keeps it on the tab's row).
+    const typed = win.gURLBar.view?.visibleResults?.find(r => this.isTypedRow(r)) ?? result.whimsyTypedResult;
     return typed ? { result: typed, element: null } : null;
   },
 

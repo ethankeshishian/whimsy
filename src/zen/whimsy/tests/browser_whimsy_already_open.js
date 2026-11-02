@@ -402,24 +402,19 @@ add_task(async function test_open_tab_ranks_above_search() {
   await cleanupRank(tab, other);
 });
 
-// W11-09: a typed address that's open: Switch to Tab first; Down picks the
-// address row, which opens it (a second copy), never the tab.
+// W11-09, F34: a typed address that's open: Switch to Tab first, and no
+// second row for the same page (Option-Return still opens a copy).
 add_task(async function test_open_tab_ranks_above_typed_address() {
   const { tab, other } = await openRankTab();
   await commandBar(RANK_URL);
-  const [first, second] = await rows();
+  const all = await rows();
+  const [first] = all;
   is(first.result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH, "Switch to Tab is first");
   is(first.result.payload.url, RANK_URL, "…for the tab showing that address");
-  is(second.result.type, UrlbarShared.RESULT_TYPE.URL, "The typed address is the second row");
-  ok(!second.result.heuristic, "…as an ordinary row");
-  EventUtils.synthesizeKey("KEY_ArrowDown");
-  is(UrlbarTestUtils.getSelectedRowIndex(window), 1, "The address row is selected");
-  const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, RANK_URL, true);
+  // F34: the typed address of that same page isn't a second row.
+  is(all.filter(r => r.result.payload.url == RANK_URL).length, 1, "One row for that page");
   EventUtils.synthesizeKey("KEY_Enter");
-  const copy = await copyOpened;
-  is(gBrowser.selectedTab, copy, "The address row opens the page, not the tab");
-  isnot(copy, tab, "…in a new tab");
-  BrowserTestUtils.removeTab(copy);
+  await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "Return goes to the tab");
   await cleanupRank(tab, other);
 });
 
@@ -598,4 +593,51 @@ add_task(function test_promote_keeps_typed_row_second() {
   WhimsyAlreadyOpen.promoteOpenTabs(qc);
   Assert.deepEqual(qc.results, [ranked, typed, otherTab, history], "Ranked tab, typed row, then the other tabs");
   ok(WhimsyAlreadyOpen.isRankedTab(ranked) && WhimsyAlreadyOpen.isTypedRow(typed), "The rows are told apart");
+});
+
+// F34: an Essential on an address with a #fragment, as Gmail's
+// https://mail.google.com/mail/u/1/#inbox. Typing that exact address in
+// Cmd+T lists it once (plus nothing that both switches and searches), and
+// Return opens a second copy in a new tab, as for any tab you're on.
+add_task(async function test_essential_with_fragment_one_row() {
+  const url = "https://example.com/browser/whimsyessential/#inbox";
+  await PlacesTestUtils.addVisits({ uri: url, title: "Whimsy essential inbox" });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  gZenPinnedTabManager.addToEssentials(tab);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?f34");
+  try {
+    gBrowser.selectedTab = tab;
+    await commandBar(url);
+    const all = await rows();
+    info(all.map(r => `${r.type}/${r.result.providerName}/${r.result.heuristic}/${r.url}/${r.displayed.action}`).join("\n"));
+    const same = all.filter(r => r.result.payload.url && r.result.payload.url.replace(/#.*/, "") == url.replace(/#.*/, ""));
+    is(same.length, 1, "One row for the address");
+    ok(!all.some(r => r.result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH), "No Switch to Tab to the tab you're on");
+    const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, url, true);
+    EventUtils.synthesizeKey("KEY_Enter");
+    const copy = await copyOpened;
+    is(gBrowser.selectedTab, copy, "Return opened a second copy");
+    ok(tab.isConnected && copy != tab, "…and kept the Essential");
+    BrowserTestUtils.removeTab(copy);
+
+    // From another tab, the Essential's row switches to it, once.
+    gBrowser.selectedTab = other;
+    await commandBar(url);
+    const fromOther = await rows();
+    info(fromOther.map(r => `${r.type}/${r.result.providerName}/${r.result.heuristic}/${r.url}/${r.displayed.action}`).join("\n"));
+    is(fromOther.filter(r => r.result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH).length, 1, "One Switch to Tab row");
+    is(fromOther.filter(r => r.result.payload.url == url).length, 1, "…and no other row for that address");
+    ok(!fromOther.slice(1).some(r => r.displayed.action == "Switch to Tab"), "Only the first row says Switch to Tab");
+    EventUtils.synthesizeKey("KEY_Enter");
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "Return goes to the Essential");
+  } finally {
+    if (gURLBar.hasAttribute("zen-newtab") || gURLBar.view.isOpen) {
+      await closeCommandBar();
+    }
+    gZenPinnedTabManager.removeEssentials(tab);
+    BrowserTestUtils.removeTab(other);
+    BrowserTestUtils.removeTab(tab);
+    const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+    await PlacesUtils.history.remove(url);
+  }
 });
