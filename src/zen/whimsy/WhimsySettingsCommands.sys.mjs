@@ -300,6 +300,8 @@ export const SETTINGS = [
   { name: "trails", setting: "whimsyTrails", pref: "whimsy.feature.trails" },
   { name: "page-actions", setting: "whimsyPageActions", pref: "whimsy.feature.page-actions" },
   { name: "smart-buttons", setting: "whimsySmartButtons", pref: "whimsy.feature.smart-buttons" },
+  { name: "upload-badges", setting: "whimsyUploadBadges", pref: "whimsy.uploadClipboard.badges",
+    feature: ["upload-clipboard"] },
 
   // Links
   { name: "external-links", setting: "whimsyExternalLinksTarget", pref: "whimsy.external-links.target",

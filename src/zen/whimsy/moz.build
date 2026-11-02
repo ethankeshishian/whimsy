@@ -180,6 +180,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyTreeTabs.sys.mjs",
     "WhimsyUndo.sys.mjs",
     "WhimsyUpdates.sys.mjs",
+    "WhimsyUploadBadges.sys.mjs",
     "WhimsyUploadChild.sys.mjs",
     "WhimsyUploadParent.sys.mjs",
     "WhimsyUrlbar.sys.mjs",

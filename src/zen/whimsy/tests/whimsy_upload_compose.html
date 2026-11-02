@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<!-- W13-R2: a Gmail or Slack composer. The message box is contenteditable; its
+     paste handler takes pasted files (preventDefault) and attaches them. The
+     attachment input lives elsewhere (Gmail keeps it off-screen at the end of
+     <body>; the paperclip clicks it), so nothing on screen owns it. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Compose</title>
+<style>
+  #composer { width: 520px; min-height: 140px; border: 1px solid #aaa; padding: 6px; }
+</style>
+</head>
+<body>
+<div id="toolbar"><div id="paperclip" role="button" tabindex="0">Attach files</div></div>
+<div id="composer" contenteditable="true" role="textbox" aria-label="Message Body"></div>
+<div id="attachments"></div>
+<script>
+  window.attached = [];
+  window.inputChanges = 0;
+  const attach = files => {
+    for (const file of files) {
+      window.attached.push(file.name);
+      const div = document.createElement("div");
+      div.textContent = file.name;
+      document.getElementById("attachments").append(div);
+    }
+  };
+  document.getElementById("composer").addEventListener("paste", event => {
+    const files = [...(event.clipboardData?.items ?? [])]
+      .filter(item => item.kind == "file")
+      .map(item => item.getAsFile())
+      .filter(Boolean);
+    if (files.length) {
+      event.preventDefault();
+      attach(files);
+    }
+  });
+  const input = document.createElement("input");
+  input.type = "file";
+  input.multiple = true;
+  input.name = "Filedata";
+  input.style.cssText = "position: absolute; top: -10000px; left: -10000px;";
+  input.addEventListener("change", () => {
+    window.inputChanges++;
+    attach(input.files);
+  });
+  document.body.append(input);
+  document.getElementById("paperclip").addEventListener("click", () => input.click());
+</script>
+</body>
+</html>

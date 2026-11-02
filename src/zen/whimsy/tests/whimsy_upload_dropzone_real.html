@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<!-- W13-R2: dropzone.dev's demo, running the real Dropzone.js 6 (vendored as
+     whimsy_upload_dropzone.min.js). Set up as dropzone.dev's Svelte code was on
+     2026-11-02: a .dropzone-container wrapping the .dropzone element,
+     new Dropzone(el, { url: "/", maxFiles: 4, ... }), clickable (the default:
+     its hidden input.dz-hidden-input sits in <body> and is replaced after every
+     change), addFile wrapped to refuse a fifth file, uploads faked. It has no
+     paste listener: Dropzone.js defines paste() but never wires it.
+     ?docs=1 adds the paste handler from Dropzone's docs (addFile each pasted
+     file, no preventDefault). -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dropzone.js</title>
+<script src="whimsy_upload_dropzone.min.js"></script>
+<style>
+  .dropzone-container { padding: 20px; }
+  .dropzone { width: 420px; min-height: 200px; border: 2px dashed #999; border-radius: 8px; }
+  .dz-preview { display: inline-block; margin: 6px; }
+  #elsewhere { margin-top: 300px; }
+</style>
+</head>
+<body>
+<div class="visual">
+  <div class="dropzone-container">
+    <div class="dropzone" id="demo">
+      <div class="dz-message"><h1 id="demo-text">Try it out!</h1><p>Drag and drop files here</p></div>
+    </div>
+  </div>
+</div>
+<p id="elsewhere">Somewhere else</p>
+<script>
+  const element = document.getElementById("demo");
+  const dz = new Dropzone(element, { url: "/", maxFiles: 4, parallelUploads: 1, uploadMultiple: false });
+  // dropzone.dev's own code: at most 4 files, and uploads that only pretend.
+  const addFile = dz.addFile.bind(dz);
+  dz.addFile = (...args) => {
+    if (dz.files.length < 4) {
+      addFile(...args);
+    }
+  };
+  dz.submitRequest = (xhr, formData, files) => {
+    setTimeout(() => {
+      files[0].status = "success";
+      dz.emit("success", files[0], "success");
+      dz.emit("complete", files[0]);
+    }, 20);
+  };
+  window.dzAdded = 0;
+  dz.on("addedfile", () => window.dzAdded++);
+  if (new URLSearchParams(location.search).has("docs")) {
+    window.pageHandled = 0;
+    document.onpaste = event => {
+      for (const item of event.clipboardData.items) {
+        if (item.kind === "file") {
+          window.pageHandled++;
+          dz.addFile(item.getAsFile());
+        }
+      }
+    };
+  }
+</script>
+</body>
+</html>

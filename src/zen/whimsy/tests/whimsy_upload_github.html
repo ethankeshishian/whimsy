@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<!-- W13-R2: GitHub's comment box. <file-attachment> (github/file-attachment-
+     element) wraps the textarea and listens for paste and drop: files of kind
+     "file" are attached and the paste is prevented. Below the textarea, the
+     label "Paste, drop, or click to add files" holds a transparent
+     <input type=file> stretched over it, whose change attaches too. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Issue comment</title>
+<style>
+  file-attachment { display: block; width: 520px; }
+  textarea { display: block; width: 500px; height: 120px; }
+  label { position: relative; display: block; width: 500px; padding: 8px; border: 1px dashed #aaa; }
+  label input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+</style>
+</head>
+<body>
+<file-attachment id="fa">
+  <textarea id="comment" placeholder="Leave a comment"></textarea>
+  <label id="fa-label">
+    <input id="fa-input" type="file" multiple>
+    <span>Paste, drop, or click to add files</span>
+  </label>
+</file-attachment>
+<script>
+  window.attached = [];
+  window.inputChanges = 0;
+  const fa = document.getElementById("fa");
+  const attach = files => {
+    for (const file of files) {
+      window.attached.push(file.name);
+      const span = document.createElement("span");
+      span.className = "upload";
+      span.textContent = file.name;
+      fa.append(span);
+    }
+  };
+  fa.addEventListener("paste", event => {
+    const files = [...(event.clipboardData?.items ?? [])]
+      .filter(item => item.kind == "file")
+      .map(item => item.getAsFile())
+      .filter(Boolean);
+    if (!files.length) {
+      return;
+    }
+    event.preventDefault();
+    attach(files);
+  });
+  fa.addEventListener("dragover", event => event.preventDefault());
+  fa.addEventListener("drop", event => {
+    event.preventDefault();
+    attach(event.dataTransfer.files);
+  });
+  document.getElementById("fa-input").addEventListener("change", event => {
+    window.inputChanges++;
+    attach(event.target.files);
+    event.target.value = "";
+  });
+</script>
+</body>
+</html>

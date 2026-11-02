@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<!-- W13-R2: a React app with react-dropzone. React 17+ puts one listener per
+     event type on its root container, capture and bubble
+     (listenToAllSupportedEvents), and calls the component props on the
+     target's path; this does the same for the events used here. So the page
+     always "has a paste listener", though no component has onPaste.
+     react-dropzone's root is a focusable div[role=presentation] holding a
+     hidden <input type=file>; files arrive through onDrop or the input's
+     onChange. ?onPaste=1 gives the root an onPaste that takes pasted files
+     (preventDefault), as some apps add. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>React dropzone</title>
+<style>
+  #rdz { width: 360px; height: 140px; border: 2px dashed #888; display: grid; place-items: center; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<button id="after">After the drop zone</button>
+<p id="elsewhere" style="margin-top: 200px">Somewhere else</p>
+<script>
+  const root = document.getElementById("root");
+  root.innerHTML = `
+    <section>
+      <div id="rdz" tabindex="0" role="presentation">
+        <input id="rdz-input" type="file" multiple tabindex="-1" style="display: none">
+        <p>Drag 'n' drop some files here, or click to select files</p>
+      </div>
+      <ul id="rdz-files"></ul>
+    </section>`;
+  const props = new WeakMap();
+  const NAMES = {
+    paste: "onPaste", change: "onChange", input: "onInput", drop: "onDrop", dragover: "onDragOver",
+    dragenter: "onDragEnter", click: "onClick", keydown: "onKeyDown", focusin: "onFocus",
+  };
+  for (const type of Object.keys(NAMES)) {
+    root.addEventListener(type, () => {}, true);
+    root.addEventListener(type, event => {
+      for (let node = event.target; node && node != root; node = node.parentNode) {
+        props.get(node)?.[NAMES[type]]?.(event);
+      }
+    });
+  }
+  window.accepted = [];
+  const onFiles = files => {
+    for (const file of files) {
+      window.accepted.push(file.name);
+      const li = document.createElement("li");
+      li.textContent = file.name;
+      document.getElementById("rdz-files").append(li);
+    }
+  };
+  const zone = document.getElementById("rdz");
+  const input = document.getElementById("rdz-input");
+  const zoneProps = {
+    onDragEnter: e => e.preventDefault(),
+    onDragOver: e => e.preventDefault(),
+    onDrop: e => {
+      e.preventDefault();
+      onFiles(e.dataTransfer.files);
+    },
+    onClick: () => input.click(),
+  };
+  if (new URLSearchParams(location.search).has("onPaste")) {
+    zoneProps.onPaste = e => {
+      const files = [...(e.clipboardData?.items ?? [])].filter(i => i.kind == "file").map(i => i.getAsFile()).filter(Boolean);
+      if (files.length) {
+        e.preventDefault();
+        onFiles(files);
+      }
+    };
+  }
+  props.set(zone, zoneProps);
+  props.set(input, {
+    onChange: e => {
+      onFiles(e.target.files);
+      e.target.value = "";
+    },
+    onClick: e => e.stopPropagation(),
+  });
+</script>
+</body>
+</html>

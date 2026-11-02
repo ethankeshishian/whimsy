@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <title>Paste zone</title>
-<!-- F26: like dropzone.dev: a .dropzone with Dropzone.js's hidden input in
-     <body>, but the files arrive through the page's own paste listener
-     (event.clipboardData.files), not that input. -->
+<!-- F26: a .dropzone with Dropzone.js's hidden input in <body>, whose files
+     arrive through the page's own paste listener (event.clipboardData.files,
+     no preventDefault), not that input. W13-R2: dropzone.dev itself has no
+     paste listener (whimsy_upload_dropzone_real.html is its real code path);
+     this models pages that do, so Whimsy must not add the file twice. -->
 <style>.dropzone { width: 300px; height: 200px; border: 2px dashed gray; }</style>
 <div class="dropzone dz-clickable" id="zone"><div class="dz-message"><span>Drop files here</span></div></div>
 <script>

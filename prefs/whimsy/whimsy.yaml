@@ -695,10 +695,13 @@
 - name: whimsy.privateLock.onLeave
   value: false
 
-# F26: a copied image is a File in a paste's (or drop's) clipboardData, as
-# in Chrome and Safari, so sites that take pasted files (dropzone.dev,
-# event.clipboardData.files) get screenshots and copied images. Firefox
-# ships this off; its paste said "Files" with no file in it.
+# F26, corrected in W13-R2 (wave13/r2-paste-design.md §8): an image that
+# Whimsy itself put on the clipboard or is dragging (Copy Image, Whimsy's
+# screenshot copy) is a File in a paste's or drop's DataTransfer, as in
+# Chrome and Safari, so GitHub, Gmail and Slack attach it. Firefox ships
+# this off: its paste said "Files" with no file in it. OS screenshots were
+# files already, and dropzone.dev never reads a paste (Whimsy delivers to
+# it).
 - name: dom.events.dataTransfer.imageAsFile.enabled
   value: true
 
@@ -707,3 +710,13 @@
 # Registrable domains or hosts; subdomains match. Nothing typed there counts.
 - name: whimsy.form-protection.autosave-sites
   value: "docs.google.com,mail.google.com,notion.so,notion.site,beehiiv.com,figma.com,linear.app,coda.io,airtable.com,quip.com,dropbox.com,office.com,live.com,sharepoint.com"
+# W13-R2: the "⌘V Paste" badges on upload boxes while an image or file is
+# copied (Settings → Tab Management). Paste to upload itself is
+# whimsy.feature.upload-clipboard.
+- name: whimsy.uploadClipboard.badges
+  value: true
+
+# W13-R2: each paste-to-upload decision in the Browser Console (target,
+# who took the paste, the channel), for hand checks.
+- name: whimsy.uploadClipboard.log
+  value: false
