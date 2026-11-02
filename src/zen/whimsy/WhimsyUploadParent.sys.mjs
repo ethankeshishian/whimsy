@@ -49,9 +49,17 @@ async function clipboardImagePath() {
     Services.clipboard.getData(transferable, Ci.nsIClipboard.kGlobalClipboard);
     const data = {};
     transferable.getTransferData(IMAGE_FLAVOR, data);
-    const container = data.value.QueryInterface(Ci.imgIContainer);
-    const imgTools = Cc["@mozilla.org/image/tools;1"].getService(Ci.imgITools);
-    const stream = imgTools.encodeImage(container, IMAGE_FLAVOR);
+    // An image another app put there (a ⌘⌃⇧4 screenshot, Preview's Copy)
+    // arrives as PNG bytes; one Firefox put there (Copy Image) as a decoded
+    // image, encoded to PNG here.
+    let stream;
+    if (data.value instanceof Ci.nsIInputStream) {
+      stream = data.value;
+    } else {
+      const container = data.value.QueryInterface(Ci.imgIContainer);
+      const imgTools = Cc["@mozilla.org/image/tools;1"].getService(Ci.imgITools);
+      stream = imgTools.encodeImage(container, IMAGE_FLAVOR);
+    }
     const available = stream.available();
     const binary = lazy.NetUtil.readInputStreamToString(stream, available);
     const bytes = new Uint8Array(available);

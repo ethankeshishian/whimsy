@@ -80,6 +80,40 @@ add_task(async function test_dropzone_dev_hover() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// A screenshot (⌘⌃⇧4) or an image copied in another app: the clipboard
+// holds PNG bytes, not an image Firefox decoded (Copy Image). Whimsy read
+// only the latter, so the main case never uploaded (found live on
+// dropzone.dev). Headed, the real macOS screenshot tool fills the
+// clipboard; headless, the same PNG bytes go on Firefox's own clipboard.
+async function putScreenshotOnClipboard() {
+  if (Services.env.get("MOZ_HEADLESS")) {
+    const bytes = atob(PNG_BASE64);
+    const stream = Cc["@mozilla.org/io/string-input-stream;1"].createInstance(Ci.nsIStringInputStream);
+    stream.setByteStringData(bytes);
+    const transferable = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
+    transferable.init(null);
+    transferable.addDataFlavor("image/png");
+    transferable.setTransferData("image/png", stream);
+    Services.clipboard.setData(transferable, null, Ci.nsIClipboard.kGlobalClipboard);
+    return;
+  }
+  const { Subprocess } = ChromeUtils.importESModule("resource://gre/modules/Subprocess.sys.mjs");
+  const shot = await Subprocess.call({ command: "/usr/sbin/screencapture", arguments: ["-c", "-x", "-R", "0,0,64,48"] });
+  await shot.wait();
+}
+
+add_task(async function test_os_screenshot_on_the_clipboard() {
+  await putScreenshotOnClipboard();
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ROOT + "whimsy_upload_dropzone_real.html");
+  const browser = tab.linkedBrowser;
+  await BrowserTestUtils.synthesizeMouseAtCenter("#demo-text", { type: "mousemove" }, browser);
+  EventUtils.synthesizeKey("v", { accelKey: true });
+  await TestUtils.waitForCondition(async () => (await dropzoneState(browser)).previews >= 1, "The screenshot was uploaded");
+  await settle();
+  Assert.deepEqual(await dropzoneState(browser), { previews: 1, added: 1, files: 1 }, "Exactly once");
+  BrowserTestUtils.removeTab(tab);
+});
+
 // The user's flow on dropzone.dev: click the box (Dropzone opens the file
 // picker), take a while, cancel, move away, Cmd+V. Nothing is focused or
 // hovered and the click is old: the paste goes to the badged box.
