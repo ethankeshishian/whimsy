@@ -178,6 +178,9 @@ const TAB_ITEMS = [
   item("move-tab", "whimsy-menus-tab-move-tab", ["context_moveTabOptions"]),
   // wave9/menus: in the Move Tab submenu, first (design-full-4 L10, W9-09).
   item("move-to-new-space", "whimsy-menus-tab-move-to-new-space", ["context_whimsyMoveToNewSpace"]),
+  // W11-13 (d13): on by default (the user asked for it in the tab menu);
+  // only shown for a private tab.
+  item("move-out-of-private", "whimsy-menus-tab-move-out-of-private", ["context_whimsyMoveOutOfPrivate"]),
   item("select-all", "whimsy-menus-tab-select-all", ["context_selectAllTabs"]),
   SEPARATOR,
   // wave9/menus: Firefox's Share ▸ submenu (with the macOS services,

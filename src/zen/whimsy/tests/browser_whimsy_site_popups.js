@@ -142,14 +142,18 @@ add_task(async function test_extension_runs_in_sign_in_popup() {
     },
     files: {
       "cs.js": `
-        const nav = window.wrappedJSObject.navigator;
-        exportFunction(function () {
-          document.documentElement.dataset.passkeyHook = "called";
-          return window.wrappedJSObject.Promise.resolve(null);
-        }, nav.credentials, { defineAs: "get" });
-        document.documentElement.dataset.whimsyExtension = "ran";
         if (window == window.top) {
           browser.runtime.sendMessage(location.pathname.split("/").pop());
+        }
+        try {
+          const credentials = window.wrappedJSObject.navigator.credentials;
+          exportFunction(function () {
+            document.documentElement.dataset.passkeyHook = "called";
+            return window.wrappedJSObject.Promise.resolve(null);
+          }, credentials, { defineAs: "get" });
+          document.documentElement.dataset.whimsyExtension = "ran";
+        } catch (e) {
+          document.documentElement.dataset.whimsyExtension = "error: " + e;
         }
       `,
     },
@@ -160,14 +164,8 @@ add_task(async function test_extension_runs_in_sign_in_popup() {
   // Limited to the opener's profile: the per-profile isolation is on.
   WhimsySpaceExtensions.setAllowedProfiles(extension.id, [key]);
   try {
-    const tab = await BrowserTestUtils.openNewForegroundTab({
-      gBrowser,
-      opening: () => gBrowser.addTab(OPENER, {
-        userContextId: profileId,
-        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-      }),
-      waitForLoad: false,
-    });
+    const tab = BrowserTestUtils.addTab(gBrowser, OPENER, { userContextId: profileId });
+    gBrowser.selectedTab = tab;
     const browser = tab.linkedBrowser;
     await TestUtils.waitForCondition(() => browser.currentURI.spec == OPENER && !browser.webProgress?.isLoadingDocument,
       "The opener page loaded");
@@ -188,7 +186,8 @@ add_task(async function test_extension_runs_in_sign_in_popup() {
 
     const state = await SpecialPowers.spawn(popupBrowser, [], async () => {
       await ContentTaskUtils.waitForCondition(() => content.document.hasFocus(), "The popup's page has focus");
-      await content.wrappedJSObject.navigator.credentials.get({ publicKey: { challenge: new Uint8Array(16) } });
+      // As the sign-in page itself would call it.
+      await content.wrappedJSObject.eval("navigator.credentials.get({ publicKey: { challenge: new Uint8Array(16) } })");
       return {
         ran: content.document.documentElement.dataset.whimsyExtension,
         hook: content.document.documentElement.dataset.passkeyHook,

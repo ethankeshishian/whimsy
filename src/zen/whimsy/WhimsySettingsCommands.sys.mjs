@@ -181,6 +181,25 @@ export const SETTINGS = [
       }
     } },
   { name: "private-in-window", setting: "whimsyPrivateInWindow", pref: "whimsy.private.in-window", feature: ["scratch"] },
+  // W11-14: the private lock's switches have their own commands (Turn Lock
+  // for … On/Off), which ask for Touch ID before turning one off while locked.
+  { name: "private-lock-tabs", setting: "whimsyPrivateLockTabs", pref: "whimsy.privateLock.tabs",
+    feature: ["private-lock"], command: ["cmd_whimsyTogglePrivateLock_tabs"] },
+  { name: "private-lock-space", setting: "whimsyPrivateLockSpace", pref: "whimsy.privateLock.space",
+    feature: ["private-lock"], command: ["cmd_whimsyTogglePrivateLock_space"] },
+  { name: "private-lock-windows", setting: "whimsyPrivateLockWindows", pref: "whimsy.privateLock.windows",
+    feature: ["private-lock"], command: ["cmd_whimsyTogglePrivateLock_windows"] },
+  { name: "private-lock-after", setting: "whimsyPrivateLockAfter", pref: "whimsy.privateLock.afterSeconds",
+    feature: ["private-lock"],
+    choices: [
+      { value: 0, l10nId: "whimsy-private-lock-after-now" },
+      { value: 60, l10nId: "whimsy-private-lock-after-1m" },
+      { value: 300, l10nId: "whimsy-private-lock-after-5m" },
+      { value: 900, l10nId: "whimsy-private-lock-after-15m" },
+      { value: 3600, l10nId: "whimsy-private-lock-after-1h" },
+    ] },
+  { name: "private-lock-sharing", setting: "whimsyPrivateLockSharing", pref: "whimsy.privateLock.stayUnlockedWhileSharing",
+    feature: ["private-lock"] },
   // "Set Up VPN" (cmd_whimsyVPNToggle) already turns it on, so the command
   // bar offers only Turn Off here; the shortcut still flips it.
   { name: "vpn", setting: "whimsyVpnEnabled", pref: "browser.ipProtection.enabled", feature: ["vpn"],

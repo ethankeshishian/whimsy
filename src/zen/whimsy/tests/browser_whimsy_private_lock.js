@@ -178,7 +178,8 @@ add_task(async function test_commands_and_turning_off() {
   WhimsyPrivateLock.lockNow();
   BrowserTestUtils.removeTab(priv, { animate: false });
   await TestUtils.waitForCondition(() => !priv.isConnected, "A locked tab closes without unlocking");
-  WhimsyPrivateLock.unlockAll();
+  // Its private data is gone with it: the next private tab starts unlocked.
+  await TestUtils.waitForCondition(() => !WhimsyPrivateLock.isLocked("tabs"), "Nothing left to lock: unlocked");
 });
 
 add_task(async function test_private_window_cover() {

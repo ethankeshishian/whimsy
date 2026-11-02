@@ -159,7 +159,9 @@ add_task(async function test_not_offered_for_normal_tabs() {
 });
 
 add_task(async function test_locked_target_cancelled_moves_nothing() {
-  const space = gZenWorkspaces.getWorkspaces().find(w => w.uuid == target.uuid);
+  // A space not visited in this test (Lock Space doesn't ask again within a
+  // minute of leaving a space).
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Vault", undefined, true);
   space.whimsyLocked = true;
   gZenWorkspaces.saveWorkspace(space);
   const original = WhimsySpaceLock.authenticate;
@@ -168,7 +170,7 @@ add_task(async function test_locked_target_cancelled_moves_nothing() {
   const priv = WhimsyPrivate.openPrivateTab(window, { url });
   try {
     await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url, "The private page loaded");
-    const moved = await WhimsyPrivateMove.move(window, [priv], target.uuid);
+    const moved = await WhimsyPrivateMove.move(window, [priv], space.uuid);
     ok(!moved, "Cancelling the unlock moves nothing");
     ok(priv.isConnected && !priv.closing, "The private tab stays");
     ok(!movedTabs(url).some(t => !t.linkedBrowser.browsingContext.usePrivateBrowsing), "No normal copy");
@@ -178,5 +180,6 @@ add_task(async function test_locked_target_cancelled_moves_nothing() {
     delete space.whimsyLocked;
     gZenWorkspaces.saveWorkspace(space);
     BrowserTestUtils.removeTab(priv, { animate: false });
+    await gZenWorkspaces.removeWorkspace(space.uuid);
   }
 });

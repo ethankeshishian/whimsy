@@ -205,6 +205,18 @@ export const WhimsyPrivateLock = {
     }
     const front = this.frontKind();
     const now = Date.now();
+    // Once the last of a kind closes there's nothing left to hide (its
+    // private data is gone): a new one starts unlocked.
+    let emptied = false;
+    for (const kind of [...locked]) {
+      if (!this.hasOpen(kind)) {
+        locked.delete(kind);
+        emptied = true;
+      }
+    }
+    if (emptied) {
+      this.renderAll();
+    }
     for (const kind of KINDS) {
       if (!this.isOn(kind) || locked.has(kind)) {
         awaySince.delete(kind);
@@ -572,8 +584,12 @@ export const WhimsyPrivateLock = {
       this.render(win);
       this.evaluate();
     };
-    for (const type of ["TabSelect", "TabOpen", "TabClose"]) {
-      win.gBrowser.tabContainer.addEventListener(type, onChange);
+    win.gBrowser.tabContainer.addEventListener("TabSelect", onChange);
+    // A tab opened in front is selected right after TabOpen: decide once
+    // that has happened, or a new private tab would lock as it opens. A
+    // closing tab is still in the list during TabClose.
+    for (const type of ["TabOpen", "TabClose"]) {
+      win.gBrowser.tabContainer.addEventListener(type, () => win.setTimeout(onChange, 0));
     }
     win.addEventListener("ZenWorkspaceChanged", onChange);
     win.addEventListener("ZenWorkspacesUIUpdate", onChange);
