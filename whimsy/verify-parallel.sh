@@ -14,6 +14,16 @@
 # free ports. What's left is a race: two runs that check a port at the same
 # moment both see it free. So each run starts only once the previous one is
 # listening (its Marionette line), and nothing starts at the same instant.
+# Gap: pywebsocket listens on *:9988 and the harness probes 127.0.0.1, so only
+# the first run gets a websocket server. No test in these suites uses ws/wss.
+# Each run also gets its own --testrun-manifest-file, or the runs overwrite
+# each other's tests.json in the shared objdir and run each other's tests.
+#
+# STATUS (2026-11-01): runs, but does NOT yet match serial. Under 3-4
+# concurrent browsers some timing-sensitive tests fail (vsync left on,
+# load-event waits, synthesized shortcut waits), and a test timeout ends that
+# chunk's browser, so the rest of the chunk never runs. See
+# whimsy-handoff/wave11/reports/w11-parallel.md.
 #
 # Chunks: mochitest has no --this-chunk on desktop. Each chunk passes a
 # contiguous run of entries from the suite's browser.toml as test paths;
@@ -109,7 +119,10 @@ start_job() { # start_job <name> <paths...>
   name=$1; shift
   log=$OUT/$name.log
   : > "$log"
-  ( mochitest "$log" "$@"; echo $? > "$OUT/$name.exit" ) &
+  # Each run needs its own tests.json: runtests.py writes the list of tests
+  # to run into that file in the shared objdir, and the browser reads it back.
+  ( mochitest "$log" "--testrun-manifest-file=tests-whimsy-$name.json" "$@" < /dev/null
+    echo $? > "$OUT/$name.exit" ) &
   jobs="$jobs $name"
   waited=0
   while [ ! -f "$OUT/$name.exit" ] && [ "$waited" -lt 180 ] &&
@@ -155,6 +168,7 @@ for name in $jobs; do check "$name"; done
  echo $? > "$OUT/whimsy-native.exit")
 check whimsy-native
 
+rm -f engine/obj-*/_tests/testing/mochitest/tests-whimsy-*.json
 # Keep this run's logs as timing data for the next run's chunk split.
 rm -rf .surfer/verify/parallel-last && cp -R "$OUT" .surfer/verify/parallel-last
 echo "Wall clock: $(( $(date +%s) - start_time ))s ($CHUNKS Whimsy chunks)"

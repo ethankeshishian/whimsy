@@ -7,7 +7,8 @@ verify-parallel.sh run of the same build.
 Defaults: verify.sh's logs (.surfer/verify/{whimsy,whimsy-native,zen-tabs,
 zen-ui}.log) against .surfer/verify/parallel/*.log. Each test file's results
 across a run's logs (a skip in one log and a run in another both count) must
-match exactly: status, subtests passed and total, unexpected count. Retry logs
+match exactly: status, subtests passed, unexpected count (the total is
+left out, as is the summed Todo: the harness's end-of-test todo checks vary). Retry logs
 (verify.sh gate) are ignored. Exits 0 on a match, 1 otherwise.
 """
 
@@ -56,7 +57,9 @@ def parse(path):
             text = m.group(2).strip()
             r = RESULT.search(text)
             if r:
-                text = f"{r[1]} {r[2]}/{r[3]} unexpected {r[4]}"
+                # The total (passed + todo + failed) is left out: the harness adds
+                # end-of-test todo checks (leftover animations, tabs) that vary.
+                text = f"{r[1]} passed {r[2]} unexpected {r[4]}"
             elif text.startswith("SKIP"):
                 text = "SKIP"
             results[current].append(text)
@@ -114,7 +117,7 @@ def main():
         a, b = serial.get(name, ["(missing)"]), parallel.get(name, ["(missing)"])
         if a != b:
             diffs.append(f"  {name}\n    serial:   {'; '.join(a)}\n    parallel: {'; '.join(b)}")
-    for key in ("Passed", "Failed", "Todo"):
+    for key in ("Passed", "Failed"):
         if s_totals.get(key) != p_totals.get(key):
             diffs.append(f"  summary {key}: serial {s_totals.get(key)} vs parallel {p_totals.get(key)}")
     if diffs:
