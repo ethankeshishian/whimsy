@@ -42,7 +42,12 @@ export function isCopyKey(event) {
 }
 const COPY_SHEET =
   "data:text/css," +
-  encodeURIComponent("*, *::before, *::after { user-select: text !important; -webkit-user-select: text !important; }");
+  encodeURIComponent(
+    "*, *::before, *::after { user-select: text !important; -webkit-user-select: text !important; }" +
+    // F25: sites that block copying also hide the selection (a transparent
+    // ::selection), so text was selected and copied but never shown as such.
+    "*::selection { background-color: Highlight !important; color: HighlightText !important; }"
+  );
 
 export class WhimsyPageChild extends JSWindowActorChild {
   // The tab's volume level (1 = as the page sets it), or null when it

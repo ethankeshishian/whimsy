@@ -42,6 +42,9 @@ add_task(async function test_allow_copy() {
   is(await tryPaste(browser), "", "The page blocks pasting");
   is(await userSelect(browser), "none", "and selecting");
   ok(await copyBlocked(browser), "and copying");
+  is(await SpecialPowers.spawn(browser, [], () =>
+    content.getComputedStyle(content.document.getElementById("p"), "::selection").backgroundColor),
+  "rgba(0, 0, 0, 0)", "and hides the selection");
 
   const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
   const allow = globalActions.find(a => a.l10nId == "whimsy-action-allow-copy");
@@ -51,6 +54,10 @@ add_task(async function test_allow_copy() {
 
   ok(WhimsyPage.toggleAllowCopy(window), "Allowed");
   await TestUtils.waitForCondition(async () => (await userSelect(browser)) == "text", "Text can be selected");
+  // F25: the site hides the selection; allowed, a selection shows.
+  await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [], () =>
+    content.getComputedStyle(content.document.getElementById("p"), "::selection").backgroundColor != "rgba(0, 0, 0, 0)"),
+  "A selection is visibly highlighted");
   is(await tryPaste(browser), "pasted", "Pasting works");
   ok(!(await copyBlocked(browser)), "The page can't block copying");
   ok(disallow.isAvailable(window) && !allow.isAvailable(window), "now offers to stop");
