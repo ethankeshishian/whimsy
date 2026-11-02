@@ -868,7 +868,7 @@ FALLBACK_FILE = "locales/en-US/browser/browser/preferences/whimsy-fallbacks.ftl"
 
 # Whimsy features, and signs that Zen now ships its own version.
 FEATURES = [
-    {"id": "ctrl-tab", "title": "Arc-style Ctrl+Tab",
+    {"id": "ctrl-tab", "title": "Arc-style Ctrl+Tab: recently used order, one rounded card with rows of four, up to 12 tabs, other spaces' tabs badged",
      "detect": [("prefs", r"name:\s*browser\.ctrlTab\.sortByRecentlyUsed")]},
     {"id": "ui-zoom", "title": "Interface zoom",
      "detect": [("src", r"ui-zoom|uiZoom|interface-zoom")]},
@@ -1661,6 +1661,11 @@ def write_generated(report, dry, superseded):
         prefs += f"\n- name: whimsy.feature.{feature['id']}\n  value: {'true' if on else 'false'}{note}\n"
     if "ctrl-tab" not in gone:
         prefs += "\n# Arc-style Ctrl+Tab: recently used order.\n- name: browser.ctrlTab.sortByRecentlyUsed\n  value: true\n"
+        # W13 ctrltab: 12 previews (three rows of four). Firefox's 7 left the
+        # 8th tab unreachable, since Zen hides the List All Tabs button.
+        prefs += ("\n# Ctrl+Tab shows up to 12 tabs (three rows of four); with Firefox's 7\n"
+                  "# the 8th tab couldn't be reached (Zen hides List All Tabs).\n"
+                  "- name: browser.ctrlTab.maxPreviews\n  value: 12\n")
     if "new-tab-position" not in gone:
         prefs += ("\n# New tabs (Cmd+T) open right below the current tab, not at the end of\n"
                   "# the list. Settings → Tab Management → Tabs.\n"

@@ -43,6 +43,9 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_ctrl_tab_mru.js"]
 
+# W13 ctrltab (option B): the rounded card, 12 tabs in rows of four, the space badge, private-lock blanking.
+["browser_whimsy_ctrl_tab_look.js"]
+
 ["browser_whimsy_ctrl_tab_native.js"]
 run-if = ["os == 'mac'"]
 skip-if = ["headless"] # native key events need a real window; verify.sh runs it headed

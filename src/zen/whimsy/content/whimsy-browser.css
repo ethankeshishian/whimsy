@@ -1842,6 +1842,154 @@ panel.whimsy-surface.whimsy-cheatsheet {
   }
 }
 
+/* W13 ctrltab (option B, design/ctrltab): Firefox's Ctrl+Tab panel as one
+   rounded Whimsy card. Firefox's ctrlTab.css stays as it is; this only
+   applies while WhimsyCtrlTab marks the panel (whimsy.feature.ctrl-tab).
+   Concentric radii: card 20 = tile 12 + card padding 8; tile 12 =
+   thumbnail 6 + tile padding 6. WhimsyCtrlTab.cardSize() uses the same
+   numbers (tile padding 6, gap 4, card padding 8, a 17px title row 7px
+   under the thumbnail) to size and centre the panel. */
+#ctrlTab-panel[whimsy-look] {
+  --panel-background-color: var(--arrowpanel-background);
+  --panel-text-color: var(--arrowpanel-color, currentColor);
+  --panel-border-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+  --panel-padding: 8px;
+  --panel-border-radius: 20px;
+  /* The soft shadow is drawn by CSS, so the popup leaves room for it. */
+  --panel-box-shadow-margin: 24px;
+  --panel-box-shadow:
+    0 18px 50px light-dark(rgba(30, 20, 60, 0.22), rgba(0, 0, 0, 0.55)),
+    0 2px 6px light-dark(rgba(30, 20, 60, 0.1), rgba(0, 0, 0, 0.4));
+  font: menu;
+  font-size: 12.5px;
+  font-weight: normal;
+
+  & #ctrlTab-previews {
+    gap: 4px;
+  }
+
+  & .ctrlTab-preview,
+  & #ctrlTab-showAll {
+    text-shadow: none;
+  }
+
+  /* The tile: the thumbnail across the top, then the favicon beside the
+     title (they're already siblings, so no new markup). */
+  & .ctrlTab-preview-inner {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-rows: auto 17px;
+    gap: 7px;
+    margin: 0;
+    padding: 6px;
+    border: none;
+    border-radius: 12px;
+  }
+
+  & .ctrlTab-canvas {
+    grid-column: 1 / -1;
+    position: relative;
+    margin: 0;
+    border-radius: 6px;
+    overflow: clip;
+    box-shadow: none;
+    /* A hairline inside the edge, over the thumbnail, instead of the hard
+       drop shadow. */
+    outline: 1px solid color-mix(in srgb, currentColor 13%, transparent);
+    outline-offset: -1px;
+  }
+
+  & .ctrlTab-favicon-container {
+    position: static;
+    justify-content: center;
+    align-items: center;
+    padding-inline-start: 2px;
+  }
+
+  & .ctrlTab-favicon[src] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 4px;
+  }
+
+  & .ctrlTab-label {
+    margin: 0;
+    padding-inline-end: 2px;
+    min-width: 0;
+    text-align: start;
+    line-height: 17px;
+  }
+
+  /* Selected: the surface family's "selected" fill (the space colour at
+     22%) behind the whole tile, no ring; the title goes semibold so it
+     never relies on the tint alone. Hovering focuses a tile (Firefox), so
+     hover is the same fill. */
+  & .ctrlTab-preview:focus > .ctrlTab-preview-inner,
+  & #ctrlTab-showAll:focus {
+    background-color: var(--whimsy-surface-selected);
+    border-color: transparent;
+    text-shadow: none;
+
+    @media (prefers-contrast: more) {
+      outline: 1px solid currentColor;
+      outline-offset: -1px;
+    }
+  }
+  & .ctrlTab-preview:focus .ctrlTab-label {
+    font-weight: 600;
+  }
+
+  & #ctrlTab-showAll {
+    border: none;
+    border-radius: 12px;
+    background-color: var(--whimsy-surface-track);
+  }
+
+  /* A tab from another space: a pill with the space's colour and name in
+     the thumbnail's top-start corner (WhimsyCtrlTab sets the attribute).
+     The thumbnail keeps a light scheme; the pill follows the window's. */
+  & .ctrlTab-canvas[whimsy-space-name]::before {
+    content: attr(whimsy-space-name);
+    position: absolute;
+    top: 5px;
+    inset-inline-start: 5px;
+    z-index: 1;
+    box-sizing: border-box;
+    max-width: calc(100% - 10px);
+    height: 18px;
+    padding-inline: 18px 7px;
+    border-radius: 9px;
+    color-scheme: light dark;
+    background-color: color-mix(in srgb, var(--arrowpanel-background) 92%, transparent);
+    color: var(--arrowpanel-color, CanvasText);
+    box-shadow:
+      0 0 0 1px light-dark(rgba(0, 0, 0, 0.13), rgba(255, 255, 255, 0.13)),
+      0 1px 3px rgba(0, 0, 0, 0.14);
+    font: menu;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  & .ctrlTab-canvas[whimsy-space-name]::after {
+    content: "";
+    position: absolute;
+    top: 10px;
+    inset-inline-start: 10px;
+    z-index: 2;
+    width: 8px;
+    height: 8px;
+    border-radius: 3px;
+    background-color: var(--whimsy-space-color, var(--zen-primary-color, AccentColor));
+  }
+}
+
 /* batch hover: shared hover card (History rows, People cards). Firefox's
    arrow-panel animation already respects prefers-reduced-motion. */
 #whimsy-hover-card {
@@ -3133,7 +3281,8 @@ panel.whimsy-look-picker {
 /* The tokens also apply to a section built from these parts inside
    someone else's panel (This Site in Zen's site panel). */
 panel.whimsy-surface,
-.whimsy-surface-tokens {
+.whimsy-surface-tokens,
+#ctrlTab-panel[whimsy-look] {
   --whimsy-surface-muted: color-mix(in srgb, currentColor 62%, transparent);
   --whimsy-surface-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
   --whimsy-surface-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
