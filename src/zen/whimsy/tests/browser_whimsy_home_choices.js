@@ -21,8 +21,8 @@ const { WhimsyHome } = ChromeUtils.importESModule("resource:///modules/whimsy/Wh
 const { WhimsySettingsCommands } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySettingsCommands.sys.mjs"
 );
-const { SessionStore } = ChromeUtils.importESModule("resource:///modules/sessionstore/SessionStore.sys.mjs");
-const { TabStateFlusher } = ChromeUtils.importESModule("resource:///modules/sessionstore/TabStateFlusher.sys.mjs");
+const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
 
 const HOMEPAGE_PREF = "browser.startup.homepage";
 const NEWTAB_PAGE_PREF = "whimsy.newtab.page";
@@ -139,8 +139,15 @@ add_task(async function test_firefox_home_group() {
       ok(doc.getElementById(`setting-control-${id}`), `Firefox Home has ${id}`);
     }
     // New tabs show Firefox Home by default, so its settings apply.
-    const notice = doc.getElementById("setting-control-firefoxHomeDisabledNotice");
-    ok(!notice || !BrowserTestUtils.isVisible(notice), "No 'set new tabs to Firefox Home' notice by default");
+    is(win.Preferences.getSetting("homepageNewTabs").value, "home", "New tabs are Firefox Home");
+    // The setting-control wrapper stays in the page; only its message bar
+    // is hidden (as Firefox's own browser_homepage_firefox_home_disabled_*
+    // tests check).
+    const messageBar = await TestUtils.waitForCondition(
+      () => doc.getElementById("setting-control-firefoxHomeDisabledNotice")?.querySelector("moz-message-bar"),
+      "The notice's message bar renders"
+    );
+    await TestUtils.waitForCondition(() => messageBar.hidden, "No 'set new tabs to Firefox Home' notice by default");
   });
 });
 
