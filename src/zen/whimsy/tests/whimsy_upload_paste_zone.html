@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Paste zone</title>
+<!-- F26: like dropzone.dev: a .dropzone with Dropzone.js's hidden input in
+     <body>, but the files arrive through the page's own paste listener
+     (event.clipboardData.files), not that input. -->
+<style>.dropzone { width: 300px; height: 200px; border: 2px dashed gray; }</style>
+<div class="dropzone dz-clickable" id="zone"><div class="dz-message"><span>Drop files here</span></div></div>
+<script>
+  window.pasted = 0;
+  document.addEventListener("paste", event => {
+    for (const file of event.clipboardData?.files ?? []) {
+      const preview = document.createElement("div");
+      preview.className = "dz-preview";
+      preview.textContent = file.name;
+      document.getElementById("zone").append(preview);
+      window.pasted++;
+    }
+  });
+  const hidden = document.createElement("input");
+  hidden.type = "file";
+  hidden.className = "dz-hidden-input";
+  hidden.style.display = "none";
+  document.body.append(hidden);
+</script>

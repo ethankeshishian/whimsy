@@ -53,3 +53,24 @@ add_task(async function test_cmd_v_uploads_clipboard_image() {
     ok(!document.getElementById("whimsy-upload-panel")?.matches("[panelopen]"), "No popup was needed");
   });
 });
+
+// F26: dropzone.dev takes pasted files through its own paste listener
+// (event.clipboardData.files). Whimsy's Cmd+V used to consume the key, so
+// the page's paste never happened; the page's own paste now goes first.
+add_task(async function test_cmd_v_reaches_a_page_paste_listener() {
+  ok(Services.prefs.getBoolPref("dom.events.dataTransfer.imageAsFile.enabled"), "A copied image pastes as a File");
+  putImageOnClipboard();
+  const ZONE = PAGE.replace("whimsy_upload_form.html", "whimsy_upload_paste_zone.html");
+  await BrowserTestUtils.withNewTab(ZONE, async browser => {
+    await BrowserTestUtils.synthesizeMouseAtCenter("#zone", { type: "mousemove" }, browser);
+    await SpecialPowers.spawn(browser, [], () => content.document.activeElement?.blur?.());
+    EventUtils.synthesizeKey("v", { accelKey: true });
+    await TestUtils.waitForCondition(
+      () => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.pasted),
+      "The page's paste listener got the image"
+    );
+    await new Promise(resolve => setTimeout(resolve, 300));
+    is(await SpecialPowers.spawn(browser, [], () => content.document.querySelectorAll(".dz-preview").length), 1,
+      "...once (Whimsy didn't add it a second time)");
+  });
+});

@@ -687,3 +687,10 @@
 
 - name: whimsy.privateLock.stayUnlockedWhileSharing
   value: false
+
+# F26: a copied image is a File in a paste's (or drop's) clipboardData, as
+# in Chrome and Safari, so sites that take pasted files (dropzone.dev,
+# event.clipboardData.files) get screenshots and copied images. Firefox
+# ships this off; its paste said "Files" with no file in it.
+- name: dom.events.dataTransfer.imageAsFile.enabled
+  value: true

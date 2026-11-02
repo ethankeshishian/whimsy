@@ -191,9 +191,33 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     if (!target) {
       return;
     }
+    // F26: a page that takes pasted files itself (dropzone.dev reads
+    // event.clipboardData.files in a paste listener) gets the browser's
+    // own paste: consuming the key here meant its paste never happened.
+    // (A copied image is a File in that paste with
+    // dom.events.dataTransfer.imageAsFile.enabled, on in Whimsy.) Only a
+    // focused file input, which no browser pastes into, is always Whimsy's.
+    if (target.input != event.target && this.pageTakesPaste(element)) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     this.paste(target);
+  }
+
+  // Whether the page listens for paste on `element` or anything above it.
+  pageTakesPaste(element) {
+    try {
+      const doc = element.ownerDocument;
+      const chain = [];
+      for (let node = element; node; node = node.parentNode) {
+        chain.push(node);
+      }
+      chain.push(doc.defaultView);
+      return chain.some(node => Services.els.hasListenersFor(node, "paste"));
+    } catch (e) {
+      return false;
+    }
   }
 
   async paste(target) {
