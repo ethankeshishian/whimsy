@@ -60,6 +60,31 @@ add_task(async function test_drag_sets_attribute() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// F18: dragging a tab with the space switcher hidden must show the spaces to drop on.
+add_task(async function test_tab_drag_shows_hidden_switcher() {
+  Services.prefs.setBoolPref(OPTION, true);
+  await TestUtils.waitForCondition(() => !shown(), "Switcher is hidden with hide-switcher option");
+
+  const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true });
+  // Drag start originating on the tab element itself
+  const dt = new DataTransfer();
+  tab.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: dt }));
+  ok(document.documentElement.hasAttribute("whimsy-tab-dragging"), "whimsy-tab-dragging set on tab dragstart");
+  ok(shown(), "Switcher becomes visible during tab drag so spaces can be dropped on (F18)");
+
+  // Drag over window maintains switcher visibility
+  window.dispatchEvent(new DragEvent("dragover", { bubbles: true, dataTransfer: dt }));
+  ok(shown(), "Switcher stays visible during dragover");
+
+  // Drag end hides the switcher again
+  tab.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer: dt }));
+  await TestUtils.waitForCondition(() => !shown(), "Switcher hides again when drag ends");
+  ok(!document.documentElement.hasAttribute("whimsy-tab-dragging"), "whimsy-tab-dragging cleared");
+
+  BrowserTestUtils.removeTab(tab);
+  Services.prefs.clearUserPref(OPTION);
+});
+
 add_task(async function test_settings_checkbox() {
   await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
     const doc = browser.contentDocument;
