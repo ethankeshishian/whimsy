@@ -2486,11 +2486,9 @@ whimsy-search-deck-help = ⌥⌘→ and ⌥⌘← or a two-finger swipe over the
 
 whimsy-already-open-toast = Already open in { $space }
 whimsy-already-open-toast-window = Already open in another window
-# W11-08: the command bar (Cmd+T) row for the tab you're on, in place of
-# "Switch to Tab": picking it opens the page again in a new tab, as in Arc.
-whimsy-urlbar-result-action-open-again = Open Again in New Tab
-# W11-08: the command that row runs, for any tab (command bar and
-# Settings → Keyboard Shortcuts, no default shortcut).
+# W11-08: opens the page of the tab you're on again, fresh, in a new tab
+# (what picking that tab's own row in the Cmd+T command bar does). Command
+# bar and Settings → Keyboard Shortcuts, no default shortcut.
 whimsy-action-open-again-in-new-tab = Open Again in New Tab
 whimsy-already-open-setting =
     .label = Go to a page that’s already open instead of opening it again

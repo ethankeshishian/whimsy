@@ -26,9 +26,12 @@
 // the next row (UrlbarMuxerStandard's #whimsyRankOpenTabs, asked for by
 // prepareQuery). A modified Return still goes to what you typed.
 //
-// W11-08: Cmd+T, then the tab you're on: Arc lists it and opens a second
-// copy. Its row reads "Open Again in New Tab" and runs the command of that
-// name (cmd_whimsyOpenAgainInNewTab), which any tab can run.
+// W11-08: the tab you're on is listed as an ordinary link (title and
+// domain), as in Arc (whimsy-UrlbarProviderPlaces/-InputHistory patches;
+// Firefox leaves it out). From the Cmd+T bar, picking it, or Return on its
+// exact address, opens a second copy in a new tab; from Cmd+L it loads the
+// page again. Open Again in New Tab (cmd_whimsyOpenAgainInNewTab) does the
+// same from any tab.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -96,11 +99,6 @@ export const WhimsyAlreadyOpen = {
     return !!result && result.whimsyOwnHeuristic === true;
   },
 
-  // W11-08: the row for the tab you're on, in the Cmd+T command bar.
-  isOpenAgainRow(result) {
-    return !!result && result.type === TAB_SWITCH_RESULT && !!result.payload?.whimsyOpenAgain;
-  },
-
   // Whether this address bar is the command bar for a new tab: Zen's Cmd+T
   // bar or an empty tab (opensNewTab without a key event).
   inNewTabBar(win) {
@@ -114,19 +112,13 @@ export const WhimsyAlreadyOpen = {
   // Marks a query for the muxer (whimsy-UrlbarMuxerStandard-sys-mjs.patch).
   prepareQuery(win, queryContext) {
     const urlbar = win.gURLBar;
-    // W10-36: Zen's Cmd+T command bar opens over the tab you're on (no new
-    // tab exists until you pick something), so Firefox took that tab as the
-    // "current page" and hid it from Switch to Tab. A pinned tab you were on
-    // then had no Switch to Tab row, while the same tab had one from any
-    // other space. In the new-tab bar nothing is current yet, so every open
-    // tab is offered. Editing the current page's address (Cmd+L) keeps
-    // Firefox's rule.
-    // W11-08: that tab's row opens it again in a new tab: switching to the
-    // tab you're on would do nothing.
-    if (urlbar.hasAttribute("zen-newtab") && "currentPage" in queryContext) {
-      queryContext.whimsyOpenAgainPage = queryContext.currentPage;
-      delete queryContext.currentPage;
-    }
+    // W10-36, W11-08: Firefox leaves the tab you're on out of the results
+    // (switching to it would do nothing), so in Zen's Cmd+T bar, which opens
+    // over that tab, a pinned tab you were on wasn't listed while it was
+    // from any other space. Arc lists it as an ordinary link, in Cmd+T and
+    // Cmd+L alike. (W10-36 dropped `currentPage` in Cmd+T instead, which
+    // listed it as a Switch to Tab that did nothing.)
+    queryContext.whimsyListCurrentPage = true;
     // W11-09: rank an open tab that matches above what you typed, in the
     // command bar for a new tab (where Return on an open address already
     // goes to its tab), for the container and privacy the new tab gets.
@@ -150,8 +142,8 @@ export const WhimsyAlreadyOpen = {
 
   // W11-08: Open Again in New Tab. A second copy of the tab you're on, as a
   // fresh load in a new tab of the same container (and private when the tab
-  // is), the way Arc opens the tab you were on when you pick it in Cmd+T.
-  // Duplicate Tab copies the tab's history; this doesn't.
+  // is), as picking the tab's own row in Cmd+T does. Duplicate Tab (Zen's,
+  // like Arc's Duplicate Current Tab) copies the tab's history; this doesn't.
   openAgain(win, url = this.openAgainUrl(win)) {
     if (!url) {
       return false;
@@ -160,30 +152,6 @@ export const WhimsyAlreadyOpen = {
       userContextId: this.userContextOf(win.gBrowser.selectedTab),
       inBackground: false,
     });
-    return true;
-  },
-
-  // W11-08: picking the row for the tab you're on runs Open Again in New
-  // Tab. The row's menu and its "open in" items keep Firefox's handling.
-  maybeOpenAgain(win, { result, element }) {
-    if (!this.isOpenAgainRow(result)) {
-      return false;
-    }
-    if (element?.classList?.contains("urlbarView-button-menu")) {
-      return false;
-    }
-    const data = element?.dataset;
-    if (data && (data.command || data.openIn || data.usercontextid)) {
-      return false;
-    }
-    const urlbar = win.gURLBar;
-    // Close the bar the way Firefox does when a result is picked.
-    if (urlbar._zenHandleUrlbarClose) {
-      urlbar._zenHandleUrlbarClose(true, true);
-    } else {
-      urlbar.view?.close({ elementPicked: true });
-    }
-    this.openAgain(win, result.payload.url);
     return true;
   },
 
@@ -337,6 +305,12 @@ export const WhimsyAlreadyOpen = {
       return false;
     }
     const urlbar = win.gURLBar;
+    // W11-08: Cmd+T, then the address of the tab you're on: open a second
+    // copy, as in Arc (Firefox opens it in the new tab). This used to just
+    // close the bar.
+    if (urlbar.hasAttribute("zen-newtab") && this.key(this.tabUrl(win.gBrowser.selectedTab)) == this.key(url)) {
+      return false;
+    }
     const found = this.findTab(win, url, {
       userContextId: this.targetUserContextId(win),
       isPrivate: !!urlbar.isPrivate,
@@ -399,9 +373,6 @@ export const WhimsyAlreadyOpen = {
     urlbar.pickResult = function (params = {}) {
       let typed = null;
       try {
-        if (WhimsyAlreadyOpen.maybeOpenAgain(win, params)) {
-          return undefined;
-        }
         typed = WhimsyAlreadyOpen.typedPick(win, params);
         if (!typed && WhimsyAlreadyOpen.maybeSwitch(win, params)) {
           return undefined;

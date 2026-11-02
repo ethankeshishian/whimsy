@@ -215,8 +215,9 @@ add_task(async function test_promote_open_tabs() {
 // W10-36: a pinned tab had no "Switch to Tab" row in the Cmd+T command bar
 // when you were on it, but did from another space. Zen's Cmd+T bar opens
 // over the selected tab, so Firefox took that tab as the current page and
-// left it out. The new-tab bar now offers every open tab, the tab you're on
-// included; editing the current page's address (Cmd+L) still leaves it out.
+// left it out. W11-08: the tab you're on is now listed as an ordinary link,
+// as in Arc, and picking it in Cmd+T opens a second copy; from any other
+// tab or space it's a Switch to Tab.
 const PINNED_URL = "https://example.com/browser/whimsy-switch-pinned";
 
 async function closeCommandBar() {
@@ -230,6 +231,19 @@ async function closeCommandBar() {
     gURLBar._zenHandleUrlbarClose?.();
   }
   await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab") && !gURLBar.view.isOpen, "The command bar closed");
+}
+
+// W11-08: the ordinary (URL) row for `url`, not the typed address.
+async function linkRowFor(url) {
+  const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
+  const count = UrlbarTestUtils.getResultCount(window);
+  for (let i = 0; i < count; i++) {
+    const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+    if (result.type == UrlbarShared.RESULT_TYPE.URL && !result.heuristic && result.payload.url == url) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 async function switchRowFor(url) {
@@ -269,13 +283,12 @@ add_task(async function test_new_tab_bar_offers_pinned_tab_in_every_space() {
   ok(pinned.pinned, "The tab is pinned in the first space");
   const search = "whimsy-switch-pinned";
 
-  // On the pinned tab, in its own space: the bug. W11-08: the row for the
-  // tab you're on opens it again in a new tab, as in Arc.
+  // On the pinned tab, in its own space: the bug. W11-08: listed as an
+  // ordinary link; picking it opens a second copy, as in Arc.
   gBrowser.selectedTab = pinned;
-  let index = await newTabBarSwitchRow(search);
-  Assert.greater(index, -1, "Same space, on the pinned tab: the Cmd+T bar lists it");
-  const { result: own } = await UrlbarTestUtils.getDetailsOfResultAt(window, index);
-  ok(own.payload.whimsyOpenAgain, "as Open Again in New Tab, not Switch to Tab");
+  is(await newTabBarSwitchRow(search), -1, "On the pinned tab: no Switch to Tab to the tab you're on");
+  let index = await linkRowFor(PINNED_URL);
+  Assert.greater(index, -1, "Same space, on the pinned tab: the Cmd+T bar lists it as a link");
   EventUtils.synthesizeKey("KEY_ArrowDown", { repeat: index });
   is(UrlbarTestUtils.getSelectedRowIndex(window), index, "The row is selected");
   const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, PINNED_URL, true);
@@ -300,12 +313,13 @@ add_task(async function test_new_tab_bar_offers_pinned_tab_in_every_space() {
   await closeCommandBar();
   await gZenWorkspaces.changeWorkspace(firstSpace);
 
-  // Editing the pinned tab's own address (Cmd+L) keeps Firefox's rule: the
-  // page you're editing isn't offered as a tab to switch to.
+  // Editing the pinned tab's own address (Cmd+L): never a Switch to Tab to
+  // the page you're on; W11-08: it's listed as a link there too.
   gBrowser.selectedTab = pinned;
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: search });
   ok(!gURLBar.hasAttribute("zen-newtab"), "Cmd+L edits the current page");
   is(await switchRowFor(PINNED_URL), -1, "Editing the current page doesn't offer switching to it");
+  Assert.greater(await linkRowFor(PINNED_URL), -1, "…but lists it as a link");
   await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
 
   BrowserTestUtils.removeTab(other);
@@ -452,19 +466,19 @@ add_task(async function test_cmd_l_and_switch_off_keep_order() {
   await cleanupRank(tab, other);
 });
 
-// W11-08: Cmd+T on a tab and type it: the tab is listed as "Open Again in
-// New Tab", below the search, and picking it opens a second copy.
-add_task(async function test_tab_you_are_on_opens_again() {
+// W11-08: Cmd+T on a tab and type it: as in Arc, the tab is listed as an
+// ordinary link (title and address, no Switch to Tab), and picking it opens
+// a second copy.
+add_task(async function test_tab_you_are_on_is_a_link_in_cmd_t() {
   const { tab, other } = await openRankTab();
   gBrowser.selectedTab = tab;
   await commandBar(RANK_WORD);
   const all = await rows();
   ok(all[0].result.heuristic && all[0].result.type == UrlbarShared.RESULT_TYPE.SEARCH, "The search stays first");
-  const index = all.findIndex(r => r.result.payload.url == RANK_URL);
-  Assert.greater(index, 0, "The tab you're on is listed");
-  ok(all[index].result.payload.whimsyOpenAgain, "…to open again");
-  const action = all[index].element.action;
-  await TestUtils.waitForCondition(() => action?.textContent == "Open Again in New Tab", "The row reads Open Again in New Tab");
+  ok(!all.some(r => r.result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH && r.result.payload.url == RANK_URL), "No Switch to Tab for the tab you're on");
+  const index = await linkRowFor(RANK_URL);
+  Assert.greater(index, 0, "The tab you're on is listed as a link");
+  isnot(all[index].displayed.action, "Switch to Tab", "…with no Switch to Tab label");
   EventUtils.synthesizeKey("KEY_ArrowDown", { repeat: index });
   const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, RANK_URL, true);
   EventUtils.synthesizeKey("KEY_Enter");
@@ -472,6 +486,71 @@ add_task(async function test_tab_you_are_on_opens_again() {
   is(gBrowser.selectedTab, copy, "Picking it opened a second copy");
   ok(tab.isConnected && copy != tab, "…and kept the tab you were on");
   BrowserTestUtils.removeTab(copy);
+  await cleanupRank(tab, other);
+});
+
+// W11-08: Cmd+T and Return on the exact address of the tab you're on opens
+// a second copy (wave 6 used to just close the bar).
+add_task(async function test_return_on_own_address_opens_a_copy() {
+  const { tab, other } = await openRankTab();
+  gBrowser.selectedTab = tab;
+  await commandBar(RANK_URL);
+  const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
+  ok(result.heuristic && result.type == UrlbarShared.RESULT_TYPE.URL, "The typed address is first: there's no other tab to switch to");
+  const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, RANK_URL, true);
+  EventUtils.synthesizeKey("KEY_Enter");
+  const copy = await copyOpened;
+  is(gBrowser.selectedTab, copy, "Return opened a second copy");
+  ok(tab.isConnected, "…and kept the tab you were on");
+  BrowserTestUtils.removeTab(copy);
+  await cleanupRank(tab, other);
+});
+
+// W11-08: Cmd+L lists the tab you're on as a link too; picking it loads the
+// page again in that tab, and opens nothing.
+add_task(async function test_tab_you_are_on_is_a_link_in_cmd_l() {
+  const { tab, other } = await openRankTab();
+  gBrowser.selectedTab = tab;
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: RANK_WORD });
+  ok(!gURLBar.hasAttribute("zen-newtab"), "Cmd+L edits the page");
+  const index = await linkRowFor(RANK_URL);
+  Assert.greater(index, -1, "The tab you're on is listed as a link");
+  let opens = 0;
+  const onOpen = () => opens++;
+  gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
+  const reloaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, RANK_URL);
+  EventUtils.synthesizeKey("KEY_ArrowDown", { repeat: index });
+  EventUtils.synthesizeKey("KEY_Enter");
+  await reloaded;
+  gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
+  is(gBrowser.selectedTab, tab, "The page loaded again in its own tab");
+  is(opens, 0, "No tab was opened");
+  await cleanupRank(tab, other);
+});
+
+// W11-09: the bar waits for the open-tab providers, so the first results it
+// shows already have the tab first: no row jumps under the pointer.
+add_task(async function test_tab_row_never_jumps() {
+  const { tab, other } = await openRankTab();
+  const firsts = [];
+  const listener = {
+    onQueryResults(queryContext) {
+      if (queryContext.searchString == RANK_WORD) {
+        firsts.push(queryContext.results[0]?.type);
+      }
+    },
+  };
+  gURLBar.controller.addListener(listener);
+  try {
+    await commandBar(RANK_WORD);
+  } finally {
+    gURLBar.controller.removeListener(listener);
+  }
+  Assert.greater(firsts.length, 0, "Results were shown");
+  ok(
+    firsts.every(type => type == UrlbarShared.RESULT_TYPE.TAB_SWITCH),
+    `Every update had the tab first, the first paint included (${firsts})`
+  );
   await cleanupRank(tab, other);
 });
 

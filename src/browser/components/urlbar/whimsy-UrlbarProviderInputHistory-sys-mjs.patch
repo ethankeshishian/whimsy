@@ -1,0 +1,21 @@
+diff --git a/browser/components/urlbar/UrlbarProviderInputHistory.sys.mjs b/browser/components/urlbar/UrlbarProviderInputHistory.sys.mjs
+--- a/browser/components/urlbar/UrlbarProviderInputHistory.sys.mjs
++++ b/browser/components/urlbar/UrlbarProviderInputHistory.sys.mjs
+@@ -136,7 +136,16 @@
+         : undefined;
+       let resultTitle = historyTitle;
+ 
+-      if (openPageCount > 0 && lazy.UrlbarPrefs.get("suggest.openpage")) {
++      // Whimsy (W11-08): the current page as an ordinary link, as in
++      // UrlbarProviderPlaces.
++      let whimsyCurrentPageAsLink =
++        !!queryContext.whimsyListCurrentPage &&
++        url == queryContext.currentPage;
++      if (
++        openPageCount > 0 &&
++        lazy.UrlbarPrefs.get("suggest.openpage") &&
++        !whimsyCurrentPageAsLink
++      ) {
+         if (url == queryContext.currentPage) {
+           // Don't suggest switching to the current page.
+           continue;
