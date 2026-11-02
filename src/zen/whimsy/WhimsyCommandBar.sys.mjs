@@ -316,8 +316,11 @@ export class CommandBarMotion {
   #win;
   #shown = false;
   #animation = null;
-  // The floating bar's last box and look, for the close stand-in.
+  // The floating bar's last box and look, for the close stand-in, and a
+  // picture of it taken when it last settled (results shown, typing paused).
   #last = null;
+  #picture = null;
+  #pictureTimer = null;
 
   constructor(win) {
     this.#win = win;
@@ -333,11 +336,18 @@ export class CommandBarMotion {
     // the last one (read here, where layout is up to date).
     this.resizer = new win.ResizeObserver(() => this.#remember());
     this.resizer.observe(urlbar);
+    // What the bar shows changes without its size changing (typing, new
+    // rows): re-take its picture once it settles.
+    this.content = new win.MutationObserver(() => this.#queuePicture());
+    this.content.observe(urlbar, { childList: true, subtree: true, characterData: true });
+    urlbar.inputField?.addEventListener("input", () => this.#queuePicture());
     win.addEventListener(
       "unload",
       () => {
         this.observer.disconnect();
         this.resizer.disconnect();
+        this.content.disconnect();
+        win.clearTimeout(this.#pictureTimer);
       },
       { once: true }
     );
@@ -354,6 +364,7 @@ export class CommandBarMotion {
       return;
     }
     const style = this.#win.getComputedStyle(background);
+    this.#queuePicture();
     this.#last = {
       rect,
       background: style.backgroundColor,
@@ -365,16 +376,68 @@ export class CommandBarMotion {
     };
   }
 
+  // A picture of the floating bar, 80ms after it last changed. Taken by the
+  // window's own compositor (drawSnapshot); never reads or changes the bar.
+  #queuePicture() {
+    const win = this.#win;
+    if (!this.enabled || !this.#isFloatingOpen(win.gURLBar)) {
+      return;
+    }
+    win.clearTimeout(this.#pictureTimer);
+    this.#pictureTimer = win.setTimeout(() => this.#takePicture(), 80);
+  }
+
+  async #takePicture() {
+    const win = this.#win;
+    const urlbar = win.gURLBar;
+    if (!this.#isFloatingOpen(urlbar) || this.#animation) {
+      return;
+    }
+    const background = urlbar.querySelector(".urlbar-background") ?? urlbar;
+    const rect = background.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
+    try {
+      const bitmap = await win.browsingContext.currentWindowGlobal.drawSnapshot(
+        new win.DOMRect(rect.x, rect.y, rect.width, rect.height), win.devicePixelRatio, "rgba(0,0,0,0)"
+      );
+      // Only if the bar is still the same (not closed or moved meanwhile).
+      if (this.#isFloatingOpen(urlbar)) {
+        this.#picture?.bitmap.close();
+        this.#picture = { bitmap, rect };
+      } else {
+        bitmap.close();
+      }
+    } catch (e) {
+      // No picture: the stand-in is the bar's plain shape.
+    }
+  }
+
   // C1: the close, as a picture only. Zen has already hidden the bar.
   #playCloseGhost() {
     const last = this.#last;
     this.#last = null;
+    const picture = this.#picture;
+    this.#picture = null;
     const win = this.#win;
+    win.clearTimeout(this.#pictureTimer);
     if (!last || !this.enabled || win.document.hidden) {
+      picture?.bitmap.close();
       return null;
     }
     const doc = win.document;
     const ghost = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    // The bar as it last looked, if that picture is of this box.
+    if (picture && Math.abs(picture.rect.top - last.rect.top) < 2 && Math.abs(picture.rect.height - last.rect.height) < 2) {
+      const canvas = doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+      canvas.width = picture.bitmap.width;
+      canvas.height = picture.bitmap.height;
+      canvas.getContext("2d").drawImage(picture.bitmap, 0, 0);
+      Object.assign(canvas.style, { width: "100%", height: "100%", display: "block", borderRadius: "inherit" });
+      ghost.append(canvas);
+    }
+    picture?.bitmap.close();
     ghost.className = GHOST_CLASS;
     ghost.inert = true;
     ghost.setAttribute("aria-hidden", "true");
@@ -392,6 +455,7 @@ export class CommandBarMotion {
       border: last.border,
       outline: last.outline,
       boxSizing: "border-box",
+      overflow: "hidden",
       pointerEvents: "none",
       zIndex: "2147483647",
       transformOrigin: "50% 0",

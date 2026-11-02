@@ -87,6 +87,8 @@ add_task(async function open_motion_and_a_visual_close() {
   ok(!("transform" in frames[0]), "Open never animates transform (Zen centres with translate)");
   await open.finished;
   const floating = gURLBar.querySelector(".urlbar-background").getBoundingClientRect();
+  // The bar's picture is taken once it has settled.
+  await new Promise(resolve => setTimeout(resolve, 300));
 
   await closeBar();
   isnot(gURLBar.getAttribute("zen-floating-urlbar"), "true", "Zen closed the bar at once");
@@ -96,7 +98,9 @@ add_task(async function open_motion_and_a_visual_close() {
   const box = ghost.getBoundingClientRect();
   ok(Math.abs(box.top - floating.top) < 2 && Math.abs(box.width - floating.width) < 2,
     "...where the floating bar was");
+  ok(ghost.querySelector("canvas"), "...showing the bar as it last looked");
   ok(ghost.inert && ghost.getAttribute("aria-hidden") == "true", "It's inert and hidden from accessibility");
+  ok(!ghost.querySelector("[tabindex], input, button, a"), "...with nothing focusable in it");
   is(getComputedStyle(ghost).pointerEvents, "none", "...and never takes the pointer");
   const [fade] = ghost.getAnimations();
   is(fade.effect.getTiming().duration, COMMAND_BAR_MOTION.close.duration, "Close lasts 110ms");
