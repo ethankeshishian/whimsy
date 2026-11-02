@@ -3451,6 +3451,9 @@ whimsy-snooze-private-toast = Private tabs can’t be snoozed: a snoozed tab is 
 
 # W10-19: a changed shortcut has an accent dot; the footer explains it.
 whimsy-cheatsheet-legend = Changed by you
+# W13 F03: the menu rail on the sheet's left (its accessible name).
+whimsy-cheatsheet-rail =
+    .aria-label = Menus
 # Words a search for changed shortcuts can use.
 whimsy-cheatsheet-custom-word = custom changed
 whimsy-cheatsheet-custom-tooltip = Changed from { $shortcut }

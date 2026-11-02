@@ -26,9 +26,14 @@
 // - A shortcut the person changed has an accent dot ("Changed by you" in
 //   the footer legend), with the default in its tooltip and its accessible
 //   name.
-// - W10-19 (the user: "horrible UI"): a WhimsySurface over the page, 720px
-//   wide, the groups flowing in up to three columns like a printed card,
-//   matches marked in the names.
+// - W13 F03 (option B at 88%, wave13/design/cheatsheet): a WhimsySurface
+//   760px wide (the window less 40px when narrow), 88% of the page area's
+//   height and centred in it, fixed while open. A 150px rail on the left
+//   lists the menus with their counts; the rows show the picked menu's
+//   shortcuts, matches marked in the names. Typing searches every menu
+//   (their headings show, the rail dims). Below 360px of page height the
+//   rail hides and the menus run as one list. The header is the drag
+//   handle (F07).
 // - Rows are read-only: running things is the command bar's job, and an
 //   Enter that closes a tab from a reference card is a trap. The one
 //   action is "Edit Shortcuts…" (about:keyboard).
@@ -56,7 +61,11 @@ const PANEL_ID = "whimsy-cheatsheet-panel";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const OTHER = "other";
 const PAGE_STEP = 8;
-const SHEET_WIDTH = 720;
+// W13 F03 (design/cheatsheet, the user's pick): 760px wide with a 150px
+// rail, 88% of the page area's height, the rail gone below 360px.
+const SHEET_WIDTH = 760;
+const HEIGHT_SHARE = 0.88;
+const RAIL_MIN_HEIGHT = 360;
 
 // Names for keys whose Whimsy wording differs from (or is missing in) the
 // about:keyboard metadata. Bindings always come from the <key> elements.
@@ -456,6 +465,26 @@ export const WhimsyCheatSheet = {
     this.open(win);
   },
 
+  /**
+   * W13 F03 (option B at 88%, design/cheatsheet): where the sheet goes.
+   * Height: 88% of the page area's height, fixed while open. Width: 760px,
+   * or the window less 40px. Centred in the page area (equal gaps above and
+   * below); centred on the window when the page area is too narrow.
+   * `oneList` below 360px of page height: the rail hides.
+   */
+  geometry(win) {
+    const area = lazy.WhimsySurface.pageArea(win);
+    const rect = area.getBoundingClientRect();
+    const contentHeight = rect.height || win.innerHeight;
+    const width = Math.round(Math.max(280, Math.min(SHEET_WIDTH, win.innerWidth - 40)));
+    const height = Math.round(contentHeight * HEIGHT_SHARE);
+    const x = width <= rect.width - 20
+      ? Math.round((rect.width - width) / 2)
+      : Math.round((win.innerWidth - width) / 2 - rect.left);
+    const y = Math.round((contentHeight - height) / 2);
+    return { area, width, height, x, y, oneList: contentHeight < RAIL_MIN_HEIGHT };
+  },
+
   async open(win) {
     if (!this.enabled) {
       return;
@@ -507,26 +536,35 @@ export const WhimsyCheatSheet = {
       }
       entry.titleEl.append(title.slice(pos));
     };
+
+    const geometry = this.geometry(win);
+    // The menu whose rows show while nothing is typed: the first one.
+    let current = catalogue[0]?.id ?? null;
     const filter = query => {
       const q = query.trim();
+      panel.toggleAttribute("searching", !!q);
       let shown = 0;
       for (const section of list.children) {
         let any = false;
+        // Browsing (no search, with the rail): only the picked menu.
+        const browsing = !q && !geometry.oneList;
         for (const entry of rows.filter(r => r.section == section)) {
           const visible = !q || matches(q, entry.row, entry.hay);
           entry.element.hidden = !visible;
           mark(entry.row.title, entry, visible ? q : "");
           any ||= visible;
-          shown += visible ? 1 : 0;
         }
-        section.hidden = !any;
+        section.hidden = !any || (browsing && section.dataset.menu != current);
+        if (!section.hidden) {
+          shown += rows.filter(r => r.section == section && !r.element.hidden).length;
+        }
       }
-      empty.hidden = shown > 0;
+      empty.hidden = shown > 0 || !rows.length;
       if (!empty.hidden) {
         document.l10n.setAttributes(empty.querySelector(".whimsy-surface-empty-text"), "whimsy-cheatsheet-empty", { query: q });
       }
       list.hidden = !shown;
-      list.parentNode.hidden = list.hidden;
+      scroller.hidden = list.hidden;
       status.textContent = q ? formatSync("whimsy-cheatsheet-results", { count: shown }) : "";
       status.hidden = !q;
       // The roving row is the first one showing.
@@ -534,13 +572,12 @@ export const WhimsyCheatSheet = {
       for (const r of rows) {
         r.element.tabIndex = r.element == first ? 0 : -1;
       }
+      updateFade();
     };
 
-    // Wide enough for three columns, never past the window.
-    const width = Math.round(Math.max(320, Math.min(SHEET_WIDTH, win.innerWidth - 40)));
     const parts = lazy.WhimsySurface.create(win, {
       id: PANEL_ID,
-      width,
+      width: geometry.width,
       titleL10nId: "whimsy-cheatsheet-title",
       close: true,
       footer: true,
@@ -558,8 +595,18 @@ export const WhimsyCheatSheet = {
         return false;
       },
     });
-    const { panel, view, footer } = parts;
-    view.style.maxHeight = `${Math.round(win.innerHeight * 0.7)}px`;
+    const { panel, view, header, footer } = parts;
+    // Fixed while open: filtering or a one-row menu never resizes it.
+    panel.style.setProperty("--whimsy-cheatsheet-height", `${geometry.height}px`);
+    panel.toggleAttribute("one-list", geometry.oneList);
+
+    // The header is the drag handle (F07), with a grip before the title.
+    const grip = document.createElementNS(HTML_NS, "span");
+    grip.className = "whimsy-surface-grip";
+    grip.setAttribute("aria-hidden", "true");
+    grip.textContent = "⋮⋮";
+    header.prepend(grip);
+    lazy.WhimsySurface.makeDraggable(panel, header);
 
     const searchBox = document.createXULElement("hbox");
     searchBox.className = "whimsy-surface-search whimsy-cheatsheet-search";
@@ -580,9 +627,37 @@ export const WhimsyCheatSheet = {
     status.hidden = true;
     searchBox.append(glass, search, status);
 
-    // The list: one section per menu, flowing in columns.
+    // The rail: one tab per menu, with its count.
+    const rail = document.createElementNS(HTML_NS, "div");
+    rail.className = "whimsy-cheatsheet-rail";
+    rail.setAttribute("role", "tablist");
+    rail.setAttribute("aria-orientation", "vertical");
+    document.l10n.setAttributes(rail, "whimsy-cheatsheet-rail");
+    const railItems = new Map();
+    for (const group of catalogue) {
+      const tab = document.createElementNS(HTML_NS, "button");
+      tab.type = "button";
+      tab.className = "whimsy-cheatsheet-rail-item";
+      tab.id = `whimsy-cheatsheet-tab-${group.id}`;
+      tab.dataset.menu = group.id;
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-controls", "whimsy-cheatsheet-rows");
+      const name = document.createElementNS(HTML_NS, "span");
+      name.className = "whimsy-cheatsheet-rail-name";
+      name.textContent = group.heading;
+      const count = document.createElementNS(HTML_NS, "span");
+      count.className = "whimsy-cheatsheet-rail-count";
+      count.textContent = String(group.rows.length);
+      tab.append(name, count);
+      tab.addEventListener("click", () => select(group.id));
+      railItems.set(group.id, tab);
+      rail.append(tab);
+    }
+
+    // The rows: one section per menu; only the picked one shows while
+    // browsing, every match while searching.
     const list = document.createElementNS(HTML_NS, "div");
-    list.className = "whimsy-cheatsheet-columns";
+    list.className = "whimsy-cheatsheet-list";
     for (const group of catalogue) {
       const section = document.createElementNS(HTML_NS, "section");
       section.className = "whimsy-cheatsheet-group";
@@ -651,12 +726,24 @@ export const WhimsyCheatSheet = {
     });
     empty.classList.add("whimsy-cheatsheet-empty");
     empty.hidden = true;
-    // W10-19: the columns scroll inside a wrapper. A multicol box with a
-    // fixed height spills extra columns sideways instead of scrolling.
+    // The rows scroll inside the track; the header, search and footer stay.
     const scroller = document.createElementNS(HTML_NS, "div");
     scroller.className = "whimsy-cheatsheet-scroll";
+    scroller.id = "whimsy-cheatsheet-rows";
+    scroller.setAttribute("role", "tabpanel");
     scroller.append(list);
-    view.append(searchBox, scroller, empty);
+    // A fade at the bottom while there's more below.
+    const updateFade = () => {
+      scroller.toggleAttribute("fade", scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 2);
+    };
+    scroller.addEventListener("scroll", updateFade, { passive: true });
+    const pane = document.createElementNS(HTML_NS, "div");
+    pane.className = "whimsy-cheatsheet-pane";
+    pane.append(scroller, empty);
+    const body = document.createElementNS(HTML_NS, "div");
+    body.className = "whimsy-cheatsheet-body";
+    body.append(rail, pane);
+    view.append(searchBox, body);
     if (!rows.length) {
       list.hidden = true;
       scroller.hidden = true;
@@ -688,6 +775,24 @@ export const WhimsyCheatSheet = {
     footer.append(legend, spacer, edit);
     lazy.WhimsySurface.finish(parts);
 
+    // Picking a menu on the rail (a click, or arrows on it): its rows. A
+    // search in progress gives way to the menu picked.
+    const select = id => {
+      current = id;
+      for (const [menu, tab] of railItems) {
+        const on = menu == id;
+        tab.setAttribute("aria-selected", String(on));
+        tab.tabIndex = on ? 0 : -1;
+      }
+      scroller.setAttribute("aria-labelledby", `whimsy-cheatsheet-tab-${id}`);
+      if (search.value) {
+        search.value = "";
+      }
+      filter("");
+      scroller.scrollTop = 0;
+      updateFade();
+    };
+
     const visibleRows = () => rows.filter(r => !r.element.hidden && !r.section.hidden).map(r => r.element);
     const focusRow = element => {
       for (const r of rows) {
@@ -696,9 +801,9 @@ export const WhimsyCheatSheet = {
       element.focus();
       element.scrollIntoView({ block: "nearest" });
     };
-    // Rows are a read-only list in column-flow order (the DOM order):
-    // arrows, Page Up/Down, Home/End move; typing on a row goes back to the
-    // search.
+    // Rows are a read-only list: arrows, Page Up/Down, Home/End move;
+    // typing on a row or the rail goes back to the search. (Arrows on the
+    // rail are WhimsySurface's: it moves along a tablist and selects.)
     panel.addEventListener(
       "keydown",
       event => {
@@ -707,6 +812,12 @@ export const WhimsyCheatSheet = {
         }
         const onRow = event.target.classList?.contains("whimsy-cheatsheet-row");
         const onSearch = event.target == search;
+        const onRail = !!event.target.closest?.(".whimsy-cheatsheet-rail");
+        if (onRail && event.key.length == 1 && event.key != " ") {
+          // Typing on the rail searches; the key lands in the field.
+          search.focus();
+          return;
+        }
         if (!onRow && !onSearch) {
           return;
         }
@@ -726,6 +837,7 @@ export const WhimsyCheatSheet = {
           if (next < 0) {
             search.focus();
             scroller.scrollTop = 0;
+            updateFade();
           } else {
             focusRow(items[Math.min(next, items.length - 1)]);
           }
@@ -750,7 +862,17 @@ export const WhimsyCheatSheet = {
       },
       true
     );
-    filter("");
-    lazy.WhimsySurface.open(win, panel, { at: "page-top-center", y: 10 });
+    panel.addEventListener("popupshown", event => {
+      if (event.target == panel) {
+        updateFade();
+      }
+    });
+    if (current) {
+      select(current);
+    } else {
+      filter("");
+    }
+    // Centred in the page area, at 88% of its height.
+    panel.openPopup(geometry.area, { position: "overlap", x: geometry.x, y: geometry.y });
   },
 };

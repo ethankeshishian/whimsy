@@ -402,6 +402,55 @@ export const WhimsySurface = {
     }
   },
 
+  /**
+   * F07 (W13): every floating surface can be dragged by its header. A
+   * primary press on `handle` (not on a button or field in it) captures
+   * the pointer; each move puts the panel where the pointer is, less where
+   * it was grabbed. getOuterScreenRect() and moveTo() use the same frame,
+   * so the panel never jumps on the first move.
+   */
+  makeDraggable(panel, handle) {
+    handle.classList.add("whimsy-surface-drag-handle");
+    handle.addEventListener("pointerdown", event => {
+      if (event.button != 0 || event.target.closest?.("toolbarbutton, button, input, textarea, select, a")) {
+        return;
+      }
+      const start = panel.getOuterScreenRect();
+      const dx = event.screenX - start.left;
+      const dy = event.screenY - start.top;
+      const pointerId = event.pointerId;
+      event.preventDefault();
+      try {
+        handle.setPointerCapture(pointerId);
+      } catch (e) {
+        // Not capturable (a synthetic event): moves over the panel still work.
+      }
+      panel.setAttribute("dragging", "true");
+      const move = e => {
+        if (e.pointerId == pointerId) {
+          panel.moveTo(Math.round(e.screenX - dx), Math.round(e.screenY - dy));
+        }
+      };
+      const end = e => {
+        if (e.pointerId != pointerId) {
+          return;
+        }
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", end);
+        handle.removeEventListener("pointercancel", end);
+        handle.removeEventListener("lostpointercapture", end);
+        try {
+          handle.releasePointerCapture(pointerId);
+        } catch (err) {}
+        panel.removeAttribute("dragging");
+      };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", end);
+      handle.addEventListener("pointercancel", end);
+      handle.addEventListener("lostpointercapture", end);
+    });
+  },
+
   isOpen(win, id) {
     const panel = win.document.getElementById(id);
     return !!panel && (panel.state == "open" || panel.state == "showing");
