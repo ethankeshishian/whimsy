@@ -5,9 +5,10 @@
 
 // W11-07: Settings → Home and startup, as in Zen, with Whimsy's home.
 //
-// - New windows and New tabs each offer Whimsy Home (the default) and
-//   Firefox Home. New windows said "Custom URLs…" for Whimsy's own default
-//   (about:whimsy) and Firefox Home (about:home) wasn't a choice any more.
+// - New windows and New tabs each offer Whimsy Home and Firefox Home. New
+//   windows default to Whimsy Home, new tabs to Firefox Home (as before).
+//   New windows said "Custom URLs…" for about:home, and Firefox Home wasn't
+//   a choice any more.
 // - New tabs follow the choice (AboutNewTab.newTabURL); an add-on that
 //   replaces the new tab page wins; private windows keep their own page.
 // - The "Firefox Home" group (Search, Widgets, Shortcuts, Stories, ...) is
@@ -77,8 +78,8 @@ add_task(async function test_both_homes_are_choices() {
     is(windows.home, "Firefox Home", "New windows: Firefox Home is a choice too");
     ok("blank" in windows && "custom" in windows, "Firefox's Blank Page and Custom URLs stay");
     const tabs = await optionLabels(doc, "homepageNewTabs");
-    is(tabs.whimsy, "Whimsy Home (Default)", "New tabs: Whimsy Home, the default");
-    is(tabs.home, "Firefox Home", "New tabs: Firefox Home");
+    is(tabs.home, "Firefox Home (Default)", "New tabs: Firefox Home, the default, as before");
+    is(tabs.whimsy, "Whimsy Home", "New tabs: Whimsy Home is a choice too");
     ok("blank" in tabs, "New tabs: Blank Page stays");
 
     // The default homepage is Whimsy Home, not "Custom URLs…" with a
@@ -86,7 +87,7 @@ add_task(async function test_both_homes_are_choices() {
     await TestUtils.waitForCondition(() => select(doc, "homepageNewWindows").value == "whimsy", "New windows shows Whimsy Home");
     const custom = doc.getElementById("setting-control-homepageGoToCustomHomepageUrlPanel");
     ok(!custom || !BrowserTestUtils.isVisible(custom), "No Choose a specific site for Whimsy Home");
-    await TestUtils.waitForCondition(() => select(doc, "homepageNewTabs").value == "whimsy", "New tabs shows Whimsy Home");
+    await TestUtils.waitForCondition(() => select(doc, "homepageNewTabs").value == "home", "New tabs shows Firefox Home");
 
     // about:home (Firefox's default, or synced from Firefox) is Firefox Home.
     Services.prefs.setStringPref(HOMEPAGE_PREF, "about:home");
@@ -107,16 +108,16 @@ add_task(async function test_both_homes_are_choices() {
     ok(Services.prefs.getBoolPref(NEWTAB_ENABLED_PREF), "Whimsy Home turns new tab pages back on");
     is(Services.prefs.getStringPref(NEWTAB_PAGE_PREF), "whimsy", "New tabs: Whimsy Home");
 
-    // Restore Defaults means Whimsy Home for both.
+    // Restore Defaults: Whimsy Home for new windows, Firefox Home for new tabs.
     Services.prefs.setStringPref(HOMEPAGE_PREF, "about:home");
-    Services.prefs.setStringPref(NEWTAB_PAGE_PREF, "home");
+    Services.prefs.setStringPref(NEWTAB_PAGE_PREF, "whimsy");
     const restore = doc.getElementById("setting-control-homepageRestoreDefaults").controlEl;
     await TestUtils.waitForCondition(() => !restore.disabled, "Restore Defaults is offered");
     restore.click();
     await TestUtils.waitForCondition(
       () => Services.prefs.getStringPref(HOMEPAGE_PREF) == "about:whimsy" &&
-        Services.prefs.getStringPref(NEWTAB_PAGE_PREF) == "whimsy",
-      "Restore Defaults picks Whimsy Home for both"
+        Services.prefs.getStringPref(NEWTAB_PAGE_PREF) == "home",
+      "Restore Defaults: Whimsy Home for new windows, Firefox Home for new tabs"
     );
   });
   for (const pref of [HOMEPAGE_PREF, NEWTAB_PAGE_PREF, NEWTAB_ENABLED_PREF]) {
@@ -137,8 +138,9 @@ add_task(async function test_firefox_home_group() {
     for (const id of ["webSearch", "shortcuts", "recentActivity"]) {
       ok(doc.getElementById(`setting-control-${id}`), `Firefox Home has ${id}`);
     }
-    // With Whimsy Home for both, Firefox's own notice says how to use them.
-    ok(doc.getElementById("setting-control-firefoxHomeDisabledNotice"), "Firefox's notice: set new tabs or windows to Firefox Home");
+    // New tabs show Firefox Home by default, so its settings apply.
+    const notice = doc.getElementById("setting-control-firefoxHomeDisabledNotice");
+    ok(!notice || !BrowserTestUtils.isVisible(notice), "No 'set new tabs to Firefox Home' notice by default");
   });
 });
 
@@ -194,15 +196,12 @@ add_task(async function test_firefox_home_group_after_a_missed_notice() {
 add_task(async function test_new_tabs_follow_the_choice() {
   Services.prefs.clearUserPref(NEWTAB_PAGE_PREF);
   Services.prefs.clearUserPref(NEWTAB_ENABLED_PREF);
-  await TestUtils.waitForCondition(() => AboutNewTab.newTabURL == "about:whimsy", "New tabs open Whimsy Home");
-  is(window.BROWSER_NEW_TAB_URL, "about:whimsy", "BROWSER_NEW_TAB_URL is Whimsy Home");
-
-  Services.prefs.setStringPref(NEWTAB_PAGE_PREF, "home");
-  is(AboutNewTab.newTabURL, "about:newtab", "Firefox Home: Firefox's new tab page");
+  is(AboutNewTab.newTabURL, "about:newtab", "By default new tabs are Firefox's new tab page, as before");
   ok(!AboutNewTab.newTabURLOverridden, "...not overridden");
 
-  Services.prefs.clearUserPref(NEWTAB_PAGE_PREF);
-  is(AboutNewTab.newTabURL, "about:whimsy", "Back to Whimsy Home");
+  Services.prefs.setStringPref(NEWTAB_PAGE_PREF, "whimsy");
+  is(AboutNewTab.newTabURL, "about:whimsy", "Whimsy Home: new tabs open about:whimsy");
+  is(window.BROWSER_NEW_TAB_URL, "about:whimsy", "BROWSER_NEW_TAB_URL is Whimsy Home");
   Services.prefs.setBoolPref(NEWTAB_ENABLED_PREF, false);
   is(AboutNewTab.newTabURL, "about:newtab", "Blank Page is Firefox's (about:newtab shows a blank page)");
   Services.prefs.clearUserPref(NEWTAB_ENABLED_PREF);
@@ -214,17 +213,19 @@ add_task(async function test_new_tabs_follow_the_choice() {
   Services.prefs.setBoolPref(EXTENSION_PREF, true);
   AboutNewTab.newTabURL = addonPage;
   is(AboutNewTab.newTabURL, addonPage, "The add-on's page");
+  Services.prefs.setStringPref(NEWTAB_PAGE_PREF, "home");
   Services.prefs.setStringPref(NEWTAB_PAGE_PREF, "whimsy");
   is(AboutNewTab.newTabURL, addonPage, "Whimsy doesn't take it back while the add-on has it");
   AboutNewTab.resetNewTabURL();
   Services.prefs.clearUserPref(EXTENSION_PREF);
   is(AboutNewTab.newTabURL, "about:whimsy", "Whimsy Home once the add-on lets go");
-  Services.prefs.clearUserPref(NEWTAB_PAGE_PREF);
 
   // Private windows keep the private browsing page.
   const privateWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
   is(privateWin.BROWSER_NEW_TAB_URL, "about:privatebrowsing", "A private window's new tab is still private browsing");
   await BrowserTestUtils.closeWindow(privateWin);
+  Services.prefs.clearUserPref(NEWTAB_PAGE_PREF);
+  is(AboutNewTab.newTabURL, "about:newtab", "Back to Firefox's new tab page");
 });
 
 add_task(async function test_a_closed_whimsy_home_tab_is_like_a_closed_new_tab() {
@@ -245,7 +246,7 @@ add_task(async function test_old_switch_off_is_migrated() {
   Services.prefs.setBoolPref(FEATURE_PREF, false);
   WhimsyHome.migrate();
   is(Services.prefs.getStringPref(HOMEPAGE_PREF), "about:home", "Off meant Firefox Home in new windows");
-  is(Services.prefs.getStringPref(NEWTAB_PAGE_PREF), "home", "...and in new tabs");
+  ok(!Services.prefs.prefHasUserValue(NEWTAB_PAGE_PREF), "New tabs keep their default, Firefox Home");
   ok(!Services.prefs.prefHasUserValue(FEATURE_PREF), "The old switch goes back to its default");
   ok(Services.prefs.getBoolPref(FEATURE_PREF), "...on");
   WhimsyHome.migrate();
@@ -284,20 +285,22 @@ add_task(async function test_one_control_and_its_commands() {
   const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
   const row = globalActions.find(a => a.whimsyCommand == ids.tabsFirefox);
   is(row?.label, "New Tab Page: Firefox Home", "The command bar names it");
-  ok(row.isAvailable(window), "Offered while new tabs show Whimsy Home");
+  ok(!row.isAvailable(window), "Not offered while new tabs already show Firefox Home");
+  const whimsyRow = globalActions.find(a => a.whimsyCommand == ids.tabsWhimsy);
+  ok(whimsyRow?.isAvailable(window), "New Tab Page: Whimsy Home is offered");
 
   document.getElementById(ids.windowsFirefox).doCommand();
   is(Services.prefs.getStringPref(HOMEPAGE_PREF), "about:home", "New windows: Firefox Home");
   document.getElementById(ids.windowsWhimsy).doCommand();
   is(Services.prefs.getStringPref(HOMEPAGE_PREF), "about:whimsy", "New windows: Whimsy Home");
-  document.getElementById(ids.tabsFirefox).doCommand();
-  is(AboutNewTab.newTabURL, "about:newtab", "New tabs: Firefox Home");
-  ok(!row.isAvailable(window), "...and it isn't offered again");
+  document.getElementById(ids.tabsWhimsy).doCommand();
+  is(AboutNewTab.newTabURL, "about:whimsy", "New tabs: Whimsy Home");
+  ok(row.isAvailable(window), "...and Firefox Home is offered again");
   document.getElementById(ids.tabsBlank).doCommand();
   ok(!Services.prefs.getBoolPref(NEWTAB_ENABLED_PREF), "New tabs: Blank Page");
-  document.getElementById(ids.tabsWhimsy).doCommand();
-  ok(Services.prefs.getBoolPref(NEWTAB_ENABLED_PREF), "Whimsy Home turns new tab pages back on");
-  is(AboutNewTab.newTabURL, "about:whimsy", "New tabs: Whimsy Home");
+  document.getElementById(ids.tabsFirefox).doCommand();
+  ok(Services.prefs.getBoolPref(NEWTAB_ENABLED_PREF), "Firefox Home turns new tab pages back on");
+  is(AboutNewTab.newTabURL, "about:newtab", "New tabs: Firefox Home");
 
   for (const pref of [HOMEPAGE_PREF, NEWTAB_PAGE_PREF, NEWTAB_ENABLED_PREF]) {
     Services.prefs.clearUserPref(pref);

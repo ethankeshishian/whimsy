@@ -1177,6 +1177,10 @@ whimsy-home-mode-choice-default =
 # tabs. It's Firefox's, so it keeps Firefox's name.
 whimsy-home-mode-choice-firefox =
     .label = Firefox Home
+# W11-07: Whimsy Home as a choice for new tabs, where Firefox Home stays the
+# default (Firefox's own "Firefox Home (Default)").
+whimsy-home-mode-choice-whimsy =
+    .label = { -brand-short-name } Home
 # W11-07: the choices as the command bar names them ("New Tab Page: Firefox Home").
 whimsy-home-choice-whimsy = { -brand-short-name } Home
 whimsy-home-choice-firefox = Firefox Home

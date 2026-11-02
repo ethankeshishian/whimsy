@@ -9,8 +9,8 @@
 //
 // - New windows: browser.startup.homepage, about:whimsy (Whimsy Home, the
 //   default), about:home (Firefox Home), a blank page or custom URLs.
-// - New tabs: whimsy.newtab.page, "whimsy" (the default) or "home"; Blank
-//   stays Firefox's browser.newtabpage.enabled. Whimsy Home reaches new tabs
+// - New tabs: whimsy.newtab.page, "home" (Firefox Home, the default, as
+//   before) or "whimsy"; Blank stays Firefox's browser.newtabpage.enabled. Whimsy Home reaches new tabs
 //   the way Firefox lets anything replace the new tab page:
 //   AboutNewTab.newTabURL, which BROWSER_NEW_TAB_URL reads. An add-on that
 //   replaces the new tab page wins, and Whimsy Home comes back when it
@@ -22,7 +22,7 @@
 //
 // Look used to have a second control, "Use the Whimsy homepage"
 // (whimsy.feature.home). It's gone; someone who had turned it off gets
-// Firefox Home for both, which is what that switch gave them. The pref
+// Firefox Home in new windows, which is what that switch gave them. The pref
 // stays as the feature's off switch (about:whimsy then shows Firefox Home).
 
 const lazy = {};
@@ -80,9 +80,9 @@ export const WhimsyHome = {
     this.initialized = false;
   },
 
-  // "Use the Whimsy homepage" off meant Firefox Home in new windows (and new
-  // tabs showed Firefox Home anyway). Say so with the two choices, then let
-  // the old switch go back to its default.
+  // "Use the Whimsy homepage" off meant Firefox Home in new windows (new tabs
+  // show Firefox Home by default anyway). Say so with the New windows choice,
+  // then let the old switch go back to its default.
   migrate() {
     if (!Services.prefs.prefHasUserValue(FEATURE_PREF) || Services.prefs.getBoolPref(FEATURE_PREF, true)) {
       return;
@@ -90,9 +90,6 @@ export const WhimsyHome = {
     const homepage = Services.prefs.getStringPref(HOMEPAGE_PREF, "");
     if (!Services.prefs.prefHasUserValue(HOMEPAGE_PREF) || homepage == WHIMSY_HOME_URL) {
       Services.prefs.setStringPref(HOMEPAGE_PREF, FIREFOX_HOME_URL);
-    }
-    if (!Services.prefs.prefHasUserValue(NEWTAB_PAGE_PREF)) {
-      Services.prefs.setStringPref(NEWTAB_PAGE_PREF, "home");
     }
     Services.prefs.clearUserPref(FEATURE_PREF);
   },
@@ -125,7 +122,7 @@ export const WhimsyHome = {
     if (!Services.prefs.getBoolPref(NEWTAB_ENABLED_PREF, true)) {
       return "blank";
     }
-    return Services.prefs.getStringPref(NEWTAB_PAGE_PREF, "whimsy") == "home" ? "home" : "whimsy";
+    return Services.prefs.getStringPref(NEWTAB_PAGE_PREF, "home") == "whimsy" ? "whimsy" : "home";
   },
 
   setNewTabsChoice(choice) {

@@ -1,14 +1,15 @@
 diff --git a/browser/components/preferences/config/home-startup.mjs b/browser/components/preferences/config/home-startup.mjs
-index 4c19e7d..6b95e2c 100644
+index 4c19e7d..9c4c448 100644
 --- a/browser/components/preferences/config/home-startup.mjs
 +++ b/browser/components/preferences/config/home-startup.mjs
-@@ -32,6 +32,19 @@ const PREF_SETTING_TYPE = "prefs";
+@@ -32,6 +32,20 @@ const PREF_SETTING_TYPE = "prefs";
  
  const BLANK_HOMEPAGE_URL = "chrome://browser/content/blanktab.html";
  
-+// Whimsy (W11-07): Whimsy Home (about:whimsy) is the default page for new
-+// windows and new tabs; Firefox Home (about:home, "home") stays a choice, so
-+// the Firefox Home group below keeps its meaning. New tabs keep Firefox's
++// Whimsy (W11-07): Whimsy Home (about:whimsy) and Firefox Home (about:home,
++// "home") are both choices for new windows and new tabs. New windows default
++// to Whimsy Home, new tabs to Firefox Home (as before), so the Firefox Home
++// group below keeps its meaning. New tabs keep Firefox's
 +// browser.newtabpage.enabled for "blank"; whimsy.newtab.page says which home
 +// they show, and WhimsyHome.sys.mjs points AboutNewTab.newTabURL at it.
 +const WHIMSY_HOME_URL = "about:whimsy";
@@ -22,7 +23,7 @@ index 4c19e7d..6b95e2c 100644
  /*
   * Preferences:
   *
-@@ -211,6 +224,8 @@ function setupHomepageGroup(prefWindow) {
+@@ -211,6 +225,8 @@ function setupHomepageGroup(prefWindow) {
            return ext.id;
          }
          switch (prefVal) {
@@ -31,7 +32,7 @@ index 4c19e7d..6b95e2c 100644
            case DEFAULT_HOMEPAGE_URL:
              return "home";
            case BLANK_HOMEPAGE_URL:
-@@ -230,7 +245,7 @@ function setupHomepageGroup(prefWindow) {
+@@ -230,7 +246,7 @@ function setupHomepageGroup(prefWindow) {
  
          // Deselection uses the low-level ExtensionSettingsStore API
          // because the pref is already being set by the return value.
@@ -40,7 +41,7 @@ index 4c19e7d..6b95e2c 100644
            let currentAddon = getActiveExtensionForSetting(
              PREF_SETTING_TYPE,
              HOMEPAGE_OVERRIDE_KEY
-@@ -249,6 +264,8 @@ function setupHomepageGroup(prefWindow) {
+@@ -249,6 +265,8 @@ function setupHomepageGroup(prefWindow) {
          }
  
          switch (inputVal) {
@@ -49,7 +50,7 @@ index 4c19e7d..6b95e2c 100644
            case "home":
              return DEFAULT_HOMEPAGE_URL;
            case "blank":
-@@ -270,7 +287,7 @@ function setupHomepageGroup(prefWindow) {
+@@ -270,7 +288,7 @@ function setupHomepageGroup(prefWindow) {
        getControlConfig(config) {
          // `config` is retained across renders, so filter back to the
          // static builtins before reattaching the current extension entries.
@@ -58,7 +59,7 @@ index 4c19e7d..6b95e2c 100644
          let builtinOptions = config.options.filter(o =>
            builtinValues.has(o.value)
          );
-@@ -328,7 +345,7 @@ function setupHomepageGroup(prefWindow) {
+@@ -328,7 +346,7 @@ function setupHomepageGroup(prefWindow) {
        // values we set in `browser.startup.homepage` for "Firefox Home",
        // "Blank Page", or extension-controlled URLs.
        let prefVal = homepageDisplayPref.value.trim();
@@ -67,7 +68,7 @@ index 4c19e7d..6b95e2c 100644
          customURLsDescription = null;
        } else {
          // Add a comma-separated list of Custom URLs the user set for their homepage
-@@ -385,6 +402,9 @@ function setupHomepageGroup(prefWindow) {
+@@ -385,6 +403,9 @@ function setupHomepageGroup(prefWindow) {
        // Pick up extension installs that set AboutNewTab.newTabURL directly.
        let newTabObserver = () => refreshExtensions();
        Services.obs.addObserver(newTabObserver, "newtab-url-changed");
@@ -77,7 +78,7 @@ index 4c19e7d..6b95e2c 100644
  
        let addonListener = makeAddonListenerForRefresh(refreshExtensions);
        lazy.AddonManager.addAddonListener(addonListener);
-@@ -392,6 +412,7 @@ function setupHomepageGroup(prefWindow) {
+@@ -392,6 +413,7 @@ function setupHomepageGroup(prefWindow) {
        return () => {
          lazy.AddonManager.removeAddonListener(addonListener);
          Services.obs.removeObserver(newTabObserver, "newtab-url-changed");
@@ -85,7 +86,7 @@ index 4c19e7d..6b95e2c 100644
          lazy.Management.off("extension-setting-changed", onExtensionChange);
        };
      },
-@@ -405,10 +426,15 @@ function setupHomepageGroup(prefWindow) {
+@@ -405,10 +427,15 @@ function setupHomepageGroup(prefWindow) {
        if (activeId) {
          return activeId;
        }
@@ -93,9 +94,9 @@ index 4c19e7d..6b95e2c 100644
 +      if (!prefVal) {
 +        return "blank";
 +      }
-+      return Services.prefs.getStringPref(WHIMSY_NEWTAB_PREF, "whimsy") == "home"
-+        ? "home"
-+        : "whimsy";
++      return Services.prefs.getStringPref(WHIMSY_NEWTAB_PREF, "home") == "whimsy"
++        ? "whimsy"
++        : "home";
      },
      set(inputVal) {
 -      if (inputVal === "home" || inputVal === "blank") {
@@ -103,7 +104,7 @@ index 4c19e7d..6b95e2c 100644
          let currentAddon = getActiveExtensionForSetting(
            URL_OVERRIDES_TYPE,
            NEW_TAB_KEY
-@@ -427,7 +453,10 @@ function setupHomepageGroup(prefWindow) {
+@@ -427,7 +454,10 @@ function setupHomepageGroup(prefWindow) {
              console.error("Failed to deselect new tab extension", e);
            }
          }
@@ -115,7 +116,7 @@ index 4c19e7d..6b95e2c 100644
        }
        try {
          lazy.ExtensionSettingsStore.select(
-@@ -443,7 +472,7 @@ function setupHomepageGroup(prefWindow) {
+@@ -443,7 +473,7 @@ function setupHomepageGroup(prefWindow) {
      getControlConfig(config) {
        // `config` is retained across renders, so filter back to the
        // static builtins before reattaching the current extension entries.
@@ -124,26 +125,24 @@ index 4c19e7d..6b95e2c 100644
        let builtinOptions = config.options.filter(o =>
          builtinValues.has(o.value)
        );
-@@ -461,14 +490,15 @@ function setupHomepageGroup(prefWindow) {
+@@ -461,13 +491,14 @@ function setupHomepageGroup(prefWindow) {
      deps: ["homepageNewWindows", "homepageNewTabs"],
      disabled: ({ homepageNewWindows, homepageNewTabs }) => {
        return (
 -        homepageNewWindows.value === "home" && homepageNewTabs.value === "home"
 +        homepageNewWindows.value === "whimsy" &&
-+        homepageNewTabs.value === "whimsy"
++        homepageNewTabs.value === "home"
        );
      },
      onUserClick: (e, { homepageNewWindows, homepageNewTabs }) => {
        e.preventDefault();
  
 -      homepageNewWindows.value = "home";
--      homepageNewTabs.value = "home";
 +      homepageNewWindows.value = "whimsy";
-+      homepageNewTabs.value = "whimsy";
+       homepageNewTabs.value = "home";
      },
    });
- 
-@@ -485,10 +515,8 @@ function setupHomepageGroup(prefWindow) {
+@@ -485,10 +516,8 @@ function setupHomepageGroup(prefWindow) {
          control: "moz-select",
          l10nId: "home-homepage-new-windows",
          options: [
@@ -156,7 +155,7 @@ index 4c19e7d..6b95e2c 100644
            { value: "blank", l10nId: "home-mode-choice-blank" },
            { value: "custom", l10nId: "home-mode-choice-custom" },
          ],
-@@ -505,10 +533,8 @@ function setupHomepageGroup(prefWindow) {
+@@ -505,10 +534,8 @@ function setupHomepageGroup(prefWindow) {
          control: "moz-select",
          l10nId: "home-homepage-new-tabs",
          options: [
@@ -164,12 +163,12 @@ index 4c19e7d..6b95e2c 100644
 -            value: "home",
 -            l10nId: "home-mode-choice-default-fx",
 -          },
-+          { value: "whimsy", l10nId: "whimsy-home-mode-choice-default" },
-+          { value: "home", l10nId: "whimsy-home-mode-choice-firefox" },
++          { value: "home", l10nId: "home-mode-choice-default-fx" },
++          { value: "whimsy", l10nId: "whimsy-home-mode-choice-whimsy" },
            { value: "blank", l10nId: "home-mode-choice-blank" },
          ],
        },
-@@ -562,7 +588,7 @@ function setupCustomHomepageGroup(prefWindow) {
+@@ -562,7 +589,7 @@ function setupCustomHomepageGroup(prefWindow) {
  
        let currentVal = homepageDisplayPref.value.trim();
        if (
@@ -178,7 +177,7 @@ index 4c19e7d..6b95e2c 100644
          currentVal.startsWith("moz-extension://")
        ) {
          // Replace non-custom homepage values with the new Custom URL.
-@@ -703,7 +729,7 @@ function setupCustomHomepageGroup(prefWindow) {
+@@ -703,7 +730,7 @@ function setupCustomHomepageGroup(prefWindow) {
        // extension-controlled URLs that are also stored in the homepage pref.
        let currentPrefVal = homepageDisplayPref.value.trim();
        if (
