@@ -48,7 +48,7 @@ diff --git a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs b/browser/com
      // Global state we'll use to make decisions during this sort.
      let state = {
        context,
-@@ -259,9 +291,92 @@
+@@ -259,9 +291,95 @@
      }
  
      context.results = sortedResults;
@@ -116,6 +116,9 @@ diff --git a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs b/browser/com
 +    tab.heuristic = true;
 +    heuristic.whimsyOwnHeuristic = true;
 +    heuristic.heuristic = false;
++    // The view (allowEmptySelection) and Return before the results show
++    // (getHeuristicResult) read the context's heuristic, not results[0].
++    context.heuristicResult = tab;
 +  }
 +
 +  /**

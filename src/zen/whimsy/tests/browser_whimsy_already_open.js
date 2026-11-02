@@ -331,7 +331,15 @@ add_task(async function test_new_tab_bar_offers_pinned_tab_in_every_space() {
 
 // W11-08 / W11-09 helpers. Cmd+T over the selected tab, then type.
 async function commandBar(text) {
-  document.getElementById("cmd_newNavigatorTab").doCommand();
+  // Zen opens real tabs for Cmd+T in automation (zen.testing.enabled); the
+  // app opens its command bar, which is what these check.
+  const testing = gZenUIManager.testingEnabled;
+  gZenUIManager.testingEnabled = false;
+  try {
+    document.getElementById("cmd_newNavigatorTab").doCommand();
+  } finally {
+    gZenUIManager.testingEnabled = testing;
+  }
   await TestUtils.waitForCondition(() => gURLBar.hasAttribute("zen-newtab"), "Cmd+T opened Zen's command bar");
   gURLBar.search(text);
   await UrlbarTestUtils.promiseSearchComplete(window);
