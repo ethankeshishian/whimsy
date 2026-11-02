@@ -20,3 +20,23 @@ registerCleanupFunction(function whimsyQueueSettle() {
       .catch(() => {});
   });
 });
+
+// A snapshot of a window paints each remote frame in its own process. When
+// one of those frames goes away or is replaced mid-paint (a tab closing or
+// switching process, a page committing), Gecko drops its fragment and the
+// whole snapshot rejects with NS_ERROR_LOSS_OF_SIGNIFICANT_DATA
+// (CrossProcessPaint::LostFragment). That's a race with the page, not a
+// failed check: paint again, once the frames have settled.
+async function whimsySnapshot(windowGlobal, rect, scale = 1, background = "white") {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await windowGlobal.drawSnapshot(rect, scale, background);
+    } catch (e) {
+      if (e?.result != Cr.NS_ERROR_LOSS_OF_SIGNIFICANT_DATA || attempt >= 5) {
+        throw e;
+      }
+      info(`Snapshot lost a frame mid-paint (attempt ${attempt}); painting again`);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+  }
+}

@@ -656,7 +656,7 @@ add_task(async function test_live_capture_gets_a_live_process_and_renders() {
   await TestUtils.waitForCondition(() => stage.classList.contains("ready"), "The stage shows the live page");
   const box = browser.getBoundingClientRect();
   ok(box.width > 0 && box.height > 0, "The live browser has a size on the easel");
-  const bitmap = await wgp.drawSnapshot(new DOMRect(0, 60, 40, 40), 1, "white");
+  const bitmap = await whimsySnapshot(wgp, new DOMRect(0, 60, 40, 40));
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(bitmap, 0, 0);

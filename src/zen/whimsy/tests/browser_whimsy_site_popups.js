@@ -346,7 +346,7 @@ async function shot(name, windowGlobal) {
   if (!dir) {
     return;
   }
-  const bitmap = await windowGlobal.drawSnapshot(null, 1, "white");
+  const bitmap = await whimsySnapshot(windowGlobal, null);
   const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;

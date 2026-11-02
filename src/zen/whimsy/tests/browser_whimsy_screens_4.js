@@ -32,7 +32,7 @@ async function shot(name, windowGlobal = window.browsingContext.currentWindowGlo
   const embedder = windowGlobal.browsingContext.embedderElement;
   const rect = embedder?.localName == "browser" ?
     new DOMRect(0, 0, embedder.clientWidth, embedder.clientHeight) : null;
-  const bitmap = await windowGlobal.drawSnapshot(rect, 1, "white");
+  const bitmap = await whimsySnapshot(windowGlobal, rect);
   const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;

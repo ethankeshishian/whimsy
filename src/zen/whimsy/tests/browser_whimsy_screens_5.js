@@ -33,7 +33,7 @@ async function shot(name, windowGlobal = window.browsingContext.currentWindowGlo
   const embedder = windowGlobal.browsingContext.embedderElement;
   const rect = embedder?.localName == "browser" ?
     new DOMRect(0, 0, embedder.clientWidth, embedder.clientHeight) : null;
-  const bitmap = await windowGlobal.drawSnapshot(rect, 1, "white");
+  const bitmap = await whimsySnapshot(windowGlobal, rect);
   const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
@@ -708,6 +708,26 @@ add_task(async function next_meeting_card() {
 
 
 // wave4: Seasonal loading colors on real busy tabs and the progress line.
+// The snapshot helper paints again when a frame is lost mid-paint (the
+// release quick verify failed seasonal_loading_colors with
+// NS_ERROR_LOSS_OF_SIGNIFICANT_DATA as the loading tab's frame changed), and
+// still reports any other failure.
+add_task(async function snapshot_repaints_a_lost_frame() {
+  let calls = 0;
+  const lost = { drawSnapshot: async () => {
+    if (++calls == 1) {
+      throw Components.Exception("lost", Cr.NS_ERROR_LOSS_OF_SIGNIFICANT_DATA);
+    }
+    return "bitmap";
+  } };
+  is(await whimsySnapshot(lost, null), "bitmap", "Painted again after a lost frame");
+  is(calls, 2, "...once");
+  const broken = { drawSnapshot: async () => {
+    throw Components.Exception("other", Cr.NS_ERROR_FAILURE);
+  } };
+  await Assert.rejects(whimsySnapshot(broken, null), /other/, "Other failures still fail");
+});
+
 add_task(async function seasonal_loading_colors() {
   const { WhimsySeasons } = ChromeUtils.importESModule(
     "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
