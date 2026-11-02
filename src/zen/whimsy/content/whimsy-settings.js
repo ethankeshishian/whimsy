@@ -423,6 +423,7 @@ var gWhimsySettings = {
     const notChosen = document.getElementById("whimsyPrivateLockNotChosen");
     const after = document.getElementById("whimsyPrivateLockAfter");
     const sharing = document.getElementById("whimsyPrivateLockSharing");
+    const onLeave = document.getElementById("whimsyPrivateLockOnLeave");
     const update = () => {
       for (const box of boxes) {
         box.checked = WhimsyPrivateLock.choice(box.dataset.kind) == 1;
@@ -436,6 +437,9 @@ var gWhimsySettings = {
       if (sharing) {
         sharing.checked = Services.prefs.getBoolPref("whimsy.privateLock.stayUnlockedWhileSharing", false);
       }
+      if (onLeave) {
+        onLeave.checked = Services.prefs.getBoolPref("whimsy.privateLock.onLeave", false);
+      }
     };
     for (const box of boxes) {
       box.addEventListener("change", async () => {
@@ -447,6 +451,8 @@ var gWhimsySettings = {
       Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", parseInt(after.value, 10) || 0));
     sharing?.addEventListener("change", () =>
       Services.prefs.setBoolPref("whimsy.privateLock.stayUnlockedWhileSharing", sharing.checked));
+    onLeave?.addEventListener("change", () =>
+      Services.prefs.setBoolPref("whimsy.privateLock.onLeave", onLeave.checked));
     Services.prefs.addObserver("whimsy.privateLock.", update);
     window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.privateLock.", update), { once: true });
     update();

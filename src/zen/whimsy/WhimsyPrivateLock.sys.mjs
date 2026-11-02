@@ -49,6 +49,11 @@ export const KINDS = ["tabs", "space", "windows"];
 const PREF = kind => `whimsy.privateLock.${kind}`;
 const DISMISS_PREF = kind => `whimsy.privateLock.askDismissals.${kind}`;
 const AFTER_PREF = "whimsy.privateLock.afterSeconds";
+// W13-C2 (the user): leaving a private tab, the Private Space or a locked
+// space locks at once only with this on. Off (the default), switching tabs
+// or spaces inside Whimsy never locks; the lock comes when Whimsy isn't in
+// front for "Lock after", or the Mac sleeps, locks or shares its screen.
+export const ON_LEAVE_PREF = "whimsy.privateLock.onLeave";
 const SHARING_PREF = "whimsy.privateLock.stayUnlockedWhileSharing";
 const FEATURE_PREF = "whimsy.feature.private-lock";
 const ASK_ID = "whimsyPrivateLockAsk";
@@ -84,6 +89,10 @@ export const WhimsyPrivateLock = {
 
   get afterSeconds() {
     return Math.max(0, Services.prefs.getIntPref(AFTER_PREF, 0));
+  },
+
+  get lockOnLeave() {
+    return Services.prefs.getBoolPref(ON_LEAVE_PREF, false);
   },
 
   isLocked(kind) {
@@ -234,13 +243,21 @@ export const WhimsyPrivateLock = {
     if (emptied) {
       this.renderAll();
     }
+    // Whimsy in front: only leaving with "Lock as Soon as I Leave" on
+    // locks, at once. Whimsy not in front (another app, the Mac locked):
+    // "Lock after" counts from then.
+    const appActive = !!Services.focus.activeWindow;
     for (const kind of KINDS) {
-      if (!this.isOn(kind) || locked.has(kind)) {
+      if (!this.isOn(kind) || locked.has(kind) || !this.hasOpen(kind)) {
         awaySince.delete(kind);
         continue;
       }
-      if (front == kind || !this.hasOpen(kind)) {
+      if (appActive && (front == kind || !this.lockOnLeave)) {
         awaySince.delete(kind);
+        continue;
+      }
+      if (appActive) {
+        this.lock(kind);
         continue;
       }
       if (!awaySince.has(kind)) {
@@ -719,6 +736,16 @@ export const WhimsyPrivateLock = {
       run: w => this.unlock(w),
       icon,
       isAvailable: () => this.enabled && locked.size > 0,
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyTogglePrivateLockOnLeave",
+      l10nId: "whimsy-action-private-lock-on-leave-toggle",
+      run: () => Services.prefs.setBoolPref(ON_LEAVE_PREF, !this.lockOnLeave),
+      icon,
+      variants: [
+        { l10nId: "whimsy-action-private-lock-on-leave-on", isAvailable: () => this.enabled && !this.lockOnLeave },
+        { l10nId: "whimsy-action-private-lock-on-leave-off", isAvailable: () => this.enabled && this.lockOnLeave },
+      ],
     });
     for (const kind of KINDS) {
       lazy.WhimsyCommands.register(win, {

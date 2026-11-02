@@ -688,6 +688,13 @@
 - name: whimsy.privateLock.stayUnlockedWhileSharing
   value: false
 
+# W13-C2 (the user): leaving a private tab, the Private Space or a locked
+# space locks it at once only when this is on ("Lock as Soon as I Leave").
+# Off, the lock comes when Whimsy isn't in front for "Lock after", or the
+# Mac sleeps, locks or shares its screen.
+- name: whimsy.privateLock.onLeave
+  value: false
+
 # F26: a copied image is a File in a paste's (or drop's) clipboardData, as
 # in Chrome and Safari, so sites that take pasted files (dropzone.dev,
 # event.clipboardData.files) get screenshots and copied images. Firefox

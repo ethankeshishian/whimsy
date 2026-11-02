@@ -40,6 +40,16 @@ const FEATURE_PREF = "whimsy.feature.space-lock";
 const AFTER_PREF = "whimsy.privateLock.afterSeconds";
 const MENU_ID = "whimsy-lock-space-menuitem";
 const LOCKED_ATTR = "whimsy-locked-space";
+// W13-C2 (the user): leaving a locked space locks it at once only with
+// "Lock as Soon as I Leave" on (WhimsyPrivateLock.ON_LEAVE_PREF).
+function lockOnLeave() {
+  return Services.prefs.getBoolPref("whimsy.privateLock.onLeave", false);
+}
+
+// When Whimsy stopped being in front (another app, the Mac locked), or null.
+let inactiveSince = null;
+let inactiveTimer = null;
+
 function afterMs() {
   return Math.max(0, Services.prefs.getIntPref(AFTER_PREF, 0)) * 1000;
 }
@@ -60,7 +70,6 @@ const lastLeft = new Map();
 // follows: when.
 const tickets = new Map();
 const TICKET_MS = 10 * 1000;
-let relockTimer = null;
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -73,6 +82,8 @@ export const WhimsySpaceLock = {
     }
     this.wrapChangeWorkspace(win);
     this.initContextMenu(win);
+    win.addEventListener("deactivate", () => win.setTimeout(() => this.onAppInactive(), 0));
+    win.addEventListener("activate", () => this.onAppActive());
     // wave5: the space menu's "Lock This Space" as a command for the
     // current space.
     const active = w => w.gZenWorkspaces.getWorkspaces().find(s => s.uuid == w.gZenWorkspaces.activeWorkspace);
@@ -151,7 +162,44 @@ export const WhimsySpaceLock = {
     this._global = true;
     // Mac sleep closes every unlocked space again (d4).
     Services.obs.addObserver(() => this.lockAll(), "sleep_notification");
+    // Whimsy back in front: closed again if it was away for "Lock after".
+    Services.obs.addObserver(() => this.onAppActive(), "mac_app_activate");
     Services.prefs.addObserver(AFTER_PREF, () => this.renderAll());
+  },
+
+  // Whimsy isn't in front any more (a window lost focus and none has it):
+  // "Lock after" counts from now; right away closes every open space.
+  onAppInactive() {
+    if (Services.focus.activeWindow || !open.size || inactiveSince) {
+      return;
+    }
+    inactiveSince = Date.now();
+    if (!afterMs()) {
+      this.lockAll();
+      return;
+    }
+    inactiveTimer?.cancel();
+    inactiveTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+    inactiveTimer.initWithCallback(() => {
+      inactiveTimer = null;
+      if (inactiveSince && !Services.focus.activeWindow) {
+        this.lockAll();
+      }
+    }, afterMs(), Ci.nsITimer.TYPE_ONE_SHOT);
+  },
+
+  // For tests: when Whimsy stopped being in front.
+  _testInactiveSince(ms) {
+    inactiveSince = ms;
+  },
+
+  onAppActive() {
+    if (inactiveSince && Date.now() - inactiveSince >= afterMs()) {
+      this.lockAll();
+    }
+    inactiveSince = null;
+    inactiveTimer?.cancel();
+    inactiveTimer = null;
   },
 
   windows() {
@@ -179,6 +227,11 @@ export const WhimsySpaceLock = {
     if (!open.has(uuid)) {
       return false;
     }
+    // Unlocked stays unlocked until Whimsy is away for "Lock after" or the
+    // Mac sleeps (onAppInactive, lockAll), unless leaving locks.
+    if (!lockOnLeave()) {
+      return true;
+    }
     if (this.activeAnywhere(uuid)) {
       return true;
     }
@@ -199,18 +252,12 @@ export const WhimsySpaceLock = {
     if (!uuid || !open.has(uuid) || this.activeAnywhere(uuid)) {
       return;
     }
-    if (!afterMs()) {
+    // Leaving inside Whimsy keeps it open, unless "Lock as Soon as I
+    // Leave" is on: then it's closed at once.
+    if (lockOnLeave()) {
       open.delete(uuid);
       lastLeft.delete(uuid);
-      return;
     }
-    lastLeft.set(uuid, Date.now());
-    relockTimer?.cancel();
-    relockTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-    relockTimer.initWithCallback(() => {
-      relockTimer = null;
-      this.renderAll();
-    }, afterMs() + 50, Ci.nsITimer.TYPE_ONE_SHOT);
   },
 
   lockAll() {

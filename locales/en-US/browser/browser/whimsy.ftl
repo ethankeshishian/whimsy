@@ -4678,6 +4678,9 @@ whimsy-private-lock-yes =
 whimsy-private-lock-on-toast = Private browsing will lock when you step away
 whimsy-action-lock-private-now = Lock Private Browsing Now
 whimsy-action-unlock-private = Unlock Private Browsing
+whimsy-action-private-lock-on-leave-toggle = Turn Lock as Soon as I Leave On or Off
+whimsy-action-private-lock-on-leave-on = Turn Lock as Soon as I Leave On
+whimsy-action-private-lock-on-leave-off = Turn Lock as Soon as I Leave Off
 whimsy-action-private-lock-tabs-toggle = Turn Lock for Private Tabs On or Off
 whimsy-action-private-lock-tabs-on = Turn Lock for Private Tabs On
 whimsy-action-private-lock-tabs-off = Turn Lock for Private Tabs Off
@@ -4716,7 +4719,11 @@ whimsy-private-lock-after-15m =
     .label = 15 minutes away
 whimsy-private-lock-after-1h =
     .label = 1 hour away
-whimsy-private-lock-after-note = Always locks when your Mac sleeps or locks, and when { -brand-short-name } starts sharing your screen.
+whimsy-private-lock-after-note = How long { -brand-short-name } can be in the background before it locks. It always locks when your Mac sleeps or locks, and when { -brand-short-name } starts sharing your screen.
+# W13-C2: on, leaving a private tab, the Private Space or a locked space locks it at once.
+whimsy-private-lock-on-leave =
+    .label = Lock as Soon as I Leave
+    .description = Switching to another tab or space locks private browsing and locked spaces right away.
 whimsy-private-lock-sharing =
     .label = Stay unlocked while sharing your screen
 # W11-14 (d14): Lock Space's cover. $space (string) - the space's name

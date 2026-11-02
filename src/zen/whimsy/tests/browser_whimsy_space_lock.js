@@ -28,6 +28,9 @@ let answer = true;
 const asked = [];
 
 add_setup(async function () {
+  // These tasks check "Lock as Soon as I Leave" (W13-C2); the default (off)
+  // is checked in test_leaving_keeps_it_open_by_default.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.privateLock.onLeave", true]] });
   WhimsyAuth._reauthenticator = {
     async asyncReauthenticateUser(prompt, caption, parentWindow) {
       asked.push({ prompt, caption, parentWindow });
@@ -153,24 +156,38 @@ add_task(async function test_unlock_button_opens_it_and_leaving_closes_it_again(
   await changeSpace(firstSpace.uuid);
 });
 
-add_task(async function test_lock_after_and_sleep() {
-  Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", 60);
+add_task(async function test_leaving_keeps_it_open_by_default() {
+  // The default: leaving inside Whimsy doesn't lock, whatever "Lock after"
+  // says; only Whimsy being away that long, or the Mac sleeping, does.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.privateLock.onLeave", false]] });
   answer = true;
   asked.length = 0;
   await changeSpace(secondSpace.uuid);
   await promptSettled(1);
   await TestUtils.waitForCondition(() => !cover(), "Unlocked");
-  await changeSpace(firstSpace.uuid);
-  ok(!WhimsySpaceLock.isCovered(secondSpace.uuid), "With Lock after 1 minute, it stays open a while");
-  await changeSpace(secondSpace.uuid);
-  ok(!cover(), "...so coming back shows it");
-  is(asked.length, 1, "...without asking");
+  for (const after of [0, 60]) {
+    Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", after);
+    await changeSpace(firstSpace.uuid);
+    ok(!WhimsySpaceLock.isCovered(secondSpace.uuid), `Lock after ${after}s: leaving keeps it open`);
+    await changeSpace(secondSpace.uuid);
+    ok(!cover(), "...so coming back shows it");
+  }
+  is(asked.length, 1, "...without asking again");
+  // Whimsy back in front after being away longer than "Lock after".
+  Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", 0);
+  WhimsySpaceLock._testInactiveSince(Date.now() - 1000);
+  WhimsySpaceLock.onAppActive();
+  ok(WhimsySpaceLock.isCovered(secondSpace.uuid), "Away from Whimsy for Lock after: locked");
+  answer = true;
+  await WhimsySpaceLock.unlockCovered(window, space(secondSpace.uuid));
+  await TestUtils.waitForCondition(() => !cover(), "Unlocked again");
 
   // Mac sleep covers it at once, even in front.
   Services.obs.notifyObservers(null, "sleep_notification");
   ok(WhimsySpaceLock.isCovered(secondSpace.uuid), "Sleep locks it");
   assertCovered("After sleep");
   Services.prefs.clearUserPref("whimsy.privateLock.afterSeconds");
+  await SpecialPowers.popPrefEnv();
   await changeSpace(firstSpace.uuid);
   answer = true;
   await WhimsySpaceLock.toggleLocked(window, secondSpace.uuid);

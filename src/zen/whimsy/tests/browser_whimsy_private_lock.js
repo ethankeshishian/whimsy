@@ -15,6 +15,9 @@ let answer = false;
 const asked = [];
 
 add_setup(async function () {
+  // Most tasks check "Lock as Soon as I Leave" (W13-C2, the user's
+  // setting); test_leaving_doesnt_lock_by_default checks the default (off).
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.privateLock.onLeave", true]] });
   WhimsyAuth._reauthenticator = {
     async asyncReauthenticateUser(prompt, caption, parentWindow) {
       asked.push({ prompt, parentWindow });
@@ -136,18 +139,32 @@ add_task(async function test_tab_locks_right_away_and_unlocks() {
   BrowserTestUtils.removeTab(priv, { animate: false });
 });
 
-add_task(async function test_lock_after_waits() {
+// W13-C2 (the user): by default leaving a private tab, inside Whimsy, never
+// locks it, whatever "Lock after" says; Lock Now, Mac sleep and Whimsy
+// being away for "Lock after" still do.
+add_task(async function test_leaving_doesnt_lock_by_default() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.privateLock.onLeave", false]] });
   Services.prefs.setIntPref("whimsy.privateLock.tabs", 1);
-  Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", 60);
   const priv = await openPrivateTab("after");
+  for (const after of [0, 60]) {
+    Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", after);
+    gBrowser.selectedTab = gBrowser.tabs[0];
+    await new Promise(resolve => setTimeout(resolve, 200));
+    ok(!WhimsyPrivateLock.isLocked("tabs"), `Lock after ${after}s: leaving the private tab doesn't lock it`);
+    gBrowser.selectedTab = priv;
+    ok(!document.querySelector(".whimsy-lock-cover"), "...and coming back shows it");
+  }
   gBrowser.selectedTab = gBrowser.tabs[0];
-  await new Promise(resolve => setTimeout(resolve, 200));
-  ok(!WhimsyPrivateLock.isLocked("tabs"), "With Lock after 1 minute, leaving doesn't lock yet");
   // Mac sleep always locks.
   Services.obs.notifyObservers(null, "sleep_notification");
   ok(WhimsyPrivateLock.isLocked("tabs"), "Sleep locks at once");
   WhimsyPrivateLock.unlockAll();
+  // Turning the setting on locks what you've left.
+  Services.prefs.setBoolPref("whimsy.privateLock.onLeave", true);
+  await TestUtils.waitForCondition(() => WhimsyPrivateLock.isLocked("tabs"), "With the setting on, it locks");
+  WhimsyPrivateLock.unlockAll();
   Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", 0);
+  await SpecialPowers.popPrefEnv();
   BrowserTestUtils.removeTab(priv, { animate: false });
 });
 
@@ -161,6 +178,15 @@ add_task(async function test_commands_and_turning_off() {
   document.getElementById("cmd_whimsyLockPrivateNow").doCommand();
   ok(WhimsyPrivateLock.isLocked("tabs"), "Lock Now locks");
   ok(action("whimsy-action-unlock-private")?.isAvailable(window), "Unlock is offered while locked");
+
+  // W13-C2: Lock as Soon as I Leave is a command with an assignable shortcut.
+  ok(action("whimsy-action-private-lock-on-leave-off")?.isAvailable(window), "Turn Lock as Soon as I Leave Off is offered");
+  ok(document.getElementById("key_cmd_whimsyTogglePrivateLockOnLeave"), "...and can take a shortcut");
+  document.getElementById("cmd_whimsyTogglePrivateLockOnLeave").doCommand();
+  ok(!Services.prefs.getBoolPref("whimsy.privateLock.onLeave"), "The command turns it off");
+  ok(action("whimsy-action-private-lock-on-leave-on")?.isAvailable(window), "...then offers Turn On");
+  document.getElementById("cmd_whimsyTogglePrivateLockOnLeave").doCommand();
+  ok(Services.prefs.getBoolPref("whimsy.privateLock.onLeave"), "...and back on");
 
   // Turning the switch off while locked asks first (d8).
   answer = false;
@@ -212,6 +238,15 @@ add_task(async function test_settings_card() {
     is(tabs.checked, WhimsyPrivateLock.choice("tabs") == 1, "The tabs switch shows the choice");
     ok(doc.getElementById("whimsyPrivateLockAfter"), "Lock after");
     ok(doc.getElementById("whimsyPrivateLockSharing"), "Stay unlocked while sharing");
+    const onLeave = doc.getElementById("whimsyPrivateLockOnLeave");
+    ok(onLeave, "Lock as Soon as I Leave");
+    await doc.l10n.translateFragment(onLeave);
+    is(onLeave.label, "Lock as Soon as I Leave", "...named as the user asked");
+    is(onLeave.checked, true, "...shows the setting");
+    onLeave.click();
+    await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref("whimsy.privateLock.onLeave"), "Unchecking turns it off");
+    onLeave.click();
+    await TestUtils.waitForCondition(() => Services.prefs.getBoolPref("whimsy.privateLock.onLeave"), "...and on");
   });
 });
 
@@ -340,6 +375,8 @@ add_task(async function test_private_tab_stays_locked_across_spaces_and_keys() {
   gBrowser.selectedTab = normal;
   await changeSpace(other.uuid);
   gBrowser.selectedTab = priv;
+  // Zen first switches to the tab's space, then selects it.
+  await TestUtils.waitForCondition(() => gBrowser.selectedTab == priv, "Selected, in its own space");
   assertCovered("tabs", "Selected directly");
   ok(WhimsyPrivateLock.isLocked("tabs"), "Still locked");
   await TestUtils.waitForCondition(() => asked.length == 2 && !WhimsyPrivateLock._prompting, "Asked on this landing too");
