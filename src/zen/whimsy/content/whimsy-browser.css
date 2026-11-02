@@ -1298,6 +1298,8 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   max-width: 220px;
   font-weight: 600;
   font-size: 12px;
+  border-start-start-radius: 8px !important;
+  border-end-start-radius: 8px !important;
 
   & > .toolbarbutton-icon {
     width: 14px !important;
@@ -1315,8 +1317,11 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
 }
 
 #whimsy-quick-window-choose-space {
+  width: 24px;
   min-width: 24px !important;
-  border-inline-start: 1px solid var(--whimsy-mini-hairline) !important;
+  border-start-end-radius: 8px !important;
+  border-end-end-radius: 8px !important;
+  border-inline-start: 0 !important;
   /* Arc's caret points down: it opens a list of spaces. */
   list-style-image: url("chrome://global/skin/icons/arrow-down.svg");
 
@@ -4264,11 +4269,6 @@ whimsy-library-easels-section .zen-library-empty {
   min-width: 24px !important;
   border-inline-start: 0 !important;
 }
-#whimsy-quick-window-open kbd {
-  line-height: 16px;
-  padding-inline-end: 8px;
-  border-inline-end: 1px solid var(--whimsy-mini-hairline);
-}
 
 /* fix7/mini: Little Arc's address strip holds Extensions and Copy Link at
    its right end. The strip carries the fill; the address button inside it
@@ -5312,7 +5312,7 @@ panel.whimsy-sheet.whimsy-snooze {
     background-position: left center;
   }
 }
-#whimsy-quick-window-open:has(> #whimsy-quick-window-move-to-space:not([disabled])) {
+#whimsy-quick-window-open:not([searching]):has(> #whimsy-quick-window-move-to-space:not([disabled])) {
   &:has(> :is(#whimsy-quick-window-move-to-space, kbd):hover) > :is(#whimsy-quick-window-move-to-space, kbd) {
     background-color: var(--whimsy-mini-fill-hover);
   }
@@ -5321,12 +5321,12 @@ panel.whimsy-sheet.whimsy-snooze {
   }
 }
 
-/* W10-29: ⌘⇧O (and the caret) turn the address strip into a search field
-   and drop Mini's spaces down under it, in Mini's own frame colour with a
-   hairline edge, 10px corners and rows concentric inside them (6px at a
-   4px inset); the highlight is the bar's hover fill, each space's icon sits
-   on a tile of its colour, its profile is a small trailing label. */
-#whimsy-quick-window-address-field {
+/* W10-29 / F19: ⌘⇧O (and the caret) turn the Open in Space pill into a
+   search field and drop Mini's spaces down under it, in Mini's own frame
+   colour with a hairline edge, 10px corners and rows concentric inside them;
+   the highlight is the bar's hover fill, each space's icon sits on a tile of
+   its colour, its profile is a small trailing label. */
+#whimsy-quick-window-open {
   & > .whimsy-mini-picker-search {
     display: none;
   }
@@ -5336,17 +5336,17 @@ panel.whimsy-sheet.whimsy-snooze {
     background: color-mix(in srgb, var(--whimsy-mini-text) 6%, var(--whimsy-mini-frame));
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, transparent);
 
-    & > :not(.whimsy-mini-picker-search) {
+    & > :not(.whimsy-mini-picker-search, #whimsy-quick-window-choose-space) {
       display: none !important;
     }
 
     & > .whimsy-mini-picker-search {
       display: block;
       flex: 1;
-      min-width: 0;
+      min-width: 140px;
       height: 100%;
       margin: 0;
-      padding: 0 9px;
+      padding: 0 10px;
       border: 0;
       background: transparent;
       color: var(--whimsy-mini-text);
@@ -5357,6 +5357,10 @@ panel.whimsy-sheet.whimsy-snooze {
       &::placeholder {
         color: color-mix(in srgb, var(--whimsy-mini-text) 55%, transparent);
       }
+    }
+
+    & > #whimsy-quick-window-choose-space {
+      background: transparent !important;
     }
   }
 }

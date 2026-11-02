@@ -1958,21 +1958,21 @@ export const WhimsyQuickWindow = {
     }
   },
 
-  // W10-29 (Arc parity, the user's pick): ⌘⇧O, or the caret, turns Mini's
-  // address strip itself into a search field, and the spaces drop down under
-  // it: one flat list in sidebar order (not grouped by profile), each with
+  // W10-29 / F19 (Arc parity, the user's pick): ⌘⇧O, or the caret, turns
+  // the "Open in Space" pill into a search field, and the spaces drop down
+  // under it: one flat list in sidebar order (not grouped by profile), each with
   // its icon on a tile of its colour, its name, and its profile as a small
   // trailing label; ⌘O marks the space Open uses. Typing filters by space
   // or profile name (accents and case don't matter) and bolds the match;
   // ↑/↓/Home/End move the highlight, Return opens the page in the
-  // highlighted space (moveToSpace, with its profile confirm), Esc puts the
-  // address back. The list is drawn in Mini's own frame colour, never a
+  // highlighted space (moveToSpace, with its profile confirm), Esc puts
+  // Open in Space back. The list is drawn in Mini's own frame colour, never a
   // system menu.
   openSpacePicker(win, anchor) {
     const { document } = win;
     const spaces = this.spaces(win);
-    const field = document.getElementById(ADDRESS_FIELD_ID);
-    if (!spaces.length || !field) {
+    const openGroup = document.getElementById(OPEN_GROUP_ID);
+    if (!spaces.length || !openGroup) {
       return;
     }
     const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
@@ -1982,7 +1982,7 @@ export const WhimsyQuickWindow = {
       return;
     }
     const restoreFocus = document.activeElement;
-    // The address strip becomes the search field.
+    // The "Open in Space" text is replaced by the search field.
     let input = document.getElementById(SPACE_SEARCH_ID);
     if (!input) {
       input = html("input");
@@ -1994,7 +1994,12 @@ export const WhimsyQuickWindow = {
       input.setAttribute("aria-controls", SPACE_LIST_ID);
       input.setAttribute("autocomplete", "off");
       input.spellcheck = false;
-      field.prepend(input);
+      const choose = document.getElementById(CHOOSE_BUTTON_ID);
+      if (choose) {
+        choose.before(input);
+      } else {
+        openGroup.append(input);
+      }
     }
     const multiProfile = lazy.WhimsyProfiles.enabled && lazy.WhimsyProfiles.list().length > 1;
     document.l10n.setAttributes(input, multiProfile ? "whimsy-mini-picker-search" : "whimsy-mini-picker-search-spaces");
@@ -2025,7 +2030,7 @@ export const WhimsyQuickWindow = {
       panel.addEventListener("popupshowing", event => {
         if (event.target == panel) {
           choose()?.setAttribute("open", "true");
-          field.setAttribute("searching", "true");
+          openGroup.setAttribute("searching", "true");
           input.setAttribute("aria-expanded", "true");
         }
       });
@@ -2034,7 +2039,7 @@ export const WhimsyQuickWindow = {
           return;
         }
         choose()?.removeAttribute("open");
-        field.removeAttribute("searching");
+        openGroup.removeAttribute("searching");
         input.setAttribute("aria-expanded", "false");
         input.removeAttribute("aria-activedescendant");
         input.value = "";
@@ -2190,9 +2195,10 @@ export const WhimsyQuickWindow = {
     };
     filter();
 
-    // Under the address strip, as wide as it (at least 270px).
-    panel.style.width = `${Math.max(270, Math.round(field.getBoundingClientRect().width))}px`;
-    panel.openPopup(field, { position: "after_start", y: 4 });
+    // Under the "Open in Space" search pill, right-aligned (at least 270px).
+    openGroup.setAttribute("searching", "true");
+    panel.style.width = `${Math.max(270, Math.round(openGroup.getBoundingClientRect().width))}px`;
+    panel.openPopup(openGroup, { position: "after_end", y: 4 });
     input.focus();
   },
 

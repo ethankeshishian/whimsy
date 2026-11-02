@@ -87,8 +87,8 @@ add_task(async function test_open_in_highlight_covers_the_keycap() {
   }
 });
 
-// W10-29: the space list drops from the address strip, which turns into
-// its search field; drawn in Mini's frame colour, never a system menu.
+// W10-29 / F19: the search field replaces the "Open in Space" text as in
+// Arc; drawn in Mini's frame colour, never a system menu.
 add_task(async function test_space_dropdown_is_arcs_popover() {
   const win = await openMini();
   try {
@@ -98,11 +98,12 @@ add_task(async function test_space_dropdown_is_arcs_popover() {
     await TestUtils.waitForCondition(() => picker()?.state == "open", "The list opens");
     const popup = picker();
     is(popup.localName, "panel", "A Whimsy panel, not a system menu (W8-22)");
-    const field = doc.getElementById("whimsy-quick-window-address-field");
-    ok(field.hasAttribute("searching"), "The address strip is the search field now");
+    const openGroup = doc.getElementById("whimsy-quick-window-open");
+    ok(openGroup.hasAttribute("searching"), "Open in Space holds the search field now");
     const input = doc.getElementById("whimsy-mini-picker-search");
     is(doc.activeElement, input, "with the keyboard in it");
-    ok(!doc.getElementById("whimsy-quick-window-address").checkVisibility(), "The address gives way to it");
+    ok(!doc.getElementById("whimsy-quick-window-move-to-space").checkVisibility(), "Open in Space gives way to it");
+    ok(doc.getElementById("whimsy-quick-window-address").checkVisibility(), "The address strip stays visible");
 
     // Keyboard drives it: Down highlights the next row in the bar's hover fill.
     const rows = [...popup.querySelectorAll(".whimsy-mini-picker-space")];
@@ -121,8 +122,8 @@ add_task(async function test_space_dropdown_is_arcs_popover() {
     EventUtils.synthesizeKey("KEY_Escape", {}, win);
     await hidden;
     ok(!win.closed, "Esc closes the list, not Mini");
-    ok(!field.hasAttribute("searching"), "and puts the address back");
-    ok(doc.getElementById("whimsy-quick-window-address").checkVisibility(), "The address shows again");
+    ok(!openGroup.hasAttribute("searching"), "and puts Open in Space back");
+    ok(doc.getElementById("whimsy-quick-window-move-to-space").checkVisibility(), "Open in Space shows again");
   } finally {
     await BrowserTestUtils.closeWindow(win);
   }

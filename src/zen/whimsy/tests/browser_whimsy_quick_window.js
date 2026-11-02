@@ -158,7 +158,9 @@ add_task(async function test_cmd_shift_o_and_caret_open_the_space_dropdown() {
   EventUtils.synthesizeKey("o", { accelKey: true, shiftKey: true }, win);
   await TestUtils.waitForCondition(() => picker()?.state == "open", "Cmd+Shift+O opens the list");
   const popup = picker();
-  is(doc.activeElement?.id, "whimsy-mini-picker-search", "The address strip is the search field, focused");
+  is(doc.activeElement?.id, "whimsy-mini-picker-search", "The search field is focused");
+  ok(doc.getElementById("whimsy-quick-window-open").hasAttribute("searching"), "Open in Space holds the search field");
+  ok(doc.getElementById("whimsy-quick-window-address").checkVisibility(), "Address strip stays visible");
   const rows = [...popup.querySelectorAll(".whimsy-mini-picker-space")];
   const spaces = gZenWorkspaces.getWorkspaces().filter(space => !space.whimsyScratch);
   Assert.deepEqual(rows.map(row => row.getAttribute("zen-workspace-id")), spaces.map(space => space.uuid),
