@@ -14,22 +14,44 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
+  WhimsyUploadBadges: "resource:///modules/whimsy/WhimsyUploadBadges.sys.mjs",
 });
 
+// The two clipboard flavors paste to upload reads. W13-R2: the badges check
+// these same flavors (clipboardKind), types only, so a badge never shows for
+// something the paste can't read.
+export const FILE_FLAVOR = "application/x-moz-file";
+export const IMAGE_FLAVOR = "image/png";
+
+const hasFlavor = flavor => Services.clipboard.hasDataMatchingFlavors([flavor], Ci.nsIClipboard.kGlobalClipboard);
+
+// "file", "image" or null: what Cmd+V would upload, by the clipboard's type
+// alone (no contents are read, so macOS doesn't ask).
+export function clipboardKind() {
+  try {
+    if (hasFlavor(FILE_FLAVOR)) {
+      return "file";
+    }
+    return hasFlavor(IMAGE_FLAVOR) ? "image" : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function clipboardImagePath() {
-  if (!Services.clipboard.hasDataMatchingFlavors(["image/png"], Ci.nsIClipboard.kGlobalClipboard)) {
+  if (!hasFlavor(IMAGE_FLAVOR)) {
     return null;
   }
   try {
     const transferable = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
     transferable.init(null);
-    transferable.addDataFlavor("image/png");
+    transferable.addDataFlavor(IMAGE_FLAVOR);
     Services.clipboard.getData(transferable, Ci.nsIClipboard.kGlobalClipboard);
     const data = {};
-    transferable.getTransferData("image/png", data);
+    transferable.getTransferData(IMAGE_FLAVOR, data);
     const container = data.value.QueryInterface(Ci.imgIContainer);
     const imgTools = Cc["@mozilla.org/image/tools;1"].getService(Ci.imgITools);
-    const stream = imgTools.encodeImage(container, "image/png");
+    const stream = imgTools.encodeImage(container, IMAGE_FLAVOR);
     const available = stream.available();
     const binary = lazy.NetUtil.readInputStreamToString(stream, available);
     const bytes = new Uint8Array(available);
@@ -50,8 +72,8 @@ async function clipboardImagePath() {
 // puts the file's icon there as an image, so a copied file wins over
 // clipboardImagePath (otherwise pasting a copied PDF uploads its icon).
 function clipboardFilePath() {
-  const flavor = "application/x-moz-file";
-  if (!Services.clipboard.hasDataMatchingFlavors([flavor], Ci.nsIClipboard.kGlobalClipboard)) {
+  const flavor = FILE_FLAVOR;
+  if (!hasFlavor(flavor)) {
     return null;
   }
   try {
@@ -168,7 +190,41 @@ export class WhimsyUploadParent extends JSWindowActorParent {
     return last?.topId != null && last.topId == top?.id && Date.now() - last.time < PASTE_GESTURE_MS;
   }
 
+  // W13-R2: the clipboard's file or image as a File, for a click on a
+  // paste badge or the Paste Image to Upload command (gestures in the
+  // parent itself), or null.
+  static async readClipboardFile() {
+    const clip = await WhimsyUploadParent.clipboardUpload();
+    return clip ? ((await withFile({ path: clip.path }))?.file ?? null) : null;
+  }
+
+  // The tab's <browser>, for messages about the indicator: only from the
+  // top-level page now showing in it.
+  get indicatorBrowser() {
+    const bc = this.browsingContext;
+    if (!bc || bc != bc.top || !this.manager?.isCurrentGlobal) {
+      return null;
+    }
+    return bc.embedderElement ?? null;
+  }
+
   async receiveMessage(message) {
+    // W13-R2: the paste badges (WhimsyUploadBadges draws them).
+    switch (message.name) {
+      case "WhimsyUpload:Hello":
+        return lazy.WhimsyUploadBadges.stateFor(this.indicatorBrowser);
+      case "WhimsyUpload:Targets":
+      case "WhimsyUpload:Hot":
+      case "WhimsyUpload:Status":
+      case "WhimsyUpload:FocusBadge":
+      case "WhimsyUpload:Near": {
+        const browser = this.indicatorBrowser;
+        if (browser) {
+          lazy.WhimsyUploadBadges.fromChild(browser, message.name, message.data ?? {});
+        }
+        return null;
+      }
+    }
     // Cmd+V on a focused upload button: the clipboard's file or image, no popup.
     if (message.name == "WhimsyUpload:Paste") {
       if (!WhimsyUploadParent.pastedJustNow(this.browsingContext.topChromeWindow, this.browsingContext.top)) {

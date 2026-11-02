@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<!-- W13-R2: five plain upload fields, four in view and one far below: at most
+     three badges, in reading order, only for fields in view. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Many uploads</title>
+<style>
+  input[type=file] { display: block; margin: 40px 20px; }
+  #spacer { height: 3000px; }
+</style>
+</head>
+<body>
+<input id="f1" type="file">
+<input id="f2" type="file">
+<input id="f3" type="file">
+<input id="f4" type="file">
+<div id="spacer"></div>
+<input id="far" type="file">
+<div style="height: 1500px"></div>
+<script>
+  window.changes = {};
+  for (const input of document.querySelectorAll("input[type=file]")) {
+    input.addEventListener("change", () => (window.changes[input.id] = (window.changes[input.id] ?? 0) + 1));
+  }
+</script>
+</body>
+</html>

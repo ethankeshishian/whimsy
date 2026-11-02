@@ -252,6 +252,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave7/security: upload from the clipboard checks Cmd+V in the parent.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyUploadParent: "resource:///modules/whimsy/WhimsyUploadParent.sys.mjs",
+  WhimsyUploadBadges: "resource:///modules/whimsy/WhimsyUploadBadges.sys.mjs",
 });
 
 // wave7/split: a split pane's ⋯ menu on its hover header.
@@ -394,6 +395,14 @@ export const Whimsy = {
           click: { capture: true, mozSystemGroup: true },
           // fixA: Cmd+V on a focused upload button.
           keydown: { capture: true, mozSystemGroup: true },
+          // W13-R2: the page's own paste goes first; Whimsy decides in the
+          // system group, after every page listener.
+          paste: { mozSystemGroup: true },
+          // A cancelled file picker restarts the click memory.
+          cancel: { mozSystemGroup: true },
+          // The paste badges: the page asks for the indicator's state.
+          pageshow: { mozSystemGroup: true },
+          pagehide: { mozSystemGroup: true },
         },
       },
       allFrames: true,
@@ -897,6 +906,9 @@ export const Whimsy = {
     // wave7/security: the clipboard's file goes to a page only right after
     // Cmd+V (Ctrl+V) that the parent itself saw.
     run("upload-clipboard", () => lazy.WhimsyUploadParent.initWindow(win));
+    // W13-R2: the "⌘V Paste" badges and Paste Image to Upload. Checks its
+    // switches on use.
+    run("upload-badges", () => lazy.WhimsyUploadBadges.initWindow(win));
     // wave7/split: the pane header's ⋯ menu. Checks its switch on use.
     run("split-pane-menu", () => lazy.WhimsySplitPane.initWindow(win));
     // wave7/split2: Arc's split row menu. Checks its switch on use.

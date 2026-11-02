@@ -844,6 +844,26 @@ whimsy-upload-clipboard-file =
 whimsy-upload-choose-file =
     .label = Choose file…
 
+## W13-R2: paste to upload, the "⌘V Paste" badges on upload boxes
+
+# The badge on an upload box while an image is copied (after the key).
+whimsy-upload-badge-paste = Paste
+whimsy-upload-badge-image =
+    .aria-label = Paste image to upload
+whimsy-upload-badge-file =
+    .aria-label = Paste file to upload
+# The badge, grown on hover or focus. $key (string) - "⌘V" or "Ctrl+V"
+whimsy-upload-pill-image = Image on clipboard · { $key } to upload
+# $key (string) - "⌘V" or "Ctrl+V"
+whimsy-upload-pill-file = File on clipboard · { $key } to upload
+whimsy-upload-status-uploading = Uploading…
+whimsy-upload-status-done = Uploading… ✓
+whimsy-upload-status-failed = Couldn't upload: the site didn't accept it
+whimsy-upload-no-target = No upload box on this page
+whimsy-action-paste-to-upload = Paste Image to Upload
+whimsy-upload-badges-setting =
+    .label = Show “Paste” on upload boxes while an image or file is copied
+
 ## batch7: developer mode tabs
 
 whimsy-action-devmode-toggle = Turn Developer Mode On or Off
@@ -4321,6 +4341,8 @@ whimsy-setting-page-actions = Page Actions
     .keywords = add to calendar, open in maps, cook mode, recipes, parcel tracking
 whimsy-setting-smart-buttons = Smart Buttons
     .keywords = reader view button, translate button, address bar buttons, media button
+whimsy-setting-upload-badges = Paste Badges
+    .keywords = paste to upload, clipboard image, screenshot, upload box, drop zone
 whimsy-setting-external-links = Links from Other Apps
     .keywords = external links, default browser, mini whimsy, little arc, links from apps
 whimsy-setting-glance-size = Glance Size

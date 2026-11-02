@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     https://creativecommons.org/publicdomain/zero/1.0/ -->
+<!-- W13-R2: Google Drive. The file list takes dropped files (its listeners are
+     the only sign; no class says so), and New → File upload creates its input
+     on click, never in the page. Whimsy can't find a target here, so it must
+     show no badge and add nothing on Cmd+V. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>My Drive</title>
+<style>
+  #list { width: 600px; height: 300px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<button id="new">New</button>
+<div id="list" role="grid" aria-label="Files"><div role="row">Notes.docx</div></div>
+<script>
+  window.dropped = 0;
+  window.uploaded = 0;
+  const list = document.getElementById("list");
+  list.addEventListener("dragover", event => event.preventDefault());
+  list.addEventListener("drop", event => {
+    event.preventDefault();
+    window.dropped += event.dataTransfer.files.length;
+  });
+  document.getElementById("new").addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.addEventListener("change", () => (window.uploaded += input.files.length));
+    input.click();
+  });
+</script>
+</body>
+</html>

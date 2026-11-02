@@ -256,6 +256,22 @@ support-files = ["whimsy_upload.html", "whimsy_upload_widgets.html", "whimsy_upl
 ["browser_whimsy_upload_paste_form.js"]
 support-files = ["whimsy_upload_form.html", "whimsy_upload_paste_zone.html"]
 
+# W13-R2 paste to upload: each kind of site gets the file exactly once
+# (real Dropzone.js, a React root, GitHub, Gmail/Slack, Drive).
+["browser_whimsy_upload_targets.js"]
+support-files = [
+  "whimsy_upload_dropzone_real.html",
+  "whimsy_upload_dropzone.min.js",
+  "whimsy_upload_react.html",
+  "whimsy_upload_github.html",
+  "whimsy_upload_compose.html",
+  "whimsy_upload_drive.html",
+]
+
+# W13-R2: the "⌘V Paste" badges (option D).
+["browser_whimsy_upload_badges.js"]
+support-files = ["whimsy_upload_many.html", "whimsy_upload_react.html"]
+
 ["browser_whimsy_dev_mode.js"]
 
 # linear: Linear live folder ("My Issues": assigned to you, open states).
