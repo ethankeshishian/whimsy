@@ -10,7 +10,9 @@ export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH" _ZO_DOCTOR=0
 export WHIMSY_SHOTS="${WHIMSY_SHOTS:-$PWD/.surfer/shots}"
 MODE="${1:-all}"
 rm -rf "$WHIMSY_SHOTS" && mkdir -p "$WHIMSY_SHOTS" .surfer/verify
-ROOT=$PWD
+# The sandbox read path must be the src/ the engine links into: in a
+# worktree, engine/ is a symlink to the main checkout's engine.
+ROOT=$(cd "$(dirname "$(cd engine && pwd -P)")" && pwd -P)
 status=0
 
 mochitest() { # mochitest <log> <paths...>

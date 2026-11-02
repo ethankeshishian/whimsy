@@ -31,7 +31,9 @@ for arg in "$@"; do
   esac
 done
 [ "$CHUNKS" -ge 1 ] || CHUNKS=1
-ROOT=$PWD
+# The sandbox read path must be the src/ the engine links into: in a
+# worktree, engine/ is a symlink to the main checkout's engine.
+ROOT=$(cd "$(dirname "$(cd engine && pwd -P)")" && pwd -P)
 OUT=.surfer/verify/parallel
 rm -rf "$WHIMSY_SHOTS" "$OUT" && mkdir -p "$WHIMSY_SHOTS" "$OUT"
 start_time=$(date +%s)
