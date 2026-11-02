@@ -296,7 +296,9 @@ add_task(async function test_captures_static_live_and_private() {
   const bytes = await gWhimsyEaselStore.readImage(easel.id, item.image);
   ok(bytes?.length > 8, "The image file exists");
   ok(app.selection.has(item.id), "The new capture is selected");
-  const el = app.els.get(item.id);
+  // The item is in the list before the easel has drawn its element (a
+  // frame later, longer on a loaded machine).
+  const el = await TestUtils.waitForCondition(() => app.els.get(item.id), "The item is drawn");
   await TestUtils.waitForCondition(() => el.querySelector("img")?.complete && el.querySelector("img").naturalWidth > 0, "The capture image shows");
 
   // Play makes it live: a sandboxed page in the same container, cropped.
@@ -622,7 +624,9 @@ add_task(async function test_live_capture_gets_a_live_process_and_renders() {
 
   await WhimsyEasel.addCaptureTo(window, easel.id, capture);
   const item = await TestUtils.waitForCondition(() => app.items.find(i => i.type == "capture"), "The capture is on the easel");
-  const el = app.els.get(item.id);
+  // The item is in the list before the easel has drawn its element (a
+  // frame later, longer on a loaded machine).
+  const el = await TestUtils.waitForCondition(() => app.els.get(item.id), "The item is drawn");
   app.select([item.id]);
   win.document.querySelector('#contextbar [data-action="live"]').click();
   ok(app.find(item.id).live, "Play makes it live");
@@ -684,7 +688,9 @@ add_task(async function test_live_capture_crash_falls_back_to_still() {
   const { easel, win, app } = await openNewEasel();
   await WhimsyEasel.addCaptureTo(window, easel.id, capture);
   const item = await TestUtils.waitForCondition(() => app.items.find(i => i.type == "capture"), "The capture is on the easel");
-  const el = app.els.get(item.id);
+  // The item is in the list before the easel has drawn its element (a
+  // frame later, longer on a loaded machine).
+  const el = await TestUtils.waitForCondition(() => app.els.get(item.id), "The item is drawn");
   app.select([item.id]);
   win.document.querySelector('#contextbar [data-action="live"]').click();
   const browser = await TestUtils.waitForCondition(() => el.querySelector(".capture-browser"), "The live <browser> is made");

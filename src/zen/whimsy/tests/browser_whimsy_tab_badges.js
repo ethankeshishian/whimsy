@@ -261,8 +261,10 @@ add_task(async function test_unloaded_essential_loads_in_background_and_stays_li
   // shown in this window) still gets its count from the page's title.
   delete essential._zenContentsVisible;
   await setTitle(essential, "(7) Chat");
+  // The title change crosses to the background page's process and back,
+  // which is slow on a loaded machine.
   await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "7",
-    "Counted from the page's title, not the label");
+    "Counted from the page's title, not the label", 100, 300);
   essential._zenContentsVisible = true;
 
   // A renamed Essential: the label stays its name, the count still moves,

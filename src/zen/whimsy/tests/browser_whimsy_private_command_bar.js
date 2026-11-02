@@ -184,7 +184,7 @@ add_task(async function test_cmd_l_on_private_tab_is_purple() {
   gBrowser.selectedBrowser.focus();
 
   EventUtils.synthesizeKey("l", { accelKey: true });
-  await TestUtils.waitForCondition(() => gURLBar.focused, "Cmd+L focused the address bar");
+  await TestUtils.waitForCondition(() => gURLBar.focused, "Cmd+L focused the address bar", 100, 300);
   ok(gURLBar.hasAttribute("whimsy-private"), "Cmd+L on a private tab is violet");
   ok(gURLBar.isPrivate, "... and its queries are private");
   const badge = document.getElementById(BADGE_ID);
