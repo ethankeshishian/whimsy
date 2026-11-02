@@ -1,0 +1,17 @@
+diff --git a/browser/components/urlbar/content/UrlbarInputBase.mjs b/browser/components/urlbar/content/UrlbarInputBase.mjs
+index 3ca7b07..4857f97 100644
+--- a/browser/components/urlbar/content/UrlbarInputBase.mjs
++++ b/browser/components/urlbar/content/UrlbarInputBase.mjs
+@@ -3361,6 +3361,12 @@ ${
+     } else if (!this._untrimmedValue || this.searchMode || this.window.gZenVerticalTabsManager._hasSetSingleToolbar) {
+       // Restore the current page URL when the urlbar is empty on blur
+       this.window.requestAnimationFrame(() => {
++        // Whimsy: not when the bar has opened again within that frame (a
++        // fast close and reopen): reverting then cleared the new session,
++        // e.g. the commands mode "/" had just entered.
++        if (this.view.isOpen) {
++          return;
++        }
+         this.handleRevert();
+       });
+     }
