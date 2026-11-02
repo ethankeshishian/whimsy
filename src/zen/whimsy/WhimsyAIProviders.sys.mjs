@@ -50,7 +50,9 @@ const MAX_INPUT_CHARS = { apple: 7000, claude: 60000, ollama: 24000, test: 60000
 // 2 (W10-07): helpers built before were quarantined, and macOS remembers
 // that it refused to run them even once the flag is gone, so they're
 // rebuilt under a new name.
-const HELPER_VERSION = 2;
+// 3 (W12-F22): exit(0) on completion so the process exits cleanly instead of
+// hanging Swift concurrency runtime in proc.wait().
+const HELPER_VERSION = 3;
 // How long the helper's availability check may take before Whimsy decides
 // macOS is holding it back (a quarantined helper hangs at launch).
 const HELPER_CHECK_TIMEOUT_MS = 20 * 1000;
@@ -70,7 +72,7 @@ struct WhimsyFM {
       case .unavailable(let reason):
         print("unavailable \(reason)")
       }
-      return
+      exit(0)
     }
     guard case .available = model.availability else {
       FileHandle.standardError.write("unavailable\n".data(using: .utf8)!)
@@ -86,6 +88,7 @@ struct WhimsyFM {
     do {
       let response = try await session.respond(to: prompt)
       FileHandle.standardOutput.write(response.content.data(using: .utf8)!)
+      exit(0)
     } catch {
       FileHandle.standardError.write("\(error)\n".data(using: .utf8)!)
       exit(1)
