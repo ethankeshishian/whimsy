@@ -3,11 +3,11 @@
 
 "use strict";
 
-// W10-29 (Arc parity): ⌘⇧O in Mini turns its address strip into a search
+// W10-29 / F19 (Arc parity): ⌘⇧O in Mini turns its "Open in Space" pill into a search
 // field and drops the spaces down under it: one flat list in sidebar order,
 // each space's profile as a small trailing label. Typing filters by space or
 // profile name; Return opens the page in the highlighted space; Esc puts
-// the address back.
+// Open in Space back, leaving the address strip untouched.
 
 const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs");
 const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
@@ -68,9 +68,12 @@ add_task(async function flat_list_with_profile_labels() {
   const win = await openMini();
   try {
     const { doc, panel, input } = await openSearch(win);
-    is(doc.activeElement, input, "The address strip is the search field, focused");
+    is(doc.activeElement, input, "The search field in Open in Space is focused");
     is(input.getAttribute("role"), "combobox", "It's a combobox");
     is(input.getAttribute("aria-controls"), "whimsy-mini-picker-list", "for the list");
+    ok(doc.getElementById("whimsy-quick-window-open").hasAttribute("searching"), "Open in Space is searching");
+    ok(!doc.getElementById("whimsy-quick-window-address-field").hasAttribute("searching"), "Address field is untouched");
+    ok(doc.getElementById("whimsy-quick-window-address").checkVisibility(), "Address remains visible");
     ok(!panel.querySelector(".whimsy-mini-picker-profile-heading, menuseparator, menucaption"), "No profile groups");
     const rows = shownRows(panel);
     const order = gZenWorkspaces.getWorkspaces().filter(s => !s.whimsyScratch).map(s => s.uuid);
@@ -85,7 +88,8 @@ add_task(async function flat_list_with_profile_labels() {
     const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
     EventUtils.synthesizeKey("KEY_Escape", {}, win);
     await hidden;
-    ok(!doc.getElementById("whimsy-quick-window-address-field").hasAttribute("searching"), "Esc puts the address back");
+    ok(!doc.getElementById("whimsy-quick-window-open").hasAttribute("searching"), "Esc puts Open in Space back");
+    ok(doc.getElementById("whimsy-quick-window-move-to-space").checkVisibility(), "Open in Space button is visible again");
     is(doc.activeElement?.id, "whimsy-quick-window-choose-space", "and the keyboard on the caret");
   } finally {
     await BrowserTestUtils.closeWindow(win);
