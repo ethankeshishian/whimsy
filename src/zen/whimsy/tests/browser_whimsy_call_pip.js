@@ -105,34 +105,16 @@ add_task(async function test_call_floats_and_returns() {
   BrowserTestUtils.removeTab(other);
 });
 
-add_task(async function test_call_pip_mute_unmute() {
+// The call's microphone and camera in the PiP window are covered by
+// browser_whimsy_call_controls.js (W13-R3).
+add_task(async function test_call_pip_captions() {
   const call = await openCall();
-  await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.initMediaSession());
 
   const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
   const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
   gBrowser.selectedTab = other;
   const pip = await opened;
-
   WhimsyCallPip.hookPipWindow(pip);
-  const audioBtn = pip.document.getElementById("audio");
-  ok(audioBtn, "PiP has audio button");
-  ok(!audioBtn.hidden, "Audio button is visible for call PiP");
-
-  const muted = () => pip.document.getElementById("controls").classList.contains("muted");
-  await TestUtils.waitForCondition(() => !muted(), "Call PiP initially unmuted");
-
-  // The audio button mutes the call's microphone (Meet's togglemicrophone).
-  EventUtils.synthesizeMouseAtCenter(audioBtn, {}, pip);
-  await TestUtils.waitForCondition(() => muted(), "PiP shows the call muted");
-  await TestUtils.waitForCondition(() => SpecialPowers.spawn(call.linkedBrowser, [],
-    () => content.wrappedJSObject.microphoneActive === false), "Call page microphone was muted via togglemicrophone");
-
-  // Again: unmuted.
-  EventUtils.synthesizeMouseAtCenter(audioBtn, {}, pip);
-  await TestUtils.waitForCondition(() => !muted(), "PiP shows the call unmuted");
-  await TestUtils.waitForCondition(() => SpecialPowers.spawn(call.linkedBrowser, [],
-    () => content.wrappedJSObject.microphoneActive === true), "Call page microphone was unmuted via togglemicrophone");
 
   // F31: the player's CC button shows in a call and turns its live
   // captions on and off.

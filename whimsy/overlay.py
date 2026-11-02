@@ -1414,6 +1414,10 @@ FEATURES = [
     # windows behind Touch ID or the Mac password.
     {"id": "private-lock", "title": "Private lock: private tabs, the Private Space and private windows hide behind Touch ID or your Mac password when you step away",
      "detect": [("src/zen", r"(?i)lock-?private-?(browsing|tabs|windows)")]},
+    # wave13 (R3): a call's microphone and camera follow the page's own
+    # toggles (Meet) in the small player and in picture-in-picture.
+    {"id": "call-controls", "title": "Call controls: the small player and picture-in-picture toggle a Meet call's own microphone and camera, in sync with the page",
+     "detect": [("src/zen/media", r"data-is-muted")]},
 ]
 
 

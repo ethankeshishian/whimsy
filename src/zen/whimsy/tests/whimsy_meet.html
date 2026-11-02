@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Whimsy Meet</title></head>
+<body>
+<!-- A stand-in for Google Meet's call page, with Meet's mechanics:
+     - a fake camera in muted <video> tiles and a peer connection (a call);
+     - one toggle per device: a button with data-is-muted and Meet's labels
+       ("Turn off microphone (⌘ + d)");
+     - toggles re-render asynchronously, replacing the button the way Meet's
+       framework does, and change the real camera track's `enabled`;
+     - ⌘D / ⌘E (Ctrl elsewhere) toggle on the page;
+     - window.requireTrusted makes the toggles ignore untrusted clicks. -->
+<video id="speaker" muted autoplay playsinline style="width: 480px; height: 270px"></video>
+<video id="self" muted autoplay playsinline style="width: 160px; height: 90px; transform: scaleX(-1)"></video>
+<div id="bar" role="toolbar" style="display: flex; gap: 12px; padding: 12px"></div>
+<script>
+  const isMac = navigator.platform.startsWith("Mac");
+  const KEY = { mic: "d", camera: "e" };
+  const NAME = { mic: "microphone", camera: "camera" };
+  window.requireTrusted = false;
+  window.state = { mic: "on", camera: "on" };
+  let stream = null;
+  let pc = null;
+
+  function render() {
+    const bar = document.getElementById("bar");
+    bar.textContent = "";
+    for (const kind of ["mic", "camera"]) {
+      const button = document.createElement("button");
+      const on = window.state[kind] == "on";
+      button.setAttribute("data-is-muted", String(!on));
+      const label = `Turn ${on ? "off" : "on"} ${NAME[kind]} (${isMac ? "⌘" : "ctrl"} + ${KEY[kind]})`;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("data-tooltip", label);
+      button.style.cssText = "width: 48px; height: 48px; border-radius: 24px";
+      button.textContent = kind;
+      button.addEventListener("click", event => {
+        if (window.requireTrusted && !event.isTrusted) {
+          return;
+        }
+        toggle(kind);
+      });
+      bar.append(button);
+    }
+  }
+
+  // As Meet: the change shows a moment later, on a new button.
+  function toggle(kind) {
+    setTimeout(() => {
+      window.state[kind] = window.state[kind] == "on" ? "off" : "on";
+      for (const track of stream?.getVideoTracks() ?? []) {
+        if (kind == "camera") {
+          track.enabled = window.state.camera == "on";
+        }
+      }
+      render();
+    }, 40);
+  }
+
+  document.addEventListener("keydown", event => {
+    const accel = isMac ? event.metaKey : event.ctrlKey;
+    const kind = accel && Object.keys(KEY).find(k => KEY[k] == event.key.toLowerCase());
+    if (kind) {
+      event.preventDefault();
+      toggle(kind);
+    }
+  });
+
+  window.meetState = function () {
+    return {
+      mic: window.state.mic,
+      camera: window.state.camera,
+      cameraTrackEnabled: stream?.getVideoTracks()[0]?.enabled ?? null,
+    };
+  };
+
+  // Meet's controls go away (a re-layout, or Meet changed its page).
+  window.removeControls = function () {
+    document.getElementById("bar").textContent = "";
+  };
+  window.restoreControls = render;
+
+  // A peer connection first (Zen's small player shows a sharing card only
+  // for a tab with one), then the camera. Camera only: a fake microphone
+  // stream never resolved in a headless run after earlier tests had played
+  // audio; the page's microphone toggle is page state, as in Meet.
+  window.startCall = async function ({ camera = true } = {}) {
+    pc = new RTCPeerConnection();
+    pc.createDataChannel("whimsy");
+    await pc.setLocalDescription(await pc.createOffer());
+    render();
+    if (!camera) {
+      return true;
+    }
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    for (const id of ["speaker", "self"]) {
+      const video = document.getElementById(id);
+      video.srcObject = stream;
+      await video.play();
+    }
+    return true;
+  };
+
+  window.endCall = function () {
+    stream?.getTracks().forEach(track => track.stop());
+    stream = null;
+    for (const id of ["speaker", "self"]) {
+      document.getElementById(id).srcObject = null;
+    }
+    pc?.close();
+    pc = null;
+    return true;
+  };
+</script>
+</body>
+</html>

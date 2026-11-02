@@ -854,3 +854,7 @@ support-files = ["whimsy_call_captions.html"]
 # B1: ⌘⇧T reopens a closed pinned tab or Essential too.
 ["browser_whimsy_reopen_pinned.js"]
 support-files = ["whimsy_email_form.html"]
+
+# W13-R3: a call's microphone and camera in sync: Meet, the small player, PiP.
+["browser_whimsy_call_controls.js"]
+support-files = ["whimsy_meet.html"]

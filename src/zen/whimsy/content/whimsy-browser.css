@@ -6781,3 +6781,11 @@ zen-workspace[whimsy-space-covered] :is(.zen-workspace-pinned-tabs-section, .zen
     }
   }
 }
+
+/* W13-R3: a call's microphone or camera whose state the page doesn't show
+   (unknown, or the site may not use it): its button hides in the small
+   player rather than show a state that may be wrong. */
+.zen-media-card[whimsy-call-hide-mic] .zen-media-mute-mic-button,
+.zen-media-card[whimsy-call-hide-camera] .zen-media-mute-camera-button {
+  display: none;
+}

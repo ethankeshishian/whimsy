@@ -15,7 +15,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // W10-61: press again.
   eventSignatures: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   PRESS_AGAIN_SHARED_KEY: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+  // W13-R3: call controls.
+  WhimsyMeetControls: "resource:///modules/whimsy/WhimsyMeetControls.sys.mjs",
 });
+
+// W13-R3: how long a toggle waits for the page to show the change (a camera
+// turning on waits for its device).
+const TOGGLE_TIMEOUT_MS = 4000;
 
 // Per-tab volume: each media element keeps the volume the page set
 // ("own"); the element plays at own × the tab's level. Web Audio graphs
@@ -327,11 +333,12 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // wave3: floating calls (WhimsyCallPip).
       case "Whimsy:CallPip":
         return this.callPip();
-      // wave12: call microphone control (MediaSession togglemicrophone and Google Meet)
-      case "Whimsy:ToggleMicrophone":
-        return this.toggleMicrophone();
-      case "Whimsy:GetMicrophoneState":
-        return this.getMicrophoneState();
+      // W13-R3: the call page's own microphone and camera toggles (Meet),
+      // the one source of truth for the small player and PiP.
+      case "Whimsy:CallControlsWatch":
+        return this.watchCallControls(!!message.data?.on);
+      case "Whimsy:CallControlsToggle":
+        return this.toggleCallControl(message.data?.kind);
       // fix7: automatic picture-in-picture fallback (WhimsyMedia).
       case "Whimsy:AutoPip":
         return this.autoPip();
@@ -355,27 +362,107 @@ export class WhimsyPageChild extends JSWindowActorChild {
     return null;
   }
 
-  // F32: the call's own microphone button, as the person would press it.
-  // Firefox has no Media Session "togglemicrophone" action or
-  // setMicrophoneActive(), so Meet (and other calls) only offer the
-  // button; Meet marks it with data-is-muted.
-  micButton() {
-    return this.document?.querySelector(
-      'button[data-is-muted], [role="button"][data-is-muted], button[aria-label*="microphone" i], button[data-tooltip*="microphone" i]'
-    ) ?? null;
-  }
-
-  toggleMicrophone() {
-    this.micButton()?.click();
-    return this.getMicrophoneState();
-  }
-
-  getMicrophoneState() {
-    const button = this.micButton();
-    if (button?.hasAttribute("data-is-muted")) {
-      return { active: button.getAttribute("data-is-muted") != "true" };
+  // W13-R3: watches the page's toggles and reports each change to
+  // WhimsyCallPip ("Whimsy:CallControlsState"). Returns the state now.
+  watchCallControls(on) {
+    if (!on) {
+      this.stopCallControls();
+      return null;
     }
-    return { active: null };
+    const doc = this.document;
+    const win = this.contentWindow;
+    if (!doc || !win) {
+      return null;
+    }
+    if (!this._callObserver) {
+      this._callObserver = new win.MutationObserver(records => {
+        if (lazy.WhimsyMeetControls.isRelevant(records)) {
+          this.reportCallControls();
+        }
+      });
+      this._callObserver.observe(doc, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["data-is-muted", "aria-label", "data-tooltip"],
+      });
+    }
+    this._callState = null;
+    return this.reportCallControls();
+  }
+
+  stopCallControls() {
+    this._callObserver?.disconnect();
+    this._callObserver = null;
+    this._callState = null;
+  }
+
+  // Sends the state when it differs from the last one sent.
+  reportCallControls() {
+    const state = lazy.WhimsyMeetControls.readState(this.document);
+    const last = this._callState;
+    if (!last || last.mic != state.mic || last.camera != state.camera) {
+      this._callState = state;
+      this.callLog("state", state);
+      try {
+        this.sendAsyncMessage("Whimsy:CallControlsState", state);
+      } catch (e) {
+        // The actor is going away with its page.
+      }
+    }
+    return state;
+  }
+
+  // Presses the page's own toggle for `kind` and waits for the page to show
+  // the change (a camera turning on waits for its device). Resolves to
+  // { ok, state, reason? }; never reads the state in the click's own tick.
+  async toggleCallControl(kind) {
+    const { WhimsyMeetControls } = lazy;
+    const win = this.contentWindow;
+    if (!WhimsyMeetControls.KINDS.includes(kind) || !win) {
+      return { ok: false, reason: "unknown", state: null };
+    }
+    const before = WhimsyMeetControls.readState(this.document);
+    const el = WhimsyMeetControls.findControls(this.document)[kind];
+    if (!el || !before[kind]) {
+      this.callLog("toggle: no control", kind, before);
+      return { ok: false, reason: "unknown", state: before };
+    }
+    const changed = () => WhimsyMeetControls.readState(this.document)[kind] != before[kind];
+    let observer = null;
+    const done = new Promise(resolve => {
+      observer = new win.MutationObserver(() => {
+        if (changed()) {
+          resolve(true);
+        }
+      });
+      observer.observe(this.document, { subtree: true, childList: true, attributes: true,
+        attributeFilter: ["data-is-muted"] });
+      lazy.setTimeout(() => resolve(false), TOGGLE_TIMEOUT_MS);
+    });
+    const how = WhimsyMeetControls.press(win, el);
+    let ok = changed() || (await done);
+    observer.disconnect();
+    if (!this.contentWindow) {
+      return { ok: false, reason: "gone", state: before };
+    }
+    const state = WhimsyMeetControls.readState(this.document);
+    ok = ok && state[kind] != before[kind];
+    this.callLog("toggle", kind, how, ok ? "changed" : "no change", state);
+    if (this._callObserver) {
+      this.reportCallControls();
+    }
+    return { ok, state, reason: ok ? undefined : "no-change" };
+  }
+
+  callLog(...args) {
+    if (Services.prefs.getBoolPref("whimsy.callControls.log", false)) {
+      console.log("Whimsy call controls:", this.document?.location?.host, ...args);
+    }
+  }
+
+  didDestroy() {
+    this.stopCallControls();
   }
 
   // wave3: floating calls. Puts the call's main video (the active speaker's

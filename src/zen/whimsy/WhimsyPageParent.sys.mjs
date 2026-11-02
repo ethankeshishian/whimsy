@@ -7,6 +7,8 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  // W13-R3: call controls.
+  WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
   WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
@@ -107,6 +109,14 @@ export class WhimsyPageParent extends JSWindowActorParent {
         const win = browser?.ownerDocument?.defaultView;
         if (win) {
           lazy.WhimsyZap.cancelSession(win, browser);
+        }
+        return null;
+      }
+      // W13-R3: the call page's microphone/camera toggles changed (only the
+      // top page is watched).
+      case "Whimsy:CallControlsState": {
+        if (this.browsingContext == this.browsingContext.top) {
+          lazy.WhimsyCallPip.onPageState(this.browsingContext.embedderElement, message.data);
         }
         return null;
       }
