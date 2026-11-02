@@ -77,7 +77,12 @@ add_task(async function open_and_close_motion() {
   const [close] = barAnimations("whimsy-command-bar-close");
   is(close.effect.getTiming().duration, COMMAND_BAR_MOTION.close.duration, "Close lasts 110ms");
   is(close.effect.getTiming().easing, "cubic-bezier(0.4, 0, 1, 1)", "Close accelerates out");
+  const closeFrames = close.effect.getKeyframes();
+  ok(closeFrames[0].translate.includes("-50%"), `Close starts centered (${closeFrames[0].translate})`);
+  ok(/-\s?4px\)?$/.test(closeFrames[1].translate), `Close rises 4px (${closeFrames[1].translate})`);
+  is(closeFrames[1].opacity, "0", "Close ends transparent");
   is(gURLBar.getAttribute("whimsy-closing"), "true", "The bar ignores the pointer while it closes");
+  ok(getComputedStyle(gURLBar).translate.includes("-50%"), "Bar stays floating while closing");
   isnot(document.activeElement, gURLBar.inputField, "Focus left the bar at once, as before");
   await waitClosed();
   is(gURLBar.getAnimations().length, 0, "Nothing is left running on the bar");

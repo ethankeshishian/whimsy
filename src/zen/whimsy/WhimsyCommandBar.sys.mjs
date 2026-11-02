@@ -375,8 +375,10 @@ export class CommandBarMotion {
         ? [{ opacity: 0 }, { opacity: 1 }]
         : [{ opacity: 1 }, { opacity: 0 }];
     }
+    const isMini = this.#win.document.documentElement.getAttribute("whimsy-mini") == "bar";
+    const defaultX = isMini ? "0px" : "-50%";
     const base = this.#win.getComputedStyle(urlbar).translate;
-    const [x = "0px", y = "0px"] = !base || base == "none" ? [] : base.split(/\s+/);
+    const [x = defaultX, y = "0px"] = !base || base == "none" ? [defaultX, "0px"] : base.split(/\s+/);
     const rest = { opacity: 1, scale: "1", translate: `${x} ${y}` };
     const away = { opacity: 0, scale: String(spec.scale), translate: `${x} calc(${y} - ${spec.rise}px)` };
     return kind == "open" ? [away, rest] : [rest, away];
@@ -450,6 +452,7 @@ export class CommandBarMotion {
       shownAmount = Math.min(1, (running.currentTime ?? 0) / running.effect.getTiming().duration);
     }
     running?.cancel();
+    urlbar.setAttribute("whimsy-closing", "true");
     const timing = this.#timing("close");
     const animation = urlbar.animate(this.#frames("close"), {
       ...timing,
@@ -459,7 +462,6 @@ export class CommandBarMotion {
     if (shownAmount < 1) {
       animation.currentTime = timing.duration * (1 - shownAmount);
     }
-    urlbar.setAttribute("whimsy-closing", "true");
     this.#animation = animation;
     this.#closing = { finish, animation };
     animation.finished.then(
@@ -478,12 +480,12 @@ export class CommandBarMotion {
     // The hide below and a reopen right after it reach the observer as one
     // batch; the next open must still animate.
     this.#shown = false;
-    this.#win.gURLBar.removeAttribute("whimsy-closing");
     try {
       closing.finish();
     } catch (e) {
       console.error("Whimsy: command bar close", e);
     } finally {
+      this.#win.gURLBar.removeAttribute("whimsy-closing");
       animation.cancel();
       if (this.#animation == animation) {
         this.#animation = null;
