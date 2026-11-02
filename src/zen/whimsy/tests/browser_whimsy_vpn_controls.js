@@ -166,6 +166,36 @@ add_task(async function test_this_site_row() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// The coordinator's check: the lane saw the old toolbar badge's "VPN off"
+// wrap onto two lines. The address bar control stays one line, 26px tall,
+// in a narrow window too.
+add_task(async function test_one_line_in_a_narrow_window() {
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  win.resizeTo(520, 600);
+  await TestUtils.waitForCondition(() => win.outerWidth <= 540, "A narrow window");
+  const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "https://example.com/");
+  setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+  WhimsyVPN.updateUi(win);
+  const el = win.document.getElementById("whimsy-vpn-urlbar");
+  await TestUtils.waitForCondition(() => el?.checkVisibility(), "The control shows");
+  await win.document.l10n.translateFragment(el);
+  const label = el.querySelector(".whimsy-vpn-urlbar-label");
+  const style = win.getComputedStyle(label);
+  is(style.whiteSpace, "nowrap", "The label never wraps");
+  is(win.getComputedStyle(el).whiteSpace, "nowrap", "…nor the control");
+  // One line: as tall as a one-character label in the same style.
+  const probe = label.cloneNode();
+  probe.setAttribute("value", "V");
+  probe.removeAttribute("data-l10n-id");
+  label.after(probe);
+  const oneLine = probe.getBoundingClientRect().height;
+  probe.remove();
+  Assert.less(Math.abs(label.getBoundingClientRect().height - oneLine), 0.5, `The label is one line (${label.getBoundingClientRect().height}px)`);
+  Assert.less(Math.abs(el.getBoundingClientRect().height - 26), 0.5, "The control is 26px tall");
+  BrowserTestUtils.removeTab(tab);
+  await BrowserTestUtils.closeWindow(win);
+});
+
 add_task(function test_command() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
   const entry = WhimsyCommands.get("cmd_whimsyVPNToggle");
