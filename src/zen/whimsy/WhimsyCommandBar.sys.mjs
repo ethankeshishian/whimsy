@@ -201,7 +201,9 @@ export function dedupResults(results) {
   return results.filter((result, i) => {
     const url = result.payload?.url;
     const title = (result.payload?.title ?? "").trim();
-    if (!url || !title || (i == 0 && result.heuristic)) {
+    // W11-09: nor the typed address or search below an open tab ranked
+    // first (WhimsyAlreadyOpen).
+    if (!url || !title || (i == 0 && result.heuristic) || result.whimsyOwnHeuristic === true) {
       return true;
     }
     let host;

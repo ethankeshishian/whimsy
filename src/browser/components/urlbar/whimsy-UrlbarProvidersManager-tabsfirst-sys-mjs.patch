@@ -1,0 +1,136 @@
+diff --git a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs b/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
+--- a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
++++ b/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
+@@ -719,6 +719,16 @@
+  * controllers. Each query has to track its own status and delays separately,
+  * to avoid conflicting with other ones.
+  */
++// Whimsy (W11-09): the providers that find open tabs for a typed string.
++const WHIMSY_TAB_PROVIDERS = new Set([
++  "UrlbarProviderInputHistory",
++  "UrlbarProviderPlaces",
++]);
++// Whimsy (W11-09): the longest the command bar waits for them before it
++// shows what it has (they normally answer well within this). Longer in
++// automation, as eventBufferer.deferringTimeoutMs is: debug builds are slow.
++const WHIMSY_TABS_HOLD_MS = Cu.isInAutomation ? 1500 : 250;
++
+ export class Query {
+   /**
+    * Initializes the query object.
+@@ -793,6 +803,11 @@
+                 if (provider.deferUserSelection) {
+                   this.context.deferUserSelectionProviders.add(provider.name);
+                 }
++                // Whimsy (W11-09): Return waits for the open-tab providers
++                // too, so it picks the row that's shown first.
++                if (this.#whimsyHoldsForTabs(provider)) {
++                  this.context.deferUserSelectionProviders.add(provider.name);
++                }
+               }
+             }
+           })
+@@ -834,6 +849,8 @@
+       }
+     };
+ 
++    this.#whimsyStartHold(activeProviders);
++
+     let queryPromises = [];
+     for (let provider of activeProviders) {
+       // Track heuristic providers. later we'll use this Set to wait for them
+@@ -858,9 +875,9 @@
+         });
+       }
+       queryPromises.push(
+-        this._sleepTimer.promise.then(() =>
+-          this.canceled ? undefined : startQuery(provider)
+-        )
++        this._sleepTimer.promise
++          .then(() => (this.canceled ? undefined : startQuery(provider)))
++          .finally(() => this.#whimsyTabsAnswered(provider))
+       );
+     }
+ 
+@@ -1041,6 +1058,11 @@
+   }
+ 
+   _notifyResults() {
++    // Whimsy (W11-09): see #whimsyStartHold.
++    if (this.#whimsyTabsPending && !this.canceled) {
++      this.#whimsyHeld = true;
++      return;
++    }
+     this.muxer.sort(this.context, this.unsortedResults);
+     // We don't want to notify consumers if there are no results since they
+     // generally expect at least one result when notified, so bail, but only
+@@ -1062,6 +1084,69 @@
+   }
+ 
+   /**
++   * Whimsy (W11-09): in the command bar an open tab that matches what you
++   * typed ranks first (UrlbarMuxerStandard's #whimsyRankOpenTabs). The tab
++   * rows come from Places and input history, which start after the
++   * heuristic has been shown, so showing results at once let the typed row
++   * paint first and then jump down under the pointer when the tab arrived.
++   * For such a query nothing new is shown until those providers have
++   * answered (or WHIMSY_TABS_HOLD_MS has passed); then everything shows in
++   * its final order. Rows on screen from the previous keystroke stay until
++   * then, and Return waits for the same providers (see start()).
++   *
++   * @type {?Set<string>}
++   */
++  #whimsyTabsPending = null;
++  #whimsyHeld = false;
++  #whimsyHoldTimer = null;
++
++  #whimsyHoldsForTabs(provider) {
++    return (
++      !!this.context.whimsyOpenTabFirst &&
++      !!this.context.trimmedSearchString &&
++      WHIMSY_TAB_PROVIDERS.has(provider.name)
++    );
++  }
++
++  #whimsyStartHold(activeProviders) {
++    let names = activeProviders
++      .filter(provider => this.#whimsyHoldsForTabs(provider))
++      .map(provider => provider.name);
++    if (!names.length) {
++      return;
++    }
++    this.#whimsyTabsPending = new Set(names);
++    this.#whimsyHoldTimer = new lazy.SkippableTimer({
++      name: "Whimsy open tabs hold",
++      callback: () => this.#whimsyRelease(),
++      time: WHIMSY_TABS_HOLD_MS,
++      logger: lazy.logger,
++    });
++  }
++
++  #whimsyTabsAnswered(provider) {
++    if (
++      this.#whimsyTabsPending?.delete(provider.name) &&
++      !this.#whimsyTabsPending.size
++    ) {
++      this.#whimsyRelease();
++    }
++  }
++
++  #whimsyRelease() {
++    if (!this.#whimsyTabsPending) {
++      return;
++    }
++    this.#whimsyTabsPending = null;
++    this.#whimsyHoldTimer?.cancel().catch(ex => lazy.logger.error(ex));
++    this.#whimsyHoldTimer = null;
++    if (this.#whimsyHeld && !this.canceled) {
++      this.#whimsyHeld = false;
++      this._notifyResults();
++    }
++  }
++
++  /**
+    * Returns the provider with the given name.
+    *
+    * @param {string} name

@@ -154,7 +154,12 @@ export const WhimsySearchDeck = {
       return null;
     }
     const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
-    const result = urlbar.view?.isOpen ? urlbar.view.selectedResult : urlbar._resultForCurrentValue;
+    let result = urlbar.view?.isOpen ? urlbar.view.selectedResult : urlbar._resultForCurrentValue;
+    // W11-09: an open tab ranked above what you typed; Shift+Return still
+    // means the typed search (WhimsyAlreadyOpen.typedPick).
+    if (result?.heuristic && result.whimsyOwnHeuristic === false) {
+      result = urlbar.view.visibleResults?.find(r => r.whimsyOwnHeuristic === true) ?? result;
+    }
     let query;
     let engineName;
     if (result) {

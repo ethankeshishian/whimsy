@@ -19,11 +19,27 @@
 //     behavior, so a deliberate second copy is one key away.
 // When the tab is in another space or window, a quiet toast says where you
 // went (Zen's own space switch animation shows the move).
+//
+// W11-09: the command bar also ranks the match as Arc does. When what you
+// type matches an open tab, its "Switch to Tab" row is first, above the
+// typed address or search, and Return picks it; the address or search is
+// the next row (UrlbarMuxerStandard's #whimsyRankOpenTabs, asked for by
+// prepareQuery). A modified Return still goes to what you typed.
+//
+// W11-08: the tab you're on is listed as an ordinary link (title and
+// domain), as in Arc (whimsy-UrlbarProviderPlaces/-InputHistory patches;
+// Firefox leaves it out). From the Cmd+T bar, picking it, or Return on its
+// exact address, opens a second copy in a new tab; from Cmd+L it loads the
+// page again. Open Again in New Tab (cmd_whimsyOpenAgainInNewTab) does the
+// same from any tab.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.already-open";
@@ -31,6 +47,7 @@ const TAB_SWITCH_RESULT = 1; // UrlbarShared.RESULT_TYPE.TAB_SWITCH
 const URL_RESULT = 3; // UrlbarShared.RESULT_TYPE.URL
 const TABS_SOURCE = 4; // UrlbarShared.RESULT_SOURCE.TABS
 const EMPTY_PAGES = new Set(["about:blank", "about:newtab", "about:home", "about:privatebrowsing"]);
+const OPEN_AGAIN_COMMAND = "cmd_whimsyOpenAgainInNewTab";
 
 export const WhimsyAlreadyOpen = {
   get enabled() {
@@ -55,6 +72,11 @@ export const WhimsyAlreadyOpen = {
     }
     const results = queryContext.results;
     let targetIndex = results[0]?.heuristic ? 1 : 0;
+    // W11-09: a tab ranked above what you typed keeps the typed address or
+    // search right below it.
+    if (this.isTypedRow(results[targetIndex])) {
+      targetIndex++;
+    }
     while (targetIndex < results.length && this.isTabSwitch(results[targetIndex])) {
       targetIndex++;
     }
@@ -65,6 +87,93 @@ export const WhimsyAlreadyOpen = {
         targetIndex++;
       }
     }
+  },
+
+  // W11-09: the open tab ranked first, above what you typed.
+  isRankedTab(result) {
+    return !!result && result.heuristic && result.whimsyOwnHeuristic === false;
+  },
+
+  // W11-09: the typed address or search, moved below a ranked tab.
+  isTypedRow(result) {
+    return !!result && result.whimsyOwnHeuristic === true;
+  },
+
+  // Whether this address bar is the command bar for a new tab: Zen's Cmd+T
+  // bar or an empty tab (opensNewTab without a key event).
+  inNewTabBar(win) {
+    if (win.gURLBar.hasAttribute("zen-newtab")) {
+      return true;
+    }
+    const tab = win.gBrowser.selectedTab;
+    return !!tab?.isEmpty || EMPTY_PAGES.has(tab?.linkedBrowser?.currentURI?.spec);
+  },
+
+  // Marks a query for the muxer (whimsy-UrlbarMuxerStandard-sys-mjs.patch).
+  prepareQuery(win, queryContext) {
+    const urlbar = win.gURLBar;
+    // W10-36, W11-08: Firefox leaves the tab you're on out of the results
+    // (switching to it would do nothing), so in Zen's Cmd+T bar, which opens
+    // over that tab, a pinned tab you were on wasn't listed while it was
+    // from any other space. Arc lists it as an ordinary link, in Cmd+T and
+    // Cmd+L alike. (W10-36 dropped `currentPage` in Cmd+T instead, which
+    // listed it as a Switch to Tab that did nothing.)
+    queryContext.whimsyListCurrentPage = true;
+    // W11-09: rank an open tab that matches above what you typed, in the
+    // command bar for a new tab (where Return on an open address already
+    // goes to its tab), for the container and privacy the new tab gets.
+    if (this.enabled && !queryContext.searchMode && this.inNewTabBar(win)) {
+      queryContext.whimsyOpenTabFirst = {
+        userContextId: lazy.UrlbarShared.normalizedUserContextId(this.targetUserContextId(win), !!urlbar.isPrivate),
+      };
+    }
+  },
+
+  // W11-08: the page "Open Again in New Tab" opens for the tab you're on,
+  // or null (an empty tab has nothing to open again).
+  openAgainUrl(win) {
+    const tab = win.gBrowser?.selectedTab;
+    if (!tab || tab.isEmpty || tab.hasAttribute("zen-empty-tab") || tab.hasAttribute("zen-glance-tab")) {
+      return null;
+    }
+    const url = this.tabUrl(tab);
+    return url && !EMPTY_PAGES.has(url) ? url : null;
+  },
+
+  // W11-08: Open Again in New Tab. A second copy of the tab you're on, as a
+  // fresh load in a new tab of the same container (and private when the tab
+  // is), as picking the tab's own row in Cmd+T does. Duplicate Tab (Zen's,
+  // like Arc's Duplicate Current Tab) copies the tab's history; this doesn't.
+  openAgain(win, url = this.openAgainUrl(win)) {
+    if (!url) {
+      return false;
+    }
+    lazy.WhimsyPrivate.openTabFor(win, url, {
+      userContextId: this.userContextOf(win.gBrowser.selectedTab),
+      inBackground: false,
+    });
+    return true;
+  },
+
+  // W11-09: what to pick instead, or null. A modified Return on the ranked
+  // tab means what you typed, as it did before the tab ranked first
+  // (Option-Return opens the address or search in a new tab). The typed
+  // row, once picked, is the heuristic it was, so Firefox treats it as
+  // such (HTTPS-First, input history), and it never switches to a tab:
+  // you chose it over the tab.
+  typedPick(win, { result, event }) {
+    if (this.isTypedRow(result)) {
+      return { result };
+    }
+    if (
+      !this.isRankedTab(result) ||
+      !event?.type?.startsWith("key") ||
+      !(event.altKey || event.shiftKey || event.metaKey || event.ctrlKey)
+    ) {
+      return null;
+    }
+    const typed = win.gURLBar.view?.visibleResults?.find(r => this.isTypedRow(r));
+    return typed ? { result: typed, element: null } : null;
   },
 
   // The key two addresses share when they are the same page: no fragment,
@@ -181,6 +290,9 @@ export const WhimsyAlreadyOpen = {
     if (!this.enabled || !result || result.type != URL_RESULT || !(result.heuristic || result.autofill)) {
       return false;
     }
+    if (this.isTypedRow(result)) {
+      return false;
+    }
     if (event?.shiftKey || event?.altKey || event?.metaKey || event?.ctrlKey) {
       return false;
     }
@@ -193,6 +305,12 @@ export const WhimsyAlreadyOpen = {
       return false;
     }
     const urlbar = win.gURLBar;
+    // W11-08: Cmd+T, then the address of the tab you're on: open a second
+    // copy, as in Arc (Firefox opens it in the new tab). This used to just
+    // close the bar.
+    if (urlbar.hasAttribute("zen-newtab") && this.key(this.tabUrl(win.gBrowser.selectedTab)) == this.key(url)) {
+      return false;
+    }
     const found = this.findTab(win, url, {
       userContextId: this.targetUserContextId(win),
       isPrivate: !!urlbar.isPrivate,
@@ -253,38 +371,55 @@ export const WhimsyAlreadyOpen = {
     urlbar._whimsyAlreadyOpen = true;
     const original = urlbar.pickResult;
     urlbar.pickResult = function (params = {}) {
+      let typed = null;
       try {
-        if (WhimsyAlreadyOpen.maybeSwitch(win, params)) {
+        typed = WhimsyAlreadyOpen.typedPick(win, params);
+        if (!typed && WhimsyAlreadyOpen.maybeSwitch(win, params)) {
           return undefined;
         }
       } catch (e) {
         console.error("Whimsy: already open", e);
       }
-      return original.call(this, params);
+      if (!typed) {
+        return original.call(this, params);
+      }
+      // The typed row is picked as the heuristic it is, then shown as it
+      // was in case the bar stays open (a background tab).
+      typed.result.heuristic = true;
+      try {
+        return original.call(this, { ...params, ...typed });
+      } finally {
+        if (WhimsyAlreadyOpen.isTypedRow(typed.result)) {
+          typed.result.heuristic = false;
+        }
+      }
     };
 
-    // W10-36: Zen's Cmd+T command bar opens over the tab you're on (no new
-    // tab exists until you pick something), so Firefox took that tab as the
-    // "current page" and hid it from Switch to Tab. A pinned tab you were on
-    // then had no Switch to Tab row, while the same tab had one from any
-    // other space. In the new-tab bar nothing is current yet, so every open
-    // tab is offered. Editing the current page's address (Cmd+L) keeps
-    // Firefox's rule.
+    // W10-36, W11-08, W11-09: see prepareQuery.
     const controller = urlbar.controller;
     if (controller && !controller._whimsyNewTabCurrentPage) {
       controller._whimsyNewTabCurrentPage = true;
       const startQuery = controller.startQuery;
       controller.startQuery = function (queryContext) {
         try {
-          if (urlbar.hasAttribute("zen-newtab") && queryContext && "currentPage" in queryContext) {
-            delete queryContext.currentPage;
+          if (queryContext) {
+            WhimsyAlreadyOpen.prepareQuery(win, queryContext);
           }
         } catch (e) {
-          console.error("Whimsy: new-tab bar current page", e);
+          console.error("Whimsy: command bar query", e);
         }
         return startQuery.apply(this, arguments);
       };
     }
+
+    lazy.WhimsyCommands.register(win, {
+      id: OPEN_AGAIN_COMMAND,
+      l10nId: "whimsy-action-open-again-in-new-tab",
+      icon: "chrome://browser/skin/zen-icons/duplicate-tab.svg",
+      menu: "whimsy-tabs-menubar",
+      run: w => WhimsyAlreadyOpen.openAgain(w),
+      isAvailable: w => !!WhimsyAlreadyOpen.openAgainUrl(w),
+    });
 
     if (urlbar.view && !urlbar.view._whimsyRankHooked) {
       urlbar.view._whimsyRankHooked = true;
