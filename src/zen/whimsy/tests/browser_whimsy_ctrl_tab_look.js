@@ -81,13 +81,18 @@ const shownPreviews = () => ctrlTab.previews.filter(p => p != ctrlTab.showAllBut
 const previewOf = tab => shownPreviews().find(p => p._tab == tab);
 const card = () => ctrlTab.panel.shadowRoot?.querySelector("[part~='content']");
 
+// rgb(a)() or color() (color-mix computes to color(srgb r g b / a)).
 function alphaOf(color) {
-  const m = color.match(/rgba?\(([^)]+)\)/);
-  if (!m) {
-    return 1;
+  const rgb = color.match(/rgba?\(([^)]+)\)/);
+  if (rgb) {
+    const parts = rgb[1].split(/[\s,/]+/).filter(Boolean);
+    return parts.length > 3 ? parseFloat(parts[3]) : 1;
   }
-  const parts = m[1].split(/[\s,/]+/).filter(Boolean);
-  return parts.length > 3 ? parseFloat(parts[3]) : 1;
+  const fn = color.match(/color\([^)]*\/\s*([\d.]+)\s*\)/);
+  if (fn) {
+    return parseFloat(fn[1]);
+  }
+  return color == "transparent" ? 0 : 1;
 }
 
 add_task(async function test_card_rows_of_four_and_twelve_tabs() {
