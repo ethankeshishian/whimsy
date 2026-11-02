@@ -37,52 +37,6 @@ function command(id) {
   document.getElementById(id).doCommand();
 }
 
-function gestureEvent(type, direction = 0) {
-  const event = document.createEvent("SimpleGestureEvent");
-  event.initSimpleGestureEvent(
-    type,
-    true /* canBubble */,
-    true /* cancelable */,
-    window,
-    0,
-    0,
-    0,
-    0,
-    0,
-    false,
-    false,
-    false,
-    false,
-    0,
-    null,
-    0 /* allowedDirections */,
-    direction,
-    1 /* delta */
-  );
-  return event;
-}
-
-function sendSwipe(direction) {
-  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGestureMayStart", direction));
-  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGestureStart"));
-  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGestureUpdate"));
-  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGesture", direction));
-  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGestureEnd"));
-}
-
-function swipeForward() {
-  const dir = gZenWorkspaces.naturalScroll
-    ? SimpleGestureEvent.DIRECTION_LEFT
-    : SimpleGestureEvent.DIRECTION_RIGHT;
-  sendSwipe(dir);
-}
-
-function swipeBackward() {
-  const dir = gZenWorkspaces.naturalScroll
-    ? SimpleGestureEvent.DIRECTION_RIGHT
-    : SimpleGestureEvent.DIRECTION_LEFT;
-  sendSwipe(dir);
-}
 
 add_setup(async function () {
   await TestUtils.waitForCondition(() => WhimsySpaceSwitchQueue.debugState(window), "Space switching set up");
@@ -182,12 +136,17 @@ add_task(async function test_swipe_burst_skips_hidden_and_stops_at_edges() {
   creations = 0;
   window.gReduceMotionOverride = false;
 
-  // A fast burst of forward swipes (more swipes than spaces)
-  swipeForward();
+  // A fast burst of forward swipes (more swipes than spaces). Each swipe
+  // ends in Zen's ZenSpacesSwipe#handleSwipeEnd, which calls
+  // changeWorkspaceShortcut(direction, true); synthetic gesture events
+  // don't carry the deltas Zen's swipe needs, so the burst calls that.
+  const swipes = [];
+  swipes.push(gZenWorkspaces.changeWorkspaceShortcut(1, true));
   ok(WhimsySpaceSwitchQueue.isSwitching(window), "Forward slide in flight");
-  swipeForward();
-  swipeForward();
-  swipeForward();
+  for (let i = 0; i < visible.length + 1; i++) {
+    swipes.push(gZenWorkspaces.changeWorkspaceShortcut(1, true));
+  }
+  await Promise.all(swipes);
   await settle();
 
   is(
@@ -198,11 +157,13 @@ add_task(async function test_swipe_burst_skips_hidden_and_stops_at_edges() {
   is(creations, 0, "Fast burst did not create a new space at the edge");
 
   // Now a fast burst of backward swipes from the last space
-  swipeBackward();
+  const back = [];
+  back.push(gZenWorkspaces.changeWorkspaceShortcut(-1, true));
   ok(WhimsySpaceSwitchQueue.isSwitching(window), "Backward slide in flight");
-  swipeBackward();
-  swipeBackward();
-  swipeBackward();
+  for (let i = 0; i < visible.length + 1; i++) {
+    back.push(gZenWorkspaces.changeWorkspaceShortcut(-1, true));
+  }
+  await Promise.all(back);
   await settle();
 
   is(
@@ -261,4 +222,42 @@ add_task(async function test_switcher_arrows_skip_hidden_and_enforce_edges() {
   gZenWorkspaces.saveWorkspace(hiddenSpace);
   window.dispatchEvent(new CustomEvent("ZenWorkspaceDataChanged"));
   await settle();
+});
+
+// W11-16: Zen's swipe edge actions (New Space past the last space, the
+// Library past the first) count the visible spaces, so a hidden space at an
+// end doesn't take them away. They are the window's own module instances
+// (Zen loads them with global "current").
+add_task(async function test_edge_actions_count_visible_spaces() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.library.enabled", true]] });
+  const { ZenLibrary } = window.ChromeUtils.importESModule("moz-src:///zen/library/ZenLibrary.mjs", { global: "current" });
+  const { ZenSpaceAddSwipe } = window.ChromeUtils.importESModule("resource:///modules/zen/ZenSpaceAddSwipe.mjs", { global: "current" });
+  ok(ZenLibrary.readySwipeOpenLibrary._whimsyVisible, "The window's ZenLibrary is wrapped");
+  ok(ZenSpaceAddSwipe.prototype.readySwipeAddSpace._whimsyVisible, "...and its ZenSpaceAddSwipe");
+  if (!gZenWorkspaces.shouldSwipeEdgeActions) {
+    info("Swipe edge actions are off in this build; the wrappers were checked");
+    await SpecialPowers.popPrefEnv();
+    return;
+  }
+  const all = gZenWorkspaces.getWorkspaces();
+  const [first, second] = all;
+  const last = all.at(-1);
+  const beforeLast = all.at(-2);
+  first.whimsyHidden = true;
+  last.whimsyHidden = true;
+  gZenWorkspaces.saveWorkspace(first);
+  gZenWorkspaces.saveWorkspace(last);
+  try {
+    const libraryAtStart = !ZenLibrary.libraryOnRight;
+    await gZenWorkspaces.changeWorkspaceWithID((libraryAtStart ? second : beforeLast).uuid);
+    ok(ZenLibrary.readySwipeOpenLibrary(), "At the first visible space, a swipe can open the Library");
+    await gZenWorkspaces.changeWorkspaceWithID((libraryAtStart ? beforeLast : second).uuid);
+    ok(ZenSpaceAddSwipe.prototype.readySwipeAddSpace.call(null), "At the last visible space, a swipe can add a space");
+  } finally {
+    delete first.whimsyHidden;
+    delete last.whimsyHidden;
+    gZenWorkspaces.saveWorkspace(first);
+    gZenWorkspaces.saveWorkspace(last);
+    await SpecialPowers.popPrefEnv();
+  }
 });

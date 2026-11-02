@@ -265,9 +265,10 @@ export const WhimsySpaceSwitchQueue = {
       return spaces.openWorkspaceCreation();
     }
 
-    // Step between visible spaces.
+    // Step between visible spaces. A step back to the slide that's playing
+    // goes through the queue too, which then drops what was queued after it.
     const targetSpace = visible[to];
-    if (targetSpace.uuid == (state?.running ? state.target : spaces.activeWorkspace)) {
+    if (to == from) {
       return Promise.resolve(targetSpace);
     }
 
@@ -320,40 +321,64 @@ export const WhimsySpaceSwitchQueue = {
     );
   },
 
+  // W11-16: a swipe at the edge of the VISIBLE spaces offers what Zen
+  // offers at the edge of all of them: New Space past the last, the Library
+  // past the first (on the side it sits). Zen asks ZenSpaceAddSwipe and
+  // ZenLibrary, which count every space, hidden ones included, so with a
+  // hidden space at an end the edge action never came. Zen loads both per
+  // window (ChromeUtils.importESModule with global "current"), so the
+  // window's own instances are the ones wrapped: importing them from here
+  // would give this module's separate copies.
   wrapEdgeSwipes(win) {
-    try {
-      const { ZenSpaceAddSwipe } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenSpaceAddSwipe.mjs"
-      );
-      if (
-        typeof ZenSpaceAddSwipe?.prototype?.readySwipeAddSpace == "function" &&
-        !ZenSpaceAddSwipe.prototype.readySwipeAddSpace._whimsyVisible
-      ) {
-        const originalReady = ZenSpaceAddSwipe.prototype.readySwipeAddSpace;
-        ZenSpaceAddSwipe.prototype.readySwipeAddSpace = function () {
-          const ws = typeof gZenWorkspaces !== "undefined" ? gZenWorkspaces : win.gZenWorkspaces;
-          if (!ws) {
-            return originalReady.apply(this, arguments);
-          }
-          const visible = ws.getWorkspaces().filter(s => !s.whimsyHidden);
-          const current = ws.getActiveWorkspaceFromCache();
-          const libraryEnabled = Services.prefs.getBoolPref("zen.library.enabled");
-          let libraryOnRight = false;
-          try {
-            const { ZenLibrary } = ChromeUtils.importESModule("moz-src:///zen/library/ZenLibrary.mjs");
-            libraryOnRight = ZenLibrary.libraryOnRight;
-          } catch (e) {}
-          return (
-            visible.indexOf(current) === (libraryOnRight ? 0 : visible.length - 1) &&
-            libraryEnabled &&
-            ws.shouldSwipeEdgeActions &&
-            !ws.creatingWorkspaceId
-          );
-        };
-        ZenSpaceAddSwipe.prototype.readySwipeAddSpace._whimsyVisible = true;
+    const visibleIndex = ws => {
+      const visible = ws.getWorkspaces().filter(space => !space.whimsyHidden);
+      const current = ws.getActiveWorkspaceFromCache?.() ?? ws.getActiveWorkspace?.();
+      return { visible, index: visible.findIndex(space => space.uuid == current?.uuid) };
+    };
+    const load = url => {
+      try {
+        return win.ChromeUtils.importESModule(url, { global: "current" });
+      } catch (e) {
+        console.error("Whimsy: space edges", url, e);
+        return {};
       }
-    } catch (e) {
-      console.error("Whimsy: wrapEdgeSwipes addSpace", e);
+    };
+    const { ZenLibrary } = load("moz-src:///zen/library/ZenLibrary.mjs");
+    const { ZenSpaceAddSwipe } = load("resource:///modules/zen/ZenSpaceAddSwipe.mjs");
+    const library = () => {
+      try {
+        return !!ZenLibrary?.libraryOnRight;
+      } catch (e) {
+        return false;
+      }
+    };
+    const proto = ZenSpaceAddSwipe?.prototype;
+    if (typeof proto?.readySwipeAddSpace == "function" && !proto.readySwipeAddSpace._whimsyVisible) {
+      const original = proto.readySwipeAddSpace;
+      proto.readySwipeAddSpace = function () {
+        const ws = win.gZenWorkspaces;
+        if (!ws || !featureOn()) {
+          return original.apply(this, arguments);
+        }
+        const { visible, index } = visibleIndex(ws);
+        return index == (library() ? 0 : visible.length - 1) &&
+          Services.prefs.getBoolPref("zen.library.enabled", false) &&
+          !!ws.shouldSwipeEdgeActions && !ws.creatingWorkspaceId;
+      };
+      proto.readySwipeAddSpace._whimsyVisible = true;
+    }
+    if (typeof ZenLibrary?.readySwipeOpenLibrary == "function" && !ZenLibrary.readySwipeOpenLibrary._whimsyVisible) {
+      const original = ZenLibrary.readySwipeOpenLibrary;
+      ZenLibrary.readySwipeOpenLibrary = function () {
+        const ws = win.gZenWorkspaces;
+        if (!ws || !featureOn()) {
+          return original.apply(this, arguments);
+        }
+        const { visible, index } = visibleIndex(ws);
+        return index == (library() ? visible.length - 1 : 0) &&
+          Services.prefs.getBoolPref("zen.library.enabled", false) && !!ws.shouldSwipeEdgeActions;
+      };
+      ZenLibrary.readySwipeOpenLibrary._whimsyVisible = true;
     }
   },
 
