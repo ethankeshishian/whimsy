@@ -54,6 +54,7 @@ add_task(async function test_snooze_undo_cancels_the_wake() {
 // Time opens date and time fields; Esc steps back before it closes.
 
 const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
+const SnoozeTime = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySnoozeTime.sys.mjs");
 
 async function openPicker(tab) {
   const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsySnoozePanel");
@@ -85,7 +86,12 @@ async function typeInField(panel, text) {
   return field;
 }
 
-add_task(async function test_snooze_picker_layout_and_keys() {
+async function checkLayoutAndKeys(hour, minute, disabled) {
+  // The presets depend on the time of day, so pin the picker's clock.
+  const pinned = new Date();
+  pinned.setHours(hour, minute, 0, 0);
+  const realNow = SnoozeTime.clock.now;
+  SnoozeTime.clock.now = () => new Date(pinned);
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?snooze-sheet");
   const panel = await openPicker(tab);
   try {
@@ -114,6 +120,11 @@ add_task(async function test_snooze_picker_layout_and_keys() {
       Assert.greaterOrEqual(row.getBoundingClientRect().height, 24, "Each row is a real target");
     }
 
+    Assert.deepEqual(
+      presetRows(panel).filter(r => r.hasAttribute("disabled")).map(r => r.getAttribute("data-preset")),
+      disabled,
+      `At ${hour}:${String(minute).padStart(2, "0")} the presets that are too late are greyed out`
+    );
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
     const enabled = presetRows(panel).filter(r => !r.hasAttribute("disabled"));
     is(document.activeElement, enabled[0], "Down moves to the first preset you can pick");
@@ -133,9 +144,20 @@ add_task(async function test_snooze_picker_layout_and_keys() {
     ok(tab.isConnected, "Esc closes the picker without snoozing the tab");
     ok(!document.getElementById("whimsySnoozePanel"), "The picker is removed once hidden");
   } finally {
+    SnoozeTime.clock.now = realNow;
     await closePicker(panel);
     BrowserTestUtils.removeTab(tab);
   }
+}
+
+add_task(async function test_snooze_picker_layout_and_keys_morning() {
+  await checkLayoutAndKeys(9, 0, []);
+});
+
+// In the evening Later Today and Tonight are greyed out; the arrow keys must
+// step over them (they used to stop dead on the first, disabled row).
+add_task(async function test_snooze_picker_layout_and_keys_evening() {
+  await checkLayoutAndKeys(19, 30, ["later-today", "tonight"]);
 });
 
 add_task(async function test_snooze_picker_reads_typed_times() {

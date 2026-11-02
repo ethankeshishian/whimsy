@@ -127,14 +127,14 @@ export const WhimsySnoozePicker = {
         icon: ICONS[preset.key],
         // The time is read again on Enter: the sheet may have sat open.
         onCommand: () => {
-          const now = T.resolvePreset(preset.key, new Date());
+          const now = T.resolvePreset(preset.key, T.clock.now());
           pick(now.available ? now.at.getTime() : null);
         },
       });
       row.setAttribute("data-preset", preset.key);
       row.append(
         preset.available
-          ? detailLabel("whimsy-snooze-when", T.whenArgs(preset.at, new Date(), locales))
+          ? detailLabel("whimsy-snooze-when", T.whenArgs(preset.at, T.clock.now(), locales))
           : detailLabel("whimsy-snooze-unavailable")
       );
       if (!preset.available) {
@@ -146,10 +146,10 @@ export const WhimsySnoozePicker = {
     const typedRow = (parsed, text) => {
       const row = lazy.WhimsyPanels.item(doc, {
         l10nId: parsed.past ? "whimsy-snooze-past" : "whimsy-snooze-when",
-        l10nArgs: parsed.past ? undefined : T.whenArgs(parsed.at, new Date(), locales),
+        l10nArgs: parsed.past ? undefined : T.whenArgs(parsed.at, T.clock.now(), locales),
         icon: ICONS.typed,
         onCommand: () => {
-          const again = T.parse(text, new Date());
+          const again = T.parse(text, T.clock.now());
           pick(again && !again.past ? again.at.getTime() : null);
         },
       });
@@ -159,7 +159,7 @@ export const WhimsySnoozePicker = {
       } else {
         const detail = doc.createXULElement("label");
         detail.className = "whimsy-sheet-item-detail";
-        detail.setAttribute("value", T.relative(parsed.at, new Date(), locales));
+        detail.setAttribute("value", T.relative(parsed.at, T.clock.now(), locales));
         row.append(detail);
       }
       return row;
@@ -167,7 +167,7 @@ export const WhimsySnoozePicker = {
 
     const render = () => {
       const text = search.value.trim();
-      const now = new Date();
+      const now = T.clock.now();
       const rows = [];
       const parsed = text ? T.parse(text, now) : null;
       if (parsed) {
@@ -213,7 +213,7 @@ export const WhimsySnoozePicker = {
         customBox.querySelector("input")?.focus();
         return;
       }
-      const typed = T.parse(search.value, new Date());
+      const typed = T.parse(search.value, T.clock.now());
       const start = typed && !typed.past ? typed.at : T.resolvePreset("tomorrow").at;
       customBox = doc.createXULElement("vbox");
       customBox.className = "whimsy-snooze-custom";
@@ -224,7 +224,7 @@ export const WhimsySnoozePicker = {
       date.type = "date";
       date.className = "whimsy-snooze-date";
       date.value = dateValue(start);
-      date.min = dateValue(new Date());
+      date.min = dateValue(T.clock.now());
       doc.l10n.setAttributes(date, "whimsy-snooze-date");
       const time = doc.createElementNS(HTML_NS, "input");
       time.type = "time";
@@ -248,10 +248,10 @@ export const WhimsySnoozePicker = {
       };
       const update = () => {
         const when = chosen();
-        const ok = !!when && when.getTime() > Date.now();
+        const ok = !!when && when.getTime() > T.clock.now().getTime();
         status.toggleAttribute("invalid", !ok);
         if (ok) {
-          doc.l10n.setAttributes(status, "whimsy-snooze-custom-summary", T.whenArgs(when, new Date(), locales));
+          doc.l10n.setAttributes(status, "whimsy-snooze-custom-summary", T.whenArgs(when, T.clock.now(), locales));
         } else {
           doc.l10n.setAttributes(status, when ? "whimsy-snooze-past" : "whimsy-snooze-custom-incomplete");
         }

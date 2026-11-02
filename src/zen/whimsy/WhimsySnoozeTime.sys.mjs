@@ -20,6 +20,11 @@ const TONIGHT = 20; // 8:00 PM
 const LATER_HOURS = 3;
 const LAST_LATER_HOUR = 22; // "Later Today" past 10 PM is really tonight/tomorrow
 
+// Where the snooze code reads the time. Tests set `clock.now` to pin the
+// picker to a time of day (the presets change through the day); nothing
+// else touches it.
+export const clock = { now: () => new Date() };
+
 export const PRESET_KEYS = ["later-today", "tonight", "tomorrow", "weekend", "next-week"];
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -75,7 +80,7 @@ function monthOf(word) {
  * @param {Date} [now]
  * @returns {{ key: string, at: Date, available: boolean, nextWeekend?: boolean }}
  */
-export function resolvePreset(key, now = new Date()) {
+export function resolvePreset(key, now = clock.now()) {
   switch (key) {
     case "later-today": {
       // Three hours on, rounded up to the next half hour.
@@ -111,7 +116,7 @@ export function resolvePreset(key, now = new Date()) {
   throw new Error(`Unknown snooze preset ${key}`);
 }
 
-export function resolvePresets(now = new Date()) {
+export function resolvePresets(now = clock.now()) {
   return PRESET_KEYS.map(key => resolvePreset(key, now));
 }
 
@@ -152,7 +157,7 @@ function readClock(token, next) {
  * @param {Date} [now]
  * @returns {null | { at: Date, past: boolean }} null when it can't be read.
  */
-export function parse(text, now = new Date()) {
+export function parse(text, now = clock.now()) {
   const clean = String(text ?? "")
     .toLowerCase()
     .replace(/[,@]/g, " ")
@@ -372,7 +377,7 @@ function dateIn(month, date, year, now) {
  * whimsy-snooze-when and whimsy-snooze-undo-toast:
  * { when: "today" | "tomorrow" | "week" | "later", time, day }.
  */
-export function whenArgs(wakeAt, now = new Date(), locales = undefined) {
+export function whenArgs(wakeAt, now = clock.now(), locales = undefined) {
   const date = new Date(wakeAt);
   const time = new Intl.DateTimeFormat(locales, { hour: "numeric", minute: "2-digit" }).format(date);
   const days = Math.round((at(date, 0).getTime() - at(now, 0).getTime()) / (24 * HOUR));
@@ -394,7 +399,7 @@ export function whenArgs(wakeAt, now = new Date(), locales = undefined) {
 
 // "in 3 hours", "in 2 days": how far off a typed time is, so the person can
 // check the picker read it the way they meant.
-export function relative(wakeAt, now = new Date(), locales = undefined) {
+export function relative(wakeAt, now = clock.now(), locales = undefined) {
   const ms = new Date(wakeAt).getTime() - now.getTime();
   const rtf = new Intl.RelativeTimeFormat(locales, { numeric: "always" });
   const minutes = Math.round(ms / MINUTE);

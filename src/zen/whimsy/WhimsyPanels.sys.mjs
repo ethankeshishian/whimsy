@@ -33,7 +33,7 @@ export const SHEET_WIDTHS = { small: 300, medium: 360, large: 440 };
 
 const FOCUSABLE =
   "toolbarbutton:not([disabled]):not([hidden]), button:not([disabled]):not([hidden]), " +
-  "input:not([disabled]):not([hidden]), textarea:not([disabled]), [tabindex='0']:not([hidden])";
+  "input:not([disabled]):not([hidden]), textarea:not([disabled]), [tabindex='0']:not([disabled]):not([hidden])";
 
 function visible(el) {
   return !!el && el.isConnected && el.getClientRects().length > 0 && !el.closest("[hidden]");
