@@ -14,23 +14,9 @@ const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy
 const SOURCE = "https://example.com/?secfix-m1-source";
 const TARGET = "https://example.com/?secfix-m1-target";
 
-// Waits for a tab's page by its state. Mid-suite, BrowserTestUtils' load
-// event for a just-opened tab now and then never arrives although the page
-// has loaded (seen here and in screens_3), and browserLoaded waits until the
-// test times out.
-async function loadedPage(tab, url) {
-  await TestUtils.waitForCondition(
-    () => tab.linkedBrowser.currentURI.spec == url && !tab.hasAttribute("busy"),
-    `${url} loaded`
-  );
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () =>
-    ContentTaskUtils.waitForCondition(() => content.document.readyState == "complete", "Its document is complete")
-  );
-}
-
 async function openWith(options) {
   const tab = gBrowser.addTab(TARGET, { inBackground: true, ...options });
-  await loadedPage(tab, TARGET);
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, TARGET);
   return tab;
 }
 
@@ -53,7 +39,7 @@ add_task(async function a_normal_sandboxed_principal_stays_normal() {
 
 add_task(async function a_page_open_owned_by_a_private_tab_is_private() {
   const source = WhimsyPrivate.openPrivateTab(window, { url: SOURCE, force: true });
-  await loadedPage(source, SOURCE);
+  await BrowserTestUtils.browserLoaded(source.linkedBrowser, false, SOURCE);
   // Glance passes the private tab as owner with the page's principal.
   const page = Services.scriptSecurityManager.createContentPrincipal(Services.io.newURI(SOURCE), {});
   const glance = await openWith({ ownerTab: source, triggeringPrincipal: page });

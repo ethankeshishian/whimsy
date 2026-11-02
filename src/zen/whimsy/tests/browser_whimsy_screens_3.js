@@ -424,10 +424,11 @@ add_task(async function fix7_pinned_marks_and_essential_badge() {
       await TestUtils.waitForCondition(() => !tab.hasAttribute("busy") && tab.linkedBrowser.currentURI.spec != "about:blank", "Pinned page loaded");
       is(tab.linkedBrowser.documentURI.scheme, "https", `${url} loaded, not an error page`);
     }
-    // One page at a time: when these two pinned pages (containers 1 and 2)
-    // and the mail page load together, the test server now and then resets
-    // a connection (netReset), the mail page lands on an error page and its
-    // load never comes (about 1 run in 6-10).
+    // One page at a time, each checked for an error page. W11-10: the
+    // "load never comes" hang was the mail page landing on netReset when
+    // three https pages loaded at once: the harness's ssltunnel listened
+    // with a backlog of 1, and macOS resets an overflowing queue (fixed in
+    // src/testing/mochitest/ssltunnel/whimsy-ssltunnel-cpp.patch).
     // In the space's own container (1), so wave8/isolation has nothing to
     // reopen when it's selected.
     const MAIL = "https://example.com/?mail";

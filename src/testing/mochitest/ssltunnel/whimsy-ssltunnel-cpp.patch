@@ -1,0 +1,18 @@
+diff --git a/testing/mochitest/ssltunnel/ssltunnel.cpp b/testing/mochitest/ssltunnel/ssltunnel.cpp
+index 2942b87284..f601688ec6 100644
+--- a/testing/mochitest/ssltunnel/ssltunnel.cpp
++++ b/testing/mochitest/ssltunnel/ssltunnel.cpp
+@@ -979,7 +979,12 @@ void StartServer(void* data) {
+     return;
+   }
+ 
+-  if (PR_Listen(listen_socket.get(), 1) != PR_SUCCESS) {
++  // Whimsy: a backlog of 1 resets connections on macOS. When a burst of
++  // connections (several https pages loading at once, each container with
++  // its own connection pool) overflows the listen queue, XNU drops a queued
++  // connection with a RST (tcp_dropdropablreq) instead of ignoring the SYN
++  // as Linux does, and the page shows netReset. 128, as a real server has.
++  if (PR_Listen(listen_socket.get(), 128) != PR_SUCCESS) {
+     LOG_ERROR(("failed to listen on socket\n"));
+     SignalShutdown();
+     return;
