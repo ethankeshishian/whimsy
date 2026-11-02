@@ -170,10 +170,27 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.applySiteRate(el);
   }
 
+  // Calls (Google Meet, WebRTC) and live streams (unbounded duration) cannot
+  // be sped up: keep the overlay off them.
+  isEligible(el) {
+    if (!el || !HTMLVideoElement.isInstance(el)) {
+      return false;
+    }
+    // WebRTC / MediaStream sources (calls like Google Meet, Zoom, etc.)
+    if (el.srcObject || el.currentSrc?.startsWith("mediastream:")) {
+      return false;
+    }
+    // Live streams (unbounded duration / live stream sources)
+    if (el.duration === Infinity || (el.readyState >= 1 && !Number.isFinite(el.duration))) {
+      return false;
+    }
+    return true;
+  }
+
   // The site's speed goes to each new source once, never over a speed the
   // page chose itself, and never to live streams (they can't run ahead).
   applySiteRate(el) {
-    if (this.siteRate == 1 || !Number.isFinite(el.duration) || !el.currentSrc) {
+    if (!this.isEligible(el) || this.siteRate == 1 || !el.currentSrc) {
       return;
     }
     const state = this.applied.get(el);
@@ -267,7 +284,11 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       return;
     }
     if (point.inControl) {
-      this.show(this.current);
+      if (this.current && this.isEligible(this.current)) {
+        this.show(this.current);
+      } else {
+        this.hide();
+      }
       return;
     }
     const video = this.videoAt(point.x, point.y);
@@ -289,6 +310,9 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         this.videos.delete(el);
         continue;
       }
+      if (!this.isEligible(el)) {
+        continue;
+      }
       if (fullscreen && fullscreen != el && !fullscreen.contains(el)) {
         continue;
       }
@@ -305,7 +329,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   }
 
   show(video) {
-    if (!video || !this.ensureControl()) {
+    if (!video || !this.isEligible(video) || !this.ensureControl()) {
       return;
     }
     clearTimeout(this.hideTimer);

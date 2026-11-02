@@ -196,3 +196,50 @@ add_task(async function test_switch_off() {
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_skips_calls_and_live_streams() {
+  const { tab, browser } = await openPage();
+
+  // Test 1: WebRTC / MediaStream call video (srcObject set)
+  await SpecialPowers.spawn(browser, [], async () => {
+    const video = content.document.getElementById("callVideo");
+    video.srcObject = new content.MediaStream();
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+    actor?.videos.add(video);
+  });
+
+  await hover(browser, "#callVideo");
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 400));
+  ok(!(await control(browser))?.shown, "No speed control on a call video (srcObject)");
+
+  // Test 2: Live stream video (duration Infinity)
+  await SpecialPowers.spawn(browser, [], async () => {
+    const video = content.document.getElementById("callVideo");
+    video.srcObject = null;
+    video.src = "whimsy_video.mp4";
+    Object.defineProperty(video, "duration", { value: Infinity, configurable: true });
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+    actor?.videos.add(video);
+  });
+
+  await hover(browser, "#callVideo");
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => setTimeout(resolve, 400));
+  ok(!(await control(browser))?.shown, "No speed control on a live stream (duration Infinity)");
+
+  // Unit eligibility checks
+  const eligible = await SpecialPowers.spawn(browser, [], () => {
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+    const callVideo = content.document.getElementById("callVideo");
+    const normalVideo = content.document.getElementById("video");
+    return {
+      callEligible: actor?.isEligible(callVideo),
+      normalEligible: actor?.isEligible(normalVideo),
+    };
+  });
+  is(eligible.callEligible, false, "Call/live video is not eligible");
+  is(eligible.normalEligible, true, "Standard video is eligible");
+
+  BrowserTestUtils.removeTab(tab);
+});

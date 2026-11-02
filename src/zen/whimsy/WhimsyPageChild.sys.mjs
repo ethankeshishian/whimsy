@@ -532,9 +532,11 @@ export class WhimsyPageChild extends JSWindowActorChild {
   }
 
   // Playback speed: the media the page is about — the one playing, else
-  // the largest video, else the first audio.
+  // the largest video, else the first audio (excluding calls and live streams).
   mainMedia() {
-    const media = [...(this.document?.querySelectorAll("video, audio") ?? [])].filter(el => el.readyState > 0 || el.src || el.currentSrc);
+    const media = [...(this.document?.querySelectorAll("video, audio") ?? [])].filter(
+      el => (el.readyState > 0 || el.src || el.currentSrc) && !el.srcObject && el.duration !== Infinity
+    );
     media.sort((a, b) => Number(a.paused) - Number(b.paused) || this.area(b) - this.area(a));
     return media[0] ?? null;
   }
