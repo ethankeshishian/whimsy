@@ -258,7 +258,11 @@ add_task(async function settings_profiles_group() {
         () => row(fresh.id)?.querySelector(".whimsy-profile-name").textContent == "Whimsy Settings Renamed",
         "The row shows the new name"
       );
-      is(row(fresh.id).getAttribute("aria-expanded"), "true", "The editor stays open");
+      // F24: Return saves the name and closes the editor.
+      await TestUtils.waitForCondition(() => row(fresh.id).getAttribute("aria-expanded") == "false",
+        "Return closes the editor");
+      row(fresh.id).querySelector(".whimsy-profile-edit").doCommand();
+      is(row(fresh.id).getAttribute("aria-expanded"), "true", "Edit opens it again");
 
       // Opening another closes this one.
       row(used).querySelector(".whimsy-profile-edit").doCommand();

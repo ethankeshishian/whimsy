@@ -107,8 +107,17 @@ export const WhimsyLibrarySection = {
     Services.prefs.setStringPref(HISTORY_VIEW_PREF, view);
     // A History already built switches now; a new one reads the pref.
     lib.querySelector("whimsy-space-history-section")?.setWhimsyView?.(view);
-    if (lib.activeTab != "history" || !ZenLibrary.isLibraryOpen) {
-      ZenLibrary.toggle("history");
+    // Opened, never toggled: Zen marks the Library open only once its open
+    // animation has run, so a second open right after the first (History,
+    // then View Archive) toggled it shut again.
+    if (!Services.prefs.getBoolPref("zen.library.enabled", true)) {
+      return false;
+    }
+    if (lib.activeTab != "history") {
+      lib.activeTab = "history";
+    }
+    if (!ZenLibrary.isLibraryOpen) {
+      ZenLibrary.animateProgress(1);
     }
     return true;
   },

@@ -137,12 +137,17 @@ add_task(async function test_snoozed_wake_and_cancel() {
 });
 
 add_task(async function test_view_archive_switches_an_open_history() {
+  await library.constructor.animateProgress(0);
   ok(WhimsyLibrarySection.openHistory(window, "snoozed"), "Open on Snoozed");
-  const section = await historySection();
-  await TestUtils.waitForCondition(() => section.whimsyView == "snoozed");
+  // Straight after, as in the full run: the Library is still animating open.
   ok(WhimsyArchive.openPanel(window), "View Archive");
-  await TestUtils.waitForCondition(() => section.whimsyView == "closed", "The open History switches to Closed");
-  ok(library.constructor.isLibraryOpen, "It stays open");
+  const section = await historySection();
+  await TestUtils.waitForCondition(() => section.whimsyView == "closed", "History shows Closed");
+  // At once, while History is still animating open: it stays open.
+  await TestUtils.waitForCondition(() => library.constructor.isLibraryOpen, "It stays open");
+  ok(WhimsyArchive.openPanel(window), "View Archive again, right away");
+  await new Promise(resolve => setTimeout(resolve, 400));
+  ok(library.constructor.isLibraryOpen, "Still open");
   await library.constructor.animateProgress(0);
 });
 

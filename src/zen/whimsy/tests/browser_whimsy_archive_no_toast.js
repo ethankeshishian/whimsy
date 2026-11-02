@@ -136,8 +136,11 @@ add_task(async function archive_tabs_below_shows_no_toast_and_undoes_together() 
   const [anchor, b, c] = await openTabs(["below-anchor", "below-b", "below-c"]);
   const seen = await toastsDuring(async () => {
     const menu = await openTabMenu(anchor);
+    // F15: Archive Tabs Below lives in the "Archive Multiple Tabs" submenu
+    // now, so activateItem (top-level rows only) can't reach it.
     const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
-    menu.activateItem(document.getElementById(BELOW_ID));
+    document.getElementById(BELOW_ID).doCommand();
+    menu.hidePopup();
     await hidden;
     await TestUtils.waitForCondition(() => !b.isConnected && !c.isConnected, "The tabs below are archived");
   });
