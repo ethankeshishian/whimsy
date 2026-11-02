@@ -1191,6 +1191,41 @@ whimsy-vpn-scope-button-connecting = VPN connecting
 whimsy-vpn-scope-button-browser = VPN on · All spaces
 whimsy-vpn-scope-button-space = VPN on · This space
 whimsy-vpn-scope-button-elsewhere = VPN off here
+## W13 F02: Whimsy's VPN controls for Firefox's built-in VPN, which keeps
+## Firefox's name (Firefox IP Protection); "VPN" only where space is tight.
+## A: the address bar control.
+whimsy-vpn-urlbar-label =
+    .value = VPN
+whimsy-vpn-urlbar-setup =
+    .tooltiptext = Set up Firefox IP Protection, Firefox’s built-in VPN
+    .aria-label = VPN: set up Firefox IP Protection
+whimsy-vpn-urlbar-off =
+    .tooltiptext = Firefox IP Protection is off. Click to turn the VPN on.
+    .aria-label = VPN off
+whimsy-vpn-urlbar-connecting =
+    .tooltiptext = Firefox IP Protection is connecting…
+    .aria-label = VPN connecting
+whimsy-vpn-urlbar-on-browser =
+    .tooltiptext = Firefox IP Protection is on in all spaces. Click to turn the VPN off.
+    .aria-label = VPN on, all spaces
+whimsy-vpn-urlbar-on-space =
+    .tooltiptext = Firefox IP Protection is on in this space. Click to turn the VPN off.
+    .aria-label = VPN on, this space
+whimsy-vpn-urlbar-elsewhere =
+    .tooltiptext = Firefox IP Protection is on in other spaces, not this one. Click to protect this space too.
+    .aria-label = VPN off in this space
+## B: the row in This Site (the site panel).
+whimsy-vpn-site-name = Firefox IP Protection
+whimsy-vpn-site-setup = Sign in with a Mozilla account to turn it on
+whimsy-vpn-site-off = Off · hides your location from sites
+whimsy-vpn-site-connecting = Connecting…
+whimsy-vpn-site-on-browser = VPN on · All spaces
+whimsy-vpn-site-on-space = VPN on · This space
+whimsy-vpn-site-elsewhere = Off in this space · on in others
+whimsy-vpn-site-scope =
+    .aria-label = Protect
+whimsy-vpn-site-scope-no-container = This space
+    .title = This space uses the Default profile, so it can’t be protected on its own
 
 ## legacy: Firefox/Mozilla leftovers replaced with Whimsy's own.
 

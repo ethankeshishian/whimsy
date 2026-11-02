@@ -29,6 +29,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVPNScope: "resource:///modules/whimsy/WhimsyVPNScope.sys.mjs",
   CustomizableUI: "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   IPProtection:
     "moz-src:///browser/components/ipprotection/IPProtection.sys.mjs",
   IPProtectionService:
@@ -47,6 +48,12 @@ const FEATURE_PREF = "whimsy.feature.vpn";
 const MASTER_PREF = "browser.ipProtection.enabled";
 const ICON = "chrome://browser/skin/zen-icons/selectable/lock-closed.svg";
 const WIDGET_ID = "ipprotection-button";
+// W13 F02: Whimsy's two VPN controls (the user asked for both, A and B).
+const URLBAR_ID = "whimsy-vpn-urlbar";
+const SECTION_ID = "whimsy-vpn-site-section";
+const SITE_PANEL_ID = "zen-unified-site-data-panel";
+const SITE_ICON_ID = "zen-site-data-icon-button";
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 export const WhimsyVPN = {
   FEATURE_PREF,
@@ -91,7 +98,11 @@ export const WhimsyVPN = {
     if (!this.canTurnOn()) {
       return;
     }
-    this.showButton(win);
+    // A visible control: Firefox's button, unless the address bar's VPN
+    // control (W13 F02) already shows the state.
+    if (!win.document.getElementById(URLBAR_ID)?.checkVisibility?.()) {
+      this.showButton(win);
+    }
     try {
       await lazy.IPPProxyManager.start();
       win.gZenUIManager?.showToast?.("whimsy-vpn-on-toast");
@@ -242,9 +253,270 @@ export const WhimsyVPN = {
     return this.wrapperEnabled && !this.ready;
   },
 
+  // The one toggle: the command, the address bar's VPN control and This
+  // Site's switch all run it.
+  toggle(win) {
+    if (!this.wrapperEnabled) {
+      return null;
+    }
+    if (this.canTurnOff()) {
+      return this.turnOff(win);
+    }
+    if (this.canSetUp()) {
+      // fix7 settings: before sign-in neither On nor Off applies.
+      return this.setUp(win);
+    }
+    return this.canTurnOn() ? this.turnOn(win) : null;
+  },
+
+  // The address bar control and This Site's switch: like toggle(), except
+  // that where the VPN is on for other spaces but not this one ("off
+  // here"), turning it on adds this space instead of stopping it for all.
+  async toggleHere(win) {
+    if (this.uiState(win).state == "elsewhere" && lazy.WhimsyVPNScope.containerForWindow(win)) {
+      lazy.WhimsyVPNScope.setScope(win, "space");
+    } else {
+      await this.toggle(win);
+    }
+    this.updateUi(win);
+  },
+
+  // ---- W13 F02: the address bar control (A) and This Site's row (B) ----
+  //
+  // One state for both, from Firefox's service and proxy and Whimsy's
+  // space scope (WhimsyVPNScope.buttonState):
+  //   hidden      Firefox's VPN is switched off in Settings, or Firefox
+  //               doesn't offer it to this browser: no control at all
+  //   setup       not signed in yet: the control sets it up
+  //   off         ready, not connected
+  //   connecting  connecting
+  //   on          connected, and this space is covered ("browser" or
+  //               "space" scope)
+  //   elsewhere   connected for other spaces, not this one (off here)
+  uiState(win) {
+    if (!this.wrapperEnabled || !this.masterEnabled ||
+      lazy.IPProtectionService.state == lazy.IPProtectionStates.UNAVAILABLE) {
+      return { state: "hidden", scope: null };
+    }
+    if (!this.ready) {
+      return { state: "setup", scope: null };
+    }
+    const scoped = lazy.WhimsyVPNScope.buttonState(win);
+    if (scoped == "connecting") {
+      return { state: "connecting", scope: null };
+    }
+    if (scoped == "browser" || scoped == "space") {
+      return { state: "on", scope: scoped };
+    }
+    if (scoped == "elsewhere" && this.canTurnOff()) {
+      return { state: "elsewhere", scope: null };
+    }
+    return { state: "off", scope: null };
+  },
+
+  // A: "VPN" with a status dot, last in the address bar's buttons. One
+  // click toggles; the address bar's own 8px hover; only the dot moves
+  // (off ring, amber pulse while connecting, green with one ring on).
+  urlbarControl(win) {
+    const doc = win.document;
+    let control = doc.getElementById(URLBAR_ID);
+    if (control) {
+      return control;
+    }
+    const buttons = doc.getElementById("page-action-buttons");
+    if (!buttons) {
+      return null;
+    }
+    control = doc.createXULElement("hbox");
+    control.id = URLBAR_ID;
+    control.className = "whimsy-vpn-urlbar";
+    control.setAttribute("align", "center");
+    control.setAttribute("role", "button");
+    control.setAttribute("tabindex", "0");
+    const dot = doc.createElementNS(HTML_NS, "span");
+    dot.className = "whimsy-vpn-dot";
+    dot.setAttribute("aria-hidden", "true");
+    const label = doc.createXULElement("label");
+    label.className = "whimsy-vpn-urlbar-label";
+    doc.l10n.setAttributes(label, "whimsy-vpn-urlbar-label");
+    control.append(dot, label);
+    control.addEventListener("click", event => {
+      if (event.button == 0) {
+        this.toggleHere(win);
+      }
+    });
+    control.addEventListener("keydown", event => {
+      if (event.key == "Enter" || event.key == " ") {
+        event.preventDefault();
+        this.toggleHere(win);
+      }
+    });
+    buttons.append(control);
+    return control;
+  },
+
+  // B: Firefox IP Protection's row in This Site (Zen's site panel), first,
+  // under the panel's quick buttons: a tile, the name and its state, a
+  // switch; while it's on or connecting, All spaces | This space under it.
+  // Rebuilt each time the panel opens and while it's open.
+  renderSiteSection(win) {
+    const doc = win.document;
+    const header = doc.getElementById("zen-site-data-header");
+    let section = doc.getElementById(SECTION_ID);
+    const { state, scope } = this.uiState(win);
+    if (state == "hidden" || !header) {
+      section?.remove();
+      return null;
+    }
+    const S = lazy.WhimsySurface;
+    if (!section) {
+      section = doc.createXULElement("vbox");
+      section.id = SECTION_ID;
+      section.className = "zen-site-data-section whimsy-vpn-site-section whimsy-surface-tokens";
+      header.after(section);
+    }
+    const hadFocus = section.contains(doc.activeElement) ? doc.activeElement.dataset.vpnControl : null;
+    const group = S.group(doc);
+    group.classList.add("whimsy-vpn-site-group");
+    const tile = S.tile(doc, {
+      icon: `chrome://browser/content/whimsy/icons/${state == "on" ? "shield-fill" : "shield"}.svg`,
+    });
+    tile.classList.add("whimsy-vpn-tile");
+    tile.setAttribute("state", state);
+    const detail = state == "on" ? `whimsy-vpn-site-on-${scope}` : `whimsy-vpn-site-${state}`;
+    const toggle = S.switch(doc, {
+      checked: state == "on" || state == "connecting",
+      labelledBy: "whimsy-vpn-site-name",
+      id: "whimsy-vpn-site-switch",
+      onChange: () => this.toggleHere(win),
+    });
+    toggle.dataset.vpnControl = "switch";
+    toggle.setAttribute("aria-describedby", "whimsy-vpn-site-detail");
+    const { row, label } = S.row(doc, { l10nId: "whimsy-vpn-site-name", detailL10nId: detail, trailing: [toggle] });
+    label.id = "whimsy-vpn-site-name";
+    row.querySelector(".whimsy-surface-row-detail").id = "whimsy-vpn-site-detail";
+    row.prepend(tile);
+    row.classList.add("whimsy-vpn-site-row");
+    row.setAttribute("state", state);
+    group.append(row);
+    if (state == "on" || state == "connecting") {
+      const container = lazy.WhimsyVPNScope.containerForWindow(win);
+      const seg = S.seg(doc, {
+        name: "whimsy-vpn-scope",
+        small: true,
+        label: null,
+        options: [
+          { value: "browser", l10nId: "whimsy-vpn-scope-browser" },
+          { value: "space", l10nId: "whimsy-vpn-scope-space" },
+        ],
+        onPick: value => {
+          if (value == "browser" || !lazy.WhimsyVPNScope.selectedIds().includes(container)) {
+            lazy.WhimsyVPNScope.setScope(win, value);
+          }
+          this.updateUi(win);
+        },
+      });
+      doc.l10n.setAttributes(seg.group, "whimsy-vpn-site-scope");
+      seg.select(scope == "space" ? "space" : scope == "browser" ? "browser" : null);
+      const spaceButton = seg.buttons[1];
+      if (!container) {
+        spaceButton.disabled = true;
+        doc.l10n.setAttributes(spaceButton, "whimsy-vpn-site-scope-no-container");
+      }
+      for (const b of seg.buttons) {
+        b.dataset.vpnControl = b.dataset.value;
+      }
+      const scopeRow = doc.createXULElement("hbox");
+      scopeRow.className = "whimsy-vpn-scope-row";
+      scopeRow.append(seg.group);
+      group.append(scopeRow);
+    }
+    section.replaceChildren(group);
+    if (hadFocus) {
+      section.querySelector(`[data-vpn-control="${hadFocus}"]`)?.focus();
+    }
+    return section;
+  },
+
+  // Both controls and the badge on the site icon, for this window.
+  updateUi(win) {
+    const doc = win.document;
+    const { state, scope } = this.uiState(win);
+    const control = state == "hidden" ? doc.getElementById(URLBAR_ID) : this.urlbarControl(win);
+    if (control) {
+      control.hidden = state == "hidden";
+      control.setAttribute("state", state);
+      const id = state == "on" ? `whimsy-vpn-urlbar-on-${scope}` : `whimsy-vpn-urlbar-${state}`;
+      if (state != "hidden") {
+        doc.l10n.setAttributes(control, id);
+      }
+    }
+    const icon = doc.getElementById(SITE_ICON_ID);
+    if (icon) {
+      icon.toggleAttribute("whimsy-vpn-on", state == "on");
+    }
+    const panel = doc.getElementById(SITE_PANEL_ID);
+    if (panel && (panel.state == "open" || panel.state == "showing")) {
+      this.renderSiteSection(win);
+    }
+  },
+
+  _uiWindows: new WeakSet(),
+  initUi(win) {
+    if (this._uiWindows.has(win) || !win.gBrowser) {
+      return;
+    }
+    this._uiWindows.add(win);
+    const update = () => {
+      try {
+        this.updateUi(win);
+      } catch (e) {
+        console.error("Whimsy: VPN controls", e);
+      }
+    };
+    const prefs = [FEATURE_PREF, MASTER_PREF, lazy.WhimsyVPNScope.PREF, lazy.WhimsyVPNScope.FEATURE];
+    for (const pref of prefs) {
+      Services.prefs.addObserver(pref, update);
+    }
+    const events = [
+      [lazy.IPPProxyManager, "IPPProxyManager:StateChanged"],
+      [lazy.IPProtectionService, "IPProtectionService:StateChanged"],
+      [win.gBrowser.tabContainer, "TabSelect"],
+      [win, "ZenWorkspacesUIUpdate"],
+      [win, "ZenWorkspaceDataChanged"],
+    ];
+    for (const [target, name] of events) {
+      target.addEventListener(name, update);
+    }
+    const onShowing = event => {
+      if (event.target.id == SITE_PANEL_ID) {
+        try {
+          this.renderSiteSection(win);
+        } catch (e) {
+          console.error("Whimsy: VPN in This Site", e);
+        }
+      }
+    };
+    win.document.addEventListener("popupshowing", onShowing);
+    win.addEventListener("unload", () => {
+      for (const pref of prefs) {
+        Services.prefs.removeObserver(pref, update);
+      }
+      for (const [target, name] of events) {
+        target.removeEventListener(name, update);
+      }
+      win.document.removeEventListener("popupshowing", onShowing);
+    }, { once: true });
+    update();
+  },
+
   initWindow(win) {
-    // vpnspace: Keep the native panel and widget as the single VPN control.
+    // vpnspace: Firefox's panel and widget stay Firefox's (sign-in,
+    // location, usage); W13 F02 adds the address bar control and This
+    // Site's row on top, both running toggle().
     lazy.WhimsyVPNScope.initWindow(win);
+    // Watches the switch itself, so it starts and stops with it.
+    this.initUi(win);
     if (!this.wrapperEnabled) {
       return;
     }
@@ -254,19 +526,7 @@ export const WhimsyVPN = {
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyVPNToggle",
       l10nId: "whimsy-action-vpn-toggle",
-      run: w => {
-        if (!this.wrapperEnabled) {
-          return null;
-        }
-        if (this.canTurnOff()) {
-          return this.turnOff(w);
-        }
-        if (this.canSetUp()) {
-          // fix7 settings: before sign-in neither On nor Off applies.
-          return this.setUp(w);
-        }
-        return this.canTurnOn() ? this.turnOn(w) : null;
-      },
+      run: w => this.toggle(w),
       icon: ICON,
       variants: [
         { l10nId: "whimsy-action-vpn-on", isAvailable: () => this.wrapperEnabled && this.canTurnOn() },

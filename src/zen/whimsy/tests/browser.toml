@@ -319,6 +319,10 @@ support-files = ["whimsy_calendar.sjs"]
 
 # vpnspace: native VPN panel, container policy and channel boundary.
 ["browser_whimsy_vpnspace.js"]
+
+# W13 F02: the address bar VPN control (A) and This Site's VPN row with the site icon badge (B).
+["browser_whimsy_vpn_controls.js"]
+
 # legacy: Firefox/Zen/Mozilla leftovers (prefs, branding URLs, About dialog,
 # default bookmarks, Zen strings, and what was kept at upstream values).
 ["browser_whimsy_legacy.js"]
