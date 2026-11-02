@@ -164,60 +164,59 @@ add_task(async function test_containers_and_private_never_match() {
   BrowserTestUtils.removeTab(contained);
 });
 
-add_task(async function test_promote_open_tabs() {
-  const dummyHeuristic = { heuristic: true, type: 2, payload: {} };
-  const dummyHistory = { heuristic: false, type: 3, payload: { url: "https://example.com/hist" } };
-  const dummyTabSwitch1 = { heuristic: false, type: 1, payload: { url: "https://example.com/tab1" } };
-  const dummyTabSwitch2 = { heuristic: false, source: 4, payload: { url: "https://example.com/tab2" } };
+// C1 (F34's ask, without reordering): an Essential open on an address with
+// a #fragment (Gmail's .../#inbox). Typing that address in the Cmd+T bar
+// lists it once: the typed address, whose Return goes to the Essential;
+// no second "Switch to Tab" row for the same page. Every other result keeps
+// Firefox's order (the same as with the feature off).
+add_task(async function test_open_page_is_one_row_and_order_is_firefoxs() {
+  const page = "https://example.com/browser/whimsyessential/#inbox";
+  await PlacesTestUtils.addVisits([
+    { uri: page, title: "Whimsy essential inbox" },
+    { uri: "https://example.com/browser/whimsyessential/other", title: "Whimsy essential other" },
+  ]);
+  const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  gZenPinnedTabManager.addToEssentials(essential);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?c1");
+  const urls = async () => (await rows()).map(r => `${r.result.type}:${r.result.payload.url ?? r.result.payload.query}`);
+  try {
+    await commandBar(page);
+    const all = await rows();
+    const samePage = all.filter(r => (r.result.payload.url ?? "").replace(/#.*/, "") == page.replace(/#.*/, ""));
+    is(samePage.length, 1, "One row for the open page");
+    ok(samePage[0].result.heuristic, "...the typed address, first");
+    ok(!all.some(r => r.result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH && r.result.payload.url == page),
+      "No Switch to Tab row repeating it");
+    EventUtils.synthesizeKey("KEY_Enter");
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab == essential, "Return goes to the Essential");
 
-  // 1: tab switch results are promoted right below heuristic
-  const qc1 = {
-    results: [dummyHeuristic, dummyHistory, dummyTabSwitch1, dummyTabSwitch2],
-  };
-  WhimsyAlreadyOpen.promoteOpenTabs(qc1);
-  Assert.deepEqual(
-    qc1.results,
-    [dummyHeuristic, dummyTabSwitch1, dummyTabSwitch2, dummyHistory],
-    "Tab switch results promoted to index 1 below heuristic"
-  );
-
-  // 2: non-heuristic query promotes tab switch to index 0
-  const qc2 = {
-    results: [dummyHistory, dummyTabSwitch1],
-  };
-  WhimsyAlreadyOpen.promoteOpenTabs(qc2);
-  Assert.deepEqual(
-    qc2.results,
-    [dummyTabSwitch1, dummyHistory],
-    "Tab switch result promoted to index 0 when no heuristic"
-  );
-
-  // 3: disabled pref leaves order intact
-  await SpecialPowers.pushPrefEnv({ set: [[FEATURE, false]] });
-  const qc3 = {
-    results: [dummyHeuristic, dummyHistory, dummyTabSwitch1],
-  };
-  WhimsyAlreadyOpen.promoteOpenTabs(qc3);
-  Assert.deepEqual(
-    qc3.results,
-    [dummyHeuristic, dummyHistory, dummyTabSwitch1],
-    "When disabled, result order is unchanged"
-  );
-  await SpecialPowers.popPrefEnv();
-
-  // 4: view hook in window is active
-  WhimsyAlreadyOpen.initWindow(window);
-  if (window.gURLBar.view) {
-    ok(window.gURLBar.view._whimsyRankHooked, "UrlbarView onQueryResults is hooked");
+    // A search: Firefox's order, with the feature on or off.
+    gBrowser.selectedTab = other;
+    await commandBar("whimsyessential");
+    const on = await urls();
+    await closeCommandBar();
+    await SpecialPowers.pushPrefEnv({ set: [[FEATURE, false]] });
+    await commandBar("whimsyessential");
+    const off = await urls();
+    await closeCommandBar();
+    await SpecialPowers.popPrefEnv();
+    Assert.deepEqual(on, off, "Open tabs aren't moved up: the order is Firefox's");
+  } finally {
+    if (gURLBar.hasAttribute("zen-newtab") || gURLBar.view.isOpen) {
+      await closeCommandBar();
+    }
+    gZenPinnedTabManager.removeEssentials(essential);
+    BrowserTestUtils.removeTab(other);
+    BrowserTestUtils.removeTab(essential);
+    const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+    await PlacesUtils.history.remove([page, "https://example.com/browser/whimsyessential/other"]);
   }
 });
 
 // W10-36: a pinned tab had no "Switch to Tab" row in the Cmd+T command bar
 // when you were on it, but did from another space. Zen's Cmd+T bar opens
 // over the selected tab, so Firefox took that tab as the current page and
-// left it out. W11-08: the tab you're on is now listed as an ordinary link,
-// as in Arc, and picking it in Cmd+T opens a second copy; from any other
-// tab or space it's a Switch to Tab.
+// left it out, so in the new-tab bar every open tab is offered.
 const PINNED_URL = "https://example.com/browser/whimsy-switch-pinned";
 
 async function closeCommandBar() {

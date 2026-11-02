@@ -60,23 +60,46 @@ export const WhimsyAlreadyOpen = {
     );
   },
 
-  promoteOpenTabs(queryContext) {
-    if (!this.enabled || !queryContext?.results?.length) {
+  // C1 (F34's ask, no reordering): in the command bar for a new tab, the
+  // typed address of a page that's already open is one row, not two. Return
+  // on that address already goes to the open tab (maybeSwitch), or opens a
+  // second copy of the tab you're on, so a "Switch to Tab" row for the same
+  // page (ignoring #fragment, http and https alike) only repeats it. The
+  // order of the other results is Firefox's.
+  dropDuplicateTabRows(win, queryContext) {
+    const results = queryContext?.results;
+    const heuristic = results?.[0];
+    if (!this.enabled || !heuristic?.heuristic || heuristic.type != URL_RESULT || !this.inNewTabBar(win)) {
       return;
     }
-    const results = queryContext.results;
-    let targetIndex = results[0]?.heuristic ? 1 : 0;
-    while (targetIndex < results.length && this.isTabSwitch(results[targetIndex])) {
-      targetIndex++;
+    const key = this.key(heuristic.payload?.url);
+    if (!key) {
+      return;
     }
-    for (let i = targetIndex + 1; i < results.length; i++) {
-      if (this.isTabSwitch(results[i])) {
-        const [result] = results.splice(i, 1);
-        results.splice(targetIndex, 0, result);
-        targetIndex++;
+    const found = this.findTab(win, heuristic.payload.url, {
+      userContextId: this.targetUserContextId(win),
+      isPrivate: !!win.gURLBar.isPrivate,
+    });
+    if (!found) {
+      return;
+    }
+    for (let i = results.length - 1; i > 0; i--) {
+      if (this.isTabSwitch(results[i]) && this.key(results[i].payload?.url) == key) {
+        results.splice(i, 1);
       }
     }
   },
+
+  // Whether this address bar is the command bar for a new tab: Zen's Cmd+T
+  // bar or an empty tab (where Return on an open address switches to it).
+  inNewTabBar(win) {
+    if (win.gURLBar.hasAttribute("zen-newtab")) {
+      return true;
+    }
+    const tab = win.gBrowser.selectedTab;
+    return !!tab?.isEmpty || EMPTY_PAGES.has(tab?.linkedBrowser?.currentURI?.spec);
+  },
+
 
   // The key two addresses share when they are the same page: no fragment,
   // and http and https count as one (HTTPS-First upgrades typed addresses).
@@ -338,14 +361,14 @@ export const WhimsyAlreadyOpen = {
       };
     }
 
-    if (urlbar.view && !urlbar.view._whimsyRankHooked) {
-      urlbar.view._whimsyRankHooked = true;
+    if (urlbar.view && !urlbar.view._whimsyDedupHooked) {
+      urlbar.view._whimsyDedupHooked = true;
       const origOnQueryResults = urlbar.view.onQueryResults;
       urlbar.view.onQueryResults = function (queryContext) {
         try {
-          WhimsyAlreadyOpen.promoteOpenTabs(queryContext);
+          WhimsyAlreadyOpen.dropDuplicateTabRows(win, queryContext);
         } catch (e) {
-          console.error("Whimsy: promoteOpenTabs error", e);
+          console.error("Whimsy: open tab rows", e);
         }
         return origOnQueryResults.apply(this, arguments);
       };
