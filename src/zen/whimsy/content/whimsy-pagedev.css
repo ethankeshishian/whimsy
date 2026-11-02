@@ -121,45 +121,83 @@
   }
 }
 
-/* Colors: a small HEX / RGB / HSL switch in the caption, a 4-column
-   swatch grid, then contrast rows with a pill. */
-.whimsy-pagedev-formats {
-  margin-inline-start: 6px;
-}
+/* Colors. W13 F07 (wave12 F07, option C): four swatches a row, 44px tall
+   with a 7px radius and a hairline, nothing written on them; the picked
+   one has a 2px ring in the space colour. Under them, the detail bar on
+   the surface track: the picked colour (22px), its value whole in 11.5px
+   mono, the HEX / RGB / HSL switch and Copy. */
 .whimsy-pagedev-swatches {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
+  padding: 2px;
 }
 .whimsy-pagedev-color {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 3px;
+  appearance: none;
+  height: 44px;
   min-width: 0;
-  padding: 3px;
-}
-.whimsy-pagedev-swatch {
-  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
   border-radius: 7px;
   box-shadow: inset 0 0 0 1px light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.16));
+  cursor: pointer;
+  transition: box-shadow 100ms var(--whimsy-surface-ease);
+
+  &[aria-checked="true"] {
+    box-shadow: 0 0 0 2px var(--zen-primary-color, AccentColor), inset 0 0 0 1px light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.16));
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 3px;
+  }
 }
-.whimsy-pagedev-swatch-value {
+.whimsy-pagedev-detail {
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--whimsy-surface-track);
+}
+.whimsy-pagedev-detail-swatch {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--whimsy-surface-hairline);
+}
+.whimsy-pagedev-detail-value {
+  flex: 1;
+  min-width: 0;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 11.5px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  user-select: text;
 }
-.whimsy-pagedev-swatch-role {
-  font-size: 11px;
+.whimsy-pagedev-formats {
+  flex-shrink: 0;
+}
+.whimsy-pagedev-detail-copy {
+  flex-shrink: 0;
   color: var(--whimsy-surface-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+  &[copied] {
+    color: inherit;
+  }
 }
-.whimsy-pagedev-color > .whimsy-surface-copy-live {
-  font-size: 11.5px;
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-pagedev-color {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .whimsy-pagedev-color[aria-checked="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
 }
 .whimsy-pagedev-pair {
   display: flex;

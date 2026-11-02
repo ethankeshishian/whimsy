@@ -4021,11 +4021,11 @@ whimsy-tabs-element-inspector =
 ## wave9/pagedev: Fonts on This Page, Page Colors and Built With (W9-11).
 ## They live in Tools > Browser Tools with the Font Inspector and Element Info.
 
-whimsy-action-page-fonts = Fonts on This Page
+whimsy-action-page-fonts = Page Fonts
 whimsy-action-page-colors = Page Colors
 whimsy-action-built-with = Built With
 whimsy-pagedev-menu-fonts =
-    .label = Fonts on This Page
+    .label = Page Fonts
 whimsy-pagedev-menu-colors =
     .label = Page Colors
 whimsy-pagedev-menu-built-with =
@@ -4035,7 +4035,7 @@ whimsy-pagedev-menu-font-inspector =
 whimsy-pagedev-menu-element-info =
     .label = Element Info
 whimsy-tabs-page-dev =
-    .label = Developer tools for the page: Fonts on This Page, Page Colors and Built With (Tools ▸ Browser Tools and command bar)
+    .label = Developer tools for the page: Page Fonts, Page Colors and Built With (Tools ▸ Browser Tools and command bar)
 
 whimsy-pagedev-unavailable = Whimsy can’t look inside this page. Try a regular web page.
 # $value (string) - the text a row copies
@@ -4053,6 +4053,15 @@ whimsy-pagedev-font-highlight = Highlight on Page
 whimsy-pagedev-font-highlight-none = None of this text is visible to highlight
 
 whimsy-pagedev-format-label = Color format
+## W13 F07 (option C): the swatch grid and the picked colour's bar.
+whimsy-pagedev-swatches-label =
+    .aria-label = Colors on this page, largest area first
+whimsy-pagedev-detail-copy =
+    .tooltiptext = Copy
+    .aria-label = Copy
+whimsy-pagedev-detail-copied =
+    .tooltiptext = Copied
+    .aria-label = Copied
 whimsy-pagedev-format-hex = HEX
 whimsy-pagedev-format-rgb = RGB
 whimsy-pagedev-format-hsl = HSL

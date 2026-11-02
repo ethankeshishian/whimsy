@@ -413,17 +413,22 @@ export const WhimsyInspector = {
     let parts;
     if (keep) {
       parts = keep._whimsyParts;
-      parts.view.replaceChildren();
+      parts.view.replaceChildren(parts.header);
       parts.footer.replaceChildren();
     } else {
+      // W13 F07: a header to drag it by (grip, "Font Inspector", close). It
+      // opens at the text it describes, so a drag lasts for this card only.
       parts = lazy.WhimsySurface.create(win, {
         id: FONT_PANEL_ID,
         width: FONT_PANEL_WIDTH,
+        titleL10nId: "whimsy-font-inspector-title",
+        close: true,
         footer: true,
         className: "whimsy-font-card",
         initialFocus: () => parts.panel.querySelector(".whimsy-font-copy-css") ?? parts.footer.querySelector("button"),
       });
       parts.panel._whimsyParts = parts;
+      lazy.WhimsySurface.makeDraggable(parts.panel, parts.header, { remember: false });
     }
     const { panel, view, footer } = parts;
     panel.setAttribute("aria-labelledby", "whimsy-font-name");
@@ -442,14 +447,11 @@ export const WhimsyInspector = {
       text.className = "whimsy-font-unavailable";
       doc.l10n.setAttributes(text, "whimsy-pagedev-unavailable");
       pad.append(text);
-      footer.append(lazy.WhimsySurface.footerButton(doc, {
-        l10nId: "whimsy-font-close",
-        primary: true,
-        onCommand: () => lazy.WhimsySurface.close(panel),
-      }));
+      // The header's ✕ closes it (W13 F07: no second Close in the footer).
     } else {
       this._fillFontCard(win, parts, pad, data);
     }
+    footer.hidden = !footer.children.length;
     lazy.WhimsySurface.finish(parts);
 
     if (keep) {

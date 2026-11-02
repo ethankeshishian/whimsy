@@ -5,7 +5,7 @@
 // wave9/pagedev: the page developer tools (W9-11, from the Lens browser's
 // developer menu).
 //
-// - Fonts on This Page: every family the page actually renders with
+// - Page Fonts (W13 F07; was Fonts on This Page): every family the page actually renders with
 //   (InspectorUtils.getUsedFontFaces in the content actor, not the CSS
 //   stacks), its faces, weights and styles, where it comes from (web font
 //   URL, local(), system), a sample drawn in the font itself and how much
@@ -425,7 +425,9 @@ export const WhimsyPageDev = {
         this._returnFocus(win, parts.panel, previous, browser);
       },
     });
-    const { panel, view, footer, title } = parts;
+    const { panel, view, footer, title, header } = parts;
+    // W13 F07: it floats over the page; the header drags it.
+    lazy.WhimsySurface.makeDraggable(panel, header);
     const state = { tab, results: {}, browser, highlight: null };
 
     const seg = lazy.WhimsySurface.seg(doc, {
@@ -765,6 +767,12 @@ export const WhimsyPageDev = {
 
   // ---- Colors ----
 
+  // W13 F07 (wave12 F07, option C): four swatches a row, nothing written
+  // on them; the picked one's value in a detail bar under the grid (its
+  // swatch, the value whole in one line, HEX / RGB / HSL, Copy). A click
+  // (or the arrow keys: a radiogroup in rows of four) picks a swatch; Copy
+  // or Return on the bar copies. The format applies to the contrast rows
+  // and Copy All as CSS Variables too.
   _renderColors(win, state, body, footer) {
     const doc = win.document;
     const result = state.results.colors;
@@ -780,6 +788,25 @@ export const WhimsyPageDev = {
       l10nArgs: { count: result.palette.length + (result.more ?? 0) },
       detailL10nId: "whimsy-pagedev-by-area",
     });
+
+    const colors = result.palette.slice(0, MAX_SWATCHES);
+    const grid = doc.createElementNS(HTML_NS, "div");
+    grid.className = "whimsy-pagedev-swatches";
+    grid.setAttribute("role", "radiogroup");
+    grid.dataset.columns = "4";
+    doc.l10n.setAttributes(grid, "whimsy-pagedev-swatches-label");
+
+    // The detail bar.
+    const bar = doc.createXULElement("hbox");
+    bar.className = "whimsy-pagedev-detail";
+    bar.setAttribute("align", "center");
+    const chip = doc.createElementNS(HTML_NS, "span");
+    chip.className = "whimsy-pagedev-detail-swatch";
+    chip.setAttribute("aria-hidden", "true");
+    const value = doc.createElementNS(HTML_NS, "span");
+    value.className = "whimsy-pagedev-detail-value";
+    value.id = "whimsy-pagedev-detail-value";
+    value.setAttribute("aria-live", "polite");
     const formats = lazy.WhimsySurface.seg(doc, {
       name: "format",
       small: true,
@@ -793,14 +820,52 @@ export const WhimsyPageDev = {
     });
     formats.group.classList.add("whimsy-pagedev-formats");
     formats.select(FORMATS.includes(this._format) ? this._format : "hex");
-    caption.append(formats.group);
+    const copy = doc.createXULElement("toolbarbutton");
+    copy.className = "whimsy-sheet-icon-button whimsy-pagedev-detail-copy";
+    copy.setAttribute("image", ICON("edit-copy"));
+    copy.setAttribute("tabindex", "0");
+    copy.setAttribute("aria-describedby", value.id);
+    doc.l10n.setAttributes(copy, "whimsy-pagedev-detail-copy");
+    bar.append(chip, value, formats.group, copy);
 
-    const grid = doc.createElementNS(HTML_NS, "div");
-    grid.className = "whimsy-pagedev-swatches";
-    for (const color of result.palette.slice(0, MAX_SWATCHES)) {
-      grid.append(this._swatch(win, color, refreshers));
-    }
-    body.append(caption, grid);
+    let picked = colors[0];
+    const show = () => {
+      const text = formatColor(picked.rgba, this._format);
+      chip.style.backgroundColor = formatColor(picked.rgba, "rgb");
+      value.textContent = text;
+      value.title = `${text} · ${this._roleNames(picked.roles)} · ${this.percent(picked.share)}`;
+    };
+    const pick = (color, swatch) => {
+      picked = color;
+      for (const el of grid.children) {
+        const on = el == swatch;
+        el.setAttribute("aria-checked", String(on));
+        el.tabIndex = on ? 0 : -1;
+      }
+      show();
+    };
+    colors.forEach((color, i) => grid.append(this._swatch(win, color, refreshers, i == 0, pick)));
+    refreshers.push(show);
+    copy.addEventListener("command", () => {
+      const text = formatColor(picked.rgba, this._format);
+      this.copy(win, text);
+      copy.setAttribute("copied", "true");
+      doc.l10n.setAttributes(copy, "whimsy-pagedev-detail-copied");
+      win.setTimeout(() => {
+        if (copy.isConnected) {
+          copy.removeAttribute("copied");
+          doc.l10n.setAttributes(copy, "whimsy-pagedev-detail-copy");
+        }
+      }, lazy.WhimsySurface.COPIED_MS);
+    });
+    // Return on a swatch copies it, as a click on the old swatch did.
+    grid.addEventListener("keydown", event => {
+      if (event.key == "Enter" && event.target.closest(".whimsy-pagedev-color")) {
+        event.preventDefault();
+        copy.doCommand();
+      }
+    });
+    body.append(caption, grid, bar);
     const more = (result.more ?? 0) + Math.max(0, result.palette.length - MAX_SWATCHES);
     if (more) {
       const note = doc.createElementNS(HTML_NS, "p");
@@ -846,27 +911,21 @@ export const WhimsyPageDev = {
     return roles.map(role => fmt(`whimsy-pagedev-role-${role}`)).join(" · ");
   },
 
-  _swatch(win, color, refreshers) {
+  // A swatch of the grid: a radio, its colour only; its value, roles and
+  // share are its name (and tooltip).
+  _swatch(win, color, refreshers, checked, onPick) {
     const doc = win.document;
-    const block = doc.createElementNS(HTML_NS, "span");
-    block.className = "whimsy-pagedev-swatch";
-    block.style.backgroundColor = formatColor(color.rgba, "rgb");
-    const value = doc.createElementNS(HTML_NS, "span");
-    value.className = "whimsy-pagedev-swatch-value whimsy-surface-copy-value";
-    const role = doc.createElementNS(HTML_NS, "span");
-    role.className = "whimsy-pagedev-swatch-role";
-    role.textContent = this._roleNames(color.roles);
-    let text = color.hex;
-    const button = lazy.WhimsySurface.copyButton(doc, {
-      value: () => text,
-      content: [block, value, role],
-      className: "whimsy-pagedev-color",
-      liveBefore: role,
-    });
+    const button = doc.createElementNS(HTML_NS, "button");
+    button.type = "button";
+    button.className = "whimsy-pagedev-color";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", String(checked));
+    button.tabIndex = checked ? 0 : -1;
+    button.style.backgroundColor = formatColor(color.rgba, "rgb");
     button.dataset.hex = color.hex;
+    button.addEventListener("click", () => onPick(color, button));
     refreshers.push(format => {
-      text = formatColor(color.rgba, format);
-      value.textContent = text;
+      const text = formatColor(color.rgba, format);
       button.title = `${text} · ${this.percent(color.share)}`;
       button.setAttribute("aria-label", `${text}, ${this._roleNames(color.roles)}, ${this.percent(color.share)}`);
     });

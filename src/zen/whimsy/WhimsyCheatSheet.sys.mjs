@@ -872,7 +872,10 @@ export const WhimsyCheatSheet = {
     } else {
       filter("");
     }
-    // Centred in the page area, at 88% of its height.
-    panel.openPopup(geometry.area, { position: "overlap", x: geometry.x, y: geometry.y });
+    // Centred in the page area, at 88% of its height; or where it was
+    // dragged to earlier this session (F07).
+    if (!lazy.WhimsySurface.reopenWhereLeft(win, panel)) {
+      panel.openPopup(geometry.area, { position: "overlap", x: geometry.x, y: geometry.y });
+    }
   },
 };

@@ -565,6 +565,10 @@ support-files = [
   "whimsy_slow_load.sjs",
 ]
 
+# W13 F07: floating surfaces drag by their header, stay where left for the session, double-click puts them back.
+["browser_whimsy_surface_drag.js"]
+support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf"]
+
 # W13 F12: the Reader View button looks different on and off (option A, styled like Whimsy).
 ["browser_whimsy_reader_button_look.js"]
 support-files = ["whimsy_article.html"]

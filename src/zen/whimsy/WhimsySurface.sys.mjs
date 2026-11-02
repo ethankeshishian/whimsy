@@ -58,6 +58,17 @@ function clamp(value, lo, hi) {
   return Math.min(hi, Math.max(lo, value));
 }
 
+// F07: where each draggable surface was left this session, and where it
+// opened by itself, keyed by surface, relative to the window's content.
+const dragPositions = new Map();
+const DOUBLE_PRESS_MS = 500;
+const dragHomes = new Map();
+
+function relativeRect(win, panel) {
+  const rect = panel.getOuterScreenRect();
+  return { x: rect.left - win.mozInnerScreenX, y: rect.top - win.mozInnerScreenY, width: rect.width };
+}
+
 export const WhimsySurface = {
   COPIED_MS,
 
@@ -283,11 +294,13 @@ export const WhimsySurface = {
     const columns = Number(group.dataset.columns) || 1;
     let step = 0;
     switch (event.key) {
+      // A grid, or a radiogroup laid out in rows (data-columns, F07's
+      // swatches): up and down move a row.
       case "ArrowDown":
-        step = group.getAttribute("role") == "grid" ? columns : 1;
+        step = group.getAttribute("role") == "grid" || group.dataset.columns ? columns : 1;
         break;
       case "ArrowUp":
-        step = group.getAttribute("role") == "grid" ? -columns : -1;
+        step = group.getAttribute("role") == "grid" || group.dataset.columns ? -columns : -1;
         break;
       case "ArrowRight":
         step = rtl ? -1 : 1;
@@ -359,6 +372,10 @@ export const WhimsySurface = {
    *    "beside-sidebar": where the Look picker opens (y = optional offset).
    */
   open(win, panel, { anchor = null, position = "after_start", x = 0, y = 0, at = null, screenRect = null, gap = 0, triggerEvent = null } = {}) {
+    // F07: a surface that was dragged this session opens where it was left.
+    if (this.reopenWhereLeft(win, panel, triggerEvent)) {
+      return;
+    }
     if (screenRect) {
       const ry = position.startsWith("before") ? screenRect.top - gap : screenRect.top + gap;
       panel.openPopupAtScreenRect(position, screenRect.left, ry, screenRect.width, screenRect.height, false, false, triggerEvent);
@@ -403,18 +420,85 @@ export const WhimsySurface = {
   },
 
   /**
-   * F07 (W13): every floating surface can be dragged by its header. A
+   * F07 (W13, wave12 F07): a floating surface drags by its header. A
    * primary press on `handle` (not on a button or field in it) captures
    * the pointer; each move puts the panel where the pointer is, less where
    * it was grabbed. getOuterScreenRect() and moveTo() use the same frame,
    * so the panel never jumps on the first move.
+   *
+   * The design's rest, for every surface that uses it:
+   *  - a 6-dot grip before the title (unless `grip` is false or the
+   *    handle has one), `cursor: grab` / `grabbing`;
+   *  - [dragging] while it moves, which lifts the surface's shadow (CSS);
+   *  - it stays where you leave it for the rest of the session: the spot
+   *    (relative to the window) is kept per `key` (the panel's id), and
+   *    the next open() or reopenWhereLeft() goes there. `remember: false`
+   *    (a card that opens at the text it describes) keeps a drag for that
+   *    open only;
+   *  - a double-click on the header puts it back where it opened by
+   *    itself, and forgets the spot.
+   *
+   * @param {Element} panel
+   * @param {Element} handle - the header
+   * @param {object} [options]
+   * @param {string} [options.key] - default panel.id
+   * @param {boolean} [options.remember] - default true
+   * @param {boolean} [options.grip] - default true
    */
-  makeDraggable(panel, handle) {
+  makeDraggable(panel, handle, { key = panel.id, remember = true, grip = true } = {}) {
+    const win = panel.ownerGlobal;
+    const doc = panel.ownerDocument;
+    const state = { key, remember, home: null };
+    panel._whimsyDrag = state;
     handle.classList.add("whimsy-surface-drag-handle");
-    handle.addEventListener("pointerdown", event => {
-      if (event.button != 0 || event.target.closest?.("toolbarbutton, button, input, textarea, select, a")) {
+    if (grip && !handle.querySelector(".whimsy-surface-grip")) {
+      const dots = doc.createElementNS(HTML_NS, "span");
+      dots.className = "whimsy-surface-grip";
+      dots.setAttribute("aria-hidden", "true");
+      dots.textContent = "⋮⋮";
+      handle.prepend(dots);
+    }
+    // Where it opened by itself: what a double-click goes back to. An open
+    // at a remembered spot keeps the home it had.
+    panel.addEventListener("popupshown", event => {
+      if (event.target != panel) {
         return;
       }
+      if (!panel.hasAttribute("whimsy-reopened")) {
+        state.home = relativeRect(win, panel);
+        if (remember) {
+          dragHomes.set(key, state.home);
+        }
+      } else {
+        state.home = dragHomes.get(key) ?? state.home;
+      }
+      panel.removeAttribute("whimsy-reopened");
+    });
+    const onHandle = target => !target.closest?.("toolbarbutton, button, input, textarea, select, a");
+    // A second press soon after a press that didn't move it, in the same
+    // spot, is a double-click (told apart here: the press is the drag's,
+    // so the page never sees a dblclick of its own).
+    let lastPress = null;
+    const putBack = () => {
+      dragPositions.delete(key);
+      const home = state.home;
+      if (home) {
+        panel.moveTo(Math.round(win.mozInnerScreenX + home.x), Math.round(win.mozInnerScreenY + home.y));
+      }
+    };
+    handle.addEventListener("pointerdown", event => {
+      if (event.button != 0 || !onHandle(event.target)) {
+        return;
+      }
+      const now = Date.now();
+      if (lastPress && now - lastPress.time < DOUBLE_PRESS_MS &&
+        Math.hypot(event.screenX - lastPress.x, event.screenY - lastPress.y) < 4) {
+        lastPress = null;
+        event.preventDefault();
+        putBack();
+        return;
+      }
+      lastPress = { time: now, x: event.screenX, y: event.screenY };
       const start = panel.getOuterScreenRect();
       const dx = event.screenX - start.left;
       const dy = event.screenY - start.top;
@@ -426,8 +510,11 @@ export const WhimsySurface = {
         // Not capturable (a synthetic event): moves over the panel still work.
       }
       panel.setAttribute("dragging", "true");
+      let moved = false;
       const move = e => {
-        if (e.pointerId == pointerId) {
+        if (e.pointerId == pointerId && (moved || Math.hypot(e.screenX - event.screenX, e.screenY - event.screenY) >= 1)) {
+          moved = true;
+          lastPress = null;
           panel.moveTo(Math.round(e.screenX - dx), Math.round(e.screenY - dy));
         }
       };
@@ -443,12 +530,40 @@ export const WhimsySurface = {
           handle.releasePointerCapture(pointerId);
         } catch (err) {}
         panel.removeAttribute("dragging");
+        if (moved && remember) {
+          dragPositions.set(key, relativeRect(win, panel));
+        }
       };
       handle.addEventListener("pointermove", move);
       handle.addEventListener("pointerup", end);
       handle.addEventListener("pointercancel", end);
       handle.addEventListener("lostpointercapture", end);
     });
+  },
+
+  /**
+   * Opens a draggable surface where it was left this session, if it was.
+   * Returns whether it did (the caller opens it the usual way otherwise).
+   */
+  reopenWhereLeft(win, panel, triggerEvent = null) {
+    const key = panel._whimsyDrag?.remember ? panel._whimsyDrag.key : null;
+    const spot = key ? dragPositions.get(key) : null;
+    if (!spot) {
+      return false;
+    }
+    // Kept inside the window, which may have moved or shrunk since.
+    const width = spot.width || this.width(panel);
+    const x = clamp(spot.x, 0, Math.max(0, win.innerWidth - Math.min(width, win.innerWidth)));
+    const y = clamp(spot.y, 0, Math.max(0, win.innerHeight - 40));
+    panel.setAttribute("whimsy-reopened", "true");
+    panel.openPopupAtScreen(Math.round(win.mozInnerScreenX + x), Math.round(win.mozInnerScreenY + y), false, triggerEvent);
+    return true;
+  },
+
+  /** Forgets every remembered spot (tests). */
+  forgetDragPositions() {
+    dragPositions.clear();
+    dragHomes.clear();
   },
 
   isOpen(win, id) {

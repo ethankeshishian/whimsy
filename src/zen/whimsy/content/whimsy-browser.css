@@ -1760,6 +1760,10 @@ panel.whimsy-surface.whimsy-cheatsheet {
     max-height: none;
   }
 }
+/* F07 (W13): a floating surface drags by its header (grip, grab cursor);
+   while it moves its shadow deepens, so it reads as lifted (inside the
+   panel's own shadow margin, so nothing shifts). Double-click the header
+   to put it back. */
 .whimsy-surface-drag-handle {
   cursor: grab;
 
@@ -1767,9 +1771,12 @@ panel.whimsy-surface.whimsy-cheatsheet {
     cursor: grabbing;
   }
 }
+panel[dragging] {
+  --panel-shadow: 0 0 var(--panel-shadow-margin, 4px) light-dark(rgba(30, 20, 60, 0.42), rgba(0, 0, 0, 0.7));
+}
 .whimsy-surface-grip {
   flex-shrink: 0;
-  color: var(--whimsy-surface-muted);
+  color: var(--whimsy-surface-muted, color-mix(in srgb, currentColor 62%, transparent));
   font-size: 12px;
   letter-spacing: -1px;
   line-height: 1;
@@ -3473,6 +3480,8 @@ panel.whimsy-look-picker {
 }
 .whimsy-look-picker-header {
   padding: 2px 4px 0;
+  /* F07: room between the drag grip and the title. */
+  gap: 8px;
 }
 .whimsy-look-picker-title {
   margin: 0;

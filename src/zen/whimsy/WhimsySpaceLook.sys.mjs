@@ -49,6 +49,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
@@ -874,6 +875,8 @@ export const WhimsySpaceLook = {
     }
     header.append(title);
     view.append(header);
+    // W13 F07: it floats beside the sidebar; the header drags it.
+    lazy.WhimsySurface.makeDraggable(panel, header);
 
     // The pad: where Zen's picker has its dotted colour field, a type
     // specimen in the font the space will use.
@@ -1148,7 +1151,9 @@ export const WhimsySpaceLook = {
       // with the sidebar's, so the sidebar it previews on stays in view.
       const rightSide = !!win.gZenVerticalTabsManager?._prefsRightSide;
       const sidebar = lazy.WhimsyPanels.visibleAnchor(win, ["TabsToolbar", "navigator-toolbox"]);
-      if (sidebar) {
+      if (lazy.WhimsySurface.reopenWhereLeft(win, panel, triggerEvent)) {
+        // F07: where it was dragged to earlier this session.
+      } else if (sidebar) {
         panel.openPopup(sidebar, {
           position: rightSide ? "topleft topright" : "topright topleft",
           x: rightSide ? 10 : -10,
