@@ -570,6 +570,20 @@ export const WhimsySiteSettings = {
       }
     });
     this.updateZoom(win, browser, stepper, zoom);
+    // The % follows any change of the page's zoom while the panel is open
+    // (a site's saved zoom applied as a page loads, Reader View's own zoom,
+    // ⌘+): it showed the zoom of the moment the panel was built.
+    const onZoom = () => {
+      if (!stepper.isConnected) {
+        browser.removeEventListener("FullZoomChange", onZoom);
+        return;
+      }
+      this.updateZoom(win, browser, stepper);
+      if (Math.abs((win.ZoomManager?.getZoomForBrowser?.(browser) ?? 1) - 1) > 0.001) {
+        this.updateForgetAll(section, true);
+      }
+    };
+    browser.addEventListener("FullZoomChange", onZoom);
     return this.row(doc, {
       kind: "zoom",
       l10nId: "whimsy-site-settings-zoom",

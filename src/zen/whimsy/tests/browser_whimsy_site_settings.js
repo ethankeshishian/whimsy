@@ -145,7 +145,10 @@ add_task(async function test_zoom_stepper() {
     EventUtils.synthesizeMouseAtCenter(value, {});
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) == 1, "The % resets to 100%");
     await TestUtils.waitForCondition(() => value.textContent == "100%", "and says so");
+    // A zoom change from elsewhere (⌘+, a saved zoom applied) shows too.
     await FullZoom.enlarge(browser);
+    await TestUtils.waitForCondition(() => value.textContent == `${Math.round(ZoomManager.getZoomForBrowser(browser) * 100)}%`
+      && value.textContent != "100%", "The % follows a zoom made elsewhere");
     await closePanel();
   });
   // Site-specific: a new tab on the site opens at that zoom; reset it.
