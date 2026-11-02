@@ -765,6 +765,9 @@ support-files = [
   "whimsy_form_autosave.html",
   "whimsy_form_beforeunload.html",
   "whimsy_form_save.sjs",
+  "whimsy_form_saves.html",
+  "whimsy_form_sw.js",
+  "whimsy_form_ws_wsh.py",
 ]
 
 # batch9: W9-06 smart address bar buttons

@@ -705,11 +705,6 @@
 - name: dom.events.dataTransfer.imageAsFile.enabled
   value: true
 
-# W13-R1 form protection: sites that save as you type over a WebSocket or a
-# service worker, which the network-save rule can't attribute to the tab.
-# Registrable domains or hosts; subdomains match. Nothing typed there counts.
-- name: whimsy.form-protection.autosave-sites
-  value: "docs.google.com,mail.google.com,notion.so,notion.site,beehiiv.com,figma.com,linear.app,coda.io,airtable.com,quip.com,dropbox.com,office.com,live.com,sharepoint.com"
 # W13-R2: the "⌘V Paste" badges on upload boxes while an image or file is
 # copied (Settings → Tab Management). Paste to upload itself is
 # whimsy.feature.upload-clipboard.

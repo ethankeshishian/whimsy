@@ -85,6 +85,8 @@ add_setup(async function () {
       ["whimsy.feature.auto-archive-tabs", true],
       ["whimsy.tabs.archive.idle-after", "12h"],
       ["zen.pinned-tab-manager.close-shortcut-behavior", "reset-unload-switch"],
+      ["dom.serviceWorkers.enabled", true],
+      ["dom.serviceWorkers.testing.enabled", true],
     ],
   });
 });
@@ -235,6 +237,68 @@ add_task(async function test_autosave_clears() {
     ok(await gBrowser.explicitUnloadTabs([tab]), "Unloads");
     asks.stop();
     is(asks.count, 0, "without asking");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(other);
+  }
+});
+
+// Every way a site saves as you type clears the mark, the same on every
+// site (no site list; design §2): fetch, sendBeacon, a WebSocket, a fetch a
+// service worker intercepts (passed on, or answered and queued), a save the service worker makes itself, and a
+// contenteditable editor syncing over a socket (Sheets-style). A page that
+// never saves keeps the mark and asks.
+const SAVES_PAGE = ROOT + "whimsy_form_saves.html";
+for (const [via, field] of [
+  ["fetch", "body"],
+  ["beacon", "body"],
+  ["ws", "body"],
+  ["sw-fetch", "body"],
+  ["sw-queue", "body"],
+  ["sw-message", "body"],
+  ["ws", "editor"],
+]) {
+  add_task(async function test_site_saves_clear() {
+    info(`Saving through ${via}, typing in #${field}`);
+    const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${SAVES_PAGE}?via=${via}`);
+    const browser = tab.linkedBrowser;
+    try {
+      await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.ready), "The page is ready");
+      await typeInto(browser, field, "Weekly letter");
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.saves),
+        `The page saved through ${via}`
+      );
+      await TestUtils.waitForCondition(() => !typed(tab), "The save clears the mark");
+      is(await askPage(browser), false, "Nothing unsaved");
+      gBrowser.selectedTab = other;
+      const asks = countAsks();
+      ok(await gBrowser.explicitUnloadTabs([tab]), "Unloads");
+      asks.stop();
+      is(asks.count, 0, "without asking");
+    } finally {
+      BrowserTestUtils.removeTab(tab);
+      BrowserTestUtils.removeTab(other);
+    }
+  });
+}
+
+add_task(async function test_page_that_never_saves_still_asks() {
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${SAVES_PAGE}?via=none`);
+  const browser = tab.linkedBrowser;
+  try {
+    await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.ready), "The page is ready");
+    await typeInto(browser, "editor", "Never saved");
+    await TestUtils.waitForCondition(() => typed(tab), "Typed");
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    ok(typed(tab), "Still marked a second later");
+    gBrowser.selectedTab = other;
+    const asks = countAsks();
+    await gBrowser.explicitUnloadTabs([tab]);
+    asks.stop();
+    is(asks.count, 1, "Unloading asks");
   } finally {
     BrowserTestUtils.removeTab(tab);
     BrowserTestUtils.removeTab(other);

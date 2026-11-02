@@ -127,8 +127,14 @@ function isCurrent(innerWindowId, bc) {
 // The open "Unload this tab?" ask per window (one at a time).
 const askingWindows = new WeakMap();
 
-// The site saved: a same-site fetch/XHR/beacon with a body, from the tab,
-// after the edit (W13-R1 design §2). Tell each dirty document of that tab.
+// The site saved (W13-R1 design §2): after the edit, a fetch/XHR/beacon
+// with a body to the dirty document's own site, made by that document's tab
+// or by a service worker of its site. One rule for every site, no list.
+// Observed at http-on-modify-request, which nsHttpChannel notifies in
+// ContinuePrepareToConnect, before ContinueOnBeforeConnect hands a request
+// to a service worker, so pages a worker controls are seen the same way.
+// (WebSocket saves are seen by the content side:
+// WhimsyFormProtectionChild._watchSocketSaves.)
 const networkSaveObserver = {
   observe(subject) {
     if (!dirtyDocuments.size) {
@@ -152,8 +158,14 @@ const networkSaveObserver = {
     ) {
       return;
     }
-    const topId = BrowsingContext.get(loadInfo.browsingContextID)?.top?.id;
-    if (!topId) {
+    // A document's request carries its browsing context; a service
+    // worker's has none (it can't be tied to one document, so it counts
+    // for every dirty document of its site).
+    // (A dedicated worker's requests carry its document's browsing context;
+    // only shared and service workers have none, nsILoadInfo.idl.)
+    const topId = loadInfo.browsingContextID ? BrowsingContext.get(loadInfo.browsingContextID)?.top?.id : null;
+    const fromWorker = !loadInfo.browsingContextID && !!loadInfo.triggeringPrincipal?.isContentPrincipal;
+    if (!topId && !fromWorker) {
       return;
     }
     for (const [innerWindowId, bc] of dirtyDocuments) {
@@ -161,13 +173,13 @@ const networkSaveObserver = {
         dirtyDocuments.delete(innerWindowId);
         continue;
       }
-      if (bc.top?.id != topId || !isCurrent(innerWindowId, bc)) {
+      if ((topId && bc.top?.id != topId) || !isCurrent(innerWindowId, bc)) {
         continue;
       }
       try {
         const global = bc.currentWindowGlobal;
         // The site's own request, to its own site (not a third-party
-        // frame or tracker posting somewhere).
+        // frame, tracker or worker posting somewhere).
         if (
           global.documentPrincipal.isThirdPartyURI(channel.URI) ||
           !global.documentURI ||

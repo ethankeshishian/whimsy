@@ -9,7 +9,7 @@
 // A document has unsaved input when a field the person edited themselves
 // differs from what it held before they started. Only trusted edits made
 // with user activation track a field; script-set values, hidden, search,
-// password and autofilled fields never do. A submit, a network save the
+// password and autofilled fields never do. A submit, a save the
 // parent attributes to this document (Whimsy:FormSaved), returning to the
 // starting value, or the field leaving the page clears it. The parent hears
 // one boolean per document, only when it changes.
@@ -22,8 +22,14 @@
 
 const HIGHLIGHT_MS = 2000;
 const FADE_MS = 400;
-const AUTOSAVE_PREF = "whimsy.form-protection.autosave-sites";
 const EDITABLE_CHECK_MS = 250;
+
+// WebSocket frames that carry data (a save), not keep-alive control frames.
+const WS_DATA_OPCODES = new Set([
+  Ci.nsIWebSocketFrame.OPCODE_CONTINUATION,
+  Ci.nsIWebSocketFrame.OPCODE_TEXT,
+  Ci.nsIWebSocketFrame.OPCODE_BINARY,
+]);
 
 const SKIPPED_INPUT_TYPES = new Set([
   "hidden",
@@ -156,9 +162,8 @@ function defaultValue(el, kind) {
   }
 }
 
-function hostMatches(host, list) {
-  host = (host ?? "").toLowerCase();
-  return list.some(site => site && (host == site || host.endsWith("." + site)));
+function socketEvents() {
+  return Cc["@mozilla.org/websocketevent/service;1"].getService(Ci.nsIWebSocketEventService);
 }
 
 export class WhimsyFormProtectionChild extends JSWindowActorChild {
@@ -169,15 +174,8 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
   // What the parent was last told.
   _reported = false;
   _editableTimer = null;
-
-  get _autosaveSite() {
-    try {
-      const list = Services.prefs.getStringPref(AUTOSAVE_PREF, "").split(",").map(s => s.trim().toLowerCase());
-      return hostMatches(this.document?.location?.hostname, list);
-    } catch (e) {
-      return false;
-    }
-  }
+  // { innerWindowId, listener } while listening for WebSocket saves.
+  _socketListener = null;
 
   // A real edit: trusted, and with user activation (a page's own trusted
   // edits, such as execCommand while it loads, have none).
@@ -220,7 +218,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
   // draft the site restored by script is "saved", not "").
   _onBeforeInput(event) {
     const found = answerField(event.composedTarget ?? event.target);
-    if (!found || this._tracked.has(found.field) || !this._userMade(event, found.kind) || this._autosaveSite) {
+    if (!found || this._tracked.has(found.field) || !this._userMade(event, found.kind)) {
       return;
     }
     if (found.field.matches?.(":autofill")) {
@@ -231,7 +229,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
 
   _onEdit(event) {
     const found = answerField(event.composedTarget ?? event.target);
-    if (!found || !this._userMade(event, found.kind) || this._autosaveSite) {
+    if (!found || !this._userMade(event, found.kind)) {
       return;
     }
     const { field, kind } = found;
@@ -243,8 +241,17 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
       const baseline = kind == "check" ? !field.checked : defaultValue(field, kind);
       this._tracked.set(field, { kind, baseline });
     }
+    // From the first edit on, a save over a socket counts (it may leave
+    // before the next report).
+    this._watchSocketSaves(true);
     if (kind == "editable") {
-      // textContent of a big editor on every keystroke is wasteful.
+      // The first edit is reported at once, so a save that follows it is
+      // never missed; after that, textContent of a big editor on every
+      // keystroke is wasteful.
+      if (!this._reported) {
+        this._report();
+        return;
+      }
       if (!this._editableTimer) {
         this._editableTimer = this.contentWindow.setTimeout(() => {
           this._editableTimer = null;
@@ -292,10 +299,6 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
 
   /** Whether this document has unsaved input now (drops fields that left). */
   hasUnsavedInput() {
-    if (this._autosaveSite) {
-      this._tracked.clear();
-      return false;
-    }
     let dirty = false;
     for (const [el, entry] of this._tracked) {
       if (!el.isConnected) {
@@ -320,6 +323,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
   _report({ saved = false } = {}) {
     try {
       const dirty = this.hasUnsavedInput();
+      this._watchSocketSaves(dirty);
       if (dirty == this._reported && !saved) {
         return;
       }
@@ -328,6 +332,50 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     } catch (e) {
       // Content may be in transition or detached.
     }
+  }
+
+  // A save over a WebSocket (editors that sync over a socket): while this
+  // document has unsaved input, a data frame it sends is a save, the same
+  // rule as the parent's for fetch/XHR/beacon (design §2). Listening only
+  // while dirty; DevTools uses the same service in the content process.
+  _watchSocketSaves(on) {
+    let innerWindowId = 0;
+    try {
+      innerWindowId = this.manager?.innerWindowId ?? 0;
+    } catch (e) {}
+    if (on && !this._socketListener && innerWindowId) {
+      const listener = {
+        QueryInterface: ChromeUtils.generateQI(["nsIWebSocketEventListener"]),
+        webSocketCreated() {},
+        webSocketOpened() {},
+        webSocketMessageAvailable() {},
+        webSocketClosed() {},
+        frameReceived() {},
+        frameSent: (serial, channelId, frame) => {
+          if (WS_DATA_OPCODES.has(frame.opCode) && this._tracked.size) {
+            this._markSaved();
+          }
+        },
+      };
+      try {
+        socketEvents().addListener(innerWindowId, listener);
+        this._socketListener = { innerWindowId, listener };
+      } catch (e) {
+        this._socketListener = null;
+      }
+    } else if (!on && this._socketListener) {
+      const { innerWindowId: id, listener } = this._socketListener;
+      this._socketListener = null;
+      try {
+        socketEvents().removeListener(id, listener);
+      } catch (e) {
+        // The window is already gone.
+      }
+    }
+  }
+
+  didDestroy() {
+    this._watchSocketSaves(false);
   }
 
   receiveMessage(message) {

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Saves as you type</title></head>
+<body>
+<!-- W13-R1: an editor that saves as you type, through the channel named by
+     ?via= (fetch, beacon, ws, sw-fetch, sw-queue, sw-message), 100 ms after each edit.
+     ?via=none never saves. Nothing about it is site-specific. -->
+<textarea id="body"></textarea>
+<div id="editor" contenteditable="true" style="min-height: 40px"></div>
+<script>
+  const via = new URLSearchParams(location.search).get("via") || "fetch";
+  window.saves = 0;
+  window.ready = false;
+  let socket = null;
+  const text = () => document.getElementById("body").value + document.getElementById("editor").textContent;
+  const send = {
+    none() {},
+    fetch: () => fetch("whimsy_form_save.sjs?save", { method: "POST", body: text() }).then(() => window.saves++),
+    beacon: () => navigator.sendBeacon("whimsy_form_save.sjs?save", text()) && window.saves++,
+    ws: () => socket.send(JSON.stringify({ text: text() })),
+    "sw-fetch": () => fetch("whimsy_form_save.sjs?save", { method: "POST", body: text() }).then(() => window.saves++),
+    "sw-queue": () => fetch("whimsy_form_save.sjs?queue", { method: "POST", body: text() }).then(() => window.saves++),
+    "sw-message": () => navigator.serviceWorker.controller.postMessage({ save: text() }),
+  };
+  let timer = null;
+  document.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(send[via], 100);
+  });
+  (async () => {
+    if (via == "ws") {
+      // The test harness's socket server.
+      socket = new WebSocket("ws://mochi.test:8888/browser/zen/whimsy/tests/whimsy_form_ws");
+      socket.onmessage = () => window.saves++;
+      await new Promise(resolve => (socket.onopen = resolve));
+    }
+    if (via.startsWith("sw-")) {
+      navigator.serviceWorker.onmessage = () => window.saves++;
+      await navigator.serviceWorker.register("whimsy_form_sw.js");
+      if (!navigator.serviceWorker.controller) {
+        await new Promise(resolve => navigator.serviceWorker.addEventListener("controllerchange", resolve, { once: true }));
+      }
+    }
+    window.ready = true;
+  })();
+</script>
+</body>
+</html>
