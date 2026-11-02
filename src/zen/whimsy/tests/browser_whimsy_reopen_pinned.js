@@ -91,3 +91,52 @@ for (const kind of ["normal", "pinned", "essential"]) {
     BrowserTestUtils.removeTab(back);
   });
 }
+
+// ⌘W on a pinned tab with a typed form asks first (Form Protection). After
+// Cancel nothing was closed, so ⌘⇧T later must not jump back to that tab;
+// it reopens the tab that really closed last.
+add_task(async function cancelled_pinned_close_is_not_a_close() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["whimsy.feature.form-protection", true],
+      ["zen.pinned-tab-manager.close-shortcut-behavior", "reset-unload-switch"],
+    ],
+  });
+  const root = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+  const formTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, root + "whimsy_email_form.html");
+  gBrowser.pinTab(formTab);
+  const closedURL = uniqueURL("really-closed");
+  const closing = await BrowserTestUtils.openNewForegroundTab(gBrowser, closedURL);
+  const saved = BrowserTestUtils.waitForSessionStoreUpdate(closing);
+  gBrowser.removeTab(closing);
+  await saved;
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, uniqueURL("other"));
+  gBrowser.selectedTab = formTab;
+  const browser = formTab.linkedBrowser;
+  await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").focus());
+  for (const key of "Ada") {
+    await BrowserTestUtils.synthesizeKey(key, {}, browser);
+  }
+  await TestUtils.waitForCondition(() => formTab.hasAttribute("whimsy-form-typed"), "Typed");
+
+  await SimpleTest.promiseFocus(window);
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-form-unload");
+  EventUtils.synthesizeKey("w", { accelKey: true });
+  const panel = (await shown).target;
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  panel.querySelector("#whimsy-form-unload-keep").doCommand();
+  await hidden;
+  await TestUtils.waitForTick();
+  is(gBrowser.selectedTab, formTab, "Cancel: the pinned tab stays");
+
+  gBrowser.selectedTab = other;
+  await reopenWithKey();
+  const back = await TestUtils.waitForCondition(() => found(closedURL), "⌘⇧T reopens the tab that really closed");
+  isnot(gBrowser.selectedTab, formTab, "not the pinned tab whose close was cancelled");
+
+  gBrowser.unpinTab(formTab);
+  for (const tab of [formTab, other, back]) {
+    BrowserTestUtils.removeTab(tab);
+  }
+  await SpecialPowers.popPrefEnv();
+});

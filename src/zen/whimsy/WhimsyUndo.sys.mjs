@@ -227,29 +227,37 @@ export const WhimsyUndo = {
       return;
     }
     const original = pinned.onCloseTabShortcut;
-    const wrapped = function (event, selectedTab = win.gBrowser.selectedTab, ...rest) {
-      try {
-        const tabs = (Array.isArray(selectedTab) ? selectedTab : [selectedTab]).filter(tab => tab?.pinned);
-        if (tabs.length) {
-          lastPinnedClose.set(win, { tabs, at: Date.now() });
-        }
-      } catch (e) {
-        console.error("Whimsy: pinned close", e);
+    // Noted as Zen starts (it moves off the tab before it finishes
+    // unloading), and dropped again if nothing moved: something can stop it
+    // (Form Protection's "Unload this tab?" Cancel), and a pinned tab that
+    // never moved must not take over ⌘⇧T later.
+    const wrapped = async function (event, selectedTab = win.gBrowser.selectedTab, ...rest) {
+      const tabs = (Array.isArray(selectedTab) ? selectedTab : [selectedTab]).filter(tab => tab?.pinned);
+      const record = tabs.length ? { tabs, at: Date.now() } : null;
+      if (record) {
+        lastPinnedClose.set(win, record);
       }
-      return original.call(this, event, selectedTab, ...rest);
+      try {
+        return await original.call(this, event, selectedTab, ...rest);
+      } finally {
+        if (record && lastPinnedClose.get(win) == record && !tabs.some(tab => tab.isConnected && !tab.selected)) {
+          lastPinnedClose.delete(win);
+        }
+      }
     };
     wrapped._whimsyReopen = true;
     pinned.onCloseTabShortcut = wrapped;
-    // ⌘W reaches Zen through a listener it bound to cmd_close at start-up
-    // (so the wrapper above never sees it): note it here, first.
+    // ⌘W reaches Zen through a listener it bound to cmd_close at start-up,
+    // which calls the unwrapped method. Send ⌘W on a pinned tab through the
+    // current method instead (Zen's own call, with its own arguments), so
+    // every wrapper sees it.
     win.addEventListener("command", event => {
-      if (event.target?.id != "cmd_close") {
+      if (event.target?.id != "cmd_close" || pinned.enabled === false || !win.gBrowser.selectedTab?.pinned) {
         return;
       }
-      const tabs = (win.gBrowser.selectedTabs ?? [win.gBrowser.selectedTab]).filter(tab => tab?.pinned);
-      if (tabs.length) {
-        lastPinnedClose.set(win, { tabs, at: Date.now() });
-      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      pinned.onCloseTabShortcut(event);
     }, true);
 
     win.addEventListener("command", event => {
