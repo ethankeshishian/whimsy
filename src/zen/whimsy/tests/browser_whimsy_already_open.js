@@ -233,19 +233,6 @@ async function closeCommandBar() {
   await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab") && !gURLBar.view.isOpen, "The command bar closed");
 }
 
-// W11-08: the ordinary (URL) row for `url`, not the typed address.
-async function linkRowFor(url) {
-  const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
-  const count = UrlbarTestUtils.getResultCount(window);
-  for (let i = 0; i < count; i++) {
-    const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
-    if (result.type == UrlbarShared.RESULT_TYPE.URL && !result.heuristic && result.payload.url == url) {
-      return i;
-    }
-  }
-  return -1;
-}
-
 async function switchRowFor(url) {
   const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
   const count = UrlbarTestUtils.getResultCount(window);
@@ -283,22 +270,20 @@ add_task(async function test_new_tab_bar_offers_pinned_tab_in_every_space() {
   ok(pinned.pinned, "The tab is pinned in the first space");
   const search = "whimsy-switch-pinned";
 
-  // On the pinned tab, in its own space: the bug. W11-08: listed as an
-  // ordinary link; picking it opens a second copy, as in Arc.
+  // On the pinned tab, in its own space: the bug.
   gBrowser.selectedTab = pinned;
-  is(await newTabBarSwitchRow(search), -1, "On the pinned tab: no Switch to Tab to the tab you're on");
-  let index = await linkRowFor(PINNED_URL);
-  Assert.greater(index, -1, "Same space, on the pinned tab: the Cmd+T bar lists it as a link");
+  let opens = 0;
+  const onOpen = () => opens++;
+  gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
+  let index = await newTabBarSwitchRow(search);
+  Assert.greater(index, -1, "Same space, on the pinned tab: the Cmd+T bar shows Switch to Tab");
   EventUtils.synthesizeKey("KEY_ArrowDown", { repeat: index });
-  is(UrlbarTestUtils.getSelectedRowIndex(window), index, "The row is selected");
-  const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, PINNED_URL, true);
+  is(UrlbarTestUtils.getSelectedRowIndex(window), index, "The Switch to Tab row is selected");
   EventUtils.synthesizeKey("KEY_Enter");
-  const copy = await copyOpened;
   await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "Picking it closes the bar");
-  is(gBrowser.selectedTab, copy, "and opens a second copy");
-  ok(!copy.pinned && pinned.pinned, "The copy is a new tab; the pinned tab stays");
-  BrowserTestUtils.removeTab(copy);
-  gBrowser.selectedTab = pinned;
+  is(gBrowser.selectedTab, pinned, "and you stay on the pinned tab");
+  gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
+  is(opens, 0, "No tab was opened");
 
   // Same space, from another tab: unchanged.
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
@@ -313,13 +298,12 @@ add_task(async function test_new_tab_bar_offers_pinned_tab_in_every_space() {
   await closeCommandBar();
   await gZenWorkspaces.changeWorkspace(firstSpace);
 
-  // Editing the pinned tab's own address (Cmd+L): never a Switch to Tab to
-  // the page you're on; W11-08: it's listed as a link there too.
+  // Editing the pinned tab's own address (Cmd+L) keeps Firefox's rule: the
+  // page you're editing isn't offered as a tab to switch to.
   gBrowser.selectedTab = pinned;
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: search });
   ok(!gURLBar.hasAttribute("zen-newtab"), "Cmd+L edits the current page");
   is(await switchRowFor(PINNED_URL), -1, "Editing the current page doesn't offer switching to it");
-  Assert.greater(await linkRowFor(PINNED_URL), -1, "…but lists it as a link");
   await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
 
   BrowserTestUtils.removeTab(other);
@@ -378,120 +362,6 @@ async function cleanupRank(...tabs) {
   await PlacesUtils.history.remove(RANK_URL);
 }
 
-// W11-09: a typed search that matches an open tab: Switch to Tab first,
-// selected, and Return goes there; the search is the next row.
-add_task(async function test_open_tab_ranks_above_search() {
-  const { tab, other } = await openRankTab();
-  let opens = 0;
-  const onOpen = () => opens++;
-  gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
-  await commandBar(RANK_WORD);
-  const [first, second] = await rows();
-  is(first.result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH, "The open tab is the first row");
-  is(first.result.payload.url, RANK_URL, "…for the matching tab");
-  ok(first.result.heuristic, "…and is what Return picks");
-  is(second.result.type, UrlbarShared.RESULT_TYPE.SEARCH, "The search is the second row");
-  ok(!second.result.heuristic, "…as an ordinary row");
-  is(second.result.payload.query, RANK_WORD, "…for what you typed");
-  is(UrlbarTestUtils.getSelectedRowIndex(window), 0, "The tab row is selected");
-  EventUtils.synthesizeKey("KEY_Enter");
-  await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "Return switched to the tab");
-  await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "The bar closed");
-  gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
-  is(opens, 0, "No tab was opened");
-  await cleanupRank(tab, other);
-});
-
-// W11-09, F34: a typed address that's open: Switch to Tab first, and no
-// second row for the same page (Option-Return still opens a copy).
-add_task(async function test_open_tab_ranks_above_typed_address() {
-  const { tab, other } = await openRankTab();
-  await commandBar(RANK_URL);
-  const all = await rows();
-  const [first] = all;
-  is(first.result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH, "Switch to Tab is first");
-  is(first.result.payload.url, RANK_URL, "…for the tab showing that address");
-  // F34: the typed address of that same page isn't a second row.
-  is(all.filter(r => r.result.payload.url == RANK_URL).length, 1, "One row for that page");
-  EventUtils.synthesizeKey("KEY_Enter");
-  await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "Return goes to the tab");
-  await cleanupRank(tab, other);
-});
-
-// W11-09: Option-Return on the ranked tab still means what you typed (a new
-// tab with that address), as before the tab ranked first.
-add_task(async function test_modified_return_means_the_typed_address() {
-  const { tab, other } = await openRankTab();
-  await commandBar(RANK_URL);
-  is((await UrlbarTestUtils.getDetailsOfResultAt(window, 0)).result.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH, "Tab first");
-  const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, RANK_URL, true);
-  EventUtils.synthesizeKey("KEY_Enter", { altKey: true });
-  const copy = await copyOpened;
-  isnot(copy, tab, "Option-Return opened the address in a new tab");
-  BrowserTestUtils.removeTab(copy);
-  await cleanupRank(tab, other);
-});
-
-// W11-09: nothing open matches: Firefox's order, and Return goes to the
-// typed address.
-add_task(async function test_no_open_tab_keeps_the_typed_address_first() {
-  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
-  const typed = "https://example.com/browser/whimsy-not-open-anywhere";
-  await commandBar(typed);
-  const [first] = await rows();
-  ok(first.result.heuristic, "The typed address is the heuristic");
-  is(first.result.type, UrlbarShared.RESULT_TYPE.URL, "…and the first row");
-  ok(!(await rows()).some(r => r.result.whimsyOwnHeuristic !== undefined), "Nothing was re-ranked");
-  const opened = BrowserTestUtils.waitForNewTab(gBrowser, typed, true);
-  EventUtils.synthesizeKey("KEY_Enter");
-  const page = await opened;
-  is(gBrowser.selectedTab, page, "Return opened the typed address");
-  BrowserTestUtils.removeTab(page);
-  BrowserTestUtils.removeTab(other);
-});
-
-// W11-09: Cmd+L (editing a page's address) and the switch off keep
-// Firefox's order: the typed address stays first.
-add_task(async function test_cmd_l_and_switch_off_keep_order() {
-  const { tab, other } = await openRankTab();
-  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: RANK_URL });
-  let first = (await UrlbarTestUtils.getDetailsOfResultAt(window, 0)).result;
-  ok(!gURLBar.hasAttribute("zen-newtab"), "Cmd+L edits the page");
-  isnot(first.type, UrlbarShared.RESULT_TYPE.TAB_SWITCH, "Cmd+L: the typed address stays first");
-  await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
-
-  await SpecialPowers.pushPrefEnv({ set: [[FEATURE, false]] });
-  await commandBar(RANK_WORD);
-  first = (await UrlbarTestUtils.getDetailsOfResultAt(window, 0)).result;
-  is(first.type, UrlbarShared.RESULT_TYPE.SEARCH, "Switch off: the search stays first");
-  await closeCommandBar();
-  await SpecialPowers.popPrefEnv();
-  await cleanupRank(tab, other);
-});
-
-// W11-08: Cmd+T on a tab and type it: as in Arc, the tab is listed as an
-// ordinary link (title and address, no Switch to Tab), and picking it opens
-// a second copy.
-add_task(async function test_tab_you_are_on_is_a_link_in_cmd_t() {
-  const { tab, other } = await openRankTab();
-  gBrowser.selectedTab = tab;
-  await commandBar(RANK_WORD);
-  const all = await rows();
-  ok(all[0].result.heuristic && all[0].result.type == UrlbarShared.RESULT_TYPE.SEARCH, "The search stays first");
-  ok(!all.some(r => r.result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH && r.result.payload.url == RANK_URL), "No Switch to Tab for the tab you're on");
-  const index = await linkRowFor(RANK_URL);
-  Assert.greater(index, 0, "The tab you're on is listed as a link");
-  isnot(all[index].displayed.action, "Switch to Tab", "…with no Switch to Tab label");
-  EventUtils.synthesizeKey("KEY_ArrowDown", { repeat: index });
-  const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, RANK_URL, true);
-  EventUtils.synthesizeKey("KEY_Enter");
-  const copy = await copyOpened;
-  is(gBrowser.selectedTab, copy, "Picking it opened a second copy");
-  ok(tab.isConnected && copy != tab, "…and kept the tab you were on");
-  BrowserTestUtils.removeTab(copy);
-  await cleanupRank(tab, other);
-});
-
 // W11-08: Cmd+T and Return on the exact address of the tab you're on opens
 // a second copy (wave 6 used to just close the bar).
 add_task(async function test_return_on_own_address_opens_a_copy() {
@@ -506,54 +376,6 @@ add_task(async function test_return_on_own_address_opens_a_copy() {
   is(gBrowser.selectedTab, copy, "Return opened a second copy");
   ok(tab.isConnected, "…and kept the tab you were on");
   BrowserTestUtils.removeTab(copy);
-  await cleanupRank(tab, other);
-});
-
-// W11-08: Cmd+L lists the tab you're on as a link too; picking it loads the
-// page again in that tab, and opens nothing.
-add_task(async function test_tab_you_are_on_is_a_link_in_cmd_l() {
-  const { tab, other } = await openRankTab();
-  gBrowser.selectedTab = tab;
-  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: RANK_WORD });
-  ok(!gURLBar.hasAttribute("zen-newtab"), "Cmd+L edits the page");
-  const index = await linkRowFor(RANK_URL);
-  Assert.greater(index, -1, "The tab you're on is listed as a link");
-  let opens = 0;
-  const onOpen = () => opens++;
-  gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
-  const reloaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, RANK_URL);
-  EventUtils.synthesizeKey("KEY_ArrowDown", { repeat: index });
-  EventUtils.synthesizeKey("KEY_Enter");
-  await reloaded;
-  gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
-  is(gBrowser.selectedTab, tab, "The page loaded again in its own tab");
-  is(opens, 0, "No tab was opened");
-  await cleanupRank(tab, other);
-});
-
-// W11-09: the bar waits for the open-tab providers, so the first results it
-// shows already have the tab first: no row jumps under the pointer.
-add_task(async function test_tab_row_never_jumps() {
-  const { tab, other } = await openRankTab();
-  const firsts = [];
-  const listener = {
-    onQueryResults(queryContext) {
-      if (queryContext.searchString == RANK_WORD) {
-        firsts.push(queryContext.results[0]?.type);
-      }
-    },
-  };
-  gURLBar.controller.addListener(listener);
-  try {
-    await commandBar(RANK_WORD);
-  } finally {
-    gURLBar.controller.removeListener(listener);
-  }
-  Assert.greater(firsts.length, 0, "Results were shown");
-  ok(
-    firsts.every(type => type == UrlbarShared.RESULT_TYPE.TAB_SWITCH),
-    `Every update had the tab first, the first paint included (${firsts})`
-  );
   await cleanupRank(tab, other);
 });
 
@@ -580,78 +402,4 @@ add_task(async function test_open_again_command() {
   ok(!WhimsyAlreadyOpen.openAgain(window), "…so the command does nothing");
   BrowserTestUtils.removeTab(blank);
   await cleanupRank(tab, other);
-});
-
-// W11-09: the view's open-tab grouping keeps the typed row right below a
-// tab ranked first.
-add_task(function test_promote_keeps_typed_row_second() {
-  const ranked = { heuristic: true, whimsyOwnHeuristic: false, type: 1, payload: { url: "https://example.com/a" } };
-  const typed = { heuristic: false, whimsyOwnHeuristic: true, type: 2, payload: {} };
-  const history = { heuristic: false, type: 3, payload: { url: "https://example.com/hist" } };
-  const otherTab = { heuristic: false, type: 1, payload: { url: "https://example.com/b" } };
-  const qc = { results: [ranked, typed, history, otherTab] };
-  WhimsyAlreadyOpen.promoteOpenTabs(qc);
-  Assert.deepEqual(qc.results, [ranked, typed, otherTab, history], "Ranked tab, typed row, then the other tabs");
-  ok(WhimsyAlreadyOpen.isRankedTab(ranked) && WhimsyAlreadyOpen.isTypedRow(typed), "The rows are told apart");
-});
-
-// F34: an Essential on an address with a #fragment, as Gmail's
-// https://mail.google.com/mail/u/1/#inbox. Typing that exact address in
-// Cmd+T lists it once (plus nothing that both switches and searches), and
-// Return opens a second copy in a new tab, as for any tab you're on.
-add_task(async function test_essential_with_fragment_one_row() {
-  const url = "https://example.com/browser/whimsyessential/#inbox";
-  await PlacesTestUtils.addVisits({ uri: url, title: "Whimsy essential inbox" });
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
-  gZenPinnedTabManager.addToEssentials(tab);
-  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?f34");
-  try {
-    gBrowser.selectedTab = tab;
-    await commandBar(url);
-    const all = await rows();
-    info(all.map(r => `${r.type}/${r.result.providerName}/${r.result.heuristic}/${r.url}/${r.displayed.action}`).join("\n"));
-    const same = all.filter(r => r.result.payload.url && r.result.payload.url.replace(/#.*/, "") == url.replace(/#.*/, ""));
-    is(same.length, 1, "One row for the address");
-    ok(!all.some(r => r.result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH), "No Switch to Tab to the tab you're on");
-    const copyOpened = BrowserTestUtils.waitForNewTab(gBrowser, url, true);
-    EventUtils.synthesizeKey("KEY_Enter");
-    const copy = await copyOpened;
-    is(gBrowser.selectedTab, copy, "Return opened a second copy");
-    ok(tab.isConnected && copy != tab, "…and kept the Essential");
-    BrowserTestUtils.removeTab(copy);
-
-    // From another tab, the Essential's row switches to it, once.
-    gBrowser.selectedTab = other;
-    await commandBar(url);
-    const fromOther = await rows();
-    info(fromOther.map(r => `${r.type}/${r.result.providerName}/${r.result.heuristic}/${r.url}/${r.displayed.action}`).join("\n"));
-    is(fromOther.filter(r => r.result.type == UrlbarShared.RESULT_TYPE.TAB_SWITCH).length, 1, "One Switch to Tab row");
-    is(fromOther.filter(r => r.result.payload.url == url).length, 1, "…and no other row for that address");
-    ok(!fromOther.slice(1).some(r => r.displayed.action == "Switch to Tab"), "Only the first row says Switch to Tab");
-    EventUtils.synthesizeKey("KEY_Enter");
-    await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "Return goes to the Essential");
-
-    // Cmd+L on the Essential: the same address goes to it in place (with
-    // a #fragment that's Firefox's same-page navigation), never a copy.
-    const tabs = gBrowser.tabs.length;
-    gURLBar.focus();
-    gURLBar.select();
-    EventUtils.sendString(url);
-    await UrlbarTestUtils.promiseSearchComplete(window);
-    EventUtils.synthesizeKey("KEY_Enter");
-    await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "The bar closed");
-    await new Promise(resolve => setTimeout(resolve, 300));
-    is(tab.linkedBrowser.currentURI.spec, url, "The Essential still shows the address");
-    is(gBrowser.selectedTab, tab, "Cmd+L keeps the Essential");
-    is(gBrowser.tabs.length, tabs, "…and opens no copy");
-  } finally {
-    if (gURLBar.hasAttribute("zen-newtab") || gURLBar.view.isOpen) {
-      await closeCommandBar();
-    }
-    gZenPinnedTabManager.removeEssentials(tab);
-    BrowserTestUtils.removeTab(other);
-    BrowserTestUtils.removeTab(tab);
-    const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
-    await PlacesUtils.history.remove(url);
-  }
 });
