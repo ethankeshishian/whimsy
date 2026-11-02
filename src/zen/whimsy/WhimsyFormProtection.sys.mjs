@@ -603,11 +603,11 @@ export const WhimsyFormProtection = {
       parts.footer.setAttribute("align", "stretch");
       parts.footer.append(discard, save, cancel);
       lazy.WhimsySurface.finish(parts);
-      // Level with the tab, beside the sidebar (where the Look picker opens).
-      const sidebar = lazy.WhimsySurface.visibleAnchor(win, ["TabsToolbar", "navigator-toolbox"]);
-      const tabRect = tab.getBoundingClientRect();
-      const y = sidebar && tabRect.height ? Math.max(0, Math.round(tabRect.top - sidebar.getBoundingClientRect().top)) : 0;
-      lazy.WhimsySurface.open(win, parts.panel, { at: "beside-sidebar", y });
+      // Beside the sidebar, where the Look picker and Hidden Spaces open.
+      // (An arrow panel on the full-height sidebar is centred along it;
+      // a y offset is ignored, so it can't sit level with the tab. Where
+      // all such surfaces open is B4's call.)
+      lazy.WhimsySurface.open(win, parts.panel, { at: "beside-sidebar" });
     }).catch(e => {
       // Never leave a close or unload waiting on a dialog that didn't open.
       console.error("Whimsy: form unload dialog", e);
