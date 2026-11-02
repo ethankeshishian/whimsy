@@ -23,12 +23,20 @@ function pipWindow() {
   return Services.wm.getMostRecentWindow("Toolkit:PictureInPicture");
 }
 
+// BrowserTestUtils.switchTab waits for a switch, which never comes when
+// the tab is already selected (e.g. after closing the tab beside it).
+async function selectTab(tab) {
+  if (gBrowser.selectedTab != tab) {
+    await BrowserTestUtils.switchTab(gBrowser, tab);
+  }
+}
+
 // One call for the file (a second camera getUserMedia in one run never
 // resolved under the fake devices; see browser_whimsy_call_pip.js).
 let sharedCall = null;
 async function openCall() {
   if (sharedCall) {
-    await BrowserTestUtils.switchTab(gBrowser, sharedCall);
+    await selectTab(sharedCall);
     return sharedCall;
   }
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
@@ -161,7 +169,9 @@ async function clickPip(pip, kind) {
 
 // Every state the PiP's microphone control shows while `action` runs.
 async function recordPip(pip, kind, action, until) {
-  const seen = [];
+  // Starts from the state shown before the action: what counts is that it
+  // goes to the new state once and never back.
+  const seen = [pipState(pip, kind)];
   const note = () => {
     const state = pipState(pip, kind);
     if (seen.at(-1) != state) {
@@ -233,7 +243,7 @@ add_task(async function test_pip_toggles_meet_without_a_glitch() {
     // The PiP's microphone never shows a state Meet doesn't have.
     const seen = await recordPip(pip, "mic", () => clickPip(pip, "mic"),
       () => TestUtils.waitForCondition(async () => (await meetState(call)).mic == "off", "Meet muted", 50, 100).catch(() => {}));
-    Assert.deepEqual(seen, ["off"], "The PiP's microphone went straight to off, with no flip back");
+    Assert.deepEqual(seen, ["on", "off"], "The PiP's microphone went straight from on to off, with no flip back");
     await expectAll(call, pip, { mic: "off", camera: "on" }, "PiP: microphone off");
 
     await clickPip(pip, "camera");
@@ -384,7 +394,7 @@ add_task(async function test_two_calls_keep_their_own_state() {
     });
     await SpecialPowers.spawn(second.linkedBrowser, [], () => content.wrappedJSObject.endCall());
     BrowserTestUtils.removeTab(second);
-    await BrowserTestUtils.switchTab(gBrowser, call);
+    await selectTab(call);
   }
 });
 
