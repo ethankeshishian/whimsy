@@ -506,7 +506,7 @@ add_task(async function test_refill_offered_for_late_form() {
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);
     await SpecialPowers.spawn(browser, [], () =>
-      ContentTaskUtils.waitForCondition(() => content.document.getElementById("name"), "The form appeared"));
+      ContentTaskUtils.waitForCondition(() => !!content.document.getElementById("name"), "The form appeared"));
     await typeInto(browser, "name", "Grace");
     await TestUtils.waitForCondition(() => typed(tab), "Typed");
     const loaded = BrowserTestUtils.browserLoaded(browser);

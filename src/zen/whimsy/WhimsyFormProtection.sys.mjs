@@ -122,6 +122,9 @@ function isCurrent(innerWindowId, bc) {
   }
 }
 
+// The open "Unload this tab?" ask per window (one at a time).
+const askingWindows = new WeakMap();
+
 // The site saved: a same-site fetch/XHR/beacon with a body, from the tab,
 // after the edit (W13-R1 design §2). Tell each dirty document of that tab.
 const networkSaveObserver = {
@@ -537,7 +540,7 @@ export const WhimsyFormProtection = {
    * window: a second ask while one is open resolves false at once.
    */
   confirmUnload(win, tabs) {
-    if (win._whimsyFormAsking) {
+    if (askingWindows.has(win)) {
       return Promise.resolve(false);
     }
     const doc = win.document;
@@ -559,7 +562,7 @@ export const WhimsyFormProtection = {
         className: "whimsy-form-unload",
         initialFocus: () => cancel,
         onHidden: () => {
-          win._whimsyFormAsking = null;
+          askingWindows.delete(win);
           resolve(answer);
         },
       });
@@ -608,10 +611,10 @@ export const WhimsyFormProtection = {
     }).catch(e => {
       // Never leave a close or unload waiting on a dialog that didn't open.
       console.error("Whimsy: form unload dialog", e);
-      win._whimsyFormAsking = null;
+      askingWindows.delete(win);
       return false;
     });
-    win._whimsyFormAsking = asking;
+    askingWindows.set(win, asking);
     return asking;
   },
 
