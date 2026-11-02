@@ -81,6 +81,12 @@ add_task(async function test_tab_drag_shows_hidden_switcher() {
   await TestUtils.waitForCondition(() => !shown(), "Switcher hides again when drag ends");
   ok(!document.documentElement.hasAttribute("whimsy-tab-dragging"), "whimsy-tab-dragging cleared");
 
+  // A link or file dragged in from elsewhere never sends this window a dragend,
+  // so it must not show the switcher.
+  tab.dispatchEvent(new DragEvent("dragenter", { bubbles: true, dataTransfer: new DataTransfer() }));
+  tab.dispatchEvent(new DragEvent("dragover", { bubbles: true, dataTransfer: new DataTransfer() }));
+  ok(!document.documentElement.hasAttribute("whimsy-tab-dragging"), "An outside drag over a tab isn't a tab drag");
+
   BrowserTestUtils.removeTab(tab);
   Services.prefs.clearUserPref(OPTION);
 });

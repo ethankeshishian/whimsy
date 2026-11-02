@@ -513,10 +513,11 @@ export const WhimsySpaces = {
       }
     };
 
+    // Only this window's own tab drags: dragenter/dragover would also fire for
+    // links, files and tabs from other windows, which never send this window a
+    // dragend, and the switcher would stay shown.
     win.addEventListener("dragstart", onDrag, true);
     win.addEventListener("dragstart", onDrag, false);
-    win.addEventListener("dragenter", onDrag, true);
-    win.addEventListener("dragover", onDrag, true);
 
     const done = () => root.removeAttribute("whimsy-tab-dragging");
     win.addEventListener("dragend", done, true);
