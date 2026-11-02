@@ -4788,3 +4788,14 @@ whimsy-call-pip-camera-turn-off =
 whimsy-call-pip-camera-turn-on =
     .tooltip = Turn On Camera ({ $shortcut })
     .aria-label = Turn On Camera
+
+## wave13/toast: Zen's toast, extended (WhimsyZenToasts.sys.mjs)
+
+# The close button that shows on a toast while the pointer is over it.
+whimsy-toast-close-button =
+    .title = Dismiss
+    .aria-label = Dismiss
+# Under the first three toasts that stay up: how many more there are.
+# Clicking it shows them all.
+# $count (number) - the toasts not shown
+whimsy-toast-more = +{ $count } more

@@ -417,6 +417,26 @@ HOTFIXES = [
         "new": '      child.removeAttribute("button");\n'
                '      document.l10n.setAttributes(child.querySelector("label"), messageId, options.l10nArgs); // Whimsy hotfix\n',
     },
+    # wave13/toast: one toast, Zen's, extended (persistent toasts, buttons
+    # that show their words, stacking, Reduce Motion, close; see
+    # whimsy-handoff/wave13/toast-design.md). gZenUIManager builds the
+    # extended manager, which keeps showToast()'s contract for Zen's callers,
+    # and hands it out as gZenUIManager.toasts for Whimsy's.
+    {
+        "id": "zen-toasts-extended",
+        "file": "src/zen/common/modules/ZenUIManager.mjs",
+        "why": "Zen's toasts overlap when two show, ignore Reduce Motion, "
+               "can't stay up or show a button's words; Whimsy's one toast "
+               "is Zen's with those added.",
+        "old": "  #toasts = new nsZenToastManager();\n",
+        "new": "  // Whimsy hotfix: Zen's toast, extended (WhimsyZenToasts.sys.mjs).\n"
+               "  #toasts = new (ChromeUtils.importESModule(\n"
+               '    "resource:///modules/whimsy/WhimsyZenToasts.sys.mjs"\n'
+               "  ).ZenToastManager)(window);\n"
+               "  get toasts() {\n"
+               "    return this.#toasts;\n"
+               "  }\n",
+    },
     # fixB: delete-space confirm
     {
         "id": "space-delete-confirm",

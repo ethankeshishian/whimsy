@@ -35,7 +35,13 @@ class nsZenUIManager {
   /** Set by spaces to skip the tab container rebuild of the next toolbar update. */
   _preventToolbarRebuild = false;
 
-  #toasts = new nsZenToastManager();
+  // Whimsy hotfix: Zen's toast, extended (WhimsyZenToasts.sys.mjs).
+  #toasts = new (ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyZenToasts.sys.mjs"
+  ).ZenToastManager)(window);
+  get toasts() {
+    return this.#toasts;
+  }
   #urlbar = new nsZenUrlbarController();
 
   // Elements that get `has-popup-menu` while a popup opened from them is up.

@@ -861,3 +861,6 @@ support-files = ["whimsy_email_form.html"]
 # W13-R3: a call's microphone and camera in sync: Meet, the small player, PiP.
 ["browser_whimsy_call_controls.js"]
 support-files = ["whimsy_meet.html"]
+
+# wave13/toast: one toast, Zen's, extended (WhimsyZenToasts.sys.mjs): icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" buttons, persistence and handles, buttons with words, close and Esc, stacking, "+k more", Reduce Motion, keyed replace, 480px.
+["browser_whimsy_zen_toasts.js"]
