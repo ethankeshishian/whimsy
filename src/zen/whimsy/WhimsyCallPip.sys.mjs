@@ -47,6 +47,7 @@ export const WhimsyCallPip = {
       return;
     }
     gBrowser._whimsyCallPip = true;
+    this.ensureObserver();
     gBrowser.tabContainer.addEventListener("TabSelect", event => {
       try {
         this.onTabSelect(win, event.detail?.previousTab, event.target);
@@ -56,10 +57,152 @@ export const WhimsyCallPip = {
     });
   },
 
-  // A tab is in a call while it shares your camera or microphone.
-  isInCall(tab) {
-    const state = tab?.linkedBrowser?._sharingState?.webRTC;
+  ensureObserver() {
+    if (this._observerSet) {
+      return;
+    }
+    this._observerSet = true;
+    Services.obs.addObserver(this, "domwindowopened");
+    for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
+      this.hookPipWindow(pipWin);
+    }
+  },
+
+  observe(subject, topic) {
+    if (topic === "domwindowopened") {
+      const win = subject;
+      win.addEventListener(
+        "load",
+        () => {
+          try {
+            if (win.document?.documentElement?.getAttribute("windowtype") === "Toolkit:PictureInPicture") {
+              this.hookPipWindow(win);
+            }
+          } catch (e) {}
+        },
+        { once: true }
+      );
+    }
+  },
+
+  // A browser or tab is in a call while it shares your camera or microphone.
+  isInCallBrowser(browser) {
+    const state = browser?._sharingState?.webRTC;
     return !!(state && (state.camera || state.microphone));
+  },
+
+  isInCall(tab) {
+    return this.isInCallBrowser(tab?.linkedBrowser);
+  },
+
+  hookPipWindow(pipWin) {
+    if (!pipWin || pipWin._whimsyCallHooked) {
+      return;
+    }
+    pipWin._whimsyCallHooked = true;
+
+    const findBrowser = () => {
+      const pip = lazy.PictureInPicture;
+      const browser = pip.weakWinToBrowser?.get(pipWin);
+      if (browser) {
+        return browser;
+      }
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        const gBrowser = win.gBrowser;
+        if (!gBrowser) {
+          continue;
+        }
+        for (const tab of gBrowser.tabs) {
+          if (this.isInCall(tab) && tab.hasAttribute("pictureinpicture")) {
+            return tab.linkedBrowser;
+          }
+        }
+      }
+      return null;
+    };
+
+    const attach = () => {
+      const browser = findBrowser();
+      if (!browser) {
+        return false;
+      }
+      const tab = browser.ownerGlobal?.gBrowser?.getTabForBrowser?.(browser);
+      if (!this.isInCall(tab)) {
+        return false;
+      }
+      this.setupCallControls(pipWin, browser, tab);
+      return true;
+    };
+
+    if (!attach()) {
+      let attempts = 0;
+      const interval = pipWin.setInterval?.(() => {
+        attempts++;
+        if (attach() || attempts > 20 || pipWin.closed) {
+          pipWin.clearInterval?.(interval);
+        }
+      }, 50);
+    }
+  },
+
+  setupCallControls(pipWin, browser, tab) {
+    const audioBtn = pipWin.document?.getElementById("audio");
+    if (audioBtn) {
+      audioBtn.hidden = false;
+    }
+
+    if (pipWin.Player) {
+      const origToggleMute = pipWin.Player.toggleMute?.bind(pipWin.Player);
+      pipWin.Player.toggleMute = () => {
+        if (this.isInCall(tab)) {
+          this.toggleCallMute(pipWin, browser);
+          return;
+        }
+        origToggleMute?.();
+      };
+    }
+
+    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+    actor
+      ?.sendQuery("Whimsy:GetMicrophoneState")
+      .then(res => {
+        if (res && typeof res.active === "boolean") {
+          pipWin.setIsMutedState?.(!res.active);
+        }
+      })
+      .catch(() => {});
+  },
+
+  async toggleCallMute(pipWin, browser) {
+    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+    if (!actor) {
+      return;
+    }
+    if (pipWin.Player) {
+      const willBeMuted = !pipWin.Player.isMuted;
+      pipWin.setIsMutedState?.(willBeMuted);
+    }
+    try {
+      const res = await actor.sendQuery("Whimsy:ToggleMicrophone");
+      if (res && typeof res.active === "boolean") {
+        pipWin.setIsMutedState?.(!res.active);
+      }
+    } catch (e) {
+      console.error("Whimsy: toggle call microphone failed", e);
+    }
+  },
+
+  onMicrophoneState(browser, active) {
+    if (!browser) {
+      return;
+    }
+    browser._whimsyMicrophoneActive = !!active;
+    const pip = lazy.PictureInPicture;
+    for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
+      if (pip.weakWinToBrowser?.get(pipWin) === browser) {
+        pipWin.setIsMutedState?.(!active);
+      }
+    }
   },
 
   // Whether the call stays on screen anyway: the new tab is in the same
