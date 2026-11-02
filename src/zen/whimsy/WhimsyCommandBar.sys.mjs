@@ -302,6 +302,9 @@ export const COMMAND_BAR_MOTION = {
   openReduced: { duration: 100, easing: "linear" },
   closeReduced: { duration: 80, easing: "linear" },
 };
+// How long past its duration a close animation may run before the hide is
+// finished anyway.
+const CLOSE_GRACE_MS = 250;
 
 export class CommandBarMotion {
   #win;
@@ -409,6 +412,13 @@ export class CommandBarMotion {
     if (!this.enabled || this.#win.document.hidden) {
       return null;
     }
+    // A reopen supersedes a hide still running (Zen's open is already
+    // under way): drop it without hiding the bar again.
+    if (this.#closing) {
+      this.#win.clearTimeout(this.#closing.timer);
+      this.#closing = null;
+      urlbar.removeAttribute("whimsy-closing");
+    }
     this.#animation?.cancel();
     const timing = this.#timing("open");
     const animation = urlbar.animate(this.#frames("open"), { ...timing, id: "whimsy-command-bar-open" });
@@ -463,10 +473,16 @@ export class CommandBarMotion {
       animation.currentTime = timing.duration * (1 - shownAmount);
     }
     this.#animation = animation;
-    this.#closing = { finish, animation };
+    // The hide always ends: when the animation finishes, when it's cancelled
+    // (a reopen, or Gecko dropping it), or, if its timeline never gets there
+    // (a throttled or occluded window), shortly after it should have.
+    // Without that, #closing stayed set, every later close was "deferred"
+    // to it, and the view never closed again (a 20s hang in tests).
+    const timer = this.#win.setTimeout(() => this.#finishClose(animation), timing.duration + CLOSE_GRACE_MS);
+    this.#closing = { finish, animation, timer };
     animation.finished.then(
       () => this.#finishClose(animation),
-      () => {}
+      () => this.#finishClose(animation)
     );
     return true;
   }
@@ -477,6 +493,7 @@ export class CommandBarMotion {
       return;
     }
     this.#closing = null;
+    this.#win.clearTimeout(closing.timer);
     // The hide below and a reopen right after it reach the observer as one
     // batch; the next open must still animate.
     this.#shown = false;

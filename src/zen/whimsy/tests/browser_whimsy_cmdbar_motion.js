@@ -88,6 +88,33 @@ add_task(async function open_and_close_motion() {
   is(gURLBar.getAnimations().length, 0, "Nothing is left running on the bar");
 });
 
+// A close whose animation never finishes (its timeline stalled: a
+// throttled or occluded window, as in the release quick verify) or gets
+// cancelled still ends the hide; the next close must not wait on it
+// forever (the view never closed and the test hung for 20s).
+add_task(async function a_stalled_or_cancelled_close_still_hides() {
+  gReduceMotionOverride = false;
+  for (const how of ["stall", "cancel"]) {
+    const open = await openBar();
+    await open?.finished;
+    await closeBar();
+    const close = await TestUtils.waitForCondition(() => barAnimations("whimsy-command-bar-close")[0],
+      `${how}: close animation runs`);
+    if (how == "stall") {
+      close.pause();
+    } else {
+      close.cancel();
+    }
+    await waitClosed();
+    ok(!WhimsyCommandBarMotion.closing, `${how}: the hide finished`);
+    // And the bar opens and closes normally afterwards.
+    await openBar();
+    const closed = UrlbarTestUtils.promisePopupClose(window, () => gURLBar.blur());
+    await closed;
+    await waitClosed();
+  }
+});
+
 add_task(async function reduced_motion_is_a_fade() {
   gReduceMotionOverride = true;
   const open = await openBar();
