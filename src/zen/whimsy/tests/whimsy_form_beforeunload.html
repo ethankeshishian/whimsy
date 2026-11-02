@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Guards itself</title></head>
+<body>
+<!-- W13-R1: a site with its own beforeunload guard (it decides; here it
+     never prompts, as Gmail doesn't once everything is saved). -->
+<input id="name" name="name">
+<script>
+  addEventListener("beforeunload", () => {});
+</script>
+</body>
+</html>

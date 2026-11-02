@@ -137,7 +137,7 @@ support-files = ["whimsy_redact.html"]
 
 # wave10: the design passes' surfaces, light and dark (w10-* shots).
 ["browser_whimsy_screens_4.js"]
-support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf", "whimsy_verbs.html"]
+support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf", "whimsy_verbs.html", "whimsy_email_form.html"]
 
 ["browser_whimsy_space_icon_drop.js"]
 
@@ -741,7 +741,15 @@ support-files = ["whimsy_highlight.html"]
 ["browser_whimsy_battery_saver.js"]
 # batch wave9: form protection (W9-03)
 ["browser_whimsy_form_protection.js"]
-support-files = ["whimsy_email_form.html", "whimsy_script_form.html", "whimsy_late_form.html"]
+support-files = [
+  "whimsy_email_form.html",
+  "whimsy_script_form.html",
+  "whimsy_late_form.html",
+  "whimsy_form_r1.html",
+  "whimsy_form_autosave.html",
+  "whimsy_form_beforeunload.html",
+  "whimsy_form_save.sjs",
+]
 
 # batch9: W9-06 smart address bar buttons
 ["browser_whimsy_smart_buttons.js"]

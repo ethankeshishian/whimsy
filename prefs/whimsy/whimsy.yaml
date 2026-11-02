@@ -694,3 +694,9 @@
 # ships this off; its paste said "Files" with no file in it.
 - name: dom.events.dataTransfer.imageAsFile.enabled
   value: true
+
+# W13-R1 form protection: sites that save as you type over a WebSocket or a
+# service worker, which the network-save rule can't attribute to the tab.
+# Registrable domains or hosts; subdomains match. Nothing typed there counts.
+- name: whimsy.form-protection.autosave-sites
+  value: "docs.google.com,mail.google.com,notion.so,notion.site,beehiiv.com,figma.com,linear.app,coda.io,airtable.com,quip.com,dropbox.com,office.com,live.com,sharepoint.com"

@@ -445,10 +445,16 @@ add_task(async function w10_trail() {
 add_task(async function w10_form_protection() {
   const { WhimsyFormProtection } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
   const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?w10-form");
+  const formPage = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_email_form.html";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, formPage);
+  // W13-R1: typed for real (the marker only follows real typing).
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("name").focus());
+  for (const key of "Ada") {
+    await BrowserTestUtils.synthesizeKey(key, {}, tab.linkedBrowser);
+  }
+  await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-form-typed"), "Typed into the form");
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
   try {
-    WhimsyFormProtection.updateTabProtection(tab, true);
     // Protected by hand with nothing typed: the lock.
     WhimsyFormProtection.toggleTabProtection(other);
     const toast = WhimsyToast.current(window);
@@ -475,7 +481,6 @@ add_task(async function w10_form_protection() {
       action: { l10nId: "whimsy-form-refill-fill", onCommand: () => {} },
     }));
   } finally {
-    WhimsyFormProtection.updateTabProtection(tab, false);
     BrowserTestUtils.removeTab(other);
     BrowserTestUtils.removeTab(tab);
   }

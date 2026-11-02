@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Autosaving editor</title></head>
+<body>
+<!-- W13-R1: an editor that saves as you type (as Sheets, Docs, beehiiv
+     do): a POST to its own site shortly after each edit. -->
+<textarea id="body"></textarea>
+<div id="editor" contenteditable="true"></div>
+<script>
+  let timer = null;
+  const save = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      fetch("whimsy_form_save.sjs?save", {
+        method: "POST",
+        body: document.getElementById("body").value + document.getElementById("editor").textContent,
+      });
+    }, 100);
+  };
+  document.addEventListener("input", save);
+</script>
+</body>
+</html>

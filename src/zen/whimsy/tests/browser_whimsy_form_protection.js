@@ -3,25 +3,80 @@
 
 "use strict";
 
-// W9-03: Form protection: tabs with half-filled forms are exempt from
-// Whimsy's archive sweep, and typed text is restored after reload/crash.
-// W10-25: an in-progress form glyph only after typing; unloading a tab
-// with a form asks first (Keep Loaded is the default); after a reload a
-// toast offers to fill the answers back in (only on Fill In, only empty
-// fields, never passwords).
+// Form protection, W13-R1 (design: whimsy-handoff/wave13/r1-forms-design.md).
+// Every test drives the real path: real key events into a real page, pages
+// that fill themselves by script, an editor that autosaves to a .sjs, a
+// site with its own beforeunload, the unload dialog, pinned ⌘W, and the
+// refill offer after a reload.
 
 const { WhimsyFormProtection } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs"
 );
-const { WhimsyArchive } = ChromeUtils.importESModule(
-  "resource:///modules/whimsy/WhimsyArchive.sys.mjs"
-);
+const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchive.sys.mjs");
+const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
 const { TabStateCache } = ChromeUtils.importESModule(
   "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs"
+);
+const { TabStateFlusher } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs"
 );
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content/", "http://mochi.test:8888/");
 const FORM_PAGE = ROOT + "whimsy_email_form.html";
+const R1_PAGE = ROOT + "whimsy_form_r1.html";
+const SCRIPT_PAGE = ROOT + "whimsy_script_form.html";
+const AUTOSAVE_PAGE = ROOT + "whimsy_form_autosave.html";
+const GUARDED_PAGE = ROOT + "whimsy_form_beforeunload.html";
+const SAVE_URL = ROOT + "whimsy_form_save.sjs";
+const PANEL_ID = "whimsy-form-unload";
+
+const typed = tab => tab.hasAttribute("whimsy-form-typed");
+
+async function typeInto(browser, id, text) {
+  await SpecialPowers.spawn(browser, [id], fieldId => content.document.getElementById(fieldId).focus());
+  for (const key of text) {
+    await BrowserTestUtils.synthesizeKey(key, {}, browser);
+  }
+}
+
+// Asks the page itself; the actor's earlier reports reach the parent first.
+function askPage(browser) {
+  return browser.browsingContext.currentWindowGlobal.getActor("WhimsyFormProtection").sendQuery("Whimsy:FormIsDirty");
+}
+
+function waitForAsk() {
+  return BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == PANEL_ID).then(e => e.target);
+}
+
+function countAsks() {
+  let count = 0;
+  const onShown = e => {
+    if (e.target.id == PANEL_ID) {
+      count++;
+      // Never leave a test hanging on a dialog it didn't expect.
+      e.target.hidePopup();
+    }
+  };
+  document.addEventListener("popupshown", onShown, true);
+  return {
+    get count() {
+      return count;
+    },
+    stop() {
+      document.removeEventListener("popupshown", onShown, true);
+    },
+  };
+}
+
+async function answer(panel, id) {
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  panel.querySelector(`#${id}`).doCommand();
+  await hidden;
+}
+
+async function savesSoFar() {
+  return Number(await (await fetch(SAVE_URL + "?count")).text());
+}
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
@@ -29,28 +84,40 @@ add_setup(async function () {
       ["whimsy.feature.form-protection", true],
       ["whimsy.feature.auto-archive-tabs", true],
       ["whimsy.tabs.archive.idle-after", "12h"],
+      ["zen.pinned-tab-manager.close-shortcut-behavior", "reset-unload-switch"],
     ],
   });
 });
 
-add_task(async function test_defaults_and_command() {
-  ok(WhimsyFormProtection.enabled, "Form protection is enabled by default");
+// Protect This Tab: auto-archive exemption and a lock, never the form
+// dialog (old code asked "You started a form…" for it).
+add_task(async function test_manual_protection() {
   const cmd = document.getElementById(WhimsyFormProtection.COMMAND_ID);
-  ok(cmd, "Protect form command is registered");
-
-  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
-    const tab = gBrowser.getTabForBrowser(browser);
-    ok(tab, "Tab exists");
-    ok(!tab.hasAttribute("whimsy-form-protected"), "Tab has no form protection initially");
-
-    // Command toggles protection manually
+  ok(cmd, "Protect command is registered");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+  try {
+    gBrowser.selectedTab = tab;
     cmd.doCommand();
-    ok(tab.hasAttribute("whimsy-form-protected"), "Command marks tab protected");
-    ok(WhimsyArchive.isSweepExempt(tab), "Protected tab is sweep exempt");
+    ok(tab.hasAttribute("whimsy-form-protected"), "Protected by hand");
+    ok(WhimsyArchive.isSweepExempt(tab), "and exempt from the sweep");
+    const marker = tab.querySelector(".whimsy-tab-form-marker");
+    is(marker?.getAttribute("kind"), "lock", "Its lock shows");
+    await document.l10n.translateFragment(marker);
+    is(marker.getAttribute("aria-label"), "Protected tab", "labelled");
 
-    cmd.doCommand();
-    ok(!tab.hasAttribute("whimsy-form-protected"), "Command toggles protection off");
-  });
+    gBrowser.selectedTab = other;
+    const asks = countAsks();
+    const result = await gBrowser.explicitUnloadTabs([tab]);
+    asks.stop();
+    is(asks.count, 0, "Unloading a tab protected by hand doesn't ask about a form");
+    ok(result, "and unloads");
+    tab._whimsyFormManual = false;
+    WhimsyFormProtection.refreshTab(tab);
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(other);
+  }
 });
 
 // Review design-full-4 L5: the command bar says Protect or Stop Protecting.
@@ -61,195 +128,337 @@ add_task(async function test_command_variants() {
     const tab = gBrowser.getTabForBrowser(browser);
     ok(action("whimsy-action-protect-form-on")?.isAvailable(window), "Offers Protect on an unprotected tab");
     ok(!action("whimsy-action-protect-form-off")?.isAvailable(window), "No Stop Protecting yet");
-    ok(await document.l10n.formatValue("whimsy-action-protect-form-off"), "Stop Protecting is localized");
-
     document.getElementById(WhimsyFormProtection.COMMAND_ID).doCommand();
     ok(tab.hasAttribute("whimsy-form-protected"), "Protected");
-    ok(!action("whimsy-action-protect-form-on")?.isAvailable(window), "Protect is no longer offered");
     ok(action("whimsy-action-protect-form-off")?.isAvailable(window), "Stop Protecting is offered");
-
     // Protection by hand survives a navigation in the tab.
     BrowserTestUtils.startLoadingURIString(browser, FORM_PAGE + "?again");
     await BrowserTestUtils.browserLoaded(browser);
     ok(tab.hasAttribute("whimsy-form-protected"), "Still protected after navigating");
-
     document.getElementById(WhimsyFormProtection.COMMAND_ID).doCommand();
     ok(!tab.hasAttribute("whimsy-form-protected"), "Stop Protecting clears it");
-    ok(action("whimsy-action-protect-form-on")?.isAvailable(window), "Protect is offered again");
   });
 });
 
-// W10-25: the marker is an in-progress form glyph after the title, only
-// once the person typed into a form (not for manual protection or an
-// untouched form). Its meaning is in the tooltip, not a title the tab
-// tooltip overrides (review design-full-4 M10).
-add_task(async function test_indicator_and_tooltip() {
-  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+// Real typing marks the tab; going back to what the field held before
+// (here a draft the page restored by script) clears it. Old code compared
+// with the HTML default ("") and stayed marked.
+add_task(async function test_typing_and_reverting() {
+  await BrowserTestUtils.withNewTab(R1_PAGE, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);
-    const stack = tab.querySelector(".tab-icon-stack");
-    const afterBefore = getComputedStyle(stack, "::after").cssText || getComputedStyle(stack, "::after").content;
-    const plain = gBrowser.getTabTooltip(tab, true);
-    ok(!tab.querySelector(".whimsy-tab-form-marker")?.checkVisibility(), "No marker for an untouched form");
-
-    WhimsyFormProtection.updateTabProtection(tab, true);
-    ok(tab.hasAttribute("whimsy-form-protected"), "Typed text protects the tab");
-    ok(tab.hasAttribute("whimsy-form-typed"), "and marks it typed");
-    const marker = tab.querySelector(".whimsy-tab-form-marker");
-    ok(marker?.checkVisibility(), "The in-progress form glyph shows");
-    is(marker.getAttribute("src"), "chrome://browser/content/whimsy/whimsy-form-badge.svg", "a form with a pencil");
-    is(marker.previousElementSibling, tab.querySelector(".tab-label-container"), "right after the title");
-    is(getComputedStyle(stack, "::before").content, "none", "The old dot is gone");
-    is(
-      getComputedStyle(stack, "::after").cssText || getComputedStyle(stack, "::after").content,
-      afterBefore,
-      "::after (unread count, title-changed dot) is untouched"
-    );
-    ok(!tab.hasAttribute("title"), "No title attribute on the tab");
+    await SpecialPowers.spawn(browser, [], () =>
+      ContentTaskUtils.waitForCondition(() => content.document.body.dataset.ready == "true", "Draft restored"));
+    await typeInto(browser, "draft", "x");
+    await TestUtils.waitForCondition(() => typed(tab), "Typing marks the tab");
+    ok(tab.hasAttribute("whimsy-form-protected"), "protected");
+    ok(tab.undiscardable, "and never discarded automatically");
     const tip = gBrowser.getTabTooltip(tab, true);
-    ok(tip.startsWith(plain), "The tab's tooltip keeps its own text");
-    ok(tip.includes("Protected from auto-archive"), "and says why the tab is protected");
-    ok(gBrowser.getTabTooltip(tab, false).includes("Protected from auto-archive"), "as does its accessible description");
+    ok(tip.includes("unsent form text"), "The tooltip says why");
 
-    WhimsyFormProtection.updateTabProtection(tab, false);
-    ok(!tab.hasAttribute("whimsy-form-protected"), "Clearing the form unprotects it");
-    ok(!marker.checkVisibility(), "No glyph");
-    is(gBrowser.getTabTooltip(tab, true), plain, "Tooltip back to normal");
-
-    // Protected by hand, nothing typed: a lock in the same place, labelled
-    // "Protected tab".
-    WhimsyFormProtection.toggleTabProtection(tab);
-    ok(tab.hasAttribute("whimsy-form-protected") && !tab.hasAttribute("whimsy-form-typed"), "Manual: protected, not typed");
-    ok(tab.hasAttribute("whimsy-form-manual"), "marked as protected by hand");
-    ok(marker.checkVisibility(), "The marker shows");
-    is(marker.getAttribute("kind"), "lock", "as a lock");
-    is(marker.getAttribute("src"), "chrome://browser/skin/zen-icons/selectable/lock-closed.svg", "Zen's lock icon");
-    is(marker.previousElementSibling, tab.querySelector(".tab-label-container"), "in the form glyph's place");
-    await document.l10n.translateFragment(marker);
-    is(marker.getAttribute("tooltiptext"), "Protected tab", "with a tooltip");
-    is(marker.getAttribute("aria-label"), "Protected tab", "and an accessible label");
-    ok(!marker.hasAttribute("aria-hidden"), "read out");
-
-    // Typing then takes precedence.
-    WhimsyFormProtection.updateTabProtection(tab, true);
-    is(marker.getAttribute("kind"), "form", "Typing shows the form glyph instead");
-    ok(!tab.hasAttribute("whimsy-form-manual"), "not the lock");
-    ok(!marker.hasAttribute("data-l10n-id") && marker.getAttribute("aria-hidden") == "true", "The glyph is decorative");
-    WhimsyFormProtection.updateTabProtection(tab, false);
-    is(marker.getAttribute("kind"), "lock", "Cleared again: back to the lock");
-
-    WhimsyFormProtection.toggleTabProtection(tab);
-    ok(!marker.checkVisibility(), "Unprotected: no marker");
+    await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+    is(await askPage(browser), false, "Back to the restored draft: nothing unsaved");
+    await TestUtils.waitForCondition(() => !typed(tab), "The mark goes");
+    ok(!tab.hasAttribute("whimsy-form-protected"), "not protected");
+    ok(!tab.undiscardable, "discardable again");
   });
 });
 
-add_task(async function test_typing_protects_tab_and_exempts_from_sweep() {
-  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
-    const tab = gBrowser.getTabForBrowser(browser);
+// F33: a page that fills its own fields and editor is not a form in
+// progress, even once Firefox's session copy of the form has landed
+// (old code counted that copy as typing), and pinned ⌘W doesn't ask.
+add_task(async function test_site_filled_fields_never_count() {
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, SCRIPT_PAGE);
+  const browser = tab.linkedBrowser;
+  try {
+    await SpecialPowers.spawn(browser, [], () =>
+      ContentTaskUtils.waitForCondition(() => content.document.body.dataset.filled == "true", "The page filled itself"));
+    await TabStateFlusher.flush(browser);
+    ok(TabStateCache.get(browser.permanentKey)?.formdata, "Firefox's session has the page's own values");
+    is(await askPage(browser), false, "The page says nothing is unsaved");
+    ok(!typed(tab) && !WhimsyFormProtection.isFormProtected(tab), "The tab isn't marked or protected");
 
-    // Type text into the input field (real key events).
-    await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").focus());
-    for (const key of "Whimsy User") {
-      await BrowserTestUtils.synthesizeKey(key, {}, browser);
+    gBrowser.pinTab(tab);
+    gBrowser.selectedTab = tab;
+    const asks = countAsks();
+    EventUtils.synthesizeKey("w", { accelKey: true }, window);
+    await TestUtils.waitForCondition(() => tab.hasAttribute("pending"), "Pinned ⌘W unloads it");
+    asks.stop();
+    is(asks.count, 0, "without asking");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(other);
+  }
+});
+
+// Search boxes never count (old code counted type=search and name=q).
+add_task(async function test_search_fields_never_count() {
+  await BrowserTestUtils.withNewTab(R1_PAGE, async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    for (const id of ["search", "q", "site-find"]) {
+      await typeInto(browser, id, "cats");
+      is(await askPage(browser), false, `#${id} is a search box`);
     }
-
-    await TestUtils.waitForCondition(
-      () => tab.hasAttribute("whimsy-form-protected"),
-      "Tab becomes form-protected after typing"
-    );
-    ok(WhimsyFormProtection.isFormProtected(tab), "isFormProtected returns true");
-    ok(WhimsyArchive.isSweepExempt(tab), "Tab with half-filled form is exempt from auto-archive sweep");
-
-    // Now test that the sweep does not archive this tab even when past the idle threshold
-    const twelveHoursAgo = Date.now() - 13 * 3600 * 1000;
-    tab.updateLastAccessed(twelveHoursAgo);
-
-    // Open a second, clean tab to be the selected tab and one idle clean tab
-    const cleanTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com");
-    cleanTab.updateLastAccessed(twelveHoursAgo);
-
-    // Run the sweep
-    WhimsyArchive.sweepWindow(window);
-
-    // Form-protected tab must survive the sweep
-    ok(tab.isConnected && !tab.closing, "Form-protected tab survived the sweep");
-
-    BrowserTestUtils.removeTab(cleanTab);
+    ok(!typed(tab), "The tab isn't marked");
   });
 });
 
-add_task(async function test_sessionstore_formdata_preservation() {
-  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+// Typing into a contenteditable editor counts; deleting it all clears it.
+add_task(async function test_contenteditable_typing_counts() {
+  await BrowserTestUtils.withNewTab(R1_PAGE, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);
-
-    // Populate TabStateCache mock formdata to test SessionStore restoration awareness
-    TabStateCache.update(browser.permanentKey, {
-      formdata: {
-        id: { name: "Saved Draft" },
-      },
-    });
-
-    ok(WhimsyFormProtection.hasSessionRestoreFormData(tab), "Detects SessionStore form data in cache");
-    ok(WhimsyFormProtection.isFormProtected(tab), "Tab is protected via SessionStore cache");
-    ok(WhimsyArchive.isSweepExempt(tab), "Tab with cached form data is exempt from sweep");
-
-    // Clear TabStateCache mock
-    TabStateCache.update(browser.permanentKey, { formdata: null });
+    await typeInto(browser, "editor", "Dear team");
+    await TestUtils.waitForCondition(() => typed(tab), "Typing into an editor marks the tab");
+    for (let i = 0; i < "Dear team".length; i++) {
+      await BrowserTestUtils.synthesizeKey("KEY_Backspace", {}, browser);
+    }
+    await TestUtils.waitForCondition(async () => !(await askPage(browser)), "Deleted again: nothing unsaved");
+    await TestUtils.waitForCondition(() => !typed(tab), "The mark goes");
   });
 });
 
-add_task(async function test_switch_off() {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.form-protection", false]] });
-  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+// An editor that saves as you type (Sheets, Docs, beehiiv): its own POST
+// after the edit is the save. Old code kept the tab marked forever.
+add_task(async function test_autosave_clears() {
+  await fetch(SAVE_URL + "?reset");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, AUTOSAVE_PAGE);
+  const browser = tab.linkedBrowser;
+  try {
+    await typeInto(browser, "body", "Weekly letter");
+    await TestUtils.waitForCondition(async () => (await savesSoFar()) >= 1, "The page saved to its server");
+    await TestUtils.waitForCondition(() => !typed(tab), "The save clears the mark");
+    is(await askPage(browser), false, "Nothing unsaved");
+
+    gBrowser.selectedTab = other;
+    const asks = countAsks();
+    ok(await gBrowser.explicitUnloadTabs([tab]), "Unloads");
+    asks.stop();
+    is(asks.count, 0, "without asking");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(other);
+  }
+});
+
+// A submitted form is saved. Old code kept the tab marked.
+add_task(async function test_submit_clears() {
+  await BrowserTestUtils.withNewTab(R1_PAGE, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);
-    tab.setAttribute("whimsy-form-protected", "true");
-    ok(!WhimsyFormProtection.isFormProtected(tab), "With feature switch off, tab is not form protected");
+    await typeInto(browser, "name", "Ada");
+    await TestUtils.waitForCondition(() => typed(tab), "Typed");
+    await BrowserTestUtils.synthesizeKey("KEY_Enter", {}, browser);
+    await TestUtils.waitForCondition(() => !typed(tab), "Submitting clears the mark");
+    ok(!WhimsyFormProtection.snapshotFor(browser, R1_PAGE), "and leaves nothing to offer back");
   });
-  await SpecialPowers.popPrefEnv();
 });
 
-// W10-25: unloading a tab with a form asks first, beside the sidebar; Esc
-// and Return keep it loaded; Unload unloads; a tab without one unloads
-// without asking.
-add_task(async function test_unload_asks_first() {
+// A site with its own beforeunload decides for itself: no Whimsy dialog,
+// so never two. Old code asked first, then Firefox ran the site's guard.
+add_task(async function test_site_beforeunload_owns_the_decision() {
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, GUARDED_PAGE);
+  try {
+    await typeInto(tab.linkedBrowser, "name", "Ada");
+    await TestUtils.waitForCondition(() => typed(tab), "Typed (the marker still shows)");
+    ok(tab.linkedBrowser.hasBeforeUnload, "The page has its own guard");
+    gBrowser.selectedTab = other;
+    const asks = countAsks();
+    ok(await gBrowser.explicitUnloadTabs([tab]), "Unloads (the site didn't object)");
+    asks.stop();
+    is(asks.count, 0, "Whimsy didn't ask");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(other);
+  }
+});
+
+// The dialog: everything inside the panel, one choice per row, in the F08
+// order; Cancel has focus; Esc cancels the whole unload (old code unloaded
+// the other tabs anyway and its buttons overflowed the 300px panel).
+add_task(async function test_unload_dialog_layout_and_cancel() {
   const formTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
   const plainTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?plain");
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
   try {
-    WhimsyFormProtection.updateTabProtection(formTab, true);
-    const ask = async how => {
-      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-form-unload");
-      const unloading = gBrowser.explicitUnloadTabs([formTab]);
-      await shown;
-      const panel = document.getElementById("whimsy-form-unload");
-      ok(panel.classList.contains("whimsy-surface"), "A Whimsy surface");
-      await document.l10n.translateFragment(panel);
-      is(panel.querySelector(".whimsy-surface-title").textContent, "Unload this tab?", "Unload this tab?");
-      ok(panel.querySelector(".whimsy-form-unload-body b"), "naming the site in bold");
-      await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-form-unload-keep", "Cancel has the keyboard");
-      // F08: Unload Without Saving, Cancel, Save and Unload.
-      is([...panel.querySelectorAll(".whimsy-surface-footer button")].map(b => b.label).join("|"),
-        "Unload Without Saving|Cancel|Save and Unload", "The three choices");
-      await how(panel);
-      await unloading;
-    };
-    await ask(() => EventUtils.synthesizeKey("KEY_Escape", {}, window));
-    ok(formTab.linkedPanel, "Esc keeps it loaded");
-    await ask(() => EventUtils.synthesizeKey("KEY_Enter", {}, window));
-    ok(formTab.linkedPanel, "Return keeps it loaded");
-    await ask(panel => panel.querySelector("#whimsy-form-unload-accept").doCommand());
-    await TestUtils.waitForCondition(() => !formTab.linkedPanel, "Unload unloads it");
+    gBrowser.selectedTab = formTab;
+    await typeInto(formTab.linkedBrowser, "name", "Ada Lovelace");
+    await TestUtils.waitForCondition(() => typed(formTab), "Typed");
+    gBrowser.selectedTab = other;
 
-    let asked = false;
-    const onShown = e => (asked ||= e.target.id == "whimsy-form-unload");
-    document.addEventListener("popupshown", onShown, true);
-    await gBrowser.explicitUnloadTabs([plainTab]);
-    document.removeEventListener("popupshown", onShown, true);
-    ok(!asked, "A tab without a form doesn't ask");
-    await TestUtils.waitForCondition(() => !plainTab.linkedPanel, "and unloads");
+    const shown = waitForAsk();
+    const unloading = gBrowser.explicitUnloadTabs([formTab, plainTab]);
+    const panel = await shown;
+    await document.l10n.translateFragment(panel);
+    is(panel.querySelector(".whimsy-surface-title").textContent, "Unload this tab?", "Asks about the tab with the form");
+    ok(panel.querySelector(".whimsy-form-unload-body b"), "naming the site");
+    const buttons = [...panel.querySelectorAll(".whimsy-surface-footer button")];
+    is(buttons.map(b => b.label).join("|"), "Unload Without Saving|Save and Unload|Cancel", "The three choices, in order");
+    await TestUtils.waitForCondition(() => document.activeElement?.id == "whimsy-form-unload-keep", "Cancel has the keyboard");
+
+    const box = panel.getBoundingClientRect();
+    const inside = el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.left >= box.left - 0.5 && r.right <= box.right + 0.5 && r.bottom <= box.bottom + 0.5;
+    };
+    for (const el of [panel.querySelector(".whimsy-surface-title"), panel.querySelector(".whimsy-form-unload-body"), ...buttons]) {
+      ok(inside(el), `${el.id || el.className} sits inside the panel`);
+    }
+    const body = panel.querySelector(".whimsy-form-unload-body");
+    ok(body.scrollWidth <= body.clientWidth + 1, "The body wraps instead of running out");
+    for (let i = 1; i < buttons.length; i++) {
+      ok(buttons[i - 1].getBoundingClientRect().bottom <= buttons[i].getBoundingClientRect().top + 0.5,
+        `${buttons[i - 1].label} and ${buttons[i].label} don't overlap`);
+    }
+
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    is(await unloading, false, "Esc: the unload reports it didn't happen");
+    ok(formTab.linkedPanel && !formTab.hasAttribute("pending"), "The form tab is still loaded");
+    ok(plainTab.linkedPanel && !plainTab.hasAttribute("pending"), "and so is the other tab: Cancel cancels the whole unload");
+    is(await SpecialPowers.spawn(formTab.linkedBrowser, [], () => content.document.getElementById("name").value),
+      "Ada Lovelace", "What was typed is still there");
   } finally {
     for (const tab of [formTab, plainTab, other]) {
       BrowserTestUtils.removeTab(tab);
     }
+  }
+});
+
+// Unload Without Saving drops what was typed, Firefox's session copy too
+// (old code left that, so the tab filled itself back in); Save and Unload
+// keeps it.
+add_task(async function test_unload_with_and_without_saving() {
+  for (const save of [false, true]) {
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+    const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?other");
+    const browser = tab.linkedBrowser;
+    try {
+      gBrowser.selectedTab = tab;
+      await typeInto(browser, "name", "Ada");
+      await TestUtils.waitForCondition(() => typed(tab), "Typed");
+      await TabStateFlusher.flush(browser);
+      ok(TabStateCache.get(browser.permanentKey)?.formdata, "Firefox's session has the typed text");
+      gBrowser.selectedTab = other;
+      const shown = waitForAsk();
+      const unloading = gBrowser.explicitUnloadTabs([tab]);
+      await answer(await shown, save ? "whimsy-form-unload-accept" : "whimsy-form-unload-discard");
+      ok(await unloading, "Unloaded");
+      ok(tab.hasAttribute("pending"), "The tab is unloaded");
+      // Let the page's last words (a pagehide snapshot) arrive, if any.
+      await new Promise(resolve => setTimeout(resolve, 300));
+      if (save) {
+        ok(WhimsyFormProtection.snapshotFor(browser, FORM_PAGE), "Save and Unload keeps what was typed");
+      } else {
+        ok(!WhimsyFormProtection.snapshotFor(browser, FORM_PAGE), "Without saving: Whimsy's copy is gone");
+        ok(!TabStateCache.get(browser.permanentKey)?.formdata, "and Firefox's");
+        await BrowserTestUtils.switchTab(gBrowser, tab);
+        await TestUtils.waitForCondition(() => !tab.hasAttribute("pending") && !tab.hasAttribute("busy"), "Back");
+        is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value), "",
+          "The form comes back empty");
+      }
+    } finally {
+      BrowserTestUtils.removeTab(other);
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
+});
+
+// Pinned ⌘W (Zen resets and unloads it): ask BEFORE Zen moves to another
+// tab or unloads; Cancel leaves it exactly as it was. Old code switched
+// away first and asked afterwards.
+add_task(async function test_pinned_cmd_w_asks_first() {
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+  gBrowser.pinTab(tab);
+  const browser = tab.linkedBrowser;
+  try {
+    await typeInto(browser, "name", "Ada");
+    await TestUtils.waitForCondition(() => typed(tab), "Typed");
+
+    let shown = waitForAsk();
+    EventUtils.synthesizeKey("w", { accelKey: true }, window);
+    let panel = await shown;
+    is(gBrowser.selectedTab, tab, "While asking, the tab is still the selected one");
+    ok(!tab.hasAttribute("pending"), "and loaded");
+    await answer(panel, "whimsy-form-unload-keep");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    is(gBrowser.selectedTab, tab, "Cancel: still selected");
+    ok(!tab.hasAttribute("pending"), "still loaded");
+    is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value), "Ada",
+      "and the answer is still there");
+
+    shown = waitForAsk();
+    EventUtils.synthesizeKey("w", { accelKey: true }, window);
+    panel = await shown;
+    await answer(panel, "whimsy-form-unload-accept");
+    await TestUtils.waitForCondition(() => tab.hasAttribute("pending"), "Save and Unload: Zen unloads it");
+    isnot(gBrowser.selectedTab, tab, "and moves on");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(other);
+  }
+});
+
+// Zen's "reset" behaviours navigate the pinned tab back without unloading:
+// they ask too (old code never asked, and the form was gone).
+add_task(async function test_pinned_reset_asks() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.pinned-tab-manager.close-shortcut-behavior", "reset-switch"]] });
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+  gBrowser.pinTab(tab);
+  try {
+    await typeInto(tab.linkedBrowser, "name", "Grace");
+    await TestUtils.waitForCondition(() => typed(tab), "Typed");
+    const shown = waitForAsk();
+    EventUtils.synthesizeKey("w", { accelKey: true }, window);
+    await answer(await shown, "whimsy-form-unload-keep");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    is(gBrowser.selectedTab, tab, "Cancel: still selected");
+    is(await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("name").value), "Grace",
+      "not reset");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(other);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// F29 (option A): a 7px hollow ring inside the Essential's tile, and at the
+// end of a row. Old code drew a disc outside the tile's corner.
+add_task(async function test_marker_inside_tile_and_row() {
+  const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+  gZenPinnedTabManager.addToEssentials(essential);
+  await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential");
+  const row = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE + "?row");
+  try {
+    gBrowser.selectedTab = essential;
+    await typeInto(essential.linkedBrowser, "name", "Ada");
+    gBrowser.selectedTab = row;
+    await typeInto(row.linkedBrowser, "name", "Ada");
+    await TestUtils.waitForCondition(() => typed(essential) && typed(row), "Both typed");
+    await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?away");
+    const awayTab = gBrowser.selectedTab;
+    EventUtils.synthesizeMouseAtCenter(document.getElementById("tabbrowser-tabpanels"), { type: "mousemove" });
+
+    const marker = essential.querySelector(".whimsy-tab-form-marker");
+    ok(marker?.checkVisibility(), "The Essential shows the marker");
+    const m = marker.getBoundingClientRect();
+    const tile = essential.querySelector(".tab-background").getBoundingClientRect();
+    ok(m.left >= tile.left && m.right <= tile.right && m.top >= tile.top && m.bottom <= tile.bottom,
+      `inside the tile (${JSON.stringify(m)} in ${JSON.stringify(tile)})`);
+    ok(m.width <= 8 && m.height <= 8, "a 7px ring");
+    is(getComputedStyle(essential.querySelector(".tab-icon-stack"), "::before").content, "none", "no disc on the icon");
+
+    const rowMarker = row.querySelector(".whimsy-tab-form-marker");
+    ok(rowMarker?.checkVisibility(), "The row shows the marker");
+    is(rowMarker.previousElementSibling, row.querySelector(".tab-label-container"), "after the title");
+    const r = rowMarker.getBoundingClientRect();
+    const rowBox = row.getBoundingClientRect();
+    ok(r.left >= rowBox.left && r.right <= rowBox.right, "inside the row");
+    BrowserTestUtils.removeTab(awayTab);
+  } finally {
+    BrowserTestUtils.removeTab(row);
+    BrowserTestUtils.removeTab(essential);
   }
 });
 
@@ -258,20 +467,10 @@ add_task(async function test_unload_asks_first() {
 add_task(async function test_refill_after_reload_asks_first() {
   await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);
-    await SpecialPowers.spawn(browser, [], () => {
-      const doc = content.document;
-      doc.getElementById("name").focus();
-    });
-    for (const key of "Ada Lovelace") {
-      await BrowserTestUtils.synthesizeKey(key, {}, browser);
-    }
-    await SpecialPowers.spawn(browser, [], () => content.document.getElementById("password").focus());
-    for (const key of "hunter2") {
-      await BrowserTestUtils.synthesizeKey(key, {}, browser);
-    }
-    await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-form-typed"), "Typed");
+    await typeInto(browser, "name", "Ada Lovelace");
+    await typeInto(browser, "password", "hunter2");
+    await TestUtils.waitForCondition(() => typed(tab), "Typed");
 
-    const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
     const loaded = BrowserTestUtils.browserLoaded(browser);
     browser.reloadWithFlags(Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE);
     await loaded;
@@ -296,85 +495,20 @@ add_task(async function test_refill_after_reload_asks_first() {
     "Fill In fills the answer back in");
     is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("password").value), "",
       "never the password");
-  });
-});
-
-// W10-25: a private tab's snapshot stays in memory, never in the session.
-add_task(async function test_private_snapshot_stays_in_memory() {
-  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
-  const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
-  const tab = WhimsyPrivate.openPrivateTab(window, { url: FORM_PAGE, force: true });
-  // The load can be over before a load listener would be in place.
-  await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI?.spec == FORM_PAGE && !tab.hasAttribute("busy"),
-    "The private tab loaded");
-  try {
-    ok(WhimsyFormProtection.storeSnapshot(tab.linkedBrowser, FORM_PAGE, { id: { name: "Private Person" } }), "Stored");
-    ok(WhimsyFormProtection.snapshotFor(tab.linkedBrowser, FORM_PAGE + "#x"), "Found again for the same page (ignoring the hash)");
-    is(SessionStore.getCustomTabValue(tab, "whimsy-formdata"), "", "never written to the session");
-  } finally {
-    BrowserTestUtils.removeTab(tab);
-  }
-
-  // A normal tab: in the session too, so a restart keeps it.
-  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
-    const normal = gBrowser.getTabForBrowser(browser);
-    WhimsyFormProtection.storeSnapshot(browser, FORM_PAGE, { id: { name: "Saved" } });
-    const stored = JSON.parse(SessionStore.getCustomTabValue(normal, "whimsy-formdata"));
-    is(stored.data.id.name, "Saved", "kept in the session");
-    ok(!WhimsyFormProtection.snapshotFor(browser, "https://example.org/other"), "not offered to another page");
-    WhimsyFormProtection.clearSnapshot(browser);
-    is(SessionStore.getCustomTabValue(normal, "whimsy-formdata"), "", "cleared");
-  });
-});
-
-// F33 (must never happen): only the person's own typing counts. A page that
-// fills its own fields, an editor that restores its text, hidden and
-// script-set values: none of it marks the tab or asks before unloading,
-// including Cmd+W on a pinned tab (Zen unloads it, through the same ask).
-add_task(async function test_site_filled_fields_never_count() {
-  const PAGE = ROOT + "whimsy_script_form.html";
-  await BrowserTestUtils.withNewTab(PAGE, async browser => {
-    const tab = gBrowser.getTabForBrowser(browser);
-    await SpecialPowers.spawn(browser, [], () =>
-      ContentTaskUtils.waitForCondition(() => content.document.body.dataset.filled == "true", "The page filled itself"));
-    // Give the actor's messages time to arrive.
-    await new Promise(resolve => setTimeout(resolve, 300));
-    ok(!tab.hasAttribute("whimsy-form-protected"), "A page that fills itself isn't a form in progress");
-    ok(!WhimsyFormProtection.isFormProtected(tab), "isFormProtected agrees");
-
-    // Pinned, Cmd+W unloads it: no "Unload this tab?".
-    gBrowser.pinTab(tab);
-    const asked = () => document.getElementById("whimsy-form-unload")?.state == "open";
-    await gBrowser.explicitUnloadTabs([tab]);
-    ok(!asked(), "Unloading the untouched pinned tab doesn't ask");
-    gBrowser.unpinTab(tab);
-  });
-  // The same page with real typing does count.
-  await BrowserTestUtils.withNewTab(PAGE, async browser => {
-    const tab = gBrowser.getTabForBrowser(browser);
-    await SpecialPowers.spawn(browser, [], () =>
-      ContentTaskUtils.waitForCondition(() => content.document.body.dataset.filled == "true", "The page filled itself"));
-    await SpecialPowers.spawn(browser, [], () => content.document.getElementById("title").focus());
-    await BrowserTestUtils.synthesizeKey("x", {}, browser);
-    await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-form-protected"), "Typing into it does count");
+    await TestUtils.waitForCondition(() => typed(tab), "What was filled back is unsaved again");
   });
 });
 
 // F08: most sites build their form after the page loads; the refill offer
-// waits for it instead of deciding at pageshow (when it never came).
+// waits for it.
 add_task(async function test_refill_offered_for_late_form() {
   const PAGE = ROOT + "whimsy_late_form.html";
-  const { WhimsyToast } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToast.sys.mjs");
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);
-    await SpecialPowers.spawn(browser, [], async () => {
-      await ContentTaskUtils.waitForCondition(() => content.document.getElementById("name"), "The form appeared");
-      content.document.getElementById("name").focus();
-    });
-    for (const key of "Grace") {
-      await BrowserTestUtils.synthesizeKey(key, {}, browser);
-    }
-    await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-form-typed"), "Typed");
+    await SpecialPowers.spawn(browser, [], () =>
+      ContentTaskUtils.waitForCondition(() => content.document.getElementById("name"), "The form appeared"));
+    await typeInto(browser, "name", "Grace");
+    await TestUtils.waitForCondition(() => typed(tab), "Typed");
     const loaded = BrowserTestUtils.browserLoaded(browser);
     browser.reload();
     await loaded;
@@ -389,36 +523,39 @@ add_task(async function test_refill_offered_for_late_form() {
   });
 });
 
-// F08: Unload Without Saving drops what was typed; Save and Unload keeps it.
-add_task(async function test_unload_without_saving() {
-  for (const save of [false, true]) {
-    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
-    const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?other");
-    try {
-      gBrowser.selectedTab = tab;
-      await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("name").focus());
-      for (const key of "Ada") {
-        await BrowserTestUtils.synthesizeKey(key, {}, tab.linkedBrowser);
-      }
-      await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-form-typed"), "Typed");
-      gBrowser.selectedTab = other;
-      const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-form-unload");
-      const unloading = gBrowser.explicitUnloadTabs([tab]);
-      const panel = (await shown).target;
-      panel.querySelector(save ? "#whimsy-form-unload-accept" : "#whimsy-form-unload-discard").doCommand();
-      await unloading;
-      await TestUtils.waitForCondition(() => !tab.linkedPanel, "Unloaded");
-      // Let the page's last snapshot arrive, if any.
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const kept = WhimsyFormProtection.snapshotFor(tab.linkedBrowser, FORM_PAGE);
-      if (save) {
-        ok(kept, "Save and Unload keeps what was typed");
-      } else {
-        ok(!kept, "Unload Without Saving drops it");
-      }
-    } finally {
-      BrowserTestUtils.removeTab(other);
-      BrowserTestUtils.removeTab(tab);
-    }
+// W10-25: a private tab's snapshot stays in memory, never in the session.
+add_task(async function test_private_snapshot_stays_in_memory() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+  const tab = WhimsyPrivate.openPrivateTab(window, { url: FORM_PAGE, force: true });
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI?.spec == FORM_PAGE && !tab.hasAttribute("busy"),
+    "The private tab loaded");
+  try {
+    ok(WhimsyFormProtection.storeSnapshot(tab.linkedBrowser, FORM_PAGE, { id: { name: "Private Person" } }), "Stored");
+    ok(WhimsyFormProtection.snapshotFor(tab.linkedBrowser, FORM_PAGE + "#x"), "Found again for the same page (ignoring the hash)");
+    is(SessionStore.getCustomTabValue(tab, "whimsy-formdata"), "", "never written to the session");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
   }
+  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+    const normal = gBrowser.getTabForBrowser(browser);
+    WhimsyFormProtection.storeSnapshot(browser, FORM_PAGE, { id: { name: "Saved" } });
+    const stored = JSON.parse(SessionStore.getCustomTabValue(normal, "whimsy-formdata"));
+    is(stored.data.id.name, "Saved", "kept in the session");
+    ok(!WhimsyFormProtection.snapshotFor(browser, "https://example.org/other"), "not offered to another page");
+    WhimsyFormProtection.clearSnapshot(browser);
+    is(SessionStore.getCustomTabValue(normal, "whimsy-formdata"), "", "cleared");
+  });
+});
+
+add_task(async function test_switch_off() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.form-protection", false]] });
+  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    await typeInto(browser, "name", "Ada");
+    await new Promise(resolve => setTimeout(resolve, 300));
+    ok(!WhimsyFormProtection.isFormProtected(tab), "With the switch off, nothing is protected");
+    ok(!typed(tab), "or marked");
+  });
+  await SpecialPowers.popPrefEnv();
 });

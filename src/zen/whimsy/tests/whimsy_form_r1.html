@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Application form</title></head>
+<body>
+<!-- W13-R1: a plain form (submits into the sink frame), a draft the page
+     restores by script, search boxes, and an editor. -->
+<form id="form" action="whimsy_form_save.sjs?submit" method="post" target="sink">
+  <input id="name" name="name">
+  <textarea id="notes" name="notes"></textarea>
+  <select id="kind" name="kind"><option value="a">A</option><option value="b">B</option></select>
+  <input id="agree" name="agree" type="checkbox">
+  <button id="send">Send</button>
+</form>
+<iframe name="sink" id="sink"></iframe>
+<input id="draft" name="draft">
+<input id="search" type="search">
+<input id="q" name="q">
+<div role="search"><input id="site-find"></div>
+<div id="editor" contenteditable="true"></div>
+<script>
+  addEventListener("load", () => {
+    document.getElementById("draft").value = "Draft";
+    document.body.dataset.ready = "true";
+  });
+</script>
+</body>
+</html>
