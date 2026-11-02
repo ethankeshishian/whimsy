@@ -66,6 +66,38 @@ add_task(async function test_tab_drag_shows_hidden_switcher() {
   await TestUtils.waitForCondition(() => !shown(), "Switcher is hidden with hide-switcher option");
 
   const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true });
+  // Whimsy hears drags on the window in the capture phase. A capture
+  // listener added after Whimsy's stops the synthetic events there, so
+  // Firefox's own tab drag (which wants a real drag session and opens a
+  // drag window) never starts.
+  const stop = event => event.stopPropagation();
+  const types = ["dragstart", "dragenter", "dragover", "dragend"];
+  for (const type of types) {
+    window.addEventListener(type, stop, true);
+  }
+  registerCleanupFunction(() => {
+    for (const type of types) {
+      window.removeEventListener(type, stop, true);
+    }
+  });
+  const dt = new DataTransfer();
+  dt.mozSetDataAt("application/x-moz-tabbrowser-tab", tab, 0);
+  // Sent to the switcher, not the tab, so Firefox's own tab drag code
+  // stays out of it; Whimsy listens on the window.
+  const target = document.getElementById("zen-workspaces-button");
+  target.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: dt }));
+  ok(document.documentElement.hasAttribute("whimsy-tab-dragging"), "A tab drag is noticed");
+  target.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer: dt }));
+  ok(!document.documentElement.hasAttribute("whimsy-tab-dragging"), "and its end");
+  BrowserTestUtils.removeTab(tab);
+});
+
+// F18: dragging a tab with the space switcher hidden must show the spaces to drop on.
+add_task(async function test_tab_drag_shows_hidden_switcher() {
+  Services.prefs.setBoolPref(OPTION, true);
+  await TestUtils.waitForCondition(() => !shown(), "Switcher is hidden with hide-switcher option");
+
+  const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true });
   // Whimsy hears drags on the window in the capture phase. The synthetic
   // events stop at the tab strip, so Firefox's own tab drag (which wants a
   // real drag session and opens a drag window) never starts.
