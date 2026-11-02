@@ -245,6 +245,21 @@ add_task(async function hidden_reader_blocks_active_capabilities() {
   Assert.deepEqual((await list.getAll()).filter(item => !before.has(item)), [], "Hidden page cannot download");
 });
 
+// F28: a page that sends Cross-Origin-Opener-Policy can't load sandboxed
+// (NS_ERROR_DOM_COOP_FAILED), so the reader loads it again without the
+// sandbox flags, and still blocks what the sandbox did.
+add_task(async function hidden_reader_reads_coop_pages_still_blocked() {
+  const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+  const list = await Downloads.getList(Downloads.ALL);
+  const before = new Set(await list.getAll());
+  WhimsyAIReader.setTestReader(null);
+  const result = await WhimsyAIReader.readUrl(ROOT + "whimsy_ai_sandbox_coop.html");
+  ok(result.text.includes("SCRIPT_RAN"), `The COOP page was read (${result.text.slice(0, 80)})`);
+  ok(result.text.includes("POPUP_BLOCKED"), "Hidden page cannot open a popup");
+  await new Promise(resolve => setTimeout(resolve, 500));
+  Assert.deepEqual((await list.getAll()).filter(item => !before.has(item)), [], "Hidden page cannot download");
+});
+
 // wave7/security M5: resting on a link (nobody asked) reads public pages
 // only, and without the person's cookies; Shift keeps the tab's session.
 add_task(async function hover_previews_are_anonymous_and_public_only() {

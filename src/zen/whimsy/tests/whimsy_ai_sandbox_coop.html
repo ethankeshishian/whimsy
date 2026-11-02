@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Hidden reader capabilities (COOP)</title>
+<body><a href="whimsy_video.mp4" download="hidden-preview-coop.mp4">Download</a>
+<script>
+// F28: sent with Cross-Origin-Opener-Policy, so the reader loads it
+// unsandboxed; what the sandbox blocked must stay blocked.
+if (location.search.includes("submitted")) {
+  document.body.textContent = "FORM_SUBMITTED";
+} else {
+  let popup = null;
+  try { popup = window.open("about:blank", "_blank"); } catch (error) {
+    if (error.name != "InvalidAccessError") { throw error; }
+  }
+  document.querySelector("a").click();
+  document.body.append("SCRIPT_RAN " + (popup ? "POPUP_OPENED" : "POPUP_BLOCKED"));
+}
+</script>

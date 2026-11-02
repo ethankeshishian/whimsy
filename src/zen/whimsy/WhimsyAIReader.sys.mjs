@@ -17,6 +17,13 @@
 
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
+// NS_ERROR_DOM_COOP_FAILED (not in Cr).
+const COOP_FAILED = 0x80530411;
+// The hidden page's sandbox: auxiliary and top-level navigation, forms,
+// pointer lock, automatic features, modals, orientation lock, presentation,
+// storage access, downloads, custom protocols.
+const SANDBOX_FLAGS =
+  0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000 | 0x40000;
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ContextualIdentityService: "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
@@ -159,14 +166,29 @@ export const WhimsyAIReader = {
    * @param {AbortSignal} [options.signal]
    * @param {string} [options.messageManagerGroup] Which actors the page gets.
    * @param {boolean} [options.sandbox] F28: false loads it without the
-   *   sandbox flags, for pages that send Cross-Origin-Opener-Policy (Google's
+   *   sandbox flags (done by itself after a COOP failure), for pages that send Cross-Origin-Opener-Policy (Google's
    *   results do): a sandboxed top-level page with COOP is a network error
    *   (HTML's "popup sandboxing flag set" rule, NS_ERROR_DOM_COOP_FAILED).
-   *   Then only http(s) pages may load in it (no app-protocol launches),
-   *   and a page nobody sees never gets the user activation popups need.
+   *   The sandbox goes back on once that load has started, so everything
+   *   after it (downloads, app-protocol launches, forms, other pages) is
+   *   still blocked; a page nobody sees never gets the user activation
+   *   popups need.
    * @param {(browser: Element) => Promise<any>} fn
    */
-  async withHiddenPage(url, { userContextId = 0, signal, messageManagerGroup = "headless-browsers", sandbox = true } = {}, fn) {
+  async withHiddenPage(url, options = {}, fn) {
+    try {
+      return await this._withHiddenPageOnce(url, { ...options, sandbox: options.sandbox ?? true }, fn);
+    } catch (e) {
+      // F28: a page that sends COOP can't load sandboxed (Google's results,
+      // many sign-in and app sites): load it again without the sandbox.
+      if (!e?.whimsyCoopFailed || options.sandbox === false) {
+        throw e;
+      }
+      return this._withHiddenPageOnce(url, { ...options, sandbox: false }, fn);
+    }
+  },
+
+  async _withHiddenPageOnce(url, { userContextId = 0, signal, messageManagerGroup = "headless-browsers", sandbox = true } = {}, fn) {
     if (!this.isReadableUrl(url)) {
       throw new Error("Only http(s) pages can be read");
     }
@@ -198,8 +220,7 @@ export const WhimsyAIReader = {
       // wave7/security L7: and no zoommtg:/slack:/vscode: launches from a
       // page nobody sees (SANDBOXED_TOPLEVEL_NAVIGATION_CUSTOM_PROTOCOLS).
       if (sandbox) {
-        browser.browsingContext.sandboxFlags |=
-          0x2 | 0x4 | 0x20 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x8000 | 0x10000 | 0x40000;
+        browser.browsingContext.sandboxFlags |= SANDBOX_FLAGS;
       }
       browser.browsingContext?.mediaController?.mute();
       browser.addEventListener("DidChangeBrowserRemoteness", () =>
@@ -212,24 +233,23 @@ export const WhimsyAIReader = {
           QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
           onStateChange(webProgress, request, flags, status) {
             const { STATE_START, STATE_STOP, STATE_IS_WINDOW } = Ci.nsIWebProgressListener;
-            if (!sandbox && flags & STATE_START) {
-              // Unsandboxed: nothing but http(s) loads, in any frame.
-              const scheme = request instanceof Ci.nsIChannel ? request.URI?.scheme : null;
-              if (scheme && scheme != "http" && scheme != "https" && scheme != "about") {
-                try {
-                request.cancel(Cr.NS_BINDING_ABORTED);
-                } catch {
-                  // A remote page's request can't always be cancelled here.
-                  browser.stop();
-                }
-                return;
-              }
+            if (!sandbox && webProgress.isTopLevel && flags & STATE_START && !browser.browsingContext.sandboxFlags) {
+              // Unsandboxed (a COOP page): the page's own load has its
+              // flags already (none), so the sandbox goes back on for
+              // everything after it: downloads, app-protocol launches,
+              // forms and new top-level loads stay blocked.
+              browser.browsingContext.sandboxFlags |= SANDBOX_FLAGS;
             }
             if (webProgress.isTopLevel && flags & STATE_STOP && flags & STATE_IS_WINDOW) {
               if (Components.isSuccessCode(status)) {
                 resolve();
+              } else if (status == Cr.NS_BINDING_ABORTED && !sandbox) {
+                // The page started another load as it loaded (a sign-in or
+                // script check): that one is sandboxed and settles it.
               } else {
-                reject(new Error(`The page didn't load (${status})`));
+                const error = new Error(`The page didn't load (${status})`);
+                error.whimsyCoopFailed = status == COOP_FAILED;
+                reject(error);
               }
             }
           },
