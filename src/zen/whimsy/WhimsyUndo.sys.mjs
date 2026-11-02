@@ -75,6 +75,9 @@ function isEditableTarget(win) {
   return !!el.closest?.("findbar, search-textbox, moz-input-box, [contenteditable]");
 }
 
+// B1: per window, the pinned tabs ⌘W last moved off, and when.
+const lastPinnedClose = new WeakMap();
+
 export const WhimsyUndo = {
   _suppressed: 0,
 
@@ -212,6 +215,67 @@ export const WhimsyUndo = {
     return undoStacks.get(win)?.at(-1)?.type ?? null;
   },
 
+  // B1: ⌘W on a pinned tab or an Essential doesn't close it in Zen: it
+  // resets and unloads it and moves you off it (Zen's
+  // close-shortcut-behavior), so it never reached the closed-tab list and
+  // ⌘⇧T reopened an older, normal tab instead. ⌘⇧T now brings back
+  // whichever was closed last, of any kind: if the latest "close" was such
+  // a pinned tab, it's selected again (and loads, as a click would).
+  reopenPinnedCloses(win) {
+    const pinned = win.gZenPinnedTabManager;
+    if (!pinned?.onCloseTabShortcut || pinned.onCloseTabShortcut._whimsyReopen) {
+      return;
+    }
+    const original = pinned.onCloseTabShortcut;
+    const wrapped = function (event, selectedTab = win.gBrowser.selectedTab, ...rest) {
+      try {
+        const tabs = (Array.isArray(selectedTab) ? selectedTab : [selectedTab]).filter(tab => tab?.pinned);
+        if (tabs.length) {
+          lastPinnedClose.set(win, { tabs, at: Date.now() });
+        }
+      } catch (e) {
+        console.error("Whimsy: pinned close", e);
+      }
+      return original.call(this, event, selectedTab, ...rest);
+    };
+    wrapped._whimsyReopen = true;
+    pinned.onCloseTabShortcut = wrapped;
+    // ⌘W reaches Zen through a listener it bound to cmd_close at start-up
+    // (so the wrapper above never sees it): note it here, first.
+    win.addEventListener("command", event => {
+      if (event.target?.id != "cmd_close") {
+        return;
+      }
+      const tabs = (win.gBrowser.selectedTabs ?? [win.gBrowser.selectedTab]).filter(tab => tab?.pinned);
+      if (tabs.length) {
+        lastPinnedClose.set(win, { tabs, at: Date.now() });
+      }
+    }, true);
+
+    win.addEventListener("command", event => {
+      // ⌘⇧T is Firefox's "reopen the last closed tab, window or session";
+      // History > Reopen Closed Tab is the tab-only one.
+      if (!["History:RestoreLastClosedTabOrWindowOrSession", "History:UndoCloseTab"].includes(event.target?.id)) {
+        return;
+      }
+      const last = lastPinnedClose.get(win);
+      const tabs = last?.tabs.filter(tab => tab.isConnected && !tab.closing && !tab.selected) ?? [];
+      if (!tabs.length) {
+        return;
+      }
+      let closedAt = 0;
+      try {
+        closedAt = lazy().SessionStore.getClosedTabDataForWindow(win)?.[0]?.closedAt ?? 0;
+      } catch (e) {}
+      if (closedAt > last.at) {
+        return; // A real close came after it: Firefox reopens that.
+      }
+      event.stopImmediatePropagation();
+      lastPinnedClose.delete(win);
+      win.gBrowser.selectedTab = tabs[0];
+    }, true);
+  },
+
   undo(win) {
     const stack = undoStacks.get(win);
     const entry = stack?.pop();
@@ -260,6 +324,7 @@ export const WhimsyUndo = {
   initWindow(win) {
     this.wrapTabActions(win);
     this.registerCommands(win);
+    this.reopenPinnedCloses(win);
     const onKeyDown = event => {
       if (!this.enabled || event.key?.toLowerCase() != "z" || event.altKey) {
         return;
