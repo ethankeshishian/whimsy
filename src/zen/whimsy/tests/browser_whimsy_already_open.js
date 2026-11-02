@@ -630,6 +630,20 @@ add_task(async function test_essential_with_fragment_one_row() {
     ok(!fromOther.slice(1).some(r => r.displayed.action == "Switch to Tab"), "Only the first row says Switch to Tab");
     EventUtils.synthesizeKey("KEY_Enter");
     await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "Return goes to the Essential");
+
+    // Cmd+L on the Essential: the same address goes to it in place (with
+    // a #fragment that's Firefox's same-page navigation), never a copy.
+    const tabs = gBrowser.tabs.length;
+    gURLBar.focus();
+    gURLBar.select();
+    EventUtils.sendString(url);
+    await UrlbarTestUtils.promiseSearchComplete(window);
+    EventUtils.synthesizeKey("KEY_Enter");
+    await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "The bar closed");
+    await new Promise(resolve => setTimeout(resolve, 300));
+    is(tab.linkedBrowser.currentURI.spec, url, "The Essential still shows the address");
+    is(gBrowser.selectedTab, tab, "Cmd+L keeps the Essential");
+    is(gBrowser.tabs.length, tabs, "…and opens no copy");
   } finally {
     if (gURLBar.hasAttribute("zen-newtab") || gURLBar.view.isOpen) {
       await closeCommandBar();
