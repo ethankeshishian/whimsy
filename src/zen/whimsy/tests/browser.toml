@@ -565,6 +565,10 @@ support-files = [
   "whimsy_slow_load.sjs",
 ]
 
+# W13 F12: the Reader View button looks different on and off (option A, styled like Whimsy).
+["browser_whimsy_reader_button_look.js"]
+support-files = ["whimsy_article.html"]
+
 # W13 F05: the page-action button looks like its address bar neighbours (option B), and is a command.
 ["browser_whimsy_page_action_look.js"]
 support-files = ["whimsy_page_actions.html"]
