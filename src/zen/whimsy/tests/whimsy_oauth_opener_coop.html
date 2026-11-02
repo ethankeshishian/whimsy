@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Sign in elsewhere</title>
+</head>
+<body>
+<!-- "Continue with Google" from another site (LinkedIn's case): the popup
+     is cross-origin, and its page sets COOP. -->
+<button id="continue" style="width: 200px; height: 40px">Continue with Google</button>
+<script>
+  document.getElementById("continue").addEventListener("click", () => {
+    window.open("https://example.org/browser/zen/whimsy/tests/whimsy_oauth_popup_coop.html", "whimsy-auth", "width=420,height=480");
+  });
+</script>
+</body>
+</html>

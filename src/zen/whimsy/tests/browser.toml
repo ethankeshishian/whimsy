@@ -759,7 +759,13 @@ support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_
 ["browser_whimsy_mini_command_bar.js"]
 # wave9/mini W8-23 (normal window): a site's sign-in popup gets Firefox's popup chrome (read-only address + identity), stays attached to its opener, and Whimsy's window extras skip it.
 ["browser_whimsy_site_popups.js"]
-support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
+support-files = [
+  "whimsy_oauth_opener.html",
+  "whimsy_oauth_popup.html",
+  "whimsy_oauth_opener_coop.html",
+  "whimsy_oauth_popup_coop.html",
+  "whimsy_oauth_popup_coop.html^headers^",
+]
 # wave10/mini W10-13: Mini's pages as pill tabs (row only from two pages), popups/target=_blank/Cmd-click as Mini tabs keeping their opener, Cmd+Opt+T, links from other apps reuse Mini, Cmd+O moves every page, Cmd+W, commands, switch off.
 # W10-29: Mini's address strip becomes the space search (⌘⇧O), a flat list.
 ["browser_whimsy_mini_space_search.js"]

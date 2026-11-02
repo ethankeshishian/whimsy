@@ -47,6 +47,15 @@ add_task(async function test_sign_in_popup_from_a_normal_window() {
     is(WhimsyQuickWindow.windows().length, minis, "No Mini opened");
     const popupBrowser = popup.gBrowser.selectedBrowser;
     is(popupBrowser.browsingContext.opener, browser.browsingContext, "Attached to the page that opened it");
+    // W11-12: an ordinary Firefox popup window at the native level too (the
+    // macOS passkey sheet presents on the requesting window): not
+    // always-on-top, not raised, the browser window type.
+    const flags = popup.docShell.treeOwner.QueryInterface(Ci.nsIInterfaceRequestor)
+      .getInterface(Ci.nsIAppWindow).chromeFlags;
+    ok(!(flags & Ci.nsIWebBrowserChrome.CHROME_ALWAYS_ON_TOP), "Not always on top");
+    ok(!(flags & Ci.nsIWebBrowserChrome.CHROME_ALWAYS_RAISED), "Not always raised");
+    ok(!(flags & Ci.nsIWebBrowserChrome.CHROME_TOOLBAR), "Firefox's popup flags (no toolbar)");
+    is(root.getAttribute("windowtype"), "navigator:browser", "A browser window, like Zen's popup");
 
     // Firefox's minimal popup chrome: the read-only address with identity
     // (Zen's sidebar, where it normally lives, is collapsed in popups).
@@ -254,6 +263,79 @@ add_task(async function test_passkey_in_sign_in_popup() {
     });
   } finally {
     service.removeVirtualAuthenticator(authenticator);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W11-12, the user's case: LinkedIn's "Continue with Google". The popup is
+// cross-origin and Google serves it with Cross-Origin-Opener-Policy:
+// same-origin-allow-popups, so it moves to its own browsing context group
+// (and process) as it loads. After that switch the page must still have
+// focus, run the extension's content script, and get the passkey.
+add_task(async function test_coop_sign_in_popup() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["security.webauth.webauthn", true],
+      ["security.webauth.webauthn_enable_softtoken", true],
+      ["security.webauth.webauthn_enable_usbtoken", false],
+      ["security.webauthn.ctap2", true],
+      ["security.webauthn.enable_macos_passkeys", false],
+    ],
+  });
+  const OPENER_COOP = ROOT + "whimsy_oauth_opener_coop.html";
+  const POPUP_COOP = "https://example.org/browser/zen/whimsy/tests/whimsy_oauth_popup_coop.html";
+  const extension = ExtensionTestUtils.loadExtension({
+    manifest: { content_scripts: [{ matches: ["https://example.org/*"], js: ["cs.js"], run_at: "document_start" }] },
+    files: { "cs.js": "document.documentElement.dataset.whimsyExtension = 'ran';" },
+  });
+  await extension.startup();
+  const service = Cc["@mozilla.org/webauthn/service;1"].getService(Ci.nsIWebAuthnService);
+  const authenticator = service.addVirtualAuthenticator("ctap2_1", "internal", true, true, true, true);
+  const keyPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]);
+  const b64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const credBytes = crypto.getRandomValues(new Uint8Array(32));
+  service.addCredential(authenticator, b64url(credBytes), true, "example.org",
+    b64url(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey)), "VGVzdCBVc2Vy", 0);
+  let popup = null;
+  try {
+    await BrowserTestUtils.withNewTab(OPENER_COOP, async browser => {
+      const opened = BrowserTestUtils.waitForNewWindow({ url: POPUP_COOP });
+      await BrowserTestUtils.synthesizeMouseAtCenter("#continue", {}, browser);
+      popup = await opened;
+      const popupBrowser = popup.gBrowser.selectedBrowser;
+      await TestUtils.waitForCondition(() => popupBrowser.currentURI.spec == POPUP_COOP && !popupBrowser.webProgress?.isLoadingDocument,
+        "The COOP sign-in page loaded");
+      is(popupBrowser.browsingContext.opener, null, "COOP gave it its own browsing context group (no opener)");
+      const state = await SpecialPowers.spawn(popupBrowser, [[...credBytes]], async bytes => {
+        await ContentTaskUtils.waitForCondition(() => content.document.hasFocus(), "The popup's page has focus");
+        let result;
+        try {
+          const assertion = await content.navigator.credentials.get({
+            publicKey: {
+              challenge: content.crypto.getRandomValues(new Uint8Array(16)),
+              rpId: "example.org",
+              allowCredentials: [{ type: "public-key", id: new Uint8Array(bytes), transports: ["internal"] }],
+              userVerification: "discouraged",
+            },
+          });
+          result = assertion ? "ok" : "none";
+        } catch (e) {
+          result = `${e.name}: ${e.message}`;
+        }
+        return { result, ran: content.document.documentElement.dataset.whimsyExtension };
+      });
+      is(state.ran, "ran", "The extension's content script ran in the COOP popup");
+      is(state.result, "ok", "The passkey works in the COOP popup");
+      is(popup.document.activeElement?.closest?.("#urlbar"), null, "The address bar didn't take focus from the page");
+      await BrowserTestUtils.closeWindow(popup);
+      popup = null;
+    });
+  } finally {
+    if (popup && !popup.closed) {
+      await BrowserTestUtils.closeWindow(popup);
+    }
+    service.removeVirtualAuthenticator(authenticator);
+    await extension.unload();
     await SpecialPowers.popPrefEnv();
   }
 });

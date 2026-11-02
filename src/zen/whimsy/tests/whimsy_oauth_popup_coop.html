@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Sign in (COOP)</title>
+</head>
+<body>
+<!-- A provider's sign-in page that, like Google's, is served with
+     Cross-Origin-Opener-Policy: same-origin-allow-popups: opened from
+     another site, it gets its own browsing context group (no opener). -->
+<button id="account" style="width: 200px; height: 40px">Use this account</button>
+<script>
+  document.body.dataset.hasOpener = String(!!window.opener);
+</script>
+</body>
+</html>
