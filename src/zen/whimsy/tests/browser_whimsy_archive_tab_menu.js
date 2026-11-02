@@ -117,7 +117,10 @@ add_task(async function test_archive_tabs_below() {
   const item = document.getElementById(BELOW_ID);
   ok(!item.disabled, "Enabled with tabs below");
   const closed = TestUtils.waitForCondition(() => !c.isConnected && !d.isConnected, "The tabs below close");
-  menu.activateItem(item);
+  // F15: the row is in the Close Multiple Tabs submenu now, which isn't
+  // open: run it as the submenu would.
+  item.doCommand();
+  await closeMenu(menu);
   await closed;
   ok(a.isConnected && b.isConnected, "The tab and the ones above it stay");
   ok(others.every(t => t.isConnected), "Tabs elsewhere stay");

@@ -66,7 +66,19 @@ add_task(async function test_tab_drag_shows_hidden_switcher() {
   await TestUtils.waitForCondition(() => !shown(), "Switcher is hidden with hide-switcher option");
 
   const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true });
-  // Drag start originating on the tab element itself
+  // Whimsy hears drags on the window in the capture phase. The synthetic
+  // events stop at the tab strip, so Firefox's own tab drag (which wants a
+  // real drag session and opens a drag window) never starts.
+  const container = gBrowser.tabContainer;
+  const stop = event => event.stopPropagation();
+  for (const type of ["dragstart", "dragenter", "dragover", "dragend"]) {
+    container.addEventListener(type, stop, true);
+  }
+  registerCleanupFunction(() => {
+    for (const type of ["dragstart", "dragenter", "dragover", "dragend"]) {
+      container.removeEventListener(type, stop, true);
+    }
+  });
   const dt = new DataTransfer();
   tab.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: dt }));
   ok(document.documentElement.hasAttribute("whimsy-tab-dragging"), "whimsy-tab-dragging set on tab dragstart");

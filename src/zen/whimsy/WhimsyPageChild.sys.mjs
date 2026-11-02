@@ -350,129 +350,27 @@ export class WhimsyPageChild extends JSWindowActorChild {
     return null;
   }
 
-  // wave12: call microphone control for PiP. Exposes setMicrophoneActive and
-  // togglemicrophone to the page (Google Meet and MediaSession callers).
-  ensureMediaSessionHook() {
-    const win = this.contentWindow?.wrappedJSObject;
-    if (!win || win._whimsyMediaSessionHooked) {
-      return;
-    }
-    win._whimsyMediaSessionHooked = true;
-    try {
-      const proto = win.MediaSession?.prototype;
-      if (proto) {
-        const origSetActionHandler = proto.setActionHandler;
-        proto.setActionHandler = function (action, handler) {
-          if (action === "togglemicrophone") {
-            this._whimsyToggleMicrophone = handler;
-            return;
-          }
-          return origSetActionHandler.call(this, action, handler);
-        };
-        const origSetMicrophoneActive = proto.setMicrophoneActive;
-        proto.setMicrophoneActive = function (active) {
-          this._whimsyMicrophoneActive = !!active;
-          win.dispatchEvent(new win.CustomEvent("Whimsy:MicrophoneActive", { detail: { active: !!active } }));
-          if (typeof origSetMicrophoneActive === "function") {
-            origSetMicrophoneActive.call(this, active);
-          }
-        };
-      }
-      if (win.navigator?.mediaSession) {
-        const ms = win.navigator.mediaSession;
-        if (!ms.setMicrophoneActive) {
-          ms.setMicrophoneActive = function (active) {
-            this._whimsyMicrophoneActive = !!active;
-            win.dispatchEvent(new win.CustomEvent("Whimsy:MicrophoneActive", { detail: { active: !!active } }));
-          };
-        }
-      }
-    } catch (e) {
-      // Ignore in restricted windows
-    }
-    this.setupMicrophoneListener();
-  }
-
-  setupMicrophoneListener() {
-    if (this._microphoneListenerSet || !this.contentWindow) {
-      return;
-    }
-    this._microphoneListenerSet = true;
-    this.contentWindow.addEventListener("Whimsy:MicrophoneActive", event => {
-      this.sendAsyncMessage("Whimsy:CallMicrophoneState", { active: !!event.detail?.active });
-    });
+  // F32: the call's own microphone button, as the person would press it.
+  // Firefox has no Media Session "togglemicrophone" action or
+  // setMicrophoneActive(), so Meet (and other calls) only offer the
+  // button; Meet marks it with data-is-muted.
+  micButton() {
+    return this.document?.querySelector(
+      'button[data-is-muted], [role="button"][data-is-muted], button[aria-label*="microphone" i], button[data-tooltip*="microphone" i]'
+    ) ?? null;
   }
 
   toggleMicrophone() {
-    this.ensureMediaSessionHook();
-    const win = this.contentWindow;
-    if (!win) {
-      return { active: true };
-    }
-    const unwrapped = win.wrappedJSObject;
-    const mediaSession = unwrapped?.navigator?.mediaSession;
-    let toggled = false;
-
-    // 1. Media Session action handler ("togglemicrophone")
-    if (typeof mediaSession?._whimsyToggleMicrophone === "function") {
-      try {
-        mediaSession._whimsyToggleMicrophone({ action: "togglemicrophone" });
-        toggled = true;
-      } catch (e) {
-        console.error("Whimsy: togglemicrophone handler error", e);
-      }
-    }
-
-    // 2. Google Meet DOM button fallback
-    if (!toggled) {
-      const doc = this.document;
-      const micBtn = doc?.querySelector(
-        'button[data-is-muted], button[aria-label*="microphone" i], button[aria-label*="mic" i], button[data-tooltip*="microphone" i]'
-      );
-      if (micBtn) {
-        micBtn.click();
-        toggled = true;
-      }
-    }
-
-    // 3. Meet keyboard shortcut fallback (Cmd+D on Mac, Ctrl+D elsewhere)
-    if (!toggled) {
-      const isMac = Services.appinfo.OS == "Darwin";
-      const doc = this.document;
-      doc?.dispatchEvent(
-        new win.KeyboardEvent("keydown", {
-          key: "d",
-          code: "KeyD",
-          keyCode: 68,
-          which: 68,
-          bubbles: true,
-          cancelable: true,
-          metaKey: isMac,
-          ctrlKey: !isMac,
-        })
-      );
-    }
-
+    this.micButton()?.click();
     return this.getMicrophoneState();
   }
 
   getMicrophoneState() {
-    this.ensureMediaSessionHook();
-    const win = this.contentWindow;
-    if (!win) {
-      return { active: true };
+    const button = this.micButton();
+    if (button?.hasAttribute("data-is-muted")) {
+      return { active: button.getAttribute("data-is-muted") != "true" };
     }
-    const unwrapped = win.wrappedJSObject;
-    const mediaSession = unwrapped?.navigator?.mediaSession;
-    if (typeof mediaSession?._whimsyMicrophoneActive === "boolean") {
-      return { active: mediaSession._whimsyMicrophoneActive };
-    }
-    const doc = this.document;
-    const micBtn = doc?.querySelector("button[data-is-muted]");
-    if (micBtn) {
-      return { active: micBtn.getAttribute("data-is-muted") !== "true" };
-    }
-    return { active: true };
+    return { active: null };
   }
 
   // wave3: floating calls. Puts the call's main video (the active speaker's
@@ -482,7 +380,6 @@ export class WhimsyPageChild extends JSWindowActorChild {
   // sound plays from separate audio elements, so the videos are muted or
   // have no audio track. Returns whether it opened.
   async callPip() {
-    this.ensureMediaSessionHook();
     const doc = this.document;
     if (!doc) {
       return false;
@@ -618,7 +515,6 @@ export class WhimsyPageChild extends JSWindowActorChild {
   }
 
   async onMediaEvent(event) {
-    this.ensureMediaSessionHook();
     const el = event.target;
     if (!HTMLMediaElement.isInstance(el)) {
       return;

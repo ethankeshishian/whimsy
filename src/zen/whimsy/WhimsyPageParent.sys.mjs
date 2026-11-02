@@ -7,7 +7,6 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
   WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
@@ -53,13 +52,6 @@ export class WhimsyPageParent extends JSWindowActorParent {
     switch (message.name) {
       case "Whimsy:VolumeLevel":
         return lazy.WhimsyMedia.volumeFor(this.tab);
-      case "Whimsy:CallMicrophoneState": {
-        const browser = this.browsingContext.top.embedderElement;
-        if (browser) {
-          lazy.WhimsyCallPip.onMicrophoneState(browser, message.data?.active);
-        }
-        return null;
-      }
       // W10-61: the page cancelled a browser key; a second press runs it.
       case "Whimsy:PageTookKey": {
         const browser = this.browsingContext.top.embedderElement;

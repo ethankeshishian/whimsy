@@ -119,19 +119,20 @@ add_task(async function test_call_pip_mute_unmute() {
   ok(audioBtn, "PiP has audio button");
   ok(!audioBtn.hidden, "Audio button is visible for call PiP");
 
-  await TestUtils.waitForCondition(() => !pip.Player.isMuted, "Call PiP initially unmuted");
+  const muted = () => pip.document.getElementById("controls").classList.contains("muted");
+  await TestUtils.waitForCondition(() => !muted(), "Call PiP initially unmuted");
 
-  // Click audio button to mute call
-  pip.Player.toggleMute();
-  await TestUtils.waitForCondition(() => pip.Player.isMuted, "PiP player reflects muted state");
-  const mutedActive = await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.microphoneActive);
-  is(mutedActive, false, "Call page microphone was muted via togglemicrophone");
+  // The audio button mutes the call's microphone (Meet's togglemicrophone).
+  EventUtils.synthesizeMouseAtCenter(audioBtn, {}, pip);
+  await TestUtils.waitForCondition(() => muted(), "PiP shows the call muted");
+  await TestUtils.waitForCondition(() => SpecialPowers.spawn(call.linkedBrowser, [],
+    () => content.wrappedJSObject.microphoneActive === false), "Call page microphone was muted via togglemicrophone");
 
-  // Click audio button again to unmute call
-  pip.Player.toggleMute();
-  await TestUtils.waitForCondition(() => !pip.Player.isMuted, "PiP player reflects unmuted state");
-  const unmutedActive = await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.microphoneActive);
-  is(unmutedActive, true, "Call page microphone was unmuted via togglemicrophone");
+  // Again: unmuted.
+  EventUtils.synthesizeMouseAtCenter(audioBtn, {}, pip);
+  await TestUtils.waitForCondition(() => !muted(), "PiP shows the call unmuted");
+  await TestUtils.waitForCondition(() => SpecialPowers.spawn(call.linkedBrowser, [],
+    () => content.wrappedJSObject.microphoneActive === true), "Call page microphone was unmuted via togglemicrophone");
 
   const closed = BrowserTestUtils.domWindowClosed(pip);
   gBrowser.selectedTab = call;

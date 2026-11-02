@@ -126,7 +126,7 @@ export const WhimsyCallPip = {
       if (!browser) {
         return false;
       }
-      const tab = browser.ownerGlobal?.gBrowser?.getTabForBrowser?.(browser);
+      const tab = browser.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser?.(browser);
       if (!this.isInCall(tab)) {
         return false;
       }
@@ -145,32 +145,64 @@ export const WhimsyCallPip = {
     }
   },
 
+  // F32: in a call the PiP window's audio button (and M) mutes the
+  // microphone, not the call's sound. The player's own Player object is a
+  // top-level `let` in player.js, so it isn't reachable from here; the click
+  // and the key are taken first, in the capture phase, and the button's
+  // muted look is set through player.js's setIsMutedState().
   setupCallControls(pipWin, browser, tab) {
-    const audioBtn = pipWin.document?.getElementById("audio");
+    const doc = pipWin.document;
+    const audioBtn = doc?.getElementById("audio");
     if (audioBtn) {
       audioBtn.hidden = false;
     }
-
-    if (pipWin.Player) {
-      const origToggleMute = pipWin.Player.toggleMute?.bind(pipWin.Player);
-      pipWin.Player.toggleMute = () => {
-        if (this.isInCall(tab)) {
+    if (!pipWin._whimsyCallControls) {
+      pipWin._whimsyCallControls = true;
+      // Firefox keeps the button in step with the video's own muted state
+      // (a call's tiles are muted videos); in a call it shows the
+      // microphone instead, so only Whimsy sets it.
+      const setIsMutedState = pipWin.setIsMutedState;
+      if (typeof setIsMutedState == "function") {
+        pipWin._whimsySetMuted = setIsMutedState;
+        pipWin.setIsMutedState = isMuted => {
+          if (!this.isInCall(tab)) {
+            setIsMutedState(isMuted);
+          }
+        };
+      }
+      pipWin.addEventListener("click", event => {
+        if (event.target?.id == "audio" && this.isInCall(tab)) {
+          event.stopPropagation();
+          event.preventDefault();
           this.toggleCallMute(pipWin, browser);
-          return;
         }
-        origToggleMute?.();
-      };
+      }, true);
+      pipWin.addEventListener("keydown", event => {
+        if (event.key?.toLowerCase() == "m" && !event.metaKey && !event.ctrlKey && !event.altKey &&
+            this.isInCall(tab)) {
+          event.stopPropagation();
+          event.preventDefault();
+          this.toggleCallMute(pipWin, browser);
+        }
+      }, true);
     }
-
     const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
     actor
       ?.sendQuery("Whimsy:GetMicrophoneState")
       .then(res => {
         if (res && typeof res.active === "boolean") {
-          pipWin.setIsMutedState?.(!res.active);
+          this.showCallMuted(pipWin, !res.active);
         }
       })
       .catch(() => {});
+  },
+
+  showCallMuted(pipWin, muted) {
+    (pipWin._whimsySetMuted ?? pipWin.setIsMutedState)?.(muted);
+  },
+
+  isCallMuted(pipWin) {
+    return !!pipWin.document?.getElementById("controls")?.classList.contains("muted");
   },
 
   async toggleCallMute(pipWin, browser) {
@@ -178,14 +210,12 @@ export const WhimsyCallPip = {
     if (!actor) {
       return;
     }
-    if (pipWin.Player) {
-      const willBeMuted = !pipWin.Player.isMuted;
-      pipWin.setIsMutedState?.(willBeMuted);
-    }
+    // Show the change at once; the page's answer settles it.
+    this.showCallMuted(pipWin, !this.isCallMuted(pipWin));
     try {
       const res = await actor.sendQuery("Whimsy:ToggleMicrophone");
       if (res && typeof res.active === "boolean") {
-        pipWin.setIsMutedState?.(!res.active);
+        this.showCallMuted(pipWin, !res.active);
       }
     } catch (e) {
       console.error("Whimsy: toggle call microphone failed", e);
@@ -200,7 +230,7 @@ export const WhimsyCallPip = {
     const pip = lazy.PictureInPicture;
     for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
       if (pip.weakWinToBrowser?.get(pipWin) === browser) {
-        pipWin.setIsMutedState?.(!active);
+        this.showCallMuted(pipWin, !active);
       }
     }
   },
