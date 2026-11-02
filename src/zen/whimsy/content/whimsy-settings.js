@@ -3128,7 +3128,7 @@ Object.assign(gWhimsySettings, {
     const panels = [current, ...document.querySelectorAll(".whimsy-menus-detail")].filter(Boolean);
     for (const panel of panels) {
       const hit = [...panel.querySelectorAll(".whimsy-menus-row")].find(row =>
-        [row.querySelector(".whimsy-menus-row-label")?.textContent, row.querySelector(".whimsy-menus-row-hint")?.textContent]
+        [".whimsy-menus-row-label", ".whimsy-menus-row-hint", ".whimsy-menus-row-alt"].map(sel => row.querySelector(sel)?.textContent)
           .some(text => text?.toLowerCase().includes(needle))
       );
       if (hit) {
@@ -3175,7 +3175,11 @@ Object.assign(gWhimsySettings, {
     rows.setAttribute("role", "group");
     rows.setAttribute("aria-labelledby", heading.id);
     const labels = [];
-    const addRow = (entry, parent = null) => {
+    // W13 F06 (wave12 F06, option A): a submenu's rows fold out under its
+    // row. The row gets a disclosure chevron and "2 of 3 on"; its rows sit
+    // in a box under it (collapsed at first), indented past a hairline.
+    // Every row has the chevron's column, so the names line up.
+    const addRow = (entry, parent = null, into = rows) => {
       const row = html("label");
       row.className = "whimsy-menus-row";
       row.dataset.item = entry.id;
@@ -3192,7 +3196,18 @@ Object.assign(gWhimsySettings, {
       name.className = "whimsy-menus-row-label";
       name.id = `${base}-row-${entry.id}`;
       labels.push({ node: name, entry });
-      row.append(box, name);
+      const chevron = html("span");
+      chevron.className = "whimsy-menus-chevron-slot";
+      row.append(box, chevron, name);
+      // A row whose menu label flips (Pin Tab / Unpin Tab): the other label.
+      if (entry.altL10n) {
+        const alt = html("span");
+        alt.className = "whimsy-menus-row-alt";
+        alt.id = `${base}-alt-${entry.id}`;
+        document.l10n.setAttributes(alt, entry.altL10n);
+        row.append(alt);
+        box.setAttribute("aria-describedby", alt.id);
+      }
       if (entry.hintL10n) {
         const hint = html("span");
         hint.className = "whimsy-menus-row-hint";
@@ -3200,7 +3215,38 @@ Object.assign(gWhimsySettings, {
         row.append(hint);
         box.setAttribute("aria-describedby", hint.id = `${base}-hint-${entry.id}`);
       }
-      rows.append(row);
+      into.append(row);
+      return row;
+    };
+    const addSubmenu = (entry, row) => {
+      const kids = html("div");
+      kids.className = "whimsy-menus-kids";
+      kids.id = `${base}-kids-${entry.id}`;
+      kids.setAttribute("role", "group");
+      kids.setAttribute("aria-labelledby", `${base}-row-${entry.id}`);
+      kids.hidden = true;
+      for (const child of entry.children) {
+        if (!prefs.isSeparator(child)) {
+          addRow(child, entry, kids);
+        }
+      }
+      // A button inside the label: clicking it never toggles the checkbox.
+      const disclose = html("button");
+      disclose.type = "button";
+      disclose.className = "whimsy-menus-disclose";
+      disclose.setAttribute("aria-expanded", "false");
+      disclose.setAttribute("aria-controls", kids.id);
+      document.l10n.setAttributes(disclose, "whimsy-menus-disclose");
+      disclose.addEventListener("click", event => {
+        event.preventDefault();
+        this.setMenuKidsOpen(row, kids.hidden);
+      });
+      row.querySelector(".whimsy-menus-chevron-slot").replaceWith(disclose);
+      const count = html("span");
+      count.className = "whimsy-menus-kids-count";
+      row.classList.add("whimsy-menus-row-parent");
+      row.querySelector(".whimsy-menus-row-label").after(count);
+      rows.append(kids);
     };
     const addSeparator = () => {
       const last = rows.lastElementChild;
@@ -3216,11 +3262,9 @@ Object.assign(gWhimsySettings, {
         addSeparator();
         continue;
       }
-      addRow(entry);
-      for (const child of entry.children ?? []) {
-        if (!prefs.isSeparator(child)) {
-          addRow(child, entry);
-        }
+      const row = addRow(entry);
+      if (entry.children?.some(child => !prefs.isSeparator(child))) {
+        addSubmenu(entry, row);
       }
     }
     if (rows.lastElementChild?.classList.contains("whimsy-menus-sep")) {
@@ -3240,9 +3284,33 @@ Object.assign(gWhimsySettings, {
     // Up/Down (and Home/End) move between the checkboxes, as in a list; Tab
     // still visits each one.
     rows.addEventListener("keydown", event => {
-      const boxes = [...rows.querySelectorAll(".whimsy-menus-check")];
+      const boxes = [...rows.querySelectorAll(".whimsy-menus-check")].filter(box => !box.closest("[hidden]"));
       const index = boxes.indexOf(event.target);
       if (index == -1 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      // Right opens a submenu's rows, Left closes them (from a child: goes
+      // back to its row), as in a tree.
+      const row = event.target.closest(".whimsy-menus-row");
+      const rtl = document.dir == "rtl";
+      const open = event.key == (rtl ? "ArrowLeft" : "ArrowRight");
+      const close = event.key == (rtl ? "ArrowRight" : "ArrowLeft");
+      if (open && row.classList.contains("whimsy-menus-row-parent")) {
+        event.preventDefault();
+        this.setMenuKidsOpen(row, true);
+        return;
+      }
+      if (close) {
+        const parentRow = row.classList.contains("whimsy-menus-row-parent")
+          ? row
+          : row.closest(".whimsy-menus-kids")?.previousElementSibling;
+        if (parentRow?.classList.contains("whimsy-menus-row-parent")) {
+          event.preventDefault();
+          if (parentRow != row) {
+            parentRow.querySelector(".whimsy-menus-check").focus();
+          }
+          this.setMenuKidsOpen(parentRow, false);
+        }
         return;
       }
       const next = {
@@ -3280,6 +3348,17 @@ Object.assign(gWhimsySettings, {
     return detail;
   },
 
+  // W13 F06: opens or closes a submenu row's rows.
+  setMenuKidsOpen(row, open) {
+    const kids = row?.nextElementSibling;
+    if (!kids?.classList.contains("whimsy-menus-kids")) {
+      return;
+    }
+    kids.hidden = !open;
+    row.toggleAttribute("data-open", open);
+    row.querySelector(".whimsy-menus-disclose")?.setAttribute("aria-expanded", String(open));
+  },
+
   // W10-20: rows whose name has a part only known here ("Email with Mail").
   menuRowArgs(row) {
     if (row.l10nArgs == "mail-app") {
@@ -3311,6 +3390,14 @@ Object.assign(gWhimsySettings, {
       // A submenu's rows can't show while it's off: disabled, not unchecked.
       box.disabled = !!row.dataset.parent && hidden.has(row.dataset.parent);
       row.toggleAttribute("data-off", !box.checked || box.disabled);
+    }
+    // A submenu row: how many of its rows are on.
+    for (const row of detail.querySelectorAll(".whimsy-menus-row-parent")) {
+      const children = prefs.items(menuId).filter(entry => prefs.parentOf(menuId, entry.id)?.id == row.dataset.item);
+      document.l10n.setAttributes(row.querySelector(".whimsy-menus-kids-count"), "whimsy-menus-kids-count", {
+        shown: children.filter(entry => !hidden.has(entry.id)).length,
+        total: children.length,
+      });
     }
     detail.querySelector(".whimsy-menus-restore").disabled = prefs.isDefault(menuId);
     const { shown, total } = this.menuCounts(menuId);
@@ -3463,8 +3550,10 @@ Object.assign(gWhimsySettings, {
     if (group.id == "whimsyMenusGroup") {
       // The menu a hit is in is shown (W10-21); its rows are the rows.
       this.selectMenuForQuery(this.searchState?.query);
+      // A row's words (its name, other label and hint), not its submenu
+      // count or the chevron's label.
       return [...group.querySelectorAll(".whimsy-menus-detail:not([data-inactive]) .whimsy-menus-row")].map(row => ({
-        nodes: [row],
+        nodes: [...row.querySelectorAll(".whimsy-menus-row-label, .whimsy-menus-row-alt, .whimsy-menus-row-hint")],
         main: row,
       }));
     }
@@ -3624,6 +3713,13 @@ Object.assign(gWhimsySettings, {
         if (details && !details.open) {
           details.open = true;
           state.opened.push(details);
+        }
+        // W13 F06: in a closed submenu of Settings → Menus: open it.
+        const kids = row.main.closest(".whimsy-menus-kids");
+        if (kids?.hidden) {
+          const parentRow = kids.previousElementSibling;
+          this.setMenuKidsOpen(parentRow, true);
+          state.opened.push({ set open(value) { gWhimsySettings.setMenuKidsOpen(parentRow, value); } });
         }
         const keyword = !this.visibleTextOf(row).includes(query) && this.keywordFor(row, query);
         if (keyword) {

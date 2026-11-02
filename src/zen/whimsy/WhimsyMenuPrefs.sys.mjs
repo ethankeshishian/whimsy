@@ -154,7 +154,9 @@ const TAB_ITEMS = [
   item("playlist", "whimsy-menus-tab-playlist", ["context_whimsyPlaylistSave"]),
   item("snooze", "whimsy-menus-tab-snooze", ["context_whimsySnooze"]),
   SEPARATOR,
-  item("essentials", "whimsy-menus-tab-essentials", ["context_zen-add-essential", "context_zen-remove-essential"]),
+  item("essentials", "whimsy-menus-tab-essentials", ["context_zen-add-essential", "context_zen-remove-essential"], {
+    altL10n: "whimsy-menus-tab-essentials-alt",
+  }),
   // W10-62: an Essential's Show Unread Badge (only Essentials have it).
   item("unread-badge", "whimsy-menus-tab-unread-badge", ["context_whimsyUnreadBadge"]),
   item("rename", "whimsy-menus-tab-rename", ["context_zen-edit-tab-title"]),
@@ -165,7 +167,7 @@ const TAB_ITEMS = [
     "context_unpinTab",
     "context_pinSelectedTabs",
     "context_unpinSelectedTabs",
-  ]),
+  ], { altL10n: "whimsy-menus-tab-pin-alt" }),
   item("unload", "whimsy-menus-tab-unload", ["context_unloadTab"]),
   item("duplicate", "whimsy-menus-tab-duplicate", ["context_duplicateTab", "context_duplicateTabs"]),
   item("copy-links", "whimsy-menus-tab-copy-links", ["context_whimsyCopyLinks"]),
@@ -175,9 +177,11 @@ const TAB_ITEMS = [
   item("ask-chat", "whimsy-menus-tab-ask-chat", ["context_askChat", "context_askChatSummarize", "context_createAITab"]),
   item("bookmark", "whimsy-menus-tab-bookmark", ["context_bookmarkTab", "context_bookmarkSelectedTabs"]),
   item("watch", "whimsy-menus-tab-watch", ["context_whimsyWatchPage"]),
-  item("move-tab", "whimsy-menus-tab-move-tab", ["context_moveTabOptions"]),
-  // wave9/menus: in the Move Tab submenu, first (design-full-4 L10, W9-09).
-  item("move-to-new-space", "whimsy-menus-tab-move-to-new-space", ["context_whimsyMoveToNewSpace"]),
+  // wave9/menus: New Space… is in the Move Tab submenu, first
+  // (design-full-4 L10, W9-09). W13 F06: Settings shows it under Move Tab.
+  item("move-tab", "whimsy-menus-tab-move-tab", ["context_moveTabOptions"], {
+    children: [item("move-to-new-space", "whimsy-menus-tab-move-to-new-space", ["context_whimsyMoveToNewSpace"])],
+  }),
   // W11-13 (d13): on by default (the user asked for it in the tab menu);
   // only shown for a private tab.
   item("move-out-of-private", "whimsy-menus-tab-move-out-of-private", ["context_whimsyMoveOutOfPrivate"]),
@@ -185,7 +189,9 @@ const TAB_ITEMS = [
   SEPARATOR,
   // wave9/menus: Firefox's Share ▸ submenu (with the macOS services,
   // WhimsyShareMenu) and its content-sharing row for several tabs.
-  bySelector("share", "whimsy-menus-tab-share", ["#context_shareSelectedTabs", ".share-tab-url-item"]),
+  bySelector("share", "whimsy-menus-tab-share", ["#context_shareSelectedTabs", ".share-tab-url-item"], {
+    altL10n: "whimsy-menus-tab-share-alt",
+  }),
   item("send-to-device", "whimsy-menus-tab-send-to-device", ["context_sendTabToDevice"]),
   SEPARATOR,
   item("close", "whimsy-menus-tab-close", ["context_closeTab"]),
@@ -239,7 +245,9 @@ const MENUS = [
       SEPARATOR,
       item("bookmark", "whimsy-menus-link-bookmark", ["context-bookmarklink"]),
       item("save", "whimsy-menus-link-save", ["context-savelink"]),
-      item("copy-email", "whimsy-menus-link-copy-email", ["context-copyemail", "context-copyphone"]),
+      item("copy-email", "whimsy-menus-link-copy-email", ["context-copyemail", "context-copyphone"], {
+        altL10n: "whimsy-menus-link-copy-email-alt",
+      }),
       item("copy", "whimsy-menus-link-copy", ["context-copylink"]),
       item("copy-clean", "whimsy-menus-link-copy-clean", ["context-stripOnShareLink"]),
       // wave9/menus (design-full-4 L10): on a link to a video or audio file.
@@ -391,21 +399,21 @@ const MENUS = [
     popup: "#contentAreaContextMenu",
     when: win => contentContext(win) == "media",
     items: [
-      item("play", "whimsy-menus-media-play", ["context-media-play", "context-media-pause"]),
-      item("mute", "whimsy-menus-media-mute", ["context-media-mute", "context-media-unmute"]),
+      item("play", "whimsy-menus-media-play", ["context-media-play", "context-media-pause"], { altL10n: "whimsy-menus-media-play-alt" }),
+      item("mute", "whimsy-menus-media-mute", ["context-media-mute", "context-media-unmute"], { altL10n: "whimsy-menus-media-mute-alt" }),
       item("speed", "whimsy-menus-media-speed", ["context-media-playbackrate"]),
       item("loop", "whimsy-menus-media-loop", ["context-media-loop"]),
       item("fullscreen", "whimsy-menus-media-fullscreen", ["context-video-fullscreen"]),
-      item("controls", "whimsy-menus-media-controls", ["context-media-hidecontrols", "context-media-showcontrols"]),
+      item("controls", "whimsy-menus-media-controls", ["context-media-hidecontrols", "context-media-showcontrols"], { altL10n: "whimsy-menus-media-controls-alt" }),
       SEPARATOR,
       item("view", "whimsy-menus-media-view", ["context-viewvideo"]),
       item("pip", "whimsy-menus-media-pip", ["context-video-pictureinpicture"]),
       item("playlist", "whimsy-menus-media-playlist", ["context-whimsy-save-playlist"]),
       SEPARATOR,
       item("save-frame", "whimsy-menus-media-save-frame", ["context-video-saveimage"]),
-      item("save", "whimsy-menus-media-save", ["context-savevideo", "context-saveaudio"]),
-      item("copy-link", "whimsy-menus-media-copy-link", ["context-copyvideourl", "context-copyaudiourl"]),
-      item("email", "whimsy-menus-media-email", ["context-sendvideo", "context-sendaudio"]),
+      item("save", "whimsy-menus-media-save", ["context-savevideo", "context-saveaudio"], { altL10n: "whimsy-menus-media-save-alt" }),
+      item("copy-link", "whimsy-menus-media-copy-link", ["context-copyvideourl", "context-copyaudiourl"], { altL10n: "whimsy-menus-media-copy-link-alt" }),
+      item("email", "whimsy-menus-media-email", ["context-sendvideo", "context-sendaudio"], { altL10n: "whimsy-menus-media-email-alt" }),
       SEPARATOR,
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
       // W10-45: Element Info, beside Inspect.
@@ -423,9 +431,11 @@ const MENUS = [
       item("change-icon", "whimsy-menus-space-change-icon", ["context_zenEditWorkspaceIcon"]),
       item("edit-theme", "whimsy-menus-space-edit-theme", ["context_zenChangeWorkspaceTheme"]),
       item("look", "whimsy-menus-space-look", ["whimsy-space-look-menuitem"]),
-      item("profile", "whimsy-menus-space-profile", ["context_zenWorkspacesOpenInContainerTab"]),
       // wave9/menus (design-full-4 L10): Profile ▸ Create a New Profile….
-      bySelector("new-profile", "whimsy-menus-space-new-profile", ["[data-whimsy-create-profile]"]),
+      // W13 F06: Settings shows it under Profile.
+      item("profile", "whimsy-menus-space-profile", ["context_zenWorkspacesOpenInContainerTab"], {
+        children: [bySelector("new-profile", "whimsy-menus-space-new-profile", ["[data-whimsy-create-profile]"])],
+      }),
       SEPARATOR,
       bySelector("new-space", "whimsy-menus-space-new", [
         '#zenWorkspaceMoreActions > menuitem[command="cmd_zenOpenWorkspaceCreation"]',
@@ -457,22 +467,26 @@ const MENUS = [
     popup: "#toolbar-context-menu, #zen-panel-ui-live-folder-create > menupopup",
     items: [
       item("new-folder", "whimsy-menus-sidebar-new-folder", ["zen-context-menu-new-folder-toolbar"]),
-      item("new-live-folder", "whimsy-menus-sidebar-new-live-folder", ["zen-panel-ui-live-folder-create"]),
-      SEPARATOR,
-      bySelector("live-github-prs", "whimsy-menus-sidebar-live-github-prs", [
-        '#zen-panel-ui-live-folder-create menuitem[data-l10n-id="zen-live-folder-github-pull-requests"]',
-      ]),
-      bySelector("live-github-issues", "whimsy-menus-sidebar-live-github-issues", [
-        '#zen-panel-ui-live-folder-create menuitem[data-l10n-id="zen-live-folder-github-issues"]',
-      ]),
-      bySelector("live-rss", "whimsy-menus-sidebar-live-rss", [
-        '#zen-panel-ui-live-folder-create menuitem[data-l10n-id="zen-live-folder-type-rss"]',
-      ]),
-      bySelector("live-jira", "whimsy-menus-sidebar-live-jira", [".whimsy-live-folder-jira-create"]),
-      bySelector("live-linear", "whimsy-menus-sidebar-live-linear", [".whimsy-live-folder-linear-create"]),
-      bySelector("live-local-servers", "whimsy-menus-sidebar-live-local-servers", [
-        ".whimsy-live-folder-local-servers-create",
-      ]),
+      // W13 F06: the kinds are Live Folder's submenu; Settings shows them
+      // under it.
+      item("new-live-folder", "whimsy-menus-sidebar-new-live-folder", ["zen-panel-ui-live-folder-create"], {
+        children: [
+          bySelector("live-github-prs", "whimsy-menus-sidebar-live-github-prs", [
+            '#zen-panel-ui-live-folder-create menuitem[data-l10n-id="zen-live-folder-github-pull-requests"]',
+          ]),
+          bySelector("live-github-issues", "whimsy-menus-sidebar-live-github-issues", [
+            '#zen-panel-ui-live-folder-create menuitem[data-l10n-id="zen-live-folder-github-issues"]',
+          ]),
+          bySelector("live-rss", "whimsy-menus-sidebar-live-rss", [
+            '#zen-panel-ui-live-folder-create menuitem[data-l10n-id="zen-live-folder-type-rss"]',
+          ]),
+          bySelector("live-jira", "whimsy-menus-sidebar-live-jira", [".whimsy-live-folder-jira-create"]),
+          bySelector("live-linear", "whimsy-menus-sidebar-live-linear", [".whimsy-live-folder-linear-create"]),
+          bySelector("live-local-servers", "whimsy-menus-sidebar-live-local-servers", [
+            ".whimsy-live-folder-local-servers-create",
+          ]),
+        ],
+      }),
       SEPARATOR,
       // wave9/menus (W9-09): off by default.
       item("add-finder-folder", "whimsy-menus-sidebar-add-finder-folder", ["whimsy-sidebar-add-finder-folder"]),
@@ -485,7 +499,11 @@ const MENUS = [
     l10n: "whimsy-menus-folder",
     popup: "#zenFolderActions, #context_zenLiveFolderOptions > menupopup",
     items: [
-      item("live-options", "whimsy-menus-folder-live-options", ["context_zenLiveFolderOptions"]),
+      // wave9/menus (design-full-4 L10): a live folder's Live Folder
+      // Options ▸ Resync. W13 F06: Settings shows it under its submenu.
+      item("live-options", "whimsy-menus-folder-live-options", ["context_zenLiveFolderOptions"], {
+        children: [bySelector("live-resync", "whimsy-menus-folder-live-resync", ['menuitem[option-key="whimsyResync"]'])],
+      }),
       SEPARATOR,
       item("rename", "whimsy-menus-folder-rename", ["context_zenFolderRename"]),
       item("change-icon", "whimsy-menus-folder-change-icon", ["context_zenFolderChangeIcon"]),
@@ -496,8 +514,6 @@ const MENUS = [
       // wave9/menus (W9-09): off by default.
       item("collapse-all", "whimsy-menus-folder-collapse-all", ["whimsy-folder-collapse-all-folders"]),
       item("expand-all", "whimsy-menus-folder-expand-all", ["whimsy-folder-expand-all-folders"]),
-      // wave9/menus (design-full-4 L10): a live folder's Live Options ▸ Resync.
-      bySelector("live-resync", "whimsy-menus-folder-live-resync", ['menuitem[option-key="whimsyResync"]']),
       SEPARATOR,
       item("move-to-space", "whimsy-menus-folder-move-to-space", ["context_zenChangeFolderSpace"]),
       item("convert-to-space", "whimsy-menus-folder-convert-to-space", ["context_zenFolderToSpace"]),

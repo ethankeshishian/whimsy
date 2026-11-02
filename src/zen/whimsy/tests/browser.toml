@@ -659,6 +659,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave7/split2: Arc's split row right-click menu (items, order, labels, per-pane submenus).
 ["browser_whimsy_split_row_menu.js"]
 
+# W13 F06: Settings → Menus in the menus' own words; submenus fold out under their row (option A).
+["browser_whimsy_menu_prefs_nesting.js"]
+
 # wave7/menuprefs: Settings → Menus (turn any right-click menu item off; separators collapse; Restore Defaults; search).
 ["browser_whimsy_menu_prefs.js"]
 # wave7/native1: about:keyboard says "Restore Last Closed Tab" (whimsy-customkeys-ftl.patch).
