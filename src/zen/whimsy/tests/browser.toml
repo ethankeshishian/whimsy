@@ -818,3 +818,8 @@ support-files = ["whimsy_highlight.html"]
 # W10-62: an Essential's "Show Unread Badge" (context menu checkbox and command, Arc).
 ["browser_whimsy_essential_badge.js"]
 
+
+# F31: Live Captions for This Call: a call's sound (its <audio srcObject>
+# MediaStreams) captioned over its largest tile, and in its PiP window.
+["browser_whimsy_call_captions.js"]
+support-files = ["whimsy_call_captions.html"]

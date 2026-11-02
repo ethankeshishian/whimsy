@@ -63,7 +63,7 @@ const SPEECH_REASONS = ["denied", "unavailable", "protected", "no-audio"];
 // For tests: stand-ins for the native audio tap and for capturing a video's
 // audio track ({ tap: () => nsIWhimsyAudioTap-like, capture: video =>
 // Promise<{ track, stop() }> }).
-export const SpeechTesting = { tap: null, capture: null };
+export const SpeechTesting = { tap: null, capture: null, captureCall: null };
 
 const captureError = reason => Object.assign(new Error(`Can't capture the video's audio: ${reason}`), { reason });
 
@@ -147,7 +147,10 @@ export class VideoCaptions {
     }
   }
 
-  start(video) {
+  // F31: `call` captions a call (Google Meet and other WebRTC calls) from
+  // the call's sound, which plays from the page's own audio elements
+  // (srcObject MediaStreams), shown over `video` (the call's largest tile).
+  start(video, { call = false } = {}) {
     this.stop();
     if (!video || !this.els) {
       return false;
@@ -157,7 +160,9 @@ export class VideoCaptions {
     this.failed = false;
     this.speechSame = false;
     this.cache.clear();
-    this.source = this.trackSource(video) ?? this.siteSource(video) ?? this.speechSource(video);
+    this.source = call
+      ? this.speechSource(video, { call: true })
+      : this.trackSource(video) ?? this.siteSource(video) ?? this.speechSource(video);
     if (!this.source) {
       this.video = null;
       this.notice(this.strings.none, video);
@@ -225,11 +230,11 @@ export class VideoCaptions {
   // w7native: the video's speech, when it has no captions. Starts at once
   // (CC shows pressed, with a note) and finishes setting up in the
   // background; a failure turns CC off again with a note saying why.
-  speechSource(video) {
+  speechSource(video, { call = false } = {}) {
     if (!VideoCaptions.speechEnabled) {
       return null;
     }
-    const source = { kind: "speech", video, id: null, lang: null, text: "", final: false, tap: null, capture: null, timer: null };
+    const source = { kind: "speech", call, video, id: null, lang: null, text: "", final: false, tap: null, capture: null, timer: null };
     this.notice(this.strings.listening, video);
     this.startSpeech(source);
     return source;
@@ -257,7 +262,7 @@ export class VideoCaptions {
     source.id = result.id;
     source.lang = result.lang || null;
     try {
-      source.capture = await this.captureAudio(video);
+      source.capture = await (source.call ? this.captureCallAudio() : this.captureAudio(video));
     } catch (e) {
       if (this.source == source) {
         this.speechFailed(source, e?.reason || "failed");
@@ -324,6 +329,44 @@ export class VideoCaptions {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     return { track: stream.getAudioTracks()[0], stop };
+  }
+
+  // F31: a call's sound, every remote voice in it: the page's media
+  // elements playing a MediaStream with audio (Meet plays each speaker from
+  // its own <audio>), mixed into one live track for the tap. Rejects with
+  // { reason: "no-audio" } when the page has none.
+  async captureCallAudio() {
+    if (SpeechTesting.captureCall) {
+      return SpeechTesting.captureCall();
+    }
+    const win = this.win;
+    const streams = [];
+    for (const el of win.document.querySelectorAll("audio, video")) {
+      const stream = el.srcObject;
+      if (stream && !streams.includes(stream) && stream.getAudioTracks?.().some(t => t.readyState == "live")) {
+        streams.push(stream);
+      }
+    }
+    if (!streams.length) {
+      throw captureError("no-audio");
+    }
+    const context = new win.AudioContext();
+    const mix = context.createMediaStreamDestination();
+    for (const stream of streams) {
+      context.createMediaStreamSource(stream).connect(mix);
+    }
+    try {
+      await context.resume();
+    } catch (e) {}
+    return {
+      track: mix.stream.getAudioTracks()[0],
+      sources: streams.length,
+      stop: () => {
+        try {
+          context.close();
+        } catch (e) {}
+      },
+    };
   }
 
   pumpAudio(source) {
@@ -647,6 +690,13 @@ export class VideoCaptions {
   show(text, { pending = false, lang = null } = {}) {
     if (!this.els) {
       return;
+    }
+    // F31: a call's captions also show in its picture-in-picture window.
+    if (this.source?.call || this.callShown) {
+      this.callShown = !!text;
+      try {
+        this.actor.sendAsyncMessage("WhimsyCaptions:CallText", { text });
+      } catch (e) {}
     }
     const { cue } = this.els;
     cue.textContent = text;

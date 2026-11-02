@@ -13,6 +13,7 @@ const CONTENT_PREF = "whimsy.video-speed";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
   WhimsyCaptions: "resource:///modules/whimsy/WhimsyCaptions.sys.mjs",
   WhimsyLiveSpeech: "resource:///modules/whimsy/WhimsyLiveSpeech.sys.mjs",
 });
@@ -138,6 +139,10 @@ export class WhimsyVideoSpeedParent extends JSWindowActorParent {
         break;
       case "WhimsyCaptions:SpeechStop":
         lazy.WhimsyLiveSpeech.stop(this, message.data);
+        break;
+      // F31: a call's captions, for its picture-in-picture window too.
+      case "WhimsyCaptions:CallText":
+        lazy.WhimsyCallPip.showCaption(this.browsingContext.top?.embedderElement, String(message.data?.text ?? ""));
         break;
     }
     return null;

@@ -134,8 +134,32 @@ add_task(async function test_call_pip_mute_unmute() {
   await TestUtils.waitForCondition(() => SpecialPowers.spawn(call.linkedBrowser, [],
     () => content.wrappedJSObject.microphoneActive === true), "Call page microphone was unmuted via togglemicrophone");
 
+  // F31: the player's CC button shows in a call and turns its live
+  // captions on and off.
+  const cc = pip.document.getElementById("closed-caption");
+  ok(cc && !cc.hidden && !cc.disabled, "CC shows in the call's PiP window");
+  const toggled = [];
+  const toggle = WhimsyCallPip.toggleCaptions;
+  WhimsyCallPip.toggleCaptions = async browser => toggled.push(browser);
+  try {
+    // Firefox's player drops CC from windows under 476px wide.
+    pip.resizeTo(720, 420);
+    await TestUtils.waitForCondition(() => cc.getBoundingClientRect().width > 0, "A PiP window wide enough for CC");
+    EventUtils.synthesizeMouseAtCenter(cc, {}, pip);
+    await TestUtils.waitForCondition(() => toggled.length == 1, "CC turns the call's captions on");
+    is(toggled[0], call.linkedBrowser, "...for the call's tab");
+    ok(!pip.document.getElementById("settings")?.matches?.(":popover-open"), "...not the player's subtitle settings");
+  } finally {
+    WhimsyCallPip.toggleCaptions = toggle;
+  }
+  WhimsyCallPip.showCaption(call.linkedBrowser, "hello from the call");
+  is(pip.document.getElementById("whimsy-call-caption")?.textContent, "hello from the call", "Captions show in the PiP window");
+
   const closed = BrowserTestUtils.domWindowClosed(pip);
   gBrowser.selectedTab = call;
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  ok(globalActions.find(a => a.l10nId == "whimsy-action-call-captions").isAvailable(window),
+    "Live Captions for This Call is offered in the call");
   await closed;
   BrowserTestUtils.removeTab(other);
 });

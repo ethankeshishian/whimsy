@@ -136,7 +136,47 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       case "WhimsyCaptions:SpeechError":
         this._captions?.onSpeechError(message.data);
         break;
+      case "WhimsyVideoSpeed:CallCaptions":
+        return this.toggleCallCaptions();
     }
+    return null;
+  }
+
+  // F31: Live Captions for This Call. A call's videos never get the speed
+  // control (F30), so the captions show over the call's largest tile on
+  // their own, from the call's sound. Returns "on", "off" or why not.
+  toggleCallCaptions() {
+    if (!lazy.VideoCaptions.enabled || !lazy.VideoCaptions.speechEnabled) {
+      return "unavailable";
+    }
+    const video = this.callVideo();
+    if (!video) {
+      return "no-video";
+    }
+    if (this._captions?.source?.call) {
+      this._captions.stop();
+      return "off";
+    }
+    if (!this.ensureControl()) {
+      return "unavailable";
+    }
+    this.captions.label();
+    return this.captions.start(video, { call: true }) ? "on" : "unavailable";
+  }
+
+  // The call's largest visible video (its speaker or main tile).
+  callVideo() {
+    let best = null;
+    let bestArea = 0;
+    for (const video of this.document?.querySelectorAll("video") ?? []) {
+      const rect = video.getBoundingClientRect();
+      const area = rect.width * rect.height;
+      if (area > bestArea && video.checkVisibility()) {
+        best = video;
+        bestArea = area;
+      }
+    }
+    return best;
   }
 
   didDestroy() {

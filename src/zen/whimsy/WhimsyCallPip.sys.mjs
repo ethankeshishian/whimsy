@@ -28,6 +28,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
 });
 
@@ -48,6 +49,16 @@ export const WhimsyCallPip = {
     }
     gBrowser._whimsyCallPip = true;
     this.ensureObserver();
+    // F31: Live Captions for This Call (no key by default; one can be set
+    // in Settings → Keyboard Shortcuts).
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyCallCaptions",
+      l10nId: "whimsy-action-call-captions",
+      run: w => this.toggleCaptions(w.gBrowser.selectedBrowser),
+      key: null,
+      icon: "chrome://global/skin/media/closed-caption-settings-button.svg",
+      isAvailable: w => this.isInCall(w.gBrowser.selectedTab),
+    });
     gBrowser.tabContainer.addEventListener("TabSelect", event => {
       try {
         this.onTabSelect(win, event.detail?.previousTab, event.target);
@@ -170,7 +181,14 @@ export const WhimsyCallPip = {
           }
         };
       }
+      pipWin._whimsyCallBrowser = browser;
       pipWin.addEventListener("click", event => {
+        if (event.target?.id == "closed-caption" && this.isInCall(tab)) {
+          event.stopPropagation();
+          event.preventDefault();
+          this.toggleCaptions(browser);
+          return;
+        }
         if (event.target?.id == "audio" && this.isInCall(tab)) {
           event.stopPropagation();
           event.preventDefault();
@@ -186,6 +204,7 @@ export const WhimsyCallPip = {
         }
       }, true);
     }
+    this.showCaptionsButton(pipWin, browser);
     const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
     actor
       ?.sendQuery("Whimsy:GetMicrophoneState")
@@ -195,6 +214,89 @@ export const WhimsyCallPip = {
         }
       })
       .catch(() => {});
+  },
+
+  // F31: turns the call's live captions on or off (WhimsyVideoSpeedChild).
+  // Resolves to "on", "off" or why not ("no-video", "unavailable").
+  async toggleCaptions(browser) {
+    const actor = browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyVideoSpeed");
+    let state = "unavailable";
+    try {
+      state = (await actor?.sendQuery("WhimsyVideoSpeed:CallCaptions")) ?? "unavailable";
+    } catch (e) {}
+    browser._whimsyCallCaptions = state == "on";
+    for (const pipWin of this.pipWindowsFor(browser)) {
+      this.showCaptionsButton(pipWin, browser);
+      if (state != "on") {
+        this.writeCaption(pipWin, "");
+      }
+    }
+    return state;
+  },
+
+  pipWindowsFor(browser) {
+    const wins = [];
+    for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
+      if (lazy.PictureInPicture.weakWinToBrowser?.get(pipWin) == browser || pipWin._whimsyCallBrowser == browser) {
+        wins.push(pipWin);
+      }
+    }
+    return wins;
+  },
+
+  // The caption text in the call's PiP window(s).
+  showCaption(browser, text) {
+    for (const pipWin of this.pipWindowsFor(browser)) {
+      this.writeCaption(pipWin, text);
+    }
+  },
+
+  writeCaption(pipWin, text) {
+    const doc = pipWin.document;
+    let box = doc.getElementById("whimsy-call-caption");
+    if (!box && text) {
+      box = doc.createElement("div");
+      box.id = "whimsy-call-caption";
+      box.setAttribute("role", "status");
+      Object.assign(box.style, {
+        position: "fixed", insetInline: "8%", bottom: "64px", zIndex: "10", textAlign: "center",
+        pointerEvents: "none", font: "600 15px/1.35 system-ui, sans-serif", color: "#fff",
+      });
+      const line = doc.createElement("span");
+      Object.assign(line.style, { background: "rgba(0,0,0,0.72)", padding: "3px 8px", borderRadius: "6px",
+        boxDecorationBreak: "clone" });
+      box.append(line);
+      doc.body.append(box);
+    }
+    if (box) {
+      box.firstChild.textContent = text;
+      box.hidden = !text;
+    }
+  },
+
+  // The player's own CC button, which a call's muted tiles never enable:
+  // in a call it turns the live captions on and off.
+  showCaptionsButton(pipWin, browser) {
+    const cc = pipWin.document?.getElementById("closed-caption");
+    if (!cc) {
+      return;
+    }
+    // The player hides and disables it again for a video without text
+    // tracks (every call tile): kept on while it's a call.
+    if (!pipWin._whimsyCcObserver) {
+      pipWin._whimsyCcObserver = new pipWin.MutationObserver(() => {
+        if ((cc.hidden || cc.disabled) && this.isInCallBrowser(browser)) {
+          cc.hidden = false;
+          cc.disabled = false;
+        }
+      });
+      pipWin._whimsyCcObserver.observe(cc, { attributes: true, attributeFilter: ["hidden", "disabled"] });
+    }
+    cc.hidden = false;
+    cc.disabled = false;
+    cc.removeAttribute("disabled");
+    cc.setAttribute("aria-pressed", String(!!browser._whimsyCallCaptions));
+    cc.classList.toggle("whimsy-call-captions-on", !!browser._whimsyCallCaptions);
   },
 
   showCallMuted(pipWin, muted) {

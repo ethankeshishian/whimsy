@@ -4595,6 +4595,8 @@ whimsy-hidden-space-shown-toast = “{ $space }” is back in the switcher
 ## W11-13: move private pages out to a space
 
 whimsy-action-move-out-of-private = Move Out of Private…
+# F31: live captions from a call's sound (Google Meet and other WebRTC calls).
+whimsy-action-call-captions = Live Captions for This Call
 whimsy-context-move-out-of-private =
     .label = Move Out of Private…
 whimsy-private-move-title = Move to a space

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Call</title>
+<!-- F31: a call like Google Meet: a muted video tile playing a MediaStream
+     and the remote voice playing from its own <audio srcObject>. -->
+<video id="tile" muted autoplay width="480" height="270"></video>
+<audio id="voice" autoplay></audio>
+<script>
+  const canvas = document.createElement("canvas");
+  canvas.width = 320; canvas.height = 180;
+  const ctx2d = canvas.getContext("2d");
+  setInterval(() => { ctx2d.fillStyle = `hsl(${Date.now() / 10 % 360} 60% 50%)`; ctx2d.fillRect(0, 0, 320, 180); }, 50);
+  document.getElementById("tile").srcObject = canvas.captureStream(20);
+  const audio = new AudioContext();
+  const tone = audio.createOscillator();
+  const out = audio.createMediaStreamDestination();
+  tone.connect(out);
+  tone.start();
+  document.getElementById("voice").srcObject = out.stream;
+</script>
