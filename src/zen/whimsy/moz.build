@@ -39,6 +39,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCookieBanners.sys.mjs",
     "WhimsyCookieEditor.sys.mjs",
     "WhimsyCopy.sys.mjs",
+    "WhimsyCtrlTab.sys.mjs",
     "WhimsyDelight.sys.mjs",
     "WhimsyDevMode.sys.mjs",
     "WhimsyDocRender.sys.mjs",
