@@ -27,7 +27,7 @@
 // (Arc numbers what the sidebar shows). Wraps gZenWorkspaces.shortcutSwitchTo,
 // the single entry point Zen's cmd_zenWorkspaceSwitchN commands call; direct
 // changeWorkspace calls (restore, Settings) are untouched. Next/previous
-// space cycling (changeWorkspaceShortcut) still steps through hidden spaces.
+// space cycling (changeWorkspaceShortcut) skips hidden spaces (W11-16).
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {

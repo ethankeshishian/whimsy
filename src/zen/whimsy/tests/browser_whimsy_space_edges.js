@@ -37,11 +37,58 @@ function command(id) {
   document.getElementById(id).doCommand();
 }
 
+function gestureEvent(type, direction = 0) {
+  const event = document.createEvent("SimpleGestureEvent");
+  event.initSimpleGestureEvent(
+    type,
+    true /* canBubble */,
+    true /* cancelable */,
+    window,
+    0,
+    0,
+    0,
+    0,
+    0,
+    false,
+    false,
+    false,
+    false,
+    0,
+    null,
+    0 /* allowedDirections */,
+    direction,
+    1 /* delta */
+  );
+  return event;
+}
+
+function sendSwipe(direction) {
+  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGestureMayStart", direction));
+  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGestureStart"));
+  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGestureUpdate"));
+  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGesture", direction));
+  gNavToolbox.dispatchEvent(gestureEvent("MozSwipeGestureEnd"));
+}
+
+function swipeForward() {
+  const dir = gZenWorkspaces.naturalScroll
+    ? SimpleGestureEvent.DIRECTION_LEFT
+    : SimpleGestureEvent.DIRECTION_RIGHT;
+  sendSwipe(dir);
+}
+
+function swipeBackward() {
+  const dir = gZenWorkspaces.naturalScroll
+    ? SimpleGestureEvent.DIRECTION_RIGHT
+    : SimpleGestureEvent.DIRECTION_LEFT;
+  sendSwipe(dir);
+}
+
 add_setup(async function () {
   await TestUtils.waitForCondition(() => WhimsySpaceSwitchQueue.debugState(window), "Space switching set up");
   await SpecialPowers.pushPrefEnv({ set: [["zen.workspaces.wrap-around-navigation", true]] });
   originalSpace = gZenWorkspaces.getActiveWorkspace();
-  for (const name of ["Edge A", "Edge B"]) {
+  for (const name of ["Edge A", "Edge B", "Edge C"]) {
     created.push(await gZenWorkspaces.createAndSaveWorkspace(name, undefined, true));
   }
   // Count New Space instead of opening its form.
@@ -118,4 +165,100 @@ add_task(async function test_switch_off_keeps_zen_wrap() {
   await settle();
   is(creations, 0, "and makes nothing");
   await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function test_swipe_burst_skips_hidden_and_stops_at_edges() {
+  const all = gZenWorkspaces.getWorkspaces();
+  const hiddenSpace = all[1];
+  hiddenSpace.whimsyHidden = true;
+  gZenWorkspaces.saveWorkspace(hiddenSpace);
+  window.dispatchEvent(new CustomEvent("ZenWorkspaceDataChanged"));
+
+  const visible = all.filter(s => !s.whimsyHidden);
+  ok(visible.length >= 3, "At least 3 visible spaces");
+
+  // Start at the first visible space
+  await goTo(visible[0]);
+  creations = 0;
+  window.gReduceMotionOverride = false;
+
+  // A fast burst of forward swipes (more swipes than spaces)
+  swipeForward();
+  ok(WhimsySpaceSwitchQueue.isSwitching(window), "Forward slide in flight");
+  swipeForward();
+  swipeForward();
+  swipeForward();
+  await settle();
+
+  is(
+    gZenWorkspaces.activeWorkspace,
+    visible.at(-1).uuid,
+    "Fast forward swipe burst lands on the last visible space, skipping hidden space and without wrapping"
+  );
+  is(creations, 0, "Fast burst did not create a new space at the edge");
+
+  // Now a fast burst of backward swipes from the last space
+  swipeBackward();
+  ok(WhimsySpaceSwitchQueue.isSwitching(window), "Backward slide in flight");
+  swipeBackward();
+  swipeBackward();
+  swipeBackward();
+  await settle();
+
+  is(
+    gZenWorkspaces.activeWorkspace,
+    visible[0].uuid,
+    "Fast backward swipe burst lands on the first visible space, skipping hidden space and without wrapping"
+  );
+  is(creations, 0, "Backward burst did not create a new space");
+
+  window.gReduceMotionOverride = undefined;
+  delete hiddenSpace.whimsyHidden;
+  gZenWorkspaces.saveWorkspace(hiddenSpace);
+  window.dispatchEvent(new CustomEvent("ZenWorkspaceDataChanged"));
+  await settle();
+});
+
+add_task(async function test_switcher_arrows_skip_hidden_and_enforce_edges() {
+  const all = gZenWorkspaces.getWorkspaces();
+  const hiddenSpace = all[1];
+  hiddenSpace.whimsyHidden = true;
+  gZenWorkspaces.saveWorkspace(hiddenSpace);
+  window.dispatchEvent(new CustomEvent("ZenWorkspaceDataChanged"));
+
+  const visible = all.filter(s => !s.whimsyHidden);
+  await goTo(visible[0]);
+  creations = 0;
+
+  const icons = document.getElementById("zen-workspaces-button");
+  const firstButton = icons.querySelector(`toolbarbutton[zen-workspace-id="${visible[0].uuid}"]`);
+  firstButton.focus();
+
+  // Backward arrow from first space: stops at first space
+  firstButton.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+  await settle();
+  is(gZenWorkspaces.activeWorkspace, visible[0].uuid, "ArrowLeft on first space stays at first space");
+  is(creations, 0, "No new space made");
+
+  // Forward arrow: steps to visible[1], skipping hiddenSpace (all[1])
+  firstButton.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+  await settle();
+  is(gZenWorkspaces.activeWorkspace, visible[1].uuid, "ArrowRight skipped hidden space");
+
+  // Move to the last visible space
+  await goTo(visible.at(-1));
+  creations = 0;
+  const lastButton = icons.querySelector(`toolbarbutton[zen-workspace-id="${visible.at(-1).uuid}"]`);
+  lastButton.focus();
+
+  // Forward arrow past the last space: opens New Space
+  lastButton.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+  await TestUtils.waitForCondition(() => creations == 1, "ArrowRight past last space opens New Space");
+  await settle();
+  is(gZenWorkspaces.activeWorkspace, visible.at(-1).uuid, "ArrowRight did not wrap to first space");
+
+  delete hiddenSpace.whimsyHidden;
+  gZenWorkspaces.saveWorkspace(hiddenSpace);
+  window.dispatchEvent(new CustomEvent("ZenWorkspaceDataChanged"));
+  await settle();
 });
