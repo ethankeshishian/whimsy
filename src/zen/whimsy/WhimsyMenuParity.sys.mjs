@@ -462,7 +462,10 @@ function rowSpecs() {
       id: "context_whimsyMoveOutOfPrivate",
       l10nId: "whimsy-context-move-out-of-private",
       popup: "tabContextMenu",
-      after: "context_moveTabOptions",
+      // Not straight after Move Tab ▸: Firefox puts its Share ▸ submenu
+      // there and finds it again as Move Tab's next sibling, so anything in
+      // between makes it add a second Share ▸ on every opening.
+      after: "context_reopenInContainer",
       fallbackAfter: "context_duplicateTab",
       run: w => {
         const tab = contextTab(w);
