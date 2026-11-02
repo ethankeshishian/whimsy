@@ -8,7 +8,7 @@
 // badge on its icon; a background pinned tab whose title changed shows a dot
 // until it's selected. Normal tabs show neither (their title is visible).
 
-const { parseUnreadCount } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
+const { parseUnreadCount, WhimsyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
 
 const startTabs = new Set(gBrowser.tabs);
 registerCleanupFunction(() => {
@@ -121,6 +121,7 @@ add_task(async function test_dot_when_background_title_changes() {
   gBrowser.pinTab(pinned);
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/?other");
   ok(!pinned.selected, "The pinned tab is in the background");
+  pinned._whimsyLoadFinishedAt = WhimsyTabs.now() - 6000;
   await setTitle(pinned, "Something new happened");
   await TestUtils.waitForCondition(() => pinned.hasAttribute("titlechanged"), "Firefox marks the title change");
   is(badge(pinned).content, '""', "A dot shows on the pinned tab");
@@ -272,6 +273,7 @@ add_task(async function test_unloaded_essential_loads_in_background_and_stays_li
   await TestUtils.waitForCondition(() => stack(essential).getAttribute("whimsy-unread") == "4", "Renamed: badge 4");
   is(essential.label, "Team", "The name stays");
   essential.removeAttribute("titlechanged");
+  essential._whimsyLoadFinishedAt = WhimsyTabs.now() - 6000;
   await setTitle(essential, "Chat - new thread");
   await TestUtils.waitForCondition(() => !stack(essential).hasAttribute("whimsy-unread"), "Count read");
   await TestUtils.waitForCondition(() => essential.hasAttribute("titlechanged"), "Renamed: the update dot shows");
@@ -293,4 +295,72 @@ add_task(async function test_pending_tab_made_essential_loads() {
   await TestUtils.waitForCondition(() => loadedAt(pending, "made-essential"),
     "A new Essential loads, so its badge is live");
   ok(!pending.selected, "without being opened");
+});
+
+// W11-11: title change dot settle trigger, placement on Essentials and pinned tabs.
+add_task(async function test_w11_essential_dot_settle_trigger_and_placement() {
+  // 1. Restore + background load sets no dot
+  const bgTab = BrowserTestUtils.addTab(gBrowser, "https://example.com/?restore-bg");
+  gZenPinnedTabManager.addToEssentials(bgTab);
+  await TestUtils.waitForCondition(() => bgTab.hasAttribute("zen-essential"), "An Essential");
+  ok(!bgTab.selected, "The Essential is in the background");
+  await BrowserTestUtils.browserLoaded(bgTab.linkedBrowser);
+  // Give any immediate post-load title a moment
+  await setTitle(bgTab, "Example Domain");
+  await new Promise(r => setTimeout(r, 100));
+  ok(!bgTab.hasAttribute("titlechanged"), "Restore + background load sets no dot");
+  is(badge(bgTab).content, "none", "No dot drawn during initial load");
+
+  // Immediate title change within 5s of load finishing also sets no dot:
+  await setTitle(bgTab, "Quick Change");
+  await new Promise(r => setTimeout(r, 100));
+  ok(!bgTab.hasAttribute("titlechanged"), "Title change within 5s sets no dot");
+  is(badge(bgTab).content, "none", "No dot within 5s of load");
+
+  // 2. A real later title change on a background Essential sets one
+  bgTab._whimsyLoadFinishedAt = WhimsyTabs.now() - 6000;
+  await setTitle(bgTab, "A Real Later Update");
+  await TestUtils.waitForCondition(() => bgTab.hasAttribute("titlechanged"), "Later title change sets the dot");
+  is(badge(bgTab).content, '""', "The dot is rendered on the Essential");
+  is(badge(bgTab).width, "7px", "Dot width is 7px");
+  // Check placement inside the tile's top-right corner:
+  is(badge(bgTab).top, "6px", "Anchored 6px from tile's top");
+  is(badge(bgTab).right, "6px", "Anchored 6px from tile's end");
+
+  // 3. Selecting clears it
+  gBrowser.selectedTab = bgTab;
+  await TestUtils.waitForCondition(() => !bgTab.hasAttribute("titlechanged"), "Selecting the Essential clears the dot");
+  is(badge(bgTab).content, "none", "The dot disappears on selection");
+
+  // 4. An Essential with a count shows the badge, not a dot
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other-foreground");
+  ok(!bgTab.selected, "Essential in background again");
+  bgTab._whimsyLoadFinishedAt = WhimsyTabs.now() - 6000;
+  await setTitle(bgTab, "(3) Messages");
+  await TestUtils.waitForCondition(() => stack(bgTab).getAttribute("whimsy-unread") == "3", "Unread count 3 shows");
+  ok(!bgTab.hasAttribute("titlechanged"), "Essential with a count does not have titlechanged");
+  is(badge(bgTab).content, '"3"', "Shows the unread badge, not a dot");
+
+  // Cleanup
+  gZenPinnedTabManager.removeEssentials(bgTab);
+  BrowserTestUtils.removeTab(bgTab);
+  BrowserTestUtils.removeTab(other);
+});
+
+add_task(async function test_w11_navigation_sets_no_dot() {
+  const essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?nav-start");
+  gZenPinnedTabManager.addToEssentials(essential);
+  await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?nav-other");
+  ok(!essential.selected, "In background");
+
+  // Navigate to a new page in background
+  BrowserTestUtils.startLoadingURIString(essential.linkedBrowser, "https://example.org/?nav-dest");
+  await BrowserTestUtils.browserLoaded(essential.linkedBrowser);
+  await new Promise(r => setTimeout(r, 100));
+  ok(!essential.hasAttribute("titlechanged"), "Title change caused by navigation sets no dot");
+
+  gZenPinnedTabManager.removeEssentials(essential);
+  BrowserTestUtils.removeTab(essential);
+  BrowserTestUtils.removeTab(other);
 });

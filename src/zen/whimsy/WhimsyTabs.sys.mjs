@@ -66,6 +66,7 @@ const UNREAD_ATTR = "whimsy-unread";
 const HIDE_BADGE_ATTR = "whimsy-hide-badge";
 const HIDE_BADGE_KEY = "whimsy-hide-unread-badge";
 const BADGE_MENU_ID = "context_whimsyUnreadBadge";
+const SETTLE_DELAY_MS = 5000;
 const UNREAD_PATTERNS = [
   // "(3) Slack", "[12] Discord", "(99+) Feed"
   /^\s*[(\[](\d{1,5})\+?[)\]]/,
@@ -300,6 +301,11 @@ export const WhimsyTabs = {
     return folder;
   },
 
+  clock: { now: () => Date.now() },
+  now() {
+    return this.clock.now();
+  },
+
   get badges() {
     return Services.prefs.getBoolPref(BADGES_FEATURE_PREF, true) && Services.prefs.getBoolPref(BADGES_PREF, true);
   },
@@ -324,9 +330,54 @@ export const WhimsyTabs = {
     for (const pref of [BADGES_FEATURE_PREF, BADGES_PREF]) {
       Services.prefs.addObserver(pref, observer);
     }
+    const progressListener = {
+      onStateChange: (browser, webProgress, request, flags) => {
+        if (!webProgress?.isTopLevel) {
+          return;
+        }
+        const { STATE_START, STATE_STOP, STATE_IS_NETWORK } = Ci.nsIWebProgressListener;
+        const tab = gBrowser.getTabForBrowser(browser);
+        if (!tab) {
+          return;
+        }
+        if (flags & STATE_START && flags & STATE_IS_NETWORK) {
+          tab._whimsyLoadFinishedAt = 0;
+          tab._whimsyInitialTitleSettled = false;
+          for (const copy of [tab, ...this.copiesOf(tab)]) {
+            copy.removeAttribute("titlechanged");
+          }
+        } else if (flags & STATE_STOP && flags & STATE_IS_NETWORK) {
+          tab._whimsyLoadFinishedAt = this.now();
+          const title = browser.contentTitle || "";
+          if (title) {
+            tab._whimsyContentTitle = title;
+            tab._whimsyInitialTitleSettled = true;
+          }
+        }
+      },
+      onLocationChange: (browser, webProgress, request, location, flags) => {
+        if (!webProgress?.isTopLevel) {
+          return;
+        }
+        const tab = gBrowser.getTabForBrowser(browser);
+        if (!tab) {
+          return;
+        }
+        const isSameDocument = !!(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT);
+        if (!isSameDocument) {
+          tab._whimsyLoadFinishedAt = 0;
+          tab._whimsyInitialTitleSettled = false;
+          for (const copy of [tab, ...this.copiesOf(tab)]) {
+            copy.removeAttribute("titlechanged");
+          }
+        }
+      },
+    };
+    gBrowser.addTabsProgressListener(progressListener);
     win.addEventListener(
       "unload",
       () => {
+        gBrowser.removeTabsProgressListener(progressListener);
         for (const pref of [BADGES_FEATURE_PREF, BADGES_PREF]) {
           Services.prefs.removeObserver(pref, observer);
         }
@@ -340,11 +391,20 @@ export const WhimsyTabs = {
         this.onContentTitle(tab);
       }
     });
+    container.addEventListener("TabSelect", event => {
+      const tab = event.target;
+      for (const copy of [tab, ...this.copiesOf(tab)]) {
+        copy.removeAttribute("titlechanged");
+      }
+    });
     // Unloaded on purpose (the Unload command, ⌘W on an Essential, or
     // Firefox freeing memory): it stays unloaded until it's opened. Essentials
     // sit outside the tab strip, so these two are heard on the window.
     win.addEventListener("TabBrowserDiscarded", event => {
       event.target._whimsyUnloaded = true;
+      event.target._whimsyLoadFinishedAt = 0;
+      event.target._whimsyInitialTitleSettled = false;
+      event.target.removeAttribute("titlechanged");
     });
     win.addEventListener("TabAddedToEssentials", event => {
       delete event.target._whimsyUnloaded;
@@ -352,6 +412,16 @@ export const WhimsyTabs = {
         this.wakeEssentials(win, [event.target]);
       }
     });
+    for (const tab of gBrowser.tabs) {
+      if (!tab.hasAttribute("busy") && !tab.hasAttribute("pending")) {
+        tab._whimsyLoadFinishedAt = this.now();
+        const title = tab.linkedBrowser?.contentTitle || "";
+        if (title) {
+          tab._whimsyContentTitle = title;
+          tab._whimsyInitialTitleSettled = true;
+        }
+      }
+    }
     win.gZenWorkspaces?.promiseInitialized?.then(updateAll);
     this.initBadgeToggle(win);
     const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
@@ -513,13 +583,33 @@ export const WhimsyTabs = {
   onContentTitle(tab) {
     const title = tab.linkedBrowser?.contentTitle || "";
     const changed = tab._whimsyContentTitle !== undefined && tab._whimsyContentTitle != title;
+    const isFirstTitle = !tab._whimsyInitialTitleSettled;
     tab._whimsyContentTitle = title;
+    if (title && isFirstTitle) {
+      tab._whimsyInitialTitleSettled = true;
+    }
+
+    const now = this.now();
+    const isBusy = tab.hasAttribute("busy");
+    // W11-11: Set [titlechanged] on a background pinned tab or Essential
+    // only for a title change AFTER the page's first load has settled (>5s),
+    // ignoring the first title after any load/restore and navigation.
+    const loadSettled = !isBusy &&
+      tab._whimsyLoadFinishedAt > 0 &&
+      (now - tab._whimsyLoadFinishedAt >= SETTLE_DELAY_MS) &&
+      !isFirstTitle;
+
     for (const copy of [tab, ...this.copiesOf(tab)]) {
       this.updateBadge(copy);
-      // Firefox's update dot comes with a label change; a renamed or
-      // not-yet-shown pinned tab gets none, so mark it here.
-      if (changed && this.badges && copy.pinned && !tab.selected && !copy.selected && !copy.hasAttribute("busy") && title) {
+      const isPinnedOrEssential = copy.pinned || copy.hasAttribute("zen-essential");
+      const hasUnread = copy.hasAttribute(UNREAD_ATTR);
+      const isBackground = !tab.selected && !copy.selected;
+
+      // Never show the dot when an unread count badge is showing.
+      if (changed && this.badges && isPinnedOrEssential && isBackground && loadSettled && !hasUnread && title) {
         copy.setAttribute("titlechanged", "true");
+      } else if (!isPinnedOrEssential || !isBackground || hasUnread || isBusy || !loadSettled) {
+        copy.removeAttribute("titlechanged");
       }
     }
   },
@@ -556,6 +646,9 @@ export const WhimsyTabs = {
       if (!this.wantsWaking(tab)) {
         continue;
       }
+      tab._whimsyLoadFinishedAt = 0;
+      tab._whimsyInitialTitleSettled = false;
+      tab.removeAttribute("titlechanged");
       // This copy now holds the page, so Zen's window sync moves it (rather
       // than loading a second one) when another window shows the tab, and
       // the tab takes its title updates.
@@ -606,6 +699,9 @@ export const WhimsyTabs = {
       const text = count > 99 ? "99+" : String(count);
       for (const el of [tab, stack, content]) {
         el.setAttribute(UNREAD_ATTR, text);
+      }
+      for (const copy of [tab, ...this.copiesOf(tab)]) {
+        copy.removeAttribute("titlechanged");
       }
       // The badge is drawn with CSS, so screen readers need the count too
       // ("Inbox, 128 unread"): the tab's own name stays, this describes it.
