@@ -443,6 +443,30 @@ add_task(async function test_trusted_clicks_reach_a_background_call() {
   }
 });
 
+// B14: the page also shows other people's microphones and cameras (the
+// People panel, host controls, a request to unmute), each with
+// data-is-muted and a device name. Only your own call-bar toggles are the
+// call's state, and only they are ever pressed: dev.1100 pressed a
+// participant's control ("asks people to unmute").
+add_task(async function test_never_someone_elses_controls() {
+  const call = await openCall();
+  const found = await SpecialPowers.spawn(call.linkedBrowser, [], () => {
+    const { findControls } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMeetControls.sys.mjs");
+    const controls = findControls(content.document);
+    return {
+      mic: controls.mic?.closest("#bar") ? "bar" : controls.mic?.getAttribute("aria-label") ?? null,
+      camera: controls.camera?.closest("#bar") ? "bar" : controls.camera?.getAttribute("aria-label") ?? null,
+    };
+  });
+  Assert.deepEqual(found, { mic: "bar", camera: "bar" }, "Your own toggles are the ones in the call bar");
+  await expectAll(call, null, ON, "With other people's controls on the page");
+  await clickCard(call, "mic");
+  await expectAll(call, null, { mic: "off", camera: "on" }, "The small player turns your microphone off");
+  await clickCard(call, "mic");
+  await expectAll(call, null, ON, "and on again");
+  is((await meetState(call)).decoyPresses, 0, "Nobody else's control was pressed");
+});
+
 add_task(async function test_switched_off() {
   const call = await openCall();
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.call-controls", false]] });

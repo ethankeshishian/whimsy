@@ -13,11 +13,35 @@
 <video id="speaker" muted autoplay playsinline style="width: 480px; height: 270px"></video>
 <video id="self" muted autoplay playsinline style="width: 160px; height: 90px; transform: scaleX(-1)"></video>
 <div id="bar" role="toolbar" style="display: flex; gap: 12px; padding: 12px"></div>
+<!-- B14: other people's controls, as Meet draws them after the call bar
+     (the People panel, host controls, a request). Each carries
+     data-is-muted and names a device; none of them is yours. Pressing one
+     is counted in window.decoyPresses. -->
+<aside id="people" style="display: flex; gap: 8px; padding: 8px">
+  <div role="list">
+    <div role="listitem" data-participant-id="spaces/x/devices/alex">
+      <button data-is-muted="false" aria-label="Mute Alex's microphone">Alex mic</button>
+      <button data-is-muted="false" aria-label="Turn off Alex's camera">Alex cam</button>
+    </div>
+  </div>
+</aside>
+<div role="dialog" aria-label="Host controls" style="display: flex; gap: 8px; padding: 8px">
+  <button data-is-muted="true" aria-label="Ask everyone to turn on their microphone">Ask all mics</button>
+  <button data-is-muted="true" aria-label="Turn off camera for all participants">All cams</button>
+</div>
+<div style="display: flex; gap: 8px; padding: 8px">
+  <div data-requested-participant-id="spaces/x/devices/sam"><button data-is-muted="true" aria-label="Request to unmute microphone">Ask Sam</button></div>
+  <button data-is-muted="false" aria-label="Sam's microphone">Sam mic</button>
+</div>
 <script>
   const isMac = navigator.platform.startsWith("Mac");
   const KEY = { mic: "d", camera: "e" };
   const NAME = { mic: "microphone", camera: "camera" };
   window.requireTrusted = false;
+  window.decoyPresses = 0;
+  for (const decoy of document.querySelectorAll("#people button, [role=dialog] button, [data-requested-participant-id] button, button[aria-label^='Sam']")) {
+    decoy.addEventListener("click", () => window.decoyPresses++);
+  }
   window.state = { mic: "on", camera: "on" };
   let stream = null;
   let pc = null;
@@ -70,6 +94,7 @@
     return {
       mic: window.state.mic,
       camera: window.state.camera,
+      decoyPresses: window.decoyPresses,
       cameraTrackEnabled: stream?.getVideoTracks()[0]?.enabled ?? null,
     };
   };

@@ -54,16 +54,47 @@ export function kindOf(el) {
   return null;
 }
 
-// { mic, camera }: the page's toggle for each device, or null. With several
-// (Meet's green room and its call bar during the join), one with a layout box
-// wins, then the last in the document.
+// B14: what's never yours. Meet also draws other people's microphones and
+// cameras with data-is-muted and a device name: the People panel's rows,
+// host controls ("Ask everyone to turn on their microphone", "for all
+// participants"), requests to unmute, and labels naming someone ("Alex's
+// microphone"). dev.1100 pressed those. A candidate inside one of these
+// places, or with one of these words, is skipped.
+const NOT_YOURS = "[role=dialog], [role=list], [role=listitem], aside, [data-participant-id], [data-requested-participant-id]";
+const NOT_YOURS_WORDS = /\b(everyone|all|ask|request|participants?)\b|\w['\u2019]s\b/i;
+
+function isYours(el) {
+  if (el.closest(NOT_YOURS)) {
+    return false;
+  }
+  return !NOT_YOURS_WORDS.test(labelOf(el));
+}
+
+// The nearest element containing both.
+function commonAncestor(a, b) {
+  for (let node = a.parentElement; node; node = node.parentElement) {
+    if (node.contains(b)) {
+      return node;
+    }
+  }
+  return null;
+}
+
+// { mic, camera }: your own toggle for each device, or null. Among several
+// (Meet's green room and its call bar during the join): one with Meet's
+// shortcut hint ("+ d)" / "+ e)") first, then one with a layout box, then
+// the last in the document. The two must sit in one call bar: a nearest
+// common ancestor that's the page itself, or that holds other device
+// toggles, means they're not one bar, and neither is used.
 export function findControls(doc) {
   const found = { mic: null, camera: null };
   if (!doc) {
     return found;
   }
+  const rank = (el, kind) =>
+    ((kind == "mic" ? MIC_HINT : CAMERA_HINT).test(labelOf(el)) ? 2 : 0) + (el.getClientRects().length > 0 ? 1 : 0);
   for (const el of doc.querySelectorAll("[data-is-muted]")) {
-    if (!isButton(el)) {
+    if (!isButton(el) || !isYours(el)) {
       continue;
     }
     const kind = kindOf(el);
@@ -71,8 +102,17 @@ export function findControls(doc) {
       continue;
     }
     const current = found[kind];
-    if (!current || el.getClientRects().length > 0 || current.getClientRects().length == 0) {
+    if (!current || rank(el, kind) >= rank(current, kind)) {
       found[kind] = el;
+    }
+  }
+  if (found.mic && found.camera) {
+    const bar = commonAncestor(found.mic, found.camera);
+    const others = bar
+      ? [...bar.querySelectorAll("[data-is-muted]")].filter(el => el != found.mic && el != found.camera && isButton(el) && kindOf(el))
+      : [];
+    if (!bar || bar == doc.body || bar == doc.documentElement || others.length) {
+      return { mic: null, camera: null };
     }
   }
   return found;
