@@ -1,0 +1,21 @@
+diff --git a/browser/components/urlbar/content/UrlbarView.mjs b/browser/components/urlbar/content/UrlbarView.mjs
+--- a/browser/components/urlbar/content/UrlbarView.mjs
++++ b/browser/components/urlbar/content/UrlbarView.mjs
+@@ -3816,9 +3816,14 @@
+         tab => tab.linkedBrowser.currentURI.spec === result.payload.url
+       );
+     this.#l10nCache.setElementL10n(actionNode, {
+-      id: shouldMoveTabToSplitView
+-        ? "urlbar-result-action-move-tab-to-split-view"
+-        : "urlbar-result-action-switch-tab",
++      // Whimsy (W11-08): the tab you're on, in the Cmd+T command bar (see
++      // UrlbarMuxerStandard's #whimsyRankOpenTabs): picking it opens a
++      // second copy, as in Arc.
++      id: result.payload.whimsyOpenAgain
++        ? "whimsy-urlbar-result-action-open-again"
++        : shouldMoveTabToSplitView
++          ? "urlbar-result-action-move-tab-to-split-view"
++          : "urlbar-result-action-switch-tab",
+     });
+ 
+     if (!UrlbarPrefs.get("browser.nova.enabled")) {

@@ -1,0 +1,163 @@
+diff --git a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs b/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs
+--- a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs
++++ b/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs
+@@ -29,6 +29,34 @@
+ );
+ 
+ const SEMANTIC_HISTORY_PROVIDER_NAME = "UrlbarProviderSemanticHistorySearch";
++
++// Whimsy (W11-09): the heuristics that stand for what you typed (an address
++// or a search). Keywords, aliases, extensions and Zen's commands keep first.
++const WHIMSY_RANKABLE_HEURISTICS = new Set([
++  "UrlbarProviderAutofill",
++  "UrlbarProviderHeuristicFallback",
++  "UrlbarProviderHistoryUrlHeuristic",
++]);
++
++/**
++ * Whimsy (W11-09): the page an address shows, compared the way
++ * WhimsyAlreadyOpen compares them: without the fragment, http and https
++ * alike (HTTPS-First upgrades typed addresses). Null for other schemes.
++ *
++ * @param {string} spec
++ * @returns {?string}
++ */
++function whimsyPageKey(spec) {
++  try {
++    let uri = Services.io.newURI(spec);
++    if (uri.scheme != "http" && uri.scheme != "https") {
++      return null;
++    }
++    return uri.specIgnoringRef.replace(/^http:/, "https:");
++  } catch {
++    return null;
++  }
++}
+ 
+ /**
+  * Constructs the map key by joining the url with the userContextId.
+@@ -94,6 +122,10 @@
+     // context.results.find(), filter(), sort(), etc., modify one or both passes
+     // instead.
+ 
++    // Whimsy (W11-09): start from the providers' own heuristic, not the
++    // open tab the previous sort of this query ranked first.
++    this.#whimsyUndoOpenTabFirst(context, unsortedResults);
++
+     // Global state we'll use to make decisions during this sort.
+     let state = {
+       context,
+@@ -259,9 +291,113 @@
+     }
+ 
+     context.results = sortedResults;
++
++    // Whimsy (W11-08, W11-09).
++    this.#whimsyRankOpenTabs(context);
++  }
++
++  /**
++   * Whimsy (W11-08, W11-09): the command bar's open-tab rows, as in Arc.
++   * WhimsyAlreadyOpen sets the two flags on the query context of Zen's Cmd+T
++   * command bar (or typing into an empty tab), and only there, so every other
++   * query keeps Firefox's order.
++   *
++   * W11-08: `whimsyOpenAgainPage` is the page of the tab you're on, which the
++   * Cmd+T bar opens over. Switching to the tab you're already on does
++   * nothing, so its row is marked: the view labels it "Open Again in New
++   * Tab" and picking it opens a second copy.
++   *
++   * W11-09: `whimsyOpenTabFirst` asks for Arc's ranking: when what you typed
++   * matches an open tab, that tab's Switch to Tab row comes first, above the
++   * typed address or search, and Return picks it. Firefox picks the heuristic
++   * (first) result on Return and builds selection, autofill and row reuse on
++   * it being first, so the tab's row becomes the heuristic and the
++   * provider's heuristic becomes the second row. A typed address only ranks
++   * the tab showing that very page; a search ranks the best open-tab match
++   * Firefox found for it. Only tabs in the container and privacy the new tab
++   * would get. With no such tab nothing changes, so Return still goes to the
++   * typed address or search.
++   *
++   * @param {UrlbarQueryContext} context
++   */
++  #whimsyRankOpenTabs(context) {
++    let results = context.results;
++    if (!results?.length) {
++      return;
++    }
++    let { TAB_SWITCH, URL, SEARCH } = lazy.UrlbarShared.RESULT_TYPE;
++    let openAgainPage = context.whimsyOpenAgainPage;
++    if (openAgainPage) {
++      for (let result of results) {
++        if (
++          result.type == TAB_SWITCH &&
++          result.payload.url == openAgainPage &&
++          (result.payload.userContext?.id ?? 0) == (context.userContextId ?? 0)
++        ) {
++          result.payload.whimsyOpenAgain = true;
++        }
++      }
++    }
++
++    let wanted = context.whimsyOpenTabFirst;
++    let heuristic = results[0];
++    if (
++      !wanted ||
++      context.searchMode ||
++      !heuristic.heuristic ||
++      !WHIMSY_RANKABLE_HEURISTICS.has(heuristic.providerName) ||
++      heuristic.payload.keyword ||
++      (heuristic.type != URL && heuristic.type != SEARCH)
++    ) {
++      return;
++    }
++    let page = null;
++    if (heuristic.type == URL) {
++      page = whimsyPageKey(heuristic.payload.url);
++      if (!page) {
++        return;
++      }
++    }
++    let index = results.findIndex(
++      result =>
++        result.type == TAB_SWITCH &&
++        !result.heuristic &&
++        !result.hasSuggestedIndex &&
++        !result.payload.whimsyOpenAgain &&
++        (result.payload.userContext?.id ?? 0) == wanted.userContextId &&
++        (!page || whimsyPageKey(result.payload.url) == page)
++    );
++    if (index < 1) {
++      return;
++    }
++    let [tab] = results.splice(index, 1);
++    results.unshift(tab);
++    tab.whimsyOwnHeuristic = false;
++    tab.heuristic = true;
++    heuristic.whimsyOwnHeuristic = true;
++    heuristic.heuristic = false;
+   }
+ 
+   /**
++   * Whimsy (W11-09): undoes #whimsyRankOpenTabs on the query's results, so
++   * each sort starts from the providers' own heuristic.
++   *
++   * @param {UrlbarQueryContext} context
++   * @param {Array} unsortedResults
++   */
++  #whimsyUndoOpenTabFirst(context, unsortedResults) {
++    if (!context.whimsyOpenTabFirst) {
++      return;
++    }
++    for (let result of unsortedResults) {
++      if (Object.hasOwn(result, "whimsyOwnHeuristic")) {
++        result.heuristic = result.whimsyOwnHeuristic;
++        delete result.whimsyOwnHeuristic;
++      }
++    }
++  }
++
++  /**
+    * Search for group in rootGroup and return it.
+    *
+    * @param {object} rootGroup Root group definition.
