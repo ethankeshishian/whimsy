@@ -694,13 +694,16 @@ svg {
   background: currentColor;
 }
 
+/* F11 (W13): the three sizes at true doubling, like the strokes they
+   draw (2, 4, 8px). They were 4, 8 and 13px dots, and the selected
+   button's 1.5px ring sat right around the 13px one, so medium and large
+   read as the same. The selected size is now the fill alone. */
 .size[data-size="0"] .dot { width: 4px; height: 4px; }
-.size[data-size="1"] .dot { width: 8px; height: 8px; }
-.size[data-size="2"] .dot { width: 13px; height: 13px; }
+.size[data-size="1"] .dot { width: 9px; height: 9px; }
+.size[data-size="2"] .dot { width: 18px; height: 18px; }
 
 .size[aria-checked="true"] {
   background: var(--ez-selected);
-  box-shadow: inset 0 0 0 1.5px currentColor;
 }
 
 /* The bar above the selection. */
