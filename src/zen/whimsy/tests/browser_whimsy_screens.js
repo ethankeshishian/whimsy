@@ -340,12 +340,27 @@ add_task(async function tab_badges() {
     tabs.push(tab);
   }
   const current = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/");
+  for (const tab of tabs) {
+    tab._whimsyLoadFinishedAt = Date.now() - 6000;
+  }
   await setTitle(tabs[0], "(3) Chat");
   await setTitle(tabs[2], "Inbox (128) - Mail");
   await setTitle(tabs[1], "Something changed");
   await setTitle(tabs[3], "Also changed");
-  await TestUtils.waitForCondition(() => tabs[3].hasAttribute("titlechanged"), "Dots");
-  await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  await TestUtils.waitForCondition(() => tabs[1].hasAttribute("titlechanged"), "Essential dot");
+  await TestUtils.waitForCondition(() => tabs[3].hasAttribute("titlechanged"), "Pinned dot");
+  for (const dark of [0, 1]) {
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        ["ui.systemUsesDarkTheme", dark],
+        ["browser.theme.toolbar-theme", dark ? 0 : 1],
+        ["browser.theme.content-theme", dark ? 0 : 1],
+      ],
+    });
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await shot(`15-tab-badges-${dark ? "dark" : "light"}`);
+    await SpecialPowers.popPrefEnv();
+  }
   await shot("15-tab-badges");
   for (const tab of tabs) {
     if (tab.hasAttribute("zen-essential")) {
