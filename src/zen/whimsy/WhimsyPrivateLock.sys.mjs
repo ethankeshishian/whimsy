@@ -619,6 +619,7 @@ export const WhimsyPrivateLock = {
     win._whimsyPrivateLock = true;
     this.initGlobal();
     this.wrapTitles(win);
+    this.guardCommandBar(win);
     const onChange = () => {
       this.render(win);
       this.evaluate();
@@ -717,6 +718,60 @@ export const WhimsyPrivateLock = {
         return getTitle.apply(this, arguments);
       };
       gBrowser.getWindowTitleForBrowser._whimsyLock = true;
+    }
+  },
+
+  // W13-C2 follow-up: the command bar never lists a locked tab (a private
+  // tab behind the lock, or a tab in a space behind Lock Space). Its
+  // "Switch to Tab" row would show the page's title and address. Only rows
+  // are dropped, before the view shows them; nothing is reordered.
+  guardCommandBar(win) {
+    const view = win.gURLBar?.view;
+    if (!view || view._whimsyLockRows) {
+      return;
+    }
+    view._whimsyLockRows = true;
+    const onQueryResults = view.onQueryResults;
+    view.onQueryResults = function (queryContext) {
+      try {
+        WhimsyPrivateLock.dropLockedRows(queryContext);
+      } catch (e) {
+        console.error("Whimsy: private lock rows", e);
+      }
+      return onQueryResults.apply(this, arguments);
+    };
+  },
+
+  // The pages of every tab the lock hides, in any window or space.
+  hiddenPages() {
+    const pages = new Set();
+    for (const win of this.browserWindows()) {
+      for (const tab of this.allTabs(win)) {
+        if (this.isTabHidden(win, tab)) {
+          const spec = tab.linkedBrowser?.currentURI?.spec;
+          if (spec) {
+            pages.add(spec);
+          }
+        }
+      }
+    }
+    return pages;
+  },
+
+  dropLockedRows(queryContext) {
+    const results = queryContext?.results;
+    if (!results?.length || (!locked.size && !lazy.WhimsySpaceLock.anyCovered?.())) {
+      return;
+    }
+    const pages = this.hiddenPages();
+    if (!pages.size) {
+      return;
+    }
+    const isTabRow = r => r.type == 1 || r.source == 4 || r.payload?.action?.type == "switchtab";
+    for (let i = results.length - 1; i >= 0; i--) {
+      if (!results[i].heuristic && isTabRow(results[i]) && pages.has(results[i].payload?.url)) {
+        results.splice(i, 1);
+      }
     }
   },
 

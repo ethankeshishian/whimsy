@@ -242,6 +242,12 @@ export const WhimsySpaceLock = {
     return now - (lastLeft.get(uuid) ?? -Infinity) < afterMs();
   },
 
+  // Whether any locked space is covered now (a quick check for callers).
+  anyCovered() {
+    return featureOn() && this.windows().some(w =>
+      w.gZenWorkspaces.getWorkspaces?.().some(s => s.whimsyLocked && !this.isOpen(s.uuid)));
+  },
+
   isCovered(uuid) {
     return !!uuid && featureOn() && !!this.space(uuid)?.whimsyLocked && !this.isOpen(uuid);
   },

@@ -396,3 +396,48 @@ add_task(async function test_private_tab_stays_locked_across_spaces_and_keys() {
   await gZenWorkspaces.removeWorkspace(other.uuid);
   WhimsyPrivateLock.unlockAll();
 });
+
+// W13-C2 follow-up: the private command bar never lists a locked private
+// tab (its Switch to Tab row would show the page's title and address).
+add_task(async function test_command_bar_hides_locked_tabs() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.privateLock.onLeave", false]] });
+  Services.prefs.setIntPref("whimsy.privateLock.tabs", 1);
+  const url = uniqueURL("lockedrow");
+  const priv = WhimsyPrivate.openPrivateTab(window, { url });
+  await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url, "The private page loaded");
+  gBrowser.selectedTab = gBrowser.tabs[0];
+  await SimpleTest.promiseFocus(window);
+  const rowsFor = async () => {
+    const count = UrlbarTestUtils.getResultCount(window);
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      out.push((await UrlbarTestUtils.getDetailsOfResultAt(window, i)).result);
+    }
+    return out.filter(r => !r.heuristic && r.payload?.url == url);
+  };
+  const search = async () => {
+    EventUtils.synthesizeKey("t", { accelKey: true, altKey: true });
+    await TestUtils.waitForCondition(() => gURLBar.focused && gURLBar.hasAttribute("zen-newtab"), "The private command bar");
+    gURLBar.search("lockedrow");
+    await UrlbarTestUtils.promiseSearchComplete(window);
+    const rows = await rowsFor();
+    EventUtils.synthesizeKey("KEY_Escape");
+    EventUtils.synthesizeKey("KEY_Escape");
+    gBrowser.selectedBrowser.focus();
+    await TestUtils.waitForTick();
+    if (gURLBar.hasAttribute("zen-newtab")) {
+      gURLBar._zenHandleUrlbarClose?.();
+    }
+    await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "The bar closed");
+    return rows;
+  };
+  const before = await search();
+  WhimsyPrivateLock.lockNow();
+  ok(WhimsyPrivateLock.isLocked("tabs"), "Locked");
+  const after = await search();
+  is(after.length, 0, `No row for the locked tab (unlocked it had ${before.length})`);
+  WhimsyPrivateLock.unlockAll();
+  await SpecialPowers.popPrefEnv();
+  BrowserTestUtils.removeTab(priv, { animate: false });
+});
