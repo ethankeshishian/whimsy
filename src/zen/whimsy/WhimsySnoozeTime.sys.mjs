@@ -433,6 +433,8 @@ export function presetMatches(key, text) {
 // The module as one object, for lazy getters (defineESModuleGetters
 // resolves a name the module exports): lazy.WhimsySnoozeTime.whenArgs(...).
 export const WhimsySnoozeTime = {
+  // The clock tests pin (the same object as the `clock` export).
+  clock,
   PRESET_KEYS,
   PRESET_WORDS,
   resolvePreset,
