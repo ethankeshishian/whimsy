@@ -4291,7 +4291,8 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
 }
 
 /* W10-24: Library ▸ Screenshots as a grid of real thumbnails, sized by a
-   Finder-style slider (96 / 150 / 240px). */
+   Finder-style slider. F11 (W13): its stops are 3, 2 or 1 thumbnails per
+   row, so each looks different in the Library's narrow pane. */
 whimsy-library-files-section {
   --whimsy-shot-hairline: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
 }
@@ -4320,7 +4321,7 @@ whimsy-library-files-section {
 }
 .whimsy-library-shots {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--whimsy-shot-size, 150px), 1fr));
+  grid-template-columns: repeat(var(--whimsy-shot-columns, 2), minmax(0, 1fr));
   gap: 10px;
   padding: 0 4px 8px;
 }

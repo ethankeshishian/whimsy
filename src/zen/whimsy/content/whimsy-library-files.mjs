@@ -16,7 +16,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const SAVED_TOPIC = "whimsy-capture-saved";
 // W10-24: thumbnails in a grid with Finder's icon-size slider.
 const SIZE_PREF = "whimsy.library.screenshot-size";
-const SIZES = [96, 150, 240];
+// F11 (W13): the slider's stops are thumbnails per row (small, medium,
+// large). They were minimum widths (96, 150, 240px), but a Library section
+// is at most 308px wide (Zen's .zen-library-section), so 150 and 240 both
+// came out as one full-width column: the middle and right stops looked the
+// same. Columns differ at any width.
+const COLUMNS = [3, 2, 1];
 
 export class WhimsyFilesSection extends ZenLibrarySearchSection {
   static id = "whimsy-files";
@@ -47,7 +52,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
 
   #readSize() {
     const value = Services.prefs.getIntPref(SIZE_PREF, 1);
-    return Math.min(SIZES.length - 1, Math.max(0, value));
+    return Math.min(COLUMNS.length - 1, Math.max(0, value));
   }
 
   connectedCallback() {
@@ -228,7 +233,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
   }
 
   #setSize(value) {
-    const size = Math.min(SIZES.length - 1, Math.max(0, Number(value) || 0));
+    const size = Math.min(COLUMNS.length - 1, Math.max(0, Number(value) || 0));
     this.size = size;
     Services.prefs.setIntPref(SIZE_PREF, size);
   }
@@ -258,7 +263,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
         <img class="whimsy-library-shots-glyph whimsy-library-shots-glyph-large"
           src="chrome://browser/skin/zen-icons/selectable/image.svg" alt="" />
       </div>
-      <div class="whimsy-library-shots" style=${`--whimsy-shot-size: ${SIZES[this.size]}px`}>
+      <div class="whimsy-library-shots" style=${`--whimsy-shot-columns: ${COLUMNS[this.size]}`}>
         ${repeat(this.files, f => f.path, f => this.#renderFile(f))}
       </div>
     `;

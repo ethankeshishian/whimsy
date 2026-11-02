@@ -159,8 +159,11 @@ add_task(async function test_delete_undo_and_menu() {
   ok(!listCaptures().some(f => f.isDirectory()), "The held copy never shows as a screenshot");
 });
 
-// W10-24: real thumbnails in a grid; Finder's size slider sets 96, 150 or
-// 240px columns and is remembered.
+// W10-24: real thumbnails in a grid with Finder's size slider, remembered.
+// F11 (W13): each stop draws a different size. The stops were minimum
+// widths (96/150/240px); in the Library's ~280px grid the middle and right
+// ones both came out as one full-width column. Real clicks on the slider's
+// left end, middle and right end; the thumbnail must shrink at each step.
 add_task(async function test_thumbnail_grid_and_size() {
   const lib = getLibrary();
   if (!lib) {
@@ -192,17 +195,37 @@ add_task(async function test_thumbnail_grid_and_size() {
 
   const slider = section.querySelector("input.whimsy-library-shot-size");
   ok(slider, "A size slider");
-  const setSize = async value => {
-    slider.value = String(value);
-    slider.dispatchEvent(new Event("input", { bubbles: true }));
-    await TestUtils.waitForCondition(() =>
-      section.querySelector(".whimsy-library-shots").style.getPropertyValue("--whimsy-shot-size") ==
-        `${[96, 150, 240][value]}px`, `Size ${value}`);
+  is(slider.min, "0", "Three stops: 0");
+  is(slider.max, "2", "...to 2");
+  is(slider.step, "1", "...one apart");
+  const grid = section.querySelector(".whimsy-library-shots");
+  // A real click on the slider's track, at a share of its width.
+  const clickAt = async (share, value) => {
+    const rect = slider.getBoundingClientRect();
+    const x = Math.min(rect.width - 1, Math.max(1, Math.round(rect.width * share)));
+    EventUtils.synthesizeMouse(slider, x, rect.height / 2, {}, window);
+    await TestUtils.waitForCondition(() => slider.value == String(value), `The click puts the slider on ${value}`);
+    await TestUtils.waitForCondition(() => grid.style.getPropertyValue("--whimsy-shot-columns") == String([3, 2, 1][value]),
+      `Stop ${value}: ${[3, 2, 1][value]} per row`);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    is(Services.prefs.getIntPref("whimsy.library.screenshot-size"), value, `Stop ${value} is remembered`);
+    return image.getBoundingClientRect().width;
   };
-  await setSize(0);
-  Assert.greaterOrEqual(image.getBoundingClientRect().width, 95, "Small thumbnails are still at least 96px");
-  await setSize(2);
-  is(Services.prefs.getIntPref("whimsy.library.screenshot-size"), 2, "The size is remembered");
-  ok(getComputedStyle(section.querySelector(".whimsy-library-shots")).gridTemplateColumns.split(" ")
-    .every(w => parseFloat(w) >= 239), "Large: columns at least 240px");
+  const small = await clickAt(0, 0);
+  const medium = await clickAt(0.5, 1);
+  const large = await clickAt(1, 2);
+  info(`Thumbnail widths: ${small} / ${medium} / ${large}px in a ${grid.clientWidth}px grid`);
+  Assert.greater(small, 40, "Small thumbnails are still big enough to see");
+  Assert.less(small, medium * 0.77, "Small is clearly smaller than medium");
+  Assert.less(medium, large * 0.77, "Medium is clearly smaller than large (the F11 bug: they were the same)");
+  Assert.lessOrEqual(large, grid.clientWidth + 0.5, "Large fits the grid");
+  const cells = [...section.querySelectorAll(".whimsy-library-shot-cell")];
+  const lefts = new Set(cells.map(c => Math.round(c.getBoundingClientRect().left)));
+  is(lefts.size, 1, "Large: one per row");
+
+  // Back down with the keyboard: the slider steps to medium.
+  slider.focus();
+  EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
+  await TestUtils.waitForCondition(() => slider.value == "1", "Left arrow steps to medium");
+  await TestUtils.waitForCondition(() => Math.abs(image.getBoundingClientRect().width - medium) < 1, "...the medium size again");
 });
