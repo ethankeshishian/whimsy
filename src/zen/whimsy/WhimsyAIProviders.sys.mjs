@@ -732,7 +732,21 @@ export const WhimsyAIProviders = {
         console.error("Whimsy AI: the on-device helper didn't start", path);
         return "apple-helper-blocked";
       }
-      const { exitCode } = await proc.wait();
+      // F22: a helper that has answered but doesn't exit (the Swift runtime
+      // can stay up after main returns) must not leave Set Up on
+      // "Checking…": its answer counts, and it's stopped.
+      let waitTimer;
+      const exited = await Promise.race([
+        proc.wait(),
+        new Promise(resolve => {
+          waitTimer = setTimeout(() => resolve(null), this._helperCheckTimeoutMs);
+        }),
+      ]);
+      clearTimeout(waitTimer);
+      if (!exited) {
+        proc.kill();
+      }
+      const exitCode = exited?.exitCode ?? 0;
       if (!output.trim() && exitCode < 0) {
         // Killed before it printed anything: macOS refused to run it.
         return "apple-helper-blocked";

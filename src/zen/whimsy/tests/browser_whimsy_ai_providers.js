@@ -178,7 +178,14 @@ add_task(async function test_settings_card() {
   const label = doc.querySelector("#whimsyAIClaudeRow .whimsy-ai-field-label").getBoundingClientRect();
   const status = doc.getElementById("whimsyAIClaudeStatus");
   await TestUtils.waitForCondition(() => status.textContent, "The key status shows");
-  ok(Math.abs(key.left - (label.right + 12)) <= 1.5, `The key field starts right after its label (${key.left} vs ${label.right})`);
+  // F22: the labels ("API key", "Status") are left-aligned, in a column of
+  // their own; every control starts at the next column's edge.
+  const grid = doc.getElementById("whimsyAIClaudeRow");
+  const gridLeft = grid.getBoundingClientRect().left + parseFloat(win.getComputedStyle(grid).paddingLeft);
+  ok(Math.abs(label.left - gridLeft) <= 1.5, `The label is left-aligned (${label.left} vs ${gridLeft})`);
+  ok(Math.abs(key.left - (gridLeft + 110 + 12)) <= 1.5, `The key field starts at the control column (${key.left})`);
+  const appleLabel = doc.querySelector("#whimsyAIAppleRow .whimsy-ai-field-label");
+  is(win.getComputedStyle(appleLabel).textAlign, "start", "Apple's Status label is left-aligned too");
   ok(Math.abs(status.getBoundingClientRect().left - key.left) <= 1.5, "The status starts at the same edge");
   ok(status.dataset.state, "The status has a ready / needs-action dot");
 
@@ -321,6 +328,13 @@ add_task(async function test_apple_helper_quarantine() {
     WhimsyAIProviders._helperPromise = null;
     WhimsyAIProviders._helperCheckTimeoutMs = 500;
     is(await WhimsyAIProviders.appleStatus({ build: true }), "apple-helper-blocked", "A helper that never starts is reported as blocked");
+
+    // F22: a helper that answers but never exits: its answer, not
+    // "Checking…" forever.
+    await IOUtils.writeUTF8(helper, "#!/bin/sh\necho available\nexec sleep 30\n");
+    await IOUtils.setPermissions(helper, 0o755);
+    WhimsyAIProviders._helperPromise = null;
+    is(await WhimsyAIProviders.appleStatus({ build: true }), "available", "A helper that answers but stays up still counts");
   } finally {
     Object.defineProperty(WhimsyAIProviders, "_helperPath", descriptor);
     WhimsyAIProviders._helperCheckTimeoutMs = realTimeout;

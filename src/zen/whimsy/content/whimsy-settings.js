@@ -1452,8 +1452,16 @@ Object.assign(gWhimsySettings, {
     const checkApple = async ({ build }) => {
       setStatus("whimsyAIAppleStatus", "whimsy-ai-apple-status-checking");
       appleButton.disabled = true;
-      const status = await WhimsyAIProviders.appleStatus({ build });
-      appleButton.disabled = false;
+      let status;
+      try {
+        status = await WhimsyAIProviders.appleStatus({ build });
+      } catch (e) {
+        // F22: never left on "Checking…".
+        console.error("Whimsy AI: checking Apple Intelligence", e);
+        status = "unavailable";
+      } finally {
+        appleButton.disabled = false;
+      }
       // W10-07: the status names the real reason; the line under it gives
       // the compiler's own words, or the folders searched when the status
       // doesn't already name them (it was "reinstall the tools" for any

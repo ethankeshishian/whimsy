@@ -878,9 +878,9 @@ mark.whimsy-search-mark {
 }
 
 .whimsy-ai-field-label {
-  justify-self: end;
+  justify-self: start;
   margin: 0;
-  text-align: end;
+  text-align: start;
   font-size: 13px;
   color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 68%, transparent));
 }
