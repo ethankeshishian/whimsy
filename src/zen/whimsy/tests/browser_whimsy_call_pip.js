@@ -105,6 +105,40 @@ add_task(async function test_call_floats_and_returns() {
   BrowserTestUtils.removeTab(other);
 });
 
+add_task(async function test_call_pip_mute_unmute() {
+  const call = await openCall();
+  await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.initMediaSession());
+
+  const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+  gBrowser.selectedTab = other;
+  const pip = await opened;
+
+  WhimsyCallPip.hookPipWindow(pip);
+  const audioBtn = pip.document.getElementById("audio");
+  ok(audioBtn, "PiP has audio button");
+  ok(!audioBtn.hidden, "Audio button is visible for call PiP");
+
+  await TestUtils.waitForCondition(() => !pip.Player.isMuted, "Call PiP initially unmuted");
+
+  // Click audio button to mute call
+  pip.Player.toggleMute();
+  await TestUtils.waitForCondition(() => pip.Player.isMuted, "PiP player reflects muted state");
+  const mutedActive = await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.microphoneActive);
+  is(mutedActive, false, "Call page microphone was muted via togglemicrophone");
+
+  // Click audio button again to unmute call
+  pip.Player.toggleMute();
+  await TestUtils.waitForCondition(() => !pip.Player.isMuted, "PiP player reflects unmuted state");
+  const unmutedActive = await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.microphoneActive);
+  is(unmutedActive, true, "Call page microphone was unmuted via togglemicrophone");
+
+  const closed = BrowserTestUtils.domWindowClosed(pip);
+  gBrowser.selectedTab = call;
+  await closed;
+  BrowserTestUtils.removeTab(other);
+});
+
 add_task(async function test_not_in_a_call_or_switched_off() {
   const fake = { linkedBrowser: { _sharingState: { webRTC: { screen: "Screen" } } } };
   ok(!WhimsyCallPip.isInCall(fake), "Sharing only the screen isn't a call");
