@@ -103,6 +103,8 @@ export const WhimsySpaceSwitchQueue = {
     this.wrapChangeWorkspace(win, state);
     this.wrapShortcut(win, state);
     this.initEdges(win, state);
+    this.initSwitcherArrows(win, state);
+    this.wrapEdgeSwipes(win);
     const onGesture = event => this.handleGesture(win, state, event);
     for (const type of GESTURE_EVENTS) {
       win.addEventListener(type, onGesture, true);
@@ -172,32 +174,7 @@ export const WhimsySpaceSwitchQueue = {
     }
     const self = this;
     const wrapped = function (offset = 1, whileScrolling = false, disableWrap = false) {
-      const edgeCommand = state.edgeCommand;
-      state.edgeCommand = 0;
-      if (edgeCommand && self.edgesEnabled) {
-        return self.stepFromEdge(win, state, offset);
-      }
-      if (!featureOn() || !state.running) {
-        return original.call(this, offset, whileScrolling, disableWrap);
-      }
-      // Count from where the queue lands, as Zen counts from the active space.
-      const workspaces = this.getWorkspaces();
-      const fromId = self.projectedTarget(win);
-      let from = workspaces.findIndex(space => space.uuid == fromId);
-      if (from < 0) {
-        from = Math.max(0, workspaces.findIndex(space => space.uuid == this.activeWorkspace));
-      }
-      // W10-03: within a burst (a slide is playing) the edge is a wall.
-      // Zen wraps one deliberate press past the first or last space (its
-      // wrap-around setting), but counting a burst from where the queue lands
-      // carried fast presses (or a held key) past the first space straight
-      // round to the rightmost one. Arc stops at the edge.
-      const index = Math.max(0, Math.min(workspaces.length - 1, from + offset));
-      if (index == from) {
-        return Promise.resolve(workspaces[from]);
-      }
-      // A swipe or wheel step is a step; a key press is a destination.
-      return this.changeWorkspace(workspaces[index], { whileScrolling: false, whimsyStep: !!whileScrolling });
+      return self.stepRelative(win, state, offset, { whileScrolling, disableWrap });
     };
     wrapped._whimsySwitchQueue = true;
     spaces.changeWorkspaceShortcut = wrapped;
@@ -207,15 +184,6 @@ export const WhimsySpaceSwitchQueue = {
     return Services.prefs.getBoolPref(EDGES_PREF, true);
   },
 
-  // W10-03: Next Space and Previous Space (their shortcuts, the Spaces menu
-  // and the command bar all run these two commands) at the ends of the
-  // list. The command still reaches Zen's commandset handler, which calls
-  // changeWorkspaceShortcut; this only marks that call (capture phase, so
-  // before Zen's handler; cleared once the event is done) for the wrapper
-  // below to apply the edges. Swipes, the sidebar's scroll wheel and the
-  // mouse's back/forward buttons call it unmarked and keep Zen's own
-  // behaviour (a swipe past the last space already offers a new one,
-  // ZenSpaceAddSwipe).
   initEdges(win, state) {
     const { document } = win;
     document.addEventListener(
@@ -230,34 +198,163 @@ export const WhimsySpaceSwitchQueue = {
     });
   },
 
-  // One step through the spaces, from where the window is (or will be once
-  // a playing slide ends). Past the last space: New Space (only from a
-  // settled last space, never in the middle of a burst of presses). Before
-  // the first: nothing.
-  stepFromEdge(win, state, offset) {
+  /**
+   * One shared helper for relative space stepping across all paths:
+   * - keyboard Next/Previous commands (cmd_zenWorkspaceForward/Backward)
+   * - swipe and scroll gestures (ZenSpacesSwipe, trackpad bursts, sidebar wheel)
+   * - space switcher arrows (ArrowLeft/Right/Up/Down on #zen-workspaces-button)
+   *
+   * Skips hidden spaces (W11-16) and enforces Arc edge behavior (W10-03):
+   * - Left past the first visible space stops at the first (never wraps).
+   * - Right past the last visible space opens New Space when settled, or
+   *   stops at the last space in the middle of a burst (never wraps).
+   * - When edgesEnabled is false, wraps across visible spaces.
+   */
+  stepRelative(win, state, offset = 1, options = {}) {
     const spaces = win.gZenWorkspaces;
-    const workspaces = spaces?.getWorkspaces?.() ?? [];
+    if (!spaces?.workspaceEnabled || spaces.privateWindowOrDisabled) {
+      return null;
+    }
+    const workspaces = spaces.getWorkspaces?.() ?? [];
     if (!workspaces.length) {
       return null;
     }
-    const fromId = this.projectedTarget(win);
-    let from = workspaces.findIndex(space => space.uuid == fromId);
-    if (from < 0) {
-      from = Math.max(0, workspaces.findIndex(space => space.uuid == spaces.activeWorkspace));
-    }
-    const to = from + offset;
-    if (to < 0) {
+    // Skip hidden spaces (W11-16).
+    const visible = workspaces.filter(space => !space.whimsyHidden);
+    if (!visible.length) {
       return null;
     }
-    if (to >= workspaces.length) {
+
+    const fromId = this.projectedTarget(win);
+    let from = visible.findIndex(space => space.uuid == fromId);
+    if (from < 0) {
+      from = Math.max(0, visible.findIndex(space => space.uuid == spaces.activeWorkspace));
+    }
+
+    // When the edges feature is disabled, wrap across visible spaces.
+    if (!this.edgesEnabled) {
+      let targetIndex = from + offset;
+      if (spaces.shouldWrapAroundNavigation && !options.disableWrap) {
+        targetIndex = ((targetIndex % visible.length) + visible.length) % visible.length;
+      } else {
+        targetIndex = Math.max(0, Math.min(visible.length - 1, targetIndex));
+      }
+      return spaces.changeWorkspace(visible[targetIndex], {
+        whileScrolling: false,
+        whimsyStep: !!options.whileScrolling,
+      });
+    }
+
+    const to = from + offset;
+    // Left edge rule: stops at the first visible space, never wraps.
+    if (to < 0) {
+      if (options.isSwitcherArrow) {
+        const icons = win.document.getElementById("zen-workspaces-button");
+        icons?.querySelector(`toolbarbutton[zen-workspace-id="${visible[0].uuid}"]`)?.focus();
+      }
+      return state?.running ? Promise.resolve(visible[0]) : null;
+    }
+
+    // Right edge rule: past the last space makes a new space if settled,
+    // or stops at the last space in the middle of a burst. Never wraps.
+    if (to >= visible.length) {
       const creating = win.document.documentElement.hasAttribute("zen-creating-workspace");
-      if (state.running || creating || spaces.privateWindowOrDisabled) {
-        return null;
+      if (state?.running || creating || spaces.creatingWorkspaceId || spaces.privateWindowOrDisabled) {
+        return state?.running ? Promise.resolve(visible.at(-1)) : null;
       }
       return spaces.openWorkspaceCreation();
     }
-    // Never wraps: the edges are handled above.
-    return spaces.changeWorkspaceShortcut(offset, false, true);
+
+    // Step between visible spaces.
+    const targetSpace = visible[to];
+    if (targetSpace.uuid == (state?.running ? state.target : spaces.activeWorkspace)) {
+      return Promise.resolve(targetSpace);
+    }
+
+    const promise = spaces.changeWorkspace(targetSpace, {
+      whileScrolling: false,
+      whimsyStep: !!options.whileScrolling,
+    });
+    if (options.isSwitcherArrow) {
+      const icons = win.document.getElementById("zen-workspaces-button");
+      icons?.querySelector(`toolbarbutton[zen-workspace-id="${targetSpace.uuid}"]`)?.focus();
+    }
+    return promise;
+  },
+
+  stepFromEdge(win, state, offset) {
+    return this.stepRelative(win, state, offset);
+  },
+
+  initSwitcherArrows(win, state) {
+    const icons = win.document.getElementById("zen-workspaces-button");
+    if (!icons) {
+      return;
+    }
+    const onKeyDown = event => {
+      if (event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) {
+        return;
+      }
+      if (event.target.tagName == "input" || event.target.tagName == "textarea") {
+        return;
+      }
+      const isRTL = win.document.documentElement.matches(":-moz-locale-dir(rtl)");
+      let offset = 0;
+      if (event.key == "ArrowRight" || event.key == "ArrowDown") {
+        offset = isRTL && event.key == "ArrowRight" ? -1 : 1;
+      } else if (event.key == "ArrowLeft" || event.key == "ArrowUp") {
+        offset = isRTL && event.key == "ArrowLeft" ? 1 : -1;
+      }
+      if (!offset) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.stepRelative(win, state, offset, { isSwitcherArrow: true });
+    };
+    icons.addEventListener("keydown", onKeyDown);
+    win.addEventListener(
+      "unload",
+      () => icons.removeEventListener("keydown", onKeyDown),
+      { once: true }
+    );
+  },
+
+  wrapEdgeSwipes(win) {
+    try {
+      const { ZenSpaceAddSwipe } = ChromeUtils.importESModule(
+        "resource:///modules/zen/ZenSpaceAddSwipe.mjs"
+      );
+      if (
+        typeof ZenSpaceAddSwipe?.prototype?.readySwipeAddSpace == "function" &&
+        !ZenSpaceAddSwipe.prototype.readySwipeAddSpace._whimsyVisible
+      ) {
+        const originalReady = ZenSpaceAddSwipe.prototype.readySwipeAddSpace;
+        ZenSpaceAddSwipe.prototype.readySwipeAddSpace = function () {
+          const ws = typeof gZenWorkspaces !== "undefined" ? gZenWorkspaces : win.gZenWorkspaces;
+          if (!ws) {
+            return originalReady.apply(this, arguments);
+          }
+          const visible = ws.getWorkspaces().filter(s => !s.whimsyHidden);
+          const current = ws.getActiveWorkspaceFromCache();
+          const libraryEnabled = Services.prefs.getBoolPref("zen.library.enabled");
+          let libraryOnRight = false;
+          try {
+            const { ZenLibrary } = ChromeUtils.importESModule("moz-src:///zen/library/ZenLibrary.mjs");
+            libraryOnRight = ZenLibrary.libraryOnRight;
+          } catch (e) {}
+          return (
+            visible.indexOf(current) === (libraryOnRight ? 0 : visible.length - 1) &&
+            libraryEnabled &&
+            ws.shouldSwipeEdgeActions &&
+            !ws.creatingWorkspaceId
+          );
+        };
+        ZenSpaceAddSwipe.prototype.readySwipeAddSpace._whimsyVisible = true;
+      }
+    } catch (e) {
+      console.error("Whimsy: wrapEdgeSwipes addSpace", e);
+    }
   },
 
   async run(win, state, original, context, workspace, args) {
@@ -345,6 +442,7 @@ export const WhimsySpaceSwitchQueue = {
       // until the slide that's playing has finished.
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
       event.allowedDirections |= event.DIRECTION_LEFT | event.DIRECTION_RIGHT;
       state.deferredGesture = true;
       return;
@@ -354,6 +452,7 @@ export const WhimsySpaceSwitchQueue = {
     }
     event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation();
     switch (event.type) {
       case "MozSwipeGestureStart":
       case "MozSwipeGestureUpdate":
