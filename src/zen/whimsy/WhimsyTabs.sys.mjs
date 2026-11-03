@@ -416,10 +416,25 @@ export const WhimsyTabs = {
       event.target.removeAttribute("titlechanged");
     });
     win.addEventListener("TabAddedToEssentials", event => {
-      delete event.target._whimsyUnloaded;
-      if (this.wantsWaking(event.target)) {
-        this.wakeEssentials(win, [event.target]);
-      }
+      const tab = event.target;
+      delete tab._whimsyUnloaded;
+      // A tab moved into the Essentials is rebuilt a moment later, and its
+      // page can finish loading without session restore ever saying so,
+      // leaving "pending" on a live tab. Wake it, then clear that leftover.
+      (async () => {
+        const woken = this.wantsWaking(tab);
+        if (woken) {
+          await this.wakeEssentials(win, [tab]);
+        }
+        for (let i = 0; woken && i < 40 && !win.closed && !tab.closing && tab.hasAttribute("pending"); i++) {
+          await new Promise(resolve => win.setTimeout(resolve, 250));
+          const spec = tab.linkedBrowser?.currentURI?.spec;
+          if (i >= 4 && !tab.hasAttribute("busy") && /^https?:/.test(spec || "") &&
+            tab.linkedBrowser.browsingContext?.currentWindowGlobal?.documentURI?.spec == spec) {
+            tab.removeAttribute("pending");
+          }
+        }
+      })();
     });
     for (const tab of gBrowser.tabs) {
       if (!tab.hasAttribute("busy") && !tab.hasAttribute("pending")) {
