@@ -15,6 +15,20 @@ function firePopup(id) {
   return popup;
 }
 
+// test_rows_where_arc_has_them opens the Library on Media and Boosts,
+// which is Zen's own record of the last tab shown.
+add_setup(() => {
+  const hadValue = Services.prefs.prefHasUserValue("zen.library.last-tab");
+  const value = hadValue ? Services.prefs.getStringPref("zen.library.last-tab") : null;
+  registerCleanupFunction(() => {
+    if (hadValue) {
+      Services.prefs.setStringPref("zen.library.last-tab", value);
+    } else {
+      Services.prefs.clearUserPref("zen.library.last-tab");
+    }
+  });
+});
+
 add_task(function test_items_exist() {
   WhimsyArcMenus.ensureMenus(window);
   for (const id of [
