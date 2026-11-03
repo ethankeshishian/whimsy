@@ -26,6 +26,11 @@ add_setup(async function () {
     },
   };
   const startTabs = new Set(gBrowser.tabs);
+  // The manifest presets these to 2 so no other file sees the first-run
+  // question; put them back to that, not to unset.
+  const dismissals = new Map(
+    WhimsyPrivateLock.KINDS.map(kind => [kind, Services.prefs.getIntPref(`whimsy.privateLock.askDismissals.${kind}`, 0)])
+  );
   registerCleanupFunction(async () => {
     WhimsyAuth._reauthenticator = null;
     WhimsyPrivateLock.unlockAll();
@@ -34,9 +39,21 @@ add_setup(async function () {
         BrowserTestUtils.removeTab(tab, { animate: false });
       }
     }
+    // Closing the tabs can still count an ask dismissal a moment later, and
+    // undoing a pushed pref env can put a counted value back; settle both first.
+    await new Promise(resolve => setTimeout(resolve, 250));
+    await SpecialPowers.flushPrefEnv();
+    // A question still open when the file ends would count a dismissal as it
+    // closes; close it first so nothing lands after the prefs are cleared.
+    const ask = document.getElementById(WhimsyPrivateLock.ASK_ID);
+    if (ask?.state == "open" || ask?.state == "showing") {
+      const hidden = BrowserTestUtils.waitForPopupEvent(ask, "hidden");
+      ask.hidePopup();
+      await hidden;
+    }
     for (const kind of WhimsyPrivateLock.KINDS) {
       Services.prefs.clearUserPref(`whimsy.privateLock.${kind}`);
-      Services.prefs.clearUserPref(`whimsy.privateLock.askDismissals.${kind}`);
+      Services.prefs.setIntPref(`whimsy.privateLock.askDismissals.${kind}`, dismissals.get(kind));
     }
     Services.prefs.clearUserPref("whimsy.privateLock.afterSeconds");
   });
