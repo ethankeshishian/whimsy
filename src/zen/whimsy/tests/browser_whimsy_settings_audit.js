@@ -226,7 +226,12 @@ add_task(async function test_every_setting_is_found_by_search() {
       await TestUtils.waitForCondition(() => row.textContent.trim(), "Menu rows are named");
       const words = row.textContent.trim();
       await search(win, words);
-      await TestUtils.waitForCondition(() => shown(row) && row.checkVisibility(), `Searching "${words}" shows its menu row`);
+      // Menus can share a row's name (an exact match wins), so any row of that name will do.
+      await TestUtils.waitForCondition(
+        () => [...doc.querySelectorAll('.whimsy-menus-detail:not([data-inactive]) .whimsy-menus-row-label')]
+          .some(label => label.textContent.trim() == words && shown(label) && label.checkVisibility()),
+        `Searching "${words}" shows its menu row`
+      );
     }
   });
 });
