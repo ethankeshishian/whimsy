@@ -230,8 +230,15 @@ export const WhimsyEaselSync = {
       }
     }
     const ids = JSON.stringify(Object.entries(packed.easels).filter(([, [easel]]) => easel).map(([id]) => id));
-    if (ids != Services.prefs.getStringPref(KNOWN_PREF, "")) {
+    // "[]" is the no-easels default (this.known falls back to it too), so
+    // a fresh profile with nothing to sync doesn't churn the pref the
+    // first time the 5s startup timer fires — that showed up as a
+    // "changed preference" todo in any browser-chrome test whose run
+    // happened to straddle it.
+    if (ids != "[]" && ids != Services.prefs.getStringPref(KNOWN_PREF, "[]")) {
       Services.prefs.setStringPref(KNOWN_PREF, ids);
+    } else if (ids == "[]" && Services.prefs.prefHasUserValue(KNOWN_PREF)) {
+      Services.prefs.clearUserPref(KNOWN_PREF);
     }
     return packed;
   },

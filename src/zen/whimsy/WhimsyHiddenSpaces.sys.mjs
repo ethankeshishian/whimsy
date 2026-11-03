@@ -40,6 +40,9 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 export const PANEL_ID = "whimsyHiddenSpaces";
 const FILTER_FROM = 6;
 const EYE_SLASH = "chrome://browser/content/whimsy/icons/eye-slash.svg";
+// win -> the open panel's parts, so show()'s Undo (W15) can rebuild the
+// list/footer from the model instead of leaving a stale row or empty state.
+const openParts = new WeakMap();
 
 function spaceColor(space) {
   const rgb = space?.theme?.gradientColors?.[0]?.c;
@@ -91,9 +94,7 @@ export const WhimsyHiddenSpaces = {
     if (!this.enabled() || !win.gZenWorkspaces?.workspaceEnabled) {
       return null;
     }
-    const doc = win.document;
     const S = lazy.WhimsySurface;
-    let filterInput = null;
     const parts = S.create(win, {
       id: PANEL_ID,
       width: 380,
@@ -101,58 +102,118 @@ export const WhimsyHiddenSpaces = {
       close: true,
       footer: true,
       className: "whimsy-hidden-spaces-panel",
-      onHidden: () => onHidden?.(),
+      onHidden: () => {
+        openParts.delete(win);
+        onHidden?.();
+      },
       onEscape: () => {
-        if (filterInput?.value) {
-          filterInput.value = "";
+        const input = parts.view.querySelector(".whimsy-hidden-spaces-filter");
+        if (input?.value) {
+          input.value = "";
           this.filter(parts, "");
           return true;
         }
         return false;
       },
-      initialFocus: () => filterInput ?? parts.view.querySelector("[role=option][tabindex='0']") ??
+      initialFocus: () => parts.view.querySelector(".whimsy-hidden-spaces-filter") ??
+        parts.view.querySelector("[role=option][tabindex='0']") ??
         parts.view.querySelector(".whimsy-hidden-spaces-empty button"),
     });
+    openParts.set(win, parts);
+    this.renderList(win, parts);
+    S.open(win, parts.panel, { at: at ?? "beside-sidebar" });
+    return parts;
+  },
+
+  /**
+   * (Re)builds the search box (from FILTER_FROM hidden spaces), the
+   * list/empty state and the footer from the current model. open() calls
+   * this for its first render, and so does show()'s Undo (W15), when the
+   * panel is still open, instead of patching the DOM by hand — the row
+   * Undo brings back no longer exists once unhideRow() has removed it (or
+   * the empty state has taken over). `filterText` replays the filter
+   * across the rebuild.
+   */
+  renderList(win, parts, { filterText = "" } = {}) {
+    parts.view.querySelector(".whimsy-hidden-spaces-search")?.remove();
+    parts.view.querySelector(".whimsy-hidden-spaces-list")?.remove();
+    parts.view.querySelector(".whimsy-hidden-spaces-empty")?.remove();
     const spaces = this.hidden(win);
     if (spaces.length >= FILTER_FROM) {
-      const box = doc.createXULElement("hbox");
-      box.className = "whimsy-surface-search whimsy-hidden-spaces-search";
-      box.setAttribute("align", "center");
-      const glass = doc.createXULElement("image");
-      glass.className = "whimsy-sheet-search-icon";
-      glass.setAttribute("src", "chrome://browser/skin/zen-icons/search-glass.svg");
-      filterInput = doc.createElementNS(HTML_NS, "input");
-      filterInput.type = "search";
-      filterInput.className = "whimsy-hidden-spaces-filter";
-      doc.l10n.setAttributes(filterInput, "whimsy-hidden-spaces-filter");
-      filterInput.addEventListener("input", () => this.filter(parts, filterInput.value));
-      filterInput.addEventListener("keydown", event => {
-        // Down (or Return) from the field goes to the first match.
-        if (event.key == "ArrowDown" || event.key == "Enter") {
-          const first = this.visibleOptions(parts)[0];
-          if (first) {
-            event.preventDefault();
-            if (event.key == "Enter") {
-              this.unhideRow(win, parts, first);
-            } else {
-              this.focusOption(parts, first);
-            }
-          }
-        }
-      });
-      box.append(glass, filterInput);
+      const box = this.buildFilterBox(win, parts);
       parts.view.append(box);
+      if (filterText) {
+        box.querySelector(".whimsy-hidden-spaces-filter").value = filterText;
+      }
     }
     if (spaces.length) {
       parts.view.append(this.buildList(win, parts, spaces));
+      if (filterText) {
+        this.filter(parts, filterText);
+      }
+      this.refreshFooter(win, parts);
     } else {
       parts.view.append(this.buildEmpty(win, parts));
+      if (parts.footer?.isConnected) {
+        parts.footer.remove();
+      }
     }
-    if (spaces.length) {
-      this.refreshFooter(win, parts);
+  },
+
+  /** The filter field + search icon shown once there are FILTER_FROM or
+   * more hidden spaces (open() and renderList()'s rebuild alike). */
+  buildFilterBox(win, parts) {
+    const doc = win.document;
+    const box = doc.createXULElement("hbox");
+    box.className = "whimsy-surface-search whimsy-hidden-spaces-search";
+    box.setAttribute("align", "center");
+    const glass = doc.createXULElement("image");
+    glass.className = "whimsy-sheet-search-icon";
+    glass.setAttribute("src", "chrome://browser/skin/zen-icons/search-glass.svg");
+    const filterInput = doc.createElementNS(HTML_NS, "input");
+    filterInput.type = "search";
+    filterInput.className = "whimsy-hidden-spaces-filter";
+    doc.l10n.setAttributes(filterInput, "whimsy-hidden-spaces-filter");
+    filterInput.addEventListener("input", () => this.filter(parts, filterInput.value));
+    filterInput.addEventListener("keydown", event => {
+      // Down (or Return) from the field goes to the first match.
+      if (event.key == "ArrowDown" || event.key == "Enter") {
+        const first = this.visibleOptions(parts)[0];
+        if (first) {
+          event.preventDefault();
+          if (event.key == "Enter") {
+            this.unhideRow(win, parts, first);
+          } else {
+            this.focusOption(parts, first);
+          }
+        }
+      }
+    });
+    box.append(glass, filterInput);
+    return box;
+  },
+
+  /**
+   * W15: the toast's Undo re-hides the space in the model (show()'s undo
+   * callback); if the panel is still open in this window, put it back
+   * too, via renderList() — never leaving a stale empty state or a
+   * missing row. Undo is pressed from the toast or Cmd+Z, neither inside
+   * the panel, so focus only moves into it when it was already there.
+   */
+  refreshAfterUndo(win) {
+    const parts = openParts.get(win);
+    if (!parts || !this.isOpen(win)) {
+      return;
     }
-    S.open(win, parts.panel, { at: at ?? "beside-sidebar" });
-    return parts;
+    const filterInput = parts.view.querySelector(".whimsy-hidden-spaces-filter");
+    const filterText = filterInput?.value ?? "";
+    const focusedInPanel = parts.panel.contains(win.document.activeElement);
+    this.renderList(win, parts, { filterText });
+    if (focusedInPanel) {
+      const next = parts.view.querySelector(".whimsy-hidden-spaces-filter") ??
+        this.visibleOptions(parts)[0] ?? parts.view.querySelector(".whimsy-hidden-spaces-empty button");
+      next?.focus();
+    }
   },
 
   /**
@@ -392,6 +453,7 @@ export const WhimsyHiddenSpaces = {
         again.whimsyHidden = true;
         gZenWorkspaces.saveWorkspace(again);
         lazy.WhimsySpaceArchive.applyHidden(win);
+        this.refreshAfterUndo(win);
       },
       redo: null,
     }, { space: space.name || "" });

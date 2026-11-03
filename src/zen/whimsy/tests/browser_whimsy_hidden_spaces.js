@@ -135,6 +135,38 @@ add_task(async function test_rows_show_and_switch() {
   toastCleanup();
 });
 
+add_task(async function test_undo_puts_the_row_back_in_the_open_panel() {
+  // W15: show() no longer closes the panel (W14-B5), so the toast's Undo
+  // can fire while the panel is still open — it must put the row back
+  // (and replace the empty state, when that's what Undo leaves behind)
+  // instead of leaving it stale.
+  await hide(taxes.uuid);
+  const panel = await openPanel();
+  const row = panel.querySelector(`.whimsy-hidden-space[data-uuid="${taxes.uuid}"]`);
+  EventUtils.synthesizeMouseAtCenter(row, {}, window);
+  await TestUtils.waitForCondition(() => !space(taxes.uuid).whimsyHidden, "Shown again");
+  ok(panel.querySelector(".whimsy-hidden-spaces-empty"), "Taxes was the only hidden space: the empty state shows");
+
+  const button = await TestUtils.waitForCondition(
+    () => document.getElementById("whimsy-undo-toast-button"),
+    "The toast offers Undo"
+  );
+  button.click();
+  await TestUtils.waitForCondition(() => space(taxes.uuid).whimsyHidden, "Undo hides it again");
+  await TestUtils.waitForCondition(
+    () => panel.querySelector(`.whimsy-hidden-space[data-uuid="${taxes.uuid}"]`),
+    "...and its row is back in the still-open panel"
+  );
+  is(panel.state, "open", "The panel stayed open throughout");
+  ok(!panel.querySelector(".whimsy-hidden-spaces-empty"), "...the empty state is gone, replaced by the row");
+  ok(!panel.contains(document.activeElement), "Undo doesn't steal focus into the panel from the toast");
+
+  await closePanel(panel);
+  await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
+  WhimsySpaceArchive.restore(window, taxes.uuid);
+  toastCleanup();
+});
+
 add_task(async function test_hide_current_from_footer() {
   await hide(taxes.uuid);
   const panel = await openPanel();
