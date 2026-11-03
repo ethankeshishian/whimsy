@@ -539,11 +539,13 @@ export const WhimsySurface = {
       }
       panel.setAttribute("dragging", "true");
       let moved = false;
+      let target = null;
       const move = e => {
         if (e.pointerId == pointerId && (moved || Math.hypot(e.screenX - event.screenX, e.screenY - event.screenY) >= 1)) {
           moved = true;
           lastPress = null;
-          panel.moveTo(Math.round(e.screenX - dx), Math.round(e.screenY - dy));
+          target = { x: Math.round(e.screenX - dx), y: Math.round(e.screenY - dy) };
+          panel.moveTo(target.x, target.y);
         }
       };
       const end = e => {
@@ -559,7 +561,8 @@ export const WhimsySurface = {
         } catch (err) {}
         panel.removeAttribute("dragging");
         if (moved && remember) {
-          dragPositions.set(key, relativeRect(win, panel));
+          // moveTo lands asynchronously, so the panel's own rect may still be the old spot.
+          dragPositions.set(key, { x: target.x - win.mozInnerScreenX, y: target.y - win.mozInnerScreenY, width: panel.getOuterScreenRect().width });
         }
       };
       handle.addEventListener("pointermove", move);

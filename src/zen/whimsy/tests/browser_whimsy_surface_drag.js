@@ -46,6 +46,7 @@ function grabPoint(header) {
 // mid-drag.
 async function drag(panel, header, dx, dy) {
   const { x, y } = grabPoint(header);
+  const start = panel.getOuterScreenRect();
   const before = getComputedStyle(panel).getPropertyValue("--panel-shadow");
   EventUtils.synthesizeMouseAtPoint(x, y, { type: "mousedown" });
   EventUtils.synthesizeMouseAtPoint(x + dx / 2, y + dy / 2, { type: "mousemove" });
@@ -56,8 +57,19 @@ async function drag(panel, header, dx, dy) {
   };
   EventUtils.synthesizeMouseAtPoint(x + dx, y + dy, { type: "mousemove" });
   EventUtils.synthesizeMouseAtPoint(x + dx, y + dy, { type: "mouseup" });
+  // The panel catches up with the pointer a moment later; the asserts follow.
+  for (let i = 0; i < 60 && Math.abs(panel.getOuterScreenRect().left - (start.left + dx)) >= 2; i++) {
+    await new Promise(resolve => requestAnimationFrame(resolve));
+  }
   await TestUtils.waitForTick();
   return { before, during };
+}
+
+// A reopened panel is moved back to where it was left a moment after it shows.
+async function settleAt(panel, left) {
+  for (let i = 0; i < 60 && Math.abs(panel.getOuterScreenRect().left - left) >= 2; i++) {
+    await new Promise(resolve => requestAnimationFrame(resolve));
+  }
 }
 
 function near(a, b, what) {
@@ -97,6 +109,7 @@ add_task(async function test_page_tools_drag_and_stay() {
   WhimsyPageDev.showColors(window);
   panel = await shown("whimsy-pagedev");
   header = panel.querySelector(".whimsy-surface-header");
+  await settleAt(panel, moved.left);
   const again = panel.getOuterScreenRect();
   near(again.left, moved.left, "Reopens where it was left (x)");
   near(again.top, moved.top, "…and y");
@@ -150,6 +163,7 @@ add_task(async function test_quick_note_drags_and_stays() {
   await hidden;
   await WhimsyNotes.openQuickNote(window);
   panel = await shown("whimsy-quick-note");
+  await settleAt(panel, moved.left);
   near(panel.getOuterScreenRect().left, moved.left, "Reopens where it was left");
   await close(panel);
   BrowserTestUtils.removeTab(tab);
