@@ -26,6 +26,7 @@ async function containerSpace(userContextId) {
 // alerts (a bar + a macOS notification) at every check until dismissed. A
 // fake AI provider and a fake page reader stand in.
 
+const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
 const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
@@ -60,6 +61,7 @@ add_setup(async () => {
     WhimsyAIReader.setTestReader(null);
     WhimsyAIProviders.setTestProvider(null);
     Services.prefs.clearUserPref("whimsy.ai.enabled");
+    await WhimsyAI.pending;
     Services.prefs.clearUserPref("whimsy.feature.page-watch");
   });
 });
@@ -180,12 +182,14 @@ add_task(async function test_kill_switch_and_private() {
   const watch = await WhimsyPageWatch.add({ url: PAGE, condition: "in stock" });
   await TestUtils.waitForCondition(() => !WhimsyPageWatch._checking, "First check done");
   Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+  await WhimsyAI.pending;
   await TestUtils.waitForCondition(() => !WhimsyPageWatch._timer, "Turning AI off stops the timer");
   reads.length = 0;
   is(await checkNow(watch), null, "Checks do nothing");
   is(reads.length, 0, "and read nothing");
   await Assert.rejects(WhimsyPageWatch.add({ url: PAGE, condition: "x" }), /AI is off/, "No new watches");
   Services.prefs.clearUserPref("whimsy.ai.enabled");
+  await WhimsyAI.pending;
   await TestUtils.waitForCondition(() => WhimsyPageWatch._timer, "Back on, the timer runs again");
   await WhimsyPageWatch.remove(watch.id);
 
