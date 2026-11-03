@@ -15,6 +15,13 @@ const { OSKeyStoreTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/OSKeyStoreTestUtils.sys.mjs"
 );
 
+// Reading about:preferences lazily caches a default device name (from the
+// hostname) the first time anything touches FxA; not this file's pref, but
+// it leaks if nothing restores it.
+const DEVICE_NAME_PREF = "identity.fxaccounts.account.device.name";
+const deviceNameHadUserValue = Services.prefs.prefHasUserValue(DEVICE_NAME_PREF);
+const deviceNameValue = deviceNameHadUserValue ? Services.prefs.getStringPref(DEVICE_NAME_PREF) : null;
+
 registerCleanupFunction(async () => {
   WhimsyAIProviders.setTestProvider(null);
   await WhimsyAIProviders.setClaudeKey("");
@@ -26,6 +33,11 @@ registerCleanupFunction(async () => {
     "whimsy.ai.test.macos-version",
   ]) {
     Services.prefs.clearUserPref(pref);
+  }
+  if (deviceNameHadUserValue) {
+    Services.prefs.setStringPref(DEVICE_NAME_PREF, deviceNameValue);
+  } else {
+    Services.prefs.clearUserPref(DEVICE_NAME_PREF);
   }
 });
 
