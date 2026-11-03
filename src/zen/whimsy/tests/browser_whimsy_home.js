@@ -196,10 +196,13 @@ add_task(async function test_build_anchor_opens_changelog() {
     is(doc.location.hash, "#v1-24b-w1", "The build anchor stays in the URL");
 
     // Following another build's link from the Home tab switches tabs too.
+    // The link lives in the (now hidden) Changelog panel, so navigate via its
+    // href directly rather than clicking a hidden node.
     doc.getElementById("whimsy-tab-home").click();
     ok(doc.getElementById("whimsy-panel-changelog").hidden, "Back on Home");
     const changed = BrowserTestUtils.waitForEvent(browser.contentWindow, "hashchange");
-    doc.querySelector("#unreleased .wh-anchor, .whimsy-changelog-group .wh-anchor").click();
+    const anchor = doc.querySelector("#unreleased .wh-anchor, .whimsy-changelog-group .wh-anchor");
+    doc.location.hash = anchor.getAttribute("href");
     await changed;
     ok(!doc.getElementById("whimsy-panel-changelog").hidden, "A build link shows the Changelog");
   });

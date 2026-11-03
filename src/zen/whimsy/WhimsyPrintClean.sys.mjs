@@ -80,6 +80,17 @@ export const WhimsyPrintClean = {
     if (!radio || radio.checked || radio.closest("label")?.hidden || radio.closest("section")?.hidden) {
       return;
     }
-    radio.click();
+    // The dialog can still be laying out its options right after
+    // _initialized resolves; wait until the radio is shown, as the person
+    // would, before clicking it.
+    for (let i = 0; i < 100 && !radio.checkVisibility(); i++) {
+      await new Promise(resolve => printWin.requestAnimationFrame(resolve));
+    }
+    await new Promise(resolve => printWin.requestAnimationFrame(() => printWin.requestAnimationFrame(resolve)));
+    // The dialog's own settings form listens for input/change; this skips the
+    // click, which the dialog's visually hidden radio doesn't take as a person's.
+    radio.checked = true;
+    radio.dispatchEvent(new printWin.Event("input", { bubbles: true }));
+    radio.dispatchEvent(new printWin.Event("change", { bubbles: true }));
   },
 };

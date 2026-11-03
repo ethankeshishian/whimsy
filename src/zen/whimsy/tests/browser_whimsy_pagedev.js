@@ -202,6 +202,7 @@ add_task(async function test_fonts_on_this_page() {
   EventUtils.synthesizeKey("KEY_Enter");
   is(head.getAttribute("aria-expanded"), "true", "Return opens a row");
   const source = web.querySelector(".whimsy-pagedev-source");
+  await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(source), "The opened row is visible");
   ok(text(source).includes("whimsy_pagedev_font.ttf"), "Source is the web font's URL");
   await SimpleTest.promiseClipboardChange(url => url.endsWith("whimsy_pagedev_font.ttf"), () => source.click());
   ok(source.hasAttribute("copied"), "It says Copied in place");

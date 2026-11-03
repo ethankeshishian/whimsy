@@ -383,7 +383,19 @@ add_task(async function test_lasso_commands_from_the_command_bar() {
   const onOpen = event => opened.push(event.target);
   gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
   toasts.length = 0;
-  EventUtils.synthesizeMouseAtCenter(rowFor("Make Folder from Lassoed Links"), {});
+  const folderRowInner = await TestUtils.waitForCondition(() => {
+    const row = rowFor("Make Folder from Lassoed Links");
+    const inner = row?.querySelector(".urlbarView-row-inner");
+    return inner && BrowserTestUtils.isVisible(inner) && inner.getBoundingClientRect().width > 0 && inner;
+  }, "Make Folder from Lassoed Links is laid out");
+  // The address bar picks a result on mousedown and closes, so a synthesized
+  // click lands on a node that is already hidden; choose it as the keyboard
+  // does instead.
+  const folderIndex = [...Array(UrlbarTestUtils.getResultCount(window)).keys()].find(
+    i => UrlbarTestUtils.getRowAt(window, i)?.textContent.includes("Make Folder from Lassoed Links")
+  );
+  gURLBar.view.selectedRowIndex = folderIndex;
+  EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(() => toasts.some(t => t.id == "whimsy-link-lasso-toast"), "the folder was made from the bar");
   gBrowser.tabContainer.removeEventListener("TabOpen", onOpen);
   const linkTabs = opened.filter(t => !t.hasAttribute("zen-empty-tab"));

@@ -188,6 +188,7 @@ add_task(async function test_delete_note_can_be_undone() {
   );
   const toast = await TestUtils.waitForCondition(() => currentToast(), "A toast says so");
   is(toast.messageId, "whimsy-library-notes-deleted-toast", "Deleted note");
+  await toast.shown;
   const undo = toast.element.querySelector(".whimsy-toast-button");
   ok(undo, "with Undo");
   undo.click();

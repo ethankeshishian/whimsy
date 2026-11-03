@@ -89,6 +89,22 @@ add_task(async function test_show_filter_and_closed() {
   BrowserTestUtils.removeTab(keep);
 });
 
+// Row buttons only exist (display) while the row is hovered; headless hover
+// is unreliable, so lock :hover, wait until the button is really shown and the
+// accessibility tree has caught up, then click.
+async function clickRevealed(row, selector) {
+  InspectorUtils.addPseudoClassLock(row, ":hover");
+  try {
+    const button = row.querySelector(selector);
+    await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(button), `${selector} is shown`);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    button.click();
+  } finally {
+    InspectorUtils.removePseudoClassLock(row, ":hover");
+  }
+}
+
 add_task(async function test_snoozed_wake_and_cancel() {
   const wake = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?filters-wake");
   const cancel = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/?filters-cancel");
@@ -117,7 +133,7 @@ add_task(async function test_snoozed_wake_and_cancel() {
   // Cancel snooze: the record goes, the tab stays closed.
   const cancelRow = section.querySelectorAll(".whimsy-snoozed-row")[1];
   const tabsBefore = gBrowser.tabs.length;
-  cancelRow.querySelector(".whimsy-snoozed-cancel").click();
+  await clickRevealed(cancelRow, ".whimsy-snoozed-cancel");
   await TestUtils.waitForCondition(async () => (await WhimsySnooze.list()).length == 1, "The snooze is cancelled");
   is(gBrowser.tabs.length, tabsBefore, "Cancelling doesn't reopen the tab");
   ok(WhimsyArchive.listEntries(window).some(e => e.url.includes("filters-cancel")), "It's still under Closed");
@@ -127,7 +143,8 @@ add_task(async function test_snoozed_wake_and_cancel() {
   );
 
   // Wake now: the tab comes back right away.
-  section.querySelector(".whimsy-snoozed-row .whimsy-snoozed-wake-now").click();
+  const wakeNowRow = section.querySelector(".whimsy-snoozed-row");
+  await clickRevealed(wakeNowRow, ".whimsy-snoozed-wake-now");
   await TestUtils.waitForCondition(
     () => gBrowser.tabs.some(t => t.linkedBrowser?.currentURI?.spec == "https://example.com/?filters-wake"),
     "Wake now reopens the tab"

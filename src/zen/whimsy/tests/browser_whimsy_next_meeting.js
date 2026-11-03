@@ -464,6 +464,10 @@ add_task(async function test_calendar_settings() {
         get("whimsyMeetingAppleStatus").getAttribute("data-l10n-id") == "whimsy-meeting-connected",
         "Connected Apple state");
       is(get("whimsyMeetingStatus").getAttribute("data-l10n-id"), "whimsy-meeting-empty", "Connected calendars with no events have a clear empty state");
+      await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(get("whimsyMeetingAppleRemove")), "Disconnect is visible");
+      await new Promise(resolve =>
+        browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(resolve))
+      );
       get("whimsyMeetingAppleRemove").click();
       ok(!WhimsyNextMeeting.appleEnabled, "Disconnect disables Apple Calendar");
       const denied = makeAppleMock({ status: "denied" });
@@ -475,6 +479,10 @@ add_task(async function test_calendar_settings() {
         "Denied access explains how to recover");
       is(get("whimsyMeetingAppleConnect").getAttribute("data-l10n-id"),
         "whimsy-meeting-apple-open-settings", "Denied state offers System Settings");
+      await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(get("whimsyMeetingAppleRemove")), "Disconnect is visible");
+      await new Promise(resolve =>
+        browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(resolve))
+      );
       get("whimsyMeetingAppleRemove").click();
     }
     const form = get("whimsyMeetingGoogleForm");
