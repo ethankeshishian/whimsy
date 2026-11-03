@@ -132,6 +132,16 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
     }
   }
 
+  // The real network link service (and its "changed" notification, sent
+  // when a reconnect never looked like a clean down/up pair to the OS) only
+  // exists in the parent - content processes are sandboxed away from it.
+  // The parent actor watches it and messages this when it's actually back.
+  receiveMessage(message) {
+    if (message.name == "WhimsyNetError:BackOnline") {
+      this.document?.dispatchEvent(new this.contentWindow.Event("WhimsyGame:BackOnline"));
+    }
+  }
+
   startGame() {
     const doc = this.document;
     if (this.gameStarted) {
@@ -139,6 +149,7 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
       return;
     }
     this.gameStarted = true;
+    this.sendAsyncMessage("WhimsyNetError:WatchConnectivity");
     const win = this.contentWindow;
     const host = {
       autostart: true,

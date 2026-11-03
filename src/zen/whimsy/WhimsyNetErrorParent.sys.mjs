@@ -7,8 +7,24 @@
 // and this opens whimsy://game's real page (about:whimsy?game) in the
 // current tab, the same way WhimsyProtocol.go() does for the address bar.
 
+// B12: nsINetworkLinkService (and the "network:link-status-changed" topic
+// it fires) only exists in the parent process; a reconnect reported as a
+// bare "changed" - no clean down/up pair, e.g. the link itself never
+// looked down, only the IP lease changed on reassociation - never flips
+// nsIOService's own cached connectivity, so the window "online" event the
+// game listens for never fires downstream. isLinkUp is queried live here
+// instead of trusting that cached flag, and the result is pushed to content.
+const NETWORK_LINK_TOPIC = "network:link-status-changed";
+
 export class WhimsyNetErrorParent extends JSWindowActorParent {
   receiveMessage(message) {
+    if (message.name == "WhimsyNetError:WatchConnectivity") {
+      if (!this._linkObserver) {
+        this._linkObserver = () => this.onNetworkLink();
+        Services.obs.addObserver(this._linkObserver, NETWORK_LINK_TOPIC);
+      }
+      return;
+    }
     // The game, embedded in the offline error page, saves its high score,
     // look and sound choice through here (content can't write prefs).
     if (message.name == "WhimsyNetError:SetPref" && this.manager.documentURI.spec.startsWith("about:neterror?")) {
@@ -30,5 +46,29 @@ export class WhimsyNetErrorParent extends JSWindowActorParent {
     const browser = this.browsingContext.top.embedderElement;
     const win = browser?.documentGlobal;
     win?.openTrustedLinkIn("about:whimsy?game", "current");
+  }
+
+  onNetworkLink() {
+    let isUp;
+    try {
+      isUp = Cc["@mozilla.org/network/network-link-service;1"]
+        .getService(Ci.nsINetworkLinkService).isLinkUp;
+    } catch {
+      return;
+    }
+    if (isUp) {
+      try {
+        this.sendAsyncMessage("WhimsyNetError:BackOnline");
+      } catch {
+        // The content side may already be gone.
+      }
+    }
+  }
+
+  didDestroy() {
+    if (this._linkObserver) {
+      Services.obs.removeObserver(this._linkObserver, NETWORK_LINK_TOPIC);
+      this._linkObserver = null;
+    }
   }
 }

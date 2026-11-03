@@ -498,3 +498,45 @@ add_task(async function online_notice_when_really_back_online() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// B12: a real reconnect is commonly reported by the OS as a bare link
+// "changed" notification, not a clean down/up pair (the link itself never
+// looked down - only the IP lease or routing changed on reassociation).
+// That never flips nsIOService's own cached connectivity flag, so the
+// window "online" event the game used to rely on alone never fires, and
+// the back-online notice stays hidden forever even though the network
+// genuinely is back (bug: it keeps dashing, just never says so). This
+// drives the real nsIObserverService notification a network link service
+// would send - not the game's handler, and not the online/offline-only
+// testing shortcut (setConnectivityForTesting) the earlier fixes used.
+add_task(async function back_online_notice_on_changed_link_notification() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  Services.io.setConnectivityForTesting(false);
+  try {
+    await withWhimsyError("dnsNotFound", async browser => {
+      await prepare(browser);
+      ok(await SpecialPowers.spawn(browser, [], () => !content.navigator.onLine), "Offline at load (dnsNotFound)");
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      is((await gameState(browser, true)).state, "running", "dnsNotFound: the error page is the game");
+      await SpecialPowers.spawn(browser, [], () =>
+        ok(content.document.getElementById("whimsy-game-online-notice").hidden, "No notice yet while offline"));
+
+      Services.obs.notifyObservers(null, "network:link-status-changed", "changed");
+
+      // The "changed" data never touches nsIOService's own connectivity
+      // flag or fires "online" - confirm this scenario really doesn't
+      // depend on that event, then wait for the notice via the real
+      // network link service query instead.
+      await SpecialPowers.spawn(browser, [], () => !content.navigator.onLine);
+      await SpecialPowers.spawn(browser, [], () =>
+        ContentTaskUtils.waitForCondition(() => {
+          const notice = content.document.getElementById("whimsy-game-online-notice");
+          return notice && !notice.hidden && notice.checkVisibility();
+        }, "Back online (changed-only link notification), the notice shows"));
+    });
+  } finally {
+    Services.obs.notifyObservers(null, "network:link-status-changed", "up");
+    Services.io.setConnectivityForTesting(true);
+    await SpecialPowers.popPrefEnv();
+  }
+});
