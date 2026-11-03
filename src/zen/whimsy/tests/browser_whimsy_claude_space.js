@@ -9,6 +9,7 @@
 // a bar and Stop on tabs Claude is using; the feature switch and the AI
 // kill switch turn it off.
 
+const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
 const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 
@@ -26,6 +27,13 @@ const PAGE =
 const realConfirm = WhimsyClaude.confirmSite;
 let asked = [];
 let answer = "once";
+
+// Opening about:preferences lazily caches a default device name (from the
+// hostname) the first time anything touches FxA; not this file's pref, but
+// it leaks if nothing restores it.
+const DEVICE_NAME_PREF = "identity.fxaccounts.account.device.name";
+const deviceNameHadUserValue = Services.prefs.prefHasUserValue(DEVICE_NAME_PREF);
+const deviceNameValue = deviceNameHadUserValue ? Services.prefs.getStringPref(DEVICE_NAME_PREF) : null;
 
 function call(name, args = {}) {
   return WhimsyClaude.callTool(name, args);
@@ -81,6 +89,12 @@ add_setup(async function () {
     const spaceId = Services.prefs.getStringPref(SPACE, "");
     for (const pref of [ENABLED, WHOLE, ASK, FEATURE, AI_ENABLED, SPACE, PORT]) {
       Services.prefs.clearUserPref(pref);
+    }
+    await WhimsyAI.pending;
+    if (deviceNameHadUserValue) {
+      Services.prefs.setStringPref(DEVICE_NAME_PREF, deviceNameValue);
+    } else {
+      Services.prefs.clearUserPref(DEVICE_NAME_PREF);
     }
     WhimsyClaude.shutdown();
     if (spaceId && gZenWorkspaces.getWorkspaces().some(w => w.uuid == spaceId)) {
@@ -492,7 +506,9 @@ add_task(async function test_switches_turn_it_off() {
 
   Services.prefs.setBoolPref(AI_ENABLED, false);
   ok(!WhimsyClaude.running, "The AI kill switch stops it too");
+  await WhimsyAI.pending;
   Services.prefs.clearUserPref(AI_ENABLED);
+  await WhimsyAI.pending;
   Services.prefs.clearUserPref(ENABLED);
   ok(!WhimsyClaude.running, "Turning it off in Settings stops it");
 });
