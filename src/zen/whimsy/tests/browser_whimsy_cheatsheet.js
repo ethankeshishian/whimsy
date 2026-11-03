@@ -226,8 +226,16 @@ async function inWindow(width, height, fn) {
   const win = await BrowserTestUtils.openNewBrowserWindow();
   try {
     win.resizeTo(width, height);
-    await TestUtils.waitForCondition(() => Math.abs(win.outerWidth - width) < 40 && Math.abs(win.outerHeight - height) < 40,
-      `The window is ${width}×${height}`).catch(() => {});
+    // Zen's browser windows are at least 500×495 (zen-theme.css). A real
+    // screen also caps the size (headless doesn't).
+    const minW = Math.max(width, 500);
+    const minH = Math.max(height, 495);
+    const near = (a, b) => Math.abs(a - b) < 40;
+    await TestUtils.waitForCondition(() =>
+      (near(win.outerWidth, minW) || near(win.outerWidth, Math.min(minW, win.screen.availWidth))) &&
+      (near(win.outerHeight, minH) || near(win.outerHeight, Math.min(minH, win.screen.availHeight))),
+      `The window is ${minW}×${minH} (or the screen's size)`)
+      .catch(e => { throw new Error(`${e} (it is ${win.outerWidth}×${win.outerHeight}, screen ${win.screen.availWidth}×${win.screen.availHeight})`); });
     await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
     await fn(win);
   } finally {
@@ -258,7 +266,7 @@ const shownRowsIn = panel => [...panel.querySelectorAll(".whimsy-cheatsheet-row"
 const shownGroupsIn = panel => [...panel.querySelectorAll(".whimsy-cheatsheet-group")].filter(g => !g.hidden);
 
 add_task(async function test_rail_height_and_centre() {
-  await inWindow(1280, 900, async win => {
+  await inWindow(1280, 740, async win => {
     const catalogue = await WhimsyCheatSheet.catalogue(win);
     const panel = await openIn(win);
     try {
@@ -360,13 +368,15 @@ add_task(async function test_rail_height_and_centre() {
       const x = start.left + 60;
       const y = start.top + start.height / 2;
       EventUtils.synthesizeMouseAtPoint(x, y, { type: "mousedown" }, win);
-      EventUtils.synthesizeMouseAtPoint(x + 40, y + 20, { type: "mousemove" }, win);
-      EventUtils.synthesizeMouseAtPoint(x + 120, y + 60, { type: "mousemove" }, win);
-      EventUtils.synthesizeMouseAtPoint(x + 120, y + 60, { type: "mouseup" }, win);
+      // 20px down: the sheet fills 88% of the page, so a bigger drag on a
+      // short screen would be clamped at the screen's bottom edge.
+      EventUtils.synthesizeMouseAtPoint(x + 40, y + 10, { type: "mousemove" }, win);
+      EventUtils.synthesizeMouseAtPoint(x + 120, y + 20, { type: "mousemove" }, win);
+      EventUtils.synthesizeMouseAtPoint(x + 120, y + 20, { type: "mouseup" }, win);
       await TestUtils.waitForCondition(() => panel.getOuterScreenRect().left != before.left, "The sheet moves");
       const after = panel.getOuterScreenRect();
       Assert.less(Math.abs(after.left - before.left - 120), 2, "...by the drag across");
-      Assert.less(Math.abs(after.top - before.top - 60), 2, "...and down");
+      Assert.less(Math.abs(after.top - before.top - 20), 2, "...and down");
       ok(!panel.hasAttribute("dragging"), "...and lets go");
       is(panel.state, "open", "Dragging doesn't close it");
     } finally {
@@ -391,9 +401,33 @@ add_task(async function test_narrow_window() {
   });
 });
 
+// A popup window a page opened (window.open with "popup"): Zen's 495px
+// minimum doesn't apply to those, so it can be short.
+async function inPopupWindow(width, height, fn) {
+  const startTabs = new Set(gBrowser.tabs);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const opened = BrowserTestUtils.waitForNewWindow();
+  await SpecialPowers.spawn(tab.linkedBrowser, [width, height], (w, h) => {
+    content.window.open("https://example.com/", "_blank", `popup,width=${w},height=${h}`);
+  });
+  const win = await opened;
+  try {
+    ok(win.document.documentElement.hasAttribute("popup-window"), "A popup window");
+    win.resizeTo(width, height);
+    await TestUtils.waitForCondition(() => Math.abs(win.outerHeight - height) < 40, `The window is ${width}×${height}`);
+    await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+    await fn(win);
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+    for (const t of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+      BrowserTestUtils.removeTab(t);
+    }
+  }
+}
+
 // Under 360px of page height: no rail, one list with every menu headed.
 add_task(async function test_short_window_is_one_list() {
-  await inWindow(1000, 380, async win => {
+  await inPopupWindow(1000, 380, async win => {
     const height = WhimsySurface.pageArea(win).getBoundingClientRect().height;
     Assert.less(height, 360, `The page area is short (${height}px)`);
     const panel = await openIn(win);

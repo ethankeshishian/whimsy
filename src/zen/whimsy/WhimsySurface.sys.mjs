@@ -396,6 +396,25 @@ export const WhimsySurface = {
     panel.openPopup(area, { position: "overlap", x: px, y: py, triggerEvent });
   },
 
+  /**
+   * Opens a panel over `anchor`, its top-left corner at (x, y) inside it.
+   * Zen turns on widget.macos.native-popovers (and its patch makes every
+   * panel an NSPopover), and an NSPopover can only hang off one edge of its
+   * anchor, centred: it ignores "overlap" and the offsets, so a sheet meant
+   * to sit inside the page landed centred under it on its first show
+   * (W13 F03's cheat sheet, 183px off). Panels placed by coordinates are
+   * nonnative, as Firefox's own openPopupAtScreen/AtScreenRect make them.
+   * Only the cheat sheet uses it so far: the other overlap placements
+   * above (page-top-center/-end, anchor+overlap, WhimsyPanels) have the
+   * same first-show problem, but making them nonnative broke six test
+   * files (hover cards, volume panel, emoji picker, scratch, toasts'
+   * Reduce Motion); that goes with B4 (where surfaces open).
+   */
+  openOver(panel, anchor, { x = 0, y = 0, triggerEvent = null } = {}) {
+    panel.setAttribute("nonnative", "true");
+    panel.openPopup(anchor, { position: "overlap", x, y, triggerEvent });
+  },
+
   close(panel) {
     if (panel && (panel.state == "open" || panel.state == "showing")) {
       panel.hidePopup();

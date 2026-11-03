@@ -116,6 +116,10 @@ add_task(async function test_delete_undo_and_menu() {
   lib.activeTab = "whimsy-files";
   await lib.constructor.animateProgress(1);
   registerCleanupFunction(() => lib.constructor.animateProgress(wasOpen ? 1 : 0));
+  // animateProgress resolves as the spring starts; clicks wait for it to
+  // settle, as a person's would.
+  await TestUtils.waitForCondition(() => lib.openProgress == 1 && !lib.hasAttribute("transitioning"),
+    "The Library has finished sliding in");
   const section = await TestUtils.waitForCondition(() => lib.querySelector("whimsy-library-files-section"));
   const findRow = () =>
     [...section.querySelectorAll(".whimsy-library-shot-cell")].find(r => r.textContent.includes("whimsy-capture-undo-test"));
@@ -184,6 +188,10 @@ add_task(async function test_thumbnail_grid_and_size() {
   lib.activeTab = "whimsy-files";
   await lib.constructor.animateProgress(1);
   registerCleanupFunction(() => lib.constructor.animateProgress(wasOpen ? 1 : 0));
+  // animateProgress resolves as the spring starts; clicks wait for it to
+  // settle, as a person's would.
+  await TestUtils.waitForCondition(() => lib.openProgress == 1 && !lib.hasAttribute("transitioning"),
+    "The Library has finished sliding in");
   const section = await TestUtils.waitForCondition(() => lib.querySelector("whimsy-library-files-section"));
   const cell = await TestUtils.waitForCondition(() =>
     [...section.querySelectorAll(".whimsy-library-shot-cell")].find(c => c.textContent.includes("whimsy-capture-grid-test")),

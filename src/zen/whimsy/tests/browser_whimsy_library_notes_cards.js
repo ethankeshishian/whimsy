@@ -59,6 +59,10 @@ async function openNotes() {
   document.getElementById("cmd_whimsyOpenNotes").doCommand();
   await TestUtils.waitForCondition(() => library()?.constructor.isLibraryOpen && library().activeTab == "whimsy-notes",
     "The Library is open on Notes");
+  // It slides in on a spring; a click before it settles lands beside the
+  // button it aimed at.
+  await TestUtils.waitForCondition(() => library().openProgress == 1 && !library().hasAttribute("transitioning"),
+    "...and has finished sliding in");
   const el = await TestUtils.waitForCondition(section, "The Notes section");
   await el.updateComplete;
   await frames();
