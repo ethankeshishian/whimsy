@@ -94,6 +94,9 @@ add_task(async function test_blocked_menu_offers_allow_copy() {
   await BrowserTestUtils.browserLoaded(browser);
   await BrowserTestUtils.synthesizeMouseAtCenter("#p", { type: "contextmenu", button: 2 }, browser);
   await TestUtils.waitForCondition(() => document.getElementById("whimsy-allow-copy-offer-action"), "Offered again after a reload");
+  // Measured once it has arrived (it springs in from scale 0): clicking
+  // mid-animation lands on a zero-size node.
+  await currentToast().shown;
   document.getElementById("whimsy-allow-copy-offer-action").click();
   await TestUtils.waitForCondition(() => WhimsyPage.copyAllowed(browser), "The button allows copy and paste on the site");
 
