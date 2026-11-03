@@ -4658,6 +4658,7 @@ whimsy-hidden-space-detail-profile = { $count ->
    *[other] { $count } tabs
 } · { $profile }
 whimsy-hidden-space-locked = Locked
+whimsy-hidden-space-unhide = Unhide
 whimsy-hidden-spaces-none = No hidden spaces
 whimsy-hidden-spaces-none-hint = Hide a space to take it out of the switcher without losing its tabs.
 # $space (string) - the current space's name

@@ -6984,7 +6984,10 @@ panel.whimsy-quick-note {
 }
 
 /* W11-15: the Hidden Spaces panel's rows: the space's tile, its name over
-   "N tabs · Profile", and a Locked pill at the end. */
+   "N tabs · Profile", and a Locked pill at the end — or, for an unlocked
+   row, an always-visible Unhide pill in the same trailing slot (W14-B5,
+   Wave 13 design Option B): it only labels what the row's click/Enter/
+   Space already does, so it's aria-hidden and never a tab stop. */
 .whimsy-hidden-space {
   grid-template-columns: 28px 1fr auto;
   gap: 10px;
@@ -7005,6 +7008,17 @@ panel.whimsy-quick-note {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.whimsy-hidden-space-unhide {
+  gap: 4px;
+  color: var(--zen-primary-color, AccentColor);
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 14%, transparent);
+}
+.whimsy-hidden-space-unhide-icon {
+  width: 12px;
+  height: 12px;
+  -moz-context-properties: fill;
+  fill: currentColor;
 }
 .whimsy-hidden-spaces-search {
   margin-bottom: 6px;

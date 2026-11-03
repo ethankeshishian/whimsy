@@ -11,7 +11,11 @@
 //   icon, the name, "{count} tabs · {profile}" (the profile only when the
 //   device has more than one) and a Locked pill for a locked space.
 // - A row click or Return shows the space again and switches to it (the
-//   user's pick, d15). A locked space asks to unlock first, through
+//   user's pick, d15); the panel stays open (W14-B5) — the row leaves the
+//   list and focus moves to its neighbour, or the empty state takes over
+//   once the last one is gone. An always-visible Unhide pill marks that
+//   this is what the row does; a locked row shows its Locked pill instead.
+//   A locked space asks to unlock first, through
 //   WhimsySpaceLock.ensureUnlocked; if that's cancelled the
 //   space stays hidden. The toast says it's back in the switcher, with Undo.
 // - Keys: Up/Down/Home/End move (WhimsySurface's listbox keys), typing
@@ -129,7 +133,7 @@ export const WhimsyHiddenSpaces = {
           if (first) {
             event.preventDefault();
             if (event.key == "Enter") {
-              this.show(win, first.dataset.uuid);
+              this.unhideRow(win, parts, first);
             } else {
               this.focusOption(parts, first);
             }
@@ -144,21 +148,43 @@ export const WhimsyHiddenSpaces = {
     } else {
       parts.view.append(this.buildEmpty(win, parts));
     }
-    if (spaces.length && this.canHideCurrent(win)) {
-      const active = this.activeSpace(win);
-      parts.footer.append(S.footerButton(doc, {
-        id: "whimsy-hidden-spaces-hide-current",
-        l10nId: "whimsy-hidden-spaces-hide-current",
-        l10nArgs: { space: active.name || "" },
-        onCommand: () => {
-          S.close(parts.panel);
-          lazy.WhimsySpaceArchive.toggleHidden(win, active.uuid);
-        },
-      }));
-      S.finish(parts);
+    if (spaces.length) {
+      this.refreshFooter(win, parts);
     }
     S.open(win, parts.panel, { at: at ?? "beside-sidebar" });
     return parts;
+  },
+
+  /**
+   * (Re)builds the footer's "Hide current space" button for the non-empty
+   * list: at open() and again from unhideRow() once the active space has
+   * changed. No button — and no footer bar at all — when hiding isn't
+   * possible right now.
+   */
+  refreshFooter(win, parts) {
+    const S = lazy.WhimsySurface;
+    if (!parts.footer) {
+      return;
+    }
+    parts.footer.replaceChildren();
+    if (!this.canHideCurrent(win)) {
+      if (parts.footer.isConnected) {
+        parts.footer.remove();
+      }
+      return;
+    }
+    const doc = win.document;
+    const active = this.activeSpace(win);
+    parts.footer.append(S.footerButton(doc, {
+      id: "whimsy-hidden-spaces-hide-current",
+      l10nId: "whimsy-hidden-spaces-hide-current",
+      l10nArgs: { space: active.name || "" },
+      onCommand: () => {
+        S.close(parts.panel);
+        lazy.WhimsySpaceArchive.toggleHidden(win, active.uuid);
+      },
+    }));
+    S.finish(parts);
   },
 
   buildList(win, parts, spaces) {
@@ -205,12 +231,14 @@ export const WhimsyHiddenSpaces = {
       if (space.whimsyLocked) {
         row.append(S.pill(doc, { l10nId: "whimsy-hidden-space-locked" }));
         row.toggleAttribute("locked", true);
+      } else {
+        row.append(this.unhidePill(doc));
       }
-      row.addEventListener("click", () => this.show(win, space.uuid));
+      row.addEventListener("click", () => this.unhideRow(win, parts, row));
       row.addEventListener("keydown", event => {
         if (event.key == "Enter" || event.key == " ") {
           event.preventDefault();
-          this.show(win, space.uuid);
+          this.unhideRow(win, parts, row);
         } else if (filterKey(event)) {
           // Typing on a row goes to the filter, when there is one.
           const input = parts.view.querySelector(".whimsy-hidden-spaces-filter");
@@ -227,6 +255,52 @@ export const WhimsyHiddenSpaces = {
       list.append(row);
     });
     return list;
+  },
+
+  /** The always-visible "Unhide" pill (Wave 13 design, Option B): the same
+   * trailing slot as the Locked pill, aria-hidden and not a tab stop — the
+   * row's click/Enter/Space is the only trigger, unchanged. */
+  unhidePill(doc) {
+    const pill = doc.createElementNS(HTML_NS, "span");
+    pill.className = "whimsy-surface-pill whimsy-hidden-space-unhide";
+    pill.setAttribute("aria-hidden", "true");
+    const icon = doc.createXULElement("image");
+    icon.className = "whimsy-hidden-space-unhide-icon";
+    icon.setAttribute("src", "chrome://browser/skin/zen-icons/selectable/eye.svg");
+    const label = doc.createElementNS(HTML_NS, "span");
+    doc.l10n.setAttributes(label, "whimsy-hidden-space-unhide");
+    pill.append(icon, label);
+    return pill;
+  },
+
+  /**
+   * Row click/Return: unhides (and switches to) the space, then updates
+   * the open panel instead of closing it (W14-B5) — the row leaves the
+   * list, focus moves to its neighbour (the previous one if it was last),
+   * and the empty state takes over once the last hidden space is gone.
+   * An unlock that's cancelled (show() returning false) leaves the row
+   * and the panel exactly as they were.
+   */
+  async unhideRow(win, parts, row) {
+    const ok = await this.show(win, row.dataset.uuid);
+    if (!ok || !row.isConnected) {
+      return;
+    }
+    const list = row.closest(".whimsy-hidden-spaces-list");
+    const rows = [...list.querySelectorAll(".whimsy-hidden-space")];
+    const index = rows.indexOf(row);
+    row.remove();
+    const remaining = rows.filter(option => option != row);
+    if (!remaining.length) {
+      parts.view.querySelector(".whimsy-hidden-spaces-search")?.remove();
+      list.replaceWith(this.buildEmpty(win, parts));
+      if (parts.footer?.isConnected) {
+        parts.footer.remove();
+      }
+      return;
+    }
+    this.focusOption(parts, remaining[Math.min(index, remaining.length - 1)]);
+    this.refreshFooter(win, parts);
   },
 
   buildEmpty(win, parts) {
@@ -290,7 +364,9 @@ export const WhimsyHiddenSpaces = {
     if (!space?.whimsyHidden) {
       return false;
     }
-    lazy.WhimsySurface.close(win.document.getElementById(PANEL_ID));
+    // W14-B5: the panel stays open — unhideRow() (the caller) updates the
+    // row/list once this resolves. Only the ✕, Esc and the footer buttons
+    // still close it.
     const before = gZenWorkspaces.activeWorkspace;
     if (!(await lazy.WhimsySpaceLock.ensureUnlocked(win, space))) {
       return false; // The unlock was cancelled.

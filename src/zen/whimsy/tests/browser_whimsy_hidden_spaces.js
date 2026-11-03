@@ -94,6 +94,8 @@ add_task(async function test_rows_show_and_switch() {
   await TestUtils.waitForCondition(() => /\d+ tabs?/.test(rows[0].querySelector(".whimsy-hidden-space-detail").textContent),
     "Its tab count");
   is(document.activeElement, rows[0], "The first row has focus");
+  ok(rows[0].querySelector(".whimsy-hidden-space-unhide"), "An always-visible Unhide pill on an unlocked row");
+  is(rows[0].querySelector(".whimsy-hidden-space-unhide").getAttribute("aria-hidden"), "true", "...aria-hidden");
 
   // Arrow keys move between rows.
   EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
@@ -103,28 +105,31 @@ add_task(async function test_rows_show_and_switch() {
   EventUtils.synthesizeKey("KEY_End", {}, window);
   is(document.activeElement, rows[1], "End goes to the last");
 
-  // Return shows it again and switches there.
-  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  // Return shows it again and switches there — the panel stays open (W14-B5).
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
-  await hidden;
   await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == garden.uuid, "Switched to the space");
   // It's shown once the switch has finished (Zen sets the active space first).
   await TestUtils.waitForCondition(() => !space(garden.uuid).whimsyHidden, "...and it's back in the switcher");
   ok(space(taxes.uuid).whimsyHidden, "The other one stays hidden");
+  is(panel.state, "open", "The panel stays open");
+  ok(!panel.querySelector(`.whimsy-hidden-space[data-uuid="${garden.uuid}"]`), "...its row leaves the list");
+  is(document.activeElement, rows[0], "Focus lands on the remaining row (garden's row was last)");
 
   // Undo hides it again and goes back.
   ok(WhimsyUndo().undo(window), "Undo is offered");
   await TestUtils.waitForCondition(() => space(garden.uuid).whimsyHidden, "Undo hides it again");
   await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == firstSpace.uuid, "...and returns to where you were");
+  await closePanel(panel);
 
-  // A click does the same.
+  // A click does the same, and also leaves the panel open.
   const panel2 = await openPanel();
   const row = panel2.querySelector(`.whimsy-hidden-space[data-uuid="${taxes.uuid}"]`);
-  const hidden2 = BrowserTestUtils.waitForEvent(panel2, "popuphidden");
   EventUtils.synthesizeMouseAtCenter(row, {}, window);
-  await hidden2;
   await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == taxes.uuid, "A click switches too");
   await TestUtils.waitForCondition(() => !space(taxes.uuid).whimsyHidden, "...and unhides it");
+  is(panel2.state, "open", "...without closing the panel");
+  ok(!panel2.querySelector(`.whimsy-hidden-space[data-uuid="${taxes.uuid}"]`), "...and removes its row");
+  await closePanel(panel2);
   await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
   WhimsySpaceArchive.restore(window, garden.uuid);
   toastCleanup();
@@ -165,23 +170,26 @@ add_task(async function test_locked_space_unlocks_first() {
     let row = panel.querySelector(`.whimsy-hidden-space[data-uuid="${vault.uuid}"]`);
     ok(row.hasAttribute("locked"), "A locked space is marked");
     ok(row.querySelector(".whimsy-surface-pill"), "...with a Locked pill");
-    let hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    ok(!row.querySelector(".whimsy-hidden-space-unhide"), "...and no Unhide pill");
     row.click();
-    await hidden;
     await TestUtils.waitForCondition(() => asked == 1, "Asked to unlock");
     await new Promise(resolve => setTimeout(resolve, 100));
     is(gZenWorkspaces.activeWorkspace, firstSpace.uuid, "Cancelled: no switch");
     ok(space(vault.uuid).whimsyHidden, "...and it stays hidden");
+    is(panel.state, "open", "Cancelled: the panel stays open");
+    ok(panel.querySelector(`.whimsy-hidden-space[data-uuid="${vault.uuid}"]`), "...and its row stays too");
+    await closePanel(panel);
 
     answer = true;
     panel = await openPanel();
     row = panel.querySelector(`.whimsy-hidden-space[data-uuid="${vault.uuid}"]`);
-    hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
     row.click();
-    await hidden;
     await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == vault.uuid, "Unlocked: switched");
     await TestUtils.waitForCondition(() => !space(vault.uuid).whimsyHidden, "...and shown again");
     is(asked, 2, "Asked once more, not twice");
+    is(panel.state, "open", "Unlocked: the panel stays open too");
+    ok(panel.querySelector(".whimsy-hidden-spaces-empty"), "Vault was the last hidden space: the empty state shows");
+    await closePanel(panel);
   } finally {
     WhimsySpaceLock.authenticate = original;
     await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
@@ -225,6 +233,26 @@ add_task(async function test_filter_from_six() {
       await gZenWorkspaces.removeWorkspace(s.uuid);
     }
   }
+});
+
+add_task(async function test_close_button_and_escape() {
+  await hide(taxes.uuid);
+  let panel = await openPanel();
+  const closeButton = panel.querySelector(".whimsy-surface-close");
+  ok(closeButton, "A visible close button in the header");
+  let hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  closeButton.doCommand();
+  await hidden;
+  is(panel.state, "closed", "...and it closes the panel");
+
+  panel = await openPanel();
+  hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  EventUtils.synthesizeKey("KEY_Escape", {}, window);
+  await hidden;
+  is(panel.state, "closed", "Esc closes the panel too");
+
+  WhimsySpaceArchive.restore(window, taxes.uuid);
+  toastCleanup();
 });
 
 function WhimsyUndo() {
