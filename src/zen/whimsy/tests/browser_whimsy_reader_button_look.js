@@ -59,9 +59,9 @@ add_task(async function test_on_and_off_look_different() {
   const before = button().getBoundingClientRect().width;
 
   // And out again with a real click.
-  const left = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, ARTICLE);
   await clickButton();
-  await left;
+  // Leaving goes back in history, which may restore from the bfcache with no load event.
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == ARTICLE, "Back on the article");
   await TestUtils.waitForCondition(() => !button().hasAttribute("readeractive"), "Reader View is off");
   EventUtils.synthesizeMouseAtCenter(document.getElementById("urlbar-input"), { type: "mousemove" });
   await TestUtils.waitForCondition(() => getComputedStyle(icon()).listStyleImage == offImage, "Off: the outline glyph again");
