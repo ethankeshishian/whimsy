@@ -180,7 +180,12 @@ add_task(async function close_button_and_escape() {
   await document.l10n.translateFragment(toast.element);
   is(close.getAttribute("aria-label"), "Dismiss", "named Dismiss");
   is(getComputedStyle(close).opacity, "0", "hidden until you point at the toast");
+  // Point at it, as someone reaching for the button does.
+  EventUtils.synthesizeMouseAtCenter(toast.element, { type: "mousemove" });
+  await TestUtils.waitForCondition(() => getComputedStyle(close).opacity == "1", "Pointing shows the close button");
   close.click();
+  // Point away again: a toast under the pointer holds its timer.
+  EventUtils.synthesizeMouse(document.documentElement, 1, 1, { type: "mousemove" });
   ok(toast.closing || toast.closed, "The close button dismisses it");
   await toast.close();
   Assert.deepEqual(reasons, ["dismissed"], "as dismissed");

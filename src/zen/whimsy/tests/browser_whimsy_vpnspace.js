@@ -99,8 +99,9 @@ add_task(async function popover_toggles_multiple_spaces() {
   const view = document.createElementNS(root.namespaceURI, "div");
   view.id = "PanelUI-ipprotection";
   root.append(view);
-  // Connected, hidden: a radio outside the document never fires change.
-  root.hidden = true;
+  // Connected (a radio outside the document never fires change), and
+  // rendered off screen so its radios are clicked as shown controls.
+  root.style.cssText = "position: fixed; top: 0; left: -10000px;";
   document.documentElement.append(root);
   const spaces = [
     { name: "Work", containerTabId: 4 },
@@ -121,6 +122,9 @@ add_task(async function popover_toggles_multiple_spaces() {
   };
   try {
     WhimsyVPNScope.extendPanel(win, view);
+    // Named and laid out, as in the real panel, before anything is clicked.
+    await document.l10n.translateFragment(root);
+    root.getBoundingClientRect();
     const space = view.querySelector('[value="space"]');
     const all = view.querySelector('[value="browser"]');
     const covered = view.querySelector(".whimsy-vpn-covered");

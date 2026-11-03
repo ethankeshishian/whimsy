@@ -87,6 +87,16 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   "whimsy.stats.zapped",
   "screenshots.browser.component.last-screenshot-method",
   "screenshots.browser.component.last-saved-method",
+  // Firefox's VPN panel records its own first open and dismisses its
+  // location badge whenever any file opens it.
+  "browser.ipProtection.everOpenedPanel",
+  "browser.ipProtection.locationButtonBadgeDismissed",
+  "browser.ipProtection.added",
+  // ETP's own record that its exceptions settings were touched.
+  "privacy.trackingprotection.allow_list.hasUserInteractedWithETPSettings",
+  // Zen's last active space, written by every window that opens or switches
+  // space; each window keeps its own active space in memory.
+  "zen.workspaces.active",
 ];
 
 function whimsyReadPref(name, type) {
