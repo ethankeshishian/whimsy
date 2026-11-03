@@ -17,6 +17,7 @@ const ENABLED = "whimsy.claude.enabled";
 const WHOLE = "whimsy.claude.whole-browser";
 const ASK = "whimsy.claude.ask-per-site";
 const SPACE = "whimsy.claude.space-id";
+const PORT = "whimsy.claude.port";
 // W10-28: Enable AI (Settings → AI).
 const AI_ENABLED = "whimsy.ai.enabled";
 const PAGE =
@@ -78,7 +79,7 @@ add_setup(async function () {
     WhimsyClaude.confirmSite = realConfirm;
     WhimsyClaude.forgetSitePermissions();
     const spaceId = Services.prefs.getStringPref(SPACE, "");
-    for (const pref of [ENABLED, WHOLE, ASK, FEATURE, AI_ENABLED, SPACE]) {
+    for (const pref of [ENABLED, WHOLE, ASK, FEATURE, AI_ENABLED, SPACE, PORT]) {
       Services.prefs.clearUserPref(pref);
     }
     WhimsyClaude.shutdown();
@@ -470,7 +471,7 @@ add_task(async function test_indicator_and_stop() {
   const bar = await TestUtils.waitForCondition(() => box.getNotificationWithValue("whimsy-claude-control"), "and gets the bar");
   const stop = bar._buttons?.[0];
   ok(stop, "with a Stop button");
-  stop.click();
+  stop.doCommand();
   ok(!Services.prefs.getBoolPref(ENABLED), "Stop turns Claude off");
   ok(!WhimsyClaude.running, "and stops the server");
   ok(!tab.hasAttribute("whimsy-claude-active"), "The glow goes");
