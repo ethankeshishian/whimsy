@@ -402,6 +402,8 @@ add_task(async function test_close_warning_button_closes() {
     await TestUtils.waitForCondition(() => typed(tab), "Typed");
     EventUtils.synthesizeKey("w", { accelKey: true }, window);
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-close-warning"), "Warns");
+    await toast.shown;
+    await document.l10n.translateFragment(toast.element);
     toast.element.querySelector(".whimsy-toast-button").click();
     await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "The Close button closes it");
   } finally {

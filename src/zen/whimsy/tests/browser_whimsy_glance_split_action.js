@@ -47,6 +47,8 @@ add_task(async function test_availability_follows_whether_a_glance_is_open() {
 });
 
 add_task(async function test_action_splits_the_glance() {
+  // A parent of its own, so the split never depends on what an earlier file left selected.
+  const parent = await addTab("https://example.com/");
   await openGlanceOnTab(
     window,
     async glanceTab => {
@@ -57,6 +59,7 @@ add_task(async function test_action_splits_the_glance() {
     },
     false
   );
+  BrowserTestUtils.removeTab(parent);
 });
 
 add_task(async function test_already_split_parent_grows_to_three_panes() {
