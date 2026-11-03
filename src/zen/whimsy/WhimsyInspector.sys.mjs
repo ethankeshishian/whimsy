@@ -795,11 +795,17 @@ export const WhimsyInspector = {
     return panel;
   },
 
-  // The box model, margin to content, each side's value in place.
+  // The box model, margin to content, each side's value in place. Each
+  // layer's band is thicker for a bigger side (clamped, so a huge margin
+  // never swamps the card): the diagram actually shows the element's shape,
+  // and two elements with different margin/border/padding get a visibly
+  // different height, not just different numbers in the same fixed bands.
   _boxModel(doc, bm) {
+    const band = sides => Math.round(8 + Math.min(16, Math.max(sides.top, sides.bottom)) / 2);
     const box = (cls, labelL10nId, sides, inner) => {
       const el = doc.createElementNS(HTML_NS, "div");
       el.className = cls;
+      el.style.paddingBlock = `${band(sides)}px`;
       if (labelL10nId) {
         const label = doc.createElementNS(HTML_NS, "span");
         label.className = "whimsy-box-label";

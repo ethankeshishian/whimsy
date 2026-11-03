@@ -109,17 +109,17 @@
   text-align: center;
 }
 .whimsy-box-margin {
-  padding: 18px 22px;
+  padding-inline: 22px;
   border-radius: 6px;
   background: color-mix(in srgb, #f2a65a 22%, transparent);
 }
 .whimsy-box-border {
-  padding: 16px 20px;
+  padding-inline: 20px;
   border-radius: 4px;
   background: color-mix(in srgb, #ffd36b 25%, transparent);
 }
 .whimsy-box-padding {
-  padding: 14px 18px;
+  padding-inline: 18px;
   border-radius: 3px;
   background: color-mix(in srgb, #7cc47f 25%, transparent);
 }

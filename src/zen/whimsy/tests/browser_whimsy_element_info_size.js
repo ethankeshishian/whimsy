@@ -45,7 +45,9 @@ add_task(async function test_hugs_content_at_fixed_width() {
   const panel = await inspect(window, "#card");
   const card = panel.querySelector(".whimsy-surface-view");
   const body = panel.querySelector(".whimsy-element-body");
-  Assert.less(Math.abs(card.getBoundingClientRect().width - (360 - 2 * 10)), 1.5, "360px wide");
+  // 360px minus the panel's 10px padding and 1px border on each side
+  // (popup.css's ::part(content), box-sizing: border-box).
+  Assert.less(Math.abs(card.getBoundingClientRect().width - (360 - 2 * 10 - 2 * 1)), 1.5, "360px wide");
   ok(body.scrollHeight <= body.clientHeight + 1, "Everything fits: no scrollbar");
   is(getComputedStyle(body).overflowY, "auto", "The body would scroll, if it had to");
   const header = panel.querySelector(".whimsy-surface-header");
@@ -76,22 +78,37 @@ add_task(async function test_hugs_content_at_fixed_width() {
 });
 
 add_task(async function test_short_window_scrolls_only_the_body() {
-  const win = await BrowserTestUtils.openNewBrowserWindow();
-  win.resizeTo(900, 360);
-  await TestUtils.waitForCondition(() => win.outerHeight <= 380, "A short window");
-  const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, PAGE);
-  const panel = await inspect(win, "#card");
-  const header = panel.querySelector(".whimsy-surface-header");
-  const body = panel.querySelector(".whimsy-element-body");
-  Assert.greater(body.scrollHeight, body.clientHeight, "Too tall for the window: the body scrolls");
-  const top = header.getBoundingClientRect().top;
-  body.scrollTop = body.scrollHeight;
-  await TestUtils.waitForTick();
-  is(header.getBoundingClientRect().top, top, "The header stays put");
-  ok(header.checkVisibility(), "…and in view");
-  await close(panel);
-  BrowserTestUtils.removeTab(tab);
-  await BrowserTestUtils.closeWindow(win);
+  // Zen's browser windows have a 495px minimum height (zen-theme.css), so a
+  // short window only exists as a popup a page opened (window.open with
+  // "popup"), which that minimum doesn't apply to (W13 F03's cheat sheet
+  // test uses the same trick).
+  const startTabs = new Set(gBrowser.tabs);
+  const opener = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const opened = BrowserTestUtils.waitForNewWindow({ url: PAGE });
+  await SpecialPowers.spawn(opener.linkedBrowser, [PAGE], url => {
+    content.window.open(url, "_blank", "popup,width=900,height=360");
+  });
+  const win = await opened;
+  try {
+    ok(win.document.documentElement.hasAttribute("popup-window"), "A popup window");
+    win.resizeTo(900, 360);
+    await TestUtils.waitForCondition(() => Math.abs(win.outerHeight - 360) < 40, "A short window");
+    const panel = await inspect(win, "#card");
+    const header = panel.querySelector(".whimsy-surface-header");
+    const body = panel.querySelector(".whimsy-element-body");
+    Assert.greater(body.scrollHeight, body.clientHeight, "Too tall for the window: the body scrolls");
+    const top = header.getBoundingClientRect().top;
+    body.scrollTop = body.scrollHeight;
+    await TestUtils.waitForTick();
+    is(header.getBoundingClientRect().top, top, "The header stays put");
+    ok(header.checkVisibility(), "…and in view");
+    await close(panel);
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+    for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
 });
 
 add_task(function test_command() {

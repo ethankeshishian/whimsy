@@ -473,8 +473,9 @@ export const WhimsySurface = {
    * @param {boolean} [options.grip] - default true
    */
   makeDraggable(panel, handle, { key = panel.id, remember = true, grip = true } = {}) {
-    const win = panel.ownerGlobal;
     const doc = panel.ownerDocument;
+    // ownerGlobal isn't defined on elements seen from a module.
+    const win = doc.defaultView;
     const state = { key, remember, home: null };
     panel._whimsyDrag = state;
     handle.classList.add("whimsy-surface-drag-handle");
