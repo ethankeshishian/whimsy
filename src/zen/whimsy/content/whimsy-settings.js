@@ -1467,8 +1467,13 @@ Object.assign(gWhimsySettings, {
         status = "unavailable";
       } finally {
         // W13-B11: below macOS 26 there's nothing Set Up could do (no
-        // helper is ever built), so the button stays disabled.
-        appleButton.disabled = status == "apple-unavailable-os";
+        // helper is ever built), so the button stays disabled. Also stays
+        // disabled while AI is off, even if this check started before the
+        // toggle disabled it (applyAIEnabled found it already disabled and
+        // so never marked it; this would otherwise re-enable it on its own).
+        if (this.aiModule.enabled && !this.aiModule.lockedOff) {
+          appleButton.disabled = status == "apple-unavailable-os";
+        }
       }
       // W10-07: the status names the real reason; the line under it gives
       // the compiler's own words, or the folders searched when the status
@@ -1515,7 +1520,7 @@ Object.assign(gWhimsySettings, {
       const saved = await WhimsyAIProviders.hasClaudeKey();
       setStatus("whimsyAIClaudeStatus", saved ? "whimsy-ai-claude-key-saved" : "whimsy-ai-claude-key-missing", undefined, saved);
       const remove = document.getElementById("whimsyAIClaudeRemove");
-      if (!remove.hasAttribute("data-whimsy-ai-disabled")) {
+      if (this.aiModule.enabled && !this.aiModule.lockedOff) {
         remove.disabled = !saved;
       }
     };
@@ -1566,7 +1571,7 @@ Object.assign(gWhimsySettings, {
       for (const name of new Set([...models, ...(current ? [current] : [])])) {
         modelList.appendItem(name, name);
       }
-      if (!modelList.hasAttribute("data-whimsy-ai-disabled")) {
+      if (this.aiModule.enabled && !this.aiModule.lockedOff) {
         modelList.disabled = !modelList.itemCount;
       }
       if (current) {

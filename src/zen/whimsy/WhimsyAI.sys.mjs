@@ -184,9 +184,15 @@ export const WhimsyAI = {
     } catch (e) {
       console.error("Whimsy: AI switch migration", e);
     }
+    // Queued behind any apply() already running, so a pref flip while a
+    // previous blockAll()/restoreAll() is still mid-flight (several of its
+    // steps are async) can't interleave with it and leave a stale write.
     const update = () => {
       this.mirror();
-      this.pending = this.apply().catch(e => console.error("Whimsy: AI kill switch", e));
+      this.pending = Promise.resolve(this.pending)
+        .catch(() => {})
+        .then(() => this.apply())
+        .catch(e => console.error("Whimsy: AI kill switch", e));
     };
     Services.prefs.addObserver(PREF, update);
     Services.prefs.addObserver(FEATURE_PREF, update);
