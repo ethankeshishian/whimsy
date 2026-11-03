@@ -43,16 +43,18 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const FEATURE_PREF = "whimsy.feature.call-pip";
 const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
 
-// W13-R3: call controls.
+// W13-R3/W21: call controls.
 const CONTROLS_PREF = "whimsy.feature.call-controls";
+// W21: whether a plain click on the mic/camera does the call's own mute
+// ("call", the default) or a hard device mute ("device"); Option-click (or
+// right-click → the panel) always does the other one.
+const DEFAULT_PREF = "whimsy.call.buttons-default";
 const KINDS = ["mic", "camera"];
-// Sites whose own toggles are the only truth: Firefox's device mute is never
-// offered there (Meet can't see it), so its buttons hide while unknown.
-const PAGE_SYNCED_HOSTS = new Set(["meet.google.com"]);
 const PERMISSION = { mic: "microphone", camera: "camera" };
 // Zen's sharing card: its buttons and its muted attributes (Zen's icons).
 const CARD_BUTTON = { mic: ".zen-media-mute-mic-button", camera: ".zen-media-mute-camera-button" };
 const CARD_MUTED = { mic: "mic-muted", camera: "camera-muted" };
+const MUTE_MESSAGE = { mic: "webrtc:MuteMicrophone", camera: "webrtc:MuteCamera" };
 const DEVICE_UNMUTE = { mic: "webrtc:UnmuteMicrophone", camera: "webrtc:UnmuteCamera" };
 const L10N = {
   mic: { on: "whimsy-call-mic-turn-off", off: "whimsy-call-mic-turn-on" },
@@ -135,7 +137,7 @@ export const WhimsyCallPip = {
         run: w => {
           const browser = this.commandTarget(w, kind);
           if (browser) {
-            this.toggle(browser, kind);
+            this.toggleInCall(browser, kind);
           }
         },
         key: null,
@@ -292,7 +294,7 @@ export const WhimsyCallPip = {
         if (kind) {
           event.stopPropagation();
           event.preventDefault();
-          this.toggle(browser, kind);
+          this.toggleInCall(browser, kind);
         }
       }, true);
       pipWin.addEventListener("keydown", event => {
@@ -300,7 +302,7 @@ export const WhimsyCallPip = {
         if (kind && this.isInCall(tab) && this.shownState(browser, kind)) {
           event.stopPropagation();
           event.preventDefault();
-          this.toggle(browser, kind);
+          this.toggleInCall(browser, kind);
         }
       }, true);
     }
@@ -447,8 +449,18 @@ export const WhimsyCallPip = {
     return Services.prefs.getBoolPref(CONTROLS_PREF, true);
   },
 
-  // browser -> { mic, camera: "on" | "off" | null, seen: {}, pending: {} }.
-  // Only what the page last reported; never a guess.
+  // W21: "call" (the shipped default) or "device" — which mute a plain
+  // click on the mic/camera does; Option-click/right-click do the other.
+  get buttonsDefault() {
+    const value = Services.prefs.getStringPref(DEFAULT_PREF, "call");
+    return value == "device" ? "device" : "call";
+  },
+
+  // browser -> {
+  //   mic, camera: "on" | "off" | null,  // the page's own toggle (unchanged)
+  //   blocked: { mic, camera: boolean }, // W21: Whimsy's own device mute
+  //   seen: {}, pending: {},
+  // }. mic/camera are only what the page last reported; never a guess.
   _states: new WeakMap(),
   // The browsers being watched (for the commands' target).
   _calls: new Set(),
@@ -484,7 +496,7 @@ export const WhimsyCallPip = {
   stateFor(browser) {
     let state = this._states.get(browser);
     if (!state) {
-      state = { mic: null, camera: null, seen: {}, pending: {} };
+      state = { mic: null, camera: null, blocked: { mic: false, camera: false }, seen: {}, pending: {} };
       this._states.set(browser, state);
     }
     return state;
@@ -519,7 +531,8 @@ export const WhimsyCallPip = {
       .catch(() => {});
   },
 
-  // The call ended or the tab went away: stop watching and drop its state.
+  // The call ended or the tab went away: stop watching, release any device
+  // mute left on, and drop its state.
   forget(browser, stopWatching = false) {
     if (!browser) {
       return;
@@ -530,9 +543,25 @@ export const WhimsyCallPip = {
           ?.sendAsyncMessage("Whimsy:CallControlsWatch", { on: false });
       } catch (e) {}
     }
+    const state = this._states.get(browser);
+    if (state) {
+      for (const kind of KINDS) {
+        if (state.blocked[kind]) {
+          this.releaseBlocked(browser, kind);
+        }
+      }
+    }
     this._calls.delete(browser);
     this._states.delete(browser);
     this.render(browser);
+  },
+
+  // Sends the device-unmute message for `kind` (forget(), and any other
+  // place a device mute must let go without flipping state.blocked itself).
+  releaseBlocked(browser, kind) {
+    try {
+      browser.browsingContext?.currentWindowGlobal?.getActor("WebRTC")?.sendAsyncMessage(DEVICE_UNMUTE[kind]);
+    } catch (e) {}
   },
 
   // From WhimsyPageParent: the page's toggles changed (content data, so
@@ -591,7 +620,7 @@ export const WhimsyCallPip = {
 
   // Toggles the page's own control and shows the page's answer. A press
   // while one is pending is ignored; nothing changes until the page has.
-  async toggle(browser, kind) {
+  async toggleInCall(browser, kind) {
     if (!KINDS.includes(kind) || !this.shownState(browser, kind)) {
       return false;
     }
@@ -618,6 +647,37 @@ export const WhimsyCallPip = {
       this.render(browser);
     }
     return !!result?.ok;
+  },
+
+  // W21: Whimsy's own device mute for `kind` on this browser — works with
+  // or without the page's own controls, the fallback the ticket requires
+  // when findControls finds nothing. Released by forget() (call ended) or
+  // flipped back by a second call.
+  async toggleBlocked(browser, kind) {
+    if (!KINDS.includes(kind) || !browser) {
+      return false;
+    }
+    const state = this.stateFor(browser);
+    const next = !state.blocked[kind];
+    state.blocked[kind] = next;
+    try {
+      const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WebRTC");
+      actor?.sendAsyncMessage(next ? MUTE_MESSAGE[kind] : DEVICE_UNMUTE[kind]);
+    } catch (e) {}
+    this.render(browser);
+    return true;
+  },
+
+  // W21: a plain click on the mic/camera — whichever mute buttonsDefault
+  // picks.
+  toggleDefault(browser, kind) {
+    return this.buttonsDefault == "device" ? this.toggleBlocked(browser, kind) : this.toggleInCall(browser, kind);
+  },
+
+  // W21: Option-click (or the panel's/command's explicit "other" action) —
+  // whichever mute buttonsDefault does NOT pick.
+  toggleOther(browser, kind) {
+    return this.buttonsDefault == "device" ? this.toggleInCall(browser, kind) : this.toggleBlocked(browser, kind);
   },
 
   // Every surface showing this call, from the same state.
@@ -700,7 +760,7 @@ export const WhimsyCallPip = {
 
   async handOver(browser, kind) {
     if (this.shownState(browser, kind) == "on") {
-      await this.toggle(browser, kind);
+      await this.toggleInCall(browser, kind);
     }
     try {
       browser.browsingContext?.currentWindowGlobal?.getActor("WebRTC")?.sendAsyncMessage(DEVICE_UNMUTE[kind]);
@@ -741,7 +801,7 @@ export const WhimsyCallPip = {
         return;
       }
       event.stopPropagation();
-      this.toggle(browser, kind);
+      this.toggleInCall(browser, kind);
     }, true);
   },
 

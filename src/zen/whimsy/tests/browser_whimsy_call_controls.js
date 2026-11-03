@@ -519,3 +519,50 @@ add_task(async function test_finder_works_on_zoom_teams_webex() {
     }
   }
 });
+
+// W21: whimsy.call.buttons-default picks which mute a plain click does;
+// toggleOther always does the other one, regardless of the pref.
+add_task(async function test_default_pref_picks_which_click_does() {
+  const call = await openCall();
+  await expectAll(call, null, ON, "Joined");
+  await WhimsyCallPip.toggleDefault(call.linkedBrowser, "mic");
+  is((await meetState(call)).mic, "off", "default=call toggles the page");
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, false, "device mute untouched");
+  await WhimsyCallPip.toggleDefault(call.linkedBrowser, "mic");
+  await expectAll(call, null, ON, "Back on");
+});
+
+add_task(async function test_default_device_inverts_both_clicks() {
+  const call = await openCall();
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.call.buttons-default", "device"]] });
+  try {
+    await WhimsyCallPip.toggleDefault(call.linkedBrowser, "mic");
+    is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, true, "default=device blocks the device");
+    is((await meetState(call)).mic, "on", "page toggle untouched");
+  } finally {
+    await WhimsyCallPip.toggleDefault(call.linkedBrowser, "mic");
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_alt_click_does_the_other_mute() {
+  const call = await openCall();
+  await WhimsyCallPip.toggleOther(call.linkedBrowser, "camera");
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, true, "the other mute blocks the device");
+  is((await meetState(call)).camera, "on", "page toggle untouched by the other mute");
+  await WhimsyCallPip.toggleOther(call.linkedBrowser, "camera");
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, false, "a second press releases it");
+});
+
+add_task(async function test_device_mute_released_when_call_ends() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.startCall());
+  await TestUtils.waitForCondition(() => WhimsyCallPip.isInCall(tab), "The tab is in a call");
+  await WhimsyCallPip.toggleBlocked(tab.linkedBrowser, "mic");
+  is(WhimsyCallPip.stateFor(tab.linkedBrowser).blocked.mic, true, "blocked while in the call");
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.endCall());
+  await TestUtils.waitForCondition(() => !WhimsyCallPip.isInCall(tab), "The call ended");
+  WhimsyCallPip.forget(tab.linkedBrowser, true);
+  ok(!WhimsyCallPip._states.has(tab.linkedBrowser), "its state (including the device mute) is gone");
+  BrowserTestUtils.removeTab(tab);
+});
