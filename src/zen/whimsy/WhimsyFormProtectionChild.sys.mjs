@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Content side of Form Protection. W13-R1 rewrite; the design (what counts
-// as unsaved input, what clears it, every path that asks) is
-// whimsy-handoff/wave13/r1-forms-design.md.
+// Content side of Form Protection. W13-R1 rewrite, then R1 v2 (save instead
+// of ask): the design (what counts as unsaved input, what clears it, the
+// draft messages and their filtering) is whimsy-handoff/wave13/r1-forms-design.md
+// and whimsy-handoff/wave13/r1-v2-design.md.
 //
 // A document has unsaved input when a field the person edited themselves
 // differs from what it held before they started. Only trusted edits made
@@ -14,15 +15,24 @@
 // starting value, or the field leaving the page clears it. The parent hears
 // one boolean per document, only when it changes.
 //
-// Refill (W10-25, F08): when a page with unsaved input goes away
-// (pagehide), it sends a snapshot of its form data (collectFormData never
-// collects passwords or card numbers). When the same address loads again,
-// it counts the empty fields the snapshot could fill and the parent asks
-// "Fill in 3 answers you typed before?". Only Fill In fills.
+// Drafts (R1 v2 §2, §5): while the top document is typed, the child sends
+// Whimsy:FormDraft { url, data } debounced 400ms, filtered so a password,
+// hidden field, card number, one-time code or autocomplete=off secret-
+// looking field never crosses IPC. beforeunload and pagehide flush a
+// pending send at once. Clearing (a save, a submit, back to the start)
+// sends { url, data: null }, once.
+//
+// Refill (W10-25, F08, kept by R1 v2): when the same address loads again,
+// it asks the parent for the draft (Whimsy:FormSnapshotFor), counts the
+// empty fields it could fill, and the parent offers a toast. Only Refill
+// fills.
 
 const HIGHLIGHT_MS = 2000;
 const FADE_MS = 400;
 const EDITABLE_CHECK_MS = 250;
+// R1 v2 (wave13/r1-v2-design.md §2): how long after a trusted edit the
+// child sends the parent a draft of the typed answers.
+const DRAFT_DEBOUNCE_MS = 400;
 
 // WebSocket frames that carry data (a save), not keep-alive control frames.
 const WS_DATA_OPCODES = new Set([
@@ -55,13 +65,35 @@ function addressOf(location) {
   }
 }
 
-// Never tracked or refilled, whatever a snapshot says.
+// R1 v2 §5: fields that look like they hold a PIN, a security code and
+// the like, when the page itself turned autocomplete off for them.
+const SECRET_WORDS = /\b(pin|cvv|cvc|csc|otp|code|passcode|ssn|security)\b/i;
+
+function looksSecretByName(el) {
+  for (const attr of ["name", "id"]) {
+    if (SECRET_WORDS.test(el.getAttribute?.(attr) ?? "")) {
+      return true;
+    }
+  }
+  const label = el.labels?.[0]?.textContent ?? el.getAttribute?.("aria-label") ?? el.placeholder ?? "";
+  return SECRET_WORDS.test(label);
+}
+
+// Never tracked, refilled or stored in a draft, whatever a snapshot says
+// (design §5).
 function isSecret(el) {
-  if (el.localName == "input" && el.type == "password") {
+  if (el.localName == "input" && (el.type == "password" || el.type == "hidden" || el.type == "file")) {
     return true;
   }
   const autocomplete = (el.getAttribute?.("autocomplete") ?? "").toLowerCase();
-  return /\bcc-|one-time-code|current-password|new-password/.test(autocomplete);
+  if (/\bcc-|one-time-code|current-password|new-password/.test(autocomplete)) {
+    return true;
+  }
+  if (autocomplete == "off" && looksSecretByName(el)) {
+    return true;
+  }
+  const form = el.form ?? el.closest?.("form");
+  return !!form && (form.getAttribute("autocomplete") ?? "").toLowerCase() == "off" && looksSecretByName(el);
 }
 
 function isSearch(el) {
@@ -166,6 +198,31 @@ function socketEvents() {
   return Cc["@mozilla.org/websocketevent/service;1"].getService(Ci.nsIWebSocketEventService);
 }
 
+// Drops every id/xpath entry that resolves to a secret or search field
+// (design §5), before anything crosses IPC.
+function filterCollected(doc, data) {
+  const out = { id: {}, xpath: {} };
+  for (const [key, value] of Object.entries(data.id ?? {})) {
+    let el;
+    try {
+      el = doc.getElementById(key);
+    } catch (e) {}
+    if (el && !isSecret(el) && !isSearch(el)) {
+      out.id[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(data.xpath ?? {})) {
+    let el;
+    try {
+      el = doc.evaluate(key, doc, null, 9 /* FIRST_ORDERED_NODE_TYPE */, null).singleNodeValue;
+    } catch (e) {}
+    if (el && !isSecret(el) && !isSearch(el)) {
+      out.xpath[key] = value;
+    }
+  }
+  return out;
+}
+
 export class WhimsyFormProtectionChild extends JSWindowActorChild {
   // The snapshot offered for this document, and what Fill In filled.
   _offer = null;
@@ -176,6 +233,12 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
   _editableTimer = null;
   // { innerWindowId, listener } while listening for WebSocket saves.
   _socketListener = null;
+  // R1 v2 (design §2): the debounced Whimsy:FormDraft send, top document
+  // only. _draftSent tracks whether the parent currently holds a draft from
+  // this document, so clearing it sends exactly one "data: null".
+  _draftTimer = null;
+  _draftPending = false;
+  _draftSent = false;
 
   // A real edit: trusted, and with user activation (a page's own trusted
   // edits, such as execCommand while it loads, have none).
@@ -208,8 +271,11 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
           this.offerRefill();
         }
         break;
+      case "beforeunload":
       case "pagehide":
-        this.snapshot();
+        // The last keystrokes may still be inside the debounce window; a
+        // page going away (closing or navigating) flushes it at once.
+        this._flushDraft();
         break;
     }
   }
@@ -324,6 +390,13 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     try {
       const dirty = this.hasUnsavedInput();
       this._watchSocketSaves(dirty);
+      // R1 v2 §2: the draft tracks the document's dirty state continuously,
+      // independent of whether the parent's own report changed.
+      if (dirty) {
+        this._scheduleDraftSend();
+      } else {
+        this._clearDraft();
+      }
       if (dirty == this._reported && !saved) {
         return;
       }
@@ -331,6 +404,84 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
       this.sendAsyncMessage("Whimsy:FormState", { dirty, saved });
     } catch (e) {
       // Content may be in transition or detached.
+    }
+  }
+
+  _isTopDocument() {
+    const win = this.contentWindow;
+    return !!win && win.top == win;
+  }
+
+  // Frames are out of scope for drafts (design §4): only the top document's
+  // typing is ever sent.
+  _scheduleDraftSend() {
+    if (!this._isTopDocument()) {
+      return;
+    }
+    this._draftPending = true;
+    const win = this.contentWindow;
+    win.clearTimeout(this._draftTimer);
+    this._draftTimer = win.setTimeout(() => this._flushDraft(), DRAFT_DEBOUNCE_MS);
+  }
+
+  _flushDraft() {
+    const win = this.contentWindow;
+    win?.clearTimeout(this._draftTimer);
+    this._draftTimer = null;
+    if (!this._draftPending || !this._isTopDocument()) {
+      return;
+    }
+    this._draftPending = false;
+    const draft = this._collectDraft();
+    if (!draft) {
+      this._clearDraft();
+      return;
+    }
+    this._draftSent = true;
+    try {
+      this.sendAsyncMessage("Whimsy:FormDraft", draft);
+    } catch (e) {
+      // The tab is going away.
+    }
+  }
+
+  // Tells the parent to delete whatever draft it holds for this document
+  // (a save, a submit, back to the start): sent once, not on every clean
+  // report.
+  _clearDraft() {
+    const win = this.contentWindow;
+    win?.clearTimeout(this._draftTimer);
+    this._draftTimer = null;
+    this._draftPending = false;
+    if (!this._draftSent || !this._isTopDocument()) {
+      this._draftSent = false;
+      return;
+    }
+    this._draftSent = false;
+    try {
+      this.sendAsyncMessage("Whimsy:FormDraft", { url: addressOf(win.location), data: null });
+    } catch (e) {
+      // The tab is going away.
+    }
+  }
+
+  // The top document's typed answers, filtered (design §5). Null when
+  // there's nothing safe to keep.
+  _collectDraft() {
+    const win = this.contentWindow;
+    try {
+      const data = SessionStoreUtils.collectFormData(win);
+      if (!data || (!data.id && !data.xpath)) {
+        return null;
+      }
+      const filtered = filterCollected(this.document, { id: data.id ?? {}, xpath: data.xpath ?? {} });
+      if (!Object.keys(filtered.id).length && !Object.keys(filtered.xpath).length) {
+        return null;
+      }
+      return { url: addressOf(win.location), data: filtered };
+    } catch (e) {
+      // A page going away can't always be read.
+      return null;
     }
   }
 
@@ -396,35 +547,6 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
         return null;
       case "Whimsy:FormRefill":
         return this.refill();
-      case "Whimsy:FormTakeSnapshot":
-        // F08: Save and Unload asks for it before unloading (a page torn
-        // down by unloading can't always send it as it goes).
-        return this.snapshot({ send: false });
-    }
-    return null;
-  }
-
-  // The top document's typed answers, as it goes away.
-  snapshot({ send = true } = {}) {
-    try {
-      const win = this.contentWindow;
-      if (!win || win.top != win || !this.hasUnsavedInput()) {
-        return null;
-      }
-      const data = SessionStoreUtils.collectFormData(win);
-      if (!data || (!data.id && !data.xpath)) {
-        return null;
-      }
-      const snapshot = {
-        url: addressOf(win.location),
-        data: { id: data.id ?? {}, xpath: data.xpath ?? {} },
-      };
-      if (!send) {
-        return snapshot;
-      }
-      this.sendAsyncMessage("Whimsy:FormSnapshot", snapshot);
-    } catch (e) {
-      // A page going away can't always be read.
     }
     return null;
   }

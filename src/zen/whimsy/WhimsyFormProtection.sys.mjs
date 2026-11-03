@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Form protection (W9-03, W10-25, F08, F29, F33; rewritten for W13-R1).
-// The design, every path a tab can go away by and how each one waits for
-// the person's answer, is whimsy-handoff/wave13/r1-forms-design.md.
+// Form protection (W9-03, W10-25, F08, F29, F33, W13-R1, then R1 v2 "save
+// instead of ask"). The design is whimsy-handoff/wave13/r1-forms-design.md
+// (what counts as unsaved input) and whimsy-handoff/wave13/r1-v2-design.md
+// (the draft store, close paths, SessionStore hooks).
 //
 // - Unsaved input: the content actor (WhimsyFormProtectionChild) reports
 //   one boolean per document: the person typed or picked something
@@ -15,24 +16,24 @@
 // - A tab with unsaved input: whimsy-form-typed (the marker),
 //   whimsy-form-protected (also set by Protect This Tab; the auto-archive
 //   sweep skips it), and tab.undiscardable (Firefox's TabUnloader skips it).
-// - Asking: unloading (gBrowser.explicitUnloadTabs) and Zen's pinned and
-//   Essential ⌘W/middle-click (onCloseTabShortcut) await "Unload this
-//   tab?" before anything changes; Cancel abandons the whole action. A page
-//   with its own beforeunload decides for itself (Firefox's prompt, once).
-// - Refill: a snapshot taken as a page with unsaved input goes away is
-//   offered back on the next load of that address ("Fill in 3 answers you
-//   typed before?"). Passwords and card numbers are never kept.
+// - R1 v2: closing never asks. While the document is typed, the child keeps
+//   WhimsyFormDrafts (below) up to date; closing just leaves the draft
+//   where it is. Only when saving is off, or the tab is private, does a
+//   single ⌘W/close button or ⌘Q warn once and need a second press
+//   (wrapRemoveTab, wrapPinnedClose, the quit-application-requested
+//   observer). A page with its own beforeunload still decides for itself
+//   (Firefox's prompt, unchanged).
+// - Refill: the draft for an address is offered back on its next load
+//   ("Refill what you typed?"). Nothing is filled unless the person presses
+//   Refill.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
-  TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
-  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
@@ -50,15 +51,16 @@ const MANUAL_ATTR = "whimsy-form-manual";
 const LOCK_ICON = "chrome://browser/skin/zen-icons/selectable/lock-closed.svg";
 // F29, the user's pick B: a small pencil with no backing.
 const PENCIL_ICON = "chrome://browser/content/whimsy/whimsy-form-pencil.svg";
+// The old R1 snapshot's SessionStore key (§7: stripped on upgrade; nothing
+// writes it any more).
 const SNAPSHOT_KEY = "whimsy-formdata";
 const SNAPSHOT_MAX_BYTES = 64 * 1024;
 const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const REFILL_OFFER_MS = 10000;
 const TOAST_TIMEOUT_MS = 4000;
-const UNLOAD_PANEL_ID = "whimsy-form-unload";
-const HTML_NS = "http://www.w3.org/1999/xhtml";
-// How long the fresh check before a dialog waits for a busy page.
-const ASK_PAGE_MS = 500;
+// R1 v2 §3: a second ⌘W/close button or ⌘Q within this long closes/quits
+// without warning again.
+const CLOSE_CONFIRM_MS = 4000;
 // Requests that carry a page's own save.
 const SAVE_METHODS_SKIPPED = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -66,14 +68,11 @@ const SAVE_METHODS_SKIPPED = new Set(["GET", "HEAD", "OPTIONS"]);
 // input. Only dirty documents are kept; a document counts only while it is
 // the current one of its frame.
 const dirtyDocuments = new Map();
-// browser -> { url, data, time }: the last snapshot (memory).
-const snapshots = new WeakMap();
-// F08: browsers unloaded "without saving": the answers the page leaves as it
-// unloads are dropped, until it's loaded again.
-const discarding = new WeakSet();
-// tab -> "save" | "discard": answered already (pinned ⌘W asks before Zen
-// acts; Zen's unload then mustn't ask again).
-const answered = new WeakMap();
+// tab -> the time a close warning was shown for it (R1 v2 §3): a press
+// within CLOSE_CONFIRM_MS of that time closes/unloads without asking again.
+const closeWarnedAt = new WeakMap();
+// The last time the quit warning showed, shared by every window (ms, or 0).
+let quitWarnedAt = 0;
 
 // A page's form snapshot is page data: only plain records of strings,
 // booleans and select values, within the size cap.
@@ -103,18 +102,6 @@ function cleanSnapshot(data) {
   const json = JSON.stringify(clean);
   const fields = Object.values(clean).reduce((n, record) => n + Object.keys(record).length, 0);
   return json.length <= SNAPSHOT_MAX_BYTES && fields ? clean : null;
-}
-
-function sameAddress(a, b) {
-  try {
-    const x = new URL(a);
-    const y = new URL(b);
-    x.hash = "";
-    y.hash = "";
-    return x.href == y.href;
-  } catch (e) {
-    return false;
-  }
 }
 
 // ---- R1 v2: the draft store (wave13/r1-v2-design.md §4, §6, §9) ----
@@ -303,6 +290,24 @@ export const WhimsyFormDrafts = {
     }
   },
 
+  // Fire "This Profile": every draft typed in that container, regardless
+  // of site (the scope matches what the profile's burn otherwise clears).
+  async forgetContainer(userContextId) {
+    userContextId = Number(userContextId) || 0;
+    for (const [id, record] of this._private) {
+      if (record.userContextId == userContextId) {
+        this._private.delete(id);
+      }
+    }
+    const records = await this._load();
+    for (const [id, record] of records) {
+      if (record.userContextId == userContextId) {
+        records.delete(id);
+        this._scheduleWrite();
+      }
+    }
+  },
+
   // Fire everywhere, or the setting turned off: memory and the file.
   async forgetAll() {
     this._private.clear();
@@ -367,6 +372,58 @@ export const WhimsyFormDrafts = {
     this._dirty = false;
     await IOUtils.remove(this.path, { ignoreAbsent: true });
   },
+
+  // ---- R1 v2 §7: typed text never enters SessionStore ----
+  //
+  // Two one-line hooks (whimsy-SessionStore-sys-mjs.patch and
+  // whimsy-SessionStartup-sys-mjs.patch) call these, so Firefox's own
+  // session cache and file never hold a typed value in the clear, and
+  // never auto-fill it back in (that's the draft/refill offer's job).
+  // Both are no-ops while the feature itself is off.
+
+  get stripEnabled() {
+    return Services.prefs.getBoolPref(FEATURE_PREF, true);
+  },
+
+  // #onTabStateUpdate's `update.data.formdata`, before it reaches the
+  // TabStateCache (and so every closed-tab list, window and backup built
+  // from it).
+  stripSessionUpdate(update) {
+    if (this.stripEnabled && update?.data && "formdata" in update.data) {
+      delete update.data.formdata;
+    }
+  },
+
+  // A freshly read session: every window's (open and closed) tabs' typed
+  // formdata, and the old R1 snapshot (extData[SNAPSHOT_KEY]), both
+  // plaintext leftovers from before this store existed.
+  stripSessionState(state) {
+    if (!this.stripEnabled || !state) {
+      return;
+    }
+    const stripTab = tabData => {
+      if (tabData && "formdata" in tabData) {
+        delete tabData.formdata;
+      }
+      if (tabData?.extData && SNAPSHOT_KEY in tabData.extData) {
+        delete tabData.extData[SNAPSHOT_KEY];
+      }
+    };
+    const stripWindow = win => {
+      for (const tab of win?.tabs ?? []) {
+        stripTab(tab);
+      }
+    };
+    for (const win of state.windows ?? []) {
+      stripWindow(win);
+    }
+    for (const win of state._closedWindows ?? []) {
+      stripWindow(win);
+    }
+    for (const item of state._closedTabs ?? []) {
+      stripTab(item?.state ?? item);
+    }
+  },
 };
 
 function tabFor(browser) {
@@ -380,9 +437,6 @@ function isCurrent(innerWindowId, bc) {
     return false;
   }
 }
-
-// The open "Unload this tab?" ask per window (one at a time).
-const askingWindows = new WeakMap();
 
 // The site saved (W13-R1 design §2): after the edit, a fetch/XHR/beacon
 // with a body to the dirty document's own site, made by that document's tab
@@ -464,28 +518,33 @@ export class WhimsyFormProtectionParent extends JSWindowActorParent {
         } else {
           dirtyDocuments.delete(this._innerWindowId);
         }
-        // A saved page leaves nothing to offer back next time.
-        if (message.data?.saved && browser && this.browsingContext == this.browsingContext.top) {
-          WhimsyFormProtection.clearSnapshot(browser);
-        }
         WhimsyFormProtection.refreshBrowser(browser);
         return null;
       }
-      case "Whimsy:FormSnapshot":
-        if (browser && this.browsingContext == this.browsingContext.top) {
-          WhimsyFormProtection.storeSnapshot(browser, message.data?.url, message.data?.data);
+      // R1 v2 §2, §6: the continuous draft of the top document's typing.
+      // data: null deletes it (a save, a submit, back to the start).
+      case "Whimsy:FormDraft": {
+        if (!browser || this.browsingContext != this.browsingContext.top) {
+          return null;
+        }
+        const { userContextId, isPrivate } = WhimsyFormProtection.contextFor(browser);
+        const url = message.data?.url;
+        if (message.data?.data) {
+          WhimsyFormDrafts.put({ url, data: message.data.data, userContextId, isPrivate });
+        } else if (url) {
+          WhimsyFormDrafts.delete({ url, userContextId, isPrivate });
         }
         return null;
+      }
       case "Whimsy:FormSnapshotFor": {
         if (!browser || this.browsingContext != this.browsingContext.top) {
           return null;
         }
-        const snapshot = WhimsyFormProtection.snapshotFor(browser, message.data?.url);
-        return snapshot ? { data: snapshot.data } : null;
+        return WhimsyFormProtection.snapshotFor(browser, message.data?.url);
       }
       case "Whimsy:FormRefillReady":
         if (browser) {
-          WhimsyFormProtection.offerRefill(browser, this, Math.max(0, Math.round(Number(message.data?.count) || 0)));
+          WhimsyFormProtection.offerRefill(browser, this, message.data?.url);
         }
         return null;
     }
@@ -523,7 +582,8 @@ export const WhimsyFormProtection = {
           change: { mozSystemGroup: true, capture: true },
           submit: { mozSystemGroup: true },
           pageshow: { mozSystemGroup: true },
-          // W10-25: a snapshot of typed answers as the page goes away.
+          // R1 v2 §2: flush a pending draft at once as the page goes away.
+          beforeunload: { mozSystemGroup: true },
           pagehide: { mozSystemGroup: true },
         },
       },
@@ -533,6 +593,13 @@ export const WhimsyFormProtection = {
       safeForUntrustedWebProcess: true,
     });
     Services.obs.addObserver(networkSaveObserver, "http-on-modify-request");
+    Services.obs.addObserver(this, "quit-application-requested");
+  },
+
+  observe(subject, topic) {
+    if (topic == "quit-application-requested") {
+      this.onQuitRequested(subject);
+    }
   },
 
   canProtect(win) {
@@ -553,52 +620,6 @@ export const WhimsyFormProtection = {
       }
     }
     return false;
-  },
-
-  /**
-   * Asks the pages again (a report can be a moment old, or a field may have
-   * left the page). A page that doesn't answer in time keeps its last report.
-   */
-  async checkUnsavedInput(tab) {
-    if (!this.hasUnsavedInput(tab)) {
-      return false;
-    }
-    const browser = tab.linkedBrowser;
-    const asks = [];
-    for (const [innerWindowId, bc] of dirtyDocuments) {
-      if (bc.top?.embedderElement != browser || !isCurrent(innerWindowId, bc)) {
-        continue;
-      }
-      const actor = bc.currentWindowGlobal.getExistingActor("WhimsyFormProtection");
-      if (!actor) {
-        continue;
-      }
-      asks.push(
-        Promise.race([
-          actor.sendQuery("Whimsy:FormIsDirty").catch(() => false),
-          new Promise(resolve => lazy.setTimeout(() => resolve(true), ASK_PAGE_MS)),
-        ])
-      );
-    }
-    const answers = await Promise.all(asks);
-    return answers.some(Boolean);
-  },
-
-  /** Whether unloading `tab` should ask first (W13-R1 design §3, §4). */
-  async needsAsk(tab) {
-    if (!this.enabled || !tab?.linkedPanel || tab.hasAttribute("pending") || answered.has(tab)) {
-      return false;
-    }
-    let ownGuard = false;
-    try {
-      ownGuard = !!tab.linkedBrowser.hasBeforeUnload;
-    } catch (e) {}
-    // A page with its own beforeunload decides for itself (Firefox's
-    // prompt, inside the original unload): never two dialogs.
-    if (ownGuard) {
-      return false;
-    }
-    return this.checkUnsavedInput(tab);
   },
 
   isFormProtected(tab) {
@@ -686,279 +707,147 @@ export const WhimsyFormProtection = {
     }
   },
 
-  // ---- refill: keep what was typed (W10-25, F08) ----
+  // ---- refill: keep what was typed (W10-25, F08, R1 v2 §4, §6) ----
 
-  storeSnapshot(browser, url, data) {
-    if (discarding.has(browser)) {
-      return false;
-    }
-    if (!this.enabled || typeof url != "string" || !/^https?:/.test(url)) {
-      return false;
-    }
-    const clean = cleanSnapshot(data);
-    if (!clean) {
-      return false;
-    }
-    // Only the page the tab is on can leave its answers.
+  // The draft's address and container key (design §4, §9: same address,
+  // same container; private never crosses into normal).
+  contextFor(browser) {
+    let userContextId = 0;
     try {
-      // URL.host has the port, nsIURI.host doesn't: compare like with like.
-      const host = new URL(url).host;
-      if (browser.currentURI?.host && browser.currentURI.hostPort != host) {
-        return false;
-      }
-    } catch (e) {
-      return false;
-    }
-    const snapshot = { url, data: clean, time: Date.now() };
-    snapshots.set(browser, snapshot);
-    const win = browser.documentGlobal;
-    const tab = tabFor(browser);
-    // Private tabs keep it in memory only; normal ones in the session too,
-    // so it survives a restart.
-    if (tab && !lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) && !lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
-      try {
-        lazy.SessionStore.setCustomTabValue(tab, SNAPSHOT_KEY, JSON.stringify(snapshot));
-      } catch (e) {
-        console.error("Whimsy: form snapshot", e);
-      }
-    }
-    return true;
+      userContextId = browser?.browsingContext?.originAttributes?.userContextId ?? 0;
+    } catch (e) {}
+    return { userContextId, isPrivate: lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) };
   },
 
   snapshotFor(browser, url) {
     if (!this.enabled || typeof url != "string") {
       return null;
     }
-    let snapshot = snapshots.get(browser) ?? null;
-    if (!snapshot) {
-      const tab = tabFor(browser);
-      try {
-        const stored = tab ? lazy.SessionStore.getCustomTabValue(tab, SNAPSHOT_KEY) : "";
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          snapshot = { url: String(parsed.url ?? ""), data: cleanSnapshot(parsed.data), time: Number(parsed.time) || 0 };
-        }
-      } catch (e) {
-        snapshot = null;
-      }
-    }
-    if (!snapshot?.data || Date.now() - snapshot.time > SNAPSHOT_MAX_AGE_MS) {
-      if (snapshot) {
-        this.clearSnapshot(browser);
-      }
-      return null;
-    }
-    return sameAddress(snapshot.url, url) ? snapshot : null;
+    const { userContextId, isPrivate } = this.contextFor(browser);
+    return WhimsyFormDrafts.get({ url, userContextId, isPrivate });
   },
 
-  async saveSnapshotNow(browser) {
-    try {
-      const actor = browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyFormProtection");
-      const snapshot = await actor?.sendQuery("Whimsy:FormTakeSnapshot");
-      if (snapshot) {
-        this.storeSnapshot(browser, snapshot.url, snapshot.data);
-      }
-    } catch (e) {
-      // The page went away first; its own pagehide snapshot is all there is.
-    }
-  },
-
-  clearSnapshot(browser) {
-    snapshots.delete(browser);
-    const tab = tabFor(browser);
-    if (tab) {
-      try {
-        if (lazy.SessionStore.getCustomTabValue(tab, SNAPSHOT_KEY)) {
-          lazy.SessionStore.deleteCustomTabValue(tab, SNAPSHOT_KEY);
-        }
-      } catch (e) {}
-    }
-  },
-
-  // "Fill in 3 answers you typed before?" · Fill In. Nothing is filled
-  // unless the person asks.
-  offerRefill(browser, actor, count) {
+  // "Refill what you typed?" · Refill, Dismiss. Nothing is filled unless
+  // the person presses Refill; either button deletes the draft.
+  offerRefill(browser, actor, url) {
     const win = browser.documentGlobal;
-    if (!count || !win?.gBrowser || win.gBrowser.selectedBrowser != browser) {
+    if (!url || !win?.gBrowser || win.gBrowser.selectedBrowser != browser) {
       return null;
     }
+    const { userContextId, isPrivate } = this.contextFor(browser);
+    const forget = () => WhimsyFormDrafts.delete({ url, userContextId, isPrivate });
     return (
       win.gZenUIManager?.toasts?.open("whimsy-form-refill-ask", {
-        l10nArgs: { count },
-        descriptionId: "whimsy-form-refill-ask-detail",
+        key: "whimsy-form-refill",
         icon: MARKER_ICON,
         browser,
         timeout: REFILL_OFFER_MS,
         buttons: [
           {
-            id: "whimsyFormRefillFill",
-            l10nId: "whimsy-form-refill-fill",
+            id: "whimsyFormRefillButton",
+            l10nId: "whimsy-form-refill-button",
             command: () => {
-              this.clearSnapshot(browser);
+              forget();
               actor.sendQuery("Whimsy:FormRefill").catch(() => {});
             },
+          },
+          {
+            id: "whimsyFormDismissButton",
+            l10nId: "whimsy-form-dismiss-button",
+            command: () => forget(),
           },
         ],
       }) ?? null
     );
   },
 
-  // ---- asking before a tab's input is lost ----
+  // ---- R1 v2 §3: warn before losing typing (saving off, or private) ----
 
-  /**
-   * "Unload this tab?" beside the sidebar, level with the tab. Resolves
-   * "save" (Save and Unload), "discard" (Unload Without Saving) or false
-   * (Cancel, focused first; Esc; a click outside). One at a time per
-   * window: a second ask while one is open resolves false at once.
-   */
-  confirmUnload(win, tabs) {
-    if (askingWindows.has(win)) {
-      return Promise.resolve(false);
-    }
-    const doc = win.document;
-    const tab = tabs[0];
-    const browser = tab.linkedBrowser;
-    let host = "";
+  isPrivateTab(tab) {
     try {
-      host = browser.currentURI?.displayHost || "";
-    } catch (e) {}
-    const isPrivate = lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) || lazy.PrivateBrowsingUtils.isWindowPrivate(win);
-    const asking = new Promise(resolve => {
-      let answer = false;
-      const parts = lazy.WhimsySurface.create(win, {
-        id: UNLOAD_PANEL_ID,
-        width: 320,
-        titleL10nId: "whimsy-form-unload-title",
-        titleArgs: { count: tabs.length },
-        footer: true,
-        className: "whimsy-form-unload",
-        initialFocus: () => cancel,
-        onHidden: () => {
-          askingWindows.delete(win);
-          resolve(answer);
-        },
-      });
-      const body = doc.createElementNS(HTML_NS, "p");
-      body.className = "whimsy-form-unload-body";
-      body.id = "whimsy-form-unload-body";
-      if (tabs.length > 1) {
-        doc.l10n.setAttributes(body, "whimsy-form-unload-body-many", { count: tabs.length });
-      } else {
-        doc.l10n.setAttributes(body, isPrivate ? "whimsy-form-unload-body-private" : "whimsy-form-unload-body",
-          { host: host || browser.currentURI?.spec || "" });
-      }
-      parts.view.append(body);
-      parts.panel.setAttribute("aria-describedby", body.id);
-      // F08 order: Unload Without Saving, Save and Unload, Cancel, one per
-      // row (three long labels never fit one row). Cancel has focus.
-      const choose = value => () => {
-        answer = value;
-        lazy.WhimsySurface.close(parts.panel);
-      };
-      const discard = lazy.WhimsySurface.footerButton(doc, {
-        l10nId: "whimsy-form-unload-discard",
-        id: "whimsy-form-unload-discard",
-        onCommand: choose("discard"),
-      });
-      const save = lazy.WhimsySurface.footerButton(doc, {
-        l10nId: "whimsy-form-unload-accept",
-        id: "whimsy-form-unload-accept",
-        primary: true,
-        onCommand: choose("save"),
-      });
-      const cancel = lazy.WhimsySurface.footerButton(doc, {
-        l10nId: "whimsy-form-unload-keep",
-        id: "whimsy-form-unload-keep",
-        onCommand: choose(false),
-      });
-      parts.footer.setAttribute("orient", "vertical");
-      parts.footer.setAttribute("align", "stretch");
-      parts.footer.append(discard, save, cancel);
-      lazy.WhimsySurface.finish(parts);
-      // Beside the sidebar, where the Look picker and Hidden Spaces open.
-      // (An arrow panel on the full-height sidebar is centred along it;
-      // a y offset is ignored, so it can't sit level with the tab. Where
-      // all such surfaces open is B4's call.)
-      lazy.WhimsySurface.open(win, parts.panel, { at: "beside-sidebar" });
-    }).catch(e => {
-      // Never leave a close or unload waiting on a dialog that didn't open.
-      console.error("Whimsy: form unload dialog", e);
-      askingWindows.delete(win);
+      return lazy.PrivateBrowsingUtils.isBrowserPrivate(tab?.linkedBrowser);
+    } catch (e) {
       return false;
-    });
-    askingWindows.set(win, asking);
-    return asking;
+    }
   },
 
-  /**
-   * Asks for the tabs that need it. Resolves the answer ("save",
-   * "discard"), true when nobody needed asking, or false for Cancel.
-   * `asked` gets the tabs that were asked about.
-   */
-  async ask(win, tabs, asked = []) {
-    const checks = await Promise.all(tabs.map(tab => this.needsAsk(tab)));
-    asked.push(...tabs.filter((tab, i) => checks[i]));
-    if (!asked.length) {
+  // Whether closing/quitting `tab` right now would lose typing silently.
+  needsWarning(tab) {
+    return this.enabled && this.hasUnsavedInput(tab) && (!WhimsyFormDrafts.saving || this.isPrivateTab(tab));
+  },
+
+  // True exactly once per warning: the press that follows a fresh warning
+  // (within CLOSE_CONFIRM_MS) consumes it and lets the real close/quit
+  // through; a later press needs a fresh warning again.
+  closeConfirmed(tab) {
+    const at = closeWarnedAt.get(tab);
+    if (at && Date.now() - at <= CLOSE_CONFIRM_MS) {
+      closeWarnedAt.delete(tab);
       return true;
     }
-    const answer = await this.confirmUnload(win, asked);
-    if (answer == "save") {
-      await Promise.all(asked.map(tab => this.saveSnapshotNow(tab.linkedBrowser)));
-    }
-    if (answer == "discard") {
-      for (const tab of asked) {
-        discarding.add(tab.linkedBrowser);
-        this.clearSnapshot(tab.linkedBrowser);
-        // Loading it again starts over.
-        tab.addEventListener("SSTabRestoring", () => discarding.delete(tab.linkedBrowser), { once: true });
-      }
-    }
-    return answer;
+    return false;
   },
 
-  // Unload Without Saving: Firefox's session copy of the form goes too,
-  // or restoring the tab would fill it all back in.
-  forgetSessionForm(tab) {
+  // "Unsaved typing will be lost · ⌘W again to close", with a Close
+  // button that closes right away. One toast, reused by a normal tab's
+  // ⌘W/close button and by pinned/Essential ⌘W.
+  warnBeforeClose(win, tabs, proceed) {
+    tabs.forEach(tab => closeWarnedAt.set(tab, Date.now()));
     try {
-      lazy.TabStateCache.update(tab.linkedBrowser.permanentKey, { formdata: null });
+      win.gZenUIManager?.toasts?.open("whimsy-form-close-warning", {
+        key: "whimsy-form-close-warning",
+        browser: tabs[0]?.linkedBrowser,
+        timeout: CLOSE_CONFIRM_MS,
+        buttons: [
+          {
+            id: "whimsyFormCloseButton",
+            l10nId: "whimsy-form-close-button",
+            command: () => {
+              tabs.forEach(tab => closeWarnedAt.delete(tab));
+              proceed();
+            },
+          },
+        ],
+      });
     } catch (e) {}
   },
 
-  // Every unload the person asks for goes through explicitUnloadTabs. The
-  // tabs with unsaved input ask first; Cancel unloads nothing and returns
-  // false (Zen's pinned ⌘W stops there too).
-  wrapUnload(win) {
+  // ⌘W, the close button, middle-click and double-click all call
+  // gBrowser.removeTab for a single tab; bulk closes (Close Other Tabs,
+  // window close) go through removeTabs and never warn per tab (design §3).
+  wrapRemoveTab(win) {
     const gBrowser = win.gBrowser;
-    if (!gBrowser?.explicitUnloadTabs || gBrowser._whimsyFormUnload) {
+    if (!gBrowser?.removeTab || gBrowser._whimsyFormClose) {
       return;
     }
-    gBrowser._whimsyFormUnload = true;
-    const original = gBrowser.explicitUnloadTabs;
+    gBrowser._whimsyFormClose = true;
+    const originalRemoveTab = gBrowser.removeTab;
+    const originalRemoveTabs = gBrowser.removeTabs;
+    gBrowser._whimsyFormOriginalRemoveTab = originalRemoveTab;
     const self = this;
-    gBrowser.explicitUnloadTabs = async function (tabs, ...rest) {
-      const list = [...(tabs ?? [])];
-      const asked = [];
-      const answer = self.enabled ? await self.ask(win, list, asked) : true;
-      if (!answer) {
-        return false;
+    gBrowser.removeTab = function (tab, options = {}) {
+      if (self.enabled && !gBrowser._whimsyFormBulk && self.needsWarning(tab) && !self.closeConfirmed(tab)) {
+        self.warnBeforeClose(win, [tab], () => gBrowser._whimsyFormOriginalRemoveTab(tab, options));
+        return undefined;
       }
-      const forget = [
-        ...asked.filter(() => answer == "discard"),
-        ...list.filter(tab => answered.get(tab) == "discard"),
-      ];
-      const result = await original.call(this, list, ...rest);
-      if (result) {
-        forget.forEach(tab => self.forgetSessionForm(tab));
-      }
-      return result;
+      return originalRemoveTab.call(this, tab, options);
     };
+    if (originalRemoveTabs) {
+      gBrowser.removeTabs = function (tabs, ...rest) {
+        gBrowser._whimsyFormBulk = true;
+        try {
+          return originalRemoveTabs.call(this, tabs, ...rest);
+        } finally {
+          gBrowser._whimsyFormBulk = false;
+        }
+      };
+    }
   },
 
   // Zen's pinned and Essential ⌘W (and middle-click, and folders) resets
-  // or unloads the tab, and it moves to another tab and animates before it
-  // unloads. Ask before any of that. Zen binds its ⌘W listener at init, so
-  // a capture listener on cmd_close routes ⌘W through this wrapper when
-  // (and only when) there's something to ask about.
+  // or unloads the tab. Zen binds its ⌘W listener at init, so a capture
+  // listener on cmd_close routes ⌘W through this wrapper when (and only
+  // when) a pinned target needs the warning.
   wrapPinnedClose(win) {
     const manager = win.gZenPinnedTabManager;
     if (!manager?.onCloseTabShortcut || manager._whimsyFormClose) {
@@ -990,21 +879,13 @@ export const WhimsyFormProtection = {
       options?.behavior ?? Services.prefs.getStringPref("zen.pinned-tab-manager.close-shortcut-behavior", "reset-unload-switch");
     manager.onCloseTabShortcut = async function (event, selectedTab = win.gBrowser.selectedTab, options = {}) {
       const tabs = self.enabled ? pinnedTargets(selectedTab, behaviorOf(options), options) : [];
-      if (tabs.length) {
+      const typed = tabs.filter(tab => self.needsWarning(tab));
+      const needWarn = typed.filter(tab => !self.closeConfirmed(tab));
+      if (needWarn.length) {
         event?.stopPropagation?.();
         event?.preventDefault?.();
-        const answer = await self.ask(win, tabs);
-        if (!answer) {
-          return undefined;
-        }
-        if (answer == "save" || answer == "discard") {
-          tabs.forEach(tab => answered.set(tab, answer));
-        }
-        try {
-          return await original.call(this, event, selectedTab, options);
-        } finally {
-          tabs.forEach(tab => answered.delete(tab));
-        }
+        self.warnBeforeClose(win, needWarn, () => original.call(this, event, selectedTab, options));
+        return undefined;
       }
       return original.call(this, event, selectedTab, options);
     };
@@ -1015,7 +896,7 @@ export const WhimsyFormProtection = {
           return;
         }
         const tab = win.gBrowser.selectedTab;
-        if (!pinnedTargets(tab, behaviorOf()).some(t => self.hasUnsavedInput(t))) {
+        if (!pinnedTargets(tab, behaviorOf()).some(t => self.needsWarning(t))) {
           return;
         }
         event.preventDefault();
@@ -1024,6 +905,55 @@ export const WhimsyFormProtection = {
       },
       true
     );
+  },
+
+  // Quitting (⌘Q, the menu, the Dock, a restart): a toast warns once for
+  // the whole app when any tab, anywhere, needs it; a second ⌘Q within
+  // CLOSE_CONFIRM_MS quits.
+  onQuitRequested(subject) {
+    if (!this.enabled || !(subject instanceof Ci.nsISupportsPRBool) || subject.data) {
+      return;
+    }
+    const tabs = [];
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      if (!win.closed && win.gBrowser) {
+        tabs.push(...win.gBrowser.tabs.filter(tab => this.needsWarning(tab)));
+      }
+    }
+    if (!tabs.length) {
+      return;
+    }
+    if (quitWarnedAt && Date.now() - quitWarnedAt <= CLOSE_CONFIRM_MS) {
+      quitWarnedAt = 0;
+      return;
+    }
+    subject.data = true;
+    quitWarnedAt = Date.now();
+    this.warnBeforeQuit(Services.wm.getMostRecentWindow("navigator:browser"), tabs.length);
+  },
+
+  // "N tabs have unsaved typing · ⌘Q again to quit."
+  warnBeforeQuit(win, count) {
+    if (!win) {
+      return;
+    }
+    try {
+      win.gZenUIManager?.toasts?.open("whimsy-form-quit-warning", {
+        key: "whimsy-form-quit-warning",
+        l10nArgs: { count },
+        timeout: CLOSE_CONFIRM_MS,
+        buttons: [
+          {
+            id: "whimsyFormQuitButton",
+            l10nId: "whimsy-form-quit-button",
+            command: () => {
+              quitWarnedAt = 0;
+              Services.startup.quit(Services.startup.eAttemptQuit);
+            },
+          },
+        ],
+      });
+    } catch (e) {}
   },
 
   toggleTabProtection(tab) {
@@ -1093,8 +1023,27 @@ export const WhimsyFormProtection = {
         },
       ],
     });
+    // R1 v2 §8: every feature gets a command with an assignable shortcut.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyToggleSaveDrafts",
+      l10nId: "whimsy-action-save-drafts-toggle",
+      run: w => {
+        const on = !WhimsyFormDrafts.saving;
+        Services.prefs.setBoolPref(SAVE_PREF, on);
+        try {
+          w.gZenUIManager?.toasts?.show(on ? "whimsy-setting-turned-on" : "whimsy-setting-turned-off", {
+            l10nArgs: { name: lazy.l10n.formatValueSync("whimsy-form-save-drafts-name") },
+          });
+        } catch (e) {}
+      },
+      icon: "chrome://browser/skin/zen-icons/shield.svg",
+      variants: [
+        { l10nId: "whimsy-action-save-drafts-on", isAvailable: () => !WhimsyFormDrafts.saving },
+        { l10nId: "whimsy-action-save-drafts-off", isAvailable: () => WhimsyFormDrafts.saving },
+      ],
+    });
     this.wrapTooltip(win);
-    this.wrapUnload(win);
+    this.wrapRemoveTab(win);
     this.wrapPinnedClose(win);
 
     // A new page in the tab: the old document's report no longer counts.

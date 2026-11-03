@@ -4574,37 +4574,46 @@ whimsy-pagedev-reading = Reading the page…
 whimsy-pagedev-copied-button =
     .label = Copied
 
-## wave10/desA W10-25: form protection. A tab with a form you typed into
-## shows an in-progress form glyph, asks before you unload it, and offers
-## to fill your answers back in after a reload.
+## wave10/desA W10-25, then W13-R1 v2 (save instead of ask): a tab with a
+## form you typed into shows an in-progress form glyph, saves what you
+## typed automatically, and offers to fill it back in after a reload.
+## Closing only warns when saving is off or the tab is private.
 
-# $count (number) - tabs with forms that would unload
-whimsy-form-unload-title = { $count ->
-    [one] Unload this tab?
-   *[other] Unload { $count } tabs with forms?
+-whimsy-form-close-key = { PLATFORM() ->
+    [macos] ⌘W
+   *[other] Ctrl+W
 }
-# $host (string) - the site, like "example.com"
-whimsy-form-unload-body = You started a form on <b>{ $host }</b>. Save what you typed, and Whimsy fills it back in when you come back.
-whimsy-form-unload-body-private = You started a form on <b>{ $host }</b>. Whimsy keeps what you typed until you close your private tabs.
-# $count (number) - tabs with forms
-whimsy-form-unload-body-many = You started forms in these { $count } tabs. Save what you typed, and Whimsy fills it back in when you come back.
-whimsy-form-unload-discard =
-    .label = Unload Without Saving
-whimsy-form-unload-keep =
-    .label = Cancel
-whimsy-form-unload-accept =
-    .label = Save and Unload
-# $count (number) - fields that can be filled
-whimsy-form-refill-ask = { $count ->
-    [one] Fill in 1 answer you typed before?
-   *[other] Fill in { $count } answers you typed before?
+-whimsy-form-quit-key = { PLATFORM() ->
+    [macos] ⌘Q
+   *[other] Ctrl+Q
 }
-whimsy-form-refill-ask-detail = Saved when this tab reloaded
-whimsy-form-refill-fill = Fill In
+whimsy-form-close-warning = Unsaved typing will be lost · { -whimsy-form-close-key } again to close
+whimsy-form-close-button =
+    .label = Close
+# $count (number) - tabs with unsaved typing
+whimsy-form-quit-warning = { $count ->
+    [one] 1 tab has unsaved typing · { -whimsy-form-quit-key } again to quit
+   *[other] { $count } tabs have unsaved typing · { -whimsy-form-quit-key } again to quit
+}
+whimsy-form-quit-button =
+    .label = Quit
+whimsy-form-refill-ask = Refill what you typed?
+whimsy-form-refill-button =
+    .label = Refill
+whimsy-form-dismiss-button =
+    .label = Dismiss
 # A tab protected by hand (Protect This Tab) with nothing typed: its lock.
 whimsy-tab-protected-marker =
     .tooltiptext = Protected tab
     .aria-label = Protected tab
+whimsy-form-save-drafts =
+    .label = Save Unsaved Typing When Closing
+whimsy-form-save-drafts-note = Keeps what you typed in a form for 7 days, encrypted on disk, so you can refill it after closing a tab or reopening it. Off, or in a private tab, closing a typed tab warns once before it's lost.
+whimsy-form-save-drafts-name = Save Unsaved Typing When Closing
+whimsy-setting-form-save-drafts = Save Unsaved Typing When Closing
+whimsy-action-save-drafts-toggle = Turn Save Unsaved Typing When Closing On or Off
+whimsy-action-save-drafts-on = Turn On Save Unsaved Typing When Closing
+whimsy-action-save-drafts-off = Turn Off Save Unsaved Typing When Closing
 
 ## W10-22: Settings search shows where the hit is.
 whimsy-search-count =

@@ -4690,43 +4690,6 @@ whimsy-library-files-section {
   opacity: 0.7;
 }
 
-/* W10-25 / W13-R1: "Unload this tab?" (WhimsyFormProtection.confirmUnload).
-   Everything wraps inside the panel's width (the title, a long host); the
-   three choices stack one per row, full width. */
-.whimsy-form-unload {
-  & .whimsy-surface-title {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-    text-wrap: balance;
-  }
-
-  & .whimsy-surface-footer {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-
-    & > .footer-button {
-      width: 100%;
-      min-width: 0;
-    }
-  }
-}
-.whimsy-form-unload-body {
-  margin: 0 4px;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--whimsy-surface-muted);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-
-  & > b {
-    color: var(--arrowpanel-color, CanvasText);
-    font-weight: 600;
-  }
-}
-
 /* wave5: Easels in the Library: a 36-frame sprite like the other rail
    icons (whimsy/library_sprites.py), so it plays and fills in the same way. */
 [data-section="whimsy-easels"] :is(.zen-library-tab-icon-image, .empty-state-icon-image) {

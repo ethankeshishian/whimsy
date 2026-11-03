@@ -42,6 +42,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
+  WhimsyFormDrafts: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -310,6 +311,8 @@ export const WhimsyFireButton = {
     await this.purgeClosed((tab, closedAt) => (tab.userContextId || 0) == id && closedAt >= since);
     await Promise.all([...sites].map(site => this.clearSiteData(site, id)));
     await Promise.all(visits.map(visit => this.removeVisit(visit)));
+    // R1 v2 §3: Fire never asks, and erases drafts in its scope too.
+    await lazy.WhimsyFormDrafts.forgetContainer(id);
     return { count, visits: visits.length, sites: sites.size, profile: lazy.WhimsyProfiles.nameOf(id) };
   },
 
@@ -342,6 +345,9 @@ export const WhimsyFireButton = {
     await this.purgeClosed(() => true);
     await this.clearData();
     await this.clearFormHistory();
+    // R1 v2 §3, §9: Fire Everywhere erases every draft, including the
+    // in-memory (private) ones.
+    await lazy.WhimsyFormDrafts.forgetAll();
     return count;
   },
 
@@ -358,6 +364,7 @@ export const WhimsyFireButton = {
     }
     await this.purgeClosed(tab => (tab.entries ?? []).some(entry => siteOfURL(entry.url) == site));
     await lazy.ForgetAboutSite.removeDataFromBaseDomain(site);
+    await lazy.WhimsyFormDrafts.forgetSite(site);
     return count;
   },
 

@@ -1,0 +1,24 @@
+diff --git a/browser/components/sessionstore/SessionStartup.sys.mjs b/browser/components/sessionstore/SessionStartup.sys.mjs
+index 1111111..2222222 100644
+--- a/browser/components/sessionstore/SessionStartup.sys.mjs
++++ b/browser/components/sessionstore/SessionStartup.sys.mjs
+@@ -42,6 +42,7 @@
+   sessionStoreLogger:
+     "moz-src:///browser/components/sessionstore/SessionLogger.sys.mjs",
+   ZenSessionStore: "resource:///modules/zen/ZenSessionManager.sys.mjs",
++  WhimsyFormDrafts: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
+ });
+ 
+ const STATE_RUNNING_STR = "running";
+@@ -245,6 +246,11 @@
+       gOnceInitializedDeferred.resolve();
+       return;
+     }
++
++    // Whimsy (W13-R1 v2 §7): an upgraded profile's old plaintext typing
++    // (formdata, and the pre-draft R1 snapshot) is dropped before it's
++    // used, so it never auto-fills and never survives the next write.
++    lazy.WhimsyFormDrafts?.stripSessionState(this._initialState);
+ 
+     let initialState = this._initialState;
+     Services.tm.idleDispatchToMainThread(() => {

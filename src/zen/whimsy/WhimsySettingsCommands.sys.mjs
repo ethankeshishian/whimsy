@@ -264,6 +264,9 @@ export const SETTINGS = [
     })) },
   { name: "form-protection", setting: "whimsyFormProtection", pref: "whimsy.feature.form-protection",
     feature: ["form-protection"] },
+  // R1 v2: its own command (Save Unsaved Typing When Closing) + toast.
+  { name: "form-save-drafts", setting: "whimsyFormSaveDrafts", pref: "whimsy.forms.saveDrafts",
+    feature: ["form-protection"], command: ["cmd_whimsyToggleSaveDrafts"] },
   { name: "archive-view", setting: "whimsyArchiveView", pref: "whimsy.feature.archive-view", feature: ["archive-view"] },
   { name: "undo-tab-actions", setting: "whimsyUndoTabActions", pref: "whimsy.feature.undo-tab-actions",
     feature: ["undo-tab-actions"] },

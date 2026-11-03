@@ -2,7 +2,27 @@ diff --git a/browser/components/sessionstore/SessionStore.sys.mjs b/browser/comp
 index f9d5771..d0cc502 100644
 --- a/browser/components/sessionstore/SessionStore.sys.mjs
 +++ b/browser/components/sessionstore/SessionStore.sys.mjs
-@@ -7862,6 +7862,8 @@ class _SessionStore {
+@@ -356,6 +356,7 @@
+     "moz-src:///browser/components/sessionstore/SessionStartup.sys.mjs",
+   SessionStoreHelper:
+     "resource://gre/modules/sessionstore/SessionStoreHelper.sys.mjs",
++  WhimsyFormDrafts: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
+   TabAttributes:
+     "moz-src:///browser/components/sessionstore/TabAttributes.sys.mjs",
+   TabCrashHandler: "resource:///modules/ContentCrashHandlers.sys.mjs",
+@@ -1446,6 +1447,11 @@
+     if (this.#crashedBrowsers.has(permanentKey)) {
+       return;
+     }
++
++    // Whimsy (W13-R1 v2): typed form values never enter the cache, so
++    // nothing built from it (closed tabs, windows, backups, the file) ever
++    // holds one either; whimsy-handoff/wave13/r1-v2-design.md §7.
++    lazy.WhimsyFormDrafts?.stripSessionUpdate(update);
+ 
+     lazy.TabState.update(permanentKey, update);
+     this.#saveStateDelayed(win);
+@@ -7862,6 +7868,8 @@ class _SessionStore {
          aTabState.entries.length == 1 &&
          (entryUrl == "about:blank" ||
            (entryUrl == "about:home" && !aTabState.splitViewId) ||
