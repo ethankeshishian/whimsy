@@ -3225,7 +3225,7 @@ whimsy-menus-select-all =
 ## label you see most; its other label is the row's detail line.
 whimsy-menus-tab-essentials-alt = or Remove from Essentials
 whimsy-menus-tab-pin-alt = or Unpin Tab
-whimsy-menus-tab-share-alt = or Create Shareable Link, for several tabs
+whimsy-menus-tab-share-alt = or Create Shareable Link
 whimsy-menus-link-copy-email-alt = or Copy Phone Number
 whimsy-menus-media-play-alt = or Pause
 whimsy-menus-media-mute-alt = or Unmute

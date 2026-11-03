@@ -61,6 +61,9 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   "whimsy.updates.seen-install",
   "whimsy.teach.seen",
   "browser.engagement.ctrlTab.has-used",
+  // Opening about:preferences lazily caches a default device name (from the
+  // FxAccounts device list) the first time anything reads it.
+  "identity.fxaccounts.account.device.name",
 ];
 
 function whimsyReadPref(name, type) {

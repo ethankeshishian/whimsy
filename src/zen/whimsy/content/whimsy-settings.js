@@ -3133,14 +3133,19 @@ Object.assign(gWhimsySettings, {
     }
     const current = document.querySelector(".whimsy-menus-detail:not([data-inactive])");
     const panels = [current, ...document.querySelectorAll(".whimsy-menus-detail")].filter(Boolean);
-    for (const panel of panels) {
-      const hit = [...panel.querySelectorAll(".whimsy-menus-row")].find(row =>
-        [".whimsy-menus-row-label", ".whimsy-menus-row-hint", ".whimsy-menus-row-alt"].map(sel => row.querySelector(sel)?.textContent)
-          .some(text => text?.toLowerCase().includes(needle))
-      );
-      if (hit) {
-        this.selectMenu(panel.dataset.menu, { remember: false });
-        return panel.dataset.menu;
+    // A row whose own name matches the query exactly (e.g. "Live Folder")
+    // wins over one where it's only part of a longer name in another menu
+    // (e.g. "Live Folder Options"); only then fall back to any match.
+    for (const matches of [(lower) => lower == needle, (lower) => lower?.includes(needle)]) {
+      for (const panel of panels) {
+        const hit = [...panel.querySelectorAll(".whimsy-menus-row")].find(row =>
+          [".whimsy-menus-row-label", ".whimsy-menus-row-hint", ".whimsy-menus-row-alt"].map(sel => row.querySelector(sel)?.textContent)
+            .some(text => matches(text?.toLowerCase()))
+        );
+        if (hit) {
+          this.selectMenu(panel.dataset.menu, { remember: false });
+          return panel.dataset.menu;
+        }
       }
     }
     return null;
