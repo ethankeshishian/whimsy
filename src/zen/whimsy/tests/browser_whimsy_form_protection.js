@@ -466,6 +466,66 @@ add_task(async function test_private_draft_stays_in_memory() {
   }
 });
 
+// Pinned ⌘W, bug: confirming one typed pinned tab must not spend its
+// confirmation when a later press (with another, still-unconfirmed, pinned
+// tab in the mix) warns and closes nothing. onCloseTabShortcut's needWarn
+// filter used to call closeConfirmed (which *consumes* the timestamp) on
+// every candidate tab just to decide who still needs a warning, so the
+// already-confirmed tab's timestamp was gone even though nothing closed.
+add_task(async function test_pinned_multiselect_close_does_not_consume_other_confirmation() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.forms.saveDrafts", false]] });
+  const tab1 = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+  const tab2 = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+  gBrowser.pinTab(tab1);
+  gBrowser.pinTab(tab2);
+  try {
+    await typeInto(tab1.linkedBrowser, "name", "Ada");
+    await TestUtils.waitForCondition(() => typed(tab1), "tab1 typed");
+    await typeInto(tab2.linkedBrowser, "name", "Grace");
+    await TestUtils.waitForCondition(() => typed(tab2), "tab2 typed");
+
+    // First press: only tab1 is selected. It warns and is now confirmed
+    // (within CLOSE_CONFIRM_MS, a second press on it alone would close it).
+    gBrowser.selectedTab = tab1;
+    await SimpleTest.promiseFocus(window);
+    EventUtils.synthesizeKey("w", { accelKey: true });
+    await TestUtils.waitForCondition(() => toastFor("whimsy-form-close-warning"), "tab1's first ⌘W warns");
+    closeToasts();
+
+    // Second press: both tabs are the target (as a real multiselected ⌘W
+    // would pass them). tab2 has never been warned, so this press must
+    // warn again and close nothing for either tab.
+    await gZenPinnedTabManager.onCloseTabShortcut(undefined, [tab1, tab2]);
+    await TestUtils.waitForCondition(() => toastFor("whimsy-form-close-warning"), "tab2 still needs a fresh warning");
+    ok(gBrowser.tabs.includes(tab1) && gBrowser.tabs.includes(tab2), "nothing closed");
+    closeToasts();
+
+    // Third press: tab1 alone again, right away. Its earlier confirmation
+    // must still hold (it was never consumed by the press that closed
+    // nothing), so this must proceed without a fresh warning toast.
+    gBrowser.selectedTab = tab1;
+    await SimpleTest.promiseFocus(window);
+    EventUtils.synthesizeKey("w", { accelKey: true });
+    await new Promise(resolve => setTimeout(resolve, 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    is(toastFor("whimsy-form-close-warning"), null, "tab1's earlier confirmation was not spent by the press that closed nothing");
+  } finally {
+    closeToasts();
+    for (const tab of [tab1, tab2]) {
+      if (tab.pinned) {
+        gBrowser.unpinTab(tab);
+      }
+      if (gBrowser.tabs.includes(tab)) {
+        BrowserTestUtils.removeTab(tab);
+      }
+    }
+    await TestUtils.waitForCondition(
+      () => !gBrowser.tabs.includes(tab1) && !gBrowser.tabs.includes(tab2),
+      "Both tabs finished closing"
+    );
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 add_task(async function test_switch_off() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.form-protection", false]] });
   await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {

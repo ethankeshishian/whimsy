@@ -776,16 +776,22 @@ export const WhimsyFormProtection = {
     return this.enabled && this.hasUnsavedInput(tab) && (!WhimsyFormDrafts.saving || this.isPrivateTab(tab));
   },
 
+  // Whether `tab` was warned within CLOSE_CONFIRM_MS, without spending
+  // that confirmation. Safe to call on a tab that may not end up closing.
+  isCloseConfirmed(tab) {
+    const at = closeWarnedAt.get(tab);
+    return !!(at && Date.now() - at <= CLOSE_CONFIRM_MS);
+  },
+
   // True exactly once per warning: the press that follows a fresh warning
   // (within CLOSE_CONFIRM_MS) consumes it and lets the real close/quit
   // through; a later press needs a fresh warning again.
   closeConfirmed(tab) {
-    const at = closeWarnedAt.get(tab);
-    if (at && Date.now() - at <= CLOSE_CONFIRM_MS) {
-      closeWarnedAt.delete(tab);
-      return true;
+    if (!this.isCloseConfirmed(tab)) {
+      return false;
     }
-    return false;
+    closeWarnedAt.delete(tab);
+    return true;
   },
 
   // "Unsaved typing will be lost · ⌘W again to close", with a Close
@@ -880,13 +886,19 @@ export const WhimsyFormProtection = {
     manager.onCloseTabShortcut = async function (event, selectedTab = win.gBrowser.selectedTab, options = {}) {
       const tabs = self.enabled ? pinnedTargets(selectedTab, behaviorOf(options), options) : [];
       const typed = tabs.filter(tab => self.needsWarning(tab));
-      const needWarn = typed.filter(tab => !self.closeConfirmed(tab));
+      // Peek, don't consume: a press that ends up warning (because some
+      // other typed tab isn't confirmed yet) closes nothing, so it must
+      // leave every tab's confirmation exactly as it found it.
+      const needWarn = typed.filter(tab => !self.isCloseConfirmed(tab));
       if (needWarn.length) {
         event?.stopPropagation?.();
         event?.preventDefault?.();
         self.warnBeforeClose(win, needWarn, () => original.call(this, event, selectedTab, options));
         return undefined;
       }
+      // Nothing left to warn about: the close goes ahead, so this is the
+      // one press that gets to spend every typed tab's confirmation.
+      typed.forEach(tab => self.closeConfirmed(tab));
       return original.call(this, event, selectedTab, options);
     };
     win.document.addEventListener(
