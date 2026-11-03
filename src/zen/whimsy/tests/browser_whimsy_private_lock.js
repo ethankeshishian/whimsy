@@ -36,6 +36,7 @@ add_setup(async function () {
     }
     for (const kind of WhimsyPrivateLock.KINDS) {
       Services.prefs.clearUserPref(`whimsy.privateLock.${kind}`);
+      Services.prefs.clearUserPref(`whimsy.privateLock.askDismissals.${kind}`);
     }
     Services.prefs.clearUserPref("whimsy.privateLock.afterSeconds");
   });

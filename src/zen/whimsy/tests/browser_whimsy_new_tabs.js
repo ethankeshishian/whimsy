@@ -96,7 +96,8 @@ add_task(async function test_close_selects_next_in_strip_order() {
     ],
   });
   ok(Services.prefs.getBoolPref("browser.tabs.insertAfterCurrent"), "Runs with Whimsy's default");
-  const anchor = gBrowser.selectedTab;
+  // A fresh ordinary tab, so what an earlier file left selected (pinned, essential, in a folder) can't change where new tabs land.
+  const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   const tab1 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab1");
   const tab2 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab2");
   const tab3 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab3");
@@ -120,7 +121,7 @@ add_task(async function test_close_selects_next_in_strip_order() {
   is(gBrowser.selectedTab, below ?? tab3, "Closing the last tab of the run selects the next in strip order");
 
   BrowserTestUtils.removeTab(tab3);
-  gBrowser.selectedTab = anchor;
+  BrowserTestUtils.removeTab(anchor);
   await SpecialPowers.popPrefEnv();
 });
 
@@ -128,7 +129,8 @@ add_task(async function test_drag_reorders_tabs_opened_below_current() {
   await SpecialPowers.pushPrefEnv({ set: [["zen.view.show-newtab-button-top", false]] });
   ok(Services.prefs.getBoolPref("browser.tabs.insertAfterCurrent"), "Runs with Whimsy's default");
   await SidebarController.waitUntilStable();
-  const anchor = gBrowser.selectedTab;
+  // A fresh ordinary tab, so what an earlier file left selected (pinned, essential, in a folder) can't change where new tabs land.
+  const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   const tab1 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab1");
   const tab2 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab2");
   const tab3 = BrowserTestUtils.addTab(gBrowser, "data:text/plain,tab3");
@@ -195,7 +197,7 @@ add_task(async function test_drag_reorders_tabs_opened_below_current() {
   for (const t of [tab1, tab2, tab3]) {
     BrowserTestUtils.removeTab(t);
   }
-  gBrowser.selectedTab = anchor;
+  BrowserTestUtils.removeTab(anchor);
   await SpecialPowers.popPrefEnv();
 });
 
