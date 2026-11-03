@@ -839,6 +839,10 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_press_again.js"]
 support-files = ["whimsy_press_again.html"]
 
+# B16: press again for every bound Whimsy key in every window: Mini's ⌘O / ⇧⌘O on a page that uses them hint inside Mini, and the second press moves the page / opens the space list.
+["browser_whimsy_press_again_mini.js"]
+support-files = ["whimsy_press_again_mini.html"]
+
 # W10-63: with text selected, Copy URL's toast offers Copy Link to Highlight.
 ["browser_whimsy_copy_highlight.js"]
 support-files = ["whimsy_highlight.html"]
