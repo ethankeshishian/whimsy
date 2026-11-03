@@ -51,6 +51,19 @@ add_setup(async function () {
       ["whimsy.easel.sync", false],
     ],
   });
+  // Drawing a shape (color swatches) and test_sync write these directly,
+  // outside pushPrefEnv's reach.
+  for (const pref of ["whimsy.easel.color", "whimsy.easel.synced", "whimsy.easel.sync-known"]) {
+    const had = Services.prefs.prefHasUserValue(pref);
+    const value = had ? Services.prefs.getStringPref(pref) : null;
+    registerCleanupFunction(() => {
+      if (had) {
+        Services.prefs.setStringPref(pref, value);
+      } else {
+        Services.prefs.clearUserPref(pref);
+      }
+    });
+  }
 });
 
 async function openNewEasel() {
