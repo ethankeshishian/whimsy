@@ -212,6 +212,37 @@ add_task(async function test_zoom_stepper_reader_saved_zoom() {
   }
 });
 
+// B10: zoom set in Reader View itself (the stepper, which zooms the
+// about:reader page rather than Reader's font size, F16) is still there
+// after reloading *while still in Reader View* -- not just after leaving
+// Reader View back to the original page (covered above).
+add_task(async function test_zoom_stepper_reader_reload_in_reader() {
+  clearAll();
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ARTICLE_URL);
+  const browser = tab.linkedBrowser;
+  try {
+    await TestUtils.waitForCondition(() => browser.isArticle, "readerable");
+    browser.browsingContext.currentWindowGlobal.getActor("AboutReader").sendAsyncMessage("Reader:ToggleReaderMode", {});
+    await TestUtils.waitForCondition(() => browser.currentURI.spec.startsWith("about:reader"), "In Reader View");
+    const readerURL = browser.currentURI.spec;
+    await openPanel();
+    const into = rowOf("zoom").querySelector(".whimsy-site-settings-zoom-in");
+    EventUtils.synthesizeMouseAtCenter(into, {});
+    EventUtils.synthesizeMouseAtCenter(into, {});
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "+ steps Reader View's zoom");
+    const set = ZoomManager.getZoomForBrowser(browser);
+    await closePanel();
+    BrowserTestUtils.reloadTab(tab);
+    await BrowserTestUtils.browserLoaded(browser);
+    is(browser.currentURI.spec, readerURL, "Reloading stayed in Reader View");
+    await TestUtils.waitForCondition(() => Math.abs(ZoomManager.getZoomForBrowser(browser) - set) < 0.01,
+      `Reader View's zoom stays after a reload (${ZoomManager.getZoomForBrowser(browser)} vs ${set})`);
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    clearAll();
+  }
+});
+
 add_task(async function test_autoplay_reuses_firefox_permission() {
   clearAll();
   // Firefox's real default, Block audio (the harness allows autoplay, which

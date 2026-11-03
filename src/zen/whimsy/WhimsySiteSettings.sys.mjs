@@ -626,14 +626,31 @@ export const WhimsySiteSettings = {
     // F16: in Reader View Firefox's zoom (FullZoom) changes Reader's text
     // size instead, so the page's zoom and the % never moved: "Zoom doesn't
     // work". There the stepper zooms the page itself (ZoomManager).
+    // B10: ZoomManager.enlarge/reduce only set the browser's live zoom; they
+    // never call FullZoom's _applyZoomToPref, so a Reader View zoom set this
+    // way was never saved and reset to 100% on reload. FullZoom.setZoom does
+    // both (ZoomManager.setZoomForBrowser + the content-pref save, keyed by
+    // the full about:reader?url=... spec, same as Firefox restores from on
+    // the next load) and has no about:reader special case, so route the
+    // reader step through it too.
     const inReader = () => browser.currentURI?.spec.startsWith("about:reader");
+    const stepReaderZoom = direction => {
+      const zm = win.ZoomManager;
+      if (!zm) {
+        return;
+      }
+      const i = zm.zoomValues.indexOf(zm.snap(zm.getZoomForBrowser(browser))) + direction;
+      if (i >= 0 && i < zm.zoomValues.length) {
+        win.FullZoom?.setZoom?.(zm.zoomValues[i], browser);
+      }
+    };
     const out = button("whimsy-site-settings-zoom-out", "whimsy-site-settings-zoom-out", () =>
-      inReader() ? win.ZoomManager?.reduce?.() : win.FullZoom?.reduce?.());
+      inReader() ? stepReaderZoom(-1) : win.FullZoom?.reduce?.());
     out.textContent = "−";
     const value = button("whimsy-site-settings-zoom-reset", "whimsy-site-settings-zoom-value", () =>
       this.resetZoom(win, browser));
     const into = button("whimsy-site-settings-zoom-in", "whimsy-site-settings-zoom-in", () =>
-      inReader() ? win.ZoomManager?.enlarge?.() : win.FullZoom?.enlarge?.());
+      inReader() ? stepReaderZoom(1) : win.FullZoom?.enlarge?.());
     into.textContent = "+";
     stepper.append(out, value, into);
     // − and = work while the stepper has the keyboard.
@@ -908,8 +925,10 @@ export const WhimsySiteSettings = {
   // Actions.
 
   resetZoom(win, browser) {
+    // B10: as above, go through FullZoom.setZoom so the reset to 100% is
+    // also saved for the reader URL, not just applied live.
     if (browser.currentURI?.spec.startsWith("about:reader")) {
-      win.ZoomManager?.setZoomForBrowser?.(browser, 1);
+      win.FullZoom?.setZoom?.(1, browser);
       return Promise.resolve();
     }
     return Promise.resolve(win.FullZoom?.reset?.(browser)).catch(() => {});
