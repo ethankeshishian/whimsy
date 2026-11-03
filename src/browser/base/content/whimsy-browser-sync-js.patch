@@ -1,0 +1,18 @@
+diff --git a/browser/base/content/browser-sync.js b/browser/base/content/browser-sync.js
+index 8631d88912fb55054ac9484b7ef283621e9c1ba5..00e011323ab18e04dfa3567a1046c62f56e18966 100644
+--- a/browser/base/content/browser-sync.js
++++ b/browser/base/content/browser-sync.js
+@@ -674,8 +674,12 @@ this.FxAMenuDeviceList = class FxAMenuDeviceList {
+         });
+       }
+     }
++    // Whimsy: an unmatched client can still be this same device (a stale
++    // Sync client record SyncedTabs didn't recognize as local); never show
++    // it as another device to send to or sync from.
++    let localID = Weave.Service.clientsEngine.localID;
+     for (let client of clients) {
+-      if (!matchedClients.has(client)) {
++      if (!matchedClients.has(client) && client.id != localID) {
+         merged.push(client);
+       }
+     }

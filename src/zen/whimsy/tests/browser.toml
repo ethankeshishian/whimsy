@@ -548,6 +548,9 @@ support-files = ["whimsy_login_form.html"]
 # wave5/profiles: per-profile data through Sync's prefs engine (two-device round trip, merge rules).
 ["browser_whimsy_profile_sync.js"]
 
+# B17: the command bar's synced-tabs source and the Send Tab to Device / all-devices list both exclude this same device's own Sync client record.
+["browser_whimsy_synced_device_filter.js"]
+
 # wave6/zap: Zap as a command (shortcut, command bar, site panel, Boost on the fly, undo, Year in tabs count, space-colored dust, switch off).
 ["browser_whimsy_zap.js"]
 support-files = ["whimsy_article.html"]

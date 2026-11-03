@@ -1,0 +1,29 @@
+diff --git a/services/sync/modules/SyncedTabs.sys.mjs b/services/sync/modules/SyncedTabs.sys.mjs
+index 93944fa16a38ba2699e494a0d754329404a4edd3..b1329593ecee440f7280f6e316d911ea189efff8 100644
+--- a/services/sync/modules/SyncedTabs.sys.mjs
++++ b/services/sync/modules/SyncedTabs.sys.mjs
+@@ -208,8 +208,23 @@ let SyncedTabsInternal = {
+ 
+     let ntabs = 0;
+     let clientTabList = await engine.getAllClients();
++    // Whimsy: a client record for this same device should never show up as
++    // a synced-tabs source, whatever Sync client GUID or FxA device id it
++    // carries (a stale record left behind by a GUID change still matches by
++    // FxA device id).
++    let localFxaDeviceId = lazy.fxAccounts.device.recentDeviceList?.find(
++      d => d.isCurrentDevice
++    )?.id;
++    let clientsEngine = lazy.Weave.Service.clientsEngine;
+     for (let client of clientTabList) {
+-      if (!lazy.Weave.Service.clientsEngine.remoteClientExists(client.id)) {
++      if (!clientsEngine.remoteClientExists(client.id)) {
++        continue;
++      }
++      if (
++        client.id == clientsEngine.localID ||
++        (localFxaDeviceId &&
++          clientsEngine.getClientFxaDeviceId(client.id) == localFxaDeviceId)
++      ) {
+         continue;
+       }
+       let clientRepr = await this._makeClient(client);
