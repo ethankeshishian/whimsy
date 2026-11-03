@@ -3698,6 +3698,7 @@ whimsy-action-unmute-pane = Unmute Focused Pane
 # Firefox's own names for these page commands.
 whimsy-action-back = Back
 whimsy-action-forward = Forward
+whimsy-action-go-home = Go Home
 whimsy-action-view-page-source = View Page Source
 whimsy-action-save-page = Save Page As…
 whimsy-action-bookmark-page = Bookmark Page…
@@ -4222,6 +4223,9 @@ whimsy-setting-new-windows = New Window Page
     .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
 whimsy-setting-new-tabs = New Tab Page
     .keywords = new tabs, whimsy home, firefox home, blank new tab
+# W13-B6: opens Settings → Home and startup; not a setting row itself (see
+# whimsy-setting-new-windows/new-tabs above), so it's not whimsy-setting-*.
+whimsy-action-open-home-settings = Open Home and Startup Settings…
 whimsy-setting-teach = Shortcut Tips
     .keywords = tips, hints, teach, learn shortcuts, onboarding
 whimsy-setting-cookie-banners = Reject Cookie Banners

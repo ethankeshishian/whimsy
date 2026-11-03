@@ -111,3 +111,38 @@ add_task(async function test_view_history() {
   Library.toggle();
   await TestUtils.waitForCondition(() => !Library.isLibraryOpen, "Closed again");
 });
+
+// W13-B6: Settings → Home and startup, and Go Home: both are commands with
+// an assignable shortcut, and the settings one opens the right pane.
+add_task(async function test_open_home_settings_command() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const entry = WhimsyCommands.get("cmd_whimsyOpenHomeSettings");
+  ok(entry, "cmd_whimsyOpenHomeSettings is registered");
+  const keyEl = document.getElementById(entry.keyId ?? entry.elsewhere);
+  ok(keyEl, "and has a <key>, so a shortcut can be assigned");
+  const row = action("whimsy-action-open-home-settings");
+  ok(row?.label, `and is in the command bar ("${row?.label}")`);
+
+  const original = window.openPreferences;
+  let openedWith = null;
+  window.openPreferences = pane => {
+    openedWith = pane;
+  };
+  try {
+    document.getElementById("cmd_whimsyOpenHomeSettings").doCommand();
+  } finally {
+    window.openPreferences = original;
+  }
+  is(openedWith, "paneHome", "Running it opens Settings on the Home and startup pane");
+});
+
+add_task(async function test_go_home_command() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const entry = WhimsyCommands.get("Browser:Home");
+  ok(entry, "Browser:Home is registered as a Whimsy command");
+  const keyEl = document.getElementById(entry.keyId ?? entry.elsewhere);
+  ok(keyEl, "and has a <key>, so a shortcut can be assigned");
+  const row = action("whimsy-action-go-home");
+  ok(row?.label, `and is in the command bar ("${row?.label}")`);
+  is(row.command, "Browser:Home", "Running it runs Firefox's own Go Home command");
+});

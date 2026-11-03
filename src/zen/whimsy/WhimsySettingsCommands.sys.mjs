@@ -587,6 +587,31 @@ export const WhimsySettingsCommands = {
           }
         }
       }
+      try {
+        this.registerHomeCommands(win);
+      } catch (e) {
+        console.error("Whimsy: home commands", e);
+      }
+    });
+  },
+
+  // W13-B6: Settings → Home and startup and Go Home, neither a Settings row
+  // (so neither is in SETTINGS above, and neither needs search keywords),
+  // but each still a command with a name and an assignable shortcut, like
+  // every other command here.
+  registerHomeCommands(win) {
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyOpenHomeSettings",
+      l10nId: "whimsy-action-open-home-settings",
+      icon: ICON,
+      run: w => w.openPreferences("paneHome"),
+    });
+    // Firefox's own command (its own name, "Go Home"); reuses its <key> if
+    // it has one, else gets a Whimsy one with no default, ready to assign.
+    lazy.WhimsyCommands.register(win, {
+      id: "Browser:Home",
+      l10nId: "whimsy-action-go-home",
+      icon: "chrome://browser/skin/zen-icons/home.svg",
     });
   },
 
