@@ -95,7 +95,7 @@ export const WhimsyStats = {
     const onOpen = event => {
       const tab = event.target;
       tab.setAttribute(OPENED_ATTR, String(Date.now()));
-      if (!this.enabled || !restoredWindows || isPrivateTab(tab)) {
+      if (!this.enabled || !restoredWindows || isPrivateTab(tab) || (Cu.isInAutomation && !this.allowInAutomation)) {
         return;
       }
       const data = readCounter();

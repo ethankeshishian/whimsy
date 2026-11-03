@@ -74,6 +74,17 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   // own first-run bookkeeping for the feature.
   "media.videocontrols.picture-in-picture.video-toggle.has-used",
   "media.videocontrols.picture-in-picture.video-toggle.first-seen-secs",
+  // Side effects of opening windows, panels and profiles that the files
+  // after them never look at.
+  "whimsy.quick-window.size",
+  "whimsy.profiles.login-tags",
+  "whimsy.profiles.download-dirs",
+  "whimsy.profiles.search-engines",
+  "whimsy.profiles.extensions",
+  "whimsy.useragent.sites",
+  "whimsy.stats.zapped",
+  "screenshots.browser.component.last-screenshot-method",
+  "screenshots.browser.component.last-saved-method",
 ];
 
 function whimsyReadPref(name, type) {
