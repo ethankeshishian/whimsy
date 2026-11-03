@@ -69,8 +69,32 @@ run_with_retry() { # run_with_retry <name> <path>
   [ -z "$bad" ]
 }
 
+# A headed run's harness waits for its window to take focus. While any app
+# holds Secure Keyboard Entry (a password field, a terminal's secure input),
+# macOS won't let another app come to the front, so the suite would sit
+# silent until the harness's no-output timeout. Wait for it to be released;
+# if it never is, say why instead of reporting a hang.
+secure_input_pid() {
+  ioreg -l -w 0 2>/dev/null | sed -n 's/.*"kCGSSessionSecureInputPID"=\([0-9]*\).*/\1/p' | head -1
+}
+wait_for_foreground() { # wait_for_foreground <name>
+  waited=0
+  while pid=$(secure_input_pid); [ -n "$pid" ]; do
+    if [ "$waited" = 0 ]; then
+      echo "$1: waiting for secure keyboard input to be released (held by $(ps -p "$pid" -o comm= 2>/dev/null || echo "pid $pid"))"
+    fi
+    if [ "$waited" -ge 1800 ]; then
+      echo "$1: not run: secure keyboard input still held after 30 minutes, so its window can't take focus"
+      return 1
+    fi
+    sleep 10
+    waited=$((waited + 10))
+  done
+}
+
 run whimsy zen/whimsy/tests || status=1
 # Native-event tests need a visible window; run just those headed.
+wait_for_foreground whimsy-native &&
 (WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js zen/whimsy/tests/browser_whimsy_native_services.js zen/whimsy/tests/browser_whimsy_arc_menu_keys_native.js) || status=1
 if [ "$MODE" = "all" ] || [ "$MODE" = "gate" ]; then
   if [ "$MODE" = "gate" ]; then
