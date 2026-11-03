@@ -114,6 +114,10 @@ add_task(async function test_finale_actions() {
     ok(doc.querySelector(".whimsy-year-finale-card .whimsy-year-tile"), "The summary card has stat tiles");
     ok(doc.getElementById("whimsy-year-copy"), "Copy card is offered");
     ok(doc.getElementById("whimsy-year-done"), "and Done");
+    // The slide's own wipe-in (clip-path) is still playing right after
+    // skip(); wait it out so the button isn't clicked while clipped away.
+    const finale = doc.querySelector('.whimsy-year-slide[data-kind="finale"]');
+    await Promise.all(finale.getAnimations().map(a => a.finished.catch(() => {})));
     doc.getElementById("whimsy-year-replay").click();
     is(year.cardIndex, 0, "Watch again starts over");
     is(doc.getElementById("whimsy-year-cards").dataset.card, "0", "from the intro");
