@@ -251,8 +251,12 @@ export const WhimsySpaceExtensions = {
     for (const extensionId of previouslyManaged) {
       if (!nowManaged.has(extensionId)) {
         Services.prefs.clearUserPref(restrictedPref(extensionId));
-        // An older build kept it on the default branch.
-        Services.prefs.getDefaultBranch("").setStringPref(restrictedPref(extensionId), "[]");
+        // An older build kept it on the default branch. Automation never
+        // has that leftover, and the write can't be told apart from a real
+        // user pref change afterwards (it's on the default branch).
+        if (!Cu.isInAutomation) {
+          Services.prefs.getDefaultBranch("").setStringPref(restrictedPref(extensionId), "[]");
+        }
       }
     }
     if (nowManaged.size) {

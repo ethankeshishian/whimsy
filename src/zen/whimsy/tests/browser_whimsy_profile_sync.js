@@ -78,6 +78,50 @@ add_task(async function two_device_round_trip() {
   const store = new PrefsEngine(Service)._store;
   WhimsyProfilePasswords.init();
 
+  // store.update() below runs Firefox's own Sync prefs engine directly
+  // against the live prefs branch: createRecord() snapshots the *raw
+  // value* of every synced pref (marking it seen,
+  // services.sync.prefs.sync-seen.*), and update() later writes those raw
+  // values back — including extensions.userContextIsolation.ext@whimsy.
+  // test.restricted, copied as a plain pref rather than going through
+  // WhimsySpaceExtensions' own reactive logic. Snapshot both branches and
+  // restore exactly what changed, in cleanup, rather than trying to
+  // replay the app logic that would normally derive them.
+  function readPref(pref) {
+    switch (Services.prefs.getPrefType(pref)) {
+      case Services.prefs.PREF_BOOL: return Services.prefs.getBoolPref(pref);
+      case Services.prefs.PREF_INT: return Services.prefs.getIntPref(pref);
+      default: return Services.prefs.getStringPref(pref, "");
+    }
+  }
+  function writePref(pref, value) {
+    switch (Services.prefs.getPrefType(pref)) {
+      case Services.prefs.PREF_BOOL: return Services.prefs.setBoolPref(pref, value);
+      case Services.prefs.PREF_INT: return Services.prefs.setIntPref(pref, value);
+      default: return Services.prefs.setStringPref(pref, value);
+    }
+  }
+  function snapshotBranch(branch) {
+    const snapshot = new Map();
+    for (const pref of Services.prefs.getChildList(branch)) {
+      snapshot.set(pref, Services.prefs.prefHasUserValue(pref) ? readPref(pref) : null);
+    }
+    return snapshot;
+  }
+  function restoreBranch(branch, snapshot) {
+    const names = new Set([...Services.prefs.getChildList(branch), ...snapshot.keys()]);
+    for (const pref of names) {
+      const was = snapshot.has(pref) ? snapshot.get(pref) : null;
+      if (was === null) {
+        Services.prefs.clearUserPref(pref);
+      } else if (readPref(pref) != was) {
+        writePref(pref, was);
+      }
+    }
+  }
+  const seenBefore = snapshotBranch("services.sync.prefs.sync-seen.");
+  const isolationBefore = snapshotBranch("extensions.userContextIsolation.");
+
   const work = WhimsyProfiles.create("Whimsy Sync Work");
   const key = WhimsyProfiles.keyFor(work);
   const login = await Services.logins.addLoginAsync(
@@ -124,10 +168,14 @@ add_task(async function two_device_round_trip() {
       "The merge is what uploads next");
   } finally {
     await Services.logins.removeLoginAsync(login).catch(() => {});
-    WhimsySpaceHistory.placeProfiles.set("placeGuidAAA", null);
-    WhimsyProfileSettings.engines.set(key, null);
-    WhimsyProfileSettings.engines.set("local-only", null);
-    WhimsySpaceExtensions.choices.set("ext@whimsy.test", null);
+    // .set(id, null) alone leaves a tombstone entry (correct for a real
+    // Sync deletion to propagate), which still differs from the "never
+    // existed" state these prefs were in before the test. wipeLocally()
+    // (already used above to simulate a fresh device) clears the maps'
+    // caches and prefs outright.
+    wipeLocally();
     ContextualIdentityService.remove(work);
+    restoreBranch("services.sync.prefs.sync-seen.", seenBefore);
+    restoreBranch("extensions.userContextIsolation.", isolationBefore);
   }
 });
