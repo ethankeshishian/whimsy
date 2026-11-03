@@ -15,8 +15,29 @@
 // an accent dot explained in the footer.
 
 const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Preferences.sys.mjs");
 
 const PANEL_ID = "whimsy-cheatsheet-panel";
+
+// Opening the extra windows/tabs this file uses to test the sheet at
+// different sizes trips Whimsy's own tab-count stat and update-seen check;
+// neither is this file's to leave behind.
+const LEAKED_PREFS = ["whimsy.stats.tabs-opened", "whimsy.updates.seen-install"];
+
+add_setup(function () {
+  const original = new Map(
+    LEAKED_PREFS.filter(name => Services.prefs.prefHasUserValue(name)).map(name => [name, Preferences.get(name)])
+  );
+  registerCleanupFunction(() => {
+    for (const name of LEAKED_PREFS) {
+      if (original.has(name)) {
+        Preferences.set(name, original.get(name));
+      } else {
+        Services.prefs.clearUserPref(name);
+      }
+    }
+  });
+});
 
 async function openSheet(how = () => document.getElementById("whimsy-cheatsheet").doCommand()) {
   const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == PANEL_ID);
