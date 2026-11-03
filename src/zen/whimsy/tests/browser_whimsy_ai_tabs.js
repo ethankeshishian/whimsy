@@ -10,6 +10,7 @@
 // pinning renames a tab, Today tabs keep the page's title, typed names are
 // never touched. Everything uses a fake AI provider.
 
+const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAITabs, MIN_TIDY_TABS } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAITabs.sys.mjs");
 
@@ -41,6 +42,7 @@ add_setup(async () => {
   registerCleanupFunction(async () => {
     WhimsyAIProviders.setTestProvider(null);
     Services.prefs.clearUserPref("whimsy.ai.enabled");
+    await WhimsyAI.pending;
     Services.prefs.clearUserPref("whimsy.feature.tidy-tabs");
     Services.prefs.clearUserPref("whimsy.feature.tidy-titles");
     for (const folder of gBrowser.tabGroups.filter(g => g.isZenFolder && g.label == "Org Reading")) {
@@ -205,11 +207,13 @@ add_task(async function test_switches_hide_the_broom() {
   }
   await TestUtils.waitForCondition(() => broom() && !broom().hidden, "The broom shows");
   Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+  await WhimsyAI.pending;
   await TestUtils.waitForCondition(() => broom().hidden, "The AI kill switch hides it");
   requests = [];
   is(await WhimsyAITabs.tidy(window), null, "and tidying does nothing");
   is(requests.length, 0, "without asking the AI");
   Services.prefs.clearUserPref("whimsy.ai.enabled");
+  await WhimsyAI.pending;
   await TestUtils.waitForCondition(() => !broom().hidden, "Back on");
   Services.prefs.setBoolPref("whimsy.feature.tidy-tabs", false);
   await TestUtils.waitForCondition(() => broom().hidden, "The feature switch hides it too");
@@ -278,6 +282,9 @@ add_task(async function tidy_disabled_stops_mutating_tabs() {
   for (const [pref, value] of [["whimsy.feature.tidy-tabs", false], ["whimsy.ai.enabled", false]]) {
     await WhimsyAITabs.tidy(window);
     await SpecialPowers.pushPrefEnv({ set: [[pref, value]] });
+    if (pref == "whimsy.ai.enabled") {
+      await WhimsyAI.pending;
+    }
     try {
       await TestUtils.waitForCondition(() => !headers().length, "Disabled headers are removed");
       const tab = (await openTodayTabs(1))[0];
@@ -289,6 +296,11 @@ add_task(async function tidy_disabled_stops_mutating_tabs() {
       await TestUtils.waitForTick();
       ok(!tab.hasAttribute("whimsy-tidy-section"), "Opening and moving cannot join sections while disabled");
       BrowserTestUtils.removeTab(tab);
-    } finally { await SpecialPowers.popPrefEnv(); }
+    } finally {
+      await SpecialPowers.popPrefEnv();
+      if (pref == "whimsy.ai.enabled") {
+        await WhimsyAI.pending;
+      }
+    }
   }
 });
