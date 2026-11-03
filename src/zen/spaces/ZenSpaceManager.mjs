@@ -2109,6 +2109,20 @@ class nsZenWorkspaces {
     }
   }
 
+  // Whimsy hotfix (B3): wraps only while navigation does; see
+  // _whimsyLinearSpaces (WhimsySpaceSwitchQueue.sys.mjs).
+  #spaceDistance(from, to, count) {
+    let diff = to - from;
+    if (this.shouldWrapAroundNavigation && !this._whimsyLinearSpaces) {
+      if (diff > Math.floor(count / 2)) {
+        diff -= count;
+      } else if (diff < -Math.floor(count / 2)) {
+        diff += count;
+      }
+    }
+    return diff;
+  }
+
   _organizeWorkspaceStripLocations(
     workspace,
     justMove = false,
@@ -2125,10 +2139,17 @@ class nsZenWorkspaces {
     );
     let nextSpaceIdx;
     const spaceLen = workspaces.length;
+    // Whimsy hotfix (B3): clamp, don't wrap, once the strip is a line.
+    const wrapSpaces =
+      this.shouldWrapAroundNavigation && !this._whimsyLinearSpaces;
     if (offsetPixels > 0) {
-      nextSpaceIdx = (workspaceIndex - 1 + spaceLen) % spaceLen;
+      nextSpaceIdx = wrapSpaces
+        ? (workspaceIndex - 1 + spaceLen) % spaceLen
+        : Math.max(workspaceIndex - 1, 0);
     } else if (offsetPixels < 0) {
-      nextSpaceIdx = (workspaceIndex + 1) % spaceLen;
+      nextSpaceIdx = wrapSpaces
+        ? (workspaceIndex + 1) % spaceLen
+        : Math.min(workspaceIndex + 1, spaceLen - 1);
     } else {
       nextSpaceIdx = workspaceIndex;
     }
@@ -2137,12 +2158,13 @@ class nsZenWorkspaces {
     const isCreatingWorkspace = workspace.uuid === this.creatingWorkspaceId;
     for (const otherWorkspace of workspaces) {
       const element = this.workspaceElement(otherWorkspace.uuid);
-      let diff = workspaces.indexOf(otherWorkspace) - workspaceIndex;
-      if (diff > Math.floor(spaceLen / 2)) {
-        diff -= spaceLen;
-      } else if (diff < -Math.floor(spaceLen / 2)) {
-        diff += spaceLen;
-      }
+      // Whimsy hotfix (B3): #spaceDistance keeps this linear once the
+      // strip is a line.
+      let diff = this.#spaceDistance(
+        workspaceIndex,
+        workspaces.indexOf(otherWorkspace),
+        spaceLen
+      );
       const newTransform = diff * 100;
       const transform = `translateX(${newTransform + offsetPixels / 2}%)`;
       if (element.style.transform !== transform) {
@@ -2308,12 +2330,13 @@ class nsZenWorkspaces {
     const newWorkspaceIndex = workspaces.findIndex(
       w => w.uuid === newWorkspace.uuid
     );
-    let diff = newWorkspaceIndex - previousWorkspaceIndex;
-    if (diff > Math.floor(spaceLen / 2)) {
-      diff -= spaceLen;
-    } else if (diff < -Math.floor(spaceLen / 2)) {
-      diff += spaceLen;
-    }
+    // Whimsy hotfix (B3): #spaceDistance keeps this linear once the
+    // strip is a line.
+    let diff = this.#spaceDistance(
+      previousWorkspaceIndex,
+      newWorkspaceIndex,
+      spaceLen
+    );
     const isGoingLeft = diff < 0;
     const essentialsAnimData = [];
     if (shouldAnimate && this.shouldAnimateEssentials && previousWorkspace) {
@@ -2389,12 +2412,13 @@ class nsZenWorkspaces {
       const elementWorkspaceIndex = workspaces.findIndex(
         w => w.uuid === elementWorkspaceId
       );
-      let offset = elementWorkspaceIndex - newWorkspaceIndex;
-      if (offset > Math.floor(spaceLen / 2)) {
-        offset -= spaceLen;
-      } else if (offset < -Math.floor(spaceLen / 2)) {
-        offset += spaceLen;
-      }
+      // Whimsy hotfix (B3): #spaceDistance keeps this linear once the
+      // strip is a line.
+      let offset = this.#spaceDistance(
+        newWorkspaceIndex,
+        elementWorkspaceIndex,
+        spaceLen
+      );
       offset = offset * 100;
       const newTransform = `translateX(${offset}%)`;
       // Only animate the workspace that is coming in, to avoid having multiple workspaces

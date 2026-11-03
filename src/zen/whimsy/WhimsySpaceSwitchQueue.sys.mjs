@@ -86,6 +86,7 @@ export const WhimsySpaceSwitchQueue = {
     if (!spaces?.workspaceEnabled || states.has(win)) {
       return;
     }
+    this.initLinearSpaces(win);
     const state = {
       running: false,
       // uuid of the space the playing slide is heading to.
@@ -182,6 +183,23 @@ export const WhimsySpaceSwitchQueue = {
 
   get edgesEnabled() {
     return Services.prefs.getBoolPref(EDGES_PREF, true);
+  },
+
+  // B3: the space strip is a ring only while navigation wraps; with edges
+  // on (stop-at-the-ends, same rule as above) it's a line. ZenSpaceManager's
+  // #spaceDistance hook reads this predicate; absent means Zen's own rule.
+  initLinearSpaces(win) {
+    const spaces = win.gZenWorkspaces;
+    if (Object.prototype.hasOwnProperty.call(spaces, "_whimsyLinearSpaces")) {
+      return;
+    }
+    const self = this;
+    Object.defineProperty(spaces, "_whimsyLinearSpaces", {
+      get() {
+        return self.edgesEnabled;
+      },
+      configurable: true,
+    });
   },
 
   initEdges(win, state) {

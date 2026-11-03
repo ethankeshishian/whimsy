@@ -711,6 +711,132 @@ HOTFIXES = [
                "    ) {\n"
                "      currentSelectedTab._selected = false;\n",
     },
+    # B3: spaces slide as a line, not a ring (see
+    # whimsy-handoff/wave13/b3-linear-design.md). The strip is a ring only
+    # while navigation wraps; with Whimsy's edges feature on (stop-at-the-
+    # ends) it's a line. #spaceDistance reads _whimsyLinearSpaces, a
+    # gZenWorkspaces predicate WhimsySpaceSwitchQueue defines.
+    {
+        "id": "space-linear-helper",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Adds #spaceDistance, used by the three places below to "
+               "stop wrapping the space-index distance the short way round "
+               "once Whimsy's edges feature makes the strip a line.",
+        "old": "  _organizeWorkspaceStripLocations(\n"
+               "    workspace,\n"
+               "    justMove = false,\n"
+               "    offsetPixels = 0\n"
+               "  ) {\n",
+        "new": "  // Whimsy hotfix (B3): wraps only while navigation does; see\n"
+               "  // _whimsyLinearSpaces (WhimsySpaceSwitchQueue.sys.mjs).\n"
+               "  #spaceDistance(from, to, count) {\n"
+               "    let diff = to - from;\n"
+               "    if (this.shouldWrapAroundNavigation && !this._whimsyLinearSpaces) {\n"
+               "      if (diff > Math.floor(count / 2)) {\n"
+               "        diff -= count;\n"
+               "      } else if (diff < -Math.floor(count / 2)) {\n"
+               "        diff += count;\n"
+               "      }\n"
+               "    }\n"
+               "    return diff;\n"
+               "  }\n"
+               "\n"
+               "  _organizeWorkspaceStripLocations(\n"
+               "    workspace,\n"
+               "    justMove = false,\n"
+               "    offsetPixels = 0\n"
+               "  ) {\n",
+    },
+    {
+        "id": "space-linear-next-idx",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Which neighbour a swipe reveals: clamp at the ends instead "
+               "of wrapping to the far space once the strip is a line.",
+        "old": "    let nextSpaceIdx;\n"
+               "    const spaceLen = workspaces.length;\n"
+               "    if (offsetPixels > 0) {\n"
+               "      nextSpaceIdx = (workspaceIndex - 1 + spaceLen) % spaceLen;\n"
+               "    } else if (offsetPixels < 0) {\n"
+               "      nextSpaceIdx = (workspaceIndex + 1) % spaceLen;\n"
+               "    } else {\n"
+               "      nextSpaceIdx = workspaceIndex;\n"
+               "    }\n",
+        "new": "    let nextSpaceIdx;\n"
+               "    const spaceLen = workspaces.length;\n"
+               "    // Whimsy hotfix (B3): clamp, don't wrap, once the strip is a line.\n"
+               "    const wrapSpaces =\n"
+               "      this.shouldWrapAroundNavigation && !this._whimsyLinearSpaces;\n"
+               "    if (offsetPixels > 0) {\n"
+               "      nextSpaceIdx = wrapSpaces\n"
+               "        ? (workspaceIndex - 1 + spaceLen) % spaceLen\n"
+               "        : Math.max(workspaceIndex - 1, 0);\n"
+               "    } else if (offsetPixels < 0) {\n"
+               "      nextSpaceIdx = wrapSpaces\n"
+               "        ? (workspaceIndex + 1) % spaceLen\n"
+               "        : Math.min(workspaceIndex + 1, spaceLen - 1);\n"
+               "    } else {\n"
+               "      nextSpaceIdx = workspaceIndex;\n"
+               "    }\n",
+    },
+    {
+        "id": "space-linear-resting",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Resting strip layout: each strip at (index - active) x 100%, "
+               "no wrap, once the strip is a line.",
+        "old": "      let diff = workspaces.indexOf(otherWorkspace) - workspaceIndex;\n"
+               "      if (diff > Math.floor(spaceLen / 2)) {\n"
+               "        diff -= spaceLen;\n"
+               "      } else if (diff < -Math.floor(spaceLen / 2)) {\n"
+               "        diff += spaceLen;\n"
+               "      }\n",
+        "new": "      // Whimsy hotfix (B3): #spaceDistance keeps this linear once the\n"
+               "      // strip is a line.\n"
+               "      let diff = this.#spaceDistance(\n"
+               "        workspaceIndex,\n"
+               "        workspaces.indexOf(otherWorkspace),\n"
+               "        spaceLen\n"
+               "      );\n",
+    },
+    {
+        "id": "space-linear-animate-direction",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "isGoingLeft and the crossing count: the switch direction, "
+               "no wrap, once the strip is a line.",
+        "old": "    let diff = newWorkspaceIndex - previousWorkspaceIndex;\n"
+               "    if (diff > Math.floor(spaceLen / 2)) {\n"
+               "      diff -= spaceLen;\n"
+               "    } else if (diff < -Math.floor(spaceLen / 2)) {\n"
+               "      diff += spaceLen;\n"
+               "    }\n",
+        "new": "    // Whimsy hotfix (B3): #spaceDistance keeps this linear once the\n"
+               "    // strip is a line.\n"
+               "    let diff = this.#spaceDistance(\n"
+               "      previousWorkspaceIndex,\n"
+               "      newWorkspaceIndex,\n"
+               "      spaceLen\n"
+               "    );\n",
+    },
+    {
+        "id": "space-linear-animate-offset",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Each strip's end position for this switch: no wrap once the "
+               "strip is a line (this is the end position of every strip, "
+               "so a ring offset put the last space left of the first even "
+               "with the direction fixed).",
+        "old": "      let offset = elementWorkspaceIndex - newWorkspaceIndex;\n"
+               "      if (offset > Math.floor(spaceLen / 2)) {\n"
+               "        offset -= spaceLen;\n"
+               "      } else if (offset < -Math.floor(spaceLen / 2)) {\n"
+               "        offset += spaceLen;\n"
+               "      }\n",
+        "new": "      // Whimsy hotfix (B3): #spaceDistance keeps this linear once the\n"
+               "      // strip is a line.\n"
+               "      let offset = this.#spaceDistance(\n"
+               "        newWorkspaceIndex,\n"
+               "        elementWorkspaceIndex,\n"
+               "        spaceLen\n"
+               "      );\n",
+    },
     # W10-39: Rename Space did nothing, and then neither did any rename.
     {
         "id": "tab-renamer-stale-edit",

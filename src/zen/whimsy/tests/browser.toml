@@ -857,6 +857,9 @@ support-files = ["whimsy_highlight.html"]
 # W10-03: Next Space past the last space opens New Space; Previous Space stops at the first (Arc).
 ["browser_whimsy_space_edges.js"]
 
+# B3: the space strip is a line, not a ring (edges on overrides Zen's wrap-around-navigation).
+["browser_whimsy_space_linear.js"]
+
 # W10-62: an Essential's "Show Unread Badge" (context menu checkbox and command, Arc).
 ["browser_whimsy_essential_badge.js"]
 
