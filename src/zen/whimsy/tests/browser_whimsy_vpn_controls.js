@@ -3,6 +3,8 @@
 
 "use strict";
 
+const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Preferences.sys.mjs");
+
 // W13 F02 (wave12 F02, A and B; the user asked for both): Firefox's
 // built-in VPN (it keeps its name, Firefox IP Protection) gets
 //  A. a "VPN" control with a status dot in the address bar: one click
@@ -35,7 +37,7 @@ const siteIcon = () => document.getElementById("zen-site-data-icon-button");
 function resolved(expression) {
   const probe = document.createXULElement("box");
   probe.style.backgroundColor = expression;
-  control().after(probe);
+  control().append(probe);
   const value = getComputedStyle(probe).backgroundColor;
   probe.remove();
   return value;
@@ -48,13 +50,35 @@ function setStates(service, proxy) {
   WhimsyVPN.updateUi(window);
 }
 
+const LEAKED_PREFS = [
+  "browser.ipProtection.added",
+  "browser.ipProtection.locationListCache",
+  "browser.ipProtection.onboardingMessageMask",
+  "browser.ipProtection.stateCache",
+  "media.peerconnection.ice.proxy_only_if_behind_proxy",
+  "whimsy.stats.tabs-opened",
+];
+
 add_setup(async function () {
+  const original = new Map(
+    LEAKED_PREFS.filter(name => Services.prefs.prefHasUserValue(name)).map(name => [name, Preferences.get(name)])
+  );
   await SpecialPowers.pushPrefEnv({
     set: [["whimsy.feature.vpn", true], ["browser.ipProtection.enabled", true], ["browser.ipProtection.whimsy.userContextIds", ""]],
   });
   registerCleanupFunction(() => {
+    while (gBrowser.tabs.length > 1) {
+      BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+    }
     restore.forEach(fn => fn());
     WhimsyVPN.updateUi(window);
+    for (const name of LEAKED_PREFS) {
+      if (original.has(name)) {
+        Preferences.set(name, original.get(name));
+      } else {
+        Services.prefs.clearUserPref(name);
+      }
+    }
   });
 });
 
@@ -76,9 +100,10 @@ add_task(async function test_address_bar_control() {
   // The address bar's hover, and the text never moves.
   const label = el.querySelector(".whimsy-vpn-urlbar-label");
   const at = label.getBoundingClientRect().left;
-  EventUtils.synthesizeMouseAtCenter(el, { type: "mousemove" });
+  InspectorUtils.addPseudoClassLock(el, ":hover");
   const hover = resolved("var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent))");
   await TestUtils.waitForCondition(() => getComputedStyle(el).backgroundColor == hover, "Hover: the address bar's fill");
+  InspectorUtils.removePseudoClassLock(el, ":hover");
 
   // One real click turns it on.
   const calls = [];
