@@ -793,6 +793,8 @@ add_task(async function addons_space_choices() {
         // wave7/profiles: "Run in Profiles…" replaced "Show in Spaces…".
         card.querySelector("[data-whimsy-profile-picker]"), "Whimsy profile picker is attached");
       card.querySelector(".more-options-button").click();
+      // The gear's menu opens asynchronously; pick from it once it shows.
+      await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(item), "The gear menu is open");
       item.click();
       const choices = await TestUtils.waitForCondition(() => card.querySelector("[data-whimsy-profile-choices]"),
         "Extension profile choices are visible in Add-ons");

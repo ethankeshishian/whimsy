@@ -263,6 +263,8 @@ add_task(async function test_about_addons_can_recover_hidden_extension() {
       card.querySelector("[data-whimsy-profile-picker]"), "Run in Profiles is attached");
     ok(!item.hidden, "Hidden extension remains manageable in about:addons");
     card.querySelector(".more-options-button").click();
+    // The gear's menu opens asynchronously; pick from it once it shows.
+    await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(item), "The gear menu is open");
     item.click();
     const choices = card.querySelector("[data-whimsy-profile-choices]");
     ok(choices, "Gear action opens the profile choices");

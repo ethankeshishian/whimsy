@@ -306,14 +306,26 @@ add_task(async function test_always_open_in_reader() {
     await TestUtils.waitForCondition(() => browser.isArticle, "readerable");
     await openPanel();
     ok(!rowOf("reader").querySelector("input").disabled, "readerable: the switch is enabled");
+    // Turning it on puts the page in front into Reader View now, so the
+    // panel goes out of the way first.
+    let hidden = BrowserTestUtils.waitForPopupEvent(panel(), "hidden");
     rowOf("reader").querySelector("input").click();
     ok(WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "The switch remembers Reader for the site");
     is(rowOf("reader").getAttribute("state"), "allow", "and the row shows it");
     ok(rowOf("reader").querySelector("input").checked, "switched on");
+    await hidden;
+    await TestUtils.waitForCondition(() => browser.currentURI.spec.startsWith("about:reader"), "The page opens in Reader View now");
+    await openPanel();
+    ok(rowOf("reader").querySelector("input").checked, "Still on in Reader View");
     rowOf("reader").querySelector("input").click();
     ok(!WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "Switching it off forgets it");
+    await TestUtils.waitForCondition(() => browser.currentURI.spec == ARTICLE_URL, "Switching it off leaves Reader View");
+    await TestUtils.waitForCondition(() => browser.isArticle, "readerable again");
+    await openPanel();
+    hidden = BrowserTestUtils.waitForPopupEvent(panel(), "hidden");
     rowOf("reader").querySelector("input").click();
-    await closePanel();
+    await hidden;
+    ok(WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "On again for the next page");
   });
 
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ARTICLE_URL, false);
@@ -444,7 +456,12 @@ add_task(async function test_pretend_to_be_in_place() {
     const pick = async value => {
       const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true,
         e => e.target.id == "whimsy-site-settings-useragent-button-list");
-      rowOf("useragent").querySelector(".whimsy-surface-dropdown").click();
+      // The row is rebuilt as the page reloads; click the one on screen.
+      const button = await TestUtils.waitForCondition(() => {
+        const b = rowOf("useragent")?.querySelector(".whimsy-surface-dropdown");
+        return b && BrowserTestUtils.isVisible(b) && b;
+      }, "Pretend to Be's dropdown is showing");
+      button.click();
       await shown;
       const list = document.getElementById("whimsy-site-settings-useragent-button-list");
       Assert.deepEqual([...list.querySelectorAll("[role=option]")].map(o => o.dataset.value),
