@@ -94,26 +94,22 @@ add_task(async function test_undo_ignored_in_editable_field() {
 });
 
 add_task(async function test_undo_move_to_space_and_redo() {
-  if (!window.gZenWorkspaces?.workspaceEnabled) {
-    todo(false, "Spaces aren't enabled in this build");
-    return;
-  }
-  const spaces = window.gZenWorkspaces.getWorkspaces();
-  if (spaces.length < 2) {
-    todo(false, "Needs a second space");
-    return;
-  }
   const originalSpace = window.gZenWorkspaces.activeWorkspace;
-  const other = spaces.find(s => s.uuid != originalSpace);
+  const other = await window.gZenWorkspaces.createAndSaveWorkspace("Undo move test", undefined, true);
+  await window.gZenWorkspaces.changeWorkspace(window.gZenWorkspaces.getWorkspaceFromId(originalSpace));
   const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?move-anchor");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?move-undo");
-  window.gZenWorkspaces.moveTabToWorkspace(tab, other.uuid);
-  is(tab.getAttribute("zen-workspace-id"), other.uuid, "Moved");
-  focusUndoTarget(anchor);
-  pressUndo();
-  await TestUtils.waitForCondition(() => tab.getAttribute("zen-workspace-id") == originalSpace, "Undo moved it back");
-  pressUndo({ shift: true });
-  await TestUtils.waitForCondition(() => tab.getAttribute("zen-workspace-id") == other.uuid, "Redo moved it again");
-  BrowserTestUtils.removeTab(tab);
-  BrowserTestUtils.removeTab(anchor);
+  try {
+    window.gZenWorkspaces.moveTabToWorkspace(tab, other.uuid);
+    is(tab.getAttribute("zen-workspace-id"), other.uuid, "Moved");
+    focusUndoTarget(anchor);
+    pressUndo();
+    await TestUtils.waitForCondition(() => tab.getAttribute("zen-workspace-id") == originalSpace, "Undo moved it back");
+    pressUndo({ shift: true });
+    await TestUtils.waitForCondition(() => tab.getAttribute("zen-workspace-id") == other.uuid, "Redo moved it again");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(anchor);
+    await window.gZenWorkspaces.removeWorkspace(other.uuid);
+  }
 });
