@@ -594,6 +594,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # fix7/tabs: pinned tab marks
 ["browser_whimsy_pinned_marks.js"]
 
+# wave13/edge-line: no container line on any tab in its space's own profile (Mini's Cmd+O, Meet).
+["browser_whimsy_space_container_line.js"]
+
 # fix7 settings: Settings search finds every Whimsy group, in any pane.
 # W10-22: search results box the matching row, fold the rest, count and lead there.
 ["browser_whimsy_settings_search_hits.js"]
