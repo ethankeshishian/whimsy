@@ -21,6 +21,8 @@ const card = () => document.getElementById("whimsy-capture-card");
 const editor = () => document.getElementById("whimsy-capture-editor");
 const action = name => card().querySelector(`.whimsy-capture-action[data-action="${name}"]`);
 
+const SAVED_METHOD_PREF = "screenshots.browser.component.last-saved-method";
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -31,6 +33,17 @@ add_setup(async function () {
       ["whimsy.capture.backdrop", "none"],
       ["whimsy.capture.shape", "auto"],
     ],
+  });
+  // Copying a screenshot (what every test here does) makes Screenshots
+  // itself remember the method used; restore that, as it's not ours.
+  const hadSavedMethod = Services.prefs.prefHasUserValue(SAVED_METHOD_PREF);
+  const savedMethod = hadSavedMethod ? Services.prefs.getStringPref(SAVED_METHOD_PREF) : null;
+  registerCleanupFunction(() => {
+    if (hadSavedMethod) {
+      Services.prefs.setStringPref(SAVED_METHOD_PREF, savedMethod);
+    } else {
+      Services.prefs.clearUserPref(SAVED_METHOD_PREF);
+    }
   });
 });
 
@@ -49,6 +62,9 @@ add_task(function test_defaults_and_layout() {
 // Frames the shot in Screenshots and copies a region, the way its Copy
 // button does; returns the card.
 async function captureAndCopy(browser) {
+  // Screenshots itself restores focus to wherever it was before it opened
+  // (not wherever it drifted to while framing), once exit() runs below.
+  const focused = document.activeElement;
   await ScreenshotsUtils.start(browser, "Shortcut");
   await TestUtils.waitForCondition(() => {
     const panel = ScreenshotsUtils.panelForBrowser(browser);
@@ -57,7 +73,6 @@ async function captureAndCopy(browser) {
   const bar = ScreenshotsUtils.panelForBrowser(browser).querySelector("screenshots-buttons").shadowRoot;
   ok(!bar.getElementById("whimsy-redact"), "No Redact toggle in the bar: Redact comes after the capture");
   await TestUtils.waitForCondition(async () => (await WhimsyRedact.state(browser))?.active, "Private details are hidden while framing");
-  const focused = document.activeElement;
   await ScreenshotsUtils.copyScreenshotFromRegion(
     { left: 0, top: 0, right: 700, bottom: 420, devicePixelRatio: window.devicePixelRatio },
     browser
@@ -80,7 +95,9 @@ add_task(async function test_card_after_a_copy() {
     ["copy", "save", "redact", "edit"], "Copied · Save · Redact · Edit");
   ok(panel.querySelector(".whimsy-capture-thumb").src.startsWith("blob:"), "The image");
   const view = panel.querySelector(".whimsy-surface-view").getBoundingClientRect();
-  Assert.less(Math.abs(view.width - (236 - 16)), 1.5, "236px wide");
+  // 236px minus the panel's own 1px border on each side (::part(content),
+  // border-box) and the 8px padding on each side.
+  Assert.less(Math.abs(view.width - (236 - 2 - 16)), 1.5, "236px wide");
   ok(action("copy").hasAttribute("done"), "Copied is done");
   isnot(getComputedStyle(action("copy")).color, getComputedStyle(action("save")).color, "…in green");
 

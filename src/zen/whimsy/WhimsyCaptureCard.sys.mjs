@@ -187,7 +187,11 @@ export const WhimsyCaptureCard = {
   // ---- The card ---------------------------------------------------------
 
   showCard(browser, blob) {
-    const win = browser.ownerGlobal;
+    // Not browser.ownerGlobal: Screenshots' own copyScreenshot() can run
+    // this continuation after an xray-wrapped browser's ownerGlobal has
+    // gone stale (seen with a directly-called copyScreenshotFromRegion, as
+    // in the test), while ownerDocument.defaultView still resolves.
+    const win = browser.ownerDocument?.defaultView;
     if (!win?.gBrowser) {
       return null;
     }
@@ -218,7 +222,7 @@ export const WhimsyCaptureCard = {
       images: new Map(),
     };
     this._last.set(win, capture);
-    this.watchSaved(capture);
+    this.watchSaved(win, capture);
 
     const S = lazy.WhimsySurface;
     const parts = S.create(win, {
@@ -303,7 +307,7 @@ export const WhimsyCaptureCard = {
         panel.moveTo(Math.round(box.left), Math.round(bottom - box.height));
       }
     }, { once: true });
-    panel.openPopup(area, { position: "overlap", x, y: Math.max(0, Math.round(rect.height - 200)) });
+    S.openOver(panel, area, { x, y: Math.max(0, Math.round(rect.height - 200)) });
     return panel;
   },
 
@@ -336,7 +340,7 @@ export const WhimsyCaptureCard = {
 
   // The Library's copy of the capture (WhimsyFilesSection saves every
   // Screenshots copy), so the image drags out as that file.
-  watchSaved(capture) {
+  watchSaved(win, capture) {
     if (capture.private) {
       return;
     }
@@ -346,7 +350,7 @@ export const WhimsyCaptureCard = {
     };
     Services.obs.addObserver(observer, SAVED_TOPIC);
     // Only this capture's: stop listening soon after.
-    capture.browser.ownerGlobal.setTimeout(() => {
+    win.setTimeout(() => {
       try {
         Services.obs.removeObserver(observer, SAVED_TOPIC);
       } catch {}
