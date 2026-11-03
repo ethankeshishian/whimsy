@@ -20,6 +20,12 @@ const { OSKeyStore } = ChromeUtils.importESModule(
 const { OSKeyStoreTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/OSKeyStoreTestUtils.sys.mjs"
 );
+const { SessionSaver } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs"
+);
+const { TabStateFlusher } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs"
+);
 
 const SAVE_PREF = "whimsy.forms.saveDrafts";
 // Built by concatenation so no fixture looks like typed text in the tree.
@@ -476,4 +482,77 @@ add_task(async function test_upgrade_strips_old_plaintext() {
   WhimsyFormDrafts.stripSessionUpdate(update);
   ok(!("formdata" in update.data), "a live TabStateUpdate is stripped too");
   ok("scroll" in update.data, "other fields are untouched");
+});
+
+// R1 v2 §7, §11: typed text never reaches disk in plaintext, whatever
+// SessionStore does with it. A real keystroke, a forced flush and a forced
+// SessionStore write, then every session file and the draft file itself are
+// read back and searched for the marker.
+add_task(async function test_no_plaintext_on_disk_anywhere() {
+  // Built by concatenation so no fixture or grep sees typed-looking text.
+  // eslint-disable-next-line no-useless-concat
+  const plainMarker = "wh" + "imsy-plain-" + Date.now();
+
+  Services.prefs.setIntPref("browser.sessionstore.interval", 10000000);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
+  try {
+    gBrowser.selectedTab = tab;
+    await typeInto(tab.linkedBrowser, "name", plainMarker);
+    await TestUtils.waitForCondition(() => typed(tab), "Typed");
+    await TestUtils.waitForCondition(
+      async () => (await WhimsyFormDrafts.get({ url: FORM_PAGE }))?.data?.id?.name == plainMarker,
+      "The draft reached the parent store"
+    );
+    await WhimsyFormDrafts.flush();
+
+    // Force SessionStore to actually write: flush the content process's
+    // pending TabStateUpdate into the parent cache, then run a full save.
+    await TabStateFlusher.flush(tab.linkedBrowser);
+    await SessionSaver.run();
+
+    const sessionPaths = [
+      PathUtils.join(PathUtils.profileDir, "sessionstore-backups", "recovery.jsonlz4"),
+      PathUtils.join(PathUtils.profileDir, "sessionstore-backups", "recovery.baklz4"),
+      PathUtils.join(PathUtils.profileDir, "sessionstore-backups", "previous.jsonlz4"),
+      PathUtils.join(PathUtils.profileDir, "sessionstore.jsonlz4"),
+    ];
+    for (const path of sessionPaths) {
+      if (!(await IOUtils.exists(path))) {
+        continue;
+      }
+      const text = await IOUtils.readUTF8(path, { decompress: true });
+      ok(!text.includes(plainMarker), `No plaintext marker in ${path}`);
+    }
+
+    const draftText = await fileText();
+    ok(draftText, "The draft file was written");
+    ok(!draftText.includes(plainMarker), "The draft file holds no plaintext marker; ciphertext only");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "The tab finished closing");
+    await WhimsyFormDrafts.delete({ url: FORM_PAGE });
+    Services.prefs.clearUserPref("browser.sessionstore.interval");
+  }
+});
+
+// A private window's draft lives in memory only (§6): typing in one must
+// never create, or change, the drafts file.
+add_task(async function test_private_window_draft_never_touches_disk() {
+  await WhimsyFormDrafts.flush(); // settle any earlier test's debounced write first
+  const before = await fileText();
+  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  try {
+    const privTab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, FORM_PAGE);
+    win.gBrowser.selectedTab = privTab;
+    // eslint-disable-next-line no-useless-concat
+    await typeInto(privTab.linkedBrowser, "name", "wh" + "imsy-private-" + Date.now());
+    await TestUtils.waitForCondition(() => typed(privTab), "Typed in the private window");
+    await new Promise(resolve => setTimeout(resolve, 600)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    is(await fileText(), before, "The drafts file is untouched by a private window's typing");
+    if (before == null) {
+      ok(!(await IOUtils.exists(WhimsyFormDrafts.path)), "and was never created");
+    }
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
 });
