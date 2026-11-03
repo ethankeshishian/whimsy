@@ -12,6 +12,20 @@ const { DARK_PDF_PREFS } = ChromeUtils.importESModule("resource:///modules/whims
 
 registerCleanupFunction(() => Services.prefs.clearUserPref("whimsy.pdf.dark"));
 
+// Opening a PDF makes pdf.js bump its own feature-notification impression
+// counter. Nothing here cares about it, so just restore whatever it held
+// before.
+const IMPRESSION_PREF = "pdfjs.featuresNotificationImpressionCount";
+const HAD_IMPRESSION_COUNT = Services.prefs.prefHasUserValue(IMPRESSION_PREF);
+const IMPRESSION_COUNT = HAD_IMPRESSION_COUNT ? Services.prefs.getIntPref(IMPRESSION_PREF) : 0;
+registerCleanupFunction(() => {
+  if (HAD_IMPRESSION_COUNT) {
+    Services.prefs.setIntPref(IMPRESSION_PREF, IMPRESSION_COUNT);
+  } else {
+    Services.prefs.clearUserPref(IMPRESSION_PREF);
+  }
+});
+
 const forced = browser =>
   SpecialPowers.spawn(browser, [], async () => {
     await ContentTaskUtils.waitForCondition(() => content.wrappedJSObject.PDFViewerApplication?.pdfDocument, "PDF loaded");

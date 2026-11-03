@@ -11,6 +11,18 @@ const { WhimsyCopy } = ChromeUtils.importESModule("resource:///modules/whimsy/Wh
 const PAGE_1 = "https://example.com/browser/";
 const PAGE_2 = "https://example.org/";
 
+// withStripOnShare changes privacy.trackingprotection-adjacent prefs, which
+// makes Firefox's content-blocking code compute and cache this pref the
+// first time anything reads it. Nothing here cares about ETP settings, so
+// just restore whatever it held before.
+const ETP_INTERACTED_PREF = "privacy.trackingprotection.allow_list.hasUserInteractedWithETPSettings";
+const HAD_ETP_INTERACTED = Services.prefs.prefHasUserValue(ETP_INTERACTED_PREF);
+registerCleanupFunction(() => {
+  if (!HAD_ETP_INTERACTED) {
+    Services.prefs.clearUserPref(ETP_INTERACTED_PREF);
+  }
+});
+
 function clipboard(flavor) {
   return SpecialPowers.getClipboardData(flavor);
 }

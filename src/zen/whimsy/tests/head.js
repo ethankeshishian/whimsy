@@ -49,6 +49,63 @@ async function whimsySnapshot(windowGlobal, rect, scale = 1, background = "white
   }
 }
 
+// W27: a handful of prefs get written by almost every test as a side effect
+// of ordinary browsing (opening a tab, ctrl-tab, an update/teach tip banner
+// being marked seen) rather than by anything the test is actually checking.
+// checkPreferencesAfterTest compares against a snapshot taken when the file
+// starts, so each test file otherwise has to restore these itself; doing it
+// once here means a new test doesn't need to know about them at all. Restore
+// runs last (registered first), so a test's own pref cleanup goes first.
+const WHIMSY_SHARED_LEAK_PREFS = [
+  "whimsy.stats.tabs-opened",
+  "whimsy.updates.seen-install",
+  "whimsy.teach.seen",
+  "browser.engagement.ctrlTab.has-used",
+];
+
+function whimsyReadPref(name, type) {
+  switch (type) {
+    case Services.prefs.PREF_BOOL:
+      return Services.prefs.getBoolPref(name);
+    case Services.prefs.PREF_INT:
+      return Services.prefs.getIntPref(name);
+    default:
+      return Services.prefs.getStringPref(name);
+  }
+}
+
+function whimsyWritePref(name, type, value) {
+  switch (type) {
+    case Services.prefs.PREF_BOOL:
+      Services.prefs.setBoolPref(name, value);
+      break;
+    case Services.prefs.PREF_INT:
+      Services.prefs.setIntPref(name, value);
+      break;
+    default:
+      Services.prefs.setStringPref(name, value);
+      break;
+  }
+}
+
+add_setup(function whimsySnapshotLeakedPrefs() {
+  const snapshot = WHIMSY_SHARED_LEAK_PREFS.map(name => {
+    const hadUserValue = Services.prefs.prefHasUserValue(name);
+    const type = Services.prefs.getPrefType(name);
+    return { name, hadUserValue, type, value: hadUserValue ? whimsyReadPref(name, type) : undefined };
+  });
+
+  registerCleanupFunction(function whimsyRestoreLeakedPrefs() {
+    for (const pref of snapshot) {
+      if (!pref.hadUserValue) {
+        Services.prefs.clearUserPref(pref.name);
+      } else {
+        whimsyWritePref(pref.name, pref.type, pref.value);
+      }
+    }
+  });
+});
+
 // wave13/toast: Whimsy's toasts are Zen's (gZenUIManager.toasts,
 // WhimsyZenToasts.sys.mjs). The newest toast showing in `win`, as the
 // handle open() returned (element, messageId, update(), close()), or null.

@@ -9,6 +9,20 @@
 
 const PAGE = "data:text/html,<p id=p>The quick brown fox jumps over the lazy dog</p>";
 
+// Opening the find bar makes Firefox's findbar binding write this pref the
+// first time. Nothing here cares about it, so just restore whatever it
+// held before.
+const FLASH_BAR_PREF = "accessibility.typeaheadfind.flashBar";
+const HAD_FLASH_BAR = Services.prefs.prefHasUserValue(FLASH_BAR_PREF);
+const FLASH_BAR_VALUE = HAD_FLASH_BAR ? Services.prefs.getIntPref(FLASH_BAR_PREF) : 0;
+registerCleanupFunction(() => {
+  if (HAD_FLASH_BAR) {
+    Services.prefs.setIntPref(FLASH_BAR_PREF, FLASH_BAR_VALUE);
+  } else {
+    Services.prefs.clearUserPref(FLASH_BAR_PREF);
+  }
+});
+
 add_task(async function test_prefill() {
   ok(Services.prefs.getBoolPref("accessibility.typeaheadfind.prefillwithselection"), "Prefill is on");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);

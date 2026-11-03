@@ -381,6 +381,7 @@ add_task(async function test_refill_after_reload_offers_refill() {
     });
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"),
       "A toast offers to refill what was typed");
+    await toast.shown;
     await document.l10n.translateFragment(toast.element);
     is(toast.element.querySelector("label").textContent, "Refill what you typed?", "The new wording");
     const buttons = [...toast.element.querySelectorAll(".whimsy-toast-button")];
@@ -413,6 +414,8 @@ add_task(async function test_refill_offered_for_late_form() {
     await loaded;
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"),
       "Once the form appears, a toast offers to refill the answer");
+    await toast.shown;
+    await document.l10n.translateFragment(toast.element);
     toast.element.querySelector(".whimsy-toast-button").click();
     await TestUtils.waitForCondition(async () =>
       (await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value)) == "Grace",
@@ -430,6 +433,8 @@ add_task(async function test_dismiss_deletes_without_filling() {
     browser.reloadWithFlags(Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE);
     await loaded;
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "Offered");
+    await toast.shown;
+    await document.l10n.translateFragment(toast.element);
     toast.element.querySelectorAll(".whimsy-toast-button")[1].click();
     await TestUtils.waitForCondition(async () => !(await WhimsyFormProtection.snapshotFor(browser, FORM_PAGE)),
       "Dismiss deletes the draft");

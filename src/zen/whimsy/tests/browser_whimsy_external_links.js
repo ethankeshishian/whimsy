@@ -27,6 +27,19 @@ function closeGlanceIfAny() {
 
 registerCleanupFunction(() => Services.prefs.clearUserPref("whimsy.external-links.target"));
 
+// Opening a quick-window makes WhimsyQuickWindow remember its size. Nothing
+// here cares about that, so just restore whatever it held before.
+const SIZE_PREF = "whimsy.quick-window.size";
+const HAD_SIZE = Services.prefs.prefHasUserValue(SIZE_PREF);
+const SIZE_VALUE = HAD_SIZE ? Services.prefs.getStringPref(SIZE_PREF) : "";
+registerCleanupFunction(() => {
+  if (HAD_SIZE) {
+    Services.prefs.setStringPref(SIZE_PREF, SIZE_VALUE);
+  } else {
+    Services.prefs.clearUserPref(SIZE_PREF);
+  }
+});
+
 add_task(async function test_glance_target_opens_a_glance_and_returns_null() {
   Services.prefs.setStringPref("whimsy.external-links.target", "glance");
   const context = openExternal("https://example.com/");
