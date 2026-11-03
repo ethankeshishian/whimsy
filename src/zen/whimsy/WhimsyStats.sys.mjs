@@ -75,6 +75,14 @@ function readCounter() {
 }
 
 export const WhimsyStats = {
+  // A test that wants the longest-tab record under automation sets this
+  // (and resets it in cleanup) — see browser_whimsy_security_private_stats.js.
+  // Without it, any ordinary browser-chrome test that opens and closes a
+  // regular tab would otherwise leave whimsy.stats.longest-tab changed,
+  // which the mochitest harness flags as a "changed preference" todo in
+  // whichever unrelated test file's run the tab's TabClose happens to land in.
+  allowInAutomation: false,
+
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },
@@ -117,6 +125,9 @@ export const WhimsyStats = {
   },
 
   _recordIfLongest(tab, ms) {
+    if (Cu.isInAutomation && !this.allowInAutomation) {
+      return;
+    }
     const current = readJSONPref(LONGEST_PREF);
     if (current && current.ms >= ms) {
       return;

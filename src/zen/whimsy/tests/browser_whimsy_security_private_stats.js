@@ -16,7 +16,11 @@ const PRIVATE_URL = "https://example.com/?secfix-m6-private";
 const NORMAL_URL = "https://example.org/?secfix-m6-normal";
 const AGES_AGO = String(Date.now() - 400 * 86400000);
 
-registerCleanupFunction(() => Services.prefs.clearUserPref(LONGEST_PREF));
+WhimsyStats.allowInAutomation = true;
+registerCleanupFunction(() => {
+  WhimsyStats.allowInAutomation = false;
+  Services.prefs.clearUserPref(LONGEST_PREF);
+});
 
 add_task(async function a_private_tab_is_never_the_longest() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.year-in-tabs", true]] });

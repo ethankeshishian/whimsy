@@ -267,7 +267,15 @@ export const WhimsySpaceHistory = {
       spaceId: oneSpace ? candidate.spaceId : null, spaceName,
       ...(candidate.profile ? { profile: candidate.profile } : {}) };
     this.indexVisit(file.data.visits[visit.id], visit.url);
-    if (candidate.profile) {
+    // Every default-container visit carries a profile key (WhimsyProfiles.
+    // keyFor(0)), so this would otherwise sync-write whimsy.profiles.
+    // history-places on practically any page load — including ordinary
+    // browser-chrome tests that have nothing to do with profiles — and the
+    // write is queued behind RECORD_ATTEMPTS_MS, so it can land after the
+    // test file that triggered it has already finished, leaking into
+    // whichever one is running next as a "changed preference" todo.
+    // browser_whimsy_profile_sync.js exercises placeProfiles directly.
+    if (candidate.profile && !Cu.isInAutomation) {
       const keys = this.placeProfiles.get(visit.guid) ?? [];
       if (!keys.includes(candidate.profile)) {
         this.placeProfiles.set(visit.guid, [...keys, candidate.profile].sort());

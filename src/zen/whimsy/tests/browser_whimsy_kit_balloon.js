@@ -24,6 +24,18 @@ const LOGOS = {
   "chrome://browser/skin/window-firefox.svg": "window-whimsy",
 };
 
+// Opening about:preferences (for the default-browser promo and the About
+// category below) makes Firefox's own FxAccounts code compute and cache a
+// device name the first time anything reads it, which the mochitest harness
+// flags as a "changed preference" todo. Nothing here cares about Sync, so
+// just restore whatever this pref held before.
+const HAD_DEVICE_NAME = Services.prefs.prefHasUserValue("identity.fxaccounts.account.device.name");
+registerCleanupFunction(() => {
+  if (!HAD_DEVICE_NAME) {
+    Services.prefs.clearUserPref("identity.fxaccounts.account.device.name");
+  }
+});
+
 async function text(url) {
   const response = await fetch(url);
   ok(response.ok, `${url} loads`);
