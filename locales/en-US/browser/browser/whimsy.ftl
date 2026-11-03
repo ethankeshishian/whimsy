@@ -1178,7 +1178,7 @@ whimsy-vpn-enroll-account = Your Mozilla account can’t use Firefox’s built-i
 whimsy-vpn-enroll-network = Couldn’t reach Mozilla’s VPN service. Check your connection and try again.
 whimsy-vpn-enroll-failed = Couldn’t finish setting up Firefox’s built-in VPN. Try again from the VPN panel.
 
-# vpnspace: extend the native Firefox VPN panel and toolbar button.
+# vpnspace: extend the native Firefox VPN panel with a space-scope choice.
 whimsy-vpn-scope-title = Protect
 whimsy-vpn-scope-browser = All spaces
 whimsy-vpn-scope-space = This space
@@ -1186,11 +1186,6 @@ whimsy-vpn-scope-help = Protects this space’s tabs, and any other space set up
 whimsy-vpn-scope-no-container = This space uses the Default profile, so it can’t be protected on its own. Give it another profile with Set Profile on the space’s menu to protect just this space.
 whimsy-vpn-scope-covered = Spaces with VPN enabled: { $spaces }
 whimsy-vpn-scope-all = VPN enabled for all spaces.
-whimsy-vpn-scope-button-off = VPN off
-whimsy-vpn-scope-button-connecting = VPN connecting
-whimsy-vpn-scope-button-browser = VPN on · All spaces
-whimsy-vpn-scope-button-space = VPN on · This space
-whimsy-vpn-scope-button-elsewhere = VPN off here
 ## W13 F02: Whimsy's VPN controls for Firefox's built-in VPN, which keeps
 ## Firefox's name (Firefox IP Protection); "VPN" only where space is tight.
 ## A: the address bar control.
@@ -4975,6 +4970,11 @@ whimsy-space-lock-cover-detail = Unlock to see its tabs.
 
 whimsy-action-call-microphone = Toggle Meeting Microphone
 whimsy-action-call-camera = Toggle Meeting Camera
+whimsy-action-call-microphone-in-call = Mute Microphone In the Call
+whimsy-action-call-camera-in-call = Turn Off Camera In the Call
+whimsy-action-call-microphone-block = Block Microphone On This Device
+whimsy-action-call-camera-block = Block Camera On This Device
+whimsy-action-call-buttons-default = Call Buttons: Mute In the Call / On This Device
 whimsy-call-mic-turn-off =
     .tooltiptext = Turn Off Microphone
     .aria-label = Turn Off Microphone
@@ -5003,6 +5003,64 @@ whimsy-call-pip-camera-turn-off =
 whimsy-call-pip-camera-turn-on =
     .tooltip = Turn On Camera ({ $shortcut })
     .aria-label = Turn On Camera
+
+## W21: the hard device mute (whimsy.call.buttons-default = "device", or
+## Option-click/right-click when "call" is the default), alongside the
+## in-call mute above. "Block"/"unblock" names the device-level cutoff, so
+## it reads distinctly from "turn off/on", which is the call's own mute.
+
+whimsy-call-mic-block =
+    .tooltiptext = Block Microphone
+    .aria-label = Block Microphone
+whimsy-call-mic-unblock =
+    .tooltiptext = Unblock Microphone
+    .aria-label = Unblock Microphone
+whimsy-call-camera-block =
+    .tooltiptext = Block Camera
+    .aria-label = Block Camera
+whimsy-call-camera-unblock =
+    .tooltiptext = Unblock Camera
+    .aria-label = Unblock Camera
+# $shortcut (string) - the key that does the same, e.g. ⌘D
+whimsy-call-pip-mic-block =
+    .tooltip = Block Microphone ({ $shortcut })
+    .aria-label = Block Microphone
+# $shortcut (string) - the key that does the same, e.g. ⌘D
+whimsy-call-pip-mic-unblock =
+    .tooltip = Unblock Microphone ({ $shortcut })
+    .aria-label = Unblock Microphone
+# $shortcut (string) - the key that does the same, e.g. ⌘E
+whimsy-call-pip-camera-block =
+    .tooltip = Block Camera ({ $shortcut })
+    .aria-label = Block Camera
+# $shortcut (string) - the key that does the same, e.g. ⌘E
+whimsy-call-pip-camera-unblock =
+    .tooltip = Unblock Camera ({ $shortcut })
+    .aria-label = Unblock Camera
+
+## W21: the "⋯" Call Options button (small player and PiP) and the panel it
+## opens: all four mutes, checkable, plus the Click Mutes default switch.
+
+whimsy-call-options-button =
+    .tooltiptext = Call Options
+    .aria-label = Call Options
+whimsy-call-pip-options-button =
+    .tooltip = Call Options
+    .aria-label = Call Options
+whimsy-call-options-mic-heading = Microphone
+whimsy-call-options-camera-heading = Camera
+whimsy-call-options-mute-in-call = Mute in the Call
+whimsy-call-options-unmute-in-call = Unmute in the Call
+whimsy-call-options-camera-off-in-call = Turn Off Camera in the Call
+whimsy-call-options-camera-on-in-call = Turn On Camera in the Call
+whimsy-call-options-block-mic = Block Microphone on This Device
+whimsy-call-options-unblock-mic = Unblock Microphone on This Device
+whimsy-call-options-block-camera = Block Camera on This Device
+whimsy-call-options-unblock-camera = Unblock Camera on This Device
+whimsy-call-options-in-call-unavailable = This call's own mute isn't available
+whimsy-call-options-default-call = In the Call
+whimsy-call-options-default-device = On This Device
+whimsy-call-options-default-label = Click mutes
 
 ## wave13/toast: Zen's toast, extended (WhimsyZenToasts.sys.mjs)
 

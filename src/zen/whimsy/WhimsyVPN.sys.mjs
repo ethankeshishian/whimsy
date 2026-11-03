@@ -98,11 +98,6 @@ export const WhimsyVPN = {
     if (!this.canTurnOn()) {
       return;
     }
-    // A visible control: Firefox's button, unless the address bar's VPN
-    // control (W13 F02) already shows the state.
-    if (!win.document.getElementById(URLBAR_ID)?.checkVisibility?.()) {
-      this.showButton(win);
-    }
     try {
       await lazy.IPPProxyManager.start();
       win.gZenUIManager?.showToast?.("whimsy-vpn-on-toast");
@@ -123,27 +118,16 @@ export const WhimsyVPN = {
     }
   },
 
-  // fix7 settings: Firefox's VPN button. Firefox places it once, next to
-  // the account or extensions button; in Zen's layouts that spot can be
-  // hidden or the button can end up in the overflow palette, so people
-  // couldn't find it. Asking for the VPN from the command bar puts it back
-  // in the toolbar, then returns the button (null when Firefox hasn't made
-  // the widget, i.e. the VPN isn't available).
-  showButton(win) {
+  // W13 F02: the address bar control and This Site's row are Whimsy's only
+  // VPN controls now; Firefox's own toolbar button would be a duplicate, so
+  // it's taken out of the default toolbar (Zen's CustomizableUI patch still
+  // places it there) the first time a window initializes. Customize mode
+  // can still add it back from the palette if someone wants it.
+  hideButton() {
     const { CustomizableUI } = lazy;
-    const widget = CustomizableUI.getWidget(WIDGET_ID);
-    if (!widget || widget.provider != CustomizableUI.PROVIDER_API) {
-      return null;
+    if (CustomizableUI.getPlacementOfWidget(WIDGET_ID)) {
+      CustomizableUI.removeWidgetFromArea(WIDGET_ID);
     }
-    if (!CustomizableUI.getPlacementOfWidget(WIDGET_ID)) {
-      const next = CustomizableUI.getPlacementOfWidget("unified-extensions-button");
-      CustomizableUI.addWidgetToArea(
-        WIDGET_ID,
-        CustomizableUI.AREA_NAVBAR,
-        next?.area == CustomizableUI.AREA_NAVBAR ? next.position : undefined
-      );
-    }
-    return widget.forWindow(win)?.node ?? null;
   },
 
   // W10-50: Firefox's VPN panel for this window, or null while Firefox's
@@ -158,14 +142,23 @@ export const WhimsyVPN = {
     }
   },
 
-  // W10-50: opens Firefox's own VPN panel (sign-in, connect, location,
-  // usage), putting its toolbar button back first so the panel has an
-  // anchor. Returns false when there is no panel; see explain().
+  // W10-50/F02: opens Firefox's own VPN panel (sign-in, connect, location,
+  // usage). panel.open() anchors to Firefox's own toolbar widget's node,
+  // which Whimsy keeps out of the toolbar (W13 F02 removed it in favor of
+  // the address bar control): without a placement that node has no layout,
+  // so CustomizableUI's anchor lookup is pointed at the address bar control
+  // instead via cui-anchorid, the same override a toolbar overflow uses.
+  // Returns false when there is no panel; see explain().
   async openPanel(win) {
-    this.showButton(win);
     const panel = this.getPanel(win);
     if (!panel) {
       return false;
+    }
+    const widget = lazy.CustomizableUI.getWidget(WIDGET_ID);
+    const node = widget?.forWindow(win)?.node;
+    if (node && !node.isConnected) {
+      this.urlbarControl(win);
+      node.setAttribute("cui-anchorid", URLBAR_ID);
     }
     await panel.open(win);
     return true;
@@ -511,9 +504,11 @@ export const WhimsyVPN = {
   },
 
   initWindow(win) {
-    // vpnspace: Firefox's panel and widget stay Firefox's (sign-in,
-    // location, usage); W13 F02 adds the address bar control and This
-    // Site's row on top, both running toggle().
+    // vpnspace: Firefox's panel stays Firefox's (sign-in, location, usage);
+    // W13 F02 adds the address bar control and This Site's row on top, both
+    // running toggle(), and takes Firefox's own toolbar button out of the
+    // default toolbar so there's exactly one visible control.
+    this.hideButton();
     lazy.WhimsyVPNScope.initWindow(win);
     // Watches the switch itself, so it starts and stops with it.
     this.initUi(win);

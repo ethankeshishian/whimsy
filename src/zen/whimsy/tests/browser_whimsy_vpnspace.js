@@ -96,12 +96,10 @@ add_task(async function popover_toggles_multiple_spaces() {
   // Exercise the real panel controls without changing the user's workspaces
   // or starting the native VPN service.
   const root = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  const button = document.createElementNS(root.namespaceURI, "button");
-  button.id = "ipprotection-button";
   const view = document.createElementNS(root.namespaceURI, "div");
   view.id = "PanelUI-ipprotection";
-  root.append(button, view);
-  // Connected, hidden: a checkbox outside the document never fires change.
+  root.append(view);
+  // Connected, hidden: a radio outside the document never fires change.
   root.hidden = true;
   document.documentElement.append(root);
   const spaces = [
@@ -127,31 +125,30 @@ add_task(async function popover_toggles_multiple_spaces() {
     const all = view.querySelector('[value="browser"]');
     const covered = view.querySelector(".whimsy-vpn-covered");
     const coverage = () => document.l10n.getAttributes(covered).args.spaces;
+    // Either/or radios: picking "This space" here, then visiting a second
+    // space and picking "This space" there too, covers both at once (the
+    // multi-space data layer is additive across windows even though each
+    // window's own picker only offers one or the other).
     space.click();
+    is(WhimsyVPNScope.ids, "4", "First space enabled");
     active = spaces[1];
     WhimsyVPNScope.updateWindow(win);
     ok(!space.checked, "Second space starts off");
-    is(button.getAttribute("whimsy-vpn-scope"), "elsewhere", "Button inactive outside covered space");
+    ok(!all.checked, "Neither choice selected for an uncovered space");
     space.click();
     is(WhimsyVPNScope.ids, "4,5", "Popover enables two spaces together");
     is(coverage(), "Work, Home", "Popover names both enabled spaces");
     active = spaces[0];
     WhimsyVPNScope.updateWindow(win);
     ok(space.checked, "First space remains checked when revisited");
-    space.click();
-    is(WhimsyVPNScope.ids, "5", "Unchecking first space preserves second");
-    is(coverage(), "Home", "Popover names only the remaining space");
-    is(button.getAttribute("whimsy-vpn-scope"), "elsewhere", "Disabled current space has inactive button");
+    all.click();
+    is(WhimsyVPNScope.ids, "", "Choosing all spaces clears the restriction entirely");
+    is(coverage(), "Work, Home, Other", "Popover names every space");
+    ok(all.checked, "All spaces choice is checked");
     active = spaces[1];
     WhimsyVPNScope.updateWindow(win);
-    ok(space.checked, "Remaining space stays checked");
-    is(button.getAttribute("whimsy-vpn-scope"), "space", "Remaining space has active button");
-    all.click();
-    is(WhimsyVPNScope.ids, "", "All spaces clears the list");
-    ok(all.checked, "All spaces choice is checked");
-    active = spaces[2];
-    WhimsyVPNScope.updateWindow(win);
-    is(button.getAttribute("whimsy-vpn-scope"), "browser", "All spaces covers a previously unselected space");
+    ok(!space.checked, "This space is unchecked once all spaces are covered");
+    ok(all.checked, "All spaces stays checked in another space too");
   } finally {
     root.remove();
     if (original) {
@@ -227,22 +224,25 @@ add_task(async function channel_boundary_precedes_site_rules() {
 });
 
 add_task(async function native_panel_scope_controls() {
+  const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPN.sys.mjs");
   await SpecialPowers.pushPrefEnv({ set: [
     [WhimsyVPNScope.FEATURE, true], ["whimsy.feature.vpn", true],
     ["browser.ipProtection.enabled", true], [WhimsyVPNScope.PREF, ""],
   ] });
   let panel;
   try {
-    const button = await TestUtils.waitForCondition(() => document.getElementById("ipprotection-button"));
-    button.click();
+    // F02 follow-up: Firefox's own button is out of the toolbar, so the
+    // address bar control is what opens the panel now.
+    ok(!document.getElementById("ipprotection-button"), "Firefox's VPN button is not in the toolbar");
+    await WhimsyVPN.openPanel(window);
     const group = await TestUtils.waitForCondition(() => document.getElementById("whimsy-vpn-scope"));
     panel = group.closest("panel");
     if (panel.state != "open") {
       await BrowserTestUtils.waitForPopupEvent(panel, "shown");
     }
     ok(document.querySelector("ipprotection-content"), "Native VPN content retained");
-    is(document.querySelectorAll("#ipprotection-button").length, 1, "One VPN button");
     const space = group.querySelector('[value="space"]');
+    is(space.type, "radio", "Protect scope is either/or");
     const container = WhimsyVPNScope.containerForWindow(window);
     is(space.disabled, !container, "No default container disables space choice");
     if (container) {
@@ -255,7 +255,6 @@ add_task(async function native_panel_scope_controls() {
     is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), "", "All spaces control clears restriction");
     Services.prefs.setBoolPref(WhimsyVPNScope.FEATURE, false);
     ok(!document.getElementById("whimsy-vpn-scope"), "Feature off removes extension immediately");
-    ok(!document.getElementById("whimsy-vpn-scope-badge"), "Feature off restores native button");
   } finally {
     panel?.hidePopup();
     await SpecialPowers.popPrefEnv();

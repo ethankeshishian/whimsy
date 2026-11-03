@@ -636,8 +636,8 @@ add_task(async function vpn_scope_panel() {
   if (!SHOTS || !Services.prefs.getBoolPref("whimsy.feature.vpnspace", true)) {
     return;
   }
-  const button = await TestUtils.waitForCondition(() => document.getElementById("ipprotection-button"));
-  button.click();
+  const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPN.sys.mjs");
+  await WhimsyVPN.openPanel(window);
   const scope = await TestUtils.waitForCondition(() => document.getElementById("whimsy-vpn-scope"));
   const panel = scope.closest("panel");
   try {

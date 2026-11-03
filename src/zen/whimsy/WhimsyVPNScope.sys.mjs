@@ -82,27 +82,9 @@ export const WhimsyVPNScope = {
   },
   updateWindow(win) {
     const doc = win.document;
-    const button = doc.getElementById("ipprotection-button");
-    let badge = doc.getElementById("whimsy-vpn-scope-badge");
     if (!this.enabled) {
-      badge?.remove();
-      button?.removeAttribute("whimsy-vpn-scope");
-      if (button?.getAttribute("aria-describedby") === "whimsy-vpn-scope-badge") {
-        button.removeAttribute("aria-describedby");
-      }
       doc.getElementById("whimsy-vpn-scope")?.remove();
       return;
-    }
-    if (button) {
-      if (!badge) {
-        badge = doc.createElementNS(HTML, "span");
-        badge.id = "whimsy-vpn-scope-badge";
-        button.appendChild(badge);
-      }
-      const state = this.buttonState(win);
-      button.setAttribute("whimsy-vpn-scope", state);
-      button.setAttribute("aria-describedby", badge.id);
-      doc.l10n.setAttributes(badge, `whimsy-vpn-scope-button-${state}`);
     }
     const group = doc.getElementById("whimsy-vpn-scope");
     if (group) {
@@ -134,7 +116,7 @@ export const WhimsyVPNScope = {
       for (const scope of ["browser", "space"]) {
         const label = doc.createElementNS(HTML, "label");
         const radio = doc.createElementNS(HTML, "input");
-        radio.type = "checkbox";
+        radio.type = "radio";
         radio.name = "whimsy-vpn-scope";
         radio.value = scope;
         const text = doc.createElementNS(HTML, "span");
@@ -182,18 +164,7 @@ export const WhimsyVPNScope = {
       target.addEventListener(name, update);
     }
     win.document.addEventListener("ViewShowing", showing);
-    // The native widget may be created after Whimsy initializes, or recreated
-    // during customization. Only watch additions of the widget itself.
-    const observer = new win.MutationObserver(records => {
-      if (records.some(record => [...record.addedNodes].some(node =>
-        node.nodeType === 1 && (node.id === "ipprotection-button" ||
-          node.querySelector?.("#ipprotection-button"))))) {
-        update();
-      }
-    });
-    observer.observe(win.document.documentElement, { childList: true, subtree: true });
     win.addEventListener("unload", () => {
-      observer.disconnect();
       win.document.removeEventListener("ViewShowing", showing);
       for (const pref of prefs) {
         Services.prefs.removeObserver(pref, update);

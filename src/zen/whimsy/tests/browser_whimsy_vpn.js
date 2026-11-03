@@ -166,26 +166,19 @@ add_task(async function test_settings_card() {
   });
 });
 
-// fix7 settings: the command bar puts Firefox's VPN button back in the
-// toolbar when it isn't there, so there's always a visible control.
-add_task(function test_command_bar_shows_the_button() {
+// F02 follow-up: Firefox's own VPN button would duplicate the address bar
+// control, so Whimsy takes it out of the default toolbar on init, even
+// after Zen's CustomizableUI patch places it there again.
+add_task(function test_init_removes_the_toolbar_button() {
   const id = "ipprotection-button";
   const widget = CustomizableUI.getWidget(id);
-  // W10-50: this used to accept "no widget", which hid that Firefox's VPN
-  // never started in Whimsy.
   is(widget?.provider, CustomizableUI.PROVIDER_API, "Firefox made its VPN widget");
-  const placement = CustomizableUI.getPlacementOfWidget(id);
-  CustomizableUI.removeWidgetFromArea(id);
+  CustomizableUI.addWidgetToArea(id, CustomizableUI.AREA_NAVBAR);
   try {
-    const button = WhimsyVPN.showButton(window);
-    is(CustomizableUI.getPlacementOfWidget(id)?.area, CustomizableUI.AREA_NAVBAR, "The button is back in the toolbar");
-    ok(button, "and it's returned to open the panel");
+    WhimsyVPN.hideButton();
+    ok(!CustomizableUI.getPlacementOfWidget(id), "The button is out of the toolbar");
   } finally {
-    if (placement) {
-      CustomizableUI.addWidgetToArea(id, placement.area, placement.position);
-    } else {
-      CustomizableUI.removeWidgetFromArea(id);
-    }
+    CustomizableUI.removeWidgetFromArea(id);
   }
 });
 
@@ -419,23 +412,17 @@ add_task(async function test_w10_50_settings_buttons() {
   });
 });
 
-// W10-50 follow-up: now that Firefox's VPN starts, its toolbar button is
-// Firefox's one VPN control in the window. W13 F02: the user asked for two
-// Whimsy controls on top (the address bar's VPN control and This Site's
-// row; browser_whimsy_vpn_controls.js); nothing else offers it.
-add_task(async function test_vpn_button_is_the_only_vpn_control() {
-  const button = WhimsyVPN.showButton(window);
-  if (!button) {
-    ok(true, "Firefox's VPN isn't offered here; nothing to compare");
-    return;
-  }
+// F02 follow-up: Firefox's toolbar button is taken out of the default
+// toolbar (test_init_removes_the_toolbar_button), so the address bar
+// control and This Site's row (browser_whimsy_vpn_controls.js) are the
+// only VPN controls in the window; nothing else offers it.
+add_task(function test_vpn_controls_has_no_stray_toolbar_button() {
+  ok(!CustomizableUI.getPlacementOfWidget("ipprotection-button"), "Firefox's VPN button is not placed");
   const controls = [...document.querySelectorAll("toolbarbutton, button, menuitem, .subviewbutton")].filter(el => {
     const id = (el.id || "") + " " + (el.getAttribute("data-l10n-id") || "") + " " + (el.getAttribute("command") || "");
     // Anywhere in the window (the toolbar, its overflow, a menu), except
-    // inside Firefox's own VPN panel.
+    // inside Firefox's own VPN panel or Whimsy's own controls.
     return /vpn|ipprotection/i.test(id) && !el.closest("[id^='PanelUI-ipprotection'], #whimsy-vpn-site-section, #whimsy-vpn-urlbar");
   });
-  info(`VPN controls: ${controls.map(el => `${el.localName}#${el.id} in ${el.parentElement?.id || el.parentElement?.localName}`).join(", ")}; the button is in ${button.parentElement?.id}`);
-  Assert.deepEqual(controls.map(el => el.id), ["ipprotection-button"], "Only Firefox's VPN button");
-  is(document.querySelectorAll("#ipprotection-button").length, 1, "and it's placed once");
+  Assert.deepEqual(controls.map(el => el.id), [], "No stray VPN control outside Whimsy's own");
 });

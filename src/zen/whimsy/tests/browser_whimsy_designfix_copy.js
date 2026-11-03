@@ -35,11 +35,6 @@ add_task(function test_copy_names_real_rows() {
   ok(value("whimsy-vpn-scope-no-container").includes(setProfile), "and so does the VPN help");
 });
 
-add_task(function test_vpn_badge_uses_the_pickers_words() {
-  ok(value("whimsy-vpn-scope-button-browser").endsWith(value("whimsy-vpn-scope-browser")), "All spaces");
-  ok(value("whimsy-vpn-scope-button-space").endsWith(value("whimsy-vpn-scope-space")), "This space");
-});
-
 add_task(function test_no_straight_apostrophes_or_shouting() {
   const ids = [
     "whimsy-updated-notes-label",

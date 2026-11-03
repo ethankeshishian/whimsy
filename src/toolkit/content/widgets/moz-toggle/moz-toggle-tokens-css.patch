@@ -1,5 +1,5 @@
 diff --git a/toolkit/content/widgets/moz-toggle/moz-toggle.tokens.css b/toolkit/content/widgets/moz-toggle/moz-toggle.tokens.css
-index c0976c54418a28046802443931042bd285aefbde..2adb18d25edbb8aac4e396fcfc64a4a664607836 100644
+index 996eea6848a2ceec8f597130e83e15b7346b0d1d..40c54853671cda4843c7d8078c342e2b016c9c45 100644
 --- a/toolkit/content/widgets/moz-toggle/moz-toggle.tokens.css
 +++ b/toolkit/content/widgets/moz-toggle/moz-toggle.tokens.css
 @@ -13,8 +13,8 @@
@@ -13,3 +13,15 @@ index c0976c54418a28046802443931042bd285aefbde..2adb18d25edbb8aac4e396fcfc64a4a6
      --toggle-background-color-pressed-active: var(--color-accent-primary-active);
      --toggle-border-color: light-dark(var(--color-gray-70), var(--border-color-interactive));
      --toggle-border-color-hover: var(--toggle-border-color);
+@@ -24,7 +24,10 @@
+     --toggle-dot-background-color: var(--toggle-border-color);
+     --toggle-dot-background-color-hover: var(--toggle-dot-background-color);
+     --toggle-dot-background-color-active: var(--toggle-dot-background-color);
+-    --toggle-dot-background-color-on-pressed: var(--background-color-canvas);
++    /* Whimsy: not --background-color-canvas (popup.css ties it to
++       --panel-background-color, transparent on Zen's macOS panels, which
++       made the "on" knob invisible on the pressed track). */
++    --toggle-dot-background-color-on-pressed: light-dark(var(--color-white), var(--color-gray-90));
+     --toggle-dot-height: calc(var(--toggle-height) - 2 * var(--toggle-dot-margin) - 2 * var(--toggle-border-width));
+     --toggle-dot-margin: 1px;
+     --toggle-dot-transform-x: calc(var(--toggle-width) - 2 * var(--toggle-dot-margin) - 2px - var(--toggle-dot-width));
