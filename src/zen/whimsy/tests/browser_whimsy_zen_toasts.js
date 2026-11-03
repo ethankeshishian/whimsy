@@ -355,9 +355,9 @@ add_task(async function second_line_beside_an_icon() {
 // Zen gives a second line the options themselves as its Fluent args; with
 // a label's l10nArgs among them (an object) the whole translation failed.
 add_task(async function zen_second_line_args_with_label_args() {
-  const toast = toasts().open("whimsy-form-refill-ask", {
+  const toast = toasts().open("whimsy-form-quit-warning", {
     l10nArgs: { count: 1 },
-    descriptionId: "whimsy-form-refill-ask-detail",
+    descriptionId: "whimsy-form-save-drafts-note",
     timeout: 10000,
   });
   try {

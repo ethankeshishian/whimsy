@@ -459,17 +459,17 @@ add_task(async function w10_form_protection() {
       await SpecialPowers.popPrefEnv();
     }
     WhimsyFormProtection.toggleTabProtection(other);
-    let unloading = null;
-    await w10SurfaceShot("form-unload", "whimsy-form-unload", () => {
-      unloading = WhimsyFormProtection.confirmUnload(window, [tab]);
-    });
-    await unloading;
     await BrowserTestUtils.switchTab(gBrowser, tab);
+    await w10ToastShot("form-close-warning", () => gZenUIManager.toasts.open("whimsy-form-close-warning", {
+      timeout: 0,
+      buttons: [{ l10nId: "whimsy-form-close-button", command: () => {} }],
+    }));
     await w10ToastShot("form-refill", () => gZenUIManager.toasts.open("whimsy-form-refill-ask", {
-      l10nArgs: { count: 3 },
-      descriptionId: "whimsy-form-refill-ask-detail",
       icon: "chrome://browser/content/whimsy/whimsy-form-badge.svg", timeout: 0,
-      buttons: [{ l10nId: "whimsy-form-refill-fill", command: () => {} }],
+      buttons: [
+        { l10nId: "whimsy-form-refill-button", command: () => {} },
+        { l10nId: "whimsy-form-dismiss-button", command: () => {} },
+      ],
     }));
   } finally {
     BrowserTestUtils.removeTab(other);

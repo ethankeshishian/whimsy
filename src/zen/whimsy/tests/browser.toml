@@ -766,6 +766,7 @@ support-files = ["whimsy_highlight.html"]
 ["browser_whimsy_battery_saver.js"]
 # wave 13 R1 v2: the encrypted form draft store
 ["browser_whimsy_form_drafts.js"]
+support-files = ["whimsy_form_sensitive.html"]
 
 # batch wave9: form protection (W9-03)
 ["browser_whimsy_form_protection.js"]

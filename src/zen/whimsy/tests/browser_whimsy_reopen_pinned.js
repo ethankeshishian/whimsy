@@ -92,13 +92,15 @@ for (const kind of ["normal", "pinned", "essential"]) {
   });
 }
 
-// ⌘W on a pinned tab with a typed form asks first (Form Protection). After
-// Cancel nothing was closed, so ⌘⇧T later must not jump back to that tab;
-// it reopens the tab that really closed last.
+// R1 v2: with saving off, ⌘W on a pinned tab with unsaved typing warns
+// first and resets nothing; a second ⌘W would reset it, but the first
+// alone must not count as a close, so ⌘⇧T later must not jump back to
+// that tab: it reopens the tab that really closed last.
 add_task(async function cancelled_pinned_close_is_not_a_close() {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["whimsy.feature.form-protection", true],
+      ["whimsy.forms.saveDrafts", false],
       ["zen.pinned-tab-manager.close-shortcut-behavior", "reset-unload-switch"],
     ],
   });
@@ -120,14 +122,10 @@ add_task(async function cancelled_pinned_close_is_not_a_close() {
   await TestUtils.waitForCondition(() => formTab.hasAttribute("whimsy-form-typed"), "Typed");
 
   await SimpleTest.promiseFocus(window);
-  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-form-unload");
   EventUtils.synthesizeKey("w", { accelKey: true });
-  const panel = (await shown).target;
-  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
-  panel.querySelector("#whimsy-form-unload-keep").doCommand();
-  await hidden;
-  await TestUtils.waitForTick();
-  is(gBrowser.selectedTab, formTab, "Cancel: the pinned tab stays");
+  await TestUtils.waitForCondition(() => toastFor("whimsy-form-close-warning"), "The close warning shows");
+  await new Promise(resolve => setTimeout(resolve, 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  is(gBrowser.selectedTab, formTab, "A single ⌘W: the pinned tab stays, not reset");
 
   gBrowser.selectedTab = other;
   await reopenWithKey();
