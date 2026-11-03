@@ -402,6 +402,10 @@ add_task(async function test_rail_height_and_centre() {
       is(panel.state, "open", "Dragging doesn't close it");
     } finally {
       await closeIn(win, panel);
+      // The drag above remembers a spot keyed only by panel id, not by
+      // window: later tests in this file open their own (differently
+      // sized) windows and would otherwise reopen there too.
+      WhimsySurface.forgetDragPositions();
     }
   });
 });

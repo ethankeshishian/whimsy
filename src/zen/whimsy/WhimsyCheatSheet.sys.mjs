@@ -67,6 +67,10 @@ const SHEET_WIDTH = 760;
 const HEIGHT_SHARE = 0.88;
 const RAIL_MIN_HEIGHT = 360;
 
+function clamp(value, lo, hi) {
+  return Math.min(hi, Math.max(lo, value));
+}
+
 // Names for keys whose Whimsy wording differs from (or is missing in) the
 // about:keyboard metadata. Bindings always come from the <key> elements.
 const WHIMSY_TITLES = new Map([
@@ -478,9 +482,14 @@ export const WhimsyCheatSheet = {
     const contentHeight = rect.height || win.innerHeight;
     const width = Math.round(Math.max(280, Math.min(SHEET_WIDTH, win.innerWidth - 40)));
     const height = Math.round(contentHeight * HEIGHT_SHARE);
+    // `x` is relative to `area` (openOver's anchor), which may be narrower
+    // than the window and offset from its left (the vertical tab sidebar).
+    // Centred in the page area when it fits there; otherwise centred on the
+    // window, clamped so the sheet still lands 20px inside the window's
+    // edges rather than off the left side of a narrow area.
     const x = width <= rect.width - 20
       ? Math.round((rect.width - width) / 2)
-      : Math.round((win.innerWidth - width) / 2 - rect.left);
+      : Math.round(clamp((win.innerWidth - width) / 2 - rect.left, 20 - rect.left, win.innerWidth - 20 - width - rect.left));
     const y = Math.round((contentHeight - height) / 2);
     return { area, width, height, x, y, oneList: contentHeight < RAIL_MIN_HEIGHT };
   },
