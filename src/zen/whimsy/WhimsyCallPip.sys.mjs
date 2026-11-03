@@ -222,6 +222,7 @@ export const WhimsyCallPip = {
       l10nId: "whimsy-action-call-buttons-default",
       run: () => Services.prefs.setStringPref(DEFAULT_PREF, this.buttonsDefault == "call" ? "device" : "call"),
       key: null,
+      icon: "chrome://browser/content/whimsy/icons/call-options.svg",
       isAvailable: () => true,
     });
     this.hookMediaBar(win);
