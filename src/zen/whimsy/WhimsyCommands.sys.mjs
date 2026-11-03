@@ -34,11 +34,13 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   CustomKeys: "moz-src:///browser/components/customkeys/CustomKeys.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
+  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true));
 
 const FEATURE_PREF = "whimsy.feature.command-registry";
 const KEYSET_ID = "whimsyKeyset";
+// WhimsyShortcuts.WHIMSY_KEY_ATTR: press again (B16) finds Whimsy's keys by it.
 const AUTO_KEY_ATTR = "whimsy-command-key";
 const GROUP_L10N_ID = "whimsy-cheatsheet-group-whimsy";
 // wave10/mini: commands whose keys work only inside one kind of window
@@ -339,6 +341,10 @@ export const WhimsyCommands = {
         keyEl.setAttribute(binding.keycode ? "keycode" : "key", binding.keycode ?? binding.key);
       }
     }
+    // B16: a page that cancels this key gets the first press and the
+    // second press runs it (WhimsyShortcuts' press again), so the content
+    // side has to know its binding.
+    lazy.WhimsyShortcuts.queuePublishPressAgainKeys(document);
     let keyset = document.getElementById(KEYSET_ID);
     if (!keyset) {
       keyset = document.createXULElement("keyset");

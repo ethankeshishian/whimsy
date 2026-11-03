@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Press again in Mini</title>
+<!-- B16: a page that uses ⌘O and ⇧⌘O itself (Google Sheets opens its own
+     file picker on ⌘O): its keydown handler cancels them. Other keys pass. -->
+<p id="p">A spreadsheet that opens its own files.</p>
+<script>
+  window.took = [];
+  addEventListener("keydown", e => {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && e.code == "KeyO") {
+      e.preventDefault();
+      window.took.push(e.shiftKey ? "Shift+KeyO" : "KeyO");
+    }
+  });
+</script>

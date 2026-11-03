@@ -69,6 +69,11 @@ export const SHORTCUTS = {
 // are skipped, and the model follows each key whatever the person rebinds
 // it to. The name RESERVED_KEYS is kept for the tests and tickets that
 // cite it.
+//
+// B16: these are only the Zen and Firefox keys that take part. Every key
+// Whimsy adds itself (WhimsyCommands' keys, marked WHIMSY_KEY_ATTR: its
+// commands, Mini's ⌘O / ⇧⌘O, a Whimsy key the person bound) takes part
+// too, in every kind of window, without being listed (pressAgainKeys).
 export const RESERVED_KEYS = [
   // Window: Open Library…, View Downloads…
   "zen-library-toggle",
@@ -119,6 +124,11 @@ const VK_NAMES = {
 };
 for (let i = 1; i <= 24; i++) {
   VK_NAMES[111 + i] = `VK_F${i}`;
+}
+// B16: Whimsy binds some keys by keycode on a digit (⇧⌘1, ⇧⌘2 for the
+// screenshots), since ⇧ changes the digit's character.
+for (let i = 0; i <= 9; i++) {
+  VK_NAMES[48 + i] = `VK_${i}`;
 }
 const MODIFIER_KEYS = new Set(["Meta", "Control", "Alt", "Shift", "CapsLock", "Fn", "OS", "AltGraph"]);
 
@@ -175,8 +185,12 @@ export function eventSignatures(event) {
   return [...out];
 }
 
-// Only the press-again watcher's own per-key observers.
+// The attribute WhimsyCommands.addKey puts on every <key> Whimsy adds.
+export const WHIMSY_KEY_ATTR = "whimsy-command-key";
+// Documents whose press-again watcher is installed, and those with a
+// publish queued.
 const watched = new WeakSet();
+const publishQueued = new WeakSet();
 // window -> { keyId, signature, browser, until, toast }
 const pendingPress = new WeakMap();
 
@@ -346,32 +360,64 @@ export const WhimsyShortcuts = {
     // Another tab in between starts over, even when the same tab comes back
     // before the next press (Arc).
     win.addEventListener("TabSelect", () => this.cancelPressAgain(win), true);
-    // A rebinding in about:keyboard (CustomKeys) changes a key in place.
-    for (const id of RESERVED_KEYS) {
-      const keyEl = document.getElementById(id);
-      if (keyEl?.localName != "key" || watched.has(keyEl)) {
-        continue;
-      }
-      watched.add(keyEl);
-      new win.MutationObserver(() => this.publishPressAgainKeys(document)).observe(keyEl, {
+    // A rebinding in about:keyboard (CustomKeys), or a module changing a
+    // key, changes it in place, wherever its keyset is. Keys added later
+    // (WhimsyCommands.addKey) queue a publish themselves.
+    if (!watched.has(document)) {
+      watched.add(document);
+      new win.MutationObserver(() => this.queuePublishPressAgainKeys(document)).observe(document.documentElement, {
+        subtree: true,
         attributes: true,
         attributeFilter: ["key", "keycode", "modifiers"],
       });
     }
   },
 
-  // The bindings the page's side should report, for every process. Keys
-  // that other modules add later are picked up at delayed startup
-  // (moveConsoleAndDownloads) and on every rebinding.
-  publishPressAgainKeys(document) {
-    const bindings = new Set();
+  // B16: every <key> that offers the second press in this document, in
+  // the order they're matched: Arc's browser keys (RESERVED_KEYS), then
+  // every key Whimsy added (its commands in every window, and the keys
+  // only one kind of window has, such as Mini's ⌘O and ⇧⌘O). Display-only
+  // keys (internal, no command) never run anything, so they don't count.
+  pressAgainKeys(document) {
+    const keys = new Set();
     for (const id of RESERVED_KEYS) {
       const keyEl = document.getElementById(id);
       if (keyEl?.localName == "key") {
-        const binding = bindingOf(keyEl);
-        if (!binding.endsWith("|")) {
-          bindings.add(binding);
-        }
+        keys.add(keyEl);
+      }
+    }
+    for (const keyEl of document.querySelectorAll(`key[${WHIMSY_KEY_ATTR}]`)) {
+      if (keyEl.getAttribute("internal") != "true" && (keyEl.hasAttribute("command") || keyEl.hasAttribute("oncommand"))) {
+        keys.add(keyEl);
+      }
+    }
+    return [...keys];
+  },
+
+  // Publishes once the current batch of key changes is done.
+  queuePublishPressAgainKeys(document) {
+    const win = document?.defaultView;
+    if (!win || win.closed || publishQueued.has(document)) {
+      return;
+    }
+    publishQueued.add(document);
+    win.setTimeout(() => {
+      publishQueued.delete(document);
+      if (!win.closed) {
+        this.publishPressAgainKeys(document);
+      }
+    }, 0);
+  },
+
+  // The bindings the page's side should report, for every process. Keys
+  // that other modules add later are picked up as they're added
+  // (WhimsyCommands.addKey) and on every rebinding.
+  publishPressAgainKeys(document) {
+    const bindings = new Set();
+    for (const keyEl of this.pressAgainKeys(document)) {
+      const binding = bindingOf(keyEl);
+      if (!binding.endsWith("|")) {
+        bindings.add(binding);
       }
     }
     try {
@@ -388,9 +434,8 @@ export const WhimsyShortcuts = {
 
   // The browser key a binding belongs to in this window, if it can run.
   pressAgainKeyFor(document, signatures) {
-    for (const id of RESERVED_KEYS) {
-      const keyEl = document.getElementById(id);
-      if (keyEl?.localName != "key" || keyEl.getAttribute("disabled") == "true") {
+    for (const keyEl of this.pressAgainKeys(document)) {
+      if (keyEl.getAttribute("disabled") == "true") {
         continue;
       }
       const binding = bindingOf(keyEl);
