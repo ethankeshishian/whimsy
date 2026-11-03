@@ -68,6 +68,10 @@ add_setup(async function () {
   await WhimsyFormDrafts._resetForTests();
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.form-protection", true]] });
   registerCleanupFunction(async () => {
+    // The ⌘W tests can close the space's only ordinary tab; later files expect one.
+    if (!gBrowser.tabs.some(t => !t.hasAttribute("zen-empty-tab") && !t.closing)) {
+      await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+    }
     await WhimsyFormDrafts._resetForTests();
     await IOUtils.remove(WhimsyFormDrafts.path, { ignoreAbsent: true });
     Services.prefs.clearUserPref(SAVE_PREF);
@@ -372,6 +376,7 @@ add_task(async function test_private_tab_close_warns_then_closes() {
   EventUtils.synthesizeKey("w", { accelKey: true }, window);
   await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "A second ⌘W closes it");
   closeToasts();
+  await WhimsyPrivate.closeScratch(window);
 });
 
 add_task(async function test_setting_off_close_warns_then_closes() {
@@ -556,5 +561,6 @@ add_task(async function test_private_window_draft_never_touches_disk() {
     }
   } finally {
     await BrowserTestUtils.closeWindow(win);
+    await SimpleTest.promiseFocus(window);
   }
 });

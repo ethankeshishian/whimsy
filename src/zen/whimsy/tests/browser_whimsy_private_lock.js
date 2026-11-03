@@ -356,8 +356,8 @@ add_task(async function test_private_tab_stays_locked_across_spaces_and_keys() {
   const home = gZenWorkspaces.activeWorkspace;
   const other = await gZenWorkspaces.createAndSaveWorkspace("Elsewhere", undefined, true);
   // Open it last in the space, so ⌘9 (the last tab) reaches it.
-  const normal = gBrowser.visibleTabs.filter(t => !t.pinned && !t.hasAttribute("zen-empty-tab")).at(-1);
-  gBrowser.selectedTab = normal;
+  // Its own ordinary tab: an earlier file can leave the space with none.
+  const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   const priv = await openPrivateTab("keys");
   is(gBrowser.visibleTabs.at(-1), priv, "The private tab is the last in its space");
   answer = false;
