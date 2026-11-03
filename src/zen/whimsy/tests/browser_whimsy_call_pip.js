@@ -46,7 +46,21 @@ async function cloned(tab, id) {
   );
 }
 
+const TOGGLE_HAS_USED_PREF = "media.videocontrols.picture-in-picture.video-toggle.has-used";
+
 add_setup(async function () {
+  // Floating a call for real opens a genuine PiP window, so Firefox's own
+  // PiP code marks its toggle as used; that's not ours to leave behind.
+  const hadToggleHasUsed = Services.prefs.prefHasUserValue(TOGGLE_HAS_USED_PREF);
+  const toggleHasUsed = hadToggleHasUsed ? Services.prefs.getBoolPref(TOGGLE_HAS_USED_PREF) : null;
+  registerCleanupFunction(() => {
+    if (hadToggleHasUsed) {
+      Services.prefs.setBoolPref(TOGGLE_HAS_USED_PREF, toggleHasUsed);
+    } else {
+      Services.prefs.clearUserPref(TOGGLE_HAS_USED_PREF);
+    }
+  });
+
   const { SitePermissions } = ChromeUtils.importESModule("resource:///modules/SitePermissions.sys.mjs");
   const principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin("https://example.com");
   for (const id of ["camera", "microphone"]) {
