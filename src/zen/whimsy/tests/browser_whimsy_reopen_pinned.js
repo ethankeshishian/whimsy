@@ -64,6 +64,11 @@ for (const kind of ["pinned", "essential"]) {
 
 for (const kind of ["normal", "pinned", "essential"]) {
   add_task(async function reopen_closed_tab() {
+    // Firefox's ⌘⇧T replaces a lone blank tab with the one it reopens (bug
+    // 343895), which would take the window's starting tab with it and leave
+    // the files after this one with no tab but Zen's empty one. Keep a
+    // second tab up so only the closed tab's return is under test.
+    const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, uniqueURL("keep"));
     const url = uniqueURL(`reopen-${kind}`);
     const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
     if (kind == "pinned") {
@@ -89,6 +94,7 @@ for (const kind of ["normal", "pinned", "essential"]) {
       gBrowser.unpinTab(back);
     }
     BrowserTestUtils.removeTab(back);
+    BrowserTestUtils.removeTab(keep);
   });
 }
 
