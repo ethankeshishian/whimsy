@@ -447,6 +447,8 @@ export const WhimsyPanels = {
     const width = parseInt(panel.style.getPropertyValue("--whimsy-sheet-width"), 10) || SHEET_WIDTHS.small;
     const x = Math.max(0, Math.round((rect.width - width) / 2));
     const y = Math.round(Math.min(Math.max(rect.height * 0.1, 12), 96));
+    // Placed by coordinates: not a native popover (see WhimsySurface.openOver).
+    panel.setAttribute("nonnative", "true");
     panel.openPopup(area, { position: "overlap", x, y, triggerEvent });
   },
 

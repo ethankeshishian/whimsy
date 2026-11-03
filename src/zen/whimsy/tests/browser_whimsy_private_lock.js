@@ -10,6 +10,7 @@
 const { WhimsyPrivateLock } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 const { WhimsyAuth } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAuth.sys.mjs");
+const { WhimsySurface } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySurface.sys.mjs");
 
 let answer = false;
 const asked = [];
@@ -440,4 +441,24 @@ add_task(async function test_command_bar_hides_locked_tabs() {
   WhimsyPrivateLock.unlockAll();
   await SpecialPowers.popPrefEnv();
   BrowserTestUtils.removeTab(priv, { animate: false });
+});
+
+add_task(async function test_ask_prompt_opens_centred_on_the_window() {
+  // B4: the lock prompt has no anchor, so it lands centred on the page.
+  await SpecialPowers.pushPrefEnv({ clear: [["whimsy.privateLock.askDismissals.tabs"], ["whimsy.privateLock.tabs"]] });
+  WhimsyPrivateLock._asked?.clear();
+  const tab = await openPrivateTab("centred");
+  const panel = await TestUtils.waitForCondition(askPanel, "Asked about the new private tab");
+  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
+  const box = panel.getBoundingClientRect();
+  const gapStart = box.left - area.left;
+  const gapEnd = area.right - box.right;
+  Assert.less(Math.abs(gapStart - gapEnd), 3, "Centred horizontally on the page: the side gaps match");
+  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+  EventUtils.synthesizeKey("KEY_Escape", {}, window);
+  await hidden;
+  Services.prefs.clearUserPref("whimsy.privateLock.askDismissals.tabs");
+  WhimsyPrivateLock._asked?.clear();
+  await SpecialPowers.popPrefEnv();
+  BrowserTestUtils.removeTab(tab, { animate: false });
 });

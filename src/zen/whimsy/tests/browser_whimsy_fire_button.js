@@ -10,6 +10,7 @@
 // profile isn't wiped.
 
 const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFireButton.sys.mjs");
+const { WhimsySurface } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySurface.sys.mjs");
 const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
 const { ContextualIdentityService } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
@@ -640,4 +641,15 @@ add_task(async function test_w10_58_tabs_close_before_history_lookup() {
     Object.assign(WhimsyFireButton, originals);
     BrowserTestUtils.removeTab(tab);
   }
+});
+
+add_task(async function test_fire_popup_opens_centred_on_the_window() {
+  // B4: no anchor given, so the popup lands over the page, centred.
+  const panel = await openFire();
+  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
+  const box = panel.getBoundingClientRect();
+  const gapStart = box.left - area.left;
+  const gapEnd = area.right - box.right;
+  Assert.less(Math.abs(gapStart - gapEnd), 3, "Centred horizontally on the page: the side gaps match");
+  await closeFire(panel);
 });

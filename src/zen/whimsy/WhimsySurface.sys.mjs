@@ -365,7 +365,11 @@ export const WhimsySurface = {
       return;
     }
     if (anchor && !at) {
-      panel.openPopup(anchor, { position, x, y, triggerEvent });
+      if (position == "overlap") {
+        this.openOver(panel, anchor, { x, y, triggerEvent });
+      } else {
+        panel.openPopup(anchor, { position, x, y, triggerEvent });
+      }
       return;
     }
     if (at == "beside-sidebar") {
@@ -388,12 +392,12 @@ export const WhimsySurface = {
     if (at == "page-top-end") {
       const startSide = this.sidebarOnRight(win) != (win.document.dir == "rtl");
       const px = startSide ? 10 : Math.max(0, Math.round(rect.width - width - 10));
-      panel.openPopup(area, { position: "overlap", x: px, y: y || 10, triggerEvent });
+      this.openOver(panel, area, { x: px, y: y || 10, triggerEvent });
       return;
     }
     const px = Math.max(0, Math.round((rect.width - width) / 2));
     const py = y || Math.round(clamp(rect.height * 0.1, 12, 96));
-    panel.openPopup(area, { position: "overlap", x: px, y: py, triggerEvent });
+    this.openOver(panel, area, { x: px, y: py, triggerEvent });
   },
 
   /**
@@ -404,11 +408,11 @@ export const WhimsySurface = {
    * to sit inside the page landed centred under it on its first show
    * (W13 F03's cheat sheet, 183px off). Panels placed by coordinates are
    * nonnative, as Firefox's own openPopupAtScreen/AtScreenRect make them.
-   * Only the cheat sheet uses it so far: the other overlap placements
-   * above (page-top-center/-end, anchor+overlap, WhimsyPanels) have the
-   * same first-show problem, but making them nonnative broke six test
-   * files (hover cards, volume panel, emoji picker, scratch, toasts'
-   * Reduce Motion); that goes with B4 (where surfaces open).
+   * Used by every overlap placement above (page-top-center/-end,
+   * anchor+overlap) and by WhimsyPanels' sheet, so every styled surface
+   * opened by coordinates (Move Out of Private, the lock prompt, the
+   * Fire popup, and the rest) lands where asked instead of hanging off
+   * one edge of its anchor (B4).
    */
   openOver(panel, anchor, { x = 0, y = 0, triggerEvent = null } = {}) {
     panel.setAttribute("nonnative", "true");

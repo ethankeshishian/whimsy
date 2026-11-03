@@ -14,6 +14,7 @@
 const { WhimsyPrivateMove } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivateMove.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 const { WhimsySpaceLock } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceLock.sys.mjs");
+const { WhimsySurface } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySurface.sys.mjs");
 
 let firstSpace, target, container;
 
@@ -147,6 +148,27 @@ add_task(async function test_private_tab_move_out_of_private() {
   is(gBrowser.selectedTab, moved, "...and selected it");
   BrowserTestUtils.removeTab(moved, { animate: false });
   await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
+});
+
+add_task(async function test_opens_centred_on_the_window() {
+  // B4: opened with no anchor (the command bar / a command, not a button),
+  // the surface lands centred on the page, not hanging off an edge.
+  const url = uniqueURL("centred");
+  const priv = WhimsyPrivate.openPrivateTab(window, { url });
+  await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url, "The private page loaded");
+  gBrowser.selectedTab = priv;
+  document.getElementById("cmd_whimsyMoveOutOfPrivate").doCommand();
+  const panel = await waitForPanel(window);
+  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
+  const box = panel.getBoundingClientRect();
+  const gapStart = box.left - area.left;
+  const gapEnd = area.right - box.right;
+  Assert.less(Math.abs(gapStart - gapEnd), 3, "Centred horizontally on the page: the side gaps match");
+  panel.hidePopup();
+  const tab = movedTabs(url)[0] ?? priv;
+  if (tab.isConnected && !tab.closing) {
+    BrowserTestUtils.removeTab(tab, { animate: false });
+  }
 });
 
 add_task(async function test_not_offered_for_normal_tabs() {
