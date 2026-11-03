@@ -82,10 +82,7 @@ add_task(async function test_page_gets_first_press_browser_the_second() {
   const id = "zen-compact-mode-toggle";
   const key = document.getElementById(id);
   ok(key, "Hide Sidebar has a key");
-  if (bindingOf(key) != "accel|S") {
-    todo(false, `Hide Sidebar is on ${bindingOf(key)}, not ⌘S`);
-    return;
-  }
+  is(bindingOf(key), "accel|S", "Hide Sidebar is on ⌘S");
   const watcher = watchKey(id);
   const tab = await openPage();
   const browser = tab.linkedBrowser;
@@ -135,10 +132,8 @@ add_task(async function test_page_gets_first_press_browser_the_second() {
 add_task(async function test_pin_tab_second_press() {
   const id = "zen-toggle-pin-tab";
   const key = document.getElementById(id);
-  if (!key || bindingOf(key) != "accel|D") {
-    todo(false, "Pin Tab isn't on ⌘D");
-    return;
-  }
+  ok(key, "Pin Tab has a key");
+  is(bindingOf(key), "accel|D", "Pin Tab is on ⌘D");
   const tab = await openPage();
   press(id);
   await TestUtils.waitForCondition(async () => (await took(tab.linkedBrowser)).includes("KeyD"), "The page got ⌘D");
