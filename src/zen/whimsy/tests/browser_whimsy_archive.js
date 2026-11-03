@@ -102,6 +102,11 @@ add_task(async function test_archive_is_history_closed() {
   const entry = WhimsyArchive.listEntries(window).find(e => e.url.includes("archive-section"));
 
   const wasTab = library.activeTab;
+  // Zen's activeTab setter is a no-op when the value doesn't change, so
+  // restoring library.activeTab = wasTab below doesn't reset the pref if
+  // wasTab was already "history": snapshot and restore it directly.
+  const hadLastTab = Services.prefs.prefHasUserValue("zen.library.last-tab");
+  const lastTab = hadLastTab ? Services.prefs.getStringPref("zen.library.last-tab") : null;
   try {
     ok(WhimsyArchive.openPanel(window), "View Archive opens the Library");
     await TestUtils.waitForCondition(() => library.activeTab == "history", "On History");
@@ -124,6 +129,11 @@ add_task(async function test_archive_is_history_closed() {
   } finally {
     await library.constructor.animateProgress(0);
     library.activeTab = wasTab;
+    if (hadLastTab) {
+      Services.prefs.setStringPref("zen.library.last-tab", lastTab);
+    } else {
+      Services.prefs.clearUserPref("zen.library.last-tab");
+    }
     Services.prefs.clearUserPref("whimsy.library.history.view");
   }
 
