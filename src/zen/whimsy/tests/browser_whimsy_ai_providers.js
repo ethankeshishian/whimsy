@@ -343,6 +343,44 @@ add_task(async function test_apple_helper_quarantine() {
   }
 });
 
+// B11: a helper that's killed by SIGKILL before printing anything (macOS
+// refusing to run it) and a helper that crashes on its own (any other
+// signal, usually because this Mac can't run the model) both used to be
+// reported as "apple-helper-blocked", sending people to System Settings
+// for a problem that setting can't fix. They're now told apart.
+add_task(async function test_apple_helper_crash_vs_blocked() {
+  if (Services.appinfo.OS != "Darwin") {
+    ok(true, "macOS only");
+    return;
+  }
+  const root = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-fm-crash");
+  const helper = PathUtils.join(root, "whimsy-fm-test");
+  const descriptor = Object.getOwnPropertyDescriptor(WhimsyAIProviders, "_helperPath");
+  Object.defineProperty(WhimsyAIProviders, "_helperPath", { get: () => helper, configurable: true });
+  try {
+    // Killed by SIGKILL with no output: still "blocked", as before.
+    await IOUtils.writeUTF8(helper, "#!/bin/sh\nkill -KILL $$\n");
+    await IOUtils.setPermissions(helper, 0o755);
+    WhimsyAIProviders._helperPromise = null;
+    is(await WhimsyAIProviders.appleStatus({ build: true }), "apple-helper-blocked", "SIGKILL with no output is still reported as blocked");
+
+    // Any other signal with no output: the helper crashed on its own.
+    await IOUtils.writeUTF8(helper, "#!/bin/sh\nkill -ABRT $$\n");
+    await IOUtils.setPermissions(helper, 0o755);
+    WhimsyAIProviders._helperPromise = null;
+    is(await WhimsyAIProviders.appleStatus({ build: true }), "apple-helper-crashed", "A crash is told apart from being blocked");
+
+    const l10n = new Localization(["browser/whimsy.ftl"], true);
+    for (const id of ["whimsy-ai-error-apple-helper-crashed", "whimsy-ai-apple-status-apple-helper-crashed"]) {
+      ok(l10n.formatValueSync(id), `${id} has a string`);
+    }
+  } finally {
+    Object.defineProperty(WhimsyAIProviders, "_helperPath", descriptor);
+    WhimsyAIProviders._helperPromise = null;
+    await IOUtils.remove(root, { recursive: true });
+  }
+});
+
 // W10-07: Settings still said "xcode-select --install" on a Mac whose
 // tools were installed. Any failed build was "reinstall the tools", and
 // only MacOSX.sdk was tried (Software Update can point it at an SDK the

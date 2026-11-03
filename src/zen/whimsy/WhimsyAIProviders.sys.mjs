@@ -125,6 +125,9 @@ export const AI_ERROR_CODES = [
   "apple-build-failed",
   // W10-07: macOS wouldn't start the helper.
   "apple-helper-blocked",
+  // W13-B11: the helper started but crashed (a signal other than SIGKILL)
+  // before saying anything, usually because this Mac can't run the model.
+  "apple-helper-crashed",
   "apple-intelligence-off",
   "apple-not-ready",
   "apple-not-set-up",
@@ -703,7 +706,8 @@ export const WhimsyAIProviders = {
 
   // "available", or why not: "unavailable", "apple-needs-tools",
   // "apple-tools-outdated", "apple-needs-license", "apple-build-failed",
-  // "apple-helper-blocked", "apple-intelligence-off", "apple-not-ready", or
+  // "apple-helper-blocked", "apple-helper-crashed", "apple-intelligence-off",
+  // "apple-not-ready", or
   // (with build: false, before the helper exists) "not-set-up".
   // appleDetail says more (folders searched, compiler error).
   async appleStatus({ build = true } = {}) {
@@ -748,8 +752,12 @@ export const WhimsyAIProviders = {
       }
       const exitCode = exited?.exitCode ?? 0;
       if (!output.trim() && exitCode < 0) {
-        // Killed before it printed anything: macOS refused to run it.
-        return "apple-helper-blocked";
+        // Negative exitCode means a signal (Subprocess reports it as
+        // -signalNumber). SIGKILL (-9) with no output is macOS (or our own
+        // proc.kill() above) refusing to let it run. Any other signal is
+        // the helper itself crashing (a Swift trap, usually), a different
+        // problem that "allow it in Privacy & Security" doesn't fix.
+        return exitCode == -9 ? "apple-helper-blocked" : "apple-helper-crashed";
       }
       if (output.trim() == "available") {
         return "available";
