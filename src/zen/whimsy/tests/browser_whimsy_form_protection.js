@@ -454,9 +454,15 @@ add_task(async function test_private_draft_stays_in_memory() {
   } finally {
     // A typed private tab needs the close warning (R1 v2 §3): one
     // removeTab only shows it, a second within CLOSE_CONFIRM_MS closes.
+    // removeTab's own close isn't awaited by the test utility (it returns
+    // whatever gBrowser.removeTab returns, which is undefined on this
+    // path), so wait for the tab to actually leave gBrowser.tabs before
+    // the next test starts: otherwise its close animation can still be
+    // in flight when that test checks for a tab at the same address.
     BrowserTestUtils.removeTab(tab);
     BrowserTestUtils.removeTab(tab);
     closeToasts();
+    await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "The private tab finished closing");
   }
 });
 
@@ -471,7 +477,9 @@ add_task(async function test_switch_off() {
   });
   // withNewTab's own removeTab isn't awaited, and this is the file's last
   // test: wait for it to actually finish so the harness's end-of-run check
-  // doesn't catch it still closing.
+  // doesn't catch it still closing. (This used to also catch a tab leaked
+  // by browser_whimsy_form_drafts.js's ⌘⇧T reopen test when the two files
+  // ran in the same mach invocation; that leak is fixed at its source now.)
   await TestUtils.waitForCondition(() => !gBrowser.tabs.some(t => t.linkedBrowser?.currentURI?.spec == FORM_PAGE), "The tab finished closing");
   await SpecialPowers.popPrefEnv();
 });

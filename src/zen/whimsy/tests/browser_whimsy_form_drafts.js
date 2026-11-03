@@ -219,6 +219,15 @@ add_task(async function test_reopen_with_cmd_shift_t_offers_refill() {
   EventUtils.synthesizeKey("t", { accelKey: true, shiftKey: true });
   await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "⌘⇧T reopen offers Refill");
   closeToasts();
+  // ⌘⇧T reopens the just-closed tab via session restore (a new tab, not
+  // `tab`, which is already gone): close it too and wait for the close to
+  // actually finish, or it lingers into later tests/files that check for
+  // no tab left at FORM_PAGE (e.g. form_protection.js's test_switch_off).
+  const reopened = gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == FORM_PAGE);
+  if (reopened) {
+    BrowserTestUtils.removeTab(reopened);
+    await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(reopened), "The reopened tab finished closing");
+  }
   await WhimsyFormDrafts.delete({ url: FORM_PAGE });
 });
 
