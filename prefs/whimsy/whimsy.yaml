@@ -695,6 +695,11 @@
 - name: whimsy.privateLock.onLeave
   value: false
 
+# R1 v2: unsaved typing in a closed tab is kept (encrypted, 7 days) and
+# offered back on reopen. Settings → Forms: Save Unsaved Typing When Closing.
+- name: whimsy.forms.saveDrafts
+  value: true
+
 # F26, corrected in W13-R2 (wave13/r2-paste-design.md §8): an image that
 # Whimsy itself put on the clipboard or is dragging (Copy Image, Whimsy's
 # screenshot copy) is a File in a paste's or drop's DataTransfer, as in

@@ -25,8 +25,11 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
+  OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -86,7 +89,8 @@ function cleanSnapshot(data) {
     }
     clean[key] = {};
     for (const [name, value] of Object.entries(record)) {
-      if (typeof name != "string" || name.length > 500) {
+      // "__proto__" would set the record's prototype, not add a field.
+      if (typeof name != "string" || name.length > 500 || name == "__proto__") {
         continue;
       }
       if (typeof value == "string" || typeof value == "boolean") {
@@ -97,7 +101,8 @@ function cleanSnapshot(data) {
     }
   }
   const json = JSON.stringify(clean);
-  return json.length <= SNAPSHOT_MAX_BYTES && json != "{}" ? clean : null;
+  const fields = Object.values(clean).reduce((n, record) => n + Object.keys(record).length, 0);
+  return json.length <= SNAPSHOT_MAX_BYTES && fields ? clean : null;
 }
 
 function sameAddress(a, b) {
@@ -111,6 +116,258 @@ function sameAddress(a, b) {
     return false;
   }
 }
+
+// ---- R1 v2: the draft store (wave13/r1-v2-design.md §4, §6, §9) ----
+//
+// One draft per address (the URL without its fragment; the URL parser
+// lower-cases scheme and host and drops a default port) and container. Normal
+// drafts live in memory and on disk as ONE OSKeyStore ciphertext (so not even
+// the addresses are readable); private drafts live in memory only. Values are
+// never logged.
+const SAVE_PREF = "whimsy.forms.saveDrafts";
+const DRAFTS_FILE = "whimsy-form-drafts.json";
+const DRAFTS_WRITE_MS = 1000;
+
+function draftKey(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol != "https:" && u.protocol != "http:") {
+      return null;
+    }
+    u.hash = "";
+    return u.href;
+  } catch (e) {
+    return null;
+  }
+}
+
+function draftId(key, userContextId) {
+  return `${Number(userContextId) || 0}|${key}`;
+}
+
+function draftFresh(time) {
+  return Date.now() - time <= SNAPSHOT_MAX_AGE_MS;
+}
+
+function draftOnHost(record, host) {
+  try {
+    const h = new URL(record.key).hostname;
+    return h == host || h.endsWith("." + host);
+  } catch (e) {
+    return false;
+  }
+}
+
+export const WhimsyFormDrafts = {
+  _records: null,
+  _loading: null,
+  _private: new Map(),
+  _dirty: false,
+  _timer: null,
+  _writing: null,
+  _initialized: false,
+
+  get path() {
+    return PathUtils.join(PathUtils.profileDir, DRAFTS_FILE);
+  },
+
+  get saving() {
+    return Services.prefs.getBoolPref(SAVE_PREF, true);
+  },
+
+  _init() {
+    if (this._initialized) {
+      return;
+    }
+    this._initialized = true;
+    Services.prefs.addObserver(SAVE_PREF, this);
+    Services.obs.addObserver(this, "last-pb-context-exited");
+    lazy.AsyncShutdown.profileBeforeChange.addBlocker("WhimsyFormDrafts: write the drafts", () => this.flush());
+  },
+
+  observe(subject, topic) {
+    if (topic == "last-pb-context-exited") {
+      this._private.clear();
+    } else if (topic == "nsPref:changed" && !this.saving) {
+      this.forgetAll();
+    }
+  },
+
+  async _load() {
+    if (this._records) {
+      return this._records;
+    }
+    this._loading ??= (async () => {
+      const records = new Map();
+      let text = null;
+      try {
+        text = await IOUtils.readUTF8(this.path);
+      } catch (e) {
+        // No file yet.
+      }
+      if (text != null) {
+        try {
+          const list = JSON.parse(await lazy.OSKeyStore.decrypt(JSON.parse(text).blob));
+          for (const r of Array.isArray(list) ? list : []) {
+            const key = draftKey(r?.key);
+            const data = cleanSnapshot(r?.data);
+            const time = Number(r?.time) || 0;
+            const userContextId = Number(r?.userContextId) || 0;
+            if (key && data && draftFresh(time)) {
+              records.set(draftId(key, userContextId), { key, data, time, userContextId });
+            }
+          }
+        } catch (e) {
+          // The Keychain item was reset or the profile came from another
+          // Mac: losing the drafts is the safe outcome.
+          await IOUtils.remove(this.path, { ignoreAbsent: true }).catch(() => {});
+        }
+      }
+      if (!this._records) {
+        this._records = records;
+      }
+      this._loading = null;
+      return this._records;
+    })();
+    return this._loading;
+  },
+
+  async put({ url, data, userContextId = 0, isPrivate = false, time = Date.now() }) {
+    this._init();
+    const key = draftKey(url);
+    const clean = cleanSnapshot(data);
+    if (!this.saving || !key || !clean || !draftFresh(time)) {
+      return false;
+    }
+    const record = { key, data: clean, time, userContextId: Number(userContextId) || 0 };
+    if (isPrivate) {
+      this._private.set(draftId(key, userContextId), record);
+      return true;
+    }
+    (await this._load()).set(draftId(key, userContextId), record);
+    this._scheduleWrite();
+    return true;
+  },
+
+  async get({ url, userContextId = 0, isPrivate = false }) {
+    this._init();
+    const key = draftKey(url);
+    if (!key) {
+      return null;
+    }
+    const map = isPrivate ? this._private : await this._load();
+    const id = draftId(key, userContextId);
+    const record = map.get(id);
+    if (!record) {
+      return null;
+    }
+    if (!draftFresh(record.time)) {
+      map.delete(id);
+      if (!isPrivate) {
+        this._scheduleWrite();
+      }
+      return null;
+    }
+    return { data: structuredClone(record.data), time: record.time };
+  },
+
+  async delete({ url, userContextId = 0, isPrivate = false }) {
+    const key = draftKey(url);
+    if (!key) {
+      return;
+    }
+    if (isPrivate) {
+      this._private.delete(draftId(key, userContextId));
+    } else if ((await this._load()).delete(draftId(key, userContextId))) {
+      this._scheduleWrite();
+    }
+  },
+
+  // Fire on a site: the site and its subdomains, private ones too.
+  async forgetSite(host) {
+    host = String(host ?? "").toLowerCase();
+    if (!host) {
+      return;
+    }
+    for (const [id, record] of this._private) {
+      if (draftOnHost(record, host)) {
+        this._private.delete(id);
+      }
+    }
+    const records = await this._load();
+    for (const [id, record] of records) {
+      if (draftOnHost(record, host)) {
+        records.delete(id);
+        this._scheduleWrite();
+      }
+    }
+  },
+
+  // Fire everywhere, or the setting turned off: memory and the file.
+  async forgetAll() {
+    this._private.clear();
+    this._records = new Map();
+    this._loading = null;
+    this._dirty = false;
+    lazy.clearTimeout(this._timer);
+    this._timer = null;
+    await this._writing;
+    await IOUtils.remove(this.path, { ignoreAbsent: true });
+  },
+
+  _scheduleWrite() {
+    this._dirty = true;
+    lazy.clearTimeout(this._timer);
+    this._timer = lazy.setTimeout(() => this.flush(), DRAFTS_WRITE_MS);
+  },
+
+  async flush() {
+    lazy.clearTimeout(this._timer);
+    this._timer = null;
+    await this._writing;
+    if (!this._dirty || !this._records) {
+      return;
+    }
+    this._dirty = false;
+    this._writing = this._write([...this._records.values()].filter(r => draftFresh(r.time)));
+    await this._writing;
+    this._writing = null;
+  },
+
+  async _write(list) {
+    let blob;
+    try {
+      await lazy.OSKeyStore.ensureLoggedIn(false);
+      blob = await lazy.OSKeyStore.encrypt(JSON.stringify(list));
+    } catch (e) {
+      // No key store: drafts stay in memory for this session, never on
+      // disk in the clear.
+      return;
+    }
+    try {
+      await IOUtils.writeUTF8(this.path, JSON.stringify({ version: 1, blob }), { tmpPath: this.path + ".tmp" });
+    } catch (e) {
+      // Disk full or similar: keep it in memory, the next write retries.
+      this._dirty = true;
+    }
+  },
+
+  async _dropMemoryForTests() {
+    await this.flush();
+    this._records = null;
+    this._loading = null;
+    this._private.clear();
+  },
+
+  async _resetForTests() {
+    await this.flush();
+    this._records = new Map();
+    this._loading = null;
+    this._private.clear();
+    this._dirty = false;
+    await IOUtils.remove(this.path, { ignoreAbsent: true });
+  },
+};
 
 function tabFor(browser) {
   return browser?.documentGlobal?.gBrowser?.getTabForBrowser(browser) ?? null;

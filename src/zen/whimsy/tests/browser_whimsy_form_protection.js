@@ -414,8 +414,11 @@ add_task(async function test_unload_with_and_without_saving() {
       } else {
         ok(!WhimsyFormProtection.snapshotFor(browser, FORM_PAGE), "Without saving: Whimsy's copy is gone");
         ok(!TabStateCache.get(browser.permanentKey)?.formdata, "and Firefox's");
+        // The restore starts in a new content process: "pending" goes and
+        // "busy" comes a moment later, so wait for the page's own load.
+        const loaded = BrowserTestUtils.browserLoaded(browser, false, FORM_PAGE);
         await BrowserTestUtils.switchTab(gBrowser, tab);
-        await TestUtils.waitForCondition(() => !tab.hasAttribute("pending") && !tab.hasAttribute("busy"), "Back");
+        await loaded;
         is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value), "",
           "The form comes back empty");
       }
