@@ -257,6 +257,30 @@ add_task(async function test_closing_last_scratch_tab_keeps_it_until_left() {
   await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Leaving it empty removes it");
 });
 
+// Leaving it for a space with no tabs selects nothing new (the empty tab
+// stays selected and moves with you), so the switch itself has to close it.
+add_task(async function test_leaving_empty_scratch_for_an_empty_space_removes_it() {
+  const startSpace = gZenWorkspaces.activeWorkspace;
+  const empty = await gZenWorkspaces.createAndSaveWorkspace("Empty", undefined, true);
+  try {
+    await gZenWorkspaces.changeWorkspaceWithID(empty.uuid);
+    is(gZenWorkspaces.activeWorkspace, empty.uuid, "In a space with no tabs");
+    const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
+    await waitForPage(gBrowser.selectedTab);
+    await closeTab(gBrowser.selectedTab);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    is(WhimsyPrivate.getScratch(window)?.uuid, scratch.uuid, "Closing its last tab keeps it");
+    const emptyTab = gBrowser.selectedTab;
+    ok(emptyTab.hasAttribute("zen-empty-tab"), "…on its empty state");
+    await gZenWorkspaces.changeWorkspaceWithID(empty.uuid);
+    is(gBrowser.selectedTab, emptyTab, "The empty tab is still the selected one");
+    await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Leaving it empty removes it");
+  } finally {
+    await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+    await gZenWorkspaces.removeWorkspace(empty.uuid);
+  }
+});
+
 add_task(async function test_keep_scratch_as_space() {
   const startSpace = gZenWorkspaces.activeWorkspace;
   const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });

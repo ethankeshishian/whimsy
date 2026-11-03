@@ -739,6 +739,9 @@ export const WhimsyPrivate = {
     };
     win.addEventListener("ZenWorkspacesUIUpdate", refresh);
     win.addEventListener("ZenWorkspaceDataChanged", refresh);
+    // A switch to a space with no tabs keeps the empty tab selected (it
+    // moves with you), so no TabSelect says the Private Space was left.
+    spaces.addChangeListeners(() => this.onSpaceStateChanged(win));
     this.refreshScratchMarks(win);
   },
 
