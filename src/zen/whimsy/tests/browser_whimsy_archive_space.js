@@ -19,11 +19,20 @@ const FEATURE = "whimsy.feature.archive-space";
 
 let firstSpace, secondSpace;
 
+// test_settings_hidden_row opens about:preferences, which makes Firefox's
+// own FxAccounts code compute and cache a device name the first time
+// anything reads it. Nothing here cares about Sync, so just restore
+// whatever this pref held before.
+const HAD_DEVICE_NAME = Services.prefs.prefHasUserValue("identity.fxaccounts.account.device.name");
+
 add_setup(async function () {
   firstSpace = gZenWorkspaces.getWorkspaces().find(w => w.uuid == gZenWorkspaces.activeWorkspace);
   secondSpace = await gZenWorkspaces.createAndSaveWorkspace("Taxes 2026", undefined, true);
   registerCleanupFunction(async () => {
     Services.prefs.clearUserPref(FEATURE);
+    if (!HAD_DEVICE_NAME) {
+      Services.prefs.clearUserPref("identity.fxaccounts.account.device.name");
+    }
     const workspace = gZenWorkspaces.getWorkspaces().find(w => w.uuid == secondSpace.uuid);
     if (workspace) {
       delete workspace.whimsyHidden;
