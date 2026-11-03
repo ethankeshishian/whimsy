@@ -130,6 +130,22 @@ export const WhimsySiteSettings = {
     return { uri, host: uri.asciiHost, oa: this.oaOf(browser) };
   },
 
+  // B9: whether the page in front can open in Reader View at all, Firefox's
+  // own signal (AboutReaderParent sets this from Reader:UpdateReaderButton,
+  // the same flag the address bar's Reader button hides on). It starts
+  // unset on a fresh load, so a page is treated as unavailable until it's
+  // determined otherwise. A tab actually showing Reader View counts as
+  // readerable too: leaving the original page sends isArticle:false as it
+  // pageHides (AboutReaderChild's pagehide handler, since it isn't the
+  // "leaving reader mode" case), and about:reader's own load sends no
+  // isArticle at all, so isArticle sits false the whole time Reader View is
+  // on screen even though it plainly can open (it's open) — the same way
+  // AboutReaderParent.updateReaderButton treats about:reader itself as the
+  // reader-active case regardless of isArticle.
+  isReaderable(browser) {
+    return !!browser?.isArticle || !!browser?.currentURI?.spec.startsWith("about:reader");
+  },
+
   oaOf(browser) {
     const attrs = browser?.browsingContext?.originAttributes ?? browser?.contentPrincipal?.originAttributes ?? {};
     let privateBrowsingId = attrs.privateBrowsingId || 0;
@@ -210,6 +226,15 @@ export const WhimsySiteSettings = {
       onLocationChange: (browser, webProgress, request, location, flags) => {
         if (webProgress?.isTopLevel && !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)) {
           this.forgetDoneOnNavigation(browser);
+          // B9: a plain (non-article) destination never gets its own
+          // Reader:UpdateReaderButton message (AboutReaderChild only sends
+          // one when there's an article, or when forced while leaving
+          // Reader View), so the switch's disabled state wouldn't otherwise
+          // follow a navigation away from an article. By now the browser
+          // has reached its real URI (not the mid-navigation about:blank
+          // the reader messages can still be carrying), so this is safe to
+          // render on immediately rather than deferred.
+          this.maybeRenderReader(browser);
         }
       },
     };
@@ -249,12 +274,48 @@ export const WhimsySiteSettings = {
           if (message.data?.isArticle) {
             this.maybeEnterReader(message.target);
           }
+          // B9: isArticle often arrives after the panel is already open
+          // (readability is worked out once the page settles), so the
+          // Reader switch's disabled state follows it in rather than
+          // staying stuck on what was true when the panel opened.
+          this.maybeRenderReader(message.target);
         } catch (e) {
           console.error("Whimsy: site settings (reader)", e);
         }
       },
     };
     lazy.AboutReaderParent.addMessageListener("Reader:UpdateReaderButton", readerListener);
+  },
+
+  // Re-renders the section for `browser`'s window, but only if it's the
+  // selected browser there (the section always shows the selected tab)
+  // and the site panel is actually open.
+  maybeRenderReader(browser) {
+    // ownerGlobal isn't defined on elements seen from a module.
+    const win = browser?.ownerDocument?.defaultView;
+    if (!win || win.closed || win.gBrowser?.selectedBrowser != browser) {
+      return;
+    }
+    // Deferred: this runs from inside the actor message dispatch (possibly
+    // while Reader View itself is mid-transition), so the re-render happens
+    // on its own tick rather than nested inside that call.
+    win.setTimeout(() => {
+      // A load passes through an about:blank placeholder on its way to the
+      // real page; siteOf is null there, and rendering on it would flash
+      // the whole section hidden for a tick instead of just the switch
+      // updating. onLocationChange (below) catches the real destination.
+      if (!this.siteOf(browser)) {
+        return;
+      }
+      this.renderIfOpen(win);
+    }, 0);
+  },
+
+  renderIfOpen(win) {
+    const panel = win.document?.getElementById(PANEL_ID);
+    if (panel?.state == "open") {
+      this.render(win);
+    }
   },
 
   forgetDoneOnNavigation(browser) {
@@ -471,15 +532,19 @@ export const WhimsySiteSettings = {
     });
     list.append(autoplayRow);
 
-    // Reader View and Full Screen: switches.
+    // Reader View and Full Screen: switches. B9: Reader's does nothing on
+    // a page Reader View can't open (not readerable), so it's disabled
+    // there with a reason, rather than moving in the list.
     for (const kind of ["reader", "fullscreen"]) {
       const on = this.getFlag(kind, site.host, site.oa);
       remembered += on ? 1 : 0;
       const labelId = `whimsy-site-settings-${kind}-label`;
+      const unavailable = kind == "reader" && !this.isReaderable(browser);
       const toggle = lazy.WhimsySurface.switch(doc, {
         checked: on,
         labelledBy: labelId,
         id: `whimsy-site-settings-${kind}-switch`,
+        disabled: unavailable,
         onChange: checked => {
           this.setFlag(kind, site.host, site.oa, checked);
           if (checked) {
@@ -494,7 +559,22 @@ export const WhimsySiteSettings = {
           this.render(win);
         },
       });
-      list.append(this.row(doc, { kind, l10nId: `whimsy-site-settings-${kind}`, labelId, on, trailing: [toggle] }));
+      const row = this.row(doc, {
+        kind,
+        l10nId: `whimsy-site-settings-${kind}`,
+        labelId,
+        on,
+        trailing: [toggle],
+        detailL10nId: unavailable ? "whimsy-site-settings-reader-unavailable" : null,
+      });
+      if (unavailable) {
+        const detail = row.querySelector(".whimsy-surface-row-detail");
+        if (detail) {
+          detail.id = "whimsy-site-settings-reader-detail";
+          toggle.setAttribute("aria-describedby", detail.id);
+        }
+      }
+      list.append(row);
     }
 
     // Pretend to Be (Whimsy's per-site user agent), last: it's optional.

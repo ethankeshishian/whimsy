@@ -270,8 +270,11 @@ add_task(async function test_autoplay_reuses_firefox_permission() {
 
 add_task(async function test_always_open_in_reader() {
   clearAll();
-  await BrowserTestUtils.withNewTab(PAGE, async () => {
+  await BrowserTestUtils.withNewTab(ARTICLE_URL, async browser => {
+    // B9: the switch only works once the page is known to be readerable.
+    await TestUtils.waitForCondition(() => browser.isArticle, "readerable");
     await openPanel();
+    ok(!rowOf("reader").querySelector("input").disabled, "readerable: the switch is enabled");
     rowOf("reader").querySelector("input").click();
     ok(WhimsySiteSettings.getFlag("reader", HOST, NORMAL), "The switch remembers Reader for the site");
     is(rowOf("reader").getAttribute("state"), "allow", "and the row shows it");
@@ -454,15 +457,16 @@ add_task(async function test_pretend_to_be_in_place() {
 add_task(async function test_private_note() {
   clearAll();
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
-  const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+  const tab = WhimsyPrivate.openPrivateTab(window, { url: ARTICLE_URL, force: true });
   // The load can be over before a load listener would be in place.
   await TestUtils.waitForCondition(() =>
-    tab.linkedBrowser.currentURI?.spec == PAGE && !tab.hasAttribute("busy") && !tab.hasAttribute("pending"),
+    tab.linkedBrowser.currentURI?.spec == ARTICLE_URL && !tab.hasAttribute("busy") && !tab.hasAttribute("pending"),
   "The private tab loaded");
   // It opens selected; switchTab would wait for a switch that never comes.
   if (!tab.selected) {
     await BrowserTestUtils.switchTab(gBrowser, tab);
   }
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.isArticle, "readerable");
   try {
     await openPanel();
     ok(!section().querySelector(".whimsy-site-settings-private-note").hidden, "The private note shows");
@@ -538,6 +542,48 @@ add_task(async function test_forget_all_and_undo() {
     is(WhimsyUserAgent.entry(HOST)?.preset, "safari-iphone", "and the user agent");
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "and the zoom");
     await FullZoom.reset(browser);
+  });
+  clearAll();
+});
+
+// B9: the switch does nothing on a page Reader View can't open, so it's
+// disabled there with a reason rather than left to look broken. Disabled,
+// not hidden, so the row's position in the list never moves; and the
+// switch follows the page's own readerability (navigation, late isArticle)
+// rather than freezing at whatever was true when the panel opened.
+add_task(async function test_reader_switch_disabled_when_not_readerable() {
+  clearAll();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await openPanel();
+    let input = rowOf("reader").querySelector("input");
+    ok(input.disabled, "Not readerable: the switch is disabled");
+    is(
+      document.l10n.getAttributes(rowOf("reader").querySelector(".whimsy-surface-row-detail")).id,
+      "whimsy-site-settings-reader-unavailable",
+      "and says why"
+    );
+    const kinds = [...section().querySelectorAll("[whimsy-site-setting]")].map(r => r.getAttribute("whimsy-site-setting"));
+    Assert.deepEqual(kinds.slice(0, 4), ["zoom", "autoplay", "reader", "fullscreen"],
+      "disabled, not hidden: the row stays in place");
+
+    // Navigating to an article while the panel is open enables it, once
+    // isArticle is known (it arrives after the load settles, not with it).
+    const loaded = BrowserTestUtils.browserLoaded(browser, false, ARTICLE_URL);
+    BrowserTestUtils.startLoadingURIString(browser, ARTICLE_URL);
+    await loaded;
+    await TestUtils.waitForCondition(() => !rowOf("reader").querySelector("input").disabled,
+      "Readerable once isArticle arrives: the switch enables itself");
+    ok(!rowOf("reader").querySelector(".whimsy-surface-row-detail"), "and the reason is gone");
+
+    // Navigating back to a non-article page disables it again.
+    const loadedBack = BrowserTestUtils.browserLoaded(browser, false, PAGE);
+    BrowserTestUtils.startLoadingURIString(browser, PAGE);
+    await loadedBack;
+    await TestUtils.waitForCondition(() => rowOf("reader").querySelector("input").disabled,
+      "Back to a non-article page: the switch disables itself again");
+    input = rowOf("reader").querySelector("input");
+    ok(!input.checked, "and a click can't turn it on");
+    await closePanel();
   });
   clearAll();
 });

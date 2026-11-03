@@ -639,11 +639,12 @@ export const WhimsySurface = {
   },
 
   /** A switch: <input type=checkbox role=switch>. */
-  switch(doc, { checked = false, l10nId = null, l10nArgs = null, labelledBy = null, id = null, onChange = null }) {
+  switch(doc, { checked = false, disabled = false, l10nId = null, l10nArgs = null, labelledBy = null, id = null, onChange = null }) {
     const input = html(doc, "input", "whimsy-surface-switch");
     input.type = "checkbox";
     input.setAttribute("role", "switch");
     input.checked = !!checked;
+    input.disabled = !!disabled;
     if (id) {
       input.id = id;
     }

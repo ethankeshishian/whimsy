@@ -4114,6 +4114,9 @@ whimsy-site-settings-zoom-reset =
     .aria-label = Reset zoom to 100%
 whimsy-site-settings-autoplay-default = Use Default
 whimsy-site-settings-reader = Always Open in Reader View
+# B9: shown under the switch above, and the switch is disabled, when the
+# page in front can't open in Reader View (it isn't readerable).
+whimsy-site-settings-reader-unavailable = This page can't open in Reader View
 whimsy-site-settings-fullscreen = Always Open in Full Screen
 whimsy-site-settings-useragent = Pretend to Be
 whimsy-site-settings-useragent-reloads = Reloads the page
