@@ -12,6 +12,12 @@
 const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
 const { WhimsyClaudeReplay } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs");
 const { WhimsyProtocol } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProtocol.sys.mjs");
+const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Preferences.sys.mjs");
+
+// Starting Claude picks and remembers a port, opening tabs trips Whimsy's
+// tab-count stat, and the extra chrome windows this file opens trip the
+// update-seen check; none of that is this file's to leave behind.
+const LEAKED_PREFS = ["whimsy.claude.port", "whimsy.stats.tabs-opened", "whimsy.updates.seen-install"];
 
 const ENABLED = "whimsy.claude.enabled";
 const KEEP = "whimsy.claude.replay";
@@ -66,6 +72,9 @@ add_setup(async function () {
   await gZenWorkspaces.promiseInitialized;
   WhimsyClaude.confirmSite = async () => "once";
   await WhimsyClaudeReplay.clear();
+  const original = new Map(
+    LEAKED_PREFS.filter(name => Services.prefs.prefHasUserValue(name)).map(name => [name, Preferences.get(name)])
+  );
   registerCleanupFunction(async () => {
     WhimsyClaude.confirmSite = realConfirm;
     WhimsyClaude.forgetSitePermissions();
@@ -77,6 +86,13 @@ add_setup(async function () {
     await WhimsyClaudeReplay.clear();
     if (spaceId && gZenWorkspaces.getWorkspaces().some(w => w.uuid == spaceId)) {
       await gZenWorkspaces.removeWorkspace(spaceId);
+    }
+    for (const name of LEAKED_PREFS) {
+      if (original.has(name)) {
+        Preferences.set(name, original.get(name));
+      } else {
+        Services.prefs.clearUserPref(name);
+      }
     }
   });
 });
