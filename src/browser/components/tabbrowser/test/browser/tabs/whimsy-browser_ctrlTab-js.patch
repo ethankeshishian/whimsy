@@ -1,0 +1,162 @@
+diff --git a/browser/components/tabbrowser/test/browser/tabs/browser_ctrlTab.js b/browser/components/tabbrowser/test/browser/tabs/browser_ctrlTab.js
+index 0111da603e9e4a9edf0e53d1a6f65cb5b238441a..f7c62954a1a190fe8b4220385428ecc06ae7cfc6 100644
+--- a/browser/components/tabbrowser/test/browser/tabs/browser_ctrlTab.js
++++ b/browser/components/tabbrowser/test/browser/tabs/browser_ctrlTab.js
+@@ -2,14 +2,61 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
++// Whimsy: Zen keeps a hidden placeholder tab ("zen-empty-tab", made by
++// ZenSpaceManager's #initializeEmptyTab) at the start of gBrowser.tabs, so
++// every tab count and index in this file would be one off (and the "close
++// down to one tab" loops would close the last real tab). This file sees the
++// tab strip without it; everything else goes to the real gBrowser, which
++// is also what BrowserTestUtils gets (it checks identity).
++const gBrowser = (() => {
++  const real = window.gBrowser;
++  const tabs = () => real.tabs.filter(t => !t.hasAttribute("zen-empty-tab"));
++  const forward = () => ({
++    get(obj, prop) {
++      const value = Reflect.get(obj, prop, obj);
++      return typeof value == "function" ? value.bind(obj) : value;
++    },
++    set(obj, prop, value) {
++      return Reflect.set(obj, prop, value, obj);
++    },
++  });
++  const tabContainer = new Proxy(real.tabContainer, {
++    ...forward(),
++    get(obj, prop) {
++      if (prop == "selectedIndex") {
++        return tabs().indexOf(real.selectedTab);
++      }
++      return forward().get(obj, prop);
++    },
++  });
++  return new Proxy(real, {
++    ...forward(),
++    get(obj, prop) {
++      if (prop == "tabs") {
++        return tabs();
++      }
++      if (prop == "tabContainer") {
++        return tabContainer;
++      }
++      return forward().get(obj, prop);
++    },
++  });
++})();
++
+ add_task(async function () {
+   await SpecialPowers.pushPrefEnv({
+-    set: [["browser.ctrlTab.sortByRecentlyUsed", true]],
++    set: [
++      ["browser.ctrlTab.sortByRecentlyUsed", true],
++      // This file's indices assume Firefox's default of new tabs at the
++      // end: Whimsy opens them next to the current one, Zen at the top.
++      ["browser.tabs.insertAfterCurrent", false],
++      ["zen.view.show-newtab-button-top", false],
++    ],
+   });
+ 
+-  BrowserTestUtils.addTab(gBrowser);
+-  BrowserTestUtils.addTab(gBrowser);
+-  BrowserTestUtils.addTab(gBrowser);
++  BrowserTestUtils.addTab(window.gBrowser);
++  BrowserTestUtils.addTab(window.gBrowser);
++  BrowserTestUtils.addTab(window.gBrowser);
+ 
+   // While doing this test, we should make sure the selected tab in the tab
+   // preview is not changed by mouse events.  That may happen after closing
+@@ -66,14 +113,14 @@ add_task(async function () {
+     await releaseCtrl();
+   }
+ 
+-  BrowserTestUtils.addTab(gBrowser);
++  BrowserTestUtils.addTab(window.gBrowser);
+   checkTabs(3);
+   await ctrlTabTest([2, 1, 0], 7, 1);
+ 
+   {
+     info("test for bug 1292049");
+     let tabToClose = await BrowserTestUtils.openNewForegroundTab(
+-      gBrowser,
++      window.gBrowser,
+       "about:buildconfig"
+     );
+     checkTabs(4);
+@@ -151,11 +198,11 @@ add_task(async function () {
+   {
+     info("Bug 1731050: test hidden tabs");
+     checkTabs(1);
+-    BrowserTestUtils.addTab(gBrowser);
+-    BrowserTestUtils.addTab(gBrowser);
+-    BrowserTestUtils.addTab(gBrowser);
+-    BrowserTestUtils.addTab(gBrowser);
+-    FirefoxViewHandler.tab = BrowserTestUtils.addTab(gBrowser);
++    BrowserTestUtils.addTab(window.gBrowser);
++    BrowserTestUtils.addTab(window.gBrowser);
++    BrowserTestUtils.addTab(window.gBrowser);
++    BrowserTestUtils.addTab(window.gBrowser);
++    FirefoxViewHandler.tab = BrowserTestUtils.addTab(window.gBrowser);
+ 
+     gBrowser.hideTab(FirefoxViewHandler.tab);
+     FirefoxViewHandler.openTab();
+@@ -201,11 +248,11 @@ add_task(async function () {
+       set: [["browser.pagethumbnails.capturing_disabled", false]],
+     });
+ 
+-    BrowserTestUtils.addTab(gBrowser);
+-    BrowserTestUtils.addTab(gBrowser);
++    BrowserTestUtils.addTab(window.gBrowser);
++    BrowserTestUtils.addTab(window.gBrowser);
+ 
+     let tab = await BrowserTestUtils.openNewForegroundTab(
+-      gBrowser,
++      window.gBrowser,
+       `${getRootDirectory(gTestPath)}dummy_page.html`
+     );
+ 
+@@ -317,7 +364,7 @@ add_task(async function () {
+ 
+     for (let i = 0; i < 5; i++) {
+       await BrowserTestUtils.openNewForegroundTab(
+-        gBrowser,
++        window.gBrowser,
+         `${getRootDirectory(gTestPath)}dummy_page.html`
+       );
+     }
+@@ -525,11 +572,15 @@ add_task(async function test_maxPreviews_pref() {
+     set: [
+       ["browser.ctrlTab.sortByRecentlyUsed", true],
+       ["browser.ctrlTab.maxPreviews", 10],
++      // Whimsy: this task checks Firefox's 7-per-row layout, which
++      // whimsy.feature.ctrl-tab replaces by design (browser_whimsy_ctrl_tab_look
++      // covers Whimsy's); with the feature off the panel is Firefox's again.
++      ["whimsy.feature.ctrl-tab", false],
+     ],
+   });
+ 
+   while (gBrowser.tabs.length < 12) {
+-    BrowserTestUtils.addTab(gBrowser);
++    BrowserTestUtils.addTab(window.gBrowser);
+   }
+ 
+   async function openPanel() {
+@@ -600,11 +651,15 @@ add_task(async function test_previews_shrink_in_a_narrow_panel() {
+     set: [
+       ["browser.ctrlTab.sortByRecentlyUsed", true],
+       ["browser.ctrlTab.maxPreviews", 7],
++      // Whimsy: this task checks Firefox's 7-per-row layout, which
++      // whimsy.feature.ctrl-tab replaces by design (browser_whimsy_ctrl_tab_look
++      // covers Whimsy's); with the feature off the panel is Firefox's again.
++      ["whimsy.feature.ctrl-tab", false],
+     ],
+   });
+ 
+   while (gBrowser.tabs.length < 9) {
+-    BrowserTestUtils.addTab(gBrowser);
++    BrowserTestUtils.addTab(window.gBrowser);
+   }
+ 
+   let shown = BrowserTestUtils.waitForEvent(ctrlTab.panel, "popupshown");
