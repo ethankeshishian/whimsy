@@ -323,6 +323,8 @@ support-files = ["whimsy_calendar.sjs"]
 # W13 F02: the address bar VPN control (A) and This Site's VPN row with the site icon badge (B).
 ["browser_whimsy_vpn_controls.js"]
 
+["browser_whimsy_diag_vpn_toggle.js"]
+
 # legacy: Firefox/Zen/Mozilla leftovers (prefs, branding URLs, About dialog,
 # default bookmarks, Zen strings, and what was kept at upstream values).
 ["browser_whimsy_legacy.js"]
@@ -904,7 +906,7 @@ support-files = ["whimsy_email_form.html"]
 
 # W13-R3: a call's microphone and camera in sync: Meet, the small player, PiP.
 ["browser_whimsy_call_controls.js"]
-support-files = ["whimsy_meet.html"]
+support-files = ["whimsy_meet.html", "whimsy_zoom.html", "whimsy_teams.html", "whimsy_webex.html"]
 
 # wave13/toast: one toast, Zen's, extended (WhimsyZenToasts.sys.mjs): icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" buttons, persistence and handles, buttons with words, close and Esc, stacking, "+k more", Reduce Motion, keyed replace, 480px.
 ["browser_whimsy_zen_toasts.js"]

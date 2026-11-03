@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Whimsy Webex</title></head>
+<body>
+<!-- A stand-in for Webex's call bar: data-is-muted toggles. -->
+<video id="speaker" muted autoplay playsinline style="width: 480px; height: 270px"></video>
+<video id="self" muted autoplay playsinline style="width: 160px; height: 90px; transform: scaleX(-1)"></video>
+<div id="bar" role="toolbar" style="display: flex; gap: 12px; padding: 12px"></div>
+<!-- A decoy: a participant's own row in the roster. -->
+<aside id="people" style="display: flex; gap: 8px; padding: 8px">
+  <div role="list">
+    <div role="listitem" data-participant-id="webexid-alex">
+      <button data-is-muted="false" aria-label="Mute Alex's microphone">Alex mic</button>
+    </div>
+  </div>
+</aside>
+<script>
+  window.requireTrusted = false;
+  window.decoyPresses = 0;
+  for (const decoy of document.querySelectorAll("#people button")) {
+    decoy.addEventListener("click", () => window.decoyPresses++);
+  }
+  window.state = { mic: "on", camera: "on" };
+  let stream = null;
+  let pc = null;
+
+  function render() {
+    const bar = document.getElementById("bar");
+    bar.textContent = "";
+    for (const kind of ["mic", "camera"]) {
+      const button = document.createElement("button");
+      const on = window.state[kind] == "on";
+      button.setAttribute("data-is-muted", String(!on));
+      const label = kind == "mic" ? "Mute microphone" : "Stop video";
+      button.setAttribute("aria-label", label);
+      button.style.cssText = "width: 48px; height: 48px; border-radius: 24px";
+      button.textContent = kind;
+      button.addEventListener("click", event => {
+        if (window.requireTrusted && !event.isTrusted) {
+          return;
+        }
+        toggle(kind);
+      });
+      bar.append(button);
+    }
+  }
+
+  function toggle(kind) {
+    setTimeout(() => {
+      window.state[kind] = window.state[kind] == "on" ? "off" : "on";
+      for (const track of stream?.getVideoTracks() ?? []) {
+        if (kind == "camera") {
+          track.enabled = window.state.camera == "on";
+        }
+      }
+      render();
+    }, 40);
+  }
+
+  window.meetState = function () {
+    return {
+      mic: window.state.mic,
+      camera: window.state.camera,
+      decoyPresses: window.decoyPresses,
+      cameraTrackEnabled: stream?.getVideoTracks()[0]?.enabled ?? null,
+    };
+  };
+
+  window.removeControls = function () {
+    document.getElementById("bar").textContent = "";
+  };
+  window.restoreControls = render;
+
+  window.startCall = async function ({ camera = true } = {}) {
+    pc = new RTCPeerConnection();
+    pc.createDataChannel("whimsy");
+    await pc.setLocalDescription(await pc.createOffer());
+    render();
+    if (!camera) {
+      return true;
+    }
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    for (const id of ["speaker", "self"]) {
+      const video = document.getElementById(id);
+      video.srcObject = stream;
+      await video.play();
+    }
+    return true;
+  };
+
+  window.endCall = function () {
+    stream?.getTracks().forEach(track => track.stop());
+    stream = null;
+    for (const id of ["speaker", "self"]) {
+      document.getElementById(id).srcObject = null;
+    }
+    pc?.close();
+    pc = null;
+    return true;
+  };
+</script>
+</body>
+</html>

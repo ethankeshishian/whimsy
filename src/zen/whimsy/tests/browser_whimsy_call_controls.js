@@ -451,7 +451,7 @@ add_task(async function test_trusted_clicks_reach_a_background_call() {
 add_task(async function test_never_someone_elses_controls() {
   const call = await openCall();
   const found = await SpecialPowers.spawn(call.linkedBrowser, [], () => {
-    const { findControls } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMeetControls.sys.mjs");
+    const { findControls } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCallControls.sys.mjs");
     const controls = findControls(content.document);
     return {
       mic: controls.mic?.closest("#bar") ? "bar" : controls.mic?.getAttribute("aria-label") ?? null,
@@ -481,4 +481,41 @@ add_task(async function test_switched_off() {
   }
   // Back on: the small player follows the page again.
   await expectAll(call, null, ON, "Switched on again");
+});
+
+// W21: the call-bar finder is general to any call page, not just Meet.
+// Zoom's web client and Webex use data-is-muted like Meet; Teams uses
+// aria-pressed only, proving the widened candidate selector.
+add_task(async function test_finder_works_on_zoom_teams_webex() {
+  for (const fixture of ["whimsy_zoom.html", "whimsy_teams.html", "whimsy_webex.html"]) {
+    const page = getRootDirectory(gTestPath).replace("chrome://mochitests/content", ORIGIN) + fixture;
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+    try {
+      await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.startCall({ camera: false }));
+      const found = await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+        const { findControls, readState } = ChromeUtils.importESModule(
+          "resource:///modules/whimsy/WhimsyCallControls.sys.mjs"
+        );
+        const controls = findControls(content.document);
+        return {
+          mic: controls.mic?.closest("#bar") ? "bar" : (controls.mic?.getAttribute("aria-label") ?? null),
+          camera: controls.camera?.closest("#bar") ? "bar" : null,
+          state: readState(content.document),
+        };
+      });
+      is(found.mic, "bar", `${fixture}: the mic toggle resolves to the call bar, not a decoy`);
+      is(found.state.mic, "on", `${fixture}: readState reports the mic's polarity`);
+      await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+        content.document.querySelector("#bar button")?.click();
+      });
+      await TestUtils.waitForCondition(
+        async () => (await meetState(tab)).mic == "off",
+        `${fixture}: the mic toggled`
+      );
+      is((await meetState(tab)).decoyPresses, 0, `${fixture}: no decoy was pressed`);
+    } finally {
+      await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.endCall());
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
 });

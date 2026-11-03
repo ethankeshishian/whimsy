@@ -16,7 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   eventSignatures: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   PRESS_AGAIN_SHARED_KEY: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   // W13-R3: call controls.
-  WhimsyMeetControls: "resource:///modules/whimsy/WhimsyMeetControls.sys.mjs",
+  WhimsyCallControls: "resource:///modules/whimsy/WhimsyCallControls.sys.mjs",
 });
 
 // W13-R3: how long a toggle waits for the page to show the change (a camera
@@ -376,7 +376,7 @@ export class WhimsyPageChild extends JSWindowActorChild {
     }
     if (!this._callObserver) {
       this._callObserver = new win.MutationObserver(records => {
-        if (lazy.WhimsyMeetControls.isRelevant(records)) {
+        if (lazy.WhimsyCallControls.isRelevant(records)) {
           this.reportCallControls();
         }
       });
@@ -399,7 +399,7 @@ export class WhimsyPageChild extends JSWindowActorChild {
 
   // Sends the state when it differs from the last one sent.
   reportCallControls() {
-    const state = lazy.WhimsyMeetControls.readState(this.document);
+    const state = lazy.WhimsyCallControls.readState(this.document);
     const last = this._callState;
     if (!last || last.mic != state.mic || last.camera != state.camera) {
       this._callState = state;
@@ -417,18 +417,18 @@ export class WhimsyPageChild extends JSWindowActorChild {
   // the change (a camera turning on waits for its device). Resolves to
   // { ok, state, reason? }; never reads the state in the click's own tick.
   async toggleCallControl(kind) {
-    const { WhimsyMeetControls } = lazy;
+    const { WhimsyCallControls } = lazy;
     const win = this.contentWindow;
-    if (!WhimsyMeetControls.KINDS.includes(kind) || !win) {
+    if (!WhimsyCallControls.KINDS.includes(kind) || !win) {
       return { ok: false, reason: "unknown", state: null };
     }
-    const before = WhimsyMeetControls.readState(this.document);
-    const el = WhimsyMeetControls.findControls(this.document)[kind];
+    const before = WhimsyCallControls.readState(this.document);
+    const el = WhimsyCallControls.findControls(this.document)[kind];
     if (!el || !before[kind]) {
       this.callLog("toggle: no control", kind, before);
       return { ok: false, reason: "unknown", state: before };
     }
-    const changed = () => WhimsyMeetControls.readState(this.document)[kind] != before[kind];
+    const changed = () => WhimsyCallControls.readState(this.document)[kind] != before[kind];
     let observer = null;
     const done = new Promise(resolve => {
       observer = new win.MutationObserver(() => {
@@ -440,13 +440,13 @@ export class WhimsyPageChild extends JSWindowActorChild {
         attributeFilter: ["data-is-muted"] });
       lazy.setTimeout(() => resolve(false), TOGGLE_TIMEOUT_MS);
     });
-    const how = WhimsyMeetControls.press(win, el);
+    const how = WhimsyCallControls.press(win, el);
     let ok = changed() || (await done);
     observer.disconnect();
     if (!this.contentWindow) {
       return { ok: false, reason: "gone", state: before };
     }
-    const state = WhimsyMeetControls.readState(this.document);
+    const state = WhimsyCallControls.readState(this.document);
     ok = ok && state[kind] != before[kind];
     this.callLog("toggle", kind, how, ok ? "changed" : "no change", state);
     if (this._callObserver) {
