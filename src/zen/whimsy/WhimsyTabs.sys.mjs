@@ -139,6 +139,14 @@ export const WhimsyTabs = {
   //   path that doesn't mark them) kept a full-height line down the tile's
   //   edge. A tab whose container is its space's gets the mark here; a tab
   //   in a different container keeps its line, drawn as a short pill (CSS).
+  //   wave13/edge-line: every tab, not only pinned ones. An ordinary tab
+  //   showed the same line, 3px down the trailing edge of its sidebar row
+  //   in the profile's colour: Mini opens its link in the space's profile
+  //   and Cmd+O adopts it with that container passed explicitly, so Zen
+  //   never marks it ("a blue line on the right side of the tab"), and a
+  //   call page opened in a profile showed it in purple. An adopted tab
+  //   gets its space after TabOpen (adoptTabIntoSpace), so TabOpen checks
+  //   again once that has run.
   // - Firefox's multi-tab drag "stack" (small-stack/big-stack, two box-
   //   shadow lines in the focus blue). Zen draws its own drag image and
   //   finishes some drops (Essentials, another space, a folder) without
@@ -150,6 +158,7 @@ export const WhimsyTabs = {
     for (const type of ["TabOpen", "TabPinned", "TabSelect"]) {
       container.addEventListener(type, event => mark(event.target));
     }
+    container.addEventListener("TabOpen", event => win.setTimeout(() => mark(event.target), 0));
     win.addEventListener("ZenWorkspaceDataChanged", () => this.markAllDefaultContainers(win));
     win.gZenWorkspaces?.promiseInitialized?.then(() => this.markAllDefaultContainers(win));
     const clearStacks = () => {
@@ -170,7 +179,7 @@ export const WhimsyTabs = {
   },
 
   markDefaultContainer(win, tab) {
-    if (tab?.localName != "tab" || !tab.pinned || tab.getAttribute("zenDefaultUserContextId") == "true") {
+    if (tab?.localName != "tab" || tab.closing || tab.getAttribute("zenDefaultUserContextId") == "true") {
       return;
     }
     const userContextId = tab.userContextId || parseInt(tab.getAttribute("usercontextid")) || 0;
