@@ -58,6 +58,13 @@ const HELPER_VERSION = 3;
 const HELPER_CHECK_TIMEOUT_MS = 20 * 1000;
 // W10-07: toolchains tried before giving up (each build takes seconds).
 const MAX_BUILD_ATTEMPTS = 4;
+// FoundationModels (Apple's on-device model) needs macOS 26. Below that,
+// the SDK's headers still exist (so the helper would build), but the
+// framework traps at runtime, so this is checked first.
+const MIN_MACOS_VERSION = 26;
+// Tests only: pretend to be on this macOS major version instead of asking
+// sw_vers, so the OS gate can be exercised without depending on the host.
+const MACOS_VERSION_OVERRIDE_PREF = "whimsy.ai.test.macos-version";
 const HELPER_SOURCE = String.raw`import Foundation
 import FoundationModels
 
@@ -128,6 +135,9 @@ export const AI_ERROR_CODES = [
   // W13-B11: the helper started but crashed (a signal other than SIGKILL)
   // before saying anything, usually because this Mac can't run the model.
   "apple-helper-crashed",
+  // W13-B11: Apple's on-device model needs macOS 26+; older Macs never
+  // reach the helper (no build is even attempted).
+  "apple-unavailable-os",
   "apple-intelligence-off",
   "apple-not-ready",
   "apple-not-set-up",
@@ -149,6 +159,7 @@ export const WhimsyAIProviders = {
   // Swift compiler said when the helper failed to build, or the folders
   // searched when no usable tools were found ("" otherwise).
   appleDetail: "",
+  _macOSVersionCache: null,
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true) && !lazy.WhimsyAI.blocked;
@@ -491,6 +502,34 @@ export const WhimsyAIProviders = {
     return { exitCode, output };
   },
 
+  // The macOS major version (e.g. 26 for Tahoe), or null off Darwin or if it
+  // can't be read. Services.sysinfo's "version" is the Darwin kernel release
+  // (uname -r), not the macOS product version the two no longer track with a
+  // fixed offset, so this asks sw_vers directly, like _run asks xcode-select.
+  // Cached: it can't change while Whimsy runs. Tests override the pref
+  // instead of mocking sw_vers, so they don't depend on the host Mac.
+  async _macOSVersion() {
+    const testVersion = Services.prefs.getIntPref(MACOS_VERSION_OVERRIDE_PREF, 0);
+    if (testVersion) {
+      return testVersion;
+    }
+    if (Services.appinfo.OS != "Darwin") {
+      return null;
+    }
+    if (this._macOSVersionCache != null) {
+      return this._macOSVersionCache;
+    }
+    try {
+      const { exitCode, output } = await this._run("/usr/bin/sw_vers", ["-productVersion"]);
+      const major = exitCode == 0 ? parseInt(output.trim(), 10) : NaN;
+      this._macOSVersionCache = Number.isNaN(major) ? null : major;
+    } catch (e) {
+      console.error("Whimsy AI: reading the macOS version", e);
+      this._macOSVersionCache = null;
+    }
+    return this._macOSVersionCache;
+  },
+
   // The SDK folders a developer folder may have (command line tools, Xcode).
   _sdkPaths(dir) {
     return [
@@ -650,6 +689,10 @@ export const WhimsyAIProviders = {
         await this._unquarantine(path);
         return path;
       }
+      const version = await this._macOSVersion();
+      if (version != null && version < MIN_MACOS_VERSION) {
+        throw new WhimsyAIError("apple-unavailable-os");
+      }
       this.appleDetail = "";
       const toolchains = await this._findToolchains();
       if (typeof toolchains == "string") {
@@ -706,15 +749,24 @@ export const WhimsyAIProviders = {
 
   // "available", or why not: "unavailable", "apple-needs-tools",
   // "apple-tools-outdated", "apple-needs-license", "apple-build-failed",
-  // "apple-helper-blocked", "apple-helper-crashed", "apple-intelligence-off",
-  // "apple-not-ready", or
-  // (with build: false, before the helper exists) "not-set-up".
+  // "apple-helper-blocked", "apple-helper-crashed", "apple-unavailable-os",
+  // "apple-intelligence-off", "apple-not-ready", or (with build: false,
+  // before the helper exists) "not-set-up".
   // appleDetail says more (folders searched, compiler error).
   async appleStatus({ build = true } = {}) {
     this._appleReady = null;
     this.appleDetail = "";
     if (!build && !(await IOUtils.exists(this._helperPath))) {
-      return Services.appinfo.OS == "Darwin" ? "not-set-up" : "unavailable";
+      if (Services.appinfo.OS != "Darwin") {
+        return "unavailable";
+      }
+      // W13-B11: below macOS 26 this never has a helper to find, so say
+      // why up front instead of waiting for a Set Up click to fail.
+      const version = await this._macOSVersion();
+      if (version != null && version < MIN_MACOS_VERSION) {
+        return "apple-unavailable-os";
+      }
+      return "not-set-up";
     }
     let path;
     try {

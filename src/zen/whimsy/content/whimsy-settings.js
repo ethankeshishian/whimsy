@@ -1466,7 +1466,9 @@ Object.assign(gWhimsySettings, {
         console.error("Whimsy AI: checking Apple Intelligence", e);
         status = "unavailable";
       } finally {
-        appleButton.disabled = false;
+        // W13-B11: below macOS 26 there's nothing Set Up could do (no
+        // helper is ever built), so the button stays disabled.
+        appleButton.disabled = status == "apple-unavailable-os";
       }
       // W10-07: the status names the real reason; the line under it gives
       // the compiler's own words, or the folders searched when the status

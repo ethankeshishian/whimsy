@@ -18,7 +18,13 @@ const { OSKeyStoreTestUtils } = ChromeUtils.importESModule(
 registerCleanupFunction(async () => {
   WhimsyAIProviders.setTestProvider(null);
   await WhimsyAIProviders.setClaudeKey("");
-  for (const pref of ["whimsy.ai.enabled", "whimsy.ai.provider", "whimsy.ai.ollama.model", "whimsy.feature.ai-providers"]) {
+  for (const pref of [
+    "whimsy.ai.enabled",
+    "whimsy.ai.provider",
+    "whimsy.ai.ollama.model",
+    "whimsy.feature.ai-providers",
+    "whimsy.ai.test.macos-version",
+  ]) {
     Services.prefs.clearUserPref(pref);
   }
 });
@@ -504,6 +510,93 @@ add_task(async function test_apple_build_falls_back_and_says_why() {
     }
     WhimsyAIProviders._helperPromise = null;
     WhimsyAIProviders.appleDetail = "";
+    await IOUtils.remove(root, { recursive: true });
+  }
+});
+
+// B11: on a Mac below macOS 26, FoundationModels can't run: the SDK's
+// headers still exist (so the compiler doesn't complain), but the helper
+// traps at runtime and used to surface as a build/crash error code. The
+// macOS version is now checked before any build is attempted, so Settings
+// says plainly that this Mac is too old instead of showing an error.
+add_task(async function test_apple_unavailable_os() {
+  const root = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-fm-os");
+  const helper = PathUtils.join(root, "whimsy-fm-test");
+  const descriptor = Object.getOwnPropertyDescriptor(WhimsyAIProviders, "_helperPath");
+  Object.defineProperty(WhimsyAIProviders, "_helperPath", { get: () => helper, configurable: true });
+  const realRun = WhimsyAIProviders._run;
+  let runCalls;
+  WhimsyAIProviders._run = async (...args) => {
+    runCalls.push(args);
+    return realRun.apply(WhimsyAIProviders, args);
+  };
+  try {
+    // A faked macOS 25: too old. No toolchain search, no build attempt.
+    Services.prefs.setIntPref("whimsy.ai.test.macos-version", 25);
+    WhimsyAIProviders._helperPromise = null;
+    WhimsyAIProviders._macOSVersionCache = null;
+    runCalls = [];
+    is(
+      await WhimsyAIProviders.appleStatus({ build: false }),
+      "apple-unavailable-os",
+      "Before a helper exists, the first look already names the OS as the reason"
+    );
+    is(runCalls.length, 0, "Checking the OS version doesn't need to run any tool");
+
+    runCalls = [];
+    is(
+      await WhimsyAIProviders.appleStatus({ build: true }),
+      "apple-unavailable-os",
+      "Set Up itself refuses too: no swiftc, no helper, just the OS reason"
+    );
+    is(runCalls.find(call => call[0] != "/usr/bin/sw_vers"), undefined, "No toolchain search or build was attempted");
+    ok(!(await IOUtils.exists(helper)), "No helper was built");
+
+    const l10n = new Localization(["browser/whimsy.ftl"], true);
+    for (const id of ["whimsy-ai-error-apple-unavailable-os", "whimsy-ai-apple-status-apple-unavailable-os"]) {
+      const value = l10n.formatValueSync(id);
+      ok(value, `${id} has a string`);
+      ok(value.includes("macOS 26"), `${id} names macOS 26 as what's needed`);
+    }
+
+    // Settings disables Set Up and shows the reason instead of leaving the
+    // button clickable on a Mac that can never finish setting up.
+    await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
+      const doc = browser.contentDocument;
+      const button = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIAppleCheck"), "Apple's row");
+      await TestUtils.waitForCondition(() => button.disabled, "Set Up is disabled on a Mac that's too old");
+      const status = doc.getElementById("whimsyAIAppleStatus");
+      await TestUtils.waitForCondition(() => status.textContent.includes("macOS 26"), "The reason is shown");
+    });
+
+    // A faked macOS 26: the existing flow (helper build, available) is
+    // unchanged.
+    Services.prefs.setIntPref("whimsy.ai.test.macos-version", 26);
+    WhimsyAIProviders._helperPromise = null;
+    WhimsyAIProviders._macOSVersionCache = null;
+    runCalls = [];
+    await IOUtils.writeUTF8(helper, "#!/bin/sh\necho available\n");
+    await IOUtils.setPermissions(helper, 0o755);
+    is(
+      await WhimsyAIProviders.appleStatus({ build: true }),
+      "available",
+      "On macOS 26, an existing helper still just runs"
+    );
+
+    await IOUtils.remove(helper);
+    WhimsyAIProviders._helperPromise = null;
+    is(
+      await WhimsyAIProviders.appleStatus({ build: false }),
+      Services.appinfo.OS == "Darwin" ? "not-set-up" : "unavailable",
+      "On macOS 26 with no helper yet, the first look still says not-set-up, not the OS reason"
+    );
+  } finally {
+    WhimsyAIProviders._run = realRun;
+    Object.defineProperty(WhimsyAIProviders, "_helperPath", descriptor);
+    WhimsyAIProviders._helperPromise = null;
+    WhimsyAIProviders._macOSVersionCache = null;
+    WhimsyAIProviders.appleDetail = "";
+    Services.prefs.clearUserPref("whimsy.ai.test.macos-version");
     await IOUtils.remove(root, { recursive: true });
   }
 });
