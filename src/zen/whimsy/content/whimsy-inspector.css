@@ -4,50 +4,91 @@
 
 /* wave9: Element Inspector Lite styling (W10-17: the font card is a
  * WhimsySurface now; its rules are in whimsy-browser.css).
- * Matches Whimsy's panel and sheet styling using Zen CSS variables.
+ *
+ * W13 F10 (wave12 F10, option A): Element Info is a WhimsySurface too,
+ * 360px wide (fixed: it never jumps sideways between elements) and as tall
+ * as its content, up to the surface cap (min(680px, 100vh - 40px)); past
+ * that only the body scrolls, under the header. Header: the element's
+ * short name in the space colour, mono 600 12px, then its size, muted.
+ * Then the box model, the colours as 32px rows (a 16px swatch, the value
+ * in mono, its role), and Font / Contrast on a track.
  */
-
-.whimsy-color-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.whimsy-element-inspector-panel {
+  & .whimsy-surface-view {
+    overflow: hidden;
+  }
+  & .whimsy-surface-header,
+  & .whimsy-surface-footer {
+    flex-shrink: 0;
+  }
+  & .whimsy-element-tag {
+    font: 600 12px ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--zen-primary-color, AccentColor);
+  }
+}
+.whimsy-element-dims {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--whimsy-surface-muted);
+}
+.whimsy-element-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  gap: 10px;
 }
 
 .whimsy-color-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  border: 1px solid rgba(128, 128, 128, 0.4);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--whimsy-surface-hairline);
   display: inline-block;
   flex-shrink: 0;
 }
-
-/* --- Element Inspector Sheet --- */
-.whimsy-element-inspector-panel {
-  --whimsy-sheet-width: 360px;
-}
-
-.whimsy-element-header-box {
+.whimsy-element-color {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
-  border-radius: 6px;
-  border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.2));
-  font-family: var(--font-family-monospace, monospace);
-  font-size: 12px;
+  gap: 10px;
+  width: 100%;
+  min-height: 32px;
 }
-
-.whimsy-element-tag {
-  font-weight: 600;
-  color: var(--zen-primary-color, #0969da);
+.whimsy-element-color-value {
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+  font: 500 12px ui-monospace, "SF Mono", Menlo, monospace;
 }
-
-.whimsy-element-dims {
-  color: var(--panel-description-color, #888);
+.whimsy-color-chip-label {
+  flex-shrink: 0;
   font-size: 11px;
+  color: var(--whimsy-surface-muted);
+}
+.whimsy-element-fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding: 3px 8px;
+  font-size: 12px;
+
+  & > .k {
+    color: var(--whimsy-surface-muted);
+  }
+  & > .v {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+.whimsy-contrast-ratio {
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Box Model Diagram --- */
@@ -55,223 +96,72 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 10px;
   user-select: none;
+  font-size: 10px;
 }
 
+.whimsy-box-margin,
+.whimsy-box-border,
+.whimsy-box-padding {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  text-align: center;
+}
 .whimsy-box-margin {
   padding: 18px 22px;
-  background: rgba(246, 178, 107, 0.2);
-  border: 1px dashed rgba(246, 178, 107, 0.7);
-  border-radius: 8px;
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  text-align: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, #f2a65a 22%, transparent);
 }
-
 .whimsy-box-border {
   padding: 16px 20px;
-  background: rgba(255, 229, 153, 0.25);
-  border: 1px solid rgba(255, 229, 153, 0.8);
-  border-radius: 6px;
-  position: relative;
-  text-align: center;
+  border-radius: 4px;
+  background: color-mix(in srgb, #ffd36b 25%, transparent);
 }
-
 .whimsy-box-padding {
   padding: 14px 18px;
-  background: rgba(182, 215, 168, 0.25);
-  border: 1px dashed rgba(182, 215, 168, 0.8);
-  border-radius: 4px;
-  position: relative;
-  text-align: center;
-}
-
-.whimsy-box-content {
-  padding: 8px 14px;
-  background: rgba(164, 194, 244, 0.35);
-  border: 1px solid rgba(164, 194, 244, 0.8);
   border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: var(--font-family-monospace, monospace);
-  color: var(--text-color, currentColor);
+  background: color-mix(in srgb, #7cc47f 25%, transparent);
+}
+.whimsy-box-content {
+  padding: 6px 12px;
+  border-radius: 3px;
+  background: color-mix(in srgb, #5aa0f2 28%, transparent);
+  font: 600 11px ui-monospace, "SF Mono", Menlo, monospace;
   white-space: nowrap;
 }
-
 .whimsy-box-label {
   position: absolute;
   top: 2px;
   left: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: capitalize;
-  opacity: 0.75;
+  color: var(--whimsy-surface-muted);
 }
-
-.whimsy-box-val-top {
+.whimsy-box-val-top,
+.whimsy-box-val-bottom,
+.whimsy-box-val-left,
+.whimsy-box-val-right {
   position: absolute;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.whimsy-box-val-top {
   top: 2px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11px;
-  font-family: var(--font-family-monospace, monospace);
 }
-
 .whimsy-box-val-bottom {
-  position: absolute;
   bottom: 2px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11px;
-  font-family: var(--font-family-monospace, monospace);
 }
-
 .whimsy-box-val-left {
-  position: absolute;
   left: 4px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 11px;
-  font-family: var(--font-family-monospace, monospace);
 }
-
 .whimsy-box-val-right {
-  position: absolute;
   right: 4px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 11px;
-  font-family: var(--font-family-monospace, monospace);
-}
-
-/* --- Colours & Contrast Card --- */
-.whimsy-contrast-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
-  border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.2));
-  border-radius: 8px;
-}
-
-.whimsy-contrast-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.whimsy-contrast-swatches {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.whimsy-contrast-ratio-box {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.whimsy-contrast-label {
-  font-size: 11px;
-  color: var(--panel-description-color, #888);
-}
-
-.whimsy-contrast-values {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.whimsy-inspector-section-heading {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--panel-description-color, #888);
-  margin-top: 10px;
-  margin-bottom: 4px;
-}
-
-.whimsy-color-chip-row {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.whimsy-color-chip-label {
-  font-size: 11px;
-  color: var(--panel-description-color, #888);
-}
-
-.whimsy-contrast-ratio {
-  font-size: 15px;
-  font-weight: 700;
-  font-family: var(--font-family-monospace, monospace);
-}
-
-.whimsy-wcag-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 10px;
-  text-transform: uppercase;
-}
-
-.whimsy-wcag-badge.pass {
-  background: #238636;
-  color: #ffffff;
-}
-
-.whimsy-wcag-badge.fail {
-  background: #da3633;
-  color: #ffffff;
-}
-
-/* --- Action buttons --- */
-.whimsy-inspector-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.whimsy-inspector-button {
-  flex: 1;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: 6px;
-  border: 1px solid var(--zen-colors-border, rgba(128, 128, 128, 0.3));
-  background: var(--zen-colors-input-bg, rgba(255, 255, 255, 0.06));
-  color: var(--text-color, currentColor);
-  cursor: pointer;
-  text-align: center;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-
-.whimsy-inspector-button:hover {
-  background: var(--zen-colors-input-bg-hover, rgba(255, 255, 255, 0.12));
-  border-color: var(--zen-primary-color, #0969da);
-}
-
-.whimsy-inspector-button:focus-visible {
-  outline: var(--focus-outline, 2px solid AccentColor);
-  outline-offset: -1px;
-}
-
-.whimsy-inspector-button.primary {
-  background: var(--zen-primary-color, #0969da);
-  color: #ffffff;
-  border-color: transparent;
-}
-
-.whimsy-inspector-button.primary:hover {
-  opacity: 0.9;
 }
 
 /* --- Page Anonymous Overlay --- */

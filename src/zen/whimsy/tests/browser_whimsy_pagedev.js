@@ -88,7 +88,7 @@ add_task(async function test_commands_menu_and_switch() {
     is(document.querySelectorAll(`menuitem[command="${command}"]`).length, 1, `${command} has one menu row`);
   }
   await document.l10n.translateFragment(popup);
-  is(document.getElementById("menu_whimsyPageFonts").getAttribute("label"), "Fonts on This Page", "Row label");
+  is(document.getElementById("menu_whimsyPageFonts").getAttribute("label"), "Page Fonts", "Row label (W13 F07: Page Fonts)");
 
   // The switch hides the three rows and turns the commands off.
   Services.prefs.setBoolPref(FEATURE_PREF, false);
@@ -228,8 +228,11 @@ add_task(async function test_page_colors() {
   WhimsyPageDev.showColors(window);
   const panel = await waitOpen("colors");
 
+  // W13 F07 (option C): four swatches a row, the picked one's value in the
+  // detail bar under them.
   const swatches = [...panel.querySelectorAll(".whimsy-pagedev-color")];
-  const value = el => text(el.querySelector(".whimsy-pagedev-swatch-value"));
+  const bar = panel.querySelector(".whimsy-pagedev-detail");
+  const value = () => text(bar.querySelector(".whimsy-pagedev-detail-value"));
   const find = hex => swatches.find(el => el.dataset.hex == hex);
   ok(find("#FFFFFF"), "Page background");
   ok(find("#222222"), "Body text");
@@ -237,29 +240,52 @@ add_task(async function test_page_colors() {
   ok(find("#102030"), "Banner background");
   ok(find("#FF8800"), "Border colour");
   is(swatches[0].dataset.hex, "#FFFFFF", "Sorted by area: the page background first");
-  ok(text(find("#FF8800").querySelector(".whimsy-pagedev-swatch-role")).includes("Border"), "Border role named");
-  ok(text(find("#0055CC").querySelector(".whimsy-pagedev-swatch-role")).includes("Link"), "Link role named");
+  ok(find("#FF8800").getAttribute("aria-label").includes("Border"), "Border role named");
+  ok(find("#0055CC").getAttribute("aria-label").includes("Link"), "Link role named");
   Assert.lessOrEqual(swatches.length, 16, "At most 16 swatches");
   is(new Set(swatches.map(el => el.dataset.hex)).size, swatches.length, "Deduplicated");
   is(getComputedStyle(panel.querySelector(".whimsy-pagedev-swatches")).gridTemplateColumns.split(" ").length, 4,
     "Four columns");
+  is(swatches[0].getAttribute("aria-checked"), "true", "The first swatch starts picked");
+  is(value(), "#FFFFFF", "…its value in the bar");
 
-  await SimpleTest.promiseClipboardChange("#FF8800", () => find("#FF8800").click());
-  ok(find("#FF8800").hasAttribute("copied"), "It says Copied in place");
+  // A real click picks a swatch (it doesn't copy); Copy copies the pick.
+  EventUtils.synthesizeMouseAtCenter(find("#FF8800"), {});
+  is(find("#FF8800").getAttribute("aria-checked"), "true", "A click picks it");
+  is(value(), "#FF8800", "The bar shows its value");
+  const copy = bar.querySelector(".whimsy-pagedev-detail-copy");
+  await SimpleTest.promiseClipboardChange("#FF8800", () => EventUtils.synthesizeMouseAtCenter(copy, {}));
+  ok(copy.hasAttribute("copied"), "Copy says Copied");
 
   // RGB / HSL on demand, for display and copy.
   const rgb = panel.querySelector('.whimsy-pagedev-formats [data-value="rgb"]');
-  rgb.click();
+  EventUtils.synthesizeMouseAtCenter(rgb, {});
   is(rgb.getAttribute("aria-checked"), "true", "RGB selected");
-  is(value(find("#FF8800")), "rgb(255, 136, 0)", "Swatches show rgb()");
-  await SimpleTest.promiseClipboardChange("rgb(255, 136, 0)", () => find("#FF8800").click());
+  is(value(), "rgb(255, 136, 0)", "The bar shows rgb()");
+  await SimpleTest.promiseClipboardChange("rgb(255, 136, 0)", () => EventUtils.synthesizeMouseAtCenter(copy, {}));
   rgb.focus();
   EventUtils.synthesizeKey("KEY_ArrowRight");
   const hsl = panel.querySelector('.whimsy-pagedev-formats [data-value="hsl"]');
   is(document.activeElement, hsl, "Arrow keys move through the formats");
   is(hsl.getAttribute("aria-checked"), "true", "HSL selected");
-  is(value(find("#FF8800")), "hsl(32, 100%, 50%)", "Swatches show hsl()");
+  is(value(), "hsl(32, 100%, 50%)", "The bar shows hsl()");
   panel.querySelector('.whimsy-pagedev-formats [data-value="hex"]').click();
+
+  // Keys: the swatches are a radiogroup in rows of four.
+  find("#FF8800").focus();
+  const at = swatches.indexOf(find("#FF8800"));
+  EventUtils.synthesizeKey("KEY_ArrowRight");
+  if (at + 1 < swatches.length) {
+    is(document.activeElement, swatches[at + 1], "Right picks the next swatch");
+    is(value(), swatches[at + 1].dataset.hex, "…and the bar follows");
+  }
+  swatches[0].focus();
+  EventUtils.synthesizeKey("KEY_ArrowDown");
+  if (swatches.length > 4) {
+    is(document.activeElement, swatches[4], "Down moves a row");
+  }
+  await SimpleTest.promiseClipboardChange(value(), () => EventUtils.synthesizeKey("KEY_Enter"));
+  ok(true, "Return on a swatch copies it");
 
   // Contrast: a pill per pair, the ratio to one decimal.
   const pairs = [...panel.querySelectorAll(".whimsy-pagedev-pair")];

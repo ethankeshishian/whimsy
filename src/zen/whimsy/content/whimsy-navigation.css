@@ -179,27 +179,38 @@ panel.whimsy-surface.whimsy-trail {
   }
 }
 
-/* Page actions: one quiet pill in the address bar ("Add to Calendar",
-   "Maps · Open now", "Cook mode"...), tinted with the space's color like
-   Whimsy's other address bar pills. */
+/* Page actions: one labelled button in the address bar ("Add to Calendar",
+   "Maps · Open now", "Cook mode"...).
+   W13 F05 (wave12 F05, option B): a plain address bar button with a label.
+   Its neighbours' shape (Zen's --urlbar-icon-border-radius, 8px; 6px
+   compact; 26px tall), no tint at rest (78% text), and their own hover and
+   pressed fills (Firefox's --urlbar-box-hover-bgcolor /
+   --urlbar-box-active-bgcolor, 100ms). While what it opened is showing
+   (Cook mode's panel; Firefox puts [open] on a panel's anchor) it takes
+   the selected fill, the space colour at 22%, in full-strength text. */
 #whimsy-page-action {
   flex-shrink: 0;
   gap: 4px;
-  margin-inline: 4px;
-  padding: 2px 8px;
-  border-radius: 99px;
-  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent);
-  color: inherit;
+  margin-inline: 2px;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: var(--urlbar-icon-border-radius, 8px);
+  background-color: transparent;
+  color: color-mix(in srgb, currentColor 78%, transparent);
   font-size: 0.85em;
   cursor: pointer;
-  transition: background-color 120ms ease-out;
+  transition: background-color 100ms ease-out;
   animation: whimsy-page-action-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 #whimsy-page-action:hover {
-  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 30%, transparent);
+  background-color: var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
 }
-#whimsy-page-action:active {
-  scale: 0.97;
+#whimsy-page-action:hover:active {
+  background-color: var(--urlbar-box-active-bgcolor, color-mix(in srgb, currentColor 14%, transparent));
+}
+#whimsy-page-action[open] {
+  background-color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  color: inherit;
 }
 #whimsy-page-action:focus-visible {
   outline: var(--focus-outline);
@@ -216,11 +227,15 @@ panel.whimsy-surface.whimsy-trail {
   white-space: nowrap;
 }
 @keyframes whimsy-page-action-in {
-  from { opacity: 0; scale: 0.92; }
+  from { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   #whimsy-page-action { animation: none; transition: none; }
-  #whimsy-page-action:active { scale: none; }
+}
+@media (forced-colors: active) {
+  #whimsy-page-action[open] {
+    outline: 1px solid Highlight;
+  }
 }
 
 /* Cook mode: a recipe you can read from across the kitchen. */

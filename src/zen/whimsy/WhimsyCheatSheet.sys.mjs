@@ -872,7 +872,11 @@ export const WhimsyCheatSheet = {
     } else {
       filter("");
     }
-    // Centred in the page area, at 88% of its height.
-    lazy.WhimsySurface.openOver(panel, geometry.area, { x: geometry.x, y: geometry.y });
+    // Centred in the page area, at 88% of its height; or where it was
+    // dragged to earlier this session (F07). Nonnative (B4), so a coordinate
+    // placement lands where asked instead of hanging off one edge.
+    if (!lazy.WhimsySurface.reopenWhereLeft(win, panel)) {
+      lazy.WhimsySurface.openOver(panel, geometry.area, { x: geometry.x, y: geometry.y });
+    }
   },
 };

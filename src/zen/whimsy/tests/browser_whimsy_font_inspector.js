@@ -214,7 +214,8 @@ add_task(function test_validation() {
   is(validateFontData({ family: ".AppleSystemUIFont" }).family, null, "A dotted family is the system font");
 });
 
-// The page can't be read (a privileged page): the card says so, with Close.
+// The page can't be read (a privileged page): the card says so; its
+// header's ✕ closes it (W13 F07: the header drags, no second Close).
 add_task(async function test_cant_read() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:robots");
   const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-font-inspector-panel");
@@ -222,7 +223,8 @@ add_task(async function test_cant_read() {
   await shown;
   const panel = document.getElementById("whimsy-font-inspector-panel");
   ok(panel.querySelector(".whimsy-font-unavailable"), "It says it can't read the page");
-  is(panel.querySelectorAll(".whimsy-surface-footer button").length, 1, "only Close");
+  ok(panel.querySelector(".whimsy-surface-footer").hidden, "No footer, no second Close");
+  ok(panel.querySelector(".whimsy-surface-header .whimsy-surface-close"), "The header's ✕ closes it");
   panel.hidePopup();
   await BrowserTestUtils.waitForPopupEvent(panel, "hidden");
   BrowserTestUtils.removeTab(tab);

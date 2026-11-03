@@ -51,17 +51,13 @@ add_task(async function test_element_inspector_picker_and_box_model() {
 
   const panel = document.getElementById("whimsy-element-inspector-panel");
   ok(panel, "Element inspector panel was opened");
-  is(panel.getAttribute("size"), "medium", "Panel uses medium sheet width");
+  ok(panel.classList.contains("whimsy-surface"), "A Whimsy surface (W13 F10)");
 
-  // Check selector header and tag tooltip
-  const tag = panel.querySelector(".whimsy-element-tag");
-  is(tag?.textContent, "<div>", "Tag shows clean element tag name");
+  // The header: the element's short name, its full selector as the tooltip.
+  const tag = panel.querySelector(".whimsy-surface-header .whimsy-element-tag");
+  is(tag?.textContent, "div#box-card", "Tag shows the element's short name");
   is(tag?.title, "#box-card", "Tag tooltip shows full CSS selector");
-
-  // Check Box Model section heading and concentric values
-  const boxModelHeading = panel.querySelector(".whimsy-inspector-section-heading");
-  ok(boxModelHeading, "Box model section heading exists");
-  is(boxModelHeading?.getAttribute("data-l10n-id"), "whimsy-element-box-model", "Box model heading has data-l10n-id");
+  is(panel.querySelector(".whimsy-element-dims").textContent, "220 × 120", "Its size beside it");
 
   const boxModel = panel.querySelector(".whimsy-box-model-container");
   ok(boxModel, "Box model container exists");
@@ -78,19 +74,13 @@ add_task(async function test_element_inspector_picker_and_box_model() {
   const contentBox = panel.querySelector(".whimsy-box-content");
   ok(contentBox?.textContent.includes("220 × 120"), `Content dimensions are 220 × 120: ${contentBox?.textContent}`);
 
-  // Check Colors and Contrast card labels and ratio
-  const contrastCard = panel.querySelector(".whimsy-contrast-card");
-  ok(contrastCard, "Contrast card exists");
+  // Colours as rows, each with its role.
+  const roles = [...panel.querySelectorAll(".whimsy-element-color .whimsy-color-chip-label")].map(l => l.getAttribute("data-l10n-id"));
+  Assert.deepEqual(roles, ["whimsy-element-text-color", "whimsy-element-bg-color"], "Text and background rows");
+  is(panel.querySelector('[data-color="text"] .whimsy-element-color-value').textContent, "#000000", "Text colour");
+  is(panel.querySelector('[data-color="background"] .whimsy-element-color-value').textContent, "#FFFFFF", "Background");
 
-  const colorsHeading = contrastCard.querySelector(".whimsy-inspector-section-heading");
-  ok(colorsHeading, "Colors section heading exists");
-  is(colorsHeading?.getAttribute("data-l10n-id"), "whimsy-element-colors-heading", "Colors heading has data-l10n-id");
-
-  const chipLabels = Array.from(contrastCard.querySelectorAll(".whimsy-color-chip-label"));
-  ok(chipLabels.some(l => l.getAttribute("data-l10n-id") === "whimsy-element-text-color"), "Text color label exists");
-  ok(chipLabels.some(l => l.getAttribute("data-l10n-id") === "whimsy-element-bg-color"), "Background color label exists");
-
-  const ratioLabel = contrastCard.querySelector(".whimsy-contrast-label");
+  const ratioLabel = panel.querySelector('[data-fact="contrast"] .k');
   is(ratioLabel?.getAttribute("data-l10n-id"), "whimsy-element-contrast-ratio", "Contrast ratio label has data-l10n-id");
 
   const ratio = panel.querySelector(".whimsy-contrast-ratio");
@@ -98,15 +88,13 @@ add_task(async function test_element_inspector_picker_and_box_model() {
 
   const badge = panel.querySelector(".whimsy-wcag-badge");
   ok(badge?.classList.contains("pass"), "WCAG badge shows pass for black on white");
+  await document.l10n.translateFragment(panel);
   ok(badge?.textContent.includes("WCAG"), `Badge text: ${badge?.textContent}`);
 
-  // Check DevTools link
-  const devtoolsBtn = Array.from(panel.querySelectorAll("button")).find(b => b.textContent === "Open in DevTools");
-  ok(devtoolsBtn, "Open in DevTools button exists");
-
-  // Check Inspect Font button
-  const fontBtn = Array.from(panel.querySelectorAll("button")).find(b => b.textContent === "Inspect Font");
-  ok(fontBtn, "Inspect Font button exists");
+  // Actions in the footer.
+  const labels = [...panel.querySelectorAll(".whimsy-surface-footer button")].map(b => b.getAttribute("label"));
+  ok(labels.includes("Open in DevTools"), "Open in DevTools button exists");
+  ok(labels.includes("Pick Another"), "Pick Another button exists");
 
   // Close panel
   panel.hidePopup();
@@ -264,7 +252,8 @@ add_task(async function test_element_info_from_the_context_menu() {
     () => panel.querySelector(".whimsy-element-tag")?.title == "#box-neighbor",
     "on the element that was right-clicked"
   );
-  const { WhimsyPanels } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs");
-  WhimsyPanels.close(panel);
+  const closed = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  panel.hidePopup();
+  await closed;
   BrowserTestUtils.removeTab(tab);
 });

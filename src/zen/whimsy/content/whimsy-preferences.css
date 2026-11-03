@@ -491,7 +491,9 @@
 
 .whimsy-menus-row {
   display: grid;
-  grid-template-columns: 15px minmax(0, 1fr) auto;
+  /* W13 F06: checkbox, the chevron's column (empty but for a submenu's
+     row), the name, then the detail ("or Unpin Tab", "2 of 3 on", a hint). */
+  grid-template-columns: 15px 16px minmax(0, 1fr) auto;
   column-gap: 10px;
   align-items: center;
   min-height: 28px;
@@ -513,9 +515,75 @@
   }
 }
 
-/* A submenu's rows sit under its name, past its checkbox. */
-.whimsy-menus-row-child {
-  padding-inline-start: 33px;
+/* W13 F06 (wave12 F06, option A): a submenu's rows fold out under its row,
+   behind a hairline that starts under the chevron (8px row padding + 15px
+   checkbox + 10px gap + half the 16px chevron), each row 14px past it.
+   Collapsed at first; the row says how many of its rows are on. */
+.whimsy-menus-kids {
+  display: flex;
+  flex-direction: column;
+  margin-inline-start: 41px;
+  padding-inline-start: 6px;
+  border-inline-start: 1.5px solid var(--border-color-card, color-mix(in srgb, currentColor 13%, transparent));
+
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-menus-row-parent[data-open] {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+.whimsy-menus-chevron-slot {
+  width: 16px;
+}
+.whimsy-menus-disclose {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  min-width: 0;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+  cursor: pointer;
+
+  &::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-block-start: 1.6px solid currentColor;
+    border-inline-end: 1.6px solid currentColor;
+    rotate: 45deg;
+    translate: -1px 0;
+    transition: rotate 160ms cubic-bezier(0.2, 0, 0, 1), translate 160ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  &:dir(rtl)::before {
+    rotate: -45deg;
+    translate: 1px 0;
+  }
+  &[aria-expanded="true"]::before {
+    rotate: 135deg;
+    translate: 0 -1px;
+  }
+  &:hover {
+    background: color-mix(in srgb, currentColor 9%, transparent);
+  }
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 1px;
+  }
+}
+.whimsy-menus-kids-count,
+.whimsy-menus-row-alt {
+  justify-self: end;
+  font-size: 11.5px;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+  white-space: nowrap;
 }
 
 .whimsy-menus-check {
@@ -586,7 +654,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .whimsy-menus-nav-item,
-  .whimsy-menus-row {
+  .whimsy-menus-row,
+  .whimsy-menus-disclose::before {
     transition: none;
   }
 }

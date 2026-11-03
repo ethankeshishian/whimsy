@@ -25,6 +25,7 @@ ChromeUtils.defineESModuleGetters(
     WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
     WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
     WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+    WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   },
   { global: "current" }
 );
@@ -368,6 +369,8 @@ export const WhimsyNotes = {
     status.className = "whimsy-look-hint whimsy-quick-note-status";
     status.setAttribute("role", "status");
     header.append(title, status);
+    // W13 F07: it floats beside the sidebar; the header drags it.
+    lazy.WhimsySurface.makeDraggable(panel, header);
 
     const name = doc.createElementNS(HTML_NS, "input");
     name.id = `${QUICK_NOTE_ID}-name`;
@@ -589,7 +592,9 @@ export const WhimsyNotes = {
     // Where Edit Space Look opens: beside the sidebar, level with its top.
     const rightSide = !!win.gZenVerticalTabsManager?._prefsRightSide;
     const sidebar = lazy.WhimsyPanels.visibleAnchor(win, ["TabsToolbar", "navigator-toolbox"]);
-    if (sidebar) {
+    if (lazy.WhimsySurface.reopenWhereLeft(win, panel)) {
+      // F07: where it was dragged to earlier this session.
+    } else if (sidebar) {
       panel.openPopup(sidebar, {
         position: rightSide ? "topleft topright" : "topright topleft",
         x: rightSide ? 10 : -10,

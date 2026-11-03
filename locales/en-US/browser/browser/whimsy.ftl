@@ -1191,6 +1191,41 @@ whimsy-vpn-scope-button-connecting = VPN connecting
 whimsy-vpn-scope-button-browser = VPN on · All spaces
 whimsy-vpn-scope-button-space = VPN on · This space
 whimsy-vpn-scope-button-elsewhere = VPN off here
+## W13 F02: Whimsy's VPN controls for Firefox's built-in VPN, which keeps
+## Firefox's name (Firefox IP Protection); "VPN" only where space is tight.
+## A: the address bar control.
+whimsy-vpn-urlbar-label =
+    .value = VPN
+whimsy-vpn-urlbar-setup =
+    .tooltiptext = Set up Firefox IP Protection, Firefox’s built-in VPN
+    .aria-label = VPN: set up Firefox IP Protection
+whimsy-vpn-urlbar-off =
+    .tooltiptext = Firefox IP Protection is off. Click to turn the VPN on.
+    .aria-label = VPN off
+whimsy-vpn-urlbar-connecting =
+    .tooltiptext = Firefox IP Protection is connecting…
+    .aria-label = VPN connecting
+whimsy-vpn-urlbar-on-browser =
+    .tooltiptext = Firefox IP Protection is on in all spaces. Click to turn the VPN off.
+    .aria-label = VPN on, all spaces
+whimsy-vpn-urlbar-on-space =
+    .tooltiptext = Firefox IP Protection is on in this space. Click to turn the VPN off.
+    .aria-label = VPN on, this space
+whimsy-vpn-urlbar-elsewhere =
+    .tooltiptext = Firefox IP Protection is on in other spaces, not this one. Click to protect this space too.
+    .aria-label = VPN off in this space
+## B: the row in This Site (the site panel).
+whimsy-vpn-site-name = Firefox IP Protection
+whimsy-vpn-site-setup = Sign in with a Mozilla account to turn it on
+whimsy-vpn-site-off = Off · hides your location from sites
+whimsy-vpn-site-connecting = Connecting…
+whimsy-vpn-site-on-browser = VPN on · All spaces
+whimsy-vpn-site-on-space = VPN on · This space
+whimsy-vpn-site-elsewhere = Off in this space · on in others
+whimsy-vpn-site-scope =
+    .aria-label = Protect
+whimsy-vpn-site-scope-no-container = This space
+    .title = This space uses the Default profile, so it can’t be protected on its own
 
 ## legacy: Firefox/Mozilla leftovers replaced with Whimsy's own.
 
@@ -1972,6 +2007,88 @@ whimsy-redact-style-black = Black Out
 whimsy-redact-style-blur = Blur
 # W10-57: the command (command bar, Settings → Keyboard Shortcuts).
 whimsy-action-capture-redact = Capture and Redact…
+## W13 F04 (wave12 F04, option A): the card after a capture, and its editor.
+whimsy-capture-card =
+    .aria-label = Screenshot copied
+whimsy-capture-thumb =
+    .alt = The screenshot
+whimsy-capture-copied = Copied
+whimsy-capture-save = Save
+whimsy-capture-saved = Saved
+whimsy-capture-redact = Redact
+whimsy-capture-edit = Edit
+## What the card says it hid, and whether the image drags out as a file.
+## $count (Number) - how many things were hidden
+## $kind (String) - "email", "phone", "card", "key", "text" (hidden by hand),
+##   "mixed" (several kinds) or "none"
+## $drag (String) - "yes" or "no" (a private page's capture isn't a file)
+whimsy-capture-detail =
+    { $kind ->
+        [none] { $drag ->
+            [yes] Drag out to make a file
+           *[no] Copied to the clipboard only
+        }
+       *[other] { $kind ->
+            [email] { $count ->
+                [one] 1 email hidden
+               *[other] { $count } emails hidden
+            }
+            [phone] { $count ->
+                [one] 1 phone number hidden
+               *[other] { $count } phone numbers hidden
+            }
+            [card] { $count ->
+                [one] 1 card number hidden
+               *[other] { $count } card numbers hidden
+            }
+            [key] { $count ->
+                [one] 1 key hidden
+               *[other] { $count } keys hidden
+            }
+            [text] { $count ->
+                [one] 1 part hidden
+               *[other] { $count } parts hidden
+            }
+           *[mixed] { $count } private details hidden
+        }{ $drag ->
+            [yes] { " · " }drag out to make a file
+           *[no] {""}
+        }
+    }
+whimsy-capture-editor-title = Edit Screenshot
+whimsy-capture-preview =
+    .aria-label = The screenshot as it will be copied
+whimsy-capture-backdrop-label = Backdrop
+whimsy-capture-backdrop-group =
+    .aria-label = Backdrop
+whimsy-capture-backdrop-gradient =
+    .aria-label = Gradient
+    .title = Gradient
+whimsy-capture-backdrop-white =
+    .aria-label = White
+    .title = White
+whimsy-capture-backdrop-dark =
+    .aria-label = Dark
+    .title = Dark
+whimsy-capture-backdrop-none =
+    .aria-label = None
+    .title = None
+whimsy-capture-shape-label = Shape
+whimsy-capture-shape-group =
+    .aria-label = Shape
+whimsy-capture-shape-auto = Auto
+whimsy-capture-hide = Hide private details
+whimsy-capture-hide-unavailable =
+    .title = The page has changed since this screenshot, so it can’t be taken again without them hidden or shown
+whimsy-capture-hand = Redact by hand
+whimsy-capture-hand-style-group =
+    .aria-label = How hand redaction looks
+whimsy-capture-done =
+    .label = Done
+whimsy-capture-hint = Emails, phone numbers, keys and card numbers are found for you.
+whimsy-capture-hint-hand = Drag over anything to black it out. Click a box to take it away.
+whimsy-action-capture-edit = Edit Last Screenshot
+whimsy-action-capture-redact-last = Redact Last Screenshot
 # W10-59: a tile beside Visible and Full Page; the page as a phone shows it.
 whimsy-portrait-button = Portrait
     .title = Capture the page as a phone shows it
@@ -2581,6 +2698,14 @@ whimsy-trails-setting =
 ## $name - what the page describes (event, place, recipe...), as the page names it
 ## $state - open, closed or unknown (the place's listed hours, now)
 
+## W13 F05: the address bar button as a command. The command bar names
+## what it does on the page in front.
+whimsy-action-page-action = Address Bar Page Action
+whimsy-action-page-action-event = Add Event to Calendar
+whimsy-action-page-action-place = Open Place in Maps
+whimsy-action-page-action-recipe = Open Cook Mode
+whimsy-action-page-action-product = Watch Price
+whimsy-action-page-action-parcel = Track Package
 whimsy-page-action-event = Add to Calendar
 whimsy-page-action-event-tooltip =
     .tooltiptext = Add “{ $name }” to Calendar
@@ -3101,8 +3226,26 @@ whimsy-menus-inspect-a11y =
 whimsy-menus-select-all =
     .label = Select All
 
+## W13 F06: a row whose menu label flips (Pin Tab / Unpin Tab) shows the
+## label you see most; its other label is the row's detail line.
+whimsy-menus-tab-essentials-alt = or Remove from Essentials
+whimsy-menus-tab-pin-alt = or Unpin Tab
+whimsy-menus-tab-share-alt = or Create Shareable Link, for several tabs
+whimsy-menus-link-copy-email-alt = or Copy Phone Number
+whimsy-menus-media-play-alt = or Pause
+whimsy-menus-media-mute-alt = or Unmute
+whimsy-menus-media-controls-alt = or Show Controls
+whimsy-menus-media-save-alt = or Save Audio As…
+whimsy-menus-media-copy-link-alt = or Copy Audio Link
+whimsy-menus-media-email-alt = or Email Audio…
+## W13 F06: a submenu's row in Settings → Menus, collapsed: how many of its
+## rows show.
+## $shown (Number) - rows on; $total (Number) - rows in the submenu
+whimsy-menus-kids-count = { $shown } of { $total } on
+whimsy-menus-disclose =
+    .aria-label = Show what’s in this submenu
 whimsy-menus-tab-new-tab =
-    .label = New Tab
+    .label = New Tab Below
 whimsy-menus-tab-move-to-folder =
     .label = Move to Folder
 whimsy-menus-tab-group-by-site =
@@ -3124,16 +3267,16 @@ whimsy-menus-tab-mute-site =
 whimsy-menus-tab-snooze =
     .label = Snooze…
 whimsy-menus-tab-essentials =
-    .label = Add to Essentials / Remove from Essentials
+    .label = Add to Essentials
 whimsy-menus-tab-unread-badge =
     .label = Show Unread Badge
     .description = On Essentials
 whimsy-menus-tab-rename =
-    .label = Rename…
+    .label = Change Label…
 whimsy-menus-tab-change-icon =
     .label = Change Icon…
 whimsy-menus-tab-pin =
-    .label = Pin Tab / Unpin Tab
+    .label = Pin Tab
 whimsy-menus-tab-unload =
     .label = Unload Tab
 whimsy-menus-tab-duplicate =
@@ -3188,7 +3331,7 @@ whimsy-menus-link-open-in-private =
 whimsy-menus-link-preview =
     .label = Preview Link
 whimsy-menus-link-split =
-    .label = Split Link to New Tab
+    .label = Open Link in Split View
 whimsy-menus-link-glance =
     .label = Open Link in Glance
 whimsy-menus-link-bookmark =
@@ -3196,7 +3339,7 @@ whimsy-menus-link-bookmark =
 whimsy-menus-link-save =
     .label = Save Link As…
 whimsy-menus-link-copy-email =
-    .label = Copy Email Address / Phone Number
+    .label = Copy Email Address
 whimsy-menus-link-copy =
     .label = Copy Link
 whimsy-menus-link-copy-clean =
@@ -3226,7 +3369,7 @@ whimsy-menus-page-screenshot =
 whimsy-menus-page-edit-text =
     .label = Edit Text on Page
 whimsy-menus-page-send-to-device =
-    .label = Send Page to Device
+    .label = Send to Device
 whimsy-menus-page-view-source =
     .label = View Page Source
 
@@ -3254,7 +3397,7 @@ whimsy-menus-selection-linear-search =
     .label = Search Linear
 # W10-20: the Quick Actions ▸ submenu and when its rows show.
 whimsy-menus-selection-quick-actions =
-    .label = Quick Actions ▸
+    .label = Quick Actions
 whimsy-menus-hint-translate = When it’s another language
 whimsy-menus-hint-date = When it has a date
 whimsy-menus-hint-linear = Once Linear is connected
@@ -3281,11 +3424,11 @@ whimsy-menus-image-desktop-background =
     .label = Set Image as Desktop Background…
 
 whimsy-menus-space-rename =
-    .label = Rename Space…
+    .label = Change Name…
 whimsy-menus-space-change-icon =
     .label = Change Icon…
 whimsy-menus-space-edit-theme =
-    .label = Edit Theme…
+    .label = Theme…
 whimsy-menus-space-look =
     .label = { -whimsy-edit-look }
     .label = Edit Space Look…
@@ -3300,7 +3443,7 @@ whimsy-menus-space-routing =
 whimsy-menus-space-unload =
     .label = Unload Space
 whimsy-menus-space-unload-others =
-    .label = Unload Other Spaces
+    .label = Unload All Other Spaces
 whimsy-menus-space-share =
     .label = Share Space…
 whimsy-menus-space-lock =
@@ -3319,43 +3462,43 @@ whimsy-menus-space-scratch-close =
 whimsy-menus-sidebar-new-folder =
     .label = New Folder
 whimsy-menus-sidebar-new-live-folder =
-    .label = New Live Folder
+    .label = Live Folder
 whimsy-menus-sidebar-live-github-prs =
-    .label = New Live Folder: GitHub Pull Requests
+    .label = Pull Requests
 whimsy-menus-sidebar-live-github-issues =
-    .label = New Live Folder: GitHub Issues
+    .label = Issues
 whimsy-menus-sidebar-live-rss =
-    .label = New Live Folder: RSS
+    .label = RSS Feed
 whimsy-menus-sidebar-live-jira =
-    .label = New Live Folder: Jira Issues
+    .label = Jira Issues
 whimsy-menus-sidebar-live-linear =
-    .label = New Live Folder: Linear Issues
+    .label = Linear Issues
 whimsy-menus-sidebar-live-local-servers =
-    .label = New Live Folder: Local Servers
+    .label = Local Servers
 
 whimsy-menus-folder-live-options =
-    .label = Live Options
+    .label = Live Folder Options
     .description = On live folders
 whimsy-menus-folder-rename =
-    .label = Rename…
+    .label = Rename Folder…
 whimsy-menus-folder-change-icon =
     .label = Change Icon…
 whimsy-menus-folder-color =
     .label = Color
 whimsy-menus-folder-unload =
-    .label = Unload All
+    .label = Unload All Tabs
 whimsy-menus-folder-new-subfolder =
     .label = New Subfolder
 whimsy-menus-folder-move-to-space =
-    .label = Move to Space
+    .label = Change Space
 whimsy-menus-folder-convert-to-space =
-    .label = Convert to Space
+    .label = Convert folder to Space
 whimsy-menus-folder-share =
-    .label = Share
+    .label = Share Folder…
 whimsy-menus-folder-unpack =
-    .label = Unpack
+    .label = Unpack Folder
 whimsy-menus-folder-delete =
-    .label = Delete
+    .label = Delete Folder
 
 # Split view (row menu and pane menu share a few).
 whimsy-menus-split-share =
@@ -3772,7 +3915,7 @@ whimsy-menus-tab-playlist =
 whimsy-menus-tab-copy-markdown =
     .label = Copy Link as Markdown
 whimsy-menus-tab-move-to-new-space =
-    .label = Move Tab ▸ New Space…
+    .label = New Space…
 whimsy-menus-tab-move-out-of-private =
     .label = Move Out of Private…
 whimsy-menus-space-show-hidden =
@@ -3796,16 +3939,16 @@ whimsy-menus-split-row-favorite =
 whimsy-menus-selection-copy-url-quote =
     .label = Copy URL as Quote
 whimsy-menus-space-new-profile =
-    .label = Profile ▸ Create a New Profile…
+    .label = Create a New Profile…
 whimsy-menus-folder-live-resync =
-    .label = Live Options ▸ Resync
+    .label = Resync
     .description = On live folders
 whimsy-menus-media = Video and Audio
 whimsy-menus-media-description = When you right-click a video or audio player on a page.
 whimsy-menus-media-play =
-    .label = Play / Pause
+    .label = Play
 whimsy-menus-media-mute =
-    .label = Mute / Unmute
+    .label = Mute
 whimsy-menus-media-speed =
     .label = Speed
 whimsy-menus-media-loop =
@@ -3813,7 +3956,7 @@ whimsy-menus-media-loop =
 whimsy-menus-media-fullscreen =
     .label = Full Screen
 whimsy-menus-media-controls =
-    .label = Show Controls / Hide Controls
+    .label = Hide Controls
 whimsy-menus-media-view =
     .label = Open Video in New Tab
 whimsy-menus-media-pip =
@@ -3824,11 +3967,11 @@ whimsy-menus-media-playlist =
 whimsy-menus-media-save-frame =
     .label = Take Snapshot…
 whimsy-menus-media-save =
-    .label = Save Video As… / Save Audio As…
+    .label = Save Video As…
 whimsy-menus-media-copy-link =
-    .label = Copy Video Link / Copy Audio Link
+    .label = Copy Video Link
 whimsy-menus-media-email =
-    .label = Email Video… / Email Audio…
+    .label = Email Video…
 
 ## wave9/menus (design-full-4 M12): Glance size as one assignable command.
 whimsy-action-glance-size-cycle = Change Glance Size
@@ -3960,6 +4103,16 @@ whimsy-font-pick-another = Pick Another Element
 whimsy-font-sample-text = The quick brown fox jumps over the lazy dog
 
 whimsy-element-inspector-title = Element Info
+## W13 F10: Element Info (option A).
+whimsy-element-font-label = Font
+whimsy-element-box-model-label =
+    .aria-label = Box model: margin, border, padding and content
+whimsy-element-pick-another-button =
+    .label = Pick Another
+whimsy-element-inspect-font-button =
+    .label = Inspect Font
+whimsy-element-open-devtools-button =
+    .label = Open in DevTools
 whimsy-action-inspect-element = Element Info
 # W10-45: other words people search the command bar with for Element Info.
 whimsy-keywords-inspect-element = Inspect Element, Box Model, Margin, Padding, Contrast, Measure, Element Inspector
@@ -4000,11 +4153,11 @@ whimsy-tabs-element-inspector =
 ## wave9/pagedev: Fonts on This Page, Page Colors and Built With (W9-11).
 ## They live in Tools > Browser Tools with the Font Inspector and Element Info.
 
-whimsy-action-page-fonts = Fonts on This Page
+whimsy-action-page-fonts = Page Fonts
 whimsy-action-page-colors = Page Colors
 whimsy-action-built-with = Built With
 whimsy-pagedev-menu-fonts =
-    .label = Fonts on This Page
+    .label = Page Fonts
 whimsy-pagedev-menu-colors =
     .label = Page Colors
 whimsy-pagedev-menu-built-with =
@@ -4014,7 +4167,7 @@ whimsy-pagedev-menu-font-inspector =
 whimsy-pagedev-menu-element-info =
     .label = Element Info
 whimsy-tabs-page-dev =
-    .label = Developer tools for the page: Fonts on This Page, Page Colors and Built With (Tools ▸ Browser Tools and command bar)
+    .label = Developer tools for the page: Page Fonts, Page Colors and Built With (Tools ▸ Browser Tools and command bar)
 
 whimsy-pagedev-unavailable = Whimsy can’t look inside this page. Try a regular web page.
 # $value (string) - the text a row copies
@@ -4032,6 +4185,15 @@ whimsy-pagedev-font-highlight = Highlight on Page
 whimsy-pagedev-font-highlight-none = None of this text is visible to highlight
 
 whimsy-pagedev-format-label = Color format
+## W13 F07 (option C): the swatch grid and the picked colour's bar.
+whimsy-pagedev-swatches-label =
+    .aria-label = Colors on this page, largest area first
+whimsy-pagedev-detail-copy =
+    .tooltiptext = Copy
+    .aria-label = Copy
+whimsy-pagedev-detail-copied =
+    .tooltiptext = Copied
+    .aria-label = Copied
 whimsy-pagedev-format-hex = HEX
 whimsy-pagedev-format-rgb = RGB
 whimsy-pagedev-format-hsl = HSL

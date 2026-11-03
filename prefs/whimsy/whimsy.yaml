@@ -466,8 +466,18 @@
 
 # wave5: redact. The Redact toggle in the screenshot panel, remembered
 # between captures (blurs emails, phones, keys and card numbers).
+# W13 F04: "Hide private details", on by default (wave12 F04 A, Yab): the
+# copy already has them hidden and the capture card says what it hid.
 - name: whimsy.capture.redact
-  value: false
+  value: true
+
+# W13 F04: the capture editor's last look, used next time: backdrop
+# ("gradient", "white", "dark", "none") and shape ("auto", "16:9", "1:1", "4:5").
+- name: whimsy.capture.backdrop
+  value: "none"
+
+- name: whimsy.capture.shape
+  value: "auto"
 
 # W10-57: how Redact hides text: "black" (solid boxes) or "blur".
 - name: whimsy.capture.redact-style

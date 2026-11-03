@@ -319,6 +319,10 @@ support-files = ["whimsy_calendar.sjs"]
 
 # vpnspace: native VPN panel, container policy and channel boundary.
 ["browser_whimsy_vpnspace.js"]
+
+# W13 F02: the address bar VPN control (A) and This Site's VPN row with the site icon badge (B).
+["browser_whimsy_vpn_controls.js"]
+
 # legacy: Firefox/Zen/Mozilla leftovers (prefs, branding URLs, About dialog,
 # default bookmarks, Zen strings, and what was kept at upstream values).
 ["browser_whimsy_legacy.js"]
@@ -432,6 +436,10 @@ support-files = ["whimsy_easel_live.html"]
 # wave5: Redact in the Screenshots panel (detectors, click-to-blur, image pixels, cleanup).
 ["browser_whimsy_redact.js"]
 support-files = ["whimsy_redact.html", "whimsy_redact_frames.html", "whimsy_redact_link.html"]
+
+# W13 F04: after a Screenshots copy, the card (Copied · Save · Redact · Edit) and its editor (option A).
+["browser_whimsy_capture_card.js"]
+support-files = ["whimsy_redact.html"]
 
 # wave5/lan: Local servers live folder (localhost dev servers, visible-only polling).
 ["browser_whimsy_live_folders_local_servers.js"]
@@ -565,6 +573,18 @@ support-files = [
   "whimsy_slow_load.sjs",
 ]
 
+# W13 F07: floating surfaces drag by their header, stay where left for the session, double-click puts them back.
+["browser_whimsy_surface_drag.js"]
+support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_pagedev_font.ttf"]
+
+# W13 F12: the Reader View button looks different on and off (option A, styled like Whimsy).
+["browser_whimsy_reader_button_look.js"]
+support-files = ["whimsy_article.html"]
+
+# W13 F05: the page-action button looks like its address bar neighbours (option B), and is a command.
+["browser_whimsy_page_action_look.js"]
+support-files = ["whimsy_page_actions.html"]
+
 # wave6/parity: the Archive's own store (no 25-tab loss), Clear Archive.
 ["browser_whimsy_archive_store.js"]
 
@@ -653,6 +673,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 
 # wave7/split2: Arc's split row right-click menu (items, order, labels, per-pane submenus).
 ["browser_whimsy_split_row_menu.js"]
+
+# W13 F06: Settings → Menus in the menus' own words; submenus fold out under their row (option A).
+["browser_whimsy_menu_prefs_nesting.js"]
 
 # wave7/menuprefs: Settings → Menus (turn any right-click menu item off; separators collapse; Restore Defaults; search).
 ["browser_whimsy_menu_prefs.js"]
@@ -788,6 +811,9 @@ support-files = [
 # wave9: Font Inspector ("What Font Is This?").
 ["browser_whimsy_font_inspector.js"]
 support-files = ["whimsy_pagedev_font.ttf"]
+
+# W13 F10: Element Info is 360px wide and as tall as its content (option A); only its body scrolls.
+["browser_whimsy_element_info_size.js"]
 
 # wave9: Element inspector lite.
 ["browser_whimsy_element_inspector.js"]

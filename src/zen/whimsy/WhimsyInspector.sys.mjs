@@ -42,6 +42,10 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 const PANEL_SHEET = "chrome://browser/content/whimsy/whimsy-inspector.css";
 const FONT_PANEL_ID = "whimsy-font-inspector-panel";
 const FONT_PANEL_WIDTH = 320;
+// W13 F10: Element Info is a fixed 360px wide (it never jumps sideways
+// between elements); its height follows its content.
+const ELEMENT_PANEL_ID = "whimsy-element-inspector-panel";
+const ELEMENT_PANEL_WIDTH = 360;
 // The card shows a skeleton only when the page takes this long to answer.
 const READING_DELAY_MS = 150;
 const SOURCES = new Set(["web", "local", "system", "fallback"]);
@@ -96,6 +100,41 @@ export function validateFontData(data) {
     y: finite(data.y),
     width: finite(data.width),
     height: finite(data.height),
+  };
+}
+
+/**
+ * W13 F10: Element Info's data, checked in the parent like the font card's:
+ * numbers stay numbers, colours are hex, names are one clean line.
+ */
+export function validateElementData(data) {
+  if (!data || typeof data != "object" || !data.boxModel || !data.colors) {
+    return null;
+  }
+  const int = v => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : 0);
+  const sides = o => ({ top: int(o?.top), right: int(o?.right), bottom: int(o?.bottom), left: int(o?.left) });
+  const hex = v => (HEX_RX.test(v ?? "") ? v.toUpperCase() : "#000000");
+  const tag = cleanText(data.tagName, 40).replace(/[^a-z0-9-]/gi, "") || "element";
+  const rating = ["AAA", "AA", "Fail"].includes(data.colors.rating) ? data.colors.rating : "Fail";
+  return {
+    tagName: tag,
+    name: cleanText(data.name, 80) || tag,
+    selector: cleanText(data.selector, 500),
+    boxModel: {
+      width: int(data.boxModel.width),
+      height: int(data.boxModel.height),
+      margin: sides(data.boxModel.margin),
+      border: sides(data.boxModel.border),
+      padding: sides(data.boxModel.padding),
+    },
+    colors: {
+      textColorHex: hex(data.colors.textColorHex),
+      bgColorHex: hex(data.colors.bgColorHex),
+      contrastRatio: /^\d{1,2}\.\d{2}:1$/.test(data.colors.contrastRatio ?? "") ? data.colors.contrastRatio : "",
+      passAA: !!data.colors.passAA,
+      rating,
+    },
+    font: data.font ? validateFontData(data.font) : null,
   };
 }
 
@@ -413,17 +452,22 @@ export const WhimsyInspector = {
     let parts;
     if (keep) {
       parts = keep._whimsyParts;
-      parts.view.replaceChildren();
+      parts.view.replaceChildren(parts.header);
       parts.footer.replaceChildren();
     } else {
+      // W13 F07: a header to drag it by (grip, "Font Inspector", close). It
+      // opens at the text it describes, so a drag lasts for this card only.
       parts = lazy.WhimsySurface.create(win, {
         id: FONT_PANEL_ID,
         width: FONT_PANEL_WIDTH,
+        titleL10nId: "whimsy-font-inspector-title",
+        close: true,
         footer: true,
         className: "whimsy-font-card",
         initialFocus: () => parts.panel.querySelector(".whimsy-font-copy-css") ?? parts.footer.querySelector("button"),
       });
       parts.panel._whimsyParts = parts;
+      lazy.WhimsySurface.makeDraggable(parts.panel, parts.header, { remember: false });
     }
     const { panel, view, footer } = parts;
     panel.setAttribute("aria-labelledby", "whimsy-font-name");
@@ -442,14 +486,11 @@ export const WhimsyInspector = {
       text.className = "whimsy-font-unavailable";
       doc.l10n.setAttributes(text, "whimsy-pagedev-unavailable");
       pad.append(text);
-      footer.append(lazy.WhimsySurface.footerButton(doc, {
-        l10nId: "whimsy-font-close",
-        primary: true,
-        onCommand: () => lazy.WhimsySurface.close(panel),
-      }));
+      // The header's ✕ closes it (W13 F07: no second Close in the footer).
     } else {
       this._fillFontCard(win, parts, pad, data);
     }
+    footer.hidden = !footer.children.length;
     lazy.WhimsySurface.finish(parts);
 
     if (keep) {
@@ -586,230 +627,207 @@ export const WhimsyInspector = {
   },
 
   // Display the Element Inspector popover matching Whimsy's panel styling.
-  showElementPopover(win, data, anchor = null) {
+  /**
+   * W13 F10 (wave12 F10, option A): Element Info, a WhimsySurface 360px
+   * wide whose height hugs its content (no scrollbar unless the window is
+   * shorter than it; then only the body scrolls and the header stays).
+   * Header: the drag grip, the element's short name ("div.card", in the
+   * space colour, mono) with its full selector as the tooltip, its size,
+   * and close. Then the box model, the element's colours as rows (each
+   * copies its value), and a group with its font and contrast. It floats
+   * over the page and stays while you use it (F07: the header drags it);
+   * Pick Another keeps it open, and the next element replaces its content
+   * in place, the height easing to the new content over 160ms.
+   */
+  showElementPopover(win, raw) {
+    const data = validateElementData(raw);
     if (!data) {
-      return;
+      return null;
     }
     this._loadSheet(win);
-    const { document: doc } = win;
+    const doc = win.document;
+    const existing = doc.getElementById(ELEMENT_PANEL_ID);
+    const keep = existing?._whimsyParts && (existing.state == "open" || existing.state == "showing") ? existing : null;
+    let parts;
+    let before = 0;
+    if (keep) {
+      parts = keep._whimsyParts;
+      before = parts.view.getBoundingClientRect().height;
+      parts.body.replaceChildren();
+      parts.footer.replaceChildren();
+    } else {
+      parts = lazy.WhimsySurface.create(win, {
+        id: ELEMENT_PANEL_ID,
+        width: ELEMENT_PANEL_WIDTH,
+        title: data.name,
+        close: true,
+        footer: true,
+        closeOnOutsideClick: false,
+        className: "whimsy-element-inspector-panel",
+        onHidden: () => {
+          win.gBrowser.tabContainer.removeEventListener("TabSelect", onTabSelect);
+        },
+      });
+      const onTabSelect = () => lazy.WhimsySurface.close(parts.panel);
+      win.gBrowser.tabContainer.addEventListener("TabSelect", onTabSelect);
+      parts.title.classList.add("whimsy-element-tag");
+      const dims = doc.createElementNS(HTML_NS, "span");
+      dims.className = "whimsy-element-dims";
+      parts.close.before(dims);
+      // Only the body scrolls, under a header that stays.
+      parts.body = doc.createXULElement("vbox");
+      parts.body.className = "whimsy-element-body";
+      parts.view.append(parts.body);
+      parts.panel._whimsyParts = parts;
+      lazy.WhimsySurface.makeDraggable(parts.panel, parts.header);
+    }
+    const { panel, view, body, footer, title } = parts;
+    title.textContent = data.name;
+    title.title = data.selector;
+    const dims = parts.header.querySelector(".whimsy-element-dims");
+    dims.textContent = `${data.boxModel.width} × ${data.boxModel.height}`;
+    panel.dataset.selector = data.selector;
 
-    const { panel, body } = lazy.WhimsyPanels.create(win, {
-      id: "whimsy-element-inspector-panel",
-      titleL10nId: "whimsy-element-inspector-title",
-      size: "medium",
-    });
-    panel.classList.add("whimsy-element-inspector-panel");
+    body.append(this._boxModel(doc, data.boxModel));
 
-    // Header selector chip
-    const headerBox = doc.createElementNS(HTML_NS, "div");
-    headerBox.className = "whimsy-element-header-box";
-    headerBox.title = data.selector;
+    // Colours: a row each; a click copies the value.
+    const colors = lazy.WhimsySurface.group(doc);
+    colors.classList.add("whimsy-element-colors");
+    for (const [hex, l10nId, key] of [
+      [data.colors.textColorHex, "whimsy-element-text-color", "text"],
+      [data.colors.bgColorHex, "whimsy-element-bg-color", "background"],
+    ]) {
+      const swatch = doc.createElementNS(HTML_NS, "span");
+      swatch.className = "whimsy-color-swatch";
+      swatch.style.backgroundColor = hex;
+      const value = doc.createElementNS(HTML_NS, "span");
+      value.className = "whimsy-element-color-value whimsy-surface-copy-value";
+      value.textContent = hex;
+      const role = doc.createElementNS(HTML_NS, "span");
+      role.className = "whimsy-color-chip-label";
+      doc.l10n.setAttributes(role, l10nId);
+      const row = lazy.WhimsySurface.copyButton(doc, {
+        value: hex,
+        content: [swatch, value, role],
+        className: "whimsy-element-color whimsy-surface-row",
+        liveBefore: role,
+      });
+      row.dataset.color = key;
+      colors.append(row);
+    }
+    body.append(colors);
 
-    const tag = doc.createElementNS(HTML_NS, "span");
-    tag.className = "whimsy-element-tag";
-    tag.textContent = `<${data.tagName || data.selector}>`;
-    tag.title = data.selector;
-
-    const dims = doc.createElementNS(HTML_NS, "span");
-    dims.className = "whimsy-element-dims";
-    dims.textContent = `${data.boxModel.width} × ${data.boxModel.height}px`;
-
-    headerBox.append(tag, dims);
-    body.append(headerBox);
-
-    // Box Model Heading & Diagram
-    const boxModelHeading = doc.createElementNS(HTML_NS, "div");
-    boxModelHeading.className = "whimsy-inspector-section-heading";
-    boxModelHeading.textContent = lazy.l10n.formatValueSync("whimsy-element-box-model");
-    doc.l10n.setAttributes(boxModelHeading, "whimsy-element-box-model");
-    body.append(boxModelHeading);
-
-    const boxModelWrap = doc.createElementNS(HTML_NS, "div");
-    boxModelWrap.className = "whimsy-box-model-container";
-
-    const bm = data.boxModel;
-
-    const marginBox = doc.createElementNS(HTML_NS, "div");
-    marginBox.className = "whimsy-box-margin";
-
-    const marginLabel = doc.createElementNS(HTML_NS, "span");
-    marginLabel.className = "whimsy-box-label";
-    marginLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-margin-box");
-    doc.l10n.setAttributes(marginLabel, "whimsy-element-margin-box");
-    const mTop = doc.createElementNS(HTML_NS, "span");
-    mTop.className = "whimsy-box-val-top";
-    mTop.textContent = bm.margin.top;
-    const mBottom = doc.createElementNS(HTML_NS, "span");
-    mBottom.className = "whimsy-box-val-bottom";
-    mBottom.textContent = bm.margin.bottom;
-    const mLeft = doc.createElementNS(HTML_NS, "span");
-    mLeft.className = "whimsy-box-val-left";
-    mLeft.textContent = bm.margin.left;
-    const mRight = doc.createElementNS(HTML_NS, "span");
-    mRight.className = "whimsy-box-val-right";
-    mRight.textContent = bm.margin.right;
-
-    const borderBox = doc.createElementNS(HTML_NS, "div");
-    borderBox.className = "whimsy-box-border";
-    const borderLabel = doc.createElementNS(HTML_NS, "span");
-    borderLabel.className = "whimsy-box-label";
-    borderLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-border-box");
-    doc.l10n.setAttributes(borderLabel, "whimsy-element-border-box");
-    const bTop = doc.createElementNS(HTML_NS, "span");
-    bTop.className = "whimsy-box-val-top";
-    bTop.textContent = bm.border.top;
-    const bBottom = doc.createElementNS(HTML_NS, "span");
-    bBottom.className = "whimsy-box-val-bottom";
-    bBottom.textContent = bm.border.bottom;
-    const bLeft = doc.createElementNS(HTML_NS, "span");
-    bLeft.className = "whimsy-box-val-left";
-    bLeft.textContent = bm.border.left;
-    const bRight = doc.createElementNS(HTML_NS, "span");
-    bRight.className = "whimsy-box-val-right";
-    bRight.textContent = bm.border.right;
-
-    const paddingBox = doc.createElementNS(HTML_NS, "div");
-    paddingBox.className = "whimsy-box-padding";
-    const paddingLabel = doc.createElementNS(HTML_NS, "span");
-    paddingLabel.className = "whimsy-box-label";
-    paddingLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-padding-box");
-    doc.l10n.setAttributes(paddingLabel, "whimsy-element-padding-box");
-    const pTop = doc.createElementNS(HTML_NS, "span");
-    pTop.className = "whimsy-box-val-top";
-    pTop.textContent = bm.padding.top;
-    const pBottom = doc.createElementNS(HTML_NS, "span");
-    pBottom.className = "whimsy-box-val-bottom";
-    pBottom.textContent = bm.padding.bottom;
-    const pLeft = doc.createElementNS(HTML_NS, "span");
-    pLeft.className = "whimsy-box-val-left";
-    pLeft.textContent = bm.padding.left;
-    const pRight = doc.createElementNS(HTML_NS, "span");
-    pRight.className = "whimsy-box-val-right";
-    pRight.textContent = bm.padding.right;
-
-    const contentBox = doc.createElementNS(HTML_NS, "div");
-    contentBox.className = "whimsy-box-content";
-    contentBox.textContent = `${bm.width} × ${bm.height}`;
-
-    paddingBox.append(paddingLabel, pTop, pBottom, pLeft, pRight, contentBox);
-    borderBox.append(borderLabel, bTop, bBottom, bLeft, bRight, paddingBox);
-    marginBox.append(marginLabel, mTop, mBottom, mLeft, mRight, borderBox);
-    boxModelWrap.append(marginBox);
-    body.append(boxModelWrap);
-
-    // Colours & Contrast Card
-    const contrastCard = doc.createElementNS(HTML_NS, "div");
-    contrastCard.className = "whimsy-contrast-card";
-
-    const colorsHeading = doc.createElementNS(HTML_NS, "div");
-    colorsHeading.className = "whimsy-inspector-section-heading";
-    colorsHeading.textContent = lazy.l10n.formatValueSync("whimsy-element-colors-heading");
-    doc.l10n.setAttributes(colorsHeading, "whimsy-element-colors-heading");
-    contrastCard.append(colorsHeading);
-
-    const cRow = doc.createElementNS(HTML_NS, "div");
-    cRow.className = "whimsy-contrast-row";
-
-    const swatches = doc.createElementNS(HTML_NS, "div");
-    swatches.className = "whimsy-contrast-swatches";
-
-    const textColorItem = doc.createElementNS(HTML_NS, "div");
-    textColorItem.className = "whimsy-color-chip-row";
-    const textLabel = doc.createElementNS(HTML_NS, "span");
-    textLabel.className = "whimsy-color-chip-label";
-    textLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-text-color");
-    doc.l10n.setAttributes(textLabel, "whimsy-element-text-color");
-    const textChip = doc.createElementNS(HTML_NS, "span");
-    textChip.className = "whimsy-color-chip";
-    const textSwatch = doc.createElementNS(HTML_NS, "span");
-    textSwatch.className = "whimsy-color-swatch";
-    textSwatch.style.backgroundColor = data.colors.textColorHex;
-    textChip.append(textSwatch, doc.createTextNode(data.colors.textColorHex));
-    textColorItem.append(textLabel, textChip);
-
-    const bgColorItem = doc.createElementNS(HTML_NS, "div");
-    bgColorItem.className = "whimsy-color-chip-row";
-    const bgLabel = doc.createElementNS(HTML_NS, "span");
-    bgLabel.className = "whimsy-color-chip-label";
-    bgLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-bg-color");
-    doc.l10n.setAttributes(bgLabel, "whimsy-element-bg-color");
-    const bgChip = doc.createElementNS(HTML_NS, "span");
-    bgChip.className = "whimsy-color-chip";
-    const bgSwatch = doc.createElementNS(HTML_NS, "span");
-    bgSwatch.className = "whimsy-color-swatch";
-    bgSwatch.style.backgroundColor = data.colors.bgColorHex;
-    bgChip.append(bgSwatch, doc.createTextNode(data.colors.bgColorHex));
-    bgColorItem.append(bgLabel, bgChip);
-
-    swatches.append(textColorItem, bgColorItem);
-
-    const ratioBox = doc.createElementNS(HTML_NS, "div");
-    ratioBox.className = "whimsy-contrast-ratio-box";
-
-    const ratioLabel = doc.createElementNS(HTML_NS, "span");
-    ratioLabel.className = "whimsy-contrast-label";
-    ratioLabel.textContent = lazy.l10n.formatValueSync("whimsy-element-contrast-ratio");
-    doc.l10n.setAttributes(ratioLabel, "whimsy-element-contrast-ratio");
-
-    const ratioValues = doc.createElementNS(HTML_NS, "div");
-    ratioValues.className = "whimsy-contrast-values";
-
+    // Font and contrast.
+    const facts = lazy.WhimsySurface.group(doc);
+    facts.classList.add("whimsy-element-facts");
+    const fact = (key, l10nId, ...content) => {
+      const row = doc.createElementNS(HTML_NS, "div");
+      row.className = "whimsy-element-fact";
+      row.dataset.fact = key;
+      const k = doc.createElementNS(HTML_NS, "span");
+      k.className = "k";
+      doc.l10n.setAttributes(k, l10nId);
+      const v = doc.createElementNS(HTML_NS, "span");
+      v.className = "v";
+      v.append(...content);
+      row.append(k, v);
+      facts.append(row);
+    };
+    if (data.font) {
+      const f = data.font;
+      const family = f.family ?? lazy.l10n.formatValueSync("whimsy-font-system-name");
+      const px = v => (v == "normal" ? v : String(Math.round(parseFloat(v) * 10) / 10));
+      fact("font", "whimsy-element-font-label", `${family} ${px(f.size)}/${px(f.lineHeight)} · ${f.weight}`);
+    }
     const ratio = doc.createElementNS(HTML_NS, "span");
     ratio.className = "whimsy-contrast-ratio";
     ratio.textContent = data.colors.contrastRatio;
+    const badge = lazy.WhimsySurface.pill(doc, {
+      l10nId: "whimsy-element-wcag-badge",
+      l10nArgs: { rating: data.colors.rating },
+      tone: data.colors.passAA ? "pass" : "fail",
+    });
+    badge.classList.add("whimsy-wcag-badge", data.colors.passAA ? "pass" : "fail");
+    fact("contrast", "whimsy-element-contrast-ratio", ratio, badge);
+    body.append(facts);
 
-    const badge = doc.createElementNS(HTML_NS, "span");
-    badge.className = `whimsy-wcag-badge ${data.colors.passAA ? "pass" : "fail"}`;
-    badge.textContent = lazy.l10n.formatValueSync("whimsy-element-wcag-badge", { rating: data.colors.rating });
-    doc.l10n.setAttributes(badge, "whimsy-element-wcag-badge", { rating: data.colors.rating });
+    // Actions: Pick Another, What Font (when there's text), Open in DevTools.
+    footer.append(lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-element-pick-another-button",
+      onCommand: () => this.startPicker(win, "element"),
+    }));
+    if (data.font) {
+      footer.append(lazy.WhimsySurface.footerButton(doc, {
+        l10nId: "whimsy-element-inspect-font-button",
+        onCommand: () => {
+          lazy.WhimsySurface.close(panel);
+          this.showFontPopover(win, raw.font);
+        },
+      }));
+    }
+    footer.append(lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-element-open-devtools-button",
+      primary: true,
+      onCommand: () => {
+        lazy.WhimsySurface.close(panel);
+        try {
+          lazy.DevToolsShim?.showToolboxForTab?.(win.gBrowser.selectedTab, { toolId: "inspector" });
+        } catch (e) {
+          console.error("Whimsy: failed to open DevTools", e);
+        }
+      },
+    }));
+    lazy.WhimsySurface.finish(parts);
 
-    ratioValues.append(ratio, badge);
-    ratioBox.append(ratioLabel, ratioValues);
-    cRow.append(swatches, ratioBox);
-    contrastCard.append(cRow);
-    body.append(contrastCard);
-
-    // Actions & Open in DevTools Link
-    const actions = doc.createElementNS(HTML_NS, "div");
-    actions.className = "whimsy-inspector-actions";
-
-    const devtoolsBtn = doc.createElementNS(HTML_NS, "button");
-    devtoolsBtn.className = "whimsy-inspector-button primary";
-    devtoolsBtn.textContent = lazy.l10n.formatValueSync("whimsy-element-open-devtools");
-    doc.l10n.setAttributes(devtoolsBtn, "whimsy-element-open-devtools");
-    devtoolsBtn.addEventListener("click", () => {
-      lazy.WhimsyPanels.close(panel);
-      try {
-        lazy.DevToolsShim?.showToolboxForTab?.(win.gBrowser.selectedTab, { toolId: "inspector" });
-      } catch (e) {
-        console.error("Whimsy: failed to open DevTools", e);
+    if (keep) {
+      // The height eases from the last element's to this one's.
+      const after = view.getBoundingClientRect().height;
+      if (Math.abs(after - before) > 0.5 && !win.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        view.animate([{ height: `${before}px`, overflow: "clip" }, { height: `${after}px`, overflow: "clip" }], {
+          duration: 160,
+          easing: "cubic-bezier(0.2, 0, 0, 1)",
+          id: "whimsy-element-info-height",
+        });
       }
-    });
+      return panel;
+    }
+    lazy.WhimsySurface.open(win, panel, { at: "page-top-center" });
+    return panel;
+  },
 
-    const fontBtn = doc.createElementNS(HTML_NS, "button");
-    fontBtn.className = "whimsy-inspector-button";
-    fontBtn.textContent = lazy.l10n.formatValueSync("whimsy-action-inspect-font");
-    doc.l10n.setAttributes(fontBtn, "whimsy-action-inspect-font");
-    fontBtn.addEventListener("click", () => {
-      lazy.WhimsyPanels.close(panel);
-      if (data.font) {
-        this.showFontPopover(win, data.font);
+  // The box model, margin to content, each side's value in place.
+  _boxModel(doc, bm) {
+    const box = (cls, labelL10nId, sides, inner) => {
+      const el = doc.createElementNS(HTML_NS, "div");
+      el.className = cls;
+      if (labelL10nId) {
+        const label = doc.createElementNS(HTML_NS, "span");
+        label.className = "whimsy-box-label";
+        doc.l10n.setAttributes(label, labelL10nId);
+        el.append(label);
       }
-    });
-
-    const pickBtn = doc.createElementNS(HTML_NS, "button");
-    pickBtn.className = "whimsy-inspector-button";
-    pickBtn.textContent = lazy.l10n.formatValueSync("whimsy-element-pick-another");
-    doc.l10n.setAttributes(pickBtn, "whimsy-element-pick-another");
-    pickBtn.addEventListener("click", () => {
-      lazy.WhimsyPanels.close(panel);
-      this.startPicker(win, "element");
-    });
-
-    actions.append(devtoolsBtn, fontBtn, pickBtn);
-    body.append(actions);
-
-    lazy.WhimsyPanels.open(win, panel, { anchor });
+      for (const side of ["top", "bottom", "left", "right"]) {
+        const v = doc.createElementNS(HTML_NS, "span");
+        v.className = `whimsy-box-val-${side}`;
+        v.textContent = String(sides[side]);
+        el.append(v);
+      }
+      el.append(inner);
+      return el;
+    };
+    const content = doc.createElementNS(HTML_NS, "div");
+    content.className = "whimsy-box-content";
+    content.textContent = `${bm.width} × ${bm.height}`;
+    const wrap = doc.createElementNS(HTML_NS, "div");
+    wrap.className = "whimsy-box-model-container";
+    doc.l10n.setAttributes(wrap, "whimsy-element-box-model-label");
+    wrap.setAttribute("role", "img");
+    wrap.append(
+      box("whimsy-box-margin", "whimsy-element-margin-box", bm.margin,
+        box("whimsy-box-border", "whimsy-element-border-box", bm.border,
+          box("whimsy-box-padding", "whimsy-element-padding-box", bm.padding, content)))
+    );
+    return wrap;
   },
 
   async inspectElementBySelector(win, selector) {
