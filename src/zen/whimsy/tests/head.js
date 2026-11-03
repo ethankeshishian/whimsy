@@ -55,7 +55,9 @@ async function whimsySnapshot(windowGlobal, rect, scale = 1, background = "white
 // checkPreferencesAfterTest compares against a snapshot taken when the file
 // starts, so each test file otherwise has to restore these itself; doing it
 // once here means a new test doesn't need to know about them at all. Restore
-// runs last (registered first), so a test's own pref cleanup goes first.
+// runs last, so a test's own cleanup (which may write them again) goes
+// first: cleanup functions run in the order they were registered, so this
+// one, registered first, queues the restore behind all the others.
 const WHIMSY_SHARED_LEAK_PREFS = [
   "whimsy.stats.tabs-opened",
   "whimsy.updates.seen-install",
@@ -119,15 +121,20 @@ add_setup(function whimsySnapshotLeakedPrefs() {
     return { name, hadUserValue, type, value: hadUserValue ? whimsyReadPref(name, type) : undefined };
   });
 
-  registerCleanupFunction(function whimsyRestoreLeakedPrefs() {
+  registerCleanupFunction(() => registerCleanupFunction(function whimsyRestoreLeakedPrefs() {
+    const { WhimsySyncedMap } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSync.sys.mjs");
     for (const pref of snapshot) {
+      // A synced map (whimsy.profiles.*) would merge its cache straight back.
+      if (WhimsySyncedMap.restoreForTesting(pref.name, pref.value)) {
+        continue;
+      }
       if (!pref.hadUserValue) {
         Services.prefs.clearUserPref(pref.name);
       } else {
         whimsyWritePref(pref.name, pref.type, pref.value);
       }
     }
-  });
+  }));
 });
 
 // wave13/toast: Whimsy's toasts are Zen's (gZenUIManager.toasts,

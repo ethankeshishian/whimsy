@@ -42,7 +42,37 @@ export function mergeEntries(a = {}, b = {}) {
   return out;
 }
 
+// Every map made, by its pref, for restoreForTesting.
+const maps = new Map();
+
 export class WhimsySyncedMap {
+  /**
+   * Tests only: puts a map's synced pref back to `value` (a string, or
+   * undefined for no user value) and its cache with it. Clearing the pref
+   * alone is an incoming change, which merges the cache straight back into
+   * it. Returns false when no map uses `pref`.
+   */
+  static restoreForTesting(pref, value) {
+    const map = maps.get(pref);
+    if (!map) {
+      return false;
+    }
+    map._writing++;
+    try {
+      if (value === undefined) {
+        Services.prefs.clearUserPref(pref);
+      } else {
+        Services.prefs.setStringPref(pref, value);
+      }
+    } finally {
+      map._writing--;
+    }
+    map.file.data.entries = map.readPref();
+    map.file.saveSoon();
+    map.sync();
+    return true;
+  }
+
   /**
    * @param {object} o
    * @param {string} o.pref - the synced pref (needs services.sync.prefs.sync.<pref>)
@@ -59,6 +89,7 @@ export class WhimsySyncedMap {
     this.tombstoneMs = tombstoneMs;
     this._listeners = new Set();
     this._writing = 0;
+    maps.set(pref, this);
   }
 
   get file() {
