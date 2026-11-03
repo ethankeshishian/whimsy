@@ -101,6 +101,12 @@ function cardState(tab, kind) {
   return card.hasAttribute(kind == "mic" ? "mic-muted" : "camera-muted") ? "off" : "on";
 }
 
+// W21: the small player's corner badge for the non-default mute ("lock",
+// "off" or null), read off the card's button.
+function cardBadge(tab, kind) {
+  return cardButton(tab, kind)?.getAttribute("whimsy-call-badge") || null;
+}
+
 // The PiP window's control for a device. (F32 put the microphone on
 // Firefox's speaker button; reading that too lets the same checks run on
 // the code before R3.)
@@ -175,6 +181,26 @@ async function clickCard(call, kind) {
   EventUtils.synthesizeMouseAtCenter(cardButton(call, kind), {}, window);
 }
 
+// Option-click: does the "other" mute instead of the default.
+async function clickCardAlt(call, kind) {
+  const button = cardButton(call, kind);
+  ok(button && button.getBoundingClientRect().width > 0, `The small player's ${kind} button is on screen`);
+  EventUtils.synthesizeMouseAtCenter(button, { type: "mousemove" }, window);
+  let last = "";
+  await TestUtils.waitForCondition(async () => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const now = cardButton(call, kind);
+    const rect = JSON.stringify(now?.getBoundingClientRect());
+    const still = rect == last;
+    last = rect;
+    if (!still && now) {
+      EventUtils.synthesizeMouseAtCenter(now, { type: "mousemove" }, window);
+    }
+    return still;
+  }, `The small player's ${kind} button has stopped moving`);
+  EventUtils.synthesizeMouseAtCenter(cardButton(call, kind), { altKey: true }, window);
+}
+
 async function clickPip(pip, kind) {
   const button = pipControl(pip, kind);
   ok(button, `The PiP window has a ${kind} button`);
@@ -184,6 +210,22 @@ async function clickPip(pip, kind) {
   // Show the player's controls, as hovering does.
   EventUtils.synthesizeMouseAtCenter(pip.document.getElementById("controls"), { type: "mousemove" }, pip);
   EventUtils.synthesizeMouseAtCenter(button, {}, pip);
+}
+
+// Option-click in the PiP window: does the "other" mute.
+async function clickPipAlt(pip, kind) {
+  const button = pipControl(pip, kind);
+  ok(button, `The PiP window has a ${kind} button`);
+  if (!button) {
+    return;
+  }
+  EventUtils.synthesizeMouseAtCenter(pip.document.getElementById("controls"), { type: "mousemove" }, pip);
+  EventUtils.synthesizeMouseAtCenter(button, { altKey: true }, pip);
+}
+
+// W21: the PiP button's corner badge for the non-default mute.
+function pipBadge(pip, kind) {
+  return pipControl(pip, kind)?.dataset.badge ?? null;
 }
 
 // Every state the PiP's microphone control shows while `action` runs.
@@ -216,7 +258,16 @@ add_setup(async function () {
   for (const id of ["camera", "microphone"]) {
     SitePermissions.setForPrincipal(principal, id, SitePermissions.ALLOW);
   }
+  const hasUsedPref = "media.videocontrols.picture-in-picture.video-toggle.has-used";
+  const hadHasUsed = Services.prefs.prefHasUserValue(hasUsedPref);
+  const hasUsedBefore = Services.prefs.getBoolPref(hasUsedPref, false);
   registerCleanupFunction(() => {
+    if (hadHasUsed) {
+      Services.prefs.setBoolPref(hasUsedPref, hasUsedBefore);
+    } else {
+      Services.prefs.clearUserPref(hasUsedPref);
+    }
+    Services.prefs.clearUserPref("whimsy.call.buttons-default");
     for (const id of ["camera", "microphone"]) {
       SitePermissions.removeFromPrincipal(principal, id);
     }
@@ -316,7 +367,10 @@ add_task(async function test_changes_on_the_page_reach_both() {
   }
 });
 
-add_task(async function test_unknown_state_hides_the_buttons() {
+// W21: with no recognisable in-call controls, the small player's buttons
+// never hide or no-op — they fall back to the device mute (Review Focus:
+// "the no in-call controls found fallback").
+add_task(async function test_unknown_state_falls_back_to_device_mute() {
   const call = await openCall();
   const floating = await float(call);
   const { pip } = floating;
@@ -324,10 +378,21 @@ add_task(async function test_unknown_state_hides_the_buttons() {
     await expectAll(call, pip, ON, "Floating");
     await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.removeControls());
     await TestUtils.waitForCondition(
-      () => KINDS.every(kind => cardState(call, kind) == "hidden" && pipState(pip, kind) == "hidden"),
-      "Meet's toggles are gone: both buttons hide in the small player and the PiP window"
+      () => cardState(call, "mic") != "hidden" && cardState(call, "mic") != "off",
+      "Meet's toggles are gone: the small player's microphone stays, showing the device mute"
     );
     ok(!WhimsyCallPip.commandTarget(window, "mic"), "Toggle Meeting Microphone has nothing to toggle");
+    await clickCard(call, "mic");
+    await TestUtils.waitForCondition(
+      () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
+      "the click fell back to blocking the device"
+    );
+    is(cardState(call, "mic"), "off", "the small player shows it muted");
+    await clickCard(call, "mic");
+    await TestUtils.waitForCondition(
+      () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
+      "a second click releases it"
+    );
     await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.restoreControls());
     await expectAll(call, pip, ON, "Meet's toggles are back");
   } finally {
@@ -562,7 +627,253 @@ add_task(async function test_device_mute_released_when_call_ends() {
   is(WhimsyCallPip.stateFor(tab.linkedBrowser).blocked.mic, true, "blocked while in the call");
   await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.endCall());
   await TestUtils.waitForCondition(() => !WhimsyCallPip.isInCall(tab), "The call ended");
-  WhimsyCallPip.forget(tab.linkedBrowser, true);
-  ok(!WhimsyCallPip._states.has(tab.linkedBrowser), "its state (including the device mute) is gone");
+  await TestUtils.waitForCondition(
+    () => !WhimsyCallPip._calls.has(tab.linkedBrowser),
+    "the call ending forgot the browser (and, with it, released the device mute)"
+  );
+  is(WhimsyCallPip.stateFor(tab.linkedBrowser).blocked.mic, false, "a fresh state has no device mute left on");
   BrowserTestUtils.removeTab(tab);
+});
+
+// W21: the small player's mic/camera buttons do the default mute on a plain
+// click, the other mute on Option-click, and show a corner badge for
+// whichever mute is on but isn't the default (so it's never lost from view).
+add_task(async function test_card_click_does_default_alt_click_does_other() {
+  const call = await openCall();
+  await expectAll(call, null, ON, "Joined");
+  await clickCard(call, "mic");
+  await expectAll(call, null, { mic: "off", camera: "on" }, "A plain click does the default (call) mute");
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, false, "the device mute is untouched");
+  await clickCard(call, "mic");
+  await expectAll(call, null, ON, "Back on");
+
+  await clickCardAlt(call, "camera");
+  await TestUtils.waitForCondition(
+    () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
+    "Option-click does the device block"
+  );
+  is((await meetState(call)).camera, "on", "the page's own toggle is untouched by the other mute");
+  await clickCardAlt(call, "camera");
+  await TestUtils.waitForCondition(
+    () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
+    "a second Option-click releases it"
+  );
+});
+
+add_task(async function test_card_shows_badge_for_the_non_default_mute() {
+  const call = await openCall();
+  await expectAll(call, null, ON, "Joined");
+  await WhimsyCallPip.toggleBlocked(call.linkedBrowser, "mic");
+  is(cardBadge(call, "mic"), "lock", "the device mute is on but not the default: a lock badge, not a second glyph");
+  is(cardState(call, "mic"), "on", "the main glyph still shows the default (call) mute, which is off");
+  await WhimsyCallPip.toggleBlocked(call.linkedBrowser, "mic");
+  is(cardBadge(call, "mic"), null, "badge clears once the device mute is off again");
+});
+
+add_task(async function test_card_no_in_call_controls_falls_back_to_device() {
+  const call = await openCall();
+  await expectAll(call, null, ON, "Joined");
+  await SpecialPowers.spawn(call.linkedBrowser, [], () => {
+    content.document.querySelector("#bar button[aria-label*=microphone]")?.remove();
+  });
+  await TestUtils.waitForCondition(
+    () => WhimsyCallPip.displayState(call.linkedBrowser, "mic").inCallAvailable === false,
+    "The mic's in-call control is gone"
+  );
+  await clickCard(call, "mic");
+  await TestUtils.waitForCondition(
+    () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
+    "falls back to the device mute, not a no-op"
+  );
+  await WhimsyCallPip.toggleBlocked(call.linkedBrowser, "mic");
+  await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.restoreControls());
+  await expectAll(call, null, ON, "Meet's toggles are back");
+});
+
+// W21: the PiP window's mic/camera buttons do the default mute on a plain
+// click, the other mute on Option-click (mouse) or Shift+key (keyboard),
+// and show a corner badge for whichever mute is on but isn't the default.
+add_task(async function test_pip_click_does_default_alt_click_does_other() {
+  const call = await openCall();
+  const floating = await float(call);
+  const { pip } = floating;
+  try {
+    await expectAll(call, pip, ON, "Floating");
+    await clickPip(pip, "mic");
+    await expectAll(call, pip, { mic: "off", camera: "on" }, "A plain click does the default (call) mute");
+    is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, false, "the device mute is untouched");
+    await clickPip(pip, "mic");
+    await expectAll(call, pip, ON, "Back on");
+
+    await clickPipAlt(pip, "camera");
+    await TestUtils.waitForCondition(
+      () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
+      "Option-click does the device block"
+    );
+    is((await meetState(call)).camera, "on", "the page's own toggle is untouched by the other mute");
+    await clickPipAlt(pip, "camera");
+    await TestUtils.waitForCondition(
+      () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
+      "a second Option-click releases it"
+    );
+  } finally {
+    await unfloat(call, floating);
+  }
+});
+
+// Review Focus: the PiP's rendered label must always match the glyph it
+// draws, for every combination of the call's own state and the device
+// block — the ticket's "label said unmute while unmuted" regression.
+add_task(async function test_pip_label_always_matches_the_rendered_state() {
+  const call = await openCall();
+  const floating = await float(call);
+  const { pip } = floating;
+  try {
+    await expectAll(call, pip, ON, "Floating");
+    const browser = call.linkedBrowser;
+    for (const callState of ["on", "off"]) {
+      for (const blocked of [false, true]) {
+        WhimsyCallPip.stateFor(browser).mic = callState;
+        WhimsyCallPip.stateFor(browser).blocked.mic = blocked;
+        WhimsyCallPip.renderPip(pip, browser);
+        const d = WhimsyCallPip.displayState(browser, "mic");
+        const button = pipControl(pip, "mic");
+        is(button.dataset.state, d.off ? "off" : "on", `glyph state for call=${callState} blocked=${blocked}`);
+        const id = button.getAttribute("data-l10n-id");
+        const expectsOffLabel = d.off;
+        const idSaysOff = id.includes("turn-on") || id.includes("unblock");
+        const idSaysOn = id.includes("turn-off") || id.includes("block") && !id.includes("unblock");
+        ok(
+          (expectsOffLabel && idSaysOff) || (!expectsOffLabel && idSaysOn),
+          `label "${id}" matches off=${d.off} for call=${callState} blocked=${blocked}`
+        );
+      }
+    }
+    // Restore real state so the call can clean up normally.
+    WhimsyCallPip.stateFor(browser).blocked.mic = false;
+    await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.meetState());
+    await WhimsyCallPip.watch(browser);
+    await expectAll(call, pip, ON, "Restored");
+  } finally {
+    await unfloat(call, floating);
+  }
+});
+
+add_task(async function test_pip_shows_badge_for_non_default() {
+  const call = await openCall();
+  const floating = await float(call);
+  const { pip } = floating;
+  try {
+    await expectAll(call, pip, ON, "Floating");
+    await WhimsyCallPip.toggleBlocked(call.linkedBrowser, "mic");
+    is(pipBadge(pip, "mic"), "lock", "device mute on, in-call default off -> lock badge");
+    is(pipState(pip, "mic"), "on", "the main glyph still shows the default (call) mute, which is off");
+    await WhimsyCallPip.toggleBlocked(call.linkedBrowser, "mic");
+    is(pipBadge(pip, "mic"), null, "badge clears once the device mute is off again");
+  } finally {
+    await unfloat(call, floating);
+  }
+});
+
+// Review Focus: Shift+key in the PiP window does the other mute, while bare
+// Option still does nothing (⌥⌘D is macOS's Show/Hide Dock).
+add_task(async function test_pip_shift_key_does_the_other_mute() {
+  const call = await openCall();
+  const floating = await float(call);
+  const { pip } = floating;
+  try {
+    await expectAll(call, pip, ON, "Floating");
+    const accel = AppConstants.platform == "macosx" ? { metaKey: true } : { ctrlKey: true };
+    EventUtils.synthesizeKey("d", { ...accel, shiftKey: true }, pip);
+    await TestUtils.waitForCondition(
+      () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
+      "Shift+accel+D does the other (device) mute"
+    );
+    is((await meetState(call)).mic, "on", "the page's own toggle is untouched");
+    EventUtils.synthesizeKey("d", { ...accel, shiftKey: true }, pip);
+    await TestUtils.waitForCondition(
+      () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
+      "a second Shift+accel+D releases it"
+    );
+  } finally {
+    await unfloat(call, floating);
+  }
+});
+
+// W21 Task 7: the four individual-mute commands, plus the command that
+// flips the buttons-default pref. All five are independently assignable.
+add_task(async function test_four_new_commands_exist_and_run() {
+  const call = await openCall();
+  await selectTab(call);
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  for (const [id, l10nId] of [
+    ["cmd_whimsyCallMicrophoneInCall", "whimsy-action-call-microphone-in-call"],
+    ["cmd_whimsyCallCameraInCall", "whimsy-action-call-camera-in-call"],
+    ["cmd_whimsyCallMicrophoneBlock", "whimsy-action-call-microphone-block"],
+    ["cmd_whimsyCallCameraBlock", "whimsy-action-call-camera-block"],
+  ]) {
+    ok(document.getElementById(id), `${id} exists`);
+    ok(document.getElementById(`key_${id}`), `${id} has a key that can be assigned`);
+    ok(WhimsyCommands.title({ l10nId }), `${id} has a name`);
+  }
+  document.getElementById("cmd_whimsyCallMicrophoneInCall").doCommand();
+  await TestUtils.waitForCondition(async () => (await meetState(call)).mic == "off", "the in-call command mutes the page's own control");
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, false, "...and leaves the device mute alone");
+  document.getElementById("cmd_whimsyCallMicrophoneInCall").doCommand();
+  await expectAll(call, pipWindow(), ON, "mic back on");
+
+  document.getElementById("cmd_whimsyCallMicrophoneBlock").doCommand();
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, true, "the block command blocks the device");
+  is((await meetState(call)).mic, "on", "...and leaves the page's own control alone");
+  document.getElementById("cmd_whimsyCallMicrophoneBlock").doCommand();
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, false, "a second press releases it");
+
+  document.getElementById("cmd_whimsyCallCameraInCall").doCommand();
+  await TestUtils.waitForCondition(async () => (await meetState(call)).camera == "off", "the in-call camera command mutes the page's own control");
+  document.getElementById("cmd_whimsyCallCameraInCall").doCommand();
+  await expectAll(call, pipWindow(), ON, "camera back on");
+
+  document.getElementById("cmd_whimsyCallCameraBlock").doCommand();
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, true, "the block command blocks the camera device");
+  document.getElementById("cmd_whimsyCallCameraBlock").doCommand();
+  is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, false, "a second press releases it");
+});
+
+add_task(async function test_buttons_default_command_toggles_the_pref() {
+  const before = Services.prefs.getStringPref("whimsy.call.buttons-default", "call");
+  const hadUserValue = Services.prefs.prefHasUserValue("whimsy.call.buttons-default");
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const id = "cmd_whimsyCallButtonsDefault";
+  ok(document.getElementById(id), `${id} exists`);
+  ok(document.getElementById(`key_${id}`), `${id} has a key that can be assigned`);
+  ok(WhimsyCommands.title({ l10nId: "whimsy-action-call-buttons-default" }), `${id} has a name`);
+  try {
+    document.getElementById(id).doCommand();
+    isnot(Services.prefs.getStringPref("whimsy.call.buttons-default"), before, "the pref flipped");
+    document.getElementById(id).doCommand();
+    is(Services.prefs.getStringPref("whimsy.call.buttons-default"), before, "a second press flips it back");
+  } finally {
+    if (hadUserValue) {
+      Services.prefs.setStringPref("whimsy.call.buttons-default", before);
+    } else {
+      Services.prefs.clearUserPref("whimsy.call.buttons-default");
+    }
+  }
+});
+
+add_task(async function test_existing_toggle_commands_follow_the_default() {
+  // cmd_whimsyCallMicrophone / cmd_whimsyCallCamera keep their ids but must
+  // now call toggleDefault, not the old toggle()/toggleInCall() directly.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.call.buttons-default", "device"]] });
+  const call = await openCall();
+  await selectTab(call);
+  try {
+    document.getElementById("cmd_whimsyCallMicrophone").doCommand();
+    is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, true, "now follows the device default");
+    is((await meetState(call)).mic, "on", "the page's own control is untouched");
+    document.getElementById("cmd_whimsyCallMicrophone").doCommand();
+    is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, false, "a second press releases it");
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
 });

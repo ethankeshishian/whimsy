@@ -7758,10 +7758,74 @@ zen-workspace[whimsy-space-covered] :is(.zen-workspace-pinned-tabs-section, .zen
   }
 }
 
-/* W13-R3: a call's microphone or camera whose state the page doesn't show
-   (unknown, or the site may not use it): its button hides in the small
-   player rather than show a state that may be wrong. */
+/* W21: the OS/site permission for a device is BLOCK: its button hides in
+   the small player, since there's no device left to mute either way. (An
+   unrecognised call page, with no permission block, keeps the button and
+   falls back to the device mute instead — see WhimsyCallPip.displayState.) */
 .zen-media-card[whimsy-call-hide-mic] .zen-media-mute-mic-button,
 .zen-media-card[whimsy-call-hide-camera] .zen-media-mute-camera-button {
   display: none;
+}
+
+/* W21: a corner badge for the mute that's on but isn't shown by the main
+   glyph — amber lock for the device mute, a red off-dot for the call's own
+   mute — never both (the main glyph already shows whichever is the
+   default). */
+.zen-media-mute-mic-button[whimsy-call-badge],
+.zen-media-mute-camera-button[whimsy-call-badge] {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: 2px;
+    inset-block-start: 2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid light-dark(white, #1c1c1e);
+  }
+
+  &[whimsy-call-badge="lock"]::after {
+    background: #f2a33c;
+  }
+
+  &[whimsy-call-badge="off"]::after {
+    background: rgb(224, 41, 29);
+  }
+}
+
+/* W21: a hairline before the small player's "⋯" Call Options button,
+   separating it from the mic/camera pair it follows. */
+.whimsy-call-options-rule {
+  width: 1px;
+  align-self: stretch;
+  margin-inline: 2px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+/* W21: the Call Options panel's checkable rows (all four mutes) — a leading
+   check mark, shown only while that mute is on, and a dimmed row with its
+   "not available" detail line when a call page has no recognised controls
+   for the in-call mute. */
+.whimsy-call-options-panel .whimsy-surface-row {
+  padding-inline-start: 4px;
+}
+.whimsy-call-options-check {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  -moz-context-properties: fill;
+  fill: currentColor;
+  opacity: 0;
+}
+.whimsy-call-options-check[whimsy-call-options-checked] {
+  opacity: 1;
+}
+.whimsy-call-options-shortcut {
+  flex-shrink: 0;
+}
+.whimsy-call-options-panel .whimsy-surface-row-dim {
+  opacity: 0.5;
+  pointer-events: none;
 }

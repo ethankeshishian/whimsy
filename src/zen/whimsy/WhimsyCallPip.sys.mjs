@@ -38,6 +38,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
   SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
+  WhimsyCallOptionsPanel: "resource:///modules/whimsy/WhimsyCallOptionsPanel.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.call-pip";
@@ -60,9 +61,19 @@ const L10N = {
   mic: { on: "whimsy-call-mic-turn-off", off: "whimsy-call-mic-turn-on" },
   camera: { on: "whimsy-call-camera-turn-off", off: "whimsy-call-camera-turn-on" },
 };
+// W21: the device-mute labels, shown when buttonsDefault (or an unknown
+// in-call state) means the glyph is the device mute, not the call's own.
+const BLOCK_L10N = {
+  mic: { on: "whimsy-call-mic-block", off: "whimsy-call-mic-unblock" },
+  camera: { on: "whimsy-call-camera-block", off: "whimsy-call-camera-unblock" },
+};
 const PIP_L10N = {
   mic: { on: "whimsy-call-pip-mic-turn-off", off: "whimsy-call-pip-mic-turn-on" },
   camera: { on: "whimsy-call-pip-camera-turn-off", off: "whimsy-call-pip-camera-turn-on" },
+};
+const PIP_BLOCK_L10N = {
+  mic: { on: "whimsy-call-pip-mic-block", off: "whimsy-call-pip-mic-unblock" },
+  camera: { on: "whimsy-call-pip-camera-block", off: "whimsy-call-pip-camera-unblock" },
 };
 // Meet's own shortcuts, also in the PiP window.
 const SHORTCUT_KEY = { mic: "D", camera: "E" };
@@ -83,6 +94,29 @@ const PIP_SHEET =
 #whimsy-call-camera[data-state="off"] { background-image: url("${ICON}video-blocked-fill.svg"); }
 :is(#whimsy-call-mic, #whimsy-call-camera)[data-state="off"] { fill: rgb(224, 41, 29); }
 :is(#whimsy-call-mic, #whimsy-call-camera)[aria-busy="true"] { cursor: progress; }
+/* W21: a corner badge for the mute that's on but isn't the main glyph —
+   amber lock for the device mute, a red off-dot for the call's own mute. */
+:is(#whimsy-call-mic, #whimsy-call-camera)[data-badge] { position: relative; }
+:is(#whimsy-call-mic, #whimsy-call-camera)[data-badge]::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 2px;
+  inset-block-start: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid #1c1c1e;
+}
+#whimsy-call-mic[data-badge="lock"]::after, #whimsy-call-camera[data-badge="lock"]::after { background: #f2a33c; }
+#whimsy-call-mic[data-badge="off"]::after, #whimsy-call-camera[data-badge="off"]::after { background: rgb(224, 41, 29); }
+/* W21: the Call Options button, separated from mic/camera by a hairline
+   (border-inline-start) since this row is PiP-internal, not Zen's DOM. */
+#whimsy-call-options {
+  background-image: url("chrome://browser/content/whimsy/icons/call-options.svg");
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.3);
+  margin-inline-start: 4px;
+  padding-inline-start: 8px;
+}
 body[whimsy-call] :is(#audio, #audio-scrubber, #timestamp, #playbackRate) { display: none !important; }
 body[whimsy-call] .end-controls,
 body[whimsy-call] .end-controls:has(#playbackRate:not([hidden])) {
@@ -126,10 +160,30 @@ export const WhimsyCallPip = {
       icon: "chrome://global/skin/media/closed-caption-settings-button.svg",
       isAvailable: w => this.isInCall(w.gBrowser.selectedTab),
     });
-    // W13-R3: Toggle Meeting Microphone / Camera (no key by default).
+    // W13-R3: Toggle Meeting Microphone / Camera (no key by default); W21:
+    // these now follow whichever mute buttonsDefault picks.
     for (const [kind, id, l10nId, icon] of [
       ["mic", "cmd_whimsyCallMicrophone", "whimsy-action-call-microphone", "microphone-fill.svg"],
       ["camera", "cmd_whimsyCallCamera", "whimsy-action-call-camera", "video-fill.svg"],
+    ]) {
+      lazy.WhimsyCommands.register(win, {
+        id,
+        l10nId,
+        run: w => {
+          const browser = this.commandTarget(w, kind);
+          if (browser) {
+            this.toggleDefault(browser, kind);
+          }
+        },
+        key: null,
+        icon: ICON + icon,
+        isAvailable: w => !!this.commandTarget(w, kind),
+      });
+    }
+    // W21: the four individual mutes, each independently assignable.
+    for (const [kind, id, l10nId, icon] of [
+      ["mic", "cmd_whimsyCallMicrophoneInCall", "whimsy-action-call-microphone-in-call", "microphone-fill.svg"],
+      ["camera", "cmd_whimsyCallCameraInCall", "whimsy-action-call-camera-in-call", "video-fill.svg"],
     ]) {
       lazy.WhimsyCommands.register(win, {
         id,
@@ -145,6 +199,31 @@ export const WhimsyCallPip = {
         isAvailable: w => !!this.commandTarget(w, kind),
       });
     }
+    for (const [kind, id, l10nId, icon] of [
+      ["mic", "cmd_whimsyCallMicrophoneBlock", "whimsy-action-call-microphone-block", "microphone-fill.svg"],
+      ["camera", "cmd_whimsyCallCameraBlock", "whimsy-action-call-camera-block", "video-fill.svg"],
+    ]) {
+      lazy.WhimsyCommands.register(win, {
+        id,
+        l10nId,
+        run: w => {
+          const browser = this.commandTarget(w, kind, true);
+          if (browser) {
+            this.toggleBlocked(browser, kind);
+          }
+        },
+        key: null,
+        icon: ICON + icon,
+        isAvailable: w => !!this.commandTarget(w, kind, true),
+      });
+    }
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyCallButtonsDefault",
+      l10nId: "whimsy-action-call-buttons-default",
+      run: () => Services.prefs.setStringPref(DEFAULT_PREF, this.buttonsDefault == "call" ? "device" : "call"),
+      key: null,
+      isAvailable: () => true,
+    });
     this.hookMediaBar(win);
     win.addEventListener("TabAttrModified", event => {
       if (event.detail?.changed?.includes("sharing")) {
@@ -290,19 +369,53 @@ export const WhimsyCallPip = {
           this.toggleCaptions(browser);
           return;
         }
+        if (id == "whimsy-call-options") {
+          event.stopPropagation();
+          event.preventDefault();
+          lazy.WhimsyCallOptionsPanel.open(pipWin, browser, { anchor: event.target });
+          return;
+        }
         const kind = id == "whimsy-call-mic" ? "mic" : id == "whimsy-call-camera" ? "camera" : null;
         if (kind) {
           event.stopPropagation();
           event.preventDefault();
-          this.toggleInCall(browser, kind);
+          if (event.altKey) {
+            this.toggleOther(browser, kind);
+          } else {
+            this.toggleDefault(browser, kind);
+          }
         }
       }, true);
+      pipWin.addEventListener("contextmenu", event => {
+        const id = event.target?.id;
+        const kind = id == "whimsy-call-mic" ? "mic" : id == "whimsy-call-camera" ? "camera" : null;
+        if (!kind || !this.isInCall(tab)) {
+          return;
+        }
+        event.stopPropagation();
+        event.preventDefault();
+        const options = pipWin.document.getElementById("whimsy-call-options");
+        lazy.WhimsyCallOptionsPanel.open(pipWin, browser, { anchor: options ?? event.target, focus: kind });
+      }, true);
       pipWin.addEventListener("keydown", event => {
-        const kind = this.pipKeyKind(event);
-        if (kind && this.isInCall(tab) && this.shownState(browser, kind)) {
+        const id = event.target?.id;
+        const targetKind = id == "whimsy-call-mic" ? "mic" : id == "whimsy-call-camera" ? "camera" : null;
+        if (targetKind && (event.key == "ContextMenu" || (event.key == "F10" && event.shiftKey))) {
           event.stopPropagation();
           event.preventDefault();
-          this.toggleInCall(browser, kind);
+          const options = pipWin.document.getElementById("whimsy-call-options");
+          lazy.WhimsyCallOptionsPanel.open(pipWin, browser, { anchor: options ?? event.target, focus: targetKind });
+          return;
+        }
+        const kind = this.pipKeyKind(event);
+        if (kind && this.isInCall(tab)) {
+          event.stopPropagation();
+          event.preventDefault();
+          if (event.shiftKey) {
+            this.toggleOther(browser, kind);
+          } else {
+            this.toggleDefault(browser, kind);
+          }
         }
       }, true);
     }
@@ -314,11 +427,14 @@ export const WhimsyCallPip = {
     }
   },
 
-  // M (as before) or Meet's ⌘D toggles the microphone, ⌘E the camera.
+  // M (as before) or Meet's ⌘D toggles the microphone, ⌘E the camera; Shift
+  // with either does the other mute (W21) — bare Option still does nothing
+  // in the PiP window, since ⌥⌘D is macOS's Show/Hide Dock, so the "other"
+  // mute's keyboard form uses Shift here, not Option.
   pipKeyKind(event) {
     const accel = AppConstants.platform == "macosx" ? event.metaKey : event.ctrlKey;
     const key = event.key?.toUpperCase();
-    if (event.altKey || event.shiftKey) {
+    if (event.altKey) {
       return null;
     }
     if (!accel && !event.ctrlKey && !event.metaKey && key == "M") {
@@ -356,6 +472,15 @@ export const WhimsyCallPip = {
       button.hidden = true;
       group.append(button);
     }
+    // W21: the "⋯" Call Options button — a CSS hairline (border-inline-start)
+    // stands in for the card's DOM rule, since this row is PiP-internal.
+    const options = doc.createElement("button");
+    options.id = "whimsy-call-options";
+    options.className = "control-item control-button tooltip-over-controls center-tooltip";
+    options.setAttribute("data-l10n-attrs", "tooltip");
+    options.setAttribute("aria-haspopup", "menu");
+    doc.l10n.setAttributes(options, "whimsy-call-pip-options-button");
+    group.append(options);
     start.prepend(group);
     doc.body.setAttribute("whimsy-call", "");
   },
@@ -581,20 +706,6 @@ export const WhimsyCallPip = {
     this.render(browser);
   },
 
-  isPageSynced(browser) {
-    try {
-      return PAGE_SYNCED_HOSTS.has(browser.currentURI?.host);
-    } catch (e) {
-      return false;
-    }
-  },
-
-  // Whether `kind` follows the page here: always on Meet, elsewhere once
-  // the page has shown a toggle for it. Otherwise Zen's device mute stays.
-  isPageDriven(browser, kind) {
-    return this.controlsEnabled && (this.isPageSynced(browser) || !!this._states.get(browser)?.seen[kind]);
-  },
-
   isBlocked(browser, kind) {
     try {
       const principal = browser.contentPrincipal;
@@ -616,6 +727,37 @@ export const WhimsyCallPip = {
     }
     const value = this._states.get(browser)?.[kind] ?? null;
     return value && !this.isBlocked(browser, kind) ? value : null;
+  },
+
+  // W21: what a surface draws for `kind` — one glyph (the state of
+  // whichever mute is the default here) plus, at most, one corner badge for
+  // the *other* mute when it's the one that's on. Shared by the small
+  // player, the PiP window and the options panel, so a card, a PiP button
+  // and a panel row can never disagree about what's muted.
+  //
+  //  - useDevice: the device mute is what the glyph shows — either because
+  //    buttonsDefault says so, or because the in-call state is unknown (no
+  //    recognised controls on this page yet, or none at all): the device
+  //    mute is the only thing guaranteed to exist, so it's shown instead of
+  //    guessing at an unknown in-call state.
+  //  - badge: "lock" when the device mute is on but not shown as the main
+  //    glyph (the call's own mute is the default and is off); "off" when
+  //    the call's own mute is on but not shown as the main glyph (the
+  //    device mute is the default and is off). Never both — the main glyph
+  //    already shows whichever mute is the default, so only the other one
+  //    can still need a badge.
+  displayState(browser, kind) {
+    const state = this.stateFor(browser);
+    const value = this.shownState(browser, kind);
+    const useDevice = this.buttonsDefault == "device" || value == null;
+    const off = useDevice ? state.blocked[kind] : value == "off";
+    let badge = null;
+    if (!useDevice && state.blocked[kind]) {
+      badge = "lock";
+    } else if (useDevice && value == "off") {
+      badge = "off";
+    }
+    return { off, badge, busy: !!state.pending[kind], inCallAvailable: value != null };
   },
 
   // Toggles the page's own control and shows the page's answer. A press
@@ -669,14 +811,21 @@ export const WhimsyCallPip = {
   },
 
   // W21: a plain click on the mic/camera — whichever mute buttonsDefault
-  // picks.
+  // picks, or the device mute regardless of the pref when no in-call
+  // control was ever found (there's nothing else to toggle: never a no-op).
   toggleDefault(browser, kind) {
-    return this.buttonsDefault == "device" ? this.toggleBlocked(browser, kind) : this.toggleInCall(browser, kind);
+    const useDevice = this.buttonsDefault == "device" || this.shownState(browser, kind) == null;
+    return useDevice ? this.toggleBlocked(browser, kind) : this.toggleInCall(browser, kind);
   },
 
   // W21: Option-click (or the panel's/command's explicit "other" action) —
-  // whichever mute buttonsDefault does NOT pick.
+  // whichever mute buttonsDefault does NOT pick. With no in-call control
+  // found, toggleDefault already is the device mute, so "the other" one
+  // would have nothing to do; keep it a device mute too rather than a no-op.
   toggleOther(browser, kind) {
+    if (this.shownState(browser, kind) == null) {
+      return this.toggleBlocked(browser, kind);
+    }
     return this.buttonsDefault == "device" ? this.toggleInCall(browser, kind) : this.toggleBlocked(browser, kind);
   },
 
@@ -706,71 +855,64 @@ export const WhimsyCallPip = {
       if (!button) {
         continue;
       }
-      const value = this.controlsEnabled ? this.shownState(browser, kind) : null;
-      button.hidden = !value;
-      if (!value) {
+      // The OS/site permission is BLOCK, or the switch is off: no device to
+      // mute either way, so the button has nothing to do — hide it, unlike
+      // an unrecognised call page, which still falls back to the device mute.
+      if (!this.controlsEnabled || this.isBlocked(browser, kind)) {
+        button.hidden = true;
         continue;
       }
-      button.dataset.state = value;
-      button.setAttribute("aria-busy", String(!!this._states.get(browser)?.pending[kind]));
-      doc.l10n.setAttributes(button, PIP_L10N[kind][value], { shortcut: ACCEL + SHORTCUT_KEY[kind] });
+      button.hidden = false;
+      const d = this.displayState(browser, kind);
+      button.dataset.state = d.off ? "off" : "on";
+      if (d.badge) {
+        button.dataset.badge = d.badge;
+      } else {
+        delete button.dataset.badge;
+      }
+      button.setAttribute("aria-busy", String(d.busy));
+      const useDevice = this.buttonsDefault == "device" || !d.inCallAvailable;
+      const l10n = useDevice ? PIP_BLOCK_L10N[kind] : PIP_L10N[kind];
+      doc.l10n.setAttributes(button, d.off ? l10n.off : l10n.on, { shortcut: ACCEL + SHORTCUT_KEY[kind] });
     }
   },
 
-  // Zen's sharing card: the page's state on Zen's own muted attributes
-  // (Zen's icons), hidden when unknown.
+  // Zen's sharing card: every call's card is driven by displayState now —
+  // the device mute always works, so there's no more "unknown, Zen's own
+  // device mute stays as it is" branch to fall back to.
   renderCard(card, browser) {
     for (const kind of KINDS) {
       const button = card.querySelector(CARD_BUTTON[kind]);
       const hideAttr = `whimsy-call-hide-${kind}`;
-      if (!this.isPageDriven(browser, kind)) {
-        if (card._whimsyDriven?.[kind]) {
-          card._whimsyDriven[kind] = false;
-          card.removeAttribute(hideAttr);
-          card.removeAttribute(CARD_MUTED[kind]);
-          if (button) {
-            for (const attr of ["data-l10n-id", "data-l10n-args", "tooltiptext", "aria-label", "aria-busy"]) {
-              button.removeAttribute(attr);
-            }
-          }
-        }
+      // The OS/site permission is BLOCK: neither mute means anything here
+      // (there's no device to mute), unlike an unrecognised call page,
+      // which still has a real device to fall back to.
+      if (this.controlsEnabled && this.isBlocked(browser, kind)) {
+        card.toggleAttribute(hideAttr, true);
         continue;
       }
-      card._whimsyDriven ??= {};
-      if (!card._whimsyDriven[kind]) {
-        card._whimsyDriven[kind] = true;
-        // Zen's device mute was pressed before the page's toggles showed
-        // up: move the mute to the page, then let go of the device.
-        if (card.hasAttribute(CARD_MUTED[kind])) {
-          this.handOver(browser, kind);
-        }
-      }
-      const value = this.shownState(browser, kind);
-      card.toggleAttribute(hideAttr, !value);
-      if (!value) {
+      card.removeAttribute(hideAttr);
+      const d = this.displayState(browser, kind);
+      card.toggleAttribute(CARD_MUTED[kind], d.off);
+      if (!button) {
         continue;
       }
-      card.toggleAttribute(CARD_MUTED[kind], value == "off");
-      if (button) {
-        button.setAttribute("aria-busy", String(!!this._states.get(browser)?.pending[kind]));
-        card.ownerDocument.l10n.setAttributes(button, L10N[kind][value]);
+      button.setAttribute("aria-busy", String(d.busy));
+      if (d.badge) {
+        button.setAttribute("whimsy-call-badge", d.badge);
+      } else {
+        button.removeAttribute("whimsy-call-badge");
       }
+      const useDevice = this.buttonsDefault == "device" || !d.inCallAvailable;
+      const l10n = useDevice ? BLOCK_L10N[kind] : L10N[kind];
+      card.ownerDocument.l10n.setAttributes(button, d.off ? l10n.off : l10n.on);
     }
-  },
-
-  async handOver(browser, kind) {
-    if (this.shownState(browser, kind) == "on") {
-      await this.toggleInCall(browser, kind);
-    }
-    try {
-      browser.browsingContext?.currentWindowGlobal?.getActor("WebRTC")?.sendAsyncMessage(DEVICE_UNMUTE[kind]);
-    } catch (e) {}
   },
 
   // Tags each new sharing card with its tab (Zen keeps the card objects
-  // private) and takes presses of its microphone and camera buttons first
-  // when they follow the page. Zen's code is unchanged; without the method
-  // to wrap, Zen's own card stays as it is.
+  // private) and takes over presses of its microphone and camera buttons.
+  // Zen's code is unchanged; without the method to wrap, Zen's own card
+  // stays as it is.
   hookMediaBar(win) {
     const controller = win?.gZenMediaController;
     const bar = controller?.mediaControlBar;
@@ -790,31 +932,106 @@ export const WhimsyCallPip = {
       }
       return result;
     };
-    bar.addEventListener("command", event => {
+    // W21: a plain click on the mic/camera does the default mute,
+    // Option-click the other. A capture-phase click (not a XUL command
+    // event) is used so event.altKey is read directly from the pointer
+    // event, not relied on to survive command dispatch.
+    bar.addEventListener("click", event => {
+      const card = event.target?.closest?.(".zen-media-card");
+      const browser = card?._whimsyCallBrowser;
+      if (!browser || !this.controlsEnabled) {
+        return;
+      }
+      const options = event.target?.closest?.("#whimsy-call-options");
+      if (options) {
+        event.stopPropagation();
+        event.preventDefault();
+        lazy.WhimsyCallOptionsPanel.open(win, browser, { anchor: options });
+        return;
+      }
       const button = event.target?.closest?.(`${CARD_BUTTON.mic}, ${CARD_BUTTON.camera}`);
-      const browser = button?.closest(".zen-media-card")?._whimsyCallBrowser;
-      if (!browser) {
+      if (!button) {
         return;
       }
       const kind = button.matches(CARD_BUTTON.mic) ? "mic" : "camera";
-      if (!this.isPageDriven(browser, kind)) {
+      event.stopPropagation();
+      event.preventDefault();
+      if (event.altKey) {
+        this.toggleOther(browser, kind);
+      } else {
+        this.toggleDefault(browser, kind);
+      }
+    }, true);
+    // W21: right-click, or Shift+F10/the Menu key (the keyboard equivalent
+    // of right-click), on the mic/camera opens the same options panel,
+    // focused on that device's section.
+    bar.addEventListener("contextmenu", event => {
+      const button = event.target?.closest?.(`${CARD_BUTTON.mic}, ${CARD_BUTTON.camera}`);
+      const browser = button?.closest(".zen-media-card")?._whimsyCallBrowser;
+      if (!browser || !this.controlsEnabled) {
         return;
       }
       event.stopPropagation();
-      this.toggleInCall(browser, kind);
+      event.preventDefault();
+      const kind = button.matches(CARD_BUTTON.mic) ? "mic" : "camera";
+      const options = button.closest(".zen-media-card").querySelector("#whimsy-call-options");
+      lazy.WhimsyCallOptionsPanel.open(win, browser, { anchor: options ?? button, focus: kind });
+    }, true);
+    bar.addEventListener("keydown", event => {
+      if (event.key != "F10" && event.key != "ContextMenu") {
+        return;
+      }
+      if (event.key == "F10" && !event.shiftKey) {
+        return;
+      }
+      const button = event.target?.closest?.(`${CARD_BUTTON.mic}, ${CARD_BUTTON.camera}`);
+      const browser = button?.closest(".zen-media-card")?._whimsyCallBrowser;
+      if (!browser || !this.controlsEnabled) {
+        return;
+      }
+      event.stopPropagation();
+      event.preventDefault();
+      const kind = button.matches(CARD_BUTTON.mic) ? "mic" : "camera";
+      const options = button.closest(".zen-media-card").querySelector("#whimsy-call-options");
+      lazy.WhimsyCallOptionsPanel.open(win, browser, { anchor: options ?? button, focus: kind });
     }, true);
   },
 
   attachCard(card, browser) {
     card._whimsyCallBrowser = browser;
+    this.addCardOptionsButton(card);
     this.renderCard(card, browser);
     this.watch(browser);
   },
 
+  // W21: the "⋯" Call Options button, appended after a hairline next to
+  // Zen's own mic/camera buttons (Zen's markup untouched).
+  addCardOptionsButton(card) {
+    if (card.querySelector("#whimsy-call-options")) {
+      return;
+    }
+    const group = card.querySelector(".media-device-buttons");
+    if (!group) {
+      return;
+    }
+    const doc = card.ownerDocument;
+    const rule = doc.createElement("div");
+    rule.className = "whimsy-call-options-rule";
+    const button = doc.createXULElement("toolbarbutton");
+    button.id = "whimsy-call-options";
+    button.className = "toolbarbutton-1";
+    button.setAttribute("aria-haspopup", "menu");
+    doc.l10n.setAttributes(button, "whimsy-call-options-button");
+    button.style.listStyleImage = "url(\"chrome://browser/content/whimsy/icons/call-options.svg\")";
+    group.append(rule, button);
+  },
+
   // Toggle Meeting Microphone / Camera: the selected tab's call, else the
   // call in an open PiP window, else the only call. Several: none.
-  commandTarget(win, kind) {
-    const usable = browser => !!browser && this._calls.has(browser) && !!this.shownState(browser, kind);
+  // `any`: the device-mute commands need no in-call controls to be found
+  // (the device mute always works), unlike the in-call-only commands.
+  commandTarget(win, kind, any = false) {
+    const usable = browser => !!browser && this._calls.has(browser) && (any || !!this.shownState(browser, kind));
     const selected = win?.gBrowser?.selectedBrowser;
     if (usable(selected)) {
       return selected;

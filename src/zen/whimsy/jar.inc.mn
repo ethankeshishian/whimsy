@@ -50,6 +50,8 @@
         content/browser/whimsy/icons/shield.svg (../../zen/whimsy/content/icons/shield.svg)
         content/browser/whimsy/icons/shield-fill.svg (../../zen/whimsy/content/icons/shield-fill.svg)
         content/browser/whimsy/icons/redact.svg (../../zen/whimsy/content/icons/redact.svg)
+# W21: the "⋯" Call Options button (Zen's own icon set has no overflow glyph)
+        content/browser/whimsy/icons/call-options.svg (../../zen/whimsy/content/icons/call-options.svg)
 # wave3/icons: Arc's space icon picker; glyphs Zen's set lacks (Ionicons, MIT)
         content/browser/whimsy/space-icons/bandage.svg (../../zen/whimsy/content/space-icons/bandage.svg)
         content/browser/whimsy/space-icons/calendar.svg (../../zen/whimsy/content/space-icons/calendar.svg)
