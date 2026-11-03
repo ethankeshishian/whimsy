@@ -24,6 +24,20 @@ function capturesDir() {
   return PathUtils.join(PathUtils.profileDir, sub);
 }
 
+// copyScreenshot (Firefox's own) remembers which button was last used.
+add_setup(function () {
+  const PREF = "screenshots.browser.component.last-saved-method";
+  const hadUserValue = Services.prefs.prefHasUserValue(PREF);
+  const value = hadUserValue ? Services.prefs.getStringPref(PREF) : undefined;
+  registerCleanupFunction(() => {
+    if (hadUserValue) {
+      Services.prefs.setStringPref(PREF, value);
+    } else {
+      Services.prefs.clearUserPref(PREF);
+    }
+  });
+});
+
 add_task(async function test_copy_screenshot_also_saves_a_file() {
   const before = listCaptures().length;
 

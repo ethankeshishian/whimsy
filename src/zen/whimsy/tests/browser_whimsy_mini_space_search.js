@@ -24,6 +24,17 @@ add_setup(async function () {
   work = WhimsyProfiles.create("Whimsy Search Work");
   workSpace = await gZenWorkspaces.createAndSaveWorkspace("Quarterly Plans", undefined, true, work);
   cafe = await gZenWorkspaces.createAndSaveWorkspace("Café Notes", undefined, true);
+  // Opening Mini remembers its window size.
+  const SIZE_PREF = "whimsy.quick-window.size";
+  const hadSize = Services.prefs.prefHasUserValue(SIZE_PREF);
+  const size = hadSize ? Services.prefs.getStringPref(SIZE_PREF) : undefined;
+  registerCleanupFunction(() => {
+    if (hadSize) {
+      Services.prefs.setStringPref(SIZE_PREF, size);
+    } else {
+      Services.prefs.clearUserPref(SIZE_PREF);
+    }
+  });
   registerCleanupFunction(async () => {
     WhimsyProfileMoves.confirm = realConfirm;
     if (gZenWorkspaces.activeWorkspace != home.uuid) {

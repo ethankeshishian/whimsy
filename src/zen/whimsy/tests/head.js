@@ -64,6 +64,16 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   // Opening about:preferences lazily caches a default device name (from the
   // FxAccounts device list) the first time anything reads it.
   "identity.fxaccounts.account.device.name",
+  // wave13: several Library-opening tests leave the Library on whichever tab
+  // they last switched to.
+  "zen.library.last-tab",
+  // migrateDefaults() bumps this to the current version; several files
+  // exercise it directly.
+  "whimsy.menus.defaults-version",
+  // Toggling real Picture-in-Picture, as the pip_* tests do, is Firefox's
+  // own first-run bookkeeping for the feature.
+  "media.videocontrols.picture-in-picture.video-toggle.has-used",
+  "media.videocontrols.picture-in-picture.video-toggle.first-seen-secs",
 ];
 
 function whimsyReadPref(name, type) {

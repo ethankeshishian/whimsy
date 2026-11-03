@@ -330,6 +330,7 @@ add_task(async function test_private_space_locks_on_leaving_and_stays_locked() {
   await WhimsyPrivate.closeScratch(window);
   WhimsyPrivateLock.unlockAll();
   Services.prefs.clearUserPref("whimsy.privateLock.space");
+  Services.prefs.clearUserPref("whimsy.privateLock.askDismissals.space");
 });
 
 add_task(async function test_private_tab_stays_locked_across_spaces_and_keys() {
