@@ -14,6 +14,7 @@ const { WhimsyClaudeShield } = ChromeUtils.importESModule("resource:///modules/w
 const SHIELD = "whimsy.feature.claude-shield";
 const ENABLED = "whimsy.claude.enabled";
 const SPACE = "whimsy.claude.space-id";
+const PORT = "whimsy.claude.port";
 const DIR = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const HIDDEN_PAGE = DIR + "whimsy_claude_hidden.html";
 const INJECTION_PAGE = DIR + "whimsy_claude_injection.html";
@@ -64,7 +65,7 @@ add_setup(async function () {
   registerCleanupFunction(async () => {
     WhimsyClaude.confirmSite = realConfirm;
     const spaceId = Services.prefs.getStringPref(SPACE, "");
-    for (const pref of [ENABLED, SHIELD, SPACE]) {
+    for (const pref of [ENABLED, SHIELD, SPACE, PORT]) {
       Services.prefs.clearUserPref(pref);
     }
     WhimsyClaude.shutdown();
@@ -145,7 +146,7 @@ add_task(async function test_instructions_pause_then_continue() {
   ok(audit.includes("example.com") && audit.includes("whimsy_claude_injection.html"), "naming the page");
 
   is(bar._buttons.length, 2, "Continue and Stop");
-  bar._buttons[0].click();
+  bar._buttons[0].doCommand();
   const result = await reading;
   ok(!result.isError, "Continue lets the read through");
   const body = textOf(result);
@@ -165,7 +166,7 @@ add_task(async function test_instructions_pause_then_stop() {
   const { tabId, tab } = await openInSpace(INJECTION_PAGE);
   const reading = WhimsyClaude.callTool("get_page_text", { tabId });
   const bar = await TestUtils.waitForCondition(() => shieldBar(tab), "The tab asks again in a new tab");
-  bar._buttons[1].click();
+  bar._buttons[1].doCommand();
   const result = await reading;
   ok(result.isError, "Stop refuses the read");
   ok(!textOf(result).includes("evil.example.com"), "and nothing from the page gets out");
@@ -197,7 +198,7 @@ add_task(async function test_tab_titles_are_shielded() {
   await TestUtils.waitForCondition(() => tab.label == evil, "The page set its title");
   const listing = WhimsyClaude.callTool("tabs_list");
   const bar = await TestUtils.waitForCondition(() => shieldBar(tab), "The title pauses Claude");
-  bar._buttons[0].click();
+  bar._buttons[0].doCommand();
   const result = await listing;
   ok(!result.isError, "Continue lets the list through");
   const listed = JSON.parse(textOf(result));
