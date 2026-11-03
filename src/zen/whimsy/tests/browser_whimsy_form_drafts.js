@@ -182,6 +182,104 @@ add_task(async function test_fire_erases_in_scope() {
   ok(!(await IOUtils.exists(WhimsyFormDrafts.path)), "The file is deleted");
 });
 
+// The store-level test above drives forgetSite/forgetAll directly. This one
+// drives the real Fire burn functions (WhimsyFireButton), the same template
+// as test_burn_profile_is_per_profile / test_fire_leaves_nothing_restorable:
+// stub allTabs/profileTabs and the side-effect helpers so the real burn
+// touches at most one extra tab, and prove each scope clears only its own
+// drafts and leaves every other draft alone.
+add_task(async function test_fire_burns_clear_matching_drafts_only() {
+  const mine = WhimsyFireButton.profileId(window);
+  const other = mine + 101;
+  const SITE1 = "https://example.com/?fire-drafts-1";
+  const SITE2 = "https://example.org/?fire-drafts-2";
+
+  async function seedFour() {
+    await WhimsyFormDrafts.put({ url: SITE1, data: draft(), userContextId: mine });
+    await WhimsyFormDrafts.put({ url: SITE1, data: draft(), userContextId: other });
+    await WhimsyFormDrafts.put({ url: SITE2, data: draft(), userContextId: mine });
+    await WhimsyFormDrafts.put({ url: SITE2, data: draft(), userContextId: other });
+  }
+
+  // ---- burnSite: clears SITE1 in every container, leaves SITE2 alone ----
+  await seedFour();
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, SITE1);
+  const originalAllTabs = WhimsyFireButton.allTabs;
+  WhimsyFireButton.allTabs = () => [[window, [tab]]];
+  try {
+    await WhimsyFireButton.burnSite(window);
+    is(await WhimsyFormDrafts.get({ url: SITE1, userContextId: mine }), null,
+      "burnSite: this container's draft on the site is gone");
+    is(await WhimsyFormDrafts.get({ url: SITE1, userContextId: other }), null,
+      "...and another container's draft on the same site");
+    ok(await WhimsyFormDrafts.get({ url: SITE2, userContextId: mine }),
+      "A different site's draft stays, this container");
+    ok(await WhimsyFormDrafts.get({ url: SITE2, userContextId: other }),
+      "...and another container");
+  } finally {
+    WhimsyFireButton.allTabs = originalAllTabs;
+    if (tab.isConnected) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await TestUtils.waitForCondition(() => !tab.isConnected, "The site tab is gone");
+  }
+  await WhimsyFormDrafts.forgetAll();
+
+  // ---- burnProfile: clears only `mine`'s container, on every site ----
+  await seedFour();
+  const originalProfileTabs = WhimsyFireButton.profileTabs;
+  const originalProfileVisits = WhimsyFireButton.profileVisits;
+  const originalClearSiteData = WhimsyFireButton.clearSiteData;
+  const originalRemoveVisit = WhimsyFireButton.removeVisit;
+  WhimsyFireButton.profileTabs = () => [];
+  WhimsyFireButton.profileVisits = async () => [];
+  WhimsyFireButton.clearSiteData = async () => {};
+  WhimsyFireButton.removeVisit = async () => {};
+  try {
+    await WhimsyFireButton.burnProfile(window);
+    is(await WhimsyFormDrafts.get({ url: SITE1, userContextId: mine }), null,
+      "burnProfile: this container's draft is gone");
+    is(await WhimsyFormDrafts.get({ url: SITE2, userContextId: mine }), null,
+      "...on every site it was on");
+    ok(await WhimsyFormDrafts.get({ url: SITE1, userContextId: other }),
+      "Another container's draft on the same site stays");
+    ok(await WhimsyFormDrafts.get({ url: SITE2, userContextId: other }),
+      "...and on a different site");
+  } finally {
+    WhimsyFireButton.profileTabs = originalProfileTabs;
+    WhimsyFireButton.profileVisits = originalProfileVisits;
+    WhimsyFireButton.clearSiteData = originalClearSiteData;
+    WhimsyFireButton.removeVisit = originalRemoveVisit;
+  }
+  await WhimsyFormDrafts.forgetAll();
+
+  // ---- burnEverything: clears every draft, private ones included ----
+  await seedFour();
+  await WhimsyFormDrafts.put({ url: SITE1, data: draft(), userContextId: mine, isPrivate: true });
+  const originalAllTabs2 = WhimsyFireButton.allTabs;
+  const originalClearData = WhimsyFireButton.clearData;
+  const originalClearFormHistory = WhimsyFireButton.clearFormHistory;
+  WhimsyFireButton.allTabs = () => [];
+  WhimsyFireButton.clearData = async () => {};
+  WhimsyFireButton.clearFormHistory = async () => {};
+  try {
+    await WhimsyFireButton.burnEverything(window);
+    for (const userContextId of [mine, other]) {
+      for (const url of [SITE1, SITE2]) {
+        is(await WhimsyFormDrafts.get({ url, userContextId }), null,
+          `burnEverything: ${url} is gone for container ${userContextId}`);
+      }
+    }
+    is(await WhimsyFormDrafts.get({ url: SITE1, userContextId: mine, isPrivate: true }), null,
+      "...the private one too");
+    ok(!(await IOUtils.exists(WhimsyFormDrafts.path)), "The drafts file is gone");
+  } finally {
+    WhimsyFireButton.allTabs = originalAllTabs2;
+    WhimsyFireButton.clearData = originalClearData;
+    WhimsyFireButton.clearFormHistory = originalClearFormHistory;
+  }
+});
+
 add_task(async function test_setting_off_stores_nothing_and_erases() {
   await WhimsyFormDrafts.put({ url: PAGE, data: draft() });
   Services.prefs.setBoolPref(SAVE_PREF, false);
