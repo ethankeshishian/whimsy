@@ -35,6 +35,17 @@ const action = id => globalActions.find(a => a.l10nId == id);
 
 registerCleanupFunction(reset);
 
+// test_settings_switch_is_reachable and test_settings_search_finds_battery_saver
+// open about:preferences, which makes Firefox's own FxAccounts code compute
+// and cache a device name the first time anything reads it. Nothing here
+// cares about Sync, so just restore whatever this pref held before.
+const HAD_DEVICE_NAME = Services.prefs.prefHasUserValue("identity.fxaccounts.account.device.name");
+registerCleanupFunction(() => {
+  if (!HAD_DEVICE_NAME) {
+    Services.prefs.clearUserPref("identity.fxaccounts.account.device.name");
+  }
+});
+
 add_task(async function test_command_registration() {
   const entry = WhimsyCommands.get(COMMAND);
   ok(entry, "Command is registered in WhimsyCommands");
