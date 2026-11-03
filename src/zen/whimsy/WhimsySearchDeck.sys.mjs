@@ -266,8 +266,11 @@ export const WhimsySearchDeck = {
     const reading = this.readResults(serpUrl, { userContextId });
 
     if (this.deckEnabled && win.gZenGlanceManager) {
-      // The results page opens as Enter would; result 1 lands on top of it.
-      win.openTrustedLinkIn(serpUrl, where, { userContextId });
+      // The results page opens as Enter would (selected and focused, not
+      // left in the background): forceForeground matches what Enter's own
+      // urlbar handling passes, where openLinkIn's default favors a
+      // background tab (browser.tabs.loadInBackground).
+      win.openTrustedLinkIn(serpUrl, where, { userContextId, forceForeground: true });
       const parentTab = gBrowser.selectedTab;
       const results = await reading.catch(() => []);
       if (gBrowser.selectedTab != parentTab || parentTab.closing || !win.gZenGlanceManager) {
@@ -289,12 +292,16 @@ export const WhimsySearchDeck = {
     }
     if (!results.length) {
       win.gZenUIManager?.showToast("whimsy-instant-none");
-      win.openTrustedLinkIn(serpUrl, where, { userContextId });
+      win.openTrustedLinkIn(serpUrl, where, { userContextId, forceForeground: true });
       return;
     }
+    // Same reason as above: without forceForeground, a "tab" load (the
+    // command bar's new-tab case, or browser.urlbar.openintab) opens the
+    // result behind the current tab instead of switching to it.
     win.openLinkIn(results[0].url, where, {
       triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
       userContextId,
+      forceForeground: true,
     });
   },
 

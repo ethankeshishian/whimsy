@@ -168,6 +168,31 @@ add_task(async function test_instant_opens_the_top_result() {
   await SpecialPowers.popPrefEnv();
 });
 
+// B8: when Shift+Enter's instant result has to open in a new tab (the
+// command bar's "open in new tab" case, or browser.urlbar.openintab) rather
+// than the current one, that tab is still selected and focused once it's
+// ready, the same as plain Enter would leave it.
+add_task(async function test_instant_focuses_a_new_tab() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [DECK_PREF, false],
+      ["browser.urlbar.openintab", true],
+    ],
+  });
+  // A real page, not about:blank: an empty current tab makes Enter reuse it
+  // instead of opening a new one, which isn't the case this is testing.
+  const start = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  await typeSearch("whimsy focus");
+  const newTabOpened = BrowserTestUtils.waitForNewTab(gBrowser, card(1), true);
+  EventUtils.synthesizeKey("KEY_Enter", { shiftKey: true });
+  const newTab = await newTabOpened;
+  is(gBrowser.selectedTab, newTab, "The newly opened tab is selected, not left behind the one Shift+Enter was pressed from");
+  is(document.activeElement, gBrowser.selectedBrowser, "...and the keyboard is in its content, not stuck in the urlbar");
+  BrowserTestUtils.removeTab(newTab);
+  BrowserTestUtils.removeTab(start);
+  await SpecialPowers.popPrefEnv();
+});
+
 // W10-52: Shift+Enter on "rust lang" showed "No results to flip through"
 // because Google's results page replaces itself on a first visit. Both
 // ways of opening the top result now get past that.
