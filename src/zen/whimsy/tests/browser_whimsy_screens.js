@@ -755,7 +755,10 @@ add_task(async function offline_bangs() {
     );
     await shot("command-bang");
   } finally {
+    // Closing the popup keeps the typed text (and the usertyping state that
+    // hides the page action buttons) on this tab for the next file.
     await UrlbarTestUtils.promisePopupClose(window);
+    gURLBar.handleRevert();
   }
   await BrowserTestUtils.withNewTab("about:preferences#search", async browser => {
     const doc = browser.contentDocument;

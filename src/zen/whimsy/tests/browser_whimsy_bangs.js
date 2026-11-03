@@ -116,6 +116,9 @@ add_task(async function test_command_bar_navigation() {
     await UrlbarTestUtils.promisePopupClose(window);
     await SpecialPowers.popPrefEnv();
   } finally {
+    // Closing the popup keeps what was typed on the window's tab, in the
+    // usertyping state that hides the page action buttons.
+    gURLBar.handleRevert();
     Services.prefs.clearUserPref(CUSTOM);
   }
 });

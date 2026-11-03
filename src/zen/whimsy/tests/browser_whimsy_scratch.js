@@ -83,6 +83,7 @@ add_task(async function test_shortcuts() {
 
   // W8-17: the shortcut opens the private command bar; Enter opens the
   // private tab (browser_whimsy_private_command_bar.js covers the rest).
+  const start = gBrowser.selectedTab;
   EventUtils.synthesizeKey("t", { accelKey: true, altKey: true });
   await TestUtils.waitForCondition(
     () => gURLBar.focused && gURLBar.hasAttribute("whimsy-private"),
@@ -98,6 +99,10 @@ add_task(async function test_shortcuts() {
   ok(tab.linkedBrowser.browsingContext.usePrivateBrowsing, "... that browses privately");
   await TestUtils.waitForCondition(() => !gURLBar.hasAttribute("zen-newtab"), "The bar closed");
   await closeTab(tab);
+  // The private page went to a new tab, so the tab the bar was typed over
+  // keeps its own address, not the private one as unfinished typing.
+  is(start.linkedBrowser.userTypedValue, null, "The starting tab kept nothing typed");
+  ok(!gURLBar.hasAttribute("usertyping"), "Back on it, the address bar isn't mid-edit");
 });
 
 add_task(async function test_private_tab_is_private() {

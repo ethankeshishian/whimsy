@@ -1538,6 +1538,15 @@ export const WhimsyPrivate = {
     return state;
   },
 
+  // The address bar keeps what was typed on the tab it was typed over, and
+  // reverts it only when the load goes elsewhere (UrlbarInput's _loadURL,
+  // where != "current"). A private load turned from "current" into a new
+  // tab has passed that check, so the normal tab would come back showing
+  // the private page's address as unfinished typing.
+  forgetTypedText(browser) {
+    browser.userTypedValue = null;
+  },
+
   hookUrlbarController(win, controller) {
     const self = this;
     const state = this.urlbarState(win);
@@ -1569,6 +1578,7 @@ export const WhimsyPrivate = {
         const target = this.resolveTargetBrowser?.(args.browserId) || win.gBrowser.selectedBrowser;
         if (!self.isPrivateBrowser(target)) {
           where = "tab";
+          self.forgetTypedText(target);
         }
       }
       // A new window is a private window, and principals carry the
@@ -1606,6 +1616,7 @@ export const WhimsyPrivate = {
           const target = this.resolveTargetBrowser?.(args[browserAt]) || win.gBrowser.selectedBrowser;
           if (!self.isPrivateBrowser(target)) {
             where = "tab";
+            self.forgetTypedText(target);
           }
         }
         args[whereAt] = where;
