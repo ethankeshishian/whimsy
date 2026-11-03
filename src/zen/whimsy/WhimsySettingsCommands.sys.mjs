@@ -198,6 +198,10 @@ export const SETTINGS = [
       { value: 900, l10nId: "whimsy-private-lock-after-15m" },
       { value: 3600, l10nId: "whimsy-private-lock-after-1h" },
     ] },
+  // C2: Lock as Soon as I Leave has its own command (Lock as Soon as I
+  // Leave On/Off), so the generic toggle stays out of the bar.
+  { name: "private-lock-on-leave", setting: "whimsyPrivateLockOnLeave", pref: "whimsy.privateLock.onLeave",
+    feature: ["private-lock"], command: ["cmd_whimsyTogglePrivateLockOnLeave"] },
   { name: "private-lock-sharing", setting: "whimsyPrivateLockSharing", pref: "whimsy.privateLock.stayUnlockedWhileSharing",
     feature: ["private-lock"] },
   // "Set Up VPN" (cmd_whimsyVPNToggle) already turns it on, so the command
