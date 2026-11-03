@@ -613,6 +613,7 @@ add_task(async function test_w10_58_fire_confirms_at_once() {
   await failing;
   const failed = currentToast();
   is(failed.messageId, "whimsy-fire-failed-title", "and a failure replaces it");
+  await failed.shown;
   const retry = failed.element.querySelector(".whimsy-toast-button");
   is(document.l10n.getAttributes(retry.querySelector(".whimsy-toast-button-label")).id, "whimsy-fire-retry", "with Try Again");
   retry.click();
