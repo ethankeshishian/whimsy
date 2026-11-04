@@ -833,6 +833,7 @@ export const WhimsyQuickWindow = {
     this.watchPage(win);
     this.watchTabs(win);
     this.watchMiniKeys(win);
+    this.watchOpenLocation(win);
     this.watchToolbarExtensions(win);
     const rememberSize = () => {
       // The bar-only panel's size is Arc's fixed one, not Mini's.
@@ -1068,6 +1069,18 @@ export const WhimsyQuickWindow = {
   },
 
   openCommandBar(win) {
+    this.prepareCommandBar(win);
+    const command = win.document.getElementById("Browser:OpenLocation");
+    if (command) {
+      command.doCommand();
+    } else {
+      win.gURLBar?.select();
+    }
+  },
+
+  // Every way into Mini's command bar (the address, Cmd+T, Cmd+L: Firefox's
+  // Open Location) gets it ready first.
+  prepareCommandBar(win) {
     this.keepResultsInMini(win);
     // W10-27: a bar still animating out finishes hiding first, or its hide
     // would undo the reveal below.
@@ -1080,12 +1093,15 @@ export const WhimsyQuickWindow = {
       // in Mini, and focusing a hidden input cannot open its popover.
       win.gURLBar.setAttribute("breakout-extend", "true");
     }
-    const command = win.document.getElementById("Browser:OpenLocation");
-    if (command) {
-      command.doCommand();
-    } else {
-      win.gURLBar?.select();
-    }
+  },
+
+  // W14-13: Cmd+L runs Browser:OpenLocation directly; prepare before it.
+  watchOpenLocation(win) {
+    win.document.addEventListener("command", event => {
+      if (event.target?.id == "Browser:OpenLocation") {
+        this.prepareCommandBar(win);
+      }
+    }, { capture: true });
   },
 
   // The traffic lights (macOS) or caption buttons live in Zen's sidebar,

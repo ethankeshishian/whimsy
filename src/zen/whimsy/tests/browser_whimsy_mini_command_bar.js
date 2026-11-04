@@ -118,6 +118,31 @@ add_task(async function test_cmd_t_one_page_mini_opens_the_command_bar() {
   }
 });
 
+// W14-13: Cmd+L (Firefox's Open Location) opens the same floating command
+// bar as clicking the address: it takes focus, typing reaches it, and Esc
+// closes it.
+add_task(async function test_cmd_l_opens_the_floating_command_bar() {
+  const win = await openMini();
+  try {
+    win.gURLBar.blur();
+    win.gBrowser.selectedBrowser.focus();
+    await TestUtils.waitForCondition(() => !win.gURLBar.focused, "The page has the focus");
+    EventUtils.synthesizeKey("l", { accelKey: true }, win);
+    await TestUtils.waitForCondition(() => win.gURLBar.focused, "Cmd+L focuses Mini's command bar");
+    is(win.gURLBar.getAttribute("zen-floating-urlbar"), "true", "...floating, as from the address");
+    ok(win.gURLBar.hasAttribute("breakout-extend"), "...revealed, not a hidden input");
+    ok(!win.gURLBar.readOnly, "...and editable");
+    EventUtils.sendString("example", win);
+    is(win.gURLBar.value, "example", "Typing reaches the command bar");
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    await TestUtils.waitForCondition(() => !win.gURLBar.hasAttribute("zen-floating-urlbar"), "Esc closes it");
+    ok(!win.closed, "Mini stays open");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+  }
+});
+
 add_task(async function test_switch_to_tab_opens_the_page_in_mini() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/");
   const win = await openMini();
