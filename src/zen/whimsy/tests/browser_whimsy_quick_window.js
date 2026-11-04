@@ -152,8 +152,10 @@ add_task(async function test_cmd_shift_o_and_caret_open_the_space_dropdown() {
   ok(doc.getElementById("whimsy-quick-window-address").checkVisibility(), "Address strip stays visible");
   const rows = [...popup.querySelectorAll(".whimsy-mini-picker-space")];
   const spaces = gZenWorkspaces.getWorkspaces().filter(space => !space.whimsyScratch);
-  Assert.deepEqual(rows.map(row => row.getAttribute("zen-workspace-id")), spaces.map(space => space.uuid),
-    "One row per space, in sidebar order, not grouped");
+  const activeId = gZenWorkspaces.activeWorkspace;
+  Assert.deepEqual(rows.map(row => row.getAttribute("zen-workspace-id")),
+    [activeId, ...spaces.map(space => space.uuid).filter(id => id != activeId)],
+    "One row per space, the current one first then sidebar order, not grouped");
   ok(rows.every(row => row.querySelector(".whimsy-mini-picker-icon")?.getAttribute("src")), "Every row has an icon or colour dot");
   const current = rows.find(row => row.getAttribute("zen-workspace-id") == gZenWorkspaces.activeWorkspace);
   ok(current?.hasAttribute("default"), "The current space is the one ⌘O uses");

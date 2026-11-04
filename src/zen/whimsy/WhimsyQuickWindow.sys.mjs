@@ -539,6 +539,10 @@ export const WhimsyQuickWindow = {
     if (preferred && !preferred.closed && !preferred._whimsyQuickWindow) {
       return preferred;
     }
+    const top = lazy.BrowserWindowTracker.getTopWindow();
+    if (top && !top.closed && !top._whimsyQuickWindow && top.gBrowser) {
+      return top;
+    }
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
       if (!win.closed && !win._whimsyQuickWindow && win.gBrowser) {
         return win;
@@ -1974,7 +1978,7 @@ export const WhimsyQuickWindow = {
 
   // W10-29 / F19 (Arc parity, the user's pick): ⌘⇧O, or the caret, turns
   // the "Open in Space" pill into a search field, and the spaces drop down
-  // under it: one flat list in sidebar order (not grouped by profile), each with
+  // under it: one flat list, the current space first and the rest in sidebar order (not grouped by profile), each with
   // its icon on a tile of its colour, its name, and its profile as a small
   // trailing label; ⌘O marks the space Open uses. Typing filters by space
   // or profile name (accents and case don't matter) and bolds the match;
@@ -2080,10 +2084,14 @@ export const WhimsyQuickWindow = {
     const empty = panel.querySelector(".whimsy-mini-picker-empty");
     const status = panel.querySelector(".whimsy-mini-picker-status");
 
-    // Rows, in sidebar order.
+    // Rows: the current space first, then the rest in sidebar order.
     const defaultId = this.defaultSpaceId(win);
+    const ordered = [
+      ...spaces.filter(space => space.uuid == defaultId),
+      ...spaces.filter(space => space.uuid != defaultId),
+    ];
     const fold = text => String(text ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-    const rows = spaces.map((space, i) => {
+    const rows = ordered.map((space, i) => {
       const row = html("div");
       row.id = `whimsy-mini-picker-space-${i}`;
       row.className = "whimsy-mini-picker-space";
