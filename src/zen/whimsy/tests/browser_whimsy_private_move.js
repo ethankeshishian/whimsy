@@ -238,3 +238,50 @@ add_task(async function test_locked_target_cancelled_moves_nothing() {
     await gZenWorkspaces.removeWorkspace(space.uuid);
   }
 });
+
+// W14: a hidden space appears only in Show Hidden Spaces, so Move Out of
+// Private doesn't offer it; unhidden, it's an ordinary choice again.
+add_task(async function test_hidden_spaces_are_not_offered() {
+  const { WhimsySpaceArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs");
+  const secret = await gZenWorkspaces.createAndSaveWorkspace("Secret", undefined, true);
+  await gZenWorkspaces.changeWorkspaceWithID(firstSpace.uuid);
+  await WhimsySpaceArchive.toggleHidden(window, secret.uuid);
+  const stored = () => gZenWorkspaces.getWorkspaces().find(w => w.uuid == secret.uuid);
+  await TestUtils.waitForCondition(() => stored()?.whimsyHidden, "Secret is hidden");
+  closeToasts();
+  const url = uniqueURL("hidden");
+  const priv = WhimsyPrivate.openPrivateTab(window, { url });
+  try {
+    await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url, "The private page loaded");
+    gBrowser.selectedTab = priv;
+    ok(WhimsyPrivateMove.isPrivateTab(window, priv), "A private tab");
+    const menu = document.getElementById("tabContextMenu");
+    const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
+    EventUtils.synthesizeMouseAtCenter(priv, { type: "contextmenu", button: 2 }, window);
+    await shown;
+    let closed = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
+    menu.activateItem(document.getElementById("context_whimsyMoveOutOfPrivate"));
+    await closed;
+    let panel = await waitForPanel(window);
+    ok(spaceRow(panel, target.uuid), "A visible space is offered");
+    ok(!spaceRow(panel, secret.uuid), "The hidden space isn't");
+    ok(![...panel.querySelectorAll(".whimsy-private-move-caption")].some(c => c.textContent == "Hidden"), "...nor a Hidden group");
+    closed = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await closed;
+
+    WhimsySpaceArchive.restore(window, secret.uuid);
+    await TestUtils.waitForCondition(() => !stored()?.whimsyHidden, "Secret is shown again");
+    closeToasts();
+    gBrowser.selectedTab = priv;
+    document.getElementById("cmd_whimsyMoveOutOfPrivate").doCommand();
+    panel = await waitForPanel(window);
+    ok(spaceRow(panel, secret.uuid), "Unhidden, it's offered like any space");
+    closed = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await closed;
+  } finally {
+    BrowserTestUtils.removeTab(priv, { animate: false });
+    await gZenWorkspaces.removeWorkspace(secret.uuid);
+  }
+});

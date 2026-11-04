@@ -20,8 +20,8 @@
 //   same name move THAT tab, from a private window or a private tab in a
 //   normal window (Private Space or a private tab, d13).
 // - Step 1, a WhimsySurface: "Move to a space", spaces in switcher order
-//   (grouped by profile when there's more than one), hidden ones last,
-//   locked ones marked. Step 2 asks first (d12): "Move this tab to
+//   (grouped by profile when there's more than one), never hidden ones
+//   (only Show Hidden Spaces lists those), locked ones marked. Step 2 asks first (d12): "Move this tab to
 //   “Work”?" with what it means (it opens again outside private browsing,
 //   in that space's profile, and goes into history; you may need to sign
 //   in again). Esc in step 2 goes back.
@@ -122,11 +122,10 @@ export const WhimsyPrivateMove = {
     return lazy.BrowserWindowTracker.getTopWindow({ private: false, allowPopups: false }) ?? null;
   },
 
-  // Every space in switcher order, hidden ones last; never the Private Space.
+  // Every space in switcher order; never the Private Space or a hidden one.
   spaces(win) {
     const source = this.targetWindow() ?? win;
-    const all = (source.gZenWorkspaces?.getWorkspaces?.() ?? []).filter(space => !space.whimsyScratch);
-    return [...all.filter(space => !space.whimsyHidden), ...all.filter(space => space.whimsyHidden)];
+    return (source.gZenWorkspaces?.getWorkspaces?.() ?? []).filter(space => !space.whimsyScratch && !space.whimsyHidden);
   },
 
   profileName(space) {
@@ -245,16 +244,12 @@ export const WhimsyPrivateMove = {
     const manyProfiles = lazy.WhimsyProfiles.list().length > 1;
     let lastGroup = null;
     spaces.forEach((space, index) => {
-      const group = space.whimsyHidden ? "hidden" : manyProfiles ? `profile:${this.profileName(space)}` : null;
+      const group = manyProfiles ? this.profileName(space) : null;
       if (group && group != lastGroup) {
         const caption = doc.createElementNS(HTML_NS, "div");
         caption.className = "whimsy-private-move-caption";
         caption.setAttribute("role", "presentation");
-        if (group == "hidden") {
-          doc.l10n.setAttributes(caption, "whimsy-private-move-hidden");
-        } else {
-          caption.textContent = this.profileName(space);
-        }
+        caption.textContent = group;
         list.append(caption);
       }
       lastGroup = group;

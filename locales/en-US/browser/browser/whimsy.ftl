@@ -4843,7 +4843,6 @@ whimsy-private-move-title = Move to a space
 whimsy-private-move-filter =
     .placeholder = Find a space
     .aria-label = Find a space
-whimsy-private-move-hidden = Hidden
 whimsy-private-move-hint = The page opens again in that space. Private sign-ins, cookies and history stay behind.
 # $count (number) - tabs to move; $space (string) - the space's name
 whimsy-private-move-confirm-title = { $count ->
