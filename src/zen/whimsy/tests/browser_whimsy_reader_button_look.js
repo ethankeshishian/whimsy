@@ -5,7 +5,7 @@
 
 // W13 F12 (wave12 F12, option A, styled like Whimsy): the Reader View
 // button looks different on and off. Off: the outline glyph, no fill. On:
-// the filled glyph in the space's colour on an 18% tint of it. Driven with
+// the filled glyph on the zoom button's neutral pill (W14 18c). Driven with
 // real clicks on the button (into Reader View and out again); the look is
 // read from computed styles.
 
@@ -41,8 +41,8 @@ add_task(async function test_on_and_off_look_different() {
 
   const offImage = getComputedStyle(icon()).listStyleImage;
   ok(!offImage.includes("reader-on.svg"), `Off: the outline glyph (${offImage})`);
-  isnot(getComputedStyle(button()).backgroundColor, resolved("background-color",
-    "color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent)"), "Off: no tint");
+  const zoomPill = () => getComputedStyle(document.getElementById("urlbar-zoom-button")).backgroundColor;
+  info(`Off: ${getComputedStyle(button()).backgroundColor}; the zoom button's pill: ${zoomPill()}`);
 
   // Into Reader View with a real click.
   const entered = BrowserTestUtils.waitForContentEvent(tab.linkedBrowser, "AboutReaderContentReady", false, null, true);
@@ -51,10 +51,13 @@ add_task(async function test_on_and_off_look_different() {
   await TestUtils.waitForCondition(() => button().hasAttribute("readeractive"), "Reader View is on");
   // Away from the button, so hover doesn't add its layer.
   EventUtils.synthesizeMouseAtCenter(document.getElementById("urlbar-input"), { type: "mousemove" });
-  const tint = resolved("background-color", "color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent)");
-  await TestUtils.waitForCondition(() => getComputedStyle(button()).backgroundColor == tint, "On: the space colour at 18%");
+  const tint = zoomPill();
+  await TestUtils.waitForCondition(() => getComputedStyle(button()).backgroundColor == tint,
+    "On: the zoom button's neutral pill");
+  isnot(tint, resolved("background-color", "color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent)"),
+    "...not the space's colour");
   ok(getComputedStyle(icon()).listStyleImage.includes("reader-on.svg"), "On: the filled glyph");
-  is(getComputedStyle(icon()).fill, resolved("color", "var(--zen-primary-color, AccentColor)"), "...in the space's colour");
+  is(getComputedStyle(icon()).fill, getComputedStyle(icon()).color, "...in the text colour");
   is(getComputedStyle(icon()).animationName, "whimsy-reader-on", "...popping in once");
   const before = button().getBoundingClientRect().width;
 
