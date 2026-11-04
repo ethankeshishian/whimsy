@@ -2698,12 +2698,13 @@
       window.addEventListener("online", () => {
         onlineNotice.hidden = false;
       });
-      // F27-B12: a reconnect reported as a bare link "changed" (no clean
-      // down/up pair) never flips the window's own online/offline state,
-      // so WhimsyNetErrorChild checks the network link service directly
-      // and sends this instead.
+      // The OS can miss a reconnect (or report a link with no internet), so
+      // the parent checks that a page really loads and says which it is.
       document.addEventListener("WhimsyGame:BackOnline", () => {
         onlineNotice.hidden = false;
+      });
+      document.addEventListener("WhimsyGame:Offline", () => {
+        onlineNotice.hidden = true;
       });
       // F27: the game only takes over an offline error page, so a page that
       // is online by the time the game starts (the network came back

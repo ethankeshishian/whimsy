@@ -55,10 +55,20 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
         container.prepend(brand);
       }
     }
-    // Never distract from a certificate warning with a game invitation.
-    if (doc.documentURI.startsWith("about:neterror?") &&
-        Services.prefs.getBoolPref("whimsy.feature.game", true) &&
-        !doc.getElementById(LINK_ID)) {
+    // The game is only for a tab's network errors: never on a certificate
+    // warning or another error, and never in a note or Easel block.
+    if (this.errorCode() && Services.prefs.getBoolPref("whimsy.feature.game", true) && !this.checkingTab) {
+      this.checkingTab = true;
+      this.sendQuery("WhimsyNetError:InTab").then(inTab => {
+        if (inTab && this.document == doc) {
+          this.offerGame(doc);
+        }
+      }, () => {});
+    }
+  }
+
+  offerGame(doc) {
+    if (!doc.getElementById(LINK_ID)) {
       this.addStyle(doc.head);
       const button = doc.createElement("button");
       button.id = LINK_ID;
@@ -67,7 +77,7 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
       button.addEventListener("click", () => this.sendAsyncMessage("WhimsyNetError:PlayGame"));
       doc.body.append(button);
     }
-    if (this.isOffline() && Services.prefs.getBoolPref("whimsy.feature.game", true) && !this.listening) {
+    if (this.isOffline() && !this.listening) {
       this.listening = true;
       doc.addEventListener("keydown", this, true);
       // Tapping the deflated balloon (the container's ::before) works too.
@@ -75,13 +85,20 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
     }
   }
 
-  isOffline() {
+  // The error code when this is a network error page (offline, DNS,
+  // connection), else null.
+  errorCode() {
     const doc = this.document;
-    if (!doc.documentURI.startsWith("about:neterror?")) {
-      return false;
+    if (!doc?.documentURI.startsWith("about:neterror?")) {
+      return null;
     }
     const error = new URLSearchParams(doc.documentURI.slice("about:neterror?".length)).get("e");
-    return error == "netOffline" || (OFFLINE_ERRORS.includes(error) && !this.contentWindow.navigator.onLine);
+    return error == "netOffline" || OFFLINE_ERRORS.includes(error) ? error : null;
+  }
+
+  isOffline() {
+    const error = this.errorCode();
+    return error == "netOffline" || (!!error && !this.contentWindow.navigator.onLine);
   }
 
   // Space or an arrow key turns the page into the game in place - unless
@@ -132,13 +149,18 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
     }
   }
 
-  // The real network link service (and its "changed" notification, sent
-  // when a reconnect never looked like a clean down/up pair to the OS) only
-  // exists in the parent - content processes are sandboxed away from it.
-  // The parent actor watches it and messages this when it's actually back.
+  // The parent checks that a page really loads (the OS's link state can
+  // stay "up" with no internet, or miss the reconnect) and says so here.
   receiveMessage(message) {
-    if (message.name == "WhimsyNetError:BackOnline") {
-      this.document?.dispatchEvent(new this.contentWindow.Event("WhimsyGame:BackOnline"));
+    if (message.name == "WhimsyNetError:BackOnline" || message.name == "WhimsyNetError:Offline") {
+      this.connection = message.name == "WhimsyNetError:BackOnline";
+      this.tellGame();
+    }
+  }
+
+  tellGame() {
+    if (this.connection !== undefined) {
+      this.document?.dispatchEvent(new this.contentWindow.Event(this.connection ? "WhimsyGame:BackOnline" : "WhimsyGame:Offline"));
     }
   }
 
@@ -181,6 +203,8 @@ export class WhimsyNetErrorChild extends JSWindowActorChild {
     link.href = `${BASE}whimsy-game.css`;
     doc.head.append(link);
     const script = doc.createElement("script");
+    // What the connection check found before the game was listening.
+    script.addEventListener("load", () => this.tellGame(), { once: true });
     script.src = `${BASE}whimsy-game.js`;
     doc.head.append(script);
   }

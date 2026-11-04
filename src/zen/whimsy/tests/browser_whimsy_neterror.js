@@ -3,6 +3,12 @@
 
 "use strict";
 
+const { WhimsyNetProbe } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNetErrorParent.sys.mjs");
+const realCheck = WhimsyNetProbe.check;
+// No real network: the connection check has no opinion unless a test says.
+WhimsyNetProbe.check = async () => null;
+registerCleanupFunction(() => (WhimsyNetProbe.check = realCheck));
+
 async function withWhimsyError(error, test, certificate = false) {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   const browser = tab.linkedBrowser;
@@ -499,44 +505,90 @@ add_task(async function online_notice_when_really_back_online() {
   }
 });
 
-// B12: a real reconnect is commonly reported by the OS as a bare link
-// "changed" notification, not a clean down/up pair (the link itself never
-// looked down - only the IP lease or routing changed on reassociation).
-// That never flips nsIOService's own cached connectivity flag, so the
-// window "online" event the game used to rely on alone never fires, and
-// the back-online notice stays hidden forever even though the network
-// genuinely is back (bug: it keeps dashing, just never says so). This
-// drives the real nsIObserverService notification a network link service
-// would send - not the game's handler, and not the online/offline-only
-// testing shortcut (setConnectivityForTesting) the earlier fixes used.
-add_task(async function back_online_notice_on_changed_link_notification() {
+// 21.11: the OS's link state can stay up with no internet (or miss the
+// reconnect), so "back online" comes from a page that really loads: the
+// parent checks the captive-portal page on network events and every few
+// seconds, and the notice follows what that check finds, both ways.
+add_task(async function back_online_notice_follows_a_real_check() {
   await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
-  Services.io.setConnectivityForTesting(false);
+  const interval = WhimsyNetProbe.intervalMs;
+  WhimsyNetProbe.intervalMs = 100;
+  let online = false;
+  let checks = 0;
+  WhimsyNetProbe.check = async () => {
+    checks++;
+    return online;
+  };
   try {
-    await withWhimsyError("dnsNotFound", async browser => {
+    await withWhimsyError("netOffline", async browser => {
       await prepare(browser);
-      ok(await SpecialPowers.spawn(browser, [], () => !content.navigator.onLine), "Offline at load (dnsNotFound)");
       await BrowserTestUtils.synthesizeKey(" ", {}, browser);
-      is((await gameState(browser, true)).state, "running", "dnsNotFound: the error page is the game");
+      is((await gameState(browser, true)).state, "running", "The error page is the game");
+      await TestUtils.waitForCondition(() => checks > 0, "The parent checks the connection while the game plays");
       await SpecialPowers.spawn(browser, [], () =>
-        ok(content.document.getElementById("whimsy-game-online-notice").hidden, "No notice yet while offline"));
-
-      Services.obs.notifyObservers(null, "network:link-status-changed", "changed");
-
-      // The "changed" data never touches nsIOService's own connectivity
-      // flag or fires "online" - confirm this scenario really doesn't
-      // depend on that event, then wait for the notice via the real
-      // network link service query instead.
-      await SpecialPowers.spawn(browser, [], () => !content.navigator.onLine);
+        ContentTaskUtils.waitForCondition(() => content.document.getElementById("whimsy-game-online-notice").hidden,
+          "No notice while the check fails, even when the page thinks it's online"));
+      online = true;
       await SpecialPowers.spawn(browser, [], () =>
         ContentTaskUtils.waitForCondition(() => {
           const notice = content.document.getElementById("whimsy-game-online-notice");
           return notice && !notice.hidden && notice.checkVisibility();
-        }, "Back online (changed-only link notification), the notice shows"));
+        }, "The check passes with no network event: the notice shows"));
+      online = false;
+      Services.obs.notifyObservers(null, "network:link-status-changed", "changed");
+      await SpecialPowers.spawn(browser, [], () =>
+        ContentTaskUtils.waitForCondition(() => content.document.getElementById("whimsy-game-online-notice").hidden,
+          "The connection drops again: the notice goes"));
     });
+    const before = checks;
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(resolve => setTimeout(resolve, 400));
+    is(checks, before, "Closing the page stops the checks");
   } finally {
-    Services.obs.notifyObservers(null, "network:link-status-changed", "up");
-    Services.io.setConnectivityForTesting(true);
+    WhimsyNetProbe.intervalMs = interval;
+    WhimsyNetProbe.check = async () => null;
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// 16: the game is for a tab's network errors only: not other errors, and
+// not an error page in a note or Easel block.
+add_task(async function game_only_in_tabs_and_for_network_errors() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  try {
+    await withWhimsyError("blockedByCOOP", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      ok(!(await gameState(browser, false)).embedded, "Not for an error that isn't about the network");
+      ok(!(await SpecialPowers.spawn(browser, [], () => !!content.document.getElementById("whimsy-neterror-game-link"))),
+        "and no invitation");
+    });
+    const block = document.createXULElement("browser");
+    block.setAttribute("type", "content");
+    block.setAttribute("remote", "true");
+    block.setAttribute("maychangeremoteness", "true");
+    block.setAttribute("messagemanagergroup", "whimsy-note-blocks");
+    block.style.width = block.style.height = "400px";
+    document.documentElement.append(block);
+    try {
+      const url = `about:neterror?e=netOffline&u=${encodeURIComponent("https://example.com/")}&d=x`;
+      const loaded = BrowserTestUtils.waitForErrorPage(block);
+      block.loadURI(Services.io.newURI("https://example.com/"), {
+        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+      });
+      await BrowserTestUtils.browserLoaded(block);
+      await SpecialPowers.spawn(block, [url], u => { content.location = u; });
+      await loaded;
+      await SpecialPowers.spawn(block, [], async () => {
+        await ContentTaskUtils.waitForCondition(() => content.document.getElementById("whimsy-neterror-brand"), "Branded");
+        // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+        await new Promise(resolve => content.setTimeout(resolve, 300));
+        ok(!content.document.getElementById("whimsy-neterror-game-link"), "No game invitation in a note block");
+      });
+    } finally {
+      block.remove();
+    }
+  } finally {
     await SpecialPowers.popPrefEnv();
   }
 });

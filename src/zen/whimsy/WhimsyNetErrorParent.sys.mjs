@@ -5,25 +5,63 @@
 // Parent half of WhimsyNetErrorChild: navigating a privileged page away from
 // about:neterror needs chrome privilege, so the child only sends a message
 // and this opens whimsy://game's real page (about:whimsy?game) in the
-// current tab, the same way WhimsyProtocol.go() does for the address bar.
+// error page's own tab, the same way WhimsyProtocol.go() does for the
+// address bar.
 
-// B12: nsINetworkLinkService (and the "network:link-status-changed" topic
-// it fires) only exists in the parent process; a reconnect reported as a
-// bare "changed" - no clean down/up pair, e.g. the link itself never
-// looked down, only the IP lease changed on reassociation - never flips
-// nsIOService's own cached connectivity, so the window "online" event the
-// game listens for never fires downstream. isLinkUp is queried live here
-// instead of trusting that cached flag, and the result is pushed to content.
-const NETWORK_LINK_TOPIC = "network:link-status-changed";
+import { clearInterval, clearTimeout, setInterval, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+
+// While the game plays on an error page, "back online" means a page really
+// loads: the OS's link state can stay up with no internet (and on macOS
+// isLinkUp is only the cached reachability flag), so a check of the
+// captive-portal page, the one Firefox and macOS use, decides. Network
+// events check at once; a poll every 5s catches a reconnect nobody reported.
+const CHECK_TOPICS = [
+  "network:link-status-changed",
+  "network:offline-status-changed",
+  "network:connectivity-service:ip-checks-complete",
+  "network:connectivity-service:dns-checks-complete",
+];
+
+export const WhimsyNetProbe = {
+  intervalMs: 5000,
+  timeoutMs: 4000,
+
+  // true when the check page loads as expected, false when it doesn't.
+  async check() {
+    const url = Services.prefs.getStringPref("captivedetect.canonicalURL", "");
+    if (!url || Services.io.offline) {
+      return !url ? null : false;
+    }
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(url, {
+        cache: "no-store",
+        credentials: "omit",
+        redirect: "manual",
+        signal: abort.signal,
+      });
+      if (!response.ok) {
+        return false;
+      }
+      const expected = Services.prefs.getStringPref("captivedetect.canonicalContent", "");
+      return !expected || (await response.text()) == expected;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+};
 
 export class WhimsyNetErrorParent extends JSWindowActorParent {
   receiveMessage(message) {
     if (message.name == "WhimsyNetError:WatchConnectivity") {
-      if (!this._linkObserver) {
-        this._linkObserver = () => this.onNetworkLink();
-        Services.obs.addObserver(this._linkObserver, NETWORK_LINK_TOPIC);
-      }
+      this.watch();
       return;
+    }
+    if (message.name == "WhimsyNetError:InTab") {
+      return !!this.tabBrowser();
     }
     // The game, embedded in the offline error page, saves its high score,
     // look and sound choice through here (content can't write prefs).
@@ -43,32 +81,67 @@ export class WhimsyNetErrorParent extends JSWindowActorParent {
         !this.manager.documentURI.spec.startsWith("about:neterror?")) {
       return;
     }
-    const browser = this.browsingContext.top.embedderElement;
-    const win = browser?.documentGlobal;
-    win?.openTrustedLinkIn("about:whimsy?game", "current");
+    const browser = this.tabBrowser();
+    browser?.documentGlobal.openTrustedLinkIn("about:whimsy?game", "current", { targetBrowser: browser });
   }
 
-  onNetworkLink() {
-    let isUp;
-    try {
-      isUp = Cc["@mozilla.org/network/network-link-service;1"]
-        .getService(Ci.nsINetworkLinkService).isLinkUp;
-    } catch {
+  // The tab's browser when this error page is a tab's page (not a note or
+  // Easel block, or a hidden page).
+  tabBrowser() {
+    if (this.browsingContext != this.browsingContext.top) {
+      return null;
+    }
+    const browser = this.browsingContext.embedderElement;
+    if (browser?.getAttribute("messagemanagergroup") != "browsers") {
+      return null;
+    }
+    return browser.documentGlobal?.gBrowser?.getTabForBrowser(browser) ? browser : null;
+  }
+
+  watch() {
+    if (this._observer) {
       return;
     }
-    if (isUp) {
-      try {
-        this.sendAsyncMessage("WhimsyNetError:BackOnline");
-      } catch {
-        // The content side may already be gone.
-      }
+    this._observer = () => this.check();
+    for (const topic of CHECK_TOPICS) {
+      Services.obs.addObserver(this._observer, topic);
+    }
+    this._timer = setInterval(() => this.check(), WhimsyNetProbe.intervalMs);
+    this.check();
+  }
+
+  async check() {
+    if (this._checking) {
+      this._again = true;
+      return;
+    }
+    this._checking = true;
+    try {
+      do {
+        this._again = false;
+        const online = await WhimsyNetProbe.check();
+        if (!this._observer || online === null || online === this._online) {
+          continue;
+        }
+        this._online = online;
+        try {
+          this.sendAsyncMessage(online ? "WhimsyNetError:BackOnline" : "WhimsyNetError:Offline");
+        } catch {
+          // The page is gone.
+        }
+      } while (this._again && this._observer);
+    } finally {
+      this._checking = false;
     }
   }
 
   didDestroy() {
-    if (this._linkObserver) {
-      Services.obs.removeObserver(this._linkObserver, NETWORK_LINK_TOPIC);
-      this._linkObserver = null;
+    if (this._observer) {
+      for (const topic of CHECK_TOPICS) {
+        Services.obs.removeObserver(this._observer, topic);
+      }
+      this._observer = null;
     }
+    clearInterval(this._timer);
   }
 }
