@@ -1208,6 +1208,13 @@ whimsy-vpn-urlbar-elsewhere =
 whimsy-vpn-urlbar-panel =
     .tooltiptext = Open Firefox IP Protection: location, usage and VPN rules
     .aria-label = Firefox IP Protection panel
+# W14 4: a call can't connect through the VPN (Firefox turns off direct
+# connections for calls on pages it carries).
+whimsy-vpn-call-title = Pause VPN for this call?
+whimsy-vpn-call-detail = Calls can’t connect through Firefox IP Protection. The page reloads without it, and the VPN is back on for this site when the call ends.
+whimsy-vpn-call-pause = Pause VPN
+whimsy-vpn-call-keep = Keep On
+whimsy-vpn-call-paused = VPN paused on { $host } until the call ends
 ## B: the row in This Site (the site panel).
 whimsy-vpn-site-name = Firefox IP Protection
 whimsy-vpn-site-setup = Sign in with a Mozilla account to turn it on
@@ -2398,6 +2405,7 @@ whimsy-action-devmode-on = Turn Developer Mode On for This Site
 whimsy-action-devmode-off = Turn Developer Mode Off for This Site
 whimsy-action-vpn-toggle = Turn VPN On or Off
 whimsy-action-vpn-panel = Open Firefox IP Protection Panel
+whimsy-action-vpn-pause-call = Pause VPN for This Call
 whimsy-action-allow-copy-toggle = Allow or Stop Allowing Copy and Paste
 whimsy-action-join-next-meeting = Join Next Meeting
 whimsy-action-snooze-tab = Snooze Tab…

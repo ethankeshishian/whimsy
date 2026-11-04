@@ -40,6 +40,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPProxyStates:
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
+  IPPSiteRuleManager:
+    "moz-src:///toolkit/components/ipprotection/IPPSiteRuleManager.sys.mjs",
+  NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
+  webrtcUI: "resource:///modules/webrtcUI.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -55,6 +59,10 @@ const URLBAR_ID = "whimsy-vpn-urlbar";
 const TOGGLE_ID = "whimsy-vpn-urlbar-toggle";
 const CHEVRON_ID = "whimsy-vpn-urlbar-chevron";
 const PANEL_ICON = "chrome://browser/skin/zen-icons/selectable/location.svg";
+const CALL_ICON = "chrome://browser/skin/zen-icons/selectable/video.svg";
+const CALL_TOAST = "whimsy-vpn-call";
+const RULE_PERM = "ipp-vpn";
+const FORCE_PROXY_PREF = "media.peerconnection.ice.proxy_only_if_behind_proxy";
 const SECTION_ID = "whimsy-vpn-site-section";
 const SITE_PANEL_ID = "zen-unified-site-data-panel";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -630,6 +638,195 @@ export const WhimsyVPN = {
     update();
   },
 
+  // ---- W14 4: calls and the VPN ----
+  //
+  // While Firefox's VPN is on it sets FORCE_PROXY_PREF (bug 2026571, so
+  // WebRTC can't leak the real address): a page loaded through the proxy
+  // gets no UDP or direct candidates, only TURN over TCP, and Meet and most
+  // call sites can't connect (bug 1863984). When a call starts on such a
+  // page, Whimsy asks to pause the VPN for that call: a session-only "don't
+  // use the VPN" rule for the site (Firefox's own ipp-vpn site rule), a
+  // reload so the page and the call connect directly (the choice is read
+  // when the call is created), and the rule taken back off when the call
+  // ends, the tab leaves the site or closes.
+
+  _calls: new WeakSet(),
+  _declined: new WeakMap(),
+  _paused: new Map(),
+
+  // Whether a call on this tab's page can't connect because of the VPN.
+  callBlocked(browser) {
+    if (!this.wrapperEnabled || !Services.prefs.getBoolPref(FORCE_PROXY_PREF, false) ||
+      lazy.IPPProxyManager.state != lazy.IPPProxyStates.ACTIVE) {
+      return false;
+    }
+    const principal = browser?.contentPrincipal;
+    const filter = lazy.IPPProxyManager.channelFilter?.();
+    if (!filter || !principal?.isContentPrincipal || !/^https?$/.test(principal.URI?.scheme)) {
+      return false;
+    }
+    try {
+      const channel = lazy.NetUtil.newChannel({
+        uri: principal.URI,
+        loadingPrincipal: principal,
+        securityFlags: Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
+        contentPolicyType: Ci.nsIContentPolicy.TYPE_OTHER,
+      });
+      return !!filter.shouldProxy(channel) && lazy.IPPSiteRuleManager.canManage(principal);
+    } catch (e) {
+      console.error("Whimsy: VPN call check", e);
+      return false;
+    }
+  },
+
+  canPauseForCall(win) {
+    const browser = win.gBrowser?.selectedBrowser;
+    return !!browser && this._calls.has(browser) && !this._paused.has(browser) && this.callBlocked(browser);
+  },
+
+  _callsObserved: false,
+  _observeCalls() {
+    if (this._callsObserved) {
+      return;
+    }
+    this._callsObserved = true;
+    lazy.webrtcUI.on("peer-request-allowed", params => {
+      try {
+        this.onCallStart(params);
+      } catch (e) {
+        console.error("Whimsy: VPN call start", e);
+      }
+    });
+  },
+
+  onCallStart(params) {
+    const wgp = params?.innerWindowID ? WindowGlobalParent.getByInnerWindowId(params.innerWindowID) : null;
+    const browser = wgp?.browsingContext?.top?.embedderElement;
+    const win = browser?.documentGlobal;
+    if (!win?.gBrowser?.getTabForBrowser(browser)) {
+      return;
+    }
+    this._calls.add(browser);
+    const origin = browser.contentPrincipal?.originNoSuffix;
+    if (this._paused.has(browser) || this._declined.get(browser) == origin || !this.callBlocked(browser)) {
+      return;
+    }
+    this.askToPause(win, browser);
+  },
+
+  askToPause(win, browser) {
+    const origin = browser.contentPrincipal.originNoSuffix;
+    let decided = false;
+    win.gZenUIManager?.toasts?.open("whimsy-vpn-call-title", {
+      key: CALL_TOAST,
+      descriptionId: "whimsy-vpn-call-detail",
+      timeout: 0,
+      closable: true,
+      browser,
+      buttons: [
+        {
+          id: "whimsy-vpn-call-pause",
+          l10nId: "whimsy-vpn-call-pause",
+          command: () => {
+            decided = true;
+            this.pauseForCall(browser);
+          },
+        },
+        {
+          id: "whimsy-vpn-call-keep",
+          l10nId: "whimsy-vpn-call-keep",
+          command: () => {
+            decided = true;
+            this._declined.set(browser, origin);
+          },
+        },
+      ],
+      onClose: reason => {
+        if (!decided && reason != "owner") {
+          this._declined.set(browser, origin);
+        }
+      },
+    });
+  },
+
+  pauseForCall(browser) {
+    const win = browser.documentGlobal;
+    const principal = browser.contentPrincipal;
+    if (this._paused.has(browser) || !principal?.isContentPrincipal) {
+      return false;
+    }
+    const prior = Services.perms.getPermissionObject(principal, RULE_PERM, true);
+    Services.perms.addFromPrincipal(principal, RULE_PERM, Ci.nsIPermissionManager.DENY_ACTION,
+      Ci.nsIPermissionManager.EXPIRE_SESSION);
+    const entry = {
+      principal,
+      prior: prior ? { capability: prior.capability, expireType: prior.expireType, expireTime: prior.expireTime } : null,
+      prePath: principal.URI.prePath,
+      fromWindow: browser.innerWindowID,
+      hadCall: false,
+      cleanup: [],
+    };
+    this._paused.set(browser, entry);
+    const tab = win.gBrowser.getTabForBrowser(browser);
+    const onAttr = event => {
+      if (event.target != tab || !event.detail?.changed?.includes("sharing") ||
+        browser.innerWindowID == entry.fromWindow) {
+        return;
+      }
+      if (browser._sharingState?.webRTC?.sharing) {
+        entry.hadCall = true;
+      } else if (entry.hadCall) {
+        this.resumeAfterCall(browser);
+      }
+    };
+    const onClose = event => {
+      if (event.target == tab) {
+        this.resumeAfterCall(browser);
+      }
+    };
+    const progress = {
+      onLocationChange: (b, webProgress, request, location) => {
+        if (b == browser && webProgress.isTopLevel && location.prePath != entry.prePath) {
+          this.resumeAfterCall(browser);
+        }
+      },
+    };
+    const onUnload = () => this.resumeAfterCall(browser);
+    win.gBrowser.tabContainer.addEventListener("TabAttrModified", onAttr);
+    win.gBrowser.tabContainer.addEventListener("TabClose", onClose);
+    win.gBrowser.addTabsProgressListener(progress);
+    win.addEventListener("unload", onUnload, { once: true });
+    entry.cleanup.push(() => {
+      win.gBrowser?.tabContainer.removeEventListener("TabAttrModified", onAttr);
+      win.gBrowser?.tabContainer.removeEventListener("TabClose", onClose);
+      win.gBrowser?.removeTabsProgressListener(progress);
+      win.removeEventListener("unload", onUnload);
+    });
+    win.gZenUIManager?.toasts?.open("whimsy-vpn-call-paused", {
+      l10nArgs: { host: principal.host || principal.URI.prePath },
+      timeout: 4000,
+    });
+    browser.reload();
+    return true;
+  },
+
+  // The call ended (or the tab left the site): the site's rule goes back to
+  // what it was.
+  resumeAfterCall(browser) {
+    const entry = this._paused.get(browser);
+    if (!entry) {
+      return;
+    }
+    this._paused.delete(browser);
+    entry.cleanup.forEach(fn => fn());
+    if (entry.prior) {
+      Services.perms.addFromPrincipal(entry.principal, RULE_PERM, entry.prior.capability,
+        entry.prior.expireType, entry.prior.expireTime);
+    } else {
+      Services.perms.removeFromPrincipal(entry.principal, RULE_PERM);
+    }
+  },
+
   initWindow(win) {
     // vpnspace: Firefox's panel stays Firefox's (sign-in, location, usage);
     // W13 F02 adds the address bar control and This Site's row on top, both
@@ -642,6 +839,7 @@ export const WhimsyVPN = {
       return;
     }
     this._observeEnrollment();
+    this._observeCalls();
     // wave5: one command for a shortcut; the command bar names the state
     // it moves to.
     lazy.WhimsyCommands.register(win, {
@@ -661,6 +859,13 @@ export const WhimsyVPN = {
       run: w => this.togglePanel(w),
       icon: PANEL_ICON,
       isAvailable: () => this.wrapperEnabled && this.masterEnabled,
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVPNPauseCall",
+      l10nId: "whimsy-action-vpn-pause-call",
+      run: w => this.canPauseForCall(w) && this.pauseForCall(w.gBrowser.selectedBrowser),
+      icon: CALL_ICON,
+      isAvailable: w => this.canPauseForCall(w),
     });
   },
 };

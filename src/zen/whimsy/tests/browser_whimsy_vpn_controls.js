@@ -364,4 +364,93 @@ add_task(function test_command() {
   ok(panel?.keyId && document.getElementById(panel.keyId), "Open Firefox IP Protection Panel has a key Settings can bind");
   const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
   ok(globalActions.find(a => a.whimsyCommand == "cmd_whimsyVPNPanel")?.icon, "…and an icon in the command bar");
+  const call = WhimsyCommands.get("cmd_whimsyVPNPauseCall");
+  ok(call?.keyId && document.getElementById(call.keyId), "Pause VPN for This Call has a key Settings can bind");
+  ok(globalActions.find(a => a.whimsyCommand == "cmd_whimsyVPNPauseCall")?.icon, "…and an icon");
+});
+
+// W14 4: a call can't connect on a page Firefox's VPN carries (Firefox
+// turns off direct connections for it). When one starts, Whimsy asks
+// "Pause VPN for this call?": yes adds a session-only "don't use the VPN"
+// rule for the site and reloads it; the rule goes when the call ends.
+add_task(async function test_call_asks_to_pause_the_vpn() {
+  const { IPPChannelFilter } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/ipprotection/IPPChannelFilter.sys.mjs"
+  );
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["media.peerconnection.ice.proxy_only_if_behind_proxy", true],
+    ["media.navigator.permission.disabled", false],
+    ["browser.ipProtection.mode", 0],
+  ] });
+  const filter = IPPChannelFilter.create();
+  filter.proxyInfo = {};
+  const channelFilter = IPPProxyManager.channelFilter;
+  IPPProxyManager.channelFilter = () => filter;
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const browser = tab.linkedBrowser;
+  const principal = browser.contentPrincipal;
+  const rule = () => Services.perms.getPermissionObject(principal, "ipp-vpn", true);
+  const toasts = gZenUIManager.toasts;
+  const callToast = () => toasts.getToast("whimsy-vpn-call");
+  const startCall = () => SpecialPowers.spawn(browser, [], async () => {
+    const pc = new content.RTCPeerConnection();
+    await pc.createOffer({ offerToReceiveAudio: true });
+    pc.close();
+  });
+  try {
+    setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
+    ok(WhimsyVPN.callBlocked(browser), "A call on this page can't connect through the VPN");
+    ok(!rule(), "No rule for the site yet");
+
+    await startCall();
+    const toast = await TestUtils.waitForCondition(callToast, "A call starts: Whimsy asks");
+    await toast.shown;
+    await document.l10n.translateFragment(toast.element);
+    ok(toast.element.textContent.includes("Pause VPN for this call?"), "Pause VPN for this call?");
+    const pause = toast.element.querySelector("#whimsy-vpn-call-pause");
+    ok(pause?.checkVisibility(), "…with Pause VPN");
+    ok(toast.element.querySelector("#whimsy-vpn-call-keep")?.checkVisibility(), "…and Keep On");
+    ok(WhimsyVPN.canPauseForCall(window), "Pause VPN for This Call is offered in the command bar");
+
+    const reloaded = BrowserTestUtils.browserLoaded(browser);
+    EventUtils.synthesizeMouseAtCenter(pause, {});
+    await reloaded;
+    is(rule()?.capability, Ci.nsIPermissionManager.DENY_ACTION, "The site gets a don't-use-the-VPN rule");
+    is(rule()?.expireType, Ci.nsIPermissionManager.EXPIRE_SESSION, "…for this session only");
+    ok(!WhimsyVPN.callBlocked(browser), "The reloaded page's call connects directly");
+    await startCall();
+    await new Promise(resolve => setTimeout(resolve, 300));
+    ok(!callToast(), "No second ask for the call itself");
+
+    // The call: media starts on the reloaded page, then stops.
+    gBrowser.updateBrowserSharing(browser, { webRTC: { sharing: "camera" } });
+    ok(rule(), "The rule stays during the call");
+    gBrowser.updateBrowserSharing(browser, { webRTC: null });
+    ok(!rule(), "The call ends: the rule is gone, the VPN is back for the site");
+
+    // Keep On: no more asks on this page.
+    await startCall();
+    const again = await TestUtils.waitForCondition(callToast, "A new call asks again");
+    await again.shown;
+    EventUtils.synthesizeMouseAtCenter(again.element.querySelector("#whimsy-vpn-call-keep"), {});
+    await TestUtils.waitForCondition(() => !callToast(), "Keep On closes it");
+    await startCall();
+    await new Promise(resolve => setTimeout(resolve, 300));
+    ok(!callToast(), "…and it doesn't ask again here");
+    ok(!rule(), "Nothing changed for the site");
+
+    // Leaving the site also takes the rule back off.
+    ok(WhimsyVPN.pauseForCall(browser), "Paused again (the command)");
+    await BrowserTestUtils.browserLoaded(browser);
+    ok(rule(), "Rule on");
+    BrowserTestUtils.startLoadingURIString(browser, "https://example.org/");
+    await BrowserTestUtils.browserLoaded(browser);
+    ok(!rule(), "The tab left the site: the rule is gone");
+  } finally {
+    IPPProxyManager.channelFilter = channelFilter;
+    Services.perms.removeFromPrincipal(principal, "ipp-vpn");
+    setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
 });
