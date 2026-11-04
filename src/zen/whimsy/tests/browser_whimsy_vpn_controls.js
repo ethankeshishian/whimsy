@@ -46,6 +46,9 @@ function resolved(expression) {
   return value;
 }
 
+// For checks that something does NOT happen: nothing to wait for.
+const settle = ms => new Promise(resolve => setTimeout(resolve, ms)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+
 let restore = [];
 function setStates(service, proxy) {
   restore.forEach(fn => fn());
@@ -193,7 +196,7 @@ add_task(async function test_this_site_row() {
   is(section.querySelector(".whimsy-vpn-scope-row .whimsy-surface-seg"), seg, "…not a new one");
   await TestUtils.waitForCondition(() => detail.textContent == `VPN on · All spaces in ${profile}`, "The detail says so");
   EventUtils.synthesizeMouseAtCenter(spaceButton, {});
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await settle(100);
   is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), String(WhimsyVPNScope.profileForWindow(window)), "Picking it again changes nothing");
   EventUtils.synthesizeMouseAtCenter(seg.querySelector('[data-value="browser"]'), {});
   await TestUtils.waitForCondition(() => Services.prefs.getStringPref(WhimsyVPNScope.PREF) == "", "All spaces again");
@@ -328,7 +331,7 @@ add_task(async function test_chevron_opens_firefox_panel() {
   const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
   EventUtils.synthesizeMouseAtCenter(cv, {});
   await hidden;
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await settle(300);
   ok(!vpnPanel()?.active, "A second click closes it, and it stays closed");
   is(cv.getAttribute("aria-expanded"), "false", "…closed");
 
@@ -347,7 +350,7 @@ add_task(async function test_chevron_opens_firefox_panel() {
   try {
     EventUtils.synthesizeMouseAtCenter(main(), {});
     await TestUtils.waitForCondition(() => calls.includes("start"), "A click on VPN starts it");
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await settle(300);
     ok(!vpnPanel()?.active, "…without opening the panel");
   } finally {
     IPPProxyManager.start = start;
@@ -419,7 +422,7 @@ add_task(async function test_call_asks_to_pause_the_vpn() {
     is(rule()?.expireType, Ci.nsIPermissionManager.EXPIRE_SESSION, "…for this session only");
     ok(!WhimsyVPN.callBlocked(browser), "The reloaded page's call connects directly");
     await startCall();
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await settle(300);
     ok(!callToast(), "No second ask for the call itself");
 
     // The call: media starts on the reloaded page, then stops.
@@ -435,7 +438,7 @@ add_task(async function test_call_asks_to_pause_the_vpn() {
     EventUtils.synthesizeMouseAtCenter(again.element.querySelector("#whimsy-vpn-call-keep"), {});
     await TestUtils.waitForCondition(() => !callToast(), "Keep On closes it");
     await startCall();
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await settle(300);
     ok(!callToast(), "…and it doesn't ask again here");
     ok(!rule(), "Nothing changed for the site");
 
