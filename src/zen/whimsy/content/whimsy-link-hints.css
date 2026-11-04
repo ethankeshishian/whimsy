@@ -59,14 +59,14 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .hint {
-    animation: whimsy-hint-in 160ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation: whimsy-hint-in 96ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
     transition:
-      transform 120ms cubic-bezier(0.16, 1, 0.3, 1),
-      opacity 120ms ease-out;
+      transform 72ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 72ms ease-out;
   }
 
   #whimsy-hints-help {
-    animation: whimsy-hint-help-in 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation: whimsy-hint-help-in 120ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 
   .hint.chosen {
@@ -75,7 +75,7 @@
 
   #whimsy-hints.leaving {
     opacity: 0;
-    transition: opacity 120ms cubic-bezier(0.55, 0, 1, 0.45);
+    transition: opacity 72ms cubic-bezier(0.55, 0, 1, 0.45);
   }
 
   @keyframes whimsy-hint-in {
@@ -96,7 +96,7 @@
 @media (prefers-reduced-motion: reduce) {
   .hint,
   #whimsy-hints-help {
-    animation: whimsy-hint-fade 100ms ease-out backwards;
+    animation: whimsy-hint-fade 60ms ease-out backwards;
   }
 
   @keyframes whimsy-hint-fade {

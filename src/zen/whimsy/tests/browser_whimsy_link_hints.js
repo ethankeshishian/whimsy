@@ -8,7 +8,7 @@
 // cancels, and the page never sees the hint keys.
 
 const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
-const { hintLabels, keyLetter, ALPHABET } = ChromeUtils.importESModule(
+const { hintLabels, keyLetter, ALPHABET, LEAVE_MS } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs"
 );
 const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
@@ -61,6 +61,45 @@ add_task(function labels_and_layouts() {
   is(keyLetter({ key: "e", code: "KeyD" }), "e", "Dvorak/Colemak: the letter typed, not the key's place");
   is(keyLetter({ key: "ф", code: "KeyA" }), "a", "Non-Latin layouts: the key's place");
   is(keyLetter({ key: "Enter", code: "Enter" }), null, "Other keys aren't letters");
+});
+
+async function hintStyles(reduced) {
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", reduced]] });
+  await TestUtils.waitForCondition(
+    () => matchMedia("(prefers-reduced-motion: reduce)").matches == !!reduced,
+    "Motion preference applied"
+  );
+  const link = document.createElementNS("http://www.w3.org/1999/xhtml", "link");
+  link.rel = "stylesheet";
+  link.href = "chrome://browser/content/whimsy/whimsy-link-hints.css";
+  const loaded = BrowserTestUtils.waitForEvent(link, "load");
+  document.documentElement.appendChild(link);
+  await loaded;
+  const layer = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+  layer.id = "whimsy-hints";
+  layer.innerHTML = '<div class="hint">a</div><div id="whimsy-hints-help"></div>';
+  document.documentElement.appendChild(layer);
+  const read = el => getComputedStyle(el);
+  const hint = read(layer.querySelector(".hint"));
+  const help = read(layer.querySelector("#whimsy-hints-help"));
+  const out = { hint: hint.animationDuration, help: help.animationDuration, transition: hint.transitionDuration };
+  layer.classList.add("leaving");
+  out.leaving = read(layer).transitionDuration;
+  layer.remove();
+  link.remove();
+  await SpecialPowers.popPrefEnv();
+  return out;
+}
+
+add_task(async function animations_are_quick() {
+  const normal = await hintStyles(0);
+  is(normal.hint, "0.096s", "A hint pops in over 96ms");
+  is(normal.help, "0.12s", "The help pill slides up over 120ms");
+  is(normal.transition, "0.072s, 0.072s", "The chosen hint's grow and fade take 72ms");
+  is(normal.leaving, "0.072s", "The layer fades out over 72ms");
+  Assert.greater(LEAVE_MS, 72, "and is removed a little after the fade ends");
+  const reduced = await hintStyles(1);
+  is(reduced.hint, "0.06s", "Reduced motion fades in over 60ms");
 });
 
 add_task(async function shortcut_and_action() {

@@ -16,7 +16,7 @@ const STYLESHEET = "chrome://browser/content/whimsy/whimsy-link-hints.css";
 // Vimium's home-row-first alphabet: the easiest letters come first.
 export const ALPHABET = "sadfjklewcmpgh";
 const MAX_HINTS = 700;
-const LEAVE_MS = 130;
+export const LEAVE_MS = 80;
 
 const CLICKABLE = [
   "a[href]",
