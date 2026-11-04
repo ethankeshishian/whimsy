@@ -335,7 +335,7 @@ export const WhimsyAIProviders = {
       id: "cmd_whimsyAISignInChatGPT",
       l10nId: "whimsy-action-ai-sign-in-chatgpt",
       run: w => this.openSettings(w, "plan-openai"),
-      icon: "chrome://browser/skin/zen-icons/chat.svg",
+      icon: "chrome://browser/skin/zen-icons/selectable/chat.svg",
       menu: "tools-menu",
       isAvailable: () => this.enabled && this.planAvailable("openai"),
     });
@@ -343,7 +343,7 @@ export const WhimsyAIProviders = {
       id: "cmd_whimsyAIConnect",
       l10nId: "whimsy-action-ai-connect",
       run: w => this.openSettings(w, "connect"),
-      icon: "chrome://browser/skin/zen-icons/key.svg",
+      icon: "chrome://browser/skin/zen-icons/selectable/key.svg",
       menu: "tools-menu",
       isAvailable,
     });
