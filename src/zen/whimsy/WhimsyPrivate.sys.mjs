@@ -91,6 +91,9 @@ const SELECTED_ATTR = "whimsy-private-tab";
 // while it shows.
 const EMPTY_ID = "whimsy-private-empty";
 const EMPTY_ROOT_ATTR = "whimsy-private-space-empty";
+// W14-8: set on the window while the Private Space is the active space; the
+// Essentials (normal tabs) are hidden under it.
+const ACTIVE_ROOT_ATTR = "whimsy-scratch-active";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const PRIVATE_NEW_TAB_URL = "about:privatebrowsing";
 const NEW_TAB_URLS = new Set(["about:newtab", "about:home"]);
@@ -110,6 +113,8 @@ const urlbarStates = new WeakMap();
 const leaveChecks = new WeakSet();
 // Windows opening their Private Space right now: window → count.
 const openingScratch = new WeakMap();
+// window → the last normal space it showed (W14-8).
+const lastNormalSpaces = new WeakMap();
 
 export const WhimsyPrivate = {
   get featureOn() {
@@ -742,7 +747,105 @@ export const WhimsyPrivate = {
     // A switch to a space with no tabs keeps the empty tab selected (it
     // moves with you), so no TabSelect says the Private Space was left.
     spaces.addChangeListeners(() => this.onSpaceStateChanged(win));
+    this.guardEssentials(win);
     this.refreshScratchMarks(win);
+  },
+
+  // W14-8: the Private Space shares container 0 with the normal spaces, so
+  // Zen shows container 0's Essentials there too. They're normal tabs: one
+  // picked from the Private Space browsed with the normal cookie jar and
+  // history. They're hidden while it's active (from the moment Zen moves the
+  // active space), left out of Ctrl+Tab there, and picking one anyway
+  // (Cmd+1, Ctrl+PageDown, a menu) takes you to the last normal space first.
+  guardEssentials(win) {
+    const spaces = win.gZenWorkspaces;
+    const self = this;
+    let proto = Object.getPrototypeOf(spaces);
+    let desc = null;
+    while (proto && !(desc = Object.getOwnPropertyDescriptor(proto, "activeWorkspace"))) {
+      proto = Object.getPrototypeOf(proto);
+    }
+    if (desc?.get && desc?.set) {
+      Object.defineProperty(spaces, "activeWorkspace", {
+        configurable: true,
+        get() {
+          return desc.get.call(this);
+        },
+        set(value) {
+          const before = desc.get.call(this);
+          desc.set.call(this, value);
+          if (before && !self.isScratchId(win, before)) {
+            lastNormalSpaces.set(win, before);
+          }
+          self.updateScratchActive(win);
+        },
+      });
+    }
+    const onBeforeTabSelect = spaces.onBeforeTabSelect;
+    spaces.onBeforeTabSelect = function (tab) {
+      if (self.leaveScratchForEssential(win, tab)) {
+        return true;
+      }
+      return onBeforeTabSelect.apply(this, arguments);
+    };
+    // Closing the Private Space's last tab shows its empty state, not an
+    // Essential.
+    const findTabToBlur = spaces.findTabToBlur;
+    spaces.findTabToBlur = function () {
+      const tab = findTabToBlur.apply(this, arguments);
+      if (tab?.hasAttribute("zen-essential") && self.activeSpaceIsScratch(win) && this._emptyTab) {
+        return this._emptyTab;
+      }
+      return tab;
+    };
+    win.gBrowser.tabContainer.addEventListener("TabSelect", event => {
+      if (!spaces.isChangingWorkspace) {
+        self.leaveScratchForEssential(win, event.target);
+      }
+    });
+    const ctrlTab = win.ctrlTab;
+    let ctrlTabProto = ctrlTab;
+    let listDesc = null;
+    while (ctrlTabProto && !(listDesc = Object.getOwnPropertyDescriptor(ctrlTabProto, "tabList"))) {
+      ctrlTabProto = Object.getPrototypeOf(ctrlTabProto);
+    }
+    if (listDesc?.get) {
+      Object.defineProperty(ctrlTab, "tabList", {
+        configurable: true,
+        enumerable: true,
+        get() {
+          const list = listDesc.get.call(this);
+          return self.activeSpaceIsScratch(win) ? list.filter(tab => !tab.hasAttribute("zen-essential")) : list;
+        },
+      });
+    }
+    this.updateScratchActive(win);
+  },
+
+  updateScratchActive(win) {
+    win.document?.documentElement.toggleAttribute(ACTIVE_ROOT_ATTR, this.activeSpaceIsScratch(win));
+  },
+
+  // The normal space an Essential picked from the Private Space opens in.
+  spaceOutsideScratch(win) {
+    const spaces = win.gZenWorkspaces;
+    const all = spaces.getWorkspaces().filter(space => !space.whimsyScratch);
+    const last = lastNormalSpaces.get(win);
+    return all.find(space => space.uuid == last) ?? all.at(-1) ?? null;
+  },
+
+  leaveScratchForEssential(win, tab) {
+    if (!tab?.hasAttribute?.("zen-essential") || !this.featureOn || !this.activeSpaceIsScratch(win)) {
+      return false;
+    }
+    const target = this.spaceOutsideScratch(win);
+    if (!target) {
+      return false;
+    }
+    const spaces = win.gZenWorkspaces;
+    spaces.lastSelectedWorkspaceTabs[target.uuid] = tab;
+    spaces.changeWorkspaceWithID(target.uuid).catch(e => console.error("Whimsy: Private Space", e));
+    return true;
   },
 
   getScratch(win) {
@@ -777,6 +880,7 @@ export const WhimsyPrivate = {
     }
     this.updateSelected(win);
     this.updateEmptyState(win);
+    this.updateScratchActive(win);
   },
 
   // Opens the Private Space (creating it to the right of every space if

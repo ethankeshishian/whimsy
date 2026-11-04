@@ -1041,6 +1041,11 @@ zen-workspace[whimsy-scratch] .zen-current-workspace-indicator-icon {
   fill: var(--whimsy-private-tab-accent) !important;
 }
 
+/* W14-8: no Essentials in the Private Space (WhimsyPrivate.guardEssentials). */
+:root[whimsy-scratch-active] #zen-essentials {
+  display: none !important;
+}
+
 toolbarbutton[zen-workspace-id][whimsy-scratch] {
   outline: 1.5px dashed var(--whimsy-private-tab-accent);
   outline-offset: -1px;
