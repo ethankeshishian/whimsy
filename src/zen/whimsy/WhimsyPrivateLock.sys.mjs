@@ -61,6 +61,19 @@ const LOCKED_ATTR = "whimsy-private-locked";
 const COVER_CLASS = "whimsy-lock-cover";
 // The tab menu items that still work on a covered tab (d10: closing).
 const CLOSE_ITEM = /close/i;
+// W14-14: commands that hand the selected page's address or content to the
+// clipboard or another app.
+const COPY_COMMANDS = new Set([
+  "cmd_zenCopyCurrentURL",
+  "cmd_zenCopyCurrentURLMarkdown",
+  "cmd_whimsyCopyURLQuote",
+  "cmd_whimsyCopyPageMarkdown",
+  "cmd_whimsyCopyLinkToHighlight",
+  "cmd_whimsyCopyFullPage",
+  "cmd_whimsyShareTab",
+  "cmd_whimsyShareSplit",
+  "Browser:SendLink",
+]);
 
 // W14-14: wraps obj[name] so `guard(call, args)` runs before it, however
 // many wrappers other modules add later: they become the inner function
@@ -285,6 +298,40 @@ export const WhimsyPrivateLock = {
     }
     const group = tab.group ?? tab.closest?.("tab-group");
     return group?.tabs ? [...group.tabs] : [];
+  },
+
+  // The selected tab, with the split or multi-selection a copy or share
+  // takes along.
+  copiedWith(win) {
+    const { gBrowser } = win;
+    const tab = gBrowser?.selectedTab;
+    if (!tab) {
+      return [];
+    }
+    if (gBrowser.multiSelectedTabsCount > 1) {
+      return gBrowser.selectedTabs;
+    }
+    return tab.group?.hasAttribute?.("split-view-group") ? [...tab.group.tabs] : [tab];
+  },
+
+  // A covered page's address or content isn't copied or shared without
+  // unlocking: the command asks to unlock and does nothing; unlocked, the
+  // person runs it again. Window capture, so it runs before every handler
+  // on the commands themselves (WhimsyCopy's included).
+  guardCopies(win) {
+    win.addEventListener("command", event => {
+      if (COPY_COMMANDS.has(event.target?.id) && this.refuseMove(win, this.copiedWith(win))) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+    // Zen's site panel calls these directly.
+    const actions = win.gZenCommonActions;
+    if (actions) {
+      for (const name of ["copyCurrentURLToClipboard", "copyCurrentURLAsMarkdownToClipboard"]) {
+        guardOutermost(actions, name, call => (this.refuseMove(win, this.copiedWith(win)) ? undefined : call()));
+      }
+    }
   },
 
   guardMoves(win) {
@@ -831,6 +878,7 @@ export const WhimsyPrivateLock = {
     win._whimsyPrivateLock = true;
     this.initGlobal();
     this.guardMoves(win);
+    this.guardCopies(win);
     this.wrapTitles(win);
     this.guardCommandBar(win);
     const onChange = () => {

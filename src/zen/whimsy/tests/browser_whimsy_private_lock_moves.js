@@ -198,6 +198,35 @@ add_task(async function drag_split_and_menu() {
   ok(!document.getElementById("context_duplicateTab").hidden, "The menu's items come back once it closes");
 });
 
+// A covered page's address isn't copied or shared either: Copy URL (its key
+// and its command), as Markdown, as Quote, Share and Zen's site panel call
+// ask to unlock and leave the clipboard as it was.
+add_task(async function copy_url_asks_to_unlock() {
+  gBrowser.selectedTab = tabA;
+  await settle();
+  ok(WhimsyPrivateLock.isTabHidden(window, gBrowser.selectedTab), "The selected tab is covered");
+  const sentinel = "whimsy-" + "clipboard-sentinel";
+  const clipboard = () => SpecialPowers.getClipboardData("text/plain");
+  const route = async (what, run) => {
+    SpecialPowers.clipboardCopyString(sentinel);
+    await TestUtils.waitForCondition(() => clipboard() == sentinel, "The clipboard holds the sentinel");
+    const before = asked;
+    run();
+    await expectAsked(before, what);
+    is(clipboard(), sentinel, `${what}: nothing copied`);
+    ok(!clipboard().includes("example.com"), `${what}: the address stays covered`);
+  };
+  await route("Cmd+Shift+C", () => EventUtils.synthesizeKey("c", { accelKey: true, shiftKey: true }));
+  for (const id of ["cmd_zenCopyCurrentURL", "cmd_zenCopyCurrentURLMarkdown", "cmd_whimsyCopyURLQuote", "cmd_whimsyShareTab"]) {
+    const command = document.getElementById(id);
+    if (command) {
+      await route(id, () => command.doCommand());
+    }
+  }
+  await route("Zen's site panel", () => window.gZenCommonActions.copyCurrentURLToClipboard());
+  assertStayed(tabA, "After the copies");
+});
+
 add_task(async function a_tab_that_left_anyway_stays_covered() {
   // What Zen's drop on another space does: set the space directly.
   tabB.setAttribute("zen-workspace-id", startSpace);
