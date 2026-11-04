@@ -1454,8 +1454,6 @@ class EaselApp {
         this.renderAll();
         this.commit(drag.before);
         this.select([item.id]);
-        // Shapes are one-shot, like Arc: back to the pointer to adjust.
-        this.setTool("select");
         break;
       }
     }
@@ -1747,7 +1745,6 @@ class EaselApp {
       fill: null,
     };
     this.addItems([item]);
-    this.setTool("select");
   }
 
   // Toolbars are single tab stops; arrow keys move inside them.

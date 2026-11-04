@@ -189,15 +189,18 @@ add_task(async function test_text_drawing_shapes_move_resize_undo() {
   ok(pen?.d?.startsWith("M"), "A drawn stroke becomes a path");
   ok(pen.w >= 100, "The stroke's box covers the drawing");
 
-  // Shape: a dragged rectangle, then back to the pointer.
+  // Shape: a dragged rectangle; the rectangle tool stays picked.
   app.setTool("rect");
   await drag(win, at(500, 120), at(640, 220));
   const shape = app.items.find(i => i.type == "shape");
   is(shape?.shape, "rect", "A rectangle");
   ok(Math.abs(shape.w - 140 / app.view.zoom) < 2 && Math.abs(shape.h - 100 / app.view.zoom) < 2, "Sized by the drag");
-  is(app.tool, "select", "Shapes hand back to the pointer");
+  is(app.tool, "rect", "Drawing a shape keeps the shape tool");
   ok(app.selection.has(shape.id), "The new shape is selected");
   is(app.items.length, 3, "Three items");
+  doc.getElementById("viewport").focus();
+  EventUtils.synthesizeKey("v", {}, win);
+  is(app.tool, "select", "V picks the pointer");
 
   // Move the shape by dragging it.
   const before = { x: shape.x, y: shape.y };
@@ -269,6 +272,47 @@ add_task(async function test_text_drawing_shapes_move_resize_undo() {
 // the model holds 2/4/8 (highlighter ×4) and 18/28/44, the page paints
 // them (stroke-width, font-size), the export canvas draws strokes that
 // thick (counted in pixels), and the buttons' dots are clearly different.
+// The selection bar's dividers sit only between groups that show.
+function checkContextDividers(win, what) {
+  const groups = [...win.document.querySelectorAll("#contextbar .ctx-group")].filter(g => !g.hidden);
+  ok(groups.length, `${what}: the selection bar shows a group`);
+  is(win.getComputedStyle(groups[0]).borderLeftWidth, "0px", `${what}: no divider before the first group`);
+  for (const group of groups.slice(1)) {
+    is(win.getComputedStyle(group).borderLeftWidth, "1px", `${what}: a divider between groups`);
+  }
+}
+
+add_task(async function test_shape_tools_stay_and_bar_dividers() {
+  const { win, app } = await openNewEasel();
+  const doc = win.document;
+  const rect = doc.getElementById("viewport").getBoundingClientRect();
+  const at = (x, y) => ({ x: rect.left + x, y: rect.top + y });
+  EventUtils.synthesizeMouseAtCenter(doc.querySelector('.tool[data-tool="line"]'), {}, win);
+  await drag(win, at(120, 120), at(320, 160));
+  await drag(win, at(120, 220), at(320, 260));
+  is(app.items.filter(i => i.shape == "line").length, 2, "Two lines in a row without picking the tool again");
+  is(app.tool, "line", "The line tool stays picked");
+  await TestUtils.waitForCondition(() => !doc.getElementById("contextbar").hidden, "The selection bar shows");
+  checkContextDividers(win, "A line");
+
+  doc.getElementById("viewport").focus();
+  EventUtils.synthesizeKey("r", {}, win);
+  is(app.tool, "rect", "R picks the rectangle");
+  await drag(win, at(420, 120), at(560, 220));
+  is(app.tool, "rect", "The rectangle tool stays picked");
+  ok(!doc.querySelector('#contextbar .ctx-group[data-for="shape"]').hidden, "A rectangle offers Fill");
+  checkContextDividers(win, "A rectangle");
+
+  doc.getElementById("viewport").focus();
+  EventUtils.synthesizeKey("KEY_Escape", {}, win);
+  is(app.selection.size, 0, "Esc clears the selection");
+  EventUtils.synthesizeKey("a", {}, win);
+  const before = app.items.length;
+  EventUtils.synthesizeKey("KEY_Enter", {}, win);
+  is(app.items.length, before + 1, "Enter makes an arrow");
+  is(app.tool, "arrow", "Making an arrow from the keyboard keeps the arrow tool");
+});
+
 add_task(async function test_size_buttons_draw_three_sizes() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.easel.size", 1]] });
   const { win, app } = await openNewEasel();
@@ -422,6 +466,7 @@ add_task(async function test_captures_static_live_and_private() {
   // Play makes it live: a sandboxed page in the same container, cropped.
   const play = win.document.querySelector('#contextbar [data-action="live"]');
   ok(!play.closest("[hidden]"), "Play is offered for a capture");
+  checkContextDividers(win, "A capture with a page");
   play.click();
   ok(app.find(item.id).live, "Live");
   const browser = await TestUtils.waitForCondition(() => el.querySelector(".capture-browser"), "A live page loads");
