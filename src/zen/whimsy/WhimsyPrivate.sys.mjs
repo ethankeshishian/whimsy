@@ -73,6 +73,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   ZenSessionStore: "resource:///modules/zen/ZenSessionManager.sys.mjs",
 });
@@ -1046,6 +1047,10 @@ export const WhimsyPrivate = {
     if (!scratch) {
       return;
     }
+    // W14-14: saving reopens every page outside private browsing.
+    if (!(await lazy.WhimsyPrivateLock.ensureTabsUnlocked(win, this.scratchTabs(win, scratch)))) {
+      return;
+    }
     const { document } = win;
     const open = win._whimsyScratchSave;
     if (open) {
@@ -1284,7 +1289,7 @@ export const WhimsyPrivate = {
   async keepScratch(win) {
     const spaces = win.gZenWorkspaces;
     const scratch = this.getScratch(win);
-    if (!scratch) {
+    if (!scratch || !(await lazy.WhimsyPrivateLock.ensureTabsUnlocked(win, this.scratchTabs(win, scratch)))) {
       return null;
     }
     const { gBrowser } = win;

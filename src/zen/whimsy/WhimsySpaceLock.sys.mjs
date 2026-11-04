@@ -70,6 +70,10 @@ const lastLeft = new Map();
 // follows: when.
 const tickets = new Map();
 const TICKET_MS = 10 * 1000;
+// W14-14: tab (by its browser's permanentKey, which follows the page into
+// another window) → the covered space it was in. A tab that left a covered
+// space stays covered until that space is unlocked.
+const coveredKeys = new WeakMap();
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -252,6 +256,33 @@ export const WhimsySpaceLock = {
     return !!uuid && featureOn() && !!this.space(uuid)?.whimsyLocked && !this.isOpen(uuid);
   },
 
+  /** The covered space that hides `tab` (where it is, or where it left), or null. */
+  coveringSpace(tab) {
+    const id = tab?.getAttribute?.("zen-workspace-id");
+    if (this.isCovered(id)) {
+      return id;
+    }
+    const from = coveredKeys.get(tab?.linkedBrowser?.permanentKey);
+    return from && this.isCovered(from) ? from : null;
+  },
+
+  // Remembers which covered space each tab is in; forgets once that space
+  // is unlocked.
+  trackCovered(win) {
+    for (const tab of win.gZenWorkspaces?.allStoredTabs ?? []) {
+      const key = tab.linkedBrowser?.permanentKey;
+      if (!key) {
+        continue;
+      }
+      const id = tab.getAttribute("zen-workspace-id");
+      if (this.isCovered(id)) {
+        coveredKeys.set(key, id);
+      } else if (coveredKeys.has(key) && !this.isCovered(coveredKeys.get(key))) {
+        coveredKeys.delete(key);
+      }
+    }
+  },
+
   // An unlocked locked space left the screen: its "Lock after" clock
   // starts, and it's covered again when that runs out.
   noteLeft(uuid) {
@@ -288,9 +319,18 @@ export const WhimsySpaceLock = {
       win.gZenWorkspaces.workspaceElement?.(space.uuid)
         ?.toggleAttribute("whimsy-space-covered", this.isCovered(space.uuid));
     }
-    const active = win.gZenWorkspaces.getActiveWorkspace?.();
-    const isCovered = this.isCovered(active?.uuid);
+    this.trackCovered(win);
+    let active = win.gZenWorkspaces.getActiveWorkspace?.();
+    let isCovered = this.isCovered(active?.uuid);
     win.document.documentElement.toggleAttribute("whimsy-space-covered", isCovered);
+    if (!isCovered) {
+      // A tab that left a covered space keeps that space's cover.
+      const from = this.coveringSpace(win.gBrowser?.selectedTab);
+      if (from) {
+        active = this.space(from);
+        isCovered = !!active;
+      }
+    }
     const lock = lazy.WhimsyPrivateLock;
     if (!isCovered) {
       lock.hideCover(win, "space-lock");

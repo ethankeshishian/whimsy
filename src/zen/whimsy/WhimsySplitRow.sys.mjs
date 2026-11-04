@@ -40,6 +40,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
   WhimsySplitLayouts: "resource:///modules/whimsy/WhimsySplitLayouts.sys.mjs",
   WhimsySplitPane: "resource:///modules/whimsy/WhimsySplitPane.sys.mjs",
@@ -400,6 +401,9 @@ export const WhimsySplitRow = {
     const workspaces = win.gZenWorkspaces;
     const group = this.groupOf(win, tab);
     if (!workspaces || !group || tab.getAttribute("zen-workspace-id") == uuid) {
+      return;
+    }
+    if (!(await lazy.WhimsyPrivateLock.ensureTabsUnlocked(win, [...(group.tabs ?? [tab])]))) {
       return;
     }
     workspaces.moveTabToWorkspace(tab, uuid);

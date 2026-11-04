@@ -39,6 +39,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
 });
 
@@ -293,6 +294,10 @@ export const WhimsySpaces = {
     const { gBrowser, gZenWorkspaces } = win;
     const space = gZenWorkspaces.getWorkspaces().find(w => w.uuid == spaceId);
     if (!space) {
+      return;
+    }
+    // W14-14: a covered tab moves only once unlocked.
+    if (!(await lazy.WhimsyPrivateLock.ensureTabsUnlocked(win, lazy.WhimsyPrivateLock.movingWith(win, item)))) {
       return;
     }
     let count = 1;

@@ -75,10 +75,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AppConstants: "resource://gre/modules/AppConstants.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   CustomizableUI: "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
-  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.quick-window";
@@ -602,6 +603,9 @@ export const WhimsyQuickWindow = {
     // reopens there in that profile (async; nothing is adopted yet).
     const space = target.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
     if (!space || space.whimsyScratch || !tabs.length) {
+      return null;
+    }
+    if (lazy.WhimsyPrivateLock.refuseMove(win, tabs)) {
       return null;
     }
     const profileId = lazy.WhimsyProfiles.profileIdOfSpace(space);

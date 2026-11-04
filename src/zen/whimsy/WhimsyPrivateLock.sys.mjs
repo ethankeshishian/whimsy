@@ -59,11 +59,57 @@ const FEATURE_PREF = "whimsy.feature.private-lock";
 const ASK_ID = "whimsyPrivateLockAsk";
 const LOCKED_ATTR = "whimsy-private-locked";
 const COVER_CLASS = "whimsy-lock-cover";
+// The tab menu items that still work on a covered tab (d10: closing).
+const CLOSE_ITEM = /close/i;
+
+// W14-14: wraps obj[name] so `guard(call, args)` runs before it, however
+// many wrappers other modules add later: they become the inner function
+// (the property's setter), and reading it always gives the guard around
+// the latest one. A Proxy, so their marker properties still read through.
+function guardOutermost(obj, name, guard) {
+  const current = Object.getOwnPropertyDescriptor(obj, name);
+  if (current?.get?._whimsyLockGuard) {
+    return;
+  }
+  let inner = obj[name];
+  if (typeof inner != "function") {
+    return;
+  }
+  const proxies = new WeakMap();
+  const get = function () {
+    let proxy = proxies.get(inner);
+    if (!proxy) {
+      proxy = new Proxy(inner, {
+        apply(target, thisArg, args) {
+          const call = (...override) => Reflect.apply(target, thisArg, override.length ? override : args);
+          return guard(call, args);
+        },
+      });
+      proxies.set(inner, proxy);
+    }
+    return proxy;
+  };
+  get._whimsyLockGuard = true;
+  Object.defineProperty(obj, name, {
+    configurable: true,
+    enumerable: true,
+    get,
+    set(value) {
+      inner = value;
+    },
+  });
+}
 
 // Module state (one app): which kinds are locked, and since when each kind
 // has been out of sight.
 const locked = new Set();
 const awaySince = new Map();
+// W14-14: the pages a lock covered, by the browser's permanentKey (it
+// follows the page through adoptTab and tear-off). Covered stays covered
+// wherever the tab goes until you unlock, so a route out of its place that
+// no guard knows about still shows nothing.
+let lockedKeys = new WeakSet();
+let anyLockedKeys = false;
 let timer = null;
 // The surface a cancel was answered on: no automatic prompt there again
 // until the person leaves and comes back (d6).
@@ -100,7 +146,7 @@ export const WhimsyPrivateLock = {
   },
 
   get anyLocked() {
-    return locked.size > 0;
+    return locked.size > 0 || anyLockedKeys;
   },
 
   // --- what is private, and where ---------------------------------------
@@ -164,14 +210,169 @@ export const WhimsyPrivateLock = {
 
   isTabCovered(win, tab) {
     const kind = this.kindOfTab(win, tab);
-    return !!kind && locked.has(kind);
+    if (!kind) {
+      return false;
+    }
+    if (locked.has(kind)) {
+      return true;
+    }
+    const key = tab.linkedBrowser?.permanentKey;
+    return anyLockedKeys && !!key && lockedKeys.has(key);
   },
 
   // Covered by the private lock or by Lock Space: nothing of the page
   // (thumbnail, favicon, address) may show anywhere.
   isTabHidden(win, tab) {
-    return this.isTabCovered(win, tab) ||
-      lazy.WhimsySpaceLock.isCovered(tab?.getAttribute?.("zen-workspace-id"));
+    return this.isTabCovered(win, tab) || !!lazy.WhimsySpaceLock.coveringSpace(tab);
+  },
+
+  // --- W14-14: a covered tab stays where it is ----------------------------
+  //
+  // Moving a tab changed what covered it (the lock follows where the tab
+  // is), so a tab moved out of the Private Space or a locked space showed
+  // its page. Every way out goes through one of these: the async flows ask
+  // to unlock first (ensureTabsUnlocked), the synchronous choke points
+  // (guardMoves) refuse and ask, a drag of a covered tab never starts, and
+  // the tab menu offers only Close while a covered tab is in it.
+
+  hiddenAmong(tabs) {
+    return (tabs ?? []).filter(tab => tab && !tab.closing && this.isTabHidden(tab.documentGlobal, tab));
+  },
+
+  /** Asks to unlock what covers any of `tabs`. False when cancelled. */
+  async ensureTabsUnlocked(win, tabs) {
+    const hidden = this.hiddenAmong(tabs);
+    if (!hidden.length) {
+      return true;
+    }
+    if (hidden.some(tab => this.isTabCovered(tab.documentGlobal, tab)) && !(await this.unlock(win))) {
+      return false;
+    }
+    const spaces = new Set(hidden.map(tab => lazy.WhimsySpaceLock.coveringSpace(tab)).filter(Boolean));
+    for (const uuid of spaces) {
+      const space = lazy.WhimsySpaceLock.space(uuid);
+      if (space && !(await lazy.WhimsySpaceLock.ensureUnlocked(win, space))) {
+        return false;
+      }
+    }
+    return this.hiddenAmong(tabs).length == 0;
+  },
+
+  // For a synchronous way out: true (and the unlock prompt) when one of
+  // `tabs` is covered. Unlocked, the person does it again.
+  refuseMove(win, tabs) {
+    if (!this.hiddenAmong(tabs).length) {
+      return false;
+    }
+    if (!this._askingToMove) {
+      this._askingToMove = true;
+      this.ensureTabsUnlocked(win, tabs)
+        .catch(e => console.error("Whimsy: private lock", e))
+        .finally(() => {
+          this._askingToMove = false;
+        });
+    }
+    return true;
+  },
+
+  // The tab and, with it, every tab that moves along (selected, a folder).
+  movingWith(win, tab) {
+    if (!tab) {
+      return [];
+    }
+    if (win.gBrowser?.isTab?.(tab)) {
+      return tab.multiselected ? win.gBrowser.selectedTabs : [tab];
+    }
+    const group = tab.group ?? tab.closest?.("tab-group");
+    return group?.tabs ? [...group.tabs] : [];
+  },
+
+  guardMoves(win) {
+    const { gBrowser } = win;
+    const self = this;
+    guardOutermost(gBrowser, "replaceTabWithWindow", (call, [tab]) =>
+      self.refuseMove(win, self.movingWith(win, tab)) ? null : call());
+    guardOutermost(gBrowser, "replaceTabsWithWindow", (call, [tab]) =>
+      self.refuseMove(win, self.movingWith(win, tab)) ? null : call());
+    // From another window: the tab is judged where it is now.
+    guardOutermost(gBrowser, "adoptTab", (call, [tab]) =>
+      self.refuseMove(tab?.documentGlobal ?? win, [tab]) ? null : call());
+    // Zen's window sync swaps a tab's page between its copies in two
+    // windows (zenCloseOther false): the same tab, not a move.
+    guardOutermost(gBrowser, "swapBrowsersAndCloseOther", (call, [, other, zenCloseOther]) =>
+      zenCloseOther !== false && self.refuseMove(other?.documentGlobal ?? win, [other]) ? false : call());
+    if (win.gZenWorkspaces) {
+      guardOutermost(win.gZenWorkspaces, "moveTabsToWorkspace", (call, [tabs, spaceId, ...rest]) => {
+        // Tabs, folders or splits.
+        const list = (Array.isArray(tabs) ? tabs : [tabs]).filter(Boolean);
+        const tabsOf = item => (gBrowser.isTab?.(item) ? [item] : [...(item.tabs ?? [])]);
+        const leaving = list.flatMap(tabsOf).filter(tab => tab.getAttribute("zen-workspace-id") != spaceId);
+        if (!self.refuseMove(win, leaving)) {
+          return call();
+        }
+        const hidden = new Set(self.hiddenAmong(leaving));
+        const rest2 = list.filter(item => !tabsOf(item).some(tab => hidden.has(tab)));
+        return rest2.length ? call(rest2, spaceId, ...rest) : false;
+      });
+    }
+    if (win.gZenFolders) {
+      guardOutermost(win.gZenFolders, "changeFolderToSpace", (call, [folder]) =>
+        self.refuseMove(win, [...(folder?.tabs ?? [])]) ? undefined : call());
+    }
+    if (win.gZenViewSplitter) {
+      guardOutermost(win.gZenViewSplitter, "splitTabs", (call, [tabs]) =>
+        self.refuseMove(win, tabs) ? undefined : call());
+    }
+    // A covered tab (or a folder holding one) never starts a drag: Zen's
+    // drop on another space sets its space directly, and a drop outside
+    // the window tears it off.
+    win.addEventListener("dragstart", event => {
+      const item = event.target?.closest?.("tab, .tab-group-label, tab-group");
+      if (item && this.refuseMove(win, this.movingWith(win, item))) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+    // After every other popupshowing handler (they run on the popup; this
+    // one bubbles to the window last): a covered tab's menu offers only
+    // closing. Items are hidden, not disabled (many follow a <command>'s
+    // state), and shown again once the menu closes.
+    // Some items show themselves later (tab notes after an async lookup), so
+    // while it's open anything that shows is tucked away again.
+    const tucked = new Set();
+    let watcher = null;
+    const tuck = menu => {
+      for (const item of menu.querySelectorAll(":scope > menuitem, :scope > menu, :scope > menuseparator")) {
+        if (!item.hidden && !(item.localName != "menuseparator" && CLOSE_ITEM.test(item.id))) {
+          item.hidden = true;
+          tucked.add(item);
+        }
+      }
+    };
+    win.addEventListener("popupshowing", event => {
+      const menu = event.target;
+      if (menu?.id != "tabContextMenu") {
+        return;
+      }
+      const context = win.TabContextMenu?.contextTab;
+      if (!context || !this.hiddenAmong(this.movingWith(win, context)).length) {
+        return;
+      }
+      tuck(menu);
+      watcher?.disconnect();
+      watcher = new win.MutationObserver(() => tuck(menu));
+      watcher.observe(menu, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+    });
+    win.addEventListener("popuphidden", event => {
+      if (event.target?.id == "tabContextMenu") {
+        watcher?.disconnect();
+        watcher = null;
+        for (const item of tucked) {
+          item.hidden = false;
+        }
+        tucked.clear();
+      }
+    });
   },
 
   // --- locking -------------------------------------------------------------
@@ -197,10 +398,12 @@ export const WhimsyPrivateLock = {
   },
 
   unlockAll() {
-    if (!locked.size) {
+    if (!locked.size && !anyLockedKeys) {
       return;
     }
     locked.clear();
+    lockedKeys = new WeakSet();
+    anyLockedKeys = false;
     awaySince.clear();
     declinedFront = null;
     this.renderAll();
@@ -209,7 +412,7 @@ export const WhimsyPrivateLock = {
 
   /** Asks for Touch ID or the password, then unlocks everything. */
   async unlock(win) {
-    if (!locked.size) {
+    if (!locked.size && !anyLockedKeys) {
       return true;
     }
     const result = await lazy.WhimsyAuth.unlock(win, "whimsy-auth-reason-private");
@@ -269,8 +472,9 @@ export const WhimsyPrivateLock = {
     }
     this.scheduleTimer();
     // Landing on a locked surface asks at once (d6), once per landing.
-    if (front && locked.has(front)) {
-      const win = Services.focus.activeWindow;
+    const frontWin = Services.focus.activeWindow;
+    if (front && (locked.has(front) || this.isTabCovered(frontWin, frontWin?.gBrowser?.selectedTab))) {
+      const win = frontWin;
       const landing = `${front}:${win?.gBrowser?.selectedTab?.linkedPanel ?? ""}`;
       if (declinedFront != landing) {
         this.promptOnLanding(win, landing);
@@ -335,7 +539,11 @@ export const WhimsyPrivateLock = {
     const scratchTabs = [];
     for (const tab of this.allTabs(win)) {
       const kind = this.kindOfTab(win, tab);
-      const isLocked = !!kind && locked.has(kind);
+      if (kind && locked.has(kind) && tab.linkedBrowser?.permanentKey) {
+        lockedKeys.add(tab.linkedBrowser.permanentKey);
+        anyLockedKeys = true;
+      }
+      const isLocked = this.isTabCovered(win, tab);
       const was = tab.hasAttribute(LOCKED_ATTR);
       tab.toggleAttribute(LOCKED_ATTR, isLocked);
       tab.removeAttribute("whimsy-private-collapsed");
@@ -365,10 +573,14 @@ export const WhimsyPrivateLock = {
     }
 
     const selected = win.gBrowser.selectedTab;
-    const selectedKind = this.kindOfTab(win, selected);
-    const coverKind = windowLocked ? "windows" : selectedKind && locked.has(selectedKind) ? selectedKind : null;
+    // W14-14: a split shows every tab in it, not just the selected one.
+    const shown = selected?.group?.hasAttribute?.("split-view-group") ? [...selected.group.tabs] : [selected];
+    const coveredShown = shown.find(tab => this.isTabCovered(win, tab));
+    const coveredKind = coveredShown ? this.kindOfTab(win, coveredShown) : null;
+    const coverKind = windowLocked ? "windows" : coveredKind ? (locked.has(coveredKind) ? coveredKind : "tabs") : null;
     // A space behind Lock Space's cover hides its address too.
-    const hidden = !!coverKind || lazy.WhimsySpaceLock.isCovered(win.gZenWorkspaces?.activeWorkspace);
+    const hidden = !!coverKind || lazy.WhimsySpaceLock.isCovered(win.gZenWorkspaces?.activeWorkspace) ||
+      shown.some(tab => !!lazy.WhimsySpaceLock.coveringSpace(tab));
     root.toggleAttribute("whimsy-private-selected-locked", hidden);
     this.syncUrlbar(win, hidden);
     if (coverKind) {
@@ -618,6 +830,7 @@ export const WhimsyPrivateLock = {
     }
     win._whimsyPrivateLock = true;
     this.initGlobal();
+    this.guardMoves(win);
     this.wrapTitles(win);
     this.guardCommandBar(win);
     const onChange = () => {
@@ -760,7 +973,7 @@ export const WhimsyPrivateLock = {
 
   dropLockedRows(queryContext) {
     const results = queryContext?.results;
-    if (!results?.length || (!locked.size && !lazy.WhimsySpaceLock.anyCovered?.())) {
+    if (!results?.length || (!this.anyLocked && !lazy.WhimsySpaceLock.anyCovered?.())) {
       return;
     }
     const pages = this.hiddenPages();

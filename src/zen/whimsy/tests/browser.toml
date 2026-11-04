@@ -109,6 +109,8 @@ support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 
 # W11-13: Move To (private window, all tabs) and Move Out of Private… (one tab): picker, ask first, reopen in the space, switch, close originals; locked target.
 ["browser_whimsy_private_move.js"]
+# W14-14: a covered tab (locked Private Space or Lock Space) moves nowhere without unlocking: Move Out of Private, Move Tab, new space, Save as Space, new window, other windows, drag, split, the tab menu; one that left anyway stays covered.
+["browser_whimsy_private_lock_moves.js"]
 
 ["browser_whimsy_private_indicator.js"]
 

@@ -25,6 +25,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyIsolation: "resource:///modules/whimsy/WhimsyIsolation.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
@@ -156,6 +157,10 @@ export const WhimsyProfileMoves = {
   reopen(win, tab, userContextId, spaceId) {
     const { gBrowser, gZenWorkspaces } = win;
     if (tab.closing || tab.hasAttribute("zen-essential")) {
+      return null;
+    }
+    // W14-14: a covered tab never reopens somewhere else.
+    if (tab.getAttribute("zen-workspace-id") != spaceId && lazy.WhimsyPrivateLock.refuseMove(win, [tab])) {
       return null;
     }
     const selected = gBrowser.selectedTab == tab;

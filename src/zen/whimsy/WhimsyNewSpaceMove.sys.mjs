@@ -15,6 +15,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.move-to-new-space";
@@ -128,6 +129,10 @@ export const WhimsyNewSpaceMove = {
       return "off";
     }
     win.document.getElementById("tabContextMenu")?.hidePopup();
+    // W14-14: a covered tab moves only once unlocked.
+    if (!(await lazy.WhimsyPrivateLock.ensureTabsUnlocked(win, tabs))) {
+      return "cancelled";
+    }
     await gZenWorkspaces.openWorkspaceCreation();
     const form = win.document.querySelector("zen-workspace-creation");
     const spaceId = form?.getAttribute("workspace-id") || gZenWorkspaces.creatingWorkspaceId;

@@ -39,6 +39,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -139,6 +140,13 @@ export const WhimsyPrivateMove = {
   open(win, { tabs, anchor = null, all = false }) {
     tabs = this.movableTabs(tabs ?? []);
     if (!this.enabled || !tabs.length) {
+      return null;
+    }
+    // W14-14: a covered tab asks to unlock first; the picker follows.
+    if (lazy.WhimsyPrivateLock.hiddenAmong(tabs).length) {
+      lazy.WhimsyPrivateLock.ensureTabsUnlocked(win, tabs)
+        .then(ok => ok && this.open(win, { tabs, anchor, all }))
+        .catch(e => console.error("Whimsy: move out of private", e));
       return null;
     }
     const doc = win.document;
@@ -328,7 +336,7 @@ export const WhimsyPrivateMove = {
    */
   async move(win, tabs, uuid) {
     tabs = this.movableTabs(tabs);
-    if (!tabs.length) {
+    if (!tabs.length || !(await lazy.WhimsyPrivateLock.ensureTabsUnlocked(win, tabs))) {
       return false;
     }
     const target = await this.ensureTargetWindow(win);
