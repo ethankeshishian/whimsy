@@ -5491,7 +5491,7 @@ panel.whimsy-teach {
   display: none;
 }
 
-:root[whimsy-season-decor] #urlbar > .whimsy-season-trim {
+:root[whimsy-season-decor] :where(#urlbar, .whimsy-command-bar-ghost) > .whimsy-season-trim {
   display: block;
   position: absolute;
   inset: 0;
@@ -5561,6 +5561,13 @@ panel.whimsy-teach {
 :root[whimsy-season-decor] #urlbar[open][zen-floating-urlbar="true"] > .whimsy-season-trim {
   /* Matches .urlbar-background, which overhangs the bar while it's open. */
   inset: calc(-1 * var(--urlbar-background-overhang-open, 0px));
+  visibility: visible;
+  overflow: visible;
+}
+
+/* The close stand-in's box is the open bar's background, so no overhang. */
+:root[whimsy-season-decor] .whimsy-command-bar-ghost > .whimsy-season-trim {
+  inset: 0;
   visibility: visible;
   overflow: visible;
 }

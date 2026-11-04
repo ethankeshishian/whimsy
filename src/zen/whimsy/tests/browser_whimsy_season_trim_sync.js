@@ -153,3 +153,52 @@ add_task(async function every_look_preloads_its_own_art() {
   WhimsySeasons.apply(window);
   is(WhimsySeasons.artReady(window), before, "Re-applying the same look doesn't load the art again");
 });
+
+// W14-1: the bar's close is a fading stand-in (the real bar hides at once);
+// the leaves fade with it, for Esc and for a click outside the bar.
+for (const how of ["escape", "click"]) {
+  add_task(async function trim_fades_with_the_close_stand_in() {
+    gReduceMotionOverride = false;
+    registerCleanupFunction(() => {
+      gReduceMotionOverride = undefined;
+    });
+    WhimsySeasons._now = () => new Date(2026, 10, 10, 12);
+    WhimsySeasons.apply(window);
+    is(document.documentElement.getAttribute("whimsy-season-decor"), "autumn", "Autumn look");
+    gURLBar.blur();
+    await SimpleTest.promiseFocus(window);
+    document.getElementById("Browser:OpenLocation").doCommand();
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: "example" });
+    await TestUtils.waitForCondition(() => gURLBar.getAttribute("zen-floating-urlbar") == "true", "The command bar floats open");
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    const leaves = parts().top.getBoundingClientRect();
+
+    if (how == "escape") {
+      EventUtils.synthesizeKey("KEY_Escape");
+      if (gURLBar.view.isOpen) {
+        EventUtils.synthesizeKey("KEY_Escape");
+      }
+    } else {
+      EventUtils.synthesizeMouse(gBrowser.selectedBrowser, 20, gBrowser.selectedBrowser.clientHeight - 20, {});
+    }
+    const ghost = await TestUtils.waitForCondition(() => document.querySelector(".whimsy-command-bar-ghost"), `${how}: the close stand-in plays`);
+    is(getComputedStyle(parts().trim).visibility, "hidden", "The real trim hides with the real bar");
+    const trim = ghost.querySelector(".whimsy-season-trim");
+    ok(trim, "The stand-in carries the trim");
+    is(getComputedStyle(trim).visibility, "visible", "...visible");
+    is(getComputedStyle(ghost).overflow, "visible", "...and not clipped by the stand-in");
+    const top = trim.querySelector(".whimsy-season-trim-top");
+    ok(getComputedStyle(top, "::after").backgroundImage.includes(TRIM_ART.autumn[0]), "...showing the leaves");
+    const [fade] = ghost.getAnimations();
+    fade.pause();
+    fade.currentTime = 0;
+    const box = top.getBoundingClientRect();
+    fade.play();
+    ok(Math.abs(box.bottom - leaves.bottom) < 3 && Math.abs(box.left - leaves.left) < 3,
+      `...where they were on the open bar (${box.left},${box.bottom} vs ${leaves.left},${leaves.bottom})`);
+    await TestUtils.waitForCondition(() => !ghost.isConnected, "The stand-in, leaves and all, goes away");
+    gURLBar.blur();
+    WhimsySeasons._now = () => HALLOWEEN;
+    WhimsySeasons.apply(window);
+  });
+}

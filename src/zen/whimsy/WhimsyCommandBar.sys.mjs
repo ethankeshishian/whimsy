@@ -438,6 +438,11 @@ export class CommandBarMotion {
       ghost.append(canvas);
     }
     picture?.bitmap.close();
+    // The season trim sits outside the pictured box, so it rides along as a copy.
+    const trim = win.gURLBar.querySelector(".whimsy-season-trim");
+    if (trim) {
+      ghost.append(trim.cloneNode(true));
+    }
     ghost.className = GHOST_CLASS;
     ghost.inert = true;
     ghost.setAttribute("aria-hidden", "true");
@@ -455,7 +460,7 @@ export class CommandBarMotion {
       border: last.border,
       outline: last.outline,
       boxSizing: "border-box",
-      overflow: "hidden",
+      overflow: "visible",
       pointerEvents: "none",
       zIndex: "2147483647",
       transformOrigin: "50% 0",
