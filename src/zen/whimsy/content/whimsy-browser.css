@@ -1711,7 +1711,8 @@ notification-message[value="whimsy-claude-control"] {
   #whimsy-vpn-urlbar[state="connecting"] & {
     background-color: var(--whimsy-vpn-connecting);
     box-shadow: none;
-    animation: whimsy-vpn-pulse 1s ease-in-out infinite alternate;
+    /* W14 21.1: a visible pulse, 0.3 to 1 every 600ms. */
+    animation: whimsy-vpn-pulse 300ms ease-in-out infinite alternate;
   }
   #whimsy-vpn-urlbar[state="on"] & {
     background-color: var(--whimsy-vpn-on);
@@ -1726,7 +1727,7 @@ notification-message[value="whimsy-claude-control"] {
   }
 }
 @keyframes whimsy-vpn-pulse {
-  from { opacity: 0.5; }
+  from { opacity: 0.3; }
   to { opacity: 1; }
 }
 @keyframes whimsy-vpn-ring {

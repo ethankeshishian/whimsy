@@ -105,7 +105,10 @@ add_task(async function test_address_bar_control() {
 
   // The address bar's hover on each end, and the text never moves.
   const label = el.querySelector(".whimsy-vpn-urlbar-label");
-  const at = label.getBoundingClientRect().left;
+  // Within the control: the address bar's other buttons (Copy URL on
+  // hover) can move the whole control.
+  const offset = () => label.getBoundingClientRect().left - el.getBoundingClientRect().left;
+  const at = offset();
   const hover = resolved("var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent))");
   for (const part of [main(), chevron()]) {
     InspectorUtils.addPseudoClassLock(part, ":hover");
@@ -128,11 +131,11 @@ add_task(async function test_address_bar_control() {
     is(getComputedStyle(dot()).animationName, "whimsy-vpn-pulse", "…the dot pulses amber");
 
     setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
-    is(el.getAttribute("state"), "on", "On");
+    await TestUtils.waitForCondition(() => el.getAttribute("state") == "on", "On");
     is(getComputedStyle(dot()).backgroundColor, resolved("light-dark(rgb(31, 143, 78), rgb(79, 209, 139))"), "On: the dot is green");
     is(getComputedStyle(dot(), "::after").animationName, "whimsy-vpn-ring", "…sending out one ring");
     is(getComputedStyle(dot(), "::after").animationIterationCount, "1", "…once");
-    is(label.getBoundingClientRect().left, at, "The text never moves");
+    is(offset(), at, "The text never moves");
     ok(!siteIcon().hasAttribute("whimsy-vpn-on"), "No shield badge on the site icon");
     is(getComputedStyle(siteIcon(), "::before").content, "none", "…none drawn");
 
@@ -259,6 +262,47 @@ add_task(async function test_one_line_in_a_narrow_window() {
   await BrowserTestUtils.closeWindow(win);
 });
 
+// W14 21.1: a reconnect goes from off to on within one task (Firefox keeps
+// its proxy pass), so amber was never painted. Now "connecting" shows from
+// the click for at least 800ms, and the dot visibly pulses (0.3 to 1, every
+// 600ms).
+add_task(async function test_connecting_shows_on_an_instant_reconnect() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+  const el = control();
+  await TestUtils.waitForCondition(() => el.checkVisibility(), "The control shows");
+  const seen = [];
+  const observer = new MutationObserver(() => seen.push([el.getAttribute("state"), performance.now()]));
+  observer.observe(el, { attributeFilter: ["state"] });
+  const start = IPPProxyManager.start;
+  IPPProxyManager.start = async () => {
+    setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVATING);
+    setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
+  };
+  try {
+    const clicked = performance.now();
+    EventUtils.synthesizeMouseAtCenter(main(), {});
+    await TestUtils.waitForCondition(() => el.getAttribute("state") == "on", "On in the end");
+    observer.disconnect();
+    const connecting = seen.find(([state]) => state == "connecting");
+    ok(connecting, "Connecting showed");
+    const on = seen.find(([state]) => state == "on");
+    Assert.greaterOrEqual(on[1] - clicked, 700, `…for at least 700ms (${Math.round(on[1] - clicked)}ms) before on`);
+  } finally {
+    IPPProxyManager.start = start;
+    observer.disconnect();
+  }
+  setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVATING);
+  const style = getComputedStyle(dot());
+  is(style.animationName, "whimsy-vpn-pulse", "The amber dot pulses");
+  is(style.animationDuration, "0.3s", "…every 300ms each way");
+  is(style.animationDirection, "alternate", "…back and forth");
+  const keyframes = dot().getAnimations()[0].effect.getKeyframes();
+  is(Number(keyframes[0].opacity), 0.3, "…from 0.3");
+  setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+  BrowserTestUtils.removeTab(tab);
+});
+
 // W14 3c: the chevron opens Firefox's own panel (sign-in, location, usage,
 // rules), anchored to it, and closes it when pressed again; the main part
 // still only toggles.
@@ -307,6 +351,7 @@ add_task(async function test_chevron_opens_firefox_panel() {
     ok(!vpnPanel()?.active, "…without opening the panel");
   } finally {
     IPPProxyManager.start = start;
+    WhimsyVPN.endHold();
   }
   BrowserTestUtils.removeTab(tab);
 });

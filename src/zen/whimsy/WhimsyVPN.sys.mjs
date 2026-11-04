@@ -40,6 +40,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPProxyStates:
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.vpn";
@@ -100,11 +102,58 @@ export const WhimsyVPN = {
     if (!this.canTurnOn()) {
       return;
     }
+    this.holdConnecting();
     try {
       await lazy.IPPProxyManager.start();
+      await this.connectingShown();
       win.gZenUIManager?.showToast?.("whimsy-vpn-on-toast");
     } catch (e) {
+      this.endHold();
       console.error("Whimsy: VPN turnOn failed", e);
+    }
+  },
+
+  // W14 21.1: a reconnect goes from off to on within one task (Firefox
+  // keeps its proxy pass), so "connecting" was never painted. It now shows
+  // from the click and stays at least this long.
+  CONNECTING_HOLD_MS: 800,
+  _holdUntil: 0,
+  _holdTimer: null,
+
+  holdConnecting() {
+    this._holdUntil = Date.now() + this.CONNECTING_HOLD_MS;
+    lazy.clearTimeout(this._holdTimer);
+    this._holdTimer = lazy.setTimeout(() => this.endHold(), this.CONNECTING_HOLD_MS);
+    this.updateAllUi();
+  },
+
+  endHold() {
+    lazy.clearTimeout(this._holdTimer);
+    this._holdTimer = null;
+    if (this._holdUntil) {
+      this._holdUntil = 0;
+      this.updateAllUi();
+    }
+  },
+
+  get holding() {
+    return Date.now() < this._holdUntil;
+  },
+
+  connectingShown() {
+    const left = this._holdUntil - Date.now();
+    return left > 0 ? new Promise(resolve => lazy.setTimeout(resolve, left)) : Promise.resolve();
+  },
+
+  updateAllUi() {
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      if (this._uiWindows.has(win) && !win.closed) {
+        try {
+          this.updateUi(win);
+        } catch (e) {
+          console.error("Whimsy: VPN controls", e);
+        }
+      }
     }
   },
 
@@ -112,6 +161,7 @@ export const WhimsyVPN = {
     if (!this.canTurnOff()) {
       return;
     }
+    this.endHold();
     try {
       await lazy.IPPProxyManager.stop();
       win.gZenUIManager?.showToast?.("whimsy-vpn-off-toast");
@@ -299,6 +349,7 @@ export const WhimsyVPN = {
   // here"), turning it on adds this space instead of stopping it for all.
   async toggleHere(win) {
     if (this.uiState(win).state == "elsewhere" && lazy.WhimsyVPNScope.profileForWindow(win) !== null) {
+      this.holdConnecting();
       lazy.WhimsyVPNScope.setScope(win, "space");
     } else {
       await this.toggle(win);
@@ -327,7 +378,7 @@ export const WhimsyVPN = {
       return { state: "setup", scope: null };
     }
     const scoped = lazy.WhimsyVPNScope.buttonState(win);
-    if (scoped == "connecting") {
+    if (scoped == "connecting" || (this.holding && scoped != "elsewhere")) {
       return { state: "connecting", scope: null };
     }
     if (scoped == "browser" || scoped == "space") {
