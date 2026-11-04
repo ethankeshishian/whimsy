@@ -53,6 +53,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   CustomizableUI: "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs",
   WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
@@ -549,8 +550,10 @@ export const WhimsyQuickWindow = {
   // The spaces a quick window's tab can be moved to.
   // Not Scratch (wave9/secfix, security-full-1 M2): only private tabs go
   // there, and Mini's tab is a normal one.
+  // Nor a hidden one, unless it's the one showing (W14-17).
   spaces(win) {
-    return (this.mainWindow(win.opener)?.gZenWorkspaces?.getWorkspaces() ?? []).filter(space => !space.whimsyScratch);
+    const main = this.mainWindow(win.opener);
+    return main?.gZenWorkspaces ? lazy.WhimsySpaceArchive.navigableSpaces(main).filter(space => !space.whimsyScratch) : [];
   },
 
   // The space Cmd+O / the main button's click adopts into: whichever space

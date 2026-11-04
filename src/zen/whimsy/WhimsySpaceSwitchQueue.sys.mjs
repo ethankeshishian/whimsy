@@ -237,17 +237,27 @@ export const WhimsySpaceSwitchQueue = {
     if (!workspaces.length) {
       return null;
     }
-    // Skip hidden spaces (W11-16).
-    const visible = workspaces.filter(space => !space.whimsyHidden);
+    // Skip hidden spaces (W11-16). W14-17: a hidden space being shown keeps
+    // its place, so a step from it goes to its neighbour that way.
+    const fromId = this.projectedTarget(win);
+    const visible = workspaces.filter(
+      space => !space.whimsyHidden || space.uuid == fromId || space.uuid == spaces.activeWorkspace
+    );
     if (!visible.length) {
       return null;
     }
-
-    const fromId = this.projectedTarget(win);
     let from = visible.findIndex(space => space.uuid == fromId);
     if (from < 0) {
       from = Math.max(0, visible.findIndex(space => space.uuid == spaces.activeWorkspace));
     }
+    // W14-17: a step that switches nothing still puts a dragged strip back
+    // (Zen's own step always called changeWorkspace, which does).
+    const stay = result => {
+      if (!state?.running && !spaces._animatingChange) {
+        spaces._cancelSwipeAnimation?.();
+      }
+      return result;
+    };
 
     // When the edges feature is disabled, wrap across visible spaces.
     if (!this.edgesEnabled) {
@@ -270,7 +280,7 @@ export const WhimsySpaceSwitchQueue = {
         const icons = win.document.getElementById("zen-workspaces-button");
         icons?.querySelector(`toolbarbutton[zen-workspace-id="${visible[0].uuid}"]`)?.focus();
       }
-      return state?.running ? Promise.resolve(visible[0]) : null;
+      return stay(state?.running ? Promise.resolve(visible[0]) : null);
     }
 
     // Right edge rule: past the last space makes a new space if settled,
@@ -278,7 +288,7 @@ export const WhimsySpaceSwitchQueue = {
     if (to >= visible.length) {
       const creating = win.document.documentElement.hasAttribute("zen-creating-workspace");
       if (state?.running || creating || spaces.creatingWorkspaceId || spaces.privateWindowOrDisabled) {
-        return state?.running ? Promise.resolve(visible.at(-1)) : null;
+        return stay(state?.running ? Promise.resolve(visible.at(-1)) : null);
       }
       return spaces.openWorkspaceCreation();
     }
@@ -287,7 +297,7 @@ export const WhimsySpaceSwitchQueue = {
     // goes through the queue too, which then drops what was queued after it.
     const targetSpace = visible[to];
     if (to == from) {
-      return Promise.resolve(targetSpace);
+      return stay(Promise.resolve(targetSpace));
     }
 
     const promise = spaces.changeWorkspace(targetSpace, {

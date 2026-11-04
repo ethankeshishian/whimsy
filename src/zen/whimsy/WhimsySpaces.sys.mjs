@@ -39,6 +39,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs",
   WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
 });
@@ -123,20 +124,21 @@ export const WhimsySpaces = {
   // wave9/menus (design-full-4 M4): Scratch is private; a normal tab never
   // moves there. Every space list and move target leaves it out, the way
   // WhimsyIsolation.homeFor does.
+  // W14-17: nor a hidden space (only Show Hidden Spaces lists those).
   movableSpaces(win) {
-    return (win.gZenWorkspaces?.getWorkspaces() ?? []).filter(space => !space.whimsyScratch);
+    return lazy.WhimsySpaceArchive.navigableSpaces(win).filter(space => !space.whimsyScratch);
   },
 
-  // Zen's Move Tab ▸ list of spaces: no Scratch.
+  // Zen's Move Tab ▸ list of spaces: no Scratch, no hidden space.
   initMoveTabMenu(win) {
     const popup = win.document.getElementById("moveTabOptionsMenu");
     popup?.addEventListener("popupshowing", event => {
       if (event.target != popup) {
         return;
       }
-      const scratch = win.gZenWorkspaces?.getWorkspaces().find(space => space.whimsyScratch);
+      const movable = new Set(this.movableSpaces(win).map(space => space.uuid));
       for (const item of popup.querySelectorAll(":scope > .zen-workspace-context-menu-item[zen-workspace-id]")) {
-        item.hidden = !!scratch && item.getAttribute("zen-workspace-id") == scratch.uuid;
+        item.hidden = !movable.has(item.getAttribute("zen-workspace-id"));
       }
       // Scratch was the only other space: Zen's separator closes an empty list.
       const separator = popup.querySelector(":scope > menuseparator.zen-workspace-context-menu-item");

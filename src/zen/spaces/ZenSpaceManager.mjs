@@ -2129,7 +2129,11 @@ class nsZenWorkspaces {
     offsetPixels = 0
   ) {
     this._organizingWorkspaceStrip = true;
-    const workspaces = this.getWorkspaces();
+    // Whimsy hotfix (W14-17): hidden spaces take no slot.
+    const workspaces =
+      this._whimsyNavigableSpaces?.(this.getWorkspaces(), [workspace.uuid]) ??
+      this.getWorkspaces();
+    this._whimsyParkHiddenSpaces?.(workspaces);
     let workspaceIndex = workspaces.findIndex(w => w.uuid === workspace.uuid);
     if (!justMove) {
       this._fixIndicatorsNames(workspaces);
@@ -2325,7 +2329,19 @@ class nsZenWorkspaces {
       1000;
     this._animatingChange = true;
     const animations = [];
-    const workspaces = this.getWorkspaces();
+    // Whimsy hotfix (W14-17): hidden spaces take no slot.
+    const allWorkspaces = this.getWorkspaces();
+    const workspaces =
+      this._whimsyNavigableSpaces?.(allWorkspaces, [
+        newWorkspace.uuid,
+        previousWorkspace?.uuid,
+      ]) ?? allWorkspaces;
+    if (previousWorkspace && workspaces !== allWorkspaces) {
+      previousWorkspaceIndex = workspaces.findIndex(
+        w => w.uuid === previousWorkspace.uuid
+      );
+    }
+    this._whimsyParkHiddenSpaces?.(workspaces);
     const spaceLen = workspaces.length;
     const newWorkspaceIndex = workspaces.findIndex(
       w => w.uuid === newWorkspace.uuid
@@ -2412,6 +2428,14 @@ class nsZenWorkspaces {
       const elementWorkspaceIndex = workspaces.findIndex(
         w => w.uuid === elementWorkspaceId
       );
+      // Whimsy hotfix (W14-17): a hidden space stays parked.
+      if (
+        elementWorkspaceIndex < 0 &&
+        allWorkspaces.some(w => w.uuid === elementWorkspaceId)
+      ) {
+        element.active = false;
+        continue;
+      }
       // Whimsy hotfix (B3): #spaceDistance keeps this linear once the
       // strip is a line.
       let offset = this.#spaceDistance(

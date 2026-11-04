@@ -41,6 +41,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
+  WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs",
   WhimsySplitKeys: "resource:///modules/whimsy/WhimsySplitKeys.sys.mjs",
   WhimsySplitLayouts: "resource:///modules/whimsy/WhimsySplitLayouts.sys.mjs",
   WhimsySplitPane: "resource:///modules/whimsy/WhimsySplitPane.sys.mjs",
@@ -244,10 +245,13 @@ export const WhimsySplitRow = {
     const popup = document.getElementById("whimsySplitRow-moveToPopup");
     const workspaces = win.gZenWorkspaces;
     popup.replaceChildren();
-    // wave9/menus (design-full-4 M4): never into Scratch (private).
-    const spaces = workspaces?.workspaceEnabled ? workspaces.getWorkspaces().filter(space => !space.whimsyScratch) : [];
-    moveTo.disabled = !spaces.length || tab.hasAttribute("zen-essential");
+    // wave9/menus (design-full-4 M4): never into Scratch (private). W14-17:
+    // nor a hidden space, unless the split is in it.
     const current = tab.getAttribute("zen-workspace-id");
+    const spaces = workspaces?.workspaceEnabled
+      ? lazy.WhimsySpaceArchive.navigableSpaces(win, [current]).filter(space => !space.whimsyScratch)
+      : [];
+    moveTo.disabled = !spaces.length || tab.hasAttribute("zen-essential");
     for (const space of spaces) {
       const item = document.createXULElement("menuitem");
       item.setAttribute("type", "checkbox");

@@ -837,6 +837,81 @@ HOTFIXES = [
                "        spaceLen\n"
                "      );\n",
     },
+    # W14-17: a hidden space takes no slot on the space strip: the drag
+    # preview, the resting layout and the slides count only the spaces
+    # gZenWorkspaces._whimsyNavigableSpaces returns (WhimsySpaceArchive:
+    # the visible ones plus the showing one), and the rest stay parked.
+    {
+        "id": "space-hidden-strip-layout",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "The resting strip and the swipe preview's neighbour skip "
+               "hidden spaces, which are parked off the strip.",
+        "old": "    this._organizingWorkspaceStrip = true;\n"
+               "    const workspaces = this.getWorkspaces();\n",
+        "new": "    this._organizingWorkspaceStrip = true;\n"
+               "    // Whimsy hotfix (W14-17): hidden spaces take no slot.\n"
+               "    const workspaces =\n"
+               "      this._whimsyNavigableSpaces?.(this.getWorkspaces(), [workspace.uuid]) ??\n"
+               "      this.getWorkspaces();\n"
+               "    this._whimsyParkHiddenSpaces?.(workspaces);\n",
+    },
+    {
+        "id": "space-hidden-strip-animate",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "A slide counts only the spaces on the strip, the one it "
+               "leaves included, so it never passes through hidden ones.",
+        "old": "    const animations = [];\n"
+               "    const workspaces = this.getWorkspaces();\n"
+               "    const spaceLen = workspaces.length;\n",
+        "new": "    const animations = [];\n"
+               "    // Whimsy hotfix (W14-17): hidden spaces take no slot.\n"
+               "    const allWorkspaces = this.getWorkspaces();\n"
+               "    const workspaces =\n"
+               "      this._whimsyNavigableSpaces?.(allWorkspaces, [\n"
+               "        newWorkspace.uuid,\n"
+               "        previousWorkspace?.uuid,\n"
+               "      ]) ?? allWorkspaces;\n"
+               "    if (previousWorkspace && workspaces !== allWorkspaces) {\n"
+               "      previousWorkspaceIndex = workspaces.findIndex(\n"
+               "        w => w.uuid === previousWorkspace.uuid\n"
+               "      );\n"
+               "    }\n"
+               "    this._whimsyParkHiddenSpaces?.(workspaces);\n"
+               "    const spaceLen = workspaces.length;\n",
+    },
+    {
+        "id": "space-hidden-strip-skip",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "A parked hidden space is left where it is during a slide.",
+        "old": "      const elementWorkspaceIndex = workspaces.findIndex(\n"
+               "        w => w.uuid === elementWorkspaceId\n"
+               "      );\n",
+        "new": "      const elementWorkspaceIndex = workspaces.findIndex(\n"
+               "        w => w.uuid === elementWorkspaceId\n"
+               "      );\n"
+               "      // Whimsy hotfix (W14-17): a hidden space stays parked.\n"
+               "      if (\n"
+               "        elementWorkspaceIndex < 0 &&\n"
+               "        allWorkspaces.some(w => w.uuid === elementWorkspaceId)\n"
+               "      ) {\n"
+               "        element.active = false;\n"
+               "        continue;\n"
+               "      }\n",
+    },
+    {
+        "id": "space-hidden-focus-actions",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "The command bar's Focus on <space> rows leave out hidden "
+               "spaces; only Show Hidden Spaces lists them.",
+        "old": "    const workspaces = window.gZenWorkspaces.getWorkspaces();\n"
+               "    if (!workspaces?.length) {\n",
+        "new": "    // Whimsy hotfix (W14-17): no hidden spaces.\n"
+               "    const workspaces =\n"
+               "      window.gZenWorkspaces._whimsyNavigableSpaces?.(\n"
+               "        window.gZenWorkspaces.getWorkspaces()\n"
+               "      ) ?? window.gZenWorkspaces.getWorkspaces();\n"
+               "    if (!workspaces?.length) {\n",
+    },
     # W10-39: Rename Space did nothing, and then neither did any rename.
     {
         "id": "tab-renamer-stale-edit",

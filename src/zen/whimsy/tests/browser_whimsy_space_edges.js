@@ -13,6 +13,9 @@ const { WhimsySpaceSwitchQueue } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySpaceSwitchQueue.sys.mjs"
 );
 
+const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+UrlbarTestUtils.init(this);
+
 const EDGES = "whimsy.feature.space-edges";
 let created = [];
 let originalSpace;
@@ -260,4 +263,133 @@ add_task(async function test_edge_actions_count_visible_spaces() {
     gZenWorkspaces.saveWorkspace(last);
     await SpecialPowers.popPrefEnv();
   }
+});
+
+// W14-17: a hidden space takes no slot on the strip. A drag never shows it,
+// a slide never passes it, a swipe from a hidden space that's showing goes
+// to its neighbour that way, and a swipe that switches nothing puts the
+// dragged strip back.
+function stripOffset(space) {
+  const transform = gZenWorkspaces.workspaceElement(space.uuid)?.style.transform || "none";
+  if (transform == "none") {
+    return 0;
+  }
+  const match = /translateX\((-?[\d.]+)%\)/.exec(transform);
+  return match ? Number(match[1]) : NaN;
+}
+
+function parked(space) {
+  return stripOffset(space) <= -100 * (gZenWorkspaces.getWorkspaces().length + 1);
+}
+
+async function stripAtRest(onStrip, what) {
+  const active = gZenWorkspaces.activeWorkspace;
+  const at = onStrip.findIndex(space => space.uuid == active);
+  await TestUtils.waitForCondition(
+    () => !gZenWorkspaces._animatingChange && onStrip.every((space, i) => Math.abs(stripOffset(space) - (i - at) * 100) < 0.5),
+    `${what}: every space on the strip is back at rest`
+  );
+}
+
+function hide(space, hidden) {
+  if (hidden) {
+    space.whimsyHidden = true;
+  } else {
+    delete space.whimsyHidden;
+  }
+  gZenWorkspaces.saveWorkspace(space);
+  window.dispatchEvent(new CustomEvent("ZenWorkspaceDataChanged"));
+}
+
+add_task(async function test_hidden_space_takes_no_strip_slot() {
+  const all = gZenWorkspaces.getWorkspaces();
+  ok(all.length >= 4, "At least four spaces");
+  const [first, hidden, third] = all;
+  await goTo(first);
+  hide(hidden, true);
+  const visible = all.filter(space => space != hidden);
+  await TestUtils.waitForCondition(() => parked(hidden), "Hiding a space parks it off the strip at once");
+  await stripAtRest(visible, "After hiding");
+  try {
+    // Zen's swipe update drags the strip; the neighbour it reveals is the
+    // next visible space, and the hidden one stays parked.
+    gZenWorkspaces._organizeWorkspaceStripLocations(first, true, -60);
+    is(stripOffset(first), -30, "The dragged space follows the drag");
+    is(stripOffset(third), 70, "...and the next visible space comes in beside it");
+    ok(parked(hidden), "The hidden space never shows in the drag");
+    await gZenWorkspaces.changeWorkspaceShortcut(1, true);
+    await settle();
+    is(gZenWorkspaces.activeWorkspace, third.uuid, "The swipe lands on the next visible space");
+    ok(parked(hidden), "...without sliding through the hidden one");
+    await stripAtRest(visible, "After the swipe");
+
+    // Showing the hidden space (Show Hidden Spaces' preview, a restore):
+    // it takes its own place, and a swipe from it goes its way.
+    await gZenWorkspaces.changeWorkspaceWithID(hidden.uuid);
+    await settle();
+    await stripAtRest(all, "On the hidden space");
+    await gZenWorkspaces.changeWorkspaceShortcut(1, true);
+    await settle();
+    is(gZenWorkspaces.activeWorkspace, third.uuid, "Right from the hidden space: the space after it");
+    await TestUtils.waitForCondition(() => parked(hidden), "Left, it parks again");
+    await gZenWorkspaces.changeWorkspaceWithID(hidden.uuid);
+    await settle();
+    await gZenWorkspaces.changeWorkspaceShortcut(-1, true);
+    await settle();
+    is(gZenWorkspaces.activeWorkspace, first.uuid, "Left from the hidden space: the space before it");
+    await stripAtRest(visible, "Back on the first space");
+
+    // At the left edge a swipe switches nothing: the strip goes back.
+    gZenWorkspaces._organizeWorkspaceStripLocations(first, true, 60);
+    is(stripOffset(first), 30, "Dragged past the first space");
+    is(await gZenWorkspaces.changeWorkspaceShortcut(-1, true), null, "Nothing to switch to");
+    await stripAtRest(visible, "After a swipe at the left edge");
+    is(gZenWorkspaces.activeWorkspace, first.uuid, "Still on the first space");
+  } finally {
+    hide(hidden, false);
+    await settle();
+    await goTo(first);
+    await stripAtRest(gZenWorkspaces.getWorkspaces(), "Unhidden, it takes its slot back");
+  }
+});
+
+// W14-17 (user decision): hidden spaces are listed only by Show Hidden
+// Spaces. The command bar's Focus on and Move to rows and the Move Tab menu
+// leave them out; once unhidden they're ordinary again.
+add_task(async function test_hidden_space_is_not_offered() {
+  const { WhimsySpaces } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaces.sys.mjs");
+  const all = gZenWorkspaces.getWorkspaces();
+  const target = all.at(-1);
+  await goTo(all[0]);
+  const name = target.name;
+  const rows = async value => {
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, value, waitForFocus: SimpleTest.waitForFocus });
+    await UrlbarTestUtils.promiseSearchComplete(window);
+    let count = 0;
+    for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+      const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+      count += result.payload?.workspaceId == target.uuid ? 1 : 0;
+    }
+    gURLBar.searchMode = null;
+    await UrlbarTestUtils.promisePopupClose(window, () => EventUtils.synthesizeKey("KEY_Escape"));
+    return count;
+  };
+  // Focus on <space> (the spaces search, "` name") and Move to <space>.
+  const focusRows = () => rows("` " + name);
+  const moveRows = () => rows(name);
+  const offered = [await focusRows(), await moveRows()];
+  Assert.greater(offered[0], 0, "A visible space has a Focus on row");
+  Assert.greater(offered[1], 0, "...and a Move to row");
+  hide(target, true);
+  try {
+    is(await focusRows(), 0, "Hidden, the spaces search doesn't list it");
+    is(await moveRows(), 0, "...nor does a search offer to move a tab there");
+    ok(!WhimsySpaces.movableSpaces(window).some(space => space.uuid == target.uuid), "...and Move to leaves it out");
+  } finally {
+    hide(target, false);
+    await settle();
+  }
+  is(await focusRows(), offered[0], "Unhidden, it's searchable again");
+  is(await moveRows(), offered[1], "...and offered as a Move to target");
+  ok(WhimsySpaces.movableSpaces(window).some(space => space.uuid == target.uuid), "...and a Move to target");
 });

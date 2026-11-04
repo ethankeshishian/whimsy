@@ -176,7 +176,11 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
     if (window.gZenWorkspaces.privateWindowOrDisabled) {
       return [];
     }
-    const workspaces = window.gZenWorkspaces.getWorkspaces();
+    // Whimsy hotfix (W14-17): no hidden spaces.
+    const workspaces =
+      window.gZenWorkspaces._whimsyNavigableSpaces?.(
+        window.gZenWorkspaces.getWorkspaces()
+      ) ?? window.gZenWorkspaces.getWorkspaces();
     if (!workspaces?.length) {
       return [];
     }

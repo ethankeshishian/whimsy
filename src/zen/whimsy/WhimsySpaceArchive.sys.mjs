@@ -28,6 +28,13 @@
 // the single entry point Zen's cmd_zenWorkspaceSwitchN commands call; direct
 // changeWorkspace calls (restore, Settings) are untouched. Next/previous
 // space cycling (changeWorkspaceShortcut) skips hidden spaces (W11-16).
+//
+// W14-17: a hidden space takes no part anywhere but Show Hidden Spaces:
+// no slot on the space strip (swipe preview, slides), no command-bar
+// "Focus on" or "Move to" row. navigableSpaces() is the one list: the
+// visible spaces plus the showing one when it's hidden. Zen's strip code
+// reads it through gZenWorkspaces._whimsyNavigableSpaces (overlay.py
+// hotfixes space-hidden-*), and parks the rest off the strip.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -37,6 +44,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const FEATURE_PREF = "whimsy.feature.archive-space";
 const HIDDEN_ATTR = "whimsy-hidden-space";
 const MENU_ID = "whimsy-hide-space-menuitem";
+// win -> the hidden spaces its strip was last laid out for.
+const stripKeys = new WeakMap();
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -48,6 +57,7 @@ export const WhimsySpaceArchive = {
       return;
     }
     this.wrapShortcutSwitch(win);
+    this.initStripHooks(win);
     const refresh = () => this.applyHidden(win);
     this.applyHidden(win);
     win.addEventListener("ZenWorkspaceDataChanged", refresh);
@@ -72,6 +82,45 @@ export const WhimsySpaceArchive = {
       icon: "chrome://browser/skin/zen-icons/selectable/eye.svg",
       isAvailable: w => featureOn() && w.gZenWorkspaces.getWorkspaces().filter(s => !s.whimsyHidden).length > 1,
     });
+  },
+
+  /**
+   * The spaces that take part in stepping, swipes and the strip, in order:
+   * the visible ones, plus the showing space and any `keep` ids even when
+   * hidden (a slide away from a hidden space still plays).
+   */
+  navigableSpaces(win, keep = [], list = win.gZenWorkspaces?.getWorkspaces() ?? []) {
+    if (!featureOn()) {
+      return list;
+    }
+    const kept = new Set([win.gZenWorkspaces?.activeWorkspace, ...keep].filter(Boolean));
+    return list.filter(space => !space.whimsyHidden || kept.has(space.uuid));
+  },
+
+  initStripHooks(win) {
+    const spaces = win.gZenWorkspaces;
+    if (spaces._whimsyNavigableSpaces) {
+      return;
+    }
+    spaces._whimsyNavigableSpaces = (list, keep = []) => this.navigableSpaces(win, keep, list);
+    spaces._whimsyParkHiddenSpaces = strip => this.parkHidden(win, strip);
+  },
+
+  // A hidden space's strip sits past every slot, so neither a drag nor a
+  // slide ever shows it.
+  parkHidden(win, strip) {
+    const all = win.gZenWorkspaces.getWorkspaces();
+    const onStrip = new Set(strip.map(space => space.uuid));
+    const parked = `translateX(${-100 * (all.length + 1)}%)`;
+    for (const space of all) {
+      if (onStrip.has(space.uuid)) {
+        continue;
+      }
+      const element = win.gZenWorkspaces.workspaceElement(space.uuid);
+      if (element && element.style.transform != parked) {
+        element.style.transform = parked;
+      }
+    }
   },
 
   wrapShortcutSwitch(win) {
@@ -104,6 +153,20 @@ export const WhimsySpaceArchive = {
       const isHidden = hiddenIds.has(button.getAttribute("zen-workspace-id"));
       button.toggleAttribute(HIDDEN_ATTR, isHidden);
       button.hidden = isHidden;
+    }
+    // A space hidden or unhidden leaves or takes its strip slot now.
+    const key = [...hiddenIds].sort().join(",");
+    const spaces = win.gZenWorkspaces;
+    if ((stripKeys.get(win) ?? "") != key && !spaces._animatingChange && !spaces.isChangingWorkspace) {
+      const active = spaces.getActiveWorkspaceFromCache?.();
+      try {
+        if (active) {
+          spaces._organizeWorkspaceStripLocations(active, true);
+          stripKeys.set(win, key);
+        }
+      } catch (e) {
+        // The strip isn't built yet; it lays itself out when it is.
+      }
     }
   },
 
