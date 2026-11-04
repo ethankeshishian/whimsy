@@ -48,7 +48,7 @@ const PIP_ENABLED_PREF = "media.videocontrols.picture-in-picture.enabled";
 const CONTROLS_PREF = "whimsy.feature.call-controls";
 // W21: whether a plain click on the mic/camera does the call's own mute
 // ("call", the default) or a hard device mute ("device"); Option-click (or
-// right-click → the panel) always does the other one.
+// the panel) always does the other one.
 const DEFAULT_PREF = "whimsy.call.buttons-default";
 const KINDS = ["mic", "camera"];
 const PERMISSION = { mic: "microphone", camera: "camera" };
@@ -373,6 +373,9 @@ export const WhimsyCallPip = {
         if (id == "whimsy-call-options") {
           event.stopPropagation();
           event.preventDefault();
+          if (!this.isPlainPress(event)) {
+            return;
+          }
           lazy.WhimsyCallOptionsPanel.open(pipWin, browser, { anchor: event.target });
           return;
         }
@@ -380,6 +383,9 @@ export const WhimsyCallPip = {
         if (kind) {
           event.stopPropagation();
           event.preventDefault();
+          if (!this.isPlainPress(event)) {
+            return;
+          }
           if (event.altKey) {
             this.toggleOther(browser, kind);
           } else {
@@ -387,27 +393,16 @@ export const WhimsyCallPip = {
           }
         }
       }, true);
+      // Right-click and Ctrl-click (macOS's secondary click) on the call
+      // buttons do nothing; the panel opens only from its own ⋯ button.
       pipWin.addEventListener("contextmenu", event => {
         const id = event.target?.id;
-        const kind = id == "whimsy-call-mic" ? "mic" : id == "whimsy-call-camera" ? "camera" : null;
-        if (!kind || !this.isInCall(tab)) {
-          return;
-        }
-        event.stopPropagation();
-        event.preventDefault();
-        const options = pipWin.document.getElementById("whimsy-call-options");
-        lazy.WhimsyCallOptionsPanel.open(pipWin, browser, { anchor: options ?? event.target, focus: kind });
-      }, true);
-      pipWin.addEventListener("keydown", event => {
-        const id = event.target?.id;
-        const targetKind = id == "whimsy-call-mic" ? "mic" : id == "whimsy-call-camera" ? "camera" : null;
-        if (targetKind && (event.key == "ContextMenu" || (event.key == "F10" && event.shiftKey))) {
+        if (["whimsy-call-mic", "whimsy-call-camera", "whimsy-call-options"].includes(id) && this.isInCall(tab)) {
           event.stopPropagation();
           event.preventDefault();
-          const options = pipWin.document.getElementById("whimsy-call-options");
-          lazy.WhimsyCallOptionsPanel.open(pipWin, browser, { anchor: options ?? event.target, focus: targetKind });
-          return;
         }
+      }, true);
+      pipWin.addEventListener("keydown", event => {
         const kind = this.pipKeyKind(event);
         if (kind && this.isInCall(tab)) {
           event.stopPropagation();
@@ -576,7 +571,7 @@ export const WhimsyCallPip = {
   },
 
   // W21: "call" (the shipped default) or "device" — which mute a plain
-  // click on the mic/camera does; Option-click/right-click do the other.
+  // click on the mic/camera does; Option-click does the other.
   get buttonsDefault() {
     const value = Services.prefs.getStringPref(DEFAULT_PREF, "call");
     return value == "device" ? "device" : "call";
@@ -947,7 +942,9 @@ export const WhimsyCallPip = {
       if (options) {
         event.stopPropagation();
         event.preventDefault();
-        lazy.WhimsyCallOptionsPanel.open(win, browser, { anchor: options });
+        if (this.isPlainPress(event)) {
+          lazy.WhimsyCallOptionsPanel.open(win, browser, { anchor: options });
+        }
         return;
       }
       const button = event.target?.closest?.(`${CARD_BUTTON.mic}, ${CARD_BUTTON.camera}`);
@@ -957,45 +954,31 @@ export const WhimsyCallPip = {
       const kind = button.matches(CARD_BUTTON.mic) ? "mic" : "camera";
       event.stopPropagation();
       event.preventDefault();
+      if (!this.isPlainPress(event)) {
+        return;
+      }
       if (event.altKey) {
         this.toggleOther(browser, kind);
       } else {
         this.toggleDefault(browser, kind);
       }
     }, true);
-    // W21: right-click, or Shift+F10/the Menu key (the keyboard equivalent
-    // of right-click), on the mic/camera opens the same options panel,
-    // focused on that device's section.
+    // Right-click and Ctrl-click (macOS's secondary click) on the call
+    // buttons do nothing: no toggle, no panel, no toolbar context menu.
     bar.addEventListener("contextmenu", event => {
-      const button = event.target?.closest?.(`${CARD_BUTTON.mic}, ${CARD_BUTTON.camera}`);
-      const browser = button?.closest(".zen-media-card")?._whimsyCallBrowser;
-      if (!browser || !this.controlsEnabled) {
+      const button = event.target?.closest?.(`${CARD_BUTTON.mic}, ${CARD_BUTTON.camera}, #whimsy-call-options`);
+      if (!button?.closest(".zen-media-card")?._whimsyCallBrowser || !this.controlsEnabled) {
         return;
       }
       event.stopPropagation();
       event.preventDefault();
-      const kind = button.matches(CARD_BUTTON.mic) ? "mic" : "camera";
-      const options = button.closest(".zen-media-card").querySelector("#whimsy-call-options");
-      lazy.WhimsyCallOptionsPanel.open(win, browser, { anchor: options ?? button, focus: kind });
     }, true);
-    bar.addEventListener("keydown", event => {
-      if (event.key != "F10" && event.key != "ContextMenu") {
-        return;
-      }
-      if (event.key == "F10" && !event.shiftKey) {
-        return;
-      }
-      const button = event.target?.closest?.(`${CARD_BUTTON.mic}, ${CARD_BUTTON.camera}`);
-      const browser = button?.closest(".zen-media-card")?._whimsyCallBrowser;
-      if (!browser || !this.controlsEnabled) {
-        return;
-      }
-      event.stopPropagation();
-      event.preventDefault();
-      const kind = button.matches(CARD_BUTTON.mic) ? "mic" : "camera";
-      const options = button.closest(".zen-media-card").querySelector("#whimsy-call-options");
-      lazy.WhimsyCallOptionsPanel.open(win, browser, { anchor: options ?? button, focus: kind });
-    }, true);
+  },
+
+  // A plain primary press: not a right/middle click, and not Ctrl-click,
+  // which macOS turns into a secondary click (it also fires contextmenu).
+  isPlainPress(event) {
+    return (event.button ?? 0) == 0 && !event.ctrlKey;
   },
 
   attachCard(card, browser) {

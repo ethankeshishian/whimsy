@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// W21: the Call Options panel — opened by the small player's and the PiP
-// window's "⋯" button, and by right-click/Shift+F10 on the mic/camera
-// buttons in either surface. A WhimsySurface listing all four mutes (the
+// W21: the Call Options panel — opened only by the small player's and the
+// PiP window's "⋯" button (right-click on mic/camera does nothing, W14-7).
+// A WhimsySurface listing all four mutes (the
 // call's own mic/camera, Whimsy's device mic/camera block) as checkable
 // rows, plus the "Click mutes" default switch (whimsy.call.buttons-default).
 // Design: whimsy-handoff/wave13/design/call-controls-v2 (page v3, option E1).

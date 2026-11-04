@@ -130,27 +130,43 @@ add_task(async function test_click_options_opens_panel_anchored_to_it() {
   panel.hidePopup();
 });
 
-add_task(async function test_right_click_mic_opens_same_panel_focused() {
-  const call = await openCall();
-  const mic = await settle(() => cardButton(call, "mic"));
-  const shown = BrowserTestUtils.waitForEvent(window, "popupshown", false, e => e.target.id == "whimsy-call-options-panel");
-  EventUtils.synthesizeMouseAtCenter(mic, { type: "contextmenu", button: 2 }, window);
-  const event = await shown;
-  is(event.target.id, "whimsy-call-options-panel", "same panel id as the options button's");
-  const micSection = event.target.querySelector('[data-focus-kind="mic"] .whimsy-surface-row');
-  ok(micSection, "a mic row exists");
-  event.target.hidePopup();
-});
+// For checks that something does NOT happen: nothing to wait for.
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
 
-add_task(async function test_shift_f10_on_camera_opens_panel() {
+// W14-7: right-click, Ctrl-click (macOS's secondary click) and Shift+F10 on
+// the small player's mic and camera neither toggle nor open anything.
+add_task(async function test_secondary_clicks_on_mic_and_camera_do_nothing() {
   const call = await openCall();
-  const camera = await settle(() => cardButton(call, "camera"));
-  camera.focus();
-  const shown = BrowserTestUtils.waitForEvent(window, "popupshown", false, e => e.target.id == "whimsy-call-options-panel");
-  camera.dispatchEvent(new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true, composed: true, cancelable: true }));
-  const event = await shown;
-  is(event.target.id, "whimsy-call-options-panel", "Shift+F10 opens the same panel");
-  event.target.hidePopup();
+  const browser = call.linkedBrowser;
+  const pageState = () => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.meetState());
+  const before = await pageState();
+  const popups = [];
+  const onShown = event => popups.push(event.target.id);
+  window.addEventListener("popupshown", onShown);
+  try {
+    for (const kind of ["mic", "camera"]) {
+      const button = () => cardButton(call, kind);
+      await settle(button);
+      EventUtils.synthesizeMouseAtCenter(button(), { ctrlKey: true }, window);
+      EventUtils.synthesizeMouseAtCenter(button(), { type: "mousedown", button: 2 }, window);
+      EventUtils.synthesizeMouseAtCenter(button(), { type: "contextmenu", button: 2 }, window);
+      EventUtils.synthesizeMouseAtCenter(button(), { type: "mouseup", button: 2 }, window);
+      button().focus();
+      EventUtils.synthesizeKey("KEY_F10", { shiftKey: true }, window);
+    }
+    await wait(500);
+    const after = await pageState();
+    is(after.mic, before.mic, "the call's microphone is unchanged");
+    is(after.camera, before.camera, "the call's camera is unchanged");
+    ok(!WhimsyCallPip.stateFor(browser).blocked.mic, "the microphone isn't blocked");
+    ok(!WhimsyCallPip.stateFor(browser).blocked.camera, "the camera isn't blocked");
+    Assert.deepEqual(popups, [], "no panel or context menu opened");
+  } finally {
+    window.removeEventListener("popupshown", onShown);
+    for (const id of ["whimsy-call-options-panel", "toolbar-context-menu"]) {
+      document.getElementById(id)?.hidePopup?.();
+    }
+  }
 });
 
 add_task(async function test_panel_lists_all_four_mutes_with_shortcuts_and_checks() {
