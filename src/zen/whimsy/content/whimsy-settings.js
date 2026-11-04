@@ -1860,6 +1860,9 @@ Object.assign(gWhimsySettings, {
 
     const sheet = { provider: null, method: null };
     const closeSheet = () => {
+      if (sheet.provider) {
+        WhimsyAIProviders.cancelPlan(sheet.provider);
+      }
       hideModal();
       sheet.provider = null;
     };
@@ -1959,6 +1962,11 @@ Object.assign(gWhimsySettings, {
         const button = $("whimsyAIPlanConnect");
         setL10n(button, `whimsy-ai-plan-button-${provider}`);
         button.disabled = !WhimsyAIProviders.planAvailable(provider);
+        button.hidden = false;
+        setL10n($("whimsyAIPlanNote"), `whimsy-ai-plan-note-${provider}`);
+        $("whimsyAIPlanNote").hidden = false;
+        $("whimsyAIPlanCancel").hidden = true;
+        $("whimsyAIPlanWelcome").hidden = true;
       }
     };
     const openSheet = async provider => {
@@ -2064,23 +2072,50 @@ Object.assign(gWhimsySettings, {
         connectKey();
       }
     });
-    $("whimsyAIPlanConnect").addEventListener("command", async () => {
+    // Signing a plan in: a note while the vendor's page is open, Cancel,
+    // then (first ChatGPT sign-in only) OpenAI's one-time welcome.
+    const PLAN_ERRORS = ["sign-in-cancelled", "plan-ineligible", "claude-code-missing", "claude-code-signed-out", "network", "unavailable"];
+    const connectPlan = async () => {
       const provider = sheet.provider;
       const button = $("whimsyAIPlanConnect");
+      const cancel = $("whimsyAIPlanCancel");
       button.disabled = true;
-      setStatus("whimsyAISheetStatus", "whimsy-ai-connecting");
+      cancel.hidden = false;
+      setStatus("whimsyAISheetStatus", `whimsy-ai-plan-waiting-${provider}`);
       try {
-        await WhimsyAIProviders.connectPlan(browserWindow(), provider);
-        if (sheet.provider == provider) {
-          closeSheet();
+        const result = await WhimsyAIProviders.connectPlan(browserWindow(), provider);
+        if (sheet.provider != provider) {
+          return;
         }
+        if (result?.welcome) {
+          clearStatus("whimsyAISheetStatus");
+          for (const id of ["whimsyAIPlanNote", "whimsyAIPlanConnect", "whimsyAIPlanCancel"]) {
+            $(id).hidden = true;
+          }
+          $("whimsyAIPlanWelcome").hidden = false;
+          $("whimsyAIPlanWelcomeDone").focus();
+          return;
+        }
+        closeSheet();
       } catch (error) {
-        console.error(`Whimsy AI: connecting the ${provider} plan`, error);
-        setStatus("whimsyAISheetStatus", "whimsy-ai-connect-error-failed", { provider: nameOf(provider) }, false);
+        if (sheet.provider != provider) {
+          return;
+        }
+        const code = PLAN_ERRORS.includes(error?.code) ? error.code : "failed";
+        if (code == "failed") {
+          console.error(`Whimsy AI: connecting the ${provider} plan`, error?.message ?? "");
+        }
+        setStatus("whimsyAISheetStatus", `whimsy-ai-connect-error-${code}`, { provider: nameOf(provider) }, false);
+        button.focus();
       } finally {
+        cancel.hidden = true;
         button.disabled = !WhimsyAIProviders.planAvailable(provider);
       }
-    });
+    };
+    $("whimsyAIPlanConnect").addEventListener("command", connectPlan);
+    $("whimsyAIPlanCancel").addEventListener("command", () => WhimsyAIProviders.cancelPlan(sheet.provider));
+    $("whimsyAIPlanWelcomeManage").addEventListener("command", () => WhimsyAIProviders.manageUsage(browserWindow(), "openai"));
+    $("whimsyAIPlanWelcomeDone").addEventListener("command", () => closeSheet());
     const connectOllama = async () => {
       const button = $("whimsyAIOllamaConnect");
       button.disabled = true;
@@ -2139,6 +2174,16 @@ Object.assign(gWhimsySettings, {
         openUse();
         return;
       }
+      // Sign in with ChatGPT: its sheet, and the sign-in starts.
+      if (action == "plan-openai") {
+        if (connections.openai || !WhimsyAIProviders.planAvailable("openai")) {
+          rowOfProvider("openai")?.querySelector("button[data-action]")?.focus();
+          return;
+        }
+        await openSheet("openai");
+        connectPlan();
+        return;
+      }
       if (action != "connect" && action != "use") {
         return;
       }
@@ -2159,6 +2204,7 @@ Object.assign(gWhimsySettings, {
         }))
       );
     };
+    const rowOfProvider = provider => accounts.querySelector(`[data-provider="${provider}"]`);
     const settingsAction = {
       observe: (subject, topic, data) => {
         const action = WhimsyAIProviders.takeSettingsAction() || data;

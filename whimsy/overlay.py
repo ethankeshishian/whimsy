@@ -1420,6 +1420,12 @@ FEATURES = [
     # key, Apple on-device, local Ollama); no automatic cloud fallback.
     {"id": "ai-providers", "title": "AI provider picker: Claude API key, Apple on-device or local Ollama, with no automatic cloud fallback",
      "detect": [("src/zen", r"(?i)api\.anthropic\.com|FoundationModels|ollama")]},
+    # W14 19: subscription sign-in for AI (Sign in with ChatGPT; the Claude
+    # plan through the person's own Claude Code).
+    {"id": "ai-openai-plan", "title": "Sign in with ChatGPT: use the ChatGPT plan for Whimsy AI",
+     "detect": [("src/zen", r"(?i)dynamic_agent_client|chatgpt\.tokens\.use")]},
+    {"id": "ai-claude-plan", "title": "Claude plan for Whimsy AI through the person's own Claude Code",
+     "detect": [("src/zen", r"(?i)claude.{0,20}auth.{0,10}status")]},
     # wave3/ai: Arc Max's Tidy Tabs (broom on the Today line, sections with
     # headers) and tidy tab titles (a short name when a tab is pinned).
     {"id": "tidy-tabs", "title": "Tidy Tabs: the broom sorts a space's Today tabs into named sections (Arc Max)",

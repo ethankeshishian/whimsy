@@ -175,6 +175,7 @@ export const WhimsyAIPage = {
         prompt,
         maxTokens: 500,
         signal: controller.signal,
+        userStarted: true,
       });
       if (controller.signal.aborted || state.askController != controller) {
         return null;
@@ -330,7 +331,7 @@ export const WhimsyAIPage = {
     }
     // Resting on a link only works once a provider is set up; a deliberate
     // Shift-hover says what's missing.
-    if (await lazy.WhimsyAIProviders.isReady()) {
+    if (await lazy.WhimsyAIProviders.isReady({ userStarted: how == "shift" })) {
       return "ready";
     }
     if (how != "shift") {
@@ -405,6 +406,8 @@ export const WhimsyAIPage = {
       prompt,
       maxTokens: 400,
       signal,
+      // Shift on a link asks; resting on one doesn't.
+      userStarted: !anonymous,
     });
     const points = (Array.isArray(result?.points) ? result.points : [])
       .map(p => String(p ?? "").trim())

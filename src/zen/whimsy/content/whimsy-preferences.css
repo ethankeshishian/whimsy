@@ -1265,6 +1265,20 @@ mark.whimsy-search-mark {
   justify-content: flex-end;
 }
 
+#whimsyAIPlanPanel > .whimsy-ai-actions {
+  justify-content: flex-end;
+}
+
+.whimsy-ai-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-accent-primary) 10%, transparent);
+  font-size: 13px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .whimsy-ai-picker {
     transition: none;

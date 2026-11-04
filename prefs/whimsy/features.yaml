@@ -366,6 +366,12 @@
 - name: whimsy.feature.ai-providers
   value: true
 
+- name: whimsy.feature.ai-openai-plan
+  value: true
+
+- name: whimsy.feature.ai-claude-plan
+  value: true
+
 - name: whimsy.feature.tidy-tabs
   value: true
 

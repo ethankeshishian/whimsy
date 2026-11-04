@@ -469,7 +469,20 @@
           <html:p id="whimsyAIKeyNote" class="whimsy-ai-note"/>
         </html:div>
         <html:div id="whimsyAIPlanPanel" class="whimsy-ai-panel" hidden="hidden">
-          <button id="whimsyAIPlanConnect" class="primary" disabled="true"/>
+          <html:p id="whimsyAIPlanNote" class="whimsy-ai-note"/>
+          <html:div class="whimsy-ai-actions">
+            <button id="whimsyAIPlanCancel" data-l10n-id="whimsy-ai-plan-cancel" hidden="true"/>
+            <button id="whimsyAIPlanConnect" class="primary" disabled="true"/>
+          </html:div>
+          <!-- OpenAI's one-time note after the first ChatGPT sign-in. -->
+          <html:div id="whimsyAIPlanWelcome" class="whimsy-ai-welcome" hidden="hidden" role="status">
+            <html:b data-l10n-id="whimsy-ai-plan-welcome-title"/>
+            <html:span data-l10n-id="whimsy-ai-plan-welcome-text"/>
+            <html:div class="whimsy-ai-actions">
+              <button id="whimsyAIPlanWelcomeManage" data-l10n-id="whimsy-ai-manage-usage-button"/>
+              <button id="whimsyAIPlanWelcomeDone" class="primary" data-l10n-id="whimsy-ai-plan-welcome-done"/>
+            </html:div>
+          </html:div>
         </html:div>
         <html:div id="whimsyAIApplePanel" class="whimsy-ai-panel" hidden="hidden">
           <html:div id="whimsyAIAppleStatus" class="whimsy-ai-status" role="status"/>

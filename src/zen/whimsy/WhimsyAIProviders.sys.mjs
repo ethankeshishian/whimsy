@@ -174,6 +174,12 @@ export const AI_ERROR_CODES = [
   // W14: a subscription plan's share ran out, or its sign-in ended.
   "plan-limit",
   "signed-out",
+  "plan-ineligible",
+  // Claude's plan serves only what the person starts (never automatic work).
+  "plan-user-only",
+  "sign-in-cancelled",
+  "claude-code-missing",
+  "claude-code-signed-out",
   "bad-response",
   "timeout",
   "failed",
@@ -250,8 +256,22 @@ export const WhimsyAIProviders = {
 
   // ---- Accounts (W14 v2: connect once, disconnect, use for AI) ----
 
-  // L7b's plan sign-ins: { connect(win), disconnect(), status(), complete(request), isReady(), manageUsage?(win) }.
+  // Plan sign-ins: { connect(win), cancel(), disconnect(), status(), complete(request), isReady(), models(),
+  // manageUsage?(win), userStartedOnly }.
   _plans: {},
+
+  // The built-in sign-ins: ChatGPT (Sign in with ChatGPT) and Claude
+  // (through Claude Code).
+  _registerBuiltInPlans() {
+    if (this._builtInPlans) {
+      return;
+    }
+    this._builtInPlans = true;
+    const { WhimsyAIOpenAIAuth } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIOpenAIAuth.sys.mjs");
+    const { WhimsyAIClaudeCode } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIClaudeCode.sys.mjs");
+    this._plans.openai ??= WhimsyAIOpenAIAuth;
+    this._plans.claude ??= WhimsyAIClaudeCode;
+  },
 
   registerPlan(provider, plan) {
     if (!PLAN_PROVIDERS.includes(provider)) {
@@ -308,8 +328,17 @@ export const WhimsyAIProviders = {
   pendingSettingsAction: null,
 
   initWindow(win) {
+    this._registerBuiltInPlans();
     const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
     const isAvailable = () => this.enabled;
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyAISignInChatGPT",
+      l10nId: "whimsy-action-ai-sign-in-chatgpt",
+      run: w => this.openSettings(w, "plan-openai"),
+      icon: "chrome://browser/skin/zen-icons/chat.svg",
+      menu: "tools-menu",
+      isAvailable: () => this.enabled && this.planAvailable("openai"),
+    });
     WhimsyCommands.register(win, {
       id: "cmd_whimsyAIConnect",
       l10nId: "whimsy-action-ai-connect",
@@ -444,8 +473,14 @@ export const WhimsyAIProviders = {
    * model forgotten. The provider in use stays picked (AI features wait
    * until another one is picked); nothing switches by itself.
    */
+  // Ends a plan sign-in that's waiting.
+  cancelPlan(provider) {
+    this._plans[provider]?.cancel?.();
+  },
+
   async disconnect(provider) {
-    if (this._usesPlan(provider)) {
+    // Revoked even while the plan's feature gate is off.
+    if (this._plans[provider] && Services.prefs.getStringPref(authPref(provider), "") == "plan") {
       await this._plans[provider].disconnect();
       Services.prefs.clearUserPref(authPref(provider));
     }
@@ -535,7 +570,7 @@ export const WhimsyAIProviders = {
    * @param {AbortSignal} [request.signal]
    * @returns {Promise<string>} The answer's text.
    */
-  async complete({ prompt, system = "", maxTokens = 1024, signal } = {}) {
+  async complete({ prompt, system = "", maxTokens = 1024, signal, userStarted = false } = {}) {
     if (!this.enabled) {
       throw new WhimsyAIError("blocked");
     }
@@ -548,7 +583,7 @@ export const WhimsyAIProviders = {
     signal?.addEventListener("abort", onAbort, { once: true });
     const timer = setTimeout(() => controller.abort(new WhimsyAIError("timeout")), REQUEST_TIMEOUT_MS);
     this._inflight.add(controller);
-    const request = { prompt: String(prompt ?? ""), system, maxTokens, signal: controller.signal };
+    const request = { prompt: String(prompt ?? ""), system, maxTokens, signal: controller.signal, userStarted: !!userStarted };
     try {
       const provider = this.provider;
       let text;
@@ -593,6 +628,9 @@ export const WhimsyAIProviders = {
   // that way).
   async _dispatch(provider, request) {
     if (this._usesPlan(provider)) {
+      if (this._plans[provider].userStartedOnly && !request.userStarted) {
+        throw Object.assign(new WhimsyAIError("plan-user-only"), { provider });
+      }
       try {
         return await this._plans[provider].complete(request);
       } catch (error) {
@@ -623,10 +661,13 @@ export const WhimsyAIProviders = {
    * (never builds the Apple helper or contacts a server). Automatic features
    * (tab titles, search-page previews, watches) wait for this, so nothing
    * happens on its own until the person has picked and set up a provider.
+   * A plan that serves only what the person starts isn't ready for them.
    *
+   * @param {object} [options]
+   * @param {boolean} [options.userStarted] The person asked for this one.
    * @returns {Promise<boolean>}
    */
-  async isReady() {
+  async isReady({ userStarted = false } = {}) {
     if (!this.enabled) {
       return false;
     }
@@ -635,6 +676,9 @@ export const WhimsyAIProviders = {
         return true;
     }
     if (this._usesPlan(this.provider)) {
+      if (this._plans[this.provider].userStartedOnly && !userStarted) {
+        return false;
+      }
       try {
         return !!(await this._plans[this.provider].isReady());
       } catch {

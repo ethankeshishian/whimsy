@@ -15,6 +15,12 @@ const { OSKeyStoreTestUtils } = ChromeUtils.importESModule(
   "resource://testing-common/OSKeyStoreTestUtils.sys.mjs"
 );
 
+// The fakes below stand in for the real sign-ins (browser_whimsy_ai_plans.js
+// drives those); both plan gates are off unless a test turns one on.
+const BUILT_IN_PLANS = { ...WhimsyAIProviders._plans };
+Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", false);
+Services.prefs.setBoolPref("whimsy.feature.ai-claude-plan", false);
+
 // Reading about:preferences lazily caches a default device name (from the
 // hostname) the first time anything touches FxA; not this file's pref, but
 // it leaks if nothing restores it.
@@ -401,8 +407,9 @@ add_task(async function test_accounts() {
   is(Services.prefs.getStringPref("whimsy.ai.provider"), "openai", "The provider in use stays picked");
   ok((await WhimsyAIProviders.hasKey("claude")), "Another provider's key is untouched");
 
-  WhimsyAIProviders.registerPlan("openai", null);
-  for (const pref of ["whimsy.feature.ai-openai-plan", "whimsy.ai.provider", "whimsy.ai.openai.auth", "whimsy.ai.gemini.model", "whimsy.ai.claude.model"]) {
+  WhimsyAIProviders.registerPlan("openai", BUILT_IN_PLANS.openai);
+  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", false);
+  for (const pref of ["whimsy.ai.provider", "whimsy.ai.openai.auth", "whimsy.ai.gemini.model", "whimsy.ai.claude.model"]) {
     Services.prefs.clearUserPref(pref);
   }
   await WhimsyAIProviders.disconnect("claude");
@@ -618,8 +625,9 @@ add_task(async function test_settings_actions_and_plan_rows() {
   EventUtils.synthesizeMouseAtCenter($("whimsyAIConfirmDisconnect"), {}, win);
   await TestUtils.waitForCondition(() => $("whimsyAIPlanLabel").hidden, "The label goes with the plan");
 
-  WhimsyAIProviders.registerPlan("openai", null);
-  for (const pref of ["whimsy.feature.ai-openai-plan", "whimsy.ai.provider", "whimsy.ai.openai.auth"]) {
+  WhimsyAIProviders.registerPlan("openai", BUILT_IN_PLANS.openai);
+  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", false);
+  for (const pref of ["whimsy.ai.provider", "whimsy.ai.openai.auth"]) {
     Services.prefs.clearUserPref(pref);
   }
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
@@ -661,17 +669,20 @@ add_task(async function test_plan_label_in_composer() {
   is(managed, 1, "Manage usage goes to the plan's own page");
   panel().hidePopup();
   await WhimsyAIProviders.disconnect("openai");
-  WhimsyAIProviders.registerPlan("openai", null);
-  for (const pref of ["whimsy.feature.ai-openai-plan", "whimsy.ai.provider", "whimsy.ai.openai.auth"]) {
+  WhimsyAIProviders.registerPlan("openai", BUILT_IN_PLANS.openai);
+  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", false);
+  for (const pref of ["whimsy.ai.provider", "whimsy.ai.openai.auth"]) {
     Services.prefs.clearUserPref(pref);
   }
 });
 
 add_task(async function test_commands() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", true);
   for (const [id, l10nId, action] of [
     ["cmd_whimsyAIConnect", "whimsy-action-ai-connect", "connect"],
     ["cmd_whimsyAIUse", "whimsy-action-ai-use", "use"],
+    ["cmd_whimsyAISignInChatGPT", "whimsy-action-ai-sign-in-chatgpt", "plan-openai"],
   ]) {
     const entry = WhimsyCommands.entries.find(e => e.id == id);
     ok(entry, `${id} is registered`);
@@ -688,6 +699,7 @@ add_task(async function test_commands() {
     is(pane, "paneWhimsyAI", "running it opens Settings → AI");
     is(WhimsyAIProviders.takeSettingsAction(), action, "and asks it to " + action);
   }
+  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", false);
 });
 
 // fix7: Settings said Apple's command line tools were missing although

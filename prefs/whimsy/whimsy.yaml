@@ -459,11 +459,8 @@
 - name: whimsy.ai.plan-fallback
   value: false
 
-# Subscription sign-in is built by L7b; each stays off until its flow is.
-- name: whimsy.feature.ai-openai-plan
-  value: false
-
-- name: whimsy.feature.ai-claude-plan
+# OpenAI's one-time "You're using your ChatGPT plan" note has been shown.
+- name: whimsy.ai.openai.plan-welcomed
   value: false
 
 # wave5/lan: Local servers live folder. Ports probed on localhost (comma

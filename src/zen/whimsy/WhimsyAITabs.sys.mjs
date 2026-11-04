@@ -487,7 +487,7 @@ export const WhimsyAITabs = {
         "Name each section in 1 to 3 words, Title Case, no emoji. Keep a previous name when it still fits.\n" +
         'Reply as JSON: {"sections": [{"name": "Trip Planning", "tabs": [0, 4, 5]}]}\n\n' +
         lazy.WhimsyAIProviders.clip(list);
-      const answer = await lazy.WhimsyAIProviders.completeJSON({ system: TIDY_SYSTEM, prompt, maxTokens: 800 });
+      const answer = await lazy.WhimsyAIProviders.completeJSON({ system: TIDY_SYSTEM, prompt, maxTokens: 800, userStarted: true });
       if (!this.tidyEnabled) {
         return null;
       }
