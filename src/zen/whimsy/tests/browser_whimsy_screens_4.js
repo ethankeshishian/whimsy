@@ -466,10 +466,8 @@ add_task(async function w10_form_protection() {
     }));
     await w10ToastShot("form-refill", () => gZenUIManager.toasts.open("whimsy-form-refill-ask", {
       icon: "chrome://browser/content/whimsy/whimsy-form-badge.svg", timeout: 0,
-      buttons: [
-        { l10nId: "whimsy-form-refill-button", command: () => {} },
-        { l10nId: "whimsy-form-dismiss-button", command: () => {} },
-      ],
+      descriptionId: "whimsy-form-refill-fields", descriptionArgs: { count: 3 }, closable: true,
+      buttons: [{ l10nId: "whimsy-form-refill-button", command: () => {} }],
     }));
   } finally {
     BrowserTestUtils.removeTab(other);

@@ -198,6 +198,15 @@ function socketEvents() {
   return Cc["@mozilla.org/websocketevent/service;1"].getService(Ci.nsIWebSocketEventService);
 }
 
+// Session store's form paths name elements as xhtml:… and xul:… (XPathGenerator).
+const XPATH_NAMESPACES = {
+  xhtml: "http://www.w3.org/1999/xhtml",
+  xul: "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul",
+};
+function sessionStoreNamespace(prefix) {
+  return XPATH_NAMESPACES[prefix] ?? null;
+}
+
 // Drops every id/xpath entry that resolves to a secret or search field
 // (design §5), before anything crosses IPC.
 function filterCollected(doc, data) {
@@ -214,7 +223,7 @@ function filterCollected(doc, data) {
   for (const [key, value] of Object.entries(data.xpath ?? {})) {
     let el;
     try {
-      el = doc.evaluate(key, doc, null, 9 /* FIRST_ORDERED_NODE_TYPE */, null).singleNodeValue;
+      el = doc.evaluate(key, doc, sessionStoreNamespace, 9 /* FIRST_ORDERED_NODE_TYPE */, null).singleNodeValue;
     } catch (e) {}
     if (el && !isSecret(el) && !isSearch(el)) {
       out.xpath[key] = value;
@@ -563,7 +572,7 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     }
     for (const [xpath, value] of Object.entries(data?.xpath ?? {})) {
       try {
-        const el = doc.evaluate(xpath, doc, null, 9 /* FIRST_ORDERED_NODE_TYPE */, null).singleNodeValue;
+        const el = doc.evaluate(xpath, doc, sessionStoreNamespace, 9 /* FIRST_ORDERED_NODE_TYPE */, null).singleNodeValue;
         if (el) {
           targets.push([el, value]);
         }

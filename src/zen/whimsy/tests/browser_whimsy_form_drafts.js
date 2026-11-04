@@ -325,7 +325,16 @@ add_task(async function test_reopen_with_cmd_shift_t_offers_refill() {
   await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "Closed");
   await SimpleTest.promiseFocus(window);
   EventUtils.synthesizeKey("t", { accelKey: true, shiftKey: true });
-  await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "⌘⇧T reopen offers Refill");
+  const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "⌘⇧T reopen offers Restore");
+  await toast.shown;
+  await document.l10n.translateFragment(toast.element);
+  const restore = toast.element.querySelector(".whimsy-toast-button");
+  is(restore.textContent, "Restore", "The button says Restore");
+  EventUtils.synthesizeMouseAtCenter(restore, {});
+  const reopenedBrowser = gBrowser.selectedBrowser;
+  await TestUtils.waitForCondition(async () =>
+    (await SpecialPowers.spawn(reopenedBrowser, [], () => content.document.getElementById("name").value)) == "Grace",
+  "Restore fills the reopened tab back in");
   closeToasts();
   // ⌘⇧T reopens the just-closed tab via session restore (a new tab, not
   // `tab`, which is already gone): close it too and wait for the close to
@@ -409,7 +418,9 @@ add_task(async function test_close_warning_button_closes() {
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-close-warning"), "Warns");
     await toast.shown;
     await document.l10n.translateFragment(toast.element);
-    toast.element.querySelector(".whimsy-toast-button").click();
+    const button = toast.element.querySelector(".whimsy-toast-button");
+    is(button.textContent, "Close", "The button says Close");
+    EventUtils.synthesizeMouseAtCenter(button, {});
     await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "The Close button closes it");
   } finally {
     await SpecialPowers.popPrefEnv();
@@ -436,6 +447,7 @@ add_task(async function test_quit_warns_once_when_saving_off() {
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-quit-warning"), "and warns");
     await document.l10n.translateFragment(toast.element);
     ok(toast.element.querySelector("label").textContent.includes("unsaved typing"), "says so");
+    is(toast.element.querySelector(".whimsy-toast-button").textContent, "Quit", "The button says Quit");
 
     subject = quitSubject();
     Services.obs.notifyObservers(subject, "quit-application-requested");
@@ -563,4 +575,34 @@ add_task(async function test_private_window_draft_never_touches_disk() {
     await BrowserTestUtils.closeWindow(win);
     await SimpleTest.promiseFocus(window);
   }
+});
+
+// W14 21.10: fields with no id (most real forms use name) are saved and
+// restored: ⌘W, ⌘⇧T, Restore.
+add_task(async function test_fields_without_an_id_restore() {
+  const page = ROOT + "whimsy_form_noid.html";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  gBrowser.selectedTab = tab;
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.querySelector("[name=city]").focus());
+  for (const key of "Oslo") {
+    await BrowserTestUtils.synthesizeKey(key, {}, tab.linkedBrowser);
+  }
+  await TestUtils.waitForCondition(() => typed(tab), "Typed");
+  await TestUtils.waitForCondition(async () => (await WhimsyFormDrafts.get({ url: page }))?.data, "Saved, though the field has no id");
+  EventUtils.synthesizeKey("w", { accelKey: true }, window);
+  await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "Closed");
+  await SimpleTest.promiseFocus(window);
+  EventUtils.synthesizeKey("t", { accelKey: true, shiftKey: true });
+  const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "⌘⇧T offers Restore");
+  await toast.shown;
+  await document.l10n.translateFragment(toast.element);
+  is(toast.element.querySelector(".description")?.textContent, "1 field on this page", "It counts the field");
+  const reopened = gBrowser.selectedBrowser;
+  EventUtils.synthesizeMouseAtCenter(toast.element.querySelector(".whimsy-toast-button"), {});
+  await TestUtils.waitForCondition(async () =>
+    (await SpecialPowers.spawn(reopened, [], () => content.document.querySelector("[name=city]").value)) == "Oslo",
+  "Restore fills the field with no id");
+  closeToasts();
+  BrowserTestUtils.removeTab(gBrowser.getTabForBrowser(reopened));
+  await WhimsyFormDrafts.delete({ url: page });
 });

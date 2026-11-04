@@ -4762,20 +4762,27 @@ whimsy-pagedev-copied-button =
    *[other] Ctrl+Q
 }
 whimsy-form-close-warning = Unsaved typing will be lost · { -whimsy-form-close-key } again to close
-whimsy-form-close-button =
-    .label = Close
+whimsy-form-close-button = Close
 # $count (number) - tabs with unsaved typing
 whimsy-form-quit-warning = { $count ->
     [one] 1 tab has unsaved typing · { -whimsy-form-quit-key } again to quit
    *[other] { $count } tabs have unsaved typing · { -whimsy-form-quit-key } again to quit
 }
-whimsy-form-quit-button =
-    .label = Quit
-whimsy-form-refill-ask = Refill what you typed?
-whimsy-form-refill-button =
-    .label = Refill
-whimsy-form-dismiss-button =
-    .label = Dismiss
+whimsy-form-quit-button = Quit
+whimsy-form-refill-ask = Restore what you typed?
+# $count (number) - fields the page can fill back in
+whimsy-form-refill-fields = { $count ->
+    [one] 1 field on this page
+   *[other] { $count } fields on this page
+}
+whimsy-form-refill-button = Restore
+# $count (number) - fields filled back in
+whimsy-form-refilled = { $count ->
+    [one] Restored 1 field
+   *[other] Restored { $count } fields
+}
+whimsy-form-refill-failed = Couldn't restore your typing
+whimsy-form-refill-failed-detail = The form on this page has changed
 # A tab protected by hand (Protect This Tab) with nothing typed: its lock.
 whimsy-tab-protected-marker =
     .tooltiptext = Protected tab

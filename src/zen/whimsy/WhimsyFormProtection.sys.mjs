@@ -24,8 +24,8 @@
 //   observer). A page with its own beforeunload still decides for itself
 //   (Firefox's prompt, unchanged).
 // - Refill: the draft for an address is offered back on its next load
-//   ("Refill what you typed?"). Nothing is filled unless the person presses
-//   Refill.
+//   ("Restore what you typed?"). Nothing is filled unless the person presses
+//   Restore.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -57,6 +57,8 @@ const SNAPSHOT_KEY = "whimsy-formdata";
 const SNAPSHOT_MAX_BYTES = 64 * 1024;
 const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const REFILL_OFFER_MS = 10000;
+const REFILLED_MS = 2000;
+const REFILL_FAILED_MS = 4000;
 const TOAST_TIMEOUT_MS = 4000;
 // R1 v2 §3: a second ⌘W/close button or ⌘Q within this long closes/quits
 // without warning again.
@@ -544,7 +546,7 @@ export class WhimsyFormProtectionParent extends JSWindowActorParent {
       }
       case "Whimsy:FormRefillReady":
         if (browser) {
-          WhimsyFormProtection.offerRefill(browser, this, message.data?.url);
+          WhimsyFormProtection.offerRefill(browser, this, message.data?.url, message.data?.count);
         }
         return null;
     }
@@ -727,34 +729,61 @@ export const WhimsyFormProtection = {
     return WhimsyFormDrafts.get({ url, userContextId, isPrivate });
   },
 
-  // "Refill what you typed?" · Refill, Dismiss. Nothing is filled unless
-  // the person presses Refill; either button deletes the draft.
-  offerRefill(browser, actor, url) {
+  // "Restore what you typed?" / "N fields on this page" · Restore (design
+  // refill-toast B). Nothing is filled unless the person presses Restore;
+  // the toast's ✕ or Esc deletes the draft, letting it time out keeps it.
+  // Restore changes the toast in place: what it filled, or that it filled
+  // nothing (the draft is kept).
+  offerRefill(browser, actor, url, count = 0) {
     const win = browser.documentGlobal;
     if (!url || !win?.gBrowser || win.gBrowser.selectedBrowser != browser) {
       return null;
     }
     const { userContextId, isPrivate } = this.contextFor(browser);
     const forget = () => WhimsyFormDrafts.delete({ url, userContextId, isPrivate });
+    let answered = false;
+    const restore = async toast => {
+      answered = true;
+      toast.update({ busy: true });
+      let filled = 0;
+      try {
+        filled = (await actor.sendQuery("Whimsy:FormRefill"))?.filled ?? 0;
+      } catch (e) {}
+      if (filled > 0) {
+        forget();
+        toast.update({ busy: false, messageId: "whimsy-form-refilled", l10nArgs: { count: filled }, descriptionId: null, buttons: null, timeout: REFILLED_MS });
+      } else {
+        toast.update({
+          busy: false,
+          messageId: "whimsy-form-refill-failed",
+          l10nArgs: null,
+          descriptionId: "whimsy-form-refill-failed-detail",
+          buttons: null,
+          timeout: REFILL_FAILED_MS,
+        });
+      }
+    };
     return (
       win.gZenUIManager?.toasts?.open("whimsy-form-refill-ask", {
         key: "whimsy-form-refill",
         icon: MARKER_ICON,
         browser,
         timeout: REFILL_OFFER_MS,
+        closable: true,
+        ...(count > 0 && { descriptionId: "whimsy-form-refill-fields", descriptionArgs: { count } }),
+        onClose: reason => {
+          if (!answered && reason == "dismissed") {
+            forget();
+          }
+        },
         buttons: [
           {
             id: "whimsyFormRefillButton",
             l10nId: "whimsy-form-refill-button",
-            command: () => {
-              forget();
-              actor.sendQuery("Whimsy:FormRefill").catch(() => {});
+            command: (event, toast) => {
+              restore(toast);
+              return "keep";
             },
-          },
-          {
-            id: "whimsyFormDismissButton",
-            l10nId: "whimsy-form-dismiss-button",
-            command: () => forget(),
           },
         ],
       }) ?? null

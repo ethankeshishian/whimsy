@@ -383,19 +383,53 @@ add_task(async function test_refill_after_reload_offers_refill() {
       "A toast offers to refill what was typed");
     await toast.shown;
     await document.l10n.translateFragment(toast.element);
-    is(toast.element.querySelector("label").textContent, "Refill what you typed?", "The new wording");
+    is(toast.element.querySelector("label").textContent, "Restore what you typed?", "The new wording");
+    is(toast.element.querySelector(".description").textContent, "1 field on this page", "...and how many fields");
     const buttons = [...toast.element.querySelectorAll(".whimsy-toast-button")];
-    is(buttons.length, 2, "Refill and Dismiss");
+    is(buttons.length, 1, "One button");
+    is(buttons[0].textContent, "Restore", "...Restore");
+    ok(toast.element.querySelector(".whimsy-toast-close"), "The corner ✕ every toast has is the no");
     is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value), "",
-      "Nothing is filled before Refill");
-    buttons[0].click();
+      "Nothing is filled before Restore");
+    EventUtils.synthesizeMouseAtCenter(buttons[0], {});
     await TestUtils.waitForCondition(async () =>
       (await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value)) == "Ada Lovelace",
     "Refill fills the answer back in");
     is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("password").value), "",
       "never the password");
     await TestUtils.waitForCondition(() => typed(tab), "What was filled back is unsaved again");
-    ok(!(await WhimsyFormProtection.snapshotFor(browser, FORM_PAGE)), "Refill deleted the draft");
+    ok(!(await WhimsyFormProtection.snapshotFor(browser, FORM_PAGE)), "Restore deleted the draft");
+    await TestUtils.waitForCondition(() => toast.messageId == "whimsy-form-refilled", "The toast says what it did, in place");
+    await document.l10n.translateFragment(toast.element);
+    is(toast.element.querySelector("label").textContent, "Restored 1 field", "Restored 1 field");
+    ok(!toast.element.querySelector(".whimsy-toast-button"), "...with no button");
+    closeToasts();
+  });
+});
+
+// W14 21.10: a Restore that finds nothing to fill says so and keeps the draft.
+add_task(async function test_restore_that_fills_nothing_says_so() {
+  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    await typeInto(browser, "name", "Ada");
+    await TestUtils.waitForCondition(() => typed(tab), "Typed");
+    const loaded = BrowserTestUtils.browserLoaded(browser);
+    browser.reloadWithFlags(Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE);
+    await loaded;
+    const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "Offered");
+    await toast.shown;
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.getElementById("name").value = "Someone else";
+    });
+    await document.l10n.translateFragment(toast.element);
+    EventUtils.synthesizeMouseAtCenter(toast.element.querySelector(".whimsy-toast-button"), {});
+    await TestUtils.waitForCondition(() => toast.messageId == "whimsy-form-refill-failed", "It says nothing was restored");
+    await document.l10n.translateFragment(toast.element);
+    is(toast.element.querySelector("label").textContent, "Couldn't restore your typing", "Couldn't restore your typing");
+    is(toast.element.querySelector(".description").textContent, "The form on this page has changed", "...and why");
+    ok(await WhimsyFormProtection.snapshotFor(browser, FORM_PAGE), "The draft is kept");
+    closeToasts();
+    await WhimsyFormDrafts.delete({ url: FORM_PAGE });
   });
 });
 
@@ -423,25 +457,35 @@ add_task(async function test_refill_offered_for_late_form() {
   });
 });
 
-// Dismiss deletes the draft without filling anything.
+// The toast's ✕ (shown on hover, as on every toast) or Esc deletes the
+// draft without filling anything.
 add_task(async function test_dismiss_deletes_without_filling() {
-  await BrowserTestUtils.withNewTab(FORM_PAGE, async browser => {
+  // Not a localhost/port address: those get Developer Mode's bar, which sits
+  // over the toast's corner.
+  const page = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_email_form.html";
+  await BrowserTestUtils.withNewTab(page, async browser => {
     const tab = gBrowser.getTabForBrowser(browser);
     await typeInto(browser, "name", "Ada");
     await TestUtils.waitForCondition(() => typed(tab), "Typed");
+    await TestUtils.waitForCondition(async () => await WhimsyFormProtection.snapshotFor(browser, page), "Saved");
     const loaded = BrowserTestUtils.browserLoaded(browser);
     browser.reloadWithFlags(Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE);
     await loaded;
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "Offered");
     await toast.shown;
     await document.l10n.translateFragment(toast.element);
-    toast.element.querySelectorAll(".whimsy-toast-button")[1].click();
-    await TestUtils.waitForCondition(async () => !(await WhimsyFormProtection.snapshotFor(browser, FORM_PAGE)),
-      "Dismiss deletes the draft");
+    EventUtils.synthesizeMouseAtCenter(toast.element.querySelector("label"), { type: "mousemove" });
+    const close = toast.element.querySelector(".whimsy-toast-close");
+    await TestUtils.waitForCondition(() => getComputedStyle(close).opacity == "1", "Hovering shows the ✕");
+    EventUtils.synthesizeMouseAtCenter(close, {});
+    await TestUtils.waitForCondition(() => toast.closing || toast.closed, "The ✕ dismisses it");
+    await TestUtils.waitForCondition(async () => !(await WhimsyFormProtection.snapshotFor(browser, page)),
+      "...and deletes the draft");
     is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("name").value), "",
       "Nothing was filled");
   });
 });
+
 
 // R1 v2 §4, §6: a private tab's draft stays in memory, never on disk, keyed
 // by the address without its fragment.
