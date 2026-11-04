@@ -17,7 +17,7 @@
 // - A locked private tab is still blanked (WhimsyPrivateLock) in the card.
 // - Switching whimsy.feature.ctrl-tab off gives back Firefox's panel.
 
-const { WhimsyCtrlTab, MAX_THUMB_WIDTH } = ChromeUtils.importESModule(
+const { WhimsyCtrlTab, MAX_THUMB_WIDTH, VISIBLE_ROWS } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyCtrlTab.sys.mjs"
 );
 
@@ -78,6 +78,14 @@ async function letGo() {
 }
 
 const shownPreviews = () => ctrlTab.previews.filter(p => p != ctrlTab.showAllButton && !p.hidden);
+// The tiles inside the card's three rows (the rest scroll).
+function inView() {
+  const grid = ctrlTab.previewsContainer.getBoundingClientRect();
+  return shownPreviews().filter(p => {
+    const r = p.getBoundingClientRect();
+    return r.top >= grid.top - 1 && r.bottom <= grid.bottom + 1;
+  });
+}
 const previewOf = tab => shownPreviews().find(p => p._tab == tab);
 const card = () => ctrlTab.panel.shadowRoot?.querySelector("[part~='content']");
 
@@ -98,17 +106,18 @@ function alphaOf(color) {
 add_task(async function test_card_rows_of_four_and_twelve_tabs() {
   is(Services.prefs.getDefaultBranch("").getIntPref("browser.ctrlTab.maxPreviews"), 12,
     "Whimsy ships 12 previews");
-  is(ctrlTab.maxTabPreviews, 12, "...and the panel reads 12");
   const tabs = await openTabs(13);
+  Assert.greaterOrEqual(ctrlTab.maxTabPreviews, ctrlTab.tabCount, "...and the panel has a tile for every tab");
   try {
     Assert.greaterOrEqual(ctrlTab.tabCount, 13, "More than 12 tabs to switch between");
     await holdCtrlTab();
     const panel = ctrlTab.panel;
     ok(panel.hasAttribute("whimsy-look"), "The panel wears Whimsy's card");
 
-    // 12 tiles, three rows of four.
-    const previews = shownPreviews();
-    is(previews.length, 12, "12 tabs in the panel, not Firefox's 7");
+    // 12 tiles in view, three rows of four (the rest scroll).
+    const previews = inView();
+    is(previews.length, 12, "12 tabs in the card, not Firefox's 7");
+    is(VISIBLE_ROWS, 3, "Three rows show");
     is(WhimsyCtrlTab.PER_ROW, 4, "Rows of four");
     is(ctrlTab.previewsPerRow, 4, "...is what Firefox's panel lays out");
     const rows = new Map();
@@ -309,5 +318,101 @@ add_task(async function test_switch_off_gives_back_firefoxs_panel() {
     await letGo();
     removeTabs(tabs);
     await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W14 21.8 (design/ctrltab A): every space's tabs, newest first, with the
+// space pill on other spaces' tiles only; the list survives a space switch;
+// pressing Tab past the 12th scrolls the grid a row at a time with "13 of N"
+// under it; picking another space's tile switches there. Essentials and
+// pinned tabs are in it; a hidden space's tabs aren't.
+add_task(async function test_every_space_and_scrolling_by_row() {
+  const { WhimsySpaceArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs");
+  const home = gZenWorkspaces.activeWorkspace;
+  const aTabs = await openTabs(14);
+  const pinned = aTabs[0];
+  gBrowser.pinTab(pinned);
+  const work = await gZenWorkspaces.createAndSaveWorkspace("Work", undefined, true);
+  const secret = await gZenWorkspaces.createAndSaveWorkspace("Secret", undefined, true);
+  const bTabs = [];
+  let hiddenTab = null;
+  try {
+    await gZenWorkspaces.changeWorkspaceWithID(secret.uuid);
+    hiddenTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page(300));
+    await gZenWorkspaces.changeWorkspaceWithID(work.uuid);
+    for (let i = 0; i < 3; i++) {
+      bTabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, page(200 + i)));
+    }
+    await WhimsySpaceArchive.toggleHidden(window, secret.uuid);
+    closeToasts();
+    await gZenWorkspaces.changeWorkspaceWithID(home);
+    gBrowser.selectedTab = aTabs[13];
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == home, "Back in the first space");
+
+    const list = ctrlTab.tabList;
+    for (const tab of bTabs) {
+      ok(list.includes(tab), `${tab.label}, in Work, is listed after switching spaces`);
+    }
+    ok(list.includes(pinned), "A pinned tab is listed");
+    ok(!list.includes(hiddenTab), "A hidden space's tab isn't");
+    Assert.deepEqual(list.slice(1, 4), [...bTabs].reverse(), "Work's tabs, newest first, right after the current tab");
+
+    await holdCtrlTab();
+    is(inView().length, 12, "12 tiles show");
+    Assert.greater(shownPreviews().length, 12, "...with more below");
+    ok(ctrlTab.previewsContainer.hasAttribute("whimsy-more"), "...faded at the bottom");
+    for (const tab of bTabs) {
+      is(previewOf(tab)._canvas.getAttribute("whimsy-space-name"), "Work", `${tab.label} carries Work's pill`);
+    }
+    for (const tab of [aTabs[13], aTabs[12]]) {
+      ok(!previewOf(tab)._canvas.hasAttribute("whimsy-space-name"), `${tab.label}, in this space: no pill`);
+    }
+    const foot = document.getElementById("whimsy-ctrltab-foot");
+    ok(foot && !foot.hidden, "The count shows under the grid");
+    const card1 = card().getBoundingClientRect();
+
+    // Tab to the 12th, then the 13th: one row scrolls in.
+    for (let i = 3; i <= 12; i++) {
+      await pressTab();
+    }
+    const twelfth = shownPreviews()[11];
+    is(document.activeElement, twelfth, "The 12th tile is selected");
+    is(ctrlTab.previewsContainer.scrollTop, 0, "...without scrolling");
+    await pressTab();
+    const thirteenth = shownPreviews()[12];
+    is(document.activeElement, thirteenth, "Tab past the 12th selects the 13th");
+    const pitch = WhimsyCtrlTab.rowPitch(ctrlTab);
+    Assert.less(Math.abs(ctrlTab.previewsContainer.scrollTop - pitch), 1, "...and the grid scrolls one row");
+    ok(inView().includes(thirteenth), "...bringing it into view");
+    await document.l10n.translateFragment(foot);
+    is(foot.querySelector(".whimsy-ctrltab-count").textContent, `13 of ${ctrlTab.tabCount}`, "13 of N");
+    is(foot.querySelector(".whimsy-ctrltab-title").value, thirteenth._tab.label, "...beside its title");
+    const card2 = card().getBoundingClientRect();
+    ok(card2.width == card1.width && card2.height == card1.height, "The card never changes size");
+
+    // Open again: the next tile after the previous tab is Work's newest.
+    const thirteenthTab = thirteenth._tab;
+    await releaseCtrl();
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab == thirteenthTab, "Releasing picks the 13th");
+    gBrowser.selectedTab = aTabs[13];
+    await holdCtrlTab();
+    is(document.activeElement, previewOf(ctrlTab.tabList[1]), "The previous tab is selected");
+    is(document.activeElement._tab, thirteenthTab, "...the one just picked");
+    await pressTab();
+    is(document.activeElement, previewOf(bTabs[2]), "Next: Work's newest tab");
+    await releaseCtrl();
+    is(gBrowser.selectedTab, bTabs[2], "Releasing Ctrl picks it");
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == work.uuid, "...and switches to Work");
+  } finally {
+    await letGo();
+    if (gZenWorkspaces.activeWorkspace != home) {
+      await gZenWorkspaces.changeWorkspaceWithID(home);
+    }
+    WhimsySpaceArchive.restore(window, secret.uuid);
+    closeToasts();
+    gBrowser.unpinTab(pinned);
+    removeTabs([...aTabs, ...bTabs, hiddenTab].filter(Boolean));
+    await gZenWorkspaces.removeWorkspace(work.uuid);
+    await gZenWorkspaces.removeWorkspace(secret.uuid);
   }
 });

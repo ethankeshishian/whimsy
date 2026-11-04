@@ -5112,6 +5112,11 @@ whimsy-call-options-camera-missing =
        *[no] The call's camera button wasn't found
     }
 
+## W14 21.8: Ctrl+Tab with more tabs than its card shows
+
+# $index (number) - the selected tile; $count (number) - tiles in all
+whimsy-ctrltab-position = { $index } of { $count }
+
 ## wave13/toast: Zen's toast, extended (WhimsyZenToasts.sys.mjs)
 
 # The close button that shows on a toast while the pointer is over it.

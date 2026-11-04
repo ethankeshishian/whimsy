@@ -2428,6 +2428,36 @@ panel[dragging] {
 
   & #ctrlTab-previews {
     gap: 4px;
+    /* W14 21.8: past 12 tabs, three rows show and the rest scroll a row at
+       a time (WhimsyCtrlTab sets the height and the fade). */
+    max-height: var(--whimsy-ctrltab-grid-height, none);
+    overflow-y: auto;
+    scrollbar-width: none;
+    overscroll-behavior: contain;
+
+    &[whimsy-more] {
+      mask-image: linear-gradient(to bottom, black calc(100% - 36px), transparent);
+    }
+  }
+
+  & #whimsy-ctrltab-foot {
+    gap: 8px;
+    min-height: 22px;
+    padding-inline: 6px;
+    font-size: 11.5px;
+    color: var(--whimsy-surface-muted);
+
+    & > label {
+      margin: 0;
+    }
+  }
+
+  & .whimsy-ctrltab-title {
+    min-width: 0;
+  }
+
+  & .whimsy-ctrltab-count {
+    font-variant-numeric: tabular-nums;
   }
 
   & .ctrlTab-preview,
