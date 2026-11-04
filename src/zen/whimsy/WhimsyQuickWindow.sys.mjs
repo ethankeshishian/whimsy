@@ -43,32 +43,9 @@
 // runs, which sets `whimsy-quick-window` on <html> for whimsy-browser.css
 // to hide the sidebar.
 //
-// Floating above other windows, matching Arc exactly (no deviation): Arc's
-// own Little Arc is NOT pinned to every macOS Space — AltTab-macos issue
-// #6092 (github.com/lwouis/alt-tab-macos) logged its window level as 0,
-// the same as Arc's ordinary AXStandardWindow, and its own bug report
-// described opening "a Little Arc window on the same Space as another
-// app's window", i.e. it lives on the current Space like a normal window,
-// not everywhere at once. But Arc's "Little Arc does not switch the
-// desktop, keeping you in the full-screen app" (confirmed behavior, and
-// issue #6007 also logged elevated levels of 3/24 at other times) means it
-// *can* float above another application's full-screen Space when needed —
-// that specific ability is the only part of "always on top" Arc actually
-// has. This engine's plain `alwaysontop` window feature doesn't separate
-// those two things: nsCocoaWindow.mm bundles NSFloatingWindowLevel with
-// NSWindowCollectionBehaviorCanJoinAllSpaces (pinned to *every* Space)
-// unconditionally, which is the DevTools-as-window/alert behavior, not
-// Arc's. whimsy-alwaysontop-fullscreen-aux.patch (src/widget/cocoa/) adds a
-// new `alwaysontopfullscreenaux` window feature/CHROME_ALWAYS_ON_TOP_FULLSCREEN_AUX
-// flag that keeps NSFloatingWindowLevel (so `open()`'s `win.focus()` below
-// still raises it properly — always-on-top non-popup windows are shown
-// with `orderFront:` rather than `makeKeyAndOrderFront:`, so they don't
-// steal focus just by existing) but skips CanJoinAllSpaces, and instead
-// gives the window NSWindowCollectionBehaviorFullScreenAuxiliary (the same
-// behavior the media Picture-in-Picture player already uses for the exact
-// same reason) so it can still appear over a full-screen app. Existing
-// `alwaysontop` consumers (DevTools-as-window, alerts, media PiP) are
-// untouched; this is a new, separate, additive flag.
+// A normal window (user decision, W14-11): the ordinary window level, on
+// the current Space, never above other apps or their full-screen Spaces.
+// Arc ran Little Arc at window level 0, the same as its other windows.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -377,10 +354,6 @@ export const WhimsyQuickWindow = {
     // as a popup window (it checks aWindow.toolbar.visible): never in the
     // closed-windows list, never restored, matching "closes without a
     // trace". `location` keeps the nav bar/URL bar Mini Whimsy still needs.
-    // `alwaysontopfullscreenaux` is the floating half of Arc parity: its
-    // own Space, plus able to float over another app's full-screen Space,
-    // but not pinned to every ordinary Space (see the file banner comment
-    // for the Arc evidence and how this reaches the Cocoa widget).
     const { left, top, width, height } = this.initialRect({ opener, below, barOnly });
     const position = left === undefined ? "centerscreen" : `left=${left},top=${top}`;
     const win = lazy.BrowserWindowTracker.openWindow({
@@ -388,7 +361,7 @@ export const WhimsyQuickWindow = {
       args,
       zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false),
       all: false,
-      features: `location,resizable,${position},alwaysontopfullscreenaux,width=${width},height=${height}`,
+      features: `location,resizable,${position},width=${width},height=${height}`,
     });
     win._whimsyQuickWindow = true;
     win._whimsyMiniBarOnly = barOnly;
