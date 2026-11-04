@@ -445,6 +445,7 @@ class nsZenPinnedTabManager extends nsZenDOMOperatedFeature {
           }
           if (behavior.includes("reset")) {
             for (const tab of pinnedTabs) {
+              tab._whimsyPreResetState = SessionStore.getTabState(tab);
               this.#resetTabToStoredState(tab);
             }
           }

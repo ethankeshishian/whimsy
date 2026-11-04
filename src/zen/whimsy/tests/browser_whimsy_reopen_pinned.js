@@ -7,6 +7,7 @@
 // a pinned tab and an Essential, closed the ways a person closes them.
 
 const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
 
 function uniqueURL(tag) {
   return `https://example.com/?${tag}=${Date.now()}${Math.random().toString(36).slice(2)}`;
@@ -143,4 +144,107 @@ add_task(async function cancelled_pinned_close_is_not_a_close() {
     BrowserTestUtils.removeTab(tab);
   }
   await SpecialPowers.popPrefEnv();
+});
+
+// W14-5: a pinned tab or Essential that navigated away from its pinned page
+// comes back where it was (with its back history), by ⌘⇧T and by the tab
+// context menu's Reopen Closed Tab; ⌘W after that still resets it home, and
+// a tab picked by hand after ⌘W stays at home.
+async function setUpNavigated(kind) {
+  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, uniqueURL("keep"));
+  const home = uniqueURL(`home-${kind}`);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, home);
+  if (kind == "pinned") {
+    gBrowser.pinTab(tab);
+  } else {
+    gZenPinnedTabManager.addToEssentials(tab);
+  }
+  await TestUtils.waitForCondition(() => tab.pinned, "Set up");
+  gBrowser.selectedTab = tab;
+  const away = uniqueURL(`away-${kind}`);
+  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, away);
+  await SpecialPowers.spawn(tab.linkedBrowser, [away], url => {
+    content.location.href = url;
+  });
+  await loaded;
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.canGoBack, "The page has back history");
+  await TabStateFlusher.flush(tab.linkedBrowser);
+  return { keep, home, tab, away };
+}
+
+async function closeWithKey(tab) {
+  await SimpleTest.promiseFocus(window);
+  EventUtils.synthesizeKey("w", { accelKey: true });
+  await TestUtils.waitForCondition(() => !tab.selected, "⌘W moved off the tab");
+}
+
+async function closeAndWaitForReset(tab) {
+  await closeWithKey(tab);
+  await TestUtils.waitForCondition(() => JSON.parse(SessionStore.getTabState(tab)).entries.length == 1, "...and reset it to its pinned page");
+}
+
+async function cleanUp(kind, tab, keep) {
+  if (kind == "essential") {
+    gZenPinnedTabManager.removeEssentials(tab);
+  }
+  if (tab.pinned) {
+    gBrowser.unpinTab(tab);
+  }
+  BrowserTestUtils.removeTab(tab);
+  BrowserTestUtils.removeTab(keep);
+}
+
+async function reopenFromTabMenu(onTab) {
+  const menu = document.getElementById("tabContextMenu");
+  const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
+  EventUtils.synthesizeMouseAtCenter(onTab, { type: "contextmenu", button: 2 });
+  await shown;
+  const item = document.getElementById("context_undoCloseTab");
+  ok(!item.disabled && !item.hidden, "Reopen Closed Tab is offered");
+  const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
+  menu.activateItem(item);
+  await hidden;
+}
+
+for (const kind of ["pinned", "essential"]) {
+  for (const how of ["key", "menu"]) {
+    add_task(async function navigated_pinned_reopens_where_it_was() {
+      const { keep, home, tab, away } = await setUpNavigated(kind);
+      await closeWithKey(tab);
+      if (how == "key") {
+        await reopenWithKey();
+      } else {
+        await reopenFromTabMenu(keep);
+      }
+      await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, `${how} brings the ${kind} tab back`);
+      await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == away, `...at the page it navigated to (${away})`);
+      await TestUtils.waitForCondition(() => tab.linkedBrowser.canGoBack, "...with its back history");
+
+      await closeAndWaitForReset(tab);
+      EventUtils.synthesizeMouseAtCenter(tab, {});
+      await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "Picked by hand");
+      await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == home, "A second ⌘W reset it home");
+      ok(!tab.linkedBrowser.canGoBack, "...with no back history");
+      await cleanUp(kind, tab, keep);
+    });
+  }
+}
+
+add_task(async function picked_by_hand_after_reset_stays_home() {
+  const { keep, home, tab } = await setUpNavigated("pinned");
+  await closeAndWaitForReset(tab);
+  EventUtils.synthesizeMouseAtCenter(tab, {});
+  await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "Picked by hand");
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == home, "It loads its pinned page");
+  ok(!tab._whimsyPreResetState, "The saved history is dropped");
+  gBrowser.selectedTab = keep;
+  const before = new Set(gBrowser.tabs);
+  await reopenWithKey();
+  await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  is(tab.linkedBrowser.currentURI.spec, home, "⌘⇧T later doesn't put the old page back");
+  isnot(gBrowser.selectedTab, tab, "...nor jump to the tab picked by hand");
+  for (const reopened of gBrowser.tabs.filter(t => !before.has(t))) {
+    BrowserTestUtils.removeTab(reopened);
+  }
+  await cleanUp("pinned", tab, keep);
 });

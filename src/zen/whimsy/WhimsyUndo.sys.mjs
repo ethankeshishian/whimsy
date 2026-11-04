@@ -82,6 +82,25 @@ function isEditableTarget(win) {
 // B1: per window, the pinned tabs ⌘W last moved off, and when.
 const lastPinnedClose = new WeakMap();
 
+// ⌘⇧T gives a reset pinned tab back the history it had before ⌘W.
+function restorePreResetState(tab) {
+  const saved = tab._whimsyPreResetState;
+  delete tab._whimsyPreResetState;
+  if (!saved) {
+    return;
+  }
+  try {
+    const { SessionStore } = lazy();
+    const now = JSON.parse(SessionStore.getTabState(tab));
+    const home = tab._zenPinnedInitialState?.entry?.url;
+    if (now.entries?.length == 1 && now.entries[0].url == home) {
+      SessionStore.setTabState(tab, saved);
+    }
+  } catch (e) {
+    console.error("Whimsy: restoring a reset pinned tab failed", e);
+  }
+}
+
 export const WhimsyUndo = {
   _suppressed: 0,
 
@@ -256,8 +275,12 @@ export const WhimsyUndo = {
       if (record) {
         lastPinnedClose.set(win, record);
       }
+      const running = original.call(this, event, selectedTab, ...rest);
+      if (record) {
+        record.done = running.catch(() => {});
+      }
       try {
-        return await original.call(this, event, selectedTab, ...rest);
+        return await running;
       } finally {
         if (record && lastPinnedClose.get(win) == record && !tabs.some(tab => tab.isConnected && !tab.selected)) {
           lastPinnedClose.delete(win);
@@ -299,8 +322,20 @@ export const WhimsyUndo = {
       }
       event.stopImmediatePropagation();
       lastPinnedClose.delete(win);
-      win.gBrowser.selectedTab = tabs[0];
+      Promise.resolve(last.done).then(() => {
+        for (const tab of tabs) {
+          restorePreResetState(tab);
+        }
+        win.gBrowser.selectedTab = tabs[0];
+      });
     }, true);
+    // A pinned tab picked by hand after its reset stays at its home page.
+    win.addEventListener("TabSelect", event => {
+      delete event.target._whimsyPreResetState;
+      if (lastPinnedClose.get(win)?.tabs.includes(event.target)) {
+        lastPinnedClose.delete(win);
+      }
+    });
   },
 
   undo(win) {
