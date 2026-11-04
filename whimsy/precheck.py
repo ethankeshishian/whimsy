@@ -144,6 +144,20 @@ def check_l10n_containers(files):
                     problems.append(f"{f}:{n}: #{id_} has data-l10n-id but code adds children to it; Fluent will wipe them")
 
 
+def check_owner_global():
+    """Gecko 159 has no Element.ownerGlobal (it's documentGlobal): a use is undefined at run time."""
+    pattern = re.compile(r"\.ownerGlobal\b")
+    for path in glob.glob("src/**/*.*js", recursive=True) + glob.glob("src/**/*.patch", recursive=True):
+        if not path.endswith((".js", ".mjs", ".patch")):
+            continue
+        for n, line in enumerate(open(path, encoding="utf-8", errors="replace"), 1):
+            code = line[1:] if path.endswith(".patch") and line.startswith("+") else (None if path.endswith(".patch") else line)
+            if code is None or code.lstrip().startswith(("//", "*", "/*")):
+                continue
+            if pattern.search(code.split("//")[0]):
+                problems.append(f"{path}:{n}: .ownerGlobal is undefined in this engine; use .documentGlobal")
+
+
 def needed_build(files):
     full = [f for f in files if f in ("surfer.json", "configs/common/mozconfig") or f.startswith("configs/")]
     native = [f for f in files if f.endswith((".patch", ".cpp", ".h", ".mm", ".idl", ".rs"))
@@ -166,6 +180,7 @@ check_xhtml(files)
 check_jars(files)
 check_app_icons(known)
 check_l10n_containers(files)
+check_owner_global()
 
 overlay = subprocess.run([sys.executable, "whimsy/overlay.py", "check"], capture_output=True, text=True)
 if overlay.returncode:
