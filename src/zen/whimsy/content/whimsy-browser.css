@@ -2103,9 +2103,10 @@ tab[whimsy-live-unread] {
    accent, so light, dark and every Zen theme follow; nothing moves but the
    panel itself (Firefox's panel animation, which honours reduced motion)
    and a 100ms focus fill.
-   W13 F03 (option B at 88%, wave13/design/cheatsheet): a WhimsySurface
-   760px wide, 88% of the page area's height (--whimsy-cheatsheet-height,
-   set when it opens; fixed while open), centred. The header (with a grip)
+   W14 21.6 (option B, wave13/design/cheatsheet): a WhimsySurface 840px
+   wide, 64% of the page area's height and no taller than 0.66 × its width
+   (--whimsy-cheatsheet-height, set when it opens; fixed while open),
+   centred. The header (with a grip)
    is the drag handle. A 150px rail lists the menus with their counts; the
    picked menu's rows sit on the surface track; key caps on the track with
    a hairline; a fade at the bottom while more rows are below. Searching
@@ -2133,6 +2134,14 @@ panel.whimsy-surface.whimsy-cheatsheet {
 
   panel[dragging] & {
     cursor: grabbing;
+  }
+
+  /* Controls in the header don't drag, so they keep their own cursor. */
+  & :is(toolbarbutton, button, select) {
+    cursor: default;
+  }
+  & :is(input, textarea, a) {
+    cursor: auto;
   }
 }
 panel[dragging] {

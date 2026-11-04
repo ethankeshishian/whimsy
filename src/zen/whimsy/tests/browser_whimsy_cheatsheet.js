@@ -10,7 +10,7 @@
 // state; arrows move through the rows and back to the search; rows run
 // nothing; Esc clears a search, then closes; Cmd+/ again closes;
 // "Edit Shortcuts…" opens about:keyboard; a customized shortcut says so.
-// W13 F03: a WhimsySurface over the page, 88% of its height, with the
+// W13 F03: a WhimsySurface over the page (W14 21.6: 840 wide, 64% tall), with the
 // menus on a rail on its left; matches are marked; a changed shortcut has
 // an accent dot explained in the footer.
 
@@ -229,9 +229,10 @@ add_task(async function test_disabled_feature_does_nothing() {
   await SpecialPowers.popPrefEnv();
 });
 
-// W13 F03 (option B at 88%, wave13/design/cheatsheet): in a 1280×900
-// window the sheet is 760px wide with a 150px rail, 88% of the page
-// area's height, centred in it, and keeps that size while open. The rail
+// W14 21.6 (option B, wave13/design/cheatsheet): the sheet is 840px wide
+// (the page area less 40px), 64% of the page area's height but no taller
+// than 0.66 × its width, centred in the page area, with a 150px rail, and
+// keeps that size while open. The rail
 // lists the menus in menu-bar order with their counts; a real click on one
 // shows its rows; arrows move along the rail. Typing searches every menu
 // and dims the rail; Esc returns to the picked menu. The header drags it.
@@ -294,11 +295,16 @@ add_task(async function test_rail_height_and_centre() {
       const area = WhimsySurface.pageArea(win).getBoundingClientRect();
       const card = cardOf(panel);
       const box = card.getBoundingClientRect();
-      Assert.less(Math.abs(box.height - Math.round(area.height * 0.88)), 1.5,
-        `The sheet is 88% of the page area's height (${Math.round(area.height * 0.88)}px)`);
+      const width = Math.min(840, area.width - 40);
+      const height = Math.round(Math.min(area.height * 0.64, width * 0.66));
+      Assert.less(Math.abs(box.width - width), 1.5, `${width}px wide`);
+      Assert.less(Math.abs(box.height - height), 1.5, `${height}px tall: 64% of the page area, at most 0.66 × the width`);
       Assert.less(Math.abs((box.top - area.top) - (area.bottom - box.bottom)), 3, "...centred: the gaps above and below match");
       Assert.less(Math.abs((box.left - area.left) - (area.right - box.right)), 3, "...and across the page");
-      Assert.less(Math.abs(box.width - 760), 1.5, "760px wide");
+      const close = panel.querySelector(".whimsy-surface-close");
+      ok(close.checkVisibility(), "The header has a close button");
+      is(win.getComputedStyle(close).cursor, "default", "...with an arrow, not the header's grab hand");
+      isnot(win.getComputedStyle(panel.querySelector("#whimsy-cheatsheet-search")).cursor, "grab", "The search field doesn't show the grab hand");
 
       // The rail: every menu in menu-bar order, with its count, 150px.
       const rail = panel.querySelector(".whimsy-cheatsheet-rail");
@@ -389,8 +395,8 @@ add_task(async function test_rail_height_and_centre() {
       const x = start.left + 60;
       const y = start.top + start.height / 2;
       EventUtils.synthesizeMouseAtPoint(x, y, { type: "mousedown" }, win);
-      // 20px down: the sheet fills 88% of the page, so a bigger drag on a
-      // short screen would be clamped at the screen's bottom edge.
+      // 20px down: a bigger drag on a short screen would be clamped at the
+      // screen's bottom edge.
       EventUtils.synthesizeMouseAtPoint(x + 40, y + 10, { type: "mousemove" }, win);
       EventUtils.synthesizeMouseAtPoint(x + 120, y + 20, { type: "mousemove" }, win);
       EventUtils.synthesizeMouseAtPoint(x + 120, y + 20, { type: "mouseup" }, win);
@@ -410,16 +416,52 @@ add_task(async function test_rail_height_and_centre() {
   });
 });
 
-// A narrow window: the window less 40px, still with the rail.
+// A narrow window (page area under 520px): the window less 40px, centred
+// on the window, still with the rail.
 add_task(async function test_narrow_window() {
   await inWindow(480, 800, async win => {
+    const area = WhimsySurface.pageArea(win).getBoundingClientRect();
+    Assert.less(area.width, 520, `The page area is narrow (${area.width}px)`);
     const panel = await openIn(win);
     try {
       const box = cardOf(panel).getBoundingClientRect();
       Assert.less(Math.abs(box.width - (win.innerWidth - 40)), 1.5, `The window less 40px (${win.innerWidth - 40}px)`);
       ok(panel.querySelector(".whimsy-cheatsheet-rail").checkVisibility(), "The rail stays");
-      Assert.greaterOrEqual(Math.round(box.left), 19, "Inside the window on the left");
-      Assert.lessOrEqual(Math.round(box.right), win.innerWidth - 19, "...and the right");
+      Assert.less(Math.abs(box.left - (win.innerWidth - box.right)), 3, "Centred on the window across");
+      Assert.less(Math.abs((box.top - area.top) - (area.bottom - box.bottom)), 3, "...and in the page area up and down");
+    } finally {
+      await closeIn(win, panel);
+    }
+  });
+});
+
+// A small window whose page area is wider than 520px: the page area less
+// 40px, centred in the page area both ways (not over the sidebar).
+add_task(async function test_small_window_centres_in_the_page() {
+  await inWindow(1024, 640, async win => {
+    const area = WhimsySurface.pageArea(win).getBoundingClientRect();
+    const panel = await openIn(win);
+    try {
+      const box = cardOf(panel).getBoundingClientRect();
+      Assert.less(Math.abs(box.width - Math.min(840, area.width - 40)), 1.5, `The page area less 40px (${area.width - 40}px)`);
+      Assert.less(Math.abs((box.left - area.left) - (area.right - box.right)), 3,
+        `The left and right gaps in the page match (${box.left - area.left}, ${area.right - box.right})`);
+      Assert.less(Math.abs((box.top - area.top) - (area.bottom - box.bottom)), 3,
+        `...and the top and bottom (${box.top - area.top}, ${area.bottom - box.bottom})`);
+      Assert.greaterOrEqual(box.left, area.left, "It doesn't cover the sidebar");
+    } finally {
+      await closeIn(win, panel);
+    }
+  });
+});
+
+// A big window: wider than tall.
+add_task(async function test_big_window_is_landscape() {
+  await inWindow(1600, 1000, async win => {
+    const panel = await openIn(win);
+    try {
+      const box = cardOf(panel).getBoundingClientRect();
+      Assert.greaterOrEqual(box.width, box.height, `Wider than tall (${box.width} × ${box.height})`);
     } finally {
       await closeIn(win, panel);
     }
@@ -462,8 +504,9 @@ add_task(async function test_short_window_is_one_list() {
       const groups = shownGroupsIn(panel);
       Assert.greater(groups.length, 1, "Every menu shows");
       ok(groups.every(g => win.getComputedStyle(g.querySelector("h2")).display != "none"), "...each under its heading");
-      Assert.less(Math.abs(cardOf(panel).getBoundingClientRect().height - Math.round(height * 0.88)), 1.5,
-        "Still 88% of the page area");
+      const box = cardOf(panel).getBoundingClientRect();
+      Assert.less(Math.abs(box.height - Math.round(Math.min(height * 0.64, box.width * 0.66))), 1.5,
+        "Still 64% of the page area");
     } finally {
       await closeIn(win, panel);
     }

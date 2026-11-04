@@ -26,9 +26,10 @@
 // - A shortcut the person changed has an accent dot ("Changed by you" in
 //   the footer legend), with the default in its tooltip and its accessible
 //   name.
-// - W13 F03 (option B at 88%, wave13/design/cheatsheet): a WhimsySurface
-//   760px wide (the window less 40px when narrow), 88% of the page area's
-//   height and centred in it, fixed while open. A 150px rail on the left
+// - W14 21.6 (option B, wave13/design/cheatsheet): a WhimsySurface 840px
+//   wide (the page area less 40px), 64% of the page area's height but never
+//   taller than 0.66 × its width, centred in the page area (on the window
+//   when the page area is under 520px wide), fixed while open. A 150px rail on the left
 //   lists the menus with their counts; the rows show the picked menu's
 //   shortcuts, matches marked in the names. Typing searches every menu
 //   (their headings show, the rail dims). Below 360px of page height the
@@ -61,10 +62,11 @@ const PANEL_ID = "whimsy-cheatsheet-panel";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const OTHER = "other";
 const PAGE_STEP = 8;
-// W13 F03 (design/cheatsheet, the user's pick): 760px wide with a 150px
-// rail, 88% of the page area's height, the rail gone below 360px.
-const SHEET_WIDTH = 760;
-const HEIGHT_SHARE = 0.88;
+// W14 21.6 (design/cheatsheet option B): wider than tall.
+const SHEET_WIDTH = 840;
+const HEIGHT_SHARE = 0.64;
+const MAX_HEIGHT_PER_WIDTH = 0.66;
+const PAGE_CENTRE_MIN_WIDTH = 520;
 const RAIL_MIN_HEIGHT = 360;
 
 function clamp(value, lo, hi) {
@@ -470,28 +472,46 @@ export const WhimsyCheatSheet = {
   },
 
   /**
-   * W13 F03 (option B at 88%, design/cheatsheet): where the sheet goes.
-   * Height: 88% of the page area's height, fixed while open. Width: 760px,
-   * or the window less 40px. Centred in the page area (equal gaps above and
-   * below); centred on the window when the page area is too narrow.
-   * `oneList` below 360px of page height: the rail hides.
+   * Where the sheet goes: 840px wide or the page area less 40px, 64% of the
+   * page area's height capped at 0.66 × the width, centred in the page area.
+   * Under 520px of page width it takes the window less 40px, centred on the
+   * window. `x`/`y` are relative to the page area (openOver's anchor);
+   * `centre` is the point to centre on, in the window. `oneList` below 360px
+   * of page height: the rail hides.
    */
   geometry(win) {
     const area = lazy.WhimsySurface.pageArea(win);
     const rect = area.getBoundingClientRect();
     const contentHeight = rect.height || win.innerHeight;
-    const width = Math.round(Math.max(280, Math.min(SHEET_WIDTH, win.innerWidth - 40)));
-    const height = Math.round(contentHeight * HEIGHT_SHARE);
-    // `x` is relative to `area` (openOver's anchor), which may be narrower
-    // than the window and offset from its left (the vertical tab sidebar).
-    // Centred in the page area when it fits there; otherwise centred on the
-    // window, clamped so the sheet still lands 20px inside the window's
-    // edges rather than off the left side of a narrow area.
-    const x = width <= rect.width - 20
-      ? Math.round((rect.width - width) / 2)
-      : Math.round(clamp((win.innerWidth - width) / 2 - rect.left, 20 - rect.left, win.innerWidth - 20 - width - rect.left));
+    const inPage = rect.width >= PAGE_CENTRE_MIN_WIDTH;
+    const room = inPage ? rect.width : win.innerWidth;
+    const width = Math.round(Math.max(280, Math.min(SHEET_WIDTH, room - 40)));
+    const height = Math.round(Math.min(contentHeight * HEIGHT_SHARE, width * MAX_HEIGHT_PER_WIDTH));
+    const centre = {
+      x: inPage ? rect.left + rect.width / 2 : win.innerWidth / 2,
+      y: rect.top + contentHeight / 2,
+    };
+    const x = Math.round(clamp(centre.x - width / 2, 20, win.innerWidth - 20 - width) - rect.left);
     const y = Math.round((contentHeight - height) / 2);
-    return { area, width, height, x, y, oneList: contentHeight < RAIL_MIN_HEIGHT };
+    return { area, width, height, x, y, centre, oneList: contentHeight < RAIL_MIN_HEIGHT };
+  },
+
+  centreWhenShown(win, panel, centre) {
+    const onShown = event => {
+      if (event.target != panel) {
+        return;
+      }
+      panel.removeEventListener("popupshown", onShown, { capture: true });
+      const box = panel.getOuterScreenRect();
+      const left = Math.round(win.mozInnerScreenX + clamp(centre.x - box.width / 2, 20, win.innerWidth - 20 - box.width));
+      const top = Math.round(win.mozInnerScreenY + centre.y - box.height / 2);
+      if (Math.abs(box.left - left) > 1 || Math.abs(box.top - top) > 1) {
+        panel.moveTo(left, top);
+      }
+    };
+    // Capture: before the drag handle records where it opened.
+    panel.addEventListener("popupshown", onShown, { capture: true });
+    panel.addEventListener("popuphidden", () => panel.removeEventListener("popupshown", onShown, { capture: true }), { once: true });
   },
 
   async open(win) {
@@ -881,10 +901,11 @@ export const WhimsyCheatSheet = {
     } else {
       filter("");
     }
-    // Centred in the page area, at 88% of its height; or where it was
-    // dragged to earlier this session (F07). Nonnative (B4), so a coordinate
-    // placement lands where asked instead of hanging off one edge.
+    // Centred; or where it was dragged to earlier this session (F07).
+    // Nonnative (B4), so a coordinate placement lands where asked; measured
+    // once shown and moved if Gecko placed it elsewhere.
     if (!lazy.WhimsySurface.reopenWhereLeft(win, panel)) {
+      this.centreWhenShown(win, panel, geometry.centre);
       lazy.WhimsySurface.openOver(panel, geometry.area, { x: geometry.x, y: geometry.y });
     }
   },
