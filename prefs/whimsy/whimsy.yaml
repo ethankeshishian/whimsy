@@ -447,6 +447,25 @@
 - name: whimsy.ai.gemini.model
   value: ""
 
+# W14 19 (v2): how ChatGPT / Claude are connected: "plan" or "key".
+- name: whimsy.ai.openai.auth
+  value: ""
+
+- name: whimsy.ai.claude.auth
+  value: ""
+
+# Opt-in: when a plan runs out, this request goes to the next connected
+# provider in Settings -> AI's list.
+- name: whimsy.ai.plan-fallback
+  value: false
+
+# Subscription sign-in is built by L7b; each stays off until its flow is.
+- name: whimsy.feature.ai-openai-plan
+  value: false
+
+- name: whimsy.feature.ai-claude-plan
+  value: false
+
 # wave5/lan: Local servers live folder. Ports probed on localhost (comma
 # separated; empty means the built-in list of common dev-server ports) and
 # how often to probe while the folder is visible.

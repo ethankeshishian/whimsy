@@ -284,13 +284,154 @@ add_task(async function test_openai_and_gemini_requests() {
   await WhimsyAIProviders.setKey("gemini", "");
 });
 
+// W14 19 (v2): connect a provider once (the key is checked by listing its
+// models, the first becomes the model), disconnect it, the plan seam that
+// L7b fills, and the opt-in "use the next one" when a plan runs out.
+add_task(async function test_accounts() {
+  OSKeyStoreTestUtils.setup();
+  registerCleanupFunction(() => OSKeyStoreTestUtils.cleanup());
+  const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
+  const server = new HttpServer();
+  server.start(-1);
+  const base = `http://localhost:${server.identity.primaryPort}`;
+  const saved = { ...ENDPOINTS };
+  Object.assign(ENDPOINTS, { claude: `${base}/claude`, openai: `${base}/openai`, gemini: `${base}/gemini` });
+  const replies = {
+    claude: { data: [{ id: "claude-newest" }, { id: "claude-older" }, { id: "claude-embed-x" }] },
+    openai: { data: [{ id: "gpt-old", created: 1 }, { id: "gpt-new", created: 9 }, { id: "text-embedding-z", created: 20 }] },
+    gemini: { models: [{ name: "models/gemini-first", supportedGenerationMethods: ["generateContent"] }] },
+  };
+  const answers = { gemini: { candidates: [{ finishReason: "STOP", content: { parts: [{ text: "from gemini" }] } }] } };
+  let rejectKey = false;
+  const calls = [];
+  for (const provider of ["claude", "openai", "gemini"]) {
+    server.registerPrefixHandler(`/${provider}/`, (request, response) => {
+      calls.push(request.path);
+      const listing = request.path.endsWith("/models");
+      response.setStatusLine(request.httpVersion, rejectKey ? 401 : 200, "x");
+      response.setHeader("content-type", "application/json");
+      response.write(JSON.stringify(listing ? replies[provider] : answers[provider] || {}));
+    });
+  }
+  registerCleanupFunction(async () => {
+    Object.assign(ENDPOINTS, saved);
+    await new Promise(r => server.stop(r));
+  });
+  const keyFor = name => "key-" + name + "-1234";
+
+  is(await WhimsyAIProviders.connection("openai"), null, "Nothing is connected to start with");
+  rejectKey = true;
+  await rejectsWith(WhimsyAIProviders.connectKey("openai", keyFor("openai")), "bad-key", "A key the service turns down");
+  ok(!(await WhimsyAIProviders.hasKey("openai")), "isn't saved");
+  rejectKey = false;
+  await rejectsWith(WhimsyAIProviders.connectKey("openai", "  "), "no-key", "An empty key");
+
+  await WhimsyAIProviders.connectKey("openai", keyFor("openai"));
+  is(WhimsyAIProviders.modelOf("openai"), "gpt-new", "The default model is the newest the key lists, text models only");
+  Assert.deepEqual(await WhimsyAIProviders.models("openai"), ["gpt-new", "gpt-old"], "The picker lists text models, newest first");
+  is((await WhimsyAIProviders.connection("openai")).method, "key", "OpenAI is connected with a key");
+  is(await WhimsyAIProviders.keyHint("openai"), "1234", "Settings tells keys apart by their last four");
+  WhimsyAIProviders.setModel("openai", "gpt-old");
+  await WhimsyAIProviders.connectKey("openai", keyFor("openai"));
+  is(WhimsyAIProviders.modelOf("openai"), "gpt-old", "Connecting again keeps the model the person picked");
+  await WhimsyAIProviders.connectKey("claude", keyFor("claude"));
+  is((await WhimsyAIProviders.connection("claude")).method, "key", "Claude too");
+  is(WhimsyAIProviders.modelOf("claude"), WhimsyAIProviders.claudeModel, "Claude keeps its model pref");
+  await WhimsyAIProviders.connectKey("gemini", keyFor("gemini"));
+  is(WhimsyAIProviders.modelOf("gemini"), "gemini-first", "Gemini's first model");
+  Assert.deepEqual(await WhimsyAIProviders.connectedProviders(), ["claude", "openai", "gemini"], "Connected, in the list's order");
+  is(await WhimsyAIProviders.nextProvider("openai"), "gemini", "The next one down the list");
+  is(await WhimsyAIProviders.nextProvider("gemini"), "claude", "wraps around");
+
+  // The plan seam: not offered until its gate is on and a sign-in is registered.
+  ok(!WhimsyAIProviders.planAvailable("openai"), "No plan sign-in yet");
+  await rejectsWith(WhimsyAIProviders.connectPlan(window, "openai"), "unavailable", "so it can't be connected");
+  let signedOut = 0;
+  let planError = new WhimsyAIError("plan-limit");
+  WhimsyAIProviders.registerPlan("openai", {
+    connect: async () => ({}),
+    disconnect: async () => signedOut++,
+    status: async () => ({ connected: true, label: "me@example.com" }),
+    isReady: async () => true,
+    models: async () => ["gpt-plan"],
+    complete: async () => {
+      throw planError;
+    },
+  });
+  ok(!WhimsyAIProviders.planAvailable("openai"), "A registered sign-in still waits for its feature gate");
+  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", true);
+  ok(WhimsyAIProviders.planAvailable("openai"), "Gate on: the plan is offered");
+  Services.prefs.setStringPref("whimsy.ai.provider", "openai");
+  ok(!WhimsyAIProviders.planInUse, "Connected with a key: no plan label");
+  await WhimsyAIProviders.connectPlan(window, "openai");
+  is(WhimsyAIProviders.planInUse, "openai", "Connected through the plan: 'Using ChatGPT plan'");
+  const connection = await WhimsyAIProviders.connection("openai");
+  is(connection.method + connection.label, "planme@example.com", "with the account");
+  Assert.deepEqual(await WhimsyAIProviders.models("openai"), ["gpt-plan"], "and the plan's models");
+
+  // A spent plan: an error naming ChatGPT, no switch unless the person opted in.
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-limit", "Out of room, nothing switches by itself");
+  calls.length = 0;
+  Services.prefs.setStringPref("whimsy.ai.gemini.model", "gemini-first");
+  Services.prefs.setBoolPref("whimsy.ai.plan-fallback", true);
+  is(await WhimsyAIProviders.complete({ prompt: "x" }), "from gemini", "Opted in: this request goes to the next provider");
+  ok(calls.some(c => c.includes("generateContent")), "Gemini answered");
+  is(WhimsyAIProviders.lastFallback.to, "gemini", "and it's recorded");
+  is(Services.prefs.getStringPref("whimsy.ai.provider"), "openai", "The provider in use doesn't change");
+  planError = new WhimsyAIError("bad-key");
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "bad-key", "Only a spent plan moves on, not other errors");
+  Services.prefs.clearUserPref("whimsy.ai.plan-fallback");
+
+  // Disconnecting signs a plan out; a key is deleted and its model forgotten.
+  await WhimsyAIProviders.disconnect("openai");
+  is(signedOut, 1, "The plan's sign-in is told to sign out (revoke)");
+  ok(!WhimsyAIProviders.planInUse, "No plan in use after");
+  is(await WhimsyAIProviders.connection("openai"), null, "OpenAI isn't connected");
+  await WhimsyAIProviders.disconnect("gemini");
+  ok(!(await WhimsyAIProviders.hasKey("gemini")), "Gemini's key is gone");
+  is(WhimsyAIProviders.modelOf("gemini"), "", "and its model");
+  is(Services.prefs.getStringPref("whimsy.ai.provider"), "openai", "The provider in use stays picked");
+  ok((await WhimsyAIProviders.hasKey("claude")), "Another provider's key is untouched");
+
+  WhimsyAIProviders.registerPlan("openai", null);
+  for (const pref of ["whimsy.feature.ai-openai-plan", "whimsy.ai.provider", "whimsy.ai.openai.auth", "whimsy.ai.gemini.model", "whimsy.ai.claude.model"]) {
+    Services.prefs.clearUserPref(pref);
+  }
+  await WhimsyAIProviders.disconnect("claude");
+  Object.assign(ENDPOINTS, saved);
+});
+
+add_task(async function test_plan_limit_toast() {
+  Services.prefs.setStringPref("whimsy.ai.provider", "openai");
+  WhimsyAIProviders.showError(window, new WhimsyAIError("plan-limit"));
+  const toasts = () => [...(document.getElementById("zen-toast-container")?.children ?? [])];
+  const toast = await TestUtils.waitForCondition(
+    () => toasts().find(t => t._messageId == "whimsy-ai-error-plan-limit"),
+    "A spent plan gets a toast"
+  );
+  const buttons = [...toast.querySelectorAll(".whimsy-toast-button")];
+  is(buttons.length, 1, "One action");
+  is(buttons[0].querySelector(".whimsy-toast-button-label").getAttribute("data-l10n-id"), "whimsy-ai-manage-usage", "Manage usage");
+  const original = window.openPreferences;
+  let pane = null;
+  window.openPreferences = value => (pane = value);
+  try {
+    buttons[0].click();
+  } finally {
+    window.openPreferences = original;
+  }
+  is(pane, "paneWhimsyAI", "which opens Settings → AI");
+  Services.prefs.clearUserPref("whimsy.ai.provider");
+});
+
 add_task(async function test_error_toasts() {
-  for (const code of ["no-key", "blocked", "something-new"]) {
+  for (const code of ["no-key", "blocked", "something-new", "signed-out"]) {
     WhimsyAIProviders.showError(window, new WhimsyAIError(code));
   }
   const toasts = () => [...(document.getElementById("zen-toast-container")?.children ?? [])].map(t => t._messageId);
   await TestUtils.waitForCondition(() => toasts().includes("whimsy-ai-error-no-key"), "A missing key says so");
   ok(toasts().includes("whimsy-ai-error-failed"), "An unknown error gets the general message");
+  ok(toasts().includes("whimsy-ai-error-signed-out"), "A plan that signed you out says so");
   const before = toasts().length;
   WhimsyAIProviders.showError(window, new WhimsyAIError("aborted"));
   is(toasts().length, before, "A cancelled request shows nothing");

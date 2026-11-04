@@ -4,7 +4,8 @@
 
 // AI v1: the one provider every Whimsy AI feature talks to (Tidy Tabs, tab
 // titles, Ask on Page, 5-second previews, Watch a page). The person picks
-// it in Settings → Privacy & Security → AI:
+// it in Settings → AI (W14 v2: connect each provider once, then pick the
+// one to use for AI):
 //   - "apple":  Apple's on-device model (Foundation Models, macOS 26+). The
 //               framework is Swift-only, so a tiny helper is compiled with
 //               the Xcode command line tools on first use and cached in the
@@ -14,7 +15,8 @@
 //   - "openai": OpenAI's Responses API with the person's own API key.
 //   - "gemini": Google's Gemini API with the person's own API key.
 // Rules (user, Oct 29): only the chosen provider is ever contacted; there's
-// no automatic fallback to the cloud. The AI kill switch (Enable AI, whimsy.ai.enabled,
+// no automatic fallback, except the opt-in "use the next one" when a plan
+// runs out (whimsy.ai.plan-fallback, W14). The AI kill switch (Enable AI, whimsy.ai.enabled,
 // WhimsyAI.sys.mjs) refuses every request and aborts the ones in flight.
 // API keys never go into prefs: each is encrypted with OSKeyStore (the
 // macOS Keychain) and the ciphertext lives in the profile.
@@ -22,6 +24,7 @@
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const lazy = {};
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 ChromeUtils.defineESModuleGetters(lazy, {
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
@@ -45,11 +48,23 @@ export const CLOUD_PROVIDERS = ["claude", "openai", "gemini"];
 // each, encrypted with OSKeyStore).
 export const KEY_PROVIDERS = ["claude", "openai", "gemini"];
 const DEFAULT_PROVIDER = "apple";
+// W14: Settings → AI's accounts list, top to bottom; "use the next one"
+// goes down it from the provider in use.
+export const ACCOUNT_ORDER = ["apple", "claude", "openai", "gemini", "ollama"];
+// Providers with a subscription path (L7b registers each one's plan).
+export const PLAN_PROVIDERS = ["openai", "claude"];
+const PLAN_GATES = { openai: "whimsy.feature.ai-openai-plan", claude: "whimsy.feature.ai-claude-plan" };
+// How a plan-capable provider is connected: "plan" or "key".
+const authPref = provider => `whimsy.ai.${provider}.auth`;
+export const PLAN_FALLBACK_PREF = "whimsy.ai.plan-fallback";
+const MODEL_PREFS = { claude: CLAUDE_MODEL_PREF, openai: OPENAI_MODEL_PREF, gemini: GEMINI_MODEL_PREF, ollama: OLLAMA_MODEL_PREF };
+// Ids of models that don't write text (embeddings, speech, images, ...).
+const NOT_TEXT_MODEL = /embed|tts|whisper|dall-e|moderation|image|audio|realtime|transcribe|search|computer-use|davinci|babbage|aqa/i;
 // Latest Claude (user: "Default model: latest Claude").
 const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
-const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
 // Tests point these at a local server.
 export const ENDPOINTS = {
+  claude: "https://api.anthropic.com/v1",
   openai: "https://api.openai.com/v1",
   gemini: "https://generativelanguage.googleapis.com/v1beta",
 };
@@ -156,6 +171,9 @@ export const AI_ERROR_CODES = [
   "apple-not-ready",
   "apple-not-set-up",
   "refused",
+  // W14: a subscription plan's share ran out, or its sign-in ended.
+  "plan-limit",
+  "signed-out",
   "bad-response",
   "timeout",
   "failed",
@@ -197,13 +215,265 @@ export const WhimsyAIProviders = {
     return MAX_INPUT_CHARS[this.provider] ?? 20000;
   },
 
-  // The toast for a failed request (nothing when the person cancelled).
+  // A provider's name as Settings and the errors say it.
+  providerName(provider = this.provider) {
+    return lazy.l10n.formatValueSync(`whimsy-ai-name-${PROVIDERS.includes(provider) ? provider : "other"}`);
+  },
+
+  // The string for an error code, with the provider it came from.
+  errorL10n(code, provider = this.provider) {
+    return {
+      id: `whimsy-ai-error-${AI_ERROR_CODES.includes(code) ? code : "failed"}`,
+      args: { provider: this.providerName(provider) },
+    };
+  },
+
+  // The toast for a failed request (nothing when the person cancelled). A
+  // spent plan gets one action, Manage usage.
   showError(win, error) {
     const code = error?.code;
     if (code == "aborted" || !win?.gZenUIManager) {
       return;
     }
-    win.gZenUIManager.showToast(`whimsy-ai-error-${AI_ERROR_CODES.includes(code) ? code : "failed"}`);
+    const { id, args } = this.errorL10n(code, error?.provider);
+    if (code == "plan-limit" && win.gZenUIManager.toasts) {
+      win.gZenUIManager.toasts.open(id, {
+        key: "whimsy-ai-plan-limit",
+        l10nArgs: args,
+        descriptionId: "whimsy-ai-error-plan-limit-detail",
+        buttons: [{ l10nId: "whimsy-ai-manage-usage", command: () => this.manageUsage(win, error?.provider) }],
+      });
+      return;
+    }
+    win.gZenUIManager.showToast(id, { l10nArgs: args });
+  },
+
+  // ---- Accounts (W14 v2: connect once, disconnect, use for AI) ----
+
+  // L7b's plan sign-ins: { connect(win), disconnect(), status(), complete(request), isReady(), manageUsage?(win) }.
+  _plans: {},
+
+  registerPlan(provider, plan) {
+    if (!PLAN_PROVIDERS.includes(provider)) {
+      throw new Error(`No plan for ${provider}`);
+    }
+    this._plans[provider] = plan || null;
+    Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
+  },
+
+  // Whether Settings can offer a provider's plan (its feature gate is on and
+  // its sign-in is built in).
+  planAvailable(provider) {
+    return !!(PLAN_GATES[provider] && Services.prefs.getBoolPref(PLAN_GATES[provider], false) && this._plans[provider]);
+  },
+
+  anyPlanAvailable() {
+    return PLAN_PROVIDERS.some(provider => this.planAvailable(provider));
+  },
+
+  _usesPlan(provider) {
+    return this.planAvailable(provider) && Services.prefs.getStringPref(authPref(provider), "") == "plan";
+  },
+
+  // The provider in use when it's connected through a plan, else null
+  // ("Using ChatGPT plan" in the Ask on Page card and Settings).
+  get planInUse() {
+    const provider = this.provider;
+    return this._usesPlan(provider) ? provider : null;
+  },
+
+  // Opens Settings → AI; a plan's own usage page when it has one.
+  manageUsage(win, provider = this.planInUse) {
+    const plan = provider && this._plans[provider];
+    if (plan?.manageUsage) {
+      plan.manageUsage(win);
+      return;
+    }
+    this.openSettings(win);
+  },
+
+  // Settings → AI, optionally doing one thing there ("connect": the list
+  // of providers to connect; "use": the Use for AI picker).
+  openSettings(win, action = null) {
+    this.pendingSettingsAction = action;
+    win?.openPreferences?.("paneWhimsyAI");
+    Services.obs.notifyObservers(null, "whimsy-ai-settings-action", action ?? "");
+  },
+
+  pendingSettingsAction: null,
+
+  takeSettingsAction() {
+    const action = this.pendingSettingsAction;
+    this.pendingSettingsAction = null;
+    return action;
+  },
+
+  /**
+   * How a provider is connected, or null.
+   *
+   * @returns {Promise<{ method: "plan" | "key" | "local", label?: string } | null>}
+   */
+  async connection(provider) {
+    if (this._usesPlan(provider)) {
+      try {
+        const status = await this._plans[provider].status();
+        if (status?.connected) {
+          return { method: "plan", label: status.label ?? "", signedOut: !!status.signedOut };
+        }
+      } catch (error) {
+        console.error(`Whimsy AI: the ${provider} plan's status`, error);
+      }
+      return null;
+    }
+    switch (provider) {
+      case "apple":
+        return (await IOUtils.exists(this._helperPath)) ? { method: "local" } : null;
+      case "ollama":
+        return Services.prefs.getStringPref(OLLAMA_MODEL_PREF, "") ? { method: "local" } : null;
+      default:
+        return KEY_PROVIDERS.includes(provider) && (await this.hasKey(provider)) ? { method: "key" } : null;
+    }
+  },
+
+  async connectedProviders() {
+    const connected = [];
+    for (const provider of ACCOUNT_ORDER) {
+      if (await this.connection(provider)) {
+        connected.push(provider);
+      }
+    }
+    return connected;
+  },
+
+  // The last four characters of a saved key, to tell keys apart.
+  async keyHint(provider) {
+    const key = await this.getKey(provider);
+    return key.length > 8 ? key.slice(-4) : "";
+  },
+
+  /**
+   * Connects a provider with an API key: checks it (by listing the models
+   * it can use; Claude's too), saves it and picks the first model when none
+   * is picked. A key the service turns down isn't saved.
+   */
+  async connectKey(provider, key) {
+    const value = String(key ?? "").trim();
+    if (!value) {
+      throw new WhimsyAIError("no-key");
+    }
+    await this.setKey(provider, value);
+    let models;
+    try {
+      models = await this.listModels(provider);
+    } catch (error) {
+      if (error?.code == "bad-key") {
+        await this.setKey(provider, "");
+      }
+      throw error;
+    }
+    if (PLAN_PROVIDERS.includes(provider)) {
+      Services.prefs.setStringPref(authPref(provider), "key");
+    }
+    if (provider != "claude" && models.length && !Services.prefs.getStringPref(MODEL_PREFS[provider], "")) {
+      Services.prefs.setStringPref(MODEL_PREFS[provider], models[0]);
+    }
+    Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
+    return models;
+  },
+
+  // Signs a provider's plan in (L7b's sign-in does the work).
+  async connectPlan(win, provider) {
+    if (!this.planAvailable(provider)) {
+      throw new WhimsyAIError("unavailable");
+    }
+    const result = await this._plans[provider].connect(win);
+    Services.prefs.setStringPref(authPref(provider), "plan");
+    Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
+    return result;
+  },
+
+  // Connects Ollama at an address: it has to answer with at least one model.
+  async connectOllama(endpoint) {
+    const address = String(endpoint ?? "").trim();
+    const previous = Services.prefs.getStringPref(OLLAMA_ENDPOINT_PREF, "");
+    Services.prefs.setStringPref(OLLAMA_ENDPOINT_PREF, address);
+    let models = [];
+    try {
+      models = await this.ollamaModels();
+    } catch {}
+    if (!models.length) {
+      Services.prefs.setStringPref(OLLAMA_ENDPOINT_PREF, previous);
+      throw new WhimsyAIError("unavailable");
+    }
+    const current = Services.prefs.getStringPref(OLLAMA_MODEL_PREF, "");
+    if (!models.includes(current)) {
+      Services.prefs.setStringPref(OLLAMA_MODEL_PREF, models[0]);
+    }
+    Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", "ollama");
+    return models;
+  },
+
+  /**
+   * Disconnects a provider: a plan is signed out (and its token revoked),
+   * a key is deleted from this Mac, Apple's helper is removed and Ollama's
+   * model forgotten. The provider in use stays picked (AI features wait
+   * until another one is picked); nothing switches by itself.
+   */
+  async disconnect(provider) {
+    if (this._usesPlan(provider)) {
+      await this._plans[provider].disconnect();
+      Services.prefs.clearUserPref(authPref(provider));
+    }
+    if (KEY_PROVIDERS.includes(provider)) {
+      await this.setKey(provider, "");
+      Services.prefs.clearUserPref(authPref(provider));
+      Services.prefs.clearUserPref(MODEL_PREFS[provider]);
+    } else if (provider == "apple") {
+      await IOUtils.remove(this._helperPath, { ignoreAbsent: true });
+      this._helperPromise = null;
+      this._appleReady = null;
+    } else if (provider == "ollama") {
+      Services.prefs.clearUserPref(OLLAMA_MODEL_PREF);
+      Services.prefs.clearUserPref(OLLAMA_ENDPOINT_PREF);
+    }
+    Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
+  },
+
+  // The models a connected provider offers, for Settings' model picker.
+  async models(provider) {
+    if (provider == "ollama") {
+      return this.ollamaModels();
+    }
+    if (this._usesPlan(provider)) {
+      return (await this._plans[provider].models?.()) ?? [];
+    }
+    return this.listModels(provider);
+  },
+
+  modelOf(provider) {
+    if (provider == "claude") {
+      return this.claudeModel;
+    }
+    return MODEL_PREFS[provider] ? Services.prefs.getStringPref(MODEL_PREFS[provider], "") : "";
+  },
+
+  setModel(provider, model) {
+    if (MODEL_PREFS[provider]) {
+      Services.prefs.setStringPref(MODEL_PREFS[provider], String(model ?? ""));
+    }
+  },
+
+  // "Use the next one": the next connected provider down the accounts list.
+  async nextProvider(provider) {
+    const connected = await this.connectedProviders();
+    const start = ACCOUNT_ORDER.indexOf(provider);
+    for (let i = 1; i < ACCOUNT_ORDER.length; i++) {
+      const next = ACCOUNT_ORDER[(start + i) % ACCOUNT_ORDER.length];
+      if (connected.includes(next)) {
+        return next;
+      }
+    }
+    return null;
   },
 
   setTestProvider(fn) {
@@ -255,25 +525,24 @@ export const WhimsyAIProviders = {
     this._inflight.add(controller);
     const request = { prompt: String(prompt ?? ""), system, maxTokens, signal: controller.signal };
     try {
+      const provider = this.provider;
       let text;
-      switch (this.provider) {
-        case "test":
-          text = await Promise.race([this._testProvider(request), aborted(controller.signal)]);
-          break;
-        case "claude":
-          text = await this._claude(request);
-          break;
-        case "ollama":
-          text = await this._ollama(request);
-          break;
-        case "openai":
-          text = await this._openai(request);
-          break;
-        case "gemini":
-          text = await this._gemini(request);
-          break;
-        default:
-          text = await this._apple(request);
+      try {
+        text = await this._dispatch(provider, request);
+      } catch (error) {
+        // W14: opt-in "use the next one" when a plan runs out; this request
+        // only, never for anything else.
+        if (error?.code != "plan-limit" || controller.signal.aborted ||
+            !Services.prefs.getBoolPref(PLAN_FALLBACK_PREF, false)) {
+          throw error;
+        }
+        const next = await this.nextProvider(provider);
+        if (!next || next == provider) {
+          throw error;
+        }
+        text = await this._dispatch(next, request);
+        this.lastFallback = { from: provider, to: next };
+        Services.obs.notifyObservers(null, "whimsy-ai-plan-fallback", JSON.stringify(this.lastFallback));
       }
       // The switch may have gone on while the answer was on its way.
       if (!this.enabled) {
@@ -293,6 +562,37 @@ export const WhimsyAIProviders = {
     }
   },
 
+  lastFallback: null,
+
+  // One request to one provider (a plan's own sign-in when it's connected
+  // that way).
+  async _dispatch(provider, request) {
+    if (this._usesPlan(provider)) {
+      try {
+        return await this._plans[provider].complete(request);
+      } catch (error) {
+        if (error instanceof WhimsyAIError && !error.provider) {
+          error.provider = provider;
+        }
+        throw error;
+      }
+    }
+    switch (provider) {
+      case "test":
+        return Promise.race([this._testProvider(request), aborted(request.signal)]);
+      case "claude":
+        return this._claude(request);
+      case "ollama":
+        return this._ollama(request);
+      case "openai":
+        return this._openai(request);
+      case "gemini":
+        return this._gemini(request);
+      default:
+        return this._apple(request);
+    }
+  },
+
   /**
    * Whether the chosen provider is set up, without setting anything up
    * (never builds the Apple helper or contacts a server). Automatic features
@@ -308,6 +608,15 @@ export const WhimsyAIProviders = {
     switch (this.provider) {
       case "test":
         return true;
+    }
+    if (this._usesPlan(this.provider)) {
+      try {
+        return !!(await this._plans[this.provider].isReady());
+      } catch {
+        return false;
+      }
+    }
+    switch (this.provider) {
       case "claude":
       case "openai":
       case "gemini":
@@ -368,7 +677,7 @@ export const WhimsyAIProviders = {
     }
     let response;
     try {
-      response = await fetch(CLAUDE_URL, {
+      response = await fetch(`${ENDPOINTS.claude}/messages`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -580,9 +889,11 @@ export const WhimsyAIProviders = {
     if (!key) {
       throw new WhimsyAIError("no-key");
     }
-    const [url, headers] = provider == "openai"
-      ? [`${ENDPOINTS.openai}/models`, { authorization: `Bearer ${key}` }]
-      : [`${ENDPOINTS.gemini}/models`, { "x-goog-api-key": key }];
+    const [url, headers] = {
+      claude: [`${ENDPOINTS.claude}/models?limit=100`, { "x-api-key": key, "anthropic-version": "2023-06-01" }],
+      openai: [`${ENDPOINTS.openai}/models`, { authorization: `Bearer ${key}` }],
+      gemini: [`${ENDPOINTS.gemini}/models?pageSize=1000`, { "x-goog-api-key": key }],
+    }[provider];
     let response;
     try {
       response = await fetch(url, { headers, credentials: "omit" });
@@ -596,13 +907,23 @@ export const WhimsyAIProviders = {
       throw new WhimsyAIError("failed", `${provider} models ${response.status}`);
     }
     const data = await response.json();
+    const text = id => !!id && !NOT_TEXT_MODEL.test(id);
+    if (provider == "claude") {
+      // Newest first already.
+      return (data.data || []).map(m => m.id).filter(text);
+    }
     if (provider == "openai") {
-      return (data.data || []).map(m => m.id).filter(Boolean);
+      // Newest first, so the first one (the default) is the latest model.
+      return (data.data || [])
+        .map((m, i) => ({ id: m.id, created: Number(m.created) || 0, i }))
+        .sort((a, b) => b.created - a.created || a.i - b.i)
+        .map(m => m.id)
+        .filter(text);
     }
     return (data.models || [])
       .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
       .map(m => String(m.name || "").replace(/^models\//, ""))
-      .filter(Boolean);
+      .filter(text);
   },
 
   // ---- Ollama ----

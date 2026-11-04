@@ -1569,7 +1569,7 @@ whimsy-playlist-open-page =
 whimsy-playlist-remove =
     .title = Remove from Playlist
 
-## wave3/ai: Settings → Privacy & Security → AI provider
+## wave3/ai: Settings → AI
 
 whimsy-ai-provider-header =
     .label = AI provider
@@ -1626,24 +1626,34 @@ whimsy-ai-ollama-status-offline = Ollama isn’t running at this address, or has
 ## wave3/ai: AI errors (toasts)
 
 whimsy-ai-error-blocked = AI features are turned off in Settings
-whimsy-ai-error-no-key = Add your Claude API key in Settings → Privacy & Security
-whimsy-ai-error-bad-key = Claude didn’t accept your API key
-whimsy-ai-error-rate-limited = Claude is busy. Try again in a moment.
-whimsy-ai-error-network = Couldn’t reach Claude
+whimsy-ai-error-no-key = Connect { $provider } in Settings → AI
+whimsy-ai-error-bad-key = { $provider } didn’t accept your API key
+whimsy-ai-error-rate-limited = { $provider } is busy. Try again in a moment.
+whimsy-ai-error-network = Couldn’t reach { $provider }
 whimsy-ai-error-unavailable = Your AI provider isn’t available right now
-whimsy-ai-error-no-model = Pick an Ollama model in Settings → Privacy & Security
-whimsy-ai-error-apple-needs-tools = Apple Intelligence needs Apple’s command line tools. See Settings → Privacy & Security.
-whimsy-ai-error-apple-tools-outdated = Apple Intelligence needs newer command line tools. See Settings → Privacy & Security.
+whimsy-ai-error-no-model = Pick a model in Settings → AI
+whimsy-ai-error-apple-needs-tools = Apple Intelligence needs Apple’s command line tools. See Settings → AI.
+whimsy-ai-error-apple-tools-outdated = Apple Intelligence needs newer command line tools. See Settings → AI.
 whimsy-ai-error-apple-tools-path-invalid = Reset developer tools path with “sudo xcode-select --reset”.
-whimsy-ai-error-apple-needs-license = Accept Xcode’s license to use Apple Intelligence. See Settings → Privacy & Security.
-whimsy-ai-error-apple-build-failed = Couldn’t build the Apple Intelligence helper. See Settings → Privacy & Security.
-whimsy-ai-error-apple-helper-blocked = macOS didn’t let the Apple Intelligence helper start. See Settings → Privacy & Security.
+whimsy-ai-error-apple-needs-license = Accept Xcode’s license to use Apple Intelligence. See Settings → AI.
+whimsy-ai-error-apple-build-failed = Couldn’t build the Apple Intelligence helper. See Settings → AI.
+whimsy-ai-error-apple-helper-blocked = macOS didn’t let the Apple Intelligence helper start. See Settings → AI.
 whimsy-ai-error-apple-helper-crashed = The Apple Intelligence helper crashed. This Mac likely can’t run it.
-whimsy-ai-error-apple-tools-mismatch = Apple Intelligence needs matching Swift tools. See Settings → Privacy & Security.
+whimsy-ai-error-apple-tools-mismatch = Apple Intelligence needs matching Swift tools. See Settings → AI.
 whimsy-ai-error-apple-intelligence-off = Turn on Apple Intelligence in System Settings
 whimsy-ai-error-apple-not-ready = Apple Intelligence is still getting ready
-whimsy-ai-error-apple-not-set-up = Set up Apple Intelligence in Settings → Privacy & Security → AI provider
+whimsy-ai-error-apple-not-set-up = Set up Apple Intelligence in Settings → AI
 whimsy-ai-error-apple-unavailable-os = Apple Intelligence needs macOS 26 or later.
+whimsy-ai-error-plan-limit = Your { $provider } plan has no room left
+whimsy-ai-error-plan-limit-detail = Included usage is used up for now.
+whimsy-ai-error-signed-out = { $provider } signed you out. Sign in again in Settings → AI.
+whimsy-ai-manage-usage = Manage usage
+whimsy-ai-name-apple = Apple Intelligence
+whimsy-ai-name-claude = Claude
+whimsy-ai-name-openai = ChatGPT
+whimsy-ai-name-gemini = Gemini
+whimsy-ai-name-ollama = Ollama
+whimsy-ai-name-other = your AI provider
 whimsy-ai-error-refused = The AI declined this one
 whimsy-ai-error-bad-response = The AI’s answer didn’t make sense. Try again.
 whimsy-ai-error-timeout = The AI took too long
