@@ -163,5 +163,20 @@ export const WhimsyDevMode = {
     if (inDevMode) {
       bar.querySelector(".whimsy-devmode-url").textContent = tab.linkedBrowser.currentURI.spec;
     }
+    this.placeToasts(win, bar);
+  },
+
+  // The bar is in the toolbar's layer, which stacks above the page's (where
+  // Zen's toasts are), so toasts start below it rather than under it.
+  placeToasts(win, bar) {
+    const root = win.document.documentElement;
+    if (bar.hidden) {
+      root.style.removeProperty("--whimsy-devmode-bar-bottom");
+      return;
+    }
+    const bottom = Math.ceil(bar.getBoundingClientRect().bottom);
+    if (bottom > 0) {
+      root.style.setProperty("--whimsy-devmode-bar-bottom", `${bottom}px`);
+    }
   },
 };

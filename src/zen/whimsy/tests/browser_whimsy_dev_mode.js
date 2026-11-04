@@ -39,3 +39,35 @@ add_task(async function test_manual_toggle_persists() {
   WhimsyDevMode.toggleSite(uri);
   ok(!WhimsyDevMode.isDevMode(uri), "Toggling again clears it");
 });
+
+// A toast over a Developer Mode tab's bar: its top edge and its close button
+// take the pointer (the bar's toolbar stacked above the toast container, so
+// clicks there landed on the bar).
+add_task(async function test_toast_above_the_dev_bar() {
+  await BrowserTestUtils.withNewTab("http://mochi.test:8888/", async browser => {
+    const tab = gBrowser.getTabForBrowser(browser);
+    await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-devmode"), "Developer Mode");
+    const bar = document.getElementById("whimsy-devmode-bar");
+    ok(bar && !bar.hidden, "The bar shows");
+    const toast = gZenUIManager.toasts.open("whimsy-archive-toast", { timeout: 0 });
+    try {
+      const close = toast.element.querySelector(".whimsy-toast-close");
+      await TestUtils.waitForCondition(() => {
+        const r = toast.element.getBoundingClientRect();
+        return r.width > 100 && toast.element.getAnimations({ subtree: true }).every(x => x.playState != "running");
+      }, "The toast is in place");
+      EventUtils.synthesizeMouseAtCenter(toast.element, { type: "mousemove" });
+      await TestUtils.waitForCondition(() => close.checkVisibility({ opacityProperty: true }), "The close button shows on hover");
+      const box = toast.element.getBoundingClientRect();
+      const x = Math.round(box.left + box.width / 2);
+      const hit = y => document.elementFromPoint(x, y);
+      ok(toast.element.contains(hit(Math.ceil(box.top + 2))), `The toast's top edge takes the pointer (${hit(Math.ceil(box.top + 2))?.id || hit(Math.ceil(box.top + 2))?.localName})`);
+      const c = close.getBoundingClientRect();
+      is(document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2), close, "and so does its close button");
+      EventUtils.synthesizeMouseAtCenter(close, {});
+      await TestUtils.waitForCondition(() => toast.closing || toast.closed, "Clicking ✕ closes it");
+    } finally {
+      toast.close({ instant: true });
+    }
+  });
+});

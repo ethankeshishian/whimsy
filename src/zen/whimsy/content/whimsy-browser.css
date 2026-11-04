@@ -1508,6 +1508,11 @@ tab[whimsy-devmode][selected] {
 .whimsy-devmode-button {
   font-size: 0.85em;
 }
+/* The bar's toolbar layer stacks above the page's, where toasts live: they
+   start below the bar so their top and ✕ take clicks (WhimsyDevMode). */
+:root:has(#whimsy-devmode-bar:not([hidden])) #zen-toast-container {
+  top: calc(var(--whimsy-devmode-bar-bottom, 0px) + var(--zen-toast-spacing));
+}
 
 /* tierC-claude: a tab Claude is using glows in Claude's terracotta (a slow
    breathing ring; a steady one with reduced motion). Its page also shows a
