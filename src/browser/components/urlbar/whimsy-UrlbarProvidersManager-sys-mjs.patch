@@ -2,7 +2,68 @@ diff --git a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs b/browser/
 index e6be27e..91350f0 100644
 --- a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
 +++ b/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
-@@ -1024,10 +1024,16 @@ export class Query {
+@@ -28,6 +28,7 @@
+   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
+   UrlbarTokenizer:
+     "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs",
++  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+ });
+ 
+ ChromeUtils.defineLazyGetter(lazy, "logger", () =>
+@@ -491,6 +492,12 @@
+       if (lazy.UrlbarShared.SEARCH_MODE_RESTRICT.has(restrictToken.value)) {
+         queryContext.restrictSource = queryContext.sources[0];
+       }
++    }
++    // Whimsy (W14-9): a private query reads nothing from normal browsing.
++    if (queryContext.isPrivate) {
++      queryContext.sources = lazy.WhimsyPrivate.privateQuerySources(
++        queryContext.sources
++      );
+     }
+     lazy.logger.debug(`Context sources ${queryContext.sources}`);
+ 
+@@ -707,7 +714,11 @@
+         "onSearchSessionEnd",
+         queryContext,
+         controller,
+-        details
++        // Whimsy (W14-9): a private session teaches nothing.
++        queryContext?.isPrivate &&
++          lazy.WhimsyPrivate.forgetsPrivateSession(provider)
++          ? null
++          : details
+       );
+     }
+   }
+@@ -765,6 +776,12 @@
+     let activePromises = [];
+     let maxPriority = -1;
+     for (let provider of this.providers) {
++      if (
++        this.context.isPrivate &&
++        lazy.WhimsyPrivate.skipsPrivateQuery(provider)
++      ) {
++        continue;
++      }
+       // This can be used by the provider to check the query is still running
+       // after executing async tasks:
+       //   let instance = this.queryInstance;
+@@ -928,6 +945,13 @@
+ 
+     // Stop returning results as soon as we've been canceled.
+     if (this.canceled) {
++      return;
++    }
++
++    if (
++      this.context.isPrivate &&
++      lazy.WhimsyPrivate.isNormalBrowsingResult(result)
++    ) {
+       return;
+     }
+ 
+@@ -1024,10 +1048,16 @@
        });
      } else if (
        !this.context.pendingHeuristicProviders.size &&

@@ -863,6 +863,8 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_private_space_empty.js"]
 # W14-8: no Essentials in the Private Space: hidden, out of Ctrl+Tab, picking one leaves for a normal space.
 ["browser_whimsy_private_no_essentials.js"]
+# W14-9: a private command bar shows nothing from normal browsing (history, bookmarks, form history, top sites, normal tabs) and teaches the ranking nothing.
+["browser_whimsy_private_suggestions.js"]
 # wave10/mini W10-38: extensions in Mini: toolbar-pinned ones listed under the puzzle button, popups anchor there, action.openPopup() opens in a focused Mini.
 ["browser_whimsy_mini_extensions.js"]
 

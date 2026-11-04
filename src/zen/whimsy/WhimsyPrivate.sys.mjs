@@ -68,6 +68,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
   TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarUtils: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
@@ -113,6 +114,17 @@ const urlbarStates = new WeakMap();
 const leaveChecks = new WeakSet();
 // Windows opening their Private Space right now: window → count.
 const openingScratch = new WeakMap();
+// W14-9: providers that read normal browsing, skipped by a private query.
+const NORMAL_BROWSING_PROVIDERS = new Set([
+  "UrlbarProviderAutofill",
+  "UrlbarProviderHistoryUrlHeuristic",
+  "UrlbarProviderInputHistory",
+  "UrlbarProviderRecentSearches",
+  "UrlbarProviderRemoteTabs",
+  "UrlbarProviderSemanticHistorySearch",
+  "UrlbarProviderTopSites",
+]);
+const LEARNING_PROVIDERS = new Set(["ZenUrlbarProviderGlobalActions"]);
 // window → the last normal space it showed (W14-8).
 const lastNormalSpaces = new WeakMap();
 
@@ -143,6 +155,44 @@ export const WhimsyPrivate = {
       browser.getAttribute?.(BROWSER_ATTR) == "true" ||
       (browser.isConnected && !!browser.browsingContext?.usePrivateBrowsing)
     );
+  },
+
+  // --- W14-9: a private query reads nothing from normal browsing ---
+  //
+  // Firefox's private windows still suggest your history, bookmarks, input
+  // and form history, top sites and synced tabs (they only don't write). In
+  // Whimsy a private command bar (the Private Space, a private tab, a private
+  // window) shows none of it: UrlbarProvidersManager (whimsy patch) asks
+  // these three for every private query. Open private tabs, search, bangs,
+  // keywords you typed and Whimsy's commands still show.
+
+  privateQuerySources(sources) {
+    if (!this.featureOn) {
+      return sources;
+    }
+    const { HISTORY, BOOKMARKS } = lazy.UrlbarShared.RESULT_SOURCE;
+    return (sources ?? []).filter(source => source != HISTORY && source != BOOKMARKS);
+  },
+
+  skipsPrivateQuery(provider) {
+    return this.featureOn && NORMAL_BROWSING_PROVIDERS.has(provider?.name);
+  },
+
+  // Zen's command ranking learns from each session and saves it to prefs.
+  forgetsPrivateSession(provider) {
+    return this.featureOn && LEARNING_PROVIDERS.has(provider?.name);
+  },
+
+  isNormalBrowsingResult(result) {
+    if (!this.featureOn || !result) {
+      return false;
+    }
+    const { HISTORY, BOOKMARKS } = lazy.UrlbarShared.RESULT_SOURCE;
+    // A bookmark keyword is something you typed on purpose (like a bang).
+    if (result.type == lazy.UrlbarShared.RESULT_TYPE.KEYWORD) {
+      return false;
+    }
+    return result.source == HISTORY || result.source == BOOKMARKS;
   },
 
   // A private tab in a normal window.

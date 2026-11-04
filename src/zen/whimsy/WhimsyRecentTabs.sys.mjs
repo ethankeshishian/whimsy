@@ -48,13 +48,16 @@ export class WhimsyRecentTabsProvider extends UrlbarProvider {
 
   // Most recently used tabs of the current space (plus visible Essentials),
   // never the selected tab, never across the private/normal boundary.
-  tabs(win) {
+  // W14-9: the side is the query's, not the selected tab's: the Private
+  // Space's bar sits over Zen's empty tab, which isn't private, and listed
+  // every normal tab and Essential. A private query lists private tabs only.
+  tabs(win, queryIsPrivate) {
     const gBrowser = win?.gBrowser;
     if (!gBrowser) {
       return [];
     }
     const selected = gBrowser.selectedTab;
-    const selectedPrivate = isPrivateTab(selected);
+    const selectedPrivate = queryIsPrivate ?? isPrivateTab(selected);
     const space = win.gZenWorkspaces?.activeWorkspace;
     return Array.from(gBrowser.tabs)
       .filter(tab => {
@@ -62,6 +65,9 @@ export class WhimsyRecentTabsProvider extends UrlbarProvider {
           return false;
         }
         if (isPrivateTab(tab) != selectedPrivate) {
+          return false;
+        }
+        if (selectedPrivate && tab.hasAttribute("zen-essential")) {
           return false;
         }
         if (space && !tab.hasAttribute("zen-essential") && tab.getAttribute("zen-workspace-id") != space) {
@@ -80,14 +86,14 @@ export class WhimsyRecentTabsProvider extends UrlbarProvider {
       !context.searchString?.trim() &&
       !context.searchMode &&
       !context.restrictSource &&
-      this.tabs(lazy.BrowserWindowTracker.getTopWindow()).length > 0
+      this.tabs(lazy.BrowserWindowTracker.getTopWindow(), !!context.isPrivate).length > 0
     );
   }
 
   async startQuery(context, addCallback) {
     const win = lazy.BrowserWindowTracker.getTopWindow();
     targets.clear();
-    const tabs = this.tabs(win).slice(0, context.maxResults || MAX_TABS);
+    const tabs = this.tabs(win, !!context.isPrivate).slice(0, context.maxResults || MAX_TABS);
     for (const [index, tab] of tabs.entries()) {
       const target = ++nextTarget;
       targets.set(target, new WeakRef(tab));
@@ -129,11 +135,14 @@ export class WhimsyRecentTabsProvider extends UrlbarProvider {
     };
   }
 
-  onEngagement(_context, _controller, details) {
+  onEngagement(context, _controller, details) {
     const tab = targets.get(details.result?.payload.target)?.deref();
     const win = tab?.documentGlobal;
     // The tab may have closed (or moved space) since the bar opened.
     if (!win || !tab.isConnected || tab.closing || !Services.prefs.getBoolPref(PREF, true)) {
+      return;
+    }
+    if (context && isPrivateTab(tab) != !!context.isPrivate) {
       return;
     }
     if (win.gZenWorkspaces && tab.hasAttribute("zen-workspace-id") && !tab.hasAttribute("zen-essential")) {
