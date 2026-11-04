@@ -52,7 +52,6 @@ const WIDGET_ID = "ipprotection-button";
 const URLBAR_ID = "whimsy-vpn-urlbar";
 const SECTION_ID = "whimsy-vpn-site-section";
 const SITE_PANEL_ID = "zen-unified-site-data-panel";
-const SITE_ICON_ID = "zen-site-data-icon-button";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 export const WhimsyVPN = {
@@ -349,8 +348,7 @@ export const WhimsyVPN = {
   },
 
   // B: Firefox IP Protection's row in This Site (Zen's site panel), first,
-  // under the panel's quick buttons: a tile, the name and its state, a
-  // switch; while it's on or connecting, All spaces | This space under it.
+  // under the panel's quick buttons: the name and its state, a switch; while it's on or connecting, All spaces | This space under it.
   // Rebuilt each time the panel opens and while it's open.
   renderSiteSection(win) {
     const doc = win.document;
@@ -371,11 +369,6 @@ export const WhimsyVPN = {
     const hadFocus = section.contains(doc.activeElement) ? doc.activeElement.dataset.vpnControl : null;
     const group = S.group(doc);
     group.classList.add("whimsy-vpn-site-group");
-    const tile = S.tile(doc, {
-      icon: `chrome://browser/content/whimsy/icons/${state == "on" ? "shield-fill" : "shield"}.svg`,
-    });
-    tile.classList.add("whimsy-vpn-tile");
-    tile.setAttribute("state", state);
     const detail = state == "on" ? `whimsy-vpn-site-on-${scope}` : `whimsy-vpn-site-${state}`;
     const toggle = S.switch(doc, {
       checked: state == "on" || state == "connecting",
@@ -388,7 +381,6 @@ export const WhimsyVPN = {
     const { row, label } = S.row(doc, { l10nId: "whimsy-vpn-site-name", detailL10nId: detail, trailing: [toggle] });
     label.id = "whimsy-vpn-site-name";
     row.querySelector(".whimsy-surface-row-detail").id = "whimsy-vpn-site-detail";
-    row.prepend(tile);
     row.classList.add("whimsy-vpn-site-row");
     row.setAttribute("state", state);
     group.append(row);
@@ -431,7 +423,7 @@ export const WhimsyVPN = {
     return section;
   },
 
-  // Both controls and the badge on the site icon, for this window.
+  // Both controls, for this window.
   updateUi(win) {
     const doc = win.document;
     const { state, scope } = this.uiState(win);
@@ -443,10 +435,6 @@ export const WhimsyVPN = {
       if (state != "hidden") {
         doc.l10n.setAttributes(control, id);
       }
-    }
-    const icon = doc.getElementById(SITE_ICON_ID);
-    if (icon) {
-      icon.toggleAttribute("whimsy-vpn-on", state == "on");
     }
     const panel = doc.getElementById(SITE_PANEL_ID);
     if (panel && (panel.state == "open" || panel.state == "showing")) {

@@ -10,8 +10,8 @@ const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Prefe
 //  A. a "VPN" control with a status dot in the address bar: one click
 //     toggles, the address bar's hover, only the dot changes;
 //  B. a row in This Site (Zen's site panel) with a switch and, while on,
-//     All spaces | This space; and a green shield badge on the site icon
-//     while it's on here.
+//     the scope choice. W14 3a/3b: no shield anywhere (no tile, no badge on
+//     the site icon) and an arrow cursor, like the rest of the address bar.
 // Whether a Mozilla account is signed in isn't under the test's control, so
 // Firefox's service and proxy states are stubbed (as browser_whimsy_vpn.js
 // does); the clicks are real.
@@ -95,7 +95,8 @@ add_task(async function test_address_bar_control() {
   is(getComputedStyle(el).borderTopLeftRadius, radius, "The address bar's radius");
   is(getComputedStyle(dot()).backgroundColor, "rgba(0, 0, 0, 0)", "Off: the dot is a ring");
   isnot(getComputedStyle(dot()).boxShadow, "none", "…drawn as an inset ring");
-  is(getComputedStyle(siteIcon(), "::before").content, "none", "No badge on the site icon while off");
+  is(getComputedStyle(el).cursor, "default", "An arrow, not a finger, on the control");
+  is(getComputedStyle(dot()).cursor, "default", "…and on its dot");
 
   // The address bar's hover, and the text never moves.
   const label = el.querySelector(".whimsy-vpn-urlbar-label");
@@ -125,8 +126,8 @@ add_task(async function test_address_bar_control() {
     is(getComputedStyle(dot(), "::after").animationName, "whimsy-vpn-ring", "…sending out one ring");
     is(getComputedStyle(dot(), "::after").animationIterationCount, "1", "…once");
     is(label.getBoundingClientRect().left, at, "The text never moves");
-    ok(siteIcon().hasAttribute("whimsy-vpn-on"), "The site icon gets the badge");
-    isnot(getComputedStyle(siteIcon(), "::before").content, "none", "…drawn");
+    ok(!siteIcon().hasAttribute("whimsy-vpn-on"), "No shield badge on the site icon");
+    is(getComputedStyle(siteIcon(), "::before").content, "none", "…none drawn");
 
     // And off again.
     EventUtils.synthesizeMouseAtCenter(el, {});
@@ -162,7 +163,7 @@ add_task(async function test_this_site_row() {
   const toggle = section.querySelector("#whimsy-vpn-site-switch");
   ok(toggle.checked, "The switch is on");
   is(toggle.getAttribute("role"), "switch", "…a switch");
-  ok(section.querySelector(".whimsy-vpn-tile").getAttribute("state") == "on", "A green tile");
+  ok(!section.querySelector(".whimsy-surface-tile"), "No shield tile");
   const seg = section.querySelector(".whimsy-vpn-scope-row .whimsy-surface-seg");
   ok(seg?.checkVisibility(), "All spaces | This space while it's on");
   is(seg.querySelector('[data-value="browser"]').getAttribute("aria-checked"), "true", "All spaces picked");
@@ -183,7 +184,6 @@ add_task(async function test_this_site_row() {
   await document.l10n.translateFragment(section);
   is(offDetail.textContent, "Off · hides your location from sites", "Says what it does");
   ok(!section.querySelector(".whimsy-vpn-scope-row"), "No scope while it's off");
-  ok(!siteIcon().hasAttribute("whimsy-vpn-on"), "No badge while it's off");
 
   const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
   panel.hidePopup();

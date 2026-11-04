@@ -1653,7 +1653,6 @@ notification-message[value="whimsy-claude-control"] {
   padding: 0 9px 0 8px;
   border-radius: var(--urlbar-icon-border-radius, 8px);
   color: color-mix(in srgb, currentColor 78%, transparent);
-  cursor: pointer;
   transition: background-color 100ms ease-out;
 
   &:hover {
@@ -1718,60 +1717,16 @@ notification-message[value="whimsy-claude-control"] {
 }
 
 /* B: Firefox IP Protection's row in This Site, first under the panel's
-   quick buttons: a tile (grey off, amber connecting, green on), the name
-   and its state, a switch; while on, All spaces | This space under it,
-   lined up with the name. The site icon gets a green shield badge while
-   the VPN covers this space. */
+   quick buttons: the name and its state, a switch; while on, the scope
+   choice under it, lined up with the name. */
 .whimsy-vpn-site-section {
   padding-block: 0;
 }
-.whimsy-vpn-tile {
-  margin-inline-end: 10px;
-  --whimsy-tile-color: color-mix(in srgb, currentColor 62%, transparent);
-
-  &[state="connecting"] {
-    --whimsy-tile-color: var(--whimsy-vpn-connecting);
-  }
-  &[state="on"] {
-    --whimsy-tile-color: var(--whimsy-vpn-on);
-  }
-  &:not([state="on"], [state="connecting"]) {
-    background-color: var(--whimsy-surface-track);
-  }
-}
 .whimsy-vpn-scope-row {
-  padding: 2px 8px 4px 46px;
+  padding: 2px 8px 4px;
 
   & > .whimsy-surface-seg {
     flex: 1;
-  }
-}
-#zen-site-data-icon-button[whimsy-vpn-on] {
-  position: relative;
-
-  /* An 11px green dot ringed in the address bar's colour, with a white
-     8px shield on it. */
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    inset-inline-end: -2px;
-    bottom: -1px;
-    width: 11px;
-    height: 11px;
-    pointer-events: none;
-  }
-  &::before {
-    border-radius: 50%;
-    background-color: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
-    box-shadow: 0 0 0 1.5px var(--toolbar-field-background-color, Field);
-  }
-  &::after {
-    background-color: white;
-    /* The shield's own path, black, as the mask (an image used as a mask
-       has no context paint, so shield-fill.svg's context-fill would be
-       none here). */
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1.8l5 2v4c0 3-2.2 5.3-5 6.4-2.8-1.1-5-3.4-5-6.4v-4z'/%3E%3C/svg%3E") center / 8px 8px no-repeat;
   }
 }
 @media (prefers-reduced-motion: reduce) {

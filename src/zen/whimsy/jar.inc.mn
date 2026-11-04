@@ -47,8 +47,6 @@
 # W11-15: the Hidden Spaces panel's empty-state glyph
         content/browser/whimsy/icons/eye-slash.svg (../../zen/whimsy/content/icons/eye-slash.svg)
         content/browser/whimsy/icons/reader-on.svg (../../zen/whimsy/content/icons/reader-on.svg)
-        content/browser/whimsy/icons/shield.svg (../../zen/whimsy/content/icons/shield.svg)
-        content/browser/whimsy/icons/shield-fill.svg (../../zen/whimsy/content/icons/shield-fill.svg)
         content/browser/whimsy/icons/redact.svg (../../zen/whimsy/content/icons/redact.svg)
 # W21: the "⋯" Call Options button (Zen's own icon set has no overflow glyph)
         content/browser/whimsy/icons/call-options.svg (../../zen/whimsy/content/icons/call-options.svg)
