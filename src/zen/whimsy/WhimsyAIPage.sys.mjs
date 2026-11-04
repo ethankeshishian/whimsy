@@ -253,6 +253,22 @@ export const WhimsyAIPage = {
         box.append(blockquote, find);
       }
     }
+    const plan = lazy.WhimsyAIProviders.planInUse;
+    if (plan) {
+      const footer = doc.createElementNS(HTML, "div");
+      footer.className = "whimsy-ask-plan";
+      const label = doc.createElementNS(HTML, "span");
+      doc.l10n.setAttributes(label, "whimsy-ai-plan-using", { provider: lazy.WhimsyAIProviders.providerName(plan) });
+      footer.append(label);
+      if (lazy.WhimsyAIProviders.canManageUsage(plan)) {
+        const manage = doc.createElementNS(HTML, "button");
+        manage.className = "whimsy-ask-manage";
+        doc.l10n.setAttributes(manage, "whimsy-ask-manage-usage");
+        manage.addEventListener("click", () => lazy.WhimsyAIProviders.manageUsage(win, plan));
+        footer.append(manage);
+      }
+      box.append(footer);
+    }
     panel.replaceChildren(box);
     if (panel.state == "closed" || panel.state == "hiding") {
       panel.openPopup(findbar._findField, "after_start", 0, 6, false, false);

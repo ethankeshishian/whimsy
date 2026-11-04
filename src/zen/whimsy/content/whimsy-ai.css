@@ -173,6 +173,14 @@ findbar .whimsy-ask-button {
   align-self: flex-start;
 }
 
+.whimsy-ask-plan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+  color: var(--text-color-deemphasized, GrayText);
+}
+
 .whimsy-ask-error,
 .whimsy-preview-error,
 .whimsy-ai-loading {

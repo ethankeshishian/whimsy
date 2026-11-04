@@ -30,6 +30,14 @@ registerCleanupFunction(async () => {
   for (const pref of [
     "whimsy.ai.openai.model",
     "whimsy.ai.gemini.model",
+    "whimsy.ai.claude.model",
+    "whimsy.ai.openai.auth",
+    "whimsy.ai.claude.auth",
+    "whimsy.ai.gemini.auth",
+    "whimsy.ai.plan-fallback",
+    "whimsy.ai.ollama.endpoint",
+    "whimsy.feature.ai-openai-plan",
+    "whimsy.feature.ai-claude-plan",
     "whimsy.ai.enabled",
     "whimsy.ai.provider",
     "whimsy.ai.ollama.model",
@@ -416,7 +424,16 @@ add_task(async function test_plan_limit_toast() {
   let pane = null;
   window.openPreferences = value => (pane = value);
   try {
-    buttons[0].click();
+    await TestUtils.waitForCondition(() => buttons[0].checkVisibility() && buttons[0].textContent.trim(), "The button shows");
+    let top = -1;
+    await TestUtils.waitForCondition(async () => {
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const now = buttons[0].getBoundingClientRect().top;
+      const settled = now == top;
+      top = now;
+      return settled;
+    }, "The toast stops moving");
+    EventUtils.synthesizeMouseAtCenter(buttons[0], {}, window);
   } finally {
     window.openPreferences = original;
   }
@@ -557,6 +574,97 @@ add_task(async function test_settings_card() {
   Services.prefs.clearUserPref("whimsy.ai.provider");
   Services.prefs.clearUserPref("whimsy.ai.gemini.model");
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
+});
+
+add_task(async function test_settings_actions_and_plan_rows() {
+  await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
+  const doc = gBrowser.selectedBrowser.contentDocument;
+  const win = gBrowser.selectedBrowser.contentWindow;
+  const $ = id => doc.getElementById(id);
+  await TestUtils.waitForCondition(() => $("whimsyAIAccounts")?.querySelector("button[data-action]") && $("whimsyAIProviderGroup").checkVisibility(), "Settings → AI shows");
+  ok($("whimsyAIPlanFallback").hidden, "No plan can be used yet: no 'use the next one' setting");
+  ok(!doc.querySelector(".whimsy-ai-account [data-l10n-id=whimsy-ai-manage-usage-button]"), "and no Manage usage");
+
+  // Connect AI Provider: the unconnected providers, to pick from.
+  WhimsyAIProviders.openSettings(null, "connect");
+  const popup = await TestUtils.waitForCondition(() => doc.querySelector(".whimsy-ai-popup"), "The command lists providers to connect");
+  Assert.deepEqual([...popup.querySelectorAll("[role=option]")].map(o => o.dataset.value), ["apple", "claude", "openai", "gemini", "ollama"], "all of them");
+  EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);
+  EventUtils.synthesizeKey("KEY_ArrowDown", {}, win);
+  EventUtils.synthesizeKey("KEY_Enter", {}, win);
+  await TestUtils.waitForCondition(() => !$("whimsyAISheet").hidden, "Enter opens the sheet for the one chosen");
+  is($("whimsyAISheetTitle").getAttribute("data-l10n-args"), JSON.stringify({ provider: "ChatGPT" }), "ChatGPT");
+  EventUtils.synthesizeKey("KEY_Escape", {}, win);
+
+  // A registered plan with its gate on: the 'next one' setting and the row's details.
+  WhimsyAIProviders.registerPlan("openai", {
+    connect: async () => ({}),
+    disconnect: async () => {},
+    status: async () => ({ connected: true, label: "me@example.com" }),
+    isReady: async () => true,
+    models: async () => ["m"],
+    complete: async () => "x",
+    manageUsage: () => {},
+  });
+  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", true);
+  Services.prefs.setStringPref("whimsy.ai.provider", "openai");
+  await WhimsyAIProviders.connectPlan(window, "openai");
+  await TestUtils.waitForCondition(() => !$("whimsyAIPlanLabel").hidden && $("whimsyAIPlanLabel").getAttribute("data-l10n-id") == "whimsy-ai-plan-using", "Settings says 'Using ChatGPT plan'");
+  ok(!$("whimsyAIPlanFallback").hidden, "and offers 'use the next one'");
+  ok(!$("whimsyAIManageUsage").hidden, "and Manage usage");
+  EventUtils.synthesizeMouseAtCenter(rowOf("openai").querySelector("button[data-action]"), {}, win);
+  await TestUtils.waitForCondition(() => !$("whimsyAIConfirm").hidden, "Disconnecting a plan asks first");
+  is($("whimsyAIConfirmText").textContent.includes("revokes"), true, "and says the token is revoked");
+  EventUtils.synthesizeMouseAtCenter($("whimsyAIConfirmDisconnect"), {}, win);
+  await TestUtils.waitForCondition(() => $("whimsyAIPlanLabel").hidden, "The label goes with the plan");
+
+  WhimsyAIProviders.registerPlan("openai", null);
+  for (const pref of ["whimsy.feature.ai-openai-plan", "whimsy.ai.provider", "whimsy.ai.openai.auth"]) {
+    Services.prefs.clearUserPref(pref);
+  }
+  BrowserTestUtils.removeTab(gBrowser.selectedTab);
+  function rowOf(provider) {
+    return doc.querySelector(`#whimsyAIAccounts [data-provider="${provider}"]`);
+  }
+});
+
+add_task(async function test_plan_label_in_composer() {
+  const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
+  const findbar = await gBrowser.getFindBar();
+  findbar.open();
+  registerCleanupFunction(() => findbar.close());
+  const panel = () => document.getElementById("whimsy-ask-panel");
+  WhimsyAIPage.showAnswer(window, findbar, { question: "q", answer: "a" });
+  ok(!panel().querySelector(".whimsy-ask-plan"), "On a key or locally: no plan label");
+  let managed = 0;
+  WhimsyAIProviders.registerPlan("openai", {
+    connect: async () => ({}),
+    disconnect: async () => {},
+    status: async () => ({ connected: true, label: "me" }),
+    isReady: async () => true,
+    models: async () => ["m"],
+    complete: async () => "x",
+    manageUsage: () => managed++,
+  });
+  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", true);
+  Services.prefs.setStringPref("whimsy.ai.provider", "openai");
+  await WhimsyAIProviders.connectPlan(window, "openai");
+  WhimsyAIPage.showAnswer(window, findbar, { question: "q", answer: "a" });
+  const footer = panel().querySelector(".whimsy-ask-plan");
+  ok(footer, "On a plan: the footer shows");
+  is(footer.querySelector("span").getAttribute("data-l10n-id"), "whimsy-ai-plan-using", "Using ChatGPT plan");
+  is(footer.querySelector("span").getAttribute("data-l10n-args"), JSON.stringify({ provider: "ChatGPT" }), "naming ChatGPT");
+  await TestUtils.waitForCondition(() => panel().state == "open", "The composer is open");
+  const manage = footer.querySelector("button");
+  await TestUtils.waitForCondition(() => manage.textContent.trim(), "Its button says Manage usage");
+  EventUtils.synthesizeMouseAtCenter(manage, {}, window);
+  is(managed, 1, "Manage usage goes to the plan's own page");
+  panel().hidePopup();
+  await WhimsyAIProviders.disconnect("openai");
+  WhimsyAIProviders.registerPlan("openai", null);
+  for (const pref of ["whimsy.feature.ai-openai-plan", "whimsy.ai.provider", "whimsy.ai.openai.auth"]) {
+    Services.prefs.clearUserPref(pref);
+  }
 });
 
 add_task(async function test_commands() {

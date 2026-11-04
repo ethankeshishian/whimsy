@@ -2130,10 +2130,12 @@ Object.assign(gWhimsySettings, {
     $("whimsyAIConfirmCancel").addEventListener("command", () => hideModal());
 
     // ---- From the command bar: Connect AI Provider, Use for AI ----
+    const scrolled = () => new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
     const handleAction = async action => {
       await firstRefresh;
       if (action == "use" && !$("whimsyAIUse").disabled) {
-        $("whimsyAIUse").scrollIntoView({ block: "center" });
+        $("whimsyAIUse").scrollIntoView({ block: "center", behavior: "instant" });
+        await scrolled();
         openUse();
         return;
       }
@@ -2141,7 +2143,8 @@ Object.assign(gWhimsySettings, {
         return;
       }
       const heading = $("whimsyAIAccountsHeading");
-      heading.scrollIntoView({ block: "start" });
+      heading.scrollIntoView({ block: "start", behavior: "instant" });
+      await scrolled();
       const missing = ACCOUNT_ORDER.filter(provider => !connections[provider]);
       if (!missing.length) {
         accounts.querySelector("button[data-action]")?.focus();

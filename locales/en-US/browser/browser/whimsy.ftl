@@ -1771,6 +1771,7 @@ whimsy-ask-button =
 whimsy-ask-reading = Reading this page…
 whimsy-ask-no-text = This page has no text to answer from.
 whimsy-ask-find-on-page = Find on Page
+whimsy-ask-manage-usage = Manage usage
 whimsy-preview-unreadable = Couldn’t read this page.
 whimsy-preview-not-ready = Set up an AI provider in Settings → AI to see previews.
 
