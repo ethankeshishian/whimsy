@@ -38,6 +38,24 @@ add_task(async function test_article() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// W14 18a: Reader View keeps the reading time and Copy URL.
+add_task(async function test_reader_view_keeps_reading_time_and_copy_url() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ARTICLE);
+  const browser = tab.linkedBrowser;
+  await TestUtils.waitForCondition(() => label() && !label().hidden && label().value, "The reading time shows");
+  const minutes = label().value;
+  const copy = document.getElementById("zen-copy-url-button");
+  ok(copy && !copy.hasAttribute("disabled"), "Copy URL is offered on the article");
+  const entered = BrowserTestUtils.waitForContentEvent(browser, "AboutReaderContentReady", false, null, true);
+  browser.browsingContext.currentWindowGlobal.getActor("AboutReader").sendAsyncMessage("Reader:ToggleReaderMode", {});
+  await entered;
+  await TestUtils.waitForCondition(() => button().hasAttribute("readeractive"), "Reader View is on");
+  await TestUtils.waitForCondition(() => label() && !label().hidden && label().value == minutes,
+    `The reading time stays in Reader View (${label()?.value})`);
+  ok(!copy.hasAttribute("disabled"), "and so does Copy URL");
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function test_minutes() {
   const { WhimsyPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPage.sys.mjs");
   is(WhimsyPage.readingMinutes(987 * 6, "en"), 6, "6 minutes of English");

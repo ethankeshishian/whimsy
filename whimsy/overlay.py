@@ -406,6 +406,16 @@ HOTFIXES = [
         "old": "          delete result.suggestedIndex;\n",
         "new": "          result.suggestedIndex = undefined; // Whimsy hotfix: delete is a no-op on the accessor\n",
     },
+    # W14 18a: Copy URL and Share in Reader View
+    {
+        "id": "site-panel-copy-url-reader",
+        "file": "src/zen/urlbar/ZenSiteDataPanel.sys.mjs",
+        "why": "Copy URL and the panel's Share were disabled (and so hidden "
+               "in the single toolbar) on about:reader, though copying there "
+               "already gives the article's own address (WhimsyCopy).",
+        "old": "    return uri.scheme.startsWith(\"http\");\n",
+        "new": "    return uri.scheme.startsWith(\"http\") || uri.spec.startsWith(\"about:reader?\"); // Whimsy hotfix (W14 18a)\n",
+    },
     # fixA: reused toast keeps stale args
     {
         "id": "toast-reuse-updates-args",

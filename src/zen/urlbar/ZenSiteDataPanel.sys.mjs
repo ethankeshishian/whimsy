@@ -433,7 +433,7 @@ export class nsZenSiteDataPanel {
       return false;
     }
 
-    return uri.scheme.startsWith("http");
+    return uri.scheme.startsWith("http") || uri.spec.startsWith("about:reader?"); // Whimsy hotfix (W14 18a)
   }
 
   #resetSiteOptionsList() {

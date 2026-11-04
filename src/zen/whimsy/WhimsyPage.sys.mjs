@@ -1059,14 +1059,20 @@ export const WhimsyPage = {
     const button = document.getElementById("reader-mode-button");
     const browser = win.gBrowser.selectedBrowser;
     let label = document.getElementById(TIME_ID);
-    const show = this.readingTimeEnabled && button && !button.hidden && !button.hasAttribute("readeractive") && browser.isArticle;
+    const inReader = browser.currentURI?.spec.startsWith("about:reader?");
+    const show = this.readingTimeEnabled && button && !button.hidden && (browser.isArticle || inReader);
     if (!show) {
       if (label) {
         label.hidden = true;
       }
       return null;
     }
-    const spec = browser.currentURI?.spec;
+    // Reader View shows the same article: keep its minutes.
+    const spec = inReader ? lazy.ReaderMode.getOriginalUrl(browser.currentURI.spec) ?? browser.currentURI.spec : browser.currentURI?.spec;
+    const current = () => {
+      const now = browser.currentURI?.spec;
+      return now?.startsWith("about:reader?") ? lazy.ReaderMode.getOriginalUrl(now) ?? now : now;
+    };
     if (browser.whimsyReadingTime?.spec != spec) {
       let text = null;
       try {
@@ -1074,7 +1080,7 @@ export const WhimsyPage = {
       } catch (e) {
         // The page went away.
       }
-      if (!text?.length || browser.currentURI?.spec != spec) {
+      if (!text?.length || current() != spec) {
         return null;
       }
       browser.whimsyReadingTime = { spec, minutes: this.readingMinutes(text.length, text.lang) };
