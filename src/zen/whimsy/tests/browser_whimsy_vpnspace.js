@@ -45,23 +45,15 @@ add_task(async function scope_selection_and_button() {
     is(WhimsyVPNScope.ids, "4,5", "Two spaces enabled together");
     is(WhimsyVPNScope.buttonState(win), "space", "First remains covered");
     is(WhimsyVPNScope.buttonState(scopeWindow(5)), "space", "Second covered");
-    const spaces = { gZenWorkspaces: { getWorkspaces: () => [
-      { name: "Work", containerTabId: 4 }, { name: "Home", containerTabId: 5 },
-      { name: "Other", containerTabId: 6 },
-    ] } };
-    Assert.deepEqual(WhimsyVPNScope.coveredSpaces(spaces), ["Work", "Home"], "Popover lists covered spaces");
     WhimsyVPNScope.setScope(win, "space");
     is(WhimsyVPNScope.ids, "5", "Turning first off preserves second");
     is(WhimsyVPNScope.buttonState(win), "elsewhere", "First now off");
     is(WhimsyVPNScope.buttonState(scopeWindow(5)), "space", "Second stays on");
-    Assert.deepEqual(WhimsyVPNScope.coveredSpaces(spaces), ["Home"], "Popover drops only the disabled space");
     WhimsyVPNScope.setScope(scopeWindow(5), "space");
     is(WhimsyVPNScope.ids, "none", "No spaces uses an explicit nonempty restriction");
-    Assert.deepEqual(WhimsyVPNScope.coveredSpaces(spaces), [], "No covered spaces after last removal");
     is(WhimsyVPNScope.buttonState(scopeWindow(5)), "elsewhere", "Last removal does not enable all spaces");
     Services.prefs.setStringPref(WhimsyVPNScope.PREF, "0x4,4e0,+4");
     is(WhimsyVPNScope.buttonState(win), "elsewhere", "Nondecimal tokens cannot advertise protection");
-    Assert.deepEqual(WhimsyVPNScope.coveredSpaces(spaces), [], "Coverage uses the channel filter's list syntax");
     WhimsyVPNScope.setScope(win, "space");
     for (const id of [0, undefined, -1, "bad"]) {
       ok(!WhimsyVPNScope.setScope(scopeWindow(id), "space"), "No valid default container: unavailable");
@@ -75,86 +67,6 @@ add_task(async function scope_selection_and_button() {
     Object.defineProperty(IPPProxyManager, "state", { configurable: true, value: IPPProxyStates.NOT_READY });
     is(WhimsyVPNScope.buttonState(win), "off", "Disconnected button state");
   } finally {
-    if (original) {
-      Object.defineProperty(IPPProxyManager, "state", original);
-    } else {
-      delete IPPProxyManager.state;
-    }
-    await SpecialPowers.popPrefEnv();
-  }
-});
-
-add_task(async function popover_toggles_multiple_spaces() {
-  await SpecialPowers.pushPrefEnv({ set: [
-    [WhimsyVPNScope.PREF, "none"], [WhimsyVPNScope.FEATURE, true],
-    ["whimsy.feature.vpn", true], ["browser.ipProtection.enabled", true],
-  ] });
-  const original = Object.getOwnPropertyDescriptor(IPPProxyManager, "state");
-  Object.defineProperty(IPPProxyManager, "state", {
-    configurable: true, value: IPPProxyStates.ACTIVE,
-  });
-  // Exercise the real panel controls without changing the user's workspaces
-  // or starting the native VPN service.
-  const root = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  const view = document.createElementNS(root.namespaceURI, "div");
-  view.id = "PanelUI-ipprotection";
-  root.append(view);
-  // Connected (a radio outside the document never fires change), and
-  // rendered off screen so its radios are clicked as shown controls.
-  root.style.cssText = "position: fixed; top: 0; left: -10000px;";
-  document.documentElement.append(root);
-  const spaces = [
-    { name: "Work", containerTabId: 4 },
-    { name: "Home", containerTabId: 5 },
-    { name: "Other", containerTabId: 6 },
-  ];
-  let active = spaces[0];
-  const win = {
-    document: {
-      getElementById: id => root.querySelector(`#${id}`),
-      createElementNS: document.createElementNS.bind(document),
-      l10n: document.l10n,
-    },
-    gZenWorkspaces: {
-      getActiveWorkspace: () => active,
-      getWorkspaces: () => spaces,
-    },
-  };
-  try {
-    WhimsyVPNScope.extendPanel(win, view);
-    // Named and laid out, as in the real panel, before anything is clicked.
-    await document.l10n.translateFragment(root);
-    root.getBoundingClientRect();
-    const space = view.querySelector('[value="space"]');
-    const all = view.querySelector('[value="browser"]');
-    const covered = view.querySelector(".whimsy-vpn-covered");
-    const coverage = () => document.l10n.getAttributes(covered).args.spaces;
-    // Either/or radios: picking "This space" here, then visiting a second
-    // space and picking "This space" there too, covers both at once (the
-    // multi-space data layer is additive across windows even though each
-    // window's own picker only offers one or the other).
-    space.click();
-    is(WhimsyVPNScope.ids, "4", "First space enabled");
-    active = spaces[1];
-    WhimsyVPNScope.updateWindow(win);
-    ok(!space.checked, "Second space starts off");
-    ok(!all.checked, "Neither choice selected for an uncovered space");
-    space.click();
-    is(WhimsyVPNScope.ids, "4,5", "Popover enables two spaces together");
-    is(coverage(), "Work, Home", "Popover names both enabled spaces");
-    active = spaces[0];
-    WhimsyVPNScope.updateWindow(win);
-    ok(space.checked, "First space remains checked when revisited");
-    all.click();
-    is(WhimsyVPNScope.ids, "", "Choosing all spaces clears the restriction entirely");
-    is(coverage(), "Work, Home, Other", "Popover names every space");
-    ok(all.checked, "All spaces choice is checked");
-    active = spaces[1];
-    WhimsyVPNScope.updateWindow(win);
-    ok(!space.checked, "This space is unchecked once all spaces are covered");
-    ok(all.checked, "All spaces stays checked in another space too");
-  } finally {
-    root.remove();
     if (original) {
       Object.defineProperty(IPPProxyManager, "state", original);
     } else {
@@ -227,7 +139,9 @@ add_task(async function channel_boundary_precedes_site_rules() {
   }
 });
 
-add_task(async function native_panel_scope_controls() {
+// W14 3c: This Site's row is the one scope control; Firefox's panel gets
+// no Protect radios of Whimsy's.
+add_task(async function native_panel_has_no_scope_radios() {
   const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPN.sys.mjs");
   await SpecialPowers.pushPrefEnv({ set: [
     [WhimsyVPNScope.FEATURE, true], ["whimsy.feature.vpn", true],
@@ -235,30 +149,15 @@ add_task(async function native_panel_scope_controls() {
   ] });
   let panel;
   try {
-    // F02 follow-up: Firefox's own button is out of the toolbar, so the
-    // address bar control is what opens the panel now.
     ok(!document.getElementById("ipprotection-button"), "Firefox's VPN button is not in the toolbar");
-    await WhimsyVPN.openPanel(window);
-    const group = await TestUtils.waitForCondition(() => document.getElementById("whimsy-vpn-scope"));
-    panel = group.closest("panel");
+    ok(await WhimsyVPN.openPanel(window), "Firefox's panel opens");
+    panel = WhimsyVPN.getPanel(window).panel;
     if (panel.state != "open") {
       await BrowserTestUtils.waitForPopupEvent(panel, "shown");
     }
     ok(document.querySelector("ipprotection-content"), "Native VPN content retained");
-    const space = group.querySelector('[value="space"]');
-    is(space.type, "radio", "Protect scope is either/or");
-    const container = WhimsyVPNScope.containerForWindow(window);
-    is(space.disabled, !container, "No default container disables space choice");
-    if (container) {
-      space.click();
-      is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), String(container), "Space control selects current container");
-    } else {
-      is(group.querySelector("p").getAttribute("data-l10n-id"), "whimsy-vpn-scope-no-container", "Explains how to give the space its own profile");
-    }
-    group.querySelector('[value="browser"]').click();
-    is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), "", "All spaces control clears restriction");
-    Services.prefs.setBoolPref(WhimsyVPNScope.FEATURE, false);
-    ok(!document.getElementById("whimsy-vpn-scope"), "Feature off removes extension immediately");
+    ok(!document.getElementById("whimsy-vpn-scope"), "No Protect radios in Firefox's panel");
+    ok(!panel.querySelector('input[name="whimsy-vpn-scope"]'), "…none at all");
   } finally {
     panel?.hidePopup();
     await SpecialPowers.popPrefEnv();

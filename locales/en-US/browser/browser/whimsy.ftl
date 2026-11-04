@@ -1153,7 +1153,7 @@ whimsy-vpn-header =
     .label = VPN from Firefox
 whimsy-vpn-toggle =
     .label = Turn on VPN
-whimsy-vpn-description = Firefox’s free built-in VPN hides your location from the sites you visit, up to 50 GB a month. Sign in with a Mozilla account, then turn it on from the VPN button in the toolbar or the command bar.
+whimsy-vpn-description = Firefox’s free built-in VPN hides your location from the sites you visit, up to 50 GB a month. Sign in with a Mozilla account, then turn it on from VPN in the address bar or the command bar.
 whimsy-vpn-manage-button =
     .label = Open VPN panel…
 whimsy-vpn-status-off = Off
@@ -1178,14 +1178,9 @@ whimsy-vpn-enroll-account = Your Mozilla account can’t use Firefox’s built-i
 whimsy-vpn-enroll-network = Couldn’t reach Mozilla’s VPN service. Check your connection and try again.
 whimsy-vpn-enroll-failed = Couldn’t finish setting up Firefox’s built-in VPN. Try again from the VPN panel.
 
-# vpnspace: extend the native Firefox VPN panel with a space-scope choice.
-whimsy-vpn-scope-title = Protect
+# vpnspace: the space-scope choice in This Site's VPN row.
 whimsy-vpn-scope-browser = All spaces
 whimsy-vpn-scope-space = This space
-whimsy-vpn-scope-help = Protects this space’s tabs, and any other space set up to share it — not tabs elsewhere. Tabs already open switch over once you reload them, and your site exceptions still apply.
-whimsy-vpn-scope-no-container = This space uses the Default profile, so it can’t be protected on its own. Give it another profile with Set Profile on the space’s menu to protect just this space.
-whimsy-vpn-scope-covered = Spaces with VPN enabled: { $spaces }
-whimsy-vpn-scope-all = VPN enabled for all spaces.
 ## W13 F02: Whimsy's VPN controls for Firefox's built-in VPN, which keeps
 ## Firefox's name (Firefox IP Protection); "VPN" only where space is tight.
 ## A: the address bar control.
@@ -1209,6 +1204,10 @@ whimsy-vpn-urlbar-on-space =
 whimsy-vpn-urlbar-elsewhere =
     .tooltiptext = Firefox IP Protection is on in other spaces, not this one. Click to protect this space too.
     .aria-label = VPN off in this space
+# W14 3c: the chevron after the control opens Firefox's own VPN panel.
+whimsy-vpn-urlbar-panel =
+    .tooltiptext = Open Firefox IP Protection: location, usage and VPN rules
+    .aria-label = Firefox IP Protection panel
 ## B: the row in This Site (the site panel).
 whimsy-vpn-site-name = Firefox IP Protection
 whimsy-vpn-site-setup = Sign in with a Mozilla account to turn it on
@@ -2400,6 +2399,7 @@ whimsy-action-focus-sidebar = Focus Sidebar
 whimsy-action-devmode-on = Turn Developer Mode On for This Site
 whimsy-action-devmode-off = Turn Developer Mode Off for This Site
 whimsy-action-vpn-toggle = Turn VPN On or Off
+whimsy-action-vpn-panel = Open Firefox IP Protection Panel
 whimsy-action-allow-copy-toggle = Allow or Stop Allowing Copy and Paste
 whimsy-action-join-next-meeting = Join Next Meeting
 whimsy-action-snooze-tab = Snooze Tab…

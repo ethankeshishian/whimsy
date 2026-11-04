@@ -7,8 +7,9 @@ const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Prefe
 
 // W13 F02 (wave12 F02, A and B; the user asked for both): Firefox's
 // built-in VPN (it keeps its name, Firefox IP Protection) gets
-//  A. a "VPN" control with a status dot in the address bar: one click
-//     toggles, the address bar's hover, only the dot changes;
+//  A. a "VPN" control with a status dot in the address bar: one click on
+//     it toggles, the address bar's hover, only the dot changes; W14 3c: a
+//     chevron after a hairline opens Firefox's own panel, anchored to it;
 //  B. a row in This Site (Zen's site panel) with a switch and, while on,
 //     the scope choice. W14 3a/3b: no shield anywhere (no tile, no badge on
 //     the site icon) and an arrow cursor, like the rest of the address bar.
@@ -30,6 +31,8 @@ function stubState(singleton, state) {
 }
 
 const control = () => document.getElementById("whimsy-vpn-urlbar");
+const main = () => document.getElementById("whimsy-vpn-urlbar-toggle");
+const chevron = () => document.getElementById("whimsy-vpn-urlbar-chevron");
 const dot = () => control().querySelector(".whimsy-vpn-dot");
 const siteIcon = () => document.getElementById("zen-site-data-icon-button");
 
@@ -98,13 +101,17 @@ add_task(async function test_address_bar_control() {
   is(getComputedStyle(el).cursor, "default", "An arrow, not a finger, on the control");
   is(getComputedStyle(dot()).cursor, "default", "…and on its dot");
 
-  // The address bar's hover, and the text never moves.
+  is(getComputedStyle(chevron()).cursor, "default", "…and on the chevron");
+
+  // The address bar's hover on each end, and the text never moves.
   const label = el.querySelector(".whimsy-vpn-urlbar-label");
   const at = label.getBoundingClientRect().left;
-  InspectorUtils.addPseudoClassLock(el, ":hover");
   const hover = resolved("var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent))");
-  await TestUtils.waitForCondition(() => getComputedStyle(el).backgroundColor == hover, "Hover: the address bar's fill");
-  InspectorUtils.removePseudoClassLock(el, ":hover");
+  for (const part of [main(), chevron()]) {
+    InspectorUtils.addPseudoClassLock(part, ":hover");
+    await TestUtils.waitForCondition(() => getComputedStyle(part).backgroundColor == hover, `Hover: the address bar's fill on ${part.id}`);
+    InspectorUtils.removePseudoClassLock(part, ":hover");
+  }
 
   // One real click turns it on.
   const calls = [];
@@ -113,7 +120,7 @@ add_task(async function test_address_bar_control() {
   IPPProxyManager.start = async () => calls.push("start");
   IPPProxyManager.stop = async () => calls.push("stop");
   try {
-    EventUtils.synthesizeMouseAtCenter(el, {});
+    EventUtils.synthesizeMouseAtCenter(main(), {});
     await TestUtils.waitForCondition(() => calls.includes("start"), "A click starts Firefox's VPN");
 
     setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVATING);
@@ -130,7 +137,7 @@ add_task(async function test_address_bar_control() {
     is(getComputedStyle(siteIcon(), "::before").content, "none", "…none drawn");
 
     // And off again.
-    EventUtils.synthesizeMouseAtCenter(el, {});
+    EventUtils.synthesizeMouseAtCenter(main(), {});
     await TestUtils.waitForCondition(() => calls.includes("stop"), "A click stops it");
   } finally {
     IPPProxyManager.start = start;
@@ -221,8 +228,64 @@ add_task(async function test_one_line_in_a_narrow_window() {
   await BrowserTestUtils.closeWindow(win);
 });
 
+// W14 3c: the chevron opens Firefox's own panel (sign-in, location, usage,
+// rules), anchored to it, and closes it when pressed again; the main part
+// still only toggles.
+add_task(async function test_chevron_opens_firefox_panel() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+  const el = control();
+  await TestUtils.waitForCondition(() => el.checkVisibility(), "The control shows");
+  const cv = chevron();
+  is(cv.previousElementSibling.className, "whimsy-vpn-urlbar-divider", "A hairline between the two ends");
+  is(cv.getAttribute("aria-haspopup"), "true", "The chevron says it opens a panel");
+  is(cv.getAttribute("aria-expanded"), "false", "…closed");
+  Assert.less(Math.abs(cv.getBoundingClientRect().width - 20), 0.5, "The chevron is 20px wide");
+
+  const vpnPanel = () => WhimsyVPN.getPanel(window);
+  EventUtils.synthesizeMouseAtCenter(cv, {});
+  await TestUtils.waitForCondition(() => vpnPanel()?.panel?.state == "open", "A click on the chevron opens Firefox's panel");
+  const panel = vpnPanel().panel;
+  ok(panel.querySelector("#PanelUI-ipprotection"), "…its VPN view");
+  is(panel.anchorNode, cv, "…anchored to the chevron");
+  is(cv.getAttribute("aria-expanded"), "true", "The chevron says it's open");
+
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  EventUtils.synthesizeMouseAtCenter(cv, {});
+  await hidden;
+  await new Promise(resolve => setTimeout(resolve, 300));
+  ok(!vpnPanel()?.active, "A second click closes it, and it stays closed");
+  is(cv.getAttribute("aria-expanded"), "false", "…closed");
+
+  // The keyboard: Enter on the chevron opens it, Escape closes it.
+  cv.focus();
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(() => vpnPanel()?.panel?.state == "open", "Enter on the chevron opens it");
+  const closed = BrowserTestUtils.waitForPopupEvent(vpnPanel().panel, "hidden");
+  EventUtils.synthesizeKey("KEY_Escape");
+  await closed;
+
+  // The main part toggles and never opens the panel.
+  const calls = [];
+  const start = IPPProxyManager.start;
+  IPPProxyManager.start = async () => calls.push("start");
+  try {
+    EventUtils.synthesizeMouseAtCenter(main(), {});
+    await TestUtils.waitForCondition(() => calls.includes("start"), "A click on VPN starts it");
+    await new Promise(resolve => setTimeout(resolve, 300));
+    ok(!vpnPanel()?.active, "…without opening the panel");
+  } finally {
+    IPPProxyManager.start = start;
+  }
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(function test_command() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
   const entry = WhimsyCommands.get("cmd_whimsyVPNToggle");
   ok(entry?.keyId && document.getElementById(entry.keyId), "Turn VPN On or Off has a key Settings can bind");
+  const panel = WhimsyCommands.get("cmd_whimsyVPNPanel");
+  ok(panel?.keyId && document.getElementById(panel.keyId), "Open Firefox IP Protection Panel has a key Settings can bind");
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  ok(globalActions.find(a => a.whimsyCommand == "cmd_whimsyVPNPanel")?.icon, "…and an icon in the command bar");
 });

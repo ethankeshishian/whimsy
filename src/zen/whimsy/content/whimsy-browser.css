@@ -1603,24 +1603,6 @@ notification-message[value="whimsy-claude-control"] {
 #ipprotection-button[whimsy-vpn-scope="space"] {
   color: var(--zen-primary-color, AccentColor);
 }
-#whimsy-vpn-scope {
-  margin: 8px 12px 12px;
-  padding: 12px;
-  border: 1px solid var(--panel-separator-color);
-  border-radius: 8px;
-  max-width: 320px;
-}
-#whimsy-vpn-scope label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-block: 6px;
-}
-#whimsy-vpn-scope p {
-  font-size: 0.9em;
-  color: var(--text-color-deemphasized);
-  margin-block-end: 0;
-}
 /* The native manager is global; suppress its green on icon for a tab outside
    the chosen container while retaining the native off artwork underneath. */
 #ipprotection-button[whimsy-vpn-scope="elsewhere"] {
@@ -1636,38 +1618,74 @@ notification-message[value="whimsy-claude-control"] {
 }
 
 /* W13 F02 (wave12 F02, A and B, the user asked for both).
-   A: "VPN" with a status dot, last in the address bar's buttons. The
-   address bar's own shape and hover (8px radius, 26px tall, Firefox's
-   urlbar box fills, 100ms); 600 11.5px text at 78%, which never moves.
-   Only the dot says the state: off is a 1.5px ring; connecting pulses
-   amber; on is green and sends out one ring as it turns on. */
+   A: "VPN" with a status dot, last in the address bar's buttons, then a
+   hairline and a chevron that opens Firefox's panel (W14 3c, design
+   vpn-chevron option A): one 26px control with the address bar's 8px
+   radius, each end with its own hover; the hairline hides while either is
+   hovered. 600 11.5px text at 78%, which never moves. An arrow cursor, like
+   the rest of the address bar. Only the dot says the state: off is a 1.5px
+   ring; connecting pulses amber; on is green and sends out one ring. */
 #whimsy-vpn-urlbar {
   flex-shrink: 0;
-  gap: 6px;
   /* One line, always: a fixed 26px row that never wraps (the old toolbar
      badge's "VPN off" wrapped onto two lines when space was tight). */
   height: 26px;
   min-height: 26px;
   white-space: nowrap;
   margin-inline: 2px;
-  padding: 0 9px 0 8px;
   border-radius: var(--urlbar-icon-border-radius, 8px);
   color: color-mix(in srgb, currentColor 78%, transparent);
+  cursor: default;
+
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-vpn-urlbar-toggle,
+.whimsy-vpn-urlbar-chevron {
+  height: 26px;
   transition: background-color 100ms ease-out;
 
   &:hover {
     background-color: var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
   }
-  &:hover:active {
+  &:hover:active,
+  &[aria-expanded="true"] {
     background-color: var(--urlbar-box-active-bgcolor, color-mix(in srgb, currentColor 14%, transparent));
   }
   &:focus-visible {
     outline: var(--focus-outline);
     outline-offset: 1px;
   }
-  &[hidden] {
-    display: none;
+}
+.whimsy-vpn-urlbar-toggle {
+  gap: 6px;
+  padding: 0 7px 0 8px;
+  border-start-start-radius: var(--urlbar-icon-border-radius, 8px);
+  border-end-start-radius: var(--urlbar-icon-border-radius, 8px);
+}
+.whimsy-vpn-urlbar-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 12px;
+  background-color: color-mix(in srgb, currentColor 17%, transparent);
+
+  #whimsy-vpn-urlbar:hover > & {
+    opacity: 0;
   }
+}
+.whimsy-vpn-urlbar-chevron {
+  width: 20px;
+  border-start-end-radius: var(--urlbar-icon-border-radius, 8px);
+  border-end-end-radius: var(--urlbar-icon-border-radius, 8px);
+}
+.whimsy-vpn-urlbar-chevron-icon {
+  width: 10px;
+  height: 10px;
+  list-style-image: url("chrome://global/skin/icons/arrow-down-12.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  opacity: 0.75;
 }
 .whimsy-vpn-urlbar-label {
   flex-shrink: 0;
@@ -1730,7 +1748,8 @@ notification-message[value="whimsy-claude-control"] {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #whimsy-vpn-urlbar,
+  .whimsy-vpn-urlbar-toggle,
+  .whimsy-vpn-urlbar-chevron,
   .whimsy-vpn-dot,
   .whimsy-vpn-dot::after {
     transition: none;

@@ -50,6 +50,9 @@ const ICON = "chrome://browser/skin/zen-icons/selectable/lock-closed.svg";
 const WIDGET_ID = "ipprotection-button";
 // W13 F02: Whimsy's two VPN controls (the user asked for both, A and B).
 const URLBAR_ID = "whimsy-vpn-urlbar";
+const TOGGLE_ID = "whimsy-vpn-urlbar-toggle";
+const CHEVRON_ID = "whimsy-vpn-urlbar-chevron";
+const PANEL_ICON = "chrome://browser/skin/zen-icons/selectable/location.svg";
 const SECTION_ID = "whimsy-vpn-site-section";
 const SITE_PANEL_ID = "zen-unified-site-data-panel";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -145,7 +148,7 @@ export const WhimsyVPN = {
   // usage). panel.open() anchors to Firefox's own toolbar widget's node,
   // which Whimsy keeps out of the toolbar (W13 F02 removed it in favor of
   // the address bar control): without a placement that node has no layout,
-  // so CustomizableUI's anchor lookup is pointed at the address bar control
+  // so CustomizableUI's anchor lookup is pointed at the control's chevron
   // instead via cui-anchorid, the same override a toolbar overflow uses.
   // Returns false when there is no panel; see explain().
   async openPanel(win) {
@@ -157,10 +160,40 @@ export const WhimsyVPN = {
     const node = widget?.forWindow(win)?.node;
     if (node && !node.isConnected) {
       this.urlbarControl(win);
-      node.setAttribute("cui-anchorid", URLBAR_ID);
+      node.setAttribute("cui-anchorid", CHEVRON_ID);
     }
     await panel.open(win);
+    this.watchPanel(win);
     return true;
+  },
+
+  // W14 3c: the chevron opens Firefox's panel, or closes it when it's open
+  // (panel.open() does nothing while the panel is showing).
+  async togglePanel(win) {
+    const panel = this.getPanel(win);
+    if (panel?.active) {
+      panel.close();
+      return;
+    }
+    if (!(await this.openPanel(win))) {
+      this.explain(win);
+    }
+  },
+
+  watchPanel(win) {
+    const chevron = win.document.getElementById(CHEVRON_ID);
+    const popup = this.getPanel(win)?.panel;
+    if (!chevron || !popup) {
+      return;
+    }
+    const sync = () => chevron.setAttribute("aria-expanded", String(!!this.getPanel(win)?.active));
+    sync();
+    if (popup._whimsyVpnWatched) {
+      return;
+    }
+    popup._whimsyVpnWatched = true;
+    popup.addEventListener("popupshown", sync);
+    popup.addEventListener("popuphidden", sync);
   },
 
   // W10-50: why the panel can't open yet, as a Fluent id.
@@ -306,9 +339,11 @@ export const WhimsyVPN = {
     return { state: "off", scope: null };
   },
 
-  // A: "VPN" with a status dot, last in the address bar's buttons. One
-  // click toggles; the address bar's own 8px hover; only the dot moves
-  // (off ring, amber pulse while connecting, green with one ring on).
+  // A: "VPN" with a status dot, last in the address bar's buttons, and a
+  // chevron after a hairline (W14 3c, design vpn-chevron option A). The
+  // main part toggles; the chevron opens Firefox's panel, anchored to it.
+  // Each end has the address bar's hover; only the dot moves (off ring,
+  // amber pulse while connecting, green with one ring on).
   urlbarControl(win) {
     const doc = win.document;
     let control = doc.getElementById(URLBAR_ID);
@@ -323,25 +358,63 @@ export const WhimsyVPN = {
     control.id = URLBAR_ID;
     control.className = "whimsy-vpn-urlbar";
     control.setAttribute("align", "center");
-    control.setAttribute("role", "button");
-    control.setAttribute("tabindex", "0");
+    const main = doc.createXULElement("hbox");
+    main.id = TOGGLE_ID;
+    main.className = "whimsy-vpn-urlbar-toggle";
+    main.setAttribute("align", "center");
+    main.setAttribute("role", "button");
+    main.setAttribute("tabindex", "0");
     const dot = doc.createElementNS(HTML_NS, "span");
     dot.className = "whimsy-vpn-dot";
     dot.setAttribute("aria-hidden", "true");
     const label = doc.createXULElement("label");
     label.className = "whimsy-vpn-urlbar-label";
     doc.l10n.setAttributes(label, "whimsy-vpn-urlbar-label");
-    control.append(dot, label);
-    control.addEventListener("click", event => {
-      if (event.button == 0) {
-        this.toggleHere(win);
+    main.append(dot, label);
+    const divider = doc.createElementNS(HTML_NS, "span");
+    divider.className = "whimsy-vpn-urlbar-divider";
+    divider.setAttribute("aria-hidden", "true");
+    const chevron = doc.createXULElement("hbox");
+    chevron.id = CHEVRON_ID;
+    chevron.className = "whimsy-vpn-urlbar-chevron";
+    chevron.setAttribute("align", "center");
+    chevron.setAttribute("pack", "center");
+    chevron.setAttribute("role", "button");
+    chevron.setAttribute("tabindex", "0");
+    chevron.setAttribute("aria-haspopup", "true");
+    chevron.setAttribute("aria-expanded", "false");
+    doc.l10n.setAttributes(chevron, "whimsy-vpn-urlbar-panel");
+    const arrow = doc.createXULElement("image");
+    arrow.className = "whimsy-vpn-urlbar-chevron-icon";
+    chevron.append(arrow);
+    control.append(main, divider, chevron);
+    const activate = (target, run) => {
+      target.addEventListener("click", event => {
+        if (event.button == 0) {
+          run(event);
+        }
+      });
+      target.addEventListener("keydown", event => {
+        if (event.key == "Enter" || event.key == " ") {
+          event.preventDefault();
+          run(event);
+        }
+      });
+    };
+    activate(main, () => this.toggleHere(win));
+    // A press on the chevron while the panel is open closes it: the press
+    // may already have closed it, so it must not open it again.
+    let wasOpen = false;
+    chevron.addEventListener("mousedown", () => {
+      wasOpen = !!this.getPanel(win)?.active;
+    }, true);
+    activate(chevron, event => {
+      if (event.type == "click" && wasOpen) {
+        wasOpen = false;
+        this.getPanel(win)?.close();
+        return;
       }
-    });
-    control.addEventListener("keydown", event => {
-      if (event.key == "Enter" || event.key == " ") {
-        event.preventDefault();
-        this.toggleHere(win);
-      }
+      this.togglePanel(win);
     });
     buttons.append(control);
     return control;
@@ -433,7 +506,7 @@ export const WhimsyVPN = {
       control.setAttribute("state", state);
       const id = state == "on" ? `whimsy-vpn-urlbar-on-${scope}` : `whimsy-vpn-urlbar-${state}`;
       if (state != "hidden") {
-        doc.l10n.setAttributes(control, id);
+        doc.l10n.setAttributes(control.querySelector(`#${TOGGLE_ID}`), id);
       }
     }
     const panel = doc.getElementById(SITE_PANEL_ID);
@@ -497,7 +570,6 @@ export const WhimsyVPN = {
     // running toggle(), and takes Firefox's own toolbar button out of the
     // default toolbar so there's exactly one visible control.
     this.hideButton();
-    lazy.WhimsyVPNScope.initWindow(win);
     // Watches the switch itself, so it starts and stops with it.
     this.initUi(win);
     if (!this.wrapperEnabled) {
@@ -516,6 +588,13 @@ export const WhimsyVPN = {
         { l10nId: "whimsy-action-vpn-off", isAvailable: () => this.wrapperEnabled && this.canTurnOff() },
         { l10nId: "whimsy-action-vpn-setup", isAvailable: () => this.canSetUp() },
       ],
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyVPNPanel",
+      l10nId: "whimsy-action-vpn-panel",
+      run: w => this.togglePanel(w),
+      icon: PANEL_ICON,
+      isAvailable: () => this.wrapperEnabled && this.masterEnabled,
     });
   },
 };

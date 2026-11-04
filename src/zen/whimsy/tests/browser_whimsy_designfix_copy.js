@@ -32,7 +32,6 @@ add_task(function test_copy_names_real_rows() {
   is(label("whimsy-menus-space-look"), editLook, "Settings → Menus calls it the same");
   const setProfile = label("zen-workspaces-panel-context-default-profile");
   is(label("whimsy-menus-space-profile"), setProfile, `Settings → Menus calls the profile row "${setProfile}"`);
-  ok(value("whimsy-vpn-scope-no-container").includes(setProfile), "and so does the VPN help");
 });
 
 add_task(function test_no_straight_apostrophes_or_shouting() {

@@ -631,19 +631,19 @@ add_task(async function whimsy_home_and_changelog() {
   }
 });
 
-// vpnspace: capture the native panel with its scope extension.
-add_task(async function vpn_scope_panel() {
-  if (!SHOTS || !Services.prefs.getBoolPref("whimsy.feature.vpnspace", true)) {
+// W14 3c: Firefox's own VPN panel, opened from the address bar's chevron.
+add_task(async function vpn_panel() {
+  if (!SHOTS) {
     return;
   }
   const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPN.sys.mjs");
-  await WhimsyVPN.openPanel(window);
-  const scope = await TestUtils.waitForCondition(() => document.getElementById("whimsy-vpn-scope"));
-  const panel = scope.closest("panel");
+  if (!(await WhimsyVPN.openPanel(window))) {
+    return;
+  }
+  const panel = WhimsyVPN.getPanel(window)?.panel;
   try {
     await TestUtils.waitForCondition(() => panel?.state === "open");
-    await document.l10n.translateFragment(scope);
-    await shot("vpn-space-scope");
+    await shot("vpn-panel");
   } finally {
     panel?.hidePopup();
   }
