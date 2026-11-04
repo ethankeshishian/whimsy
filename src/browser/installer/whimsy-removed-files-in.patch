@@ -1,0 +1,34 @@
+diff --git a/browser/installer/removed-files.in b/browser/installer/removed-files.in
+--- a/browser/installer/removed-files.in
++++ b/browser/installer/removed-files.in
+@@ -90,3 +90,30 @@
+ #ifdef XP_MACOSX
+ update_telemetry.json
+ #endif
++
++# Whimsy: a dev build's bundle (dist/Whimsy.app: loose files, no omni.ja, no
++# precomplete) that was once installed leaves all of this behind when a
++# packaged update is laid over it, and Gecko reads the loose
++# defaults/preferences, manifests and modules over omni.ja's.
++#ifdef XP_MACOSX
++@DIR_RESOURCES@greprefs.js
++@DIR_RESOURCES@actors/*
++@DIR_RESOURCES@chrome/*
++@DIR_RESOURCES@components/*
++@DIR_RESOURCES@contentaccessible/*
++@DIR_RESOURCES@defaults/*
++@DIR_RESOURCES@dictionaries/*
++@DIR_RESOURCES@gmp-fake/*
++@DIR_RESOURCES@gmp-fakeopenh264/*
++@DIR_RESOURCES@hyphenation/*
++@DIR_RESOURCES@localization/*
++@DIR_RESOURCES@modules/*
++@DIR_RESOURCES@moz-src/*
++@DIR_RESOURCES@browser/chrome.manifest
++@DIR_RESOURCES@browser/actors/*
++@DIR_RESOURCES@browser/chrome/*
++@DIR_RESOURCES@browser/components/*
++@DIR_RESOURCES@browser/defaults/*
++@DIR_RESOURCES@browser/localization/*
++@DIR_RESOURCES@browser/modules/*
++#endif

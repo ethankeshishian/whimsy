@@ -466,12 +466,30 @@ def build_meta(repo, **extra):
     return meta, info
 
 
+def packaged(app_path):
+    """The packaged app (`mach package`: omni.ja, precomplete, removed-files)
+    for a build. W14-22: a dev build's dist/Whimsy.app is loose files with no
+    precomplete. Installed, a later packaged update laid over it removes only
+    what precomplete and removed-files name, so its loose defaults/preferences,
+    manifests and modules stayed and Gecko read them over omni.ja's."""
+    if os.path.exists(os.path.join(app_path, "Contents", "Resources", "precomplete")):
+        return app_path
+    dist = os.path.dirname(os.path.abspath(app_path))
+    engine = os.path.dirname(os.path.dirname(dist))
+    sh(["./mach", "package"], cwd=engine, timeout=3600)
+    for name in sorted(os.listdir(dist)):
+        candidate = os.path.join(dist, name, "Whimsy.app")
+        if os.path.exists(os.path.join(candidate, "Contents", "Resources", "precomplete")):
+            return candidate
+    raise RuntimeError("mach package produced no packaged Whimsy.app")
+
+
 def stage(app_path, meta, info=None):
-    """Copy an app (dereferencing a dev build's symlinks) into staged/."""
+    """Copy the packaged app for a build into staged/ (never a dev bundle)."""
+    app_path = packaged(app_path)
     tmp = STAGED + ".tmp"
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(os.path.dirname(STAGED), exist_ok=True)
-    # Follow a dev build's symlinks; skip stale ones left by moved files.
     shutil.copytree(app_path, tmp, symlinks=False, ignore_dangling_symlinks=True,
                     ignore=shutil.ignore_patterns(".DS_Store"))
     if info:

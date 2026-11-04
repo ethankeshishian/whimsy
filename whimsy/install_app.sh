@@ -1,10 +1,10 @@
 #!/bin/sh
 # Installs the built app at /Applications/Whimsy.app. Runs after
 # `npm run build` and `npm run build:ui`, or by hand: `npm run install:app`.
-# It goes through the updater: the build is staged (a standalone copy of the
-# dev build's symlinks), installed right away if Whimsy is closed or when it
-# next quits (that needs the local updater, whimsy/updater/install.sh), and
-# the current app is kept for rollback.
+# It goes through the updater: the build is packaged (mach package, as a
+# published build is) and staged, installed right away if Whimsy is closed or
+# when it next quits (that needs the local updater, whimsy/updater/install.sh),
+# and the current app is kept for rollback.
 set -e
 cd "$(dirname "$0")/.."
 [ "$(uname)" = "Darwin" ] || exit 0
