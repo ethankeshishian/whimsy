@@ -286,6 +286,48 @@ add_task(async function test_leaving_empty_scratch_for_an_empty_space_removes_it
   }
 });
 
+// W14-10: Cmd+N (New Space) from the empty Private Space shows one form;
+// the Private Space stays until Create or Cancel, and Cancel goes back to it.
+add_task(async function test_new_space_from_empty_scratch_shows_one_form() {
+  const startSpace = gZenWorkspaces.activeWorkspace;
+  for (const finish of ["cancel", "create"]) {
+    const scratch = await WhimsyPrivate.openScratch(window);
+    is(gZenWorkspaces.activeWorkspace, scratch.uuid, `${finish}: in the empty Private Space`);
+    const spacesBefore = gZenWorkspaces.getWorkspaces().length;
+    EventUtils.synthesizeKey("n", { accelKey: true }, window);
+    const form = await TestUtils.waitForCondition(() => document.querySelector("zen-workspace-creation"), "The New Space form opens");
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == form.workspaceId && !gZenWorkspaces._animatingChange &&
+      !gZenWorkspaces.isChangingWorkspace, "On the new space");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    is(document.querySelectorAll(".zen-workspace-creation-name").length, 1, `${finish}: exactly one form`);
+    is(document.querySelectorAll("zen-workspace-creation").length, 1, `${finish}: one form element`);
+    is(WhimsyPrivate.getScratch(window)?.uuid, scratch.uuid, `${finish}: the Private Space is still there while the form is open`);
+    is(gZenWorkspaces.creatingWorkspaceId, form.workspaceId, `${finish}: still creating that space`);
+    if (finish == "cancel") {
+      form.cancelButton.click();
+      await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == scratch.uuid, "Cancel goes back to the Private Space");
+      await TestUtils.waitForCondition(() => !document.querySelector("zen-workspace-creation"), "The form is gone");
+      await TestUtils.waitForCondition(() => gZenWorkspaces.getWorkspaces().length == spacesBefore, "The unsaved space is gone");
+      await WhimsyPrivate.closeScratch(window);
+    } else {
+      form.inputName.focus();
+      form.inputName.select();
+      EventUtils.sendString("From Private", window);
+      ok(!form.createButton.disabled, "Typing a name allows Create");
+      EventUtils.synthesizeKey("KEY_Enter", {}, window);
+      await TestUtils.waitForCondition(() => !document.querySelector("zen-workspace-creation"), "The form is gone");
+      const made = gZenWorkspaces.getWorkspaces().find(space => space.name == "From Private");
+      ok(made, "The new space was made");
+      await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Then the empty Private Space it left closes");
+      await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+      await gZenWorkspaces.removeWorkspace(made.uuid);
+    }
+  }
+  if (gZenWorkspaces.activeWorkspace != startSpace) {
+    await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  }
+});
+
 add_task(async function test_keep_scratch_as_space() {
   const startSpace = gZenWorkspaces.activeWorkspace;
   const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });

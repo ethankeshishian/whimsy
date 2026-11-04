@@ -113,6 +113,8 @@ const urlbarStates = new WeakMap();
 
 // Windows with a Private Space leave check queued (no window expando).
 const leaveChecks = new WeakSet();
+// win -> the observer waiting for New Space's form to close (W14-10).
+const afterCreation = new WeakMap();
 // Windows opening their Private Space right now: window → count.
 const openingScratch = new WeakMap();
 // W14-9: providers that read normal browsing, skipped by a private query.
@@ -1419,6 +1421,25 @@ export const WhimsyPrivate = {
     const spaces = win.gZenWorkspaces;
     if (spaces?._animatingChange || spaces?.isChangingWorkspace) {
       win.setTimeout(() => this.closeIfLeftEmpty(win), 100);
+      return false;
+    }
+    // W14-10: New Space's form is open on the space it's making: closing the
+    // Private Space now would rebuild that form and lose Cancel's way back.
+    // Check again once the form has gone (Create or Cancel).
+    const root = win.document.documentElement;
+    if (root.hasAttribute("zen-creating-workspace")) {
+      if (!afterCreation.has(win)) {
+        const observer = new win.MutationObserver(() => {
+          if (!root.hasAttribute("zen-creating-workspace")) {
+            observer.disconnect();
+            afterCreation.delete(win);
+            // After Cancel's switch back has started.
+            win.setTimeout(() => this.closeIfLeftEmpty(win), 100);
+          }
+        });
+        observer.observe(root, { attributes: true, attributeFilter: ["zen-creating-workspace"] });
+        afterCreation.set(win, observer);
+      }
       return false;
     }
     this.closeScratch(win).catch(e => console.error("Whimsy: Private Space", e));

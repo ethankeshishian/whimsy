@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(
 class nsZenWorkspaceCreation extends MozXULElement {
   #wasInCollapsedMode = false;
   #urlbarDimmed = false;
+  #hasConnected = false;
 
   promiseInitialized = new Promise(resolve => {
     this.resolveInitialized = resolve;
@@ -148,12 +149,15 @@ class nsZenWorkspaceCreation extends MozXULElement {
     });
   }
 
+  // Whimsy (W14-10): reordering the spaces moves this form with its space
+  // (moveBefore); a move is not a new form, nor the end of this one.
+  connectedMoveCallback() {}
+
   connectedCallback() {
-    if (this.delayConnectedCallback()) {
-      // If we are not ready yet, or if we have already connected, we
-      // don't need to do anything.
+    if (this.delayConnectedCallback() || this.#hasConnected) {
       return;
     }
+    this.#hasConnected = true;
 
     lazy.ZenLibrary.close();
     this.appendChild(this.constructor.fragment);
