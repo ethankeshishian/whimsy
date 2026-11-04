@@ -423,61 +423,82 @@
     <html:div id="whimsyAIOffNote" class="whimsy-ai-off-note" role="status" hidden="hidden" data-l10n-id="whimsy-ai-off-note"/>
     <html:div id="whimsyAILockedNote" class="whimsy-ai-off-note" hidden="hidden" data-l10n-id="whimsy-ai-locked-note"/>
   </html:div>
+  <!-- W14 19 (v2): the provider in use (a picker of the connected ones), then
+       one row per provider to connect or disconnect. -->
   <html:div id="whimsyAIProviderGroup" data-category="paneWhimsyAI" data-whimsy-feature="ai-providers" hidden="hidden" class="whimsy-setting-card whimsy-ai-section whimsy-ai-rest">
     <label><html:h2 id="whimsyAIProviderHeading" data-l10n-id="whimsy-ai-provider-heading"/></label>
+    <html:p class="whimsy-ai-provider-description description-deemphasized" data-l10n-id="whimsy-ai-provider-description"/>
     <html:div class="whimsy-ai-card">
-      <html:div id="whimsyAIProvider" class="whimsy-ai-providers" role="radiogroup" aria-labelledby="whimsyAIProviderHeading">
-        <html:label class="whimsy-ai-provider">
-          <html:input type="radio" name="whimsyAIProvider" value="apple"/>
-          <html:span class="whimsy-ai-provider-title" data-l10n-id="whimsy-ai-provider-apple-title"/>
-          <html:span class="whimsy-ai-provider-sub" data-l10n-id="whimsy-ai-provider-local"/>
-        </html:label>
-        <html:label class="whimsy-ai-provider">
-          <html:input type="radio" name="whimsyAIProvider" value="claude"/>
-          <html:span class="whimsy-ai-provider-title" data-l10n-id="whimsy-ai-provider-claude-title"/>
-          <html:span class="whimsy-ai-provider-sub" data-l10n-id="whimsy-ai-provider-key"/>
-        </html:label>
-        <html:label class="whimsy-ai-provider">
-          <html:input type="radio" name="whimsyAIProvider" value="ollama"/>
-          <html:span class="whimsy-ai-provider-title" data-l10n-id="whimsy-ai-provider-ollama-title"/>
-          <html:span class="whimsy-ai-provider-sub" data-l10n-id="whimsy-ai-provider-local"/>
-        </html:label>
+      <html:div class="whimsy-ai-row">
+        <html:span class="whimsy-ai-row-name" id="whimsyAIUseLabel" data-l10n-id="whimsy-ai-use-label"/>
+        <html:button id="whimsyAIUse" type="button" class="whimsy-ai-picker" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="whimsyAIUseLabel whimsyAIUseValue">
+          <html:span id="whimsyAIUseValue" class="whimsy-ai-picker-value"/>
+        </html:button>
+        <html:span id="whimsyAIPlanLabel" class="whimsy-ai-detail whimsy-ai-plan-label" hidden="hidden"/>
+        <html:span class="whimsy-ai-spacer"/>
+        <button id="whimsyAIManageUsage" data-l10n-id="whimsy-ai-manage-usage-button" hidden="true"/>
       </html:div>
-      <html:p class="whimsy-ai-provider-description description-deemphasized" data-l10n-id="whimsy-ai-provider-description"/>
-      <!-- Only the chosen provider's rows; one label/control grid, labels
-           left-aligned (F22), every control starting at the same edge. -->
-      <html:div id="whimsyAIAppleRow" class="whimsy-ai-fields" hidden="hidden">
-        <html:span class="whimsy-ai-field-label" data-l10n-id="whimsy-ai-field-status"/>
-        <html:div id="whimsyAIAppleStatus" class="whimsy-ai-status" role="status"/>
-        <!-- W10-07: what the Swift compiler said, when the helper didn't build. -->
-        <html:div id="whimsyAIAppleDetail" class="whimsy-updates-detail whimsy-ai-apple-detail whimsy-ai-field-wide" hidden="hidden"/>
-        <html:div class="whimsy-ai-field-controls whimsy-ai-field-wide">
-          <button id="whimsyAIAppleCheck" data-l10n-id="whimsy-ai-apple-check"/>
-          <button id="whimsyAIAppleOpenSettings" data-l10n-id="whimsy-ai-apple-open-settings" hidden="true"/>
-        </html:div>
+      <html:div id="whimsyAIModelRow" class="whimsy-ai-row" hidden="hidden">
+        <html:span class="whimsy-ai-row-name" id="whimsyAIModelLabel" data-l10n-id="whimsy-ai-model-label"/>
+        <html:button id="whimsyAIModel" type="button" class="whimsy-ai-picker" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="whimsyAIModelLabel whimsyAIModelValue">
+          <html:span id="whimsyAIModelValue" class="whimsy-ai-picker-value"/>
+        </html:button>
+        <html:span id="whimsyAIModelStatus" class="whimsy-ai-detail" role="status"/>
       </html:div>
-      <html:div id="whimsyAIClaudeRow" class="whimsy-ai-fields" hidden="hidden">
-        <label class="whimsy-ai-field-label" control="whimsyAIClaudeKey" data-l10n-id="whimsy-ai-claude-key-label"/>
-        <html:div class="whimsy-ai-field-controls">
-          <html:input type="password" id="whimsyAIClaudeKey" class="whimsy-ai-field" autocomplete="off" spellcheck="false"/>
-          <button id="whimsyAIClaudeSave" data-l10n-id="whimsy-ai-claude-key-save"/>
-          <button id="whimsyAIClaudeRemove" data-l10n-id="whimsy-ai-claude-key-remove"/>
+      <html:moz-toggle id="whimsyAIPlanFallback" class="whimsy-ai-fallback" hidden="hidden" data-l10n-id="whimsy-ai-plan-fallback" data-l10n-attrs="label, description"/>
+    </html:div>
+  </html:div>
+  <html:div id="whimsyAIAccountsGroup" data-category="paneWhimsyAI" data-whimsy-feature="ai-providers" hidden="hidden" class="whimsy-setting-card whimsy-ai-section whimsy-ai-rest">
+    <label><html:h2 id="whimsyAIAccountsHeading" data-l10n-id="whimsy-ai-accounts-heading"/></label>
+    <html:div id="whimsyAIAccounts" class="whimsy-ai-card whimsy-ai-accounts" role="list" aria-labelledby="whimsyAIAccountsHeading"/>
+    <!-- Connecting: one small sheet per provider. -->
+    <html:div id="whimsyAISheet" class="whimsy-ai-scrim" hidden="hidden">
+      <html:div class="whimsy-ai-sheet" role="dialog" aria-modal="true" aria-labelledby="whimsyAISheetTitle">
+        <html:div class="whimsy-ai-sheet-head">
+          <html:span id="whimsyAISheetTile" class="whimsy-ai-tile" aria-hidden="true"/>
+          <html:h3 id="whimsyAISheetTitle"/>
+          <html:button id="whimsyAISheetClose" type="button" class="whimsy-ai-x" data-l10n-id="whimsy-ai-sheet-close"/>
         </html:div>
-        <html:div id="whimsyAIClaudeStatus" class="whimsy-ai-status whimsy-ai-field-wide" role="status"/>
+        <html:div id="whimsyAISheetMethods" class="whimsy-ai-methods" role="radiogroup" aria-labelledby="whimsyAISheetTitle"/>
+        <html:p id="whimsyAISheetNote" class="whimsy-ai-note"/>
+        <html:div id="whimsyAIKeyPanel" class="whimsy-ai-panel" hidden="hidden">
+          <html:div class="whimsy-ai-key-row">
+            <html:input type="password" id="whimsyAIKey" class="whimsy-ai-field" autocomplete="off" spellcheck="false" data-l10n-id="whimsy-ai-key-field"/>
+            <button id="whimsyAIKeyConnect" class="primary" data-l10n-id="whimsy-ai-connect-button"/>
+          </html:div>
+          <html:p id="whimsyAIKeyNote" class="whimsy-ai-note"/>
+        </html:div>
+        <html:div id="whimsyAIPlanPanel" class="whimsy-ai-panel" hidden="hidden">
+          <button id="whimsyAIPlanConnect" class="primary" disabled="true"/>
+        </html:div>
+        <html:div id="whimsyAIApplePanel" class="whimsy-ai-panel" hidden="hidden">
+          <html:div id="whimsyAIAppleStatus" class="whimsy-ai-status" role="status"/>
+          <!-- W10-07: what the Swift compiler said, when the helper didn't build. -->
+          <html:div id="whimsyAIAppleDetail" class="whimsy-updates-detail whimsy-ai-apple-detail" hidden="hidden"/>
+          <html:div class="whimsy-ai-actions">
+            <button id="whimsyAIAppleCheck" data-l10n-id="whimsy-ai-apple-check"/>
+            <button id="whimsyAIAppleOpenSettings" data-l10n-id="whimsy-ai-apple-open-settings" hidden="true"/>
+          </html:div>
+        </html:div>
+        <html:div id="whimsyAIOllamaPanel" class="whimsy-ai-panel" hidden="hidden">
+          <html:div class="whimsy-ai-key-row">
+            <html:input type="url" id="whimsyAIOllamaEndpoint" class="whimsy-ai-field" spellcheck="false" data-l10n-id="whimsy-ai-ollama-field"/>
+            <button id="whimsyAIOllamaConnect" class="primary" data-l10n-id="whimsy-ai-ollama-connect"/>
+          </html:div>
+          <html:div id="whimsyAIOllamaStatus" class="whimsy-ai-status" role="status"/>
+        </html:div>
+        <html:div id="whimsyAISheetStatus" class="whimsy-ai-status" role="status"/>
       </html:div>
-      <html:div id="whimsyAIOllamaRow" class="whimsy-ai-fields" hidden="hidden">
-        <label class="whimsy-ai-field-label" control="whimsyAIOllamaEndpoint" data-l10n-id="whimsy-ai-ollama-endpoint-label"/>
-        <html:div class="whimsy-ai-field-controls">
-          <html:input type="url" id="whimsyAIOllamaEndpoint" class="whimsy-ai-field" spellcheck="false"/>
+    </html:div>
+    <!-- Disconnecting: a small confirm. -->
+    <html:div id="whimsyAIConfirm" class="whimsy-ai-scrim" hidden="hidden">
+      <html:div class="whimsy-ai-sheet whimsy-ai-confirm" role="alertdialog" aria-modal="true" aria-labelledby="whimsyAIConfirmTitle" aria-describedby="whimsyAIConfirmText">
+        <html:h3 id="whimsyAIConfirmTitle"/>
+        <html:p id="whimsyAIConfirmText" class="whimsy-ai-note"/>
+        <html:div class="whimsy-ai-actions whimsy-ai-actions-end">
+          <button id="whimsyAIConfirmCancel" data-l10n-id="whimsy-ai-confirm-cancel"/>
+          <button id="whimsyAIConfirmDisconnect" class="primary" data-l10n-id="whimsy-ai-confirm-disconnect"/>
         </html:div>
-        <label class="whimsy-ai-field-label" control="whimsyAIOllamaModel" data-l10n-id="whimsy-ai-ollama-model-label"/>
-        <html:div class="whimsy-ai-field-controls">
-          <menulist id="whimsyAIOllamaModel" class="whimsy-ai-field" sizetopopup="none">
-            <menupopup/>
-          </menulist>
-          <button id="whimsyAIOllamaRefresh" data-l10n-id="whimsy-ai-ollama-refresh"/>
-        </html:div>
-        <html:div id="whimsyAIOllamaStatus" class="whimsy-ai-status whimsy-ai-field-wide" role="status"/>
       </html:div>
     </html:div>
   </html:div>

@@ -1418,37 +1418,458 @@ Object.assign(gWhimsySettings, {
   },
 
   initAIProviders() {
-    const group = document.getElementById("whimsyAIProviderGroup");
-    const radios = [...document.querySelectorAll('#whimsyAIProvider input[type="radio"]')];
-    if (!group || !radios.length || this._aiProvidersWired) {
+    const accounts = document.getElementById("whimsyAIAccounts");
+    if (!accounts || this._aiProvidersWired) {
       return;
     }
     this._aiProvidersWired = true;
-    const { WhimsyAIProviders } = ChromeUtils.importESModule(
+    const { WhimsyAIProviders, ACCOUNT_ORDER, PLAN_PROVIDERS, PLAN_FALLBACK_PREF } = ChromeUtils.importESModule(
       "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs"
     );
-    const rows = {
-      apple: document.getElementById("whimsyAIAppleRow"),
-      claude: document.getElementById("whimsyAIClaudeRow"),
-      ollama: document.getElementById("whimsyAIOllamaRow"),
+    const $ = id => document.getElementById(id);
+    const HTML = "http://www.w3.org/1999/xhtml";
+    const html = (tag, className, parent) => {
+      const el = document.createElementNS(HTML, tag);
+      if (className) {
+        el.className = className;
+      }
+      parent?.append(el);
+      return el;
     };
-    // Each provider's first control, where the keyboard goes when it's
-    // picked with the pointer.
-    const firstControl = {
-      apple: () => document.getElementById("whimsyAIAppleCheck"),
-      claude: () => document.getElementById("whimsyAIClaudeKey"),
-      ollama: () => document.getElementById("whimsyAIOllamaEndpoint"),
+    const aiOn = () => this.aiModule.enabled && !this.aiModule.lockedOff;
+    const setL10n = (el, id, args) => document.l10n.setAttributes(el, id, args);
+    const setPlain = (el, text) => {
+      el.removeAttribute("data-l10n-id");
+      el.removeAttribute("data-l10n-args");
+      el.textContent = text;
+    };
+    const browserWindow = () => Services.wm.getMostRecentWindow("navigator:browser");
+    const nameOf = provider => WhimsyAIProviders.providerName(provider);
+    const TILES = {
+      apple: ["A", "#6a4fd8"],
+      claude: ["C", "#b4552f"],
+      openai: ["G", "#0b7a5f"],
+      gemini: ["Ge", "#2f64d6"],
+      ollama: ["Ol", "#5f5b70"],
     };
     const setStatus = (id, l10nId, args, ready = null) => {
-      const el = document.getElementById(id);
+      const el = $(id);
       if (el) {
-        document.l10n.setAttributes(el, l10nId, args);
+        setL10n(el, l10nId, args);
         if (ready === null) {
           el.removeAttribute("data-state");
         } else {
           el.dataset.state = ready ? "ready" : "action";
         }
       }
+    };
+    const clearStatus = id => {
+      const el = $(id);
+      el.removeAttribute("data-l10n-id");
+      el.removeAttribute("data-l10n-args");
+      el.removeAttribute("data-state");
+      el.textContent = "";
+    };
+
+    // ---- The pickers: a styled list under its button, never a native menu ----
+    let picker = null;
+    const closePicker = ({ restore = true } = {}) => {
+      if (!picker) {
+        return;
+      }
+      const { el, anchor, cleanup } = picker;
+      picker = null;
+      cleanup();
+      el.remove();
+      anchor.setAttribute?.("aria-expanded", "false");
+      if (restore) {
+        anchor.focus?.();
+      }
+    };
+    const openPicker = (anchor, { label, selected, onPick }) => {
+      closePicker({ restore: false });
+      const el = html("div", "whimsy-ai-popup");
+      el.setAttribute("role", "listbox");
+      if (label) {
+        el.setAttribute("aria-label", label);
+      }
+      (document.body ?? document.documentElement).append(el);
+      anchor.setAttribute?.("aria-expanded", "true");
+      const place = () => {
+        const rect = anchor.getBoundingClientRect();
+        el.style.minWidth = `${Math.max(rect.width, 260)}px`;
+        el.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - el.offsetWidth - 8))}px`;
+        const below = rect.bottom + 4;
+        el.style.top = below + el.offsetHeight > window.innerHeight - 8 && rect.top > el.offsetHeight + 8
+          ? `${rect.top - el.offsetHeight - 4}px`
+          : `${below}px`;
+      };
+      const options = () => [...el.querySelectorAll('[role="option"]')];
+      const choose = option => {
+        const value = option.dataset.value;
+        closePicker();
+        onPick(value);
+      };
+      el.addEventListener("click", event => {
+        const option = event.target.closest?.('[role="option"]');
+        if (option) {
+          choose(option);
+        }
+      });
+      el.addEventListener("keydown", event => {
+        const list = options();
+        const at = list.indexOf(document.activeElement);
+        const move = index => {
+          list[(index + list.length) % list.length]?.focus();
+          event.preventDefault();
+        };
+        switch (event.key) {
+          case "ArrowDown":
+            move(at + 1);
+            break;
+          case "ArrowUp":
+            move(at < 0 ? -1 : at - 1);
+            break;
+          case "Home":
+            move(0);
+            break;
+          case "End":
+            move(-1);
+            break;
+          case "Enter":
+          case " ":
+            if (list[at]) {
+              event.preventDefault();
+              choose(list[at]);
+            }
+            break;
+          case "Escape":
+            event.preventDefault();
+            event.stopPropagation();
+            closePicker();
+            break;
+          case "Tab":
+            closePicker();
+            break;
+        }
+      });
+      const outside = event => {
+        if (!el.contains(event.target) && !anchor.contains?.(event.target)) {
+          closePicker({ restore: false });
+        }
+      };
+      const away = () => closePicker({ restore: false });
+      document.addEventListener("pointerdown", outside, true);
+      window.addEventListener("scroll", away, true);
+      window.addEventListener("resize", away);
+      picker = {
+        el,
+        anchor,
+        cleanup() {
+          document.removeEventListener("pointerdown", outside, true);
+          window.removeEventListener("scroll", away, true);
+          window.removeEventListener("resize", away);
+        },
+      };
+      return {
+        // items: [{ value, label | labelId, detail | detailId }]
+        setItems(items) {
+          el.replaceChildren();
+          for (const item of items) {
+            const option = html("div", "whimsy-ai-option", el);
+            option.setAttribute("role", "option");
+            option.tabIndex = -1;
+            option.dataset.value = item.value;
+            option.setAttribute("aria-selected", String(item.value == selected));
+            html("span", "whimsy-ai-check", option).setAttribute("aria-hidden", "true");
+            const name = html("span", "whimsy-ai-option-name", option);
+            if (item.labelId) {
+              setL10n(name, item.labelId);
+            } else {
+              name.textContent = item.label;
+            }
+            if (item.detailId) {
+              setL10n(html("span", "whimsy-ai-option-detail", option), item.detailId);
+            }
+          }
+          place();
+          (options().find(o => o.getAttribute("aria-selected") == "true") ?? options()[0])?.focus();
+        },
+        setMessage(l10nId) {
+          el.replaceChildren();
+          setL10n(html("div", "whimsy-ai-popup-message", el), l10nId);
+          place();
+        },
+      };
+    };
+    window.addEventListener("unload", () => closePicker({ restore: false }), { once: true });
+
+    // ---- What is connected ----
+    const connections = {};
+    const hints = {};
+    let refreshes = 0;
+    const connectedList = () => ACCOUNT_ORDER.filter(provider => connections[provider]);
+    const methodDetailId = method => `whimsy-ai-use-detail-${method}`;
+
+    const detailFor = (provider, connection) => {
+      if (!connection) {
+        if (provider == "apple" || provider == "ollama") {
+          return ["whimsy-ai-account-off-local"];
+        }
+        return [WhimsyAIProviders.planAvailable(provider) ? "whimsy-ai-account-off-plan-or-key" : "whimsy-ai-account-off-key"];
+      }
+      const name = nameOf(provider);
+      if (connection.method == "plan") {
+        if (connection.signedOut) {
+          return ["whimsy-ai-account-signed-out", { provider: name }];
+        }
+        return connection.label
+          ? ["whimsy-ai-account-on-plan", { provider: name, label: connection.label }]
+          : ["whimsy-ai-account-on-plan-nolabel", { provider: name }];
+      }
+      if (connection.method == "key") {
+        return hints[provider]
+          ? ["whimsy-ai-account-on-key", { hint: hints[provider] }]
+          : ["whimsy-ai-account-on-key-nohint"];
+      }
+      if (provider == "ollama") {
+        const model = Services.prefs.getStringPref("whimsy.ai.ollama.model", "");
+        return model ? ["whimsy-ai-account-on-ollama", { model }] : ["whimsy-ai-account-on-ollama-nomodel"];
+      }
+      return ["whimsy-ai-account-on-apple"];
+    };
+
+    let focusAfter = null;
+    const renderAccounts = () => {
+      const active = document.activeElement?.closest?.("#whimsyAIAccounts [data-provider]");
+      if (active) {
+        focusAfter = active.dataset.provider;
+      }
+      accounts.replaceChildren();
+      for (const provider of ACCOUNT_ORDER) {
+        const connection = connections[provider];
+        const row = html("div", "whimsy-ai-account", accounts);
+        row.setAttribute("role", "listitem");
+        row.dataset.provider = provider;
+        row.toggleAttribute("data-connected", !!connection);
+        const tile = html("span", "whimsy-ai-tile", row);
+        tile.setAttribute("aria-hidden", "true");
+        tile.textContent = TILES[provider][0];
+        tile.style.setProperty("--tile-color", TILES[provider][1]);
+        setL10n(html("span", "whimsy-ai-row-name", row), `whimsy-ai-name-${provider}`);
+        if (connection) {
+          const dot = html("span", "whimsy-ai-dot", row);
+          dot.setAttribute("role", "img");
+          setL10n(dot, "whimsy-ai-account-connected");
+        }
+        const detail = html("span", "whimsy-ai-detail", row);
+        const [id, args] = detailFor(provider, connection);
+        setL10n(detail, id, args);
+        if (connection?.signedOut) {
+          detail.dataset.state = "action";
+        }
+        html("span", "whimsy-ai-spacer", row);
+        if (connection?.method == "plan" && WhimsyAIProviders.canManageUsage(provider)) {
+          const manage = document.createXULElement("button");
+          setL10n(manage, "whimsy-ai-manage-usage-button");
+          manage.addEventListener("command", () => WhimsyAIProviders.manageUsage(browserWindow(), provider));
+          row.append(manage);
+        }
+        const button = document.createXULElement("button");
+        button.dataset.action = connection ? "disconnect" : "connect";
+        setL10n(button, connection ? "whimsy-ai-disconnect-button" : "whimsy-ai-connect-row", { provider: nameOf(provider) });
+        button.addEventListener("command", () =>
+          connection ? openConfirm(provider, connection) : openSheet(provider)
+        );
+        row.append(button);
+      }
+      if (focusAfter) {
+        accounts.querySelector(`[data-provider="${focusAfter}"] button[data-action]`)?.focus();
+        focusAfter = null;
+      }
+    };
+
+    const renderUse = () => {
+      const provider = WhimsyAIProviders.provider;
+      const list = connectedList();
+      const use = $("whimsyAIUse");
+      const value = $("whimsyAIUseValue");
+      use.disabled = !list.length;
+      if (list.length) {
+        setL10n(value, `whimsy-ai-name-${provider}`);
+      } else {
+        setL10n(value, "whimsy-ai-use-none");
+      }
+      const label = $("whimsyAIPlanLabel");
+      const planProvider = connections[provider]?.method == "plan" ? WhimsyAIProviders.planInUse : null;
+      label.hidden = !list.length || (!planProvider && !!connections[provider]);
+      if (planProvider) {
+        setL10n(label, "whimsy-ai-plan-using", { provider: nameOf(planProvider) });
+        label.removeAttribute("data-state");
+      } else if (list.length && !connections[provider]) {
+        setL10n(label, "whimsy-ai-use-notconnected");
+        label.dataset.state = "action";
+      }
+      $("whimsyAIManageUsage").hidden = !(planProvider && WhimsyAIProviders.canManageUsage(planProvider));
+
+      const modelRow = $("whimsyAIModelRow");
+      modelRow.hidden = !connections[provider] || provider == "apple" || provider == "test";
+      if (!modelRow.hidden) {
+        const model = WhimsyAIProviders.modelOf(provider);
+        if (model) {
+          setPlain($("whimsyAIModelValue"), model);
+        } else {
+          setL10n($("whimsyAIModelValue"), "whimsy-ai-model-default");
+        }
+      }
+      $("whimsyAIPlanFallback").hidden = !WhimsyAIProviders.anyPlanAvailable();
+    };
+
+    const refresh = async () => {
+      const token = ++refreshes;
+      const next = {};
+      const nextHints = {};
+      for (const provider of ACCOUNT_ORDER) {
+        next[provider] = await WhimsyAIProviders.connection(provider);
+        if (next[provider]?.method == "key") {
+          nextHints[provider] = await WhimsyAIProviders.keyHint(provider);
+        }
+      }
+      if (token != refreshes) {
+        return;
+      }
+      for (const provider of ACCOUNT_ORDER) {
+        connections[provider] = next[provider];
+        hints[provider] = nextHints[provider] ?? "";
+      }
+      renderAccounts();
+      renderUse();
+      this.applyAIEnabled();
+    };
+
+    // ---- Use for AI and the model ----
+    const openUse = () => {
+      const use = $("whimsyAIUse");
+      if (use.disabled) {
+        return;
+      }
+      const popup = openPicker(use, {
+        label: use.getAttribute("aria-label") ?? "",
+        selected: WhimsyAIProviders.provider,
+        onPick: provider => Services.prefs.setStringPref("whimsy.ai.provider", provider),
+      });
+      popup.setItems(
+        connectedList().map(provider => ({
+          value: provider,
+          labelId: `whimsy-ai-name-${provider}`,
+          detailId: methodDetailId(connections[provider].method),
+        }))
+      );
+    };
+    const openModels = async () => {
+      const provider = WhimsyAIProviders.provider;
+      const current = WhimsyAIProviders.modelOf(provider);
+      const popup = openPicker($("whimsyAIModel"), {
+        selected: current,
+        onPick: model => {
+          WhimsyAIProviders.setModel(provider, model);
+          renderUse();
+        },
+      });
+      popup.setMessage("whimsy-ai-model-loading");
+      let models = [];
+      try {
+        models = await WhimsyAIProviders.models(provider);
+      } catch (e) {
+        console.error("Whimsy AI: listing models", e);
+      }
+      if (!picker || picker.anchor != $("whimsyAIModel")) {
+        return;
+      }
+      const all = [...new Set([...(current ? [current] : []), ...models])];
+      if (all.length) {
+        popup.setItems(all.map(model => ({ value: model, label: model })));
+      } else {
+        popup.setMessage("whimsy-ai-model-error");
+      }
+    };
+    $("whimsyAIUse").addEventListener("click", () => (picker?.anchor == $("whimsyAIUse") ? closePicker() : openUse()));
+    $("whimsyAIModel").addEventListener("click", () =>
+      picker?.anchor == $("whimsyAIModel") ? closePicker() : openModels()
+    );
+    for (const id of ["whimsyAIUse", "whimsyAIModel"]) {
+      $(id).addEventListener("keydown", event => {
+        if (event.key == "ArrowDown" && !picker) {
+          event.preventDefault();
+          event.target.click();
+        }
+      });
+    }
+    $("whimsyAIManageUsage").addEventListener("command", () => WhimsyAIProviders.manageUsage(browserWindow()));
+    this.initPrefToggle("whimsyAIPlanFallback", PLAN_FALLBACK_PREF, false);
+
+    // ---- Sheets: connecting, disconnecting ----
+    let modal = null;
+    const showModal = (el, close, restore) => {
+      modal = { el, close, restore };
+      el.hidden = false;
+    };
+    const hideModal = () => {
+      if (!modal) {
+        return;
+      }
+      const { el, restore } = modal;
+      modal = null;
+      el.hidden = true;
+      restore?.();
+    };
+    const focusables = root =>
+      [...root.querySelectorAll("input, button, [role='radio']")].filter(
+        el => !el.disabled && el.getAttribute("aria-disabled") != "true" && !el.closest("[hidden]") && el.checkVisibility()
+      );
+    document.addEventListener(
+      "keydown",
+      event => {
+        if (!modal) {
+          return;
+        }
+        if (event.key == "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          modal.close();
+        } else if (event.key == "Tab") {
+          const list = focusables(modal.el);
+          if (!list.length) {
+            return;
+          }
+          const at = list.indexOf(document.activeElement);
+          const next = event.shiftKey ? (at <= 0 ? list.length - 1 : at - 1) : at == list.length - 1 ? 0 : at + 1;
+          event.preventDefault();
+          list[next].focus();
+        }
+      },
+      true
+    );
+    for (const id of ["whimsyAISheet", "whimsyAIConfirm"]) {
+      $(id).addEventListener("pointerdown", event => {
+        if (event.target == $(id)) {
+          modal?.close();
+        }
+      });
+    }
+
+    const sheet = { provider: null, method: null };
+    const closeSheet = () => {
+      hideModal();
+      sheet.provider = null;
+    };
+    const restoreFocus = provider => () => {
+      const button = accounts.querySelector(`[data-provider="${provider}"] button[data-action]`);
+      if (button) {
+        button.focus();
+      }
+      focusAfter = provider;
+      refresh();
     };
 
     // Apple: connecting builds a small helper once (a minute or so), so it
@@ -1499,8 +1920,14 @@ Object.assign(gWhimsySettings, {
       if (openSettings) {
         openSettings.hidden = status != "apple-intelligence-off";
       }
+      return status;
     };
-    appleButton?.addEventListener("command", () => checkApple({ build: true }));
+    appleButton?.addEventListener("command", async () => {
+      const status = await checkApple({ build: true });
+      if (status == "available") {
+        closeSheet();
+      }
+    });
     openSettings?.addEventListener("command", () => {
       try {
         Cc["@mozilla.org/uriloader/external-protocol-service;1"]
@@ -1514,120 +1941,259 @@ Object.assign(gWhimsySettings, {
       }
     });
 
-    // Claude: the key field stays empty; the status says whether one is saved.
-    const keyInput = document.getElementById("whimsyAIClaudeKey");
-    const showKeyStatus = async () => {
-      const saved = await WhimsyAIProviders.hasClaudeKey();
-      setStatus("whimsyAIClaudeStatus", saved ? "whimsy-ai-claude-key-saved" : "whimsy-ai-claude-key-missing", undefined, saved);
-      const remove = document.getElementById("whimsyAIClaudeRemove");
-      if (this.aiModule.enabled && !this.aiModule.lockedOff) {
-        remove.disabled = !saved;
+    const setMethod = method => {
+      sheet.method = method;
+      const provider = sheet.provider;
+      for (const radio of $("whimsyAISheetMethods").querySelectorAll('[role="radio"]')) {
+        radio.setAttribute("aria-checked", String(radio.dataset.method == method));
+        radio.tabIndex = radio.dataset.method == method ? 0 : -1;
+      }
+      $("whimsyAIKeyPanel").hidden = method != "key";
+      $("whimsyAIPlanPanel").hidden = method != "plan";
+      $("whimsyAIApplePanel").hidden = provider != "apple";
+      $("whimsyAIOllamaPanel").hidden = provider != "ollama";
+      clearStatus("whimsyAISheetStatus");
+      if (method == "key") {
+        setL10n($("whimsyAIKeyNote"), `whimsy-ai-key-note-${provider}`);
+      } else if (method == "plan") {
+        const button = $("whimsyAIPlanConnect");
+        setL10n(button, `whimsy-ai-plan-button-${provider}`);
+        button.disabled = !WhimsyAIProviders.planAvailable(provider);
       }
     };
-    document.getElementById("whimsyAIClaudeSave")?.addEventListener("command", async () => {
-      if (!keyInput.value.trim()) {
-        return;
-      }
-      try {
-        await WhimsyAIProviders.setClaudeKey(keyInput.value);
-        keyInput.value = "";
-      } catch (error) {
-        console.error("Whimsy: saving the Claude API key failed", error);
-        setStatus("whimsyAIClaudeStatus", "whimsy-ai-claude-key-error", undefined, false);
-        return;
-      }
-      showKeyStatus();
-    });
-    keyInput?.addEventListener("keydown", event => {
-      if (event.key == "Enter") {
-        document.getElementById("whimsyAIClaudeSave")?.doCommand?.();
-      }
-    });
-    document.getElementById("whimsyAIClaudeRemove")?.addEventListener("command", async () => {
-      await WhimsyAIProviders.setClaudeKey("");
-      showKeyStatus();
-    });
-
-    // Ollama: the server address and one of its models.
-    const endpoint = document.getElementById("whimsyAIOllamaEndpoint");
-    const modelList = document.getElementById("whimsyAIOllamaModel");
-    endpoint.value = Services.prefs.getStringPref("whimsy.ai.ollama.endpoint", "");
-    endpoint.addEventListener("change", () => {
-      Services.prefs.setStringPref("whimsy.ai.ollama.endpoint", endpoint.value.trim());
-      loadOllamaModels();
-    });
-    modelList.addEventListener("command", () => {
-      Services.prefs.setStringPref("whimsy.ai.ollama.model", modelList.value || "");
-    });
-    const loadOllamaModels = async () => {
-      const current = Services.prefs.getStringPref("whimsy.ai.ollama.model", "");
-      modelList.removeAllItems();
-      let models = [];
-      try {
-        models = await WhimsyAIProviders.ollamaModels();
-      } catch {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline", undefined, false);
-      }
-      for (const name of new Set([...models, ...(current ? [current] : [])])) {
-        modelList.appendItem(name, name);
-      }
-      if (this.aiModule.enabled && !this.aiModule.lockedOff) {
-        modelList.disabled = !modelList.itemCount;
-      }
-      if (current) {
-        modelList.value = current;
-      } else if (models.length) {
-        modelList.selectedIndex = 0;
-        Services.prefs.setStringPref("whimsy.ai.ollama.model", models[0]);
-      }
-      if (models.length) {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-ready", { count: models.length }, true);
-      } else if (!modelList.disabled || !current) {
-        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline", undefined, false);
-      }
-    };
-    document.getElementById("whimsyAIOllamaRefresh")?.addEventListener("command", () => loadOllamaModels());
-
-    // The three cards are one radio group: the arrow keys move between them
-    // (and keep the keyboard there); a click also takes it to the chosen
-    // provider's first control.
-    let pointer = false;
-    group.addEventListener("pointerdown", () => (pointer = true));
-    for (const radio of radios) {
-      radio.addEventListener("change", () => {
-        if (!radio.checked) {
-          return;
+    const openSheet = async provider => {
+      closePicker({ restore: false });
+      sheet.provider = provider;
+      const [letter, color] = TILES[provider];
+      const tile = $("whimsyAISheetTile");
+      tile.textContent = letter;
+      tile.style.setProperty("--tile-color", color);
+      setL10n($("whimsyAISheetTitle"), "whimsy-ai-sheet-title", { provider: nameOf(provider) });
+      const methods = $("whimsyAISheetMethods");
+      methods.replaceChildren();
+      const note = $("whimsyAISheetNote");
+      note.hidden = true;
+      $("whimsyAIKey").value = "";
+      $("whimsyAIKeyConnect").disabled = false;
+      let first;
+      if (PLAN_PROVIDERS.includes(provider)) {
+        const available = WhimsyAIProviders.planAvailable(provider);
+        for (const method of ["plan", "key"]) {
+          const radio = html("button", "whimsy-ai-method", methods);
+          radio.type = "button";
+          radio.setAttribute("role", "radio");
+          radio.dataset.method = method;
+          const disabled = method == "plan" && !available;
+          if (disabled) {
+            radio.setAttribute("aria-disabled", "true");
+          }
+          setL10n(html("b", "", radio), method == "plan" ? `whimsy-ai-method-plan-${provider}` : "whimsy-ai-method-key");
+          setL10n(
+            html("span", "whimsy-ai-method-desc", radio),
+            disabled ? "whimsy-ai-plan-unavailable" : method == "plan" ? `whimsy-ai-method-plan-${provider}-desc` : `whimsy-ai-method-key-desc-${provider}`
+          );
+          radio.addEventListener("click", () => !disabled && setMethod(method));
+          radio.addEventListener("keydown", event => {
+            if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key) && available) {
+              event.preventDefault();
+              const other = sheet.method == "plan" ? "key" : "plan";
+              setMethod(other);
+              methods.querySelector(`[data-method="${other}"]`).focus();
+            }
+          });
         }
-        Services.prefs.setStringPref("whimsy.ai.provider", radio.value);
-        if (pointer) {
-          // After the provider's rows show.
-          window.requestAnimationFrame(() => firstControl[radio.value]?.()?.focus());
-        }
-        pointer = false;
-      });
-    }
-    const showRows = () => {
-      const provider = WhimsyAIProviders.provider;
-      for (const radio of radios) {
-        radio.checked = radio.value == provider;
-        radio.closest(".whimsy-ai-provider")?.toggleAttribute("data-selected", radio.checked);
+        methods.hidden = false;
+        first = available ? "plan" : "key";
+      } else if (provider == "gemini") {
+        methods.hidden = true;
+        first = "key";
+      } else {
+        methods.hidden = true;
+        first = provider;
+        setL10n(note, `whimsy-ai-note-${provider}`);
+        note.hidden = false;
       }
-      for (const [id, row] of Object.entries(rows)) {
-        row.hidden = id != provider;
-      }
+      setMethod(first);
+      showModal($("whimsyAISheet"), closeSheet, restoreFocus(provider));
       if (provider == "apple") {
         checkApple({ build: false });
-      } else if (provider == "claude") {
-        showKeyStatus();
       } else if (provider == "ollama") {
-        loadOllamaModels();
+        $("whimsyAIOllamaEndpoint").value = Services.prefs.getStringPref("whimsy.ai.ollama.endpoint", "");
+        clearStatus("whimsyAIOllamaStatus");
+      }
+      const target =
+        first == "key" ? $("whimsyAIKey")
+        : first == "plan" ? $("whimsyAIPlanConnect")
+        : provider == "apple" ? $("whimsyAIAppleCheck")
+        : $("whimsyAIOllamaEndpoint");
+      (target.disabled ? methods.querySelector('[aria-checked="true"]') : target)?.focus();
+    };
+    $("whimsyAISheetClose").addEventListener("click", closeSheet);
+
+    const connectKey = async () => {
+      const provider = sheet.provider;
+      const input = $("whimsyAIKey");
+      if (!input.value.trim()) {
+        setStatus("whimsyAISheetStatus", "whimsy-ai-connect-error-no-key", undefined, false);
+        input.focus();
+        return;
+      }
+      const button = $("whimsyAIKeyConnect");
+      button.disabled = true;
+      setStatus("whimsyAISheetStatus", "whimsy-ai-connecting");
+      try {
+        await WhimsyAIProviders.connectKey(provider, input.value);
+        input.value = "";
+        if (sheet.provider == provider) {
+          closeSheet();
+        }
+      } catch (error) {
+        const code = ["no-key", "bad-key", "network"].includes(error?.code) ? error.code : "failed";
+        if (code == "failed") {
+          console.error(`Whimsy AI: connecting ${provider}`, error);
+        }
+        setStatus("whimsyAISheetStatus", `whimsy-ai-connect-error-${code}`, { provider: nameOf(provider) }, false);
+        input.focus();
+      } finally {
+        button.disabled = false;
       }
     };
-    Services.prefs.addObserver("whimsy.ai.provider", showRows);
-    window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.ai.provider", showRows), {
-      once: true,
+    $("whimsyAIKeyConnect").addEventListener("command", connectKey);
+    $("whimsyAIKey").addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        connectKey();
+      }
     });
-    showRows();
+    $("whimsyAIPlanConnect").addEventListener("command", async () => {
+      const provider = sheet.provider;
+      const button = $("whimsyAIPlanConnect");
+      button.disabled = true;
+      setStatus("whimsyAISheetStatus", "whimsy-ai-connecting");
+      try {
+        await WhimsyAIProviders.connectPlan(browserWindow(), provider);
+        if (sheet.provider == provider) {
+          closeSheet();
+        }
+      } catch (error) {
+        console.error(`Whimsy AI: connecting the ${provider} plan`, error);
+        setStatus("whimsyAISheetStatus", "whimsy-ai-connect-error-failed", { provider: nameOf(provider) }, false);
+      } finally {
+        button.disabled = !WhimsyAIProviders.planAvailable(provider);
+      }
+    });
+    const connectOllama = async () => {
+      const button = $("whimsyAIOllamaConnect");
+      button.disabled = true;
+      setStatus("whimsyAIOllamaStatus", "whimsy-ai-connecting");
+      try {
+        await WhimsyAIProviders.connectOllama($("whimsyAIOllamaEndpoint").value);
+        closeSheet();
+      } catch {
+        setStatus("whimsyAIOllamaStatus", "whimsy-ai-ollama-status-offline", undefined, false);
+      } finally {
+        button.disabled = false;
+      }
+    };
+    $("whimsyAIOllamaConnect").addEventListener("command", connectOllama);
+    $("whimsyAIOllamaEndpoint").addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        connectOllama();
+      }
+    });
+
+    // Disconnect: what it does, then one click. For a plan this also revokes
+    // its token (the plan's own sign-in does that).
+    const openConfirm = async (provider, connection) => {
+      closePicker({ restore: false });
+      const name = nameOf(provider);
+      setL10n($("whimsyAIConfirmTitle"), "whimsy-ai-confirm-title", { provider: name });
+      const kind = connection.method == "plan" ? `plan-${provider}` : connection.method == "key" ? "key" : provider;
+      const parts = [await document.l10n.formatValue(`whimsy-ai-confirm-${kind}`)];
+      if (WhimsyAIProviders.provider == provider) {
+        parts.push(await document.l10n.formatValue("whimsy-ai-confirm-in-use"));
+      }
+      $("whimsyAIConfirmText").textContent = parts.join(" ");
+      const confirm = $("whimsyAIConfirmDisconnect");
+      confirm.disabled = false;
+      showModal($("whimsyAIConfirm"), hideModal, restoreFocus(provider));
+      $("whimsyAIConfirmCancel").focus();
+      confirm.onclick = async () => {
+        confirm.disabled = true;
+        try {
+          await WhimsyAIProviders.disconnect(provider);
+        } catch (error) {
+          console.error(`Whimsy AI: disconnecting ${provider}`, error);
+        }
+        hideModal();
+      };
+    };
+    $("whimsyAIConfirmCancel").addEventListener("command", () => hideModal());
+
+    // ---- From the command bar: Connect AI Provider, Use for AI ----
+    const handleAction = async action => {
+      await firstRefresh;
+      if (action == "use" && !$("whimsyAIUse").disabled) {
+        $("whimsyAIUse").scrollIntoView({ block: "center" });
+        openUse();
+        return;
+      }
+      if (action != "connect" && action != "use") {
+        return;
+      }
+      const heading = $("whimsyAIAccountsHeading");
+      heading.scrollIntoView({ block: "start" });
+      const missing = ACCOUNT_ORDER.filter(provider => !connections[provider]);
+      if (!missing.length) {
+        accounts.querySelector("button[data-action]")?.focus();
+        return;
+      }
+      const popup = openPicker(heading, { selected: "", onPick: provider => openSheet(provider) });
+      popup.setItems(
+        missing.map(provider => ({
+          value: provider,
+          labelId: `whimsy-ai-name-${provider}`,
+          detailId: detailFor(provider, null)[0],
+        }))
+      );
+    };
+    const settingsAction = {
+      observe: (subject, topic, data) => {
+        const action = WhimsyAIProviders.takeSettingsAction() || data;
+        handleAction(action);
+      },
+    };
+    const changed = { observe: () => refresh() };
+    Services.obs.addObserver(settingsAction, "whimsy-ai-settings-action");
+    Services.obs.addObserver(changed, "whimsy-ai-accounts-changed");
+    const watched = [
+      "whimsy.ai.provider",
+      "whimsy.ai.openai.model",
+      "whimsy.ai.gemini.model",
+      "whimsy.ai.claude.model",
+      "whimsy.ai.ollama.model",
+      "whimsy.feature.ai-openai-plan",
+      "whimsy.feature.ai-claude-plan",
+    ];
+    const prefChanged = () => refresh();
+    for (const pref of watched) {
+      Services.prefs.addObserver(pref, prefChanged);
+    }
+    window.addEventListener(
+      "unload",
+      () => {
+        Services.obs.removeObserver(settingsAction, "whimsy-ai-settings-action");
+        Services.obs.removeObserver(changed, "whimsy-ai-accounts-changed");
+        for (const pref of watched) {
+          Services.prefs.removeObserver(pref, prefChanged);
+        }
+      },
+      { once: true }
+    );
+    const firstRefresh = refresh();
+    const pending = WhimsyAIProviders.takeSettingsAction();
+    if (pending) {
+      handleAction(pending);
+    }
   },
 
   // The features: each Whimsy AI feature's own switch, the page watches,

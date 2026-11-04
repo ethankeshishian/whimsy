@@ -282,6 +282,11 @@ export const WhimsyAIProviders = {
     return this._usesPlan(provider) ? provider : null;
   },
 
+  // Whether a plan has a usage page of its own to open.
+  canManageUsage(provider) {
+    return !!this._plans[provider]?.manageUsage;
+  },
+
   // Opens Settings → AI; a plan's own usage page when it has one.
   manageUsage(win, provider = this.planInUse) {
     const plan = provider && this._plans[provider];
@@ -361,14 +366,13 @@ export const WhimsyAIProviders = {
     if (!value) {
       throw new WhimsyAIError("no-key");
     }
+    const previous = await this.getKey(provider);
     await this.setKey(provider, value);
     let models;
     try {
       models = await this.listModels(provider);
     } catch (error) {
-      if (error?.code == "bad-key") {
-        await this.setKey(provider, "");
-      }
+      await this.setKey(provider, previous);
       throw error;
     }
     if (PLAN_PROVIDERS.includes(provider)) {

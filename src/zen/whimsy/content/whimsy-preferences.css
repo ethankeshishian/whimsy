@@ -887,62 +887,6 @@ mark.whimsy-search-mark {
   }
 }
 
-.whimsy-ai-providers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 12px 14px;
-}
-
-.whimsy-ai-provider {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 6px;
-  row-gap: 2px;
-  align-items: center;
-  padding: 9px 10px;
-  border: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
-  border-radius: 8px;
-  cursor: default;
-  transition: background-color 100ms cubic-bezier(0.2, 0, 0, 1), border-color 100ms cubic-bezier(0.2, 0, 0, 1);
-
-  & > input {
-    margin: 0;
-    accent-color: var(--zen-primary-color, AccentColor);
-  }
-
-  &:hover {
-    background: color-mix(in srgb, currentColor 4%, transparent);
-  }
-
-  &[data-selected] {
-    border-color: var(--zen-primary-color, AccentColor);
-    box-shadow: inset 0 0 0 1px var(--zen-primary-color, AccentColor);
-    background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 6%, transparent);
-  }
-
-  &:has(input:focus-visible) {
-    outline: 2px solid var(--focus-outline-color, AccentColor);
-    outline-offset: 1px;
-  }
-}
-
-.whimsy-ai-provider-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.whimsy-ai-provider-sub {
-  grid-column: 2;
-  font-size: 11.5px;
-  color: color-mix(in srgb, currentColor 68%, transparent);
-}
-
-.whimsy-ai-provider-description {
-  margin: -4px 14px 10px;
-  font-size: 12px;
-}
-
 .whimsy-ai-fields {
   display: grid;
   grid-template-columns: 110px minmax(0, 1fr);
@@ -1019,22 +963,321 @@ mark.whimsy-search-mark {
   cursor: default;
 }
 
+.whimsy-ai-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  min-width: 0;
+
+  & + .whimsy-ai-row {
+    border-top: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  }
+
+  &[hidden],
+  & [hidden] {
+    display: none;
+  }
+}
+
+.whimsy-ai-row-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.whimsy-ai-spacer {
+  flex: 1;
+}
+
+.whimsy-ai-detail,
+.whimsy-ai-plan-label {
+  font-size: 12px;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+
+  &[data-state="action"] {
+    color: light-dark(#a35f00, #f0a43a);
+  }
+}
+
+.whimsy-ai-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  min-width: 0;
+
+  & + .whimsy-ai-account {
+    border-top: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  }
+
+  & button {
+    margin: 0;
+  }
+}
+
+.whimsy-ai-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--tile-color, #5f5b70);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.whimsy-ai-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: light-dark(#1f9d55, #4ccf86);
+}
+
+.whimsy-ai-picker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 180px;
+  max-width: 280px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 22%, transparent));
+  border-radius: 6px;
+  background: var(--button-background-color, color-mix(in srgb, currentColor 6%, transparent));
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: default;
+
+  &::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-inline-end: 1.5px solid currentColor;
+    border-block-end: 1.5px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    opacity: 0.7;
+  }
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+
+.whimsy-ai-picker-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-ai-popup {
+  position: fixed;
+  z-index: 1000;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 10px;
+  background: light-dark(#fff, #2b2a33);
+  color: light-dark(#15141a, #fbfbfe);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.22);
+  font-size: 13px;
+}
+
+.whimsy-ai-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: default;
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    outline: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+}
+
+.whimsy-ai-check {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  font-size: 12px;
+  line-height: 12px;
+}
+
+.whimsy-ai-option[aria-selected="true"] > .whimsy-ai-check::before {
+  content: "✓";
+}
+
+.whimsy-ai-option-name {
+  flex: 1;
+}
+
+.whimsy-ai-option-detail,
+.whimsy-ai-popup-message {
+  font-size: 12px;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+}
+
+.whimsy-ai-popup-message {
+  padding: 8px 10px;
+}
+
+.whimsy-ai-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.38);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-ai-sheet,
+.whimsy-ai-confirm {
+  width: min(440px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 12px;
+  background: light-dark(#fff, #2b2a33);
+  color: light-dark(#15141a, #fbfbfe);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
+}
+
+.whimsy-ai-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-block-end: 12px;
+
+  & h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 15px;
+  }
+}
+
+.whimsy-ai-x {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+  }
+}
+
+.whimsy-ai-methods {
+  display: grid;
+  gap: 6px;
+  margin-block-end: 12px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-ai-method {
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+
+  &[aria-checked="true"] {
+    border-color: var(--zen-primary-color, AccentColor);
+    box-shadow: inset 0 0 0 1px var(--zen-primary-color, AccentColor);
+  }
+
+  &[aria-disabled="true"] {
+    opacity: 0.55;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+
+.whimsy-ai-method-desc,
+.whimsy-ai-note {
+  font-size: 12px;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+}
+
+.whimsy-ai-panel,
+.whimsy-ai-confirm {
+  & [hidden],
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-ai-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.whimsy-ai-actions {
+  display: flex;
+  gap: 8px;
+  margin-block-start: 12px;
+}
+
+.whimsy-ai-actions-end {
+  justify-content: flex-end;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .whimsy-ai-provider {
+  .whimsy-ai-picker {
     transition: none;
   }
 }
 
 @media (prefers-contrast: more) {
   .whimsy-ai-card,
-  .whimsy-ai-provider {
+  .whimsy-ai-sheet,
+  .whimsy-ai-popup,
+  .whimsy-ai-method,
+  .whimsy-ai-picker {
     border-color: currentColor;
-  }
-}
-
-@media (max-width: 760px) {
-  .whimsy-ai-providers {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 

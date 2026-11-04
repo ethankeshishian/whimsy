@@ -636,7 +636,7 @@ add_task(async function w10_settings_ai() {
       const doc = browser.contentDocument;
       const header = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAICategory"));
       await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIEnable")?.checkVisibility(), "The AI pane shows");
-      await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIClaudeStatus").textContent, "Claude's status");
+      await TestUtils.waitForCondition(() => doc.querySelector("#whimsyAIAccounts [data-provider=claude] .whimsy-ai-detail")?.textContent, "Claude's row");
       await doc.l10n.translateFragment(doc.getElementById("mainPrefPane"));
       header.scrollIntoView({ block: "start" });
       await settled(doc);

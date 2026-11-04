@@ -117,7 +117,7 @@ add_task(async function test_settings_pane() {
     await TestUtils.waitForCondition(() => toggle.checkVisibility(), "Enable AI shows");
     ok(toggle.pressed, "Enable AI is on");
     ok(!doc.getElementById("whimsyBlockAI"), "The old Privacy switch is gone");
-    ok(!doc.querySelector('#mainPrefPane [data-category="panePrivacy"] #whimsyAIProvider'), "No AI controls left in Privacy");
+    ok(!doc.querySelector('#mainPrefPane [data-category="panePrivacy"] #whimsyAIUse'), "No AI controls left in Privacy");
     const rest = [...doc.querySelectorAll('[data-category="paneWhimsyAI"].whimsy-ai-rest')];
     ok(rest.length >= 2, "Provider and Features sit under it");
     const note = doc.getElementById("whimsyAIOffNote");
