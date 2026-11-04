@@ -699,7 +699,16 @@ export const WhimsyCallPip = {
         state.seen[kind] = true;
       }
     }
+    if (data && "app" in data) {
+      const app = typeof data.app == "string" ? data.app.replace(/\s+/g, " ").trim().slice(0, 40) : "";
+      state.app = app || null;
+    }
     this.render(browser);
+  },
+
+  // W14-6: the call app's name from its page (Meet, Zoom, Teams...), or null.
+  appName(browser) {
+    return this._states.get(browser)?.app ?? null;
   },
 
   isBlocked(browser, kind) {
@@ -745,7 +754,7 @@ export const WhimsyCallPip = {
   displayState(browser, kind) {
     const state = this.stateFor(browser);
     const value = this.shownState(browser, kind);
-    const useDevice = this.buttonsDefault == "device" || value == null;
+    const useDevice = this.pressDoes(browser, kind) == "device";
     const off = useDevice ? state.blocked[kind] : value == "off";
     let badge = null;
     if (!useDevice && state.blocked[kind]) {
@@ -810,8 +819,23 @@ export const WhimsyCallPip = {
   // picks, or the device mute regardless of the pref when no in-call
   // control was ever found (there's nothing else to toggle: never a no-op).
   toggleDefault(browser, kind) {
-    const useDevice = this.buttonsDefault == "device" || this.shownState(browser, kind) == null;
-    return useDevice ? this.toggleBlocked(browser, kind) : this.toggleInCall(browser, kind);
+    return this.pressDoes(browser, kind) == "device" ? this.toggleBlocked(browser, kind) : this.toggleInCall(browser, kind);
+  },
+
+  // What a plain press of the mic/camera button does here: "call" or
+  // "device" (W14-6: the panel's "Mic button"/"Camera button" hint).
+  pressDoes(browser, kind) {
+    return this.buttonsDefault == "device" || this.shownState(browser, kind) == null ? "device" : "call";
+  },
+
+  // W14-6c: Zen lets go of the device mute itself (its card's close button,
+  // and a sharing card made again); the block is off from then on.
+  deviceReleased(browser) {
+    const state = this._states.get(browser);
+    if (state && KINDS.some(kind => state.blocked[kind])) {
+      state.blocked = { mic: false, camera: false };
+      this.render(browser);
+    }
   },
 
   // W21: Option-click (or the panel's/command's explicit "other" action) —
@@ -827,6 +851,7 @@ export const WhimsyCallPip = {
 
   // Every surface showing this call, from the same state.
   render(browser) {
+    lazy.WhimsyCallOptionsPanel.refresh(browser);
     for (const pipWin of this.pipWindowsFor(browser)) {
       this.renderPip(pipWin, browser);
     }
@@ -867,7 +892,7 @@ export const WhimsyCallPip = {
         delete button.dataset.badge;
       }
       button.setAttribute("aria-busy", String(d.busy));
-      const useDevice = this.buttonsDefault == "device" || !d.inCallAvailable;
+      const useDevice = this.pressDoes(browser, kind) == "device";
       const l10n = useDevice ? PIP_BLOCK_L10N[kind] : PIP_L10N[kind];
       doc.l10n.setAttributes(button, d.off ? l10n.off : l10n.on, { shortcut: ACCEL + SHORTCUT_KEY[kind] });
     }
@@ -899,7 +924,7 @@ export const WhimsyCallPip = {
       } else {
         button.removeAttribute("whimsy-call-badge");
       }
-      const useDevice = this.buttonsDefault == "device" || !d.inCallAvailable;
+      const useDevice = this.pressDoes(browser, kind) == "device";
       const l10n = useDevice ? BLOCK_L10N[kind] : L10N[kind];
       card.ownerDocument.l10n.setAttributes(button, d.off ? l10n.off : l10n.on);
     }
@@ -919,6 +944,8 @@ export const WhimsyCallPip = {
     const original = controller.activateMediaDeviceControls;
     const self = this;
     controller.activateMediaDeviceControls = function (browser) {
+      // Zen calls this right after unmuting the devices (updateMediaSharing).
+      self.deviceReleased(browser);
       const before = new Set(bar.querySelectorAll(".zen-media-card"));
       const result = original.call(this, browser);
       for (const card of bar.querySelectorAll(".zen-media-card[media-sharing]")) {
@@ -961,6 +988,13 @@ export const WhimsyCallPip = {
         this.toggleOther(browser, kind);
       } else {
         this.toggleDefault(browser, kind);
+      }
+    }, true);
+    // Zen's close button on a sharing card unmutes both devices.
+    bar.addEventListener("command", event => {
+      const card = event.target?.closest?.(".zen-media-close-button")?.closest(".zen-media-card");
+      if (card?._whimsyCallBrowser) {
+        this.deviceReleased(card._whimsyCallBrowser);
       }
     }, true);
     // Right-click and Ctrl-click (macOS's secondary click) on the call

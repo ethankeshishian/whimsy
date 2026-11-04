@@ -399,9 +399,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
 
   // Sends the state when it differs from the last one sent.
   reportCallControls() {
-    const state = lazy.WhimsyCallControls.readState(this.document);
+    const state = { ...lazy.WhimsyCallControls.readState(this.document), app: lazy.WhimsyCallControls.appName(this.document) };
     const last = this._callState;
-    if (!last || last.mic != state.mic || last.camera != state.camera) {
+    if (!last || last.mic != state.mic || last.camera != state.camera || last.app != state.app) {
       this._callState = state;
       this.callLog("state", state);
       try {

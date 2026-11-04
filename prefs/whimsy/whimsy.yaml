@@ -730,3 +730,9 @@
 # who took the paste, the channel), for hand checks.
 - name: whimsy.uploadClipboard.log
   value: false
+
+# W21/W14-6: what a plain press of a call's mic/camera button does: "call"
+# (the page's own mute: Meet's, or another call site's) or "device" (block
+# this device). Call Options' "Buttons mute" choice.
+- name: whimsy.call.buttons-default
+  value: "call"

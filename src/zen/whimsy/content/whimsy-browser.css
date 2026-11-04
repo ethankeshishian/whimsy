@@ -7801,28 +7801,46 @@ zen-workspace[whimsy-space-covered] :is(.zen-workspace-pinned-tabs-section, .zen
   background: color-mix(in srgb, currentColor 18%, transparent);
 }
 
-/* W21: the Call Options panel's checkable rows (all four mutes) — a leading
-   check mark, shown only while that mute is on, and a dimmed row with its
-   "not available" detail line when a call page has no recognised controls
-   for the in-call mute. */
+/* W14-6: the Call Options panel (design/call-options, option A): the
+   Buttons mute choice full width, a switch row per mute with its device
+   icon, a "Mic button"/"Camera button" hint in the accent colour on the
+   mute a plain press does, and an amber line while the page's own mute
+   isn't found (its row dims). */
 .whimsy-call-options-panel .whimsy-surface-row {
-  padding-inline-start: 4px;
+  padding-inline-start: 6px;
 }
-.whimsy-call-options-check {
+.whimsy-call-options-icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
   -moz-context-properties: fill;
   fill: currentColor;
-  opacity: 0;
+  opacity: 0.7;
 }
-.whimsy-call-options-check[whimsy-call-options-checked] {
-  opacity: 1;
+.whimsy-call-options-panel .whimsy-surface-row[whimsy-call-options-hinted] .whimsy-surface-row-detail {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 80%, currentColor);
 }
-.whimsy-call-options-shortcut {
-  flex-shrink: 0;
-}
-.whimsy-call-options-panel .whimsy-surface-row-dim {
+.whimsy-call-options-dim :is(.whimsy-surface-row-label, .whimsy-call-options-icon, .whimsy-surface-switch) {
   opacity: 0.5;
-  pointer-events: none;
+}
+.whimsy-call-options-fallback {
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  background: color-mix(in srgb, light-dark(rgb(217, 138, 0), rgb(240, 177, 60)) 14%, transparent);
+
+  &[hidden] {
+    display: none;
+  }
+  & > image {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    -moz-context-properties: fill;
+    fill: light-dark(rgb(176, 110, 0), rgb(240, 177, 60));
+  }
 }

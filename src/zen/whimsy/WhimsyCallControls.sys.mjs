@@ -203,6 +203,24 @@ export function press(win, el) {
   return "trusted";
 }
 
+// W14-6: the call app's name as the page gives it (Meet, Zoom, Teams...),
+// for "Buttons mute: <app>"; null when the page doesn't say.
+const APP_NAME_SELECTOR = [
+  'meta[name="application-name"]',
+  'meta[name="apple-mobile-web-app-title"]',
+  'meta[property="og:site_name"]',
+].join(", ");
+
+export function appName(doc) {
+  for (const meta of doc?.querySelectorAll(APP_NAME_SELECTOR) ?? []) {
+    const name = meta.getAttribute("content")?.replace(/\s+/g, " ").trim();
+    if (name) {
+      return name.slice(0, 40);
+    }
+  }
+  return null;
+}
+
 // The module's API as one object (the name WhimsyPageChild's lazy getter
 // imports).
-export const WhimsyCallControls = { KINDS, kindOf, findControls, readState, isRelevant, press };
+export const WhimsyCallControls = { KINDS, kindOf, findControls, readState, isRelevant, press, appName };

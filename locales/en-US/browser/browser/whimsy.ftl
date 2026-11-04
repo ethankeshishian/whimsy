@@ -5045,7 +5045,10 @@ whimsy-call-pip-camera-unblock =
     .aria-label = Unblock Camera
 
 ## W21: the "⋯" Call Options button (small player and PiP) and the panel it
-## opens: all four mutes, checkable, plus the Click Mutes default switch.
+## opens. W14-6: "Buttons mute: <app> | This Device" on top, then a switch
+## per mute under a fixed label. $app (string) - the call app's name from
+## its page (Meet, Zoom, Teams...); $known (string) - "yes" when the page
+## gave one, else "no".
 
 whimsy-call-options-button =
     .tooltiptext = Call Options
@@ -5053,20 +5056,37 @@ whimsy-call-options-button =
 whimsy-call-pip-options-button =
     .tooltip = Call Options
     .aria-label = Call Options
+whimsy-call-options-buttons-heading = Buttons mute
+whimsy-call-options-default-call =
+    { $known ->
+        [yes] { $app }
+       *[no] The Call
+    }
+whimsy-call-options-default-device = This Device
+whimsy-call-options-fallback =
+    { $known ->
+        [yes] { $app }'s own mute isn't on this page right now, so the buttons block this device.
+       *[no] The call's own mute isn't on this page right now, so the buttons block this device.
+    }
 whimsy-call-options-mic-heading = Microphone
 whimsy-call-options-camera-heading = Camera
-whimsy-call-options-mute-in-call = Mute in the Call
-whimsy-call-options-unmute-in-call = Unmute in the Call
-whimsy-call-options-camera-off-in-call = Turn Off Camera in the Call
-whimsy-call-options-camera-on-in-call = Turn On Camera in the Call
-whimsy-call-options-block-mic = Block Microphone on This Device
-whimsy-call-options-unblock-mic = Unblock Microphone on This Device
-whimsy-call-options-block-camera = Block Camera on This Device
-whimsy-call-options-unblock-camera = Unblock Camera on This Device
-whimsy-call-options-in-call-unavailable = This call's own mute isn't available
-whimsy-call-options-default-call = In the Call
-whimsy-call-options-default-device = On This Device
-whimsy-call-options-default-label = Click mutes
+whimsy-call-options-mic-in-call = Muted in the call
+whimsy-call-options-camera-in-call = Off in the call
+whimsy-call-options-mic-device = Blocked on this device
+whimsy-call-options-camera-device = Blocked on this device
+# Under the mute a plain press of the small player's or PiP's button does.
+whimsy-call-options-mic-hint = Mic button
+whimsy-call-options-camera-hint = Camera button
+whimsy-call-options-mic-missing =
+    { $known ->
+        [yes] { $app }'s mute button wasn't found
+       *[no] The call's mute button wasn't found
+    }
+whimsy-call-options-camera-missing =
+    { $known ->
+        [yes] { $app }'s camera button wasn't found
+       *[no] The call's camera button wasn't found
+    }
 
 ## wave13/toast: Zen's toast, extended (WhimsyZenToasts.sys.mjs)
 

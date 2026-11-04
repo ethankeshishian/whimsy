@@ -3,10 +3,10 @@
 
 "use strict";
 
-// W21: the "⋯" Call Options button (small player and PiP) and the panel it
-// opens — all four mutes as checkable rows, the Click Mutes default switch,
-// opened by its own click, by right-click on mic/camera, and by Shift+F10.
-// Design: whimsy-handoff/wave13/design/call-controls-v2 (page v3, option E1).
+// W21/W14-6: the "⋯" Call Options button (small player and PiP) and the
+// panel it opens: "Buttons mute: <app> | This Device", then a switch per
+// mute showing the real state; opened only from its own button (W14-7).
+// Design: whimsy-handoff/wave13/design/call-options (option A).
 
 const { WhimsyCallPip } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCallPip.sys.mjs");
 const { SitePermissions } = ChromeUtils.importESModule("resource:///modules/SitePermissions.sys.mjs");
@@ -169,82 +169,182 @@ add_task(async function test_secondary_clicks_on_mic_and_camera_do_nothing() {
   }
 });
 
-add_task(async function test_panel_lists_all_four_mutes_with_shortcuts_and_checks() {
-  const call = await openCall();
-  await WhimsyCallPip.toggleInCall(call.linkedBrowser, "mic"); // mic now off in-call
-  const panel = await openOptionsPanel(call);
-  try {
-    for (const row of ["mic-in-call", "mic-device", "camera-in-call", "camera-device"]) {
-      ok(panel.querySelector(`[data-row="${row}"]`), `${row} row exists`);
-    }
-    const micInCallRow = panel.querySelector('[data-row="mic-in-call"]');
-    is(micInCallRow.getAttribute("aria-checked"), "true", "mic in-call row shows checked (muted)");
-    ok(panel.querySelector(".whimsy-call-options-shortcut").textContent.includes("D"), "shortcut hint is shown");
-  } finally {
-    panel.hidePopup();
-    await WhimsyCallPip.toggleInCall(call.linkedBrowser, "mic");
-  }
-});
+function row(panel, name) {
+  return panel.querySelector(`[data-row="${name}"]`);
+}
 
-add_task(async function test_panel_has_click_mutes_switch_matching_the_pref() {
-  const call = await openCall();
-  const panel = await openOptionsPanel(call);
-  try {
-    const seg = panel.querySelector(".whimsy-surface-seg");
-    is(seg.querySelector("[aria-checked=true]").dataset.value, "call", "defaults to call");
-  } finally {
-    panel.hidePopup();
-  }
-});
+function rowSwitch(panel, name) {
+  return row(panel, name)?.querySelector(".whimsy-surface-switch");
+}
 
-add_task(async function test_clicking_a_panel_row_toggles_and_stays_open() {
-  const call = await openCall();
-  const panel = await openOptionsPanel(call);
-  try {
-    const row = panel.querySelector('[data-row="mic-device"]');
-    row.click();
-    await TestUtils.waitForCondition(
-      () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
-      "the row toggled the device mute"
-    );
-    ok(panel.isConnected, "panel still open after one toggle");
-    is(panel.state, "open", "the panel did not close itself");
-  } finally {
-    await WhimsyCallPip.toggleBlocked(call.linkedBrowser, "mic");
-    panel.hidePopup();
-  }
-});
+function detailOf(panel, name) {
+  const detail = row(panel, name)?.querySelector(".whimsy-surface-row-detail");
+  return detail && !detail.hidden ? detail.textContent : "";
+}
 
-add_task(async function test_dimmed_in_call_row_when_no_controls_found() {
-  const call = await openCall();
-  await SpecialPowers.spawn(call.linkedBrowser, [], () => {
-    content.document.querySelector("#bar button[aria-label*=microphone]")?.remove();
+function clickPage(browser, kind) {
+  return SpecialPowers.spawn(browser, [kind], k => {
+    const name = k == "mic" ? "microphone" : "camera";
+    content.document.querySelector(`#bar button[aria-label*=${name}]`).click();
   });
+}
+
+// W14-6: layout A — "Buttons mute: <app> | This Device" on top, then a
+// switch per mute under a fixed label, no letters, nothing cut off.
+add_task(async function test_panel_layout() {
+  const call = await openCall();
+  const panel = await openOptionsPanel(call);
+  try {
+    is(panel.querySelector(".whimsy-surface-caption-label").textContent, "Buttons mute", "the choice comes first");
+    const seg = panel.querySelector(".whimsy-call-options-default");
+    is(seg.querySelector("[aria-checked=true]").dataset.value, "call", "defaults to the call's own buttons");
+    const segments = [...seg.querySelectorAll(".whimsy-surface-segment")];
+    Assert.deepEqual(segments.map(b => b.textContent), ["The Call", "This Device"], "a page without a name: The Call");
+    for (const b of segments) {
+      Assert.lessOrEqual(b.scrollWidth, b.clientWidth, `"${b.textContent}" isn't cut off`);
+    }
+    for (const name of ["mic-in-call", "mic-device", "camera-in-call", "camera-device"]) {
+      ok(rowSwitch(panel, name), `${name} has a switch`);
+    }
+    is(row(panel, "mic-in-call").querySelector(".whimsy-surface-row-label").textContent, "Muted in the call", "fixed label");
+    is(row(panel, "camera-in-call").querySelector(".whimsy-surface-row-label").textContent, "Off in the call", "fixed label");
+    is(row(panel, "mic-device").querySelector(".whimsy-surface-row-label").textContent, "Blocked on this device", "fixed label");
+    const letters = [...panel.querySelectorAll("span, label")].filter(el => /^[A-Z]$/.test(el.textContent.trim()));
+    Assert.deepEqual(letters.map(el => el.textContent), [], "no shortcut letters");
+    ok(!/saved for all calls/i.test(panel.textContent), "no 'saved for all calls' text");
+    ok(panel.querySelector(".whimsy-call-options-fallback").hidden, "no fallback line while the page's mutes are found");
+  } finally {
+    panel.hidePopup();
+  }
+});
+
+// The page's own app name, once it gives one (it's sent with the state).
+add_task(async function test_panel_names_the_app() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  await SpecialPowers.spawn(browser, [], () => {
+    const meta = content.document.createElement("meta");
+    meta.name = "application-name";
+    meta.content = "Meet";
+    content.document.head.append(meta);
+  });
+  const panel = await openOptionsPanel(call);
+  try {
+    await clickPage(browser, "mic");
+    await TestUtils.waitForCondition(() => WhimsyCallPip.appName(browser) == "Meet", "the page's name arrives");
+    const first = panel.querySelector(".whimsy-call-options-default .whimsy-surface-segment");
+    await TestUtils.waitForCondition(() => first.textContent == "Meet", "Buttons mute: Meet | This Device");
+    await clickPage(browser, "mic");
+    await TestUtils.waitForCondition(() => WhimsyCallPip.shownState(browser, "mic") == "on", "back on");
+  } finally {
+    panel.hidePopup();
+  }
+});
+
+// 6c: the switches follow every change while the panel is open — the page's
+// own buttons, the small player, and a switch's own press.
+add_task(async function test_switches_follow_the_real_state() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  const panel = await openOptionsPanel(call);
+  try {
+    ok(!rowSwitch(panel, "mic-in-call").checked, "the microphone is on in the call");
+    await clickPage(browser, "mic");
+    await TestUtils.waitForCondition(() => rowSwitch(panel, "mic-in-call").checked, "Meet's own button: the switch follows");
+    await clickPage(browser, "mic");
+    await TestUtils.waitForCondition(() => !rowSwitch(panel, "mic-in-call").checked, "…and back");
+
+    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "camera-in-call"), {}, window);
+    await TestUtils.waitForCondition(() => WhimsyCallPip.shownState(browser, "camera") == "off", "the switch turns the call's camera off");
+    ok(rowSwitch(panel, "camera-in-call").checked, "…and shows it");
+    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "camera-in-call"), {}, window);
+    await TestUtils.waitForCondition(() => WhimsyCallPip.shownState(browser, "camera") == "on", "…and on");
+    await TestUtils.waitForCondition(() => !rowSwitch(panel, "camera-in-call").checked, "…and shows that");
+
+    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "mic-device"), {}, window);
+    ok(WhimsyCallPip.stateFor(browser).blocked.mic, "the device switch blocks the microphone");
+    ok(rowSwitch(panel, "mic-device").checked, "…and shows it");
+    is(panel.state, "open", "the panel stays open");
+    WhimsyCallPip.toggleBlocked(browser, "mic");
+    ok(!rowSwitch(panel, "mic-device").checked, "a block released elsewhere shows at once");
+  } finally {
+    panel.hidePopup();
+  }
+});
+
+// The hint sits on the mute a plain press does, and moves with the choice.
+add_task(async function test_hint_moves_with_the_choice() {
+  const call = await openCall();
+  const panel = await openOptionsPanel(call);
+  try {
+    is(detailOf(panel, "mic-in-call"), "Mic button", "a plain press mutes in the call");
+    is(detailOf(panel, "mic-device"), "", "…not on the device");
+    is(detailOf(panel, "camera-in-call"), "Camera button", "same for the camera");
+    EventUtils.synthesizeMouseAtCenter(panel.querySelector('.whimsy-call-options-default [data-value="device"]'), {}, window);
+    is(Services.prefs.getStringPref("whimsy.call.buttons-default"), "device", "the choice is saved");
+    await TestUtils.waitForCondition(() => detailOf(panel, "mic-device") == "Mic button", "the hint moves to the device");
+    is(detailOf(panel, "mic-in-call"), "", "…off the call's row");
+    is(detailOf(panel, "camera-device"), "Camera button", "…for the camera too");
+  } finally {
+    Services.prefs.clearUserPref("whimsy.call.buttons-default");
+    panel.hidePopup();
+  }
+});
+
+// 6d: with no in-call control on the page, the buttons block the device,
+// and the panel says so.
+add_task(async function test_fallback_shows_when_the_page_mute_is_missing() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.removeControls());
   await TestUtils.waitForCondition(
-    () => WhimsyCallPip.displayState(call.linkedBrowser, "mic").inCallAvailable === false,
-    "The mic's in-call control is gone"
+    () => WhimsyCallPip.displayState(browser, "mic").inCallAvailable === false,
+    "The page's controls are gone"
   );
   const panel = await openOptionsPanel(call);
   try {
-    const row = panel.querySelector('[data-row="mic-in-call"]');
-    ok(
-      row.matches("[aria-disabled=true]") || row.classList.contains("whimsy-surface-row-dim"),
-      "in-call row dims when this call page has no recognisable controls"
-    );
+    const warn = panel.querySelector(".whimsy-call-options-fallback");
+    ok(!warn.hidden, "a line says the buttons block this device now");
+    await TestUtils.waitForCondition(() => warn.textContent.includes("block this device"), "…in words");
+    ok(rowSwitch(panel, "mic-in-call").disabled, "the call's mute can't be used");
+    ok(row(panel, "mic-in-call").classList.contains("whimsy-call-options-dim"), "…and dims");
+    await TestUtils.waitForCondition(() => /mute button wasn't found/.test(detailOf(panel, "mic-in-call")), "…with the reason");
+    is(detailOf(panel, "mic-device"), "Mic button", "the hint is on the device block");
+    await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.restoreControls());
+    await TestUtils.waitForCondition(() => warn.hidden, "controls back: the line goes");
+    await TestUtils.waitForCondition(() => detailOf(panel, "mic-in-call") == "Mic button", "…and the hint returns");
   } finally {
     panel.hidePopup();
-    await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.restoreControls());
   }
 });
 
-add_task(async function test_switching_click_mutes_updates_the_pref() {
+// 6c: Zen lets go of the device mute itself (its card's close button sends
+// webrtc:Unmute*); the block reads off from then on.
+add_task(async function test_zen_releasing_the_device_shows() {
   const call = await openCall();
+  const browser = call.linkedBrowser;
+  WhimsyCallPip.toggleBlocked(browser, "mic");
+  WhimsyCallPip.toggleBlocked(browser, "camera");
+  ok(WhimsyCallPip.stateFor(browser).blocked.mic, "blocked");
+  cardFor(call).querySelector(".zen-media-close-button").doCommand();
+  ok(!WhimsyCallPip.stateFor(browser).blocked.mic, "Zen's close unmuted the microphone");
+  ok(!WhimsyCallPip.stateFor(browser).blocked.camera, "…and the camera");
+  await TestUtils.waitForCondition(() => !cardFor(call), "the card is gone");
+  WhimsyCallPip.toggleBlocked(browser, "mic");
+  // Zen drops a closed card from its list once its exit animation ends.
+  await TestUtils.waitForCondition(() => {
+    gZenMediaController.updateMediaSharing({
+      windowId: browser.innerWindowID,
+      showCameraIndicator: true,
+      showMicrophoneIndicator: false,
+    });
+    return cardFor(call);
+  }, "a new card (Zen unmutes both first)");
+  ok(!WhimsyCallPip.stateFor(browser).blocked.mic, "the new card starts unblocked");
   const panel = await openOptionsPanel(call);
   try {
-    panel.querySelector('.whimsy-surface-seg [data-value="device"]').click();
-    is(Services.prefs.getStringPref("whimsy.call.buttons-default"), "device");
+    ok(!rowSwitch(panel, "mic-device").checked, "the panel reads unblocked");
   } finally {
-    Services.prefs.clearUserPref("whimsy.call.buttons-default");
     panel.hidePopup();
   }
 });
