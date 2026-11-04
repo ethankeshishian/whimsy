@@ -1740,16 +1740,33 @@ notification-message[value="whimsy-claude-control"] {
 .whimsy-vpn-site-section {
   padding-block: 0;
 }
+/* W14 3d: opens and closes in place (200ms height, a fade) instead of the
+   panel jumping. */
 .whimsy-vpn-scope-row {
-  padding: 2px 8px 4px;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 200ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms ease-out;
+
+  &[open] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+.whimsy-vpn-scope-inner {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
 
   & > .whimsy-surface-seg {
     flex: 1;
+    margin: 2px 8px 4px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .whimsy-vpn-urlbar-toggle,
   .whimsy-vpn-urlbar-chevron,
+  .whimsy-vpn-scope-row,
   .whimsy-vpn-dot,
   .whimsy-vpn-dot::after {
     transition: none;

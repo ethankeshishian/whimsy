@@ -1180,7 +1180,7 @@ whimsy-vpn-enroll-failed = Couldn’t finish setting up Firefox’s built-in VPN
 
 # vpnspace: the space-scope choice in This Site's VPN row.
 whimsy-vpn-scope-browser = All spaces
-whimsy-vpn-scope-space = This space
+whimsy-vpn-scope-space = All spaces in { $profile }
 ## W13 F02: Whimsy's VPN controls for Firefox's built-in VPN, which keeps
 ## Firefox's name (Firefox IP Protection); "VPN" only where space is tight.
 ## A: the address bar control.
@@ -1199,10 +1199,10 @@ whimsy-vpn-urlbar-on-browser =
     .tooltiptext = Firefox IP Protection is on in all spaces. Click to turn the VPN off.
     .aria-label = VPN on, all spaces
 whimsy-vpn-urlbar-on-space =
-    .tooltiptext = Firefox IP Protection is on in this space. Click to turn the VPN off.
-    .aria-label = VPN on, this space
+    .tooltiptext = Firefox IP Protection is on in all spaces in { $profile }. Click to turn the VPN off.
+    .aria-label = VPN on, all spaces in { $profile }
 whimsy-vpn-urlbar-elsewhere =
-    .tooltiptext = Firefox IP Protection is on in other spaces, not this one. Click to protect this space too.
+    .tooltiptext = Firefox IP Protection is on in other spaces, not this one. Click to turn it on in all spaces in { $profile } too.
     .aria-label = VPN off in this space
 # W14 3c: the chevron after the control opens Firefox's own VPN panel.
 whimsy-vpn-urlbar-panel =
@@ -1214,12 +1214,10 @@ whimsy-vpn-site-setup = Sign in with a Mozilla account to turn it on
 whimsy-vpn-site-off = Off · hides your location from sites
 whimsy-vpn-site-connecting = Connecting…
 whimsy-vpn-site-on-browser = VPN on · All spaces
-whimsy-vpn-site-on-space = VPN on · This space
+whimsy-vpn-site-on-space = VPN on · All spaces in { $profile }
 whimsy-vpn-site-elsewhere = Off in this space · on in others
 whimsy-vpn-site-scope =
     .aria-label = Protect
-whimsy-vpn-site-scope-no-container = This space
-    .title = This space uses the Default profile, so it can’t be protected on its own
 
 ## legacy: Firefox/Mozilla leftovers replaced with Whimsy's own.
 

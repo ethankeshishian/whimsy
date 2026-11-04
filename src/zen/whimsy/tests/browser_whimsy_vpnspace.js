@@ -45,20 +45,28 @@ add_task(async function scope_selection_and_button() {
     is(WhimsyVPNScope.ids, "4,5", "Two spaces enabled together");
     is(WhimsyVPNScope.buttonState(win), "space", "First remains covered");
     is(WhimsyVPNScope.buttonState(scopeWindow(5)), "space", "Second covered");
-    WhimsyVPNScope.setScope(win, "space");
-    is(WhimsyVPNScope.ids, "5", "Turning first off preserves second");
-    is(WhimsyVPNScope.buttonState(win), "elsewhere", "First now off");
-    is(WhimsyVPNScope.buttonState(scopeWindow(5)), "space", "Second stays on");
-    WhimsyVPNScope.setScope(scopeWindow(5), "space");
-    is(WhimsyVPNScope.ids, "none", "No spaces uses an explicit nonempty restriction");
-    is(WhimsyVPNScope.buttonState(scopeWindow(5)), "elsewhere", "Last removal does not enable all spaces");
+    // W14 3c/3d: picking "All spaces in <profile>" again changes nothing
+    // (it used to take the space out, and could write "none").
+    ok(WhimsyVPNScope.setScope(win, "space"), "Pick the first again");
+    is(WhimsyVPNScope.ids, "4,5", "…nothing changes");
+    is(WhimsyVPNScope.scopeChoice(win), "space", "This Site shows All spaces in its profile");
+    is(WhimsyVPNScope.scopeChoice(scopeWindow(6)), null, "…and nothing picked where it's off");
     Services.prefs.setStringPref(WhimsyVPNScope.PREF, "0x4,4e0,+4");
     is(WhimsyVPNScope.buttonState(win), "elsewhere", "Nondecimal tokens cannot advertise protection");
-    WhimsyVPNScope.setScope(win, "space");
-    for (const id of [0, undefined, -1, "bad"]) {
-      ok(!WhimsyVPNScope.setScope(scopeWindow(id), "space"), "No valid default container: unavailable");
-      is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), "4", "No accidental expansion to all containers");
+    Services.prefs.setStringPref(WhimsyVPNScope.PREF, "4");
+    // A space on the Default profile (no container) works too: its
+    // channels carry userContextId 0.
+    for (const id of [0, undefined, "bad"]) {
+      is(WhimsyVPNScope.profileForWindow(scopeWindow(id)), 0, `A space with containerTabId ${id} is on the Default profile`);
     }
+    is(WhimsyVPNScope.buttonState(scopeWindow(0)), "elsewhere", "Default not covered yet");
+    ok(WhimsyVPNScope.setScope(scopeWindow(undefined), "space"), "Pick All spaces in Default");
+    is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), "4,0", "Default saved as 0");
+    is(WhimsyVPNScope.buttonState(scopeWindow(0)), "space", "Default covered");
+    is(WhimsyVPNScope.profileName(0), "Default", "Named Default");
+    const noSpace = { gZenWorkspaces: { getActiveWorkspace: () => null } };
+    ok(!WhimsyVPNScope.setScope(noSpace, "space"), "No space in front: nothing to pick");
+    is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), "4,0", "No accidental change");
     ok(WhimsyVPNScope.setScope(win, "browser"), "Choose whole browser");
     is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), "", "Empty means all containers");
     Services.prefs.setBoolPref(WhimsyVPNScope.FEATURE, false);
@@ -113,11 +121,9 @@ add_task(async function channel_boundary_precedes_site_rules() {
     Services.prefs.setStringPref(WhimsyVPNScope.PREF, "4, 5");
     ok(filter.shouldProxy(channel(4)), "First container remains protected with two spaces on");
     ok(filter.shouldProxy(channel(5)), "Comma list supports several containers");
-    WhimsyVPNScope.setScope(scopeWindow(4), "space");
-    ok(!filter.shouldProxy(channel(4)), "Turning one space off stops proxying its channels");
-    ok(filter.shouldProxy(channel(5)), "Other space's channels remain protected");
-    WhimsyVPNScope.setScope(scopeWindow(5), "space");
-    ok(!filter.shouldProxy(channel(5)), "Last space off does not restore whole-browser routing");
+    Services.prefs.setStringPref(WhimsyVPNScope.PREF, "0");
+    ok(filter.shouldProxy(channel(0)), "The Default profile can be chosen on its own");
+    ok(!filter.shouldProxy(channel(4)), "…without the other profiles");
     WhimsyVPNScope.setScope(scopeWindow(4), "browser");
     ok(filter.shouldProxy(channel(4)), "All spaces restores first container");
     ok(filter.shouldProxy(channel(5)), "All spaces restores second container");

@@ -171,11 +171,33 @@ add_task(async function test_this_site_row() {
   ok(toggle.checked, "The switch is on");
   is(toggle.getAttribute("role"), "switch", "…a switch");
   ok(!section.querySelector(".whimsy-surface-tile"), "No shield tile");
-  const seg = section.querySelector(".whimsy-vpn-scope-row .whimsy-surface-seg");
-  ok(seg?.checkVisibility(), "All spaces | This space while it's on");
+  const scopeRow = section.querySelector(".whimsy-vpn-scope-row");
+  const seg = scopeRow.querySelector(".whimsy-surface-seg");
+  ok(scopeRow.hasAttribute("open") && seg.checkVisibility(), "The scope choice while it's on");
   is(seg.querySelector('[data-value="browser"]').getAttribute("aria-checked"), "true", "All spaces picked");
 
-  // A real click on the switch turns it off.
+  // W14 3d: the space's profile, by name; a space on the Default profile
+  // (no container) can be picked too.
+  const { WhimsyVPNScope } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPNScope.sys.mjs");
+  const profile = WhimsyVPNScope.profileName(WhimsyVPNScope.profileForWindow(window));
+  const spaceButton = seg.querySelector('[data-value="space"]');
+  is(spaceButton.textContent, `All spaces in ${profile}`, "The other choice names the profile");
+  ok(!spaceButton.disabled, "…and works without a container");
+  EventUtils.synthesizeMouseAtCenter(spaceButton, {});
+  await TestUtils.waitForCondition(() => spaceButton.getAttribute("aria-checked") == "true", "Picked");
+  is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), String(WhimsyVPNScope.profileForWindow(window)), "The profile is saved");
+  is(seg.style.getPropertyValue("--index"), "1", "The thumb moves on the same control");
+  is(section.querySelector(".whimsy-vpn-scope-row .whimsy-surface-seg"), seg, "…not a new one");
+  await TestUtils.waitForCondition(() => detail.textContent == `VPN on · All spaces in ${profile}`, "The detail says so");
+  EventUtils.synthesizeMouseAtCenter(spaceButton, {});
+  await new Promise(resolve => setTimeout(resolve, 100));
+  is(Services.prefs.getStringPref(WhimsyVPNScope.PREF), String(WhimsyVPNScope.profileForWindow(window)), "Picking it again changes nothing");
+  EventUtils.synthesizeMouseAtCenter(seg.querySelector('[data-value="browser"]'), {});
+  await TestUtils.waitForCondition(() => Services.prefs.getStringPref(WhimsyVPNScope.PREF) == "", "All spaces again");
+  is(seg.style.getPropertyValue("--index"), "0", "…the thumb slides back");
+
+  // A real click on the switch turns it off, and the row is updated in
+  // place: the same switch, its knob sliding, the scope row closing.
   const calls = [];
   const stop = IPPProxyManager.stop;
   IPPProxyManager.stop = async () => calls.push("stop");
@@ -186,11 +208,20 @@ add_task(async function test_this_site_row() {
     IPPProxyManager.stop = stop;
   }
   setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
-  await TestUtils.waitForCondition(() => !section.querySelector("#whimsy-vpn-site-switch").checked, "Off");
-  const offDetail = section.querySelector("#whimsy-vpn-site-detail");
-  await document.l10n.translateFragment(section);
-  is(offDetail.textContent, "Off · hides your location from sites", "Says what it does");
-  ok(!section.querySelector(".whimsy-vpn-scope-row"), "No scope while it's off");
+  is(section.querySelector("#whimsy-vpn-site-switch"), toggle, "The same switch");
+  ok(!toggle.checked, "Off");
+  await TestUtils.waitForCondition(() => detail.textContent == "Off · hides your location from sites", "Says what it does");
+  is(section.querySelector("#whimsy-vpn-site-detail"), detail, "…in the same line");
+  ok(!scopeRow.hasAttribute("open") && scopeRow.inert, "The scope row closes");
+  is(getComputedStyle(scopeRow).transitionDuration.split(",")[0].trim(), "0.2s", "…over 200ms");
+
+  // Turning on from a stubbed instant ACTIVATING then ACTIVE: no rebuild.
+  setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVATING);
+  const knob = document.getAnimations().find(a => a.effect?.target == toggle && a.effect.pseudoElement == "::after");
+  ok(knob, "The knob slides");
+  setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
+  is(section.querySelector("#whimsy-vpn-site-switch"), toggle, "Still the same switch");
+  ok(toggle.checked && scopeRow.hasAttribute("open"), "On, with the scope row open");
 
   const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
   panel.hidePopup();

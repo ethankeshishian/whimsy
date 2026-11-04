@@ -298,7 +298,7 @@ export const WhimsyVPN = {
   // that where the VPN is on for other spaces but not this one ("off
   // here"), turning it on adds this space instead of stopping it for all.
   async toggleHere(win) {
-    if (this.uiState(win).state == "elsewhere" && lazy.WhimsyVPNScope.containerForWindow(win)) {
+    if (this.uiState(win).state == "elsewhere" && lazy.WhimsyVPNScope.profileForWindow(win) !== null) {
       lazy.WhimsyVPNScope.setScope(win, "space");
     } else {
       await this.toggle(win);
@@ -421,8 +421,59 @@ export const WhimsyVPN = {
   },
 
   // B: Firefox IP Protection's row in This Site (Zen's site panel), first,
-  // under the panel's quick buttons: the name and its state, a switch; while it's on or connecting, All spaces | This space under it.
-  // Rebuilt each time the panel opens and while it's open.
+  // under the panel's quick buttons: the name and its state, a switch;
+  // while it's on or connecting, All spaces | All spaces in <profile> under
+  // it. W14 3d: built once and updated in place, so the knob and the thumb
+  // slide, the words never blank, and the scope row opens and closes.
+  buildSiteSection(win, header) {
+    const doc = win.document;
+    const S = lazy.WhimsySurface;
+    const section = doc.createXULElement("vbox");
+    section.id = SECTION_ID;
+    section.className = "zen-site-data-section whimsy-vpn-site-section whimsy-surface-tokens";
+    const group = S.group(doc);
+    group.classList.add("whimsy-vpn-site-group");
+    const toggle = S.switch(doc, {
+      labelledBy: "whimsy-vpn-site-name",
+      id: "whimsy-vpn-site-switch",
+      onChange: () => this.toggleHere(win),
+    });
+    toggle.setAttribute("aria-describedby", "whimsy-vpn-site-detail");
+    const { row, label } = S.row(doc, { l10nId: "whimsy-vpn-site-name", detailL10nId: "whimsy-vpn-site-off", trailing: [toggle] });
+    label.id = "whimsy-vpn-site-name";
+    const detail = row.querySelector(".whimsy-surface-row-detail");
+    detail.id = "whimsy-vpn-site-detail";
+    row.classList.add("whimsy-vpn-site-row");
+    const seg = S.seg(doc, {
+      name: "whimsy-vpn-scope",
+      small: true,
+      label: null,
+      options: [
+        { value: "browser", l10nId: "whimsy-vpn-scope-browser" },
+        { value: "space", l10nId: "whimsy-vpn-scope-space", l10nArgs: { profile: "" } },
+      ],
+      onPick: value => {
+        if (value == "browser" || lazy.WhimsyVPNScope.scopeChoice(win) != "space") {
+          lazy.WhimsyVPNScope.setScope(win, value);
+        }
+      },
+    });
+    doc.l10n.setAttributes(seg.group, "whimsy-vpn-site-scope");
+    const scopeRow = doc.createElementNS(HTML_NS, "div");
+    scopeRow.className = "whimsy-vpn-scope-row";
+    const inner = doc.createElementNS(HTML_NS, "div");
+    inner.className = "whimsy-vpn-scope-inner";
+    inner.append(seg.group);
+    scopeRow.append(inner);
+    group.append(row, scopeRow);
+    section.append(group);
+    header.after(section);
+    this._siteParts.set(section, { row, toggle, detail, seg, scopeRow });
+    return section;
+  },
+
+  _siteParts: new WeakMap(),
+
   renderSiteSection(win) {
     const doc = win.document;
     const header = doc.getElementById("zen-site-data-header");
@@ -432,67 +483,29 @@ export const WhimsyVPN = {
       section?.remove();
       return null;
     }
-    const S = lazy.WhimsySurface;
-    if (!section) {
-      section = doc.createXULElement("vbox");
-      section.id = SECTION_ID;
-      section.className = "zen-site-data-section whimsy-vpn-site-section whimsy-surface-tokens";
-      header.after(section);
+    if (!section || !this._siteParts.has(section)) {
+      section?.remove();
+      section = this.buildSiteSection(win, header);
     }
-    const hadFocus = section.contains(doc.activeElement) ? doc.activeElement.dataset.vpnControl : null;
-    const group = S.group(doc);
-    group.classList.add("whimsy-vpn-site-group");
-    const detail = state == "on" ? `whimsy-vpn-site-on-${scope}` : `whimsy-vpn-site-${state}`;
-    const toggle = S.switch(doc, {
-      checked: state == "on" || state == "connecting",
-      labelledBy: "whimsy-vpn-site-name",
-      id: "whimsy-vpn-site-switch",
-      onChange: () => this.toggleHere(win),
-    });
-    toggle.dataset.vpnControl = "switch";
-    toggle.setAttribute("aria-describedby", "whimsy-vpn-site-detail");
-    const { row, label } = S.row(doc, { l10nId: "whimsy-vpn-site-name", detailL10nId: detail, trailing: [toggle] });
-    label.id = "whimsy-vpn-site-name";
-    row.querySelector(".whimsy-surface-row-detail").id = "whimsy-vpn-site-detail";
-    row.classList.add("whimsy-vpn-site-row");
+    const { row, toggle, detail, seg, scopeRow } = this._siteParts.get(section);
+    const Scope = lazy.WhimsyVPNScope;
+    const profile = Scope.profileName(Scope.profileForWindow(win) ?? 0);
+    const on = state == "on" || state == "connecting";
     row.setAttribute("state", state);
-    group.append(row);
-    if (state == "on" || state == "connecting") {
-      const container = lazy.WhimsyVPNScope.containerForWindow(win);
-      const seg = S.seg(doc, {
-        name: "whimsy-vpn-scope",
-        small: true,
-        label: null,
-        options: [
-          { value: "browser", l10nId: "whimsy-vpn-scope-browser" },
-          { value: "space", l10nId: "whimsy-vpn-scope-space" },
-        ],
-        onPick: value => {
-          if (value == "browser" || !lazy.WhimsyVPNScope.selectedIds().includes(container)) {
-            lazy.WhimsyVPNScope.setScope(win, value);
-          }
-          this.updateUi(win);
-        },
-      });
-      doc.l10n.setAttributes(seg.group, "whimsy-vpn-site-scope");
-      seg.select(scope == "space" ? "space" : scope == "browser" ? "browser" : null);
-      const spaceButton = seg.buttons[1];
-      if (!container) {
-        spaceButton.disabled = true;
-        doc.l10n.setAttributes(spaceButton, "whimsy-vpn-site-scope-no-container");
-      }
-      for (const b of seg.buttons) {
-        b.dataset.vpnControl = b.dataset.value;
-      }
-      const scopeRow = doc.createXULElement("hbox");
-      scopeRow.className = "whimsy-vpn-scope-row";
-      scopeRow.append(seg.group);
-      group.append(scopeRow);
+    toggle.checked = on;
+    const id = state == "on" ? `whimsy-vpn-site-on-${scope}` : `whimsy-vpn-site-${state}`;
+    const args = state == "on" && scope == "space" ? { profile } : null;
+    const now = doc.l10n.getAttributes(detail);
+    if (now.id != id || JSON.stringify(now.args ?? null) != JSON.stringify(args)) {
+      doc.l10n.setAttributes(detail, id, args);
     }
-    section.replaceChildren(group);
-    if (hadFocus) {
-      section.querySelector(`[data-vpn-control="${hadFocus}"]`)?.focus();
+    const spaceButton = seg.buttons[1];
+    if (doc.l10n.getAttributes(spaceButton).args?.profile != profile) {
+      doc.l10n.setAttributes(spaceButton, "whimsy-vpn-scope-space", { profile });
     }
+    seg.select(Scope.scopeChoice(win));
+    scopeRow.toggleAttribute("open", on);
+    scopeRow.inert = !on;
     return section;
   },
 
@@ -506,7 +519,9 @@ export const WhimsyVPN = {
       control.setAttribute("state", state);
       const id = state == "on" ? `whimsy-vpn-urlbar-on-${scope}` : `whimsy-vpn-urlbar-${state}`;
       if (state != "hidden") {
-        doc.l10n.setAttributes(control.querySelector(`#${TOGGLE_ID}`), id);
+        const Scope = lazy.WhimsyVPNScope;
+        const profile = Scope.profileName(Scope.profileForWindow(win) ?? 0);
+        doc.l10n.setAttributes(control.querySelector(`#${TOGGLE_ID}`), id, { profile });
       }
     }
     const panel = doc.getElementById(SITE_PANEL_ID);
