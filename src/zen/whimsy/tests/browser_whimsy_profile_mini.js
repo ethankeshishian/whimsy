@@ -101,12 +101,23 @@ add_task(async function open_in_another_profiles_space_warns_then_reopens() {
     "The page is in Mini"
   );
   let asked = null;
+  let askedIn = null;
   WhimsyProfileMoves.confirm = async (w, request) => {
     asked = request;
-    return true;
+    askedIn = w;
+    return realConfirm.call(WhimsyProfileMoves, w, request);
   };
+  const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
   const closed = BrowserTestUtils.windowClosed(win);
   is(WhimsyQuickWindow.moveToSpace(win, workSpace.uuid), null, "Adopting waits for the answer");
+  const prompt = await dialog;
+  is(askedIn, win, "The warning shows in Mini, the window the person is in");
+  ok(win.gDialogBox.isOpen, "...in Mini's own window-modal dialog");
+  ok(!window.gDialogBox.isOpen, "...not in the main window behind it");
+  ok(!gBrowser.tabs.some(t => t.userContextId == work && t.getAttribute("zen-workspace-id") == workSpace.uuid),
+    "Nothing moves before the answer");
+  ok(!win.closed, "Mini stays open while it asks");
+  EventUtils.synthesizeKey("KEY_Enter", {}, prompt);
   await closed;
   is(asked?.bodyArgs?.profile, "Whimsy Mini Work", "Arc's tab warning, naming the profile");
   const tab = await TestUtils.waitForCondition(() =>

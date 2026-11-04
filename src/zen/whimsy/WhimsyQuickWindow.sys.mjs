@@ -1854,7 +1854,8 @@ export const WhimsyQuickWindow = {
   // profile is adopted as it is, the others reopen there in that profile.
   async moveAcrossProfiles(win, target, tabs, space, profileId, selected) {
     const count = tabs.length;
-    const ok = await lazy.WhimsyProfileMoves.confirm(target, {
+    // Asked in Mini, the window the person is in; the tabs move only after.
+    const ok = await lazy.WhimsyProfileMoves.confirm(win, {
       titleId: "whimsy-profile-move-tab-title",
       titleArgs: { count, space: space?.name ?? "" },
       bodyId: "whimsy-profile-move-tab-body",
