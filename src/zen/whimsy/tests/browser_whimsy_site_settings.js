@@ -212,6 +212,43 @@ add_task(async function test_zoom_stepper_reader_saved_zoom() {
   }
 });
 
+// W14 18b: ⌘+ / ⌘- / ⌘0 in Reader View zoom the page as the stepper does,
+// so the stepper's % and the address bar's zoom button follow (Firefox's
+// own handling changed Reader's font size, which neither shows).
+add_task(async function test_reader_zoom_shortcuts_follow() {
+  clearAll();
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ARTICLE_URL);
+  const browser = tab.linkedBrowser;
+  try {
+    await TestUtils.waitForCondition(() => browser.isArticle, "readerable");
+    browser.browsingContext.currentWindowGlobal.getActor("AboutReader").sendAsyncMessage("Reader:ToggleReaderMode", {});
+    await TestUtils.waitForCondition(() => browser.currentURI.spec.startsWith("about:reader"), "In Reader View");
+    await TestUtils.waitForCondition(() => document.getElementById("reader-mode-button").hasAttribute("readeractive"), "Reader View is on");
+    const fontSize = Services.prefs.getIntPref("reader.font_size", 0);
+    await openPanel();
+    const value = rowOf("zoom").querySelector(".whimsy-site-settings-zoom-value");
+    const zoomButton = document.getElementById("urlbar-zoom-button");
+    EventUtils.synthesizeKey("+", { accelKey: true });
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "⌘+ zooms the Reader View page");
+    const shown = `${Math.round(ZoomManager.getZoomForBrowser(browser) * 100)}%`;
+    await TestUtils.waitForCondition(() => value.textContent == shown, `The stepper follows (${value.textContent})`);
+    await TestUtils.waitForCondition(() => !zoomButton.hidden && zoomButton.getAttribute("label") == shown,
+      `...and so does the address bar's zoom button (${zoomButton.getAttribute("label")})`);
+    is(Services.prefs.getIntPref("reader.font_size", 0), fontSize, "Reader's own text size is left alone");
+    EventUtils.synthesizeKey("-", { accelKey: true });
+    await TestUtils.waitForCondition(() => Math.abs(ZoomManager.getZoomForBrowser(browser) - 1) < 0.001, "⌘- steps back");
+    EventUtils.synthesizeKey("+", { accelKey: true });
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "⌘+ again");
+    EventUtils.synthesizeKey("0", { accelKey: true });
+    await TestUtils.waitForCondition(() => Math.abs(ZoomManager.getZoomForBrowser(browser) - 1) < 0.001 && value.textContent == "100%",
+      "⌘0 resets it, and the stepper follows");
+    await closePanel();
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    clearAll();
+  }
+});
+
 // B10: zoom set in Reader View itself (the stepper, which zooms the
 // about:reader page rather than Reader's font size, F16) is still there
 // after reloading *while still in Reader View* -- not just after leaving

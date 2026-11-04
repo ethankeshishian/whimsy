@@ -240,6 +240,8 @@ export const WhimsySiteSettings = {
     };
     gBrowser.addTabsProgressListener(tabsListener);
     win._whimsySiteSettingsListener = listener;
+    const onCommand = event => this.onZoomCommand(win, event);
+    win.document.addEventListener("command", onCommand, true);
     const onSelect = () => this.maybeFullscreen(win, gBrowser.selectedBrowser);
     gBrowser.tabContainer.addEventListener("TabSelect", onSelect);
 
@@ -257,6 +259,7 @@ export const WhimsySiteSettings = {
         gBrowser.removeTabsProgressListener(tabsListener);
         gBrowser.tabContainer.removeEventListener("TabSelect", onSelect);
         panel?.removeEventListener("popupshowing", onShowing);
+        win.document.removeEventListener("command", onCommand, true);
       },
       { once: true }
     );
@@ -634,23 +637,13 @@ export const WhimsySiteSettings = {
     // the next load) and has no about:reader special case, so route the
     // reader step through it too.
     const inReader = () => browser.currentURI?.spec.startsWith("about:reader");
-    const stepReaderZoom = direction => {
-      const zm = win.ZoomManager;
-      if (!zm) {
-        return;
-      }
-      const i = zm.zoomValues.indexOf(zm.snap(zm.getZoomForBrowser(browser))) + direction;
-      if (i >= 0 && i < zm.zoomValues.length) {
-        win.FullZoom?.setZoom?.(zm.zoomValues[i], browser);
-      }
-    };
     const out = button("whimsy-site-settings-zoom-out", "whimsy-site-settings-zoom-out", () =>
-      inReader() ? stepReaderZoom(-1) : win.FullZoom?.reduce?.());
+      inReader() ? this.stepReaderZoom(win, browser, -1) : win.FullZoom?.reduce?.());
     out.textContent = "−";
     const value = button("whimsy-site-settings-zoom-reset", "whimsy-site-settings-zoom-value", () =>
       this.resetZoom(win, browser));
     const into = button("whimsy-site-settings-zoom-in", "whimsy-site-settings-zoom-in", () =>
-      inReader() ? stepReaderZoom(1) : win.FullZoom?.enlarge?.());
+      inReader() ? this.stepReaderZoom(win, browser, 1) : win.FullZoom?.enlarge?.());
     into.textContent = "+";
     stepper.append(out, value, into);
     // − and = work while the stepper has the keyboard.
@@ -668,8 +661,8 @@ export const WhimsySiteSettings = {
     });
     this.updateZoom(win, browser, stepper, zoom);
     // The % follows any change of the page's zoom while the panel is open
-    // (a site's saved zoom applied as a page loads, Reader View's own zoom,
-    // ⌘+): it showed the zoom of the moment the panel was built.
+    // (a site's saved zoom applied as a page loads, ⌘+, in Reader View too):
+    // it showed the zoom of the moment the panel was built.
     const onZoom = () => {
       if (!stepper.isConnected) {
         browser.removeEventListener("FullZoomChange", onZoom);
@@ -923,6 +916,36 @@ export const WhimsySiteSettings = {
 
   // ---------------------------------------------------------------------
   // Actions.
+
+  // One zoom step of the page itself in Reader View (see zoomRow).
+  stepReaderZoom(win, browser, direction) {
+    const zm = win.ZoomManager;
+    if (!zm) {
+      return;
+    }
+    const i = zm.zoomValues.indexOf(zm.snap(zm.getZoomForBrowser(browser))) + direction;
+    if (i >= 0 && i < zm.zoomValues.length) {
+      win.FullZoom?.setZoom?.(zm.zoomValues[i], browser);
+    }
+  },
+
+  // ⌘+, ⌘- and ⌘0 (and the View menu, the zoom buttons and pinch) in Reader
+  // View zoom the page as the stepper does, so the stepper and the address
+  // bar's zoom button follow: Firefox's own handling changes Reader's font
+  // size instead, which neither shows.
+  onZoomCommand(win, event) {
+    const step = { cmd_fullZoomEnlarge: 1, cmd_fullZoomReduce: -1, cmd_fullZoomReset: 0 }[event.target?.id];
+    const browser = win.gBrowser?.selectedBrowser;
+    if (step === undefined || !browser?.currentURI?.spec.startsWith("about:reader")) {
+      return;
+    }
+    event.stopPropagation();
+    if (step) {
+      this.stepReaderZoom(win, browser, step);
+    } else {
+      this.resetZoom(win, browser);
+    }
+  },
 
   resetZoom(win, browser) {
     // B10: as above, go through FullZoom.setZoom so the reset to 100% is
