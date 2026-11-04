@@ -30,6 +30,8 @@ export const MIN_CROP = 24;
 // slack:, ... without a click: wave7/security L7). Scripts, forms and storage
 // stay so signed-in pages still work in their container.
 export const BLOCK_SANDBOX_FLAGS = 0x2 | 0x40 | 0x100 | 0x800 | 0x2000 | 0x4000 | 0x10000 | 0x40000;
+// NS_ERROR_DOM_COOP_FAILED (not in Cr).
+const COOP_FAILED = 0x80530411;
 
 // A sandboxed remote <browser> showing `url` in the given container, out of
 // global history, appended to `parent`. Shared with Easel's live captures.
@@ -54,19 +56,51 @@ export function createLiveBrowser(parent, { url, userContextId = 0, className, g
     browser.addEventListener("oop-browser-crashed", onCrashed);
   }
   parent.append(browser);
-  if (browser.browsingContext) {
-    browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;
-  }
-  browser.addEventListener("DidChangeBrowserRemoteness", () => {
-    if (browser.browsingContext) {
+  const sandbox = () => {
+    if (browser.browsingContext && !browser.whimsyUnsandboxed) {
       browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;
     }
+  };
+  sandbox();
+  // HTML turns a page with Cross-Origin-Opener-Policy in a sandboxed
+  // top-level context into a network error (NS_ERROR_DOM_COOP_FAILED; Google
+  // sends COOP), so such a page loads again without the sandbox, as it would
+  // in a tab of the same container.
+  const listener = {
+    QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
+    onStateChange(webProgress, request, flags, status) {
+      const { STATE_STOP, STATE_IS_WINDOW } = Ci.nsIWebProgressListener;
+      if (status != COOP_FAILED || !webProgress.isTopLevel || !(flags & STATE_STOP) || !(flags & STATE_IS_WINDOW) ||
+          browser.whimsyUnsandboxed) {
+        return;
+      }
+      browser.whimsyUnsandboxed = true;
+      browser.browsingContext.sandboxFlags = 0;
+      const failed = request instanceof Ci.nsIChannel ? request.originalURI ?? request.URI : null;
+      loadLiveURL(browser, failed?.spec ?? url, userContextId);
+    },
+  };
+  browser.whimsyCoopListener = listener;
+  const listen = () => {
+    try {
+      browser.addProgressListener(listener, Ci.nsIWebProgress.NOTIFY_STATE_WINDOW);
+    } catch {}
+  };
+  listen();
+  browser.addEventListener("DidChangeBrowserRemoteness", () => {
+    sandbox();
+    listen();
   });
+  browser.addEventListener("XULFrameLoaderCreated", listen);
+  loadLiveURL(browser, url, userContextId);
+  return browser;
+}
+
+function loadLiveURL(browser, url, userContextId) {
   browser.loadURI(Services.io.newURI(url), {
     triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId: userContextId || 0 }),
     loadFlags: Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_HISTORY,
   });
-  return browser;
 }
 
 export function blocksEnabled() {

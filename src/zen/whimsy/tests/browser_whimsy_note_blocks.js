@@ -105,6 +105,29 @@ add_task(async function test_block_from_container_and_private_tabs() {
   await BrowserTestUtils.closeWindow(privateWin);
 });
 
+// 16: HTML makes a page sent with Cross-Origin-Opener-Policy (Google sends
+// it) a network error in a sandboxed top-level context
+// (NS_ERROR_DOM_COOP_FAILED), so such a block loads it again unsandboxed.
+add_task(async function test_live_block_loads_a_coop_page() {
+  const host = makeHost();
+  const url = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_note_block_coop.html";
+  const { block } = blockFromURL(url, { title: "COOP" });
+  const el = makeBlock(block, host);
+  const browser = await TestUtils.waitForCondition(() => el.browser, "A visible block loads its page");
+  await TestUtils.waitForCondition(
+    () => browser.currentURI?.spec == url && !browser.webProgress?.isLoadingDocument,
+    "The COOP page loads in the block"
+  );
+  is(await SpecialPowers.spawn(browser, [], () => content.document.body.textContent.trim()), "COOP_PAGE",
+    "It shows the page, not an error");
+  is(browser.browsingContext.sandboxFlags, 0, "Without the sandbox, as in a tab");
+  const reloaded = BrowserTestUtils.browserLoaded(browser, false, url);
+  el.querySelector('[data-action="reload"]').click();
+  await reloaded;
+  is(await SpecialPowers.spawn(browser, [], () => content.document.body.textContent.trim()), "COOP_PAGE",
+    "Reloading it works too");
+});
+
 add_task(async function test_live_block_loads_sandboxed_in_container() {
   const host = makeHost();
   const { block } = blockFromURL(PAGE, { userContextId: 2, title: "Example" });

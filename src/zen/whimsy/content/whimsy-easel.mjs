@@ -41,7 +41,7 @@ const $ = id => document.getElementById(id);
 // Loads a live capture's page into its <browser> again (see startLive).
 function reloadLiveBrowser(browser, url, userContextId) {
   try {
-    if (browser.browsingContext) {
+    if (browser.browsingContext && !browser.whimsyUnsandboxed) {
       browser.browsingContext.sandboxFlags |= BLOCK_SANDBOX_FLAGS;
     }
     browser.loadURI(Services.io.newURI(url), {
