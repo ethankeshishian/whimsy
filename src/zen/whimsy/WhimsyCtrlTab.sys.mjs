@@ -24,8 +24,8 @@
 // - W14 21.8 (design/ctrltab option A): every space's tabs, Essentials and
 //   pinned ones too, newest first, kept across space switches (Zen rebuilds
 //   the list from the current space on each switch); never a hidden or
-//   locked space's tabs, glance or empty tabs, or another space's private
-//   tabs outside private browsing. The card shows 12 (three rows); pressing Tab past
+//   locked space's tabs, glance or empty tabs, and private and other tabs
+//   never together (Arc keeps incognito tabs to their window). The card shows 12 (three rows); pressing Tab past
 //   them scrolls the grid a row at a time, with a fade at the bottom and
 //   "13 of 31" under it.
 //
@@ -270,8 +270,9 @@ export const WhimsyCtrlTab = {
           return false;
         }
       };
-      // A private tab from another space (the Private Space) only while you're in private browsing.
-      if (isPrivate(tab) && !isPrivate(win.gBrowser.selectedTab) && id && id != spaces?.activeWorkspace) {
+      // Like Arc's incognito windows: from a private tab only private tabs,
+      // from any other tab no private ones, whatever space they're in.
+      if (isPrivate(tab) != isPrivate(win.gBrowser.selectedTab)) {
         return false;
       }
     }

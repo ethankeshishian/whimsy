@@ -14,7 +14,8 @@
 // - The panel is the card's own size, centred on the screen.
 // - A tab from another space carries that space's badge; Essentials and
 //   tabs of the current space don't.
-// - A locked private tab is still blanked (WhimsyPrivateLock) in the card.
+// - Private and normal tabs never share the card (Arc keeps incognito tabs
+//   to their window), locked or not.
 // - Switching whimsy.feature.ctrl-tab off gives back Firefox's panel.
 
 const { WhimsyCtrlTab, MAX_THUMB_WIDTH, VISIBLE_ROWS } = ChromeUtils.importESModule(
@@ -261,45 +262,55 @@ add_task(async function test_space_badge() {
   }
 });
 
-add_task(async function test_private_lock_still_blanks() {
+add_task(async function test_private_tabs_stay_apart() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const { WhimsyPrivateLock } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs");
   const { WhimsyAuth } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAuth.sys.mjs");
   WhimsyAuth._reauthenticator = { asyncReauthenticateUser: async () => [false, false] };
   Services.prefs.setIntPref("whimsy.privateLock.tabs", 1);
-  const tabs = await openTabs(2);
-  const url = `https://example.com/?ctrltab-lock=${Date.now()}`;
-  const priv = WhimsyPrivate.openPrivateTab(window, { url });
+  const tabs = await openTabs(3);
+  const privs = [];
   try {
-    await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url && !priv.hasAttribute("busy"),
-      "The private page loaded");
-    const title = priv.label;
-    // Two other tabs since, so the private tab isn't the one Ctrl+Tab picks.
+    for (let i = 0; i < 3; i++) {
+      const url = `https://example.com/?ctrltab-private=${i}-${Date.now()}`;
+      const priv = WhimsyPrivate.openPrivateTab(window, { url });
+      privs.push(priv);
+      await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url && !priv.hasAttribute("busy"),
+        "The private page loaded");
+    }
+    // Like Arc's incognito windows: from a normal tab, no private tab.
     gBrowser.selectedTab = tabs[0];
     gBrowser.selectedTab = tabs[1];
-    WhimsyPrivateLock.lockNow();
-    ok(WhimsyPrivateLock.isLocked("tabs"), "Private tabs are locked");
-
     await holdCtrlTab();
     ok(ctrlTab.panel.hasAttribute("whimsy-look"), "The new card");
-    const preview = previewOf(priv);
-    ok(preview, "The locked tab has a tile");
-    isnot(preview._label.value, title, "Its title is hidden");
-    is(preview._label.value, "Private tab", "...it reads Private tab");
-    is(preview.getAttribute("tooltiptext"), "Private tab", "...in its tooltip too");
-    ok(!preview._favicon.hasAttribute("src"), "No favicon");
-    ok(!preview._canvas.querySelector("img:not(.ctrlTab-placeholder), canvas"), "No thumbnail of the page");
-    is(getComputedStyle(preview.querySelector(".ctrlTab-preview-inner")).borderTopLeftRadius, "12px",
-      "The blank tile is the same rounded tile");
-    isnot(document.activeElement, preview, "The locked tab isn't the one selected");
+    ok(privs.every(p => !previewOf(p)), "No private tab from a normal one, though they're in this space");
+    ok(previewOf(tabs[0]), "The normal tabs are there");
     await releaseCtrl();
-    isnot(gBrowser.selectedTab, priv, "Releasing picks another tab, so nothing asks to unlock");
+    await letGo();
+
+    // From a private tab, only private tabs.
+    gBrowser.selectedTab = privs[0];
+    gBrowser.selectedTab = privs[1];
+    await holdCtrlTab();
+    ok(previewOf(privs[0]), "From a private tab, the private tabs");
+    ok(tabs.every(t => !previewOf(t)), "and no normal tab");
+    await releaseCtrl();
+    await letGo();
+
+    // Locked, still none from a normal tab.
+    gBrowser.selectedTab = tabs[2];
+    WhimsyPrivateLock.lockNow();
+    ok(WhimsyPrivateLock.isLocked("tabs"), "Private tabs are locked");
+    await holdCtrlTab();
+    ok(privs.every(p => !previewOf(p)), "Locked private tabs don't show either");
+    await releaseCtrl();
+    ok(!privs.includes(gBrowser.selectedTab), "Releasing picks a normal tab, so nothing asks to unlock");
   } finally {
     await letGo();
     WhimsyPrivateLock.unlockAll();
     WhimsyAuth._reauthenticator = null;
     Services.prefs.clearUserPref("whimsy.privateLock.tabs");
-    removeTabs([...tabs, priv]);
+    removeTabs([...tabs, ...privs]);
   }
 });
 
