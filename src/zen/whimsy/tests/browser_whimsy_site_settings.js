@@ -635,3 +635,28 @@ add_task(async function test_reader_switch_disabled_when_not_readerable() {
   });
   clearAll();
 });
+
+// W14-2: every This Site row's name fits on one line, unclipped, with
+// Always Open in Reader View and in Full Screen on (their bolder weight).
+add_task(async function test_rows_fit_on_one_line() {
+  clearAll();
+  WhimsySiteSettings.setFlag("reader", HOST, NORMAL, true);
+  WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, true);
+  await BrowserTestUtils.withNewTab(PAGE, async () => {
+    await openPanel();
+    is(rowOf("reader").getAttribute("state"), "allow", "Reader View row is on (weight 500)");
+    is(rowOf("fullscreen").getAttribute("state"), "allow", "Full Screen row is on");
+    const labels = [...section().querySelectorAll(".whimsy-surface-row-label")].filter(l => l.getClientRects().length);
+    ok(labels.length >= 4, `${labels.length} row names showing`);
+    for (const label of labels) {
+      const lineHeight = parseFloat(getComputedStyle(label).lineHeight) || 18;
+      ok(label.scrollWidth <= label.clientWidth, `"${label.textContent}" isn't cut off (${label.scrollWidth} <= ${label.clientWidth})`);
+      ok(label.getBoundingClientRect().height < lineHeight * 1.5, `"${label.textContent}" is one line`);
+    }
+    const width = panel().getBoundingClientRect().width;
+    ok(width >= 270, `The panel is wider (${width}px)`);
+    await closePanel();
+  });
+  WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, false);
+  clearAll();
+});

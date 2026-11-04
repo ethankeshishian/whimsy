@@ -6517,6 +6517,10 @@ panel.whimsy-sheet.whimsy-snooze {
   }
 }
 
+/* W14-2: wide enough for the "Always Open in…" rows on one line, at weight 500. */
+#zen-unified-site-data-panel {
+  --panel-width: 270px;
+}
 /* wave9: W9-04 site settings ("This Site" in Zen's site panel).
    W10-16: built from WhimsySurface parts (caption, one track of rows, a
    zoom stepper, switches and dropdowns), so it reads like the Look picker
@@ -6531,6 +6535,9 @@ panel.whimsy-sheet.whimsy-snooze {
     flex: 1;
     font-size: 13px;
   }
+}
+.whimsy-site-settings-item .whimsy-surface-row-label {
+  white-space: nowrap;
 }
 .whimsy-site-settings-item[state="allow"] > .whimsy-surface-row-text > .whimsy-surface-row-label {
   font-weight: 500;
