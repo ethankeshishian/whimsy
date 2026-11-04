@@ -307,6 +307,27 @@ export const WhimsyAIProviders = {
 
   pendingSettingsAction: null,
 
+  initWindow(win) {
+    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+    const isAvailable = () => this.enabled;
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyAIConnect",
+      l10nId: "whimsy-action-ai-connect",
+      run: w => this.openSettings(w, "connect"),
+      icon: "chrome://browser/skin/zen-icons/key.svg",
+      menu: "tools-menu",
+      isAvailable,
+    });
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyAIUse",
+      l10nId: "whimsy-action-ai-use",
+      run: w => this.openSettings(w, "use"),
+      icon: "chrome://browser/skin/zen-icons/sparkles.svg",
+      menu: "tools-menu",
+      isAvailable,
+    });
+  },
+
   takeSettingsAction() {
     const action = this.pendingSettingsAction;
     this.pendingSettingsAction = null;

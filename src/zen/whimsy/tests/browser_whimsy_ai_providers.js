@@ -559,6 +559,29 @@ add_task(async function test_settings_card() {
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 });
 
+add_task(async function test_commands() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  for (const [id, l10nId, action] of [
+    ["cmd_whimsyAIConnect", "whimsy-action-ai-connect", "connect"],
+    ["cmd_whimsyAIUse", "whimsy-action-ai-use", "use"],
+  ]) {
+    const entry = WhimsyCommands.entries.find(e => e.id == id);
+    ok(entry, `${id} is registered`);
+    is(entry.l10nId, l10nId, "with its name");
+    ok(entry.keyId && document.getElementById(entry.keyId), "and a key the person can assign a shortcut to");
+    const original = window.openPreferences;
+    let pane = null;
+    window.openPreferences = value => (pane = value);
+    try {
+      document.getElementById(id).doCommand();
+    } finally {
+      window.openPreferences = original;
+    }
+    is(pane, "paneWhimsyAI", "running it opens Settings → AI");
+    is(WhimsyAIProviders.takeSettingsAction(), action, "and asks it to " + action);
+  }
+});
+
 // fix7: Settings said Apple's command line tools were missing although
 // "xcode-select --install" said they were installed. The tools are now
 // found wherever they are, and each failure names what's missing.

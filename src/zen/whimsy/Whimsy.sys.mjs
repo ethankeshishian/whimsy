@@ -144,6 +144,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 // wave3/ai: AI v1.
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAITabs: "resource:///modules/whimsy/WhimsyAITabs.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
@@ -845,6 +846,7 @@ export const Whimsy = {
         win.windowUtils.AUTHOR_SHEET
       )
     );
+    run("ai-provider-commands", () => lazy.WhimsyAIProviders.initWindow(win));
     run("tidy-tabs", () => lazy.WhimsyAITabs.initWindow(win));
     run("ask-on-page", () => lazy.WhimsyAIPage.initWindow(win));
     // Watches are checked only while Whimsy runs (one timer, only while
