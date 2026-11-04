@@ -236,3 +236,41 @@ add_task(async function test_search_finds_moved_controls() {
     input.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
   });
 });
+
+// W14 20b: every page is one width, 900px where the window has room (it was
+// 600px, and Look and Feel pushed wider in a wide window), and a Menus row's
+// detail sits right after the name, on the same line.
+add_task(async function test_one_content_width() {
+  const win = window;
+  const { width, height } = { width: win.outerWidth, height: win.outerHeight };
+  win.resizeTo(1600, Math.max(height, 900));
+  await TestUtils.waitForCondition(() => win.outerWidth >= 1500, "A wide window");
+  try {
+    await BrowserTestUtils.withNewTab("about:preferences", async browser => {
+      const prefs = browser.contentWindow;
+      const doc = browser.contentDocument;
+      const widths = {};
+      for (const pane of ["paneGeneral", "paneZenLooks", "paneZenTabManagement", "panePrivacy", "paneWhimsyMenus"]) {
+        await prefs.gotoPref(pane);
+        await new Promise(r => prefs.requestAnimationFrame(() => prefs.requestAnimationFrame(r)));
+        widths[pane] = Math.round(doc.querySelector(".main-content > .pane-container").getBoundingClientRect().width);
+      }
+      info(JSON.stringify(widths));
+      is(new Set(Object.values(widths)).size, 1, "Every page is the same width");
+      is(widths.paneGeneral, 900, "900px");
+
+      const row = await TestUtils.waitForCondition(
+        () => [...doc.querySelectorAll(".whimsy-menus-row")].find(r => r.querySelector(".whimsy-menus-row-alt, .whimsy-menus-row-hint")?.checkVisibility()),
+        "A Menus row with a detail"
+      );
+      const name = row.querySelector(".whimsy-menus-row-label").getBoundingClientRect();
+      const detail = row.querySelector(".whimsy-menus-row-alt, .whimsy-menus-row-hint").getBoundingClientRect();
+      Assert.lessOrEqual(Math.abs(detail.left - name.right - 10), 1, "The detail starts right after the name");
+      Assert.less(Math.abs(detail.top + detail.height / 2 - (name.top + name.height / 2)), 2, "on the same line");
+      Assert.greaterOrEqual(Math.round(doc.querySelector(".whimsy-menus-rows").getBoundingClientRect().width), 600,
+        "The Menus rows are wider than before (382px)");
+    });
+  } finally {
+    win.resizeTo(width, height);
+  }
+});
