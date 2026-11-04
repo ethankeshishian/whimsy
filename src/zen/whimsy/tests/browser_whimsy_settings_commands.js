@@ -6,6 +6,7 @@
 // fix7 settings: the command bar reaches the settings people looked for
 // there: View History, Liquid Glass, Glance size and the VPN.
 
+const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
 const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
 
 function action(l10nId) {
@@ -136,13 +137,53 @@ add_task(async function test_open_home_settings_command() {
   is(openedWith, "paneHome", "Running it opens Settings on the Home and startup pane");
 });
 
+// W14 21.3: Go Home goes to the home page, from an assigned shortcut and
+// from the command bar row.
 add_task(async function test_go_home_command() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
-  const entry = WhimsyCommands.get("Browser:Home");
-  ok(entry, "Browser:Home is registered as a Whimsy command");
-  const keyEl = document.getElementById(entry.keyId ?? entry.elsewhere);
+  const { CustomKeys } = ChromeUtils.importESModule("moz-src:///browser/components/customkeys/CustomKeys.sys.mjs");
+  const home = "https://example.com/?whimsy-home";
+  await SpecialPowers.pushPrefEnv({ set: [["browser.startup.homepage", home]] });
+  const entry = WhimsyCommands.get("cmd_whimsyGoHome");
+  ok(entry, "Go Home is registered as a Whimsy command");
+  ok(document.getElementById("cmd_whimsyGoHome"), "...with a <command> to run");
+  const keyEl = document.getElementById(entry.keyId);
   ok(keyEl, "and has a <key>, so a shortcut can be assigned");
+  is(keyEl.getAttribute("command"), "cmd_whimsyGoHome", "The key runs that command");
+
+  const result = WhimsyCommands.rebind("cmd_whimsyGoHome", { modifiers: "accel,alt,shift", key: "Y" });
+  ok(result.ok, "A shortcut is assigned");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  let loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, home);
+  await SimpleTest.promiseFocus(window);
+  EventUtils.synthesizeKey("y", { accelKey: true, altKey: true, shiftKey: true });
+  await loaded;
+  is(tab.linkedBrowser.currentURI.spec, home, "The shortcut goes to the home page");
+  CustomKeys.resetKey(entry.keyId);
+
   const row = action("whimsy-action-go-home");
   ok(row?.label, `and is in the command bar ("${row?.label}")`);
-  is(row.command, "Browser:Home", "Running it runs Firefox's own Go Home command");
+  is(row.command, "cmd_whimsyGoHome", "The row runs Go Home");
+  BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "https://example.org/");
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, "https://example.org/");
+  loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, home);
+  gURLBar.blur();
+  await SimpleTest.promiseFocus(window);
+  document.getElementById("Browser:OpenLocation").doCommand();
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus: SimpleTest.waitForFocus, value: row.label });
+  let index = -1;
+  for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+    const { result } = await UrlbarTestUtils.getRowAt(window, i);
+    if (result.payload.zenCommand == "cmd_whimsyGoHome") {
+      index = i;
+      break;
+    }
+  }
+  Assert.greaterOrEqual(index, 0, "Typing its name offers Go Home");
+  UrlbarTestUtils.setSelectedRowIndex(window, index);
+  EventUtils.synthesizeKey("KEY_Enter");
+  await loaded;
+  is(tab.linkedBrowser.currentURI.spec, home, "The command bar row goes to the home page");
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
 });

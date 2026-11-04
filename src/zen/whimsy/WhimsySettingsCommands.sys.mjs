@@ -606,12 +606,14 @@ export const WhimsySettingsCommands = {
       icon: ICON,
       run: w => w.openPreferences("paneHome"),
     });
-    // Firefox's own command (its own name, "Go Home"); reuses its <key> if
-    // it has one, else gets a Whimsy one with no default, ready to assign.
+    // Firefox's Go Home (its name) has a bare <key> and no <command>; the key id
+    // stays as first shipped so a shortcut already assigned keeps working.
     lazy.WhimsyCommands.register(win, {
-      id: "Browser:Home",
+      id: "cmd_whimsyGoHome",
+      keyId: "key_Browser:Home",
       l10nId: "whimsy-action-go-home",
       icon: "chrome://browser/skin/zen-icons/home.svg",
+      run: w => w.BrowserCommands.home(),
     });
   },
 
