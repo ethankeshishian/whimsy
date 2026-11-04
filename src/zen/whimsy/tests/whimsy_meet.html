@@ -38,6 +38,8 @@
   const KEY = { mic: "d", camera: "e" };
   const NAME = { mic: "microphone", camera: "camera" };
   window.requireTrusted = false;
+  // The page stops answering its own buttons.
+  window.stuck = false;
   window.decoyPresses = 0;
   for (const decoy of document.querySelectorAll("#people button, [role=dialog] button, [data-requested-participant-id] button, button[aria-label^='Sam']")) {
     decoy.addEventListener("click", () => window.decoyPresses++);
@@ -59,7 +61,7 @@
       button.style.cssText = "width: 48px; height: 48px; border-radius: 24px";
       button.textContent = kind;
       button.addEventListener("click", event => {
-        if (window.requireTrusted && !event.isTrusted) {
+        if ((window.requireTrusted && !event.isTrusted) || window.stuck) {
           return;
         }
         toggle(kind);
@@ -104,6 +106,14 @@
     document.getElementById("bar").textContent = "";
   };
   window.restoreControls = render;
+
+  // As Meet re-rendering a tile: the speaker's video gets its stream again,
+  // which empties it first.
+  window.rerenderTile = function () {
+    const video = document.getElementById("speaker");
+    video.srcObject = stream;
+    return video.play().then(() => true);
+  };
 
   // A peer connection first (Zen's small player shows a sharing card only
   // for a tab with one), then the camera. Camera only: a fake microphone

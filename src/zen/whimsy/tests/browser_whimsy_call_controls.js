@@ -156,6 +156,28 @@ async function expectAll(call, pip, expected, what) {
   }
 }
 
+// W14 21.7: from another tab, the camera button blocks the device (the
+// call's own camera couldn't come back on until you go back), and Meet's
+// own camera stays as it was.
+async function expectCameraBlock(call, pip, blocked, what) {
+  await TestUtils.waitForCondition(
+    () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera == blocked,
+    `${what}: the device block`
+  );
+  is((await meetState(call)).camera, "on", `${what}: Meet's own camera is untouched`);
+  await TestUtils.waitForCondition(() => cardState(call, "camera") == (blocked ? "off" : "on"), `${what}: the small player`);
+  if (pip) {
+    await TestUtils.waitForCondition(() => pipState(pip, "camera") == (blocked ? "off" : "on"), `${what}: the PiP window`);
+  }
+}
+
+async function expectMic(call, pip, value, what) {
+  await TestUtils.waitForCondition(
+    async () => (await meetState(call)).mic == value && cardState(call, "mic") == value && (!pip || pipState(pip, "mic") == value),
+    `${what}: the microphone is ${value} everywhere`
+  );
+}
+
 async function clickCard(call, kind) {
   const button = cardButton(call, kind);
   ok(button && button.getBoundingClientRect().width > 0, `The small player's ${kind} button is on screen`);
@@ -317,23 +339,25 @@ add_task(async function test_pip_toggles_meet_without_a_glitch() {
     await expectAll(call, pip, { mic: "off", camera: "on" }, "PiP: microphone off");
 
     await clickPip(pip, "camera");
-    await expectAll(call, pip, { mic: "off", camera: "off" }, "PiP: camera off");
+    await expectCameraBlock(call, pip, true, "PiP: camera off");
     // The small player, while floating, moves the PiP too.
     await clickCard(call, "mic");
-    await expectAll(call, pip, { mic: "on", camera: "off" }, "Small player while floating: microphone on");
+    await expectMic(call, pip, "on", "Small player while floating: microphone on");
     await clickPip(pip, "camera");
-    await expectAll(call, pip, ON, "PiP: camera on");
+    await expectCameraBlock(call, pip, false, "PiP: camera on");
+    await expectAll(call, pip, ON, "PiP: both on");
 
     // Meet's own keys in the PiP window, and M as before.
     pip.focus();
     EventUtils.synthesizeKey("d", { accelKey: true }, pip);
     await expectAll(call, pip, { mic: "off", camera: "on" }, "PiP ⌘D");
     EventUtils.synthesizeKey("e", { accelKey: true }, pip);
-    await expectAll(call, pip, { mic: "off", camera: "off" }, "PiP ⌘E");
+    await expectCameraBlock(call, pip, true, "PiP ⌘E");
     EventUtils.synthesizeKey("m", {}, pip);
-    await expectAll(call, pip, { mic: "on", camera: "off" }, "PiP M");
+    await expectMic(call, pip, "on", "PiP M");
     EventUtils.synthesizeKey("e", { accelKey: true }, pip);
-    await expectAll(call, pip, ON, "PiP ⌘E again");
+    await expectCameraBlock(call, pip, false, "PiP ⌘E again");
+    await expectAll(call, pip, ON, "PiP ⌘E again: both on");
   } finally {
     await unfloat(call, floating);
   }
@@ -381,7 +405,7 @@ add_task(async function test_unknown_state_falls_back_to_device_mute() {
       () => cardState(call, "mic") != "hidden" && cardState(call, "mic") != "off",
       "Meet's toggles are gone: the small player's microphone stays, showing the device mute"
     );
-    ok(!WhimsyCallPip.commandTarget(window, "mic"), "Toggle Meeting Microphone has nothing to toggle");
+    ok(!WhimsyCallPip.commandTarget(window, "mic"), "Press Call Microphone Button has nothing to toggle");
     await clickCard(call, "mic");
     await TestUtils.waitForCondition(
       () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
@@ -436,11 +460,12 @@ add_task(async function test_commands_toggle_the_floating_call() {
     }
     is(WhimsyCallPip.commandTarget(window, "mic"), call.linkedBrowser, "From another tab, the commands target the floating call");
     document.getElementById("cmd_whimsyCallMicrophone").doCommand();
-    await expectAll(call, pip, { mic: "off", camera: "on" }, "Toggle Meeting Microphone");
+    await expectAll(call, pip, { mic: "off", camera: "on" }, "Press Call Microphone Button");
     document.getElementById("cmd_whimsyCallCamera").doCommand();
-    await expectAll(call, pip, { mic: "off", camera: "off" }, "Toggle Meeting Camera");
+    await expectCameraBlock(call, pip, true, "Press Call Camera Button, from another tab");
     document.getElementById("cmd_whimsyCallMicrophone").doCommand();
     document.getElementById("cmd_whimsyCallCamera").doCommand();
+    await expectCameraBlock(call, pip, false, "Both commands again");
     await expectAll(call, pip, ON, "Both commands again");
   } finally {
     await unfloat(call, floating);
@@ -495,11 +520,8 @@ add_task(async function test_trusted_clicks_reach_a_background_call() {
     await expectAll(call, pip, ON, "Floating");
     await clickPip(pip, "mic");
     await expectAll(call, pip, { mic: "off", camera: "on" }, "Trusted only: PiP microphone off");
-    await clickCard(call, "camera");
-    await expectAll(call, pip, { mic: "off", camera: "off" }, "Trusted only: small player camera off");
-    await clickPip(pip, "mic");
-    await clickPip(pip, "camera");
-    await expectAll(call, pip, ON, "Trusted only: both on");
+    await clickCard(call, "mic");
+    await expectAll(call, pip, ON, "Trusted only: small player microphone on");
   } finally {
     await SpecialPowers.spawn(call.linkedBrowser, [], () => {
       content.wrappedJSObject.requireTrusted = false;
@@ -705,17 +727,27 @@ add_task(async function test_pip_click_does_default_alt_click_does_other() {
     await clickPip(pip, "mic");
     await expectAll(call, pip, ON, "Back on");
 
-    await clickPipAlt(pip, "camera");
+    await clickPipAlt(pip, "mic");
     await TestUtils.waitForCondition(
-      () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
+      () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
       "Option-click does the device block"
     );
-    is((await meetState(call)).camera, "on", "the page's own toggle is untouched by the other mute");
-    await clickPipAlt(pip, "camera");
+    is((await meetState(call)).mic, "on", "the page's own toggle is untouched by the other mute");
+    await clickPipAlt(pip, "mic");
     await TestUtils.waitForCondition(
-      () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
+      () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
       "a second Option-click releases it"
     );
+    // W14 21.7: from another tab the camera's plain press is the device
+    // block, so Option-click is the call's own camera.
+    await clickPipAlt(pip, "camera");
+    await expectAll(call, pip, { mic: "on", camera: "off" }, "Option-click: the call's own camera off");
+    ok(!WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, "…and the device is untouched");
+    // With the call's camera off, a plain press asks the call to turn it on
+    // (a real call gets the camera once you go back).
+    await clickPip(pip, "camera");
+    await expectAll(call, pip, ON, "A plain press: the call's own camera on");
+    ok(!WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, "…the device still untouched");
   } finally {
     await unfloat(call, floating);
   }
@@ -875,5 +907,85 @@ add_task(async function test_existing_toggle_commands_follow_the_default() {
     is(WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic, false, "a second press releases it");
   } finally {
     await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W14 21.7: a camera turned off from another tab is a device block, so it
+// comes back at once; back on the call's tab the button still releases it.
+add_task(async function test_background_camera_block_comes_back() {
+  const call = await openCall();
+  const floating = await float(call);
+  const { pip } = floating;
+  try {
+    await expectAll(call, pip, ON, "Floating");
+    await clickPip(pip, "camera");
+    await expectCameraBlock(call, pip, true, "PiP camera off");
+  } finally {
+    await unfloat(call, floating);
+  }
+  is(cardState(call, "camera"), "off", "Back on the call: the camera still shows off");
+  await clickCard(call, "camera");
+  await expectCameraBlock(call, null, false, "The button releases the block");
+  await expectAll(call, null, ON, "All on");
+  await clickCard(call, "camera");
+  await expectAll(call, null, { mic: "on", camera: "off" }, "On the call's tab the button is the call's own camera again");
+  await clickCard(call, "camera");
+  await expectAll(call, null, ON, "…and on");
+});
+
+// W14 21.7: a press the page doesn't answer says so.
+add_task(async function test_unanswered_press_shows_a_toast() {
+  const call = await openCall();
+  const toasts = () => [...(document.getElementById("zen-toast-container")?.children ?? [])].map(t => t._messageId);
+  await SpecialPowers.spawn(call.linkedBrowser, [], () => {
+    content.wrappedJSObject.stuck = true;
+  });
+  try {
+    await clickCard(call, "mic");
+    await TestUtils.waitForCondition(() => toasts().includes("whimsy-call-mic-failed-toast"), "A toast says the call didn't answer", 100, 80);
+    is((await meetState(call)).mic, "on", "Nothing changed");
+    is(cardState(call, "mic"), "on", "…and the button shows that");
+  } finally {
+    await SpecialPowers.spawn(call.linkedBrowser, [], () => {
+      content.wrappedJSObject.stuck = false;
+    });
+  }
+});
+
+// W14 21.7: a call page re-rendering its tile empties the video, and
+// Firefox closes the PiP; while you're on another tab it comes back.
+add_task(async function test_call_pip_reopens_after_a_tile_rerender() {
+  const call = await openCall();
+  let floating = await float(call);
+  const closed = BrowserTestUtils.domWindowClosed(floating.pip);
+  const reopened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+  await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.rerenderTile());
+  await closed;
+  const pip = await reopened;
+  await TestUtils.waitForCondition(() => pip._whimsyCallBrowser == call.linkedBrowser, "The call floats again");
+  floating = { ...floating, pip };
+  await unfloat(call, floating);
+});
+
+// W14 21.7: a shortcut assigned to a call command works in the PiP window.
+add_task(async function test_assigned_shortcut_works_in_pip() {
+  const call = await openCall();
+  const keyEl = document.getElementById("key_cmd_whimsyCallMicrophone");
+  ok(keyEl && !keyEl.hasAttribute("key"), "Press Call Microphone Button has no key by default");
+  keyEl.setAttribute("modifiers", "accel,shift");
+  keyEl.setAttribute("key", "U");
+  const floating = await float(call);
+  const { pip } = floating;
+  try {
+    await expectAll(call, pip, ON, "Floating");
+    pip.focus();
+    EventUtils.synthesizeKey("u", { accelKey: true, shiftKey: true }, pip);
+    await expectAll(call, pip, { mic: "off", camera: "on" }, "The assigned shortcut, pressed in PiP");
+    EventUtils.synthesizeKey("u", { accelKey: true, shiftKey: true }, pip);
+    await expectAll(call, pip, ON, "…and again");
+  } finally {
+    keyEl.removeAttribute("modifiers");
+    keyEl.removeAttribute("key");
+    await unfloat(call, floating);
   }
 });

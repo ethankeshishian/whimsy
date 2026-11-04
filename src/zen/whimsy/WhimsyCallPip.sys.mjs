@@ -136,6 +136,31 @@ body[whimsy-call] .end-controls:has(#playbackRate:not([hidden])) {
 }
 `);
 
+// Whether a keydown is the shortcut a <key> element is bound to.
+function keyMatches(keyEl, event) {
+  const key = keyEl.getAttribute("key");
+  const keycode = keyEl.getAttribute("keycode");
+  if (!key && !keycode) {
+    return false;
+  }
+  const mods = new Set((keyEl.getAttribute("modifiers") ?? "").split(/[\s,]+/).filter(Boolean));
+  const mac = AppConstants.platform == "macosx";
+  const want = {
+    metaKey: mods.has("meta") || (mac && mods.has("accel")),
+    ctrlKey: mods.has("control") || (!mac && mods.has("accel")),
+    altKey: mods.has("alt"),
+    shiftKey: mods.has("shift"),
+  };
+  if (Object.entries(want).some(([name, on]) => event[name] != on)) {
+    return false;
+  }
+  if (keycode) {
+    return event.keyCode == event.constructor[`DOM_${keycode}`];
+  }
+  const k = key.toUpperCase();
+  return event.key?.toUpperCase() == k || event.code == (/\d/.test(k) ? `Digit${k}` : `Key${k}`);
+}
+
 export const WhimsyCallPip = {
   get enabled() {
     return (
@@ -160,7 +185,7 @@ export const WhimsyCallPip = {
       icon: "chrome://global/skin/media/closed-caption-settings-button.svg",
       isAvailable: w => this.isInCall(w.gBrowser.selectedTab),
     });
-    // W13-R3: Toggle Meeting Microphone / Camera (no key by default); W21:
+    // W13-R3: Press Call Microphone / Camera Button (no key by default); W21:
     // these now follow whichever mute buttonsDefault picks.
     for (const [kind, id, l10nId, icon] of [
       ["mic", "cmd_whimsyCallMicrophone", "whimsy-action-call-microphone", "microphone-fill.svg"],
@@ -240,6 +265,11 @@ export const WhimsyCallPip = {
       }
     }
     gBrowser.tabContainer.addEventListener("TabSelect", event => {
+      for (const tab of [event.detail?.previousTab, event.target]) {
+        if (this._calls.has(tab?.linkedBrowser)) {
+          this.render(tab.linkedBrowser);
+        }
+      }
       try {
         this.onTabSelect(win, event.detail?.previousTab, event.target);
       } catch (e) {
@@ -403,6 +433,9 @@ export const WhimsyCallPip = {
         }
       }, true);
       pipWin.addEventListener("keydown", event => {
+        if (this.forwardShortcut(browser, event)) {
+          return;
+        }
         const kind = this.pipKeyKind(event);
         if (kind && this.isInCall(tab)) {
           event.stopPropagation();
@@ -414,6 +447,7 @@ export const WhimsyCallPip = {
           }
         }
       }, true);
+      pipWin.addEventListener("unload", () => this.onCallPipClosed(pipWin._whimsyCallBrowser), { once: true });
     }
     this.showCaptionsButton(pipWin, browser);
     if (this.controlsEnabled) {
@@ -421,6 +455,55 @@ export const WhimsyCallPip = {
       this.watch(browser);
       this.renderPip(pipWin, browser);
     }
+  },
+
+  // W14 21.7: a shortcut assigned to a call command (Settings → Keyboard
+  // Shortcuts) works in the call's PiP window too, which has no keyset of
+  // its own: it runs the command in the call's browser window.
+  forwardShortcut(browser, event) {
+    const win = browser?.ownerDocument?.defaultView;
+    if (!win || win.closed || event.repeat || !this.isInCallBrowser(browser)) {
+      return false;
+    }
+    for (const keyEl of win.document.querySelectorAll('key[command^="cmd_whimsyCall"]')) {
+      if (keyMatches(keyEl, event)) {
+        event.stopPropagation();
+        event.preventDefault();
+        win.document.getElementById(keyEl.getAttribute("command"))?.doCommand();
+        return true;
+      }
+    }
+    return false;
+  },
+
+  // W14 21.7: Firefox closes the call's PiP when its video is emptied or
+  // removed, which a call page does when it re-renders a tile (turning a
+  // camera off and on). While you're still on another tab in the call, it
+  // comes back; a PiP you closed yourself (Firefox's deliberate closes) or
+  // left by going back to the call stays closed.
+  onCallPipClosed(browser) {
+    const win = browser?.ownerDocument?.defaultView;
+    if (!win) {
+      return;
+    }
+    let tries = 0;
+    const retry = () => {
+      if (win.closed || !this.enabled || !this.isInCallBrowser(browser) || !this.isBackground(browser)) {
+        return;
+      }
+      if (lazy.PictureInPicture.weakAutoPipBrowserClosedDeliberately?.has(browser) || this.pipWindowsFor(browser).length) {
+        return;
+      }
+      browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage")
+        ?.sendQuery("Whimsy:CallPip")
+        .then(opened => {
+          if (!opened && ++tries < 6) {
+            win.setTimeout(retry, 500);
+          }
+        })
+        .catch(() => {});
+    };
+    win.setTimeout(retry, 500);
   },
 
   // M (as before) or Meet's ⌘D toggles the microphone, ⌘E the camera; Shift
@@ -793,7 +876,21 @@ export const WhimsyCallPip = {
     } else {
       this.render(browser);
     }
+    if (result && !result.ok && result.reason == "no-change") {
+      this.showToggleFailed(browser, kind);
+    }
     return !!result?.ok;
+  },
+
+  // W14 21.7: the page didn't show a press within the toggle's wait. A
+  // camera turned on from another tab waits for you to go back (Firefox
+  // holds the request); anything else, the page didn't answer.
+  showToggleFailed(browser, kind) {
+    const app = this.appName(browser);
+    const l10nArgs = { app: app ?? "", known: app ? "yes" : "no" };
+    const waits = kind == "camera" && this.isBackground(browser);
+    const id = waits ? "whimsy-call-camera-waits-toast" : `whimsy-call-${kind}-failed-toast`;
+    browser.ownerDocument?.defaultView?.gZenUIManager?.showToast?.(id, { l10nArgs, timeout: 6000 });
   },
 
   // W21: Whimsy's own device mute for `kind` on this browser — works with
@@ -807,6 +904,9 @@ export const WhimsyCallPip = {
     const state = this.stateFor(browser);
     const next = !state.blocked[kind];
     state.blocked[kind] = next;
+    if (!next && kind == "camera") {
+      state.buttonBlock = false;
+    }
     try {
       const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WebRTC");
       actor?.sendAsyncMessage(next ? MUTE_MESSAGE[kind] : DEVICE_UNMUTE[kind]);
@@ -819,13 +919,41 @@ export const WhimsyCallPip = {
   // picks, or the device mute regardless of the pref when no in-call
   // control was ever found (there's nothing else to toggle: never a no-op).
   toggleDefault(browser, kind) {
-    return this.pressDoes(browser, kind) == "device" ? this.toggleBlocked(browser, kind) : this.toggleInCall(browser, kind);
+    if (this.pressDoes(browser, kind) == "call") {
+      return this.toggleInCall(browser, kind);
+    }
+    const result = this.toggleBlocked(browser, kind);
+    if (kind == "camera" && this.buttonsDefault == "call" && this.shownState(browser, kind) != null) {
+      const state = this.stateFor(browser);
+      state.buttonBlock = state.blocked.camera;
+      this.render(browser);
+    }
+    return result;
   },
 
   // What a plain press of the mic/camera button does here: "call" or
   // "device" (W14-6: the panel's "Mic button"/"Camera button" hint).
+  //
+  // W14 21.7: Firefox holds a camera request from a tab that isn't selected
+  // until it is (WebRTCParent), so the call's own camera can't come back on
+  // from PiP or the small player while you're on another tab. There, the
+  // camera button blocks the device instead (the track stays alive, so it
+  // comes back at once), and keeps doing so until that block is released.
   pressDoes(browser, kind) {
-    return this.buttonsDefault == "device" || this.shownState(browser, kind) == null ? "device" : "call";
+    const value = this.shownState(browser, kind);
+    if (this.buttonsDefault == "device" || value == null) {
+      return "device";
+    }
+    if (kind == "camera" && (this.stateFor(browser).buttonBlock || (value == "on" && this.isBackground(browser)))) {
+      return "device";
+    }
+    return "call";
+  },
+
+  // The call's tab isn't the selected one in its window.
+  isBackground(browser) {
+    const gBrowser = browser?.ownerDocument?.defaultView?.gBrowser;
+    return !!gBrowser && gBrowser.selectedBrowser != browser;
   },
 
   // W14-6c: Zen lets go of the device mute itself (its card's close button,
@@ -834,6 +962,7 @@ export const WhimsyCallPip = {
     const state = this._states.get(browser);
     if (state && KINDS.some(kind => state.blocked[kind])) {
       state.blocked = { mic: false, camera: false };
+      state.buttonBlock = false;
       this.render(browser);
     }
   },
@@ -846,7 +975,7 @@ export const WhimsyCallPip = {
     if (this.shownState(browser, kind) == null) {
       return this.toggleBlocked(browser, kind);
     }
-    return this.buttonsDefault == "device" ? this.toggleInCall(browser, kind) : this.toggleBlocked(browser, kind);
+    return this.pressDoes(browser, kind) == "device" ? this.toggleInCall(browser, kind) : this.toggleBlocked(browser, kind);
   },
 
   // Every surface showing this call, from the same state.
@@ -1044,7 +1173,7 @@ export const WhimsyCallPip = {
     group.append(rule, button);
   },
 
-  // Toggle Meeting Microphone / Camera: the selected tab's call, else the
+  // The call commands: the selected tab's call, else the
   // call in an open PiP window, else the only call. Several: none.
   // `any`: the device-mute commands need no in-call controls to be found
   // (the device mute always works), unlike the in-call-only commands.

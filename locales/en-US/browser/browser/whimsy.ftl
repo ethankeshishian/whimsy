@@ -4972,15 +4972,33 @@ whimsy-space-lock-cover-detail = Unlock to see its tabs.
 
 ## W13-R3: a call's microphone and camera (the small player under the tab
 ## bar, picture-in-picture and commands), following the call page's own
-## toggles.
+## toggles. W14 21.7: the first two do what pressing the button does
+## (Call Options' "Buttons mute"); the next four each do one mute.
 
-whimsy-action-call-microphone = Toggle Meeting Microphone
-whimsy-action-call-camera = Toggle Meeting Camera
+whimsy-action-call-microphone = Press Call Microphone Button
+whimsy-action-call-camera = Press Call Camera Button
 whimsy-action-call-microphone-in-call = Mute Microphone In the Call
 whimsy-action-call-camera-in-call = Turn Off Camera In the Call
 whimsy-action-call-microphone-block = Block Microphone On This Device
 whimsy-action-call-camera-block = Block Camera On This Device
-whimsy-action-call-buttons-default = Call Buttons: Mute In the Call / On This Device
+whimsy-action-call-buttons-default = Call Buttons Mute: The Call / This Device
+# W14 21.7: a press the call page didn't answer. $app (string) - the call
+# app's name from its page; $known (string) - "yes" when it gave one.
+whimsy-call-camera-waits-toast =
+    { $known ->
+        [yes] { $app } turns your camera on when you go back to the call
+       *[no] Your camera comes on when you go back to the call
+    }
+whimsy-call-mic-failed-toast =
+    { $known ->
+        [yes] { $app } didn't answer its mute button
+       *[no] The call didn't answer its mute button
+    }
+whimsy-call-camera-failed-toast =
+    { $known ->
+        [yes] { $app } didn't answer its camera button
+       *[no] The call didn't answer its camera button
+    }
 whimsy-call-mic-turn-off =
     .tooltiptext = Turn Off Microphone
     .aria-label = Turn Off Microphone
