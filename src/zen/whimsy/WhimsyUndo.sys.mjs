@@ -16,9 +16,11 @@
 // A small ring buffer of { type, undo(), redo() } entries, per window, that
 // every other Whimsy tab feature (archive, snooze, tree-close, pin/unpin,
 // move-to-space) pushes to and one Cmd+Z/Cmd+Shift+Z handler drains. The
-// handler only engages when focus isn't in an editable field or web content
-// (checked via document.activeElement before Firefox's own cmd_undo would
-// run), and it only ever intercepts the key — via preventDefault() before
+// handler only engages when focus isn't in an editable field (checked via
+// document.activeElement before Firefox's own cmd_undo would run). Focus in
+// web content is the page's, except while the Undo toast for the top entry
+// is still showing and the page has no text undo of its own. It only ever
+// intercepts the key — via preventDefault() before
 // the window's <key> dispatch sees it — when there's actually something on
 // the stack, so an empty stack leaves Cmd+Z as plain editor undo.
 
@@ -51,7 +53,23 @@ function isIdleLibraryField(el) {
   return !editor?.canUndo;
 }
 
-function isEditableTarget(win) {
+// W14b 1: the toast offering the top entry is still up.
+function toastOffersTop(win, stack) {
+  const shown = undoToasts.get(win);
+  return !!shown && shown.entry == stack?.at(-1) && !shown.toast.closing && !!shown.toast.element?.isConnected;
+}
+
+// Does the focused page have typing of its own to undo or redo?
+function pageHasOwnEdit(win, command) {
+  try {
+    const controller = win.document.commandDispatcher.getControllerForCommand(command);
+    return !!controller?.isCommandEnabled(command);
+  } catch (e) {
+    return true;
+  }
+}
+
+function isEditableTarget(win, takeover = false) {
   const el = win.document.activeElement;
   if (!el) {
     return false;
@@ -59,12 +77,10 @@ function isEditableTarget(win) {
   if ((el.localName == "input" || el.localName == "textarea") && isIdleLibraryField(el)) {
     return false;
   }
-  // Focus inside a page (including a compose box, an online editor) is the
-  // page's business, not ours — we can't know its editable state from
-  // chrome without an async round-trip, so the safe default is to leave it
-  // alone entirely.
+  // Focus inside a page is the page's business, except when `takeover`
+  // says an Undo toast is up and the page has no text undo of its own.
   if (el.localName == "browser") {
-    return true;
+    return !takeover;
   }
   if (el.isContentEditable) {
     return true;
@@ -396,7 +412,10 @@ export const WhimsyUndo = {
       if (!accel) {
         return;
       }
-      if (isEditableTarget(win)) {
+      const takeover =
+        toastOffersTop(win, (event.shiftKey ? redoStacks : undoStacks).get(win)) &&
+        !pageHasOwnEdit(win, event.shiftKey ? "cmd_redo" : "cmd_undo");
+      if (isEditableTarget(win, takeover)) {
         return; // Let cmd_undo/cmd_redo run.
       }
       const wantsRedo = event.shiftKey;

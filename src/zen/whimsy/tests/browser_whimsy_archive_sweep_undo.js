@@ -6,6 +6,7 @@
 // wave7/small: the idle archive sweep shows a toast with Undo, and Undo
 // brings back exactly the swept tabs, even after another tab was closed.
 
+const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
 const { WhimsyArchive } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArchive.sys.mjs");
 const { WhimsyUndo } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs");
 
@@ -58,6 +59,83 @@ add_task(async function test_sweep_toast_undo_restores_the_batch() {
   }
   BrowserTestUtils.removeTab(keep);
   await SpecialPowers.popPrefEnv();
+});
+
+async function sweepWithPageFocus(tag) {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.tabs.archive.idle-after", "12h"]] });
+  const url = `https://example.com/?w14b-${tag}`;
+  const idle = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, `https://example.com/?w14b-keep-${tag}`);
+  await SpecialPowers.spawn(keep.linkedBrowser, [], () => {
+    const input = content.document.createElement("input");
+    input.id = "field";
+    content.document.body.appendChild(input);
+  });
+  idle.updateLastAccessed(Date.now() - 13 * 3600 * 1000);
+  closeToasts();
+  WhimsyArchive.sweepWindow(window);
+  await TestUtils.waitForCondition(() => !idle.isConnected, "The idle tab was archived");
+  await TestUtils.waitForCondition(() => document.getElementById("whimsy-undo-toast-button"), "The toast is up");
+  gBrowser.selectedBrowser.focus();
+  return { url, keep };
+}
+
+async function finishPageFocus(url, keep) {
+  for (const tab of gBrowser.tabs.filter(t => t.linkedBrowser.currentURI.spec == url)) {
+    BrowserTestUtils.removeTab(tab);
+  }
+  BrowserTestUtils.removeTab(keep);
+  closeToasts();
+  await SpecialPowers.popPrefEnv();
+}
+
+function pressAccelZ() {
+  const modifiers = AppConstants.platform == "macosx" ? { metaKey: true } : { ctrlKey: true };
+  EventUtils.synthesizeKey("z", modifiers, window);
+}
+
+add_task(async function test_cmd_z_with_page_focus_undoes_the_sweep_while_toast_shows() {
+  const { url, keep } = await sweepWithPageFocus("one");
+  is(document.activeElement, gBrowser.selectedBrowser, "Focus is in the page");
+  pressAccelZ();
+  await TestUtils.waitForCondition(
+    () => openUrls().includes(url) && !document.getElementById("whimsy-undo-toast-button"),
+    "Cmd+Z restored the tab and closed the toast"
+  );
+  await finishPageFocus(url, keep);
+});
+
+add_task(async function test_cmd_z_in_a_page_field_undoes_typing_not_the_sweep() {
+  const { url, keep } = await sweepWithPageFocus("two");
+  await SpecialPowers.spawn(keep.linkedBrowser, [], () => content.document.getElementById("field").focus());
+  EventUtils.synthesizeKey("a", {}, window);
+  EventUtils.synthesizeKey("b", {}, window);
+  await TestUtils.waitForCondition(
+    () => SpecialPowers.spawn(keep.linkedBrowser, [], () => content.document.getElementById("field").value == "ab"),
+    "Typed into the page field"
+  );
+  const controller = document.commandDispatcher.getControllerForCommand("cmd_undo");
+  await TestUtils.waitForCondition(() => controller.isCommandEnabled("cmd_undo"), "The page has typing to undo");
+  pressAccelZ();
+  await TestUtils.waitForCondition(
+    () => SpecialPowers.spawn(keep.linkedBrowser, [], () => content.document.getElementById("field").value == ""),
+    "Cmd+Z undid the typing"
+  );
+  ok(!openUrls().includes(url), "The archived tab stays archived");
+  ok(document.getElementById("whimsy-undo-toast-button"), "and the toast stays");
+  await finishPageFocus(url, keep);
+});
+
+add_task(async function test_cmd_z_with_page_focus_after_the_toast_closed_undoes_nothing() {
+  const { url, keep } = await sweepWithPageFocus("three");
+  closeToasts();
+  await TestUtils.waitForCondition(() => !document.getElementById("whimsy-undo-toast-button"), "The toast closed");
+  gBrowser.selectedBrowser.focus();
+  pressAccelZ();
+  await new Promise(r => setTimeout(r, 300));
+  ok(!openUrls().includes(url), "The archived tab stays archived");
+  is(WhimsyUndo.peek(window)?.type, "archive:idle", "Nothing of Whimsy's was undone");
+  await finishPageFocus(url, keep);
 });
 
 add_task(async function test_manual_archive_has_no_sweep_toast() {
