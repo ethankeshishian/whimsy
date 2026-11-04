@@ -8,7 +8,7 @@
 // refuses everything while the AI kill switch is on, aborts requests in
 // flight when it goes on, and keeps the Claude API key out of prefs.
 
-const { WhimsyAIProviders, WhimsyAIError } = ChromeUtils.importESModule(
+const { WhimsyAIProviders, WhimsyAIError, ENDPOINTS } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs"
 );
 const { OSKeyStoreTestUtils } = ChromeUtils.importESModule(
@@ -24,8 +24,12 @@ const deviceNameValue = deviceNameHadUserValue ? Services.prefs.getStringPref(DE
 
 registerCleanupFunction(async () => {
   WhimsyAIProviders.setTestProvider(null);
-  await WhimsyAIProviders.setClaudeKey("");
+  for (const provider of ["claude", "openai", "gemini"]) {
+    await WhimsyAIProviders.setKey(provider, "");
+  }
   for (const pref of [
+    "whimsy.ai.openai.model",
+    "whimsy.ai.gemini.model",
     "whimsy.ai.enabled",
     "whimsy.ai.provider",
     "whimsy.ai.ollama.model",
@@ -153,6 +157,131 @@ add_task(async function test_claude_key_storage() {
   Services.prefs.clearUserPref("whimsy.ai.provider");
   await WhimsyAIProviders.setClaudeKey("");
   ok(!(await WhimsyAIProviders.hasClaudeKey()), "Removing the key forgets it");
+});
+
+// W14 19: each provider's key is its own field; saving one keeps the others
+// (setClaudeKey used to rewrite the whole file).
+add_task(async function test_keys_kept_per_provider() {
+  OSKeyStoreTestUtils.setup();
+  registerCleanupFunction(() => OSKeyStoreTestUtils.cleanup());
+  const claude = "sk-" + "ant-test-" + "1111";
+  const gemini = "AIza" + "TestKey" + "2222";
+  const openai = "sk-" + "proj-test-" + "3333";
+  await WhimsyAIProviders.setKey("claude", claude);
+  await WhimsyAIProviders.setKey("gemini", gemini);
+  await WhimsyAIProviders.setKey("openai", openai);
+  is(await WhimsyAIProviders.getKey("claude"), claude, "Saving the Gemini and OpenAI keys keeps Claude's");
+  is(await WhimsyAIProviders.getKey("gemini"), gemini, "Gemini's reads back");
+  is(await WhimsyAIProviders.getKey("openai"), openai, "OpenAI's reads back");
+  const file = await IOUtils.readUTF8(PathUtils.join(PathUtils.profileDir, "whimsy-ai-keys.json"));
+  ok(![claude, gemini, openai].some(k => file.includes(k)), "The file only holds ciphertext");
+  await WhimsyAIProviders.setKey("gemini", "");
+  ok(!(await WhimsyAIProviders.hasKey("gemini")), "Removing Gemini's key forgets it");
+  is(await WhimsyAIProviders.getKey("claude"), claude, "and leaves Claude's");
+  ok(await WhimsyAIProviders.hasKey("openai"), "and OpenAI's");
+  await WhimsyAIProviders.setKey("claude", "");
+  await WhimsyAIProviders.setKey("openai", "");
+  ok(!(await IOUtils.exists(PathUtils.join(PathUtils.profileDir, "whimsy-ai-keys.json"))), "No keys, no file");
+});
+
+// W14 19: OpenAI (Responses API) and Gemini (generateContent) with API keys,
+// against a local stand-in for each service.
+add_task(async function test_openai_and_gemini_requests() {
+  OSKeyStoreTestUtils.setup();
+  registerCleanupFunction(() => OSKeyStoreTestUtils.cleanup());
+  const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
+  const { NetUtil: Net } = ChromeUtils.importESModule("resource://gre/modules/NetUtil.sys.mjs");
+  const server = new HttpServer();
+  server.start(-1);
+  const base = `http://localhost:${server.identity.primaryPort}`;
+  const saved = { ...ENDPOINTS };
+  ENDPOINTS.openai = `${base}/openai`;
+  ENDPOINTS.gemini = `${base}/gemini`;
+  const seen = [];
+  let status = 200;
+  let reply = {};
+  const handler = (request, response) => {
+    let body = {};
+    try {
+      const stream = request.bodyInputStream;
+      body = JSON.parse(Net.readInputStreamToString(stream, stream.available()) || "{}");
+    } catch {}
+    seen.push({
+      path: request.path,
+      query: request.queryString,
+      auth: request.hasHeader("authorization") ? request.getHeader("authorization") : "",
+      goog: request.hasHeader("x-goog-api-key") ? request.getHeader("x-goog-api-key") : "",
+      cookie: request.hasHeader("cookie"),
+      body,
+    });
+    response.setStatusLine(request.httpVersion, status, "x");
+    response.setHeader("content-type", "application/json");
+    response.write(JSON.stringify(reply));
+  };
+  server.registerPrefixHandler("/openai/", handler);
+  server.registerPrefixHandler("/gemini/", handler);
+  registerCleanupFunction(async () => {
+    Object.assign(ENDPOINTS, saved);
+    await new Promise(r => server.stop(r));
+  });
+  const openaiKey = "sk-" + "proj-" + "abcd";
+  const geminiKey = "AIza" + "Sy" + "efgh";
+  await WhimsyAIProviders.setKey("openai", openaiKey);
+  await WhimsyAIProviders.setKey("gemini", geminiKey);
+
+  Services.prefs.setStringPref("whimsy.ai.provider", "openai");
+  ok(WhimsyAIProviders.isCloud, "OpenAI sends text off the Mac, so private tabs stay out");
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "no-model", "No model picked: an error");
+  Services.prefs.setStringPref("whimsy.ai.openai.model", "gpt-test");
+  ok(await WhimsyAIProviders.isReady(), "Ready with a key");
+  reply = { output: [{ type: "message", content: [{ type: "output_text", text: "Hello " }, { type: "output_text", text: "there" }] }] };
+  is(await WhimsyAIProviders.complete({ prompt: "Say hi", system: "Be brief" }), "Hello there", "OpenAI's answer");
+  let last = seen.at(-1);
+  is(last.path, "/openai/responses", "The Responses API");
+  is(last.auth, `Bearer ${openaiKey}`, "with the key as a bearer token");
+  is(last.body.model, "gpt-test", "the picked model");
+  is(last.body.store, false, "nothing stored on OpenAI's side");
+  is(last.body.instructions, "Be brief", "the system prompt as instructions");
+  is(last.body.input, "Say hi", "and the prompt");
+  ok(!last.cookie, "No cookies");
+  reply = { output: [{ type: "message", content: [{ type: "refusal", refusal: "no" }] }] };
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "refused", "A refusal");
+  status = 401;
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "bad-key", "401: a bad key");
+  status = 429;
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "rate-limited", "429: rate limited");
+  status = 200;
+  reply = { data: [{ id: "gpt-a" }, { id: "gpt-b" }] };
+  Assert.deepEqual(await WhimsyAIProviders.listModels("openai"), ["gpt-a", "gpt-b"], "OpenAI's models");
+
+  Services.prefs.setStringPref("whimsy.ai.provider", "gemini");
+  ok(WhimsyAIProviders.isCloud, "Gemini sends text off the Mac too");
+  Services.prefs.setStringPref("whimsy.ai.gemini.model", "gemini-test");
+  reply = { candidates: [{ finishReason: "STOP", content: { parts: [{ text: "Hi " }, { text: "you" }] } }] };
+  is(await WhimsyAIProviders.complete({ prompt: "Say hi", system: "Be brief" }), "Hi you", "Gemini's answer");
+  last = seen.at(-1);
+  is(last.path, "/gemini/models/gemini-test:generateContent", "generateContent for the picked model");
+  is(last.goog, geminiKey, "the key in its header");
+  ok(!last.query.includes(geminiKey), "never in the address");
+  is(last.body.systemInstruction.parts[0].text, "Be brief", "the system prompt");
+  is(last.body.contents[0].parts[0].text, "Say hi", "and the prompt");
+  reply = { candidates: [{ finishReason: "SAFETY" }] };
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "refused", "Blocked for safety: refused");
+  status = 400;
+  reply = { error: { status: "INVALID_ARGUMENT", details: [{ reason: "API_KEY_INVALID" }] } };
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "bad-key", "API_KEY_INVALID: a bad key");
+  status = 200;
+  reply = { models: [
+    { name: "models/gemini-a", supportedGenerationMethods: ["generateContent"] },
+    { name: "models/embed", supportedGenerationMethods: ["embedContent"] },
+  ] };
+  Assert.deepEqual(await WhimsyAIProviders.listModels("gemini"), ["gemini-a"], "Gemini's models that write text");
+
+  Services.prefs.clearUserPref("whimsy.ai.provider");
+  Services.prefs.clearUserPref("whimsy.ai.openai.model");
+  Services.prefs.clearUserPref("whimsy.ai.gemini.model");
+  await WhimsyAIProviders.setKey("openai", "");
+  await WhimsyAIProviders.setKey("gemini", "");
 });
 
 add_task(async function test_error_toasts() {

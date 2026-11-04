@@ -11,10 +11,12 @@
 //               profile. Nothing leaves the Mac.
 //   - "claude": the Claude Messages API with the person's own API key.
 //   - "ollama": a local Ollama server.
+//   - "openai": OpenAI's Responses API with the person's own API key.
+//   - "gemini": Google's Gemini API with the person's own API key.
 // Rules (user, Oct 29): only the chosen provider is ever contacted; there's
 // no automatic fallback to the cloud. The AI kill switch (Enable AI, whimsy.ai.enabled,
 // WhimsyAI.sys.mjs) refuses every request and aborts the ones in flight.
-// The API key never goes into prefs: it's encrypted with OSKeyStore (the
+// API keys never go into prefs: each is encrypted with OSKeyStore (the
 // macOS Keychain) and the ciphertext lives in the profile.
 
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
@@ -31,20 +33,32 @@ const PROVIDER_PREF = "whimsy.ai.provider";
 const CLAUDE_MODEL_PREF = "whimsy.ai.claude.model";
 const OLLAMA_ENDPOINT_PREF = "whimsy.ai.ollama.endpoint";
 const OLLAMA_MODEL_PREF = "whimsy.ai.ollama.model";
+const OPENAI_MODEL_PREF = "whimsy.ai.openai.model";
+const GEMINI_MODEL_PREF = "whimsy.ai.gemini.model";
 // W10-28: Settings → AI's Enable AI (WhimsyAI.PREF).
 const AI_ENABLED_PREF = "whimsy.ai.enabled";
 
-export const PROVIDERS = ["apple", "claude", "ollama"];
+export const PROVIDERS = ["apple", "claude", "ollama", "openai", "gemini"];
+// The providers that send text off the computer.
+export const CLOUD_PROVIDERS = ["claude", "openai", "gemini"];
+// The providers whose API key Whimsy keeps (whimsy-ai-keys.json, one field
+// each, encrypted with OSKeyStore).
+export const KEY_PROVIDERS = ["claude", "openai", "gemini"];
 const DEFAULT_PROVIDER = "apple";
 // Latest Claude (user: "Default model: latest Claude").
 const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
 const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
+// Tests point these at a local server.
+export const ENDPOINTS = {
+  openai: "https://api.openai.com/v1",
+  gemini: "https://generativelanguage.googleapis.com/v1beta",
+};
 const KEY_FILE = "whimsy-ai-keys.json";
 const REQUEST_TIMEOUT_MS = 90 * 1000;
 
 // Apple's on-device model has a 4,096-token window shared by the prompt and
 // the answer, so its inputs are cut much shorter than the others'.
-const MAX_INPUT_CHARS = { apple: 7000, claude: 60000, ollama: 24000, test: 60000 };
+const MAX_INPUT_CHARS = { apple: 7000, claude: 60000, ollama: 24000, openai: 60000, gemini: 60000, test: 60000 };
 
 // Bump when the Swift source changes so a stale helper is rebuilt.
 // 2 (W10-07): helpers built before were quarantined, and macOS remembers
@@ -176,7 +190,7 @@ export const WhimsyAIProviders = {
   // Whether text leaves the computer with the current provider. Automatic
   // features (tab titles, search-page previews) skip private tabs then.
   get isCloud() {
-    return this.provider == "claude";
+    return CLOUD_PROVIDERS.includes(this.provider);
   },
 
   get maxInputChars() {
@@ -252,6 +266,12 @@ export const WhimsyAIProviders = {
         case "ollama":
           text = await this._ollama(request);
           break;
+        case "openai":
+          text = await this._openai(request);
+          break;
+        case "gemini":
+          text = await this._gemini(request);
+          break;
         default:
           text = await this._apple(request);
       }
@@ -289,7 +309,9 @@ export const WhimsyAIProviders = {
       case "test":
         return true;
       case "claude":
-        return this.hasClaudeKey();
+      case "openai":
+      case "gemini":
+        return this.hasKey(this.provider);
       case "ollama":
         return !!Services.prefs.getStringPref(OLLAMA_MODEL_PREF, "");
       default:
@@ -386,44 +408,201 @@ export const WhimsyAIProviders = {
     return PathUtils.join(PathUtils.profileDir, KEY_FILE);
   },
 
-  async hasClaudeKey() {
+  async _readKeys() {
     try {
       const saved = await IOUtils.readJSON(this._keyPath);
-      return !!saved?.claude;
+      return saved && typeof saved == "object" ? saved : {};
     } catch {
-      return false;
+      return {};
     }
   },
 
-  async getClaudeKey() {
-    let saved;
-    try {
-      saved = await IOUtils.readJSON(this._keyPath);
-    } catch {
+  async hasKey(provider) {
+    return !!(await this._readKeys())[provider];
+  },
+
+  async getKey(provider) {
+    const saved = (await this._readKeys())[provider];
+    if (!saved) {
       return "";
     }
-    if (!saved?.claude) {
-      return "";
-    }
     try {
-      return await lazy.OSKeyStore.decrypt(saved.claude);
+      return await lazy.OSKeyStore.decrypt(saved);
     } catch (error) {
-      console.error("Whimsy AI: couldn't decrypt the Claude API key", error);
+      console.error(`Whimsy AI: couldn't decrypt the ${provider} API key`, error);
       return "";
     }
   },
 
-  // Saves (or, with an empty key, forgets) the Claude API key.
-  async setClaudeKey(key) {
+  // Saves (or, with an empty key, forgets) one provider's API key; the
+  // others' stay as they are.
+  async setKey(provider, key) {
+    if (!KEY_PROVIDERS.includes(provider)) {
+      throw new Error(`No API key for ${provider}`);
+    }
     const value = String(key ?? "").trim();
-    if (!value) {
+    const saved = await this._readKeys();
+    if (value) {
+      // Creates the Keychain secret on first use; no prompt (reauth = false).
+      await lazy.OSKeyStore.ensureLoggedIn(false);
+      saved[provider] = await lazy.OSKeyStore.encrypt(value);
+    } else {
+      delete saved[provider];
+    }
+    if (!Object.keys(saved).length) {
       await IOUtils.remove(this._keyPath, { ignoreAbsent: true });
       return;
     }
-    // Creates the Keychain secret on first use; no prompt (reauth = false).
-    await lazy.OSKeyStore.ensureLoggedIn(false);
-    const claude = await lazy.OSKeyStore.encrypt(value);
-    await IOUtils.writeJSON(this._keyPath, { claude }, { tmpPath: this._keyPath + ".tmp" });
+    await IOUtils.writeJSON(this._keyPath, saved, { tmpPath: this._keyPath + ".tmp" });
+  },
+
+  hasClaudeKey() {
+    return this.hasKey("claude");
+  },
+
+  getClaudeKey() {
+    return this.getKey("claude");
+  },
+
+  setClaudeKey(key) {
+    return this.setKey("claude", key);
+  },
+
+  // ---- OpenAI (API key; the Responses API) ----
+
+  async _openai({ prompt, system, maxTokens, signal }) {
+    const key = await this.getKey("openai");
+    if (!key) {
+      throw new WhimsyAIError("no-key");
+    }
+    const model = Services.prefs.getStringPref(OPENAI_MODEL_PREF, "");
+    if (!model) {
+      throw new WhimsyAIError("no-model");
+    }
+    const body = {
+      model,
+      input: prompt,
+      max_output_tokens: Math.max(2048, maxTokens * 2),
+      // Nothing is kept on OpenAI's side.
+      store: false,
+    };
+    if (system) {
+      body.instructions = system;
+    }
+    const response = await this._post(`${ENDPOINTS.openai}/responses`, { authorization: `Bearer ${key}` }, body, signal);
+    if (response.status == 401 || response.status == 403) {
+      throw new WhimsyAIError("bad-key");
+    }
+    if (response.status == 404) {
+      throw new WhimsyAIError("no-model");
+    }
+    if (response.status == 429) {
+      throw new WhimsyAIError("rate-limited");
+    }
+    if (!response.ok) {
+      throw new WhimsyAIError("failed", `OpenAI API ${response.status}`);
+    }
+    const data = await response.json();
+    const parts = (data.output || []).flatMap(item => (item.type == "message" ? item.content || [] : []));
+    if (parts.some(part => part.type == "refusal")) {
+      throw new WhimsyAIError("refused");
+    }
+    return parts.filter(part => part.type == "output_text").map(part => part.text).join("");
+  },
+
+  // ---- Gemini (API key; the Generative Language API) ----
+
+  async _gemini({ prompt, system, maxTokens, signal }) {
+    const key = await this.getKey("gemini");
+    if (!key) {
+      throw new WhimsyAIError("no-key");
+    }
+    const model = Services.prefs.getStringPref(GEMINI_MODEL_PREF, "");
+    if (!model) {
+      throw new WhimsyAIError("no-model");
+    }
+    const body = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: Math.max(2048, maxTokens * 2) },
+    };
+    if (system) {
+      body.systemInstruction = { parts: [{ text: system }] };
+    }
+    // The key goes in a header, never the address (logs, history).
+    const url = `${ENDPOINTS.gemini}/models/${encodeURIComponent(model.replace(/^models\//, ""))}:generateContent`;
+    const response = await this._post(url, { "x-goog-api-key": key }, body, signal);
+    if (response.status == 400 || response.status == 401 || response.status == 403) {
+      let reason = "";
+      try {
+        reason = JSON.stringify((await response.json())?.error ?? "");
+      } catch {}
+      throw new WhimsyAIError(response.status == 400 && !/API_KEY_INVALID/.test(reason) ? "failed" : "bad-key");
+    }
+    if (response.status == 404) {
+      throw new WhimsyAIError("no-model");
+    }
+    if (response.status == 429) {
+      throw new WhimsyAIError("rate-limited");
+    }
+    if (!response.ok) {
+      throw new WhimsyAIError("failed", `Gemini API ${response.status}`);
+    }
+    const data = await response.json();
+    const candidate = data.candidates?.[0];
+    if (!candidate || candidate.finishReason == "SAFETY" || data.promptFeedback?.blockReason) {
+      throw new WhimsyAIError("refused");
+    }
+    return (candidate.content?.parts || []).map(part => part.text ?? "").join("");
+  },
+
+  // A JSON POST that never carries cookies; a failed connection is
+  // "network" (an abort passes through).
+  async _post(url, headers, body, signal) {
+    try {
+      return await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body: JSON.stringify(body),
+        credentials: "omit",
+        signal,
+      });
+    } catch (error) {
+      if (signal.aborted) {
+        throw error;
+      }
+      throw new WhimsyAIError("network");
+    }
+  },
+
+  // The models a key can use, for the Settings picker.
+  async listModels(provider) {
+    const key = await this.getKey(provider);
+    if (!key) {
+      throw new WhimsyAIError("no-key");
+    }
+    const [url, headers] = provider == "openai"
+      ? [`${ENDPOINTS.openai}/models`, { authorization: `Bearer ${key}` }]
+      : [`${ENDPOINTS.gemini}/models`, { "x-goog-api-key": key }];
+    let response;
+    try {
+      response = await fetch(url, { headers, credentials: "omit" });
+    } catch {
+      throw new WhimsyAIError("network");
+    }
+    if (response.status == 401 || response.status == 403 || response.status == 400) {
+      throw new WhimsyAIError("bad-key");
+    }
+    if (!response.ok) {
+      throw new WhimsyAIError("failed", `${provider} models ${response.status}`);
+    }
+    const data = await response.json();
+    if (provider == "openai") {
+      return (data.data || []).map(m => m.id).filter(Boolean);
+    }
+    return (data.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
+      .map(m => String(m.name || "").replace(/^models\//, ""))
+      .filter(Boolean);
   },
 
   // ---- Ollama ----

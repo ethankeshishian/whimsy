@@ -423,8 +423,9 @@
   value: true
 
 # wave3/ai: AI provider (Settings → Privacy & Security → AI provider):
-# "apple" (on-device), "claude" (API key, kept in the Keychain-encrypted
-# whimsy-ai-keys.json, never in prefs) or "ollama". Only this one is used.
+# "apple" (on-device), "claude", "openai" or "gemini" (API keys, kept in the
+# Keychain-encrypted whimsy-ai-keys.json, never in prefs) or "ollama". Only
+# this one is used.
 - name: whimsy.ai.provider
   value: "apple"
 
@@ -437,6 +438,13 @@
 
 # Picked in Settings from the models the Ollama server has.
 - name: whimsy.ai.ollama.model
+  value: ""
+
+# W14 19: picked in Settings from the models the API key can use.
+- name: whimsy.ai.openai.model
+  value: ""
+
+- name: whimsy.ai.gemini.model
   value: ""
 
 # wave5/lan: Local servers live folder. Ports probed on localhost (comma
