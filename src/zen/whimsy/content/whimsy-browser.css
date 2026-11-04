@@ -226,10 +226,10 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 
 /* Loading progress line (WhimsyTabs, whimsy.tabs.loading-line): Zen's
    loading pill becomes a thin Safari-style line along the top of the page.
-   ::before is the real progress (--whimsy-load-progress on the panel);
-   ::after creeps forward on its own so a page that reports no progress
-   still shows movement. Both grow from the left in the same color, so the
-   line shows whichever is further. !important outranks Zen's pulse and
+   ::before is the one painted layer, scaled by --whimsy-load-progress on
+   the panel: WhimsyTabs sets it to the page's real progress or a slow creep
+   (so a page that reports no progress still moves), whichever is further,
+   and never lets it go back. !important outranks Zen's pulse and
    squash animations; its opacity fade still runs. */
 @media -moz-pref("whimsy.feature.loading-line") and -moz-pref("whimsy.tabs.loading-line") {
   #zen-loading-progress-bar,
@@ -245,8 +245,7 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     animation: none !important;
     overflow: clip;
 
-    &::before,
-    &::after {
+    &::before {
       content: "" !important;
       position: absolute;
       inset: 0 !important;
@@ -262,29 +261,11 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
       transition: transform 0.25s ease-out;
     }
 
-    &::after {
-      transform: scaleX(0.7);
-      animation: whimsy-load-creep 12s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
-    }
-
     @media (prefers-reduced-motion: reduce) {
       &::before {
         transition: none;
       }
-      &::after {
-        animation: none;
-        transform: scaleX(0.15);
-      }
     }
-  }
-}
-
-@keyframes whimsy-load-creep {
-  from {
-    transform: scaleX(0.06);
-  }
-  to {
-    transform: scaleX(0.7);
   }
 }
 
@@ -1404,8 +1385,7 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
   & #zen-loading-progress-bar {
     background: var(--whimsy-season-gradient) !important;
 
-    &::before,
-    &::after {
+    &::before {
       background: var(--whimsy-season-gradient) !important;
     }
   }
@@ -1432,8 +1412,7 @@ tab-group[split-view-group] .tabbrowser-tab[whimsy-private] .tab-background {
     }
 
     & #zen-loading-progress-bar,
-    & #zen-loading-progress-bar::before,
-    & #zen-loading-progress-bar::after {
+    & #zen-loading-progress-bar::before {
       animation: none !important;
       transition: none !important;
     }

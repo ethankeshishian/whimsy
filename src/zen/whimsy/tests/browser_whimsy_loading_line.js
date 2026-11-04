@@ -37,7 +37,7 @@ add_task(async function test_line() {
   Assert.greater(bar.getBoundingClientRect().width, panel.width * 0.8, "running across the page");
   Assert.lessOrEqual(Math.abs(bar.getBoundingClientRect().top - panel.top), 4, "along its top edge");
   Assert.less(progress(tab), 1, "Mid-load, the line isn't full");
-  is(window.getComputedStyle(bar, "::before").backgroundColor, window.getComputedStyle(bar, "::after").backgroundColor, "Real and creeping progress share one color");
+  is(window.getComputedStyle(bar, "::after").content, "none", "The line is drawn by one layer");
   await loaded;
   await TestUtils.waitForCondition(() => progress(tab) == 1, "Finished: the line fills");
   await TestUtils.waitForCondition(() => !indicator(), "and Zen hides it");
@@ -74,4 +74,46 @@ add_task(async function test_settings() {
   });
   Services.prefs.clearUserPref("whimsy.tabs.loading-line");
   Services.prefs.clearUserPref("zen.view.enable-loading-indicator");
+});
+
+// Samples the panel's progress every frame while the bar is up.
+function sampler(tab) {
+  const samples = [];
+  let stop = false;
+  const done = (async () => {
+    const panel = gBrowser.getPanel(tab.linkedBrowser);
+    while (!stop) {
+      if (panel.querySelector(":scope > #zen-loading-progress-bar")) {
+        samples.push(parseFloat(panel.style.getPropertyValue("--whimsy-load-progress")));
+      }
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+  })();
+  return { samples, finish: async () => { stop = true; await done; } };
+}
+
+add_task(async function test_never_backward_complete_and_fresh() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const second = `${SLOW_URL}?delay=700&second=1`;
+  const first = `${SLOW_URL}?delay=500&replace=${encodeURIComponent(second)}`;
+  const s = sampler(tab);
+  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, second);
+  BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, first);
+  await TestUtils.waitForCondition(indicator, "The indicator shows");
+  await loaded;
+  await TestUtils.waitForCondition(() => !indicator(), "Zen hides the bar");
+  await s.finish();
+  Assert.greater(s.samples.length, 5, "Sampled while the bar was up");
+  for (let i = 1; i < s.samples.length; i++) {
+    Assert.greaterOrEqual(s.samples[i], s.samples[i - 1], `Sample ${i} didn't go backward`);
+  }
+  is(s.samples.at(-1), 1, "The last sample is full");
+
+  const next = sampler(tab);
+  const again = await load(tab, 800);
+  await TestUtils.waitForCondition(() => next.samples.length, "Sampled the next load");
+  Assert.less(next.samples[0], 0.1, "A fresh load starts near zero");
+  await again.loaded;
+  await next.finish();
+  BrowserTestUtils.removeTab(tab);
 });

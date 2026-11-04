@@ -15,10 +15,16 @@ function handleRequest(request, response) {
   if (match) {
     delay = parseInt(match[1], 10);
   }
+  const replace = /(?:^|&)replace=([^&]+)/.exec(request.queryString);
   response.processAsync();
   response.setHeader("Content-Type", "text/html", false);
   response.setHeader("Cache-Control", "no-cache", false);
   response.write("<!DOCTYPE html><title>slow load</title><p>loading</p>");
+  if (replace) {
+    response.write(
+      `<script>addEventListener("load", () => location.replace(decodeURIComponent("${replace[1]}")));</script>`
+    );
+  }
   setTimeout(() => {
     response.write("<p>done</p>");
     response.finish();

@@ -26,11 +26,39 @@ const DOCK_CLASS = "whimsy-newtab-dock";
 // zen.view.enable-loading-indicator). Safari draws a thin line that fills as
 // the page loads. With this on, whimsy-browser.css restyles Zen's indicator
 // into that line, and the listener below feeds it the page's real progress
-// as --whimsy-load-progress on the tab's panel (0 to 1, never going back
-// during a load). Zen still decides when the indicator shows and hides.
+// as --whimsy-load-progress on the tab's panel: the further of real progress
+// and a slow creep, never going back while the indicator is up. Zen still
+// decides when the indicator shows and hides.
 const LINE_FEATURE_PREF = "whimsy.feature.loading-line";
 const LINE_PREF = "whimsy.tabs.loading-line";
 const PROGRESS_VAR = "--whimsy-load-progress";
+const CREEP_MS = 12000;
+const CREEP_TICK_MS = 100;
+const BAR_ID = "zen-loading-progress-bar";
+
+// cubic-bezier(0.1, 0.7, 0.3, 1), the creep's easing, solved for x by bisection.
+function creepEase(x) {
+  const [x1, y1, x2, y2] = [0.1, 0.7, 0.3, 1];
+  const at = (t, a, b) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (at(mid, x1, x2) < x) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return at((lo + hi) / 2, y1, y2);
+}
+
+export function loadCreep(elapsedMs, reducedMotion = false) {
+  if (reducedMotion) {
+    return 0.15;
+  }
+  return 0.06 + 0.64 * creepEase(Math.min(1, Math.max(0, elapsedMs / CREEP_MS)));
+}
 
 // Notification badges and dots (Arc's Favorites and pinned tabs): sites put
 // their unread count in the page title ("(3) Slack", "Inbox (12) - Gmail").
@@ -750,19 +778,71 @@ export const WhimsyTabs = {
   initLoadingLine(win) {
     const { gBrowser } = win;
     const panelOf = browser => gBrowser.getPanel?.(browser);
-    const set = (browser, value) => {
+    const states = new Map(); // panel -> { real, startedAt, sawBar }
+    const barOf = panel => panel.querySelector(`:scope > #${BAR_ID}`);
+    let timer = null;
+    const paint = (panel, state) => {
+      const reduced = win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const creep = barOf(panel) ? loadCreep(Date.now() - state.startedAt, reduced) : 0;
+      const value = Math.max(state.real, creep).toFixed(3);
+      if (panel.style.getPropertyValue(PROGRESS_VAR) != value) {
+        panel.style.setProperty(PROGRESS_VAR, value);
+      }
+    };
+    const tick = () => {
+      for (const [panel, state] of states) {
+        if (!panel.isConnected) {
+          states.delete(panel);
+        } else if (barOf(panel)) {
+          state.sawBar = true;
+          paint(panel, state);
+        } else if (state.sawBar || Date.now() - state.startedAt > 60000) {
+          // Zen removed the bar: the next load starts over.
+          states.delete(panel);
+          panel.style.setProperty(PROGRESS_VAR, "0");
+        }
+      }
+      if (!states.size && timer) {
+        win.clearInterval(timer);
+        timer = null;
+      }
+    };
+    const track = panel => {
+      let state = states.get(panel);
+      if (!state) {
+        state = { real: 0, startedAt: Date.now(), sawBar: false };
+        states.set(panel, state);
+      }
+      if (!timer) {
+        timer = win.setInterval(tick, CREEP_TICK_MS);
+        win.addEventListener("unload", () => win.clearInterval(timer), { once: true });
+      }
+      return state;
+    };
+    const raise = (browser, value) => {
       const panel = panelOf(browser);
       if (!panel) {
         return;
       }
-      const old = parseFloat(panel.style.getPropertyValue(PROGRESS_VAR)) || 0;
-      // During a load the line only moves forward; a new load starts at 0.
-      if (value == 0 || value > old) {
-        panel.style.setProperty(PROGRESS_VAR, value.toFixed(3));
+      const state = track(panel);
+      state.real = Math.max(state.real, value);
+      paint(panel, state);
+    };
+    const restart = browser => {
+      const panel = panelOf(browser);
+      if (!panel) {
+        return;
       }
+      // Progress never goes back while the bar is up; a fresh load starts at 0.
+      if (barOf(panel) && states.has(panel)) {
+        return;
+      }
+      states.delete(panel);
+      panel.style.setProperty(PROGRESS_VAR, "0");
+      track(panel);
     };
     gBrowser.addTabsProgressListener({
-      onStateChange: (browser, webProgress, request, flags) => {
+      onStateChange: (browser, webProgress, request, flags, status) => {
         if (!webProgress?.isTopLevel || !this.loadingLine) {
           return;
         }
@@ -771,9 +851,9 @@ export const WhimsyTabs = {
           return;
         }
         if (flags & STATE_START) {
-          set(browser, 0);
-        } else if (flags & STATE_STOP) {
-          set(browser, 1);
+          restart(browser);
+        } else if (flags & STATE_STOP && Components.isSuccessCode(status) && !webProgress.isLoadingDocument) {
+          raise(browser, 1);
         }
       },
       onProgressChange: (browser, webProgress, request, curSelf, maxSelf, curTotal, maxTotal) => {
@@ -781,7 +861,7 @@ export const WhimsyTabs = {
           return;
         }
         // Leave the last stretch for STATE_STOP, like Safari.
-        set(browser, Math.min(0.95, curTotal / maxTotal));
+        raise(browser, Math.min(0.95, curTotal / maxTotal));
       },
     });
   },

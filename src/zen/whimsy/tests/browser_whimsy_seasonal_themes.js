@@ -121,7 +121,7 @@ add_task(async function real_loading_indicators_and_restored_accent() {
             }
             assertSeasonGradient(bar, "::before", season);
             if (line) {
-              assertSeasonGradient(bar, "::after", season);
+              is(getComputedStyle(bar, "::after").content, "none", "The line is drawn by one layer");
               is(getComputedStyle(bar).backgroundColor, "rgba(0, 0, 0, 0)", "Line track stays transparent");
             } else {
               assertSeasonGradient(bar, null, season);
