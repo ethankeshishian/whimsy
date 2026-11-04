@@ -6,6 +6,7 @@
 // Copy & share (WhimsyCopy.sys.mjs): Zen's copy shortcuts copy a titled
 // link, every selected tab, and Markdown lists; the tab menu's Copy Link(s).
 
+const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
 const { WhimsyCopy } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCopy.sys.mjs");
 
 const PAGE_1 = "https://example.com/browser/";
@@ -107,6 +108,20 @@ add_task(async function test_single_tab_rich_link() {
   ok(html.includes(`>${gBrowser.selectedTab.label}</a>`), "with the tab title as link text");
   const toast = await TestUtils.waitForCondition(() => toastLabel("whimsy-copy-toast"), "A toast confirms");
   is(toast.querySelector(".whimsy-copy-url")?.getAttribute("value"), PAGE_2, "The toast shows the URL");
+  const modifiers = AppConstants.platform == "macosx" ? { metaKey: true, shiftKey: true } : { ctrlKey: true, shiftKey: true };
+  closeToasts();
+  await TestUtils.waitForCondition(() => !toastLabel("whimsy-copy-toast"), "Toast gone");
+  EventUtils.synthesizeKey("c", modifiers, window);
+  const keyed = await TestUtils.waitForCondition(() => {
+    const t = toastLabel("whimsy-copy-toast");
+    return t?.querySelector(".whimsy-copy-url") && t;
+  }, "The key shows the toast");
+  const title = keyed.querySelector("label:not(.whimsy-copy-url)");
+  const url = keyed.querySelector(".whimsy-copy-url");
+  await TestUtils.waitForCondition(
+    () => Math.abs(title.getBoundingClientRect().left - url.getBoundingClientRect().left) <= 0.5,
+    "The title and URL lines start at the same x"
+  );
   closeTabs(tabs);
 });
 

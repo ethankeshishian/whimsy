@@ -35,7 +35,6 @@
    middle so both the site and the end of the path stay readable. */
 #zen-toast-container .zen-toast .whimsy-copy-url {
   max-width: 260px;
-  margin: 0;
   opacity: 0.7;
 }
 
