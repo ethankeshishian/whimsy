@@ -76,6 +76,40 @@ function askPanel() {
   return panel?.state == "open" ? panel : null;
 }
 
+// W14 21.5: a prompt that asks lands in the middle of the page, both ways,
+// at the window's own size and at a small one.
+async function atSizes(fn) {
+  for (const size of [null, [800, 500]]) {
+    const was = [window.outerWidth, window.outerHeight];
+    if (size) {
+      window.resizeTo(...size);
+      await TestUtils.waitForCondition(() => Math.abs(window.outerHeight - Math.max(size[1], 495)) < 40,
+        `The window is about ${size.join("x")}`);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+    try {
+      await fn(size ? size.join("x") : "full-size");
+    } finally {
+      if (size) {
+        window.resizeTo(...was);
+        await TestUtils.waitForCondition(() => Math.abs(window.outerHeight - was[1]) < 2, "The window is its size again");
+      }
+    }
+  }
+}
+
+async function assertCentred(panel, what) {
+  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
+  const gaps = () => {
+    const box = panel.getBoundingClientRect();
+    return { start: box.left - area.left, end: area.right - box.right, top: box.top - area.top, bottom: area.bottom - box.bottom };
+  };
+  await TestUtils.waitForCondition(() => Math.abs(gaps().top - gaps().bottom) < 3, `${what}: settles in the middle`).catch(() => {});
+  const g = gaps();
+  Assert.less(Math.abs(g.start - g.end), 3, `${what}: centred horizontally on the page, the side gaps match`);
+  Assert.less(Math.abs(g.top - g.bottom), 3, `${what}: centred vertically, the top and bottom gaps match (${Math.round(g.top)} / ${Math.round(g.bottom)})`);
+}
+
 add_task(async function test_first_run_question() {
   await SpecialPowers.pushPrefEnv({ clear: [["whimsy.privateLock.askDismissals.tabs"]] });
   is(WhimsyPrivateLock.choice("tabs"), -1, "Not chosen to start with");
@@ -465,19 +499,17 @@ add_task(async function test_command_bar_hides_locked_tabs() {
 add_task(async function test_ask_prompt_opens_centred_on_the_window() {
   // B4: the lock prompt has no anchor, so it lands centred on the page.
   await SpecialPowers.pushPrefEnv({ clear: [["whimsy.privateLock.askDismissals.tabs"], ["whimsy.privateLock.tabs"]] });
-  WhimsyPrivateLock._asked?.clear();
-  const tab = await openPrivateTab("centred");
-  const panel = await TestUtils.waitForCondition(askPanel, "Asked about the new private tab");
-  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
-  const box = panel.getBoundingClientRect();
-  const gapStart = box.left - area.left;
-  const gapEnd = area.right - box.right;
-  Assert.less(Math.abs(gapStart - gapEnd), 3, "Centred horizontally on the page: the side gaps match");
-  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
-  EventUtils.synthesizeKey("KEY_Escape", {}, window);
-  await hidden;
-  Services.prefs.clearUserPref("whimsy.privateLock.askDismissals.tabs");
+  await atSizes(async size => {
+    WhimsyPrivateLock._asked?.clear();
+    const tab = await openPrivateTab(`centred-${size}`);
+    const panel = await TestUtils.waitForCondition(askPanel, "Asked about the new private tab");
+    await assertCentred(panel, `The lock prompt (${size})`);
+    const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await hidden;
+    Services.prefs.clearUserPref("whimsy.privateLock.askDismissals.tabs");
+    BrowserTestUtils.removeTab(tab, { animate: false });
+  });
   WhimsyPrivateLock._asked?.clear();
   await SpecialPowers.popPrefEnv();
-  BrowserTestUtils.removeTab(tab, { animate: false });
 });

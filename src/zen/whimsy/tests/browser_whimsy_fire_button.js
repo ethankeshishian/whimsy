@@ -28,6 +28,40 @@ registerCleanupFunction(() => {
   }
 });
 
+// W14 21.5: a prompt that asks lands in the middle of the page, both ways,
+// at the window's own size and at a small one.
+async function atSizes(fn) {
+  for (const size of [null, [800, 500]]) {
+    const was = [window.outerWidth, window.outerHeight];
+    if (size) {
+      window.resizeTo(...size);
+      await TestUtils.waitForCondition(() => Math.abs(window.outerHeight - Math.max(size[1], 495)) < 40,
+        `The window is about ${size.join("x")}`);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+    try {
+      await fn(size ? size.join("x") : "full-size");
+    } finally {
+      if (size) {
+        window.resizeTo(...was);
+        await TestUtils.waitForCondition(() => Math.abs(window.outerHeight - was[1]) < 2, "The window is its size again");
+      }
+    }
+  }
+}
+
+async function assertCentred(panel, what) {
+  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
+  const gaps = () => {
+    const box = panel.getBoundingClientRect();
+    return { start: box.left - area.left, end: area.right - box.right, top: box.top - area.top, bottom: area.bottom - box.bottom };
+  };
+  await TestUtils.waitForCondition(() => Math.abs(gaps().top - gaps().bottom) < 3, `${what}: settles in the middle`).catch(() => {});
+  const g = gaps();
+  Assert.less(Math.abs(g.start - g.end), 3, `${what}: centred horizontally on the page, the side gaps match`);
+  Assert.less(Math.abs(g.top - g.bottom), 3, `${what}: centred vertically, the top and bottom gaps match (${Math.round(g.top)} / ${Math.round(g.bottom)})`);
+}
+
 add_task(function test_closable_tabs_excludes_pinned_and_essentials() {
   const fakeEssential = { pinned: false, closing: false, hasAttribute: name => name == "zen-essential" };
   const fakePinned = { pinned: true, closing: false, hasAttribute: () => false };
@@ -646,11 +680,9 @@ add_task(async function test_w10_58_tabs_close_before_history_lookup() {
 
 add_task(async function test_fire_popup_opens_centred_on_the_window() {
   // B4: no anchor given, so the popup lands over the page, centred.
-  const panel = await openFire();
-  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
-  const box = panel.getBoundingClientRect();
-  const gapStart = box.left - area.left;
-  const gapEnd = area.right - box.right;
-  Assert.less(Math.abs(gapStart - gapEnd), 3, "Centred horizontally on the page: the side gaps match");
-  await closeFire(panel);
+  await atSizes(async size => {
+    const panel = await openFire();
+    await assertCentred(panel, `Fire (${size})`);
+    await closeFire(panel);
+  });
 });

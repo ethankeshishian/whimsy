@@ -61,6 +61,40 @@ function movedTabs(url) {
   return gBrowser.tabs.filter(t => !t.closing && t.linkedBrowser.currentURI?.spec == url);
 }
 
+// W14 21.5: a prompt that asks lands in the middle of the page, both ways,
+// at the window's own size and at a small one.
+async function atSizes(fn) {
+  for (const size of [null, [800, 500]]) {
+    const was = [window.outerWidth, window.outerHeight];
+    if (size) {
+      window.resizeTo(...size);
+      await TestUtils.waitForCondition(() => Math.abs(window.outerHeight - Math.max(size[1], 495)) < 40,
+        `The window is about ${size.join("x")}`);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+    try {
+      await fn(size ? size.join("x") : "full-size");
+    } finally {
+      if (size) {
+        window.resizeTo(...was);
+        await TestUtils.waitForCondition(() => Math.abs(window.outerHeight - was[1]) < 2, "The window is its size again");
+      }
+    }
+  }
+}
+
+async function assertCentred(panel, what) {
+  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
+  const gaps = () => {
+    const box = panel.getBoundingClientRect();
+    return { start: box.left - area.left, end: area.right - box.right, top: box.top - area.top, bottom: area.bottom - box.bottom };
+  };
+  await TestUtils.waitForCondition(() => Math.abs(gaps().top - gaps().bottom) < 3, `${what}: settles in the middle`).catch(() => {});
+  const g = gaps();
+  Assert.less(Math.abs(g.start - g.end), 3, `${what}: centred horizontally on the page, the side gaps match`);
+  Assert.less(Math.abs(g.top - g.bottom), 3, `${what}: centred vertically, the top and bottom gaps match (${Math.round(g.top)} / ${Math.round(g.bottom)})`);
+}
+
 add_task(async function test_private_window_move_to_moves_all_tabs() {
   const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
   await win.gZenWorkspaces?.promiseInitialized;
@@ -153,22 +187,22 @@ add_task(async function test_private_tab_move_out_of_private() {
 add_task(async function test_opens_centred_on_the_window() {
   // B4: opened with no anchor (the command bar / a command, not a button),
   // the surface lands centred on the page, not hanging off an edge.
-  const url = uniqueURL("centred");
-  const priv = WhimsyPrivate.openPrivateTab(window, { url });
-  await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url, "The private page loaded");
-  gBrowser.selectedTab = priv;
-  document.getElementById("cmd_whimsyMoveOutOfPrivate").doCommand();
-  const panel = await waitForPanel(window);
-  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
-  const box = panel.getBoundingClientRect();
-  const gapStart = box.left - area.left;
-  const gapEnd = area.right - box.right;
-  Assert.less(Math.abs(gapStart - gapEnd), 3, "Centred horizontally on the page: the side gaps match");
-  panel.hidePopup();
-  const tab = movedTabs(url)[0] ?? priv;
-  if (tab.isConnected && !tab.closing) {
-    BrowserTestUtils.removeTab(tab, { animate: false });
-  }
+  await atSizes(async size => {
+    const url = uniqueURL(`centred-${size}`);
+    const priv = WhimsyPrivate.openPrivateTab(window, { url });
+    await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url, "The private page loaded");
+    gBrowser.selectedTab = priv;
+    document.getElementById("cmd_whimsyMoveOutOfPrivate").doCommand();
+    const panel = await waitForPanel(window);
+    await assertCentred(panel, `Move Out of Private (${size})`);
+    const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    panel.hidePopup();
+    await hidden;
+    const tab = movedTabs(url)[0] ?? priv;
+    if (tab.isConnected && !tab.closing) {
+      BrowserTestUtils.removeTab(tab, { animate: false });
+    }
+  });
 });
 
 add_task(async function test_not_offered_for_normal_tabs() {

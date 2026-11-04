@@ -212,7 +212,7 @@ export const WhimsyPrivateMove = {
     if (anchor) {
       S.open(win, parts.panel, { anchor, position: "after_start", y: 4 });
     } else {
-      S.open(win, parts.panel, { at: "page-top-center" });
+      S.open(win, parts.panel, { at: "page-center" });
     }
     parts.panel.dataset.scope = all ? "all" : "tab";
     return parts;

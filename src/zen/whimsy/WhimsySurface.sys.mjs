@@ -372,7 +372,9 @@ export const WhimsySurface = {
    *  - screenRect {left, top, width, height} (+ position, gap): hangs off a
    *    rectangle on screen (a text field, a selection in the page).
    *  - at "page-top-center": over the page, centred, near the top (where
-   *    the command bar sits); "page-top-end": top end corner of the page;
+   *    the command bar sits); "page-center": centred both ways over the
+   *    page (a prompt that asks before anything happens); "page-top-end":
+   *    top end corner of the page;
    *    "beside-sidebar": where the Look picker opens (y = optional offset).
    */
   open(win, panel, { anchor = null, position = "after_start", x = 0, y = 0, at = null, screenRect = null, gap = 0, triggerEvent = null } = {}) {
@@ -417,8 +419,29 @@ export const WhimsySurface = {
       return;
     }
     const px = Math.max(0, Math.round((rect.width - width) / 2));
+    if (at == "page-center") {
+      this.centerWhenShown(win, panel, rect);
+      this.openOver(panel, area, { x: px, y: Math.max(0, Math.round((rect.height - 260) / 2)), triggerEvent });
+      return;
+    }
     const py = y || Math.round(clamp(rect.height * 0.1, 12, 96));
     this.openOver(panel, area, { x: px, y: py, triggerEvent });
+  },
+
+  /** Once its height is known, moves the panel to the middle of the page rect `rect`. */
+  centerWhenShown(win, panel, rect) {
+    const onShown = () => {
+      panel.removeEventListener("popuphidden", onHidden);
+      const box = panel.getOuterScreenRect();
+      const top = Math.round(win.mozInnerScreenY + rect.top + Math.max(0, (rect.height - box.height) / 2));
+      if (Math.abs(box.top - top) > 1) {
+        panel.moveTo(Math.round(box.left), top);
+      }
+    };
+    const onHidden = () => panel.removeEventListener("popupshown", onShown, { capture: true });
+    // Capture: before a drag handle records where it opened.
+    panel.addEventListener("popupshown", onShown, { once: true, capture: true });
+    panel.addEventListener("popuphidden", onHidden, { once: true });
   },
 
   /**

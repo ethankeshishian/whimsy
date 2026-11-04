@@ -679,7 +679,7 @@ export const WhimsyFireButton = {
     if (anchor) {
       lazy.WhimsySurface.open(win, panel, { anchor, position: "after_start", y: 6, triggerEvent });
     } else {
-      lazy.WhimsySurface.open(win, panel, { at: "page-top-center", triggerEvent });
+      lazy.WhimsySurface.open(win, panel, { at: "page-center", triggerEvent });
     }
     return panel;
   },

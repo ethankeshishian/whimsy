@@ -777,7 +777,7 @@ export const WhimsyPrivateLock = {
     const yes = S.footerButton(doc, { id: "whimsy-private-lock-yes", l10nId: "whimsy-private-lock-yes", onCommand: () => answer(true) });
     parts.footer.append(dont, yes);
     S.finish(parts);
-    S.open(win, parts.panel, { at: "page-top-center" });
+    S.open(win, parts.panel, { at: "page-center" });
     return parts;
   },
 
