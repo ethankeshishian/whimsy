@@ -92,6 +92,22 @@ async function closeBar() {
   await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "The bar closed");
 }
 
+// Cmd+T as the app has it: Zen opens a real tab for it in automation
+// (zen.testing.enabled), which in the Private Space is a private new tab
+// page, not the command bar this file checks.
+async function pressCmdT() {
+  const tabs = gBrowser.tabs.length;
+  const testing = gZenUIManager.testingEnabled;
+  gZenUIManager.testingEnabled = false;
+  try {
+    EventUtils.synthesizeKey("t", { accelKey: true });
+  } finally {
+    gZenUIManager.testingEnabled = testing;
+  }
+  await TestUtils.waitForCondition(() => gURLBar.focused && gURLBar.hasAttribute("zen-newtab"), "Cmd+T opened the command bar");
+  is(gBrowser.tabs.length, tabs, "...and no tab");
+}
+
 function normalRows(results) {
   return results.filter(r =>
     r.source == HISTORY ||
@@ -126,8 +142,7 @@ add_task(async function the_private_space_bar_shows_nothing_from_normal_browsing
   await TestUtils.waitForCondition(() => !gZenWorkspaces.isChangingWorkspace, "Settled");
 
   // The empty bar over the Private Space's empty state.
-  EventUtils.synthesizeKey("t", { accelKey: true });
-  await TestUtils.waitForCondition(() => gURLBar.focused, "Cmd+T opened the bar");
+  await pressCmdT();
   ok(gURLBar.isPrivate, "The bar is private");
   let results = await emptyBarRows();
   is(normalRows(results).length, 0, `The empty private bar lists no top sites, history or normal tabs: ${describe(results)}`);
@@ -140,8 +155,7 @@ add_task(async function the_private_space_bar_shows_nothing_from_normal_browsing
   await closeBar();
 
   // Restricted to history or bookmarks: still nothing.
-  EventUtils.synthesizeKey("t", { accelKey: true });
-  await TestUtils.waitForCondition(() => gURLBar.focused, "Cmd+T opened the bar");
+  await pressCmdT();
   for (const restrict of ["^", "*", "%"]) {
     gURLBar.select();
     results = await typeInBar(`${restrict} ${TOKEN}`);
@@ -157,8 +171,7 @@ add_task(async function a_private_tab_bar_lists_private_tabs_only() {
   await BrowserTestUtils.browserLoaded(other.linkedBrowser, false, PRIVATE_URL + "2");
   ok(WhimsyPrivate.activeSpaceIsScratch(window), "In the Private Space");
 
-  EventUtils.synthesizeKey("t", { accelKey: true });
-  await TestUtils.waitForCondition(() => gURLBar.focused, "Cmd+T opened the bar");
+  await pressCmdT();
   let results = await emptyBarRows();
   const recent = results.filter(r => r.providerName == "WhimsyRecentTabs");
   ok(recent.length >= 1, `The empty private bar lists recent private tabs: ${describe(results)}`);
