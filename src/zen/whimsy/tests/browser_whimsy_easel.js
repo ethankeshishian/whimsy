@@ -282,6 +282,45 @@ function checkContextDividers(win, what) {
   }
 }
 
+add_task(async function test_selection_bar_goes_away_on_deselect() {
+  const { win, app } = await openNewEasel();
+  const doc = win.document;
+  const bar = doc.getElementById("contextbar");
+  const rect = doc.getElementById("viewport").getBoundingClientRect();
+  const at = (x, y) => ({ x: rect.left + x, y: rect.top + y });
+
+  doc.getElementById("viewport").focus();
+  EventUtils.synthesizeKey("r", {}, win);
+  await drag(win, at(120, 120), at(260, 200));
+  await TestUtils.waitForCondition(() => app.selection.size == 1 && bar.checkVisibility(), "The bar shows for a selection");
+  ok(bar.checkVisibility(), "The selection bar is drawn with a selection");
+
+  doc.getElementById("viewport").focus();
+  EventUtils.synthesizeKey("KEY_Escape", {}, win);
+  EventUtils.synthesizeKey("v", {}, win);
+  app.select([[...app.items][0].id]);
+  await TestUtils.waitForCondition(() => bar.checkVisibility(), "The bar shows again");
+
+  // Click empty canvas.
+  const p = at(rect.width - 80, rect.height - 80);
+  EventUtils.synthesizeMouseAtPoint(p.x, p.y, { type: "mousedown" }, win);
+  EventUtils.synthesizeMouseAtPoint(p.x, p.y, { type: "mouseup" }, win);
+  await new Promise(r => win.requestAnimationFrame(r));
+  is(app.selection.size, 0, "Clicking empty canvas deselects");
+  ok(!bar.checkVisibility(), "The selection bar is gone, not just marked hidden");
+
+  // A marquee drag hides it too while it runs.
+  app.select([[...app.items][0].id]);
+  await TestUtils.waitForCondition(() => bar.checkVisibility(), "The bar shows for the selection");
+  const from = at(rect.width - 80, rect.height - 80);
+  EventUtils.synthesizeMouseAtPoint(from.x, from.y, { type: "mousedown" }, win);
+  EventUtils.synthesizeMouseAtPoint(from.x - 30, from.y - 30, { type: "mousemove" }, win);
+  EventUtils.synthesizeMouseAtPoint(from.x - 60, from.y - 60, { type: "mousemove" }, win);
+  await new Promise(r => win.requestAnimationFrame(r));
+  ok(!bar.checkVisibility(), "The bar is not drawn during a marquee drag");
+  EventUtils.synthesizeMouseAtPoint(from.x - 60, from.y - 60, { type: "mouseup" }, win);
+});
+
 add_task(async function test_shape_tools_stay_and_bar_dividers() {
   const { win, app } = await openNewEasel();
   const doc = win.document;

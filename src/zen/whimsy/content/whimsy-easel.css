@@ -721,6 +721,10 @@ svg {
   animation: ez-pop-in var(--ez-base) var(--ez-standard);
 }
 
+#contextbar[hidden] {
+  display: none;
+}
+
 #contextbar .icon-button {
   width: 32px;
   height: 32px;
