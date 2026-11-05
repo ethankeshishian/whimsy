@@ -290,3 +290,27 @@ add_task(async function test_close_button_and_escape() {
 function WhimsyUndo() {
   return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs").WhimsyUndo;
 }
+
+add_task(async function test_unhide_pill_text_is_readable_on_light_accents() {
+  await hide(taxes.uuid);
+  const root = document.documentElement;
+  const before = root.style.getPropertyValue("--zen-primary-color");
+  root.style.setProperty("--zen-primary-color", "rgb(161, 100, 255)");
+  try {
+    const panel = await openPanel();
+    const row = panel.querySelector(".whimsy-hidden-space");
+    const pill = row.querySelector(".whimsy-hidden-space-unhide");
+    is(
+      getComputedStyle(pill).color,
+      getComputedStyle(row.querySelector(".whimsy-hidden-space-name")).color,
+      "The Unhide pill draws in the panel's text color, not the accent"
+    );
+    await closePanel(panel);
+  } finally {
+    if (before) {
+      root.style.setProperty("--zen-primary-color", before);
+    } else {
+      root.style.removeProperty("--zen-primary-color");
+    }
+  }
+});

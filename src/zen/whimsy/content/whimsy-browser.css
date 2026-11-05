@@ -1910,8 +1910,8 @@ notification-message[value="whimsy-claude-control"] {
   font-size: 10px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--zen-primary-color);
-  background: color-mix(in srgb, var(--zen-primary-color) 16%, transparent);
+  color: inherit;
+  background: color-mix(in srgb, var(--zen-primary-color) 28%, transparent);
   pointer-events: none;
   animation: whimsy-live-unread-in 160ms ease-out;
 
@@ -7392,8 +7392,8 @@ panel.whimsy-quick-note {
 }
 .whimsy-hidden-space-unhide {
   gap: 4px;
-  color: var(--zen-primary-color, AccentColor);
-  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 14%, transparent);
+  color: inherit;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 28%, transparent);
 }
 .whimsy-hidden-space-unhide-icon {
   width: 12px;
