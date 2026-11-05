@@ -540,6 +540,10 @@ add_task(async function back_online_notice_follows_a_real_check() {
         ContentTaskUtils.waitForCondition(() => content.document.getElementById("whimsy-game-online-notice").hidden,
           "The connection drops again: the notice goes"));
     });
+    // The page's actor goes a moment after its tab (a poll can still start
+    // in between); from then on nothing checks.
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(resolve => setTimeout(resolve, 300));
     const before = checks;
     // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
     await new Promise(resolve => setTimeout(resolve, 400));
