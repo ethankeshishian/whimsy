@@ -114,3 +114,42 @@ add_task(async function firefox_owns_the_only_tab_preview_setting() {
     ok(doc.getElementById("whimsyHoverPeople"), "Whimsy-only People option remains");
   });
 });
+
+// W16-18: a tab's hover never names its profile (container): not in the
+// tooltip, not in its accessible description, not in the hover preview.
+add_task(async function tab_hover_leaves_out_the_profile() {
+  const { ContextualIdentityService } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
+  );
+  const userContextId = 2;
+  const name = ContextualIdentityService.getUserContextLabel(userContextId);
+  ok(name, `Profile ${userContextId} has a name (${name})`);
+  const home = gZenWorkspaces.activeWorkspace;
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Hover Profile", undefined, true, userContextId);
+  try {
+    await gZenWorkspaces.changeWorkspaceWithID(space.uuid);
+    const tab = BrowserTestUtils.addTab(gBrowser, "https://example.com/", { userContextId });
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+    is(tab.userContextId, userContextId, "The tab is in a profile");
+    const firefoxTip = Object.getPrototypeOf(gBrowser).getTabTooltip.call(gBrowser, tab, true);
+    ok(firefoxTip.split("\n").includes(name), "Firefox's own tooltip would name the profile");
+    const tip = gBrowser.getTabTooltip(tab, true);
+    ok(tip.length, `The tooltip still has the tab's title (${JSON.stringify(tip)})`);
+    ok(!tip.split("\n").includes(name), "…but not the profile's name");
+    ok(!gBrowser.getTabTooltip(tab, false).split("\n").includes(name), "Nor the accessible description");
+    const indicator = document.querySelector("#tab-preview-panel .tab-preview-container-indicator");
+    if (indicator) {
+      indicator.hidden = false;
+      is(getComputedStyle(indicator).display, "none", "The hover preview's profile row never shows");
+      indicator.hidden = true;
+    }
+    BrowserTestUtils.removeTab(tab);
+  } finally {
+    await gZenWorkspaces.changeWorkspaceWithID(home);
+    for (const t of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == space.uuid &&
+      !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
+      BrowserTestUtils.removeTab(t);
+    }
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+  }
+});

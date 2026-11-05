@@ -7134,3 +7134,10 @@ zen-workspace[whimsy-space-covered] :is(.zen-workspace-pinned-tabs-section, .zen
   margin-inline: 2px;
   background: color-mix(in srgb, currentColor 18%, transparent);
 }
+
+/* W16-18: a tab's hover preview leaves out the profile (container) row;
+   the space shows the profile already (WhimsyHoverCard drops it from the
+   tooltip too). */
+#tab-preview-panel .tab-preview-container-indicator {
+  display: none !important;
+}

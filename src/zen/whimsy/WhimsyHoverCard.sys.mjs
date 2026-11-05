@@ -18,6 +18,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  ContextualIdentityService: "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   PageThumbs: "resource://gre/modules/PageThumbs.sys.mjs",
   PageThumbsStorage: "resource://gre/modules/PageThumbs.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
@@ -137,6 +138,7 @@ export const WhimsyHoverCard = {
   // `whimsyVisit` (a one-line overlay.py hook), so the card never guesses
   // which visit a row is from its position.
   initWindow(win) {
+    this.dropProfileFromTabTooltip(win);
     const card = this.forWindow(win);
     const rowFor = target => target?.closest?.("[data-section='history'] .zen-library-row");
     const over = event => {
@@ -172,6 +174,61 @@ export const WhimsyHoverCard = {
     };
     win.document.addEventListener("mouseover", over);
     win.document.addEventListener("mouseout", out);
+  },
+
+  // W16-18: a tab's hover says what the tab is, not which profile it's in
+  // (the space already shows that). Firefox adds the container's name to
+  // the tab tooltip (and the accessible description built from it), and
+  // its hover preview has a container row; whimsy-browser.css hides the
+  // row, and this drops the name from the tooltip, keeping a tab group's
+  // name when the tab carries one.
+  dropProfileFromTabTooltip(win) {
+    const gBrowser = win.gBrowser;
+    if (!gBrowser?.getTabTooltip || gBrowser._whimsyNoProfileTooltip) {
+      return;
+    }
+    gBrowser._whimsyNoProfileTooltip = true;
+    const original = gBrowser.getTabTooltip;
+    gBrowser.getTabTooltip = function (tab, ...args) {
+      const text = original.call(this, tab, ...args);
+      if (!tab?.userContextId) {
+        return text;
+      }
+      try {
+        const containerName = lazy.ContextualIdentityService.getUserContextLabel(tab.userContextId);
+        if (!containerName) {
+          return text;
+        }
+        const l10n = this.tabLocalization;
+        const alone = l10n.formatValueSync("tabbrowser-tab-tooltip-container", { containerName });
+        const tabGroupName = tab.group
+          ? tab.group.name || l10n.formatValueSync("tab-group-name-default")
+          : "";
+        const both = tabGroupName
+          ? l10n.formatValueSync("tabbrowser-tab-tooltip-tab-group-container", { tabGroupName, containerName })
+          : null;
+        const groupOnly = tabGroupName
+          ? l10n.formatValueSync("tabbrowser-tab-tooltip-tab-group", { tabGroupName })
+          : null;
+        const lines = text.split("\n");
+        // The first line is the title when it's included; only the context
+        // line after it is Firefox's container line.
+        const start = args[0] === false ? 0 : 1;
+        for (let i = start; i < lines.length; i++) {
+          if (both && lines[i] == both) {
+            lines[i] = groupOnly;
+            break;
+          }
+          if (lines[i] == alone) {
+            lines.splice(i, 1);
+            break;
+          }
+        }
+        return lines.join("\n");
+      } catch (e) {
+        return text;
+      }
+    };
   },
 
   async cachedThumbnail(url) {
