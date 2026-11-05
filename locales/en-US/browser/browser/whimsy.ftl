@@ -4868,12 +4868,12 @@ whimsy-pagedev-copied-button =
     [macos] ⌘Q
    *[other] Ctrl+Q
 }
-whimsy-form-close-warning = Unsaved typing will be lost · { -whimsy-form-close-key } again to close
+whimsy-form-close-warning = Unsaved typing will be lost. Press { -whimsy-form-close-key } again to close.
 whimsy-form-close-button = Close
 # $count (number) - tabs with unsaved typing
 whimsy-form-quit-warning = { $count ->
-    [one] 1 tab has unsaved typing · { -whimsy-form-quit-key } again to quit
-   *[other] { $count } tabs have unsaved typing · { -whimsy-form-quit-key } again to quit
+    [one] 1 tab has unsaved typing. Press { -whimsy-form-quit-key } again to quit.
+   *[other] { $count } tabs have unsaved typing. Press { -whimsy-form-quit-key } again to quit.
 }
 whimsy-form-quit-button = Quit
 whimsy-form-refill-ask = Restore what you typed?

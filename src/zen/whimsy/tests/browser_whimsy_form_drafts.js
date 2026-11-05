@@ -398,6 +398,7 @@ add_task(async function test_setting_off_close_warns_then_closes() {
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-close-warning"), "Warns");
     await document.l10n.translateFragment(toast.element);
     ok(toast.element.querySelector("label").textContent.includes("Unsaved typing"), "says so");
+    ok(!toast.element.textContent.includes("·"), "W16-6: no · separator in the close warning");
     EventUtils.synthesizeKey("w", { accelKey: true }, window);
     await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "A second ⌘W closes");
     is(await WhimsyFormDrafts.get({ url: FORM_PAGE }), null, "Nothing was stored (saving is off)");
@@ -447,6 +448,7 @@ add_task(async function test_quit_warns_once_when_saving_off() {
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-quit-warning"), "and warns");
     await document.l10n.translateFragment(toast.element);
     ok(toast.element.querySelector("label").textContent.includes("unsaved typing"), "says so");
+    ok(!toast.element.textContent.includes("·"), "W16-6: no · separator in the quit warning");
     is(toast.element.querySelector(".whimsy-toast-button").textContent, "Quit", "The button says Quit");
 
     subject = quitSubject();
