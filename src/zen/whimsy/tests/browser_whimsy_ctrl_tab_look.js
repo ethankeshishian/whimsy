@@ -18,7 +18,7 @@
 //   to their window), locked or not.
 // - Switching whimsy.feature.ctrl-tab off gives back Firefox's panel.
 
-const { WhimsyCtrlTab, MAX_THUMB_WIDTH, VISIBLE_ROWS } = ChromeUtils.importESModule(
+const { WhimsyCtrlTab, MAX_THUMB_WIDTH, VISIBLE_ROWS, POOL_SIZE } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyCtrlTab.sys.mjs"
 );
 
@@ -108,7 +108,7 @@ add_task(async function test_card_rows_of_four_and_twelve_tabs() {
   is(Services.prefs.getDefaultBranch("").getIntPref("browser.ctrlTab.maxPreviews"), 12,
     "Whimsy ships 12 previews");
   const tabs = await openTabs(13);
-  Assert.greaterOrEqual(ctrlTab.maxTabPreviews, ctrlTab.tabCount, "...and the panel has a tile for every tab");
+  is(ctrlTab.maxTabPreviews, POOL_SIZE, "W16-8: the panel has a fixed pool of 20 tiles, however many tabs");
   try {
     Assert.greaterOrEqual(ctrlTab.tabCount, 13, "More than 12 tabs to switch between");
     await holdCtrlTab();
@@ -470,4 +470,82 @@ add_task(async function test_private_space_selection_shows() {
   }
   ok(!root.hasAttribute("whimsy-scratch-active"), "Back in a normal space");
   is(accentOf(), homeAccent, "...with its own accent back");
+});
+
+// W16-8: with many tabs the card builds a pool of 20 tiles and fills only
+// those (with their thumbnails); Tab and Shift+Tab move through every tab,
+// the pool following, and the footer counts the whole list.
+add_task(async function test_many_tabs_use_a_pool_of_tiles() {
+  const tabs = [];
+  for (let i = 0; i < 60; i++) {
+    tabs.push(BrowserTestUtils.addTab(gBrowser, page(400 + i), { skipAnimation: true }));
+  }
+  const gets = { count: 0 };
+  const get = tabPreviews.get;
+  try {
+    await TestUtils.waitForCondition(() => ctrlTab.tabCount >= 60, "Sixty tabs to switch between");
+    // Loaded, so no tile is redrawn for a tab's title or icon arriving.
+    await TestUtils.waitForCondition(() => tabs.every(t => !t.hasAttribute("busy")), "…all loaded");
+    const total = ctrlTab.tabCount;
+    tabPreviews.get = function (...args) {
+      gets.count++;
+      return get.apply(this, args);
+    };
+    await holdCtrlTab();
+    tabPreviews.get = get;
+    const tiles = ctrlTab.previewsContainer.querySelectorAll(".ctrlTab-preview");
+    Assert.lessOrEqual(tiles.length, POOL_SIZE, `At most ${POOL_SIZE} tiles (${tiles.length})`);
+    Assert.lessOrEqual(gets.count, POOL_SIZE, `At most ${POOL_SIZE} thumbnails asked for on open (${gets.count})`);
+    const pitch = WhimsyCtrlTab.rowPitch(ctrlTab);
+    const rows = Math.ceil(total / WhimsyCtrlTab.PER_ROW);
+    Assert.less(Math.abs(ctrlTab.previewsContainer.scrollHeight - (rows * pitch - 4)), 3,
+      "The grid scrolls as far as every tab's row (the spacers keep it true)");
+    is(document.activeElement._tab, ctrlTab.tabList[1], "The previous tab is selected");
+
+    const foot = document.getElementById("whimsy-ctrltab-foot");
+    const list = ctrlTab.tabList;
+    for (let i = 2; i <= 40; i++) {
+      await pressTab();
+      if (document.activeElement._tab != list[i]) {
+        is(document.activeElement._tab?.label, list[i].label, `Tab ${i - 1}: tab ${i + 1} is selected`);
+        break;
+      }
+      if (i == 13) {
+        await document.l10n.translateFragment(foot);
+        is(foot.querySelector(".whimsy-ctrltab-count").textContent, `14 of ${total}`, "The footer counts the whole list");
+      }
+    }
+    is(document.activeElement._tab, list[40], "Tab reaches the 41st tab, well past the first pool");
+    Assert.less(Math.abs(ctrlTab.previewsContainer.scrollTop - (Math.floor(40 / 4) - 2) * pitch), 1,
+      "…with its row the last in view");
+    ok(inView().includes(document.activeElement), "…and in view");
+    Assert.lessOrEqual(ctrlTab.previewsContainer.querySelectorAll(".ctrlTab-preview").length, POOL_SIZE, "Still 20 tiles");
+
+    // Back with Shift+Tab, a few rows.
+    for (let i = 39; i >= 30; i--) {
+      const keyup = BrowserTestUtils.waitForEvent(document, "keyup");
+      EventUtils.synthesizeKey("VK_TAB", { ctrlKey: true, shiftKey: true });
+      await keyup;
+    }
+    is(document.activeElement._tab, list[30], "Shift+Tab goes back through them");
+    ok(inView().includes(document.activeElement), "…in view");
+    const picked = document.activeElement._tab;
+    await releaseCtrl();
+    is(gBrowser.selectedTab, picked, "Releasing Ctrl picks the tab the tile shows");
+
+    // Wrapping back from the first tab reaches the last one.
+    await holdCtrlTab();
+    for (let i = 0; i < 2; i++) {
+      const keyup = BrowserTestUtils.waitForEvent(document, "keyup");
+      EventUtils.synthesizeKey("VK_TAB", { ctrlKey: true, shiftKey: true });
+      await keyup;
+    }
+    is(document.activeElement._tab, ctrlTab.tabList.at(-1), "Shift+Tab from the first tab wraps to the last");
+    ok(inView().includes(document.activeElement), "…which is in view");
+    await releaseCtrl();
+  } finally {
+    tabPreviews.get = get;
+    await letGo();
+    removeTabs(tabs);
+  }
 });

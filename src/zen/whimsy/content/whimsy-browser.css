@@ -2362,6 +2362,15 @@ panel[dragging] {
     &[whimsy-more] {
       mask-image: linear-gradient(to bottom, black calc(100% - 36px), transparent);
     }
+
+    /* W16-8: the rows above and below the tile pool (WhimsyCtrlTab). */
+    & > .whimsy-ctrltab-spacer {
+      grid-column: 1 / -1;
+
+      &[hidden] {
+        display: none;
+      }
+    }
   }
 
   & #whimsy-ctrltab-foot {

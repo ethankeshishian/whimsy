@@ -28,6 +28,11 @@
 //   never together (Arc keeps incognito tabs to their window). The card shows 12 (three rows); pressing Tab past
 //   them scrolls the grid a row at a time, with a fade at the bottom and
 //   "13 of 31" under it.
+// - W16-8: with hundreds of tabs it opened slowly (a tile and a thumbnail
+//   for every tab). The grid is a fixed pool of 20 tiles (five rows) over
+//   the list, with spacers above and below that keep the scroll height
+//   true; scrolling or Tab past the pool's rows moves it a row and fills
+//   it again. Selection is a tab index mapped to a tile.
 //
 // Everything here checks whimsy.feature.ctrl-tab on each open, so switching
 // it off gives back Firefox's panel exactly.
@@ -42,6 +47,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const FEATURE_PREF = "whimsy.feature.ctrl-tab";
 const PER_ROW = 4;
 export const VISIBLE_ROWS = 3;
+// W16-8: the tiles that exist, five rows: the three in view and one each
+// side.
+export const POOL_ROWS = VISIBLE_ROWS + 2;
+export const POOL_SIZE = PER_ROW * POOL_ROWS;
+const SPACER_CLASS = "whimsy-ctrltab-spacer";
 const FOOT_HEIGHT = 22;
 export const MAX_THUMB_WIDTH = 200;
 // The card's geometry (whimsy-browser.css): tile padding 6, gap 4 between
@@ -78,7 +88,7 @@ export const WhimsyCtrlTab = {
     ctrlTab._whimsyLook = true;
     const self = this;
 
-    // A tile for every tab in the list (the card shows three rows of them).
+    // W16-8: a fixed pool of tiles (the card shows three rows of them).
     Object.defineProperty(ctrlTab, "maxTabPreviews", {
       configurable: true,
       enumerable: true,
@@ -86,9 +96,41 @@ export const WhimsyCtrlTab = {
         if (!self.enabled) {
           return Math.max(4, Math.min(49, Services.prefs.getIntPref("browser.ctrlTab.maxPreviews", 7)));
         }
-        return Math.max(PER_ROW * VISIBLE_ROWS, this._recentlyUsedTabs ? this.tabCount : 0);
+        return POOL_SIZE;
       },
     });
+    ctrlTab._whimsyBase = 0;
+    // The spacers above and below the pool.
+    const buildPreviews = ctrlTab._buildPreviews;
+    ctrlTab._buildPreviews = function () {
+      const result = buildPreviews.apply(this, arguments);
+      const doc = win.document;
+      for (const where of ["before", "after"]) {
+        const spacer = doc.createXULElement("box");
+        spacer.className = SPACER_CLASS;
+        spacer.hidden = true;
+        this.previewsContainer[where == "before" ? "prepend" : "append"](spacer);
+      }
+      return result;
+    };
+    // The pool, filled from the list once (Firefox's reads tabList, which
+    // filters every tab, for each tile).
+    const updatePreviews = ctrlTab.updatePreviews;
+    ctrlTab.updatePreviews = function () {
+      if (!self.enabled) {
+        return updatePreviews.apply(this, arguments);
+      }
+      self.fillPool(win, this);
+      return undefined;
+    };
+    // The selection, by tab index.
+    const advanceFocus = ctrlTab.advanceFocus;
+    ctrlTab.advanceFocus = function (forward) {
+      if (!self.enabled) {
+        return advanceFocus.apply(this, arguments);
+      }
+      return self.advance(win, this, forward);
+    };
 
     // Every space's tabs, newest first.
     const initRecentlyUsedTabs = ctrlTab._initRecentlyUsedTabs;
@@ -109,9 +151,11 @@ export const WhimsyCtrlTab = {
     };
     const open = ctrlTab.open;
     ctrlTab.open = function () {
+      this._whimsyBase = 0;
       if (self.enabled && this._recentlyUsedTabs) {
         // A space's lock or hiding can change between opens.
-        this._recentlyUsedTabs = this._recentlyUsedTabs.filter(tab => self.eligible(win, tab));
+        const navigable = self.navigableIds(win);
+        this._recentlyUsedTabs = this._recentlyUsedTabs.filter(tab => self.eligible(win, tab, navigable));
         this._sortRecentlyUsedTabs();
       }
       const result = open.apply(this, arguments);
@@ -161,6 +205,9 @@ export const WhimsyCtrlTab = {
     ctrlTab.previewsContainer.addEventListener("scroll", () => {
       // The wheel moves the rows too; the next Tab carries on from there.
       ctrlTab._whimsyFirstRow = Math.round(ctrlTab.previewsContainer.scrollTop / self.rowPitch(ctrlTab));
+      if (self.enabled && ctrlTab.isOpen) {
+        self.ensurePool(win, ctrlTab, ctrlTab._whimsyFirstRow);
+      }
       self.updateMore(ctrlTab);
     }, { passive: true });
     if (ctrlTab._recentlyUsedTabs && this.enabled) {
@@ -244,8 +291,17 @@ export const WhimsyCtrlTab = {
     ctrlTab.updatePreview._whimsySpaceBadge = true;
   },
 
+  // W16-8: the spaces whose tabs may show, worked out once per pass.
+  navigableIds(win) {
+    try {
+      return new Set(lazy.WhimsySpaceArchive.navigableSpaces(win).map(space => space.uuid));
+    } catch (e) {
+      return null;
+    }
+  },
+
   /** Whether `tab` belongs in the list: see the header. */
-  eligible(win, tab) {
+  eligible(win, tab, navigable = null) {
     if (!tab || tab.closing || tab.hasAttribute("zen-empty-tab") || tab.hasAttribute("zen-glance-tab")) {
       return false;
     }
@@ -255,7 +311,7 @@ export const WhimsyCtrlTab = {
     const spaces = win.gZenWorkspaces;
     const id = tab.getAttribute("zen-workspace-id");
     if (id && spaces && !tab.hasAttribute("zen-essential") && id != spaces.activeWorkspace) {
-      if (!lazy.WhimsySpaceArchive.navigableSpaces(win).some(space => space.uuid == id)) {
+      if (navigable ? !navigable.has(id) : !lazy.WhimsySpaceArchive.navigableSpaces(win).some(space => space.uuid == id)) {
         return false;
       }
     }
@@ -281,7 +337,125 @@ export const WhimsyCtrlTab = {
 
   allTabs(win) {
     const all = win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs;
-    return [...new Set(all)].filter(tab => this.eligible(win, tab));
+    const navigable = this.navigableIds(win);
+    return [...new Set(all)].filter(tab => this.eligible(win, tab, navigable));
+  },
+
+  // W16-8: the pool's tiles show tabList[base …]; the spacers stand in for
+  // the rows above and below it.
+  fillPool(win, ctrlTab, list = ctrlTab.tabList) {
+    const container = ctrlTab.previewsContainer;
+    container.style.setProperty("--ctrlTab-previews-per-row", ctrlTab.previewColumnCount);
+    const base = ctrlTab._whimsyBase ?? 0;
+    for (let i = 0; i < ctrlTab.previews.length; i++) {
+      const preview = ctrlTab.previews[i];
+      if (preview == ctrlTab.showAllButton) {
+        continue;
+      }
+      ctrlTab.updatePreview(preview, list[base + i]);
+    }
+    const pitch = this.rowPitch(ctrlTab);
+    const totalRows = Math.ceil(list.length / PER_ROW);
+    const above = base / PER_ROW;
+    const below = Math.max(0, totalRows - above - POOL_ROWS);
+    const [lead, trail] = [container.firstElementChild, container.lastElementChild];
+    for (const [spacer, rows] of [[lead, above], [trail, below]]) {
+      if (spacer?.classList.contains(SPACER_CLASS)) {
+        spacer.hidden = !rows;
+        spacer.style.height = rows ? `${rows * pitch - GAP}px` : "";
+      }
+    }
+    win.document.l10n.setAttributes(ctrlTab.showAllButton, "tabbrowser-ctrl-tab-list-all-tabs", { tabCount: list.length });
+    ctrlTab.showAllButton.hidden = !win.gTabsPanel?.canOpen;
+  },
+
+  /** The tab index the selected tile shows (the list's length for List All Tabs). */
+  selectedIndex(ctrlTab) {
+    const selected = ctrlTab.selected;
+    if (selected == ctrlTab.showAllButton) {
+      return ctrlTab.tabCount;
+    }
+    const tile = ctrlTab.previews.indexOf(selected);
+    return tile < 0 ? 0 : (ctrlTab._whimsyBase ?? 0) + tile;
+  },
+
+  // The first row in view once tab `index` is revealed (see reveal()).
+  firstRowFor(ctrlTab, index) {
+    const row = Math.floor(index / PER_ROW);
+    let first = ctrlTab._whimsyFirstRow ?? 0;
+    if (row < first) {
+      first = row;
+    } else if (row > first + VISIBLE_ROWS - 1) {
+      first = row - VISIBLE_ROWS + 1;
+    }
+    return first;
+  },
+
+  /**
+   * Moves the pool so it covers rows `first` … first + 2, keeping the
+   * selected tab selected. Returns whether it moved.
+   */
+  ensurePool(win, ctrlTab, first) {
+    const baseRow = (ctrlTab._whimsyBase ?? 0) / PER_ROW;
+    if (first >= baseRow && first + VISIBLE_ROWS - 1 <= baseRow + POOL_ROWS - 1) {
+      return false;
+    }
+    const list = ctrlTab.tabList;
+    const totalRows = Math.ceil(list.length / PER_ROW);
+    const newBaseRow = Math.max(0, Math.min(first - 1, totalRows - POOL_ROWS));
+    if (newBaseRow == baseRow) {
+      return false;
+    }
+    const selectedTab = ctrlTab.selected?._tab ?? null;
+    const focused = ctrlTab._selectedIndex == -1;
+    ctrlTab._whimsyBase = newBaseRow * PER_ROW;
+    this.fillPool(win, ctrlTab, list);
+    let tile = selectedTab ? ctrlTab.previews.find(p => p._tab == selectedTab && !p.hidden) : null;
+    if (!tile) {
+      // The wheel took the selection out of the pool: the nearest tile in view.
+      tile = ctrlTab.previews[Math.max(0, Math.min(first * PER_ROW - ctrlTab._whimsyBase, ctrlTab.previews.length - 2))];
+    }
+    if (tile) {
+      if (focused) {
+        tile.focus({ preventScroll: true });
+      } else {
+        ctrlTab._selectedIndex = ctrlTab.previews.indexOf(tile);
+      }
+    }
+    return true;
+  },
+
+  // Tab and Shift+Tab: the next or previous tab in the list, wrapping (with
+  // List All Tabs when it shows), the pool moving with it.
+  advance(win, ctrlTab, forward) {
+    const count = ctrlTab.tabCount;
+    const showAll = !ctrlTab.showAllButton.hidden;
+    const total = count + (showAll ? 1 : 0);
+    if (!total) {
+      return;
+    }
+    const index = (this.selectedIndex(ctrlTab) + (forward ? 1 : -1) + total) % total;
+    let target = ctrlTab.showAllButton;
+    if (index < count) {
+      this.ensurePool(win, ctrlTab, this.firstRowFor(ctrlTab, index));
+      target = ctrlTab.previews[index - ctrlTab._whimsyBase];
+    }
+    if (!target) {
+      return;
+    }
+    if (ctrlTab._selectedIndex == -1) {
+      target.focus({ preventScroll: true });
+    } else {
+      ctrlTab._selectedIndex = ctrlTab.previews.indexOf(target);
+    }
+    if (target._tab) {
+      win.gBrowser.warmupTab(target._tab);
+    }
+    if (ctrlTab._timer) {
+      win.clearTimeout(ctrlTab._timer);
+      ctrlTab._timer = null;
+      ctrlTab._openPanel();
+    }
   },
 
   rowPitch(ctrlTab) {
@@ -291,7 +465,7 @@ export const WhimsyCtrlTab = {
   /** Three rows of tiles show; the rest scroll. The foot counts them. */
   layoutGrid(ctrlTab) {
     const container = ctrlTab.previewsContainer;
-    const more = this.enabled && ctrlTab.tabPreviewCount > PER_ROW * VISIBLE_ROWS;
+    const more = this.enabled && ctrlTab.tabCount > PER_ROW * VISIBLE_ROWS;
     if (more) {
       container.style.setProperty("--whimsy-ctrltab-grid-height", `${VISIBLE_ROWS * this.rowPitch(ctrlTab) - GAP}px`);
     } else {
@@ -327,21 +501,15 @@ export const WhimsyCtrlTab = {
   reveal(ctrlTab) {
     const container = ctrlTab.previewsContainer;
     const selected = ctrlTab.selected;
-    const index = ctrlTab.previews.indexOf(selected);
-    if (index < 0 || selected == ctrlTab.showAllButton) {
+    if (ctrlTab.previews.indexOf(selected) < 0 || selected == ctrlTab.showAllButton) {
       return;
     }
+    const index = this.selectedIndex(ctrlTab);
     const foot = this.foot(ctrlTab);
     if (!foot.hidden) {
       const pitch = this.rowPitch(ctrlTab);
-      const row = Math.floor(index / PER_ROW);
       // Not from scrollTop: focusing a tile has already scrolled it into view.
-      let first = ctrlTab._whimsyFirstRow ?? 0;
-      if (row < first) {
-        first = row;
-      } else if (row > first + VISIBLE_ROWS - 1) {
-        first = row - VISIBLE_ROWS + 1;
-      }
+      const first = this.firstRowFor(ctrlTab, index);
       ctrlTab._whimsyFirstRow = first;
       container.scrollTop = first * pitch;
       foot.querySelector(".whimsy-ctrltab-title").setAttribute("value", selected._tab?.label ?? "");
@@ -363,7 +531,7 @@ export const WhimsyCtrlTab = {
   /** The card's width and height for the previews about to show. */
   cardSize(ctrlTab) {
     const columns = Math.max(1, ctrlTab.previewColumnCount);
-    const allRows = Math.max(1, Math.ceil(ctrlTab.tabPreviewCount / ctrlTab.previewsPerRow));
+    const allRows = Math.max(1, Math.ceil(ctrlTab.tabCount / ctrlTab.previewsPerRow));
     const rows = Math.min(allRows, VISIBLE_ROWS);
     const chrome = 2 * (CARD_PAD + BORDER);
     const width = columns * (ctrlTab.canvasWidth + 2 * TILE_PAD) + (columns - 1) * GAP + chrome;
