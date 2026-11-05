@@ -2303,9 +2303,9 @@ panel[dragging] {
 .whimsy-cheatsheet-empty[hidden] {
   display: none;
 }
-.whimsy-cheatsheet-footer {
+.whimsy-surface-footer.whimsy-cheatsheet-footer {
   gap: 8px;
-  padding: 9px 4px 0;
+  padding: 10px 4px 0;
   border-top: 1px solid var(--whimsy-surface-hairline);
 }
 .whimsy-cheatsheet-legend {

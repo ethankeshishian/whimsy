@@ -86,6 +86,11 @@ add_task(async function test_opens_grouped_with_key_caps() {
     ok(row.getAttribute("aria-label").includes(row.querySelector(".whimsy-cheatsheet-title").textContent),
       "Rows have an accessible name with the command");
 
+    const footer = panel.querySelector(".whimsy-cheatsheet-footer");
+    const footerStyle = window.getComputedStyle(footer);
+    is(footerStyle.paddingTop, "10px", "The footer has room under its divider");
+    is(footerStyle.paddingInlineStart, "4px", "...and keeps its inline padding");
+
     // Exactly one action: Edit Shortcuts….
     const footerButtons = panel.querySelectorAll(".whimsy-surface-footer .footer-button");
     is(footerButtons.length, 1, "One footer action");
