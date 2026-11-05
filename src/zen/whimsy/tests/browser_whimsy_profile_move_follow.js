@@ -207,3 +207,78 @@ add_task(async function moving_back_restores_the_original_sign_in() {
   BrowserTestUtils.removeTab(backHome);
   await cleanup();
 });
+
+// W14c B: a sidebar drag onto a space of another profile. The drag shows
+// that space first, then Zen's drop only writes the attribute and selects
+// the tab (ZenDragAndDrop #handle_dropSwitchSpace); isolation puts it back
+// while asking. Yes used to leave an unselected lazy "New Tab" copy there.
+async function dropOnWork(tab, { select = true } = {}) {
+  await gZenWorkspaces.changeWorkspace(workSpace);
+  gZenWorkspaces.workspaceElement(workSpace.uuid).tabsContainer.appendChild(tab);
+  tab.setAttribute(ATTR, workSpace.uuid);
+  if (select) {
+    gBrowser.selectedTab = tab;
+  }
+  await TestUtils.waitForCondition(() => pending.length, "Arc's warning is up");
+  is(tab.getAttribute(ATTR), home.uuid, "Put back home while asking");
+}
+
+async function droppedTabLands(tab, label) {
+  await TestUtils.waitForCondition(() => {
+    const moved = WhimsyProfileMoves.replacementOf(tab);
+    return moved != tab && gBrowser.selectedTab == moved && gZenWorkspaces.activeWorkspace == workSpace.uuid;
+  }, "The reopened tab is selected in Work");
+  const moved = WhimsyProfileMoves.replacementOf(tab);
+  is(moved.userContextId, work, "…in Work's profile");
+  is(moved.getAttribute(ATTR), workSpace.uuid, "…in the Work space");
+  ok(!moved.hasAttribute("pending"), "…loaded, not a lazy tab");
+  ok(moved.linkedPanel, "…with a browser");
+  await TestUtils.waitForCondition(() => moved.linkedBrowser.currentURI?.spec == PAGE, "Loads the page");
+  await TestUtils.waitForCondition(() => moved.label == label, "Shows the page's title");
+  isnot(moved.label, gBrowser.tabContainer.emptyTabTitle, "…not New Tab");
+  return moved;
+}
+
+add_task(async function a_sidebar_drop_selects_the_reopened_tab() {
+  const tab = await openHomeTab();
+  const label = tab.label;
+  await dropOnWork(tab);
+  pending.shift()(true);
+  await droppedTabLands(tab, label);
+  await cleanup();
+});
+
+add_task(async function a_sidebar_drop_declined_leaves_the_tab_home() {
+  const tab = await openHomeTab();
+  await dropOnWork(tab);
+  pending.shift()(false);
+  await new Promise(resolve => setTimeout(resolve, 300));
+  is(WhimsyProfileMoves.replacementOf(tab), tab, "No: not reopened");
+  is(tab.getAttribute(ATTR), home.uuid, "…still home");
+  is(tab.userContextId, 0, "…still Default");
+  isnot(gBrowser.selectedTab, tab, "…and not selected in the space being shown");
+  BrowserTestUtils.removeTab(tab);
+  await cleanup();
+});
+
+add_task(async function a_sidebar_drop_keeps_the_page_title() {
+  const tab = await openHomeTab();
+  const label = tab.label;
+  isnot(label, gBrowser.tabContainer.emptyTabTitle, "The page has a title");
+  await dropOnWork(tab);
+  pending.shift()(true);
+  const moved = await droppedTabLands(tab, label);
+  is(moved.label, label, "Same title after the move");
+  await cleanup();
+});
+
+add_task(async function a_background_tab_dropped_is_selected_after_yes() {
+  const tab = await openHomeTab();
+  const label = tab.label;
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?other");
+  await dropOnWork(tab, { select: false });
+  pending.shift()(true);
+  await droppedTabLands(tab, label);
+  BrowserTestUtils.removeTab(other);
+  await cleanup();
+});

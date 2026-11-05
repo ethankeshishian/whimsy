@@ -153,8 +153,12 @@ export const WhimsyProfileMoves = {
     }
   },
 
-  /** Reopens `tab` in container `userContextId`, in space `spaceId`. */
-  reopen(win, tab, userContextId, spaceId) {
+  /**
+   * Reopens `tab` in container `userContextId`, in space `spaceId`.
+   * `select`: it was selected before isolation put it back; it reopens live
+   * and is selected when that space is showing.
+   */
+  reopen(win, tab, userContextId, spaceId, { select = false } = {}) {
     const { gBrowser, gZenWorkspaces } = win;
     if (tab.closing || tab.hasAttribute("zen-essential")) {
       return null;
@@ -163,7 +167,7 @@ export const WhimsyProfileMoves = {
     if (tab.getAttribute("zen-workspace-id") != spaceId && lazy.WhimsyPrivateLock.refuseMove(win, [tab])) {
       return null;
     }
-    const selected = gBrowser.selectedTab == tab;
+    const selected = select || gBrowser.selectedTab == tab;
     const isPrivate = this.isPrivate(tab);
     const state = this.tabState(tab);
     const newTab = gBrowser.addTab(this.urlOf(tab, state), {
@@ -220,6 +224,9 @@ export const WhimsyProfileMoves = {
       // tab under the switcher; it closes once something else is selected.
       this.closeWhenDeselected(win, tab);
       return newTab;
+    }
+    if (select && spaceId == gZenWorkspaces.activeWorkspace) {
+      gBrowser.selectedTab = newTab;
     }
     gBrowser.removeTab(tab, { animate: false, skipPermitUnload: true });
     return newTab;
@@ -358,8 +365,9 @@ export const WhimsyProfileMoves = {
   },
 
   // Asks with Arc's warning, then reopens `moved` (tabs still in their own
-  // space) fresh in `spaceId`'s container. No: nothing moves.
-  async confirmTabMove(win, moved, spaceId, original = null) {
+  // space) fresh in `spaceId`'s container. No: nothing moves. `select`: the
+  // tab that was selected before it was held back.
+  async confirmTabMove(win, moved, spaceId, original = null, { select = null } = {}) {
     const { WhimsyProfiles } = lazy;
     const space = win.gZenWorkspaces.getWorkspaceFromId?.(spaceId) ??
       win.gZenWorkspaces.getWorkspaces().find(item => item.uuid == spaceId);
@@ -386,7 +394,7 @@ export const WhimsyProfileMoves = {
         }
         for (const { tab } of moved) {
           if (!tab.closing && tab.isConnected) {
-            this.reopen(win, tab, id, spaceId);
+            this.reopen(win, tab, id, spaceId, { select: tab == select });
           }
         }
         return true;

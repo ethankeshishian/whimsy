@@ -314,6 +314,10 @@ export const WhimsyIsolation = {
     }
 
     for (const [to, { tabs: moved, from }] of moves) {
+      // Before putBack hands the selection to a tab of the showing space: a
+      // sidebar drop shows its space and selects the dropped tab.
+      const selected = moved.find(tab => tab == win.gBrowser.selectedTab) ?? null;
+      const showing = to == win.gZenWorkspaces.activeWorkspace;
       for (const [back, group] of this.bySource(moved, from)) {
         this.putBack(win, group, back);
       }
@@ -321,7 +325,10 @@ export const WhimsyIsolation = {
       // the person acted in asks (the others just put it back).
       if (interactive && this.isFront(win)) {
         const entries = moved.map(tab => ({ tab, from: from.get(tab), item: tab }));
-        lazy.WhimsyProfileMoves.confirmTabMove(win, entries, to)
+        const { WhimsyProfileMoves } = lazy;
+        WhimsyProfileMoves.confirmTabMove(win, entries, to, null, { select: selected })
+          .then(ok => ok && (selected || showing) &&
+            WhimsyProfileMoves.follow(win, selected ? [selected] : moved, to))
           .catch(e => console.error("Whimsy: isolation", e));
       }
     }
