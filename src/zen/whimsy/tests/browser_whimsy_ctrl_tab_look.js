@@ -427,3 +427,47 @@ add_task(async function test_every_space_and_scrolling_by_row() {
     await gZenWorkspaces.removeWorkspace(secret.uuid);
   }
 });
+
+// W16-1: the Private Space has no theme, so Zen's default dark accent made
+// the selected tile nearly invisible there. It wears the private violet.
+add_task(async function test_private_space_selection_shows() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const home = gZenWorkspaces.activeWorkspace;
+  const root = document.documentElement;
+  const accentOf = () => getComputedStyle(root).getPropertyValue("--zen-primary-color").trim();
+  const homeAccent = accentOf();
+  const settle = async () => {
+    await TestUtils.waitForCondition(() => !gZenWorkspaces.isChangingWorkspace, "The space switch finished");
+    await new Promise(resolve => setTimeout(resolve, 100));
+  };
+  try {
+    EventUtils.synthesizeKey("n", { accelKey: true, shiftKey: true });
+    await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(window), "The Private Space shows");
+    await settle();
+    for (const n of [1, 2]) {
+      const tab = WhimsyPrivate.openPrivateTab(window, { url: "https://example.com/browser/?look" + n });
+      await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+      gBrowser.selectedTab = tab;
+    }
+    await settle();
+    ok(root.hasAttribute("whimsy-scratch-active"), "The Private Space is active");
+    is(accentOf(), "rgb(152, 110, 255)", "The Private Space wears the private violet accent");
+
+    await holdCtrlTab();
+    await pressTab();
+    const focused = document.activeElement;
+    ok(focused?.classList.contains("ctrlTab-preview"), "A tile is selected");
+    const inner = focused.querySelector(".ctrlTab-preview-inner") ?? focused;
+    const fill = getComputedStyle(inner).backgroundColor;
+    Assert.greater(alphaOf(fill), 0, `The selected tile has a fill (${fill})`);
+    isnot(fill, getComputedStyle(card()).backgroundColor, "...that differs from the card");
+    await releaseCtrl();
+  } finally {
+    await letGo();
+    await gZenWorkspaces.changeWorkspaceWithID(home);
+    await settle();
+    await WhimsyPrivate.closeScratch(window);
+  }
+  ok(!root.hasAttribute("whimsy-scratch-active"), "Back in a normal space");
+  is(accentOf(), homeAccent, "...with its own accent back");
+});

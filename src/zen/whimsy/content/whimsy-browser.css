@@ -982,6 +982,16 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   --whimsy-private-tab-accent: rgb(152, 110, 255);
 }
 
+/* W16-1: the Private Space (Scratch) wears the private window's violet
+   accent while it's active. It has no theme of its own, so Zen's default
+   dark-mode accent (about rgb(5, 44, 84)) left accent-tinted controls,
+   such as Ctrl+Tab's selected tile, nearly invisible. Doubled to outrank
+   Zen's [zen-private-window]/[zen-unsynced-window] rules; !important beats
+   the inline value Zen's gradient generator sets on the root. */
+:root[whimsy-scratch-active][whimsy-scratch-active] {
+  --zen-primary-color: var(--whimsy-private-tab-accent) !important;
+}
+
 .tabbrowser-tab[whimsy-private] {
   & .tab-background {
     background-image: linear-gradient(
