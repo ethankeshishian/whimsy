@@ -6764,7 +6764,10 @@ panel.whimsy-quick-note {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.whimsy-hidden-space-unhide {
+/* Full-strength panel text on the accent fill: the doubled class outranks
+   .whimsy-surface-pill's muted color (whimsy-surface.css), which would
+   otherwise win and drop the label to 62% on light accents. */
+.whimsy-hidden-space-unhide.whimsy-hidden-space-unhide {
   gap: 4px;
   color: inherit;
   background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 28%, transparent);
