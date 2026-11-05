@@ -1210,7 +1210,7 @@ whimsy-vpn-urlbar-panel =
 # W14 4: a call can't connect through the VPN (Firefox turns off direct
 # connections for calls on pages it carries).
 whimsy-vpn-call-title = Pause VPN for this call?
-whimsy-vpn-call-detail = Calls can’t connect through Firefox IP Protection. The page reloads without it, and the VPN is back on for this site when the call ends.
+whimsy-vpn-call-detail = The call reloads without VPN until it ends.
 whimsy-vpn-call-pause = Pause VPN
 whimsy-vpn-call-keep = Keep On
 whimsy-vpn-call-paused = VPN paused on { $host } until the call ends

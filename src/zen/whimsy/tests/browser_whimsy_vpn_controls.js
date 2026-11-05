@@ -508,6 +508,10 @@ add_task(async function test_call_asks_to_pause_the_vpn() {
     await toast.shown;
     await document.l10n.translateFragment(toast.element);
     ok(toast.element.textContent.includes("Pause VPN for this call?"), "Pause VPN for this call?");
+    // W16-4: the detail fits on the toast's one cropped line.
+    const detail = toast.element.querySelector(".description");
+    ok(detail?.textContent, "The toast has its detail line");
+    Assert.lessOrEqual(detail.scrollWidth, detail.clientWidth, "…and it isn't cut off");
     const pause = toast.element.querySelector("#whimsy-vpn-call-pause");
     ok(pause?.checkVisibility(), "…with Pause VPN");
     ok(toast.element.querySelector("#whimsy-vpn-call-keep")?.checkVisibility(), "…and Keep On");
