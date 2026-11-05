@@ -259,7 +259,17 @@ def publish_pages_file(path, content, message):
 
 
 def notes(release):
-    changes = "".join(f"- {line}\n" for line in release["notes"]) or "- Rebuilt on the same Zen\n"
+    # GitHub refuses a release body over 125000 characters; a long stretch of
+    # commits since the last release can pass that.
+    changes, size, shown = "", 0, 0
+    for line in release["notes"]:
+        item = f"- {line[:400]}{'…' if len(line) > 400 else ''}\n"
+        if size + len(item) > 90000:
+            break
+        changes, size, shown = changes + item, size + len(item), shown + 1
+    if shown < len(release["notes"]):
+        changes += f"- …and {len(release['notes']) - shown} more changes (see the commit history)\n"
+    changes = changes or "- Rebuilt on the same Zen\n"
     return f"""Whimsy {release['version']}: built on Zen {release['zen']} ({release['zen_label']}), Firefox {release['firefox']}, Whimsy commit {release['commit']}.
 
 **Changes**
