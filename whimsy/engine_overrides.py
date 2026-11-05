@@ -170,6 +170,20 @@ ENGINE_TEXT_FIXES += [
 ]
 
 
+# W16-22: the tab hover preview has no "Add note" button. Whimsy turns
+# browser.tabs.notes.enabled on so the Library's page notes can use
+# Firefox's tab notes storage, and the preview shows its button whenever
+# that pref is on and the tab has no note; with the branch never taken,
+# the else always removes the button. The tab context menu's Add Note and
+# the note icon on a tab that has one stay.
+ENGINE_TEXT_FIXES += [
+    ("tab-preview-no-add-note", "browser/components/tabbrowser/content/tab-hover-preview.mjs",
+     "    if (this._prefUseTabNotes && lazy.TabNotes.isEligible(this.#tab)) {",
+     "    if (false) { // Whimsy: the tab hover preview has no \"Add note\" button",
+     "Notes stay on (the Library uses them); the hover preview just doesn't offer one."),
+]
+
+
 def main():
     if not os.path.isdir(UPDATER):
         print("engine_overrides: no engine yet, skipping")

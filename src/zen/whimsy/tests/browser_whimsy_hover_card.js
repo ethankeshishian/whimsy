@@ -153,3 +153,35 @@ add_task(async function tab_hover_leaves_out_the_profile() {
     await gZenWorkspaces.removeWorkspace(space.uuid);
   }
 });
+
+// W16-22: the tab hover preview shows the title, address and thumbnail,
+// with no "Add note" button (tab notes stay on for the Library).
+add_task(async function tab_hover_has_no_add_note() {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["browser.tabs.hoverPreview.enabled", true],
+    ["browser.tabs.notes.enabled", true],
+    ["ui.tooltip.delay_ms", 0],
+  ] });
+  await SimpleTest.promiseFocus(window);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?hover-note");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?hover-other");
+  const panel = document.getElementById("tab-preview-panel");
+  try {
+    const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
+    EventUtils.synthesizeMouseAtCenter(tab, { type: "mouseover" });
+    EventUtils.synthesizeMouseAtCenter(tab, { type: "mousemove" });
+    await shown;
+    await new Promise(resolve => setTimeout(resolve, 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    ok(panel.querySelector(".tab-preview-title")?.textContent, "The preview shows the tab's title");
+    ok(!panel.querySelector(".tab-preview-add-note"), "…and no Add note button");
+    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    EventUtils.synthesizeMouseAtCenter(document.documentElement, { type: "mousemove" });
+    EventUtils.synthesizeMouseAtCenter(tab, { type: "mouseout" });
+    panel.hidePopup();
+    await hidden;
+  } finally {
+    BrowserTestUtils.removeTab(other);
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});
