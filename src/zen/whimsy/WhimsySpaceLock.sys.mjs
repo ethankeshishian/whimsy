@@ -40,10 +40,15 @@ const FEATURE_PREF = "whimsy.feature.space-lock";
 const AFTER_PREF = "whimsy.privateLock.afterSeconds";
 const MENU_ID = "whimsy-lock-space-menuitem";
 const LOCKED_ATTR = "whimsy-locked-space";
-// W13-C2 (the user): leaving a locked space locks it at once only with
-// "Lock as Soon as I Leave" on (WhimsyPrivateLock.ON_LEAVE_PREF).
+// W13-C2 (the user): leaving a locked space locks it at once with "Lock
+// as Soon as I Leave" on (WhimsyPrivateLock.ON_LEAVE_PREF). W16-13 (user
+// decision D2): with "Lock after" set to Right away it does too, so Lock
+// This Space keeps the space you're in open only until you switch away.
+// A longer "Lock after" keeps it open when you leave, until Whimsy has been
+// away that long or the Mac sleeps. (Private tabs and the Private Space
+// follow WhimsyPrivateLock.lockOnLeave, unchanged.)
 function lockOnLeave() {
-  return Services.prefs.getBoolPref("whimsy.privateLock.onLeave", false);
+  return Services.prefs.getBoolPref("whimsy.privateLock.onLeave", false) || afterMs() == 0;
 }
 
 // When Whimsy stopped being in front (another app, the Mac locked), or null.

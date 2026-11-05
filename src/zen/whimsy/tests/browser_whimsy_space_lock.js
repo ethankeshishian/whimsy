@@ -157,21 +157,21 @@ add_task(async function test_unlock_button_opens_it_and_leaving_closes_it_again(
 });
 
 add_task(async function test_leaving_keeps_it_open_by_default() {
-  // The default: leaving inside Whimsy doesn't lock, whatever "Lock after"
-  // says; only Whimsy being away that long, or the Mac sleeping, does.
+  // "Lock as Soon as I Leave" off (the default). W16-13 (D2): with "Lock
+  // after" Right away, leaving locks it anyway; with a longer "Lock after",
+  // leaving inside Whimsy keeps it open, and only Whimsy being away that
+  // long, or the Mac sleeping, locks it.
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.privateLock.onLeave", false]] });
   answer = true;
   asked.length = 0;
   await changeSpace(secondSpace.uuid);
   await promptSettled(1);
   await TestUtils.waitForCondition(() => !cover(), "Unlocked");
-  for (const after of [0, 60]) {
-    Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", after);
-    await changeSpace(firstSpace.uuid);
-    ok(!WhimsySpaceLock.isCovered(secondSpace.uuid), `Lock after ${after}s: leaving keeps it open`);
-    await changeSpace(secondSpace.uuid);
-    ok(!cover(), "...so coming back shows it");
-  }
+  Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", 60);
+  await changeSpace(firstSpace.uuid);
+  ok(!WhimsySpaceLock.isCovered(secondSpace.uuid), "Lock after 60s: leaving keeps it open");
+  await changeSpace(secondSpace.uuid);
+  ok(!cover(), "...so coming back shows it");
   is(asked.length, 1, "...without asking again");
   // Whimsy back in front after being away longer than "Lock after".
   Services.prefs.setIntPref("whimsy.privateLock.afterSeconds", 0);
@@ -192,6 +192,52 @@ add_task(async function test_leaving_keeps_it_open_by_default() {
   answer = true;
   await WhimsySpaceLock.toggleLocked(window, secondSpace.uuid);
   ok(!space(secondSpace.uuid).whimsyLocked, "Unlocked for the next tasks");
+});
+
+// W16-13 (D2): "Lock as Soon as I Leave" off and "Lock after" Right away
+// (both defaults): Lock This Space keeps the space you're in open, and
+// switching away locks it. Its folders and their tabs hide with the rest.
+add_task(async function test_right_away_locks_on_leaving() {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.privateLock.onLeave", false],
+    ["whimsy.privateLock.afterSeconds", 0],
+  ] });
+  await changeSpace(secondSpace.uuid);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?locked-folder");
+  const folder = await gZenFolders.createFolder([tab], { renameFolder: false, label: "Statements" });
+  const loose = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?locked-loose");
+  try {
+    answer = true;
+    asked.length = 0;
+    await WhimsySpaceLock.toggleLocked(window, secondSpace.uuid);
+    ok(space(secondSpace.uuid).whimsyLocked, "Locked");
+    ok(!WhimsySpaceLock.isCovered(secondSpace.uuid), "The space you're in stays open");
+    ok(!stripHidden(secondSpace.uuid), "...with its tab list");
+
+    await changeSpace(firstSpace.uuid);
+    ok(WhimsySpaceLock.isCovered(secondSpace.uuid), "Switching away locks it");
+    answer = false;
+    await changeSpace(secondSpace.uuid);
+    assertCovered("Back");
+    await promptSettled(1);
+    const hidden = el => !el.checkVisibility({ visibilityProperty: true });
+    ok(hidden(folder), "The folder is hidden");
+    ok(hidden(tab.querySelector(".tab-label") ?? tab), "...and its tab's name");
+    ok(hidden(loose.querySelector(".tab-label") ?? loose), "A loose tab's name too");
+  } finally {
+    answer = true;
+    await WhimsySpaceLock.unlockCovered(window, space(secondSpace.uuid)).catch(() => {});
+    await changeSpace(firstSpace.uuid);
+    await WhimsySpaceLock.toggleLocked(window, secondSpace.uuid);
+    ok(!space(secondSpace.uuid).whimsyLocked, "Unlocked for the next tasks");
+    for (const t of [tab, loose]) {
+      if (t.isConnected) {
+        BrowserTestUtils.removeTab(t);
+      }
+    }
+    folder?.isConnected && folder.delete?.();
+    await SpecialPowers.popPrefEnv();
+  }
 });
 
 // Two switches while the prompt is up share one prompt.

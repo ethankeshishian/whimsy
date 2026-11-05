@@ -6958,6 +6958,12 @@ panel.whimsy-quick-note {
 zen-workspace[whimsy-space-covered] :is(.zen-workspace-pinned-tabs-section, .zen-workspace-normal-tabs-section) {
   visibility: hidden;
 }
+/* W16-13: Zen's folders set visibility: visible on themselves
+   (zen-folders.css), which beat the inherited hidden above, so a covered
+   space still showed its folders and their tabs' names. */
+zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) {
+  visibility: hidden !important;
+}
 
 /* W13-R2 paste to upload: the "⌘V Paste" badges (option D). Whimsy's own
    layer above the tab's page (WhimsyUploadBadges.sys.mjs); the page can't
