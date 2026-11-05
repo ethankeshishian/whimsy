@@ -414,7 +414,7 @@ add_task(async function test_w10_50_settings_buttons() {
 
 // F02 follow-up: Firefox's toolbar button is taken out of the default
 // toolbar (test_init_removes_the_toolbar_button), so the address bar
-// control and This Site's row (browser_whimsy_vpn_controls.js) are the
+// control and the section in Firefox's panel (browser_whimsy_vpn_controls.js) are the
 // only VPN controls in the window; nothing else offers it.
 add_task(function test_vpn_controls_has_no_stray_toolbar_button() {
   ok(!CustomizableUI.getPlacementOfWidget("ipprotection-button"), "Firefox's VPN button is not placed");
@@ -422,7 +422,7 @@ add_task(function test_vpn_controls_has_no_stray_toolbar_button() {
     const id = (el.id || "") + " " + (el.getAttribute("data-l10n-id") || "") + " " + (el.getAttribute("command") || "");
     // Anywhere in the window (the toolbar, its overflow, a menu), except
     // inside Firefox's own VPN panel or Whimsy's own controls.
-    return /vpn|ipprotection/i.test(id) && !el.closest("[id^='PanelUI-ipprotection'], #whimsy-vpn-site-section, #whimsy-vpn-urlbar");
+    return /vpn|ipprotection/i.test(id) && !el.closest("[id^='PanelUI-ipprotection'], #whimsy-vpn-urlbar");
   });
   Assert.deepEqual(controls.map(el => el.id), [], "No stray VPN control outside Whimsy's own");
 });

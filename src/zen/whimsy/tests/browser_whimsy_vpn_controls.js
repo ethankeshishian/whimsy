@@ -10,8 +10,8 @@ const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Prefe
 //  A. a "VPN" control with a status dot in the address bar: one click on
 //     it toggles, the address bar's hover, only the dot changes; W14 3c: a
 //     chevron after a hairline opens Firefox's own panel, anchored to it;
-//  B. a row in This Site (Zen's site panel) with a switch and, while on,
-//     the scope choice. W14 3a/3b: no shield anywhere (no tile, no badge on
+//  B. a section at the bottom of Firefox's own panel (the chevron's) with a
+//     switch and, while on, the scope choice; nothing in the site panel. W14 3a/3b: no shield anywhere (no tile, no badge on
 //     the site icon) and an arrow cursor, like the rest of the address bar.
 // Whether a Mozilla account is signed in isn't under the test's control, so
 // Firefox's service and proxy states are stubbed (as browser_whimsy_vpn.js
@@ -158,36 +158,78 @@ add_task(async function test_address_bar_control() {
   BrowserTestUtils.removeTab(tab);
 });
 
-add_task(async function test_this_site_row() {
+// The site panel no longer carries a VPN item.
+add_task(async function test_site_panel_has_no_vpn() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
-  const panel = document.getElementById("zen-unified-site-data-panel");
-  const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
+  const site = document.getElementById("zen-unified-site-data-panel");
+  const shown = BrowserTestUtils.waitForPopupEvent(site, "shown");
   EventUtils.synthesizeMouseAtCenter(siteIcon(), {});
   await shown;
-  const section = document.getElementById("whimsy-vpn-site-section");
-  ok(section, "This Site has the VPN row");
-  is(section.previousElementSibling?.id, "zen-site-data-header", "…first, under the quick buttons");
-  const name = section.querySelector("#whimsy-vpn-site-name");
-  const detail = section.querySelector("#whimsy-vpn-site-detail");
+  ok(!site.querySelector("[id*='whimsy-vpn']"), "No VPN item in the site panel");
+  ok(!site.querySelector("[data-l10n-id^='whimsy-vpn']"), "…no VPN text either");
+  const hidden = BrowserTestUtils.waitForPopupEvent(site, "hidden");
+  site.hidePopup();
+  await hidden;
+
+  setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+  BrowserTestUtils.removeTab(tab);
+});
+
+async function openVpnPanel() {
+  ok(await WhimsyVPN.openPanel(window), "Firefox's panel opens");
+  const popup = WhimsyVPN.getPanel(window).panel;
+  if (popup.state != "open") {
+    await BrowserTestUtils.waitForPopupEvent(popup, "shown");
+  }
+  return popup;
+}
+
+async function closeVpnPanel(popup) {
+  if (popup.state == "closed") {
+    return;
+  }
+  const hidden = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
+  popup.hidePopup();
+  await hidden;
+}
+
+add_task(async function test_panel_section() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
+  const popup = await openVpnPanel();
+  const sections = () => document.querySelectorAll("#whimsy-vpn-panel-section");
+  is(sections().length, 1, "The panel has one VPN section");
+  const section = sections()[0];
+  is(section.parentElement?.id, "PanelUI-ipprotection", "…in Firefox's VPN view");
+  ok(section.checkVisibility(), "…showing");
+  ok(popup.querySelector("ipprotection-content"), "…beside Firefox's own content");
+  const name = section.querySelector("#whimsy-vpn-panel-name");
+  const detail = section.querySelector("#whimsy-vpn-panel-detail");
   await document.l10n.translateFragment(section);
-  is(name.textContent, "Firefox IP Protection", "Firefox's name for its VPN");
+  is(name.textContent, "Use VPN in this browser", "Its name");
   is(detail.textContent, "VPN on · All spaces", "Its state and scope");
-  const toggle = section.querySelector("#whimsy-vpn-site-switch");
+  const toggle = section.querySelector("#whimsy-vpn-panel-switch");
   ok(toggle.checked, "The switch is on");
   is(toggle.getAttribute("role"), "switch", "…a switch");
+  is(toggle.getAttribute("aria-describedby"), "whimsy-vpn-panel-detail", "…described by the state line");
   ok(!section.querySelector(".whimsy-surface-tile"), "No shield tile");
   const scopeRow = section.querySelector(".whimsy-vpn-scope-row");
   const seg = scopeRow.querySelector(".whimsy-surface-seg");
   ok(scopeRow.hasAttribute("open") && seg.checkVisibility(), "The scope choice while it's on");
   is(seg.querySelector('[data-value="browser"]').getAttribute("aria-checked"), "true", "All spaces picked");
+  Assert.greaterOrEqual(seg.getBoundingClientRect().width, section.getBoundingClientRect().width - 40, "…across the section's full width");
 
-  // W14 3d: the space's profile, by name; a space on the Default profile
-  // (no container) can be picked too.
+  // The space's profile, by name; a space on the Default profile (no
+  // container) can be picked too, and the name is never cut off.
   const { WhimsyVPNScope } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPNScope.sys.mjs");
   const profile = WhimsyVPNScope.profileName(WhimsyVPNScope.profileForWindow(window));
   const spaceButton = seg.querySelector('[data-value="space"]');
   is(spaceButton.textContent, `All spaces in ${profile}`, "The other choice names the profile");
+  await document.l10n.translateFragment(seg);
+  is(spaceButton.title, `All spaces in ${profile}`, "…with the full name as its tooltip");
+  Assert.lessOrEqual(spaceButton.scrollWidth, spaceButton.clientWidth, "…and nothing cut off sideways");
+  Assert.lessOrEqual(spaceButton.scrollHeight, spaceButton.clientHeight + 1, "…or below");
   ok(!spaceButton.disabled, "…and works without a container");
   EventUtils.synthesizeMouseAtCenter(spaceButton, {});
   await TestUtils.waitForCondition(() => spaceButton.getAttribute("aria-checked") == "true", "Picked");
@@ -202,7 +244,7 @@ add_task(async function test_this_site_row() {
   await TestUtils.waitForCondition(() => Services.prefs.getStringPref(WhimsyVPNScope.PREF) == "", "All spaces again");
   is(seg.style.getPropertyValue("--index"), "0", "…the thumb slides back");
 
-  // A real click on the switch turns it off, and the row is updated in
+  // A real click on the switch turns it off, and the section is updated in
   // place: the same switch, its knob sliding, the scope row closing.
   const calls = [];
   const stop = IPPProxyManager.stop;
@@ -214,10 +256,11 @@ add_task(async function test_this_site_row() {
     IPPProxyManager.stop = stop;
   }
   setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
-  is(section.querySelector("#whimsy-vpn-site-switch"), toggle, "The same switch");
+  is(section.querySelector("#whimsy-vpn-panel-switch"), toggle, "The same switch");
+  is(sections()[0], section, "…in the same section");
   ok(!toggle.checked, "Off");
   await TestUtils.waitForCondition(() => detail.textContent == "Off · hides your location from sites", "Says what it does");
-  is(section.querySelector("#whimsy-vpn-site-detail"), detail, "…in the same line");
+  is(section.querySelector("#whimsy-vpn-panel-detail"), detail, "…in the same line");
   ok(!scopeRow.hasAttribute("open") && scopeRow.inert, "The scope row closes");
   is(getComputedStyle(scopeRow).transitionDuration.split(",")[0].trim(), "0.2s", "…over 200ms");
 
@@ -226,12 +269,67 @@ add_task(async function test_this_site_row() {
   const knob = document.getAnimations().find(a => a.effect?.target == toggle && a.effect.pseudoElement == "::after");
   ok(knob, "The knob slides");
   setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
-  is(section.querySelector("#whimsy-vpn-site-switch"), toggle, "Still the same switch");
+  is(section.querySelector("#whimsy-vpn-panel-switch"), toggle, "Still the same switch");
   ok(toggle.checked && scopeRow.hasAttribute("open"), "On, with the scope row open");
 
-  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-  panel.hidePopup();
-  await hidden;
+  // Keyboard: Space on the focused switch toggles it.
+  const keyCalls = [];
+  IPPProxyManager.stop = async () => keyCalls.push("stop");
+  try {
+    toggle.focus();
+    EventUtils.synthesizeKey(" ");
+    await TestUtils.waitForCondition(() => keyCalls.includes("stop"), "Space on the switch stops the VPN");
+  } finally {
+    IPPProxyManager.stop = stop;
+  }
+
+  // Closing and reopening gives exactly one section.
+  await closeVpnPanel(popup);
+  setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
+  const again = await openVpnPanel();
+  is(sections().length, 1, "Reopening gives exactly one section");
+  await closeVpnPanel(again);
+  BrowserTestUtils.removeTab(tab);
+});
+
+// A long profile name has room: it wraps before anything is cut off, and
+// the tooltip carries the full name.
+add_task(async function test_panel_section_long_profile_name() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
+  const { WhimsyVPNScope } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPNScope.sys.mjs");
+  const longName = "Work and personal banking profile";
+  const original = WhimsyVPNScope.profileName;
+  WhimsyVPNScope.profileName = () => longName;
+  try {
+    const popup = await openVpnPanel();
+    WhimsyVPN.updateUi(window);
+    const spaceButton = document.querySelector('#whimsy-vpn-panel-section [data-value="space"]');
+    await document.l10n.translateFragment(spaceButton.closest(".whimsy-surface-seg"));
+    is(spaceButton.title, `All spaces in ${longName}`, "The tooltip is the full label");
+    ok(spaceButton.scrollWidth <= spaceButton.clientWidth && spaceButton.scrollHeight <= spaceButton.clientHeight + 1,
+      "A long name is not cut off");
+    await closeVpnPanel(popup);
+  } finally {
+    WhimsyVPNScope.profileName = original;
+  }
+  setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+  BrowserTestUtils.removeTab(tab);
+});
+
+// The section hides where there is no VPN to control.
+add_task(async function test_panel_section_hides() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
+  const popup = await openVpnPanel();
+  ok(document.getElementById("whimsy-vpn-panel-section"), "The section is in the panel");
+  await SpecialPowers.pushPrefEnv({ set: [["browser.ipProtection.enabled", false]] });
+  WhimsyVPN.updateUi(window);
+  WhimsyVPN.renderPanelSection(window);
+  ok(!document.getElementById("whimsy-vpn-panel-section"), "Gone where the VPN is switched off");
+  await SpecialPowers.popPrefEnv();
+  await closeVpnPanel(popup);
+  setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
   BrowserTestUtils.removeTab(tab);
 });
 

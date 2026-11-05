@@ -145,7 +145,7 @@ add_task(async function channel_boundary_precedes_site_rules() {
   }
 });
 
-// W14 3c: This Site's row is the one scope control; Firefox's panel gets
+// W14 3c: the section in Firefox's panel is the one scope control; Firefox's panel gets
 // no Protect radios of Whimsy's.
 add_task(async function native_panel_has_no_scope_radios() {
   const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPN.sys.mjs");

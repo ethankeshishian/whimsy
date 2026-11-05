@@ -1694,7 +1694,7 @@ notification-message[value="whimsy-claude-control"] {
   letter-spacing: 0.02em;
 }
 #whimsy-vpn-urlbar,
-.whimsy-vpn-site-section {
+.whimsy-vpn-panel-section {
   --whimsy-vpn-on: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
   --whimsy-vpn-connecting: light-dark(rgb(181, 128, 15), rgb(211, 155, 32));
 }
@@ -1733,11 +1733,12 @@ notification-message[value="whimsy-claude-control"] {
   to { box-shadow: 0 0 0 7px transparent; }
 }
 
-/* B: Firefox IP Protection's row in This Site, first under the panel's
-   quick buttons: the name and its state, a switch; while on, the scope
-   choice under it, lined up with the name. */
-.whimsy-vpn-site-section {
-  padding-block: 0;
+/* B: Whimsy's section at the bottom of Firefox's IP Protection panel: the
+   switch row, and while on the scope choice across the full width. */
+.whimsy-vpn-panel-section {
+  padding: 0 var(--arrowpanel-padding, 8px) var(--arrowpanel-padding, 8px);
+  border-top: 1px solid var(--panel-separator-color, light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1)));
+  padding-top: var(--arrowpanel-padding, 8px);
 }
 /* W14 3d: opens and closes in place (200ms height, a fade) instead of the
    panel jumping. */
@@ -1759,7 +1760,17 @@ notification-message[value="whimsy-claude-control"] {
 
   & > .whimsy-surface-seg {
     flex: 1;
-    margin: 2px 8px 4px;
+    margin: 4px 0 2px;
+
+    /* A long profile name wraps to a second line before it is cut. */
+    & > .whimsy-surface-segment {
+      white-space: normal;
+      text-wrap: balance;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
   }
 }
 @media (prefers-reduced-motion: reduce) {

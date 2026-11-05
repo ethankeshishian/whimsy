@@ -63,8 +63,8 @@ const CALL_ICON = "chrome://browser/skin/zen-icons/selectable/video.svg";
 const CALL_TOAST = "whimsy-vpn-call";
 const RULE_PERM = "ipp-vpn";
 const FORCE_PROXY_PREF = "media.peerconnection.ice.proxy_only_if_behind_proxy";
-const SECTION_ID = "whimsy-vpn-site-section";
-const SITE_PANEL_ID = "zen-unified-site-data-panel";
+const SECTION_ID = "whimsy-vpn-panel-section";
+const PANEL_VIEW_ID = "PanelUI-ipprotection";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 export const WhimsyVPN = {
@@ -178,8 +178,8 @@ export const WhimsyVPN = {
     }
   },
 
-  // W13 F02: the address bar control and This Site's row are Whimsy's only
-  // VPN controls now; Firefox's own toolbar button would be a duplicate, so
+  // W13 F02: the address bar control and the section in Firefox's panel are
+  // Whimsy's only VPN controls now; Firefox's own toolbar button would be a duplicate, so
   // it's taken out of the default toolbar (Zen's CustomizableUI patch still
   // places it there) the first time a window initializes. Customize mode
   // can still add it back from the palette if someone wants it.
@@ -352,7 +352,7 @@ export const WhimsyVPN = {
     return this.canTurnOn() ? this.turnOn(win) : null;
   },
 
-  // The address bar control and This Site's switch: like toggle(), except
+  // The address bar control and the panel's switch: like toggle(), except
   // that where the VPN is on for other spaces but not this one ("off
   // here"), turning it on adds this space instead of stopping it for all.
   async toggleHere(win) {
@@ -365,7 +365,7 @@ export const WhimsyVPN = {
     this.updateUi(win);
   },
 
-  // ---- W13 F02: the address bar control (A) and This Site's row (B) ----
+  // ---- W13 F02: the address bar control (A) and the panel's section (B) ----
   //
   // One state for both, from Firefox's service and proxy and Whimsy's
   // space scope (WhimsyVPNScope.buttonState):
@@ -479,33 +479,36 @@ export const WhimsyVPN = {
     return control;
   },
 
-  // B: Firefox IP Protection's row in This Site (Zen's site panel), first,
-  // under the panel's quick buttons: the name and its state, a switch;
-  // while it's on or connecting, All spaces | All spaces in <profile> under
-  // it. W14 3d: built once and updated in place, so the knob and the thumb
-  // slide, the words never blank, and the scope row opens and closes.
-  buildSiteSection(win, header) {
+  // B: Whimsy's own section at the bottom of Firefox's IP Protection panel
+  // (the chevron's panel): a "Use VPN in this browser" switch with its state
+  // line and, only while it's on or connecting, the scope choice (All
+  // spaces | All spaces in <profile>) across the full width. It sits after
+  // the panel's body, not in it: Firefox clears and refills the body
+  // (ipprotection-content, a Lit element), and its createPanel() only runs
+  // while the body is empty. Built once per window and updated in place, so
+  // the knob and the thumb slide, the words never blank, and the scope row
+  // opens and closes.
+  buildPanelSection(win, view) {
     const doc = win.document;
     const S = lazy.WhimsySurface;
     const section = doc.createXULElement("vbox");
     section.id = SECTION_ID;
-    section.className = "zen-site-data-section whimsy-vpn-site-section whimsy-surface-tokens";
+    section.className = "whimsy-vpn-panel-section whimsy-surface-tokens";
     const group = S.group(doc);
-    group.classList.add("whimsy-vpn-site-group");
+    group.classList.add("whimsy-vpn-panel-group");
     const toggle = S.switch(doc, {
-      labelledBy: "whimsy-vpn-site-name",
-      id: "whimsy-vpn-site-switch",
+      labelledBy: "whimsy-vpn-panel-name",
+      id: "whimsy-vpn-panel-switch",
       onChange: () => this.toggleHere(win),
     });
-    toggle.setAttribute("aria-describedby", "whimsy-vpn-site-detail");
-    const { row, label } = S.row(doc, { l10nId: "whimsy-vpn-site-name", detailL10nId: "whimsy-vpn-site-off", trailing: [toggle] });
-    label.id = "whimsy-vpn-site-name";
+    toggle.setAttribute("aria-describedby", "whimsy-vpn-panel-detail");
+    const { row, label } = S.row(doc, { l10nId: "whimsy-vpn-panel-name", detailL10nId: "whimsy-vpn-site-off", trailing: [toggle] });
+    label.id = "whimsy-vpn-panel-name";
     const detail = row.querySelector(".whimsy-surface-row-detail");
-    detail.id = "whimsy-vpn-site-detail";
-    row.classList.add("whimsy-vpn-site-row");
+    detail.id = "whimsy-vpn-panel-detail";
+    row.classList.add("whimsy-vpn-panel-row");
     const seg = S.seg(doc, {
       name: "whimsy-vpn-scope",
-      small: true,
       label: null,
       options: [
         { value: "browser", l10nId: "whimsy-vpn-scope-browser" },
@@ -526,25 +529,32 @@ export const WhimsyVPN = {
     scopeRow.append(inner);
     group.append(row, scopeRow);
     section.append(group);
-    header.after(section);
+    const body = view.querySelector(".panel-subview-body");
+    if (body) {
+      body.after(section);
+    } else {
+      view.append(section);
+    }
     this._siteParts.set(section, { row, toggle, detail, seg, scopeRow });
     return section;
   },
 
   _siteParts: new WeakMap(),
 
-  renderSiteSection(win) {
+  // Where the section lives: Firefox's panel view, or null while Firefox
+  // hasn't made it. Before sign-in the panel's own "Get started" does the
+  // job, so the section waits for a signed-in VPN.
+  renderPanelSection(win, view = win.document.getElementById("PanelUI-ipprotection")) {
     const doc = win.document;
-    const header = doc.getElementById("zen-site-data-header");
     let section = doc.getElementById(SECTION_ID);
     const { state, scope } = this.uiState(win);
-    if (state == "hidden" || !header) {
+    if (state == "hidden" || state == "setup" || !view) {
       section?.remove();
       return null;
     }
-    if (!section || !this._siteParts.has(section)) {
+    if (!section || !this._siteParts.has(section) || section.parentNode != view) {
       section?.remove();
-      section = this.buildSiteSection(win, header);
+      section = this.buildPanelSection(win, view);
     }
     const { row, toggle, detail, seg, scopeRow } = this._siteParts.get(section);
     const Scope = lazy.WhimsyVPNScope;
@@ -583,9 +593,8 @@ export const WhimsyVPN = {
         doc.l10n.setAttributes(control.querySelector(`#${TOGGLE_ID}`), id, { profile });
       }
     }
-    const panel = doc.getElementById(SITE_PANEL_ID);
-    if (panel && (panel.state == "open" || panel.state == "showing")) {
-      this.renderSiteSection(win);
+    if (doc.getElementById(SECTION_ID)?.isConnected) {
+      this.renderPanelSection(win);
     }
   },
 
@@ -617,15 +626,15 @@ export const WhimsyVPN = {
       target.addEventListener(name, update);
     }
     const onShowing = event => {
-      if (event.target.id == SITE_PANEL_ID) {
+      if (event.target.id == PANEL_VIEW_ID) {
         try {
-          this.renderSiteSection(win);
+          this.renderPanelSection(win, event.target);
         } catch (e) {
-          console.error("Whimsy: VPN in This Site", e);
+          console.error("Whimsy: VPN section in Firefox's panel", e);
         }
       }
     };
-    win.document.addEventListener("popupshowing", onShowing);
+    win.document.addEventListener("ViewShowing", onShowing, true);
     win.addEventListener("unload", () => {
       for (const pref of prefs) {
         Services.prefs.removeObserver(pref, update);
@@ -633,7 +642,7 @@ export const WhimsyVPN = {
       for (const [target, name] of events) {
         target.removeEventListener(name, update);
       }
-      win.document.removeEventListener("popupshowing", onShowing);
+      win.document.removeEventListener("ViewShowing", onShowing, true);
     }, { once: true });
     update();
   },
@@ -829,7 +838,7 @@ export const WhimsyVPN = {
 
   initWindow(win) {
     // vpnspace: Firefox's panel stays Firefox's (sign-in, location, usage);
-    // W13 F02 adds the address bar control and This Site's row on top, both
+    // W13 F02 adds the address bar control and a section in the panel, both
     // running toggle(), and takes Firefox's own toolbar button out of the
     // default toolbar so there's exactly one visible control.
     this.hideButton();

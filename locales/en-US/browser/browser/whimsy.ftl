@@ -1174,9 +1174,12 @@ whimsy-vpn-enroll-account = Your Mozilla account can’t use Firefox’s built-i
 whimsy-vpn-enroll-network = Couldn’t reach Mozilla’s VPN service. Check your connection and try again.
 whimsy-vpn-enroll-failed = Couldn’t finish setting up Firefox’s built-in VPN. Try again from the VPN panel.
 
-# vpnspace: the space-scope choice in This Site's VPN row.
+# vpnspace: the space-scope choice in the VPN panel's section. The title
+# shows the full text when a long profile name is cut off.
 whimsy-vpn-scope-browser = All spaces
+    .title = All spaces
 whimsy-vpn-scope-space = All spaces in { $profile }
+    .title = All spaces in { $profile }
 ## W13 F02: Whimsy's VPN controls for Firefox's built-in VPN, which keeps
 ## Firefox's name (Firefox IP Protection); "VPN" only where space is tight.
 ## A: the address bar control.
@@ -1223,8 +1226,8 @@ whimsy-vpn-rules-remove =
     .title = Remove { $site }
     .aria-label = Remove { $site }
 
-## B: the row in This Site (the site panel).
-whimsy-vpn-site-name = Firefox IP Protection
+## B: Whimsy's section at the bottom of Firefox's VPN panel (the chevron).
+whimsy-vpn-panel-name = Use VPN in this browser
 whimsy-vpn-site-setup = Sign in with a Mozilla account to turn it on
 whimsy-vpn-site-off = Off · hides your location from sites
 whimsy-vpn-site-connecting = Connecting…
