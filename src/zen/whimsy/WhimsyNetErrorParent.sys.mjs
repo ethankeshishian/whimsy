@@ -22,35 +22,80 @@ const CHECK_TOPICS = [
   "network:connectivity-service:dns-checks-complete",
 ];
 
+// W16-7: "a page loads" is any completed HTTP response, not one page
+// matching byte for byte: the captive-portal page (a different body is
+// only a captive-portal hint) or, as Reload would, the failed page itself
+// (HEAD, uncached). Online when either answers.
 export const WhimsyNetProbe = {
   intervalMs: 5000,
   timeoutMs: 4000,
 
-  // true when the check page loads as expected, false when it doesn't.
-  async check() {
-    const url = Services.prefs.getStringPref("captivedetect.canonicalURL", "");
-    if (!url || Services.io.offline) {
-      return !url ? null : false;
-    }
+  // One request: true when any HTTP response comes back, false when none.
+  async reaches(url, { method = "GET", expected = "" } = {}) {
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), this.timeoutMs);
     try {
       const response = await fetch(url, {
+        method,
         cache: "no-store",
         credentials: "omit",
         redirect: "manual",
         signal: abort.signal,
       });
-      if (!response.ok) {
-        return false;
+      if (expected && response.ok) {
+        try {
+          if ((await response.text()) != expected) {
+            console.debug("Whimsy: back-online probe: the captive-portal page answered differently (a portal?)", url);
+          }
+        } catch {}
       }
-      const expected = Services.prefs.getStringPref("captivedetect.canonicalContent", "");
-      return !expected || (await response.text()) == expected;
+      return true;
     } catch {
       return false;
     } finally {
       clearTimeout(timer);
     }
+  },
+
+  // true when a page loads, false when nothing answers, null when there's
+  // nothing to ask. `page`: the failed page's URL (the error page's u=).
+  async check({ page = null, reason = "check" } = {}) {
+    const canonical = Services.prefs.getStringPref("captivedetect.canonicalURL", "");
+    let target = null;
+    try {
+      const url = page ? new URL(page) : null;
+      target = url && /^https?:$/.test(url.protocol) ? url.href : null;
+    } catch {}
+    if (!canonical && !target) {
+      return null;
+    }
+    let result = false;
+    if (!Services.io.offline) {
+      const probes = [];
+      if (canonical) {
+        probes.push(this.reaches(canonical, {
+          expected: Services.prefs.getStringPref("captivedetect.canonicalContent", ""),
+        }));
+      }
+      if (target) {
+        probes.push(this.reaches(target, { method: "HEAD" }));
+      }
+      // The first that answers decides; false only when none does.
+      result = await new Promise(resolve => {
+        let left = probes.length;
+        for (const probe of probes) {
+          probe.then(ok => {
+            if (ok) {
+              resolve(true);
+            } else if (--left == 0) {
+              resolve(false);
+            }
+          });
+        }
+      });
+    }
+    console.debug("Whimsy: back-online probe", reason, result);
+    return result;
   },
 };
 
@@ -102,15 +147,24 @@ export class WhimsyNetErrorParent extends JSWindowActorParent {
     if (this._observer) {
       return;
     }
-    this._observer = () => this.check();
+    this._observer = (subject, topic) => this.check(topic);
     for (const topic of CHECK_TOPICS) {
       Services.obs.addObserver(this._observer, topic);
     }
-    this._timer = setInterval(() => this.check(), WhimsyNetProbe.intervalMs);
-    this.check();
+    this._timer = setInterval(() => this.check("poll"), WhimsyNetProbe.intervalMs);
+    this.check("start");
   }
 
-  async check() {
+  // The page the error is for (what Reload loads), from the error page's u=.
+  failedPage() {
+    try {
+      return new URL(this.manager.documentURI.spec).searchParams.get("u");
+    } catch {
+      return null;
+    }
+  }
+
+  async check(reason = "check") {
     if (this._checking) {
       this._again = true;
       return;
@@ -119,7 +173,7 @@ export class WhimsyNetErrorParent extends JSWindowActorParent {
     try {
       do {
         this._again = false;
-        const online = await WhimsyNetProbe.check();
+        const online = await WhimsyNetProbe.check({ page: this.failedPage(), reason });
         if (!this._observer || online === null || online === this._online) {
           continue;
         }

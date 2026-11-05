@@ -551,6 +551,78 @@ add_task(async function back_online_notice_follows_a_real_check() {
   }
 });
 
+// W16-7: the real probe. Any answer from the captive-portal page counts
+// (a different body is only a portal hint); nothing answering, or Firefox
+// offline, is offline; the failed page itself (what Reload loads) counts
+// too.
+const PROBE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "http://example.com") + "whimsy_netprobe.sjs";
+const UNREACHABLE = "http://127.0.0.1:1/";
+
+add_task(async function the_probe_asks_for_a_real_answer() {
+  const canonicalContent = Services.prefs.getDefaultBranch("").getStringPref("captivedetect.canonicalContent", "");
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["captivedetect.canonicalURL", PROBE + "?body=match"],
+    ["captivedetect.canonicalContent", canonicalContent || "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>\n"],
+  ] });
+  const probe = realCheck.bind(WhimsyNetProbe);
+  try {
+    is(await probe(), true, "The expected body: online");
+    Services.prefs.setStringPref("captivedetect.canonicalURL", PROBE + "?body=other");
+    is(await probe(), true, "A 200 with another body (a portal, say): still a page that loads");
+    Services.prefs.setStringPref("captivedetect.canonicalURL", UNREACHABLE);
+    is(await probe(), false, "Nothing answers: offline");
+    is(await probe({ page: PROBE + "?body=other" }), true, "…unless the failed page itself answers");
+    is(await probe({ page: "about:blank" }), false, "Only an http(s) page is asked");
+    Services.prefs.setStringPref("captivedetect.canonicalURL", "");
+    is(await probe(), null, "No check page and no failed page: no opinion");
+    is(await probe({ page: PROBE }), true, "No check page: the failed page decides");
+    Services.prefs.setStringPref("captivedetect.canonicalURL", PROBE + "?body=match");
+    Services.io.offline = true;
+    try {
+      is(await probe(), false, "Firefox offline: offline");
+    } finally {
+      Services.io.offline = false;
+    }
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W16-7: end to end with the real probe, no network event: the check page
+// doesn't answer, then does, and the notice shows.
+add_task(async function back_online_with_the_real_probe() {
+  await SpecialPowers.pushPrefEnv({ set: [...GAME_PREFS, ["captivedetect.canonicalURL", UNREACHABLE]] });
+  const interval = WhimsyNetProbe.intervalMs;
+  WhimsyNetProbe.intervalMs = 100;
+  WhimsyNetProbe.check = realCheck;
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const browser = tab.linkedBrowser;
+  try {
+    const loaded = BrowserTestUtils.waitForErrorPage(browser);
+    const url = `about:neterror?e=netOffline&u=${encodeURIComponent(UNREACHABLE)}&d=Offline`;
+    await SpecialPowers.spawn(browser, [url], url => { content.location = url; });
+    await loaded;
+    await prepare(browser);
+    await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+    is((await gameState(browser, true)).state, "running", "The error page is the game");
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(resolve => setTimeout(resolve, 500));
+    ok(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("whimsy-game-online-notice").hidden),
+      "Nothing answers: no notice");
+    Services.prefs.setStringPref("captivedetect.canonicalURL", PROBE + "?body=match");
+    await SpecialPowers.spawn(browser, [], () =>
+      ContentTaskUtils.waitForCondition(() => {
+        const notice = content.document.getElementById("whimsy-game-online-notice");
+        return notice && !notice.hidden && notice.checkVisibility();
+      }, "The check page answers, with no network event: the notice shows"));
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    WhimsyNetProbe.intervalMs = interval;
+    WhimsyNetProbe.check = async () => null;
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // 16: the game is for a tab's network errors only: not other errors, and
 // not an error page in a note or Easel block.
 add_task(async function game_only_in_tabs_and_for_network_errors() {
