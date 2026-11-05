@@ -84,9 +84,15 @@ const ACCEL = AppConstants.platform == "macosx" ? "⌘" : "Ctrl+";
 // Firefox's speaker button and volume act on the call tile's video, which is
 // always muted, so a call hides them.
 const ICON = "chrome://browser/skin/zen-icons/";
+// The PiP window loads only the player's own sheet, so a panel in it has none
+// of the popup styling a browser window's panels get from global.css.
+const PANEL_SHEETS = ["chrome://global/skin/design-system/panel.css", "chrome://global/skin/popup.css"];
+const SURFACE_SHEET = "chrome://browser/content/whimsy/whimsy-surface.css";
 const PIP_SHEET =
   "data:text/css," +
   encodeURIComponent(`
+panel.whimsy-surface { --panel-background-color: var(--arrowpanel-background); }
+:where(panel.whimsy-surface button, panel.whimsy-surface input) { font: inherit; }
 #whimsy-call-controls { display: flex; align-items: center; gap: 8px; }
 #whimsy-call-mic { background-image: url("${ICON}microphone-fill.svg"); }
 #whimsy-call-mic[data-state="off"] { background-image: url("${ICON}microphone-blocked-fill.svg"); }
@@ -535,6 +541,9 @@ export const WhimsyCallPip = {
       return;
     }
     try {
+      for (const sheet of [...PANEL_SHEETS, SURFACE_SHEET]) {
+        pipWin.windowUtils.loadSheetUsingURIString(sheet, pipWin.windowUtils.AUTHOR_SHEET);
+      }
       pipWin.windowUtils.loadSheetUsingURIString(PIP_SHEET, pipWin.windowUtils.AUTHOR_SHEET);
     } catch (e) {
       console.error("Whimsy: call PiP sheet", e);

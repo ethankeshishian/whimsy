@@ -39,25 +39,20 @@ add_setup(async function () {
   });
 });
 
+let currentPip = null;
 let sharedCall = null;
 async function openCall() {
   if (sharedCall) {
-    if (gBrowser.selectedTab != sharedCall) {
+    // While the call floats (currentPip) selecting its tab would snap the PiP back.
+    if (!currentPip && gBrowser.selectedTab != sharedCall) {
       await BrowserTestUtils.switchTab(gBrowser, sharedCall);
     }
     return sharedCall;
   }
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
-  // No real camera needed for these tests (button/panel wiring only); a
-  // second fake camera getUserMedia in one run never resolved reliably
-  // (see browser_whimsy_call_controls.js's openCall and browser_whimsy_call_pip.js),
-  // so the sharing indicator is set directly, as that file's second call does.
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.startCall({ camera: false }));
-  gZenMediaController.updateMediaSharing({
-    windowId: tab.linkedBrowser.innerWindowID,
-    showCameraIndicator: true,
-    showMicrophoneIndicator: false,
-  });
+  // A real fake-device call (as browser_whimsy_call_controls.js): the PiP
+  // window needs the call's video to float.
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.startCall());
   await TestUtils.waitForCondition(() => WhimsyCallPip.isInCall(tab), "The tab is in a call");
   await TestUtils.waitForCondition(() => cardFor(tab), "The call has its small player");
   sharedCall = tab;
@@ -113,6 +108,58 @@ async function openOptionsPanel(tab) {
   EventUtils.synthesizeMouseAtCenter(cardFor(tab).querySelector("#whimsy-call-options"), {}, window);
   const event = await shown;
   return event.target;
+}
+
+// The same panel from the call's floating (PiP) window: leave for another
+// tab, open the panel from the PiP window's "⋯".
+
+async function floatCall(call) {
+  const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+  gBrowser.selectedTab = other;
+  const pip = await opened;
+  await TestUtils.waitForCondition(
+    () => pip._whimsyCallBrowser == call.linkedBrowser && pip.document.getElementById("whimsy-call-options"),
+    "The PiP window shows the call with its Call Options button"
+  );
+  return { pip, other };
+}
+
+async function unfloatCall(call, { pip, other }) {
+  const closed = BrowserTestUtils.domWindowClosed(pip);
+  gBrowser.selectedTab = call;
+  await closed;
+  BrowserTestUtils.removeTab(other);
+}
+
+async function openPipPanel(pip) {
+  const doc = pip.document;
+  EventUtils.synthesizeMouseAtCenter(doc.getElementById("controls"), { type: "mousemove" }, pip);
+  const shown = BrowserTestUtils.waitForEvent(pip, "popupshown", false, e => e.target.id == "whimsy-call-options-panel");
+  EventUtils.synthesizeMouseAtCenter(doc.getElementById("whimsy-call-options"), {}, pip);
+  return (await shown).target;
+}
+
+// Each of these runs from the small player, then from the PiP window.
+function addViaTasks(fn) {
+  add_task(async function () {
+    await fn(null);
+  });
+  add_task(async function () {
+    const call = await openCall();
+    const floating = await floatCall(call);
+    currentPip = floating.pip;
+    try {
+      await fn(floating.pip);
+    } finally {
+      currentPip = null;
+      await unfloatCall(call, floating);
+    }
+  });
+}
+
+async function openPanelVia(call) {
+  return currentPip ? openPipPanel(currentPip) : openOptionsPanel(call);
 }
 
 add_task(async function test_options_button_exists_after_a_hairline() {
@@ -243,10 +290,10 @@ add_task(async function test_panel_names_the_app() {
 
 // 6c: the switches follow every change while the panel is open — the page's
 // own buttons, the small player, and a switch's own press.
-add_task(async function test_switches_follow_the_real_state() {
+async function test_switches_follow_the_real_state() {
   const call = await openCall();
   const browser = call.linkedBrowser;
-  const panel = await openOptionsPanel(call);
+  const panel = await openPanelVia(call);
   try {
     ok(!rowSwitch(panel, "mic-in-call").checked, "the microphone is on in the call");
     await clickPage(browser, "mic");
@@ -254,14 +301,14 @@ add_task(async function test_switches_follow_the_real_state() {
     await clickPage(browser, "mic");
     await TestUtils.waitForCondition(() => !rowSwitch(panel, "mic-in-call").checked, "…and back");
 
-    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "camera-in-call"), {}, window);
+    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "camera-in-call"), {}, panel.documentGlobal);
     await TestUtils.waitForCondition(() => WhimsyCallPip.shownState(browser, "camera") == "off", "the switch turns the call's camera off");
     ok(rowSwitch(panel, "camera-in-call").checked, "…and shows it");
-    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "camera-in-call"), {}, window);
+    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "camera-in-call"), {}, panel.documentGlobal);
     await TestUtils.waitForCondition(() => WhimsyCallPip.shownState(browser, "camera") == "on", "…and on");
     await TestUtils.waitForCondition(() => !rowSwitch(panel, "camera-in-call").checked, "…and shows that");
 
-    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "mic-device"), {}, window);
+    EventUtils.synthesizeMouseAtCenter(rowSwitch(panel, "mic-device"), {}, panel.documentGlobal);
     ok(WhimsyCallPip.stateFor(browser).blocked.mic, "the device switch blocks the microphone");
     ok(rowSwitch(panel, "mic-device").checked, "…and shows it");
     is(panel.state, "open", "the panel stays open");
@@ -270,17 +317,24 @@ add_task(async function test_switches_follow_the_real_state() {
   } finally {
     panel.hidePopup();
   }
-});
+}
+addViaTasks(test_switches_follow_the_real_state);
+
 
 // The hint sits on the mute a plain press does, and moves with the choice.
-add_task(async function test_hint_moves_with_the_choice() {
+async function test_hint_moves_with_the_choice() {
   const call = await openCall();
-  const panel = await openOptionsPanel(call);
+  const panel = await openPanelVia(call);
   try {
-    is(detailOf(panel, "mic-in-call"), "Mic button", "a plain press mutes in the call");
+    // The hint text is localized a moment after it is set (the PiP window's
+    // document most visibly).
+    await TestUtils.waitForCondition(() => detailOf(panel, "mic-in-call") == "Mic button", "a plain press mutes in the call");
     is(detailOf(panel, "mic-device"), "", "…not on the device");
-    is(detailOf(panel, "camera-in-call"), "Camera button", "same for the camera");
-    EventUtils.synthesizeMouseAtCenter(panel.querySelector('.whimsy-call-options-default [data-value="device"]'), {}, window);
+    // Away from the call's tab (the PiP window) the camera button blocks the
+    // device instead: Firefox holds a camera request from a background tab.
+    const cameraHinted = currentPip ? "camera-device" : "camera-in-call";
+    await TestUtils.waitForCondition(() => detailOf(panel, cameraHinted) == "Camera button", "same for the camera");
+    EventUtils.synthesizeMouseAtCenter(panel.querySelector('.whimsy-call-options-default [data-value="device"]'), {}, panel.documentGlobal);
     is(Services.prefs.getStringPref("whimsy.call.buttons-default"), "device", "the choice is saved");
     await TestUtils.waitForCondition(() => detailOf(panel, "mic-device") == "Mic button", "the hint moves to the device");
     is(detailOf(panel, "mic-in-call"), "", "…off the call's row");
@@ -289,11 +343,13 @@ add_task(async function test_hint_moves_with_the_choice() {
     Services.prefs.clearUserPref("whimsy.call.buttons-default");
     panel.hidePopup();
   }
-});
+}
+addViaTasks(test_hint_moves_with_the_choice);
+
 
 // 6d: with no in-call control on the page, the buttons block the device,
 // and the panel says so.
-add_task(async function test_fallback_shows_when_the_page_mute_is_missing() {
+async function test_fallback_shows_when_the_page_mute_is_missing() {
   const call = await openCall();
   const browser = call.linkedBrowser;
   await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.removeControls());
@@ -301,7 +357,7 @@ add_task(async function test_fallback_shows_when_the_page_mute_is_missing() {
     () => WhimsyCallPip.displayState(browser, "mic").inCallAvailable === false,
     "The page's controls are gone"
   );
-  const panel = await openOptionsPanel(call);
+  const panel = await openPanelVia(call);
   try {
     const warn = panel.querySelector(".whimsy-call-options-fallback");
     ok(!warn.hidden, "a line says the buttons block this device now");
@@ -315,6 +371,102 @@ add_task(async function test_fallback_shows_when_the_page_mute_is_missing() {
     await TestUtils.waitForCondition(() => detailOf(panel, "mic-in-call") == "Mic button", "…and the hint returns");
   } finally {
     panel.hidePopup();
+  }
+}
+addViaTasks(test_fallback_shows_when_the_page_mute_is_missing);
+
+
+const SAMPLES = {
+  caption: ".whimsy-surface-caption-label",
+  seg: ".whimsy-call-options-default",
+  segment: ".whimsy-surface-segment",
+  switch: ".whimsy-surface-switch",
+  rowLabel: ".whimsy-surface-row-label",
+  rowDetail: '[data-row="mic-in-call"] .whimsy-surface-row-detail',
+  icon: ".whimsy-call-options-icon",
+  row: ".whimsy-surface-row",
+};
+const SAMPLE_PROPS = ["fontSize", "fontWeight", "color", "backgroundColor", "width", "height", "padding", "borderRadius"];
+
+function snapshot(panel) {
+  const win = panel.documentGlobal;
+  const styles = {};
+  for (const [name, selector] of Object.entries(SAMPLES)) {
+    const el = panel.querySelector(selector);
+    ok(el, `the panel has a ${name}`);
+    const computed = win.getComputedStyle(el);
+    styles[name] = Object.fromEntries(SAMPLE_PROPS.map(prop => [prop, computed[prop]]));
+  }
+  return {
+    rows: [...panel.querySelectorAll("[data-row]")].map(r => r.dataset.row),
+    captions: [...panel.querySelectorAll(".whimsy-surface-caption-label")].map(c => c.textContent),
+    segments: [...panel.querySelectorAll(".whimsy-surface-segment")].map(c => c.textContent),
+    primary: win.getComputedStyle(panel).getPropertyValue("--zen-primary-color"),
+    panelBackground: win.getComputedStyle(panel).backgroundColor,
+    panelRadius: win.getComputedStyle(panel).borderRadius,
+    styles,
+  };
+}
+
+// The PiP panel is the small player's panel: same rows, same look.
+add_task(async function test_pip_panel_looks_like_the_small_players() {
+  const call = await openCall();
+  const small = await openOptionsPanel(call);
+  const fromPlayer = snapshot(small);
+  const hidden = BrowserTestUtils.waitForEvent(small, "popuphidden");
+  small.hidePopup();
+  await hidden;
+
+  const floating = await floatCall(call);
+  const panel = await openPipPanel(floating.pip);
+  try {
+    ok(panel.classList.contains("whimsy-surface"), "the PiP window's panel is a Whimsy surface");
+    const fromPip = snapshot(panel);
+    Assert.deepEqual(fromPip.rows, fromPlayer.rows, "the same rows in the same order");
+    Assert.deepEqual(fromPip.captions, fromPlayer.captions, "the same captions");
+    Assert.deepEqual(fromPip.segments, fromPlayer.segments, "the same segmented choices");
+    Assert.deepEqual(fromPip.styles, fromPlayer.styles, "the same computed styles on every part");
+    // The small player's panel is drawn by the system (a native popover: its
+    // own background is transparent, or the system's), and the PiP window's
+    // is filled by the panel's content: both must be a solid, themed fill.
+    const fill = panel.documentGlobal.getComputedStyle(panel, "::part(content)").backgroundColor;
+    isnot(fill, "rgba(0, 0, 0, 0)", `the PiP panel has a fill of its own (${fill})`);
+    is(fill, panel.style.getPropertyValue("--arrowpanel-background") ? fill : "", "the fill is the themed one");
+    is(fromPip.panelRadius, fromPlayer.panelRadius, "the same panel corners");
+    const callPrimary = getComputedStyle(document.documentElement).getPropertyValue("--zen-primary-color");
+    ok(callPrimary, "the call window has an accent");
+    is(fromPip.primary, callPrimary, "the PiP panel uses the call window's accent");
+    is(fromPlayer.primary, callPrimary, "...as the small player's does");
+    Assert.greater(parseFloat(fromPip.styles.caption.fontSize), 0, "a caption has a size");
+    Assert.less(parseFloat(fromPip.styles.caption.fontSize), 16, "the caption is not a default heading");
+    is(fromPip.styles.switch.width, fromPlayer.styles.switch.width, "the switch is the styled one, not a native checkbox");
+  } finally {
+    panel.hidePopup();
+    await unfloatCall(call, floating);
+  }
+});
+
+// A change in one panel shows in the other: refresh reaches both.
+add_task(async function test_both_panels_stay_in_step() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  const floating = await floatCall(call);
+  const pipPanel = await openPipPanel(floating.pip);
+  const { WhimsyCallOptionsPanel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCallOptionsPanel.sys.mjs");
+  const shown = BrowserTestUtils.waitForEvent(window, "popupshown", false, e => e.target.id == "whimsy-call-options-panel");
+  WhimsyCallOptionsPanel.open(window, browser, { anchor: cardFor(call).querySelector("#whimsy-call-options") });
+  const smallPanel = (await shown).target;
+  try {
+    is(pipPanel.state, "open", "the PiP panel stays open beside the other");
+    EventUtils.synthesizeMouseAtCenter(rowSwitch(pipPanel, "camera-in-call"), {}, floating.pip);
+    await TestUtils.waitForCondition(() => rowSwitch(smallPanel, "camera-in-call").checked, "the small player's panel follows the PiP's");
+    EventUtils.synthesizeMouseAtCenter(rowSwitch(smallPanel, "camera-in-call"), {}, window);
+    await TestUtils.waitForCondition(() => !rowSwitch(pipPanel, "camera-in-call").checked, "the PiP's follows the small player's");
+    await TestUtils.waitForCondition(() => WhimsyCallPip.shownState(browser, "camera") == "on", "the camera is back on");
+  } finally {
+    smallPanel.hidePopup();
+    pipPanel.hidePopup();
+    await unfloatCall(call, floating);
   }
 });
 

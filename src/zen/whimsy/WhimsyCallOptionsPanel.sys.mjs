@@ -46,6 +46,16 @@ function setL10n(doc, el, id, args = null) {
   }
 }
 
+const THEME_ROOT_VARS = [
+  "--zen-primary-color",
+  "--arrowpanel-background",
+  "--arrowpanel-color",
+  "--focus-outline-color",
+  "--panel-separator-color",
+  "color-scheme",
+];
+const THEME_PANEL_VARS = ["--panel-border-radius"];
+
 export const WhimsyCallOptionsPanel = {
   open(win, browser, { anchor = null } = {}) {
     const doc = win.document;
@@ -56,6 +66,9 @@ export const WhimsyCallOptionsPanel = {
       width: 330,
       onHidden: () => open.delete(parts.panel),
     });
+    if (browser.documentGlobal && browser.documentGlobal != win) {
+      this._copyTheme(parts.panel, browser.documentGlobal);
+    }
     const update = this._build(doc, parts.view, browser);
     open.set(parts.panel, { browser, update });
     S.finish(parts);
@@ -65,6 +78,25 @@ export const WhimsyCallOptionsPanel = {
       S.open(win, parts.panel, { at: "page-top-end" });
     }
     return parts;
+  },
+
+  // The PiP window has none of Zen's window sheets: give its panel the
+  // call window's theme values, read afresh on each opening.
+  _copyTheme(panel, source) {
+    const copy = (element, names) => {
+      if (!element) {
+        return;
+      }
+      const computed = source.getComputedStyle(element);
+      for (const name of names) {
+        const value = computed.getPropertyValue(name);
+        if (value) {
+          panel.style.setProperty(name, value);
+        }
+      }
+    };
+    copy(source.document.documentElement, THEME_ROOT_VARS);
+    copy(source.document.getElementById("zen-unified-site-data-panel"), THEME_PANEL_VARS);
   },
 
   // WhimsyCallPip.render: every open panel for this call shows its state.

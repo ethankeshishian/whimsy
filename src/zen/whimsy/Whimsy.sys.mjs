@@ -350,6 +350,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
+const SURFACE_SHEET = "chrome://browser/content/whimsy/whimsy-surface.css";
 const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
 const LAZY_INIT_PREF = "whimsy.startup.lazy-init";
@@ -542,9 +543,10 @@ export const Whimsy = {
     // stays above. Deferred parts run in their original order.
     const deferred = [];
     const later = (name, fn) => deferred.push([name, fn]);
-    run("stylesheet", () =>
-      win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET)
-    );
+    run("stylesheet", () => {
+      win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET);
+      win.windowUtils.loadSheetUsingURIString(SURFACE_SHEET, win.windowUtils.AUTHOR_SHEET);
+    });
     // batch12: Mini Whimsy, Arc's Little Arc (quick window). Set before
     // anything else reads the document, so whimsy-browser.css's rules
     // apply from first paint.
