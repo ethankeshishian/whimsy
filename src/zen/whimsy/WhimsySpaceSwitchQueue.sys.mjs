@@ -136,6 +136,8 @@ export const WhimsySpaceSwitchQueue = {
           pending: state.pending.map(entry => entry.workspace.uuid),
           deferredGesture: state.deferredGesture,
           maxConcurrent: state.maxConcurrent,
+          lastRunOptions: state.lastRunOptions,
+          pendingOptions: state.pending.map(entry => entry.args[0] ?? null),
         }
       : null;
   },
@@ -268,7 +270,7 @@ export const WhimsySpaceSwitchQueue = {
         targetIndex = Math.max(0, Math.min(visible.length - 1, targetIndex));
       }
       return spaces.changeWorkspace(visible[targetIndex], {
-        whileScrolling: false,
+        whileScrolling: !!options.whileScrolling && !state?.running,
         whimsyStep: !!options.whileScrolling,
       });
     }
@@ -301,7 +303,7 @@ export const WhimsySpaceSwitchQueue = {
     }
 
     const promise = spaces.changeWorkspace(targetSpace, {
-      whileScrolling: false,
+      whileScrolling: !!options.whileScrolling && !state?.running,
       whimsyStep: !!options.whileScrolling,
     });
     if (options.isSwitcherArrow) {
@@ -417,6 +419,7 @@ export const WhimsySpaceSwitchQueue = {
       delete rest.whimsyStep;
       args = [rest, ...args.slice(1)];
     }
+    state.lastRunOptions = args[0] && typeof args[0] == "object" ? { ...args[0] } : null;
     state.running = true;
     state.target = workspace.uuid;
     state.concurrent++;

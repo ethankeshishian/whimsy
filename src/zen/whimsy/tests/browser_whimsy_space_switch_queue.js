@@ -266,3 +266,36 @@ add_task(async function test_fast_swipes_never_wrap() {
   is(gZenWorkspaces.activeWorkspace, all[0].uuid, "Swipes stop at the edge too");
   window.gReduceMotionOverride = undefined;
 });
+
+add_task(async function test_swipe_end_keeps_zens_continuation() {
+  window.gReduceMotionOverride = false;
+  const all = gZenWorkspaces.getWorkspaces();
+  await resetTo(all[2]);
+
+  let promise = gZenWorkspaces.changeWorkspaceShortcut(-1, true);
+  let ran = WhimsySpaceSwitchQueue.debugState(window).lastRunOptions;
+  is(ran?.whileScrolling, true, "A swipe that ends with no slide playing reaches Zen as whileScrolling");
+  ok(!("whimsyStep" in (ran ?? {})), "The step marker never reaches Zen");
+  await promise;
+  await settle();
+
+  await resetTo(all[2]);
+  promise = gZenWorkspaces.changeWorkspaceShortcut(-1, true);
+  const queued = gZenWorkspaces.changeWorkspaceShortcut(-1, true);
+  const pending = WhimsySpaceSwitchQueue.debugState(window).pendingOptions;
+  ok(pending.length, "The second swipe waits behind the slide");
+  ok(pending.every(opts => !opts?.whileScrolling), "A queued swipe is not a continuation");
+  await Promise.all([promise, queued]);
+  await settle();
+
+  await resetTo(all[0]);
+  promise = gZenWorkspaces.changeWorkspaceShortcut(1);
+  is(
+    WhimsySpaceSwitchQueue.debugState(window).lastRunOptions?.whileScrolling,
+    false,
+    "A keyboard step is not a continuation"
+  );
+  await promise;
+  await settle();
+  window.gReduceMotionOverride = undefined;
+});
