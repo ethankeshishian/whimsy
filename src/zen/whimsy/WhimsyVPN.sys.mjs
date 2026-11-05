@@ -182,7 +182,10 @@ export const WhimsyVPN = {
   // Whimsy's only VPN controls now; Firefox's own toolbar button would be a duplicate, so
   // it's taken out of the default toolbar (Zen's CustomizableUI patch still
   // places it there) the first time a window initializes. Customize mode
-  // can still add it back from the palette if someone wants it.
+  // can still add it back from the palette if someone wants it. W16-10:
+  // wherever it was placed (the toolbar, the extensions menu, the overflow
+  // menu), so there's never a fourth VPN entry; getPlacementOfWidget covers
+  // every area.
   hideButton() {
     const { CustomizableUI } = lazy;
     if (CustomizableUI.getPlacementOfWidget(WIDGET_ID)) {

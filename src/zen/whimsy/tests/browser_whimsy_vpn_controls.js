@@ -462,7 +462,13 @@ add_task(function test_command() {
   const entry = WhimsyCommands.get("cmd_whimsyVPNToggle");
   ok(entry?.keyId && document.getElementById(entry.keyId), "Turn VPN On or Off has a key Settings can bind");
   const panel = WhimsyCommands.get("cmd_whimsyVPNPanel");
-  ok(panel?.keyId && document.getElementById(panel.keyId), "Open Firefox IP Protection Panel has a key Settings can bind");
+  ok(panel?.keyId && document.getElementById(panel.keyId), "Open VPN Location and Rules has a key Settings can bind");
+  // W16-10: the command and the chevron use one name.
+  const l10n = new Localization(["browser/whimsy.ftl"], true);
+  const commandName = l10n.formatValueSync("whimsy-action-vpn-panel");
+  const [chevronMessage] = l10n.formatMessagesSync([{ id: "whimsy-vpn-urlbar-panel" }]);
+  const tooltip = chevronMessage.attributes.find(a => a.name == "tooltiptext").value;
+  ok(commandName.includes(tooltip), `The command ("${commandName}") says what the chevron does ("${tooltip}")`);
   const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
   ok(globalActions.find(a => a.whimsyCommand == "cmd_whimsyVPNPanel")?.icon, "…and an icon in the command bar");
   const call = WhimsyCommands.get("cmd_whimsyVPNPauseCall");

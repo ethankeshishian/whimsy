@@ -177,8 +177,17 @@ add_task(function test_init_removes_the_toolbar_button() {
   try {
     WhimsyVPN.hideButton();
     ok(!CustomizableUI.getPlacementOfWidget(id), "The button is out of the toolbar");
+    // W16-10: nor in the extensions (puzzle piece) or overflow menus, where
+    // it would be a fourth VPN entry.
+    for (const area of [CustomizableUI.AREA_ADDONS, CustomizableUI.AREA_FIXED_OVERFLOW_PANEL]) {
+      CustomizableUI.addWidgetToArea(id, area);
+      WhimsyVPN.hideButton(); // What initWindow runs for every window.
+      ok(!CustomizableUI.getPlacementOfWidget(id), `Placed in ${area}: taken out again`);
+    }
   } finally {
-    CustomizableUI.removeWidgetFromArea(id);
+    if (CustomizableUI.getPlacementOfWidget(id)) {
+      CustomizableUI.removeWidgetFromArea(id);
+    }
   }
 });
 

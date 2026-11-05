@@ -1205,8 +1205,8 @@ whimsy-vpn-urlbar-elsewhere =
     .aria-label = VPN off in this space
 # W14 3c: the chevron after the control opens Firefox's own VPN panel.
 whimsy-vpn-urlbar-panel =
-    .tooltiptext = Open Firefox IP Protection: location, usage and VPN rules
-    .aria-label = Firefox IP Protection panel
+    .tooltiptext = VPN Location and Rules
+    .aria-label = VPN Location and Rules
 # W14 4: a call can't connect through the VPN (Firefox turns off direct
 # connections for calls on pages it carries).
 whimsy-vpn-call-title = Pause VPN for this call?
@@ -2505,7 +2505,8 @@ whimsy-action-focus-sidebar = Focus Sidebar
 whimsy-action-devmode-on = Turn Developer Mode On for This Site
 whimsy-action-devmode-off = Turn Developer Mode Off for This Site
 whimsy-action-vpn-toggle = Turn VPN On or Off
-whimsy-action-vpn-panel = Open Firefox IP Protection Panel
+# W16-10: one name for the chevron, its panel and this command.
+whimsy-action-vpn-panel = Open VPN Location and Rules
 whimsy-action-vpn-pause-call = Pause VPN for This Call
 whimsy-action-allow-copy-toggle = Allow or Stop Allowing Copy and Paste
 whimsy-action-join-next-meeting = Join Next Meeting
