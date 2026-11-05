@@ -40,11 +40,16 @@ add_task(async function test_story_with_a_seeded_visit() {
 
 add_task(async function test_year_is_never_number_formatted() {
   await PlacesTestUtils.addVisits(SEEDED_URL);
-  await withYear(async ({ doc, year }) => {
+  await withYear(async ({ doc, win, year }) => {
     const thisYear = String(new Date().getFullYear());
     const hero = doc.querySelector('.whimsy-year-slide[data-kind="intro"] .whimsy-year-odometer');
     is(hero.textContent, thisYear, "The intro shows the year as plain digits");
     is(hero.getAttribute("aria-label"), thisYear, "and reads it as a year");
+    // W16-14: only the slide-up is clipped, so the last digit and its
+    // shadow aren't cut off on the right.
+    const style = win.getComputedStyle(hero);
+    is(style.overflowX, "visible", "The year isn't clipped sideways");
+    is(style.overflowY, "clip", "…only vertically, for the slide-up");
     year.goTo(year.cardCount - 1);
     year.skip();
     is(doc.querySelector(".whimsy-year-finale-year").textContent, thisYear, "The finale too (no 2,026)");

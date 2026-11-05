@@ -284,7 +284,11 @@ button:focus-visible {
 
 .whimsy-year-odometer {
   gap: 0;
-  overflow: hidden;
+  /* W16-14: clip only vertically (the digits slide up from below). The
+     negative letter spacing ends the box before the last glyph's edge and
+     the shadow reaches past it, so clipping x cut off the last digit. */
+  overflow-x: visible;
+  overflow-y: clip;
   font-size: clamp(110px, 24vw, 300px);
   font-weight: 900;
   line-height: 0.95;
