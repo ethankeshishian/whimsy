@@ -395,8 +395,9 @@ add_task(async function test_every_space_and_scrolling_by_row() {
     const pitch = WhimsyCtrlTab.rowPitch(ctrlTab);
     Assert.less(Math.abs(ctrlTab.previewsContainer.scrollTop - pitch), 1, "...and the grid scrolls one row");
     ok(inView().includes(thirteenth), "...bringing it into view");
-    await document.l10n.translateFragment(foot);
-    is(foot.querySelector(".whimsy-ctrltab-count").textContent, `13 of ${ctrlTab.tabCount}`, "13 of N");
+    const countLabel = foot.querySelector(".whimsy-ctrltab-count");
+    await TestUtils.waitForCondition(() => countLabel.textContent == `13 of ${ctrlTab.tabCount}`, "13 of N");
+    ok(!countLabel.hasAttribute("data-l10n-id"), "W16-21: the count is set as text, not by a Fluent attribute");
     is(foot.querySelector(".whimsy-ctrltab-title").value, thirteenth._tab.label, "...beside its title");
     const card2 = card().getBoundingClientRect();
     ok(card2.width == card1.width && card2.height == card1.height, "The card never changes size");
@@ -511,8 +512,8 @@ add_task(async function test_many_tabs_use_a_pool_of_tiles() {
         break;
       }
       if (i == 13) {
-        await document.l10n.translateFragment(foot);
-        is(foot.querySelector(".whimsy-ctrltab-count").textContent, `14 of ${total}`, "The footer counts the whole list");
+        const label = foot.querySelector(".whimsy-ctrltab-count");
+        await TestUtils.waitForCondition(() => label.textContent == `14 of ${total}`, "The footer counts the whole list");
       }
     }
     is(document.activeElement._tab, list[40], "Tab reaches the 41st tab, well past the first pool");

@@ -513,10 +513,19 @@ export const WhimsyCtrlTab = {
       ctrlTab._whimsyFirstRow = first;
       container.scrollTop = first * pitch;
       foot.querySelector(".whimsy-ctrltab-title").setAttribute("value", selected._tab?.label ?? "");
-      ctrlTab.panel.ownerDocument.l10n.setAttributes(foot.querySelector(".whimsy-ctrltab-count"), "whimsy-ctrltab-position", {
-        index: index + 1,
-        count: ctrlTab.tabCount,
-      });
+      // W16-21: formatted here and set as text (the newest result only):
+      // a Fluent attribute update drew the label empty for a frame on some
+      // Tab presses.
+      const count = foot.querySelector(".whimsy-ctrltab-count");
+      const token = (ctrlTab._whimsyCountToken = (ctrlTab._whimsyCountToken ?? 0) + 1);
+      ctrlTab.panel.ownerDocument.l10n
+        .formatValue("whimsy-ctrltab-position", { index: index + 1, count: ctrlTab.tabCount })
+        .then(text => {
+          if (token == ctrlTab._whimsyCountToken) {
+            count.textContent = text;
+          }
+        })
+        .catch(e => console.error("Whimsy: Ctrl+Tab count", e));
     }
     this.updateMore(ctrlTab);
   },
