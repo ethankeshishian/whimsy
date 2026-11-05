@@ -1536,12 +1536,32 @@ Object.assign(gWhimsySettings, {
     };
     const browserWindow = () => Services.wm.getMostRecentWindow("navigator:browser");
     const nameOf = provider => WhimsyAIProviders.providerName(provider);
+    // W16-24: Claude, ChatGPT and Gemini wear their logos, the ones Firefox
+    // ships for its AI chatbot choice (genai/assets/brands; that folder's
+    // LICENSE notes the marks may be trademarks). Firefox has none for
+    // Apple Intelligence or Ollama, and their marks' terms haven't been
+    // checked, so those two keep letter tiles.
+    const BRANDS = "chrome://browser/content/genai/assets/brands/";
     const TILES = {
-      apple: ["A", "#6a4fd8"],
-      claude: ["C", "#b4552f"],
-      openai: ["G", "#0b7a5f"],
-      gemini: ["Ge", "#2f64d6"],
-      ollama: ["Ol", "#5f5b70"],
+      apple: { letter: "A", color: "#6a4fd8" },
+      claude: { logo: BRANDS + "claude.svg" },
+      openai: { logo: BRANDS + "chatgpt.svg" },
+      gemini: { logo: BRANDS + "gemini.svg" },
+      ollama: { letter: "Ol", color: "#5f5b70" },
+    };
+    const paintTile = (tile, provider) => {
+      const { letter, color, logo } = TILES[provider];
+      tile.replaceChildren();
+      tile.classList.toggle("whimsy-ai-tile-logo", !!logo);
+      if (logo) {
+        tile.style.removeProperty("--tile-color");
+        const img = html("img", "whimsy-ai-tile-img", tile);
+        img.src = logo;
+        img.alt = "";
+      } else {
+        tile.textContent = letter;
+        tile.style.setProperty("--tile-color", color);
+      }
     };
     const setStatus = (id, l10nId, args, ready = null) => {
       const el = $(id);
@@ -1745,8 +1765,7 @@ Object.assign(gWhimsySettings, {
         row.toggleAttribute("data-connected", !!connection);
         const tile = html("span", "whimsy-ai-tile", row);
         tile.setAttribute("aria-hidden", "true");
-        tile.textContent = TILES[provider][0];
-        tile.style.setProperty("--tile-color", TILES[provider][1]);
+        paintTile(tile, provider);
         setL10n(html("span", "whimsy-ai-row-name", row), `whimsy-ai-name-${provider}`);
         if (connection) {
           const dot = html("span", "whimsy-ai-dot", row);
@@ -2063,10 +2082,7 @@ Object.assign(gWhimsySettings, {
     const openSheet = async provider => {
       closePicker({ restore: false });
       sheet.provider = provider;
-      const [letter, color] = TILES[provider];
-      const tile = $("whimsyAISheetTile");
-      tile.textContent = letter;
-      tile.style.setProperty("--tile-color", color);
+      paintTile($("whimsyAISheetTile"), provider);
       setL10n($("whimsyAISheetTitle"), "whimsy-ai-sheet-title", { provider: nameOf(provider) });
       const methods = $("whimsyAISheetMethods");
       methods.replaceChildren();

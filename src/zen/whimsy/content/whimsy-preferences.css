@@ -1028,6 +1028,22 @@ mark.whimsy-search-mark {
   font-weight: 700;
 }
 
+/* W16-24: a provider's logo on a neutral tile with a hairline. ChatGPT's
+   draws in context-fill, so it takes the tile's text color. */
+.whimsy-ai-tile.whimsy-ai-tile-logo {
+  box-sizing: border-box;
+  background: light-dark(#fff, #2b2a33);
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.14));
+  color: light-dark(#15141a, #fbfbfe);
+
+  & > .whimsy-ai-tile-img {
+    width: 18px;
+    height: 18px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+}
+
 .whimsy-ai-dot {
   flex: none;
   width: 7px;

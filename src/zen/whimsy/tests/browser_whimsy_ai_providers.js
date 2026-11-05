@@ -493,6 +493,20 @@ add_task(async function test_settings_card() {
   const rowButton = provider => row(provider)?.querySelector("button[data-action]");
   await TestUtils.waitForCondition(() => rowButton("apple"), "The accounts list is there");
   Assert.deepEqual([...doc.querySelectorAll("#whimsyAIAccounts [data-provider]")].map(r => r.dataset.provider), ["apple", "claude", "openai", "gemini", "ollama"], "Five providers, in order");
+  // W16-24: Claude, ChatGPT and Gemini show their logos (Firefox's own brand
+  // files); Apple and Ollama keep letter tiles.
+  for (const [provider, file] of [["claude", "claude.svg"], ["openai", "chatgpt.svg"], ["gemini", "gemini.svg"]]) {
+    const img = row(provider).querySelector(".whimsy-ai-tile img");
+    is(img?.getAttribute("src"), `chrome://browser/content/genai/assets/brands/${file}`, `${provider}: its logo`);
+    is(img?.getAttribute("alt"), "", "…decorative");
+    await TestUtils.waitForCondition(() => img.complete && img.naturalWidth > 0, `${provider}: the logo loads`);
+    ok(img.closest(".whimsy-ai-tile").getAttribute("aria-hidden") == "true", "…in a hidden tile");
+  }
+  for (const [provider, letter] of [["apple", "A"], ["ollama", "Ol"]]) {
+    const tile = row(provider).querySelector(".whimsy-ai-tile");
+    ok(!tile.querySelector("img"), `${provider}: no logo shipped`);
+    is(tile.textContent, letter, "…its letter tile");
+  }
   ok($("whimsyAIUse").disabled, "Nothing connected: nothing to use yet");
   ok(!doc.querySelector("#whimsyAIProviderGroup select, #whimsyAIProviderGroup menulist, #whimsyAIAccountsGroup select, #whimsyAIAccountsGroup menulist, #whimsyAIAccountsGroup input[type=radio]"), "No native lists or radios");
 
@@ -500,6 +514,8 @@ add_task(async function test_settings_card() {
   EventUtils.synthesizeMouseAtCenter(rowButton("gemini"), {}, win);
   const sheet = $("whimsyAISheet");
   await TestUtils.waitForCondition(() => !sheet.hidden && $("whimsyAIKey").checkVisibility(), "The connect sheet opens");
+  is($("whimsyAISheetTile").querySelector("img")?.getAttribute("src"), "chrome://browser/content/genai/assets/brands/gemini.svg",
+    "W16-24: the sheet shows Gemini's logo");
   is($("whimsyAIKeyNote").getAttribute("data-l10n-id"), "whimsy-ai-key-note-gemini", "with Gemini's note");
   ok($("whimsyAIKeyNote").checkVisibility(), "visible before any key is saved");
   const sheetRect = doc.querySelector(".whimsy-ai-sheet").getBoundingClientRect();
