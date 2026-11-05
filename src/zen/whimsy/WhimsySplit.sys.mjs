@@ -42,9 +42,11 @@ const COMMAND_BAR_FEATURE_PREF = "whimsy.feature.split-command-bar";
 //   split paired the current pane with the next tab in the list. From the
 //   last pane that's a tab outside the split, so a 4-pane split answered
 //   "Can't add more panels" and a smaller one swallowed an unrelated tab
-//   instead of changing its layout. Now a layout change re-lays out the
-//   panes you have; the same layout again still adds the next tab while
-//   there's room (Zen's behavior).
+//   instead of changing its layout. W16-20 (the user): inside a split the
+//   split shortcuts only change its layout and never add a tab; the same
+//   layout again does nothing. (Zen's pairing from the last pane wrapped to
+//   the first visible tab, often an Essential, which it copied into the
+//   split; from a pinned split it copied both tabs into a second split row.)
 // - Dropping a tab onto a tab in the sidebar splits them, but Zen refused
 //   tabs already in a split (it only knew how to make a new 2-pane split).
 //   Two hotfixes in whimsy/overlay.py ask gZenViewSplitter's
@@ -150,20 +152,15 @@ export const WhimsySplit = {
     splitter.applyGridLayout(group.layoutTree);
   },
 
-  // The split the selected tab is in, if the user asks for a layout that
-  // should re-lay it out rather than pull in another tab.
+  // The split the selected tab is in, if a split shortcut should act on it
+  // (re-lay it out, or nothing when the layout is already that one).
   relayoutTarget(win, gridType) {
     const splitter = win.gZenViewSplitter;
     const selected = win.gBrowser.selectedTab;
     if (!enabled(FOUR_PANES_FEATURE_PREF) || gridType == "unsplit" || selected?.multiselected) {
       return null;
     }
-    const group = splitter._data.find(g => g.tabs.includes(selected));
-    if (!group) {
-      return null;
-    }
-    const full = group.tabs.length >= splitter.MAX_TABS;
-    return group.gridType != gridType || full ? group : null;
+    return splitter._data.find(g => g.tabs.includes(selected)) ?? null;
   },
 
   relayout(win, group, gridType) {
@@ -187,7 +184,9 @@ export const WhimsySplit = {
       try {
         const group = self.relayoutTarget(win, gridType);
         if (group) {
-          self.relayout(win, group, gridType);
+          if (group.gridType != gridType) {
+            self.relayout(win, group, gridType);
+          }
           return undefined;
         }
       } catch (e) {

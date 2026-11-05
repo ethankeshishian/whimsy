@@ -94,17 +94,71 @@ add_task(async function test_layout_change_keeps_panes() {
   await cleanup(tabs);
 });
 
-add_task(async function test_same_layout_still_adds_the_next_tab() {
+// W16-20: inside a split the shortcuts only change its layout; the same
+// layout again does nothing (no next tab joins).
+add_task(async function test_same_layout_does_nothing_in_a_split() {
   const tabs = await openTabs(3);
   const [a, b, c] = tabs;
   gZenViewSplitter.splitTabs([a, b], "vsep");
   await TestUtils.waitForCondition(() => splitOf(a)?.tabs.length == 2, "2-pane split");
   gBrowser.selectedTab = b;
   gZenViewSplitter.toggleShortcut("vsep");
-  await TestUtils.waitForCondition(() => splitOf(a)?.tabs.length == 3, "Zen's behavior: the next tab joins");
-  ok(c.splitView, "c is a pane");
+  await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  is(splitOf(a).tabs.length, 2, "The same layout: still two panes");
+  ok(!c.splitView, "…and the next tab stays out");
+  gZenViewSplitter.toggleShortcut("hsep");
+  is(splitOf(a).gridType, "hsep", "Another layout re-lays it out");
+  is(splitOf(a).tabs.length, 2, "…with the same panes");
+  gZenViewSplitter.toggleShortcut("hsep");
+  is(splitOf(a).gridType, "hsep", "That layout again leaves it alone");
+  is(splitOf(a).tabs.length, 2, "…two panes");
   await cleanup(tabs);
 });
+
+// W16-20 (the user's case): with an Essential first in the list, Split
+// Vertically from a split's last pane copied the Essential in (and from a
+// pinned split copied both panes into a second split row).
+for (const pinned of [false, true]) {
+  add_task(async function test_last_pane_never_pulls_in_an_essential() {
+    const essential = await addTab("essential");
+    gZenPinnedTabManager.addToEssentials(essential);
+    await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential");
+    const tabs = await openTabs(2);
+    const [a, b] = tabs;
+    if (pinned) {
+      gBrowser.pinTab(a);
+      gBrowser.pinTab(b);
+      await TestUtils.waitForCondition(() => a.pinned && b.pinned, "Both pinned");
+    }
+    try {
+      gZenViewSplitter.splitTabs([a, b], "vsep");
+      await TestUtils.waitForCondition(() => splitOf(a)?.tabs.length == 2, "2-pane split");
+      const last = splitOf(a).tabs.at(-1);
+      gBrowser.selectedTab = last;
+      const before = gBrowser.tabs.length;
+      gZenViewSplitter.toggleShortcut("vsep");
+      await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      is(gBrowser.tabs.length, before, `${pinned ? "Pinned" : "Unpinned"}: no tab was copied in`);
+      is(splitOf(a).tabs.length, 2, "…the split keeps its two panes");
+      const rows = [...document.querySelectorAll("tab-group[split-view-group]")]
+        .filter(row => row.tabs?.some(t => t == a || t == b || t.linkedBrowser?.currentURI?.spec == essential.linkedBrowser.currentURI.spec));
+      is(rows.length, 1, "…in one split row, with no copy of the Essential anywhere in a split");
+      ok(!splitOf(essential), "The Essential stays out of it");
+    } finally {
+      await cleanup(tabs.filter(t => !t.pinned));
+      for (const t of tabs) {
+        if (t.isConnected) {
+          if (t.pinned) {
+            gBrowser.unpinTab(t);
+          }
+          BrowserTestUtils.removeTab(t);
+        }
+      }
+      gZenPinnedTabManager.removeEssentials(essential);
+      BrowserTestUtils.removeTab(essential);
+    }
+  });
+}
 
 add_task(async function test_switch_off_is_zen() {
   await SpecialPowers.pushPrefEnv({ set: [[FEATURE, false]] });
