@@ -1625,6 +1625,38 @@ notification-message[value="whimsy-claude-control"] {
   opacity: 1 !important;
 }
 
+/* W16-23: address bar items hide until the sidebar is hovered, like Zen's
+   own buttons (zen-omnibox.css, same scope), unless their feature is on:
+   the VPN control while the VPN is on or turning on, or its panel is open;
+   Reader, Translate and Picture-in-Picture while active. */
+:root[zen-single-toolbar="true"] #urlbar:not([breakout-extend]) {
+  & #whimsy-vpn-urlbar:not([state="on"], [state="connecting"]) {
+    opacity: 0;
+    visibility: collapse;
+
+    :root:not([supress-primary-adjustment="true"]) & {
+      transition:
+        opacity 0.15s,
+        visibility 0s linear 0.15s;
+    }
+
+    #navigator-toolbox[zen-has-implicit-hover="true"] &,
+    &:focus-within,
+    &:has(> [aria-expanded="true"]),
+    #urlbar[has-popup-open="true"] &,
+    :root[zen-has-empty-tab="true"] & {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.15s !important;
+    }
+  }
+
+  & :is(#reader-mode-button[readeractive], #translations-button[translationsactive], #picture-in-picture-button[pipactive]) {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+}
+
 /* W13 F02 (wave12 F02, A and B, the user asked for both).
    A: "VPN" with a status dot, last in the address bar's buttons, then a
    hairline and a chevron that opens Firefox's panel (W14 3c, design

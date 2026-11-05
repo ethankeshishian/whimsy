@@ -66,6 +66,27 @@ const LEAKED_PREFS = [
 ];
 
 add_setup(async function () {
+  // W16-23: the control hides until the sidebar is hovered (unless the VPN
+  // is on); these tasks reach it as a person does, with the sidebar
+  // hovered. test_hides_until_hover_unless_on checks the hiding.
+  const hoverWas = gNavToolbox.getAttribute("zen-has-implicit-hover");
+  gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
+  // Zen drops the attribute when the pointer leaves the toolbox (a click
+  // elsewhere): put it back, except while a task checks the hiding.
+  const keepHovered = new MutationObserver(() => {
+    if (!window.whimsyTestUnhover && gNavToolbox.getAttribute("zen-has-implicit-hover") != "true") {
+      gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
+    }
+  });
+  keepHovered.observe(gNavToolbox, { attributes: true, attributeFilter: ["zen-has-implicit-hover"] });
+  registerCleanupFunction(() => {
+    keepHovered.disconnect();
+    if (hoverWas) {
+      gNavToolbox.setAttribute("zen-has-implicit-hover", hoverWas);
+    } else {
+      gNavToolbox.removeAttribute("zen-has-implicit-hover");
+    }
+  });
   const original = new Map(
     LEAKED_PREFS.filter(name => Services.prefs.prefHasUserValue(name)).map(name => [name, Preferences.get(name)])
   );
@@ -563,5 +584,62 @@ add_task(async function test_call_asks_to_pause_the_vpn() {
     setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
     BrowserTestUtils.removeTab(tab);
     await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W16-23: like Zen's address bar buttons, the VPN control hides until the
+// sidebar is hovered, unless the VPN is on or turning on; an active Reader
+// button stays too.
+add_task(async function test_hides_until_hover_unless_on() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const toolbox = gNavToolbox;
+  const hovered = toolbox.getAttribute("zen-has-implicit-hover");
+  window.whimsyTestUnhover = true;
+  toolbox.removeAttribute("zen-has-implicit-hover");
+  const singleToolbar = document.documentElement.getAttribute("zen-single-toolbar") == "true";
+  const shown = el => {
+    const style = getComputedStyle(el);
+    return style.visibility == "visible" && style.opacity == "1";
+  };
+  try {
+    if (!singleToolbar) {
+      todo(false, "Not in Zen's single-toolbar layout here: Zen's own hiding doesn't apply either");
+      return;
+    }
+    for (const [service, proxy, state, visible] of [
+      [IPProtectionStates.READY, IPPProxyStates.NOT_READY, "off", false],
+      [IPProtectionStates.UNAUTHENTICATED, IPPProxyStates.NOT_READY, "setup", false],
+      [IPProtectionStates.READY, IPPProxyStates.ACTIVATING, "connecting", true],
+      [IPProtectionStates.READY, IPPProxyStates.ACTIVE, "on", true],
+    ]) {
+      setStates(service, proxy);
+      await TestUtils.waitForCondition(() => control().getAttribute("state") == state, `VPN ${state}`);
+      await TestUtils.waitForCondition(() => shown(control()) == visible, `VPN ${state}, not hovering: ${visible ? "shown" : "hidden"}`);
+      ok(true, `VPN ${state}, not hovering: ${visible ? "shown" : "hidden"}`);
+    }
+    setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+    toolbox.setAttribute("zen-has-implicit-hover", "true");
+    await TestUtils.waitForCondition(() => shown(control()), "Hovering the sidebar shows it while off");
+    toolbox.removeAttribute("zen-has-implicit-hover");
+    await TestUtils.waitForCondition(() => !shown(control()), "…and it goes again");
+
+    const reader = document.getElementById("reader-mode-button");
+    ok(reader, "Firefox's Reader button is in the address bar");
+    if (reader) {
+      const wasHidden = reader.hidden;
+      reader.hidden = false;
+      await TestUtils.waitForCondition(() => !shown(reader), "Reader, inactive: hidden until hover");
+      ok(!shown(reader), "Reader, inactive, not hovering: hidden");
+      reader.setAttribute("readeractive", "true");
+      await TestUtils.waitForCondition(() => shown(reader), "Reader, active: stays");
+      ok(shown(reader), "Reader, active, not hovering: shown");
+      reader.removeAttribute("readeractive");
+      reader.hidden = wasHidden;
+    }
+  } finally {
+    delete window.whimsyTestUnhover;
+    toolbox.setAttribute("zen-has-implicit-hover", hovered || "true");
+    setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+    BrowserTestUtils.removeTab(tab);
   }
 });
