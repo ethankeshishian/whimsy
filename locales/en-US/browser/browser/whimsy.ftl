@@ -5095,11 +5095,6 @@ whimsy-action-call-camera-block = Block Camera On This Device
 whimsy-action-call-buttons-default = Call Buttons Mute: The Call / This Device
 # W14 21.7: a press the call page didn't answer. $app (string) - the call
 # app's name from its page; $known (string) - "yes" when it gave one.
-whimsy-call-camera-waits-toast =
-    { $known ->
-        [yes] { $app } turns your camera on when you go back to the call
-       *[no] Your camera comes on when you go back to the call
-    }
 whimsy-call-mic-failed-toast =
     { $known ->
         [yes] { $app } didn't answer its mute button
@@ -5110,6 +5105,9 @@ whimsy-call-camera-failed-toast =
         [yes] { $app } didn't answer its camera button
        *[no] The call didn't answer its camera button
     }
+# W16-3: on a failed press from another tab; selects the call's tab (where
+# Firefox can ask for a camera the site may not use yet).
+whimsy-call-go-to-call = Go to Call
 whimsy-call-mic-turn-off =
     .tooltiptext = Turn Off Microphone
     .aria-label = Turn Off Microphone

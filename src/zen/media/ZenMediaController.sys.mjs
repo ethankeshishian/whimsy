@@ -591,7 +591,8 @@ export class ZenMediaController extends ZenUIComponent {
 
   activateMediaDeviceControls(browser) {
     if (
-      !browser?.browsingContext.currentWindowGlobal.hasActivePeerConnections()
+      !browser?.browsingContext.currentWindowGlobal.hasActivePeerConnections() &&
+      !ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCallPip.sys.mjs").WhimsyCallPip.wantsSharingCard(browser) // Whimsy hotfix (W16 17)
     ) {
       return;
     }

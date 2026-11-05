@@ -35,6 +35,9 @@ async function openCall() {
 
 // Hangs up before the tab closes, as a call ends.
 async function endCall(tab) {
+  if (!tab.isConnected) {
+    return; // W16-17's last task closed it mid-call.
+  }
   await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.endCall());
   await TestUtils.waitForCondition(() => !WhimsyCallPip.isInCall(tab), "The call ended");
   BrowserTestUtils.removeTab(tab);
@@ -182,5 +185,58 @@ add_task(async function test_not_in_a_call_or_switched_off() {
   Services.prefs.clearUserPref("whimsy.feature.call-pip");
 
   gBrowser.selectedTab = call;
+  BrowserTestUtils.removeTab(other);
+});
+
+// W16-17: a capture-only call (a camera test page: no peer connection, no
+// call controls) gets the small player; its PiP camera button blocks the
+// device and the block holds; its microphone button, with no microphone
+// captured, isn't offered.
+add_task(async function test_capture_only_call() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  const cardFor = () => [...document.querySelectorAll("#zen-media-controls-toolbar .zen-media-card[media-sharing]")]
+    .find(card => card._whimsyCallBrowser == browser && !card.hasAttribute("zen-removing"));
+  await TestUtils.waitForCondition(cardFor, "The capture-only call has its small player");
+  ok(cardFor().hasAttribute("whimsy-call-hide-mic"), "…with no microphone button (none is captured)");
+
+  const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+  gBrowser.selectedTab = other;
+  const pip = await opened;
+  await TestUtils.waitForCondition(() => pip._whimsyCallBrowser == browser, "The call floats");
+  const camera = await TestUtils.waitForCondition(() => {
+    const el = pip.document.getElementById("whimsy-call-camera");
+    return el && !el.hidden && el;
+  }, "The PiP has its camera button");
+  ok(pip.document.getElementById("whimsy-call-mic").hidden, "…and no microphone button");
+  EventUtils.synthesizeMouseAtCenter(pip.document.getElementById("controls"), { type: "mousemove" }, pip);
+  EventUtils.synthesizeMouseAtCenter(camera, {}, pip);
+  await TestUtils.waitForCondition(() => WhimsyCallPip.stateFor(browser).blocked.camera, "The camera button blocks the device");
+  await new Promise(resolve => setTimeout(resolve, 1000)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  ok(WhimsyCallPip.stateFor(browser).blocked.camera, "A second later the block still holds");
+  is(camera.dataset.state, "off", "…and the button shows it off");
+  EventUtils.synthesizeMouseAtCenter(camera, {}, pip);
+  await TestUtils.waitForCondition(() => !WhimsyCallPip.stateFor(browser).blocked.camera, "A second press releases it");
+
+  const closed = BrowserTestUtils.domWindowClosed(pip);
+  gBrowser.selectedTab = call;
+  await closed;
+  BrowserTestUtils.removeTab(other);
+});
+
+// W16-17: closing the call's tab mid-call closes its PiP. Last: it ends the
+// file's one call.
+add_task(async function test_pip_goes_with_its_tab() {
+  const call = await openCall();
+  const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+  gBrowser.selectedTab = other;
+  const pip = await opened;
+  await TestUtils.waitForCondition(() => pip._whimsyCallBrowser == call.linkedBrowser, "The call floats");
+  const closed = BrowserTestUtils.domWindowClosed(pip);
+  BrowserTestUtils.removeTab(call);
+  await closed;
+  ok(!pipWindow(), "Closing the call's tab closed its PiP");
   BrowserTestUtils.removeTab(other);
 });

@@ -9,7 +9,10 @@
      - toggles re-render asynchronously, replacing the button the way Meet's
        framework does, and change the real camera track's `enabled`;
      - ⌘D / ⌘E (Ctrl elsewhere) toggle on the page;
-     - window.requireTrusted makes the toggles ignore untrusted clicks. -->
+     - window.requireTrusted makes the toggles ignore untrusted clicks;
+     - window.stopCamera (W16-3) turns the camera off as real Meet does:
+       the track is stopped, and turning it on asks for the camera again
+       (getUserMedia), so the toggle shows only once the camera is back. -->
 <video id="speaker" muted autoplay playsinline style="width: 480px; height: 270px"></video>
 <video id="self" muted autoplay playsinline style="width: 160px; height: 90px; transform: scaleX(-1)"></video>
 <div id="bar" role="toolbar" style="display: flex; gap: 12px; padding: 12px"></div>
@@ -38,6 +41,7 @@
   const KEY = { mic: "d", camera: "e" };
   const NAME = { mic: "microphone", camera: "camera" };
   window.requireTrusted = false;
+  window.stopCamera = false;
   // The page stops answering its own buttons.
   window.stuck = false;
   window.decoyPresses = 0;
@@ -72,6 +76,10 @@
 
   // As Meet: the change shows a moment later, on a new button.
   function toggle(kind) {
+    if (kind == "camera" && window.stopCamera) {
+      toggleStoppedCamera();
+      return;
+    }
     setTimeout(() => {
       window.state[kind] = window.state[kind] == "on" ? "off" : "on";
       for (const track of stream?.getVideoTracks() ?? []) {
@@ -82,6 +90,81 @@
       render();
     }, 40);
   }
+
+  // W16-3: real Meet stops the camera track when the camera goes off and
+  // asks for the camera again to turn it back on.
+  let asking = false;
+  async function toggleStoppedCamera() {
+    if (window.state.camera == "on") {
+      for (const track of stream?.getVideoTracks() ?? []) {
+        track.stop();
+        stream.removeTrack(track);
+      }
+      for (const id of ["speaker", "self"]) {
+        document.getElementById(id).srcObject = null;
+      }
+      setTimeout(() => {
+        window.state.camera = "off";
+        render();
+      }, 40);
+      return;
+    }
+    if (asking) {
+      return;
+    }
+    asking = true;
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      stream = stream ?? new MediaStream();
+      for (const track of fresh.getVideoTracks()) {
+        stream.addTrack(track);
+      }
+      for (const id of ["speaker", "self"]) {
+        const video = document.getElementById(id);
+        video.srcObject = stream;
+        video.play().catch(() => {});
+      }
+      window.state.camera = "on";
+      render();
+    } catch (e) {
+      window.cameraError = String(e);
+    } finally {
+      asking = false;
+    }
+  }
+
+  // The fixture has no microphone (see startCall), so a clone of the
+  // camera track stands in for the microphone real Meet keeps capturing:
+  // the tab stays in a call while its camera is stopped.
+  let keepAlive = null;
+  window.setStopCamera = function (on) {
+    window.stopCamera = on;
+    if (on && !keepAlive) {
+      keepAlive = stream?.getVideoTracks()[0]?.clone() ?? null;
+    } else if (!on && keepAlive) {
+      keepAlive.stop();
+      keepAlive = null;
+    }
+    return !!keepAlive == on;
+  };
+
+  // W16-3: no video plays (every camera off), then one starts again.
+  window.stopVideos = function () {
+    for (const id of ["speaker", "self"]) {
+      const video = document.getElementById(id);
+      video.pause();
+      video.srcObject = null;
+    }
+    return true;
+  };
+  window.startVideos = async function () {
+    for (const id of ["speaker", "self"]) {
+      const video = document.getElementById(id);
+      video.srcObject = stream;
+      await video.play();
+    }
+    return true;
+  };
 
   document.addEventListener("keydown", event => {
     const accel = isMac ? event.metaKey : event.ctrlKey;
@@ -137,6 +220,8 @@
   };
 
   window.endCall = function () {
+    keepAlive?.stop();
+    keepAlive = null;
     stream?.getTracks().forEach(track => track.stop());
     stream = null;
     for (const id of ["speaker", "self"]) {

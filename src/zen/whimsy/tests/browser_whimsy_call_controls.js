@@ -11,6 +11,9 @@
 // the state is checked in all three places.
 // Design: whimsy-handoff/wave13/r3-meetpip-design.md.
 
+// W16-3's camera tasks wait out a toggle (4s) and a PiP retry.
+requestLongerTimeout(2);
+
 const { WhimsyCallPip } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCallPip.sys.mjs");
 const { SitePermissions } = ChromeUtils.importESModule("resource:///modules/SitePermissions.sys.mjs");
 
@@ -156,19 +159,15 @@ async function expectAll(call, pip, expected, what) {
   }
 }
 
-// W14 21.7: from another tab, the camera button blocks the device (the
-// call's own camera couldn't come back on until you go back), and Meet's
-// own camera stays as it was.
-async function expectCameraBlock(call, pip, blocked, what) {
-  await TestUtils.waitForCondition(
-    () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera == blocked,
-    `${what}: the device block`
-  );
-  is((await meetState(call)).camera, "on", `${what}: Meet's own camera is untouched`);
-  await TestUtils.waitForCondition(() => cardState(call, "camera") == (blocked ? "off" : "on"), `${what}: the small player`);
-  if (pip) {
-    await TestUtils.waitForCondition(() => pipState(pip, "camera") == (blocked ? "off" : "on"), `${what}: the PiP window`);
-  }
+// W16-2: from another tab too, the camera button follows the Buttons mute
+// choice ("call": Meet's own camera) and never blocks the device.
+async function expectMeetCamera(call, pip, expected, what) {
+  await expectAll(call, pip, expected, what);
+  ok(!WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, `${what}: the device isn't blocked`);
+}
+
+function toastIds() {
+  return [...(document.getElementById("zen-toast-container")?.children ?? [])].map(t => t._messageId);
 }
 
 async function expectMic(call, pip, value, what) {
@@ -339,25 +338,23 @@ add_task(async function test_pip_toggles_meet_without_a_glitch() {
     await expectAll(call, pip, { mic: "off", camera: "on" }, "PiP: microphone off");
 
     await clickPip(pip, "camera");
-    await expectCameraBlock(call, pip, true, "PiP: camera off");
+    await expectMeetCamera(call, pip, { mic: "off", camera: "off" }, "PiP: camera off");
     // The small player, while floating, moves the PiP too.
     await clickCard(call, "mic");
     await expectMic(call, pip, "on", "Small player while floating: microphone on");
     await clickPip(pip, "camera");
-    await expectCameraBlock(call, pip, false, "PiP: camera on");
-    await expectAll(call, pip, ON, "PiP: both on");
+    await expectMeetCamera(call, pip, ON, "PiP: camera on");
 
     // Meet's own keys in the PiP window, and M as before.
     pip.focus();
     EventUtils.synthesizeKey("d", { accelKey: true }, pip);
     await expectAll(call, pip, { mic: "off", camera: "on" }, "PiP ⌘D");
     EventUtils.synthesizeKey("e", { accelKey: true }, pip);
-    await expectCameraBlock(call, pip, true, "PiP ⌘E");
+    await expectMeetCamera(call, pip, { mic: "off", camera: "off" }, "PiP ⌘E");
     EventUtils.synthesizeKey("m", {}, pip);
     await expectMic(call, pip, "on", "PiP M");
     EventUtils.synthesizeKey("e", { accelKey: true }, pip);
-    await expectCameraBlock(call, pip, false, "PiP ⌘E again");
-    await expectAll(call, pip, ON, "PiP ⌘E again: both on");
+    await expectMeetCamera(call, pip, ON, "PiP ⌘E again: both on");
   } finally {
     await unfloat(call, floating);
   }
@@ -401,25 +398,29 @@ add_task(async function test_unknown_state_falls_back_to_device_mute() {
   try {
     await expectAll(call, pip, ON, "Floating");
     await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.removeControls());
+    // The camera: this page captures it (the fixture has no microphone, and
+    // W16-17 hides a button for a device that isn't captured when the page
+    // has no control for it either).
     await TestUtils.waitForCondition(
-      () => cardState(call, "mic") != "hidden" && cardState(call, "mic") != "off",
-      "Meet's toggles are gone: the small player's microphone stays, showing the device mute"
+      () => cardState(call, "camera") != "hidden" && cardState(call, "camera") != "off",
+      "Meet's toggles are gone: the small player's camera stays, showing the device mute"
     );
-    ok(!WhimsyCallPip.commandTarget(window, "mic"), "Press Call Microphone Button has nothing to toggle");
-    await clickCard(call, "mic");
+    is(cardState(call, "mic"), "hidden", "W16-17: the microphone, not captured and with no control left, isn't offered");
+    ok(!WhimsyCallPip.commandTarget(window, "camera"), "Press Call Camera Button has nothing to toggle");
+    await clickCard(call, "camera");
     await TestUtils.waitForCondition(
-      () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
+      () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
       "the click fell back to blocking the device"
     );
-    is(cardState(call, "mic"), "off", "the small player shows it muted");
-    await clickCard(call, "mic");
+    is(cardState(call, "camera"), "off", "the small player shows it muted");
+    await clickCard(call, "camera");
     await TestUtils.waitForCondition(
-      () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
+      () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
       "a second click releases it"
     );
+  } finally {
     await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.restoreControls());
     await expectAll(call, pip, ON, "Meet's toggles are back");
-  } finally {
     await unfloat(call, floating);
   }
 });
@@ -462,11 +463,10 @@ add_task(async function test_commands_toggle_the_floating_call() {
     document.getElementById("cmd_whimsyCallMicrophone").doCommand();
     await expectAll(call, pip, { mic: "off", camera: "on" }, "Press Call Microphone Button");
     document.getElementById("cmd_whimsyCallCamera").doCommand();
-    await expectCameraBlock(call, pip, true, "Press Call Camera Button, from another tab");
+    await expectMeetCamera(call, pip, { mic: "off", camera: "off" }, "Press Call Camera Button, from another tab");
     document.getElementById("cmd_whimsyCallMicrophone").doCommand();
     document.getElementById("cmd_whimsyCallCamera").doCommand();
-    await expectCameraBlock(call, pip, false, "Both commands again");
-    await expectAll(call, pip, ON, "Both commands again");
+    await expectMeetCamera(call, pip, ON, "Both commands again");
   } finally {
     await unfloat(call, floating);
   }
@@ -522,6 +522,11 @@ add_task(async function test_trusted_clicks_reach_a_background_call() {
     await expectAll(call, pip, { mic: "off", camera: "on" }, "Trusted only: PiP microphone off");
     await clickCard(call, "mic");
     await expectAll(call, pip, ON, "Trusted only: small player microphone on");
+    // W16-2: the PiP's camera press reaches Meet the same way.
+    await clickPip(pip, "camera");
+    await expectMeetCamera(call, pip, { mic: "on", camera: "off" }, "Trusted only: PiP camera off");
+    await clickPip(pip, "camera");
+    await expectMeetCamera(call, pip, ON, "Trusted only: PiP camera on");
   } finally {
     await SpecialPowers.spawn(call.linkedBrowser, [], () => {
       content.wrappedJSObject.requireTrusted = false;
@@ -695,19 +700,21 @@ add_task(async function test_card_shows_badge_for_the_non_default_mute() {
 add_task(async function test_card_no_in_call_controls_falls_back_to_device() {
   const call = await openCall();
   await expectAll(call, null, ON, "Joined");
+  // The camera: this page captures it (the fixture has no microphone; W16-17
+  // hides a device that's neither captured nor controlled by the page).
   await SpecialPowers.spawn(call.linkedBrowser, [], () => {
-    content.document.querySelector("#bar button[aria-label*=microphone]")?.remove();
+    content.document.querySelector("#bar button[aria-label*=camera]")?.remove();
   });
   await TestUtils.waitForCondition(
-    () => WhimsyCallPip.displayState(call.linkedBrowser, "mic").inCallAvailable === false,
-    "The mic's in-call control is gone"
+    () => WhimsyCallPip.displayState(call.linkedBrowser, "camera").inCallAvailable === false,
+    "The camera's in-call control is gone"
   );
-  await clickCard(call, "mic");
+  await clickCard(call, "camera");
   await TestUtils.waitForCondition(
-    () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
+    () => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
     "falls back to the device mute, not a no-op"
   );
-  await WhimsyCallPip.toggleBlocked(call.linkedBrowser, "mic");
+  await WhimsyCallPip.toggleBlocked(call.linkedBrowser, "camera");
   await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.restoreControls());
   await expectAll(call, null, ON, "Meet's toggles are back");
 });
@@ -738,16 +745,19 @@ add_task(async function test_pip_click_does_default_alt_click_does_other() {
       () => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.mic,
       "a second Option-click releases it"
     );
-    // W14 21.7: from another tab the camera's plain press is the device
-    // block, so Option-click is the call's own camera.
-    await clickPipAlt(pip, "camera");
-    await expectAll(call, pip, { mic: "on", camera: "off" }, "Option-click: the call's own camera off");
-    ok(!WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, "…and the device is untouched");
-    // With the call's camera off, a plain press asks the call to turn it on
-    // (a real call gets the camera once you go back).
+    // W16-2: the camera too: a plain press is the call's own camera, from
+    // another tab as well, and Option-click blocks the device.
     await clickPip(pip, "camera");
-    await expectAll(call, pip, ON, "A plain press: the call's own camera on");
-    ok(!WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera, "…the device still untouched");
+    await expectMeetCamera(call, pip, { mic: "on", camera: "off" }, "A plain press: the call's own camera off");
+    await clickPip(pip, "camera");
+    await expectMeetCamera(call, pip, ON, "…and on");
+    await clickPipAlt(pip, "camera");
+    await TestUtils.waitForCondition(() => WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
+      "Option-click blocks the camera");
+    is((await meetState(call)).camera, "on", "…leaving Meet's own camera on");
+    await clickPipAlt(pip, "camera");
+    await TestUtils.waitForCondition(() => !WhimsyCallPip.stateFor(call.linkedBrowser).blocked.camera,
+      "A second Option-click releases it");
   } finally {
     await unfloat(call, floating);
   }
@@ -910,27 +920,161 @@ add_task(async function test_existing_toggle_commands_follow_the_default() {
   }
 });
 
-// W14 21.7: a camera turned off from another tab is a device block, so it
-// comes back at once; back on the call's tab the button still releases it.
-add_task(async function test_background_camera_block_comes_back() {
+// W16-2 (D1): from another tab, the camera button follows the Buttons
+// mute choice: with "call", PiP turns Meet's own camera off and on and the
+// device is never blocked.
+add_task(async function test_background_camera_follows_the_call() {
   const call = await openCall();
+  is(WhimsyCallPip.buttonsDefault, "call", "Buttons mute: the call");
   const floating = await float(call);
   const { pip } = floating;
   try {
     await expectAll(call, pip, ON, "Floating");
+    is(WhimsyCallPip.pressDoes(call.linkedBrowser, "camera"), "call", "From another tab the camera button is Meet's");
     await clickPip(pip, "camera");
-    await expectCameraBlock(call, pip, true, "PiP camera off");
+    await expectMeetCamera(call, pip, { mic: "on", camera: "off" }, "PiP camera off");
+    await clickPip(pip, "camera");
+    await expectMeetCamera(call, pip, ON, "PiP camera on");
   } finally {
     await unfloat(call, floating);
   }
-  is(cardState(call, "camera"), "off", "Back on the call: the camera still shows off");
   await clickCard(call, "camera");
-  await expectCameraBlock(call, null, false, "The button releases the block");
-  await expectAll(call, null, ON, "All on");
+  await expectMeetCamera(call, null, { mic: "on", camera: "off" }, "On the call's tab: the call's own camera");
   await clickCard(call, "camera");
-  await expectAll(call, null, { mic: "on", camera: "off" }, "On the call's tab the button is the call's own camera again");
-  await clickCard(call, "camera");
-  await expectAll(call, null, ON, "…and on");
+  await expectMeetCamera(call, null, ON, "…and on");
+});
+
+// W16-3 (D1): real Meet stops the camera and asks for it again to turn it
+// on. Firefox holds a background tab's request until it's selected; a
+// press from another tab is granted at once when the site may already use
+// the camera, with no toast.
+add_task(async function test_camera_comes_back_on_from_another_tab() {
+  const call = await openCall();
+  ok(await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.setStopCamera(true)), "Meet stops its camera");
+  let floating = null;
+  try {
+    await clickCard(call, "camera");
+    await expectMeetCamera(call, null, { mic: "on", camera: "off" }, "Camera off, on the call's tab");
+    const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+    gBrowser.selectedTab = other;
+    floating = { other, pip: null };
+    await TestUtils.waitForCondition(() => WhimsyCallPip.isBackground(call.linkedBrowser), "On another tab");
+    const grant = WhimsyCallPip.grantCameraIntent;
+    let granted = 0;
+    WhimsyCallPip.grantCameraIntent = function (...args) {
+      const result = grant.apply(this, args);
+      granted += result ? 1 : 0;
+      return result;
+    };
+    const pressed = Date.now();
+    try {
+      await clickCard(call, "camera");
+      await TestUtils.waitForCondition(async () => (await meetState(call)).camera == "on", "Meet's camera comes back on", 100, 40);
+    } finally {
+      WhimsyCallPip.grantCameraIntent = grant;
+    }
+    is(granted, 1, "Whimsy answered the page's camera request from the background (Firefox would hold it)");
+    Assert.less(Date.now() - pressed, 4000, "…within the toggle's wait");
+    is(gBrowser.selectedTab, other, "…while the call's tab stays in the background");
+    is(cardState(call, "camera"), "on", "The small player shows it on");
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    ok(!toastIds().some(id => id?.startsWith("whimsy-call-camera")), "No toast");
+    ok(!WhimsyCallPip.stateFor(call.linkedBrowser).cameraIntentUntil, "The press's grant is used up");
+  } finally {
+    // Back on the call with its camera on before the stand-in microphone
+    // goes, so the tab never stops being in a call.
+    await selectTab(call);
+    if ((await meetState(call)).camera != "on") {
+      await TestUtils.waitForCondition(async () => (await meetState(call)).camera == "on", "The held request is answered", 100, 30)
+        .catch(() => clickCard(call, "camera"));
+    }
+    await TestUtils.waitForCondition(async () => (await meetState(call)).camera == "on", "The camera is on again");
+    await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.setStopCamera(false));
+    if (floating) {
+      BrowserTestUtils.removeTab(floating.other);
+    }
+    for (const pip of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
+      await BrowserTestUtils.closeWindow(pip);
+    }
+  }
+  await expectAll(call, null, ON, "Back on the call");
+});
+
+// W16-3: a camera the site may not use yet needs Firefox's prompt: nothing
+// is granted from the background; the failed toast offers Go to Call, and
+// there the request is answered.
+add_task(async function test_camera_without_permission_goes_to_the_call() {
+  const call = await openCall();
+  const { WebRTCParent } = ChromeUtils.importESModule("resource:///actors/WebRTCParent.sys.mjs");
+  const allowed = WebRTCParent.prototype.checkRequestAllowed;
+  ok(await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.setStopCamera(true)), "Meet stops its camera");
+  let other = null;
+  try {
+    await clickCard(call, "camera");
+    await expectMeetCamera(call, null, { mic: "on", camera: "off" }, "Camera off, on the call's tab");
+    other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+    gBrowser.selectedTab = other;
+    await TestUtils.waitForCondition(() => WhimsyCallPip.isBackground(call.linkedBrowser), "On another tab");
+    // As a site with no camera permission: nothing it may already use.
+    WebRTCParent.prototype.checkRequestAllowed = () => false;
+    await clickCard(call, "camera");
+    const toast = await TestUtils.waitForCondition(
+      () => [...(document.getElementById("zen-toast-container")?.children ?? [])].find(t => t._messageId == "whimsy-call-camera-failed-toast"),
+      "The failed toast shows", 100, 80);
+    is((await meetState(call)).camera, "off", "No camera from the background");
+    const go = toast.querySelector("#whimsy-call-go-to-call");
+    ok(go, "The toast offers Go to Call");
+    await toast.ownerDocument.l10n.translateFragment(toast);
+    is(go.textContent || go.label, "Go to Call", "…by name");
+    WebRTCParent.prototype.checkRequestAllowed = allowed;
+    await TestUtils.waitForCondition(() => go.checkVisibility({ visibilityProperty: true }) && go.getBoundingClientRect().width > 0,
+      "Go to Call is on screen");
+    go.click();
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab == call, "Go to Call selects the call's tab");
+    await TestUtils.waitForCondition(async () => (await meetState(call)).camera == "on", "…where the camera is answered");
+  } finally {
+    WebRTCParent.prototype.checkRequestAllowed = allowed;
+    // Back on the call with its camera on before the stand-in microphone
+    // goes, so the tab never stops being in a call.
+    await selectTab(call);
+    if ((await meetState(call)).camera != "on") {
+      await TestUtils.waitForCondition(async () => (await meetState(call)).camera == "on", "The held request is answered", 100, 30)
+        .catch(() => clickCard(call, "camera"));
+    }
+    await TestUtils.waitForCondition(async () => (await meetState(call)).camera == "on", "The camera is on again");
+    await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.setStopCamera(false));
+    if (other) {
+      BrowserTestUtils.removeTab(other);
+    }
+    for (const pip of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
+      await BrowserTestUtils.closeWindow(pip);
+    }
+  }
+  await expectAll(call, null, ON, "Back on the call");
+});
+
+// W16-3: with no video playing (every camera off), leaving the call opens
+// no PiP; once a video starts, it floats.
+add_task(async function test_call_floats_once_a_video_starts() {
+  const call = await openCall();
+  await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.stopVideos());
+  const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  try {
+    gBrowser.selectedTab = other;
+    await new Promise(resolve => setTimeout(resolve, 1500)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    ok(!pipWindow(), "No video: no PiP");
+    const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+    await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.startVideos());
+    const pip = await opened;
+    await TestUtils.waitForCondition(() => pip._whimsyCallBrowser == call.linkedBrowser, "A video started: the call floats");
+    await unfloat(call, { pip, other });
+  } finally {
+    if (other.isConnected) {
+      await selectTab(call);
+      BrowserTestUtils.removeTab(other);
+    }
+    await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.startVideos());
+  }
 });
 
 // W14 21.7: a press the page doesn't answer says so.

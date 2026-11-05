@@ -51,6 +51,12 @@ const CONTROLS_PREF = "whimsy.feature.call-controls";
 // the panel) always does the other one.
 const DEFAULT_PREF = "whimsy.call.buttons-default";
 const KINDS = ["mic", "camera"];
+// W16-3: how long a camera press from another tab may answer the page's
+// camera request, and how often (and how many times) a call with no
+// playing video is asked again to float while its tab is in the background.
+const CAMERA_INTENT_MS = 10000;
+const RETRY_MS = 500;
+const RETRY_TRIES = 7200;
 const PERMISSION = { mic: "microphone", camera: "camera" };
 // Zen's sharing card: its buttons and its muted attributes (Zen's icons).
 const CARD_BUTTON = { mic: ".zen-media-mute-mic-button", camera: ".zen-media-mute-camera-button" };
@@ -263,7 +269,19 @@ export const WhimsyCallPip = {
       }
     });
     for (const type of ["TabClose", "TabBrowserDiscarded"]) {
-      win.addEventListener(type, event => this.forget(event.target.linkedBrowser));
+      win.addEventListener(type, event => {
+        const browser = event.target.linkedBrowser;
+        // W16-17: the call's PiP goes with its tab. Firefox closes it on the
+        // page's pagehide, which a page still capturing doesn't always get
+        // to, and the player's own close button can't reach a page that's
+        // gone.
+        for (const pipWin of this.pipWindowsFor(browser)) {
+          try {
+            pipWin.close();
+          } catch (e) {}
+        }
+        this.forget(browser);
+      });
     }
     for (const tab of gBrowser.tabs) {
       if (this.isInCall(tab)) {
@@ -289,6 +307,7 @@ export const WhimsyCallPip = {
       return;
     }
     this._observerSet = true;
+    this.installCameraIntent();
     Services.obs.addObserver(this, "domwindowopened");
     // W13-R3: a camera or microphone blocked (or allowed) for a site hides
     // (or shows) its buttons; the switch turns the call controls off or on.
@@ -396,10 +415,18 @@ export const WhimsyCallPip = {
     if (!pipWin._whimsyCallControls) {
       pipWin._whimsyCallControls = true;
       pipWin.addEventListener("click", event => {
+        const id = event.target?.id;
+        // W16-17: the call's page is gone (its tab closed or discarded):
+        // Firefox's close button asks the page first, which can't answer.
+        if (id == "close" && !pipWin._whimsyCallBrowser?.browsingContext) {
+          event.stopPropagation();
+          event.preventDefault();
+          pipWin.close();
+          return;
+        }
         if (!this.isInCall(tab)) {
           return;
         }
-        const id = event.target?.id;
         if (id == "closed-caption") {
           event.stopPropagation();
           event.preventDefault();
@@ -492,24 +519,33 @@ export const WhimsyCallPip = {
     if (!win) {
       return;
     }
-    let tries = 0;
-    const retry = () => {
-      if (win.closed || !this.enabled || !this.isInCallBrowser(browser) || !this.isBackground(browser)) {
-        return;
-      }
-      if (lazy.PictureInPicture.weakAutoPipBrowserClosedDeliberately?.has(browser) || this.pipWindowsFor(browser).length) {
-        return;
-      }
-      browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage")
-        ?.sendQuery("Whimsy:CallPip")
-        .then(opened => {
-          if (!opened && ++tries < 6) {
-            win.setTimeout(retry, 500);
-          }
-        })
-        .catch(() => {});
-    };
-    win.setTimeout(retry, 500);
+    win.setTimeout(() => this.floatWhenReady(browser, { tries: 6 }), 500);
+  },
+
+  // Asks the call's page to float its main video, and asks again every
+  // half second (`tries` times) while it has none playing (W16-3: a call
+  // with every camera off has no video to show; it floats once one
+  // starts), for as long as the call's tab stays in the background.
+  floatWhenReady(browser, { tries = RETRY_TRIES } = {}) {
+    const win = browser?.ownerDocument?.defaultView;
+    if (!win || win.closed || !this.enabled || !this.isInCallBrowser(browser) || !this.isBackground(browser)) {
+      return;
+    }
+    if (lazy.PictureInPicture.weakAutoPipBrowserClosedDeliberately?.has(browser) || this.pipWindowsFor(browser).length) {
+      return;
+    }
+    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+    if (!actor) {
+      return;
+    }
+    actor
+      .sendQuery("Whimsy:CallPip")
+      .then(opened => {
+        if (!opened && tries > 1) {
+          win.setTimeout(() => this.floatWhenReady(browser, { tries: tries - 1 }), RETRY_MS);
+        }
+      })
+      .catch(() => {});
   },
 
   // M (as before) or Meet's ⌘D toggles the microphone, ⌘E the camera; Shift
@@ -675,6 +711,8 @@ export const WhimsyCallPip = {
   //   seen: {}, pending: {},
   // }. mic/camera are only what the page last reported; never a guess.
   _states: new WeakMap(),
+  // W16-17: capture-only calls Whimsy has made a small player for.
+  _cardOffered: new WeakSet(),
   // The browsers being watched (for the commands' target).
   _calls: new Set(),
 
@@ -721,7 +759,9 @@ export const WhimsyCallPip = {
       return;
     }
     if (this.isInCall(tab)) {
-      this.hookMediaBar(tab.ownerDocument?.defaultView);
+      const win = tab.ownerDocument?.defaultView;
+      this.hookMediaBar(win);
+      this.ensureSharingCard(win, browser);
       this.watch(browser);
     } else {
       this.forget(browser, true);
@@ -766,6 +806,9 @@ export const WhimsyCallPip = {
     }
     this._calls.delete(browser);
     this._states.delete(browser);
+    if (stopWatching) {
+      this._cardOffered.delete(browser);
+    }
     this.render(browser);
   },
 
@@ -814,6 +857,53 @@ export const WhimsyCallPip = {
     } catch (e) {
       return false;
     }
+  },
+
+  // W16-17: the page doesn't capture this device and has no control of its
+  // own for it (a camera-only page's microphone): the button would mute
+  // nothing. A call page with its own control keeps it, so a camera the
+  // call turned off (and stopped) can be turned back on.
+  nothingToMute(browser, kind) {
+    return !browser?._sharingState?.webRTC?.[PERMISSION[kind]] && this.shownState(browser, kind) == null;
+  },
+
+  // W16-17: Zen asks for a sharing card when the sharing indicators first
+  // show, which can come before the tab's sharing state says it's a call
+  // (so wantsSharingCard said no then, for a page with no peer
+  // connection). Once it is one, make the card if it still has none, once
+  // per call: a card you close stays closed, as Zen's do.
+  ensureSharingCard(win, browser) {
+    const controller = win?.gZenMediaController;
+    const bar = controller?.mediaControlBar;
+    if (!bar || this._cardOffered.has(browser) || !this.wantsSharingCard(browser)) {
+      return;
+    }
+    let peers = false;
+    try {
+      peers = browser.browsingContext?.currentWindowGlobal?.hasActivePeerConnections();
+    } catch (e) {}
+    if (peers) {
+      return; // Zen's own rule makes this card.
+    }
+    this._cardOffered.add(browser);
+    const has = [...bar.querySelectorAll(".zen-media-card[media-sharing]")].some(
+      card => card._whimsyCallBrowser == browser && !card.hasAttribute("zen-removing")
+    );
+    if (!has) {
+      try {
+        controller.activateMediaDeviceControls(browser);
+      } catch (e) {
+        console.error("Whimsy: call small player", e);
+      }
+    }
+  },
+
+  // W16-17: Zen makes a sharing card (the small player) only for a page
+  // with a peer connection; Whimsy's ZenMediaController hotfix asks here
+  // too, so a capture-only call (a camera test page) gets one. Without a
+  // card, Zen unmuted the devices on every sharing change, undoing a block.
+  wantsSharingCard(browser) {
+    return this.enabled && this.controlsEnabled && this.isInCallBrowser(browser);
   },
 
   // The state a surface may show: null hides the button (unknown, or the
@@ -872,6 +962,12 @@ export const WhimsyCallPip = {
       return false;
     }
     state.pending[kind] = true;
+    // W16-3: turning the call's camera back on from another tab. The page
+    // asks for the camera again, which Firefox would hold until the tab is
+    // selected; this press is what lets grantCameraIntent answer it now.
+    if (kind == "camera" && this.shownState(browser, kind) == "off" && this.isBackground(browser)) {
+      state.cameraIntentUntil = Date.now() + CAMERA_INTENT_MS;
+    }
     this.render(browser);
     let result = null;
     try {
@@ -891,15 +987,99 @@ export const WhimsyCallPip = {
     return !!result?.ok;
   },
 
-  // W14 21.7: the page didn't show a press within the toggle's wait. A
-  // camera turned on from another tab waits for you to go back (Firefox
-  // holds the request); anything else, the page didn't answer.
+  // W14 21.7: the page didn't show a press within the toggle's wait.
+  // W16-3: from another tab, the toast offers Go to Call, which selects the
+  // call's tab: a camera the site may not use yet needs Firefox's prompt,
+  // and Firefox shows it there.
   showToggleFailed(browser, kind) {
+    const state = this._states.get(browser);
+    if (state) {
+      state.cameraIntentUntil = 0;
+    }
+    const win = browser.ownerDocument?.defaultView;
     const app = this.appName(browser);
     const l10nArgs = { app: app ?? "", known: app ? "yes" : "no" };
-    const waits = kind == "camera" && this.isBackground(browser);
-    const id = waits ? "whimsy-call-camera-waits-toast" : `whimsy-call-${kind}-failed-toast`;
-    browser.ownerDocument?.defaultView?.gZenUIManager?.showToast?.(id, { l10nArgs, timeout: 6000 });
+    const id = `whimsy-call-${kind}-failed-toast`;
+    const tab = win?.gBrowser?.getTabForBrowser(browser);
+    const toasts = win?.gZenUIManager?.toasts;
+    if (this.isBackground(browser) && tab && toasts?.open) {
+      toasts.open(id, {
+        key: "whimsy-call-failed",
+        l10nArgs,
+        timeout: 6000,
+        buttons: [
+          {
+            id: "whimsy-call-go-to-call",
+            l10nId: "whimsy-call-go-to-call",
+            command: () => {
+              if (tab.isConnected && !tab.closing) {
+                win.gBrowser.selectedTab = tab;
+              }
+            },
+          },
+        ],
+      });
+      return;
+    }
+    win?.gZenUIManager?.showToast?.(id, { l10nArgs, timeout: 6000 });
+  },
+
+  // W16-3: Firefox holds a camera or microphone request from a tab that
+  // isn't selected until it is (WebRTCParent's prompt), so a call's camera
+  // turned back on from another tab came on only when you went back. A
+  // request a Whimsy press caused (state.cameraIntentUntil, from
+  // toggleInCall) is answered now, but only with what the site may already
+  // use (WebRTCParent.checkRequestAllowed: a persistent or temporary grant,
+  // never screen sharing); anything else goes to Firefox's prompt as usual.
+  installCameraIntent() {
+    if (this._cameraIntentInstalled) {
+      return;
+    }
+    this._cameraIntentInstalled = true;
+    let WebRTCParent;
+    try {
+      ({ WebRTCParent } = ChromeUtils.importESModule("resource:///actors/WebRTCParent.sys.mjs"));
+    } catch (e) {
+      console.error("Whimsy: call camera", e);
+      return;
+    }
+    const proto = WebRTCParent?.prototype;
+    const receiveMessage = proto?.receiveMessage;
+    if (typeof receiveMessage != "function" || typeof proto.checkRequestAllowed != "function") {
+      return;
+    }
+    const self = this;
+    proto.receiveMessage = function (message) {
+      try {
+        if (message.name == "webrtc:Request" && self.grantCameraIntent(this, message.data)) {
+          return undefined;
+        }
+      } catch (e) {
+        console.error("Whimsy: call camera", e);
+      }
+      return receiveMessage.call(this, message);
+    };
+  },
+
+  grantCameraIntent(actor, data) {
+    const browser = actor.getBrowser?.();
+    const state = browser && this._states.get(browser);
+    if (!state?.cameraIntentUntil || state.cameraIntentUntil < Date.now()) {
+      return false;
+    }
+    if (!data || data.sharingScreen || !data.videoInputDevices?.length || !this.isInCallBrowser(browser)) {
+      return false;
+    }
+    // As WebRTCParent does before it prompts.
+    data.isThirdPartyOrigin =
+      actor.manager.documentPrincipal.origin != actor.manager.topWindowContext.documentPrincipal.origin;
+    data.origin = actor.manager.topWindowContext.documentPrincipal.origin;
+    const principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(data.origin);
+    if (!actor.checkRequestAllowed(data, principal, browser)) {
+      return false;
+    }
+    state.cameraIntentUntil = 0;
+    return true;
   },
 
   // W21: Whimsy's own device mute for `kind` on this browser — works with
@@ -913,9 +1093,6 @@ export const WhimsyCallPip = {
     const state = this.stateFor(browser);
     const next = !state.blocked[kind];
     state.blocked[kind] = next;
-    if (!next && kind == "camera") {
-      state.buttonBlock = false;
-    }
     try {
       const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WebRTC");
       actor?.sendAsyncMessage(next ? MUTE_MESSAGE[kind] : DEVICE_UNMUTE[kind]);
@@ -931,29 +1108,19 @@ export const WhimsyCallPip = {
     if (this.pressDoes(browser, kind) == "call") {
       return this.toggleInCall(browser, kind);
     }
-    const result = this.toggleBlocked(browser, kind);
-    if (kind == "camera" && this.buttonsDefault == "call" && this.shownState(browser, kind) != null) {
-      const state = this.stateFor(browser);
-      state.buttonBlock = state.blocked.camera;
-      this.render(browser);
-    }
-    return result;
+    return this.toggleBlocked(browser, kind);
   },
 
   // What a plain press of the mic/camera button does here: "call" or
   // "device" (W14-6: the panel's "Mic button"/"Camera button" hint).
   //
-  // W14 21.7: Firefox holds a camera request from a tab that isn't selected
-  // until it is (WebRTCParent), so the call's own camera can't come back on
-  // from PiP or the small player while you're on another tab. There, the
-  // camera button blocks the device instead (the track stays alive, so it
-  // comes back at once), and keeps doing so until that block is released.
+  // W16-2 (user decision D1): the camera follows the Buttons mute choice
+  // from anywhere, PiP and other tabs included, like the microphone. A
+  // camera turned back on from another tab is granted by
+  // grantCameraIntent (Firefox would hold it until the tab is selected).
   pressDoes(browser, kind) {
     const value = this.shownState(browser, kind);
     if (this.buttonsDefault == "device" || value == null) {
-      return "device";
-    }
-    if (kind == "camera" && (this.stateFor(browser).buttonBlock || (value == "on" && this.isBackground(browser)))) {
       return "device";
     }
     return "call";
@@ -971,7 +1138,6 @@ export const WhimsyCallPip = {
     const state = this._states.get(browser);
     if (state && KINDS.some(kind => state.blocked[kind])) {
       state.blocked = { mic: false, camera: false };
-      state.buttonBlock = false;
       this.render(browser);
     }
   },
@@ -1017,7 +1183,7 @@ export const WhimsyCallPip = {
       // The OS/site permission is BLOCK, or the switch is off: no device to
       // mute either way, so the button has nothing to do — hide it, unlike
       // an unrecognised call page, which still falls back to the device mute.
-      if (!this.controlsEnabled || this.isBlocked(browser, kind)) {
+      if (!this.controlsEnabled || this.isBlocked(browser, kind) || this.nothingToMute(browser, kind)) {
         button.hidden = true;
         continue;
       }
@@ -1046,7 +1212,7 @@ export const WhimsyCallPip = {
       // The OS/site permission is BLOCK: neither mute means anything here
       // (there's no device to mute), unlike an unrecognised call page,
       // which still has a real device to fall back to.
-      if (this.controlsEnabled && this.isBlocked(browser, kind)) {
+      if (this.controlsEnabled && (this.isBlocked(browser, kind) || this.nothingToMute(browser, kind))) {
         card.toggleAttribute(hideAttr, true);
         continue;
       }
@@ -1082,12 +1248,17 @@ export const WhimsyCallPip = {
     const original = controller.activateMediaDeviceControls;
     const self = this;
     controller.activateMediaDeviceControls = function (browser) {
-      // Zen calls this right after unmuting the devices (updateMediaSharing).
-      self.deviceReleased(browser);
       const before = new Set(bar.querySelectorAll(".zen-media-card"));
       const result = original.call(this, browser);
+      let attached = false;
       for (const card of bar.querySelectorAll(".zen-media-card[media-sharing]")) {
         if (!before.has(card)) {
+          // Zen unmutes the devices right before it makes a new card
+          // (updateMediaSharing); only then has the block let go (W16-17).
+          if (!attached) {
+            self.deviceReleased(browser);
+            attached = true;
+          }
           self.attachCard(card, browser);
         }
       }
@@ -1239,11 +1410,10 @@ export const WhimsyCallPip = {
       pip.weakAutoPipBrowserClosedDeliberately.delete(browser);
       return false;
     }
-    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
-    if (!actor) {
+    if (!browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage")) {
       return false;
     }
-    actor.sendAsyncMessage("Whimsy:CallPip");
+    this.floatWhenReady(browser);
     return true;
   },
 };

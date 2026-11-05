@@ -330,10 +330,9 @@ async function test_hint_moves_with_the_choice() {
     // document most visibly).
     await TestUtils.waitForCondition(() => detailOf(panel, "mic-in-call") == "Mic button", "a plain press mutes in the call");
     is(detailOf(panel, "mic-device"), "", "…not on the device");
-    // Away from the call's tab (the PiP window) the camera button blocks the
-    // device instead: Firefox holds a camera request from a background tab.
-    const cameraHinted = currentPip ? "camera-device" : "camera-in-call";
-    await TestUtils.waitForCondition(() => detailOf(panel, cameraHinted) == "Camera button", "same for the camera");
+    // W16-2 (D1): from the PiP window too, the camera button follows the
+    // choice (Whimsy answers the call's camera request from another tab).
+    await TestUtils.waitForCondition(() => detailOf(panel, "camera-in-call") == "Camera button", "same for the camera");
     EventUtils.synthesizeMouseAtCenter(panel.querySelector('.whimsy-call-options-default [data-value="device"]'), {}, panel.documentGlobal);
     is(Services.prefs.getStringPref("whimsy.call.buttons-default"), "device", "the choice is saved");
     await TestUtils.waitForCondition(() => detailOf(panel, "mic-device") == "Mic button", "the hint moves to the device");

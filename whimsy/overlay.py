@@ -381,6 +381,31 @@ HOTFIXES = [
         "new": "          this.splitTabs(group.tabs, group.gridType);\n"
                "          continue; // Whimsy hotfix: restore the remaining splits too\n",
     },
+    # W16-17: a capture-only call (a camera page with no peer connection)
+    {
+        "id": "media-sharing-card-capture-only",
+        "file": "src/zen/media/ZenMediaController.sys.mjs",
+        "why": "Zen makes a sharing card only for a page with a peer "
+               "connection. A page that only captures (a camera test page) "
+               "got none, so Zen unmuted its devices on every sharing "
+               "change (undoing Whimsy's device block) and it had no small "
+               "player. Let the card through for a call Whimsy tracks.",
+        "old": "    if (\n"
+               "      !browser?.browsingContext.currentWindowGlobal.hasActivePeerConnections()\n"
+               "    ) {\n"
+               "      return;\n"
+               "    }\n"
+               "\n"
+               "    this.#sharingCardForBrowser(browser)?.destroy();\n",
+        "new": "    if (\n"
+               "      !browser?.browsingContext.currentWindowGlobal.hasActivePeerConnections() &&\n"
+               "      !ChromeUtils.importESModule(\"resource:///modules/whimsy/WhimsyCallPip.sys.mjs\").WhimsyCallPip.wantsSharingCard(browser) // Whimsy hotfix (W16 17)\n"
+               "    ) {\n"
+               "      return;\n"
+               "    }\n"
+               "\n"
+               "    this.#sharingCardForBrowser(browser)?.destroy();\n",
+    },
     # fixA: command bar related actions
     {
         "id": "command-bar-related-actions",
