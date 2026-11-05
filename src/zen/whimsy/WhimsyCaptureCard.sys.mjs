@@ -307,6 +307,9 @@ export const WhimsyCaptureCard = {
     if (old?.dialog == dialog) {
       return old;
     }
+    // W16-19: centred in the page both ways (whimsy-browser.css), set
+    // before the dialog first shows.
+    dialog._overlay?.setAttribute("whimsy-capture-viewer", "");
     const from = this._pending.get(browser) ?? null;
     this._pending.delete(browser);
     const capture = {
@@ -1037,6 +1040,11 @@ export const WhimsyCaptureCard = {
 
     sync();
     S.open(win, panel, { at: "page-top-center" });
+    // Edit pressed as soon as the viewer shows: its image may not have been
+    // read yet (W16-19's check found createImageBitmap(null) there).
+    if (!capture.blob && !capture.edited && capture.from == "viewer") {
+      await this.currentBlob(capture).catch(e => console.error("Whimsy: screenshot editor", e));
+    }
     state.image = await this.imageFor(win, capture, state.hidden);
     if (!state.image) {
       state.image = await win.createImageBitmap(capture.blob);

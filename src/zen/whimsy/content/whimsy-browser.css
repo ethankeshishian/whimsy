@@ -7154,3 +7154,14 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
 .dialogOverlay[whimsy-capture-editing] {
   visibility: hidden !important;
 }
+
+/* W16-19: the screenshot viewer sits in the middle of the page, both ways.
+   Firefox hangs tab dialogs from the toolbar above (top-aligned, -5px to
+   overlap it); Whimsy has no toolbar there, so its top was cut off. */
+.dialogOverlay[whimsy-capture-viewer] {
+  justify-content: center;
+
+  & > .dialogBox {
+    margin-block: 0 !important;
+  }
+}

@@ -620,3 +620,41 @@ add_task(async function test_commands() {
     Services.obs.removeObserver(count, "whimsy-capture-viewer-ready");
   }
 });
+
+// W16-19: the viewer is centred both ways: in the page it covers, which
+// with the sidebar collapsed (compact mode) is the whole window, and never
+// cut off at the top. Edit still hides it while the editor is open.
+add_task(async function test_viewer_is_centred_in_the_window() {
+  const tab = await openTab();
+  const browser = tab.linkedBrowser;
+  await startScreenshots(browser);
+  EventUtils.synthesizeMouseAtCenter(bar(browser).getElementById("visible-page"), {}, window);
+  const v = await viewer(browser);
+  // Once its opening animation has settled.
+  let last = null;
+  await TestUtils.waitForCondition(async () => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const now = JSON.stringify(v.dialog._box.getBoundingClientRect());
+    const still = now == last;
+    last = now;
+    return still;
+  }, "The viewer has settled");
+  const box = v.dialog._box.getBoundingClientRect();
+  const page = v.dialog._overlay.getBoundingClientRect();
+  info(JSON.stringify({ win: [window.innerWidth, window.innerHeight], page, box }));
+  Assert.less(Math.abs((box.top + box.bottom) / 2 - (page.top + page.bottom) / 2), 3, "Centred vertically in the page");
+  Assert.less(Math.abs((box.left + box.right) / 2 - (page.left + page.right) / 2), 3, "…and horizontally");
+  Assert.greaterOrEqual(box.top, Math.max(0, page.top) - 0.5, "…its top on screen");
+  Assert.less(Math.abs((page.top + page.bottom) / 2 - window.innerHeight / 2), 12, "The page is the window's height, so it's centred in the window too");
+
+  await v.click("whimsy-capture-edit");
+  await openEditor();
+  viewerHidden(v, true, "Edit");
+  EventUtils.synthesizeKey("KEY_Escape", {}, window);
+  await TestUtils.waitForCondition(() => !editor(), "Esc closes the editor");
+  viewerHidden(v, false, "Esc");
+  const again = v.dialog._box.getBoundingClientRect();
+  is(Math.round(again.top), Math.round(box.top), "…back where it was");
+  await closeViewer(browser, v);
+  BrowserTestUtils.removeTab(tab);
+});
