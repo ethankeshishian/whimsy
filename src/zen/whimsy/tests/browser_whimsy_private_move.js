@@ -83,15 +83,18 @@ async function atSizes(fn) {
   }
 }
 
+// W16-12: centred on the whole window, the sidebar included.
 async function assertCentred(panel, what) {
-  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
   const gaps = () => {
-    const box = panel.getBoundingClientRect();
-    return { start: box.left - area.left, end: area.right - box.right, top: box.top - area.top, bottom: area.bottom - box.bottom };
+    const box = panel.getOuterScreenRect();
+    const left = box.left - window.mozInnerScreenX;
+    const top = box.top - window.mozInnerScreenY;
+    return { start: left, end: window.innerWidth - left - box.width, top, bottom: window.innerHeight - top - box.height };
   };
-  await TestUtils.waitForCondition(() => Math.abs(gaps().top - gaps().bottom) < 3, `${what}: settles in the middle`).catch(() => {});
+  await TestUtils.waitForCondition(() => Math.abs(gaps().top - gaps().bottom) < 3 && Math.abs(gaps().start - gaps().end) < 3,
+    `${what}: settles in the middle`).catch(() => {});
   const g = gaps();
-  Assert.less(Math.abs(g.start - g.end), 3, `${what}: centred horizontally on the page, the side gaps match`);
+  Assert.less(Math.abs(g.start - g.end), 3, `${what}: centred horizontally on the window, the side gaps match (${Math.round(g.start)} / ${Math.round(g.end)})`);
   Assert.less(Math.abs(g.top - g.bottom), 3, `${what}: centred vertically, the top and bottom gaps match (${Math.round(g.top)} / ${Math.round(g.bottom)})`);
 }
 
@@ -203,6 +206,46 @@ add_task(async function test_opens_centred_on_the_window() {
       BrowserTestUtils.removeTab(tab, { animate: false });
     }
   });
+});
+
+// W16-12: in compact mode the prompt neither opens the sidebar nor leaves
+// it open: nothing in the toolbox is hovered, has a popup or is shown while
+// it's up, and focus goes back to the page when it closes.
+add_task(async function test_compact_mode_sidebar_stays_hidden() {
+  const wasCompact = gZenCompactModeManager.preference;
+  gZenCompactModeManager.preference = true;
+  const toolboxShown = () => ["zen-has-hover", "has-popup-menu", "flash-popup", "zen-user-show"]
+    .filter(attr => gNavToolbox.hasAttribute(attr));
+  const url = uniqueURL("compact");
+  const priv = WhimsyPrivate.openPrivateTab(window, { url });
+  try {
+    await TestUtils.waitForCondition(() => priv.linkedBrowser.currentURI?.spec == url, "The private page loaded");
+    gBrowser.selectedTab = priv;
+    gBrowser.selectedBrowser.focus();
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    // (A popup an earlier task left open may already mark the toolbox; what
+    // counts is that the prompt adds nothing.)
+    const before = toolboxShown();
+    info(`Toolbox before: ${JSON.stringify(before)}`);
+    document.getElementById("cmd_whimsyMoveOutOfPrivate").doCommand();
+    const panel = await waitForPanel(window);
+    await assertCentred(panel, "Move Out of Private, compact");
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    Assert.deepEqual(toolboxShown(), before, "While it's up, nothing shows the sidebar");
+    ok(!panel.anchorNode, "It's not anchored to anything");
+    const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+    panel.hidePopup();
+    await hidden;
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    Assert.deepEqual(toolboxShown(), before, "After it closes, the sidebar stays hidden");
+    ok(!gNavToolbox.contains(document.activeElement), "…and focus isn't left in it");
+  } finally {
+    gZenCompactModeManager.preference = wasCompact;
+    const tab = movedTabs(url)[0] ?? priv;
+    if (tab.isConnected && !tab.closing) {
+      BrowserTestUtils.removeTab(tab, { animate: false });
+    }
+  }
 });
 
 add_task(async function test_not_offered_for_normal_tabs() {

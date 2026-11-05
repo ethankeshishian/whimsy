@@ -372,8 +372,11 @@ export const WhimsySurface = {
    *  - screenRect {left, top, width, height} (+ position, gap): hangs off a
    *    rectangle on screen (a text field, a selection in the page).
    *  - at "page-top-center": over the page, centred, near the top (where
-   *    the command bar sits); "page-center": centred both ways over the
-   *    page (a prompt that asks before anything happens); "page-top-end":
+   *    the command bar sits); "page-center": centred both ways on the
+   *    window, sidebar or not (a prompt that asks before anything happens;
+   *    W16-12: opened at a screen point, not over an anchor, so nothing
+   *    anchored, such as the compact sidebar, takes it as its own);
+   *    "page-top-end":
    *    top end corner of the page;
    *    "beside-sidebar": where the Look picker opens (y = optional offset).
    */
@@ -420,28 +423,46 @@ export const WhimsySurface = {
     }
     const px = Math.max(0, Math.round((rect.width - width) / 2));
     if (at == "page-center") {
-      this.centerWhenShown(win, panel, rect);
-      this.openOver(panel, area, { x: px, y: Math.max(0, Math.round((rect.height - 260) / 2)), triggerEvent });
+      this.centerWhenShown(win, panel);
+      this.keepFocusOutOfSidebar(win, panel);
+      const wx = Math.max(0, Math.round((win.innerWidth - Math.min(this.width(panel), win.innerWidth)) / 2));
+      const wy = Math.max(0, Math.round((win.innerHeight - 260) / 2));
+      panel.openPopupAtScreen(Math.round(win.mozInnerScreenX + wx), Math.round(win.mozInnerScreenY + wy), false, triggerEvent);
       return;
     }
     const py = y || Math.round(clamp(rect.height * 0.1, 12, 96));
     this.openOver(panel, area, { x: px, y: py, triggerEvent });
   },
 
-  /** Once its height is known, moves the panel to the middle of the page rect `rect`. */
-  centerWhenShown(win, panel, rect) {
+  /** Once its size is known, moves the panel to the middle of the window. */
+  centerWhenShown(win, panel) {
     const onShown = () => {
       panel.removeEventListener("popuphidden", onHidden);
       const box = panel.getOuterScreenRect();
-      const top = Math.round(win.mozInnerScreenY + rect.top + Math.max(0, (rect.height - box.height) / 2));
-      if (Math.abs(box.top - top) > 1) {
-        panel.moveTo(Math.round(box.left), top);
+      const left = Math.round(win.mozInnerScreenX + Math.max(0, (win.innerWidth - box.width) / 2));
+      const top = Math.round(win.mozInnerScreenY + Math.max(0, (win.innerHeight - box.height) / 2));
+      if (Math.abs(box.top - top) > 1 || Math.abs(box.left - left) > 1) {
+        panel.moveTo(left, top);
       }
     };
     const onHidden = () => panel.removeEventListener("popupshown", onShown, { capture: true });
     // Capture: before a drag handle records where it opened.
     panel.addEventListener("popupshown", onShown, { once: true, capture: true });
     panel.addEventListener("popuphidden", onHidden, { once: true });
+  },
+
+  // W16-12: when a centred prompt closes, focus goes back to the page, not
+  // to the sidebar (which a focused toolbox keeps open in compact mode).
+  keepFocusOutOfSidebar(win, panel) {
+    panel.addEventListener("popuphidden", () => {
+      win.setTimeout(() => {
+        const active = win.document.activeElement;
+        const toolbox = win.gNavToolbox;
+        if (toolbox && active && toolbox.contains(active) && !win.gURLBar?.focused) {
+          win.gBrowser?.selectedBrowser?.focus();
+        }
+      }, 0);
+    }, { once: true });
   },
 
   /**

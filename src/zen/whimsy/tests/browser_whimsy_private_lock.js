@@ -98,15 +98,18 @@ async function atSizes(fn) {
   }
 }
 
+// W16-12: centred on the whole window, the sidebar included.
 async function assertCentred(panel, what) {
-  const area = WhimsySurface.pageArea(window).getBoundingClientRect();
   const gaps = () => {
-    const box = panel.getBoundingClientRect();
-    return { start: box.left - area.left, end: area.right - box.right, top: box.top - area.top, bottom: area.bottom - box.bottom };
+    const box = panel.getOuterScreenRect();
+    const left = box.left - window.mozInnerScreenX;
+    const top = box.top - window.mozInnerScreenY;
+    return { start: left, end: window.innerWidth - left - box.width, top, bottom: window.innerHeight - top - box.height };
   };
-  await TestUtils.waitForCondition(() => Math.abs(gaps().top - gaps().bottom) < 3, `${what}: settles in the middle`).catch(() => {});
+  await TestUtils.waitForCondition(() => Math.abs(gaps().top - gaps().bottom) < 3 && Math.abs(gaps().start - gaps().end) < 3,
+    `${what}: settles in the middle`).catch(() => {});
   const g = gaps();
-  Assert.less(Math.abs(g.start - g.end), 3, `${what}: centred horizontally on the page, the side gaps match`);
+  Assert.less(Math.abs(g.start - g.end), 3, `${what}: centred horizontally on the window, the side gaps match (${Math.round(g.start)} / ${Math.round(g.end)})`);
   Assert.less(Math.abs(g.top - g.bottom), 3, `${what}: centred vertically, the top and bottom gaps match (${Math.round(g.top)} / ${Math.round(g.bottom)})`);
 }
 
