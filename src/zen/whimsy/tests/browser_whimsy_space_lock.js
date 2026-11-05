@@ -247,3 +247,41 @@ add_task(async function test_context_menu_labels() {
   ok(!item.hidden, "Offered for the active (unlocked) space");
   is(document.l10n.getAttributes(item).id, "whimsy-lock-space", "Offers to lock it");
 });
+
+add_task(async function test_lock_badge_sits_on_the_icon_inside_the_button() {
+  answer = true;
+  ok(await WhimsySpaceLock.toggleLocked(window, secondSpace.uuid), "Locked");
+  const strip = document.getElementById("zen-workspaces-button");
+  const button = strip.querySelector(`toolbarbutton[zen-workspace-id="${secondSpace.uuid}"]`);
+  await TestUtils.waitForCondition(() => button.hasAttribute("whimsy-locked-space"), "Badge attribute set");
+  const hadOverflow = strip.hasAttribute("icons-overflow");
+  strip.removeAttribute("icons-overflow");
+  try {
+    const badge = getComputedStyle(button, "::after");
+    const top = parseFloat(badge.insetBlockStart);
+    const start = parseFloat(badge.insetInlineStart);
+    const size = parseFloat(badge.width);
+    const box = button.getBoundingClientRect();
+    ok(top >= 0 && top + size <= box.height, `Badge is inside the button vertically (${top}+${size} <= ${box.height})`);
+    ok(start >= 0 && start + size <= box.width, `...and horizontally (${start}+${size} <= ${box.width})`);
+    const icon = button.querySelector(".zen-workspace-icon");
+    const iconBox = icon.getBoundingClientRect();
+    const left = box.left + start;
+    const topEdge = box.top + top;
+    ok(
+      left < iconBox.right && left + size > iconBox.left && topEdge < iconBox.bottom && topEdge + size > iconBox.top,
+      "The badge overlaps the space icon"
+    );
+    isnot(badge.backgroundImage, "none", "The badge draws its lock");
+
+    strip.setAttribute("icons-overflow", "true");
+    is(getComputedStyle(button, "::after").backgroundImage, "none", "While the strip overflows, Zen's dot owns the ::after");
+  } finally {
+    if (hadOverflow) {
+      strip.setAttribute("icons-overflow", "true");
+    } else {
+      strip.removeAttribute("icons-overflow");
+    }
+  }
+  ok(await WhimsySpaceLock.toggleLocked(window, secondSpace.uuid), "Unlocked");
+});

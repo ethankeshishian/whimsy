@@ -943,25 +943,34 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   text-wrap: pretty;
 }
 
-/* batch9: spaces — a small lock glyph on a locked space's switcher icon. */
-#zen-workspaces-button toolbarbutton[whimsy-locked-space] {
+/* batch9: spaces — a lock badge over the bottom-right corner of a locked
+   (or locked private) space's switcher icon. Anchored to the icon's centre so
+   it overlaps the icon and stays inside the button (the expanded sidebar
+   clips the button); not drawn while the strip overflows, where Zen's compact
+   dot owns the same ::after. */
+#zen-workspaces-button:not([icons-overflow]) toolbarbutton:is([whimsy-locked-space], [whimsy-private-space-locked]) {
   position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: calc(50% + 3px);
+    inset-block-start: calc(50% + 3px);
+    width: 9px;
+    height: 9px;
+    border-radius: 100%;
+    background-color: light-dark(rgb(28, 28, 30), rgb(242, 242, 247));
+    background-image: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg");
+    background-size: 7px;
+    background-position: center;
+    background-repeat: no-repeat;
+    -moz-context-properties: fill, fill-opacity;
+    fill: light-dark(white, black);
+    fill-opacity: 1;
+  }
 }
-#zen-workspaces-button toolbarbutton[whimsy-locked-space]::after {
-  content: "";
-  position: absolute;
-  inset-inline-end: -2px;
-  inset-block-end: -2px;
-  width: 9px;
-  height: 9px;
-  border-radius: 100%;
-  background: color-mix(in srgb, currentColor 70%, transparent);
-  -moz-context-properties: fill;
-  fill: currentColor;
-  background-image: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg");
-  background-size: 7px;
-  background-position: center;
-  background-repeat: no-repeat;
+#zen-workspaces-button:not([icons-overflow]) toolbarbutton[whimsy-private-space-locked]::after {
+  background-color: var(--zen-primary-color, light-dark(rgb(28, 28, 30), rgb(242, 242, 247)));
+  fill: white;
 }
 
 /* batch9p: Scratch and private tabs (WhimsyPrivate.sys.mjs). A private tab
@@ -7519,22 +7528,6 @@ panel.whimsy-quick-note {
 }
 .tabbrowser-tab[whimsy-private-collapsed] {
   display: none !important;
-}
-#zen-workspaces-button toolbarbutton[whimsy-private-space-locked] {
-  position: relative;
-  &::after {
-    content: "";
-    position: absolute;
-    inset-inline-end: -2px;
-    inset-block-end: -2px;
-    width: 9px;
-    height: 9px;
-    border-radius: 100%;
-    background: url("chrome://browser/skin/zen-icons/selectable/lock-closed.svg") center / 7px no-repeat,
-      color-mix(in srgb, var(--zen-primary-color, currentColor) 70%, transparent);
-    -moz-context-properties: fill;
-    fill: white;
-  }
 }
 /* The address bar reads "Locked" while a locked surface is selected. */
 :root[whimsy-private-selected-locked] #urlbar {
