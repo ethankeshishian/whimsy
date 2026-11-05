@@ -145,6 +145,30 @@ add_task(async function test_command_bar_move_to_space() {
   ok(moveAction.whimsyKeywords.includes("Move"), "Has Move keyword");
   ok(moveAction.whimsyKeywords.includes("Move to"), "Has Move to keyword");
 
+  ok(moveAction.whimsyKeywords.includes("Move to Command Bar Target Space"), "Keywords include the space name");
+
+  const { ZenUrlbarProviderGlobalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBActionsProvider.sys.mjs");
+  const search = async text => {
+    const results = [];
+    await new ZenUrlbarProviderGlobalActions().startQuery(
+      { trimmedLowerCaseSearchString: text, searchString: text, searchMode: null },
+      (_provider, result) => results.push(result)
+    );
+    return results.filter(r => r.commandId?.startsWith("whimsy:move-to-space-"));
+  };
+  const narrowed = await search("move to command bar t");
+  is(narrowed.length, 1, "Typing the space name narrows to one Move to action");
+  is(narrowed[0]?.commandId, moveAction.commandId, "...the one for that space");
+
+  const stored = gZenWorkspaces.getWorkspaces().find(w => w.uuid == targetSpace.uuid);
+  stored.name = "Renamed Target";
+  await gZenWorkspaces.saveWorkspace(stored);
+  is(moveAction.extraPayload.prettyName, "Renamed Target", "The space is renamed");
+  ok(moveAction.whimsyKeywords.includes("Move to Renamed Target"), "Keywords follow the new name");
+  ok(!moveAction.whimsyKeywords.includes("Move to Command Bar Target Space"), "...and drop the old one");
+  const renamed = await search("move to renamed");
+  is(renamed.length, 1, "The new name narrows too");
+
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?cmd-bar-move");
   ok(moveAction.isAvailable(window), "Action is available for foreground web tab");
 

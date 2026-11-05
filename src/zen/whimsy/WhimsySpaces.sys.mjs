@@ -199,7 +199,11 @@ export const WhimsySpaces = {
               ?.style.getPropertyValue("--zen-primary-color");
           },
         },
-        whimsyKeywords: lazy.WhimsyCommands.keywords("whimsy-keywords-move-to-space"),
+        get whimsyKeywords() {
+          const base = lazy.WhimsyCommands.keywords("whimsy-keywords-move-to-space");
+          const name = this.extraPayload.prettyName;
+          return name ? [...base, ...base.map(keyword => `${keyword} ${name}`)] : base;
+        },
         commandId,
         icon: "chrome://browser/skin/zen-icons/arrow-right.svg",
         isAvailable: w => {
