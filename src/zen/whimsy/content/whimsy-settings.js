@@ -11,6 +11,7 @@
 
 var gWhimsySettings = {
   PANE: "paneZenLooks",
+  VPN_RULES_PANE: "paneVpnSiteRules",
 
   init() {
     document.addEventListener("paneshown", event => {
@@ -22,6 +23,8 @@ var gWhimsySettings = {
         this.insertTabsGroup();
       } else if (["paneAbout", "paneGeneral"].includes(event.detail.category)) {
         this.insertAboutGroup(event.detail.category);
+      } else if (event.detail.category == this.VPN_RULES_PANE) {
+        this.initVpnSiteRules();
       }
     });
     // batch7: hardware video decoding toggle, in its own listener so it runs
@@ -503,6 +506,94 @@ var gWhimsySettings = {
     update();
   },
 
+  // W15: Firefox's "Manage website rules" page (vpnSiteRules) ships with no
+  // items (bug 2068284), and siteInclusions (on in Whimsy) hides the old
+  // exceptions list, so this fills the page: "Always use VPN" (ALLOW) and
+  // "Never use VPN" (DENY) from the ipp-vpn permissions, each row removable.
+  initVpnSiteRules() {
+    const pane = document.querySelector(`setting-pane[data-category="${this.VPN_RULES_PANE}"]`);
+    if (!pane || pane.querySelector("#whimsyVpnSiteRules")) {
+      return;
+    }
+    const kinds = [
+      { key: "included", capability: Ci.nsIPermissionManager.ALLOW_ACTION },
+      { key: "excluded", capability: Ci.nsIPermissionManager.DENY_ACTION },
+    ];
+    const host = document.createElement("div");
+    host.id = "whimsyVpnSiteRules";
+    host.className = "whimsy-vpn-rules";
+    const intro = document.createElement("p");
+    intro.className = "description-deemphasized";
+    document.l10n.setAttributes(intro, "whimsy-vpn-rules-description");
+    host.append(intro);
+    const lists = new Map();
+    for (const { key } of kinds) {
+      const card = document.createElement("moz-card");
+      const fieldset = document.createElement("moz-fieldset");
+      fieldset.setAttribute("headinglevel", "3");
+      document.l10n.setAttributes(fieldset, `whimsy-vpn-rules-${key}-header`);
+      const list = document.createElement("div");
+      list.id = `whimsyVpnRules-${key}`;
+      fieldset.append(list);
+      card.append(fieldset);
+      host.append(card);
+      lists.set(key, list);
+    }
+    const render = () => {
+      const perms = Services.perms.getAllByTypes(["ipp-vpn"]);
+      for (const { key, capability } of kinds) {
+        const sites = perms
+          .filter(perm => perm.capability == capability)
+          .map(perm => ({ perm, name: perm.principal.host || perm.principal.originNoSuffix }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        const rows = sites.map(({ perm, name }) => {
+          const item = document.createElement("moz-box-item");
+          item.className = "whimsy-vpn-rule";
+          item.setAttribute("label", name);
+          item.dataset.site = name;
+          const remove = document.createElement("moz-button");
+          remove.setAttribute("type", "ghost");
+          remove.setAttribute("iconsrc", "chrome://global/skin/icons/delete.svg");
+          remove.setAttribute("slot", "actions");
+          remove.className = "whimsy-vpn-rule-remove";
+          document.l10n.setAttributes(remove, "whimsy-vpn-rules-remove", { site: name });
+          remove.addEventListener("click", () => Services.perms.removeFromPrincipal(perm.principal, "ipp-vpn"));
+          item.append(remove);
+          return item;
+        });
+        if (!rows.length) {
+          const empty = document.createElement("p");
+          empty.className = "description-deemphasized whimsy-vpn-rules-empty";
+          document.l10n.setAttributes(empty, `whimsy-vpn-rules-${key}-empty`);
+          lists.get(key).replaceChildren(empty);
+          continue;
+        }
+        const group = document.createElement("moz-box-group");
+        group.append(...rows);
+        lists.get(key).replaceChildren(group);
+      }
+    };
+    const observer = {
+      observe(subject, topic) {
+        if (topic == "perm-changed" && subject?.QueryInterface(Ci.nsIPermission).type == "ipp-vpn") {
+          render();
+        }
+      },
+    };
+    Services.obs.addObserver(observer, "perm-changed");
+    window.addEventListener("unload", () => Services.obs.removeObserver(observer, "perm-changed"), {
+      once: true,
+    });
+    render();
+    const group = pane.querySelector('setting-group[groupid="vpnSiteRules"]');
+    if (group) {
+      group.hidden = true;
+      group.after(host);
+    } else {
+      (pane.querySelector("section") ?? pane).append(host);
+    }
+  },
+
   // tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox IS the
   // real master switch (browser.ipProtection.enabled); the status line and
   // "Manage" button read/drive Firefox's own service and toolbar button, so
@@ -511,8 +602,8 @@ var gWhimsySettings = {
     this.initPrefCheckbox("whimsyVpnEnabled", "browser.ipProtection.enabled");
     // wave9/designfix (M7): one VPN section. Firefox's own VPN group has
     // no on/off switch, only what follows from it (start automatically,
-    // site exceptions, data used), so it stays, right under Whimsy's card,
-    // which holds the switch, the status and Manage.
+    // the website rules page, data used), so it stays, right under
+    // Whimsy's card, which holds the switch, the status and Manage.
     const card = document.getElementById("whimsyVpnGroup");
     const firefoxVpn = document.querySelector('setting-group[groupid="ipprotection"]');
     if (card && firefoxVpn && card.nextElementSibling != firefoxVpn) {

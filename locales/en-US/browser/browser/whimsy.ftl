@@ -1211,6 +1211,18 @@ whimsy-vpn-call-detail = Calls can’t connect through Firefox IP Protection. Th
 whimsy-vpn-call-pause = Pause VPN
 whimsy-vpn-call-keep = Keep On
 whimsy-vpn-call-paused = VPN paused on { $host } until the call ends
+# W15: Settings > Privacy > Manage website rules.
+whimsy-vpn-rules-description = Set rules for sites that need extra privacy or VPN turned off.
+whimsy-vpn-rules-included-header =
+    .label = Always use VPN
+whimsy-vpn-rules-included-empty = No sites yet. Turn the VPN on for a site from the VPN panel and it shows up here.
+whimsy-vpn-rules-excluded-header =
+    .label = Never use VPN
+whimsy-vpn-rules-excluded-empty = No sites yet. Turn the VPN off for a site from the VPN panel and it shows up here.
+whimsy-vpn-rules-remove =
+    .title = Remove { $site }
+    .aria-label = Remove { $site }
+
 ## B: the row in This Site (the site panel).
 whimsy-vpn-site-name = Firefox IP Protection
 whimsy-vpn-site-setup = Sign in with a Mozilla account to turn it on
