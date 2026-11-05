@@ -32,6 +32,8 @@
 //            choice (its value or .label), usually the menuitem's own id.
 //   getValue/setValue  For a choice that isn't one pref's value (Settings →
 //            Home and startup: a URL, or two prefs, behind each choice).
+//   picker   The choices are listed by a popup Settings builds when opened,
+//            not by elements in the page.
 //   partial  `choices` names only some of Settings' choices (the rest are
 //            the fonts installed on this Mac).
 //   range    { min, max, step }: Increase and Decrease commands.
@@ -139,7 +141,7 @@ export const SETTINGS = [
     feature: ["cookie-banners"] },
   { name: "ai", setting: "whimsyAIEnable", pref: "whimsy.ai.enabled", feature: ["ai-kill-switch"] },
   { name: "ai-provider", setting: "whimsyAIUse", pref: "whimsy.ai.provider", feature: ["ai-providers"],
-    when: aiAllowed,
+    when: aiAllowed, picker: true,
     choices: [
       { value: "apple", l10nId: "whimsy-ai-name-apple" },
       { value: "claude", l10nId: "whimsy-ai-name-claude" },
@@ -147,6 +149,10 @@ export const SETTINGS = [
       { value: "gemini", l10nId: "whimsy-ai-name-gemini" },
       { value: "ollama", l10nId: "whimsy-ai-name-ollama" },
     ] },
+  { name: "ai-plan-fallback", setting: "whimsyAIPlanFallback", feature: ["ai-providers"],
+    exempt: "shown in Settings only once a plan is connected" },
+  { name: "ai-connect-methods", setting: "whimsyAISheetMethods", feature: ["ai-providers"],
+    exempt: "the sign-in options inside the Connect sheet" },
   { name: "ai-claude-key", setting: "whimsyAIKey", feature: ["ai-providers"], exempt: "an API key, typed or pasted in Settings" },
   { name: "ai-ollama-endpoint", setting: "whimsyAIOllamaEndpoint", feature: ["ai-providers"],
     exempt: "an address, typed in Settings" },

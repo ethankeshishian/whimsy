@@ -166,7 +166,7 @@ add_task(async function test_every_control_has_an_entry() {
       if (feature) {
         ok(entry.feature?.includes(feature), `${entry.name}: goes with the "${feature}" switch, like its row`);
       }
-      if (entry.choices) {
+      if (entry.choices && !entry.picker) {
         const offered = domChoices(el);
         const listed = entry.choices.map(choice => String(choice.value));
         for (const value of listed) {
