@@ -39,16 +39,19 @@ async function openRules() {
   return { tab, doc };
 }
 
-// Opening the privacy pane makes Firefox set this.
-const MASK = "browser.ipProtection.onboardingMessageMask";
-const maskBefore = Services.prefs.prefHasUserValue(MASK) ? Services.prefs.getIntPref(MASK) : null;
+// Opening the privacy pane makes Firefox set some prefs (the VPN's
+// onboarding mask, the clear-on-shutdown migration); put them back.
+const WATCHED = ["browser.ipProtection.", "privacy."];
+const userPrefs = () =>
+  WATCHED.flatMap(root => Services.prefs.getChildList(root)).filter(name => Services.prefs.prefHasUserValue(name));
+const before = new Map(userPrefs().map(name => [name, Services.prefs.getStringPref(name, null)]));
 
 registerCleanupFunction(() => {
   clear();
-  if (maskBefore === null) {
-    Services.prefs.clearUserPref(MASK);
-  } else {
-    Services.prefs.setIntPref(MASK, maskBefore);
+  for (const name of userPrefs()) {
+    if (!before.has(name)) {
+      Services.prefs.clearUserPref(name);
+    }
   }
 });
 
@@ -61,20 +64,18 @@ add_task(async function test_lists_rules_under_sections_and_removes() {
   Assert.deepEqual(sites(doc, "excluded"), ["excluded-w15.example.com"], "Excluded site under Never use VPN");
   ok(!doc.querySelector('setting-group[groupid="vpnSiteRules"]:not([hidden])'), "No blank Firefox card");
 
-  // 3: a rule added while the page is open shows without reopening.
   IPPPermissionRules.setRule(principal(LATE), IPPPrincipalRules.INCLUDED);
   await TestUtils.waitForCondition(
     () => sites(doc, "included").includes("late-w15.example.com"),
-    "Rule added while open appears"
+    "A rule added while the page is open appears"
   );
 
-  // 2: remove deletes the permission and the row goes.
   doc.querySelector('#whimsyVpnRules-included [data-site="included-w15.example.com"] .whimsy-vpn-rule-remove').click();
   await TestUtils.waitForCondition(
     () => !sites(doc, "included").includes("included-w15.example.com"),
-    "Row disappears"
+    "Remove: the row disappears"
   );
-  is(IPPPermissionRules.getRule(principal(IN)), IPPPrincipalRules.DEFAULT, "The permission is gone");
+  is(IPPPermissionRules.getRule(principal(IN)), IPPPrincipalRules.DEFAULT, "...and the permission is gone");
   is(IPPPermissionRules.getRule(principal(OUT)), IPPPrincipalRules.EXCLUDED, "Other rules are untouched");
   BrowserTestUtils.removeTab(tab);
 });
