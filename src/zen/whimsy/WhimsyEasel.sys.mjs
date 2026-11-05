@@ -390,7 +390,6 @@ try {
 export const gWhimsyEaselClipboard = { payload: null, text: null };
 
 let actorRegistered = false;
-let screenshotsHooked = false;
 
 export const WhimsyEasel = {
   get enabled() {
@@ -399,7 +398,6 @@ export const WhimsyEasel = {
 
   initWindow(win) {
     this.registerActor();
-    this.hookScreenshots();
     this.initExtras(win);
     const { WhimsyShortcuts } = lazy;
     const mac = Services.appinfo.OS == "Darwin";
@@ -427,43 +425,9 @@ export const WhimsyEasel = {
     ChromeUtils.registerWindowActor("WhimsyEasel", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyEaselParent.sys.mjs" },
       child: { esModuleURI: "resource:///modules/whimsy/WhimsyEaselChild.sys.mjs" },
-      // The child only acts on a message from the parent, after the capture
-      // overlay opened in that page; it never reads the page itself.
+      // The child only answers the parent's question for the page's size.
       safeForUntrustedWebProcess: true,
     });
-  },
-
-  // Firefox Screenshots' region toolbar (Cancel, Copy, Download) lives in
-  // the page; once Firefox shows the overlay, ask the page's Whimsy child to
-  // add "Add to Easel" beside Copy.
-  hookScreenshots() {
-    if (screenshotsHooked) {
-      return;
-    }
-    screenshotsHooked = true;
-    const utils = lazy.ScreenshotsUtils;
-    const original = utils.showPanelAndOverlay;
-    const easel = this;
-    utils.showPanelAndOverlay = function (browser, ...args) {
-      const result = original.call(this, browser, ...args);
-      try {
-        easel.offerCaptureButton(browser);
-      } catch (e) {
-        console.error("Whimsy: easel capture button", e);
-      }
-      return result;
-    };
-  },
-
-  offerCaptureButton(browser) {
-    if (!this.enabled || !browser?.browsingContext || lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
-      return;
-    }
-    const state = lazy.ScreenshotsUtils.browserToScreenshotsState?.get(browser);
-    if (state?.mode && state.mode != "screenshots") {
-      return;
-    }
-    browser.browsingContext.currentWindowGlobal?.getActor("WhimsyEasel").sendAsyncMessage("WhimsyEasel:OfferButton");
   },
 
   // -- profiles (wave9) ---------------------------------------------------
@@ -704,17 +668,25 @@ export const WhimsyEasel = {
       console.error("Whimsy: easel capture", e);
       return { error: "whimsy-capture-failed-toast" };
     }
+    return this.captureItem(browser, blob, { crop, viewportWidth, viewportHeight });
+  },
+
+  // The easel item for `blob`, an image of `browser`'s page. `crop`: the
+  // page region it shows (null: not the page as it is, so it never goes
+  // live); `size`: its CSS size, when it isn't the crop's.
+  captureItem(browser, blob, { crop = null, viewportWidth = 1280, viewportHeight = 800, size = null } = {}) {
     const tab = browser.documentGlobal?.gBrowser?.getTabForBrowser(browser);
     const uri = browser.currentURI;
     const web = uri?.schemeIs("https") || uri?.schemeIs("http");
-    const w = Math.min(CAPTURE_MAX_WIDTH, crop.w);
+    const natural = size ?? { w: crop?.w ?? 1, h: crop?.h ?? 1 };
+    const w = Math.min(CAPTURE_MAX_WIDTH, Math.round(natural.w));
     return {
       blob,
       item: {
         type: "capture",
         w,
-        h: Math.round((crop.h * w) / crop.w),
-        url: web ? uri.spec : null,
+        h: Math.round((natural.h * w) / natural.w),
+        url: web && crop ? uri.spec : null,
         title: tab?.label || browser.contentTitle || uri?.host || "",
         userContextId: tab?.userContextId || 0,
         // wave9: the profile the capture came from; it only goes on that
@@ -726,6 +698,35 @@ export const WhimsyEasel = {
         live: false,
       },
     };
+  },
+
+  /**
+   * W15: Add to Easel from the screenshot viewer: `blob` is the image it
+   * shows; `region` the page region it was drawn from (null once edited).
+   */
+  async addImage(browser, blob, { region = null, anchor = null } = {}) {
+    const win = browser?.documentGlobal;
+    if (!win?.gBrowser || !this.enabled || !blob) {
+      return null;
+    }
+    if (!this.canCapture(browser)) {
+      win.gZenUIManager?.showToast?.(lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) ?
+        "whimsy-easel-capture-private" : "whimsy-capture-failed-toast");
+      return null;
+    }
+    const bitmap = await win.createImageBitmap(blob);
+    const ratio = region?.devicePixelRatio || win.devicePixelRatio || 1;
+    const size = { w: bitmap.width / ratio, h: bitmap.height / ratio };
+    bitmap.close();
+    const crop = region ? { x: Math.round(region.left), y: Math.round(region.top), w: Math.round(region.width), h: Math.round(region.height) } : null;
+    const capture = this.captureItem(browser, blob, {
+      crop,
+      size,
+      viewportWidth: browser.clientWidth || 1280,
+      viewportHeight: browser.clientHeight || 800,
+    });
+    return this.showPicker(win, browser, anchor, easelId => this.addCaptureTo(win, easelId, capture),
+      capture.item.profileKey, { capture });
   },
 
   // Saves a capture into an easel ("new" makes one). Returns the easel id.
@@ -761,24 +762,6 @@ export const WhimsyEasel = {
 
   async untitled(win) {
     return (await win.document.l10n.formatValue("whimsy-easel-untitled")) || "Untitled Easel";
-  },
-
-  // "Add to Easel" was clicked in a page's capture toolbar.
-  async onCaptureRequest(browser, data, anchor) {
-    const win = browser?.documentGlobal;
-    if (!win?.gBrowser || !this.enabled) {
-      return;
-    }
-    const utils = lazy.ScreenshotsUtils;
-    utils.closePanel?.(browser);
-    const capture = await this.captureRegion(browser, data);
-    utils.exit?.(browser);
-    if (capture.error) {
-      win.gZenUIManager?.showToast?.(capture.error);
-      return;
-    }
-    await this.showPicker(win, browser, anchor, easelId => this.addCaptureTo(win, easelId, capture),
-      capture.item.profileKey, { capture });
   },
 
   // W10-24: "Add to Easel" is a WhimsySurface (it was a native menu): the

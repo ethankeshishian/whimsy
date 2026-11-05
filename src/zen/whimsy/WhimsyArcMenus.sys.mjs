@@ -126,11 +126,20 @@ export const WhimsyArcMenus = {
     return tabs.length;
   },
 
-  openLibrarySection(win, section) {
+  // `keepOpen`: already open on `section` stays open (Zen's toggle closes it).
+  openLibrarySection(win, section, { keepOpen = false } = {}) {
     const ZenLibrary = win.customElements.get("zen-library");
     const lib = win.document.querySelector("zen-library");
     if (!ZenLibrary?.toggle || (lib?.zenLibrarySections && !(section in lib.zenLibrarySections))) {
       return false;
+    }
+    if (keepOpen && ZenLibrary.animateProgress) {
+      const instance = ZenLibrary.getInstance?.() ?? lib;
+      if (instance && Services.prefs.getBoolPref("zen.library.enabled", true)) {
+        instance.activeTab = section;
+        ZenLibrary.animateProgress(1);
+      }
+      return true;
     }
     ZenLibrary.toggle(section);
     return true;

@@ -2,16 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// batch10: Screenshot to sidebar (Arc's Easel, minus the canvas). Firefox
-// Screenshots (browser/components/screenshots/ScreenshotsUtils.sys.mjs) only
-// ever puts a capture on the clipboard, where the next copy overwrites it.
-// This wraps ScreenshotsUtils.copyScreenshot - the one method every capture
-// path (region, element, full page; the overlay's own Copy button and
-// batch5's full-page-copy command alike) already funnels through before
-// setting the clipboard - so every capture also lands as a PNG file the
-// user can drag into a doc, Slack or a folder later. The capture folder
-// itself is the only store; nothing is indexed separately.
-
+// batch10: Screenshot to sidebar (Arc's Easel, minus the canvas): the
+// Library's Screenshots, PNG files in one folder. W15: a Screenshots copy
+// no longer saves; the viewer's Save and Close does (once), and Whimsy's
+// own copy-only captures (Cmd+Shift+1, Portrait, Year in Tabs) call
+// saveCapture themselves. The capture folder itself is the only store;
+// nothing is indexed separately.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(
@@ -20,7 +16,6 @@ ChromeUtils.defineESModuleGetters(
     BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
     FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
     PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-    ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   },
   { global: "current" }
 );
@@ -48,11 +43,8 @@ export function isPrivateCapture(browser) {
 }
 
 /**
- * Saves a capture into the Library's Screenshots. W10-43: Whimsy's own
- * captures (Cmd+Shift+1 full page, Capture in Portrait Mode) draw with
- * ScreenshotsUtils.createCanvas and copy themselves, so they never went
- * through copyScreenshot below and never reached the Library; they call
- * this too.
+ * Saves a capture into the Library's Screenshots, unless its page is
+ * private.
  *
  * @param {Blob} blob - the PNG
  * @param {Element} browser - the captured page's <browser>
@@ -65,11 +57,22 @@ export async function saveCapture(blob, browser) {
   if (isPrivateCapture(browser)) {
     return null;
   }
+  return writeCapture(blob);
+}
+
+/**
+ * Writes a new file into the Library's Screenshots (an image that's
+ * already there, edited: its Save Copy).
+ *
+ * @param {Blob} blob - the PNG
+ * @returns {Promise<string|null>} the saved file's path
+ */
+export async function writeCapture(blob) {
   try {
     const dir = capturesDir();
     await IOUtils.makeDirectory(dir, { ignoreExisting: true });
     const path = PathUtils.join(dir, filenameFor(new Date()));
-    await IOUtils.write(path, new Uint8Array(await blob.arrayBuffer()));
+    await IOUtils.write(path, new Uint8Array(await blob.arrayBuffer()), { mode: "create" });
     Services.obs.notifyObservers(null, SAVED_TOPIC, path);
     return path;
   } catch (e) {
@@ -78,17 +81,25 @@ export async function saveCapture(blob, browser) {
   }
 }
 
-let installed = false;
-function installCaptureHook() {
-  if (installed) {
-    return;
+/**
+ * Replaces a Library screenshot's image (the editor's Save).
+ *
+ * @param {string} path - a file in the captures folder
+ * @param {Blob} blob - the PNG
+ * @returns {Promise<boolean>}
+ */
+export async function overwriteCapture(path, blob) {
+  if (PathUtils.parent(path) != capturesDir() || !/\.png$/i.test(path)) {
+    return false;
   }
-  installed = true;
-  const original = lazy.ScreenshotsUtils.copyScreenshot;
-  lazy.ScreenshotsUtils.copyScreenshot = async function (blob, browser, eventName) {
-    await original.call(this, blob, browser, eventName);
-    await saveCapture(blob, browser);
-  };
+  try {
+    await IOUtils.write(path, new Uint8Array(await blob.arrayBuffer()));
+    Services.obs.notifyObservers(null, SAVED_TOPIC, path);
+    return true;
+  } catch (e) {
+    console.error("Whimsy: save capture", e);
+    return false;
+  }
 }
 
 /** @returns {nsIFile[]} Saved captures, newest first */
@@ -179,4 +190,3 @@ export async function copyCapture(path) {
   lazy.BrowserUtils.copyImageToClipboard(bytes.buffer);
 }
 
-installCaptureHook();

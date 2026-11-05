@@ -168,3 +168,37 @@ add_task(async function leaving_finale_removes_actions_from_keyboard_and_accessi
     await TestUtils.waitForCondition(() => !finale.hasAttribute("data-leaving"), "Outgoing paint is cleared after transition");
   });
 });
+
+// W15 (D3): copying a screenshot no longer saves by itself; the summary
+// card has no Save step, so its Copy still lands exactly one file in
+// Library → Screenshots.
+add_task(async function test_copy_card_saves_one_screenshot() {
+  const { listCaptures } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFilesSection.sys.mjs");
+  const PREF = "screenshots.browser.component.last-saved-method";
+  const had = Services.prefs.prefHasUserValue(PREF);
+  const value = had ? Services.prefs.getStringPref(PREF) : null;
+  await PlacesTestUtils.addVisits(SEEDED_URL);
+  const known = new Set(listCaptures().map(f => f.path));
+  const fresh = () => listCaptures().filter(f => !known.has(f.path));
+  try {
+    await withYear(async ({ doc, year }) => {
+      year.goTo(year.cardCount - 1);
+      year.skip();
+      const finale = doc.querySelector('.whimsy-year-slide[data-kind="finale"]');
+      await Promise.all(finale.getAnimations().map(a => a.finished.catch(() => {})));
+      doc.getElementById("whimsy-year-copy").click();
+      await TestUtils.waitForCondition(() => fresh().length, "Copy card saves the screenshot");
+      await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      is(fresh().length, 1, "…exactly once");
+    });
+  } finally {
+    for (const file of fresh()) {
+      await IOUtils.remove(file.path, { ignoreAbsent: true });
+    }
+    if (had) {
+      Services.prefs.setStringPref(PREF, value);
+    } else {
+      Services.prefs.clearUserPref(PREF);
+    }
+  }
+});

@@ -94,6 +94,8 @@
 # wave5: redact toggle in the Screenshots panel
         content/browser/whimsy/whimsy-redact.css                                 (../../zen/whimsy/content/whimsy-redact.css)
         content/browser/whimsy/whimsy-redact.svg                                 (../../zen/whimsy/content/whimsy-redact.svg)
+# W15: the screenshot viewer's buttons (inside Firefox's preview dialog)
+        content/browser/whimsy/whimsy-capture-viewer.css                         (../../zen/whimsy/content/whimsy-capture-viewer.css)
 # W10-59: the Portrait tile in the Screenshots bar
         content/browser/whimsy/whimsy-portrait.svg                               (../../zen/whimsy/content/whimsy-portrait.svg)
         content/browser/whimsy/whimsy-form-badge.svg                               (../../zen/whimsy/content/whimsy-form-badge.svg)

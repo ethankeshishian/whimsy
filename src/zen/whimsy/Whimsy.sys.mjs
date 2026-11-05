@@ -874,9 +874,9 @@ export const Whimsy = {
     // Portrait tile, and the guard that keeps clicks from the page while
     // Screenshots is open.
     run("redact", () => lazy.WhimsyRedact.initWindow(win));
-    // W13 F04: after a Screenshots copy, a card with Copied · Save · Redact
-    // · Edit, and the editor behind Redact and Edit. Checks its switch on
-    // every capture.
+    // W13 F04 / W15: one screenshot viewer (Firefox's preview, with Add to
+    // Easel, Edit and Save and Close) for every capture, and its editor.
+    // Checks its switch on every capture.
     run("capture-card", () => lazy.WhimsyCaptureCard.initWindow(win));
     // wave5/look: a look per space. After Zen's spaces are ready (Mini
     // has none of its own and follows its destination's); it checks its

@@ -91,7 +91,14 @@ add_task(async function test_portrait_tile_in_the_bar() {
   tile.click();
   await ready;
   const state = ScreenshotsUtils.browserToScreenshotsState.get(browser);
-  const img = state.previewDialog._frame.contentDocument.querySelector("screenshots-preview").previewImg;
+  const preview = state.previewDialog._frame.contentDocument.querySelector("screenshots-preview");
+  const img = preview.previewImg;
+  // W15: the same viewer as Visible, Full Page and Capture.
+  const viewer = await TestUtils.waitForCondition(() => preview.renderRoot?.getElementById("whimsy-capture-save-close") && preview.renderRoot,
+    "The screenshot viewer's buttons");
+  Assert.deepEqual([...viewer.querySelector(".preview-buttons").children].filter(b => b.getBoundingClientRect().width > 0).map(b => b.id),
+    ["retry", "whimsy-capture-easel", "copy", "download", "whimsy-capture-edit", "whimsy-capture-save-close", "cancel"],
+    "Retry · Add to Easel · Copy · Download · Edit · Save and Close · Cancel");
   await TestUtils.waitForCondition(() => img.complete && img.naturalWidth, "The preview shows the shot");
   Assert.lessOrEqual(Math.abs(img.naturalWidth / img.naturalHeight - 9 / 16), 0.01, "A 9:16 phone shot");
   ok(ScreenshotsUtils.panelForBrowser(browser).hidden, "The bar is out of the way");

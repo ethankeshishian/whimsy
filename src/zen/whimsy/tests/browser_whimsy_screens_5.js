@@ -935,3 +935,55 @@ add_task(async function private_space_empty_state() {
 });
 
 // wave10's surface shots are in browser_whimsy_screens_4.js.
+
+// W15: the screenshot viewer (Firefox's preview): Retry · Add to Easel ·
+// Copy · Download · Edit · Save and Close · Cancel, in light and dark.
+add_task(async function w15_screenshot_viewer() {
+  const { ScreenshotsUtils } = ChromeUtils.importESModule("moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs");
+  const SAVED = "screenshots.browser.component.last-screenshot-method";
+  const had = Services.prefs.prefHasUserValue(SAVED);
+  const value = had ? Services.prefs.getStringPref(SAVED) : null;
+  await SpecialPowers.pushPrefEnv({ set: [["screenshots.browser.component.enabled", true], ["whimsy.capture.redact", false]] });
+  let tab = null;
+  try {
+    for (const dark of [0, 1]) {
+      await setScheme(dark);
+      tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+      const browser = tab.linkedBrowser;
+      await ScreenshotsUtils.start(browser, "Shortcut");
+      const visible = await TestUtils.waitForCondition(() => !ScreenshotsUtils.panelForBrowser(browser)?.hidden &&
+        ScreenshotsUtils.panelForBrowser(browser)?.querySelector("screenshots-buttons")?.shadowRoot?.getElementById("visible-page"),
+      "The Screenshots bar");
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(browser, [], () => !!content.windowGlobalChild.getExistingActor("ScreenshotsComponent")?.overlay?.initialized),
+        "The overlay");
+      EventUtils.synthesizeMouseAtCenter(visible, {}, window);
+      const dialog = await TestUtils.waitForCondition(() => ScreenshotsUtils.browserToScreenshotsState.get(browser)?.previewDialog,
+        "The viewer");
+      await dialog._dialogReady;
+      const preview = await TestUtils.waitForCondition(() => dialog._frame.contentDocument.querySelector("screenshots-preview"));
+      await TestUtils.waitForCondition(() => preview.renderRoot?.getElementById("whimsy-capture-save-close"), "Whimsy's buttons");
+      await TestUtils.waitForCondition(() => preview.previewImg.complete && preview.previewImg.naturalWidth);
+      await dialog._frame.contentDocument.l10n.translateRoots();
+      await new Promise(resolve => setTimeout(resolve, 600)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      ok(preview.renderRoot.getElementById("whimsy-capture-save-close").textContent.trim() ||
+        preview.renderRoot.getElementById("whimsy-capture-save-close").label, "Save and Close has its label");
+      await shot(`w15-screenshot-viewer-${dark ? "dark" : "light"}`);
+      ScreenshotsUtils.exit(browser);
+      await TestUtils.waitForCondition(() => !ScreenshotsUtils.browserToScreenshotsState.has(browser) &&
+        ScreenshotsUtils.panelForBrowser(browser)?.hidden !== false, "Screenshots closed");
+      BrowserTestUtils.removeTab(tab);
+      tab = null;
+    }
+  } finally {
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await SpecialPowers.popPrefEnv();
+    if (had) {
+      Services.prefs.setStringPref(SAVED, value);
+    } else {
+      Services.prefs.clearUserPref(SAVED);
+    }
+  }
+});

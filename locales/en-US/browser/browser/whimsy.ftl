@@ -717,6 +717,9 @@ whimsy-library-files-title = Screenshots
 whimsy-library-files-empty = No screenshots yet
 whimsy-library-files-search-placeholder =
     .placeholder = Search screenshots…
+whimsy-library-files-edit =
+    .label = Edit
+    .tooltiptext = Edit
 whimsy-library-files-delete =
     .label = Delete
     .tooltiptext = Delete
@@ -2108,54 +2111,37 @@ whimsy-redact-style-black = Black Out
 whimsy-redact-style-blur = Blur
 # W10-57: the command (command bar, Settings → Keyboard Shortcuts).
 whimsy-action-capture-redact = Capture and Redact…
-## W13 F04 (wave12 F04, option A): the card after a capture, and its editor.
-whimsy-capture-card =
-    .aria-label = Screenshot copied
-whimsy-capture-thumb =
-    .alt = The screenshot
+## W15: one viewer, one save. After a drag, the page's toolbar is one
+## button; it and Visible, Full Page and Portrait open the viewer
+## (Firefox's preview): Retry, Add to Easel, Copy, Download, Edit, Save and
+## Close, Cancel. Copy and Download keep it open.
+whimsy-capture-confirm-button = Capture
+    .title = Capture this area
 whimsy-capture-copied = Copied
-whimsy-capture-save = Save
-whimsy-capture-saved = Saved
-whimsy-capture-redact = Redact
+whimsy-capture-downloaded = Downloaded
 whimsy-capture-edit = Edit
-## What the card says it hid, and whether the image drags out as a file.
-## $count (Number) - how many things were hidden
-## $kind (String) - "email", "phone", "card", "key", "text" (hidden by hand),
-##   "mixed" (several kinds) or "none"
-## $drag (String) - "yes" or "no" (a private page's capture isn't a file)
-whimsy-capture-detail =
-    { $kind ->
-        [none] { $drag ->
-            [yes] Drag out to make a file
-           *[no] Copied to the clipboard only
-        }
-       *[other] { $kind ->
-            [email] { $count ->
-                [one] 1 email hidden
-               *[other] { $count } emails hidden
-            }
-            [phone] { $count ->
-                [one] 1 phone number hidden
-               *[other] { $count } phone numbers hidden
-            }
-            [card] { $count ->
-                [one] 1 card number hidden
-               *[other] { $count } card numbers hidden
-            }
-            [key] { $count ->
-                [one] 1 key hidden
-               *[other] { $count } keys hidden
-            }
-            [text] { $count ->
-                [one] 1 part hidden
-               *[other] { $count } parts hidden
-            }
-           *[mixed] { $count } private details hidden
-        }{ $drag ->
-            [yes] { " · " }drag out to make a file
-           *[no] {""}
-        }
-    }
+    .title = Edit this screenshot
+whimsy-capture-viewer-save-close = Save and Close
+    .title = Save to the Library’s Screenshots and close
+## The editor's footer. Copy and Download keep it open.
+whimsy-capture-editor-copy =
+    .label = Copy
+whimsy-capture-editor-copied =
+    .label = Copied
+whimsy-capture-editor-download =
+    .label = Download
+whimsy-capture-editor-downloaded =
+    .label = Downloaded
+whimsy-capture-editor-save-close =
+    .label = Save and Close
+# A Library screenshot opened in the editor: replace that file, or add a new one.
+whimsy-capture-editor-save =
+    .label = Save
+whimsy-capture-editor-save-copy =
+    .label = Save Copy
+whimsy-action-capture-confirm = Capture Selected Area
+whimsy-action-capture-save-close = Save Screenshot and Close
+whimsy-action-capture-add-to-easel = Add Screenshot to Easel
 whimsy-capture-editor-title = Edit Screenshot
 whimsy-capture-preview =
     .aria-label = The screenshot as it will be copied
@@ -3898,6 +3884,8 @@ whimsy-library-notes-deleted-toast = Deleted note
 whimsy-library-files-copied-toast = Copied screenshot
 whimsy-library-files-menu-open =
     .label = Open
+whimsy-library-files-menu-edit =
+    .label = Edit
 whimsy-library-files-menu-reveal =
     .label =
         { PLATFORM() ->

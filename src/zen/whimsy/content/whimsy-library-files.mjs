@@ -11,6 +11,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.sys.mjs",
+  WhimsyCaptureCard: "resource:///modules/whimsy/WhimsyCaptureCard.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 const SAVED_TOPIC = "whimsy-capture-saved";
@@ -126,9 +127,16 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
     }
   }
 
-  // wave9/designfix (M9): right-click opens a menu (Open, Show in Finder,
-  // Copy, Delete), as Finder and Arc's Library do; it used to reveal the
-  // file at once.
+  // W15: the screenshot editor on this file (Save replaces it, Save Copy
+  // adds one).
+  #edit(file) {
+    lazy.WhimsyCaptureCard.openLibraryEditor(this.documentGlobal, file.path)
+      .catch(e => console.error("Whimsy: edit capture", e));
+  }
+
+  // wave9/designfix (M9): right-click opens a menu (Open, Edit, Show in
+  // Finder, Copy, Delete), as Finder and Arc's Library do; it used to
+  // reveal the file at once.
   #menu = null;
   #menuFile = null;
 
@@ -137,6 +145,7 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
     const menu = this.documentGlobal.MozXULElement.parseXULToFragment(`
       <menupopup class="whimsy-library-files-menu">
         <menuitem data-action="open" data-l10n-id="whimsy-library-files-menu-open"/>
+        <menuitem data-action="edit" data-l10n-id="whimsy-library-files-menu-edit"/>
         <menuitem data-action="reveal" data-l10n-id="whimsy-library-files-menu-reveal"/>
         <menuitem data-action="copy" data-l10n-id="whimsy-library-files-menu-copy"/>
         <menuseparator/>
@@ -151,6 +160,9 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
       switch (event.target.dataset.action) {
         case "open":
           this.#open(file);
+          break;
+        case "edit":
+          this.#edit(file);
           break;
         case "reveal":
           this.#reveal(file);
@@ -187,6 +199,8 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
       return "";
     }
     const url = Services.io.newFileURI(file).spec;
+    // The editor's Save replaces the file: a new address shows the new image.
+    const src = `${url}?v=${file.lastModifiedTime}`;
     return html`
       <div class="whimsy-library-shot-cell">
         <button
@@ -204,19 +218,31 @@ export class WhimsyFilesSection extends ZenLibrarySearchSection {
             this.#openMenu(file, event.currentTarget, event);
           }}
         >
-          <img class="whimsy-library-shot-image" src=${url} alt="" loading="lazy" />
+          <img class="whimsy-library-shot-image" src=${src} alt="" loading="lazy" />
           <span class="whimsy-library-shot-name">${file.leafName}</span>
         </button>
-        <toolbarbutton
-          class="toolbarbutton-1 whimsy-library-shot-delete"
-          data-l10n-id="whimsy-library-files-delete"
-          @click=${event => {
-            event.stopPropagation();
-            this.#remove(file);
-          }}
-        >
-          <img class="toolbarbutton-icon" src="chrome://browser/skin/zen-icons/trash.svg" alt="" />
-        </toolbarbutton>
+        <div class="whimsy-library-shot-tools">
+          <toolbarbutton
+            class="toolbarbutton-1 whimsy-library-shot-edit"
+            data-l10n-id="whimsy-library-files-edit"
+            @click=${event => {
+              event.stopPropagation();
+              this.#edit(file);
+            }}
+          >
+            <img class="toolbarbutton-icon" src="chrome://browser/skin/zen-icons/sliders.svg" alt="" />
+          </toolbarbutton>
+          <toolbarbutton
+            class="toolbarbutton-1 whimsy-library-shot-delete"
+            data-l10n-id="whimsy-library-files-delete"
+            @click=${event => {
+              event.stopPropagation();
+              this.#remove(file);
+            }}
+          >
+            <img class="toolbarbutton-icon" src="chrome://browser/skin/zen-icons/trash.svg" alt="" />
+          </toolbarbutton>
+        </div>
       </div>
     `;
   }

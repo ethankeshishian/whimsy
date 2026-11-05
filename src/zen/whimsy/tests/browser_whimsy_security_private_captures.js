@@ -3,13 +3,13 @@
 
 "use strict";
 
-// wave9/secfix (security-full-1 M3): Whimsy keeps every copied screenshot
-// as a PNG in the Library. A private page's capture (private tab, Scratch,
-// private window) stays on the clipboard only, as in Firefox.
+// wave9/secfix (security-full-1 M3): Whimsy keeps saved screenshots as
+// PNGs in the Library. A private page's capture (private tab, Scratch,
+// private window) stays on the clipboard only, as in Firefox (W15: its
+// viewer has no Save and Close, browser_whimsy_capture_card.js).
 
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
-const { listCaptures } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFilesSection.sys.mjs");
-const { ScreenshotsUtils } = ChromeUtils.importESModule("moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs");
+const { listCaptures, saveCapture } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFilesSection.sys.mjs");
 
 const PAGE = "https://example.com/?secfix-m3";
 
@@ -19,20 +19,15 @@ async function pngBlob() {
   return canvas.convertToBlob({ type: "image/png" });
 }
 
-// Copy through Firefox Screenshots' own funnel (the one Whimsy wraps);
-// only its actor round trip and telemetry are stood in for.
+// W15: the one save a capture gets (the viewer's Save and Close, and
+// Whimsy's copy-only captures) goes through saveCapture.
 async function copyFrom(browser) {
   const saved = [];
   const observe = (subject, topic, path) => saved.push(path);
   Services.obs.addObserver(observe, "whimsy-capture-saved");
-  const { getActor, recordTelemetryEvent } = ScreenshotsUtils;
-  ScreenshotsUtils.getActor = () => ({ sendQuery: async () => ({}) });
-  ScreenshotsUtils.recordTelemetryEvent = () => {};
   try {
-    await ScreenshotsUtils.copyScreenshot(await pngBlob(), browser, "Test");
+    await saveCapture(await pngBlob(), browser);
   } finally {
-    ScreenshotsUtils.getActor = getActor;
-    ScreenshotsUtils.recordTelemetryEvent = recordTelemetryEvent;
     Services.obs.removeObserver(observe, "whimsy-capture-saved");
   }
   return saved;

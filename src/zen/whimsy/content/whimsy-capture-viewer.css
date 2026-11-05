@@ -1,0 +1,19 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W15: the screenshot viewer (Firefox's preview dialog). Inside its
+   shadow root: Retry · Add to Easel · Copy · Download · Edit · Save and
+   Close · ✕, in Firefox's own moz-button style; ✕ goes last. */
+moz-button[hidden] {
+  display: none !important;
+}
+
+.preview-buttons > #cancel {
+  margin-inline-start: var(--space-small);
+}
+
+/* Copied / Downloaded, for a moment. */
+moz-button[whimsy-done] {
+  --button-text-color: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
+}

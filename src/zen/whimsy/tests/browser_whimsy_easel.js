@@ -491,24 +491,39 @@ add_task(async function test_captures_static_live_and_private() {
   await gZenWorkspaces.changeWorkspace(home);
 });
 
+// W15: Add to Easel is in the screenshot viewer (Firefox's preview), not
+// the page's toolbar; after a drag the page has only Capture.
 add_task(async function test_capture_button_and_picker() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   registerCleanupFunction(() => BrowserTestUtils.removeTab(tab));
   const browser = tab.linkedBrowser;
-  ScreenshotsUtils.start(browser, "ToolbarButton");
-  await TestUtils.waitForCondition(
-    () => SpecialPowers.spawn(browser, [], () => {
-      const overlay = content.windowGlobalChild.getActor("ScreenshotsComponent").overlay;
-      return !!overlay?.getElementById("whimsy-easel-add");
-    }),
-    "Add to Easel joins the capture toolbar"
-  );
-  const order = await SpecialPowers.spawn(browser, [], () => {
+  await ScreenshotsUtils.start(browser, "ToolbarButton");
+  const overlayState = () => SpecialPowers.spawn(browser, [], () =>
+    content.windowGlobalChild.getActor("ScreenshotsComponent").overlay?.state);
+  await TestUtils.waitForCondition(async () => (await overlayState()) == "crosshairs", "Ready to select");
+  const mouse = (type, x, y) => BrowserTestUtils.synthesizeMouse(":root", x, y, { type }, browser.browsingContext);
+  await mouse("mousedown", 10, 10);
+  await mouse("mousemove", 160, 85);
+  await mouse("mousemove", 310, 160);
+  await mouse("mouseup", 310, 160);
+  await TestUtils.waitForCondition(async () => (await overlayState()) == "selected", "A 300 × 150 region");
+  const confirm = await SpecialPowers.spawn(browser, [], async () => {
     const overlay = content.windowGlobalChild.getActor("ScreenshotsComponent").overlay;
-    return [...overlay.getElementById("whimsy-easel-add").parentElement.children].map(b => b.id);
+    await ContentTaskUtils.waitForCondition(() => overlay.getElementById("whimsy-capture-confirm"), "Capture");
+    const r = overlay.getElementById("whimsy-capture-confirm").getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, easel: !!overlay.getElementById("whimsy-easel-add") };
   });
-  ok(order.indexOf("whimsy-easel-add") < order.indexOf("copy"), "Before Copy");
-  ScreenshotsUtils.exit(browser);
+  ok(!confirm.easel, "No Add to Easel on the page");
+  await mouse("mousedown", confirm.x, confirm.y);
+  await mouse("mouseup", confirm.x, confirm.y);
+  const dialog = await TestUtils.waitForCondition(() => ScreenshotsUtils.browserToScreenshotsState.get(browser)?.previewDialog,
+    "The viewer opens");
+  await dialog._dialogReady;
+  const root = await TestUtils.waitForCondition(() =>
+    dialog._frame.contentDocument.querySelector("screenshots-preview")?.renderRoot?.getElementById("whimsy-capture-easel") &&
+    dialog._frame.contentDocument.querySelector("screenshots-preview").renderRoot, "Add to Easel is in the viewer");
+  const order = [...root.querySelector(".preview-buttons").children].map(b => b.id);
+  ok(order.indexOf("whimsy-capture-easel") < order.indexOf("copy"), "Before Copy");
 
   // The picker: New Easel, then recent easels.
   const existing = await gWhimsyEaselStore.create({ title: "Mood board" });
@@ -516,8 +531,7 @@ add_task(async function test_capture_button_and_picker() {
   // W10-24: the picker is a surface with the capture's thumbnail and a
   // grid of easel tiles, not a native menu.
   const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-easel-picker");
-  const region = { left: 0, top: 0, right: 300, bottom: 150 };
-  WhimsyEasel.onCaptureRequest(browser, { region, devicePixelRatio: 1, viewportWidth: 1000, viewportHeight: 700 }, { x: 10, y: 10 });
+  EventUtils.synthesizeMouseAtCenter(root.getElementById("whimsy-capture-easel"), {}, dialog._frame.contentWindow);
   const picker = (await shown).target;
   ok(picker.classList.contains("whimsy-surface"), "A Whimsy surface");
   ok(!document.getElementById("whimsy-easel-capture-menu") && !picker.querySelector("menuitem"), "No native menu");
@@ -547,6 +561,8 @@ add_task(async function test_capture_button_and_picker() {
   // The next picker shows Mood board's first capture as its thumbnail.
   const thumb = await gWhimsyEaselStore.thumbnail(existing.id);
   ok(thumb?.bytes?.length, "The easel has a thumbnail now");
+  ok(ScreenshotsUtils.browserToScreenshotsState.get(browser)?.previewDialog, "Adding keeps the viewer open");
+  ScreenshotsUtils.exit(browser);
 });
 
 add_task(async function test_export_png() {

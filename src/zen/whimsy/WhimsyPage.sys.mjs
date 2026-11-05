@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
+  WhimsyCaptureCard: "resource:///modules/whimsy/WhimsyCaptureCard.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   saveCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
   WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
@@ -377,8 +378,8 @@ export const WhimsyPage = {
 
   // W10-59: the Portrait tile in the Screenshots bar (beside Visible and
   // Full Page). Like those two: the bar and overlay close, the shot is
-  // drawn (with Redact's boxes, if it's on), and Firefox's preview opens
-  // with Copy, Download and Retry, so Copy also reaches the Library.
+  // drawn (with Redact's boxes, if it's on), and the screenshot viewer
+  // (Firefox's preview, W15) opens on it.
   async takePortraitScreenshot(browser) {
     const win = browser.documentGlobal;
     const utils = lazy.ScreenshotsUtils;
@@ -395,16 +396,8 @@ export const WhimsyPage = {
       return null;
     }
     const blob = await canvas.convertToBlob();
-    const dialog = await utils.openPreviewDialog(browser);
-    await dialog._dialogReady;
-    const preview = dialog._frame.contentDocument.querySelector("screenshots-preview");
-    const blobURL = URL.createObjectURL(blob);
-    utils.setBlobURL(browser, blobURL);
-    preview.previewImg.src = blobURL;
-    preview.focusButton(Services.prefs.getStringPref("screenshots.browser.component.last-saved-method", "download"));
-    if (Cu.isInAutomation) {
-      Services.obs.notifyObservers(null, "screenshots-preview-ready");
-    }
+    // Drawn at a phone's width: the editor can't take it again as it is.
+    await lazy.WhimsyCaptureCard.openViewer(browser, blob, { retake: false });
     const ratio = rect.devicePixelRatio || 1;
     return { width: canvas.width / ratio, height: canvas.height / ratio };
   },

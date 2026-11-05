@@ -3,12 +3,12 @@
 
 "use strict";
 
-// Screenshot to sidebar (whimsy.feature.screenshot-sidebar): every capture
-// path funnels through ScreenshotsUtils.copyScreenshot before it reaches
-// the clipboard, so wrapping that one method also lands a PNG file in the
-// Library, not just the clipboard.
+// Screenshot to sidebar (whimsy.feature.screenshot-sidebar): captures land
+// as PNG files in the Library. W15: a Screenshots copy no longer writes
+// one by itself (the viewer's Save and Close does, once:
+// browser_whimsy_capture_card.js); saveCapture is that one save.
 
-const { listCaptures } = ChromeUtils.importESModule(
+const { listCaptures, saveCapture } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs"
 );
 const { ScreenshotsUtils } = ChromeUtils.importESModule(
@@ -38,7 +38,7 @@ add_setup(function () {
   });
 });
 
-add_task(async function test_copy_screenshot_also_saves_a_file() {
+add_task(async function test_copy_no_longer_saves_and_save_writes_one_file() {
   const before = listCaptures().length;
 
   const canvas = new OffscreenCanvas(4, 4);
@@ -58,28 +58,17 @@ add_task(async function test_copy_screenshot_also_saves_a_file() {
   } finally {
     await actor.sendQuery("Screenshots:HideOverlay");
   }
-
-  await TestUtils.waitForCondition(
-    () => listCaptures().length > before,
-    "copyScreenshot also wrote a file, not only the clipboard"
-  );
-
-  const files = listCaptures();
   ok(
     Services.clipboard.hasDataMatchingFlavors(["image/png"], Services.clipboard.kGlobalClipboard),
-    "The clipboard still gets the usual copy"
+    "The clipboard gets the usual copy"
   );
+  await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  is(listCaptures().length, before, "…and the Library nothing: copying isn't saving");
 
-  // Clean up every file this test added.
-  for (const file of files) {
-    if (file.leafName.startsWith("whimsy-capture-")) {
-      try {
-        file.remove(false);
-      } catch {
-        // Already gone.
-      }
-    }
-  }
+  const path = await saveCapture(blob, tab.linkedBrowser);
+  ok(path && (await IOUtils.exists(path)), "saveCapture writes the file");
+  is(listCaptures().length, before + 1, "…one of it");
+  await IOUtils.remove(path);
 });
 
 add_task(async function test_switch_off_removes_the_tab() {
@@ -147,7 +136,7 @@ add_task(async function test_delete_undo_and_menu() {
     await BrowserTestUtils.waitForPopupEvent(menu, "shown");
   }
   const actions = [...menu.querySelectorAll("menuitem")].map(i => i.dataset.action);
-  Assert.deepEqual(actions, ["open", "reveal", "copy", "delete"], "Open, Show in Finder, Copy, Delete");
+  Assert.deepEqual(actions, ["open", "edit", "reveal", "copy", "delete"], "Open, Edit, Show in Finder, Copy, Delete");
   for (const item of menu.querySelectorAll("menuitem")) {
     ok(item.getAttribute("label"), `${item.dataset.action} has a label`);
   }
@@ -211,7 +200,7 @@ add_task(async function test_thumbnail_grid_and_size() {
     [...section.querySelectorAll(".whimsy-library-shot-cell")].find(c => c.textContent.includes("whimsy-capture-grid-test")),
   "The screenshot has a tile");
   const image = cell.querySelector("img.whimsy-library-shot-image");
-  ok(image.src.endsWith("whimsy-capture-grid-test.png"), "The tile shows the screenshot itself");
+  ok(/whimsy-capture-grid-test\.png\?v=\d+$/.test(image.src), "The tile shows the screenshot itself (as last saved)");
   is(getComputedStyle(section.querySelector(".whimsy-library-shots")).display, "grid", "in a grid");
 
   const slider = section.querySelector("input.whimsy-library-shot-size");

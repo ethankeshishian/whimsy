@@ -711,8 +711,14 @@
       const { ScreenshotsUtils } = ChromeUtils.importESModule(
         "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs"
       );
+      const { saveCapture } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFilesSection.sys.mjs");
       const browser = window.browsingContext.embedderElement;
-      await ScreenshotsUtils.copyScreenshot(blob, browser, "WhimsyYearInTabs");
+      try {
+        await ScreenshotsUtils.copyScreenshot(blob, browser, "WhimsyYearInTabs");
+      } finally {
+        // W15: a copy no longer saves by itself; this card has no Save step.
+        await saveCapture(blob, browser);
+      }
       browser?.documentGlobal?.gZenUIManager?.showToast?.("whimsy-year-copied-toast", {});
     } catch (e) {
       console.error("Whimsy: Year in tabs - copy card failed", e);

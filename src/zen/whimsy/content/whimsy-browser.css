@@ -1769,97 +1769,11 @@ notification-message[value="whimsy-claude-control"] {
   }
 }
 
-/* W13 F04 (wave12 F04, option A): the card after a capture, at the page's
-   bottom end: 236px, 8px in; the image (92px, 7px radius, a hairline),
-   then Copied · Save · Redact · Edit as four tiles on the surface track
-   (icon over an 11px label; Copied in green), then what was hidden. */
-panel.whimsy-surface.whimsy-capture-card {
-  --panel-padding: 8px;
-
-  & .whimsy-surface-view {
-    gap: 8px;
-  }
-}
-.whimsy-capture-thumb {
-  display: block;
-  width: 100%;
-  height: 92px;
-  object-fit: cover;
-  object-position: top center;
-  border-radius: 7px;
-  box-shadow: inset 0 0 0 1px var(--whimsy-surface-hairline);
-  background: var(--whimsy-surface-track);
-
-  &[draggable="true"] {
-    cursor: grab;
-  }
-}
-.whimsy-capture-actions {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-}
-.whimsy-capture-action {
-  appearance: none;
-  display: grid;
-  justify-items: center;
-  gap: 3px;
-  min-width: 0;
-  margin: 0;
-  padding: 6px 2px;
-  border: 0;
-  border-radius: 7px;
-  background: var(--whimsy-surface-track);
-  color: inherit;
-  font: menu;
-  font-size: 11px;
-  cursor: pointer;
-  transition: background-color 100ms var(--whimsy-surface-ease);
-
-  & > image {
-    width: 15px;
-    height: 15px;
-    -moz-context-properties: fill, stroke;
-    fill: currentColor;
-    stroke: currentColor;
-  }
-  & > span {
-    max-width: 100%;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  &:hover {
-    background-color: var(--whimsy-surface-hover);
-  }
-  &:hover:active {
-    background-color: var(--whimsy-surface-active);
-  }
-  &:focus-visible {
-    outline: var(--whimsy-surface-focus);
-    outline-offset: 1px;
-  }
-  &[done] {
-    color: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
-  }
-  &.whimsy-capture-flash {
-    background-color: var(--whimsy-surface-selected);
-  }
-}
-.whimsy-capture-detail {
-  margin: 0;
-  padding-inline: 2px;
-  font-size: 11px;
-  color: var(--whimsy-surface-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The editor (Redact and Edit): the image as it will be copied, then one
-   toolbar row: Backdrop (four swatches, the picked one ringed) | Shape |
-   Hide private details | Redact by hand (and Black Out / Blur while it's
-   picked) | Done. Its header drags it (F07). */
+/* W13 F04 / W15: the screenshot editor: the image as it will come out,
+   then one toolbar row: Backdrop (four swatches, the picked one ringed) |
+   Shape | Hide private details | Redact by hand (and Black Out / Blur
+   while it's picked); the footer has Copy, Download and the way out.
+   Its header drags it (F07). */
 .whimsy-capture-stage {
   padding: 8px;
   border-radius: 8px;
@@ -1883,10 +1797,6 @@ panel.whimsy-surface.whimsy-capture-card {
   flex-wrap: wrap;
   gap: 10px;
   font-size: 12px;
-
-  & > .whimsy-surface-button {
-    margin-inline-start: auto;
-  }
 }
 .whimsy-capture-tool-group {
   gap: 6px;
@@ -1968,11 +1878,6 @@ panel.whimsy-surface.whimsy-capture-card {
   margin: 0;
   font-size: 11px;
   color: var(--whimsy-surface-muted);
-}
-@media (prefers-reduced-motion: reduce) {
-  .whimsy-capture-action {
-    transition: none;
-  }
 }
 @media (forced-colors: active) {
   .whimsy-capture-backdrop[aria-checked="true"],
@@ -5067,7 +4972,7 @@ whimsy-library-files-section {
   position: relative;
   min-width: 0;
 
-  &:not(:hover, :focus-within) > .whimsy-library-shot-delete {
+  &:not(:hover, :focus-within) > .whimsy-library-shot-tools {
     opacity: 0;
   }
 }
@@ -5114,15 +5019,22 @@ whimsy-library-files-section {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.whimsy-library-shot-delete {
+/* W15: Edit beside Delete, on hover or focus. */
+.whimsy-library-shot-tools {
   position: absolute;
   top: 6px;
   inset-inline-end: 6px;
-  border-radius: 6px;
-  background: light-dark(rgba(255, 255, 255, 0.85), rgba(30, 30, 30, 0.85));
+  display: flex;
+  gap: 4px;
   transition: opacity 120ms ease-out;
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+  }
+
+  & > toolbarbutton {
+    margin: 0;
+    border-radius: 6px;
+    background: light-dark(rgba(255, 255, 255, 0.85), rgba(30, 30, 30, 0.85));
   }
 }
 .whimsy-library-shots-empty {

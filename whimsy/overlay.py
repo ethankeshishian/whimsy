@@ -1488,8 +1488,8 @@ FEATURES = [
     # phones, keys/tokens and card numbers (click text to blur/unblur).
     {"id": "redact", "title": "Redact in screenshots: blur emails, phone numbers, keys and card numbers before capturing; click text to blur it",
      "detect": [("src/zen", r"(?i)redact")]},
-    # W13 F04: the card after a capture (Copied · Save · Redact · Edit) and its editor.
-    {"id": "capture-card", "title": "After a screenshot: a card with Copied, Save, Redact and Edit; an editor with backdrop, shape, hiding private details and redacting by hand",
+    # W13 F04 / W15: one screenshot viewer (one Capture button after a drag) and its editor.
+    {"id": "capture-card", "title": "Screenshots: one viewer for every capture (Add to Easel, Copy, Download, Edit, Save and Close; one Library file per save) and an editor with backdrop, shape, hiding private details and redacting by hand",
      "detect": [("src/zen", r"(?i)capture-?card|redact-?after")]},
     # wave5/look: a look per space (font, density, tab title lines, a Zen Mod).
     {"id": "space-look", "title": "A look per space: its own interface font, density, tab title lines and Zen Mod, switching with the space",

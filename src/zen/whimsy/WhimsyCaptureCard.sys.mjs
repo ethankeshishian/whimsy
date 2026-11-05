@@ -2,72 +2,70 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// W13 F04 (wave12 F04, option A; wave13 research yab.md §2.5): Redact
-// after the capture. Firefox Screenshots keeps its name and its capture
-// step; what changes is what comes after a copy:
+// W15 screenshots: one viewer, one save. Firefox Screenshots keeps its
+// name, its capture step and its preview dialog; what changes is the rest:
 //
-//   a result card at the page's bottom end: the image, then
-//     Copied · Save · Redact · Edit
-//   and a line saying what was hidden ("2 emails hidden · drag out to make
-//   a file"). Copied copies again; Save saves it as a file (Firefox's own
-//   download, with its name and folder); the image drags out as a file.
+//   After a drag, the page's toolbar is one Capture button
+//   (WhimsyCaptureChild; Esc still cancels, Cmd+C and Cmd+S stay quick
+//   copy and download). Capture, Visible, Full Page and Portrait all open
+//   Firefox's preview, the viewer, with
+//     Retry · Add to Easel · Copy · Download · Edit · Save and Close · ✕
+//   Copy and Download keep it open; only Save and Close (which writes the
+//   one Library file and shows the Library's Screenshots) and ✕ close it.
 //
-//   Redact and Edit open one editor on the image (Yab's Edit): Backdrop,
-//   Shape (Auto, 16:9, 1:1, 4:5), "Hide private details" and "Redact by
-//   hand" (drag boxes over the image; a click on a box takes it away),
-//   then Done, which copies the result. Redact opens it with the hand
-//   picked, Edit with nothing picked. The look (backdrop, shape) is
-//   remembered for the next capture's editor.
+//   Edit opens the editor on the viewer's image (W13 F04, Yab's Edit):
+//   Backdrop, Shape (Auto, 16:9, 1:1, 4:5), "Hide private details" and
+//   "Redact by hand" (drag boxes; a click on a box takes it away). Copy and
+//   Download keep it open, ✕ leaves without the edits, Done goes back to
+//   the viewer with them, Save and Close saves once and closes both. A
+//   Library screenshot's Edit opens it with Save (that file) and Save Copy.
 //
-// "Hide private details" is the existing redact machinery (WhimsyRedact:
-// emails, phone numbers, keys and card numbers, found in the page's text
-// in every frame), on by default (whimsy.capture.redact): it hides them
-// on the page while you frame the shot, so the copy already has them
-// hidden and the card says what it hid. Turning it off or on in the
-// editor captures the same region of the page again, without or with it.
-// With the card, the Redact toggle leaves the Screenshots bar (Redact is
-// after the capture now, not a mode before it).
+// "Hide private details" is the existing redact machinery (WhimsyRedact),
+// on by default (whimsy.capture.redact): it hides them on the page while
+// you frame the shot, so the image already has them hidden. Turning it
+// off or on in the editor captures the same region again.
 //
 // Screenshots' files stay untouched: ScreenshotsUtils.createCanvas (every
-// capture draws there) and copyScreenshot (every Screenshots copy) are
-// wrapped the way WhimsyRedact and WhimsyFilesSection wrap them, each
-// calling through, so the wrappers compose in any order.
-//
-// Nothing is sent anywhere. A private page's capture stays in memory (the
-// Library never gets it, as before) and doesn't drag out as a file.
+// capture draws there), showPanelAndOverlay and openPreviewDialog are
+// wrapped, each calling through, and the dialog is decorated once it's
+// ready. Nothing is sent anywhere; a private page's viewer has no Save.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   saveCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
+  writeCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
+  overwriteCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
+  listCaptures: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
+  isPrivateCapture: "resource:///modules/whimsy/WhimsyFilesSection.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  Downloads: "resource://gre/modules/Downloads.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
-  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ScreenshotsUtils: "moz-src:///browser/components/screenshots/ScreenshotsUtils.sys.mjs",
+  WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
   WhimsyRedact: "resource:///modules/whimsy/WhimsyRedactParent.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
 });
+ChromeUtils.defineLazyGetter(lazy, "getFilename", () =>
+  ChromeUtils.importESModule("chrome://browser/content/screenshots/fileHelpers.mjs").getFilename);
 
 const FEATURE_PREF = "whimsy.feature.capture-card";
 const REDACT_PREF = "whimsy.capture.redact";
 const STYLE_PREF = "whimsy.capture.redact-style";
 const BACKDROP_PREF = "whimsy.capture.backdrop";
 const SHAPE_PREF = "whimsy.capture.shape";
-const SAVED_TOPIC = "whimsy-capture-saved";
+const LAST_METHOD_PREF = "screenshots.browser.component.last-saved-method";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
+const VIEWER_SHEET = "chrome://browser/content/whimsy/whimsy-capture-viewer.css";
+const FLASH_MS = 1500;
 
-const CARD_ID = "whimsy-capture-card";
-const CARD_WIDTH = 236;
-// The card goes by itself after this long, unless the pointer or the
-// keyboard is in it, or its editor is open.
-const CARD_MS = 8000;
 const EDITOR_ID = "whimsy-capture-editor";
 const EDITOR_WIDTH = 720;
 const PREVIEW_HEIGHT = 360;
 
 export const BACKDROPS = ["gradient", "white", "dark", "none"];
 export const SHAPES = { auto: null, "16:9": 16 / 9, "1:1": 1, "4:5": 4 / 5 };
-const KINDS = ["email", "phone", "card", "key", "text"];
 const ICON = name => `chrome://browser/skin/zen-icons/${name}.svg`;
 
 /**
@@ -97,19 +95,19 @@ export function layoutFor(w, h, { backdrop = "none", shape = "auto" } = {}) {
   };
 }
 
-function totalHidden(kinds) {
-  return KINDS.reduce((n, kind) => n + (kinds?.[kind] ?? 0), 0);
-}
+let actorRegistered = false;
 
 export const WhimsyCaptureCard = {
   _installed: false,
   // Set while the editor captures the page again, so that capture isn't
   // taken for a new one.
   _recapturing: false,
-  // browser -> what the next copy came from (region, what was hidden).
+  // browser -> what its next viewer shows came from (region, what was hidden).
   _pending: new WeakMap(),
-  // window -> its last capture.
-  _last: new WeakMap(),
+  // browser -> its open viewer's capture.
+  _viewers: new WeakMap(),
+  // The capture the editor is open on.
+  _editing: null,
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -117,20 +115,43 @@ export const WhimsyCaptureCard = {
 
   initWindow(win) {
     this.install();
-    const available = w => this.enabled && !!this._last.get(w);
-    lazy.WhimsyCommands.register(win, {
+    const { WhimsyCommands } = lazy;
+    const viewer = w => (this.enabled ? this.viewerOf(w) : null);
+    const editable = w => this.enabled && (!!this.viewerOf(w) || lazy.listCaptures().length > 0);
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyCaptureEdit",
       l10nId: "whimsy-action-capture-edit",
-      run: w => available(w) && this.openEditor(w, { tool: null }),
+      run: w => editable(w) && this.editLatest(w, { tool: null }),
       icon: ICON("sliders"),
-      isAvailable: available,
+      isAvailable: editable,
     });
-    lazy.WhimsyCommands.register(win, {
+    WhimsyCommands.register(win, {
       id: "cmd_whimsyCaptureRedactLast",
       l10nId: "whimsy-action-capture-redact-last",
-      run: w => available(w) && this.openEditor(w, { tool: "hand" }),
+      run: w => editable(w) && this.editLatest(w, { tool: "hand" }),
       icon: "chrome://browser/content/whimsy/icons/redact.svg",
-      isAvailable: available,
+      isAvailable: editable,
+    });
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyCaptureConfirm",
+      l10nId: "whimsy-action-capture-confirm",
+      run: w => this.confirmSelection(w.gBrowser.selectedBrowser),
+      icon: ICON("check"),
+      isAvailable: w => this.enabled && this.hasSelection(w.gBrowser.selectedBrowser),
+    });
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyCaptureSaveClose",
+      l10nId: "whimsy-action-capture-save-close",
+      run: w => this.saveAndClose(viewer(w)),
+      icon: ICON("save"),
+      isAvailable: w => !!viewer(w) && !viewer(w).private,
+    });
+    WhimsyCommands.register(win, {
+      id: "cmd_whimsyCaptureAddToEasel",
+      l10nId: "whimsy-action-capture-add-to-easel",
+      run: w => viewer(w) && this.addToEasel(viewer(w)),
+      icon: ICON("paintbrush"),
+      isAvailable: w => !!viewer(w) && this.canEasel(viewer(w)),
     });
   },
 
@@ -139,6 +160,7 @@ export const WhimsyCaptureCard = {
       return;
     }
     this._installed = true;
+    this.registerActor();
     const utils = lazy.ScreenshotsUtils;
     const self = this;
     // Every capture draws here: note its region and what was hidden in
@@ -157,264 +179,436 @@ export const WhimsyCaptureCard = {
             kinds: state?.active ? state.kinds ?? null : null,
           });
         } catch (e) {
-          console.error("Whimsy: capture card", e);
+          console.error("Whimsy: capture", e);
         }
       }
       return createCanvas.call(this, region, browser, ...rest);
     };
-    // Every Screenshots copy: then the card.
-    const copyScreenshot = utils.copyScreenshot;
-    utils.copyScreenshot = async function (blob, browser, eventName, ...rest) {
-      await copyScreenshot.call(this, blob, browser, eventName, ...rest);
+    // Every time the overlay opens (start, Retry): the one Capture button.
+    const showPanelAndOverlay = utils.showPanelAndOverlay;
+    utils.showPanelAndOverlay = function (browser, ...rest) {
+      const result = showPanelAndOverlay.call(this, browser, ...rest);
       try {
-        if (self.enabled && blob && browser?.isConnected) {
-          self.showCard(browser, blob);
+        self.offerConfirm(browser);
+      } catch (e) {
+        console.error("Whimsy: capture button", e);
+      }
+      return result;
+    };
+    // Every viewer (Visible, Full Page, Portrait, Capture).
+    const openPreviewDialog = utils.openPreviewDialog;
+    utils.openPreviewDialog = async function (browser, ...rest) {
+      const dialog = await openPreviewDialog.call(this, browser, ...rest);
+      try {
+        if (self.enabled && dialog) {
+          self.attachViewer(browser, dialog);
         }
       } catch (e) {
-        console.error("Whimsy: capture card", e);
+        console.error("Whimsy: screenshot viewer", e);
       }
+      return dialog;
     };
   },
 
-  isPrivate(browser) {
-    try {
-      return lazy.PrivateBrowsingUtils.isBrowserPrivate(browser);
-    } catch {
-      return true;
+  registerActor() {
+    if (actorRegistered) {
+      return;
     }
+    actorRegistered = true;
+    ChromeUtils.registerWindowActor("WhimsyCapture", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyCaptureParent.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyCaptureChild.sys.mjs" },
+      // The child only acts on the parent's messages, while Screenshots'
+      // overlay is open in that page; the parent checks what it sends.
+      safeForUntrustedWebProcess: true,
+    });
   },
 
-  // ---- The card ---------------------------------------------------------
+  isScreenshotsMode(browser) {
+    const state = lazy.ScreenshotsUtils.browserToScreenshotsState?.get(browser);
+    return !!state && (!state.mode || state.mode == "screenshots");
+  },
 
-  showCard(browser, blob) {
-    // Not browser.ownerGlobal: Screenshots' own copyScreenshot() can run
-    // this continuation after an xray-wrapped browser's ownerGlobal has
-    // gone stale (seen with a directly-called copyScreenshotFromRegion, as
-    // in the test), while ownerDocument.defaultView still resolves.
-    const win = browser.ownerDocument?.defaultView;
-    if (!win?.gBrowser) {
+  actorFor(browser) {
+    try {
+      return browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyCapture") ?? null;
+    } catch {
       return null;
     }
-    const doc = win.document;
+  },
+
+  // ---- Step 1: select ----------------------------------------------------
+
+  offerConfirm(browser) {
+    if (!this.enabled || !this.isScreenshotsMode(browser)) {
+      return;
+    }
+    this.actorFor(browser)?.sendAsyncMessage("WhimsyCapture:Decorate");
+  },
+
+  hasSelection(browser) {
+    const state = lazy.ScreenshotsUtils.browserToScreenshotsState?.get(browser);
+    return this.isScreenshotsMode(browser) && !!state?.hasOverlaySelection && !state.previewDialog;
+  },
+
+  // The Capture command: the page's Capture button, by keyboard.
+  async confirmSelection(browser) {
+    if (!this.enabled || !this.hasSelection(browser)) {
+      return false;
+    }
+    try {
+      return !!(await this.actorFor(browser)?.sendQuery("WhimsyCapture:ConfirmNow"));
+    } catch {
+      return false;
+    }
+  },
+
+  // From the page (untrusted): only numbers, only a real region.
+  cleanRegion(data) {
+    const nums = ["left", "top", "right", "bottom"].map(k => data?.[k]);
+    if (!nums.every(Number.isFinite)) {
+      return null;
+    }
+    const [left, top, right, bottom] = nums;
+    if (right - left < 1 || bottom - top < 1) {
+      return null;
+    }
+    const ratio = Number.isFinite(data.devicePixelRatio) ? Math.min(4, Math.max(0.5, data.devicePixelRatio)) : 1;
+    return { left, top, right, bottom, width: right - left, height: bottom - top, devicePixelRatio: ratio };
+  },
+
+  /** Capture was pressed: draw the region, then the viewer. */
+  async confirmRegion(browser, data) {
+    const utils = lazy.ScreenshotsUtils;
+    if (!this.enabled || !this.isScreenshotsMode(browser)) {
+      return null;
+    }
+    const region = this.cleanRegion(data);
+    if (!region) {
+      utils.exit(browser);
+      return null;
+    }
+    utils.closePanel(browser);
+    Services.focus.setFocus(browser, 0);
+    let blob;
+    try {
+      const canvas = await utils.createCanvas(region, browser);
+      blob = await canvas.convertToBlob();
+    } catch (e) {
+      console.error("Whimsy: capture", e);
+      browser.documentGlobal?.gZenUIManager?.showToast?.("whimsy-capture-failed-toast");
+      utils.exit(browser);
+      return null;
+    }
+    return this.openViewer(browser, blob);
+  },
+
+  // ---- Step 2: the viewer -------------------------------------------------
+
+  /**
+   * Opens Firefox's preview on `blob`, as its Visible and Full Page do.
+   * `retake`: false when the image can't be drawn again from the page as
+   * it is (Portrait lays the page out at a phone's width).
+   */
+  async openViewer(browser, blob, { retake = true } = {}) {
+    const utils = lazy.ScreenshotsUtils;
+    const dialog = await utils.openPreviewDialog(browser);
+    const capture = this._viewers.get(browser);
+    if (capture?.dialog == dialog) {
+      capture.blob = blob;
+      if (!retake) {
+        capture.region = null;
+      }
+    }
+    await dialog._dialogReady;
+    const preview = dialog._frame.contentDocument.querySelector("screenshots-preview");
+    const url = URL.createObjectURL(blob);
+    utils.setBlobURL(browser, url);
+    preview.previewImg.src = url;
+    preview.focusButton(Services.prefs.getStringPref(LAST_METHOD_PREF, "download"));
+    if (Cu.isInAutomation) {
+      Services.obs.notifyObservers(null, "screenshots-preview-ready");
+    }
+    return dialog;
+  },
+
+  viewerOf(win) {
+    const capture = this._viewers.get(win?.gBrowser?.selectedBrowser);
+    return capture?.dialog ? capture : null;
+  },
+
+  attachViewer(browser, dialog) {
+    const old = this._viewers.get(browser);
+    if (old?.dialog == dialog) {
+      return old;
+    }
     const from = this._pending.get(browser) ?? null;
     this._pending.delete(browser);
-    const old = this._last.get(win);
-    if (old && old != this._editing) {
-      this.release(win, old);
-    }
     const capture = {
+      from: "viewer",
+      win: browser.ownerDocument?.defaultView,
       browser,
-      blob,
-      url: win.URL.createObjectURL(blob),
+      dialog,
+      preview: null,
+      buttons: null,
+      // The image as captured, and as the editor's last Done left it.
+      blob: null,
+      edited: null,
+      editedURL: null,
+      editState: null,
       region: from?.region ?? null,
       spec: from?.spec ?? "",
-      redacted: !!from?.redacted,
-      // Whether the copied image itself has the page's details hidden
-      // (it never changes; `redacted` follows the edits).
+      // Whether the captured image has the page's details hidden.
       originalHidden: !!from?.redacted,
-      // What the page hid (autoKinds) and what the card says was hidden
-      // (kinds: that, plus boxes drawn by hand).
       autoKinds: from?.kinds ?? null,
-      kinds: from?.kinds ?? null,
-      private: this.isPrivate(browser),
-      path: null,
-      // The images the editor has made, by "hidden" (true/false).
+      private: lazy.isPrivateCapture(browser),
+      // The images the editor has drawn, by "hidden" (true/false).
       images: new Map(),
     };
-    this._last.set(win, capture);
-    this.watchSaved(win, capture);
+    this._viewers.set(browser, capture);
+    const closed = lazy.ScreenshotsUtils.browserToScreenshotsState?.get(browser)?.closedPromise;
+    closed?.then(() => this.onViewerClosed(capture));
+    dialog._dialogReady
+      .then(() => this.decorateViewer(capture))
+      .catch(e => console.error("Whimsy: screenshot viewer", e));
+    return capture;
+  },
 
-    const S = lazy.WhimsySurface;
-    const parts = S.create(win, {
-      id: CARD_ID,
-      width: CARD_WIDTH,
-      className: "whimsy-capture-card",
-      initialFocus: false,
-      onHidden: () => {
-        win.clearTimeout(timer);
-        win.gBrowser.tabContainer.removeEventListener("TabSelect", onTabSelect);
-      },
-    });
-    const { panel, view } = parts;
-    doc.l10n.setAttributes(panel, "whimsy-capture-card");
+  onViewerClosed(capture) {
+    capture.dialog = null;
+    if (this._viewers.get(capture.browser) == capture) {
+      this._viewers.delete(capture.browser);
+    }
+    // Closing the viewer leaves its editor's edits too.
+    this.closeEditorOf(capture);
+    if (capture.editedURL) {
+      URL.revokeObjectURL(capture.editedURL);
+      capture.editedURL = null;
+    }
+  },
 
-    const thumb = doc.createElementNS(HTML_NS, "img");
-    thumb.className = "whimsy-capture-thumb";
-    thumb.src = capture.url;
-    doc.l10n.setAttributes(thumb, "whimsy-capture-thumb");
-    thumb.addEventListener("dragstart", event => this.onDragStart(event, capture));
+  canEasel(capture) {
+    return !!capture?.browser && lazy.WhimsyEasel.enabled && lazy.WhimsyEasel.canCapture(capture.browser);
+  },
 
-    const actions = doc.createElementNS(HTML_NS, "div");
-    actions.className = "whimsy-capture-actions";
-    actions.setAttribute("role", "group");
-    const action = (name, icon, l10nId, onClick) => {
-      const button = doc.createElementNS(HTML_NS, "button");
-      button.type = "button";
-      button.className = "whimsy-capture-action";
-      button.dataset.action = name;
-      const image = doc.createXULElement("image");
-      image.setAttribute("src", icon);
-      const label = doc.createElementNS(HTML_NS, "span");
-      doc.l10n.setAttributes(label, l10nId);
-      button.append(image, label);
+  async decorateViewer(capture) {
+    const doc = capture.dialog?._frame?.contentDocument;
+    const preview = doc?.querySelector("screenshots-preview");
+    if (!preview) {
+      return;
+    }
+    await preview.updateComplete;
+    if (!capture.dialog) {
+      return;
+    }
+    capture.preview = preview;
+    doc.l10n.addResourceIds(["browser/whimsy.ftl"]);
+    const root = preview.renderRoot ?? preview.shadowRoot;
+    const sheet = doc.createElement("link");
+    sheet.rel = "stylesheet";
+    sheet.href = VIEWER_SHEET;
+    root.append(sheet);
+    const row = root.querySelector(".preview-buttons");
+    const get = id => root.getElementById?.(id) ?? root.querySelector(`#${id}`);
+    const [copy, download, cancel] = ["copy", "download", "cancel"].map(get);
+    const make = (id, l10nId, icon, onClick, { primary = false } = {}) => {
+      const button = doc.createElement("moz-button");
+      button.id = id;
+      button.setAttribute("iconsrc", icon);
+      if (primary) {
+        button.setAttribute("type", "primary");
+      }
+      doc.l10n.setAttributes(button, l10nId);
       button.addEventListener("click", onClick);
-      actions.append(button);
       return button;
     };
-    const copied = action("copy", ICON("check"), "whimsy-capture-copied", () => this.copyAgain(win, capture, copied));
-    copied.setAttribute("done", "true");
-    const save = action("save", ICON("save"), "whimsy-capture-save", () => this.save(win, capture, save));
-    action("redact", "chrome://browser/content/whimsy/icons/redact.svg", "whimsy-capture-redact",
-      () => this.openEditor(win, { tool: "hand" }));
-    action("edit", ICON("sliders"), "whimsy-capture-edit", () => this.openEditor(win, { tool: null }));
-
-    const detail = doc.createElementNS(HTML_NS, "p");
-    detail.className = "whimsy-capture-detail";
-    view.append(thumb, actions, detail);
-    capture.card = { panel, thumb, detail, copied, save };
-    this.updateCard(win, capture);
-
-    // It goes by itself, unless you're using it.
-    let timer = 0;
-    const arm = () => {
-      win.clearTimeout(timer);
-      timer = win.setTimeout(() => {
-        if (!panel.matches(":hover") && !panel.contains(doc.activeElement) && this._editing != capture) {
-          S.close(panel);
-        } else {
-          arm();
-        }
-      }, CARD_MS);
-    };
-    panel.addEventListener("mouseleave", arm);
-    panel.addEventListener("focusout", arm);
-    const onTabSelect = () => S.close(panel);
-    win.gBrowser.tabContainer.addEventListener("TabSelect", onTabSelect);
-    arm();
-
-    // The page's bottom end corner, 12px in.
-    const area = S.pageArea(win);
-    const rect = area.getBoundingClientRect();
-    // The same side as Page tools' "page-top-end" (away from a sidebar on
-    // the right).
-    const startSide = S.sidebarOnRight(win) != (doc.dir == "rtl");
-    const x = startSide ? 12 : Math.max(0, Math.round(rect.width - CARD_WIDTH - 12));
-    panel.addEventListener("popupshown", () => {
-      // Exactly 12px above the bottom, now that its height is known.
-      const box = panel.getOuterScreenRect();
-      const bottom = win.mozInnerScreenY + rect.bottom - 12;
-      if (Math.abs(box.top + box.height - bottom) > 1) {
-        panel.moveTo(Math.round(box.left), Math.round(bottom - box.height));
-      }
-    }, { once: true });
-    S.openOver(panel, area, { x, y: Math.max(0, Math.round(rect.height - 200)) });
-    return panel;
-  },
-
-  // What the card says under the buttons.
-  updateCard(win, capture) {
-    const card = capture.card;
-    if (!card?.panel.isConnected) {
-      return;
+    const easel = make("whimsy-capture-easel", "whimsy-easel-capture-button", ICON("paintbrush"),
+      () => this.addToEasel(capture));
+    easel.hidden = !this.canEasel(capture);
+    const edit = make("whimsy-capture-edit", "whimsy-capture-edit", ICON("sliders"),
+      () => this.openEditor(capture.win, { capture }));
+    const save = make("whimsy-capture-save-close", "whimsy-capture-viewer-save-close", ICON("save"),
+      () => this.saveAndClose(capture), { primary: true });
+    // A private page's capture never reaches the disk.
+    save.hidden = capture.private;
+    if (!capture.private) {
+      download.setAttribute("type", "default");
     }
-    const doc = win.document;
-    card.thumb.src = capture.url;
-    const kinds = capture.redacted ? capture.kinds ?? {} : {};
-    const total = totalHidden(kinds);
-    const only = KINDS.find(kind => kinds[kind] == total) ?? "mixed";
-    const drag = !capture.private;
-    card.thumb.draggable = drag;
-    doc.l10n.setAttributes(card.detail, "whimsy-capture-detail", {
-      count: total,
-      kind: total ? only : "none",
-      drag: drag ? "yes" : "no",
-    });
+    copy.before(easel);
+    download.after(edit, save);
+    row.append(cancel);
+    capture.buttons = { copy, download, easel, edit, save, cancel };
+    // Copy and Download keep the viewer open (Firefox's close it).
+    preview.saveToClipboard = () => this.viewerCopy(capture);
+    preview.saveToFile = () => this.viewerDownload(capture);
+    if (Cu.isInAutomation) {
+      Services.obs.notifyObservers(null, "whimsy-capture-viewer-ready");
+    }
   },
 
-  // Releases a capture's object URLs.
-  release(win, capture) {
+  /** What the viewer shows: the edited image, else the capture. */
+  async currentBlob(capture) {
+    if (capture.edited) {
+      return capture.edited;
+    }
+    if (!capture.blob && capture.preview) {
+      const src = await capture.preview.imageLoadedPromise();
+      capture.blob = await (await fetch(src)).blob();
+    }
+    return capture.blob;
+  },
+
+  async viewerCopy(capture) {
+    const blob = await this.currentBlob(capture);
+    if (!blob) {
+      return false;
+    }
     try {
-      win.URL.revokeObjectURL(capture.url);
-    } catch {}
-  },
-
-  // The Library's copy of the capture (WhimsyFilesSection saves every
-  // Screenshots copy), so the image drags out as that file.
-  watchSaved(win, capture) {
-    if (capture.private) {
-      return;
+      // Firefox's copy: the clipboard, its "Copied" hint, its last method.
+      await lazy.ScreenshotsUtils.copyScreenshot(blob, capture.browser, "PreviewCopy");
+    } catch (e) {
+      // Its telemetry, after the clipboard.
+      console.warn("Whimsy: screenshot copy", e);
     }
-    const observer = (subject, topic, data) => {
-      capture.path ??= data;
-      Services.obs.removeObserver(observer, SAVED_TOPIC);
-    };
-    Services.obs.addObserver(observer, SAVED_TOPIC);
-    // Only this capture's: stop listening soon after.
-    win.setTimeout(() => {
-      try {
-        Services.obs.removeObserver(observer, SAVED_TOPIC);
-      } catch {}
-    }, 3000);
+    this.flash(capture.buttons?.copy, "whimsy-capture-copied");
+    return true;
   },
 
-  onDragStart(event, capture) {
-    const dt = event.dataTransfer;
-    if (capture.private || !dt) {
-      event.preventDefault();
-      return;
+  async viewerDownload(capture) {
+    const blob = await this.currentBlob(capture);
+    if (!blob) {
+      return false;
     }
-    // The Library's file of what was copied (the edit's own, after Done).
-    if (capture.path) {
-      try {
-        dt.mozSetDataAt("application/x-moz-file", new lazy.FileUtils.File(capture.path), 0);
-        dt.effectAllowed = "copy";
-        return;
-      } catch (e) {
-        console.error("Whimsy: capture drag", e);
-      }
-    }
-    dt.setData("text/uri-list", capture.url);
-    dt.effectAllowed = "copy";
-  },
-
-  async copyAgain(win, capture, button) {
-    const buffer = await (capture.edited ?? capture.blob).arrayBuffer();
-    lazy.BrowserUtils.copyImageToClipboard(buffer);
-    this.flash(win, button, "whimsy-capture-copied");
-  },
-
-  // The button says it worked, briefly.
-  flash(win, button, l10nId) {
-    if (!button?.isConnected) {
-      return;
-    }
-    button.setAttribute("done", "true");
-    button.classList.add("whimsy-capture-flash");
-    win.setTimeout(() => button.classList.remove("whimsy-capture-flash"), 600);
-    win.document.l10n.setAttributes(button.querySelector("span"), l10nId);
-  },
-
-  async save(win, capture, button) {
-    const blob = capture.edited ?? capture.blob;
-    const url = win.URL.createObjectURL(blob);
+    const { preview } = capture;
+    preview?.disableButtons();
+    const url = URL.createObjectURL(blob);
     let saved = false;
     try {
-      saved = await lazy.ScreenshotsUtils.downloadScreenshot(null, url, capture.browser, "Download");
+      saved = await lazy.ScreenshotsUtils.downloadScreenshot(null, url, capture.browser, "PreviewDownload");
     } catch (e) {
-      // Screenshots' telemetry wants its own session, which is over by
-      // now; the file is saved before that.
-      saved = true;
-      console.warn("Whimsy: capture card save", e);
+      console.error("Whimsy: screenshot download", e);
     } finally {
-      win.setTimeout(() => win.URL.revokeObjectURL(url), 60000);
+      preview?.enableButtons();
+      capture.win?.setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
     if (saved) {
-      this.flash(win, button, "whimsy-capture-saved");
+      this.flash(capture.buttons?.download, "whimsy-capture-downloaded");
     }
     return saved;
   },
 
+  // The button says it worked, briefly, then goes back to its own label.
+  flash(button, l10nId) {
+    const doc = button?.ownerDocument;
+    if (!button?.isConnected || !doc?.l10n) {
+      return;
+    }
+    button._whimsyLabel ??= doc.l10n.getAttributes(button);
+    doc.l10n.setAttributes(button, l10nId);
+    button.setAttribute("whimsy-done", "true");
+    doc.defaultView.clearTimeout(button._whimsyFlash);
+    button._whimsyFlash = doc.defaultView.setTimeout(() => {
+      const { id, args } = button._whimsyLabel;
+      button._whimsyLabel = null;
+      button.removeAttribute("whimsy-done");
+      doc.l10n.setAttributes(button, id, args);
+    }, FLASH_MS);
+  },
+
+  async addToEasel(capture) {
+    if (!this.canEasel(capture)) {
+      return null;
+    }
+    const blob = await this.currentBlob(capture);
+    return lazy.WhimsyEasel.addImage(capture.browser, blob, {
+      region: capture.edited ? null : capture.region,
+      anchor: this.anchorOf(capture, capture.buttons?.easel),
+    });
+  },
+
+  // Under a viewer button, in the page's coordinates (where the easel
+  // picker hangs).
+  anchorOf(capture, button) {
+    const frame = capture.dialog?._frame;
+    if (!frame || !button?.isConnected) {
+      return null;
+    }
+    const f = frame.getBoundingClientRect();
+    const b = button.getBoundingClientRect();
+    const page = capture.browser.getBoundingClientRect();
+    return { x: Math.round(f.left + b.left - page.left), y: Math.round(f.top + b.bottom - page.top + 4) };
+  },
+
+  /**
+   * The one save: the viewer's image (edited, if it was) into the
+   * Library's Screenshots, then the viewer closes and the Library shows
+   * them. Resolves to the file's path.
+   */
+  async saveAndClose(capture) {
+    if (!capture || capture.private || capture.saving) {
+      return null;
+    }
+    capture.saving = true;
+    try {
+      const blob = await this.currentBlob(capture);
+      const path = blob ? await lazy.saveCapture(blob, capture.browser) : null;
+      if (!path) {
+        return null;
+      }
+      this.closeEditorOf(capture);
+      capture.dialog?.close();
+      lazy.WhimsyArcMenus.openLibrarySection(capture.win, "whimsy-files", { keepOpen: true });
+      return path;
+    } finally {
+      capture.saving = false;
+    }
+  },
+
+  closeEditorOf(capture) {
+    const editor = capture.win?.document.getElementById(EDITOR_ID);
+    if (editor?._capture == capture) {
+      lazy.WhimsySurface.close(editor);
+    }
+  },
+
   // ---- The editor -------------------------------------------------------
+
+  // The Edit commands: the viewer's image, else the newest Library file.
+  async editLatest(win, { tool = null } = {}) {
+    const viewer = this.viewerOf(win);
+    if (viewer) {
+      return this.openEditor(win, { capture: viewer, tool });
+    }
+    const [newest] = lazy.listCaptures();
+    return newest ? this.openLibraryEditor(win, newest.path, { tool }) : null;
+  },
+
+  /** A Library screenshot in the editor: Save overwrites it, Save Copy adds one. */
+  async openLibraryEditor(win, path, { tool = null } = {}) {
+    let blob;
+    try {
+      blob = new win.Blob([await IOUtils.read(path)], { type: "image/png" });
+    } catch (e) {
+      console.error("Whimsy: edit screenshot", e);
+      return null;
+    }
+    return this.openEditor(win, {
+      tool,
+      capture: {
+        from: "library",
+        win,
+        path,
+        browser: null,
+        blob,
+        region: null,
+        originalHidden: false,
+        autoKinds: null,
+        private: false,
+        images: new Map(),
+        editState: null,
+      },
+    });
+  },
 
   get look() {
     const backdrop = Services.prefs.getStringPref(BACKDROP_PREF, "none");
@@ -537,11 +731,12 @@ export const WhimsyCaptureCard = {
   },
 
   /**
-   * Opens the editor on the window's last capture. tool: "hand" (Redact)
-   * or null (Edit).
+   * Opens the editor on `capture` (the viewer's, or a Library file's; by
+   * default the selected tab's viewer). tool: "hand" (Redact) or null
+   * (Edit).
    */
-  async openEditor(win, { tool = null } = {}) {
-    const capture = this._last.get(win);
+  async openEditor(win, { capture = null, tool = null } = {}) {
+    capture ??= this.viewerOf(win);
     if (!capture) {
       return null;
     }
@@ -553,19 +748,20 @@ export const WhimsyCaptureCard = {
       return existing;
     }
     const look = this.look;
+    // As captured, or as the last Done left it.
+    const kept = capture.editState;
     const state = {
-      // The capture as copied (with the page's private details hidden or
-      // not), or as the last Done left it.
-      hidden: capture.editorHidden ?? capture.originalHidden,
-      boxes: [],
+      hidden: kept?.hidden ?? capture.originalHidden,
+      boxes: [...(kept?.boxes ?? [])],
       tool,
-      handStyle: lazy.WhimsyRedact.style,
-      backdrop: look.backdrop,
-      shape: look.shape,
+      handStyle: kept?.handStyle ?? lazy.WhimsyRedact.style,
+      backdrop: kept?.backdrop ?? look.backdrop,
+      shape: kept?.shape ?? look.shape,
       image: null,
       layout: null,
       drawing: null,
     };
+    const fromLibrary = capture.from == "library";
     const area = S.pageArea(win).getBoundingClientRect();
     const width = Math.max(320, Math.min(EDITOR_WIDTH, Math.round(area.width - 40)));
     const parts = S.create(win, {
@@ -574,8 +770,9 @@ export const WhimsyCaptureCard = {
       titleL10nId: "whimsy-capture-editor-title",
       close: true,
       closeOnOutsideClick: false,
+      footer: true,
       className: "whimsy-capture-editor",
-      initialFocus: () => done,
+      initialFocus: () => primary,
       onHidden: () => {
         if (this._editing == capture) {
           this._editing = null;
@@ -598,7 +795,7 @@ export const WhimsyCaptureCard = {
     stage.setAttribute("pack", "center");
     stage.append(preview);
 
-    // The toolbar: Backdrop · Shape · Hide private details · Redact by hand · Done.
+    // The toolbar: Backdrop · Shape · Hide private details · Redact by hand.
     const bar = doc.createXULElement("hbox");
     bar.className = "whimsy-capture-toolbar";
     bar.setAttribute("align", "center");
@@ -699,21 +896,53 @@ export const WhimsyCaptureCard = {
     });
     styles.group.classList.add("whimsy-capture-hand-style");
     doc.l10n.setAttributes(styles.group, "whimsy-capture-hand-style-group");
-    const done = S.footerButton(doc, {
-      l10nId: "whimsy-capture-done",
-      primary: true,
-      onCommand: () => this.finish(win, capture, state, panel),
-    });
+    // A Library file has no page to take again.
+    const hideGroup = groupOf(null, hide, hideLabel);
+    const hideRule = rule();
+    hideGroup.hidden = hideRule.hidden = fromLibrary;
     bar.append(
       groupOf("whimsy-capture-backdrop-label", backdrops), rule(),
-      groupOf("whimsy-capture-shape-label", shapes.group), rule(),
-      groupOf(null, hide, hideLabel), rule(),
-      groupOf(null, hand, styles.group),
-      done
+      groupOf("whimsy-capture-shape-label", shapes.group), hideRule,
+      hideGroup, rule(),
+      groupOf(null, hand, styles.group)
     );
     const hint = doc.createElementNS(HTML_NS, "p");
     hint.className = "whimsy-capture-hint";
     view.append(stage, bar, hint);
+
+    // Copy and Download keep it open; ✕ and Esc leave without the edits.
+    // From the viewer: Done (back to it, edits kept) and Save and Close.
+    // From the Library: Save Copy and Save (that file).
+    const { footer } = parts;
+    const button = (name, l10nId, onCommand, { isPrimary = false } = {}) => {
+      const b = S.footerButton(doc, { l10nId, primary: isPrimary, onCommand });
+      b.dataset.action = name;
+      return b;
+    };
+    const copy = button("copy", "whimsy-capture-editor-copy", () => this.editorCopy(win, state, copy));
+    const download = button("download", "whimsy-capture-editor-download",
+      () => this.editorDownload(win, capture, state, download));
+    const spacer = doc.createXULElement("spacer");
+    spacer.setAttribute("flex", "1");
+    let primary;
+    if (fromLibrary) {
+      const saveCopy = button("save-copy", "whimsy-capture-editor-save-copy",
+        () => this.editorSave(win, capture, state, panel, { copy: true }));
+      primary = button("save", "whimsy-capture-editor-save",
+        () => this.editorSave(win, capture, state, panel, { copy: false }), { isPrimary: true });
+      footer.append(copy, download, spacer, saveCopy, primary);
+    } else {
+      const done = button("done", "whimsy-capture-done", () => this.editorDone(win, capture, state, panel),
+        { isPrimary: capture.private });
+      footer.append(copy, download, spacer, done);
+      primary = done;
+      if (!capture.private) {
+        primary = button("save-close", "whimsy-capture-editor-save-close",
+          () => this.editorSaveAndClose(win, capture, state), { isPrimary: true });
+        footer.append(primary);
+      }
+    }
+    S.finish(parts);
 
     const setTool = next => {
       state.tool = next;
@@ -828,39 +1057,117 @@ export const WhimsyCaptureCard = {
     return panel;
   },
 
-  // Done: the finished image goes to the clipboard and onto the card.
-  async finish(win, capture, state, panel) {
+  /** The finished image: the capture, the hand-drawn boxes, then the shape and backdrop. */
+  async render(win, state) {
     if (!state.image) {
       return null;
     }
-    const doc = win.document;
-    const { canvas } = this.compose(doc, state.image, state);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    const { canvas } = this.compose(win.document, state.image, state);
+    return new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+  },
+
+  async editorCopy(win, state, button) {
+    const blob = await this.render(win, state);
+    if (!blob) {
+      return false;
+    }
+    lazy.BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
+    this.flash(button, "whimsy-capture-editor-copied");
+    return true;
+  },
+
+  async editorDownload(win, capture, state, button) {
+    const blob = await this.render(win, state);
+    if (!blob) {
+      return false;
+    }
+    const saved = await this.download(win, blob, capture);
+    if (saved) {
+      this.flash(button, "whimsy-capture-editor-downloaded");
+    }
+    return saved;
+  },
+
+  // Firefox Screenshots' download (its file name, its folder or "Always
+  // ask"), for an image that has no Screenshots session behind it.
+  async download(win, blob, capture) {
+    const browser = capture.browser ?? win.gBrowser.selectedBrowser;
+    const isPrivate = capture.private;
+    const title = capture.browser ? capture.browser.contentTitle ?? "" : "";
+    const url = URL.createObjectURL(blob);
+    try {
+      const { filename, accepted } = await lazy.getFilename(title, browser);
+      if (!accepted) {
+        return false;
+      }
+      const { Downloads } = lazy;
+      const download = await Downloads.createDownload({
+        source: { url, isPrivate },
+        target: new lazy.FileUtils.File(filename),
+      });
+      const list = await Downloads.getList(isPrivate ? Downloads.PRIVATE : Downloads.PUBLIC);
+      list.add(download);
+      await download.start();
+      return true;
+    } catch (e) {
+      console.error("Whimsy: screenshot download", e);
+      return false;
+    } finally {
+      win.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+  },
+
+  // Done: back to the viewer with the edits; nothing is written.
+  async editorDone(win, capture, state, panel) {
+    const blob = await this.render(win, state);
     if (!blob) {
       return null;
     }
-    lazy.BrowserUtils.copyImageToClipboard(await blob.arrayBuffer());
-    capture.edited = blob;
-    this.release(win, capture);
-    capture.url = win.URL.createObjectURL(blob);
-    // What the card says now: what the page hid (if that's on), plus the
-    // boxes drawn by hand.
-    capture.editorHidden = state.hidden;
-    const auto = state.hidden ? capture.autoKinds ?? {} : {};
-    capture.kinds = { ...auto, text: (auto.text ?? 0) + state.boxes.length };
-    capture.redacted = state.hidden || state.boxes.length > 0;
-    // The Library keeps what was copied (as it keeps every capture), and
-    // that file is what the card's image drags out as.
-    if (!capture.private) {
-      capture.path = (await lazy.saveCapture(blob, capture.browser)) ?? null;
-    }
+    this.keepEdits(capture, state, blob);
     lazy.WhimsySurface.close(panel);
-    this.updateCard(win, capture);
-    this.flash(win, capture.card?.copied, "whimsy-capture-copied");
     return blob;
   },
 
-  lastCapture(win) {
-    return this._last.get(win) ?? null;
+  keepEdits(capture, state, blob) {
+    capture.edited = blob;
+    capture.editState = {
+      hidden: state.hidden,
+      boxes: [...state.boxes],
+      handStyle: state.handStyle,
+      backdrop: state.backdrop,
+      shape: state.shape,
+    };
+    const img = capture.preview?.previewImg;
+    if (img?.isConnected) {
+      const old = capture.editedURL;
+      capture.editedURL = URL.createObjectURL(blob);
+      img.src = capture.editedURL;
+      if (old) {
+        URL.revokeObjectURL(old);
+      }
+    }
+  },
+
+  async editorSaveAndClose(win, capture, state) {
+    const blob = await this.render(win, state);
+    if (!blob) {
+      return null;
+    }
+    this.keepEdits(capture, state, blob);
+    return this.saveAndClose(capture);
+  },
+
+  // From the Library: Save replaces the file, Save Copy adds one.
+  async editorSave(win, capture, state, panel, { copy = false } = {}) {
+    const blob = await this.render(win, state);
+    if (!blob) {
+      return null;
+    }
+    const path = copy ? await lazy.writeCapture(blob) :
+      ((await lazy.overwriteCapture(capture.path, blob)) ? capture.path : null);
+    if (path) {
+      lazy.WhimsySurface.close(panel);
+    }
+    return path;
   },
 };

@@ -442,7 +442,7 @@ support-files = ["whimsy_easel_live.html"]
 ["browser_whimsy_redact.js"]
 support-files = ["whimsy_redact.html", "whimsy_redact_frames.html", "whimsy_redact_link.html"]
 
-# W13 F04: after a Screenshots copy, the card (Copied · Save · Redact · Edit) and its editor (option A).
+# W13 F04 / W15: one screenshot viewer (one Capture button after a drag; Copy and Download stay open; Save and Close saves once) and its editor, also from the Library.
 ["browser_whimsy_capture_card.js"]
 support-files = ["whimsy_redact.html"]
 
