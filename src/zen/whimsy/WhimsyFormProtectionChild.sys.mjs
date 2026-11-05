@@ -207,6 +207,35 @@ function sessionStoreNamespace(prefix) {
   return XPATH_NAMESPACES[prefix] ?? null;
 }
 
+// W16-5: a path _targets can resolve (session store's xhtml: form), for a
+// field with no unique id.
+function xpathOf(el) {
+  const steps = [];
+  for (let node = el; node && node.nodeType == 1; node = node.parentElement) {
+    let index = 1;
+    for (let sib = node.previousElementSibling; sib; sib = sib.previousElementSibling) {
+      if (sib.localName == node.localName) {
+        index++;
+      }
+    }
+    steps.unshift(`xhtml:${node.localName}[${index}]`);
+  }
+  return "/" + steps.join("/");
+}
+
+// W16-5: a tracked field's value in session store's format.
+function draftValue(el, kind) {
+  switch (kind) {
+    case "check":
+      return el.checked;
+    case "select":
+      return { selectedIndex: el.selectedIndex, value: el.value };
+    case "text":
+      return el.value;
+  }
+  return undefined;
+}
+
 // Drops every id/xpath entry that resolves to a secret or search field
 // (design §5), before anything crosses IPC.
 function filterCollected(doc, data) {
@@ -479,11 +508,9 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
   _collectDraft() {
     const win = this.contentWindow;
     try {
-      const data = SessionStoreUtils.collectFormData(win);
-      if (!data || (!data.id && !data.xpath)) {
-        return null;
-      }
+      const data = SessionStoreUtils.collectFormData(win) ?? {};
       const filtered = filterCollected(this.document, { id: data.id ?? {}, xpath: data.xpath ?? {} });
+      this._addDirtyFields(filtered);
       if (!Object.keys(filtered.id).length && !Object.keys(filtered.xpath).length) {
         return null;
       }
@@ -491,6 +518,34 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     } catch (e) {
       // A page going away can't always be read.
       return null;
+    }
+  }
+
+  // W16-5: Gecko's collector skips a text field whose value attribute
+  // equals its value (a speed rule), and frameworks that keep a
+  // controlled field's attribute in step with what's typed (React) make
+  // every typed field look like that. The fields the person edited and
+  // that still differ from their baseline go in too, by id or by path.
+  _addDirtyFields(filtered) {
+    const doc = this.document;
+    const covered = new Set(this._targets(filtered).map(([el]) => el));
+    for (const [el, entry] of this._tracked) {
+      if (!el.isConnected || covered.has(el) || !["text", "check", "select"].includes(entry.kind)) {
+        continue;
+      }
+      if (el.ownerDocument != doc || isSecret(el) || isSearch(el)) {
+        continue;
+      }
+      const value = currentValue(el, entry.kind);
+      if (value == entry.baseline || (entry.kind == "text" && !String(value).trim())) {
+        continue;
+      }
+      const id = el.id;
+      if (id && doc.getElementById(id) == el) {
+        filtered.id[id] = draftValue(el, entry.kind);
+      } else {
+        filtered.xpath[xpathOf(el)] = draftValue(el, entry.kind);
+      }
     }
   }
 
@@ -593,7 +648,12 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
       return typeof value == "boolean" && value && el.checked == el.defaultChecked && !el.checked;
     }
     if (el.localName == "select") {
-      return typeof value == "object" && value != null && el.selectedIndex == [...el.options].findIndex(o => o.defaultSelected);
+      // With no option marked selected, a single select starts on its first.
+      let initial = [...el.options].findIndex(o => o.defaultSelected);
+      if (initial < 0 && !el.multiple && el.options.length) {
+        initial = 0;
+      }
+      return typeof value == "object" && value != null && el.selectedIndex == initial;
     }
     if (el.localName == "textarea" || el.localName == "input") {
       return typeof value == "string" && value.length > 0 && !el.value;
@@ -672,8 +732,16 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
       } else {
         el.value = value;
       }
-      el.dispatchEvent(new this.contentWindow.Event("input", { bubbles: true }));
-      el.dispatchEvent(new this.contentWindow.Event("change", { bubbles: true }));
+      // W16-5: an input event as typing makes it, so framework-controlled
+      // fields (React) take the value too. (Setting value through this
+      // chrome-side wrapper uses the native setter, so the page's own
+      // value tracking sees a change.)
+      const win = this.contentWindow;
+      const text = typeof value == "string";
+      el.dispatchEvent(text
+        ? new win.InputEvent("input", { bubbles: true, composed: true, inputType: "insertReplacementText", data: value })
+        : new win.Event("input", { bubbles: true, composed: true }));
+      el.dispatchEvent(new win.Event("change", { bubbles: true }));
       filled.push(el);
     }
     this.highlight(filled);

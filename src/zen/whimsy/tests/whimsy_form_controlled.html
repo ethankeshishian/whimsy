@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Controlled form</title></head>
+<body>
+<!-- W16-5: a contact form like a React page's. Controlled text fields keep
+     their value attribute in step with what's typed (React writes
+     defaultValue on every update), which Gecko's form collector takes for
+     "unchanged"; the select's first option is empty. -->
+<form id="contact" action="/contact" method="post">
+  <input id="first-name" name="first-name" type="text">
+  <input id="email" name="email" type="email">
+  <textarea id="message" name="message"></textarea>
+  <select id="subject" name="subject">
+    <option value=""></option>
+    <option value="sales">Sales</option>
+    <option value="press">Press</option>
+  </select>
+  <input id="newsletter" name="newsletter" type="checkbox">
+  <input id="company" name="company" type="text">
+</form>
+<script>
+  window.reactSeen = {};
+  for (const id of ["first-name", "email", "company"]) {
+    const el = document.getElementById(id);
+    el.addEventListener("input", () => {
+      el.defaultValue = el.value;
+      window.reactSeen[id] = el.value;
+    });
+  }
+</script>
+</body>
+</html>

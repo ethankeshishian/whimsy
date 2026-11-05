@@ -348,6 +348,75 @@ add_task(async function test_reopen_with_cmd_shift_t_offers_refill() {
   await WhimsyFormDrafts.delete({ url: FORM_PAGE });
 });
 
+// W16-5: a React-style form (controlled text fields keep their value
+// attribute in step with what's typed, which Gecko's collector takes for
+// "unchanged"): every field comes back, and the framework sees the refill.
+add_task(async function test_controlled_form_restores_every_field() {
+  const page = ROOT + "whimsy_form_controlled.html";
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+  gBrowser.selectedTab = tab;
+  const browser = tab.linkedBrowser;
+  await typeInto(browser, "first-name", "Ada");
+  await typeInto(browser, "email", "ada@example.com");
+  await typeInto(browser, "message", "Hello there");
+  await typeInto(browser, "company", "Engines");
+  await SpecialPowers.spawn(browser, [], () => content.document.getElementById("subject").focus());
+  await BrowserTestUtils.synthesizeKey("s", {}, browser);
+  await SpecialPowers.spawn(browser, [], () => content.document.getElementById("newsletter").focus());
+  await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+  const typedNow = await SpecialPowers.spawn(browser, [], () => {
+    const doc = content.document;
+    return {
+      attr: doc.getElementById("first-name").getAttribute("value"),
+      subject: doc.getElementById("subject").value,
+      newsletter: doc.getElementById("newsletter").checked,
+    };
+  });
+  is(typedNow.attr, "Ada", "The page keeps the value attribute in step, as React does");
+  is(typedNow.subject, "sales", "A subject is picked");
+  ok(typedNow.newsletter, "The box is ticked");
+  await TestUtils.waitForCondition(() => typed(tab), "Typed");
+  await new Promise(resolve => setTimeout(resolve, 600)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  EventUtils.synthesizeKey("w", { accelKey: true }, window);
+  await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "Closed");
+  await SimpleTest.promiseFocus(window);
+  EventUtils.synthesizeKey("t", { accelKey: true, shiftKey: true });
+  const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "⌘⇧T reopen offers Restore");
+  await toast.shown;
+  await document.l10n.translateFragment(toast.element);
+  ok(toast.element.textContent.includes("6 fields"), `The toast counts all six fields (${toast.element.textContent})`);
+  const reopenedBrowser = gBrowser.selectedBrowser;
+  EventUtils.synthesizeMouseAtCenter(toast.element.querySelector(".whimsy-toast-button"), {});
+  await TestUtils.waitForCondition(async () =>
+    (await SpecialPowers.spawn(reopenedBrowser, [], () => content.document.getElementById("company").value)) == "Engines",
+  "Restore fills the form back in");
+  const back = await SpecialPowers.spawn(reopenedBrowser, [], () => {
+    const doc = content.document;
+    return {
+      first: doc.getElementById("first-name").value,
+      email: doc.getElementById("email").value,
+      message: doc.getElementById("message").value,
+      subject: doc.getElementById("subject").value,
+      newsletter: doc.getElementById("newsletter").checked,
+      company: doc.getElementById("company").value,
+      seen: { ...content.wrappedJSObject.reactSeen },
+    };
+  });
+  Assert.deepEqual(
+    { first: back.first, email: back.email, message: back.message, subject: back.subject, newsletter: back.newsletter, company: back.company },
+    { first: "Ada", email: "ada@example.com", message: "Hello there", subject: "sales", newsletter: true, company: "Engines" },
+    "Every field is back");
+  Assert.deepEqual(back.seen, { "first-name": "Ada", email: "ada@example.com", company: "Engines" },
+    "…and the page's own input handlers saw each refill");
+  closeToasts();
+  const reopened = gBrowser.tabs.find(t => t.linkedBrowser?.currentURI?.spec == page);
+  if (reopened) {
+    BrowserTestUtils.removeTab(reopened);
+    await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(reopened), "The reopened tab finished closing");
+  }
+  await WhimsyFormDrafts.delete({ url: page });
+});
+
 // A different query string on revisit gets no offer (sameAddress §4).
 add_task(async function test_revisit_different_query_gets_no_offer() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, FORM_PAGE);
