@@ -808,8 +808,10 @@ export const WhimsyPrivate = {
   // Zen shows container 0's Essentials there too. They're normal tabs: one
   // picked from the Private Space browsed with the normal cookie jar and
   // history. They're hidden while it's active (from the moment Zen moves the
-  // active space), left out of Ctrl+Tab there, and picking one anyway
-  // (Cmd+1, Ctrl+PageDown, a menu) takes you to the last normal space first.
+  // active space) and left out of Ctrl+Tab there. W16-11 (the user's
+  // design): Cmd+1 to Cmd+8 pick the Private Space's own tabs, Cmd+9 its
+  // last, and never leave it. Picking an Essential another way
+  // (Ctrl+PageDown, a menu) takes you to a normal space that shows it.
   guardEssentials(win) {
     const spaces = win.gZenWorkspaces;
     const self = this;
@@ -834,6 +836,25 @@ export const WhimsyPrivate = {
         },
       });
     }
+    const selectTabAtIndex = win.gBrowser.selectTabAtIndex;
+    win.gBrowser.selectTabAtIndex = function (index, options = {}) {
+      if (!self.featureOn || !self.activeSpaceIsScratch(win)) {
+        return selectTabAtIndex.apply(this, arguments);
+      }
+      // As Firefox's clamp, over the Private Space's own tabs.
+      const tabs = this.visibleTabs.filter(t => !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"));
+      if (options?.event) {
+        options.event.preventDefault();
+        options.event.stopPropagation();
+      }
+      if (!tabs.length) {
+        return undefined;
+      }
+      let i = index < 0 ? index + tabs.length : index;
+      i = Math.max(0, Math.min(i, tabs.length - 1));
+      this.selectedTab = tabs[i];
+      return undefined;
+    };
     const onBeforeTabSelect = spaces.onBeforeTabSelect;
     spaces.onBeforeTabSelect = function (tab) {
       if (self.leaveScratchForEssential(win, tab)) {
@@ -879,10 +900,17 @@ export const WhimsyPrivate = {
     win.document?.documentElement.toggleAttribute(ACTIVE_ROOT_ATTR, this.activeSpaceIsScratch(win));
   },
 
-  // The normal space an Essential picked from the Private Space opens in.
-  spaceOutsideScratch(win) {
+  // The normal space an Essential picked from the Private Space opens in:
+  // one that shows it (W16-11: with separate Essentials, a space with a
+  // profile shows only that profile's), the last one used first.
+  spaceOutsideScratch(win, essential = null) {
     const spaces = win.gZenWorkspaces;
-    const all = spaces.getWorkspaces().filter(space => !space.whimsyScratch);
+    let all = spaces.getWorkspaces().filter(space => !space.whimsyScratch);
+    if (essential) {
+      const container = Number(essential.getAttribute("usercontextid") || 0);
+      const separate = Services.prefs.getBoolPref("zen.workspaces.separate-essentials", false);
+      all = all.filter(space => !separate || (space.containerTabId || 0) == container);
+    }
     const last = lastNormalSpaces.get(win);
     return all.find(space => space.uuid == last) ?? all.at(-1) ?? null;
   },
@@ -891,7 +919,7 @@ export const WhimsyPrivate = {
     if (!tab?.hasAttribute?.("zen-essential") || !this.featureOn || !this.activeSpaceIsScratch(win)) {
       return false;
     }
-    const target = this.spaceOutsideScratch(win);
+    const target = this.spaceOutsideScratch(win, tab);
     if (!target) {
       return false;
     }

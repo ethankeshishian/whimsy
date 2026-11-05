@@ -114,3 +114,67 @@ add_task(async function picking_an_essential_leaves_the_private_space() {
   await gZenWorkspaces.changeWorkspaceWithID(startSpace);
   await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Leaving it empty closes it", 100, 300);
 });
+
+// W16-11: in the Private Space, Cmd+1 to Cmd+8 pick its own tabs and Cmd+9
+// its last; they never leave it, and with no tabs they do nothing.
+add_task(async function cmd_numbers_pick_the_private_spaces_own_tabs() {
+  await openScratchByKey();
+  ok(gBrowser.selectedTab.hasAttribute("zen-empty-tab") || !gBrowser.selectedTab.hasAttribute("zen-essential"),
+    "In the empty Private Space");
+  const before = gBrowser.selectedTab;
+  EventUtils.synthesizeKey("1", { accelKey: true });
+  await settle();
+  ok(WhimsyPrivate.activeSpaceIsScratch(window), "Empty: Cmd+1 stays in the Private Space");
+  is(gBrowser.selectedTab, before, "…and changes nothing");
+
+  const tabs = [];
+  for (const n of [1, 2, 3]) {
+    const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE + "?cmd" + n });
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE + "?cmd" + n);
+    tabs.push(tab);
+  }
+  gBrowser.selectedTab = tabs[2];
+  await settle();
+  for (const [key, want, what] of [["1", tabs[0], "the first"], ["2", tabs[1], "the second"], ["9", tabs[2], "the last"]]) {
+    EventUtils.synthesizeKey(key, { accelKey: true });
+    await settle();
+    is(gBrowser.selectedTab, want, `Cmd+${key} picks ${what} private tab`);
+    ok(WhimsyPrivate.activeSpaceIsScratch(window), "…in the Private Space");
+  }
+  for (const tab of tabs) {
+    BrowserTestUtils.removeTab(tab);
+  }
+  await settle();
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Leaving it empty closes it", 100, 300);
+});
+
+// W16-11: with separate Essentials, a space with a profile doesn't show a
+// container-0 Essential, so picking one from the Private Space lands in a
+// space that does.
+add_task(async function an_essential_opens_in_a_space_that_shows_it() {
+  const profiled = await gZenWorkspaces.createAndSaveWorkspace("Work profile", undefined, true, 2);
+  try {
+    await gZenWorkspaces.changeWorkspaceWithID(profiled.uuid);
+    await settle();
+    await openScratchByKey();
+    const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE + "?profiled" });
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE + "?profiled");
+    gBrowser.selectedTab = essential;
+    await TestUtils.waitForCondition(() => !WhimsyPrivate.activeSpaceIsScratch(window), "Picking it left the Private Space");
+    await settle();
+    const landed = gZenWorkspaces.getWorkspaces().find(w => w.uuid == gZenWorkspaces.activeWorkspace);
+    is(landed.containerTabId || 0, 0, "…for a space without a profile, which shows it");
+    is(gBrowser.selectedTab, essential, "…where the Essential is selected");
+    gBrowser.selectedTab = tab;
+    await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(window), "Back in the Private Space");
+    await settle();
+    BrowserTestUtils.removeTab(tab);
+    await settle();
+  } finally {
+    await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+    await settle();
+    await WhimsyPrivate.closeScratch(window);
+    await gZenWorkspaces.removeWorkspace(profiled.uuid);
+  }
+});
