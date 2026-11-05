@@ -248,3 +248,68 @@ add_task(async function picked_by_hand_after_reset_stays_home() {
   }
   await cleanUp("pinned", tab, keep);
 });
+
+// W16-9: the reopened navigated pinned tab says so; a second ⌘⇧T (or the
+// toast's button) takes it back to its pinned page and reopens nothing
+// else; once the toast is gone ⌘⇧T is Firefox's again; no toast when it
+// comes back on its pinned page.
+const reopenToast = () => gZenUIManager.toasts.getToast?.("whimsy-pinned-reopen") ??
+  [...(document.getElementById("zen-toast-container")?.children ?? [])].find(t => t._messageId == "whimsy-pinned-reopen-toast");
+const toastUp = () => {
+  const t = reopenToast();
+  const el = t?.element ?? t;
+  return el?.isConnected && !t?.closed ? el : null;
+};
+
+for (const how of ["key", "button"]) {
+  add_task(async function second_reopen_goes_back_to_the_pinned_page() {
+    const { keep, home, tab, away } = await setUpNavigated("pinned");
+    await closeWithKey(tab);
+    await reopenWithKey();
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab && tab.linkedBrowser.currentURI.spec == away,
+      "⌘⇧T brings it back where it was");
+    const el = await TestUtils.waitForCondition(toastUp, "The toast says it reopened where you left it");
+    await document.l10n.translateFragment(el);
+    ok(el.textContent.includes("Reopened where you left it"), "…in words");
+    const button = el.querySelector("#whimsy-pinned-reopen-home");
+    ok(button, "…with Back to Pinned Page");
+    const before = new Set(gBrowser.tabs);
+    if (how == "key") {
+      await reopenWithKey();
+    } else {
+      button.click();
+    }
+    await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == home, `${how}: back on its pinned page`);
+    await TestUtils.waitForCondition(() => !toastUp(), "…and the toast goes");
+    await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    is(gBrowser.tabs.filter(t => !before.has(t)).length, 0, "Nothing else was reopened");
+    is(gBrowser.selectedTab, tab, "The tab stays selected");
+
+    // Toast gone: ⌘⇧T is Firefox's reopen again.
+    const closedURL = uniqueURL("after-toast");
+    const extra = await BrowserTestUtils.openNewForegroundTab(gBrowser, closedURL);
+    const closed = BrowserTestUtils.waitForSessionStoreUpdate(extra);
+    gBrowser.removeTab(extra);
+    await closed;
+    await reopenWithKey();
+    const back = await TestUtils.waitForCondition(() => found(closedURL), "⌘⇧T reopens the last closed tab");
+    BrowserTestUtils.removeTab(back);
+    await cleanUp("pinned", tab, keep);
+  });
+}
+
+add_task(async function no_toast_when_it_comes_back_home() {
+  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, uniqueURL("keep"));
+  const home = uniqueURL("home-plain");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, home);
+  gBrowser.pinTab(tab);
+  await TestUtils.waitForCondition(() => tab.pinned, "Set up");
+  gBrowser.selectedTab = tab;
+  await TabStateFlusher.flush(tab.linkedBrowser);
+  await closeWithKey(tab);
+  await reopenWithKey();
+  await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "⌘⇧T brings it back");
+  await new Promise(resolve => setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  ok(!toastUp(), "On its pinned page: no toast");
+  await cleanUp("pinned", tab, keep);
+});

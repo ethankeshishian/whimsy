@@ -97,13 +97,16 @@ function isEditableTarget(win, takeover = false) {
 
 // B1: per window, the pinned tabs ⌘W last moved off, and when.
 const lastPinnedClose = new WeakMap();
+// W16-9: per window, the "Reopened where you left it" toast and its tab.
+const pinnedReopenToasts = new WeakMap();
 
 // ⌘⇧T gives a reset pinned tab back the history it had before ⌘W.
+// Returns the URL it's back on (W16-9), or null when nothing was restored.
 function restorePreResetState(tab) {
   const saved = tab._whimsyPreResetState;
   delete tab._whimsyPreResetState;
   if (!saved) {
-    return;
+    return null;
   }
   try {
     const { SessionStore } = lazy();
@@ -111,10 +114,13 @@ function restorePreResetState(tab) {
     const home = tab._zenPinnedInitialState?.entry?.url;
     if (now.entries?.length == 1 && now.entries[0].url == home) {
       SessionStore.setTabState(tab, saved);
+      const state = JSON.parse(saved);
+      return state.entries?.[(state.index || state.entries.length) - 1]?.url ?? null;
     }
   } catch (e) {
     console.error("Whimsy: restoring a reset pinned tab failed", e);
   }
+  return null;
 }
 
 export const WhimsyUndo = {
@@ -324,6 +330,14 @@ export const WhimsyUndo = {
       if (!["History:RestoreLastClosedTabOrWindowOrSession", "History:UndoCloseTab"].includes(event.target?.id)) {
         return;
       }
+      // W16-9: a second ⌘⇧T while the reopened pinned tab's toast is up
+      // takes it back to its pinned page.
+      const reopened = pinnedReopenToasts.get(win);
+      if (reopened && !reopened.toast.closed && reopened.tab.selected && reopened.tab.isConnected) {
+        event.stopImmediatePropagation();
+        this.backToPinnedPage(win, reopened.tab);
+        return;
+      }
       const last = lastPinnedClose.get(win);
       const tabs = last?.tabs.filter(tab => tab.isConnected && !tab.closing && !tab.selected) ?? [];
       if (!tabs.length) {
@@ -339,10 +353,9 @@ export const WhimsyUndo = {
       event.stopImmediatePropagation();
       lastPinnedClose.delete(win);
       Promise.resolve(last.done).then(() => {
-        for (const tab of tabs) {
-          restorePreResetState(tab);
-        }
+        const urls = tabs.map(tab => restorePreResetState(tab));
         win.gBrowser.selectedTab = tabs[0];
+        this.offerPinnedPage(win, tabs[0], urls[0]);
       });
     }, true);
     // A pinned tab picked by hand after its reset stays at its home page.
@@ -352,6 +365,80 @@ export const WhimsyUndo = {
         lastPinnedClose.delete(win);
       }
     });
+  },
+
+  // W16-9: a navigated pinned tab ⌘⇧T brought back says so, and offers its
+  // pinned page (the button, or ⌘⇧T again while the toast is up). It goes
+  // when you leave the tab.
+  async offerPinnedPage(win, tab, url) {
+    const home = tab?._zenPinnedInitialState?.entry?.url;
+    const toasts = win.gZenUIManager?.toasts;
+    if (!tab?.pinned || !home || !toasts?.open) {
+      return null;
+    }
+    // Once it has finished coming back (so the toast, and its ⌘⇧T, never
+    // race the restore's own load).
+    await this.untilLoaded(win, tab);
+    if (!tab.isConnected || !tab.selected) {
+      return null;
+    }
+    if (!url) {
+      // Not reset yet (⌘⇧T right after ⌘W): it's still where it was.
+      try {
+        const state = JSON.parse(lazy().SessionStore.getTabState(tab));
+        url = state.entries?.[(state.index || state.entries.length) - 1]?.url ?? null;
+      } catch (e) {}
+    }
+    url ??= tab.linkedBrowser?.currentURI?.spec;
+    if (!url || url == home) {
+      return null;
+    }
+    // Not the toast's own `browser` owner: that also closes it when the tab
+    // navigates, which the restore itself does.
+    const gBrowser = win.gBrowser;
+    const onTabSelect = () => {
+      if (gBrowser.selectedTab != tab) {
+        toast.close({ instant: true, reason: "owner" });
+      }
+    };
+    const toast = toasts.open("whimsy-pinned-reopen-toast", {
+      key: "whimsy-pinned-reopen",
+      onClose: () => {
+        gBrowser.tabContainer.removeEventListener("TabSelect", onTabSelect);
+        if (pinnedReopenToasts.get(win)?.toast == toast) {
+          pinnedReopenToasts.delete(win);
+        }
+      },
+      buttons: [
+        {
+          id: "whimsy-pinned-reopen-home",
+          l10nId: "whimsy-pinned-reopen-home",
+          keys: AppConstants.platform == "macosx" ? "⌘⇧T" : "Ctrl+Shift+T",
+          ariaKeys: AppConstants.platform == "macosx" ? "Meta+Shift+T" : "Control+Shift+T",
+          command: () => this.backToPinnedPage(win, tab),
+        },
+      ],
+    });
+    gBrowser.tabContainer.addEventListener("TabSelect", onTabSelect);
+    pinnedReopenToasts.set(win, { toast, tab });
+    return toast;
+  },
+
+  // Up to 3s for a tab still loading the page it was restored to.
+  async untilLoaded(win, tab) {
+    for (let i = 0; i < 30 && tab?.isConnected && (tab.hasAttribute("busy") || tab.hasAttribute("pending")); i++) {
+      await new Promise(resolve => win.setTimeout(resolve, 100));
+    }
+  },
+
+  async backToPinnedPage(win, tab) {
+    const entry = pinnedReopenToasts.get(win);
+    pinnedReopenToasts.delete(win);
+    entry?.toast?.close?.();
+    await this.untilLoaded(win, tab);
+    if (tab?.isConnected && tab.pinned) {
+      win.gZenPinnedTabManager?.resetPinnedTab(tab);
+    }
   },
 
   undo(win) {

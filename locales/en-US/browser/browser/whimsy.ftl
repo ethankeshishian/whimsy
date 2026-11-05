@@ -3795,6 +3795,11 @@ whimsy-snooze-undo-toast =
 # The button on every Whimsy toast whose action can be undone (Snooze,
 # Hide Space, the archive sweep). The shortcut is shown beside it.
 whimsy-undo-toast-action = Undo
+# W16-9: a closed pinned tab that had moved off its pinned page, reopened
+# with Cmd+Shift+T where it was. The button (or Cmd+Shift+T again) takes it
+# back to its pinned page.
+whimsy-pinned-reopen-toast = Reopened where you left it
+whimsy-pinned-reopen-home = Back to Pinned Page
 whimsy-action-undo-tab-action = Undo Last Tab Action
 whimsy-action-redo-tab-action = Redo Last Tab Action
 whimsy-action-snooze-later-today = Snooze Tab Until Later Today
