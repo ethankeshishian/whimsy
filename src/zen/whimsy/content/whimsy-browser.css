@@ -7141,3 +7141,10 @@ zen-workspace[whimsy-space-covered] :is(.zen-workspace-pinned-tabs-section, .zen
 #tab-preview-panel .tab-preview-container-indicator {
   display: none !important;
 }
+
+/* W16-16: the screenshot viewer (Firefox's tab-modal preview) hides while
+   the editor is open on it (WhimsyCaptureCard.hideViewer). The dialog keeps
+   an inline visibility once loaded, hence !important. */
+.dialogOverlay[whimsy-capture-editing] {
+  visibility: hidden !important;
+}

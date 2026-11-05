@@ -2127,7 +2127,8 @@ whimsy-redact-style-blur = Blur
 # W10-57: the command (command bar, Settings → Keyboard Shortcuts).
 whimsy-action-capture-redact = Capture and Redact…
 ## W15: one viewer, one save. After a drag, the page's toolbar is one
-## button; it and Visible, Full Page and Portrait open the viewer
+## button (Enter does the same, Esc closes); it and Visible, Full Page and
+## Portrait open the viewer
 ## (Firefox's preview): Retry, Add to Easel, Copy, Download, Edit, Save and
 ## Close, Cancel. Copy and Download keep it open.
 whimsy-capture-confirm-button = Capture
@@ -2154,9 +2155,6 @@ whimsy-capture-editor-save =
     .label = Save
 whimsy-capture-editor-save-copy =
     .label = Save Copy
-whimsy-action-capture-confirm = Capture Selected Area
-whimsy-action-capture-save-close = Save Screenshot and Close
-whimsy-action-capture-add-to-easel = Add Screenshot to Easel
 whimsy-capture-editor-title = Edit Screenshot
 whimsy-capture-preview =
     .aria-label = The screenshot as it will be copied

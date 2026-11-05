@@ -6,8 +6,8 @@
 // name, its capture step and its preview dialog; what changes is the rest:
 //
 //   After a drag, the page's toolbar is one Capture button
-//   (WhimsyCaptureChild; Esc still cancels, Cmd+C and Cmd+S stay quick
-//   copy and download). Capture, Visible, Full Page and Portrait all open
+//   (WhimsyCaptureChild; Enter captures, Esc closes Screenshots, Cmd+C
+//   and Cmd+S stay quick copy and download). Capture, Visible, Full Page and Portrait all open
 //   Firefox's preview, the viewer, with
 //     Retry · Add to Easel · Copy · Download · Edit · Save and Close · ✕
 //   Copy and Download keep it open; only Save and Close (which writes the
@@ -116,7 +116,6 @@ export const WhimsyCaptureCard = {
   initWindow(win) {
     this.install();
     const { WhimsyCommands } = lazy;
-    const viewer = w => (this.enabled ? this.viewerOf(w) : null);
     const editable = w => this.enabled && (!!this.viewerOf(w) || lazy.listCaptures().length > 0);
     WhimsyCommands.register(win, {
       id: "cmd_whimsyCaptureEdit",
@@ -132,27 +131,10 @@ export const WhimsyCaptureCard = {
       icon: "chrome://browser/content/whimsy/icons/redact.svg",
       isAvailable: editable,
     });
-    WhimsyCommands.register(win, {
-      id: "cmd_whimsyCaptureConfirm",
-      l10nId: "whimsy-action-capture-confirm",
-      run: w => this.confirmSelection(w.gBrowser.selectedBrowser),
-      icon: ICON("check"),
-      isAvailable: w => this.enabled && this.hasSelection(w.gBrowser.selectedBrowser),
-    });
-    WhimsyCommands.register(win, {
-      id: "cmd_whimsyCaptureSaveClose",
-      l10nId: "whimsy-action-capture-save-close",
-      run: w => this.saveAndClose(viewer(w)),
-      icon: ICON("save"),
-      isAvailable: w => !!viewer(w) && !viewer(w).private,
-    });
-    WhimsyCommands.register(win, {
-      id: "cmd_whimsyCaptureAddToEasel",
-      l10nId: "whimsy-action-capture-add-to-easel",
-      run: w => viewer(w) && this.addToEasel(viewer(w)),
-      icon: ICON("paintbrush"),
-      isAvailable: w => !!viewer(w) && this.canEasel(viewer(w)),
-    });
+    // W16-15: the user removed Capture Selected Area, Save Screenshot and
+    // Close and Add Screenshot to Easel as commands. With a box drawn,
+    // Enter captures and Esc closes (WhimsyCaptureChild); the viewer keeps
+    // its Save and Close and Add to Easel buttons.
   },
 
   install() {
@@ -244,23 +226,6 @@ export const WhimsyCaptureCard = {
       return;
     }
     this.actorFor(browser)?.sendAsyncMessage("WhimsyCapture:Decorate");
-  },
-
-  hasSelection(browser) {
-    const state = lazy.ScreenshotsUtils.browserToScreenshotsState?.get(browser);
-    return this.isScreenshotsMode(browser) && !!state?.hasOverlaySelection && !state.previewDialog;
-  },
-
-  // The Capture command: the page's Capture button, by keyboard.
-  async confirmSelection(browser) {
-    if (!this.enabled || !this.hasSelection(browser)) {
-      return false;
-    }
-    try {
-      return !!(await this.actorFor(browser)?.sendQuery("WhimsyCapture:ConfirmNow"));
-    } catch {
-      return false;
-    }
   },
 
   // From the page (untrusted): only numbers, only a real region.
@@ -571,6 +536,24 @@ export const WhimsyCaptureCard = {
     }
   },
 
+  // W16-16: one overlay at a time. The viewer (Firefox's tab-modal
+  // preview) hides while the editor is open on its capture, and comes back
+  // when the editor closes (Done with the edit, ✕ or Esc as it was).
+  hideViewer(capture, hide) {
+    if (capture?.from != "viewer") {
+      return;
+    }
+    const overlay = capture.dialog?._overlay;
+    if (!overlay?.isConnected) {
+      return;
+    }
+    overlay.toggleAttribute("whimsy-capture-editing", hide);
+    overlay.inert = hide;
+    if (!hide) {
+      capture.buttons?.edit?.focus?.();
+    }
+  },
+
   // ---- The editor -------------------------------------------------------
 
   // The Edit commands: the viewer's image, else the newest Library file.
@@ -747,6 +730,11 @@ export const WhimsyCaptureCard = {
       existing._setTool?.(tool);
       return existing;
     }
+    // S.create replaces an open editor without its popuphidden: give the
+    // previous capture its viewer back.
+    if (existing?._capture && existing._capture != capture) {
+      this.hideViewer(existing._capture, false);
+    }
     const look = this.look;
     // As captured, or as the last Done left it.
     const kept = capture.editState;
@@ -777,11 +765,13 @@ export const WhimsyCaptureCard = {
         if (this._editing == capture) {
           this._editing = null;
         }
+        this.hideViewer(capture, false);
       },
     });
     const { panel, view, header } = parts;
     panel._capture = capture;
     this._editing = capture;
+    this.hideViewer(capture, true);
     S.makeDraggable(panel, header);
 
     // The image, as it will come out.

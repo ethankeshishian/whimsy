@@ -4,8 +4,9 @@
 
 // W15 screenshots, one viewer: after a drag, Firefox Screenshots' region
 // toolbar (Cancel, Copy, Download) becomes one Capture button, which opens
-// the same viewer as Visible, Full Page and Portrait. Esc still cancels;
-// Cmd+C and Cmd+S stay as quick copy and download. Firefox draws the
+// the same viewer as Visible, Full Page and Portrait. With the box drawn,
+// Enter captures and Esc closes Screenshots (W16-15; Firefox's first Esc
+// only dropped the box); Cmd+C and Cmd+S stay as quick copy and download. Firefox draws the
 // toolbar in the page's anonymous content and rebuilds it every time the
 // overlay opens, so the parent asks for the button each time
 // (ScreenshotsUtils.showPanelAndOverlay).
@@ -32,14 +33,6 @@ export class WhimsyCaptureChild extends JSWindowActorChild {
       case "WhimsyCapture:Decorate":
         this.#waitForOverlay(0);
         break;
-      case "WhimsyCapture:ConfirmNow": {
-        const overlay = this.#screenshots?.overlay;
-        if (overlay?.initialized && overlay.state == "selected") {
-          this.#confirm(overlay);
-          return true;
-        }
-        return false;
-      }
     }
     return null;
   }
@@ -115,6 +108,28 @@ export class WhimsyCaptureChild extends JSWindowActorChild {
           return;
         }
         key.call(overlay, event);
+      };
+      // W16-15: with a box drawn and the Capture button there, Enter
+      // captures wherever focus is, and Esc closes Screenshots. Crosshairs,
+      // dragging and resizing keep Firefox's keys, and so does an overlay
+      // without Whimsy's button.
+      const keyDown = overlay.handleKeyDown;
+      overlay.handleKeyDown = event => {
+        if (overlay.state == "selected" && overlay.getElementById(BUTTON_ID)) {
+          if (event.key == "Escape") {
+            event.preventDefault?.();
+            overlay.cancelOverlay();
+            return;
+          }
+          if (event.key == "Enter") {
+            event.preventDefault?.();
+            if (!event.repeat) {
+              this.#confirm(overlay);
+            }
+            return;
+          }
+        }
+        keyDown.call(overlay, event);
       };
       // Tab cycles between the selection and the one button (Firefox's
       // last button, Download, is hidden).

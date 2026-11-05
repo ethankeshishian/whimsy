@@ -4,7 +4,7 @@
 "use strict";
 
 // W15 screenshots: one viewer, one save. After a drag the page's toolbar
-// is one Capture button (Esc still cancels). Capture, Visible, Full Page
+// is one Capture button (Enter does the same; Esc closes Screenshots). Capture, Visible, Full Page
 // and Portrait all open Firefox's preview with Retry · Add to Easel ·
 // Copy · Download · Edit · Save and Close · Cancel. Copy and Download keep
 // it open and write no Library file; Save and Close writes exactly one and
@@ -183,6 +183,13 @@ async function viewer(browser) {
   };
 }
 
+// W16-16: one overlay at a time; the viewer hides while the editor is open.
+function viewerHidden(v, hidden, when) {
+  const overlay = v.dialog._overlay;
+  is(getComputedStyle(overlay).visibility, hidden ? "hidden" : "visible", `${when}: the viewer is ${hidden ? "hidden" : "shown"}`);
+  is(overlay.inert, hidden, `…and ${hidden ? "" : "not "}inert`);
+}
+
 function viewerOpen(browser) {
   return !!ScreenshotsUtils.browserToScreenshotsState.get(browser)?.previewDialog;
 }
@@ -227,7 +234,7 @@ add_task(function test_defaults_and_layout() {
   Assert.less(Math.abs(tall.width / tall.height - 4 / 5), 0.01, "4:5");
 });
 
-// 1: after a drag, one button; it opens the viewer. Esc still cancels.
+// 1: after a drag, one button; it opens the viewer. One Esc closes (W16-15).
 add_task(async function test_a_drag_shows_one_capture_button() {
   const tab = await openTab();
   const browser = tab.linkedBrowser;
@@ -236,11 +243,10 @@ add_task(async function test_a_drag_shows_one_capture_button() {
   const { shown } = await pageToolbar(browser);
   Assert.deepEqual(shown, ["whimsy-capture-confirm"], "The page's toolbar has exactly one button: Capture");
 
-  // Esc goes back to selecting, then closes, as in Firefox.
+  // W16-15: with a box drawn, one Esc closes Screenshots (Firefox's first
+  // Esc only dropped the box).
   await BrowserTestUtils.synthesizeKey("KEY_Escape", {}, browser.browsingContext);
-  await TestUtils.waitForCondition(async () => (await overlayState(browser)) == "crosshairs", "Esc drops the selection");
-  await BrowserTestUtils.synthesizeKey("KEY_Escape", {}, browser.browsingContext);
-  await TestUtils.waitForCondition(() => !ScreenshotsUtils.browserToScreenshotsState.has(browser), "…and again closes Screenshots");
+  await TestUtils.waitForCondition(() => !ScreenshotsUtils.browserToScreenshotsState.has(browser), "One Esc closes Screenshots");
 
   const before = listCaptures();
   await startScreenshots(browser);
@@ -328,8 +334,8 @@ add_task(async function test_save_and_close_saves_once_and_shows_the_library() {
     EventUtils.synthesizeMouseAtCenter(bar(browser).getElementById("visible-page"), {}, window);
     const v = await viewer(browser);
     if (libraryWasOpen) {
-      // A click in the page puts Zen's Library away; its command doesn't.
-      document.getElementById("cmd_whimsyCaptureSaveClose").doCommand();
+      // A click in the page puts Zen's Library away; saving directly doesn't.
+      WhimsyCaptureCard.saveAndClose(v.capture);
     } else {
       await v.click("whimsy-capture-save-close");
     }
@@ -365,6 +371,7 @@ add_task(async function test_done_keeps_the_edit_and_save_writes_it_once() {
 
   await v.click("whimsy-capture-edit");
   const ed = await openEditor();
+  viewerHidden(v, true, "Edit");
   ok(ed.querySelector(".whimsy-surface-header").classList.contains("whimsy-surface-drag-handle"), "Its header drags it");
   ok(ed.querySelector("#whimsy-capture-hide").checked, "Hide private details is on, as captured");
   Assert.deepEqual([...ed.querySelectorAll(".whimsy-surface-footer [data-action]")].map(b => b.dataset.action),
@@ -380,6 +387,7 @@ add_task(async function test_done_keeps_the_edit_and_save_writes_it_once() {
   EventUtils.synthesizeMouseAtCenter(footerButton(ed, "done"), {});
   await TestUtils.waitForCondition(() => !editor(), "Done closes the editor");
   ok(viewerOpen(browser), "…back to the viewer");
+  viewerHidden(v, false, "Done");
   const capture = WhimsyCaptureCard.viewerOf(window);
   ok(capture.edited, "The viewer has the edit");
   await TestUtils.waitForCondition(() => v.preview.previewImg.src == capture.editedURL && v.preview.previewImg.complete,
@@ -389,10 +397,12 @@ add_task(async function test_done_keeps_the_edit_and_save_writes_it_once() {
   // Editing again starts from the edit.
   await v.click("whimsy-capture-edit");
   const again = await openEditor();
+  viewerHidden(v, true, "A second Edit");
   is(again.querySelector(".whimsy-capture-hint").getAttribute("data-l10n-id"), "whimsy-capture-hint", "Edit opens with no tool picked");
   EventUtils.synthesizeKey("KEY_Escape", {}, window);
   await TestUtils.waitForCondition(() => !editor(), "Esc closes it");
   ok(viewerOpen(browser), "…not the viewer");
+  viewerHidden(v, false, "Esc");
 
   await v.click("whimsy-capture-save-close");
   await TestUtils.waitForCondition(() => newFiles(before).length == 1, "Save and Close writes one file");
@@ -417,8 +427,10 @@ add_task(async function test_editor_copy_download_stay_and_close_discards() {
   const v = await viewer(browser);
   const before = listCaptures();
 
+  const shownBefore = v.preview.previewImg.src;
   await v.click("whimsy-capture-edit");
   const ed = await openEditor();
+  viewerHidden(v, true, "Edit");
   const white = ed.querySelector('.whimsy-capture-backdrop[data-backdrop="white"]');
   EventUtils.synthesizeMouseAtCenter(white, {});
   is(Services.prefs.getStringPref("whimsy.capture.backdrop"), "white", "The backdrop is remembered");
@@ -450,6 +462,8 @@ add_task(async function test_editor_copy_download_stay_and_close_discards() {
   await TestUtils.waitForCondition(() => !editor(), "✕ closes the editor");
   ok(!WhimsyCaptureCard.viewerOf(window).edited, "…without the edits");
   ok(viewerOpen(browser), "The viewer is still open");
+  viewerHidden(v, false, "✕");
+  is(v.preview.previewImg.src, shownBefore, "…showing what it did before Edit");
   is(newFiles(before).length, 0, "Nothing was written");
   await closeViewer(browser, v);
   BrowserTestUtils.removeTab(tab);
@@ -545,8 +559,6 @@ add_task(async function test_a_private_viewer_cannot_save() {
   const v = await viewer(browser);
   ok(!v.shown().includes("whimsy-capture-save-close"), "No Save and Close");
   ok(!v.shown().includes("whimsy-capture-easel"), "No Add to Easel");
-  ok(!WhimsyCommands.get("cmd_whimsyCaptureSaveClose") || !globalActions.find(a => a.commandId == "cmd_whimsyCaptureSaveClose").isAvailable(window),
-    "The command isn't offered");
   is(await WhimsyCaptureCard.saveAndClose(v.capture), null, "Saving is refused");
   is(newFiles(before).length, 0, "Nothing is written");
   ok(viewerOpen(browser), "The viewer is still open");
@@ -554,10 +566,11 @@ add_task(async function test_a_private_viewer_cannot_save() {
   BrowserTestUtils.removeTab(tab);
 });
 
-// Every feature is a command with a key Settings can bind and an icon that exists.
+// Every feature is a command with a key Settings can bind and an icon that
+// exists. W16-15: the user removed Capture Selected Area, Save Screenshot
+// and Close and Add Screenshot to Easel; with a box drawn, Enter captures.
 add_task(async function test_commands() {
-  for (const id of ["cmd_whimsyCaptureEdit", "cmd_whimsyCaptureRedactLast", "cmd_whimsyCaptureRedact",
-    "cmd_whimsyCaptureConfirm", "cmd_whimsyCaptureSaveClose", "cmd_whimsyCaptureAddToEasel"]) {
+  for (const id of ["cmd_whimsyCaptureEdit", "cmd_whimsyCaptureRedactLast", "cmd_whimsyCaptureRedact"]) {
     const entry = WhimsyCommands.get(id);
     ok(entry?.keyId && document.getElementById(entry.keyId), `${id} has a key Settings can bind`);
     const action = globalActions.find(a => a.commandId == id);
@@ -565,23 +578,45 @@ add_task(async function test_commands() {
     const response = await fetch(action.icon);
     ok(response.ok && (await response.text()).includes("<svg"), `…that exists (${action.icon})`);
   }
+  for (const id of ["cmd_whimsyCaptureConfirm", "cmd_whimsyCaptureSaveClose", "cmd_whimsyCaptureAddToEasel"]) {
+    ok(!WhimsyCommands.get(id), `${id} is gone`);
+    ok(!document.getElementById(id), "…with no command element");
+    ok(!globalActions.find(a => a.commandId == id), "…and nothing in the command bar");
+  }
 
-  // Capture Selected Area: the page's Capture button, from the keyboard.
-  const tab = await openTab();
-  const browser = tab.linkedBrowser;
-  const confirm = globalActions.find(a => a.commandId == "cmd_whimsyCaptureConfirm");
-  ok(!confirm.isAvailable(window), "Capture Selected Area needs a selection");
-  await startScreenshots(browser);
-  await drag(browser, [30, 30, 330, 230]);
-  await TestUtils.waitForCondition(() => confirm.isAvailable(window), "…and is offered once there is one");
-  document.getElementById("cmd_whimsyCaptureConfirm").doCommand();
-  const v = await viewer(browser);
-  ok(globalActions.find(a => a.commandId == "cmd_whimsyCaptureSaveClose").isAvailable(window), "Save Screenshot and Close is offered");
-  ok(globalActions.find(a => a.commandId == "cmd_whimsyCaptureAddToEasel").isAvailable(window), "Add Screenshot to Easel is offered");
-  document.getElementById("cmd_whimsyCaptureEdit").doCommand();
-  await openEditor();
-  EventUtils.synthesizeKey("KEY_Escape", {}, window);
-  await TestUtils.waitForCondition(() => !editor(), "The editor closes");
-  await closeViewer(browser, v);
-  BrowserTestUtils.removeTab(tab);
+  let opened = 0;
+  const count = () => opened++;
+  Services.obs.addObserver(count, "whimsy-capture-viewer-ready");
+  try {
+    // Enter, wherever focus is: the drawn box opens in the viewer.
+    const tab = await openTab();
+    const browser = tab.linkedBrowser;
+    await startScreenshots(browser);
+    await drag(browser, [30, 30, 330, 230]);
+    await BrowserTestUtils.synthesizeKey("KEY_Enter", {}, browser.browsingContext);
+    let v = await viewer(browser);
+    const ratio = window.devicePixelRatio;
+    Assert.less(Math.abs(v.preview.previewImg.naturalWidth - 300 * ratio), 2 * ratio, "Enter captures the box drawn");
+    document.getElementById("cmd_whimsyCaptureEdit").doCommand();
+    await openEditor();
+    EventUtils.synthesizeKey("KEY_Escape", {}, window);
+    await TestUtils.waitForCondition(() => !editor(), "The editor closes");
+    await closeViewer(browser, v);
+
+    // Tab to Capture, then Enter: the viewer opens once.
+    opened = 0;
+    await startScreenshots(browser);
+    await drag(browser, [30, 30, 330, 230]);
+    await SpecialPowers.spawn(browser, [], () => {
+      content.windowGlobalChild.getActor("ScreenshotsComponent").overlay.getElementById("whimsy-capture-confirm").focus();
+    });
+    await BrowserTestUtils.synthesizeKey("KEY_Enter", {}, browser.browsingContext);
+    v = await viewer(browser);
+    await new Promise(resolve => setTimeout(resolve, 500)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    is(opened, 1, "Enter on the Capture button opens the viewer once");
+    await closeViewer(browser, v);
+    BrowserTestUtils.removeTab(tab);
+  } finally {
+    Services.obs.removeObserver(count, "whimsy-capture-viewer-ready");
+  }
 });
