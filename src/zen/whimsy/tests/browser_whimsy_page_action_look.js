@@ -57,6 +57,15 @@ add_task(async function test_plain_address_bar_button() {
   // Hover: the neighbours' hover fill (Firefox's urlbar box hover).
   const hoverFill = resolved("var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent))");
   isnot(hoverFill, "rgba(0, 0, 0, 0)", "The address bar has a hover fill");
+  // Zen reveals the address bar's hidden buttons once the toolbar is hovered, which slides the pill left; settle that first, as a real pointer does.
+  EventUtils.synthesizeMouseAtCenter(document.getElementById("urlbar"), { type: "mousemove" });
+  let settledX;
+  await TestUtils.waitForCondition(() => {
+    const x = el.getBoundingClientRect().x;
+    const done = x === settledX;
+    settledX = x;
+    return done;
+  }, "The address bar is done revealing its buttons");
   EventUtils.synthesizeMouseAtCenter(el, { type: "mousemove" });
   await TestUtils.waitForCondition(() => getComputedStyle(el).backgroundColor == hoverFill, "Hover takes the shared fill");
   isnot(hoverFill, resolved("color-mix(in srgb, var(--zen-primary-color, AccentColor) 30%, transparent)"),
