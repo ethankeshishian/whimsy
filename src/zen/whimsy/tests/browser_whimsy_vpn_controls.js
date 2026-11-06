@@ -596,16 +596,13 @@ add_task(async function test_hides_until_hover_unless_on() {
   const hovered = toolbox.getAttribute("zen-has-implicit-hover");
   window.whimsyTestUnhover = true;
   toolbox.removeAttribute("zen-has-implicit-hover");
-  const singleToolbar = document.documentElement.getAttribute("zen-single-toolbar") == "true";
+  const singleToolbar = document.documentElement.getAttribute("zen-single-toolbar");
+  document.documentElement.setAttribute("zen-single-toolbar", "true");
   const shown = el => {
     const style = getComputedStyle(el);
     return style.visibility == "visible" && style.opacity == "1";
   };
   try {
-    if (!singleToolbar) {
-      todo(false, "Not in Zen's single-toolbar layout here: Zen's own hiding doesn't apply either");
-      return;
-    }
     for (const [service, proxy, state, visible] of [
       [IPProtectionStates.READY, IPPProxyStates.NOT_READY, "off", false],
       [IPProtectionStates.UNAUTHENTICATED, IPPProxyStates.NOT_READY, "setup", false],
@@ -638,6 +635,11 @@ add_task(async function test_hides_until_hover_unless_on() {
     }
   } finally {
     delete window.whimsyTestUnhover;
+    if (singleToolbar === null) {
+      document.documentElement.removeAttribute("zen-single-toolbar");
+    } else {
+      document.documentElement.setAttribute("zen-single-toolbar", singleToolbar);
+    }
     toolbox.setAttribute("zen-has-implicit-hover", hovered || "true");
     setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
     BrowserTestUtils.removeTab(tab);
